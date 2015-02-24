@@ -1,0 +1,82 @@
+############################################
+##### LOFAR Beam
+############################################
+Jones.LOFARBeam.Module = ModelME.ClassModelMSBeam
+Jones.LOFARBeam.UpdateTime = 300.
+Jones.LOFARBeam.Mode = E
+
+############################################
+##### Clocks
+############################################
+Jones.Clock.Module = ModelME.ClassModelClock2
+Jones.Clock.Pointing_Independent = True
+Jones.Clock.EstimateClockPI = True
+Jones.Clock.P =  1.
+Jones.Clock.SimulP =  3.
+Jones.Clock.Qratio =  100.0
+### WeigthScale,order,StepStart
+Jones.Clock.Evolution = 2,1,5
+### OPTIONS
+Jones.Clock.ModuleOptions.DoCommonClock = False
+Jones.Clock.ModuleOptions.SplitPol = False
+
+############################################
+##### Constant Phase
+############################################
+Jones.ConstPhase.Module = ModelME.ClassModelConstPhase
+Jones.ConstPhase.Pointing_Independent = True
+Jones.ConstPhase.EstimateClockPI = True
+Jones.ConstPhase.P =  0.05
+Jones.ConstPhase.SimulP =  0.05
+Jones.ConstPhase.Qratio =  100.0
+### WeigthScale,order,StepStart
+Jones.ConstPhase.Evolution = 2,1,5
+### OPTIONS
+Jones.ConstPhase.ModuleOptions.DoCommonClock = False
+Jones.ConstPhase.ModuleOptions.SplitPol = False
+
+
+############################################
+##### Ionosphere 
+############################################
+# Legendre: Leg
+# Karhunen-Loeve: KL
+Jones.TEC.Module = ModelME.ClassModelIonSVD2
+Jones.TEC.P =  .1
+Jones.TEC.SimulP =  .1
+Jones.TEC.Qratio =  50.
+Jones.TEC.ModuleOptions.OnePerPointing = False
+Jones.TEC.ModuleOptions.Height =  250
+Jones.TEC.ModuleOptions.nTerms =  5
+Jones.TEC.ModuleOptions.updatePierceTimeStep = 300
+Jones.TEC.ModuleOptions.updateCovTimeStep = 300
+
+############################################
+##### BeamSVD
+############################################
+# Legendre: Leg
+# Karhunen-Loeve: KL
+Jones.BeamSVD.Module = ModelME.ClassModelBeamLOFAR_SVD2
+Jones.BeamSVD.P =  .1
+Jones.BeamSVD.SimulP =  .1
+Jones.BeamSVD.Qratio =  50.
+Jones.BeamSVD.ModuleOptions.SVDFileSave =  /media/tasse/data/HyperCal2/test/BeamSVD.npz
+Jones.BeamSVD.ModuleOptions.nTerms =  5
+
+
+############################################
+##### Sky
+############################################
+
+Sky.SkyModules = [SkyGaussPoints]
+Sky.SkyGaussPoints.Module = ModelSky.ClassGaussPoints
+Sky.SkyGaussPoints.ModuleOptions.Mode = []
+Sky.SkyGaussPoints.ModuleOptions.alpha.P = 0.1
+Sky.SkyGaussPoints.ModuleOptions.alpha.Qratio = 10.
+Sky.SkyGaussPoints.ModuleOptions.I.P = 0.1
+Sky.SkyGaussPoints.ModuleOptions.I.Qratio = 10.
+Sky.SkyGaussPoints.ModuleOptions.LM.P =  1.0
+Sky.SkyGaussPoints.ModuleOptions.LM.Qratio =  100.0
+Sky.SkyGaussPoints.ModuleOptions.SourceSelector.Module = ModelSky.ClassSelectBrightest
+Sky.SkyGaussPoints.ModuleOptions.SourceSelector.ModuleOptions.NSources = 2
+
