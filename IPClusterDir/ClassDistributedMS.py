@@ -237,7 +237,7 @@ class ClassDistributedSinglePointingMS():
         T.timeit("reshape0")
         ROW0=self.V["ROW0"][0]
         ROW1=self.V["ROW1"][0]
-        BLSel=self.MapSelBLs
+        BLSel=None#self.MapSelBLs
 
         if BLSel!=None: 
             out=out[:,:,BLSel,:]
@@ -333,6 +333,7 @@ class ClassDistributedSinglePointingMS():
             Map=Map[:,BLSel]
             Map=Map.reshape((Map.size,))
             DicoDataOut["MapBLSel"]=Map
+
 
         return DicoDataOut
 

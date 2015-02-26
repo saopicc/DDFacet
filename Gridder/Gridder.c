@@ -34,6 +34,7 @@ static PyMethodDef _pyGridder_testMethods[] = {
 	{"pyGridderWPol", pyGridderWPol, METH_VARARGS},
 	{"pyGridderPoints", pyGridderPoints, METH_VARARGS},
 	{"pyDeGridderWPol", pyDeGridderWPol, METH_VARARGS},
+	{"pyTestMatrix", pyTestMatrix, METH_VARARGS},
 	{NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
 
@@ -188,6 +189,136 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 
 double PI=3.14159265359;
 
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+
+
+void MatInv(float complex *A, float complex* B, int H ){
+  float complex a,b,c,d,ff;
+
+  if(H==0){
+      a=A[0];
+      b=A[1];
+      c=A[2];
+      d=A[3];}
+  else{
+    a=conj(A[0]);
+    b=conj(A[2]);
+    c=conj(A[1]);
+    d=conj(A[3]);
+  }  
+  ff=1./((a*d-c*b));
+  B[0]=ff*d;
+  B[1]=-ff*b;
+  B[2]=-ff*c;
+  B[3]=ff*a;
+}
+
+void MatH(float complex *A, float complex* B){
+  float complex a,b,c,d;
+
+  a=conj(A[0]);
+  b=conj(A[2]);
+  c=conj(A[1]);
+  d=conj(A[3]);
+  B[0]=a;
+  B[1]=b;
+  B[2]=c;
+  B[3]=d;
+}
+
+void MatDot(float complex *A, float complex* B, float complex* Out){
+  float complex a0,b0,c0,d0;
+  float complex a1,b1,c1,d1;
+
+  a0=A[0];
+  b0=A[1];
+  c0=A[2];
+  d0=A[3];
+  
+  a1=B[0];
+  b1=B[1];
+  c1=B[2];
+  d1=B[3];
+  
+  Out[0]=a0*a1+b0*c1;
+  Out[1]=a0*b1+b0*d1;
+  Out[2]=c0*a1+d0*c1;
+  Out[3]=c0*b1+d0*d1;
+
+}
+
+static PyObject *pyTestMatrix(PyObject *self, PyObject *args)
+{
+  PyArrayObject *Anp;
+
+  if (!PyArg_ParseTuple(args, "O!",
+			&PyArray_Type,  &Anp
+			)
+      )  return NULL;
+
+  float complex* A  = p_complex64(Anp);
+  float complex B[4];
+  MatInv(A,B,1);
+  int i;
+  printf("inverse of input matrix:\n");
+  for (i=0; i<4; i++){
+    printf("%i: (%f,%f)\n",i,(float)creal(B[i]),(float)cimag(B[i]));
+  };
+   
+  printf("\ndot product A.A^-1:\n");
+  float complex Out[4];
+  MatDot(A,B,Out);
+  for (i=0; i<4; i++){
+    printf("%i: (%f,%f)\n",i,(float)creal(Out[i]),(float)cimag(Out[i]));
+  };
+
+  printf("\n A^H:\n");
+  MatH(A,B);
+  for (i=0; i<4; i++){
+    printf("%i: (%f,%f)\n",i,(float)creal(B[i]),(float)cimag(B[i]));
+  };
+  
+
+
+  return Py_None;
+
+}
+
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+
+void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs, int i_t, int i_ant0, int i_dir, int Mode, float complex *Jout){
+  int nd_Jones,na_Jones,nch_Jones;
+  nd_Jones=JonesDims[1];
+  na_Jones=JonesDims[2];
+  nch_Jones=JonesDims[3];
+  
+  int ipol,idir;
+  if(Mode==0){
+    int offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
+      +i_dir*na_Jones*nch_Jones*4
+      +i_ant0*nch_Jones*4;
+    for(ipol=0; ipol<4; ipol++){
+      Jout[ipol]=*(ptrJonesMatrices+offJ0+ipol);
+    }
+  }
+
+  if(Mode==1){
+    for(idir=0; idir<nd_Jones; idir++){
+      int offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
+	+idir*na_Jones*nch_Jones*4
+	+i_ant0*nch_Jones*4;
+      for(ipol=0; ipol<4; ipol++){
+	Jout[ipol]+=ptrCoefs[idir]*(*(ptrJonesMatrices+offJ0+ipol));
+	
+	//printf("%i, %f, %f, %f\n",ipol,ptrCoefs[idir],creal(Jout[ipol]),cimag(Jout[ipol]));
+      }
+      
+    }
+  }
+}
+
 
 void gridderWPol(PyArrayObject *grid,
 	      PyArrayObject *vis,
@@ -204,6 +335,7 @@ void gridderWPol(PyArrayObject *grid,
 		 PyObject *Lmaps, PyObject *LJones)
   {
     // Get size of convolution functions.
+    int nrows     = uvw->dimensions[0];
     PyArrayObject *cfs;
     PyArrayObject *NpPolMap;
     NpPolMap = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 0), PyArray_INT32, 0, 4);
@@ -211,6 +343,88 @@ void gridderWPol(PyArrayObject *grid,
     PyArrayObject *NpFacetInfos;
     NpFacetInfos = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 1), PyArray_FLOAT64, 0, 4);
 
+
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    int LengthJonesList=PyList_Size(LJones);
+    int DoApplyJones=0;
+    PyArrayObject *npJonesMatrices, *npTimeMappingJonesMatrices, *npA0, *npA1, *npJonesIDIR, *npCoefsInterp,*npModeInterpolation;
+    float complex* ptrJonesMatrices;
+    int *ptrTimeMappingJonesMatrices,*ptrA0,*ptrA1,*ptrJonesIDIR;
+    float *ptrCoefsInterp;
+    int i_dir;
+    int nd_Jones,na_Jones,nch_Jones,nt_Jones;
+
+    printf("len %i",LengthJonesList);
+    int JonesDims[4];
+    int ModeInterpolation=1;
+    int *ptrModeInterpolation;
+
+    if(LengthJonesList>0){
+      DoApplyJones=1;
+
+      npTimeMappingJonesMatrices  = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 0), PyArray_INT32, 0, 4);
+      ptrTimeMappingJonesMatrices = p_int32(npTimeMappingJonesMatrices);
+
+      npA0 = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 1), PyArray_INT32, 0, 4);
+      ptrA0 = p_int32(npA0);
+      int ifor;
+      
+
+
+      npA1= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 2), PyArray_INT32, 0, 4);
+      ptrA1=p_int32(npA1);
+ 
+      
+      // (nt,nd,na,1,2,2)
+      npJonesMatrices = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 3), PyArray_COMPLEX64, 0, 6);
+      ptrJonesMatrices=p_complex64(npJonesMatrices);
+      nt_Jones=(int)npJonesMatrices->dimensions[0];
+      nd_Jones=(int)npJonesMatrices->dimensions[1];
+      na_Jones=(int)npJonesMatrices->dimensions[2];
+      nch_Jones=(int)npJonesMatrices->dimensions[3];
+      JonesDims[0]=nt_Jones;
+      JonesDims[1]=nd_Jones;
+      JonesDims[2]=na_Jones;
+      JonesDims[3]=nch_Jones;
+
+      npJonesIDIR= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 4), PyArray_INT32, 0, 4);
+      ptrJonesIDIR=p_int32(npJonesIDIR);
+      i_dir=ptrJonesIDIR[0];
+
+      npCoefsInterp= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 5), PyArray_FLOAT32, 0, 4);
+      ptrCoefsInterp=p_float32(npCoefsInterp);
+
+      npModeInterpolation= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 6), PyArray_INT32, 0, 4);
+      ptrModeInterpolation=p_int32(npModeInterpolation);
+      ModeInterpolation=ptrModeInterpolation[0];
+      
+      /* // check */
+      /* for(ifor=0;ifor<nrows;ifor++){ */
+      /* 	int A0=ptrA0[ifor]; */
+      /* 	int A1=ptrA1[ifor]; */
+      /* 	int iTime=ptrTimeMappingJonesMatrices[ifor]; */
+      /* 	int offJ0=iTime*nd_Jones*na_Jones*nch_Jones*4 */
+      /* 	  +i_dir*na_Jones*nch_Jones*4 */
+      /* 	  +A0*nch_Jones*4; */
+      /* 	float complex* J0; */
+      /* 	printf(" %i - (%i, %i) [%i]\n",iTime,A0,A1, i_dir); */
+
+      /* 	J0=ptrJonesMatrices+offJ0; */
+      /* 	int ipol; */
+      /* 	for (ipol=0; ipol<4; ipol++){ */
+      /* 	  printf("     %i: (%f,%f)\n",ipol,(float)creal(J0[ipol]),(float)cimag(J0[ipol])); */
+      /* 	}; */
+
+      /* }; */
+
+
+    };
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    
     double* ptrFacetInfos=p_float64(NpFacetInfos);
     double Cu=ptrFacetInfos[0];
     double Cv=ptrFacetInfos[1];
@@ -244,7 +458,6 @@ void gridderWPol(PyArrayObject *grid,
     // Get visibility data size.
     int nVisPol   = flags->dimensions[2];
     int nVisChan  = flags->dimensions[1];
-    int nrows     = uvw->dimensions[0];
     //    printf("(nrows, nVisChan, nVisPol)=(%i, %i, %i)\n",nrows,nVisChan,nVisPol);
 
 
@@ -379,7 +592,13 @@ void gridderWPol(PyArrayObject *grid,
             // Get pointer to data and flags for this channel.
             int doff = (irow * nVisChan + visChan) * nVisPol;
 
-            const float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
+            float complex* __restrict__ visPtr_Uncorr  = p_complex64(vis)  + doff;
+            float complex visPtr[4];
+	    int ThisPol;
+	    for(ThisPol =0; ThisPol<4;ThisPol++){
+	      visPtr[ThisPol]=visPtr_Uncorr[ThisPol];
+	    }	    
+
 	    
 	    //	    printf("First value: (%f,%f)\n",creal(*visPtr),cimag(*visPtr));
 
@@ -396,10 +615,43 @@ void gridderWPol(PyArrayObject *grid,
 		//printf("take %i on pol %i\n",flagPtr[ipol],ipol);
 		//printf("flag: %i",flagPtr[ipol]);
 		double complex VisVal;
+
+		
+		
+
+
 		if (dopsf==1) {
 		  VisVal = 1.;
 		}else{
+
+		  if(DoApplyJones){
+		    // Shape: nt,nd,na,1,2,2
+		    int i_t=ptrTimeMappingJonesMatrices[irow];
+		    int i_ant0=ptrA0[irow];
+		    int i_ant1=ptrA1[irow];
+		    
+		    float complex J0[4]={0},J1[4]={0},J0inv[4]={0},J1H[4]={0},J1Hinv[4]={0};
+		    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0);
+		    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
+		    
+		    MatInv(J0,J0inv,0);
+		    MatH(J1,J1H);
+		    MatInv(J1H,J1Hinv,0);
+		    MatDot(J0inv,visPtr_Uncorr,visPtr);
+		    MatDot(visPtr,J1Hinv,visPtr);
+		    
+		    /* int ifor; */
+		    /* /\* printf("(A0,A1)=%i, %i\n",i_ant0,i_ant1); *\/ */
+		    /* /\* for (ifor=0; ifor<4; ifor++){ *\/ */
+		    /* /\* 	printf("   %i: (%f,%f)\n",ifor,(float)creal(visPtr[ifor]),(float)cimag(visPtr[ifor])); *\/ */
+		    /* /\* }; *\/ */
+		  };
+
 		  VisVal =visPtr[ipol];
+		  
+
+
+
 		}
 		VisVal*=(*imgWtPtr);
 		VisVal*=corr;
@@ -477,11 +729,11 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
   PyArrayObject *np_grid, *np_vis, *uvw, *cfs, *flags, *sumwt, *increment, *freqs,*WInfos;
 
   PyObject *Lcfs;
-  PyObject *Lmaps;
+  PyObject *Lmaps,*LJones;
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!", 
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid,
 			&ObjVis,//&PyArray_Type,  &vis, 
@@ -495,7 +747,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 			&PyArray_Type,  &WInfos,
 			&PyArray_Type,  &increment,
 			&PyArray_Type,  &freqs,
-			&PyList_Type, &Lmaps
+			&PyList_Type, &Lmaps, &PyList_Type, &LJones
 			))  return NULL;
   int nx,ny,nz,nzz;
 
@@ -520,7 +772,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
   /* }  */
 
 
-  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps);
+  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones);
   
   //return PyArray_Return(np_vis);
 
@@ -544,7 +796,7 @@ void DeGridderWPol(PyArrayObject *grid,
 		   PyArrayObject *Winfos,
 		   PyArrayObject *increment,
 		   PyArrayObject *freqs,
-		   PyObject *Lmaps)
+		   PyObject *Lmaps, PyObject *LJones)
   {
     // Get size of convolution functions.
     PyArrayObject *cfs;
@@ -561,6 +813,68 @@ void DeGridderWPol(PyArrayObject *grid,
     int* ptrRows=I_ptr(NpRows);
     int row0=ptrRows[0];
     int row1=ptrRows[1];
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    int LengthJonesList=PyList_Size(LJones);
+    int DoApplyJones=0;
+    PyArrayObject *npJonesMatrices, *npTimeMappingJonesMatrices, *npA0, *npA1, *npJonesIDIR, *npCoefsInterp,*npModeInterpolation;
+    float complex* ptrJonesMatrices;
+    int *ptrTimeMappingJonesMatrices,*ptrA0,*ptrA1,*ptrJonesIDIR;
+    float *ptrCoefsInterp;
+    int i_dir;
+    int nd_Jones,na_Jones,nch_Jones,nt_Jones;
+
+    printf("len %i",LengthJonesList);
+    int JonesDims[4];
+    int ModeInterpolation=1;
+    int *ptrModeInterpolation;
+
+    if(LengthJonesList>0){
+      DoApplyJones=1;
+
+      npTimeMappingJonesMatrices  = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 0), PyArray_INT32, 0, 4);
+      ptrTimeMappingJonesMatrices = p_int32(npTimeMappingJonesMatrices);
+
+      npA0 = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 1), PyArray_INT32, 0, 4);
+      ptrA0 = p_int32(npA0);
+      int ifor;
+
+      npA1= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 2), PyArray_INT32, 0, 4);
+      ptrA1=p_int32(npA1);
+      
+      // (nt,nd,na,1,2,2)
+      npJonesMatrices = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 3), PyArray_COMPLEX64, 0, 6);
+      ptrJonesMatrices=p_complex64(npJonesMatrices);
+      nt_Jones=(int)npJonesMatrices->dimensions[0];
+      nd_Jones=(int)npJonesMatrices->dimensions[1];
+      na_Jones=(int)npJonesMatrices->dimensions[2];
+      nch_Jones=(int)npJonesMatrices->dimensions[3];
+      JonesDims[0]=nt_Jones;
+      JonesDims[1]=nd_Jones;
+      JonesDims[2]=na_Jones;
+      JonesDims[3]=nch_Jones;
+
+      npJonesIDIR= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 4), PyArray_INT32, 0, 4);
+      ptrJonesIDIR=p_int32(npJonesIDIR);
+      i_dir=ptrJonesIDIR[0];
+
+      npCoefsInterp= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 5), PyArray_FLOAT32, 0, 4);
+      ptrCoefsInterp=p_float32(npCoefsInterp);
+
+      npModeInterpolation= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 6), PyArray_INT32, 0, 4);
+      ptrModeInterpolation=p_int32(npModeInterpolation);
+      ModeInterpolation=ptrModeInterpolation[0];
+
+    };
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+
+
+
     
     double VarTimeDeGrid=0;
     int Nop=0;
@@ -726,6 +1040,7 @@ void DeGridderWPol(PyArrayObject *grid,
             int doff = (irow * nVisChan + visChan) * nVisPol;
             float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
             bool* __restrict__ flagPtr = p_bool(flags) + doff;
+	    float complex ThisVis[4]={0};
 
 	    int ipol;
 
@@ -768,7 +1083,10 @@ void DeGridderWPol(PyArrayObject *grid,
                     for (sx=-fsupx; sx<=fsupx; ++sx) {
 		      //outFile<<irow <<" "<<ipol<<" "<<posx<<" "<<posy<<" "<<(offx+ sx*fsampx-(nConvX-1.)/2.)/float(fsampx)<<" "<<(offy + sy*fsampy-(nConvX-1)/2.)/float(fsampy)
 		      //<<" "<<real(*gridPtr * *cf[0])<<" "<<imag(*gridPtr * *cf[0])<<" "<<real(*gridPtr)<<" "<<imag(*gridPtr)<<endl;
-		      visPtr[ipol] += *gridPtr  * *cf[0] *corr;;//* factor;
+		      
+		      //visPtr[ipol] += *gridPtr  * *cf[0] *corr;;//* factor;
+		      ThisVis[ipol] += *gridPtr  * *cf[0] *corr;
+		      
 		      cf[0] += fsampx;
                       gridPtr++;
 		      //Nop+=1;
@@ -792,10 +1110,33 @@ void DeGridderWPol(PyArrayObject *grid,
                   }
 		  //VarTimeDeGrid+=AppendTimeit();
                 } // end if gridPol
-              } // end if !flagPtr
 
+
+
+              } // end if !flagPtr
 	      //visPtr[ipol]*=corr;
             } // end for ipol
+
+	    if(DoApplyJones){
+	      // Shape: nt,nd,na,1,2,2
+	      int i_t=ptrTimeMappingJonesMatrices[irow];
+	      int i_ant0=ptrA0[irow];
+	      int i_ant1=ptrA1[irow];
+	      
+	      float complex J0[4]={0},J1[4]={0},J1H[4]={0};
+	      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0);
+	      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
+	      
+	      MatH(J1,J1H);
+	      MatDot(J0,ThisVis,ThisVis);
+	      MatDot(ThisVis,J1H,ThisVis);
+	      
+	    };
+
+	    for(ipol=0; ipol<4; ipol++){
+	      visPtr[ipol]+=ThisVis[ipol];
+	    }
+
           } // end if ongrid
         } // end if gridChan
 	//}

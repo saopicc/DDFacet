@@ -10,7 +10,9 @@ import ModColor
 import ToolsDir.ModParset
 import ClassData
 import ClassInitMachine
-
+import NpShared
+import numpy as np
+    
 def read_options():
     desc="""Questions and suggestions: cyril.tasse@obspm.fr"""
     
@@ -34,6 +36,7 @@ def read_options():
     group.add_option('--PolMode',default=None)
     group.add_option("--wmax",default=None)
     group.add_option("--Nw",default=None)
+    group.add_option("--DDSols",default=None)
     opt.add_option_group(group)
 
     group = optparse.OptionGroup(opt, "* Imaging")
@@ -75,9 +78,9 @@ def main(options=None):
     ListOpts=[]
     ReplaceDico={}
     if options.NCPU!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Cluster.NImagEngine = %s\n"%options.NCPU)
-
-
     if options.ms!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Files.FileMSCat.Name = [%s]\n"%options.ms)
+    if options.DDSols!=None:
+        ToolsDir.ModParset.StrToDict(ReplaceDico,"Files.killMSSolutionFile = %s\n"%options.DDSols)
     if options.ColName!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Files.ColName = %s\n"%options.ColName)
     if options.FlagAntBL!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Select.FlagAntBL = %s\n"%options.FlagAntBL)
     if options.UVRangeKm!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Select.UVRangeKm = %s\n"%options.UVRangeKm)
@@ -94,7 +97,27 @@ def main(options=None):
 
     
     GD=ClassData.ClassGlobalData(ParsetFile,ReplaceDico=ReplaceDico)
-
+    SolsFile=GD.DicoConfig["Files"]["killMSSolutionFile"]
+    if SolsFile!=None:
+        DicoSolsFile=np.load(SolsFile)
+        DicoSols={}
+        DicoSols["t0"]=DicoSolsFile["Sols"]["t0"]
+        DicoSols["t1"]=DicoSolsFile["Sols"]["t1"]
+        nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
+        G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
+        DicoSols["Jones"]=G
+        NpShared.DicoToShared("killMSSolutionFile",DicoSols)
+        D=NpShared.SharedToDico("killMSSolutionFile")
+        ClusterCat=DicoSolsFile["ClusterCat"]
+        ClusterCat=ClusterCat.view(np.recarray)
+        DicoClusterDirs={}
+        DicoClusterDirs["l"]=ClusterCat.l
+        DicoClusterDirs["m"]=ClusterCat.m
+        DicoClusterDirs["I"]=ClusterCat.SumI
+        DicoClusterDirs["Cluster"]=ClusterCat.Cluster
+        
+        _D=NpShared.DicoToShared("DicoClusterDirs",DicoClusterDirs)
+    
 
     IM=ClassInitMachine.ClassInitMachine(GD)
     IM.InitCluster(Mode="DDFacet")

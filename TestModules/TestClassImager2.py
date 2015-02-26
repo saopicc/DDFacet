@@ -19,7 +19,7 @@ def testFacet():
     #SimulSols=MyPickle.Load(FileSimulSols)["Sols"]
 
     Imager=ClassFacetMachine.ClassFacetMachine(MDC,GD,Precision="S",Parallel=False)#,Sols=SimulSols)
-    Imager.appendMainField(Support=9,NFacets=3,OverS=5,wmax=wmax,Nw=101,Npix=512,Cell=10.,Padding=1.4)
+    Imager.appendMainField(Support=9,NFacets=1,OverS=5,wmax=wmax,Nw=101,Npix=512,Cell=10.,Padding=1.4)
     Imager.Init()
         
 

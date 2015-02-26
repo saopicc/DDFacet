@@ -94,6 +94,8 @@ class ClassFacetMachine():
         self.Npix=Npix
 
         MS=self.MDC.giveMS(0)
+        
+
         rac,decc=MS.radec
         self.MainRaDec=(rac,decc)
 
@@ -170,6 +172,8 @@ class ClassFacetMachine():
         # MS=self.MDC.giveMS(0)
         # MS.ReadData()
         # self.JC.CalcJones(MS.times_all,(MS.A0,MS.A1))
+
+
         self.SetLogModeSubModules("Silent")
 
 
@@ -352,8 +356,12 @@ class ClassFacetMachine():
         V=self.IM.CI.E.GiveSubCluster("Imag")["V"]
         E=self.IM.CI.E
 
-        if self.DoPSF: visIn.fill(1)
-        vis=visIn.copy()
+        V["ApplyCal"]=True
+        if self.DoPSF:
+            visIn.fill(1)
+            V["ApplyCal"]=False
+             
+        #vis=visIn.copy()
         LaunchAndCheck(V,'execfile("%s/Scripts/ScriptClearDicoImager.py")'%self.GD.HYPERCAL_DIR,Progress=True,TitlePBAR="Clear DicoImager")
         #LaunchAndCheck(V,'execfile("%s/DDFacet/Scripts/ScriptInspectSizes.py")'%self.GD.HYPERCAL_DIR,Progress=True,TitlePBAR="Inspect object")
         #print V["DicoSizes"]

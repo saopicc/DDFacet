@@ -263,6 +263,7 @@ class ClassInitMachine():
                 self.MDC.setCurrentData("SimulSols",SimulSols)
                 self.MDC.setCurrentData("SimulMode",True)
 
+
             
 
     def BuildFullCorrMME(self):

@@ -4,6 +4,10 @@ Facet.Precision					= S # S: single precision - D: double precision
 Facet.PolMode					= I # I: I Stockes - IQUV: full stockes
 Facet.TChunkSize				= 3 # In hours
 
+Facet.SolSpaceInterp.Type			= Nearest # Krigging or Nearest
+Facet.SolSpaceInterp.Scale			= 1.       # in Degrees
+Facet.SolSpaceInterp.gamma			= 2.
+
 Facet.MainFacetOptions.Support			= 9
 Facet.MainFacetOptions.NFacets			= 3
 Facet.MainFacetOptions.OverS			= 5
@@ -13,7 +17,7 @@ Facet.MainFacetOptions.Npix			= 1024
 Facet.MainFacetOptions.Cell			= 10.
 Facet.MainFacetOptions.Padding			= 1.2
 
-Facet.MajorCycleOptions.MaxMajorIter		= 5
+Facet.MajorCycleOptions.MaxMajorIter		= 15
 
 Facet.MinorCycleOptions.Gain			= 0.1
 Facet.MinorCycleOptions.MaxMinorIter		= 20

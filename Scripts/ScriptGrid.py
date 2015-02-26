@@ -19,10 +19,15 @@ for iFacet in DicoImager.keys():
         visThis=vis.copy()
         flagsThis=flags.copy()
 
+    DicoJonesMatrices=None
+    if ApplyCal:
+        DicoJonesMatrices=NpShared.SharedToDico("killMSSolutionFile")
+        DicoClusterDirs=NpShared.SharedToDico("DicoClusterDirs")
+        DicoJonesMatrices["DicoClusterDirs"]=DicoClusterDirs
     # A0A1=self.A0A1
     # times=self.times
     # W=self.W
-    Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False)#,doStack=False)
+    Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices)#,doStack=False)
     DicoImager[iFacet]["Dirty"]=Dirty
     DicoImager[iFacet]["Weights"]=GridMachine.SumWeigths
 

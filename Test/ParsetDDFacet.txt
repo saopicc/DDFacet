@@ -20,6 +20,7 @@ Cluster.Parallel				= True
 Files.FileMSCat.Name =  [/media/6B5E-87D0/killMS2/TEST/Simul/0000.MS]
 #Files.FileSourceCat =  [ModelRandom00.txt.npy]
 Files.VisInSharedMem = True
+Files.killMSSolutionFile = /media/6B5E-87D0/killMS2/TEST/Simul/Simul.npz
 
 Files.FileMSCat.StartEndNf= 0,-1,0
 Files.ColName =  CORRECTED_DATA
@@ -28,8 +29,8 @@ Files.TimeSel = [0,0.5] # in hours
 Files.ReplaceMissingFreqs = False
 
 ##### Flag baselines and antenna
-Select.FlagAntBL  = None #RS,CS017LBA
-Select.UVRangeKm  = None #[0.1,20] # in km
+Select.FlagAntBL  = None # RS,CS017LBA
+Select.UVRangeKm  = None # [0.1, 20] # in km
 
 ##########################################################################################################################
 ################################################ Imager Parset ###########################################################

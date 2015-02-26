@@ -57,6 +57,9 @@ bool *p_bool(PyArrayObject *arrayin)  {
 
 
 
+static PyObject *pyTestMatrix(PyObject *self, PyObject *args);
+void MatInv(float complex *A, float complex* B, int H );
+void MatDot(float complex *A, float complex* B, float complex* Out );
 
 
 
@@ -97,7 +100,8 @@ void DeGridderWPol(PyArrayObject *np_grid,
 	      PyArrayObject *Winfos,
 	      PyArrayObject *increment,
 	      PyArrayObject *freqs,
-	      PyObject *Lmaps);
+	      PyObject *Lmaps, 
+	      PyObject *LJones);
 
 /* .... C matrix utility functions ..................*/
 //PyArrayObject *pymatrix(PyObject *objin);
