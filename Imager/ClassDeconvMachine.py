@@ -12,7 +12,7 @@ import MyLogger
 import ModColor
 log=MyLogger.getLogger("ClassImagerDeconv")
 import NpShared
-
+import os
 import ModFitPSF
 from IPClusterDir import ClassDistributedVisServer
 
@@ -218,11 +218,17 @@ class ClassImagerDeconv():
                 visPredict=np.zeros_like(DATA["data"])
                 visPredict=NpShared.ToShared("%s.%s"%(self.VS.PrefixShared,"predict_data"),visPredict)
 
+                ####################
+                testImage=np.zeros((1, 1, 1008, 1008),np.complex64)
+                testImage[0,0,200,650]=100.
+                self.DeconvMachine._ModelImage=testImage
+                ####################
+
                 _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],DATA["A0A1"],self.DeconvMachine._ModelImage)
                 
                 visResid=NpShared.GiveArray("%s.%s"%(self.VS.PrefixShared,"data"))
                 visResid[:,:,:]=DATA["data"][:,:,:]-visPredict[:,:,:]
-                
+            
                 self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visResid,DATA["flags"],DATA["A0A1"],DATA["Weights"],doStack=True)
                 
                 NpShared.DelArray("%s.%s"%(self.VS.PrefixShared,"predict_data"))
@@ -266,6 +272,65 @@ class ClassImagerDeconv():
         # pylab.show(False)
         # pylab.pause(0.1)
 
+################################################
+
+    def testDegrid(self):
+        self.InitFacetMachine(self.IM)
+        
+        self.FacetMachine.ReinitDirty()
+        DATA=self.VS.GiveNextVisChunk()
+
+            
+        # self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],DATA["A0A1"],DATA["Weights"],doStack=True)
+        # testImage=self.FacetMachine.FacetsToIm()
+        # testImage.fill(0)
+        # testImage[0,0,200,650]=100.
+        # self.FacetMachine.ToCasaImage(ImageIn=testImage, ImageName="testImage",Fits=True)
+        # stop
+        
+        #testImage=np.zeros((1, 1, 1008, 1008),np.complex64)
+        testImage=np.zeros((1, 1, 1024, 1024),np.complex64)
+        testImage[0,0,200,650]=100.
+
+        visPredict=np.zeros_like(DATA["data"])
+        visPredict=NpShared.ToShared("%s.%s"%(self.VS.PrefixShared,"predict_data"),visPredict)
+        
+        _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],DATA["A0A1"],testImage)
+
+
+        A0,A1=DATA["A0A1"]
+        fig=pylab.figure(1)
+        os.system("rm -rf png/*.png")
+        for iAnt in [5]:#range(36):
+            for jAnt in [27]:#range(36):
+            
+                ind=np.where((A0==iAnt)&(A1==jAnt))[0]
+                if ind.size==0: continue
+                d0=DATA["data"][ind,0,0]
+                if np.max(d0)<1e-6: continue
+
+                d1=visPredict[ind,0,0]
+                pylab.clf()
+                pylab.plot(d0)
+                pylab.plot(d1)
+                pylab.plot(d0-d1)
+                pylab.plot(np.zeros(d0.size),ls=":",color="black")
+                pylab.title("%s"%iAnt)
+                pylab.draw()
+                fig.savefig("png/resid_%2.2i_%2.2i.png"%(iAnt,jAnt))
+                # pylab.show(False)
+
+
+        visResid=NpShared.GiveArray("%s.%s"%(self.VS.PrefixShared,"data"))
+        visResid[:,:,:]=DATA["data"][:,:,:]-visPredict[:,:,:]
+        
+        self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visResid,DATA["flags"],DATA["A0A1"],DATA["Weights"],doStack=True)
+        Image=self.FacetMachine.FacetsToIm()
+        self.ResidImage=Image
+        self.FacetMachine.ToCasaImage(ImageName="test.residual",Fits=True)
+
+        
+        
 
 def test():
     Imager=ClassImagerDeconv(ParsetFile="ParsetDDFacet.txt")

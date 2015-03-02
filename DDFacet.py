@@ -132,15 +132,16 @@ def main(options=None):
 #    return Imager
     # stop
     
+    Imager.testDegrid()
 
-    if "Dirty" in options.Mode:
-        Imager.GiveDirty()
-        return
-    if "PSF" in options.Mode:
-        Imager.MakePSF()
-        return
-    if "Clean" in options.Mode:
-        Imager.main()
+    # if "Dirty" in options.Mode:
+    #     Imager.GiveDirty()
+    #     return
+    # if "PSF" in options.Mode:
+    #     Imager.MakePSF()
+    #     return
+    # if "Clean" in options.Mode:
+    #     Imager.main()
     
 
 if __name__=="__main__":

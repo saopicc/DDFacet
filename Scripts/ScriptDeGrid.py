@@ -21,12 +21,12 @@ for iFacet in DicoImager.keys():
     ModelIm=DicoImager[iFacet]["ModelFacet"]
 
 
-    #visThis[Row0:Row1]+=1
+
 
     vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelIm,(Row0,Row1))
 
-    if not(UseShared):
-        DicoImager[iFacet]["PredictVis"]=vis
+    #if not(UseShared):
+    #    DicoImager[iFacet]["PredictVis"]=vis
 
 #    visThis[:,:,:]+=vis[:,:,:]
 

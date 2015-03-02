@@ -30,7 +30,7 @@ Files.ReplaceMissingFreqs = False
 
 ##### Flag baselines and antenna
 Select.FlagAntBL  = None # RS,CS017LBA
-Select.UVRangeKm  = None # [0.1, 20] # in km
+Select.UVRangeKm  = [0.1, 10] # [0.1, 20] # in km
 
 ##########################################################################################################################
 ################################################ Imager Parset ###########################################################

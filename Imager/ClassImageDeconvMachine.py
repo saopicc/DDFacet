@@ -76,8 +76,20 @@ class ClassImageDeconvMachine():
 
         print>>log, "Running minor cycle with Nminor=%i"%Nminor
 
+        NPixStats=1000
+        RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
+        RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
+        print>>log, "    Estimated RMS = %f Jy"%RMS
+        Threshold_RMS=5.
+        FluxLimit=Threshold_RMS*RMS
+
         for i in range(Nminor):
             ThisFlux=np.max(np.abs(self.Dirty))
+
+            if ThisFlux < FluxLimit:
+                print>>log, "    Maximum peak lower that limit of %f Jy" % FluxLimit
+                return "MinFlux"
+
             _,x,y=np.where(np.abs(self.Dirty)==ThisFlux)
             Fpol=self.Dirty[:,x,y].reshape(npol,1,1)
             dx=x[0]-xc
@@ -86,9 +98,21 @@ class ClassImageDeconvMachine():
 
             PSF=self.GivePSF((dx,dy))
             self.Dirty-=PSF*(Fpol*self.Gain)
+
+            pylab.clf()
+            pylab.subplot(1,2,1)
+            pylab.imshow(self.Dirty[0],interpolation="nearest",vmin=m0,vmax=m1)
+            pylab.subplot(1,2,2)
+            pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
+            pylab.draw()
+            pylab.show(False)
+            pylab.pause(0.1)
+
             for pol in range(npol):
                 self.ModelImage[pol,x[0],y[0]]+=Fpol[pol,0,0]*self.Gain
 
+
+        return "MaxIter"
             # corr=np.sqrt(1.-(self.incr*dx)**2-(self.incr*dy)**2)
             # print>>log, corr
             # dec,ra= self.im.toworld((x[0],y[0]))
@@ -99,12 +123,3 @@ class ClassImageDeconvMachine():
             # strDec=rad2hmsdms(dec,Type="dec").replace(" ",".")
             # print>>log, "(ra, dec, flux)=(%s, %s, %8.1f)"%(strRa,strDec,ThisFlux)
 
-            # pylab.clf()
-            # pylab.subplot(1,2,1)
-            # pylab.imshow(self.Dirty[0],interpolation="nearest",vmin=m0,vmax=m1)
-            # pylab.subplot(1,2,2)
-            # pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
-            # pylab.draw()
-            
-            # pylab.show(False)
-            # pylab.pause(0.1)
