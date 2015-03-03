@@ -280,17 +280,34 @@ class ClassImagerDeconv():
         self.FacetMachine.ReinitDirty()
         DATA=self.VS.GiveNextVisChunk()
 
-            
+        # ###########################################
         # self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],DATA["A0A1"],DATA["Weights"],doStack=True)
         # testImage=self.FacetMachine.FacetsToIm()
         # testImage.fill(0)
-        # testImage[0,0,200,650]=100.
+        # _,_,nx,_=testImage.shape
+        # xc=nx/2
+        # n=2
+        # dn=100
+        # #for i in range(-n,n+1):
+        # #    for j in range(-n,n+1):
+        # #        testImage[0,0,int(xc+i*dn),int(xc+j*dn)]=100.
+        # # for i in range(n+1):
+        # #     testImage[0,0,int(xc+i*dn),int(xc+i*dn)]=100.
+        # #testImage[0,0,200,400]=100.
+        # testImage[0,0,xc+200,xc+300]=100.
         # self.FacetMachine.ToCasaImage(ImageIn=testImage, ImageName="testImage",Fits=True)
         # stop
-        
+        # ###########################################
+
         #testImage=np.zeros((1, 1, 1008, 1008),np.complex64)
-        testImage=np.zeros((1, 1, 1024, 1024),np.complex64)
-        testImage[0,0,200,650]=100.
+
+        im=image("testImage")
+        testImageIn=im.getdata()
+        nchan,npol,_,_=testImageIn.shape
+        testImage=np.zeros_like(testImageIn)
+        for ch in range(nchan):
+            for pol in range(npol):
+                testImage[ch,pol,:,:]=testImageIn[ch,pol,:,:].T[::-1,:]#*1.0003900000000001
 
         visPredict=np.zeros_like(DATA["data"])
         visPredict=NpShared.ToShared("%s.%s"%(self.VS.PrefixShared,"predict_data"),visPredict)
@@ -301,8 +318,8 @@ class ClassImagerDeconv():
         A0,A1=DATA["A0A1"]
         fig=pylab.figure(1)
         os.system("rm -rf png/*.png")
-        for iAnt in [5]:#range(36):
-            for jAnt in [27]:#range(36):
+        for iAnt in [0]:#range(36):
+            for jAnt in [29]:#range(36):
             
                 ind=np.where((A0==iAnt)&(A1==jAnt))[0]
                 if ind.size==0: continue
@@ -324,7 +341,7 @@ class ClassImagerDeconv():
         visResid=NpShared.GiveArray("%s.%s"%(self.VS.PrefixShared,"data"))
         visResid[:,:,:]=DATA["data"][:,:,:]-visPredict[:,:,:]
         
-        self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visResid,DATA["flags"],DATA["A0A1"],DATA["Weights"],doStack=True)
+        self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],DATA["A0A1"],DATA["Weights"])
         Image=self.FacetMachine.FacetsToIm()
         self.ResidImage=Image
         self.FacetMachine.ToCasaImage(ImageName="test.residual",Fits=True)

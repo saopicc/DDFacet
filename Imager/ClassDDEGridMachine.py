@@ -138,10 +138,10 @@ def testGrid(GM):
 
 class ClassDDEGridMachine():
     def __init__(self,GD,MDC,
-                 Npix=1024,Cell=20.,Support=7,ChanFreq=np.array([6.23047e7],dtype=np.float64),
+                 Npix=1023,Cell=10.,Support=7,ChanFreq=np.array([6.23047e7],dtype=np.float64),
                  wmax=10000,Nw=11,DoPSF=False,
                  RaDec=None,ImageName="Image",OverS=5,
-                 Padding=1.5,WProj=False,lmShift=None,Precision="S",PolMode="I",DoDDE=True,
+                 Padding=1.,WProj=False,lmShift=None,Precision="S",PolMode="I",DoDDE=True,
                  JonesDir=None):
 
         self.MDC,self.GD=MDC,GD
@@ -179,8 +179,10 @@ class ClassDDEGridMachine():
         self.ImageName=ImageName
 
         
-        self.Padding=Padding
         self.NonPaddedNpix,Npix=EstimateNpix(Npix,Padding)
+        self.Padding=Npix/float(self.NonPaddedNpix)
+        #self.Padding=Padding
+        
 
         self.PolMode=PolMode
         if PolMode=="I":
@@ -193,7 +195,7 @@ class ClassDDEGridMachine():
         self.Npix=Npix
         self.NonPaddedShape=(1,self.npol,self.NonPaddedNpix,self.NonPaddedNpix)
         self.GridShape=(1,self.npol,self.Npix,self.Npix)
-        x0=(self.Npix-self.NonPaddedNpix)/2+1
+        x0=(self.Npix-self.NonPaddedNpix)/2#+1
         self.PaddingInnerCoord=(x0,x0+self.NonPaddedNpix)
 
         Grid=np.zeros(self.GridShape,dtype=self.dtype)
@@ -202,6 +204,7 @@ class ClassDDEGridMachine():
         import ModFFTW
         #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
         self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
+        #self.FFTWMachine=ModFFTW.FFTW_2Donly(Grid, ncores = 1)
 
 
         
@@ -528,16 +531,20 @@ class ClassDDEGridMachine():
         #log=MyLogger.getLogger("ClassImager.addChunk")
         T=ClassTimeIt.ClassTimeIt("get")
         T.disable()
-
         vis=visIn#.copy()
         LTimes=sorted(list(set(times.tolist())))
         NTimes=len(LTimes)
         A0,A1=A0A1
 
         Grid=self.dtype(self.setModelIm(ModelImage))
+        np.save("Grid",Grid)
+        
         if np.max(np.abs(Grid))==0: return vis
         T.timeit("1")
         #dummy=np.abs(vis).astype(np.float32)
+
+
+
 
         npol=self.npol
         NChan=self.NChan

@@ -169,31 +169,40 @@ class ClassWTermModified():
         rad=3*lrad
         #print "do FIT"
         self.Cv,self.Cu,CoefPoly=Give_dn(l0,m0,rad=rad,order=5)
+
         #print "done FIT"
 
         for i in range(Nw):
             if not(Sups[i]%2): Sups[i]+=1
-            l,m=np.mgrid[-lrad:lrad:Sups[i]*1j,-lrad:lrad:Sups[i]*1j]
-            n_1=np.sqrt(1.-l**2-m**2)-1
-            #n_1=ToolsDir.ModFitPoly2D.polyval2d(l, m, CoefPoly)
-
-            # import pylab
-            # pylab.clf()
-            # pylab.imshow(n_1,interpolation="nearest",extent=(l.min(),l.max(),m.min(),m.max()))
-            # pylab.draw()
-            # pylab.show(False)
-            # stop
-
-            #n_1=np.sqrt(1.-(l-l0)**2-(m-m0)**2)-1
-            #n_1=(1./np.sqrt(1.-l0**2-m0**2))*(l0*l+m0*m)
-            wl=w[i]/waveMin
-            W=np.exp(-2.*1j*np.pi*wl*(n_1))
             dummy, dymmy, ThisSphe= MakeSphe(Sup,Sups[i])
-            W.fill(1.)
-            
-            W*=np.abs(ThisSphe)
+
+            # l,m=np.mgrid[-lrad:lrad:Sups[i]*1j,-lrad:lrad:Sups[i]*1j]
+            # #n_1=np.sqrt(1.-l**2-m**2)-1
+            # n_1=ToolsDir.ModFitPoly2D.polyval2d(l, m, CoefPoly)
+            # # import pylab
+            # # pylab.clf()
+            # # pylab.imshow(n_1,interpolation="nearest",extent=(l.min(),l.max(),m.min(),m.max()))
+            # # pylab.draw()
+            # # pylab.show(False)
+            # # stop
+            # #n_1=np.sqrt(1.-(l-l0)**2-(m-m0)**2)-1
+            # #n_1=(1./np.sqrt(1.-l0**2-m0**2))*(l0*l+m0*m)
+            # wl=w[i]/waveMin
+            # # W=np.exp(-2.*1j*np.pi*wl*(n_1))
+            # # ####
+            # # #W.fill(1.)
+            # # ####
+            # # W*=np.abs(ThisSphe)
+
+            W=ThisSphe
 
             W=ZeroPad(W,outshape=W.shape[0]*self.OverS)
+            
+
+            ####
+            W=np.abs(W)
+            ####
+
             Wconj=np.conj(W)
 
             W=fft2(W)

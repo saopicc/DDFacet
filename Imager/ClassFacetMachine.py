@@ -142,7 +142,8 @@ class ClassFacetMachine():
                       "wmax":wmax,
                       "Nw":Nw,
                       "WProj":True,
-                      "DoDDE":self.DoDDE}
+                      "DoDDE":self.DoDDE,
+                      "Padding":Padding}
 
         #print "Append2"; self.IM.CI.E.clear()
 

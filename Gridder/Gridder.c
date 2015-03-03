@@ -1084,7 +1084,7 @@ void DeGridderWPol(PyArrayObject *grid,
 		      //outFile<<irow <<" "<<ipol<<" "<<posx<<" "<<posy<<" "<<(offx+ sx*fsampx-(nConvX-1.)/2.)/float(fsampx)<<" "<<(offy + sy*fsampy-(nConvX-1)/2.)/float(fsampy)
 		      //<<" "<<real(*gridPtr * *cf[0])<<" "<<imag(*gridPtr * *cf[0])<<" "<<real(*gridPtr)<<" "<<imag(*gridPtr)<<endl;
 		      
-		      visPtr[ipol] += *gridPtr  * *cf[0] ;//*corr;;//* factor;
+		      visPtr[ipol] += *gridPtr  * *cf[0] *corr;;//* factor;
 		      //ThisVis[ipol] += *gridPtr  * *cf[0] *corr;
 		      
 		      cf[0] += fsampx;

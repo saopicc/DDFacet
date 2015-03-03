@@ -11,7 +11,7 @@ iF=scipy.fftpack.ifft
 Fs=scipy.fftpack.fftshift
 iFs=scipy.fftpack.ifftshift
 
-#import pyfftw
+import pyfftw
 import scipy.signal
 import numpy
 from timeit import Timer
@@ -41,18 +41,21 @@ import ModColor
 
 def EstimateNpix(Npix,Padding=1):
     Npix=int(round(Npix))
-    
+    Odd=False
+
     NpixOrig=Npix
-    if Npix%2!=0: Npix+=1
-    Npix=GiveClosestFastSize(Npix)
+    #if Npix%2!=0: Npix+=1
+    #if Npix%2==0: Npix+=1
+    Npix=GiveClosestFastSize(Npix,Odd=Odd)
     NpixOpt=Npix
     
     
     Npix*=Padding
     Npix=int(round(Npix))
-    if Npix%2!=0: Npix+=1
-    Npix=GiveClosestFastSize(Npix)
-    print>>log, ModColor.Str("(NpixOrig, NpixOpt, NpixOptPadded): %i --> %i --> %i"%(NpixOrig,NpixOpt,Npix))
+    #if Npix%2!=0: Npix+=1
+    #if Npix%2==0: Npix+=1
+    Npix=GiveClosestFastSize(Npix,Odd=Odd)
+    print>>log, ModColor.Str("With padding=%f: (NpixOrig, NpixOpt, NpixOptPadded): %i --> %i --> %i"%(Padding,NpixOrig,NpixOpt,Npix))
     return NpixOpt,Npix
 
 class FFTW_Convolve():
@@ -238,29 +241,45 @@ def testFFTW():
     pylab.show()
 
 
-def GiveFFTFastOddSizes():
+def GiveFFTFastSizes(Odd=True,NLim=10000):
 
-    lout=[]
-    for i in range(1,13):
-        for j in range(5):
-            for k in range(3):
-                for l in range(3):
-                    for m in range(3):
-                        s=(2**i)*(3**j)*(5**k)*(7**l)*(9**m)
-                        if s%2==0:
-                            lout.append(s)
     
+    lout=[]
+    for i in [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]:#range(13):
+        for j in range(15):
+            for k in range(10):
+                for l in range(10):
+                    for m in range(5):
+                        for n in range(2):
+                            for nn in range(2):
+                                s=(2**i)*(3**j)*(5**k)*(7**l)*(9**m)*(11**n)*(13**nn)
+                                if s>NLim: continue
+                                if Odd:
+                                    if s%2==0:
+                                        lout.append(s)
+                                else:
+                                    if s%2!=0:
+                                        lout.append(s)
+
 
     lout=np.array(sorted(list(set(lout))))
-    lout=lout[(lout<10000)&(lout>64)]
+    
+    lout=lout[(lout<NLim)&(lout>64)]
+    print lout
     
     return lout
 
-FFTOddSizes=GiveFFTFastOddSizes()
+FFTOddSizes=GiveFFTFastSizes(Odd=True)
+FFTEvenSizes=GiveFFTFastSizes(Odd=False)
 
-def GiveClosestFastSize(n):
-    ind=np.argmin(np.abs(n-FFTOddSizes))
-    return FFTOddSizes[ind]
+def GiveClosestFastSize(n,Odd=True):
+    #ind=np.argmin(np.abs(n-FFTOddSizes))
+    if Odd:
+        ind=np.argmin(np.abs(n-FFTOddSizes))
+        return FFTOddSizes[ind]
+    else:
+        ind=np.argmin(np.abs(n-FFTEvenSizes))
+        return FFTEvenSizes[ind]
 
 
 def GiveFFTFreq(A,dt):

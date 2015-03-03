@@ -5,6 +5,7 @@ import MyPickle
 import numpy as np
 import MyLogger
 log=MyLogger.getLogger("ClassCasaImage")
+import rad2hmsdms
 
 class ClassCasaimage():
     def __init__(self,ImageName,ImShape,Cell,radec):
@@ -15,6 +16,7 @@ class ClassCasaimage():
         self.nch,self.npol,self.Npix,_=ImShape
 
         self.ImageName=ImageName
+        print "image refpix:",rad2hmsdms.rad2hmsdms(radec[0],Type="ra").replace(" ",":"),", ",rad2hmsdms.rad2hmsdms(radec[1],Type="dec").replace(" ",".")
         self.createScratch()
 
     def create(self):

@@ -1,5 +1,5 @@
 import numpy as np
-#import pyfftw
+import pyfftw
 import multiprocessing
 
 import ClassTimeIt
@@ -107,7 +107,7 @@ class FFTW_2Donly():
         self.A = pyfftw.n_byte_align_empty( A.shape[-2::], 16, dtype=dtype)
  
         pyfftw.interfaces.cache.enable()
-        pyfftw.interfaces.cache.set_keepalive_time(30)
+        pyfftw.interfaces.cache.set_keepalive_time(3000)
         self.ncores=ncores
         #print "plan"
         T=ClassTimeIt.ClassTimeIt("ModFFTW")

@@ -85,6 +85,33 @@ def SharedToDico(Prefix):
 
     return DicoOut
 
+def PackListSquareMatrix(Name,LArray):
+    NArray=len(LArray)
+    dtype=LArray[0].dtype
+    TotSize=0
+    for i in range(NArray):
+        TotSize+=LArray[i].size
+
+
+    # [N,shape0...shapeN,Arr0...ArrN]
+
+    S=SharedArray.create(Name,(TotSize+NArray+1,),dtype=dtype)
+    S[0]=NArray
+    idx1=1
+    for i in range(NArray):
+        A=LArray[i]
+        S[idx]=A.shape[0]
+        idx+=1
+
+    for i in range(NArray):
+        A=LArray[i]
+        S[idx:]=A.shape[0]
+        idx+=1
+
+    
+    
+
+
 
 # import SharedArray
 # import ModColor
