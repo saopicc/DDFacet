@@ -6,7 +6,7 @@ log=MyLogger.getLogger("NpShared")
 
 def zeros(*args,**kwargs):
     return SharedArray.create(*args,**kwargs)
-    
+
 def ToShared(Name,A):
 
     try:
@@ -60,6 +60,7 @@ def DicoToShared(Prefix,Dico,DelInput=False):
             
     if DelInput:
         del(Dico)
+
     print>>log, ModColor.Str("DicoToShared: done")
 
     return DicoOut
@@ -94,10 +95,10 @@ def PackListSquareMatrix(Name,LArray):
 
 
     # [N,shape0...shapeN,Arr0...ArrN]
-
+    DelArray(Name)
     S=SharedArray.create(Name,(TotSize+NArray+1,),dtype=dtype)
     S[0]=NArray
-    idx1=1
+    idx=1
     for i in range(NArray):
         A=LArray[i]
         S[idx]=A.shape[0]
@@ -105,10 +106,30 @@ def PackListSquareMatrix(Name,LArray):
 
     for i in range(NArray):
         A=LArray[i]
-        S[idx:]=A.shape[0]
+        S[idx:idx+A.size]=A.ravel()
+        idx+=A.size
+
+
+def UnPackListSquareMatrix(Name):
+    LArray=[]
+    S=GiveArray(Name)
+
+    NArray=int(S[0])
+    idx=1
+
+    ShapeArray=[]
+    for i in range(NArray):
+        ShapeArray.append(S[idx])
         idx+=1
 
-    
+    for i in range(NArray):
+        shape=int(ShapeArray[i])
+        size=shape**2
+        A=S[idx:idx+size].reshape((shape,shape))
+        LArray.append(A)
+        idx+=A.size
+    return LArray
+  
     
 
 
