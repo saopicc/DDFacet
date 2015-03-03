@@ -15,12 +15,12 @@ import NpShared
 import os
 import ModFitPSF
 from IPClusterDir import ClassDistributedVisServer
+from ClassData import ClassMultiPointingData,ClassSinglePointingData,ClassGlobalData
 
 class ClassImagerDeconv():
     def __init__(self,ParsetFile=None,GD=None,
                  PointingID=0,BaseName="ImageTest2"):
-        MDC,GD=ToolsDir.GiveMDC.GiveMDC(ParsetFile=ParsetFile,GD=GD,DoReadData=False)
-        self.MDC=MDC
+        GD=ClassGlobalData(ParsetFile)
         self.GD=GD
         self.BaseName=BaseName
         self.PointingID=PointingID
@@ -35,13 +35,36 @@ class ClassImagerDeconv():
         self.PolMode=self.GD.DicoConfig["Facet"]["PolMode"]
         self.HasCleaned=False
         self.Parallel=self.GD.DicoConfig["Cluster"]["Parallel"]
-        self.IM=None
+
 
     def Init(self):
-        self.InitFacetMachine(self.IM)
-        self.VS=ClassDistributedVisServer.ClassDistributedVisServer(self.IM)
-        self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
+        DC=self.GD.DicoConfig
+        self.VS=ClassVisServer.ClassVisServer(DC["Files"]["FileMSCat"]["Name"],
+                                              ColName=DC["Files"]["ColName"],
+                                              TVisSizeMin=DC["Facet"]["TChunkSize"],
+                                              #DicoSelectOptions=DicoSelectOptions,
+                                              TChunkSize=DC["Facet"]["TChunkSize"],
+                                              IdSharedMem="CACA.")
+        self.InitFacetMachine()
+        # self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
 
+
+    def InitFacetMachine(self):
+        if self.FacetMachine!=None:
+            return
+
+        
+        #print "initFacetMachine deconv0"; self.IM.CI.E.clear()
+        self.FacetMachine=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel)#,Sols=SimulSols)
+        
+        #print "initFacetMachine deconv1"; self.IM.CI.E.clear()
+        MainFacetOptions=self.GD.DicoConfig["Facet"]["MainFacetOptions"]
+        self.FacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
+        self.FacetMachine.Init()
+        #print "initFacetMachine deconv2"; self.IM.CI.E.clear()
+
+        self.CellSizeRad=(self.FacetMachine.Cell/3600.)*np.pi/180
+        self.CellArcSec=self.FacetMachine.Cell
 
     def MakePSF(self):
         if self.PSF!=None: return
@@ -99,24 +122,6 @@ class ClassImagerDeconv():
         self.CellArcSec=np.abs(self.CasaPSF.coordinates().dict()["direction0"]["cdelt"][0]*60)
         self.CellSizeRad=(self.CellArcSec/3600.)*np.pi/180
 
-    def InitFacetMachine(self,IM=None):
-        if self.FacetMachine!=None:
-            return
-
-        
-        #print "initFacetMachine deconv0"; self.IM.CI.E.clear()
-        self.FacetMachine=ClassFacetMachine.ClassFacetMachine(self.MDC,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel)#,Sols=SimulSols)
-        
-        if self.IM!=None:
-            self.FacetMachine.setInitMachine(IM)
-        #print "initFacetMachine deconv1"; self.IM.CI.E.clear()
-        MainFacetOptions=self.GD.DicoConfig["Facet"]["MainFacetOptions"]
-        self.FacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
-        self.FacetMachine.Init()
-        #print "initFacetMachine deconv2"; self.IM.CI.E.clear()
-
-        self.CellSizeRad=(self.FacetMachine.Cell/3600.)*np.pi/180
-        self.CellArcSec=self.FacetMachine.Cell
 
     def testDegrid(self):
     
@@ -354,7 +359,7 @@ def test():
     #Imager.MakePSF()
     #Imager.LoadPSF("PSF.image")
     # Imager.FitPSF()
-    Imager.main(NMajor=5)
-    Imager.Restore()
+    # Imager.main(NMajor=5)
+    # Imager.Restore()
     
     return Imager

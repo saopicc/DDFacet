@@ -137,14 +137,14 @@ def testGrid(GM):
 
 
 class ClassDDEGridMachine():
-    def __init__(self,GD,MDC,
+    def __init__(self,GD,
                  Npix=1023,Cell=10.,Support=7,ChanFreq=np.array([6.23047e7],dtype=np.float64),
                  wmax=10000,Nw=11,DoPSF=False,
                  RaDec=None,ImageName="Image",OverS=5,
                  Padding=1.,WProj=False,lmShift=None,Precision="S",PolMode="I",DoDDE=True,
                  JonesDir=None):
 
-        self.MDC,self.GD=MDC,GD
+        self.GD=GD
         
         self.DoDDE=DoDDE
         self.JonesDir=JonesDir
@@ -275,66 +275,6 @@ class ClassDDEGridMachine():
         self.NChan, self.npol, _,_=self.GridShape
         self.SumWeigths=np.zeros((self.NChan,self.npol),np.float64)
 
-    def CalcAterm(self,times=None,A0A1=None,PointingID=0):
-        if self.DoDDE==False:
-            return
-
-        nch=self.NChan
-        self.norm=np.zeros((nch,2,2),float)
-        Xp=self.MME.Xp
-
-        MS=self.MDC.giveMS(PointingID)
-        na=MS.na
-
-        if times==None:
-            times=self.Sols["times"]
-        LTimes=sorted(list(set(times.tolist())))
-        NTimes=len(LTimes)
-
-        if A0A1==None:
-            A0,A1=np.mgrid[0:na,0:na]
-            A0List,A1List=[],[]
-            for i in range(na):
-                for j in range(i,na):
-                    if i==j: continue
-                    A0List.append(A0[i,j])
-                    A1List.append(A1[i,j])
-            A0=np.array(A0List*NTimes)
-            A1=np.array(A1List*NTimes)
-        else:
-            A0,A1=A0A1
-
-
-        self.DicoATerm={}
-
-        for ThisTime,itime0 in zip(LTimes,range(NTimes)):
-            TSols=self.Sols["times"]
-            XiSols=self.Sols["xi"]
-            itimeSol=np.argmin(np.abs(TSols-ThisTime))
-            xi=XiSols[itimeSol]
-            Xp.FromVec(xi)
-
-            indThisTime=np.where(times==ThisTime)[0]
-            ThisA0=A0[indThisTime]
-            ThisA1=A1[indThisTime]
-            ThisA0A1=ThisA0,ThisA1
-            itimes=(itime0,itime0+1)
-            self.AJM.BuildNormJones(Description="Right.noinv",itimes=itimes)
-
-            Jones,JonesH=self.AJM.DicoNormJones[PointingID]["Right.noinv"]["M,MH"]
-
-            JJH=ModLinAlg.BatchDot(Jones[ThisA0,:,:],JonesH[ThisA1,:,:])
-            JJH_sq=np.mean(JJH*JJH.conj(),axis=0).reshape(nch,2,2)
-            self.norm+=JJH_sq.real
-            self.DicoATerm[ThisTime]=copy.deepcopy(self.AJM.DicoNormJones[PointingID]["Right.noinv"]["M,MH"])
-        
-        self.norm/=NTimes
-        self.norm=np.sqrt(self.norm)
-        self.norm=self.norm.reshape(nch,2,2)
-        self.norm=ModLinAlg.BatchInverse(self.norm)
-        self.norm=self.norm.reshape(1,nch,4)
-        self.norm[np.abs(self.norm)<1e-6]=1
-        self.norm.fill(1)
 
 
     def GiveParamJonesList(self,DicoJonesMatrices,times,A0,A1,uvw):

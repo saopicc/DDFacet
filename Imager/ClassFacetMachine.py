@@ -27,7 +27,8 @@ from ModToolBox import EstimateNpix
 
 class ClassFacetMachine():
     def __init__(self,
-                 MDC,GD,
+                 VS,
+                 GD,
                  #ParsetFile="ParsetNew.txt",
                  Precision="S",
                  PolMode="I",Sols=None,PointingID=0,
@@ -49,9 +50,9 @@ class ClassFacetMachine():
         elif PolMode=="IQUV":
             self.npol=4
         self.PointingID=PointingID
-        self.MDC,self.GD=MDC,GD#ToolsDir.GiveMDC.GiveMDC(ParsetFile)
+        self.VS,self.GD=VS,GD
         self.Parallel=Parallel
-        ChanFreq=self.MDC.giveFreqs(self.PointingID).flatten()
+        ChanFreq=self.VS.MS.ChanFreq.flatten()
         DicoConfigGM={}
         self.DicoConfigGM=DicoConfigGM
         self.DoPSF=DoPSF
@@ -93,7 +94,7 @@ class ClassFacetMachine():
         Npix=NpixFacet*NFacets
         self.Npix=Npix
 
-        MS=self.MDC.giveMS(0)
+        MS=self.VS.MS
         
 
         rac,decc=MS.radec
@@ -131,7 +132,7 @@ class ClassFacetMachine():
         
         self.DicoImager={}
 
-        ChanFreq=self.MDC.giveFreqs(self.PointingID)
+        ChanFreq=self.VS.MS.ChanFreq.flatten()
 
         DicoConfigGM={"Npix":NpixFacet,
                       "Cell":Cell,
@@ -225,7 +226,7 @@ class ClassFacetMachine():
     def InitSerial(self):
         for iFacet in sorted(self.DicoImager.keys()):
             TransfRaDec=None
-            GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,self.MDC,RaDec=self.DicoImager[iFacet]["RaDec"],
+            GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,RaDec=self.DicoImager[iFacet]["RaDec"],
                                                                 lmShift=self.DicoImager[iFacet]["lmShift"],
                                                                 **self.DicoImager[iFacet]["DicoConfigGM"])
 
@@ -531,8 +532,6 @@ class ClassFacetMachine():
         
         return visOut
 
-    def setInitMachine(self,IM):
-        self.IM=IM
         
 
     def InitParallel(self):
