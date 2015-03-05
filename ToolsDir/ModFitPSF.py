@@ -102,6 +102,7 @@ def FitGauss2(PSF):
     N=npix
     data_noisy=PSF
     data_fitted = twoD_Gaussian((x, y, 1, 0), *popt)
+    #print popt
     # pylab.clf()
     # pylab.subplot(1,2,1)
     # pylab.imshow(data_noisy.reshape(N+1, N+1), cmap=pylab.cm.jet, origin='bottom',
@@ -116,7 +117,39 @@ def FitGauss2(PSF):
 
     return popt
 
+def FindSidelobe(PSF):
+    x,y=np.where(PSF==np.max(PSF))
+    x0=x[0]
+    y0=y[0]
+    profile=PSF[x0,:]
 
+
+    PSFhalf=profile[y0::]
+    dx=np.where(PSFhalf<0)[0][0]
+    PSFsmall=PSF[x0-dx:x0+dx,y0-dx:y0+dx]
+    
+    popt=FitGauss2(PSFsmall.ravel())
+
+    npix=int(np.sqrt(PSFsmall.ravel().shape[0]))-1
+    x = np.linspace(0, npix, npix+1)
+    y = np.linspace(0, npix, npix+1)
+    x, y = np.meshgrid(x, y)
+    data_fitted = twoD_Gaussian((x, y, 1, 0), *popt)
+    N=npix
+    D=data_fitted.reshape(N+1, N+1)
+    PSFnew=PSF.copy()
+    PSFnew[x0-dx:x0+dx,y0-dx:y0+dx]=PSFnew[x0-dx:x0+dx,y0-dx:y0+dx]-D[:,:]
+    profile0=PSFnew[x0,:]
+
+    return np.max(PSFnew)
+
+    
+
+def testFindSidelobe():
+    from pyrap.images import image
+    im=image("ImageTest2.psf.fits")
+    PSF=im.getdata()[0,0]
+    FindSidelobe(PSF)
 
 def test2():
     import pylab

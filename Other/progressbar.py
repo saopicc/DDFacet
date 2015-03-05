@@ -11,16 +11,26 @@ import sys
 import time as timemod
 import ModColor
 
+def test():
+    pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Solving ", HeaderSize=10,TitleSize=13)
+    nt=10
+    for NDone in range(nt):
+        f=int(100.*NDone/float(nt-1))
+        pBAR.render(f, '%4i/%i' % (NDone,nt-1))
+        timemod.sleep(0.2)
+
 
 class ProgressBar(object):
     """Terminal progress bar class"""
     #TEMPLATE = ('  %(title)s %(percent)3.2i%% [%(color)s%(progress)s%(normal)s%(empty)s] %(message)s\n')
     #TEMPLATE = ('  %(message)s [%(color)s%(progress)s%(normal)s%(empty)s] %(percent)3.2i%% \n')
-    TEMPLATE = ('  %(header)s [%(color)s%(progress)s%(normal)s%(empty)s] %(percent)3.2i%% %(time)s \n')
+    #TEMPLATE = ('  %(header)s [%(color)s%(progress)s%(normal)s%(empty)s] %(percent)3.2i%% %(time)s \n')
+    TEMPLATE = ('  %(title)s%(header)s [%(color)s%(progress)s%(normal)s%(empty)s] %(percent)3.2i%% %(time)s \n')
+
     PADDING = 7
     silent=0
     
-    def __init__(self, color=None, width=30, block='█', empty=' ',Title=None,HeaderSize=40):
+    def __init__(self, color=None, width=30, block='█', empty=' ',Title=None,HeaderSize=40,TitleSize=30):
         """
         color -- color name (BLUE GREEN CYAN RED MAGENTA YELLOW WHITE BLACK)
         width -- bar width (optinal)
@@ -44,15 +54,22 @@ class ProgressBar(object):
         self.empty = empty
         self.progress = None
         self.lines = 0
-        self.TitleSize=30
+        self.TitleSize=TitleSize
         Title=ModColor.Str(Title,col="blue",Bold=False)
         self.TitleIn=Title
-        self.Title=self.format(Title,self.TitleSize)
+        self.Title=Title#self.format(Title,self.TitleSize)
+        
         self.HasRendered=False
         self.t0=None
         self.HeaderSize=HeaderSize
+        self.disableTag=False
 
-    def format(self,strin,Size,side=0):
+    def format(self,strin,Size,side=0,TitleIn=None):
+        if TitleIn==None:
+            Title=self.TitleIn
+        else:
+            Title=TitleIn
+
         if len(strin)>Size:
             return strin[0:Size]
         if side==0:
@@ -60,8 +77,11 @@ class ProgressBar(object):
         if side==1:
             strin="."*(Size-len(strin))+" "+strin
         if side==2:
-            strin="%s %s %s"%(self.TitleIn,"."*(Size-len(self.TitleIn)-len(strin)),strin)
+            strin="%s %s %s"%(Title,"."*(Size-len(self.TitleIn)-len(strin)),strin)
         return strin
+
+    def disable(self):
+        self.disableTag=True
 
     def GiveStrMinSec(self):
         t1=timemod.time()
@@ -82,8 +102,8 @@ class ProgressBar(object):
         percent -- the progress percentage %
         message -- message string (optional)
         """
-        
         if self.silent==1: return
+        if self.disableTag: return
         import terminal
 
         if (self.Title!=None)&(self.HasRendered==False):
@@ -116,7 +136,9 @@ class ProgressBar(object):
         if self.progress != None:
             self.clear()
         self.progress = (bar_width * percent) / 100
-        data = self.TEMPLATE % {
+
+
+        DicoData={
             'title': self.Title,
             'percent': percent,
             'color': self.color,
@@ -125,8 +147,12 @@ class ProgressBar(object):
             'empty': self.empty * (bar_width - self.progress),
             'message': message,
             'time': StrTime,
-            'header': self.format(message,self.HeaderSize,2)
+            'header': self.format(message,self.HeaderSize,1,TitleIn="")
         }
+        data = self.TEMPLATE % DicoData
+        # print DicoData
+        # print data
+        # stop
         sys.stdout.write(data)
         sys.stdout.flush()
         # The number of lines printed

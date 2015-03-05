@@ -2,6 +2,7 @@
 import numpy as np
 import pylab
 import MyLogger
+import ModColor
 log=MyLogger.getLogger(" ClassImageDeconvMachine")
 
 class ClassImageDeconvMachine():
@@ -55,6 +56,9 @@ class ClassImageDeconvMachine():
         self.Dirty=self._Dirty[ch]
         self.ModelImage=self._ModelImage[ch]
 
+    def setSideLobeLevel(self,SideLobeLevel):
+        self.SideLobeLevel=SideLobeLevel
+
     def Clean(self,Nminor=None,ch=0):
         if Nminor==None:
             Nminor=self.MaxMinorIter
@@ -74,20 +78,34 @@ class ClassImageDeconvMachine():
         # pylab.show(False)
         # pylab.pause(0.1)
 
-        print>>log, "Running minor cycle with Nminor=%i"%Nminor
+        print>>log, ModColor.Str("Running minor cycle with Nminor=%i"%Nminor,col='green')
 
         NPixStats=1000
         RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
         RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
-        print>>log, "    Estimated RMS = %f Jy"%RMS
+        
         Threshold_RMS=5.
+        MaxDirty=np.max(np.abs(self.Dirty))
         FluxLimit=Threshold_RMS*RMS
+        FluxLimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
+
+        print>>log, "    Maximum flux = %f Jy [with rms %f Jy]"%(MaxDirty, RMS)
+        print>>log, "    Maximum allowed cleaned flux = %f Jy"%(FluxLimit_SideLobe)
+
+        MaxModelInit=np.max(np.abs(self.ModelImage))
 
         for i in range(Nminor):
             ThisFlux=np.max(np.abs(self.Dirty))
 
             if ThisFlux < FluxLimit:
-                print>>log, "    Maximum peak lower that limit of %f Jy" % FluxLimit
+                print>>log, "    Maximum peak lower that rms-based limit of %f Jy (%i-sigma)" % (FluxLimit,Threshold_RMS)
+                return "MinFlux"
+
+            MaxModelNow=np.max(np.abs(self.ModelImage))
+            MaxCleaned=MaxModelNow-MaxModelInit
+            #print>>log, "        Iteration %i maximum cleaned flux = %f Jy"%(i,MaxCleaned)
+            if MaxCleaned > FluxLimit_SideLobe:
+                print>>log, "    Maximum peak lower that sidelobe-based limit of %f Jy (%f of peak)" % (FluxLimit_SideLobe,FluxLimit_SideLobe)
                 return "MinFlux"
 
             _,x,y=np.where(np.abs(self.Dirty)==ThisFlux)
@@ -99,19 +117,20 @@ class ClassImageDeconvMachine():
             PSF=self.GivePSF((dx,dy))
             self.Dirty-=PSF*(Fpol*self.Gain)
 
-            pylab.clf()
-            pylab.subplot(1,2,1)
-            pylab.imshow(self.Dirty[0],interpolation="nearest",vmin=m0,vmax=m1)
-            pylab.subplot(1,2,2)
-            pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
-            pylab.draw()
-            pylab.show(False)
-            pylab.pause(0.1)
+            # pylab.clf()
+            # pylab.subplot(1,2,1)
+            # pylab.imshow(self.Dirty[0],interpolation="nearest",vmin=m0,vmax=m1)
+            # pylab.subplot(1,2,2)
+            # pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
+            # pylab.draw()
+            # pylab.show(False)
+            # pylab.pause(0.1)
 
             for pol in range(npol):
                 self.ModelImage[pol,x[0],y[0]]+=Fpol[pol,0,0]*self.Gain
 
 
+        print>>log, "    Reached maximum number of iterations (%i)" % (Nminor)
         return "MaxIter"
             # corr=np.sqrt(1.-(self.incr*dx)**2-(self.incr*dy)**2)
             # print>>log, corr

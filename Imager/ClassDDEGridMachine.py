@@ -142,13 +142,15 @@ class ClassDDEGridMachine():
                  wmax=10000,Nw=11,DoPSF=False,
                  RaDec=None,ImageName="Image",OverS=5,
                  Padding=1.,WProj=False,lmShift=None,Precision="S",PolMode="I",DoDDE=True,
-                 JonesDir=None):
+                 JonesDir=None,
+                 IdSharedMem="",
+                 IDFacet=None):
 
         self.GD=GD
-        
+        self.IDFacet=IDFacet
         self.DoDDE=DoDDE
         self.JonesDir=JonesDir
-
+        self.IdSharedMem=IdSharedMem
         if self.DoDDE:
             MME=MeasurementEquation()
             HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
@@ -198,13 +200,6 @@ class ClassDDEGridMachine():
         x0=(self.Npix-self.NonPaddedNpix)/2#+1
         self.PaddingInnerCoord=(x0,x0+self.NonPaddedNpix)
 
-        Grid=np.zeros(self.GridShape,dtype=self.dtype)
-
-        #self.FFTWMachine=ModFFTW.FFTW_2Donly(Grid, ncores = 1)
-        import ModFFTW
-        #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
-        self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
-        #self.FFTWMachine=ModFFTW.FFTW_2Donly(Grid, ncores = 1)
 
 
         
@@ -220,21 +215,49 @@ class ClassDDEGridMachine():
         self.UVNorm=2.*1j*np.pi/self.ChanWave
         self.UVNorm.reshape(1,self.UVNorm.size)
         self.Sup=Support
-        
+        self.WProj=WProj
+        self.wmax=wmax
+        self.Nw=Nw
+        self.OverS=OverS
+        self.lmShift=lmShift
 
-        if WProj:
-            self.WTerm=ModCF.ClassWTermModified(Cell=Cell,Sup=Support,Npix=Npix,Freqs=ChanFreq,wmax=wmax,Nw=Nw,OverS=OverS,lmShift=lmShift)
-        else:
-            self.WTerm=ModCF.ClassSTerm(Cell=Cell,Sup=Support,Npix=Npix,Freqs=ChanFreq,wmax=wmax,Nw=Nw,OverS=OverS)
-        T.timeit("Wterm")
-        self.CF, self.fCF, self.ifzfCF= self.WTerm.CF, self.WTerm.fCF, self.WTerm.ifzfCF
-
-        T.timeit("Rest")
+        self.CalcCF()
 
         self.reinitGrid()
         self.CasaImage=None
-        self.lmShift=lmShift
         self.DicoATerm=None
+
+    def CalcCF(self):
+        Grid=np.zeros(self.GridShape,dtype=self.dtype)
+        #self.FFTWMachine=ModFFTW.FFTW_2Donly(Grid, ncores = 1)
+        import ModFFTW
+        #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
+        #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
+
+        self.FFTWMachine=ModFFTW.FFTW_2Donly(self.GridShape,self.dtype, ncores = 1)
+
+        if self.WProj:
+            self.WTerm=ModCF.ClassWTermModified(Cell=self.Cell,
+                                                Sup=self.Sup,
+                                                Npix=self.Npix,
+                                                Freqs=self.ChanFreq,
+                                                wmax=self.wmax,
+                                                Nw=self.Nw,
+                                                OverS=self.OverS,
+                                                lmShift=self.lmShift,
+                                                IdSharedMem=self.IdSharedMem,
+                                                IDFacet=self.IDFacet)
+        else:
+            self.WTerm=ModCF.ClassSTerm(Cell=self.Cell,
+                                        Sup=self.Support,
+                                        Npix=self.Npix,
+                                        Freqs=self.ChanFreq,
+                                        wmax=self.wmax,
+                                        Nw=self.Nw,
+                                        OverS=self.OverS)
+
+        self.ifzfCF= self.WTerm.ifzfCF
+ 
 
     def setSols(self,times,xi):
         self.Sols={"times":times,"xi":xi}
@@ -387,7 +410,7 @@ class ClassDDEGridMachine():
         Grid=np.zeros(self.GridShape,dtype=self.dtype)
 
         l0,m0=self.lmShift
-        FacetInfos=np.array([self.WTerm.Cu,self.WTerm.Cv,l0,m0]).astype(np.float64)
+        FacetInfos=np.float64(np.array([self.WTerm.Cu,self.WTerm.Cv,l0,m0]))
 
         # if not(vis.dtype==np.complex64):
         #     print "vis should be of type complex128 (and has type %s)"%str(vis.dtype)
@@ -472,6 +495,9 @@ class ClassDDEGridMachine():
         T=ClassTimeIt.ClassTimeIt("get")
         T.disable()
         vis=visIn#.copy()
+
+
+
         LTimes=sorted(list(set(times.tolist())))
         NTimes=len(LTimes)
         A0,A1=A0A1
@@ -504,7 +530,7 @@ class ClassDDEGridMachine():
         # vis.fill(0)
         
         l0,m0=self.lmShift
-        FacetInfos=np.array([self.WTerm.Cu,self.WTerm.Cv,l0,m0]).astype(np.float64)
+        FacetInfos=np.float64(np.array([self.WTerm.Cu,self.WTerm.Cv,l0,m0]))
         Row0,Row1=Row0Row1
         if Row1==-1:
             Row1=u.shape[0]

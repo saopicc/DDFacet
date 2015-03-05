@@ -3,13 +3,8 @@
 ############# Cluster ######################
 ############################################
 
-Cluster.ListExceptNode				= None
-Cluster.NCalcEnginePerNode 			= 0
-Cluster.NImagEngine				= 100
-Cluster.NMaxCalcEngines				= 10
-Cluster.CheckCPU 				= False
-Cluster.MapEngineType 				= DDFacet
-Cluster.Parallel				= True
+Parallel.Enable				= True
+Parallel.NCPU				= 6
 
 
 ##########################################################################################################################
@@ -30,7 +25,7 @@ Files.ReplaceMissingFreqs = False
 
 ##### Flag baselines and antenna
 Select.FlagAntBL  = None # RS,CS017LBA
-Select.UVRangeKm  = None # [0.1, 10] # [0.1, 20] # in km
+Select.UVRangeKm  = [0.1, 100] # [0.1, 10] # [0.1, 20] # in km
 
 ##########################################################################################################################
 ################################################ Imager Parset ###########################################################

@@ -4,8 +4,12 @@ import numpy as np
 from Other import MyLogger
 log=MyLogger.getLogger("NpShared")
 
-def zeros(*args,**kwargs):
-    return SharedArray.create(*args,**kwargs)
+def zeros(Name,*args,**kwargs):
+    try:
+        return SharedArray.create(Name,*args,**kwargs)
+    except:
+        DelArray(Name)
+        return SharedArray.create(Name,*args,**kwargs)
 
 def ToShared(Name,A):
 
@@ -42,6 +46,15 @@ def GiveArray(Name):
         return SharedArray.attach(Name)
     except:
         return None
+
+def Exists(Name):
+    LNames=ListNames()
+    Exists=False
+    for ThisName in LNames:
+        if Name==ThisName:
+            Exists=True
+    return Exists
+    
 
 
 def DicoToShared(Prefix,Dico,DelInput=False):
@@ -86,7 +99,81 @@ def SharedToDico(Prefix):
 
     return DicoOut
 
+####################################################
+####################################################
+
+def PackListArray(Name,LArray):
+    DelArray(Name)
+
+    NArray=len(LArray)
+    ListNDim=[len(LArray[i].shape) for i in range(len(LArray))]
+    NDimTot=np.sum(ListNDim)
+    # [NArray,NDim0...NDimN,shape0...shapeN,Arr0...ArrN]
+
+    dS=LArray[0].dtype
+    TotSize=0
+    for i in range(NArray):
+        TotSize+=LArray[i].size
+
+
+    S=SharedArray.create(Name,(1+NArray+NDimTot+TotSize,),dtype=dS)
+    S[0]=NArray
+    idx=1
+    # write ndims
+    for i in range(NArray):
+        S[idx]=ListNDim[i]
+        idx+=1
+
+    # write shapes
+    for i in range(NArray):
+        ndim=ListNDim[i]
+        A=LArray[i]
+        S[idx:idx+ndim]=A.shape
+        idx+=ndim
+
+    # write arrays
+    for i in range(NArray):
+        A=LArray[i]
+        S[idx:idx+A.size]=A.ravel()
+        idx+=A.size
+
+
+def UnPackListArray(Name):
+    S=GiveArray(Name)
+
+    NArray=np.int32(S[0].real)
+    idx=1
+
+    # read ndims
+    ListNDim=[]
+    for i in range(NArray):
+        ListNDim.append(np.int32(S[idx].real))
+        idx+=1
+
+    # read shapes
+    ListShapes=[]
+    for i in range(NArray):
+        ndim=ListNDim[i]
+        shape=np.int32(S[idx:idx+ndim].real)
+        ListShapes.append(shape)
+        idx+=ndim
+
+    # read values
+    ListArray=[]
+    for i in range(NArray):
+        shape=ListShapes[i]
+        size=np.prod(shape)
+        A=S[idx:idx+size].reshape(shape)
+        ListArray.append(A)
+        idx+=size
+    return ListArray
+
+####################################################
+####################################################
+
 def PackListSquareMatrix(Name,LArray):
+    DelArray(Name)
+
     NArray=len(LArray)
     dtype=LArray[0].dtype
     TotSize=0
@@ -95,7 +182,6 @@ def PackListSquareMatrix(Name,LArray):
 
 
     # [N,shape0...shapeN,Arr0...ArrN]
-    DelArray(Name)
     S=SharedArray.create(Name,(TotSize+NArray+1,),dtype=dtype)
     S[0]=NArray
     idx=1
@@ -114,16 +200,18 @@ def UnPackListSquareMatrix(Name):
     LArray=[]
     S=GiveArray(Name)
 
-    NArray=int(S[0])
+    NArray=np.int32(S[0].real)
     idx=1
 
     ShapeArray=[]
     for i in range(NArray):
-        ShapeArray.append(S[idx])
+        ShapeArray.append(np.int32(S[idx].real))
         idx+=1
 
+    print>>log, ShapeArray
+
     for i in range(NArray):
-        shape=int(ShapeArray[i])
+        shape=np.int32(ShapeArray[i].real)
         size=shape**2
         A=S[idx:idx+size].reshape((shape,shape))
         LArray.append(A)

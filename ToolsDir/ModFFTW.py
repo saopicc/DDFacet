@@ -102,9 +102,8 @@ class FFTW():
         return out
 
 class FFTW_2Donly():
-    def __init__(self, A, ncores = 1):
-        dtype=A.dtype
-        self.A = pyfftw.n_byte_align_empty( A.shape[-2::], 16, dtype=dtype)
+    def __init__(self, shape, dtype, ncores = 1):
+        self.A = pyfftw.n_byte_align_empty( shape[-2::], 16, dtype=dtype)
  
         pyfftw.interfaces.cache.enable()
         pyfftw.interfaces.cache.set_keepalive_time(3000)
@@ -120,11 +119,18 @@ class FFTW_2Donly():
         #print "done"
         self.ThisType=dtype
 
-    def fft(self,A):
+    def fft(self,Ain):
         axes=(-1,-2)
 
         T=ClassTimeIt.ClassTimeIt("ModFFTW")
         T.disable()
+
+        sin=Ain.shape
+        if len(Ain.shape)==2:
+            s=(1,1,Ain.shape[0],Ain.shape[1])
+            A=Ain.reshape(s)
+        else:
+            A=Ain
 
         nch,npol,_,_=A.shape
         for ich in range(nch):
@@ -136,7 +142,7 @@ class FFTW_2Donly():
                 A[ich,ipol]=Fs(self.A,axes=axes)/(A.shape[-1]*A.shape[-2])
                 T.timeit("shift")
 
-        return A
+        return A.reshape(sin)
  
 
     def ifft(self,A):

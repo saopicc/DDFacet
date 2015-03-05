@@ -356,7 +356,7 @@ void gridderWPol(PyArrayObject *grid,
     int i_dir;
     int nd_Jones,na_Jones,nch_Jones,nt_Jones;
 
-    printf("len %i",LengthJonesList);
+    //    printf("len %i",LengthJonesList);
     int JonesDims[4];
     int ModeInterpolation=1;
     int *ptrModeInterpolation;
@@ -624,31 +624,30 @@ void gridderWPol(PyArrayObject *grid,
 		  VisVal = 1.;
 		}else{
 
-		  /* if(DoApplyJones){ */
-		  /*   // Shape: nt,nd,na,1,2,2 */
-		  /*   int i_t=ptrTimeMappingJonesMatrices[irow]; */
-		  /*   int i_ant0=ptrA0[irow]; */
-		  /*   int i_ant1=ptrA1[irow]; */
+		  if(DoApplyJones){
+		    // Shape: nt,nd,na,1,2,2
+		    int i_t=ptrTimeMappingJonesMatrices[irow];
+		    int i_ant0=ptrA0[irow];
+		    int i_ant1=ptrA1[irow];
 		    
-		  /*   float complex J0[4]={0},J1[4]={0},J0inv[4]={0},J1H[4]={0},J1Hinv[4]={0}; */
-		  /*   GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0); */
-		  /*   GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1); */
+		    float complex J0[4]={0},J1[4]={0},J0inv[4]={0},J1H[4]={0},J1Hinv[4]={0};
+		    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0);
+		    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
 		    
-		  /*   MatInv(J0,J0inv,0); */
-		  /*   MatH(J1,J1H); */
-		  /*   MatInv(J1H,J1Hinv,0); */
-		  /*   MatDot(J0inv,visPtr_Uncorr,visPtr); */
-		  /*   MatDot(visPtr,J1Hinv,visPtr); */
+		    MatInv(J0,J0inv,0);
+		    MatH(J1,J1H);
+		    MatInv(J1H,J1Hinv,0);
+		    MatDot(J0inv,visPtr_Uncorr,visPtr);
+		    MatDot(visPtr,J1Hinv,visPtr);
 		    
-		  /*   /\* int ifor; *\/ */
-		  /*   /\* /\\* printf("(A0,A1)=%i, %i\n",i_ant0,i_ant1); *\\/ *\/ */
-		  /*   /\* /\\* for (ifor=0; ifor<4; ifor++){ *\\/ *\/ */
-		  /*   /\* /\\* 	printf("   %i: (%f,%f)\n",ifor,(float)creal(visPtr[ifor]),(float)cimag(visPtr[ifor])); *\\/ *\/ */
-		  /*   /\* /\\* }; *\\/ *\/ */
-		  /* }; */
-
-		  VisVal =visPtr[ipol];
+		    /* int ifor; */
+		    /* /\* printf("(A0,A1)=%i, %i\n",i_ant0,i_ant1); *\/ */
+		    /* /\* for (ifor=0; ifor<4; ifor++){ *\/ */
+		    /* /\* 	printf("   %i: (%f,%f)\n",ifor,(float)creal(visPtr[ifor]),(float)cimag(visPtr[ifor])); *\/ */
+		    /* /\* }; *\/ */
+		  };
 		  
+		  VisVal =visPtr[ipol];
 
 
 
@@ -962,7 +961,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	//W-projection
 	double wcoord=uvwPtr[2];
 	
-	int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax);
+	int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);
 	int skipW=0;
 	if(iwplane>NwPlanes-1){skipW=1;continue;};
 
@@ -1084,8 +1083,8 @@ void DeGridderWPol(PyArrayObject *grid,
 		      //outFile<<irow <<" "<<ipol<<" "<<posx<<" "<<posy<<" "<<(offx+ sx*fsampx-(nConvX-1.)/2.)/float(fsampx)<<" "<<(offy + sy*fsampy-(nConvX-1)/2.)/float(fsampy)
 		      //<<" "<<real(*gridPtr * *cf[0])<<" "<<imag(*gridPtr * *cf[0])<<" "<<real(*gridPtr)<<" "<<imag(*gridPtr)<<endl;
 		      
-		      visPtr[ipol] += *gridPtr  * *cf[0] *corr;;//* factor;
-		      //ThisVis[ipol] += *gridPtr  * *cf[0] *corr;
+		      //visPtr[ipol] += *gridPtr  * *cf[0] *corr;;//* factor;
+		      ThisVis[ipol] += *gridPtr  * *cf[0];
 		      
 		      cf[0] += fsampx;
                       gridPtr++;
@@ -1117,25 +1116,25 @@ void DeGridderWPol(PyArrayObject *grid,
 	      //visPtr[ipol]*=corr;
             } // end for ipol
 
-	    /* if(DoApplyJones){ */
-	    /*   // Shape: nt,nd,na,1,2,2 */
-	    /*   int i_t=ptrTimeMappingJonesMatrices[irow]; */
-	    /*   int i_ant0=ptrA0[irow]; */
-	    /*   int i_ant1=ptrA1[irow]; */
+	    if(DoApplyJones){
+	      // Shape: nt,nd,na,1,2,2
+	      int i_t=ptrTimeMappingJonesMatrices[irow];
+	      int i_ant0=ptrA0[irow];
+	      int i_ant1=ptrA1[irow];
 	      
-	    /*   float complex J0[4]={0},J1[4]={0},J1H[4]={0}; */
-	    /*   GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0); */
-	    /*   GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1); */
+	      float complex J0[4]={0},J1[4]={0},J1H[4]={0};
+	      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0);
+	      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
 	      
-	    /*   MatH(J1,J1H); */
-	    /*   MatDot(J0,ThisVis,ThisVis); */
-	    /*   MatDot(ThisVis,J1H,ThisVis); */
+	      MatH(J1,J1H);
+	      MatDot(J0,ThisVis,ThisVis);
+	      MatDot(ThisVis,J1H,ThisVis);
 	      
-	    /* }; */
+	    };
 
-	    /* for(ipol=0; ipol<4; ipol++){ */
-	    /*   visPtr[ipol]+=ThisVis[ipol]; */
-	    /* } */
+	    for(ipol=0; ipol<4; ipol++){
+	      visPtr[ipol]+=ThisVis[ipol] *corr;
+	    }
 
           } // end if ongrid
         } // end if gridChan

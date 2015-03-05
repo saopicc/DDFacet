@@ -16,12 +16,12 @@ class ClassCasaimage():
         self.nch,self.npol,self.Npix,_=ImShape
 
         self.ImageName=ImageName
-        print "image refpix:",rad2hmsdms.rad2hmsdms(radec[0],Type="ra").replace(" ",":"),", ",rad2hmsdms.rad2hmsdms(radec[1],Type="dec").replace(" ",".")
+        #print "image refpix:",rad2hmsdms.rad2hmsdms(radec[0],Type="ra").replace(" ",":"),", ",rad2hmsdms.rad2hmsdms(radec[1],Type="dec").replace(" ",".")
         self.createScratch()
 
     def create(self):
         ImageName=self.ImageName
-        print>>log, "Create casa image %s"%ImageName
+        print>>log, "  ----> Create casa image %s"%ImageName
         HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
         c=MyPickle.Load("%s/pythonlibs/CoordCasa.pickle"%HYPERCAL_DIR)
         incr=c.get_increment()
@@ -49,7 +49,7 @@ class ClassCasaimage():
         
     def createScratch(self):
         ImageName=self.ImageName
-        print>>log, "Create casa image %s"%ImageName
+        print>>log, "  ----> Create casa image %s"%ImageName
         HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
         tmpIm=image(imagename=ImageName,shape=self.ImShape)
         c=tmpIm.coordinates()
@@ -82,7 +82,7 @@ class ClassCasaimage():
         self.setdata(data)
         
     def setdata(self,dataIn,CorrT=False):
-        print>>log, "Save data in casa image %s"%self.ImageName
+        print>>log, "  ----> put data in casa image %s"%self.ImageName
 
         data=dataIn.copy()
         if CorrT:
@@ -98,11 +98,11 @@ class ClassCasaimage():
 
     def ToFits(self):
         FileOut=self.ImageName+".fits"
-        print>>log, "Save data in casa image as FITS file %s"%FileOut
+        print>>log, "  ----> Save data in casa image as FITS file %s"%FileOut
         self.im.tofits(FileOut)
 
     def close(self):
-        print>>log, "Close %s"%self.ImageName
+        print>>log, "  ----> Close %s"%self.ImageName
         del(self.im)
 
 

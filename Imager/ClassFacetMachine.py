@@ -18,6 +18,8 @@ import time
 import ModColor
 from IPClusterDir.CheckJob import LaunchAndCheck, SendAndCheck
 import NpShared
+import ModFFTW
+import pyfftw
 
 log=MyLogger.getLogger("ClassFacetImager")
 MyLogger.setSilent("MyLogger")
@@ -34,9 +36,12 @@ class ClassFacetMachine():
                  PolMode="I",Sols=None,PointingID=0,
                  Parallel=False,#True,
                  DoPSF=False,
-                 NCPU=6):
-
-        self.NCPU=int(GD.DicoConfig["Cluster"]["NImagEngine"])
+                 NCPU=6,
+                 IdSharedMem="",
+                 ApplyCal=False):
+        self.IdSharedMem=IdSharedMem
+        self.NCPU=int(GD.DicoConfig["Parallel"]["NCPU"])
+        self.ApplyCal=ApplyCal
         if Precision=="S":
             self.dtype=np.complex64
         elif Precision=="D":
@@ -63,7 +68,7 @@ class ClassFacetMachine():
         self.SharedNames=[]
 
     def SetLogModeSubModules(self,Mode="Silent"):
-        SubMods=["ModelBeamSVD","ClassParam","ModToolBox","ModelIonSVD2","ClassPierce"]
+        SubMods=["ModelBeamSVD","ClassParam","ModToolBox","ModelIonSVD2","ClassPierce","WTerm"]
 
         if Mode=="Silent":
             MyLogger.setSilent(SubMods)
@@ -179,14 +184,91 @@ class ClassFacetMachine():
         self.SetLogModeSubModules("Silent")
 
 
+    ############################################################################################
+    ################################ Initialisation ############################################
+    ############################################################################################
+
     def Init(self):
         if self.IsDDEGridMachineInit: return
+        self.setWisdom()
+        self.DicoGridMachine={}
+        for iFacet in self.DicoImager.keys():
+            self.DicoGridMachine[iFacet]={}
         if self.Parallel:
             self.InitParallel()
         else:
             self.InitSerial()
         self.IsDDEGridMachineInit=True
         self.SetLogModeSubModules("Loud")
+
+
+    def InitSerial(self):
+        for iFacet in sorted(self.DicoImager.keys()):
+            GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,RaDec=self.DicoImager[iFacet]["RaDec"],
+                                                                lmShift=self.DicoImager[iFacet]["lmShift"],
+                                                                IdSharedMem=self.IdSharedMem,IDFacet=iFacet,
+                                                                **self.DicoImager[iFacet]["DicoConfigGM"])
+
+            self.DicoGridMachine[iFacet]["GM"]=GridMachine
+
+    def setWisdom(self):
+        print>>log, "Set fftw widsdom for shape = %s"%str(self.PaddedGridShape)
+        a=np.random.randn(*(self.PaddedGridShape))+1j*np.random.randn(*(self.PaddedGridShape))
+        FM=ModFFTW.FFTW_2Donly(self.PaddedGridShape, np.complex64)
+        b=FM.fft(a)
+        self.FFTW_Wisdom=pyfftw.export_wisdom()
+
+    def InitParallel(self):
+
+        NCPU=self.NCPU
+
+        NFacets=len(self.DicoImager.keys())
+
+        work_queue = multiprocessing.Queue()
+        result_queue = multiprocessing.Queue()
+
+        NJobs=NFacets
+        for iFacet in range(NFacets):
+            work_queue.put(iFacet)
+
+        workerlist=[]
+        for ii in range(NCPU):
+            W=WorkerImager(work_queue, result_queue,
+                           self.GD,
+                           Mode="Init",
+                           FFTW_Wisdom=self.FFTW_Wisdom,
+                           DicoImager=self.DicoImager,
+                           IdSharedMem=self.IdSharedMem,
+                           ApplyCal=self.ApplyCal)
+            workerlist.append(W)
+            workerlist[ii].start()
+
+        #print>>log, ModColor.Str("  --- Initialising DDEGridMachines ---",col="green")
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Init ", HeaderSize=10,TitleSize=13)
+        pBAR.render(0, '%4i/%i' % (0,NFacets))
+        iResult=0
+
+        while iResult < NJobs:
+            DicoResult=result_queue.get()
+            if DicoResult["Success"]:
+                iResult+=1
+            NDone=iResult
+            intPercent=int(100*  NDone / float(NFacets))
+            pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
+
+
+        for ii in range(NCPU):
+            workerlist[ii].shutdown()
+            workerlist[ii].terminate()
+            workerlist[ii].join()
+
+            
+        return True
+
+
+    ############################################################################################
+    ############################################################################################
+    ############################################################################################
 
     def setCasaImage(self,ImageName=None):
         if ImageName==None:
@@ -210,35 +292,9 @@ class ClassFacetMachine():
     def GiveEmptyMainField(self):
         return np.zeros(self.OutImShape,dtype=np.float32)
 
-    def setWisdom(self):
-        return
-        # FFTW wisdom
-        import ModFFTW
-
-        a=np.random.randn(*(self.PaddedGridShape))+1j*np.random.randn(*(self.PaddedGridShape))
-        FM=ModFFTW.FFTW_2Donly(a.astype(np.complex128))
-        b=FM.fft(a)
-        import pyfftw
-        self.FFTW_Wisdom=pyfftw.export_wisdom()
         
         
 
-    def InitSerial(self):
-        for iFacet in sorted(self.DicoImager.keys()):
-            TransfRaDec=None
-            GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,RaDec=self.DicoImager[iFacet]["RaDec"],
-                                                                lmShift=self.DicoImager[iFacet]["lmShift"],
-                                                                **self.DicoImager[iFacet]["DicoConfigGM"])
-
-            if GridMachine.DoDDE:
-                GridMachine.setSols(self.Sols.SolsCat.time,self.Sols.SolsCat.xi)
-                GridMachine.CalcAterm()
-                Xp=GridMachine.MME.Xp
-                for Term in Xp.KeyOrderKeep:
-                    T=Xp.giveModelTerm(Term)
-                    if hasattr(T,"DelForPickle"): T.DelForPickle()
-                
-            self.DicoImager[iFacet]["GridMachine"]=GridMachine
 
 
     # def setModelIm(self,ModelIm):
@@ -253,8 +309,10 @@ class ClassFacetMachine():
         self.SetLogModeSubModules("Silent")
         if not(self.IsDDEGridMachineInit):
             self.Init()
+
         if not(self.IsDirtyInit):
             self.ReinitDirty()
+
         if self.Parallel:
             return self.CalcDirtyImagesParallel(*args,**kwargs)
         else:
@@ -274,21 +332,23 @@ class ClassFacetMachine():
         
 
         for iFacet in self.DicoImager.keys():
+            print>>log, "Gridding facet #%i"%iFacet
             uvw=uvwIn.copy()
             vis=visIn.copy()
             if self.DoPSF: vis.fill(1)
-            GridMachine=self.DicoImager[iFacet]["GridMachine"]
+            GridMachine=self.DicoGridMachine[iFacet]["GM"]
             #self.DicoImager[iFacet]["Dirty"]=GridMachine.put(times,uvw,vis,flag,A0A1,W,doStack=False)
             #self.DicoImager[iFacet]["Dirty"]=GridMachine.getDirtyIm()
             Dirty=GridMachine.put(times,uvw,vis,flag,A0A1,W,DoNormWeights=False)
             if (doStack==True)&("Dirty" in self.DicoImager[iFacet].keys()):
-                self.DicoImager[iFacet]["Dirty"]+=Dirty.copy()
+                self.DicoGridMachine[iFacet]["Dirty"]+=Dirty.copy()
             else:
-                self.DicoImager[iFacet]["Dirty"]=Dirty.copy()
+                self.DicoGridMachine[iFacet]["Dirty"]=Dirty.copy()
                 
-            self.DicoImager[iFacet]["Weights"]=GridMachine.SumWeigths
+            self.DicoGridMachine[iFacet]["Weights"]=GridMachine.SumWeigths
+            print>>log, "Gridding facet #%i: done"%iFacet
 
-        ThisSumWeights=self.DicoImager[0]["Weights"]
+        ThisSumWeights=self.DicoGridMachine[0]["Weights"]
         self.SumWeights+=ThisSumWeights
         print self.SumWeights
 
@@ -299,7 +359,7 @@ class ClassFacetMachine():
             x0,x1,y0,y1=self.DicoImager[iFacet]["pixExtent"]
             for ch in range(nch):
                 for pol in range(npol):
-                    Image[ch,pol,x0:x1,y0:y1]=self.DicoImager[iFacet]["Dirty"][ch,pol][::-1,:].T.real
+                    Image[ch,pol,x0:x1,y0:y1]=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real
         # for ch in range(nch):
         #     for pol in range(npol):
         #         self.Image[ch,pol]=self.Image[ch,pol].T[::-1,:]
@@ -326,9 +386,9 @@ class ClassFacetMachine():
         visOut=np.zeros_like(visIn)
         self.ImToFacets(ModelImage)
         for iFacet in self.DicoImager.keys():
-            uvw=uvwIn.copy()
-            vis=visIn.copy()
-            GridMachine=self.DicoImager[iFacet]["GridMachine"]
+            uvw=uvwIn#.copy()
+            vis=visIn#.copy()
+            GridMachine=self.DicoGridMachine[iFacet]["GM"]
             ModelIm=self.DicoImager[iFacet]["ModelFacet"]
             vis=GridMachine.get(times,uvw,vis,flags,A0A1,ModelIm)
             #self.DicoImager[iFacet]["Predict"]=vis
@@ -338,242 +398,132 @@ class ClassFacetMachine():
     def ReinitDirty(self):
         self.SumWeights.fill(0)
         self.IsDirtyInit=True
-        for iFacet in self.DicoImager.keys():
-            if "Dirty" in self.DicoImager[iFacet].keys():
-                self.DicoImager[iFacet]["Dirty"].fill(0)
-            if "GridMachine" in self.DicoImager[iFacet].keys():
-                self.DicoImager[iFacet]["GridMachine"].reinitGrid() # reinitialise sumWeights
-        if self.Parallel:
-            V=self.IM.CI.E.GiveSubCluster("Imag")["V"]
-            LaunchAndCheck(V,'execfile("%s/Scripts/ScriptReinitGrids.py")'%self.GD.HYPERCAL_DIR)
+        for iFacet in self.DicoGridMachine.keys():
+            if "Dirty" in self.DicoGridMachine[iFacet].keys():
+                self.DicoGridMachine[iFacet]["Dirty"].fill(0)
+            if "GM" in self.DicoGridMachine[iFacet].keys():
+                self.DicoGridMachine[iFacet]["GM"].reinitGrid() # reinitialise sumWeights
+        # if self.Parallel:
+        #     V=self.IM.CI.E.GiveSubCluster("Imag")["V"]
+        #     LaunchAndCheck(V,'execfile("%s/Scripts/ScriptReinitGrids.py")'%self.GD.HYPERCAL_DIR)
 
     def CalcDirtyImagesParallel(self,times,uvwIn,visIn,flag,A0A1,W=None,doStack=True):
         
         
         NCPU=self.NCPU
 
-        #print "CalcDirtyImagesParallel 0"; self.IM.CI.E.clear()
         NFacets=len(self.DicoImager.keys())
-        irc=self.IM.CI.E.GiveSubCluster("Imag")["ids"]
-        V=self.IM.CI.E.GiveSubCluster("Imag")["V"]
-        E=self.IM.CI.E
 
-        V["ApplyCal"]=True
-        if self.DoPSF:
-            visIn.fill(1)
-            V["ApplyCal"]=False
-             
-        #vis=visIn.copy()
-        LaunchAndCheck(V,'execfile("%s/Scripts/ScriptClearDicoImager.py")'%self.GD.HYPERCAL_DIR,Progress=True,TitlePBAR="Clear DicoImager")
-        #LaunchAndCheck(V,'execfile("%s/DDFacet/Scripts/ScriptInspectSizes.py")'%self.GD.HYPERCAL_DIR,Progress=True,TitlePBAR="Inspect object")
-        #print V["DicoSizes"]
+        work_queue = multiprocessing.Queue()
+        result_queue = multiprocessing.Queue()
 
-        if not(self.GD.DicoConfig["Files"]["VisInSharedMem"]):
-            ##### sending data
-            SendAndCheck(V,"times",times,TitlePBAR="Send times",Progress=True)
-            SendAndCheck(V,"uvw",uvwIn,TitlePBAR="Send uvw",Progress=True)
-            SendAndCheck(V,"vis",vis,TitlePBAR="Send vis",Progress=True)
-            SendAndCheck(V,"flags",flag,TitlePBAR="Send flag",Progress=True)
-            SendAndCheck(V,"A0A1",A0A1,TitlePBAR="Send A0A1",Progress=True)
-            SendAndCheck(V,"W",W,TitlePBAR="Send Weights",Progress=True)
-            V["UseShared"]=False
+        if self.DoPSF: visIn.fill(1)
+        NJobs=NFacets
+        for iFacet in range(NFacets):
+            work_queue.put(iFacet)
 
-        ##### grid
+        workerlist=[]
+        for ii in range(NCPU):
+            W=WorkerImager(work_queue, result_queue,
+                           self.GD,
+                           Mode="Grid",
+                           FFTW_Wisdom=self.FFTW_Wisdom,
+                           DicoImager=self.DicoImager,
+                           IdSharedMem=self.IdSharedMem,
+                           ApplyCal=self.ApplyCal)
+            workerlist.append(W)
+            workerlist[ii].start()
 
-        LaunchAndCheck(V,'execfile("%s/Scripts/ScriptGrid.py")'%self.GD.HYPERCAL_DIR,Progress=True,TitlePBAR="Grid data")
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Gridding ", HeaderSize=10,TitleSize=13)
+        pBAR.render(0, '%4i/%i' % (0,NFacets))
+        iResult=0
+        while iResult < NJobs:
+            DicoResult=result_queue.get()
+            if DicoResult["Success"]:
+                iResult+=1
+            iFacet=DicoResult["iFacet"]
+            if iFacet==0:
+                ThisSumWeights=DicoResult["Weights"]
+                self.SumWeights+=ThisSumWeights
+            ThisDirty=DicoResult["Dirty"]
+            if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
+                self.DicoGridMachine[iFacet]["Dirty"]+=ThisDirty
+            else:
+                self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty
+            NDone=iResult
+            intPercent=int(100*  NDone / float(NFacets))
+            pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
 
-        V.execute("LFacets=DicoImager.keys()")
-        LFacets=V["LFacets"]
 
+        for ii in range(NCPU):
+            workerlist[ii].shutdown()
+            workerlist[ii].terminate()
+            workerlist[ii].join()
 
-        iFacet=LFacets[0][0]
-        E.rc[irc[0]].execute('Wtot=DicoImager[%i]["Weights"]'%iFacet)
-        
-        ThisSumWeights=E.rc[irc[0]].get("Wtot")
-        self.SumWeights+=ThisSumWeights
-        
-        
-        for iEngine in range(len(irc)):
-            ThisRC=E.rc[irc[iEngine]]
-            L_iFacets=LFacets[iEngine]
-            for iFacet in L_iFacets:
-                ThisRC.push({"iFacet":iFacet})
-                r=ThisRC.execute('Dirty=DicoImager[iFacet]["Dirty"]')#; r.wait(); print r.get()
-                ThisDirty=ThisRC.get("Dirty")
-                ThisDirty.setflags(write=True)
-                if (doStack==True)&("Dirty" in self.DicoImager[iFacet].keys()):
-                    self.DicoImager[iFacet]["Dirty"]+=ThisDirty
-                else:
-                    self.DicoImager[iFacet]["Dirty"]=ThisDirty
-                r=ThisRC.execute('del(DicoImager[iFacet]["Dirty"])')#; r.wait(); print r.get()
-                #r=ThisRC.execute('del(D)')#; r.wait(); print r.get()
-        LaunchAndCheck(V,'del(Dirty)')
-        #LaunchAndCheck(V,'del(DicoImager)')
-        
-                
-        #print "CalcDirtyImagesParallel 9"; self.IM.CI.E.clear()
-        E.clear()
-        
-    def reset(self):
-        irc=self.IM.CI.E.GiveSubCluster("Imag")["ids"]
-        V=self.IM.CI.E.GiveSubCluster("Imag")["V"]
-        E=self.IM.CI.E
-        V.execute("ll=%who_ls")
-        ll=V["ll"]
-        for var in ll[0]:
-            print var
-            V.execute("%reset_selective -f "+var)
-            time.sleep(1)
             
+        return True
+
+
+
         
+   
 
 
     def GiveVisParallel(self,times,uvwIn,visIn,flag,A0A1,ModelImage):
         NCPU=self.NCPU
-        visOut=np.zeros_like(visIn)
+        #visOut=np.zeros_like(visIn)
 
-        irc=self.IM.CI.E.GiveSubCluster("Imag")["ids"]
-        V=self.IM.CI.E.GiveSubCluster("Imag")["V"]
-        E=self.IM.CI.E
         self.ImToFacets(ModelImage)
-        
-        V.execute("LFacets=DicoImager.keys()")
-        LFacets=V["LFacets"]
-
-        if not(self.GD.DicoConfig["Files"]["VisInSharedMem"]):
-        #     ##### sharing data
-        #     self.ClearSharedMemory()
-        #     print>>log, ModColor.Str("Sharing data: start")
-        #     PrefixShared="SharedVis"
-        #     times=NpShared.ToShared("%s.times"%PrefixShared,times); self.SharedNames.append("%s.times"%PrefixShared)
-        #     uvw=NpShared.ToShared("%s.uvw"%PrefixShared,uvwIn); self.SharedNames.append("%s.uvw"%PrefixShared)
-        #     visOut=NpShared.ToShared("%s.vis"%PrefixShared,np.complex128(visOut)); self.SharedNames.append("%s.vis"%PrefixShared)
-        #     flag=NpShared.ToShared("%s.flag"%PrefixShared,flag); self.SharedNames.append("%s.flag"%PrefixShared)
-        #     A0,A1=A0A1
-        #     A0=NpShared.ToShared("%s.A0"%PrefixShared,A0); self.SharedNames.append("%s.A0"%PrefixShared)
-        #     A1=NpShared.ToShared("%s.A1"%PrefixShared,A1); self.SharedNames.append("%s.A1"%PrefixShared)
-        #     V["UseShared"]=True
-        #     V["PrefixShared"]=PrefixShared
-        #     print>>log, ModColor.Str("Sharing data: done")
-        # else:
-            ##### sending data
-            SendAndCheck(V,"times",times,TitlePBAR="Send times",Progress=True)
-            SendAndCheck(V,"uvw",uvwIn,TitlePBAR="Send uvw",Progress=True)
-            SendAndCheck(V,"vis",visIn,TitlePBAR="Send vis",Progress=True)
-            SendAndCheck(V,"flags",flag,TitlePBAR="Send flag",Progress=True)
-            SendAndCheck(V,"A0A1",A0A1,TitlePBAR="Send A0A1",Progress=True)
-            V["UseShared"]=False
-
-        
-        ##### send facets
-        for iEngine in range(len(irc)):
-            ThisRC=E.rc[irc[iEngine]]
-            L_iFacets=LFacets[iEngine]
-            for iFacet in L_iFacets:
-                #ThisModelName="ModelFacet%3.3i"%iFacet
-                ThisModelName="ModelFacet"
-                ThisRC.push({ThisModelName:self.DicoImager[iFacet]["ModelFacet"]})
-                print iFacet,self.DicoImager[iFacet]["ModelFacet"].max()
-                r=ThisRC.execute('DicoImager[%i]["ModelFacet"]=%s'%(iFacet,ThisModelName))#; r.wait(); print r.get()
-
-
-        nRows=uvwIn.shape[0]
-        V["Row0"]=0
-        V["Row1"]=nRows
-        LaunchAndCheck(V,'execfile("%s/Scripts/ScriptDeGrid.py")'%self.GD.HYPERCAL_DIR,Progress=True,TitlePBAR="DeGrid data")
-
-        # UseShared=True
-        # PrefixShared=self.PrefixShared        
-        # execfile("%s/DDFacet/Scripts/ScriptDeGrid.py")%self.GD.HYPERCAL_DIR
-
-
-        # ##### MapRows
-        # nRows=uvwIn.shape[0]
-        # nEng=nCycle=len(irc)
-        # MapRows0=np.linspace(0,nRows,nEng+1)
-        # V["vis"]=None
-        # V["UseShared"]=True
-
-        # for iCycle in range(nCycle):
-        #     MapRows=np.roll(MapRows0,iCycle)
-        #     for iEngine in range(len(irc)):
-        #         ThisRC=E.rc[irc[iEngine]]
-        #         L_iFacets=LFacets[iEngine]
-        #         Rows=MapRows[iEngine:iEngine+2]
-        #         Row0,Row1=Rows.min(),Rows.max()
-        #         for iFacet in L_iFacets:
-        #             #ThisModelName="ModelFacet%3.3i"%iFacet
-        #             ThisModelName="ModelFacet"
-        #             ThisRC.push({"Row0":Row0,"Row1":Row1})
-
-        #         # r=ThisRC.execute('execfile("%s/DDFacet/Scripts/ScriptDeGrid.py"'); r.wait()
-        #         # visThis=NpShared.GiveArray("%s.predict_data"%self.PrefixShared)
-        #         # print L_iFacets, np.max(visThis)
-
-        # #         if L_iFacets[0]==4:
-        # #             r=ThisRC.execute('execfile("%s/DDFacet/Scripts/ScriptDeGrid.py")'%self.GD.HYPERCAL_DIR); r.wait(); print r.get()
-        # #             visThis=NpShared.GiveArray("%s.predict_data"%self.PrefixShared)
-        # # #             print L_iFacets, np.max(visThis)
-        # # #             print ThisRC.get("vis")
-        # # # stop
-
-        #     LaunchAndCheck(V,'execfile("%s/DDFacet/Scripts/ScriptDeGrid.py")'%self.GD.HYPERCAL_DIR,Progress=True,TitlePBAR="DeGrid data")
-            
-    
-        # ##### degrid
-        # for iEngine in range(len(irc)):
-        #     ThisRC=E.rc[irc[iEngine]]
-        #     L_iFacets=LFacets[iEngine]
-        #     for iFacet in L_iFacets:
-        #         ThisRC.execute('Vis=DicoImager[%i]["PredictVis"]'%(iFacet))
-        #         visOut+=ThisRC.get("Vis")
-        #         ThisRC.execute("del(Vis)")
-        # E.clear()
-        
-        return visOut
-
-        
-
-    def InitParallel(self):
-
-        #print "Init00"; self.IM.CI.E.clear()
-        NCPU=self.NCPU
-
         NFacets=len(self.DicoImager.keys())
-        irc=self.IM.CI.E.GiveSubCluster("Imag")["ids"]
-        V=self.IM.CI.E.GiveSubCluster("Imag")["V"]
+        ListModelImage=[]
+        for iFacet in self.DicoImager.keys():
+            ListModelImage.append(self.DicoImager[iFacet]["ModelFacet"])
+        NpShared.PackListArray("%sModelImage"%self.IdSharedMem,ListModelImage)
 
-        #print "Init01"; self.IM.CI.E.clear()
 
-        LaunchAndCheck(V,'DicoImager={}')
 
-        #print "Init0"; self.IM.CI.E.clear()
-        V["FFTW_Wisdom"]=None#self.FFTW_Wisdom
-        E=self.IM.CI.E
-        iFacet=0
-        IDDico=0
-        iEngine=0
-        while iFacet<NFacets:
-            ThisRC=E.rc[irc[iEngine]]
-            ThisRC.push({"Dico%3.3i"%IDDico:self.DicoImager[iFacet]})
-            #print "DicoImager[%i]=Dico%3.3i"%(iFacet,IDDico)
-            r=ThisRC.execute("DicoImager[%i]=Dico%3.3i"%(iFacet,IDDico))#; r.wait()#; print r.get()
-            iFacet+=1
-            iEngine+=1
-            IDDico+=1
-            #print iFacet,iEngine,IDDico
-            if iEngine%NCPU==0:
-                iEngine=0
+        work_queue = multiprocessing.Queue()
+        result_queue = multiprocessing.Queue()
+
+        NJobs=NFacets
+        for iFacet in range(NFacets):
+            work_queue.put(iFacet)
+
+        workerlist=[]
+        for ii in range(NCPU):
+            W=WorkerImager(work_queue, result_queue,
+                           self.GD,
+                           Mode="DeGrid",
+                           FFTW_Wisdom=self.FFTW_Wisdom,
+                           DicoImager=self.DicoImager,
+                           IdSharedMem=self.IdSharedMem,
+                           ApplyCal=self.ApplyCal)
+            workerlist.append(W)
+            workerlist[ii].start()
+
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="DeGridding ", HeaderSize=10,TitleSize=13)
+        pBAR.render(0, '%4i/%i' % (0,NFacets))
+        iResult=0
+        while iResult < NJobs:
+            DicoResult=result_queue.get()
+            if DicoResult["Success"]:
+                iResult+=1
+            NDone=iResult
+            intPercent=int(100*  NDone / float(NFacets))
+            pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
+
+
+
+        for ii in range(NCPU):
+            workerlist[ii].shutdown()
+            workerlist[ii].terminate()
+            workerlist[ii].join()
+
+            
+        return True
+
         
-        #print "Init1"; self.IM.CI.E.clear()
-        SendAndCheck(V,"GD",self.GD,TitlePBAR="Send GD",Progress=True)
-        SendAndCheck(V,"MDC",self.GD,TitlePBAR="Send MDC",Progress=True)
-        LaunchAndCheck(V,'execfile("%s/Scripts/ScriptInitFacets.py")'%self.GD.HYPERCAL_DIR,Progress=True,TitlePBAR="Init GridMachine")
-        #        print "Init2"
-        #self.IM.CI.E.clear()
 
-            # if self.DoDDE:
-            #     ThisWorker.setSols(self.Sols.SolsCat.time,self.Sols.SolsCat.xi)
 
         
 
@@ -584,123 +534,103 @@ class ClassFacetMachine():
 class WorkerImager(multiprocessing.Process):
     def __init__(self,
                  work_queue,
-                 result_queue,DicoImager,FacetShape,FFTW_Wisdom,GD,MDC):
+                 result_queue,
+                 GD,
+                 Mode="Init",
+                 FFTW_Wisdom=None,
+                 DicoImager=None,
+                 IdSharedMem=None,
+                 ApplyCal=False):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
         self.kill_received = False
         self.exit = multiprocessing.Event()
-        self.DicoImager=DicoImager
-        self.Mode="Grid"
-        self.FacetShape=FacetShape
+        self.Mode=Mode
         self.FFTW_Wisdom=FFTW_Wisdom
         self.GD=GD
-        self.MDC=MDC
-        self.SolsXi=None
-
-    def setMode(self,Mode):
-        self.Mode=Mode
-
-    def setVis(self,times,uvw,data,flags,A0A1,W):
-        #times,uvw,data,flags,A0A1,W=ModSharedArray.SharedToNumpy([times,uvw,data,flags,A0A1,W])
-        self.uvw=uvw
-        self.data=data
-        self.flags=flags
-        self.A0A1=A0A1
-        self.times=times
-        self.W=W
-
-        
-
-    def setSols(self,times,xi):
-        self.SolsXi=xi
-        self.SolsTimes=times
-
-    def setModelImage(self,ModelIm):
-        self.ModelIm=ModelIm
+        self.DicoImager=DicoImager
+        self.IdSharedMem=IdSharedMem
+        self.ApplyCal=ApplyCal
 
     def shutdown(self):
         self.exit.set()
 
+    def GiveGM(self,iFacet):
+        GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,RaDec=self.DicoImager[iFacet]["RaDec"],
+                                                            lmShift=self.DicoImager[iFacet]["lmShift"],
+                                                            IdSharedMem=self.IdSharedMem,IDFacet=iFacet,
+                                                            **self.DicoImager[iFacet]["DicoConfigGM"])
+        return GridMachine
+        
+    def GiveDicoJonesMatrices(self):
+        DicoJonesMatrices=None
+        if self.ApplyCal:
+            DicoJonesMatrices=NpShared.SharedToDico("%skillMSSolutionFile"%self.IdSharedMem)
+            DicoClusterDirs=NpShared.SharedToDico("%sDicoClusterDirs"%self.IdSharedMem)
+            DicoJonesMatrices["DicoClusterDirs"]=DicoClusterDirs
+        return DicoJonesMatrices
+
     def run(self):
-        print multiprocessing.current_process()
+        #print multiprocessing.current_process()
         while not self.kill_received:
             try:
                 iFacet = self.work_queue.get()
             except:
                 break
-            #print "Do %i"%iFacet
+
             if self.FFTW_Wisdom!=None:
                 pyfftw.import_wisdom(self.FFTW_Wisdom)
 
 
 
             if self.Mode=="Init":
-                TransfRaDec=None
-                # GridMachine=ClassGridMachine.ClassGridMachine(ImageName="Image_%i"%iFacet,
-                #                                               TransfRaDec=TransfRaDec,
-                #                                               lmShift=self.DicoImager[iFacet]["lmShift"],
-                #                                               **self.DicoImager[iFacet]["DicoConfigGM"])
-
+                self.GiveGM(iFacet)
+                self.result_queue.put({"Success":True,"iFacet":iFacet})
                 
-                GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,self.MDC,
-                                                                    RaDec=self.DicoImager[iFacet]["RaDec"],
-                                                                    lmShift=self.DicoImager[iFacet]["lmShift"],
-                                                                    **self.DicoImager[iFacet]["DicoConfigGM"])
-                #print " %i: declare"%iFacet
-
-
-                #self.DicoImager[iFacet]["GridMachine"]=GridMachine
-                # if self.SolsXi!=None:
-                #     A0A1=self.A0A1
-                #     times=self.times
-                #     GridMachine.CalcAterm()
-
-                if GridMachine.DoDDE:
-                    GridMachine.setSols(self.SolsTimes,self.SolsXi)
-                    GridMachine.CalcAterm()
-                    Xp=GridMachine.MME.Xp
-                    for Term in Xp.KeyOrderKeep:
-                        T=Xp.giveModelTerm(Term)
-                        if hasattr(T,"DelForPickle"): T.DelForPickle()
-
-
-                self.result_queue.put({"iFacet":iFacet,"GridMachine":GridMachine})
-                
-            elif self.Mode=="CalcAterm":
-                GridMachine=self.DicoImager[iFacet]["GridMachine"]
             elif self.Mode=="Grid":
                 
-                GridMachine=self.DicoImager[iFacet]["GridMachine"]
+                GridMachine=self.GiveGM(iFacet)
+                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMem)
+                uvwThis=DATA["uvw"]
+                visThis=DATA["data"]
+                flagsThis=DATA["flags"]
+                times=DATA["times"]
+                A0=DATA["A0"]
+                A1=DATA["A1"]
+                A0A1=A0,A1
+                W=DATA["Weights"]
 
-                uvw=self.uvw.copy()
-                vis=self.data.copy()
-                flags=self.flags
-                A0A1=self.A0A1
-                times=self.times
-                W=self.W
-                Dirty=GridMachine.put(times,uvw,vis,flags,A0A1,W,doStack=False)
-                #Dirty=GridMachine.getDirtyIm()
-                self.result_queue.put({"iFacet":iFacet,"Dirty":Dirty})
+                DicoJonesMatrices=self.GiveDicoJonesMatrices()
 
-            elif self.Mode=="Predict":
+                Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices)#,doStack=False)
+
+                self.result_queue.put({"Success":True,"iFacet":iFacet,"Dirty":Dirty,"Weights":GridMachine.SumWeigths})
+
+            elif self.Mode=="DeGrid":
                 
-                GridMachine=self.DicoImager[iFacet]["GridMachine"]
-                uvw=self.uvw
-                vis=self.data.copy()
-                flags=self.flags
-                A0A1=self.A0A1
-                times=self.times
-
-                # x0,x1,y0,y1=self.DicoImager[iFacet]["pixExtent"]
-                # nch,npol,NpixFacet,NpixFacet=self.FacetShape
-                # ModelIm=np.zeros((nch,npol,NpixFacet,NpixFacet),dtype=np.float32)
-                # for ch in range(nch):
-                #     for pol in range(npol):
-                #         ModelIm[ch,pol]=self.ModelIm[ch,pol,x0:x1,y0:y1].T[::-1,:].real
-
-                #GridMachine.setModelIm(ModelIm)
-                ModelIm=self.DicoImager[iFacet]["ModelFacet"]
-                vis=GridMachine.get(times,uvw,vis,flags,A0A1,ModelIm)
-                self.result_queue.put({"iFacet":iFacet,"Vis":vis})
+                GridMachine=self.GiveGM(iFacet)
+                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMem)
+                uvwThis=DATA["uvw"]
+                #visThis=DATA["data"]
+                PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
+                visThis=NpShared.GiveArray(PredictedDataName)
+                flagsThis=DATA["flags"]
+                times=DATA["times"]
+                A0=DATA["A0"]
+                A1=DATA["A1"]
+                A0A1=A0,A1
+                W=DATA["Weights"]
+                
+                DicoJonesMatrices=self.GiveDicoJonesMatrices()
+                ModelIm=NpShared.UnPackListArray("%sModelImage"%self.IdSharedMem)[iFacet]
+                vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelIm,DicoJonesMatrices=DicoJonesMatrices)
+                self.result_queue.put({"Success":True,"iFacet":iFacet})
 #            print "Done %i"%iFacet
+
+
+
+
+
+
+

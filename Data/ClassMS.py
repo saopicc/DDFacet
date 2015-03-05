@@ -1,12 +1,15 @@
 import numpy as np
 from pyrap.tables import table
 from rad2hmsdms import rad2hmsdms
-import ModColor
-import reformat
+from Other import ModColor
+from Other import reformat
 import os
 import pyrap.quanta as qa
 import pyrap.measures as pm
 import ephem
+from Other import MyLogger
+log=MyLogger.getLogger("ClassMS")
+from Other import ClassTimeIt
 
 class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
@@ -27,6 +30,8 @@ class ClassMS():
         self.DelStationList=DelStationList
         self.ReadMSInfo(MSname,DoPrint=DoPrint)
         self.LFlaggedStations=[]
+
+        self.CurrentChunkTimeRange_SinceT0_sec=None
         try:
             self.LoadLOFAR_ANTENNA_FIELD()
         except:
@@ -94,7 +99,7 @@ class ClassMS():
 
     def PutLOFARKeys(self):
         keys=["LOFAR_ELEMENT_FAILURE", "LOFAR_STATION", "LOFAR_ANTENNA_FIELD"]
-        t=table(self.MSName,ack=False,readonly=False)
+        t=table(self.MSName,ack=False)
         for key in keys:
             t.putkeyword(key,'Table: %s/%s'%(self.MSName,key))
         t.close()
@@ -121,7 +126,7 @@ class ClassMS():
         import lofar.stationresponse as lsr
         f=self.ChanFreq.flatten()
         if f.shape[0]>1:
-            t=table(self.MSName+"/SPECTRAL_WINDOW/",readonly=False)
+            t=table(self.MSName+"/SPECTRAL_WINDOW/",ack=False)
             c=t.getcol("CHAN_WIDTH")
             c.fill(np.abs((f[0:-1]-f[1::])[0]))
             t.putcol("CHAN_WIDTH",c)
@@ -145,7 +150,7 @@ class ClassMS():
 
     def LoadLOFAR_ANTENNA_FIELD(self):
         t=table("%s/LOFAR_ANTENNA_FIELD"%self.MSName,ack=False)
-        print ModColor.Str(" ... Loading LOFAR_ANTENNA_FIELD table...")
+        #print>>log, ModColor.Str(" ... Loading LOFAR_ANTENNA_FIELD table...")
         na,NTiles,dummy=t.getcol("ELEMENT_OFFSET").shape
 
         try:
@@ -197,7 +202,7 @@ class ClassMS():
 
         #ListStrSel=["RT9-RTA", "RTA-RTB", "RTC-RTD", "RT6-RT7", "RT5"]
 
-        print ModColor.Str("  ... Building BL-mapping for %s"%str(ListStrSel))
+        print>>log, ModColor.Str("  ... Building BL-mapping for %s"%str(ListStrSel))
 
         if row1==None:
             row0=0
@@ -311,25 +316,45 @@ class ClassMS():
                 
         
     def ReadData(self,t0=0,t1=-1,DoPrint=False,ReadWeight=False):
+
+
+
         if DoPrint==True:
             print "   ... Reading MS"
+
+
+
         row0=0
         row1=self.F_nrows
+
+
         if t1>t0:
-            t0=t0*3600.+self.F_tstart
-            t1=t1*3600.+self.F_tstart
-            ind0=np.argmin(np.abs(t0-self.F_times))
-            ind1=np.argmin(np.abs(t1-self.F_times))
+
+            t0=t0*3600.
+            t1=t1*3600.
+            self.CurrentChunkTimeRange_SinceT0_sec=(t0,t1)
+            t0=t0+self.F_tstart            
+            t1=t1+self.F_tstart
+
+            #ind0=np.argmin(np.abs(t0-self.F_times))
+            #ind1=np.argmin(np.abs(t1-self.F_times))
+
+            ind0=np.where((t0-self.F_times)<=0)[0][0]
             row0=ind0*self.nbl
-            row1=ind1*self.nbl
+
+            ind1=np.where((t1-self.F_times)<0)[0]
+            if ind1.size==0:
+                row1=self.F_nrows
+            else:
+                ind1=ind1[0]
+                row1=ind1*self.nbl
 
         self.ROW0=row0
         self.ROW1=row1
         self.nRowRead=row1-row0
         nRowRead=self.nRowRead
 
-        table_all=table(self.MSName,ack=False,readonly=False)
-        self.ColNames=table_all.colnames()
+        table_all=table(self.MSName,ack=False)
         SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead)
         A0=table_all.getcol('ANTENNA1',row0,nRowRead)[SPW==self.ListSPW[0]]
         A1=table_all.getcol('ANTENNA2',row0,nRowRead)[SPW==self.ListSPW[0]]
@@ -472,7 +497,6 @@ class ClassMS():
         
 
     def ReadMSInfo(self,MSname,DoPrint=True):
-        import ClassTimeIt
         T=ClassTimeIt.ClassTimeIt()
         T.enableIncr()
         T.disable()
@@ -489,7 +513,8 @@ class ClassMS():
         T.timeit()
 
 
-        table_all=table(MSname,ack=False,readonly=False)
+        table_all=table(MSname,ack=False)
+        self.ColNames=table_all.colnames()
         SPW=table_all.getcol('DATA_DESC_ID')
         if self.SelectSPW!=None:
             self.ListSPW=self.SelectSPW
@@ -586,22 +611,25 @@ class ClassMS():
         # self.StrRADEC=(rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
         #                ,rad2hmsdms(self.decrad,Type="dec").replace(" ","."))
 
-        if DoPrint==True:
-            print ModColor.Str(" MS PROPERTIES: ")
-            print "   - File Name: %s"%ModColor.Str(self.MSName,col="green")
-            print "   - Column Name: %s"%ModColor.Str(str(self.ColName),col="green")
-            print "   - Pointing center: (ra, dec)=(%s, %s) "%(rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
-                                                                   ,rad2hmsdms(self.decrad,Type="dec").replace(" ","."))
-            print "   - Frequency = %s MHz"%str(reffreq/1e6)
-            print "   - Wavelength = ",wavelength," meters"
-            print "   - Time bin = %4.1f seconds"%(self.dt)
-            print "   - Total Integration time = %6.2f hours"%((F_time_all[-1]-F_time_all[0])/3600.)
-            print "   - Number of antenna  = ",na
-            print "   - Number of baseline = ",nbl
-            print "   - Number of SPW = ",NSPW
-            print "   - Number of channels = ",Nchan
-            print 
 
+    def __str__(self):
+        ll=[]
+        ll.append(ModColor.Str(" MS PROPERTIES: "))
+        ll.append("   - File Name: %s"%ModColor.Str(self.MSName,col="green"))
+        ll.append("   - Column Name: %s"%ModColor.Str(str(self.ColName),col="green"))
+        ll.append("   - Pointing center: (ra, dec)=(%s, %s) "%(rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
+                                                               ,rad2hmsdms(self.decrad,Type="dec").replace(" ",".")))
+        ll.append("   - Frequency = %s MHz"%str(self.reffreq/1e6))
+        ll.append("   - Wavelength = %5.2f meters"%(np.mean(self.wavelength_chan)))
+        ll.append("   - Time bin = %4.1f seconds"%(self.dt))
+        ll.append("   - Total Integration time = %6.2f hours"%self.DTh)
+        ll.append("   - Number of antenna  = %i"%self.na)
+        ll.append("   - Number of baseline = %i"%self.nbl)
+        ll.append("   - Number of SPW = %i"%self.NSPW)
+        ll.append("   - Number of channels = %i"%self.Nchan)
+        
+        ss="\n".join(ll)+"\n"
+        return ss
 
     def radec2lm_scalar(self,ra,dec):
         l = np.cos(dec) * np.sin(ra - self.rarad)
@@ -611,7 +639,7 @@ class ClassMS():
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
         if vis==None:
             vis=self.data
-        if DoPrint: print "  Writting data in column %s"%ModColor.Str(Col,col="green")
+        if DoPrint: print>>log, "Writting data in column %s"%ModColor.Str(Col,col="green")
         table_all=table(self.MSName,ack=False,readonly=False)
 
         if self.swapped:
@@ -694,10 +722,10 @@ class ClassMS():
         backnameFlag="FLAG_BACKUP"
         t=table(self.MSName,readonly=False,ack=False)
         if backname in t.colnames():
-            print "  Copying ",backname," to CORRECTED_DATA"
+            print>>log, "  Copying ",backname," to CORRECTED_DATA"
             #t.putcol("CORRECTED_DATA",t.getcol(backname))
             self.CopyCol(backname,"CORRECTED_DATA")
-            print "  Copying ",backnameFlag," to FLAG"
+            print>>log, "  Copying ",backnameFlag," to FLAG"
             self.CopyCol(backnameFlag,"FLAG")
             #t.putcol(,t.getcol(backnameFlag))
         t.close()
@@ -716,15 +744,15 @@ class ClassMS():
     def CopyCol(self,Colin,Colout):
         t=table(self.MSName,readonly=False,ack=False)
         if self.TimeChunkSize==None:
-            print "  ... Copying column %s to %s"%(Colin,Colout)
+            print>>log, "  ... Copying column %s to %s"%(Colin,Colout)
             t.putcol(Colout,t.getcol(Colin))
         else:
-            print "  ... Copying column %s to %s"%(Colin,Colout)
+            print>>log, "  ... Copying column %s to %s"%(Colin,Colout)
             TimesInt=np.arange(0,self.DTh,self.TimeChunkSize).tolist()
             if not(self.DTh in TimesInt): TimesInt.append(self.DTh)
             for i in range(len(TimesInt)-1):
                 t0,t1=TimesInt[i],TimesInt[i+1]
-                print t0,t1
+                print>>log, "      ... Copy in [%5.2f,%5.2f] hours"%( t0,t1)
                 t0=t0*3600.+self.F_tstart
                 t1=t1*3600.+self.F_tstart
                 ind0=np.argmin(np.abs(t0-self.F_times))
@@ -736,37 +764,38 @@ class ClassMS():
         t.close()
 
         
-    def PutBackupCol(self,back="CORRECTED_DATA"):
-        backname="%s_BACKUP"%back
+    def PutBackupCol(self,incol="CORRECTED_DATA"):
+        backname="%s_BACKUP"%incol
         backnameFlag="FLAG_BACKUP"
         self.PutCasaCols()
         t=table(self.MSName,readonly=False,ack=False)
         JustAdded=False
         if not(backname in t.colnames()):
-            print "  Putting column ",backname," in MS"
+            print>>log, "  Putting column ",backname," in MS"
             desc=t.getcoldesc("CORRECTED_DATA")
             desc["name"]=backname
             desc['comment']=desc['comment'].replace(" ","_")
             t.addcols(desc)
-            print "  Copying CORRECTED_DATA in CORRECTED_DATA_BACKUP"
-            self.CopyCol("CORRECTED_DATA",backname)
-            #t.putcol(backname,t.getcol("CORRECTED_DATA"))
+            print>>log, "  Copying %s in %s"%(incol,backname)
+            self.CopyCol(incol,backname)
+        else:
+            print>>log, "  Column %s already there"%(backname)
+
         if not(backnameFlag in t.colnames()):
             desc=t.getcoldesc("FLAG")
             desc["name"]=backnameFlag
             desc['comment']=desc['comment'].replace(" ","_")
             t.addcols(desc)
             self.CopyCol("FLAG",backnameFlag)
-            #t.putcol(backnameFlag,t.getcol("FLAG"))
+
             JustAdded=True
-        #else:
-            #print "  Column %s already there..."%backname
+
         t.close()
         return JustAdded
 
     def PutNewCol(self,Name,LikeCol="CORRECTED_DATA"):
         if not(Name in self.ColNames):
-            print "  Putting column %s in MS, with format of %s"%(Name,LikeCol)
+            print>>log, "  Putting column %s in MS, with format of %s"%(Name,LikeCol)
             t=table(self.MSName,readonly=False,ack=False)
             desc=t.getcoldesc(LikeCol)
             desc["name"]=Name

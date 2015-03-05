@@ -4,9 +4,9 @@ import numpy as np
 import ClassTimeIt
 from scipy.interpolate import interp1d as interp
 import ModToolBox
-
+import NpShared
 import MyLogger
-log=MyLogger.getLogger("ModCF",disable=True)
+log=MyLogger.getLogger("WTerm")#,disable=True)
 
 
 F2=scipy.fftpack.fft2
@@ -87,9 +87,10 @@ def MakeSphe(Support,NpixIm):
     # pylab.imshow(ifzfCF.imag)
     # pylab.colorbar()
     # pylab.draw()
-    # pylab.show()
-    # stop
-    ###############
+    # pylab.show(False)
+    # pylab.pause(0.1)
+
+    
 
     return CF, fCF, ifzfCF
 
@@ -122,100 +123,245 @@ def Give_dn(l0,m0,rad=1.,order=4):
 
 
 class ClassWTermModified():
-    def __init__(self,Cell=10,Sup=15,Nw=11,wmax=30000,Npix=101,Freqs=np.array([100.e6]),OverS=11,lmShift=None):
+    def __init__(self,Cell=10,Sup=15,Nw=11,wmax=30000,Npix=101,Freqs=np.array([100.e6]),OverS=11,lmShift=None,
+                 IdSharedMem="",
+                 IDFacet=None):
 
-
-        Nw=int(Nw)
-        T=ClassTimeIt.ClassTimeIt("Wterm")
-        self.CF, self.fCF, self.ifzfCF= MakeSphe(Sup,Npix)
+        self.Nw=int(Nw)
+        self.Cell=Cell
+        self.Sup=Sup
+        self.wmax=wmax
+        self.Nw=Nw
+        self.Npix=Npix
+        self.Freqs=Freqs
         self.OverS=OverS
+        self.lmShift=lmShift
+        self.IDFacet=IDFacet
+        self.IdSharedMem=IdSharedMem
+        self.SharedMemName="%sWTerm.Facet_%3.3i"%(self.IdSharedMem,self.IDFacet)
+
+        if self.IDFacet==None:
+            self.InitSphe()
+            self.InitW()
+        else:
+            Exists=NpShared.Exists(self.SharedMemName)
+            if Exists:
+                self.FromShared()
+            else:
+                self.InitSphe()
+                self.InitW()
+                self.ToShared()
+        Freqs=self.Freqs
+        C=299792458.
+        waveMin=C/Freqs[-1]
+        self.RefWave=waveMin
 
 
+    def ToShared(self):
+        print>>log, "Saving WTerm in shared memory (%s)"%self.SharedMemName
+        dS=np.complex64
+        LArrays=[dS(self.ifzfCF)]
+        CuCv=np.array([self.Cu,self.Cv,self.Cu,self.Cv],dtype=dS).reshape(2,2)
+        LArrays.append(CuCv)
+        LArrays=LArrays+self.Wplanes
+        LArrays=LArrays+self.WplanesConj
+        NpShared.PackListSquareMatrix(self.SharedMemName,LArrays)
+
+    def FromShared(self):
+        print>>log, "Loading WTerm from shared memory (%s)"%self.SharedMemName
+        LArrays=NpShared.UnPackListSquareMatrix(self.SharedMemName)
+        dS=np.complex64
+        self.ifzfCF=LArrays[0]
+        CuCv=LArrays[1]
+        self.Cu,self.Cv=np.float64(CuCv[0,0].real),np.float64(CuCv[0,1].real)
+        self.Wplanes=LArrays[2:2+self.Nw]
+        self.WplanesConj=LArrays[2+self.Nw::]
+
+    def InitSphe(self):
+        T=ClassTimeIt.ClassTimeIt("Wterm")
+        self.CF, self.fCF, self.ifzfCF= MakeSphe(self.Sup,self.Npix)
+
+
+
+    def InitW(self):
+
+        Nw=self.Nw
+        Cell=self.Cell
+        Sup=self.Sup
+        wmax=self.wmax
+        Nw=self.Nw
+        Npix=self.Npix
+        Freqs=self.Freqs
+        OverS=self.OverS
+        lmShift=self.lmShift
+
+        T=ClassTimeIt.ClassTimeIt()
+        T.disable()
         SupMax=501
-        dummy, dummy, self.SpheW= MakeSphe(Sup,SupMax)
+        dummy, dummy, self.SpheW= MakeSphe(self.Sup,SupMax)
 
         # #print>>log, "MAX Sphe=",np.max(np.abs(self.SpheW))
         # T.timeit("initsphe")
 
         C=299792458.
-        D=Npix*Cell/3600.
-        lrad=D*0.5*np.pi/180.
+
+        RadiusDeg=((Npix)/2.)*Cell/3600.
+        lrad=RadiusDeg*np.pi/180.
+        #lrad/=1.05
+
         l,m=np.mgrid[-lrad*np.sqrt(2.):np.sqrt(2.)*lrad:SupMax*1j,-lrad*np.sqrt(2.):np.sqrt(2.)*lrad:SupMax*1j]
         n_1=np.sqrt(1.-l**2-m**2)-1
         waveMin=C/Freqs[-1]
-
+        T.timeit("0")
         W=np.exp(-2.*1j*np.pi*(wmax/waveMin)*n_1)*self.SpheW
         fW=fft2(W)
         fw1d=np.abs(fW[(SupMax-1)/2,:])
         fw1d/=np.max(fw1d)
         fw1d=fw1d[(SupMax-1)/2::]
         ind=np.argsort(fw1d)
+        T.timeit("1")
         Interp=interp(fw1d[ind],np.arange(fw1d.shape[0])[ind])
+        T.timeit("2")
 
-        SupMax=np.int64(Interp(np.array([1./10]))[0])
-        Sups=np.int64(np.linspace(self.CF.shape[0],np.max([2*SupMax,self.CF.shape[0]]),Nw))
-        # print "Supports=",Sups
+        SupMax=np.int64(Interp(np.array([1./1000]))[0])
+        Sups=np.int64(np.linspace(self.CF.shape[0],np.max([SupMax,self.CF.shape[0]]),Nw))
+        #print "Supports=",Sups
         self.Sups=Sups
         #Sups=np.ones((Nw,),int)*Sup
+        T.timeit("3")
 
         w=np.linspace(0,wmax,Nw)
         Wplanes=[]
         WplanesConj=[]
         l0,m0=0.,0.
-
+        
         if lmShift!=None:
             l0,m0=lmShift
 
         rad=3*lrad
         #print "do FIT"
         self.Cv,self.Cu,CoefPoly=Give_dn(l0,m0,rad=rad,order=5)
+        #print self.IDFacet,l0,m0,self.Cv,self.Cu
+        import ModFFTW
+        
 
         #print "done FIT"
 
         for i in range(Nw):
             if not(Sups[i]%2): Sups[i]+=1
             dummy, dymmy, ThisSphe= MakeSphe(Sup,Sups[i])
-
-            # l,m=np.mgrid[-lrad:lrad:Sups[i]*1j,-lrad:lrad:Sups[i]*1j]
-            # #n_1=np.sqrt(1.-l**2-m**2)-1
-            # n_1=ToolsDir.ModFitPoly2D.polyval2d(l, m, CoefPoly)
-            # # import pylab
-            # # pylab.clf()
-            # # pylab.imshow(n_1,interpolation="nearest",extent=(l.min(),l.max(),m.min(),m.max()))
-            # # pylab.draw()
-            # # pylab.show(False)
-            # # stop
-            # #n_1=np.sqrt(1.-(l-l0)**2-(m-m0)**2)-1
-            # #n_1=(1./np.sqrt(1.-l0**2-m0**2))*(l0*l+m0*m)
-            # wl=w[i]/waveMin
-            # # W=np.exp(-2.*1j*np.pi*wl*(n_1))
-            # # ####
-            # # #W.fill(1.)
-            # # ####
-            # # W*=np.abs(ThisSphe)
-
-            W=ThisSphe
-
-            W=ZeroPad(W,outshape=W.shape[0]*self.OverS)
+            wl=w[i]/waveMin
             
 
-            ####
-            W=np.abs(W)
-            ####
+            # ##############
+            # l,m=np.mgrid[-lrad:lrad:Npix*1j,-lrad:lrad:Npix*1j]
+            # n_1=np.sqrt(1.-l**2-m**2)-1
+            # WTrue=np.exp(-2.*1j*np.pi*wl*(n_1))*self.ifzfCF
+            # ##############
 
-            Wconj=np.conj(W)
+            DX=2*lrad/Sups[i]
+            l,m=np.mgrid[-lrad+DX/2:lrad-DX/2:Sups[i]*1j,-lrad+DX/2:lrad-DX/2:Sups[i]*1j]
+            #l,m=np.mgrid[-lrad:lrad:Sups[i]*1j,-lrad:lrad:Sups[i]*1j]
+            #n_1=np.sqrt(1.-l**2-m**2)-1
+            n_1=ToolsDir.ModFitPoly2D.polyval2d(l, m, CoefPoly)
+            #n_1=n_1.T[::-1,:]
+            T.timeit("3a")
 
-            W=fft2(W)
-            Wconj=fft2(Wconj)
-            Wplanes.append(np.complex64(W).copy())
-            WplanesConj.append(np.complex64(Wconj).copy())
+            # stop
+            #n_1=np.sqrt(1.-(l-l0)**2-(m-m0)**2)-1
+            #n_1=(1./np.sqrt(1.-l0**2-m0**2))*(l0*l+m0*m)
+            W=np.exp(-2.*1j*np.pi*wl*(n_1))
+            #import pylab
+
+            # pylab.clf()
+            # pylab.imshow(np.angle(W),interpolation="nearest",extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
+            # pylab.draw()
+            # pylab.show(False)
+            # pylab.pause(0.1)
+            # T.timeit("3b")
+
+            # ####
+            # W.fill(1.)
+            # ####
+            W*=np.abs(ThisSphe)
+            
+            # # ####################
+            # # fW=fft2(W)
+            # # zfW=ZeroPad(fW,outshape=Npix)
+            # # WFull=ifft2(zfW)
+
+            # # # #fW=ifft2(W)
+            # # # print W.shape
+            # fWTrue=fft2(WTrue)
+            # cfWTrue=fft2(np.conj(WTrue))
+            # nc,_=fWTrue.shape
+            # xc=(nc-1)/2
+            # dx=(Sups[i]-1)/2
+            # x0,x1=xc-dx,xc+dx+1
+            # #ZfWTrue=np.zeros_like(fWTrue)
+            # #ZfWTrue[x0:x1,x0:x1]=fWTrue[x0:x1,x0:x1]
+            # fzW=fWTrue[x0:x1,x0:x1]
+            # fzWconj=cfWTrue[x0:x1,x0:x1]
+
+            # if_fzW=ifft2(fzW)
+            # cif_fzW=ifft2(fzWconj)
+            # z_if_fzW=ZeroPad(if_fzW,outshape=if_fzW.shape[0]*self.OverS)
+            # z_cif_fzW=ZeroPad(cif_fzW,outshape=if_fzW.shape[0]*self.OverS)
+            # f_z_if_fzW=fft2(z_if_fzW)
+            # f_z_cif_fzW=fft2(z_cif_fzW)
+            # # ifZfWTrue=ifft2(ZfWTrue)
+
+            # # iffWTrue=ifft2(fWTrue[x0:x1,x0:x1])
+            # # iffW=ifft2(fW)
+
+            # # pylab.clf()
+            # # pylab.subplot(1,2,1)
+            # # pylab.imshow(np.real(fzW),interpolation="nearest")#,extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
+            # # pylab.subplot(1,2,2)
+            # # pylab.imshow(np.real(f_z_if_fzW),interpolation="nearest")#,extent=(l.min(),l.max(),m.min(),m.max()),vmin=-np.pi,vmax=np.pi)
+            # # pylab.draw()
+            # # pylab.show(False)
+            # # pylab.pause(0.1)
+            # # fzW=f_z_if_fzW
+            # # fzWconj=f_z_cif_fzW
+            # # # ####################
+
+
+            # T.timeit("3c")
+
+            # # W=ThisSphe
+
+            zW=ZeroPad(W,outshape=W.shape[0]*self.OverS)
+            
+            # T.timeit("3d")
+
+            # ####
+            # # W=np.abs(W)
+            # ####
+
+            zWconj=np.conj(zW)
+
+            # #FFTWMachine=ModFFTW.FFTW_2Donly(W.shape,W.dtype, ncores = 1)
+            # #W=FFTWMachine.fft(W)
+            # #Wconj=FFTWMachine.fft(Wconj)
+            fzW=fft2(zW)
+            fzWconj=fft2(zWconj)
+
+            
+
+            # T.timeit("3e")
+            Wplanes.append(np.complex64(fzW).copy())
+            WplanesConj.append(np.complex64(fzWconj).copy())
+            # T.timeit("3f")
+
         self.Wplanes=Wplanes
         self.WplanesConj=WplanesConj
         self.Freqs=Freqs
         self.wmap=w
         self.wmax=wmax
         self.Nw=Nw
-        self.RefWave=waveMin
+
+
             
 
 class ClassWTerm():

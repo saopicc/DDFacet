@@ -16,6 +16,26 @@ import os
 import ModFitPSF
 from IPClusterDir import ClassDistributedVisServer
 from ClassData import ClassMultiPointingData,ClassSinglePointingData,ClassGlobalData
+import ClassVisServer
+
+def test():
+    Imager=ClassImagerDeconv(ParsetFile="ParsetDDFacet.txt")
+    #Imager.MakePSF()
+    #Imager.LoadPSF("PSF.image")
+    # Imager.FitPSF()
+    # Imager.main(NMajor=5)
+    # Imager.Restore()
+
+
+    Imager.Init()
+    #Model=np.zeros(Imager.FacetMachine.OutImShape,np.complex64)
+    #Model[0,0,100,100]=1
+    #Imager.GivePredict(Model)
+    #Imager.MakePSF()
+    #Imager.GiveDirty()
+    Imager.main()
+    #Imager.testDegrid()
+    return Imager
 
 class ClassImagerDeconv():
     def __init__(self,ParsetFile=None,GD=None,
@@ -31,23 +51,52 @@ class ClassImagerDeconv():
         self.PSF=None
         self.PSFGaussPars = None
         self.VisWeights=None
+        self.DATA=None
         self.Precision=self.GD.DicoConfig["Facet"]["Precision"]#"S"
         self.PolMode=self.GD.DicoConfig["Facet"]["PolMode"]
         self.HasCleaned=False
-        self.Parallel=self.GD.DicoConfig["Cluster"]["Parallel"]
-
+        self.Parallel=self.GD.DicoConfig["Parallel"]["Enable"]
+        self.IdSharedMem="CACA."
 
     def Init(self):
         DC=self.GD.DicoConfig
-        self.VS=ClassVisServer.ClassVisServer(DC["Files"]["FileMSCat"]["Name"],
+        self.InitDDESols()
+        self.VS=ClassVisServer.ClassVisServer(DC["Files"]["FileMSCat"]["Name"][0],
                                               ColName=DC["Files"]["ColName"],
-                                              TVisSizeMin=DC["Facet"]["TChunkSize"],
+                                              TVisSizeMin=DC["Facet"]["TChunkSize"]*60,
                                               #DicoSelectOptions=DicoSelectOptions,
                                               TChunkSize=DC["Facet"]["TChunkSize"],
-                                              IdSharedMem="CACA.")
+                                              IdSharedMem=self.IdSharedMem,
+                                              Robust=DC["Facet"]["Robust"],
+                                              DicoSelectOptions=DC["Select"])
         self.InitFacetMachine()
-        # self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
+        self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
 
+
+    def InitDDESols(self):
+        GD=self.GD
+        SolsFile=GD.DicoConfig["Files"]["killMSSolutionFile"]
+        self.ApplyCal=False
+        if (SolsFile!=None):#&(False):
+            self.ApplyCal=True
+            DicoSolsFile=np.load(SolsFile)
+            DicoSols={}
+            DicoSols["t0"]=DicoSolsFile["Sols"]["t0"]
+            DicoSols["t1"]=DicoSolsFile["Sols"]["t1"]
+            nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
+            G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
+            DicoSols["Jones"]=G
+            NpShared.DicoToShared("%skillMSSolutionFile"%self.IdSharedMem,DicoSols)
+            D=NpShared.SharedToDico("killMSSolutionFile")
+            ClusterCat=DicoSolsFile["ClusterCat"]
+            ClusterCat=ClusterCat.view(np.recarray)
+            DicoClusterDirs={}
+            DicoClusterDirs["l"]=ClusterCat.l
+            DicoClusterDirs["m"]=ClusterCat.m
+            DicoClusterDirs["I"]=ClusterCat.SumI
+            DicoClusterDirs["Cluster"]=ClusterCat.Cluster
+            
+            _D=NpShared.DicoToShared("%sDicoClusterDirs"%self.IdSharedMem,DicoClusterDirs)
 
     def InitFacetMachine(self):
         if self.FacetMachine!=None:
@@ -55,7 +104,8 @@ class ClassImagerDeconv():
 
         
         #print "initFacetMachine deconv0"; self.IM.CI.E.clear()
-        self.FacetMachine=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel)#,Sols=SimulSols)
+        self.FacetMachine=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
+                                                              IdSharedMem=self.IdSharedMem,ApplyCal=self.ApplyCal)#,Sols=SimulSols)
         
         #print "initFacetMachine deconv1"; self.IM.CI.E.clear()
         MainFacetOptions=self.GD.DicoConfig["Facet"]["MainFacetOptions"]
@@ -66,24 +116,45 @@ class ClassImagerDeconv():
         self.CellSizeRad=(self.FacetMachine.Cell/3600.)*np.pi/180
         self.CellArcSec=self.FacetMachine.Cell
 
+    def setNextData(self):
+        #del(self.DATA)
+        Load=self.VS.LoadNextVisChunk()
+        if Load=="EndOfObservation":
+            print>>log, ModColor.Str("Reached end of Observation")
+            return "EndOfObservation"
+
+        DATA=self.VS.GiveNextVis()
+        if DATA=="EndOfObservation":
+            print>>log, ModColor.Str("Reached end of Observation")
+            return "EndOfObservation"
+        if DATA=="EndChunk":
+            print>>log, ModColor.Str("Reached end of data chunk")
+            return "EndChunk"
+        self.DATA=DATA
+        
+        return True
+
     def MakePSF(self):
         if self.PSF!=None: return
         print>>log, ModColor.Str("   ====== Making PSF ======")
-        FacetMachinePSF=ClassFacetMachine.ClassFacetMachine(self.MDC,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,DoPSF=True)#,Sols=SimulSols)
+        FacetMachinePSF=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
+                                                            IdSharedMem=self.IdSharedMem,DoPSF=True)#,Sols=SimulSols)
         MainFacetOptions=self.GD.DicoConfig["Facet"]["MainFacetOptions"]
-        FacetMachinePSF.setInitMachine(self.IM)
         FacetMachinePSF.appendMainField(ImageName="%s.psf"%self.BaseName,**MainFacetOptions)
         FacetMachinePSF.Init()
         self.CellSizeRad=(FacetMachinePSF.Cell/3600.)*np.pi/180
         self.CellArcSec=FacetMachinePSF.Cell
 
+
         FacetMachinePSF.ReinitDirty()
 
         while True:
-            DATA=self.VS.GiveNextVisChunk()
-            if (DATA==None): break
+            Res=self.setNextData()
+            #if Res=="EndChunk": break
+            if Res=="EndOfObservation": break
+            DATA=self.DATA
 
-            FacetMachinePSF.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],DATA["A0A1"],DATA["Weights"],doStack=True)
+            FacetMachinePSF.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)
 
 
             # Image=FacetMachinePSF.FacetsToIm()
@@ -96,8 +167,7 @@ class ClassImagerDeconv():
 
         self.PSF=FacetMachinePSF.FacetsToIm()
         FacetMachinePSF.ToCasaImage()
-
-
+        
         # Image=FacetMachinePSF.FacetsToIm()
         # pylab.clf()
         # pylab.imshow(Image[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
@@ -112,6 +182,7 @@ class ClassImagerDeconv():
         pylab.draw()
         pylab.show(False)
         pylab.pause(0.1)
+        self.FitPSF()
 
         del(FacetMachinePSF)
 
@@ -123,64 +194,22 @@ class ClassImagerDeconv():
         self.CellSizeRad=(self.CellArcSec/3600.)*np.pi/180
 
 
-    def testDegrid(self):
-    
-        DATA=self.VS.GiveNextVisChunk()
-        visPredict=np.zeros_like(DATA["data"])
-        Im=np.zeros(self.FacetMachine.OutImShape,dtype=np.complex64)
-        _,_,n,n=Im.shape
-        Im[0,0,n/4,n/4]=1
-        Im[0,0,n/4,n/2]=1.
-
-            #visPredict=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],DATA["A0A1"],Im)
-
-            # self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],DATA["A0A1"],DATA["Weights"],doStack=True)
-        self.FacetMachine.ClearSharedMemory()
-        self.FacetMachine.PutInShared(DATA)
-        
-        visPredict=np.zeros_like(DATA["data"])
-        visPredict=NpShared.ToShared("%s.%s"%(self.FacetMachine.PrefixShared,"predict_data"),visPredict)
-        
-        _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],DATA["A0A1"],Im)
-        
-        visResid=NpShared.GiveArray("%s.%s"%(self.FacetMachine.PrefixShared,"data"))
-        visResid[:,:,:]=visPredict[:,:,:]#DATA["data"][:,:,:]-visPredict[:,:,:]
-        
-        self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visResid,DATA["flags"],DATA["A0A1"],DATA["Weights"],doStack=True)
-
-        Image=self.FacetMachine.FacetsToIm()
-
-
-        pylab.clf()
-        ax0=pylab.subplot(1,2,1)
-        ax0.imshow(np.real(Im[0,0]),interpolation="nearest")#,vmin=m0,vmax=m1)
-        ax1=pylab.subplot(1,2,2,sharex=ax0,sharey=ax0)
-        ax1.imshow(np.real(Image[0,0]),interpolation="nearest")#,vmin=m0,vmax=m1)
-        pylab.draw()
-        pylab.show(False)
-        pylab.pause(0.1)
-
-
-        #self.FacetMachine.reset()
-        return
 
 
     def GiveDirty(self):
 
         print>>log, ModColor.Str("   ====== Making Dirty ======")
-        self.InitFacetMachine(self.IM)
+        self.InitFacetMachine()
         
         self.FacetMachine.ReinitDirty()
 
         while True:
-            DATA=self.VS.GiveNextVisChunk()
+            Res=self.setNextData()
+            #if Res=="EndChunk": break
+            if Res=="EndOfObservation": break
+            DATA=self.DATA
             
-
-
-            if (DATA==None): break
-            
-            
-            self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],DATA["A0A1"],DATA["Weights"],doStack=True)
+            self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)
             
             # Image=self.FacetMachine.FacetsToIm()
             # pylab.clf()
@@ -202,6 +231,24 @@ class ClassImagerDeconv():
 
         return Image
 
+    def GivePredict(self,ModelImage):
+
+        print>>log, ModColor.Str("   ====== Making Dirty ======")
+        self.InitFacetMachine()
+        
+        self.FacetMachine.ReinitDirty()
+
+        while True:
+            Res=self.setNextData()
+            if Res=="EndOfObservation": break
+            DATA=self.DATA
+            
+            vis=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
+
+
+        return Image
+
+
     def main(self,NMajor=None):
         if NMajor==None:
             NMajor=self.NMajor
@@ -214,29 +261,36 @@ class ClassImagerDeconv():
 
             print>>log, ModColor.Str("   ====== Runing major Cycle %i ======"%iMajor)
             self.DeconvMachine.SetDirtyPSF(Image,self.PSF)
+            self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel)
             self.DeconvMachine.Clean()
             self.FacetMachine.ReinitDirty()
             while True:
-                DATA=self.VS.GiveNextVisChunk()            
-                if (DATA==None): break
-
-                visPredict=np.zeros_like(DATA["data"])
-                visPredict=NpShared.ToShared("%s.%s"%(self.VS.PrefixShared,"predict_data"),visPredict)
-
-                ####################
-                testImage=np.zeros((1, 1, 1008, 1008),np.complex64)
-                testImage[0,0,200,650]=100.
-                self.DeconvMachine._ModelImage=testImage
-                ####################
-
-                _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],DATA["A0A1"],self.DeconvMachine._ModelImage)
+                print>>log, "Max model image: %f"%(np.max(self.DeconvMachine._ModelImage))
+                #DATA=self.VS.GiveNextVisChunk()            
+                #if (DATA==None): break
+                Res=self.setNextData()
+                #if Res=="EndChunk": break
+                if Res=="EndOfObservation": break
+                DATA=self.DATA
                 
-                visResid=NpShared.GiveArray("%s.%s"%(self.VS.PrefixShared,"data"))
-                visResid[:,:,:]=DATA["data"][:,:,:]-visPredict[:,:,:]
+                visData=DATA["data"]
+                PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
+                visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
+
+                # ####################
+                # testImage=np.zeros((1, 1, 1008, 1008),np.complex64)
+                # testImage[0,0,200,650]=100.
+                # self.DeconvMachine._ModelImage=testImage
+                # ####################
+
+                _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),self.DeconvMachine._ModelImage)
+                
+                visData[:,:,:]=visData[:,:,:]-visPredict[:,:,:]
             
-                self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visResid,DATA["flags"],DATA["A0A1"],DATA["Weights"],doStack=True)
+                #print>>log, ModColor.Str("  Gridding",col="green")
+                self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visData,DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)
                 
-                NpShared.DelArray("%s.%s"%(self.VS.PrefixShared,"predict_data"))
+                NpShared.DelArray(PredictedDataName)
 
             Image=self.FacetMachine.FacetsToIm()
             self.ResidImage=Image
@@ -253,14 +307,15 @@ class ClassImagerDeconv():
 
     def FitPSF(self):
         _,_,x,y=np.where(self.PSF==np.max(self.PSF))
-        off=100
+        off=300
         PSF=self.PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
+        self.SideLobeLevel=ModFitPSF.FindSidelobe(PSF)
         sigma_x, sigma_y, theta = ModFitPSF.DoFit(PSF)
         theta=np.pi/2-theta
         
         self.PSFGaussPars = (sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta)
-        
         print>>log, "Fitted PSF: (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec, sigma_y*self.CellArcSec, theta)
+        print>>log, "Secondary sidelobe at the level of %5.1f"%(self.SideLobeLevel)
             
             
     def Restore(self):
@@ -271,6 +326,7 @@ class ClassImagerDeconv():
         self.RestoredImage=ModFFTW.ConvolveGaussian(self.DeconvMachine._ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
         self.RestoredImage+=self.ResidImage
         self.FacetMachine.ToCasaImage(ImageIn=self.RestoredImage,ImageName="%s.restored"%self.BaseName,Fits=True)
+        self.FacetMachine.ToCasaImage(ImageIn=self.DeconvMachine._ModelImage,ImageName="%s.model"%self.BaseName,Fits=True)
         # pylab.clf()
         # pylab.imshow(self.RestoredImage[0,0],interpolation="nearest")
         # pylab.draw()
@@ -280,26 +336,31 @@ class ClassImagerDeconv():
 ################################################
 
     def testDegrid(self):
-        self.InitFacetMachine(self.IM)
+        self.InitFacetMachine()
         
         self.FacetMachine.ReinitDirty()
-        DATA=self.VS.GiveNextVisChunk()
+        Res=self.setNextData()
+        #if Res=="EndChunk": break
+
+        DATA=self.DATA
+
 
         # ###########################################
-        # self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],DATA["A0A1"],DATA["Weights"],doStack=True)
+        # self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)
         # testImage=self.FacetMachine.FacetsToIm()
         # testImage.fill(0)
         # _,_,nx,_=testImage.shape
+        # print "shape image:",testImage.shape
         # xc=nx/2
         # n=2
-        # dn=100
+        # dn=200
         # #for i in range(-n,n+1):
-        # #    for j in range(-n,n+1):
-        # #        testImage[0,0,int(xc+i*dn),int(xc+j*dn)]=100.
+        # #   for j in range(-n,n+1):
+        # #       testImage[0,0,int(xc+i*dn),int(xc+j*dn)]=100.
         # # for i in range(n+1):
         # #     testImage[0,0,int(xc+i*dn),int(xc+i*dn)]=100.
-        # #testImage[0,0,200,400]=100.
-        # testImage[0,0,xc+200,xc+300]=100.
+        # testImage[0,0,200,400]=100.
+        # #testImage[0,0,xc+200,xc+300]=100.
         # self.FacetMachine.ToCasaImage(ImageIn=testImage, ImageName="testImage",Fits=True)
         # stop
         # ###########################################
@@ -314,52 +375,62 @@ class ClassImagerDeconv():
             for pol in range(npol):
                 testImage[ch,pol,:,:]=testImageIn[ch,pol,:,:].T[::-1,:]#*1.0003900000000001
 
-        visPredict=np.zeros_like(DATA["data"])
-        visPredict=NpShared.ToShared("%s.%s"%(self.VS.PrefixShared,"predict_data"),visPredict)
+        visData=DATA["data"]
+        PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
+        visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
         
-        _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],DATA["A0A1"],testImage)
+        _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),testImage)
 
 
-        A0,A1=DATA["A0A1"]
+        A0,A1=DATA["A0"],DATA["A1"]
         fig=pylab.figure(1)
         os.system("rm -rf png/*.png")
-        for iAnt in [0]:#range(36):
-            for jAnt in [29]:#range(36):
+        op0=np.real
+        op1=np.angle
+        for iAnt in [32]:#range(36)[::-1]:
+            for jAnt in [33]:#range(36)[::-1]:
             
                 ind=np.where((A0==iAnt)&(A1==jAnt))[0]
                 if ind.size==0: continue
                 d0=DATA["data"][ind,0,0]
+                u,v,w=DATA["uvw"][ind].T
                 if np.max(d0)<1e-6: continue
 
                 d1=visPredict[ind,0,0]
                 pylab.clf()
-                pylab.plot(d0)
-                pylab.plot(d1)
-                pylab.plot(d0-d1)
+                pylab.subplot(3,1,1)
+                pylab.plot(op0(d0))
+                pylab.plot(op0(d1))
+                pylab.plot(op0(d0)-op0(d1))
+                pylab.plot(np.zeros(d0.size),ls=":",color="black")
+                pylab.subplot(3,1,2)
+                #pylab.plot(op1(d0))
+                #pylab.plot(op1(d1))
+                pylab.plot(op1(d0/d1))
                 pylab.plot(np.zeros(d0.size),ls=":",color="black")
                 pylab.title("%s"%iAnt)
+                pylab.subplot(3,1,3)
+                pylab.plot(w)
                 pylab.draw()
-                fig.savefig("png/resid_%2.2i_%2.2i.png"%(iAnt,jAnt))
-                # pylab.show(False)
+                #fig.savefig("png/resid_%2.2i_%2.2i.png"%(iAnt,jAnt))
+                pylab.show(False)
 
 
-        visResid=NpShared.GiveArray("%s.%s"%(self.VS.PrefixShared,"data"))
-        visResid[:,:,:]=DATA["data"][:,:,:]-visPredict[:,:,:]
+        visData[:,:,:]=visData[:,:,:]-visPredict[:,:,:]
         
-        self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],DATA["A0A1"],DATA["Weights"])
+        self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visData,DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"])
         Image=self.FacetMachine.FacetsToIm()
         self.ResidImage=Image
         self.FacetMachine.ToCasaImage(ImageName="test.residual",Fits=True)
 
+        pylab.figure(2)
+        pylab.clf()
+        pylab.imshow(Image[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
+        pylab.colorbar()
+        pylab.draw()
+        pylab.show(False)
+        pylab.pause(0.1)
+
         
         
 
-def test():
-    Imager=ClassImagerDeconv(ParsetFile="ParsetDDFacet.txt")
-    #Imager.MakePSF()
-    #Imager.LoadPSF("PSF.image")
-    # Imager.FitPSF()
-    # Imager.main(NMajor=5)
-    # Imager.Restore()
-    
-    return Imager
