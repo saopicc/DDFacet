@@ -38,9 +38,14 @@ def test():
 
 class ClassImagerDeconv():
     def __init__(self,ParsetFile=None,GD=None,
-                 PointingID=0,BaseName="ImageTest2"):
-        GD=ClassGlobalData(ParsetFile)
-        self.GD=GD
+                 PointingID=0,BaseName="ImageTest2",ReplaceDico=None,IdSharedMem="CACA."):
+        if ParsetFile!=None:
+            GD=ClassGlobalData(ParsetFile)
+            self.GD=GD
+            
+        if GD!=None:
+            self.GD=GD
+
         self.BaseName=BaseName
         self.PointingID=PointingID
         MinorCycleConfig=self.GD.DicoConfig["Facet"]["MinorCycleOptions"]
@@ -55,7 +60,7 @@ class ClassImagerDeconv():
         self.PolMode=self.GD.DicoConfig["Facet"]["PolMode"]
         self.HasCleaned=False
         self.Parallel=self.GD.DicoConfig["Parallel"]["Enable"]
-        self.IdSharedMem="CACA."
+        self.IdSharedMem=IdSharedMem
 
     def Init(self):
         DC=self.GD.DicoConfig

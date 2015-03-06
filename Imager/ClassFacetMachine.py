@@ -405,10 +405,10 @@ class ClassFacetMachine():
                 y1main+=1
 
 
-                print "======================="
-                print "Facet %i %s"%(iFacet,str(self.DicoGridMachine[iFacet]["Dirty"].shape))
-                print "Facet %i:%i (%i)"%(x0facet,x1facet,x1facet-x0facet)
-                print "Main  %i:%i (%i)"%(x0main,x1main,x1main-x0main)
+                # print "======================="
+                # print "Facet %i %s"%(iFacet,str(self.DicoGridMachine[iFacet]["Dirty"].shape))
+                # print "Facet %i:%i (%i)"%(x0facet,x1facet,x1facet-x0facet)
+                # print "Main  %i:%i (%i)"%(x0main,x1main,x1main-x0main)
                 for ch in range(nch):
                     for pol in range(npol):
                         Image[ch,pol,x0main:x1main,y0main:y1main]+=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]

@@ -12,7 +12,9 @@ import ClassData
 #import ClassInitMachine
 import NpShared
 import numpy as np
-    
+import ClassDeconvMachine
+import os
+
 def read_options():
     desc="""Questions and suggestions: cyril.tasse@obspm.fr"""
     
@@ -44,6 +46,7 @@ def read_options():
     group.add_option("--NFacets",default=None)
     group.add_option("--Npix",default=None)
     group.add_option("--Cell",default=None)
+    group.add_option("--ConstructMode",default="Fader")
     opt.add_option_group(group)
 
     group = optparse.OptionGroup(opt, "* Clean")
@@ -69,6 +72,9 @@ def main(options=None):
         options = pickle.load(f)
     
     ParsetFile=options.Parset
+    if ParsetFile==None:
+        print "Give a base parset name"
+
     ImageName=options.ImageName
 
     ReplaceDico={}
@@ -99,6 +105,7 @@ def main(options=None):
 
     
     GD=ClassData.ClassGlobalData(ParsetFile,ReplaceDico=ReplaceDico)
+
     SolsFile=GD.DicoConfig["Files"]["killMSSolutionFile"]
     if SolsFile!=None:
         DicoSolsFile=np.load(SolsFile)
@@ -120,8 +127,9 @@ def main(options=None):
         
         _D=NpShared.DicoToShared("DicoClusterDirs",DicoClusterDirs)
     
-
-    Imager=ClassImagerDeconv(ParsetFile=ParsetFile)
+    IdSharedMem=str(int(os.getpid()))+"."
+    NpShared.DelAll(IdSharedMem)
+    Imager=ClassDeconvMachine.ClassImagerDeconv(GD=GD,IdSharedMem=IdSharedMem)
 
 
     Imager.Init()
@@ -135,7 +143,7 @@ def main(options=None):
         Imager.main()
 
 
-    
+    NpShared.DelAll(IdSharedMem)
 
 if __name__=="__main__":
     options=read_options()

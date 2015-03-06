@@ -13,15 +13,9 @@ Parallel.NCPU				= 6
 
 ##### MSCat and SkyModel
 Files.FileMSCat.Name =  [/media/6B5E-87D0/killMS2/TEST/Simul/0000.MS]
-#Files.FileSourceCat =  [ModelRandom00.txt.npy]
-Files.VisInSharedMem = True
-Files.killMSSolutionFile = /media/6B5E-87D0/killMS2/TEST/Simul/Simul.npz
+Files.killMSSolutionFile = None # /media/6B5E-87D0/killMS2/TEST/Simul/Simul.npz
 
-Files.FileMSCat.StartEndNf= 0,-1,0
 Files.ColName =  CORRECTED_DATA
-Files.FITSName =  None
-Files.TimeSel = [0,0.5] # in hours
-Files.ReplaceMissingFreqs = False
 
 ##### Flag baselines and antenna
 Select.FlagAntBL  = None # RS,CS017LBA
@@ -31,25 +25,27 @@ Select.UVRangeKm  = [0.1, 100] # [0.1, 10] # [0.1, 20] # in km
 ################################################ Imager Parset ###########################################################
 ##########################################################################################################################
 
-input{ParsetDDFacet.Imager.txt}
+Facet.Robust					= 2
+Facet.Precision					= S # S: single precision - D: double precision
+Facet.PolMode					= I # I: I Stockes - IQUV: full stockes
+Facet.TChunkSize				= 2 # In hours
+Facet.ConstructMode				= Fader # Fader/Sharp
 
-##########################################################################################################################
-################################################ Measurement Equation ####################################################
-##########################################################################################################################
+Facet.SolSpaceInterp.Type			= Nearest # Krigging or Nearest
+Facet.SolSpaceInterp.Scale			= 1.       # in Degrees
+Facet.SolSpaceInterp.gamma			= 2.
 
-##### Here set the Radio Interferometry Measurement Equation
-RIME.Equation = .V :: .Sky
+Facet.MainFacetOptions.Support			= 11
+Facet.MainFacetOptions.NFacets			= 3
+Facet.MainFacetOptions.OverS			= 5
+Facet.MainFacetOptions.wmax			= 10000.
+Facet.MainFacetOptions.Nw			= 200
+Facet.MainFacetOptions.Npix			= 1023
+Facet.MainFacetOptions.Cell			= 10.
+Facet.MainFacetOptions.Padding			= 1.4
 
-##### Full Correction
-# used for plotting BBS-derived solutions 
-# and to estimate noise in the data
-RIME_FullCorr.Equation = .V :: .Sky
+Facet.MajorCycleOptions.MaxMajorIter		= 10
 
-
-##########################################################################################################################
-#################################################### Jones Matrices  #####################################################
-##########################################################################################################################
-
-input{ParsetDDFacet.JonesDefs.txt}
-
+Facet.MinorCycleOptions.Gain			= 0.05
+Facet.MinorCycleOptions.MaxMinorIter		= 50
 
