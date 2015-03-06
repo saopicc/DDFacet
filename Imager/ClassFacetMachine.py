@@ -511,7 +511,9 @@ class ClassFacetMachine():
             if iFacet==0:
                 ThisSumWeights=DicoResult["Weights"]
                 self.SumWeights+=ThisSumWeights
-            ThisDirty=DicoResult["Dirty"]
+
+            DirtyName=DicoResult["DirtyName"]
+            ThisDirty=NpShared.GiveArray(DirtyName)
             if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
                 self.DicoGridMachine[iFacet]["Dirty"]+=ThisDirty
             else:
@@ -519,7 +521,7 @@ class ClassFacetMachine():
             NDone=iResult
             intPercent=int(100*  NDone / float(NFacets))
             pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
-
+            time.sleep(0.1)
 
         for ii in range(NCPU):
             workerlist[ii].shutdown()
@@ -672,8 +674,11 @@ class WorkerImager(multiprocessing.Process):
 
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
                 Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices)#,doStack=False)
+                DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
+                Dirty=NpShared.ToShared(DirtyName,Dirty)
 
-                self.result_queue.put({"Success":True,"iFacet":iFacet,"Dirty":Dirty,"Weights":GridMachine.SumWeigths})
+
+                self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":GridMachine.SumWeigths})
 
 
                 # print "sleeping"

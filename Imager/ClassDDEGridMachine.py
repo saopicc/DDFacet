@@ -451,7 +451,7 @@ class ClassDDEGridMachine():
                                       self.ChanFreq.astype(np.float64),
                                       [self.PolMap,FacetInfos],
                                       ParamJonesList) # Input the jones matrices
-
+        print "done gridding facet %s"%str(self.IDFacet)
         # print SumWeigths
         # return
         
@@ -471,6 +471,7 @@ class ClassDDEGridMachine():
         # pylab.draw()
         # pylab.show(False)
         # stop
+        print "done stuff facet %s"%str(self.IDFacet)
 
         return Dirty
 

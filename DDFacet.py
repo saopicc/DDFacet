@@ -90,7 +90,7 @@ def main(options=None):
     if options.ColName!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Files.ColName = %s\n"%options.ColName)
     if options.FlagAntBL!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Select.FlagAntBL = %s\n"%options.FlagAntBL)
     if options.UVRangeKm!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Select.UVRangeKm = %s\n"%options.UVRangeKm)
-    if options.Robust!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.PolMode = %s\n"%options.Robust)
+    if options.Robust!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.Robust = %s\n"%options.Robust)
     if options.TChunkSize!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.TChunkSize = %s\n"%options.TChunkSize)
     if options.NFacets!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.MainFacetOptions.NFacets = %s\n"%options.NFacets)
     if options.wmax!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.MainFacetOptions.wmax = %s\n"%options.wmax)

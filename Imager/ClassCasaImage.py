@@ -50,7 +50,7 @@ class ClassCasaimage():
     def createScratch(self):
         ImageName=self.ImageName
         print>>log, "  ----> Create casa image %s"%ImageName
-        HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
+        #HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
         tmpIm=image(imagename=ImageName,shape=self.ImShape)
         c=tmpIm.coordinates()
         del(tmpIm)
