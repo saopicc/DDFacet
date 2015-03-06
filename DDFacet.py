@@ -77,7 +77,7 @@ def main(options=None):
 
     ListOpts=[]
     ReplaceDico={}
-    if options.NCPU!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Cluster.NImagEngine = %s\n"%options.NCPU)
+    if options.NCPU!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Parallel.NCPU = %s\n"%options.NCPU)
     if options.ms!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Files.FileMSCat.Name = [%s]\n"%options.ms)
     if options.DDSols!=None:
         ToolsDir.ModParset.StrToDict(ReplaceDico,"Files.killMSSolutionFile = %s\n"%options.DDSols)
@@ -94,6 +94,8 @@ def main(options=None):
     if options.MaxMajorIter!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.MajorCycleOptions.MaxMajorIter = %s\n"%options.MaxMajorIter)
     if options.Gain!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.MinorCycleOptions.Gain = %s\n"%options.Gain)
     if options.MaxMinorIter!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.MinorCycleOptions.MaxMinorIter = %s\n"%options.MaxMinorIter)
+    if options.ConstructMode!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.ConstructMode = %s\n"%options.ConstructMode)
+
 
     
     GD=ClassData.ClassGlobalData(ParsetFile,ReplaceDico=ReplaceDico)
@@ -119,29 +121,20 @@ def main(options=None):
         _D=NpShared.DicoToShared("DicoClusterDirs",DicoClusterDirs)
     
 
-    IM=ClassInitMachine.ClassInitMachine(GD)
-    IM.InitCluster(Mode="DDFacet")
-    #print "ddfacet0"
-    #IM.CI.E.clear()
-    Imager=ClassDeconvMachine.ClassImagerDeconv(GD=GD,BaseName=ImageName)
-    Imager.IM=IM
+    Imager=ClassImagerDeconv(ParsetFile=ParsetFile)
+
+
     Imager.Init()
+    if "Dirty" in options.Mode:
+        Imager.GiveDirty()
+        return
+    if "PSF" in options.Mode:
+        Imager.MakePSF()
+        return
+    if "Clean" in options.Mode:
+        Imager.main()
 
-    # #Imager.MakePSF()
-#    Imager.testDegrid()
-#    return Imager
-    # stop
-    
-    Imager.testDegrid()
 
-    # if "Dirty" in options.Mode:
-    #     Imager.GiveDirty()
-    #     return
-    # if "PSF" in options.Mode:
-    #     Imager.MakePSF()
-    #     return
-    # if "Clean" in options.Mode:
-    #     Imager.main()
     
 
 if __name__=="__main__":
