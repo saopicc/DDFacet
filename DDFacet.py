@@ -9,7 +9,7 @@ import ClassDeconvMachine
 import ModColor
 import ToolsDir.ModParset
 import ClassData
-import ClassInitMachine
+#import ClassInitMachine
 import NpShared
 import numpy as np
     
