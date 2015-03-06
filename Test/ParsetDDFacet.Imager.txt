@@ -2,7 +2,8 @@
 Facet.Robust					= 2
 Facet.Precision					= S # S: single precision - D: double precision
 Facet.PolMode					= I # I: I Stockes - IQUV: full stockes
-Facet.TChunkSize				= 1 # In hours
+Facet.TChunkSize				= 2 # In hours
+Facet.ConstructMode				= Fader # Fader/Sharp
 
 Facet.SolSpaceInterp.Type			= Nearest # Krigging or Nearest
 Facet.SolSpaceInterp.Scale			= 1.       # in Degrees

@@ -16,7 +16,6 @@ import MyLogger
 import ModSharedArray
 import time
 import ModColor
-from IPClusterDir.CheckJob import LaunchAndCheck, SendAndCheck
 import NpShared
 import ModFFTW
 import pyfftw
@@ -66,6 +65,7 @@ class ClassFacetMachine():
         self.IsDirtyInit=False
         self.IsDDEGridMachineInit=False
         self.SharedNames=[]
+        self.ConstructMode= GD.DicoConfig["Facet"]["ConstructMode"]
 
     def SetLogModeSubModules(self,Mode="Silent"):
         SubMods=["ModelBeamSVD","ClassParam","ModToolBox","ModelIonSVD2","ClassPierce","WTerm"]
@@ -168,6 +168,8 @@ class ClassFacetMachine():
             self.LdecFacet.append(decFacet[0])
             x0,y0=x0facet[iFacet],y0facet[iFacet]
             self.DicoImager[iFacet]["pixExtent"]=x0,x0+NpixFacet,y0,y0+NpixFacet
+            self.DicoImager[iFacet]["pixCentral"]=x0+NpixFacet/2,y0+NpixFacet/2
+            self.DicoImager[iFacet]["NpixFacet"]=NpixFacet
             self.DicoImager[iFacet]["DicoConfigGM"]=DicoConfigGM
 
         #print "Append3"; self.IM.CI.E.clear()
@@ -352,14 +354,73 @@ class ClassFacetMachine():
         self.SumWeights+=ThisSumWeights
         print self.SumWeights
 
+
     def FacetsToIm(self):
-        nch,npol=self.nch,self.npol
         Image=self.GiveEmptyMainField()
+        nch,npol=self.nch,self.npol
+        _,_,NPixOut,NPixOut=self.OutImShape
+        if self.ConstructMode=="Fader": 
+            SharedMemName="%sWTerm.Facet_%3.3i"%(self.IdSharedMem,0)
+            NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
+            SPhe=NpShared.UnPackListSquareMatrix(SharedMemName)[0]
+            
         for iFacet in self.DicoImager.keys():
-            x0,x1,y0,y1=self.DicoImager[iFacet]["pixExtent"]
+            if self.ConstructMode=="Sharp":
+                x0,x1,y0,y1=self.DicoImager[iFacet]["pixExtent"]
+                for ch in range(nch):
+                    for pol in range(npol):
+                        Image[ch,pol,x0:x1,y0:y1]=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real
+            elif self.ConstructMode=="Fader":
+                
+                xc,yc=self.DicoImager[iFacet]["pixCentral"]
+                NpixFacet=self.DicoGridMachine[iFacet]["Dirty"].shape[2]
+
+                M_xc=xc
+                M_yc=yc
+                NpixMain=NPixOut
+                F_xc=NpixFacet/2
+                F_yc=NpixFacet/2
+                
+                ## X
+                M_x0=M_xc-NpixFacet/2
+                x0main=np.max([0,M_x0])
+                dx0=x0main-M_x0
+                x0facet=dx0
+                
+                M_x1=M_xc+NpixFacet/2
+                x1main=np.min([NpixMain-1,M_x1])
+                dx1=M_x1-x1main
+                x1facet=NpixFacet-dx1
+                x1main+=1
+                ## Y
+                M_y0=M_yc-NpixFacet/2
+                y0main=np.max([0,M_y0])
+                dy0=y0main-M_y0
+                y0facet=dy0
+                
+                M_y1=M_yc+NpixFacet/2
+                y1main=np.min([NpixMain-1,M_y1])
+                dy1=M_y1-y1main
+                y1facet=NpixFacet-dy1
+                y1main+=1
+
+
+                print "======================="
+                print "Facet %i %s"%(iFacet,str(self.DicoGridMachine[iFacet]["Dirty"].shape))
+                print "Facet %i:%i (%i)"%(x0facet,x1facet,x1facet-x0facet)
+                print "Main  %i:%i (%i)"%(x0main,x1main,x1main-x0main)
+                for ch in range(nch):
+                    for pol in range(npol):
+                        Image[ch,pol,x0main:x1main,y0main:y1main]+=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
+                NormImage[x0main:x1main,y0main:y1main]+=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
+
+        if self.ConstructMode=="Fader": 
             for ch in range(nch):
                 for pol in range(npol):
-                    Image[ch,pol,x0:x1,y0:y1]=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real
+                    Image[ch,pol]/=NormImage
+ 
+
+
         # for ch in range(nch):
         #     for pol in range(npol):
         #         self.Image[ch,pol]=self.Image[ch,pol].T[::-1,:]
@@ -423,6 +484,10 @@ class ClassFacetMachine():
             work_queue.put(iFacet)
 
         workerlist=[]
+        SpheNorm=True
+        if self.ConstructMode=="Fader":
+            SpheNorm=False
+
         for ii in range(NCPU):
             W=WorkerImager(work_queue, result_queue,
                            self.GD,
@@ -430,7 +495,8 @@ class ClassFacetMachine():
                            FFTW_Wisdom=self.FFTW_Wisdom,
                            DicoImager=self.DicoImager,
                            IdSharedMem=self.IdSharedMem,
-                           ApplyCal=self.ApplyCal)
+                           ApplyCal=self.ApplyCal,
+                           SpheNorm=SpheNorm)
             workerlist.append(W)
             workerlist[ii].start()
 
@@ -540,7 +606,8 @@ class WorkerImager(multiprocessing.Process):
                  FFTW_Wisdom=None,
                  DicoImager=None,
                  IdSharedMem=None,
-                 ApplyCal=False):
+                 ApplyCal=False,
+                 SpheNorm=True):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -552,6 +619,7 @@ class WorkerImager(multiprocessing.Process):
         self.DicoImager=DicoImager
         self.IdSharedMem=IdSharedMem
         self.ApplyCal=ApplyCal
+        self.SpheNorm=SpheNorm
 
     def shutdown(self):
         self.exit.set()
@@ -560,6 +628,7 @@ class WorkerImager(multiprocessing.Process):
         GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,RaDec=self.DicoImager[iFacet]["RaDec"],
                                                             lmShift=self.DicoImager[iFacet]["lmShift"],
                                                             IdSharedMem=self.IdSharedMem,IDFacet=iFacet,
+                                                            SpheNorm=self.SpheNorm,
                                                             **self.DicoImager[iFacet]["DicoConfigGM"])
         return GridMachine
         

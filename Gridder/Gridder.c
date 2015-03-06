@@ -526,7 +526,9 @@ void gridderWPol(PyArrayObject *grid,
 	int supx = (nConvX/OverS-1)/2;
 	int supy = (nConvY/OverS-1)/2;
 
-	
+	//int SupportCF=nConvX/OverS;
+
+
 	/* printf("%i %i %i\n",nConvX,sampx,supx); */
 	/* assert(1==0); */
 
@@ -675,7 +677,13 @@ void gridderWPol(PyArrayObject *grid,
 		    float complex *gridPtr = p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx;
 		    // Fast version
                     const float complex* __restrict__ cf[1];
+
+		    //##################################
                     int cfoff = (offy + sy*fsampy)*nConvX + offx - fsupx*fsampx;
+                    //int cfoff = (offy + supy)*nConvX + offx - fsupx;
+		    
+		    //##################################
+
 		    //printf("start off CF: (%3.3i,%3.3i) -> CFoff: %i \n",offx,offy,cfoff);
 		    //printf("(offy, sy,fsampy,nConvX,offx,fsupx,fsampx) = (%i, %i, %i, %i, %i, %i, %i) \n",offy, sy,fsampy,nConvX,offx,fsupx,fsampx);
 

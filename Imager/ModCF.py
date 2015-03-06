@@ -181,7 +181,14 @@ class ClassWTermModified():
         T=ClassTimeIt.ClassTimeIt("Wterm")
         self.CF, self.fCF, self.ifzfCF= MakeSphe(self.Sup,self.Npix)
 
-
+    def GiveReorgCF(self,A):
+        Sup=A.shape[0]/self.OverS
+        B=np.zeros((self.OverS,self.OverS,Sup,Sup),dtype=A.dtype)
+        for i in range(self.OverS):
+            for j in range(self.OverS):
+                B[i,j,:,:]=A[i::self.OverS,j::self.OverS]
+        B=B.reshape((A.shape[0],A.shape[0]))
+        return B
 
     def InitW(self):
 
@@ -350,8 +357,14 @@ class ClassWTermModified():
             
 
             # T.timeit("3e")
-            Wplanes.append(np.complex64(fzW).copy())
-            WplanesConj.append(np.complex64(fzWconj).copy())
+            fzW=np.complex64(fzW).copy()
+            fzWconj=np.complex64(fzWconj).copy()
+
+            #fzW=self.GiveReorgCF(fzW)
+            #fzWconj=self.GiveReorgCF(fzWconj)
+
+            Wplanes.append(fzW)
+            WplanesConj.append(fzWconj)
             # T.timeit("3f")
 
         self.Wplanes=Wplanes

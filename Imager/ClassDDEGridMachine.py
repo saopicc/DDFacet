@@ -144,10 +144,12 @@ class ClassDDEGridMachine():
                  Padding=1.,WProj=False,lmShift=None,Precision="S",PolMode="I",DoDDE=True,
                  JonesDir=None,
                  IdSharedMem="",
-                 IDFacet=None):
+                 IDFacet=None,
+                 SpheNorm=True):
 
         self.GD=GD
         self.IDFacet=IDFacet
+        self.SpheNorm=SpheNorm
         self.DoDDE=DoDDE
         self.JonesDir=JonesDir
         self.IdSharedMem=IdSharedMem
@@ -447,7 +449,9 @@ class ClassDDEGridMachine():
         
         T.timeit("4 (grid)")
         ImPadded= self.GridToIm(Grid)
-        Dirty = self.cutImPadded(ImPadded)
+        Dirty =ImPadded
+        if self.SpheNorm:
+            Dirty = self.cutImPadded(ImPadded)
 
         T.timeit("5")
         # Grid[:,:,:,:]=Grid.real
@@ -628,7 +632,10 @@ class ClassDDEGridMachine():
         nchan,npol,_,_=Grid.shape
         for ichan in range(nchan):
             for ipol in range(npol):
-                Dirty[ichan,ipol][:,:]=Dirty[ichan,ipol][:,:].real/self.ifzfCF
+                Dirty[ichan,ipol][:,:]=Dirty[ichan,ipol][:,:].real
+                if self.SpheNorm:
+                    Dirty[ichan,ipol][:,:]/=self.ifzfCF
+
         T.timeit("sphenorm")
 
         return Dirty

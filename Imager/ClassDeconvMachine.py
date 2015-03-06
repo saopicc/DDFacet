@@ -14,7 +14,6 @@ log=MyLogger.getLogger("ClassImagerDeconv")
 import NpShared
 import os
 import ModFitPSF
-from IPClusterDir import ClassDistributedVisServer
 from ClassData import ClassMultiPointingData,ClassSinglePointingData,ClassGlobalData
 import ClassVisServer
 
@@ -32,8 +31,8 @@ def test():
     #Model[0,0,100,100]=1
     #Imager.GivePredict(Model)
     #Imager.MakePSF()
-    #Imager.GiveDirty()
-    Imager.main()
+    Imager.GiveDirty()
+    #Imager.main()
     #Imager.testDegrid()
     return Imager
 
