@@ -40,7 +40,7 @@ class ClassGlobalData():
         if ReplaceDico!=None:
             SetValDico(self.DicoConfig,ReplaceDico)
 
-        self.HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
+        #self.HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
 
         LocalHost=socket.gethostname()
         if "." in LocalHost: LocalHost,_=LocalHost.split(".")

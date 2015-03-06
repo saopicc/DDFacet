@@ -16,6 +16,7 @@ import ToolsDir.GiveMDC
 from ModToolBox import EstimateNpix
 from Array import ModLinAlg
 import copy
+import time
 
 import ClassApplyJones
 from ClassME import MeasurementEquation
@@ -361,8 +362,11 @@ class ClassDDEGridMachine():
         if not(self.DoNormWeights):
             self.reinitGrid()
 
-        LTimes=sorted(list(set(times.tolist())))
-        NTimes=len(LTimes)
+        #isleep=0
+        #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
+
+        #LTimes=sorted(list(set(times.tolist())))
+        #NTimes=len(LTimes)
         A0,A1=A0A1
 
         # if self.DicoATerm==None:
@@ -392,24 +396,26 @@ class ClassDDEGridMachine():
         NVisChan=vis.shape[1]
         if W==None:
             W=np.ones((uvw.shape[0],NVisChan),dtype=np.float64)
-        else:
-            W=W.reshape((uvw.shape[0],1))*np.ones((1,NVisChan))
+        #else:
+        #    W=W.reshape((uvw.shape[0],1))*np.ones((1,NVisChan))
 
+        #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
         SumWeigths=self.SumWeigths
         if vis.shape!=flag.shape:
             raise Exception('vis[%s] and flag[%s] should have the same shape'%(str(vis.shape),str(flag.shape)))
         
         u,v,w=uvw.T
-        vis[u==0,:,:]=0
-        flag[u==0,:,:]=True
-        if self.DoPSF:
-            vis.fill(0)
-            vis[:,:,0]=1
-            vis[:,:,3]=1
+        #vis[u==0,:,:]=0
+        #flag[u==0,:,:]=True
+        # if self.DoPSF:
+        #     vis.fill(0)
+        #     vis[:,:,0]=1
+        #     vis[:,:,3]=1
 
         T.timeit("2")
 
         Grid=np.zeros(self.GridShape,dtype=self.dtype)
+        #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
 
         l0,m0=self.lmShift
         FacetInfos=np.float64(np.array([self.WTerm.Cu,self.WTerm.Cv,l0,m0]))
@@ -418,6 +424,7 @@ class ClassDDEGridMachine():
         #     print "vis should be of type complex128 (and has type %s)"%str(vis.dtype)
         #     stop
 
+        #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
 
         #print vis.dtype
         #vis.fill(1)
@@ -428,6 +435,7 @@ class ClassDDEGridMachine():
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
 
         T.timeit("3")
+        #print "sleeping DDE..."; time.sleep(5)
         
         Grid=_pyGridder.pyGridderWPol(Grid,
                                       vis,
@@ -449,10 +457,12 @@ class ClassDDEGridMachine():
         
         T.timeit("4 (grid)")
         ImPadded= self.GridToIm(Grid)
+        #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
         Dirty =ImPadded
         if self.SpheNorm:
             Dirty = self.cutImPadded(ImPadded)
 
+        #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
         T.timeit("5")
         # Grid[:,:,:,:]=Grid.real
         # import pylab

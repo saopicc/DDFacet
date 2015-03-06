@@ -173,7 +173,7 @@ class ClassVisServer():
             times=times[ind]
             Weights=Weights[ind]
         
-            
+        
 
         ind=np.where(A0!=A1)[0]
         flags=flags[ind,:,:]
@@ -203,8 +203,8 @@ class ClassVisServer():
         DATA["times"]=times
         DATA["Weights"]=Weights
 
-
-
+        NVisChan=data.shape[1]
+        DATA["Weights"]=DATA["Weights"].reshape((uvw.shape[0],1))*np.ones((1,NVisChan))
 
         # if self.VisInSharedMem:
         #     self.ClearSharedMemory()

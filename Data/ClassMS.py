@@ -361,18 +361,18 @@ class ClassMS():
         #print self.ListSPW[0]
         time_all=table_all.getcol("TIME",row0,nRowRead)[SPW==self.ListSPW[0]]
         #print np.max(time_all)-np.min(time_all)
-        time_slots_all=np.array(sorted(list(set(time_all))))
+        #time_slots_all=np.array(sorted(list(set(time_all))))
         ntimes=time_all.shape[0]/self.nbl
 
         flag_all=table_all.getcol("FLAG",row0,nRowRead)[SPW==self.ListSPW[0]]
         if ReadWeight==True:
             self.Weights=table_all.getcol("WEIGHT",row0,nRowRead)
 
-        if self.EqualizeFlag:
-            for i in range(self.Nchan):
-                fcol=flag_all[:,i,0]|flag_all[:,i,1]|flag_all[:,i,2]|flag_all[:,i,3]
-                for pol in range(4):
-                    flag_all[:,i,pol]=fcol
+        # if self.EqualizeFlag:
+        #     for i in range(self.Nchan):
+        #         fcol=flag_all[:,i,0]|flag_all[:,i,1]|flag_all[:,i,2]|flag_all[:,i,3]
+        #         for pol in range(4):
+        #             flag_all[:,i,pol]=fcol
 
         self.multidata=(type(self.ColName)==list)
         self.ReverseAntOrder=(np.where((A0==0)&(A1==1))[0]).shape[0]>0
@@ -441,8 +441,8 @@ class ClassMS():
 
 
         self.times_all=time_all
-        self.times=time_slots_all
-        self.ntimes=time_slots_all.shape[0]
+        #self.times=time_slots_all
+        #self.ntimes=time_slots_all.shape[0]
         self.nrows=time_all.shape[0]
 
         self.IndFlag=np.where(flag_all==True)

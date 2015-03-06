@@ -671,10 +671,15 @@ class WorkerImager(multiprocessing.Process):
                 W=DATA["Weights"]
 
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
-
                 Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices)#,doStack=False)
 
                 self.result_queue.put({"Success":True,"iFacet":iFacet,"Dirty":Dirty,"Weights":GridMachine.SumWeigths})
+
+
+                # print "sleeping"
+                # time.sleep(5)
+
+                # self.result_queue.put({"Success":True})
 
             elif self.Mode=="DeGrid":
                 

@@ -133,14 +133,15 @@ def main(options=None):
 
 
     Imager.Init()
+    if "Clean" in options.Mode:
+        Imager.main()
+        return
     if "Dirty" in options.Mode:
         Imager.GiveDirty()
         return
     if "PSF" in options.Mode:
         Imager.MakePSF()
         return
-    if "Clean" in options.Mode:
-        Imager.main()
 
 
     NpShared.DelAll(IdSharedMem)
