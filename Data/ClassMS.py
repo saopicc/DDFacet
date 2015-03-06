@@ -368,81 +368,22 @@ class ClassMS():
         if ReadWeight==True:
             self.Weights=table_all.getcol("WEIGHT",row0,nRowRead)
 
-        # if self.EqualizeFlag:
-        #     for i in range(self.Nchan):
-        #         fcol=flag_all[:,i,0]|flag_all[:,i,1]|flag_all[:,i,2]|flag_all[:,i,3]
-        #         for pol in range(4):
-        #             flag_all[:,i,pol]=fcol
-
-        self.multidata=(type(self.ColName)==list)
-        self.ReverseAntOrder=(np.where((A0==0)&(A1==1))[0]).shape[0]>0
-        self.swapped=False
-
+        
+        
         uvw=table_all.getcol('UVW',row0,nRowRead)[SPW==self.ListSPW[0]]
-
-        if self.ReOrder:
-            vis_all=table_all.getcol(self.ColName,row0,nRowRead)
-            if self.zero_flag: vis_all[flag_all==1]=0.
-            if self.zero_flag: 
-                noise=(np.random.randn(vis_all.shape[0],vis_all.shape[1],vis_all.shape[2])\
-                           +1j*np.random.randn(vis_all.shape[0],vis_all.shape[1],vis_all.shape[2]))*1e-6
-                vis_all[flag_all==1]=noise[flag_all==1]
-            vis_all[np.isnan(vis_all)]=0.
-            listDataSPW=[np.swapaxes(vis_all[SPW==i,:,:],0,1) for i in self.ListSPW]
-            self.data=np.concatenate(listDataSPW)#np.swapaxes(np.concatenate(listDataSPW),0,1)
-            listFlagSPW=[np.swapaxes(flag_all[SPW==i,:,:],0,1) for i in self.ListSPW]
-            flag_all=np.concatenate(listFlagSPW)#np.swapaxes(np.concatenate(listDataSPW),0,1)
-            self.uvw=uvw
-            self.swapped=True
-            
-
-        else:
-            self.uvw=uvw
-            if self.multidata:
-                self.data=[]
-                for colin in self.ColName:
-                    print "... read %s"%colin
-                    vis_all=table_all.getcol(colin,row0,nRowRead)[SPW==self.ListSPW[0]]
-                    print " shape: %s"%str(vis_all.shape)
-                    if self.zero_flag: vis_all[flag_all==1]=0.
-                    vis_all[np.isnan(vis_all)]=0.
-                    self.data.append(vis_all)
-            else:
-                vis_all=table_all.getcol(self.ColName,row0,nRowRead)
-                if self.zero_flag: vis_all[flag_all==1]=0.
-                vis_all[np.isnan(vis_all)]=0.
-                self.data=vis_all
+        self.uvw=uvw
+        vis_all=table_all.getcol(self.ColName,row0,nRowRead)
+        if self.zero_flag: vis_all[flag_all==1]=0.
+        vis_all[np.isnan(vis_all)]=0.
+        self.data=vis_all
 
 
         self.flag_all=flag_all
 
-        if self.RejectAutoCorr:
-            indGetCorrelation=np.where(A0!=A1)[0]
-            A0=A0[indGetCorrelation]
-            A1=A1[indGetCorrelation]
-            self.uvw=self.uvw[indGetCorrelation,:]
-            time_all=time_all[indGetCorrelation]
-            if self.swapped:
-                self.data=self.data[:,indGetCorrelation,:]
-                self.flag_all=self.flag_all[:,indGetCorrelation,:]
-            else:
-                self.data=self.data[indGetCorrelation,:,:]
-                self.flag_all=self.flag_all[indGetCorrelation,:,:]
-            self.nbl=(self.na*(self.na-1))/2
 
         table_all.close()
-        if self.DoRevertChans:
-            self.flag_all=self.flag_all[:,::-1,:]
-            if not(type(self.data)==list):
-                self.data=self.data[:,::-1,:]
-            else:
-                for icol in range(len(self.data)):
-                    self.data[icol]=self.data[icol][:,::-1,:]
-
 
         self.times_all=time_all
-        #self.times=time_slots_all
-        #self.ntimes=time_slots_all.shape[0]
         self.nrows=time_all.shape[0]
 
         self.IndFlag=np.where(flag_all==True)

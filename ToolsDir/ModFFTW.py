@@ -158,8 +158,8 @@ class FFTW_2Donly():
         return A
 
 class FFTW_2Donly_np():
-    def __init__(self, A, ncores = 1):
-        dtype=A.dtype
+    def __init__(self, shape, dtype, ncores = 1):
+
         return
 
     def fft(self,A):

@@ -143,7 +143,6 @@ def main(options=None):
         Imager.MakePSF()
         return
 
-
     NpShared.DelAll(IdSharedMem)
 
 if __name__=="__main__":

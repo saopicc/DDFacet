@@ -475,8 +475,7 @@ class ClassFacetMachine():
 
         NFacets=len(self.DicoImager.keys())
 
-        work_queue = multiprocessing.Queue()
-        result_queue = multiprocessing.Queue()
+        work_queue = multiprocessing.JoinableQueue()
 
         if self.DoPSF: visIn.fill(1)
         NJobs=NFacets
@@ -488,8 +487,12 @@ class ClassFacetMachine():
         if self.ConstructMode=="Fader":
             SpheNorm=False
 
+        List_Result_queue=[]
         for ii in range(NCPU):
-            W=WorkerImager(work_queue, result_queue,
+            List_Result_queue.append(multiprocessing.JoinableQueue())
+            
+        for ii in range(NCPU):
+            W=WorkerImager(work_queue, List_Result_queue[ii],
                            self.GD,
                            Mode="Grid",
                            FFTW_Wisdom=self.FFTW_Wisdom,
@@ -501,13 +504,29 @@ class ClassFacetMachine():
             workerlist[ii].start()
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Gridding ", HeaderSize=10,TitleSize=13)
-        pBAR.render(0, '%4i/%i' % (0,NFacets))
+        #pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
         while iResult < NJobs:
-            DicoResult=result_queue.get()
+            NDone=iResult
+            intPercent=int(100*  NDone / float(NFacets))
+            #pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
+            DicoResult=None
+            for result_queue in List_Result_queue:
+                if result_queue.qsize()!=0:
+                    try:
+                        DicoResult=result_queue.get_nowait()
+                        break
+                    except:
+                        pass
+                
+            if DicoResult==None:
+                time.sleep(1)
+                continue
+
             if DicoResult["Success"]:
                 iResult+=1
             iFacet=DicoResult["iFacet"]
+            print iFacet
             if iFacet==0:
                 ThisSumWeights=DicoResult["Weights"]
                 self.SumWeights+=ThisSumWeights
@@ -518,10 +537,6 @@ class ClassFacetMachine():
                 self.DicoGridMachine[iFacet]["Dirty"]+=ThisDirty
             else:
                 self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty
-            NDone=iResult
-            intPercent=int(100*  NDone / float(NFacets))
-            pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
-            time.sleep(0.1)
 
         for ii in range(NCPU):
             workerlist[ii].shutdown()
@@ -675,10 +690,12 @@ class WorkerImager(multiprocessing.Process):
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
                 Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices)#,doStack=False)
                 DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
-                Dirty=NpShared.ToShared(DirtyName,Dirty)
+                _=NpShared.ToShared(DirtyName,Dirty)
+                del(Dirty)
+                Sw=GridMachine.SumWeigths
+                del(GridMachine)
 
-
-                self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":GridMachine.SumWeigths})
+                self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":Sw})
 
 
                 # print "sleeping"

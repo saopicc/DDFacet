@@ -237,7 +237,7 @@ class ClassDDEGridMachine():
         #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
         #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
 
-        self.FFTWMachine=ModFFTW.FFTW_2Donly(self.GridShape,self.dtype, ncores = 1)
+        self.FFTWMachine=ModFFTW.FFTW_2Donly_np(self.GridShape,self.dtype, ncores = 1)
 
         if self.WProj:
             self.WTerm=ModCF.ClassWTermModified(Cell=self.Cell,
@@ -451,7 +451,7 @@ class ClassDDEGridMachine():
                                       self.ChanFreq.astype(np.float64),
                                       [self.PolMap,FacetInfos],
                                       ParamJonesList) # Input the jones matrices
-        print "done gridding facet %s"%str(self.IDFacet)
+
         # print SumWeigths
         # return
         
@@ -471,7 +471,6 @@ class ClassDDEGridMachine():
         # pylab.draw()
         # pylab.show(False)
         # stop
-        print "done stuff facet %s"%str(self.IDFacet)
 
         return Dirty
 
