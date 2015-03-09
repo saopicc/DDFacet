@@ -37,12 +37,12 @@ Facet.SolSpaceInterp.gamma			= 2.
 
 Facet.MainFacetOptions.Support			= 11
 Facet.MainFacetOptions.NFacets			= 3
-Facet.MainFacetOptions.OverS			= 5
+Facet.MainFacetOptions.OverS			= 1
 Facet.MainFacetOptions.wmax			= 10000.
 Facet.MainFacetOptions.Nw			= 200
-Facet.MainFacetOptions.Npix			= 1023
+Facet.MainFacetOptions.Npix			= 2000
 Facet.MainFacetOptions.Cell			= 10.
-Facet.MainFacetOptions.Padding			= 1.4
+Facet.MainFacetOptions.Padding			= 1.
 
 Facet.MajorCycleOptions.MaxMajorIter		= 10
 

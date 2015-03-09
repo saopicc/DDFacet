@@ -26,25 +26,34 @@ log=MyLogger.getLogger("ClassDDEGridMachine")
 import ToolsDir
 import pylab
 import ClassData
+
 def GiveGM():
     GD=ClassData.ClassGlobalData("ParsetDDFacet.txt")
     MDC,GD=ToolsDir.GiveMDC.GiveMDC(GD=GD)
     MS=MDC.giveMS(0)
     MS.ReadData()
-    GM=ClassDDEGridMachine(GD,MDC,DoDDE=False,WProj=True,lmShift=(0.,0.),JonesDir=3)
+    GM=ClassDDEGridMachine(GD,DoDDE=False,WProj=True,lmShift=(0.,0.),JonesDir=3)
     return GM
+
 import ClassTimeIt
 
-def testGrid(GM):
-    MDC=GM.MDC
-    MS=GM.MDC.giveMS(0)
+def testGrid():
+    GD=ClassData.ClassGlobalData("ParsetDDFacet.txt")
+    MDC,GD=ToolsDir.GiveMDC.GiveMDC(GD=GD)
+    MS=MDC.giveMS(0)
+    MS.ReadData()
+
+    GM=ClassDDEGridMachine(GD,DoDDE=False,WProj=True,lmShift=(0.,0.),JonesDir=3,SpheNorm=True)
+
 
     row0,row1=0,-1
 
     uvw=np.float64(MS.uvw)[row0:row1]
     times=np.float64(MS.times_all)[row0:row1]
     data=np.complex64(MS.data)[row0:row1]
-    #data.fill(1.)
+    data.fill(0.)
+    data[:,:,0]=1
+    data[:,:,3]=1
     A0=np.int32(MS.A0)[row0:row1]
     A1=np.int32(MS.A1)[row0:row1]
 
@@ -59,93 +68,93 @@ def testGrid(GM):
     print "================"
     print
 
-    #############################
-    nt,nd,na=10,1,MS.na
-    JonesMatrices=np.random.randn(nt,nd,na,1,2,2)+1j*np.random.randn(nt,nd,na,1,2,2)
-    # JonesMatrices.fill(0)
-    # JonesMatrices[:,:,:,:,0,0]=1
-    # JonesMatrices[:,:,:,:,1,1]=1
-    tt=np.linspace(times.min(),times.max(),nt+1)
-    t0=tt[0:-1]
-    t1=tt[1::]
-    DicoJonesMatrices={}
-    DicoJonesMatrices["t0"]=t0
-    DicoJonesMatrices["t1"]=t1
-    DicoJonesMatrices["Jones"]=np.complex64(JonesMatrices)
+    # #############################
+    # nt,nd,na=10,1,MS.na
+    # JonesMatrices=np.random.randn(nt,nd,na,1,2,2)+1j*np.random.randn(nt,nd,na,1,2,2)
+    # # JonesMatrices.fill(0)
+    # # JonesMatrices[:,:,:,:,0,0]=1
+    # # JonesMatrices[:,:,:,:,1,1]=1
+    # tt=np.linspace(times.min(),times.max(),nt+1)
+    # t0=tt[0:-1]
+    # t1=tt[1::]
+    # DicoJonesMatrices={}
+    # DicoJonesMatrices["t0"]=t0
+    # DicoJonesMatrices["t1"]=t1
+    # DicoJonesMatrices["Jones"]=np.complex64(JonesMatrices)
     
-    DicoClusterDirs={}
-    DicoClusterDirs["l"]=np.array([0.])
-    DicoClusterDirs["m"]=np.array([0.])
-    DicoClusterDirs["I"]=np.array([1.])
-    DicoClusterDirs["Cluster"]=np.array([0.])
-    DicoJonesMatrices["DicoClusterDirs"]=DicoClusterDirs
-    ##############################
-
-    # SolsFile="/media/6B5E-87D0/killMS2/TEST/Simul/Simul.npz"
-
-    # DicoSolsFile=np.load(SolsFile)
-    # DicoSols={}
-    # DicoSols["t0"]=DicoSolsFile["Sols"]["t0"]
-    # DicoSols["t1"]=DicoSolsFile["Sols"]["t1"]
-    # nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
-    # G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
-    # G.fill(0)
-    # G[:,:,:,:,0,0]=1
-    # G[:,:,:,:,1,1]=1
-    # DicoSols["Jones"]=G
-    
-    # ClusterCat=DicoSolsFile["ClusterCat"]
-    # ClusterCat=ClusterCat.view(np.recarray)
     # DicoClusterDirs={}
-    # DicoClusterDirs["l"]=ClusterCat.l
-    # DicoClusterDirs["m"]=ClusterCat.m
-    # DicoClusterDirs["I"]=ClusterCat.SumI
-    # DicoClusterDirs["Cluster"]=ClusterCat.Cluster
-
-    # DicoSols["DicoClusterDirs"]=DicoClusterDirs
-    # DicoJonesMatrices=DicoSols
-    # # return DicoJonesMatrices
-
-    # import NpShared
-    # DicoJonesMatrices=NpShared.SharedToDico("killMSSolutionFile")
-    # DicoClusterDirs=NpShared.SharedToDico("DicoClusterDirs")
+    # DicoClusterDirs["l"]=np.array([0.])
+    # DicoClusterDirs["m"]=np.array([0.])
+    # DicoClusterDirs["I"]=np.array([1.])
+    # DicoClusterDirs["Cluster"]=np.array([0.])
     # DicoJonesMatrices["DicoClusterDirs"]=DicoClusterDirs
-    
+    # ##############################
 
+    # # SolsFile="/media/6B5E-87D0/killMS2/TEST/Simul/Simul.npz"
+
+    # # DicoSolsFile=np.load(SolsFile)
+    # # DicoSols={}
+    # # DicoSols["t0"]=DicoSolsFile["Sols"]["t0"]
+    # # DicoSols["t1"]=DicoSolsFile["Sols"]["t1"]
+    # # nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
+    # # G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
+    # # G.fill(0)
+    # # G[:,:,:,:,0,0]=1
+    # # G[:,:,:,:,1,1]=1
+    # # DicoSols["Jones"]=G
+    
+    # # ClusterCat=DicoSolsFile["ClusterCat"]
+    # # ClusterCat=ClusterCat.view(np.recarray)
+    # # DicoClusterDirs={}
+    # # DicoClusterDirs["l"]=ClusterCat.l
+    # # DicoClusterDirs["m"]=ClusterCat.m
+    # # DicoClusterDirs["I"]=ClusterCat.SumI
+    # # DicoClusterDirs["Cluster"]=ClusterCat.Cluster
+
+    # # DicoSols["DicoClusterDirs"]=DicoClusterDirs
+    # # DicoJonesMatrices=DicoSols
+    # # # return DicoJonesMatrices
+
+    # # import NpShared
+    # # DicoJonesMatrices=NpShared.SharedToDico("killMSSolutionFile")
+    # # DicoClusterDirs=NpShared.SharedToDico("DicoClusterDirs")
+    # # DicoJonesMatrices["DicoClusterDirs"]=DicoClusterDirs
+    
+ 
 
 
     T=ClassTimeIt.ClassTimeIt("main")
-    Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True, DicoJonesMatrices=DicoJonesMatrices)
+    Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True)#, DicoJonesMatrices=DicoJonesMatrices)
     T.timeit("grid")
 
 
 
-    Grid.fill(0)
-    _,_,n,n=Grid.shape
-    Grid[:,:,n/4,n/5]=1
-    data.fill(0)
-    data=GM.get(times,uvw,data,flag,(A0,A1),Grid, DicoJonesMatrices=DicoJonesMatrices)
-
-    Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True, DicoJonesMatrices=DicoJonesMatrices)
-    T.timeit("degrid")
-    import pylab
+    # Grid.fill(0)
+    # _,_,n,n=Grid.shape
+    # Grid[:,:,n/4,n/5]=1
+    # data.fill(0)
+    # data=GM.get(times,uvw,data,flag,(A0,A1),Grid, DicoJonesMatrices=DicoJonesMatrices)
+    # Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True, DicoJonesMatrices=DicoJonesMatrices)
+    # T.timeit("degrid")
+    # import pylab
     pylab.clf()
     pylab.imshow(np.real(Grid[0,0]))
     pylab.draw()
     pylab.show(False)
-    stop
+
 
 
 
 class ClassDDEGridMachine():
     def __init__(self,GD,
-                 Npix=1023,Cell=10.,Support=7,ChanFreq=np.array([6.23047e7],dtype=np.float64),
+                 Npix=1023,Cell=10.,Support=21,
+                 ChanFreq=np.array([6.23047e7],dtype=np.float64),
                  wmax=10000,Nw=11,DoPSF=False,
                  RaDec=None,ImageName="Image",OverS=5,
                  Padding=1.,WProj=False,lmShift=None,Precision="S",PolMode="I",DoDDE=True,
                  JonesDir=None,
                  IdSharedMem="",
-                 IDFacet=None,
+                 IDFacet=0,
                  SpheNorm=True):
 
         self.GD=GD
@@ -154,20 +163,6 @@ class ClassDDEGridMachine():
         self.DoDDE=DoDDE
         self.JonesDir=JonesDir
         self.IdSharedMem=IdSharedMem
-        if self.DoDDE:
-            MME=MeasurementEquation()
-            HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
-            execfile("%s/HyperCal/Scripts/ScriptSetMultiRIME.py"%HYPERCAL_DIR)
-        
-            self.MME=MME
-
-            self.AJM=None
-            if RaDec!=None:
-                self.AJM=ClassApplyJones.ClassApplyJones(self.MME)
-                rac,decc=RaDec
-                ra=np.array([rac])
-                dec=np.array([decc])
-                self.AJM.setRaDec(ra,dec)
 
         #self.DoPSF=DoPSF
         self.DoPSF=False
@@ -396,6 +391,7 @@ class ClassDDEGridMachine():
         NVisChan=vis.shape[1]
         if W==None:
             W=np.ones((uvw.shape[0],NVisChan),dtype=np.float64)
+            
         #else:
         #    W=W.reshape((uvw.shape[0],1))*np.ones((1,NVisChan))
 
@@ -436,7 +432,8 @@ class ClassDDEGridMachine():
 
         T.timeit("3")
         #print "sleeping DDE..."; time.sleep(5)
-        
+
+        T2=ClassTimeIt.ClassTimeIt("Gridder")
         Grid=_pyGridder.pyGridderWPol(Grid,
                                       vis,
                                       uvw,
@@ -452,6 +449,7 @@ class ClassDDEGridMachine():
                                       [self.PolMap,FacetInfos],
                                       ParamJonesList) # Input the jones matrices
 
+        T2.timeit("gridder")
         # print SumWeigths
         # return
         

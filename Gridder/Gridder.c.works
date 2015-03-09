@@ -670,16 +670,12 @@ void gridderWPol(PyArrayObject *grid,
 		  int sy;
 
 		  //initTime();
-		  float complex* __restrict__ gridPtr;
-		  const float complex* __restrict__ cf;
-
-
-
                   for (sy=-fsupy; sy<=fsupy; ++sy) {
                     // Get the pointer in the grid for the first x in this y.
                     //double complex __restrict__ *gridPtr = grid.data() + goff + (locy+sy)*nGridX + locx-supx;
+ 		    float complex* gridPtr = p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx;
 		    // Fast version
-		    gridPtr = p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx;
+                    const float complex* __restrict__ cf[1];
 
 		    //##################################
                     int cfoff = (offy + sy*fsampy)*nConvX + offx - fsupx*fsampx;
@@ -691,8 +687,7 @@ void gridderWPol(PyArrayObject *grid,
 		    //printf("(offy, sy,fsampy,nConvX,offx,fsupx,fsampx) = (%i, %i, %i, %i, %i, %i, %i) \n",offy, sy,fsampy,nConvX,offx,fsupx,fsampx);
 
 		    //cf[0] = (*cfs.vdata)[CFChan][0][0].data() + cfoff;
- 		    cf = p_complex64(cfs) + cfoff;
-
+ 		    cf[0] = p_complex64(cfs) + cfoff;
 		    int sx;
                     for (sx=-fsupx; sx<=fsupx; ++sx) {
 		      //printf("(%3.3i,%3.3i) CF=(%f, %f) \n",sx,sy,creal(*cf[0]),cimag(*cf[0])); 
@@ -700,9 +695,9 @@ void gridderWPol(PyArrayObject *grid,
                       //complex polSum(0,0);
   		      //polSum *= *imgWtPtr;
 		      //printf(".. Chan=%i, gridin=(%f, %f), VisVal=(%f,%f) ",visChan,creal(*gridPtr),cimag(*gridPtr),creal(VisVal),cimag(VisVal));
-                      *gridPtr++ += VisVal * *cf;// * *imgWtPtr;
+                      *gridPtr++ += VisVal * *cf[0];// * *imgWtPtr;
 		      //printf(" ... gridout=(%f, %f) \n",creal(*gridPtr),cimag(*gridPtr));
-		      cf += fsampx;
+		      cf[0] += fsampx;
 		      //Nop+=1;
 
 		      /* polSum += VisVal * *cf[0]; */
