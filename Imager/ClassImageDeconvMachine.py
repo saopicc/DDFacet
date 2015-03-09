@@ -109,9 +109,11 @@ class ClassImageDeconvMachine():
                 return "MinFlux"
 
             _,x,y=np.where(np.abs(self.Dirty)==ThisFlux)
+            x=x[0]
+            y=y[0]
             Fpol=self.Dirty[:,x,y].reshape(npol,1,1)
-            dx=x[0]-xc
-            dy=y[0]-xc
+            dx=x-xc
+            dy=y-xc
             # print dx,dy
 
             PSF=self.GivePSF((dx,dy))
@@ -127,7 +129,7 @@ class ClassImageDeconvMachine():
             # pylab.pause(0.1)
 
             for pol in range(npol):
-                self.ModelImage[pol,x[0],y[0]]+=Fpol[pol,0,0]*self.Gain
+                self.ModelImage[pol,x,y]+=Fpol[pol,0,0]*self.Gain
 
 
         print>>log, "    Reached maximum number of iterations (%i)" % (Nminor)
