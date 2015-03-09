@@ -105,6 +105,8 @@ def main(options=None):
 
     
     GD=ClassData.ClassGlobalData(ParsetFile,ReplaceDico=ReplaceDico)
+    global IdSharedMem
+    IdSharedMem=str(int(os.getpid()))+"."
 
     SolsFile=GD.DicoConfig["Files"]["killMSSolutionFile"]
     if SolsFile!=None:
@@ -115,8 +117,8 @@ def main(options=None):
         nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
         G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
         DicoSols["Jones"]=G
-        NpShared.DicoToShared("killMSSolutionFile",DicoSols)
-        D=NpShared.SharedToDico("killMSSolutionFile")
+        NpShared.DicoToShared("%skillMSSolutionFile"%IdSharedMem,DicoSols)
+        D=NpShared.SharedToDico("%skillMSSolutionFile"%IdSharedMem)
         ClusterCat=DicoSolsFile["ClusterCat"]
         ClusterCat=ClusterCat.view(np.recarray)
         DicoClusterDirs={}
@@ -125,11 +127,10 @@ def main(options=None):
         DicoClusterDirs["I"]=ClusterCat.SumI
         DicoClusterDirs["Cluster"]=ClusterCat.Cluster
         
-        _D=NpShared.DicoToShared("DicoClusterDirs",DicoClusterDirs)
-    
-    IdSharedMem=str(int(os.getpid()))+"."
+        _D=NpShared.DicoToShared("%sDicoClusterDirs"%IdSharedMem,DicoClusterDirs)
+
     NpShared.DelAll(IdSharedMem)
-    Imager=ClassDeconvMachine.ClassImagerDeconv(GD=GD,IdSharedMem=IdSharedMem)
+    Imager=ClassDeconvMachine.ClassImagerDeconv(GD=GD,IdSharedMem=IdSharedMem,BaseName=ImageName)
 
 
     Imager.Init()
@@ -145,8 +146,10 @@ def main(options=None):
 if __name__=="__main__":
     options=read_options()
     os.system('clear')
-    main(options)
-
+    try:
+        main(options)
+    except:
+        NpShared.DelAll(IdSharedMem)
 
 
 

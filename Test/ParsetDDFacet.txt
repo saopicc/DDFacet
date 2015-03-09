@@ -19,7 +19,7 @@ Files.ColName =  CORRECTED_DATA
 
 ##### Flag baselines and antenna
 Select.FlagAntBL  = None # RS,CS017LBA
-Select.UVRangeKm  = [0.1, 100] # [0.1, 10] # [0.1, 20] # in km
+Select.UVRangeKm  = [0.1, 20] # [0.1, 10] # [0.1, 20] # in km
 
 ##########################################################################################################################
 ################################################ Imager Parset ###########################################################
@@ -35,17 +35,17 @@ Facet.SolSpaceInterp.Type			= Nearest # Krigging or Nearest
 Facet.SolSpaceInterp.Scale			= 1.       # in Degrees
 Facet.SolSpaceInterp.gamma			= 2.
 
-Facet.MainFacetOptions.Support			= 7
+Facet.MainFacetOptions.Support			= 11
 Facet.MainFacetOptions.NFacets			= 3
-Facet.MainFacetOptions.OverS			= 5
+Facet.MainFacetOptions.OverS			= 21
 Facet.MainFacetOptions.wmax			= 10000.
 Facet.MainFacetOptions.Nw			= 200
 Facet.MainFacetOptions.Npix			= 1000
 Facet.MainFacetOptions.Cell			= 10.
-Facet.MainFacetOptions.Padding			= 1.4
+Facet.MainFacetOptions.Padding			= 1.2
 
-Facet.MajorCycleOptions.MaxMajorIter		= 10
+Facet.MajorCycleOptions.MaxMajorIter		= 20
 
 Facet.MinorCycleOptions.Gain			= 0.05
-Facet.MinorCycleOptions.MaxMinorIter		= 50
+Facet.MinorCycleOptions.MaxMinorIter		= 10
 

@@ -507,7 +507,6 @@ class ClassFacetMachine():
         pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
         while iResult < NJobs:
-            NDone=iResult
             DicoResult=None
             for result_queue in List_Result_queue:
                 if result_queue.qsize()!=0:
@@ -523,6 +522,7 @@ class ClassFacetMachine():
 
             if DicoResult["Success"]:
                 iResult+=1
+                NDone=iResult
                 intPercent=int(100*  NDone / float(NFacets))
                 pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
             iFacet=DicoResult["iFacet"]
@@ -655,6 +655,7 @@ class WorkerImager(multiprocessing.Process):
             DicoJonesMatrices=NpShared.SharedToDico("%skillMSSolutionFile"%self.IdSharedMem)
             DicoClusterDirs=NpShared.SharedToDico("%sDicoClusterDirs"%self.IdSharedMem)
             DicoJonesMatrices["DicoClusterDirs"]=DicoClusterDirs
+            
         return DicoJonesMatrices
 
     def run(self):
