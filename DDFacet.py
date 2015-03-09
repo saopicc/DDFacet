@@ -21,7 +21,7 @@ def read_options():
     opt = optparse.OptionParser(usage='Usage: %prog --ms=somename.MS <options>',version='%prog version 1.0',description=desc)
     group = optparse.OptionGroup(opt, "* Data-related options", "Won't work if not specified.")
     group.add_option('--Parset',help='Input MS to draw [no default]',default=None)
-    group.add_option('--Mode',help='Default %default',default="Clean,Dirty,PSF")
+    group.add_option('--Mode',help='Default %default',default="Clean")
     opt.add_option_group(group)
 
     group = optparse.OptionGroup(opt, "* Selection")
@@ -133,15 +133,12 @@ def main(options=None):
 
 
     Imager.Init()
-    if "Clean" in options.Mode:
+    if "Clean"==options.Mode:
         Imager.main()
-        return
-    if "Dirty" in options.Mode:
+    elif "Dirty"==options.Mode:
         Imager.GiveDirty()
-        return
-    if "PSF" in options.Mode:
+    elif "PSF"==options.Mode:
         Imager.MakePSF()
-        return
 
     NpShared.DelAll(IdSharedMem)
 
