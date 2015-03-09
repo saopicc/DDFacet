@@ -504,12 +504,12 @@ class ClassFacetMachine():
             workerlist[ii].start()
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Gridding ", HeaderSize=10,TitleSize=13)
-        #pBAR.render(0, '%4i/%i' % (0,NFacets))
+        pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
         while iResult < NJobs:
             NDone=iResult
             intPercent=int(100*  NDone / float(NFacets))
-            #pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
+            pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
             DicoResult=None
             for result_queue in List_Result_queue:
                 if result_queue.qsize()!=0:
