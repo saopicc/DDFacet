@@ -30,26 +30,67 @@ class ClassImageDeconvMachine():
             self._ModelImage=np.zeros_like(self._Dirty)
 
         
-    def GivePSF(self,(dx,dy)):
-        npol,_,_=self.Dirty.shape
-        ThisPSF=np.zeros_like(self.Dirty)
-        x0,x1,y0,y1=self.DirtyExtent
-        for pol in range(npol):
-            ThisSlice=np.roll(np.roll(self.PSF[pol].copy(),dx,axis=0),dy,axis=1)
-            ThisPSF[pol]=ThisSlice[x0:x1,y0:y1]
+    # def GivePSF(self,(dx,dy)):
+    #     npol,_,_=self.Dirty.shape
+    #     ThisPSF=np.zeros_like(self.Dirty)
+    #     x0,x1,y0,y1=self.DirtyExtent
+    #     for pol in range(npol):
+    #         ThisSlice=np.roll(np.roll(self.PSF[pol].copy(),dx,axis=0),dy,axis=1)
+    #         ThisPSF[pol]=ThisSlice[x0:x1,y0:y1]
             
-            # pylab.clf()
-            # pylab.subplot(1,2,1)
-            # pylab.imshow(self.PSF[pol],interpolation="nearest",vmin=0,vmax=1)
-            # pylab.subplot(1,2,2)
-            # pylab.imshow(ThisSlice,interpolation="nearest",vmin=0,vmax=1)
-            # pylab.draw()
+    #         # pylab.clf()
+    #         # pylab.subplot(1,2,1)
+    #         # pylab.imshow(self.PSF[pol],interpolation="nearest",vmin=0,vmax=1)
+    #         # pylab.subplot(1,2,2)
+    #         # pylab.imshow(ThisSlice,interpolation="nearest",vmin=0,vmax=1)
+    #         # pylab.draw()
             
-            # pylab.show(False)
-            # pylab.pause(0.1)
-            # stop
+    #         # pylab.show(False)
+    #         # pylab.pause(0.1)
+    #         # stop
 
-        return ThisPSF
+    #     return ThisPSF
+
+
+    def SubStep(self,(dx,dy),Fpol):
+        npol,_,_=self.Dirty.shape
+        x0,x1,y0,y1=self.DirtyExtent
+
+        xc,yc=dx,dy
+        NpixFacet=self.PSF.shape[1]
+
+        M_xc=xc
+        M_yc=yc
+        NpixMain=self.Dirty.shape[1]
+        F_xc=NpixFacet/2
+        F_yc=NpixFacet/2
+                
+        ## X
+        M_x0=M_xc-NpixFacet/2
+        x0main=np.max([0,M_x0])
+        dx0=x0main-M_x0
+        x0facet=dx0
+                
+        M_x1=M_xc+NpixFacet/2
+        x1main=np.min([NpixMain-1,M_x1])
+        dx1=M_x1-x1main
+        x1facet=NpixFacet-dx1
+        x1main+=1
+        ## Y
+        M_y0=M_yc-NpixFacet/2
+        y0main=np.max([0,M_y0])
+        dy0=y0main-M_y0
+        y0facet=dy0
+        
+        M_y1=M_yc+NpixFacet/2
+        y1main=np.min([NpixMain-1,M_y1])
+        dy1=M_y1-y1main
+        y1facet=NpixFacet-dy1
+        y1main+=1
+
+        self.Dirty[:,x0main:x1main,y0main:y1main]-=self.PSF[:,x0facet:x1facet,y0facet:y1facet]*(Fpol*self.Gain)
+
+        
 
     def setChannel(self,ch=0):
         self.PSF=self._PSF[ch]
@@ -116,14 +157,16 @@ class ClassImageDeconvMachine():
             dy=y-xc
             # print dx,dy
 
-            PSF=self.GivePSF((dx,dy))
-            self.Dirty-=PSF*(Fpol*self.Gain)
+            # PSF=self.GivePSF((dx,dy))
+            # self.Dirty-=PSF*(Fpol*self.Gain)
+
+            self.SubStep((x,y),Fpol)
 
             # pylab.clf()
-            # pylab.subplot(1,2,1)
+            # #pylab.subplot(1,2,1)
             # pylab.imshow(self.Dirty[0],interpolation="nearest",vmin=m0,vmax=m1)
-            # pylab.subplot(1,2,2)
-            # pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
+            # #pylab.subplot(1,2,2)
+            # #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
             # pylab.draw()
             # pylab.show(False)
             # pylab.pause(0.1)
