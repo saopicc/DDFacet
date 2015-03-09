@@ -508,8 +508,6 @@ class ClassFacetMachine():
         iResult=0
         while iResult < NJobs:
             NDone=iResult
-            intPercent=int(100*  NDone / float(NFacets))
-            pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
             DicoResult=None
             for result_queue in List_Result_queue:
                 if result_queue.qsize()!=0:
@@ -525,6 +523,8 @@ class ClassFacetMachine():
 
             if DicoResult["Success"]:
                 iResult+=1
+                intPercent=int(100*  NDone / float(NFacets))
+                pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
             iFacet=DicoResult["iFacet"]
 
             if iFacet==0:
