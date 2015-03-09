@@ -435,7 +435,7 @@ class ClassDDEGridMachine():
         #print "sleeping DDE..."; time.sleep(5)
 
         T2=ClassTimeIt.ClassTimeIt("Gridder")
-        #T2.disable()
+        T2.disable()
         Grid=_pyGridder.pyGridderWPol(Grid,
                                       vis,
                                       uvw,
