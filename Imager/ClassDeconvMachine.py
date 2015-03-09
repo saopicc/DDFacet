@@ -31,9 +31,9 @@ def test():
     #Model[0,0,100,100]=1
     #Imager.GivePredict(Model)
     #Imager.MakePSF()
-    Imager.GiveDirty()
+    #Imager.GiveDirty()
     #Imager.main()
-    #Imager.testDegrid()
+    Imager.testDegrid()
     return Imager
 
 class ClassImagerDeconv():

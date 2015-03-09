@@ -360,9 +360,14 @@ class ClassWTermModified():
             fzW=np.complex64(fzW).copy()
             fzWconj=np.complex64(fzWconj).copy()
 
-            #fzW=self.GiveReorgCF(fzW)
-            #fzWconj=self.GiveReorgCF(fzWconj)
+            #fzW.fill(2+3*1j)
+            #fzWconj.fill(2+3*1j)
 
+            fzW=self.GiveReorgCF(fzW)
+            fzWconj=self.GiveReorgCF(fzWconj)
+
+            #fzW=np.require(fzW, requirements=["A","C"])
+            #fzWconj=np.require(fzWconj, requirements=["A","C"])
             Wplanes.append(fzW)
             WplanesConj.append(fzWconj)
             # T.timeit("3f")

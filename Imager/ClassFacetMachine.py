@@ -526,7 +526,7 @@ class ClassFacetMachine():
             if DicoResult["Success"]:
                 iResult+=1
             iFacet=DicoResult["iFacet"]
-            print iFacet
+
             if iFacet==0:
                 ThisSumWeights=DicoResult["Weights"]
                 self.SumWeights+=ThisSumWeights

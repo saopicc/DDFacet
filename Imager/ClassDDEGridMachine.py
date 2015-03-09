@@ -51,12 +51,13 @@ def testGrid():
     uvw=np.float64(MS.uvw)[row0:row1]
     times=np.float64(MS.times_all)[row0:row1]
     data=np.complex64(MS.data)[row0:row1]
-    data.fill(0.)
+    data.fill(1.)
     data[:,:,0]=1
     data[:,:,3]=1
     A0=np.int32(MS.A0)[row0:row1]
     A1=np.int32(MS.A1)[row0:row1]
-
+    
+    #uvw.fill(0)
     
     flag=np.bool8(MS.flag_all)[row0:row1,:,:].copy()
     flag.fill(0)
@@ -147,11 +148,11 @@ def testGrid():
 
 class ClassDDEGridMachine():
     def __init__(self,GD,
-                 Npix=1023,Cell=10.,Support=21,
+                 Npix=1023,Cell=10.,Support=11,
                  ChanFreq=np.array([6.23047e7],dtype=np.float64),
                  wmax=10000,Nw=11,DoPSF=False,
                  RaDec=None,ImageName="Image",OverS=5,
-                 Padding=1.,WProj=False,lmShift=None,Precision="S",PolMode="I",DoDDE=True,
+                 Padding=1.4,WProj=False,lmShift=None,Precision="S",PolMode="I",DoDDE=True,
                  JonesDir=None,
                  IdSharedMem="",
                  IDFacet=0,
