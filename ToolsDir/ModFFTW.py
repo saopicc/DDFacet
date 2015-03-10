@@ -101,9 +101,17 @@ class FFTW():
         out=Fs(self.A,axes=axes)*(A.shape[-1]*A.shape[-2])
         return out
 
+def GiveFFTW_aligned(shape, dtype):
+    return pyfftw.n_byte_align_empty( shape[-2::], 16, dtype=dtype)
+
+import NpShared
+
 class FFTW_2Donly():
-    def __init__(self, shape, dtype, ncores = 1):
-        self.A = pyfftw.n_byte_align_empty( shape[-2::], 16, dtype=dtype)
+    def __init__(self, shape, dtype, ncores = 1, FromSharedId=None):
+        if FromSharedId==None:
+            self.A = pyfftw.n_byte_align_empty( shape[-2::], 16, dtype=dtype)
+        else:
+            self.A = NpShared.GiveArray(FromSharedId)
  
         pyfftw.interfaces.cache.enable()
         pyfftw.interfaces.cache.set_keepalive_time(3000)

@@ -89,13 +89,15 @@ class ClassImageDeconvMachine():
         y1facet=NpixFacet-dy1
         y1main+=1
 
-        self.Dirty[:,x0main:x1main,y0main:y1main]-=self.PSF[:,x0facet:x1facet,y0facet:y1facet]*(Fpol*self.Gain)
+        # self.Dirty[:,x0main:x1main,y0main:y1main]-=self.PSF[:,x0facet:x1facet,y0facet:y1facet]*(Fpol*self.Gain)
         Aedge=[x0main,x1main,y0main,y1main]
         Bedge=[x0facet,x1facet,y0facet,y1facet]
 
         _,n,n=self.PSF.shape
         PSF=self.PSF.reshape((n,n))
         factor=-Fpol[0,0,0]*self.Gain
+
+        print>>log, "    Removing %f Jy at (%i %i) (peak of %f Jy)"%(Fpol[0,0,0]*self.Gain,dx,dy,Fpol[0,0,0])
 
         NpParallel.A_add_B_prod_factor(self.Dirty,PSF,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
 
@@ -183,19 +185,20 @@ class ClassImageDeconvMachine():
             self.SubStep((x,y),Fpol)
             T.timeit("add0")
 
-            # pylab.clf()
-            # #pylab.subplot(1,2,1)
-            # pylab.imshow(self.Dirty[0],interpolation="nearest",vmin=m0,vmax=m1)
-            # #pylab.subplot(1,2,2)
-            # #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
-            # pylab.draw()
-            # pylab.show(False)
-            # pylab.pause(0.1)
+            pylab.clf()
+            #pylab.subplot(1,2,1)
+            pylab.imshow(self.Dirty[0],interpolation="nearest")#,vmin=m0,vmax=m1)
+            #pylab.subplot(1,2,2)
+            #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
+            pylab.colorbar()
+            pylab.draw()
+            pylab.show(False)
+            pylab.pause(0.1)
 
             for pol in range(npol):
                 self.ModelImage[pol,x,y]+=Fpol[pol,0,0]*self.Gain
             T.timeit("add1")
-            print
+
 
 
         print>>log, "    Reached maximum number of iterations (%i)" % (Nminor)

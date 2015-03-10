@@ -71,7 +71,7 @@ static PyObject *pyWhereMax(PyObject *self, PyObject *args)
   
   NX=A->dimensions[0];
   NY=A->dimensions[1];
-  printf("dims %i %i\n",NX,NY);
+  //printf("dims %i %i\n",NX,NY);
   
 
 

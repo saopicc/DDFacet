@@ -233,7 +233,10 @@ class ClassDDEGridMachine():
         #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
         #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
 
-        self.FFTWMachine=ModFFTW.FFTW_2Donly_np(self.GridShape,self.dtype, ncores = 1)
+        #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(self.GridShape,self.dtype, ncores = 1)
+
+        SharedName="%sFFTW.%i"%(self.IdSharedMem,self.IDFacet)
+        self.FFTWMachine=ModFFTW.FFTW_2Donly(self.GridShape,self.dtype, ncores = 1, FromSharedId=SharedName)
 
         if self.WProj:
             self.WTerm=ModCF.ClassWTermModified(Cell=self.Cell,

@@ -110,7 +110,7 @@ class ClassFacetMachine():
         _,NpixPaddedGrid=EstimateNpix(NpixFacet,Padding=Padding)
         self.NChanGrid=1
         self.PaddedGridShape=(self.NChanGrid,self.npol,NpixPaddedGrid,NpixPaddedGrid)
-        self.setWisdom()
+        #self.setWisdom()
         self.SumWeights=np.zeros((self.NChanGrid,self.npol),float)
 
         self.nch=1
@@ -192,10 +192,10 @@ class ClassFacetMachine():
 
     def Init(self):
         if self.IsDDEGridMachineInit: return
-        self.setWisdom()
         self.DicoGridMachine={}
         for iFacet in self.DicoImager.keys():
             self.DicoGridMachine[iFacet]={}
+        self.setWisdom()
         if self.Parallel:
             self.InitParallel()
         else:
@@ -219,6 +219,11 @@ class ClassFacetMachine():
         FM=ModFFTW.FFTW_2Donly(self.PaddedGridShape, np.complex64)
         b=FM.fft(a)
         self.FFTW_Wisdom=pyfftw.export_wisdom()
+        for iFacet in sorted(self.DicoImager.keys()):
+            A=ModFFTW.GiveFFTW_aligned(self.PaddedGridShape, np.complex64)
+            NpShared.ToShared("%sFFTW.%i"%(self.IdSharedMem,iFacet),A)
+            
+
 
     def InitParallel(self):
 
