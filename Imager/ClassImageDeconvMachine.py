@@ -142,14 +142,19 @@ class ClassImageDeconvMachine():
 
         MaxModelInit=np.max(np.abs(self.ModelImage))
 
+        import ClassTimeIt
+        T=ClassTimeIt.ClassTimeIt()
         for i in range(Nminor):
-            ThisFlux=np.max(np.abs(self.Dirty))
 
+            
+            ThisFlux=np.max(np.abs(self.Dirty))
+            T.timeit("max0")
             if ThisFlux < FluxLimit:
                 print>>log, "    Maximum peak lower that rms-based limit of %f Jy (%i-sigma)" % (FluxLimit,Threshold_RMS)
                 return "MinFlux"
 
             MaxModelNow=np.max(np.abs(self.ModelImage))
+            T.timeit("max1")
             MaxCleaned=MaxModelNow-MaxModelInit
             #print>>log, "        Iteration %i maximum cleaned flux = %f Jy"%(i,MaxCleaned)
             if MaxCleaned > FluxLimit_SideLobe:
@@ -157,6 +162,7 @@ class ClassImageDeconvMachine():
                 return "MinFlux"
 
             _,x,y=np.where(np.abs(self.Dirty)==ThisFlux)
+            T.timeit("where")
             x=x[0]
             y=y[0]
             Fpol=self.Dirty[:,x,y].reshape(npol,1,1)
@@ -167,7 +173,9 @@ class ClassImageDeconvMachine():
             # PSF=self.GivePSF((dx,dy))
             # self.Dirty-=PSF*(Fpol*self.Gain)
 
+            T.timeit("stuff")
             self.SubStep((x,y),Fpol)
+            T.timeit("add0")
 
             # pylab.clf()
             # #pylab.subplot(1,2,1)
@@ -180,6 +188,8 @@ class ClassImageDeconvMachine():
 
             for pol in range(npol):
                 self.ModelImage[pol,x,y]+=Fpol[pol,0,0]*self.Gain
+            T.timeit("add1")
+            print
 
 
         print>>log, "    Reached maximum number of iterations (%i)" % (Nminor)
