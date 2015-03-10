@@ -1200,7 +1200,8 @@ void DeGridderWPol(PyArrayObject *grid,
 		  int io=(offy - fsupy*fsampy);
 		  int jo=(offx - fsupx*fsampx);
 		  int cfoff = io * OverS * SupportCF*SupportCF + jo * SupportCF*SupportCF;
-		  cf0 =  __builtin_assume_aligned(p_complex64(cfs) + cfoff,8);
+		  //cf0 =  __builtin_assume_aligned(p_complex64(cfs) + cfoff,8);
+		  cf0 =  p_complex64(cfs) + cfoff;
 
 
 
@@ -1208,7 +1209,8 @@ void DeGridderWPol(PyArrayObject *grid,
                   for (sy=-fsupy; sy<=fsupy; ++sy) {
                     // Get the pointer in the grid for the first x in this y.
 		    //float complex *gridPtr = p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx;
-		    gridPtr =  __builtin_assume_aligned(p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx,8);
+		    //gridPtr =  __builtin_assume_aligned(p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx,8);
+		    gridPtr =  p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx;
 		    // Fast version
 
                     //const float complex* __restrict__ cf[1];
