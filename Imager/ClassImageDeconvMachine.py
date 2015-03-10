@@ -160,6 +160,7 @@ class ClassImageDeconvMachine():
             # T.timeit("where")
 
             x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
+            print>>log, "    Maximum peak %f Jy" % (ThisFlux)
             _,_,MaxModelNow=NpParallel.A_whereMax(self.ModelImage,NCPU=self.NCPU,DoAbs=1)
             T.timeit("max0")
 
