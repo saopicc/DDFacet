@@ -48,10 +48,11 @@ def A_whereMax(A,NCPU=6,DoAbs=1):
     A=A.reshape((nz,NX,NY))
 
     Ans=np.zeros((nz,3),np.float32)
+
     for iz in range(nz):
         ThisA=A[iz]
         _pyGridder.pyWhereMax(ThisA,Blocks,Ans[iz],DoAbs)
-        
+
     chMaxAns=np.argmax(Ans[:,2])
     Ans=Ans[chMaxAns]
     i,j,V=Ans

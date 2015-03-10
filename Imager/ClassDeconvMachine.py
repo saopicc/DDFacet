@@ -267,7 +267,9 @@ class ClassImagerDeconv():
             print>>log, ModColor.Str("   ====== Runing major Cycle %i ======"%iMajor)
             self.DeconvMachine.SetDirtyPSF(Image,self.PSF)
             self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel)
-            self.DeconvMachine.Clean()
+            rep=self.DeconvMachine.Clean()
+            if rep=="DoneMinFlux":
+                break
             self.FacetMachine.ReinitDirty()
             while True:
                 print>>log, "Max model image: %f"%(np.max(self.DeconvMachine._ModelImage))

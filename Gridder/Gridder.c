@@ -111,14 +111,15 @@ static PyObject *pyWhereMax(PyObject *self, PyObject *args)
       	      /* ThisyMax = ((a[ii] > ThisMax) ? j_a : ThisyMax); */
 	      ThisVal=a[ii];
 	      if(doabs==1){
-		ThisVal=abs(ThisVal);
+		ThisVal=fabs(ThisVal);
 	      }
+	      //printf("%f, %f \n",a[ii],ThisVal);
 	      if (ThisVal > ThisMax){
 		ThisMax=ThisVal;
 		ThisxMax=i_a;
 		ThisyMax=j_a;
 	      }
-		
+	      
 
       	      /* printf("%i %i %i\n",i_a,j_a,ii); */
 	      /* printf("%i %i %f\n",ThisxMax,ThisyMax,ThisMax); */
@@ -128,6 +129,9 @@ static PyObject *pyWhereMax(PyObject *self, PyObject *args)
       MaxBlock[iblock]=ThisMax;
       xMaxBlock[iblock]=ThisxMax;
       yMaxBlock[iblock]=ThisyMax;
+      //printf("maxc loop: %i %i %f\n",xMaxBlock[iblock],yMaxBlock[iblock],MaxBlock[iblock]);
+      //printf("maxc loop2: %i %i %f\n",ThisxMax,ThisyMax,ThisMax);
+
     }
   }
   
@@ -143,6 +147,7 @@ static PyObject *pyWhereMax(PyObject *self, PyObject *args)
     }
   }
 
+  //printf("maxc: %i %i %f\n",xMax,yMax,Max);
   ans[0]=(float)xMax;
   ans[1]=(float)yMax;
   ans[2]=(float)Max;

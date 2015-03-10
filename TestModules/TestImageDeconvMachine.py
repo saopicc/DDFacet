@@ -3,11 +3,11 @@ from pyrap.images import image
 import ClassImageDeconvMachine
 
 def test():
-    impsf=image("ImageTest2.psf")
+    impsf=image("Continuous.psf")
     psf=impsf.getdata()
-    imdirty=image("ImageTest2.dirty")
+    imdirty=image("Continuous.dirty")
     dirty=imdirty.getdata()
-    DC=ClassImageDeconvMachine.ClassImageDeconvMachine()
+    DC=ClassImageDeconvMachine.ClassImageDeconvMachine(Gain=0.051,MaxMinorIter=200,NCPU=30)
     DC.SetDirtyPSF(dirty,psf)
-    DC.setSideLobeLevel(0.3)
+    DC.setSideLobeLevel(0.1)
     DC.Clean()
