@@ -27,6 +27,12 @@ class ClassVisServer():
         self.ReInitChunkCount()
         self.TMemChunkSize=TChunkSize
         self.TVisSizeMin=TVisSizeMin
+        self.ReadOnce=False
+        self.ReadOnce_AlreadyRead=False
+        if TChunkSize<=TVisSizeMin*60:
+            self.ReadOnce=True
+                
+
         self.MSName=MSName
         self.VisWeights=None
         self.CountPickle=0
@@ -38,7 +44,7 @@ class ClassVisServer():
         self.LofarBeam=LofarBeam
         self.ApplyBeam=False
         self.Init()
-
+        
         self.dTimesVisMin=self.TVisSizeMin
         self.CurrentVisTimes_SinceStart_Sec=0.,0.
         self.iCurrentVisTime=0
@@ -236,6 +242,10 @@ class ClassVisServer():
         MS=self.MS
         iT0,iT1=self.CurrentMemTimeChunk,self.CurrentMemTimeChunk+1
         self.CurrentMemTimeChunk+=1
+
+        if (self.ReadOnce)&(self.ReadOnce_AlreadyRead):
+            return "LoadOK"
+        self.ReadOnce_AlreadyRead=True
 
         print>>log, "Reading next data chunk in [%5.2f, %5.2f] hours"%(self.TimesInt[iT0],self.TimesInt[iT1])
         MS.ReadData(t0=self.TimesInt[iT0],t1=self.TimesInt[iT1])

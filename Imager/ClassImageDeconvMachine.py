@@ -143,7 +143,8 @@ class ClassImageDeconvMachine():
 
         MaxModelInit=np.max(np.abs(self.ModelImage))
 
-        self.BookKeepShape=(npix/4,npix/4)
+        
+        self.BookKeepShape=(npix/2,npix/2)
         BookKeep=np.zeros(self.BookKeepShape,np.float32)
         NPixBook,_=self.BookKeepShape
         FactorBook=float(NPixBook/npix)
@@ -177,12 +178,14 @@ class ClassImageDeconvMachine():
 
             if ThisFlux < FluxLimit:
                 print>>log, "    Maximum peak lower that rms-based limit of %f Jy (%i-sigma)" % (FluxLimit,Threshold_RMS)
+                print>>log, "    in %i iterations" % (i)
                 return "MinFlux"
 
             MaxCleaned=MaxModelNow#-MaxModelInit
             #print>>log, "        Iteration %i maximum cleaned flux = %f Jy"%(i,MaxCleaned)
             if MaxCleaned > FluxLimit_SideLobe:
                 print>>log, "    Maximum peak lower that sidelobe-based limit of %f Jy (%f of peak)" % (FluxLimit_SideLobe,(1.-self.SideLobeLevel))
+                print>>log, "    in %i iterations" % (i)
                 return "MinFlux"
 
             Fpol=self.Dirty[:,x,y].reshape(npol,1,1)

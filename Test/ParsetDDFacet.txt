@@ -42,7 +42,7 @@ Facet.MainFacetOptions.wmax			= 10000.
 Facet.MainFacetOptions.Nw			= 200
 Facet.MainFacetOptions.Npix			= 1000
 Facet.MainFacetOptions.Cell			= 10.
-Facet.MainFacetOptions.Padding			= 1.2
+Facet.MainFacetOptions.Padding			= 1.4
 
 Facet.MajorCycleOptions.MaxMajorIter		= 20
 
