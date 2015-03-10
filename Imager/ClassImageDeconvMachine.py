@@ -7,12 +7,13 @@ log=MyLogger.getLogger(" ClassImageDeconvMachine")
 import NpParallel
 
 class ClassImageDeconvMachine():
-    def __init__(self,Gain=0.3,MaxMinorIter=100,NCPU=6):
+    def __init__(self,Gain=0.3,MaxMinorIter=100,NCPU=6,CycleFactor=2.5):
         #self.im=CasaImage
         self.Gain=Gain
         self.ModelImage=None
         self.MaxMinorIter=MaxMinorIter
         self.NCPU=NCPU
+        self.CycleFactor=CycleFactor
 
     def SetDirtyPSF(self,Dirty,PSF):
         # if len(PSF.shape)==4:
@@ -136,8 +137,8 @@ class ClassImageDeconvMachine():
         Threshold_RMS=10.
         MaxDirty=np.max(np.abs(self.Dirty))
         FluxLimit=Threshold_RMS*RMS
-        FluxLimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
-        Threshold_SideLobe=MaxDirty*(self.SideLobeLevel)
+        #FluxLimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
+        Threshold_SideLobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
 
         print>>log, "    Dirty image peak flux   = %7.3f Jy"%(MaxDirty)
         print>>log, "    RMS threshold flux      = %7.3f Jy [rms      = %7.3f Jy]"%(FluxLimit, RMS)
@@ -183,8 +184,7 @@ class ClassImageDeconvMachine():
             T.timeit("max0")
 
             if ThisFlux < FluxLimit:
-                print>>log, "    Maximum peak lower that rms-based limit of %f Jy (%i-sigma)" % (FluxLimit,Threshold_RMS)
-                print>>log, "    in %i iterations" % (i)
+                print>>log, "    [iter=%i] Maximum peak lower that rms-based limit of %f Jy (%i-sigma)" % (i,FluxLimit,Threshold_RMS)
                 return "MinFlux"
 
             #MaxCleaned=MaxModelNow#-MaxModelInit
@@ -192,9 +192,8 @@ class ClassImageDeconvMachine():
             #print>>log, "        Iteration %i maximum cleaned flux = %f Jy"%(i,MaxCleaned)
             #if MaxCleaned > FluxLimit_SideLobe:
             if ThisFlux < Threshold_SideLobe:
-                
-                print>>log, "    Maximum CC of %f Jy higher than sidelobe-based limit of %f Jy (%f of peak)" % (MaxCleaned, FluxLimit_SideLobe,(1.-self.SideLobeLevel))
-                print>>log, "    in %i iterations" % (i)
+                print>>log, "    [iter=%i] Peak residual flux %f Jy higher than sidelobe-based limit of %f Jy" % (i,ThisFlux, Threshold_SideLobe)
+
                 return "MinFlux"
 
             Fpol=self.Dirty[:,x,y].reshape(npol,1,1)
@@ -230,7 +229,7 @@ class ClassImageDeconvMachine():
 
 
 
-        print>>log, "    Reached maximum number of iterations (%i)" % (Nminor)
+        print>>log, "    [iter=%i] Reached maximum number of iterations" % (Nminor)
         return "MaxIter"
             # corr=np.sqrt(1.-(self.incr*dx)**2-(self.incr*dy)**2)
             # print>>log, corr

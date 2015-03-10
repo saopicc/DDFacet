@@ -64,7 +64,7 @@ class ClassImagerDeconv():
         self.IdSharedMem=IdSharedMem
         self.PNGDir="%s.png"%self.BaseName
         os.system("mkdir -p %s"%self.PNGDir)
-        os.system("rm %s/*.png"%self.PNGDir)
+        os.system("rm %s/*.png 2> /dev/null"%self.PNGDir)
         
 
     def Init(self):
