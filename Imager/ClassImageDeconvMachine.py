@@ -95,7 +95,7 @@ class ClassImageDeconvMachine():
 
         _,n,n=self.PSF.shape
         PSF=self.PSF.reshape((n,n))
-        factor=Fpol[0,0,0]*self.Gain
+        factor=-Fpol[0,0,0]*self.Gain
 
         NpParallel.A_add_B_prod_factor(self.Dirty,PSF,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
 
