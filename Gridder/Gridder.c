@@ -1,15 +1,16 @@
 /* A file to test imorting C modules for handling arrays to Python */
-
 #include <Python.h>
+#include <math.h>
+#include <time.h>
 #include "arrayobject.h"
 #include "Gridder.h"
-#include <math.h>
 #include "complex.h"
-#include <time.h>
+#include <omp.h>
 
 clock_t start;
 
 void initTime(){start=clock();}
+
 void timeit(char* Name){
   clock_t diff;
   diff = clock() - start;
@@ -35,16 +36,115 @@ static PyMethodDef _pyGridder_testMethods[] = {
 	{"pyGridderPoints", pyGridderPoints, METH_VARARGS},
 	{"pyDeGridderWPol", pyDeGridderWPol, METH_VARARGS},
 	{"pyTestMatrix", pyTestMatrix, METH_VARARGS},
+	{"pyAddArray", pyAddArray, METH_VARARGS},
 	{NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
 
 /* ==== Initialize the C_test functions ====================== */
 // Module name must be _C_arraytest in compile and linked 
 void init_pyGridder()  {
-	(void) Py_InitModule("_pyGridder", _pyGridder_testMethods);
-	import_array();  // Must be present for NumPy.  Called first after above line.
+  (void) Py_InitModule("_pyGridder", _pyGridder_testMethods);
+  import_array();  // Must be present for NumPy.  Called first after above line.
 }
 
+
+
+static PyObject *pyAddArray(PyObject *self, PyObject *args)
+{
+  PyObject *ObjA;
+  PyArrayObject *A, *B, *Aedge, *Bedge, *Blocks;
+  float factor;
+
+  if (!PyArg_ParseTuple(args, "OO!O!O!fO!", 
+			&ObjA,
+			&PyArray_Type,  &Aedge,
+			&PyArray_Type,  &B,
+			&PyArray_Type,  &Bedge,
+			&factor,
+			&PyArray_Type,  &Blocks
+			))  return NULL;
+  
+  A = (PyArrayObject *) PyArray_ContiguousFromObject(ObjA, PyArray_FLOAT32, 0, 4);
+  
+  
+  int nx,ny,NX,NY,np;
+  
+  NX=A->dimensions[0];
+  NY=A->dimensions[1];
+  //printf("dims %i %i\n",NX,NY);
+  
+  int * aedge = p_int32(Aedge);
+  int a_x0=aedge[0];
+  int a_x1=aedge[1];
+  int a_y0=aedge[2];
+  int a_y1=aedge[3];
+
+  int * bedge = p_int32(Bedge);
+  int b_x0=bedge[0];
+  int b_x1=bedge[1];
+  int b_y0=bedge[2];
+  int b_y1=bedge[3];
+
+
+
+  long iblock;
+  int* pBlocks=p_int32(Blocks);
+  int nblocks=Blocks->dimensions[0];
+
+/* for (i = 0; i < nx; i++) */
+/*   { */
+/* for (j = 0; j < ny; j++) */
+/*   { */
+/* a[i*ny+j] += b[i*ny+j];// * 2;//(factor); */
+/* } */
+/* } */
+
+  {
+#pragma omp parallel for
+    for (iblock = 0; iblock < nblocks-1; iblock++){
+      int i0=pBlocks[iblock];
+      int i1=pBlocks[iblock+1];
+      if(i1>=a_x1){i1=a_x1;};
+      
+      //printf("- block %i->%i\n",i0,i1);
+      
+      float* a = p_float32(A);
+      float* b = p_float32(B);
+      int i_a,j_a;
+
+      for (i_a = i0; i_a < i1; i_a++)
+	{
+	  int di=i_a-a_x0;
+	  int i_b=b_x0+di;
+	  for (j_a = a_y0; j_a < a_y1; j_a++)
+	    {
+	      int dj=j_a-a_y0;
+	      int j_b=b_y0+dj;
+	      //printf("a[%i,%i] = b[%i,%i]\n",i_a,j_a,i_b,j_b); 
+	      a[i_a*NY+j_a] += b[i_b*NY+j_b]*(factor);
+	      //printf("- %f\n",a[i*ny+j]);
+	      
+	    }
+	}
+      
+    }
+  }
+
+
+/* float* a = p_float32(A); */
+
+/* for (i = 0; i < nx; i++) */
+/*   { */
+/* for (j = 0; j < ny; j++) */
+/*   { */
+/* printf("%f\n",a[i*ny+j]); */
+/* } */
+/* } */
+  
+
+  return PyArray_Return(A);//,PyArray_Return(np_grid);
+
+}
 
 
 

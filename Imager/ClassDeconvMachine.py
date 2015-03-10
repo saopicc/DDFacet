@@ -49,6 +49,7 @@ class ClassImagerDeconv():
         self.BaseName=BaseName
         self.PointingID=PointingID
         MinorCycleConfig=self.GD.DicoConfig["Facet"]["MinorCycleOptions"]
+        MinorCycleConfig["NCPU"]=self.GD.DicoConfig["Parallel"]["NCPU"]
         self.NMajor=self.GD.DicoConfig["Facet"]["MajorCycleOptions"]["MaxMajorIter"]
         self.DeconvMachine=ClassImageDeconvMachine.ClassImageDeconvMachine(**MinorCycleConfig)
         self.FacetMachine=None

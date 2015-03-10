@@ -4,14 +4,15 @@ import pylab
 import MyLogger
 import ModColor
 log=MyLogger.getLogger(" ClassImageDeconvMachine")
+import NpParallel
 
 class ClassImageDeconvMachine():
-    def __init__(self,Gain=0.3,MaxMinorIter=20):
+    def __init__(self,Gain=0.3,MaxMinorIter=20,NCPU=6):
         #self.im=CasaImage
         self.Gain=Gain
         self.ModelImage=None
         self.MaxMinorIter=MaxMinorIter
-        
+        self.NCPU=NCPU
 
 
     def SetDirtyPSF(self,Dirty,PSF):
@@ -89,8 +90,14 @@ class ClassImageDeconvMachine():
         y1main+=1
 
         self.Dirty[:,x0main:x1main,y0main:y1main]-=self.PSF[:,x0facet:x1facet,y0facet:y1facet]*(Fpol*self.Gain)
+        Aedge=[x0main,x1main,y0main,y1main]
+        Bedge=[x0facet,x1facet,y0facet,y1facet]
 
-        
+        _,n,n=self.PSF.shape
+        PSF=self.PSF.reshape((n,n))
+        factor=Fpol[0,0,0]*self.Gain
+
+        NpParallel.A_add_B_prod_factor(self.Dirty,PSF,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
 
     def setChannel(self,ch=0):
         self.PSF=self._PSF[ch]
