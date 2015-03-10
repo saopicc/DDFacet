@@ -364,6 +364,7 @@ class ClassFacetMachine():
         Image=self.GiveEmptyMainField()
         nch,npol=self.nch,self.npol
         _,_,NPixOut,NPixOut=self.OutImShape
+        print>>log, "Combining facets using %s mode..."%self.ConstructMode
         if self.ConstructMode=="Fader": 
             SharedMemName="%sWTerm.Facet_%3.3i"%(self.IdSharedMem,0)
             NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)

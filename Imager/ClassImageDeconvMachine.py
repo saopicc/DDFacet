@@ -133,21 +133,24 @@ class ClassImageDeconvMachine():
         RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
         RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
         
-        Threshold_RMS=5.
+        Threshold_RMS=10.
         MaxDirty=np.max(np.abs(self.Dirty))
         FluxLimit=Threshold_RMS*RMS
         FluxLimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
+        Threshold_SideLobe=MaxDirty*(self.SideLobeLevel)
 
-        print>>log, "    Maximum flux = %f Jy [with rms %f Jy]"%(MaxDirty, RMS)
-        print>>log, "    Maximum allowed cleaned flux = %f Jy"%(FluxLimit_SideLobe)
+        print>>log, "    Dirty image peak flux   = %7.3f Jy"%(MaxDirty)
+        print>>log, "    RMS threshold flux      = %7.3f Jy [rms      = %7.3f Jy]"%(FluxLimit, RMS)
+        print>>log, "    Sidelobs threshold flux = %7.3f Jy [sidelobe = %7.3f of peak]"%(Threshold_SideLobe,self.SideLobeLevel)
 
         MaxModelInit=np.max(np.abs(self.ModelImage))
 
         
-        self.BookKeepShape=(npix/2,npix/2)
-        BookKeep=np.zeros(self.BookKeepShape,np.float32)
-        NPixBook,_=self.BookKeepShape
-        FactorBook=float(NPixBook/npix)
+        # Fact=4
+        # self.BookKeepShape=(npix/Fact,npix/Fact)
+        # BookKeep=np.zeros(self.BookKeepShape,np.float32)
+        # NPixBook,_=self.BookKeepShape
+        # FactorBook=float(NPixBook)/npix
         
         import ClassTimeIt
         T=ClassTimeIt.ClassTimeIt()
@@ -155,6 +158,7 @@ class ClassImageDeconvMachine():
 
         x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
         if ThisFlux < FluxLimit:
+            print>>log, ModColor.Str("    Initial maximum peak %f Jy lower that rms-based limit of %f Jy (%i-sigma)" % (ThisFlux,Threshold_RMS,Threshold_RMS))
             return "DoneMinFlux"
 
 
@@ -173,7 +177,9 @@ class ClassImageDeconvMachine():
 
             x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
             #print>>log, "    Maximum peak %f Jy at (%i %i)" % (ThisFlux,x,y)
-            _,_,MaxModelNow=NpParallel.A_whereMax(BookKeep,NCPU=self.NCPU,DoAbs=1)
+
+            #_,_,MaxModelNow=NpParallel.A_whereMax(BookKeep,NCPU=self.NCPU,DoAbs=1)
+            #MaxModelNow=np.max(np.abs(MaxModelNow))
             T.timeit("max0")
 
             if ThisFlux < FluxLimit:
@@ -181,10 +187,13 @@ class ClassImageDeconvMachine():
                 print>>log, "    in %i iterations" % (i)
                 return "MinFlux"
 
-            MaxCleaned=MaxModelNow#-MaxModelInit
+            #MaxCleaned=MaxModelNow#-MaxModelInit
+
             #print>>log, "        Iteration %i maximum cleaned flux = %f Jy"%(i,MaxCleaned)
-            if MaxCleaned > FluxLimit_SideLobe:
-                print>>log, "    Maximum peak lower that sidelobe-based limit of %f Jy (%f of peak)" % (FluxLimit_SideLobe,(1.-self.SideLobeLevel))
+            #if MaxCleaned > FluxLimit_SideLobe:
+            if ThisFlux < Threshold_SideLobe:
+                
+                print>>log, "    Maximum CC of %f Jy higher than sidelobe-based limit of %f Jy (%f of peak)" % (MaxCleaned, FluxLimit_SideLobe,(1.-self.SideLobeLevel))
                 print>>log, "    in %i iterations" % (i)
                 return "MinFlux"
 
@@ -196,9 +205,11 @@ class ClassImageDeconvMachine():
             # PSF=self.GivePSF((dx,dy))
             # self.Dirty-=PSF*(Fpol*self.Gain)
 
-            xbook=np.int64(x*FactorBook)
-            ybook=np.int64(y*FactorBook)
-            BookKeep[xbook,ybook]+=Fpol[0,0,0]*self.Gain
+            
+            # xbook=np.int64(x*FactorBook)
+            # ybook=np.int64(y*FactorBook)
+            # BookKeep[xbook,ybook]+=Fpol[0,0,0]*self.Gain
+
             T.timeit("stuff")
             self.SubStep((x,y),Fpol)
             T.timeit("add0")
