@@ -37,6 +37,7 @@ static PyMethodDef _pyGridder_testMethods[] = {
 	{"pyDeGridderWPol", pyDeGridderWPol, METH_VARARGS},
 	{"pyTestMatrix", pyTestMatrix, METH_VARARGS},
 	{"pyAddArray", pyAddArray, METH_VARARGS},
+	{"pyWhereMax", pyWhereMax, METH_VARARGS},
 	{NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
 
@@ -47,6 +48,108 @@ void init_pyGridder()  {
   import_array();  // Must be present for NumPy.  Called first after above line.
 }
 
+
+
+static PyObject *pyWhereMax(PyObject *self, PyObject *args)
+{
+  PyArrayObject *A, *Blocks,*Ans;
+  PyObject *ObjAns;
+  int doabs;
+
+  if (!PyArg_ParseTuple(args, "O!O!Oi", 
+			&PyArray_Type,  &A,
+			&PyArray_Type,  &Blocks,
+			&ObjAns,
+			&doabs
+			))  return NULL;
+  
+  //  A = (PyArrayObject *) PyArray_ContiguousFromObject(ObjA, PyArray_FLOAT32, 0, 4);
+  
+  Ans = (PyArrayObject *) PyArray_ContiguousFromObject(ObjAns, PyArray_FLOAT32, 0, 4);
+  
+  int nx,ny,NX,NY,np;
+  
+  NX=A->dimensions[0];
+  NY=A->dimensions[1];
+  printf("dims %i %i\n",NX,NY);
+  
+
+
+
+  long iblock;
+  int* pBlocks=p_int32(Blocks);
+  int nblocks=Blocks->dimensions[0];
+  float *MaxBlock;
+  int *xMaxBlock;
+  int *yMaxBlock;
+  MaxBlock=malloc((nblocks-1)*sizeof(float));
+  xMaxBlock=malloc((nblocks-1)*sizeof(int));
+  yMaxBlock=malloc((nblocks-1)*sizeof(int));
+
+  {
+#pragma omp parallel for
+    for (iblock = 0; iblock < nblocks-1; iblock++){
+      int i0=pBlocks[iblock];
+      int i1=pBlocks[iblock+1];
+      if(i1>=NX){i1=NX;};
+      
+      //printf("- block %i->%i\n",i0,i1);
+      
+      float* a = p_float32(A);
+      int i_a,j_a;
+      float ThisMax=0.;
+      int ThisxMax=0;
+      int ThisyMax=0;
+      float ThisVal;
+      for (i_a = i0; i_a < i1; i_a++)
+      	{
+      	  for (j_a = 0; j_a < NY; j_a++)
+      	    {
+      	      int ii=i_a*NY+j_a;
+      	      /* ThisMax  = ((a[ii] > ThisMax) ? a[ii] : ThisMax); */
+      	      /* ThisxMax = ((a[ii] > ThisMax) ? i_a : ThisxMax); */
+      	      /* ThisyMax = ((a[ii] > ThisMax) ? j_a : ThisyMax); */
+	      ThisVal=a[ii];
+	      if(doabs==1){
+		ThisVal=abs(ThisVal);
+	      }
+	      if (ThisVal > ThisMax){
+		ThisMax=ThisVal;
+		ThisxMax=i_a;
+		ThisyMax=j_a;
+	      }
+		
+
+      	      /* printf("%i %i %i\n",i_a,j_a,ii); */
+	      /* printf("%i %i %f\n",ThisxMax,ThisyMax,ThisMax); */
+      	    }
+      	}
+
+      MaxBlock[iblock]=ThisMax;
+      xMaxBlock[iblock]=ThisxMax;
+      yMaxBlock[iblock]=ThisyMax;
+    }
+  }
+  
+  float Max=0;
+  int xMax=0;
+  int yMax=0;
+  float* ans = p_float32(Ans);
+  for (iblock = 0; iblock < nblocks-1; iblock++){
+    if(MaxBlock[iblock]>Max){
+      Max=MaxBlock[iblock];
+      xMax=xMaxBlock[iblock];
+      yMax=yMaxBlock[iblock];
+    }
+  }
+
+  ans[0]=(float)xMax;
+  ans[1]=(float)yMax;
+  ans[2]=(float)Max;
+
+  return PyArray_Return(Ans);
+
+}
 
 
 static PyObject *pyAddArray(PyObject *self, PyObject *args)

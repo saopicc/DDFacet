@@ -34,7 +34,54 @@ def A_add_B_prod_factor(A,B,Aedge=None,Bedge=None,factor=1.,NCPU=6):
     A=A.reshape(ShapeOrig)
     return A
 
-def test():
+def A_whereMax(A,NCPU=6,DoAbs=1):
+
+    NDimsA=len(A.shape)
+    ShapeOrig=A.shape
+    
+    NX,NY=A.shape[-2],A.shape[-1]
+    Blocks = np.int32(np.linspace(0,NX,NCPU+1))
+    
+
+    
+    nz=A.size/(NX*NY)
+    A=A.reshape((nz,NX,NY))
+
+    Ans=np.zeros((nz,3),np.float32)
+    for iz in range(nz):
+        ThisA=A[iz]
+        _pyGridder.pyWhereMax(ThisA,Blocks,Ans[iz],DoAbs)
+        
+    chMaxAns=np.argmax(Ans[:,2])
+    Ans=Ans[chMaxAns]
+    i,j,V=Ans
+    i=int(i)
+    j=int(j)
+    
+        
+
+    A=A.reshape(ShapeOrig)
+    return i,j,V
+
+def testWhereMax():
+    
+    Np=20000
+    nch=1
+    
+    A=np.zeros((nch,Np,Np),dtype=np.float32)
+    A[0,1,2]=3.
+
+    T=ClassTimeIt.ClassTimeIt()
+    Ans=A_whereMax(A,NCPU=6)
+    print Ans
+    T.timeit("1")
+    print np.where(A==np.max(np.abs(A)))
+    T.timeit("2")
+
+
+#testWhereMax()
+
+def testAdd():
 
     Np=16000
     

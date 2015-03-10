@@ -70,6 +70,7 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args);
 
 static PyObject *pyGridderWPol(PyObject *self, PyObject *args);
 static PyObject *pyAddArray(PyObject *self, PyObject *args);
+static PyObject *pyWhereMax(PyObject *self, PyObject *args);
 
 
 void gridderWPol(PyArrayObject *np_grid,

@@ -147,24 +147,29 @@ class ClassImageDeconvMachine():
         for i in range(Nminor):
 
             
-            ThisFlux=np.max(np.abs(self.Dirty))
+            # ThisFlux=np.max(np.abs(self.Dirty))
+            # T.timeit("max0")
+            # MaxModelNow=np.max(np.abs(self.ModelImage))
+            # T.timeit("max1")
+            # _,x,y=np.where(np.abs(self.Dirty)==ThisFlux)
+            # x=x[0]
+            # y=y[0]
+            # T.timeit("where")
+
+            x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
+            _,_,MaxModelNow=NpParallel.A_whereMax(self.ModelImage,NCPU=self.NCPU,DoAbs=1)
             T.timeit("max0")
+
             if ThisFlux < FluxLimit:
                 print>>log, "    Maximum peak lower that rms-based limit of %f Jy (%i-sigma)" % (FluxLimit,Threshold_RMS)
                 return "MinFlux"
 
-            MaxModelNow=np.max(np.abs(self.ModelImage))
-            T.timeit("max1")
             MaxCleaned=MaxModelNow-MaxModelInit
             #print>>log, "        Iteration %i maximum cleaned flux = %f Jy"%(i,MaxCleaned)
             if MaxCleaned > FluxLimit_SideLobe:
                 print>>log, "    Maximum peak lower that sidelobe-based limit of %f Jy (%f of peak)" % (FluxLimit_SideLobe,FluxLimit_SideLobe)
                 return "MinFlux"
 
-            _,x,y=np.where(np.abs(self.Dirty)==ThisFlux)
-            T.timeit("where")
-            x=x[0]
-            y=y[0]
             Fpol=self.Dirty[:,x,y].reshape(npol,1,1)
             dx=x-xc
             dy=y-xc
