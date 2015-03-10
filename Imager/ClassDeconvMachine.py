@@ -64,7 +64,7 @@ class ClassImagerDeconv():
         self.IdSharedMem=IdSharedMem
         self.PNGDir="%s.png"%self.BaseName
         os.system("mkdir -p %s"%self.PNGDir)
-        os.system("rm %s/*"%self.PNGDir)
+        os.system("rm %s/*.png"%self.PNGDir)
         
 
     def Init(self):
@@ -311,7 +311,7 @@ class ClassImagerDeconv():
             pylab.imshow(Image[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
             pylab.colorbar()
             pylab.draw()
-            PNGName="%s/%3.3i.png"%(self.PNGDir,iMajor)
+            PNGName="%s/Residual%3.3i.png"%(self.PNGDir,iMajor)
             fig.savefig(PNGName)
             pylab.show(False)
             pylab.pause(0.1)
