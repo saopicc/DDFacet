@@ -57,7 +57,7 @@ class ClassCasaimage():
         os.system("rm -Rf %s"%ImageName)
 
         incr=c.get_increment()
-        incrRad=(self.Cell/60)#*np.pi/180
+        incrRad=(self.Cell/60.)#*np.pi/180
         incr[-1][0]=incrRad
         incr[-1][1]=-incrRad
         c.set_increment(incr)
