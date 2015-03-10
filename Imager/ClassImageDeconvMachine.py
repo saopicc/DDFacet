@@ -185,15 +185,15 @@ class ClassImageDeconvMachine():
             self.SubStep((x,y),Fpol)
             T.timeit("add0")
 
-            pylab.clf()
-            #pylab.subplot(1,2,1)
-            pylab.imshow(self.Dirty[0],interpolation="nearest")#,vmin=m0,vmax=m1)
-            #pylab.subplot(1,2,2)
-            #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
-            pylab.colorbar()
-            pylab.draw()
-            pylab.show(False)
-            pylab.pause(0.1)
+            # pylab.clf()
+            # #pylab.subplot(1,2,1)
+            # pylab.imshow(self.Dirty[0],interpolation="nearest")#,vmin=m0,vmax=m1)
+            # #pylab.subplot(1,2,2)
+            # #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
+            # pylab.colorbar()
+            # pylab.draw()
+            # pylab.show(False)
+            # pylab.pause(0.1)
 
             for pol in range(npol):
                 self.ModelImage[pol,x,y]+=Fpol[pol,0,0]*self.Gain
