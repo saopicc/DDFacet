@@ -144,6 +144,7 @@ class ClassImageDeconvMachine():
 
         import ClassTimeIt
         T=ClassTimeIt.ClassTimeIt()
+        T.disable()
         for i in range(Nminor):
 
             
