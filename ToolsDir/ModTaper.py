@@ -9,6 +9,18 @@ def TaperGauss(A):
     g=np.exp(-(x-x0)**2/(2*sigx**2))
     return A*g
 
+
+def Sphe2D(Npix,factor=1.):
+    y=np.zeros((Npix,),float)
+    x,y=np.mgrid[-1:1:1j*Npix,-1:1:1j*Npix]
+    R=np.sqrt(x**2+y**2)
+    z=np.zeros_like(R)
+    zf=z.ravel()
+
+    for (i,r) in zip(range(Npix**2),R.ravel()):
+        zf[i]=EvalSphe(np.abs(r)*factor)
+    return z
+
 def Sphe1D(Npix,factor=1.):
     y=np.zeros((Npix,),float)
     if Npix%2==0:
