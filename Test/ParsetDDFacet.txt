@@ -35,7 +35,7 @@ Facet.SolSpaceInterp.Type			= Nearest # Krigging or Nearest
 Facet.SolSpaceInterp.Scale			= 1.       # in Degrees
 Facet.SolSpaceInterp.gamma			= 2.
 
-Facet.MainFacetOptions.Support			= 9
+Facet.MainFacetOptions.Support			= 7
 Facet.MainFacetOptions.NFacets			= 3
 Facet.MainFacetOptions.OverS			= 5
 Facet.MainFacetOptions.wmax			= 20000.

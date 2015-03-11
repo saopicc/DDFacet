@@ -146,6 +146,7 @@ def main(options=None):
 if __name__=="__main__":
     options=read_options()
     os.system('clear')
+
     try:
         main(options)
     except:

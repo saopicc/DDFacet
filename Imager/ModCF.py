@@ -48,8 +48,8 @@ def ZeroPad(A,outshape=1001):
  
 import ModTaper
 def MakeSphe(Support,NpixIm):
-    #x,y,CF=Gaussian.Gaussian(3,Support,1)
-    CF=ModTaper.Sphe2D(Support)
+    x,y,CF=Gaussian.Gaussian(3,Support,1)
+    #CF=ModTaper.Sphe2D(Support)
 
 
     #CF=np.roll(np.roll(CF,1,axis=0),1,axis=1)
