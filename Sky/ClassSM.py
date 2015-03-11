@@ -306,8 +306,8 @@ class ClassSM():
         
         sigx=1.5*(x0-x1)/nk
         sigy=1.5*(y0-y1)/nk
-        sigx=1.*(x0-x1)/nk
-        sigy=1.*(y0-y1)/nk
+        #sigx=1.*(x0-x1)/nk
+        #sigy=1.*(y0-y1)/nk
     
         xnode=[]
         ynode=[]

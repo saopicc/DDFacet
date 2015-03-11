@@ -7,6 +7,7 @@ import ModToolBox
 import NpShared
 import MyLogger
 log=MyLogger.getLogger("WTerm")#,disable=True)
+import ModTaper
 
 
 F2=scipy.fftpack.fft2
@@ -46,19 +47,119 @@ def ZeroPad(A,outshape=1001):
 
     return B   
  
-import ModTaper
+class SpheMachine():
+    def __init__(self,Support=11,SupportSpheCalc=111,Type="Sphe"):
+        self.Support=Support
+        self.SupportSpheCalc=SupportSpheCalc
+        self.Type=Type
+        self.setSmall_fCF()
+
+    def setSmall_fCF(self):
+        Support=self.Support
+        SupportSphe=self.SupportSpheCalc
+        if self.Type=="Sphe":
+            xc=SupportSphe/2
+            CF=ModTaper.Sphe2D(SupportSphe)
+            CF=np.complex128(CF)#np.array(np.complex128(CF),order="F")
+            fCF=fft2(CF)
+            fCF=fCF[xc-Support/2:xc+Support/2+1,xc-Support/2:xc+Support/2+1].copy()
+        elif self.Type=="Gauss":
+            x,y,CF=Gaussian.Gaussian(3,Support,1)
+            CF=np.complex128(CF)#np.array(np.complex128(CF),order="F")
+            fCF=fft2(CF)
+
+        self.Small_fCF=fCF
+        self.Small_CF=CF
+        
+    def MakeSphe(self,NpixIm):
+        fCF=self.Small_fCF
+        zfCF=ZeroPad(fCF,NpixIm)
+        ifzfCF=ifft2(zfCF)
+        CF=self.Small_CF
+        
+        # ############" 
+        # import pylab
+        # pylab.clf()
+        # pylab.subplot(3,2,1)
+        # lpar=list(pylab.imshow.__defaults__)
+        # lpar[3]="nearest"
+        # pylab.imshow.__defaults__=tuple(lpar)
+        # pylab.imshow(CF.real)
+        # pylab.colorbar()
+        # pylab.subplot(3,2,2)
+        # pylab.imshow(CF.imag)
+        # pylab.colorbar()
+        # pylab.subplot(3,2,3)
+        # pylab.imshow(fCF.real)
+        # pylab.colorbar()
+        # pylab.subplot(3,2,4)
+        # pylab.imshow(fCF.imag)
+        # pylab.colorbar()
+        # pylab.subplot(3,2,5)
+        # pylab.imshow(ifzfCF.real)
+        # pylab.colorbar()
+        # pylab.subplot(3,2,6)
+        # pylab.imshow(ifzfCF.imag)
+        # pylab.colorbar()
+        # pylab.draw()
+        # pylab.show(False)
+        # pylab.pause(0.1)
+        # # stop
+        
+        ifzfCF[ifzfCF<0]=1e-10
+        return CF, fCF, ifzfCF
+
+def test():
+    S=15
+    SpheM0=SpheMachine(Support=S,Type="Sphe")
+    SpheM1=SpheMachine(Support=S,Type="Gauss")
+    Npix=151
+    _,_, ifzfCF0= SpheM0.MakeSphe(Npix)
+    _,_, ifzfCF1= SpheM1.MakeSphe(Npix)
+    
+    import pylab
+    pylab.clf()
+    lpar=list(pylab.imshow.__defaults__)
+    lpar[3]="nearest"
+    pylab.imshow.__defaults__=tuple(lpar)
+    pylab.subplot(2,2,1)
+    pylab.imshow(ifzfCF0.real)
+    pylab.colorbar()
+    pylab.subplot(2,2,2)
+    pylab.imshow(ifzfCF0.imag)
+    pylab.colorbar()
+    pylab.subplot(2,2,3)
+    pylab.imshow(ifzfCF1.real/ifzfCF0.real)
+    pylab.colorbar()
+    pylab.subplot(2,2,4)
+    pylab.imshow(ifzfCF1.imag)
+    pylab.colorbar()
+    pylab.draw()
+    pylab.show(False)
+    pylab.pause(0.1)
+    # stop
+
+#test()
+#stop
+
 def MakeSphe(Support,NpixIm):
-    x,y,CF=Gaussian.Gaussian(3,Support,1)
-    #CF=ModTaper.Sphe2D(Support)
+    #x,y,CF=Gaussian.Gaussian(3,Support,1)
 
-
-    #CF=np.roll(np.roll(CF,1,axis=0),1,axis=1)
-
+    import ClassTimeIt
+    T=ClassTimeIt.ClassTimeIt()
+    SupportSphe=111
+    xc=SupportSphe/2
+    CF=ModTaper.Sphe2D(SupportSphe)
+    T.timeit("0")
     CF=np.complex128(CF)#np.array(np.complex128(CF),order="F")
+    
+
+
 
     fCF=fft2(CF)
-
+    fCF=fCF[xc-Support/2:xc+Support/2+1,xc-Support/2:xc+Support/2+1].copy()
     zfCF=ZeroPad(fCF,NpixIm)
+    T.timeit("1")
 
 
 
@@ -92,7 +193,7 @@ def MakeSphe(Support,NpixIm):
     # pylab.draw()
     # pylab.show(False)
     # pylab.pause(0.1)
-
+    # stop
     
 
     return CF, fCF, ifzfCF
@@ -182,7 +283,10 @@ class ClassWTermModified():
 
     def InitSphe(self):
         T=ClassTimeIt.ClassTimeIt("Wterm")
-        self.CF, self.fCF, self.ifzfCF= MakeSphe(self.Sup,self.Npix)
+        #self.CF, self.fCF, self.ifzfCF= MakeSphe(self.Sup,self.Npix)
+
+        self.SpheM=SpheMachine(Support=self.Sup)
+        self.CF, self.fCF, self.ifzfCF= self.SpheM.MakeSphe(self.Npix)
 
     def GiveReorgCF(self,A):
         Sup=A.shape[0]/self.OverS
@@ -208,7 +312,7 @@ class ClassWTermModified():
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
         SupMax=501
-        dummy, dummy, self.SpheW= MakeSphe(self.Sup,SupMax)
+        dummy, dummy, self.SpheW= self.SpheM.MakeSphe(SupMax)
 
         # #print>>log, "MAX Sphe=",np.max(np.abs(self.SpheW))
         # T.timeit("initsphe")
@@ -234,7 +338,7 @@ class ClassWTermModified():
         T.timeit("2")
 
         SupMax=np.int64(Interp(np.array([1./1000]))[0])
-        Sups=np.int64(np.linspace(self.CF.shape[0],np.max([SupMax,self.CF.shape[0]]),Nw))
+        Sups=np.int64(np.linspace(Sup,np.max([SupMax,Sup]),Nw))
         #print "Supports=",Sups
         self.Sups=Sups
         #Sups=np.ones((Nw,),int)*Sup
@@ -259,7 +363,7 @@ class ClassWTermModified():
 
         for i in range(Nw):
             if not(Sups[i]%2): Sups[i]+=1
-            dummy, dymmy, ThisSphe= MakeSphe(Sup,Sups[i])
+            dummy, dymmy, ThisSphe= self.SpheM.MakeSphe(Sups[i])
             wl=w[i]/waveMin
             
 

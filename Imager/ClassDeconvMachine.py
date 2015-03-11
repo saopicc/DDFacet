@@ -175,7 +175,6 @@ class ClassImagerDeconv():
             # break
 
         self.PSF=FacetMachinePSF.FacetsToIm()
-        FacetMachinePSF.ToCasaImage()
         
         # Image=FacetMachinePSF.FacetsToIm()
         # pylab.clf()
@@ -192,6 +191,7 @@ class ClassImagerDeconv():
         pylab.show(False)
         pylab.pause(0.1)
         self.FitPSF()
+        FacetMachinePSF.ToCasaImage(self.PSF,Fits=True,beam=self.FWHMBeam)
 
         del(FacetMachinePSF)
 
@@ -228,10 +228,10 @@ class ClassImagerDeconv():
             # pylab.show(False)
             # pylab.pause(0.1)
 
-        self.FacetMachine.ToCasaImage(ImageName="%s.dirty"%self.BaseName,Fits=True)
+        Image=self.FacetMachine.FacetsToIm()
+        self.FacetMachine.ToCasaImage(Image,ImageName="%s.dirty"%self.BaseName,Fits=True)
         #m0,m1=Image.min(),Image.max()
         
-        Image=self.FacetMachine.FacetsToIm()
         pylab.clf()
         pylab.imshow(Image[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
         pylab.draw()
@@ -318,7 +318,7 @@ class ClassImagerDeconv():
             self.HasCleaned=True
             if repMinor=="MaxIter": break
 
-        self.FacetMachine.ToCasaImage(ImageName="%s.residual"%self.BaseName,Fits=True)
+        self.FacetMachine.ToCasaImage(Image,ImageName="%s.residual"%self.BaseName,Fits=True)
         if self.HasCleaned:
             self.Restore()
 
@@ -331,6 +331,9 @@ class ClassImagerDeconv():
         theta=np.pi/2-theta
         
         FWHMFact=2.*np.sqrt(2.*np.log(2.))
+        bmaj=np.max([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
+        bmin=np.min([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
+        self.FWHMBeam=(bmaj,bmin,theta)
         self.PSFGaussPars = (sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta)
         print>>log, "Fitted PSF (sigma): (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec, sigma_y*self.CellArcSec, theta)
         print>>log, "Fitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec*FWHMFact, sigma_y*self.CellArcSec*FWHMFact, theta)
@@ -343,9 +346,16 @@ class ClassImagerDeconv():
             self.FitPSF()
         
         self.RestoredImage=ModFFTW.ConvolveGaussian(self.DeconvMachine._ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
-        self.RestoredImage+=self.ResidImage
-        self.FacetMachine.ToCasaImage(ImageIn=self.RestoredImage,ImageName="%s.restored"%self.BaseName,Fits=True)
-        self.FacetMachine.ToCasaImage(ImageIn=self.DeconvMachine._ModelImage,ImageName="%s.model"%self.BaseName,Fits=True)
+        self.RestoredImageRes=self.RestoredImage+self.ResidImage
+        self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+
+        self.FacetMachine.ToCasaImage(self.DeconvMachine._ModelImage,ImageName="%s.model"%self.BaseName,Fits=True)
+        self.FacetMachine.ToCasaImage(self.RestoredImage,ImageName="%s.modelConv"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+
+
+
+
+        
         # pylab.clf()
         # pylab.imshow(self.RestoredImage[0,0],interpolation="nearest")
         # pylab.draw()

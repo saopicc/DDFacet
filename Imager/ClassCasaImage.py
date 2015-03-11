@@ -6,6 +6,7 @@ import numpy as np
 import MyLogger
 log=MyLogger.getLogger("ClassCasaImage")
 import rad2hmsdms
+import pyfits
 
 class ClassCasaimage():
     def __init__(self,ImageName,ImShape,Cell,radec):
@@ -101,9 +102,21 @@ class ClassCasaimage():
         print>>log, "  ----> Save data in casa image as FITS file %s"%FileOut
         self.im.tofits(FileOut)
 
+    def setBeam(self,beam):
+        bmaj, bmin, PA=beam
+        FileOut=self.ImageName+".fits"
+        F2=pyfits.open(FileOut)
+        F2[0].header["BMAJ"]=bmaj
+        F2[0].header["BMIN"]=bmin
+        F2[0].header["BPA"]=PA
+        print>>log, "  ----> Save beam info in FITS file %s"%FileOut
+        F2.writeto(FileOut,clobber=True)
+
+
     def close(self):
         print>>log, "  ----> Close %s"%self.ImageName
         del(self.im)
+
 
 
 

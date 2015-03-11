@@ -283,16 +283,18 @@ class ClassFacetMachine():
             ImageName=self.ImageName
         self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,self.OutImShape,self.Cell,self.MainRaDec)
 
-    def ToCasaImage(self,ImageIn=None,Fits=True,ImageName=None):
-        if ImageIn==None:
-            Image=self.FacetsToIm()
-        else:
-            Image=ImageIn
+    def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None):
+        # if ImageIn==None:
+        #     Image=self.FacetsToIm()
+        # else:
+        Image=ImageIn
         if self.CasaImage==None:
             self.setCasaImage(ImageName=ImageName)
         self.CasaImage.setdata(Image,CorrT=True)
         if Fits:
             self.CasaImage.ToFits()
+            if beam!=None:
+                self.CasaImage.setBeam(beam)
         self.CasaImage.close()
         self.CasaImage=None
 
