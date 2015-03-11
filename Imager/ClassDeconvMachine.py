@@ -330,8 +330,10 @@ class ClassImagerDeconv():
         sigma_x, sigma_y, theta = ModFitPSF.DoFit(PSF)
         theta=np.pi/2-theta
         
+        FWHMFact=2.*np.sqrt(2.*np.log(2.))
         self.PSFGaussPars = (sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta)
-        print>>log, "Fitted PSF: (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec, sigma_y*self.CellArcSec, theta)
+        print>>log, "Fitted PSF (sigma): (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec, sigma_y*self.CellArcSec, theta)
+        print>>log, "Fitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec*FWHMFact, sigma_y*self.CellArcSec*FWHMFact, theta)
         print>>log, "Secondary sidelobe at the level of %5.1f"%(self.SideLobeLevel)
             
             
