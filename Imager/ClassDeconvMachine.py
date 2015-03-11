@@ -271,8 +271,8 @@ class ClassImagerDeconv():
             print>>log, ModColor.Str("   ====== Runing major Cycle %i ======"%iMajor)
             self.DeconvMachine.SetDirtyPSF(Image,self.PSF)
             self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel)
-            rep=self.DeconvMachine.Clean()
-            if rep=="DoneMinFlux":
+            repMinor=self.DeconvMachine.Clean()
+            if repMinor=="DoneMinFlux":
                 break
             self.FacetMachine.ReinitDirty()
             while True:
@@ -316,6 +316,8 @@ class ClassImagerDeconv():
             pylab.show(False)
             pylab.pause(0.1)
             self.HasCleaned=True
+            if repMinor=="MaxIter": break
+
         self.FacetMachine.ToCasaImage(ImageName="%s.residual"%self.BaseName,Fits=True)
         if self.HasCleaned:
             self.Restore()

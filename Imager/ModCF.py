@@ -47,7 +47,7 @@ def ZeroPad(A,outshape=1001):
     return B    
 
 def MakeSphe(Support,NpixIm):
-    x,y,CF=Gaussian.Gaussian(3,Support,1)
+    x,y,CF=Gaussian.Gaussian(4,Support,1)
 
     #CF=np.roll(np.roll(CF,1,axis=0),1,axis=1)
 

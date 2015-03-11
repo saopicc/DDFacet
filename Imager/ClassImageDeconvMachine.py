@@ -128,19 +128,20 @@ class ClassImageDeconvMachine():
         # pylab.show(False)
         # pylab.pause(0.1)
 
-        print>>log, ModColor.Str("Running minor cycle with Nminor=%i"%Nminor,col='green')
+        print>>log, "  Running minor cycle [MaxMinorIter = %i, CycleFactor=%3.1f]"%(Nminor,self.CycleFactor)
 
         NPixStats=1000
         RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
         RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
         
-        Threshold_RMS=10.
+        Threshold_RMS=5./(1.-self.SideLobeLevel)
         MaxDirty=np.max(np.abs(self.Dirty))
         FluxLimit=Threshold_RMS*RMS
         #FluxLimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
         Threshold_SideLobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
 
-        print>>log, "    Dirty image peak flux   = %7.3f Jy"%(MaxDirty)
+        mm0,mm1=self.Dirty.min(),self.Dirty.max()
+        print>>log, "    Dirty image peak flux   = %7.3f Jy [(min, max) = (%7.3f, %7.3f) Jy]"%(MaxDirty,mm0,mm1)
         print>>log, "    RMS threshold flux      = %7.3f Jy [rms      = %7.3f Jy]"%(FluxLimit, RMS)
         print>>log, "    Sidelobs threshold flux = %7.3f Jy [sidelobe = %7.3f of peak]"%(Threshold_SideLobe,self.SideLobeLevel)
 
@@ -229,7 +230,7 @@ class ClassImageDeconvMachine():
 
 
 
-        print>>log, "    [iter=%i] Reached maximum number of iterations" % (Nminor)
+        print>>log, ModColor.Str("    [iter=%i] Reached maximum number of iterations" % (Nminor))
         return "MaxIter"
             # corr=np.sqrt(1.-(self.incr*dx)**2-(self.incr*dy)**2)
             # print>>log, corr
