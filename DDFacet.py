@@ -46,7 +46,7 @@ def read_options():
     group.add_option("--NFacets",default=None)
     group.add_option("--Npix",default=None)
     group.add_option("--Cell",default=None)
-    group.add_option("--ConstructMode",default="Fader")
+    group.add_option("--ConstructMode",default=None)
     opt.add_option_group(group)
 
     group = optparse.OptionGroup(opt, "* Clean")

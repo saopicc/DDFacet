@@ -12,7 +12,8 @@ class ClassWeighting():
         
 
         nch,npol,npixIm,_=self.ImShape
-        FOV=self.CellSizeRad*npixIm/2
+        FOV=self.CellSizeRad*npixIm#/2
+
         cell=2./(FOV)
         
         d=np.sqrt(u**2+v**2)
@@ -26,7 +27,7 @@ class ClassWeighting():
 
         grid=np.zeros((npix,npix),dtype=np.float32)
 
-        
+
 
         
 

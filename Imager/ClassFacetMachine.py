@@ -67,6 +67,7 @@ class ClassFacetMachine():
         self.SharedNames=[]
         self.ConstructMode= GD.DicoConfig["Facet"]["ConstructMode"]
 
+
     def SetLogModeSubModules(self,Mode="Silent"):
         SubMods=["ModelBeamSVD","ClassParam","ModToolBox","ModelIonSVD2","ClassPierce","WTerm"]
 
