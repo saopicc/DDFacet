@@ -96,8 +96,9 @@ class ClassImagerDeconv():
             G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
             DicoSols["Jones"]=G
             NpShared.DicoToShared("%skillMSSolutionFile"%self.IdSharedMem,DicoSols)
-            D=NpShared.SharedToDico("killMSSolutionFile")
-            ClusterCat=DicoSolsFile["ClusterCat"]
+            #D=NpShared.SharedToDico("killMSSolutionFile")
+            #ClusterCat=DicoSolsFile["ClusterCat"]
+            ClusterCat=DicoSolsFile["SkyModel"]
             ClusterCat=ClusterCat.view(np.recarray)
             DicoClusterDirs={}
             DicoClusterDirs["l"]=ClusterCat.l
@@ -333,7 +334,7 @@ class ClassImagerDeconv():
         FWHMFact=2.*np.sqrt(2.*np.log(2.))
         bmaj=np.max([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
         bmin=np.min([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
-        self.FWHMBeam=(bmaj,bmin,theta)
+        self.FWHMBeam=(bmaj/3600.,bmin/3600.,theta)
         self.PSFGaussPars = (sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta)
         print>>log, "Fitted PSF (sigma): (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec, sigma_y*self.CellArcSec, theta)
         print>>log, "Fitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec*FWHMFact, sigma_y*self.CellArcSec*FWHMFact, theta)

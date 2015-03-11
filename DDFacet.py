@@ -119,7 +119,8 @@ def main(options=None):
         DicoSols["Jones"]=G
         NpShared.DicoToShared("%skillMSSolutionFile"%IdSharedMem,DicoSols)
         D=NpShared.SharedToDico("%skillMSSolutionFile"%IdSharedMem)
-        ClusterCat=DicoSolsFile["ClusterCat"]
+        #ClusterCat=DicoSolsFile["ClusterCat"]
+        ClusterCat=DicoSolsFile["SkyModel"]
         ClusterCat=ClusterCat.view(np.recarray)
         DicoClusterDirs={}
         DicoClusterDirs["l"]=ClusterCat.l
