@@ -84,8 +84,8 @@ class ClassVisServer():
         if self.VisWeights!=None: return
 
         WeightMachine=ClassWeighting.ClassWeighting(ImShape,CellSizeRad)
-        uvw=self.GiveAllUVW()
-        VisWeights=np.ones((uvw.shape[0],),dtype=np.float32)
+        uvw,WEIGHT=self.GiveAllUVW()
+        VisWeights=WEIGHT[:,0]#np.ones((uvw.shape[0],),dtype=np.float32)
         Robust=self.Robust
         self.VisWeights=WeightMachine.CalcWeights(uvw,VisWeights,Robust=Robust)
         
@@ -387,8 +387,9 @@ class ClassVisServer():
     def GiveAllUVW(self):
         t=table(self.MS.MSName,ack=False)
         uvw=t.getcol("UVW")
+        WEIGHT=t.getcol("WEIGHT")
         t.close()
-        return uvw
+        return uvw,WEIGHT
 
 
     # def ClearSharedMemory(self):
