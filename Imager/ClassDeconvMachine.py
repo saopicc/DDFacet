@@ -87,7 +87,6 @@ class ClassImagerDeconv():
         SolsFile=GD.DicoConfig["Files"]["killMSSolutionFile"]
         self.ApplyCal=False
         if (SolsFile!=None):#&(False):
-            print "in meme"
             self.ApplyCal=True
             DicoSolsFile=np.load(SolsFile)
             DicoSols={}
@@ -98,7 +97,6 @@ class ClassImagerDeconv():
             DicoSols["Jones"]=G
 
             NpShared.DicoToShared("%skillMSSolutionFile"%self.IdSharedMem,DicoSols)
-            print "in meme 1"
             #D=NpShared.SharedToDico("killMSSolutionFile")
             #ClusterCat=DicoSolsFile["ClusterCat"]
             ClusterCat=DicoSolsFile["SkyModel"]
@@ -110,7 +108,7 @@ class ClassImagerDeconv():
             DicoClusterDirs["Cluster"]=ClusterCat.Cluster
             
             _D=NpShared.DicoToShared("%sDicoClusterDirs"%self.IdSharedMem,DicoClusterDirs)
-            print "in meme 2"
+
 
     def InitFacetMachine(self):
         if self.FacetMachine!=None:
