@@ -664,6 +664,7 @@ class WorkerImager(multiprocessing.Process):
             DicoJonesMatrices=NpShared.SharedToDico("%skillMSSolutionFile"%self.IdSharedMem)
             DicoClusterDirs=NpShared.SharedToDico("%sDicoClusterDirs"%self.IdSharedMem)
             DicoJonesMatrices["DicoClusterDirs"]=DicoClusterDirs
+            DicoJonesMatrices["MapJones"]=NpShared.GiveArray("%sMapJones"%self.IdSharedMem)
             
         return DicoJonesMatrices
 

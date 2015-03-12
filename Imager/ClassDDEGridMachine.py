@@ -304,15 +304,7 @@ class ClassDDEGridMachine():
 
     def GiveParamJonesList(self,DicoJonesMatrices,times,A0,A1,uvw):
         JonesMatrices=DicoJonesMatrices["Jones"]
-        t0=DicoJonesMatrices["t0"]
-        t0=t0.reshape((1,t0.size))
-        t1=DicoJonesMatrices["t1"]
-        t1=t1.reshape((1,t1.size))
-        tMS=times.reshape(times.size,1)
-        cond0=(tMS>t0)
-        cond1=(tMS<=t1)
-        cond=(cond0&cond1)
-        MapJones=np.argmax(cond,axis=1)
+        MapJones=DicoJonesMatrices["MapJones"]
         l0,m0=self.lmShift
         DicoClusterDirs=DicoJonesMatrices["DicoClusterDirs"]
         lc=DicoClusterDirs["l"]
@@ -346,7 +338,7 @@ class ClassDDEGridMachine():
         if A0.size!=uvw.shape[0]: stop
         self.CheckTypes(A0=A0,A1=A1,Jones=JonesMatrices)
         
-        ParamJonesList=[np.int32(MapJones),A0,A1,JonesMatrices,np.array([idir],np.int32),np.float32(w),np.array([InterpMode],np.int32)]
+        ParamJonesList=[MapJones,A0,A1,JonesMatrices,np.array([idir],np.int32),np.float32(w),np.array([InterpMode],np.int32)]
         #print "idir %i"%idir
         return ParamJonesList
 

@@ -222,6 +222,24 @@ class ClassVisServer():
 
         DATA=NpShared.DicoToShared("%sDicoData"%self.IdSharedMem,DATA)
 
+
+        DicoJonesMatrices=NpShared.SharedToDico("%skillMSSolutionFile"%self.IdSharedMem)
+        if DicoJonesMatrices!=None:
+            JonesMatrices=DicoJonesMatrices["Jones"]
+            t0=DicoJonesMatrices["t0"]
+            t0=t0.reshape((1,t0.size))
+            t1=DicoJonesMatrices["t1"]
+            t1=t1.reshape((1,t1.size))
+            tMS=times.reshape(times.size,1)
+            cond0=(tMS>t0)
+            cond1=(tMS<=t1)
+            cond=(cond0&cond1)
+            MapJones=np.int32(np.argmax(cond,axis=1))
+            NpShared.ToShared("%sMapJones"%self.IdSharedMem,MapJones)
+
+
+
+
         #print
         #print self.MS.ROW0,self.MS.ROW1
         #t0=np.min(DATA["times"])-self.MS.F_tstart

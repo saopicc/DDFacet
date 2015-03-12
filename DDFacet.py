@@ -108,27 +108,27 @@ def main(options=None):
     global IdSharedMem
     IdSharedMem=str(int(os.getpid()))+"."
 
-    SolsFile=GD.DicoConfig["Files"]["killMSSolutionFile"]
-    if SolsFile!=None:
-        DicoSolsFile=np.load(SolsFile)
-        DicoSols={}
-        DicoSols["t0"]=DicoSolsFile["Sols"]["t0"]
-        DicoSols["t1"]=DicoSolsFile["Sols"]["t1"]
-        nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
-        G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
-        DicoSols["Jones"]=G
-        NpShared.DicoToShared("%skillMSSolutionFile"%IdSharedMem,DicoSols)
-        D=NpShared.SharedToDico("%skillMSSolutionFile"%IdSharedMem)
-        #ClusterCat=DicoSolsFile["ClusterCat"]
-        ClusterCat=DicoSolsFile["SkyModel"]
-        ClusterCat=ClusterCat.view(np.recarray)
-        DicoClusterDirs={}
-        DicoClusterDirs["l"]=ClusterCat.l
-        DicoClusterDirs["m"]=ClusterCat.m
-        DicoClusterDirs["I"]=ClusterCat.SumI
-        DicoClusterDirs["Cluster"]=ClusterCat.Cluster
+    # SolsFile=GD.DicoConfig["Files"]["killMSSolutionFile"]
+    # if SolsFile!=None:
+    #     DicoSolsFile=np.load(SolsFile)
+    #     DicoSols={}
+    #     DicoSols["t0"]=DicoSolsFile["Sols"]["t0"]
+    #     DicoSols["t1"]=DicoSolsFile["Sols"]["t1"]
+    #     nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
+    #     G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
+    #     DicoSols["Jones"]=G
+    #     NpShared.DicoToShared("%skillMSSolutionFile"%IdSharedMem,DicoSols)
+    #     D=NpShared.SharedToDico("%skillMSSolutionFile"%IdSharedMem)
+    #     #ClusterCat=DicoSolsFile["ClusterCat"]
+    #     ClusterCat=DicoSolsFile["SkyModel"]
+    #     ClusterCat=ClusterCat.view(np.recarray)
+    #     DicoClusterDirs={}
+    #     DicoClusterDirs["l"]=ClusterCat.l
+    #     DicoClusterDirs["m"]=ClusterCat.m
+    #     DicoClusterDirs["I"]=ClusterCat.SumI
+    #     DicoClusterDirs["Cluster"]=ClusterCat.Cluster
         
-        _D=NpShared.DicoToShared("%sDicoClusterDirs"%IdSharedMem,DicoClusterDirs)
+    #     _D=NpShared.DicoToShared("%sDicoClusterDirs"%IdSharedMem,DicoClusterDirs)
 
     NpShared.DelAll(IdSharedMem)
     Imager=ClassDeconvMachine.ClassImagerDeconv(GD=GD,IdSharedMem=IdSharedMem,BaseName=ImageName)
