@@ -850,10 +850,12 @@ void gridderWPol(PyArrayObject *grid,
 		    MatInv(J1H,J1Hinv,0);
 		    MatDot(J0inv,visPtr_Uncorr,visPtr);
 		    MatDot(visPtr,J1Hinv,visPtr);
-		    MatDot(J0inv,J1Hinv,JJ);
-		    WeightFromGains=1./cabs(JJ[0]);
-		    WeightFromGains*=WeightFromGains;
-		    ThisWeight*=WeightFromGains;
+
+		    //MatDot(J0inv,J1Hinv,JJ);
+		    //WeightFromGains=1./cabs(JJ[0]);
+		    //WeightFromGains*=WeightFromGains;
+		    //ThisWeight*=WeightFromGains;
+
 		    /* int ifor; */
 		    /* /\* printf("(A0,A1)=%i, %i\n",i_ant0,i_ant1); *\/ */
 		    /* /\* for (ifor=0; ifor<4; ifor++){ *\/ */
