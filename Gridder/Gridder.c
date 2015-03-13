@@ -826,13 +826,14 @@ void gridderWPol(PyArrayObject *grid,
 		//printf("flag: %i",flagPtr[ipol]);
 		double complex VisVal;
 
-		
+		double ThisWeight=*imgWtPtr;
 		
 
 
 		if (dopsf==1) {
 		  VisVal = 1.;
 		}else{
+		  float WeightFromGains;
 
 		  if(DoApplyJones){
 		    // Shape: nt,nd,na,1,2,2
@@ -840,7 +841,7 @@ void gridderWPol(PyArrayObject *grid,
 		    int i_ant0=ptrA0[irow];
 		    int i_ant1=ptrA1[irow];
 		    
-		    float complex J0[4]={0},J1[4]={0},J0inv[4]={0},J1H[4]={0},J1Hinv[4]={0};
+		    float complex J0[4]={0},J1[4]={0},J0inv[4]={0},J1H[4]={0},J1Hinv[4]={0},JJ[4]={0};
 		    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0);
 		    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
 		    
@@ -849,7 +850,10 @@ void gridderWPol(PyArrayObject *grid,
 		    MatInv(J1H,J1Hinv,0);
 		    MatDot(J0inv,visPtr_Uncorr,visPtr);
 		    MatDot(visPtr,J1Hinv,visPtr);
-		    
+		    MatDot(J0inv,J1Hinv,JJ);
+		    WeightFromGains=1./cabs(JJ[0]);
+		    WeightFromGains*=WeightFromGains;
+		    ThisWeight*=WeightFromGains;
 		    /* int ifor; */
 		    /* /\* printf("(A0,A1)=%i, %i\n",i_ant0,i_ant1); *\/ */
 		    /* /\* for (ifor=0; ifor<4; ifor++){ *\/ */
@@ -862,7 +866,7 @@ void gridderWPol(PyArrayObject *grid,
 
 
 		}
-		VisVal*=(*imgWtPtr);
+		VisVal*=ThisWeight;
 		VisVal*=corr;
 		//		printf(".. (row, chan, pol)=(%i, %i, %i), VisVal=(%f,%f) \n",inx,visChan,ipol,creal(VisVal),cimag(VisVal));
 		//printf(" \n");
@@ -936,7 +940,7 @@ void gridderWPol(PyArrayObject *grid,
 
                   }
 		  //VarTimeGrid+=AppendTimeit();
-                  sumWtPtr[gridPol+gridChan*nGridPol] += *imgWtPtr;
+                  sumWtPtr[gridPol+gridChan*nGridPol] += ThisWeight;//*imgWtPtr;
 		  /* if{*imgWtPtr>2.}{ */
 		  //printf(" [%i,%i,%f] ",inx,visChan,*imgWtPtr);
 		  /* } */
