@@ -14,6 +14,7 @@ import NpShared
 import numpy as np
 import ClassDeconvMachine
 import os
+import PrintOptParse
 
 def read_options():
     desc="""Questions and suggestions: cyril.tasse@obspm.fr"""
@@ -58,14 +59,13 @@ def read_options():
     #optcomplete.autocomplete(opt)
 
     options, arguments = opt.parse_args()
-    
+    PrintOptParse.PrintOptParse(opt,options)
     f = open(SaveFile,"wb")
     pickle.dump(options,f)
     return options
 
 def main(options=None):
     
-    logo.print_logo()
 
     if options==None:
         f = open(SaveFile,'rb')
@@ -145,8 +145,9 @@ def main(options=None):
     NpShared.DelAll(IdSharedMem)
 
 if __name__=="__main__":
-    options=read_options()
     os.system('clear')
+    logo.print_logo()
+    options=read_options()
 
     try:
         main(options)

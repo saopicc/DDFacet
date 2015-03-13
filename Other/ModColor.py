@@ -22,6 +22,9 @@ def Str(strin0,col="red",Bold=True):
         ss=OKBLUE
     elif col=="green":
         ss=OKGREEN
+    elif col=="white":
+        ss=""
+
     ss="%s%s%s"%(ss,strin,ENDC)
     if Bold: ss="%s%s%s"%(bold,ss,nobold)
     return ss
