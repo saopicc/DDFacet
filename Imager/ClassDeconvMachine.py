@@ -98,8 +98,10 @@ class ClassImagerDeconv():
 
             gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
             gmean_abs=gmean_abs.reshape((1,nd,na,1))
-            DicoSols["Jones"][:,:,:,:,0,0]+=1.-gmean_abs
-            DicoSols["Jones"][:,:,:,:,1,1]+=1.-gmean_abs
+            #DicoSols["Jones"][:,:,:,:,0,0]+=1.-gmean_abs
+            #DicoSols["Jones"][:,:,:,:,1,1]+=1.-gmean_abs
+            DicoSols["Jones"][:,:,:,:,0,0]/=gmean_abs
+            DicoSols["Jones"][:,:,:,:,1,1]/=gmean_abs
 
             NpShared.DicoToShared("%skillMSSolutionFile"%self.IdSharedMem,DicoSols)
             #D=NpShared.SharedToDico("killMSSolutionFile")
