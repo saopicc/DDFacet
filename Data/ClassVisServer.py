@@ -10,6 +10,7 @@ from Other import ModColor
 from Array import ModLinAlg
 MyLogger.setSilent(["NpShared"])
 import ClassWeighting
+from Other import reformat
 
 class ClassVisServer():
     def __init__(self,MSName,

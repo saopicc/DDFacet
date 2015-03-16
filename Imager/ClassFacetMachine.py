@@ -39,7 +39,7 @@ class ClassFacetMachine():
                  IdSharedMem="",
                  ApplyCal=False):
         self.IdSharedMem=IdSharedMem
-        self.NCPU=int(GD.DicoConfig["Parallel"]["NCPU"])
+        self.NCPU=int(GD["Parallel"]["NCPU"])
         self.ApplyCal=ApplyCal
         if Precision=="S":
             self.dtype=np.complex64
@@ -65,7 +65,7 @@ class ClassFacetMachine():
         self.IsDirtyInit=False
         self.IsDDEGridMachineInit=False
         self.SharedNames=[]
-        self.ConstructMode= GD.DicoConfig["Facet"]["ConstructMode"]
+        self.ConstructMode= GD["ImagerMainFacet"]["ConstructMode"]
 
 
     def SetLogModeSubModules(self,Mode="Silent"):

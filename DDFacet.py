@@ -15,131 +15,120 @@ import numpy as np
 import ClassDeconvMachine
 import os
 import PrintOptParse
+import ReadCFG
+import sys
+import MyPickle
+import MyLogger
+import ModColor
+log=MyLogger.getLogger("DDFacet")
+
+import MyOptParse
+
+global Parset
+Parset=ReadCFG.Parset("/media/tasse/data/DDFacet/Parset/DefaultParset.cfg")
+
 
 def read_options():
+
+
+    D=Parset.DicoPars
+
     desc="""Questions and suggestions: cyril.tasse@obspm.fr"""
+
+    OP=MyOptParse.MyOptParse(usage='Usage: %prog --ms=somename.MS <options>',version='%prog version 1.0',description=desc,
+                             DefaultDict=D)
+
+
+    OP.OptionGroup("* Parallel", "Parallel")
+    OP.add_option('Enable')
+    OP.add_option('NCPU')
+
+    OP.OptionGroup("* Data-related options","VisData")
+    OP.add_option('MSName',help='Input MS')
+    OP.add_option('ColName')
+    OP.add_option('TChunkSize')
+    OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
+
+    OP.OptionGroup("* Selection","DataSelection")
+    OP.add_option('FlagAntBL')
+    OP.add_option('UVRangeKm')
+
+    OP.OptionGroup("* Imager Global parameters","ImagerGlobal")
+    OP.add_option('Mode',help='Default %default',default="Clean")
+    OP.add_option('PolMode')
+    OP.add_option('Robust')
+    OP.add_option('Precision')
+
+    OP.OptionGroup("* DDE Solutions","DDESolutions")
+    OP.add_option("DDSols")
+    OP.add_option("ApplyMode")
+    OP.add_option('Type')
+    OP.add_option('Scale')
+    OP.add_option('gamma')
+
+    OP.OptionGroup("* Convolution functions","ImagerCF")
+    OP.add_option("Support")
+    OP.add_option("OverS")
+    OP.add_option("wmax")
+    OP.add_option("Nw")
+
+    OP.OptionGroup("* Imager's Mainfacet","ImagerMainFacet")
+    OP.add_option("NFacets",help="Number of facets, default is %default. ")
+    OP.add_option("Npix")
+    OP.add_option("Cell")
+    OP.add_option("ConstructMode")
+
+    OP.OptionGroup("* Clean","ImagerDeconv")
+    OP.add_option("MaxMajorIter")
+    OP.add_option("Gain")
+    OP.add_option("MaxMinorIter")
+    OP.add_option("CycleFactor")
+
+    OP.Finalise()
+    OP.ReadInput()
+    OP.Print()
+
     
-    opt = optparse.OptionParser(usage='Usage: %prog --ms=somename.MS <options>',version='%prog version 1.0',description=desc)
-    group = optparse.OptionGroup(opt, "* Data-related options", "Won't work if not specified.")
-    group.add_option('--Parset',help='Input MS to draw [no default]',default=None)
-    group.add_option('--Mode',help='Default %default',default="Clean")
-    opt.add_option_group(group)
+    # #optcomplete.autocomplete(opt)
 
-    group = optparse.OptionGroup(opt, "* Selection")
-    group.add_option('--NCPU',default=None)
-    group.add_option('--TChunkSize',default=None)
-    opt.add_option_group(group)
-
-    group = optparse.OptionGroup(opt, "* Settings")
-    group.add_option('--ms',help='Input MS',default=None)
-    group.add_option('--ImageName',help='Image name [%default]',default='DefaultName')
-    group.add_option('--ColName',default=None)
-    group.add_option('--FlagAntBL',default=None)
-    group.add_option('--UVRangeKm',default=None)
-    group.add_option('--PolMode',default=None)
-    group.add_option("--wmax",default=None)
-    group.add_option("--Nw",default=None)
-    group.add_option("--DDSols",default=None)
-    opt.add_option_group(group)
-
-    group = optparse.OptionGroup(opt, "* Imaging")
-    group.add_option('--Robust',default=None)
-    group.add_option("--NFacets",default=None)
-    group.add_option("--Npix",default=None)
-    group.add_option("--Cell",default=None)
-    group.add_option("--ConstructMode",default=None)
-    opt.add_option_group(group)
-
-    group = optparse.OptionGroup(opt, "* Clean")
-    group.add_option("--MaxMajorIter",default=None)
-    group.add_option("--Gain",default=None)
-    group.add_option("--MaxMinorIter",default=None)
-    opt.add_option_group(group)
-
-    #optcomplete.autocomplete(opt)
-
-    options, arguments = opt.parse_args()
-    PrintOptParse.PrintOptParse(opt,options)
-    f = open(SaveFile,"wb")
-    pickle.dump(options,f)
-    return options
-
-def main(options=None):
+    # options, arguments = opt.parse_args()
+    MyPickle.Save(OP,SaveFile)
+    return OP
+    
     
 
-    if options==None:
-        f = open(SaveFile,'rb')
-        options = pickle.load(f)
+def test():
+    options=read_options()
+
+
+def main(OP=None):
     
-    ParsetFile=options.Parset
-    if ParsetFile==None:
-        print "Give a base parset name"
 
-    ImageName=options.ImageName
 
-    ReplaceDico={}
-    #if options.ms!=None:
-    #    ReplaceDico['Files'] = {'FileMSCat': {'Name': [options.ms]}}
+    if OP==None:
+        OP = MyPickle.Load(SaveFile)
 
-    ListOpts=[]
-    ReplaceDico={}
-    if options.NCPU!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Parallel.NCPU = %s\n"%options.NCPU)
-    if options.ms!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Files.FileMSCat.Name = [%s]\n"%options.ms)
-    if options.DDSols!=None:
-        ToolsDir.ModParset.StrToDict(ReplaceDico,"Files.killMSSolutionFile = %s\n"%options.DDSols)
-    if options.ColName!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Files.ColName = %s\n"%options.ColName)
-    if options.FlagAntBL!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Select.FlagAntBL = %s\n"%options.FlagAntBL)
-    if options.UVRangeKm!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Select.UVRangeKm = %s\n"%options.UVRangeKm)
-    if options.Robust!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.Robust = %s\n"%options.Robust)
-    if options.TChunkSize!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.TChunkSize = %s\n"%options.TChunkSize)
-    if options.NFacets!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.MainFacetOptions.NFacets = %s\n"%options.NFacets)
-    if options.wmax!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.MainFacetOptions.wmax = %s\n"%options.wmax)
-    if options.Nw!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.MainFacetOptions.Nw = %s\n"%options.Nw)
-    if options.Npix!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.MainFacetOptions.Npix = %s\n"%options.Npix)
-    if options.Cell!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.MainFacetOptions.Cell = %s\n"%options.Cell)
-    if options.MaxMajorIter!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.MajorCycleOptions.MaxMajorIter = %s\n"%options.MaxMajorIter)
-    if options.Gain!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.MinorCycleOptions.Gain = %s\n"%options.Gain)
-    if options.MaxMinorIter!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.MinorCycleOptions.MaxMinorIter = %s\n"%options.MaxMinorIter)
-    if options.ConstructMode!=None: ToolsDir.ModParset.StrToDict(ReplaceDico,"Facet.ConstructMode = %s\n"%options.ConstructMode)
+    DicoConfig=OP.DicoConfig
+    
+    ImageName=DicoConfig["VisData"]["ImageName"]
+
 
 
     
-    GD=ClassData.ClassGlobalData(ParsetFile,ReplaceDico=ReplaceDico)
     global IdSharedMem
     IdSharedMem=str(int(os.getpid()))+"."
 
-    # SolsFile=GD.DicoConfig["Files"]["killMSSolutionFile"]
-    # if SolsFile!=None:
-    #     DicoSolsFile=np.load(SolsFile)
-    #     DicoSols={}
-    #     DicoSols["t0"]=DicoSolsFile["Sols"]["t0"]
-    #     DicoSols["t1"]=DicoSolsFile["Sols"]["t1"]
-    #     nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
-    #     G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
-    #     DicoSols["Jones"]=G
-    #     NpShared.DicoToShared("%skillMSSolutionFile"%IdSharedMem,DicoSols)
-    #     D=NpShared.SharedToDico("%skillMSSolutionFile"%IdSharedMem)
-    #     #ClusterCat=DicoSolsFile["ClusterCat"]
-    #     ClusterCat=DicoSolsFile["SkyModel"]
-    #     ClusterCat=ClusterCat.view(np.recarray)
-    #     DicoClusterDirs={}
-    #     DicoClusterDirs["l"]=ClusterCat.l
-    #     DicoClusterDirs["m"]=ClusterCat.m
-    #     DicoClusterDirs["I"]=ClusterCat.SumI
-    #     DicoClusterDirs["Cluster"]=ClusterCat.Cluster
-        
-    #     _D=NpShared.DicoToShared("%sDicoClusterDirs"%IdSharedMem,DicoClusterDirs)
 
     NpShared.DelAll(IdSharedMem)
-    Imager=ClassDeconvMachine.ClassImagerDeconv(GD=GD,IdSharedMem=IdSharedMem,BaseName=ImageName)
-
+    Imager=ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig,IdSharedMem=IdSharedMem,BaseName=ImageName)
 
     Imager.Init()
-    if "Clean"==options.Mode:
+    Mode=DicoConfig["ImagerGlobal"]["Mode"]
+    if "Clean"==Mode:
         Imager.main()
-    elif "Dirty"==options.Mode:
+    elif "Dirty"==Mode:
         Imager.GiveDirty()
-    elif "PSF"==options.Mode:
+    elif "PSF"==Mode:
         Imager.MakePSF()
 
     NpShared.DelAll(IdSharedMem)
@@ -147,12 +136,24 @@ def main(options=None):
 if __name__=="__main__":
     os.system('clear')
     logo.print_logo()
-    options=read_options()
 
-    try:
-        main(options)
-    except:
-        NpShared.DelAll(IdSharedMem)
+
+    ParsetFile=sys.argv[1]
+
+    TestParset=ReadCFG.Parset(ParsetFile)
+    if TestParset.Success==True:
+        #global Parset
+        
+        Parset=TestParset
+        print >>log,ModColor.Str("Successfully read %s parset"%ParsetFile)
+
+    OP=read_options()
+
+    main(OP)
+    # try:
+    #     main(OP)
+    # except:
+    #     NpShared.DelAll(IdSharedMem)
 
     # main(options)
     

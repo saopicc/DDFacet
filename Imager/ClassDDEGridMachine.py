@@ -633,6 +633,7 @@ class ClassDDEGridMachine():
         GridCorr*=(self.WTerm.OverS)**2
         T.timeit("norm")
         Dirty=self.FFTWMachine.ifft(GridCorr)
+        #Dirty=GridCorr
         T.timeit("fft")
         nchan,npol,_,_=Grid.shape
         for ichan in range(nchan):

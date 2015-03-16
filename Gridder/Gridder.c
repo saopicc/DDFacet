@@ -261,14 +261,15 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
   PyObject *ObjGridIn,*ObjWIn;
   PyArrayObject *np_grid, *np_w, *x, *y, *w;
   double R;
-
-  if (!PyArg_ParseTuple(args, "OO!O!Od", 
+  int Mode;
+  if (!PyArg_ParseTuple(args, "OO!O!Odi", 
 			&ObjGridIn,
 			&PyArray_Type,  &x, 
 			&PyArray_Type,  &y, 
 			&ObjWIn,
 			//&PyArray_Type,  &w,
-			&R
+			&R,
+			&Mode
 			))  return NULL;
   np_grid = (PyArrayObject *) PyArray_ContiguousFromObject(ObjGridIn, PyArray_FLOAT64, 0, 4);
   np_w = (PyArrayObject *) PyArray_ContiguousFromObject(ObjWIn, PyArray_FLOAT64, 0, 4);
@@ -291,30 +292,69 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
   //printf("nvis dims (%i)\n",np);
 
   long i=0;
+  int xc,yc;
+  xc=nx/2;
+  yc=ny/2;
+  int ii,jj;
+  float ThisW=0.;
+
   for (i=0; i<np; i++) {
-    grid[xp[i]+nx*yp[i]]+=wp[i];
-    sumw+=wp[i];
-    //printf("(x,y)=(%i,%i)\n",xp[i],yp[i]);
+  //  for (i=0; i<10; i++) {
+    ii=xp[i]+xc;
+    jj=yp[i]+yc;
+    grid[ii+nx*jj]+=wp[i];
+    //printf("%i: (x,y)=(%i,%i): %f %f\n",(int)i,ii,jj,wp[i],grid[ii+nx*jj]);
+    ii=-xp[i]+xc;
+    jj=-yp[i]+yc;
+    grid[ii+nx*jj]+=wp[i];
+    //printf("%i: (x,y)=(%i,%i): %f %f\n",(int)i,ii,jj,wp[i],grid[ii+nx*jj]);
+    //printf("\n");
+    /* grid[jj+nx*ii]+=wp[i]; */
+    //grid[xp[i]+nx*yp[i]]+=wp[i];
+    ThisW=wp[i]*2;
+    sumw+=ThisW;//(2.*(wp[i]));
   }
 
 
   double Wk;
   double sumWk=0;
   for (i=0; i<np; i++) {
-    Wk=grid[xp[i]+nx*yp[i]];
+    ii=xp[i]+xc;
+    jj=yp[i]+yc;
+    Wk=grid[ii+nx*jj];
+    sumWk+=Wk*Wk;
+    ii=-xp[i]+xc;
+    jj=-yp[i]+yc;
+    Wk=grid[ii+nx*jj];
     sumWk+=Wk*Wk;
   }
 
   double fact=  (sumw/sumWk)*pow(5.*pow(10.,-R),2.);
   //printf("fact=(%f)\n",fact);
-
-
-  for (i=0; i<np; i++) {
-    Wk=grid[xp[i]+nx*yp[i]];
-    wp[i]/=(1.+fact*Wk);
-  }
+  //printf("sumw,sumWk=%f,%f\n",sumw,sumWk);
+  
+  if(Mode==0){
+  //printf("Mode=(%i)\n",Mode);
+    for (i=0; i<np; i++) {
+    ii=xp[i]+xc;
+    jj=yp[i]+yc;
+      Wk=grid[ii+nx*jj];
+      wp[i]/=(1.+fact*Wk);
+      //wp[i]/=(Wk);
+    }
+  }else{
+  //printf("Mode=(%i)\n",Mode);
+    for (i=0; i<np; i++) {
+    ii=xp[i]+xc;
+    jj=yp[i]+yc;
+      Wk=grid[ii+nx*jj];
+      wp[i]/=(Wk);
+      //printf("%f,%f\n",wp[i],Wk);
+    }
+  };
 
   return PyArray_Return(np_w);//,PyArray_Return(np_grid);
+  //return PyArray_Return(np_grid);
 
 }
 
@@ -817,6 +857,41 @@ void gridderWPol(PyArrayObject *grid,
 
             // Handle a visibility if not flagged.
 	    int ipol;
+
+	    
+	    //float WeightFromGains;
+	    
+	    if(DoApplyJones){
+	      // Shape: nt,nd,na,1,2,2
+	      int i_t=ptrTimeMappingJonesMatrices[irow];
+	      int i_ant0=ptrA0[irow];
+	      int i_ant1=ptrA1[irow];
+	      
+	      float complex J0[4]={0},J1[4]={0},J0inv[4]={0},J1H[4]={0},J1Hinv[4]={0},JJ[4]={0};
+	      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0);
+	      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
+	      
+	      MatInv(J0,J0inv,0);
+	      MatH(J1,J1H);
+	      MatInv(J1H,J1Hinv,0);
+	      MatDot(J0inv,visPtr_Uncorr,visPtr);
+	      MatDot(visPtr,J1Hinv,visPtr);
+	      
+	      //MatDot(J0inv,J1Hinv,JJ);
+	      //WeightFromGains=1./cabs(JJ[0]);
+	      //WeightFromGains*=WeightFromGains;
+	      //ThisWeight*=WeightFromGains;
+	      
+	      /* int ifor; */
+	      /* /\* printf("(A0,A1)=%i, %i\n",i_ant0,i_ant1); *\/ */
+	      /* /\* for (ifor=0; ifor<4; ifor++){ *\/ */
+	      /* /\* 	printf("   %i: (%f,%f)\n",ifor,(float)creal(visPtr[ifor]),(float)cimag(visPtr[ifor])); *\/ */
+	      /* /\* }; *\/ */
+	    };
+	    
+
+
+
             for (ipol=0; ipol<nVisPol; ++ipol) {
 
 	      //printf("flag=%i [on pol %i, doff=%i]\n",(int)flagPtr[ipol],ipol,doff);
@@ -829,44 +904,11 @@ void gridderWPol(PyArrayObject *grid,
 
 		double ThisWeight=*imgWtPtr;
 		
-
-
 		if (dopsf==1) {
 		  VisVal = 1.;
 		}else{
-		  float WeightFromGains;
-
-		  if(DoApplyJones){
-		    // Shape: nt,nd,na,1,2,2
-		    int i_t=ptrTimeMappingJonesMatrices[irow];
-		    int i_ant0=ptrA0[irow];
-		    int i_ant1=ptrA1[irow];
-		    
-		    float complex J0[4]={0},J1[4]={0},J0inv[4]={0},J1H[4]={0},J1Hinv[4]={0},JJ[4]={0};
-		    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0);
-		    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
-		    
-		    MatInv(J0,J0inv,0);
-		    MatH(J1,J1H);
-		    MatInv(J1H,J1Hinv,0);
-		    MatDot(J0inv,visPtr_Uncorr,visPtr);
-		    MatDot(visPtr,J1Hinv,visPtr);
-
-		    //MatDot(J0inv,J1Hinv,JJ);
-		    //WeightFromGains=1./cabs(JJ[0]);
-		    //WeightFromGains*=WeightFromGains;
-		    //ThisWeight*=WeightFromGains;
-
-		    /* int ifor; */
-		    /* /\* printf("(A0,A1)=%i, %i\n",i_ant0,i_ant1); *\/ */
-		    /* /\* for (ifor=0; ifor<4; ifor++){ *\/ */
-		    /* /\* 	printf("   %i: (%f,%f)\n",ifor,(float)creal(visPtr[ifor]),(float)cimag(visPtr[ifor])); *\/ */
-		    /* /\* }; *\/ */
-		  };
 		  
 		  VisVal =visPtr[ipol];
-
-
 
 		}
 		VisVal*=ThisWeight;

@@ -48,19 +48,20 @@ class ClassImagerDeconv():
 
         self.BaseName=BaseName
         self.PointingID=PointingID
-        MinorCycleConfig=self.GD.DicoConfig["Facet"]["MinorCycleOptions"]
-        MinorCycleConfig["NCPU"]=self.GD.DicoConfig["Parallel"]["NCPU"]
-        self.NMajor=self.GD.DicoConfig["Facet"]["MajorCycleOptions"]["MaxMajorIter"]
+        self.NMajor=self.GD["ImagerDeconv"]["MaxMajorIter"]
+        del(self.GD["ImagerDeconv"]["MaxMajorIter"])
+        MinorCycleConfig=dict(self.GD["ImagerDeconv"])
+        MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
         self.DeconvMachine=ClassImageDeconvMachine.ClassImageDeconvMachine(**MinorCycleConfig)
         self.FacetMachine=None
         self.PSF=None
         self.PSFGaussPars = None
         self.VisWeights=None
         self.DATA=None
-        self.Precision=self.GD.DicoConfig["Facet"]["Precision"]#"S"
-        self.PolMode=self.GD.DicoConfig["Facet"]["PolMode"]
+        self.Precision=self.GD["ImagerGlobal"]["Precision"]#"S"
+        self.PolMode=self.GD["ImagerGlobal"]["PolMode"]
         self.HasCleaned=False
-        self.Parallel=self.GD.DicoConfig["Parallel"]["Enable"]
+        self.Parallel=self.GD["Parallel"]["Enable"]
         self.IdSharedMem=IdSharedMem
         self.PNGDir="%s.png"%self.BaseName
         os.system("mkdir -p %s"%self.PNGDir)
@@ -68,25 +69,26 @@ class ClassImagerDeconv():
         
 
     def Init(self):
-        DC=self.GD.DicoConfig
+        DC=self.GD
         self.InitDDESols()
-        self.VS=ClassVisServer.ClassVisServer(DC["Files"]["FileMSCat"]["Name"][0],
-                                              ColName=DC["Files"]["ColName"],
-                                              TVisSizeMin=DC["Facet"]["TChunkSize"]*60,
+        self.VS=ClassVisServer.ClassVisServer(DC["VisData"]["MSName"],
+                                              ColName=DC["VisData"]["ColName"],
+                                              TVisSizeMin=DC["VisData"]["TChunkSize"]*60,
                                               #DicoSelectOptions=DicoSelectOptions,
-                                              TChunkSize=DC["Facet"]["TChunkSize"],
+                                              TChunkSize=DC["VisData"]["TChunkSize"],
                                               IdSharedMem=self.IdSharedMem,
-                                              Robust=DC["Facet"]["Robust"],
-                                              DicoSelectOptions=DC["Select"])
+                                              Robust=DC["ImagerGlobal"]["Robust"],
+                                              DicoSelectOptions=DC["DataSelection"])
         self.InitFacetMachine()
         self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
 
 
     def InitDDESols(self):
         GD=self.GD
-        SolsFile=GD.DicoConfig["Files"]["killMSSolutionFile"]
+        SolsFile=GD["DDESolutions"]["DDSols"]
         self.ApplyCal=False
-        if (SolsFile!=None):#&(False):
+        if (SolsFile!=""):#&(False):
+            print>>log, "Loading solution file: %s"%SolsFile
             self.ApplyCal=True
             DicoSolsFile=np.load(SolsFile)
             DicoSols={}
@@ -103,9 +105,11 @@ class ClassImagerDeconv():
             # DicoSols["Jones"][:,:,:,:,0,0]/=gmean_abs
             # DicoSols["Jones"][:,:,:,:,1,1]/=gmean_abs
 
-            gabs=np.abs(G)
-            gabs[gabs==0]=1.
-            G/=gabs
+            if not("A" in self.GD["DDESolutions"]["ApplyMode"]):
+                print>>log, "  Amplitude normalisation"
+                gabs=np.abs(G)
+                gabs[gabs==0]=1.
+                G/=gabs
 
 
             NpShared.DicoToShared("%skillMSSolutionFile"%self.IdSharedMem,DicoSols)
@@ -132,7 +136,7 @@ class ClassImagerDeconv():
                                                               IdSharedMem=self.IdSharedMem,ApplyCal=self.ApplyCal)#,Sols=SimulSols)
         
         #print "initFacetMachine deconv1"; self.IM.CI.E.clear()
-        MainFacetOptions=self.GD.DicoConfig["Facet"]["MainFacetOptions"]
+        MainFacetOptions=self.GiveMainFacetOptions()
         self.FacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
         self.FacetMachine.Init()
         #print "initFacetMachine deconv2"; self.IM.CI.E.clear()
@@ -158,12 +162,20 @@ class ClassImagerDeconv():
         
         return True
 
+    def GiveMainFacetOptions(self):
+        MainFacetOptions=self.GD["ImagerMainFacet"].copy()
+        MainFacetOptions.update(self.GD["ImagerCF"].copy())
+        MainFacetOptions.update(self.GD["ImagerGlobal"].copy())
+        del(MainFacetOptions['ConstructMode'],MainFacetOptions['Precision'],
+            MainFacetOptions['PolMode'],MainFacetOptions['Mode'],MainFacetOptions['Robust'])
+        return MainFacetOptions
+
     def MakePSF(self):
         if self.PSF!=None: return
         print>>log, ModColor.Str("   ====== Making PSF ======")
         FacetMachinePSF=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
                                                             IdSharedMem=self.IdSharedMem,DoPSF=True)#,Sols=SimulSols)
-        MainFacetOptions=self.GD.DicoConfig["Facet"]["MainFacetOptions"]
+        MainFacetOptions=self.GiveMainFacetOptions()
         FacetMachinePSF.appendMainField(ImageName="%s.psf"%self.BaseName,**MainFacetOptions)
         FacetMachinePSF.Init()
         self.CellSizeRad=(FacetMachinePSF.Cell/3600.)*np.pi/180
@@ -205,9 +217,11 @@ class ClassImagerDeconv():
         pylab.draw()
         pylab.show(False)
         pylab.pause(0.1)
-        self.FitPSF()
-        FacetMachinePSF.ToCasaImage(self.PSF,Fits=True,beam=self.FWHMBeam)
-
+        #self.FitPSF()
+        #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True,beam=self.FWHMBeam)
+        #self.FitPSF()
+        FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
+        
         del(FacetMachinePSF)
 
 
