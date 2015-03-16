@@ -313,9 +313,9 @@ class ClassDDEGridMachine():
         #lc,mc=np.random.randn(100)*np.pi/180,np.random.randn(100)*np.pi/180
         
         
-        InterpMode=self.GD.DicoConfig["Facet"]["SolSpaceInterp"]["Type"]
-        d0=self.GD.DicoConfig["Facet"]["SolSpaceInterp"]["Scale"]*np.pi/180
-        gamma=self.GD.DicoConfig["Facet"]["SolSpaceInterp"]["gamma"]
+        InterpMode=self.GD["DDESolutions"]["Type"]
+        d0=self.GD["DDESolutions"]["Scale"]*np.pi/180
+        gamma=self.GD["DDESolutions"]["SolSpaceInterp"]["gamma"]
         
         d=np.sqrt((l0-lc)**2+(m0-mc)**2)
         idir=np.argmin(d)

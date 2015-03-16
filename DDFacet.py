@@ -25,7 +25,7 @@ log=MyLogger.getLogger("DDFacet")
 import MyOptParse
 
 global Parset
-Parset=ReadCFG.Parset("/media/tasse/data/DDFacet/Parset/DefaultParset.cfg")
+Parset=ReadCFG.Parset("%s/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
 
 
 def read_options():
@@ -109,7 +109,8 @@ def main(OP=None):
         OP = MyPickle.Load(SaveFile)
 
     DicoConfig=OP.DicoConfig
-    
+    print DicoConfig
+
     ImageName=DicoConfig["VisData"]["ImageName"]
 
 

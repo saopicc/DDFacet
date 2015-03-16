@@ -51,7 +51,10 @@ class MyOptParse():
         DicoDest=vars(self.options)
         for key in DicoDest.keys():
             GroupName,Name=self.GiveKeysOut(key)
-            self.DefaultDict[GroupName][Name]=DicoDest[key]
+            val=DicoDest[key]
+            if type(val)==str:
+                val=ReadCFG.FormatValue(val)
+            self.DefaultDict[GroupName][Name]=val
 
         return self.DefaultDict
 
