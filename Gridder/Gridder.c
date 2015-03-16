@@ -274,7 +274,8 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
   np_w = (PyArrayObject *) PyArray_ContiguousFromObject(ObjWIn, PyArray_FLOAT64, 0, 4);
 
 
-  int nx,ny,np;
+  int nx,ny;
+  long np;
   nx=np_grid->dimensions[0];
   ny=np_grid->dimensions[1];
   double* grid = p_float64(np_grid);
@@ -289,7 +290,7 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
   //printf("grid dims (%i,%i)\n",nx,ny);
   //printf("nvis dims (%i)\n",np);
 
-  int i=0;
+  long i=0;
   for (i=0; i<np; i++) {
     grid[xp[i]+nx*yp[i]]+=wp[i];
     sumw+=wp[i];
@@ -301,7 +302,7 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
   double sumWk=0;
   for (i=0; i<np; i++) {
     Wk=grid[xp[i]+nx*yp[i]];
-    sumWk+=Wk;
+    sumWk+=Wk*Wk;
   }
 
   double fact=  (sumw/sumWk)*pow(5.*pow(10.,-R),2.);
