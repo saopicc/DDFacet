@@ -5,7 +5,7 @@ import ModColor
 log=MyLogger.getLogger("ClassWeighting")
 
 
-import ImagingWeights
+#import ImagingWeights
 import ClassMS
 from pyrap.tables import table
 
