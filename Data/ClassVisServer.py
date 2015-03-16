@@ -86,7 +86,7 @@ class ClassVisServer():
         WeightMachine=ClassWeighting.ClassWeighting(ImShape,CellSizeRad)
         uvw,WEIGHT=self.GiveAllUVW()
         VisWeights=WEIGHT[:,0]#np.ones((uvw.shape[0],),dtype=np.float32)
-        VisWeights=np.ones((uvw.shape[0],),dtype=np.float32)
+        #VisWeights=np.ones((uvw.shape[0],),dtype=np.float32)
         Robust=self.Robust
         self.VisWeights=WeightMachine.CalcWeights(uvw,VisWeights,Robust=Robust)
         
