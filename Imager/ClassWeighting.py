@@ -25,12 +25,22 @@ class ClassWeighting():
         self.ImShape=ImShape
         self.CellSizeRad=CellSizeRad
         
-    def CalcWeights(self,uvw,VisWeights,Robust=0):
+    def CalcWeights(self,uvw,VisWeights,Robust=0,Weighting="Briggs"):
 
 
         #u,v,_=uvw.T
-        
-
+        if Weighting=="Briggs":
+            print>>log, "Weighting in Briggs mode"
+            print>>log, "Calculating imaging weights with Robust=%3.1f on an [%i,%i] grid"%(Robust,npix,npix)
+            Mode=0
+        elif Weighting=="Uniform":
+            print>>log, "Weighting in Uniform mode"
+            Mode=1
+        elif Weighting=="Natural":
+            print>>log, "Weighting in Natural mode"
+            return VisWeights
+        else:
+            stop
 
         #Robust=-2
         nch,npol,npixIm,_=self.ImShape
@@ -54,14 +64,13 @@ class ClassWeighting():
         xc,yc=npix/2,npix/2
 
 
-        grid=np.zeros((npix,npix),dtype=np.float32)
+        grid=np.zeros((npix,npix),dtype=np.float64)
 
-        print>>log, "Calculating imaging weights with Robust=%3.1f on an [%i,%i] grid"%(Robust,npix,npix)
 
 
         
 
-        x,y=np.int64(np.round(u/cell))+xc,np.int64(np.round(v/cell))+yc
+        x,y=np.int32(np.round(u/cell))+xc,np.int32(np.round(v/cell))+yc
 
         condx=((x>0)&(x<npix))
         condy=((y>0)&(y<npix))
@@ -69,18 +78,12 @@ class ClassWeighting():
         x[ind]=0
         y[ind]=0
         VisWeights[ind]=0
-        Mode=0
-        x,y=np.int64(np.round(u/cell)),np.int64(np.round(v/cell))
-        w=_pyGridder.pyGridderPoints(grid.astype(np.float64),x.astype(np.int32),y.astype(np.int32),VisWeights.astype(np.float64),2*float(Robust),Mode)
+        x,y=np.int32(np.round(u/cell)),np.int32(np.round(v/cell))
 
-        #IW=ImagingWeights.ImagingWeight(weighttype="robust",rmode="normal",robustness=-2)
-        #IW=ImagingWeights.ImagingWeight(weighttype="uniform",rmode="normal",robustness=-2)
-        #w=IW.density(self.CellSizeRad, self.ImShape,MS.ChanFreq.flatten(), MS.uvw,VisWeights)
+        VisWeights=np.float64(VisWeights)
 
-
-
-
-
+        w=_pyGridder.pyGridderPoints(grid,x,y,VisWeights,2*float(Robust),Mode)
+        
         # import pylab
         # pylab.clf()
         # #pylab.scatter(d,w)
@@ -89,6 +92,17 @@ class ClassWeighting():
         # pylab.show(False)
         # pylab.pause(0.1)
         # stop
+
+        # stop
+        
+        #IW=ImagingWeights.ImagingWeight(weighttype="robust",rmode="normal",robustness=-2)
+        #IW=ImagingWeights.ImagingWeight(weighttype="uniform",rmode="normal",robustness=-2)
+        #w=IW.density(self.CellSizeRad, self.ImShape,MS.ChanFreq.flatten(), MS.uvw,VisWeights)
+
+
+
+
+
 
         #IW.set_density(w,self.CellSizeRad)
         #w=IW.weightDensityDependent(MS.uvw, MS.ChanFreq.flatten(), MS.flag_all, VisWeights)
