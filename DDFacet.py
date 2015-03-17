@@ -58,6 +58,7 @@ def read_options():
     OP.add_option('PolMode')
     OP.add_option('Robust')
     OP.add_option('Precision')
+    OP.add_option('Weighting')
 
     OP.OptionGroup("* DDE Solutions","DDESolutions")
     OP.add_option("DDSols")
@@ -109,7 +110,7 @@ def main(OP=None):
         OP = MyPickle.Load(SaveFile)
 
     DicoConfig=OP.DicoConfig
-    print DicoConfig
+
 
     ImageName=DicoConfig["VisData"]["ImageName"]
 
@@ -150,11 +151,11 @@ if __name__=="__main__":
 
     OP=read_options()
 
-    main(OP)
-    # try:
-    #     main(OP)
-    # except:
-    #     NpShared.DelAll(IdSharedMem)
+    #main(OP)
+    try:
+        main(OP)
+    except:
+        NpShared.DelAll(IdSharedMem)
 
     # main(options)
     

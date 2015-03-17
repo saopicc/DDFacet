@@ -78,6 +78,7 @@ class ClassImagerDeconv():
                                               TChunkSize=DC["VisData"]["TChunkSize"],
                                               IdSharedMem=self.IdSharedMem,
                                               Robust=DC["ImagerGlobal"]["Robust"],
+                                              Weighting=DC["ImagerGlobal"]["Weighting"],
                                               DicoSelectOptions=DC["DataSelection"])
         self.InitFacetMachine()
         self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
@@ -167,7 +168,8 @@ class ClassImagerDeconv():
         MainFacetOptions.update(self.GD["ImagerCF"].copy())
         MainFacetOptions.update(self.GD["ImagerGlobal"].copy())
         del(MainFacetOptions['ConstructMode'],MainFacetOptions['Precision'],
-            MainFacetOptions['PolMode'],MainFacetOptions['Mode'],MainFacetOptions['Robust'])
+            MainFacetOptions['PolMode'],MainFacetOptions['Mode'],MainFacetOptions['Robust'],
+            MainFacetOptions['Weighting'])
         return MainFacetOptions
 
     def MakePSF(self):
@@ -217,10 +219,10 @@ class ClassImagerDeconv():
         pylab.draw()
         pylab.show(False)
         pylab.pause(0.1)
+        self.FitPSF()
+        FacetMachinePSF.ToCasaImage(self.PSF,Fits=True,beam=self.FWHMBeam)
         #self.FitPSF()
-        #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True,beam=self.FWHMBeam)
-        #self.FitPSF()
-        FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
+        #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
         
         del(FacetMachinePSF)
 

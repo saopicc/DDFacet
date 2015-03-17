@@ -152,7 +152,7 @@ class ClassFacetMachine():
                       "DoDDE":self.DoDDE,
                       "Padding":Padding}
 
-        print DicoConfigGM
+
 
 
         #print "Append2"; self.IM.CI.E.clear()

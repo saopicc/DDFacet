@@ -315,7 +315,7 @@ class ClassDDEGridMachine():
         
         InterpMode=self.GD["DDESolutions"]["Type"]
         d0=self.GD["DDESolutions"]["Scale"]*np.pi/180
-        gamma=self.GD["DDESolutions"]["SolSpaceInterp"]["gamma"]
+        gamma=self.GD["DDESolutions"]["gamma"]
         
         d=np.sqrt((l0-lc)**2+(m0-mc)**2)
         idir=np.argmin(d)

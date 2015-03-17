@@ -295,18 +295,21 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
   int xc,yc;
   xc=nx/2;
   yc=ny/2;
-  int ii,jj;
+  size_t ii,jj;
   float ThisW=0.;
+  size_t iii;
 
   for (i=0; i<np; i++) {
   //  for (i=0; i<10; i++) {
     ii=xp[i]+xc;
     jj=yp[i]+yc;
-    grid[ii+nx*jj]+=wp[i];
+    iii=ii+nx*jj;
+    grid[iii]+=wp[i];
     //printf("%i: (x,y)=(%i,%i): %f %f\n",(int)i,ii,jj,wp[i],grid[ii+nx*jj]);
     ii=-xp[i]+xc;
     jj=-yp[i]+yc;
-    grid[ii+nx*jj]+=wp[i];
+    iii=ii+nx*jj;
+    grid[iii]+=wp[i];
     //printf("%i: (x,y)=(%i,%i): %f %f\n",(int)i,ii,jj,wp[i],grid[ii+nx*jj]);
     //printf("\n");
     /* grid[jj+nx*ii]+=wp[i]; */
@@ -321,35 +324,44 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
   for (i=0; i<np; i++) {
     ii=xp[i]+xc;
     jj=yp[i]+yc;
-    Wk=grid[ii+nx*jj];
+    iii=ii+nx*jj;
+    Wk=grid[iii];
     sumWk+=Wk*Wk;
     ii=-xp[i]+xc;
     jj=-yp[i]+yc;
-    Wk=grid[ii+nx*jj];
+    iii=ii+nx*jj;
+    Wk=grid[iii];
     sumWk+=Wk*Wk;
   }
 
   double fact=  (sumw/sumWk)*pow(5.*pow(10.,-R),2.);
   //printf("fact=(%f)\n",fact);
   //printf("sumw,sumWk=%f,%f\n",sumw,sumWk);
-  
+
+
   if(Mode==0){
   //printf("Mode=(%i)\n",Mode);
     for (i=0; i<np; i++) {
     ii=xp[i]+xc;
     jj=yp[i]+yc;
-      Wk=grid[ii+nx*jj];
+    iii=ii+nx*jj;
+    if(wp[i]>0.){
+      Wk=grid[iii];
       wp[i]/=(1.+fact*Wk);
+    }
       //wp[i]/=(Wk);
     }
   }else{
   //printf("Mode=(%i)\n",Mode);
     for (i=0; i<np; i++) {
-    ii=xp[i]+xc;
-    jj=yp[i]+yc;
-      Wk=grid[ii+nx*jj];
-      wp[i]/=(Wk);
-      //printf("%f,%f\n",wp[i],Wk);
+      ii=xp[i]+xc;
+      jj=yp[i]+yc;
+      iii=ii+nx*jj;
+      if(wp[i]>0.){
+	Wk=grid[iii];
+	wp[i]/=(Wk);
+	//printf("@[%i, %i] %f,%f\n",(int)ii,(int)jj,wp[i],Wk);
+      }
     }
   };
 

@@ -20,7 +20,7 @@ class ClassVisServer():
                  DicoSelectOptions={},
                  LofarBeam=None,
                  AddNoiseJy=None,IdSharedMem="",
-                 Robust=2):
+                 Robust=2,Weighting="Briggs"):
         self.IdSharedMem=IdSharedMem
         self.Robust=Robust
         PrefixShared="%sSharedVis"%self.IdSharedMem
@@ -32,7 +32,7 @@ class ClassVisServer():
         self.ReadOnce_AlreadyRead=False
         if TChunkSize<=TVisSizeMin*60:
             self.ReadOnce=True
-                
+        self.Weighting=Weighting
 
         self.MSName=MSName
         self.VisWeights=None
@@ -89,7 +89,8 @@ class ClassVisServer():
         VisWeights=WEIGHT[:,0]#np.ones((uvw.shape[0],),dtype=np.float32)
         #VisWeights=np.ones((uvw.shape[0],),dtype=np.float32)
         Robust=self.Robust
-        self.VisWeights=WeightMachine.CalcWeights(uvw,VisWeights,Robust=Robust)
+        self.VisWeights=WeightMachine.CalcWeights(uvw,VisWeights,Robust=Robust,
+                                                  Weighting=self.Weighting)
         
         #self.VisWeights.fill(1)
 
