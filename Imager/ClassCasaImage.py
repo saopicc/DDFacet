@@ -79,8 +79,8 @@ class ClassCasaimage():
         #self.im=image(imagename=ImageName,shape=(1,1,Npix,Npix),coordsys=c)
         #self.im=image(imagename=ImageName,shape=(Npix,Npix),coordsys=c)
         self.im=image(imagename=ImageName,shape=self.ImShape,coordsys=c)
-        data=np.random.randn(*self.ImShape)
-        self.setdata(data)
+        #data=np.random.randn(*self.ImShape)
+        #self.setdata(data)
         
     def setdata(self,dataIn,CorrT=False):
         print>>log, "  ----> put data in casa image %s"%self.ImageName
