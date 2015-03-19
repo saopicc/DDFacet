@@ -174,7 +174,7 @@ class ClassImagerDeconv():
 
     def MakePSF(self):
         if self.PSF!=None: return
-        print>>log, ModColor.Str("   ====== Making PSF ======")
+        print>>log, ModColor.Str("=============================== Making PSF ===============================")
         FacetMachinePSF=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
                                                             IdSharedMem=self.IdSharedMem,DoPSF=True)#,Sols=SimulSols)
         MainFacetOptions=self.GiveMainFacetOptions()
@@ -238,7 +238,7 @@ class ClassImagerDeconv():
 
     def GiveDirty(self):
 
-        print>>log, ModColor.Str("   ====== Making Dirty ======")
+        print>>log, ModColor.Str("============================== Making Dirty ==============================")
         self.InitFacetMachine()
         
         self.FacetMachine.ReinitDirty()
@@ -273,7 +273,7 @@ class ClassImagerDeconv():
 
     def GivePredict(self,ModelImage):
 
-        print>>log, ModColor.Str("   ====== Making Dirty ======")
+        print>>log, ModColor.Str("============================== Making Dirty ==============================")
         self.InitFacetMachine()
         
         self.FacetMachine.ReinitDirty()
@@ -299,7 +299,7 @@ class ClassImagerDeconv():
 
         for iMajor in range(NMajor):
 
-            print>>log, ModColor.Str("   ====== Runing major Cycle %i ======"%iMajor)
+            print>>log, ModColor.Str("========================== Runing major Cycle %i ========================="%iMajor)
             self.DeconvMachine.SetDirtyPSF(Image,self.PSF)
             self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel)
             repMinor=self.DeconvMachine.Clean()
