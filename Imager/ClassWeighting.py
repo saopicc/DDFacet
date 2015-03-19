@@ -29,18 +29,6 @@ class ClassWeighting():
 
 
         #u,v,_=uvw.T
-        if Weighting=="Briggs":
-            print>>log, "Weighting in Briggs mode"
-            print>>log, "Calculating imaging weights with Robust=%3.1f on an [%i,%i] grid"%(Robust,npix,npix)
-            Mode=0
-        elif Weighting=="Uniform":
-            print>>log, "Weighting in Uniform mode"
-            Mode=1
-        elif Weighting=="Natural":
-            print>>log, "Weighting in Natural mode"
-            return VisWeights
-        else:
-            stop
 
         #Robust=-2
         nch,npol,npixIm,_=self.ImShape
@@ -64,12 +52,24 @@ class ClassWeighting():
         xc,yc=npix/2,npix/2
 
 
-        grid=np.zeros((npix,npix),dtype=np.float64)
 
 
 
         
+        if Weighting=="Briggs":
+            print>>log, "Weighting in Briggs mode"
+            print>>log, "Calculating imaging weights with Robust=%3.1f on an [%i,%i] grid"%(Robust,npix,npix)
+            Mode=0
+        elif Weighting=="Uniform":
+            print>>log, "Weighting in Uniform mode"
+            Mode=1
+        elif Weighting=="Natural":
+            print>>log, "Weighting in Natural mode"
+            return VisWeights
+        else:
+            stop
 
+        grid=np.zeros((npix,npix),dtype=np.float64)
         x,y=np.int32(np.round(u/cell))+xc,np.int32(np.round(v/cell))+yc
 
         condx=((x>0)&(x<npix))

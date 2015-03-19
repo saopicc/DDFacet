@@ -106,11 +106,11 @@ class ClassImagerDeconv():
             # DicoSols["Jones"][:,:,:,:,0,0]/=gmean_abs
             # DicoSols["Jones"][:,:,:,:,1,1]/=gmean_abs
 
-            if not("A" in self.GD["DDESolutions"]["ApplyMode"]):
-                print>>log, "  Amplitude normalisation"
-                gabs=np.abs(G)
-                gabs[gabs==0]=1.
-                G/=gabs
+            # if not("A" in self.GD["DDESolutions"]["ApplyMode"]):
+            #     print>>log, "  Amplitude normalisation"
+            #     gabs=np.abs(G)
+            #     gabs[gabs==0]=1.
+            #     G/=gabs
 
 
             NpShared.DicoToShared("%skillMSSolutionFile"%self.IdSharedMem,DicoSols)

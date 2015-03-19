@@ -424,11 +424,23 @@ class ClassDDEGridMachine():
         self.CheckTypes(Grid=Grid,vis=vis,uvw=uvw,flag=flag,ListWTerm=self.WTerm.Wplanes,W=W)
         ParamJonesList=[]
         if DicoJonesMatrices!=None:
+            ApplyAmp=0
+            ApplyPhase=0
+            if "A" in self.GD["DDESolutions"]["DDModeGrid"]:
+                ApplyAmp=1
+            if "P" in self.GD["DDESolutions"]["DDModeGrid"]:
+                ApplyPhase=1
+            LApplySol=[ApplyAmp,ApplyPhase]
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
+            ParamJonesList=ParamJonesList+LApplySol
+
 
         T.timeit("3")
         #print "sleeping DDE..."; time.sleep(5)
 
+
+
+        
         T2=ClassTimeIt.ClassTimeIt("Gridder")
         T2.disable()
         Grid=_pyGridder.pyGridderWPol(Grid,
@@ -551,7 +563,16 @@ class ClassDDEGridMachine():
 
         ParamJonesList=[]
         if DicoJonesMatrices!=None:
+            ApplyAmp=0
+            ApplyPhase=0
+            if "A" in self.GD["DDESolutions"]["DDModeDeGrid"]:
+                ApplyAmp=1
+            if "P" in self.GD["DDESolutions"]["DDModeDeGrid"]:
+                ApplyPhase=1
+            LApplySol=[ApplyAmp,ApplyPhase]
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
+            ParamJonesList=ParamJonesList+LApplySol
+
 
         T.timeit("3")
         #print vis

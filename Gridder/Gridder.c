@@ -621,7 +621,7 @@ void gridderWPol(PyArrayObject *grid,
     int JonesDims[4];
     int ModeInterpolation=1;
     int *ptrModeInterpolation;
-
+    int ApplyAmp,ApplyPhase;
     if(LengthJonesList>0){
       DoApplyJones=1;
 
@@ -660,7 +660,16 @@ void gridderWPol(PyArrayObject *grid,
       npModeInterpolation= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 6), PyArray_INT32, 0, 4);
       ptrModeInterpolation=p_int32(npModeInterpolation);
       ModeInterpolation=ptrModeInterpolation[0];
+
+      PyObject *_FApplyAmp  = PyList_GetItem(LJones, 7);
+      ApplyAmp=(int) PyFloat_AsDouble(_FApplyAmp);
+      PyObject *_FApplyPhase  = PyList_GetItem(LJones, 8);
+      ApplyPhase=(int) PyFloat_AsDouble(_FApplyPhase);
+
+      //ApplyAmp=1;
+      //ApplyPhase=1;
       
+
       /* // check */
       /* for(ifor=0;ifor<nrows;ifor++){ */
       /* 	int A0=ptrA0[ifor]; */
@@ -883,6 +892,23 @@ void gridderWPol(PyArrayObject *grid,
 	      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0);
 	      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
 	      
+	      if(ApplyAmp==0){
+		for(ThisPol =0; ThisPol<4;ThisPol++){
+		  if(cabs(J0[ThisPol])!=0.){
+		    J0[ThisPol]/=cabs(J0[ThisPol]);
+		  }
+		  if(cabs(J1[ThisPol])!=0.){
+		    J1[ThisPol]/=cabs(J1[ThisPol]);
+		  }
+		}
+	      }
+	      if(ApplyPhase==0){
+		for(ThisPol =0; ThisPol<4;ThisPol++){
+		  J0[ThisPol]=cabs(J0[ThisPol]);
+		  J1[ThisPol]=cabs(J1[ThisPol]);
+		}
+	      }
+
 	      MatInv(J0,J0inv,0);
 	      MatH(J1,J1H);
 	      MatInv(J1H,J1Hinv,0);
@@ -1126,7 +1152,7 @@ void DeGridderWPol(PyArrayObject *grid,
     int JonesDims[4];
     int ModeInterpolation=1;
     int *ptrModeInterpolation;
-
+    int ApplyAmp, ApplyPhase;
     if(LengthJonesList>0){
       DoApplyJones=1;
 
@@ -1163,6 +1189,10 @@ void DeGridderWPol(PyArrayObject *grid,
       ptrModeInterpolation=p_int32(npModeInterpolation);
       ModeInterpolation=ptrModeInterpolation[0];
 
+      PyObject *_FApplyAmp  = PyList_GetItem(LJones, 7);
+      ApplyAmp=(int) PyFloat_AsDouble(_FApplyAmp);
+      PyObject *_FApplyPhase  = PyList_GetItem(LJones, 8);
+      ApplyPhase=(int) PyFloat_AsDouble(_FApplyPhase);
     };
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -1441,7 +1471,24 @@ void DeGridderWPol(PyArrayObject *grid,
 	      float complex J0[4]={0},J1[4]={0},J1H[4]={0};
 	      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0);
 	      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
-	      
+	      int ThisPol;
+	      if(ApplyAmp==0){
+		for(ThisPol =0; ThisPol<4;ThisPol++){
+		  if(cabs(J0[ThisPol])!=0.){
+		    J0[ThisPol]/=cabs(J0[ThisPol]);
+		  }
+		  if(cabs(J1[ThisPol])!=0.){
+		    J1[ThisPol]/=cabs(J1[ThisPol]);
+		  }
+		}
+	      }
+	      if(ApplyPhase==0){
+		for(ThisPol =0; ThisPol<4;ThisPol++){
+		  J0[ThisPol]=cabs(J0[ThisPol]);
+		  J1[ThisPol]=cabs(J1[ThisPol]);
+		}
+	      }
+
 	      MatH(J1,J1H);
 	      MatDot(J0,ThisVis,ThisVis);
 	      MatDot(ThisVis,J1H,ThisVis);
