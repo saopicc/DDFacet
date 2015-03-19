@@ -154,8 +154,8 @@ class ClassVisServer():
         
 
         for Field in self.DicoSelectOptions.keys():
+            if self.DicoSelectOptions[Field]==None: break
             if Field=="UVRangeKm":
-                if self.DicoSelectOptions[Field]==None: break
                 d0,d1=self.DicoSelectOptions[Field]
                 d0*=1e3
                 d1*=1e3
@@ -171,6 +171,12 @@ class ClassVisServer():
                 uvw=uvw[ind]
                 times=times[ind]
                 Weights=Weights[ind]
+
+            # if Field=="Antenna":
+            #     if self.DicoSelectOptions[Field]==None: break
+            #     AntList=self.DicoSelectOptions[Field].split(",")
+            #     for self.DicoSelectOptions[Field]
+
 
         for A in self.FlagAntNumber:
             ind=np.where((A0!=A)&(A1!=A))[0]

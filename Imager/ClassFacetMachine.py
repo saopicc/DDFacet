@@ -255,7 +255,7 @@ class ClassFacetMachine():
             workerlist[ii].start()
 
         #print>>log, ModColor.Str("  --- Initialising DDEGridMachines ---",col="green")
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Init ", HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Init ", HeaderSize=10,TitleSize=13)
         pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
 
@@ -515,7 +515,7 @@ class ClassFacetMachine():
             workerlist.append(W)
             workerlist[ii].start()
 
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Gridding ", HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="  Gridding ", HeaderSize=10,TitleSize=13)
         pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
         while iResult < NJobs:

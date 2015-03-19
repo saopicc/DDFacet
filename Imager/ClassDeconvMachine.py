@@ -355,10 +355,21 @@ class ClassImagerDeconv():
 
     def FitPSF(self):
         _,_,x,y=np.where(self.PSF==np.max(self.PSF))
+        FitOK=False
         off=300
-        PSF=self.PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
-        self.SideLobeLevel=ModFitPSF.FindSidelobe(PSF)
-        sigma_x, sigma_y, theta = ModFitPSF.DoFit(PSF)
+        while FitOK==False:
+            try:
+                print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
+                PSF=self.PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
+                self.SideLobeLevel=ModFitPSF.FindSidelobe(PSF)
+                sigma_x, sigma_y, theta = ModFitPSF.DoFit(PSF)
+                FitOK=True
+                print>>log, "   ... done"
+            except:
+                print>>log, "   ... failed"
+                off+=200
+                
+
         theta=np.pi/2-theta
         
         FWHMFact=2.*np.sqrt(2.*np.log(2.))
