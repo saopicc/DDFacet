@@ -52,7 +52,7 @@ def read_options():
     OP.OptionGroup("* Selection","DataSelection")
     OP.add_option('FlagAntBL')
     OP.add_option('UVRangeKm')
-    OP.add_option('DistMatToCore')
+    OP.add_option('DistMaxToCore')
 
     OP.OptionGroup("* Imager Global parameters","ImagerGlobal")
     OP.add_option('Mode',help='Default %default',default="Clean")
