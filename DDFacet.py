@@ -50,7 +50,7 @@ def read_options():
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
 
     OP.OptionGroup("* Selection","DataSelection")
-    OP.add_option('FlagAntBL')
+    OP.add_option('FlagAnts')
     OP.add_option('UVRangeKm')
     OP.add_option('DistMaxToCore')
 
