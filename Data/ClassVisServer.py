@@ -157,6 +157,7 @@ class ClassVisServer():
             if self.DicoSelectOptions[Field]==None: break
             if Field=="UVRangeKm":
                 d0,d1=self.DicoSelectOptions[Field]
+                print>>log, "Flagging uv data outside uv distance of [%5.1f~%5.1f] km"%(d0,d1)
                 d0*=1e3
                 d1*=1e3
                 u,v,w=uvw.T
@@ -171,6 +172,14 @@ class ClassVisServer():
                 uvw=uvw[ind]
                 times=times[ind]
                 Weights=Weights[ind]
+
+        if "FlagAnts" in self.DicoSelectOptions.keys():
+            FlagAnts=self.DicoSelectOptions["FlagAnts"]
+            for Name in FlagAnts:
+                for iAnt in range(MS.na):
+                    if Name in MS.StationNames[iAnt]:
+                        print>>log, "Flagging antenna #%i [%s]"%(iAnt,MS.StationNames[iAnt])
+                        self.FlagAntNumber.append(iAnt)
 
             # if Field=="Antenna":
             #     if self.DicoSelectOptions[Field]==None: break

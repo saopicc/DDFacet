@@ -71,6 +71,7 @@ class ClassImagerDeconv():
     def Init(self):
         DC=self.GD
         self.InitDDESols()
+
         self.VS=ClassVisServer.ClassVisServer(DC["VisData"]["MSName"],
                                               ColName=DC["VisData"]["ColName"],
                                               TVisSizeMin=DC["VisData"]["TChunkSize"]*60,
@@ -79,7 +80,7 @@ class ClassImagerDeconv():
                                               IdSharedMem=self.IdSharedMem,
                                               Robust=DC["ImagerGlobal"]["Robust"],
                                               Weighting=DC["ImagerGlobal"]["Weighting"],
-                                              DicoSelectOptions=DC["DataSelection"])
+                                              DicoSelectOptions=dict(DC["DataSelection"]))
         self.InitFacetMachine()
         self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
 
