@@ -115,6 +115,7 @@ class ClassVisServer():
         if (t0_sec>=its_t1):
             return "EndChunk"
 
+        MS=self.MS
         
 
         
