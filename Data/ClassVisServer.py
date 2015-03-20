@@ -176,6 +176,7 @@ class ClassVisServer():
 
         if "FlagAnts" in self.DicoSelectOptions.keys():
             FlagAnts=self.DicoSelectOptions["FlagAnts"]
+            if type(FlagAnts)==str: FlagAnts=[FlagAnts] 
             for Name in FlagAnts:
                 for iAnt in range(MS.na):
                     if Name in MS.StationNames[iAnt]:
