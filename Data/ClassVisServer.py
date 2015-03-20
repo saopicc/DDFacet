@@ -179,18 +179,18 @@ class ClassVisServer():
             for Name in FlagAnts:
                 for iAnt in range(MS.na):
                     if Name in MS.StationNames[iAnt]:
-                        print>>log, "Taking antenna #%2.2i[%s] out of the solve"%(iAnt,MS.StationNames[iAnt])
+                        print>>log, "Taking off antenna #%2.2i[%s]"%(iAnt,MS.StationNames[iAnt])
                         self.FlagAntNumber.append(iAnt)
 
         if "DistMaxToCore" in self.DicoSelectOptions.keys():
             DMax=self.DicoSelectOptions["DistMaxToCore"]*1e3
             X,Y,Z=MS.StationPos.T
             Xm,Ym,Zm=np.median(MS.StationPos,axis=0).flatten().tolist()
-            D=np.sqrt((X-Xm)**2+(Y-Ym)**2+(Z-Zm)**2)
-            ind=np.where(D>DMax)[0]
+            Dist=np.sqrt((X-Xm)**2+(Y-Ym)**2+(Z-Zm)**2)
+            ind=np.where(Dist>DMax)[0]
 
             for iAnt in ind.tolist():
-                print>>log,"Taking antenna #%2.2i[%s] out of the solve (distance to core: %.1f km)"%(iAnt,MS.StationNames[iAnt],D[iAnt]/1e3)
+                print>>log,"Taking off antenna #%2.2i[%s] (distance to core: %.1f km)"%(iAnt,MS.StationNames[iAnt],Dist[iAnt]/1e3)
                 self.FlagAntNumber.append(iAnt)
 
             # if Field=="Antenna":
