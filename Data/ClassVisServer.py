@@ -187,17 +187,28 @@ class ClassVisServer():
         print "get the Jones time-mapping"
         DicoJonesMatrices=NpShared.SharedToDico("%skillMSSolutionFile"%self.IdSharedMem)
         if DicoJonesMatrices!=None:
-            JonesMatrices=DicoJonesMatrices["Jones"]
-            t0=DicoJonesMatrices["t0"]
-            t0=t0.reshape((1,t0.size))
-            t1=DicoJonesMatrices["t1"]
-            t1=t1.reshape((1,t1.size))
-            tMS=times.reshape(times.size,1)
-            cond0=(tMS>t0)
-            cond1=(tMS<=t1)
-            cond=(cond0&cond1)
-            MapJones=np.int32(np.argmax(cond,axis=1))
-            NpShared.ToShared("%sMapJones"%self.IdSharedMem,MapJones)
+            # times=DATA["times"]
+            # #JonesMatrices=DicoJonesMatrices["Jones"]
+            # t0=DicoJonesMatrices["t0"]
+            # t0=t0.reshape((1,t0.size))
+            # t1=DicoJonesMatrices["t1"]
+            # t1=t1.reshape((1,t1.size))
+            # tMS=times.reshape(times.size,1)
+            # cond0=(tMS>t0)
+            # cond1=(tMS<=t1)
+            # cond=(cond0&cond1)
+            # MapJones=np.int32(np.argmax(cond,axis=1))
+            # NpShared.ToShared("%sMapJones"%self.IdSharedMem,MapJones)
+
+            times=DATA["times"]
+            ind=np.array([],np.int32)
+            for it in range(nt):
+                t0=DicoJonesMatrices["t0"][it]
+                t1=DicoJonesMatrices["t1"][it]
+                indMStime=np.where((times>=t0)&(times<t1))[0]
+                indMStime=np.ones((indMStime.size,),np.int32)*it
+                ind=np.concatenate((ind,indMStime))
+            NpShared.ToShared("%sMapJones"%self.IdSharedMem,ind)
 
 
 
