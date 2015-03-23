@@ -99,13 +99,11 @@ class ClassVisServer():
         #VisWeights=np.ones((uvw.shape[0],),dtype=np.float32)
         Robust=self.Robust
 
+        #self.VisWeights=np.ones((uvw.shape[0],self.MS.ChanFreq.size),dtype=np.float64)
+
         self.VisWeights=WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
                                                   Robust=Robust,
                                                   Weighting=self.Weighting)
-#        DATA["Weights"]=Weights
-
-#        return 
-        #self.VisWeights.fill(1)
 
     def GiveNextVis(self):
 
@@ -180,11 +178,11 @@ class ClassVisServer():
             DATA["DicoBeam"]=D["DicoBeam"]
 
 
-        print "put data in shared memory"
+        print>>log, "Putting data in shared memory"
         DATA=NpShared.DicoToShared("%sDicoData"%self.IdSharedMem,DATA)
 
 
-        print "get the Jones time-mapping"
+        print>>log, "Getting the Jones time-mapping"
         DicoJonesMatrices=NpShared.SharedToDico("%skillMSSolutionFile"%self.IdSharedMem)
         if DicoJonesMatrices!=None:
             # times=DATA["times"]
@@ -202,6 +200,7 @@ class ClassVisServer():
 
             times=DATA["times"]
             ind=np.array([],np.int32)
+            nt,na,nd,_,_,_=DicoJonesMatrices["Jones"].shape
             for it in range(nt):
                 t0=DicoJonesMatrices["t0"][it]
                 t1=DicoJonesMatrices["t1"][it]
@@ -243,7 +242,7 @@ class ClassVisServer():
             nf=np.count_nonzero(fA)
             Frac=nf/float(fA.size)
             if Frac>self.ThresholdFlag:
-                print>>log, "  Flaggging antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)"%\
+                print>>log, "  Flagging antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)"%\
                     (A,Frac*100,"%",self.ThresholdFlag*100,"%")
                 self.FlagAntNumber.append(A)
         

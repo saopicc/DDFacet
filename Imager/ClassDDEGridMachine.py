@@ -443,6 +443,7 @@ class ClassDDEGridMachine():
         
         T2=ClassTimeIt.ClassTimeIt("Gridder")
         T2.disable()
+
         Grid=_pyGridder.pyGridderWPol(Grid,
                                       vis,
                                       uvw,

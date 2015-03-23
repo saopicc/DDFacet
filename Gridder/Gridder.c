@@ -821,6 +821,8 @@ void gridderWPol(PyArrayObject *grid,
     int inx;
     // Loop over all visibility rows to process.
 
+    float complex J0[4]={0},J1[4]={0},J0inv[4]={0},J1H[4]={0},J1Hinv[4]={0},JJ[4]={0};
+
     for (inx=0; inx<nrows; inx++) {
       int irow = inx;//rows[inx];
       //printf("\n");
@@ -875,6 +877,40 @@ void gridderWPol(PyArrayObject *grid,
 	//	printf("\n");
 
 	//chanMap_p[visChan]=0;
+
+	
+	if(DoApplyJones){
+	  // Shape: nt,nd,na,1,2,2
+	  int i_t=ptrTimeMappingJonesMatrices[irow];
+	  int i_ant0=ptrA0[irow];
+	  int i_ant1=ptrA1[irow];
+	  
+	  GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0);
+	  GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
+	  
+	  int ThisPol;
+	  if(ApplyAmp==0){
+	    for(ThisPol =0; ThisPol<4;ThisPol++){
+	      if(cabs(J0[ThisPol])!=0.){
+		J0[ThisPol]/=cabs(J0[ThisPol]);
+	      }
+	      if(cabs(J1[ThisPol])!=0.){
+		J1[ThisPol]/=cabs(J1[ThisPol]);
+	      }
+	    }
+	  }
+	  if(ApplyPhase==0){
+	    for(ThisPol =0; ThisPol<4;ThisPol++){
+	      J0[ThisPol]=cabs(J0[ThisPol]);
+	      J1[ThisPol]=cabs(J1[ThisPol]);
+	    }
+	  }
+	  
+	  MatInv(J0,J0inv,0);
+	  MatH(J1,J1H);
+	  MatInv(J1H,J1Hinv,0);
+	}
+	
 
         if (gridChan >= 0  &&  gridChan < nGridChan) {
 
@@ -949,35 +985,7 @@ void gridderWPol(PyArrayObject *grid,
 	    //float WeightFromGains;
 	    
 	    if(DoApplyJones){
-	      // Shape: nt,nd,na,1,2,2
-	      int i_t=ptrTimeMappingJonesMatrices[irow];
-	      int i_ant0=ptrA0[irow];
-	      int i_ant1=ptrA1[irow];
-	      
-	      float complex J0[4]={0},J1[4]={0},J0inv[4]={0},J1H[4]={0},J1Hinv[4]={0},JJ[4]={0};
-	      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0);
-	      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
-	      
-	      if(ApplyAmp==0){
-		for(ThisPol =0; ThisPol<4;ThisPol++){
-		  if(cabs(J0[ThisPol])!=0.){
-		    J0[ThisPol]/=cabs(J0[ThisPol]);
-		  }
-		  if(cabs(J1[ThisPol])!=0.){
-		    J1[ThisPol]/=cabs(J1[ThisPol]);
-		  }
-		}
-	      }
-	      if(ApplyPhase==0){
-		for(ThisPol =0; ThisPol<4;ThisPol++){
-		  J0[ThisPol]=cabs(J0[ThisPol]);
-		  J1[ThisPol]=cabs(J1[ThisPol]);
-		}
-	      }
 
-	      MatInv(J0,J0inv,0);
-	      MatH(J1,J1H);
-	      MatInv(J1H,J1Hinv,0);
 	      MatDot(J0inv,visPtr_Uncorr,visPtr);
 	      MatDot(visPtr,J1Hinv,visPtr);
 	      
