@@ -81,17 +81,30 @@ class ClassVisServer():
         self.CurrentVisTimes_SinceStart_Sec=0.,0.
         self.iCurrentVisTime=0
 
+    def SetImagingPars(self,OutImShape,CellSizeRad):
+        self.OutImShape=OutImShape
+        self.CellSizeRad=CellSizeRad
+
     def CalcWeigths(self,ImShape,CellSizeRad):
         if self.VisWeights!=None: return
 
         WeightMachine=ClassWeighting.ClassWeighting(ImShape,CellSizeRad)
-        uvw,WEIGHT=self.GiveAllUVW()
-        VisWeights=WEIGHT[:,0]#np.ones((uvw.shape[0],),dtype=np.float32)
+        uvw,WEIGHT,flags=self.GiveAllUVW()
+        #uvw=DATA["uvw"]
+        #WEIGHT=DATA["Weights"]
+        VisWeights=WEIGHT#[:,0]#np.ones((uvw.shape[0],),dtype=np.float32)
+        if np.max(VisWeights)==0.:
+            print>>log,"All imaging weights are 0, setting them to ones"
+            VisWeights.fill(1)
         #VisWeights=np.ones((uvw.shape[0],),dtype=np.float32)
         Robust=self.Robust
-        self.VisWeights=WeightMachine.CalcWeights(uvw,VisWeights,Robust=Robust,
+
+        self.VisWeights=WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
+                                                  Robust=Robust,
                                                   Weighting=self.Weighting)
-        
+#        DATA["Weights"]=Weights
+
+#        return 
         #self.VisWeights.fill(1)
 
     def GiveNextVis(self):
@@ -132,120 +145,31 @@ class ClassVisServer():
         DATA={}
         for key in D.keys():
             if type(D[key])!=np.ndarray: continue
-            if not(key in ['times', 'A1', 'A0', 'flags', 'uvw', 'data']):             
+            if not(key in ['times', 'A1', 'A0', 'flags', 'uvw', 'data',"Weights"]):             
                 DATA[key]=D[key]
             else:
                 DATA[key]=D[key][ind]
 
 
-        ROW0=self.ThisDataChunk["ROW0"]
-        ROW1=self.ThisDataChunk["ROW1"]
-        W=self.VisWeights[ROW0:ROW1]
-        DATA["Weights"]=W
-        #############################
-        ### data selection
-        #############################
-        flags=DATA["flags"]
-        uvw=DATA["uvw"]
-        data=DATA["data"].copy()
-        A0=DATA["A0"]
-        A1=DATA["A1"]
-        times=DATA["times"]
-        Weights=DATA["Weights"]
-        
-
-        for Field in self.DicoSelectOptions.keys():
-            if self.DicoSelectOptions[Field]==None: break
-            if Field=="UVRangeKm":
-                d0,d1=self.DicoSelectOptions[Field]
-                print>>log, "Flagging uv data outside uv distance of [%5.1f~%5.1f] km"%(d0,d1)
-                d0*=1e3
-                d1*=1e3
-                u,v,w=uvw.T
-                duv=np.sqrt(u**2+v**2)
-                #ind=np.where((duv<d0)|(duv>d1))[0]
-                ind=np.where((duv>d0)&(duv<d1))[0]
-                
-                flags=flags[ind]
-                data=data[ind]
-                A0=A0[ind]
-                A1=A1[ind]
-                uvw=uvw[ind]
-                times=times[ind]
-                Weights=Weights[ind]
-
-        if "FlagAnts" in self.DicoSelectOptions.keys():
-            FlagAnts=self.DicoSelectOptions["FlagAnts"]
-
-            if not((FlagAnts==None)|(FlagAnts=="")|(FlagAnts==[])): 
-
-                if type(FlagAnts)==str: FlagAnts=[FlagAnts] 
-            
-                for Name in FlagAnts:
-                    for iAnt in range(MS.na):
-                        if Name in MS.StationNames[iAnt]:
-                            print>>log, "Taking off antenna #%2.2i[%s]"%(iAnt,MS.StationNames[iAnt])
-                            self.FlagAntNumber.append(iAnt)
-
-        if "DistMaxToCore" in self.DicoSelectOptions.keys():
-            DMax=self.DicoSelectOptions["DistMaxToCore"]*1e3
-            X,Y,Z=MS.StationPos.T
-            Xm,Ym,Zm=np.median(MS.StationPos,axis=0).flatten().tolist()
-            Dist=np.sqrt((X-Xm)**2+(Y-Ym)**2+(Z-Zm)**2)
-            ind=np.where(Dist>DMax)[0]
-
-            for iAnt in ind.tolist():
-                print>>log,"Taking off antenna #%2.2i[%s] (distance to core: %.1f km)"%(iAnt,MS.StationNames[iAnt],Dist[iAnt]/1e3)
-                self.FlagAntNumber.append(iAnt)
-
-            # if Field=="Antenna":
-            #     if self.DicoSelectOptions[Field]==None: break
-            #     AntList=self.DicoSelectOptions[Field].split(",")
-            #     for self.DicoSelectOptions[Field]
+        #DATA["Weights"].fill(1)
 
 
-        for A in self.FlagAntNumber:
-            ind=np.where((A0!=A)&(A1!=A))[0]
-            flags=flags[ind]
-            data=data[ind]
-            A0=A0[ind]
-            A1=A1[ind]
-            uvw=uvw[ind]
-            times=times[ind]
-            Weights=Weights[ind]
-        
-        
 
-        ind=np.where(A0!=A1)[0]
-        flags=flags[ind,:,:]
-        data=data[ind,:,:]
-        A0=A0[ind]
-        A1=A1[ind]
-        uvw=uvw[ind,:]
-        times=times[ind]
-        Weights=Weights[ind]
+        # ROW0=self.ThisDataChunk["ROW0"]
+        # ROW1=self.ThisDataChunk["ROW1"]
+        # W=self.VisWeights[ROW0:ROW1]
+        # DATA["Weights"]=W
+        # DATA["flags"]=flags
+        # DATA["uvw"]=uvw
+        # DATA["data"]=data
+        # DATA["A0"]=A0
+        # DATA["A1"]=A1
+        # DATA["times"]=times
+        # DATA["Weights"]=Weights
 
-        # ###########
-        # ind=np.where((A0==32)&(A1==33))[0]
-        # flags=flags[ind,:,:]
-        # data=data[ind,:,:]
-        # A0=A0[ind]
-        # A1=A1[ind]
-        # uvw=uvw[ind,:]
-        # times=times[ind]
-        # Weights=Weights[ind]
-        # ############
 
-        DATA["flags"]=flags
-        DATA["uvw"]=uvw
-        DATA["data"]=data
-        DATA["A0"]=A0
-        DATA["A1"]=A1
-        DATA["times"]=times
-        DATA["Weights"]=Weights
-
-        NVisChan=data.shape[1]
-        DATA["Weights"]=DATA["Weights"].reshape((uvw.shape[0],1))*np.ones((1,NVisChan))
+        #NVisChan=data.shape[1]
+        #DATA["Weights"]=DATA["Weights"].reshape((uvw.shape[0],1))*np.ones((1,NVisChan))
 
         # if self.VisInSharedMem:
         #     self.ClearSharedMemory()
@@ -255,9 +179,12 @@ class ClassVisServer():
         if "DicoBeam" in D.keys():
             DATA["DicoBeam"]=D["DicoBeam"]
 
+
+        print "put data in shared memory"
         DATA=NpShared.DicoToShared("%sDicoData"%self.IdSharedMem,DATA)
 
 
+        print "get the Jones time-mapping"
         DicoJonesMatrices=NpShared.SharedToDico("%skillMSSolutionFile"%self.IdSharedMem)
         if DicoJonesMatrices!=None:
             JonesMatrices=DicoJonesMatrices["Jones"]
@@ -283,6 +210,82 @@ class ClassVisServer():
         
 
         return DATA
+
+
+    def UpdateFlag(self,DATA):
+        print>>log, "Updating flags ..."
+
+        flags=DATA["flags"]
+        uvw=DATA["uvw"]
+        data=DATA["data"]
+        A0=DATA["A0"]
+        A1=DATA["A1"]
+        times=DATA["times"]
+        #Weights=DATA["Weights"]
+
+        MS=self.MS
+        self.ThresholdFlag=0.9
+        self.FlagAntNumber=[]
+        for A in range(MS.na):
+            ind=np.where((A0==A)|(A1==A))[0]
+            fA=flags[ind].ravel()
+            nf=np.count_nonzero(fA)
+            Frac=nf/float(fA.size)
+            if Frac>self.ThresholdFlag:
+                print>>log, "  Flaggging antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)"%\
+                    (A,Frac*100,"%",self.ThresholdFlag*100,"%")
+                self.FlagAntNumber.append(A)
+        
+
+        for Field in self.DicoSelectOptions.keys():
+            if self.DicoSelectOptions[Field]==None: break
+            if Field=="UVRangeKm":
+                d0,d1=self.DicoSelectOptions[Field]
+                print>>log, "  Flagging uv data outside uv distance of [%5.1f~%5.1f] km"%(d0,d1)
+                d0*=1e3
+                d1*=1e3
+                u,v,w=uvw.T
+                duv=np.sqrt(u**2+v**2)
+                ind=np.where(((duv>d0)&(duv<d1))!=True)[0]
+                flags[ind,:,:]=True
+
+        if "FlagAnts" in self.DicoSelectOptions.keys():
+            FlagAnts=self.DicoSelectOptions["FlagAnts"]
+            if not((FlagAnts==None)|(FlagAnts=="")|(FlagAnts==[])): 
+                if type(FlagAnts)==str: FlagAnts=[FlagAnts] 
+                for Name in FlagAnts:
+                    for iAnt in range(MS.na):
+                        if Name in MS.StationNames[iAnt]:
+                            print>>log, "  Flagging antenna #%2.2i[%s]"%(iAnt,MS.StationNames[iAnt])
+                            self.FlagAntNumber.append(iAnt)
+
+        if "DistMaxToCore" in self.DicoSelectOptions.keys():
+            DMax=self.DicoSelectOptions["DistMaxToCore"]*1e3
+            X,Y,Z=MS.StationPos.T
+            Xm,Ym,Zm=np.median(MS.StationPos,axis=0).flatten().tolist()
+            Dist=np.sqrt((X-Xm)**2+(Y-Ym)**2+(Z-Zm)**2)
+            ind=np.where(Dist>DMax)[0]
+            for iAnt in ind.tolist():
+                print>>log,"  Flagging antenna #%2.2i[%s] (distance to core: %.1f km)"%(iAnt,MS.StationNames[iAnt],Dist[iAnt]/1e3)
+                self.FlagAntNumber.append(iAnt)
+
+            # if Field=="Antenna":
+            #     if self.DicoSelectOptions[Field]==None: break
+            #     AntList=self.DicoSelectOptions[Field].split(",")
+            #     for self.DicoSelectOptions[Field]
+
+
+        for A in self.FlagAntNumber:
+            ind=np.where((A0==A)|(A1==A))[0]
+            flags[ind,:,:]=True
+
+        ind=np.where(A0==A1)[0]
+        flags[ind,:,:]=True
+
+        ind=np.where(np.isnan(data))
+        flags[ind]=1
+
+        DATA["flags"]=flags
 
 
 
@@ -324,37 +327,22 @@ class ClassVisServer():
         freqs=MS.ChanFreq.flatten()
         nbl=MS.nbl
 
-        #flags.fill(0)
+        DATA={}
+        DATA["flags"]=flags
+        DATA["data"]=data
+        DATA["uvw"]=uvw
+        DATA["A0"]=A0
+        DATA["A1"]=A1
+        DATA["times"]=times
+        DATA["Weights"]=self.VisWeights[MS.ROW0:MS.ROW1]
 
-        # f=(np.random.rand(*flags.shape)>0.5)
-        # flags[f]=1
-        # data[flags]=1e6
-
-        # iAFlag=12
-        # ind=np.where((A0==iAFlag)|(A1==iAFlag))[0]
-        # flags[ind,:,:]=1
+        self.UpdateFlag(DATA)
 
 
-        MS=self.MS
-        self.ThresholdFlag=0.9
-        self.FlagAntNumber=[]
-        for A in range(MS.na):
-            ind=np.where((MS.A0==A)|(MS.A1==A))[0]
-            fA=MS.flag_all[ind].ravel()
-            nf=np.count_nonzero(fA)
-            Frac=nf/float(fA.size)
-            if Frac>self.ThresholdFlag:
-                print>>log, "I found that antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)"%\
-                    (A,Frac*100,"%",self.ThresholdFlag*100,"%")
-                self.FlagAntNumber.append(A)
-                
-            
 
         #############################
         #############################
 
-        ind=np.where(np.isnan(data))
-        flags[ind]=1
         
         # ## debug
         # ind=np.where((A0==0)&(A1==1))[0]
@@ -383,7 +371,8 @@ class ClassVisServer():
                      "data":data,
                      "ROW0":MS.ROW0,
                      "ROW1":MS.ROW1,
-                     "infos":np.array([MS.na])
+                     "infos":np.array([MS.na]),
+                     "Weights":self.VisWeights[MS.ROW0:MS.ROW1]
                      }
         
 
@@ -440,9 +429,10 @@ class ClassVisServer():
     def GiveAllUVW(self):
         t=table(self.MS.MSName,ack=False)
         uvw=t.getcol("UVW")
-        WEIGHT=t.getcol("WEIGHT")
+        WEIGHT=t.getcol("IMAGING_WEIGHT")
+        flags=t.getcol("FLAG")
         t.close()
-        return uvw,WEIGHT
+        return uvw,WEIGHT,flags
 
 
     # def ClearSharedMemory(self):

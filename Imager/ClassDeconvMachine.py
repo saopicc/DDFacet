@@ -82,6 +82,7 @@ class ClassImagerDeconv():
                                               Weighting=DC["ImagerGlobal"]["Weighting"],
                                               DicoSelectOptions=dict(DC["DataSelection"]))
         self.InitFacetMachine()
+        #self.VS.SetImagingPars(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
         self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
 
 
