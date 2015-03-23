@@ -176,12 +176,16 @@ class ClassVisServer():
 
         if "FlagAnts" in self.DicoSelectOptions.keys():
             FlagAnts=self.DicoSelectOptions["FlagAnts"]
-            if type(FlagAnts)==str: FlagAnts=[FlagAnts] 
-            for Name in FlagAnts:
-                for iAnt in range(MS.na):
-                    if Name in MS.StationNames[iAnt]:
-                        print>>log, "Taking off antenna #%2.2i[%s]"%(iAnt,MS.StationNames[iAnt])
-                        self.FlagAntNumber.append(iAnt)
+
+            if not((FlagAnts==None)|(FlagAnts=="")|(FlagAnts==[])): 
+
+                if type(FlagAnts)==str: FlagAnts=[FlagAnts] 
+            
+                for Name in FlagAnts:
+                    for iAnt in range(MS.na):
+                        if Name in MS.StationNames[iAnt]:
+                            print>>log, "Taking off antenna #%2.2i[%s]"%(iAnt,MS.StationNames[iAnt])
+                            self.FlagAntNumber.append(iAnt)
 
         if "DistMaxToCore" in self.DicoSelectOptions.keys():
             DMax=self.DicoSelectOptions["DistMaxToCore"]*1e3
