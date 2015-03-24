@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import matplotlib
-matplotlib.use('agg')
+#import matplotlib
+#matplotlib.use('agg')
 
 
 import optparse
