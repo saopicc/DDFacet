@@ -524,10 +524,10 @@ class ClassDDEGridMachine():
         NTimes=len(LTimes)
         A0,A1=A0A1
 
+        if np.max(np.abs(ModelImage))==0: return vis
         Grid=self.dtype(self.setModelIm(ModelImage))
         #np.save("Grid",Grid)
         
-        #if np.max(np.abs(Grid))==0: return vis
 
         T.timeit("1")
         #dummy=np.abs(vis).astype(np.float32)
