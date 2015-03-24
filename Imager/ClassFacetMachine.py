@@ -225,6 +225,7 @@ class ClassFacetMachine():
             self.DicoGridMachine[iFacet]["GM"]=GridMachine
 
     def setWisdom(self):
+        return
         print>>log, "Set fftw widsdom for shape = %s"%str(self.PaddedGridShape)
         a=np.random.randn(*(self.PaddedGridShape))+1j*np.random.randn(*(self.PaddedGridShape))
         FM=ModFFTW.FFTW_2Donly(self.PaddedGridShape, np.complex64)
@@ -757,8 +758,9 @@ class WorkerImager(multiprocessing.Process):
                 W=DATA["Weights"]
                 
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
-                ModelIm=NpShared.UnPackListArray("%sModelImage"%self.IdSharedMem)[iFacet]
+                ModelIm = NpShared.UnPackListArray("%sModelImage"%self.IdSharedMem)[iFacet]
                 vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelIm,DicoJonesMatrices=DicoJonesMatrices)
+                
                 self.result_queue.put({"Success":True,"iFacet":iFacet})
 #            print "Done %i"%iFacet
 
