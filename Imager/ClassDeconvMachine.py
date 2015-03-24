@@ -16,6 +16,7 @@ import os
 import ModFitPSF
 from ClassData import ClassMultiPointingData,ClassSinglePointingData,ClassGlobalData
 import ClassVisServer
+import time
 
 def test():
     Imager=ClassImagerDeconv(ParsetFile="ParsetDDFacet.txt")
@@ -186,6 +187,7 @@ class ClassImagerDeconv():
         self.CellSizeRad=(FacetMachinePSF.Cell/3600.)*np.pi/180
         self.CellArcSec=FacetMachinePSF.Cell
 
+        #FacetMachinePSF.ToCasaImage(None)
 
         FacetMachinePSF.ReinitDirty()
 
@@ -216,18 +218,34 @@ class ClassImagerDeconv():
         # pylab.pause(0.1)
         # stop
 
+
+
+        # so strange... had to put pylab statement after ToCasaimage, otherwise screw fits header
+        # and even sending a copy of PSF to imshow doesn't help...
+        # Error validating header for HDU 0 (note: PyFITS uses zero-based indexing).
+        # Unparsable card (BZERO), fix it first with .verify('fix').
+        # There may be extra bytes after the last HDU or the file is corrupted.
+        # Edit: Only with lastest matplotlib!!!!!!!!!!!!!
+        # WHOOOOOWWWW... AMAZING!
+
         m0=-1;m1=1
         pylab.clf()
-        pylab.imshow(self.PSF[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
+        FF=self.PSF[0,0].copy()
+        pylab.imshow(FF,interpolation="nearest")#,vmin=m0,vmax=m1)
         pylab.draw()
         pylab.show(False)
         pylab.pause(0.1)
+        time.sleep(1)
+
         self.FitPSF()
-        print self.PSF.shape,self.PSF.dtype
+        #self.FWHMBeam=(10.,10.,10.)
         #FacetMachinePSF.ToCasaImage(self.PSF)
         FacetMachinePSF.ToCasaImage(self.PSF,Fits=True,beam=self.FWHMBeam)
+
         #self.FitPSF()
         #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
+
+
         
         del(FacetMachinePSF)
 

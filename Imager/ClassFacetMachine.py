@@ -297,10 +297,23 @@ class ClassFacetMachine():
         # if ImageIn==None:
         #     Image=self.FacetsToIm()
         # else:
-        Image=np.ones(ImageIn.shape,np.float32)#np.float32(ImageIn)
+
+        # Image=np.ones(self.OutImShape,np.float32)#np.float32(ImageIn)
+        #ClassCasaImage.test()
+        # print ClassCasaImage.pyfits.__file__
+        # print ClassCasaImage.pyrap.images.__file__
+        # name,imShape,Cell,radec="lala2.psf", self.OutImShape, 20, (3.7146787856873478, 0.91111035090915093)
+        # im=ClassCasaImage.ClassCasaimage(name,imShape,Cell,radec)
+        # im.setdata(np.random.randn(*(self.OutImShape)),CorrT=True)
+        # im.ToFits()
+        # im.setBeam((0.,0.,0.))
+        # im.close()
+
         if self.CasaImage==None:
             self.setCasaImage(ImageName=ImageName)
-        self.CasaImage.setdata(Image,CorrT=True)
+
+        self.CasaImage.setdata(ImageIn,CorrT=True)
+
         if Fits:
             self.CasaImage.ToFits()
             if beam!=None:

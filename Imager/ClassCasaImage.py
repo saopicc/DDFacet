@@ -7,6 +7,7 @@ import MyLogger
 log=MyLogger.getLogger("ClassCasaImage")
 import rad2hmsdms
 import pyfits
+import pyrap.images
 
 class ClassCasaimage():
     def __init__(self,ImageName,ImShape,Cell,radec):
@@ -118,15 +119,30 @@ class ClassCasaimage():
 
 
 
-def test():
+# def test():
 
-    ra=15.*(2.+30./60)*np.pi/180
-    dec=(40.+30./60)*np.pi/180
+#     ra=15.*(2.+30./60)*np.pi/180
+#     dec=(40.+30./60)*np.pi/180
     
-    radec=(ra,dec)
-    Cell=20.
-    imShape=(1,1,4,4)
-    name="ImTest"
+#     radec=(ra,dec)
+#     Cell=20.
+#     imShape=(1, 1, 1029, 1029)
+#     #name="lala2.psf"
+#     name,imShape,Cell,radec="lala2.psf", (1, 1, 1029, 1029), 20, (3.7146787856873478, 0.91111035090915093)
+
+#     im=ClassCasaimage(name,imShape,Cell,radec)
+#     im.setdata(np.random.randn(*(imShape)),CorrT=True)
+#     im.ToFits()
+#     im.setBeam((0.,0.,0.))
+#     im.close()
+
+def test():
+    name,imShape,Cell,radec="lala2.psf", (1, 1, 1029, 1029), 20, (3.7146787856873478, 0.91111035090915093)
     im=ClassCasaimage(name,imShape,Cell,radec)
+    im.setdata(np.random.randn(*(imShape)),CorrT=True)
+    im.ToFits()
+    im.setBeam((0.,0.,0.))
     im.close()
 
+if __name__=="__main__":
+    test()
