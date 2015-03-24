@@ -598,7 +598,10 @@ class ClassFacetMachine():
         ListModelImage=[]
         for iFacet in self.DicoImager.keys():
             ListModelImage.append(self.DicoImager[iFacet]["ModelFacet"])
+        
         NpShared.PackListArray("%sModelImage"%self.IdSharedMem,ListModelImage)
+        for iFacet in self.DicoImager.keys():
+            del(self.DicoImager[iFacet]["ModelFacet"])
 
 
 
