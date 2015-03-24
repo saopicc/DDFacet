@@ -139,6 +139,7 @@ class ClassImagerDeconv():
         #print "initFacetMachine deconv0"; self.IM.CI.E.clear()
         self.FacetMachine=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
                                                               IdSharedMem=self.IdSharedMem,ApplyCal=self.ApplyCal)#,Sols=SimulSols)
+
         
         #print "initFacetMachine deconv1"; self.IM.CI.E.clear()
         MainFacetOptions=self.GiveMainFacetOptions()
@@ -179,17 +180,21 @@ class ClassImagerDeconv():
     def MakePSF(self):
         if self.PSF!=None: return
         print>>log, ModColor.Str("=============================== Making PSF ===============================")
-        FacetMachinePSF=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
-                                                            IdSharedMem=self.IdSharedMem,DoPSF=True)#,Sols=SimulSols)
-        MainFacetOptions=self.GiveMainFacetOptions()
-        FacetMachinePSF.appendMainField(ImageName="%s.psf"%self.BaseName,**MainFacetOptions)
-        FacetMachinePSF.Init()
-        self.CellSizeRad=(FacetMachinePSF.Cell/3600.)*np.pi/180
-        self.CellArcSec=FacetMachinePSF.Cell
+        # FacetMachinePSF=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
+        #                                                     IdSharedMem=self.IdSharedMem,DoPSF=True)#,Sols=SimulSols)
 
-        #FacetMachinePSF.ToCasaImage(None)
+        FacetMachinePSF=self.FacetMachine
+
+        # MainFacetOptions=self.GiveMainFacetOptions()
+        # FacetMachinePSF.appendMainField(ImageName="%s.psf"%self.BaseName,**MainFacetOptions)
+        # FacetMachinePSF.Init()
+        # self.CellSizeRad=(FacetMachinePSF.Cell/3600.)*np.pi/180
+        # self.CellArcSec=FacetMachinePSF.Cell
+
+        # #FacetMachinePSF.ToCasaImage(None)
 
         FacetMachinePSF.ReinitDirty()
+        FacetMachinePSF.DoPSF=True
 
         while True:
             Res=self.setNextData()
@@ -208,7 +213,9 @@ class ClassImagerDeconv():
             # pylab.pause(0.1)
             # break
 
-        self.PSF=FacetMachinePSF.FacetsToIm()
+        self.PSF=FacetMachinePSF.FacetsToIm().copy()
+
+        FacetMachinePSF.DoPSF=False
         
         # Image=FacetMachinePSF.FacetsToIm()
         # pylab.clf()
@@ -240,14 +247,14 @@ class ClassImagerDeconv():
         self.FitPSF()
         #self.FWHMBeam=(10.,10.,10.)
         #FacetMachinePSF.ToCasaImage(self.PSF)
-        FacetMachinePSF.ToCasaImage(self.PSF,Fits=True,beam=self.FWHMBeam)
+        FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeam)
 
         #self.FitPSF()
         #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
 
 
         
-        del(FacetMachinePSF)
+        #del(FacetMachinePSF)
 
 
     def LoadPSF(self,CasaFilePSF):
