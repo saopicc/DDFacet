@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 
-#import matplotlib
-#matplotlib.use('agg')
-
-
 import optparse
 SaveFile="last_DDFacet.obj"
 import pickle
@@ -27,9 +23,6 @@ import ModColor
 log=MyLogger.getLogger("DDFacet")
 
 import MyOptParse
-
-
-
 
 global Parset
 Parset=ReadCFG.Parset("%s/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
@@ -159,7 +152,6 @@ if __name__=="__main__":
         print >>log,ModColor.Str("Successfully read %s parset"%ParsetFile)
 
     OP=read_options()
-
 
     #main(OP)
     try:
