@@ -347,7 +347,7 @@ class ClassImagerDeconv():
                 
                 visData=DATA["data"]
                 PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
-                visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
+
 
                 # ####################
                 # testImage=np.zeros((1, 1, 1008, 1008),np.complex64)
@@ -355,8 +355,8 @@ class ClassImagerDeconv():
                 # self.DeconvMachine._ModelImage=testImage
                 # ####################
 
+                visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
                 _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),self.DeconvMachine._ModelImage)
-                
                 visData[:,:,:]=visData[:,:,:]-visPredict[:,:,:]
             
                 #print>>log, ModColor.Str("  Gridding",col="green")

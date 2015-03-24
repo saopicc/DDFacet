@@ -525,9 +525,10 @@ class ClassDDEGridMachine():
         A0,A1=A0A1
 
         Grid=self.dtype(self.setModelIm(ModelImage))
-        np.save("Grid",Grid)
+        #np.save("Grid",Grid)
         
-        if np.max(np.abs(Grid))==0: return vis
+        #if np.max(np.abs(Grid))==0: return vis
+
         T.timeit("1")
         #dummy=np.abs(vis).astype(np.float32)
 
@@ -541,11 +542,11 @@ class ClassDDEGridMachine():
             raise Exception('vis[%s] and flag[%s] should have the same shape'%(str(vis.shape),str(flag.shape)))
 
         
-        u,v,w=uvw.T
-        vis[u==0,:,:]=0
-        flag[u==0,:,:]=True
+        #u,v,w=uvw.T
+        #vis[u==0,:,:]=0
+        #flag[u==0,:,:]=True
       
-        uvwOrig=uvw.copy()
+        #uvwOrig=uvw.copy()
         
         # uvw,vis=self.ShiftVis(uvw,vis,reverse=False)
         
@@ -577,7 +578,8 @@ class ClassDDEGridMachine():
 
         T.timeit("3")
         #print vis
-        _ = _pyGridder.pyDeGridderWPol(Grid,
+
+        vis = _pyGridder.pyDeGridderWPol(Grid,
                                        vis,
                                        uvw,
                                        flag,
@@ -595,16 +597,6 @@ class ClassDDEGridMachine():
         #print vis
         
         # uvw,vis=self.ShiftVis(uvwOrig,vis,reverse=False)
-        
-        if self.DoDDE:
-            for ThisTime,itime0 in zip(LTimes,range(NTimes)):
-                Jones,JonesH=self.DicoATerm[ThisTime]
-                indThisTime=np.where(times==ThisTime)[0]
-                ThisA0=A0[indThisTime]
-                ThisA1=A1[indThisTime]
-                P0=ModLinAlg.BatchDot(Jones[ThisA0,:,:],vis[indThisTime])
-                vis[indThisTime]=ModLinAlg.BatchDot(P0,JonesH[ThisA1,:,:])
-            #vis*=self.norm
 
         T.timeit("5")
         return vis
@@ -620,6 +612,7 @@ class ClassDDEGridMachine():
         # self.ModelIm[:,:,x0:x1,x0:x1]=ModelIm
         ModelImPadded=np.zeros(self.GridShape,dtype=self.dtype)
         ModelImPadded[:,:,x0:x1,x0:x1]=ModelIm
+        
         Grid=self.ImToGrid(ModelImPadded)*n**2
         return Grid
 
