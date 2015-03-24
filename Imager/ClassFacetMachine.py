@@ -225,12 +225,12 @@ class ClassFacetMachine():
             self.DicoGridMachine[iFacet]["GM"]=GridMachine
 
     def setWisdom(self):
-        return
         print>>log, "Set fftw widsdom for shape = %s"%str(self.PaddedGridShape)
         a=np.random.randn(*(self.PaddedGridShape))+1j*np.random.randn(*(self.PaddedGridShape))
         FM=ModFFTW.FFTW_2Donly(self.PaddedGridShape, np.complex64)
         b=FM.fft(a)
         self.FFTW_Wisdom=pyfftw.export_wisdom()
+        return
         for iFacet in sorted(self.DicoImager.keys()):
             A=ModFFTW.GiveFFTW_aligned(self.PaddedGridShape, np.complex64)
             NpShared.ToShared("%sFFTW.%i"%(self.IdSharedMem,iFacet),A)
