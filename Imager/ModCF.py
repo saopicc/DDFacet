@@ -243,6 +243,7 @@ class ClassWTermModified():
         self.IDFacet=IDFacet
         self.IdSharedMem=IdSharedMem
         self.SharedMemName="%sWTerm.Facet_%3.3i"%(self.IdSharedMem,self.IDFacet)
+        self.SharedMemNameSphe="%sSpheroidal"%(self.IdSharedMem)
 
         if self.IDFacet==None:
             self.InitSphe()
@@ -264,7 +265,9 @@ class ClassWTermModified():
     def ToShared(self):
         print>>log, "Saving WTerm in shared memory (%s)"%self.SharedMemName
         dS=np.complex64
-        LArrays=[dS(self.ifzfCF)]
+        if self.IDFacet==0:
+            NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
+        LArrays=[]
         CuCv=np.array([self.Cu,self.Cv,self.Cu,self.Cv],dtype=dS).reshape(2,2)
         LArrays.append(CuCv)
         LArrays=LArrays+self.Wplanes
@@ -273,13 +276,19 @@ class ClassWTermModified():
 
     def FromShared(self):
         print>>log, "Loading WTerm from shared memory (%s)"%self.SharedMemName
-        LArrays=NpShared.UnPackListSquareMatrix(self.SharedMemName)
         dS=np.complex64
-        self.ifzfCF=LArrays[0]
-        CuCv=LArrays[1]
+        self.ifzfCF=NpShared.GiveArray(self.SharedMemNameSphe)
+        LArrays=NpShared.UnPackListSquareMatrix(self.SharedMemName)
+        CuCv=LArrays[0]
         self.Cu,self.Cv=np.float64(CuCv[0,0].real),np.float64(CuCv[0,1].real)
-        self.Wplanes=LArrays[2:2+self.Nw]
-        self.WplanesConj=LArrays[2+self.Nw::]
+        self.Wplanes=LArrays[1:1+self.Nw]
+        self.WplanesConj=LArrays[1+self.Nw::]
+
+        # self.ifzfCF=LArrays[0]
+        # CuCv=LArrays[1]
+        # self.Cu,self.Cv=np.float64(CuCv[0,0].real),np.float64(CuCv[0,1].real)
+        # self.Wplanes=LArrays[2:2+self.Nw]
+        # self.WplanesConj=LArrays[2+self.Nw::]
 
     def InitSphe(self):
         T=ClassTimeIt.ClassTimeIt("Wterm")

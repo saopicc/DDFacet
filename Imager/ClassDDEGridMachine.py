@@ -462,7 +462,7 @@ class ClassDDEGridMachine():
         T2.timeit("gridder")
         # print SumWeigths
         # return
-        
+        # del(Grid)
         T.timeit("4 (grid)")
         ImPadded= self.GridToIm(Grid)
         #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1

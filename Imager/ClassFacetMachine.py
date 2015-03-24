@@ -379,9 +379,9 @@ class ClassFacetMachine():
         _,_,NPixOut,NPixOut=self.OutImShape
         print>>log, "Combining facets using %s mode..."%self.ConstructMode
         if self.ConstructMode=="Fader": 
-            SharedMemName="%sWTerm.Facet_%3.3i"%(self.IdSharedMem,0)
+            SharedMemName="%sSpheroidal"%(self.IdSharedMem)#"%sWTerm.Facet_%3.3i"%(self.IdSharedMem,0)
             NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
-            SPhe=NpShared.UnPackListSquareMatrix(SharedMemName)[0]
+            SPhe=NpShared.GiveArray(SharedMemName)
             
         for iFacet in self.DicoImager.keys():
             if self.ConstructMode=="Sharp":
@@ -439,6 +439,8 @@ class ClassFacetMachine():
                     Image[ch,pol]/=NormImage
  
 
+        for iFacet in self.DicoImager.keys():
+            del(self.DicoGridMachine[iFacet]["Dirty"])
 
         # for ch in range(nch):
         #     for pol in range(npol):
@@ -581,7 +583,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             ListModelImage.append(self.DicoImager[iFacet]["ModelFacet"])
         NpShared.PackListArray("%sModelImage"%self.IdSharedMem,ListModelImage)
-
+        
 
 
         work_queue = multiprocessing.Queue()
@@ -613,7 +615,8 @@ class ClassFacetMachine():
             NDone=iResult
             intPercent=int(100*  NDone / float(NFacets))
             pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
-
+            iFacet=DicoResult["iFacet"]
+            del(self.DicoImager[iFacet]["ModelFacet"])
 
 
         for ii in range(NCPU):

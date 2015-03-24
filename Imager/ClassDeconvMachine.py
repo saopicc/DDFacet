@@ -222,10 +222,12 @@ class ClassImagerDeconv():
         pylab.draw()
         pylab.show(False)
         pylab.pause(0.1)
+        self.FitPSF()
+        print self.PSF.shape,self.PSF.dtype
+        #FacetMachinePSF.ToCasaImage(self.PSF)
+        FacetMachinePSF.ToCasaImage(self.PSF,Fits=True,beam=self.FWHMBeam)
         #self.FitPSF()
-        #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True,beam=self.FWHMBeam)
-        #self.FitPSF()
-        FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
+        #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
         
         del(FacetMachinePSF)
 

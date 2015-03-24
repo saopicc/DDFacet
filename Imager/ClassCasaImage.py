@@ -105,11 +105,12 @@ class ClassCasaimage():
     def setBeam(self,beam):
         bmaj, bmin, PA=beam
         FileOut=self.ImageName+".fits"
+        print>>log, "  ----> Save beam info in FITS file %s"%FileOut
+        
         F2=pyfits.open(FileOut)
         F2[0].header["BMAJ"]=bmaj
         F2[0].header["BMIN"]=bmin
         F2[0].header["BPA"]=PA
-        print>>log, "  ----> Save beam info in FITS file %s"%FileOut
         F2.writeto(FileOut,clobber=True)
 
 
