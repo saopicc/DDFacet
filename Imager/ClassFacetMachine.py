@@ -593,12 +593,18 @@ class ClassFacetMachine():
         NCPU=self.NCPU
         #visOut=np.zeros_like(visIn)
 
+
+        print>>log, "Model image to facets ..."
         self.ImToFacets(ModelImage)
         NFacets=len(self.DicoImager.keys())
         ListModelImage=[]
         for iFacet in self.DicoImager.keys():
             ListModelImage.append(self.DicoImager[iFacet]["ModelFacet"])
+        
         NpShared.PackListArray("%sModelImage"%self.IdSharedMem,ListModelImage)
+        for iFacet in self.DicoImager.keys():
+            del(self.DicoImager[iFacet]["ModelFacet"])
+        print>>log, "    ... done"
 
 
 
@@ -650,6 +656,7 @@ class ClassFacetMachine():
 ##########################################
 ####### Workers
 ##########################################
+import gc
            
 class WorkerImager(multiprocessing.Process):
     def __init__(self,
@@ -699,6 +706,7 @@ class WorkerImager(multiprocessing.Process):
     def run(self):
         #print multiprocessing.current_process()
         while not self.kill_received:
+            gc.enable()
             try:
                 iFacet = self.work_queue.get()
             except:
@@ -733,6 +741,7 @@ class WorkerImager(multiprocessing.Process):
                 del(Dirty)
                 Sw=GridMachine.SumWeigths
                 del(GridMachine)
+                gc.collect()
 
                 self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":Sw})
 
@@ -747,9 +756,9 @@ class WorkerImager(multiprocessing.Process):
                 GridMachine=self.GiveGM(iFacet)
                 DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMem)
                 uvwThis=DATA["uvw"]
-                #visThis=DATA["data"]
-                PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
-                visThis=NpShared.GiveArray(PredictedDataName)
+                visThis=DATA["data"]
+                #PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
+                #visThis=NpShared.GiveArray(PredictedDataName)
                 flagsThis=DATA["flags"]
                 times=DATA["times"]
                 A0=DATA["A0"]
