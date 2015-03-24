@@ -83,7 +83,8 @@ class ClassImagerDeconv():
                                               DicoSelectOptions=dict(DC["DataSelection"]))
         self.InitFacetMachine()
         #self.VS.SetImagingPars(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
-        self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
+        #self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
+        self.VS.CalcWeigths(self.FacetMachine.PaddedGridShape,self.FacetMachine.CellSizeRad)
 
 
     def InitDDESols(self):
@@ -221,10 +222,10 @@ class ClassImagerDeconv():
         pylab.draw()
         pylab.show(False)
         pylab.pause(0.1)
-        self.FitPSF()
-        FacetMachinePSF.ToCasaImage(self.PSF,Fits=True,beam=self.FWHMBeam)
         #self.FitPSF()
-        #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
+        #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True,beam=self.FWHMBeam)
+        #self.FitPSF()
+        FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
         
         del(FacetMachinePSF)
 

@@ -353,36 +353,47 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
 
       //printf("%i: (x,y)=(%i,%i): %f %f\n",(int)i,ii,jj,wp[i],grid[ii+nx*jj]);
       //printf("\n");
-      ThisW=wp[i]*2;
-      sumw+=ThisW;//(2.*(wp[i]));
+      ThisW=wp[i];
+      sumw+=ThisW*2.;//(2.*(wp[i]));
     }
   }
 
+
+  /* double Wk; */
+  /* double sumWk=0; */
+  /* for (irow=0; irow<np; irow++) { */
+  /*   for (ich=0; ich<nch; ich++) { */
+  /*     i=irow*nch+ich; */
+  /*     if(flags[i]==1){continue;} */
+  /*     xp=round((u[irow]*freqs[ich]/C)/ucell); */
+  /*     yp=round((v[irow]*freqs[ich]/C)/vcell); */
+  /*     ii=xp+xc; */
+  /*     jj=yp+yc; */
+  /*     if((ii<0)|(ii>nx-1)){continue;} */
+  /*     if((jj<0)|(jj>ny-1)){continue;} */
+
+
+  /*     iii=ii+nx*jj; */
+  /*     Wk=grid[iii]; */
+  /*     sumWk+=Wk*Wk; */
+  /*     ii=-xp+xc; */
+  /*     jj=-yp+yc; */
+  /*     iii=ii+nx*jj; */
+  /*     Wk=grid[iii]; */
+  /*     sumWk+=Wk*Wk; */
+  /*   } */
+  /* } */
 
   double Wk;
   double sumWk=0;
-  for (irow=0; irow<np; irow++) {
-    for (ich=0; ich<nch; ich++) {
-      i=irow*nch+ich;
-      if(flags[i]==1){continue;}
-      xp=round((u[irow]*freqs[ich]/C)/ucell);
-      yp=round((v[irow]*freqs[ich]/C)/vcell);
-      ii=xp+xc;
-      jj=yp+yc;
-      if((ii<0)|(ii>nx-1)){continue;}
-      if((jj<0)|(jj>ny-1)){continue;}
-
-
-      iii=ii+nx*jj;
-      Wk=grid[iii];
-      sumWk+=Wk*Wk;
-      ii=-xp+xc;
-      jj=-yp+yc;
+  for (ii=0; ii<nx; ii++) {
+    for (jj=0; jj<nx; jj++) {
       iii=ii+nx*jj;
       Wk=grid[iii];
       sumWk+=Wk*Wk;
     }
   }
+
 
   double fact=  (sumw/sumWk)*pow(5.*pow(10.,-R),2.);
   //printf("fact=(%f)\n",fact);
@@ -410,26 +421,34 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
       }
     }
   }else{
-  //printf("Mode=(%i)\n",Mode);
+    //printf("Mode=(%i)\n",Mode);
     for (irow=0; irow<np; irow++) {
       for (ich=0; ich<nch; ich++) {
-  	i=irow*nch+ich;
-  	if(flags[i]==1){continue;}
-  	xp=round((u[irow]*freqs[ich]/C)/ucell);
-  	yp=round((v[irow]*freqs[ich]/C)/vcell);
-  	ii=xp+xc;
-  	jj=yp+yc;
-  	if((ii<0)|(ii>nx-1)){continue;}
-  	if((jj<0)|(jj>ny-1)){continue;}
-  	iii=ii+nx*jj;
-  	if(wp[i]>0.){
-  	  Wk=grid[iii];
+	i=irow*nch+ich;
+	if(flags[i]==1){continue;}
+	xp=round((u[irow]*freqs[ich]/C)/ucell);
+	yp=round((v[irow]*freqs[ich]/C)/vcell);
+	ii=xp+xc;
+	jj=yp+yc;
+	if((ii<0)|(ii>nx-1)){continue;}
+	if((jj<0)|(jj>ny-1)){continue;}
+	
+	
+	iii=ii+nx*jj;
+	Wk=grid[iii];
+  	if(Wk>0.){
   	  wp[i]/=(Wk);
+  	  //wp[i]=(Wk);
   	  //printf("@[%i, %i] %f,%f\n",(int)ii,(int)jj,wp[i],Wk);
   	}
+
       }
     }
   };
+
+
+  //PyObject* PyList_New(Py_ssize_t len)
+  
 
   return PyArray_Return(np_w);
   //return PyArray_Return(np_grid);

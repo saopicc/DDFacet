@@ -55,7 +55,7 @@ def EstimateNpix(Npix,Padding=1):
     #if Npix%2!=0: Npix+=1
     #if Npix%2==0: Npix+=1
     Npix=GiveClosestFastSize(Npix,Odd=Odd)
-    print>>log, ModColor.Str("With padding=%f: (NpixOrig, NpixOpt, NpixOptPadded): %i --> %i --> %i"%(Padding,NpixOrig,NpixOpt,Npix))
+    #print>>log, ModColor.Str("With padding=%f: (NpixOrig, NpixOpt, NpixOptPadded): %i --> %i --> %i"%(Padding,NpixOrig,NpixOpt,Npix))
     return NpixOpt,Npix
 
 class FFTW_Convolve():

@@ -111,6 +111,11 @@ class ClassFacetMachine():
         _,NpixPaddedGrid=EstimateNpix(NpixFacet,Padding=Padding)
         self.NChanGrid=1
         self.PaddedGridShape=(self.NChanGrid,self.npol,NpixPaddedGrid,NpixPaddedGrid)
+        print>>log,"Sizes (%i x %i facets):"%(NFacets,NFacets)
+        print>>log,"   - Main field :   [%i x %i] pix"%(self.Npix,self.Npix)
+        print>>log,"   - Each facet :   [%i x %i] pix"%(NpixFacet,NpixFacet)
+        print>>log,"   - Padded-facet : [%i x %i] pix"%(NpixPaddedGrid,NpixPaddedGrid)
+        
         #self.setWisdom()
         self.SumWeights=np.zeros((self.NChanGrid,self.npol),float)
 
@@ -209,10 +214,12 @@ class ClassFacetMachine():
 
 
     def InitSerial(self):
+        if self.ConstructMode=="Fader":
+            SpheNorm=False
         for iFacet in sorted(self.DicoImager.keys()):
             GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,RaDec=self.DicoImager[iFacet]["RaDec"],
                                                                 lmShift=self.DicoImager[iFacet]["lmShift"],
-                                                                IdSharedMem=self.IdSharedMem,IDFacet=iFacet,
+                                                                IdSharedMem=self.IdSharedMem,IDFacet=iFacet,SpheNorm=SpheNorm,
                                                                 **self.DicoImager[iFacet]["DicoConfigGM"])
 
             self.DicoGridMachine[iFacet]["GM"]=GridMachine
