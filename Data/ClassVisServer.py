@@ -236,15 +236,16 @@ class ClassVisServer():
         MS=self.MS
         self.ThresholdFlag=0.9
         self.FlagAntNumber=[]
-        # for A in range(MS.na):
-        #     ind=np.where((A0==A)|(A1==A))[0]
-        #     fA=flags[ind].ravel()
-        #     nf=np.count_nonzero(fA)
-        #     Frac=nf/float(fA.size)
-        #     if Frac>self.ThresholdFlag:
-        #         print>>log, "  Flagging antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)"%\
-        #             (A,Frac*100,"%",self.ThresholdFlag*100,"%")
-        #         self.FlagAntNumber.append(A)
+
+        for A in range(MS.na):
+            ind=np.where((A0==A)|(A1==A))[0]
+            fA=flags[ind].ravel()
+            nf=np.count_nonzero(fA)
+            Frac=nf/float(fA.size)
+            if Frac>self.ThresholdFlag:
+                print>>log, "  Flagging antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)"%\
+                    (A,Frac*100,"%",self.ThresholdFlag*100,"%")
+                self.FlagAntNumber.append(A)
         
 
         for Field in self.DicoSelectOptions.keys():
