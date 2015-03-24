@@ -556,7 +556,7 @@ class ClassDDEGridMachine():
         FacetInfos=np.float64(np.array([self.WTerm.Cu,self.WTerm.Cv,l0,m0]))
         Row0,Row1=Row0Row1
         if Row1==-1:
-            Row1=u.shape[0]
+            Row1=uvw.shape[0]
         RowInfos=np.array([Row0,Row1]).astype(np.int32)
 
         T.timeit("2")

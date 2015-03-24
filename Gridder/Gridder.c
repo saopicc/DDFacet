@@ -1188,9 +1188,9 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 
   DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones);
   
-  //return PyArray_Return(np_vis);
+  return PyArray_Return(np_vis);
 
-  return Py_None;
+  //return Py_None;
 
 }
 
