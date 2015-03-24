@@ -454,6 +454,9 @@ class ClassFacetMachine():
  
 
 
+        for iFacet in self.DicoImager.keys():
+            del(self.DicoGridMachine[iFacet]["Dirty"])
+
         # for ch in range(nch):
         #     for pol in range(npol):
         #         self.Image[ch,pol]=self.Image[ch,pol].T[::-1,:]
