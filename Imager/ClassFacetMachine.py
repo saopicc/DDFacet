@@ -741,7 +741,7 @@ class WorkerImager(multiprocessing.Process):
                 del(Dirty)
                 Sw=GridMachine.SumWeigths
                 del(GridMachine)
-                gc.collect()
+                #gc.collect()
 
                 self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":Sw})
 
