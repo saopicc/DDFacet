@@ -1589,7 +1589,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	    };
 
 	    for(ipol=0; ipol<4; ipol++){
-	      visPtr[ipol]+=ThisVis[ipol] *corr;
+	      visPtr[ipol]+=ThisVis[ipol] *corr*(-1.);
 	    }
 
           } // end if ongrid

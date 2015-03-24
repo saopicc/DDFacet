@@ -346,7 +346,6 @@ class ClassImagerDeconv():
                 DATA=self.DATA
                 
                 visData=DATA["data"]
-                PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
 
 
                 # ####################
@@ -355,14 +354,16 @@ class ClassImagerDeconv():
                 # self.DeconvMachine._ModelImage=testImage
                 # ####################
 
-                visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
-                _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),self.DeconvMachine._ModelImage)
-                visData[:,:,:]=visData[:,:,:]-visPredict[:,:,:]
+                # PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
+                # visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
+                # _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),self.DeconvMachine._ModelImage)
+                # visData[:,:,:]=visData[:,:,:]-visPredict[:,:,:]
             
-                #print>>log, ModColor.Str("  Gridding",col="green")
+                _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),self.DeconvMachine._ModelImage)
+            
                 self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visData,DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)
                 
-                NpShared.DelArray(PredictedDataName)
+                # NpShared.DelArray(PredictedDataName)
 
             Image=self.FacetMachine.FacetsToIm()
             self.ResidImage=Image

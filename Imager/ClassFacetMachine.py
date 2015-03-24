@@ -750,9 +750,9 @@ class WorkerImager(multiprocessing.Process):
                 GridMachine=self.GiveGM(iFacet)
                 DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMem)
                 uvwThis=DATA["uvw"]
-                #visThis=DATA["data"]
-                PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
-                visThis=NpShared.GiveArray(PredictedDataName)
+                visThis=DATA["data"]
+                #PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
+                #visThis=NpShared.GiveArray(PredictedDataName)
                 flagsThis=DATA["flags"]
                 times=DATA["times"]
                 A0=DATA["A0"]
