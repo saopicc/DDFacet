@@ -361,7 +361,7 @@ class ClassImagerDeconv():
     def FitPSF(self):
         _,_,x,y=np.where(self.PSF==np.max(self.PSF))
         FitOK=False
-        off=300
+        off=100
         while FitOK==False:
             try:
                 print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
@@ -372,7 +372,7 @@ class ClassImagerDeconv():
                 print>>log, "   ... done"
             except:
                 print>>log, "   ... failed"
-                off+=200
+                off+=100
                 
 
         theta=np.pi/2-theta

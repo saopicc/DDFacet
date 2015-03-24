@@ -91,10 +91,7 @@ class ClassCasaimage():
             for ch in range(nch):
                 for pol in range(npol):
                     data[ch,pol]=data[ch,pol][::-1].T
-
         
-
-
         self.im.putdata(data)
 
     def ToFits(self):
@@ -106,7 +103,7 @@ class ClassCasaimage():
         bmaj, bmin, PA=beam
         FileOut=self.ImageName+".fits"
         print>>log, "  ----> Save beam info in FITS file %s"%FileOut
-        pyfits.verify('fix')
+        
         F2=pyfits.open(FileOut)
         F2[0].header["BMAJ"]=bmaj
         F2[0].header["BMIN"]=bmin

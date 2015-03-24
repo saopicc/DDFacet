@@ -297,7 +297,7 @@ class ClassFacetMachine():
         # if ImageIn==None:
         #     Image=self.FacetsToIm()
         # else:
-        Image=ImageIn
+        Image=np.ones(ImageIn.shape,np.float32)#np.float32(ImageIn)
         if self.CasaImage==None:
             self.setCasaImage(ImageName=ImageName)
         self.CasaImage.setdata(Image,CorrT=True)
