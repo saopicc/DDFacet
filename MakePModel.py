@@ -1,16 +1,15 @@
 #!/usr/bin/env python
 
-
 import numpy as np
-import Gaussian
+from PSourceExtract import Gaussian
 import pylab
 import scipy.optimize
 import time
-import ClassIslands
+from PSourceExtract import ClassIslands
 from Other import ModColor
 import pickle
 import optparse
-import ClassPointFit2 as ClassPointFit
+import PSourceExtract.ClassPointFit2 as ClassPointFit
 #import ClassPointFit as ClassPointFit
 
 from pyrap.images import image
