@@ -8,7 +8,7 @@ import findrms
 
 
 class ClassIslands():
-    def __init__(self,A,T,box=(60,60),MinPerIsland=10,Boost=3,DoPlot=False,FillNoise=True):
+    def __init__(self,A,T,box=(100,100),MinPerIsland=10,Boost=3,DoPlot=False,FillNoise=True):
         self.A=A
         self.T=T
         self.Noise=None
