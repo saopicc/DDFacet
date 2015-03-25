@@ -656,7 +656,7 @@ class ClassFacetMachine():
 ##########################################
 ####### Workers
 ##########################################
-import gc
+#import gc
            
 class WorkerImager(multiprocessing.Process):
     def __init__(self,
@@ -706,7 +706,7 @@ class WorkerImager(multiprocessing.Process):
     def run(self):
         #print multiprocessing.current_process()
         while not self.kill_received:
-            gc.enable()
+            #gc.enable()
             try:
                 iFacet = self.work_queue.get()
             except:
@@ -741,7 +741,7 @@ class WorkerImager(multiprocessing.Process):
                 del(Dirty)
                 Sw=GridMachine.SumWeigths
                 del(GridMachine)
-                gc.collect()
+                #gc.collect()
 
                 self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":Sw})
 
