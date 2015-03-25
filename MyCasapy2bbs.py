@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from pyrap.tables import table
 from pyrap.images import image
 import pyfits
@@ -13,7 +15,7 @@ def test():
     Conv.ToSM()
 
 class MyCasapy2BBS():
-    def __init__(self,FitsTh=0.1):
+    def __init__(self,Fits,Th=0.005):
         self.Fits=Fits
         self.Th=Th
 
@@ -38,6 +40,7 @@ class MyCasapy2BBS():
         Cat=Cat.view(np.recarray)
 
         for ipix in range(indx.size):
+
             x,y=indx[ipix],indy[ipix]
             s=Model[x,y]
             #a,b,dec,ra=im.toworld((0,0,0,0))
@@ -60,8 +63,10 @@ class MyCasapy2BBS():
 import sys
 
 if __name__=="__main__":
+
     f=sys.argv[1]
     Conv=MyCasapy2BBS(f)
     Conv.GetPixCat()
     Conv.ToSM()
+
     
