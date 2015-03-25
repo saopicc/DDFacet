@@ -56,3 +56,12 @@ class MyCasapy2BBS():
         Cat=Cat[np.abs(Cat.s)>(self.Th*np.max(np.abs(Cat.s)))]
 
         self.Cat=Cat
+
+import sys
+
+if __name__=="__main__":
+    f=sys.argv[1]
+    Conv=MyCasapy2BBS(f)
+    Conv.GetPixCat()
+    Conv.ToSM()
+    
