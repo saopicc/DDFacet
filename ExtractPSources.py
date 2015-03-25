@@ -27,12 +27,12 @@ def read_options():
     group.add_option('--Osm',help='Output Sky model [no default]',default='')
     group.add_option('--PSF',help='PSF (Majax,Minax,PA) in (arcsec,arcsec,deg). Default is %default',default="")
     group.add_option('--Pfact',help='PSF size multiplying factor. Default is %default',default="1")
-    group.add_option('--DoPlot',help=' Default is %default',default="1")
+    group.add_option('--DoPlot',help=' Default is %default',default="0")
     group.add_option('--DoPrint',help=' Default is %default',default="0")
     group.add_option('--Boost',help=' Boost is %default',default="3")
-    group.add_option('--NCluster',help=' Boost is %default',default="0")
-    group.add_option('--snr',help=' SNR above which we draw an island. Default is %default',default="10")
-    group.add_option('--CMethod',help=' Cluster algorithm Method. Default is %default',default="1")
+    #group.add_option('--NCluster',help=' Boost is %default',default="0")
+    group.add_option('--snr',help=' SNR above which we draw an island. Default is %default',default="7")
+    #group.add_option('--CMethod',help=' Cluster algorithm Method. Default is %default',default="1")
     opt.add_option_group(group)
     options, arguments = opt.parse_args()
     f = open("last_MakePModel.obj","wb")
@@ -44,8 +44,8 @@ def main(options=None):
         options = pickle.load(f)
 
     Boost=int(options.Boost)
-    CMethod=int(options.CMethod)
-    NCluster=int(options.NCluster)
+    #CMethod=int(options.CMethod)
+    #NCluster=int(options.NCluster)
     Osm=options.Osm
     Pfact=float(options.Pfact)
     DoPlot=(options.DoPlot=="1")
@@ -141,7 +141,7 @@ def main(options=None):
     Islands.FittedComps=(xlist,ylist,slist)
     Islands.plot()
 
-    SM=ClassSM.ClassSM(Osm,ReName=True,DoREG=True,SaveNp=True,NCluster=NCluster,DoPlot=DoPlot,FromExt=Cat,ClusterMethod=CMethod)
+    SM=ClassSM.ClassSM(Osm,ReName=True,DoREG=True,SaveNp=True,FromExt=Cat)#,NCluster=NCluster,DoPlot=DoPlot,ClusterMethod=CMethod)
     #SM=ClassSM.ClassSM(Osm,ReName=True,SaveNp=True,DoPlot=DoPlot,FromExt=Cat)
 
 
