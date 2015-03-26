@@ -47,7 +47,7 @@ class MyCasapy2BBS():
                  ImRestoredName=None,
                  ImResidualName=None,
                  Th=None,
-                 box=(40,40),Boost=3,
+                 box=(100,100),Boost=2,
                  ResInPix=1):
         self.Fits=Fits
         self.Th=Th
@@ -58,7 +58,9 @@ class MyCasapy2BBS():
         self.ImResidualName=ImResidualName
         self.DoMask=False
         self.ResInPix=ResInPix
+        self.XcYcDx=10000,14000,1000
         self.Init()
+
 
     def Init(self):
         self.setModelImage()
@@ -76,6 +78,11 @@ class MyCasapy2BBS():
         Fits=self.Fits
     
         self.Model=self.im.getdata()[0,0]
+        if self.XcYcDx!=None:
+            xc,yc,dx=self.XcYcDx
+            x0,x1=xc-dx,xc+dx
+            y0,y1=yc-dx,yc+dx
+            self.Model=self.Model[x0:x1,y0:y1]
         self.Plot(self.Model)
         print " done set model image"
         
@@ -94,8 +101,12 @@ class MyCasapy2BBS():
             self.ImRestored=self.ImRestored[0,0]
             im=image(self.ImResidualName)
             ImResidual=im.getdata()[0,0]
+            xc,yc,dx=self.XcYcDx
+            x0,x1=xc-dx,xc+dx
+            y0,y1=yc-dx,yc+dx
+            self.ImResidual=ImResidual[x0:x1,y0:y1]
             print " add residual image"
-            self.ImRestored+=ImResidual
+            self.ImRestored+=self.ImResidual
             del(im)
             self.Plot(self.ImRestored)
 
@@ -104,11 +115,15 @@ class MyCasapy2BBS():
         print " done set restored image"
 
 
-    def Plot(self,data,dx=1000):
+    def Plot(self,data,dx=None):
+        return
         import pylab
         xc=data.shape[0]/2
         pylab.clf()
-        pylab.imshow(data[xc-dx:xc+dx,xc-dx:xc+dx],interpolation="nearest",cmap="gray")
+        if dx!=None:
+            pylab.imshow(data[xc-dx:xc+dx,xc-dx:xc+dx],interpolation="nearest",cmap="gray")
+        else:
+            pylab.imshow(data,interpolation="nearest",cmap="gray")
         pylab.draw()
         pylab.show()
 
@@ -116,9 +131,13 @@ class MyCasapy2BBS():
     def ComputeNoiseMap(self):
         print "Compute noise map..."
         Boost=self.Boost
-        Acopy=self.ImRestored[0::Boost,0::Boost].copy()
+        Acopy=self.ImResidual[0::Boost,0::Boost].copy()
         SBox=(self.box[0]/Boost,self.box[1]/Boost)
         Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
+        #ind=(np.abs(Acopy)>3.*Noise)
+        #Acopy[ind]=Noise[ind]
+        #Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
+
         self.Noise=np.zeros_like(self.ImRestored)
         for i in range(Boost):
             for j in range(Boost):
@@ -153,6 +172,8 @@ class MyCasapy2BBS():
         NPix=indx.size
         Cat=np.zeros((NPix,),dtype=[('ra',np.float),('dec',np.float),('s',np.float)])
         Cat=Cat.view(np.recarray)
+        X=[]
+        Y=[]
 
         for ipix in range(indx.size):
 
@@ -162,7 +183,8 @@ class MyCasapy2BBS():
                     continue
 
             s=Model[x,y]
-                
+            X.append(x)
+            Y.append(y)
             #a,b,dec,ra=im.toworld((0,0,0,0))
             a,b,dec,ra=im.toworld((0,0,x,y))
             #print a,b,dec,ra
@@ -182,6 +204,14 @@ class MyCasapy2BBS():
         #     Cat=Cat[np.abs(Cat.s)>(self.Th*np.max(np.abs(Cat.s)))]
 
         Cat=Cat[Cat.s!=0]
+
+        print "ok"
+        import pylab
+        pylab.clf()
+        pylab.imshow(self.ImRestored.T,interpolation="nearest",cmap="gray")
+        pylab.scatter(X,Y,marker=".")
+        pylab.draw()
+        pylab.show()
 
         self.Cat=Cat
 
