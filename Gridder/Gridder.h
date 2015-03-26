@@ -105,20 +105,16 @@ void DeGridderWPol(PyArrayObject *np_grid,
 	      PyObject *Lmaps, 
 	      PyObject *LJones);
 
-/* .... C matrix utility functions ..................*/
-//PyArrayObject *pymatrix(PyObject *objin);
-//double **pymatrix_to_Carrayptrs(PyArrayObject *arrayin);
-//double **ptrvector(long n);
-/* void free_Carrayptrs(double **v); */
-/* void free_Carrayptrs2(double *v); */
-/* int  not_doublematrix(PyArrayObject *mat); */
+void ScaleJones(float complex* J0, float AlphaScaleJones){
+  float complex z0;
+  int ThisPol;
+  for(ThisPol =0; ThisPol<4;ThisPol++){
+    if(cabs(J0[ThisPol])!=0.){
+      z0=J0[ThisPol]/cabs(J0[ThisPol]);
+      J0[ThisPol]=(1.-AlphaScaleJones)*z0+AlphaScaleJones*J0[ThisPol];
+      //J0[ThisPol]=z0+AlphaScaleJones*(J0[ThisPol]-z0);
+    }
+  }
+}
 
-/* .... Python callable integer 2D array functions ..................*/
 
-
-//* * .... C 2D int array utility functions ..................*\/ */
-/* PyArrayObject *pyint2Darray(PyObject *objin); */
-/* int **pyint2Darray_to_Carrayptrs(PyArrayObject *arrayin); */
-/* int **ptrintvector(long n); */
-/* void free_Cint2Darrayptrs(int **v); */
-/* int  not_int2Darray(PyArrayObject *mat); */

@@ -631,6 +631,7 @@ static PyObject *pyTestMatrix(PyObject *self, PyObject *args)
 
 }
 
+
 //////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////
 
@@ -664,6 +665,8 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
     }
   }
 }
+
+
 
 
 void gridderWPol(PyArrayObject *grid,
@@ -706,7 +709,8 @@ void gridderWPol(PyArrayObject *grid,
     int JonesDims[4];
     int ModeInterpolation=1;
     int *ptrModeInterpolation;
-    int ApplyAmp,ApplyPhase;
+    int ApplyAmp,ApplyPhase,DoScaleJones;
+    float CalibError,CalibError2;
     if(LengthJonesList>0){
       DoApplyJones=1;
 
@@ -750,6 +754,12 @@ void gridderWPol(PyArrayObject *grid,
       ApplyAmp=(int) PyFloat_AsDouble(_FApplyAmp);
       PyObject *_FApplyPhase  = PyList_GetItem(LJones, 8);
       ApplyPhase=(int) PyFloat_AsDouble(_FApplyPhase);
+
+      PyObject *_FDoScaleJones  = PyList_GetItem(LJones, 9);
+      DoScaleJones=(int) PyFloat_AsDouble(_FDoScaleJones);
+      PyObject *_FCalibError  = PyList_GetItem(LJones, 10);
+      CalibError=(float) PyFloat_AsDouble(_FCalibError);
+      CalibError2=CalibError*CalibError;
 
       //ApplyAmp=1;
       //ApplyPhase=1;
@@ -841,6 +851,12 @@ void gridderWPol(PyArrayObject *grid,
     // Loop over all visibility rows to process.
 
     float complex J0[4]={0},J1[4]={0},J0inv[4]={0},J1H[4]={0},J1Hinv[4]={0},JJ[4]={0};
+    double WaveLengthMean=0.;
+    int visChan;
+    for (visChan=0; visChan<nVisChan; ++visChan){
+      WaveLengthMean+=C/Pfreqs[visChan];
+    }
+    WaveLengthMean/=nVisChan;
 
     for (inx=0; inx<nrows; inx++) {
       int irow = inx;//rows[inx];
@@ -852,7 +868,6 @@ void gridderWPol(PyArrayObject *grid,
 	                                  irow  * nVisChan;
 
       //printf("u=%f",*uvwPtr);
-      int visChan;
       for (visChan=0; visChan<nVisChan; ++visChan) {
         int gridChan = 0;//chanMap_p[visChan];
         int CFChan = 0;//ChanCFMap[visChan];
@@ -918,12 +933,25 @@ void gridderWPol(PyArrayObject *grid,
 	      }
 	    }
 	  }
+
 	  if(ApplyPhase==0){
 	    for(ThisPol =0; ThisPol<4;ThisPol++){
 	      J0[ThisPol]=cabs(J0[ThisPol]);
 	      J1[ThisPol]=cabs(J1[ThisPol]);
 	    }
 	  }
+	  
+	  if(DoScaleJones==1){
+	    float U2=uvwPtr[0]*uvwPtr[0];
+	    float V2=uvwPtr[1]*uvwPtr[1];
+	    float R2=(U2+V2)/(WaveLengthMean*WaveLengthMean);
+	    CalibError2=CalibError*CalibError;
+	    float AlphaScaleJones=exp(-2.*PI*CalibError2*R2);
+	    //printf("alpha %f",AlphaScaleJones);
+	    ScaleJones(J0,AlphaScaleJones);
+	    ScaleJones(J1,AlphaScaleJones);
+	  }
+
 	  
 	  MatInv(J0,J0inv,0);
 	  MatH(J1,J1H);

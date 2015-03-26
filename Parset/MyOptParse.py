@@ -60,7 +60,7 @@ class MyOptParse():
 
 
     def Print(self,RejectGroup=[]):
-        P=ClassPrint.ClassPrint(HW=30)
+        P=ClassPrint.ClassPrint(HW=50)
         print ModColor.Str(" Selected Options:")
     
         for Group,V in self.DefaultDict.items():

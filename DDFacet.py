@@ -70,8 +70,11 @@ def read_options():
 
     OP.OptionGroup("* DDE Solutions","DDESolutions")
     OP.add_option("DDSols")
+    OP.add_option("GlobalNorm")
     OP.add_option("DDModeGrid")
     OP.add_option("DDModeDeGrid")
+    OP.add_option("ScaleAmp")
+    OP.add_option("CalibErr")
     OP.add_option('Type')
     OP.add_option('Scale')
     OP.add_option('gamma')

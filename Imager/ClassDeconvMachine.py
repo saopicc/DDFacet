@@ -103,12 +103,13 @@ class ClassImagerDeconv():
             G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
             DicoSols["Jones"]=G
 
-            # gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
-            # gmean_abs=gmean_abs.reshape((1,nd,na,1))
-            # #DicoSols["Jones"][:,:,:,:,0,0]+=1.-gmean_abs
-            # #DicoSols["Jones"][:,:,:,:,1,1]+=1.-gmean_abs
-            # DicoSols["Jones"][:,:,:,:,0,0]/=gmean_abs
-            # DicoSols["Jones"][:,:,:,:,1,1]/=gmean_abs
+            if GD["DDESolutions"]["GlobalNorm"]=="MeanAbs":
+                print>>log, "  Normalising by the mean of the amplitude"
+                gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
+                gmean_abs=gmean_abs.reshape((1,nd,na,1))
+                DicoSols["Jones"][:,:,:,:,0,0]/=gmean_abs
+                DicoSols["Jones"][:,:,:,:,1,1]/=gmean_abs
+
 
             # if not("A" in self.GD["DDESolutions"]["ApplyMode"]):
             #     print>>log, "  Amplitude normalisation"
