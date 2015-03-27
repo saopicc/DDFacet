@@ -10,9 +10,10 @@ import pyfits
 import pyrap.images
 
 class ClassCasaimage():
-    def __init__(self,ImageName,ImShape,Cell,radec):
+    def __init__(self,ImageName,ImShape,Cell,radec,KeepCasa=False):
         self.Cell=Cell
         self.radec=radec
+        self.KeepCasa=KeepCasa
 
         self.ImShape=ImShape
         self.nch,self.npol,self.Npix,_=ImShape
@@ -116,6 +117,9 @@ class ClassCasaimage():
         print>>log, "  ----> Closing %s"%self.ImageName
         del(self.im)
         print>>log, "  ----> Closed %s"%self.ImageName
+        if self.KeepCasa==False:
+            print>>log, "  ----> Delete %s"%self.ImageName
+            os.system("rm -rf %s"%self.ImageName)
 
 
 

@@ -47,8 +47,8 @@ def convert(name,nameout="%s.png"):#,padding=1.4):
     # radius=abs(float(npix)*dpix)/2.
     # radius/=padding
     
-    rms=findrms.findrms(a.data)
-    print "rms=%f"%rms
+    #rms=findrms.findrms(a.data)
+    #print "rms=%f"%rms
     fig = mpl.figure(0,figsize=(17,17), dpi=200)
     #cmap='gist_gray'
     cmap='Greys'

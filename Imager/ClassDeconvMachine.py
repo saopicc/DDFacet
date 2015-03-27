@@ -368,7 +368,7 @@ class ClassImagerDeconv():
 
             Image=self.FacetMachine.FacetsToIm()
             self.ResidImage=Image
-
+            FacetMachinePSF.ToCasaImage(Image,ImageName="%s.residual"%self.BaseName,Fits=True)
             # fig=pylab.figure(1)
             # pylab.clf()
             # pylab.imshow(Image[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
@@ -382,7 +382,7 @@ class ClassImagerDeconv():
             self.HasCleaned=True
             if repMinor=="MaxIter": break
 
-        self.FacetMachine.ToCasaImage(Image,ImageName="%s.residual"%self.BaseName,Fits=True)
+        #self.FacetMachine.ToCasaImage(Image,ImageName="%s.residual"%self.BaseName,Fits=True)
         if self.HasCleaned:
             self.Restore()
 
