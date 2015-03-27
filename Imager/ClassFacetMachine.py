@@ -69,7 +69,7 @@ class ClassFacetMachine():
 
 
     def SetLogModeSubModules(self,Mode="Silent"):
-        SubMods=["ModelBeamSVD","ClassParam","ModToolBox","ModelIonSVD2","ClassPierce","WTerm"]
+        SubMods=["ModelBeamSVD","ClassParam","ModToolBox","ModelIonSVD2","ClassPierce"]
 
         if Mode=="Silent":
             MyLogger.setSilent(SubMods)

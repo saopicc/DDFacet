@@ -1273,7 +1273,8 @@ void DeGridderWPol(PyArrayObject *grid,
     int JonesDims[4];
     int ModeInterpolation=1;
     int *ptrModeInterpolation;
-    int ApplyAmp, ApplyPhase;
+    int ApplyAmp,ApplyPhase,DoScaleJones;
+    float CalibError,CalibError2;
     if(LengthJonesList>0){
       DoApplyJones=1;
 
@@ -1314,6 +1315,13 @@ void DeGridderWPol(PyArrayObject *grid,
       ApplyAmp=(int) PyFloat_AsDouble(_FApplyAmp);
       PyObject *_FApplyPhase  = PyList_GetItem(LJones, 8);
       ApplyPhase=(int) PyFloat_AsDouble(_FApplyPhase);
+
+      PyObject *_FDoScaleJones  = PyList_GetItem(LJones, 9);
+      DoScaleJones=(int) PyFloat_AsDouble(_FDoScaleJones);
+      PyObject *_FCalibError  = PyList_GetItem(LJones, 10);
+      CalibError=(float) PyFloat_AsDouble(_FCalibError);
+      CalibError2=CalibError*CalibError;
+
     };
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -1383,6 +1391,12 @@ void DeGridderWPol(PyArrayObject *grid,
 
     double posx,posy;
 
+    double WaveLengthMean=0.;
+    int visChan;
+    for (visChan=0; visChan<nVisChan; ++visChan){
+      WaveLengthMean+=C/Pfreqs[visChan];
+    }
+    WaveLengthMean/=nVisChan;
 
     // Loop over all visibility rows to process.
     for (inx=row0; inx<row1; ++inx) {
@@ -1396,7 +1410,6 @@ void DeGridderWPol(PyArrayObject *grid,
       // Loop over all channels in the visibility data.
       // Map the visibility channel to the grid channel.
       // Skip channel if data are not needed.
-      int visChan;
       
       for (visChan=0; visChan<nVisChan; ++visChan) {
         int gridChan = 0;//chanMap_p[visChan];
@@ -1608,6 +1621,17 @@ void DeGridderWPol(PyArrayObject *grid,
 		  J0[ThisPol]=cabs(J0[ThisPol]);
 		  J1[ThisPol]=cabs(J1[ThisPol]);
 		}
+	      }
+
+	      if(DoScaleJones==1){
+		float U2=uvwPtr[0]*uvwPtr[0];
+		float V2=uvwPtr[1]*uvwPtr[1];
+		float R2=(U2+V2)/(WaveLengthMean*WaveLengthMean);
+		CalibError2=CalibError*CalibError;
+		float AlphaScaleJones=exp(-2.*PI*CalibError2*R2);
+		//printf("alpha %f",AlphaScaleJones);
+		ScaleJones(J0,AlphaScaleJones);
+		ScaleJones(J1,AlphaScaleJones);
 	      }
 
 	      MatH(J1,J1H);

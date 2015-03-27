@@ -570,14 +570,31 @@ class ClassDDEGridMachine():
         self.CheckTypes(Grid=Grid,vis=vis,uvw=uvw,flag=flag,ListWTerm=self.WTerm.Wplanes)
 
         ParamJonesList=[]
+        # if DicoJonesMatrices!=None:
+        #     ApplyAmp=0
+        #     ApplyPhase=0
+        #     if "A" in self.GD["DDESolutions"]["DDModeDeGrid"]:
+        #         ApplyAmp=1
+        #     if "P" in self.GD["DDESolutions"]["DDModeDeGrid"]:
+        #         ApplyPhase=1
+        #     LApplySol=[ApplyAmp,ApplyPhase]
+        #     ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
+        #     ParamJonesList=ParamJonesList+LApplySol
+
         if DicoJonesMatrices!=None:
             ApplyAmp=0
             ApplyPhase=0
-            if "A" in self.GD["DDESolutions"]["DDModeDeGrid"]:
+            ScaleAmplitude=0
+            CalibError=0.
+            
+            if "A" in self.GD["DDESolutions"]["DDModeGrid"]:
                 ApplyAmp=1
-            if "P" in self.GD["DDESolutions"]["DDModeDeGrid"]:
+            if "P" in self.GD["DDESolutions"]["DDModeGrid"]:
                 ApplyPhase=1
-            LApplySol=[ApplyAmp,ApplyPhase]
+            if self.GD["DDESolutions"]["ScaleAmp"]:
+                ScaleAmplitude=1
+                CalibError=(self.GD["DDESolutions"]["CalibErr"]/3600.)*np.pi/180
+            LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
             ParamJonesList=ParamJonesList+LApplySol
 

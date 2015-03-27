@@ -198,6 +198,13 @@ def MakeSphe(Support,NpixIm):
 
     return CF, fCF, ifzfCF
 
+def GiveSupports(FOVrad,w,NSphe):
+    fmax=np.pi*w*FOVrad*np.sqrt(2.)/2
+    Nw=FOVrad*fmax
+    Nw=np.pi*w*FOVrad**2/np.sqrt(2.)
+    N=np.sqrt(Nw**2+NSphe**2)
+    return N
+
 import ToolsDir.ModFitPoly2D 
 def Give_dn(l0,m0,rad=1.,order=4):
     
@@ -263,7 +270,7 @@ class ClassWTermModified():
 
 
     def ToShared(self):
-        print>>log, "Saving WTerm in shared memory (%s)"%self.SharedMemName
+        #print>>log, "Saving WTerm in shared memory (%s)"%self.SharedMemName
         dS=np.complex64
         if self.IDFacet==0:
             NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
@@ -275,7 +282,7 @@ class ClassWTermModified():
         NpShared.PackListSquareMatrix(self.SharedMemName,LArrays)
 
     def FromShared(self):
-        print>>log, "Loading WTerm from shared memory (%s)"%self.SharedMemName
+        #print>>log, "Loading WTerm from shared memory (%s)"%self.SharedMemName
         dS=np.complex64
         self.ifzfCF=NpShared.GiveArray(self.SharedMemNameSphe)
         LArrays=NpShared.UnPackListSquareMatrix(self.SharedMemName)
@@ -348,12 +355,20 @@ class ClassWTermModified():
 
         SupMax=np.int64(Interp(np.array([1./1000]))[0])
         Sups=np.int64(np.linspace(Sup,np.max([SupMax,Sup]),Nw))
+
+        w=np.linspace(0,wmax,Nw)
+
+        # FOVrad=lrad*2.
+        # for i in range(Nw):
+        #     Sups[i]=GiveSupports(FOVrad,w[i],Sup)
+
         #print "Supports=",Sups
         self.Sups=Sups
+        #if self.IDFacet==0:
+        #    print>>log, "  Support of the %i Wterms: %s"%(self.Sups.size,str(self.Sups))
         #Sups=np.ones((Nw,),int)*Sup
         T.timeit("3")
 
-        w=np.linspace(0,wmax,Nw)
         Wplanes=[]
         WplanesConj=[]
         l0,m0=0.,0.
