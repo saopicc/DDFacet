@@ -47,7 +47,7 @@ class MyCasapy2BBS():
                  ImRestoredName=None,
                  ImResidualName=None,
                  Th=None,
-                 box=(100,100),Boost=2,
+                 box=(150,150),Boost=5,
                  ResInPix=1):
         self.Fits=Fits
         self.Th=Th
@@ -58,14 +58,16 @@ class MyCasapy2BBS():
         self.ImResidualName=ImResidualName
         self.DoMask=False
         self.ResInPix=ResInPix
-        self.XcYcDx=10000,14000,1000
+        self.XcYcDx=None
+        #self.XcYcDx=14000,10000,1000
+        #self.XcYcDx=10000,5000,1000
         self.Init()
 
 
     def Init(self):
         self.setModelImage()
-        self.setRestored()
-        self.MakeMask()
+        #self.setRestored()
+        self.MakeMask2()
 
     def setModelImage(self):
         print "set model image"
@@ -83,7 +85,9 @@ class MyCasapy2BBS():
             x0,x1=xc-dx,xc+dx
             y0,y1=yc-dx,yc+dx
             self.Model=self.Model[x0:x1,y0:y1]
-        self.Plot(self.Model)
+
+        #self.Plot(self.Model)
+        
         print " done set model image"
         
 
@@ -105,10 +109,19 @@ class MyCasapy2BBS():
             x0,x1=xc-dx,xc+dx
             y0,y1=yc-dx,yc+dx
             self.ImResidual=ImResidual[x0:x1,y0:y1]
+            Np=1000
+            Nx=self.ImResidual.shape[0]
+            indx=np.int64(np.random.rand(Np)*Nx)
+            indy=np.int64(np.random.rand(Np)*Nx)
+            self.GlobalSTD=np.std(self.ImResidual[indx,indy])
+
             print " add residual image"
             self.ImRestored+=self.ImResidual
+
+            #self.ImResidual=self.ImRestored
+
             del(im)
-            self.Plot(self.ImRestored)
+            #self.Plot(self.ImRestored)
 
         else:
             print " done nothing"
@@ -116,7 +129,7 @@ class MyCasapy2BBS():
 
 
     def Plot(self,data,dx=None):
-        return
+
         import pylab
         xc=data.shape[0]/2
         pylab.clf()
@@ -133,7 +146,23 @@ class MyCasapy2BBS():
         Boost=self.Boost
         Acopy=self.ImResidual[0::Boost,0::Boost].copy()
         SBox=(self.box[0]/Boost,self.box[1]/Boost)
-        Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
+        #Noise=scipy.ndimage.filters.median_filter(Acopy**2,SBox)
+        #Noise-=scipy.ndimage.filters.median_filter(Acopy,SBox)**2
+
+        # Noise=scipy.ndimage.filters.median_filter(Acopy**2,SBox)
+        # #Noise-=scipy.ndimage.filters.median_filter(Acopy,SBox)**2
+        # Noise=np.sqrt(np.abs(Noise))
+        
+        Noise=scipy.ndimage.filters.percentile_filter(Acopy**2, 50., size=SBox)#/3.
+        #Noise-=(scipy.ndimage.filters.percentile_filter(Acopy, 50., size=SBox))**2#/3.
+        Noise=np.sqrt(np.abs(Noise))
+
+        Noise=np.abs(Noise)
+        Noise[Noise==0]=self.GlobalSTD
+        #Noise[:]=self.GlobalSTD
+        #Noise+=scipy.ndimage.filters.percentile_filter(Acopy, 32., size=SBox)#/3.
+        
+
         #ind=(np.abs(Acopy)>3.*Noise)
         #Acopy[ind]=Noise[ind]
         #Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
@@ -148,13 +177,41 @@ class MyCasapy2BBS():
         print " ... done"
         ind=np.where(self.Noise==0.)
         self.Noise[ind]=1e-10
-        self.Plot(self.Noise)
+        #self.Plot(self.Noise)
 
     def MakeMask(self):
         if self.ImRestored==None: return
         self.ComputeNoiseMap()
         self.Mask=(self.ImRestored>(self.Th*self.Noise))
         self.DoMask=True
+
+    def MakeMask2(self):
+        self.DoMask=True
+
+        x,y=np.where(self.Model!=0)
+        RadPix=50
+        Nx=x.size
+        DMat=np.sqrt((x.reshape((Nx,1))-x.reshape((1,Nx)))**2+(y.reshape((Nx,1))-y.reshape((1,Nx)))**2)
+        DR=10
+        self.Mask=np.ones(self.Model.shape,bool)
+
+        s=self.Model[x,y]
+        for ipix in range(Nx):
+            ID=np.arange(Nx)
+            indClose=(DMat[ipix]<RadPix)
+            ID=ID[indClose]
+            indMask=(s[indClose]<(s[ipix]/DR))
+            ID=ID[indMask]
+            #indSel=indClose[indMask]
+            self.Mask[x[ID],y[ID]]=False
+
+        # self.Mask=self.Mask.T
+        # import pylab
+        # pylab.clf()
+        # pylab.imshow(self.Mask.T,interpolation="nearest",cmap="gray")
+        # pylab.draw()
+        # pylab.show()
+
 
     def ToSM(self):
         Osm=reformat.reformat(self.Fits,LastSlash=False)
@@ -174,12 +231,18 @@ class MyCasapy2BBS():
         Cat=Cat.view(np.recarray)
         X=[]
         Y=[]
+        Xn=[]
+        Yn=[]
 
         for ipix in range(indx.size):
 
             x,y=indx[ipix],indy[ipix]
+
             if self.DoMask:
                 if not(self.Mask[x,y]):
+                    
+                    Xn.append(x)
+                    Yn.append(y)
                     continue
 
             s=Model[x,y]
@@ -205,13 +268,21 @@ class MyCasapy2BBS():
 
         Cat=Cat[Cat.s!=0]
 
-        print "ok"
-        import pylab
-        pylab.clf()
-        pylab.imshow(self.ImRestored.T,interpolation="nearest",cmap="gray")
-        pylab.scatter(X,Y,marker=".")
-        pylab.draw()
-        pylab.show()
+        # print "ok"
+        # print Xn
+        # print X
+        # import pylab
+        # pylab.clf()
+        # ax=pylab.subplot(1,2,1)
+        # vmin,vmax=self.ImRestored.min(),self.ImRestored.max()
+        # pylab.imshow(self.Mask.T,interpolation="nearest",cmap="gray")#,vmin=vmin,vmax=vmax)
+        # #pylab.colorbar()
+        # pylab.subplot(1,2,2,sharex=ax,sharey=ax)
+        # pylab.imshow(self.ImRestored.T,interpolation="nearest",cmap="gray",vmin=vmin,vmax=vmax)
+        # pylab.scatter(Xn,Yn,marker=".",color="blue")
+        # pylab.scatter(X,Y,marker=".",color="red")
+        # pylab.draw()
+        # pylab.show()
 
         self.Cat=Cat
 
