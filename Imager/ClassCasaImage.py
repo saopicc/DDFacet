@@ -113,8 +113,9 @@ class ClassCasaimage():
 
 
     def close(self):
-        print>>log, "  ----> Close %s"%self.ImageName
+        print>>log, "  ----> Closing %s"%self.ImageName
         del(self.im)
+        print>>log, "  ----> Closed %s"%self.ImageName
 
 
 

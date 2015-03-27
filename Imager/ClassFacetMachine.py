@@ -457,6 +457,8 @@ class ClassFacetMachine():
 
         for iFacet in self.DicoImager.keys():
             del(self.DicoGridMachine[iFacet]["Dirty"])
+            DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
+            _=NpShared.DelArray(DirtyName)
 
         # for ch in range(nch):
         #     for pol in range(npol):
@@ -527,7 +529,8 @@ class ClassFacetMachine():
         List_Result_queue=[]
         for ii in range(NCPU):
             List_Result_queue.append(multiprocessing.JoinableQueue())
-            
+
+
         for ii in range(NCPU):
             W=WorkerImager(work_queue, List_Result_queue[ii],
                            self.GD,
@@ -602,6 +605,7 @@ class ClassFacetMachine():
             ListModelImage.append(self.DicoImager[iFacet]["ModelFacet"])
         
         NpShared.PackListArray("%sModelImage"%self.IdSharedMem,ListModelImage)
+        del(ListModelImage)
         for iFacet in self.DicoImager.keys():
             del(self.DicoImager[iFacet]["ModelFacet"])
         print>>log, "    ... done"
@@ -645,6 +649,7 @@ class ClassFacetMachine():
             workerlist[ii].terminate()
             workerlist[ii].join()
 
+        NpShared.DelArray("%sModelImage"%self.IdSharedMem)
             
         return True
 

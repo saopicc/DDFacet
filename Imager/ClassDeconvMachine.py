@@ -236,14 +236,14 @@ class ClassImagerDeconv():
         # Edit: Only with lastest matplotlib!!!!!!!!!!!!!
         # WHOOOOOWWWW... AMAZING!
 
-        m0=-1;m1=1
-        pylab.clf()
-        FF=self.PSF[0,0].copy()
-        pylab.imshow(FF,interpolation="nearest")#,vmin=m0,vmax=m1)
-        pylab.draw()
-        pylab.show(False)
-        pylab.pause(0.1)
-        time.sleep(1)
+        # m0=-1;m1=1
+        # pylab.clf()
+        # FF=self.PSF[0,0].copy()
+        # pylab.imshow(FF,interpolation="nearest")#,vmin=m0,vmax=m1)
+        # pylab.draw()
+        # pylab.show(False)
+        # pylab.pause(0.1)
+        # time.sleep(1)
 
         self.FitPSF()
         #self.FWHMBeam=(10.,10.,10.)
@@ -294,11 +294,11 @@ class ClassImagerDeconv():
         self.FacetMachine.ToCasaImage(Image,ImageName="%s.dirty"%self.BaseName,Fits=True)
         #m0,m1=Image.min(),Image.max()
         
-        pylab.clf()
-        pylab.imshow(Image[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
-        pylab.draw()
-        pylab.show(False)
-        pylab.pause(0.1)
+        # pylab.clf()
+        # pylab.imshow(Image[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
+        # pylab.draw()
+        # pylab.show(False)
+        # pylab.pause(0.1)
 
         return Image
 
@@ -369,15 +369,16 @@ class ClassImagerDeconv():
             Image=self.FacetMachine.FacetsToIm()
             self.ResidImage=Image
 
-            fig=pylab.figure(1)
-            pylab.clf()
-            pylab.imshow(Image[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
-            pylab.colorbar()
-            pylab.draw()
-            PNGName="%s/Residual%3.3i.png"%(self.PNGDir,iMajor)
-            fig.savefig(PNGName)
-            pylab.show(False)
-            pylab.pause(0.1)
+            # fig=pylab.figure(1)
+            # pylab.clf()
+            # pylab.imshow(Image[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
+            # pylab.colorbar()
+            # pylab.draw()
+            # PNGName="%s/Residual%3.3i.png"%(self.PNGDir,iMajor)
+            # fig.savefig(PNGName)
+            # pylab.show(False)
+            # pylab.pause(0.1)
+
             self.HasCleaned=True
             if repMinor=="MaxIter": break
 
