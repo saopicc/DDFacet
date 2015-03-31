@@ -356,7 +356,7 @@ class ClassVisServer():
 
         self.UpdateFlag(DATA)
 
-        SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=.5,Decorr=0.97,IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
+        SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=.5,Decorr=0.98,IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
         #SmearMapMachine.BuildSmearMapping(DATA)
         SmearMapMachine.BuildSmearMappingParallel(DATA)
         stop

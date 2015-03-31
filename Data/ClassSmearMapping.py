@@ -14,8 +14,21 @@ class ClassSmearMapping():
         self.MS=MS
         self.IdSharedMem=IdSharedMem
 
+    def UnPackMapping(self):
+        Map=NpShared.GiveArray("%sMappingSmearing"%(self.IdSharedMem))
+        Nb=Map[0]
+        NRowInBlocks=Map[1:Nb+1]
+        StartRow=Map[Nb+1:2*Nb+1]
+        print
+        print StartRow
+
+        for i in range(Nb)[0:10]:
+            ii=StartRow[i]+2*Nb+1
+            print "(iblock= %i , istart= %i), Nrow=%i"%(i,StartRow[i],NRowInBlocks[i]),Map[ii:ii+NRowInBlocks[i]]
+
+
     def BuildSmearMapping(self,DATA):
-        print>>log, "Build smearing mapping ..."
+        print>>log, "Build decorrelation mapping ..."
 
         flags=DATA["flags"]
         uvw=DATA["uvw"]
@@ -59,18 +72,24 @@ class ClassSmearMapping():
                 BlocksRowsList+=BlocksRowsListBL
                 NBlocksTot+=NBlocksTotBL
                 BlocksRowsListBLWorker=np.concatenate((BlocksRowsListBLWorker,BlocksRowsListBL))
+
         NpShared.DelAll("%sSmearMapping"%self.IdSharedMem)
-        
 
 
     def BuildSmearMappingParallel(self,DATA):
-        print>>log, "Build smearing mapping ..."
+        print>>log, "Build decorrelation mapping ..."
 
         flags=DATA["flags"]
         uvw=DATA["uvw"]
         data=DATA["data"]
         A0=DATA["A0"]
         A1=DATA["A1"]
+
+        # ind=np.where((A0==0))[0][0:36*10]
+        # uvw=uvw[ind]
+        # A0=A0[ind]
+        # A1=A1[ind]
+
         
         DicoSmearMapping={}
         DicoSmearMapping["A0"]=A0
@@ -131,6 +150,7 @@ class ClassSmearMapping():
         pBAR.render(0, '%4i/%i' % (0,NJobs))
         iResult=0
         NTotBlocks=0
+        NTotRows=0
         while iResult < NJobs:
             DicoResult=result_queue.get()
             if DicoResult["Success"]:
@@ -140,11 +160,12 @@ class ClassSmearMapping():
                     AppendId=DicoResult["AppendId"]
                     DicoWorkerResult[IdWorker]["BlocksSizesBL"][AppendId]=DicoResult["BlocksSizesBL"]
                     NTotBlocks+=DicoResult["NBlocksTotBL"]
+                    NTotRows+=np.sum(DicoResult["BlocksSizesBL"])
                     #print DicoResult["NBlocksTotBL"],len(DicoResult["BlocksSizesBL"])
 
             NDone=iResult
             intPercent=int(100*  NDone / float(NJobs))
-            pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+            #pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
 
         for ii in range(NCPU):
             workerlist[ii].shutdown()
@@ -153,8 +174,10 @@ class ClassSmearMapping():
 
         NpShared.DelAll("%sSmearMapping"%self.IdSharedMem)
         
+
+
+
         FinalMappingHeader=np.zeros((2*NTotBlocks+1,),np.int32)
-        FinalMapping=np.array([],np.int32)
         FinalMappingHeader[0]=NTotBlocks
         
         NVis=np.where(A0!=A1)[0].size*NChan
@@ -165,15 +188,24 @@ class ClassSmearMapping():
         
         iStart=1
         MM=np.array([],np.int32)
+
+        FinalMapping=np.zeros((NTotRows,),np.int32)
+        iii=0
         for IdWorker in range(NCPU):
             ThisWorkerMapName="%sBlocksRowsList.Worker_%3.3i"%(self.IdSharedMem,IdWorker)
             BlocksRowsListBLWorker=NpShared.GiveArray(ThisWorkerMapName)
-            FinalMapping=np.concatenate((FinalMapping,BlocksRowsListBLWorker))
-        
+            if BlocksRowsListBLWorker==None: continue
+            
+            #FinalMapping=np.concatenate((FinalMapping,BlocksRowsListBLWorker))
+            
+            FinalMapping[iii:iii+BlocksRowsListBLWorker.size]=BlocksRowsListBLWorker[:]
+            iii+=BlocksRowsListBLWorker.size
+
             N=0
 
             for AppendId in sorted(DicoWorkerResult[IdWorker]["BlocksSizesBL"].keys()):
                 BlocksSizesBL=DicoWorkerResult[IdWorker]["BlocksSizesBL"][AppendId]
+                #print "IdWorker,AppendId",IdWorker,AppendId,BlocksSizesBL
                 MM=np.concatenate((MM,BlocksSizesBL))
                 #print MM.shape,BlocksSizesBL
                 N+=np.sum(BlocksSizesBL)
@@ -181,13 +213,14 @@ class ClassSmearMapping():
 
         cumul=np.cumsum(MM)
         FinalMappingHeader[1:1+NTotBlocks]=MM
-        FinalMappingHeader[NTotBlocks+1:2*NTotBlocks+1]=cumul-cumul[0]
+        FinalMappingHeader[NTotBlocks+1+1:2*NTotBlocks+1]=(cumul)[:-1]
 
         FinalMapping=np.concatenate((FinalMappingHeader,FinalMapping))
         NpShared.DelAll("%sBlocksRowsList"%(self.IdSharedMem))
 
         Map=NpShared.ToShared("%sMappingSmearing"%(self.IdSharedMem),FinalMapping)
-        stop
+        self.UnPackMapping()
+
         return True
 
 
@@ -305,11 +338,12 @@ class WorkerMap(multiprocessing.Process):
                     BlocksRowsListBLWorker=np.array([],np.int32)
 
                 BlocksRowsListBL,BlocksSizesBL,NBlocksTotBL=rep
-                #print BlocksRowsListBLWorker.shape,BlocksRowsListBL.shape
+                #print "AppendId:",self.AppendId,BlocksSizesBL,BlocksRowsListBL
                 BlocksRowsListBLWorker=np.concatenate((BlocksRowsListBLWorker,BlocksRowsListBL))
                 NpShared.ToShared(ThisWorkerMapName,BlocksRowsListBLWorker)
                 self.result_queue.put({"Success":True,"bl":(a0,a1),"IdWorker":self.IdWorker,"AppendId":self.AppendId,"Empty":False,
                                        "BlocksSizesBL":BlocksSizesBL,"NBlocksTotBL":NBlocksTotBL})
                 self.AppendId+=1
+                
             else:
                 self.result_queue.put({"Success":True,"bl":(a0,a1),"IdWorker":self.IdWorker,"AppendId":self.AppendId,"Empty":True})
