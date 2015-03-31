@@ -247,6 +247,6 @@ class WorkerMap(multiprocessing.Process):
             rep=GiveBlocksRowsListBL(a0,a1,self.InfoSmearMapping,self.IdSharedMem)
             if rep!=None:
                 BlocksRowsListBL,BlocksSizesBL,NBlocksTotBL=rep
-                self.result_queue.put({"Success":True,"bl":(a0,a1),"BlocksRowsListBL":BlocksRowsListBL,"BlocksSizesBL":BlocksSizesBL,"NBlocksTotBL":NBlocksTotBL})
+                self.result_queue.put({"Success":True,"bl":(a0,a1)})#,"BlocksRowsListBL":BlocksRowsListBL,"BlocksSizesBL":BlocksSizesBL,"NBlocksTotBL":NBlocksTotBL})
             else:
                 self.result_queue.put({"Success":True,"bl":(a0,a1)})
