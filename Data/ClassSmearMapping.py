@@ -52,11 +52,15 @@ class ClassSmearMapping():
         for a0 in range(na):
             for a1 in range(na):
                 if a0==a1: continue
-                MapBL=GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,IdSharedMem)
+                MapBL=GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,self.IdSharedMem)
                 if MapBL==None: continue
-                BlocksRowsListBL,NBlocksTotBL=MapBL
+                BlocksRowsListBL,BlocksSizesBL,NBlocksTotBL=MapBL
                 BlocksRowsList+=BlocksRowsListBL
                 NBlocksTot+=NBlocksTotBL
+
+        NpShared.DelAll("%sSmearMapping"%self.IdSharedMem)
+        
+
 
     def BuildSmearMappingParallel(self,DATA):
         print>>log, "Build smearing mapping ..."
@@ -132,7 +136,8 @@ class ClassSmearMapping():
             workerlist[ii].terminate()
             workerlist[ii].join()
 
-        NpShared.DelArray("%sModelImage"%self.IdSharedMem)
+        NpShared.DelAll("%sSmearMapping"%self.IdSharedMem)
+
             
         return True
 
@@ -172,6 +177,7 @@ def GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,IdSharedMem):
         
     CurrentRows=[]
     BlocksRowsListBL=[]
+    BlocksSizesBL=[]
     NBlocksTotBL=0
     for iRowBL in range(ind.size):
         CurrentRows.append(ind[iRowBL])
@@ -200,13 +206,14 @@ def GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,IdSharedMem):
                 ch1=ChBlock[iChBlock+1]
                 ThiDesc=[ch0,ch1]
                 ThiDesc+=CurrentRows
-                BlocksRowsListBL.append(ThiDesc)
+                BlocksSizesBL.append(len(ThiDesc))
+                BlocksRowsListBL+=(ThiDesc)
             NChanBlockMax=1e3
             CurrentRows=[]
             duvtot=0
             NBlocksTotBL+=1
             
-    return BlocksRowsListBL,NBlocksTotBL
+    return BlocksRowsListBL,BlocksSizesBL,NBlocksTotBL
 
 
 class WorkerMap(multiprocessing.Process):
@@ -237,7 +244,9 @@ class WorkerMap(multiprocessing.Process):
             except:
                 break
 
-            print a0,a1
-            GiveBlocksRowsListBL(a0,a1,self.InfoSmearMapping,self.IdSharedMem)               
-            
-            self.result_queue.put({"Success":True})
+            rep=GiveBlocksRowsListBL(a0,a1,self.InfoSmearMapping,self.IdSharedMem)
+            if rep!=None:
+                BlocksRowsListBL,BlocksSizesBL,NBlocksTotBL=rep
+                self.result_queue.put({"Success":True,"bl":(a0,a1),"BlocksRowsListBL":BlocksRowsListBL,"BlocksSizesBL":BlocksSizesBL,"NBlocksTotBL":NBlocksTotBL})
+            else:
+                self.result_queue.put({"Success":True,"bl":(a0,a1)})
