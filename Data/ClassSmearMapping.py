@@ -22,7 +22,7 @@ class ClassSmearMapping():
         print
         print StartRow
 
-        for i in range(Nb)[0:10]:
+        for i in range(Nb)[0:20]:
             ii=StartRow[i]+2*Nb+1
             print "(iblock= %i , istart= %i), Nrow=%i"%(i,StartRow[i],NRowInBlocks[i]),Map[ii:ii+NRowInBlocks[i]]
 
@@ -187,10 +187,12 @@ class ClassSmearMapping():
         print>>log, "  Compression factor:       %.5f"%((NVis-NTotBlocks)/float(NVis))
         
         iStart=1
-        MM=np.array([],np.int32)
+        #MM=np.array([],np.int32)
+        MM=np.zeros((NTotBlocks,),np.int32)
 
         FinalMapping=np.zeros((NTotRows,),np.int32)
         iii=0
+        jjj=0
         for IdWorker in range(NCPU):
             print>>log, "  Worker: %i"%(IdWorker)
             ThisWorkerMapName="%sBlocksRowsList.Worker_%3.3i"%(self.IdSharedMem,IdWorker)
@@ -205,9 +207,11 @@ class ClassSmearMapping():
             N=0
 
             for AppendId in sorted(DicoWorkerResult[IdWorker]["BlocksSizesBL"].keys()):
-                BlocksSizesBL=DicoWorkerResult[IdWorker]["BlocksSizesBL"][AppendId]
+                BlocksSizesBL=np.array(DicoWorkerResult[IdWorker]["BlocksSizesBL"][AppendId])
                 #print "IdWorker,AppendId",IdWorker,AppendId,BlocksSizesBL
-                MM=np.concatenate((MM,BlocksSizesBL))
+                #MM=np.concatenate((MM,BlocksSizesBL))
+                MM[jjj:jjj+BlocksSizesBL.size]=BlocksSizesBL[:]
+                jjj+=BlocksSizesBL.size
                 #print MM.shape,BlocksSizesBL
                 N+=np.sum(BlocksSizesBL)
             #print N,BlocksRowsListBLWorker.size
