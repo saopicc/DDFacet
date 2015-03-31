@@ -12,6 +12,12 @@ MyLogger.setSilent(["NpShared"])
 import ClassWeighting
 from Other import reformat
 
+def test():
+    MSName="/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
+    VS=ClassVisServer(MSName,TVisSizeMin=1e8,Weighting="Natural")
+    VS.CalcWeigths((1,1,1000,1000),20.*np.pi/180)
+    VS.LoadNextVisChunk()
+
 class ClassVisServer():
     def __init__(self,MSName,
                  ColName="DATA",
@@ -299,6 +305,86 @@ class ClassVisServer():
         DATA["flags"]=flags
 
 
+    def BuildSmearMapping(self,DATA,radiusDeg=5.,Decorr=0.98):
+        print>>log, "Build smearing mapping ..."
+
+        flags=DATA["flags"]
+        uvw=DATA["uvw"]
+        data=DATA["data"]
+        A0=DATA["A0"]
+        A1=DATA["A1"]
+        times=DATA["times"]
+        nu0=np.mean(self.MS.ChanFreq)
+
+        na=self.MS.na
+        dFreq=self.MS.dFreq
+
+        l=radiusDeg*np.pi/180
+        dPhi=np.sqrt(6.*(1.-Decorr))
+        C=3e8
+        NBlocksTot=0
+        BlocksRowsList=[]
+
+        NChan=self.MS.ChanFreq.size
+
+        for a0 in range(na):
+            print a0,"/",na
+            for a1 in range(na):
+                if a0==a1: continue
+                ind=np.where((A0==a0)&(A1==a1))[0]
+                if(ind.size==0): continue
+                u,v,w=uvw[ind,:].T
+                NChanBlockMax=1e3
+                du=u[1::]-u[0:-1]
+                dv=v[1::]-v[0:-1]
+                dw=w[1::]-w[0:-1]
+
+                du=np.concatenate((du,[du[-1]]))
+                dv=np.concatenate((dv,[dv[-1]]))
+                dw=np.concatenate((dw,[dw[-1]]))
+                
+                Duv=C*dPhi/(np.pi*l*nu0)
+                duvtot=0
+
+                CurrentRows=[]
+                BlocksRowsListBL=[]
+
+                for iRowBL in range(ind.size):
+                    CurrentRows.append(ind[iRowBL])
+                    # Frequency Block
+                    uv=np.sqrt(u[iRowBL]**2+v[iRowBL]**2+w[iRowBL]**2)
+                    dnu=(C/np.pi)*dPhi/(uv*l)
+
+                    NChanBlock=dnu/dFreq
+                    if NChanBlock<NChanBlockMax:
+                        NChanBlockMax=NChanBlock
+
+                    # Time Block
+                    duvtot+=np.sqrt(du[iRowBL]**2+dv[iRowBL]**2+dw[iRowBL]**2)
+                    if duvtot>Duv:
+                        #BlocksRowsListBL.append(CurrentRows)
+                
+                        NChanBlockMax=np.max([NChanBlockMax,1])
+                        
+                        ch=np.arange(0,NChan,NChanBlockMax).tolist()
+                        
+                        if not((NChan-1) in ch): ch.append((NChan-1))
+                        NChBlocks=len(ch)
+                        ChBlock=np.int32(np.linspace(0,NChan-1,NChBlocks))
+
+                        for iChBlock in range(ChBlock.size-1):
+                            ch0=ChBlock[iChBlock]
+                            ch1=ChBlock[iChBlock+1]
+                            ThiDesc=[ch0,ch1]
+                            ThiDesc+=CurrentRows
+                            BlocksRowsList.append(ThiDesc)
+                        NChanBlockMax=1e3
+                        CurrentRows=[]
+                        duvtot=0
+                        NBlocksTot+=1
+
+
+        stop
 
 
     def LoadNextVisChunk(self):
@@ -348,7 +434,7 @@ class ClassVisServer():
         DATA["Weights"]=self.VisWeights[MS.ROW0:MS.ROW1]
 
         self.UpdateFlag(DATA)
-
+        self.BuildSmearMapping(DATA)
 
 
         #############################
