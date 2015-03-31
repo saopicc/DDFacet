@@ -27,7 +27,7 @@ class ClassVisServer():
                  DicoSelectOptions={},
                  LofarBeam=None,
                  AddNoiseJy=None,IdSharedMem="",
-                 Robust=2,Weighting="Briggs"):
+                 Robust=2,Weighting="Briggs",NCPU=6):
         self.IdSharedMem=IdSharedMem
         self.Robust=Robust
         PrefixShared="%sSharedVis"%self.IdSharedMem
@@ -40,7 +40,7 @@ class ClassVisServer():
         if TChunkSize<=TVisSizeMin*60:
             self.ReadOnce=True
         self.Weighting=Weighting
-
+        self.NCPU=NCPU
         self.MSName=MSName
         self.VisWeights=None
         self.CountPickle=0
@@ -356,7 +356,7 @@ class ClassVisServer():
 
         self.UpdateFlag(DATA)
 
-        SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS)
+        SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=5.,Decorr=0.98,IdSharedMem="",NCPU=self.NCPU)
         #SmearMapMachine.BuildSmearMapping(DATA)
         SmearMapMachine.BuildSmearMappingParallel(DATA)
         stop

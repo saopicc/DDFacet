@@ -81,7 +81,8 @@ class ClassImagerDeconv():
                                               IdSharedMem=self.IdSharedMem,
                                               Robust=DC["ImagerGlobal"]["Robust"],
                                               Weighting=DC["ImagerGlobal"]["Weighting"],
-                                              DicoSelectOptions=dict(DC["DataSelection"]))
+                                              DicoSelectOptions=dict(DC["DataSelection"]),
+                                              NCPU=self.GD["Parallel"]["NCPU"])
         self.InitFacetMachine()
         #self.VS.SetImagingPars(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
         #self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
