@@ -165,7 +165,7 @@ class ClassSmearMapping():
 
             NDone=iResult
             intPercent=int(100*  NDone / float(NJobs))
-            #pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+            pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
 
         for ii in range(NCPU):
             workerlist[ii].shutdown()
@@ -192,6 +192,7 @@ class ClassSmearMapping():
         FinalMapping=np.zeros((NTotRows,),np.int32)
         iii=0
         for IdWorker in range(NCPU):
+            print>>log, "  Worker: %i"%(IdWorker)
             ThisWorkerMapName="%sBlocksRowsList.Worker_%3.3i"%(self.IdSharedMem,IdWorker)
             BlocksRowsListBLWorker=NpShared.GiveArray(ThisWorkerMapName)
             if BlocksRowsListBLWorker==None: continue
@@ -215,9 +216,11 @@ class ClassSmearMapping():
         FinalMappingHeader[1:1+NTotBlocks]=MM
         FinalMappingHeader[NTotBlocks+1+1:2*NTotBlocks+1]=(cumul)[:-1]
 
+        print>>log, "  Concat header"
         FinalMapping=np.concatenate((FinalMappingHeader,FinalMapping))
         NpShared.DelAll("%sBlocksRowsList"%(self.IdSharedMem))
 
+        print>>log, "  Put in shared mem"
         Map=NpShared.ToShared("%sMappingSmearing"%(self.IdSharedMem),FinalMapping)
         self.UnPackMapping()
 
