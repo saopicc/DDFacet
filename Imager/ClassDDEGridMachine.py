@@ -1,5 +1,6 @@
 import numpy as np
 from Gridder import _pyGridder
+from Gridder import _pyGridderSmear
 #import pylab
 from pyrap.images import image
 import MyPickle
@@ -26,103 +27,93 @@ log=MyLogger.getLogger("ClassDDEGridMachine")
 import ToolsDir
 import pylab
 import ClassData
+import NpShared
 
-def GiveGM():
-    GD=ClassData.ClassGlobalData("ParsetDDFacet.txt")
-    MDC,GD=ToolsDir.GiveMDC.GiveMDC(GD=GD)
-    MS=MDC.giveMS(0)
-    MS.ReadData()
-    GM=ClassDDEGridMachine(GD,DoDDE=False,WProj=True,lmShift=(0.,0.),JonesDir=3)
-    return GM
 
 import ClassTimeIt
 
+import ReadCFG
+import MyOptParse
+
+
+
+
+import ClassVisServer
+
 def testGrid():
-    GD=ClassData.ClassGlobalData("ParsetDDFacet.txt")
-    MDC,GD=ToolsDir.GiveMDC.GiveMDC(GD=GD)
-    MS=MDC.giveMS(0)
-    MS.ReadData()
+    Parset=ReadCFG.Parset("%s/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
+    DC=Parset.DicoPars
+    DC["VisData"]["MSName"]="/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
+    VS=ClassVisServer.ClassVisServer(DC["VisData"]["MSName"],
+                                     ColName=DC["VisData"]["ColName"],
+                                     TVisSizeMin=DC["VisData"]["TChunkSize"]*60*1.1,
+                                     #DicoSelectOptions=DicoSelectOptions,
+                                     TChunkSize=DC["VisData"]["TChunkSize"],
+                                     IdSharedMem="caca",
+                                     Robust=DC["ImagerGlobal"]["Robust"],
+                                     Weighting="Natural",
+                                     DicoSelectOptions=dict(DC["DataSelection"]),
+                                     NCPU=DC["Parallel"]["NCPU"])
+    VS.CalcWeigths([1,1,100,100],20)
+    Load=VS.LoadNextVisChunk()
+    DATA=VS.GiveNextVis()
 
-    GM=ClassDDEGridMachine(GD,DoDDE=False,WProj=True,lmShift=(0.,0.),JonesDir=3,SpheNorm=True)
+    # DicoConfigGM={"Npix":NpixFacet,
+    #               "Cell":Cell,
+    #               "ChanFreq":ChanFreq,
+    #               "DoPSF":False,
+    #               "Support":Support,
+    #               "OverS":OverS,
+    #               "wmax":wmax,
+    #               "Nw":Nw,
+    #               "WProj":True,
+    #               "DoDDE":self.DoDDE,
+    #               "Padding":Padding}
+    # GM=ClassDDEGridMachine(Parset.DicoPars,DoDDE=False,WProj=True,lmShift=(0.,0.),JonesDir=3,SpheNorm=True,IdSharedMem="caca")
+    # GM=ClassDDEGridMachine(Parset.DicoPars,
+    #                        IdSharedMem="caca",
+    #                        **DicoConfigGMself.DicoImager[iFacet]["DicoConfigGM"])
+
+    ChanFreq=VS.MS.ChanFreq.flatten()
+    DicoConfigGM={"Npix":1001,
+                  "Cell":10,
+                  "ChanFreq":ChanFreq,
+                  "DoPSF":False,
+                  "Support":7,
+                  "OverS":5,
+                  "wmax":10000,
+                  "Nw":30,
+                  "WProj":True,
+                  "DoDDE":False,
+                  "Padding":1.7}
+    GM=ClassDDEGridMachine(Parset.DicoPars,lmShift=(0.,0.),
+                           IdSharedMem="caca",
+                           **DicoConfigGM)
 
 
-    row0,row1=0,-1
 
-    uvw=np.float64(MS.uvw)[row0:row1]
-    times=np.float64(MS.times_all)[row0:row1]
-    data=np.complex64(MS.data)[row0:row1]
+
+    row0=0
+    row1=DATA["uvw"].shape[0]#-1
+    uvw=np.float64(DATA["uvw"])#[row0:row1]
+    times=np.float64(DATA["times"])#[row0:row1]
+    data=np.complex64(DATA["data"])#[row0:row1]
     data.fill(1.)
     data[:,:,0]=1
     data[:,:,3]=1
-    A0=np.int32(MS.A0)[row0:row1]
-    A1=np.int32(MS.A1)[row0:row1]
+    A0=np.int32(DATA["A0"])#[row0:row1]
+    A1=np.int32(DATA["A1"])#[row0:row1]
     
     #uvw.fill(0)
     
-    flag=np.bool8(MS.flag_all)[row0:row1,:,:].copy()
-    flag.fill(0)
-    # print uvw
-    # print data
-    # print flag
+    flag=np.bool8(DATA["flags"])#[row0:row1,:,:].copy()
+    #flag.fill(0)
 
-    print
-    print "================"
-    print
-
-    # #############################
-    # nt,nd,na=10,1,MS.na
-    # JonesMatrices=np.random.randn(nt,nd,na,1,2,2)+1j*np.random.randn(nt,nd,na,1,2,2)
-    # # JonesMatrices.fill(0)
-    # # JonesMatrices[:,:,:,:,0,0]=1
-    # # JonesMatrices[:,:,:,:,1,1]=1
-    # tt=np.linspace(times.min(),times.max(),nt+1)
-    # t0=tt[0:-1]
-    # t1=tt[1::]
-    # DicoJonesMatrices={}
-    # DicoJonesMatrices["t0"]=t0
-    # DicoJonesMatrices["t1"]=t1
-    # DicoJonesMatrices["Jones"]=np.complex64(JonesMatrices)
-    
-    # DicoClusterDirs={}
-    # DicoClusterDirs["l"]=np.array([0.])
-    # DicoClusterDirs["m"]=np.array([0.])
-    # DicoClusterDirs["I"]=np.array([1.])
-    # DicoClusterDirs["Cluster"]=np.array([0.])
-    # DicoJonesMatrices["DicoClusterDirs"]=DicoClusterDirs
-    # ##############################
-
-    # # SolsFile="/media/6B5E-87D0/killMS2/TEST/Simul/Simul.npz"
-
-    # # DicoSolsFile=np.load(SolsFile)
-    # # DicoSols={}
-    # # DicoSols["t0"]=DicoSolsFile["Sols"]["t0"]
-    # # DicoSols["t1"]=DicoSolsFile["Sols"]["t1"]
-    # # nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
-    # # G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
-    # # G.fill(0)
-    # # G[:,:,:,:,0,0]=1
-    # # G[:,:,:,:,1,1]=1
-    # # DicoSols["Jones"]=G
-    
-    # # ClusterCat=DicoSolsFile["ClusterCat"]
-    # # ClusterCat=ClusterCat.view(np.recarray)
-    # # DicoClusterDirs={}
-    # # DicoClusterDirs["l"]=ClusterCat.l
-    # # DicoClusterDirs["m"]=ClusterCat.m
-    # # DicoClusterDirs["I"]=ClusterCat.SumI
-    # # DicoClusterDirs["Cluster"]=ClusterCat.Cluster
-
-    # # DicoSols["DicoClusterDirs"]=DicoClusterDirs
-    # # DicoJonesMatrices=DicoSols
-    # # # return DicoJonesMatrices
-
-    # # import NpShared
-    # # DicoJonesMatrices=NpShared.SharedToDico("killMSSolutionFile")
-    # # DicoClusterDirs=NpShared.SharedToDico("DicoClusterDirs")
-    # # DicoJonesMatrices["DicoClusterDirs"]=DicoClusterDirs
-    
- 
-
+    #MapSmear=NpShared.GiveArray("%sMappingSmearing"%("caca"))
+    #stop
+    #row=19550
+    #print A0[row],A1[row],flag[row]
+    #stop
 
     T=ClassTimeIt.ClassTimeIt("main")
     Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True)#, DicoJonesMatrices=DicoJonesMatrices)
@@ -138,8 +129,11 @@ def testGrid():
     # Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True, DicoJonesMatrices=DicoJonesMatrices)
     # T.timeit("degrid")
     # import pylab
+
+    # Grid[np.isnan(Grid)]=-1
     pylab.clf()
     pylab.imshow(np.real(Grid[0,0]))
+    #pylab.imshow(np.random.rand(50,50))
     pylab.draw()
     pylab.show(False)
 
@@ -450,21 +444,39 @@ class ClassDDEGridMachine():
         T2=ClassTimeIt.ClassTimeIt("Gridder")
         T2.disable()
 
-        Grid=_pyGridder.pyGridderWPol(Grid,
-                                      vis,
-                                      uvw,
-                                      flag,
-                                      W,
-                                      SumWeigths,
-                                      0,
-                                      self.WTerm.Wplanes,
-                                      self.WTerm.WplanesConj,
-                                      np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
-                                      self.incr.astype(np.float64),
-                                      self.ChanFreq.astype(np.float64),
-                                      [self.PolMap,FacetInfos],
-                                      ParamJonesList) # Input the jones matrices
+        # Grid=_pyGridder.pyGridderWPol(Grid,
+        #                               vis,
+        #                               uvw,
+        #                               flag,
+        #                               W,
+        #                               SumWeigths,
+        #                               0,
+        #                               self.WTerm.Wplanes,
+        #                               self.WTerm.WplanesConj,
+        #                               np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
+        #                               self.incr.astype(np.float64),
+        #                               self.ChanFreq.astype(np.float64),
+        #                               [self.PolMap,FacetInfos],
+        #                               ParamJonesList) # Input the jones matrices
 
+        MapSmear=NpShared.GiveArray("%sMappingSmearing"%(self.IdSharedMem))
+        Grid=_pyGridderSmear.pyGridderWPol(Grid,
+                                           vis,
+                                           uvw,
+                                           flag,
+                                           W,
+                                           SumWeigths,
+                                           0,
+                                           self.WTerm.Wplanes,
+                                           self.WTerm.WplanesConj,
+                                           np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
+                                           self.incr.astype(np.float64),
+                                           np.float64(self.ChanFreq),
+                                           [self.PolMap,FacetInfos],
+                                           ParamJonesList,
+                                           MapSmear) # Input the jones matrices
+        
+        #return Grid
         T2.timeit("gridder")
         # print SumWeigths
         # return

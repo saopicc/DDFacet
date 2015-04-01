@@ -255,19 +255,26 @@ class ClassVisServer():
                 self.FlagAntNumber.append(A)
         
 
-        for Field in self.DicoSelectOptions.keys():
-            if self.DicoSelectOptions[Field]==None: break
-            if Field=="UVRangeKm":
-                d0,d1=self.DicoSelectOptions[Field]
-                print>>log, "  Flagging uv data outside uv distance of [%5.1f~%5.1f] km"%(d0,d1)
-                d0*=1e3
-                d1*=1e3
-                u,v,w=uvw.T
-                duv=np.sqrt(u**2+v**2)
-                ind=np.where(((duv>d0)&(duv<d1))!=True)[0]
-                flags[ind,:,:]=True
+        if self.DicoSelectOptions["UVRangeKm"]!=None:
+            d0,d1=self.DicoSelectOptions["UVRangeKm"]
+            print>>log, "  Flagging uv data outside uv distance of [%5.1f~%5.1f] km"%(d0,d1)
+            d0*=1e3
+            d1*=1e3
+            u,v,w=uvw.T
+            duv=np.sqrt(u**2+v**2)
+            ind=np.where(((duv>d0)&(duv<d1))!=True)[0]
+            flags[ind,:,:]=True
 
-        if "FlagAnts" in self.DicoSelectOptions.keys():
+        
+        if self.DicoSelectOptions["TimeRange"]!=None:
+            t0=times[0]
+            tt=(times-t0)/3600.
+            st0,st1=self.DicoSelectOptions["TimeRange"]
+            print>>log, "  Selecting uv data in time range [%.4f~%5.4f] hours"%(st0,st1)
+            indt=np.where((tt>=st0)&(tt<st1))[0]
+            flags[ind,:,:]=True
+
+        if self.DicoSelectOptions["FlagAnts"]!=None:
             FlagAnts=self.DicoSelectOptions["FlagAnts"]
             if not((FlagAnts==None)|(FlagAnts=="")|(FlagAnts==[])): 
                 if type(FlagAnts)==str: FlagAnts=[FlagAnts] 
@@ -277,7 +284,7 @@ class ClassVisServer():
                             print>>log, "  Flagging antenna #%2.2i[%s]"%(iAnt,MS.StationNames[iAnt])
                             self.FlagAntNumber.append(iAnt)
 
-        if "DistMaxToCore" in self.DicoSelectOptions.keys():
+        if self.DicoSelectOptions["DistMaxToCore"]!=None:
             DMax=self.DicoSelectOptions["DistMaxToCore"]*1e3
             X,Y,Z=MS.StationPos.T
             Xm,Ym,Zm=np.median(MS.StationPos,axis=0).flatten().tolist()
@@ -299,6 +306,9 @@ class ClassVisServer():
 
         ind=np.where(A0==A1)[0]
         flags[ind,:,:]=True
+        # flags.fill(0)
+        # ind=np.where(A0!=A1)[0]
+        # flags[ind,:,:]=True
 
         ind=np.where(np.isnan(data))
         flags[ind]=1
@@ -356,10 +366,10 @@ class ClassVisServer():
 
         self.UpdateFlag(DATA)
 
-        SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=.5,Decorr=0.98,IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
+        SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=.5,Decorr=.95,IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
         #SmearMapMachine.BuildSmearMapping(DATA)
         SmearMapMachine.BuildSmearMappingParallel(DATA)
-        stop
+
         #############################
         #############################
 

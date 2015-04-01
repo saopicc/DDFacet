@@ -19,12 +19,18 @@ class ClassSmearMapping():
         Nb=Map[0]
         NRowInBlocks=Map[1:Nb+1]
         StartRow=Map[Nb+1:2*Nb+1]
-        print
-        print StartRow
-
-        for i in range(Nb)[0:20]:
-            ii=StartRow[i]+2*Nb+1
+        #print
+        #print NRowInBlocks.tolist()
+        #print StartRow.tolist()
+        MaxRow=0
+        
+        for i in [3507]:#range(Nb):
+            ii=StartRow[i]
+            MaxRow=np.max([MaxRow,np.max(Map[ii:ii+NRowInBlocks[i]])])
             print "(iblock= %i , istart= %i), Nrow=%i"%(i,StartRow[i],NRowInBlocks[i]),Map[ii:ii+NRowInBlocks[i]]
+            #if MaxRow>=1080: stop
+
+        print MaxRow
 
 
     def BuildSmearMapping(self,DATA):
@@ -85,10 +91,11 @@ class ClassSmearMapping():
         A0=DATA["A0"]
         A1=DATA["A1"]
 
-        # ind=np.where((A0==0))[0][0:36*10]
+        # ind=np.where((A0==0))[0]#[0:36*10]
         # uvw=uvw[ind]
         # A0=A0[ind]
         # A1=A1[ind]
+        print A0.shape[0]
 
         
         DicoSmearMapping={}
@@ -180,11 +187,7 @@ class ClassSmearMapping():
         FinalMappingHeader=np.zeros((2*NTotBlocks+1,),np.int32)
         FinalMappingHeader[0]=NTotBlocks
         
-        NVis=np.where(A0!=A1)[0].size*NChan
         
-        print>>log, "  Number of blocks:         %i"%NTotBlocks
-        print>>log, "  Number of 4-Visibilities: %i"%NVis
-        print>>log, "  Compression factor:       %.5f"%((NVis-NTotBlocks)/float(NVis))
         
         iStart=1
         #MM=np.array([],np.int32)
@@ -194,7 +197,7 @@ class ClassSmearMapping():
         iii=0
         jjj=0
         for IdWorker in range(NCPU):
-            print>>log, "  Worker: %i"%(IdWorker)
+            #print>>log, "  Worker: %i"%(IdWorker)
             ThisWorkerMapName="%sBlocksRowsList.Worker_%3.3i"%(self.IdSharedMem,IdWorker)
             BlocksRowsListBLWorker=NpShared.GiveArray(ThisWorkerMapName)
             if BlocksRowsListBLWorker==None: continue
@@ -218,14 +221,22 @@ class ClassSmearMapping():
 
         cumul=np.cumsum(MM)
         FinalMappingHeader[1:1+NTotBlocks]=MM
-        FinalMappingHeader[NTotBlocks+1+1:2*NTotBlocks+1]=(cumul)[:-1]
+        FinalMappingHeader[NTotBlocks+1+1::]=(cumul)[0:-1]
+        FinalMappingHeader[NTotBlocks+1::]+=2*NTotBlocks+1
 
-        print>>log, "  Concat header"
+        #print>>log, "  Concat header"
         FinalMapping=np.concatenate((FinalMappingHeader,FinalMapping))
         NpShared.DelAll("%sBlocksRowsList"%(self.IdSharedMem))
 
-        print>>log, "  Put in shared mem"
+        #print>>log, "  Put in shared mem"
         Map=NpShared.ToShared("%sMappingSmearing"%(self.IdSharedMem),FinalMapping)
+
+        NVis=np.where(A0!=A1)[0].size*NChan
+        #print>>log, "  Number of blocks:         %i"%NTotBlocks
+        #print>>log, "  Number of 4-Visibilities: %i"%NVis
+        print>>log, "  Effective compression:   %.2f%%"%(100.*(NVis-NTotBlocks)/float(NVis))
+
+
         self.UnPackMapping()
 
         return True

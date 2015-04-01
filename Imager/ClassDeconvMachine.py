@@ -220,12 +220,12 @@ class ClassImagerDeconv():
         FacetMachinePSF.DoPSF=False
         
         # Image=FacetMachinePSF.FacetsToIm()
-        # pylab.clf()
-        # pylab.imshow(Image[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
-        # pylab.draw()
-        # pylab.show(False)
-        # pylab.pause(0.1)
-        # stop
+        pylab.clf()
+        pylab.imshow(self.PSF[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
+        pylab.draw()
+        pylab.show(False)
+        pylab.pause(0.1)
+        stop
 
 
 
