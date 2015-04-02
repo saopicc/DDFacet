@@ -744,8 +744,8 @@ class ClassDDEGridMachine():
 
         npol=self.npol
         import ClassTimeIt
-        T=ClassTimeIt.ClassTimeIt()
-        T.disable()
+        T=ClassTimeIt.ClassTimeIt("GridToIm")
+        #T.disable()
 
         GridCorr=Grid
 
