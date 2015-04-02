@@ -425,7 +425,7 @@ void gridderWPol(PyArrayObject *grid,
 
       // ############## W-projection ####################
       double wcoord=Wmean;
-      int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax);
+      int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);
       int skipW=0;
       if(iwplane>NwPlanes-1){skipW=1;continue;};
       
@@ -828,23 +828,41 @@ void DeGridderWPol(PyArrayObject *grid,
 
       // ############## W-projection ####################
       double wcoord=Wmean;
-      int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax);
-      int skipW=0;
-      if(iwplane>NwPlanes-1){skipW=1;continue;};
+      /* int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax); */
+      /* int skipW=0; */
+      /* if(iwplane>NwPlanes-1){skipW=1;continue;}; */
       
-      if(wcoord>0){
-      	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);
-      } else{
-      	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);
-      }
-      int nConvX = cfs->dimensions[0];
-      int nConvY = cfs->dimensions[1];
-      int supx = (nConvX/OverS-1)/2;
-      int supy = (nConvY/OverS-1)/2;
-      int SupportCF=nConvX/OverS;
-      // ################################################
+      /* if(wcoord>0){ */
+      /* 	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2); */
+      /* } else{ */
+      /* 	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2); */
+      /* } */
+      /* int nConvX = cfs->dimensions[0]; */
+      /* int nConvY = cfs->dimensions[1]; */
+      /* int supx = (nConvX/OverS-1)/2; */
+      /* int supy = (nConvY/OverS-1)/2; */
+      /* int SupportCF=nConvX/OverS; */
+      /* // ################################################ */
 
 
+	int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);
+	int skipW=0;
+	if(iwplane>NwPlanes-1){skipW=1;continue;};
+
+	//int iwplane = floor((NwPlanes-1)*abs(wcoord)/wmax);
+
+	//printf("wcoord=%f, iw=%i \n",wcoord,iwplane);
+
+	if(wcoord>0){
+	  cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);
+	} else{
+	  cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);
+	}
+	int nConvX = cfs->dimensions[0];
+	int nConvY = cfs->dimensions[1];
+	int supx = (nConvX/OverS-1)/2;
+	int supy = (nConvY/OverS-1)/2;
+	int SupportCF=nConvX/OverS;
 	
 	
 
@@ -973,6 +991,12 @@ void DeGridderWPol(PyArrayObject *grid,
 	  double V=uvwPtr[1];
 	  double W=uvwPtr[2];
 	  float complex corr=cexp(UVNorm*(U*l0+V*m0+W*n0));
+	  /* double ThisWaveLength=C/FreqMean; */
+	  /* double complex UVNorm=2.*I*PI/ThisWaveLength; */
+	  /* double U=Umean; */
+	  /* double V=Vmean; */
+	  /* double W=Wmean; */
+	  /* float complex corr=cexp(UVNorm*(U*l0+V*m0+W*n0)); */
 	  //#######################################################
 
 	  float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;

@@ -32,7 +32,7 @@ class ClassSmearMapping():
             #if MaxRow>=1080: stop
 
         print MaxRow
-
+        stop
 
     def BuildSmearMapping(self,DATA):
         print>>log, "Build decorrelation mapping ..."
@@ -231,17 +231,16 @@ class ClassSmearMapping():
         NpShared.DelAll("%sBlocksRowsList"%(self.IdSharedMem))
 
         #print>>log, "  Put in shared mem"
-        Map=NpShared.ToShared("%sMappingSmearing"%(self.IdSharedMem),FinalMapping)
+        
 
         NVis=np.where(A0!=A1)[0].size*NChan
         #print>>log, "  Number of blocks:         %i"%NTotBlocks
         #print>>log, "  Number of 4-Visibilities: %i"%NVis
-        print>>log, ModColor.Str("  Effective compression:   %.2f%%"%(100.*(NVis-NTotBlocks)/float(NVis)),col="green")
-
+        fact=(100.*(NVis-NTotBlocks)/float(NVis))
 
         #self.UnPackMapping()
 
-        return True
+        return FinalMapping,fact
 
 
 

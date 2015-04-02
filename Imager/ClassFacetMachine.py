@@ -217,20 +217,24 @@ class ClassFacetMachine():
         if self.ConstructMode=="Fader":
             SpheNorm=False
         for iFacet in sorted(self.DicoImager.keys()):
-            GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,RaDec=self.DicoImager[iFacet]["RaDec"],
+            GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,#RaDec=self.DicoImager[iFacet]["RaDec"],
+                                                                self.DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
+                                                                self.DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                                                                 lmShift=self.DicoImager[iFacet]["lmShift"],
-                                                                IdSharedMem=self.IdSharedMem,IDFacet=iFacet,SpheNorm=SpheNorm,
-                                                                **self.DicoImager[iFacet]["DicoConfigGM"])
+                                                                IdSharedMem=self.IdSharedMem,IDFacet=iFacet,SpheNorm=SpheNorm)
+            #,
+             #                                                   **self.DicoImager[iFacet]["DicoConfigGM"])
 
             self.DicoGridMachine[iFacet]["GM"]=GridMachine
 
     def setWisdom(self):
+        self.FFTW_Wisdom=None
+        return
         print>>log, "Set fftw widsdom for shape = %s"%str(self.PaddedGridShape)
         a=np.random.randn(*(self.PaddedGridShape))+1j*np.random.randn(*(self.PaddedGridShape))
         FM=ModFFTW.FFTW_2Donly(self.PaddedGridShape, np.complex64)
         b=FM.fft(a)
-        self.FFTW_Wisdom=pyfftw.export_wisdom()
-        return
+        self.FFTW_Wisdom=None#pyfftw.export_wisdom()
         for iFacet in sorted(self.DicoImager.keys()):
             A=ModFFTW.GiveFFTW_aligned(self.PaddedGridShape, np.complex64)
             NpShared.ToShared("%sFFTW.%i"%(self.IdSharedMem,iFacet),A)
@@ -691,11 +695,13 @@ class WorkerImager(multiprocessing.Process):
         self.exit.set()
 
     def GiveGM(self,iFacet):
-        GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,RaDec=self.DicoImager[iFacet]["RaDec"],
+        GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,#RaDec=self.DicoImager[iFacet]["RaDec"],
+                                                            self.DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
+                                                            self.DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                                                             lmShift=self.DicoImager[iFacet]["lmShift"],
                                                             IdSharedMem=self.IdSharedMem,IDFacet=iFacet,
-                                                            SpheNorm=self.SpheNorm,
-                                                            **self.DicoImager[iFacet]["DicoConfigGM"])
+                                                            SpheNorm=self.SpheNorm)#,
+        #**self.DicoImager[iFacet]["DicoConfigGM"])
         return GridMachine
         
     def GiveDicoJonesMatrices(self):

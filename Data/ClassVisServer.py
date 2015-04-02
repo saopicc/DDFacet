@@ -217,6 +217,7 @@ class ClassVisServer():
                 indMStime=np.ones((indMStime.size,),np.int32)*it
                 ind=np.concatenate((ind,indMStime))
             NpShared.ToShared("%sMapJones"%self.IdSharedMem,ind)
+        print>>log, " ... done"
 
 
 
@@ -372,13 +373,29 @@ class ClassVisServer():
 
         self.UpdateFlag(DATA)
 
-        if self.GD["Compression"]["CompressModeGrid"]:
-            _,_,nx,ny=self.FacetShape
+        if self.GD["Compression"]["CompGridMode"]:
+            if self.GD["Compression"]["CompGridFOV"]:
+                _,_,nx,ny=self.FacetShape
+            elif self.GD["Compression"]["CompGridFOV"]=="Full":
+                _,_,nx,ny=self.FullImShape
             FOV=self.CellSizeRad*nx*(np.sqrt(2.)/2.)*180./np.pi
-            #SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompressDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
-            SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=10.,Decorr=1.,IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
+            SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompGridDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
             #SmearMapMachine.BuildSmearMapping(DATA)
-            SmearMapMachine.BuildSmearMappingParallel(DATA) 
+            FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA)
+            Map=NpShared.ToShared("%sMappingSmearing.Grid"%(self.IdSharedMem),FinalMapping)
+            print>>log, ModColor.Str("  Effective compression [Grid]  :   %.2f%%"%fact,col="green")
+
+        if self.GD["Compression"]["CompDeGridMode"]:
+            if self.GD["Compression"]["CompDeGridFOV"]=="Facet":
+                _,_,nx,ny=self.FacetShape
+            elif self.GD["Compression"]["CompDeGridFOV"]=="Full":
+                _,_,nx,ny=self.FullImShape
+            FOV=self.CellSizeRad*nx*(np.sqrt(2.)/2.)*180./np.pi
+            SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompDeGridDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
+            #SmearMapMachine.BuildSmearMapping(DATA)
+            FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA)
+            Map=NpShared.ToShared("%sMappingSmearing.DeGrid"%(self.IdSharedMem),FinalMapping)
+            print>>log, ModColor.Str("  Effective compression [DeGrid]:   %.2f%%"%fact,col="green")
 
         #############################
         #############################

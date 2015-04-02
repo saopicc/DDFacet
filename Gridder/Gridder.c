@@ -879,7 +879,7 @@ void gridderWPol(PyArrayObject *grid,
 	//W-projection
 	double wcoord=uvwPtr[2];
 	
-	int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax);
+	int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);
 	int skipW=0;
 	if(iwplane>NwPlanes-1){skipW=1;continue;};
 

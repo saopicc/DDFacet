@@ -69,10 +69,10 @@ def read_options():
     OP.add_option('Robust')
 
     OP.OptionGroup("* Visibility compression parameters","Compression")
-    OP.add_option('CompressModeGrid')
-    OP.add_option('CompressDecorr')
-    OP.add_option('CompressFOV')
-    OP.add_option('CompressModeDeGrid')
+    OP.add_option('CompGridMode')
+    OP.add_option('CompGridDecorr')
+    OP.add_option('CompGridFOV')
+    #OP.add_option('CompModeDeGrid')
 
     OP.OptionGroup("* DDE Solutions","DDESolutions")
     OP.add_option("DDSols")
