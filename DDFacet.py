@@ -72,6 +72,7 @@ def read_options():
     OP.add_option('CompressModeGrid')
     OP.add_option('CompressDecorr')
     OP.add_option('CompressFOV')
+    OP.add_option('CompressModeDeGrid')
 
     OP.OptionGroup("* DDE Solutions","DDESolutions")
     OP.add_option("DDSols")

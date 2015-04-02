@@ -948,9 +948,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	  GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
 	  NormJones(J0, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
 	  NormJones(J1, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
-	  MatInv(J0,J0inv,0);
 	  MatH(J1,J1H);
-	  MatInv(J1H,J1Hinv,0);
 	} //endif DoApplyJones
 
 	int ThisPol;
@@ -980,8 +978,8 @@ void DeGridderWPol(PyArrayObject *grid,
 	  float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
 	  float complex visBuff[4]={0};
 	  if(DoApplyJones){
-	    MatDot(J0inv,ThisVis,visBuff);
-	    MatDot(visBuff,J1Hinv,visBuff);
+	    MatDot(J0,ThisVis,visBuff);
+	    MatDot(visBuff,J1H,visBuff);
 	    for(ThisPol =0; ThisPol<4;ThisPol++){
 	      visPtr[ThisPol]-=visBuff[ThisPol]*(corr);
 	    }

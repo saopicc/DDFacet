@@ -111,6 +111,7 @@ class ClassCasaimage():
         F2[0].header["BMAJ"]=bmaj
         F2[0].header["BMIN"]=bmin
         F2[0].header["BPA"]=PA
+        os.system("rm -rf %s"%FileOut)
         F2.writeto(FileOut,clobber=True)
 
 

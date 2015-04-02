@@ -375,7 +375,8 @@ class ClassVisServer():
         if self.GD["Compression"]["CompressModeGrid"]:
             _,_,nx,ny=self.FacetShape
             FOV=self.CellSizeRad*nx*(np.sqrt(2.)/2.)*180./np.pi
-            SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompressDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
+            #SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompressDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
+            SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=10.,Decorr=1.,IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
             #SmearMapMachine.BuildSmearMapping(DATA)
             SmearMapMachine.BuildSmearMappingParallel(DATA) 
 
