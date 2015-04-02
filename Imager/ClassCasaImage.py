@@ -24,7 +24,7 @@ class ClassCasaimage():
 
     def create(self):
         ImageName=self.ImageName
-        print>>log, "  ----> Create casa image %s"%ImageName
+        #print>>log, "  ----> Create casa image %s"%ImageName
         HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
         c=MyPickle.Load("%s/pythonlibs/CoordCasa.pickle"%HYPERCAL_DIR)
         incr=c.get_increment()
@@ -52,7 +52,7 @@ class ClassCasaimage():
         
     def createScratch(self):
         ImageName=self.ImageName
-        print>>log, "  ----> Create casa image %s"%ImageName
+        #print>>log, "  ----> Create casa image %s"%ImageName
         #HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
         tmpIm=image(imagename=ImageName,shape=self.ImShape)
         c=tmpIm.coordinates()
@@ -85,7 +85,7 @@ class ClassCasaimage():
         #self.setdata(data)
         
     def setdata(self,dataIn,CorrT=False):
-        print>>log, "  ----> put data in casa image %s"%self.ImageName
+        #print>>log, "  ----> put data in casa image %s"%self.ImageName
 
         data=dataIn.copy()
         if CorrT:
@@ -98,13 +98,14 @@ class ClassCasaimage():
 
     def ToFits(self):
         FileOut=self.ImageName+".fits"
+        os.system("rm -rf %s"%FileOut)
         print>>log, "  ----> Save data in casa image as FITS file %s"%FileOut
         self.im.tofits(FileOut)
 
     def setBeam(self,beam):
         bmaj, bmin, PA=beam
         FileOut=self.ImageName+".fits"
-        print>>log, "  ----> Save beam info in FITS file %s"%FileOut
+        #print>>log, "  ----> Save beam info in FITS file %s"%FileOut
         
         F2=pyfits.open(FileOut)
         F2[0].header["BMAJ"]=bmaj
@@ -114,11 +115,11 @@ class ClassCasaimage():
 
 
     def close(self):
-        print>>log, "  ----> Closing %s"%self.ImageName
+        #print>>log, "  ----> Closing %s"%self.ImageName
         del(self.im)
-        print>>log, "  ----> Closed %s"%self.ImageName
+        #print>>log, "  ----> Closed %s"%self.ImageName
         if self.KeepCasa==False:
-            print>>log, "  ----> Delete %s"%self.ImageName
+            #print>>log, "  ----> Delete %s"%self.ImageName
             os.system("rm -rf %s"%self.ImageName)
 
 
