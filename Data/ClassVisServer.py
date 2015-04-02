@@ -292,7 +292,7 @@ class ClassVisServer():
 
         DATA["flags"]=flags
 
-    def InitDDESols(self):
+    def InitDDESols(self,DATA):
         GD=self.GD
         SolsFile=GD["DDESolutions"]["DDSols"]
         self.ApplyCal=False
@@ -430,7 +430,7 @@ class ClassVisServer():
             Map=NpShared.ToShared("%sMappingSmearing.DeGrid"%(self.IdSharedMem),FinalMapping)
             print>>log, ModColor.Str("  Effective compression [DeGrid]:   %.2f%%"%fact,col="green")
 
-        self.InitDDESols()
+        self.InitDDESols(DATA)
 
         #############################
         #############################
