@@ -550,7 +550,7 @@ class ClassDDEGridMachine():
         # pylab.draw()
         # pylab.show(False)
         # stop
-        print
+        
 
         return Dirty
 
