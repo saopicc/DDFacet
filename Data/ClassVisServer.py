@@ -335,7 +335,7 @@ class ClassVisServer():
             
             _D=NpShared.DicoToShared("%sDicoClusterDirs"%self.IdSharedMem,DicoClusterDirs)
 
-
+            print>>log, "  Built time-mapping"
             DicoJonesMatrices=DicoSols
 
             times=DATA["times"]
@@ -348,7 +348,7 @@ class ClassVisServer():
                 indMStime=np.ones((indMStime.size,),np.int32)*it
                 ind=np.concatenate((ind,indMStime))
             NpShared.ToShared("%sMapJones"%self.IdSharedMem,ind)
-
+            print>>log, "Done"
 
 
 

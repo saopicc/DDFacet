@@ -393,7 +393,7 @@ class ClassDDEGridMachine():
         vis=visIn#.copy()
 
         T=ClassTimeIt.ClassTimeIt("put")
-        T.disable()
+        #T.disable()
         self.DoNormWeights=DoNormWeights
         if not(self.DoNormWeights):
             self.reinitGrid()
@@ -533,14 +533,16 @@ class ClassDDEGridMachine():
         # return
         # del(Grid)
         T.timeit("4 (grid)")
+
         ImPadded= self.GridToIm(Grid)
+        T.timeit("5 (grid)")
         #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
         Dirty =ImPadded
         if self.SpheNorm:
             Dirty = self.cutImPadded(ImPadded)
 
         #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
-        T.timeit("5")
+        T.timeit("6")
         # Grid[:,:,:,:]=Grid.real
         # import pylab
         # pylab.clf()
@@ -548,6 +550,7 @@ class ClassDDEGridMachine():
         # pylab.draw()
         # pylab.show(False)
         # stop
+        print
 
         return Dirty
 
