@@ -393,7 +393,7 @@ class ClassDDEGridMachine():
         vis=visIn#.copy()
 
         T=ClassTimeIt.ClassTimeIt("put")
-        #T.disable()
+        T.disable()
         self.DoNormWeights=DoNormWeights
         if not(self.DoNormWeights):
             self.reinitGrid()
@@ -745,7 +745,7 @@ class ClassDDEGridMachine():
         npol=self.npol
         import ClassTimeIt
         T=ClassTimeIt.ClassTimeIt("GridToIm")
-        #T.disable()
+        T.disable()
 
         GridCorr=Grid
 
