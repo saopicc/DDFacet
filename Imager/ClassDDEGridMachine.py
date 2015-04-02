@@ -614,19 +614,37 @@ class ClassDDEGridMachine():
         T.timeit("3")
         #print vis
 
-        vis = _pyGridder.pyDeGridderWPol(Grid,
-                                       vis,
-                                       uvw,
-                                       flag,
-                                       SumWeigths,
-                                       0,
-                                       self.WTerm.WplanesConj,
-                                       self.WTerm.Wplanes,
-                                       np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
-                                       self.incr.astype(np.float64),
-                                       self.ChanFreq.astype(np.float64),
-                                       [self.PolMap,FacetInfos,RowInfos],
-                                       ParamJonesList)
+        if self.GD["Compression"]["CompressModeGrid"]==0:
+            vis = _pyGridder.pyDeGridderWPol(Grid,
+                                             vis,
+                                             uvw,
+                                             flag,
+                                             SumWeigths,
+                                             0,
+                                             self.WTerm.WplanesConj,
+                                             self.WTerm.Wplanes,
+                                             np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
+                                             self.incr.astype(np.float64),
+                                             self.ChanFreq.astype(np.float64),
+                                             [self.PolMap,FacetInfos,RowInfos],
+                                             ParamJonesList)
+        else:
+            MapSmear=NpShared.GiveArray("%sMappingSmearing"%(self.IdSharedMem))
+            vis = _pyGridderSmear.pyDeGridderWPol(Grid,
+                                             vis,
+                                             uvw,
+                                             flag,
+                                             SumWeigths,
+                                             0,
+                                             self.WTerm.WplanesConj,
+                                             self.WTerm.Wplanes,
+                                             np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
+                                             self.incr.astype(np.float64),
+                                             self.ChanFreq.astype(np.float64),
+                                             [self.PolMap,FacetInfos,RowInfos],
+                                             ParamJonesList,
+            MapSmear)
+            
 
         T.timeit("4 (degrid)")
         #print vis
