@@ -416,104 +416,104 @@ void gridderWPol(PyArrayObject *grid,
       /* } */
       
 
-      // ################################################
-      // ############## Start Gridding visibility #######
-      int gridChan = 0;//chanMap_p[visChan];
-      int CFChan = 0;//ChanCFMap[visChan];
-      double recipWvl = FreqMean / C;
-      double ThisWaveLength=C/FreqMean;
+      /* // ################################################ */
+      /* // ############## Start Gridding visibility ####### */
+      /* int gridChan = 0;//chanMap_p[visChan]; */
+      /* int CFChan = 0;//ChanCFMap[visChan]; */
+      /* double recipWvl = FreqMean / C; */
+      /* double ThisWaveLength=C/FreqMean; */
 
-      // ############## W-projection ####################
-      double wcoord=Wmean;
-      int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);
-      int skipW=0;
-      if(iwplane>NwPlanes-1){skipW=1;continue;};
+      /* // ############## W-projection #################### */
+      /* double wcoord=Wmean; */
+      /* int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5); */
+      /* int skipW=0; */
+      /* if(iwplane>NwPlanes-1){skipW=1;continue;}; */
       
-      if(wcoord>0){
-      	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);
-      } else{
-      	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);
-      }
-      int nConvX = cfs->dimensions[0];
-      int nConvY = cfs->dimensions[1];
-      int supx = (nConvX/OverS-1)/2;
-      int supy = (nConvY/OverS-1)/2;
-      int SupportCF=nConvX/OverS;
-      // ################################################
+      /* if(wcoord>0){ */
+      /* 	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2); */
+      /* } else{ */
+      /* 	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2); */
+      /* } */
+      /* int nConvX = cfs->dimensions[0]; */
+      /* int nConvY = cfs->dimensions[1]; */
+      /* int supx = (nConvX/OverS-1)/2; */
+      /* int supy = (nConvY/OverS-1)/2; */
+      /* int SupportCF=nConvX/OverS; */
+      /* // ################################################ */
 
 
 	
 	
 
-      if (gridChan >= 0  &&  gridChan < nGridChan) {
-      	double posx,posy;
-      	//For Even/Odd take the -1 off
-      	posx = uvwScale_p[0] * Umean * recipWvl + offset_p[0];//#-1;
-      	posy = uvwScale_p[1] * Vmean * recipWvl + offset_p[1];//-1;
+      /* if (gridChan >= 0  &&  gridChan < nGridChan) { */
+      /* 	double posx,posy; */
+      /* 	//For Even/Odd take the -1 off */
+      /* 	posx = uvwScale_p[0] * Umean * recipWvl + offset_p[0];//#-1; */
+      /* 	posy = uvwScale_p[1] * Vmean * recipWvl + offset_p[1];//-1; */
 	
-      	int locx = nint (posx);    // location in grid
-      	int locy = nint (posy);
-      	//printf("locx=%i, locy=%i\n",locx,locy);
-      	double diffx = locx - posx;
-      	double diffy = locy - posy;
-      	//printf("diffx=%f, diffy=%f\n",diffx,diffy);
+      /* 	int locx = nint (posx);    // location in grid */
+      /* 	int locy = nint (posy); */
+      /* 	//printf("locx=%i, locy=%i\n",locx,locy); */
+      /* 	double diffx = locx - posx; */
+      /* 	double diffy = locy - posy; */
+      /* 	//printf("diffx=%f, diffy=%f\n",diffx,diffy); */
 	
-      	int offx = nint (diffx * sampx); // location in
-      	int offy = nint (diffy * sampy); // oversampling
-      	//printf("offx=%i, offy=%i\n",offx,offy);
-      	offx += (nConvX-1)/2;
-      	offy += (nConvY-1)/2;
-      	// Scaling with frequency is not necessary (according to Cyril).
-      	double freqFact = 1;
-      	int fsampx = nint (sampx * freqFact);
-      	int fsampy = nint (sampy * freqFact);
-      	int fsupx  = nint (supx / freqFact);
-      	int fsupy  = nint (supy / freqFact);
+      /* 	int offx = nint (diffx * sampx); // location in */
+      /* 	int offy = nint (diffy * sampy); // oversampling */
+      /* 	//printf("offx=%i, offy=%i\n",offx,offy); */
+      /* 	offx += (nConvX-1)/2; */
+      /* 	offy += (nConvY-1)/2; */
+      /* 	// Scaling with frequency is not necessary (according to Cyril). */
+      /* 	double freqFact = 1; */
+      /* 	int fsampx = nint (sampx * freqFact); */
+      /* 	int fsampy = nint (sampy * freqFact); */
+      /* 	int fsupx  = nint (supx / freqFact); */
+      /* 	int fsupy  = nint (supy / freqFact); */
 	
-      	// Only use visibility point if the full support is within grid.
+      /* 	// Only use visibility point if the full support is within grid. */
 	
-      	//printf("offx=%i, offy=%i\n",offx,offy);
-      	//assert(1==0);
+      /* 	//printf("offx=%i, offy=%i\n",offx,offy); */
+      /* 	//assert(1==0); */
 	
-      	if (locx-supx >= 0  &&  locx+supx < nGridX  &&
-      	    locy-supy >= 0  &&  locy+supy < nGridY) {
+      /* 	if (locx-supx >= 0  &&  locx+supx < nGridX  && */
+      /* 	    locy-supy >= 0  &&  locy+supy < nGridY) { */
 	  
-      	  int ipol;
-      	  for (ipol=0; ipol<nVisPol; ++ipol) {
-      	    float complex VisVal;
-      	    if (dopsf==1) {
-      	      VisVal = 1.;
-      	    }else{
-      	      VisVal =Vis[ipol];
-      	    }
-      	    //VisVal*=ThisWeight;
+      /* 	  int ipol; */
+      /* 	  for (ipol=0; ipol<nVisPol; ++ipol) { */
+      /* 	    float complex VisVal; */
+      /* 	    if (dopsf==1) { */
+      /* 	      VisVal = 1.; */
+      /* 	    }else{ */
+      /* 	      VisVal =Vis[ipol]; */
+      /* 	    } */
+      /* 	    //VisVal*=ThisWeight; */
 
-      	    // Map to grid polarization. Only use pol if needed.
-      	    int gridPol = PolMap[ipol];
-      	    if (gridPol >= 0  &&  gridPol < nGridPol) {
-      	      int goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
-      	      int sy;
-      	      float complex* __restrict__ gridPtr;
-      	      const float complex* __restrict__ cf0;
-      	      int io=(offy - fsupy*fsampy);
-      	      int jo=(offx - fsupx*fsampx);
-      	      int cfoff = io * OverS * SupportCF*SupportCF + jo * SupportCF*SupportCF;
-      	      cf0 =  p_complex64(cfs) + cfoff;
-      	      for (sy=-fsupy; sy<=fsupy; ++sy) {
-      		gridPtr =  p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx;
-      		int sx;
-      		for (sx=-fsupx; sx<=fsupx; ++sx) {
-      		  //printf("gird=(%f,%f), vis=(%f,%f), cf=(%f,%f)\n",creal((*gridPtr)),cimag((*gridPtr)),creal(VisVal),cimag(VisVal),creal(*cf0),cimag(*cf0));
-      		  *gridPtr++ += VisVal * *cf0;
-      		  cf0 ++;
-      		}
+      /* 	    // Map to grid polarization. Only use pol if needed. */
+      /* 	    int gridPol = PolMap[ipol]; */
+      /* 	    if (gridPol >= 0  &&  gridPol < nGridPol) { */
+      /* 	      int goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY; */
+      /* 	      int sy; */
+      /* 	      float complex* __restrict__ gridPtr; */
+      /* 	      const float complex* __restrict__ cf0; */
+      /* 	      int io=(offy - fsupy*fsampy); */
+      /* 	      int jo=(offx - fsupx*fsampx); */
+      /* 	      int cfoff = io * OverS * SupportCF*SupportCF + jo * SupportCF*SupportCF; */
+      /* 	      cf0 =  p_complex64(cfs) + cfoff; */
+      /* 	      for (sy=-fsupy; sy<=fsupy; ++sy) { */
+      /* 		gridPtr =  p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx; */
+      /* 		int sx; */
+      /* 		for (sx=-fsupx; sx<=fsupx; ++sx) { */
+      /* 		  //printf("gird=(%f,%f), vis=(%f,%f), cf=(%f,%f)\n",creal((*gridPtr)),cimag((*gridPtr)),creal(VisVal),cimag(VisVal),creal(*cf0),cimag(*cf0)); */
+      /* 		  *gridPtr++ += VisVal * *cf0; */
+      /* 		  cf0 ++; */
+      /* 		} */
 		
-      	      }
-      	      sumWtPtr[gridPol+gridChan*nGridPol] += ThisWeight;
-      	    } // end if gridPol
-      	  } // end for ipol
-      	} // end if ongrid
-      } // end if gridChan
+      /* 	      } */
+      /* 	      sumWtPtr[gridPol+gridChan*nGridPol] += ThisWeight; */
+      /* 	    } // end if gridPol */
+      /* 	  } // end for ipol */
+      /* 	} // end if ongrid */
+      /* } // end if gridChan */
  
     } //end for Block
 
