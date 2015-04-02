@@ -443,38 +443,38 @@ class ClassDDEGridMachine():
         
         T2=ClassTimeIt.ClassTimeIt("Gridder")
         T2.disable()
-
-        # Grid=_pyGridder.pyGridderWPol(Grid,
-        #                               vis,
-        #                               uvw,
-        #                               flag,
-        #                               W,
-        #                               SumWeigths,
-        #                               0,
-        #                               self.WTerm.Wplanes,
-        #                               self.WTerm.WplanesConj,
-        #                               np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
-        #                               self.incr.astype(np.float64),
-        #                               self.ChanFreq.astype(np.float64),
-        #                               [self.PolMap,FacetInfos],
-        #                               ParamJonesList) # Input the jones matrices
-
-        MapSmear=NpShared.GiveArray("%sMappingSmearing"%(self.IdSharedMem))
-        Grid=_pyGridderSmear.pyGridderWPol(Grid,
-                                           vis,
-                                           uvw,
-                                           flag,
-                                           W,
-                                           SumWeigths,
-                                           0,
-                                           self.WTerm.Wplanes,
-                                           self.WTerm.WplanesConj,
-                                           np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
-                                           self.incr.astype(np.float64),
-                                           np.float64(self.ChanFreq),
-                                           [self.PolMap,FacetInfos],
-                                           ParamJonesList,
-                                           MapSmear) # Input the jones matrices
+        if self.GD["Compression"]["CompressModeGrid"]==0:
+                Grid=_pyGridder.pyGridderWPol(Grid,
+                                              vis,
+                                              uvw,
+                                              flag,
+                                              W,
+                                              SumWeigths,
+                                              0,
+                                              self.WTerm.Wplanes,
+                                              self.WTerm.WplanesConj,
+                                              np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
+                                              self.incr.astype(np.float64),
+                                              self.ChanFreq.astype(np.float64),
+                                              [self.PolMap,FacetInfos],
+                                              ParamJonesList) # Input the jones matrices
+        else:
+            MapSmear=NpShared.GiveArray("%sMappingSmearing"%(self.IdSharedMem))
+            Grid=_pyGridderSmear.pyGridderWPol(Grid,
+                                               vis,
+                                               uvw,
+                                               flag,
+                                               W,
+                                               SumWeigths,
+                                               0,
+                                               self.WTerm.Wplanes,
+                                               self.WTerm.WplanesConj,
+                                               np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
+                                               self.incr.astype(np.float64),
+                                               np.float64(self.ChanFreq),
+                                               [self.PolMap,FacetInfos],
+                                               ParamJonesList,
+                                               MapSmear)
         
         #return Grid
         T2.timeit("gridder")

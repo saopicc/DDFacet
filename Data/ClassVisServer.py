@@ -20,7 +20,7 @@ def test():
     VS.LoadNextVisChunk()
 
 class ClassVisServer():
-    def __init__(self,MSName,
+    def __init__(self,MSName,GD=None,
                  ColName="DATA",
                  TChunkSize=1,
                  TVisSizeMin=1,
@@ -51,6 +51,7 @@ class ClassVisServer():
         self.VisInSharedMem = (PrefixShared!=None)
         self.LofarBeam=LofarBeam
         self.ApplyBeam=False
+        self.GD=GD
         self.Init()
         
         self.dTimesVisMin=self.TVisSizeMin
@@ -92,9 +93,10 @@ class ClassVisServer():
         self.OutImShape=OutImShape
         self.CellSizeRad=CellSizeRad
 
-    def CalcWeigths(self,ImShape,CellSizeRad):
+    def CalcWeigths(self):
         if self.VisWeights!=None: return
-
+        ImShape=self.PaddedFacetShape
+        CellSizeRad=self.CellSizeRad
         WeightMachine=ClassWeighting.ClassWeighting(ImShape,CellSizeRad)
         uvw,WEIGHT,flags=self.GiveAllUVW()
         #uvw=DATA["uvw"]
@@ -315,9 +317,12 @@ class ClassVisServer():
 
         DATA["flags"]=flags
 
-
-
-
+    def setFOV(self,FullImShape,PaddedFacetShape,CellSizeRad):
+        self.FullImShape=FullImShape
+        self.PaddedFacetShape=PaddedFacetShape
+        self.CellSizeRad=CellSizeRad
+        
+        
     def LoadNextVisChunk(self):
         if self.CurrentMemTimeChunk==self.NTChunk:
             #print>>log, ModColor.Str("Reached end of observations")
@@ -366,9 +371,12 @@ class ClassVisServer():
 
         self.UpdateFlag(DATA)
 
-        SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=.5,Decorr=.95,IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
-        #SmearMapMachine.BuildSmearMapping(DATA)
-        SmearMapMachine.BuildSmearMappingParallel(DATA)
+        if self.GD["Compression"]["CompressModeGrid"]:
+            _,_,nx,ny=self.PaddedFacetShape
+            FOV=self.CellSizeRad*nx*(np.sqrt(2.)/2.)*180./np.pi
+            SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompressDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
+            #SmearMapMachine.BuildSmearMapping(DATA)
+            SmearMapMachine.BuildSmearMappingParallel(DATA) 
 
         #############################
         #############################

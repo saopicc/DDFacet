@@ -82,11 +82,13 @@ class ClassImagerDeconv():
                                               Robust=DC["ImagerGlobal"]["Robust"],
                                               Weighting=DC["ImagerGlobal"]["Weighting"],
                                               DicoSelectOptions=dict(DC["DataSelection"]),
-                                              NCPU=self.GD["Parallel"]["NCPU"])
+                                              NCPU=self.GD["Parallel"]["NCPU"],
+                                              GD=self.GD)
         self.InitFacetMachine()
         #self.VS.SetImagingPars(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
         #self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
-        self.VS.CalcWeigths(self.FacetMachine.PaddedGridShape,self.FacetMachine.CellSizeRad)
+        self.VS.setFOV(self.FacetMachine.OutImShape,self.FacetMachine.PaddedGridShape,self.FacetMachine.CellSizeRad)
+        self.VS.CalcWeigths()
 
 
     def InitDDESols(self):
@@ -219,13 +221,13 @@ class ClassImagerDeconv():
 
         FacetMachinePSF.DoPSF=False
         
-        # Image=FacetMachinePSF.FacetsToIm()
-        pylab.clf()
-        pylab.imshow(self.PSF[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
-        pylab.draw()
-        pylab.show(False)
-        pylab.pause(0.1)
-        stop
+        # # Image=FacetMachinePSF.FacetsToIm()
+        # pylab.clf()
+        # pylab.imshow(self.PSF[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
+        # pylab.draw()
+        # pylab.show(False)
+        # pylab.pause(0.1)
+        # stop
 
 
 

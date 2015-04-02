@@ -4,6 +4,7 @@ import numpy as np
 from Array import NpShared
 import multiprocessing
 from progressbar import ProgressBar
+from Other import ModColor
 
 class ClassSmearMapping():
     def __init__(self,MS,radiusDeg=1.,Decorr=0.98,IdSharedMem="",NCPU=6):
@@ -95,7 +96,8 @@ class ClassSmearMapping():
         # uvw=uvw[ind]
         # A0=A0[ind]
         # A1=A1[ind]
-        print A0.shape[0]
+
+        #print A0.shape[0]
 
         
         DicoSmearMapping={}
@@ -234,10 +236,10 @@ class ClassSmearMapping():
         NVis=np.where(A0!=A1)[0].size*NChan
         #print>>log, "  Number of blocks:         %i"%NTotBlocks
         #print>>log, "  Number of 4-Visibilities: %i"%NVis
-        print>>log, "  Effective compression:   %.2f%%"%(100.*(NVis-NTotBlocks)/float(NVis))
+        print>>log, ModColor.Str("  Effective compression:   %.2f%%"%(100.*(NVis-NTotBlocks)/float(NVis)),col="green")
 
 
-        self.UnPackMapping()
+        #self.UnPackMapping()
 
         return True
 
