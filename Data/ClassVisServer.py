@@ -317,9 +317,10 @@ class ClassVisServer():
 
         DATA["flags"]=flags
 
-    def setFOV(self,FullImShape,PaddedFacetShape,CellSizeRad):
+    def setFOV(self,FullImShape,PaddedFacetShape,FacetShape,CellSizeRad):
         self.FullImShape=FullImShape
         self.PaddedFacetShape=PaddedFacetShape
+        self.FacetShape=FacetShape
         self.CellSizeRad=CellSizeRad
         
         
@@ -372,7 +373,7 @@ class ClassVisServer():
         self.UpdateFlag(DATA)
 
         if self.GD["Compression"]["CompressModeGrid"]:
-            _,_,nx,ny=self.PaddedFacetShape
+            _,_,nx,ny=self.FacetShape
             FOV=self.CellSizeRad*nx*(np.sqrt(2.)/2.)*180./np.pi
             SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompressDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
             #SmearMapMachine.BuildSmearMapping(DATA)

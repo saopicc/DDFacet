@@ -87,7 +87,7 @@ class ClassImagerDeconv():
         self.InitFacetMachine()
         #self.VS.SetImagingPars(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
         #self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
-        self.VS.setFOV(self.FacetMachine.OutImShape,self.FacetMachine.PaddedGridShape,self.FacetMachine.CellSizeRad)
+        self.VS.setFOV(self.FacetMachine.OutImShape,self.FacetMachine.PaddedGridShape,self.FacetMachine.FacetShape,self.FacetMachine.CellSizeRad)
         self.VS.CalcWeigths()
 
 
