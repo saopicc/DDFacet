@@ -71,7 +71,6 @@ class ClassImagerDeconv():
 
     def Init(self):
         DC=self.GD
-        self.InitDDESols()
 
         self.VS=ClassVisServer.ClassVisServer(DC["VisData"]["MSName"],
                                               ColName=DC["VisData"]["ColName"],
@@ -91,48 +90,6 @@ class ClassImagerDeconv():
         self.VS.CalcWeigths()
 
 
-    def InitDDESols(self):
-        GD=self.GD
-        SolsFile=GD["DDESolutions"]["DDSols"]
-        self.ApplyCal=False
-        if (SolsFile!=""):#&(False):
-            print>>log, "Loading solution file: %s"%SolsFile
-            self.ApplyCal=True
-            DicoSolsFile=np.load(SolsFile)
-            DicoSols={}
-            DicoSols["t0"]=DicoSolsFile["Sols"]["t0"]
-            DicoSols["t1"]=DicoSolsFile["Sols"]["t1"]
-            nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
-            G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
-            DicoSols["Jones"]=G
-
-            if GD["DDESolutions"]["GlobalNorm"]=="MeanAbs":
-                print>>log, "  Normalising by the mean of the amplitude"
-                gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
-                gmean_abs=gmean_abs.reshape((1,nd,na,1))
-                DicoSols["Jones"][:,:,:,:,0,0]/=gmean_abs
-                DicoSols["Jones"][:,:,:,:,1,1]/=gmean_abs
-
-
-            # if not("A" in self.GD["DDESolutions"]["ApplyMode"]):
-            #     print>>log, "  Amplitude normalisation"
-            #     gabs=np.abs(G)
-            #     gabs[gabs==0]=1.
-            #     G/=gabs
-
-
-            NpShared.DicoToShared("%skillMSSolutionFile"%self.IdSharedMem,DicoSols)
-            #D=NpShared.SharedToDico("killMSSolutionFile")
-            #ClusterCat=DicoSolsFile["ClusterCat"]
-            ClusterCat=DicoSolsFile["SkyModel"]
-            ClusterCat=ClusterCat.view(np.recarray)
-            DicoClusterDirs={}
-            DicoClusterDirs["l"]=ClusterCat.l
-            DicoClusterDirs["m"]=ClusterCat.m
-            DicoClusterDirs["I"]=ClusterCat.SumI
-            DicoClusterDirs["Cluster"]=ClusterCat.Cluster
-            
-            _D=NpShared.DicoToShared("%sDicoClusterDirs"%self.IdSharedMem,DicoClusterDirs)
 
 
     def InitFacetMachine(self):
@@ -141,8 +98,12 @@ class ClassImagerDeconv():
 
         
         #print "initFacetMachine deconv0"; self.IM.CI.E.clear()
+        ApplyCal=False
+        SolsFile=self.GD["DDESolutions"]["DDSols"]
+        if SolsFile!="": ApplyCal=True
+
         self.FacetMachine=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
-                                                              IdSharedMem=self.IdSharedMem,ApplyCal=self.ApplyCal)#,Sols=SimulSols)
+                                                              IdSharedMem=self.IdSharedMem,ApplyCal=ApplyCal)#,Sols=SimulSols)
 
         
         #print "initFacetMachine deconv1"; self.IM.CI.E.clear()

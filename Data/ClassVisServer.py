@@ -191,33 +191,7 @@ class ClassVisServer():
         DATA=NpShared.DicoToShared("%sDicoData"%self.IdSharedMem,DATA)
 
 
-        print>>log, "Getting the Jones time-mapping"
-        DicoJonesMatrices=NpShared.SharedToDico("%skillMSSolutionFile"%self.IdSharedMem)
-        if DicoJonesMatrices!=None:
-            # times=DATA["times"]
-            # #JonesMatrices=DicoJonesMatrices["Jones"]
-            # t0=DicoJonesMatrices["t0"]
-            # t0=t0.reshape((1,t0.size))
-            # t1=DicoJonesMatrices["t1"]
-            # t1=t1.reshape((1,t1.size))
-            # tMS=times.reshape(times.size,1)
-            # cond0=(tMS>t0)
-            # cond1=(tMS<=t1)
-            # cond=(cond0&cond1)
-            # MapJones=np.int32(np.argmax(cond,axis=1))
-            # NpShared.ToShared("%sMapJones"%self.IdSharedMem,MapJones)
 
-            times=DATA["times"]
-            ind=np.array([],np.int32)
-            nt,na,nd,_,_,_=DicoJonesMatrices["Jones"].shape
-            for it in range(nt):
-                t0=DicoJonesMatrices["t0"][it]
-                t1=DicoJonesMatrices["t1"][it]
-                indMStime=np.where((times>=t0)&(times<t1))[0]
-                indMStime=np.ones((indMStime.size,),np.int32)*it
-                ind=np.concatenate((ind,indMStime))
-            NpShared.ToShared("%sMapJones"%self.IdSharedMem,ind)
-        print>>log, " ... done"
 
 
 
@@ -318,6 +292,66 @@ class ClassVisServer():
 
         DATA["flags"]=flags
 
+    def InitDDESols(self):
+        GD=self.GD
+        SolsFile=GD["DDESolutions"]["DDSols"]
+        self.ApplyCal=False
+        if (SolsFile!=""):#&(False):
+            print>>log, "Loading solution file: %s"%SolsFile
+            self.ApplyCal=True
+            DicoSolsFile=np.load(SolsFile)
+            DicoSols={}
+            DicoSols["t0"]=DicoSolsFile["Sols"]["t0"]
+            DicoSols["t1"]=DicoSolsFile["Sols"]["t1"]
+            nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
+            G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
+            DicoSols["Jones"]=G
+
+            if GD["DDESolutions"]["GlobalNorm"]=="MeanAbs":
+                print>>log, "  Normalising by the mean of the amplitude"
+                gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
+                gmean_abs=gmean_abs.reshape((1,nd,na,1))
+                DicoSols["Jones"][:,:,:,:,0,0]/=gmean_abs
+                DicoSols["Jones"][:,:,:,:,1,1]/=gmean_abs
+
+
+            # if not("A" in self.GD["DDESolutions"]["ApplyMode"]):
+            #     print>>log, "  Amplitude normalisation"
+            #     gabs=np.abs(G)
+            #     gabs[gabs==0]=1.
+            #     G/=gabs
+
+
+            NpShared.DicoToShared("%skillMSSolutionFile"%self.IdSharedMem,DicoSols)
+            #D=NpShared.SharedToDico("killMSSolutionFile")
+            #ClusterCat=DicoSolsFile["ClusterCat"]
+            ClusterCat=DicoSolsFile["SkyModel"]
+            ClusterCat=ClusterCat.view(np.recarray)
+            DicoClusterDirs={}
+            DicoClusterDirs["l"]=ClusterCat.l
+            DicoClusterDirs["m"]=ClusterCat.m
+            DicoClusterDirs["I"]=ClusterCat.SumI
+            DicoClusterDirs["Cluster"]=ClusterCat.Cluster
+            
+            _D=NpShared.DicoToShared("%sDicoClusterDirs"%self.IdSharedMem,DicoClusterDirs)
+
+
+            DicoJonesMatrices=DicoSols
+
+            times=DATA["times"]
+            ind=np.array([],np.int32)
+            nt,na,nd,_,_,_=DicoJonesMatrices["Jones"].shape
+            for it in range(nt):
+                t0=DicoJonesMatrices["t0"][it]
+                t1=DicoJonesMatrices["t1"][it]
+                indMStime=np.where((times>=t0)&(times<t1))[0]
+                indMStime=np.ones((indMStime.size,),np.int32)*it
+                ind=np.concatenate((ind,indMStime))
+            NpShared.ToShared("%sMapJones"%self.IdSharedMem,ind)
+
+
+
+
     def setFOV(self,FullImShape,PaddedFacetShape,FacetShape,CellSizeRad):
         self.FullImShape=FullImShape
         self.PaddedFacetShape=PaddedFacetShape
@@ -372,7 +406,6 @@ class ClassVisServer():
         DATA["Weights"]=self.VisWeights[MS.ROW0:MS.ROW1]
 
         self.UpdateFlag(DATA)
-
         if self.GD["Compression"]["CompGridMode"]:
             if self.GD["Compression"]["CompGridFOV"]:
                 _,_,nx,ny=self.FacetShape
@@ -397,6 +430,8 @@ class ClassVisServer():
             Map=NpShared.ToShared("%sMappingSmearing.DeGrid"%(self.IdSharedMem),FinalMapping)
             print>>log, ModColor.Str("  Effective compression [DeGrid]:   %.2f%%"%fact,col="green")
 
+        self.InitDDESols()
+
         #############################
         #############################
 
@@ -410,6 +445,9 @@ class ClassVisServer():
         # uvw=uvw[ind]
         # times=times[ind]
         # ##
+
+
+
 
 
         if self.AddNoiseJy!=None:
