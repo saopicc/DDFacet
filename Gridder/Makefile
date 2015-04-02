@@ -8,7 +8,8 @@ _pyGridder.so:  Gridder.o
 Gridder.o:  Gridder.c Gridder.h
 #	gcc -O3 -msse -msse2 -msse2avx -msse3 -msse4.2 -mssse3 -march=corei7 -mtune=corei7 -c Gridder.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC	
 
-	gcc  -lgomp -fopenmp -pthread -O3 -msse -msse2 -msse3 -msse4.2 -mssse3 -march=corei7 -mtune=corei7 --fast-math  -c Gridder.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC	
+	#gcc  -lgomp -fopenmp -pthread -O3 -msse -msse2 -msse3 -msse4.2 -mssse3 -march=corei7 -mtune=corei7 --fast-math  -c Gridder.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC	
+	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c Gridder.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC	
 
 ##################################
 _pyGridderSmear.so:  GridderSmear.o 
@@ -16,7 +17,8 @@ _pyGridderSmear.so:  GridderSmear.o
 
 # ---- gcc C compile ------------------
 GridderSmear.o:  GridderSmear.c GridderSmear.h
-	gcc  -lgomp -fopenmp -pthread -O3 -msse -msse2 -msse3 -msse4.2 -mssse3 -march=corei7 -mtune=corei7 --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC	
+	#gcc  -lgomp -fopenmp -pthread -O3 -msse -msse2 -msse3 -msse4.2 -mssse3 -march=corei7 -mtune=corei7 --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC	
+	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC	
 
 
 
