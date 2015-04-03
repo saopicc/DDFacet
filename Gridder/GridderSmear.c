@@ -354,6 +354,7 @@ void gridderWPol(PyArrayObject *grid,
 
     float complex *Vis=calloc(1,(nPolVis)*sizeof(float complex));
     float complex *VisMeas=calloc(1,(nPolVis)*sizeof(float complex));
+    int ThisPol;
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
@@ -370,6 +371,10 @@ void gridderWPol(PyArrayObject *grid,
       int NVisThisblock=0;
       //printf("\n");
       //printf("Block[%i] Nrows=%i %i>%i\n",iBlock,NRowThisBlock,chStart,chEnd);
+      for(ThisPol =0; ThisPol<nPolVis;ThisPol++){
+	Vis[ThisPol]=0;
+	VisMeas[ThisPol]=0;
+      }
 
       double ThisWeight=0.;
       for (inx=0; inx<NRowThisBlock; inx++) {
@@ -394,7 +399,6 @@ void gridderWPol(PyArrayObject *grid,
 	  MatInv(J1H,J1Hinv,0);
 	} //endif DoApplyJones
 	//AddTimeit(PreviousTime,TimeGetJones);
-	int ThisPol;
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
 	  int doff = (irow * nVisChan + visChan) * nVisPol;
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
@@ -416,26 +420,26 @@ void gridderWPol(PyArrayObject *grid,
 	  //#######################################################
 
 	  float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;
-	  
+	  float Weight=*imgWtPtr;
 	  if(FullScalarMode){
-	    VisMeas[0]=visPtrMeas[0]+visPtrMeas[3];
+	    VisMeas[0]=(visPtrMeas[0]+visPtrMeas[3])/2.;
+	    
 	  }else{
 	    for(ThisPol =0; ThisPol<4;ThisPol++){
 	      VisMeas[ThisPol]=visPtrMeas[ThisPol];
 	    }
 	  }
 
-
 	  float complex visPtr[nPolVis];
 	  if(DoApplyJones){
 	    MatDot(J0inv,VisMeas,visPtr);
 	    MatDot(visPtr,J1Hinv,visPtr);
 	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
-	      Vis[ThisPol]+=visPtr[ThisPol]*(corr*(*imgWtPtr));
+	      Vis[ThisPol]+=visPtr[ThisPol]*(corr*Weight);
 	    }
 	  }else{
 	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
-	      Vis[ThisPol]+=VisMeas[ThisPol]*(corr*(*imgWtPtr));
+	      Vis[ThisPol]+=VisMeas[ThisPol]*(corr*Weight);
 	    }
 	  };
 
@@ -461,7 +465,7 @@ void gridderWPol(PyArrayObject *grid,
       Wmean/=NVisThisblock;
       FreqMean/=NVisThisblock;
 
-      //printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6));
+      /* printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6)); */
       /* int ThisPol; */
       /* for(ThisPol =0; ThisPol<4;ThisPol++){ */
       /* 	printf("   vis: %i (%f, %f)\n",ThisPol,creal(Vis[ThisPol]),cimag(Vis[ThisPol])); */

@@ -111,7 +111,7 @@ def testGrid():
     flag=np.bool8(DATA["flags"])#[row0:row1,:,:].copy()
     #ind=np.where(np.logical_not((A0==12)&(A1==14)))[0]
     #flag[ind,:,:]=1
-    #flag.fill(0)
+    flag.fill(0)
 
     #MapSmear=NpShared.GiveArray("%sMappingSmearing"%("caca"))
     #stop
@@ -121,15 +121,18 @@ def testGrid():
 
     T=ClassTimeIt.ClassTimeIt("main")
     Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True)#, DicoJonesMatrices=DicoJonesMatrices)
+
+    pylab.clf()
+    pylab.imshow(np.real(Grid[0,0]))
+    #pylab.imshow(np.random.rand(50,50))
+    pylab.colorbar()
+    pylab.draw()
+    pylab.show(False)
     return
+
     Grid=np.zeros(sh,np.complex64)
     T.timeit("grid")
     # Grid[np.isnan(Grid)]=-1
-    # pylab.clf()
-    # pylab.imshow(np.real(Grid[0,0]))
-    # #pylab.imshow(np.random.rand(50,50))
-    # pylab.draw()
-    # pylab.show(False)
 
     #Grid[0,0,100,100]=10.
 
