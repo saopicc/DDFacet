@@ -302,7 +302,32 @@ void gridderWPol(PyArrayObject *grid,
     int inx;
     // Loop over all visibility rows to process.
 
-    float complex J0[4]={0},J1[4]={0},J0inv[4]={0},J1H[4]={0},J1Hinv[4]={0},JJ[4]={0};
+    FullScalarMode=1;
+    ScalarJones=0;
+    ScalarVis=0;
+    int nPolJones=4;
+    int nPolVis=4;
+    if(FullScalarMode){
+      printf("full scalar mode\n");
+      ScalarJones=1;
+      ScalarVis=1;
+      nPolJones=1;
+      nPolVis=1;
+      int ipol;
+      for (ipol=1; ipol<nVisPol; ++ipol) {
+	PolMap[ipol]=5;
+      }
+    }
+
+
+
+    float complex *J0=calloc(1,(nPolJones)*sizeof(float complex));
+    float complex *J1=calloc(1,(nPolJones)*sizeof(float complex));
+    float complex *J0inv=calloc(1,(nPolJones)*sizeof(float complex));
+    float complex *J1H=calloc(1,(nPolJones)*sizeof(float complex));
+    float complex *J1Hinv=calloc(1,(nPolJones)*sizeof(float complex));
+    float complex *JJ=calloc(1,(nPolJones)*sizeof(float complex));
+
     double WaveLengthMean=0.;
     int visChan;
     for (visChan=0; visChan<nVisChan; ++visChan){
@@ -335,7 +360,8 @@ void gridderWPol(PyArrayObject *grid,
       int chEnd=MappingBlock[indexMap+1];
       int *Row=MappingBlock+StartRow[iBlock]+2;
 
-      float complex Vis[4]={0};
+      float complex *Vis=calloc(1,(nPolVis)*sizeof(float complex));
+      float complex *VisMeas=calloc(1,(nPolVis)*sizeof(float complex));
       float Umean=0;
       float Vmean=0;
       float Wmean=0;
@@ -353,7 +379,7 @@ void gridderWPol(PyArrayObject *grid,
 	//printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
 	//printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
 	
-	clock_gettime(CLOCK_MONOTONIC_RAW, &PreviousTime);
+	//clock_gettime(CLOCK_MONOTONIC_RAW, &PreviousTime);
 	if(DoApplyJones){
 	  int i_t=ptrTimeMappingJonesMatrices[irow];
 	  int i_ant0=ptrA0[irow];
@@ -366,48 +392,53 @@ void gridderWPol(PyArrayObject *grid,
 	  MatH(J1,J1H);
 	  MatInv(J1H,J1Hinv,0);
 	} //endif DoApplyJones
-	AddTimeit(PreviousTime,TimeGetJones);
+	//AddTimeit(PreviousTime,TimeGetJones);
 	int ThisPol;
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
 	  int doff = (irow * nVisChan + visChan) * nVisPol;
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
 	  int OneFlagged=0;
 	  int cond;
-	  //char ch="a";
-	  for(ThisPol =0; ThisPol<4;ThisPol++){
-	    //cond=(flagPtr[ThisPol]==1);
-	    //printf("  F[%i]: %i \n",ThisPol,cond);
-	    if(flagPtr[ThisPol]==1){OneFlagged=1;}
-	  }
-	  if(OneFlagged){continue;}
+	  // We can do that since all flags in 4-pols are equalised in ClassVisServer
+	  if(flagPtr[0]==1){continue;}
 	  
-	  AddTimeit(PreviousTime,TimeStuff);
+	  //AddTimeit(PreviousTime,TimeStuff);
 	  //###################### Facetting #######################
 	  // Change coordinate and shift visibility to facet center
-	  double ThisWaveLength=C/Pfreqs[visChan];
-	  double complex UVNorm=2.*I*PI/ThisWaveLength;
-	  double U=uvwPtr[0];
-	  double V=uvwPtr[1];
-	  double W=uvwPtr[2];
+	  float ThisWaveLength=C/Pfreqs[visChan];
+	  float complex UVNorm=2.*I*PI/ThisWaveLength;
+	  float U=(float)uvwPtr[0];
+	  float V=(float)uvwPtr[1];
+	  float W=(float)uvwPtr[2];
 	  float complex corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
-	  AddTimeit(PreviousTime,TimeShift);
+	  //AddTimeit(PreviousTime,TimeShift);
 	  //#######################################################
 
-	  float complex* __restrict__ visPtr_Uncorr  = p_complex64(vis)  + doff;
-	  float complex visPtr[4];
-	  if(DoApplyJones){
-	    MatDot(J0inv,visPtr_Uncorr,visPtr);
-	    MatDot(visPtr,J1Hinv,visPtr);
+	  float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;
+	  
+	  if(FullScalarMode){
+	    VisMeas[0]=visPtrMeas[0]+visPtrMeas[3];
+	  }else{
 	    for(ThisPol =0; ThisPol<4;ThisPol++){
+	      VisMeas[ThisPol]=visPtrMeas[ThisPol];
+	    }
+	  }
+
+
+	  float complex visPtr[nPolVis];
+	  if(DoApplyJones){
+	    MatDot(J0inv,VisMeas,visPtr);
+	    MatDot(visPtr,J1Hinv,visPtr);
+	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
 	      Vis[ThisPol]+=visPtr[ThisPol]*(corr*(*imgWtPtr));
 	    }
 	  }else{
-	    for(ThisPol =0; ThisPol<4;ThisPol++){
-	      Vis[ThisPol]+=visPtr_Uncorr[ThisPol]*(corr*(*imgWtPtr));
+	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
+	      Vis[ThisPol]+=VisMeas[ThisPol]*(corr*(*imgWtPtr));
 	    }
 	  };
 
-	  AddTimeit(PreviousTime,TimeApplyJones);
+	  //AddTimeit(PreviousTime,TimeApplyJones);
 
 	  U+=W*Cu;
 	  V+=W*Cv;
@@ -418,7 +449,7 @@ void gridderWPol(PyArrayObject *grid,
 	  FreqMean+=(float)Pfreqs[visChan];
 	  ThisWeight+=*imgWtPtr;
 	  NVisThisblock+=1;
-	  AddTimeit(PreviousTime,TimeAverage);
+	  //AddTimeit(PreviousTime,TimeAverage);
 	  //printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);
 	  
 	}//endfor vischan
@@ -533,27 +564,28 @@ void gridderWPol(PyArrayObject *grid,
       	  } // end for ipol
       	} // end if ongrid
       } // end if gridChan
-      AddTimeit(PreviousTime,TimeGrid);
+      //AddTimeit(PreviousTime,TimeGrid);
  
     } //end for Block
     
-    /* printf("Times:\n"); */
-    double tottime=*TimeShift+*TimeApplyJones+*TimeJones+*TimeGrid+*TimeAverage+*TimeGetJones+*TimeStuff;
-    double tShift=100.*(((double)(*TimeShift))/tottime);
-    double tApplyJones=100.*(((double)(*TimeApplyJones))/tottime);
-    double tJones=100.*(((double)(*TimeJones))/tottime);
-    double tGrid=100.*(((double)(*TimeGrid))/tottime);
-    double tAverage=100.*(((double)(*TimeAverage))/tottime);
-    double tGetJones=100.*(((double)(*TimeGetJones))/tottime);
-    double tStuff=100.*(((double)(*TimeStuff))/tottime);
 
-    printf("TimeShift:      %5.2f\n",tShift);
-    printf("TimeApplyJones: %5.2f\n",tApplyJones);
-    printf("TimeJones:      %5.2f\n",tJones);
-    printf("TimeGrid:       %5.2f\n",tGrid);
-    printf("TimeAverage:    %5.2f\n",tAverage);
-    printf("TimeGetJones:   %5.2f\n",tGetJones);
-    printf("TimeStuff:      %5.2f\n",tStuff);
+    /* /\* printf("Times:\n"); *\/ */
+    /* double tottime=*TimeShift+*TimeApplyJones+*TimeJones+*TimeGrid+*TimeAverage+*TimeGetJones+*TimeStuff; */
+    /* double tShift=100.*(((double)(*TimeShift))/tottime); */
+    /* double tApplyJones=100.*(((double)(*TimeApplyJones))/tottime); */
+    /* double tJones=100.*(((double)(*TimeJones))/tottime); */
+    /* double tGrid=100.*(((double)(*TimeGrid))/tottime); */
+    /* double tAverage=100.*(((double)(*TimeAverage))/tottime); */
+    /* double tGetJones=100.*(((double)(*TimeGetJones))/tottime); */
+    /* double tStuff=100.*(((double)(*TimeStuff))/tottime); */
+
+    /* printf("TimeShift:      %5.2f\n",tShift); */
+    /* printf("TimeApplyJones: %5.2f\n",tApplyJones); */
+    /* printf("TimeJones:      %5.2f\n",tJones); */
+    /* printf("TimeGrid:       %5.2f\n",tGrid); */
+    /* printf("TimeAverage:    %5.2f\n",tAverage); */
+    /* printf("TimeGetJones:   %5.2f\n",tGetJones); */
+    /* printf("TimeStuff:      %5.2f\n",tStuff); */
 
   } // end 
 

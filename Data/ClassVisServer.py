@@ -283,6 +283,10 @@ class ClassVisServer():
 
         ind=np.where(A0==A1)[0]
         flags[ind,:,:]=True
+
+        ind=np.any(flags,axis=2)
+        flags[ind]=True
+        
         # flags.fill(0)
         # ind=np.where(A0!=A1)[0]
         # flags[ind,:,:]=True
@@ -335,7 +339,7 @@ class ClassVisServer():
             
             _D=NpShared.DicoToShared("%sDicoClusterDirs"%self.IdSharedMem,DicoClusterDirs)
 
-            print>>log, "  Built time-mapping"
+            print>>log, "  Build VisTime-to-solution mapping"
             DicoJonesMatrices=DicoSols
 
             # times=DATA["times"]

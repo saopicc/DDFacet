@@ -113,6 +113,10 @@ void DeGridderWPol(PyArrayObject *np_grid,
 	      PyObject *LJones,
 	      PyArrayObject *SmearMapping);
 
+int FullScalarMode;
+int ScalarJones;
+int ScalarVis;
+
 void ScaleJones(float complex* J0, float AlphaScaleJones){
   float complex z0;
   int ThisPol;
@@ -128,13 +132,21 @@ void ScaleJones(float complex* J0, float AlphaScaleJones){
 
 
 void MatInv(float complex *A, float complex* B, int H ){
-  float complex ff;
 
-  ff=1./((A[0]*A[3]-A[2]*A[1]));
-  B[0]=ff*A[3];
-  B[1]=-ff*A[1];
-  B[2]=-ff*A[2];
-  B[3]=ff*A[0];
+
+  if(FullScalarMode)
+    {
+      B[0]=1./A[0]; 
+    }
+  else
+    {
+    float complex ff;
+    ff=1./((A[0]*A[3]-A[2]*A[1]));
+    B[0]=ff*A[3];
+    B[1]=-ff*A[1];
+    B[2]=-ff*A[2];
+    B[3]=ff*A[0];
+  }
 }
 
 /* void MatInv(float complex *A, float complex* B, int H ){ */
@@ -160,10 +172,17 @@ void MatInv(float complex *A, float complex* B, int H ){
 
 void MatH(float complex *A, float complex* B){
 
-  B[0]=conj(A[0]);
-  B[1]=conj(A[2]);
-  B[2]=conj(A[1]);
-  B[3]=conj(A[3]);
+  if(FullScalarMode)
+    {
+      B[0]=conj(A[0]);
+    }
+  else
+    {
+      B[0]=conj(A[0]);
+      B[1]=conj(A[2]);
+      B[2]=conj(A[1]);
+      B[3]=conj(A[3]);
+    }
 }
 
 
@@ -182,10 +201,17 @@ void MatH(float complex *A, float complex* B){
 
 void MatDot(float complex *A, float complex* B, float complex* Out){
 
-  Out[0]=A[0]*B[0]+A[1]*B[2];
-  Out[1]=A[0]*B[1]+A[1]*B[3];
-  Out[2]=A[2]*B[0]+A[3]*B[2];
-  Out[3]=A[2]*B[1]+A[3]*B[3];
+  if(FullScalarMode)
+    {
+      Out[0]=A[0]*B[0];
+    }
+  else
+    {
+      Out[0]=A[0]*B[0]+A[1]*B[2];
+      Out[1]=A[0]*B[1]+A[1]*B[3];
+      Out[2]=A[2]*B[0]+A[3]*B[2];
+      Out[3]=A[2]*B[1]+A[3]*B[3];
+    }
 
 }
 
