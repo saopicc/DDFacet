@@ -19,8 +19,20 @@ import findrms
 import rad2hmsdms
 from pyrap.images import image
 
+
+def GiveNXNYPanels(Ns,ratio=800/500):
+    nx=int(round(np.sqrt(Ns/ratio)))
+    ny=int(nx*ratio)
+    if nx*ny<Ns: ny+=1
+    return nx,ny
+
 def test():
-    CM=ConvertMachine("lala2.restored.fits",regFile="ds9.reg")
+
+    pylab.figure(1)
+    CM=ConvertMachine("Test.KAFCA.NewSM.Nosmear.AP2.NoCorr.restored.fits",regFile="ds9.reg")
+    CM.convertStamps()
+    pylab.figure(2)
+    CM=ConvertMachine("Test.KAFCA.NewSM.Nosmear.AP2.Cycle2.restored.fits",regFile="ds9.reg")
     CM.convertStamps()
 
 class ConvertMachine():
@@ -48,7 +60,7 @@ class ConvertMachine():
             self.DicoStamps[iStamp]={"radeg":ra,"decdeg":dec}
             iStamp+=1
 
-    def convertStamps(self,BoxPix=100,SubPlots=(2,2)):
+    def convertStamps(self,BoxPix=200,SubPlots=(2,2),rms=0.0007):
         im=image(self.FitsName)
         data=im.getdata()[0,0]
 
@@ -57,9 +69,10 @@ class ConvertMachine():
         nx,ny=D.shape
         indx=np.int64(np.random.rand(Np)*nx)
         indy=np.int64(np.random.rand(Np)*ny)
-        rms=np.std(D[indx,indy])
+        #rms=np.std(D[indx,indy])
+        
 
-        NX,NY=SubPlots
+        NX,NY=GiveNXNYPanels(len(self.DicoStamps.keys()),ratio=800/500)
         pol,freq,rac,decc=im.toworld((0,0,0,0))
         pylab.clf()
         for iStamp in self.DicoStamps.keys():
@@ -70,10 +83,13 @@ class ConvertMachine():
             decc=self.DicoStamps[iStamp]["decdeg"]*np.pi/180
             _,_,xc,yc= im.topixel((pol,freq,decc,rac))
             D=data[int(xc)-BoxPix:int(xc)+BoxPix,int(yc)-BoxPix:int(yc)+BoxPix]
-            
-            pylab.imshow(D,vmin=-3.*rms,vmax=D.max())
+
+            vmax=30.*rms#np.max([D.max(),10.*rms])
+            pylab.imshow(D,vmin=-5.*rms,vmax=vmax,cmap="gray")
             ax.set_xticklabels([])
             ax.get_xaxis().set_visible(False)
+            ax.set_yticklabels([])
+            ax.get_yaxis().set_visible(False)
             
         pylab.tight_layout()
         pylab.draw()
