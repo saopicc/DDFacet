@@ -338,15 +338,28 @@ class ClassVisServer():
             print>>log, "  Built time-mapping"
             DicoJonesMatrices=DicoSols
 
+            # times=DATA["times"]
+            # ind=np.array([],np.int32)
+            # nt,na,nd,_,_,_=DicoJonesMatrices["Jones"].shape
+            # for it in range(nt):
+            #     t0=DicoJonesMatrices["t0"][it]
+            #     t1=DicoJonesMatrices["t1"][it]
+            #     indMStime=np.where((times>=t0)&(times<t1))[0]
+            #     indMStime=np.ones((indMStime.size,),np.int32)*it
+            #     ind=np.concatenate((ind,indMStime))
+
             times=DATA["times"]
-            ind=np.array([],np.int32)
+            ind=np.zeros((times.size,),np.int32)
             nt,na,nd,_,_,_=DicoJonesMatrices["Jones"].shape
+            ii=0
             for it in range(nt):
                 t0=DicoJonesMatrices["t0"][it]
                 t1=DicoJonesMatrices["t1"][it]
                 indMStime=np.where((times>=t0)&(times<t1))[0]
                 indMStime=np.ones((indMStime.size,),np.int32)*it
-                ind=np.concatenate((ind,indMStime))
+                ind=ind[ii:indMStime.size]=indMStime[:]
+                ii+=indMStime.size
+
             NpShared.ToShared("%sMapJones"%self.IdSharedMem,ind)
             print>>log, "Done"
 

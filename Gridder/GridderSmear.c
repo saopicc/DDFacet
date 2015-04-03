@@ -320,6 +320,7 @@ void gridderWPol(PyArrayObject *grid,
 
     long int TimeShift[1]={0};
     long int TimeApplyJones[1]={0};
+    long int TimeAverage[1]={0};
     long int TimeJones[1]={0};
     long int TimeGrid[1]={0};
     long int TimeGetJones[1]={0};
@@ -417,6 +418,7 @@ void gridderWPol(PyArrayObject *grid,
 	  FreqMean+=(float)Pfreqs[visChan];
 	  ThisWeight+=*imgWtPtr;
 	  NVisThisblock+=1;
+	  AddTimeit(PreviousTime,TimeAverage);
 	  //printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);
 	  
 	}//endfor vischan
@@ -536,12 +538,22 @@ void gridderWPol(PyArrayObject *grid,
     } //end for Block
     
     /* printf("Times:\n"); */
-    printf("TimeShift:      %ld\n",*TimeShift);
-    printf("TimeApplyJones: %ld\n",*TimeApplyJones);
-    printf("TimeJones:      %ld\n",*TimeJones);
-    printf("TimeGrid:       %ld\n",*TimeGrid);
-    printf("TimeGetJones:   %ld\n",*TimeGetJones);
-    printf("TimeStuff:      %ld\n",*TimeStuff);
+    double tottime=*TimeShift+*TimeApplyJones+*TimeJones+*TimeGrid+*TimeAverage+*TimeGetJones+*TimeStuff;
+    double tShift=100.*(((double)(*TimeShift))/tottime);
+    double tApplyJones=100.*(((double)(*TimeApplyJones))/tottime);
+    double tJones=100.*(((double)(*TimeJones))/tottime);
+    double tGrid=100.*(((double)(*TimeGrid))/tottime);
+    double tAverage=100.*(((double)(*TimeAverage))/tottime);
+    double tGetJones=100.*(((double)(*TimeGetJones))/tottime);
+    double tStuff=100.*(((double)(*TimeStuff))/tottime);
+
+    printf("TimeShift:      %5.2f\n",tShift);
+    printf("TimeApplyJones: %5.2f\n",tApplyJones);
+    printf("TimeJones:      %5.2f\n",tJones);
+    printf("TimeGrid:       %5.2f\n",tGrid);
+    printf("TimeAverage:    %5.2f\n",tAverage);
+    printf("TimeGetJones:   %5.2f\n",tGetJones);
+    printf("TimeStuff:      %5.2f\n",tStuff);
 
   } // end 
 
