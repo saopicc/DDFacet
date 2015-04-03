@@ -352,7 +352,7 @@ void gridderWPol(PyArrayObject *grid,
 	//printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
 	//printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
 	
-	//initTime();
+	initTime();
 	if(DoApplyJones){
 	  int i_t=ptrTimeMappingJonesMatrices[irow];
 	  int i_ant0=ptrA0[irow];
@@ -365,9 +365,7 @@ void gridderWPol(PyArrayObject *grid,
 	  MatH(J1,J1H);
 	  MatInv(J1H,J1Hinv,0);
 	} //endif DoApplyJones
-
-	//AddTimeit(TimeGetJones);
-
+	AddTimeit(TimeGetJones);
 	int ThisPol;
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
 	  int doff = (irow * nVisChan + visChan) * nVisPol;
@@ -382,7 +380,7 @@ void gridderWPol(PyArrayObject *grid,
 	  }
 	  if(OneFlagged){continue;}
 	  
-	  //AddTimeit(TimeStuff);
+	  AddTimeit(TimeStuff);
 	  //###################### Facetting #######################
 	  // Change coordinate and shift visibility to facet center
 	  double ThisWaveLength=C/Pfreqs[visChan];
@@ -391,7 +389,7 @@ void gridderWPol(PyArrayObject *grid,
 	  double V=uvwPtr[1];
 	  double W=uvwPtr[2];
 	  float complex corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
-	  //AddTimeit(TimeShift);
+	  AddTimeit(TimeShift);
 	  //#######################################################
 
 	  float complex* __restrict__ visPtr_Uncorr  = p_complex64(vis)  + doff;
@@ -408,7 +406,7 @@ void gridderWPol(PyArrayObject *grid,
 	    }
 	  };
 
-	  //AddTimeit(TimeApplyJones);
+	  AddTimeit(TimeApplyJones);
 
 	  U+=W*Cu;
 	  V+=W*Cv;
@@ -534,7 +532,7 @@ void gridderWPol(PyArrayObject *grid,
       	  } // end for ipol
       	} // end if ongrid
       } // end if gridChan
-      //AddTimeit(TimeGrid);
+      AddTimeit(TimeGrid);
  
     } //end for Block
     
