@@ -321,12 +321,19 @@ void gridderWPol(PyArrayObject *grid,
 
 
 
-    float complex *J0=calloc(1,(nPolJones)*sizeof(float complex));
-    float complex *J1=calloc(1,(nPolJones)*sizeof(float complex));
-    float complex *J0inv=calloc(1,(nPolJones)*sizeof(float complex));
-    float complex *J1H=calloc(1,(nPolJones)*sizeof(float complex));
-    float complex *J1Hinv=calloc(1,(nPolJones)*sizeof(float complex));
-    float complex *JJ=calloc(1,(nPolJones)*sizeof(float complex));
+    /* float complex *J0=calloc(1,(nPolJones)*sizeof(float complex)); */
+    /* float complex *J1=calloc(1,(nPolJones)*sizeof(float complex)); */
+    /* float complex *J0inv=calloc(1,(nPolJones)*sizeof(float complex)); */
+    /* float complex *J1H=calloc(1,(nPolJones)*sizeof(float complex)); */
+    /* float complex *J1Hinv=calloc(1,(nPolJones)*sizeof(float complex)); */
+    /* float complex *JJ=calloc(1,(nPolJones)*sizeof(float complex)); */
+
+    float complex *J0=calloc(1,(4)*sizeof(float complex));
+    float complex *J1=calloc(1,(4)*sizeof(float complex));
+    float complex *J0inv=calloc(1,(4)*sizeof(float complex));
+    float complex *J1H=calloc(1,(4)*sizeof(float complex));
+    float complex *J1Hinv=calloc(1,(4)*sizeof(float complex));
+    float complex *JJ=calloc(1,(4)*sizeof(float complex));
 
     double WaveLengthMean=0.;
     int visChan;
