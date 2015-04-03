@@ -357,7 +357,7 @@ class ClassVisServer():
                 t1=DicoJonesMatrices["t1"][it]
                 indMStime=np.where((times>=t0)&(times<t1))[0]
                 indMStime=np.ones((indMStime.size,),np.int32)*it
-                ind=ind[ii:indMStime.size]=indMStime[:]
+                ind[ii:indMStime.size]=indMStime[:]
                 ii+=indMStime.size
 
             NpShared.ToShared("%sMapJones"%self.IdSharedMem,ind)
