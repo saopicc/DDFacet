@@ -120,7 +120,10 @@ int ScalarVis;
 void ScaleJones(float complex* J0, float AlphaScaleJones){
   float complex z0;
   int ThisPol;
-  for(ThisPol =0; ThisPol<4;ThisPol++){
+  int nPol=4;
+  if(FullScalarMode){nPol=1;}
+
+  for(ThisPol =0; ThisPol<nPol;ThisPol++){
     if(cabs(J0[ThisPol])!=0.){
       z0=J0[ThisPol]/cabs(J0[ThisPol]);
       J0[ThisPol]=(1.-AlphaScaleJones)*z0+AlphaScaleJones*J0[ThisPol];

@@ -422,7 +422,7 @@ void gridderWPol(PyArrayObject *grid,
 	  float U=(float)uvwPtr[0];
 	  float V=(float)uvwPtr[1];
 	  float W=(float)uvwPtr[2];
-	  float complex corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
+	  float complex corr=1.;//cexp(-UVNorm*(U*l0+V*m0+W*n0));
 	  //AddTimeit(PreviousTime,TimeShift);
 	  //#######################################################
 
