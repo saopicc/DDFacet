@@ -406,21 +406,23 @@ void gridderWPol(PyArrayObject *grid,
 	  //#######################################################
 
 	  float complex corr;
-	  if(ChanEquidistant){
-	    if(visChan==0){
-	      float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-	      CurrentCorrTerm[inx]=cexp(-UVNorm*(U*l0+V*m0+W*n0));
-	      float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
-	      dCorrTerm[inx]=cexp(-dUVNorm*(U*l0+V*m0+W*n0));
-	    }else{
-	      CurrentCorrTerm[inx]*=dCorrTerm[inx];
-	    }
-	    corr=CurrentCorrTerm[inx];
-	  }
-	  else{
-	    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-	    corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
-	  }
+	  /* if(ChanEquidistant){ */
+	  /*   if(visChan==0){ */
+	  /*     float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
+	  /*     CurrentCorrTerm[inx]=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
+	  /*     float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C; */
+	  /*     dCorrTerm[inx]=cexp(-dUVNorm*(U*l0+V*m0+W*n0)); */
+	  /*   }else{ */
+	  /*     CurrentCorrTerm[inx]*=dCorrTerm[inx]; */
+	  /*   } */
+	  /*   corr=CurrentCorrTerm[inx]; */
+	  /* } */
+	  /* else{ */
+	  /*   float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
+	  /*   corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
+	  /* } */
+	  float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+	  corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
 
 
 	  int OneFlagged=0;
@@ -440,7 +442,7 @@ void gridderWPol(PyArrayObject *grid,
 	    }
 	  }
 
-	  float Weight=(*imgWtPtr)*corr;
+	  float complex Weight=(*imgWtPtr)*corr;
 	  float complex visPtr[nPolVis];
 	  if(DoApplyJones){
 	    MatDot(J0inv,VisMeas,visPtr);
