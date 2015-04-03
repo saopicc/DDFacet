@@ -282,7 +282,8 @@ void gridderWPol(PyArrayObject *grid,
     int nPolJones=4;
     int nPolVis=4;
     if(FullScalarMode){
-      printf("full scalar mode\n");
+      //printf("full scalar mode\n");
+      //printf("ChanEquidistant: %i\n",ChanEquidistant);
       ScalarJones=1;
       ScalarVis=1;
       nPolJones=1;
