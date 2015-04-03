@@ -120,7 +120,8 @@ def testGrid():
     #stop
 
     T=ClassTimeIt.ClassTimeIt("main")
-    #Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True)#, DicoJonesMatrices=DicoJonesMatrices)
+    Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True)#, DicoJonesMatrices=DicoJonesMatrices)
+    return
     Grid=np.zeros(sh,np.complex64)
     T.timeit("grid")
     # Grid[np.isnan(Grid)]=-1
