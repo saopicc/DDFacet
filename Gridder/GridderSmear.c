@@ -19,11 +19,18 @@ void timeit(char* Name){
   printf("%s: %f\n",Name,msec);
 }
 
-double AppendTimeit(){
+/* double AppendTimeit(){ */
+/*   clock_t diff; */
+/*   diff = clock() - start; */
+/*   double msec = diff * 1000000 / CLOCKS_PER_SEC; */
+/*   return msec; */
+/* } */
+
+void AddTimeit(double *aTime){
   clock_t diff;
   diff = clock() - start;
-  double msec = diff * 1000000 / CLOCKS_PER_SEC;
-  return msec;
+  start=clock();
+  (*aTime)+= diff * 1000000 / CLOCKS_PER_SEC;
 }
 
 
@@ -312,6 +319,13 @@ void gridderWPol(PyArrayObject *grid,
 
     int iBlock;
 
+    double TimeShift[1]={0.};
+    double TimeApplyJones[1]={0.};
+    double TimeJones[1]={0.};
+    double TimeGrid[1]={0.};
+    double TimeGetJones[1]={0.};
+    double TimeStuff[1]={0.};
+
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
       int NRowThisBlock=NRowBlocks[iBlock]-2;
@@ -330,6 +344,7 @@ void gridderWPol(PyArrayObject *grid,
       //printf("Block[%i] Nrows=%i %i>%i\n",iBlock,NRowThisBlock,chStart,chEnd);
 
       double ThisWeight=0.;
+      initTime();
       for (inx=0; inx<NRowThisBlock; inx++) {
 	int irow = Row[inx];
 	if(irow>nrows){continue;}
@@ -350,7 +365,7 @@ void gridderWPol(PyArrayObject *grid,
 	  MatH(J1,J1H);
 	  MatInv(J1H,J1Hinv,0);
 	} //endif DoApplyJones
-
+	AddTimeit(TimeGetJones);
 	int ThisPol;
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
 	  int doff = (irow * nVisChan + visChan) * nVisPol;
@@ -365,6 +380,7 @@ void gridderWPol(PyArrayObject *grid,
 	  }
 	  if(OneFlagged){continue;}
 	  
+	  AddTimeit(TimeStuff);
 	  //###################### Facetting #######################
 	  // Change coordinate and shift visibility to facet center
 	  double ThisWaveLength=C/Pfreqs[visChan];
@@ -373,6 +389,7 @@ void gridderWPol(PyArrayObject *grid,
 	  double V=uvwPtr[1];
 	  double W=uvwPtr[2];
 	  float complex corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
+	  AddTimeit(TimeShift);
 	  //#######################################################
 
 	  float complex* __restrict__ visPtr_Uncorr  = p_complex64(vis)  + doff;
@@ -389,6 +406,7 @@ void gridderWPol(PyArrayObject *grid,
 	    }
 	  };
 
+	  AddTimeit(TimeApplyJones);
 
 	  U+=W*Cu;
 	  V+=W*Cv;
@@ -415,7 +433,7 @@ void gridderWPol(PyArrayObject *grid,
       /* 	printf("   vis: %i (%f, %f)\n",ThisPol,creal(Vis[ThisPol]),cimag(Vis[ThisPol])); */
       /* } */
       
-
+      initTime();
       // ################################################
       // ############## Start Gridding visibility #######
       int gridChan = 0;//chanMap_p[visChan];
@@ -514,9 +532,17 @@ void gridderWPol(PyArrayObject *grid,
       	  } // end for ipol
       	} // end if ongrid
       } // end if gridChan
+      AddTimeit(TimeGrid);
  
     } //end for Block
-
+    
+    printf("Times:\n");
+    printf("TimeShift:      %f\n",*TimeShift);
+    printf("TimeApplyJones: %f\n",*TimeApplyJones);
+    printf("TimeJones:      %f\n",*TimeJones);
+    printf("TimeGrid:       %f\n",*TimeGrid);
+    printf("TimeGetJones:   %f\n",*TimeGetJones);
+    printf("TimeStuff:      %f\n",*TimeStuff);
   } // end 
 
 
