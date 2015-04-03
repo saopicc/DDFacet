@@ -352,6 +352,9 @@ void gridderWPol(PyArrayObject *grid,
     long int TimeStuff[1]={0};
     struct timespec PreviousTime;
 
+    float complex *Vis=calloc(1,(nPolVis)*sizeof(float complex));
+    float complex *VisMeas=calloc(1,(nPolVis)*sizeof(float complex));
+
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
       int NRowThisBlock=NRowBlocks[iBlock]-2;
@@ -360,8 +363,6 @@ void gridderWPol(PyArrayObject *grid,
       int chEnd=MappingBlock[indexMap+1];
       int *Row=MappingBlock+StartRow[iBlock]+2;
 
-      float complex *Vis=calloc(1,(nPolVis)*sizeof(float complex));
-      float complex *VisMeas=calloc(1,(nPolVis)*sizeof(float complex));
       float Umean=0;
       float Vmean=0;
       float Wmean=0;
