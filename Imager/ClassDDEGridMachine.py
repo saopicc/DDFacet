@@ -122,12 +122,12 @@ def testGrid():
     T=ClassTimeIt.ClassTimeIt("main")
     Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True)#, DicoJonesMatrices=DicoJonesMatrices)
 
-    pylab.clf()
-    pylab.imshow(np.real(Grid[0,0]))
-    #pylab.imshow(np.random.rand(50,50))
-    pylab.colorbar()
-    pylab.draw()
-    pylab.show(False)
+    # pylab.clf()
+    # pylab.imshow(np.real(Grid[0,0]))
+    # #pylab.imshow(np.random.rand(50,50))
+    # pylab.colorbar()
+    # pylab.draw()
+    # pylab.show(False)
     return
 
     Grid=np.zeros(sh,np.complex64)

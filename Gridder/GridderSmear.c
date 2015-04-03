@@ -363,6 +363,18 @@ void gridderWPol(PyArrayObject *grid,
     float complex *VisMeas=calloc(1,(nPolVis)*sizeof(float complex));
     int ThisPol;
 
+    int NMaxRow=0;
+    for(iBlock=0; iBlock<NTotBlocks; iBlock++){
+      int NRowThisBlock=NRowBlocks[iBlock]-2;
+      if(NRowThisBlock>NMaxRow){
+	NMaxRow=NRowThisBlock;
+      }
+    }
+    
+    float complex *CurrentCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
+    float complex *dCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
+
+
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
       int NRowThisBlock=NRowBlocks[iBlock]-2;
@@ -409,22 +421,32 @@ void gridderWPol(PyArrayObject *grid,
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
 	  int doff = (irow * nVisChan + visChan) * nVisPol;
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
+	  
+	  //###################### Facetting #######################
+	  // Change coordinate and shift visibility to facet center
+	  float U=(float)uvwPtr[0];
+	  float V=(float)uvwPtr[1];
+	  float W=(float)uvwPtr[2];
+	  //AddTimeit(PreviousTime,TimeShift);
+	  //#######################################################
+	  if(visChan==0){
+	    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+	    CurrentCorrTerm[inx]=cexp(-UVNorm*(U*l0+V*m0+W*n0));
+	    float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
+	    dCorrTerm[inx]=cexp(-dUVNorm*(U*l0+V*m0+W*n0));
+	  }else{
+	    CurrentCorrTerm[inx]*=dCorrTerm[inx];
+	  }
+	  float complex corr=CurrentCorrTerm[inx];
+
+
+
 	  int OneFlagged=0;
 	  int cond;
 	  // We can do that since all flags in 4-pols are equalised in ClassVisServer
 	  if(flagPtr[0]==1){continue;}
 	  
 	  //AddTimeit(PreviousTime,TimeStuff);
-	  //###################### Facetting #######################
-	  // Change coordinate and shift visibility to facet center
-	  float ThisWaveLength=C/Pfreqs[visChan];
-	  float complex UVNorm=2.*I*PI/ThisWaveLength;
-	  float U=(float)uvwPtr[0];
-	  float V=(float)uvwPtr[1];
-	  float W=(float)uvwPtr[2];
-	  float complex corr=1.;//cexp(-UVNorm*(U*l0+V*m0+W*n0));
-	  //AddTimeit(PreviousTime,TimeShift);
-	  //#######################################################
 
 	  float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;
 	  float Weight=*imgWtPtr;
