@@ -65,12 +65,12 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
   PyObject *ObjGridIn;
   PyArrayObject *np_grid, *vis, *uvw, *cfs, *flags, *weights, *sumwt, *increment, *freqs,*WInfos,*SmearMapping;
 
-  PyObject *Lcfs;
+  PyObject *Lcfs,*LOptimisation;
   PyObject *LJones,*Lmaps;
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "OO!O!O!O!O!iO!O!O!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "OO!O!O!O!O!iO!O!O!O!O!O!O!O!O!", 
 			&ObjGridIn,
 			&PyArray_Type,  &vis, 
 			&PyArray_Type,  &uvw, 
@@ -85,12 +85,13 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 			&PyArray_Type,  &freqs,
 			&PyList_Type, &Lmaps,
 			&PyList_Type, &LJones,
-			&PyArray_Type,  &SmearMapping
+			&PyArray_Type,  &SmearMapping,
+			&PyList_Type, &LOptimisation
 			))  return NULL;
   int nx,ny,nz,nzz;
   np_grid = (PyArrayObject *) PyArray_ContiguousFromObject(ObjGridIn, PyArray_COMPLEX64, 0, 4);
 
-  gridderWPol(np_grid, vis, uvw, flags, weights, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping);
+  gridderWPol(np_grid, vis, uvw, flags, weights, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping,LOptimisation);
   
   return PyArray_Return(np_grid);
 
@@ -105,55 +106,25 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 //////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////
 
-void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs, int i_t, int i_ant0, int i_dir, int Mode, float complex *Jout){
-  int nd_Jones,na_Jones,nch_Jones;
-  nd_Jones=JonesDims[1];
-  na_Jones=JonesDims[2];
-  nch_Jones=JonesDims[3];
-  
-  int ipol,idir;
-  if(Mode==0){
-    int offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
-      +i_dir*na_Jones*nch_Jones*4
-      +i_ant0*nch_Jones*4;
-    for(ipol=0; ipol<4; ipol++){
-      Jout[ipol]=*(ptrJonesMatrices+offJ0+ipol);
-    }
-  }
-
-  if(Mode==1){
-    for(idir=0; idir<nd_Jones; idir++){
-      int offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
-	+idir*na_Jones*nch_Jones*4
-	+i_ant0*nch_Jones*4;
-      for(ipol=0; ipol<4; ipol++){
-	Jout[ipol]+=ptrCoefs[idir]*(*(ptrJonesMatrices+offJ0+ipol));
-	
-	//printf("%i, %f, %f, %f\n",ipol,ptrCoefs[idir],creal(Jout[ipol]),cimag(Jout[ipol]));
-      }
-      
-    }
-  }
-}
-
 
 
 
 void gridderWPol(PyArrayObject *grid,
-	      PyArrayObject *vis,
-	      PyArrayObject *uvw,
-	      PyArrayObject *flags,
-	      PyArrayObject *weights,
-	      PyArrayObject *sumwt,
-	      int dopsf,
-	      PyObject *Lcfs,
-	      PyObject *LcfsConj,
-	      PyArrayObject *Winfos,
-	      PyArrayObject *increment,
+		 PyArrayObject *vis,
+		 PyArrayObject *uvw,
+		 PyArrayObject *flags,
+		 PyArrayObject *weights,
+		 PyArrayObject *sumwt,
+		 int dopsf,
+		 PyObject *Lcfs,
+		 PyObject *LcfsConj,
+		 PyArrayObject *Winfos,
+		 PyArrayObject *increment,
 		 PyArrayObject *freqs,
 		 PyObject *Lmaps, 
 		 PyObject *LJones,
-	      PyArrayObject *SmearMapping
+		 PyArrayObject *SmearMapping,
+		 PyObject *LOptimisation
 		 )
   {
     // Get size of convolution functions.
@@ -302,7 +273,10 @@ void gridderWPol(PyArrayObject *grid,
     int inx;
     // Loop over all visibility rows to process.
 
-    FullScalarMode=1;
+    PyObject *_FullScalarMode  = PyList_GetItem(LOptimisation, 0);
+    FullScalarMode=(int) PyFloat_AsDouble(_FullScalarMode);
+    PyObject *_ChanEquidistant  = PyList_GetItem(LOptimisation, 1);
+    int ChanEquidistant=(int) PyFloat_AsDouble(_ChanEquidistant);
     ScalarJones=0;
     ScalarVis=0;
     int nPolJones=4;
@@ -429,16 +403,23 @@ void gridderWPol(PyArrayObject *grid,
 	  float W=(float)uvwPtr[2];
 	  //AddTimeit(PreviousTime,TimeShift);
 	  //#######################################################
-	  if(visChan==0){
-	    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-	    CurrentCorrTerm[inx]=cexp(-UVNorm*(U*l0+V*m0+W*n0));
-	    float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
-	    dCorrTerm[inx]=cexp(-dUVNorm*(U*l0+V*m0+W*n0));
-	  }else{
-	    CurrentCorrTerm[inx]*=dCorrTerm[inx];
-	  }
-	  float complex corr=CurrentCorrTerm[inx];
 
+	  float complex corr;
+	  if(ChanEquidistant){
+	    if(visChan==0){
+	      float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+	      CurrentCorrTerm[inx]=cexp(-UVNorm*(U*l0+V*m0+W*n0));
+	      float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
+	      dCorrTerm[inx]=cexp(-dUVNorm*(U*l0+V*m0+W*n0));
+	    }else{
+	      CurrentCorrTerm[inx]*=dCorrTerm[inx];
+	    }
+	    corr=CurrentCorrTerm[inx];
+	  }
+	  else{
+	    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+	    corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
+	  }
 
 
 	  int OneFlagged=0;
@@ -452,6 +433,7 @@ void gridderWPol(PyArrayObject *grid,
 	  float Weight=*imgWtPtr;
 	  if(FullScalarMode){
 	    VisMeas[0]=(visPtrMeas[0]+visPtrMeas[3])/2.;
+	    
 	  }else{
 	    for(ThisPol =0; ThisPol<4;ThisPol++){
 	      VisMeas[ThisPol]=visPtrMeas[ThisPol];
@@ -459,26 +441,17 @@ void gridderWPol(PyArrayObject *grid,
 	  }
 
 	  float complex visPtr[nPolVis];
-	  if(FullScalarMode){
-	    if(DoApplyJones){
-	      Vis[0]+=VisMeas[0]*(corr*Weight)*J0inv[0]*J1Hinv[0];
-	    }else{
-	      Vis[0]+=VisMeas[0]*(corr*Weight);
-	    };
-	  }
-	  else{
-	    if(DoApplyJones){
-	      MatDot(J0inv,VisMeas,visPtr);
-	      MatDot(visPtr,J1Hinv,visPtr);
-	      for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
-		Vis[ThisPol]+=visPtr[ThisPol]*(corr*Weight);
-	      }
-	    }else{
-	      for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
-		Vis[ThisPol]+=VisMeas[ThisPol]*(corr*Weight);
-	      }
-	    };
-	  }
+	  if(DoApplyJones){
+	    MatDot(J0inv,VisMeas,visPtr);
+	    MatDot(visPtr,J1Hinv,visPtr);
+	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
+	      Vis[ThisPol]+=visPtr[ThisPol]*(corr*Weight);
+	    }
+	  }else{
+	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
+	      Vis[ThisPol]+=VisMeas[ThisPol]*(corr*Weight);
+	    }
+	  };
 
 	  //AddTimeit(PreviousTime,TimeApplyJones);
 

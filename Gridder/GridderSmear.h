@@ -93,25 +93,26 @@ void gridderWPol(PyArrayObject *np_grid,
 	      PyArrayObject *freqs,
 	      PyObject *Lmaps, 
 	      PyObject *LJones,
-	      PyArrayObject *SmearMapping);
+	      PyArrayObject *SmearMapping,
+		   PyObject *LOptimisation);
 
 static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args);
 
 void DeGridderWPol(PyArrayObject *np_grid,
-	      PyArrayObject *vis,
-	      PyArrayObject *uvw,
-	      PyArrayObject *flags,
+		   PyArrayObject *vis,
+		   PyArrayObject *uvw,
+		   PyArrayObject *flags,
 		   //PyArrayObject *rows,
-	      PyArrayObject *sumwt,
-	      int dopsf,
-	      PyObject *Lcfs,
-	      PyObject *LcfsConj,
-	      PyArrayObject *Winfos,
-	      PyArrayObject *increment,
-	      PyArrayObject *freqs,
-	      PyObject *Lmaps, 
-	      PyObject *LJones,
-	      PyArrayObject *SmearMapping);
+		   PyArrayObject *sumwt,
+		   int dopsf,
+		   PyObject *Lcfs,
+		   PyObject *LcfsConj,
+		   PyArrayObject *Winfos,
+		   PyArrayObject *increment,
+		   PyArrayObject *freqs,
+		   PyObject *Lmaps, 
+		   PyObject *LJones,
+		   PyArrayObject *SmearMapping);
 
 int FullScalarMode;
 int ScalarJones;
@@ -281,8 +282,10 @@ double PI=3.14159265359;
 
 void NormJones(float complex* J0, int ApplyAmp, int ApplyPhase, int DoScaleJones, double *uvwPtr, float WaveLengthMean, float CalibError){
   int ThisPol;
+  int nPol=4;
+  if(FullScalarMode){nPol=1;}
   if(ApplyAmp==0){
-    for(ThisPol =0; ThisPol<4;ThisPol++){
+    for(ThisPol =0; ThisPol<nPol;ThisPol++){
       if(cabs(J0[ThisPol])!=0.){
 	J0[ThisPol]/=cabs(J0[ThisPol]);
       }
@@ -290,7 +293,7 @@ void NormJones(float complex* J0, int ApplyAmp, int ApplyPhase, int DoScaleJones
   }
 	
   if(ApplyPhase==0){
-    for(ThisPol =0; ThisPol<4;ThisPol++){
+    for(ThisPol =0; ThisPol<nPol;ThisPol++){
       J0[ThisPol]=cabs(J0[ThisPol]);
     }
   }
@@ -304,3 +307,38 @@ void NormJones(float complex* J0, int ApplyAmp, int ApplyPhase, int DoScaleJones
     ScaleJones(J0,AlphaScaleJones);
   }
 }
+
+
+void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs, int i_t, int i_ant0, int i_dir, int Mode, float complex *Jout){
+  int nd_Jones,na_Jones,nch_Jones;
+  nd_Jones=JonesDims[1];
+  na_Jones=JonesDims[2];
+  nch_Jones=JonesDims[3];
+  
+  int nPol=4;
+  if(FullScalarMode){nPol=1;}
+  int ipol,idir;
+  if(Mode==0){
+    int offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
+      +i_dir*na_Jones*nch_Jones*4
+      +i_ant0*nch_Jones*4;
+    for(ipol=0; ipol<nPol; ipol++){
+      Jout[ipol]=*(ptrJonesMatrices+offJ0+ipol);
+    }
+  }
+
+  if(Mode==1){
+    for(idir=0; idir<nd_Jones; idir++){
+      int offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
+	+idir*na_Jones*nch_Jones*4
+	+i_ant0*nch_Jones*4;
+      for(ipol=0; ipol<nPol; ipol++){
+	Jout[ipol]+=ptrCoefs[idir]*(*(ptrJonesMatrices+offJ0+ipol));
+	
+	//printf("%i, %f, %f, %f\n",ipol,ptrCoefs[idir],creal(Jout[ipol]),cimag(Jout[ipol]));
+      }
+      
+    }
+  }
+}
+

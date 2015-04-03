@@ -261,6 +261,12 @@ class ClassDDEGridMachine():
         #CF.fill(1.)
         ChanFreq=ChanFreq.flatten()
         self.ChanFreq=ChanFreq
+        df=self.ChanFreq[1::]-self.ChanFreq[0:-1]
+        ddf=np.abs(df-np.mean(df))
+        self.ChanEquidistant=int(np.max(ddf)<1.)
+        self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
+
+
         self.ChanWave=2.99792458e8/self.ChanFreq
         self.UVNorm=2.*1j*np.pi/self.ChanWave
         self.UVNorm.reshape(1,self.UVNorm.size)
@@ -529,7 +535,10 @@ class ClassDDEGridMachine():
                                                np.float64(self.ChanFreq),
                                                [self.PolMap,FacetInfos],
                                                ParamJonesList,
-                                               MapSmear)
+                                               MapSmear,
+                                               [self.FullScalarMode,self.ChanEquidistant])
+        
+        
         
         #return Grid
         T2.timeit("gridder")
