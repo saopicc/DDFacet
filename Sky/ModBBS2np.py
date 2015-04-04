@@ -4,7 +4,7 @@ import numpy as np
 def ReadBBSModel(infile,infile_cluster=""):
     ifile  = open(infile, "rb")
     reader = csv.reader(ifile)
-    F=reader.next()
+    F = reader.next()
     F[0]=F[0].lower().replace(" ","").split("(")[-1]
     F[-1]=F[-1].lower().replace(" ","").split(")")[0]
     dtype_str=[]

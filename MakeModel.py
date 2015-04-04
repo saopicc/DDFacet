@@ -42,8 +42,13 @@ def main(options=None):
 
     SM=ClassSM.ClassSM(options.SkyModel,ReName=True,
                        DoREG=True,SaveNp=True,
-                       NCluster=NCluster,DoPlot=DoPlot,
                        SelSource=DoSelect,ClusterMethod=CMethod)
+
+
+    SM.Cluster(NCluster=NCluster,DoPlot=DoPlot)
+    SM.MakeREG()
+    #SM.Finalise()
+    SM.Save()
 
     if options.DoPrint=="1":
         SM.print_sm2()

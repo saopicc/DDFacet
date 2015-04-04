@@ -8,6 +8,7 @@ from Array import RecArrayOps
 from ClassClusterClean import ClassClusterClean
 from ClassClusterTessel import ClassClusterTessel
 from ClassClusterRadial import ClassClusterRadial
+from ClassClusterKMean import ClassClusterKMean
 #import ModClusterRadial
 from pyrap.images import image
 import scipy.linalg
@@ -31,16 +32,36 @@ class ClassSM():
         else:
             Cat=ReadBBSModel(infile,infile_cluster=infile_cluster)
         self.SourceCat=Cat
-
+        self.killdirs=killdirs
+        self.invert=invert
+        self.infile=infile
+        self.REGFile=None
+        self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
         self.NDir=np.max(self.SourceCat.Cluster)+1
         self.NSources=Cat.shape[0]
-        if DoPrintCat:
-            self.print_sm(Cat)
+        self.BuildClusterCat()
+        self.NDir=np.max(self.SourceCat.Cluster)+1
+        self.NSources=Cat.shape[0]
+        self.SetSelection()
+        self.PrintBasics()
+        #self.print_sm2()
+
+    def SetSelection(self):
+        Cat=self.SourceCat
+        killdirs=self.killdirs
+        invert=self.invert
+        self.SourceCatKeepForSelector=self.SourceCat.copy()
+
+        # if DoPrintCat:
+        #     self.print_sm(Cat)
+
+        self.SourceCat.kill=1
 
         if killdirs!=[]:
             self.SourceCat.kill=0
             for i in range(len(self.SourceCat)):
                 for StrPiece in killdirs:
+                    if StrPiece=="": continue
                     if StrPiece in self.SourceCat.Name[i]: self.SourceCat.kill[i]=1
         if invert:
             ind0=np.where(self.SourceCat.kill==0)[0]
@@ -48,32 +69,48 @@ class ClassSM():
             self.SourceCat.kill[ind0]=1
             self.SourceCat.kill[ind1]=0
 
-        # for i in range(self.SourceCat.shape[0]):
-        #     print "%s: %i"%(self.SourceCat.Name[i],self.SourceCat.kill[i])
+    def Save(self):
+        infile=self.infile
+        print ModColor.Str(" SkyModel PROPERTIES: ")
+        print "   - SkyModel File Name: %s"%ModColor.Str(infile,col="green")
+        if self.REGFile!=None: print "   - ds9 region file: %s"%ModColor.Str(self.REGFile,col="green")
+        npext=""
+        if not(".npy" in infile): npext=".npy"
+        self.NpFile="%s%s"%(infile,npext)
+        np.save(infile,self.SourceCat)
+        self.PrintBasics()
 
-        if NCluster!=0:
-            self.cluster(NCluster,DoPlot)
-            #print self.SourceCat.Cluster
-            ClusterList=sorted(list(set(self.SourceCat.Cluster.tolist())))
-            self.NDir=len(ClusterList)
-            for iCluster,iNewCluster in zip(ClusterList,range(self.NDir)):
-                ind=np.where(self.SourceCat.Cluster==iCluster)[0]
-                self.SourceCat.Cluster[ind]=iNewCluster
-            #print self.SourceCat.Cluster
-            #print
+    def PrintBasics(self):
+        infile=self.infile
+        npext=""
+        if not(".npy" in infile): npext=".npy"
+        print "   - Numpy catalog file: %s"%ModColor.Str("%s%s"%(infile,npext),col="green")
 
-        self.REGName=False
-        if ReName:
-            for diri in range(self.NDir):
-                ind=np.where(self.SourceCat.Cluster==diri)[0]
-                #CatSel=self.SourceCat[self.SourceCat.Cluster==diri]
-                Names=["c%is%i."%(diri,i) for i in range(ind.shape[0])]
-                self.SourceCat.Name[ind]=Names
-            self.REGName=True
+        #print "Oufile: %s"%self.infile_cluster
+        #if infile_cluster!="":
+        #print "   - Cluster File Name: %s"%self.infile_cluster
+        print "   - Number of Sources  = ",self.SourceCat.shape[0]
+        print "   - Number of Directions  = ",self.NDir
+        print
+
+    def Cluster(self,NCluster=1,DoPlot=True):
+        self.cluster(NCluster,DoPlot)
+        ClusterList=sorted(list(set(self.SourceCat.Cluster.tolist())))
+        self.NDir=len(ClusterList)
+        for iCluster,iNewCluster in zip(ClusterList,range(self.NDir)):
+            ind=np.where(self.SourceCat.Cluster==iCluster)[0]
+            self.SourceCat.Cluster[ind]=iNewCluster
+            self.REGName=False
+
+        for diri in range(self.NDir):
+            ind=np.where(self.SourceCat.Cluster==diri)[0]
+            #CatSel=self.SourceCat[self.SourceCat.Cluster==diri]
+            Names=["c%is%i."%(diri,i) for i in range(ind.shape[0])]
+            self.SourceCat.Name[ind]=Names
+        self.REGName=True
 
         self.REGFile=None
-        if DoREG:
-            self.MakeREG()
+        self.MakeREG()
 
         self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
         self.WeightDirKeep=np.zeros((self.NDir,),float)
@@ -84,32 +121,9 @@ class ClassSM():
 
         self.ExistToSub=False
         self.ExistToSub=(np.count_nonzero(self.SourceCat.kill==-1)>0)
-
-        self.SourceCatKeepForSelector=self.SourceCat.copy()
-
         self.BuildClusterCat()
 
-        if SelSource:
-            self.SelectSourceMouse()
-        #print self.SourceCat.Select
 
-        print ModColor.Str(" SkyModel PROPERTIES: ")
-        print "   - SkyModel File Name: %s"%ModColor.Str(infile,col="green")
-        if self.REGFile!=None: print "   - ds9 region file: %s"%ModColor.Str(self.REGFile,col="green")
-        npext=""
-        if not(".npy" in infile): npext=".npy"
-        self.NpFile="%s%s"%(infile,npext)
-        if SaveNp:
-            
-            np.save(infile,self.SourceCat)
-            print "   - Numpy catalog file: %s"%ModColor.Str("%s%s"%(infile,npext),col="green")
-
-        #print "Oufile: %s"%self.infile_cluster
-        #if infile_cluster!="":
-        #print "   - Cluster File Name: %s"%self.infile_cluster
-        print "   - Number of Sources  = ",Cat.shape[0]
-        print "   - Number of Directions  = ",self.NDir
-        print
     
     def AppendRefSource(self,(rac,decc)):
         S0=1e-10
@@ -218,7 +232,7 @@ class ClassSM():
     def MakeREG(self):
         self.REGFile="%s.reg"%self.TargetList
         f=open(self.REGFile,"w")
-
+        self.REGName=True
         f.write("# Region file format: DS9 version 4.1\n")
         f.write('global color=green dashlist=8 3 width=1 font="helvetica 7 normal" select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1\n')
         for i in range(self.SourceCat.shape[0]):
@@ -293,6 +307,8 @@ class ClassSM():
             CM=ClassClusterTessel(x,y,s,nk,DoPlot=DoPlot)
         elif self.ClusterMethod==3:
             CM=ClassClusterRadial(x,y,s,nk,DoPlot=DoPlot)
+        elif self.ClusterMethod==4:
+            CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot)
 
         DictNode=CM.Cluster()
 
@@ -315,7 +331,7 @@ class ClassSM():
         CatIn=self.SourceCat
         ind=np.argsort(CatIn.Cluster)
         Cat=CatIn[ind]
-        TEMPLATE = ('  %(Cluster)5s %(name)10s %(RA)15s %(DEC)15s %(Flux)10s %(alpha)10s %(RefFreq)10s')# %(Kill)6s ')
+        TEMPLATE = ('  %(Cluster)5s %(name)10s %(RA)15s %(DEC)15s %(Flux)10s %(alpha)10s %(RefFreq)10s %(Kill)6s ')
         print
         
         print " TARGET LIST: "

@@ -185,6 +185,7 @@ class MyCasapy2BBS():
         self.Mask=(self.ImRestored>(self.Th*self.Noise))
         self.DoMask=True
 
+
     def MakeMask2(self):
         self.DoMask=True
 
@@ -216,6 +217,8 @@ class MyCasapy2BBS():
     def ToSM(self):
         Osm=reformat.reformat(self.Fits,LastSlash=False)
         SM=ClassSM.ClassSM(Osm,ReName=True,DoREG=True,SaveNp=True,FromExt=self.Cat)
+        SM.MakeREG()
+        SM.Finalise()
         #SM.print_sm2()
 
     def GetPixCat(self):

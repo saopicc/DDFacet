@@ -10,7 +10,7 @@ class ClassClusterClean():
         self.NCluster=NCluster
         self.DoPlot=DoPlot
         #self.PlotTessel()
-        
+
 
 
 
@@ -186,3 +186,5 @@ class ClassClusterClean():
         pylab.ylabel("m [radian]")
         pylab.xlim(x0,x1)
         pylab.ylim(y0,y1)
+        pylab.draw()
+        pylab.show()
