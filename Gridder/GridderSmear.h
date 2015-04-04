@@ -112,7 +112,8 @@ void DeGridderWPol(PyArrayObject *np_grid,
 		   PyArrayObject *freqs,
 		   PyObject *Lmaps, 
 		   PyObject *LJones,
-		   PyArrayObject *SmearMapping);
+		   PyArrayObject *SmearMapping,
+		   PyObject *LOptimisation);
 
 int FullScalarMode;
 int ScalarJones;

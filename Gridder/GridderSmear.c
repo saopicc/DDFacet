@@ -273,6 +273,9 @@ void gridderWPol(PyArrayObject *grid,
     int inx;
     // Loop over all visibility rows to process.
 
+
+    // ################### Prepare full scalar mode
+
     PyObject *_FullScalarMode  = PyList_GetItem(LOptimisation, 0);
     FullScalarMode=(int) PyFloat_AsDouble(_FullScalarMode);
     PyObject *_ChanEquidistant  = PyList_GetItem(LOptimisation, 1);
@@ -310,6 +313,24 @@ void gridderWPol(PyArrayObject *grid,
     float complex *J1Hinv=calloc(1,(4)*sizeof(float complex));
     float complex *JJ=calloc(1,(4)*sizeof(float complex));
 
+    int *MappingBlock = p_int32(SmearMapping);
+    int NTotBlocks=MappingBlock[0];
+    int *NRowBlocks=MappingBlock+1;
+    int *StartRow=MappingBlock+1+NTotBlocks;
+    int iBlock;
+
+    int NMaxRow=0;
+    for(iBlock=0; iBlock<NTotBlocks; iBlock++){
+      int NRowThisBlock=NRowBlocks[iBlock]-2;
+      if(NRowThisBlock>NMaxRow){
+	NMaxRow=NRowThisBlock;
+      }
+    }
+    float complex *CurrentCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
+    float complex *dCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
+
+    // ########################################################
+
     double WaveLengthMean=0.;
     int visChan;
     for (visChan=0; visChan<nVisChan; ++visChan){
@@ -318,12 +339,7 @@ void gridderWPol(PyArrayObject *grid,
     WaveLengthMean/=nVisChan;
 
     //PyArrayObject *npMappingBlock=(PyArrayObject *) PyArray_ContiguousFromObject(SmearMapping, PyArray_INT32, 0, 4);
-    int *MappingBlock = p_int32(SmearMapping);
-    int NTotBlocks=MappingBlock[0];
-    int *NRowBlocks=MappingBlock+1;
-    int *StartRow=MappingBlock+1+NTotBlocks;
 
-    int iBlock;
 
     long int TimeShift[1]={0};
     long int TimeApplyJones[1]={0};
@@ -338,16 +354,6 @@ void gridderWPol(PyArrayObject *grid,
     float complex *VisMeas=calloc(1,(nPolVis)*sizeof(float complex));
     int ThisPol;
 
-    int NMaxRow=0;
-    for(iBlock=0; iBlock<NTotBlocks; iBlock++){
-      int NRowThisBlock=NRowBlocks[iBlock]-2;
-      if(NRowThisBlock>NMaxRow){
-	NMaxRow=NRowThisBlock;
-      }
-    }
-    
-    float complex *CurrentCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
-    float complex *dCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
 
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
@@ -619,12 +625,12 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
   PyObject *ObjVis;
   PyArrayObject *np_grid, *np_vis, *uvw, *cfs, *flags, *sumwt, *increment, *freqs,*WInfos,*SmearMapping;
 
-  PyObject *Lcfs;
+  PyObject *Lcfs, *LOptimisation;
   PyObject *Lmaps,*LJones;
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!", 
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid,
 			&ObjVis,//&PyArray_Type,  &vis, 
@@ -639,7 +645,8 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 			&PyArray_Type,  &increment,
 			&PyArray_Type,  &freqs,
 			&PyList_Type, &Lmaps, &PyList_Type, &LJones,
-			&PyArray_Type, &SmearMapping
+			&PyArray_Type, &SmearMapping,
+			&PyList_Type, &LOptimisation
 			))  return NULL;
   int nx,ny,nz,nzz;
 
@@ -647,7 +654,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 
   
 
-  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping);
+  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, LOptimisation);
   
   return PyArray_Return(np_vis);
 
@@ -671,7 +678,7 @@ void DeGridderWPol(PyArrayObject *grid,
 		   PyArrayObject *Winfos,
 		   PyArrayObject *increment,
 		   PyArrayObject *freqs,
-		   PyObject *Lmaps, PyObject *LJones, PyArrayObject *SmearMapping)
+		   PyObject *Lmaps, PyObject *LJones, PyArrayObject *SmearMapping, PyObject *LOptimisation)
   {
     // Get size of convolution functions.
     PyArrayObject *cfs;
@@ -822,9 +829,65 @@ void DeGridderWPol(PyArrayObject *grid,
     int inx;
 
 
+    // ################### Prepare full scalar mode
+
+    PyObject *_FullScalarMode  = PyList_GetItem(LOptimisation, 0);
+    FullScalarMode=(int) PyFloat_AsDouble(_FullScalarMode);
+    PyObject *_ChanEquidistant  = PyList_GetItem(LOptimisation, 1);
+    int ChanEquidistant=(int) PyFloat_AsDouble(_ChanEquidistant);
+    ScalarJones=0;
+    ScalarVis=0;
+    int nPolJones=4;
+    int nPolVis=4;
+    if(FullScalarMode){
+      //printf("full scalar mode\n");
+      //printf("ChanEquidistant: %i\n",ChanEquidistant);
+      ScalarJones=1;
+      ScalarVis=1;
+      nPolJones=1;
+      nPolVis=1;
+      int ipol;
+      for (ipol=1; ipol<nVisPol; ++ipol) {
+	PolMap[ipol]=5;
+      }
+    }
+
+
+
+    /* float complex *J0=calloc(1,(nPolJones)*sizeof(float complex)); */
+    /* float complex *J1=calloc(1,(nPolJones)*sizeof(float complex)); */
+    /* float complex *J0inv=calloc(1,(nPolJones)*sizeof(float complex)); */
+    /* float complex *J1H=calloc(1,(nPolJones)*sizeof(float complex)); */
+    /* float complex *J1Hinv=calloc(1,(nPolJones)*sizeof(float complex)); */
+    /* float complex *JJ=calloc(1,(nPolJones)*sizeof(float complex)); */
+
+    float complex *J0=calloc(1,(4)*sizeof(float complex));
+    float complex *J1=calloc(1,(4)*sizeof(float complex));
+    float complex *J0inv=calloc(1,(4)*sizeof(float complex));
+    float complex *J1H=calloc(1,(4)*sizeof(float complex));
+    float complex *J1Hinv=calloc(1,(4)*sizeof(float complex));
+    float complex *JJ=calloc(1,(4)*sizeof(float complex));
+
+    int *MappingBlock = p_int32(SmearMapping);
+    int NTotBlocks=MappingBlock[0];
+    int *NRowBlocks=MappingBlock+1;
+    int *StartRow=MappingBlock+1+NTotBlocks;
+    int iBlock;
+
+    int NMaxRow=0;
+    for(iBlock=0; iBlock<NTotBlocks; iBlock++){
+      int NRowThisBlock=NRowBlocks[iBlock]-2;
+      if(NRowThisBlock>NMaxRow){
+	NMaxRow=NRowThisBlock;
+      }
+    }
+    float complex *CurrentCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
+    float complex *dCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
+    // ########################################################
+
+
     double posx,posy;
 
-    float complex J0[4]={0},J1[4]={0},J0inv[4]={0},J1H[4]={0},J1Hinv[4]={0},JJ[4]={0};
     double WaveLengthMean=0.;
     int visChan;
     for (visChan=0; visChan<nVisChan; ++visChan){
@@ -833,12 +896,6 @@ void DeGridderWPol(PyArrayObject *grid,
     WaveLengthMean/=nVisChan;
 
 
-    int *MappingBlock = p_int32(SmearMapping);
-    int NTotBlocks=MappingBlock[0];
-    int *NRowBlocks=MappingBlock+1;
-    int *StartRow=MappingBlock+1+NTotBlocks;
-
-    int iBlock;
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
@@ -871,16 +928,12 @@ void DeGridderWPol(PyArrayObject *grid,
 	  int OneFlagged=0;
 	  int cond;
 	  //char ch="a";
-	  for(ThisPol =0; ThisPol<4;ThisPol++){
-	    //cond=(flagPtr[ThisPol]==1);
-	    //printf("  F[%i]: %i \n",ThisPol,cond);
-	    if(flagPtr[ThisPol]==1){OneFlagged=1;}
-	  }
+	  if(flagPtr[0]==1){OneFlagged=1;}
 	  if(OneFlagged){continue;}
 	  
-	  double U=uvwPtr[0];
-	  double V=uvwPtr[1];
-	  double W=uvwPtr[2];
+	  float U=(float)uvwPtr[0];
+	  float V=(float)uvwPtr[1];
+	  float W=(float)uvwPtr[2];
 
 	  U+=W*Cu;
 	  V+=W*Cv;
@@ -1063,43 +1116,65 @@ void DeGridderWPol(PyArrayObject *grid,
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
 	  int OneFlagged=0;
 	  int cond;
-	  //char ch="a";
-	  for(ThisPol =0; ThisPol<4;ThisPol++){
-	    //cond=(flagPtr[ThisPol]==1);
-	    //printf("  F[%i]: %i \n",ThisPol,cond);
-	    if(flagPtr[ThisPol]==1){OneFlagged=1;}
-	  }
+	  if(flagPtr[0]==1){OneFlagged=1;}
 	  if(OneFlagged){continue;}
 	  
 	  //###################### Facetting #######################
 	  // Change coordinate and shift visibility to facet center
-	  double ThisWaveLength=C/Pfreqs[visChan];
-	  double complex UVNorm=2.*I*PI/ThisWaveLength;
-	  double U=uvwPtr[0];
-	  double V=uvwPtr[1];
-	  double W=uvwPtr[2];
-	  float complex corr=cexp(UVNorm*(U*l0+V*m0+W*n0));
-	  /* double ThisWaveLength=C/FreqMean; */
-	  /* double complex UVNorm=2.*I*PI/ThisWaveLength; */
-	  /* double U=Umean; */
-	  /* double V=Vmean; */
-	  /* double W=Wmean; */
-	  /* float complex corr=cexp(UVNorm*(U*l0+V*m0+W*n0)); */
+	  float U=(float)uvwPtr[0];
+	  float V=(float)uvwPtr[1];
+	  float W=(float)uvwPtr[2];
+	  //AddTimeit(PreviousTime,TimeShift);
 	  //#######################################################
+
+	  float complex corr;
+	  if(ChanEquidistant){
+	    if(visChan==0){
+	      float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+	      CurrentCorrTerm[inx]=cexp(UVNorm*(U*l0+V*m0+W*n0));
+	      float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
+	      dCorrTerm[inx]=cexp(dUVNorm*(U*l0+V*m0+W*n0));
+	    }else{
+	      CurrentCorrTerm[inx]*=dCorrTerm[inx];
+	    }
+	    corr=CurrentCorrTerm[inx];
+	  }
+	  else{
+	    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+	    corr=cexp(UVNorm*(U*l0+V*m0+W*n0));
+	  }
+	  /* float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
+	  /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
+
+
+
 
 	  float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
 	  float complex visBuff[4]={0};
 	  if(DoApplyJones){
 	    MatDot(J0,ThisVis,visBuff);
 	    MatDot(visBuff,J1H,visBuff);
-	    for(ThisPol =0; ThisPol<4;ThisPol++){
-	      visPtr[ThisPol]-=visBuff[ThisPol]*(corr);
-	    }
 	  }else{
-	    for(ThisPol =0; ThisPol<4;ThisPol++){
-	      visPtr[ThisPol]-=ThisVis[ThisPol]*(corr);
+	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
+	      visBuff[ThisPol]=visPtr[ThisPol];
+	    }
+	  }
+
+	  for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
+	    visBuff[ThisPol]*=corr;
+	  }
+
+	  if(FullScalarMode){
+	    visPtr[0]-=visBuff[0];
+	    visPtr[3]-=visBuff[0];
+	  }
+	  else{
+	    for(ThisPol =0; ThisPol<nPolVis;ThisPol++){
+	      visPtr[ThisPol]-=visBuff[ThisPol];
 	    }
 	  };
+
+
 
 
 	  

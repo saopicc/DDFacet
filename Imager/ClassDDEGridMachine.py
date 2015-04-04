@@ -710,7 +710,8 @@ class ClassDDEGridMachine():
                                                   self.ChanFreq.astype(np.float64),
                                                   [self.PolMap,FacetInfos,RowInfos],
                                                   ParamJonesList,
-                                                  MapSmear)
+                                                  MapSmear,
+                                                  [self.FullScalarMode,self.ChanEquidistant])
             
 
         T.timeit("4 (degrid)")
