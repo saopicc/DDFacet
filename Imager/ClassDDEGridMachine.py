@@ -264,7 +264,7 @@ class ClassDDEGridMachine():
         df=self.ChanFreq[1::]-self.ChanFreq[0:-1]
         ddf=np.abs(df-np.mean(df))
         self.ChanEquidistant=int(np.max(ddf)<1.)
-        print self.ChanEquidistant
+        #print self.ChanEquidistant
         self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
 
 
