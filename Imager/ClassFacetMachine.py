@@ -758,7 +758,7 @@ class WorkerImager(multiprocessing.Process):
                 
 
                 print "sleeping"
-                time.sleep(5)
+                time.sleep(10)
 
                 # self.result_queue.put({"Success":True})
 
