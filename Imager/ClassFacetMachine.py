@@ -755,10 +755,10 @@ class WorkerImager(multiprocessing.Process):
                 #gc.collect()
 
                 self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":Sw})
+                
 
-
-                # print "sleeping"
-                # time.sleep(5)
+                print "sleeping"
+                time.sleep(5)
 
                 # self.result_queue.put({"Success":True})
 
