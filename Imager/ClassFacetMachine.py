@@ -564,23 +564,24 @@ class ClassFacetMachine():
                 time.sleep(1)
                 continue
 
-            if DicoResult["Success"]:
-                iResult+=1
-                NDone=iResult
-                intPercent=int(100*  NDone / float(NFacets))
-                pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
-            iFacet=DicoResult["iFacet"]
 
-            if iFacet==0:
-                ThisSumWeights=DicoResult["Weights"]
-                self.SumWeights+=ThisSumWeights
+            # if DicoResult["Success"]:
+            #     iResult+=1
+            #     NDone=iResult
+            #     intPercent=int(100*  NDone / float(NFacets))
+            #     pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
+            # iFacet=DicoResult["iFacet"]
 
-            DirtyName=DicoResult["DirtyName"]
-            ThisDirty=NpShared.GiveArray(DirtyName)
-            if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
-                self.DicoGridMachine[iFacet]["Dirty"]+=ThisDirty
-            else:
-                self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty
+            # if iFacet==0:
+            #     ThisSumWeights=DicoResult["Weights"]
+            #     self.SumWeights+=ThisSumWeights
+
+            # DirtyName=DicoResult["DirtyName"]
+            # ThisDirty=NpShared.GiveArray(DirtyName)
+            # if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
+            #     self.DicoGridMachine[iFacet]["Dirty"]+=ThisDirty
+            # else:
+            #     self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty
 
         for ii in range(NCPU):
             workerlist[ii].shutdown()
