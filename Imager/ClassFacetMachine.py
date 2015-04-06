@@ -733,7 +733,8 @@ class WorkerImager(multiprocessing.Process):
                 self.result_queue.put({"Success":True,"iFacet":iFacet})
                 
             elif self.Mode=="Grid":
-                
+                import gc
+                gc.enable()
                 GridMachine=self.GiveGM(iFacet)
                 DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMem)
                 uvwThis=DATA["uvw"]
@@ -752,11 +753,11 @@ class WorkerImager(multiprocessing.Process):
                 del(Dirty)
                 Sw=GridMachine.SumWeigths
                 del(GridMachine)
-                #gc.collect()
 
                 self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":Sw})
                 
 
+                gc.collect()
                 print "sleeping"
                 time.sleep(10)
 
