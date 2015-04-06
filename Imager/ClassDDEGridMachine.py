@@ -522,7 +522,7 @@ class ClassDDEGridMachine():
                                               ParamJonesList) # Input the jones matrices
         else:
             MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMem))
-            _=_pyGridderSmear.pyGridderWPol(Grid,
+            _pyGridderSmear.pyGridderWPol(Grid,
                                                vis,
                                                uvw,
                                                flag,
@@ -549,6 +549,7 @@ class ClassDDEGridMachine():
         T.timeit("4 (grid)")
 
         ImPadded= self.GridToIm(Grid)
+        del(Grid)
         T.timeit("5 (grid)")
         #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
         Dirty =ImPadded
@@ -564,7 +565,10 @@ class ClassDDEGridMachine():
         # pylab.draw()
         # pylab.show(False)
         # stop
-        
+
+        import gc
+        gc.enable()
+        gc.collect()
 
         return Dirty
 
