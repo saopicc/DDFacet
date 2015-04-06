@@ -94,7 +94,9 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 
   gridderWPol(np_grid, vis, uvw, flags, weights, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping,LOptimisation);
   
-  return PyArray_Return(np_grid);
+  Py_INCREF(Py_None);
+  return Py_None;
+  //return PyArray_Return(np_grid);
 
 }
 
@@ -242,6 +244,8 @@ void gridderWPol(PyArrayObject *grid,
     int nGridY    = grid->dimensions[2];
     int nGridPol  = grid->dimensions[1];
     int nGridChan = grid->dimensions[0];
+    //printf("%i,%i,%i,%i\n",nGridX,nGridY,nGridPol,nGridChan);
+
 
     // Get visibility data size.
     int nVisPol   = flags->dimensions[2];

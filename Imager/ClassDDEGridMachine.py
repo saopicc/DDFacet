@@ -122,12 +122,12 @@ def testGrid():
     T=ClassTimeIt.ClassTimeIt("main")
     Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True)#, DicoJonesMatrices=DicoJonesMatrices)
 
-    # pylab.clf()
-    # pylab.imshow(np.real(Grid[0,0]))
-    # #pylab.imshow(np.random.rand(50,50))
-    # pylab.colorbar()
-    # pylab.draw()
-    # pylab.show(False)
+    pylab.clf()
+    pylab.imshow(np.real(Grid[0,0]))
+    #pylab.imshow(np.random.rand(50,50))
+    pylab.colorbar()
+    pylab.draw()
+    pylab.show(False)
     return
 
     Grid=np.zeros(sh,np.complex64)
@@ -506,7 +506,7 @@ class ClassDDEGridMachine():
         T2=ClassTimeIt.ClassTimeIt("Gridder")
         T2.disable()
         if self.GD["Compression"]["CompGridMode"]==0:
-                Grid=_pyGridder.pyGridderWPol(Grid,
+            Grid=_pyGridder.pyGridderWPol(Grid,
                                               vis,
                                               uvw,
                                               flag,
@@ -522,7 +522,7 @@ class ClassDDEGridMachine():
                                               ParamJonesList) # Input the jones matrices
         else:
             MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMem))
-            Grid=_pyGridderSmear.pyGridderWPol(Grid,
+            _=_pyGridderSmear.pyGridderWPol(Grid,
                                                vis,
                                                uvw,
                                                flag,
