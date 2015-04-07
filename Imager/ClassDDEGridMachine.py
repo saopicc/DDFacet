@@ -548,13 +548,14 @@ class ClassDDEGridMachine():
         # del(Grid)
         T.timeit("4 (grid)")
 
-        ImPadded= self.GridToIm(Grid)
+        Dirty= self.GridToIm(Grid)
+        #Dirty=Grid
         del(Grid)
         T.timeit("5 (grid)")
         #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
-        Dirty =ImPadded
         if self.SpheNorm:
-            Dirty = self.cutImPadded(ImPadded)
+            Dirty = self.cutImPadded(Dirty)
+        
 
         #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
         T.timeit("6")
@@ -766,20 +767,19 @@ class ClassDDEGridMachine():
         T=ClassTimeIt.ClassTimeIt("GridToIm")
         T.disable()
 
-        GridCorr=Grid
-
         if self.DoNormWeights:
-            GridCorr=Grid/self.SumWeigths.reshape((self.NChan,npol,1,1))
+            Grid/=self.SumWeigths.reshape((self.NChan,npol,1,1))
 
-        GridCorr*=(self.WTerm.OverS)**2
+        Grid*=(self.WTerm.OverS)**2
         T.timeit("norm")
-        Dirty=self.FFTWMachine.ifft(GridCorr)
+        Dirty=np.real(self.FFTWMachine.ifft(Grid))
+        nchan,npol,_,_=Grid.shape
+        del(Grid)
         #Dirty=GridCorr
         T.timeit("fft")
-        nchan,npol,_,_=Grid.shape
         for ichan in range(nchan):
             for ipol in range(npol):
-                Dirty[ichan,ipol][:,:]=Dirty[ichan,ipol][:,:].real
+                #Dirty[ichan,ipol][:,:]=Dirty[ichan,ipol][:,:]#.real
                 if self.SpheNorm:
                     Dirty[ichan,ipol][:,:]/=self.ifzfCF
 
