@@ -3,19 +3,23 @@ import numpy as np
 def test():
     R=RegToNp()
     R.Read()
-
+    R.Cluster()
 
 class RegToNp():
-    def __init__(self,RegName="ds9.reg"):
+    def __init__(self,RegName="/data/tasse/BOOTES/FirstPealed.reg"):
         self.REGFile=RegName
         
     def Read(self):
         f=open(self.REGFile,"r")
 
-        Cat=np.zeros((1000,),dtype=[("ra",np.float32),("dec",np.float32),("Radius",np.float32),("Exclude",np.bool8)])
+        Cat=np.zeros((1000,),dtype=[("ra",np.float32),("dec",np.float32),("Radius",np.float32),("Exclude",np.bool8),
+                                    ("Cluster",np.int16),("ID",np.int16)])
         Cat=Cat.view(np.recarray)
+        Cat.Cluster=-1
+        Cat.ID=np.arange(Cat.shape[0])
 
         Ls=f.readlines()
+        f.close()
         iCat=0
         for L in Ls:
             if "circle" in L:
@@ -47,36 +51,46 @@ class RegToNp():
                 iCat+=1
 
         Cat=(Cat[Cat.ra!=0]).copy()
-        return Cat
+        self.CatSel=Cat[Cat.Exclude==0]
+        self.CatExclude=Cat[Cat.Exclude==1]
 
+    def Cluster(self,RadMaxMinutes=1.):
 
-        # while True:
-        #     print L
+        Cat=self.CatSel
+        N=Cat.shape[0]
+        
+        #print self.CatSel
 
-        # # f.write('global color=green dashlist=8 3 width=1 font="helvetica 7 normal" select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1\n')
-        # # for i in range(self.SourceCat.shape[0]):
-        # #     #ss="fk5;ellipse(213.202544,49.871826,0.003909,0.003445,181.376961) # text={P1C1}"
-        # #     ra=self.SourceCat.ra[i]*180./np.pi
-        # #     dec=self.SourceCat.dec[i]*180./np.pi
-        # #     Type=self.SourceCat.Type[i]
-        # #     Gmaj=self.SourceCat.Gmaj[i]*180./np.pi*(2.*np.sqrt(2.*np.log(2)))
-        # #     Gmin=self.SourceCat.Gmin[i]*180./np.pi*(2.*np.sqrt(2.*np.log(2)))
-        # #     if Gmin==0.: Gmin=1./3600
-        # #     PA=(self.SourceCat.Gangle[i]+np.pi/2.)*180./np.pi
-        # #     rad=20./2600
+        r0=(RadMaxMinutes/60.)*np.pi/180
+        iCluster=0
+        for i in range(N):
+            #print "Row %i: Cluster %i"%(i, iCluster)
 
-        # #     #ss="fk5;ellipse(%f,%f,%f,%f,%f) # text={%s}"%(ra,dec,Gmaj,Gmin,0,str(i))
-        # #     if self.REGName:
-        # #         if Type==1:
-        # #             ss="fk5;ellipse(%f,%f,%f,%f,%f) # text={%s} color=green width=2 "%(ra,dec,Gmaj,Gmin,PA,self.SourceCat.Name[i])
-        # #         else:
-        # #             ss="fk5;point(%f,%f) # text={%s} point=circle 5 color=red width=2"%(ra,dec,self.SourceCat.Name[i])
-        # #     else:
-        # #         if Type==1:
-        # #             ss="fk5;ellipse(%f,%f,%f,%f,%f) # color=green width=2 "%(ra,dec,Gmaj,Gmin,PA)
-        # #         else:
-        # #             ss="fk5;point(%f,%f) # point=circle 5 color=red width=2"%(ra,dec)
+            if (Cat.Cluster[i]==-1):
+                #print "    Put row %i"%(i)
+                Cat.Cluster[i] = iCluster
+                iCluster+=1
+                ThisICluster=Cat.Cluster[i]
+            
                 
+            for j in range(N):
+                d=np.sqrt((Cat.ra[i]-Cat.ra[j])**2+(Cat.dec[i]-Cat.dec[j])**2)
+                ri=Cat.Radius[i]
+                rj=Cat.Radius[j]
+                if (d<(ri+rj+r0))&(Cat.Cluster[j]==-1):
+                    #print "    Put row %i"%(j)
+                    Cat.Cluster[j]=Cat.Cluster[i]
+            
+            #print "incrementing iCluster: %i"%iCluster
 
-        #     f.write(ss+"\n")
-        f.close()
+
+        #print "cats:"
+        #print self.CatSel
+        #print self.CatExclude
+        #stop
+        # import pylab
+        # pylab.clf()
+        # pylab.scatter(Cat.ra,Cat.dec,c=Cat.Cluster)
+        # pylab.draw()
+        # pylab.show()
+        # print Cat.Cluster

@@ -13,7 +13,7 @@ from ClassClusterKMean import ClassClusterKMean
 from pyrap.images import image
 import scipy.linalg
 from ModBBS2np import ReadBBSModel
-
+import ModRegFile
 
 class ClassSM():
     def __init__(self,infile,infile_cluster="",killdirs=[],invert=False,DoPrintCat=False,\
@@ -93,14 +93,35 @@ class ClassSM():
         print "   - Number of Directions  = ",self.NDir
         print
 
-    def Cluster(self,NCluster=1,DoPlot=True):
-        self.cluster(NCluster,DoPlot)
+    def Cluster(self,NCluster=1,DoPlot=True,PreCluster=""):
+
+
+        if PreCluster!="":
+            R=ModRegFile.RegToNp(PreCluster)
+            R.Read()
+            R.Cluster()
+            PreClusterCat=R.CatSel
+            ExcludeCat=R.CatExclude
+        else:
+            PreClusterCat=None
+            ExcludeCat=None
+
+        if ExcludeCat!=None:
+            for j in range(ExcludeCat.shape[0]):
+                d=np.sqrt((self.SourceCat.ra-ExcludeCat.ra[j])**2+(self.SourceCat.dec-ExcludeCat.dec[j])**2)
+                self.SourceCat.Exclude[d<ExcludeCat.Radius[j]]=True
+
+        self.cluster(NCluster,DoPlot,PreClusterCat=PreClusterCat)#,ExcludeCat=ExcludeCat)
+
+        self.SourceCat=self.SourceCat[self.SourceCat.Exclude==False]
+
         ClusterList=sorted(list(set(self.SourceCat.Cluster.tolist())))
         self.NDir=len(ClusterList)
         for iCluster,iNewCluster in zip(ClusterList,range(self.NDir)):
             ind=np.where(self.SourceCat.Cluster==iCluster)[0]
             self.SourceCat.Cluster[ind]=iNewCluster
             self.REGName=False
+
 
         for diri in range(self.NDir):
             ind=np.where(self.SourceCat.Cluster==diri)[0]
@@ -124,7 +145,68 @@ class ClassSM():
         self.BuildClusterCat()
 
 
+
+    def cluster(self,nk=10,DoPlot=False,PreClusterCat=None):
+
+        import pylab
+        import time
+        # pylab.clf()
     
+        #s.fill(0.)
+        #s[0]=1
+
+
+        self.SourceCat.Cluster=-1
+        indSubSel=np.arange(self.SourceCat.shape[0])
+        NPreCluster=0
+        if PreClusterCat!=None:
+            N=PreClusterCat.shape[0]
+            Ns=self.SourceCat.ra.shape[0]
+            for iReg in range(N):
+                d=np.sqrt((self.SourceCat.ra-PreClusterCat.ra[iReg])**2+(self.SourceCat.dec-PreClusterCat.dec[iReg])**2)
+                self.SourceCat.Cluster[d<PreClusterCat.Radius[iReg]]=PreClusterCat.Cluster[iReg]
+                self.SourceCat.Exclude[d<PreClusterCat.Radius[iReg]]=False
+                
+            indPreCluster=np.where(self.SourceCat.Cluster!=-1)[0]
+            NPreCluster=np.max(PreClusterCat.Cluster)+1
+            SourceCatPreCluster=self.SourceCat[indPreCluster]
+            indSubSel=np.where(self.SourceCat.Cluster==-1)[0]
+        print "number of preselected clusters: %i"%NPreCluster
+
+        SourceCat=self.SourceCat[indSubSel]
+        self.rarad=np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
+        self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
+        x,y,s=SourceCat.ra,SourceCat.dec,SourceCat.I
+        x,y=self.radec2lm_scalar(x,y)
+        
+        SourceCat.Cluster=0
+        if self.ClusterMethod==1:
+            CM=ClassClusterClean(x,y,s,nk,DoPlot=DoPlot)
+        elif self.ClusterMethod==2:
+            CM=ClassClusterTessel(x,y,s,nk,DoPlot=DoPlot)
+        elif self.ClusterMethod==3:
+            CM=ClassClusterRadial(x,y,s,nk,DoPlot=DoPlot)
+        elif self.ClusterMethod==4:
+            CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot)
+
+        DictNode=CM.Cluster()
+        iK=NPreCluster
+        self.NDir=len(DictNode.keys())
+        #print self.SourceCat.Cluster.min(),self.SourceCat.Cluster.max()
+        for key in DictNode.keys():
+            ind=np.array(DictNode[key]["ListCluster"])
+            self.SourceCat["Cluster"][indSubSel[ind]]=iK
+            #print iK
+            iK+=1
+        # if PreClusterCat!=None:
+        #     SourceCat=np.concatenate((SourceCatPreCluster,SourceCat))
+        #     SourceCat=SourceCat.view(np.recarray)
+
+        #print self.SourceCat.Cluster.min(),self.SourceCat.Cluster.max()
+        #self.SourceCat=SourceCat
+
+
+
     def AppendRefSource(self,(rac,decc)):
         S0=1e-10
         CatCopy=self.SourceCat[0:1].copy()
@@ -282,46 +364,6 @@ class ClassSM():
 
 
         
-
-    def cluster(self,nk=10,DoPlot=False):
-
-        import pylab
-        import time
-        # pylab.clf()
-    
-        #s.fill(0.)
-        #s[0]=1
-
-
-
-
-        self.rarad=np.sum(self.SourceCat.I*self.SourceCat.ra)/np.sum(self.SourceCat.I)
-        self.decrad=np.sum(self.SourceCat.I*self.SourceCat.dec)/np.sum(self.SourceCat.I)
-        x,y,s=self.SourceCat.ra,self.SourceCat.dec,self.SourceCat.I
-        x,y=self.radec2lm_scalar(x,y)
-        
-        self.SourceCat.Cluster=0
-        if self.ClusterMethod==1:
-            CM=ClassClusterClean(x,y,s,nk,DoPlot=DoPlot)
-        elif self.ClusterMethod==2:
-            CM=ClassClusterTessel(x,y,s,nk,DoPlot=DoPlot)
-        elif self.ClusterMethod==3:
-            CM=ClassClusterRadial(x,y,s,nk,DoPlot=DoPlot)
-        elif self.ClusterMethod==4:
-            CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot)
-
-        DictNode=CM.Cluster()
-
-        iK=0
-        self.NDir=len(DictNode.keys())
-        for key in DictNode.keys():
-            ind=np.array(DictNode[key]["ListCluster"])
-            if len(ind)>0:
-                self.SourceCat.Cluster[ind]=iK
-                iK+=1
-
-
-
 
 
 
