@@ -1,5 +1,7 @@
 import numpy as np
 import pylab
+from scipy.spatial import Voronoi
+import ModVoronoi
 
 def test():
     
@@ -41,6 +43,7 @@ class ClassClusterKMean():
         DicoSources={}
     
         ns=x.size
+        sz=(s-s.min())/(s.max()-s.min())*10+2
         while True:
             #d=s.reshape((ns,1))*np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
             d=np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
@@ -59,11 +62,33 @@ class ClassClusterKMean():
                 xc[iK]=np.sum(ss*xx)/np.sum(ss)
                 yc[iK]=np.sum(ss*yy)/np.sum(ss)
                 c=np.ones(xx.size)*iK
+                ssz=sz[ind]
                 
                 if self.DoPlot:
-                    pylab.scatter(xx,yy,c=c,s=ss,vmin=0,vmax=Nk,lw=0)
+                    pylab.scatter(xx,yy,c=c,s=ssz,vmin=0,vmax=Nk,lw=0)
                     pylab.scatter(xc[iK],yc[iK],c="black",marker="s")
+
+
             if self.DoPlot:
+
+                xy=np.zeros((xc.size,2),np.float32)
+                xy[:,0]=xc
+                xy[:,1]=yc
+                vor = Voronoi(xy)
+                regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
+                for region in regions:
+                    polygon = vertices[region]
+                    pylab.fill(*zip(*polygon), alpha=0.4)
+                    #pylab.plot(xy[:,0], xy[:,1], 'ko')
+                    #pylab.xlim(vor.min_bound[0] - 0.1, vor.max_bound[0] + 0.1)
+                    #pylab.ylim(vor.min_bound[1] - 0.1, vor.max_bound[1] + 0.1)
+                    dx=0.01
+                    pylab.xlim(xc.min() - dx, xc.max()+dx)
+                    pylab.ylim(yc.min() - dx, yc.max()+dx)
+
+                    #stop
+
+
                 pylab.draw()
                 pylab.show(False)
                 pylab.pause(0.1)
@@ -74,13 +99,13 @@ class ClassClusterKMean():
         d=np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
         indk=np.argmin(d,axis=1)
         
-        if self.DoPlot:
-            pylab.clf()
-            pylab.scatter(x,y,c=indk,s=ss,vmin=0,vmax=Nk,lw=0)
-            pylab.scatter(xc,yc,c="black",marker="s")
-            pylab.draw()
-            pylab.show(False)
-            pylab.pause(0.1)
+        # if self.DoPlot:
+        #     pylab.clf()
+        #     pylab.scatter(x,y,c=indk,s=ss,vmin=0,vmax=Nk,lw=0)
+        #     pylab.scatter(xc,yc,c="black",marker="s")
+        #     pylab.draw()
+        #     pylab.show(False)
+        #     pylab.pause(0.1)
     
 
         KK={}
