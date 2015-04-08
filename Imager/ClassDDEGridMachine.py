@@ -577,30 +577,46 @@ class ClassDDEGridMachine():
         if Grid!=None:
             if not(Grid.dtype==np.complex64):
                 raise NameError('Grid.dtype %s %s'%(str(Grid.dtype),str(self.dtype)))
+            if not(Grid.flags.c_contiguous):
+                raise NameError("Has to be contiuous")
         if vis!=None:
             if not(vis.dtype==np.complex64):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+            if not(vis.flags.c_contiguous):
+                raise NameError("Has to be contiuous")
         if uvw!=None:
             if not(uvw.dtype==np.float64):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+            if not(uvw.flags.c_contiguous):
+                raise NameError("Has to be contiuous")
         if flag!=None:
             if not(flag.dtype==np.bool8):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+            if not(flag.flags.c_contiguous):
+                raise NameError("Has to be contiuous")
         if ListWTerm!=None:
             if not(ListWTerm[0].dtype==np.complex64):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
         if W!=None:
             if not(W.dtype==np.float64):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+            if not(W.flags.c_contiguous):
+                raise NameError("Has to be contiuous")
         if A0!=None:
             if not(A0.dtype==np.int32):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+            if not(A0.flags.c_contiguous):
+                raise NameError("Has to be contiuous")
         if A1!=None:
             if not(A1.dtype==np.int32):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+            if not(A1.flags.c_contiguous):
+                raise NameError("Has to be contiuous")
         if Jones!=None:
             if not(Jones.dtype==np.complex64):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+            if not(Jones.flags.c_contiguous):
+                raise NameError("Has to be contiuous")
 
 
     def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None):

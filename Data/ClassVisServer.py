@@ -310,6 +310,7 @@ class ClassVisServer():
             nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
             G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
             DicoSols["Jones"]=G
+            DicoSols["Jones"]=np.require(DicoSols["Jones"], dtype=np.complex64, requirements="C_CONTIGUOUS")
 
             if GD["DDESolutions"]["GlobalNorm"]=="MeanAbs":
                 print>>log, "  Normalising by the mean of the amplitude"
