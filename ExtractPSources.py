@@ -143,6 +143,8 @@ def main(options=None):
 
     SM=ClassSM.ClassSM(Osm,ReName=True,DoREG=True,SaveNp=True,FromExt=Cat)#,NCluster=NCluster,DoPlot=DoPlot,ClusterMethod=CMethod)
     #SM=ClassSM.ClassSM(Osm,ReName=True,SaveNp=True,DoPlot=DoPlot,FromExt=Cat)
+    SM.MakeREG()
+    SM.Save()
 
 
 

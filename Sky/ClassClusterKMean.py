@@ -47,7 +47,8 @@ class ClassClusterKMean():
             indk=np.argmin(d,axis=1)
             xc0=xc.copy()
             yc0=yc.copy()
-            #pylab.clf()
+            if self.DoPlot:
+                pylab.clf()
             for iK in range(Nk):
                 ind=np.where(indk==iK)[0]
                 if ind.size==0: continue

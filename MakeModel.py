@@ -17,6 +17,8 @@ def read_options():
     group.add_option('--DoSelect',help=' Default is %default',default="0")
     group.add_option('--DoPrint',help=' Default is %default',default="0")
     group.add_option('--CMethod',help=' Clustering method [1,2,3]. Default is %default',default="1")
+    group.add_option('--PreClusterFile',help=' PreClusterFile. Default is %default',default="")
+    
     opt.add_option_group(group)
 
 
@@ -44,10 +46,9 @@ def main(options=None):
                        DoREG=True,SaveNp=True,
                        SelSource=DoSelect,ClusterMethod=CMethod)
 
-
-    SM.Cluster(NCluster=NCluster,DoPlot=DoPlot)
+    PreCluster=options.PreClusterFile
+    SM.Cluster(NCluster=NCluster,DoPlot=DoPlot,PreCluster=PreCluster)
     SM.MakeREG()
-    #SM.Finalise()
     SM.Save()
 
     if options.DoPrint=="1":

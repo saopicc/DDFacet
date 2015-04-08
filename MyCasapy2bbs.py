@@ -91,41 +91,41 @@ class MyCasapy2BBS():
         print " done set model image"
         
 
-    def setRestored(self):
-        print "set restored image"
-        if self.ImRestoredName!=None:
-            print " read restored image"
-            im=image(self.ImRestoredName)
-            self.ImRestored=im.getdata()[0,0]
-        elif self.ImResidualName!=None:
-            print " convolve model image"
-            nx,ny=self.Model.shape
+    # def setRestored(self):
+    #     print "set restored image"
+    #     if self.ImRestoredName!=None:
+    #         print " read restored image"
+    #         im=image(self.ImRestoredName)
+    #         self.ImRestored=im.getdata()[0,0]
+    #     elif self.ImResidualName!=None:
+    #         print " convolve model image"
+    #         nx,ny=self.Model.shape
             
-            self.ImRestored=ModFFTW.ConvolveGaussian(self.Model.reshape((1,1,nx,nx)),CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
-            self.ImRestored=self.ImRestored[0,0]
-            im=image(self.ImResidualName)
-            ImResidual=im.getdata()[0,0]
-            xc,yc,dx=self.XcYcDx
-            x0,x1=xc-dx,xc+dx
-            y0,y1=yc-dx,yc+dx
-            self.ImResidual=ImResidual[x0:x1,y0:y1]
-            Np=1000
-            Nx=self.ImResidual.shape[0]
-            indx=np.int64(np.random.rand(Np)*Nx)
-            indy=np.int64(np.random.rand(Np)*Nx)
-            self.GlobalSTD=np.std(self.ImResidual[indx,indy])
+    #         self.ImRestored=ModFFTW.ConvolveGaussian(self.Model.reshape((1,1,nx,nx)),CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+    #         self.ImRestored=self.ImRestored[0,0]
+    #         im=image(self.ImResidualName)
+    #         ImResidual=im.getdata()[0,0]
+    #         xc,yc,dx=self.XcYcDx
+    #         x0,x1=xc-dx,xc+dx
+    #         y0,y1=yc-dx,yc+dx
+    #         self.ImResidual=ImResidual[x0:x1,y0:y1]
+    #         Np=1000
+    #         Nx=self.ImResidual.shape[0]
+    #         indx=np.int64(np.random.rand(Np)*Nx)
+    #         indy=np.int64(np.random.rand(Np)*Nx)
+    #         self.GlobalSTD=np.std(self.ImResidual[indx,indy])
 
-            print " add residual image"
-            self.ImRestored+=self.ImResidual
+    #         print " add residual image"
+    #         self.ImRestored+=self.ImResidual
 
-            #self.ImResidual=self.ImRestored
+    #         #self.ImResidual=self.ImRestored
 
-            del(im)
-            #self.Plot(self.ImRestored)
+    #         del(im)
+    #         #self.Plot(self.ImRestored)
 
-        else:
-            print " done nothing"
-        print " done set restored image"
+    #     else:
+    #         print " done nothing"
+    #     print " done set restored image"
 
 
     def Plot(self,data,dx=None):
@@ -141,49 +141,49 @@ class MyCasapy2BBS():
         pylab.show()
 
 
-    def ComputeNoiseMap(self):
-        print "Compute noise map..."
-        Boost=self.Boost
-        Acopy=self.ImResidual[0::Boost,0::Boost].copy()
-        SBox=(self.box[0]/Boost,self.box[1]/Boost)
-        #Noise=scipy.ndimage.filters.median_filter(Acopy**2,SBox)
-        #Noise-=scipy.ndimage.filters.median_filter(Acopy,SBox)**2
+    # def ComputeNoiseMap(self):
+    #     print "Compute noise map..."
+    #     Boost=self.Boost
+    #     Acopy=self.ImResidual[0::Boost,0::Boost].copy()
+    #     SBox=(self.box[0]/Boost,self.box[1]/Boost)
+    #     #Noise=scipy.ndimage.filters.median_filter(Acopy**2,SBox)
+    #     #Noise-=scipy.ndimage.filters.median_filter(Acopy,SBox)**2
 
-        # Noise=scipy.ndimage.filters.median_filter(Acopy**2,SBox)
-        # #Noise-=scipy.ndimage.filters.median_filter(Acopy,SBox)**2
-        # Noise=np.sqrt(np.abs(Noise))
+    #     # Noise=scipy.ndimage.filters.median_filter(Acopy**2,SBox)
+    #     # #Noise-=scipy.ndimage.filters.median_filter(Acopy,SBox)**2
+    #     # Noise=np.sqrt(np.abs(Noise))
         
-        Noise=scipy.ndimage.filters.percentile_filter(Acopy**2, 50., size=SBox)#/3.
-        #Noise-=(scipy.ndimage.filters.percentile_filter(Acopy, 50., size=SBox))**2#/3.
-        Noise=np.sqrt(np.abs(Noise))
+    #     Noise=scipy.ndimage.filters.percentile_filter(Acopy**2, 50., size=SBox)#/3.
+    #     #Noise-=(scipy.ndimage.filters.percentile_filter(Acopy, 50., size=SBox))**2#/3.
+    #     Noise=np.sqrt(np.abs(Noise))
 
-        Noise=np.abs(Noise)
-        Noise[Noise==0]=self.GlobalSTD
-        #Noise[:]=self.GlobalSTD
-        #Noise+=scipy.ndimage.filters.percentile_filter(Acopy, 32., size=SBox)#/3.
+    #     Noise=np.abs(Noise)
+    #     Noise[Noise==0]=self.GlobalSTD
+    #     #Noise[:]=self.GlobalSTD
+    #     #Noise+=scipy.ndimage.filters.percentile_filter(Acopy, 32., size=SBox)#/3.
         
 
-        #ind=(np.abs(Acopy)>3.*Noise)
-        #Acopy[ind]=Noise[ind]
-        #Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
+    #     #ind=(np.abs(Acopy)>3.*Noise)
+    #     #Acopy[ind]=Noise[ind]
+    #     #Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
 
-        self.Noise=np.zeros_like(self.ImRestored)
-        for i in range(Boost):
-            for j in range(Boost):
-                s00,s01=Noise.shape
-                s10,s11=self.Noise[i::Boost,j::Boost].shape
-                s0,s1=min(s00,s10),min(s10,s11)
-                self.Noise[i::Boost,j::Boost][0:s0,0:s1]=Noise[:,:][0:s0,0:s1]
-        print " ... done"
-        ind=np.where(self.Noise==0.)
-        self.Noise[ind]=1e-10
-        #self.Plot(self.Noise)
+    #     self.Noise=np.zeros_like(self.ImRestored)
+    #     for i in range(Boost):
+    #         for j in range(Boost):
+    #             s00,s01=Noise.shape
+    #             s10,s11=self.Noise[i::Boost,j::Boost].shape
+    #             s0,s1=min(s00,s10),min(s10,s11)
+    #             self.Noise[i::Boost,j::Boost][0:s0,0:s1]=Noise[:,:][0:s0,0:s1]
+    #     print " ... done"
+    #     ind=np.where(self.Noise==0.)
+    #     self.Noise[ind]=1e-10
+    #     #self.Plot(self.Noise)
 
-    def MakeMask(self):
-        if self.ImRestored==None: return
-        self.ComputeNoiseMap()
-        self.Mask=(self.ImRestored>(self.Th*self.Noise))
-        self.DoMask=True
+    # def MakeMask(self):
+    #     if self.ImRestored==None: return
+    #     self.ComputeNoiseMap()
+    #     self.Mask=(self.ImRestored>(self.Th*self.Noise))
+    #     self.DoMask=True
 
 
     def MakeMask2(self):
@@ -218,7 +218,9 @@ class MyCasapy2BBS():
         Osm=reformat.reformat(self.Fits,LastSlash=False)
         SM=ClassSM.ClassSM(Osm,ReName=True,DoREG=True,SaveNp=True,FromExt=self.Cat)
         SM.MakeREG()
-        SM.Finalise()
+        #SM.MakeREG()
+    #SM.Finalise()
+        SM.Save()
         #SM.print_sm2()
 
     def GetPixCat(self):
