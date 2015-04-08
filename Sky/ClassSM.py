@@ -94,7 +94,11 @@ class ClassSM():
         print
 
     def Cluster(self,NCluster=1,DoPlot=True):
-        self.cluster(NCluster,DoPlot)
+        if NCluster!=0:
+            self.cluster(NCluster,DoPlot)
+        else:
+            self.SourceCat.Cluster=np.arange(self.SourceCat.shape[0])
+
         ClusterList=sorted(list(set(self.SourceCat.Cluster.tolist())))
         self.NDir=len(ClusterList)
         for iCluster,iNewCluster in zip(ClusterList,range(self.NDir)):
