@@ -361,9 +361,9 @@ class ClassMS():
         vis_all=table_all.getcol(self.ColName,row0,nRowRead)
         
         if self.zero_flag: vis_all[flag_all==1]=0.
-        print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
+        #print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
         vis_all[np.isnan(vis_all)]=0.
-        print "visMS",vis_all.min(),vis_all.max()
+        #print "visMS",vis_all.min(),vis_all.max()
 
         table_all.close()
 
@@ -450,7 +450,7 @@ class ClassMS():
 
         table_all=table(MSname,ack=False)
         self.ColNames=table_all.colnames()
-        self.F_nrows=table_all.nrows()-nbl
+        self.F_nrows=table_all.nrows()#-nbl
         T0=table_all.getcol('TIME',0,1)[0]
         T1=table_all.getcol('TIME',self.F_nrows-1,1)[0]
         #SPW=table_all.getcol('DATA_DESC_ID')

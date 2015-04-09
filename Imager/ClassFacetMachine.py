@@ -584,10 +584,10 @@ class ClassFacetMachine():
 
             DirtyName=DicoResult["DirtyName"]
             ThisDirty=NpShared.GiveArray(DirtyName)
-            print "minmax facet = %f %f"%(ThisDirty.min(),ThisDirty.max())
+            #print "minmax facet = %f %f"%(ThisDirty.min(),ThisDirty.max())
             if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
                 self.DicoGridMachine[iFacet]["Dirty"]+=ThisDirty
-                print "minmax stack = %f %f"%(self.DicoGridMachine[iFacet]["Dirty"].min(),self.DicoGridMachine[iFacet]["Dirty"].max())
+                #print "minmax stack = %f %f"%(self.DicoGridMachine[iFacet]["Dirty"].min(),self.DicoGridMachine[iFacet]["Dirty"].max())
             else:
                 self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty
 
