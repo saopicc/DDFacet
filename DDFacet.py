@@ -57,6 +57,10 @@ def read_options():
     OP.add_option('TChunkSize')
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
 
+    OP.OptionGroup("* File storing options","Stores")
+    OP.add_option('DeleteDDFProducts')
+   
+
     OP.OptionGroup("* Selection","DataSelection")
     OP.add_option('FlagAnts')
     OP.add_option('UVRangeKm')
