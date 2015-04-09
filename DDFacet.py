@@ -52,6 +52,7 @@ def read_options():
 
     OP.OptionGroup("* Data-related options","VisData")
     OP.add_option('MSName',help='Input MS')
+    OP.add_option('MSListFile',help='Input MSs')
     OP.add_option('ColName')
     OP.add_option('TChunkSize')
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')

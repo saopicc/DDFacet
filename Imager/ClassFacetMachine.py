@@ -746,9 +746,10 @@ class WorkerImager(multiprocessing.Process):
                 A1=DATA["A1"]
                 A0A1=A0,A1
                 W=DATA["Weights"]
+                freqs=DATA["freqs"]
 
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
-                Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices)#,doStack=False)
+                Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices,freqs=freqs)#,doStack=False)
 
                 DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
                 _=NpShared.ToShared(DirtyName,Dirty)
@@ -779,10 +780,10 @@ class WorkerImager(multiprocessing.Process):
                 A1=DATA["A1"]
                 A0A1=A0,A1
                 W=DATA["Weights"]
-                
+                freqs=DATA["freqs"]
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
                 ModelIm = NpShared.UnPackListArray("%sModelImage"%self.IdSharedMem)[iFacet]
-                vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelIm,DicoJonesMatrices=DicoJonesMatrices)
+                vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelIm,DicoJonesMatrices=DicoJonesMatrices,freqs=freqs)
                 
                 self.result_queue.put({"Success":True,"iFacet":iFacet})
 #            print "Done %i"%iFacet

@@ -72,7 +72,19 @@ class ClassImagerDeconv():
     def Init(self):
         DC=self.GD
 
-        self.VS=ClassVisServer.ClassVisServer(DC["VisData"]["MSName"],
+        
+        MSName=DC["VisData"]["MSName"]
+        if DC["VisData"]["MSListFile"]!="":
+            f=open(DC["VisData"]["MSListFile"])
+            Ls=f.readlines()
+            f.close()
+            MSName=[]
+            for l in Ls:
+                ll=l.replace("\n","")
+                MSName.append(ll)
+            
+
+        self.VS=ClassVisServer.ClassVisServer(MSName,
                                               ColName=DC["VisData"]["ColName"],
                                               TVisSizeMin=DC["VisData"]["TChunkSize"]*60,
                                               #DicoSelectOptions=DicoSelectOptions,
@@ -83,6 +95,15 @@ class ClassImagerDeconv():
                                               DicoSelectOptions=dict(DC["DataSelection"]),
                                               NCPU=self.GD["Parallel"]["NCPU"],
                                               GD=self.GD)
+        
+        # self.VS.setFOV([1,1,1000,1000],[1,1,1000,1000],[1,1,1000,1000],2./3600.*np.pi/180)
+        # self.VS.CalcWeigths()
+        # for i in range(10):
+        #     print>>log, self.setNextData()
+        # stop
+
+
+
         self.InitFacetMachine()
         #self.VS.SetImagingPars(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
         #self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
@@ -119,10 +140,9 @@ class ClassImagerDeconv():
         #del(self.DATA)
         Load=self.VS.LoadNextVisChunk()
         if Load=="EndOfObservation":
-            print>>log, ModColor.Str("Reached end of Observation")
             return "EndOfObservation"
 
-        DATA=self.VS.GiveNextVis()
+        DATA=self.VS.VisChunkToShared()
         if DATA=="EndOfObservation":
             print>>log, ModColor.Str("Reached end of Observation")
             return "EndOfObservation"

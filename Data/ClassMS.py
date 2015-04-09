@@ -314,84 +314,76 @@ class ClassMS():
     #         shape=self.ChanFreq.shape
     #         self.ChanFreq=self.ChanFreq[ind]
                 
+    def ReinitChunkIter(self,ChunkSizeH):
+        self.ChunkSizeH=ChunkSizeH
+        self.nRowChunk=self.nbl*int(self.ChunkSizeH*3600/self.dt)
+        self.ROW0=0
+        self.ROW1=0
+
+    def GiveNextChunk(self):
+        row0=self.ROW1
+        row1=self.ROW1+self.nRowChunk
+        return self.ReadData(row0,row1)
         
-    def ReadData(self,t0=0,t1=-1,DoPrint=False,ReadWeight=False):
-
-
-
-        if DoPrint==True:
-            print "   ... Reading MS"
-
-
-
-        row0=0
-        row1=self.F_nrows
-
-
-        if t1>t0:
-
-            t0=t0*3600.
-            t1=t1*3600.
-            self.CurrentChunkTimeRange_SinceT0_sec=(t0,t1)
-            t0=t0+self.F_tstart            
-            t1=t1+self.F_tstart
-
-            #ind0=np.argmin(np.abs(t0-self.F_times))
-            #ind1=np.argmin(np.abs(t1-self.F_times))
-
-            ind0=np.where((t0-self.F_times)<=0)[0][0]
-            row0=ind0*self.nbl
-
-            ind1=np.where((t1-self.F_times)<0)[0]
-            if ind1.size==0:
-                row1=self.F_nrows
-            else:
-                ind1=ind1[0]
-                row1=ind1*self.nbl
+        
+    def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False):
+        
+        if row0>=self.F_nrows:
+            return "EndMS"
+        if row1>(self.F_nrows):
+            row1=self.F_nrows
+        
 
         self.ROW0=row0
         self.ROW1=row1
         self.nRowRead=row1-row0
         nRowRead=self.nRowRead
 
+        print>>log, "[%s] Reading next data chunk in [%i, %i] rows"%(self.MSName,row0,row1)
+
         table_all=table(self.MSName,ack=False)
         SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead)
-        A0=table_all.getcol('ANTENNA1',row0,nRowRead)[SPW==self.ListSPW[0]]
-        A1=table_all.getcol('ANTENNA2',row0,nRowRead)[SPW==self.ListSPW[0]]
+        A0=table_all.getcol('ANTENNA1',row0,nRowRead)#[SPW==self.ListSPW[0]]
+        A1=table_all.getcol('ANTENNA2',row0,nRowRead)#[SPW==self.ListSPW[0]]
         #print self.ListSPW[0]
-        time_all=table_all.getcol("TIME",row0,nRowRead)[SPW==self.ListSPW[0]]
+        time_all=table_all.getcol("TIME",row0,nRowRead)#[SPW==self.ListSPW[0]]
         #print np.max(time_all)-np.min(time_all)
         #time_slots_all=np.array(sorted(list(set(time_all))))
         ntimes=time_all.shape[0]/self.nbl
 
-        flag_all=table_all.getcol("FLAG",row0,nRowRead)[SPW==self.ListSPW[0]]
+        flag_all=table_all.getcol("FLAG",row0,nRowRead)#[SPW==self.ListSPW[0]]
         if ReadWeight==True:
             self.Weights=table_all.getcol("WEIGHT",row0,nRowRead)
 
         
         
-        uvw=table_all.getcol('UVW',row0,nRowRead)[SPW==self.ListSPW[0]]
-        self.uvw=uvw
+        uvw=table_all.getcol('UVW',row0,nRowRead)#[SPW==self.ListSPW[0]]
         vis_all=table_all.getcol(self.ColName,row0,nRowRead)
         if self.zero_flag: vis_all[flag_all==1]=0.
         vis_all[np.isnan(vis_all)]=0.
-        self.data=vis_all
-
-
-        self.flag_all=flag_all
 
 
         table_all.close()
 
-        self.times_all=time_all
-        self.nrows=time_all.shape[0]
+        # self.data=vis_all
+        # self.flag_all=flag_all
+        # self.uvw=uvw
+        # self.times_all=time_all
+        # self.nrows=time_all.shape[0]
+        # self.A0=A0
+        # self.A1=A1
+        # #self.IndFlag=np.where(flag_all==True)
+        # #self.NPol=vis_all.shape[2]
 
-        self.IndFlag=np.where(flag_all==True)
-    
-        #self.NPol=vis_all.shape[2]
-        self.A0=A0
-        self.A1=A1
-
+        DATA={}
+        DATA["data"]=vis_all
+        DATA["flag"]=flag_all
+        DATA["uvw"]=uvw
+        DATA["times"]=time_all
+        DATA["nrows"]=time_all.shape[0]
+        DATA["A0"]=A0
+        DATA["A1"]=A1
+        return DATA
             
 
 
@@ -456,25 +448,29 @@ class ClassMS():
 
         table_all=table(MSname,ack=False)
         self.ColNames=table_all.colnames()
-        SPW=table_all.getcol('DATA_DESC_ID')
-        if self.SelectSPW!=None:
-            self.ListSPW=self.SelectSPW
-            #print "dosel"
-        else:
-            self.ListSPW=sorted(list(set(SPW.tolist())))
-        T.timeit()
+        self.F_nrows=table_all.nrows()
+        T0=table_all.getcol('TIME',0,1)[0]
+        T1=table_all.getcol('TIME',self.F_nrows-1,1)[0]
+        #SPW=table_all.getcol('DATA_DESC_ID')
+        # if self.SelectSPW!=None:
+        #     self.ListSPW=self.SelectSPW
+        #     #print "dosel"
+        # else:
+        #     self.ListSPW=sorted(list(set(SPW.tolist())))
+        # T.timeit()
 
-        self.F_nrows=table_all.getcol("TIME").shape[0]
-        F_time_all=table_all.getcol("TIME")[SPW==self.ListSPW[0]]
+        #self.F_nrows=table_all.getcol("TIME").shape[0]
+        #F_time_all=table_all.getcol("TIME")[SPW==self.ListSPW[0]]
 
-        self.F_A0=table_all.getcol("ANTENNA1")[SPW==self.ListSPW[0]]
-        self.F_A1=table_all.getcol("ANTENNA2")[SPW==self.ListSPW[0]]
+        #self.F_A0=table_all.getcol("ANTENNA1")[SPW==self.ListSPW[0]]
+        #self.F_A1=table_all.getcol("ANTENNA2")[SPW==self.ListSPW[0]]
 
         #nbl=(np.where(F_time_all==F_time_all[0])[0]).shape[0]
         T.timeit()
 
-        F_time_slots_all=np.array(sorted(list(set(F_time_all.tolist()))))
-        F_ntimes=F_time_slots_all.shape[0]
+        #F_time_slots_all=np.array(sorted(list(set(F_time_all.tolist()))))
+        #F_ntimes=F_time_slots_all.shape[0]
+        dt=table_all.getcol('INTERVAL',0,1)[0]
         table_all.close()
 
         T.timeit()
@@ -484,10 +480,11 @@ class ClassMS():
         chan_freq=ta_spectral.getcol('CHAN_FREQ')
         self.dFreq=ta_spectral.getcol("CHAN_WIDTH").flatten()[0]
         self.ChanWidth=ta_spectral.getcol('CHAN_WIDTH')
-        if chan_freq.shape[0]>len(self.ListSPW):
-            print ModColor.Str("  ====================== >> More SPW in headers, modifying that error....")
-            chan_freq=chan_freq[np.array(self.ListSPW),:]
-            reffreq=reffreq[np.array(self.ListSPW)]
+
+        # if chan_freq.shape[0]>len(self.ListSPW):
+        #     print ModColor.Str("  ====================== >> More SPW in headers, modifying that error....")
+        #     chan_freq=chan_freq[np.array(self.ListSPW),:]
+        #     reffreq=reffreq[np.array(self.ListSPW)]
             
 
         T.timeit()
@@ -529,12 +526,12 @@ class ClassMS():
         self.Nchan=Nchan
         self.NSPW=NSPW
         self.NSPWChan=NSPWChan
-        self.F_tstart=F_time_all[0]
-        self.F_times_all=F_time_all
-        self.F_times=F_time_slots_all
-        self.F_ntimes=F_time_slots_all.shape[0]
-        self.dt=F_time_slots_all[1]-F_time_slots_all[0]
-        self.DTs=F_time_slots_all[-1]-F_time_slots_all[0]
+        self.F_tstart=T0
+        #self.F_times_all=T1
+        #self.F_times=F_time_slots_all
+        #self.F_ntimes=F_time_slots_all.shape[0]
+        self.dt=dt
+        self.DTs=T1-T0
         self.DTh=self.DTs/3600.
         self.radec=(rarad,decrad)
         self.rarad=rarad

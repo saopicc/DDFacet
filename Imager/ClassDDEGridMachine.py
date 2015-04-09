@@ -399,7 +399,7 @@ class ClassDDEGridMachine():
         return ParamJonesList
 
 
-    def put(self,times,uvw,visIn,flag,A0A1,W=None,PointingID=0,DoNormWeights=True,DicoJonesMatrices=None):#,doStack=False):
+    def put(self,times,uvw,visIn,flag,A0A1,W=None,PointingID=0,DoNormWeights=True,DicoJonesMatrices=None,freqs=None):#,doStack=False):
         #log=MyLogger.getLogger("ClassImager.addChunk")
         vis=visIn#.copy()
 
@@ -501,7 +501,8 @@ class ClassDDEGridMachine():
         #print "sleeping DDE..."; time.sleep(5)
 
 
-
+        if freqs==None:
+            freqs=np.float64(self.ChanFreq)
         
         T2=ClassTimeIt.ClassTimeIt("Gridder")
         T2.disable()
@@ -517,7 +518,7 @@ class ClassDDEGridMachine():
                                               self.WTerm.WplanesConj,
                                               np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
                                               self.incr.astype(np.float64),
-                                              self.ChanFreq.astype(np.float64),
+                                              freqs,
                                               [self.PolMap,FacetInfos],
                                               ParamJonesList) # Input the jones matrices
         else:
@@ -533,7 +534,7 @@ class ClassDDEGridMachine():
                                                self.WTerm.WplanesConj,
                                                np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
                                                self.incr.astype(np.float64),
-                                               np.float64(self.ChanFreq),
+                                               freqs,
                                                [self.PolMap,FacetInfos],
                                                ParamJonesList,
                                                MapSmear,
@@ -619,7 +620,7 @@ class ClassDDEGridMachine():
                 raise NameError("Has to be contiuous")
 
 
-    def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None):
+    def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None):
         #log=MyLogger.getLogger("ClassImager.addChunk")
         T=ClassTimeIt.ClassTimeIt("get")
         T.disable()
@@ -700,6 +701,9 @@ class ClassDDEGridMachine():
             ParamJonesList=ParamJonesList+LApplySol
 
 
+        if freqs==None:
+            freqs=np.float64(self.ChanFreq)
+
         T.timeit("3")
         #print vis
 
@@ -714,7 +718,7 @@ class ClassDDEGridMachine():
                                              self.WTerm.Wplanes,
                                              np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
                                              self.incr.astype(np.float64),
-                                             self.ChanFreq.astype(np.float64),
+                                             freqs,
                                              [self.PolMap,FacetInfos,RowInfos],
                                              ParamJonesList)
         else:
@@ -729,7 +733,7 @@ class ClassDDEGridMachine():
                                                   self.WTerm.Wplanes,
                                                   np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
                                                   self.incr.astype(np.float64),
-                                                  self.ChanFreq.astype(np.float64),
+                                                  freqs,
                                                   [self.PolMap,FacetInfos,RowInfos],
                                                   ParamJonesList,
                                                   MapSmear,
