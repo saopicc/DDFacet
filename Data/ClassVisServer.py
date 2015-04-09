@@ -426,6 +426,11 @@ class ClassVisServer():
         SolsFile=GD["DDESolutions"]["DDSols"]
         self.ApplyCal=False
         if (SolsFile!=""):#&(False):
+            if not(".npz" in SolsFile):
+                Method=SolsFile
+                ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
+                SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
+                
             print>>log, "Loading solution file: %s"%SolsFile
             self.ApplyCal=True
             DicoSolsFile=np.load(SolsFile)
