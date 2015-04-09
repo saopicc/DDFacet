@@ -327,7 +327,7 @@ class ClassMS():
         
         
     def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False):
-        print row0,row1
+
         if row0>=self.F_nrows:
             return "EndMS"
         if row1>(self.F_nrows):
