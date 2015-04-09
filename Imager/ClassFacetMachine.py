@@ -449,7 +449,10 @@ class ClassFacetMachine():
                 # print "Main  %i:%i (%i)"%(x0main,x1main,x1main-x0main)
                 for ch in range(nch):
                     for pol in range(npol):
-                        Image[ch,pol,x0main:x1main,y0main:y1main]+=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
+                        #Image[ch,pol,x0main:x1main,y0main:y1main]+=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
+                        sumweight=self.SumWeights.reshape((nch,npol,1,1))[ch,pol,0,0]
+                        Image[ch,pol,x0main:x1main,y0main:y1main]+=(self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:]\
+                                                                        .T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
                 NormImage[x0main:x1main,y0main:y1main]+=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
 
         if self.ConstructMode=="Fader": 
@@ -467,7 +470,10 @@ class ClassFacetMachine():
         # for ch in range(nch):
         #     for pol in range(npol):
         #         self.Image[ch,pol]=self.Image[ch,pol].T[::-1,:]
-        Image/=self.SumWeights.reshape((nch,npol,1,1))
+        
+
+        # Image/=self.SumWeights.reshape((nch,npol,1,1))
+
         return Image
 
 
@@ -578,8 +584,10 @@ class ClassFacetMachine():
 
             DirtyName=DicoResult["DirtyName"]
             ThisDirty=NpShared.GiveArray(DirtyName)
+            print "minmax facet = %f %f"%(ThisDirty.min(),ThisDirty.max())
             if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
                 self.DicoGridMachine[iFacet]["Dirty"]+=ThisDirty
+                print "minmax stack = %f %f"%(self.DicoGridMachine[iFacet]["Dirty"].min(),self.DicoGridMachine[iFacet]["Dirty"].max())
             else:
                 self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty
 

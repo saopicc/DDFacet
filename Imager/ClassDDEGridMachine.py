@@ -506,6 +506,8 @@ class ClassDDEGridMachine():
         
         T2=ClassTimeIt.ClassTimeIt("Gridder")
         T2.disable()
+        print "vis",vis.min(),vis.max()
+
         if self.GD["Compression"]["CompGridMode"]==0:
             Grid=_pyGridder.pyGridderWPol(Grid,
                                               vis,
@@ -549,8 +551,12 @@ class ClassDDEGridMachine():
         # del(Grid)
         T.timeit("4 (grid)")
 
+
+        print "minmax grid=",Grid.min(),Grid.max()
         Dirty= self.GridToIm(Grid)
+        print "minmax dirty=",Dirty.min(),Dirty.max()
         #Dirty=Grid
+        #print Grid.max()
         del(Grid)
         T.timeit("5 (grid)")
         #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1

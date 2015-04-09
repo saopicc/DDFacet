@@ -327,7 +327,7 @@ class ClassMS():
         
         
     def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False):
-        
+        print row0,row1
         if row0>=self.F_nrows:
             return "EndMS"
         if row1>(self.F_nrows):
@@ -342,7 +342,7 @@ class ClassMS():
         print>>log, "[%s] Reading next data chunk in [%i, %i] rows"%(self.MSName,row0,row1)
 
         table_all=table(self.MSName,ack=False)
-        SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead)
+        #SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead)
         A0=table_all.getcol('ANTENNA1',row0,nRowRead)#[SPW==self.ListSPW[0]]
         A1=table_all.getcol('ANTENNA2',row0,nRowRead)#[SPW==self.ListSPW[0]]
         #print self.ListSPW[0]
@@ -359,9 +359,11 @@ class ClassMS():
         
         uvw=table_all.getcol('UVW',row0,nRowRead)#[SPW==self.ListSPW[0]]
         vis_all=table_all.getcol(self.ColName,row0,nRowRead)
+        
         if self.zero_flag: vis_all[flag_all==1]=0.
+        print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
         vis_all[np.isnan(vis_all)]=0.
-
+        print "visMS",vis_all.min(),vis_all.max()
 
         table_all.close()
 
@@ -448,7 +450,7 @@ class ClassMS():
 
         table_all=table(MSname,ack=False)
         self.ColNames=table_all.colnames()
-        self.F_nrows=table_all.nrows()
+        self.F_nrows=table_all.nrows()-nbl
         T0=table_all.getcol('TIME',0,1)[0]
         T1=table_all.getcol('TIME',self.F_nrows-1,1)[0]
         #SPW=table_all.getcol('DATA_DESC_ID')
