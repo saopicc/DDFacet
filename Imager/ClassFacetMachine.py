@@ -526,7 +526,12 @@ class ClassFacetMachine():
 
         work_queue = multiprocessing.JoinableQueue()
 
-        if self.DoPSF: visIn.fill(1)
+
+        PSFMode=False
+        if self.DoPSF:
+            visIn.fill(1)
+            PSFMode=True
+
         NJobs=NFacets
         for iFacet in range(NFacets):
             work_queue.put(iFacet)
@@ -549,7 +554,8 @@ class ClassFacetMachine():
                            DicoImager=self.DicoImager,
                            IdSharedMem=self.IdSharedMem,
                            ApplyCal=self.ApplyCal,
-                           SpheNorm=SpheNorm)
+                           SpheNorm=SpheNorm,
+                           PSFMode=PSFMode)
             workerlist.append(W)
             workerlist[ii].start()
 
@@ -686,7 +692,8 @@ class WorkerImager(multiprocessing.Process):
                  DicoImager=None,
                  IdSharedMem=None,
                  ApplyCal=False,
-                 SpheNorm=True):
+                 SpheNorm=True,
+                 PSFMode=False):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -699,6 +706,8 @@ class WorkerImager(multiprocessing.Process):
         self.IdSharedMem=IdSharedMem
         self.ApplyCal=ApplyCal
         self.SpheNorm=SpheNorm
+        self.PSFMode=PSFMode
+
 
     def shutdown(self):
         self.exit.set()
@@ -715,6 +724,7 @@ class WorkerImager(multiprocessing.Process):
         
     def GiveDicoJonesMatrices(self):
         DicoJonesMatrices=None
+        if self.PSFMode: return None
         if self.ApplyCal:
             DicoJonesMatrices=NpShared.SharedToDico("%skillMSSolutionFile"%self.IdSharedMem)
             DicoClusterDirs=NpShared.SharedToDico("%sDicoClusterDirs"%self.IdSharedMem)
