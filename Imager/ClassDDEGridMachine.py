@@ -489,7 +489,7 @@ class ClassDDEGridMachine():
                 ApplyAmp=1
             if "P" in self.GD["DDESolutions"]["DDModeGrid"]:
                 ApplyPhase=1
-            if self.GD["DDESolutions"]["ScaleAmp"]:
+            if self.GD["DDESolutions"]["ScaleAmpGrid"]:
                 ScaleAmplitude=1
                 CalibError=(self.GD["DDESolutions"]["CalibErr"]/3600.)*np.pi/180
             LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
@@ -699,7 +699,7 @@ class ClassDDEGridMachine():
                 ApplyAmp=1
             if "P" in self.GD["DDESolutions"]["DDModeGrid"]:
                 ApplyPhase=1
-            if self.GD["DDESolutions"]["ScaleAmp"]:
+            if self.GD["DDESolutions"]["ScaleAmpDeGrid"]:
                 ScaleAmplitude=1
                 CalibError=(self.GD["DDESolutions"]["CalibErr"]/3600.)*np.pi/180
             LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
