@@ -365,6 +365,7 @@ class ClassDDEGridMachine():
         DicoClusterDirs=DicoJonesMatrices["DicoClusterDirs"]
         lc=DicoClusterDirs["l"]
         mc=DicoClusterDirs["m"]
+        sI=DicoClusterDirs["I"]
         
         #lc,mc=np.random.randn(100)*np.pi/180,np.random.randn(100)*np.pi/180
         
@@ -375,7 +376,7 @@ class ClassDDEGridMachine():
         
         d=np.sqrt((l0-lc)**2+(m0-mc)**2)
         idir=np.argmin(d)
-        w=1./(1.+d/d0)**gamma
+        w=sI/(1.+d/d0)**gamma
         w/=np.sum(w)
         
         # pylab.clf()

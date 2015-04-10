@@ -181,6 +181,10 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["NpixFacet"]=NpixFacet
             self.DicoImager[iFacet]["DicoConfigGM"]=DicoConfigGM
 
+
+            
+
+
         #print "Append3"; self.IM.CI.E.clear()
 
         # NPraFacet=np.array(self.LraFacet).flatten()
@@ -198,6 +202,36 @@ class ClassFacetMachine():
     ############################################################################################
     ################################ Initialisation ############################################
     ############################################################################################
+
+
+    def PlotFacetSols(self):
+
+        DicoClusterDirs=NpShared.SharedToDico("%sDicoClusterDirs"%self.IdSharedMem)
+        lc=DicoClusterDirs["l"]
+        mc=DicoClusterDirs["m"]
+        sI=DicoClusterDirs["I"]
+
+        InterpMode=self.GD["DDESolutions"]["Type"]
+        if InterpMode=="Krigging":
+            for iFacet in range(lFacet.size):
+                l0,m0=self.DicoImager[iFacet]["lmShift"]
+                d0=self.GD["DDESolutions"]["Scale"]*np.pi/180
+                gamma=self.GD["DDESolutions"]["gamma"]
+        
+                d=np.sqrt((l0-lc)**2+(m0-mc)**2)
+                idir=np.argmin(d)
+                w=sI/(1.+d/d0)**gamma
+                w/=np.sum(w)
+                w[w<(0.05*w.max())]=0
+
+                pylab.clf()
+                pylab.scatter(lc,mc,c=w)
+                pylab.scatter([l0],[m0],marker="+")
+                pylab.draw()
+                pylab.show(False)
+
+            
+
 
     def Init(self):
         if self.IsDDEGridMachineInit: return

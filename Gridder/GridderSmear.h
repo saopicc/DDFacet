@@ -328,18 +328,27 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
     }
   }
 
+
+  float Jabs[4]={0};
+  float A=0;
   if(Mode==1){
     for(idir=0; idir<nd_Jones; idir++){
+      if(ptrCoefs[idir]==0){continue;}
       int offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
 	+idir*na_Jones*nch_Jones*4
 	+i_ant0*nch_Jones*4;
       for(ipol=0; ipol<nPol; ipol++){
-	Jout[ipol]+=ptrCoefs[idir]*(*(ptrJonesMatrices+offJ0+ipol));
-	
-	//printf("%i, %f, %f, %f\n",ipol,ptrCoefs[idir],creal(Jout[ipol]),cimag(Jout[ipol]));
+	A=cabs(*(ptrJonesMatrices+offJ0+ipol));
+	Jout[ipol]+=(ptrCoefs[idir]/A)*(*(ptrJonesMatrices+offJ0+ipol));
+	Jabs[ipol]+=ptrCoefs[idir]*A;
       }
-      
-    }
-  }
+      for(ipol=0; ipol<nPol; ipol++){
+	Jout[ipol]*=Jabs[ipol];
+      }
+    }//end for idir
+    
+  }//endif
+
+
 }
 
