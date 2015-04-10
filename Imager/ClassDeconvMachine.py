@@ -352,7 +352,7 @@ class ClassImagerDeconv():
 
             Image=self.FacetMachine.FacetsToIm()
             self.ResidImage=Image
-            self.FacetMachine.ToCasaImage(Image,ImageName="%s.residual"%self.BaseName,Fits=True)
+            self.FacetMachine.ToCasaImage(Image,ImageName="%s.residual%i"%(self.BaseName,iMajor),Fits=True)
             # fig=pylab.figure(1)
             # pylab.clf()
             # pylab.imshow(Image[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
