@@ -374,11 +374,22 @@ class ClassDDEGridMachine():
         d0=self.GD["DDESolutions"]["Scale"]*np.pi/180
         gamma=self.GD["DDESolutions"]["gamma"]
         
+        #d=np.sqrt((l0-lc)**2+(m0-mc)**2)
+        #idir=np.argmin(d)
+        #w=sI/(1.+d/d0)**gamma
+        #w/=np.sum(w)
+        
+        
         d=np.sqrt((l0-lc)**2+(m0-mc)**2)
         idir=np.argmin(d)
         w=sI/(1.+d/d0)**gamma
         w/=np.sum(w)
-        
+        w[w<(0.2*w.max())]=0
+        ind=np.argsort(w)[::-1]
+        w[ind[3::]]=0
+        w/=np.sum(w)
+
+
         # pylab.clf()
         # pylab.scatter(lc,mc,c=w)
         # pylab.scatter([l0],[m0],marker="+")

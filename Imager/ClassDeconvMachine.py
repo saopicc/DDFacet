@@ -257,9 +257,14 @@ class ClassImagerDeconv():
         self.InitFacetMachine()
         
         self.FacetMachine.ReinitDirty()
+        isPlotted=False
 
         while True:
             Res=self.setNextData()
+            # if not(isPlotted):
+            #     isPlotted=True
+            #     self.FacetMachine.PlotFacetSols()
+            #     stop
             #if Res=="EndChunk": break
             if Res=="EndOfObservation": break
             DATA=self.DATA
@@ -308,9 +313,9 @@ class ClassImagerDeconv():
         if NMajor==None:
             NMajor=self.NMajor
 
+        Image=self.GiveDirty()
         self.MakePSF()
         
-        Image=self.GiveDirty()
 
         for iMajor in range(NMajor):
 

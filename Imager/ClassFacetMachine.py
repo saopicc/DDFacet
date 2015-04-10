@@ -210,10 +210,11 @@ class ClassFacetMachine():
         lc=DicoClusterDirs["l"]
         mc=DicoClusterDirs["m"]
         sI=DicoClusterDirs["I"]
-
+        x0,x1=lc.min()-np.pi/180,lc.max()+np.pi/180
+        y0,y1=mc.min()-np.pi/180,mc.max()+np.pi/180
         InterpMode=self.GD["DDESolutions"]["Type"]
         if InterpMode=="Krigging":
-            for iFacet in range(lFacet.size):
+            for iFacet in sorted(self.DicoImager.keys()):
                 l0,m0=self.DicoImager[iFacet]["lmShift"]
                 d0=self.GD["DDESolutions"]["Scale"]*np.pi/180
                 gamma=self.GD["DDESolutions"]["gamma"]
@@ -222,13 +223,19 @@ class ClassFacetMachine():
                 idir=np.argmin(d)
                 w=sI/(1.+d/d0)**gamma
                 w/=np.sum(w)
-                w[w<(0.05*w.max())]=0
+                w[w<(0.2*w.max())]=0
+                ind=np.argsort(w)[::-1]
+                w[ind[4::]]=0
 
+                ind=np.where(w!=0)[0]
                 pylab.clf()
-                pylab.scatter(lc,mc,c=w)
+                pylab.scatter(lc[ind],mc[ind],c=w[ind],vmin=0,vmax=w.max())
                 pylab.scatter([l0],[m0],marker="+")
+                pylab.xlim(x0,x1)
+                pylab.ylim(y0,y1)
                 pylab.draw()
                 pylab.show(False)
+                pylab.pause(0.1)
 
             
 
