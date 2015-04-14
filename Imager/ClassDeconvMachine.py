@@ -321,7 +321,7 @@ class ClassImagerDeconv():
 
             print>>log, ModColor.Str("========================== Runing major Cycle %i ========================="%iMajor)
             self.DeconvMachine.SetDirtyPSF(Image,self.PSF)
-            self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel)
+            self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
             repMinor=self.DeconvMachine.Clean()
             if repMinor=="DoneMinFlux":
                 break
@@ -383,7 +383,7 @@ class ClassImagerDeconv():
             try:
                 print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
                 PSF=self.PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
-                self.SideLobeLevel=ModFitPSF.FindSidelobe(PSF)
+                self.SideLobeLevel,self.OffsetSideLobe=ModFitPSF.FindSidelobe(PSF)
                 sigma_x, sigma_y, theta = ModFitPSF.DoFit(PSF)
                 FitOK=True
                 print>>log, "   ... done"

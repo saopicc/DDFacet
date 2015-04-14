@@ -1,4 +1,4 @@
-import _pyGridder
+import _pyArrays
 import ClassTimeIt
 import numpy as np
 
@@ -21,7 +21,6 @@ def A_add_B_prod_factor(A,B,Aedge=None,Bedge=None,factor=1.,NCPU=6):
     
     Blocks = np.int32(np.linspace(Aedge[0],Aedge[1],NCPU+1))
     
-
     
     NX,NY=A.shape[-2],A.shape[-1]
     nz=A.size/(NX*NY)
@@ -29,12 +28,12 @@ def A_add_B_prod_factor(A,B,Aedge=None,Bedge=None,factor=1.,NCPU=6):
 
     for iz in range(nz):
         ThisA=A[iz]
-        _pyGridder.pyAddArray(ThisA,Aedge,B,Bedge,float(factor),Blocks)
+        _pyArrays.pyAddArray(ThisA,Aedge,B,Bedge,float(factor),Blocks)
 
     A=A.reshape(ShapeOrig)
     return A
 
-def A_whereMax(A,NCPU=6,DoAbs=1):
+def A_whereMax(A,NCPU=6,DoAbs=1,Mask=None):
 
     NDimsA=len(A.shape)
     ShapeOrig=A.shape
@@ -42,7 +41,8 @@ def A_whereMax(A,NCPU=6,DoAbs=1):
     NX,NY=A.shape[-2],A.shape[-1]
     Blocks = np.int32(np.linspace(0,NX,NCPU+1))
     
-
+    if A.dtype!=np.float32:
+        stop
     
     nz=A.size/(NX*NY)
     A=A.reshape((nz,NX,NY))
@@ -51,7 +51,11 @@ def A_whereMax(A,NCPU=6,DoAbs=1):
 
     for iz in range(nz):
         ThisA=A[iz]
-        _pyGridder.pyWhereMax(ThisA,Blocks,Ans[iz],DoAbs)
+        if Mask==None:
+            _pyArrays.pyWhereMax(ThisA,Blocks,Ans[iz],DoAbs)
+        else:
+            _pyArrays.pyWhereMaxMask(ThisA,Mask,Blocks,Ans[iz],DoAbs)
+            
 
     chMaxAns=np.argmax(Ans[:,2])
     Ans=Ans[chMaxAns]

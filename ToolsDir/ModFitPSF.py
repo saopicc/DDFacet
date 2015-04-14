@@ -141,7 +141,11 @@ def FindSidelobe(PSF):
     PSFnew[x0-dx:x0+dx,y0-dx:y0+dx]=PSFnew[x0-dx:x0+dx,y0-dx:y0+dx]-D[:,:]
     profile0=PSFnew[x0,:]
 
-    return np.max(PSFnew)
+    x0=PSFnew.shape[0]/2
+    ii=np.argmax(PSFnew[x0::])
+    
+    
+    return np.max(PSFnew),ii
 
     
 

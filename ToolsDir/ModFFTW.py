@@ -215,9 +215,14 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.)):
     a=(CT**2/(2.*sx2))+(ST**2/(2.*sy2))
     b=-(S2T/(4.*sx2))+(S2T/(4.*sy2))
     c=(ST**2/(2.*sx2))+(CT**2/(2.*sy2))
+    # print a,b,c
+    # print U,V
+    # print U.shape,V.shape
+
     x,y=U,V
     k=a*x**2+2.*b*x*y+c*y**2
     Gauss=np.exp(-k)
+    #print "okx"
     #Gauss/=np.sum(Gauss)
     return Gauss
 

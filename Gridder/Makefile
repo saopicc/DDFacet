@@ -1,4 +1,4 @@
-all: _pyGridder.so _pyGridderSmear.so
+all: _pyGridder.so _pyGridderSmear.so _pyArrays.so
 
 # ---- Link --------------------------- 
 _pyGridder.so:  Gridder.o 
@@ -20,6 +20,14 @@ GridderSmear.o:  GridderSmear.c GridderSmear.h
 	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC -lrt
 #	gcc  -lgomp -fopenmp -pthread -O3 -msse -msse2 -msse3 -msse4.2 -mssse3 -march=corei7 -mtune=corei7 --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC -lrt
 #	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC	
+
+
+##################################
+_pyArrays.so:  Arrays.o 
+	gcc -fopenmp -pthread -shared Arrays.o -o _pyArrays.so -lrt 
+
+Arrays.o:  Arrays.c Arrays.h
+	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c Arrays.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC -lrt
 
 
 
