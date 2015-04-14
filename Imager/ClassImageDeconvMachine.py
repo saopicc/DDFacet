@@ -98,7 +98,7 @@ class ClassImageDeconvMachine():
         self.ListScales.append({"ModelType":"Delta"})
         iSlice=1
         
-        Support=31
+        Support=61
 
         for i in range(NScales):
             Minor=Scales[i]/(2.*np.sqrt(2.*np.log(2.)))
