@@ -19,7 +19,7 @@ class ClassImageDeconvMachine():
         self.MaxMinorIter=MaxMinorIter
         self.NCPU=NCPU
         self.CycleFactor=CycleFactor
-        self.Chi2Thr=20
+        self.Chi2Thr=10000
         self.MaskArray=None
 
     def SetDirtyPSF(self,Dirty,PSF):
@@ -192,12 +192,7 @@ class ClassImageDeconvMachine():
 
         chi2=np.sum(np.sum(resid2,axis=1),axis=1)/(np.sum(self.WeightFunction))
 
-        #print chi2
-
-        if np.min(chi2)>self.Chi2Thr:
-            self._MaskArray[:,:,x,y]=True
-            return "BadFit"
-
+        print chi2/Fpol[0,0,0]**2
         iScale=np.argmin(chi2)
 
         # pylab.clf()
@@ -212,6 +207,13 @@ class ClassImageDeconvMachine():
         # pylab.colorbar()
         # pylab.draw()
         # pylab.show(False)
+
+
+        if np.min(chi2)>self.Chi2Thr:
+            self._MaskArray[:,:,x,y]=True
+            return "BadFit"
+
+
 
 
 
@@ -421,16 +423,46 @@ class ClassImageDeconvMachine():
             T.timeit("stuff")
 
             iScale=self.FindBestScale((x,y),np.float32(Fpol))
+            print iScale
             if iScale=="BadFit": continue
 
-
+            # box=30
+            # x0,x1=x-box,x+box
+            # y0,y1=y-box,y+box
+            # pylab.clf()
+            # pylab.subplot(1,3,1)
+            # pylab.imshow(self.Dirty[0][x0:x1,y0:y1],interpolation="nearest")#,vmin=m0,vmax=m1)
+            # #pylab.subplot(1,3,2)
+            # #pylab.imshow(self.MaskArray[0],interpolation="nearest",vmin=0,vmax=1,cmap="gray")
+            # pylab.subplot(1,3,2)
+            # pylab.imshow(self.ModelImage[0][x0:x1,y0:y1],interpolation="nearest",cmap="gray")
+            # #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
+            # #pylab.colorbar()
+            
 
             
             self.SubStep((x,y),Fpol,iScale)
             T.timeit("add0")
 
 
+            # pylab.subplot(1,3,3)
+            # pylab.imshow(self.Dirty[0][x0:x1,y0:y1],interpolation="nearest")#,vmin=m0,vmax=m1)
+
+            # #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
+            # #pylab.colorbar()
+            # pylab.draw()
+            # pylab.show(False)
+            # pylab.pause(0.1)
+
+
+
+
+
+
             ThisComp=self.ListScales[iScale]
+
+
+
 
             if ThisComp["ModelType"]=="Delta":
                 pass
@@ -457,18 +489,6 @@ class ClassImageDeconvMachine():
                 stop
 
 
-            # pylab.clf()
-            # pylab.subplot(1,2,1)
-            # pylab.imshow(self.Dirty[0],interpolation="nearest")#,vmin=m0,vmax=m1)
-            # #pylab.subplot(1,3,2)
-            # #pylab.imshow(self.MaskArray[0],interpolation="nearest",vmin=0,vmax=1,cmap="gray")
-            # pylab.subplot(1,2,2)
-            # pylab.imshow(self.ModelImage[0],interpolation="nearest",cmap="gray")
-            # #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
-            # #pylab.colorbar()
-            # pylab.draw()
-            # pylab.show(False)
-            # pylab.pause(0.1)
 
 
             T.timeit("add1")
