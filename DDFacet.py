@@ -79,6 +79,11 @@ def read_options():
     OP.add_option('CompGridMode')
     OP.add_option('CompGridDecorr')
     OP.add_option('CompGridFOV')
+    OP.add_option('CompDeGridMode')
+    OP.add_option('CompDeGridDecorr')
+    OP.add_option('CompDeGridFOV')
+
+
     #OP.add_option('CompModeDeGrid')
 
     OP.OptionGroup("* DDE Solutions","DDESolutions")

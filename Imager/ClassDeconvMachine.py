@@ -6,7 +6,8 @@ import pylab
 import ToolsDir
 import MyPickle
 from pyrap.images import image
-import ClassImageDeconvMachine
+import ClassImageDeconvMachineMultiScale
+import ClassImageDeconvMachineSingleScale
 import ModFFTW
 import MyLogger
 import ModColor
@@ -53,8 +54,17 @@ class ClassImagerDeconv():
         del(self.GD["ImagerDeconv"]["MaxMajorIter"])
         MinorCycleConfig=dict(self.GD["ImagerDeconv"])
         MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
-        MinorCycleConfig["GD"]=self.GD
-        self.DeconvMachine=ClassImageDeconvMachine.ClassImageDeconvMachine(**MinorCycleConfig)
+
+        if self.GD["MultiScale"]["Scales"]==[0]:
+            print>>log, "Minor cycle deconvolution in Single Scale Mode" 
+            self.MinorCycleMode="SS"
+            self.DeconvMachine=ClassImageDeconvMachineSingleScale.ClassImageDeconvMachine(**MinorCycleConfig)
+        else:
+            print>>log, "Minor cycle deconvolution in Multi Scale Mode" 
+            self.MinorCycleMode="MS"
+            MinorCycleConfig["GD"]=self.GD
+            self.DeconvMachine=ClassImageDeconvMachineMultiScale.ClassImageDeconvMachine(**MinorCycleConfig)
+
         self.FacetMachine=None
         self.PSF=None
         self.PSFGaussPars = None
@@ -353,9 +363,12 @@ class ClassImagerDeconv():
 
             print>>log, ModColor.Str("========================== Runing major Cycle %i ========================="%iMajor)
             self.DeconvMachine.SetDirtyPSF(Image,self.PSF)
-            self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
-            self.DeconvMachine.FindPSFExtent(Method="FromSideLobe")
-            self.DeconvMachine.MakeMultiScaleCube()
+            if self.MinorCycleMode=="MS":
+                self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
+                self.DeconvMachine.FindPSFExtent(Method="FromSideLobe")
+                self.DeconvMachine.MakeMultiScaleCube()
+            else:
+                self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel)
 
             repMinor=self.DeconvMachine.Clean()
             if repMinor=="DoneMinFlux":
