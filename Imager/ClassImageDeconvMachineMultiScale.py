@@ -236,7 +236,7 @@ class ClassImageDeconvMachine():
         #     return "BadFit"
 
 
-        print WResid
+        #print WResid
         # stop
 
 
@@ -539,5 +539,8 @@ class ClassImageDeconvMachine():
 
 
         print>>log, ModColor.Str("    [iter=%i] Reached maximum number of iterations" % (Nminor))
+        DoneScale*=100./np.sum(DoneScale)
+        for iScale in range(DoneScale.size):
+            print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
         return "MaxIter"
 

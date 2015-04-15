@@ -94,10 +94,12 @@ static PyObject *pyWhereMaxMask(PyObject *self, PyObject *args)
       //printf("- block %i->%i\n",i0,i1);
       
       float* a = p_float32(A);
-      int i_a,j_a;
+      int i_a;
+      int j_a;
       float ThisMax=0.;
       int ThisxMax=0;
       int ThisyMax=0;
+      int ThisIndex=0;
       float ThisVal;
       for (i_a = i0; i_a < i1; i_a++)
       	{
@@ -105,29 +107,30 @@ static PyObject *pyWhereMaxMask(PyObject *self, PyObject *args)
       	    {
 	      
 
-      	      /* int ii=i_a*NY+j_a; */
-	      /* ThisVal=a[ii]; */
-	      /* ThisVal=((pMask[ii]==1) ? 0 : ThisVal); */
-	      /* ThisVal = ((ThisVal > 0) ? ThisVal : -ThisVal); */
-	      /* ThisxMax= ((ThisVal > ThisMax) ? i_a : ThisxMax); */
-	      /* ThisyMax= ((ThisVal > ThisMax) ? j_a : ThisyMax); */
-	      /* ThisMax = ((ThisVal > ThisMax) ? ThisVal : ThisMax); */
-
       	      int ii=i_a*NY+j_a;
-	      if(pMask[ii]==1){
-	      	//printf("Skipping (%i,%i)\n",i_a,j_a);
-	      	continue;
-	      };
 	      ThisVal=a[ii];
-	      if(doabs==1){
-	      	ThisVal=fabs(ThisVal);
-	      }
-	      //printf("%f, %f \n",a[ii],ThisVal);
-	      if (ThisVal > ThisMax){
-	      	ThisMax=ThisVal;
-	      	ThisxMax=i_a;
-	      	ThisyMax=j_a;
-	      }
+	      ThisVal=((pMask[ii]==1) ? 0 : ThisVal);
+	      ThisVal = ((ThisVal > 0) ? ThisVal : -ThisVal);
+	      ThisxMax= ((ThisVal > ThisMax) ? i_a : ThisxMax);
+	      ThisyMax= ((ThisVal > ThisMax) ? j_a : ThisyMax);
+	      ThisMax = ((ThisVal > ThisMax) ? ThisVal : ThisMax);
+
+      	      /* int ii=i_a*NY+j_a; */
+	      /* if(pMask[ii]==1){ */
+	      /* 	//printf("Skipping (%i,%i)\n",i_a,j_a); */
+	      /* 	continue; */
+	      /* }; */
+	      /* ThisVal=a[ii]; */
+	      /* if(doabs==1){ */
+	      /* 	ThisVal=fabs(ThisVal); */
+	      /* } */
+
+	      /* //printf("%f, %f \n",a[ii],ThisVal); */
+	      /* if (ThisVal > ThisMax){ */
+	      /* 	ThisMax=ThisVal; */
+	      /* 	ThisxMax=i_a; */
+	      /* 	ThisyMax=j_a; */
+	      /* } */
 
 
 	      
