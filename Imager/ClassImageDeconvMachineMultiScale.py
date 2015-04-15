@@ -121,8 +121,8 @@ class ClassImageDeconvMachine():
             PSFGaussPars=(Major,Minor,0.)
             CubePSFScales[iSlice,:,:]=ModFFTW.ConvolveGaussian(self.SubPSF,CellSizeRad=1.,GaussPars=[PSFGaussPars])[0,0]
             Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)
-            fact=np.max(Gauss)/np.sum(Gauss)
-            Gauss*=fact
+            #fact=np.max(Gauss)/np.sum(Gauss)
+            #Gauss*=fact
             self.ListScales.append({"ModelType":"Gaussian",
                                     "Model":Gauss,"Scale":i})
 
@@ -152,8 +152,8 @@ class ClassImageDeconvMachine():
                     # pylab.pause(0.1)
                     iSlice+=1
                     Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)/Max
-                    fact=np.max(Gauss)/np.sum(Gauss)
-                    Gauss*=fact
+                    #fact=np.max(Gauss)/np.sum(Gauss)
+                    #Gauss*=fact
                     self.ListScales.append({"ModelType":"Gaussian",
                                             "Model":Gauss,"Scale":iScale})
 
