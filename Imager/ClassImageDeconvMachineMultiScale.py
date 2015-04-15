@@ -98,6 +98,7 @@ class ClassImageDeconvMachine():
         
         _,_,nx,ny=self.SubPSF.shape
         NScales=len(LScales)
+        self.NScales=NScales
         NRatios=len(LRatios)
         CubePSFScales=np.zeros((NScales+1+NRatios*NTheta*(NScales),nx,ny))
 
@@ -107,7 +108,7 @@ class ClassImageDeconvMachine():
 
         self.ListScales=[]
         CubePSFScales[0,:,:]=self.SubPSF[0,0,:,:]
-        self.ListScales.append({"ModelType":"Delta"})
+        self.ListScales.append({"ModelType":"Delta","Scale":0})
         iSlice=1
         
         Support=61
@@ -119,7 +120,7 @@ class ClassImageDeconvMachine():
             CubePSFScales[iSlice,:,:]=ModFFTW.ConvolveGaussian(self.SubPSF,CellSizeRad=1.,GaussPars=[PSFGaussPars])[0,0]
             Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)
             self.ListScales.append({"ModelType":"Gaussian",
-                                    "Model":Gauss})
+                                    "Model":Gauss,"Scale":i})
 
             iSlice+=1
 
@@ -148,7 +149,7 @@ class ClassImageDeconvMachine():
                     iSlice+=1
                     Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)/Max
                     self.ListScales.append({"ModelType":"Gaussian",
-                                            "Model":Gauss})
+                                            "Model":Gauss,"Scale":iScale})
 
         # Max=np.max(np.max(CubePSFScales,axis=1),axis=1)
         # Max=Max.reshape((Max.size,1,1))
@@ -402,6 +403,8 @@ class ClassImageDeconvMachine():
             return "DoneMinFlux"
 
 
+
+        DoneScale=np.zeros((self.NScales,),np.float32)
         for i in range(Nminor):
 
             #x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
@@ -418,10 +421,16 @@ class ClassImageDeconvMachine():
 
             if ThisFlux < FluxLimit:
                 print>>log, "    [iter=%i] Maximum peak lower that rms-based limit of %f Jy (%i-sigma)" % (i,FluxLimit,Threshold_RMS)
+                DoneScale*=100./np.sum(DoneScale)
+                for iScale in range(DoneScale.size):
+                    print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
                 return "MinFlux"
 
             if ThisFlux < Threshold_SideLobe:
                 print>>log, "    [iter=%i] Peak residual flux %f Jy higher than sidelobe-based limit of %f Jy" % (i,ThisFlux, Threshold_SideLobe)
+                DoneScale*=100./np.sum(DoneScale)
+                for iScale in range(DoneScale.size):
+                    print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
 
                 return "MinFlux"
 
@@ -436,6 +445,8 @@ class ClassImageDeconvMachine():
             iScale=self.FindBestScale((x,y),np.float32(Fpol))
             #print iScale
             if iScale=="BadFit": continue
+
+                
 
             # box=30
             # x0,x1=x-box,x+box
@@ -475,6 +486,9 @@ class ClassImageDeconvMachine():
 
 
 
+
+            Scale=ThisComp["Scale"]
+            DoneScale[Scale]+=1
 
             if ThisComp["ModelType"]=="Delta":
                 for pol in range(npol):
