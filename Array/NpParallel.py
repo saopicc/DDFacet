@@ -70,18 +70,20 @@ def A_whereMax(A,NCPU=6,DoAbs=1,Mask=None):
 
 def testWhereMax():
     
-    Np=20000
+    Np=10000
     nch=1
     
     A=np.zeros((nch,Np,Np),dtype=np.float32)
-    A[0,1,2]=3.
+    Mask=np.zeros((Np,Np),np.bool8)
+    A[0,100,200]=30.
 
     T=ClassTimeIt.ClassTimeIt()
-    Ans=A_whereMax(A,NCPU=6)
+    Ans=A_whereMax(A,NCPU=4,Mask=Mask)
     print Ans
     T.timeit("1")
-    print np.where(A==np.max(np.abs(A)))
-    T.timeit("2")
+    #print np.where(A==np.max(np.abs(A)))
+    #T.timeit("2")
+
 
 
 #testWhereMax()

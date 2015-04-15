@@ -106,24 +106,31 @@ static PyObject *pyWhereMaxMask(PyObject *self, PyObject *args)
 	      
 
       	      int ii=i_a*NY+j_a;
-	      if(pMask[ii]==1){
-		//printf("Skipping (%i,%i)\n",i_a,j_a);
-		continue;
-	      };
 
-      	      /* ThisMax  = ((a[ii] > ThisMax) ? a[ii] : ThisMax); */
-      	      /* ThisxMax = ((a[ii] > ThisMax) ? i_a : ThisxMax); */
-      	      /* ThisyMax = ((a[ii] > ThisMax) ? j_a : ThisyMax); */
+
+	      /* ThisVal=a[ii]; */
+	      /* ThisVal=((pMask[ii]==1) ? 0 : ThisVal); */
+	      /* ThisVal = ((ThisVal > 0) ? ThisVal : -ThisVal); */
+	      /* ThisxMax= ((ThisVal > ThisMax) ? i_a : ThisxMax); */
+	      /* ThisyMax= ((ThisVal > ThisMax) ? j_a : ThisyMax); */
+	      /* ThisMax = ((ThisVal > ThisMax) ? ThisVal : ThisMax); */
+
+	      if(pMask[ii]==1){
+	      	//printf("Skipping (%i,%i)\n",i_a,j_a);
+	      	continue;
+	      };
 	      ThisVal=a[ii];
 	      if(doabs==1){
-		ThisVal=fabs(ThisVal);
+	      	ThisVal=fabs(ThisVal);
 	      }
 	      //printf("%f, %f \n",a[ii],ThisVal);
 	      if (ThisVal > ThisMax){
-		ThisMax=ThisVal;
-		ThisxMax=i_a;
-		ThisyMax=j_a;
+	      	ThisMax=ThisVal;
+	      	ThisxMax=i_a;
+	      	ThisyMax=j_a;
 	      }
+
+
 	      
 
       	      /* printf("%i %i %i\n",i_a,j_a,ii); */
