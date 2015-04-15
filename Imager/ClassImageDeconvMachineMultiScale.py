@@ -75,6 +75,7 @@ class ClassImageDeconvMachine():
             dx0=2*self.OffsetSideLobe
             print>>log, "PSF extends to [%i] from center"%(dx0)
         
+        dx0=np.max([dx0,50])
         npix=2*dx0+1
         npix=ModToolBox.GiveClosestFastSize(npix,Odd=False)
 
