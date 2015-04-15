@@ -434,6 +434,10 @@ class ClassImageDeconvMachine():
 
                 return "MinFlux"
 
+            if (i>0)&((i%1000)==0):
+                print>>log, "    [iter=%i] Peak residual flux %f Jy" % (i,ThisFlux)
+                
+
             Fpol=(self.Dirty[:,x,y].reshape(npol,1,1)).copy()
 
             #print "Fpol",Fpol
