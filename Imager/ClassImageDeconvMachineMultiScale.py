@@ -1,7 +1,8 @@
+__package__="DDFacet.Imager"
 
 import numpy as np
 import pylab
-import MyLogger
+from ..Other import MyLogger
 import ModColor
 log=MyLogger.getLogger(" ClassImageDeconvMachine")
 import NpParallel
@@ -417,7 +418,8 @@ class ClassImageDeconvMachine():
             print>>log, ModColor.Str("    Initial maximum peak %f Jy lower that rms-based limit of %f Jy (%i-sigma)" % (ThisFlux,Threshold_RMS,Threshold_RMS))
             return "DoneMinFlux"
 
-
+        self._MaskArray.fill(1)
+        self._MaskArray[np.abs(self._Dirty) > Threshold_SideLobe]=0
 
         DoneScale=np.zeros((self.NScales,),np.float32)
         for i in range(Nminor):
