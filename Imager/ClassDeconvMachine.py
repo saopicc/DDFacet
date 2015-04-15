@@ -165,6 +165,22 @@ class ClassImagerDeconv():
 
     def MakePSF(self):
         if self.PSF!=None: return
+
+        if self.GD["Stores"]["PSF"]!=None:
+            print>>log, "Reading PSF image from %s"%self.GD["Stores"]["PSF"]
+            CasaPSF=image(self.GD["Stores"]["PSF"])
+            PSF=CasaPSF.getdata()
+            nch,npol,_,_=PSF.shape
+            for ch in range(nch):
+                for pol in range(npol):
+                    PSF[ch,pol]=PSF[ch,pol].T[::-1]
+                    
+            self.PSF=PSF
+            self.FitPSF()
+            return PSF
+
+
+
         print>>log, ModColor.Str("=============================== Making PSF ===============================")
         # FacetMachinePSF=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
         #                                                     IdSharedMem=self.IdSharedMem,DoPSF=True)#,Sols=SimulSols)
@@ -254,12 +270,23 @@ class ClassImagerDeconv():
 
     def GiveDirty(self):
 
-        print>>log, ModColor.Str("============================== Making Dirty ==============================")
         self.InitFacetMachine()
         
         self.FacetMachine.ReinitDirty()
         isPlotted=False
+        
+        if self.GD["Stores"]["Dirty"]!=None:
+            print>>log, "Reading Dirty image from %s"%self.GD["Stores"]["Dirty"]
+            CasaDirty=image(self.GD["Stores"]["Dirty"])
+            Dirty=CasaDirty.getdata()
+            nch,npol,_,_=Dirty.shape
+            for ch in range(nch):
+                for pol in range(npol):
+                    Dirty[ch,pol]=Dirty[ch,pol].T[::-1]
+            return Dirty
 
+
+        print>>log, ModColor.Str("============================== Making Dirty ==============================")
         while True:
             Res=self.setNextData()
             # if not(isPlotted):
@@ -282,6 +309,10 @@ class ClassImagerDeconv():
 
         Image=self.FacetMachine.FacetsToIm()
         self.FacetMachine.ToCasaImage(Image,ImageName="%s.dirty"%self.BaseName,Fits=True)
+
+
+
+
         #m0,m1=Image.min(),Image.max()
         
         # pylab.clf()

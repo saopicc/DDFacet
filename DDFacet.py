@@ -59,6 +59,8 @@ def read_options():
 
     OP.OptionGroup("* File storing options","Stores")
     OP.add_option('DeleteDDFProducts')
+    OP.add_option('PSF')
+    OP.add_option('Dirty')
    
 
     OP.OptionGroup("* Selection","DataSelection")
