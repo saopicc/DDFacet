@@ -468,20 +468,20 @@ class ClassImageDeconvMachine():
 
                 
 
-            box=50
-            x0,x1=x-box,x+box
-            y0,y1=y-box,y+box
-            x0,x1=0,-1
-            y0,y1=0,-1
-            pylab.clf()
-            pylab.subplot(1,2,1)
-            pylab.imshow(self.Dirty[0][x0:x1,y0:y1],interpolation="nearest",vmin=mm0,vmax=mm1)
-            #pylab.subplot(1,3,2)
-            #pylab.imshow(self.MaskArray[0],interpolation="nearest",vmin=0,vmax=1,cmap="gray")
-            # pylab.subplot(1,2,2)
-            # pylab.imshow(self.ModelImage[0][x0:x1,y0:y1],interpolation="nearest",cmap="gray")
-            #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
-            #pylab.colorbar()
+            # box=50
+            # x0,x1=x-box,x+box
+            # y0,y1=y-box,y+box
+            # x0,x1=0,-1
+            # y0,y1=0,-1
+            # pylab.clf()
+            # pylab.subplot(1,2,1)
+            # pylab.imshow(self.Dirty[0][x0:x1,y0:y1],interpolation="nearest",vmin=mm0,vmax=mm1)
+            # #pylab.subplot(1,3,2)
+            # #pylab.imshow(self.MaskArray[0],interpolation="nearest",vmin=0,vmax=1,cmap="gray")
+            # # pylab.subplot(1,2,2)
+            # # pylab.imshow(self.ModelImage[0][x0:x1,y0:y1],interpolation="nearest",cmap="gray")
+            # #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
+            # #pylab.colorbar()
             
 
             
@@ -490,14 +490,14 @@ class ClassImageDeconvMachine():
 
 
 
-            pylab.subplot(1,2,2)
-            pylab.imshow(self.Dirty[0][x0:x1,y0:y1],interpolation="nearest",vmin=mm0,vmax=mm1)#,vmin=m0,vmax=m1)
+            # pylab.subplot(1,2,2)
+            # pylab.imshow(self.Dirty[0][x0:x1,y0:y1],interpolation="nearest",vmin=mm0,vmax=mm1)#,vmin=m0,vmax=m1)
 
-            #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
-            #pylab.colorbar()
-            pylab.draw()
-            pylab.show(False)
-            pylab.pause(0.1)
+            # #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
+            # #pylab.colorbar()
+            # pylab.draw()
+            # pylab.show(False)
+            # pylab.pause(0.1)
 
 
 
