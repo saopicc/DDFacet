@@ -53,6 +53,7 @@ class ClassImagerDeconv():
         del(self.GD["ImagerDeconv"]["MaxMajorIter"])
         MinorCycleConfig=dict(self.GD["ImagerDeconv"])
         MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
+        MinorCycleConfig["GD"]=self.GD
         self.DeconvMachine=ClassImageDeconvMachine.ClassImageDeconvMachine(**MinorCycleConfig)
         self.FacetMachine=None
         self.PSF=None
@@ -322,6 +323,9 @@ class ClassImagerDeconv():
             print>>log, ModColor.Str("========================== Runing major Cycle %i ========================="%iMajor)
             self.DeconvMachine.SetDirtyPSF(Image,self.PSF)
             self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
+            self.DeconvMachine.FindPSFExtent(Method="FromSideLobe")
+            self.DeconvMachine.MakeMultiScaleCube()
+
             repMinor=self.DeconvMachine.Clean()
             if repMinor=="DoneMinFlux":
                 break
@@ -401,7 +405,7 @@ class ClassImagerDeconv():
         self.PSFGaussPars = (sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta)
         print>>log, "Fitted PSF (sigma): (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec, sigma_y*self.CellArcSec, theta)
         print>>log, "Fitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec*FWHMFact, sigma_y*self.CellArcSec*FWHMFact, theta)
-        print>>log, "Secondary sidelobe at the level of %5.1f"%(self.SideLobeLevel)
+        print>>log, "Secondary sidelobe at the level of %5.1f at a position of %i from the center"%(self.SideLobeLevel,self.OffsetSideLobe)
             
             
     def Restore(self):

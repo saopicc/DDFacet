@@ -12,7 +12,9 @@ import ModToolBox
 
 
 class ClassImageDeconvMachine():
-    def __init__(self,Gain=0.3,MaxMinorIter=100,NCPU=6,CycleFactor=2.5):
+    def __init__(self,Gain=0.3,
+                 MaxMinorIter=100,NCPU=6,CycleFactor=2.5,
+                 GD=None):
         #self.im=CasaImage
         self.Gain=Gain
         self.ModelImage=None
@@ -21,6 +23,9 @@ class ClassImageDeconvMachine():
         self.CycleFactor=CycleFactor
         self.Chi2Thr=10000
         self.MaskArray=None
+        self.GD=GD
+        self.CubePSFScales=None
+        self.SubPSF=None
 
     def SetDirtyPSF(self,Dirty,PSF):
         # if len(PSF.shape)==4:
@@ -44,6 +49,7 @@ class ClassImageDeconvMachine():
 
 
     def FindPSFExtent(self,Method="FromBox"):
+        if self.SubPSF!=None: return
         PSF=self._PSF
         _,_,NPSF,_=PSF.shape
         xtest=np.int64(np.linspace(NPSF/2,NPSF,100))
@@ -81,7 +87,13 @@ class ClassImageDeconvMachine():
 
 
 
-    def MakeMultiScaleCube(self,LScales,LRatios,NTheta):
+    def MakeMultiScaleCube(self):
+        if self.CubePSFScales!=None: return
+        print>>log, "Making MultiScale PSFs..."
+        LScales=self.GD["MultiScale"]["Scales"]
+        if 0 in LScales: LScales.remove(0)
+        LRatios=self.GD["MultiScale"]["Ratios"]
+        NTheta=self.GD["MultiScale"]["NTheta"]
 
         
         _,_,nx,ny=self.SubPSF.shape
@@ -149,6 +161,7 @@ class ClassImageDeconvMachine():
         self.WeightFunction=ModFFTW.GiveGauss(self.SubPSF.shape[-1],CellSizeRad=1.,GaussPars=PSFGaussPars)
         #self.WeightFunction.fill(1)
         self.SupWeightWidth=3.*self.WeightWidth
+        print>>log, "   ... Done"
 
 
     def FindBestScale(self,(x,y),Fpol):
@@ -192,7 +205,6 @@ class ClassImageDeconvMachine():
 
         chi2=np.sum(np.sum(resid2,axis=1),axis=1)/(np.sum(self.WeightFunction))
 
-        print chi2/Fpol[0,0,0]**2
         iScale=np.argmin(chi2)
 
         # pylab.clf()
@@ -207,7 +219,6 @@ class ClassImageDeconvMachine():
         # pylab.colorbar()
         # pylab.draw()
         # pylab.show(False)
-
 
         if np.min(chi2)>self.Chi2Thr:
             self._MaskArray[:,:,x,y]=True
@@ -423,7 +434,7 @@ class ClassImageDeconvMachine():
             T.timeit("stuff")
 
             iScale=self.FindBestScale((x,y),np.float32(Fpol))
-            print iScale
+            #print iScale
             if iScale=="BadFit": continue
 
             # box=30
@@ -443,6 +454,7 @@ class ClassImageDeconvMachine():
             
             self.SubStep((x,y),Fpol,iScale)
             T.timeit("add0")
+
 
 
             # pylab.subplot(1,3,3)
@@ -465,9 +477,8 @@ class ClassImageDeconvMachine():
 
 
             if ThisComp["ModelType"]=="Delta":
-                pass
-                #for pol in range(npol):
-                #    self.ModelImage[pol,x,y]+=Fpol[pol,0,0]*self.Gain
+                for pol in range(npol):
+                   self.ModelImage[pol,x,y]+=Fpol[pol,0,0]*self.Gain
                 
             elif ThisComp["ModelType"]=="Gaussian":
                 Gauss=ThisComp["Model"]

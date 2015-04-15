@@ -142,9 +142,14 @@ def FindSidelobe(PSF):
     profile0=PSFnew[x0,:]
 
     x0=PSFnew.shape[0]/2
-    ii=np.argmax(PSFnew[x0::])
+    ii=np.argmax(profile0[x0::])
     
-    
+    # import pylab
+    # pylab.clf()
+    # pylab.plot(profile0)
+    # pylab.draw()
+    # pylab.show()
+
     return np.max(PSFnew),ii
 
     
