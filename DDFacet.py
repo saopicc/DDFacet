@@ -86,6 +86,13 @@ def read_options():
 
     #OP.add_option('CompModeDeGrid')
 
+    OP.OptionGroup("* MultiScale Options","MultiScale")
+    OP.add_option("Scales")
+    OP.add_option("Ratios")
+    OP.add_option("NTheta")
+
+
+
     OP.OptionGroup("* DDE Solutions","DDESolutions")
     OP.add_option("DDSols")
     OP.add_option("GlobalNorm")
