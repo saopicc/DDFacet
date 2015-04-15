@@ -27,7 +27,7 @@ _pyArrays.so:  Arrays.o
 	gcc -fopenmp -pthread -shared Arrays.o -o _pyArrays.so -lrt 
 
 Arrays.o:  Arrays.c Arrays.h
-	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c Arrays.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC -lrt
+	gcc  -lgomp -fopenmp -pthread  -O3 --fast-math  -c Arrays.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC -lrt
 
 
 

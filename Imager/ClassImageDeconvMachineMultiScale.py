@@ -73,6 +73,7 @@ class ClassImageDeconvMachine():
             print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
         elif Method=="FromSideLobe":
             dx0=2*self.OffsetSideLobe
+            dx0=np.max([dx0,50])
             print>>log, "PSF extends to [%i] from center"%(dx0)
         
         dx0=np.max([dx0,50])
@@ -222,12 +223,21 @@ class ClassImageDeconvMachine():
         # pylab.draw()
         # pylab.show(False)
 
-        if np.min(chi2)>self.Chi2Thr:
-            self._MaskArray[:,:,x,y]=True
-            return "BadFit"
+        # # if np.min(chi2)>self.Chi2Thr:
+        # #     self._MaskArray[:,:,x,y]=True
+        # #     return "BadFit"
+
+            
+        # WResid=np.sum(WCubePSF*dirty[0]*CubePSF[iScale])/np.sum(WCubePSF*CubePSF[iScale]*CubePSF[iScale])
 
 
+        # if WResid<0.9:
+        #     self._MaskArray[:,:,x,y]=True
+        #     return "BadFit"
 
+
+        print WResid
+        # stop
 
 
 
@@ -411,9 +421,9 @@ class ClassImageDeconvMachine():
             #x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
             x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1,Mask=self.MaskArray)
 
-            #x,y=1224, 1994
+            # #x,y=1224, 1994
             # print x,y,ThisFlux
-            # x,y=np.where(self.Dirty[0]==np.max(np.abs(self.Dirty[0])))
+            # x,y=np.where(np.abs(self.Dirty[0])==np.max(np.abs(self.Dirty[0])))
             # ThisFlux=self.Dirty[0,x,y]
             # print x,y,ThisFlux
             # stop
@@ -454,18 +464,20 @@ class ClassImageDeconvMachine():
 
                 
 
-            # box=30
-            # x0,x1=x-box,x+box
-            # y0,y1=y-box,y+box
-            # pylab.clf()
-            # pylab.subplot(1,3,1)
-            # pylab.imshow(self.Dirty[0][x0:x1,y0:y1],interpolation="nearest")#,vmin=m0,vmax=m1)
-            # #pylab.subplot(1,3,2)
-            # #pylab.imshow(self.MaskArray[0],interpolation="nearest",vmin=0,vmax=1,cmap="gray")
-            # pylab.subplot(1,3,2)
+            box=50
+            x0,x1=x-box,x+box
+            y0,y1=y-box,y+box
+            x0,x1=0,-1
+            y0,y1=0,-1
+            pylab.clf()
+            pylab.subplot(1,2,1)
+            pylab.imshow(self.Dirty[0][x0:x1,y0:y1],interpolation="nearest",vmin=mm0,vmax=mm1)
+            #pylab.subplot(1,3,2)
+            #pylab.imshow(self.MaskArray[0],interpolation="nearest",vmin=0,vmax=1,cmap="gray")
+            # pylab.subplot(1,2,2)
             # pylab.imshow(self.ModelImage[0][x0:x1,y0:y1],interpolation="nearest",cmap="gray")
-            # #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
-            # #pylab.colorbar()
+            #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
+            #pylab.colorbar()
             
 
             
@@ -474,14 +486,14 @@ class ClassImageDeconvMachine():
 
 
 
-            # pylab.subplot(1,3,3)
-            # pylab.imshow(self.Dirty[0][x0:x1,y0:y1],interpolation="nearest")#,vmin=m0,vmax=m1)
+            pylab.subplot(1,2,2)
+            pylab.imshow(self.Dirty[0][x0:x1,y0:y1],interpolation="nearest",vmin=mm0,vmax=mm1)#,vmin=m0,vmax=m1)
 
-            # #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
-            # #pylab.colorbar()
-            # pylab.draw()
-            # pylab.show(False)
-            # pylab.pause(0.1)
+            #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
+            #pylab.colorbar()
+            pylab.draw()
+            pylab.show(False)
+            pylab.pause(0.1)
 
 
 

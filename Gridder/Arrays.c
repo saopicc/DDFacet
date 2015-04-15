@@ -105,9 +105,7 @@ static PyObject *pyWhereMaxMask(PyObject *self, PyObject *args)
       	    {
 	      
 
-      	      int ii=i_a*NY+j_a;
-
-
+      	      /* int ii=i_a*NY+j_a; */
 	      /* ThisVal=a[ii]; */
 	      /* ThisVal=((pMask[ii]==1) ? 0 : ThisVal); */
 	      /* ThisVal = ((ThisVal > 0) ? ThisVal : -ThisVal); */
@@ -115,6 +113,7 @@ static PyObject *pyWhereMaxMask(PyObject *self, PyObject *args)
 	      /* ThisyMax= ((ThisVal > ThisMax) ? j_a : ThisyMax); */
 	      /* ThisMax = ((ThisVal > ThisMax) ? ThisVal : ThisMax); */
 
+      	      int ii=i_a*NY+j_a;
 	      if(pMask[ii]==1){
 	      	//printf("Skipping (%i,%i)\n",i_a,j_a);
 	      	continue;

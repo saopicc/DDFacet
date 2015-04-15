@@ -78,7 +78,7 @@ def testWhereMax():
     A[0,100,200]=30.
 
     T=ClassTimeIt.ClassTimeIt()
-    Ans=A_whereMax(A,NCPU=4,Mask=Mask)
+    Ans=A_whereMax(A,NCPU=1,Mask=Mask)
     print Ans
     T.timeit("1")
     #print np.where(A==np.max(np.abs(A)))
