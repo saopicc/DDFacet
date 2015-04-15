@@ -1161,7 +1161,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	    MatDot(visBuff,J1H,visBuff);
 	  }else{
 	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
-	      visBuff[ThisPol]=visPtr[ThisPol];
+	      visBuff[ThisPol]=ThisVis[ThisPol];
 	    }
 	  }
 
