@@ -443,6 +443,7 @@ class ClassImageDeconvMachine():
             T.timeit("stuff")
 
             iScale=self.FindBestScale((x,y),np.float32(Fpol))
+            T.timeit("FindScale")
             #print iScale
             if iScale=="BadFit": continue
 
@@ -464,7 +465,7 @@ class ClassImageDeconvMachine():
 
             
             self.SubStep((x,y),Fpol,iScale)
-            T.timeit("add0")
+            T.timeit("SubStep")
 
 
 
@@ -516,7 +517,7 @@ class ClassImageDeconvMachine():
 
 
 
-            T.timeit("add1")
+            T.timeit("End")
 
 
 
