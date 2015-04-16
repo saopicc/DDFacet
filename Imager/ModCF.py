@@ -1,13 +1,15 @@
 import scipy.fftpack
-import Gaussian
+from DDFacet.ToolsDir import Gaussian
 import numpy as np
-import ClassTimeIt
+from DDFacet.Other import ClassTimeIt
 from scipy.interpolate import interp1d as interp
-import ModToolBox
-import NpShared
-import MyLogger
+from DDFacet.ToolsDir import ModToolBox
+from DDFacet.Array import NpShared
+from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("WTerm")#,disable=True)
-import ModTaper
+from DDFacet.ToolsDir import ModTaper
+from DDFacet.ToolsDir import ModFitPoly2D 
+from DDFacet.ToolsDir import ModFFTW
 
 
 F2=scipy.fftpack.fft2
@@ -205,7 +207,6 @@ def GiveSupports(FOVrad,w,NSphe):
     N=np.sqrt(Nw**2+NSphe**2)
     return N
 
-import ToolsDir.ModFitPoly2D 
 def Give_dn(l0,m0,rad=1.,order=4):
     
     Np=100
@@ -220,7 +221,7 @@ def Give_dn(l0,m0,rad=1.,order=4):
     dl=dl.flatten()
     dm=dm.flatten()
     y=np.sqrt(1-(dl+l0)**2-(dm+m0)**2)-np.sqrt(1-l0**2-m0**2)
-    coef=ToolsDir.ModFitPoly2D.polyfit2d(dl,dm,y,order=order)
+    coef=ModFitPoly2D.polyfit2d(dl,dm,y,order=order)
     Corig=coef.copy()
     C=coef.reshape((order+1,order+1))
     Cl=C[0,1]
@@ -380,7 +381,6 @@ class ClassWTermModified():
         #print "do FIT"
         self.Cv,self.Cu,CoefPoly=Give_dn(l0,m0,rad=rad,order=5)
         #print self.IDFacet,l0,m0,self.Cv,self.Cu
-        import ModFFTW
         
 
         #print "done FIT"
@@ -401,7 +401,7 @@ class ClassWTermModified():
             l,m=np.mgrid[-lrad+DX/2:lrad-DX/2:Sups[i]*1j,-lrad+DX/2:lrad-DX/2:Sups[i]*1j]
             #l,m=np.mgrid[-lrad:lrad:Sups[i]*1j,-lrad:lrad:Sups[i]*1j]
             #n_1=np.sqrt(1.-l**2-m**2)-1
-            n_1=ToolsDir.ModFitPoly2D.polyval2d(l, m, CoefPoly)
+            n_1=ModFitPoly2D.polyval2d(l, m, CoefPoly)
             #n_1=n_1.T[::-1,:]
             T.timeit("3a")
 

@@ -1,28 +1,28 @@
-from progressbar import ProgressBar
+from DDFacet.Other.progressbar import ProgressBar
 #ProgressBar.silent=1
 import multiprocessing
-import ClassGridMachine
+#import ClassGridMachine
 import ClassDDEGridMachine
 import numpy as np
-import ClassMS
+#import ClassMS
 import pylab
 import ClassCasaImage
-import MyImshow
+#import MyImshow
 import pyfftw
-import ModCoord
-import ToolsDir
-import MyPickle
-import MyLogger
-import ModSharedArray
+from DDFacet.ToolsDir import ModCoord
+#import ToolsDir
+from DDFacet.Other import MyPickle
+from DDFacet.Other import MyLogger
+#import ModSharedArray
 import time
-import ModColor
-import NpShared
-import ModFFTW
+from DDFacet.Other import ModColor
+from DDFacet.Array import NpShared
+from DDFacet.ToolsDir import ModFFTW
 import pyfftw
 
 log=MyLogger.getLogger("ClassFacetImager")
 MyLogger.setSilent("MyLogger")
-from ModToolBox import EstimateNpix
+from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 #import ClassJonesContainer
 
 

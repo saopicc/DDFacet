@@ -1,5 +1,5 @@
-import _pyArrays
-import ClassTimeIt
+from DDFacet.Gridder import _pyArrays
+from DDFacet.Other import ClassTimeIt
 import numpy as np
 
 def A_add_B_prod_factor(A,B,Aedge=None,Bedge=None,factor=1.,NCPU=6):

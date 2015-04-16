@@ -1,44 +1,45 @@
 import numpy as np
-from Gridder import _pyGridder
-from Gridder import _pyGridderSmear
+from DDFacet.Gridder import _pyGridder
+from DDFacet.Gridder import _pyGridderSmear
 #import pylab
 from pyrap.images import image
-import MyPickle
+#import MyPickle
 import os
-import MyLogger
-import ClassTimeIt
+from DDFacet.Other import MyLogger
+from DDFacet.Other import ClassTimeIt
 import ModCF
-import ModToolBox
+from DDFacet.ToolsDir import ModToolBox
 
-import ModColor
+from DDFacet.Other import ModColor
 import ClassCasaImage
-import ClassApplyJones
-import ToolsDir.GiveMDC
-from ModToolBox import EstimateNpix
-from Array import ModLinAlg
+#import ClassApplyJones
+#import ToolsDir.GiveMDC
+from DDFacet.ToolsDir.ModToolBox import EstimateNpix
+from DDFacet.Array import ModLinAlg
 import copy
 import time
+from DDFacet.ToolsDir import ModFFTW
 
-import ClassApplyJones
-from ClassME import MeasurementEquation
-import MyLogger
+#import ClassApplyJones
+#from ClassME import MeasurementEquation
 log=MyLogger.getLogger("ClassDDEGridMachine")
 
-import ToolsDir
+#from DDFacet.Other import ToolsDir
 import pylab
-import ClassData
-import NpShared
+#import ClassData
+from DDFacet.Array import NpShared
 
 
-import ClassTimeIt
+from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import ClassTimeIt
 
-import ReadCFG
-import MyOptParse
+#import ReadCFG
+#import MyOptParse
 
 
 
 
-import ClassVisServer
+#import ClassVisServer
 
 def testGrid():
     Parset=ReadCFG.Parset("%s/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
@@ -287,7 +288,6 @@ class ClassDDEGridMachine():
     def CalcCF(self):
         Grid=np.zeros(self.GridShape,dtype=self.dtype)
         #self.FFTWMachine=ModFFTW.FFTW_2Donly(Grid, ncores = 1)
-        import ModFFTW
         #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
         #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
 
@@ -801,7 +801,6 @@ class ClassDDEGridMachine():
         #log=MyLogger.getLogger("ClassImager.GridToIm")
 
         npol=self.npol
-        import ClassTimeIt
         T=ClassTimeIt.ClassTimeIt("GridToIm")
         T.disable()
 

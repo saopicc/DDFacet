@@ -1,16 +1,16 @@
 import numpy as np
 import ClassMS
 from pyrap.tables import table
-from Other import MyLogger
+from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassVisServer")
 # import MyPickle
-from Array import NpShared
-from Other import ClassTimeIt
-from Other import ModColor
-from Array import ModLinAlg
+from DDFacet.Array import NpShared
+from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import ModColor
+from DDFacet.Array import ModLinAlg
 MyLogger.setSilent(["NpShared"])
-import ClassWeighting
-from Other import reformat
+from DDFacet.Imager import ClassWeighting
+from DDFacet.Other import reformat
 import ClassSmearMapping
 import os
 

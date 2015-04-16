@@ -1,7 +1,7 @@
 import sharedarray.SharedArray as SharedArray
-from Other import ModColor
+from DDFacet.Other import ModColor
 import numpy as np
-from Other import MyLogger
+from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("NpShared")
 
 def zeros(Name,*args,**kwargs):

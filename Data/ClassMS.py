@@ -1,15 +1,15 @@
 import numpy as np
 from pyrap.tables import table
-from rad2hmsdms import rad2hmsdms
-from Other import ModColor
-from Other import reformat
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+from DDFacet.Other import ModColor
+from DDFacet.Other import reformat
 import os
 import pyrap.quanta as qa
 import pyrap.measures as pm
 import ephem
-from Other import MyLogger
+from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassMS")
-from Other import ClassTimeIt
+from DDFacet.Other import ClassTimeIt
 
 class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,

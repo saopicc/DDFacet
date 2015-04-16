@@ -8,31 +8,31 @@ import optparse
 SaveFile="last_DDFacet.obj"
 import pickle
 import os
-import logo
-import ClassDeconvMachine
-import ModColor
-import ToolsDir.ModParset
-import ClassData
+from DDFacet.Other import logo
+from DDFacet.Imager import ClassDeconvMachine
+from DDFacet.Other import ModColor
+from DDFacet.ToolsDir import ModParset
+#import ClassData
 #import ClassInitMachine
-import NpShared
+from DDFacet.Array import NpShared
 import numpy as np
-import ClassDeconvMachine
+from DDFacet.Imager import ClassDeconvMachine
 import os
-import PrintOptParse
-import ReadCFG
+from DDFacet.Other import PrintOptParse
+from DDFacet.Parset import ReadCFG
 import sys
-import MyPickle
-import MyLogger
-import ModColor
+from DDFacet.Other import MyPickle
+from DDFacet.Other import MyLogger
+from DDFacet.Other import ModColor
 log=MyLogger.getLogger("DDFacet")
 
-import MyOptParse
+from DDFacet.Parset import MyOptParse
 
 
 
 
 global Parset
-Parset=ReadCFG.Parset("%s/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
+Parset=ReadCFG.Parset("%s/DDFacet/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
 
 
 def read_options():

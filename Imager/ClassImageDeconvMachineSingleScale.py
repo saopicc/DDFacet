@@ -1,10 +1,11 @@
 
 import numpy as np
 import pylab
-import MyLogger
-import ModColor
+from DDFacet.Other import MyLogger
+from DDFacet.Other import ModColor
 log=MyLogger.getLogger(" ClassImageDeconvMachine")
-import NpParallel
+from DDFacet.Array import NpParallel
+from DDFacet.Other import ClassTimeIt
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,MaxMinorIter=100,NCPU=6,CycleFactor=2.5):
@@ -154,7 +155,6 @@ class ClassImageDeconvMachine():
         # NPixBook,_=self.BookKeepShape
         # FactorBook=float(NPixBook)/npix
         
-        import ClassTimeIt
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
 

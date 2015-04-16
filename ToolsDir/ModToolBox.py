@@ -18,10 +18,10 @@ from timeit import Timer
 #import pyfftw
 import scipy.signal
 
-import MyLogger
+from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ModToolBox",disable=True)
 
-import ModColor
+from DDFacet.Other import ModColor
 
 # def EstimateNpix(Npix,Padding=1):
 #     Npix=int(round(Npix))

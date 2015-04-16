@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 import collections
 import optparse as OptParse
-import PrintOptParse
+from DDFacet.Other import PrintOptParse
 import ReadCFG
-import MyPickle
-import ClassPrint
-import ModColor
+from DDFacet.Other import MyPickle
+from DDFacet.Other import ClassPrint
+from DDFacet.Other import ModColor
 #global Parset
 #Parset=ReadCFG.Parset("/media/tasse/data/DDFacet/Parset/DefaultParset.cfg")
 #D=Parset.DicoPars 

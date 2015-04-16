@@ -3,20 +3,20 @@
 import ClassFacetMachine
 import numpy as np
 import pylab
-import ToolsDir
-import MyPickle
+#import ToolsDir
+from DDFacet.Other import MyPickle
 from pyrap.images import image
 import ClassImageDeconvMachineMultiScale
 import ClassImageDeconvMachineSingleScale
-import ModFFTW
-import MyLogger
-import ModColor
+from DDFacet.ToolsDir import ModFFTW
+from DDFacet.Other import MyLogger
+from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassImagerDeconv")
-import NpShared
+from DDFacet.Array import NpShared
 import os
-import ModFitPSF
-from ClassData import ClassMultiPointingData,ClassSinglePointingData,ClassGlobalData
-import ClassVisServer
+from DDFacet.ToolsDir import ModFitPSF
+#from ClassData import ClassMultiPointingData,ClassSinglePointingData,ClassGlobalData
+from DDFacet.Data import ClassVisServer
 import time
 
 def test():
@@ -55,15 +55,15 @@ class ClassImagerDeconv():
         MinorCycleConfig=dict(self.GD["ImagerDeconv"])
         MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
 
-        if self.GD["MultiScale"]["Scales"]==[0]:
-            print>>log, "Minor cycle deconvolution in Single Scale Mode" 
-            self.MinorCycleMode="SS"
-            self.DeconvMachine=ClassImageDeconvMachineSingleScale.ClassImageDeconvMachine(**MinorCycleConfig)
-        else:
+        if self.GD["MultiScale"]["MSEnable"]:
             print>>log, "Minor cycle deconvolution in Multi Scale Mode" 
             self.MinorCycleMode="MS"
             MinorCycleConfig["GD"]=self.GD
             self.DeconvMachine=ClassImageDeconvMachineMultiScale.ClassImageDeconvMachine(**MinorCycleConfig)
+        else:
+            print>>log, "Minor cycle deconvolution in Single Scale Mode" 
+            self.MinorCycleMode="SS"
+            self.DeconvMachine=ClassImageDeconvMachineSingleScale.ClassImageDeconvMachine(**MinorCycleConfig)
 
         self.FacetMachine=None
         self.PSF=None

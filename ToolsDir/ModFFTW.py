@@ -2,8 +2,10 @@ import numpy as np
 import pyfftw
 import multiprocessing
 
-import ClassTimeIt
+from DDFacet.Other import ClassTimeIt
 import scipy
+from DDFacet.Array import NpShared
+
 
 #Fs=pyfftw.interfaces.numpy_fft.fftshift
 #iFs=pyfftw.interfaces.numpy_fft.ifftshift
@@ -104,7 +106,6 @@ class FFTW():
 def GiveFFTW_aligned(shape, dtype):
     return pyfftw.n_byte_align_empty( shape[-2::], 16, dtype=dtype)
 
-import NpShared
 
 class FFTW_2Donly():
     def __init__(self, shape, dtype, ncores = 1, FromSharedId=None):

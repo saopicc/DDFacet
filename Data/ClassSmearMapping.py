@@ -1,10 +1,10 @@
-from Other import MyLogger
+from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassSmearMapping")
 import numpy as np
-from Array import NpShared
+from DDFacet.Array import NpShared
 import multiprocessing
-from progressbar import ProgressBar
-from Other import ModColor
+from DDFacet.Other.progressbar import ProgressBar
+from DDFacet.Other import ModColor
 
 class ClassSmearMapping():
     def __init__(self,MS,radiusDeg=1.,Decorr=0.98,IdSharedMem="",NCPU=6):

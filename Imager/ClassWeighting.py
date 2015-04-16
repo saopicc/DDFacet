@@ -1,12 +1,12 @@
 import numpy as np
-from Gridder import _pyGridder
-import MyLogger
-import ModColor
+from DDFacet.Gridder import _pyGridder
+from DDFacet.Other import MyLogger
+from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassWeighting")
 
 
 #import ImagingWeights
-import ClassMS
+from DDFacet.Data import ClassMS
 from pyrap.tables import table
 
 def test():

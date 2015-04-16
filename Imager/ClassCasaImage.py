@@ -1,11 +1,11 @@
 
 from pyrap.images import image
 import os
-import MyPickle
+from DDFacet.Other import MyPickle
 import numpy as np
-import MyLogger
+from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassCasaImage")
-import rad2hmsdms
+from DDFacet.ToolsDir import rad2hmsdms
 import pyfits
 import pyrap.images
 
