@@ -40,7 +40,7 @@ def test():
 
 class ClassImagerDeconv():
     def __init__(self,ParsetFile=None,GD=None,
-                 PointingID=0,BaseName="ImageTest2",ReplaceDico=None,IdSharedMem="CACA."):
+                 PointingID=0,BaseName="ImageTest2",ReplaceDico=None,IdSharedMem="CACA.",DoDeconvolve=True):
         if ParsetFile!=None:
             GD=ClassGlobalData(ParsetFile)
             self.GD=GD
@@ -50,20 +50,21 @@ class ClassImagerDeconv():
 
         self.BaseName=BaseName
         self.PointingID=PointingID
-        self.NMajor=self.GD["ImagerDeconv"]["MaxMajorIter"]
-        del(self.GD["ImagerDeconv"]["MaxMajorIter"])
-        MinorCycleConfig=dict(self.GD["ImagerDeconv"])
-        MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
-
-        if self.GD["MultiScale"]["MSEnable"]:
-            print>>log, "Minor cycle deconvolution in Multi Scale Mode" 
-            self.MinorCycleMode="MS"
-            MinorCycleConfig["GD"]=self.GD
-            self.DeconvMachine=ClassImageDeconvMachineMultiScale.ClassImageDeconvMachine(**MinorCycleConfig)
-        else:
-            print>>log, "Minor cycle deconvolution in Single Scale Mode" 
-            self.MinorCycleMode="SS"
-            self.DeconvMachine=ClassImageDeconvMachineSingleScale.ClassImageDeconvMachine(**MinorCycleConfig)
+        if DoDeconvolve:
+            self.NMajor=self.GD["ImagerDeconv"]["MaxMajorIter"]
+            del(self.GD["ImagerDeconv"]["MaxMajorIter"])
+            MinorCycleConfig=dict(self.GD["ImagerDeconv"])
+            MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
+            
+            if self.GD["MultiScale"]["MSEnable"]:
+                print>>log, "Minor cycle deconvolution in Multi Scale Mode" 
+                self.MinorCycleMode="MS"
+                MinorCycleConfig["GD"]=self.GD
+                self.DeconvMachine=ClassImageDeconvMachineMultiScale.ClassImageDeconvMachine(**MinorCycleConfig)
+            else:
+                print>>log, "Minor cycle deconvolution in Single Scale Mode" 
+                self.MinorCycleMode="SS"
+                self.DeconvMachine=ClassImageDeconvMachineSingleScale.ClassImageDeconvMachine(**MinorCycleConfig)
 
         self.FacetMachine=None
         self.PSF=None
@@ -75,9 +76,9 @@ class ClassImagerDeconv():
         self.HasCleaned=False
         self.Parallel=self.GD["Parallel"]["Enable"]
         self.IdSharedMem=IdSharedMem
-        self.PNGDir="%s.png"%self.BaseName
-        os.system("mkdir -p %s"%self.PNGDir)
-        os.system("rm %s/*.png 2> /dev/null"%self.PNGDir)
+        #self.PNGDir="%s.png"%self.BaseName
+        #os.system("mkdir -p %s"%self.PNGDir)
+        #os.system("rm %s/*.png 2> /dev/null"%self.PNGDir)
         
 
     def Init(self):

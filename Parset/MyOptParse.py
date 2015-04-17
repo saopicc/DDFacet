@@ -58,6 +58,18 @@ class MyOptParse():
 
         return self.DefaultDict
 
+    def ToParset(self,ParsetName):
+        Dico=self.GiveDicoConfig()
+        f=open(ParsetName,"w")
+        for MainKey in Dico.keys():
+            f.write('[%s]\n'%MainKey)
+            D=Dico[MainKey]
+            for SubKey in D.keys():
+                f.write('%s = %s \n'%(SubKey,str(D[SubKey])))
+            f.write('\n')
+        f.close()
+                
+
 
     def Print(self,RejectGroup=[]):
         P=ClassPrint.ClassPrint(HW=50)

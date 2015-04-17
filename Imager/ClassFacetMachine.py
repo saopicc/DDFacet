@@ -24,7 +24,7 @@ log=MyLogger.getLogger("ClassFacetImager")
 MyLogger.setSilent("MyLogger")
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 #import ClassJonesContainer
-
+from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 class ClassFacetMachine():
     def __init__(self,
@@ -110,6 +110,7 @@ class ClassFacetMachine():
 
         _,NpixPaddedGrid=EstimateNpix(NpixFacet,Padding=Padding)
         self.NChanGrid=1
+        self.NpixPaddedFacet=NpixPaddedGrid
         self.PaddedGridShape=(self.NChanGrid,self.npol,NpixPaddedGrid,NpixPaddedGrid)
         print>>log,"Sizes (%i x %i facets):"%(NFacets,NFacets)
         print>>log,"   - Main field :   [%i x %i] pix"%(self.Npix,self.Npix)
@@ -517,6 +518,31 @@ class ClassFacetMachine():
 
         return Image
 
+    def GiveNormImage(self):
+        Image=self.GiveEmptyMainField()
+        nch,npol=self.nch,self.npol
+        _,_,NPixOut,NPixOut=self.OutImShape
+        SharedMemName="%sSpheroidal"%(self.IdSharedMem)
+        NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
+        SPhe=NpShared.GiveArray(SharedMemName)
+        N1=self.NpixPaddedFacet
+            
+        for iFacet in self.DicoImager.keys():
+                
+            xc,yc=self.DicoImager[iFacet]["pixCentral"]
+            Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(N1/2,N1/2),N1)
+            x0d,x1d,y0d,y1d=Aedge
+            x0p,x1p,y0p,y1p=Bedge
+
+            
+            
+            for ch in range(nch):
+                for pol in range(npol):
+                    NormImage[x0d:x1d,y0d:y1d]+=SPhe[::-1,:].T.real[x0p:x1p,y0p:y1p]
+
+
+        return NormImage
+
 
 
     def ImToFacets(self,Image):
@@ -714,6 +740,14 @@ class ClassFacetMachine():
         return True
 
         
+    def GiveGM(self,iFacet):
+        GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,#RaDec=self.DicoImager[iFacet]["RaDec"],
+                                                            self.DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
+                                                            self.DicoImager[iFacet]["DicoConfigGM"]["Npix"],
+                                                            lmShift=self.DicoImager[iFacet]["lmShift"],
+                                                            IdSharedMem=self.IdSharedMem,IDFacet=iFacet,
+                                                            SpheNorm=True)#,
+        return GridMachine
 
 
         

@@ -150,14 +150,13 @@ def main(OP=None):
     DicoConfig=OP.DicoConfig
 
 
-    ImageName=DicoConfig["VisData"]["ImageName"]
-
-
 
     
     global IdSharedMem
     IdSharedMem=str(int(os.getpid()))+"."
 
+    ImageName=DicoConfig["VisData"]["ImageName"]
+    OP.ToParset("%s.parset"%ImageName)
 
     NpShared.DelAll(IdSharedMem)
     Imager=ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig,IdSharedMem=IdSharedMem,BaseName=ImageName)

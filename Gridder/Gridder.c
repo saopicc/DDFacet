@@ -1063,7 +1063,7 @@ void DeGridderWPol(PyArrayObject *grid,
     int i_dir;
     int nd_Jones,na_Jones,nch_Jones,nt_Jones;
 
-    printf("len %i",LengthJonesList);
+    //printf("len %i",LengthJonesList);
     int JonesDims[4];
     int ModeInterpolation=1;
     int *ptrModeInterpolation;

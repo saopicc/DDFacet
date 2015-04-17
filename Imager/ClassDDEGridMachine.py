@@ -638,7 +638,7 @@ class ClassDDEGridMachine():
                 raise NameError("Has to be contiuous")
 
 
-    def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None):
+    def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None,ImToGrid=True):
         #log=MyLogger.getLogger("ClassImager.addChunk")
         T=ClassTimeIt.ClassTimeIt("get")
         T.disable()
@@ -646,12 +646,15 @@ class ClassDDEGridMachine():
 
 
 
-        LTimes=sorted(list(set(times.tolist())))
-        NTimes=len(LTimes)
+        #LTimes=sorted(list(set(times.tolist())))
+        #NTimes=len(LTimes)
         A0,A1=A0A1
 
         if np.max(np.abs(ModelImage))==0: return vis
-        Grid=self.dtype(self.setModelIm(ModelImage))
+        if ImToGrid:
+            Grid=self.dtype(self.setModelIm(ModelImage))
+        else:
+            Grid=ModelImage
         #np.save("Grid",Grid)
         
 
@@ -781,6 +784,21 @@ class ClassDDEGridMachine():
         Grid=self.ImToGrid(ModelImPadded)*n**2
         return Grid
 
+    def ImToGrid(self,ModelIm):
+        
+        npol=self.npol
+        ModelImCorr=ModelIm*(self.WTerm.OverS*self.Padding)**2
+
+        nchan,npol,_,_=ModelImCorr.shape
+        for ichan in range(nchan):
+            for ipol in range(npol):
+                ModelImCorr[ichan,ipol][:,:]=ModelImCorr[ichan,ipol][:,:].real/self.ifzfCF
+
+
+        ModelUVCorr=self.FFTWMachine.fft(ModelImCorr)
+
+        return ModelUVCorr
+        
     def cutImPadded(self,Dirty):
         x0,x1=self.PaddingInnerCoord
         Dirty=Dirty[:,:,x0:x1,x0:x1]
@@ -824,20 +842,5 @@ class ClassDDEGridMachine():
 
         return Dirty
 
-        
-    def ImToGrid(self,ModelIm):
-        
-        npol=self.npol
-        ModelImCorr=ModelIm*(self.WTerm.OverS*self.Padding)**2
-
-        nchan,npol,_,_=ModelImCorr.shape
-        for ichan in range(nchan):
-            for ipol in range(npol):
-                ModelImCorr[ichan,ipol][:,:]=ModelImCorr[ichan,ipol][:,:].real/self.ifzfCF
-
-
-        ModelUVCorr=self.FFTWMachine.fft(ModelImCorr)
-
-        return ModelUVCorr
         
 
