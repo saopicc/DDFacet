@@ -2,9 +2,9 @@ import numpy as np
 import ModTigger
 import ModSMFromNp
 
-from Other import rad2hmsdms
-from Other import ModColor
-from Array import RecArrayOps
+from SkyModel.Other import rad2hmsdms
+from SkyModel.Other import ModColor
+from SkyModel.Array import RecArrayOps
 from ClassClusterClean import ClassClusterClean
 from ClassClusterTessel import ClassClusterTessel
 from ClassClusterRadial import ClassClusterRadial
@@ -22,6 +22,7 @@ class ClassSM():
         self.ClusterMethod=ClusterMethod
         self.infile_cluster=infile_cluster
         self.TargetList=infile
+        self.Type="Catalog"
         if ".npy" in infile:
             Cat=np.load(infile)
             Cat=Cat.view(np.recarray)

@@ -1,5 +1,5 @@
 import numpy as np
-from Other import ModColor
+from SkyModel.Other import ModColor
 import pylab
 
 def init(n=20):
