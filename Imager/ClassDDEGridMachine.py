@@ -416,7 +416,7 @@ class ClassDDEGridMachine():
         vis=visIn#.copy()
 
         T=ClassTimeIt.ClassTimeIt("put")
-        T.disable()
+        #T.disable()
         self.DoNormWeights=DoNormWeights
         if not(self.DoNormWeights):
             self.reinitGrid()
@@ -650,8 +650,9 @@ class ClassDDEGridMachine():
         #NTimes=len(LTimes)
         A0,A1=A0A1
 
-        if np.max(np.abs(ModelImage))==0: return vis
+        T.timeit("0")
         if ImToGrid:
+            if np.max(np.abs(ModelImage))==0: return vis
             Grid=self.dtype(self.setModelIm(ModelImage))
         else:
             Grid=ModelImage
@@ -766,7 +767,7 @@ class ClassDDEGridMachine():
         
         # uvw,vis=self.ShiftVis(uvwOrig,vis,reverse=False)
 
-        T.timeit("5")
+        #T.timeit("5")
         return vis
 
 
