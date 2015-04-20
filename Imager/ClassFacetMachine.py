@@ -173,6 +173,7 @@ class ClassFacetMachine():
             
             self.DicoImager[iFacet]["lmDiam"]=lfacet
             raFacet,decFacet=self.CoordMachine.lm2radec(np.array([lmShift[0]]),np.array([lmShift[1]]))
+            self.DicoImager[iFacet]["l0m0"]=self.CoordMachine.radec2lm(raFacet,decFacet)
             self.DicoImager[iFacet]["RaDec"]=raFacet[0],decFacet[0]
             self.LraFacet.append(raFacet[0])
             self.LdecFacet.append(decFacet[0])
@@ -533,8 +534,6 @@ class ClassFacetMachine():
             Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(N1/2,N1/2),N1)
             x0d,x1d,y0d,y1d=Aedge
             x0p,x1p,y0p,y1p=Bedge
-
-            
             
             for ch in range(nch):
                 for pol in range(npol):
