@@ -497,8 +497,8 @@ class ClassWTermModified():
             fzW=self.GiveReorgCF(fzW)
             fzWconj=self.GiveReorgCF(fzWconj)
 
-            #fzW=np.require(fzW, requirements=["A","C"])
-            #fzWconj=np.require(fzWconj, requirements=["A","C"])
+            fzW=np.require(fzW, requirements=["A","C"])
+            fzWconj=np.require(fzWconj, requirements=["A","C"])
             Wplanes.append(fzW)
             WplanesConj.append(fzWconj)
             # T.timeit("3f")

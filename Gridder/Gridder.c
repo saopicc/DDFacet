@@ -327,138 +327,6 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 
 }
 
-double PI=3.14159265359;
-
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-
-
-void MatInv(float complex *A, float complex* B, int H ){
-  float complex a,b,c,d,ff;
-
-  if(H==0){
-      a=A[0];
-      b=A[1];
-      c=A[2];
-      d=A[3];}
-  else{
-    a=conj(A[0]);
-    b=conj(A[2]);
-    c=conj(A[1]);
-    d=conj(A[3]);
-  }  
-  ff=1./((a*d-c*b));
-  B[0]=ff*d;
-  B[1]=-ff*b;
-  B[2]=-ff*c;
-  B[3]=ff*a;
-}
-
-void MatH(float complex *A, float complex* B){
-  float complex a,b,c,d;
-
-  a=conj(A[0]);
-  b=conj(A[2]);
-  c=conj(A[1]);
-  d=conj(A[3]);
-  B[0]=a;
-  B[1]=b;
-  B[2]=c;
-  B[3]=d;
-}
-
-void MatDot(float complex *A, float complex* B, float complex* Out){
-  float complex a0,b0,c0,d0;
-  float complex a1,b1,c1,d1;
-
-  a0=A[0];
-  b0=A[1];
-  c0=A[2];
-  d0=A[3];
-  
-  a1=B[0];
-  b1=B[1];
-  c1=B[2];
-  d1=B[3];
-  
-  Out[0]=a0*a1+b0*c1;
-  Out[1]=a0*b1+b0*d1;
-  Out[2]=c0*a1+d0*c1;
-  Out[3]=c0*b1+d0*d1;
-
-}
-
-static PyObject *pyTestMatrix(PyObject *self, PyObject *args)
-{
-  PyArrayObject *Anp;
-
-  if (!PyArg_ParseTuple(args, "O!",
-			&PyArray_Type,  &Anp
-			)
-      )  return NULL;
-
-  float complex* A  = p_complex64(Anp);
-  float complex B[4];
-  MatInv(A,B,1);
-  int i;
-  printf("inverse of input matrix:\n");
-  for (i=0; i<4; i++){
-    printf("%i: (%f,%f)\n",i,(float)creal(B[i]),(float)cimag(B[i]));
-  };
-   
-  printf("\ndot product A.A^-1:\n");
-  float complex Out[4];
-  MatDot(A,B,Out);
-  for (i=0; i<4; i++){
-    printf("%i: (%f,%f)\n",i,(float)creal(Out[i]),(float)cimag(Out[i]));
-  };
-
-  printf("\n A^H:\n");
-  MatH(A,B);
-  for (i=0; i<4; i++){
-    printf("%i: (%f,%f)\n",i,(float)creal(B[i]),(float)cimag(B[i]));
-  };
-  
-
-
-  return Py_None;
-
-}
-
-
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-
-void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs, int i_t, int i_ant0, int i_dir, int Mode, float complex *Jout){
-  int nd_Jones,na_Jones,nch_Jones;
-  nd_Jones=JonesDims[1];
-  na_Jones=JonesDims[2];
-  nch_Jones=JonesDims[3];
-  
-  int ipol,idir;
-  if(Mode==0){
-    int offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
-      +i_dir*na_Jones*nch_Jones*4
-      +i_ant0*nch_Jones*4;
-    for(ipol=0; ipol<4; ipol++){
-      Jout[ipol]=*(ptrJonesMatrices+offJ0+ipol);
-    }
-  }
-
-  if(Mode==1){
-    for(idir=0; idir<nd_Jones; idir++){
-      int offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
-	+idir*na_Jones*nch_Jones*4
-	+i_ant0*nch_Jones*4;
-      for(ipol=0; ipol<4; ipol++){
-	Jout[ipol]+=ptrCoefs[idir]*(*(ptrJonesMatrices+offJ0+ipol));
-	
-	//printf("%i, %f, %f, %f\n",ipol,ptrCoefs[idir],creal(Jout[ipol]),cimag(Jout[ipol]));
-      }
-      
-    }
-  }
-}
 
 
 
@@ -969,10 +837,11 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "O!O!O!O!O!iO!O!O!O!O!O!O!", 
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid,
-			&ObjVis,//&PyArray_Type,  &vis, 
+			//&ObjVis,//&PyArray_Type,  &vis, 
+			&PyArray_Type,  &np_vis, 
 			&PyArray_Type,  &uvw, 
 			&PyArray_Type,  &flags, 
 			//&PyArray_Type,  &rows, 
@@ -987,8 +856,8 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 			))  return NULL;
   int nx,ny,nz,nzz;
 
-  np_vis = (PyArrayObject *) PyArray_ContiguousFromObject(ObjVis, PyArray_COMPLEX64, 0, 3);
-
+  //np_vis = (PyArrayObject *) PyArray_ContiguousFromObject(ObjVis, PyArray_COMPLEX64, 0, 3);
+  
   
   /* int nVisRow  = np_vis->dimensions[0]; */
   /* int nVisChan = np_vis->dimensions[1]; */
@@ -1010,9 +879,11 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 
   DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones);
   
-  return PyArray_Return(np_vis);
+  //return PyArray_Return(np_vis);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
 
-  //return Py_None;
 
 }
 
@@ -1037,15 +908,15 @@ void DeGridderWPol(PyArrayObject *grid,
     // Get size of convolution functions.
     PyArrayObject *cfs;
     PyArrayObject *NpPolMap;
-    NpPolMap = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 0), PyArray_INT32, 0, 4);
+    NpPolMap = (PyArrayObject *) PyList_GetItem(Lmaps, 0);
     int npolsMap=NpPolMap->dimensions[0];
     int* PolMap=I_ptr(NpPolMap);
     
     PyArrayObject *NpFacetInfos;
-    NpFacetInfos = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 1), PyArray_FLOAT64, 0, 4);
+    NpFacetInfos = (PyArrayObject *) PyList_GetItem(Lmaps, 1);
 
     PyArrayObject *NpRows;
-    NpRows = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 2), PyArray_INT32, 0, 4);
+    NpRows = (PyArrayObject *) PyList_GetItem(Lmaps, 2);
     int* ptrRows=I_ptr(NpRows);
     int row0=ptrRows[0];
     int row1=ptrRows[1];
@@ -1224,9 +1095,9 @@ void DeGridderWPol(PyArrayObject *grid,
 	//printf("wcoord=%f, iw=%i \n",wcoord,iwplane);
 
 	if(wcoord>0){
-	  cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);
+	  cfs=(PyArrayObject *) PyList_GetItem(Lcfs, iwplane);
 	} else{
-	  cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);
+	  cfs=(PyArrayObject *) PyList_GetItem(LcfsConj, iwplane);
 	}
 	int nConvX = cfs->dimensions[0];
 	int nConvY = cfs->dimensions[1];

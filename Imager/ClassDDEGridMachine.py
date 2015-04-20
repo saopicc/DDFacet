@@ -31,7 +31,6 @@ from DDFacet.Array import NpShared
 
 
 from DDFacet.Other import ClassTimeIt
-from DDFacet.Other import ClassTimeIt
 
 #import ReadCFG
 #import MyOptParse
@@ -203,7 +202,8 @@ class ClassDDEGridMachine():
                  IdSharedMem="",
                  IDFacet=0,
                  SpheNorm=True):
-
+        T=ClassTimeIt.ClassTimeIt("Init_ClassDDEGridMachine")
+        T.disable()
         self.GD=GD
         self.IDFacet=IDFacet
         self.SpheNorm=SpheNorm
@@ -225,7 +225,7 @@ class ClassDDEGridMachine():
             self.dtype=np.complex128
 
         self.dtype=np.complex64
-
+        T.timeit("0")
         Padding=GD["ImagerMainFacet"]["Padding"]
         self.NonPaddedNpix,Npix=EstimateNpix(Npix,Padding)
         self.Padding=Npix/float(self.NonPaddedNpix)
@@ -246,6 +246,7 @@ class ClassDDEGridMachine():
         x0=(self.Npix-self.NonPaddedNpix)/2#+1
         self.PaddingInnerCoord=(x0,x0+self.NonPaddedNpix)
 
+        T.timeit("1")
 
         OverS=GD["ImagerCF"]["OverS"]
         Support=GD["ImagerCF"]["Support"]
@@ -254,8 +255,8 @@ class ClassDDEGridMachine():
         Cell=GD["ImagerMainFacet"]["Cell"]
 
         
-        T=ClassTimeIt.ClassTimeIt("ClassImager")
-        T.disable()
+        #T=ClassTimeIt.ClassTimeIt("ClassImager")
+        #T.disable()
 
         self.Cell=Cell
         self.incr=(np.array([-Cell,Cell],dtype=np.float64)/3600.)*(np.pi/180)
@@ -268,6 +269,7 @@ class ClassDDEGridMachine():
         #print self.ChanEquidistant
         self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
 
+        T.timeit("3")
 
         self.ChanWave=2.99792458e8/self.ChanFreq
         self.UVNorm=2.*1j*np.pi/self.ChanWave
@@ -279,14 +281,16 @@ class ClassDDEGridMachine():
         self.OverS=OverS
         self.lmShift=lmShift
 
+        T.timeit("4")
         self.CalcCF()
 
         self.reinitGrid()
         self.CasaImage=None
         self.DicoATerm=None
+        T.timeit("5")
 
     def CalcCF(self):
-        Grid=np.zeros(self.GridShape,dtype=self.dtype)
+        #Grid=np.zeros(self.GridShape,dtype=self.dtype)
         #self.FFTWMachine=ModFFTW.FFTW_2Donly(Grid, ncores = 1)
         #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
         #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
@@ -416,7 +420,7 @@ class ClassDDEGridMachine():
         vis=visIn#.copy()
 
         T=ClassTimeIt.ClassTimeIt("put")
-        #T.disable()
+        T.disable()
         self.DoNormWeights=DoNormWeights
         if not(self.DoNormWeights):
             self.reinitGrid()
@@ -730,7 +734,7 @@ class ClassDDEGridMachine():
         #print vis
 
         if self.GD["Compression"]["CompDeGridMode"]==0:
-            vis = _pyGridder.pyDeGridderWPol(Grid,
+            _ = _pyGridder.pyDeGridderWPol(Grid,
                                              vis,
                                              uvw,
                                              flag,
