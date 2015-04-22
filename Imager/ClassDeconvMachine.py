@@ -509,36 +509,40 @@ class ClassImagerDeconv():
 
         #testImage=np.zeros((1, 1, 1008, 1008),np.complex64)
 
-        im=image("testImage")
+        im=image("lala2.nocompDeg3.model.fits")
         testImageIn=im.getdata()
         nchan,npol,_,_=testImageIn.shape
+        print testImageIn.shape
         testImage=np.zeros_like(testImageIn)
         for ch in range(nchan):
             for pol in range(npol):
                 testImage[ch,pol,:,:]=testImageIn[ch,pol,:,:].T[::-1,:]#*1.0003900000000001
 
-        visData=DATA["data"]
+        visData=DATA["data"].copy()
+        DATA["data"].fill(0)
         PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
         visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
         
         _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),testImage)
 
 
+        DATA["data"]*=-1
+
         A0,A1=DATA["A0"],DATA["A1"]
         fig=pylab.figure(1)
         os.system("rm -rf png/*.png")
         op0=np.real
         op1=np.angle
-        for iAnt in [32]:#range(36)[::-1]:
-            for jAnt in [33]:#range(36)[::-1]:
+        for iAnt in [0]:#range(36)[::-1]:
+            for jAnt in [26]:#range(36)[::-1]:
             
                 ind=np.where((A0==iAnt)&(A1==jAnt))[0]
                 if ind.size==0: continue
-                d0=DATA["data"][ind,0,0]
+                d0=visData[ind,0,0]
                 u,v,w=DATA["uvw"][ind].T
                 if np.max(d0)<1e-6: continue
 
-                d1=visPredict[ind,0,0]
+                d1=DATA["data"][ind,0,0]
                 pylab.clf()
                 pylab.subplot(3,1,1)
                 pylab.plot(op0(d0))
@@ -558,12 +562,13 @@ class ClassImagerDeconv():
                 pylab.show(False)
 
 
-        visData[:,:,:]=visData[:,:,:]-visPredict[:,:,:]
+        DATA["data"][:,:,:]=visData[:,:,:]-DATA["data"][:,:,:]
         
         self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visData,DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"])
         Image=self.FacetMachine.FacetsToIm()
         self.ResidImage=Image
-        self.FacetMachine.ToCasaImage(ImageName="test.residual",Fits=True)
+        #self.FacetMachine.ToCasaImage(ImageName="test.residual",Fits=True)
+        self.FacetMachine.ToCasaImage(self.ResidImage,ImageName="test.residual",Fits=True)
 
         pylab.figure(2)
         pylab.clf()
@@ -573,6 +578,6 @@ class ClassImagerDeconv():
         pylab.show(False)
         pylab.pause(0.1)
 
-        
+        time.sleep(2)
         
 

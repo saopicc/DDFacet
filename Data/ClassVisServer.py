@@ -237,6 +237,7 @@ class ClassVisServer():
         A0=DATA["A0"]
         A1=DATA["A1"]
         uvw=DATA["uvw"]
+
         flags=DATA["flag"]
         freqs=MS.ChanFreq.flatten()
         nbl=MS.nbl

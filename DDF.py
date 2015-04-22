@@ -148,7 +148,7 @@ def main(OP=None):
         OP = MyPickle.Load(SaveFile)
 
     DicoConfig=OP.DicoConfig
-
+    
 
 
     
@@ -163,6 +163,9 @@ def main(OP=None):
 
     Imager.Init()
     Mode=DicoConfig["ImagerGlobal"]["Mode"]
+
+    Imager.testDegrid()
+    stop
     if "Clean"==Mode:
         Imager.main()
     elif "Dirty"==Mode:

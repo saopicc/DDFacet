@@ -310,7 +310,7 @@ class ClassWTermModified():
         B=np.zeros((self.OverS,self.OverS,Sup,Sup),dtype=A.dtype)
         for i in range(self.OverS):
             for j in range(self.OverS):
-                B[i,j,:,:]=A[i::self.OverS,j::self.OverS]
+                B[i,j,:,:]=A[i::self.OverS,j::self.OverS]#[::-1,:]
         B=B.reshape((A.shape[0],A.shape[0]))
         return B
 
@@ -497,8 +497,8 @@ class ClassWTermModified():
             fzW=self.GiveReorgCF(fzW)
             fzWconj=self.GiveReorgCF(fzWconj)
 
-            fzW=np.require(fzW, requirements=["A","C"])
-            fzWconj=np.require(fzWconj, requirements=["A","C"])
+            fzW=np.require(fzW.copy(), requirements=["A","C"])
+            fzWconj=np.require(fzWconj.copy(), requirements=["A","C"])
             Wplanes.append(fzW)
             WplanesConj.append(fzWconj)
             # T.timeit("3f")

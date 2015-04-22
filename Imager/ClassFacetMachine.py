@@ -182,6 +182,7 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["pixCentral"]=x0+NpixFacet/2,y0+NpixFacet/2
             self.DicoImager[iFacet]["NpixFacet"]=NpixFacet
             self.DicoImager[iFacet]["DicoConfigGM"]=DicoConfigGM
+            self.DicoImager[iFacet]["IDFacet"]=iFacet
 
 
             
