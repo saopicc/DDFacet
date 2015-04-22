@@ -464,8 +464,8 @@ class ClassVisServer():
             ClusterCat=DicoSolsFile["SkyModel"]
             ClusterCat=ClusterCat.view(np.recarray)
             DicoClusterDirs={}
-            DicoClusterDirs["l"]=ClusterCat.m
-            DicoClusterDirs["m"]=ClusterCat.l
+            DicoClusterDirs["l"]=-ClusterCat.l
+            DicoClusterDirs["m"]=-ClusterCat.m
             DicoClusterDirs["I"]=ClusterCat.SumI
             DicoClusterDirs["Cluster"]=ClusterCat.Cluster
             
