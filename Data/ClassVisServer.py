@@ -465,7 +465,7 @@ class ClassVisServer():
             ClusterCat=ClusterCat.view(np.recarray)
             DicoClusterDirs={}
             DicoClusterDirs["l"]=-ClusterCat.l
-            DicoClusterDirs["m"]=-ClusterCat.m
+            DicoClusterDirs["m"]=ClusterCat.m
             DicoClusterDirs["I"]=ClusterCat.SumI
             DicoClusterDirs["Cluster"]=ClusterCat.Cluster
             
