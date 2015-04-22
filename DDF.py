@@ -164,8 +164,8 @@ def main(OP=None):
     Imager.Init()
     Mode=DicoConfig["ImagerGlobal"]["Mode"]
 
-    Imager.testDegrid()
-    stop
+    # Imager.testDegrid()
+    # stop
     if "Clean"==Mode:
         Imager.main()
     elif "Dirty"==Mode:
