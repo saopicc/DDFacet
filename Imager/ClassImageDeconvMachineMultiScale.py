@@ -95,7 +95,10 @@ class ClassImageDeconvMachine():
         if self.CubePSFScales!=None: return
         print>>log, "Making MultiScale PSFs..."
         LScales=self.GD["MultiScale"]["Scales"]
-        if 0 in LScales: LScales.remove(0)
+        ScaleStart=0
+        if 0 in LScales: 
+            ScaleStart=1
+            #LScales.remove(0)
         LRatios=self.GD["MultiScale"]["Ratios"]
         NTheta=self.GD["MultiScale"]["NTheta"]
 
@@ -104,7 +107,7 @@ class ClassImageDeconvMachine():
         NScales=len(LScales)
         self.NScales=NScales
         NRatios=len(LRatios)
-        CubePSFScales=np.zeros((NScales+1+NRatios*NTheta*(NScales),nx,ny))
+        CubePSFScales=np.zeros((NScales+NRatios*NTheta*(NScales),nx,ny))
 
         Scales=np.array(LScales)
         Ratios=np.array(LRatios)
@@ -117,7 +120,7 @@ class ClassImageDeconvMachine():
         
         Support=61
 
-        for i in range(NScales):
+        for i in range(ScaleStart,NScales):
             Minor=Scales[i]/(2.*np.sqrt(2.*np.log(2.)))
             Major=Minor
             PSFGaussPars=(Major,Minor,0.)
@@ -134,7 +137,7 @@ class ClassImageDeconvMachine():
 
 
         
-        for iScale in range(NScales):
+        for iScale in range(ScaleStart,NScales):
             for ratio in Ratios:
                 for th in Theta:
                     Minor=Scales[iScale]/(2.*np.sqrt(2.*np.log(2.)))
