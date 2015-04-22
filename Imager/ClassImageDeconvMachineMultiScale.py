@@ -107,7 +107,7 @@ class ClassImageDeconvMachine():
         NScales=len(LScales)
         self.NScales=NScales
         NRatios=len(LRatios)
-        CubePSFScales=np.zeros((NScales+NRatios*NTheta*(NScales),nx,ny))
+        CubePSFScales=np.zeros((NScales+NRatios*NTheta*(NScales-1),nx,ny))
 
         Scales=np.array(LScales)
         Ratios=np.array(LRatios)
