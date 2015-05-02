@@ -263,9 +263,12 @@ class ClassDDEGridMachine():
         #CF.fill(1.)
         ChanFreq=ChanFreq.flatten()
         self.ChanFreq=ChanFreq
-        df=self.ChanFreq[1::]-self.ChanFreq[0:-1]
-        ddf=np.abs(df-np.mean(df))
-        self.ChanEquidistant=int(np.max(ddf)<1.)
+        if self.ChanFreq.size>1:
+            df=self.ChanFreq[1::]-self.ChanFreq[0:-1]
+            ddf=np.abs(df-np.mean(df))
+            self.ChanEquidistant=int(np.max(ddf)<1.)
+        else:
+            self.ChanEquidistant=0
         #print self.ChanEquidistant
         self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
 
@@ -359,7 +362,7 @@ class ClassDDEGridMachine():
         #self.Grid.fill(0)
         self.NChan, self.npol, _,_=self.GridShape
         self.SumWeigths=np.zeros((self.NChan,self.npol),np.float64)
-
+        self.SumJones=np.zeros((1,),np.float32)
 
 
     def GiveParamJonesList(self,DicoJonesMatrices,times,A0,A1,uvw):
@@ -493,6 +496,7 @@ class ClassDDEGridMachine():
         #print vis.dtype
         #vis.fill(1)
 
+
         self.CheckTypes(Grid=Grid,vis=vis,uvw=uvw,flag=flag,ListWTerm=self.WTerm.Wplanes,W=W)
         ParamJonesList=[]
         if DicoJonesMatrices!=None:
@@ -509,8 +513,9 @@ class ClassDDEGridMachine():
                 ScaleAmplitude=1
                 CalibError=(self.GD["DDESolutions"]["CalibErr"]/3600.)*np.pi/180
             LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
+            LSumJones=[self.SumJones]
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
-            ParamJonesList=ParamJonesList+LApplySol
+            ParamJonesList=ParamJonesList+LApplySol+LSumJones
 
 
         T.timeit("3")
@@ -523,6 +528,7 @@ class ClassDDEGridMachine():
         T2=ClassTimeIt.ClassTimeIt("Gridder")
         T2.disable()
         #print "vis",vis.min(),vis.max()
+
 
         if self.GD["Compression"]["CompGridMode"]==0:
             Grid=_pyGridder.pyGridderWPol(Grid,
@@ -557,9 +563,11 @@ class ClassDDEGridMachine():
                                                ParamJonesList,
                                                MapSmear,
                                                [self.FullScalarMode,self.ChanEquidistant])
-        
-        
-        
+
+
+
+
+
         #return Grid
         T2.timeit("gridder")
         # print SumWeigths

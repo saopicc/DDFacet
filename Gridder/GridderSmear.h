@@ -317,8 +317,10 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
   nch_Jones=JonesDims[3];
   
   int nPol=4;
+  int iChJones=0;
   if(FullScalarMode){nPol=1;}
   int ipol,idir;
+  
   if(Mode==0){
     int offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
       +i_dir*na_Jones*nch_Jones*4

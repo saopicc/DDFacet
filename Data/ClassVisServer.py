@@ -13,6 +13,7 @@ from DDFacet.Imager import ClassWeighting
 from DDFacet.Other import reformat
 import ClassSmearMapping
 import os
+import ClassJones
 
 def test():
     MSName="/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
@@ -73,12 +74,6 @@ class ClassVisServer():
 
         #self.TEST_TLIST=[]
 
-    def SetBeam(self,LofarBeam):
-        self.BeamMode,self.DtBeamMin,self.BeamRAs,self.BeamDECs = LofarBeam
-        useArrayFactor=("A" in self.BeamMode)
-        useElementBeam=("E" in self.BeamMode)
-        self.MS.LoadSR(useElementBeam=useElementBeam,useArrayFactor=useArrayFactor)
-        self.ApplyBeam=True
 
     def Init(self,PointingID=0):
         #MSName=self.MDC.giveMS(PointingID).MSName
@@ -86,16 +81,15 @@ class ClassVisServer():
             print>>log, "Multiple MS mode"
 
         self.ListMS=[]
+        self.ListGlobalFreqs=[]
         for MSName in self.ListMSName:
             MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False) 
             self.ListMS.append(MS)
+            self.ListGlobalFreqs+=MS.ChanFreq.flatten().tolist()
             if self.GD["Stores"]["DeleteDDFProducts"]:
                 ThisMSName=reformat.reformat(os.path.abspath(MS.MSName),LastSlash=False)
 
                 MapName="%s/Flagging.npy"%ThisMSName
-                os.system("rm %s"%MapName)
-
-                MapName="%s/Mapping.DDESolsTime.npy"%ThisMSName
                 os.system("rm %s"%MapName)
 
                 MapName="%s/Mapping.CompGrid.npy"%ThisMSName
@@ -103,6 +97,21 @@ class ClassVisServer():
 
                 MapName="%s/Mapping.CompDeGrid.npy"%ThisMSName
                 os.system("rm %s"%MapName)
+
+                JonesName="%s/JonesNorm.npz"%ThisMSName
+                os.system("rm %s"%JonesName)
+
+        self.GlobalFreqs=np.array(self.ListGlobalFreqs)
+        self.MultiFreqMode=False
+        self.NFreqBands=self.GD["MultiFreqs"]["NFreqBands"]
+        if self.NFreqBands>1: 
+            NFreqBands=self.NFreqBands
+            self.MultiFreqMode=True
+            FreqBands=np.linspace(self.GlobalFreqs.min(),self.GlobalFreqs.max(),NFreqBands+1)
+            self.FreqBandsMean=(FreqBands[0:-1]+FreqBands[1::])/2.
+            self.FreqBandsMin=FreqBands[0:-1].copy()
+            self.FreqBandsMax=FreqBands[1::].copy()
+
 
         self.CurrentMS=self.ListMS[0]
         self.iCurrentMS=0
@@ -197,10 +206,12 @@ class ClassVisServer():
         self.CurrentVisTimes_SinceStart_Sec=0.,0.
         self.iCurrentVisTime=0
         self.iCurrentMS=0
+        self.CurrentFreqBand=0
         for MS in self.ListMS:
             MS.ReinitChunkIter(self.TMemChunkSize)
         self.CurrentMS=self.ListMS[0]
-        print>>log, ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green")
+
+        print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%self.CurrentFreqBand))
 
     def setNextMS(self):
         if (self.iCurrentMS+1)==self.nMS:
@@ -209,7 +220,10 @@ class ClassVisServer():
         else:
             self.iCurrentMS+=1
             self.CurrentMS=self.ListMS[self.iCurrentMS]
-            print>>log, ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green")
+            self.CurrentFreqBand=0
+            if self.MultiFreqMode:
+                self.CurrentFreqBand = np.where((self.FreqBandsMin < np.mean(self.CurrentMS.ChanFreq))&(self.FreqBandsMax > np.mean(self.CurrentMS.ChanFreq)))[0][0]
+            print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%(self.CurrentFreqBand)))
             return "OK"
         
 
@@ -259,7 +273,9 @@ class ClassVisServer():
             self.UpdateFlag(DATA)
 
         self.UpdateCompression(DATA)
-        self.InitDDESols(DATA)
+
+        JonesMachine=ClassJones.ClassJones(self.GD,self.FacetMachine,self.CurrentMS,IdSharedMem=self.IdSharedMem)
+        JonesMachine.InitDDESols(DATA)
 
         #############################
         #############################
@@ -281,9 +297,14 @@ class ClassVisServer():
 
         if self.AddNoiseJy!=None:
             data+=(self.AddNoiseJy/np.sqrt(2.))*(np.random.randn(*data.shape)+1j*np.random.randn(*data.shape))
+
+        if freqs.size>1:
+            freqs=np.float64(freqs)
+        else:
+            freqs=np.array([freqs[0]],dtype=np.float64)
         
         DicoDataOut={"times":times,
-                     "freqs":np.float64(freqs),
+                     "freqs":freqs,
                      "A0":A0,
                      "A1":A1,
                      "uvw":uvw,
@@ -299,39 +320,15 @@ class ClassVisServer():
         
 
 
-        if self.ApplyBeam:
-            print>>log, "Update LOFAR beam .... "
-            DtBeamSec=self.DtBeamMin*60
-            tmin,tmax=np.min(times),np.max(times)
-            TimesBeam=np.arange(np.min(times),np.max(times),DtBeamSec).tolist()
-            if not(tmax in TimesBeam): TimesBeam.append(tmax)
-            TimesBeam=np.array(TimesBeam)
-            T0s=TimesBeam[:-1]
-            T1s=TimesBeam[1:]
-            Tm=(T0s+T1s)/2.
-            RA,DEC=self.BeamRAs,self.BeamDECs
-            NDir=RA.size
-            Beam=np.zeros((Tm.size,NDir,self.MS.na,self.MS.NSPWChan,2,2),np.complex64)
-            for itime in range(Tm.size):
-                ThisTime=Tm[itime]
-                Beam[itime]=self.MS.GiveBeam(ThisTime,self.BeamRAs,self.BeamDECs)
-            BeamH=ModLinAlg.BatchH(Beam)
-
-            DicoBeam={}
-            DicoBeam["t0"]=T0s
-            DicoBeam["t1"]=T1s
-            DicoBeam["tm"]=Tm
-            DicoBeam["Beam"]=Beam
-            DicoBeam["BeamH"]=BeamH
-            DicoDataOut["DicoBeam"]=DicoBeam
-            
-            print>>log, "       .... done Update LOFAR beam "
 
 
         DATA=DicoDataOut
 
         self.ThisDataChunk = DATA
         return "LoadOK"
+
+
+
 
     def UpdateFlag(self,DATA):
         print>>log, "Updating flags ..."
@@ -422,89 +419,19 @@ class ClassVisServer():
 
         DATA["flags"]=flags
 
-    def InitDDESols(self,DATA):
-        GD=self.GD
-        SolsFile=GD["DDESolutions"]["DDSols"]
-        self.ApplyCal=False
-        if (SolsFile!=""):#&(False):
-            if not(".npz" in SolsFile):
-                Method=SolsFile
-                ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
-                SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
-                
-            print>>log, "Loading solution file: %s"%SolsFile
-            self.ApplyCal=True
-            DicoSolsFile=np.load(SolsFile)
-            DicoSols={}
-            DicoSols["t0"]=DicoSolsFile["Sols"]["t0"]
-            DicoSols["t1"]=DicoSolsFile["Sols"]["t1"]
-            nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
-            G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
-            DicoSols["Jones"]=G
-            DicoSols["Jones"]=np.require(DicoSols["Jones"], dtype=np.complex64, requirements="C_CONTIGUOUS")
-
-            if GD["DDESolutions"]["GlobalNorm"]=="MeanAbs":
-                print>>log, "  Normalising by the mean of the amplitude"
-                gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
-                gmean_abs=gmean_abs.reshape((1,nd,na,1))
-                DicoSols["Jones"][:,:,:,:,0,0]/=gmean_abs
-                DicoSols["Jones"][:,:,:,:,1,1]/=gmean_abs
-
-
-            # if not("A" in self.GD["DDESolutions"]["ApplyMode"]):
-            #     print>>log, "  Amplitude normalisation"
-            #     gabs=np.abs(G)
-            #     gabs[gabs==0]=1.
-            #     G/=gabs
-
-
-            NpShared.DicoToShared("%skillMSSolutionFile"%self.IdSharedMem,DicoSols)
-            #D=NpShared.SharedToDico("killMSSolutionFile")
-            #ClusterCat=DicoSolsFile["ClusterCat"]
-            ClusterCat=DicoSolsFile["SkyModel"]
-            ClusterCat=ClusterCat.view(np.recarray)
-            DicoClusterDirs={}
-            DicoClusterDirs["l"]=ClusterCat.l
-            DicoClusterDirs["m"]=ClusterCat.m
-            #DicoClusterDirs["l"]=ClusterCat.l
-            #DicoClusterDirs["m"]=ClusterCat.m
-            DicoClusterDirs["I"]=ClusterCat.SumI
-            DicoClusterDirs["Cluster"]=ClusterCat.Cluster
-            
-            _D=NpShared.DicoToShared("%sDicoClusterDirs"%self.IdSharedMem,DicoClusterDirs)
-
-
-            ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
-            TimeMapName="%s/Mapping.DDESolsTime.npy"%ThisMSName
-            try:
-                ind=np.load(TimeMapName)
-            except:
-                print>>log, "  Build VisTime-to-solution mapping"
-                DicoJonesMatrices=DicoSols
-                
-                times=DATA["times"]
-                ind=np.zeros((times.size,),np.int32)
-                nt,na,nd,_,_,_=DicoJonesMatrices["Jones"].shape
-                ii=0
-                for it in range(nt):
-                    t0=DicoJonesMatrices["t0"][it]
-                    t1=DicoJonesMatrices["t1"][it]
-                    indMStime=np.where((times>=t0)&(times<t1))[0]
-                    indMStime=np.ones((indMStime.size,),np.int32)*it
-                    ind[ii:ii+indMStime.size]=indMStime[:]
-                    ii+=indMStime.size
-            np.save(TimeMapName,ind)
-
-            NpShared.ToShared("%sMapJones"%self.IdSharedMem,ind)
-            print>>log, "Done"
 
 
 
-    def setFOV(self,FullImShape,PaddedFacetShape,FacetShape,CellSizeRad):
-        self.FullImShape=FullImShape
-        self.PaddedFacetShape=PaddedFacetShape
-        self.FacetShape=FacetShape
-        self.CellSizeRad=CellSizeRad
+        # if dt0<dt1:
+        #     JonesBeam=np.zeros((Tm.size,),dtype=[("t0",np.float32),("t1",np.float32),("tm",np.float32),("Jones",(NDir,self.MS.na,self.MS.NSPWChan,2,2),np.complex64)])
+
+
+    def setFacetMachine(self,FacetMachine):
+        self.FacetMachine=FacetMachine
+        self.FullImShape=self.FacetMachine.OutImShape
+        self.PaddedFacetShape=self.FacetMachine.PaddedGridShape
+        self.FacetShape=self.FacetMachine.FacetShape
+        self.CellSizeRad=self.FacetMachine.CellSizeRad
 
     def UpdateCompression(self,DATA):
         ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)

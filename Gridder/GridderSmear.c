@@ -158,6 +158,7 @@ void gridderWPol(PyArrayObject *grid,
     int *ptrModeInterpolation;
     int ApplyAmp,ApplyPhase,DoScaleJones;
     float CalibError,CalibError2;
+    float *ptrSumJones;
     if(LengthJonesList>0){
       DoApplyJones=1;
 
@@ -208,6 +209,7 @@ void gridderWPol(PyArrayObject *grid,
       CalibError=(float) PyFloat_AsDouble(_FCalibError);
       CalibError2=CalibError*CalibError;
 
+      ptrSumJones=p_float32((PyArrayObject *) PyList_GetItem(LJones, 11));
 
 
     };
@@ -359,7 +361,7 @@ void gridderWPol(PyArrayObject *grid,
     float complex *VisMeas=calloc(1,(nPolVis)*sizeof(float complex));
     int ThisPol;
 
-
+    float BB;
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
@@ -402,6 +404,7 @@ void gridderWPol(PyArrayObject *grid,
 	  MatInv(J0,J0inv,0);
 	  MatH(J1,J1H);
 	  MatInv(J1H,J1Hinv,0);
+	  BB=cabs(J0inv[0])*cabs(J1Hinv[0]);
 	} //endif DoApplyJones
 	//AddTimeit(PreviousTime,TimeGetJones);
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
@@ -435,25 +438,28 @@ void gridderWPol(PyArrayObject *grid,
 	  /* float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
 	  /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
 
-
+	  
 	  int OneFlagged=0;
 	  int cond;
 	  // We can do that since all flags in 4-pols are equalised in ClassVisServer
 	  if(flagPtr[0]==1){continue;}
-	  
+
+	  ptrSumJones[0]+=BB;
+
 	  //AddTimeit(PreviousTime,TimeStuff);
 
 	  float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;
+	  
 	  if(FullScalarMode){
 	    VisMeas[0]=(visPtrMeas[0]+visPtrMeas[3])/2.;
-	    
 	  }else{
 	    for(ThisPol =0; ThisPol<4;ThisPol++){
 	      VisMeas[ThisPol]=visPtrMeas[ThisPol];
 	    }
 	  }
 
-	  float complex Weight=(*imgWtPtr)*corr;
+
+	  float complex Weight=(*imgWtPtr) * corr;
 	  float complex visPtr[nPolVis];
 	  if(DoApplyJones){
 	    MatDot(J0inv,VisMeas,visPtr);
@@ -476,7 +482,9 @@ void gridderWPol(PyArrayObject *grid,
 	  Vmean+=V;
 	  Wmean+=W;
 	  FreqMean+=(float)Pfreqs[visChan];
-	  ThisWeight+=*imgWtPtr;
+	  ThisWeight+=(*imgWtPtr);
+	  
+
 	  NVisThisblock+=1;
 	  //AddTimeit(PreviousTime,TimeAverage);
 	  //printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);

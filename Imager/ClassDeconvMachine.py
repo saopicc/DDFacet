@@ -18,6 +18,7 @@ from DDFacet.ToolsDir import ModFitPSF
 #from ClassData import ClassMultiPointingData,ClassSinglePointingData,ClassGlobalData
 from DDFacet.Data import ClassVisServer
 import time
+import glob
 
 def test():
     Imager=ClassImagerDeconv(ParsetFile="ParsetDDFacet.txt")
@@ -94,7 +95,8 @@ class ClassImagerDeconv():
             for l in Ls:
                 ll=l.replace("\n","")
                 MSName.append(ll)
-            
+        elif ("*" in MSName)|("?" in MSName):
+            MSName=glob.glob(MSName)
 
         self.VS=ClassVisServer.ClassVisServer(MSName,
                                               ColName=DC["VisData"]["ColName"],
@@ -119,7 +121,7 @@ class ClassImagerDeconv():
         self.InitFacetMachine()
         #self.VS.SetImagingPars(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
         #self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
-        self.VS.setFOV(self.FacetMachine.OutImShape,self.FacetMachine.PaddedGridShape,self.FacetMachine.FacetShape,self.FacetMachine.CellSizeRad)
+        self.VS.setFacetMachine(self.FacetMachine)
         self.VS.CalcWeigths()
 
 
@@ -133,7 +135,7 @@ class ClassImagerDeconv():
         #print "initFacetMachine deconv0"; self.IM.CI.E.clear()
         ApplyCal=False
         SolsFile=self.GD["DDESolutions"]["DDSols"]
-        if SolsFile!="": ApplyCal=True
+        if (SolsFile!="")|(self.GD["Beam"]["BeamModel"]!=None): ApplyCal=True
 
         self.FacetMachine=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
                                                               IdSharedMem=self.IdSharedMem,ApplyCal=ApplyCal)#,Sols=SimulSols)
@@ -308,7 +310,7 @@ class ClassImagerDeconv():
             if Res=="EndOfObservation": break
             DATA=self.DATA
             
-            self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)
+            self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True,Channel=self.VS.CurrentFreqBand)
             
             # Image=self.FacetMachine.FacetsToIm()
             # pylab.clf()
