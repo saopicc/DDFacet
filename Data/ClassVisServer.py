@@ -104,6 +104,10 @@ class ClassVisServer():
         self.GlobalFreqs=np.array(self.ListGlobalFreqs)
         self.MultiFreqMode=False
         self.NFreqBands=self.GD["MultiFreqs"]["NFreqBands"]
+        self.CurrentMS=self.ListMS[0]
+        self.iCurrentMS=0
+        self.nMS=len(self.ListMS)
+
         if self.NFreqBands>1: 
             NFreqBands=self.NFreqBands
             self.MultiFreqMode=True
@@ -111,11 +115,14 @@ class ClassVisServer():
             self.FreqBandsMean=(FreqBands[0:-1]+FreqBands[1::])/2.
             self.FreqBandsMin=FreqBands[0:-1].copy()
             self.FreqBandsMax=FreqBands[1::].copy()
+            self.FreqBandsInfos={}
+            for iBand in range(self.NFreqBands):
+                self.FreqBandsInfos[iBand]=[]
 
+            for MS in self.ListMS:
+                FreqBand = np.where((self.FreqBandsMin < np.mean(MS.ChanFreq))&(self.FreqBandsMax > np.mean(MS.ChanFreq)))[0][0]
+                self.FreqBandsInfos[FreqBand]+=MS.ChanFreq.tolist()
 
-        self.CurrentMS=self.ListMS[0]
-        self.iCurrentMS=0
-        self.nMS=len(self.ListMS)
         MS=self.ListMS[0]
         print MS
         TimesInt=np.arange(0,MS.DTh,self.TMemChunkSize).tolist()

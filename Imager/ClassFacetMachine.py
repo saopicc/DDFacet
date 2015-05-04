@@ -452,43 +452,65 @@ class ClassFacetMachine():
         self.SumWeights+=ThisSumWeights
         print self.SumWeights
 
-    def FacetsToIm(self):
-#        if self.GD["Beam"]["BeamModel"]!=None:
-        ChannelImage={}
-        BeamNormChannelImage={}
+    def FacetsToIm(self,NormJones=False):
+        DicoImages={}
+        DicoImages["NChannels"]=self.VS.NFreqBands
 
         if self.VS.MultiFreqMode:
             for Channel in range(self.VS.NFreqBands):
-                ChannelImage[Channel] = self.FacetsToIm_Channel(FlatNoise=True,Channel=Channel)
-                BeamNormChannelImage[Channel] = self.FacetsToIm_Channel(FlatNoise=False,Channel=Channel,BeamWeightImage=True)
-                #self.BeamNormChannelImage[Channel] = self.NormImage.copy()
-                #self.BeamNormChannelImage[Channel] = self.Im.copy()
+                DicoImages[Channel] = {}
+                DicoImages[Channel]["freqs"]=self.VS.FreqBandsInfos[Channel]
+                if NormJones:
+                    DicoImages[Channel]["ImagData"] = self.FacetsToIm_Channel(FlatNoise=True,Channel=Channel)                
+                    DicoImages[Channel]["NormData"] = self.FacetsToIm_Channel(FlatNoise=False,Channel=Channel,BeamWeightImage=True)
+                else:
+                    DicoImages[Channel]["ImagData"] = self.FacetsToIm_Channel(FlatNoise=False,Channel=Channel)
 
-            pylab.clf()
-            pylab.subplot(2,2,1)
-            pylab.imshow(ChannelImage[0][0,0],interpolation="nearest")
-            pylab.subplot(2,2,2)
-            pylab.imshow(BeamNormChannelImage[0][0,0],interpolation="nearest")
-            #pylab.imshow(self.BeamNormChannelImage[0],interpolation="nearest")
-            pylab.colorbar()
-            pylab.subplot(2,2,3)
-            pylab.imshow(ChannelImage[1][0,0],interpolation="nearest")
-            pylab.subplot(2,2,4)
-            pylab.imshow(BeamNormChannelImage[1][0,0],interpolation="nearest")
-            #pylab.imshow(self.BeamNormChannelImage[1],interpolation="nearest")
-            pylab.colorbar()
-            pylab.draw()
-            pylab.show(False)
-            
-            stop
-            
-            self.MeanImage=self.ChannelImage[Channel].copy()
+            Im=DicoImages[0]["ImagData"].copy()
+            for Channel in range(1,self.VS.NFreqBands):
+                Im+=DicoImages[Channel]["ImagData"]
+            DicoImages["MeanImage"]=Im/self.VS.NFreqBands
+        else:
+            DicoImages[0]={}
+            if NormJones:
+                DicoImages[0]["ImagData"] = self.FacetsToIm_Channel(FlatNoise=True,Channel=0)
+                DicoImages[0]["NormData"] = self.FacetsToIm_Channel(FlatNoise=False,Channel=0,BeamWeightImage=True)
+            else:
+                DicoImages[Channel]["ImagData"] = self.FacetsToIm_Channel(FlatNoise=False,Channel=0)
+                
+            DicoImages["MeanImage"] = DicoImages[0]["ImagData"]
 
         for iFacet in self.DicoImager.keys():
             del(self.DicoGridMachine[iFacet]["Dirty"])
             DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
             _=NpShared.DelArray(DirtyName)
+
+        return DicoImages
+
+
+
+            #self.BeamNormChannelImage[Channel] = self.NormImage.copy()
+            #self.BeamNormChannelImage[Channel] = self.Im.copy()
             
+        # pylab.clf()
+        # pylab.subplot(2,2,1)
+        # pylab.imshow(ChannelImage[0][0,0],interpolation="nearest")
+        # pylab.subplot(2,2,2)
+        # pylab.imshow(BeamNormChannelImage[0][0,0],interpolation="nearest")
+        # #pylab.imshow(self.BeamNormChannelImage[0],interpolation="nearest")
+        # pylab.colorbar()
+        # pylab.subplot(2,2,3)
+        # pylab.imshow(ChannelImage[1][0,0],interpolation="nearest")
+        # pylab.subplot(2,2,4)
+        # pylab.imshow(BeamNormChannelImage[1][0,0],interpolation="nearest")
+        # #pylab.imshow(self.BeamNormChannelImage[1],interpolation="nearest")
+        # pylab.colorbar()
+        # pylab.draw()
+        # pylab.show(False)
+        # stop
+        
+        
+        
             
 
     def FacetsToIm_Channel(self,FlatNoise=False,Channel=0,BeamWeightImage=False):
@@ -555,9 +577,9 @@ class ClassFacetMachine():
                     for pol in range(npol):
                         #Image[ch,pol,x0main:x1main,y0main:y1main]+=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
                         sumweight=ThisSumWeights.reshape((nch,npol,1,1))[ch,pol,0,0]
-                        if (self.ApplyCal)&(FlatNoise):
-                            sumweight*=ThisSumJones
                         Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
+                        if (self.ApplyCal)&(FlatNoise):
+                            Im/=np.sqrt(ThisSumJones)
                         if BeamWeightImage:
                             Im=np.ones_like(Im)*ThisSumJones*SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
                         Image[ch,pol,x0main:x1main,y0main:y1main]+=Im
@@ -733,6 +755,7 @@ class ClassFacetMachine():
             DirtyName=DicoResult["DirtyName"]
             ThisDirty=NpShared.GiveArray(DirtyName)
             #print "minmax facet = %f %f"%(ThisDirty.min(),ThisDirty.max())
+
             if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
 
                 if Channel in self.DicoGridMachine[iFacet]["Dirty"].keys():
@@ -799,6 +822,7 @@ class ClassFacetMachine():
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="DeGridding ", HeaderSize=10,TitleSize=13)
         pBAR.render(0, '%4i/%i' % (0,NFacets))
+        
         iResult=0
         while iResult < NJobs:
             DicoResult=result_queue.get()

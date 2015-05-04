@@ -1,6 +1,8 @@
 import numpy as np
 from pyrap.images import image
-import ClassImageDeconvMachineMultiScale as ClassImageDeconvMachine
+#import ClassImageDeconvMachineMultiScale as ClassImageDeconvMachine
+import ClassImageDeconvMachineMSMF as ClassImageDeconvMachine
+from DDFacet.Other import MyPickle
 
 def test():
     impsf=image("Continuous.psf")
@@ -55,6 +57,42 @@ def test3():
     GD["MultiScale"]["NTheta"]=6
     DC=ClassImageDeconvMachine.ClassImageDeconvMachine(Gain=.1,MaxMinorIter=1000,NCPU=30,GD=GD)
     DC.SetDirtyPSF(dirty,psf)
+    DC.setSideLobeLevel(0.2,10)
+    DC.FindPSFExtent(Method="FromSideLobe")
+
+    DC.MakeMultiScaleCube()
+    DC.Clean()
+    
+
+    c=imdirty.coordinates()
+    radec=c.dict()["direction0"]["crval"]
+
+    import ClassCasaImage
+    CasaImage=ClassCasaImage.ClassCasaimage("modeltest",DC._ModelImage.shape,2.,radec)
+    CasaImage.setdata(DC._ModelImage)#,CorrT=True)
+    CasaImage.ToFits()
+    CasaImage.close()
+
+def test4():
+
+    DicoPSF=MyPickle.Load("DicoPSF")
+    DicoDirty=MyPickle.Load("DicoDirty")
+
+    #psfname="lala2.nocompDeg3.psf.fits"
+    #dirtyname="lala2.nocompDeg3.dirty.fits"
+
+    
+    impsf=image(psfname)
+    psf=np.float32(impsf.getdata())
+    imdirty=image(dirtyname)#Test.KAFCA.3SB.dirty.fits")
+    dirty=np.float32(imdirty.getdata())
+    
+    GD={"MultiScale":{}}
+    GD["MultiScale"]["Scales"]=[0]
+    GD["MultiScale"]["Ratios"]=[1.33,1.66,2]
+    GD["MultiScale"]["NTheta"]=6
+    DC=ClassImageDeconvMachine.ClassImageDeconvMachine(Gain=.1,MaxMinorIter=1000,NCPU=30,GD=GD)
+    DC.SetDirtyPSF(DicoDirty,DicoPSF)
     DC.setSideLobeLevel(0.2,10)
     DC.FindPSFExtent(Method="FromSideLobe")
 

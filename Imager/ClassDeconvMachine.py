@@ -8,6 +8,7 @@ from DDFacet.Other import MyPickle
 from pyrap.images import image
 import ClassImageDeconvMachineMultiScale
 import ClassImageDeconvMachineSingleScale
+import ClassImageDeconvMachineMSMF
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
@@ -17,6 +18,8 @@ import os
 from DDFacet.ToolsDir import ModFitPSF
 #from ClassData import ClassMultiPointingData,ClassSinglePointingData,ClassGlobalData
 from DDFacet.Data import ClassVisServer
+from DDFacet.Other import MyPickle
+
 import time
 import glob
 
@@ -61,7 +64,8 @@ class ClassImagerDeconv():
                 print>>log, "Minor cycle deconvolution in Multi Scale Mode" 
                 self.MinorCycleMode="MS"
                 MinorCycleConfig["GD"]=self.GD
-                self.DeconvMachine=ClassImageDeconvMachineMultiScale.ClassImageDeconvMachine(**MinorCycleConfig)
+                #self.DeconvMachine=ClassImageDeconvMachineMultiScale.ClassImageDeconvMachine(**MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
             else:
                 print>>log, "Minor cycle deconvolution in Single Scale Mode" 
                 self.MinorCycleMode="SS"
@@ -217,7 +221,7 @@ class ClassImagerDeconv():
             if Res=="EndOfObservation": break
             DATA=self.DATA
 
-            FacetMachinePSF.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)
+            FacetMachinePSF.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True,Channel=self.VS.CurrentFreqBand)
 
 
             # Image=FacetMachinePSF.FacetsToIm()
@@ -228,9 +232,14 @@ class ClassImagerDeconv():
             # pylab.pause(0.1)
             # break
 
-        self.PSF=FacetMachinePSF.FacetsToIm().copy()
+        self.DicoImagePSF=FacetMachinePSF.FacetsToIm(NormJones=False)
+        self.PSF=self.DicoImagePSF["MeanImage"]
+
 
         FacetMachinePSF.DoPSF=False
+
+        MyPickle.Save(self.DicoImagePSF,"DicoPSF")
+
         
         # # Image=FacetMachinePSF.FacetsToIm()
         # pylab.clf()
@@ -263,6 +272,10 @@ class ClassImagerDeconv():
         #self.FWHMBeam=(10.,10.,10.)
         #FacetMachinePSF.ToCasaImage(self.PSF)
         FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+
+        if self.VS.MultiFreqMode:
+            for Channel in range(self.VS.NFreqBands):
+                FacetMachinePSF.ToCasaImage(self.DicoImagePSF[Channel]["ImagData"],ImageName="%s.psf.ch%i"%(self.BaseName,Channel),Fits=True,beam=self.FWHMBeam)
 
         #self.FitPSF()
         #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
@@ -320,10 +333,15 @@ class ClassImagerDeconv():
             # pylab.show(False)
             # pylab.pause(0.1)
 
-        Image=self.FacetMachine.FacetsToIm()
-        self.FacetMachine.ToCasaImage(Image,ImageName="%s.dirty"%self.BaseName,Fits=True)
+        DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
 
+        self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True)
+        #if self.VS.MultiFreqMode:
+        #    for Channel in range(
 
+        MyPickle.Save(DicoImage,"DicoDirty")
+
+        return DicoImage
 
 
         #m0,m1=Image.min(),Image.max()
@@ -334,15 +352,14 @@ class ClassImagerDeconv():
         # pylab.show(False)
         # pylab.pause(0.1)
 
-        return Image
+        
 
     def GivePredict(self,ModelImage):
 
-        print>>log, ModColor.Str("============================== Making Dirty ==============================")
+        print>>log, ModColor.Str("============================== Making Predict ==============================")
         self.InitFacetMachine()
         
         self.FacetMachine.ReinitDirty()
-
         while True:
             Res=self.setNextData()
             if Res=="EndOfObservation": break
@@ -360,6 +377,7 @@ class ClassImagerDeconv():
 
         Image=self.GiveDirty()
         self.MakePSF()
+        stop
         
 
         for iMajor in range(NMajor):

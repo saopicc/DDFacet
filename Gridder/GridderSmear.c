@@ -158,7 +158,7 @@ void gridderWPol(PyArrayObject *grid,
     int *ptrModeInterpolation;
     int ApplyAmp,ApplyPhase,DoScaleJones;
     float CalibError,CalibError2;
-    float *ptrSumJones;
+    double *ptrSumJones;
     if(LengthJonesList>0){
       DoApplyJones=1;
 
@@ -209,7 +209,7 @@ void gridderWPol(PyArrayObject *grid,
       CalibError=(float) PyFloat_AsDouble(_FCalibError);
       CalibError2=CalibError*CalibError;
 
-      ptrSumJones=p_float32((PyArrayObject *) PyList_GetItem(LJones, 11));
+      ptrSumJones=p_float64((PyArrayObject *) PyList_GetItem(LJones, 11));
 
 
     };
@@ -316,7 +316,10 @@ void gridderWPol(PyArrayObject *grid,
     float complex *J0=calloc(1,(4)*sizeof(float complex));
     float complex *J1=calloc(1,(4)*sizeof(float complex));
     float complex *J0inv=calloc(1,(4)*sizeof(float complex));
+    float complex *J0H=calloc(1,(4)*sizeof(float complex));
+    float complex *J0Conj=calloc(1,(4)*sizeof(float complex));
     float complex *J1H=calloc(1,(4)*sizeof(float complex));
+    float complex *J1T=calloc(1,(4)*sizeof(float complex));
     float complex *J1Hinv=calloc(1,(4)*sizeof(float complex));
     float complex *JJ=calloc(1,(4)*sizeof(float complex));
 
@@ -384,6 +387,7 @@ void gridderWPol(PyArrayObject *grid,
       }
 
       double ThisWeight=0.;
+      float ThisSumJones=0.;
       for (inx=0; inx<NRowThisBlock; inx++) {
 	int irow = Row[inx];
 	if(irow>nrows){continue;}
@@ -401,10 +405,13 @@ void gridderWPol(PyArrayObject *grid,
 	  GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
 	  NormJones(J0, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
 	  NormJones(J1, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
-	  MatInv(J0,J0inv,0);
-	  MatH(J1,J1H);
-	  MatInv(J1H,J1Hinv,0);
-	  BB=cabs(J0inv[0])*cabs(J1Hinv[0]);
+	  MatT(J1,J1T);
+	  MatConj(J0,J0Conj);
+	  //MatInv(J0,J0inv,0);
+	  //MatInv(J1H,J1Hinv,0);
+	  //BB=cabs(J0inv[0])*cabs(J1Hinv[0]);
+	  BB=cabs(J0Conj[0])*cabs(J1T[0]);
+	  BB*=BB;
 	} //endif DoApplyJones
 	//AddTimeit(PreviousTime,TimeGetJones);
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
@@ -444,7 +451,6 @@ void gridderWPol(PyArrayObject *grid,
 	  // We can do that since all flags in 4-pols are equalised in ClassVisServer
 	  if(flagPtr[0]==1){continue;}
 
-	  ptrSumJones[0]+=BB;
 
 	  //AddTimeit(PreviousTime,TimeStuff);
 
@@ -462,11 +468,14 @@ void gridderWPol(PyArrayObject *grid,
 	  float complex Weight=(*imgWtPtr) * corr;
 	  float complex visPtr[nPolVis];
 	  if(DoApplyJones){
-	    MatDot(J0inv,VisMeas,visPtr);
-	    MatDot(visPtr,J1Hinv,visPtr);
+	    //MatDot(J0inv,VisMeas,visPtr);
+	    //MatDot(visPtr,J1Hinv,visPtr);
+	    MatDot(J1T,VisMeas,visPtr);
+	    MatDot(visPtr,J0Conj,visPtr);
 	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
 	      Vis[ThisPol]+=visPtr[ThisPol]*(Weight);
 	    }
+	    ThisSumJones+=BB*(*imgWtPtr);
 	  }else{
 	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
 	      Vis[ThisPol]+=VisMeas[ThisPol]*(Weight);
@@ -483,9 +492,10 @@ void gridderWPol(PyArrayObject *grid,
 	  Wmean+=W;
 	  FreqMean+=(float)Pfreqs[visChan];
 	  ThisWeight+=(*imgWtPtr);
+	  //ThisSumJones+=(*imgWtPtr);
 	  
 
-	  NVisThisblock+=1;
+	  NVisThisblock+=1.;//(*imgWtPtr);
 	  //AddTimeit(PreviousTime,TimeAverage);
 	  //printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);
 	  
@@ -496,7 +506,7 @@ void gridderWPol(PyArrayObject *grid,
       Vmean/=NVisThisblock;
       Wmean/=NVisThisblock;
       FreqMean/=NVisThisblock;
-
+      
       /* printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6)); */
       /* int ThisPol; */
       /* for(ThisPol =0; ThisPol<4;ThisPol++){ */
@@ -597,6 +607,7 @@ void gridderWPol(PyArrayObject *grid,
 		
       	      }
       	      sumWtPtr[gridPol+gridChan*nGridPol] += ThisWeight;
+	      if(DoApplyJones){ptrSumJones[0]+=ThisSumJones;}
       	    } // end if gridPol
       	  } // end for ipol
       	} // end if ongrid

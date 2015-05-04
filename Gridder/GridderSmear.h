@@ -190,6 +190,36 @@ void MatH(float complex *A, float complex* B){
     }
 }
 
+void MatT(float complex *A, float complex* B){
+
+  if(FullScalarMode)
+    {
+      B[0]=(A[0]);
+    }
+  else
+    {
+      B[0]=(A[0]);
+      B[1]=(A[2]);
+      B[2]=(A[1]);
+      B[3]=(A[3]);
+    }
+}
+
+void MatConj(float complex *A, float complex* B){
+
+  if(FullScalarMode)
+    {
+      B[0]=conj(A[0]);
+    }
+  else
+    {
+      B[0]=conj(A[0]);
+      B[1]=conj(A[1]);
+      B[2]=conj(A[2]);
+      B[3]=conj(A[3]);
+    }
+}
+
 
 /* void MatH(float complex *A, float complex* B){ */
 /*   float complex a,b,c,d; */
