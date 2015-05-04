@@ -1,7 +1,7 @@
 import numpy as np
 from pyrap.images import image
 #import ClassImageDeconvMachineMultiScale as ClassImageDeconvMachine
-import ClassImageDeconvMachineMSMF as ClassImageDeconvMachine
+import DDFacet.Imager.ClassImageDeconvMachineMSMF as ClassImageDeconvMachine
 from DDFacet.Other import MyPickle
 
 def test():
@@ -77,26 +77,30 @@ def test4():
 
     DicoPSF=MyPickle.Load("DicoPSF")
     DicoDirty=MyPickle.Load("DicoDirty")
-
+    
     #psfname="lala2.nocompDeg3.psf.fits"
     #dirtyname="lala2.nocompDeg3.dirty.fits"
 
     
-    impsf=image(psfname)
-    psf=np.float32(impsf.getdata())
-    imdirty=image(dirtyname)#Test.KAFCA.3SB.dirty.fits")
-    dirty=np.float32(imdirty.getdata())
+    #impsf=image(psfname)
+    #psf=np.float32(impsf.getdata())
+    #imdirty=image(dirtyname)#Test.KAFCA.3SB.dirty.fits")
+    #dirty=np.float32(imdirty.getdata())
     
-    GD={"MultiScale":{}}
+    GD={"MultiScale":{},"MultiFreqs":{}}
     GD["MultiScale"]["Scales"]=[0]
     GD["MultiScale"]["Ratios"]=[1.33,1.66,2]
     GD["MultiScale"]["NTheta"]=6
+    GD["MultiFreqs"]["NFreqBands"]=3
+    GD["MultiFreqs"]["Alpha"]=[-1.,0.,20]
+    GD["MultiFreqs"]["NTerms"]=2
     DC=ClassImageDeconvMachine.ClassImageDeconvMachine(Gain=.1,MaxMinorIter=1000,NCPU=30,GD=GD)
     DC.SetDirtyPSF(DicoDirty,DicoPSF)
     DC.setSideLobeLevel(0.2,10)
-    DC.FindPSFExtent(Method="FromSideLobe")
+    DC.MSMachine.FindPSFExtent(Method="FromSideLobe")
+    DC.MSMachine.MakeMultiScaleCube()
+    DC.MSMachine.MakeBasisMatrix()
 
-    DC.MakeMultiScaleCube()
     DC.Clean()
     
 

@@ -453,32 +453,37 @@ class ClassFacetMachine():
         print self.SumWeights
 
     def FacetsToIm(self,NormJones=False):
+        
+        _,npol,Npix,Npix=self.OutImShape
         DicoImages={}
-        DicoImages["NChannels"]=self.VS.NFreqBands
+        DicoImages["freqs"]={}
+        ImagData=np.zeros((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
+        if NormJones: 
+            NormData=np.zeros((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
 
         if self.VS.MultiFreqMode:
+            
             for Channel in range(self.VS.NFreqBands):
-                DicoImages[Channel] = {}
-                DicoImages[Channel]["freqs"]=self.VS.FreqBandsInfos[Channel]
+                DicoImages["freqs"][Channel]=self.VS.FreqBandsInfos[Channel]
                 if NormJones:
-                    DicoImages[Channel]["ImagData"] = self.FacetsToIm_Channel(FlatNoise=True,Channel=Channel)                
-                    DicoImages[Channel]["NormData"] = self.FacetsToIm_Channel(FlatNoise=False,Channel=Channel,BeamWeightImage=True)
+                    ImagData[Channel]=self.FacetsToIm_Channel(FlatNoise=True,Channel=Channel)[0]
+                    NormData[Channel]=self.FacetsToIm_Channel(FlatNoise=False,Channel=Channel,BeamWeightImage=True)[0]
                 else:
-                    DicoImages[Channel]["ImagData"] = self.FacetsToIm_Channel(FlatNoise=False,Channel=Channel)
+                    ImagData[Channel] = self.FacetsToIm_Channel(FlatNoise=False,Channel=Channel)[0]
 
-            Im=DicoImages[0]["ImagData"].copy()
-            for Channel in range(1,self.VS.NFreqBands):
-                Im+=DicoImages[Channel]["ImagData"]
-            DicoImages["MeanImage"]=Im/self.VS.NFreqBands
         else:
-            DicoImages[0]={}
             if NormJones:
-                DicoImages[0]["ImagData"] = self.FacetsToIm_Channel(FlatNoise=True,Channel=0)
-                DicoImages[0]["NormData"] = self.FacetsToIm_Channel(FlatNoise=False,Channel=0,BeamWeightImage=True)
+                ImagData[Channel] = self.FacetsToIm_Channel(FlatNoise=True,Channel=0)
+                NormData[Channel] = self.FacetsToIm_Channel(FlatNoise=False,Channel=0,BeamWeightImage=True)
             else:
-                DicoImages[Channel]["ImagData"] = self.FacetsToIm_Channel(FlatNoise=False,Channel=0)
+                ImagData[Channel] = self.FacetsToIm_Channel(FlatNoise=False,Channel=0)
                 
-            DicoImages["MeanImage"] = DicoImages[0]["ImagData"]
+        DicoImages["ImagData"]=ImagData
+        if NormJones:
+            DicoImages["NormData"]=NormData
+
+        if self.VS.MultiFreqMode:
+            DicoImages["MeanImage"]=np.mean(ImagData,axis=0).reshape((1,npol,Npix,Npix))
 
         for iFacet in self.DicoImager.keys():
             del(self.DicoGridMachine[iFacet]["Dirty"])

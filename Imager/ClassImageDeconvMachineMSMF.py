@@ -8,7 +8,7 @@ from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
-
+import ClassMultiScaleMachine
 
 
 
@@ -25,12 +25,8 @@ class ClassImageDeconvMachine():
         self.Chi2Thr=10000
         self.MaskArray=None
         self.GD=GD
-        self.CubePSFScales=None
         self.SubPSF=None
-        self.MultiFreqMode=False
-        self.Alpha=np.array([-0.8],float)
-        if self.GD["MultiFreqs"]["NFreqBands"]:
-            self.MultiFreqMode=True
+        self.MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD)
 
     def SetDirtyPSF(self,DicoDirty,DicoPSF):
         # if len(PSF.shape)==4:
@@ -40,13 +36,13 @@ class ClassImageDeconvMachine():
 
         self.DicoDirty=DicoDirty
         self.DicoPSF=DicoPSF
-        self.NChannels=self.DicoDirty["NChannels"]
-
+        #self.NChannels=self.DicoDirty["NChannels"]
+        self.MSMachine.SetDirtyPSF(DicoDirty,DicoPSF)
 
         self._PSF=self.DicoPSF["MeanImage"]
         self._Dirty=self.DicoDirty["MeanImage"]
-        _,_,NPSF,_=PSF.shape
-        _,_,NDirty,_=Dirty.shape
+        _,_,NPSF,_=self._PSF.shape
+        _,_,NDirty,_=self._Dirty.shape
         off=(NPSF-NDirty)/2
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
         
@@ -59,214 +55,6 @@ class ClassImageDeconvMachine():
 
 
 
-    def FindPSFExtent(self,Method="FromBox"):
-        if self.SubPSF!=None: return
-        PSF=self._PSF
-        _,_,NPSF,_=PSF.shape
-        xtest=np.int64(np.linspace(NPSF/2,NPSF,100))
-        box=100
-        itest=0
-
-        if Method=="FromBox":
-            while True:
-                X=xtest[itest]
-                psf=PSF[0,0,X-box:X+box,NPSF/2-box:NPSF/2+box]
-                std0=np.abs(psf.min()-psf.max())#np.std(psf)
-                psf=PSF[0,0,NPSF/2-box:NPSF/2+box,X-box:X+box]
-                std1=np.abs(psf.min()-psf.max())#np.std(psf)
-                std=np.max([std0,std1])
-                if std<1e-2:
-                    break
-                else:
-                    itest+=1
-            x0=xtest[itest]
-            dx0=(x0-NPSF/2)
-            print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
-        elif Method=="FromSideLobe":
-            dx0=2*self.OffsetSideLobe
-            dx0=np.max([dx0,50])
-            print>>log, "PSF extends to [%i] from center"%(dx0)
-        
-        dx0=np.max([dx0,50])
-        npix=2*dx0+1
-        npix=ModToolBox.GiveClosestFastSize(npix,Odd=False)
-
-        self.PSFMargin=(NPSF-npix)/2
-
-        dx=npix/2
-        self.PSFExtent=(NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
-        x0,x1,y0,y1=self.PSFExtent
-        self.SubPSF=self._PSF[:,:,x0:x1,y0:y1]
-
-
-
-    def MakeMultiScaleCube(self):
-        if self.CubePSFScales!=None: return
-        print>>log, "Making MultiScale PSFs..."
-        LScales=self.GD["MultiScale"]["Scales"]
-        ScaleStart=0
-        if 0 in LScales: 
-            ScaleStart=1
-            #LScales.remove(0)
-        LRatios=self.GD["MultiScale"]["Ratios"]
-        NTheta=self.GD["MultiScale"]["NTheta"]
-
-        NAlpha=1
-        if self.MultiFreqMode:
-            AlphaMin,AlphaMax,NAlpha=self.GD["MultiFreqs"]["Alpha"]
-            Alpha=np.linspace(AlphaMin,AlphaMax,NAlpha)
-
-        _,_,nx,ny=self.SubPSF.shape
-        NScales=len(LScales)
-        self.NScales=NScales
-        NRatios=len(LRatios)
-        CubePSFScales=np.zeros((NScales+NRatios*NTheta*(NScales-1),nx,ny))
-
-        Scales=np.array(LScales)
-        Ratios=np.array(LRatios)
-
-
-        self.ListScales=[]
-
-
-        # Scale Zero
-        CubePSFScales[0,:,:]=self.SubPSF[0,0,:,:]
-        self.ListScales.append({"ModelType":"Delta","Scale":0})
-        iSlice=1
-        
-        Support=61
-
-        for iScales in range(ScaleStart,NScales):
-            Minor=Scales[iScales]/(2.*np.sqrt(2.*np.log(2.)))
-            Major=Minor
-            PSFGaussPars=(Major,Minor,0.)
-            CubePSFScales[iSlice,:,:]=ModFFTW.ConvolveGaussian(self.SubPSF,CellSizeRad=1.,GaussPars=[PSFGaussPars])[0,0]
-            Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)
-            #fact=np.max(Gauss)/np.sum(Gauss)
-            #Gauss*=fact
-            self.ListScales.append({"ModelType":"Gaussian",
-                                    "Model":Gauss,"Scale":i})
-
-            iSlice+=1
-
-        Theta=np.arange(0.,np.pi-1e-3,np.pi/NTheta)
-
-
-        
-        for iScale in range(ScaleStart,NScales):
-            for ratio in Ratios:
-                for th in Theta:
-                    Minor=Scales[iScale]/(2.*np.sqrt(2.*np.log(2.)))
-                    Major=Minor*ratio
-                    PSFGaussPars=(Major,Minor,th)
-                    CubePSFScales[iSlice,:,:]=ModFFTW.ConvolveGaussian(self.SubPSF,CellSizeRad=1.,GaussPars=[PSFGaussPars])[0,0]
-                    Max=np.max(CubePSFScales[iSlice,:,:])
-                    CubePSFScales[iSlice,:,:]/=Max
-                    # pylab.clf()
-                    # pylab.subplot(1,2,1)
-                    # pylab.imshow(CubePSFScales[0,:,:],interpolation="nearest")
-                    # pylab.subplot(1,2,2)
-                    # pylab.imshow(CubePSFScales[iSlice,:,:],interpolation="nearest")
-                    # pylab.title("Scale = %s"%str(PSFGaussPars))
-                    # pylab.draw()
-                    # pylab.show(False)
-                    # pylab.pause(0.1)
-                    iSlice+=1
-                    Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)/Max
-                    #fact=np.max(Gauss)/np.sum(Gauss)
-                    #Gauss*=fact
-                    self.ListScales.append({"ModelType":"Gaussian",
-                                            "Model":Gauss,"Scale":iScale})
-
-        # Max=np.max(np.max(CubePSFScales,axis=1),axis=1)
-        # Max=Max.reshape((Max.size,1,1))
-        # CubePSFScales=CubePSFScales/Max
-
-        self.CubePSFScales=np.float32(CubePSFScales)
-        self.WeightWidth=6
-        CellSizeRad=1.
-        PSFGaussPars=(self.WeightWidth,self.WeightWidth,0.)
-        self.WeightFunction=ModFFTW.GiveGauss(self.SubPSF.shape[-1],CellSizeRad=1.,GaussPars=PSFGaussPars)
-        #self.WeightFunction.fill(1)
-        self.SupWeightWidth=3.*self.WeightWidth
-        print>>log, "   ... Done"
-
-
-    def FindBestScale(self,(x,y),Fpol):
-        x0,y0=x,y
-        x,y=x0,y0
-        
-
-        N0=self.Dirty.shape[-1]
-        N1=self.SubPSF.shape[-1]
-        xc,yc=x,y
-
-        nxPSF=self.CubePSFScales.shape[-1]
-        x0,x1=nxPSF/2-self.SupWeightWidth,nxPSF/2+self.SupWeightWidth+1
-        y0,y1=nxPSF/2-self.SupWeightWidth,nxPSF/2+self.SupWeightWidth+1
-        CubePSF=self.CubePSFScales[:,x0:x1,y0:y1]
-        N1=CubePSF.shape[-1]
-        
-        
-        
-        Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
-        x0d,x1d,y0d,y1d=Aedge
-        x0p,x1p,y0p,y1p=Bedge
-        #print Aedge
-        #print Bedge
-
-        #CubePSF=self.CubePSFScales[:,x0p:x1p,y0p:y1p]*Fpol[0,0,0]
-        CubePSF=CubePSF[:,x0p:x1p,y0p:y1p]*Fpol[0,0,0]
-
-        dirty=self.Dirty[0,x0d:x1d,y0d:y1d]
-        nx,ny=dirty.shape
-        dirty=dirty.reshape((1,nx,ny))
-
-
-        NSlice,nxPSF,_=self.CubePSFScales.shape
-        
-        WCubePSF=self.WeightFunction[x0:x1,y0:y1][x0p:x1p,y0p:y1p]
-        resid=dirty-CubePSF
-        WResid=WCubePSF*(dirty-CubePSF)
-        resid2=(1./self.RMS**2)*WCubePSF*(resid)**2
-        #resid2=(resid)**2
-
-        chi2=np.sum(np.sum(resid2,axis=1),axis=1)/(np.sum(self.WeightFunction))
-
-        iScale=np.argmin(chi2)
-
-        # pylab.clf()
-        # vmin=dirty.min()
-        # vmax=dirty.max()
-        # ax=pylab.subplot(1,3,1)
-        # pylab.imshow(dirty[0],vmin=vmin,vmax=vmax,interpolation="nearest")
-        # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
-        # pylab.imshow(CubePSF[iScale],vmin=vmin,vmax=vmax,interpolation="nearest")
-        # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-        # pylab.imshow(WResid[iScale],vmin=vmin,vmax=vmax,interpolation="nearest")
-        # pylab.colorbar()
-        # pylab.draw()
-        # pylab.show(False)
-
-        # # if np.min(chi2)>self.Chi2Thr:
-        # #     self._MaskArray[:,:,x,y]=True
-        # #     return "BadFit"
-
-            
-        # WResid=np.sum(WCubePSF*dirty[0]*CubePSF[iScale])/np.sum(WCubePSF*CubePSF[iScale]*CubePSF[iScale])
-
-
-        # if WResid<0.9:
-        #     self._MaskArray[:,:,x,y]=True
-        #     return "BadFit"
-
-
-        #print WResid
-        # stop
-
-
-
-        return iScale
 
     def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):
         M_xc=xc0
@@ -381,6 +169,7 @@ class ClassImageDeconvMachine():
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
         self.SideLobeLevel=SideLobeLevel
         self.OffsetSideLobe=OffsetSideLobe
+        self.MSMachine.setSideLobeLevel(SideLobeLevel,OffsetSideLobe)
 
     def Clean(self,Nminor=None,ch=0):
         if Nminor==None:
@@ -440,7 +229,7 @@ class ClassImageDeconvMachine():
         self._MaskArray.fill(1)
         self._MaskArray[np.abs(self._Dirty) > Threshold_SideLobe]=0
 
-        DoneScale=np.zeros((self.NScales,),np.float32)
+        DoneScale=np.zeros((self.MSMachine.NScales,),np.float32)
         for i in range(Nminor):
 
             #x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
@@ -474,7 +263,8 @@ class ClassImageDeconvMachine():
                 print>>log, "    [iter=%i] Peak residual flux %f Jy" % (i,ThisFlux)
                 
 
-            Fpol=(self.Dirty[:,x,y].reshape(npol,1,1)).copy()
+            nch,npol,_,_=self._Dirty.shape
+            Fpol=np.float32((self._Dirty[:,:,x,y].reshape((nch,npol,1,1))).copy())
 
             #print "Fpol",Fpol
             dx=x-xc
@@ -482,7 +272,9 @@ class ClassImageDeconvMachine():
 
             T.timeit("stuff")
 
-            iScale=self.FindBestScale((x,y),np.float32(Fpol))
+            #iScale=self.MSMachine.FindBestScale((x,y),Fpol)
+            LocalSM=self.MSMachine.GiveLocalSM((x,y),Fpol)
+
             T.timeit("FindScale")
             #print iScale
             if iScale=="BadFit": continue
@@ -551,7 +343,7 @@ class ClassImageDeconvMachine():
                 
 
                 for pol in range(npol):
-                    self.ModelImage[pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Fpol[pol,0,0]*self.Gain
+                    self.ModelImage[pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*pol[pol,0,0]*self.Gain
 
             else:
                 stop

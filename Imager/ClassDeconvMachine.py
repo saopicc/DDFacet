@@ -100,7 +100,7 @@ class ClassImagerDeconv():
                 ll=l.replace("\n","")
                 MSName.append(ll)
         elif ("*" in MSName)|("?" in MSName):
-            MSName=glob.glob(MSName)
+            MSName=sorted(glob.glob(MSName))
 
         self.VS=ClassVisServer.ClassVisServer(MSName,
                                               ColName=DC["VisData"]["ColName"],
@@ -273,9 +273,12 @@ class ClassImagerDeconv():
         #FacetMachinePSF.ToCasaImage(self.PSF)
         FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeam)
 
-        if self.VS.MultiFreqMode:
-            for Channel in range(self.VS.NFreqBands):
-                FacetMachinePSF.ToCasaImage(self.DicoImagePSF[Channel]["ImagData"],ImageName="%s.psf.ch%i"%(self.BaseName,Channel),Fits=True,beam=self.FWHMBeam)
+        # if self.VS.MultiFreqMode:
+        #     for Channel in range(self.VS.NFreqBands):
+        #         Im=self.DicoImagePSF["ImagData"][Channel]
+        #         npol,n,n=Im.shape
+        #         Im=Im.reshape((1,npol,n,n))
+        #         FacetMachinePSF.ToCasaImage(Im,ImageName="%s.psf.ch%i"%(self.BaseName,Channel),Fits=True,beam=self.FWHMBeam)
 
         #self.FitPSF()
         #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
