@@ -190,6 +190,8 @@ class ClassVisServer():
         print>>log, "Putting data in shared memory"
         DATA=NpShared.DicoToShared("%sDicoData"%self.IdSharedMem,DATA)
 
+
+
         return DATA
 
     def ReInitChunkCount(self):
@@ -242,6 +244,8 @@ class ClassVisServer():
         freqs=MS.ChanFreq.flatten()
         nbl=MS.nbl
 
+
+
         DATA={}
         DATA["flags"]=flags
         DATA["data"]=data
@@ -283,7 +287,7 @@ class ClassVisServer():
             data+=(self.AddNoiseJy/np.sqrt(2.))*(np.random.randn(*data.shape)+1j*np.random.randn(*data.shape))
         
         DicoDataOut={"times":times,
-                     "freqs":np.float64(freqs),
+                     "freqs":np.array([np.float64(freqs)]).flatten(),
                      "A0":A0,
                      "A1":A1,
                      "uvw":uvw,
@@ -329,6 +333,7 @@ class ClassVisServer():
 
 
         DATA=DicoDataOut
+
 
         self.ThisDataChunk = DATA
         return "LoadOK"

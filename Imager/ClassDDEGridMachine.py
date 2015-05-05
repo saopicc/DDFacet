@@ -263,9 +263,13 @@ class ClassDDEGridMachine():
         #CF.fill(1.)
         ChanFreq=ChanFreq.flatten()
         self.ChanFreq=ChanFreq
-        df=self.ChanFreq[1::]-self.ChanFreq[0:-1]
-        ddf=np.abs(df-np.mean(df))
-        self.ChanEquidistant=int(np.max(ddf)<1.)
+        if self.ChanFreq.size>1:
+            df=self.ChanFreq[1::]-self.ChanFreq[0:-1]
+            ddf=np.abs(df-np.mean(df))
+            self.ChanEquidistant=int(np.max(ddf)<1.)
+        else:
+            self.ChanEquidistant=1
+
         #print self.ChanEquidistant
         self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
 

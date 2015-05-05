@@ -211,6 +211,8 @@ void gridderWPol(PyArrayObject *grid,
 
 
     };
+
+
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -453,7 +455,7 @@ void gridderWPol(PyArrayObject *grid,
 	    }
 	  }
 
-	  float complex Weight=(*imgWtPtr)*corr;
+	  float complex Weight=(*imgWtPtr)*corr;//*corrsmear
 	  float complex visPtr[nPolVis];
 	  if(DoApplyJones){
 	    MatDot(J0inv,VisMeas,visPtr);

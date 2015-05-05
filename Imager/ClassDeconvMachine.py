@@ -114,8 +114,8 @@ class ClassImagerDeconv():
         #     print>>log, self.setNextData()
         # stop
 
-
-
+####################
+        self.DeconvMachine.setPSFMachine(self.VS.CurrentMS.dt,self.VS.CurrentMS.dFreq,self.VS.CurrentMS.ChanFreqs)
         self.InitFacetMachine()
         #self.VS.SetImagingPars(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
         #self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
@@ -257,13 +257,11 @@ class ClassImagerDeconv():
         # pylab.pause(0.1)
         # time.sleep(1)
 
-        self.FitPSF()
-        #self.FWHMBeam=(10.,10.,10.)
-        #FacetMachinePSF.ToCasaImage(self.PSF)
-        FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+#        self.FitPSF()
+#        FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeam)
 
-        #self.FitPSF()
-        #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
+
+        FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True)
 
 
         

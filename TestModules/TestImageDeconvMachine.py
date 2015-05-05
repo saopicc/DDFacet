@@ -1,6 +1,7 @@
 import numpy as np
 from pyrap.images import image
-import ClassImageDeconvMachineMultiScale as ClassImageDeconvMachine
+#import ClassImageDeconvMachineMultiScale as ClassImageDeconvMachine
+from DDFacet.Imager import ClassImageDeconvPseudoPsfMachine as ClassImageDeconvMachine
 
 def test():
     impsf=image("Continuous.psf")
@@ -58,6 +59,46 @@ def test3():
     DC.setSideLobeLevel(0.2,10)
     DC.FindPSFExtent(Method="FromSideLobe")
 
+    DC.MakeMultiScaleCube()
+    DC.Clean()
+    
+
+    c=imdirty.coordinates()
+    radec=c.dict()["direction0"]["crval"]
+
+    import ClassCasaImage
+    CasaImage=ClassCasaImage.ClassCasaimage("modeltest",DC._ModelImage.shape,2.,radec)
+    CasaImage.setdata(DC._ModelImage)#,CorrT=True)
+    CasaImage.ToFits()
+    CasaImage.close()
+
+def test4():
+
+    psfname="/home/atemkeng/PSF_CYRIL_METHOD/psf-.image-reso-2arc-dt101s-dnu1Mhz.fits"
+    dirtyname="/home/atemkeng/PSF_CYRIL_METHOD/dirty-image-reso-2arc-dt101s-dnu1Mhz.fits"
+
+    
+    impsf=image(psfname)
+    psf=np.float32(impsf.getdata())
+    imdirty=image(dirtyname)#Test.KAFCA.3SB.dirty.fits")
+    dirty=np.float32(imdirty.getdata())
+    
+    GD={"MultiScale":{}}
+    GD["MultiScale"]["Scales"]=[0]
+    GD["MultiScale"]["Ratios"]=[]
+    GD["MultiScale"]["NTheta"]=6
+    DC=ClassImageDeconvMachine.ClassImageDeconvMachine(Gain=.1,MaxMinorIter=1000,NCPU=30,GD=GD)
+    dt,dnu,freqs=(101, None, 140000)
+    cellsize=2.#GD["ImagerMainFacet"]["Cell"]
+    
+    DC.SetDirtyPSF(dirty,psf)
+
+    DC.setPSFMachine(dt,dnu,freqs,cellsize)
+    
+    #DC.setPSFMachine(dt,dnu,freqs,cellsize)
+    DC.setSideLobeLevel(0.2,10)
+    DC.FindPSFExtent(Method="FromSideLobe")
+    
     DC.MakeMultiScaleCube()
     DC.Clean()
     
