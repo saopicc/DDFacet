@@ -75,9 +75,9 @@ def test3():
 
 def test4():
 
-    DicoPSF=MyPickle.Load("DicoPSF")
-    DicoDirty=MyPickle.Load("DicoDirty")
-    
+    DicoPSF=dict(np.load("PSF.npz"))#MyPickle.Load("DicoPSF")
+    DicoDirty=dict(np.load("Dirty.npz"))#MyPickle.Load("DicoDirty")
+    DicoPSF["freqs"]={0: [[99800000.0, 100000000.0, 100200000.0]], 1: [[174800000.0, 175000000.0, 175200000.0]], 2: [[249800000.0, 250000000.0, 250200000.0]]}
     #psfname="lala2.nocompDeg3.psf.fits"
     #dirtyname="lala2.nocompDeg3.dirty.fits"
 
