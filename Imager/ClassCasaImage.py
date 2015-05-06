@@ -10,11 +10,11 @@ import pyfits
 import pyrap.images
 
 class ClassCasaimage():
-    def __init__(self,ImageName,ImShape,Cell,radec,KeepCasa=False):
+    def __init__(self,ImageName,ImShape,Cell,radec,Freqs=None,KeepCasa=False):
         self.Cell=Cell
         self.radec=radec
         self.KeepCasa=KeepCasa
-
+        self.Freqs=Freqs
         self.ImShape=ImShape
         self.nch,self.npol,self.Npix,_=ImShape
 
@@ -22,34 +22,6 @@ class ClassCasaimage():
         #print "image refpix:",rad2hmsdms.rad2hmsdms(radec[0],Type="ra").replace(" ",":"),", ",rad2hmsdms.rad2hmsdms(radec[1],Type="dec").replace(" ",".")
         self.createScratch()
 
-    def create(self):
-        ImageName=self.ImageName
-        #print>>log, "  ----> Create casa image %s"%ImageName
-        HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
-        c=MyPickle.Load("%s/pythonlibs/CoordCasa.pickle"%HYPERCAL_DIR)
-        incr=c.get_increment()
-        incrRad=(self.Cell/60.)#*np.pi/180
-        incr[0][0]=incrRad
-        incr[0][1]=-incrRad
-        c.set_increment(incr)
-        RefPix=c.get_referencepixel()
-        Npix=self.Npix
-        #RefPix[0][0]=Npix/2
-        #RefPix[0][1]=Npix/2
-
-        RefPix[0][0]=Npix/2-1
-        RefPix[0][1]=Npix/2-1
-
-        RefPix=c.set_referencepixel(RefPix)
-        RefVal=c.get_referencevalue()
-        RaDecRad=self.radec
-        RefVal[0][1]=RaDecRad[0]*180./np.pi*60
-        RefVal[0][0]=RaDecRad[1]*180./np.pi*60
-        RefVal=c.set_referencevalue(RefVal)
-        os.system("rm -Rf %s"%ImageName)
-        #self.im=image(imagename=ImageName,shape=(1,1,Npix,Npix),coordsys=c)
-        self.im=image(imagename=ImageName,shape=(Npix,Npix),coordsys=c)
-        
     def createScratch(self):
         ImageName=self.ImageName
         #print>>log, "  ----> Create casa image %s"%ImageName
@@ -63,7 +35,6 @@ class ClassCasaimage():
         incrRad=(self.Cell/60.)#*np.pi/180
         incr[-1][0]=incrRad
         incr[-1][1]=-incrRad
-        c.set_increment(incr)
         #RefPix=c.get_referencepixel()
         Npix=self.Npix
         #RefPix[0][0]=Npix/2
@@ -77,7 +48,53 @@ class ClassCasaimage():
         RaDecRad=self.radec
         RefVal[-1][1]=RaDecRad[0]*180./np.pi*60
         RefVal[-1][0]=RaDecRad[1]*180./np.pi*60
-        RefVal=c.set_referencevalue(RefVal)
+        if self.Freqs!=None:
+            #print RefVal[0]
+            RefVal[0]=self.Freqs[0]
+            ich,ipol,xy=c.get_referencepixel()
+            ich=0
+            c.set_referencepixel((ich,ipol,xy))
+            # if self.Freqs.size>1:
+            #     F=self.Freqs
+            #     df=np.mean(self.Freqs[1::]-self.Freqs[0:-1])
+            #     print df
+            #     incr[0]=df
+            #     D=c.__dict__["_csys"]
+            #     fmean=np.mean(self.Freqs)
+            #     D["worldreplace2"]=np.array([fmean])
+
+            #     D["spectral2"]["restfreq"]=fmean
+            #     D["spectral2"]["restfreqs"]=np.array([fmean])
+            #     D["spectral2"]["tabular"]={'axes': ['Frequency'],
+            #                                'pc': np.array([[ 1.]]),
+            #                                'units': ['Hz']}
+
+
+
+            #     D["spectral2"]["tabular"]["cdelt"]=np.array([df])
+            #     D["spectral2"]["tabular"]["crpix"]=np.array([0])
+            #     D["spectral2"]["tabular"]["crval"]=np.array([fmean])
+            #     D["spectral2"]["tabular"]["pixelvalues"]=np.arange(F.size)
+            #     D["spectral2"]["tabular"]["worldvalues"]=F
+ 
+            #    # Out[16]: array([  1.42040575e+09])
+                
+            #     # In [17]: c.dict()["spectral2"]["tabular"]
+            #     # Out[17]: 
+            #     # {'axes': ['Frequency'],
+            #     #  'cdelt': array([ 0.]),
+            #     #  'crpix': array([ 0.]),
+            #     #  'crval': array([  1.41500000e+09]),
+            #     #  'pc': array([[ 1.]]),
+            #     #  'pixelvalues': array([ 0.]),
+            #     #  'units': ['Hz'],
+            #     #  'worldvalues': array([  1.41500000e+09])}
+
+
+        c.set_increment(incr)
+        c.set_referencevalue(RefVal)
+
+
         #self.im=image(imagename=ImageName,shape=(1,1,Npix,Npix),coordsys=c)
         #self.im=image(imagename=ImageName,shape=(Npix,Npix),coordsys=c)
         self.im=image(imagename=ImageName,shape=self.ImShape,coordsys=c)
@@ -144,11 +161,11 @@ class ClassCasaimage():
 #     im.close()
 
 def test():
-    name,imShape,Cell,radec="lala2.psf", (1, 1, 1029, 1029), 20, (3.7146787856873478, 0.91111035090915093)
-    im=ClassCasaimage(name,imShape,Cell,radec)
+    name,imShape,Cell,radec="lala2.psf", (3, 1, 1029, 1029), 20, (3.7146787856873478, 0.91111035090915093)
+    im=ClassCasaimage(name,imShape,Cell,radec,Freqs=np.array([100,200,300],dtype=np.float32)*1e6)
     im.setdata(np.random.randn(*(imShape)),CorrT=True)
     im.ToFits()
-    im.setBeam((0.,0.,0.))
+    #im.setBeam((0.,0.,0.))
     im.close()
 
 if __name__=="__main__":

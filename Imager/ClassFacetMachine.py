@@ -458,13 +458,15 @@ class ClassFacetMachine():
         DicoImages={}
         DicoImages["freqs"]={}
         ImagData=np.zeros((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
+        NormData=None
         if NormJones: 
             NormData=np.zeros((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
 
         if self.VS.MultiFreqMode:
-            
+            DicoImages["SumWeights"]={}
             for Channel in range(self.VS.NFreqBands):
                 DicoImages["freqs"][Channel]=self.VS.FreqBandsInfos[Channel]
+                DicoImages["SumWeights"][Channel]=self.DicoImager[0]["SumWeights"][Channel]
                 if NormJones:
                     ImagData[Channel]=self.FacetsToIm_Channel(FlatNoise=True,Channel=Channel)[0]
                     NormData[Channel]=self.FacetsToIm_Channel(FlatNoise=False,Channel=Channel,BeamWeightImage=True)[0]
@@ -483,7 +485,11 @@ class ClassFacetMachine():
             DicoImages["NormData"]=NormData
 
         if self.VS.MultiFreqMode:
-            DicoImages["MeanImage"]=np.mean(ImagData,axis=0).reshape((1,npol,Npix,Npix))
+            ImMean=np.zeros_like(ImagData)
+            W=np.array([DicoImages["SumWeights"][Channel] for Channel in range(self.VS.NFreqBands)])
+            W/=np.sum(W)
+            W=W.reshape((self.VS.NFreqBands,1,1,1))
+            DicoImages["MeanImage"]=np.sum(ImagData*W,axis=0).reshape((1,npol,Npix,Npix))
 
         for iFacet in self.DicoImager.keys():
             del(self.DicoGridMachine[iFacet]["Dirty"])

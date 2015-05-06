@@ -166,11 +166,11 @@ def main(OP=None):
 
     # Imager.testDegrid()
     # stop
-    if "Clean"==Mode:
+    if "Clean" in Mode:
         Imager.main()
-    elif "Dirty"==Mode:
+    if "Dirty" in Mode:
         Imager.GiveDirty()
-    elif "PSF"==Mode:
+    if "PSF" in Mode:
         Imager.MakePSF()
 
     NpShared.DelAll(IdSharedMem)
