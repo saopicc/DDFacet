@@ -13,8 +13,9 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 class ClassMultiScaleMachine():
 
-    def __init__(self,GD):
+    def __init__(self,GD,Gain=0.1):
         self.SubPSF=None
+        self.Gain=Gain
         self.CubePSFScales=None
         self.GD=GD
         self.MultiFreqMode=False
@@ -22,6 +23,10 @@ class ClassMultiScaleMachine():
         if self.GD["MultiFreqs"]["NFreqBands"]:
             self.MultiFreqMode=True
             self.NFreqBand=self.GD["MultiFreqs"]["NFreqBands"]
+    
+
+        self.DicoSMStacked={}
+
 
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
         self.SideLobeLevel=SideLobeLevel
@@ -139,7 +144,7 @@ class ClassMultiScaleMachine():
         for iChannel in range(self.NFreqBand):
             AllFreqs+=self.DicoPSF["freqs"][iChannel]
         RefFreq=np.mean(AllFreqs)
-
+        self.DicoSMStacked["RefFreq"]=RefFreq
         for iChannel in range(self.NFreqBand):
             for iAlpha in range(NAlpha):
                 ThisAlpha=Alpha[iAlpha]
@@ -147,7 +152,7 @@ class ClassMultiScaleMachine():
                 
                 FreqBandsFluxRatio[iAlpha,iChannel]=np.mean((ThisFreqs/RefFreq)**ThisAlpha)
             
-        print FreqBandsFluxRatio
+#        print FreqBandsFluxRatio
         self.Alpha=Alpha
         for iAlpha in range(NAlpha):
             FluxRatios=FreqBandsFluxRatio[iAlpha,:]
@@ -162,7 +167,7 @@ class ClassMultiScaleMachine():
             iSlice+=1
             
             for iScales in range(ScaleStart,NScales):
-                print "sc"
+
                 Minor=Scales[iScales]/(2.*np.sqrt(2.*np.log(2.)))
                 Major=Minor
                 PSFGaussPars=(Major,Minor,0.)
@@ -179,7 +184,7 @@ class ClassMultiScaleMachine():
             Theta=np.arange(0.,np.pi-1e-3,np.pi/NTheta)
             
             for iScale in range(ScaleStart,NScales):
-                print "sc2"
+
                 for ratio in Ratios:
                     for th in Theta:
                         Minor=Scales[iScale]/(2.*np.sqrt(2.*np.log(2.)))
@@ -210,102 +215,198 @@ class ClassMultiScaleMachine():
         # CubePSFScales=CubePSFScales/Max
         self.CubePSFScales=np.array(ListPSFScales)
         self.CubePSFScales=np.float32(self.CubePSFScales)
-
+        self.nFunc=self.CubePSFScales.shape[0]
 
         self.WeightWidth=6
         CellSizeRad=1.
         PSFGaussPars=(self.WeightWidth,self.WeightWidth,0.)
-        self.WeightFunction=ModFFTW.GiveGauss(self.SubPSF.shape[-1],CellSizeRad=1.,GaussPars=PSFGaussPars)
+        self.GlobalWeightFunction=ModFFTW.GiveGauss(self.SubPSF.shape[-1],CellSizeRad=1.,GaussPars=PSFGaussPars)
         nch,npol,_,_=self._PSF.shape
-        self.WeightFunction=self.WeightFunction.reshape((1,1,self.SubPSF.shape[-1],self.SubPSF.shape[-1]))*np.ones((nch,npol,1,1),np.float32)
-        #self.WeightFunction.fill(1)
+        self.GlobalWeightFunction=self.GlobalWeightFunction.reshape((1,1,self.SubPSF.shape[-1],self.SubPSF.shape[-1]))*np.ones((nch,npol,1,1),np.float32)
+        self.GlobalWeightFunction.fill(1)
+        self.SupWeightWidth=3.*self.WeightWidth
         print>>log, "   ... Done"
 
     def MakeBasisMatrix(self):
-        self.SupWeightWidth=3.*self.WeightWidth
         nxPSF=self.CubePSFScales.shape[-1]
         x0,x1=nxPSF/2-self.SupWeightWidth,nxPSF/2+self.SupWeightWidth+1
         y0,y1=nxPSF/2-self.SupWeightWidth,nxPSF/2+self.SupWeightWidth+1
-        self.x0x1y0y1=x0,x1,y0,y1
-        self.CubePSF=self.CubePSFScales[:,:,x0:x1,y0:y1]
-        nFunc,nch,nx,ny=self.CubePSF.shape
-        BM=(self.CubePSF.reshape((nFunc,nch*nx*ny)).T.copy())
+        self.SubSubCoord=(x0,x1,y0,y1)
+        self.SubCubePSF=self.CubePSFScales[:,:,x0:x1,y0:y1]
+        self.SubWeightFunction=self.GlobalWeightFunction[:,:,x0:x1,y0:y1]
+        self.DicoBasisMatrix=self.GiveBasisMatrix()
+
+
+    def GiveBasisMatrix(self,SubSubSubCoord=None):
+        print>>log,"Calculating basisc function for SubSubSubCoord=%s"%(str(SubSubSubCoord))
+        if SubSubSubCoord==None:
+            CubePSF=self.SubCubePSF
+            WeightFunction=self.SubWeightFunction
+        else:
+            x0s,x1s,y0s,y1s=SubSubSubCoord
+            CubePSF=self.SubCubePSF[:,:,x0s:x1s,y0s:y1s]
+            WeightFunction=self.SubWeightFunction[:,:,x0s:x1s,y0s:y1s]
+
+        nFunc,nch,nx,ny=CubePSF.shape
+        BM=(CubePSF.reshape((nFunc,nch*nx*ny)).T.copy())
         BMT_BM=np.dot(BM.T,BM)
         
-        self.BMT_BM_inv=ModLinAlg.invSVD(BMT_BM)
-        self.BM=BM
+        BMT_BM_inv=ModLinAlg.invSVD(BMT_BM)
+        
+        DicoBasisMatrix={"BM":BM,
+                         "BMT_BM_inv":BMT_BM_inv,
+                         "CubePSF":CubePSF,
+                         "WeightFunction":WeightFunction}
+
+        return DicoBasisMatrix
+        
+    def AppendComponentToDictStacked(self,key,Fpol,Sols):
+        if not(key in self.DicoSMStacked.keys()):
+            self.DicoSMStacked[key]={}
+            self.DicoSMStacked[key]["SolsArray"]=np.zeros((self.nFunc,),np.float32)
+            self.DicoSMStacked[key]["SumWeights"]=0.
+
+        Weight=np.mean(Fpol)*self.Gain
+        self.DicoSMStacked[key]["SumWeights"] += Weight
+        self.DicoSMStacked[key]["SolsArray"]  += Weight*Sols.ravel()
+
+    def GiveModelImage(self,Freq):
+        RefFreq=self.DicoSMStacked["RefFreq"]
+        _,npol,nx,ny=self._Dirty.shape
+        ModelImage=np.zeros((1,npol,nx,ny),dtype=np.float32)
+        DicoSM={}
+        for key in self.DicoSMStacked.keys():
+            if key=="RefFreq": continue
+            Sol=self.DicoSMStacked[key]["SolsArray"]/self.DicoSMStacked[key]["SumWeights"]
+            x,y=key
+            for iFunc in range(Sol.size):
+                ThisComp=self.ListScales[iFunc]
+                ThisAlpha=ThisComp["Alpha"]
+                Flux=Sol[iFunc]*(Freq/RefFreq)**(ThisAlpha)
+                if ThisComp["ModelType"]=="Delta":
+                    for pol in range(npol):
+                       ModelImage[0,pol,x,y]+=Flux
+                
+                elif ThisComp["ModelType"]=="Gaussian":
+                    Gauss=ThisComp["Model"]
+                    Sup,_=Gauss.shape
+                    x0,x1=x-Sup/2,x+Sup/2+1
+                    y0,y1=y-Sup/2,y+Sup/2+1
+                
+                    _,N0,_=self.ModelImage.shape
+                
+                    Aedge,Bedge=self.GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
+                    x0d,x1d,y0d,y1d=Aedge
+                    x0p,x1p,y0p,y1p=Bedge
+                
+                
+                    for pol in range(npol):
+                        ModelImage[0,pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Flux
+                        
+        return ModelImage
+        
+
+        
+
 
 
     def GiveLocalSM(self,(x,y),Fpol):
         x0,y0=x,y
         x,y=x0,y0
-        x0,x1,y0,y1=self.x0x1y0y1
 
         N0=self._Dirty.shape[-1]
-        N1=self.SubPSF.shape[-1]
+        N1=self.DicoBasisMatrix["CubePSF"].shape[-1]
         xc,yc=x,y
 
-        CubePSF=self.CubePSF
-        N1=CubePSF.shape[-1]
+        #N1=CubePSF.shape[-1]
         
         nchan,npol,_,_=Fpol.shape
         
+        FpolMean=np.mean(Fpol,axis=0).reshape((1,npol,1,1))
+
         Aedge,Bedge=GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
         x0d,x1d,y0d,y1d=Aedge
-        x0p,x1p,y0p,y1p=Bedge
-        nxp,nyp=x1p-x0p,y1p-y0p
+        x0s,x1s,y0s,y1s=Bedge
+        nxs,nys=x1s-x0s,y1s-y0s
+        
+        if (nxs!=self.DicoBasisMatrix["CubePSF"].shape[-2])|(nys!=self.DicoBasisMatrix["CubePSF"].shape[-1]):
+            DicoBasisMatrix=self.GiveBasisMatrix((x0s,x1s,y0s,y1s))
+        else:
+            DicoBasisMatrix=self.DicoBasisMatrix
 
-        dirtyNorm=self._Dirty[:,:,x0d:x1d,y0d:y1d]/Fpol
-        dirtyVec=dirtyNorm.reshape((dirtyNorm.size,1))
-
-        WCubePSF=self.WeightFunction[:,:,x0:x1,y0:y1][:,:,x0p:x1p,y0p:y1p]
+        CubePSF=DicoBasisMatrix["CubePSF"]
+        WCubePSF=DicoBasisMatrix["WeightFunction"]
         WVecPSF=WCubePSF.reshape((WCubePSF.size,1))
 
-        BM=self.BM
+        nxp,nyp=x1s-x0s,y1s-y0s
+
+        dirtyNorm=self._Dirty[:,:,x0d:x1d,y0d:y1d]/FpolMean
+        dirtyVec=dirtyNorm.reshape((dirtyNorm.size,1))
+
+        
+
+        BM=DicoBasisMatrix["BM"]
         BMT_BM=np.dot(BM.T,WVecPSF*BM)
         BMT_BM_inv=ModLinAlg.invSVD(BMT_BM)
         Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
         ConvSM=np.dot(BM,Sol)
-        print Sol
+        #print Sol
 
         nch,npol,_,_=self._Dirty.shape
         ConvSM=ConvSM.reshape((nch,npol,nxp,nyp))
 
-        nFunc,_=self.BM.T.shape
-        BBM=self.BM.T.reshape((nFunc,nch,npol,nxp,nyp))
-        print np.sum(Sol.flatten()*self.Alpha.flatten())/np.sum(Sol.flatten())
+        nFunc,_=BM.T.shape
+        BBM=BM.T.reshape((nFunc,nch,npol,nxp,nyp))
+        
+        self.AppendComponentToDictStacked((xc,yc),FpolMean,Sol)
 
+        
+        LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)*FpolMean.ravel()[0]
+        nch,nx,ny=LocalSM.shape
+        LocalSM=LocalSM.reshape((nch,1,nx,ny))
+        #print np.sum(Sol.flatten()*self.Alpha.flatten())/np.sum(Sol.flatten())
+
+        #print Sol.flatten()
+        return LocalSM
 
         import pylab
 
-        dv=0.2
+        dv=1
         for iFunc in range(nFunc):
 
             pylab.clf()
-            pylab.subplot(3,2,1)
-            pylab.imshow(dirtyNorm[0,0],interpolation="nearest")
+            iplot=1
+            vmin,vmax=-0.5,1.3
+            pylab.subplot(3,3,iplot); iplot+=1
+            pylab.imshow(dirtyNorm[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
             pylab.title(self.Alpha[iFunc])
-            pylab.subplot(3,2,2)
-            pylab.imshow(dirtyNorm[1,0],interpolation="nearest")
+            pylab.subplot(3,3,iplot); iplot+=1
+            pylab.imshow(dirtyNorm[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
+            pylab.subplot(3,3,iplot); iplot+=1
+            pylab.imshow(dirtyNorm[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
 
-            pylab.subplot(3,2,3)
-            pylab.imshow(dirtyNorm[0,0]-BBM[iFunc,0,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
+            pylab.subplot(3,3,iplot); iplot+=1
+            pylab.imshow(dirtyNorm[0,0]-BBM[iFunc,0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
             #pylab.colorbar()
-            pylab.subplot(3,2,4)
-            pylab.imshow(dirtyNorm[1,0]-BBM[iFunc,1,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
+            pylab.subplot(3,3,iplot); iplot+=1
+            pylab.imshow(dirtyNorm[1,0]-BBM[iFunc,1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
+            pylab.subplot(3,3,iplot); iplot+=1
+            pylab.imshow(dirtyNorm[2,0]-BBM[iFunc,2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
 
-            # pylab.subplot(3,2,3)
+            # pylab.subplot(3,2,iplot)
             # pylab.imshow(BBM[iFunc,0,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
             # #pylab.colorbar()
-            # pylab.subplot(3,2,4)
+            # pylab.subplot(3,2,iplot)
             # pylab.imshow(BBM[iFunc,1,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
             # #pylab.colorbar()
 
-            pylab.subplot(3,2,5)
-            pylab.imshow(dirtyNorm[0,0]-ConvSM[0,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
+            pylab.subplot(3,3,iplot); iplot+=1
+            pylab.imshow(ConvSM[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
             #pylab.colorbar()
-            pylab.subplot(3,2,6)
-            pylab.imshow(dirtyNorm[1,0]-ConvSM[1,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
+            pylab.subplot(3,3,iplot); iplot+=1
+            pylab.imshow(ConvSM[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
+            pylab.subplot(3,3,iplot); iplot+=1
+            pylab.imshow(ConvSM[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
             #pylab.colorbar()
             
             pylab.draw()
@@ -314,7 +415,6 @@ class ClassMultiScaleMachine():
             
         stop
             
-        
         
 
     def FindBestScale(self,(x,y),Fpol):

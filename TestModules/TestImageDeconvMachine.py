@@ -92,7 +92,7 @@ def test4():
     GD["MultiScale"]["Ratios"]=[1.33,1.66,2]
     GD["MultiScale"]["NTheta"]=6
     GD["MultiFreqs"]["NFreqBands"]=3
-    GD["MultiFreqs"]["Alpha"]=[-1.,0.,20]
+    GD["MultiFreqs"]["Alpha"]=[-1.,0.,6]
     GD["MultiFreqs"]["NTerms"]=2
     DC=ClassImageDeconvMachine.ClassImageDeconvMachine(Gain=.1,MaxMinorIter=1000,NCPU=30,GD=GD)
     DC.SetDirtyPSF(DicoDirty,DicoPSF)
@@ -104,12 +104,28 @@ def test4():
     DC.Clean()
     
 
-    c=imdirty.coordinates()
-    radec=c.dict()["direction0"]["crval"]
+    nu=np.linspace(100,300,10)*1e6
+    Flux=np.zeros_like(nu)
+    for inu in range(nu.size):
+        ThisNu=nu[inu]
+        Model=DC.MSMachine.GiveModelImage(ThisNu)#np.mean(DicoDirty["freqs"][2]))
+        Flux[inu]=np.max(Model)
 
-    import ClassCasaImage
-    CasaImage=ClassCasaImage.ClassCasaimage("modeltest",DC._ModelImage.shape,2.,radec)
-    CasaImage.setdata(DC._ModelImage)#,CorrT=True)
-    CasaImage.ToFits()
-    CasaImage.close()
+    import pylab
+    pylab.clf()
+    pylab.plot(np.log10(nu/1e6),np.log10(Flux))
+    #pylab.imshow(Model[0,0],interpolation="nearest")
+    #pylab.colorbar()
+    pylab.draw()
+    pylab.show(False)
+    
+
+    # c=imdirty.coordinates()
+    # radec=c.dict()["direction0"]["crval"]
+
+    # import ClassCasaImage
+    # CasaImage=ClassCasaImage.ClassCasaimage("modeltest",DC._ModelImage.shape,2.,radec)
+    # CasaImage.setdata(DC._ModelImage)#,CorrT=True)
+    # CasaImage.ToFits()
+    # CasaImage.close()
 

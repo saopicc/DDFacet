@@ -26,7 +26,7 @@ class ClassImageDeconvMachine():
         self.MaskArray=None
         self.GD=GD
         self.SubPSF=None
-        self.MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD)
+        self.MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.Gain)
 
     def SetDirtyPSF(self,DicoDirty,DicoPSF):
         # if len(PSF.shape)==4:
@@ -39,10 +39,14 @@ class ClassImageDeconvMachine():
         #self.NChannels=self.DicoDirty["NChannels"]
         self.MSMachine.SetDirtyPSF(DicoDirty,DicoPSF)
 
-        self._PSF=self.DicoPSF["MeanImage"]
-        self._Dirty=self.DicoDirty["MeanImage"]
+        self._PSF=self.MSMachine._PSF
+        self._Dirty=self.MSMachine._Dirty
+        self._MeanPSF=self.MSMachine._MeanPSF
+        self._MeanDirty=self.MSMachine._MeanDirty
+
         _,_,NPSF,_=self._PSF.shape
         _,_,NDirty,_=self._Dirty.shape
+
         off=(NPSF-NDirty)/2
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
         
@@ -92,15 +96,15 @@ class ClassImageDeconvMachine():
         return Aedge,Bedge
 
 
-    def SubStep(self,(dx,dy),Fpol,iScale=0):
+    def SubStep(self,(dx,dy),LocalSM):
         npol,_,_=self.Dirty.shape
         x0,x1,y0,y1=self.DirtyExtent
 
         xc,yc=dx,dy
         #NpixFacet=self.SubPSF.shape[-1]
-        PSF=self.CubePSFScales[iScale]
+        #PSF=self.CubePSFScales[iScale]
         N0=self.Dirty.shape[-1]
-        N1=PSF.shape[-1]
+        N1=LocalSM.shape[-1]
 
         # PSF=PSF[N1/2-1:N1/2+2,N1/2-1:N1/2+2]
         # N1=PSF.shape[-1]
@@ -113,10 +117,10 @@ class ClassImageDeconvMachine():
         #_,n,n=self.PSF.shape
         #PSF=self.PSF.reshape((n,n))
         #print "Fpol00",Fpol
-        factor=-Fpol[0,0,0]*self.Gain
+        factor=-1.#Fpol[0,0,0]*self.Gain
         #print "Fpol01",Fpol
 
-        nx,ny=PSF.shape
+        nch,npol,nx,ny=LocalSM.shape
         # print Fpol[0,0,0]
         # print Aedge
         # print Bedge
@@ -143,19 +147,23 @@ class ClassImageDeconvMachine():
         # vmin,vmax=self.Dirty.min(),self.Dirty.max()
         # pylab.imshow(self.Dirty[0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
         # pylab.subplot(1,3,2)
-        # pylab.imshow(PSF[x0p:x1p,y0p:y1p]*factor,interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.imshow(LocalSM[0,0,x0p:x1p,y0p:y1p],interpolation="nearest",vmin=vmin,vmax=vmax)
         # pylab.draw()
-        #print "Fpol02",Fpol
-        NpParallel.A_add_B_prod_factor((self.Dirty),PSF,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
-        #print "Fpol03",Fpol
-        # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-        # pylab.imshow(self.Dirty[0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
-        # pylab.draw()
-        # pylab.show(False)
-        # print Aedge
-        # print Bedge
-        # print self.Dirty[0,x0d:x1d,y0d:y1d]
-        # stop
+        # #print "Fpol02",Fpol
+        # # NpParallel.A_add_B_prod_factor((self.Dirty),LocalSM,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
+
+        self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
+        self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.mean(LocalSM[:,:,x0p:x1p,y0p:y1p],axis=0)
+
+       # # print "Fpol03",Fpol
+       #  pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+       #  pylab.imshow(self.Dirty[0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
+       #  pylab.draw()
+       #  pylab.show(False)
+       #  print Aedge
+       #  print Bedge
+       #  print self.Dirty[0,x0d:x1d,y0d:y1d]
+
         
         
 
@@ -277,7 +285,8 @@ class ClassImageDeconvMachine():
 
             T.timeit("FindScale")
             #print iScale
-            if iScale=="BadFit": continue
+
+            #if iScale=="BadFit": continue
 
                 
 
@@ -298,7 +307,7 @@ class ClassImageDeconvMachine():
             
 
             
-            self.SubStep((x,y),Fpol,iScale)
+            self.SubStep((x,y),LocalSM*self.Gain)
             T.timeit("SubStep")
 
 
@@ -317,36 +326,39 @@ class ClassImageDeconvMachine():
 
 
 
-            ThisComp=self.ListScales[iScale]
+
+            # ######################################
+
+            # ThisComp=self.ListScales[iScale]
 
 
 
 
-            Scale=ThisComp["Scale"]
-            DoneScale[Scale]+=1
+            # Scale=ThisComp["Scale"]
+            # DoneScale[Scale]+=1
 
-            if ThisComp["ModelType"]=="Delta":
-                for pol in range(npol):
-                   self.ModelImage[pol,x,y]+=Fpol[pol,0,0]*self.Gain
+            # if ThisComp["ModelType"]=="Delta":
+            #     for pol in range(npol):
+            #        self.ModelImage[pol,x,y]+=Fpol[pol,0,0]*self.Gain
                 
-            elif ThisComp["ModelType"]=="Gaussian":
-                Gauss=ThisComp["Model"]
-                Sup,_=Gauss.shape
-                x0,x1=x-Sup/2,x+Sup/2+1
-                y0,y1=y-Sup/2,y+Sup/2+1
+            # elif ThisComp["ModelType"]=="Gaussian":
+            #     Gauss=ThisComp["Model"]
+            #     Sup,_=Gauss.shape
+            #     x0,x1=x-Sup/2,x+Sup/2+1
+            #     y0,y1=y-Sup/2,y+Sup/2+1
 
-                _,N0,_=self.ModelImage.shape
+            #     _,N0,_=self.ModelImage.shape
                 
-                Aedge,Bedge=self.GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
-                x0d,x1d,y0d,y1d=Aedge
-                x0p,x1p,y0p,y1p=Bedge
+            #     Aedge,Bedge=self.GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
+            #     x0d,x1d,y0d,y1d=Aedge
+            #     x0p,x1p,y0p,y1p=Bedge
                 
 
-                for pol in range(npol):
-                    self.ModelImage[pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*pol[pol,0,0]*self.Gain
+            #     for pol in range(npol):
+            #         self.ModelImage[pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*pol[pol,0,0]*self.Gain
 
-            else:
-                stop
+            # else:
+            #     stop
 
 
 
