@@ -155,14 +155,13 @@ class ClassImageDeconvMachine():
         self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
         self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.mean(LocalSM[:,:,x0p:x1p,y0p:y1p],axis=0)
 
-       # # print "Fpol03",Fpol
-       #  pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-       #  pylab.imshow(self.Dirty[0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
-       #  pylab.draw()
-       #  pylab.show(False)
-       #  print Aedge
-       #  print Bedge
-       #  print self.Dirty[0,x0d:x1d,y0d:y1d]
+        # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+        # pylab.imshow(self.Dirty[0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.draw()
+        # pylab.show(False)
+        # print Aedge
+        # print Bedge
+        # print self.Dirty[0,x0d:x1d,y0d:y1d]
 
         
         
@@ -202,13 +201,17 @@ class ClassImageDeconvMachine():
 
         NPixStats=1000
         RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
-        RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
+        RMS=0.#np.std(np.real(self.Dirty.ravel()[RandomInd]))
+        
         self.RMS=RMS
         Threshold_RMS=5./(1.-self.SideLobeLevel)
         MaxDirty=np.max(np.abs(self.Dirty))
         FluxLimit=Threshold_RMS*RMS
         #FluxLimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
         Threshold_SideLobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
+        
+        
+
 
         mm0,mm1=self.Dirty.min(),self.Dirty.max()
         print>>log, "    Dirty image peak flux   = %7.3f Jy [(min, max) = (%7.3f, %7.3f) Jy]"%(MaxDirty,mm0,mm1)
@@ -225,7 +228,7 @@ class ClassImageDeconvMachine():
         # FactorBook=float(NPixBook)/npix
         
         T=ClassTimeIt.ClassTimeIt()
-        T.disable()
+        #T.disable()
 
         x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
         #print x,y
