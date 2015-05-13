@@ -108,20 +108,25 @@ class ClassVisServer():
         self.iCurrentMS=0
         self.nMS=len(self.ListMS)
 
+        NFreqBands=self.NFreqBands
         if self.NFreqBands>1: 
-            NFreqBands=self.NFreqBands
             self.MultiFreqMode=True
-            FreqBands=np.linspace(self.GlobalFreqs.min(),self.GlobalFreqs.max(),NFreqBands+1)
-            self.FreqBandsMean=(FreqBands[0:-1]+FreqBands[1::])/2.
-            self.FreqBandsMin=FreqBands[0:-1].copy()
-            self.FreqBandsMax=FreqBands[1::].copy()
-            self.FreqBandsInfos={}
-            for iBand in range(self.NFreqBands):
-                self.FreqBandsInfos[iBand]=[]
+        FreqBands=np.linspace(self.GlobalFreqs.min(),self.GlobalFreqs.max(),NFreqBands+1)
+        self.FreqBandsMean=(FreqBands[0:-1]+FreqBands[1::])/2.
+        self.FreqBandsMin=FreqBands[0:-1].copy()
+        self.FreqBandsMax=FreqBands[1::].copy()
+        self.FreqBandsInfos={}
+        for iBand in range(self.NFreqBands):
+            self.FreqBandsInfos[iBand]=[]
 
-            for MS in self.ListMS:
-                FreqBand = np.where((self.FreqBandsMin < np.mean(MS.ChanFreq))&(self.FreqBandsMax > np.mean(MS.ChanFreq)))[0][0]
-                self.FreqBandsInfos[FreqBand]+=MS.ChanFreq.tolist()
+
+        self.ListFreqs=[]
+        for MS in self.ListMS:
+            FreqBand = np.where((self.FreqBandsMin < np.mean(MS.ChanFreq))&(self.FreqBandsMax > np.mean(MS.ChanFreq)))[0][0]
+            self.FreqBandsInfos[FreqBand]+=MS.ChanFreq.tolist()
+            self.ListFreqs+=MS.ChanFreq.tolist()
+            
+        self.RefFreq=np.mean(self.ListFreqs)
 
         MS=self.ListMS[0]
         print MS
@@ -203,6 +208,10 @@ class ClassVisServer():
         if "DicoBeam" in D.keys():
             DATA["DicoBeam"]=D["DicoBeam"]
 
+        #print>>log, "!!!!!!!!!"
+        #DATA["flags"].fill(0)
+
+
         print>>log, "Putting data in shared memory"
         DATA=NpShared.DicoToShared("%sDicoData"%self.IdSharedMem,DATA)
 
@@ -279,6 +288,10 @@ class ClassVisServer():
         except:
             self.UpdateFlag(DATA)
 
+
+        
+
+
         self.UpdateCompression(DATA)
 
         JonesMachine=ClassJones.ClassJones(self.GD,self.FacetMachine,self.CurrentMS,IdSharedMem=self.IdSharedMem)
@@ -310,15 +323,15 @@ class ClassVisServer():
         else:
             freqs=np.array([freqs[0]],dtype=np.float64)
         
-        DicoDataOut={"times":times,
+        DicoDataOut={"times":DATA["times"],
                      "freqs":freqs,
-                     "A0":A0,
-                     "A1":A1,
-                     "uvw":uvw,
-                     "flags":flags,
+                     "A0":DATA["A0"],
+                     "A1":DATA["A1"],
+                     "uvw":DATA["uvw"],
+                     "flags":DATA["flags"],
                      "nbl":nbl,
                      "na":MS.na,
-                     "data":data,
+                     "data":DATA["data"],
                      "ROW0":MS.ROW0,
                      "ROW1":MS.ROW1,
                      "infos":np.array([MS.na]),

@@ -17,6 +17,7 @@ class ClassImageDeconvMachine():
                  MaxMinorIter=100,NCPU=6,CycleFactor=2.5,
                  GD=None):
         #self.im=CasaImage
+        print "==========="
         self.Gain=Gain
         self.ModelImage=None
         self.MaxMinorIter=MaxMinorIter
@@ -26,7 +27,16 @@ class ClassImageDeconvMachine():
         self.MaskArray=None
         self.GD=GD
         self.SubPSF=None
+        self.MultiFreqMode=(self.GD["MultiFreqs"]["NFreqBands"]>1)
         self.MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.Gain)
+
+    def GiveModelImage(self,*args): return self.MSMachine.GiveModelImage(*args)
+
+    def InitMSMF(self):
+        self.MSMachine.FindPSFExtent(Method="FromSideLobe")
+        self.MSMachine.MakeMultiScaleCube()
+        self.MSMachine.MakeBasisMatrix()
+
 
     def SetDirtyPSF(self,DicoDirty,DicoPSF):
         # if len(PSF.shape)==4:
@@ -153,7 +163,8 @@ class ClassImageDeconvMachine():
         # # NpParallel.A_add_B_prod_factor((self.Dirty),LocalSM,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
 
         self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
-        self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.mean(LocalSM[:,:,x0p:x1p,y0p:y1p],axis=0)
+        if self.MultiFreqMode:
+            self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.mean(LocalSM[:,:,x0p:x1p,y0p:y1p],axis=0)
 
         # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
         # pylab.imshow(self.Dirty[0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
@@ -168,8 +179,8 @@ class ClassImageDeconvMachine():
 
 
     def setChannel(self,ch=0):
-        self.PSF=self._PSF[ch]
-        self.Dirty=self._Dirty[ch]
+        self.PSF=self._MeanPSF[ch]
+        self.Dirty=self._MeanDirty[ch]
         self.ModelImage=self._ModelImage[ch]
         self.MaskArray=self._MaskArray[ch]
 
@@ -201,7 +212,7 @@ class ClassImageDeconvMachine():
 
         NPixStats=1000
         RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
-        RMS=0.#np.std(np.real(self.Dirty.ravel()[RandomInd]))
+        RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
         
         self.RMS=RMS
         Threshold_RMS=5./(1.-self.SideLobeLevel)
@@ -228,19 +239,19 @@ class ClassImageDeconvMachine():
         # FactorBook=float(NPixBook)/npix
         
         T=ClassTimeIt.ClassTimeIt()
-        #T.disable()
+        T.disable()
 
         x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
         #print x,y
 
         if ThisFlux < FluxLimit:
-            print>>log, ModColor.Str("    Initial maximum peak %f Jy lower that rms-based limit of %f Jy (%i-sigma)" % (ThisFlux,Threshold_RMS,Threshold_RMS))
+            print>>log, ModColor.Str("    Initial maximum peak %f Jy lower that rms-based limit of %f Jy (%i-sigma)" % (ThisFlux,FluxLimit,Threshold_RMS))
             return "DoneMinFlux"
 
         self._MaskArray.fill(1)
         self._MaskArray[np.abs(self._Dirty) > Threshold_SideLobe]=0
 
-        DoneScale=np.zeros((self.MSMachine.NScales,),np.float32)
+#        DoneScale=np.zeros((self.MSMachine.NScales,),np.float32)
         for i in range(Nminor):
 
             #x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
@@ -257,16 +268,16 @@ class ClassImageDeconvMachine():
 
             if ThisFlux < FluxLimit:
                 print>>log, "    [iter=%i] Maximum peak lower that rms-based limit of %f Jy (%i-sigma)" % (i,FluxLimit,Threshold_RMS)
-                DoneScale*=100./np.sum(DoneScale)
-                for iScale in range(DoneScale.size):
-                    print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
+                # DoneScale*=100./np.sum(DoneScale)
+                # for iScale in range(DoneScale.size):
+                #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
                 return "MinFlux"
 
             if ThisFlux < Threshold_SideLobe:
                 print>>log, "    [iter=%i] Peak residual flux %f Jy higher than sidelobe-based limit of %f Jy" % (i,ThisFlux, Threshold_SideLobe)
-                DoneScale*=100./np.sum(DoneScale)
-                for iScale in range(DoneScale.size):
-                    print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
+                # DoneScale*=100./np.sum(DoneScale)
+                # for iScale in range(DoneScale.size):
+                #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
 
                 return "MinFlux"
 
@@ -371,8 +382,8 @@ class ClassImageDeconvMachine():
 
 
         print>>log, ModColor.Str("    [iter=%i] Reached maximum number of iterations" % (Nminor))
-        DoneScale*=100./np.sum(DoneScale)
-        for iScale in range(DoneScale.size):
-            print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
+        # DoneScale*=100./np.sum(DoneScale)
+        # for iScale in range(DoneScale.size):
+        #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
         return "MaxIter"
 

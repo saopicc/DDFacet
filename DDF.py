@@ -91,6 +91,10 @@ def read_options():
     OP.add_option("Ratios")
     OP.add_option("NTheta")
 
+    OP.OptionGroup("* MultiFrequency Options","MultiFreqs")
+    OP.add_option("NFreqBands")
+    OP.add_option("NTerms")
+    OP.add_option("Alpha")
 
 
     OP.OptionGroup("* DDE Solutions","DDESolutions")

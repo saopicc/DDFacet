@@ -460,7 +460,7 @@ class ClassFacetMachine():
         ImagData=np.zeros((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
         NormData=None
         if NormJones: 
-            NormData=np.zeros((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
+            NormData=np.ones((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
 
         if self.VS.MultiFreqMode:
             DicoImages["SumWeights"]={}
@@ -474,15 +474,18 @@ class ClassFacetMachine():
                     ImagData[Channel] = self.FacetsToIm_Channel(FlatNoise=False,Channel=Channel)[0]
 
         else:
+            Channel=0
+            DicoImages["freqs"][Channel]=self.VS.FreqBandsInfos[Channel]
             if NormJones:
                 ImagData[Channel] = self.FacetsToIm_Channel(FlatNoise=True,Channel=0)
                 NormData[Channel] = self.FacetsToIm_Channel(FlatNoise=False,Channel=0,BeamWeightImage=True)
             else:
                 ImagData[Channel] = self.FacetsToIm_Channel(FlatNoise=False,Channel=0)
+
+            DicoImages["MeanImage"]=ImagData
                 
         DicoImages["ImagData"]=ImagData
-        if NormJones:
-            DicoImages["NormData"]=NormData
+        DicoImages["NormData"]=NormData
 
         if self.VS.MultiFreqMode:
             ImMean=np.zeros_like(ImagData)
@@ -490,6 +493,8 @@ class ClassFacetMachine():
             W/=np.sum(W)
             W=W.reshape((self.VS.NFreqBands,1,1,1))
             DicoImages["MeanImage"]=np.sum(ImagData*W,axis=0).reshape((1,npol,Npix,Npix))
+
+
 
         for iFacet in self.DicoImager.keys():
             del(self.DicoGridMachine[iFacet]["Dirty"])
@@ -583,7 +588,11 @@ class ClassFacetMachine():
 
                 ThisSumWeights=self.DicoImager[iFacet]["SumWeights"][Channel]
                 ThisSumJones=self.DicoImager[iFacet]["SumJones"][Channel]/ThisSumWeights[0,0]
-                
+                if ThisSumJones==0:
+                    ThisSumJones=1.
+
+                #print "(W, J) = (%f, %f)"%(ThisSumWeights,ThisSumJones)
+
                 for ch in range(nch):
                     for pol in range(npol):
                         #Image[ch,pol,x0main:x1main,y0main:y1main]+=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
@@ -768,7 +777,7 @@ class ClassFacetMachine():
             #print "minmax facet = %f %f"%(ThisDirty.min(),ThisDirty.max())
 
             if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
-
+                #print>>log, (iFacet,Channel)
                 if Channel in self.DicoGridMachine[iFacet]["Dirty"].keys():
                     self.DicoGridMachine[iFacet]["Dirty"][Channel]+=ThisDirty
                 else:
@@ -915,6 +924,7 @@ class WorkerImager(multiprocessing.Process):
         DicoJonesMatrices=None
         if self.PSFMode:
             return None
+
 
         if self.ApplyCal:
             DicoJonesMatrices=NpShared.SharedToDico("%skillMSSolutionFile"%self.IdSharedMem)

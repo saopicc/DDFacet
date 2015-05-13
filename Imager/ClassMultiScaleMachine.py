@@ -12,7 +12,7 @@ from DDFacet.Other import ClassTimeIt
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
-
+import ClassModelMachine
 
 class ClassMultiScaleMachine():
 
@@ -26,9 +26,8 @@ class ClassMultiScaleMachine():
         if self.GD["MultiFreqs"]["NFreqBands"]:
             self.MultiFreqMode=True
             self.NFreqBand=self.GD["MultiFreqs"]["NFreqBands"]
-    
+        self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD)
 
-        self.DicoSMStacked={}
 
 
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
@@ -52,8 +51,9 @@ class ClassMultiScaleMachine():
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
         
 
-        print "!!!!!!!!!!!"
+        print>>log, "!!!!!!!!!!!"
         self._MeanDirtyOrig=self._MeanDirty.copy()
+        self.ModelMachine.setModelShape(self._MeanPSF.shape)
 
         # nch,_,_,_=self._PSF.shape
         # for ich in range(nch):
@@ -97,14 +97,21 @@ class ClassMultiScaleMachine():
             dx0=np.max([dx0,50])
             print>>log, "PSF extends to [%i] from center"%(dx0)
         
-        dx0=np.max([dx0,200])
+        dx0=np.max([dx0,100])
+        dx0=np.min([dx0,NPSF/2])
         npix=2*dx0+1
         npix=ModToolBox.GiveClosestFastSize(npix,Odd=False)
 
         self.PSFMargin=(NPSF-npix)/2
 
         dx=npix/2
+
+
         self.PSFExtent=(NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
+
+        #self.PSFExtent=(0,NPSF,0,NPSF)
+
+
         x0,x1,y0,y1=self.PSFExtent
         self.SubPSF=self._PSF[:,:,x0:x1,y0:y1]
 
@@ -120,10 +127,11 @@ class ClassMultiScaleMachine():
             #LScales.remove(0)
         LRatios=self.GD["MultiScale"]["Ratios"]
         NTheta=self.GD["MultiScale"]["NTheta"]
-
+        
         NAlpha=1
         if self.MultiFreqMode:
             AlphaMin,AlphaMax,NAlpha=self.GD["MultiFreqs"]["Alpha"]
+            NAlpha=int(NAlpha)
             Alpha=np.linspace(AlphaMin,AlphaMax,NAlpha)
 
         _,_,nx,ny=self.SubPSF.shape
@@ -150,7 +158,10 @@ class ClassMultiScaleMachine():
         for iChannel in range(self.NFreqBand):
             AllFreqs+=self.DicoPSF["freqs"][iChannel]
         RefFreq=np.mean(AllFreqs)
-        self.DicoSMStacked["RefFreq"]=RefFreq
+
+        self.ModelMachine.setRefFreq(RefFreq)
+        self.RefFreq=RefFreq
+
         for iChannel in range(self.NFreqBand):
             for iAlpha in range(NAlpha):
                 ThisAlpha=Alpha[iAlpha]
@@ -231,7 +242,7 @@ class ClassMultiScaleMachine():
         #     Flat[iChannel]=1
         #     ListPSFScales.append(Flat)
 
-        
+        self.ModelMachine.setListComponants(self.ListScales)
 
         self.CubePSFScales=np.array(ListPSFScales)
         self.FFTMachine=ModFFTW.FFTW_2Donly_np(self.CubePSFScales.shape, self.CubePSFScales.dtype)
@@ -254,8 +265,8 @@ class ClassMultiScaleMachine():
         # r0=self.WeightWidth
         # weight=(r/r0+1.)**(-1)
         self.GlobalWeightFunction=self.GlobalWeightFunction.reshape((1,1,self.SubPSF.shape[-1],self.SubPSF.shape[-1]))*np.ones((nch,npol,1,1),np.float32)
-        self.GlobalWeightFunction.fill(1)
-        self.SupWeightWidth=10#3.*self.WeightWidth
+        #self.GlobalWeightFunction.fill(1)
+        self.SupWeightWidth=3.*self.WeightWidth
         print>>log, "   ... Done"
 
     def MakeBasisMatrix(self):
@@ -300,7 +311,7 @@ class ClassMultiScaleMachine():
         fCubePSF=np.float32(self.OPFT(self.FFTMachine.fft(np.complex64(CubePSF*W))))
         nch,npol,_,_=self._PSF.shape
         u,v=np.mgrid[-nx/2+1:nx/2:1j*nx,-ny/2+1:ny/2:1j*ny]
-        print u.min(),u.max()
+
         r=np.sqrt(u**2+v**2)
         r0=3.
         UVTaper=1.-np.exp(-(r/r0)**2)
@@ -325,7 +336,7 @@ class ClassMultiScaleMachine():
 
 
         fBM=(fCubePSF.reshape((nFunc,nch*nx*ny)).T.copy())
-        fBMT_fBM=np.dot(fBM.T,fBM)
+        fBMT_fBM=np.dot(fBM.T,UVTaper.reshape((UVTaper.size,1))*fBM)
         fBMT_fBM_inv=ModLinAlg.invSVD(fBMT_fBM)
         
 
@@ -350,6 +361,7 @@ class ClassMultiScaleMachine():
 
     def GiveLocalSM(self,(x,y),Fpol):
         T=ClassTimeIt.ClassTimeIt("   GiveLocalSM")
+        T.disable()
         x0,y0=x,y
         x,y=x0,y0
 
@@ -359,8 +371,16 @@ class ClassMultiScaleMachine():
 
         #N1=CubePSF.shape[-1]
         
+
         nchan,npol,_,_=Fpol.shape
-        
+
+        # JonesNorm=np.ones((nchan,npol,1,1),Fpol.dtype)
+        # print Fpol
+        # if self.DicoDirty["NormData"]!=None:
+        #     JonesNorm=np.sqrt(self.DicoDirty["NormData"][:,:,x,y]).reshape((nchan,npol,1,1))
+        #     Fpol=Fpol/JonesNorm
+        # print Fpol
+
         FpolMean=np.mean(Fpol,axis=0).reshape((1,npol,1,1))
 
         Aedge,Bedge=GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
@@ -390,12 +410,13 @@ class ClassMultiScaleMachine():
             WCubePSFIm=DicoBasisMatrix["WeightFunction"]
             WVecPSF=WCubePSF.reshape((WCubePSF.size,1))
             dirtyNorm=np.float32(self.OPFT(self.FFTMachine.fft(np.complex64(dirtyNormIm*WCubePSFIm))))#.real)
+            BMT_BM_inv=DicoBasisMatrix["fBMT_fBM_inv"]
         else:
             WCubePSF=DicoBasisMatrix["WeightFunction"]
             WVecPSF=WCubePSF.reshape((WCubePSF.size,1))
             dirtyNorm=dirtyNormIm
             BM=DicoBasisMatrix["BM"]
-                
+            BMT_BM_inv=DicoBasisMatrix["BMT_BM_inv"]
 
         dirtyVec=dirtyNorm.reshape((dirtyNorm.size,1))
         T.timeit("1")
@@ -410,14 +431,49 @@ class ClassMultiScaleMachine():
         #     BMCubeSub[iFunc]=BMCube[iFunc]-MeanData
         # BM=(BMCubeSub.reshape((nFunc,nData)).T.copy())
 
-        BMT_BM_inv=DicoBasisMatrix["BMT_BM_inv"]# ModLinAlg.invSVD(BMT_BM)
+        # ModLinAlg.invSVD(BMT_BM)
 
-#        BMT_BM=np.dot(BM.T,WVecPSF*BM)
-#        BMT_BM_inv=ModLinAlg.invSVD(BMT_BM)
-        #Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
-        Sol=np.dot(BM.T,WVecPSF*dirtyVec)
+        # BMT_BM=np.dot(BM.T,WVecPSF*BM)
+        # BMT_BM_inv=ModLinAlg.invSVD(BMT_BM)
+
+
+        #self.SolveMode="MatchingPursuit"
+        self.SolveMode="PI"
+
+        if  self.SolveMode=="MatchingPursuit":
+            #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
+            Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
+            #print Sol
+            indMaxSol1=np.where(np.abs(Sol)==np.max(np.abs(Sol)))[0]
+            indMaxSol0=np.where(np.abs(Sol)!=np.max(np.abs(Sol)))[0]
+            #indMaxSol1=np.where(np.abs(Sol)==np.max((Sol)))[0]
+            #indMaxSol0=np.where(np.abs(Sol)!=np.max((Sol)))[0]
+
+            Sol[indMaxSol0]=0
+            Max=Sol[indMaxSol1[0]]
+            Sol[indMaxSol1]=np.sign(Max)
+
+            D=self.ListScales[indMaxSol1[0]]
+            # print "Type %10s (sc, alpha)=(%i, %f)"%(D["ModelType"],D["Scale"],D["Alpha"])
+            LocalSM=self.CubePSFScales[indMaxSol1[0]]*FpolMean.ravel()[0]
+        elif self.SolveMode=="PI":
+            Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
+
+
+            LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)*FpolMean.ravel()[0]
+            
+        
+        nch,nx,ny=LocalSM.shape
+        LocalSM=LocalSM.reshape((nch,1,nx,ny))
+        LocalSM=LocalSM*JonesNorm
+        
+        self.ModelMachine.AppendComponentToDictStacked((xc,yc),FpolMean,Sol)
+
+        BM=DicoBasisMatrix["BM"]
+        #print "MaxSM=",np.max(LocalSM)
+        ConvSM=((np.dot(BM,Sol)).ravel())#*(WVecPSF.ravel())
         #Sol/=self.Bias
-        print Sol
+
         #Sol[-self.NFreqBand::]=0
         # Sol=np.dot(BM.T,WVecPSF*dirtyVec)
         # Sol[Sol<0]=0
@@ -426,21 +482,10 @@ class ClassMultiScaleMachine():
 
         T.timeit("2")
         
-        indMaxSol1=np.where(np.abs(Sol)==np.max(np.abs(Sol)))[0]
-        indMaxSol0=np.where(np.abs(Sol)!=np.max(np.abs(Sol)))[0]
-        indMaxSol1=np.where(np.abs(Sol)==np.max((Sol)))[0]
-        indMaxSol0=np.where(np.abs(Sol)!=np.max((Sol)))[0]
-        Sol[indMaxSol0]=0
-        Max=Sol[indMaxSol1[0]]
-        Sol[indMaxSol1]=np.sign(Max)
-        print Sol
-        D=self.ListScales[indMaxSol1[0]]
-        print "Type %10s (sc, alpha)=(%i, %f)"%(D["ModelType"],D["Scale"],D["Alpha"])
-
+        #print>>log,( "Sol:",Sol)
+        #print>>log, ("MaxLSM:",np.max(LocalSM))
         T.timeit("3")
 
-        BM=DicoBasisMatrix["BM"]
-        ConvSM=((np.dot(BM,Sol)).ravel())#*(WVecPSF.ravel())
         #print Sol
 
         T.timeit("4")
@@ -451,142 +496,78 @@ class ClassMultiScaleMachine():
         nFunc,_=BM.T.shape
         BBM=BM.T.reshape((nFunc,nch,npol,nxp,nyp))
         
-        self.AppendComponentToDictStacked((xc,yc),FpolMean,Sol)
 
         
-        #LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)*FpolMean.ravel()[0]
-        LocalSM=self.CubePSFScales[indMaxSol1[0]]*FpolMean.ravel()[0]
-        nch,nx,ny=LocalSM.shape
-        LocalSM=LocalSM.reshape((nch,1,nx,ny))
+
         #print np.sum(Sol.flatten()*self.Alpha.flatten())/np.sum(Sol.flatten())
 
         T.timeit("5")
 
 
 
-#         ##############################
-#         #ConvSM*=FpolMean.ravel()[0]
-#         import pylab
+        ##############################
+        #ConvSM*=FpolMean.ravel()[0]
+        import pylab
 
-#         dv=1
-# #        for iFunc in range(nFunc):#[0]:#range(nFunc):
-#         for iFunc in [0]:#range(nFunc):
+        dv=1
+#        for iFunc in range(nFunc):#[0]:#range(nFunc):
+        for iFunc in [0]:#range(nFunc):
 
-#             pylab.clf()
-#             iplot=1
-#             nxp,nyp=3,3
+            pylab.clf()
+            iplot=1
+            nxp,nyp=3,3
             
-#             FF=ConvSM[:,0]#BBM[iFunc,:,0]
-#             Resid=dirtyNormIm[:,0]-FF[:]
-#             #FF=BBM[iFunc,:,0]
-#             Resid*=DicoBasisMatrix["WeightFunction"][:,0,:,:]
-#             vmin,vmax=np.min([dirtyNormIm[0,0],ConvSM[0,0],dirtyNormIm[0,0]-FF[0]]),np.max([dirtyNormIm[0,0],ConvSM[0,0],dirtyNormIm[0,0]-FF[0]])
+            FF=ConvSM[:,0]#BBM[iFunc,:,0]
+            Resid=dirtyNormIm[:,0]-FF[:]
+            #FF=BBM[iFunc,:,0]
+            Resid*=DicoBasisMatrix["WeightFunction"][:,0,:,:]
+            vmin,vmax=np.min([dirtyNormIm[0,0],ConvSM[0,0],dirtyNormIm[0,0]-FF[0]]),np.max([dirtyNormIm[0,0],ConvSM[0,0],dirtyNormIm[0,0]-FF[0]])
 
-#             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(dirtyNormIm[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
-#             #pylab.title(self.Alpha[iFunc])
-#             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(dirtyNormIm[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
-#             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(dirtyNormIm[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
+            pylab.subplot(nxp,nyp,iplot); iplot+=1
+            pylab.imshow(dirtyNormIm[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
+            #pylab.title(self.Alpha[iFunc])
+            pylab.subplot(nxp,nyp,iplot); iplot+=1
+            pylab.imshow(dirtyNormIm[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
+            pylab.subplot(nxp,nyp,iplot); iplot+=1
+            pylab.imshow(dirtyNormIm[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
 
-#             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(ConvSM[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
-#             #pylab.colorbar()
-#             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(ConvSM[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
-#             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(ConvSM[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
+            pylab.subplot(nxp,nyp,iplot); iplot+=1
+            pylab.imshow(ConvSM[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
+            #pylab.colorbar()
+            pylab.subplot(nxp,nyp,iplot); iplot+=1
+            pylab.imshow(ConvSM[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
+            pylab.subplot(nxp,nyp,iplot); iplot+=1
+            pylab.imshow(ConvSM[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
 
-#             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(Resid[0],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
-#             pylab.colorbar()
-#             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(Resid[1],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
-#             pylab.colorbar()
-#             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(Resid[2],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
-#             pylab.colorbar()
+            pylab.subplot(nxp,nyp,iplot); iplot+=1
+            pylab.imshow(Resid[0],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
+            pylab.colorbar()
+            pylab.subplot(nxp,nyp,iplot); iplot+=1
+            pylab.imshow(Resid[1],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
+            pylab.colorbar()
+            pylab.subplot(nxp,nyp,iplot); iplot+=1
+            pylab.imshow(Resid[2],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
+            pylab.colorbar()
 
 
-#             # pylab.subplot(3,2,iplot)
-#             # pylab.imshow(BBM[iFunc,0,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
-#             # #pylab.colorbar()
-#             # pylab.subplot(3,2,iplot)
-#             # pylab.imshow(BBM[iFunc,1,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
-#             # #pylab.colorbar()
+            # pylab.subplot(3,2,iplot)
+            # pylab.imshow(BBM[iFunc,0,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
+            # #pylab.colorbar()
+            # pylab.subplot(3,2,iplot)
+            # pylab.imshow(BBM[iFunc,1,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
+            # #pylab.colorbar()
 
-#             #pylab.colorbar()
+            #pylab.colorbar()
             
-#             pylab.draw()
-#             pylab.show(False)
-#             pylab.pause(0.1)
+            pylab.draw()
+            pylab.show(False)
+            pylab.pause(0.1)
 
-# #        stop
+            # stop
 
         return LocalSM
         stop
             
 
 #################
-
-    def AppendComponentToDictStacked(self,key,Fpol,Sols):
-        if not(key in self.DicoSMStacked.keys()):
-            self.DicoSMStacked[key]={}
-            self.DicoSMStacked[key]["SolsArray"]=np.zeros((self.nFunc,),np.float32)
-            self.DicoSMStacked[key]["SumWeights"]=0.
-
-        Weight=np.mean(Fpol)*self.Gain
-        self.DicoSMStacked[key]["SumWeights"] += Weight
-        self.DicoSMStacked[key]["SolsArray"]  += Weight*Sols.ravel()
-
-    def GiveModelImage(self,Freq):
-        RefFreq=self.DicoSMStacked["RefFreq"]
-        _,npol,nx,ny=self._Dirty.shape
-        ModelImage=np.zeros((1,npol,nx,ny),dtype=np.float32)
-        DicoSM={}
-        for key in self.DicoSMStacked.keys():
-            if key=="RefFreq": continue
-            Sol=self.DicoSMStacked[key]["SolsArray"]/self.DicoSMStacked[key]["SumWeights"]
-            x,y=key
-            for iFunc in range(Sol.size):
-                ThisComp=self.ListScales[iFunc]
-                ThisAlpha=ThisComp["Alpha"]
-                Flux=Sol[iFunc]*(Freq/RefFreq)**(ThisAlpha)
-                if ThisComp["ModelType"]=="Delta":
-                    for pol in range(npol):
-                       ModelImage[0,pol,x,y]+=Flux
-                
-                elif ThisComp["ModelType"]=="Gaussian":
-                    Gauss=ThisComp["Model"]
-                    Sup,_=Gauss.shape
-                    x0,x1=x-Sup/2,x+Sup/2+1
-                    y0,y1=y-Sup/2,y+Sup/2+1
-                
-                    _,_,N0,_=self._Dirty.shape
-                
-                    Aedge,Bedge=GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
-                    x0d,x1d,y0d,y1d=Aedge
-                    x0p,x1p,y0p,y1p=Bedge
-                
-                    for pol in range(npol):
-                        ModelImage[0,pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Flux
-        
-        vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
-        pylab.clf()
-        ax=pylab.subplot(1,3,1)
-        pylab.imshow(self._MeanDirtyOrig[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)
-        pylab.subplot(1,3,2,sharex=ax,sharey=ax)
-        pylab.imshow(self._MeanDirty[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)
-        pylab.colorbar()
-        pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-        pylab.imshow(ModelImage[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)
-        pylab.colorbar()
-        pylab.draw()
-        pylab.show(False)
-        stop
-
-
-        return ModelImage
-        
 
