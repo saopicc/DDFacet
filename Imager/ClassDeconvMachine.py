@@ -235,7 +235,7 @@ class ClassImagerDeconv():
         self.DicoImagePSF=FacetMachinePSF.FacetsToIm(NormJones=False)
         #FacetMachinePSF.ToCasaImage(self.DicoImagePSF["ImagData"],ImageName="%s.psf"%self.BaseName,Fits=True)
 
-        np.savez("PSF.npz",ImagData=self.DicoImagePSF["ImagData"],MeanImage=self.DicoImagePSF["MeanImage"])
+        #np.savez("PSF.npz",ImagData=self.DicoImagePSF["ImagData"],MeanImage=self.DicoImagePSF["MeanImage"])
 
         self.PSF=self.DicoImagePSF["MeanImage"]
 
@@ -347,7 +347,7 @@ class ClassImagerDeconv():
         #if self.VS.MultiFreqMode:
         #    for Channel in range(
 
-        np.savez("Dirty.npz",ImagData=self.DicoDirty["ImagData"],MeanImage=self.DicoDirty["MeanImage"],NormData=self.DicoDirty["NormData"])
+        #np.savez("Dirty.npz",ImagData=self.DicoDirty["ImagData"],MeanImage=self.DicoDirty["MeanImage"],NormData=self.DicoDirty["NormData"])
         #print self.DicoDirty["freqs"]
 
         #MyPickle.Save(DicoImage,"DicoDirty")
