@@ -465,7 +465,9 @@ class ClassMultiScaleMachine():
         
         nch,nx,ny=LocalSM.shape
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
-        LocalSM=LocalSM*JonesNorm
+        
+        #LocalSM=LocalSM*JonesNorm
+
         
         self.ModelMachine.AppendComponentToDictStacked((xc,yc),FpolMean,Sol)
 
@@ -505,65 +507,65 @@ class ClassMultiScaleMachine():
 
 
 
-        ##############################
-        #ConvSM*=FpolMean.ravel()[0]
-        import pylab
+#         ##############################
+#         #ConvSM*=FpolMean.ravel()[0]
+#         import pylab
 
-        dv=1
-#        for iFunc in range(nFunc):#[0]:#range(nFunc):
-        for iFunc in [0]:#range(nFunc):
+#         dv=1
+# #        for iFunc in range(nFunc):#[0]:#range(nFunc):
+#         for iFunc in [0]:#range(nFunc):
 
-            pylab.clf()
-            iplot=1
-            nxp,nyp=3,3
+#             pylab.clf()
+#             iplot=1
+#             nxp,nyp=3,3
             
-            FF=ConvSM[:,0]#BBM[iFunc,:,0]
-            Resid=dirtyNormIm[:,0]-FF[:]
-            #FF=BBM[iFunc,:,0]
-            Resid*=DicoBasisMatrix["WeightFunction"][:,0,:,:]
-            vmin,vmax=np.min([dirtyNormIm[0,0],ConvSM[0,0],dirtyNormIm[0,0]-FF[0]]),np.max([dirtyNormIm[0,0],ConvSM[0,0],dirtyNormIm[0,0]-FF[0]])
+#             FF=ConvSM[:,0]#BBM[iFunc,:,0]
+#             Resid=dirtyNormIm[:,0]-FF[:]
+#             #FF=BBM[iFunc,:,0]
+#             Resid*=DicoBasisMatrix["WeightFunction"][:,0,:,:]
+#             vmin,vmax=np.min([dirtyNormIm[0,0],ConvSM[0,0],dirtyNormIm[0,0]-FF[0]]),np.max([dirtyNormIm[0,0],ConvSM[0,0],dirtyNormIm[0,0]-FF[0]])
 
-            pylab.subplot(nxp,nyp,iplot); iplot+=1
-            pylab.imshow(dirtyNormIm[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
-            #pylab.title(self.Alpha[iFunc])
-            pylab.subplot(nxp,nyp,iplot); iplot+=1
-            pylab.imshow(dirtyNormIm[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
-            pylab.subplot(nxp,nyp,iplot); iplot+=1
-            pylab.imshow(dirtyNormIm[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
+#             pylab.subplot(nxp,nyp,iplot); iplot+=1
+#             pylab.imshow(dirtyNormIm[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
+#             #pylab.title(self.Alpha[iFunc])
+#             pylab.subplot(nxp,nyp,iplot); iplot+=1
+#             pylab.imshow(dirtyNormIm[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
+#             pylab.subplot(nxp,nyp,iplot); iplot+=1
+#             pylab.imshow(dirtyNormIm[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
 
-            pylab.subplot(nxp,nyp,iplot); iplot+=1
-            pylab.imshow(ConvSM[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
-            #pylab.colorbar()
-            pylab.subplot(nxp,nyp,iplot); iplot+=1
-            pylab.imshow(ConvSM[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
-            pylab.subplot(nxp,nyp,iplot); iplot+=1
-            pylab.imshow(ConvSM[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
+#             pylab.subplot(nxp,nyp,iplot); iplot+=1
+#             pylab.imshow(ConvSM[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
+#             #pylab.colorbar()
+#             pylab.subplot(nxp,nyp,iplot); iplot+=1
+#             pylab.imshow(ConvSM[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
+#             pylab.subplot(nxp,nyp,iplot); iplot+=1
+#             pylab.imshow(ConvSM[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
 
-            pylab.subplot(nxp,nyp,iplot); iplot+=1
-            pylab.imshow(Resid[0],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
-            pylab.colorbar()
-            pylab.subplot(nxp,nyp,iplot); iplot+=1
-            pylab.imshow(Resid[1],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
-            pylab.colorbar()
-            pylab.subplot(nxp,nyp,iplot); iplot+=1
-            pylab.imshow(Resid[2],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
-            pylab.colorbar()
+#             pylab.subplot(nxp,nyp,iplot); iplot+=1
+#             pylab.imshow(Resid[0],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
+#             pylab.colorbar()
+#             pylab.subplot(nxp,nyp,iplot); iplot+=1
+#             pylab.imshow(Resid[1],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
+#             pylab.colorbar()
+#             pylab.subplot(nxp,nyp,iplot); iplot+=1
+#             pylab.imshow(Resid[2],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
+#             pylab.colorbar()
 
 
-            # pylab.subplot(3,2,iplot)
-            # pylab.imshow(BBM[iFunc,0,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
-            # #pylab.colorbar()
-            # pylab.subplot(3,2,iplot)
-            # pylab.imshow(BBM[iFunc,1,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
-            # #pylab.colorbar()
+#             # pylab.subplot(3,2,iplot)
+#             # pylab.imshow(BBM[iFunc,0,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
+#             # #pylab.colorbar()
+#             # pylab.subplot(3,2,iplot)
+#             # pylab.imshow(BBM[iFunc,1,0],interpolation="nearest",vmin=-0.5,vmax=0.5)
+#             # #pylab.colorbar()
 
-            #pylab.colorbar()
+#             #pylab.colorbar()
             
-            pylab.draw()
-            pylab.show(False)
-            pylab.pause(0.1)
+#             pylab.draw()
+#             pylab.show(False)
+#             pylab.pause(0.1)
 
-            # stop
+#             # stop
 
         return LocalSM
         stop

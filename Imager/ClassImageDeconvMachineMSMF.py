@@ -30,7 +30,7 @@ class ClassImageDeconvMachine():
         self.MultiFreqMode=(self.GD["MultiFreqs"]["NFreqBands"]>1)
         self.MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.Gain)
 
-    def GiveModelImage(self,*args): return self.MSMachine.GiveModelImage(*args)
+    def GiveModelImage(self,*args): return self.MSMachine.ModelMachine.GiveModelImage(*args)
 
     def InitMSMF(self):
         self.MSMachine.FindPSFExtent(Method="FromSideLobe")

@@ -529,7 +529,7 @@ class ClassDDEGridMachine():
         T2.disable()
         #print "vis",vis.min(),vis.max()
 
-
+        
         if self.GD["Compression"]["CompGridMode"]==0:
             Grid=_pyGridder.pyGridderWPol(Grid,
                                               vis,

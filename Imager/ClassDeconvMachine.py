@@ -422,7 +422,7 @@ class ClassImagerDeconv():
 
 
                 
-                ModelImage=self.DeconvMachine.MSMachine.ModelMachine.GiveModelImage(np.mean(DATA["freqs"]))
+                ModelImage=self.DeconvMachine.GiveModelImage(np.mean(DATA["freqs"]))
                 # stop
                 # ModelImage.fill(0)
                 # ModelImage[:,:,487, 487]=0.88
