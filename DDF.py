@@ -93,7 +93,6 @@ def read_options():
 
     OP.OptionGroup("* MultiFrequency Options","MultiFreqs")
     OP.add_option("NFreqBands")
-    OP.add_option("NTerms")
     OP.add_option("Alpha")
 
 
