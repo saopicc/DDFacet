@@ -374,12 +374,12 @@ class ClassMultiScaleMachine():
 
         nchan,npol,_,_=Fpol.shape
 
-        # JonesNorm=np.ones((nchan,npol,1,1),Fpol.dtype)
-        # print Fpol
-        # if self.DicoDirty["NormData"]!=None:
-        #     JonesNorm=np.sqrt(self.DicoDirty["NormData"][:,:,x,y]).reshape((nchan,npol,1,1))
-        #     Fpol=Fpol/JonesNorm
-        # print Fpol
+        JonesNorm=np.ones((nchan,npol,1,1),Fpol.dtype)
+        print Fpol
+        if self.DicoDirty["NormData"]!=None:
+            JonesNorm=np.sqrt(self.DicoDirty["NormData"][:,:,x,y]).reshape((nchan,npol,1,1))
+            Fpol=Fpol/JonesNorm
+        print Fpol
 
         FpolMean=np.mean(Fpol,axis=0).reshape((1,npol,1,1))
 
@@ -466,7 +466,7 @@ class ClassMultiScaleMachine():
         nch,nx,ny=LocalSM.shape
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
         
-        #LocalSM=LocalSM*JonesNorm
+        LocalSM=LocalSM*JonesNorm
 
         
         self.ModelMachine.AppendComponentToDictStacked((xc,yc),FpolMean,Sol)

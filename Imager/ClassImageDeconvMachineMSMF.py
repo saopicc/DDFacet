@@ -17,7 +17,7 @@ class ClassImageDeconvMachine():
                  MaxMinorIter=100,NCPU=6,CycleFactor=2.5,
                  GD=None):
         #self.im=CasaImage
-        print "==========="
+        
         self.Gain=Gain
         self.ModelImage=None
         self.MaxMinorIter=MaxMinorIter

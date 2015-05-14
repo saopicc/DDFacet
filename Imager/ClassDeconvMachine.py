@@ -344,6 +344,12 @@ class ClassImagerDeconv():
         self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
 
         self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True)
+
+        MeanCorr=self.DicoDirty["ImagData"]/self.DicoDirty["NormData"]
+        nch,npol,nx,ny=MeanCorr.shape
+        MeanCorr=np.mean(MeanCorr,axis=0).reshape((1,npol,nx,ny))
+        self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True)
+        
         #if self.VS.MultiFreqMode:
         #    for Channel in range(
 
@@ -390,7 +396,7 @@ class ClassImagerDeconv():
         self.MakePSF()
 
         DicoImage=self.DicoDirty
-
+        self.NormImage=DicoImage["NormData"]
         for iMajor in range(NMajor):
 
             print>>log, ModColor.Str("========================== Runing major Cycle %i ========================="%iMajor)
@@ -505,6 +511,9 @@ class ClassImagerDeconv():
         self.RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
         self.RestoredImageRes=self.RestoredImage+self.ResidImage
         self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+
+        self.RestoredImageRes=self.RestoredImage+self.ResidImage/np.sqrt(self.NormImage)
+        self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored.corr"%self.BaseName,Fits=True,beam=self.FWHMBeam)
 
         self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%self.BaseName,Fits=True)
         self.FacetMachine.ToCasaImage(self.RestoredImage,ImageName="%s.modelConv"%self.BaseName,Fits=True,beam=self.FWHMBeam)
