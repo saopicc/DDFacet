@@ -101,16 +101,22 @@ class ClassVisServer():
                 JonesName="%s/JonesNorm.npz"%ThisMSName
                 os.system("rm %s"%JonesName)
 
+        self.nMS=len(self.ListMS)
         self.GlobalFreqs=np.array(self.ListGlobalFreqs)
-        self.MultiFreqMode=False
-        self.NFreqBands=self.GD["MultiFreqs"]["NFreqBands"]
+        self.NFreqBands=np.min([self.GD["MultiFreqs"]["NFreqBands"],self.nMS])
         self.CurrentMS=self.ListMS[0]
         self.iCurrentMS=0
-        self.nMS=len(self.ListMS)
 
+        self.MultiFreqMode=False
         NFreqBands=self.NFreqBands
         if self.NFreqBands>1: 
             self.MultiFreqMode=True
+            self.GD["MultiFreqs"]["NFreqBands"] = 1
+            self.GD["MultiFreqs"]["Alpha"] = [0.]
+            print>>log, ModColor.Str("MultiFrequency Mode: on")
+        else:
+            print>>log, ModColor.Str("MultiFrequency Mode: off")
+            
         FreqBands=np.linspace(self.GlobalFreqs.min(),self.GlobalFreqs.max(),NFreqBands+1)
         self.FreqBandsMean=(FreqBands[0:-1]+FreqBands[1::])/2.
         self.FreqBandsMin=FreqBands[0:-1].copy()

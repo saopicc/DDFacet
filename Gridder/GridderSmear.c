@@ -388,6 +388,7 @@ void gridderWPol(PyArrayObject *grid,
 
       double ThisWeight=0.;
       float ThisSumJones=0.;
+      float ThisSumSqWeights=0.;
       for (inx=0; inx<NRowThisBlock; inx++) {
 	int irow = Row[inx];
 	if(irow>nrows){continue;}
@@ -407,11 +408,12 @@ void gridderWPol(PyArrayObject *grid,
 	  NormJones(J1, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
 	  MatT(J1,J1T);
 	  MatConj(J0,J0Conj);
+	  BB=cabs(J0Conj[0]*J1T[0]);
+	  BB*=BB;
+	  //MatH(J1,J1H);
 	  //MatInv(J0,J0inv,0);
 	  //MatInv(J1H,J1Hinv,0);
 	  //BB=cabs(J0inv[0])*cabs(J1Hinv[0]);
-	  BB=cabs(J0Conj[0])*cabs(J1T[0]);
-	  BB*=BB;
 	} //endif DoApplyJones
 	//AddTimeit(PreviousTime,TimeGetJones);
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
@@ -475,7 +477,8 @@ void gridderWPol(PyArrayObject *grid,
 	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
 	      Vis[ThisPol]+=visPtr[ThisPol]*(Weight);
 	    }
-	    ThisSumJones+=BB*(*imgWtPtr);
+	    ThisSumJones+=BB*(*imgWtPtr)*(*imgWtPtr);
+	    ThisSumSqWeights+=(*imgWtPtr)*(*imgWtPtr);
 	  }else{
 	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
 	      Vis[ThisPol]+=VisMeas[ThisPol]*(Weight);
@@ -607,7 +610,10 @@ void gridderWPol(PyArrayObject *grid,
 		
       	      }
       	      sumWtPtr[gridPol+gridChan*nGridPol] += ThisWeight;
-	      if(DoApplyJones){ptrSumJones[0]+=ThisSumJones;}
+	      if(DoApplyJones){
+		ptrSumJones[0]+=ThisSumJones;
+		ptrSumJones[1]+=ThisSumSqWeights;
+	      }
       	    } // end if gridPol
       	  } // end for ipol
       	} // end if ongrid

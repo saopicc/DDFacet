@@ -91,8 +91,8 @@ class ClassImagerDeconv():
 
         
         MSName=DC["VisData"]["MSName"]
-        if DC["VisData"]["MSListFile"]!="":
-            f=open(DC["VisData"]["MSListFile"])
+        if ".txt" in MSName:#DC["VisData"]["MSListFile"]!="":
+            f=open(MSName)#DC["VisData"]["MSListFile"])
             Ls=f.readlines()
             f.close()
             MSName=[]
@@ -343,12 +343,17 @@ class ClassImagerDeconv():
 
         self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
 
+        # self.DicoDirty=self.FacetMachine.FacetsToIm()
+
         self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True)
 
-        MeanCorr=self.DicoDirty["ImagData"]/self.DicoDirty["NormData"]
-        nch,npol,nx,ny=MeanCorr.shape
-        MeanCorr=np.mean(MeanCorr,axis=0).reshape((1,npol,nx,ny))
-        self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True)
+        if self.DicoDirty["NormData"]!=None:
+            #MeanCorr=self.DicoDirty["ImagData"]*self.DicoDirty["NormData"]
+            #MeanCorr=self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
+            MeanCorr=self.DicoDirty["ImagData"]/(self.DicoDirty["NormData"])
+            nch,npol,nx,ny=MeanCorr.shape
+            MeanCorr=np.mean(MeanCorr,axis=0).reshape((1,npol,nx,ny))
+            self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True)
         
         #if self.VS.MultiFreqMode:
         #    for Channel in range(
@@ -455,15 +460,15 @@ class ClassImagerDeconv():
             self.ResidImage=DicoImage["MeanImage"]
             self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual%i"%(self.BaseName,iMajor),Fits=True)
 
-            fig=pylab.figure(1)
-            pylab.clf()
-            pylab.imshow(self.ResidImage[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
-            pylab.colorbar()
-            pylab.draw()
-            #PNGName="%s/Residual%3.3i.png"%(self.PNGDir,iMajor)
-            #fig.savefig(PNGName)
-            pylab.show(False)
-            pylab.pause(0.1)
+            # fig=pylab.figure(1)
+            # pylab.clf()
+            # pylab.imshow(self.ResidImage[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
+            # pylab.colorbar()
+            # pylab.draw()
+            # #PNGName="%s/Residual%3.3i.png"%(self.PNGDir,iMajor)
+            # #fig.savefig(PNGName)
+            # pylab.show(False)
+            # pylab.pause(0.1)
 
             self.HasCleaned=True
             if repMinor=="MaxIter": break

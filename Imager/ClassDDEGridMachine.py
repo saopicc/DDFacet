@@ -362,7 +362,7 @@ class ClassDDEGridMachine():
         #self.Grid.fill(0)
         self.NChan, self.npol, _,_=self.GridShape
         self.SumWeigths=np.zeros((self.NChan,self.npol),np.float64)
-        self.SumJones=np.zeros((1,),np.float64)
+        self.SumJones=np.zeros((2,),np.float64)
 
 
     def GiveParamJonesList(self,DicoJonesMatrices,times,A0,A1,uvw):

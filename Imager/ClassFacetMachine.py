@@ -462,28 +462,42 @@ class ClassFacetMachine():
         if NormJones: 
             NormData=np.ones((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
 
-        if self.VS.MultiFreqMode:
-            DicoImages["SumWeights"]={}
-            for Channel in range(self.VS.NFreqBands):
-                DicoImages["freqs"][Channel]=self.VS.FreqBandsInfos[Channel]
-                DicoImages["SumWeights"][Channel]=self.DicoImager[0]["SumWeights"][Channel]
-                if NormJones:
-                    ImagData[Channel]=self.FacetsToIm_Channel(FlatNoise=True,Channel=Channel)[0]
-                    NormData[Channel]=self.FacetsToIm_Channel(FlatNoise=False,Channel=Channel,BeamWeightImage=True)[0]
-                else:
-                    ImagData[Channel] = self.FacetsToIm_Channel(FlatNoise=False,Channel=Channel)[0]
 
-        else:
-            Channel=0
+
+        DicoImages["SumWeights"]={}
+        for Channel in range(self.VS.NFreqBands):
             DicoImages["freqs"][Channel]=self.VS.FreqBandsInfos[Channel]
+            DicoImages["SumWeights"][Channel]=self.DicoImager[0]["SumWeights"][Channel]
             if NormJones:
-                ImagData[Channel] = self.FacetsToIm_Channel(FlatNoise=True,Channel=0)
-                NormData[Channel] = self.FacetsToIm_Channel(FlatNoise=False,Channel=0,BeamWeightImage=True)
+                ImagData[Channel]=self.FacetsToIm_Channel(Channel=Channel)[0]
+                NormData[Channel]=self.FacetsToIm_Channel(Channel=Channel,BeamWeightImage=True)[0]
             else:
-                ImagData[Channel] = self.FacetsToIm_Channel(FlatNoise=False,Channel=0)
-
-            DicoImages["MeanImage"]=ImagData
+                ImagData[Channel] = self.FacetsToIm_Channel(Channel=Channel)[0]
+                    
+        # if self.VS.MultiFreqMode:
+        #     DicoImages["SumWeights"]={}
+        #     for Channel in range(self.VS.NFreqBands):
+        #         DicoImages["freqs"][Channel]=self.VS.FreqBandsInfos[Channel]
+        #         DicoImages["SumWeights"][Channel]=self.DicoImager[0]["SumWeights"][Channel]
+        #         if NormJones:
+        #             ImagData[Channel]=self.FacetsToIm_Channel(Channel=Channel)[0]
+        #             NormData[Channel]=self.FacetsToIm_Channel(Channel=Channel,BeamWeightImage=True)[0]
+        #         else:
+        #             ImagData[Channel] = self.FacetsToIm_Channel(Channel=Channel)[0]
+        # else:
+        #     Channel=0
+        #     DicoImages["freqs"][Channel]=self.VS.FreqBandsInfos[Channel]
+        #     if NormJones:
+        #         ImagData[Channel] = self.FacetsToIm_Channel(Channel=0)
+        #         NormData[Channel] = self.FacetsToIm_Channel(Channel=0,BeamWeightImage=True)
+        #     else:
+        #         ImagData[Channel] = self.FacetsToIm_Channel(Channel=0)
+        #     DicoImages["MeanImage"]=ImagData
                 
+        if NormJones: 
+            #ImagData/=(NormData)
+            ImagData/=np.sqrt(NormData)
+
         DicoImages["ImagData"]=ImagData
         DicoImages["NormData"]=NormData
 
@@ -493,7 +507,8 @@ class ClassFacetMachine():
             W/=np.sum(W)
             W=W.reshape((self.VS.NFreqBands,1,1,1))
             DicoImages["MeanImage"]=np.sum(ImagData*W,axis=0).reshape((1,npol,Npix,Npix))
-
+        else:
+            DicoImages["MeanImage"]=ImagData
 
 
         for iFacet in self.DicoImager.keys():
@@ -529,11 +544,11 @@ class ClassFacetMachine():
         
             
 
-    def FacetsToIm_Channel(self,FlatNoise=False,Channel=0,BeamWeightImage=False):
+    def FacetsToIm_Channel(self,Channel=0,BeamWeightImage=False):
         Image=self.GiveEmptyMainField()
         nch,npol=self.nch,self.npol
         _,_,NPixOut,NPixOut=self.OutImShape
-        print>>log, "Combining facets using %s mode for Channel=%i ..."%(self.ConstructMode,Channel)
+        print>>log, "Combining facets using %s mode for Channel=%i [JonesNormImage = %i]..."%(self.ConstructMode,Channel,BeamWeightImage)
         if self.ConstructMode=="Fader": 
             SharedMemName="%sSpheroidal"%(self.IdSharedMem)#"%sWTerm.Facet_%3.3i"%(self.IdSharedMem,0)
             NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
@@ -587,21 +602,23 @@ class ClassFacetMachine():
                 # print "Main  %i:%i (%i)"%(x0main,x1main,x1main-x0main)
 
                 ThisSumWeights=self.DicoImager[iFacet]["SumWeights"][Channel]
-                ThisSumJones=self.DicoImager[iFacet]["SumJones"][Channel]/ThisSumWeights[0,0]
+                ThisSumJones=self.DicoImager[iFacet]["SumJones"][Channel][0]/self.DicoImager[iFacet]["SumJones"][Channel][1]
                 if ThisSumJones==0:
                     ThisSumJones=1.
 
-                #print "(W, J) = (%f, %f)"%(ThisSumWeights,ThisSumJones)
+                # print "[%i] (W, J) = (%f, %f)"%(iFacet,ThisSumWeights,ThisSumJones)
 
                 for ch in range(nch):
                     for pol in range(npol):
                         #Image[ch,pol,x0main:x1main,y0main:y1main]+=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
                         sumweight=ThisSumWeights.reshape((nch,npol,1,1))[ch,pol,0,0]
-                        Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
-                        if (self.ApplyCal)&(FlatNoise):
-                            Im/=np.sqrt(ThisSumJones)
+                        # if (self.ApplyCal)&(FlatNoise):
+                        #     Im/=np.sqrt(ThisSumJones)
                         if BeamWeightImage:
-                            Im=np.ones_like(Im)*ThisSumJones*SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
+                            S=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
+                            Im=np.ones(S.shape,dtype=np.float64)*ThisSumJones*S
+                        else:
+                            Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
                         Image[ch,pol,x0main:x1main,y0main:y1main]+=Im
                 NormImage[x0main:x1main,y0main:y1main]+=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
 
@@ -689,7 +706,7 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["SumJones"]={}
             for Channel in range(self.VS.NFreqBands):
                 self.DicoImager[iFacet]["SumWeights"][Channel] = np.zeros((self.NChanGrid,self.npol),np.float32)
-                self.DicoImager[iFacet]["SumJones"][Channel]   = np.zeros((1,),np.float32)
+                self.DicoImager[iFacet]["SumJones"][Channel]   = np.zeros((2,),np.float32)
             
             
         # if self.Parallel:
