@@ -27,6 +27,13 @@ class ClassModelMachine():
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
         
+    def ToFile(self,FileName):
+        MyPickle.Save(self.DicoSMStacked,FileName)
+
+    def FromFile(self,FileName):
+        self.DicoSMStacked=MyPickle.Load(FileName)
+
+
     def setModelShape(self,ModelShape):
         self.ModelShape=ModelShape
 
@@ -44,7 +51,7 @@ class ClassModelMachine():
 
         DicoComp[key]["SumWeights"] += Weight
         DicoComp[key]["SolsArray"]  += Weight*SolNorm
-        print>>log, "Append %s: %s %s"%(str(key),str(DicoComp[key]["SolsArray"]),str(SolNorm))
+        # print>>log, "Append %s: %s %s"%(str(key),str(DicoComp[key]["SolsArray"]),str(SolNorm))
         
     def setListComponants(self,ListScales):
         self.ListScales=ListScales
@@ -60,7 +67,7 @@ class ClassModelMachine():
             Sol=DicoComp[key]["SolsArray"]#/self.DicoSMStacked[key]["SumWeights"]
             x,y=key
 
-            print>>log, "%s : %s"%(str(key),str(Sol))
+            #print>>log, "%s : %s"%(str(key),str(Sol))
 
             for iFunc in range(Sol.size):
                 ThisComp=self.ListScales[iFunc]

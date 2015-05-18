@@ -111,11 +111,11 @@ class ClassVisServer():
         NFreqBands=self.NFreqBands
         if self.NFreqBands>1: 
             self.MultiFreqMode=True
-            self.GD["MultiFreqs"]["NFreqBands"] = 1
-            self.GD["MultiFreqs"]["Alpha"] = [0.]
-            print>>log, ModColor.Str("MultiFrequency Mode: on")
+            print>>log, ModColor.Str("MultiFrequency Mode: ON")
         else:
-            print>>log, ModColor.Str("MultiFrequency Mode: off")
+            self.GD["MultiFreqs"]["NFreqBands"] = 1
+            self.GD["MultiFreqs"]["Alpha"] = [0.,0.,1.]
+            print>>log, ModColor.Str("MultiFrequency Mode: OFF")
             
         FreqBands=np.linspace(self.GlobalFreqs.min(),self.GlobalFreqs.max(),NFreqBands+1)
         self.FreqBandsMean=(FreqBands[0:-1]+FreqBands[1::])/2.
@@ -128,14 +128,14 @@ class ClassVisServer():
 
         self.ListFreqs=[]
         for MS in self.ListMS:
-            FreqBand = np.where((self.FreqBandsMin < np.mean(MS.ChanFreq))&(self.FreqBandsMax > np.mean(MS.ChanFreq)))[0][0]
+            FreqBand = np.where((self.FreqBandsMin <= np.mean(MS.ChanFreq))&(self.FreqBandsMax > np.mean(MS.ChanFreq)))[0][0]
             self.FreqBandsInfos[FreqBand]+=MS.ChanFreq.tolist()
             self.ListFreqs+=MS.ChanFreq.tolist()
+            print MS
             
         self.RefFreq=np.mean(self.ListFreqs)
 
         MS=self.ListMS[0]
-        print MS
         TimesInt=np.arange(0,MS.DTh,self.TMemChunkSize).tolist()
         if not(MS.DTh in TimesInt): TimesInt.append(MS.DTh)
         self.TimesInt=TimesInt
@@ -244,7 +244,7 @@ class ClassVisServer():
             self.CurrentMS=self.ListMS[self.iCurrentMS]
             self.CurrentFreqBand=0
             if self.MultiFreqMode:
-                self.CurrentFreqBand = np.where((self.FreqBandsMin < np.mean(self.CurrentMS.ChanFreq))&(self.FreqBandsMax > np.mean(self.CurrentMS.ChanFreq)))[0][0]
+                self.CurrentFreqBand = np.where((self.FreqBandsMin <= np.mean(self.CurrentMS.ChanFreq))&(self.FreqBandsMax > np.mean(self.CurrentMS.ChanFreq)))[0][0]
             print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%(self.CurrentFreqBand)))
             return "OK"
         

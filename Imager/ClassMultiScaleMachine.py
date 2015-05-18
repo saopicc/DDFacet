@@ -51,8 +51,8 @@ class ClassMultiScaleMachine():
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
         
 
-        print>>log, "!!!!!!!!!!!"
-        self._MeanDirtyOrig=self._MeanDirty.copy()
+#        print>>log, "!!!!!!!!!!!"
+#        self._MeanDirtyOrig=self._MeanDirty.copy()
         self.ModelMachine.setModelShape(self._MeanPSF.shape)
 
         # nch,_,_,_=self._PSF.shape
@@ -375,11 +375,14 @@ class ClassMultiScaleMachine():
         nchan,npol,_,_=Fpol.shape
 
         JonesNorm=np.ones((nchan,npol,1,1),Fpol.dtype)
-        print Fpol
+        #print self.DicoDirty.keys()
+        #print Fpol
         if self.DicoDirty["NormData"]!=None:
+            #print "Beam corr"
             JonesNorm=np.sqrt(self.DicoDirty["NormData"][:,:,x,y]).reshape((nchan,npol,1,1))
             Fpol=Fpol/JonesNorm
-        print Fpol
+            #print JonesNorm
+        #print Fpol
 
         FpolMean=np.mean(Fpol,axis=0).reshape((1,npol,1,1))
 

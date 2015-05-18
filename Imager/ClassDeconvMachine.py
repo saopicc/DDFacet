@@ -54,23 +54,7 @@ class ClassImagerDeconv():
 
         self.BaseName=BaseName
         self.PointingID=PointingID
-        if DoDeconvolve:
-            self.NMajor=self.GD["ImagerDeconv"]["MaxMajorIter"]
-            del(self.GD["ImagerDeconv"]["MaxMajorIter"])
-            MinorCycleConfig=dict(self.GD["ImagerDeconv"])
-            MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
-            
-            if self.GD["MultiScale"]["MSEnable"]:
-                print>>log, "Minor cycle deconvolution in Multi Scale Mode" 
-                self.MinorCycleMode="MS"
-                MinorCycleConfig["GD"]=self.GD
-                #self.DeconvMachine=ClassImageDeconvMachineMultiScale.ClassImageDeconvMachine(**MinorCycleConfig)
-                self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
-            else:
-                print>>log, "Minor cycle deconvolution in Single Scale Mode" 
-                self.MinorCycleMode="SS"
-                self.DeconvMachine=ClassImageDeconvMachineSingleScale.ClassImageDeconvMachine(**MinorCycleConfig)
-
+        self.DoDeconvolve=DoDeconvolve
         self.FacetMachine=None
         self.PSF=None
         self.PSFGaussPars = None
@@ -119,8 +103,24 @@ class ClassImagerDeconv():
         # for i in range(10):
         #     print>>log, self.setNextData()
         # stop
+        
 
-
+        if self.DoDeconvolve:
+            self.NMajor=self.GD["ImagerDeconv"]["MaxMajorIter"]
+            del(self.GD["ImagerDeconv"]["MaxMajorIter"])
+            MinorCycleConfig=dict(self.GD["ImagerDeconv"])
+            MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
+            
+            if self.GD["MultiScale"]["MSEnable"]:
+                print>>log, "Minor cycle deconvolution in Multi Scale Mode" 
+                self.MinorCycleMode="MS"
+                MinorCycleConfig["GD"]=self.GD
+                #self.DeconvMachine=ClassImageDeconvMachineMultiScale.ClassImageDeconvMachine(**MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
+            else:
+                print>>log, "Minor cycle deconvolution in Single Scale Mode" 
+                self.MinorCycleMode="SS"
+                self.DeconvMachine=ClassImageDeconvMachineSingleScale.ClassImageDeconvMachine(**MinorCycleConfig)
 
         self.InitFacetMachine()
         #self.VS.SetImagingPars(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
@@ -457,6 +457,8 @@ class ClassImagerDeconv():
                 # NpShared.DelArray(PredictedDataName)
 
             DicoImage=self.FacetMachine.FacetsToIm()
+            DicoImage["NormData"]=self.NormImage
+
             self.ResidImage=DicoImage["MeanImage"]
             self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual%i"%(self.BaseName,iMajor),Fits=True)
 
@@ -522,7 +524,7 @@ class ClassImagerDeconv():
 
         self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%self.BaseName,Fits=True)
         self.FacetMachine.ToCasaImage(self.RestoredImage,ImageName="%s.modelConv"%self.BaseName,Fits=True,beam=self.FWHMBeam)
-
+        self.DeconvMachine.MSMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
 
 
 
