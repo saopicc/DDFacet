@@ -198,7 +198,9 @@ if __name__=="__main__":
     #main(OP)
     try:
         main(OP)
+        print>>log, ModColor.Str("DDFacet ended successfully",col="green")
     except:
+        print>>log, ModColor.Str("There was a problem, please help yourself",col="red")
         NpShared.DelAll(IdSharedMem)
 
     # main(options)

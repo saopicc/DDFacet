@@ -159,7 +159,7 @@ class ClassMultiScaleMachine():
             AllFreqs+=self.DicoPSF["freqs"][iChannel]
         RefFreq=np.mean(AllFreqs)
 
-        self.ModelMachine.setRefFreq(RefFreq)
+        self.ModelMachine.setRefFreq(RefFreq,AllFreqs)
         self.RefFreq=RefFreq
 
         for iChannel in range(self.NFreqBand):
@@ -249,7 +249,7 @@ class ClassMultiScaleMachine():
 
 
         self.nFunc=self.CubePSFScales.shape[0]
-
+        self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
 
         self.WeightWidth=10
         CellSizeRad=1.
@@ -377,14 +377,15 @@ class ClassMultiScaleMachine():
         JonesNorm=np.ones((nchan,npol,1,1),Fpol.dtype)
         #print self.DicoDirty.keys()
         #print Fpol
+        FpolTrue=Fpol
         if self.DicoDirty["NormData"]!=None:
             #print "Beam corr"
             JonesNorm=np.sqrt(self.DicoDirty["NormData"][:,:,x,y]).reshape((nchan,npol,1,1))
-            Fpol=Fpol/JonesNorm
+            FpolTrue=Fpol/JonesNorm
             #print JonesNorm
         #print Fpol
 
-        FpolMean=np.mean(Fpol,axis=0).reshape((1,npol,1,1))
+        # FpolMean=np.mean(Fpol,axis=0).reshape((1,npol,1,1))
 
         Aedge,Bedge=GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
         x0d,x1d,y0d,y1d=Aedge
@@ -404,7 +405,10 @@ class ClassMultiScaleMachine():
         #MeanData=np.sum(np.sum(dirtyNorm*WCubePSF,axis=-1),axis=-1)
         #MeanData=MeanData.reshape(nchan,1,1)
         #dirtyNorm=dirtyNorm-MeanData.reshape((nchan,1,1,1))
-        dirtyNormIm=dirtyNormIm/FpolMean
+
+        # dirtyNormIm=dirtyNormIm/FpolMean
+
+        dirtyNormIm=dirtyNormIm/JonesNorm
 
         self.Repr="FT"
         if self.Repr=="FT":
@@ -463,15 +467,21 @@ class ClassMultiScaleMachine():
             Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
 
 
-            LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)*FpolMean.ravel()[0]
+            #LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)*FpolMean.ravel()[0]
+
+            Sol*=np.mean(FpolTrue)/np.sum(Sol)
+
+            LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
             
         
         nch,nx,ny=LocalSM.shape
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
         
         LocalSM=LocalSM*JonesNorm
+        # print self.AlphaVec,Sol
+        # print "alpha",np.sum(self.AlphaVec.ravel()*Sol.ravel())/np.sum(Sol)
 
-        
+        FpolMean=1.
         self.ModelMachine.AppendComponentToDictStacked((xc,yc),FpolMean,Sol)
 
         BM=DicoBasisMatrix["BM"]

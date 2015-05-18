@@ -227,7 +227,7 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.)):
     #Gauss/=np.sum(Gauss)
     return Gauss
 
-def ConvolveGaussian(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)]):
+def ConvolveGaussian(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False):
 
     nch,npol,_,_=Ain0.shape
     Aout=np.zeros_like(Ain0)
@@ -236,6 +236,8 @@ def ConvolveGaussian(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)]):
         Ain=Ain0[ch]
         ThisGaussPars=GaussPars[ch]
         PSF=GiveGauss(Ain.shape[-1],CellSizeRad,ThisGaussPars)
+        if Normalise:
+            PSF/=np.sum(PSF)
         FFTM=FFTWnpNonorm(PSF)
         fPSF=np.abs(FFTM.fft(PSF))
         for pol in range(npol):

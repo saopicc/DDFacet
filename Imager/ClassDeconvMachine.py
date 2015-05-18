@@ -86,6 +86,7 @@ class ClassImagerDeconv():
         elif ("*" in MSName)|("?" in MSName):
             MSName=sorted(glob.glob(MSName))
 
+
         self.VS=ClassVisServer.ClassVisServer(MSName,
                                               ColName=DC["VisData"]["ColName"],
                                               TVisSizeMin=DC["VisData"]["TChunkSize"]*60,
@@ -407,8 +408,8 @@ class ClassImagerDeconv():
             print>>log, ModColor.Str("========================== Runing major Cycle %i ========================="%iMajor)
             
             self.DeconvMachine.SetDirtyPSF(DicoImage,self.DicoImagePSF)
-            #self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
-            self.DeconvMachine.setSideLobeLevel(0.2,10)
+            self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
+            #self.DeconvMachine.setSideLobeLevel(0.2,10)
             self.DeconvMachine.InitMSMF()
 
 
@@ -458,6 +459,7 @@ class ClassImagerDeconv():
 
             DicoImage=self.FacetMachine.FacetsToIm()
             DicoImage["NormData"]=self.NormImage
+            # self.DeconvMachine.MSMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
 
             self.ResidImage=DicoImage["MeanImage"]
             self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual%i"%(self.BaseName,iMajor),Fits=True)
@@ -514,17 +516,29 @@ class ClassImagerDeconv():
             self.FitPSF()
 
         RefFreq=self.VS.RefFreq
-        ModelImage=self.DeconvMachine.GiveModelImage(RefFreq)
+        ModelMachine=self.DeconvMachine.MSMachine.ModelMachine
+
+        # model image
+        ModelImage=ModelMachine.GiveModelImage(RefFreq)
+        self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%self.BaseName,Fits=True)
+
+        # restored image
         self.RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
         self.RestoredImageRes=self.RestoredImage+self.ResidImage
         self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored"%self.BaseName,Fits=True,beam=self.FWHMBeam)
 
-        self.RestoredImageRes=self.RestoredImage+self.ResidImage/np.sqrt(self.NormImage)
-        self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored.corr"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+        # Alpha image
+        IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+        #IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
+        self.FacetMachine.ToCasaImage(IndexMap,ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeam)
 
-        self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%self.BaseName,Fits=True)
-        self.FacetMachine.ToCasaImage(self.RestoredImage,ImageName="%s.modelConv"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+
+        # self.RestoredImageRes=self.RestoredImage+self.ResidImage/np.sqrt(self.NormImage)
+        # self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored.corr"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+
+        # self.FacetMachine.ToCasaImage(self.RestoredImage,ImageName="%s.modelConv"%self.BaseName,Fits=True,beam=self.FWHMBeam)
         self.DeconvMachine.MSMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
+
 
 
 

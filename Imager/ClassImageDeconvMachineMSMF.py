@@ -3,7 +3,7 @@ import numpy as np
 import pylab
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger(" ClassImageDeconvMachine")
+log=MyLogger.getLogger("ClassImageDeconvMachine")
 from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox

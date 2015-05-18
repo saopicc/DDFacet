@@ -126,6 +126,7 @@ class ClassVisServer():
             self.FreqBandsInfos[iBand]=[]
 
 
+        print
         self.ListFreqs=[]
         for MS in self.ListMS:
             FreqBand = np.where((self.FreqBandsMin <= np.mean(MS.ChanFreq))&(self.FreqBandsMax > np.mean(MS.ChanFreq)))[0][0]

@@ -9,30 +9,42 @@ from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import MyPickle
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 import ClassModelMachine
+from DDFacet.ToolsDir import ModFFTW
 
 
 class ClassModelMachine():
-
-    def __init__(self,GD):
+    def __init__(self,GD=None,Gain=None):
         self.GD=GD
-        self.Gain=self.GD["ImagerDeconv"]["Gain"]
+        if Gain==None:
+            self.Gain=self.GD["ImagerDeconv"]["Gain"]
+        else:
+            self.Gain=Gain
         self.DicoSMStacked={}
         self.DicoSMStacked["Comp"]={}
 
-    def setRefFreq(self,RefFreq):
+    def setRefFreq(self,RefFreq,AllFreqs):
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
+        self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
         
     def ToFile(self,FileName):
-        MyPickle.Save(self.DicoSMStacked,FileName)
+        print>>log, "Saving dico model to %s"%FileName
+        D=self.DicoSMStacked
+        D["ListScales"]=self.ListScales
+        D["ModelShape"]=self.ModelShape
+        MyPickle.Save(D,FileName)
 
     def FromFile(self,FileName):
+        print>>log, "Reading dico model from %s"%FileName
         self.DicoSMStacked=MyPickle.Load(FileName)
-
+        self.RefFreq=self.DicoSMStacked["RefFreq"]
+        self.ListScales=self.DicoSMStacked["ListScales"]
+        self.ModelShape=self.DicoSMStacked["ModelShape"]
 
     def setModelShape(self,ModelShape):
         self.ModelShape=ModelShape
@@ -56,6 +68,21 @@ class ClassModelMachine():
     def setListComponants(self,ListScales):
         self.ListScales=ListScales
 
+
+    def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)]):
+
+        
+        dFreq=1e6
+        f0=self.DicoSMStacked["AllFreqs"].min()
+        f1=self.DicoSMStacked["AllFreqs"].max()
+        M0=self.GiveModelImage(f0)
+        M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+        M1=self.GiveModelImage(f1)
+        M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+        Mask=((M1!=0)&(M0!=0))
+        alpha=np.zeros_like(M0)
+        alpha[Mask]=(np.log(M0[Mask])-np.log(M1[Mask]))/(np.log(f0/f1))
+        return alpha
 
     def GiveModelImage(self,Freq):
         RefFreq=self.DicoSMStacked["RefFreq"]
