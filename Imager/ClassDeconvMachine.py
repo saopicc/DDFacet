@@ -19,6 +19,7 @@ from DDFacet.ToolsDir import ModFitPSF
 #from ClassData import ClassMultiPointingData,ClassSinglePointingData,ClassGlobalData
 from DDFacet.Data import ClassVisServer
 from DDFacet.Other import MyPickle
+import ClassCasaImage
 
 import time
 import glob
@@ -348,6 +349,14 @@ class ClassImagerDeconv():
 
         self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True)
 
+        ImageName="%s.dirty.MF"%self.BaseName
+
+        ImagData=self.DicoDirty["ImagData"]
+        im=ClassCasaImage.ClassCasaimage(ImageName,ImagData.shape,self.FacetMachine.Cell,self.FacetMachine.MainRaDec)
+        im.setdata(ImagData,CorrT=True)
+        im.ToFits()
+        im.close()
+
         if self.DicoDirty["NormData"]!=None:
             #MeanCorr=self.DicoDirty["ImagData"]*self.DicoDirty["NormData"]
             #MeanCorr=self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
@@ -399,6 +408,8 @@ class ClassImagerDeconv():
             NMajor=self.NMajor
 
         Image=self.GiveDirty()
+
+
         self.MakePSF()
 
         DicoImage=self.DicoDirty
@@ -416,6 +427,10 @@ class ClassImagerDeconv():
             repMinor=self.DeconvMachine.Clean()
             if repMinor=="DoneMinFlux":
                 break
+
+            self.ResidImage=DicoImage["MeanImage"]
+            self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
+            
             self.FacetMachine.ReinitDirty()
 
             
@@ -435,6 +450,7 @@ class ClassImagerDeconv():
 
                 
                 ModelImage=self.DeconvMachine.GiveModelImage(np.mean(DATA["freqs"]))
+
                 # stop
                 # ModelImage.fill(0)
                 # ModelImage[:,:,487, 487]=0.88
@@ -449,6 +465,9 @@ class ClassImagerDeconv():
                 # _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),self.DeconvMachine._ModelImage)
                 # visData[:,:,:]=visData[:,:,:]-visPredict[:,:,:]
             
+
+
+
                 _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
 
                 print>>log, "(min,max) = %f, %f"%(ModelImage.min(),ModelImage.max())

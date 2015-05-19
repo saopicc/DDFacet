@@ -656,7 +656,7 @@ class ClassDDEGridMachine():
         T.disable()
         vis=visIn#.copy()
 
-        print DicoJonesMatrices.keys()
+        #print DicoJonesMatrices.keys()
         #LTimes=sorted(list(set(times.tolist())))
         #NTimes=len(LTimes)
         A0,A1=A0A1

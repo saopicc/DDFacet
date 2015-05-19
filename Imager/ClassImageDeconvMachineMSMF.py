@@ -164,8 +164,9 @@ class ClassImageDeconvMachine():
 
         self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
         if self.MultiFreqMode:
-            self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.mean(LocalSM[:,:,x0p:x1p,y0p:y1p],axis=0)
-
+            W=np.float32(self.DicoDirty["WeightChansImages"])
+            self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
+            
         # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
         # pylab.imshow(self.Dirty[0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
         # pylab.draw()
