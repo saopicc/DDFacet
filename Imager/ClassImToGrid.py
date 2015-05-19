@@ -50,15 +50,15 @@ class ClassImToGrid():
         _,_,NpixFacet,_=self.GridShape
         
         x0,x1,y0,y1=DicoImager[iFacet]["pixExtent"]
-        ModelIm=np.zeros((nch,npol,NpixFacet,NpixFacet),dtype=np.float32)
+        #ModelIm=np.zeros((nch,npol,NpixFacet,NpixFacet),dtype=np.float32)
         x0p,x1p=self.PaddingInnerCoord
         ModelIm=np.zeros(self.GridShape,dtype=self.dtype)
         for ch in range(nch):
             for pol in range(npol):
                 #ModelIm[ch,pol]=Image[ch,pol,x0:x1,y0:y1].T[::-1,:].real
                 ModelIm[ch,pol,x0p:x1p,x0p:x1p]=Image[ch,pol,x0:x1,y0:y1].T[::-1,:].real
-                SumFlux=np.sum(ModelIm)
                 ModelIm[ch,pol]/=self.ifzfCF
+                SumFlux=np.sum(ModelIm)
                 
         ModelIm*=(self.OverS*NpixFacet)**2
 

@@ -155,9 +155,12 @@ class ClassMultiScaleMachine():
         FreqBandsFluxRatio=np.zeros((NAlpha,self.NFreqBand),np.float32)
 
         AllFreqs=[]
+        AllFreqsMean=np.zeros((self.NFreqBand,),np.float32)
         for iChannel in range(self.NFreqBand):
             AllFreqs+=self.DicoPSF["freqs"][iChannel]
-        RefFreq=np.mean(AllFreqs)
+            AllFreqsMean[iChannel]=np.mean(self.DicoPSF["freqs"][iChannel])
+
+        RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoDirty["WeightChansImages"].ravel())
 
         self.ModelMachine.setRefFreq(RefFreq,AllFreqs)
         self.RefFreq=RefFreq
@@ -411,6 +414,7 @@ class ClassMultiScaleMachine():
         dirtyNormIm=dirtyNormIm/JonesNorm
 
         self.Repr="FT"
+        self.Repr="IM"
         if self.Repr=="FT":
             BM=DicoBasisMatrix["fBM"]
             WCubePSF=DicoBasisMatrix["fWeightFunction"]
@@ -469,7 +473,8 @@ class ClassMultiScaleMachine():
 
             #LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)*FpolMean.ravel()[0]
 
-            Sol*=np.mean(FpolTrue)/np.sum(Sol)
+
+            Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
 
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
             

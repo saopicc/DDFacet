@@ -349,13 +349,12 @@ class ClassImagerDeconv():
 
         self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True)
 
-        ImageName="%s.dirty.MF"%self.BaseName
-
-        ImagData=self.DicoDirty["ImagData"]
-        im=ClassCasaImage.ClassCasaimage(ImageName,ImagData.shape,self.FacetMachine.Cell,self.FacetMachine.MainRaDec)
-        im.setdata(ImagData,CorrT=True)
-        im.ToFits()
-        im.close()
+        # ImageName="%s.dirty.MF"%self.BaseName
+        # ImagData=self.DicoDirty["ImagData"]
+        # im=ClassCasaImage.ClassCasaimage(ImageName,ImagData.shape,self.FacetMachine.Cell,self.FacetMachine.MainRaDec)
+        # im.setdata(ImagData,CorrT=True)
+        # im.ToFits()
+        # im.close()
 
         if self.DicoDirty["NormData"]!=None:
             #MeanCorr=self.DicoDirty["ImagData"]*self.DicoDirty["NormData"]
@@ -428,7 +427,7 @@ class ClassImagerDeconv():
             if repMinor=="DoneMinFlux":
                 break
 
-            self.ResidImage=DicoImage["MeanImage"]
+            #self.ResidImage=DicoImage["MeanImage"]
             self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
             
             self.FacetMachine.ReinitDirty()
@@ -448,8 +447,8 @@ class ClassImagerDeconv():
                 visData=DATA["data"]
 
 
-                
-                ModelImage=self.DeconvMachine.GiveModelImage(np.mean(DATA["freqs"]))
+                ThisMeanFreq=np.mean(DATA["freqs"])
+                ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
 
                 # stop
                 # ModelImage.fill(0)
@@ -470,7 +469,7 @@ class ClassImagerDeconv():
 
                 _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
 
-                print>>log, "(min,max) = %f, %f"%(ModelImage.min(),ModelImage.max())
+                print>>log, "Model image @%f MHz (min,max) = (%f, %f)"%(ThisMeanFreq/1e6,ModelImage.min(),ModelImage.max())
 
                 self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visData,DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True,Channel=self.VS.CurrentFreqBand)
                 

@@ -867,8 +867,8 @@ void DeGridderWPol(PyArrayObject *grid,
     int ChanEquidistant=(int) PyFloat_AsDouble(_ChanEquidistant);
     ScalarJones=0;
     ScalarVis=0;
-    int nPolJones=4;
-    int nPolVis=4;
+    int nPolJones = 4;
+    int nPolVis   = 4;
     if(FullScalarMode){
       //printf("full scalar mode\n");
       //printf("ChanEquidistant: %i\n",ChanEquidistant);
