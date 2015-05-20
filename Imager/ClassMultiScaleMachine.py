@@ -478,12 +478,12 @@ class ClassMultiScaleMachine():
 
 
             #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
-
+            
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
             
         nch,nx,ny=LocalSM.shape
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
-        #print "Sol",Sol
+        print "Sol",Sol
         LocalSM=LocalSM/JonesNorm
         
 
