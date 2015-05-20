@@ -844,10 +844,12 @@ class ClassDDEGridMachine():
         del(Grid)
         #Dirty=GridCorr
         T.timeit("fft")
+
         for ichan in range(nchan):
             for ipol in range(npol):
                 #Dirty[ichan,ipol][:,:]=Dirty[ichan,ipol][:,:]#.real
                 if self.SpheNorm:
+                    print "sphenoorm"
                     Dirty[ichan,ipol][:,:]/=self.ifzfCF
 
         T.timeit("sphenorm")

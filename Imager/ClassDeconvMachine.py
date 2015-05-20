@@ -359,7 +359,7 @@ class ClassImagerDeconv():
         if self.DicoDirty["NormData"]!=None:
             #MeanCorr=self.DicoDirty["ImagData"]*self.DicoDirty["NormData"]
             #MeanCorr=self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
-            MeanCorr=self.DicoDirty["ImagData"]/(self.DicoDirty["NormData"])
+            MeanCorr=self.DicoDirty["ImagData"]*(self.DicoDirty["NormData"])
             nch,npol,nx,ny=MeanCorr.shape
             MeanCorr=np.mean(MeanCorr,axis=0).reshape((1,npol,nx,ny))
             self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True)
@@ -475,8 +475,8 @@ class ClassImagerDeconv():
                 
                 # NpShared.DelArray(PredictedDataName)
 
-            DicoImage=self.FacetMachine.FacetsToIm()
-            DicoImage["NormData"]=self.NormImage
+            DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
+            #DicoImage["NormData"]=self.NormImage
             # self.DeconvMachine.MSMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
 
             self.ResidImage=DicoImage["MeanImage"]

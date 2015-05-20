@@ -305,7 +305,8 @@ class ClassMultiScaleMachine():
 
 
         BM=(CubePSF.reshape((nFunc,nch*nx*ny)).T.copy())
-        BMT_BM=np.dot(BM.T,BM)
+        WVecPSF=WeightFunction.reshape((WeightFunction.size,1))
+        BMT_BM=np.dot(BM.T,WVecPSF*BM)
         BMT_BM_inv=ModLinAlg.invSVD(BMT_BM)
 
         #fCubePSF=np.float32(self.FFTMachine.fft(np.complex64(CubePSF)).real)
@@ -380,14 +381,13 @@ class ClassMultiScaleMachine():
         JonesNorm=np.ones((nchan,npol,1,1),Fpol.dtype)
         #print self.DicoDirty.keys()
         #print Fpol
-        FpolTrue=Fpol
+        # FpolTrue=Fpol
         if self.DicoDirty["NormData"]!=None:
-            #print "Beam corr"
-            JonesNorm=np.sqrt(self.DicoDirty["NormData"][:,:,x,y]).reshape((nchan,npol,1,1))
-            FpolTrue=Fpol/JonesNorm
-            #print JonesNorm
-        #print Fpol
-
+            JonesNorm=(self.DicoDirty["NormData"][:,:,x,y]).reshape((nchan,npol,1,1))
+        #     FpolTrue=Fpol*JonesNorm
+        #     #print JonesNorm
+        # #print Fpol
+        #print "JonesNorm",JonesNorm
         # FpolMean=np.mean(Fpol,axis=0).reshape((1,npol,1,1))
 
         Aedge,Bedge=GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
@@ -411,7 +411,10 @@ class ClassMultiScaleMachine():
 
         # dirtyNormIm=dirtyNormIm/FpolMean
 
-        dirtyNormIm=dirtyNormIm/JonesNorm
+
+        #print "0",np.max(dirtyNormIm)
+        dirtyNormIm=dirtyNormIm*JonesNorm
+        #print "1",np.max(dirtyNormIm)
 
         self.Repr="FT"
         self.Repr="IM"
@@ -469,20 +472,22 @@ class ClassMultiScaleMachine():
             LocalSM=self.CubePSFScales[indMaxSol1[0]]*FpolMean.ravel()[0]
         elif self.SolveMode=="PI":
             Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
-
+            #Sol.fill(1)
 
             #LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)*FpolMean.ravel()[0]
 
 
-            Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
+            #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
 
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
             
-        
         nch,nx,ny=LocalSM.shape
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
+        #print "Sol",Sol
+        LocalSM=LocalSM/JonesNorm
         
-        LocalSM=LocalSM*JonesNorm
+
+
         # print self.AlphaVec,Sol
         # print "alpha",np.sum(self.AlphaVec.ravel()*Sol.ravel())/np.sum(Sol)
 
@@ -545,28 +550,26 @@ class ClassMultiScaleMachine():
 
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
 #             pylab.imshow(dirtyNormIm[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
-#             #pylab.title(self.Alpha[iFunc])
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(dirtyNormIm[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
+#             #pylab.imshow(dirtyNormIm[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(dirtyNormIm[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
-
+#             #pylab.imshow(dirtyNormIm[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
+            
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
 #             pylab.imshow(ConvSM[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
-#             #pylab.colorbar()
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(ConvSM[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
+#             #pylab.imshow(ConvSM[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(ConvSM[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
+#             #pylab.imshow(ConvSM[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
 
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
 #             pylab.imshow(Resid[0],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
 #             pylab.colorbar()
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(Resid[1],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
+#             #pylab.imshow(Resid[1],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
 #             pylab.colorbar()
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
-#             pylab.imshow(Resid[2],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
+#             #pylab.imshow(Resid[2],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
 #             pylab.colorbar()
 
 
