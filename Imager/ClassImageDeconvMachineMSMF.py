@@ -252,8 +252,8 @@ class ClassImageDeconvMachine():
             return "DoneMinFlux"
 
         self._MaskArray.fill(1)
-        #self._MaskArray.fill(0)
-        self._MaskArray[np.abs(self._MeanDirty) > Threshold_SideLobe]=0
+        self._MaskArray.fill(0)
+        #self._MaskArray[np.abs(self._MeanDirty) > Threshold_SideLobe]=0
 
 #        DoneScale=np.zeros((self.MSMachine.NScales,),np.float32)
         for i in range(Nminor):
