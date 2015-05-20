@@ -604,7 +604,9 @@ class ClassFacetMachine():
                 ThisSumWeights=self.DicoImager[iFacet]["SumWeights"][Channel]
                 ThisSumJones=1.
                 if BeamWeightImage:
-                    ThisSumJones=self.DicoImager[iFacet]["SumJones"][Channel][0]/self.DicoImager[iFacet]["SumJones"][Channel][1]
+                    ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][Channel][1]
+                    if ThisSumSqWeights==0: ThisSumSqWeights=1.
+                    ThisSumJones=self.DicoImager[iFacet]["SumJones"][Channel][0]/ThisSumSqWeights
                     if ThisSumJones==0: ThisSumJones=1.
 
                 # print "[%i] (W, J) = (%f, %f)"%(iFacet,ThisSumWeights,ThisSumJones)
