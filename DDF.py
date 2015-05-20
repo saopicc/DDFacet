@@ -96,6 +96,12 @@ def read_options():
     OP.add_option("Alpha")
 
 
+    OP.OptionGroup("* Primary Beam Options","Beam")
+    OP.add_option("BeamModel")
+    OP.add_option("LOFARBeamMode")
+    OP.add_option("DtBeamMin")
+    OP.add_option("CenterNorm")
+
     OP.OptionGroup("* DDE Solutions","DDESolutions")
     OP.add_option("DDSols")
     OP.add_option("GlobalNorm")
