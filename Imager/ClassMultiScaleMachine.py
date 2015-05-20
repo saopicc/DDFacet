@@ -381,10 +381,10 @@ class ClassMultiScaleMachine():
         JonesNorm=np.ones((nchan,npol,1,1),Fpol.dtype)
         #print self.DicoDirty.keys()
         #print Fpol
-        # FpolTrue=Fpol
+        FpolTrue=Fpol
         if self.DicoDirty["NormData"]!=None:
             JonesNorm=(self.DicoDirty["NormData"][:,:,x,y]).reshape((nchan,npol,1,1))
-        #     FpolTrue=Fpol*JonesNorm
+            FpolTrue=Fpol*JonesNorm
         #     #print JonesNorm
         # #print Fpol
         #print "JonesNorm",JonesNorm
@@ -483,7 +483,7 @@ class ClassMultiScaleMachine():
             
         nch,nx,ny=LocalSM.shape
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
-        print "Sol",Sol
+        print "FpolTrue, Sol",FpolTrue,Sol
         LocalSM=LocalSM/JonesNorm
         
 
