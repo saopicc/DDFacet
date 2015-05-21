@@ -500,7 +500,7 @@ class ClassFacetMachine():
                 
         if NormJones: 
             #ImagData/=(NormData)
-            ImagData/=(self.NormData)
+            ImagData/=np.sqrt(self.NormData)
 
         DicoImages["ImagData"]=ImagData
         DicoImages["NormData"]=self.NormData

@@ -406,15 +406,15 @@ void gridderWPol(PyArrayObject *grid,
 	  GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1);
 	  NormJones(J0, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
 	  NormJones(J1, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
-	  //MatT(J1,J1T);
-	  //MatConj(J0,J0Conj);
-	  //BB=cabs(J0Conj[0]*J1T[0]);
-	  //BB*=BB;
-	  MatH(J1,J1H);
-	  MatInv(J0,J0inv,0);
-	  MatInv(J1H,J1Hinv,0);
-	  BB=cabs(J0inv[0])*cabs(J1Hinv[0]);
-	  //BB*=BB;
+	  MatT(J1,J1T);
+	  MatConj(J0,J0Conj);
+	  BB=cabs(J0Conj[0]*J1T[0]);
+	  BB*=BB;
+	  /* MatH(J1,J1H); */
+	  /* MatInv(J0,J0inv,0); */
+	  /* MatInv(J1H,J1Hinv,0); */
+	  /* BB=cabs(J0inv[0])*cabs(J1Hinv[0]); */
+	  /* //BB*=BB; */
 	} //endif DoApplyJones
 	//AddTimeit(PreviousTime,TimeGetJones);
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
@@ -471,10 +471,10 @@ void gridderWPol(PyArrayObject *grid,
 	  float complex Weight=(*imgWtPtr) * corr;
 	  float complex visPtr[nPolVis];
 	  if(DoApplyJones){
-	    MatDot(J0inv,VisMeas,visPtr);
-	    MatDot(visPtr,J1Hinv,visPtr);
-	    //MatDot(J1T,VisMeas,visPtr);
-	    //MatDot(visPtr,J0Conj,visPtr);
+	    /* MatDot(J0inv,VisMeas,visPtr); */
+	    /* MatDot(visPtr,J1Hinv,visPtr); */
+	    MatDot(J1T,VisMeas,visPtr);
+	    MatDot(visPtr,J0Conj,visPtr);
 	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
 	      Vis[ThisPol]+=visPtr[ThisPol]*(Weight);
 	    }
