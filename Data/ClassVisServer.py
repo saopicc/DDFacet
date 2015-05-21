@@ -44,7 +44,7 @@ class ClassVisServer():
             self.MultiMSMode=False
             self.ListMSName=[MSName]
         self.ListMSName=[MSName for MSName in self.ListMSName if MSName!=""]
-
+        self.FacetMachine=None
         self.IdSharedMem=IdSharedMem
         self.Robust=Robust
         PrefixShared="%sSharedVis"%self.IdSharedMem
@@ -301,8 +301,10 @@ class ClassVisServer():
 
         self.UpdateCompression(DATA)
 
-        JonesMachine=ClassJones.ClassJones(self.GD,self.FacetMachine,self.CurrentMS,IdSharedMem=self.IdSharedMem)
-        JonesMachine.InitDDESols(DATA)
+
+        if self.FacetMachine!=None:
+            JonesMachine=ClassJones.ClassJones(self.GD,self.FacetMachine,self.CurrentMS,IdSharedMem=self.IdSharedMem)
+            JonesMachine.InitDDESols(DATA)
 
         #############################
         #############################
@@ -459,6 +461,12 @@ class ClassVisServer():
         self.PaddedFacetShape=self.FacetMachine.PaddedGridShape
         self.FacetShape=self.FacetMachine.FacetShape
         self.CellSizeRad=self.FacetMachine.CellSizeRad
+
+    def setFOV(self,sh0,sh1,sh2,cell):
+        self.FullImShape=sh0
+        self.PaddedFacetShape=sh1
+        self.FacetShape=sh2
+        self.CellSizeRad=cell
 
     def UpdateCompression(self,DATA):
         ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)

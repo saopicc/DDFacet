@@ -482,7 +482,7 @@ class ClassMultiScaleMachine():
             
 
             MeanFluxTrue=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())
-            coef=np.min([np.sum(Sol)/MeanFluxTrue,1.])
+            coef=np.min([np.abs(np.sum(Sol)/MeanFluxTrue),1.])
             SolReg=np.zeros_like(Sol)
             SolReg[0]=MeanFluxTrue
             Sol=Sol*coef+SolReg*(1.-coef)
