@@ -479,6 +479,14 @@ class ClassMultiScaleMachine():
 
             #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
             
+
+            MeanFluxTrue=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())
+            coef=np.min([np.sum(Sol)/MeanFluxTrue,1.])
+            SolReg=np.zeros_like(Sol)
+            SolReg[0]=MeanFluxTrue
+            Sol=Sol*coef+SolReg*(1.-coef)
+
+
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
             
         nch,nx,ny=LocalSM.shape
