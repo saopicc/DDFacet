@@ -487,12 +487,12 @@ class ClassMultiScaleMachine():
             SolReg[0]=MeanFluxTrue
             Sol=Sol*coef+SolReg*(1.-coef)
 
+            print "coef,FpolTrue, Sol",coef,FpolTrue,Sol
 
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
             
         nch,nx,ny=LocalSM.shape
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
-        print "FpolTrue, Sol",FpolTrue,Sol
         LocalSM=LocalSM*np.sqrt(JonesNorm)
         
 
