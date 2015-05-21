@@ -1,6 +1,7 @@
 import numpy as np
 from DDFacet.Gridder import _pyGridder
-from DDFacet.Gridder import _pyGridderSmear
+#from DDFacet.Gridder import _pyGridderSmear
+from DDFacet.Gridder import _pyGridderPseudoPSFSmear#_pyDeGridderWPolPseudoPSF
 #import pylab
 from pyrap.images import image
 #import MyPickle
@@ -22,7 +23,7 @@ from DDFacet.ToolsDir import ModFFTW
 
 #import ClassApplyJones
 #from ClassME import MeasurementEquation
-log=MyLogger.getLogger("ClassDDEGridMachine")
+log=MyLogger.getLogger("ClassDDEGridMachinePseudoPSF")
 
 #from DDFacet.Other import ToolsDir
 import pylab
@@ -36,7 +37,7 @@ from DDFacet.Parset import ReadCFG
 #import ReadCFG
 #import MyOptParse
 
-
+#from DDFacet.Data import ClassMS
 
 
 from DDFacet.Data import ClassVisServer
@@ -44,19 +45,19 @@ from DDFacet.Data import ClassVisServer
 def testGrid():
     Parset=ReadCFG.Parset("%s/DDFacet/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
     DC=Parset.DicoPars
-    DC["VisData"]["MSName"]="/home/atemkeng/PSF_CYRIL_METHOD/VLAC-lowresolution.MS"#/home/atemkeng/DDFacet/Test/vlac-hires-1.0s-1.0MHz.MS"#/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
+    DC["VisData"]["MSName"]="/home/atemkeng/PSF_CYRIL_METHOD/VLAC-lowresolution.MS"#"/home/atemkeng/DDFacet/Test/vlac-hires-1.0s-1.0MHz.MS"#"/home/atemkeng/DDFacet/Test/vlac-hires-1.0s-1.0MHz.MS"#/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
     DC["ImagerCF"]["wmax"]=2000    
     DC["ImagerCF"]["Nw"]=400    
 
     
     DC["ImagerMainFacet"]["NFacets"]= 3
     DC["ImagerMainFacet"]["Npix"]= 513
-    DC["ImagerMainFacet"]["Cell"]= 1.25#1.
+    DC["ImagerMainFacet"]["Cell"]= 1.250#30 #1.25
     DC["ImagerMainFacet"]["Padding"]= 1.7
-    DC["ImagerCF"]["OverS"]  = 21
+    DC["ImagerCF"]["OverS"]  = 25#21
     DC["ImagerCF"]["Support"]= 9
-    DC["Compression"]["CompressModeDeGrid"] = False
-    DC["Compression"]["CompDeGridMode"] = True#False
+    DC["Compression"]["CompressModeDeGrid"] =False 
+    DC["Compression"]["CompDeGridMode"] = True   #GD["Compression"]["CompDeGridMode"]==0
     VS=ClassVisServer.ClassVisServer(DC["VisData"]["MSName"],
                                      ColName=DC["VisData"]["ColName"],
                                      TVisSizeMin=DC["VisData"]["TChunkSize"]*60*1.1,
@@ -67,7 +68,7 @@ def testGrid():
                                      Weighting="Natural",
                                      DicoSelectOptions=dict(DC["DataSelection"]),
                                      NCPU=DC["Parallel"]["NCPU"],GD=DC)
-    Cell=(DC["ImagerMainFacet"]["Cell"]/3600.)*np.pi/180
+    Cell=(DC["ImagerMainFacet"]["Cell"]/3600.)*np.pi/180.
     npix=DC["ImagerMainFacet"]["Npix"]
     Padding=DC["ImagerMainFacet"]["Padding"]
     #_,npix=EstimateNpix(npix,Padding)
@@ -75,14 +76,29 @@ def testGrid():
     offsetSourceY=200
     M=-Cell*(offsetSourceX)
     L=Cell*offsetSourceY
+    print "position", np.sqrt(M**2+L**2)*180./np.pi
+    #stop
     N=np.sqrt(1.-L**2-M**2)
-
+    print M,L
+    
     sh=[1,1,npix,npix]
     VS.setFOV(sh,sh,sh,Cell)
     VS.CalcWeigths()
     Load=VS.LoadNextVisChunk()
     
     DATA=VS.ThisDataChunk
+
+    from pyrap.tables import table
+    tabhires1 = table("/home/atemkeng/PSF_CYRIL_METHOD/VLAC-lowresolution.MS")
+    UVWhires1 = tabhires1.getcol("UVW")
+    A0hires1 = tabhires1.getcol("ANTENNA1")
+    A1hires1= tabhires1.getcol("ANTENNA2")
+    datahires1 = tabhires1.getcol("DATA")
+    
+    tabhires1.close()
+
+    #DATA["data"]=datahires1.copy()
+    
     # DicoConfigGM={"Npix":NpixFacet,
     #               "Cell":Cell,
     #               "ChanFreq":ChanFreq,
@@ -114,8 +130,27 @@ def testGrid():
     row1=DATA["uvw"].shape[0]#-1
     A0=np.int32(DATA["A0"]).copy()#[row0:row1]
     A1=np.int32(DATA["A1"]).copy()#[row0:row1]
-    ind=np.where((A0==1)&(A1==26))[0]
+    ind=np.where((A0==17)&(A1==26))[0]
     uvw=np.float64(DATA["uvw"][ind]).copy()#[row0:row1]
+    duvw = np.float64(DATA["duvw_dt"][ind]).copy();
+    listsemar = [duvw[:,0],duvw[:,1],duvw[:,2], 400,51, 1400000000.0]
+    print 'duvw',duvw.shape
+    print 'uvw',uvw.shape
+    
+    c1=duvw[:,0];c4=duvw[:,1]
+    print uvw.shape, duvw.shape
+    
+    c2=uvw[:,0];c3=uvw[:,1]
+    #pylab.plot(c1,c4,'o',label='evaluateuvw')
+    #pylab.plot(c2,c3,label='trueevaluateuvw')
+    #pylab.legend()
+    #pylab.show()
+    #stop
+    
+
+    ## from uvw fine duvw_dt
+    ##duvw = np.diff(uvw, axis=0);
+   
     #uvw[:,2]=0
     times=np.float64(DATA["times"][ind]).copy()#[row0:row1]
     data=np.complex64(DATA["data"][ind]).copy()#[row0:row1]
@@ -127,8 +162,43 @@ def testGrid():
     
     C=2.99792458e8
     U,V,W=uvw.T
-    K=10*np.exp(2.*np.pi*1j*(ChanFreq[0]/C)*(U*L+V*M+W*(N-1)))
-
+    
+    
+    
+    from pyrap.tables import table
+    tabhires = table("/home/atemkeng/PSF_CYRIL_METHOD/VLAC-hiresolution.MS")
+    UVWhires = tabhires.getcol("UVW")
+    
+    A0hires = tabhires.getcol("ANTENNA1")
+    A1hires= tabhires.getcol("ANTENNA2")
+    uvwhires=UVWhires[(A0hires==17)&(A1hires==26)]
+    uh=uvwhires[:,0].reshape(144,100)
+    vh=uvwhires[:,1].reshape(144,100)
+    wh=uvwhires[:,2].reshape(144,100)
+    datahires = tabhires.getcol("DATA")
+    print"duvw", duvw
+    dt=50000
+    
+    v3g = 2*np.pi*(ChanFreq[0]/C)*(uh[:, 99]*L + vh[:, 99]*M + wh[:,99]*(N-1.))
+    v4g = 2*np.pi*(ChanFreq[0]/C)*(uh[:,0]*L + vh[:,0]*M + wh[:, 0]*(N-1.))
+    sine= (v3g- v4g)/2.
+    sine[sine==0]=1e-9
+    factsine=np.sin(sine)/sine
+    #K=factsine*10.*np.exp(2.*np.pi*1j*(ChanFreq[0]/C)*(uh[:,50]*L+vh[:,50]*M+wh[:,50]*(N-1)))
+    #print'****************', factsine
+   
+    dA_time=np.pi*(duvw[:,0].copy()*L+duvw[:,1].copy()*M+duvw[:,2].copy()*(N-1.))*dt;
+    dA_time[dA_time==0]=1e-9
+    K=(np.sin(dA_time)/dA_time)*10.*np.exp(2.*np.pi*1j*(ChanFreq[0]/C)*(U*L+V*M+W*(N-1)))
+    print'****************', (np.sin(dA_time)/dA_time)
+    
+    #K = datahires[(A0hires==1)&(A1hires==26)][:,0,0]
+    #data.fill(0.)
+    tabhires.close()
+    
+    #K = np.complex64(DATA["data"][ind]).copy()[:,0,0]
+   # print "K",K.shape
+    
     # pylab.clf()
     # pylab.plot(uvw)
     # pylab.draw()
@@ -137,6 +207,7 @@ def testGrid():
 
     #uvw.fill(0)
     
+    #print data
     flag=np.bool8(DATA["flags"][ind]).copy()#[row0:row1,:,:].copy()
     #ind=np.where(np.logical_not((A0==12)&(A1==14)))[0]
     #flag[ind,:,:]=1
@@ -158,18 +229,22 @@ def testGrid():
     # pylab.draw()
     # pylab.show(False)
 
-
+    #print Grid
+    
     # Grid=np.zeros(sh,np.complex64)
     T.timeit("grid")
     # Grid[np.isnan(Grid)]=-1
 
     #Grid[0,0,100,100]=10.
 
-    print data
     
-    Grid.fill(0)
+    Grid.fill(0.)
+   
     _,_,n,n=Grid.shape
+    #print Grid.shape
+    
     Grid[:,:,n/2+offsetSourceX,n/2+offsetSourceY]=10.
+    
     data.fill(0)
 
     #GM.GD["Compression"]["CompressModeDeGrid"] = True
@@ -177,11 +252,15 @@ def testGrid():
     #data=GM.get(times,uvw,data,flag,(A0,A1),Grid,DicoJonesMatrices=None,freqs=ChanFreq,ImToGrid=True)
 
 
-
+    
     #data0=data.copy()
-    data.fill(0)
+    #data.fill(0)
     flag.fill(0)
-    data1=GM.get(times,uvw,data,flag,(A0,A1),Grid,DicoJonesMatrices=None,freqs=ChanFreq,ImToGrid=True)
+    #np.save('du',duvw[:,0])
+    du=duvw[:,0].copy()
+    dv=duvw[:,1].copy()
+    dw=duvw[:,2].copy()
+    data1=GM.get(times,uvw,data,flag,(A0,A1),Grid,DicoJonesMatrices=None,freqs=ChanFreq,ImToGrid=True,du=du,dv=dv,dw=dw, dt=dt,df=1, freq=1400000000.0, lcor=L, mcor=M)
     #data1=GM.get(times,uvw,data,flag,(A0,A1),Grid)#, DicoJonesMatrices=DicoJonesMatrices)
 
     #ind=np.where(((A0==12)&(A1==14)))[0]
@@ -197,30 +276,31 @@ def testGrid():
     #ind=np.where((A0==0)&(A1==21))[0]
 
     #d0=data0[ind,0,0].ravel()
-    d1=-data1[:,0,0]#.ravel()
-
+    d1=-data1[:,0,0]#.ravel()-data1[:,0,0]
+    print "herererererere",d1==K
+    
     #ind=np.where((d0-d1)[:]!=0)
 
+    print "****",op0(d1)
     
     pylab.clf()
     pylab.subplot(1,2,1)
     #pylab.plot(op0(d0))
-    pylab.plot(op0(d1), 'r',label='amplitude of the smear degridded data')
-    pylab.plot(op0(K),'b', label='amplitude of the smear ungridded data')
+    pylab.plot(op0(d1), 'r',label='amplitude of the degridded data')
+    pylab.plot(op0(K),'b', label='amplitude of the ungridded data')
     pylab.ylabel("Amplitude")
     pylab.xlabel("uv bins")
-    #pylab.plot(op0(K)-op0(d1), 'k',label='residual')
-    #pylab.legend()
+   # pylab.plot(op0(K)-op0(d1), 'k',label='residual')
     pylab.legend(loc='lower center')
-    pylab.title("10Jy source, data from the   baseline")
+    pylab.title("10Jy source, data from the shortest  baseline")
     #pylab.plot(uvw[ind,0])
     #pylab.plot(op0(d0-d1))
     pylab.ylim(-11,11)
     pylab.grid()
     pylab.subplot(1,2,2)
     #pylab.plot(op1(d0))
-    pylab.plot(op1(d1),'r',label='phase of the smear degridded data')
-    pylab.plot(op1(K), 'b',label='phase of the smear ungridded data')
+    pylab.plot(op1(d1),'r',label='phase of the degridded data')
+    pylab.plot(op1(K), 'b',label='phase of the ungridded data')
     pylab.ylabel("Phase")
     pylab.xlabel("uv bins")
     print"***********max real",op0(K).max()
@@ -232,35 +312,10 @@ def testGrid():
     pylab.grid()
     pylab.draw()
     pylab.legend()
-    pylab.title("10Jy source,  data from the longest baseline")
+    pylab.title("10Jy source, data from the shortest baseline")
     pylab.show(False)
     pylab.pause(0.1)
-
-
     
-    # pylab.clf()
-    # pylab.subplot(1,2,1)
-    # pylab.plot(op0(d0))
-    # pylab.plot(op0(d1))
-    # pylab.plot(op0(K))
-    # print"***********max real",op0(K).max()
-    # print"***********max grid",op0(d1).max()
-    
-    # pylab.plot(op0(K)-op0(d1))
-    # pylab.plot(uvw[ind,0])
-    # pylab.plot(op0(d0-d1))
-    # pylab.ylim(-11,11)
-    # pylab.subplot(1,2,2)
-    # pylab.plot(op1(d0))
-    # pylab.plot(op1(d1))
-    # pylab.plot(op1(K))
-    # pylab.plot(op1(K)-op1(d1))
-    # pylab.plot(op1(d0-d1))
-    # pylab.ylim(-11,11)
-    # pylab.draw()
-    # pylab.show(False)
-    # pylab.pause(0.1)
-
 #     for ibl in [122]:#range(1,nbl)[::11]:
 #         d0=data0[ibl::nbl,:,0].ravel()
 #         d1=data1[ibl::nbl,:,0].ravel()
@@ -615,6 +670,7 @@ class ClassDDEGridMachine():
         #print "vis",vis.min(),vis.max()
 
         if self.GD["Compression"]["CompGridMode"]==0:
+            
             Grid=_pyGridder.pyGridderWPol(Grid,
                                               vis,
                                               uvw,
@@ -631,7 +687,8 @@ class ClassDDEGridMachine():
                                               ParamJonesList) # Input the jones matrices
         else:
             MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMem))
-            _pyGridderSmear.pyGridderWPol(Grid,
+            
+            _pyGridderPseudoPSFSmear.pyGridderWPol(Grid,
                                                vis,
                                                uvw,
                                                flag,
@@ -732,7 +789,7 @@ class ClassDDEGridMachine():
                 raise NameError("Has to be contiuous")
 
 
-    def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None,ImToGrid=True):
+    def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None,ImToGrid=True,du=None,dv=None,dw=None, dt=None,df=None, freq=None, lcor=None, mcor=None):
         #log=MyLogger.getLogger("ClassImager.addChunk")
         T=ClassTimeIt.ClassTimeIt("get")
         T.disable()
@@ -820,12 +877,14 @@ class ClassDDEGridMachine():
         if freqs==None:
             freqs=np.float64(self.ChanFreq)
         print freqs
+        
 
         T.timeit("3")
         #print vis
 
         if self.GD["Compression"]["CompDeGridMode"]==0:
             print "CompDeGridMode]==0:"
+            
             _ = _pyGridder.pyDeGridderWPol(Grid,
                                              vis,
                                              uvw,
@@ -841,8 +900,12 @@ class ClassDDEGridMachine():
                                              ParamJonesList)
         else:
             print "CompDeGridMode]==1:"
+             
             MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMem))
-            vis = _pyGridderSmear.pyDeGridderWPol(Grid,
+            aray = [1]#np.float64(np.array([]))
+            print du
+            
+            vis = _pyGridderPseudoPSFSmear.pyDeGridderWPolPseudoPSF(Grid, #pyDeGridderWPol
                                                   vis,
                                                   uvw,
                                                   flag,
@@ -856,7 +919,8 @@ class ClassDDEGridMachine():
                                                   [self.PolMap,FacetInfos,RowInfos],
                                                   ParamJonesList,
                                                   MapSmear,
-                                                  [self.FullScalarMode,self.ChanEquidistant])
+                                                                    [self.FullScalarMode,self.ChanEquidistant],
+                                                                    du,dv,dw, dt,df, np.float64(freq),lcor,mcor )
             
 
         T.timeit("4 (degrid)")

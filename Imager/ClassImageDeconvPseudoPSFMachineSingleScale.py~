@@ -6,9 +6,10 @@ from DDFacet.Other import ModColor
 log=MyLogger.getLogger(" ClassImageDeconvMachine")
 from DDFacet.Array import NpParallel
 from DDFacet.Other import ClassTimeIt
+import ClassGiveVariablePSF
 
 class ClassImageDeconvMachine():
-    def __init__(self,Gain=0.3,MaxMinorIter=100,NCPU=6,CycleFactor=2.5):
+    def __init__(self,Gain=0.3,MaxMinorIter=100,NCPU=6,CycleFactor=2.5,GD=None):
         #self.im=CasaImage
         self.Gain=Gain
         self.ModelImage=None
@@ -16,6 +17,12 @@ class ClassImageDeconvMachine():
         self.NCPU=NCPU
         self.CycleFactor=CycleFactor
         self.GD=GD
+        self.PSFNormFactor=1.
+
+    def setPSFMachine(self, dt,dnu,freqs,cellsize, psf, npix):
+        #self.PSFMachine=PSFMachine(dt,dnu,freqs)
+        self.PSFMachine = ClassGiveVariablePSF.ClassVariablePSF(phasePSF=psf[0,0], freq0=freqs, dtime=dt, dfreq=dnu, cellsize=cellsize,npix=npix)
+
     def SetDirtyPSF(self,Dirty,PSF):
         # if len(PSF.shape)==4:
         #     self.PSF=PSF[0,0]
@@ -93,11 +100,26 @@ class ClassImageDeconvMachine():
         # self.Dirty[:,x0main:x1main,y0main:y1main]-=self.PSF[:,x0facet:x1facet,y0facet:y1facet]*(Fpol*self.Gain)
         Aedge=[x0main,x1main,y0main,y1main]
         Bedge=[x0facet,x1facet,y0facet,y1facet]
-
+        print "***************hereree**********",self.PSF.shape
+        print"************************************ debut subset here**********************************************"
+        #self.PSF = (np.float32(self.PSFMachine.givePSF(xc,yc).copy()))[np.newaxis,:,:]
+        print"************************************ after subset here**********************************************"
         _,n,n=self.PSF.shape
-        PSF=self.PSF.reshape((n,n))
-        factor=-Fpol[0,0,0]*self.Gain
 
+        #PSF=(np.float32(self.PSFMachine.givePSF(xc,yc).copy()))#[np.newaxis,:,:]
+
+        PSF=self.PSF.reshape((n,n))
+        
+        
+        picmax=np.max(PSF)#[n/2,n/2]
+        
+        self.PSFNormFactor=1./(picmax)
+        factor=-Fpol[0,0,0]*self.Gain*self.PSFNormFactor#(1./picmax)
+        
+    
+        
+        print "pic", picmax,self.PSFNormFactor
+        #stop
         #print>>log, "    Removing %f Jy at (%i %i) (peak of %f Jy)"%(Fpol[0,0,0]*self.Gain,dx,dy,Fpol[0,0,0])
 
         NpParallel.A_add_B_prod_factor(self.Dirty,PSF,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
@@ -214,18 +236,21 @@ class ClassImageDeconvMachine():
             self.SubStep((x,y),Fpol)
             T.timeit("add0")
 
+
+            for pol in range(npol):
+                self.ModelImage[pol,x,y]+=Fpol[pol,0,0]*self.Gain*self.PSFNormFactor
+            
             # pylab.clf()
-            # #pylab.subplot(1,2,1)
+            # pylab.subplot(1,2,1)
             # pylab.imshow(self.Dirty[0],interpolation="nearest")#,vmin=m0,vmax=m1)
-            # #pylab.subplot(1,2,2)
-            # #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
+            # pylab.colorbar()
+            # pylab.subplot(1,2,2)
+            # pylab.imshow(self.ModelImage[0],interpolation="nearest")#,vmin=0,vmax=1)
             # pylab.colorbar()
             # pylab.draw()
             # pylab.show(False)
             # pylab.pause(0.1)
 
-            for pol in range(npol):
-                self.ModelImage[pol,x,y]+=Fpol[pol,0,0]*self.Gain
             T.timeit("add1")
 
 

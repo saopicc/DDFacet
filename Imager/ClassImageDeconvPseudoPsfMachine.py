@@ -30,9 +30,10 @@ class ClassImageDeconvMachine():
         self.CubePSFScales=None
         self.SubPSF=None
 
-    def setPSFMachine(self, dt,dnu,freqs,cellsize):
-        #self.PSFMachine=PSFMachine(dt,dnu,freqs)
-        self.PSFMachine = ClassGiveVariablePSF.ClassVariablePSF(phasePSF=self._PSF[0,0], freq0=freqs, dtime=dt, dfreq=dnu, cellsize=cellsize)
+    def setPSFMachine(self, dt,dnu,freqs,cellsize, psf, npixDirty):
+        _,_,np1,_ = psf.shape
+        #self.PSFMachine=PSFMachine(dt,dnu,freqs) [2049/2-99/2:2049/2+99/2+1,2049/2-99/2:2049/2+99/2+1]
+        self.PSFMachine = ClassGiveVariablePSF.ClassVariablePSF(phasePSF=psf[0,0][np1/2-99/2:np1/2+99/2+1,np1/2-99/2:np1/2+99/2+1], freq0=freqs, dtime=dt, dfreq=dnu, cellsize=cellsize, npix=npixDirty)
       #  print"here"
       #  import pylab
       #  pylab.imshow(self.PSFMachine.givePSF(1.,1.))
@@ -301,9 +302,13 @@ class ClassImageDeconvMachine():
         x0,x1,y0,y1=self.DirtyExtent
 
         xc,yc=dx,dy
-        #NpixFacet=self.SubPSF.shape[-1]
+        #NpixFacet=self.SubPSF.shape[-1] 
         #PSF=self.CubePSFScales[iScale]
-        PSF=np.float32(self.PSFMachine.givePSF(xc,yc).copy())
+        
+        print"************************************ debut subset here **********************************************"
+        PSF=self.PSFMachine.givePSF(xc,yc).copy()
+        print"************************************ after subset here **********************************************"
+        
         N0=self.Dirty.shape[-1]
         N1=PSF.shape[-1]
 
@@ -345,24 +350,32 @@ class ClassImageDeconvMachine():
         # Bedge=x0p,x1p,y0p,y1p
 
 
-        pylab.clf()
-        ax=pylab.subplot(1,3,1)
-        vmin,vmax=self.Dirty.min(),self.Dirty.max()
-        pylab.imshow(self.Dirty[0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
-        pylab.subplot(1,3,2)
-        pylab.imshow(PSF[x0p:x1p,y0p:y1p]*factor,interpolation="nearest",vmin=vmin,vmax=vmax)
-        pylab.draw()
-        #print "Fpol02",Fpol
+        # dx=20
+        # nxd=x1d-x0d
+        # nyd=y1d-y0d
+        # nxp=x1p-x0p
+        # nyp=y1p-y0p
+        # pylab.clf()
+        # ax=pylab.subplot(1,3,1)
+        # vmin,vmax=self.Dirty.min(),self.Dirty.max()
+        # #[nxd/2-dx:nxd/2+dx,nyd/2-dx:nyd/2+dx]
+        # pylab.imshow(self.Dirty[0,x0d:x1d,y0d:y1d][nxd/2-dx:nxd/2+dx,nyd/2-dx:nyd/2+dx],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.subplot(1,3,2)
+        # #[nxp/2-dx:nxp/2+dx,nyp/2-dx:nyp/2+dx]
+        # pylab.imshow(PSF[x0p:x1p,y0p:y1p][nxp/2-dx:nxp/2+dx,nyp/2-dx:nyp/2+dx]*factor,interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.draw()
+        # #print "Fpol02",Fpol
         NpParallel.A_add_B_prod_factor((self.Dirty),PSF,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
-        #print "Fpol03",Fpol
-        pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-        pylab.imshow(self.Dirty[0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
-        pylab.draw()
-        pylab.show(False)
-        pylab.pause(0.1)
-        print Aedge
-        print Bedge
-        print self.Dirty[0,x0d:x1d,y0d:y1d]
+        # #print "Fpol03",Fpol
+        # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+        # #[nxd/2-dx:nxd/2+dx,nyd/2-dx:nyd/2+dx]
+        # pylab.imshow(self.Dirty[0,x0d:x1d,y0d:y1d][nxd/2-dx:nxd/2+dx,nyd/2-dx:nyd/2+dx],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.draw()
+        # pylab.show(False)
+        # pylab.pause(0.1)
+        # print Aedge
+        # print Bedge
+        # print self.Dirty[0,x0d:x1d,y0d:y1d]
         ###stop
         
         

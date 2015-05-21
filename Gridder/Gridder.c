@@ -1180,7 +1180,10 @@ void DeGridderWPol(PyArrayObject *grid,
 	    //for (Int w=0; w<4; ++w) {
 	    //  Double weight_interp(Weights_Lin_Interp[w]);
             for (ipol=0; ipol<nVisPol; ++ipol) {
-              if (((int)flagPtr[ipol])==0) {
+	      //printf("flag=%i [on pol %i, doff=%i]\n",(int)flagPtr[ipol],ipol,doff);
+
+	      //printf(".. (row, chan, pol)=(%i, %i, %i): F=%i \n",inx,visChan,ipol,flagPtr[ipol]);
+	      if (((int)flagPtr[ipol])==0) {
                 // Map to grid polarization. Only use pol if needed.
                 int gridPol = PolMap[ipol];
                 if (gridPol >= 0  &&  gridPol < nGridPol) {

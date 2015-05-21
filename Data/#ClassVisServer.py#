@@ -192,9 +192,7 @@ class ClassVisServer():
         print>>log, "Putting data in shared memory"
         DATA=NpShared.DicoToShared("%sDicoData"%self.IdSharedMem,DATA)
         
-        print'uvw D=self.ThisDataChunk',DATA['uvw'].shape
-        print'duvw D=self.ThisDataChunk',DATA['duvw_dt'].shape
-        stop
+        
 
         return DATA
 
