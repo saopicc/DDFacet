@@ -132,7 +132,8 @@ class ClassMultiScaleMachine():
         if self.MultiFreqMode:
             AlphaMin,AlphaMax,NAlpha=self.GD["MultiFreqs"]["Alpha"]
             NAlpha=int(NAlpha)
-            Alpha=np.linspace(AlphaMin,AlphaMax,NAlpha)
+            AlphaL=np.linspace(AlphaMin,AlphaMax,NAlpha)
+            Alpha=np.array([0.]+[al for al in AlphaL if not(al==0.)])
 
         _,_,nx,ny=self.SubPSF.shape
         NScales=len(LScales)
