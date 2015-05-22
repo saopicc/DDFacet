@@ -493,8 +493,9 @@ class ClassMultiScaleMachine():
             print "SolReg",SolReg.ravel()
 
             if np.sign(SolReg[0])!=np.sign(np.sum(Sol)):
-                Sol*=-1
-            Sol=Sol*coef+SolReg*(1.-coef)
+                Sol=SolReg
+            else:
+                Sol=Sol*coef+SolReg*(1.-coef)
             
             print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
