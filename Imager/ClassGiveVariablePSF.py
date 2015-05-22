@@ -52,10 +52,10 @@ class ClassVariablePSF():
                 lcor1,mcor1=(lcor,mcor)
                 #print "dddd",self.npixDirty
                 
-	#	lcor = (lcor-self.npixDirty/2)*self.cellsize*np.pi/(180*3600.)
-	#	mcor = (mcor-self.npixDirty/2)*self.cellsize*np.pi/(180*3600.)
+		lcor = (lcor-self.npixDirty/2)*self.cellsize*np.pi/(180*3600.)
+		mcor = (mcor-self.npixDirty/2)*self.cellsize*np.pi/(180*3600.)
                 #print "******** degres %d (%f, %f) degree"%(self.npixDirty, lcor*180./np.pi,mcor*180./np.pi)
-		lcor, mcor = (lcor*np.pi/180., mcor*np.pi/180.)
+       #lcor, mcor = (lcor*np.pi/180., mcor*np.pi/180.)
 		#print "******** xxx start generating pseudo PSF at cordinates number pixel %d (%d, %d) pixel"%(self.npix, lcor1,mcor1)
         
 		# total Field of view and uv-cellsize size
