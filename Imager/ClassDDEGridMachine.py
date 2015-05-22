@@ -60,14 +60,15 @@ def testGrid():
     DC["ImagerCF"]["Support"]= 9
     DC["ImagerCF"]["Nw"]= 100
     DC["ImagerCF"]["wmax"]= 10000.
-    DC["Stores"]["DeleteDDFProducts"] = False
+    DC["Stores"]["DeleteDDFProducts"] = True
+    IdSharedMem="123."
 
     VS=ClassVisServer.ClassVisServer(DC["VisData"]["MSName"],
                                      ColName=DC["VisData"]["ColName"],
                                      TVisSizeMin=DC["VisData"]["TChunkSize"]*60*1.1,
                                      #DicoSelectOptions=DicoSelectOptions,
                                      TChunkSize=DC["VisData"]["TChunkSize"],
-                                     IdSharedMem="caca",
+                                     IdSharedMem=IdSharedMem,
                                      Robust=DC["ImagerGlobal"]["Robust"],
                                      Weighting="Natural",
                                      DicoSelectOptions=dict(DC["DataSelection"]),
@@ -103,7 +104,7 @@ def testGrid():
                            ChanFreq,
                            npix,
                            lmShift=(0.,0.),#self.DicoImager[iFacet]["lmShift"],
-                           IdSharedMem="caca")
+                           IdSharedMem=IdSharedMem)
 
 
 
@@ -136,16 +137,25 @@ def testGrid():
     #print A0[row],A1[row],flag[row]
     #stop
 
-    T=ClassTimeIt.ClassTimeIt("main")
-    #Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True)#, DicoJonesMatrices=DicoJonesMatrices)
 
-    # pylab.clf()
-    # pylab.imshow(np.real(Grid[0,0]))
-    # #pylab.imshow(np.random.rand(50,50))
-    # pylab.colorbar()
-    # pylab.draw()
-    # pylab.show(False)
-    # return
+    DicoJonesMatrices={}
+    DicoClusterDirs=NpShared.SharedToDico("%sDicoClusterDirs"%IdSharedMem)
+    DicoJonesMatrices["DicoClusterDirs"]=DicoClusterDirs
+
+    DicoJones_Beam=NpShared.SharedToDico("%sJonesFile_Beam"%IdSharedMem)
+    DicoJonesMatrices["DicoJones_Beam"]=DicoJones_Beam
+    DicoJonesMatrices["DicoJones_Beam"]["MapJones"]=NpShared.GiveArray("%sMapJones_Beam"%IdSharedMem)
+
+    T=ClassTimeIt.ClassTimeIt("main")
+    Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True, DicoJonesMatrices=DicoJonesMatrices)
+
+    pylab.clf()
+    pylab.imshow(np.real(Grid[0,0]))
+    #pylab.imshow(np.random.rand(50,50))
+    pylab.colorbar()
+    pylab.draw()
+    pylab.show(False)
+    return
 
     Grid=np.zeros(sh,np.complex64)
     T.timeit("grid")
@@ -394,35 +404,51 @@ class ClassDDEGridMachine():
 
 
     def GiveParamJonesList(self,DicoJonesMatrices,times,A0,A1,uvw):
-        JonesMatrices=DicoJonesMatrices["Jones"]
-        MapJones=DicoJonesMatrices["MapJones"]
+
+        Apply_killMS=("DicoJones_killMS" in DicoJonesMatrices.keys())
+        Apply_Beam=("DicoJones_Beam" in DicoJonesMatrices.keys())
+
+
         l0,m0=self.lmShift
-        DicoClusterDirs=DicoJonesMatrices["DicoClusterDirs"]
-        lc=DicoClusterDirs["l"]
-        mc=DicoClusterDirs["m"]
-        sI=DicoClusterDirs["I"]
-        
-        #lc,mc=np.random.randn(100)*np.pi/180,np.random.randn(100)*np.pi/180
-        
-        
+        idir_kMS=0
+        w_kMS=np.array([],np.float32)
         InterpMode=self.GD["DDESolutions"]["Type"]
         d0=self.GD["DDESolutions"]["Scale"]*np.pi/180
         gamma=self.GD["DDESolutions"]["gamma"]
+        if Apply_killMS:
+            DicoClusterDirs=DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]
+            lc=DicoClusterDirs["l"]
+            mc=DicoClusterDirs["m"]
+            sI=DicoClusterDirs["I"]
+            
+            #lc,mc=np.random.randn(100)*np.pi/180,np.random.randn(100)*np.pi/180
+            
+            
         
-        #d=np.sqrt((l0-lc)**2+(m0-mc)**2)
-        #idir=np.argmin(d)
-        #w=sI/(1.+d/d0)**gamma
-        #w/=np.sum(w)
-        
-        
-        d=np.sqrt((l0-lc)**2+(m0-mc)**2)
-        idir=np.argmin(d)
-        w=sI/(1.+d/d0)**gamma
-        w/=np.sum(w)
-        w[w<(0.2*w.max())]=0
-        ind=np.argsort(w)[::-1]
-        w[ind[3::]]=0
-        w/=np.sum(w)
+            #d=np.sqrt((l0-lc)**2+(m0-mc)**2)
+            #idir=np.argmin(d)
+            #w=sI/(1.+d/d0)**gamma
+            #w/=np.sum(w)
+            
+            
+            d=np.sqrt((l0-lc)**2+(m0-mc)**2)
+            idir_kMS=np.argmin(d)
+            w=sI/(1.+d/d0)**gamma
+            w/=np.sum(w)
+            w[w<(0.2*w.max())]=0
+            ind=np.argsort(w)[::-1]
+            w[ind[3::]]=0
+            w/=np.sum(w)
+            w_kMS=w
+
+        idir_Beam=0
+        if Apply_Beam:
+            DicoClusterDirs=DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"]
+            lc=DicoClusterDirs["l"]
+            mc=DicoClusterDirs["m"]
+            d=np.sqrt((l0-lc)**2+(m0-mc)**2)
+            idir_Beam=np.argmin(d)
+            
 
 
         # pylab.clf()
@@ -439,10 +465,34 @@ class ClassDDEGridMachine():
                 
         #ParamJonesList=[MapJones,A0.astype(np.int32),A1.astype(np.int32),JonesMatrices.astype(np.complex64),idir]
         if A0.size!=uvw.shape[0]: stop
-        self.CheckTypes(A0=A0,A1=A1,Jones=JonesMatrices)
         
-        ParamJonesList=[MapJones,A0,A1,JonesMatrices,np.array([idir],np.int32),np.float32(w),np.array([InterpMode],np.int32)]
-        #print "idir %i"%idir
+
+        JonesMatrices_Beam=np.array([],np.complex64).reshape((0,0,0,0))
+        MapJones_Beam=np.array([],np.int32).reshape((0,))
+        JonesMatrices_killMS=np.array([],np.complex64).reshape((0,0,0,0))
+        MapJones_killMS=np.array([],np.int32).reshape((0,))
+
+        if Apply_Beam:
+            JonesMatrices_Beam=DicoJonesMatrices["DicoJones_Beam"]["Jones"]
+            MapJones_Beam=DicoJonesMatrices["DicoJones_Beam"]["MapJones"]
+            self.CheckTypes(A0=A0,A1=A1,Jones=JonesMatrices_Beam)
+
+        if Apply_killMS:
+            JonesMatrices_killMS=DicoJonesMatrices["DicoJones_killMS"]["Jones"]
+            MapJones_killMS=DicoJonesMatrices["DicoJones_killMS"]["MapJones"]
+            self.CheckTypes(A0=A0,A1=A1,Jones=JonesMatrices_killMS)
+
+        ParamJonesList=[JonesMatrices_killMS,
+                        MapJones_killMS,
+                        JonesMatrices_Beam,
+                        MapJones_Beam,
+                        A0,
+                        A1,
+                        np.array([idir_kMS],np.int32),
+                        np.float32(w_kMS),
+                        np.array([idir_Beam],np.int32),
+                        np.array([InterpMode],np.int32)]
+        
         return ParamJonesList
 
 

@@ -937,7 +937,9 @@ class WorkerImager(multiprocessing.Process):
         self.GD=GD
         self.DicoImager=DicoImager
         self.IdSharedMem=IdSharedMem
-        self.ApplyCal=ApplyCal
+        self.Apply_killMS=(GD["DDESolutions"]["DDSols"]!="")&(GD["DDESolutions"]["DDSols"]!=None)
+        self.Apply_Beam=(GD["Beam"]["BeamModel"]!=None)
+        self.ApplyCal=(self.Apply_killMS)|(self.Apply_Beam)
         self.SpheNorm=SpheNorm
         self.PSFMode=PSFMode
 
@@ -959,12 +961,22 @@ class WorkerImager(multiprocessing.Process):
         if self.PSFMode:
             return None
 
-
         if self.ApplyCal:
-            DicoJonesMatrices=NpShared.SharedToDico("%skillMSSolutionFile"%self.IdSharedMem)
-            DicoClusterDirs=NpShared.SharedToDico("%sDicoClusterDirs"%self.IdSharedMem)
-            DicoJonesMatrices["DicoClusterDirs"]=DicoClusterDirs
-            DicoJonesMatrices["MapJones"]=NpShared.GiveArray("%sMapJones"%self.IdSharedMem)
+            DicoJonesMatrices={}
+
+        if self.Apply_killMS:
+            DicoJones_killMS=NpShared.SharedToDico("%sJonesFile_killMS"%self.IdSharedMem)
+            DicoJonesMatrices["DicoJones_killMS"]=DicoJones_killMS
+            DicoJonesMatrices["DicoJones_killMS"]["MapJones"]=NpShared.GiveArray("%sMapJones_killMS"%self.IdSharedMem)
+            DicoClusterDirs_killMS=NpShared.SharedToDico("%sDicoClusterDirs_killMS"%self.IdSharedMem)
+            DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]=DicoClusterDirs_killMS
+
+        if self.Apply_Beam:
+            DicoJones_Beam=NpShared.SharedToDico("%sJonesFile_Beam"%self.IdSharedMem)
+            DicoJonesMatrices["DicoJones_Beam"]=DicoJones_Beam
+            DicoJonesMatrices["DicoJones_Beam"]["MapJones"]=NpShared.GiveArray("%sMapJones_Beam"%self.IdSharedMem)
+            DicoClusterDirs_Beam=NpShared.SharedToDico("%sDicoClusterDirs_Beam"%self.IdSharedMem)
+            DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"]=DicoClusterDirs_Beam
 
         return DicoJonesMatrices
 

@@ -482,7 +482,7 @@ class ClassMultiScaleMachine():
             
 
             print "====="
-            print "Sol",Sols.ravel()
+            print "Sol",Sol.ravel()
             print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
             MeanFluxTrue=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())
             print "MeanFluxTrue",MeanFluxTrue

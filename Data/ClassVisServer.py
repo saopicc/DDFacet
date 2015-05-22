@@ -89,16 +89,19 @@ class ClassVisServer():
             if self.GD["Stores"]["DeleteDDFProducts"]:
                 ThisMSName=reformat.reformat(os.path.abspath(MS.MSName),LastSlash=False)
 
-                MapName="%s/Flagging.npy"%ThisMSName
-                os.system("rm %s"%MapName)
+                # MapName="%s/Flagging.npy"%ThisMSName
+                # os.system("rm %s"%MapName)
 
-                MapName="%s/Mapping.CompGrid.npy"%ThisMSName
-                os.system("rm %s"%MapName)
+                # MapName="%s/Mapping.CompGrid.npy"%ThisMSName
+                # os.system("rm %s"%MapName)
 
-                MapName="%s/Mapping.CompDeGrid.npy"%ThisMSName
-                os.system("rm %s"%MapName)
+                # MapName="%s/Mapping.CompDeGrid.npy"%ThisMSName
+                # os.system("rm %s"%MapName)
 
-                JonesName="%s/JonesNorm.npz"%ThisMSName
+                JonesName="%s/JonesNorm_Beam.npz"%ThisMSName
+                os.system("rm %s"%JonesName)
+
+                JonesName="%s/JonesNorm_killMS.npz"%ThisMSName
                 os.system("rm %s"%JonesName)
 
         self.nMS=len(self.ListMS)
@@ -302,9 +305,8 @@ class ClassVisServer():
         self.UpdateCompression(DATA)
 
 
-        if self.FacetMachine!=None:
-            JonesMachine=ClassJones.ClassJones(self.GD,self.FacetMachine,self.CurrentMS,IdSharedMem=self.IdSharedMem)
-            JonesMachine.InitDDESols(DATA)
+        JonesMachine=ClassJones.ClassJones(self.GD,self.CurrentMS,self.FacetMachine,IdSharedMem=self.IdSharedMem)
+        JonesMachine.InitDDESols(DATA)
 
         #############################
         #############################

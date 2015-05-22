@@ -8,37 +8,68 @@ import os
 from DDFacet.Array import ModLinAlg
 
 class ClassJones():
-    def __init__(self,GD,FacetMachine,MS,IdSharedMem=""):
+    def __init__(self,GD,MS,FacetMachine=None,IdSharedMem=""):
         self.GD=GD
         self.FacetMachine=FacetMachine
         self.IdSharedMem=IdSharedMem
         self.MS=MS
         ThisMSName=reformat.reformat(os.path.abspath(self.MS.MSName),LastSlash=False)
-        self.JonesNormSolsFile="%s/JonesNorm.npz"%ThisMSName
+        self.DicoClusterDirs=None
+        self.JonesNormSolsFile_killMS="%s/JonesNorm_killMS.npz"%ThisMSName
+        self.JonesNormSolsFile_Beam="%s/JonesNorm_Beam.npz"%ThisMSName
 
     def InitDDESols(self,DATA):
         GD=self.GD
         self.DATA=DATA
         SolsFile=GD["DDESolutions"]["DDSols"]
-        ApplyBeam=(GD["Beam"]["BeamModel"]!=None)
         self.ApplyCal=False
-        if (SolsFile!="")|(ApplyBeam):
+        if SolsFile!="":
+            self.ApplyCal=True
             try:
-                DicoSols,DicoClusterDirs,TimeMapping=self.DiskToSols()
+                DicoSols,TimeMapping,DicoClusterDirs=self.DiskToSols(self.JonesNormSolsFile_killMS)
             except:
-                DicoSols,DicoClusterDirs,TimeMapping=self.MakeSols()
+                DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("killMS")
+            self.ToShared("killMS",DicoSols,TimeMapping,DicoClusterDirs)
 
-#            DicoSols,DicoClusterDirs,TimeMapping=self.MakeSols()
+        ApplyBeam=(GD["Beam"]["BeamModel"]!=None)
+        if ApplyBeam:
+            self.ApplyCal=True
+            try:
+                DicoSols,TimeMapping,DicoClusterDirs=self.DiskToSols(self.JonesNormSolsFile_Beam)
+            except:
+                DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("Beam")
+            self.ToShared("Beam",DicoSols,TimeMapping,DicoClusterDirs)
+            
 
-            self.ToShared(DicoSols,DicoClusterDirs,TimeMapping)
 
-    def ToShared(self,DicoSols,DicoClusterDirs,TimeMapping):
-        NpShared.DicoToShared("%sDicoClusterDirs"%self.IdSharedMem,DicoClusterDirs)
-        NpShared.DicoToShared("%skillMSSolutionFile"%self.IdSharedMem,DicoSols)
-        NpShared.ToShared("%sMapJones"%self.IdSharedMem,TimeMapping)
 
-    def DiskToSols(self):
-        SolsFile=np.load(self.JonesNormSolsFile)
+    def ToShared(self,StrType,DicoSols,TimeMapping,DicoClusterDirs):
+        print>>log, "  Putting %s Jones in shm"%StrType
+        NpShared.DicoToShared("%sDicoClusterDirs_%s"%(self.IdSharedMem,StrType),DicoClusterDirs)
+        NpShared.DicoToShared("%sJonesFile_%s"%(self.IdSharedMem,StrType),DicoSols)
+        NpShared.ToShared("%sMapJones_%s"%(self.IdSharedMem,StrType),TimeMapping)
+
+    def SolsToDisk(self,OutName,DicoSols,DicoClusterDirs,TimeMapping):
+        
+        print>>log, "  Saving %s"%OutName
+        l=DicoClusterDirs["l"]
+        m=DicoClusterDirs["m"]
+        I=DicoClusterDirs["I"]
+        Cluster=DicoClusterDirs["Cluster"]
+        t0=DicoSols["t0"]
+        t1=DicoSols["t1"]
+        tm=DicoSols["tm"]
+        Jones=DicoSols["Jones"]
+        TimeMapping=TimeMapping
+
+        #np.savez(self.JonesNorm_killMS,l=l,m=m,I=I,Cluster=Cluster,t0=t0,t1=t1,tm=tm,Jones=Jones,TimeMapping=TimeMapping)
+        np.savez(OutName,l=l,m=m,I=I,Cluster=Cluster,t0=t0,t1=t1,tm=tm,Jones=Jones,TimeMapping=TimeMapping)
+
+    def DiskToSols(self,InName):
+        #SolsFile_killMS=np.load(self.JonesNorm_killMS)
+        #print>>log, "  Loading %s"%InName
+        SolsFile=np.load(InName)
+        print>>log, "  %s loaded"%InName
         
         DicoClusterDirs={}
         DicoClusterDirs["l"]=SolsFile["l"]
@@ -51,64 +82,86 @@ class ClassJones():
         DicoSols["tm"]=SolsFile["tm"]
         DicoSols["Jones"]=SolsFile["Jones"]
         TimeMapping=SolsFile["TimeMapping"]
-        return DicoSols,DicoClusterDirs,TimeMapping
+        return DicoSols,TimeMapping,DicoClusterDirs
 
-    def SolsToDisk(self,DicoSols,DicoClusterDirs,TimeMapping):
-        
-        l=DicoClusterDirs["l"]
-        m=DicoClusterDirs["m"]
-        I=DicoClusterDirs["I"]
-        Cluster=DicoClusterDirs["Cluster"]
-        t0=DicoSols["t0"]
-        t1=DicoSols["t1"]
-        tm=DicoSols["tm"]
-        Jones=DicoSols["Jones"]
-        TimeMapping=TimeMapping
-
-        np.savez(self.JonesNormSolsFile,l=l,m=m,I=I,Cluster=Cluster,t0=t0,t1=t1,tm=tm,Jones=Jones,TimeMapping=TimeMapping)
-
-    def MakeSols(self):
+    def MakeSols(self,StrType):
         GD=self.GD
-        KillMSSols=None
-        DicoClusterDirs=None
-        if GD["DDESolutions"]["DDSols"]!="":
-            DicoClusterDirs,KillMSSols=self.GiveKillMSSols()
-            
+        DicoSols_killMS=None
+        TimeMapping_killMS=None
+        DicoSols_Beam=None
+        TimeMapping_Beam=None
+        
+        print>>log, "  Build solution Dico for %s"%StrType
+        
+        if StrType=="killMS":
+            DicoClusterDirs_killMS,DicoSols=self.GiveKillMSSols()
+            DicoClusterDirs=DicoClusterDirs_killMS
+            print>>log, "  Build VisTime-to-Solution mapping"
+            TimeMapping=self.GiveTimeMapping(DicoSols)
+            self.SolsToDisk(self.JonesNormSolsFile_killMS,DicoSols,DicoClusterDirs_killMS,TimeMapping)
 
         BeamJones=None
-        if GD["Beam"]["BeamModel"]!=None:
-            if DicoClusterDirs==None:
-                print>>log,"  Getting Jones directions from Facets"
+        if StrType=="Beam":
+            print>>log,"  Getting Jones directions from Facets"
+
+            if self.FacetMachine!=None:
                 DicoImager=self.FacetMachine.DicoImager
                 NFacets=len(DicoImager)
-                self.ClusterCat=self.FacetMachine.FacetCat
+                self.ClusterCatBeam=self.FacetMachine.FacetCat
                 DicoClusterDirs={}
-                DicoClusterDirs["l"]=self.ClusterCat.l
-                DicoClusterDirs["m"]=self.ClusterCat.m
-                DicoClusterDirs["ra"]=self.ClusterCat.ra
-                DicoClusterDirs["dec"]=self.ClusterCat.dec
-                DicoClusterDirs["I"]=self.ClusterCat.I
-                DicoClusterDirs["Cluster"]=self.ClusterCat.Cluster
+                DicoClusterDirs["l"]=self.ClusterCatBeam.l
+                DicoClusterDirs["m"]=self.ClusterCatBeam.m
+                DicoClusterDirs["ra"]=self.ClusterCatBeam.ra
+                DicoClusterDirs["dec"]=self.ClusterCatBeam.dec
+                DicoClusterDirs["I"]=self.ClusterCatBeam.I
+                DicoClusterDirs["Cluster"]=self.ClusterCatBeam.Cluster
+            else:
+                
+                self.ClusterCatBeam=np.zeros((1,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),
+                                                     ("Cluster",int),
+                                                     ("l",np.float),("m",np.float),
+                                                     ("I",np.float)])
+                self.ClusterCatBeam=self.ClusterCatBeam.view(np.recarray)
+                self.ClusterCatBeam.I=1
+                self.ClusterCatBeam.SumI=1
+                self.ClusterCatBeam.ra[0]=self.MS.rac
+                self.ClusterCatBeam.dec[0]=self.MS.decc
+                DicoClusterDirs={}
+                DicoClusterDirs["l"]=np.array([0.],np.float32)
+                DicoClusterDirs["m"]=np.array([0.],np.float32)
+                DicoClusterDirs["ra"]=self.MS.rac
+                DicoClusterDirs["dec"]=self.MS.decc
+                DicoClusterDirs["I"]=np.array([1.],np.float32)
+                DicoClusterDirs["Cluster"]=np.array([0],np.int32)
+                
+            DicoClusterDirs_Beam=DicoClusterDirs
+            DicoSols=self.GiveBeam()
+            print>>log, "  Build VisTime-to-Beam mapping"
+            TimeMapping=self.GiveTimeMapping(DicoSols)
+            self.SolsToDisk(self.JonesNormSolsFile_Beam,DicoSols,DicoClusterDirs_Beam,TimeMapping)
 
-            BeamJones=self.GiveBeam()
+        # if (BeamJones!=None)&(KillMSSols!=None):
+        #     print>>log,"  Merging killMS and Beam Jones matrices"
+        #     DicoSols=self.MergeJones(KillMSSols,BeamJones)
+        # elif BeamJones!=None:
+        #     DicoSols=BeamJones
+        # elif KillMSSols!=None:
+        #     DicoSols=KillMSSols
 
-        if (BeamJones!=None)&(KillMSSols!=None):
-            print>>log,"  Merging killMS and Beam Jones matrices"
-            DicoSols=self.MergeJones(KillMSSols,BeamJones)
-        elif BeamJones!=None:
-            DicoSols=BeamJones
-        elif KillMSSols!=None:
-            DicoSols=KillMSSols
-
-        
         DicoSols["Jones"]=np.require(DicoSols["Jones"], dtype=np.complex64, requirements="C")
 
         # ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
         # TimeMapName="%s/Mapping.DDESolsTime.npy"%ThisMSName
 
-        print>>log, "  Build VisTime-to-solution mapping"
-        DicoJonesMatrices=DicoSols
         
+
+
+        return DicoSols,TimeMapping,DicoClusterDirs
+
+
+    def GiveTimeMapping(self,DicoSols):
+        print>>log, "  Build Time Mapping"
+        DicoJonesMatrices=DicoSols
         times=self.DATA["times"]
         ind=np.zeros((times.size,),np.int32)
         nt,na,nd,_,_,_=DicoJonesMatrices["Jones"].shape
@@ -121,13 +174,9 @@ class ClassJones():
             ind[ii:ii+indMStime.size]=indMStime[:]
             ii+=indMStime.size
         TimeMapping=ind
+        return TimeMapping
 
 
-        print>>log, "Done"
-        self.SolsToDisk(DicoSols,DicoClusterDirs,TimeMapping)
-
-
-        return DicoSols,DicoClusterDirs,TimeMapping
 
     def GiveKillMSSols(self):
         GD=self.GD
@@ -185,8 +234,8 @@ class ClassJones():
             LOFARBeamMode=GD["Beam"]["LOFARBeamMode"]
             print>>log, "  Estimating LOFAR beam model in %s mode every %5.1f min."%(LOFARBeamMode,DtBeamMin)
             
-            RAs=self.ClusterCat.ra
-            DECs=self.ClusterCat.dec
+            RAs=self.ClusterCatBeam.ra
+            DECs=self.ClusterCatBeam.dec
             t0=self.DATA["times"][0]
             t1=self.DATA["times"][-1]
             DicoBeam=self.EstimateBeam(t0,t1,RAs,DECs)
