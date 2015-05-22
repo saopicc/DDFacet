@@ -481,13 +481,18 @@ class ClassMultiScaleMachine():
             #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
             
 
+            print "====="
+            print "Sol",Sols.ravel()
+            print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
             MeanFluxTrue=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())
+            print "MeanFluxTrue",MeanFluxTrue
             coef=np.min([np.abs(np.sum(Sol)/MeanFluxTrue),1.])
+            print "coef",coef
             SolReg=np.zeros_like(Sol)
             SolReg[0]=MeanFluxTrue
+            print "SolReg",SolReg.ravel()
             Sol=Sol*coef+SolReg*(1.-coef)
-
-            print "coef,FpolTrue, Sol",coef,FpolTrue,Sol
+            print "Sol",Sol.ravel()
 
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
             
