@@ -60,6 +60,8 @@ class ClassImToGrid():
                 ModelIm[ch,pol]/=self.ifzfCF
                 SumFlux=np.sum(ModelIm)
                 
+        #print iFacet,np.max(ModelIm)
+        #return ModelIm, None
         ModelIm*=(self.OverS*NpixFacet)**2
 
         Grid=self.FFTWMachine.fft(ModelIm)
@@ -78,13 +80,19 @@ class ClassImToGrid():
         ModelIm=np.zeros((nch,npol,N1,N1),dtype=np.float32)
         for ch in range(nch):
             for pol in range(npol):
-                ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol,x0d:x1d,y0d:y1d].T[::-1,:].real
+                #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].T[::-1,:].real[x0d:x1d,y0d:y1d]
+                ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].real[x0d:x1d,y0d:y1d]
                 SumFlux=np.sum(ModelIm)
-                ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[ch,pol,x0d:x1d,y0d:y1d].T[::-1,:].real
+                #ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].T[::-1,:].real
+                ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
                 
-        ModelIm*=(self.OverS*N1)**2
 
-        Grid=self.FFTWMachine.fft(ModelIm)
+        #print iFacet,np.max(ModelIm)
+
+        #return ModelIm, None
+
+        ModelIm*=(self.OverS*N1)**2
+        Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm)))
 
         return Grid,SumFlux
 
