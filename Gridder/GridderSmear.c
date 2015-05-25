@@ -161,6 +161,7 @@ void gridderWPol(PyArrayObject *grid,
     int i_dir_Beam;
     PyArrayObject *npJonesIDIR_Beam;
     int *ptrJonesIDIR_Beam;
+    int ApplyJones_killMS=0; 
 
     //    printf("len %i",LengthJonesList);
     int JonesDims[4];
@@ -170,7 +171,6 @@ void gridderWPol(PyArrayObject *grid,
     float CalibError,CalibError2;
     double *ptrSumJones;
 
-    int ApplyJones_killMS=0; 
     if(LengthJonesList>0){
       DoApplyJones=1;
 

@@ -216,6 +216,37 @@ static PyObject *pyTestMatrix(PyObject *self, PyObject *args)
 
 }
 
+int FullScalarMode;
+int ScalarJones;
+int ScalarVis;
+
+void NormJones(float complex* J0, int ApplyAmp, int ApplyPhase, int DoScaleJones, double *uvwPtr, float WaveLengthMean, float CalibError){
+  int ThisPol;
+  int nPol=4;
+  if(FullScalarMode){nPol=1;}
+  if(ApplyAmp==0){
+    for(ThisPol =0; ThisPol<nPol;ThisPol++){
+      if(cabs(J0[ThisPol])!=0.){
+	J0[ThisPol]/=cabs(J0[ThisPol]);
+      }
+    }
+  }
+	
+  if(ApplyPhase==0){
+    for(ThisPol =0; ThisPol<nPol;ThisPol++){
+      J0[ThisPol]=cabs(J0[ThisPol]);
+    }
+  }
+	
+  if(DoScaleJones==1){
+    float U2=uvwPtr[0]*uvwPtr[0];
+    float V2=uvwPtr[1]*uvwPtr[1];
+    float R2=(U2+V2)/(WaveLengthMean*WaveLengthMean);
+    float CalibError2=CalibError*CalibError;
+    float AlphaScaleJones=exp(-2.*PI*CalibError2*R2);
+    ScaleJones(J0,AlphaScaleJones);
+  }
+}
 
 //////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////

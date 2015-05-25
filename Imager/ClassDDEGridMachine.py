@@ -833,6 +833,7 @@ class ClassDDEGridMachine():
                                              [self.PolMap,FacetInfos,RowInfos],
                                              ParamJonesList)
         else:
+
             MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMem))
             vis = _pyGridderSmear.pyDeGridderWPol(Grid,
                                                   vis,

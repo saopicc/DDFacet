@@ -66,6 +66,10 @@ class ClassFacetMachine():
         self.IsDDEGridMachineInit=False
         self.SharedNames=[]
         self.ConstructMode= GD["ImagerMainFacet"]["ConstructMode"]
+        self.SpheNorm=True
+        if self.ConstructMode=="Fader":
+            self.SpheNorm=False
+
         self.NormData=None
 
 
@@ -899,6 +903,7 @@ class ClassFacetMachine():
 
         
     def GiveGM(self,iFacet):
+        
         GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,#RaDec=self.DicoImager[iFacet]["RaDec"],
                                                             self.DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
                                                             self.DicoImager[iFacet]["DicoConfigGM"]["Npix"],
