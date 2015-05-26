@@ -379,6 +379,7 @@ class ClassVisServer():
         for A in range(MS.na):
             ind=np.where((A0==A)|(A1==A))[0]
             fA=flags[ind].ravel()
+            if ind.size==0: continue
             nf=np.count_nonzero(fA)
             Frac=nf/float(fA.size)
             if Frac>self.ThresholdFlag:

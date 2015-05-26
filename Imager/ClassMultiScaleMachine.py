@@ -319,7 +319,7 @@ class ClassMultiScaleMachine():
         u,v=np.mgrid[-nx/2+1:nx/2:1j*nx,-ny/2+1:ny/2:1j*ny]
 
         r=np.sqrt(u**2+v**2)
-        r0=3.
+        r0=1.
         UVTaper=1.-np.exp(-(r/r0)**2)
         UVTaper=UVTaper.reshape((1,1,nx,ny))*np.ones((nch,npol,1,1),np.float32)
 
@@ -419,7 +419,7 @@ class ClassMultiScaleMachine():
         #print "1",np.max(dirtyNormIm)
 
         self.Repr="FT"
-        self.Repr="IM"
+        #self.Repr="IM"
         if self.Repr=="FT":
             BM=DicoBasisMatrix["fBM"]
             WCubePSF=DicoBasisMatrix["fWeightFunction"]

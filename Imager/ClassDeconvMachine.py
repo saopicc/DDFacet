@@ -428,7 +428,7 @@ class ClassImagerDeconv():
                 break
 
             #self.ResidImage=DicoImage["MeanImage"]
-            self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
+            #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
             
             self.FacetMachine.ReinitDirty()
 
