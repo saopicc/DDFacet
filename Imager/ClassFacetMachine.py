@@ -625,8 +625,8 @@ class ClassFacetMachine():
                 sra=DDFacet.ToolsDir.rad2hmsdms.rad2hmsdms(ra,Type="ra")
                 sdec=DDFacet.ToolsDir.rad2hmsdms.rad2hmsdms(dec)
                 sumweight=ThisSumWeights.reshape((nch,npol,1,1))[0,0,0,0]
-                #Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
-                #print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im))
+                Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
+                print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im))
                 
                 for ch in range(nch):
                     for pol in range(npol):
