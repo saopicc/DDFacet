@@ -430,7 +430,6 @@ void gridderWPol(PyArrayObject *grid,
 	int irow = Row[inx];
 	if(irow>nrows){continue;}
 	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
-	double*   imgWtPtr = p_float64(weights) + irow  * nVisChan;
 	//printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
 	//printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
 	
@@ -470,6 +469,7 @@ void gridderWPol(PyArrayObject *grid,
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
 	  int doff = (irow * nVisChan + visChan) * nVisPol;
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
+	  double*   imgWtPtr = p_float64(weights) + irow  * nVisChan + visChan;
 	  
 	  //###################### Facetting #######################
 	  // Change coordinate and shift visibility to facet center
