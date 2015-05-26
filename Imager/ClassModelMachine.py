@@ -88,6 +88,7 @@ class ClassModelMachine():
         RefFreq=self.DicoSMStacked["RefFreq"]
         DicoComp=self.DicoSMStacked["Comp"]
         _,npol,nx,ny=self.ModelShape
+        N0=nx
         ModelImage=np.zeros((1,npol,nx,ny),dtype=np.float32)
         DicoSM={}
         for key in DicoComp.keys():
@@ -110,7 +111,6 @@ class ClassModelMachine():
                     x0,x1=x-Sup/2,x+Sup/2+1
                     y0,y1=y-Sup/2,y+Sup/2+1
                 
-                    _,_,N0,_=self._Dirty.shape
                 
                     Aedge,Bedge=GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
                     x0d,x1d,y0d,y1d=Aedge

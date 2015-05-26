@@ -140,8 +140,9 @@ class ClassMultiScaleMachine():
         self.NScales=NScales
         NRatios=len(LRatios)
 
-        Scales=np.array(LScales)
-        Ratios=np.array(LRatios)
+        Ratios=np.float32(np.array([float(r) for r in LRatios if r!=""]))
+
+        Scales=np.float32(np.array([float(ls) for ls in LScales if ls!=""]))
 
 
         self.ListScales=[]
