@@ -608,6 +608,9 @@ class ClassDDEGridMachine():
         #print "vis",vis.min(),vis.max()
 
         
+
+        print W
+        print "!!!!!!!!!! 0 ",SumWeigths
         if self.GD["Compression"]["CompGridMode"]==0:
             Grid=_pyGridder.pyGridderWPol(Grid,
                                               vis,
@@ -641,6 +644,7 @@ class ClassDDEGridMachine():
                                                ParamJonesList,
                                                MapSmear,
                                                [self.FullScalarMode,self.ChanEquidistant])
+        print "!!!!!!!!!! 1 ",SumWeigths
 
 
 
