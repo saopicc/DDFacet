@@ -16,7 +16,7 @@ def read_options():
     group.add_option('--DoPlot',help=' Default is %default',default="1")
     group.add_option('--DoSelect',help=' Default is %default',default="0")
     group.add_option('--DoPrint',help=' Default is %default',default="0")
-    group.add_option('--CMethod',help=' Clustering method [1,2,3]. Default is %default',default="1")
+    group.add_option('--CMethod',help=' Clustering method [1,2,3,4]. Default is %default',default="4")
     group.add_option('--PreClusterFile',help=' PreClusterFile. Default is %default',default="")
     
     opt.add_option_group(group)

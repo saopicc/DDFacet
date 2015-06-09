@@ -199,8 +199,10 @@ class ClassSM():
         #print self.SourceCat.Cluster.min(),self.SourceCat.Cluster.max()
         for key in DictNode.keys():
             ind=np.array(DictNode[key]["ListCluster"])
+            if ind.size==0: 
+                print "Direction %i is empty"%int(key)
+                continue
             self.SourceCat["Cluster"][indSubSel[ind]]=iK
-            #print iK
             iK+=1
         # if PreClusterCat!=None:
         #     SourceCat=np.concatenate((SourceCatPreCluster,SourceCat))

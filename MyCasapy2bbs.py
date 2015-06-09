@@ -22,7 +22,8 @@ def read_options():
     group.add_option('--ModelIm',help='Input Model image [no default]',default='')
     group.add_option('--RestoredIm',default=None)
     group.add_option('--ResidualIm',default=None)
-    group.add_option('--Th',type="float",default=5)
+    #group.add_option('--Th',type="float",default=5)
+    group.add_option("--AutoMask",type="int",default=1)
     opt.add_option_group(group)
 
     
@@ -48,7 +49,7 @@ class MyCasapy2BBS():
                  ImResidualName=None,
                  Th=None,
                  box=(150,150),Boost=5,
-                 ResInPix=1):
+                 ResInPix=1,AutoMask=True):
         self.Fits=Fits
         self.Th=Th
         self.Mask=None
@@ -59,6 +60,7 @@ class MyCasapy2BBS():
         self.DoMask=False
         self.ResInPix=ResInPix
         self.XcYcDx=None
+        self.AutoMask=AutoMask
         #self.XcYcDx=14000,10000,1000
         #self.XcYcDx=10000,5000,1000
         self.Init()
@@ -67,7 +69,8 @@ class MyCasapy2BBS():
     def Init(self):
         self.setModelImage()
         #self.setRestored()
-        self.MakeMask2()
+        if self.AutoMask:
+            self.MakeMask2()
 
     def setModelImage(self):
         print "set model image"
@@ -301,7 +304,8 @@ def main(options=None):
     Conv=MyCasapy2BBS(options.ModelIm,
                       ImRestoredName=options.RestoredIm,
                       ImResidualName=options.ResidualIm,
-                      Th=options.Th)
+                      #Th=options.Th,
+                      AutoMask=options.AutoMask)
     Conv.GetPixCat()
     Conv.ToSM()
     
