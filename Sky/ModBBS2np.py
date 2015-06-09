@@ -71,13 +71,18 @@ def ReadBBSModel(infile,infile_cluster=""):
                 SRa=L[i]
                 fact=1.
                 separ='.'
+                sgn=1.
+                if "-" in SRa:
+                    sgn=-1.
+                    SRa=SRa.replace("-","")
+
                 if L[i].count(":")>0:
                     rah,ram,ras=L[i].split(":")
-                    ra=15.*(float(rah)+float(ram)/60.+float(ras)/3600.)*np.pi/180.
+                    ra=sgn*15.*(float(rah)+float(ram)/60.+float(ras)/3600.)*np.pi/180.
                 else:
                     rah,ram,ras,rass=L[i].split(".")
                     ncoma=10**len(rass)
-                    ra=(float(rah)+float(ram)/60.+(float(ras)+float(rass)/ncoma)/3600.)*np.pi/180.
+                    ra=sgn*(float(rah)+float(ram)/60.+(float(ras)+float(rass)/ncoma)/3600.)*np.pi/180.
                 Cat.ra[icat]=ra
                 continue
             if F[i]=="dec":
