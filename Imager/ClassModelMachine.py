@@ -137,12 +137,12 @@ class ClassModelMachine():
         # print np.max(ModelImage[0,0])
         # # stop
 
-
+ 
         return ModelImage
         
     def CleanNegComponants(self,box=20,sig=3):
         print>>log, "Cleaning model dictionary from negative componants with (box, sig) = (%i, %i)"%(box,sig)
-        ModelImage=GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
+        ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
         
         Min=scipy.ndimage.filters.minimum_filter(ModelImage,(box,box))
         Min[Min>0]=0
