@@ -261,7 +261,7 @@ def GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,IdSharedMem):
     l=InfoSmearMapping["l"]
     freqs=InfoSmearMapping["freqs"]
     NChan=freqs.size
-    nu0=np.mean(freqs)
+    nu0=np.max(freqs)
     
     u,v,w=uvw[ind,:].T
     NChanBlockMax=1e3
@@ -273,9 +273,11 @@ def GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,IdSharedMem):
     dv=np.concatenate((dv,[dv[-1]]))
     dw=np.concatenate((dw,[dw[-1]]))
     
-    Duv=C*dPhi/(np.pi*l*nu0)
+    Duv=C*(dPhi)/(np.pi*l*nu0)
     duvtot=0
-        
+
+#    print Duv
+
     CurrentRows=[]
     BlocksRowsListBL=[]
     BlocksSizesBL=[]
@@ -314,6 +316,8 @@ def GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,IdSharedMem):
             CurrentRows=[]
             duvtot=0
 
+
+    #stop
     return BlocksRowsListBL,BlocksSizesBL,NBlocksTotBL
 
 

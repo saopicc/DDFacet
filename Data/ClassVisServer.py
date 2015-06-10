@@ -282,6 +282,16 @@ class ClassVisServer():
         freqs=MS.ChanFreq.flatten()
         nbl=MS.nbl
 
+        ## debug
+        ind=np.where((A0==0)&(A1==27))[0]
+        flags=flags[ind]
+        data=data[ind]
+        A0=A0[ind]
+        A1=A1[ind]
+        uvw=uvw[ind]
+        times=times[ind]
+        ##
+
         DATA={}
         DATA["flags"]=flags
         DATA["data"]=data
@@ -312,16 +322,6 @@ class ClassVisServer():
         #############################
 
         
-        # ## debug
-        # ind=np.where((A0==0)&(A1==1))[0]
-        # flags=flags[ind]
-        # data=data[ind]
-        # A0=A0[ind]
-        # A1=A1[ind]
-        # uvw=uvw[ind]
-        # times=times[ind]
-        # ##
-
 
 
 
@@ -485,7 +485,11 @@ class ClassVisServer():
                 FOV=self.CellSizeRad*nx*(np.sqrt(2.)/2.)*180./np.pi
                 SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompGridDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
                 #SmearMapMachine.BuildSmearMapping(DATA)
+
+                #FinalMapping,fact=SmearMapMachine.BuildSmearMapping(DATA)
+                #stop
                 FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA)
+
                 np.save(MapName,FinalMapping)
                 print>>log, ModColor.Str("  Effective compression [Grid]  :   %.2f%%"%fact,col="green")
 
