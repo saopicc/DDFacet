@@ -282,15 +282,15 @@ class ClassVisServer():
         freqs=MS.ChanFreq.flatten()
         nbl=MS.nbl
 
-        ## debug
-        ind=np.where((A0==0)&(A1==27))[0]
-        flags=flags[ind]
-        data=data[ind]
-        A0=A0[ind]
-        A1=A1[ind]
-        uvw=uvw[ind]
-        times=times[ind]
-        ##
+        # ## debug
+        # ind=np.where((A0==0)&(A1==27))[0]
+        # flags=flags[ind]
+        # data=data[ind]
+        # A0=A0[ind]
+        # A1=A1[ind]
+        # uvw=uvw[ind]
+        # times=times[ind]
+        # ##
 
         DATA={}
         DATA["flags"]=flags

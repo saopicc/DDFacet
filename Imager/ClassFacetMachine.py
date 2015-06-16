@@ -91,7 +91,8 @@ class ClassFacetMachine():
 
 
     def appendMainField(self,Npix=512,Cell=10.,NFacets=5,
-                        Support=11,OverS=5,Padding=1.2,wmax=10000,Nw=11,RaDecRad=(0.,0.),
+                        Support=11,OverS=5,Padding=1.2,
+                        wmax=10000,Nw=11,RaDecRad=(0.,0.),
                         ImageName="Facet.image"):
         
 
