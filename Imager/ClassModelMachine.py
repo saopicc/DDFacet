@@ -198,20 +198,21 @@ class ClassModelMachine():
         IndSource=0
 
         SourceCat.RefFreq[:]=self.DicoSMStacked["RefFreq"]
-
+        
+        
+        
         for iSource in range(X.shape[0]):
-
             x_iSource,y_iSource=X[iSource],Y[iSource]
             _,_,dec_iSource,ra_iSource=im.toworld((0,0,y_iSource,x_iSource))
-            SourceCat.ra[IndSource]=ra_iSource
-            SourceCat.dec[IndSource]=dec_iSource
+            SourceCat.ra[iSource]=ra_iSource
+            SourceCat.dec[iSource]=dec_iSource
             #SourceCat.Cluster[IndSource]=iCluster
             Flux=ModelMap[0,0,x_iSource,y_iSource]
-            Alpha=ModelMap[0,0,x_iSource,y_iSource]
-            print iSource,x_iSource,y_iSource,Flux,Alpha
-            SourceCat.I[IndSource]=Flux
-            SourceCat.alpha[IndSource]=Alpha
-            IndSource+=1
+            Alpha=AlphaMap[0,0,x_iSource,y_iSource]
+            print iSource,"/",X.shape[0],":",x_iSource,y_iSource,Flux,Alpha
+            SourceCat.I[iSource]=Flux
+            SourceCat.alpha[iSource]=Alpha
+
 
         SourceCat=(SourceCat[SourceCat.ra!=0]).copy()
         np.save("tmpSourceCat",SourceCat)
