@@ -18,6 +18,7 @@ from DDFacet.ToolsDir import ModFFTW
 import scipy.ndimage
 from SkyModel.Sky import ModRegFile
 from pyrap.images import image
+from SkyModel.Sky import ClassSM
 
 
 class ClassModelMachine():
@@ -72,23 +73,28 @@ class ClassModelMachine():
         self.ListScales=ListScales
 
 
-    def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)]):
+    def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True):
 
         
         dFreq=1e6
         f0=self.DicoSMStacked["AllFreqs"].min()
         f1=self.DicoSMStacked["AllFreqs"].max()
         M0=self.GiveModelImage(f0)
-        M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
         M1=self.GiveModelImage(f1)
-        M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-        Mask=((M1!=0)&(M0!=0))
+        if DoConv:
+            M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+            M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+        Mask=((M1>0)&(M0>0))
         alpha=np.zeros_like(M0)
         alpha[Mask]=(np.log(M0[Mask])-np.log(M1[Mask]))/(np.log(f0/f1))
         return alpha
 
-    def GiveModelImage(self,Freq):
+    def GiveModelImage(self,Freq=None):
+
         RefFreq=self.DicoSMStacked["RefFreq"]
+        if Freq==None:
+            Freq=RefFreq
+
         DicoComp=self.DicoSMStacked["Comp"]
         _,npol,nx,ny=self.ModelShape
         N0=nx
@@ -159,19 +165,56 @@ class ClassModelMachine():
                 print>>log, "  Componant at (%i, %i) not in dict "%key
 
 
-    def SplitAnalyticComp(self,PreCluster,FitsFile):
-        R=ModRegFile.RegToNp(PreCluster)
-        R.Read()
-        R.Cluster()
-        PreClusterCat=R.CatSel
-        ExcludeCat=R.CatExclude
+    def ToNPYModel(self,FitsFile):
+        #R=ModRegFile.RegToNp(PreCluster)
+        #R.Read()
+        #R.Cluster()
+        #PreClusterCat=R.CatSel
+        #ExcludeCat=R.CatExclude
 
+
+        AlphaMap=self.GiveSpectralIndexMap(DoConv=False)
+        ModelMap=self.GiveModelImage()
+        
+        
 
         im=image(FitsFile)
         pol,freq,decc,rac=im.toworld((0,0,0,0))
-        for iCluster in PreClusterCat.shape[0]:
-            ra,dec=PreClusterCat.ra[iCluster],PreClusterCat.dec[iCluster]
-            a,b,y,x=im.topixel((pol,freq,dec,ra))
-            key=(x,y)
-            print self.DicoSMStacked["Comp"][key]
-            stop
+
+        Lx,Ly=np.where(ModelMap[0,0]!=0)
+        
+        X=np.array(Lx)
+        Y=np.array(Ly)
+
+        #pol,freq,decc1,rac1=im.toworld((0,0,1,0))
+        dx=abs(im.coordinates().dict()["direction0"]["cdelt"][0])
+
+        SourceCat=np.zeros((10000,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
+                                     ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
+                                     ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
+                                     ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool)])
+        SourceCat=SourceCat.view(np.recarray)
+
+        IndSource=0
+
+        SourceCat.RefFreq[:]=self.DicoSMStacked["RefFreq"]
+
+        for iSource in range(X.shape[0]):
+
+            x_iSource,y_iSource=X[iSource],Y[iSource]
+            _,_,dec_iSource,ra_iSource=im.toworld((0,0,y_iSource,x_iSource))
+            SourceCat.ra[IndSource]=ra_iSource
+            SourceCat.dec[IndSource]=dec_iSource
+            #SourceCat.Cluster[IndSource]=iCluster
+            Flux=ModelMap[0,0,x_iSource,y_iSource]
+            Alpha=ModelMap[0,0,x_iSource,y_iSource]
+            print iSource,x_iSource,y_iSource,Flux,Alpha
+            SourceCat.I[IndSource]=Flux
+            SourceCat.alpha[IndSource]=Alpha
+            IndSource+=1
+
+        SourceCat=(SourceCat[SourceCat.ra!=0]).copy()
+        np.save("tmpSourceCat",SourceCat)
+        self.AnalyticSourceCat=ClassSM.ClassSM("tmpSourceCat.npy")
+
+
