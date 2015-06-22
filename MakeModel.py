@@ -12,6 +12,7 @@ def read_options():
 
     group = optparse.OptionGroup(opt, "* Data-related options", "Won't work if not specified.")
     group.add_option('--SkyModel',help='List of targets [no default]',default='')
+    group.add_option('--BaseImageName',help='List of targets [no default]',default='')
     group.add_option('--NCluster',help=' Default is %default',default="0")
     group.add_option('--DoPlot',help=' Default is %default',default="1")
     group.add_option('--DoSelect',help=' Default is %default',default="0")
@@ -31,6 +32,18 @@ def main(options=None):
         f = open(SaveName,'rb')
         options = pickle.load(f)
 
+    SkyModel=options.SkyModel
+
+    if options.BaseImageName!="":
+        from DDFacet.Imager.ClassModelMachine import ClassModelMachine
+        MM=ClassModelMachine(Gain=0.1)
+        DicoModel="%s.DicoModel"%options.BaseImageName
+        FitsFile="%s.model.fits"%options.BaseImageName
+        MM.FromFile(DicoModel)
+        MM.CleanNegComponants(box=15,sig=1)
+        MM.ToNPYModel(FitsFile)
+        SkyModel="tmpSourceCat.npy"
+
     NCluster=int(options.NCluster)
     DoPlot=(int(options.DoPlot)==1)
     DoSelect=(int(options.DoSelect)==1)
@@ -42,7 +55,7 @@ def main(options=None):
 
     from Sky import ClassSM
 
-    SM=ClassSM.ClassSM(options.SkyModel,ReName=True,
+    SM=ClassSM.ClassSM(SkyModel,ReName=True,
                        DoREG=True,SaveNp=True,
                        SelSource=DoSelect,ClusterMethod=CMethod)
 
