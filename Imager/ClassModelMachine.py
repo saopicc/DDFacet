@@ -179,8 +179,8 @@ class ClassModelMachine():
 
         for ch in range(nch):
             for pol in range(npol):
-                ModelMap[ch,pol]=ModelMap[ch,pol].T[::-1]
-                AlphaMap[ch,pol]=AlphaMap[ch,pol].T[::-1]
+                ModelMap[ch,pol]=ModelMap[ch,pol][::-1]#.T
+                AlphaMap[ch,pol]=AlphaMap[ch,pol][::-1]#.T
 
         im=image(FitsFile)
         pol,freq,decc,rac=im.toworld((0,0,0,0))
