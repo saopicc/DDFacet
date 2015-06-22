@@ -165,7 +165,7 @@ class ClassModelMachine():
                 print>>log, "  Componant at (%i, %i) not in dict "%key
 
 
-    def ToNPYModel(self,FitsFile):
+    def ToNPYModel(self,FitsFile,SkyModel):
         #R=ModRegFile.RegToNp(PreCluster)
         #R.Read()
         #R.Cluster()
@@ -175,8 +175,12 @@ class ClassModelMachine():
 
         AlphaMap=self.GiveSpectralIndexMap(DoConv=False)
         ModelMap=self.GiveModelImage()
-        
-        
+        nch,npol,_,_=ModelMap.shape
+
+        for ch in range(nch):
+            for pol in range(npol):
+                ModelMap[ch,pol]=ModelMap[ch,pol].T[::-1]
+                AlphaMap[ch,pol]=AlphaMap[ch,pol].T[::-1]
 
         im=image(FitsFile)
         pol,freq,decc,rac=im.toworld((0,0,0,0))
@@ -189,7 +193,7 @@ class ClassModelMachine():
         #pol,freq,decc1,rac1=im.toworld((0,0,1,0))
         dx=abs(im.coordinates().dict()["direction0"]["cdelt"][0])
 
-        SourceCat=np.zeros((10000,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
+        SourceCat=np.zeros((20000,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
                                      ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
                                      ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
                                      ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool)])
@@ -206,16 +210,16 @@ class ClassModelMachine():
             _,_,dec_iSource,ra_iSource=im.toworld((0,0,y_iSource,x_iSource))
             SourceCat.ra[iSource]=ra_iSource
             SourceCat.dec[iSource]=dec_iSource
-            #SourceCat.Cluster[IndSource]=iCluster
+            # SourceCat.Cluster[IndSource]=iCluster
             Flux=ModelMap[0,0,x_iSource,y_iSource]
             Alpha=AlphaMap[0,0,x_iSource,y_iSource]
-            print iSource,"/",X.shape[0],":",x_iSource,y_iSource,Flux,Alpha
+            # print iSource,"/",X.shape[0],":",x_iSource,y_iSource,Flux,Alpha
             SourceCat.I[iSource]=Flux
             SourceCat.alpha[iSource]=Alpha
 
 
         SourceCat=(SourceCat[SourceCat.ra!=0]).copy()
-        np.save("tmpSourceCat",SourceCat)
-        self.AnalyticSourceCat=ClassSM.ClassSM("tmpSourceCat.npy")
+        np.save(SkyModel,SourceCat)
+        self.AnalyticSourceCat=ClassSM.ClassSM(SkyModel)
 
 
