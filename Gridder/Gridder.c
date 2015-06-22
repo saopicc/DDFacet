@@ -632,7 +632,7 @@ void gridderWPol(PyArrayObject *grid,
 	  U+=W*Cu;
 	  V+=W*Cv;
 
-	  //	  printf("uvw = (%f, %f, %f)\n",U,V,W);
+	  //printf("uvw = (%f, %f, %f)\n",U,V,W);
 
 
           // Determine the grid position from the UV coordinates in wavelengths.
@@ -732,9 +732,9 @@ void gridderWPol(PyArrayObject *grid,
 		  VisVal =visPtr[ipol];
 
 		}
-		VisVal*=ThisWeight;
 		VisVal*=corr;
-		//		printf(".. (row, chan, pol)=(%i, %i, %i), VisVal=(%f,%f) \n",inx,visChan,ipol,creal(VisVal),cimag(VisVal));
+		//printf(".. (row, chan, pol)=(%i, %i, %i), VisVal=(%f,%f) \n",inx,visChan,ipol,creal(VisVal),cimag(VisVal));
+		VisVal*=ThisWeight;
 		//printf(" \n");
 		//printf("Vis: %f %f \n",creal(VisVal),cimag(VisVal));
 		

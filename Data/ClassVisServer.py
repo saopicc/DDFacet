@@ -181,6 +181,7 @@ class ClassVisServer():
                                                   Robust=Robust,
                                                   Weighting=self.Weighting)
 
+
     def VisChunkToShared(self):
 
         # t0_bef,t1_bef=self.CurrentVisTimes_SinceStart_Sec

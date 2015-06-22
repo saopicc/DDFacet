@@ -199,6 +199,7 @@ class ClassMultiScaleMachine():
                 Max=np.max(ThisPSF)
                 ThisPSF/=Max
                 ListPSFScales.append(ThisPSF)
+                ThisSupport=int(np.max([Support,3*Major]))
                 Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)
                 fact=np.max(Gauss)/np.sum(Gauss)
                 Gauss*=fact
@@ -314,6 +315,7 @@ class ClassMultiScaleMachine():
         #fCubePSF=np.float32(self.FFTMachine.fft(np.complex64(CubePSF)).real)
         W=WeightFunction.reshape((1,nch,nx,ny))
         self.OPFT=np.real
+        self.OPFT=np.abs
         fCubePSF=np.float32(self.OPFT(self.FFTMachine.fft(np.complex64(CubePSF*W))))
         nch,npol,_,_=self._PSF.shape
         u,v=np.mgrid[-nx/2+1:nx/2:1j*nx,-ny/2+1:ny/2:1j*ny]
@@ -321,7 +323,9 @@ class ClassMultiScaleMachine():
         r=np.sqrt(u**2+v**2)
         r0=1.
         UVTaper=1.-np.exp(-(r/r0)**2)
+        
         UVTaper=UVTaper.reshape((1,1,nx,ny))*np.ones((nch,npol,1,1),np.float32)
+        UVTaper.fill(1)
 
         # fCubePSF[:,:,nx/2,ny/2]=0
         # import pylab
@@ -455,23 +459,29 @@ class ClassMultiScaleMachine():
 
         #self.SolveMode="MatchingPursuit"
         self.SolveMode="PI"
+        self.SolveMode="NNLS"
 
+        MeanFluxTrue=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())
         if  self.SolveMode=="MatchingPursuit":
             #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
             Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
             #print Sol
+            #indMaxSol1=np.where(np.abs(Sol)==np.max(np.abs(Sol)))[0]
+            #indMaxSol0=np.where(np.abs(Sol)!=np.max(np.abs(Sol)))[0]
             indMaxSol1=np.where(np.abs(Sol)==np.max(np.abs(Sol)))[0]
             indMaxSol0=np.where(np.abs(Sol)!=np.max(np.abs(Sol)))[0]
-            #indMaxSol1=np.where(np.abs(Sol)==np.max((Sol)))[0]
-            #indMaxSol0=np.where(np.abs(Sol)!=np.max((Sol)))[0]
+            indMaxSol1=np.where(np.abs(Sol)==np.max((Sol)))[0]
+            indMaxSol0=np.where(np.abs(Sol)!=np.max((Sol)))[0]
 
             Sol[indMaxSol0]=0
             Max=Sol[indMaxSol1[0]]
-            Sol[indMaxSol1]=np.sign(Max)
+            Sol[indMaxSol1]=MeanFluxTrue#np.sign(Max)*MeanFluxTrue
 
-            D=self.ListScales[indMaxSol1[0]]
+            # D=self.ListScales[indMaxSol1[0]]
             # print "Type %10s (sc, alpha)=(%i, %f)"%(D["ModelType"],D["Scale"],D["Alpha"])
-            LocalSM=self.CubePSFScales[indMaxSol1[0]]*FpolMean.ravel()[0]
+            # LocalSM=self.CubePSFScales[indMaxSol1[0]]*FpolMean.ravel()[0]
+            LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
+
         elif self.SolveMode=="PI":
             Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
             #Sol.fill(1)
@@ -485,7 +495,6 @@ class ClassMultiScaleMachine():
             #print "=====",x,y
             #print "Sum, Sol",np.sum(Sol),Sol.ravel()
             #print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
-            MeanFluxTrue=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())
             #print "MeanFluxTrue",MeanFluxTrue
             coef=np.min([np.abs(np.sum(Sol)/MeanFluxTrue),1.])
             #print "coef",coef
@@ -504,6 +513,64 @@ class ClassMultiScaleMachine():
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
             #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()
+        elif self.SolveMode=="NNLS":
+            import scipy.optimize
+
+            A=BM
+            y=dirtyVec
+            x,_=scipy.optimize.nnls(A, y.ravel())
+            Sol=x
+            LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
+            
+            # P=set()
+            # R=set(range(self.nFunc))
+            # x=np.zeros((self.nFunc,1),np.float32)
+            # s=np.zeros((self.nFunc,1),np.float32)
+            # A=BM
+            # y=dirtyVec
+            # w=np.dot(A.T,y-np.dot(A,x))
+            # print>>log, "init w: %s"%str(w.ravel())
+            # while (len(R)>0):
+            #     print>>log, "while j (len(R)>0)"
+            #     j=np.argmax(w)
+            #     print>>log, "selected j: %i"%j
+            #     print>>log, "P: %s"%str(P)
+            #     print>>log, "R: %s"%str(R)
+            #     P.add(j)
+            #     R.remove(j)
+            #     print>>log, "P: %s"%str(P)
+            #     print>>log, "R: %s"%str(R)
+            #     LP=sorted(list(P))
+            #     LR=sorted(list(R))
+            #     Ap=A[:,LP]
+            #     ApT_Ap_inv=ModLinAlg.invSVD(np.dot(Ap.T,Ap))
+            #     sp=np.dot(ApT_Ap_inv,np.dot(Ap.T,y))
+            #     s[LP,0]=sp[:,0]
+            #     print>>log, "P: %s, s: %s"%(str(P),str(s.ravel()))
+            #     while np.min(sp)<=0.:
+            #         alpha=np.min([x[i,0]/(x[i,0]-s[i,0]) for i in LP if s[i,0]<0])
+            #         print>>log, "  Alpha= %f"%alpha
+            #         x=x+alpha*(s-x)
+            #         print>>log, "  x= %s"%str(x)
+            #         for j in LP:
+            #             if x[j,0]==0: 
+            #                 R.add(j)
+            #                 P.remove(j)
+            #         LP=sorted(list(P))
+            #         LR=sorted(list(R))
+            #         Ap=A[:,LP]
+            #         ApT_Ap_inv=ModLinAlg.invSVD(np.dot(Ap.T,Ap))
+            #         sp=np.dot(ApT_Ap_inv,np.dot(Ap.T,y))
+            #         print>>log, "  sp= %s"%str(sp)
+            #         s[LP,0]=sp[:,0]
+            #         s[LR,0]=0.
+            #     x=s
+            #     w=np.dot(A.T,y-np.dot(A,x))
+            #     print>>log, "x: %s, w: %s"%(str(x.ravel()),str(w.ravel()))
+                    
+                    
+            # Sol=x
+            # LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
             
         nch,nx,ny=LocalSM.shape
         LocalSM=LocalSM.reshape((nch,1,nx,ny))

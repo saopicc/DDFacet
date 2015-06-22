@@ -16,6 +16,8 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 import ClassModelMachine
 from DDFacet.ToolsDir import ModFFTW
 import scipy.ndimage
+from SkyModel.Sky import ModRegFile
+from pyrap.images import image
 
 
 class ClassModelMachine():
@@ -155,3 +157,21 @@ class ClassModelMachine():
                 del(self.DicoSMStacked["Comp"][key])
             except:
                 print>>log, "  Componant at (%i, %i) not in dict "%key
+
+
+    def SplitAnalyticComp(self,PreCluster,FitsFile):
+        R=ModRegFile.RegToNp(PreCluster)
+        R.Read()
+        R.Cluster()
+        PreClusterCat=R.CatSel
+        ExcludeCat=R.CatExclude
+
+
+        im=image(FitsFile)
+        pol,freq,decc,rac=im.toworld((0,0,0,0))
+        for iCluster in PreClusterCat.shape[0]:
+            ra,dec=PreClusterCat.ra[iCluster],PreClusterCat.dec[iCluster]
+            a,b,y,x=im.topixel((pol,freq,dec,ra))
+            key=(x,y)
+            print self.DicoSMStacked["Comp"][key]
+            stop

@@ -564,6 +564,8 @@ class ClassFacetMachine():
             NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
             #SPhe=NpShared.UnPackListSquareMatrix(SharedMemName)[0]
             SPhe=NpShared.GiveArray(SharedMemName)
+
+
             
         for iFacet in self.DicoImager.keys():
             if self.ConstructMode=="Sharp":
@@ -626,10 +628,12 @@ class ClassFacetMachine():
                 sra=DDFacet.ToolsDir.rad2hmsdms.rad2hmsdms(ra,Type="ra")
                 sdec=DDFacet.ToolsDir.rad2hmsdms.rad2hmsdms(dec)
                 sumweight=ThisSumWeights.reshape((nch,npol,1,1))[0,0,0,0]
-                # Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
-                # print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im))
 
-                
+                # Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
+                # l0,m0=self.DicoImager[iFacet]["l0m0"]
+                # print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f (l0, m0)=(%.15f, %.15f)"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im),l0,m0)
+
+
                 for ch in range(nch):
                     for pol in range(npol):
                         #Image[ch,pol,x0main:x1main,y0main:y1main]+=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]

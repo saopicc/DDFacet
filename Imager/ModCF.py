@@ -62,6 +62,7 @@ class SpheMachine():
         if self.Type=="Sphe":
             xc=SupportSphe/2
             CF=ModTaper.Sphe2D(SupportSphe)
+            #CF.fill(1)
             CF=np.complex128(CF)#np.array(np.complex128(CF),order="F")
             fCF=fft2(CF)
             fCF=fCF[xc-Support/2:xc+Support/2+1,xc-Support/2:xc+Support/2+1].copy()
@@ -76,6 +77,7 @@ class SpheMachine():
     def MakeSphe(self,NpixIm):
         fCF=self.Small_fCF
         zfCF=ZeroPad(fCF,NpixIm)
+
         ifzfCF=ifft2(zfCF)
         CF=self.Small_CF
         
@@ -302,7 +304,7 @@ class ClassWTermModified():
         T=ClassTimeIt.ClassTimeIt("Wterm")
         #self.CF, self.fCF, self.ifzfCF= MakeSphe(self.Sup,self.Npix)
 
-        self.SpheM=SpheMachine(Support=self.Sup)
+        self.SpheM=SpheMachine(Support=self.Sup)#,Type="Gauss")
         self.CF, self.fCF, self.ifzfCF= self.SpheM.MakeSphe(self.Npix)
 
     def GiveReorgCF(self,A):
@@ -311,6 +313,7 @@ class ClassWTermModified():
         for i in range(self.OverS):
             for j in range(self.OverS):
                 B[i,j,:,:]=A[i::self.OverS,j::self.OverS]#[::-1,:]
+
         B=B.reshape((A.shape[0],A.shape[0]))
         return B
 

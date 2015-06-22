@@ -124,6 +124,7 @@ def read_options():
     OP.add_option("NFacets",help="Number of facets, default is %default. ")
     OP.add_option("Npix")
     OP.add_option("Cell")
+    OP.add_option("Padding")
     OP.add_option("ConstructMode")
 
     OP.OptionGroup("* Clean","ImagerDeconv")

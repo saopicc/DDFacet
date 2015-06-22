@@ -45,26 +45,35 @@ def testGrid():
     #Parset=ReadCFG.Parset("%s/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
     Parset=ReadCFG.Parset("%s/DDFacet/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
     DC=Parset.DicoPars
-    npix=325
-    Cell=3.
-    offx,offy=0,150
+    npix=195
+    Cell=5.
+    offx,offy=150,150
     CellRad=(Cell/3600.)*np.pi/180
     L=offy*(Cell/3600.)*np.pi/180
     M=-offx*(Cell/3600.)*np.pi/180
+    l0,m0=-0.009453866781636, 0.009453866781636
+    #l0,m0=-0.009454, 0.
+
 
     DC["ImagerMainFacet"]["Cell"]=Cell
     DC["ImagerMainFacet"]["Npix"]=npix
-    DC["VisData"]["MSName"]="/media/6B5E-87D0/DDFacet/Test/TestDegridOleg/TestOlegVLA.MS_p0"
+    #DC["ImagerMainFacet"]["Padding"]=1
+    DC["VisData"]["MSName"]="0001.point.w0.MS"
+    #/media/6B5E-87D0/DDFacet/Test/TestDegridOleg/TestOlegVLA.MS_p0
 
-    DC["ImagerCF"]["OverS"]= 21
-    DC["ImagerCF"]["Support"]= 13
-    DC["ImagerCF"]["Nw"]= 100
-    DC["ImagerCF"]["wmax"]= 30000.
+    DC["ImagerCF"]["OverS"]= 11
+    DC["ImagerCF"]["Support"]= 11
+    DC["ImagerCF"]["Nw"]= 2
+    DC["ImagerCF"]["wmax"]= 100000.
     DC["Stores"]["DeleteDDFProducts"] = True
     IdSharedMem="123."
-    DC["DataSelection"]["UVRangeKm"]=[0.,2000.e6]
-    DC["Compression"]["CompDeGridDecorr"]=0.05
-
+    #DC["DataSelection"]["UVRangeKm"]=[0.2,2000.e6]
+    #DC["Compression"]["CompDeGridDecorr"]=0.05
+    DC["ImagerGlobal"]["Robust"]=-1
+    DC["ImagerGlobal"]["Weighting"]="Briggs"
+    DC["Compression"]["CompDeGridMode"] = False
+    DC["Compression"]["CompGridMode"] = False
+    
     VS=ClassVisServer.ClassVisServer(DC["VisData"]["MSName"],
                                      ColName=DC["VisData"]["ColName"],
                                      TVisSizeMin=DC["VisData"]["TChunkSize"]*60*1.1,
@@ -72,7 +81,7 @@ def testGrid():
                                      TChunkSize=DC["VisData"]["TChunkSize"],
                                      IdSharedMem=IdSharedMem,
                                      Robust=DC["ImagerGlobal"]["Robust"],
-                                     Weighting="Natural",
+                                     Weighting=DC["ImagerGlobal"]["Weighting"],
                                      DicoSelectOptions=dict(DC["DataSelection"]),
                                      NCPU=DC["Parallel"]["NCPU"],GD=DC)
 
@@ -105,7 +114,7 @@ def testGrid():
     GM=ClassDDEGridMachine(DC,
                            ChanFreq,
                            npix,
-                           lmShift=(0.,0.),#self.DicoImager[iFacet]["lmShift"],
+                           lmShift=(l0,m0),#self.DicoImager[iFacet]["lmShift"],
                            IdSharedMem=IdSharedMem)
 
 
@@ -115,29 +124,30 @@ def testGrid():
     row0=0
     row1=DATA["uvw"].shape[0]#-1
     uvw=np.float64(DATA["uvw"])#[row0:row1]
-    uvw[:,2]=0
+    #uvw[:,2]=0
     times=np.float64(DATA["times"])#[row0:row1]
     data=np.complex64(DATA["data"])#[row0:row1]
-    data.fill(1.)
-    data[:,:,0]=1
-    data[:,:,3]=1
+    #data.fill(1.)
+    #data[:,:,0]=1
+    #data[:,:,3]=1
     A0=np.int32(DATA["A0"])#[row0:row1]
     A1=np.int32(DATA["A1"])#[row0:row1]
     
     
+
 
     #uvw.fill(0)
     
     flag=np.bool8(DATA["flags"])#[row0:row1,:,:].copy()
     #ind=np.where(np.logical_not((A0==12)&(A1==14)))[0]
     #flag[ind,:,:]=1
-    flag.fill(0)
+    #flag.fill(0)
 
 
-    ind=np.where(np.logical_not((A0==0)&(A1==27)))[0]
+    #ind=np.where(np.logical_not((A0==0)&(A1==27)))[0]
     # uvw=uvw[ind].copy()
     # data=data[ind].copy()
-    flag[ind,:,:]=1
+    #flag[ind,:,:]=1
     # A0=A0[ind].copy()
     # A1=A1[ind].copy()
     # times=times[ind].copy()
@@ -162,16 +172,35 @@ def testGrid():
 
     T=ClassTimeIt.ClassTimeIt("main")
 
-    # print "Start"
-    # Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True, DicoJonesMatrices=DicoJonesMatrices)
-    # print "OK"
-    # pylab.clf()
-    # pylab.imshow(np.real(Grid[0,0]))
-    # #pylab.imshow(np.random.rand(50,50))
-    # pylab.colorbar()
-    # pylab.draw()
-    # pylab.show(False)
-    # return
+    print "Start"
+    Grid=GM.put(times,uvw,data,flag,(A0,A1),W=DATA["Weights"],PointingID=0,DoNormWeights=True, DicoJonesMatrices=DicoJonesMatrices)
+    print "OK"
+    pylab.clf()
+    ax=pylab.subplot(1,3,1)
+    pylab.imshow(np.real(Grid[0,0]),cmap="gray",interpolation="nearest")#,vmin=-600,vmax=600)
+    G0=(Grid/np.max(Grid)).copy()
+
+    #pylab.imshow(np.random.rand(50,50))
+
+    ####
+
+    GM=ClassDDEGridMachine(DC,
+                           ChanFreq,
+                           npix,
+                           lmShift=(0.,0.),#self.DicoImager[iFacet]["lmShift"],
+                           IdSharedMem=IdSharedMem)
+    data.fill(1.)
+    Grid=GM.put(times,uvw,data,flag,(A0,A1),W=DATA["Weights"],PointingID=0,DoNormWeights=True, DicoJonesMatrices=DicoJonesMatrices)
+    pylab.subplot(1,3,2,sharex=ax,sharey=ax)
+    pylab.imshow(np.real(Grid[0,0]),cmap="gray",interpolation="nearest")#,vmin=-600,vmax=600)
+    pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+    pylab.imshow(np.real(Grid[0,0])-np.real(G0[0,0]),cmap="gray",interpolation="nearest")#,vmin=-600,vmax=600)
+    pylab.colorbar()
+    pylab.draw()
+    pylab.show(False)
+
+
+    return
 
 
     Grid=np.zeros(sh,np.complex64)
