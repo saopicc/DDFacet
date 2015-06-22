@@ -2,6 +2,7 @@
 
 import optparse
 import pickle
+import numpy as np
 
 SaveName="last_MakeModel.obj"
 
@@ -35,14 +36,29 @@ def main(options=None):
     SkyModel=options.SkyModel
 
     if options.BaseImageName!="":
+        from pyrap.images import image
         from DDFacet.Imager.ClassModelMachine import ClassModelMachine
+        from DDFacet.Imager import ClassCasaImage
         MM=ClassModelMachine(Gain=0.1)
         DicoModel="%s.DicoModel"%options.BaseImageName
         FitsFile="%s.model.fits"%options.BaseImageName
         MM.FromFile(DicoModel)
         MM.CleanNegComponants(box=15,sig=1)
-        MM.ToNPYModel(FitsFile)
-        SkyModel="tmpSourceCat.npy"
+        SkyModel=options.BaseImageName+".npy"
+        MM.ToNPYModel(FitsFile,SkyModel)
+        #SkyModel="tmpSourceCat.npy"
+        # ModelImage=MM.GiveModelImage()
+        # im=image(FitsFile)
+        # ModelOrig=im.getdata()
+        # indx,indy=np.where(ModelImage[0,0]!=ModelImage[0,0])
+        # print ModelImage[0,0,indx,indy],ModelImage[0,0,indx,indy]
+        # cell=abs(im.coordinates().dict()["direction0"]["cdelt"][0])*180/np.pi*3600
+        # ra,dec=im.coordinates().dict()["direction0"]["crval"]
+        # CasaImage=ClassCasaImage.ClassCasaimage("Model",ModelImage.shape,cell,(ra,dec))
+        # CasaImage.setdata(ModelImage,CorrT=True)
+        # CasaImage.ToFits()
+        # CasaImage.close()
+
 
     NCluster=int(options.NCluster)
     DoPlot=(int(options.DoPlot)==1)
