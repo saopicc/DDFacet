@@ -43,7 +43,7 @@ def main(options=None):
         DicoModel="%s.DicoModel"%options.BaseImageName
         FitsFile="%s.model.fits"%options.BaseImageName
         MM.FromFile(DicoModel)
-        MM.CleanNegComponants(box=15,sig=1)
+        MM.CleanNegComponants(box=10,sig=2)
         SkyModel=options.BaseImageName+".npy"
         MM.ToNPYModel(FitsFile,SkyModel)
         #SkyModel="tmpSourceCat.npy"

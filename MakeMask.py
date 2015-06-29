@@ -22,8 +22,8 @@ def read_options():
     opt = optparse.OptionParser(usage='Usage: %prog --ms=somename.MS <options>',version='%prog version 1.0',description=desc)
     group = optparse.OptionGroup(opt, "* Data-related options")
     group.add_option('--RestoredIm',type="str",help="default is %default",default=None)
-    group.add_option('--Th',type="float",default=5,help="default is %default")
-    group.add_option("--Box",type="str",default="50,10",help="default is %default")
+    group.add_option('--Th',type="float",default=10,help="default is %default")
+    group.add_option("--Box",type="str",default="120,2",help="default is %default")
     #group.add_option("--MedFilter",type="str",default="50,10")
     opt.add_option_group(group)
 
@@ -92,11 +92,28 @@ class ClassMakeMask():
         Boost=self.Boost
         Acopy=self.Restored[0,0,0::Boost,0::Boost].copy()
         SBox=(self.box[0]/Boost,self.box[1]/Boost)
-        Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
 
-        indxy=(Acopy>5.*Noise)
-        Acopy[indxy]=5*Noise[indxy]
-        Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
+
+        # MeanAbs=scipy.ndimage.filters.mean_filter(np.abs(Acopy),SBox)
+        # Acopy[Acopy>0]=MeanAbs[Acopy>0]
+        # Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
+
+        x=np.linspace(-10,10,1000)
+        f=0.5*(1.+scipy.special.erf(x/np.sqrt(2.)))
+        n=SBox[0]*SBox[1]
+        F=1.-(1.-f)**n
+        ratio=np.abs(np.interp(0.5,F,x))
+
+        Noise=-scipy.ndimage.filters.minimum_filter(Acopy,SBox)/ratio
+        #Noise[Noise<0]=0
+
+        # indxy=(Acopy>5.*Noise)
+        # Acopy[indxy]=5*Noise[indxy]
+        # Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
+
+        # indxy=(Acopy>5.*Noise)
+        # Acopy[indxy]=5*Noise[indxy]
+        # Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
 
         NoiseMed=np.median(Noise)
         Noise[Noise<NoiseMed]=NoiseMed
