@@ -93,6 +93,14 @@ class ClassMakeMask():
         Acopy=self.Restored[0,0,0::Boost,0::Boost].copy()
         SBox=(self.box[0]/Boost,self.box[1]/Boost)
         Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
+
+        indxy=(Acopy>5.*Noise)
+        Acopy[indxy]=5*Noise[indxy]
+        Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
+
+        NoiseMed=np.median(Noise)
+        Noise[Noise<NoiseMed]=NoiseMed
+
         self.Noise=np.zeros_like(self.Restored[0,0])
         for i in range(Boost):
             for j in range(Boost):
