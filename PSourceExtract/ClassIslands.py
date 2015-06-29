@@ -1,9 +1,9 @@
 import pyfits
 import numpy as np
 import time
-from Other import ModColor
+from SkyModel.Other import ModColor
 import scipy.ndimage
-from Other.progressbar import ProgressBar
+from SkyModel.Other.progressbar import ProgressBar
 import findrms
 
 
@@ -146,10 +146,14 @@ class ClassIslands():
         self.Noise[ind]=1e-10
 
 
+
     def FindAllIslands(self):
         A=self.A
         if self.Noise==None:
             self.ComputeNoiseMap()
+
+
+
         N=self.Noise
         T=self.T
         #self.plot()
