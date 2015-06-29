@@ -21,9 +21,9 @@ def read_options():
     
     opt = optparse.OptionParser(usage='Usage: %prog --ms=somename.MS <options>',version='%prog version 1.0',description=desc)
     group = optparse.OptionGroup(opt, "* Data-related options")
-    group.add_option('--RestoredIm',type="str",default=None)
-    group.add_option('--Th',type="float",default=5)
-    group.add_option("--Box",type="str",default="50,10")
+    group.add_option('--RestoredIm',type="str",help="default is %default",default=None)
+    group.add_option('--Th',type="float",default=5,help="default is %default")
+    group.add_option("--Box",type="str",default="50,10",help="default is %default")
     #group.add_option("--MedFilter",type="str",default="50,10")
     opt.add_option_group(group)
 
