@@ -9,6 +9,26 @@ from DDFacet.ToolsDir import rad2hmsdms
 import pyfits
 import pyrap.images
 
+def PutDataInNewImage(ImageNameIn,ImageNameOut,data,CorrT=False):
+    im=image(ImageNameIn)
+
+    F=pyfits.open(ImageNameIn)
+    F0=F[0]
+    nx=F0.header["NAXIS1"]
+    ny=F0.header["NAXIS2"]
+    npol=F0.header["NAXIS3"]
+    nch=F0.header["NAXIS4"]
+    shape=(nch,npol,ny,nx)
+    
+    Dico=im.coordinates().dict()
+    cell=abs(Dico["direction0"]["cdelt"][0])*180/np.pi*3600
+    ra,dec=Dico["direction0"]["crval"]
+    CasaImage=ClassCasaimage(ImageNameOut,shape,cell,(ra,dec))
+    CasaImage.setdata(data,CorrT=CorrT)
+    CasaImage.ToFits()
+    CasaImage.close()
+
+
 class ClassCasaimage():
     def __init__(self,ImageName,ImShape,Cell,radec,Freqs=None,KeepCasa=False):
         self.Cell=Cell

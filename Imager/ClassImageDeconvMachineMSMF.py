@@ -9,13 +9,13 @@ from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
 import ClassMultiScaleMachine
-
+from pyrap.images import image
 
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,CycleFactor=2.5,
-                 GD=None):
+                 GD=None,CleanMaskImage=None):
         #self.im=CasaImage
         
         self.Gain=Gain
@@ -29,6 +29,15 @@ class ClassImageDeconvMachine():
         self.SubPSF=None
         self.MultiFreqMode=(self.GD["MultiFreqs"]["NFreqBands"]>1)
         self.MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.Gain)
+        if CleanMaskImage!=None:
+            print>>log, "Reading mask image: %s"%CleanMaskImage
+            MaskArray=image(CleanMaskImage).getdata()
+            nch,npol,_,_=MaskArray.shape
+            self._MaskArray=np.zeros(MaskArray.shape,np.bool8)
+            for ch in range(nch):
+                for pol in range(npol):
+                    self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
+            self.MaskArray=self._MaskArray[0]
 
     def GiveModelImage(self,*args): return self.MSMachine.ModelMachine.GiveModelImage(*args)
 
@@ -151,7 +160,6 @@ class ClassImageDeconvMachine():
         # y1p=y0+y1p
         # Bedge=x0p,x1p,y0p,y1p
 
-
         # pylab.clf()
         # ax=pylab.subplot(1,3,1)
         # vmin,vmax=self.Dirty.min(),self.Dirty.max()
@@ -244,18 +252,21 @@ class ClassImageDeconvMachine():
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
 
-        x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
+        x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1,Mask=self.MaskArray)
         #print x,y
 
         if ThisFlux < FluxLimit_RMS:
             print>>log, ModColor.Str("    Initial maximum peak %f Jy lower that rms-based limit of %f Jy (%i-sigma)" % (ThisFlux,FluxLimit_RMS,Threshold_RMS))
             return "DoneMinFlux"
 
-        self._MaskArray.fill(1)
-        self._MaskArray.fill(0)
+
+
+        #self._MaskArray.fill(1)
+        #self._MaskArray.fill(0)
         #self._MaskArray[np.abs(self._MeanDirty) > Threshold_SideLobe]=0
 
-#        DoneScale=np.zeros((self.MSMachine.NScales,),np.float32)
+        #        DoneScale=np.zeros((self.MSMachine.NScales,),np.float32)
+
         for i in range(Nminor):
 
             #x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
