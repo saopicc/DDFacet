@@ -24,6 +24,7 @@ def read_options():
     group.add_option('--RestoredIm',type="str",default=None)
     group.add_option('--Th',type="float",default=5)
     group.add_option("--Box",type="str",default="50,10")
+    #group.add_option("--MedFilter",type="str",default="50,10")
     opt.add_option_group(group)
 
     
@@ -103,26 +104,26 @@ class ClassMakeMask():
         ind=np.where(self.Noise==0.)
         self.Noise[ind]=1e-10
 
-    def ComputeNoiseMap(self):
-        print "Compute noise map..."
-        Boost=self.Boost
-        Acopy=self.Restored[0,0,0::Boost,0::Boost].copy()
-        SBox=(self.box[0]/Boost,self.box[1]/Boost)
-        Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
-        self.Noise=np.zeros_like(self.Restored[0,0])
-        for i in range(Boost):
-            for j in range(Boost):
-                s00,s01=Noise.shape
-                s10,s11=self.Noise[i::Boost,j::Boost].shape
-                s0,s1=min(s00,s10),min(s10,s11)
-                self.Noise[i::Boost,j::Boost][0:s0,0:s1]=Noise[:,:][0:s0,0:s1]
-        print " ... done"
-        ind=np.where(self.Noise==0.)
-        self.Noise[ind]=1e-10
+    # def ComputeNoiseMap(self):
+    #     print "Compute noise map..."
+    #     Boost=self.Boost
+    #     Acopy=self.Restored[0,0,0::Boost,0::Boost].copy()
+    #     SBox=(self.box[0]/Boost,self.box[1]/Boost)
+    #     Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
+    #     self.Noise=np.zeros_like(self.Restored[0,0])
+    #     for i in range(Boost):
+    #         for j in range(Boost):
+    #             s00,s01=Noise.shape
+    #             s10,s11=self.Noise[i::Boost,j::Boost].shape
+    #             s0,s1=min(s00,s10),min(s10,s11)
+    #             self.Noise[i::Boost,j::Boost][0:s0,0:s1]=Noise[:,:][0:s0,0:s1]
+    #     print " ... done"
+    #     ind=np.where(self.Noise==0.)
+    #     self.Noise[ind]=1e-10
 
     def FindIslands(self):
         self.ImIsland=(self.Restored[0,0,:,:]>self.Th*self.Noise)
-        self.ImIsland=scipy.ndimage.filters.median_filter(self.ImIsland,size=(3,3))
+        #self.ImIsland=scipy.ndimage.filters.median_filter(self.ImIsland,size=(3,3))
 
 
     def plot(self):
