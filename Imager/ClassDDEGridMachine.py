@@ -1,6 +1,7 @@
 import numpy as np
 from DDFacet.Gridder import _pyGridder
-from DDFacet.Gridder import _pyGridderSmear
+#from DDFacet.Gridder import _pyGridderSmear
+from DDFacet.Gridder import _pyGridderSmearPols as _pyGridderSmear
 #import pylab
 from pyrap.images import image
 #import MyPickle
@@ -339,12 +340,20 @@ class ClassDDEGridMachine():
         
 
         self.PolMode=PolMode
+        # SkyType & JonesType
+        # 0: scalar
+        # 1: diag
+        # 2: full
         if PolMode=="I":
             self.npol=1
             self.PolMap=np.array([0,5,5,0],np.int32)
+            self.SkyType=1
+            self.PolModeID=0
         elif PolMode=="IQUV":
+            self.SkyType=2
             self.npol=4
             self.PolMap=np.array([0,1,2,3],np.int32)
+            self.PolModeID=1
 
         self.Npix=Npix
         self.NonPaddedShape=(1,self.npol,self.NonPaddedNpix,self.NonPaddedNpix)
@@ -375,9 +384,19 @@ class ClassDDEGridMachine():
             self.ChanEquidistant=int(np.max(ddf)<1.)
         else:
             self.ChanEquidistant=0
-        #print self.ChanEquidistant
-        self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
+        # print self.ChanEquidistant
+        #self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
+        #self.FullScalarMode=0
 
+        JonesMode=GD["DDESolutions"]["JonesMode"]
+        if JonesMode=="Scalar":
+            self.JonesType=0
+        elif JonesMode=="Diag":
+            self.JonesType=1
+        elif JonesMode=="Full":
+            self.JonesType=2
+            
+        
         T.timeit("3")
 
         self.ChanWave=2.99792458e8/self.ChanFreq
@@ -695,6 +714,8 @@ class ClassDDEGridMachine():
                                               [self.PolMap,FacetInfos],
                                               ParamJonesList) # Input the jones matrices
         else:
+            #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
+            OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType,self.PolModeID]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMem))
             _pyGridderSmear.pyGridderWPol(Grid,
                                                vis,
@@ -711,7 +732,7 @@ class ClassDDEGridMachine():
                                                [self.PolMap,FacetInfos],
                                                ParamJonesList,
                                                MapSmear,
-                                               [self.FullScalarMode,self.ChanEquidistant])
+                                               OptimisationInfos)
         #print "!!!!!!!!!! 1 ",SumWeigths
 
 
@@ -906,6 +927,8 @@ class ClassDDEGridMachine():
                                              ParamJonesList)
         else:
 
+            #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
+            OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType,self.PolModeID]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMem))
             vis = _pyGridderSmear.pyDeGridderWPol(Grid,
                                                   vis,
@@ -921,7 +944,7 @@ class ClassDDEGridMachine():
                                                   [self.PolMap,FacetInfos,RowInfos],
                                                   ParamJonesList,
                                                   MapSmear,
-                                                  [self.FullScalarMode,self.ChanEquidistant])
+                                                  OptimisationInfos)
             
 
         T.timeit("4 (degrid)")

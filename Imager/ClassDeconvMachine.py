@@ -536,8 +536,21 @@ class ClassImagerDeconv():
         RefFreq=self.VS.RefFreq
         ModelMachine=self.DeconvMachine.MSMachine.ModelMachine
 
+
+
+        # Putting back substracted componants
+        if self.GD["DDESolutions"]["RestoreSub"]:
+            try:
+                ModelMachine.PutBackSubsComps()
+            except:
+                print>>log, ModColor.Str("Failed Putting back substracted componants")
+
+
         # model image
         ModelImage=ModelMachine.GiveModelImage(RefFreq)
+
+        
+
         self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%self.BaseName,Fits=True)
 
         # restored image

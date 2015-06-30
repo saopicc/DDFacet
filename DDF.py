@@ -104,6 +104,7 @@ def read_options():
 
     OP.OptionGroup("* DDE Solutions","DDESolutions")
     OP.add_option("DDSols")
+    OP.add_option("JonesMode")
     OP.add_option("GlobalNorm")
     OP.add_option("DDModeGrid")
     OP.add_option("DDModeDeGrid")
@@ -113,6 +114,7 @@ def read_options():
     OP.add_option('Type')
     OP.add_option('Scale')
     OP.add_option('gamma')
+    OP.add_option("RestoreSub")
 
     OP.OptionGroup("* Convolution functions","ImagerCF")
     OP.add_option("Support")
@@ -133,7 +135,7 @@ def read_options():
     OP.add_option("MaxMinorIter")
     OP.add_option("CycleFactor")
     OP.add_option("CleanMaskImage")
-
+ 
     OP.Finalise()
     OP.ReadInput()
     OP.Print()
