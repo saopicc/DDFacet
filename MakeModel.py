@@ -14,6 +14,8 @@ def read_options():
     group = optparse.OptionGroup(opt, "* Data-related options", "Won't work if not specified.")
     group.add_option('--SkyModel',help='List of targets [no default]',default='')
     group.add_option('--BaseImageName',help='List of targets [no default]',default='')
+    group.add_option('--MaskName',help='List of targets [no default]',default='')
+    group.add_option('--CleanNegComp',help='List of targets [no default]',type="int",default=0)
     group.add_option('--NCluster',help=' Default is %default',default="0")
     group.add_option('--DoPlot',help=' Default is %default',default="1")
     group.add_option('--DoSelect',help=' Default is %default',default="0")
@@ -43,10 +45,15 @@ def main(options=None):
         DicoModel="%s.DicoModel"%options.BaseImageName
         FitsFile="%s.model.fits"%options.BaseImageName
         MM.FromFile(DicoModel)
-        MM.CleanNegComponants(box=10,sig=2)
+        if options.MaskName!="":
+            MM.CleanMaskedComponants(options.MaskName)
+        if options.CleanNegComp:
+            MM.CleanNegComponants(box=10,sig=2)
+
         SkyModel=options.BaseImageName+".npy"
         MM.ToNPYModel(FitsFile,SkyModel)
-        #SkyModel="tmpSourceCat.npy"
+
+        # SkyModel="tmpSourceCat.npy"
         # ModelImage=MM.GiveModelImage()
         # im=image(FitsFile)
         # ModelOrig=im.getdata()
@@ -83,7 +90,7 @@ def main(options=None):
     if options.DoPrint=="1":
         SM.print_sm2()
 
-
+    
 
 
 if __name__=="__main__":

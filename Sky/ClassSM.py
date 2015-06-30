@@ -45,6 +45,7 @@ class ClassSM():
         self.NSources=Cat.shape[0]
         self.SetSelection()
         self.PrintBasics()
+
         #self.print_sm2()
 
     def SetSelection(self):
