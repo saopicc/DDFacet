@@ -78,7 +78,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         
         RadiusTot=self.CellSizeRad*self.Npix/2
         
-        ClusterNodes=np.load("Simul.npz")["ClusterCat"]
+        ClusterNodes=np.load("BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
         ClusterNodes=ClusterNodes.view(np.recarray)
         raNode=ClusterNodes.ra
         decNode=ClusterNodes.dec
@@ -101,7 +101,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
 
         
+        X,Y=np.mgrid[-RadiusTot:RadiusTot:5000*1j,-RadiusTot:RadiusTot:5000*1j]
         for iFacet in range(len(regions)):
+            print iFacet,"/",len(regions)
             region=regions[iFacet]
             self.DicoImager[iFacet]={}
             polygon0 = vertices[region]
@@ -123,7 +125,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             # rect[:,1]=np.array([-RadiusTot,-RadiusTot,RadiusTot,RadiusTot])
             
             mpath = Path( polygon )
-            X,Y=np.mgrid[-RadiusTot:RadiusTot:100*1j,-RadiusTot:RadiusTot:100*1j]
             XY = np.dstack((X, Y))
             XY_flat = XY.reshape((-1, 2))
             mask_flat = mpath.contains_points(XY_flat)
@@ -147,9 +148,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         
 
     def MakeMasksTessel(self):
-
         self.SpacialWeigth={}
         for iFacet in self.DicoImager.keys():
+            print>>log, "Making mask for facet %i"%iFacet
             Npix=self.DicoImager[iFacet]["NpixFacetPadded"]
             l0,l1,m0,m1=self.DicoImager[iFacet]["lmExtentPadded"]
             X, Y = np.mgrid[l0:l1:Npix*1j,m0:m1:Npix*1j]
