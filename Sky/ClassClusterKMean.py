@@ -2,6 +2,7 @@ import numpy as np
 import pylab
 from scipy.spatial import Voronoi
 import ModVoronoi
+from DDFacet.ToolsDir import ModCoord
 
 def test():
     
@@ -43,7 +44,10 @@ class ClassClusterKMean():
         DicoSources={}
     
         ns=x.size
-        sz=(s-s.min())/(s.max()-s.min())*10+2
+        if s.max()!=s.min():
+            sz=(s-s.min())/(s.max()-s.min())*10+2
+        else:
+            sz=np.ones_like(s)*10
         while True:
             #d=s.reshape((ns,1))*np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
             d=np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
@@ -149,16 +153,17 @@ class ClassClusterKMean():
         xy[:,1]=yc
         vor = Voronoi(xy)
         regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
+
+        self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
+
         for region in regions:
             polygon0 = vertices[region]
             P=polygon0.tolist()
             polygon=np.array(P+[P[0]])
             for iline in range(polygon.shape[0]-1):
                 
-                x0=rac+polygon[iline][0]
-                y0=decc+polygon[iline][1]
-                x1=rac+polygon[iline+1][0]
-                y1=decc+polygon[iline+1][1]
+                x0,y0=self.CoordMachine.lm2radec(np.array([polygon[iline][0]]),np.array([polygon[iline][1]]))
+                x1,y1=self.CoordMachine.lm2radec(np.array([polygon[iline+1][0]]),np.array([polygon[iline+1][1]]))
 
                 x0*=180./np.pi
                 y0*=180./np.pi
@@ -166,5 +171,6 @@ class ClassClusterKMean():
                 y1*=180./np.pi
 
                 f.write("line(%f,%f,%f,%f) # line=0 0 color=red dash=1\n"%(x0,y0,x1,y1))
+                #f.write("line(%f,%f,%f,%f) # line=0 0 color=red dash=1\n"%(x1,y0,x0,y1))
             
         f.close()
