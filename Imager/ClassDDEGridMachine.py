@@ -428,25 +428,36 @@ class ClassDDEGridMachine():
         #SharedName="%sFFTW.%i"%(self.IdSharedMem,self.IDFacet)
         #self.FFTWMachine=ModFFTW.FFTW_2Donly(self.GridShape,self.dtype, ncores = 1, FromSharedId=SharedName)
 
-        if self.WProj:
-            self.WTerm=ModCF.ClassWTermModified(Cell=self.Cell,
-                                                Sup=self.Sup,
-                                                Npix=self.Npix,
-                                                Freqs=self.ChanFreq,
-                                                wmax=self.wmax,
-                                                Nw=self.Nw,
-                                                OverS=self.OverS,
-                                                lmShift=self.lmShift,
-                                                IdSharedMem=self.IdSharedMem,
-                                                IDFacet=self.IDFacet)
-        else:
-            self.WTerm=ModCF.ClassSTerm(Cell=self.Cell,
-                                        Sup=self.Support,
-                                        Npix=self.Npix,
-                                        Freqs=self.ChanFreq,
-                                        wmax=self.wmax,
-                                        Nw=self.Nw,
-                                        OverS=self.OverS)
+        self.WTerm=ModCF.ClassWTermModified(Cell=self.Cell,
+                                            Sup=self.Sup,
+                                            Npix=self.Npix,
+                                            Freqs=self.ChanFreq,
+                                            wmax=self.wmax,
+                                            Nw=self.Nw,
+                                            OverS=self.OverS,
+                                            lmShift=self.lmShift,
+                                            IdSharedMem=self.IdSharedMem,
+                                            IDFacet=self.IDFacet)
+
+        # if self.WProj:
+        #     self.WTerm=ModCF.ClassWTermModified(Cell=self.Cell,
+        #                                         Sup=self.Sup,
+        #                                         Npix=self.Npix,
+        #                                         Freqs=self.ChanFreq,
+        #                                         wmax=self.wmax,
+        #                                         Nw=self.Nw,
+        #                                         OverS=self.OverS,
+        #                                         lmShift=self.lmShift,
+        #                                         IdSharedMem=self.IdSharedMem,
+        #                                         IDFacet=self.IDFacet)
+        # else:
+        #     self.WTerm=ModCF.ClassSTerm(Cell=self.Cell,
+        #                                 Sup=self.Support,
+        #                                 Npix=self.Npix,
+        #                                 Freqs=self.ChanFreq,
+        #                                 wmax=self.wmax,
+        #                                 Nw=self.Nw,
+        #                                 OverS=self.OverS)
 
         self.ifzfCF= self.WTerm.ifzfCF
  

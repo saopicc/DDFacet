@@ -1,6 +1,7 @@
 
 
-import ClassFacetMachine
+from ClassFacetMachine import ClassFacetMachine
+from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
 import pylab
 #import ToolsDir
@@ -143,7 +144,7 @@ class ClassImagerDeconv():
         SolsFile=self.GD["DDESolutions"]["DDSols"]
         if (SolsFile!="")|(self.GD["Beam"]["BeamModel"]!=None): ApplyCal=True
 
-        self.FacetMachine=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
+        self.FacetMachine=ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
                                                               IdSharedMem=self.IdSharedMem,ApplyCal=ApplyCal)#,Sols=SimulSols)
 
         

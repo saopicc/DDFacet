@@ -253,19 +253,29 @@ class ClassWTermModified():
         self.IDFacet=IDFacet
         self.IdSharedMem=IdSharedMem
         self.SharedMemName="%sWTerm.Facet_%3.3i"%(self.IdSharedMem,self.IDFacet)
-        self.SharedMemNameSphe="%sSpheroidal"%(self.IdSharedMem)
+        #self.SharedMemNameSphe="%sSpheroidal"%(self.IdSharedMem)
+        self.SharedMemNameSphe="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,self.IDFacet)
 
-        if self.IDFacet==None:
+        # if self.IDFacet==None:
+        #     self.InitSphe()
+        #     self.InitW()
+        # else:
+        #     Exists=NpShared.Exists(self.SharedMemName)
+        #     if Exists:
+        #         self.FromShared()
+        #     else:
+        #         self.InitSphe()
+        #         self.InitW()
+        #         self.ToShared()
+
+        Exists=NpShared.Exists(self.SharedMemName)
+        if Exists:
+            self.FromShared()
+        else:
             self.InitSphe()
             self.InitW()
-        else:
-            Exists=NpShared.Exists(self.SharedMemName)
-            if Exists:
-                self.FromShared()
-            else:
-                self.InitSphe()
-                self.InitW()
-                self.ToShared()
+            self.ToShared()
+
         Freqs=self.Freqs
         C=299792458.
         waveMin=C/Freqs[-1]
@@ -275,8 +285,9 @@ class ClassWTermModified():
     def ToShared(self):
         #print>>log, "Saving WTerm in shared memory (%s)"%self.SharedMemName
         dS=np.complex64
-        if self.IDFacet==0:
-            NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
+        #if self.IDFacet==0:
+        #    NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
+        NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
         LArrays=[]
         CuCv=np.array([self.Cu,self.Cv,self.Cu,self.Cv],dtype=dS).reshape(2,2)
         LArrays.append(CuCv)

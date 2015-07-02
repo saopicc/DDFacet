@@ -526,7 +526,7 @@ class ClassFacetMachine():
             ImagData[Channel]=self.FacetsToIm_Channel(Channel=Channel)[0]
             if DoCalcNormData:
                 self.NormData[Channel]=self.FacetsToIm_Channel(Channel=Channel,BeamWeightImage=True)[0]
-                    
+                
         # if self.VS.MultiFreqMode:
         #     DicoImages["SumWeights"]={}
         #     for Channel in range(self.VS.NFreqBands):
@@ -549,6 +549,8 @@ class ClassFacetMachine():
                 
         if NormJones: 
             #ImagData/=(NormData)
+            print "!!!!!!!!!!!"
+            #self.NormData.fill(1)
             ImagData/=np.sqrt(self.NormData)
 
         DicoImages["ImagData"]=ImagData
@@ -603,14 +605,11 @@ class ClassFacetMachine():
         _,_,NPixOut,NPixOut=self.OutImShape
 
         print>>log, "Combining facets using %s mode for Channel=%i [JonesNormImage = %i]..."%(self.ConstructMode,Channel,BeamWeightImage)
-        if self.ConstructMode=="Fader": 
-            SharedMemName="%sSpheroidal"%(self.IdSharedMem)#"%sWTerm.Facet_%3.3i"%(self.IdSharedMem,0)
-            NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
-            #SPhe=NpShared.UnPackListSquareMatrix(SharedMemName)[0]
-            SPhe=NpShared.GiveArray(SharedMemName)
 
 
             
+        NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
+
         for iFacet in self.DicoImager.keys():
             if self.ConstructMode=="Sharp":
                 x0,x1,y0,y1=self.DicoImager[iFacet]["pixExtent"]
@@ -619,6 +618,11 @@ class ClassFacetMachine():
                         Image[ch,pol,x0:x1,y0:y1]=self.DicoGridMachine[iFacet]["Dirty"][Channel][ch,pol][::-1,:].T.real
             elif self.ConstructMode=="Fader":
                 
+                SharedMemName="%sSpheroidal"%(self.IdSharedMem)#"%sWTerm.Facet_%3.3i"%(self.IdSharedMem,0)
+                SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+                #SPhe=NpShared.UnPackListSquareMatrix(SharedMemName)[0]
+                SPhe=NpShared.GiveArray(SharedMemName)
+
                 xc,yc=self.DicoImager[iFacet]["pixCentral"]
                 NpixFacet=self.DicoGridMachine[iFacet]["Dirty"][Channel].shape[2]
 
@@ -676,8 +680,9 @@ class ClassFacetMachine():
                 # Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
                 # l0,m0=self.DicoImager[iFacet]["l0m0"]
                 # print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f (l0, m0)=(%.15f, %.15f)"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im),l0,m0)
-
-
+                
+                
+                SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
                 for ch in range(nch):
                     for pol in range(npol):
                         #Image[ch,pol,x0main:x1main,y0main:y1main]+=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
@@ -688,12 +693,26 @@ class ClassFacetMachine():
                             S=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
                             Im=np.ones(S.shape,dtype=np.float64)*ThisSumJones*S
                         else:
+
                             Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
+                            Sphe0=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
+                            Im/=Sphe0
+                            Im[Sphe0<1e-3]=0
+                            SW=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
+                            Im*=SW
+
                         #print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im))
                         Image[ch,pol,x0main:x1main,y0main:y1main]+=Im
-                NormImage[x0main:x1main,y0main:y1main]+=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
+
+                #Sphe=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
+                SW=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
+
+                # M=Mask[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
+                # Sphe[M==0]=0
+                NormImage[x0main:x1main,y0main:y1main]+=SW#Sphe
 
 
+        #NormImage[NormImage==0]=1.
         if self.ConstructMode=="Fader": 
             for ch in range(nch):
                 for pol in range(npol):
