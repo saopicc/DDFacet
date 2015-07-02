@@ -210,7 +210,6 @@ class ClassFacetMachine():
 
         self.DicoImagerCentralFacet=self.DicoImager[lFacet.size/2]
 
-            
 
 
         #print "Append3"; self.IM.CI.E.clear()
@@ -225,6 +224,51 @@ class ClassFacetMachine():
 
 
         self.SetLogModeSubModules("Silent")
+        self.MakeREG()
+
+    def MakeREG(self):
+
+        regFile="%s.Facets.reg"%self.ImageName
+        print>>log, "Writing facets locations in %s"%regFile
+        f=open(regFile,"w")
+        f.write("# Region file format: DS9 version 4.1\n")
+        ss0='global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=1 highlite=1 dash=0'
+        ss1=' fixed=0 edit=1 move=1 delete=1 include=1 source=1\n'
+        
+        f.write(ss0+ss1)
+        f.write("fk5\n")
+ 
+        for iFacet in self.DicoImager.keys():
+            #rac,decc=self.DicoImager[iFacet]["RaDec"]
+            l0,m0=self.DicoImager[iFacet]["l0m0"]
+            diam=self.DicoImager[iFacet]["lmDiam"]
+            dl=np.array([-1,1,1,-1,-1])*diam
+            dm=np.array([-1,-1,1,1,-1])*diam
+            l=((dl.flatten()+l0)).tolist()
+            m=((dm.flatten()+m0)).tolist()
+            x=[]; y=[]
+            
+            for iPoint in range(len(l)):
+                xp,yp=self.CoordMachine.lm2radec(np.array([l[iPoint]]),np.array([m[iPoint]]))
+                x.append(xp)
+                y.append(yp)
+
+            x=np.array(x)#+[x[2]])
+            y=np.array(y)#+[y[2]])
+
+            x*=180/np.pi
+            y*=180/np.pi
+
+
+            for iline in range(x.shape[0]-1):
+                x0=x[iline]
+                y0=y[iline]
+                x1=x[iline+1]
+                y1=y[iline+1]
+                f.write("line(%f,%f,%f,%f) # line=0 0\n"%(x0,y0,x1,y1))
+            
+        f.close()
+
 
 
     ############################################################################################
