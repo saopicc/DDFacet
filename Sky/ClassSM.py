@@ -193,8 +193,15 @@ class ClassSM():
             CM=ClassClusterRadial(x,y,s,nk,DoPlot=DoPlot)
         elif self.ClusterMethod==4:
             CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot)
+            REGFile="%s.tessel.reg"%self.TargetList
+
 
         DictNode=CM.Cluster()
+        try:
+            CM.ToReg(REGFile,self.rarad,self.decrad)
+        except:
+            pass
+
         iK=NPreCluster
         self.NDir=len(DictNode.keys())
         #print self.SourceCat.Cluster.min(),self.SourceCat.Cluster.max()

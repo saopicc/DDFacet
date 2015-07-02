@@ -86,7 +86,7 @@ class ClassClusterKMean():
                     pylab.xlim(xc.min() - dx, xc.max()+dx)
                     pylab.ylim(yc.min() - dx, yc.max()+dx)
 
-                    #stop
+
 
 
                 pylab.draw()
@@ -118,6 +118,9 @@ class ClassClusterKMean():
         xnode=xc
         ynode=yc
 
+        self.xnode=xnode
+        self.ynode=ynode
+
         for i in range(x.shape[0]):
             d=np.sqrt((x[i]-xnode)**2+(y[i]-ynode)**2)
             ind=np.where(d==np.min(d))[0][0]
@@ -126,3 +129,42 @@ class ClassClusterKMean():
         
         return KK
     
+
+    def ToReg(self,regFile,rac,decc):
+
+        f=open(regFile,"w")
+        self.REGName=True
+        f.write("# Region file format: DS9 version 4.1\n")
+        ss0='global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=1 highlite=1 dash=0'
+        ss1=' fixed=0 edit=1 move=1 delete=1 include=1 source=1\n'
+        
+        f.write(ss0+ss1)
+        f.write("fk5\n")
+ 
+        xc=self.xnode
+        yc=self.ynode
+
+        xy=np.zeros((xc.size,2),np.float32)
+        xy[:,0]=xc
+        xy[:,1]=yc
+        vor = Voronoi(xy)
+        regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
+        for region in regions:
+            polygon0 = vertices[region]
+            P=polygon0.tolist()
+            polygon=np.array(P+[P[0]])
+            for iline in range(polygon.shape[0]-1):
+                
+                x0=rac+polygon[iline][0]
+                y0=decc+polygon[iline][1]
+                x1=rac+polygon[iline+1][0]
+                y1=decc+polygon[iline+1][1]
+
+                x0*=180./np.pi
+                y0*=180./np.pi
+                x1*=180./np.pi
+                y1*=180./np.pi
+
+                f.write("line(%f,%f,%f,%f) # line=0 0 color=red dash=1\n"%(x0,y0,x1,y1))
+            
+        f.close()
