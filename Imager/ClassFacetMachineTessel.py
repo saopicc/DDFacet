@@ -78,7 +78,16 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         
         RadiusTot=self.CellSizeRad*self.Npix/2
         
-        ClusterNodes=np.load("BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
+        SolsFile=self.GD["DDESolutions"]["DDSols"]
+        if not(".npz" in SolsFile):
+            Method=SolsFile
+            ThisMSName=reformat.reformat(os.path.abspath(self.MS.MSName),LastSlash=False)
+            SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
+            
+        ClusterNodes=np.load(SolsFile)["ClusterCat"]
+
+
+
         ClusterNodes=ClusterNodes.view(np.recarray)
         raNode=ClusterNodes.ra
         decNode=ClusterNodes.dec
@@ -101,15 +110,22 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
 
         
-        X,Y=np.mgrid[-RadiusTot:RadiusTot:5000*1j,-RadiusTot:RadiusTot:5000*1j]
+        l_m_Diam=np.zeros((len(regions),4),np.float32)
+        l_m_Diam[:,3]=np.arange(len(regions))
+        #X,Y=np.mgrid[-RadiusTot:RadiusTot:5000*1j,-RadiusTot:RadiusTot:5000*1j]
+        Np=100000
+        X=(np.random.rand(Np)*2-1.)*RadiusTot
+        Y=(np.random.rand(Np)*2-1.)*RadiusTot
+
+        D={}
         for iFacet in range(len(regions)):
             print iFacet,"/",len(regions)
             region=regions[iFacet]
-            self.DicoImager[iFacet]={}
+            D[iFacet]={}
             polygon0 = vertices[region]
             P=polygon0.tolist()
             polygon=np.array(P+[P[0]])
-            self.DicoImager[iFacet]["Polygon"]=polygon
+            D[iFacet]["Polygon"]=polygon
             lPoly,mPoly=polygon.T
 
             l0=np.max([-RadiusTot,lPoly.min()])
@@ -136,7 +152,18 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             dm=np.max(np.abs(Y[mask==1]-mc))
             diam=2*np.max([dl,dm])
             
-            self.AppendFacet(iFacet,lc,mc,diam)
+        
+            l_m_Diam[iFacet,0]=lc
+            l_m_Diam[iFacet,1]=mc
+            l_m_Diam[iFacet,2]=diam
+
+        self.DicoImager={} 
+        indDiam=np.argsort(l_m_Diam[:,2])[::-1]
+        l_m_Diam=l_m_Diam[indDiam]
+        for iFacet in range(l_m_Diam.shape[0]):
+            self.DicoImager[iFacet]={}
+            self.DicoImager[iFacet]["Polygon"]=D[l_m_Diam[iFacet,3]]["Polygon"]
+            self.AppendFacet(iFacet,l_m_Diam[iFacet,0],l_m_Diam[iFacet,1],l_m_Diam[iFacet,2])
 
         NpixMax=np.max([self.DicoImager[iFacet]["NpixFacet"] for iFacet in self.DicoImager.keys()])
         NpixMaxPadded=np.max([self.DicoImager[iFacet]["NpixFacetPadded"] for iFacet in self.DicoImager.keys()])
@@ -162,8 +189,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
             mask = mask_flat.reshape(X.shape)
             GaussPars=(10,10,0)
-            
-            SpacialWeigth=ModFFTW.ConvolveGaussian(np.float32(mask.reshape((1,1,Npix,Npix))),CellSizeRad=1,GaussPars=[GaussPars])
+            SpacialWeigth=np.float32(mask.reshape((1,1,Npix,Npix)))
+            SpacialWeigth=ModFFTW.ConvolveGaussian(SpacialWeigth,CellSizeRad=1,GaussPars=[GaussPars])
             SpacialWeigth=SpacialWeigth.reshape((Npix,Npix))
             SpacialWeigth[np.abs(SpacialWeigth)<1e-3]=0.
             self.SpacialWeigth[iFacet]=SpacialWeigth
