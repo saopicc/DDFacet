@@ -380,7 +380,7 @@ class ClassFacetMachine():
             workerlist[ii].start()
 
         #print>>log, ModColor.Str("  --- Initialising DDEGridMachines ---",col="green")
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Init ", HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Init W ", HeaderSize=10,TitleSize=13)
         pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
 
@@ -549,7 +549,7 @@ class ClassFacetMachine():
                 
         if NormJones: 
             #ImagData/=(NormData)
-            print "!!!!!!!!!!!"
+            
             #self.NormData.fill(1)
             ImagData/=np.sqrt(self.NormData)
 
@@ -677,9 +677,9 @@ class ClassFacetMachine():
                 sdec=DDFacet.ToolsDir.rad2hmsdms.rad2hmsdms(dec)
                 sumweight=ThisSumWeights.reshape((nch,npol,1,1))[0,0,0,0]
 
-                # Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
-                # l0,m0=self.DicoImager[iFacet]["l0m0"]
-                # print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f (l0, m0)=(%.15f, %.15f)"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im),l0,m0)
+                Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
+                l0,m0=self.DicoImager[iFacet]["l0m0"]
+                print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f (l0, m0)=(%.15f, %.15f)"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im),l0,m0)
                 
                 
                 SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
@@ -690,8 +690,10 @@ class ClassFacetMachine():
                         # if (self.ApplyCal)&(FlatNoise):
                         #     Im/=np.sqrt(ThisSumJones)
                         if BeamWeightImage:
-                            S=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
-                            Im=np.ones(S.shape,dtype=np.float64)*ThisSumJones*S
+                            # S=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
+                            # Im=np.ones(S.shape,dtype=np.float64)*ThisSumJones*S
+
+                            Im=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]*ThisSumJones
                         else:
 
                             Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
@@ -719,7 +721,11 @@ class ClassFacetMachine():
                     Image[ch,pol]/=NormImage
  
 
+        self.NormImage=NormImage
 
+        # nx,nx=self.NormImage.shape
+        # self.ToCasaImage(self.NormImage.reshape((1,1,nx,nx)),Fits=True,ImageName="NormImage")
+        # stop
 
         # for ch in range(nch):
         #     for pol in range(npol):

@@ -167,7 +167,7 @@ class FFTW_2Donly():
         return A
 
 class FFTW_2Donly_np():
-    def __init__(self, shape, dtype, ncores = 1):
+    def __init__(self, shape=None, dtype=None, ncores = 1):
 
         return
 
