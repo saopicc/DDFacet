@@ -2,7 +2,7 @@ import numpy as np
 import pylab
 from scipy.spatial import Voronoi
 import ModVoronoi
-from DDFacet.ToolsDir import ModCoord
+from SkyModel.Other import ModCoord
 
 def test():
     
