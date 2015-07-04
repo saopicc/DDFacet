@@ -113,7 +113,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         xy[:,0]=lFacet
         xy[:,1]=mFacet
         vor = Voronoi(xy)
-        regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=10*RadiusTot)
+        regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=RadiusTot)
         
         
         l_m_Diam=np.zeros((len(regions),4),np.float32)
@@ -142,12 +142,12 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         rac,decc=self.MainRaDec
         VM=ModVoronoiToReg.VoronoiToReg(rac,decc,lFacet,mFacet)
         regFile="%s.FacetMachine.tessel.reg"%self.ImageName
-        VM.ToReg(regFile,radius=10*RadiusTot)
+        VM.ToReg(regFile,radius=RadiusTot)
 
 
         D={}
         for iFacet in range(len(regions)):
-            print iFacet,"/",len(regions)
+            #print iFacet,"/",len(regions)
             region=regions[iFacet]
             D[iFacet]={}
             polygon0 = vertices[region]
@@ -301,8 +301,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.DicoImager[iFacet]["RaDec"]=raFacet[0],decFacet[0]
         self.LraFacet.append(raFacet[0])
         self.LdecFacet.append(decFacet[0])
-        xc,yc=l0/self.CellSizeRad+NpixOutIm/2,m0/self.CellSizeRad+NpixOutIm/2
-        print xc,yc
+        xc,yc=int(round(l0/self.CellSizeRad+NpixOutIm/2)),int(round(m0/self.CellSizeRad+NpixOutIm/2))
+
         self.DicoImager[iFacet]["pixCentral"]=xc,yc
         self.DicoImager[iFacet]["pixExtent"]=round(xc-NpixFacet/2),round(xc+NpixFacet/2+1),round(yc-NpixFacet/2),round(yc+NpixFacet/2+1)
         self.DicoImager[iFacet]["NpixFacet"]=NpixFacet
