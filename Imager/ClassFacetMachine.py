@@ -725,8 +725,8 @@ class ClassFacetMachine():
 
         self.NormImage=NormImage
 
-        nx,nx=self.NormImage.shape
-        self.ToCasaImage(self.NormImage.reshape((1,1,nx,nx)),Fits=True,ImageName="NormImage")
+        # nx,nx=self.NormImage.shape
+        # self.ToCasaImage(self.NormImage.reshape((1,1,nx,nx)),Fits=True,ImageName="NormImage")
         # stop
 
         # for ch in range(nch):

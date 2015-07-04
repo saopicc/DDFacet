@@ -25,7 +25,7 @@ from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from matplotlib.path import Path
-
+from SkyModel.Sky.ClassClusterKMean import ClassClusterKMean
 
 
 
@@ -113,15 +113,70 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         xy[:,0]=lFacet
         xy[:,1]=mFacet
         vor = Voronoi(xy)
-        regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=RadiusTot)
+        regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=1.)
         
-        
-        l_m_Diam=np.zeros((len(regions),4),np.float32)
-        l_m_Diam[:,3]=np.arange(len(regions))
-        #X,Y=np.mgrid[-RadiusTot:RadiusTot:5000*1j,-RadiusTot:RadiusTot:5000*1j]
         Np=100000
         X=(np.random.rand(Np)*2-1.)*RadiusTot
         Y=(np.random.rand(Np)*2-1.)*RadiusTot
+        XY = np.dstack((X, Y))
+        XY_flat = XY.reshape((-1, 2))
+
+        # ###########################################
+        # # SubDivide
+        # def GiveDiam(polygon):
+        #     lPoly,mPoly=polygon.T
+        #     l0=np.max([-RadiusTot,lPoly.min()])
+        #     l1=np.min([RadiusTot,lPoly.max()])
+        #     m0=np.max([-RadiusTot,mPoly.min()])
+        #     m1=np.min([RadiusTot,mPoly.max()])
+        #     dl=l1-l0
+        #     dm=m1-m0
+        #     diam=np.max([dl,dm])
+
+        # LDiam=[]
+        # for iFacet in range(len(regions)):
+            
+        #     region=regions[iFacet]
+        #     polygon = vertices[region]
+        #     diam=GiveDiam(polygon)
+        #     LDiam.append(diam)
+
+        # DiamMean=np.mean(LDiam)
+        # DiamMax=1.3*np.median(LDiam)
+        # Lxyp=[]
+        
+        # def GiveSubDivide(polygon):
+        #     l,m=polygon.T
+        #     mpath = Path( polygon )
+        #     mask_flat = mpath.contains_points(XY_flat)
+        #     XYp=XP[mask_flat]
+        #     xp,yp=XYp.T
+        #     s=np.ones_like(xp)
+        #     CM=ClassClusterKMean.ClassClusterKMean(xp,yp,s,NCluster=10,DoPlot=True)
+        #     CM.Cluster()
+
+        # for iFacet in range(len(regions)):
+        #     region=regions[iFacet]
+                
+        #     while True:
+        #         polygon = vertices[region]
+        #         diam=GiveDiam(polygon)
+        #         LDiam.append(diam)
+        #     P=polygon0.tolist()
+        #     polygon=np.array(P+[P[0]])
+        #     D[iFacet]["Polygon"]=polygon
+        #     lPoly,mPoly=polygon.T
+        #     mpath = Path( polygon )
+        #     XY = np.dstack((X, Y))
+        #     XY_flat = XY.reshape((-1, 2))
+        #     mask_flat = mpath.contains_points(XY_flat)
+        #     mask=mask_flat.reshape(X.shape)
+            
+        # ###########################################
+       
+        l_m_Diam=np.zeros((len(regions),4),np.float32)
+        l_m_Diam[:,3]=np.arange(len(regions))
+        #X,Y=np.mgrid[-RadiusTot:RadiusTot:5000*1j,-RadiusTot:RadiusTot:5000*1j]
 
         self.CornersImageTot=np.array([[-RadiusTot,-RadiusTot],
                                        [RadiusTot,-RadiusTot],
@@ -138,11 +193,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #         mpath = Path( polygon )
         #         if 
 
+
+
+
         from SkyModel.Sky import ModVoronoiToReg
         rac,decc=self.MainRaDec
         VM=ModVoronoiToReg.VoronoiToReg(rac,decc,lFacet,mFacet)
         regFile="%s.FacetMachine.tessel.reg"%self.ImageName
-        VM.ToReg(regFile,radius=RadiusTot)
+        VM.ToReg(regFile,radius=1.)
 
 
         D={}
@@ -180,7 +238,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             dm=np.max(np.abs(Y[mask==1]-mc))
             diam=2*np.max([dl,dm])
             
-        
+            
             l_m_Diam[iFacet,0]=lc
             l_m_Diam[iFacet,1]=mc
             l_m_Diam[iFacet,2]=diam
