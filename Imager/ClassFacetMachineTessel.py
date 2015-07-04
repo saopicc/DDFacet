@@ -17,7 +17,8 @@ from DDFacet.ToolsDir import ModFFTW
 import pyfftw
 from scipy.spatial import Voronoi
 from SkyModel.Sky import ModVoronoi
-
+from DDFacet.Other import reformat
+import os
 log=MyLogger.getLogger("ClassFacetMachineTessel")
 MyLogger.setSilent("MyLogger")
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
@@ -83,7 +84,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         SolsFile=self.GD["DDESolutions"]["DDSols"]
         if not(".npz" in SolsFile):
             Method=SolsFile
-            ThisMSName=reformat.reformat(os.path.abspath(self.MS.MSName),LastSlash=False)
+            ThisMSName=reformat.reformat(os.path.abspath(self.GD["VisData"]["MSName"]),LastSlash=False)
             SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
             
         ClusterNodes=np.load(SolsFile)["ClusterCat"]

@@ -365,10 +365,15 @@ class ClassWTermModified():
         fw1d=fw1d[(SupMax-1)/2::]
         ind=np.argsort(fw1d)
         T.timeit("1")
-        Interp=interp(fw1d[ind],np.arange(fw1d.shape[0])[ind])
-        T.timeit("2")
 
-        SupMax=np.int64(Interp(np.array([1./1000]))[0])
+        try:
+            Interp=interp(fw1d[ind],np.arange(fw1d.shape[0])[ind])
+            T.timeit("2")
+            
+            SupMax=np.int64(Interp(np.array([1./1000]))[0])
+        except:
+            SupMax=Sup
+
         Sups=np.int64(np.linspace(Sup,np.max([SupMax,Sup]),Nw))
 
         w=np.linspace(0,wmax,Nw)
