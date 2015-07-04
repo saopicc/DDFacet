@@ -834,7 +834,7 @@ class ClassDDEGridMachine():
                 raise NameError("Has to be contiuous")
 
 
-    def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None,ImToGrid=True):
+    def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None,ImToGrid=True,TranformModelInput=""):
         #log=MyLogger.getLogger("ClassImager.addChunk")
         T=ClassTimeIt.ClassTimeIt("get")
         T.disable()
@@ -846,11 +846,18 @@ class ClassDDEGridMachine():
         A0,A1=A0A1
 
         T.timeit("0")
+
+        
         if ImToGrid:
             if np.max(np.abs(ModelImage))==0: return vis
             Grid=self.dtype(self.setModelIm(ModelImage))
         else:
             Grid=ModelImage
+
+        if TranformModelInput=="FT":
+            if np.max(np.abs(ModelImage))==0: return vis
+            Grid=self.FT(ModelImage)
+
         #np.save("Grid",Grid)
         
 
@@ -991,12 +998,16 @@ class ClassDDEGridMachine():
         nchan,npol,_,_=ModelImCorr.shape
         for ichan in range(nchan):
             for ipol in range(npol):
-                ModelImCorr[ichan,ipol][:,:]=ModelImCorr[ichan,ipol][:,:].real/self.ifzfCF
+                ModelImCorr[ichan,ipol][:,:]=ModelImCorr[ichan,ipol][:,:].real/self.ifzfCF.real
 
 
-        ModelUVCorr=self.FFTWMachine.fft(ModelImCorr)
+        ModelUVCorr=self.FT(ModelImCorr)
 
         return ModelUVCorr
+    
+    def FT(self,Image):
+        return self.FFTWMachine.fft(np.complex64(Image))
+
         
     def cutImPadded(self,Dirty):
         x0,x1=self.PaddingInnerCoord

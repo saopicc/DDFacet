@@ -367,6 +367,8 @@ class ClassFacetMachine():
         for iFacet in range(NFacets):
             work_queue.put(iFacet)
 
+        self.SpacialWeigth={}
+
         workerlist=[]
         for ii in range(NCPU):
             W=WorkerImager(work_queue, result_queue,
@@ -398,7 +400,7 @@ class ClassFacetMachine():
             workerlist[ii].terminate()
             workerlist[ii].join()
 
-            
+
         return True
 
 
@@ -677,9 +679,9 @@ class ClassFacetMachine():
                 sdec=DDFacet.ToolsDir.rad2hmsdms.rad2hmsdms(dec)
                 sumweight=ThisSumWeights.reshape((nch,npol,1,1))[0,0,0,0]
 
-                Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
-                l0,m0=self.DicoImager[iFacet]["l0m0"]
-                print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f (l0, m0)=(%.15f, %.15f)"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im),l0,m0)
+                # Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
+                # l0,m0=self.DicoImager[iFacet]["l0m0"]
+                # print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f (l0, m0)=(%.15f, %.15f)"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im),l0,m0)
                 
                 
                 SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
@@ -723,8 +725,8 @@ class ClassFacetMachine():
 
         self.NormImage=NormImage
 
-        # nx,nx=self.NormImage.shape
-        # self.ToCasaImage(self.NormImage.reshape((1,1,nx,nx)),Fits=True,ImageName="NormImage")
+        nx,nx=self.NormImage.shape
+        self.ToCasaImage(self.NormImage.reshape((1,1,nx,nx)),Fits=True,ImageName="NormImage")
         # stop
 
         # for ch in range(nch):

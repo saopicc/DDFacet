@@ -112,7 +112,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         xy[:,0]=lFacet
         xy[:,1]=mFacet
         vor = Voronoi(xy)
-        regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=2*RadiusTot)
+        regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=10*RadiusTot)
         
         
         l_m_Diam=np.zeros((len(regions),4),np.float32)
@@ -141,7 +141,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         rac,decc=self.MainRaDec
         VM=ModVoronoiToReg.VoronoiToReg(rac,decc,lFacet,mFacet)
         regFile="%s.FacetMachine.tessel.reg"%self.ImageName
-        VM.ToReg(regFile,radius=2*RadiusTot)
+        VM.ToReg(regFile,radius=10*RadiusTot)
 
 
         D={}
@@ -155,13 +155,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             D[iFacet]["Polygon"]=polygon
             lPoly,mPoly=polygon.T
 
-            l0=np.max([-RadiusTot,lPoly.min()])
-            l1=np.min([RadiusTot,lPoly.max()])
-            m0=np.max([-RadiusTot,mPoly.min()])
-            m1=np.min([RadiusTot,mPoly.max()])
-            dl=l1-l0
-            dm=m1-m0
-            diam=np.max([dl,dm])
+            # l0=np.max([-RadiusTot,lPoly.min()])
+            # l1=np.min([RadiusTot,lPoly.max()])
+            # m0=np.max([-RadiusTot,mPoly.min()])
+            # m1=np.min([RadiusTot,mPoly.max()])
+            # dl=l1-l0
+            # dm=m1-m0
+            # diam=np.max([dl,dm])
             
             # rect=np.zeros((4,2),np.float32)
             # rect[:,0]=np.array([-RadiusTot,RadiusTot,RadiusTot,-RadiusTot])
@@ -191,11 +191,17 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         for iFacet in range(l_m_Diam.shape[0]):
             self.DicoImager[iFacet]={}
             self.DicoImager[iFacet]["Polygon"]=D[l_m_Diam[iFacet,3]]["Polygon"]
-            l0=round(l_m_Diam[iFacet,0]/self.CellSizeRad)*self.CellSizeRad
-            m0=round(l_m_Diam[iFacet,1]/self.CellSizeRad)*self.CellSizeRad
+            x0=round(l_m_Diam[iFacet,0]/self.CellSizeRad)
+            y0=round(l_m_Diam[iFacet,1]/self.CellSizeRad)
+            if x0%2==0: x0+=1
+            if y0%2==0: y0+=1
+            l0=x0*self.CellSizeRad
+            m0=y0*self.CellSizeRad
             diam=round(l_m_Diam[iFacet,2]/self.CellSizeRad)*self.CellSizeRad
+            #self.AppendFacet(iFacet,l0,m0,diam)
             self.AppendFacet(iFacet,l0,m0,diam)
-            self.MakeMasksTessel(iFacet)
+
+        #self.MakeMasksTessel()
 
         NpixMax=np.max([self.DicoImager[iFacet]["NpixFacet"] for iFacet in self.DicoImager.keys()])
         NpixMaxPadded=np.max([self.DicoImager[iFacet]["NpixFacetPadded"] for iFacet in self.DicoImager.keys()])
@@ -206,43 +212,44 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         
         
 
-    def MakeMasksTessel(self,iFacet):
-        print>>log, "Making mask for facet %i"%iFacet
-        Npix=self.DicoImager[iFacet]["NpixFacetPadded"]
-        l0,l1,m0,m1=self.DicoImager[iFacet]["lmExtentPadded"]
-        X, Y = np.mgrid[l0:l1:Npix*1j,m0:m1:Npix*1j]
-        XY = np.dstack((X, Y))
-        XY_flat = XY.reshape((-1, 2))
-        vertices=self.DicoImager[iFacet]["Polygon"]
-        mpath = Path( vertices ) # the vertices of the polygon
-        mask_flat = mpath.contains_points(XY_flat)
+    def MakeMasksTessel(self):
+        for iFacet in self.DicoImager.keys():
+            print>>log, "Making mask for facet %i"%iFacet
+            Npix=self.DicoImager[iFacet]["NpixFacetPadded"]
+            l0,l1,m0,m1=self.DicoImager[iFacet]["lmExtentPadded"]
+            X, Y = np.mgrid[l0:l1:Npix*1j,m0:m1:Npix*1j]
+            XY = np.dstack((X, Y))
+            XY_flat = XY.reshape((-1, 2))
+            vertices=self.DicoImager[iFacet]["Polygon"]
+            mpath = Path( vertices ) # the vertices of the polygon
+            mask_flat = mpath.contains_points(XY_flat)
+            
+            mask = mask_flat.reshape(X.shape)
+            
+            mpath = Path(self.CornersImageTot)
+            mask_flat2 = mpath.contains_points(XY_flat)
+            mask2 = mask_flat2.reshape(X.shape)
+            mask[mask2==0]=0
+            
+            GaussPars=(10,10,0)
 
-        mask = mask_flat.reshape(X.shape)
-
-        mpath = Path(self.CornersImageTot)
-        mask_flat2 = mpath.contains_points(XY_flat)
-        mask2 = mask_flat2.reshape(X.shape)
-        mask[mask2==0]=0
-
-        GaussPars=(10,10,0)
-
-        SpacialWeigth=np.float32(mask.reshape((1,1,Npix,Npix)))
-
-        # import pylab
-        # pylab.clf()
-        # pylab.subplot(1,2,1)
-        # pylab.imshow(SpacialWeigth.reshape((Npix,Npix)),vmin=0,vmax=1.1,cmap="gray")
-        SpacialWeigth=ModFFTW.ConvolveGaussian(SpacialWeigth,CellSizeRad=1,GaussPars=[GaussPars])
-        SpacialWeigth=SpacialWeigth.reshape((Npix,Npix))
-        SpacialWeigth/=np.max(SpacialWeigth)
-        # pylab.subplot(1,2,2)
-        # pylab.imshow(SpacialWeigth,vmin=0,vmax=1.1,cmap="gray")
-        # pylab.draw()
-        # pylab.show()
-
-
-        #SpacialWeigth[np.abs(SpacialWeigth)<1e-2]=0.
-        self.SpacialWeigth[iFacet]=SpacialWeigth
+            SpacialWeigth=np.float32(mask.reshape((1,1,Npix,Npix)))
+            
+            # import pylab
+            # pylab.clf()
+            # pylab.subplot(1,2,1)
+            # pylab.imshow(SpacialWeigth.reshape((Npix,Npix)),vmin=0,vmax=1.1,cmap="gray")
+            SpacialWeigth=ModFFTW.ConvolveGaussian(SpacialWeigth,CellSizeRad=1,GaussPars=[GaussPars])
+            SpacialWeigth=SpacialWeigth.reshape((Npix,Npix))
+            SpacialWeigth/=np.max(SpacialWeigth)
+            # pylab.subplot(1,2,2)
+            # pylab.imshow(SpacialWeigth,vmin=0,vmax=1.1,cmap="gray")
+            # pylab.draw()
+            # pylab.show()
+            
+            
+            #SpacialWeigth[np.abs(SpacialWeigth)<1e-2]=0.
+            self.SpacialWeigth[iFacet]=SpacialWeigth
         
 
 
@@ -398,10 +405,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
             SPhe=NpShared.GiveArray(SharedMemName)
             SpacialWeight=self.SpacialWeigth[iFacet]
-            Grid,_=Im2Grid.GiveGridTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight)
+            # Grid,_=Im2Grid.GiveGridTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight)
+            # GridSharedMemName="%sModelGrid.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+            # NpShared.ToShared(GridSharedMemName,Grid)
+            ModelFacet,_=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight)
+            ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+            NpShared.ToShared(ModelSharedMemName,ModelFacet)
 
-            GridSharedMemName="%sModelGrid.Facet_%3.3i"%(self.IdSharedMem,iFacet)
-            NpShared.ToShared(GridSharedMemName,Grid)
 
     def GiveVisParallel(self,times,uvwIn,visIn,flag,A0A1,ModelImage):
         NCPU=self.NCPU
@@ -466,6 +476,59 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             
         return True
 
+    def InitParallel(self):
+
+        NCPU=self.NCPU
+
+        NFacets=len(self.DicoImager.keys())
+
+        work_queue = multiprocessing.Queue()
+        result_queue = multiprocessing.Queue()
+
+        NJobs=NFacets
+        for iFacet in range(NFacets):
+            work_queue.put(iFacet)
+
+        self.SpacialWeigth={}
+
+        workerlist=[]
+        for ii in range(NCPU):
+            W=WorkerImager(work_queue, result_queue,
+                           self.GD,
+                           Mode="Init",
+                           FFTW_Wisdom=self.FFTW_Wisdom,
+                           DicoImager=self.DicoImager,
+                           IdSharedMem=self.IdSharedMem,
+                           ApplyCal=self.ApplyCal,
+                           CornersImageTot=self.CornersImageTot)
+            workerlist.append(W)
+            workerlist[ii].start()
+
+        #print>>log, ModColor.Str("  --- Initialising DDEGridMachines ---",col="green")
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Init W ", HeaderSize=10,TitleSize=13)
+        pBAR.render(0, '%4i/%i' % (0,NFacets))
+        iResult=0
+
+        while iResult < NJobs:
+            DicoResult=result_queue.get()
+            if DicoResult["Success"]:
+                iResult+=1
+            NDone=iResult
+            intPercent=int(100*  NDone / float(NFacets))
+            pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
+
+
+        for ii in range(NCPU):
+            workerlist[ii].shutdown()
+            workerlist[ii].terminate()
+            workerlist[ii].join()
+
+
+        for iFacet in self.DicoImager.keys():
+            NameSpacialWeigth="%sSpacialWeigth.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+            SpacialWeigth=NpShared.GiveArray(NameSpacialWeigth)
+            self.SpacialWeigth[iFacet]=SpacialWeigth
+        return True
 
 #===============================================
 #===============================================
@@ -483,7 +546,8 @@ class WorkerImager(multiprocessing.Process):
                  IdSharedMem=None,
                  ApplyCal=False,
                  SpheNorm=True,
-                 PSFMode=False):
+                 PSFMode=False,
+                 CornersImageTot=None):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -499,7 +563,7 @@ class WorkerImager(multiprocessing.Process):
         self.ApplyCal=(self.Apply_killMS)|(self.Apply_Beam)
         self.SpheNorm=SpheNorm
         self.PSFMode=PSFMode
-
+        self.CornersImageTot=CornersImageTot
 
     def shutdown(self):
         self.exit.set()
@@ -552,7 +616,47 @@ class WorkerImager(multiprocessing.Process):
 
 
             if self.Mode=="Init":
+
+                Npix=self.DicoImager[iFacet]["NpixFacetPadded"]
+                l0,l1,m0,m1=self.DicoImager[iFacet]["lmExtentPadded"]
+                X, Y = np.mgrid[l0:l1:Npix*1j,m0:m1:Npix*1j]
+                XY = np.dstack((X, Y))
+                XY_flat = XY.reshape((-1, 2))
+                vertices=self.DicoImager[iFacet]["Polygon"]
+                mpath = Path( vertices ) # the vertices of the polygon
+                mask_flat = mpath.contains_points(XY_flat)
+                
+                mask = mask_flat.reshape(X.shape)
+                
+                mpath = Path(self.CornersImageTot)
+                mask_flat2 = mpath.contains_points(XY_flat)
+                mask2 = mask_flat2.reshape(X.shape)
+                mask[mask2==0]=0
+                
+                GaussPars=(10,10,0)
+                
+                SpacialWeigth=np.float32(mask.reshape((1,1,Npix,Npix)))
+                
+                # import pylab
+                # pylab.clf()
+                # pylab.subplot(1,2,1)
+                # pylab.imshow(SpacialWeigth.reshape((Npix,Npix)),vmin=0,vmax=1.1,cmap="gray")
+                SpacialWeigth=ModFFTW.ConvolveGaussian(SpacialWeigth,CellSizeRad=1,GaussPars=[GaussPars])
+                SpacialWeigth=SpacialWeigth.reshape((Npix,Npix))
+                SpacialWeigth/=np.max(SpacialWeigth)
+                # pylab.subplot(1,2,2)
+                # pylab.imshow(SpacialWeigth,vmin=0,vmax=1.1,cmap="gray")
+                # pylab.draw()
+                # pylab.show()
+                
+                
+                #SpacialWeigth[np.abs(SpacialWeigth)<1e-2]=0.
+                #self.SpacialWeigth[iFacet]=SpacialWeigth
+                NameSpacialWeigth="%sSpacialWeigth.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+                NpShared.ToShared(NameSpacialWeigth,SpacialWeigth)
+                
                 self.GiveGM(iFacet)
+
                 self.result_queue.put({"Success":True,"iFacet":iFacet})
                 
             elif self.Mode=="Grid":
@@ -605,9 +709,11 @@ class WorkerImager(multiprocessing.Process):
                 W=DATA["Weights"]
                 freqs=DATA["freqs"]
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
-                GridSharedMemName="%sModelGrid.Facet_%3.3i"%(self.IdSharedMem,iFacet)
-                ModelGrid = NpShared.GiveArray(GridSharedMemName)
-                vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelGrid,ImToGrid=False,DicoJonesMatrices=DicoJonesMatrices,freqs=freqs)
+                #GridSharedMemName="%sModelGrid.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+                #ModelGrid = NpShared.GiveArray(GridSharedMemName)
+                ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+                ModelGrid = NpShared.GiveArray(ModelSharedMemName)
+                vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelGrid,ImToGrid=False,DicoJonesMatrices=DicoJonesMatrices,freqs=freqs,TranformModelInput="FT")
                 
                 self.result_queue.put({"Success":True,"iFacet":iFacet})
 #            print "Done %i"%iFacet

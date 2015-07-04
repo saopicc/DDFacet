@@ -108,7 +108,7 @@ class ClassImToGrid():
 
         return Grid,SumFlux
 
-    def GiveGridTessel(self,Image,DicoImager,iFacet,NormIm,Sphe,SpacialWeight):
+    def GiveModelTessel(self,Image,DicoImager,iFacet,NormIm,Sphe,SpacialWeight):
         nch,npol,NPixOut,_=Image.shape
         N1=DicoImager[iFacet]["NpixFacetPadded"]
 
@@ -131,17 +131,18 @@ class ClassImToGrid():
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol][x0d:x1d,y0d:y1d].real
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]*=SpacialWeight[x0p:x1p,y0p:y1p]
-                ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=Sphe[x0p:x1p,y0p:y1p].real
+                #ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=Sphe[x0p:x1p,y0p:y1p].real
                 ModelIm[ch,pol]=ModelIm[ch,pol].T[::-1,:]
                 SumFlux=np.sum(ModelIm)
 
-        #print iFacet,np.max(ModelIm)
+       # #print iFacet,np.max(ModelIm)
 
-        #return ModelIm, None
-        #Padding=self.GD["ImagerMainFacet"]["Padding"]
+        # #return ModelIm, None
+        # #Padding=self.GD["ImagerMainFacet"]["Padding"]
 
         ModelIm*=(self.OverS*N1)**2
-        Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm)))
+        return ModelIm,SumFlux
+        # Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm)))
 
         return Grid,SumFlux
 

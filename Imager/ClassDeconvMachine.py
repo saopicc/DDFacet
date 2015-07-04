@@ -409,25 +409,25 @@ class ClassImagerDeconv():
 
 
         Image=self.GiveDirty()
-        # self.MakePSF()
-        # DicoImage=self.DicoDirty
-        # self.NormImage=DicoImage["NormData"]
+        self.MakePSF()
+        DicoImage=self.DicoDirty
+        self.NormImage=DicoImage["NormData"]
 
 
         for iMajor in range(NMajor):
 
             print>>log, ModColor.Str("========================== Runing major Cycle %i ========================="%iMajor)
             
-            # self.DeconvMachine.SetDirtyPSF(DicoImage,self.DicoImagePSF)
-            # self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
-            # #self.DeconvMachine.setSideLobeLevel(0.2,10)
-            # self.DeconvMachine.InitMSMF()
-            # repMinor=self.DeconvMachine.Clean()
-            # if repMinor=="DoneMinFlux":
-            #     break
-            # #self.ResidImage=DicoImage["MeanImage"]
-            # #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
-            # self.FacetMachine.ReinitDirty()
+            self.DeconvMachine.SetDirtyPSF(DicoImage,self.DicoImagePSF)
+            self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
+            #self.DeconvMachine.setSideLobeLevel(0.2,10)
+            self.DeconvMachine.InitMSMF()
+            repMinor=self.DeconvMachine.Clean()
+            if repMinor=="DoneMinFlux":
+                break
+            #self.ResidImage=DicoImage["MeanImage"]
+            #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
+            self.FacetMachine.ReinitDirty()
 
             
 
@@ -446,53 +446,57 @@ class ClassImagerDeconv():
 
                 ThisMeanFreq=np.mean(DATA["freqs"])
 
-                # ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
+                ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
 
-                # # stop
-                # # ModelImage.fill(0)
-                # # ModelImage[:,:,487, 487]=0.88
-                # # ####################
-                # # testImage=np.zeros((1, 1, 1008, 1008),np.complex64)
-                # # testImage[0,0,200,650]=100.
-                # # self.DeconvMachine._ModelImage=testImage
-                # # ####################
+                # stop
+                # ModelImage.fill(0)
+                # ModelImage[:,:,487, 487]=0.88
+                # ####################
+                # testImage=np.zeros((1, 1, 1008, 1008),np.complex64)
+                # testImage[0,0,200,650]=100.
+                # self.DeconvMachine._ModelImage=testImage
+                # ####################
                 
-                # # PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
-                # # visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
-                # # _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),self.DeconvMachine._ModelImage)
-                # # visData[:,:,:]=visData[:,:,:]-visPredict[:,:,:]
+                # PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
+                # visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
+                # _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),self.DeconvMachine._ModelImage)
+                # visData[:,:,:]=visData[:,:,:]-visPredict[:,:,:]
             
 
-                ModelImage=np.zeros(self.FacetMachine.OutImShape,np.float32)
-                _,_,nx,_=ModelImage.shape
-                #ModelImage[0,0].T[::-1,:][1519,508]=-10.
-                #ModelImage[0,0].T[::-1,:][1519,508]=-10.
-                ModelImage[0,0,1625,557]=-10.
-                ModelImage[0,0,:,:]=ModelImage[0,0].T[::-1]
-                d0=DATA["data"].copy()
-                DATA["data"].fill(0)
+                # ModelImage=np.zeros(self.FacetMachine.OutImShape,np.float32)
+                # _,_,nx,_=ModelImage.shape
+                # #ModelImage[0,0].T[::-1,:][1519,508]=-10.
+                # #ModelImage[0,0].T[::-1,:][1519,508]=-10.
+                # ModelImage[0,0].T[::-1,:][1625,557]=-10.
+                # ind=np.where(Image==np.max(Image))
+                # ModelImage.fill(0)
+                # ModelImage[ind]=-10
+                # #ModelImage[0,0,:,:]=ModelImage[0,0]#[::-1].T
+                # d0=DATA["data"].copy()
+                # DATA["data"].fill(0)
+
                 _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
                 
-                d1=DATA["data"]
-                A0,A1=DATA["A0"],DATA["A1"]
-                for iAnt in [29]:#range(1,35):
-                    ind=np.where((A0==0)&(A1==iAnt))[0]
-                    op0=np.abs
-                    op1=np.real
-                    pylab.clf()
-                    pylab.subplot(2,1,1)
-                    pylab.plot(op0(d0[ind,0,0]))
-                    pylab.plot(op0(d1[ind,0,0]))
-                    pylab.plot(op0(d1[ind,0,0])-op0(d0[ind,0,0]))
-                    pylab.title(iAnt)
-                    pylab.subplot(2,1,2)
-                    pylab.plot(op1(d0[ind,0,0]))
-                    pylab.plot(op1(d1[ind,0,0]))
-                    pylab.plot(op1(d1[ind,0,0])-op1(d0[ind,0,0]))
+                # d1=DATA["data"]
+                # A0,A1=DATA["A0"],DATA["A1"]
+                # for iAnt in [29]:#range(1,35):
+                #     ind=np.where((A0==0)&(A1==iAnt))[0]
+                #     op0=np.abs
+                #     op1=np.real
+                #     pylab.clf()
+                #     pylab.subplot(2,1,1)
+                #     pylab.plot(op0(d0[ind,0,0]))
+                #     pylab.plot(op0(d1[ind,0,0]))
+                #     pylab.plot(op0(d1[ind,0,0])-op0(d0[ind,0,0]))
+                #     pylab.title(iAnt)
+                #     pylab.subplot(2,1,2)
+                #     pylab.plot(op1(d0[ind,0,0]))
+                #     pylab.plot(op1(d1[ind,0,0]))
+                #     pylab.plot(op1(d1[ind,0,0])-op1(d0[ind,0,0]))
                     
-                    pylab.draw()
-                    pylab.show(False)
-                stop
+                #     pylab.draw()
+                #     pylab.show(False)
+                # stop
 
                 print>>log, "Model image @%f MHz (min,max) = (%f, %f)"%(ThisMeanFreq/1e6,ModelImage.min(),ModelImage.max())
 
