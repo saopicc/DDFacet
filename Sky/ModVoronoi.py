@@ -53,7 +53,7 @@ def voronoi_finite_polygons_2d(vor, radius=None):
         # reconstruct a non-finite region
         ridges = all_ridges[p1]
         new_region = [v for v in vertices if v >= 0]
-
+        
         for p2, v1, v2 in ridges:
             if v2 < 0:
                 v1, v2 = v2, v1
@@ -69,8 +69,11 @@ def voronoi_finite_polygons_2d(vor, radius=None):
 
             midpoint = vor.points[[p1, p2]].mean(axis=0)
             direction = np.sign(np.dot(midpoint - center, n)) * n
-            far_point = vor.vertices[v2] + direction * radius
 
+            
+            far_point = vor.vertices[v2] + direction * radius
+            far_point/=np.sqrt(np.sum(far_point**2))*0.9
+            
             new_region.append(len(new_vertices))
             new_vertices.append(far_point.tolist())
 
