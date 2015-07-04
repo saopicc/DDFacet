@@ -71,8 +71,13 @@ def voronoi_finite_polygons_2d(vor, radius=None):
             direction = np.sign(np.dot(midpoint - center, n)) * n
 
             
-            far_point = vor.vertices[v2] + direction * radius
-            far_point/=np.sqrt(np.sum(far_point**2))*0.9
+            
+
+            far_point = vor.vertices[v2] + direction * radius 
+            R=np.sqrt(np.sum(far_point**2))
+            if R>0.9:
+                far_point=far_point/R*0.9
+
             
             new_region.append(len(new_vertices))
             new_vertices.append(far_point.tolist())
