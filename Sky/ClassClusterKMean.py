@@ -95,7 +95,7 @@ class ClassClusterKMean():
 
                 pylab.draw()
                 pylab.show(False)
-                pylab.pause(0.1)
+                #pylab.pause(0.1)
             condx=np.allclose(xc,xc0)
             condy=np.allclose(yc,yc0)
             if condx&condy: break
