@@ -423,7 +423,7 @@ class ClassMultiScaleMachine():
         #print "1",np.max(dirtyNormIm)
 
         self.Repr="FT"
-        #self.Repr="IM"
+        self.Repr="IM"
         if self.Repr=="FT":
             BM=DicoBasisMatrix["fBM"]
             WCubePSF=DicoBasisMatrix["fWeightFunction"]

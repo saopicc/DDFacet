@@ -364,6 +364,9 @@ class ClassImagerDeconv():
             nch,npol,nx,ny=MeanCorr.shape
             MeanCorr=np.mean(MeanCorr,axis=0).reshape((1,npol,nx,ny))
             self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True)
+
+            MeanNorm=np.mean(self.DicoDirty["NormData"],axis=0).reshape((1,npol,nx,ny))
+            self.FacetMachine.ToCasaImage(MeanNorm,ImageName="%s.Norm"%self.BaseName,Fits=True)
         
         #if self.VS.MultiFreqMode:
         #    for Channel in range(

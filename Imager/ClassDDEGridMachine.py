@@ -913,9 +913,9 @@ class ClassDDEGridMachine():
             ScaleAmplitude=0
             CalibError=0.
             
-            if "A" in self.GD["DDESolutions"]["DDModeGrid"]:
+            if "A" in self.GD["DDESolutions"]["DDModeDeGrid"]:
                 ApplyAmp=1
-            if "P" in self.GD["DDESolutions"]["DDModeGrid"]:
+            if "P" in self.GD["DDESolutions"]["DDModeDeGrid"]:
                 ApplyPhase=1
             if self.GD["DDESolutions"]["ScaleAmpDeGrid"]:
                 ScaleAmplitude=1
@@ -1006,7 +1006,7 @@ class ClassDDEGridMachine():
         return ModelUVCorr
     
     def FT(self,Image):
-        return self.FFTWMachine.fft(np.complex64(Image))
+        return np.complex64(self.FFTWMachine.fft(np.complex128(Image)))
 
         
     def cutImPadded(self,Dirty):
