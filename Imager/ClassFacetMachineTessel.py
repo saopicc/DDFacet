@@ -9,7 +9,6 @@ import ClassCasaImage
 import pyfftw
 from DDFacet.ToolsDir import ModCoord
 from DDFacet.Other import MyPickle
-from DDFacet.Other import MyLogger
 import time
 from DDFacet.Other import ModColor
 from DDFacet.Array import NpShared
@@ -19,6 +18,7 @@ from scipy.spatial import Voronoi
 from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
 import os
+from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassFacetMachineTessel")
 MyLogger.setSilent("MyLogger")
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
@@ -26,6 +26,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from matplotlib.path import Path
 from SkyModel.Sky.ClassClusterKMean import ClassClusterKMean
+from SkyModel.Sky import ModVoronoiToReg
 
 
 
@@ -96,25 +97,23 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         decNode=ClusterNodes.dec
         lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
 
-        self.FacetCat=np.zeros((lFacet.size,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),
-                                                     ("Cluster",int),
-                                                     ("l",np.float),("m",np.float),
-                                                     ("I",np.float)])
-        self.FacetCat=self.FacetCat.view(np.recarray)
-        self.FacetCat.I=1
-        self.FacetCat.SumI=1
-
-        print>>log,"Sizes (%i facets):"%(self.FacetCat.shape[0])
-        print>>log,"   - Main field :   [%i x %i] pix"%(self.Npix,self.Npix)
 
         self.DicoImager={}
         
         xy=np.zeros((lFacet.size,2),np.float32)
         xy[:,0]=lFacet
         xy[:,1]=mFacet
-        vor = Voronoi(xy)
+        vor = Voronoi(xy,furthest_site=False)
         regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=1.)
+        #regions, vertices =vor.regions,vor.vertices
+        rac,decc=self.MainRaDec
+        VM=ModVoronoiToReg.VoronoiToReg(rac,decc)
+        regFile="%s.FacetMachine.tessel.reg"%self.ImageName
+        VM.ToReg(regFile,lFacet,mFacet,radius=1.)
+        #VM.VorToReg(regFile,vor,radius=0.1,Col="red")
+
         
+
         Np=100000
         X=(np.random.rand(Np)*2-1.)*RadiusTot
         Y=(np.random.rand(Np)*2-1.)*RadiusTot
@@ -132,6 +131,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #     dl=l1-l0
         #     dm=m1-m0
         #     diam=np.max([dl,dm])
+        #     return diam
 
         # LDiam=[]
         # for iFacet in range(len(regions)):
@@ -142,38 +142,95 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #     LDiam.append(diam)
 
         # DiamMean=np.mean(LDiam)
-        # DiamMax=1.3*np.median(LDiam)
+        # DiamMax=np.median(LDiam)
         # Lxyp=[]
         
-        # def GiveSubDivide(polygon):
+        # def GiveSubDivide(polygon,N):
         #     l,m=polygon.T
         #     mpath = Path( polygon )
         #     mask_flat = mpath.contains_points(XY_flat)
-        #     XYp=XP[mask_flat]
+        #     XYp=XY_flat[mask_flat,:]
+        #     Ntake=np.min([1000,XYp.shape[0]])
+        #     ind=np.int64(np.random.rand(Ntake)*XYp.shape[0])
+        #     XYp=XYp[ind]
         #     xp,yp=XYp.T
         #     s=np.ones_like(xp)
-        #     CM=ClassClusterKMean.ClassClusterKMean(xp,yp,s,NCluster=10,DoPlot=True)
-        #     CM.Cluster()
+        #     CM=ClassClusterKMean(xp,yp,s,NCluster=N,DoPlot=False)#True)
+        #     KK=CM.Cluster()
+        #     Lxyc=[[np.mean(xp[KK[key]["ListCluster"]]),np.mean(yp[KK[key]["ListCluster"]])] for key in KK.keys()]
+        #     return Lxyc
 
+        # import Polygon
+
+        # D_POLYGON={}
+        # iPolygon=0
         # for iFacet in range(len(regions)):
         #     region=regions[iFacet]
-                
-        #     while True:
-        #         polygon = vertices[region]
-        #         diam=GiveDiam(polygon)
-        #         LDiam.append(diam)
-        #     P=polygon0.tolist()
-        #     polygon=np.array(P+[P[0]])
-        #     D[iFacet]["Polygon"]=polygon
-        #     lPoly,mPoly=polygon.T
-        #     mpath = Path( polygon )
-        #     XY = np.dstack((X, Y))
-        #     XY_flat = XY.reshape((-1, 2))
-        #     mask_flat = mpath.contains_points(XY_flat)
-        #     mask=mask_flat.reshape(X.shape)
-            
+        #     diam=LDiam[iFacet]
+        #     P0=Polygon.Polygon(region.tolist())
+        #     if diam>DiamMax:
+        #         N=int(round((DiamMax/diam)**2))
+        #         polygon0 = vertices[region]
+        #         if N<3:
+        #             N=3
+        #         Sxyc=np.array(GiveSubDivide(polygon,N))
+        #         vor = Voronoi(Sxyc)
+        #         Sregions, Svertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=1.)
+        #         for Reg in Sregions:
+        #             P=Svertices[Reg]
+                    
+        #             P=P.tolist()
+                    
+        #             polygon=np.array(P+[P[0]])
+        #             D_POLYGON[iPolygon]=polygon
+        #             iPolygon+=1
+        #     else:
+        #         D_POLYGON[iPolygon]
+
+        # xy=np.array(xy)
+        # vor = Voronoi(xy)
+        # regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=1.)
+        # rac,decc=self.MainRaDec
+        # VM=ModVoronoiToReg.VoronoiToReg(rac,decc,xy[:,0],xy[:,1])
+        # regFile="%s.FacetMachine.tessel.resample.reg"%self.ImageName
+        # VM.ToReg(regFile,radius=1.,Col="green")
+
+        # # xy=[]
+        # # for iFacet in range(len(regions)):
+        # #     region=regions[iFacet]
+        # #     diam=LDiam[iFacet]
+        # #     print iFacet, diam, DiamMax
+        # #     if diam>DiamMax:
+        # #         N=int(round((DiamMax/diam)**2))
+        # #         polygon = vertices[region]
+        # #         if N<3:
+        # #             N=3
+        # #         Lxyc=GiveSubDivide(polygon,N)
+        # #         for iReg in range(N):
+        # #             xy.append(Lxyc[iReg])
+        # #     else:
+        # #         xy.append([lFacet[iFacet],mFacet[iFacet]])
+        # # xy=np.array(xy)
+        # # vor = Voronoi(xy)
+        # # regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=1.)
+        # # rac,decc=self.MainRaDec
+        # # VM=ModVoronoiToReg.VoronoiToReg(rac,decc,xy[:,0],xy[:,1])
+        # # regFile="%s.FacetMachine.tessel.resample.reg"%self.ImageName
+        # # VM.ToReg(regFile,radius=1.,Col="green")
+
         # ###########################################
-       
+
+        self.FacetCat=np.zeros((lFacet.size,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),
+                                                     ("Cluster",int),
+                                                     ("l",np.float),("m",np.float),
+                                                     ("I",np.float)])
+        self.FacetCat=self.FacetCat.view(np.recarray)
+        self.FacetCat.I=1
+        self.FacetCat.SumI=1
+        print>>log,"Sizes (%i facets):"%(self.FacetCat.shape[0])
+        print>>log,"   - Main field :   [%i x %i] pix"%(self.Npix,self.Npix)
+
+
         l_m_Diam=np.zeros((len(regions),4),np.float32)
         l_m_Diam[:,3]=np.arange(len(regions))
         #X,Y=np.mgrid[-RadiusTot:RadiusTot:5000*1j,-RadiusTot:RadiusTot:5000*1j]
@@ -196,11 +253,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
 
 
-        from SkyModel.Sky import ModVoronoiToReg
-        rac,decc=self.MainRaDec
-        VM=ModVoronoiToReg.VoronoiToReg(rac,decc,lFacet,mFacet)
-        regFile="%s.FacetMachine.tessel.reg"%self.ImageName
-        VM.ToReg(regFile,radius=1.)
 
 
         D={}
@@ -267,7 +319,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.PaddedGridShape=(1,1,NpixMaxPadded,NpixMaxPadded)
         self.FacetShape=(1,1,NpixMax,NpixMax)
 
-        
+
         
         
 
