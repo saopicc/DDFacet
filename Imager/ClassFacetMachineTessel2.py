@@ -156,7 +156,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             #polygonFacet=ClosePolygon(polygonFacet)
             P0=Polygon.Polygon(polygonFacet)
             P0Cut=Polygon.Polygon(P0&PFOV)
-            #polygonFacetCut=ClosePolygon(np.array(P0Cut[0]))
+            polygonFacetCut=np.array(P0Cut[0])
+            #polygonFacetCut=ClosePolygon(polygonFacetCut)
 
             diam,(l0,l1,m0,m1)=GiveDiam(polygonFacetCut)
             if diam<DiamMax: return [polygonFacetCut]
