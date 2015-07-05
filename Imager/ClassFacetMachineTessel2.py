@@ -103,7 +103,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         xy=np.zeros((lFacet.size,2),np.float32)
         xy[:,0]=lFacet
         xy[:,1]=mFacet
-        vor = Voronoi(xy,furthest_site=False)
+        vor = Voronoi(xy,furthest_site=True)#False)
         regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=1.)
         LPolygon=[vertices[region] for region in regions]
         #regions, vertices =vor.regions,vor.vertices
@@ -113,7 +113,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #VM.ToReg(regFile,lFacet,mFacet,radius=1.)
         VM.PolygonToReg(regFile,LPolygon,radius=0.1,Col="red")
 
-        
+        stop
 
         Np=100000
         X=(np.random.rand(Np)*2-1.)*RadiusTot
