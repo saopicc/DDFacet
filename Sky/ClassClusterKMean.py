@@ -2,7 +2,7 @@ import numpy as np
 import pylab
 from scipy.spatial import Voronoi
 import ModVoronoi
-from DDFacet.ToolsDir import ModCoord
+from SkyModel.Other import ModCoord
 
 def test():
     
@@ -78,7 +78,8 @@ class ClassClusterKMean():
                 xy=np.zeros((xc.size,2),np.float32)
                 xy[:,0]=xc
                 xy[:,1]=yc
-                vor = Voronoi(xy)
+                vor = Voronoi(xy)#incremental=True)
+
                 regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
                 for region in regions:
                     polygon = vertices[region]

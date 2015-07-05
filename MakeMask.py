@@ -14,7 +14,7 @@ import pickle
 import scipy.ndimage
 from Tools import ModFFTW
 from SkyModel.PSourceExtract import ClassIslands
-from DDFacet.Imager.ClassCasaImage import PutDataInNewImage
+from SkyModel.Other.ClassCasaImage import PutDataInNewImage
 import scipy.special
 
 def read_options():
