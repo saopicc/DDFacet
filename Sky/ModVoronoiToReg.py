@@ -87,7 +87,7 @@ class VoronoiToReg():
             
         f.close()
 
-    def PolygonToReg(self,regFile,LPolygon,radius=0.1,Col="red"):
+    def PolygonToReg(self,regFile,LPolygon,radius=0.1,Col="red",labels=None):
         print>>log, "Writing voronoi in: %s"%regFile
         f=open(regFile,"w")
         f.write("# Region file format: DS9 version 4.1\n")
@@ -99,23 +99,35 @@ class VoronoiToReg():
  
         CoordMachine=self.CoordMachine
         
-
-        for polygon0 in LPolygon:
-            #if len(region)==0: continue
+        
+        for iFacet,polygon0 in zip(range(len(LPolygon)),LPolygon):
             #polygon0 = vertices[region]
             P=polygon0.tolist()
+            if len(polygon0)==0: continue
             polygon=np.array(P+[P[0]])
+            ThisText=""
+            if labels!=None:
+                lmean=np.mean(polygon[:,0])
+                mmean=np.mean(polygon[:,1])
+                xm,ym=CoordMachine.lm2radec(np.array([lmean]),np.array([mmean]))
+                xm*=180./np.pi
+                ym*=180./np.pi
+                ThisText=str(labels[iFacet])
+                f.write("point(%f,%f) # text={%s} point=circle 5 color=red width=2\n"%(xm,ym,ThisText))
+
             for iline in range(polygon.shape[0]-1):
                 
                 x0,y0=CoordMachine.lm2radec(np.array([polygon[iline][0]]),np.array([polygon[iline][1]]))
                 x1,y1=CoordMachine.lm2radec(np.array([polygon[iline+1][0]]),np.array([polygon[iline+1][1]]))
+
 
                 x0*=180./np.pi
                 y0*=180./np.pi
                 x1*=180./np.pi
                 y1*=180./np.pi
 
-                f.write("line(%f,%f,%f,%f) # line=0 0 color=%s dash=1\n"%(x0,y0,x1,y1,Col))
+                f.write("line(%f,%f,%f,%f) # line=0 0 color=%s dash=1 \n"%(x0,y0,x1,y1,Col))
+
                 #f.write("line(%f,%f,%f,%f) # line=0 0 color=red dash=1\n"%(x1,y0,x0,y1))
             
         f.close()
