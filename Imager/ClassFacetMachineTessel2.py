@@ -103,17 +103,17 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         xy=np.zeros((lFacet.size,2),np.float32)
         xy[:,0]=lFacet
         xy[:,1]=mFacet
-        vor = Voronoi(xy,furthest_site=True)#False)
+        vor = Voronoi(xy,furthest_site=False)
         regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=1.)
-        LPolygon=[vertices[region] for region in regions]
-        #regions, vertices =vor.regions,vor.vertices
+        LPolygon=[np.array(vertices[region]) for region in regions]
+        #
         rac,decc=self.MainRaDec
         VM=ModVoronoiToReg.VoronoiToReg(rac,decc)
         regFile="%s.FacetMachine.tessel.reg"%self.ImageName
-        #VM.ToReg(regFile,lFacet,mFacet,radius=1.)
+        #VM.ToReg(regFile,lFacet,mFacet,radius=.1)
+        
         VM.PolygonToReg(regFile,LPolygon,radius=0.1,Col="red")
 
-        stop
 
         Np=100000
         X=(np.random.rand(Np)*2-1.)*RadiusTot
@@ -141,13 +141,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             return diam,(l0,l1,m0,m1)
 
         DiamMax=1.5*np.pi/180
+        DiamMin=0.1*np.pi/180
         
         def ClosePolygon(polygon):
             P=polygon.tolist()
             polygon=np.array(P+[P[0]])
             return polygon
 
-        def GiveSubDivideRegions(polygonFacet,Dmax):
+        def GiveSubDivideRegions(polygonFacet,DMax):
 
             polygonFOV=self.CornersImageTot
             #polygonFOV=ClosePolygon(polygonFOV)
@@ -160,10 +161,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             #polygonFacetCut=ClosePolygon(polygonFacetCut)
 
             diam,(l0,l1,m0,m1)=GiveDiam(polygonFacetCut)
-            if diam<DiamMax: return [polygonFacetCut]
+            if diam<DMax: return [polygonFacetCut]
 
-            Nl=int((l1-l0)/DiamMax)+1
-            Nm=int((m1-m0)/DiamMax)+1
+            Nl=int((l1-l0)/DMax)+1
+            Nm=int((m1-m0)/DMax)+1
             dl=(l1-l0)/Nl
             dm=(m1-m0)/Nm
             lEdge=np.linspace(l0,l1,Nl+1)
@@ -185,6 +186,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 P1=Polygon.Polygon(polySquare)
 
                 POut=(P0Cut&P1)
+                if POut.nPoints()==0: continue
+
                 polyOut=np.array(POut[0])
                 #polyOut=ClosePolygon(polyOut)
                 LPoly.append(polyOut)
@@ -206,7 +209,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 # pylab.show(False)
                 # pylab.pause(0.5)
 
-
+            
             return LPoly
                 
 
@@ -214,10 +217,19 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         
         for iFacet in range(len(regions)):
             polygon=LPolygon[iFacet]
-            LPolygonNew+=GiveSubDivideRegions(polygon,DiamMax)
+            ThisDiamMax=DiamMax
+            while True:
+                SubReg=GiveSubDivideRegions(polygon,ThisDiamMax)
+                Diams=[GiveDiam(poly)[0] for poly in SubReg]
+                
+                if np.min(Diams)>DiamMin: break
+                ThisDiamMax*=1.1
+            LPolygonNew+=SubReg
 
         regFile="%s.FacetMachine.tessel.ReCut.reg"%self.ImageName
-        VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green")
+        VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=[str(i) for i in range(len(LPolygonNew))])
+
+
 
         ###########################################
 
@@ -243,7 +255,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             polygon=LPolygonNew[iFacet]
             D[iFacet]["Polygon"]=polygon
             lPoly,mPoly=polygon.T
-            
+
+            ThisDiam,(l0,l1,m0,m1)=GiveDiam(polygon)
+
+            X=(np.random.rand(Np))*ThisDiam+l0
+            Y=(np.random.rand(Np))*ThisDiam+m0
+            XY = np.dstack((X, Y))
+            XY_flat = XY.reshape((-1, 2))
+
             mpath = Path( polygon )
             XY = np.dstack((X, Y))
             XY_flat = XY.reshape((-1, 2))
