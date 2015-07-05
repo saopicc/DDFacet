@@ -150,13 +150,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         def GiveSubDivideRegions(polygonFacet,Dmax):
 
             polygonFOV=self.CornersImageTot
-            polygonFOV=ClosePolygon(polygonFOV)
+            #polygonFOV=ClosePolygon(polygonFOV)
             PFOV=Polygon.Polygon(polygonFOV)
 
-            polygonFacet=ClosePolygon(polygonFacet)
+            #polygonFacet=ClosePolygon(polygonFacet)
             P0=Polygon.Polygon(polygonFacet)
             P0Cut=Polygon.Polygon(P0&PFOV)
-            polygonFacetCut=ClosePolygon(np.array(P0Cut[0]))
+            #polygonFacetCut=ClosePolygon(np.array(P0Cut[0]))
 
             diam,(l0,l1,m0,m1)=GiveDiam(polygonFacetCut)
             if diam<DiamMax: return [polygonFacetCut]
@@ -177,14 +177,15 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
             DpolySquare=np.array([[-dl,-dm],[dl,-dm],[dl,dm],[-dl,dm]])*0.5
             for lc,mc in zip(Lc,Mc):
-                polySquare=ClosePolygon(DpolySquare.copy())
+                polySquare=DpolySquare.copy()#ClosePolygon(DpolySquare.copy())
                 polySquare[:,0]+=lc
                 polySquare[:,1]+=mc
-                polySquare=ClosePolygon(polySquare)
+                #polySquare=ClosePolygon(polySquare)
                 P1=Polygon.Polygon(polySquare)
 
                 POut=(P0Cut&P1)
-                polyOut=ClosePolygon(np.array(POut[0]))
+                polyOut=np.array(POut[0])
+                #polyOut=ClosePolygon(polyOut)
                 LPoly.append(polyOut)
 
                 # pylab.clf()
