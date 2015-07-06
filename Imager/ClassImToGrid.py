@@ -111,6 +111,8 @@ class ClassImToGrid():
     def GiveModelTessel(self,Image,DicoImager,iFacet,NormIm,Sphe,SpacialWeight):
         nch,npol,NPixOut,_=Image.shape
         N1=DicoImager[iFacet]["NpixFacetPadded"]
+        N1NonPadded=DicoImager[iFacet]["NpixFacetPadded"]
+        dx=(N1-N1NonPadded)/2
 
         xc,yc=DicoImager[iFacet]["pixCentral"]
         #x0,x1,y0,y1=DicoImager[iFacet]["pixExtent"]
@@ -129,12 +131,22 @@ class ClassImToGrid():
                 #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].T[::-1,:].real[x0d:x1d,y0d:y1d]
                 #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].real[x0d:x1d,y0d:y1d]
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol][x0d:x1d,y0d:y1d].real
+                M=ModelIm[ch,pol][dx:dx+N1NonPadded+1,dx:dx+N1NonPadded+1].copy()
+                ModelIm[ch,pol].fill(0)
+                ModelIm[ch,pol][dx:dx+N1NonPadded+1,dx:dx+N1NonPadded+1]=M[:,:]
+                #ind =np.where(np.abs(ModelIm)==np.max(np.abs(ModelIm)))
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]*=SpacialWeight[x0p:x1p,y0p:y1p]
-                #ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=Sphe[x0p:x1p,y0p:y1p].real
-                ModelIm[ch,pol]=ModelIm[ch,pol].T[::-1,:]
                 SumFlux=np.sum(ModelIm)
+                ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=Sphe[x0p:x1p,y0p:y1p].real
+                ModelIm[ch,pol][Sphe<1e-3]=0
+                ModelIm[ch,pol]=ModelIm[ch,pol].T[::-1,:]
 
+        #print iFacet,DicoImager[iFacet]["l0m0"],DicoImager[iFacet]["NpixFacet"],DicoImager[iFacet]["NpixFacetPadded"],SumFlux
+        #if np.max(np.abs(ModelIm))>1: print ind
+        
+        #if np.abs(SumFlux)>1: stop
+        
        # #print iFacet,np.max(ModelIm)
 
         # #return ModelIm, None

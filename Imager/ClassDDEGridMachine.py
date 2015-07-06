@@ -10,6 +10,7 @@ from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 import ModCF
 from DDFacet.ToolsDir import ModToolBox
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 
 from DDFacet.Other import ModColor
 import ClassCasaImage
@@ -46,14 +47,21 @@ def testGrid():
     #Parset=ReadCFG.Parset("%s/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
     Parset=ReadCFG.Parset("%s/DDFacet/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
     DC=Parset.DicoPars
-    npix=325
-    Cell=5.
-    offx,offy=150,150
+    #19 (-0.01442078294460315, 0.014406238534169863) 2025 3465 -10.0
+    #(array([0]), array([0]), array([1015]), array([1201]))
+    #(array([0]), array([0]), array([1050]), array([1398]))
+
+    npix=2025
+    Cell=1.5
+    offx,offy=3465/2-1050,3465/2-1398
+    offy,offx=3465/2-1050,3465/2-1398
+    offx=offx
+    offy=-offy
     CellRad=(Cell/3600.)*np.pi/180
     L=offy*(Cell/3600.)*np.pi/180
     M=-offx*(Cell/3600.)*np.pi/180
     
-    l0,m0=-0.009453866781636, 0.009453866781636
+    l0,m0=-0.01442078294460315, 0.014406238534169863
     #l0,m0=-0.009454, 0.
     L+=l0
     M+=m0
@@ -61,22 +69,23 @@ def testGrid():
     DC["ImagerMainFacet"]["Cell"]=Cell
     DC["ImagerMainFacet"]["Npix"]=npix
     #DC["ImagerMainFacet"]["Padding"]=1
-    DC["VisData"]["MSName"]="0000.MS"
+    DC["VisData"]["MSName"]="Simul.MS.W0.tsel"
     #/media/6B5E-87D0/DDFacet/Test/TestDegridOleg/TestOlegVLA.MS_p0
 
-    DC["ImagerCF"]["OverS"]= 61
+    DC["ImagerCF"]["OverS"]= 31
     DC["ImagerCF"]["Support"]= 11
     DC["ImagerCF"]["Nw"]= 2
     DC["ImagerCF"]["wmax"]= 100000.
-    DC["Stores"]["DeleteDDFProducts"] = True
+    DC["Stores"]["DeleteDDFProducts"] = False#True
     IdSharedMem="123."
     #DC["DataSelection"]["UVRangeKm"]=[0.2,2000.e6]
-    #DC["Compression"]["CompDeGridDecorr"]=0.05
+    DC["Compression"]["CompDeGridDecorr"]=0.0
     DC["ImagerGlobal"]["Robust"]=-1
     DC["ImagerGlobal"]["Weighting"]="Briggs"
-    DC["Compression"]["CompDeGridMode"] = False
-    DC["Compression"]["CompGridMode"] = False
-    
+    #DC["Compression"]["CompDeGridMode"] = False
+    #DC["Compression"]["CompGridMode"] = False
+    DC["Compression"]["CompDeGridMode"] = True
+
     VS=ClassVisServer.ClassVisServer(DC["VisData"]["MSName"],
                                      ColName=DC["VisData"]["ColName"],
                                      TVisSizeMin=DC["VisData"]["TChunkSize"]*60*1.1,
@@ -127,7 +136,7 @@ def testGrid():
     row0=0
     row1=DATA["uvw"].shape[0]#-1
     uvw=np.float64(DATA["uvw"])#[row0:row1]
-    uvw[:,2]=0
+    #uvw[:,2]=0
     times=np.float64(DATA["times"])#[row0:row1]
     data=np.complex64(DATA["data"])#[row0:row1]
     #data.fill(1.)
@@ -137,7 +146,7 @@ def testGrid():
     A1=np.int32(DATA["A1"])#[row0:row1]
     
     
-
+    DOrig=data.copy()
 
     #uvw.fill(0)
     
@@ -175,13 +184,13 @@ def testGrid():
 
     T=ClassTimeIt.ClassTimeIt("main")
 
-    print "Start"
-    Grid=GM.put(times,uvw,data,flag,(A0,A1),W=DATA["Weights"],PointingID=0,DoNormWeights=True, DicoJonesMatrices=DicoJonesMatrices)
-    print "OK"
-    pylab.clf()
-    ax=pylab.subplot(1,3,1)
-    pylab.imshow(np.real(Grid[0,0]),cmap="gray",interpolation="nearest")#,vmin=-600,vmax=600)
-    G0=(Grid/np.max(Grid)).copy()
+    # print "Start"
+    # Grid=GM.put(times,uvw,data,flag,(A0,A1),W=DATA["Weights"],PointingID=0,DoNormWeights=True, DicoJonesMatrices=DicoJonesMatrices)
+    # print "OK"
+    # pylab.clf()
+    # ax=pylab.subplot(1,3,1)
+    # pylab.imshow(np.real(Grid[0,0]),cmap="gray",interpolation="nearest")#,vmin=-600,vmax=600)
+    # G0=(Grid/np.max(Grid)).copy()
 
     #pylab.imshow(np.random.rand(50,50))
 
@@ -215,24 +224,25 @@ def testGrid():
 
     # Grid.fill(0)
     _,_,n,n=Grid.shape
-    Grid[:,:,n/2+offx,n/2+offy]=1.
-    data.fill(0)
-
-    # GM.GD["Compression"]["CompDeGridMode"] = True
-    # data=GM.get(times,uvw,data,flag,(A0,A1),Grid,freqs=ChanFreq)#, DicoJonesMatrices=DicoJonesMatrices)
-    # data0=-data.copy()
-
+    Grid[:,:,n/2+offx,n/2+offy]=10.
 
     data.fill(0)
-    GM.GD["Compression"]["CompDeGridMode"] = False
-    data1=-GM.get(times,uvw,data,flag,(A0,A1),Grid,freqs=ChanFreq)#, DicoJonesMatrices=DicoJonesMatrices)
+
+    #GM.GD["Compression"]["CompDeGridMode"] = True
+    data=GM.get(times,uvw,data,flag,(A0,A1),Grid,freqs=ChanFreq)#, DicoJonesMatrices=DicoJonesMatrices)
+    data0=-data.copy()
+
+
+    # data.fill(0)
+    # GM.GD["Compression"]["CompDeGridMode"] = False
+    # data1=-GM.get(times,uvw,data,flag,(A0,A1),Grid,freqs=ChanFreq)#, DicoJonesMatrices=DicoJonesMatrices)
 
     #ind=np.where(((A0==12)&(A1==14)))[0]
     #data0=data0[ind]
     #data1=data1[ind]
     #print data0-data1
 
-    op0=np.real
+    op0=np.abs
     op1=np.imag
 
     #op0=np.abs
@@ -249,40 +259,46 @@ def testGrid():
     U=U.reshape(U.size,1)
     V=V.reshape(U.size,1)
     W=W.reshape(U.size,1)
+    #L,M=-0.0194966364621, 0.0112573688
     ChanFreq=ChanFreq.reshape(1,ChanFreq.size)
-    K=np.exp(2.*np.pi*1j*(ChanFreq[0]/C)*(U*L+V*M+W*(N-1)))
+    K=10.*np.exp(2.*np.pi*1j*(ChanFreq[0]/C)*(U*L+V*M+W*(N-1)))
     #ind=np.where((d0-d1)[:]!=0)
-
-    ind=np.where((A0==0)&(A1==30))[0]
-    #d0=data0[ind,-1,0].ravel()
-    d1=data1[ind,-1,0].ravel()
+    
+    #print -0.0194966364621, 0.0112573688
+    #print L,M
+    
+    ind=range(U.size)#np.where((A0==49)&(A1==55))[0]
+    d0=data0[ind,-1,0].ravel()
+    #d1=data1[ind,-1,0].ravel()
     k=K[ind,-1]
+    k=DOrig[ind,-1,0].ravel()
+
     # d0=data0[:,:,0].ravel()
     # d1=data1[:,:,0].ravel()
     # k=K[:,:]
 
 
 
-    #X0=d0.ravel()
-    X1=d1.ravel()
+    X0=d0.ravel()
+    #X1=d1.ravel()
     Y=k.ravel()
 
 
     pylab.clf()
-    pylab.subplot(1,2,1)
+    pylab.subplot(2,1,1)
     #pylab.plot(op0(d0))
-    #pylab.plot(op0(X0))
-    pylab.plot(op0(X1))
+    pylab.plot(op0(X0))
+    #pylab.plot(op0(X1))
     pylab.plot(op0(Y))
-    #pylab.plot(op0(X-Y))
-    pylab.subplot(1,2,2)
-    #pylab.plot(op1(X0))
-    pylab.plot(op1(X1))
+    pylab.plot(op0(X0)-op0(Y))
+    pylab.subplot(2,1,2)
+    pylab.plot(op1(X0))
+    #pylab.plot(op1(X1))
     pylab.plot(op1(Y))
-    #pylab.plot(op1(X-Y))
+    pylab.plot(op1(X0)-op1(Y))
     pylab.draw()
-    pylab.show(False)
-    pylab.pause(0.1)
+    pylab.show()
+
 
 #     for ibl in [122]:#range(1,nbl)[::11]:
 #         d0=data0[ibl::nbl,:,0].ravel()

@@ -1302,7 +1302,9 @@ void DeGridderWPol(PyArrayObject *grid,
 	  // ###########################################################
 	  // ################### Now do the correction #################
 
-      for (inx=0; inx<NRowThisBlock; inx++) {
+	  if(PolMode==0){ThisVis[3]=ThisVis[0];}
+
+     for (inx=0; inx<NRowThisBlock; inx++) {
 	int irow = Row[inx];
 	if(irow>nrows){continue;}
 	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;

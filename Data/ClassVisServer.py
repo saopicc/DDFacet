@@ -284,7 +284,7 @@ class ClassVisServer():
         nbl=MS.nbl
 
         # ## debug
-        # ind=np.where((A0==0)&(A1==27))[0]
+        # ind=np.where((A0==49)&(A1==55))[0]
         # flags=flags[ind]
         # data=data[ind]
         # A0=A0[ind]

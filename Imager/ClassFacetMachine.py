@@ -698,12 +698,18 @@ class ClassFacetMachine():
                             Im=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]*ThisSumJones
                         else:
 
-                            Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
-                            Sphe0=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
-                            Im/=Sphe0
-                            Im[Sphe0<1e-3]=0
-                            SW=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
+                            Im=self.DicoGridMachine[iFacet]["Dirty"][Channel][ch,pol]
+                            Im/=SPhe.real
+                            Im[SPhe<1e-3]=0
+                            Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][ch,pol][::-1,:].T.real/sumweight)
+                            #Sphe0=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
+                            #Im/=Sphe0
+                            #Im[Sphe0<1e-3]=0
+                            SW=SpacialWeigth[::-1,:].T
                             Im*=SW
+                            
+                            Im=Im[x0facet:x1facet,y0facet:y1facet]
+
 
                         #print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im))
                         Image[ch,pol,x0main:x1main,y0main:y1main]+=Im
@@ -726,7 +732,7 @@ class ClassFacetMachine():
         self.NormImage=NormImage
 
         nx,nx=self.NormImage.shape
-        # self.ToCasaImage(self.NormImage.reshape((1,1,nx,nx)),Fits=True,ImageName="NormImage")
+        self.ToCasaImage(self.NormImage.reshape((1,1,nx,nx)),Fits=True,ImageName="NormImage")
         # stop
 
         # for ch in range(nch):

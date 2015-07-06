@@ -412,9 +412,10 @@ class ClassImagerDeconv():
 
 
         Image=self.GiveDirty()
-        self.MakePSF()
         DicoImage=self.DicoDirty
         self.NormImage=DicoImage["NormData"]
+
+        self.MakePSF()
 
 
         for iMajor in range(NMajor):
@@ -430,6 +431,7 @@ class ClassImagerDeconv():
                 break
             #self.ResidImage=DicoImage["MeanImage"]
             #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
+
             self.FacetMachine.ReinitDirty()
 
             
@@ -446,59 +448,72 @@ class ClassImagerDeconv():
                 
                 visData=DATA["data"]
 
-
                 ThisMeanFreq=np.mean(DATA["freqs"])
 
                 ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
 
-                # stop
-                # ModelImage.fill(0)
-                # ModelImage[:,:,487, 487]=0.88
-                # ####################
-                # testImage=np.zeros((1, 1, 1008, 1008),np.complex64)
-                # testImage[0,0,200,650]=100.
-                # self.DeconvMachine._ModelImage=testImage
-                # ####################
+                # # stop
+                # # # ModelImage.fill(0)
+                # # # ModelImage[:,:,487, 487]=0.88
+                # # # ####################
+                # # # testImage=np.zeros((1, 1, 1008, 1008),np.complex64)
+                # # # testImage[0,0,200,650]=100.
+                # # # self.DeconvMachine._ModelImage=testImage
+                # # # ####################
                 
-                # PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
-                # visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
-                # _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),self.DeconvMachine._ModelImage)
-                # visData[:,:,:]=visData[:,:,:]-visPredict[:,:,:]
+                # # # PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
+                # # # visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
+                # # # _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),self.DeconvMachine._ModelImage)
+                # # # visData[:,:,:]=visData[:,:,:]-visPredict[:,:,:]
             
 
                 # ModelImage=np.zeros(self.FacetMachine.OutImShape,np.float32)
-                # _,_,nx,_=ModelImage.shape
-                # #ModelImage[0,0].T[::-1,:][1519,508]=-10.
-                # #ModelImage[0,0].T[::-1,:][1519,508]=-10.
-                # ModelImage[0,0].T[::-1,:][1625,557]=-10.
-                # ind=np.where(Image==np.max(Image))
-                # ModelImage.fill(0)
-                # ModelImage[ind]=-10
-                # #ModelImage[0,0,:,:]=ModelImage[0,0]#[::-1].T
+                # # _,_,nx,_=ModelImage.shape
+                # # #ModelImage[0,0].T[::-1,:][1519,508]=-10.
+                # # #ModelImage[0,0].T[::-1,:][1519,508]=-10.
+                # # ModelImage[0,0].T[::-1,:][1625,557]=-10.
+                #ind=np.where(Image==np.max(Image))
+                #print ind
+                #ind=np.where(ModelImage==np.max(ModelImage))
+                #print ind
+                # # ModelImage.fill(0)
+                # # ModelImage[ind]=-10
+                # # #ModelImage[0,0,:,:]=ModelImage[0,0]#[::-1].T
                 # d0=DATA["data"].copy()
                 # DATA["data"].fill(0)
 
+                # #ind=np.where(ModelImage==np.max(ModelImage))
+                # ModelImage.fill(0)
+                # ModelImage[0,0,2381,6610]=-10.
+                # #ModelImage[ind]=-10
+                # #ModelImage=-ModelImage
+
+                # DATA["data"].fill(0)
+
                 _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
-                
+
+
+
                 # d1=DATA["data"]
                 # A0,A1=DATA["A0"],DATA["A1"]
-                # for iAnt in [29]:#range(1,35):
-                #     ind=np.where((A0==0)&(A1==iAnt))[0]
+                # for iFreq in [0]:#range(20):
+                #     #ind=np.where((A0==49)&(A1==55))[0]
+                #     ind=range(d0.shape[0])
                 #     op0=np.abs
                 #     op1=np.real
                 #     pylab.clf()
                 #     pylab.subplot(2,1,1)
-                #     pylab.plot(op0(d0[ind,0,0]))
-                #     pylab.plot(op0(d1[ind,0,0]))
-                #     pylab.plot(op0(d1[ind,0,0])-op0(d0[ind,0,0]))
-                #     pylab.title(iAnt)
+                #     pylab.plot(op0(d0[ind,iFreq,0]))
+                #     pylab.plot(op0(d1[ind,iFreq,0]))
+                #     pylab.plot(op0(d1[ind,iFreq,0])-op0(d0[ind,iFreq,0]))
+                #     # pylab.title(iAnt)
                 #     pylab.subplot(2,1,2)
-                #     pylab.plot(op1(d0[ind,0,0]))
-                #     pylab.plot(op1(d1[ind,0,0]))
-                #     pylab.plot(op1(d1[ind,0,0])-op1(d0[ind,0,0]))
-                    
+                #     pylab.plot(op1(d0[ind,iFreq,0]))
+                #     pylab.plot(op1(d1[ind,iFreq,0]))
+                #     pylab.plot(op1(d1[ind,iFreq,0])-op1(d0[ind,iFreq,0]))
                 #     pylab.draw()
                 #     pylab.show(False)
+
                 # stop
 
                 print>>log, "Model image @%f MHz (min,max) = (%f, %f)"%(ThisMeanFreq/1e6,ModelImage.min(),ModelImage.max())
@@ -512,7 +527,10 @@ class ClassImagerDeconv():
             # self.DeconvMachine.MSMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
 
             self.ResidImage=DicoImage["MeanImage"]
-            self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual%i"%(self.BaseName,iMajor),Fits=True)
+            self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),Fits=True)
+
+            ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
+            self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),Fits=True)
 
             # fig=pylab.figure(1)
             # pylab.clf()

@@ -287,6 +287,7 @@ class ClassWTermModified():
         dS=np.complex64
         #if self.IDFacet==0:
         #    NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
+
         NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
         LArrays=[]
         CuCv=np.array([self.Cu,self.Cv,self.Cu,self.Cv],dtype=dS).reshape(2,2)

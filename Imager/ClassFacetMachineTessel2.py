@@ -27,7 +27,7 @@ from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from matplotlib.path import Path
 from SkyModel.Sky.ClassClusterKMean import ClassClusterKMean
 from SkyModel.Sky import ModVoronoiToReg
-
+import time
 
 
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
@@ -82,13 +82,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         RadiusTot=self.CellSizeRad*self.Npix/2
         self.RadiusTot=RadiusTot
         
-        SolsFile=self.GD["DDESolutions"]["DDSols"]
-        if not(".npz" in SolsFile):
-            Method=SolsFile
-            ThisMSName=reformat.reformat(os.path.abspath(self.GD["VisData"]["MSName"]),LastSlash=False)
-            SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
-            
-        ClusterNodes=np.load(SolsFile)["ClusterCat"]
+        # SolsFile=self.GD["DDESolutions"]["DDSols"]
+        # if not(".npz" in SolsFile):
+        #     Method=SolsFile
+        #     ThisMSName=reformat.reformat(os.path.abspath(self.GD["VisData"]["MSName"]),LastSlash=False)
+        #     SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
+        # ClusterNodes=np.load(SolsFile)["ClusterCat"]
+
+        ClusterNodes=np.load("/data/tasse/BOOTES/BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
 
 
 
@@ -157,6 +158,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             #polygonFacet=ClosePolygon(polygonFacet)
             P0=Polygon.Polygon(polygonFacet)
             P0Cut=Polygon.Polygon(P0&PFOV)
+
+            if P0Cut.nPoints()==0: return []
+
             polygonFacetCut=np.array(P0Cut[0])
             #polygonFacetCut=ClosePolygon(polygonFacetCut)
 
@@ -212,19 +216,78 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             
             return LPoly
                 
+        def PlotPolygon(P,*args,**kwargs):
+            for poly in P:
+                x,y=ClosePolygon(np.array(poly)).T
+                pylab.plot(x,y,*args,**kwargs)
 
         LPolygonNew=[]
         
         for iFacet in range(len(regions)):
             polygon=LPolygon[iFacet]
             ThisDiamMax=DiamMax
-            while True:
-                SubReg=GiveSubDivideRegions(polygon,ThisDiamMax)
-                Diams=[GiveDiam(poly)[0] for poly in SubReg]
-                
-                if np.min(Diams)>DiamMin: break
-                ThisDiamMax*=1.1
+            SubReg=GiveSubDivideRegions(polygon,ThisDiamMax)
+
             LPolygonNew+=SubReg
+
+        DicoPolygon={}
+        for iFacet in range(len(LPolygonNew)): 
+            DicoPolygon[iFacet]={}
+            poly=LPolygonNew[iFacet]
+            DicoPolygon[iFacet]["poly"]=poly
+            diam,(l0,l1,m0,m1)=GiveDiam(poly)
+            DicoPolygon[iFacet]["diam"]=diam
+            DicoPolygon[iFacet]["diamMin"]=np.min([(l1-l0),(m1-m0)])
+            DicoPolygon[iFacet]["xyc"]=np.mean(poly[:,0]),np.mean(poly[:,1])
+
+        for iFacet in DicoPolygon.keys():
+            diam=DicoPolygon[iFacet]["diamMin"]
+            if diam<DiamMin:
+                dmin=1e6
+                xc0,yc0=DicoPolygon[iFacet]["xyc"]
+                for iFacetOther in DicoPolygon.keys():
+                    if iFacetOther==iFacet: continue
+                    xc,yc=DicoPolygon[iFacetOther]["xyc"]
+                    d=np.sqrt((xc-xc0)**2+(yc-yc0)**2)
+                    if d<dmin:
+                        dmin=d
+                        iFacetClosest=iFacetOther
+                print>>log, "Merging facet #%i to #%i"%(iFacet,iFacetClosest)
+                P0=Polygon.Polygon(DicoPolygon[iFacet]["poly"])
+                P1=Polygon.Polygon(DicoPolygon[iFacetClosest]["poly"])
+                P2=(P0|P1)
+                # pylab.clf()
+                # PlotPolygon(P0)
+                # PlotPolygon(P1)
+                # PlotPolygon(P2,color="black")
+                # pylab.draw()
+                # pylab.show(False)
+                # time.sleep(0.5)
+                poly2=np.array(P2[0])
+                del(DicoPolygon[iFacet])
+                DicoPolygon[iFacetClosest]["poly"]=poly2
+                DicoPolygon[iFacetClosest]["diam"]=GiveDiam(poly2)[0]
+                DicoPolygon[iFacetClosest]["xyc"]=np.mean(poly2[:,0]),np.mean(poly2[:,1])
+                
+
+        LPolygonNew=[]
+        for iFacet in DicoPolygon.keys():
+            LPolygonNew.append(DicoPolygon[iFacet]["poly"])
+
+        
+        # for iFacet in range(len(regions)):
+        #     polygon=LPolygon[iFacet]
+        #     ThisDiamMax=DiamMax
+        #     while True:
+        #         SubReg=GiveSubDivideRegions(polygon,ThisDiamMax)
+        #         if SubReg==[]:
+        #             break
+        #         Diams=[GiveDiam(poly)[0] for poly in SubReg]
+                
+        #         if np.min(Diams)>DiamMin: break
+        #         ThisDiamMax*=1.1
+        #     LPolygonNew+=SubReg
+        #     print 
 
         regFile="%s.FacetMachine.tessel.ReCut.reg"%self.ImageName
         VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=[str(i) for i in range(len(LPolygonNew))])
@@ -506,6 +569,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             # NpShared.ToShared(GridSharedMemName,Grid)
             ModelFacet,_=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight)
             ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+            
             NpShared.ToShared(ModelSharedMemName,ModelFacet)
 
 
@@ -551,7 +615,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="DeGridding ", HeaderSize=10,TitleSize=13)
         pBAR.render(0, '%4i/%i' % (0,NFacets))
-        
+        pBAR.disable()
         iResult=0
         while iResult < NJobs:
             DicoResult=result_queue.get()
@@ -811,8 +875,15 @@ class WorkerImager(multiprocessing.Process):
                 #ModelGrid = NpShared.GiveArray(GridSharedMemName)
                 ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
                 ModelGrid = NpShared.GiveArray(ModelSharedMemName)
+                print "tessel2",iFacet,np.max(ModelGrid)
                 vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelGrid,ImToGrid=False,DicoJonesMatrices=DicoJonesMatrices,freqs=freqs,TranformModelInput="FT")
-                
+                # V=visThis[:,:,0]
+                # f=flagsThis[:,:,0]
+                # V=V[f==0]
+                # ind=np.where(np.abs(V)>0)
+                # V=V[ind]
+                # print "np.max tessel2",np.mean(np.abs(V)),np.median(np.abs(V)),np.max(V)
+
                 self.result_queue.put({"Success":True,"iFacet":iFacet})
 #            print "Done %i"%iFacet
 
