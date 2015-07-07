@@ -82,14 +82,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         RadiusTot=self.CellSizeRad*self.Npix/2
         self.RadiusTot=RadiusTot
         
-        # SolsFile=self.GD["DDESolutions"]["DDSols"]
-        # if not(".npz" in SolsFile):
-        #     Method=SolsFile
-        #     ThisMSName=reformat.reformat(os.path.abspath(self.GD["VisData"]["MSName"]),LastSlash=False)
-        #     SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
-        # ClusterNodes=np.load(SolsFile)["ClusterCat"]
+        SolsFile=self.GD["DDESolutions"]["DDSols"]
+        if not(".npz" in SolsFile):
+            Method=SolsFile
+            ThisMSName=reformat.reformat(os.path.abspath(self.GD["VisData"]["MSName"]),LastSlash=False)
+            SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
+        ClusterNodes=np.load(SolsFile)["ClusterCat"]
 
-        ClusterNodes=np.load("/data/tasse/BOOTES/BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
+        #ClusterNodes=np.load("/data/tasse/BOOTES/BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
 
 
 
@@ -110,12 +110,12 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #
         rac,decc=self.MainRaDec
         VM=ModVoronoiToReg.VoronoiToReg(rac,decc)
-        regFile="%s.FacetMachine.tessel.reg"%self.ImageName
+        regFile="%s.tessel.reg"%self.ImageName
         #VM.ToReg(regFile,lFacet,mFacet,radius=.1)
         
-        VM.PolygonToReg(regFile,LPolygon,radius=0.1,Col="red")
+        #VM.PolygonToReg(regFile,LPolygon,radius=0.1,Col="red")
 
-
+        #stop
         Np=100000
         X=(np.random.rand(Np)*2-1.)*RadiusTot
         Y=(np.random.rand(Np)*2-1.)*RadiusTot
@@ -230,6 +230,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
             LPolygonNew+=SubReg
 
+        regFile="%s.FacetMachine.tessel.ReCut.reg"%self.ImageName
+        #VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=[str(i) for i in range(len(LPolygonNew))])
+
+
         DicoPolygon={}
         for iFacet in range(len(LPolygonNew)): 
             DicoPolygon[iFacet]={}
@@ -238,37 +242,62 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             diam,(l0,l1,m0,m1)=GiveDiam(poly)
             DicoPolygon[iFacet]["diam"]=diam
             DicoPolygon[iFacet]["diamMin"]=np.min([(l1-l0),(m1-m0)])
-            DicoPolygon[iFacet]["xyc"]=np.mean(poly[:,0]),np.mean(poly[:,1])
+            xc,yc=np.mean(poly[:,0]),np.mean(poly[:,1])
+            DicoPolygon[iFacet]["xyc"]=xc,yc
+            dSol=np.sqrt((xc-lFacet)**2+(yc-mFacet)**2)
+            DicoPolygon[iFacet]["iSol"]=np.where(dSol==np.min(dSol))[0]
 
+
+
+        from scipy.spatial import ConvexHull
         for iFacet in DicoPolygon.keys():
             diam=DicoPolygon[iFacet]["diamMin"]
             if diam<DiamMin:
                 dmin=1e6
                 xc0,yc0=DicoPolygon[iFacet]["xyc"]
+                HasClosest=False
                 for iFacetOther in DicoPolygon.keys():
                     if iFacetOther==iFacet: continue
+                    iSolOther=DicoPolygon[iFacetOther]["iSol"]
+                    if iSolOther!=DicoPolygon[iFacet]["iSol"]: continue
                     xc,yc=DicoPolygon[iFacetOther]["xyc"]
                     d=np.sqrt((xc-xc0)**2+(yc-yc0)**2)
                     if d<dmin:
                         dmin=d
                         iFacetClosest=iFacetOther
+                #if not(HasClosest): break
                 print>>log, "Merging facet #%i to #%i"%(iFacet,iFacetClosest)
                 P0=Polygon.Polygon(DicoPolygon[iFacet]["poly"])
                 P1=Polygon.Polygon(DicoPolygon[iFacetClosest]["poly"])
                 P2=(P0|P1)
+                POut=[]
+                for iP in range(len(P2)):
+                    POut+=P2[iP]
+                
+                poly=np.array(POut)
+                hull = ConvexHull(poly)
+                Contour=np.array([hull.points[hull.vertices,0],hull. points[hull.vertices,1]])
+                poly2=Contour.T
+                # poly2=hull.points
                 # pylab.clf()
-                # PlotPolygon(P0)
-                # PlotPolygon(P1)
-                # PlotPolygon(P2,color="black")
+                # x,y=poly.T
+                # pylab.plot(x,y)
+                # x,y=poly2.T
+                # pylab.plot(x,y)
+                # # PlotPolygon(P0)
+                # # PlotPolygon(P1)
+                # # #PlotPolygon(P2,color="black")
+                # # x,y=poly2.T
+                # # PlotPolygon(x,y,color="black")
                 # pylab.draw()
-                # pylab.show(False)
+                # pylab.show()
                 # time.sleep(0.5)
-                poly2=np.array(P2[0])
+                
+                #poly2=np.array(P2[0])
                 del(DicoPolygon[iFacet])
                 DicoPolygon[iFacetClosest]["poly"]=poly2
                 DicoPolygon[iFacetClosest]["diam"]=GiveDiam(poly2)[0]
                 DicoPolygon[iFacetClosest]["xyc"]=np.mean(poly2[:,0]),np.mean(poly2[:,1])
-                
 
         LPolygonNew=[]
         for iFacet in DicoPolygon.keys():
@@ -289,11 +318,15 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #     LPolygonNew+=SubReg
         #     print 
 
-        regFile="%s.FacetMachine.tessel.ReCut.reg"%self.ImageName
+        regFile="%s.tessel.reg"%self.GD["VisData"]["ImageName"]
         VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=[str(i) for i in range(len(LPolygonNew))])
 
-
-
+        # pylab.clf()
+        # x,y=LPolygonNew[11].T
+        # pylab.plot(x,y)
+        # pylab.draw()
+        # pylab.show()
+        # stop
         ###########################################
 
         NFacets=len(LPolygonNew)
@@ -615,7 +648,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="DeGridding ", HeaderSize=10,TitleSize=13)
         pBAR.render(0, '%4i/%i' % (0,NFacets))
-        pBAR.disable()
+        #pBAR.disable()
         iResult=0
         while iResult < NJobs:
             DicoResult=result_queue.get()
@@ -875,7 +908,7 @@ class WorkerImager(multiprocessing.Process):
                 #ModelGrid = NpShared.GiveArray(GridSharedMemName)
                 ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
                 ModelGrid = NpShared.GiveArray(ModelSharedMemName)
-                print "tessel2",iFacet,np.max(ModelGrid)
+
                 vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelGrid,ImToGrid=False,DicoJonesMatrices=DicoJonesMatrices,freqs=freqs,TranformModelInput="FT")
                 # V=visThis[:,:,0]
                 # f=flagsThis[:,:,0]

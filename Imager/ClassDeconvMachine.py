@@ -479,16 +479,16 @@ class ClassImagerDeconv():
                 # # ModelImage.fill(0)
                 # # ModelImage[ind]=-10
                 # # #ModelImage[0,0,:,:]=ModelImage[0,0]#[::-1].T
-                # d0=DATA["data"].copy()
-                # DATA["data"].fill(0)
+                #d0=DATA["data"].copy()
+                #DATA["data"].fill(0)
 
                 # #ind=np.where(ModelImage==np.max(ModelImage))
                 # ModelImage.fill(0)
-                # ModelImage[0,0,2381,6610]=-10.
+                # ModelImage[0,0,2381,6610]=10.
                 # #ModelImage[ind]=-10
                 # #ModelImage=-ModelImage
 
-                # DATA["data"].fill(0)
+                #DATA["data"].fill(0)
 
                 _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
 

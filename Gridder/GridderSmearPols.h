@@ -134,6 +134,12 @@ void ScaleJones(float complex* J0, float AlphaScaleJones){
   }
 }
 
+void Unity(float complex *A){
+  A[0]=1.;
+  A[1]=0.;
+  A[2]=0.;
+  A[3]=1.;
+}
 
 
 void MatInv(float complex *A, float complex* B, int H ){

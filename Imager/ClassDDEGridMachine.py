@@ -50,18 +50,20 @@ def testGrid():
     #19 (-0.01442078294460315, 0.014406238534169863) 2025 3465 -10.0
     #(array([0]), array([0]), array([1015]), array([1201]))
     #(array([0]), array([0]), array([1050]), array([1398]))
+    #17 (-0.014391694123736577, 0.01437714971330329) 2025 3465 -10.0
+    #(array([0]), array([0]), array([1030]), array([1303]))
 
     npix=2025
     Cell=1.5
-    offx,offy=3465/2-1050,3465/2-1398
-    offy,offx=3465/2-1050,3465/2-1398
+    #Cell=.5
+    offy,offx=3465/2-1030,3465/2-1303
     offx=offx
     offy=-offy
     CellRad=(Cell/3600.)*np.pi/180
     L=offy*(Cell/3600.)*np.pi/180
     M=-offx*(Cell/3600.)*np.pi/180
     
-    l0,m0=-0.01442078294460315, 0.014406238534169863
+    l0,m0=-0.014391694123736577, 0.01437714971330329
     #l0,m0=-0.009454, 0.
     L+=l0
     M+=m0
@@ -72,8 +74,8 @@ def testGrid():
     DC["VisData"]["MSName"]="Simul.MS.W0.tsel"
     #/media/6B5E-87D0/DDFacet/Test/TestDegridOleg/TestOlegVLA.MS_p0
 
-    DC["ImagerCF"]["OverS"]= 31
-    DC["ImagerCF"]["Support"]= 11
+    DC["ImagerCF"]["OverS"]= 81
+    DC["ImagerCF"]["Support"]= 9
     DC["ImagerCF"]["Nw"]= 2
     DC["ImagerCF"]["wmax"]= 100000.
     DC["Stores"]["DeleteDDFProducts"] = False#True
@@ -265,13 +267,14 @@ def testGrid():
     #ind=np.where((d0-d1)[:]!=0)
     
     #print -0.0194966364621, 0.0112573688
+    #-0.0194967821858 0.0112573736754
     #print L,M
     
     ind=range(U.size)#np.where((A0==49)&(A1==55))[0]
     d0=data0[ind,-1,0].ravel()
     #d1=data1[ind,-1,0].ravel()
     k=K[ind,-1]
-    k=DOrig[ind,-1,0].ravel()
+    #k=DOrig[ind,-1,0].ravel()
 
     # d0=data0[:,:,0].ravel()
     # d1=data1[:,:,0].ravel()

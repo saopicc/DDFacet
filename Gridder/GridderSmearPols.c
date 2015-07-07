@@ -310,7 +310,7 @@ void gridderWPol(PyArrayObject *grid,
     uvwScale_p[0]=fnGridX*incr[0];
     uvwScale_p[1]=fnGridX*incr[1];
     //printf("uvscale=(%f %f)\n",uvwScale_p[0],uvwScale_p[1]);
-    double C=2.99792458e8;
+    double C=2.99792456e8;
     int inx;
     // Loop over all visibility rows to process.
 
@@ -368,6 +368,10 @@ void gridderWPol(PyArrayObject *grid,
     float complex *J1kMS=calloc(1,(4)*sizeof(float complex));
     float complex *J0Beam=calloc(1,(4)*sizeof(float complex));
     float complex *J1Beam=calloc(1,(4)*sizeof(float complex));
+    Unity(J0); Unity(J1);
+    Unity(J0kMS); Unity(J1kMS);
+    Unity(J0Beam); Unity(J1Beam);
+
     float complex *J0inv=calloc(1,(4)*sizeof(float complex));
     float complex *J0H=calloc(1,(4)*sizeof(float complex));
     float complex *J0Conj=calloc(1,(4)*sizeof(float complex));
@@ -442,6 +446,7 @@ void gridderWPol(PyArrayObject *grid,
       double ThisWeight=0.;
       float ThisSumJones=0.;
       float ThisSumSqWeights=0.;
+      //int ThisBlockAllFlagged=1;
       for (inx=0; inx<NRowThisBlock; inx++) {
 	int irow = Row[inx];
 	if(irow>nrows){continue;}
@@ -475,9 +480,9 @@ void gridderWPol(PyArrayObject *grid,
 	  MatConj(J0,J0Conj);
 	  BB=cabs(J0Conj[0]*J1T[0]);
 	  BB*=BB;
-	  /* MatH(J1,J1H); */
-	  /* MatInv(J0,J0inv,0); */
-	  /* MatInv(J1H,J1Hinv,0); */
+	  MatH(J1,J1H);
+	  MatInv(J0,J0inv,0);
+	  MatInv(J1H,J1Hinv,0);
 	  /* BB=cabs(J0inv[0])*cabs(J1Hinv[0]); */
 	  /* //BB*=BB; */
 	} //endif DoApplyJones
@@ -519,7 +524,7 @@ void gridderWPol(PyArrayObject *grid,
 	  int cond;
 	  // We can do that since all flags in 4-pols are equalised in ClassVisServer
 	  if(flagPtr[0]==1){continue;}
-
+	  //ThisBlockAllFlagged=0;
 
 	  //AddTimeit(PreviousTime,TimeStuff);
 
@@ -533,10 +538,11 @@ void gridderWPol(PyArrayObject *grid,
 	  float complex Weight=(*imgWtPtr) * corr;
 	  float complex visPtr[4];
 	  if(DoApplyJones){
-	    /* MatDot(J0inv,VisMeas,visPtr); */
-	    /* MatDot(visPtr,J1Hinv,visPtr); */
-	    MatDot(J1T,JonesType,VisMeas,SkyType,visPtr);
-	    MatDot(visPtr,SkyType,J0Conj,JonesType,visPtr);
+	    MatDot(J0inv,JonesType,VisMeas,SkyType,visPtr);
+	    MatDot(visPtr,SkyType,J1Hinv,JonesType,visPtr);
+
+	    //MatDot(J1T,JonesType,VisMeas,SkyType,visPtr);
+	    //MatDot(visPtr,SkyType,J0Conj,JonesType,visPtr);
 	    
 	    // Vis+=visPtr*Weight
 	    Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);
@@ -659,6 +665,8 @@ void gridderWPol(PyArrayObject *grid,
       	      VisVal =Vis[ipol];
       	    }
       	    //VisVal*=ThisWeight;
+
+	    //if(ThisBlockAllFlagged==0){VisVal = 0.;}
 
       	    // Map to grid polarization. Only use pol if needed.
       	    int gridPol = PolMap[ipol];
@@ -1010,7 +1018,7 @@ void DeGridderWPol(PyArrayObject *grid,
     uvwScale_p[0]=fnGridX*incr[0];
     uvwScale_p[1]=fnGridX*incr[1];
     //printf("uvscale=(%f %f)",uvwScale_p[0],uvwScale_p[1]);
-    double C=2.99792458e8;
+    double C=2.99792456e8;
     int inx;
 
 
