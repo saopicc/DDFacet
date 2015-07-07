@@ -49,7 +49,7 @@ class ClassClusterKMean():
         else:
             sz=np.ones_like(s)*10
         while True:
-            #d=s.reshape((ns,1))*np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
+            #d=np.abs(s.reshape((ns,1))**2)*np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
             d=np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
             indk=np.argmin(d,axis=1)
             xc0=xc.copy()
@@ -65,6 +65,8 @@ class ClassClusterKMean():
                 
                 xc[iK]=np.sum(ss*xx)/np.sum(ss)
                 yc[iK]=np.sum(ss*yy)/np.sum(ss)
+                xc[iK]=np.mean(xx)
+                yc[iK]=np.mean(yy)
                 c=np.ones(xx.size)*iK
                 ssz=sz[ind]
                 
@@ -161,6 +163,16 @@ class ClassClusterKMean():
             polygon0 = vertices[region]
             P=polygon0.tolist()
             polygon=np.array(P+[P[0]])
+            ThisText=""
+
+            # lmean=np.mean(polygon[:,0])
+            # mmean=np.mean(polygon[:,1])
+            # xm,ym=self.CoordMachine.lm2radec(np.array([lmean]),np.array([mmean]))
+            # xm*=180./np.pi
+            # ym*=180./np.pi
+            # ThisText=str(labels[iFacet])
+            # f.write("point(%f,%f) # text={%s} point=circle 5 color=red width=2\n"%(xm,ym,ThisText))
+
             for iline in range(polygon.shape[0]-1):
                 
                 x0,y0=self.CoordMachine.lm2radec(np.array([polygon[iline][0]]),np.array([polygon[iline][1]]))
