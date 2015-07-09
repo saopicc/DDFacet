@@ -5,6 +5,7 @@ import numpy as np
 from scipy.spatial import Voronoi
 import ModVoronoi
 from SkyModel.Other import MyLogger
+from SkyModel.Other import ModColor
 log=MyLogger.getLogger("VoronoiToReg")
 
 class VoronoiToReg():
@@ -14,7 +15,7 @@ class VoronoiToReg():
         self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
 
     def ToReg(self,regFile,xc,yc,radius=0.1,Col="red"):
-        print>>log, "Writing voronoi in: %s"%regFile
+        print>>log, "Writing voronoi in: %s"%ModColor.Str(regFile,col="blue")
         f=open(regFile,"w")
         f.write("# Region file format: DS9 version 4.1\n")
         ss0='global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=1 highlite=1 dash=0'
@@ -53,7 +54,8 @@ class VoronoiToReg():
 
 
     def VorToReg(self,regFile,vor,radius=0.1,Col="red"):
-        print>>log, "Writing voronoi in: %s"%regFile
+        print>>log,"Writing voronoi in: %s"%ModColor.Str(regFile,col="blue")
+
         f=open(regFile,"w")
         f.write("# Region file format: DS9 version 4.1\n")
         ss0='global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=1 highlite=1 dash=0'
@@ -88,7 +90,8 @@ class VoronoiToReg():
         f.close()
 
     def PolygonToReg(self,regFile,LPolygon,radius=0.1,Col="red",labels=None):
-        print>>log, "Writing voronoi in: %s"%regFile
+        print>>log, "Writing voronoi in: %s"%ModColor.Str(regFile,col="blue")
+
         f=open(regFile,"w")
         f.write("# Region file format: DS9 version 4.1\n")
         ss0='global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=1 highlite=1 dash=0'
