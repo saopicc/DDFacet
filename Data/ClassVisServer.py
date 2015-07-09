@@ -453,7 +453,7 @@ class ClassVisServer():
         DATA["flags"]=flags
 
 
-
+        DATA["data"][flags]=1e9
 
         # if dt0<dt1:
         #     JonesBeam=np.zeros((Tm.size,),dtype=[("t0",np.float32),("t1",np.float32),("tm",np.float32),("Jones",(NDir,self.MS.na,self.MS.NSPWChan,2,2),np.complex64)])

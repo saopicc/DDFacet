@@ -550,10 +550,10 @@ class ClassFacetMachine():
         #     DicoImages["MeanImage"]=ImagData
                 
         if NormJones: 
-            #ImagData/=(NormData)
             
             #self.NormData.fill(1)
-            ImagData/=np.sqrt(self.NormData)
+            ImagData/=(self.NormData)
+            #ImagData/=np.sqrt(self.NormData)
 
         DicoImages["ImagData"]=ImagData
         DicoImages["NormData"]=self.NormData
@@ -564,6 +564,7 @@ class ClassFacetMachine():
             W/=np.sum(W)
             W=np.float32(W.reshape((self.VS.NFreqBands,1,1,1)))
             DicoImages["MeanImage"]=np.sum(ImagData*W,axis=0).reshape((1,npol,Npix,Npix))
+
         else:
             DicoImages["MeanImage"]=ImagData
 
@@ -665,12 +666,18 @@ class ClassFacetMachine():
 
                 ThisSumWeights=self.DicoImager[iFacet]["SumWeights"][Channel]
                 ThisSumJones=1.
+
+                indRandX,indRandY=np.int64(np.random.rand(100)*NpixFacet),np.int64(np.random.rand(100)*NpixFacet)
                 if BeamWeightImage:
                     ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][Channel][1]
                     if ThisSumSqWeights==0: ThisSumSqWeights=1.
                     ThisSumJones=self.DicoImager[iFacet]["SumJones"][Channel][0]/ThisSumSqWeights
-                    if ThisSumJones==0: ThisSumJones=1.
-                
+                    ThisSumJones2=np.std(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][indRandX,indRandY])
+                    if ThisSumJones==0:
+                        ThisSumJones=1.
+                    else:
+                        ThisSumJones=ThisSumJones2
+                    stop
                 import DDFacet.ToolsDir.rad2hmsdms
                 
                 # if iFacet!=14: continue
@@ -732,7 +739,7 @@ class ClassFacetMachine():
         self.NormImage=NormImage
 
         nx,nx=self.NormImage.shape
-        self.ToCasaImage(self.NormImage.reshape((1,1,nx,nx)),Fits=True,ImageName="NormImage")
+        #self.ToCasaImage(self.NormImage.reshape((1,1,nx,nx)),Fits=True,ImageName="NormImage")
         # stop
 
         # for ch in range(nch):

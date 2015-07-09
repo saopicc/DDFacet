@@ -476,15 +476,16 @@ void gridderWPol(PyArrayObject *grid,
 	    MatDot(J0kMS,JonesType,J0,JonesType,J0);
 	    MatDot(J1kMS,JonesType,J1,JonesType,J1);
 	  }
-	  MatT(J1,J1T);
-	  MatConj(J0,J0Conj);
-	  BB=cabs(J0Conj[0]*J1T[0]);
-	  BB*=BB;
-	  MatH(J1,J1H);
+	  //MatT(J1,J1T);
+	  //MatConj(J0,J0Conj);
+	  //BB=cabs(J0Conj[0]*J1T[0]);
+	  //BB*=BB;
 	  MatInv(J0,J0inv,0);
+	  MatH(J1,J1H);
 	  MatInv(J1H,J1Hinv,0);
-	  /* BB=cabs(J0inv[0])*cabs(J1Hinv[0]); */
-	  /* //BB*=BB; */
+	  MatDot(J0inv,JonesType,J1Hinv,JonesType,JJ);
+	  BB=cabs(JJ[0]);
+	  //BB*=BB;
 	} //endif DoApplyJones
 	//AddTimeit(PreviousTime,TimeGetJones);
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
@@ -548,7 +549,7 @@ void gridderWPol(PyArrayObject *grid,
 	    Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);
 	    ThisSumJones+=BB*(*imgWtPtr)*(*imgWtPtr);
 	    ThisSumSqWeights+=(*imgWtPtr)*(*imgWtPtr);
-
+	    
 
 
 	  }else{

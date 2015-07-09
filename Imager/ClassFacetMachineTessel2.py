@@ -265,7 +265,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                     if d<dmin:
                         dmin=d
                         iFacetClosest=iFacetOther
-                #if not(HasClosest): break
+                if not(HasClosest): break
                 print>>log, "Merging facet #%i to #%i"%(iFacet,iFacetClosest)
                 P0=Polygon.Polygon(DicoPolygon[iFacet]["poly"])
                 P1=Polygon.Polygon(DicoPolygon[iFacetClosest]["poly"])

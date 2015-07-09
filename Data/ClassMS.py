@@ -360,7 +360,7 @@ class ClassMS():
         uvw=table_all.getcol('UVW',row0,nRowRead)#[SPW==self.ListSPW[0]]
         vis_all=table_all.getcol(self.ColName,row0,nRowRead)
         
-        if self.zero_flag: vis_all[flag_all==1]=0.
+        if self.zero_flag: vis_all[flag_all==1]=1e10
         #print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
         vis_all[np.isnan(vis_all)]=0.
         #print "visMS",vis_all.min(),vis_all.max()

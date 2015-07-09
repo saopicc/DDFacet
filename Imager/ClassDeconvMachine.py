@@ -474,10 +474,11 @@ class ClassImagerDeconv():
                 # # ModelImage[0,0].T[::-1,:][1625,557]=-10.
                 #ind=np.where(Image==np.max(Image))
                 #print ind
-                #ind=np.where(ModelImage==np.max(ModelImage))
+                ind=np.where(ModelImage==np.max(ModelImage))
                 #print ind
-                # # ModelImage.fill(0)
-                # # ModelImage[ind]=-10
+                Max=np.max(ModelImage)
+                ModelImage.fill(0)
+                ModelImage[ind]=Max
                 # # #ModelImage[0,0,:,:]=ModelImage[0,0]#[::-1].T
                 #d0=DATA["data"].copy()
                 #DATA["data"].fill(0)

@@ -538,6 +538,7 @@ class ClassDDEGridMachine():
             DicoClusterDirs=DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]
             lc=DicoClusterDirs["l"]
             mc=DicoClusterDirs["m"]
+
             sI=DicoClusterDirs["I"]
             
             #lc,mc=np.random.randn(100)*np.pi/180,np.random.randn(100)*np.pi/180
@@ -552,6 +553,7 @@ class ClassDDEGridMachine():
             
             d=np.sqrt((l0-lc)**2+(m0-mc)**2)
             idir_kMS=np.argmin(d)
+
             w=sI/(1.+d/d0)**gamma
             w/=np.sum(w)
             w[w<(0.2*w.max())]=0
