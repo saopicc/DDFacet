@@ -34,19 +34,25 @@ class ClassMultiScaleMachine():
         self.SideLobeLevel=SideLobeLevel
         self.OffsetSideLobe=OffsetSideLobe
 
-    def SetDirtyPSF(self,DicoDirty,DicoPSF):
+    def SetPSF(self,DicoPSF,PSF,MeanPSF):
+        self.DicoPSF=DicoPSF
+        self._PSF=PSF#self.DicoPSF["ImagData"]
+        self._MeanPSF=MeanPSF
+        
+        _,_,NPSF,_=self._PSF.shape
+        self.NPSF=NPSF
+
+
+    def SetDirty(self,DicoDirty):
 
         self.DicoDirty=DicoDirty
-        self.DicoPSF=DicoPSF
         #self.NChannels=self.DicoDirty["NChannels"]
 
 
-        self._PSF=self.DicoPSF["ImagData"]
         self._Dirty=self.DicoDirty["ImagData"]
-        self._MeanPSF=self.DicoPSF["MeanImage"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
-        _,_,NPSF,_=self._PSF.shape
         _,_,NDirty,_=self._Dirty.shape
+        NPSF=self.NPSF
         off=(NPSF-NDirty)/2
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
         
@@ -162,7 +168,7 @@ class ClassMultiScaleMachine():
             AllFreqs+=self.DicoPSF["freqs"][iChannel]
             AllFreqsMean[iChannel]=np.mean(self.DicoPSF["freqs"][iChannel])
 
-        RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoDirty["WeightChansImages"].ravel())
+        RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoPSF["WeightChansImages"].ravel())
 
         self.ModelMachine.setRefFreq(RefFreq,AllFreqs)
         self.RefFreq=RefFreq

@@ -569,10 +569,35 @@ class ClassFacetMachine():
             DicoImages["MeanImage"]=ImagData
 
 
+        if self.DoPSF:
+            self.DicoPSF={}
+            for iFacet in self.DicoGridMachine.keys():
+                self.DicoPSF[iFacet]={}
+                self.DicoPSF[iFacet]["PSF"]=self.DicoGridMachine[iFacet]["Dirty"]
+                self.DicoPSF[iFacet]["l0m0"]=self.DicoImager[iFacet]["l0m0"]
+                self.DicoPSF[iFacet]["pixCentral"]=self.DicoImager[iFacet]["pixCentral"]
+
+                nch=len(self.DicoPSF[iFacet]["PSF"])
+                _,npol,n,n=self.DicoPSF[iFacet]["PSF"][0].shape
+                PSFChannel=np.zeros((nch,npol,n,n),np.float32)
+                for ch in range(nch):
+                    self.DicoPSF[iFacet]["PSF"][ch][0,0]=self.DicoPSF[iFacet]["PSF"][ch][0,0].T[::-1,:]
+                    self.DicoPSF[iFacet]["PSF"][ch]/=np.max(self.DicoPSF[iFacet]["PSF"][ch])
+                    PSFChannel[ch,:,:,:]=self.DicoPSF[iFacet]["PSF"][ch][0,:,:,:]
+                    
+                W=DicoImages["WeightChansImages"]
+                W=np.float32(W.reshape((self.VS.NFreqBands,1,1,1)))
+                
+                MeanPSF=np.sum(PSFChannel*W,axis=0).reshape((1,npol,n,n))
+                self.DicoPSF[iFacet]["MeanPSF"]=MeanPSF
+
+
         for iFacet in self.DicoImager.keys():
             del(self.DicoGridMachine[iFacet]["Dirty"])
             DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
             _=NpShared.DelArray(DirtyName)
+
+
 
         return DicoImages
 
@@ -920,7 +945,7 @@ class ClassFacetMachine():
             workerlist[ii].terminate()
             workerlist[ii].join()
 
-            
+        
         return True
 
 

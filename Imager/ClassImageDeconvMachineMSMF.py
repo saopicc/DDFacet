@@ -10,7 +10,7 @@ from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
 import ClassMultiScaleMachine
 from pyrap.images import image
-
+from ClassPSFServer import ClassPSFServer
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
@@ -28,7 +28,8 @@ class ClassImageDeconvMachine():
         self.GD=GD
         self.SubPSF=None
         self.MultiFreqMode=(self.GD["MultiFreqs"]["NFreqBands"]>1)
-        self.MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.Gain)
+
+        
         if CleanMaskImage!=None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
@@ -41,29 +42,55 @@ class ClassImageDeconvMachine():
 
     def GiveModelImage(self,*args): return self.MSMachine.ModelMachine.GiveModelImage(*args)
 
+    def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
+        self.SideLobeLevel=SideLobeLevel
+        self.OffsetSideLobe=OffsetSideLobe
+        
+
+    def SetPSF(self,DicoPSF,DicoVariablePSF):
+        self.PSFServer=ClassPSFServer(self.GD)
+        self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
+        self.DicoPSF=DicoPSF
+        self.DicoVariablePSF=DicoVariablePSF
+        #self.NChannels=self.DicoDirty["NChannels"]
+
     def InitMSMF(self):
-        self.MSMachine.FindPSFExtent(Method="FromSideLobe")
-        self.MSMachine.MakeMultiScaleCube()
-        self.MSMachine.MakeBasisMatrix()
+
+        self.DicoMSMachine={}
+        for iFacet in self.PSFServer.DicoVariablePSF.keys():
+            self.PSFServer.setFacet(iFacet)
+            MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.Gain)
+            MSMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
+            ThisPSF,ThisMeanPSF=self.PSFServer.GivePSF()
+            MSMachine.SetPSF(self.DicoPSF,ThisPSF,ThisMeanPSF)
+            MSMachine.FindPSFExtent(Method="FromSideLobe")
+            MSMachine.MakeMultiScaleCube()
+            MSMachine.MakeBasisMatrix()
+            self.DicoMSMachine[iFacet]=MSMachine
+
+        
 
 
-    def SetDirtyPSF(self,DicoDirty,DicoPSF):
+    def SetDirty(self,DicoDirty):
         # if len(PSF.shape)==4:
         #     self.PSF=PSF[0,0]
         # else:
         #     self.PSF=PSF
 
         self.DicoDirty=DicoDirty
-        self.DicoPSF=DicoPSF
-        #self.NChannels=self.DicoDirty["NChannels"]
-        self.MSMachine.SetDirtyPSF(DicoDirty,DicoPSF)
+        #self.DicoPSF=DicoPSF
+        #self.DicoVariablePSF=DicoVariablePSF
 
-        self._PSF=self.MSMachine._PSF
-        self._Dirty=self.MSMachine._Dirty
-        self._MeanPSF=self.MSMachine._MeanPSF
-        self._MeanDirty=self.MSMachine._MeanDirty
+        for iFacet in self.PSFServer.DicoVariablePSF.keys():
+            MSMachine=self.DicoMSMachine[iFacet]
+            MSMachine.SetDirty(DicoDirty)
 
-        _,_,NPSF,_=self._PSF.shape
+        #self._PSF=self.MSMachine._PSF
+        self._Dirty=MSMachine._Dirty
+        #self._MeanPSF=self.MSMachine._MeanPSF
+        self._MeanDirty=MSMachine._MeanDirty
+        NPSF=self.PSFServer.NPSF
+        #_,_,NPSF,_=self._PSF.shape
         _,_,NDirty,_=self._Dirty.shape
 
         off=(NPSF-NDirty)/2
@@ -163,7 +190,7 @@ class ClassImageDeconvMachine():
         # pylab.clf()
         # ax=pylab.subplot(1,3,1)
         # vmin,vmax=self.Dirty.min(),self.Dirty.max()
-        # pylab.imshow(self.Dirty[0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.imshow(self._Dirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
         # pylab.subplot(1,3,2)
         # pylab.imshow(LocalSM[0,0,x0p:x1p,y0p:y1p],interpolation="nearest",vmin=vmin,vmax=vmax)
         # pylab.draw()
@@ -176,7 +203,7 @@ class ClassImageDeconvMachine():
             self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
             
         # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-        # pylab.imshow(self.Dirty[0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.imshow(self._Dirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
         # pylab.draw()
         # pylab.show(False)
         # print Aedge
@@ -188,15 +215,11 @@ class ClassImageDeconvMachine():
 
 
     def setChannel(self,ch=0):
-        self.PSF=self._MeanPSF[ch]
+        #self.PSF=self._MeanPSF[ch]
         self.Dirty=self._MeanDirty[ch]
         self.ModelImage=self._ModelImage[ch]
         self.MaskArray=self._MaskArray[ch]
 
-    def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
-        self.SideLobeLevel=SideLobeLevel
-        self.OffsetSideLobe=OffsetSideLobe
-        self.MSMachine.setSideLobeLevel(SideLobeLevel,OffsetSideLobe)
 
     def Clean(self,Nminor=None,ch=0):
         if Nminor==None:
@@ -310,7 +333,11 @@ class ClassImageDeconvMachine():
             T.timeit("stuff")
 
             #iScale=self.MSMachine.FindBestScale((x,y),Fpol)
-            LocalSM=self.MSMachine.GiveLocalSM((x,y),Fpol)
+
+            self.PSFServer.setLocation(x,y)
+            MSMachine=self.DicoMSMachine[self.PSFServer.iFacet]
+
+            LocalSM=MSMachine.GiveLocalSM((x,y),Fpol)
 
             T.timeit("FindScale")
             #print iScale

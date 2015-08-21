@@ -236,6 +236,7 @@ class ClassImagerDeconv():
             # break
 
         self.DicoImagePSF=FacetMachinePSF.FacetsToIm(NormJones=True)
+        self.DicoVariablePSF=FacetMachinePSF.DicoPSF
         #FacetMachinePSF.ToCasaImage(self.DicoImagePSF["ImagData"],ImageName="%s.psf"%self.BaseName,Fits=True)
 
         #np.savez("PSF.npz",ImagData=self.DicoImagePSF["ImagData"],MeanImage=self.DicoImagePSF["MeanImage"])
@@ -419,16 +420,16 @@ class ClassImagerDeconv():
         self.NormImage=DicoImage["NormData"]
 
         self.MakePSF()
-
+        self.DeconvMachine.SetPSF(self.DicoImagePSF,self.DicoVariablePSF)
+        self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
+        self.DeconvMachine.InitMSMF()
 
         for iMajor in range(NMajor):
 
             print>>log, ModColor.Str("========================== Runing major Cycle %i ========================="%iMajor)
             
-            self.DeconvMachine.SetDirtyPSF(DicoImage,self.DicoImagePSF)
-            self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
+            self.DeconvMachine.SetDirty(DicoImage)
             #self.DeconvMachine.setSideLobeLevel(0.2,10)
-            self.DeconvMachine.InitMSMF()
             repMinor=self.DeconvMachine.Clean()
             if repMinor=="DoneMinFlux":
                 break
