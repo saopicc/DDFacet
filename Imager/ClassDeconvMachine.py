@@ -235,12 +235,12 @@ class ClassImagerDeconv():
             # pylab.pause(0.1)
             # break
 
-        self.DicoImagePSF=FacetMachinePSF.FacetsToIm(NormJones=False)
+        self.DicoImagePSF=FacetMachinePSF.FacetsToIm(NormJones=True)
         #FacetMachinePSF.ToCasaImage(self.DicoImagePSF["ImagData"],ImageName="%s.psf"%self.BaseName,Fits=True)
 
         #np.savez("PSF.npz",ImagData=self.DicoImagePSF["ImagData"],MeanImage=self.DicoImagePSF["MeanImage"])
 
-        self.PSF=self.DicoImagePSF["MeanImage"]
+        self.PSF=self.DicoImagePSF["MeanImage"]/np.sqrt(self.DicoImagePSF["NormData"])
 
         FacetMachinePSF.DoPSF=False
 
@@ -274,11 +274,14 @@ class ClassImagerDeconv():
         # pylab.pause(0.1)
         # time.sleep(1)
 
-        self.FitPSF()
 
 
         # self.FWHMBeam=(10.,10.,10.)
         # FacetMachinePSF.ToCasaImage(self.PSF)
+
+
+
+        self.FitPSF()
         FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeam)
 
         # if self.VS.MultiFreqMode:

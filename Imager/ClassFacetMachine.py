@@ -552,8 +552,8 @@ class ClassFacetMachine():
         if NormJones: 
             
             #self.NormData.fill(1)
-            ImagData/=(self.NormData)
-            #ImagData/=np.sqrt(self.NormData)
+            #ImagData/=(self.NormData)
+            ImagData/=np.sqrt(self.NormData)
 
         DicoImages["ImagData"]=ImagData
         DicoImages["NormData"]=self.NormData
@@ -672,12 +672,12 @@ class ClassFacetMachine():
                     ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][Channel][1]
                     if ThisSumSqWeights==0: ThisSumSqWeights=1.
                     ThisSumJones=self.DicoImager[iFacet]["SumJones"][Channel][0]/ThisSumSqWeights
-                    ThisSumJones2=np.std(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][indRandX,indRandY])
+                    #ThisSumJones2=np.std(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][indRandX,indRandY])
                     if ThisSumJones==0:
                         ThisSumJones=1.
-                    else:
-                        ThisSumJones=ThisSumJones2
-                    stop
+                    #else:
+                    #    ThisSumJones=ThisSumJones2
+
                 import DDFacet.ToolsDir.rad2hmsdms
                 
                 # if iFacet!=14: continue
@@ -836,7 +836,7 @@ class ClassFacetMachine():
 
         PSFMode=False
         if self.DoPSF:
-            visIn.fill(1)
+            #visIn.fill(1)
             PSFMode=True
 
         NJobs=NFacets
@@ -1053,8 +1053,8 @@ class WorkerImager(multiprocessing.Process):
         
     def GiveDicoJonesMatrices(self):
         DicoJonesMatrices=None
-        if self.PSFMode:
-            return None
+        # if self.PSFMode:
+        #     return None
 
         if self.ApplyCal:
             DicoJonesMatrices={}
@@ -1109,7 +1109,7 @@ class WorkerImager(multiprocessing.Process):
                 freqs=DATA["freqs"]
 
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
-                Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices,freqs=freqs)#,doStack=False)
+                Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices,freqs=freqs,DoPSF=self.PSFMode)#,doStack=False)
 
                 DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
                 _=NpShared.ToShared(DirtyName,Dirty)

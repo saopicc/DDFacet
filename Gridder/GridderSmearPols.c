@@ -476,16 +476,21 @@ void gridderWPol(PyArrayObject *grid,
 	    MatDot(J0kMS,JonesType,J0,JonesType,J0);
 	    MatDot(J1kMS,JonesType,J1,JonesType,J1);
 	  }
-	  //MatT(J1,J1T);
-	  //MatConj(J0,J0Conj);
-	  //BB=cabs(J0Conj[0]*J1T[0]);
-	  //BB*=BB;
-	  MatInv(J0,J0inv,0);
+
+	  MatT(J1,J1T);
+	  MatConj(J0,J0Conj);
+	  BB=cabs(J0Conj[0]*J1T[0]);
+	  BB*=BB;
 	  MatH(J1,J1H);
-	  MatInv(J1H,J1Hinv,0);
-	  MatDot(J0inv,JonesType,J1Hinv,JonesType,JJ);
-	  BB=cabs(JJ[0]);
-	  //BB*=BB;
+	  MatH(J0,J0H);
+
+	  /* MatInv(J0,J0inv,0); */
+	  /* MatH(J1,J1H); */
+	  /* MatInv(J1H,J1Hinv,0); */
+	  /* MatDot(J0inv,JonesType,J1Hinv,JonesType,JJ); */
+	  /* BB=cabs(JJ[0]); */
+
+	  /* //BB*=BB; */
 	} //endif DoApplyJones
 	//AddTimeit(PreviousTime,TimeGetJones);
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
@@ -531,19 +536,39 @@ void gridderWPol(PyArrayObject *grid,
 
 	  float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;
 	  
-	  for(ThisPol =0; ThisPol<4;ThisPol++){
-	    VisMeas[ThisPol]=visPtrMeas[ThisPol];
+	  if (dopsf==1) {
+	    VisMeas[0]= 1.;
+	    VisMeas[1]= 0.;
+	    VisMeas[2]= 0.;
+	    VisMeas[3]= 1.;
+	    if(DoApplyJones){
+	      MatDot(J0,JonesType,VisMeas,SkyType,VisMeas);
+	      MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);
+	    }
+	    corr=1.;
+	  }else{
+	    for(ThisPol =0; ThisPol<4;ThisPol++){
+	      VisMeas[ThisPol]=visPtrMeas[ThisPol];
+	    }
 	  }
 
 
 	  float complex Weight=(*imgWtPtr) * corr;
 	  float complex visPtr[4];
 	  if(DoApplyJones){
-	    MatDot(J0inv,JonesType,VisMeas,SkyType,visPtr);
-	    MatDot(visPtr,SkyType,J1Hinv,JonesType,visPtr);
+	    /* MatDot(J0inv,JonesType,VisMeas,SkyType,visPtr); */
+	    /* MatDot(visPtr,SkyType,J1Hinv,JonesType,visPtr); */
 
-	    //MatDot(J1T,JonesType,VisMeas,SkyType,visPtr);
-	    //MatDot(visPtr,SkyType,J0Conj,JonesType,visPtr);
+	    MatDot(J1T,JonesType,VisMeas,SkyType,visPtr);
+	    MatDot(visPtr,SkyType,J0Conj,JonesType,visPtr);
+
+	    /* MatDot(J0H,JonesType,VisMeas,SkyType,visPtr); */
+	    /* MatDot(visPtr,SkyType,J1,JonesType,visPtr); */
+
+	    /* int ThisPol; */
+	    /* for(ThisPol =0; ThisPol<1;ThisPol++){ */
+	    /*   printf("   vis: %i (%f, %f)\n",ThisPol,creal(visPtr[ThisPol]),cimag(visPtr[ThisPol])); */
+	    /* } */
 	    
 	    // Vis+=visPtr*Weight
 	    Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);
@@ -660,11 +685,12 @@ void gridderWPol(PyArrayObject *grid,
       	  int ipol;
       	  for (ipol=0; ipol<nVisPol; ++ipol) {
       	    float complex VisVal;
-      	    if (dopsf==1) {
-      	      VisVal = 1.;
-      	    }else{
-      	      VisVal =Vis[ipol];
-      	    }
+      	    /* if (dopsf==1) { */
+      	    /*   VisVal = 1.; */
+      	    /* }else{ */
+      	    /*   VisVal =Vis[ipol]; */
+      	    /* } */
+	    VisVal =Vis[ipol];
       	    //VisVal*=ThisWeight;
 
 	    //if(ThisBlockAllFlagged==0){VisVal = 0.;}

@@ -617,7 +617,7 @@ class ClassDDEGridMachine():
         return ParamJonesList
 
 
-    def put(self,times,uvw,visIn,flag,A0A1,W=None,PointingID=0,DoNormWeights=True,DicoJonesMatrices=None,freqs=None):#,doStack=False):
+    def put(self,times,uvw,visIn,flag,A0A1,W=None,PointingID=0,DoNormWeights=True,DicoJonesMatrices=None,freqs=None,DoPSF=0):#,doStack=False):
         #log=MyLogger.getLogger("ClassImager.addChunk")
         vis=visIn#.copy()
 
@@ -751,13 +751,14 @@ class ClassDDEGridMachine():
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType,self.PolModeID]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMem))
+
             _pyGridderSmear.pyGridderWPol(Grid,
                                                vis,
                                                uvw,
                                                flag,
                                                W,
                                                SumWeigths,
-                                               0,
+                                               DoPSF,
                                                self.WTerm.Wplanes,
                                                self.WTerm.WplanesConj,
                                                np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
