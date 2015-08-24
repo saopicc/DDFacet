@@ -83,20 +83,33 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.RadiusTot=RadiusTot
         
         SolsFile=self.GD["DDESolutions"]["DDSols"]
-        if not(".npz" in SolsFile):
+
+        if (SolsFile!="")&(not(".npz" in SolsFile)):
             Method=SolsFile
             ThisMSName=reformat.reformat(os.path.abspath(self.GD["VisData"]["MSName"]),LastSlash=False)
             SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
-        ClusterNodes=np.load(SolsFile)["ClusterCat"]
+
+        if SolsFile!="":
+            ClusterNodes=np.load(SolsFile)["ClusterCat"]
+            ClusterNodes=ClusterNodes.view(np.recarray)
+            raNode=ClusterNodes.ra
+            decNode=ClusterNodes.dec
+            lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
+        else:
+
+            CellSizeRad=(self.GD["ImagerMainFacet"]["Cell"]/3600.)*np.pi/180
+            lrad=Npix*CellSizeRad*0.5
+            NpixFacet=Npix/NFacets
+            lfacet=NpixFacet*CellSizeRad*0.5
+            lcenter_max=lrad-lfacet
+            lFacet,mFacet,=np.mgrid[-lcenter_max:lcenter_max:(NFacets)*1j,-lcenter_max:lcenter_max:(NFacets)*1j]
+            lFacet=lFacet.flatten()
+            mFacet=mFacet.flatten()
 
         #ClusterNodes=np.load("/data/tasse/BOOTES/BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
 
 
 
-        ClusterNodes=ClusterNodes.view(np.recarray)
-        raNode=ClusterNodes.ra
-        decNode=ClusterNodes.dec
-        lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
 
 
         self.DicoImager={}

@@ -403,7 +403,7 @@ class ClassMultiScaleMachine():
             #print JonesNorm
 
         # #print Fpol
-        print "JonesNorm",JonesNorm
+        # print "JonesNorm",JonesNorm
         # FpolMean=np.mean(Fpol,axis=0).reshape((1,npol,1,1))
 
         Aedge,Bedge=GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
