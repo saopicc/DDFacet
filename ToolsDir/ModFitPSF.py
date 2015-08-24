@@ -125,7 +125,10 @@ def FindSidelobe(PSF):
 
 
     PSFhalf=profile[y0::]
-    dx=np.where(PSFhalf<0)[0][0]
+
+    inddx=np.where(PSFhalf<0)[0]
+    if len(inddx)==0: stop
+    dx=inddx[0]
     PSFsmall=PSF[x0-dx:x0+dx,y0-dx:y0+dx]
     
     popt=FitGauss2(PSFsmall.ravel())

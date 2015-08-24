@@ -252,9 +252,6 @@ def testGrid():
     
     nbl=VS.MS.nbl
 
-
-
-
     U,V,W=uvw.T
     C=299792456.
     N=np.sqrt(1.-L**2-M**2)

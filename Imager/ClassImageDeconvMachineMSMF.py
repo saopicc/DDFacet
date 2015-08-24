@@ -11,6 +11,7 @@ from DDFacet.Other import ClassTimeIt
 import ClassMultiScaleMachine
 from pyrap.images import image
 from ClassPSFServer import ClassPSFServer
+import ClassModelMachine
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
@@ -40,7 +41,7 @@ class ClassImageDeconvMachine():
                     self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
             self.MaskArray=self._MaskArray[0]
 
-    def GiveModelImage(self,*args): return self.MSMachine.ModelMachine.GiveModelImage(*args)
+    def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
         self.SideLobeLevel=SideLobeLevel
@@ -57,9 +58,12 @@ class ClassImageDeconvMachine():
     def InitMSMF(self):
 
         self.DicoMSMachine={}
-        for iFacet in self.PSFServer.DicoVariablePSF.keys():
+        self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD)
+
+        for iFacet in range(self.PSFServer.NFacets):
             self.PSFServer.setFacet(iFacet)
             MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.Gain)
+            MSMachine.setModelMachine(self.ModelMachine)
             MSMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
             ThisPSF,ThisMeanPSF=self.PSFServer.GivePSF()
             MSMachine.SetPSF(self.DicoPSF,ThisPSF,ThisMeanPSF)
@@ -81,7 +85,7 @@ class ClassImageDeconvMachine():
         #self.DicoPSF=DicoPSF
         #self.DicoVariablePSF=DicoVariablePSF
 
-        for iFacet in self.PSFServer.DicoVariablePSF.keys():
+        for iFacet in range(self.PSFServer.NFacets):
             MSMachine=self.DicoMSMachine[iFacet]
             MSMachine.SetDirty(DicoDirty)
 

@@ -592,6 +592,29 @@ class ClassFacetMachine():
                 self.DicoPSF[iFacet]["MeanPSF"]=MeanPSF
 
 
+            DicoVariablePSF=self.DicoPSF
+            NFacets=len(DicoVariablePSF.keys())
+            NPixMin=1e6
+            for iFacet in sorted(DicoVariablePSF.keys()):
+                _,npol,n,n=DicoVariablePSF[iFacet]["PSF"][0].shape
+                if n<NPixMin: NPixMin=n
+
+            nch=self.GD["MultiFreqs"]["NFreqBands"]
+            CubeVariablePSF=np.zeros((NFacets,nch,npol,NPixMin,NPixMin),np.float32)
+            CubeMeanVariablePSF=np.zeros((NFacets,1,npol,NPixMin,NPixMin),np.float32)
+            for iFacet in sorted(DicoVariablePSF.keys()):
+                _,npol,n,n=DicoVariablePSF[iFacet]["PSF"][0].shape
+                for ch in range(nch):
+                    i=n/2-NPixMin/2
+                    j=n/2+NPixMin/2+1
+                    CubeVariablePSF[iFacet,ch,:,:,:]=DicoVariablePSF[iFacet]["PSF"][ch][0,:,i:j,i:j]
+                CubeMeanVariablePSF[iFacet,0,:,:,:]=DicoVariablePSF[iFacet]["MeanPSF"][0,:,i:j,i:j]
+
+            self.DicoPSF["CubeVariablePSF"]=CubeVariablePSF
+            self.DicoPSF["CubeMeanVariablePSF"]=CubeMeanVariablePSF
+            self.DicoPSF["MeanFacetPSF"]=np.mean(CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
+
+
         for iFacet in self.DicoImager.keys():
             del(self.DicoGridMachine[iFacet]["Dirty"])
             DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)

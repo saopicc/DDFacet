@@ -243,6 +243,9 @@ class ClassImagerDeconv():
 
         self.PSF=self.DicoImagePSF["MeanImage"]/np.sqrt(self.DicoImagePSF["NormData"])
 
+        self.MeanFacetPSF=self.DicoVariablePSF["MeanFacetPSF"]
+
+
         FacetMachinePSF.DoPSF=False
 
 #        MyPickle.Save(self.DicoImagePSF,"DicoPSF")
@@ -478,11 +481,13 @@ class ClassImagerDeconv():
                 # # ModelImage[0,0].T[::-1,:][1625,557]=-10.
                 #ind=np.where(Image==np.max(Image))
                 #print ind
-                ind=np.where(ModelImage==np.max(ModelImage))
-                #print ind
-                Max=np.max(ModelImage)
-                ModelImage.fill(0)
-                ModelImage[ind]=Max
+
+                # ind=np.where(ModelImage==np.max(ModelImage))
+                # #print ind
+                # Max=np.max(ModelImage)
+                # ModelImage.fill(0)
+                # ModelImage[ind]=Max
+
                 # # #ModelImage[0,0,:,:]=ModelImage[0,0]#[::-1].T
                 #d0=DATA["data"].copy()
                 #DATA["data"].fill(0)
@@ -537,15 +542,21 @@ class ClassImagerDeconv():
             ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
             self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),Fits=True)
 
+
             # fig=pylab.figure(1)
             # pylab.clf()
+            # ax=pylab.subplot(1,2,1)
             # pylab.imshow(self.ResidImage[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
+            # pylab.colorbar()
+            # pylab.subplot(1,2,2,sharex=ax,sharey=ax)
+            # pylab.imshow(ModelImage[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
             # pylab.colorbar()
             # pylab.draw()
             # #PNGName="%s/Residual%3.3i.png"%(self.PNGDir,iMajor)
             # #fig.savefig(PNGName)
             # pylab.show(False)
             # pylab.pause(0.1)
+            # #stop
 
             self.HasCleaned=True
             if repMinor=="MaxIter": break
@@ -555,15 +566,33 @@ class ClassImagerDeconv():
             self.Restore()
 
     def FitPSF(self):
-        _,_,x,y=np.where(self.PSF==np.max(self.PSF))
+        #PSF=self.PSF
+        PSF=self.MeanFacetPSF
+        _,_,x,y=np.where(PSF==np.max(PSF))
         FitOK=False
         off=100
+
+        
         while FitOK==False:
+
+            # print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
+            # P=PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
+            # self.SideLobeLevel,self.OffsetSideLobe=ModFitPSF.FindSidelobe(P)
+            # sigma_x, sigma_y, theta = ModFitPSF.DoFit(P)
+            # FitOK=True
+            # print>>log, "   ... done"
+
+            # P=PSF[0,0,:,:]
+            # self.SideLobeLevel,self.OffsetSideLobe=ModFitPSF.FindSidelobe(P)
+            # sigma_x, sigma_y, theta = ModFitPSF.DoFit(P)
+            # FitOK=True
+            # print>>log, "   ... done"
+
             try:
                 print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
-                PSF=self.PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
-                self.SideLobeLevel,self.OffsetSideLobe=ModFitPSF.FindSidelobe(PSF)
-                sigma_x, sigma_y, theta = ModFitPSF.DoFit(PSF)
+                P=PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
+                self.SideLobeLevel,self.OffsetSideLobe=ModFitPSF.FindSidelobe(P)
+                sigma_x, sigma_y, theta = ModFitPSF.DoFit(P)
                 FitOK=True
                 print>>log, "   ... done"
             except:
@@ -589,7 +618,7 @@ class ClassImagerDeconv():
             self.FitPSF()
 
         RefFreq=self.VS.RefFreq
-        ModelMachine=self.DeconvMachine.MSMachine.ModelMachine
+        ModelMachine=self.DeconvMachine.ModelMachine
 
 
 
@@ -623,7 +652,7 @@ class ClassImagerDeconv():
         # self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored.corr"%self.BaseName,Fits=True,beam=self.FWHMBeam)
 
         # self.FacetMachine.ToCasaImage(self.RestoredImage,ImageName="%s.modelConv"%self.BaseName,Fits=True,beam=self.FWHMBeam)
-        self.DeconvMachine.MSMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
+        self.DeconvMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
 
 
 

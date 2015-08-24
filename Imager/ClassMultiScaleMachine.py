@@ -12,7 +12,6 @@ from DDFacet.Other import ClassTimeIt
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
-import ClassModelMachine
 
 class ClassMultiScaleMachine():
 
@@ -26,7 +25,10 @@ class ClassMultiScaleMachine():
         if self.GD["MultiFreqs"]["NFreqBands"]:
             self.MultiFreqMode=True
             self.NFreqBand=self.GD["MultiFreqs"]["NFreqBands"]
-        self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD)
+
+
+    def setModelMachine(self,ModelMachine):
+        self.ModelMachine=ModelMachine
 
 
 
@@ -59,7 +61,7 @@ class ClassMultiScaleMachine():
 
 #        print>>log, "!!!!!!!!!!!"
 #        self._MeanDirtyOrig=self._MeanDirty.copy()
-        self.ModelMachine.setModelShape(self._MeanPSF.shape)
+        self.ModelMachine.setModelShape(self._Dirty.shape)
 
         # nch,_,_,_=self._PSF.shape
         # for ich in range(nch):
@@ -396,10 +398,12 @@ class ClassMultiScaleMachine():
         FpolTrue=Fpol
         if self.DicoDirty["NormData"]!=None:
             JonesNorm=(self.DicoDirty["NormData"][:,:,x,y]).reshape((nchan,npol,1,1))
+            
             FpolTrue=Fpol/np.sqrt(JonesNorm)
-        #     #print JonesNorm
+            #print JonesNorm
+
         # #print Fpol
-        #print "JonesNorm",JonesNorm
+        print "JonesNorm",JonesNorm
         # FpolMean=np.mean(Fpol,axis=0).reshape((1,npol,1,1))
 
         Aedge,Bedge=GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
@@ -644,21 +648,23 @@ class ClassMultiScaleMachine():
 #             Resid*=DicoBasisMatrix["WeightFunction"][:,0,:,:]
 #             vmin,vmax=np.min([dirtyNormIm[0,0],ConvSM[0,0],dirtyNormIm[0,0]-FF[0]]),np.max([dirtyNormIm[0,0],ConvSM[0,0],dirtyNormIm[0,0]-FF[0]])
 
-#             pylab.subplot(nxp,nyp,iplot); iplot+=1
+#             ax=pylab.subplot(nxp,nyp,iplot); iplot+=1
 #             pylab.imshow(dirtyNormIm[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
+#             pylab.colorbar()
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
 #             #pylab.imshow(dirtyNormIm[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
 #             #pylab.imshow(dirtyNormIm[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)
             
-#             pylab.subplot(nxp,nyp,iplot); iplot+=1
+#             pylab.subplot(nxp,nyp,iplot,sharex=ax,sharey=ax); iplot+=1
 #             pylab.imshow(ConvSM[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
+#             pylab.colorbar()
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
 #             #pylab.imshow(ConvSM[1,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
 #             #pylab.imshow(ConvSM[2,0],interpolation="nearest",vmin=vmin,vmax=vmax)#)#,vmin=-0.5,vmax=0.5)
 
-#             pylab.subplot(nxp,nyp,iplot); iplot+=1
+#             pylab.subplot(nxp,nyp,iplot,sharex=ax,sharey=ax); iplot+=1
 #             pylab.imshow(Resid[0],interpolation="nearest")#,vmin=vmin,vmax=vmax)#,vmin=-0.5,vmax=0.5)
 #             pylab.colorbar()
 #             pylab.subplot(nxp,nyp,iplot); iplot+=1
