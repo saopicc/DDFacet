@@ -379,6 +379,8 @@ void gridderWPol(PyArrayObject *grid,
     float complex *J1T=calloc(1,(4)*sizeof(float complex));
     float complex *J1Hinv=calloc(1,(4)*sizeof(float complex));
     float complex *JJ=calloc(1,(4)*sizeof(float complex));
+    float complex *J0kMS_t1=calloc(1,(4)*sizeof(float complex));
+    float complex *J1kMS_t1=calloc(1,(4)*sizeof(float complex));
 
     int *MappingBlock = p_int32(SmearMapping);
     int NTotBlocks=MappingBlock[0];
@@ -455,6 +457,9 @@ void gridderWPol(PyArrayObject *grid,
 	//printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
 	
 	//clock_gettime(CLOCK_MONOTONIC_RAW, &PreviousTime);
+	
+	float WeightVaryJJ=1.;
+
 	if(DoApplyJones){
 	  int i_ant0=ptrA0[irow];
 	  int i_ant1=ptrA1[irow];
@@ -475,6 +480,23 @@ void gridderWPol(PyArrayObject *grid,
 	    NormJones(J1kMS, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
 	    MatDot(J0kMS,JonesType,J0,JonesType,J0);
 	    MatDot(J1kMS,JonesType,J1,JonesType,J1);
+	    
+	    int i_t_1;
+	    
+	    i_t_1=i_t+1;
+	    if (i_t==(nt_Jones-1)){i_t_1=i_t-1;}
+	    
+	    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_1, i_ant0, i_dir, ModeInterpolation, J0kMS_t1);
+	    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_1, i_ant1, i_dir, ModeInterpolation, J1kMS_t1);
+
+	    float dg0=cabs(J0kMS_t1[0]-J0kMS[0]);
+	    float dg1=cabs(J1kMS_t1[0]-J1kMS[0]);
+	    
+	    //float V0=dg0*dg1;
+	    //WeightVaryJJ=1./(1.+V0*V0);
+
+	    WeightVaryJJ  = 1./((1.+dg0)*(1.+dg1));
+	    WeightVaryJJ *= WeightVaryJJ;
 	  }
 
 	  MatT(J1,J1T);
@@ -552,8 +574,8 @@ void gridderWPol(PyArrayObject *grid,
 	    }
 	  }
 
-
-	  float complex Weight=(*imgWtPtr) * corr;
+	  float FWeight=(*imgWtPtr)*WeightVaryJJ*WeightVaryJJ;
+	  float complex Weight=(FWeight) * corr;
 	  float complex visPtr[4];
 	  if(DoApplyJones){
 	    /* MatDot(J0inv,JonesType,VisMeas,SkyType,visPtr); */
@@ -572,8 +594,8 @@ void gridderWPol(PyArrayObject *grid,
 	    
 	    // Vis+=visPtr*Weight
 	    Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);
-	    ThisSumJones+=BB*(*imgWtPtr)*(*imgWtPtr);
-	    ThisSumSqWeights+=(*imgWtPtr)*(*imgWtPtr);
+	    ThisSumJones+=BB*(FWeight)*(FWeight);
+	    ThisSumSqWeights+=(FWeight)*(FWeight);
 	    
 
 
@@ -592,7 +614,7 @@ void gridderWPol(PyArrayObject *grid,
 	  Vmean+=V;
 	  Wmean+=W;
 	  FreqMean+=(float)Pfreqs[visChan];
-	  ThisWeight+=(*imgWtPtr);
+	  ThisWeight+=(FWeight);
 	  //ThisSumJones+=(*imgWtPtr);
 	  
 

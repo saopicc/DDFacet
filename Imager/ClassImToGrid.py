@@ -143,7 +143,8 @@ class ClassImToGrid():
                 ModelIm[ch,pol]=ModelIm[ch,pol].T[::-1,:]
 
         #print iFacet,DicoImager[iFacet]["l0m0"],DicoImager[iFacet]["NpixFacet"],DicoImager[iFacet]["NpixFacetPadded"],SumFlux
-        if np.max(np.abs(ModelIm))>1: print ind
+        # if np.max(np.abs(ModelIm))>1:
+        #     print ind
         
         #if np.abs(SumFlux)>1: stop
         
