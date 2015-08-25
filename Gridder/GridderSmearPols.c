@@ -559,11 +559,11 @@ void gridderWPol(PyArrayObject *grid,
 	    /* MatDot(J0inv,JonesType,VisMeas,SkyType,visPtr); */
 	    /* MatDot(visPtr,SkyType,J1Hinv,JonesType,visPtr); */
 
-	    MatDot(J1T,JonesType,VisMeas,SkyType,visPtr);
-	    MatDot(visPtr,SkyType,J0Conj,JonesType,visPtr);
+	    /* MatDot(J1T,JonesType,VisMeas,SkyType,visPtr); */
+	    /* MatDot(visPtr,SkyType,J0Conj,JonesType,visPtr); */
 
-	    /* MatDot(J0H,JonesType,VisMeas,SkyType,visPtr); */
-	    /* MatDot(visPtr,SkyType,J1,JonesType,visPtr); */
+	    MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);
+	    MatDot(visPtr,SkyType,J1,JonesType,visPtr);
 
 	    /* int ThisPol; */
 	    /* for(ThisPol =0; ThisPol<1;ThisPol++){ */
