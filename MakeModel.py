@@ -22,7 +22,7 @@ def read_options():
     group.add_option('--DoPrint',help=' Default is %default',default="0")
     group.add_option('--CMethod',help=' Clustering method [1,2,3,4]. Default is %default',default="4")
     group.add_option('--PreClusterFile',help=' PreClusterFile. Default is %default',default="")
-    
+    group.add_option('--RemoveNegComp',help=' PreClusterFile. Default is %default',type=int,default="")
     opt.add_option_group(group)
 
 
@@ -66,7 +66,16 @@ def main(options=None):
         # CasaImage.ToFits()
         # CasaImage.close()
 
-
+    if options.RemoveNegComp==1:
+        print "Removing negative component"
+        Cat=np.load(SkyModel)
+        print Cat.shape
+        Cat=Cat.view(np.recarray)
+        Cat=Cat[Cat.I>0]
+        print Cat.shape
+        np.save(SkyModel,Cat)
+        
+        
     NCluster=int(options.NCluster)
     DoPlot=(int(options.DoPlot)==1)
     DoSelect=(int(options.DoSelect)==1)
