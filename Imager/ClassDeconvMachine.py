@@ -432,7 +432,8 @@ class ClassImagerDeconv():
             ModelMachine.FromFile(DicoModel)
 
             ######################################
-            ModelMachine.DicoSMStacked["Comp"][(153, 570)]['SolsArray']=np.array([ 10], dtype=np.float32)
+            #ModelMachine.DicoSMStacked["Comp"][(153, 570)]['SolsArray']=np.array([ 10], dtype=np.float32)
+            ModelMachine.DicoSMStacked["Comp"][(11275, 9821)]['SolsArray']=np.array([ 10], dtype=np.float32)
             ######################################
                 
             ModelImage=ModelMachine.GiveModelImage(ThisMeanFreq)
@@ -668,6 +669,7 @@ class ClassImagerDeconv():
 
         # model image
         ModelImage=ModelMachine.GiveModelImage(RefFreq)
+        self.DeconvMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
 
         
 
@@ -688,7 +690,6 @@ class ClassImagerDeconv():
         # self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored.corr"%self.BaseName,Fits=True,beam=self.FWHMBeam)
 
         # self.FacetMachine.ToCasaImage(self.RestoredImage,ImageName="%s.modelConv"%self.BaseName,Fits=True,beam=self.FWHMBeam)
-        self.DeconvMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
 
 
 

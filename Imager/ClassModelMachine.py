@@ -238,6 +238,10 @@ class ClassModelMachine():
         np.save(SkyModel,SourceCat)
         self.AnalyticSourceCat=ClassSM.ClassSM(SkyModel)
 
+    def DelAllComp(self):
+        for key in self.DicoSMStacked["Comp"].keys():
+            del(self.DicoSMStacked["Comp"][key])
+
 
     def PutBackSubsComps(self):
         #if self.GD["VisData"]["RestoreDico"]==None: return
