@@ -331,7 +331,11 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #     LPolygonNew+=SubReg
         #     print 
 
+        
+
         regFile="%s.tessel.reg"%self.GD["VisData"]["ImageName"]
+
+
         VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=[str(i) for i in range(len(LPolygonNew))])
 
         # pylab.clf()

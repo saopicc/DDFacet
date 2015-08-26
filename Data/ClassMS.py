@@ -703,6 +703,18 @@ class ClassMS():
                 t.putcol(Colout,t.getcol(Colin,row0,NRow),row0,NRow)
         t.close()
 
+    def AddCol(self,ColName):
+        t=table(self.MSName,readonly=False,ack=False)
+        if (ColName in t.colnames()):
+            print>>log, "  Column %s already in %s"%(ColName,self.MSName)
+            t.close()
+            return
+        print>>log, "  Putting column %s in %s"%(ColName,self.MSName)
+        desc=t.getcoldesc("DATA")
+        desc["name"]=ColName
+        desc['comment']=desc['comment'].replace(" ","_")
+        t.addcols(desc)
+        t.close()
         
     def PutBackupCol(self,incol="CORRECTED_DATA"):
         backname="%s_BACKUP"%incol

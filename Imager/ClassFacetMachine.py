@@ -71,7 +71,7 @@ class ClassFacetMachine():
             self.SpheNorm=False
 
         self.NormData=None
-
+        self.NormImage=None
 
     def SetLogModeSubModules(self,Mode="Silent"):
         SubMods=["ModelBeamSVD","ClassParam","ModToolBox","ModelIonSVD2","ClassPierce"]
@@ -658,8 +658,11 @@ class ClassFacetMachine():
         print>>log, "Combining facets using %s mode for Channel=%i [JonesNormImage = %i]..."%(self.ConstructMode,Channel,BeamWeightImage)
 
 
-            
-        NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
+        if self.NormImage==None:
+            NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
+        else:
+            NormImage=self.NormImage
+
 
         for iFacet in self.DicoImager.keys():
             if self.ConstructMode=="Sharp":
@@ -770,11 +773,13 @@ class ClassFacetMachine():
                         Image[ch,pol,x0main:x1main,y0main:y1main]+=Im
 
                 #Sphe=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
-                SW=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
+                
 
                 # M=Mask[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
                 # Sphe[M==0]=0
-                NormImage[x0main:x1main,y0main:y1main]+=SW#Sphe
+                if self.NormImage==None:
+                    SW=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
+                    NormImage[x0main:x1main,y0main:y1main]+=SW#Sphe
 
 
         #NormImage[NormImage==0]=1.
@@ -783,10 +788,10 @@ class ClassFacetMachine():
                 for pol in range(npol):
                     Image[ch,pol]/=NormImage
  
-
+        nx,nx=NormImage.shape
         self.NormImage=NormImage
+        self.NormImageReShape=self.NormImage.reshape((1,1,nx,nx))
 
-        nx,nx=self.NormImage.shape
         #self.ToCasaImage(self.NormImage.reshape((1,1,nx,nx)),Fits=True,ImageName="NormImage")
         # stop
 

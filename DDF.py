@@ -179,6 +179,9 @@ def main(OP=None):
 
     # Imager.testDegrid()
     # stop
+    if "Predict" in Mode:
+        Imager.GivePredict()
+
     if "Clean" in Mode:
         Imager.main()
     if "Dirty" in Mode:

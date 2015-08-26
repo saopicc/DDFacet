@@ -21,6 +21,8 @@ from DDFacet.ToolsDir import ModFitPSF
 from DDFacet.Data import ClassVisServer
 from DDFacet.Other import MyPickle
 import ClassCasaImage
+from ClassModelMachine import ClassModelMachine
+from pyrap.tables import table
 
 import time
 import glob
@@ -364,6 +366,9 @@ class ClassImagerDeconv():
         # im.ToFits()
         # im.close()
 
+
+        self.FacetMachine.ToCasaImage(self.FacetMachine.NormImageReShape,ImageName="%s.NormFacets"%self.BaseName,Fits=True)
+
         if self.DicoDirty["NormData"]!=None:
             #MeanCorr=self.DicoDirty["ImagData"]*self.DicoDirty["NormData"]
             MeanCorr=self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
@@ -396,21 +401,52 @@ class ClassImagerDeconv():
 
         
 
-    def GivePredict(self,ModelImage):
+    def GivePredict(self):
 
         print>>log, ModColor.Str("============================== Making Predict ==============================")
         self.InitFacetMachine()
         
         self.FacetMachine.ReinitDirty()
+        BaseName=self.GD["VisData"]["ImageName"]
+
+        ModelMachine=ClassModelMachine(self.GD)
+        NormImageName="%s.NormFacets.fits"%BaseName
+        CasaNormImage=image(NormImageName)
+        NormImage=CasaNormImage.getdata()
+        nch,npol,nx,_=NormImage.shape
+        for ch in range(nch):
+            for pol in range(npol):
+                NormImage[ch,pol]=NormImage[ch,pol].T[::-1]
+
+        
+        self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
+
         while True:
             Res=self.setNextData()
             if Res=="EndOfObservation": break
             DATA=self.DATA
+            ThisMeanFreq=np.mean(DATA["freqs"])
+
             
-            vis=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
+            DicoModel="%s.DicoModel"%(BaseName)
+            ModelMachine.FromFile(DicoModel)
 
+            ######################################
+            ModelMachine.DicoSMStacked["Comp"][(153, 570)]['SolsArray']=np.array([ 10], dtype=np.float32)
+            ######################################
+                
+            ModelImage=ModelMachine.GiveModelImage(ThisMeanFreq)
+            
+            DATA["data"].fill(0)
+            self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
+            vis=-DATA["data"]
+            PredictColName=self.GD["VisData"]["PredictColName"]
 
-        return Image
+            self.VS.MS.AddCol(PredictColName)
+            t=table(self.VS.MS.MSName,readonly=False,ack=False)
+            t.putcol(PredictColName,vis)
+            t.close()
+            
 
 
     def main(self,NMajor=None):
