@@ -22,7 +22,7 @@ def read_options():
     group.add_option('--DoPrint',help=' Default is %default',default="0")
     group.add_option('--CMethod',help=' Clustering method [1,2,3,4]. Default is %default',default="4")
     group.add_option('--PreClusterFile',help=' PreClusterFile. Default is %default',default="")
-    group.add_option('--RemoveNegComp',help=' PreClusterFile. Default is %default',type=int,default="")
+    group.add_option('--RemoveNegComp',help=' PreClusterFile. Default is %default',type=int,default=0)
     opt.add_option_group(group)
 
 
