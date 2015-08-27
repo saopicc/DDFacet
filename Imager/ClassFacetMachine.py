@@ -19,6 +19,7 @@ from DDFacet.Other import ModColor
 from DDFacet.Array import NpShared
 from DDFacet.ToolsDir import ModFFTW
 import pyfftw
+from DDFacet.Other import ClassTimeIt
 
 log=MyLogger.getLogger("ClassFacetImager")
 MyLogger.setSilent("MyLogger")
@@ -506,19 +507,20 @@ class ClassFacetMachine():
         print self.SumWeights
 
     def FacetsToIm(self,NormJones=False):
-        
+        T=ClassTimeIt.ClassTimeIt("FacetsToIm")
         _,npol,Npix,Npix=self.OutImShape
         DicoImages={}
         DicoImages["freqs"]={}
         ImagData=np.zeros((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
 
-
+        T.timeit("0")
         
         DoCalcNormData=False
         if (NormJones)&(self.NormData==None): 
             DoCalcNormData=True
             self.NormData=np.ones((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
 
+        T.timeit("1")
 
 
         DicoImages["SumWeights"]=np.zeros((self.VS.NFreqBands,),np.float64)
@@ -528,6 +530,8 @@ class ClassFacetMachine():
             ImagData[Channel]=self.FacetsToIm_Channel(Channel=Channel)[0]
             if DoCalcNormData:
                 self.NormData[Channel]=self.FacetsToIm_Channel(Channel=Channel,BeamWeightImage=True)[0]
+
+        T.timeit("2")
                 
         # if self.VS.MultiFreqMode:
         #     DicoImages["SumWeights"]={}
@@ -555,6 +559,8 @@ class ClassFacetMachine():
             #ImagData/=(self.NormData)
             ImagData/=np.sqrt(self.NormData)
 
+        T.timeit("3")
+
         DicoImages["ImagData"]=ImagData
         DicoImages["NormData"]=self.NormData
         DicoImages["WeightChansImages"]=DicoImages["SumWeights"]/np.sum(DicoImages["SumWeights"])
@@ -568,6 +574,7 @@ class ClassFacetMachine():
         else:
             DicoImages["MeanImage"]=ImagData
 
+        T.timeit("4")
 
         if self.DoPSF:
             self.DicoPSF={}
@@ -592,6 +599,7 @@ class ClassFacetMachine():
                 self.DicoPSF[iFacet]["MeanPSF"]=MeanPSF
 
 
+
             DicoVariablePSF=self.DicoPSF
             NFacets=len(DicoVariablePSF.keys())
             NPixMin=1e6
@@ -614,6 +622,7 @@ class ClassFacetMachine():
             self.DicoPSF["CubeMeanVariablePSF"]=CubeMeanVariablePSF
             self.DicoPSF["MeanFacetPSF"]=np.mean(CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
 
+        T.timeit("5")
 
         for iFacet in self.DicoImager.keys():
             del(self.DicoGridMachine[iFacet]["Dirty"])
@@ -651,17 +660,19 @@ class ClassFacetMachine():
             
 
     def FacetsToIm_Channel(self,Channel=0,BeamWeightImage=False):
+        T=ClassTimeIt.ClassTimeIt("FacetsToIm_Channel")
         Image=self.GiveEmptyMainField()
         nch,npol=self.nch,self.npol
         _,_,NPixOut,NPixOut=self.OutImShape
 
         print>>log, "Combining facets using %s mode for Channel=%i [JonesNormImage = %i]..."%(self.ConstructMode,Channel,BeamWeightImage)
 
-
+        T.timeit("0")
         if self.NormImage==None:
             NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
         else:
             NormImage=self.NormImage
+        T.timeit("1")
 
 
         for iFacet in self.DicoImager.keys():
@@ -729,6 +740,7 @@ class ClassFacetMachine():
                     #else:
                     #    ThisSumJones=ThisSumJones2
 
+                T.timeit("2")
                 import DDFacet.ToolsDir.rad2hmsdms
                 
                 # if iFacet!=14: continue
@@ -743,6 +755,7 @@ class ClassFacetMachine():
                 
                 
                 SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
+                T.timeit("3")
                 for ch in range(nch):
                     for pol in range(npol):
                         #Image[ch,pol,x0main:x1main,y0main:y1main]+=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
@@ -767,10 +780,12 @@ class ClassFacetMachine():
                             Im*=SW
                             
                             Im=Im[x0facet:x1facet,y0facet:y1facet]
+                        T.timeit("4")
 
 
                         #print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im))
                         Image[ch,pol,x0main:x1main,y0main:y1main]+=Im
+                        T.timeit("5")
 
                 #Sphe=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
                 
@@ -781,6 +796,7 @@ class ClassFacetMachine():
                     SW=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
                     NormImage[x0main:x1main,y0main:y1main]+=SW#Sphe
 
+        T.timeit("6")
 
         #NormImage[NormImage==0]=1.
         if self.ConstructMode=="Fader": 
@@ -788,9 +804,11 @@ class ClassFacetMachine():
                 for pol in range(npol):
                     Image[ch,pol]/=NormImage
  
+        T.timeit("7")
         nx,nx=NormImage.shape
         self.NormImage=NormImage
         self.NormImageReShape=self.NormImage.reshape((1,1,nx,nx))
+
 
         #self.ToCasaImage(self.NormImage.reshape((1,1,nx,nx)),Fits=True,ImageName="NormImage")
         # stop

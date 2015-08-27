@@ -711,7 +711,7 @@ class ClassDDEGridMachine():
             LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
             LSumJones=[self.SumJones]
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
-            ParamJonesList=ParamJonesList+LApplySol+LSumJones
+            ParamJonesList=ParamJonesList+LApplySol+LSumJones+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
 
         T.timeit("3")

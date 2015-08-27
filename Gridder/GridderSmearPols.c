@@ -169,8 +169,9 @@ void gridderWPol(PyArrayObject *grid,
     int ModeInterpolation=1;
     int *ptrModeInterpolation;
     int ApplyAmp,ApplyPhase,DoScaleJones;
-    float CalibError,CalibError2;
+    float CalibError,CalibError2,ReWeightSNR;
     double *ptrSumJones;
+    
 
     if(LengthJonesList>0){
       DoApplyJones=1;
@@ -244,6 +245,9 @@ void gridderWPol(PyArrayObject *grid,
       CalibError2=CalibError*CalibError;
 
       ptrSumJones=p_float64((PyArrayObject *) PyList_GetItem(LJones, 14));
+
+      PyObject *_FReWeightSNR  = PyList_GetItem(LJones, 15);
+      ReWeightSNR=(float) PyFloat_AsDouble(_FReWeightSNR);
 
 
     };
@@ -501,7 +505,7 @@ void gridderWPol(PyArrayObject *grid,
 	    /* WeightVaryJJ *= WeightVaryJJ; */
 
 
-	    float V0=abs_g1*abs_dg0+abs_g0*abs_dg1;
+	    float V0=(abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR;
 	    WeightVaryJJ  = 1./(1.+V0*V0);
 
 
