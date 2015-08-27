@@ -266,13 +266,25 @@ class ClassJones():
         DicoBeam["t0"]=np.zeros((Tm.size,),np.float64)
         DicoBeam["t1"]=np.zeros((Tm.size,),np.float64)
         DicoBeam["tm"]=np.zeros((Tm.size,),np.float64)
-
+        rac,decc=self.MS.radec
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]
             DicoBeam["t1"][itime]=T1s[itime]
             DicoBeam["tm"][itime]=Tm[itime]
             ThisTime=Tm[itime]
-            DicoBeam["Jones"][itime]=self.MS.GiveBeam(ThisTime,RA,DEC)
+
+            Beam=self.MS.GiveBeam(ThisTime,RA,DEC)
+
+            if self.GD["Beam"]["CenterNorm"]==1:
+                Beam0=self.MS.GiveBeam(ThisTime,np.array([rac]),np.array([decc]))
+                Beam0inv=ModLinAlg.BatchInverse(Beam0)
+                nd,_,_,_,_=Beam.shape
+                Ones=np.ones((nd, 1, 1, 1, 1),np.float32)
+                Beam0inv=Beam0inv*Ones
+                Beam=ModLinAlg.BatchDot(Beam0inv,Beam)
+                
+ 
+            DicoBeam["Jones"][itime]=Beam
 
         nt,nd,na,nch,_,_= DicoBeam["Jones"].shape
         DicoBeam["Jones"]=np.mean(DicoBeam["Jones"],axis=3).reshape((nt,nd,na,1,2,2))
