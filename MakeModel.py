@@ -43,7 +43,8 @@ def main(options=None):
         from DDFacet.Imager import ClassCasaImage
         MM=ClassModelMachine(Gain=0.1)
         DicoModel="%s.DicoModel"%options.BaseImageName
-        FitsFile="%s.model.fits"%options.BaseImageName
+        #FitsFile="%s.model.fits"%options.BaseImageName
+        FitsFile="%s.restored.fits"%options.BaseImageName
         MM.FromFile(DicoModel)
         if options.MaskName!="":
             MM.CleanMaskedComponants(options.MaskName)
