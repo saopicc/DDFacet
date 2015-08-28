@@ -243,7 +243,7 @@ class ClassImagerDeconv():
 
         #np.savez("PSF.npz",ImagData=self.DicoImagePSF["ImagData"],MeanImage=self.DicoImagePSF["MeanImage"])
 
-        self.PSF=self.DicoImagePSF["MeanImage"]/np.sqrt(self.DicoImagePSF["NormData"])
+        self.PSF=self.DicoImagePSF["MeanImage"]#/np.sqrt(self.DicoImagePSF["NormData"])
 
         self.MeanFacetPSF=self.DicoVariablePSF["MeanFacetPSF"]
 
@@ -495,6 +495,7 @@ class ClassImagerDeconv():
                 ThisMeanFreq=np.mean(DATA["freqs"])
 
                 ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
+                print>>log, "Model image @%f MHz (min,max) = (%f, %f)"%(ThisMeanFreq/1e6,ModelImage.min(),ModelImage.max())
 
                 # # stop
                 # # # ModelImage.fill(0)
@@ -563,7 +564,6 @@ class ClassImagerDeconv():
 
                 # stop
 
-                print>>log, "Model image @%f MHz (min,max) = (%f, %f)"%(ThisMeanFreq/1e6,ModelImage.min(),ModelImage.max())
 
                 self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visData,DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True,Channel=self.VS.CurrentFreqBand)
                 
