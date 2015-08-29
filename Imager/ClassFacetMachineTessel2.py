@@ -81,12 +81,25 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         
         RadiusTot=self.CellSizeRad*self.Npix/2
         self.RadiusTot=RadiusTot
+
+
+        MSName=self.GD["VisData"]["MSName"]
+        if ".txt" in MSName:
+            f=open(MSName)
+            Ls=f.readlines()
+            f.close()
+            MSName=[]
+            for l in Ls:
+                ll=l.replace("\n","")
+                MSName.append(ll)
+            MSName=MSName[0]
+
         
         SolsFile=self.GD["DDESolutions"]["DDSols"]
 
         if (SolsFile!="")&(not(".npz" in SolsFile)):
             Method=SolsFile
-            ThisMSName=reformat.reformat(os.path.abspath(self.GD["VisData"]["MSName"]),LastSlash=False)
+            ThisMSName=reformat.reformat(os.path.abspath(MSName),LastSlash=False)
             SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
 
         if SolsFile!="":
