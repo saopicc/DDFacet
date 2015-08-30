@@ -508,6 +508,7 @@ class ClassFacetMachine():
 
     def FacetsToIm(self,NormJones=False):
         T=ClassTimeIt.ClassTimeIt("FacetsToIm")
+        T.disable()
         _,npol,Npix,Npix=self.OutImShape
         DicoImages={}
         DicoImages["freqs"]={}
@@ -661,6 +662,7 @@ class ClassFacetMachine():
 
     def FacetsToIm_Channel(self,Channel=0,BeamWeightImage=False):
         T=ClassTimeIt.ClassTimeIt("FacetsToIm_Channel")
+        T.disable()
         Image=self.GiveEmptyMainField()
         nch,npol=self.nch,self.npol
         _,_,NPixOut,NPixOut=self.OutImShape
