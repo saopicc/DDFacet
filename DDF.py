@@ -115,6 +115,7 @@ def read_options():
     OP.add_option('Scale')
     OP.add_option('gamma')
     OP.add_option("RestoreSub")
+    OP.add_option("ReWeightSNR")
 
     OP.OptionGroup("* Convolution functions","ImagerCF")
     OP.add_option("Support")

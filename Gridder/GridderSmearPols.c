@@ -383,8 +383,10 @@ void gridderWPol(PyArrayObject *grid,
     float complex *J1T=calloc(1,(4)*sizeof(float complex));
     float complex *J1Hinv=calloc(1,(4)*sizeof(float complex));
     float complex *JJ=calloc(1,(4)*sizeof(float complex));
-    float complex *J0kMS_t1=calloc(1,(4)*sizeof(float complex));
-    float complex *J1kMS_t1=calloc(1,(4)*sizeof(float complex));
+    float complex *J0kMS_tp1=calloc(1,(4)*sizeof(float complex));
+    float complex *J1kMS_tp1=calloc(1,(4)*sizeof(float complex));
+    float complex *J0kMS_tm1=calloc(1,(4)*sizeof(float complex));
+    float complex *J1kMS_tm1=calloc(1,(4)*sizeof(float complex));
 
     int *MappingBlock = p_int32(SmearMapping);
     int NTotBlocks=MappingBlock[0];
@@ -485,16 +487,24 @@ void gridderWPol(PyArrayObject *grid,
 	    MatDot(J0kMS,JonesType,J0,JonesType,J0);
 	    MatDot(J1kMS,JonesType,J1,JonesType,J1);
 	    
-	    int i_t_1;
-	    
-	    i_t_1=i_t+1;
-	    if (i_t==(nt_Jones-1)){i_t_1=i_t-1;}
-	    
-	    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_1, i_ant0, i_dir, ModeInterpolation, J0kMS_t1);
-	    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_1, i_ant1, i_dir, ModeInterpolation, J1kMS_t1);
+	    int i_t_p1;
+	    i_t_p1=i_t+1;
+	    if (i_t==(nt_Jones-1)){i_t_p1=i_t;}
+	    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_p1, i_ant0, i_dir, ModeInterpolation, J0kMS_tp1);
+	    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_p1, i_ant1, i_dir, ModeInterpolation, J1kMS_tp1);
+	    /* float abs_dg0=cabs(J0kMS_tp1[0]-J0kMS[0]); */
+	    /* float abs_dg1=cabs(J1kMS_tp1[0]-J1kMS[0]); */
 
-	    float abs_dg0=cabs(J0kMS_t1[0]-J0kMS[0]);
-	    float abs_dg1=cabs(J1kMS_t1[0]-J1kMS[0]);
+	    int i_t_m1;
+	    i_t_m1=i_t-1;
+	    if (i_t==0){i_t_m1=i_t;}
+	    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_m1, i_ant0, i_dir, ModeInterpolation, J0kMS_tm1);
+	    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_m1, i_ant1, i_dir, ModeInterpolation, J1kMS_tm1);
+	    float abs_dg0=cabs(J0kMS_tp1[0]-J0kMS[0])+cabs(J0kMS_tm1[0]-J0kMS[0]);
+	    float abs_dg1=cabs(J1kMS_tp1[0]-J1kMS[0])+cabs(J1kMS_tm1[0]-J1kMS[0]);
+
+
+
 	    float abs_g0=cabs(J0kMS[0]);
 	    float abs_g1=cabs(J1kMS[0]);
 
@@ -505,8 +515,17 @@ void gridderWPol(PyArrayObject *grid,
 	    /* WeightVaryJJ *= WeightVaryJJ; */
 
 
+	    // Works well
 	    float V0=(abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR;
 	    WeightVaryJJ  = 1./(1.+V0*V0);
+
+
+	    /* float abs_g0g1=abs_g0*abs_g1; */
+	    /* float abs_g0g1_sq=abs_g0g1*abs_g0g1+0.01; */
+	    /* float P0=(abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR; */
+	    /* float P0_sq=P0*P0; */
+	    /* float V0=abs_g0g1_sq*(P0_sq+1); */
+	    /* WeightVaryJJ  = 1./V0; */
 
 
 
