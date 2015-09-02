@@ -692,13 +692,14 @@ class ClassFacetMachine():
 
                 xc,yc=self.DicoImager[iFacet]["pixCentral"]
                 NpixFacet=self.DicoGridMachine[iFacet]["Dirty"][Channel].shape[2]
-
+                
                 M_xc=xc
                 M_yc=yc
                 NpixMain=NPixOut
                 F_xc=NpixFacet/2
                 F_yc=NpixFacet/2
                 
+
                 ## X
                 M_x0=M_xc-NpixFacet/2
                 x0main=np.max([0,M_x0])
