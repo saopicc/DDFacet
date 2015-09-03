@@ -574,10 +574,13 @@ class ClassImagerDeconv():
             # self.DeconvMachine.MSMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
 
             self.ResidImage=DicoImage["MeanImage"]
-            self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),Fits=True)
+            if "Residual_i" in self.GD["VisData"]["SaveIms"]:
+                self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),Fits=True)
 
-            ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
-            self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),Fits=True)
+
+            if "Model_i" in self.GD["VisData"]["SaveIms"]:
+                ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
+                self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),Fits=True)
 
 
             # fig=pylab.figure(1)
@@ -659,6 +662,9 @@ class ClassImagerDeconv():
 
 
 
+        if "Residual" in self.GD["VisData"]["SaveIms"]:
+            self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual"%(self.BaseName),Fits=True)
+
         # Putting back substracted componants
         if self.GD["DDESolutions"]["RestoreSub"]:
             try:
@@ -667,13 +673,11 @@ class ClassImagerDeconv():
                 print>>log, ModColor.Str("Failed Putting back substracted componants")
 
 
-        # model image
-        ModelImage=ModelMachine.GiveModelImage(RefFreq)
         self.DeconvMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
-
-        
-
-        self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%self.BaseName,Fits=True)
+        # model image
+        if "Model" in self.GD["VisData"]["SaveIms"]:
+            ModelImage=ModelMachine.GiveModelImage(RefFreq)
+            self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%self.BaseName,Fits=True)
 
         # restored image
         self.RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
@@ -681,9 +685,10 @@ class ClassImagerDeconv():
         self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored"%self.BaseName,Fits=True,beam=self.FWHMBeam)
 
         # Alpha image
-        IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
-        #IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
-        self.FacetMachine.ToCasaImage(IndexMap,ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+        if "Alpha" in self.GD["VisData"]["SaveIms"]:
+            IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+            # IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
+            self.FacetMachine.ToCasaImage(IndexMap,ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeam)
 
 
         # self.RestoredImageRes=self.RestoredImage+self.ResidImage/np.sqrt(self.NormImage)

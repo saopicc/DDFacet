@@ -502,7 +502,8 @@ void gridderWPol(PyArrayObject *grid,
 	    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_m1, i_ant1, i_dir, ModeInterpolation, J1kMS_tm1);
 	    float abs_dg0=cabs(J0kMS_tp1[0]-J0kMS[0])+cabs(J0kMS_tm1[0]-J0kMS[0]);
 	    float abs_dg1=cabs(J1kMS_tp1[0]-J1kMS[0])+cabs(J1kMS_tm1[0]-J1kMS[0]);
-
+	    
+	    
 
 
 	    float abs_g0=cabs(J0kMS[0]);
@@ -516,16 +517,19 @@ void gridderWPol(PyArrayObject *grid,
 
 
 	    // Works well
-	    float V0=(abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR;
-	    WeightVaryJJ  = 1./(1.+V0*V0);
+	    float Rij=(abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR;
+	    float Rij_sq=1.+Rij*Rij;
+	    WeightVaryJJ  = 1./(Rij_sq);
 
-
-	    /* float abs_g0g1=abs_g0*abs_g1; */
-	    /* float abs_g0g1_sq=abs_g0g1*abs_g0g1+0.01; */
-	    /* float P0=(abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR; */
-	    /* float P0_sq=P0*P0; */
-	    /* float V0=abs_g0g1_sq*(P0_sq+1); */
-	    /* WeightVaryJJ  = 1./V0; */
+	    /* // TEST */
+	    /* float Rij=(abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR; */
+	    /* float Rij_sq=1.+Rij*Rij; */
+	    /* float V0=0.01; */
+	    /* float Vg0=V0+abs_dg0*abs_dg0+abs_g0*abs_g0; */
+	    /* float Vg1=V0+abs_dg1*abs_dg1+abs_g1*abs_g1; */
+	    /* float Vgigj=Vg0*Vg1; */
+	    /* float V=Vgigj*Rij_sq; */
+	    /* WeightVaryJJ  = 1./(V); */
 
 
 
@@ -606,7 +610,7 @@ void gridderWPol(PyArrayObject *grid,
 	    }
 	  }
 
-	  float FWeight=(*imgWtPtr)*WeightVaryJJ*WeightVaryJJ;
+	  float FWeight=(*imgWtPtr)*WeightVaryJJ;//*WeightVaryJJ;
 	  float complex Weight=(FWeight) * corr;
 	  float complex visPtr[4];
 	  if(DoApplyJones){
