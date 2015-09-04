@@ -531,7 +531,7 @@ void gridderWPol(PyArrayObject *grid,
 	    float Ang1=cargf(J1kMS[0]);
 	    
 	    float Rij_Ion=abs_g0*abs_g1*cabs(cexp(I*(Ang1-Ang0)*FracFreqWidth)-1.);
-	    float Rij=Rij_Ion+(abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR;
+	    float Rij=(Rij_Ion+abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR;
 	    float Rij_sq=1.+Rij*Rij;
 	    WeightVaryJJ  = 1./(Rij_sq);
 
