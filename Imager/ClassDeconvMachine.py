@@ -675,8 +675,8 @@ class ClassImagerDeconv():
 
         self.DeconvMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
         # model image
+        ModelImage=ModelMachine.GiveModelImage(RefFreq)
         if "Model" in self.GD["VisData"]["SaveIms"]:
-            ModelImage=ModelMachine.GiveModelImage(RefFreq)
             self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%self.BaseName,Fits=True)
 
         # restored image
