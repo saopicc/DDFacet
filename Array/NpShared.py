@@ -11,6 +11,15 @@ def zeros(Name,*args,**kwargs):
         DelArray(Name)
         return SharedArray.create(Name,*args,**kwargs)
 
+def SizeShm():
+    L=ListNames()
+    S=0
+    for l in L:
+        A=GiveArray(l)
+        S+=A.nbytes
+    return float(S)/(1024**3)
+
+
 def ToShared(Name,A):
 
     try:
