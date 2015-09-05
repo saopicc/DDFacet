@@ -17,7 +17,7 @@ def SizeShm():
     for l in L:
         A=GiveArray(l)
         S+=A.nbytes
-    return float(S)/(1024**3)
+    return float(S)/(1024**2)
 
 
 def ToShared(Name,A):

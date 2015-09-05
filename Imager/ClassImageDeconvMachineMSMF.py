@@ -252,12 +252,13 @@ class ClassImageDeconvMachine():
         
         self.RMS=RMS
         Threshold_RMS=5./(1.-self.SideLobeLevel)
-        MaxDirty=np.max(np.abs(self.Dirty))
+
+        x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1,Mask=self.MaskArray)
+        #MaxDirty=np.max(np.abs(self.Dirty))
         FluxLimit_RMS=Threshold_RMS*RMS
         #FluxLimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
         #Threshold_SideLobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
         Threshold_SideLobe=((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty
-
         
         
 
