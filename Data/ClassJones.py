@@ -18,6 +18,9 @@ class ClassJones():
         self.JonesNormSolsFile_killMS="%s/JonesNorm_killMS.npz"%ThisMSName
         self.JonesNormSolsFile_Beam="%s/JonesNorm_Beam.npz"%ThisMSName
 
+
+
+
     def InitDDESols(self,DATA):
         GD=self.GD
         self.DATA=DATA
@@ -216,9 +219,25 @@ class ClassJones():
             G[:,:,:,:,0,0]/=gmean_abs
             G[:,:,:,:,1,1]/=gmean_abs
             
+        G=self.NormDirMatrices(G)
         DicoSols["Jones"]=G
 
         return DicoClusterDirs,DicoSols
+
+    def NormDirMatrices(self,G):
+        RefAnt=0
+        print>>log,"Normalising Jones Matrices with reference Antenna %i ..."%RefAnt
+        nt,nd,na,nf,_,_=G.shape
+        for iDir in range(nd):
+            for it in range(nt):
+                for iF in range(nf):
+                    Gt=G[it,iDir,:,iF,:,:]
+                    u,s,v=np.linalg.svd(Gt[RefAnt])
+                    U=np.dot(u,v)
+                    for iAnt in range(0,na):
+                        G[it,iDir,iAnt,iF,:,:]=np.dot(U.T.conj(),Gt[iAnt,:,:])
+
+        return G
 
 
     #######################################################
