@@ -662,8 +662,7 @@ class ClassImagerDeconv():
 
 
 
-        if "Residual" in self.GD["VisData"]["SaveIms"]:
-            self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual"%(self.BaseName),Fits=True)
+        self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual"%(self.BaseName),Fits=True)
 
         # Putting back substracted componants
         if self.GD["DDESolutions"]["RestoreSub"]:
