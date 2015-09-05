@@ -8,6 +8,7 @@ from DDFacet.Array import NpShared
 import pylab
 from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
+pylab.ion()
 
 def GivePolygon(x,y):
     X=[0]+x+[np.max(x)]
@@ -140,7 +141,7 @@ def monitorMem():
 
 
             pylab.draw()
-            pylab.show(False)
+            #pylab.show(False)
             #pylab.pause(0.5)
 
 
