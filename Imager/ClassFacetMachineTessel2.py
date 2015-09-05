@@ -119,6 +119,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             lFacet=lFacet.flatten()
             mFacet=mFacet.flatten()
 
+            # ClusterNodes=np.load("BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
+            # ClusterNodes=ClusterNodes.view(np.recarray)
+            # raNode=ClusterNodes.ra
+            # decNode=ClusterNodes.dec
+            # lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
+
+
+
         #ClusterNodes=np.load("/data/tasse/BOOTES/BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
 
 

@@ -516,6 +516,8 @@ class ClassMultiScaleMachine():
                 Sol=SolReg
             else:
                 Sol=Sol*coef+SolReg*(1.-coef)
+                if np.abs(np.sum(Sol))>np.abs(MeanFluxTrue):
+                    Sol=SolReg
             
             #print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
