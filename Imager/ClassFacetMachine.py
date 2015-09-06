@@ -12,7 +12,6 @@ import pyfftw
 from DDFacet.ToolsDir import ModCoord
 #import ToolsDir
 from DDFacet.Other import MyPickle
-from DDFacet.Other import MyLogger
 #import ModSharedArray
 import time
 from DDFacet.Other import ModColor
@@ -21,6 +20,7 @@ from DDFacet.ToolsDir import ModFFTW
 import pyfftw
 from DDFacet.Other import ClassTimeIt
 
+from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassFacetImager")
 MyLogger.setSilent("MyLogger")
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
