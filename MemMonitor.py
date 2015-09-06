@@ -1,14 +1,16 @@
+#!/usr/bin/env python
+
 import resource
 import psutil
 import time
 import os
 import numpy as np
-import threading
+#import threading
 from DDFacet.Array import NpShared
 import pylab
 from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
-pylab.ion()
+#pylab.ion()
 
 def GivePolygon(x,y):
     X=[0]+x+[np.max(x)]
@@ -29,6 +31,8 @@ def monitorMem():
     t0=time.time()
     LT=[]
     Swap0=None
+
+
     while True:
         # process = psutil.Process(os.getpid())
         # mem = process.get_memory_info()[0] / float(2 ** 20) 
@@ -43,6 +47,7 @@ def monitorMem():
         LMemTotal.append(memTotal)
 
         
+
 
         smem=psutil.swap_memory()
         Smem=smem.used/float(2**20)
@@ -139,13 +144,13 @@ def monitorMem():
             
             #ax2.legend(loc=0)
 
-
             pylab.draw()
-            #pylab.show(False)
+            #pylab.show()
+            pylab.show(False)
             #pylab.pause(0.5)
 
 
-        time.sleep(0.1)
+        time.sleep(0.5)
 
 
 

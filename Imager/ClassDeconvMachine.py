@@ -657,11 +657,14 @@ class ClassImagerDeconv():
         if self.PSFGaussPars==None:
             self.FitPSF()
 
+        self.DeconvMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
+
         RefFreq=self.VS.RefFreq
         ModelMachine=self.DeconvMachine.ModelMachine
 
 
 
+        DicoImage=self.DicoDirty
         self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual"%(self.BaseName),Fits=True)
 
         # Putting back substracted componants
@@ -672,7 +675,6 @@ class ClassImagerDeconv():
                 print>>log, ModColor.Str("Failed Putting back substracted componants")
 
 
-        self.DeconvMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
         # model image
         ModelImage=ModelMachine.GiveModelImage(RefFreq)
         if "Model" in self.GD["VisData"]["SaveIms"]:

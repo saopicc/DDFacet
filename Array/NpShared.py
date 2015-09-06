@@ -16,7 +16,8 @@ def SizeShm():
     S=0
     for l in L:
         A=GiveArray(l)
-        S+=A.nbytes
+        if A!=None:
+            S+=A.nbytes
     return float(S)/(1024**2)
 
 
