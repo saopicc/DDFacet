@@ -16,9 +16,10 @@ def read_options():
     desc="""DDFacet """
     
     opt = optparse.OptionParser(usage='Usage: %prog --Parset=somename.MS <options>',version='%prog version 1.0',description=desc)
-
+    
     group = optparse.OptionGroup(opt, "* Data selection options")
-    group.add_option('--BaseImageName',help='PointingID in case multiple pointing dataset [no default]',default=0)
+    group.add_option('--BaseImageName',help='',default=0)
+    group.add_option('--BeamPix',help='',default=5)
     opt.add_option_group(group)
     
     options, arguments = opt.parse_args()
@@ -28,7 +29,7 @@ def read_options():
 
 
 class ClassRestoreMachine():
-    def __init__(self,BaseImageName):
+    def __init__(self,BaseImageName,BeamPix=5):
         self.BaseImageName=BaseImageName
         self.ModelMachine=ClassModelMachine(Gain=0.1)
         
@@ -70,7 +71,6 @@ class ClassRestoreMachine():
         ModelImage=ModelMachine.GiveModelImage()
 
         
-        BeamPix=5
         sigma_x, sigma_y=BeamPix,BeamPix
         theta=0.
         FWHMFact=2.*np.sqrt(2.*np.log(2.))
@@ -113,8 +113,5 @@ def main(options=None):
         f = open("last_param.obj",'rb')
         options = pickle.load(f)
     
-    if options.EnablePlot==0:
-        import matplotlib 
-        matplotlib.use('agg')
-
-    TCode=(0,-1,int(options.Incr))
+    CRM=ClassRestoreMachine(options.BaseImageName,BeamPix=options.BeamPix)
+    CRM.Restore()
