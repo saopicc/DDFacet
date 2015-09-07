@@ -32,7 +32,7 @@ class ClassRestoreMachine():
     def __init__(self,BaseImageName,BeamPix=5):
         self.BaseImageName=BaseImageName
         self.ModelMachine=ClassModelMachine(Gain=0.1)
-        
+        self.BeamPix=BeamPix
         DicoModel="%s.DicoModel"%BaseImageName
         self.ModelMachine.FromFile(DicoModel)
         
@@ -70,10 +70,11 @@ class ClassRestoreMachine():
         # model image
         ModelImage=ModelMachine.GiveModelImage()
 
-        
+        FWHMFact=2.*np.sqrt(2.*np.log(2.))
+
+        BeamPix=self.BeamPix/FWHMFact
         sigma_x, sigma_y=BeamPix,BeamPix
         theta=0.
-        FWHMFact=2.*np.sqrt(2.*np.log(2.))
         bmaj=np.max([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
         bmin=np.min([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
         self.FWHMBeam=(bmaj/3600.,bmin/3600.,theta)
@@ -115,3 +116,10 @@ def main(options=None):
     
     CRM=ClassRestoreMachine(options.BaseImageName,BeamPix=options.BeamPix)
     CRM.Restore()
+
+
+
+if __name__=="__main__":
+    OP=read_options()
+
+    main(OP)
