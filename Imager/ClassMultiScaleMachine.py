@@ -468,8 +468,8 @@ class ClassMultiScaleMachine():
 
 
         #self.SolveMode="MatchingPursuit"
-        #self.SolveMode="PI"
-        self.SolveMode="NNLS"
+        self.SolveMode="PI"
+        #self.SolveMode="NNLS"
 
         MeanFluxTrue=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())
         if  self.SolveMode=="MatchingPursuit":
