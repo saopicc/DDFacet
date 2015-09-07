@@ -519,7 +519,7 @@ class ClassMultiScaleMachine():
                 # if np.abs(np.sum(Sol))>np.abs(MeanFluxTrue):
                 #     Sol=SolReg
 
-            Sol*=(MeanFluxTrue/np.sum(Sol))
+            #Sol*=(MeanFluxTrue/np.sum(Sol))
                 
             #print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
