@@ -1,6 +1,7 @@
 import numpy as np
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
+from DDFacet.Other import ClassTimeIt
 
 
 class ClassImToGrid():
@@ -124,23 +125,37 @@ class ClassImToGrid():
         x0p,x1p,y0p,y1p=Bedge
         #print "xxA:",x0d,x1d
         #print "xxB:",x0p,x1p
-        
+        SumFlux=1.
         ModelIm=np.zeros((nch,npol,N1,N1),dtype=np.float32)
+
+        
+        T=ClassTimeIt.ClassTimeIt("ClassImToGrid")
+        T.disable()
         for ch in range(nch):
             for pol in range(npol):
                 #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].T[::-1,:].real[x0d:x1d,y0d:y1d]
                 #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].real[x0d:x1d,y0d:y1d]
+                
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol][x0d:x1d,y0d:y1d].real
+                T.timeit("0")
                 M=ModelIm[ch,pol][dx:dx+N1NonPadded+1,dx:dx+N1NonPadded+1].copy()
+                T.timeit("1")
                 ModelIm[ch,pol].fill(0)
+                T.timeit("2")
                 ModelIm[ch,pol][dx:dx+N1NonPadded+1,dx:dx+N1NonPadded+1]=M[:,:]
-                ind =np.where(np.abs(ModelIm)==np.max(np.abs(ModelIm)))
+                T.timeit("3")
+                #ind =np.where(np.abs(ModelIm)==np.max(np.abs(ModelIm)))
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
+                T.timeit("4")
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]*=SpacialWeight[x0p:x1p,y0p:y1p]
-                SumFlux=np.sum(ModelIm)
+                T.timeit("5")
+                #SumFlux=np.sum(ModelIm)
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=Sphe[x0p:x1p,y0p:y1p].real
+                T.timeit("6")
                 ModelIm[ch,pol][Sphe<1e-3]=0
+                T.timeit("7")
                 ModelIm[ch,pol]=ModelIm[ch,pol].T[::-1,:]
+                T.timeit("8")
 
         #print iFacet,DicoImager[iFacet]["l0m0"],DicoImager[iFacet]["NpixFacet"],DicoImager[iFacet]["NpixFacetPadded"],SumFlux
         # if np.max(np.abs(ModelIm))>1:
@@ -154,6 +169,7 @@ class ClassImToGrid():
         # #Padding=self.GD["ImagerMainFacet"]["Padding"]
 
         ModelIm*=(self.OverS*N1)**2
+        T.timeit("9")
         return ModelIm,SumFlux
         # Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm)))
 

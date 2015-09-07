@@ -433,7 +433,7 @@ class ClassMultiScaleMachine():
         #print "1",np.max(dirtyNormIm)
 
         self.Repr="FT"
-        self.Repr="IM"
+        #self.Repr="IM"
         if self.Repr=="FT":
             BM=DicoBasisMatrix["fBM"]
             WCubePSF=DicoBasisMatrix["fWeightFunction"]
@@ -468,8 +468,8 @@ class ClassMultiScaleMachine():
 
 
         #self.SolveMode="MatchingPursuit"
-        self.SolveMode="PI"
-        #self.SolveMode="NNLS"
+        #self.SolveMode="PI"
+        self.SolveMode="NNLS"
 
         MeanFluxTrue=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())
         if  self.SolveMode=="MatchingPursuit":
