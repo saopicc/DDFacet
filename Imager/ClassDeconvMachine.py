@@ -431,10 +431,10 @@ class ClassImagerDeconv():
             DicoModel="%s.DicoModel"%(BaseName)
             ModelMachine.FromFile(DicoModel)
 
-            ######################################
-            ModelMachine.DicoSMStacked["Comp"][(153, 570)]['SolsArray']=np.array([ 10], dtype=np.float32)
-            #ModelMachine.DicoSMStacked["Comp"][(11275, 9821)]['SolsArray']=np.array([ 10], dtype=np.float32)
-            ######################################
+            # ######################################
+            # ModelMachine.DicoSMStacked["Comp"][(153, 570)]['SolsArray']=np.array([ 10], dtype=np.float32)
+            # #ModelMachine.DicoSMStacked["Comp"][(11275, 9821)]['SolsArray']=np.array([ 10], dtype=np.float32)
+            # ######################################
                 
             ModelImage=ModelMachine.GiveModelImage(ThisMeanFreq)
             

@@ -202,7 +202,7 @@ class ClassSmearMapping():
             #print>>log, "  Worker: %i"%(IdWorker)
             ThisWorkerMapName="%sBlocksRowsList.Worker_%3.3i"%(self.IdSharedMem,IdWorker)
             BlocksRowsListBLWorker=NpShared.GiveArray(ThisWorkerMapName)
-            if BlocksRowsListBLWorker==None: continue
+            if type(BlocksRowsListBLWorker)==type(None): continue
             
             #FinalMapping=np.concatenate((FinalMapping,BlocksRowsListBLWorker))
             
@@ -357,7 +357,7 @@ class WorkerMap(multiprocessing.Process):
             if rep!=None:
                 ThisWorkerMapName="%sBlocksRowsList.Worker_%3.3i"%(self.IdSharedMem,self.IdWorker)
                 BlocksRowsListBLWorker=NpShared.GiveArray(ThisWorkerMapName)
-                if BlocksRowsListBLWorker==None:
+                if type(BlocksRowsListBLWorker)==type(None):
                     BlocksRowsListBLWorker=np.array([],np.int32)
 
                 BlocksRowsListBL,BlocksSizesBL,NBlocksTotBL=rep
