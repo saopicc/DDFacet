@@ -445,7 +445,7 @@ class ClassImagerDeconv():
 
             MSName=self.VS.CurrentMS.MSName
             print>>log, "Writing predicted data in column %s of %s"%(PredictColName,MSName)
-            self.VS.MS.AddCol(PredictColName)
+            self.VS.CurrentMS.AddCol(PredictColName)
             t=table(MSName,readonly=False,ack=False)
             t.putcol(PredictColName,vis)
             t.close()
