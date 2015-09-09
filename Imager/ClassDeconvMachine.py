@@ -443,8 +443,10 @@ class ClassImagerDeconv():
             vis=-DATA["data"]
             PredictColName=self.GD["VisData"]["PredictColName"]
 
+            MSName=self.VS.CurrentMS.MSName
+            print>>log, "Writing predicted data in column %s of %s"%(PredictColName,MSName)
             self.VS.MS.AddCol(PredictColName)
-            t=table(self.VS.MS.MSName,readonly=False,ack=False)
+            t=table(MSName,readonly=False,ack=False)
             t.putcol(PredictColName,vis)
             t.close()
             

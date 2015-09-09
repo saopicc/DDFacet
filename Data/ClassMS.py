@@ -11,6 +11,11 @@ from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
 
+try:
+    import lofar.stationresponse as lsr
+except:
+    print>>log, ModColor.Str("Could not import lofar.stationresponse")
+
 class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None):
@@ -123,7 +128,9 @@ class ClassMS():
         #     self.PutLOFARKeys()
         # t.close()
         
-        import lofar.stationresponse as lsr
+        #print>>log, "Import"
+        #print>>log, "  Done"
+        
         # f=self.ChanFreq.flatten()
         # if f.shape[0]>1:
         #     t=table(self.MSName+"/SPECTRAL_WINDOW/",ack=False)
@@ -132,11 +139,16 @@ class ClassMS():
         #     t.putcol("CHAN_WIDTH",c)
         #     t.close()
 
+        #print>>log, "Declare %s"%self.MSName
         self.SR = lsr.stationresponse(self.MSName,
                                       useElementResponse=useElementBeam,
                                       #useElementBeam=useElementBeam,
                                       useArrayFactor=useArrayFactor)#,useChanFreq=True)
+        #print>>log, "  Done"
+        #print>>log, "Set direction %f, %f"%(self.rarad,self.decrad)
         self.SR.setDirection(self.rarad,self.decrad)
+        #print>>log, "  Done"
+
         
     def CopyNonSPWDependent(self,MSnodata):
         MSnodata.A0=self.A0

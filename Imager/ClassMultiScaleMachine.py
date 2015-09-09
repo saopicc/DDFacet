@@ -21,7 +21,7 @@ class ClassMultiScaleMachine():
         self.CubePSFScales=None
         self.GD=GD
         self.MultiFreqMode=False
-        self.Alpha=np.array([0.],float)
+        self.Alpha=np.array([-0.8],float)
         if self.GD["MultiFreqs"]["NFreqBands"]:
             self.MultiFreqMode=True
             self.NFreqBand=self.GD["MultiFreqs"]["NFreqBands"]
