@@ -421,6 +421,9 @@ class ClassImagerDeconv():
         
         self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
+        DicoModel="%s.DicoModel"%(BaseName)
+        ModelMachine.FromFile(DicoModel)
+
         while True:
             Res=self.setNextData()
             if Res=="EndOfObservation": break
@@ -428,8 +431,6 @@ class ClassImagerDeconv():
             ThisMeanFreq=np.mean(DATA["freqs"])
 
             
-            DicoModel="%s.DicoModel"%(BaseName)
-            ModelMachine.FromFile(DicoModel)
 
             # ######################################
             # ModelMachine.DicoSMStacked["Comp"][(153, 570)]['SolsArray']=np.array([ 10], dtype=np.float32)
