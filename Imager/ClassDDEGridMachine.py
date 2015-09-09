@@ -656,7 +656,7 @@ class ClassDDEGridMachine():
         NChan=self.NChan
 
         NVisChan=vis.shape[1]
-        if W==None:
+        if type(W)==type(None):
             W=np.ones((uvw.shape[0],NVisChan),dtype=np.float64)
             
         #else:
@@ -718,7 +718,7 @@ class ClassDDEGridMachine():
         #print "sleeping DDE..."; time.sleep(5)
 
 
-        if freqs==None:
+        if type(freqs)==type(None):
             freqs=np.float64(self.ChanFreq)
         
         T2=ClassTimeIt.ClassTimeIt("Gridder")
@@ -808,22 +808,22 @@ class ClassDDEGridMachine():
         return Dirty
 
     def CheckTypes(self,Grid=None,vis=None,uvw=None,flag=None,ListWTerm=None,W=None,A0=None,A1=None,Jones=None):
-        if Grid!=None:
+        if type(Grid)!=type(None):
             if not(Grid.dtype==np.complex64):
                 raise NameError('Grid.dtype %s %s'%(str(Grid.dtype),str(self.dtype)))
             if not(Grid.flags.c_contiguous):
                 raise NameError("Has to be contiuous")
-        if vis!=None:
+        if type(vis)!=type(None):
             if not(vis.dtype==np.complex64):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
             if not(vis.flags.c_contiguous):
                 raise NameError("Has to be contiuous")
-        if uvw!=None:
+        if type(uvw)!=type(None):
             if not(uvw.dtype==np.float64):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
             if not(uvw.flags.c_contiguous):
                 raise NameError("Has to be contiuous")
-        if flag!=None:
+        if type(flag)!=type(None):
             if not(flag.dtype==np.bool8):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
             if not(flag.flags.c_contiguous):
@@ -831,22 +831,22 @@ class ClassDDEGridMachine():
         if ListWTerm!=None:
             if not(ListWTerm[0].dtype==np.complex64):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
-        if W!=None:
+        if type(W)!=type(None):
             if not(W.dtype==np.float64):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
             if not(W.flags.c_contiguous):
                 raise NameError("Has to be contiuous")
-        if A0!=None:
+        if type(A0)!=type(None):
             if not(A0.dtype==np.int32):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
             if not(A0.flags.c_contiguous):
                 raise NameError("Has to be contiuous")
-        if A1!=None:
+        if type(A1)!=type(None):
             if not(A1.dtype==np.int32):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
             if not(A1.flags.c_contiguous):
                 raise NameError("Has to be contiuous")
-        if Jones!=None:
+        if type(Jones)!=type(None):
             if not(Jones.dtype==np.complex64):
                 raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
             if not(Jones.flags.c_contiguous):
@@ -944,7 +944,7 @@ class ClassDDEGridMachine():
             ParamJonesList=ParamJonesList+LApplySol
 
 
-        if freqs==None:
+        if type(freqs)==type(None):
             freqs=np.float64(self.ChanFreq)
 
         T.timeit("3")
