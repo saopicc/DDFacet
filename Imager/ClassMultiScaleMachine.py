@@ -21,7 +21,7 @@ class ClassMultiScaleMachine():
         self.CubePSFScales=None
         self.GD=GD
         self.MultiFreqMode=False
-        self.Alpha=np.array([-0.8],float)
+        self.Alpha=np.array([0.],float)
         if self.GD["MultiFreqs"]["NFreqBands"]:
             self.MultiFreqMode=True
             self.NFreqBand=self.GD["MultiFreqs"]["NFreqBands"]
@@ -519,7 +519,7 @@ class ClassMultiScaleMachine():
                 # if np.abs(np.sum(Sol))>np.abs(MeanFluxTrue):
                 #     Sol=SolReg
 
-            #Sol*=(MeanFluxTrue/np.sum(Sol))
+            Sol*=(MeanFluxTrue/np.sum(Sol))
                 
             #print "Sum, Sol",np.sum(Sol),Sol.ravel()
             

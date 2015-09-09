@@ -100,7 +100,7 @@ def SharedToDico(Prefix):
         key=Sharedkey.split(".")[-1]
         print>>log, ModColor.Str("  %s -> %s"%(Sharedkey,key))
         Shared=GiveArray(Sharedkey)
-        if Shared==None:
+        if type(Shared)==type(None):
             print>>log, ModColor.Str("      None existing key"%(key))
             return None
         DicoOut[key]=Shared
