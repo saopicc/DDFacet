@@ -57,6 +57,8 @@ def read_options():
     OP.add_option('TChunkSize')
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
     OP.add_option('SaveIms',help='Image name [%default]')
+    OP.add_option('InitDicoModel',help='Image name [%default]')
+
 
     OP.OptionGroup("* File storing options","Stores")
     OP.add_option('DeleteDDFProducts')

@@ -421,8 +421,6 @@ class ClassImagerDeconv():
         
         self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
-        DicoModel="%s.DicoModel"%(BaseName)
-        ModelMachine.FromFile(DicoModel)
 
         while True:
             Res=self.setNextData()
@@ -467,15 +465,26 @@ class ClassImagerDeconv():
         self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
         self.DeconvMachine.InitMSMF()
 
+        SkipClean=False
+        InitDicoModel=self.GD["VisData"]["InitDicoModel"]
+        if InitDicoModel!=None:
+            SkipClean=True
+            self.DeconvMachine.ModelMachine.FromFile(InitDicoModel)
+
+
         for iMajor in range(NMajor):
 
             print>>log, ModColor.Str("========================== Runing major Cycle %i ========================="%iMajor)
             
             self.DeconvMachine.SetDirty(DicoImage)
             #self.DeconvMachine.setSideLobeLevel(0.2,10)
-            repMinor=self.DeconvMachine.Clean()
-            if repMinor=="DoneMinFlux":
-                break
+            repMinor=None
+            if not(SkipClean):
+                repMinor=self.DeconvMachine.Clean()
+                SkipClean=False
+                if repMinor=="DoneMinFlux":
+                    break
+
             #self.ResidImage=DicoImage["MeanImage"]
             #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
 

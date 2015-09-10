@@ -18,7 +18,8 @@ def read_options():
     opt = optparse.OptionParser(usage='Usage: %prog --Parset=somename.MS <options>',version='%prog version 1.0',description=desc)
     
     group = optparse.OptionGroup(opt, "* Data selection options")
-    group.add_option('--BaseImageName',help='',default=0)
+    group.add_option('--BaseImageName',help='')
+    group.add_option('--ResidualImage',help='',type="str",default="")
     group.add_option('--BeamPix',help='',default=5)
     opt.add_option_group(group)
     
@@ -29,15 +30,17 @@ def read_options():
 
 
 class ClassRestoreMachine():
-    def __init__(self,BaseImageName,BeamPix=5):
+    def __init__(self,BaseImageName,BeamPix=5,ResidualImName=""):
         self.BaseImageName=BaseImageName
         self.ModelMachine=ClassModelMachine(Gain=0.1)
         self.BeamPix=BeamPix
         DicoModel="%s.DicoModel"%BaseImageName
         self.ModelMachine.FromFile(DicoModel)
         
-
-        FitsFile="%s.residual.fits"%BaseImageName
+        if ResidualImName==None:
+            FitsFile="%s.residual.fits"%BaseImageName
+        else:
+            FitsFile=ResidualImName
         im=image(FitsFile)
 
         c=im.coordinates()
@@ -50,6 +53,7 @@ class ClassRestoreMachine():
         testImageIn=im.getdata()
         nchan,npol,_,_=testImageIn.shape
         testImage=np.zeros_like(testImageIn)
+
         for ch in range(nchan):
             for pol in range(npol):
                 testImage[ch,pol,:,:]=testImageIn[ch,pol,:,:].T[::-1,:]#*1.0003900000000001
@@ -114,7 +118,7 @@ def main(options=None):
         f = open("last_param.obj",'rb')
         options = pickle.load(f)
     
-    CRM=ClassRestoreMachine(options.BaseImageName,BeamPix=options.BeamPix)
+    CRM=ClassRestoreMachine(options.BaseImageName,BeamPix=options.BeamPix,ResidualImName=options.ResidualImage)
     CRM.Restore()
 
 
