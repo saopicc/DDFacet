@@ -28,6 +28,16 @@ def PutDataInNewImage(ImageNameIn,ImageNameOut,data,CorrT=False):
     CasaImage.ToFits()
     CasaImage.close()
 
+def FileToArray(FileName,CorrT):
+    CasaNormImage=image(FileName)
+    NormImage=CasaNormImage.getdata()
+    nch,npol,nx,_=NormImage.shape
+    if CorrT:
+        for ch in range(nch):
+            for pol in range(npol):
+                NormImage[ch,pol]=NormImage[ch,pol].T[::-1]
+    return NormImage
+
 
 class ClassCasaimage():
     def __init__(self,ImageName,ImShape,Cell,radec,Freqs=None,KeepCasa=False):

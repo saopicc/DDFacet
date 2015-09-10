@@ -29,6 +29,7 @@ class ClassImageDeconvMachine():
         self.GD=GD
         self.SubPSF=None
         self.MultiFreqMode=(self.GD["MultiFreqs"]["NFreqBands"]>1)
+        self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD)
 
         
         if CleanMaskImage!=None:
@@ -58,7 +59,6 @@ class ClassImageDeconvMachine():
     def InitMSMF(self):
 
         self.DicoMSMachine={}
-        self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD)
 
         for iFacet in range(self.PSFServer.NFacets):
             self.PSFServer.setFacet(iFacet)

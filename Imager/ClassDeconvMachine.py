@@ -57,6 +57,7 @@ class ClassImagerDeconv():
             self.GD=GD
 
         self.BaseName=BaseName
+        self.DicoModelName="%s.DicoModel"%self.BaseName
         self.PointingID=PointingID
         self.DoDeconvolve=DoDeconvolve
         self.FacetMachine=None
@@ -316,6 +317,8 @@ class ClassImagerDeconv():
 
     def GiveDirty(self):
 
+        print>>log, ModColor.Str("============================== Making Residual Image ==============================")
+
         self.InitFacetMachine()
         
         self.FacetMachine.ReinitDirty()
@@ -331,8 +334,16 @@ class ClassImagerDeconv():
                     Dirty[ch,pol]=Dirty[ch,pol].T[::-1]
             return Dirty
 
+        SubstractModel=self.GD["VisData"]["InitDicoModel"]
+        if SubstractModel!="":
+            print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
+            self.DeconvMachine.ModelMachine.FromFile(SubstractModel)        
+            NormFacetsFile="%s.NormFacets.fits"%self.BaseName
+            self.FacetMachine.NormImage=ClassCasaImage.FileToArray(NormFacetsFile,True)
+            _,_,nx,nx=self.FacetMachine.NormImage.shape
+            self.FacetMachine.NormImage=self.FacetMachine.NormImage.reshape((nx,nx))
+            self.BaseName+=".continue"
 
-        print>>log, ModColor.Str("============================== Making Dirty ==============================")
         while True:
             Res=self.setNextData()
             # if not(isPlotted):
@@ -342,7 +353,13 @@ class ClassImagerDeconv():
             #if Res=="EndChunk": break
             if Res=="EndOfObservation": break
             DATA=self.DATA
-            
+
+            if SubstractModel!="":
+                ThisMeanFreq=np.mean(DATA["freqs"])
+                ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
+                print>>log, "Model image @%f MHz (min,max) = (%f, %f)"%(ThisMeanFreq/1e6,ModelImage.min(),ModelImage.max())
+                _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
+
             self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True,Channel=self.VS.CurrentFreqBand)
             
             # Image=self.FacetMachine.FacetsToIm()
@@ -450,26 +467,29 @@ class ClassImagerDeconv():
             t.close()
             
 
+    def setPSF(self):
+
+        self.MakePSF()
+        self.DeconvMachine.SetPSF(self.DicoImagePSF,self.DicoVariablePSF)
+        self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
+        self.DeconvMachine.InitMSMF()
+        
+
 
     def main(self,NMajor=None):
         if NMajor==None:
             NMajor=self.NMajor
 
 
-        Image=self.GiveDirty()
+
+        self.GiveDirty()
+        self.setPSF()
+        
         DicoImage=self.DicoDirty
-        self.NormImage=DicoImage["NormData"]
 
-        self.MakePSF()
-        self.DeconvMachine.SetPSF(self.DicoImagePSF,self.DicoVariablePSF)
-        self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
-        self.DeconvMachine.InitMSMF()
 
-        SkipClean=False
-        InitDicoModel=self.GD["VisData"]["InitDicoModel"]
-        if InitDicoModel!=None:
-            SkipClean=True
-            self.DeconvMachine.ModelMachine.FromFile(InitDicoModel)
+        
+            
 
 
         for iMajor in range(NMajor):
@@ -478,12 +498,10 @@ class ClassImagerDeconv():
             
             self.DeconvMachine.SetDirty(DicoImage)
             #self.DeconvMachine.setSideLobeLevel(0.2,10)
-            repMinor=None
-            if not(SkipClean):
-                repMinor=self.DeconvMachine.Clean()
-                SkipClean=False
-                if repMinor=="DoneMinFlux":
-                    break
+
+            repMinor=self.DeconvMachine.Clean()
+            if repMinor=="DoneMinFlux":
+                break
 
             #self.ResidImage=DicoImage["MeanImage"]
             #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
@@ -594,6 +612,8 @@ class ClassImagerDeconv():
                 ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
                 self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),Fits=True)
 
+            self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName)
+
 
             # fig=pylab.figure(1)
             # pylab.clf()
@@ -668,8 +688,7 @@ class ClassImagerDeconv():
         print>>log, "Create restored image"
         if self.PSFGaussPars==None:
             self.FitPSF()
-
-        self.DeconvMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
+        self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName)
 
         RefFreq=self.VS.RefFreq
         ModelMachine=self.DeconvMachine.ModelMachine
