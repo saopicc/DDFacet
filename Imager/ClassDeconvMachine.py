@@ -342,7 +342,8 @@ class ClassImagerDeconv():
             self.FacetMachine.NormImage=ClassCasaImage.FileToArray(NormFacetsFile,True)
             _,_,nx,nx=self.FacetMachine.NormImage.shape
             self.FacetMachine.NormImage=self.FacetMachine.NormImage.reshape((nx,nx))
-            self.BaseName+=".continue"
+            if self.BaseName==self.GD["VisData"]["InitDicoModel"][0:-10]:
+                self.BaseName+=".continue"
 
         while True:
             Res=self.setNextData()
