@@ -660,7 +660,9 @@ class ClassFacetMachine():
     def BuildFacetNormImage(self):
         if self.NormImage!=None: return
         print>>log,"Building Facet-normalisation image"
-        NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
+        nch,npol=self.nch,self.npol
+        _,_,NPixOut,NPixOut=self.OutImShape
+        NormImage=np.zeros((NPixOut,NPixOut),dtype=np.float32)
         for iFacet in self.DicoImager.keys():
             SharedMemName="%sSpheroidal"%(self.IdSharedMem)#"%sWTerm.Facet_%3.3i"%(self.IdSharedMem,0)
             SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
@@ -668,8 +670,9 @@ class ClassFacetMachine():
             SPhe=NpShared.GiveArray(SharedMemName)
             
             xc,yc=self.DicoImager[iFacet]["pixCentral"]
-            NpixFacet=self.DicoGridMachine[iFacet]["Dirty"][Channel].shape[2]
-            
+            #NpixFacet=self.DicoGridMachine[iFacet]["Dirty"][Channel].shape[2]
+            NpixFacet=self.DicoImager[iFacet]["NpixFacetPadded"]
+
             M_xc=xc
             M_yc=yc
             NpixMain=NPixOut
@@ -707,7 +710,6 @@ class ClassFacetMachine():
         nx,nx=NormImage.shape
         self.NormImage=NormImage
         self.NormImageReShape=self.NormImage.reshape((1,1,nx,nx))
-        T.timeit("7")
         
 
     def FacetsToIm_Channel(self,Channel=0,BeamWeightImage=False):
