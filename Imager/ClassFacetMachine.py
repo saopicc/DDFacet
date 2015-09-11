@@ -659,6 +659,7 @@ class ClassFacetMachine():
         
     def BuildFacetNormImage(self):
         if self.NormImage!=None: return
+        print>>log,"Building Facet-normalisation image"
         NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
         for iFacet in self.DicoImager.keys():
             SharedMemName="%sSpheroidal"%(self.IdSharedMem)#"%sWTerm.Facet_%3.3i"%(self.IdSharedMem,0)

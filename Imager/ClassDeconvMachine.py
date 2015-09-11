@@ -340,13 +340,15 @@ class ClassImagerDeconv():
             print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
             self.DeconvMachine.ModelMachine.FromFile(SubstractModel)        
             InitBaseName=".".join(SubstractModel.split(".")[0:-1])
-            NormFacetsFile="%s.NormFacets.fits"%InitBaseName
-            if InitBaseName!=BaseName:
-                print>>log, ModColor.Str("You are substracting a model build from a different facetting mode")
-                print>>log, ModColor.Str("  This is rather dodgy because of the ")
-            self.FacetMachine.NormImage=ClassCasaImage.FileToArray(NormFacetsFile,True)
-            _,_,nx,nx=self.FacetMachine.NormImage.shape
-            self.FacetMachine.NormImage=self.FacetMachine.NormImage.reshape((nx,nx))
+            self.FacetMachine.BuildFacetNormImage()
+            # NormFacetsFile="%s.NormFacets.fits"%InitBaseName
+            # if InitBaseName!=BaseName:
+            #     print>>log, ModColor.Str("You are substracting a model build from a different facetting mode")
+            #     print>>log, ModColor.Str("  This is rather dodgy because of the ")
+            # self.FacetMachine.NormImage=ClassCasaImage.FileToArray(NormFacetsFile,True)
+            # _,_,nx,nx=self.FacetMachine.NormImage.shape
+            # self.FacetMachine.NormImage=self.FacetMachine.NormImage.reshape((nx,nx))
+
             if self.BaseName==self.GD["VisData"]["InitDicoModel"][0:-10]:
                 self.BaseName+=".continue"
 
