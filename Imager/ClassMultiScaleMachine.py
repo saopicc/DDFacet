@@ -482,8 +482,8 @@ class ClassMultiScaleMachine():
         # BMT_BM_inv=ModLinAlg.invSVD(BMT_BM)
 
 
-        #self.SolveMode="MatchingPursuit"
-        self.SolveMode="PI"
+        self.SolveMode="MatchingPursuit"
+        #self.SolveMode="PI"
         #self.SolveMode="ComplementaryMatchingPursuit"
         #self.SolveMode="NNLS"
 

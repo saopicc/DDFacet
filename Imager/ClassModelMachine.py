@@ -89,7 +89,12 @@ class ClassModelMachine():
         if DoConv:
             M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
             M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-        Mask=((M1>0)&(M0>0))
+        
+        Np=1000
+        indx,indy=np.int64(np.random.rand(Np)*M0.shape[0]),np.int64(np.random.rand(Np)*M0.shape[1])
+        med=np.median(np.abs(M0[:,:,indx,indy]))
+
+        Mask=((M1>100*med)&(M0>100*med))
         alpha=np.zeros_like(M0)
         alpha[Mask]=(np.log(M0[Mask])-np.log(M1[Mask]))/(np.log(f0/f1))
         return alpha

@@ -30,14 +30,15 @@ def read_options():
 
 
 class ClassRestoreMachine():
-    def __init__(self,BaseImageName,BeamPix=5,ResidualImName=""):
+    def __init__(self,BaseImageName,BeamPix=5,ResidualImName="",DoAlpha=1):
+        self.DoAlpha=DoAlpha
         self.BaseImageName=BaseImageName
         self.ModelMachine=ClassModelMachine(Gain=0.1)
         self.BeamPix=BeamPix
         DicoModel="%s.DicoModel"%BaseImageName
         self.ModelMachine.FromFile(DicoModel)
         
-        if ResidualImName==None:
+        if ResidualImName=="":
             FitsFile="%s.residual.fits"%BaseImageName
         else:
             FitsFile=ResidualImName
@@ -99,11 +100,16 @@ class ClassRestoreMachine():
         CasaImage.close()
 
 
-        # # Alpha image
-        # if "Alpha" in self.GD["VisData"]["SaveIms"]:
-        #     IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
-        #     # IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
-        #     self.FacetMachine.ToCasaImage(IndexMap,ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+        # Alpha image
+        if self.DoAlpha:
+            IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+
+            ImageName="%s.alphaNew"%self.BaseImageName
+            CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
+            CasaImage.setdata(IndexMap,CorrT=True)
+            CasaImage.ToFits()
+            CasaImage.close()
+
 
 
 def test():

@@ -673,7 +673,7 @@ class ClassFacetMachine():
             #NpixFacet=self.DicoGridMachine[iFacet]["Dirty"][Channel].shape[2]
             NpixFacet=self.DicoImager[iFacet]["NpixFacetPadded"]
 
-            Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(N1/2,N1/2),NpixFacet)
+            Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(NpixFacet/2,NpixFacet/2),NpixFacet)
             x0d,x1d,y0d,y1d=Aedge
             x0p,x1p,y0p,y1p=Bedge
 
