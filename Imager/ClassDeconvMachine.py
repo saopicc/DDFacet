@@ -335,10 +335,12 @@ class ClassImagerDeconv():
             return Dirty
 
         SubstractModel=self.GD["VisData"]["InitDicoModel"]
-        if SubstractModel!="":
+        DoSub=(SubstractModel!="")&(SubstractModel!=None)
+        if DoSub:
             print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
             self.DeconvMachine.ModelMachine.FromFile(SubstractModel)        
-            NormFacetsFile="%s.NormFacets.fits"%self.BaseName
+            InitBaseName=".".join(SubstractModel.split(".")[0:-1])
+            NormFacetsFile="%s.NormFacets.fits"%InitBaseName
             self.FacetMachine.NormImage=ClassCasaImage.FileToArray(NormFacetsFile,True)
             _,_,nx,nx=self.FacetMachine.NormImage.shape
             self.FacetMachine.NormImage=self.FacetMachine.NormImage.reshape((nx,nx))
@@ -355,7 +357,7 @@ class ClassImagerDeconv():
             if Res=="EndOfObservation": break
             DATA=self.DATA
 
-            if SubstractModel!="":
+            if DoSub:
                 ThisMeanFreq=np.mean(DATA["freqs"])
                 ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
                 print>>log, "Model image @%f MHz (min,max) = (%f, %f)"%(ThisMeanFreq/1e6,ModelImage.min(),ModelImage.max())

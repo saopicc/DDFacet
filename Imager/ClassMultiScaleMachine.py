@@ -159,7 +159,7 @@ class ClassMultiScaleMachine():
         Support=31
         #CubePSFScales=np.zeros((self.NFreqBand,NScales+NRatios*NTheta*(NScales-1),nx,ny))
         ListPSFScales=[]
-
+        ListPSFScalesWeights=[]
         # Scale Zero
 
         FreqBandsFluxRatio=np.zeros((NAlpha,self.NFreqBand),np.float32)
@@ -194,6 +194,7 @@ class ClassMultiScaleMachine():
             iSlice=0
 
             ListPSFScales.append(ThisMFPSF)
+            
             self.ListScales.append({"ModelType":"Delta","Scale":iSlice,#"fact":1.,
                                     "Alpha":ThisAlpha})
             iSlice+=1
@@ -206,12 +207,13 @@ class ClassMultiScaleMachine():
                 ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBand)[:,0,:,:]#[0,0]
                 Max=np.max(ThisPSF)
                 ThisPSF/=Max
-                ListPSFScales.append(ThisPSF)
                 ThisSupport=int(np.max([Support,3*Major]))
                 Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)
                 fact=np.max(Gauss)/np.sum(Gauss)
+                #fact=1./np.sum(Gauss)
                 Gauss*=fact
-                #ThisPSF/=fact
+                #ThisPSF*=fact
+                ListPSFScales.append(ThisPSF)
                 self.ListScales.append({"ModelType":"Gaussian",#"fact":fact,
                                         "Model":Gauss,"Scale":iScales,"Alpha":ThisAlpha})
             
@@ -357,11 +359,24 @@ class ClassMultiScaleMachine():
         fBMT_fBM=np.dot(fBM.T,UVTaper.reshape((UVTaper.size,1))*fBM)
         fBMT_fBM_inv=ModLinAlg.invSVD(fBMT_fBM)
         
+        # DeltaMatrix=np.zeros((nFunc,),np.float32)
+        # #BM_BMT=np.dot(BM,BM.T)
+        # #BM_BMT_inv=ModLinAlg.invSVD(BM_BMT)
 
+        # BM_BMT_inv=np.diag(1./np.sum(BM*BM,axis=1))
+        # nData,_=BM.shape
+        # for iFunc in range(nFunc):
+        #     ai=BM[:,iFunc].reshape((nData,1))
+        #     DeltaMatrix[iFunc]=1./np.sqrt(np.dot(np.dot(ai.T,BM_BMT_inv),ai))
+        # DeltaMatrix=DeltaMatrix.reshape((nFunc,1))
+        # print>>log, "Delta Matrix: %s"%str(DeltaMatrix)
 
-
+        BMnorm=np.sum(BM**2,axis=0)
+        BMnorm=1./BMnorm.reshape((nFunc,1))
 
         DicoBasisMatrix={"BMCube":CubePSF,
+                         "BMnorm":BMnorm,
+                         #"DeltaMatrix":DeltaMatrix,
                          #"Bias":Bias,
                          "BM":BM,
                          "fBM":fBM,
@@ -469,6 +484,7 @@ class ClassMultiScaleMachine():
 
         #self.SolveMode="MatchingPursuit"
         self.SolveMode="PI"
+        #self.SolveMode="ComplementaryMatchingPursuit"
         #self.SolveMode="NNLS"
 
         MeanFluxTrue=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())
@@ -480,8 +496,26 @@ class ClassMultiScaleMachine():
             #indMaxSol0=np.where(np.abs(Sol)!=np.max(np.abs(Sol)))[0]
             indMaxSol1=np.where(np.abs(Sol)==np.max(np.abs(Sol)))[0]
             indMaxSol0=np.where(np.abs(Sol)!=np.max(np.abs(Sol)))[0]
-            indMaxSol1=np.where(np.abs(Sol)==np.max((Sol)))[0]
-            indMaxSol0=np.where(np.abs(Sol)!=np.max((Sol)))[0]
+            #indMaxSol1=np.where(np.abs(Sol)==np.max((Sol)))[0]
+            #indMaxSol0=np.where(np.abs(Sol)!=np.max((Sol)))[0]
+
+            Sol[indMaxSol0]=0
+            Max=Sol[indMaxSol1[0]]
+            Sol[indMaxSol1]=MeanFluxTrue#np.sign(Max)*MeanFluxTrue
+
+            # D=self.ListScales[indMaxSol1[0]]
+            # print "Type %10s (sc, alpha)=(%i, %f)"%(D["ModelType"],D["Scale"],D["Alpha"])
+            # LocalSM=self.CubePSFScales[indMaxSol1[0]]*FpolMean.ravel()[0]
+            LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
+
+        elif  self.SolveMode=="ComplementaryMatchingPursuit":
+            #Sol=DicoBasisMatrix["DeltaMatrix"]*np.dot(BM.T,WVecPSF*dirtyVec)
+            #Sol=DicoBasisMatrix["BMnorm"]*np.dot(BM.T,WVecPSF*dirtyVec)
+            Sol=DicoBasisMatrix["BMnorm"]*np.dot(BM.T,WVecPSF*(dirtyVec/MeanFluxTrue-BM))
+            #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
+            print x0,y0,Sol
+            indMaxSol1=np.where(np.abs(Sol)==np.max(np.abs(Sol)))[0]
+            indMaxSol0=np.where(np.abs(Sol)!=np.max(np.abs(Sol)))[0]
 
             Sol[indMaxSol0]=0
             Max=Sol[indMaxSol1[0]]
