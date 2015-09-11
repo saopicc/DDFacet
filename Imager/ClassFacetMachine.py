@@ -657,8 +657,57 @@ class ClassFacetMachine():
         # stop
         
         
-        
+    def BuildFacetNormImage(self):
+        if self.NormImage!=None: return
+        NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
+        for iFacet in self.DicoImager.keys():
+            SharedMemName="%sSpheroidal"%(self.IdSharedMem)#"%sWTerm.Facet_%3.3i"%(self.IdSharedMem,0)
+            SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+            #SPhe=NpShared.UnPackListSquareMatrix(SharedMemName)[0]
+            SPhe=NpShared.GiveArray(SharedMemName)
             
+            xc,yc=self.DicoImager[iFacet]["pixCentral"]
+            NpixFacet=self.DicoGridMachine[iFacet]["Dirty"][Channel].shape[2]
+            
+            M_xc=xc
+            M_yc=yc
+            NpixMain=NPixOut
+            F_xc=NpixFacet/2
+            F_yc=NpixFacet/2
+            
+            
+            ## X
+            M_x0=M_xc-NpixFacet/2
+            x0main=np.max([0,M_x0])
+            dx0=x0main-M_x0
+            x0facet=dx0
+            
+            M_x1=M_xc+NpixFacet/2
+            x1main=np.min([NpixMain-1,M_x1])
+            dx1=M_x1-x1main
+            x1facet=NpixFacet-dx1
+            x1main+=1
+            ## Y
+            M_y0=M_yc-NpixFacet/2
+            y0main=np.max([0,M_y0])
+            dy0=y0main-M_y0
+            y0facet=dy0
+            
+            M_y1=M_yc+NpixFacet/2
+            y1main=np.min([NpixMain-1,M_y1])
+            dy1=M_y1-y1main
+            y1facet=NpixFacet-dy1
+            y1main+=1
+            
+            SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
+            SW=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
+            NormImage[x0main:x1main,y0main:y1main]+=SW#Sphe
+
+        nx,nx=NormImage.shape
+        self.NormImage=NormImage
+        self.NormImageReShape=self.NormImage.reshape((1,1,nx,nx))
+        T.timeit("7")
+        
 
     def FacetsToIm_Channel(self,Channel=0,BeamWeightImage=False):
         T=ClassTimeIt.ClassTimeIt("FacetsToIm_Channel")
@@ -669,12 +718,8 @@ class ClassFacetMachine():
 
         print>>log, "Combining facets using %s mode for Channel=%i [JonesNormImage = %i]..."%(self.ConstructMode,Channel,BeamWeightImage)
 
-        T.timeit("0")
-        if self.NormImage==None:
-            NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
-        else:
-            NormImage=self.NormImage
-        T.timeit("1")
+        self.BuildFacetNormImage()
+        NormImage=self.NormImage
 
 
         for iFacet in self.DicoImager.keys():
@@ -795,11 +840,6 @@ class ClassFacetMachine():
 
                 # M=Mask[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
                 # Sphe[M==0]=0
-                if self.NormImage==None:
-                    SW=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
-                    NormImage[x0main:x1main,y0main:y1main]+=SW#Sphe
-
-        T.timeit("6")
 
         #NormImage[NormImage==0]=1.
         if self.ConstructMode=="Fader": 
@@ -807,10 +847,6 @@ class ClassFacetMachine():
                 for pol in range(npol):
                     Image[ch,pol]/=NormImage
  
-        T.timeit("7")
-        nx,nx=NormImage.shape
-        self.NormImage=NormImage
-        self.NormImageReShape=self.NormImage.reshape((1,1,nx,nx))
 
 
         #self.ToCasaImage(self.NormImage.reshape((1,1,nx,nx)),Fits=True,ImageName="NormImage")
