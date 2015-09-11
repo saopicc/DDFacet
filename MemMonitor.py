@@ -147,7 +147,7 @@ def monitorMem():
             pylab.draw()
             #pylab.show()
             pylab.show(False)
-            #pylab.pause(0.5)
+            pylab.pause(0.5)
 
 
         time.sleep(0.5)
