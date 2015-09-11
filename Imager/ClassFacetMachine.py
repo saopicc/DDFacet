@@ -673,39 +673,49 @@ class ClassFacetMachine():
             #NpixFacet=self.DicoGridMachine[iFacet]["Dirty"][Channel].shape[2]
             NpixFacet=self.DicoImager[iFacet]["NpixFacetPadded"]
 
-            M_xc=xc
-            M_yc=yc
-            NpixMain=NPixOut
-            F_xc=NpixFacet/2
-            F_yc=NpixFacet/2
-            
-            
-            ## X
-            M_x0=M_xc-NpixFacet/2
-            x0main=np.max([0,M_x0])
-            dx0=x0main-M_x0
-            x0facet=dx0
-            
-            M_x1=M_xc+NpixFacet/2
-            x1main=np.min([NpixMain-1,M_x1])
-            dx1=M_x1-x1main
-            x1facet=NpixFacet-dx1
-            x1main+=1
-            ## Y
-            M_y0=M_yc-NpixFacet/2
-            y0main=np.max([0,M_y0])
-            dy0=y0main-M_y0
-            y0facet=dy0
-            
-            M_y1=M_yc+NpixFacet/2
-            y1main=np.min([NpixMain-1,M_y1])
-            dy1=M_y1-y1main
-            y1facet=NpixFacet-dy1
-            y1main+=1
-            
+            Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(N1/2,N1/2),NpixFacet)
+            x0d,x1d,y0d,y1d=Aedge
+            x0p,x1p,y0p,y1p=Bedge
+
             SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
-            SW=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
-            NormImage[x0main:x1main,y0main:y1main]+=SW#Sphe
+            SW=SpacialWeigth[::-1,:].T[x0p:x1p,y0p:y1p]
+            NormImage[x0d:x1d,y0d:y1d]+=SW#Sphe
+
+
+            # M_xc=xc
+            # M_yc=yc
+            # NpixMain=NPixOut
+            # F_xc=NpixFacet/2
+            # F_yc=NpixFacet/2
+            
+            
+            # ## X
+            # M_x0=M_xc-NpixFacet/2
+            # x0main=np.max([0,M_x0])
+            # dx0=x0main-M_x0
+            # x0facet=dx0
+            
+            # M_x1=M_xc+NpixFacet/2
+            # x1main=np.min([NpixMain-1,M_x1])
+            # dx1=M_x1-x1main
+            # x1facet=NpixFacet-dx1
+            # x1main+=1
+            # ## Y
+            # M_y0=M_yc-NpixFacet/2
+            # y0main=np.max([0,M_y0])
+            # dy0=y0main-M_y0
+            # y0facet=dy0
+            
+            # M_y1=M_yc+NpixFacet/2
+            # y1main=np.min([NpixMain-1,M_y1])
+            # dy1=M_y1-y1main
+            # y1facet=NpixFacet-dy1
+            # y1main+=1
+
+            
+            # SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
+            # SW=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
+            # NormImage[x0main:x1main,y0main:y1main]+=SW#Sphe
 
         nx,nx=NormImage.shape
         self.NormImage=NormImage
