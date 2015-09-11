@@ -341,9 +341,17 @@ class ClassImagerDeconv():
             self.DeconvMachine.ModelMachine.FromFile(SubstractModel)        
             InitBaseName=".".join(SubstractModel.split(".")[0:-1])
             NormFacetsFile="%s.NormFacets.fits"%InitBaseName
-            self.FacetMachine.NormImage=ClassCasaImage.FileToArray(NormFacetsFile,True)
+            FacetMachinePredict=ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
+                                                IdSharedMem=self.IdSharedMem,ApplyCal=ApplyCal)#,Sols=SimulSols)
+
+        
+            MainFacetOptions=self.GiveMainFacetOptions()
+            FacetMachinePredict.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
+            FacetMachinePredict.Init()
+
+            FacetMachinePredict.NormImage=ClassCasaImage.FileToArray(NormFacetsFile,True)
             _,_,nx,nx=self.FacetMachine.NormImage.shape
-            self.FacetMachine.NormImage=self.FacetMachine.NormImage.reshape((nx,nx))
+            FacetMachinePredict.NormImage=FacetMachinePredict.NormImage.reshape((nx,nx))
             if self.BaseName==self.GD["VisData"]["InitDicoModel"][0:-10]:
                 self.BaseName+=".continue"
 
@@ -361,7 +369,7 @@ class ClassImagerDeconv():
                 ThisMeanFreq=np.mean(DATA["freqs"])
                 ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
                 print>>log, "Model image @%f MHz (min,max) = (%f, %f)"%(ThisMeanFreq/1e6,ModelImage.min(),ModelImage.max())
-                _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
+                _=FacetMachinePredict.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
 
             self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True,Channel=self.VS.CurrentFreqBand)
             
