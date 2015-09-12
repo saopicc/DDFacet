@@ -483,7 +483,7 @@ class ClassMultiScaleMachine():
 
 
         self.SolveMode="MatchingPursuit"
-        #self.SolveMode="PI"
+        self.SolveMode="PI"
         #self.SolveMode="ComplementaryMatchingPursuit"
         #self.SolveMode="NNLS"
 
@@ -505,8 +505,8 @@ class ClassMultiScaleMachine():
 
             # D=self.ListScales[indMaxSol1[0]]
             # print "Type %10s (sc, alpha)=(%i, %f)"%(D["ModelType"],D["Scale"],D["Alpha"])
-            # LocalSM=self.CubePSFScales[indMaxSol1[0]]*FpolMean.ravel()[0]
-            LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
+            LocalSM=self.CubePSFScales[indMaxSol1[0]]*MeanFluxTrue#FpolMean.ravel()[0]
+            # LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
 
         elif  self.SolveMode=="ComplementaryMatchingPursuit":
             #Sol=DicoBasisMatrix["DeltaMatrix"]*np.dot(BM.T,WVecPSF*dirtyVec)
