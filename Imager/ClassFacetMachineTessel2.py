@@ -96,11 +96,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         
         SolsFile=self.GD["DDESolutions"]["DDSols"]
+        if type(SolsFile)==list:
+            SolsFile=self.GD["DDESolutions"]["DDSols"][0]
 
         if (SolsFile!="")&(not(".npz" in SolsFile)):
             Method=SolsFile
             ThisMSName=reformat.reformat(os.path.abspath(MSName),LastSlash=False)
             SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
+
 
         if SolsFile!="":
             ClusterNodes=np.load(SolsFile)["ClusterCat"]

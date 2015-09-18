@@ -189,7 +189,7 @@ class ClassJones():
             SolsFileList=[SolsFile]
 
         GlobalNormList=GD["DDESolutions"]["GlobalNorm"]
-        if type(GlobalNorm)!=list:
+        if type(GlobalNormList)!=list:
             GlobalNormList=[GD["DDESolutions"]["GlobalNorm"]]*len(GD["DDESolutions"]["DDSols"])
 
         ThisMode=GlobalNormList[0]
@@ -200,7 +200,6 @@ class ClassJones():
         for File,ThisMode in zip(SolsFileList,GlobalNormList):
             _,DicoSols=self.GiveKillMSSols_SingleFile(File,Mode=ThisMode)
             ListDicoSols.append(DicoSols)
-            DicoSols=self.MergeJones(DicoSols1,DicoSols)
 
         DicoJones=ListDicoSols[0]
         for DicoJones1 in ListDicoSols[1::]:
@@ -208,7 +207,7 @@ class ClassJones():
 
         return DicoClusterDirs,DicoJones
 
-    def GiveKillMSSols_SingleFile(self,File,Mode="AP"):
+    def GiveKillMSSols_SingleFile(self,SolsFile,Mode="AP"):
 
         print>>log, "Loading solution file %s in %s mode"%(SolsFile,Mode)
         if not(".npz" in SolsFile):
@@ -238,7 +237,7 @@ class ClassJones():
         DicoSols["tm"]=(Sols.t1+Sols.t0)/2.
         nt,na,nd,_,_=Sols.G.shape
         G=np.swapaxes(Sols.G,1,2).reshape((nt,nd,na,1,2,2))
-        if GD["DDESolutions"]["GlobalNorm"]=="MeanAbs":
+        if self.GD["DDESolutions"]["GlobalNorm"]=="MeanAbs":
             print>>log, "  Normalising by the mean of the amplitude"
             gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
             gmean_abs=gmean_abs.reshape((1,nd,na,1))
@@ -246,10 +245,11 @@ class ClassJones():
             G[:,:,:,:,1,1]/=gmean_abs
             
         if not("A" in Mode):
-            G/=np.abs(DicoSols["Jones"])
+            
+            G[G!=0.]/=np.abs(G[G!=0.])
         if not("P" in Mode):
             dtype=G.dtype
-            G=dtype(np.abs(G))
+            G=(np.abs(G).astype(dtype)).copy()
 
         G=self.NormDirMatrices(G)
         DicoSols["Jones"]=G

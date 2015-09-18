@@ -100,15 +100,15 @@ class ClassRestoreMachine():
         CasaImage.close()
 
 
-        # Alpha image
-        if self.DoAlpha:
-            IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+        # # Alpha image
+        # if self.DoAlpha:
+        #     IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
 
-            ImageName="%s.alphaNew"%self.BaseImageName
-            CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
-            CasaImage.setdata(IndexMap,CorrT=True)
-            CasaImage.ToFits()
-            CasaImage.close()
+        #     ImageName="%s.alphaNew"%self.BaseImageName
+        #     CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
+        #     CasaImage.setdata(IndexMap,CorrT=True)
+        #     CasaImage.ToFits()
+        #     CasaImage.close()
 
 
 
