@@ -192,18 +192,18 @@ class ClassJones():
         if type(GlobalNormList)!=list:
             GlobalNormList=[GD["DDESolutions"]["GlobalNorm"]]*len(GD["DDESolutions"]["DDSols"])
 
-        ThisMode=GlobalNormList[0]
-        DicoClusterDirs,DicoSols=self.GiveKillMSSols_SingleFile(SolsFileList[0],Mode=ThisMode)
 
         ListDicoSols=[]
 
+
         for File,ThisMode in zip(SolsFileList,GlobalNormList):
-            _,DicoSols=self.GiveKillMSSols_SingleFile(File,Mode=ThisMode)
+
+            DicoClusterDirs,DicoSols=self.GiveKillMSSols_SingleFile(File,Mode=ThisMode)
             ListDicoSols.append(DicoSols)
 
         DicoJones=ListDicoSols[0]
         for DicoJones1 in ListDicoSols[1::]:
-            DicoJones=MergeJones.MergeJones(DicoJones1,DicoJones)
+            DicoJones=self.MergeJones(DicoJones1,DicoJones)
 
         return DicoClusterDirs,DicoJones
 
