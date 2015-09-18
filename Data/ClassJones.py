@@ -180,11 +180,37 @@ class ClassJones():
         return TimeMapping
 
 
-
     def GiveKillMSSols(self):
         GD=self.GD
         SolsFile=GD["DDESolutions"]["DDSols"]
-        print>>log, "Loading solution file: %s"%SolsFile
+        if type(SolsFile)==list:
+            SolsFileList=SolsFile
+        else:
+            SolsFileList=[SolsFile]
+
+        GlobalNormList=GD["DDESolutions"]["GlobalNorm"]
+        if type(GlobalNorm)!=list:
+            GlobalNormList=[GD["DDESolutions"]["GlobalNorm"]]*len(GD["DDESolutions"]["DDSols"])
+
+        ThisMode=GlobalNormList[0]
+        DicoClusterDirs,DicoSols=self.GiveKillMSSols_SingleFile(SolsFileList[0],Mode=ThisMode)
+
+        ListDicoSols=[]
+
+        for File,ThisMode in zip(SolsFileList,GlobalNormList):
+            _,DicoSols=self.GiveKillMSSols_SingleFile(File,Mode=ThisMode)
+            ListDicoSols.append(DicoSols)
+            DicoSols=self.MergeJones(DicoSols1,DicoSols)
+
+        DicoJones=ListDicoSols[0]
+        for DicoJones1 in ListDicoSols[1::]:
+            DicoJones=MergeJones.MergeJones(DicoJones1,DicoJones)
+
+        return DicoClusterDirs,DicoJones
+
+    def GiveKillMSSols_SingleFile(self,File,Mode="AP"):
+
+        print>>log, "Loading solution file %s in %s mode"%(SolsFile,Mode)
         if not(".npz" in SolsFile):
             Method=SolsFile
             ThisMSName=reformat.reformat(os.path.abspath(self.MS.MSName),LastSlash=False)
@@ -219,6 +245,12 @@ class ClassJones():
             G[:,:,:,:,0,0]/=gmean_abs
             G[:,:,:,:,1,1]/=gmean_abs
             
+        if not("A" in Mode):
+            G/=np.abs(DicoSols["Jones"])
+        if not("P" in Mode):
+            dtype=G.dtype
+            G=dtype(np.abs(G))
+
         G=self.NormDirMatrices(G)
         DicoSols["Jones"]=G
 
