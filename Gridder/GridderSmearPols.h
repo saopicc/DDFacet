@@ -79,6 +79,48 @@ static PyObject *pyAddArray(PyObject *self, PyObject *args);
 static PyObject *pyWhereMax(PyObject *self, PyObject *args);
 
 
+float GiveDecorrelationFactor(int FSmear, int TSmear,
+			      float l0, float m0,
+			      double* uvwPtr,
+			      double* uvw_dt_Ptr,
+			      float nu,
+			      float Dnu, 
+			      float DT){
+  float PI=3.141592;
+  float C=2.99792456e8;
+
+  float n0=sqrt(1.-l0*l0-m0*m0)-1.;
+  float DecorrFactor=1.;
+  float phase=0;
+  float phi=0;
+  phase=(uvwPtr[0])*l0;
+  phase+=(uvwPtr[1])*m0;
+  phase+=(uvwPtr[2])*n0;
+
+  if(FSmear==1){
+    phi=PI*(Dnu/C)*phase;
+    if(phi!=0.){
+      DecorrFactor*=(sin(phi)/(phi));
+    };
+  };
+
+  float du,dv,dw;
+  float dphase;
+  if(TSmear==1){
+    
+    du=uvw_dt_Ptr[0]*l0;
+    dv=uvw_dt_Ptr[1]*m0;
+    dw=uvw_dt_Ptr[2]*n0;
+    dphase=(du+dv+dw)*DT;
+    phi=PI*(nu/C)*dphase;
+    if(phi!=0.){
+      DecorrFactor*=(sin(phi)/(phi));
+    };
+  };
+  return DecorrFactor;
+}
+
+
 void gridderWPol(PyArrayObject *np_grid,
 	      PyArrayObject *vis,
 	      PyArrayObject *uvw,
@@ -94,7 +136,8 @@ void gridderWPol(PyArrayObject *np_grid,
 	      PyObject *Lmaps, 
 	      PyObject *LJones,
 	      PyArrayObject *SmearMapping,
-		   PyObject *LOptimisation);
+		 PyObject *LOptimisation,
+		 PyObject *LSmear);
 
 static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args);
 
@@ -113,7 +156,8 @@ void DeGridderWPol(PyArrayObject *np_grid,
 		   PyObject *Lmaps, 
 		   PyObject *LJones,
 		   PyArrayObject *SmearMapping,
-		   PyObject *LOptimisation);
+		   PyObject *LOptimisation,
+		 PyObject *LSmear);
 
 int FullScalarMode;
 int ScalarJones;

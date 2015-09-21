@@ -710,7 +710,110 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             
         return True
 
+    def CalcDirtyImagesParallel(self,times,uvwIn,visIn,flag,A0A1,W=None,doStack=True,Channel=0):
+        
+        
+        NCPU=self.NCPU
+
+        NFacets=len(self.DicoImager.keys())
+
+        work_queue = multiprocessing.JoinableQueue()
+
+
+        PSFMode=False
+        if self.DoPSF:
+            #visIn.fill(1)
+            PSFMode=True
+
+        NJobs=NFacets
+        for iFacet in range(NFacets):
+            work_queue.put(iFacet)
+
+        workerlist=[]
+        SpheNorm=True
+        if self.ConstructMode=="Fader":
+            SpheNorm=False
+
+        List_Result_queue=[]
+        for ii in range(NCPU):
+            List_Result_queue.append(multiprocessing.JoinableQueue())
+
+
+        for ii in range(NCPU):
+            W=WorkerImager(work_queue, List_Result_queue[ii],
+                           self.GD,
+                           Mode="Grid",
+                           FFTW_Wisdom=self.FFTW_Wisdom,
+                           DicoImager=self.DicoImager,
+                           IdSharedMem=self.IdSharedMem,
+                           ApplyCal=self.ApplyCal,
+                           SpheNorm=SpheNorm,
+                           PSFMode=PSFMode)
+            workerlist.append(W)
+            workerlist[ii].start()
+
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="  Gridding ", HeaderSize=10,TitleSize=13)
+        #pBAR.disable()
+        pBAR.render(0, '%4i/%i' % (0,NFacets))
+        iResult=0
+        while iResult < NJobs:
+            DicoResult=None
+            for result_queue in List_Result_queue:
+                if result_queue.qsize()!=0:
+                    try:
+                        DicoResult=result_queue.get_nowait()
+                        break
+                    except:
+                        pass
+                
+            if DicoResult==None:
+                time.sleep(1)
+                continue
+
+
+            if DicoResult["Success"]:
+                iResult+=1
+                NDone=iResult
+                intPercent=int(100*  NDone / float(NFacets))
+                pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
+
+            iFacet=DicoResult["iFacet"]
+
+            self.DicoImager[iFacet]["SumWeights"][Channel]+=DicoResult["Weights"]
+            self.DicoImager[iFacet]["SumJones"][Channel]+=DicoResult["SumJones"]
+
+            # if iFacet==0:
+            #     ThisSumWeights=DicoResult["Weights"]
+            #     self.SumWeights+=ThisSumWeights
+
+            DirtyName=DicoResult["DirtyName"]
+            ThisDirty=NpShared.GiveArray(DirtyName)
+            #print "minmax facet = %f %f"%(ThisDirty.min(),ThisDirty.max())
+
+            if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
+                #print>>log, (iFacet,Channel)
+                if Channel in self.DicoGridMachine[iFacet]["Dirty"].keys():
+                    self.DicoGridMachine[iFacet]["Dirty"][Channel]+=ThisDirty
+                else:
+                    self.DicoGridMachine[iFacet]["Dirty"][Channel]=ThisDirty
+                #print "minmax stack = %f %f"%(self.DicoGridMachine[iFacet]["Dirty"].min(),self.DicoGridMachine[iFacet]["Dirty"].max())
+            else:
+                self.DicoGridMachine[iFacet]["Dirty"]={}
+                self.DicoGridMachine[iFacet]["Dirty"][Channel]=ThisDirty
+
+        for ii in range(NCPU):
+            workerlist[ii].shutdown()
+            workerlist[ii].terminate()
+            workerlist[ii].join()
+
+        
+        return True
+
+
+
     def InitParallel(self):
+
+        
 
         NCPU=self.NCPU
 
@@ -799,6 +902,7 @@ class WorkerImager(multiprocessing.Process):
         self.PSFMode=PSFMode
         self.CornersImageTot=CornersImageTot
 
+
     def shutdown(self):
         self.exit.set()
 
@@ -848,7 +952,6 @@ class WorkerImager(multiprocessing.Process):
                 pyfftw.import_wisdom(self.FFTW_Wisdom)
 
 
-
             if self.Mode=="Init":
 
 
@@ -896,6 +999,7 @@ class WorkerImager(multiprocessing.Process):
                 self.result_queue.put({"Success":True,"iFacet":iFacet})
                 
             elif self.Mode=="Grid":
+
                 #import gc
                 #gc.enable()
                 GridMachine=self.GiveGM(iFacet)
@@ -910,8 +1014,14 @@ class WorkerImager(multiprocessing.Process):
                 W=DATA["Weights"]
                 freqs=DATA["freqs"]
 
+                DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
+                if ('F' in DecorrMode)|("T" in DecorrMode):
+                    uvw_dt=DATA["uvw_dt"]
+                    DT,Dnu=DATA["MSInfos"]
+                    GridMachine.setDecorr(uvw_dt,DT,Dnu,SmearMode=DecorrMode)
+
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
-                Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices,freqs=freqs)#,doStack=False)
+                Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices,freqs=freqs,DoPSF=self.PSFMode)#,doStack=False)
 
                 DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
                 _=NpShared.ToShared(DirtyName,Dirty)
@@ -949,6 +1059,12 @@ class WorkerImager(multiprocessing.Process):
                 #ModelGrid = NpShared.GiveArray(GridSharedMemName)
                 ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
                 ModelGrid = NpShared.GiveArray(ModelSharedMemName)
+
+                DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
+                if ('F' in DecorrMode)|("T" in DecorrMode):
+                    uvw_dt=DATA["uvw_dt"]
+                    DT,Dnu=DATA["MSInfos"]
+                    GridMachine.setDecorr(uvw_dt,DT,Dnu,SmearMode=DecorrMode)
 
                 vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelGrid,ImToGrid=False,DicoJonesMatrices=DicoJonesMatrices,freqs=freqs,TranformModelInput="FT")
                 # V=visThis[:,:,0]

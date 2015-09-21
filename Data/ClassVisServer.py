@@ -83,7 +83,7 @@ class ClassVisServer():
         self.ListMS=[]
         self.ListGlobalFreqs=[]
         for MSName in self.ListMSName:
-            MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False) 
+            MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3)) 
             self.ListMS.append(MS)
             self.ListGlobalFreqs+=MS.ChanFreq.flatten().tolist()
             if self.GD["Stores"]["DeleteDDFProducts"]:
@@ -132,7 +132,7 @@ class ClassVisServer():
         print
         self.ListFreqs=[]
         for MS in self.ListMS:
-            FreqBand = np.where((self.FreqBandsMin <= np.mean(MS.ChanFreq))&(self.FreqBandsMax > np.mean(MS.ChanFreq)))[0][0]
+            FreqBand = np.where((self.FreqBandsMin <= np.mean(MS.ChanFreq))&(self.FreqBandsMax >= np.mean(MS.ChanFreq)))[0][0]
             self.FreqBandsInfos[FreqBand]+=MS.ChanFreq.tolist()
             self.ListFreqs+=MS.ChanFreq.tolist()
             print MS
@@ -211,11 +211,13 @@ class ClassVisServer():
         DATA={}
         for key in D.keys():
             if type(D[key])!=np.ndarray: continue
-            if not(key in ['times', 'A1', 'A0', 'flags', 'uvw', 'data',"Weights"]):             
+            if not(key in ['times', 'A1', 'A0', 'flags', 'uvw', 'data',"Weights","uvw_dt", "MSInfos"]):             
                 DATA[key]=D[key]
             else:
                 DATA[key]=D[key][:]
 
+
+        
         if "DicoBeam" in D.keys():
             DATA["DicoBeam"]=D["DicoBeam"]
 
@@ -271,6 +273,7 @@ class ClassVisServer():
             break
         
         
+
         self.TimeMemChunkRange_sec=DATA["times"][0],DATA["times"][-1]
 
         times=DATA["times"]
@@ -300,7 +303,18 @@ class ClassVisServer():
         DATA["A0"]=A0
         DATA["A1"]=A1
         DATA["times"]=times
+        
+
         DATA["Weights"]=self.VisWeights[MS.ROW0:MS.ROW1]
+        DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
+
+        
+        if ('F' in DecorrMode)|("T" in DecorrMode):
+            DATA["uvw_dt"]=np.float64(self.CurrentMS.Give_dUVW_dt(times,A0,A1))
+            DATA["MSInfos"]=np.array([repLoadChunk["dt"],repLoadChunk["dnu"].ravel()[0]],np.float32)
+            #DATA["MSInfos"][1]=20000.*30
+            #DATA["MSInfos"][0]=500.
+
 
         ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
         TimeMapName="%s/Flagging.npy"%ThisMSName
@@ -346,6 +360,8 @@ class ClassVisServer():
                      "data":DATA["data"],
                      "ROW0":MS.ROW0,
                      "ROW1":MS.ROW1,
+                     "uvw_dt":DATA["uvw_dt"],
+                     "MSInfos":DATA["MSInfos"],
                      "infos":np.array([MS.na]),
                      "Weights":self.VisWeights[MS.ROW0:MS.ROW1]
                      }
