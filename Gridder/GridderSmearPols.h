@@ -78,6 +78,10 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args);
 static PyObject *pyAddArray(PyObject *self, PyObject *args);
 static PyObject *pyWhereMax(PyObject *self, PyObject *args);
 
+//double PI=3.14159265359;
+float C=299792456.;
+float PI=3.141592;
+
 
 float GiveDecorrelationFactor(int FSmear, int TSmear,
 			      float l0, float m0,
@@ -86,8 +90,8 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
 			      float nu,
 			      float Dnu, 
 			      float DT){
-  float PI=3.141592;
-  float C=2.99792456e8;
+  //float PI=3.141592;
+  //float C=2.99792456e8;
 
   float n0=sqrt(1.-l0*l0-m0*m0)-1.;
   float DecorrFactor=1.;
@@ -474,7 +478,6 @@ static PyObject *pyTestMatrix(PyObject *self, PyObject *args)
 
 }
 
-double PI=3.14159265359;
 
 
 void NormJones(float complex* J0, int ApplyAmp, int ApplyPhase, int DoScaleJones, double *uvwPtr, float WaveLengthMean, float CalibError){

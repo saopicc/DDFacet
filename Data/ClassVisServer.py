@@ -360,14 +360,14 @@ class ClassVisServer():
                      "data":DATA["data"],
                      "ROW0":MS.ROW0,
                      "ROW1":MS.ROW1,
-                     "uvw_dt":DATA["uvw_dt"],
-                     "MSInfos":DATA["MSInfos"],
                      "infos":np.array([MS.na]),
                      "Weights":self.VisWeights[MS.ROW0:MS.ROW1]
                      }
         
-
-
+        DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
+        if ('F' in DecorrMode)|("T" in DecorrMode):
+            DicoDataOut["uvw_dt"]=DATA["uvw_dt"]
+            DicoDataOut["MSInfos"]=DATA["MSInfos"]
 
 
         DATA=DicoDataOut

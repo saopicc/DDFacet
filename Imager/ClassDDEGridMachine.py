@@ -985,6 +985,7 @@ class ClassDDEGridMachine():
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType,self.PolModeID]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMem))
+
             vis = _pyGridderSmear.pyDeGridderWPol(Grid,
                                                   vis,
                                                   uvw,

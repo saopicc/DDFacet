@@ -11,8 +11,8 @@ import ClassImageDeconvMachineMultiScale
 import ClassImageDeconvMachineSingleScale
 import ClassImageDeconvMachineMSMF
 from DDFacet.ToolsDir import ModFFTW
-from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
+from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassImagerDeconv")
 from DDFacet.Array import NpShared
 import os
@@ -670,16 +670,23 @@ class ClassImagerDeconv():
             # FitOK=True
             # print>>log, "   ... done"
 
-            try:
-                print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
-                P=PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
-                self.SideLobeLevel,self.OffsetSideLobe=ModFitPSF.FindSidelobe(P)
-                sigma_x, sigma_y, theta = ModFitPSF.DoFit(P)
-                FitOK=True
-                print>>log, "   ... done"
-            except:
-                print>>log, "   ... failed"
-                off+=100
+            print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
+            P=PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
+            self.SideLobeLevel,self.OffsetSideLobe=ModFitPSF.FindSidelobe(P)
+            sigma_x, sigma_y, theta = ModFitPSF.DoFit(P)
+            FitOK=True
+            print>>log, "   ... done"
+
+            # try:
+            #     print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
+            #     P=PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
+            #     self.SideLobeLevel,self.OffsetSideLobe=ModFitPSF.FindSidelobe(P)
+            #     sigma_x, sigma_y, theta = ModFitPSF.DoFit(P)
+            #     FitOK=True
+            #     print>>log, "   ... done"
+            # except:
+            #     print>>log, "   ... failed"
+            #     off+=100
                 
 
         theta=np.pi/2-theta
