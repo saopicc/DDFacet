@@ -188,17 +188,29 @@ class ClassJones():
         else:
             SolsFileList=[SolsFile]
 
+        if GD["DDESolutions"]["GlobalNorm"]==None:
+            GD["DDESolutions"]["GlobalNorm"]=""
+
         GlobalNormList=GD["DDESolutions"]["GlobalNorm"]
         if type(GlobalNormList)!=list:
             GlobalNormList=[GD["DDESolutions"]["GlobalNorm"]]*len(GD["DDESolutions"]["DDSols"])
+
+        if GD["DDESolutions"]["JonesNormList"]==None:
+            GD["DDESolutions"]["JonesNormList"]="AP"
+
+        JonesNormList=GD["DDESolutions"]["JonesNormList"]
+        if type(JonesNormList)!=list:
+            JonesNormList=[GD["DDESolutions"]["JonesNormList"]]*len(GD["DDESolutions"]["DDSols"])
+        
+
 
 
         ListDicoSols=[]
 
 
-        for File,ThisMode in zip(SolsFileList,GlobalNormList):
+        for File,ThisGlobalMode,ThisJonesMode in zip(SolsFileList,GlobalNormList,JonesNormList):
 
-            DicoClusterDirs,DicoSols=self.GiveKillMSSols_SingleFile(File,Mode=ThisMode)
+            DicoClusterDirs,DicoSols=self.GiveKillMSSols_SingleFile(File,GlobalMode=ThisGlobalMode,JonesMode=ThisJonesMode)
             ListDicoSols.append(DicoSols)
 
         DicoJones=ListDicoSols[0]
@@ -207,9 +219,9 @@ class ClassJones():
 
         return DicoClusterDirs,DicoJones
 
-    def GiveKillMSSols_SingleFile(self,SolsFile,Mode="AP"):
+    def GiveKillMSSols_SingleFile(self,SolsFile,JonesMode="AP",GlobalMode=""):
 
-        print>>log, "Loading solution file %s in %s mode"%(SolsFile,Mode)
+        print>>log, "Loading solution file %s"%(SolsFile)
         if not(".npz" in SolsFile):
             Method=SolsFile
             ThisMSName=reformat.reformat(os.path.abspath(self.MS.MSName),LastSlash=False)
@@ -237,17 +249,18 @@ class ClassJones():
         DicoSols["tm"]=(Sols.t1+Sols.t0)/2.
         nt,na,nd,_,_=Sols.G.shape
         G=np.swapaxes(Sols.G,1,2).reshape((nt,nd,na,1,2,2))
-        if self.GD["DDESolutions"]["GlobalNorm"]=="MeanAbs":
+        if GlobalMode=="MeanAbs":
             print>>log, "  Normalising by the mean of the amplitude"
             gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
             gmean_abs=gmean_abs.reshape((1,nd,na,1))
             G[:,:,:,:,0,0]/=gmean_abs
             G[:,:,:,:,1,1]/=gmean_abs
-            
-        if not("A" in Mode):
-            
+        
+        if not("A" in JonesMode):
+            print>>log, "  Normalising by the amplitude"
             G[G!=0.]/=np.abs(G[G!=0.])
-        if not("P" in Mode):
+        if not("P" in JonesMode):
+            print>>log, "  Zero-ing the phases"
             dtype=G.dtype
             G=(np.abs(G).astype(dtype)).copy()
 
