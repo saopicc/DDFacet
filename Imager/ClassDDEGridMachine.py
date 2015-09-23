@@ -32,31 +32,18 @@ from DDFacet.Array import NpShared
 
 from DDFacet.Other import ClassTimeIt
 
-from DDFacet.Parset import ReadCFG
 #import ReadCFG
 #import MyOptParse
 
 
 
 
-from DDFacet.Data import ClassVisServer
+#import ClassVisServer
 
 def testGrid():
-    Parset=ReadCFG.Parset("%s/DDFacet/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
+    Parset=ReadCFG.Parset("%s/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
     DC=Parset.DicoPars
-    DC["VisData"]["MSName"]="/home/atemkeng/PSF_CYRIL_METHOD/VLAC-lowresolution.MS"#/home/atemkeng/DDFacet/Test/vlac-hires-1.0s-1.0MHz.MS"#/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
-    DC["ImagerCF"]["wmax"]=2000    
-    DC["ImagerCF"]["Nw"]=400    
-
-    
-    DC["ImagerMainFacet"]["NFacets"]= 3
-    DC["ImagerMainFacet"]["Npix"]= 513
-    DC["ImagerMainFacet"]["Cell"]= 1.25#1.
-    DC["ImagerMainFacet"]["Padding"]= 1.7
-    DC["ImagerCF"]["OverS"]  = 21
-    DC["ImagerCF"]["Support"]= 9
-    DC["Compression"]["CompressModeDeGrid"] = False
-    DC["Compression"]["CompDeGridMode"] = True#False
+    DC["VisData"]["MSName"]="/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
     VS=ClassVisServer.ClassVisServer(DC["VisData"]["MSName"],
                                      ColName=DC["VisData"]["ColName"],
                                      TVisSizeMin=DC["VisData"]["TChunkSize"]*60*1.1,
@@ -67,22 +54,17 @@ def testGrid():
                                      Weighting="Natural",
                                      DicoSelectOptions=dict(DC["DataSelection"]),
                                      NCPU=DC["Parallel"]["NCPU"],GD=DC)
-    Cell=(DC["ImagerMainFacet"]["Cell"]/3600.)*np.pi/180
-    npix=DC["ImagerMainFacet"]["Npix"]
+
+    npix=325
     Padding=DC["ImagerMainFacet"]["Padding"]
     #_,npix=EstimateNpix(npix,Padding)
-    offsetSourceX=100
-    offsetSourceY=200
-    M=-Cell*(offsetSourceX)
-    L=Cell*offsetSourceY
-    N=np.sqrt(1.-L**2-M**2)
-
+    Cell=(10/3600.)*np.pi/180
     sh=[1,1,npix,npix]
     VS.setFOV(sh,sh,sh,Cell)
     VS.CalcWeigths()
     Load=VS.LoadNextVisChunk()
-    
-    DATA=VS.ThisDataChunk
+    DATA=VS.GiveNextVis()
+
     # DicoConfigGM={"Npix":NpixFacet,
     #               "Cell":Cell,
     #               "ChanFreq":ChanFreq,
@@ -112,32 +94,21 @@ def testGrid():
 
     row0=0
     row1=DATA["uvw"].shape[0]#-1
-    A0=np.int32(DATA["A0"]).copy()#[row0:row1]
-    A1=np.int32(DATA["A1"]).copy()#[row0:row1]
-    ind=np.where((A0==1)&(A1==26))[0]
-    uvw=np.float64(DATA["uvw"][ind]).copy()#[row0:row1]
+    uvw=np.float64(DATA["uvw"])#[row0:row1]
     #uvw[:,2]=0
-    times=np.float64(DATA["times"][ind]).copy()#[row0:row1]
-    data=np.complex64(DATA["data"][ind]).copy()#[row0:row1]
-    #data.fill(1.)
-    #data[:,:,0]=1
-    #data[:,:,3]=1
-    A0=np.int32(DATA["A0"][ind]).copy()#[row0:row1]
-    A1=np.int32(DATA["A1"][ind]).copy()#[row0:row1]
+    times=np.float64(DATA["times"])#[row0:row1]
+    data=np.complex64(DATA["data"])#[row0:row1]
+    data.fill(1.)
+    data[:,:,0]=1
+    data[:,:,3]=1
+    A0=np.int32(DATA["A0"])#[row0:row1]
+    A1=np.int32(DATA["A1"])#[row0:row1]
     
-    C=2.99792458e8
-    U,V,W=uvw.T
-    K=10*np.exp(2.*np.pi*1j*(ChanFreq[0]/C)*(U*L+V*M+W*(N-1)))
-
-    # pylab.clf()
-    # pylab.plot(uvw)
-    # pylab.draw()
-    # pylab.show(False)
-    # pylab.pause(0.1)
+    
 
     #uvw.fill(0)
     
-    flag=np.bool8(DATA["flags"][ind]).copy()#[row0:row1,:,:].copy()
+    flag=np.bool8(DATA["flags"])#[row0:row1,:,:].copy()
     #ind=np.where(np.logical_not((A0==12)&(A1==14)))[0]
     #flag[ind,:,:]=1
     flag.fill(0)
@@ -149,40 +120,34 @@ def testGrid():
     #stop
 
     T=ClassTimeIt.ClassTimeIt("main")
-    #Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True)#, DicoJonesMatrices=DicoJonesMatrices)
-    Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True,DicoJonesMatrices=None,freqs=ChanFreq)
-    # pylab.clf()
-    # pylab.imshow(np.real(Grid[0,0]))
-    # #pylab.imshow(np.random.rand(50,50))
-    # pylab.colorbar()
-    # pylab.draw()
-    # pylab.show(False)
+    Grid=GM.put(times,uvw,data,flag,(A0,A1),W=None,PointingID=0,DoNormWeights=True)#, DicoJonesMatrices=DicoJonesMatrices)
 
+    pylab.clf()
+    pylab.imshow(np.real(Grid[0,0]))
+    #pylab.imshow(np.random.rand(50,50))
+    pylab.colorbar()
+    pylab.draw()
+    pylab.show(False)
+    return
 
-    # Grid=np.zeros(sh,np.complex64)
+    Grid=np.zeros(sh,np.complex64)
     T.timeit("grid")
     # Grid[np.isnan(Grid)]=-1
 
     #Grid[0,0,100,100]=10.
 
-    print data
-    
-    Grid.fill(0)
+
+    # Grid.fill(0)
     _,_,n,n=Grid.shape
-    Grid[:,:,n/2+offsetSourceX,n/2+offsetSourceY]=10.
+    Grid[:,:,n/4,n/5]=10.
     data.fill(0)
 
-    #GM.GD["Compression"]["CompressModeDeGrid"] = True
-    #data=GM.get(times,uvw,data,flag,(A0,A1),Grid)#, DicoJonesMatrices=DicoJonesMatrices)
-    #data=GM.get(times,uvw,data,flag,(A0,A1),Grid,DicoJonesMatrices=None,freqs=ChanFreq,ImToGrid=True)
-
-
-
-    #data0=data.copy()
+    GM.GD["Compression"]["CompressModeDeGrid"] = True
+    data=GM.get(times,uvw,data,flag,(A0,A1),Grid)#, DicoJonesMatrices=DicoJonesMatrices)
+    data0=data.copy()
     data.fill(0)
-    flag.fill(0)
-    data1=GM.get(times,uvw,data,flag,(A0,A1),Grid,DicoJonesMatrices=None,freqs=ChanFreq,ImToGrid=True)
-    #data1=GM.get(times,uvw,data,flag,(A0,A1),Grid)#, DicoJonesMatrices=DicoJonesMatrices)
+    GM.GD["Compression"]["CompressModeDeGrid"] = False
+    data1=GM.get(times,uvw,data,flag,(A0,A1),Grid)#, DicoJonesMatrices=DicoJonesMatrices)
 
     #ind=np.where(((A0==12)&(A1==14)))[0]
     #data0=data0[ind]
@@ -190,76 +155,25 @@ def testGrid():
     #print data0-data1
     op0=np.abs
     op1=np.angle
-    #op0=np.real
-    #op1=np.imag
     nbl=VS.MS.nbl
+    d0=data0[0:nbl,:,0].ravel()
+    d1=data1[0:nbl,:,0].ravel()
 
-    #ind=np.where((A0==0)&(A1==21))[0]
+    ind=np.where((d0-d1)[:]!=0)
 
-    #d0=data0[ind,0,0].ravel()
-    d1=-data1[:,0,0]#.ravel()
 
-    #ind=np.where((d0-d1)[:]!=0)
-
-    
     pylab.clf()
     pylab.subplot(1,2,1)
     #pylab.plot(op0(d0))
-    pylab.plot(op0(d1), 'r',label='amplitude of the smear degridded data')
-    pylab.plot(op0(K),'b', label='amplitude of the smear ungridded data')
-    pylab.ylabel("Amplitude")
-    pylab.xlabel("uv bins")
-    #pylab.plot(op0(K)-op0(d1), 'k',label='residual')
-    #pylab.legend()
-    pylab.legend(loc='lower center')
-    pylab.title("10Jy source, data from the   baseline")
-    #pylab.plot(uvw[ind,0])
-    #pylab.plot(op0(d0-d1))
-    pylab.ylim(-11,11)
-    pylab.grid()
+    #pylab.plot(op0(d1))
+    pylab.plot(op0(d0-d1))
     pylab.subplot(1,2,2)
     #pylab.plot(op1(d0))
-    pylab.plot(op1(d1),'r',label='phase of the smear degridded data')
-    pylab.plot(op1(K), 'b',label='phase of the smear ungridded data')
-    pylab.ylabel("Phase")
-    pylab.xlabel("uv bins")
-    print"***********max real",op0(K).max()
-    print"***********max grid",op0(d1).max()
-    #pylab.plot(op1(K)-op1(d1), 'k',label='residual')
-    
-    #pylab.plot(op1(d0-d1))
-    pylab.ylim(-11,11)
-    pylab.grid()
+    #pylab.plot(op1(d1))
+    pylab.plot(op1(d0-d1))
     pylab.draw()
-    pylab.legend()
-    pylab.title("10Jy source,  data from the longest baseline")
     pylab.show(False)
     pylab.pause(0.1)
-
-
-    
-    # pylab.clf()
-    # pylab.subplot(1,2,1)
-    # pylab.plot(op0(d0))
-    # pylab.plot(op0(d1))
-    # pylab.plot(op0(K))
-    # print"***********max real",op0(K).max()
-    # print"***********max grid",op0(d1).max()
-    
-    # pylab.plot(op0(K)-op0(d1))
-    # pylab.plot(uvw[ind,0])
-    # pylab.plot(op0(d0-d1))
-    # pylab.ylim(-11,11)
-    # pylab.subplot(1,2,2)
-    # pylab.plot(op1(d0))
-    # pylab.plot(op1(d1))
-    # pylab.plot(op1(K))
-    # pylab.plot(op1(K)-op1(d1))
-    # pylab.plot(op1(d0-d1))
-    # pylab.ylim(-11,11)
-    # pylab.draw()
-    # pylab.show(False)
-    # pylab.pause(0.1)
 
 #     for ibl in [122]:#range(1,nbl)[::11]:
 #         d0=data0[ibl::nbl,:,0].ravel()
@@ -349,13 +263,9 @@ class ClassDDEGridMachine():
         #CF.fill(1.)
         ChanFreq=ChanFreq.flatten()
         self.ChanFreq=ChanFreq
-        if self.ChanFreq.size>1:
-            df=self.ChanFreq[1::]-self.ChanFreq[0:-1]
-            ddf=np.abs(df-np.mean(df))
-            self.ChanEquidistant=int(np.max(ddf)<1.)
-        else:
-            self.ChanEquidistant=1
-
+        df=self.ChanFreq[1::]-self.ChanFreq[0:-1]
+        ddf=np.abs(df-np.mean(df))
+        self.ChanEquidistant=int(np.max(ddf)<1.)
         #print self.ChanEquidistant
         self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
 
@@ -816,16 +726,14 @@ class ClassDDEGridMachine():
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
             ParamJonesList=ParamJonesList+LApplySol
 
-        print freqs
+
         if freqs==None:
             freqs=np.float64(self.ChanFreq)
-        print freqs
 
         T.timeit("3")
         #print vis
 
         if self.GD["Compression"]["CompDeGridMode"]==0:
-            print "CompDeGridMode]==0:"
             _ = _pyGridder.pyDeGridderWPol(Grid,
                                              vis,
                                              uvw,
@@ -840,7 +748,6 @@ class ClassDDEGridMachine():
                                              [self.PolMap,FacetInfos,RowInfos],
                                              ParamJonesList)
         else:
-            print "CompDeGridMode]==1:"
             MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMem))
             vis = _pyGridderSmear.pyDeGridderWPol(Grid,
                                                   vis,
