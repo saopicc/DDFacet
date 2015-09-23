@@ -1,4 +1,4 @@
-all: _pyGridder.so  _pyGridderPseudoPSFSmear.so _pyArrays.so _pyGridderSmear.so
+all: _pyGridder.so _pyGridderSmear.so _pyArrays.so
 
 # ---- Link --------------------------- 
 _pyGridder.so:  Gridder.o 
@@ -20,17 +20,6 @@ GridderSmear.o:  GridderSmear.c GridderSmear.h
 	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC -lrt
 #	gcc  -lgomp -fopenmp -pthread -O3 -msse -msse2 -msse3 -msse4.2 -mssse3 -march=corei7 -mtune=corei7 --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC -lrt
 #	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC	
-
-##################################
-_pyGridderPseudoPSFSmear.so:  GridderPseudoPSFSmear.o 
-	gcc -fopenmp -pthread -shared GridderPseudoPSFSmear.o -o _pyGridderPseudoPSFSmear.so -lrt 
-
-# ---- gcc C compile ------------------
-GridderPseudoPSFSmear.o:  GridderPseudoPSFSmear.c GridderPseudoPSFSmear.h
-	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c GridderPseudoPSFSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC -lrt
-#	gcc  -lgomp -fopenmp -pthread -O3 -msse -msse2 -msse3 -msse4.2 -mssse3 -march=corei7 -mtune=corei7 --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC -lrt
-#	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC	
-
 
 
 ##################################

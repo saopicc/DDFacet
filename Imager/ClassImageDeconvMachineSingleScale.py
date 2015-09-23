@@ -15,7 +15,7 @@ class ClassImageDeconvMachine():
         self.MaxMinorIter=MaxMinorIter
         self.NCPU=NCPU
         self.CycleFactor=CycleFactor
-        self.GD=GD
+
     def SetDirtyPSF(self,Dirty,PSF):
         # if len(PSF.shape)==4:
         #     self.PSF=PSF[0,0]

@@ -325,7 +325,7 @@ class ClassWTermModified():
         Freqs=self.Freqs
         OverS=self.OverS
         lmShift=self.lmShift
-        print "==============",self.OverS,self.Sup
+
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
         SupMax=501

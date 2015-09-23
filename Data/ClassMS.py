@@ -48,7 +48,7 @@ class ClassMS():
         if GetBeam:
             self.LoadSR()
 
-    def GiveDate(self, tt):
+    def GiveDate(self,tt):
         time_start = qa.quantity(tt, 's')
         me = pm.measures()
         dict_time_start_MDJ = me.epoch('utc', time_start)
@@ -57,60 +57,6 @@ class ClassMS():
         d=ephem.Date(JD)
 
         return d.datetime().isoformat().replace("T","/")
-
-    def Give_dUVW_dt(self,ttVec,A0,A1,radec,StationPos,R="UVW_dt"):
-
-        # tt=self.times_all[0]
-        # A0=self.A0[self.times_all==tt]
-        # A1=self.A1[self.times_all==tt]
-        # uvw=self.uvw[self.times_all==tt]
-
-
-        tt=np.mean(ttVec)
-        import sidereal
-        import datetime
-        ra,d=radec
-        D=self.GiveDate(tt)
-
-        Lon=np.arctan2(StationPos[:,1],StationPos[:,0]).mean()#LongitudeDeg*np.pi/180
-        ymd,hms=(D.split("/")[0].split("-"),D.split("/")[1].split(":"))
-        from datetime import datetime, date, time
-        ymd = date(int(ymd[0]), int(ymd[1]), int(ymd[2]))
-        hms = time(int(hms[0]), int(hms[1]),int(float(hms[2])))
-        timedate = datetime.combine(ymd, hms)
-        
-        h= sidereal.raToHourAngle(ra,timedate,Lon)
-        
-
-        c=np.cos
-        s=np.sin
-        L=StationPos[A1]-StationPos[A0]
-
-        if R=="UVW":
-            R=np.array([[ s(h)      ,  c(h)      , 0.  ],
-                        [-s(d)*c(h) ,  s(d)*s(h) , c(d)],
-                        [ c(d)*c(h) , -c(d)*s(h) , s(d)]])
-            UVW=np.dot(R,L.T).T
-            import pylab
-            pylab.clf()
-            # pylab.subplot(1,2,1)
-            # pylab.scatter(uvw[:,0],uvw[:,1],marker='.')
-            #pylab.subplot(1,2,2)
-            #pylab.scatter(UVW[:,0],UVW[:,1],marker='.')
-            #pylab.draw()
-            #pylab.show(False)
-            return UVW
-        else:
-        # stop
-            K=2.*np.pi/(24.*3600)
-            R_dt=np.array([[K*c(h)      , -K*s(h)    , 0.  ],
-                          [K*s(d)*s(h) , K*s(d)*c(h) , 0.  ],
-                          [-K*c(d)*s(h), -K*c(d)*c(h), 0.  ]])
-
-            UVW_dt=np.dot(R_dt,L.T).T
-            return np.float64(UVW_dt)
-
-        
 
     def GiveDataChunk(self,it0,it1):
         MapSelBLs=self.MapSelBLs
@@ -131,7 +77,6 @@ class ClassMS():
         flags=flags.reshape((flags.shape[1]*NtimeBlocks,nch,4))
 
         uvw=self.uvw[row0:row1,:].copy()
-        
         uvw=uvw.reshape((NtimeBlocks,self.nbl,3))
         uvw=uvw[:,self.MapSelBLs,:]
         uvw=uvw.reshape((uvw.shape[1]*NtimeBlocks,3))
@@ -140,7 +85,6 @@ class ClassMS():
         A1=self.A1[self.MapSelBLs].copy()
 
         times=self.times_all[row0:row1].copy()
-        
         times=times.reshape((NtimeBlocks,self.nbl))
         times=times[:,self.MapSelBLs]
         times=times.reshape((times.shape[1]*NtimeBlocks))
@@ -398,7 +342,6 @@ class ClassMS():
         print>>log, "[%s] Reading next data chunk in [%i, %i] rows"%(self.MSName,row0,row1)
 
         table_all=table(self.MSName,ack=False)
-        
         #SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead)
         A0=table_all.getcol('ANTENNA1',row0,nRowRead)#[SPW==self.ListSPW[0]]
         A1=table_all.getcol('ANTENNA2',row0,nRowRead)#[SPW==self.ListSPW[0]]
@@ -407,10 +350,7 @@ class ClassMS():
         #print np.max(time_all)-np.min(time_all)
         #time_slots_all=np.array(sorted(list(set(time_all))))
         ntimes=time_all.shape[0]/self.nbl
-        table_position = table(table_all.getkeyword("ANTENNA"),readonly=False)
-        pos = table_position.getcol("POSITION")
-        table_radec = table(table_all.getkeyword("FIELD"),readonly=False)
-        radec = (table_radec.getcol("PHASE_DIR")[0,0,0], table_radec.getcol("PHASE_DIR")[0,0,1])
+
         flag_all=table_all.getcol("FLAG",row0,nRowRead)#[SPW==self.ListSPW[0]]
         if ReadWeight==True:
             self.Weights=table_all.getcol("WEIGHT",row0,nRowRead)
@@ -418,7 +358,6 @@ class ClassMS():
         
         
         uvw=table_all.getcol('UVW',row0,nRowRead)#[SPW==self.ListSPW[0]]
-       
         vis_all=table_all.getcol(self.ColName,row0,nRowRead)
         
         if self.zero_flag: vis_all[flag_all==1]=0.
@@ -427,8 +366,7 @@ class ClassMS():
         #print "visMS",vis_all.min(),vis_all.max()
 
         table_all.close()
-        table_position.close()
-        table_radec.close()
+
         # self.data=vis_all
         # self.flag_all=flag_all
         # self.uvw=uvw
@@ -438,24 +376,21 @@ class ClassMS():
         # self.A1=A1
         # #self.IndFlag=np.where(flag_all==True)
         # #self.NPol=vis_all.shape[2]
-        #print "vis_all",vis_all
-        #stop
+
         DATA={}
         DATA["data"]=vis_all
         DATA["flag"]=flag_all
         DATA["uvw"]=uvw
-        print 'here classMS', uvw.shape
-    
         DATA["times"]=time_all
-        
-        DATA["duvw_dt"]=self.Give_dUVW_dt(time_all, A0,A1,radec,pos)
-        
         DATA["nrows"]=time_all.shape[0]
         DATA["A0"]=A0
         DATA["A1"]=A1
         return DATA
             
-    
+
+
+        
+
     def SaveAllDataStruct(self):
         t=table(self.MSName,ack=False,readonly=False)
 
