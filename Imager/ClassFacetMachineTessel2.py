@@ -357,7 +357,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         
 
-        regFile="%s.tessel.reg"%self.GD["VisData"]["ImageName"]
+        regFile="%s.tessel.reg"%self.GD["Images"]["ImageName"]
 
 
         VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=[str(i) for i in range(len(LPolygonNew))])
@@ -441,8 +441,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.PaddedGridShape=(1,1,NpixMaxPadded,NpixMaxPadded)
         self.FacetShape=(1,1,NpixMax,NpixMax)
 
-
-        
+        dmin=1
+        for iFacet in range(len(self.DicoImager)):
+            l,m=self.DicoImager[iFacet]["l0m0"]
+            d=np.sqrt(l**2+m**2)
+            if d<dmin:
+                dmin=d
+                iCentralFacet=iFacet
+        self.iCentralFacet=iCentralFacet
         
 
     def MakeMasksTessel(self):

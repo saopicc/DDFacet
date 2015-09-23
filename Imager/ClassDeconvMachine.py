@@ -434,7 +434,7 @@ class ClassImagerDeconv():
         self.InitFacetMachine()
         
         self.FacetMachine.ReinitDirty()
-        BaseName=self.GD["VisData"]["ImageName"]
+        BaseName=self.GD["Images"]["ImageName"]
 
         ModelMachine=ClassModelMachine(self.GD)
         NormImageName="%s.NormFacets.fits"%BaseName
@@ -448,6 +448,7 @@ class ClassImagerDeconv():
         
         self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
+        ModelImage=ClassCasaImage.FileToArray(self.GD["Images"]["PredictModelName"],True)
 
         while True:
             Res=self.setNextData()
@@ -462,8 +463,8 @@ class ClassImagerDeconv():
             # #ModelMachine.DicoSMStacked["Comp"][(11275, 9821)]['SolsArray']=np.array([ 10], dtype=np.float32)
             # ######################################
                 
-            ModelImage=ModelMachine.GiveModelImage(ThisMeanFreq)
-            
+            # ModelImage=ModelMachine.GiveModelImage(ThisMeanFreq)
+
             DATA["data"].fill(0)
             self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
             vis=-DATA["data"]
@@ -614,11 +615,11 @@ class ClassImagerDeconv():
             # self.DeconvMachine.MSMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
 
             self.ResidImage=DicoImage["MeanImage"]
-            if "Residual_i" in self.GD["VisData"]["SaveIms"]:
+            if "Residual_i" in self.GD["Images"]["SaveIms"]:
                 self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),Fits=True)
 
 
-            if "Model_i" in self.GD["VisData"]["SaveIms"]:
+            if "Model_i" in self.GD["Images"]["SaveIms"]:
                 ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
                 self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),Fits=True)
 
@@ -650,11 +651,11 @@ class ClassImagerDeconv():
     def FitPSF(self):
         #PSF=self.PSF
         PSF=self.MeanFacetPSF
+        PSF=self.DicoVariablePSF["CubeMeanVariablePSF"][self.FacetMachine.iCentralFacet]
+
         _,_,x,y=np.where(PSF==np.max(PSF))
         FitOK=False
         off=100
-
-        
         while FitOK==False:
 
             # print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
@@ -724,7 +725,7 @@ class ClassImagerDeconv():
 
         # model image
         ModelImage=ModelMachine.GiveModelImage(RefFreq)
-        if "Model" in self.GD["VisData"]["SaveIms"]:
+        if "Model" in self.GD["Images"]["SaveIms"]:
             self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%self.BaseName,Fits=True)
 
         # restored image
@@ -733,7 +734,7 @@ class ClassImagerDeconv():
         self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored"%self.BaseName,Fits=True,beam=self.FWHMBeam)
 
         # Alpha image
-        if "Alpha" in self.GD["VisData"]["SaveIms"]:
+        if "Alpha" in self.GD["Images"]["SaveIms"]:
             IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
             # IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
             self.FacetMachine.ToCasaImage(IndexMap,ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeam)

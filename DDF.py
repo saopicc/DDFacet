@@ -55,9 +55,13 @@ def read_options():
     OP.add_option('MSListFile',help='Input MSs')
     OP.add_option('ColName')
     OP.add_option('TChunkSize')
-    OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
-    OP.add_option('SaveIms',help='Image name [%default]')
     OP.add_option('InitDicoModel',help='Image name [%default]')
+
+    
+    OP.OptionGroup("* Images-related options","Images")
+    OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
+    OP.add_option('PredictModelName',help='Predict Image name [%default]',default='')
+    OP.add_option('SaveIms',help='Image name [%default]')
 
 
     OP.OptionGroup("* File storing options","Stores")
@@ -172,7 +176,7 @@ def main(OP=None):
     global IdSharedMem
     IdSharedMem=str(int(os.getpid()))+"."
 
-    ImageName=DicoConfig["VisData"]["ImageName"]
+    ImageName=DicoConfig["Images"]["ImageName"]
     OP.ToParset("%s.parset"%ImageName)
 
     NpShared.DelAll(IdSharedMem)
