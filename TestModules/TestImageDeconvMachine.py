@@ -1,7 +1,8 @@
 import numpy as np
 from pyrap.images import image
-import ClassImageDeconvMachineMultiScale as ClassImageDeconvMachine
-
+#from DDFacet.Imager import ClassImageDeconvMachineMultiScale as ClassImageDeconvMachine
+#from DDFacet.Imager import ClassImageDeconvPseudoPsfMachine as ClassImageDeconvMachine
+from DDFacet.Imager import ClassImageDeconvPseudoPSFMachineSingleScale as ClassImageDeconvMachine
 def test():
     impsf=image("Continuous.psf")
     psf=impsf.getdata()
@@ -71,3 +72,50 @@ def test3():
     CasaImage.ToFits()
     CasaImage.close()
 
+def test4():
+
+    psfname = "/home/atemkeng/DDFacet/Test/xx8arcpsf.fits"#xxpsf.fits"#yyypsf.fits"#"#/home/atemkeng/DDFacet/Test/dirty-image-reso-2arc-dt101s-dnu1Mhz.fits"#xxxpsf.fits"
+    dirtyname = "/home/atemkeng/DDFacet/Test/xx8arcsdirty.fits"#xxdirty.fits"#xxxdirty.fits"#yyydirty.fits"#xxxdirty.fits"#/home/atemkeng/DDFacet/Test/psf-.image-reso-2arc-dt101s-dnu1Mhz.fits"#xxxdirty.fits"
+
+    print "image",psfname
+    
+    impsf=image(psfname)
+    psf=np.float32(impsf.getdata())
+    imdirty=image(dirtyname)#Test.KAFCA.3SB.dirty.fits")
+    dirty=np.float32(imdirty.getdata())
+    
+    GD={"MultiScale":{}}
+    GD["MultiScale"]["Scales"]=[0]
+    GD["MultiScale"]["Ratios"]=[]
+    GD["MultiScale"]["NTheta"]=6
+    DC=ClassImageDeconvMachine.ClassImageDeconvMachine(Gain=0.1,MaxMinorIter=1000,NCPU=30,GD=GD)#0.1
+    dt,dnu,freqs=(400, 51, 1400000000.0)# the integration time here is 600.0s 
+    cellsize=8.
+    # take cellsize  in the class ClassDDEGridMachine()
+    #cell = DC.GD["ImagerMainFacet"]["Cell"] 
+    #print "cell",cell
+    
+    print "dt=%f, dnu=%f, cellsize=%f %d"%(dt,dnu,cellsize, dirty.shape[2])
+    
+    DC.SetDirtyPSF(dirty,psf)
+    #DC.setPSFMachine(dt,dnu,freqs,cellsize)
+
+    DC.setPSFMachine(dt,dnu,freqs,cellsize, psf, dirty.shape[2])
+    
+    DC.setSideLobeLevel(0.)#,10)#####0.2 DC.setSideLobeLevel(0.0,10)
+    #DC.FindPSFExtent(Method="FromSideLobe")
+    
+    #DC.MakeMultiScaleCube()
+    DC.Clean()
+    
+
+    c=imdirty.coordinates()
+    radec=c.dict()["direction0"]["crval"]
+
+    import ClassCasaImage
+    CasaImage=ClassCasaImage.ClassCasaimage("modeltest",DC._ModelImage.shape,2.,radec)
+    CasaImage.setdata(DC._ModelImage)#,CorrT=True)
+    CasaImage.ToFits()
+    CasaImage.close()
+
+#test4()

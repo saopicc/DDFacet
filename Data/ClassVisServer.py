@@ -176,10 +176,12 @@ class ClassVisServer():
 
 
         D=self.ThisDataChunk
+        
+        
         DATA={}
         for key in D.keys():
             if type(D[key])!=np.ndarray: continue
-            if not(key in ['times', 'A1', 'A0', 'flags', 'uvw', 'data',"Weights"]):             
+            if not(key in ['times', 'A1', 'A0', 'flags', 'uvw', 'data',"Weights",'duvw_dt']):             
                 DATA[key]=D[key]
             else:
                 DATA[key]=D[key][:]
@@ -189,6 +191,10 @@ class ClassVisServer():
 
         print>>log, "Putting data in shared memory"
         DATA=NpShared.DicoToShared("%sDicoData"%self.IdSharedMem,DATA)
+        
+        print'uvw D=self.ThisDataChunk',DATA['uvw'].shape
+        print'duvw D=self.ThisDataChunk',DATA['duvw_dt'].shape
+        stop
 
         return DATA
 
@@ -231,17 +237,20 @@ class ClassVisServer():
         
         
         self.TimeMemChunkRange_sec=DATA["times"][0],DATA["times"][-1]
-
+        
         times=DATA["times"]
         data=DATA["data"]
         A0=DATA["A0"]
         A1=DATA["A1"]
         uvw=DATA["uvw"]
-
+        print 'here vissever',uvw.shape
+        
         flags=DATA["flag"]
         freqs=MS.ChanFreq.flatten()
         nbl=MS.nbl
-
+        duvw_dt = DATA["duvw_dt"]
+        
+        
         DATA={}
         DATA["flags"]=flags
         DATA["data"]=data
@@ -249,8 +258,9 @@ class ClassVisServer():
         DATA["A0"]=A0
         DATA["A1"]=A1
         DATA["times"]=times
+        DATA["duvw_dt"]=duvw_dt
         DATA["Weights"]=self.VisWeights[MS.ROW0:MS.ROW1]
-
+        
         ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
         TimeMapName="%s/Flagging.npy"%ThisMSName
         try:
@@ -263,7 +273,7 @@ class ClassVisServer():
 
         #############################
         #############################
-
+        
         
         # ## debug
         # ind=np.where((A0==0)&(A1==1))[0]
@@ -283,7 +293,7 @@ class ClassVisServer():
             data+=(self.AddNoiseJy/np.sqrt(2.))*(np.random.randn(*data.shape)+1j*np.random.randn(*data.shape))
         
         DicoDataOut={"times":times,
-                     "freqs":np.float64(freqs),
+                     "freqs":np.array([np.float64(freqs)]).flatten(),
                      "A0":A0,
                      "A1":A1,
                      "uvw":uvw,
@@ -294,7 +304,8 @@ class ClassVisServer():
                      "ROW0":MS.ROW0,
                      "ROW1":MS.ROW1,
                      "infos":np.array([MS.na]),
-                     "Weights":self.VisWeights[MS.ROW0:MS.ROW1]
+                     "Weights":self.VisWeights[MS.ROW0:MS.ROW1],
+                     "duvw_dt":duvw_dt
                      }
         
 
@@ -327,9 +338,10 @@ class ClassVisServer():
             
             print>>log, "       .... done Update LOFAR beam "
 
-
+        
         DATA=DicoDataOut
-
+        
+        
         self.ThisDataChunk = DATA
         return "LoadOK"
 
@@ -343,7 +355,7 @@ class ClassVisServer():
         A1=DATA["A1"]
         times=DATA["times"]
         #Weights=DATA["Weights"]
-
+        
         MS=self.MS
         self.ThresholdFlag=0.9
         self.FlagAntNumber=[]
@@ -472,7 +484,7 @@ class ClassVisServer():
             DicoClusterDirs["Cluster"]=ClusterCat.Cluster
             
             _D=NpShared.DicoToShared("%sDicoClusterDirs"%self.IdSharedMem,DicoClusterDirs)
-
+           
 
             ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
             TimeMapName="%s/Mapping.DDESolsTime.npy"%ThisMSName
