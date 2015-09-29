@@ -1,4 +1,5 @@
-import sharedarray.SharedArray as SharedArray
+#import sharedarray.SharedArray as SharedArray
+import SharedArray
 from DDFacet.Other import ModColor
 import numpy as np
 from DDFacet.Other import MyLogger

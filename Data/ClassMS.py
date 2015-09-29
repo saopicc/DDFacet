@@ -10,6 +10,8 @@ import ephem
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
+import sidereal
+import datetime
 
 try:
     import lofar.stationresponse as lsr
@@ -18,10 +20,11 @@ except:
 
 class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
-                 TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None):
-
+                 TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
+                 AverageTimeFreq=None):
 
         if MSname=="": exit()
+        self.AverageSteps=AverageTimeFreq
         MSname=reformat.reformat(os.path.abspath(MSname),LastSlash=False)
         self.MSName=MSname
         self.ColName=Col
@@ -61,7 +64,8 @@ class ClassMS():
         JD=time_start_MDJ+2400000.5-2415020
         d=ephem.Date(JD)
 
-        return d.datetime().isoformat().replace("T","/")
+        #return d.datetime().isoformat().replace("T","/")
+        return d.datetime()#.isoformat().replace("T","/")
 
     def GiveDataChunk(self,it0,it1):
         MapSelBLs=self.MapSelBLs
@@ -100,6 +104,8 @@ class ClassMS():
                  "times":times,
                  "uvw":uvw}
         return DicoOut
+
+        
 
 
     def PutLOFARKeys(self):
@@ -326,6 +332,51 @@ class ClassMS():
     #         shape=self.ChanFreq.shape
     #         self.ChanFreq=self.ChanFreq[ind]
                 
+    def Give_dUVW_dt(self,ttVec,A0,A1,LongitudeDeg=6.8689,R="UVW_dt"):
+
+        # tt=self.times_all[0]
+        # A0=self.A0[self.times_all==tt]
+        # A1=self.A1[self.times_all==tt]
+        # uvw=self.uvw[self.times_all==tt]
+
+
+        tt=np.mean(ttVec)
+        ra,d=self.radec
+        D=self.GiveDate(tt)
+        
+        #Lon=LongitudeDeg*np.pi/180
+        Lon=np.arctan2(self.StationPos[:,1],self.StationPos[:,0]).mean()
+        h= sidereal.raToHourAngle(ra,D,Lon)
+        
+
+        c=np.cos
+        s=np.sin
+        L=self.StationPos[A1]-self.StationPos[A0]
+
+        if R=="UVW":
+            R=np.array([[ s(h)      ,  c(h)      , 0.  ],
+                        [-s(d)*c(h) ,  s(d)*s(h) , c(d)],
+                        [ c(d)*c(h) , -c(d)*s(h) , s(d)]])
+            UVW=np.dot(R,L.T).T
+            import pylab
+            pylab.clf()
+            # pylab.subplot(1,2,1)
+            # pylab.scatter(uvw[:,0],uvw[:,1],marker='.')
+            #pylab.subplot(1,2,2)
+            pylab.scatter(UVW[:,0],UVW[:,1],marker='.')
+            pylab.draw()
+            pylab.show(False)
+            return UVW
+        else:
+        # stop
+            K=2.*np.pi/(24.*3600)
+            R_dt=np.array([[K*c(h)      , -K*s(h)     , 0.  ],
+                           [K*s(d)*s(h) , K*s(d)*c(h) , 0.  ],
+                           [-K*c(d)*s(h), -K*c(d)*c(h), 0.  ]])
+
+            UVW_dt=np.dot(R_dt,L.T).T
+            return np.float32(UVW_dt)
+
     def ReinitChunkIter(self,ChunkSizeH):
         self.ChunkSizeH=ChunkSizeH
         self.nRowChunk=self.nbl*int(self.ChunkSizeH*3600/self.dt)
@@ -390,15 +441,122 @@ class ClassMS():
         # #self.NPol=vis_all.shape[2]
 
         DATA={}
-        DATA["data"]=vis_all
-        DATA["flag"]=flag_all
         DATA["uvw"]=uvw
         DATA["times"]=time_all
         DATA["nrows"]=time_all.shape[0]
         DATA["A0"]=A0
         DATA["A1"]=A1
+        DATA["dt"]=self.dt
+        DATA["dnu"]=self.ChanWidth
+        
+        DATA["data"]=vis_all
+        DATA["flag"]=flag_all
+
+        # if self.AverageSteps!=None:
+        #     StepTime,StepFreq=self.AverageSteps
+        #     DATA=self.GiveAverageTimeFreq(DATA,StepTime=StepTime,StepFreq=StepFreq)
+
         return DATA
             
+
+    def GiveAverageTimeFreq(self,DicoData,StepTime=None,StepFreq=None):
+        DicoDataOut={}
+        DicoDataOut["A0"]=DicoData["A0"]
+        DicoDataOut["A1"]=DicoData["A1"]
+        #DicoDataOut["nrows"]=DicoData["nrows"]
+        DicoDataOut["uvw"]=DicoData["uvw"]
+
+        if StepFreq==None:
+            StepFreq=1
+
+        if StepTime==None:
+            StepTime=1
+            
+        NTimesIn=(DicoData["times"][-1]-DicoData["times"][0])/DicoData["dt"]
+
+        NTimesOut=int(NTimesIn/StepTime)+1
+
+        NChanMS=self.ChanFreqOrig.size
+        NChanOut=NChanMS/StepFreq
+        
+        VisOut=np.zeros((NTimesOut,self.nbl,NChanOut,4),dtype=DicoData["data"].dtype)
+        FlagOut=np.ones((NTimesOut,self.nbl,NChanOut,4),dtype=DicoData["flag"].dtype)
+        NPointsOutChan=np.zeros((NTimesOut,self.nbl,NChanOut,4),dtype=np.int32)
+
+        UVWOut=np.zeros((NTimesOut,self.nbl,3),dtype=DicoData["uvw"].dtype)
+        TimeOut=np.zeros((NTimesOut,self.nbl),dtype=DicoData["times"].dtype)
+        A0Out=np.zeros((NTimesOut,self.nbl),dtype=DicoData["A0"].dtype)
+        A1Out=np.zeros((NTimesOut,self.nbl),dtype=DicoData["A0"].dtype)
+        NPointsOut=np.zeros((NTimesOut,self.nbl),dtype=np.int32)
+
+        blNum=np.zeros((self.na,self.na),dtype=np.int32)
+        for itime in range(NTimesOut):
+            ibl=0
+            for iA0 in range(self.na):
+                for iA1 in range(iA0,self.na):
+                    A0Out[itime,ibl]=iA0
+                    A1Out[itime,ibl]=iA1
+                    blNum[iA0,iA1]=ibl
+                    ibl+=1
+
+        T0=DicoData["times"][0]
+        
+        dtOut=self.dt*StepTime
+        nrow=DicoData["times"].size
+        for irow in range(nrow):
+            print irow,"/",nrow
+            ThisTime=DicoData["times"][irow]
+            iTimeOut=int((ThisTime-DicoData["times"][0])/dtOut)
+            iA0=DicoData["A0"][irow]
+            iA1=DicoData["A1"][irow]
+            ibl=blNum[iA0,iA1]
+
+            A0Out[iTimeOut,ibl]=iA0
+            A1Out[iTimeOut,ibl]=iA1
+            TimeOut[iTimeOut,ibl]+=ThisTime
+            UVWOut[iTimeOut,ibl,:]+=DicoData["uvw"][irow,:]
+            NPointsOut[iTimeOut,ibl]+=1
+
+            for ichan in range(NChanMS):
+                ichanOut=int(ichan/StepFreq)
+                V4=DicoData["data"][irow,ichan,:].copy()
+                F4=DicoData["flag"][irow,ichan,:].copy()
+                AllFlagged=(np.count_nonzero(F4)==F4.size)
+                if not(AllFlagged):
+                    V4[F4==1]=0.
+                    VisOut[iTimeOut,ibl,ichanOut,:]+=V4[:]
+                    FlagOut[iTimeOut,ibl,ichanOut,:]=0
+                    NPointsOutChan[iTimeOut,ibl,ichanOut,:]+=1
+
+        VisOut/=NPointsOutChan
+        
+        TimeOut/=NPointsOut
+        UVWOut/=NPointsOut.reshape((NTimesOut,self.nbl,1))
+
+
+        NRowOut=NTimesOut*self.nbl
+        DATA={}
+        ind=np.where(TimeOut!=0.)[0]
+
+        
+        DATA["uvw"]=(UVWOut.reshape((NRowOut,3))[ind]).copy()
+        DATA["times"]=(TimeOut.reshape((NRowOut,))[ind]).copy()
+        DATA["nrows"]=TimeOut.shape[0]
+        DATA["A0"]=(A0Out.reshape((NRowOut,))[ind]).copy()
+        DATA["A1"]=(A1Out.reshape((NRowOut,))[ind]).copy()
+        DATA["dt"]=self.dt*StepTime
+        DATA["dnu"]=np.ones((NChanOut,),np.float32)*(self.ChanWidth[0])
+        
+        
+        DATA["data"]=(VisOut.reshape((NRowOut,NChanOut,4))[ind]).copy()
+        DATA["flag"]=(FlagOut.reshape((NRowOut,NChanOut,4))[ind]).copy()
+        
+
+
+        return DATA
+
+        
+
 
 
         
@@ -492,8 +650,11 @@ class ClassMS():
         ta_spectral=table(MSname+'/SPECTRAL_WINDOW/',ack=False)
         reffreq=ta_spectral.getcol('REF_FREQUENCY')
         chan_freq=ta_spectral.getcol('CHAN_FREQ')
+
+
         self.dFreq=ta_spectral.getcol("CHAN_WIDTH").flatten()[0]
         self.ChanWidth=ta_spectral.getcol('CHAN_WIDTH')
+
 
         # if chan_freq.shape[0]>len(self.ListSPW):
         #     print ModColor.Str("  ====================== >> More SPW in headers, modifying that error....")
@@ -506,6 +667,7 @@ class ClassMS():
         wavelength=299792458./reffreq
         NSPW=chan_freq.shape[0]
         self.ChanFreq=chan_freq
+        self.ChanFreqOrig=self.ChanFreq.copy()
         self.Freq_Mean=np.mean(chan_freq)
         wavelength_chan=299792458./chan_freq
 
@@ -516,6 +678,11 @@ class ClassMS():
         Nchan=wavelength_chan.shape[1]
         NSPWChan=NSPW*Nchan
         ta=table(MSname+'/FIELD/',ack=False)
+
+
+
+
+
         rarad,decrad=ta.getcol('PHASE_DIR')[0][0]
         if rarad<0.: rarad+=2.*np.pi
 
@@ -533,6 +700,24 @@ class ClassMS():
             wavelength_chan=wavelength_chan[0,::-1]
             self.ChanFreq=self.ChanFreq[0,::-1]
             self.dFreq=np.abs(self.dFreq)
+
+        # if self.AverageSteps!=None:
+        #     _,StepFreq=self.AverageSteps
+        #     NChanOut=self.ChanFreq.size/StepFreq
+        #     NChanMS=self.ChanFreq.size
+        #     if (self.ChanFreq.size%StepFreq!=0):
+        #         raise NameError('Number of channels should be a multiple of d_channels')
+        #     ChanFreq=np.zeros((NChanOut,),self.ChanFreq.dtype)
+        #     ChanFreqPoint=np.zeros((NChanOut,),self.ChanFreq.dtype)
+        #     for ichan in range(NChanMS):
+        #         ichanOut=int(ichan/StepFreq)
+        #         ChanFreq[ichanOut]+=self.ChanFreq.ravel()[ichan]
+        #         ChanFreqPoint+=1
+        #     ChanFreq/=ChanFreqPoint
+        #     self.ChanFreq=ChanFreq.reshape((1,NChanOut))
+        #     self.dFreq*=StepFreq
+        #     chan_freq=self.ChanFreq
+
 
         T.timeit()
 

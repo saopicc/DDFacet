@@ -357,6 +357,7 @@ class ClassDDEGridMachine():
         #self.Padding=Padding
         
 
+        self.LSmear=[]
         self.PolMode=PolMode
         # SkyType & JonesType
         # 0: scalar
@@ -517,6 +518,20 @@ class ClassDDEGridMachine():
         self.NChan, self.npol, _,_=self.GridShape
         self.SumWeigths=np.zeros((self.NChan,self.npol),np.float64)
         self.SumJones=np.zeros((2,),np.float64)
+
+    def setDecorr(self,uvw_dt,DT,Dnu,SmearMode="FT"):
+        DoSmearFreq=0
+        if "F" in SmearMode:
+            DoSmearFreq=1
+        DoSmearTime=0
+        if "T" in SmearMode:
+            DoSmearTime=1
+
+        if not(uvw_dt.dtype==np.float64):
+            raise NameError('uvw_dt.dtype %s %s'%(str(uvw_dt.dtype),str(np.float64)))
+
+        self.LSmear=[uvw_dt,DT,Dnu,DoSmearTime,DoSmearFreq]
+        
 
 
     def GiveParamJonesList(self,DicoJonesMatrices,times,A0,A1,uvw):
@@ -750,21 +765,22 @@ class ClassDDEGridMachine():
             MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMem))
 
             _pyGridderSmear.pyGridderWPol(Grid,
-                                               vis,
-                                               uvw,
-                                               flag,
-                                               W,
-                                               SumWeigths,
-                                               DoPSF,
-                                               self.WTerm.Wplanes,
-                                               self.WTerm.WplanesConj,
-                                               np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
-                                               self.incr.astype(np.float64),
-                                               freqs,
-                                               [self.PolMap,FacetInfos],
-                                               ParamJonesList,
-                                               MapSmear,
-                                               OptimisationInfos)
+                                          vis,
+                                          uvw,
+                                          flag,
+                                          W,
+                                          SumWeigths,
+                                          DoPSF,
+                                          self.WTerm.Wplanes,
+                                          self.WTerm.WplanesConj,
+                                          np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
+                                          self.incr.astype(np.float64),
+                                          freqs,
+                                          [self.PolMap,FacetInfos],
+                                          ParamJonesList,
+                                          MapSmear,
+                                          OptimisationInfos,
+                                          self.LSmear)
         #print "!!!!!!!!!! 1 ",SumWeigths
 
 
@@ -969,6 +985,7 @@ class ClassDDEGridMachine():
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType,self.PolModeID]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMem))
+
             vis = _pyGridderSmear.pyDeGridderWPol(Grid,
                                                   vis,
                                                   uvw,
@@ -983,7 +1000,8 @@ class ClassDDEGridMachine():
                                                   [self.PolMap,FacetInfos,RowInfos],
                                                   ParamJonesList,
                                                   MapSmear,
-                                                  OptimisationInfos)
+                                                  OptimisationInfos,
+                                                  self.LSmear)
             
 
         T.timeit("4 (degrid)")

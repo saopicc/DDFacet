@@ -66,12 +66,12 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
   PyObject *ObjGridIn;
   PyArrayObject *np_grid, *vis, *uvw, *cfs, *flags, *weights, *sumwt, *increment, *freqs,*WInfos,*SmearMapping;
 
-  PyObject *Lcfs,*LOptimisation;
+  PyObject *Lcfs,*LOptimisation,*LSmearing;
   PyObject *LJones,*Lmaps;
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!O!O!O!O!O!iO!O!O!O!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "O!O!O!O!O!O!iO!O!O!O!O!O!O!O!O!O!", 
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid, 
 			&PyArray_Type,  &vis, 
@@ -88,12 +88,13 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 			&PyList_Type, &Lmaps,
 			&PyList_Type, &LJones,
 			&PyArray_Type,  &SmearMapping,
-			&PyList_Type, &LOptimisation
+			&PyList_Type, &LOptimisation,
+			&PyList_Type, &LSmearing
 			))  return NULL;
   int nx,ny,nz,nzz;
   //np_grid = (PyArrayObject *) PyArray_ContiguousFromObject(ObjGridIn, PyArray_COMPLEX64, 0, 4);
 
-  gridderWPol(np_grid, vis, uvw, flags, weights, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping,LOptimisation);
+  gridderWPol(np_grid, vis, uvw, flags, weights, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping,LOptimisation,LSmearing);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -128,7 +129,8 @@ void gridderWPol(PyArrayObject *grid,
 		 PyObject *Lmaps, 
 		 PyObject *LJones,
 		 PyArrayObject *SmearMapping,
-		 PyObject *LOptimisation
+		 PyObject *LOptimisation,
+		 PyObject *LSmearing
 		 )
   {
     // Get size of convolution functions.
@@ -139,6 +141,30 @@ void gridderWPol(PyArrayObject *grid,
 
     PyArrayObject *NpFacetInfos;
     NpFacetInfos = (PyArrayObject *) PyList_GetItem(Lmaps, 1);
+
+
+    /////////////////////////////////////////
+    int LengthSmearingList=PyList_Size(LSmearing);
+    float DT,Dnu;
+    double* uvw_dt_Ptr;
+    int DoSmearTime,DoSmearFreq;
+    int DoDecorr=(LengthSmearingList>0);
+
+    if(DoDecorr){
+      uvw_dt_Ptr = p_float64((PyArrayObject *) PyList_GetItem(LSmearing, 0));
+
+      PyObject *_FDT= PyList_GetItem(LSmearing, 1);
+      DT=(float) (PyFloat_AsDouble(_FDT));
+      PyObject *_FDnu= PyList_GetItem(LSmearing, 2);
+      Dnu=(float) (PyFloat_AsDouble(_FDnu));
+      
+      PyObject *_DoSmearTime= PyList_GetItem(LSmearing, 3);
+      DoSmearTime=(int) (PyFloat_AsDouble(_DoSmearTime));
+
+      PyObject *_DoSmearFreq= PyList_GetItem(LSmearing, 4);
+      DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));
+
+    }
 
 
     ////////////////////////////////////////////////////////////////////////////
@@ -172,6 +198,9 @@ void gridderWPol(PyArrayObject *grid,
     float CalibError,CalibError2,ReWeightSNR;
     double *ptrSumJones;
     
+   
+
+
 
     if(LengthJonesList>0){
       DoApplyJones=1;
@@ -566,6 +595,28 @@ void gridderWPol(PyArrayObject *grid,
 
 	  /* //BB*=BB; */
 	} //endif DoApplyJones
+
+	float DeCorrFactor=1.;
+	if(DoDecorr){
+	  int iRowMeanThisBlock=Row[NRowThisBlock/2];
+	  
+	  double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;
+	  double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
+	  
+	  DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
+					       (float)l0, (float)m0,
+					       uvwPtrMidRow,
+					       uvw_dt_PtrMidRow,
+					       (float)FreqMean0,
+					       (float)Dnu, 
+					       (float)DT);
+
+	  //printf("DeCorrFactor %f %f: %f\n",l0,m0,DeCorrFactor);
+
+	}
+
+
+
 	//AddTimeit(PreviousTime,TimeGetJones);
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
 	  int doff = (irow * nVisChan + visChan) * nVisPol;
@@ -615,18 +666,24 @@ void gridderWPol(PyArrayObject *grid,
 	    VisMeas[1]= 0.;
 	    VisMeas[2]= 0.;
 	    VisMeas[3]= 1.;
+	    corr=1.;
 	    if(DoApplyJones){
 	      MatDot(J0,JonesType,VisMeas,SkyType,VisMeas);
 	      MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);
 	    }
-	    corr=1.;
+	    if(DoDecorr){
+	      for(ThisPol =0; ThisPol<4;ThisPol++){
+		VisMeas[ThisPol]*=DeCorrFactor;
+
+	      }
+	    }	      
 	  }else{
 	    for(ThisPol =0; ThisPol<4;ThisPol++){
 	      VisMeas[ThisPol]=visPtrMeas[ThisPol];
 	    }
 	  }
 
-	  float FWeight=(*imgWtPtr)*WeightVaryJJ;//*WeightVaryJJ;
+	  float FWeight=(*imgWtPtr)*WeightVaryJJ*DeCorrFactor;//*WeightVaryJJ;
 	  float complex Weight=(FWeight) * corr;
 	  float complex visPtr[4];
 	  if(DoApplyJones){
@@ -655,6 +712,11 @@ void gridderWPol(PyArrayObject *grid,
 	    Mat_A_Bl_Sum(Vis,SkyType,VisMeas,SkyType,Weight);
 	  };
 
+	  /* if(DoDecorr){ */
+	  /*   for(ThisPol =0; ThisPol<4;ThisPol++){ */
+	  /*     Vis[ThisPol]*=DeCorrFactor; */
+	  /*   } */
+	  /* } */
 
 
 	  //AddTimeit(PreviousTime,TimeApplyJones);
@@ -681,6 +743,7 @@ void gridderWPol(PyArrayObject *grid,
       Vmean/=NVisThisblock;
       Wmean/=NVisThisblock;
       FreqMean/=NVisThisblock;
+
 
       if(PolMode==0){
 	Vis[0]=(Vis[0]+Vis[3])/2.;
@@ -836,12 +899,12 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
   PyObject *ObjVis;
   PyArrayObject *np_grid, *np_vis, *uvw, *cfs, *flags, *sumwt, *increment, *freqs,*WInfos,*SmearMapping;
 
-  PyObject *Lcfs, *LOptimisation;
+  PyObject *Lcfs, *LOptimisation, *LSmear;
   PyObject *Lmaps,*LJones;
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!", 
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid,
 			&ObjVis,//&PyArray_Type,  &vis, 
@@ -857,7 +920,8 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 			&PyArray_Type,  &freqs,
 			&PyList_Type, &Lmaps, &PyList_Type, &LJones,
 			&PyArray_Type, &SmearMapping,
-			&PyList_Type, &LOptimisation
+			&PyList_Type, &LOptimisation,
+			&PyList_Type, &LSmear
 			))  return NULL;
   int nx,ny,nz,nzz;
 
@@ -865,7 +929,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 
   
 
-  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, LOptimisation);
+  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, LOptimisation, LSmear);
   
   return PyArray_Return(np_vis);
 
@@ -889,7 +953,7 @@ void DeGridderWPol(PyArrayObject *grid,
 		   PyArrayObject *Winfos,
 		   PyArrayObject *increment,
 		   PyArrayObject *freqs,
-		   PyObject *Lmaps, PyObject *LJones, PyArrayObject *SmearMapping, PyObject *LOptimisation)
+		   PyObject *Lmaps, PyObject *LJones, PyArrayObject *SmearMapping, PyObject *LOptimisation, PyObject *LSmearing)
   {
     // Get size of convolution functions.
     PyArrayObject *cfs;
@@ -908,6 +972,28 @@ void DeGridderWPol(PyArrayObject *grid,
     int row1=ptrRows[1];
 
 
+    /////////////////////////////////////////
+    int LengthSmearingList=PyList_Size(LSmearing);
+    float DT,Dnu;
+    double* uvw_dt_Ptr;
+    int DoSmearTime,DoSmearFreq;
+    int DoDecorr=(LengthSmearingList>0);
+
+    if(DoDecorr){
+      uvw_dt_Ptr = p_float64((PyArrayObject *) PyList_GetItem(LSmearing, 0));
+
+      PyObject *_FDT= PyList_GetItem(LSmearing, 1);
+      DT=(float) (PyFloat_AsDouble(_FDT));
+      PyObject *_FDnu= PyList_GetItem(LSmearing, 2);
+      Dnu=(float) (PyFloat_AsDouble(_FDnu));
+      
+      PyObject *_DoSmearTime= PyList_GetItem(LSmearing, 3);
+      DoSmearTime=(int) (PyFloat_AsDouble(_DoSmearTime));
+
+      PyObject *_DoSmearFreq= PyList_GetItem(LSmearing, 4);
+      DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));
+
+    }
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -1272,6 +1358,7 @@ void DeGridderWPol(PyArrayObject *grid,
       Wmean/=NVisThisblock;
       FreqMean/=NVisThisblock;
 
+
       //printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6));
       /* int ThisPol; */
       /* for(ThisPol =0; ThisPol<4;ThisPol++){ */
@@ -1413,6 +1500,28 @@ void DeGridderWPol(PyArrayObject *grid,
 
 	  if(PolMode==0){ThisVis[3]=ThisVis[0];}
 
+
+	  ///////////////////////////////////////////////////////
+	  float DeCorrFactor=1.;
+	  if(DoDecorr){
+	    int iRowMeanThisBlock=Row[NRowThisBlock/2];
+	    
+	    double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;
+	    double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
+	    
+	    DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
+						 (float)l0, (float)m0,
+						 uvwPtrMidRow,
+						 uvw_dt_PtrMidRow,
+						 (float)FreqMean,
+						 (float)Dnu, 
+						 (float)DT);
+	    
+	    //printf("DeCorrFactor %f %f: %f\n",l0,m0,DeCorrFactor);
+	    
+	  }
+	  //////////////////////////////////////////////////////
+
      for (inx=0; inx<NRowThisBlock; inx++) {
 	int irow = Row[inx];
 	if(irow>nrows){continue;}
@@ -1491,7 +1600,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	  /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
 
 
-
+	  corr*=DeCorrFactor;
 
 	  float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
 	  float complex visBuff[4]={0};
