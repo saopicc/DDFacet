@@ -797,15 +797,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             #print "minmax facet = %f %f"%(ThisDirty.min(),ThisDirty.max())
 
             if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
-                #print>>log, (iFacet,Channel)
-                if Channel in self.DicoGridMachine[iFacet]["Dirty"].keys():
-                    self.DicoGridMachine[iFacet]["Dirty"][Channel]+=ThisDirty
-                else:
-                    self.DicoGridMachine[iFacet]["Dirty"][Channel]=ThisDirty
-                #print "minmax stack = %f %f"%(self.DicoGridMachine[iFacet]["Dirty"].min(),self.DicoGridMachine[iFacet]["Dirty"].max())
+                self.DicoGridMachine[iFacet]["Dirty"]+=ThisDirty
             else:
-                self.DicoGridMachine[iFacet]["Dirty"]={}
-                self.DicoGridMachine[iFacet]["Dirty"][Channel]=ThisDirty
+                self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty
+
 
         for ii in range(NCPU):
             workerlist[ii].shutdown()
@@ -1026,12 +1021,17 @@ class WorkerImager(multiprocessing.Process):
                     DT,Dnu=DATA["MSInfos"]
                     GridMachine.setDecorr(uvw_dt,DT,Dnu,SmearMode=DecorrMode)
 
+                GridName="%sGridFacet.%3.3i"%(self.IdSharedMem,iFacet)
+                Grid=NpShared.GiveArray(GridName)
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
-                Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices,freqs=freqs,DoPSF=self.PSFMode)#,doStack=False)
+                Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,
+                                      DoNormWeights=False, 
+                                      DicoJonesMatrices=DicoJonesMatrices,
+                                      freqs=freqs,DoPSF=self.PSFMode)#,doStack=False)
 
                 DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
                 _=NpShared.ToShared(DirtyName,Dirty)
-                del(Dirty)
+                #del(Dirty)
                 Sw=GridMachine.SumWeigths.copy()
                 SumJones=GridMachine.SumJones.copy()
                 del(GridMachine)
