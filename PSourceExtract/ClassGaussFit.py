@@ -8,7 +8,7 @@ import ClassIslands
 from SkyModel.Other import ModColor
 import pyfits
 from SkyModel.Other.progressbar import ProgressBar
-
+import ModConvPSF
 
 
 class ClassGaussFit():
@@ -16,12 +16,15 @@ class ClassGaussFit():
                  noplot=False,noise=1.,
                  FreePars=["l", "m","s","Sm","SM","PA"]):
 
-        self.psf=psf#(0.1,0.1,0.)#psf
+        self.psf=list(psf)#(0.1,0.1,0.)#psf
+        #self.psf[2]+=np.pi/2
+        #self.psf[2]=-self.psf[2]
+        self.CPSF=ModConvPSF.ClassConvPSF(self.psf)
         self.itera=0
         self.noise=noise
         self.noplot=False#True#noplot
         self.FreePars=FreePars
-        self.DefaultDictPars={"Sm":1e-4,"SM":1e-4,"PA":0.}
+        self.DefaultDictPars={"Sm":1e-2,"SM":1e-2,"PA":0.}
 
         self.x=np.array(x).ravel()
         self.y=np.array(y).ravel()
@@ -111,15 +114,31 @@ class ClassGaussFit():
         #l,m,s,dp=self.GetPars(pars)
         DicoPars=self.ListToDicoPars(pars)
         l,m,s,Sm,SM,PA=self.DicoToListPars(DicoPars)
-
+        #print Sm,SM,pars
         dp=0.
-        #psf=self.givePsf(dp)
+        psf=self.givePsf(dp)
 
         G=np.zeros_like(x)
         for i in range(l.shape[0]):
             #G+=Gaussian.GaussianXY(l[i]-x,m[i]-y,s[i],sig=(psf[0],psf[1]),pa=self.psf[2])
             ThisSm,ThisSM,ThisPA=self.giveConvPsf((Sm[i],SM[i],PA[i]))
             G+=Gaussian.GaussianXY(l[i]-x,m[i]-y,s[i],sig=(ThisSm,ThisSM),pa=ThisPA)
+
+        return G
+
+    def funcNoPSF(self,pars,xyz):
+        x,y,z=xyz
+
+        #l,m,s,dp=self.GetPars(pars)
+        DicoPars=self.ListToDicoPars(pars)
+        l,m,s,Sm,SM,PA=self.DicoToListPars(DicoPars)
+
+        dp=0.
+        psf=self.givePsf(dp)
+
+        G=np.zeros_like(x)
+        for i in range(l.shape[0]):
+            G+=Gaussian.GaussianXY(l[i]-x,m[i]-y,s[i],sig=(Sm[i],SM[i]),pa=PA[i])
 
         return G
 
@@ -158,13 +177,15 @@ class ClassGaussFit():
         
 
     def givePsf(self,dp):
-        #return (np.sqrt(self.psf[0]**2+dp**2),np.sqrt(self.psf[1]**2+dp**2),self.psf[2])
-        return (self.psf[0]*(1.+dp),self.psf[1]*(1.+dp),self.psf[2])
+        return (np.sqrt(self.psf[0]**2+dp**2),np.sqrt(self.psf[1]**2+dp**2),self.psf[2])
+        #return (self.psf[0]*(1.+dp),self.psf[1]*(1.+dp),self.psf[2])
 
     def giveConvPsf(self,GaussPars):
         #return (np.sqrt(self.psf[0]**2+dp**2),np.sqrt(self.psf[1]**2+dp**2),self.psf[2])
         Sm,SM,PA=GaussPars
-        res=(np.sqrt(self.psf[0]**2+Sm**2),np.sqrt(self.psf[1]**2+SM**2),PA)
+        #res=(np.sqrt(self.psf[0]**2+Sm**2),np.sqrt(self.psf[1]**2+SM**2),PA)
+        res=self.CPSF.GiveConvGaussPars(GaussPars)
+        
         return res
 
     def PutFittedArray(self,A):
@@ -183,15 +204,16 @@ class ClassGaussFit():
         #print 
         for i in range(Nstart,Nend):
             xmin,bic=self.DoFit(Nsources=i)
+            print i,bic
 
             if xmin==None: break
             if bic<bic_keep:
                 xmin_keep=xmin
                 bic_keep=bic
+                BestDicoPars=self.DicoPars
+            else:
+               break
 
-            print i,bic
-            # else:
-            #    break
 
 
         if xmin==None:
@@ -207,11 +229,13 @@ class ClassGaussFit():
 
         ratio=a1*b1/(a0*b0)
         #print a1,b1,ratio
-        out=[(l[i],m[i],s[i]*ratio) for i in range(s.shape[0])]
+
+        
+        #out=[(l[i],m[i],s[i]*ratio) for i in range(s.shape[0])]
         # for i in range(l.shape[0]):
         #     print "l: %5.1f, s: %5.1f, s: %5.1f, psf: %5.1f"%(l[i],m[i],s[i],dp)
 
-        return out
+        return BestDicoPars
 
     def DoFit(self,Nsources=2):
         self.Nsources=Nsources
@@ -233,7 +257,7 @@ class ClassGaussFit():
             #w=np.sqrt(w)
 
             #l,m,s,dp=self.GetPars(xmin)
-            DicoPars=self.ListToDicoPars(xmin)
+            self.DicoPars=self.ListToDicoPars(xmin)
 
             dp=0.
             psf=self.givePsf(dp)
@@ -247,7 +271,9 @@ class ClassGaussFit():
             n=x.shape[0]
 
             G=self.func(xmin,self.data)
-            self.plotIter(Data,G)
+            G1=self.funcNoPSF(xmin,self.data)
+            #self.plotIter(Data,G,G1=G1)
+            #self.plotIter2(x,y,Data,G)#,pars=xmin)
 
 
             chi2=np.sum((Data-predict)**2/(2*sigma**2))
@@ -271,17 +297,19 @@ class ClassGaussFit():
     
 
   
-    def plotIter(self,z,G):
+    def plotIter(self,z,G,G1=None):
         #if self.noplot: return
         nn=int(np.sqrt(z.shape[0]))
         vmin,vmax=np.min(z),np.max(z)
         pylab.clf()
-        pylab.subplot(1,2,1)
+        pylab.subplot(1,3,1)
         pylab.imshow(z.reshape(nn,nn),interpolation="nearest",vmin=vmin,vmax=vmax)
-        pylab.subplot(1,2,2)
+        pylab.subplot(1,3,2)
         pylab.imshow(G.reshape(nn,nn),interpolation="nearest",vmin=vmin,vmax=vmax)
-        #pylab.imshow(G.reshape(nn,nn)-z.reshape(nn,nn),interpolation="nearest",vmin=vmin,vmax=vmax)
         pylab.title("N=%i, iter=%i"%(self.Nsources,self.itera))
+        if G1!=None:
+            pylab.subplot(1,3,3)
+            pylab.imshow(G1.reshape(nn,nn),interpolation="nearest",vmin=vmin,vmax=vmax)
         pylab.draw()
         pylab.show(False)
         self.itera+=1
@@ -294,15 +322,15 @@ class ClassGaussFit():
         vmin,vmax=np.min(z),np.max(z)
         pylab.clf()
         pylab.subplot(1,2,1)
-        pylab.scatter(x,y,c=z.tolist(),vmin=vmin,vmax=vmax)
+        pylab.scatter(x,y,c=z.tolist(),vmin=vmin,vmax=vmax,marker="s",alpha=0.5)
         pylab.subplot(1,2,2)
-        pylab.scatter(x,y,c=G.tolist(),vmin=vmin,vmax=vmax)
+        pylab.scatter(x,y,c=G.tolist(),vmin=vmin,vmax=vmax,marker="s",alpha=0.5)
         if pars!=None:
             l,m,s,dp=self.GetPars(pars)
             pylab.scatter(l,m,marker="+")
         pylab.title("iter=%i"%self.itera)
         pylab.draw()
-        pylab.show()
+        pylab.show(False)
         self.itera+=1
 
 

@@ -28,7 +28,7 @@ def read_options():
     group.add_option('--Osm',help='Output Sky model [no default]',default='')
     group.add_option('--PSF',help='PSF (Majax,Minax,PA) in (arcsec,arcsec,deg). Default is %default',default="")
     group.add_option('--Pfact',help='PSF size multiplying factor. Default is %default',default="1")
-    group.add_option('--DoPlot',help=' Default is %default',default="0")
+    group.add_option('--DoPlot',help=' Default is %default',default="1")
     group.add_option('--DoPrint',help=' Default is %default',default="0")
     group.add_option('--Boost',help=' Boost is %default',default="3")
     #group.add_option('--NCluster',help=' Boost is %default',default="0")
@@ -86,6 +86,7 @@ def main(options=None):
     ToSig=(1./3600.)*(np.pi/180.)/(2.*np.sqrt(2.*np.log(2)))
     PMaj*=ToSig
     PMin*=ToSig
+
     PPA*=np.pi/180
 
     b=im.getdata()[0,0,:,:]
@@ -113,8 +114,8 @@ def main(options=None):
         xm=int(np.sum(xin*zin)/np.sum(zin))
         ym=int(np.sum(yin*zin)/np.sum(zin))
         #Fit=ClassFit(xin,yin,zin,psf=(PMaj/incr,PMin/incr,PPA),noise=Islands.Noise[xm,ym])
-        Fit=ClassFit(xin,yin,zin,psf=(PMaj/incr,PMin/incr,PPA),noise=Islands.Noise[xm,ym])
-        sourceList+=Fit.DoAllFit()
+        Fit=ClassFit(xin,yin,zin,psf=(PMaj/incr,PMin/incr,PPA),noise=Islands.Noise[xm,ym],FreePars=["l", "m","s"])
+        sourceList.append(Fit.DoAllFit())
         Fit.PutFittedArray(ImOut)
 
     Islands.FitIm=ImOut
@@ -122,24 +123,32 @@ def main(options=None):
     ylist=[]
     slist=[]
 
-    Cat=np.zeros((len(sourceList),),dtype=[('ra',np.float),('dec',np.float),('s',np.float)])
+    Cat=np.zeros((50000,),dtype=[('ra',np.float),('dec',np.float),('s',np.float),('Gmaj',np.float),('Gmin',np.float),('PA',np.float)])
     Cat=Cat.view(np.recarray)
+
     isource=0
 
-    for ijs in sourceList:
-        i,j,s=ijs
-        xlist.append(i)
-        ylist.append(j)
-        slist.append(s)
-        f,d,dec,ra=im.toworld((0,0,i,j))
-        Cat.ra[isource]=ra
-        Cat.dec[isource]=dec
-        Cat.s[isource]=s
-        isource +=1
-        #sra=rad2hmsdms.rad2hmsdms(ra,Type="ra").replace(" ",":")
-        #sdec=rad2hmsdms.rad2hmsdms(dec,Type="dec").replace(" ",".")
-        #print "%s, %s, %10.5f"%(sra,sdec,s)
+    for Dico in sourceList:
+        for iCompDico in sorted(Dico.keys()):
+            CompDico=Dico[iCompDico]
+            i=CompDico["l"]
+            j=CompDico["m"]
+            s=CompDico["s"]
+            xlist.append(i)
+            ylist.append(j)
+            slist.append(s)
+            f,d,dec,ra=im.toworld((0,0,i,j))
+            Cat.ra[isource]=ra
+            Cat.dec[isource]=dec
+            Cat.s[isource]=s
 
+            Cat.Gmin[isource]=CompDico["Sm"]*incr/ToSig
+            Cat.Gmaj[isource]=CompDico["SM"]*incr/ToSig
+            Cat.PA[isource]=CompDico["PA"]
+            isource +=1
+
+
+    Cat=Cat[Cat.ra!=0].copy()
     Islands.FittedComps=(xlist,ylist,slist)
     Islands.plot()
 

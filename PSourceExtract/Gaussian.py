@@ -18,7 +18,10 @@ def Gaussian(extend,n,sig):
     return x,y,z
 
 def GaussianXY(xin,yin,sin,off=(0.,0.),sig=(1.,1.),pa=0.):
-    SigMin,SigMaj=1./(np.sqrt(2.)*sig[0]),1./(np.sqrt(2.)*sig[1])
+    s0,s1=sig[0],sig[1]
+    if s0==0.: s0=1e-6
+    if s1==0.: s1=1e-6
+    SigMin,SigMaj=1./(np.sqrt(2.)*s0),1./(np.sqrt(2.)*s1)
     ang=pa
     SminCos=SigMin*np.cos(ang)
     SminSin=SigMin*np.sin(ang)
@@ -26,7 +29,7 @@ def GaussianXY(xin,yin,sin,off=(0.,0.),sig=(1.,1.),pa=0.):
     SmajSin=SigMaj*np.sin(ang)
     x=xin-off[0]
     y=yin-off[1]
-    up=x*SminCos-y*SminSin
-    vp=x*SmajSin+y*SmajCos
+    #up=x*SminCos-y*SminSin
+    #vp=x*SmajSin+y*SmajCos
     uvp=((x*SminCos-y*SminSin)**2+(x*SmajSin+y*SmajCos)**2)
     return sin*np.exp(-uvp)

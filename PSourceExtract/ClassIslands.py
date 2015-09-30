@@ -78,6 +78,7 @@ class ClassIslands():
         pylab.clf()
         ax1=pylab.subplot(2,3,1)
         vmin,vmax=-np.max(self.Noise),5*np.max(self.Noise)
+        vmin,vmax=-np.max(self.Noise),10#5*np.max(self.Noise)
         MaxRms=np.max(self.Noise)
         ax1.imshow(self.A,vmin=vmin,vmax=vmax,interpolation="nearest",cmap="gray",origin="lower")
         ax1.format_coord = lambda x,y : self.GiveVal(self.A,x,y)
