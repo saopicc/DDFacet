@@ -9,7 +9,8 @@ from PSourceExtract import ClassIslands
 from Other import ModColor
 import pickle
 import optparse
-import PSourceExtract.ClassPointFit2 as ClassPointFit
+#from PSourceExtract.ClassPointFit2 import ClassPointFit as ClassFit
+from PSourceExtract.ClassGaussFit import ClassGaussFit as ClassFit
 #import ClassPointFit as ClassPointFit
 
 from pyrap.images import image
@@ -111,7 +112,8 @@ def main(options=None):
         xin,yin,zin=np.array(Islands.ListX[i]),np.array(Islands.ListY[i]),np.array(Islands.ListS[i])
         xm=int(np.sum(xin*zin)/np.sum(zin))
         ym=int(np.sum(yin*zin)/np.sum(zin))
-        Fit=ClassPointFit.ClassPointFit(xin,yin,zin,psf=(PMaj/incr,PMin/incr,PPA),noise=Islands.Noise[xm,ym])
+        #Fit=ClassFit(xin,yin,zin,psf=(PMaj/incr,PMin/incr,PPA),noise=Islands.Noise[xm,ym])
+        Fit=ClassFit(xin,yin,zin,psf=(PMaj/incr,PMin/incr,PPA),noise=Islands.Noise[xm,ym])
         sourceList+=Fit.DoAllFit()
         Fit.PutFittedArray(ImOut)
 
