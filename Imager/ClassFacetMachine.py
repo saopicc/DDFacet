@@ -901,7 +901,7 @@ class ClassFacetMachine():
 
     def ImToFacets(self,Image):
         nch,npol=self.nch,self.npol
-        for iFacet in self.DicoImager.keys():
+        for iFacet in sorted(self.DicoImager.keys()):
             x0,x1,y0,y1=self.DicoImager[iFacet]["pixExtent"]
             #GGridMachine=self.DicoImager[iFacet]["GridMachine"]
             ModelIm=np.zeros((nch,npol,self.NpixFacet,self.NpixFacet),dtype=np.float32)

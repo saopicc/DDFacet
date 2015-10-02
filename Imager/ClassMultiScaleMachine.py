@@ -447,7 +447,7 @@ class ClassMultiScaleMachine():
         dirtyNormIm=dirtyNormIm/np.sqrt(JonesNorm)
         #print "1",np.max(dirtyNormIm)
 
-        #self.Repr="FT"
+        self.Repr="FT"
         self.Repr="IM"
         if self.Repr=="FT":
             BM=DicoBasisMatrix["fBM"]

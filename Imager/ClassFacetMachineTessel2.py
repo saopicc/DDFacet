@@ -287,13 +287,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
 
         from scipy.spatial import ConvexHull
-        for iFacet in DicoPolygon.keys():
+        for iFacet in sorted(DicoPolygon.keys()):
             diam=DicoPolygon[iFacet]["diamMin"]
             if diam<DiamMin:
                 dmin=1e6
                 xc0,yc0=DicoPolygon[iFacet]["xyc"]
                 HasClosest=False
-                for iFacetOther in DicoPolygon.keys():
+                for iFacetOther in sorted(DicoPolygon.keys()):
                     if iFacetOther==iFacet: continue
                     iSolOther=DicoPolygon[iFacetOther]["iSol"]
                     if iSolOther!=DicoPolygon[iFacet]["iSol"]: continue
@@ -337,7 +337,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 DicoPolygon[iFacetClosest]["xyc"]=np.mean(poly2[:,0]),np.mean(poly2[:,1])
 
         LPolygonNew=[]
-        for iFacet in DicoPolygon.keys():
+        for iFacet in sorted(DicoPolygon.keys()):
             LPolygonNew.append(DicoPolygon[iFacet]["poly"])
 
         
@@ -436,8 +436,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         #self.MakeMasksTessel()
 
-        NpixMax=np.max([self.DicoImager[iFacet]["NpixFacet"] for iFacet in self.DicoImager.keys()])
-        NpixMaxPadded=np.max([self.DicoImager[iFacet]["NpixFacetPadded"] for iFacet in self.DicoImager.keys()])
+        NpixMax=np.max([self.DicoImager[iFacet]["NpixFacet"] for iFacet in sorted(self.DicoImager.keys())])
+        NpixMaxPadded=np.max([self.DicoImager[iFacet]["NpixFacetPadded"] for iFacet in sorted(self.DicoImager.keys())])
         self.PaddedGridShape=(1,1,NpixMaxPadded,NpixMaxPadded)
         self.FacetShape=(1,1,NpixMax,NpixMax)
 
@@ -452,7 +452,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         
 
     def MakeMasksTessel(self):
-        for iFacet in self.DicoImager.keys():
+        for iFacet in sorted(self.DicoImager.keys()):
             print>>log, "Making mask for facet %i"%iFacet
             Npix=self.DicoImager[iFacet]["NpixFacetPadded"]
             l0,l1,m0,m1=self.DicoImager[iFacet]["lmExtentPadded"]
@@ -488,6 +488,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             
             
             #SpacialWeigth[np.abs(SpacialWeigth)<1e-2]=0.
+            
+
             self.SpacialWeigth[iFacet]=SpacialWeigth
         
 
@@ -639,7 +641,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
     def ImToGrids(self,Image):
         Im2Grid=ClassImToGrid(OverS=self.GD["ImagerCF"]["OverS"],GD=self.GD)
         nch,npol=self.nch,self.npol
-        for iFacet in self.DicoImager.keys():
+        for iFacet in sorted(self.DicoImager.keys()):
             
             SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
             SPhe=NpShared.GiveArray(SharedMemName)
@@ -867,7 +869,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].join()
 
 
-        for iFacet in self.DicoImager.keys():
+        for iFacet in sorted(self.DicoImager.keys()):
             NameSpacialWeigth="%sSpacialWeigth.Facet_%3.3i"%(self.IdSharedMem,iFacet)
             SpacialWeigth=NpShared.GiveArray(NameSpacialWeigth)
             self.SpacialWeigth[iFacet]=SpacialWeigth

@@ -109,7 +109,7 @@ class ClassImToGrid():
 
         return Grid,SumFlux
 
-    def GiveModelTessel(self,Image,DicoImager,iFacet,NormIm,Sphe,SpacialWeight):
+    def GiveModelTessel(self,Image,DicoImager,iFacet,NormIm,Sphe,SpacialWeight,ToGrid=False):
         nch,npol,NPixOut,_=Image.shape
         N1=DicoImager[iFacet]["NpixFacetPadded"]
         N1NonPadded=DicoImager[iFacet]["NpixFacetPadded"]
@@ -137,25 +137,43 @@ class ClassImToGrid():
                 #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].real[x0d:x1d,y0d:y1d]
                 
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol][x0d:x1d,y0d:y1d].real
+                #if np.max(ModelIm[ch,pol])==0: return False, False, False, False, False, False
                 T.timeit("0")
                 M=ModelIm[ch,pol][dx:dx+N1NonPadded+1,dx:dx+N1NonPadded+1].copy()
                 T.timeit("1")
                 ModelIm[ch,pol].fill(0)
                 T.timeit("2")
                 ModelIm[ch,pol][dx:dx+N1NonPadded+1,dx:dx+N1NonPadded+1]=M[:,:]
+                
+                #ModelCutOrig=ModelIm[ch,pol].copy()
+                
                 T.timeit("3")
                 #ind =np.where(np.abs(ModelIm)==np.max(np.abs(ModelIm)))
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
+
+                #ModelCutOrig_GNorm=NormIm[x0d:x1d,y0d:y1d].real.copy()
+
                 T.timeit("4")
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]*=SpacialWeight[x0p:x1p,y0p:y1p]
+                ModelCutOrig_SW=SpacialWeight[x0p:x1p,y0p:y1p].copy()
+
+                #ModelCutOrig_GNorm_SW_Sphe_CorrT=ModelIm[ch,pol].copy()
                 T.timeit("5")
                 #SumFlux=np.sum(ModelIm)
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=Sphe[x0p:x1p,y0p:y1p].real
+
+
+                #ModelCutOrig_Sphe=Sphe[x0p:x1p,y0p:y1p].real.copy()
+
                 T.timeit("6")
                 ModelIm[ch,pol][Sphe<1e-3]=0
                 T.timeit("7")
                 ModelIm[ch,pol]=ModelIm[ch,pol].T[::-1,:]
                 T.timeit("8")
+                #ModelCutOrig_GNorm_SW_Sphe_CorrT=ModelIm[ch,pol].copy()
+
+                
+                #return True, ModelCutOrig, ModelCutOrig_GNorm, ModelCutOrig_SW, ModelCutOrig_Sphe, ModelCutOrig_GNorm_SW_Sphe_CorrT
 
         #print iFacet,DicoImager[iFacet]["l0m0"],DicoImager[iFacet]["NpixFacet"],DicoImager[iFacet]["NpixFacetPadded"],SumFlux
         # if np.max(np.abs(ModelIm))>1:
@@ -163,16 +181,22 @@ class ClassImToGrid():
         
         #if np.abs(SumFlux)>1: stop
         
-       # #print iFacet,np.max(ModelIm)
+        # #print iFacet,np.max(ModelIm)
 
         # #return ModelIm, None
         # #Padding=self.GD["ImagerMainFacet"]["Padding"]
 
         ModelIm*=(self.OverS*N1)**2
         T.timeit("9")
-        return ModelIm,SumFlux
-        # Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm)))
 
-        return Grid,SumFlux
+        if ToGrid:
+            SumFlux=np.sum(ModelIm)
+            Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm)))
+            #Grid=ModelIm
+            
+            return Grid,SumFlux
+
+
+        return ModelIm,SumFlux
 
 

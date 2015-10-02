@@ -381,7 +381,7 @@ class ClassImagerDeconv():
             # pylab.pause(0.1)
 
         self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
-
+        
         # self.DicoDirty=self.FacetMachine.FacetsToIm()
 
         self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True)
