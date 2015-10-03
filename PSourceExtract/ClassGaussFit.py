@@ -9,7 +9,7 @@ from SkyModel.Other import ModColor
 import pyfits
 from SkyModel.Other.progressbar import ProgressBar
 import ModConvPSF
-
+from DDFacet.Array import ModLinAlg
 
 class ClassGaussFit():
     def __init__(self,x,y,z,psf=(1,1,0),
@@ -26,14 +26,39 @@ class ClassGaussFit():
         self.FreePars=FreePars
         self.DefaultDictPars={"Sm":1e-2,"SM":1e-2,"PA":0.}
 
+        
+
         self.x=np.array(x).ravel()
         self.y=np.array(y).ravel()
         self.z=np.array(z).ravel()
+
+
+        # self.GiveCovMat()
+
+
         self.data=np.array([self.x.flatten(),self.y.flatten(),self.z.flatten()])
         self.itera=0
         self.xmin=None
         self.xy_set=self.GiveTupleSet(self.x,self.y)
 
+    def GiveCovMat(self):
+        
+        x=self.x
+        y=self.y
+
+        N=x.size
+        GG=np.zeros((N,N),np.float32)
+        for i in range(N):
+            GG[i,:]=Gaussian.GaussianXY(x[i]-x,y[i]-y,self.noise**2,sig=(self.psf[0],self.psf[1]),pa=self.psf[2])
+
+        print "calc"
+        Ginv=ModLinAlg.invSVD(GG)
+        
+        pylab.clf()
+        pylab.imshow(Ginv)
+        #pylab.imshow(GG)
+        pylab.draw()
+        pylab.show()
     
     def ListToDicoPars(self,pars):
         ns=len(self.FreePars)
@@ -267,8 +292,6 @@ class ClassGaussFit():
 
             sigma=self.noise*npix
 
-            k=(Nsources*3+1)
-            n=x.shape[0]
 
             G=self.func(xmin,self.data)
             G1=self.funcNoPSF(xmin,self.data)
@@ -281,12 +304,15 @@ class ClassGaussFit():
 
             chi2=np.sum((Data-predict)**2/(2*sigma**2))
 
-            aic=chi2+2*k#-2.*logL
-            aicc=aic+(2.*k*(k+1)/(n-k-1.))
+            #aic=chi2+2*k#-2.*logL
+            #aicc=aic+(2.*k*(k+1)/(n-k-1.))
             # self.residual=np.sqrt(np.sum((Data-predict)**2))
             # St,err=self.GiveStErr(xmin)
             # #chi2=(err/St)**2
+            k=(Nsources*len(self.FreePars))
+            n=x.shape[0]
             bic=chi2+k*np.log(n)
+
             # print "Number of parameters: %i, bic=%f"%(Nsources,bic)
             #print "St=%f, errSt=%f"%(St,err)
             return xmin,bic#err
