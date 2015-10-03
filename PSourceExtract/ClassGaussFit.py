@@ -201,7 +201,7 @@ class ClassGaussFit():
     def DoAllFit(self,Nstart=1,Nend=10):
 
         bic_keep=1e10
-        #print 
+        print 
         for i in range(Nstart,Nend):
             xmin,bic=self.DoFit(Nsources=i)
             print i,bic
@@ -211,8 +211,8 @@ class ClassGaussFit():
                 xmin_keep=xmin
                 bic_keep=bic
                 BestDicoPars=self.DicoPars
-            else:
-               break
+            # else:
+            #    break
 
 
 
