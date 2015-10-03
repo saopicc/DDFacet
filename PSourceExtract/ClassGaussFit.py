@@ -273,7 +273,7 @@ class ClassGaussFit():
             G=self.func(xmin,self.data)
             G1=self.funcNoPSF(xmin,self.data)
             #self.plotIter(Data,G,G1=G1)
-            #self.plotIter2(x,y,Data,G)#,pars=xmin)
+            self.plotIter2(x,y,Data)#,G)#,pars=xmin)
 
 
             chi2=np.sum((Data-predict)**2/(2*sigma**2))

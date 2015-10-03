@@ -211,12 +211,22 @@ class ClassIslands():
         NIslands+=1
         nx,_=ImIsland.shape
 
-        NMaxPix=5000
+        print>>log,"  Found %i islands"%NIslands
+        
+
+        NMaxPix=20000
         Island=np.zeros((NIslands,NMaxPix,2),np.int32)
         NIslandNonZero=np.zeros((NIslands,),np.int32)
 
         print>>log,"  Extractinng pixels in islands"
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Extracting ", HeaderSize=10,TitleSize=13)
+        comment=''
+
+
+
         for ipix in range(nx):
+            
+            pBAR.render(int(100*ipix / nx), comment)
             for jpix in range(nx):
                 iIsland=self.ImIsland[ipix,jpix]
                 if iIsland:
@@ -269,6 +279,7 @@ class ClassIslands():
                 self.ListS.append(S)
                 inum+=1
 
+        print>>log,"  Final number of islands: %i"%len(self.ListX)
         self.ImIsland=ImIsland
         self.LIslands=LIslandsOut
     
