@@ -226,7 +226,7 @@ class ClassIslands():
 
         for ipix in range(nx):
             
-            pBAR.render(int(100*ipix / nx), comment)
+            pBAR.render(int(100*ipix / (nx-1)), comment)
             for jpix in range(nx):
                 iIsland=self.ImIsland[ipix,jpix]
                 if iIsland:

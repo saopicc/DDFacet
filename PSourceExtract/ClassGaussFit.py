@@ -273,7 +273,10 @@ class ClassGaussFit():
             G=self.func(xmin,self.data)
             G1=self.funcNoPSF(xmin,self.data)
             #self.plotIter(Data,G,G1=G1)
-            self.plotIter2(x,y,Data)#,G)#,pars=xmin)
+            
+            
+
+            self.plotIter3(x,y,Data,G)#,pars=xmin)
 
 
             chi2=np.sum((Data-predict)**2/(2*sigma**2))
@@ -313,6 +316,32 @@ class ClassGaussFit():
         pylab.draw()
         pylab.show(False)
         self.itera+=1
+
+    def plotIter3(self,x,y,zin,Gin,pars=None):
+        xmin,xmax=np.min(x),np.max(x)
+        ymin,ymax=np.min(y),np.max(y)
+        nx=xmax-xmin+1
+        ny=ymax-ymin+1
+        z=np.zeros((nx,ny),np.float32)
+        G=np.zeros((nx,ny),np.float32)
+        for i in range(x.size):
+            z[x[i]-xmin,y[i]-ymin]=zin[i]
+            G[x[i]-xmin,y[i]-ymin]=Gin[i]
+
+        vmin,vmax=np.min(z),np.max(z)
+        pylab.clf()
+        pylab.subplot(1,2,1)
+        pylab.imshow(z,interpolation="nearest",vmin=vmin,vmax=vmax)
+        pylab.subplot(1,2,2)
+        pylab.imshow(G,interpolation="nearest",vmin=vmin,vmax=vmax)
+        pylab.title("N=%i, iter=%i"%(self.Nsources,self.itera))
+        # if G1!=None:
+        #     pylab.subplot(1,3,3)
+        #     pylab.imshow(G1.reshape(nn,nn),interpolation="nearest",vmin=vmin,vmax=vmax)
+        pylab.draw()
+        pylab.show(False)
+        self.itera+=1
+
 
     def plotIter2(self,x,y,z,G,pars=None):
         #return

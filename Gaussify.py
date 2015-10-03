@@ -34,7 +34,7 @@ def read_options():
     group.add_option('--Osm',help='Output Sky model [no default]',default='')
     group.add_option('--PSF',help='PSF (Majax,Minax,PA) in (arcsec,arcsec,deg). Default is %default',default="")
     group.add_option('--Pfact',help='PSF size multiplying factor. Default is %default',default="1")
-    group.add_option('--DoPlot',help=' Default is %default',default="1")
+    group.add_option('--DoPlot',help=' Default is %default',default="0")
     group.add_option('--DoPrint',help=' Default is %default',default="0")
 
     opt.add_option_group(group)
