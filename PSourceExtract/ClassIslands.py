@@ -5,12 +5,16 @@ from SkyModel.Other import ModColor
 import scipy.ndimage
 from SkyModel.Other.progressbar import ProgressBar
 import findrms
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("ClassIsland")
 
 
 class ClassIslands():
-    def __init__(self,A,T,box=(100,100),MinPerIsland=10,Boost=3,DoPlot=False,FillNoise=True):
+    def __init__(self,A,T=None,box=(100,100),MinPerIsland=10,Boost=3,DoPlot=False,FillNoise=True,
+                 MaskImage=None):
         self.A=A
         self.T=T
+        self.MaskImage=MaskImage
         self.Noise=None
         self.box=box
         self.MinPerIsland=MinPerIsland
@@ -49,6 +53,7 @@ class ClassIslands():
 
 
     def fillNoise(self):
+        return
         A=self.A
         print ModColor.Str("Fill blanks with noise...")
         Avec=A.reshape((A.shape[1]*A.shape[0],))
@@ -150,45 +155,88 @@ class ClassIslands():
 
     def FindAllIslands(self):
         A=self.A
-        if self.Noise==None:
+        if (self.Noise==None)&(self.MaskImage==None):
             self.ComputeNoiseMap()
 
-
-
-        N=self.Noise
-        T=self.T
-        #self.plot()
-        indx,indy=np.where((A/N)>T)
-        Lpos=[(indx[i],indy[i]) for i in range(indx.shape[0])]
-        LIslands=[]
         
-        Abool=((A/N)>T)
-        # import pylab
-        # pylab.imshow(Abool)
-        # pylab.draw()
-        # pylab.show()
+        
 
-        pBAR = ProgressBar('white', block='=', empty=' ',Title="Find islands")
-        Lini=len(Lpos)
-        while True:
-            l=[]
-            #print Lpos
-            self.FindIsland(Abool,l,Lpos[0][0],Lpos[0][1])
-            #print l
-            LIslands.append(l)
-            Lpos=list(set(Lpos)-set(l))
-            comment=''
-            pBAR.render(int(100* float(Lini-len(Lpos)) / Lini), comment)
-            if len(Lpos)==0: break
+
+        # N=self.Noise
+        # T=self.T
+        # if T!=None:
+        #     #self.plot()
+        #     indx,indy=np.where((A/N)>T)
+        #     Abool=((A/N)>T)
+        # else:
+        #     indx,indy=np.where(self.MaskImage!=0)
+        #     Abool=self.MaskImage
+
+        # Lpos=[(indx[i],indy[i]) for i in range(indx.shape[0])]
+        # LIslands=[]
+        
+        # # import pylab
+        # # pylab.imshow(Abool)
+        # # pylab.draw()
+        # # pylab.show()
+
+        # pBAR = ProgressBar('white', block='=', empty=' ',Title="Find islands")
+        # Lini=len(Lpos)
+        # while True:
+        #     l=[]
+        #     #print Lpos
+        #     self.FindIsland(Abool,l,Lpos[0][0],Lpos[0][1])
+        #     #print l
+        #     LIslands.append(l)
+        #     Lpos=list(set(Lpos)-set(l))
+        #     comment=''
+        #     pBAR.render(int(100* float(Lini-len(Lpos)) / Lini), comment)
+        #     if len(Lpos)==0: break
+
+
         LIslandsOut=[]
-        ImIsland=np.zeros_like(self.A)
+        #ImIsland=np.zeros_like(self.A)
         inum=1
+
         self.ListX=[]
         self.ListY=[]
         self.ListS=[]
 
 
+        import scipy.ndimage
+
+        print>>log,"  Labeling islands"
+        self.ImIsland,NIslands=scipy.ndimage.label(self.MaskImage)
+        ImIsland=self.ImIsland
+        NIslands+=1
+        nx,_=ImIsland.shape
+
+        NMaxPix=5000
+        Island=np.zeros((NIslands,NMaxPix,2),np.int32)
+        NIslandNonZero=np.zeros((NIslands,),np.int32)
+
+        print>>log,"  Extractinng pixels in islands"
+        for ipix in range(nx):
+            for jpix in range(nx):
+                iIsland=self.ImIsland[ipix,jpix]
+                if iIsland:
+                    NThis=NIslandNonZero[iIsland]
+                    Island[iIsland,NThis,0]=ipix
+                    Island[iIsland,NThis,1]=jpix
+                    NIslandNonZero[iIsland]+=1
+
+        print>>log,"  Listing pixels in islands"
+        LIslands=[]
+        for iIsland in range(1,NIslands):
+            ind=np.where(Island[iIsland,:,0]!=0)[0]
+            ThisIsland=[]
+            Npix=ind.size
+            for ipix in range(Npix):
+                ThisIsland.append([Island[iIsland,ipix,0].tolist(),Island[iIsland,ipix,1]])
+            LIslands.append(ThisIsland)
+
         
+        print>>log,"  Selecting pixels in islands"
         for i in LIslands:
             condMinPix=(len(i)>self.MinPerIsland)
             xpos=[i[ii][0] for ii in range(len(i))]
@@ -220,6 +268,7 @@ class ClassIslands():
                 self.ListY.append(Y)
                 self.ListS.append(S)
                 inum+=1
+
         self.ImIsland=ImIsland
         self.LIslands=LIslandsOut
     
