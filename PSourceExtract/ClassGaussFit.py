@@ -340,6 +340,7 @@ class ClassGaussFit():
         #     pylab.imshow(G1.reshape(nn,nn),interpolation="nearest",vmin=vmin,vmax=vmax)
         pylab.draw()
         pylab.show(False)
+        pylab.pause(0.1)
         self.itera+=1
 
 
