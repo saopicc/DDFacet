@@ -29,7 +29,8 @@ class ClassSM():
         elif Tigger:
             Cat=ModTigger.ReadTiggerModel(infile)
         elif FromExt!=None:
-            Cat=ModSMFromNp.ReadFromNp(FromExt.ra,FromExt.dec,FromExt.s)
+            
+            Cat=ModSMFromNp.ReadFromNp(FromExt)
         else:
             Cat=ReadBBSModel(infile,infile_cluster=infile_cluster)
         self.SourceCat=Cat

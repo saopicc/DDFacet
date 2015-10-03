@@ -16,6 +16,8 @@ from Tools import ModFFTW
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.Other.ClassCasaImage import PutDataInNewImage
 import scipy.special
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("MakeMask")
 
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
@@ -89,7 +91,7 @@ class ClassMakeMask():
         return "x=%4i, y=%4i, value=%10s"%(x,y,value)
 
     def ComputeNoiseMap(self):
-        print "Compute noise map..."
+        print>>log, "Compute noise map..."
         Boost=self.Boost
         Acopy=self.Restored[0,0,0::Boost,0::Boost].copy()
         SBox=(self.box[0]/Boost,self.box[1]/Boost)
@@ -126,7 +128,6 @@ class ClassMakeMask():
                 s10,s11=self.Noise[i::Boost,j::Boost].shape
                 s0,s1=min(s00,s10),min(s10,s11)
                 self.Noise[i::Boost,j::Boost][0:s0,0:s1]=Noise[:,:][0:s0,0:s1]
-        print " ... done"
         ind=np.where(self.Noise==0.)
         self.Noise[ind]=1e-10
 
