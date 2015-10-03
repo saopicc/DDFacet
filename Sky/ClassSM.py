@@ -14,6 +14,8 @@ from pyrap.images import image
 import scipy.linalg
 from ModBBS2np import ReadBBSModel
 import ModRegFile
+import pylab
+import time
 
 class ClassSM():
     def __init__(self,infile,infile_cluster="",killdirs=[],invert=False,DoPrintCat=False,\
@@ -153,8 +155,6 @@ class ClassSM():
 
     def cluster(self,nk=10,DoPlot=False,PreClusterCat=None):
 
-        import pylab
-        import time
         # pylab.clf()
     
         #s.fill(0.)
