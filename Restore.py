@@ -21,6 +21,9 @@ def read_options():
     group.add_option('--BaseImageName',help='')
     group.add_option('--ResidualImage',help='',type="str",default="")
     group.add_option('--BeamPix',help='',default=5)
+    group.add_option('--MaskName',type="str",help='',default=5)
+    group.add_option('--CleanNegComp',type="int",help='',default=5)
+    group.add_option('--DoAlpha',type="int",help='',default=0)
     opt.add_option_group(group)
     
     options, arguments = opt.parse_args()
@@ -30,18 +33,28 @@ def read_options():
 
 
 class ClassRestoreMachine():
-    def __init__(self,BaseImageName,BeamPix=5,ResidualImName="",DoAlpha=1):
+    def __init__(self,BaseImageName,BeamPix=5,ResidualImName="",DoAlpha=1,
+                 MaskName="",CleanNegComp=False):
         self.DoAlpha=DoAlpha
         self.BaseImageName=BaseImageName
-        self.ModelMachine=ClassModelMachine(Gain=0.1)
         self.BeamPix=BeamPix
+
+        self.ModelMachine=ClassModelMachine(Gain=0.1)
         DicoModel="%s.DicoModel"%BaseImageName
         self.ModelMachine.FromFile(DicoModel)
-        
+        if MaskName!="":
+            self.ModelMachine.CleanMaskedComponants(MaskName)
+        if CleanNegComp:
+            self.ModelMachine.CleanNegComponants(box=10,sig=2)
+
+
         if ResidualImName=="":
             FitsFile="%s.residual.fits"%BaseImageName
         else:
             FitsFile=ResidualImName
+
+
+        self.FitsFile=FitsFile
         im=image(FitsFile)
 
         c=im.coordinates()
@@ -51,13 +64,20 @@ class ClassRestoreMachine():
         self.Cell=(self.CellSizeRad*180/np.pi)*3600
         self.CellArcSec=self.Cell
 
-        testImageIn=im.getdata()
-        nchan,npol,_,_=testImageIn.shape
-        testImage=np.zeros_like(testImageIn)
+        self.ResidualData=im.getdata()
+        nchan,npol,_,_=self.ResidualData.shape
+        testImage=np.zeros_like(self.ResidualData)
 
-        for ch in range(nchan):
-            for pol in range(npol):
-                testImage[ch,pol,:,:]=testImageIn[ch,pol,:,:].T[::-1,:]#*1.0003900000000001
+        if ResidualImName!="":
+            for ch in range(nchan):
+                for pol in range(npol):
+                    testImage[ch,pol,:,:]=self.ResidualData[ch,pol,:,:].T[::-1,:]#*1.0003900000000001
+
+
+        _,_,nx,_=testImage.shape
+        Nr=10000
+        indx,indy=np.int64(np.random.rand(Nr)*nx),np.int64(np.random.rand(Nr)*nx)
+        self.StdResidual=np.std(testImage[0,0,indx,indy])
         self.Residual=testImage
 
 
@@ -92,23 +112,28 @@ class ClassRestoreMachine():
         self.RestoredImageRes=self.RestoredImage+self.Residual
 
         ImageName="%s.restoredNew"%self.BaseImageName
-
         CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
         CasaImage.setdata(self.RestoredImageRes,CorrT=True)
         CasaImage.ToFits()
         CasaImage.setBeam(self.FWHMBeam)
         CasaImage.close()
 
+        # ImageName="%s.modelConv"%self.BaseImageName
+        # CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
+        # CasaImage.setdata(self.RestoredImage,CorrT=True)
+        # CasaImage.ToFits()
+        # CasaImage.setBeam(self.FWHMBeam)
+        # CasaImage.close()
 
-        # # Alpha image
-        # if self.DoAlpha:
-        #     IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
 
-        #     ImageName="%s.alphaNew"%self.BaseImageName
-        #     CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
-        #     CasaImage.setdata(IndexMap,CorrT=True)
-        #     CasaImage.ToFits()
-        #     CasaImage.close()
+        # Alpha image
+        if self.DoAlpha:
+            IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+            ImageName="%s.alphaNew"%self.BaseImageName
+            CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
+            CasaImage.setdata(IndexMap,CorrT=True)
+            CasaImage.ToFits()
+            CasaImage.close()
 
 
 
@@ -124,7 +149,8 @@ def main(options=None):
         f = open("last_param.obj",'rb')
         options = pickle.load(f)
     
-    CRM=ClassRestoreMachine(options.BaseImageName,BeamPix=options.BeamPix,ResidualImName=options.ResidualImage)
+
+    CRM=ClassRestoreMachine(options.BaseImageName,BeamPix=options.BeamPix,ResidualImName=options.ResidualImage,DoAlpha=options.DoAlpha)
     CRM.Restore()
 
 
