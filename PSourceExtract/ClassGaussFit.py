@@ -285,12 +285,12 @@ class ClassGaussFit():
 
         #try:
         if True:
-            # try:
-            #     xmin,retval=scipy.optimize.leastsq(self.funcResid, parsGuess, args=(self.data,),gtol=0)#,maxfev=10)#,xtol=1e-4)#,ftol=1e-4)#,gtol=1e-5)
-            # except:
-            #     return None,None
+            try:
+                xmin,retval=scipy.optimize.leastsq(self.funcResid, parsGuess, args=(self.data,),gtol=0)#,maxfev=10)#,xtol=1e-4)#,ftol=1e-4)#,gtol=1e-5)
+            except:
+                return None,None
 
-            xmin,retval=scipy.optimize.leastsq(self.funcResid, parsGuess, args=(self.data,),gtol=0)#,maxfev=10)#,xtol=1e-4)#,ftol=1e-4)#,gtol=1e-5)
+            #xmin,retval=scipy.optimize.leastsq(self.funcResid, parsGuess, args=(self.data,),gtol=0)#,maxfev=10)#,xtol=1e-4)#,ftol=1e-4)#,gtol=1e-5)
             predict=self.func(xmin,self.data)
             x,y,Data=self.data
             w=Data/np.max(Data)
