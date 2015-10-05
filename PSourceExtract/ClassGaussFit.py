@@ -10,6 +10,7 @@ import pyfits
 from SkyModel.Other.progressbar import ProgressBar
 import ModConvPSF
 from DDFacet.Array import ModLinAlg
+import scipy.stats
 
 class ClassGaussFit():
     def __init__(self,x,y,z,psf=(1,1,0),
@@ -273,11 +274,12 @@ class ClassGaussFit():
 
         #try:
         if True:
-            try:
-                xmin,retval=scipy.optimize.leastsq(self.funcResid, parsGuess, args=(self.data,),gtol=0)#,maxfev=10)#,xtol=1e-4)#,ftol=1e-4)#,gtol=1e-5)
-            except:
-                return None,None
-            
+            # try:
+            #     xmin,retval=scipy.optimize.leastsq(self.funcResid, parsGuess, args=(self.data,),gtol=0)#,maxfev=10)#,xtol=1e-4)#,ftol=1e-4)#,gtol=1e-5)
+            # except:
+            #     return None,None
+
+            xmin,retval=scipy.optimize.leastsq(self.funcResid, parsGuess, args=(self.data,),gtol=0)#,maxfev=10)#,xtol=1e-4)#,ftol=1e-4)#,gtol=1e-5)
             predict=self.func(xmin,self.data)
             x,y,Data=self.data
             w=Data/np.max(Data)
@@ -305,8 +307,12 @@ class ClassGaussFit():
 
             self.plotIter3(x,y,Data,G)#,pars=xmin)
 
-
             chi2=np.sum((Data-predict)**2/(2*sigma**2))
+
+
+
+            n=x.shape[0]
+            df=n
 
             #aic=chi2+2*k#-2.*logL
             #aicc=aic+(2.*k*(k+1)/(n-k-1.))
@@ -314,8 +320,14 @@ class ClassGaussFit():
             # St,err=self.GiveStErr(xmin)
             # #chi2=(err/St)**2
             k=(Nsources*len(self.FreePars))
-            n=x.shape[0]
             bic=chi2+k*np.log(n)
+            rv = scipy.stats.chi2(df)
+            L=rv.pdf(chi2)
+            
+            if L<=0: L=1e-6
+            
+            bic=-2*np.log(L)+k*np.log(n)
+
 
             # print "Number of parameters: %i, bic=%f"%(Nsources,bic)
             #print "St=%f, errSt=%f"%(St,err)
