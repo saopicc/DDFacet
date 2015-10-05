@@ -22,16 +22,16 @@ class ClassGaussFit():
         #self.psf[2]=-self.psf[2]
         self.CPSF=ModConvPSF.ClassConvPSF(self.psf)
         self.itera=0
-        self.noise=noise
+        self.noise=noise/(2.*np.pi*self.psf[0]*self.psf[1])
         self.noplot=False#True#noplot
         self.FreePars=FreePars
         self.DefaultDictPars={"Sm":1e-2,"SM":1e-2,"PA":0.}
-
+        
         
 
-        self.x=np.array(x).ravel()
-        self.y=np.array(y).ravel()
-        self.z=np.array(z).ravel()
+        self.x=np.array(x).ravel()#[0:40]
+        self.y=np.array(y).ravel()#[0:40]
+        self.z=np.array(z).ravel()#[0:40]
 
 
         # self.GiveCovMat()
@@ -48,19 +48,30 @@ class ClassGaussFit():
         y=self.y
 
         N=x.size
+
+        dN=10
+        N=2*dN+1
+        x,y=np.mgrid[-dN:dN:N*1j,-dN:dN:N*1j]
+        x=x.flatten()
+        y=y.flatten()
+
+        N=x.size
         GG=np.zeros((N,N),np.float32)
         for i in range(N):
             GG[i,:]=Gaussian.GaussianXY(x[i]-x,y[i]-y,self.noise**2,sig=(self.psf[0],self.psf[1]),pa=self.psf[2])
 
-        print "calc"
+        
         Ginv=ModLinAlg.invSVD(GG)
         
         pylab.clf()
-        pylab.imshow(Ginv)
-        #pylab.imshow(GG)
+        pylab.subplot(1,2,1)
+        pylab.imshow(GG,interpolation="nearest")
+        pylab.subplot(1,2,2)
+        pylab.imshow(np.real(Ginv),interpolation="nearest")
         pylab.draw()
-        pylab.show()
-    
+        pylab.show(False)
+        stop
+
     def ListToDicoPars(self,pars):
         ns=len(self.FreePars)
         nComp=len(pars)/ns
@@ -307,7 +318,7 @@ class ClassGaussFit():
 
             self.plotIter3(x,y,Data,G)#,pars=xmin)
 
-            chi2=np.sum((Data-predict)**2/(2*sigma**2))
+            chi2=np.sum((Data-predict)**2/(sigma**2))
 
 
 
@@ -323,11 +334,16 @@ class ClassGaussFit():
             bic=chi2+k*np.log(n)
             rv = scipy.stats.chi2(df)
             L=rv.pdf(chi2)
+            LogL=rv.logpdf(chi2)
             
-            if L<=0: L=1e-6
-            
-            bic=-2*np.log(L)+k*np.log(n)
+            #if L<=0: L=1e-6
 
+            bic=-2*LogL+k*np.log(n)
+
+            aic=2*LogL+2*k#-2.*logL
+            aicc=aic+(2.*k*(k+1)/(n-k-1.))
+
+            print LogL,bic,aic,aicc
 
             # print "Number of parameters: %i, bic=%f"%(Nsources,bic)
             #print "St=%f, errSt=%f"%(St,err)
