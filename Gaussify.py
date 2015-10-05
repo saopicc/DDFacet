@@ -36,6 +36,7 @@ def read_options():
     group.add_option('--Pfact',help='PSF size multiplying factor. Default is %default',default="1")
     group.add_option('--DoPlot',help=' Default is %default',default="0")
     group.add_option('--DoPrint',help=' Default is %default',default="0")
+    group.add_option('--NCPU',help=' Default is %default',default="6")
 
     opt.add_option_group(group)
     options, arguments = opt.parse_args()
@@ -129,7 +130,7 @@ def main(options=None):
     Islands.Noise=StdResidual
 
     
-    CFit=ClassFitIslands.ClassFitIslands(Islands)
+    CFit=ClassFitIslands.ClassFitIslands(Islands,NCPU=options.NCPU)
     #sourceList=CFit.FitSerial((PMin,PMaj,PPA),incr,StdResidual)
     sourceList=CFit.FitParallel((PMin,PMaj,PPA),incr,StdResidual)
 
