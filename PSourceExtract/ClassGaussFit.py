@@ -238,11 +238,11 @@ class ClassGaussFit():
 
     def DoAllFit(self,Nstart=1,Nend=10):
 
-        bic_keep=1e10
-        print 
+        bic_keep=1e120
+        #print 
         for i in range(Nstart,Nend):
             xmin,bic=self.DoFit(Nsources=i)
-            print i,bic
+            #print i,bic
 
             if xmin==None: break
             if bic<bic_keep:
@@ -317,7 +317,7 @@ class ClassGaussFit():
             
             
 
-            self.plotIter3(x,y,Data,G)#,pars=xmin)
+            #self.plotIter3(x,y,Data,G)#,pars=xmin)
 
             chi2=np.sum((Data-predict)**2/(sigma**2))
 

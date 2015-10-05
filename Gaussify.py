@@ -10,8 +10,8 @@ from Other import ModColor
 import pickle
 import optparse
 #from PSourceExtract.ClassPointFit2 import ClassPointFit as ClassFit
-from PSourceExtract.ClassGaussFit import ClassGaussFit as ClassFit
 #import ClassPointFit as ClassPointFit
+from PSourceExtract import ClassFitIslands
 
 from pyrap.images import image
 from Other.progressbar import ProgressBar
@@ -130,7 +130,8 @@ def main(options=None):
 
     
     CFit=ClassFitIslands.ClassFitIslands(Islands)
-    CFit.FitSerial()
+    #sourceList=CFit.FitSerial((PMin,PMaj,PPA),incr,StdResidual)
+    sourceList=CFit.FitParallel((PMin,PMaj,PPA),incr,StdResidual)
 
     xlist=[]
     ylist=[]
