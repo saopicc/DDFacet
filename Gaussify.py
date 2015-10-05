@@ -143,7 +143,7 @@ def main(options=None):
         xm=int(np.sum(xin*zin)/np.sum(zin))
         ym=int(np.sum(yin*zin)/np.sum(zin))
         #Fit=ClassFit(xin,yin,zin,psf=(PMaj/incr,PMin/incr,PPA),noise=Islands.Noise[xm,ym])
-        Fit=ClassFit(xin,yin,zin,psf=(PMaj/incr,PMin/incr,PPA+np.pi/2))#,FreePars=["l", "m","s"])
+        Fit=ClassFit(xin,yin,zin,psf=(PMaj/incr,PMin/incr,PPA+np.pi/2),noise=StdResidual)#,FreePars=["l", "m","s"])
         sourceList.append(Fit.DoAllFit())
         Fit.PutFittedArray(ImOut)
 
