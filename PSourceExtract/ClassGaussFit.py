@@ -22,7 +22,7 @@ class ClassGaussFit():
         #self.psf[2]=-self.psf[2]
         self.CPSF=ModConvPSF.ClassConvPSF(self.psf)
         self.itera=0
-        self.noise=noise*(2.*np.pi*self.psf[0]*self.psf[1])
+        self.noise=noise#/(2.*np.pi*self.psf[0]*self.psf[1])
         self.noplot=False#True#noplot
         self.FreePars=FreePars
         self.DefaultDictPars={"Sm":1e-2,"SM":1e-2,"PA":0.}
