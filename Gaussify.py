@@ -128,26 +128,10 @@ def main(options=None):
     Islands.FindAllIslands()
     Islands.Noise=StdResidual
 
-    ImOut=np.zeros_like(b)
-    pBAR = ProgressBar('white', block='=', empty=' ',Title="Fit islands")
+    
+    CFit=ClassFitIslands.ClassFitIslands(Islands)
+    CFit.FitSerial()
 
-    #print "ion"
-    #import pylab
-    #pylab.ion()
-    sourceList=[]
-    for i in range(len(Islands.ListX)):
-        comment='Isl %i/%i' % (i+1,len(Islands.ListX))
-        pBAR.render(int(100* float(i+1) / len(Islands.ListX)), comment)
-
-        xin,yin,zin=np.array(Islands.ListX[i]),np.array(Islands.ListY[i]),np.array(Islands.ListS[i])
-        xm=int(np.sum(xin*zin)/np.sum(zin))
-        ym=int(np.sum(yin*zin)/np.sum(zin))
-        #Fit=ClassFit(xin,yin,zin,psf=(PMaj/incr,PMin/incr,PPA),noise=Islands.Noise[xm,ym])
-        Fit=ClassFit(xin,yin,zin,psf=(PMaj/incr,PMin/incr,PPA+np.pi/2),noise=StdResidual)#,FreePars=["l", "m","s"])
-        sourceList.append(Fit.DoAllFit())
-        Fit.PutFittedArray(ImOut)
-
-    Islands.FitIm=ImOut
     xlist=[]
     ylist=[]
     slist=[]
@@ -174,7 +158,7 @@ def main(options=None):
             Cat.Gmin[isource]=CompDico["Sm"]*(incr/ToSig/3600.)*np.pi/180/(2.*np.sqrt(2.*np.log(2)))
             Cat.Gmaj[isource]=CompDico["SM"]*(incr/ToSig/3600.)*np.pi/180/(2.*np.sqrt(2.*np.log(2)))
             Cat.Gangle[isource]=-CompDico["PA"]+np.pi/2
-            #
+
             isource +=1
 
     Cat=Cat[Cat.ra!=0].copy()
@@ -188,6 +172,8 @@ def main(options=None):
 
 
 
+
+########################################################
 
 
 if __name__=="__main__":

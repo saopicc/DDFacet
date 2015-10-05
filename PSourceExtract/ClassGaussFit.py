@@ -192,13 +192,14 @@ class ClassGaussFit():
         #val=np.max(1e-5,np.max(G))
         #Gn=G/val
         #return (Gn*(G-z)).flatten()
-        w=z/np.max(z)
+        #w=z/np.max(z)
         #w/=np.sum(w)
-        w=1
+        #w=1
         #w=np.sqrt(w)
 
 
-        ans=(w*(G-z)).flatten()#*(1+0.01*np.exp(np.abs(x*2)))#(1+1e-5*np.exp(np.abs(x*2)))#*(1+np.exp(np.abs(dp)*4-13))
+        #ans=(w*(G-z)).flatten()#*(1+0.01*np.exp(np.abs(x*2)))#(1+1e-5*np.exp(np.abs(x*2)))#*(1+np.exp(np.abs(dp)*4-13))
+        ans=((G-z)).ravel()#*(1+0.01*np.exp(np.abs(x*2)))#(1+1e-5*np.exp(np.abs(x*2)))#*(1+np.exp(np.abs(dp)*4-13))
 
         # l,m,s,dp=self.GetPars(pars)
         # #ans+=np.random.randn(ans.shape[0])*self.noise
@@ -286,7 +287,7 @@ class ClassGaussFit():
         #try:
         if True:
             try:
-                xmin,retval=scipy.optimize.leastsq(self.funcResid, parsGuess, args=(self.data,),gtol=0)#,maxfev=10)#,xtol=1e-4)#,ftol=1e-4)#,gtol=1e-5)
+                xmin,retval=scipy.optimize.leastsq(self.funcResid, parsGuess, args=(self.data,),gtol=1e-3,xtol=1e-7)#,maxfev=10)#,xtol=1e-4)#,ftol=1e-4)#,gtol=1e-5)
             except:
                 return None,None
 
@@ -340,8 +341,8 @@ class ClassGaussFit():
 
             bic=-2*LogL+k*np.log(n)
 
-            aic=2*LogL+2*k#-2.*logL
-            aicc=aic+(2.*k*(k+1)/(n-k-1.))
+            #aic=2*LogL+2*k#-2.*logL
+            #aicc=aic+(2.*k*(k+1)/(n-k-1.))
 
             #print LogL,bic,aic,aicc
 
