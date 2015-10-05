@@ -248,8 +248,8 @@ class ClassGaussFit():
                 xmin_keep=xmin
                 bic_keep=bic
                 BestDicoPars=self.DicoPars
-            # else:
-            #    break
+            else:
+                break
 
 
 
@@ -343,7 +343,7 @@ class ClassGaussFit():
             aic=2*LogL+2*k#-2.*logL
             aicc=aic+(2.*k*(k+1)/(n-k-1.))
 
-            print LogL,bic,aic,aicc
+            #print LogL,bic,aic,aicc
 
             # print "Number of parameters: %i, bic=%f"%(Nsources,bic)
             #print "St=%f, errSt=%f"%(St,err)
