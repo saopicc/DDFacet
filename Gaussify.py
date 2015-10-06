@@ -36,7 +36,7 @@ def read_options():
     group.add_option('--Pfact',help='PSF size multiplying factor. Default is %default',default="1")
     group.add_option('--DoPlot',help=' Default is %default',default="0")
     group.add_option('--DoPrint',help=' Default is %default',default="0")
-    group.add_option('--NCPU',help=' Default is %default',default="6")
+    group.add_option('--NCPU',help=' Default is %default',default=6,type="int")
 
     opt.add_option_group(group)
     options, arguments = opt.parse_args()
@@ -52,6 +52,8 @@ from DDFacet.Imager import ClassCasaImage
 
     
 def main(options=None):
+    
+
     if options==None:
         f = open("last_MakePModel.obj",'rb')
         options = pickle.load(f)
@@ -144,19 +146,23 @@ def main(options=None):
     isource=0
 
     for Dico in sourceList:
+        if type(Dico)==list: continue
         for iCompDico in sorted(Dico.keys()):
             CompDico=Dico[iCompDico]
+            if CompDico["SM"]>5: continue
+            if CompDico["Sm"]>5: continue
             i=CompDico["l"]
             j=CompDico["m"]
             s=CompDico["s"]
             xlist.append(i)
             ylist.append(j)
             slist.append(s)
+            
             f,d,dec,ra=im.toworld((0,0,i,j))
             Cat.ra[isource]=ra
             Cat.dec[isource]=dec
             Cat.I[isource]=s
-
+            
             Cat.Gmin[isource]=CompDico["Sm"]*(incr/ToSig/3600.)*np.pi/180/(2.*np.sqrt(2.*np.log(2)))
             Cat.Gmaj[isource]=CompDico["SM"]*(incr/ToSig/3600.)*np.pi/180/(2.*np.sqrt(2.*np.log(2)))
             Cat.Gangle[isource]=-CompDico["PA"]+np.pi/2
@@ -177,7 +183,9 @@ def main(options=None):
 
 ########################################################
 
-
+import warnings
 if __name__=="__main__":
     read_options()
-    main()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")    
+        main()
