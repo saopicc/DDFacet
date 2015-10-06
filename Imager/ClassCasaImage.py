@@ -148,10 +148,10 @@ class ClassCasaimage():
         if self.Lambda!=None:
             #print RefVal[0]
             C=299792458.
-            Freq0=C/self.Lambda0
-            Lambda=np.array([self.Lambda0+i*self.dLambda for i in range(self.NLambda)])
-            self.Freqs=1./Lambda
-
+            #Freq0=C/self.Lambda0
+            Lambda=np.array([self.Lambda0+i*self.dLambda for i in range(self.NLambda)])[::-1]
+            self.Freqs=C/Lambda
+            print self.Freqs
             RefVal[0]=self.Freqs[0]
             ich,ipol,xy=c.get_referencepixel()
             ich=0
@@ -166,8 +166,8 @@ class ClassCasaimage():
                 fmean=np.mean(self.Freqs)
                 D["worldreplace2"]=np.array([F[0]])
 
-                D["spectral2"]["restfreq"]=self.Freqs[0]
-                D["spectral2"]["restfreqs"]=np.array([self.Freqs[0]])
+                D["spectral2"]["restfreq"]=0.#self.Freqs[0]
+                D["spectral2"]["restfreqs"]=np.array([0.])#self.Freqs[0]])
                 D["spectral2"]["tabular"]={'axes': ['Frequency'],
                                            'pc': np.array([[ 1.]]),
                                            'units': ['Hz']}
@@ -197,8 +197,8 @@ class ClassCasaimage():
         c.set_increment(incr)
         c.set_referencevalue(RefVal)
         
-        #import pprint
-        #pprint.pprint(c.dict())
+        # import pprint
+        # pprint.pprint(c.dict())
         
         #self.im=image(imagename=ImageName,shape=(1,1,Npix,Npix),coordsys=c)
         #self.im=image(imagename=ImageName,shape=(Npix,Npix),coordsys=c)

@@ -39,6 +39,7 @@ class ClassRestoreMachine():
         self.DoAlpha=DoAlpha
         self.BaseImageName=BaseImageName
         self.BeamPix=BeamPix
+        self.NBands=NBands
 
         self.ModelMachine=ClassModelMachine(Gain=0.1)
         DicoModel="%s.DicoModel"%BaseImageName
@@ -92,12 +93,7 @@ class ClassRestoreMachine():
 
 
         
-
-        # model image
-        ModelImage=ModelMachine.GiveModelImage()
-
         FWHMFact=2.*np.sqrt(2.*np.log(2.))
-
         BeamPix=self.BeamPix/FWHMFact
         sigma_x, sigma_y=BeamPix,BeamPix
         theta=0.
@@ -106,21 +102,45 @@ class ClassRestoreMachine():
         self.FWHMBeam=(bmaj/3600.,bmin/3600.,theta)
         self.PSFGaussPars = (sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta)
 
-
-
-        # restored image
         RefFreq=self.ModelMachine.RefFreq
         df=RefFreq*0.1
 
-        self.RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
-        self.RestoredImageRes=self.RestoredImage+self.Residual
+        self.ModelMachine.ListScales[0]["Alpha"]=-0.8
+
+        # model image
+        ModelMachine.GiveModelImage(Freq=RefFreq)
+
+        FEdge=np.linspace(RefFreq-df,RefFreq+df,self.NBands+1)
+        FCenter=(FEdge[0:-1]+FEdge[1::])/2.
+        C=299792458.
+        Lambda0=C/FCenter[-1]
+        dLambda=1
+        if self.NBands>1:
+            dLambda=np.abs(C/FCenter[0]-C/FCenter[1])
+
+        ListRestoredIm=[]
+        Lambda=[Lambda0+i*dLambda for i in range(self.NBands)]
+        print C/np.array(Lambda)
+        # restored image
+        for l in Lambda:
+            freq=C/l
+            ModelImage=ModelMachine.GiveModelImage(Freq=freq)
+            RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+            RestoredImageRes=RestoredImage+self.Residual
+            ListRestoredIm.append(RestoredImageRes)
+        
+        print FEdge,FCenter
+
+        _,_,nx,_=RestoredImageRes.shape
+        RestoredImageRes=np.array(ListRestoredIm).reshape((self.NBands,1,nx,nx))
 
         ImageName="%s.restoredNew"%self.BaseImageName
-        CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
-        CasaImage.setdata(self.RestoredImageRes,CorrT=True)
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec,Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage.setdata(RestoredImageRes,CorrT=True)
         CasaImage.ToFits()
         CasaImage.setBeam(self.FWHMBeam)
         CasaImage.close()
+
 
         # ImageName="%s.modelConv"%self.BaseImageName
         # CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
