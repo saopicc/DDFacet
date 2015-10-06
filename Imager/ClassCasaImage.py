@@ -28,6 +28,70 @@ def PutDataInNewImage(ImageNameIn,ImageNameOut,data,CorrT=False):
     CasaImage.ToFits()
     CasaImage.close()
 
+def GiveCoord(nx,npol=1,Freqs=None):
+
+    df=Freqs[1]-Freqs[0]
+    D={'spectral2': {'_axes_sizes': np.array([Freqs.size], dtype=np.int32),
+                   '_image_axes': np.array([1], dtype=np.int32),
+                   'conversion': {'direction': {'m0': {'unit': 'rad',
+                                                       'value': 0.0},
+                                                'm1': {'unit': 'rad',
+                                                       'value': 1.5707963267948966},
+                                                'refer': 'J2000',
+                                                'type': 'direction'},
+                                  'epoch': {'m0': {'unit': 'd', 'value': 0.0},
+                                            'refer': 'LAST',
+                                            'type': 'epoch'},
+                                  'position': {'m0': {'unit': 'rad',
+                                                      'value': 0.0},
+                                               'm1': {'unit': 'rad',
+                                                      'value': 0.0},
+                                               'm2': {'unit': 'm',
+                                                      'value': 0.0},
+                                               'refer': 'ITRF',
+                                               'type': 'position'},
+                                  'system': 'BARY'},
+                   'formatUnit': '',
+                   'name': 'Frequency',
+                   'restfreq': 1420405750.0,
+                   'restfreqs': np.array([  1.42040575e+09]),
+                   'system': 'BARY',
+                   'tabular': {'axes': ['Frequency'],
+                               'cdelt': np.array([ df]),
+                               'crpix': np.array([ 0.]),
+                               'crval': np.array([  Freqs[0]]),
+                               'pc': np.array([[ 1.]]),
+                               'pixelvalues': np.arange(Freqs.size),
+                               'units': ['Hz'],
+                               'worldvalues': Freqs},
+                   'unit': 'Hz',
+                   'velType': 0,
+                   'velUnit': 'km/s',
+                   'version': 2,
+                   'waveUnit': 'mm'},
+     'stokes1': {'_axes_sizes': np.array([1], dtype=np.int32),
+                 '_image_axes': np.array([0], dtype=np.int32),
+                 'axes': ['Stokes'],
+                 'cdelt': np.array([ 1.]),
+                 'crpix': np.array([ 0.]),
+                 'crval': np.array([ 1.]),
+                 'pc': np.array([[ 1.]]),
+                 'stokes': ['I']},
+     'telescope': 'VLA',
+     'telescopeposition': {'m0': {'unit': 'rad', 'value': -1.8782942581394362},
+                           'm1': {'unit': 'rad', 'value': 0.5916750987501983},
+                           'm2': {'unit': 'm', 'value': 6373576.280915651},
+                           'refer': 'ITRF',
+                           'type': 'position'},
+     'worldmap0': np.array([0, 1], dtype=np.int32),
+     'worldmap1': np.array([3], dtype=np.int32),
+     'worldmap2': np.array([2], dtype=np.int32),
+     'worldreplace0': np.array([ 3.47746408,  0.72981776]),
+     'worldreplace1': np.array([ 1.]),
+     'worldreplace2': np.array([  1.41698165e+09])}
+    
+    return D
+
 def FileToArray(FileName,CorrT):
     CasaNormImage=image(FileName)
     NormImage=CasaNormImage.getdata()
@@ -40,11 +104,14 @@ def FileToArray(FileName,CorrT):
 
 
 class ClassCasaimage():
-    def __init__(self,ImageName,ImShape,Cell,radec,Freqs=None,KeepCasa=False):
+    def __init__(self,ImageName,ImShape,Cell,radec,Lambda=None,KeepCasa=False):
         self.Cell=Cell
         self.radec=radec
         self.KeepCasa=KeepCasa
-        self.Freqs=Freqs
+        self.Lambda=Lambda
+        if Lambda!=None:
+            self.Lambda0,self.dLambda,self.NLambda=Lambda
+
         self.ImShape=ImShape
         self.nch,self.npol,self.Npix,_=ImShape
 
@@ -78,53 +145,61 @@ class ClassCasaimage():
         RaDecRad=self.radec
         RefVal[-1][1]=RaDecRad[0]*180./np.pi*60
         RefVal[-1][0]=RaDecRad[1]*180./np.pi*60
-        if self.Freqs!=None:
+        if self.Lambda!=None:
             #print RefVal[0]
+            C=299792458.
+            Freq0=C/self.Lambda0
+            Lambda=np.array([self.Lambda0+i*self.dLambda for i in range(self.NLambda)])
+            self.Freqs=1./Lambda
+
             RefVal[0]=self.Freqs[0]
             ich,ipol,xy=c.get_referencepixel()
             ich=0
             c.set_referencepixel((ich,ipol,xy))
-            # if self.Freqs.size>1:
-            #     F=self.Freqs
-            #     df=np.mean(self.Freqs[1::]-self.Freqs[0:-1])
-            #     print df
-            #     incr[0]=df
-            #     D=c.__dict__["_csys"]
-            #     fmean=np.mean(self.Freqs)
-            #     D["worldreplace2"]=np.array([fmean])
 
-            #     D["spectral2"]["restfreq"]=fmean
-            #     D["spectral2"]["restfreqs"]=np.array([fmean])
-            #     D["spectral2"]["tabular"]={'axes': ['Frequency'],
-            #                                'pc': np.array([[ 1.]]),
-            #                                'units': ['Hz']}
+            if self.Freqs.size>1:
+                F=self.Freqs
+                df=np.mean(self.Freqs[1::]-self.Freqs[0:-1])
+
+                incr[0]=df
+                D=c.__dict__["_csys"]
+                fmean=np.mean(self.Freqs)
+                D["worldreplace2"]=np.array([F[0]])
+
+                D["spectral2"]["restfreq"]=self.Freqs[0]
+                D["spectral2"]["restfreqs"]=np.array([self.Freqs[0]])
+                D["spectral2"]["tabular"]={'axes': ['Frequency'],
+                                           'pc': np.array([[ 1.]]),
+                                           'units': ['Hz']}
 
 
 
-            #     D["spectral2"]["tabular"]["cdelt"]=np.array([df])
-            #     D["spectral2"]["tabular"]["crpix"]=np.array([0])
-            #     D["spectral2"]["tabular"]["crval"]=np.array([fmean])
-            #     D["spectral2"]["tabular"]["pixelvalues"]=np.arange(F.size)
-            #     D["spectral2"]["tabular"]["worldvalues"]=F
+                D["spectral2"]["tabular"]["cdelt"]=np.array([df])
+                D["spectral2"]["tabular"]["crpix"]=np.array([0])
+                D["spectral2"]["tabular"]["crval"]=np.array([F[0]])
+                D["spectral2"]["tabular"]["pixelvalues"]=np.arange(F.size)
+                D["spectral2"]["tabular"]["worldvalues"]=F
  
-            #    # Out[16]: array([  1.42040575e+09])
+               # Out[16]: array([  1.42040575e+09])
                 
-            #     # In [17]: c.dict()["spectral2"]["tabular"]
-            #     # Out[17]: 
-            #     # {'axes': ['Frequency'],
-            #     #  'cdelt': array([ 0.]),
-            #     #  'crpix': array([ 0.]),
-            #     #  'crval': array([  1.41500000e+09]),
-            #     #  'pc': array([[ 1.]]),
-            #     #  'pixelvalues': array([ 0.]),
-            #     #  'units': ['Hz'],
-            #     #  'worldvalues': array([  1.41500000e+09])}
+                # In [17]: c.dict()["spectral2"]["tabular"]
+                # Out[17]: 
+                # {'axes': ['Frequency'],
+                #  'cdelt': array([ 0.]),
+                #  'crpix': array([ 0.]),
+                #  'crval': array([  1.41500000e+09]),
+                #  'pc': array([[ 1.]]),
+                #  'pixelvalues': array([ 0.]),
+                #  'units': ['Hz'],
+                #  'worldvalues': array([  1.41500000e+09])}
 
 
         c.set_increment(incr)
         c.set_referencevalue(RefVal)
-
-
+        
+        #import pprint
+        #pprint.pprint(c.dict())
+        
         #self.im=image(imagename=ImageName,shape=(1,1,Npix,Npix),coordsys=c)
         #self.im=image(imagename=ImageName,shape=(Npix,Npix),coordsys=c)
         self.im=image(imagename=ImageName,shape=self.ImShape,coordsys=c)
@@ -191,8 +266,8 @@ class ClassCasaimage():
 #     im.close()
 
 def test():
-    name,imShape,Cell,radec="lala2.psf", (3, 1, 1029, 1029), 20, (3.7146787856873478, 0.91111035090915093)
-    im=ClassCasaimage(name,imShape,Cell,radec,Freqs=np.array([100,200,300],dtype=np.float32)*1e6)
+    name,imShape,Cell,radec="lala2.psf", (10, 1, 1029, 1029), 20, (3.7146787856873478, 0.91111035090915093)
+    im=ClassCasaimage(name,imShape,Cell,radec,Lambda=[1,0.1,10])
     im.setdata(np.random.randn(*(imShape)),CorrT=True)
     im.ToFits()
     #im.setBeam((0.,0.,0.))

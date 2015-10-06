@@ -94,7 +94,7 @@ class ClassJones():
         DicoSols_Beam=None
         TimeMapping_Beam=None
         
-        print>>log, "  Build solution Dico for %s"%StrType
+        print>>log, "Build solution Dico for %s"%StrType
         
         if StrType=="killMS":
             DicoClusterDirs_killMS,DicoSols=self.GiveKillMSSols()
@@ -221,7 +221,7 @@ class ClassJones():
 
     def GiveKillMSSols_SingleFile(self,SolsFile,JonesMode="AP",GlobalMode=""):
 
-        print>>log, "Loading solution file %s"%(SolsFile)
+        print>>log, "  Loading solution file %s"%(SolsFile)
         if not(".npz" in SolsFile):
             Method=SolsFile
             ThisMSName=reformat.reformat(os.path.abspath(self.MS.MSName),LastSlash=False)
@@ -271,7 +271,7 @@ class ClassJones():
 
     def NormDirMatrices(self,G):
         RefAnt=0
-        print>>log,"Normalising Jones Matrices with reference Antenna %i ..."%RefAnt
+        print>>log,"  Normalising Jones Matrices with reference Antenna %i ..."%RefAnt
         nt,nd,na,nf,_,_=G.shape
         for iDir in range(nd):
             for it in range(nt):

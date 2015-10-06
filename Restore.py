@@ -22,6 +22,7 @@ def read_options():
     group.add_option('--ResidualImage',help='',type="str",default="")
     group.add_option('--BeamPix',help='',default=5)
     group.add_option('--MaskName',type="str",help='',default=5)
+    group.add_option('--NBands',type="int",help='',default=1)
     group.add_option('--CleanNegComp',type="int",help='',default=5)
     group.add_option('--DoAlpha',type="int",help='',default=0)
     opt.add_option_group(group)
@@ -34,7 +35,7 @@ def read_options():
 
 class ClassRestoreMachine():
     def __init__(self,BaseImageName,BeamPix=5,ResidualImName="",DoAlpha=1,
-                 MaskName="",CleanNegComp=False):
+                 MaskName="",CleanNegComp=False,NBands=1):
         self.DoAlpha=DoAlpha
         self.BaseImageName=BaseImageName
         self.BeamPix=BeamPix
@@ -108,6 +109,9 @@ class ClassRestoreMachine():
 
 
         # restored image
+        RefFreq=self.ModelMachine.RefFreq
+        df=RefFreq*0.1
+
         self.RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
         self.RestoredImageRes=self.RestoredImage+self.Residual
 
@@ -150,7 +154,9 @@ def main(options=None):
         options = pickle.load(f)
     
 
-    CRM=ClassRestoreMachine(options.BaseImageName,BeamPix=options.BeamPix,ResidualImName=options.ResidualImage,DoAlpha=options.DoAlpha)
+    CRM=ClassRestoreMachine(options.BaseImageName,BeamPix=options.BeamPix,ResidualImName=options.ResidualImage,
+                            DoAlpha=options.DoAlpha,
+                            NBands=options.NBands)
     CRM.Restore()
 
 
