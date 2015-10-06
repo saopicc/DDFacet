@@ -103,7 +103,7 @@ class ClassRestoreMachine():
         self.PSFGaussPars = (sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta)
 
         RefFreq=self.ModelMachine.RefFreq
-        df=RefFreq*0.1
+        df=RefFreq*0.5
 
         self.ModelMachine.ListScales[0]["Alpha"]=-0.8
 
