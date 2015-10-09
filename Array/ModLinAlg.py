@@ -197,10 +197,10 @@ def testInvertSVD():
 def invSVD(A):
     #print "rand"
     Ar=A+np.random.randn(*A.shape)*(1e-6*A.max())
-    print "stard"
+    #print "stard"
     u,s,v=np.linalg.svd(Ar)
-    print "ok"
-    #s[s<0.]=1.e-6
+    #print "ok"
+    s[s<0.]=1.e-6
 
     s[s<1.e-6*s.max()]=1.e-6*s.max()
 
