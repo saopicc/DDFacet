@@ -158,15 +158,20 @@ class ClassModelMachine():
  
         return ModelImage
         
-    def CleanNegComponants(self,box=20,sig=3):
+    def CleanNegComponants(self,box=20,sig=3,RemoveNeg=True):
         print>>log, "Cleaning model dictionary from negative componants with (box, sig) = (%i, %i)"%(box,sig)
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
         
         Min=scipy.ndimage.filters.minimum_filter(ModelImage,(box,box))
         Min[Min>0]=0
         Min=-Min
-        Lx,Ly=np.where((ModelImage<sig*Min)&(ModelImage!=0))
-        
+
+        if RemoveNeg==False:
+            Lx,Ly=np.where((ModelImage<sig*Min)&(ModelImage!=0))
+        else:
+            print>>log, "  Removing neg componants too"
+            Lx,Ly=np.where(((ModelImage<sig*Min)&(ModelImage!=0))|(ModelImage<0)))
+
         for icomp in range(Lx.size):
             key=Lx[icomp],Ly[icomp]
             try:
