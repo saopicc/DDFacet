@@ -170,7 +170,7 @@ class ClassModelMachine():
             Lx,Ly=np.where((ModelImage<sig*Min)&(ModelImage!=0))
         else:
             print>>log, "  Removing neg componants too"
-            Lx,Ly=np.where(((ModelImage<sig*Min)&(ModelImage!=0))|(ModelImage<0)))
+            Lx,Ly=np.where( ((ModelImage<sig*Min)&(ModelImage!=0)) | (ModelImage<0))
 
         for icomp in range(Lx.size):
             key=Lx[icomp],Ly[icomp]
