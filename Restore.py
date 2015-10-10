@@ -176,7 +176,8 @@ def main(options=None):
 
     CRM=ClassRestoreMachine(options.BaseImageName,BeamPix=options.BeamPix,ResidualImName=options.ResidualImage,
                             DoAlpha=options.DoAlpha,
-                            NBands=options.NBands)
+                            NBands=options.NBands,
+                            CleanNegComp=options.CleanNegComp)
     CRM.Restore()
 
 
