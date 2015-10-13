@@ -544,7 +544,9 @@ class ClassVisServer():
         if WeightCol=="WEIGHT_SPECTRUM":
             WEIGHT=(WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
 
-        WEIGHT/=np.mean(WEIGHT)
+        MeamW=np.mean(WEIGHT)
+        if MeamW!=0.:
+            WEIGHT/=MeamW
 
         flags=t.getcol("FLAG")
         t.close()
