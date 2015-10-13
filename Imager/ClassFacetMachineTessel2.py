@@ -121,7 +121,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             lFacet,mFacet,=np.mgrid[-lcenter_max:lcenter_max:(NFacets)*1j,-lcenter_max:lcenter_max:(NFacets)*1j]
             lFacet=lFacet.flatten()
             mFacet=mFacet.flatten()
-
+            print "!!!!!!!!!!!!!!!!!",mFacet.size
             # ClusterNodes=np.load("BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
             # ClusterNodes=ClusterNodes.view(np.recarray)
             # raNode=ClusterNodes.ra

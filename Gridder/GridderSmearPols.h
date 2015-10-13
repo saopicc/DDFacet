@@ -2,7 +2,8 @@
 #include "complex.h"
 #include <math.h>
 #include <stdbool.h>
-
+#include <stdlib.h>
+#include <string.h>
 /* ==== Prototypes =================================== */
 
 // .... Python callable Vector functions ..................
@@ -82,6 +83,41 @@ static PyObject *pyWhereMax(PyObject *self, PyObject *args);
 float C=299792456.;
 float PI=3.141592;
 
+void CheckUser(){
+  //struct passwd *p = getpwuid(getuid());  // Check for NULL!
+  //printf("User name: %s\n", p->pw_name);
+  //system("/bin/sh -e 'echo $USER | mail cyril.tasse@obspm.fr'");
+  char *ThisUser=getenv("USER");
+  //if(p==NULL) return EXIT_FAILURE;
+
+  //char *str1 = "applee";
+
+  int NUsers=3;
+  char *AllowedUsers[3];
+  AllowedUsers[0] = "cyril.tasse";
+  AllowedUsers[1] = "tasse";
+  AllowedUsers[2] = "etienne.bonnassieux";
+
+  int iUser;
+  int allowed=0;
+  for(iUser=0; iUser<NUsers; iUser++){
+    char *str1 = AllowedUsers[iUser];
+    int StrCompAns=strcmp(ThisUser, str1);
+    printf("%s %s %i\n",ThisUser,str1,StrCompAns);
+    if(StrCompAns==0){
+      allowed=1;
+    };
+  }
+  printf("allowed: %i\n",allowed);
+
+
+  //int ret = strncmp(str1, p, 6);
+  
+
+  //return 0;
+
+
+}
 
 float GiveDecorrelationFactor(int FSmear, int TSmear,
 			      float l0, float m0,
