@@ -166,8 +166,8 @@ class ClassVisServer():
         CellSizeRad=self.CellSizeRad
         WeightMachine=ClassWeighting.ClassWeighting(ImShape,CellSizeRad)
         uvw,WEIGHT,flags=self.GiveAllUVW()
-        #uvw=DATA["uvw"]
-        #WEIGHT=DATA["Weights"]
+        # uvw=DATA["uvw"]
+        # WEIGHT=DATA["Weights"]
         VisWeights=WEIGHT#[:,0]#np.ones((uvw.shape[0],),dtype=np.float32)
         if np.max(VisWeights)==0.:
             print>>log,"All imaging weights are 0, setting them to ones"
@@ -536,7 +536,16 @@ class ClassVisServer():
     def GiveAllUVW(self):
         t=table(self.MS.MSName,ack=False)
         uvw=t.getcol("UVW")
-        WEIGHT=t.getcol("IMAGING_WEIGHT")
+
+        WeightCol=self.GD["VisData"]["WeightCol"]
+        print>>log, "  Reading column %s for the weights"%WeightCol
+
+        WEIGHT=t.getcol(WeightCol)
+        if WeightCol=="WEIGHT_SPECTRUM":
+            WEIGHT=(WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
+
+        WEIGHT/=np.mean(WEIGHT)
+
         flags=t.getcol("FLAG")
         t.close()
         return uvw,WEIGHT,flags

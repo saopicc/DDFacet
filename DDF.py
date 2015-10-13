@@ -56,7 +56,7 @@ def read_options():
     OP.add_option('ColName')
     OP.add_option('TChunkSize')
     OP.add_option('InitDicoModel',help='Image name [%default]')
-
+    OP.add_option('WeightCol')
     
     OP.OptionGroup("* Images-related options","Images")
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
