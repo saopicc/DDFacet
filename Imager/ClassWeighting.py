@@ -75,7 +75,7 @@ class ClassWeighting():
 
 
         VisWeights=np.float64(VisWeights)
-        VisWeights.fill(1.)
+        #VisWeights.fill(1.)
 
 
         
