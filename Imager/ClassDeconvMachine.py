@@ -734,7 +734,7 @@ class ClassImagerDeconv():
         self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored"%self.BaseName,Fits=True,beam=self.FWHMBeam)
 
         # Alpha image
-        if "Alpha" in self.GD["Images"]["SaveIms"]:
+        if ("Alpha" in self.GD["Images"]["SaveIms"])&(self.VS.MultiFreqMode):
             IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
             # IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
             self.FacetMachine.ToCasaImage(IndexMap,ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeam)

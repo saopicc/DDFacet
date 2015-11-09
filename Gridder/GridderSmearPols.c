@@ -6,6 +6,8 @@
 #include "GridderSmearPols.h"
 #include "complex.h"
 #include <omp.h>
+#include "Tools.h"
+
 
 clock_t start;
 
@@ -150,6 +152,8 @@ void gridderWPol(PyArrayObject *grid,
     int DoSmearTime,DoSmearFreq;
     int DoDecorr=(LengthSmearingList>0);
 
+
+
     if(DoDecorr){
       uvw_dt_Ptr = p_float64((PyArrayObject *) PyList_GetItem(LSmearing, 0));
 
@@ -166,7 +170,6 @@ void gridderWPol(PyArrayObject *grid,
 
     }
 
-    // CheckUser();
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -440,6 +443,10 @@ void gridderWPol(PyArrayObject *grid,
 
     int visChan;
     
+    float factorFreq=GiveFreqStep();
+    //printf("factorFreq %f\n",factorFreq);
+    
+
     for (visChan=0; visChan<nVisChan; ++visChan){
       WaveLengthMean+=C/Pfreqs[visChan];
       FreqMean0+=Pfreqs[visChan];
@@ -472,6 +479,7 @@ void gridderWPol(PyArrayObject *grid,
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
+      
       int NRowThisBlock=NRowBlocks[iBlock]-2;
       int indexMap=StartRow[iBlock];
       int chStart=MappingBlock[indexMap];
@@ -648,6 +656,8 @@ void gridderWPol(PyArrayObject *grid,
 	    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
 	    corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
 	  }
+
+	  
 	  /* float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
 	  /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
 
@@ -728,7 +738,8 @@ void gridderWPol(PyArrayObject *grid,
 	  Umean+=U;
 	  Vmean+=V;
 	  Wmean+=W;
-	  FreqMean+=(float)Pfreqs[visChan];
+	  //printf("factorFreq %f\n",factorFreq);
+	  FreqMean+=factorFreq*(float)Pfreqs[visChan];
 	  ThisWeight+=(FWeight);
 	  //ThisSumJones+=(*imgWtPtr);
 	  
@@ -829,6 +840,7 @@ void gridderWPol(PyArrayObject *grid,
       	    /*   VisVal =Vis[ipol]; */
       	    /* } */
 	    VisVal =Vis[ipol];
+	    //printf("VisVal=(%f,%f), factor=(%f)\n",creal(VisVal),cimag(VisVal),factorFreq);
       	    //VisVal*=ThisWeight;
 
 	    //if(ThisBlockAllFlagged==0){VisVal = 0.;}
