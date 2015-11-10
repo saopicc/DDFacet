@@ -161,7 +161,16 @@ class ClassImagerDeconv():
         self.CellArcSec=self.FacetMachine.Cell
 
     def setNextData(self):
-        #del(self.DATA)
+        try:
+            del(self.DATA)
+        except:
+            pass
+
+        try:
+            NpShared.DelAll("%s%s"%(self.IdSharedMem,"DicoData"))
+        except:
+            pass
+
         Load=self.VS.LoadNextVisChunk()
         if Load=="EndOfObservation":
             return "EndOfObservation"

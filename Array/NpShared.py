@@ -24,12 +24,23 @@ def SizeShm():
 
 def ToShared(Name,A):
 
+    #print "dtype, shape = %s, %s"%(str(A.dtype), str(A.shape))
+    #print "Number of nan in %s: %i"%(Name,np.count_nonzero(np.isnan(A)))
+    #print "Number of inf in %s: %i"%(Name,np.count_nonzero(np.isinf(A)))
+
     try:
         a=SharedArray.create(Name,A.shape,dtype=A.dtype)
     except:
         print>>log, ModColor.Str("File %s exists, delete it..."%Name)
         DelArray(Name)
         a=SharedArray.create(Name,A.shape,dtype=A.dtype)
+
+    # Ex=Exists(Name)
+    # if Ex:
+    #     DelArray(Name)
+    # a=SharedArray.create(Name,A.shape,dtype=A.dtype)
+
+
 
     a[:]=A[:]
     return a
