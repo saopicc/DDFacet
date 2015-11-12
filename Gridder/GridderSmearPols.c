@@ -740,6 +740,7 @@ void gridderWPol(PyArrayObject *grid,
 	  Wmean+=W;
 	  //printf("factorFreq %f\n",factorFreq);
 	  FreqMean+=factorFreq*(float)Pfreqs[visChan];
+	  //FreqMean+=(float)Pfreqs[visChan];
 	  ThisWeight+=(FWeight);
 	  //ThisSumJones+=(*imgWtPtr);
 	  
@@ -1346,8 +1347,8 @@ void DeGridderWPol(PyArrayObject *grid,
 	  int OneFlagged=0;
 	  int cond;
 	  //char ch="a";
-	  if(flagPtr[0]==1){OneFlagged=1;}
-	  if(OneFlagged){continue;}
+	  //if(flagPtr[0]==1){OneFlagged=1;}
+	  //if(OneFlagged){continue;}
 	  
 	  float U=(float)uvwPtr[0];
 	  float V=(float)uvwPtr[1];
@@ -1582,8 +1583,8 @@ void DeGridderWPol(PyArrayObject *grid,
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
 	  int OneFlagged=0;
 	  int cond;
-	  if(flagPtr[0]==1){OneFlagged=1;}
-	  if(OneFlagged){continue;}
+	  //if(flagPtr[0]==1){OneFlagged=1;}
+	  //if(OneFlagged){continue;}
 	  
 	  //###################### Facetting #######################
 	  // Change coordinate and shift visibility to facet center
