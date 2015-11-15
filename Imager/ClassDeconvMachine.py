@@ -540,7 +540,7 @@ class ClassImagerDeconv():
                 if Res=="EndOfObservation": break
                 DATA=self.DATA
                 
-                visData=DATA["data"]
+                #visData=DATA["data"]
 
                 ThisMeanFreq=np.mean(DATA["freqs"])
 
@@ -588,7 +588,7 @@ class ClassImagerDeconv():
 
                 #DATA["data"].fill(0)
 
-                _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
+                self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
 
 
 
@@ -615,9 +615,11 @@ class ClassImagerDeconv():
                 # stop
 
 
-                self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visData,DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True,Channel=self.VS.CurrentFreqBand)
+                self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True,Channel=self.VS.CurrentFreqBand)
                 
                 # NpShared.DelArray(PredictedDataName)
+                del(DATA)
+
 
             DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
             #DicoImage["NormData"]=self.NormImage
