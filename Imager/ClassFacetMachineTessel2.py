@@ -28,6 +28,7 @@ from matplotlib.path import Path
 from SkyModel.Sky.ClassClusterKMean import ClassClusterKMean
 from SkyModel.Sky import ModVoronoiToReg
 import time
+import Polygon
 
 
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
@@ -165,7 +166,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         ###########################################
         # SubDivide
-        import Polygon
         def GiveDiam(polygon):
             lPoly,mPoly=polygon.T
             l0=np.max([-RadiusTot,lPoly.min()])
