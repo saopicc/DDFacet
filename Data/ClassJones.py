@@ -297,13 +297,16 @@ class ClassJones():
             self.DtBeamMin=DtBeamMin
             LOFARBeamMode=GD["Beam"]["LOFARBeamMode"]
             print>>log, "  Estimating LOFAR beam model in %s mode every %5.1f min."%(LOFARBeamMode,DtBeamMin)
-            
+            self.GiveInstrumentBeam=self.MS.GiveBeam
+
             RAs=self.ClusterCatBeam.ra
             DECs=self.ClusterCatBeam.dec
             t0=self.DATA["times"][0]
             t1=self.DATA["times"][-1]
             DicoBeam=self.EstimateBeam(t0,t1,RAs,DECs)
             return DicoBeam
+
+
 
     def InitLOFARBeam(self):
         GD=self.GD
@@ -337,7 +340,7 @@ class ClassJones():
             DicoBeam["tm"][itime]=Tm[itime]
             ThisTime=Tm[itime]
 
-            Beam=self.MS.GiveBeam(ThisTime,RA,DEC)
+            Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)
 
             if self.GD["Beam"]["CenterNorm"]==1:
                 Beam0=self.MS.GiveBeam(ThisTime,np.array([rac]),np.array([decc]))
