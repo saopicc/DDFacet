@@ -343,7 +343,7 @@ class ClassJones():
             Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)
 
             if self.GD["Beam"]["CenterNorm"]==1:
-                Beam0=self.MS.GiveBeam(ThisTime,np.array([rac]),np.array([decc]))
+                Beam0=self.GiveInstrumentBeam(ThisTime,np.array([rac]),np.array([decc]))
                 Beam0inv=ModLinAlg.BatchInverse(Beam0)
                 nd,_,_,_,_=Beam.shape
                 Ones=np.ones((nd, 1, 1, 1, 1),np.float32)
