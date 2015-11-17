@@ -326,7 +326,8 @@ class ClassDDEGridMachine():
                  lmShift=(0.,0.),
                  IdSharedMem="",
                  IDFacet=0,
-                 SpheNorm=True):
+                 SpheNorm=True,
+                 NFreqBands=1):
         T=ClassTimeIt.ClassTimeIt("Init_ClassDDEGridMachine")
         T.disable()
         self.GD=GD
@@ -375,8 +376,12 @@ class ClassDDEGridMachine():
             self.PolModeID=1
 
         self.Npix=Npix
-        self.NonPaddedShape=(1,self.npol,self.NonPaddedNpix,self.NonPaddedNpix)
-        self.GridShape=(1,self.npol,self.Npix,self.Npix)
+
+        self.NFreqBands=NFreqBands
+        self.NonPaddedShape=(self.NFreqBands,self.npol,self.NonPaddedNpix,self.NonPaddedNpix)
+        
+
+        self.GridShape=(self.NFreqBands,self.npol,self.Npix,self.Npix)
         x0=(self.Npix-self.NonPaddedNpix)/2#+1
         self.PaddingInnerCoord=(x0,x0+self.NonPaddedNpix)
 
@@ -642,7 +647,7 @@ class ClassDDEGridMachine():
 
         T.timeit("2")
         Grid=np.zeros(self.GridShape,dtype=self.dtype)
-
+        print "GridShape",self.GridShape
         #isleep=0
         #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
 
@@ -826,7 +831,7 @@ class ClassDDEGridMachine():
         import gc
         gc.enable()
         gc.collect()
-        print np.max(Dirty)
+        #print np.max(Dirty)
         return Dirty
 
     def CheckTypes(self,Grid=None,vis=None,uvw=None,flag=None,ListWTerm=None,W=None,A0=None,A1=None,Jones=None):

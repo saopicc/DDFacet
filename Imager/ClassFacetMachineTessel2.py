@@ -690,7 +690,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            FFTW_Wisdom=self.FFTW_Wisdom,
                            DicoImager=self.DicoImager,
                            IdSharedMem=self.IdSharedMem,
-                           ApplyCal=self.ApplyCal)
+                           ApplyCal=self.ApplyCal,
+                           NFreqBands=self.VS.NFreqBands)
             workerlist.append(W)
             workerlist[ii].start()
 
@@ -755,7 +756,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            IdSharedMem=self.IdSharedMem,
                            ApplyCal=self.ApplyCal,
                            SpheNorm=SpheNorm,
-                           PSFMode=PSFMode)
+                           PSFMode=PSFMode,
+                           NFreqBands=self.VS.NFreqBands)
             workerlist.append(W)
             workerlist[ii].start()
 
@@ -839,7 +841,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            DicoImager=self.DicoImager,
                            IdSharedMem=self.IdSharedMem,
                            ApplyCal=self.ApplyCal,
-                           CornersImageTot=self.CornersImageTot)
+                           CornersImageTot=self.CornersImageTot,
+                           NFreqBands=self.VS.NFreqBands)
             workerlist.append(W)
             workerlist[ii].start()
 
@@ -886,7 +889,7 @@ class WorkerImager(multiprocessing.Process):
                  ApplyCal=False,
                  SpheNorm=True,
                  PSFMode=False,
-                 CornersImageTot=None):
+                 CornersImageTot=None,NFreqBands=1):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -903,6 +906,7 @@ class WorkerImager(multiprocessing.Process):
         self.SpheNorm=SpheNorm
         self.PSFMode=PSFMode
         self.CornersImageTot=CornersImageTot
+        self.NFreqBands=NFreqBands
 
 
     def shutdown(self):
@@ -914,7 +918,8 @@ class WorkerImager(multiprocessing.Process):
                                                             self.DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                                                             lmShift=self.DicoImager[iFacet]["lmShift"],
                                                             IdSharedMem=self.IdSharedMem,IDFacet=iFacet,
-                                                            SpheNorm=self.SpheNorm)#,
+                                                            SpheNorm=self.SpheNorm,
+                                                            NFreqBands=self.NFreqBands)
         return GridMachine
         
     def GiveDicoJonesMatrices(self):
