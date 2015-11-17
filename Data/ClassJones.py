@@ -341,7 +341,7 @@ class ClassJones():
             ThisTime=Tm[itime]
 
             Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)
-
+            #
             if self.GD["Beam"]["CenterNorm"]==1:
                 Beam0=self.GiveInstrumentBeam(ThisTime,np.array([rac]),np.array([decc]))
                 Beam0inv=ModLinAlg.BatchInverse(Beam0)
