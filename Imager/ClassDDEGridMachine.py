@@ -639,6 +639,10 @@ class ClassDDEGridMachine():
         if not(self.DoNormWeights):
             self.reinitGrid()
 
+
+        T.timeit("2")
+        Grid=np.zeros(self.GridShape,dtype=self.dtype)
+
         #isleep=0
         #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
 
@@ -690,9 +694,9 @@ class ClassDDEGridMachine():
         #     vis[:,:,0]=1
         #     vis[:,:,3]=1
 
-        T.timeit("2")
 
-        Grid=np.zeros(self.GridShape,dtype=self.dtype)
+
+
         #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
 
         l0,m0=self.lmShift
@@ -796,7 +800,9 @@ class ClassDDEGridMachine():
 
 
         #print "minmax grid=",Grid.min(),Grid.max()
+
         Dirty= self.GridToIm(Grid)
+
         #print "minmax dirty=",Dirty.min(),Dirty.max()
         #Dirty=Grid
         #print Grid.max()
@@ -820,7 +826,7 @@ class ClassDDEGridMachine():
         import gc
         gc.enable()
         gc.collect()
-
+        print np.max(Dirty)
         return Dirty
 
     def CheckTypes(self,Grid=None,vis=None,uvw=None,flag=None,ListWTerm=None,W=None,A0=None,A1=None,Jones=None):

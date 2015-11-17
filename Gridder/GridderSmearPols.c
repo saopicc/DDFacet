@@ -776,7 +776,7 @@ void gridderWPol(PyArrayObject *grid,
       int CFChan = 0;//ChanCFMap[visChan];
       double recipWvl = FreqMean / C;
       double ThisWaveLength=C/FreqMean;
-
+      
       // ############## W-projection ####################
       double wcoord=Wmean;
       int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);
