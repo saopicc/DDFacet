@@ -131,13 +131,25 @@ class ClassVisServer():
 
         print
         self.ListFreqs=[]
-        for MS in self.ListMS:
+        self.DicoMSChanMapping={}
+        for MS,iMS in zip(self.ListMS,range(self.nMS)):
             FreqBand = np.where((self.FreqBandsMin <= np.mean(MS.ChanFreq))&(self.FreqBandsMax >= np.mean(MS.ChanFreq)))[0][0]
             self.FreqBandsInfos[FreqBand]+=MS.ChanFreq.tolist()
             self.ListFreqs+=MS.ChanFreq.tolist()
+
+            nch=MS.ChanFreq.size
+            FreqBandsMin=self.FreqBandsMin.reshape((1,NFreqBands))
+            FreqBandsMax=self.FreqBandsMax.reshape((1,NFreqBands))
+            ThisChanFreq=MS.ChanFreq.reshape((nch,1))
+            Mask=((ThisChanFreq>=FreqBandsMin)&(ThisChanFreq<=FreqBandsMax))
+            ThisMapping=np.argmax(Mask,axis=1)
+            self.DicoMSChanMapping[iMS]=ThisMapping
+
             print MS
             
         self.RefFreq=np.mean(self.ListFreqs)
+
+        stop
 
         MS=self.ListMS[0]
         TimesInt=np.arange(0,MS.DTh,self.TMemChunkSize).tolist()

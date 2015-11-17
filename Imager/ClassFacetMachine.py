@@ -150,7 +150,7 @@ class ClassFacetMachine():
         #print "Append1"; self.IM.CI.E.clear()
         
         self.OutImShape=(self.VS.NFreqBands,self.npol,self.Npix,self.Npix)    
-        
+        stop
         self.DicoImager={}
 
         ChanFreq=self.VS.MS.ChanFreq.flatten()
@@ -689,7 +689,7 @@ class ClassFacetMachine():
                 SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
                 T.timeit("3")
                 for pol in range(npol):
-                    sumweight=ThisSumWeights.reshape((nch,npol,1,1))[Channel, pol, 0, 0]
+                    sumweight=ThisSumWeights[pol]#ThisSumWeights.reshape((nch,npol,1,1))[Channel, pol, 0, 0]
                     
                     if BeamWeightImage:
                         Im=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]*ThisSumJones
@@ -804,7 +804,7 @@ class ClassFacetMachine():
             #     if "GM" in self.DicoGridMachine[iFacet].keys():
             #         self.DicoGridMachine[iFacet]["GM"].reinitGrid() # reinitialise sumWeights
 
-            self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands,self.NChanGrid,self.npol),np.float32)
+            self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands,self.npol),np.float32)
             self.DicoImager[iFacet]["SumJones"]   = np.zeros((self.VS.NFreqBands,2),np.float32)
             
             

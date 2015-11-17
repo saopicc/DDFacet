@@ -647,7 +647,7 @@ class ClassDDEGridMachine():
 
         T.timeit("2")
         Grid=np.zeros(self.GridShape,dtype=self.dtype)
-        print "GridShape",self.GridShape
+
         #isleep=0
         #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
 

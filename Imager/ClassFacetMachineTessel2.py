@@ -60,8 +60,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.CellSizeRad=(Cell/3600.)*np.pi/180.
         rac,decc=MS.radec
         self.MainRaDec=(rac,decc)
-        self.nch=1
-        self.NChanGrid=1
+        self.nch=self.VS.NFreqBands
+        self.NChanGrid=self.nch
         self.SumWeights=np.zeros((self.NChanGrid,self.npol),float)
 
         self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
@@ -718,7 +718,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             
         return True
 
-    def CalcDirtyImagesParallel(self,times,uvwIn,visIn,flag,A0A1,W=None,doStack=True,Channel=0):
+    def CalcDirtyImagesParallel(self,times,uvwIn,visIn,flag,A0A1,W=None,doStack=True):#,Channel=0):
         
         
         NCPU=self.NCPU
@@ -788,8 +788,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
             iFacet=DicoResult["iFacet"]
 
-            self.DicoImager[iFacet]["SumWeights"][Channel]+=DicoResult["Weights"]
-            self.DicoImager[iFacet]["SumJones"][Channel]+=DicoResult["SumJones"]
+            self.DicoImager[iFacet]["SumWeights"]+=DicoResult["Weights"]
+            self.DicoImager[iFacet]["SumJones"]+=DicoResult["SumJones"]
 
             # if iFacet==0:
             #     ThisSumWeights=DicoResult["Weights"]
