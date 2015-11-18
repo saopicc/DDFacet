@@ -695,8 +695,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].start()
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="DeGridding ", HeaderSize=10,TitleSize=13)
+#        pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NFacets))
-        #pBAR.disable()
         iResult=0
         while iResult < NJobs:
             DicoResult=result_queue.get()
@@ -760,7 +760,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].start()
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="  Gridding ", HeaderSize=10,TitleSize=13)
-        #pBAR.disable()
+#        pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
         while iResult < NJobs:

@@ -7,6 +7,8 @@ from DDFacet.Array import NpShared
 import os
 from DDFacet.Array import ModLinAlg
 
+import ClassFITSBeam
+
 class ClassJones():
     def __init__(self,GD,MS,FacetMachine=None,IdSharedMem=""):
         self.GD=GD
@@ -291,22 +293,24 @@ class ClassJones():
 
     def GiveBeam(self):
         GD=self.GD
+        DtBeamMin=GD["Beam"]["DtBeamMin"]
+        self.DtBeamMin=DtBeamMin
         if GD["Beam"]["BeamModel"]=="LOFAR":
             self.InitLOFARBeam()
-            DtBeamMin=GD["Beam"]["DtBeamMin"]
-            self.DtBeamMin=DtBeamMin
             LOFARBeamMode=GD["Beam"]["LOFARBeamMode"]
             print>>log, "  Estimating LOFAR beam model in %s mode every %5.1f min."%(LOFARBeamMode,DtBeamMin)
             self.GiveInstrumentBeam=self.MS.GiveBeam
+        elif GD["Beam"]["BeamModel"]=="FITS":
+            self.FITSBeam = ClassFITSBeam.ClassFITSBeam(self.MS,GD["Beam"])
+            self.GiveInstrumentBeam = self.FITSBeam.evaluateBeam
+            print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
 
-            RAs=self.ClusterCatBeam.ra
-            DECs=self.ClusterCatBeam.dec
-            t0=self.DATA["times"][0]
-            t1=self.DATA["times"][-1]
-            DicoBeam=self.EstimateBeam(t0,t1,RAs,DECs)
-            return DicoBeam
-
-
+        RAs=self.ClusterCatBeam.ra
+        DECs=self.ClusterCatBeam.dec
+        t0=self.DATA["times"][0]
+        t1=self.DATA["times"][-1]
+        DicoBeam=self.EstimateBeam(t0,t1,RAs,DECs)
+        return DicoBeam
 
     def InitLOFARBeam(self):
         GD=self.GD

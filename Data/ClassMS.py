@@ -617,6 +617,19 @@ class ClassMS():
         ta.close()
         T.timeit()
 
+        # get polarizations
+        # This a list of the Stokes enums (as defined in casacore header measures/Stokes.h)
+        # These are referenced by the CORR_TYPE column of the MS POLARIZATION subtable.
+        # E.g. 5,6,7,8 corresponds to RR,RL,LR,LL
+        MS_STOKES_ENUMS = [
+            "Undefined", "I", "Q", "U", "V", "RR", "RL", "LR", "LL", "XX", "XY", "YX", "YY", "RX", "RY", "LX", "LY", "XR", "XL", "YR", "YL", "PP", "PQ", "QP", "QQ", "RCircular", "LCircular", "Linear", "Ptotal", "Plinear", "PFtotal", "PFlinear", "Pangle"
+          ]
+        tp = table(MSname+'/POLARIZATION',ack=False)
+        # get list of corrype enums for first row of polarization table, and convert to strings via MS_STOKES_ENUMS. 
+        # self.CorrelationNames will be a list of strings
+        self.CorrelationNames = [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
+                None for ctype in tp.getcol('CORR_TYPE',0,1)[0] ]
+        # NB: it is possible for the MS to have different polarization
 
         table_all=table(MSname,ack=False)
         self.ColNames=table_all.colnames()
