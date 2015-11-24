@@ -411,10 +411,13 @@ class ClassFacetMachine():
     ############################################################################################
     ############################################################################################
 
-    def setCasaImage(self,ImageName=None):
+    def setCasaImage(self,ImageName=None,Shape=None):
         if ImageName==None:
             ImageName=self.ImageName
-        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,self.OutImShape,self.Cell,self.MainRaDec)
+
+        if Shape==None:
+            Shape=self.OutImShape
+        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec)
 
     def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None):
         # if ImageIn==None:
@@ -432,8 +435,8 @@ class ClassFacetMachine():
         # im.setBeam((0.,0.,0.))
         # im.close()
 
-        if self.CasaImage==None:
-            self.setCasaImage(ImageName=ImageName)
+        #if self.CasaImage==None:
+        self.setCasaImage(ImageName=ImageName,Shape=ImageIn.shape)
 
         self.CasaImage.setdata(ImageIn,CorrT=True)
 
@@ -532,6 +535,7 @@ class ClassFacetMachine():
             DicoImages["SumWeights"][Channel]=self.DicoImager[0]["SumWeights"][Channel]
 
         ImagData=self.FacetsToIm_Channel()
+
         if DoCalcNormData:
             self.NormData=self.FacetsToIm_Channel(BeamWeightImage=True)
 

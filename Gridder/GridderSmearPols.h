@@ -138,22 +138,23 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
 
 
 void gridderWPol(PyArrayObject *np_grid,
-	      PyArrayObject *vis,
-	      PyArrayObject *uvw,
-	      PyArrayObject *flags,
-	      PyArrayObject *weigths,
-	      PyArrayObject *sumwt,
-	      int dopsf,
-	      PyObject *Lcfs,
-	      PyObject *LcfsConj,
-	      PyArrayObject *Winfos,
-	      PyArrayObject *increment,
-	      PyArrayObject *freqs,
-	      PyObject *Lmaps, 
-	      PyObject *LJones,
-	      PyArrayObject *SmearMapping,
+		 PyArrayObject *vis,
+		 PyArrayObject *uvw,
+		 PyArrayObject *flags,
+		 PyArrayObject *weigths,
+		 PyArrayObject *sumwt,
+		 int dopsf,
+		 PyObject *Lcfs,
+		 PyObject *LcfsConj,
+		 PyArrayObject *Winfos,
+		 PyArrayObject *increment,
+		 PyArrayObject *freqs,
+		 PyObject *Lmaps, 
+		 PyObject *LJones,
+		 PyArrayObject *SmearMapping,
 		 PyObject *LOptimisation,
-		 PyObject *LSmear);
+		 PyObject *LSmear,
+		 PyArrayObject *np_ChanMapping);
 
 static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args);
 
@@ -173,7 +174,8 @@ void DeGridderWPol(PyArrayObject *np_grid,
 		   PyObject *LJones,
 		   PyArrayObject *SmearMapping,
 		   PyObject *LOptimisation,
-		 PyObject *LSmear);
+		 PyObject *LSmear,
+		 PyArrayObject *np_ChanMapping);
 
 int FullScalarMode;
 int ScalarJones;

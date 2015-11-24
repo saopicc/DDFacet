@@ -799,10 +799,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             ThisDirty=NpShared.GiveArray(DirtyName)
             #print "minmax facet = %f %f"%(ThisDirty.min(),ThisDirty.max())
 
+
             if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
                 self.DicoGridMachine[iFacet]["Dirty"]+=ThisDirty
             else:
                 self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty
+
+            NCH,_,_,_=ThisDirty.shape
+            #print np.max(self.DicoGridMachine[iFacet]["Dirty"].reshape((NCH,ThisDirty.size/NCH)),axis=1)
 
 
         for ii in range(NCPU):
@@ -987,9 +991,11 @@ class WorkerImager(multiprocessing.Process):
                 # pylab.clf()
                 # pylab.subplot(1,2,1)
                 # pylab.imshow(SpacialWeigth.reshape((Npix,Npix)),vmin=0,vmax=1.1,cmap="gray")
+
                 SpacialWeigth=ModFFTW.ConvolveGaussian(SpacialWeigth,CellSizeRad=1,GaussPars=[GaussPars])
                 SpacialWeigth=SpacialWeigth.reshape((Npix,Npix))
                 SpacialWeigth/=np.max(SpacialWeigth)
+
                 # pylab.subplot(1,2,2)
                 # pylab.imshow(SpacialWeigth,vmin=0,vmax=1.1,cmap="gray")
                 # pylab.draw()
@@ -1020,6 +1026,7 @@ class WorkerImager(multiprocessing.Process):
                 A0A1=A0,A1
                 W=DATA["Weights"]
                 freqs=DATA["freqs"]
+                ChanMapping=DATA["ChanMapping"]
 
                 DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
                 if ('F' in DecorrMode)|("T" in DecorrMode):
@@ -1033,7 +1040,8 @@ class WorkerImager(multiprocessing.Process):
                 Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,
                                       DoNormWeights=False, 
                                       DicoJonesMatrices=DicoJonesMatrices,
-                                      freqs=freqs,DoPSF=self.PSFMode)#,doStack=False)
+                                      freqs=freqs,DoPSF=self.PSFMode,
+                                      ChanMapping=ChanMapping)#,doStack=False)
 
                 DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
                 _=NpShared.ToShared(DirtyName,Dirty)
@@ -1066,6 +1074,8 @@ class WorkerImager(multiprocessing.Process):
                 A0A1=A0,A1
                 W=DATA["Weights"]
                 freqs=DATA["freqs"]
+                ChanMapping=DATA["ChanMappingDegrid"]
+
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
                 #GridSharedMemName="%sModelGrid.Facet_%3.3i"%(self.IdSharedMem,iFacet)
                 #ModelGrid = NpShared.GiveArray(GridSharedMemName)
@@ -1078,7 +1088,8 @@ class WorkerImager(multiprocessing.Process):
                     DT,Dnu=DATA["MSInfos"]
                     GridMachine.setDecorr(uvw_dt,DT,Dnu,SmearMode=DecorrMode)
 
-                vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelGrid,ImToGrid=False,DicoJonesMatrices=DicoJonesMatrices,freqs=freqs,TranformModelInput="FT")
+                vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelGrid,ImToGrid=False,DicoJonesMatrices=DicoJonesMatrices,freqs=freqs,TranformModelInput="FT",
+                                      ChanMapping=ChanMapping)
                 # V=visThis[:,:,0]
                 # f=flagsThis[:,:,0]
                 # V=V[f==0]

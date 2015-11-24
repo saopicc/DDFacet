@@ -381,6 +381,8 @@ class ClassImagerDeconv():
 
             self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)#,Channel=self.VS.CurrentFreqBand)
             
+            
+            
             # Image=self.FacetMachine.FacetsToIm()
             # pylab.clf()
             # pylab.imshow(Image[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
@@ -542,10 +544,11 @@ class ClassImagerDeconv():
                 
                 #visData=DATA["data"]
 
-                ThisMeanFreq=np.mean(DATA["freqs"])
+                ThisMeanFreq=self.VS.CurrentChanMappingDegrid#np.mean(DATA["freqs"])
 
                 ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
-                print>>log, "Model image @%f MHz (min,max) = (%f, %f)"%(ThisMeanFreq/1e6,ModelImage.min(),ModelImage.max())
+
+                print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
 
                 # # stop
                 # # # ModelImage.fill(0)

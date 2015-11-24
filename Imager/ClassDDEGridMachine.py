@@ -634,7 +634,7 @@ class ClassDDEGridMachine():
         return ParamJonesList
 
 
-    def put(self,times,uvw,visIn,flag,A0A1,W=None,PointingID=0,DoNormWeights=True,DicoJonesMatrices=None,freqs=None,DoPSF=0):#,doStack=False):
+    def put(self,times,uvw,visIn,flag,A0A1,W=None,PointingID=0,DoNormWeights=True,DicoJonesMatrices=None,freqs=None,DoPSF=0,ChanMapping=None):#,doStack=False):
         #log=MyLogger.getLogger("ClassImager.addChunk")
         vis=visIn#.copy()
 
@@ -644,6 +644,9 @@ class ClassDDEGridMachine():
         if not(self.DoNormWeights):
             self.reinitGrid()
 
+
+        if ChanMapping==None:
+            ChanMapping=np.zeros((self.GridShape[0],),np.int64)
 
         T.timeit("2")
         Grid=np.zeros(self.GridShape,dtype=self.dtype)
@@ -772,7 +775,7 @@ class ClassDDEGridMachine():
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType,self.PolModeID]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMem))
-
+            #ChanMapping=np.array([1,1,1,1,1],np.int32)
             _pyGridderSmear.pyGridderWPol(Grid,
                                           vis,
                                           uvw,
@@ -789,12 +792,13 @@ class ClassDDEGridMachine():
                                           ParamJonesList,
                                           MapSmear,
                                           OptimisationInfos,
-                                          self.LSmear)
+                                          self.LSmear,
+                                          np.int32(ChanMapping))
         #print "!!!!!!!!!! 1 ",SumWeigths
 
 
-
-
+        NCH,_,_,_=Grid.shape
+        
 
         #return Grid
         T2.timeit("gridder")
@@ -832,6 +836,7 @@ class ClassDDEGridMachine():
         gc.enable()
         gc.collect()
         #print np.max(Dirty)
+        #print np.int32(ChanMapping),np.max(Dirty.reshape((NCH,Dirty.size/NCH)),axis=1)
         return Dirty
 
     def CheckTypes(self,Grid=None,vis=None,uvw=None,flag=None,ListWTerm=None,W=None,A0=None,A1=None,Jones=None):
@@ -880,7 +885,7 @@ class ClassDDEGridMachine():
                 raise NameError("Has to be contiuous")
 
 
-    def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None,ImToGrid=True,TranformModelInput=""):
+    def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None,ImToGrid=True,TranformModelInput="",ChanMapping=None):
         #log=MyLogger.getLogger("ClassImager.addChunk")
         T=ClassTimeIt.ClassTimeIt("get")
         T.disable()
@@ -899,6 +904,9 @@ class ClassDDEGridMachine():
             Grid=self.dtype(self.setModelIm(ModelImage))
         else:
             Grid=ModelImage
+
+        if ChanMapping==None:
+            ChanMapping=np.zeros((self.GridShape[0],),np.int32)
 
         if TranformModelInput=="FT":
             if np.max(np.abs(ModelImage))==0: return vis
@@ -1012,7 +1020,8 @@ class ClassDDEGridMachine():
                                                   ParamJonesList,
                                                   MapSmear,
                                                   OptimisationInfos,
-                                                  self.LSmear)
+                                                  self.LSmear,
+                                                  np.int32(ChanMapping))
             
 
         T.timeit("4 (degrid)")

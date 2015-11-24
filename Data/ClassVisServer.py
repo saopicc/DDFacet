@@ -82,10 +82,12 @@ class ClassVisServer():
 
         self.ListMS=[]
         self.ListGlobalFreqs=[]
+        NChanMax=0
         for MSName in self.ListMSName:
             MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3)) 
             self.ListMS.append(MS)
             self.ListGlobalFreqs+=MS.ChanFreq.flatten().tolist()
+            
             if self.GD["Stores"]["DeleteDDFProducts"]:
                 ThisMSName=reformat.reformat(os.path.abspath(MS.MSName),LastSlash=False)
 
@@ -106,7 +108,7 @@ class ClassVisServer():
 
         self.nMS=len(self.ListMS)
         self.GlobalFreqs=np.array(self.ListGlobalFreqs)
-        self.NFreqBands=np.min([self.GD["MultiFreqs"]["NFreqBands"],self.nMS])
+        self.NFreqBands=np.min([self.GD["MultiFreqs"]["NFreqBands"],len(self.GlobalFreqs)])#self.nMS])
         self.CurrentMS=self.ListMS[0]
         self.iCurrentMS=0
 
@@ -128,13 +130,14 @@ class ClassVisServer():
         for iBand in range(self.NFreqBands):
             self.FreqBandsInfos[iBand]=[]
 
+        self.FreqBandsInfosDegrid={}
 
         print
         self.ListFreqs=[]
         self.DicoMSChanMapping={}
+        self.DicoMSChanMappingDegridding={}
         for MS,iMS in zip(self.ListMS,range(self.nMS)):
             FreqBand = np.where((self.FreqBandsMin <= np.mean(MS.ChanFreq))&(self.FreqBandsMax >= np.mean(MS.ChanFreq)))[0][0]
-            self.FreqBandsInfos[FreqBand]+=MS.ChanFreq.tolist()
             self.ListFreqs+=MS.ChanFreq.tolist()
 
             nch=MS.ChanFreq.size
@@ -144,12 +147,33 @@ class ClassVisServer():
             Mask=((ThisChanFreq>=FreqBandsMin)&(ThisChanFreq<=FreqBandsMax))
             ThisMapping=np.argmax(Mask,axis=1)
             self.DicoMSChanMapping[iMS]=ThisMapping
+            
+            ThisFreqs=MS.ChanFreq.ravel()
+            for iFreqBand in list(set(ThisMapping.tolist())):
+                indChan=np.where(ThisMapping==iFreqBand)[0]
+                self.FreqBandsInfos[FreqBand]+=(ThisFreqs[indChan]).tolist()
+                
+            NChanDegrid=np.min([self.GD["MultiFreqs"]["NChanDegridPerMS"],ThisFreqs.size])
+            ChanDegridding=np.linspace(ThisFreqs.min(),ThisFreqs.max(),NChanDegrid+1)
+            FreqChanDegridding=(ChanDegridding[1::]+ChanDegridding[0:-1])/2.
+            NChanDegrid=FreqChanDegridding.size
+            NChanMS=MS.ChanFreq.size
+            DChan=np.abs(MS.ChanFreq.reshape((NChanMS,1))-FreqChanDegridding.reshape((1,NChanDegrid)))
+            ThisMappingDegrid=np.argmin(DChan,axis=1)
+            self.DicoMSChanMappingDegridding[iMS]=ThisMappingDegrid
 
+            
+            
+            MeanFreqDegrid=np.zeros((NChanDegrid),np.float32)
+            for iFreqBand in range(NChanDegrid):
+                ind=np.where(ThisMappingDegrid==iFreqBand)[0]
+                MeanFreqDegrid[iFreqBand]=np.mean(ThisFreqs[ind])
+            self.FreqBandsInfosDegrid[iMS]=MeanFreqDegrid
             print MS
             
         self.RefFreq=np.mean(self.ListFreqs)
 
-        stop
+        
 
         MS=self.ListMS[0]
         TimesInt=np.arange(0,MS.DTh,self.TMemChunkSize).tolist()
@@ -223,7 +247,7 @@ class ClassVisServer():
         DATA={}
         for key in D.keys():
             if type(D[key])!=np.ndarray: continue
-            if not(key in ['times', 'A1', 'A0', 'flags', 'uvw', 'data',"Weights","uvw_dt", "MSInfos"]):             
+            if not(key in ['times', 'A1', 'A0', 'flags', 'uvw', 'data',"Weights","uvw_dt", "MSInfos","ChanMapping","ChanMappingDegrid"]):             
                 DATA[key]=D[key]
             else:
                 DATA[key]=D[key][:]
@@ -251,7 +275,8 @@ class ClassVisServer():
         for MS in self.ListMS:
             MS.ReinitChunkIter(self.TMemChunkSize)
         self.CurrentMS=self.ListMS[0]
-
+        self.CurrentChanMapping=self.DicoMSChanMapping[0]
+        self.CurrentChanMappingDegrid=self.FreqBandsInfosDegrid[0]
         print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%self.CurrentFreqBand))
 
     def setNextMS(self):
@@ -264,6 +289,9 @@ class ClassVisServer():
             self.CurrentFreqBand=0
             if self.MultiFreqMode:
                 self.CurrentFreqBand = np.where((self.FreqBandsMin <= np.mean(self.CurrentMS.ChanFreq))&(self.FreqBandsMax > np.mean(self.CurrentMS.ChanFreq)))[0][0]
+
+            self.CurrentChanMapping=self.DicoMSChanMapping[self.iCurrentMS]
+            self.CurrentChanMappingDegrid=self.FreqBandsInfosDegrid[self.iCurrentMS]
             print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%(self.CurrentFreqBand)))
             return "OK"
         
@@ -299,7 +327,7 @@ class ClassVisServer():
         nbl=MS.nbl
 
         # ## debug
-        # ind=np.where((A0==49)&(A1==55))[0]
+        # ind=np.where((A0==14)&(A1==31))[0]
         # flags=flags[ind]
         # data=data[ind]
         # A0=A0[ind]
@@ -338,8 +366,15 @@ class ClassVisServer():
 
         
 
+        DATA["ChanMapping"]=self.CurrentChanMapping
+        DATA["ChanMappingDegrid"]=self.DicoMSChanMappingDegridding[self.iCurrentMS]
+        
+        print>>log, "  Channel Mapping Gridding  : %s"%(str(self.CurrentChanMapping))
+        print>>log, "  Channel Mapping DeGridding: %s"%(str(DATA["ChanMappingDegrid"]))
 
-        self.UpdateCompression(DATA)
+        self.UpdateCompression(DATA,
+                               ChanMappingGridding=DATA["ChanMapping"],
+                               ChanMappingDeGridding=self.DicoMSChanMappingDegridding[self.iCurrentMS])
 
 
         JonesMachine=ClassJones.ClassJones(self.GD,self.CurrentMS,self.FacetMachine,IdSharedMem=self.IdSharedMem)
@@ -373,7 +408,9 @@ class ClassVisServer():
                      "ROW0":MS.ROW0,
                      "ROW1":MS.ROW1,
                      "infos":np.array([MS.na]),
-                     "Weights":self.VisWeights[MS.ROW0:MS.ROW1]
+                     "Weights":self.VisWeights[MS.ROW0:MS.ROW1],
+                     "ChanMapping":DATA["ChanMapping"],
+                     "ChanMappingDegrid":DATA["ChanMappingDegrid"]
                      }
         
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
@@ -500,7 +537,7 @@ class ClassVisServer():
         self.FacetShape=sh2
         self.CellSizeRad=cell
 
-    def UpdateCompression(self,DATA):
+    def UpdateCompression(self,DATA,ChanMappingGridding=None,ChanMappingDeGridding=None):
         ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
         if self.GD["Compression"]["CompGridMode"]:
             MapName="%s/Mapping.CompGrid.npy"%ThisMSName
@@ -517,7 +554,7 @@ class ClassVisServer():
 
                 #FinalMapping,fact=SmearMapMachine.BuildSmearMapping(DATA)
                 #stop
-                FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA)
+                FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA,ChanMappingGridding)
 
                 np.save(MapName,FinalMapping)
                 print>>log, ModColor.Str("  Effective compression [Grid]  :   %.2f%%"%fact,col="green")
@@ -536,7 +573,7 @@ class ClassVisServer():
                 FOV=self.CellSizeRad*nx*(np.sqrt(2.)/2.)*180./np.pi
                 SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompDeGridDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
                 #SmearMapMachine.BuildSmearMapping(DATA)
-                FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA)
+                FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA,ChanMappingDeGridding)
                 np.save(MapName,FinalMapping)
                 print>>log, ModColor.Str("  Effective compression [DeGrid]:   %.2f%%"%fact,col="green")
 
