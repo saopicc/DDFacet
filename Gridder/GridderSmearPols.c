@@ -185,6 +185,8 @@ void gridderWPol(PyArrayObject *grid,
     int nd_Jones,na_Jones,nch_Jones,nt_Jones;
 
     PyArrayObject *npJonesMatrices_Beam, *npTimeMappingJonesMatrices_Beam;
+    PyArrayObject *npVisToJonesChanMapping_killMS,*npVisToJonesChanMapping_Beam;
+    int *ptrVisToJonesChanMapping_killMS,*ptrVisToJonesChanMapping_Beam;
     float complex* ptrJonesMatrices_Beam;
     int *ptrTimeMappingJonesMatrices_Beam;
     int nd_Jones_Beam,na_Jones_Beam,nch_Jones_Beam,nt_Jones_Beam;
@@ -211,7 +213,9 @@ void gridderWPol(PyArrayObject *grid,
       DoApplyJones=1;
 
       // (nt,nd,na,1,2,2)
-      npJonesMatrices = (PyArrayObject *) PyList_GetItem(LJones, 0);
+
+      int idList=0;
+      npJonesMatrices = (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
       ptrJonesMatrices=p_complex64(npJonesMatrices);
       nt_Jones=(int)npJonesMatrices->dimensions[0];
       nd_Jones=(int)npJonesMatrices->dimensions[1];
@@ -221,13 +225,13 @@ void gridderWPol(PyArrayObject *grid,
       JonesDims[1]=nd_Jones;
       JonesDims[2]=na_Jones;
       JonesDims[3]=nch_Jones;
-      npTimeMappingJonesMatrices  = (PyArrayObject *) PyList_GetItem(LJones, 1);
+      npTimeMappingJonesMatrices  = (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
       ptrTimeMappingJonesMatrices = p_int32(npTimeMappingJonesMatrices);
       int size_JoneskillMS=JonesDims[0]*JonesDims[1]*JonesDims[2]*JonesDims[3];
       if(size_JoneskillMS!=0){ApplyJones_killMS=1;}
       //printf("%i, %i, %i, %i\n",JonesDims[0],JonesDims[1],JonesDims[2],JonesDims[3]);
 
-      npJonesMatrices_Beam = (PyArrayObject *) PyList_GetItem(LJones, 2);
+      npJonesMatrices_Beam = (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
       ptrJonesMatrices_Beam=p_complex64(npJonesMatrices_Beam);
       nt_Jones_Beam=(int)npJonesMatrices_Beam->dimensions[0];
       nd_Jones_Beam=(int)npJonesMatrices_Beam->dimensions[1];
@@ -237,50 +241,58 @@ void gridderWPol(PyArrayObject *grid,
       JonesDims_Beam[1]=nd_Jones_Beam;
       JonesDims_Beam[2]=na_Jones_Beam;
       JonesDims_Beam[3]=nch_Jones_Beam;
-      npTimeMappingJonesMatrices_Beam  = (PyArrayObject *) PyList_GetItem(LJones, 3);
+      npTimeMappingJonesMatrices_Beam  = (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
       ptrTimeMappingJonesMatrices_Beam = p_int32(npTimeMappingJonesMatrices_Beam);
       int size_JonesBeam=JonesDims_Beam[0]*JonesDims_Beam[1]*JonesDims_Beam[2]*JonesDims_Beam[3];
       if(size_JonesBeam!=0){ApplyJones_Beam=1;}
       //printf("%i, %i, %i, %i\n",JonesDims_Beam[0],JonesDims_Beam[1],JonesDims_Beam[2],JonesDims_Beam[3]);
 
-      npA0 = (PyArrayObject *) PyList_GetItem(LJones, 4);
+      npA0 = (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
       ptrA0 = p_int32(npA0);
       int ifor;
-      npA1= (PyArrayObject *) PyList_GetItem(LJones, 5);
+      npA1= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
       ptrA1=p_int32(npA1);
  
       
 
-      npJonesIDIR= (PyArrayObject *) (PyList_GetItem(LJones, 6));
+      npJonesIDIR= (PyArrayObject *) (PyList_GetItem(LJones, idList)); idList+=1;
       ptrJonesIDIR=p_int32(npJonesIDIR);
       i_dir=ptrJonesIDIR[0];
 
-      npCoefsInterp= (PyArrayObject *) PyList_GetItem(LJones, 7);
+      npCoefsInterp= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
       ptrCoefsInterp=p_float32(npCoefsInterp);
 
-      npJonesIDIR_Beam= (PyArrayObject *) (PyList_GetItem(LJones, 8));
+      npJonesIDIR_Beam= (PyArrayObject *) (PyList_GetItem(LJones, idList)); idList+=1;
       ptrJonesIDIR_Beam=p_int32(npJonesIDIR_Beam);
       i_dir_Beam=ptrJonesIDIR_Beam[0];
 
 
-      npModeInterpolation= (PyArrayObject *) PyList_GetItem(LJones, 9);
+      npModeInterpolation= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
       ptrModeInterpolation=p_int32(npModeInterpolation);
       ModeInterpolation=ptrModeInterpolation[0];
+      
+      
+      npVisToJonesChanMapping_killMS= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
+      ptrVisToJonesChanMapping_killMS=p_int32(npVisToJonesChanMapping_killMS);
+     
+      npVisToJonesChanMapping_Beam= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
+      ptrVisToJonesChanMapping_Beam=p_int32(npVisToJonesChanMapping_Beam);
+     
 
-      PyObject *_FApplyAmp  = PyList_GetItem(LJones, 10);
+      PyObject *_FApplyAmp  = PyList_GetItem(LJones, idList); idList+=1;
       ApplyAmp=(int) PyFloat_AsDouble(_FApplyAmp);
-      PyObject *_FApplyPhase  = PyList_GetItem(LJones, 11);
+      PyObject *_FApplyPhase  = PyList_GetItem(LJones, idList); idList+=1;
       ApplyPhase=(int) PyFloat_AsDouble(_FApplyPhase);
 
-      PyObject *_FDoScaleJones  = PyList_GetItem(LJones, 12);
+      PyObject *_FDoScaleJones  = PyList_GetItem(LJones, idList); idList+=1;
       DoScaleJones=(int) PyFloat_AsDouble(_FDoScaleJones);
-      PyObject *_FCalibError  = PyList_GetItem(LJones, 13);
+      PyObject *_FCalibError  = PyList_GetItem(LJones, idList); idList+=1;
       CalibError=(float) PyFloat_AsDouble(_FCalibError);
       CalibError2=CalibError*CalibError;
 
-      ptrSumJones=p_float64((PyArrayObject *) PyList_GetItem(LJones, 14));
+      ptrSumJones=p_float64((PyArrayObject *) PyList_GetItem(LJones, idList)); idList+=1;
 
-      PyObject *_FReWeightSNR  = PyList_GetItem(LJones, 15);
+      PyObject *_FReWeightSNR  = PyList_GetItem(LJones, idList); idList+=1;
       ReWeightSNR=(float) PyFloat_AsDouble(_FReWeightSNR);
 
 
@@ -522,7 +534,7 @@ void gridderWPol(PyArrayObject *grid,
 	if(DoApplyJones){
 	  i_ant0=ptrA0[irow];
 	  i_ant1=ptrA1[irow];
-
+	  
 	  J0[0]=1;J0[1]=0;J0[2]=0;J0[3]=1;
 	  J1[0]=1;J1[1]=0;J1[2]=0;J1[3]=1;
 	  if(ApplyJones_Beam){
