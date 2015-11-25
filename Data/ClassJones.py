@@ -227,6 +227,9 @@ class ClassJones():
         for DicoJones1 in ListDicoSols[1::]:
             DicoJones=self.MergeJones(DicoJones1,DicoJones)
 
+
+        DicoJones["VisToJonesChanMapping"]=np.zeros((self.MS.NSPWChan,),np.int32)
+
         return DicoClusterDirs,DicoJones
 
     def GiveKillMSSols_SingleFile(self,SolsFile,JonesMode="AP",GlobalMode=""):

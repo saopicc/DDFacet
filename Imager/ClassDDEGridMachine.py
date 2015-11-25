@@ -918,6 +918,8 @@ class ClassDDEGridMachine():
         if ChanMapping==None:
             ChanMapping=np.zeros((self.GridShape[0],),np.int32)
 
+        print ChanMapping
+
         if TranformModelInput=="FT":
             if np.max(np.abs(ModelImage))==0: return vis
             Grid=self.FT(ModelImage)
@@ -984,10 +986,15 @@ class ClassDDEGridMachine():
             if self.GD["DDESolutions"]["ScaleAmpDeGrid"]:
                 ScaleAmplitude=1
                 CalibError=(self.GD["DDESolutions"]["CalibErr"]/3600.)*np.pi/180
-            LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
-            ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
-            ParamJonesList=ParamJonesList+LApplySol
 
+            # LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
+            # ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
+            # ParamJonesList=ParamJonesList+LApplySol
+
+            LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
+            LSumJones=[self.SumJones]
+            ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
+            ParamJonesList=ParamJonesList+LApplySol+LSumJones+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
         if type(freqs)==type(None):
             freqs=np.float64(self.ChanFreq)

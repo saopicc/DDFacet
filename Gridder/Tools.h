@@ -1,2 +1,3 @@
 
-inline float GiveFreqStep();
+//inline float GiveFreqStep();
+float GiveFreqStep();

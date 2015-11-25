@@ -151,8 +151,8 @@ class ClassVisServer():
             ThisFreqs=MS.ChanFreq.ravel()
             for iFreqBand in list(set(ThisMapping.tolist())):
                 indChan=np.where(ThisMapping==iFreqBand)[0]
-                self.FreqBandsInfos[FreqBand]+=(ThisFreqs[indChan]).tolist()
-                
+                self.FreqBandsInfos[iFreqBand]+=(ThisFreqs[indChan]).tolist()
+            
             NChanDegrid=np.min([self.GD["MultiFreqs"]["NChanDegridPerMS"],ThisFreqs.size])
             ChanDegridding=np.linspace(ThisFreqs.min(),ThisFreqs.max(),NChanDegrid+1)
             FreqChanDegridding=(ChanDegridding[1::]+ChanDegridding[0:-1])/2.
