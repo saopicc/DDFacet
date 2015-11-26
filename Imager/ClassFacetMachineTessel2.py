@@ -930,8 +930,8 @@ class WorkerImager(multiprocessing.Process):
         
     def GiveDicoJonesMatrices(self):
         DicoJonesMatrices=None
-        if self.PSFMode:
-            return None
+        #if self.PSFMode:
+        #    return None
 
         if self.ApplyCal:
             DicoJonesMatrices={}
