@@ -325,6 +325,7 @@ class ClassDDEGridMachine():
                  Npix,
                  lmShift=(0.,0.),
                  IdSharedMem="",
+                 IdSharedMemData="",
                  IDFacet=0,
                  SpheNorm=True,
                  NFreqBands=1):
@@ -335,6 +336,7 @@ class ClassDDEGridMachine():
         self.SpheNorm=SpheNorm
 
         self.IdSharedMem=IdSharedMem
+        self.IdSharedMemData=IdSharedMemData
 
         #self.DoPSF=DoPSF
         self.DoPSF=False
@@ -785,8 +787,8 @@ class ClassDDEGridMachine():
         else:
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType,self.PolModeID]
-            MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMem))
-            #ChanMapping=np.array([1,1,1,1,1],np.int32)
+            MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMemData))
+
             _pyGridderSmear.pyGridderWPol(Grid,
                                           vis,
                                           uvw,
@@ -1021,7 +1023,7 @@ class ClassDDEGridMachine():
 
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType,self.PolModeID]
-            MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMem))
+            MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMemData))
 
             vis = _pyGridderSmear.pyDeGridderWPol(Grid,
                                                   vis,
