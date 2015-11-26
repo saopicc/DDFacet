@@ -109,7 +109,7 @@ class ClassImToGrid():
 
         return Grid,SumFlux
 
-    def GiveModelTessel(self,Image,DicoImager,iFacet,NormIm,Sphe,SpacialWeight,ToGrid=False):
+    def GiveModelTessel(self,Image,DicoImager,iFacet,NormIm,Sphe,SpacialWeight,ToGrid=False,ChanSel=None):
         nch,npol,NPixOut,_=Image.shape
         N1=DicoImager[iFacet]["NpixFacetPadded"]
         N1NonPadded=DicoImager[iFacet]["NpixFacetPadded"]
@@ -131,7 +131,13 @@ class ClassImToGrid():
         
         T=ClassTimeIt.ClassTimeIt("ClassImToGrid")
         T.disable()
-        for ch in range(nch):
+
+        if ChanSel==None:
+            CSel=range(nch)
+        else:
+            CSel=ChanSel
+
+        for ch in CSel:
             for pol in range(npol):
                 #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].T[::-1,:].real[x0d:x1d,y0d:y1d]
                 #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].real[x0d:x1d,y0d:y1d]
@@ -191,7 +197,7 @@ class ClassImToGrid():
 
         if ToGrid:
             SumFlux=np.sum(ModelIm)
-            Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm)))
+            Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm),ChanList=CSel))
             #Grid=ModelIm
             
             return Grid,SumFlux

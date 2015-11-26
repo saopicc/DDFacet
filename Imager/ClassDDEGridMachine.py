@@ -327,7 +327,8 @@ class ClassDDEGridMachine():
                  IdSharedMem="",
                  IdSharedMemData="",
                  IDFacet=0,
-                 SpheNorm=True):
+                 SpheNorm=True,
+                 NFreqBands=1):
         T=ClassTimeIt.ClassTimeIt("Init_ClassDDEGridMachine")
         T.disable()
         self.GD=GD
@@ -377,8 +378,12 @@ class ClassDDEGridMachine():
             self.PolModeID=1
 
         self.Npix=Npix
-        self.NonPaddedShape=(1,self.npol,self.NonPaddedNpix,self.NonPaddedNpix)
-        self.GridShape=(1,self.npol,self.Npix,self.Npix)
+
+        self.NFreqBands=NFreqBands
+        self.NonPaddedShape=(self.NFreqBands,self.npol,self.NonPaddedNpix,self.NonPaddedNpix)
+        
+
+        self.GridShape=(self.NFreqBands,self.npol,self.Npix,self.Npix)
         x0=(self.Npix-self.NonPaddedNpix)/2#+1
         self.PaddingInnerCoord=(x0,x0+self.NonPaddedNpix)
 
@@ -604,18 +609,26 @@ class ClassDDEGridMachine():
 
         JonesMatrices_Beam=np.array([],np.complex64).reshape((0,0,0,0))
         MapJones_Beam=np.array([],np.int32).reshape((0,))
+        VisToJonesChanMapping_Beam=np.array([],np.int32).reshape((0,))
+
         JonesMatrices_killMS=np.array([],np.complex64).reshape((0,0,0,0))
         MapJones_killMS=np.array([],np.int32).reshape((0,))
+        VisToJonesChanMapping_killMS=np.array([],np.int32).reshape((0,))
 
         if Apply_Beam:
             JonesMatrices_Beam=DicoJonesMatrices["DicoJones_Beam"]["Jones"]
             MapJones_Beam=DicoJonesMatrices["DicoJones_Beam"]["MapJones"]
+            VisToJonesChanMapping_Beam=np.int32(DicoJonesMatrices["DicoJones_Beam"]["VisToJonesChanMapping"])
             self.CheckTypes(A0=A0,A1=A1,Jones=JonesMatrices_Beam)
 
         if Apply_killMS:
             JonesMatrices_killMS=DicoJonesMatrices["DicoJones_killMS"]["Jones"]
             MapJones_killMS=DicoJonesMatrices["DicoJones_killMS"]["MapJones"]
+            VisToJonesChanMapping_killMS=np.int32(DicoJonesMatrices["DicoJones_killMS"]["VisToJonesChanMapping"])
             self.CheckTypes(A0=A0,A1=A1,Jones=JonesMatrices_killMS)
+
+        #print JonesMatrices_Beam.shape,VisToJonesChanMapping_Beam
+
 
         ParamJonesList=[JonesMatrices_killMS,
                         MapJones_killMS,
@@ -626,12 +639,14 @@ class ClassDDEGridMachine():
                         np.array([idir_kMS],np.int32),
                         np.float32(w_kMS),
                         np.array([idir_Beam],np.int32),
-                        np.array([InterpMode],np.int32)]
+                        np.array([InterpMode],np.int32),
+                        VisToJonesChanMapping_killMS,
+                        VisToJonesChanMapping_Beam]
         
         return ParamJonesList
 
 
-    def put(self,times,uvw,visIn,flag,A0A1,W=None,PointingID=0,DoNormWeights=True,DicoJonesMatrices=None,freqs=None,DoPSF=0):#,doStack=False):
+    def put(self,times,uvw,visIn,flag,A0A1,W=None,PointingID=0,DoNormWeights=True,DicoJonesMatrices=None,freqs=None,DoPSF=0,ChanMapping=None):#,doStack=False):
         #log=MyLogger.getLogger("ClassImager.addChunk")
         vis=visIn#.copy()
 
@@ -640,6 +655,14 @@ class ClassDDEGridMachine():
         self.DoNormWeights=DoNormWeights
         if not(self.DoNormWeights):
             self.reinitGrid()
+
+
+        if ChanMapping==None:
+            ChanMapping=np.zeros((self.GridShape[0],),np.int64)
+        self.ChanMappingGrid=ChanMapping
+
+        T.timeit("2")
+        Grid=np.zeros(self.GridShape,dtype=self.dtype)
 
         #isleep=0
         #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
@@ -692,9 +715,9 @@ class ClassDDEGridMachine():
         #     vis[:,:,0]=1
         #     vis[:,:,3]=1
 
-        T.timeit("2")
 
-        Grid=np.zeros(self.GridShape,dtype=self.dtype)
+
+
         #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
 
         l0,m0=self.lmShift
@@ -782,12 +805,13 @@ class ClassDDEGridMachine():
                                           ParamJonesList,
                                           MapSmear,
                                           OptimisationInfos,
-                                          self.LSmear)
+                                          self.LSmear,
+                                          np.int32(ChanMapping))
         #print "!!!!!!!!!! 1 ",SumWeigths
 
 
-
-
+        NCH,_,_,_=Grid.shape
+        
 
         #return Grid
         T2.timeit("gridder")
@@ -798,7 +822,9 @@ class ClassDDEGridMachine():
 
 
         #print "minmax grid=",Grid.min(),Grid.max()
+
         Dirty= self.GridToIm(Grid)
+
         #print "minmax dirty=",Dirty.min(),Dirty.max()
         #Dirty=Grid
         #print Grid.max()
@@ -822,7 +848,8 @@ class ClassDDEGridMachine():
         import gc
         gc.enable()
         gc.collect()
-
+        #print np.max(Dirty)
+        #print np.int32(ChanMapping),np.max(Dirty.reshape((NCH,Dirty.size/NCH)),axis=1)
         return Dirty
 
     def CheckTypes(self,Grid=None,vis=None,uvw=None,flag=None,ListWTerm=None,W=None,A0=None,A1=None,Jones=None):
@@ -871,7 +898,7 @@ class ClassDDEGridMachine():
                 raise NameError("Has to be contiuous")
 
 
-    def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None,ImToGrid=True,TranformModelInput=""):
+    def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None,ImToGrid=True,TranformModelInput="",ChanMapping=None):
         #log=MyLogger.getLogger("ClassImager.addChunk")
         T=ClassTimeIt.ClassTimeIt("get")
         T.disable()
@@ -890,6 +917,11 @@ class ClassDDEGridMachine():
             Grid=self.dtype(self.setModelIm(ModelImage))
         else:
             Grid=ModelImage
+
+        if ChanMapping==None:
+            ChanMapping=np.zeros((self.GridShape[0],),np.int32)
+
+        self.ChanMappingDegrid=ChanMapping
 
         if TranformModelInput=="FT":
             if np.max(np.abs(ModelImage))==0: return vis
@@ -957,10 +989,15 @@ class ClassDDEGridMachine():
             if self.GD["DDESolutions"]["ScaleAmpDeGrid"]:
                 ScaleAmplitude=1
                 CalibError=(self.GD["DDESolutions"]["CalibErr"]/3600.)*np.pi/180
-            LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
-            ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
-            ParamJonesList=ParamJonesList+LApplySol
 
+            # LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
+            # ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
+            # ParamJonesList=ParamJonesList+LApplySol
+
+            LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
+            LSumJones=[self.SumJones]
+            ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
+            ParamJonesList=ParamJonesList+LApplySol+LSumJones+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
         if type(freqs)==type(None):
             freqs=np.float64(self.ChanFreq)
@@ -1003,7 +1040,8 @@ class ClassDDEGridMachine():
                                                   ParamJonesList,
                                                   MapSmear,
                                                   OptimisationInfos,
-                                                  self.LSmear)
+                                                  self.LSmear,
+                                                  np.int32(ChanMapping))
             
 
         T.timeit("4 (degrid)")
@@ -1071,18 +1109,21 @@ class ClassDDEGridMachine():
         T=ClassTimeIt.ClassTimeIt("GridToIm")
         T.disable()
 
+        LDoChans=sorted(list(set(self.ChanMappingGrid.tolist())))
+
         if self.DoNormWeights:
             Grid/=self.SumWeigths.reshape((self.NChan,npol,1,1))
 
         Grid*=(self.WTerm.OverS)**2
         T.timeit("norm")
-        Dirty=np.real(self.FFTWMachine.ifft(Grid))
+        Dirty=np.real(self.FFTWMachine.ifft(Grid,ChanList=LDoChans))
         nchan,npol,_,_=Grid.shape
         del(Grid)
         #Dirty=GridCorr
         T.timeit("fft")
 
-        for ichan in range(nchan):
+
+        for ichan in LDoChans:#range(nchan):
             for ipol in range(npol):
                 #Dirty[ichan,ipol][:,:]=Dirty[ichan,ipol][:,:]#.real
                 if self.SpheNorm:

@@ -99,16 +99,24 @@ class ClassModelMachine():
         alpha[Mask]=(np.log(M0[Mask])-np.log(M1[Mask]))/(np.log(f0/f1))
         return alpha
 
-    def GiveModelImage(self,Freq=None):
+    def GiveModelImage(self,FreqIn=None):
 
         RefFreq=self.DicoSMStacked["RefFreq"]
-        if Freq==None:
-            Freq=RefFreq
+        if FreqIn==None:
+            FreqIn=np.array([RefFreq])
+
+        #if type(FreqIn)==float:
+        #    FreqIn=np.array([FreqIn]).flatten()
+        #if type(FreqIn)==np.ndarray:
+
+        FreqIn=np.array([FreqIn.ravel()]).flatten()
 
         DicoComp=self.DicoSMStacked["Comp"]
         _,npol,nx,ny=self.ModelShape
         N0=nx
-        ModelImage=np.zeros((1,npol,nx,ny),dtype=np.float32)
+
+        nchan=FreqIn.size
+        ModelImage=np.zeros((nchan,npol,nx,ny),dtype=np.float32)
         DicoSM={}
         for key in DicoComp.keys():
             Sol=DicoComp[key]["SolsArray"]#/self.DicoSMStacked[key]["SumWeights"]
@@ -119,24 +127,25 @@ class ClassModelMachine():
             for iFunc in range(Sol.size):
                 ThisComp=self.ListScales[iFunc]
                 ThisAlpha=ThisComp["Alpha"]
-                Flux=Sol[iFunc]*(Freq/RefFreq)**(ThisAlpha)
-                if ThisComp["ModelType"]=="Delta":
-                    for pol in range(npol):
-                       ModelImage[0,pol,x,y]+=Flux
+                for ch in range(nchan):
+                    Flux=Sol[iFunc]*(FreqIn[ch]/RefFreq)**(ThisAlpha)
+                    if ThisComp["ModelType"]=="Delta":
+                        for pol in range(npol):
+                            ModelImage[ch,pol,x,y]+=Flux
                 
-                elif ThisComp["ModelType"]=="Gaussian":
-                    Gauss=ThisComp["Model"]
-                    Sup,_=Gauss.shape
-                    x0,x1=x-Sup/2,x+Sup/2+1
-                    y0,y1=y-Sup/2,y+Sup/2+1
-                
-                
-                    Aedge,Bedge=GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
-                    x0d,x1d,y0d,y1d=Aedge
-                    x0p,x1p,y0p,y1p=Bedge
-                
-                    for pol in range(npol):
-                        ModelImage[0,pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Flux
+                    elif ThisComp["ModelType"]=="Gaussian":
+                        Gauss=ThisComp["Model"]
+                        Sup,_=Gauss.shape
+                        x0,x1=x-Sup/2,x+Sup/2+1
+                        y0,y1=y-Sup/2,y+Sup/2+1
+                        
+                        
+                        Aedge,Bedge=GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
+                        x0d,x1d,y0d,y1d=Aedge
+                        x0p,x1p,y0p,y1p=Bedge
+                        
+                        for pol in range(npol):
+                            ModelImage[ch,pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Flux
         
         # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
         # vmin,vmax=-1,1

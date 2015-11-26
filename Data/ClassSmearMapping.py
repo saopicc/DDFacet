@@ -83,7 +83,7 @@ class ClassSmearMapping():
         NpShared.DelAll("%sSmearMapping"%self.IdSharedMem)
 
 
-    def BuildSmearMappingParallel(self,DATA):
+    def BuildSmearMappingParallel(self,DATA,GridChanMapping):
         print>>log, "Build decorrelation mapping ..."
 
         flags=DATA["flags"]
@@ -91,6 +91,7 @@ class ClassSmearMapping():
         data=DATA["data"]
         A0=DATA["A0"]
         A1=DATA["A1"]
+        #GridChanMapping=DATA["ChanMapping"]
 
         # ind=np.where((A0==0))[0]#[0:36*10]
         # uvw=uvw[ind]
@@ -145,7 +146,7 @@ class ClassSmearMapping():
                         result_queue,
                         self.IdSharedMem,
                         InfoSmearMapping,
-                        ii)
+                        ii,GridChanMapping)
             workerlist.append(W)
             workerlist[ii].start()
 
@@ -246,7 +247,7 @@ class ClassSmearMapping():
 
 
 
-def GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,IdSharedMem):
+def GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,IdSharedMem,GridChanMapping):
     DicoSmearMapping=NpShared.SharedToDico("%sSmearMapping"%IdSharedMem)
 
     A0=DicoSmearMapping["A0"]
@@ -303,7 +304,32 @@ def GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,IdSharedMem):
             if not((NChan) in ch): ch.append((NChan))
             NChBlocks=len(ch)
             ChBlock=np.int32(np.linspace(0,NChan,NChBlocks))
-            
+
+            # See if change in Grid ChannelMapping
+            # GridChanMapping=np.array([0,0,0,1,1],np.int32)
+
+            ChBlock_rampe=np.zeros((NChan,),np.int32)
+            for iChBlock in range(ChBlock.size-1):
+                ch0=ChBlock[iChBlock]
+                ch1=ChBlock[iChBlock+1]
+                ChBlock_rampe[ch0:ch1]=iChBlock
+
+            CH=(-1,-1)
+            ChBlock_Cut_ChanGridMapping=[]
+            for iCh in range(NChan):
+                CH0=ChBlock_rampe[iCh]
+                CH1=GridChanMapping[iCh]
+                CH_N=(CH0,CH1)
+                if CH_N!=CH:
+                    ChBlock_Cut_ChanGridMapping.append(iCh)
+                CH=CH_N
+            if not((ChBlock[-1]) in ChBlock_Cut_ChanGridMapping): ChBlock_Cut_ChanGridMapping.append(ChBlock[-1])
+            # print "%s -> %s"%(str(ChBlock),str(np.array(ChBlock_Cut_ChanGridMapping,np.int32)))
+
+
+            ChBlock=np.array(ChBlock_Cut_ChanGridMapping,np.int32)
+
+            # ########################
             for iChBlock in range(ChBlock.size-1):
                 ch0=ChBlock[iChBlock]
                 ch1=ChBlock[iChBlock+1]
@@ -327,7 +353,7 @@ class WorkerMap(multiprocessing.Process):
                  result_queue,
                  IdSharedMem,
                  InfoSmearMapping,
-                 IdWorker):
+                 IdWorker,GridChanMapping):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -338,6 +364,7 @@ class WorkerMap(multiprocessing.Process):
         self.InfoSmearMapping=InfoSmearMapping
         self.IdWorker=IdWorker
         self.AppendId=0
+        self.GridChanMapping=GridChanMapping
 
     def shutdown(self):
         self.exit.set()
@@ -352,7 +379,7 @@ class WorkerMap(multiprocessing.Process):
             except:
                 break
 
-            rep=GiveBlocksRowsListBL(a0,a1,self.InfoSmearMapping,self.IdSharedMem)
+            rep=GiveBlocksRowsListBL(a0,a1,self.InfoSmearMapping,self.IdSharedMem,self.GridChanMapping)
 
             if rep!=None:
                 ThisWorkerMapName="%sBlocksRowsList.Worker_%3.3i"%(self.IdSharedMem,self.IdWorker)

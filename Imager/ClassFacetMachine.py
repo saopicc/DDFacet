@@ -49,8 +49,12 @@ class ClassFacetMachine():
         self.ApplyCal=ApplyCal
         if Precision=="S":
             self.dtype=np.complex64
+            self.CType=np.complex64
+            self.FType=np.float32
         elif Precision=="D":
             self.dtype=np.complex128
+            self.CType=np.complex128
+            self.FType=np.float64
         self.DoDDE=False
         if Sols!=None:
             self.setSols(Sols)
@@ -126,25 +130,23 @@ class ClassFacetMachine():
         self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
 
         _,NpixPaddedGrid=EstimateNpix(NpixFacet,Padding=Padding)
-        self.NChanGrid=1
+
         self.NpixPaddedFacet=NpixPaddedGrid
-        self.PaddedGridShape=(self.NChanGrid,self.npol,NpixPaddedGrid,NpixPaddedGrid)
+        self.PaddedGridShape=(self.VS.NFreqBands,self.npol,NpixPaddedGrid,NpixPaddedGrid)
         print>>log,"Sizes (%i x %i facets):"%(NFacets,NFacets)
         print>>log,"   - Main field :   [%i x %i] pix"%(self.Npix,self.Npix)
         print>>log,"   - Each facet :   [%i x %i] pix"%(NpixFacet,NpixFacet)
         print>>log,"   - Padded-facet : [%i x %i] pix"%(NpixPaddedGrid,NpixPaddedGrid)
         
         #self.setWisdom()
-        self.SumWeights=np.zeros((self.NChanGrid,self.npol),float)
-
-        self.nch=1
+        self.SumWeights=np.zeros((self.VS.NFreqBands,self.npol),float)
 
         self.NFacets=NFacets
         lrad=Npix*(Cell/3600.)*0.5*np.pi/180.
         self.ImageExtent=[-lrad,lrad,-lrad,lrad]
         lfacet=NpixFacet*(Cell/3600.)*0.5*np.pi/180.
         self.NpixFacet=NpixFacet
-        self.FacetShape=(self.nch,self.npol,NpixFacet,NpixFacet)
+        self.FacetShape=(self.VS.NFreqBands,self.npol,NpixFacet,NpixFacet)
         lcenter_max=lrad-lfacet
         lFacet,mFacet,=np.mgrid[-lcenter_max:lcenter_max:(NFacets)*1j,-lcenter_max:lcenter_max:(NFacets)*1j]
         lFacet=lFacet.flatten()
@@ -157,8 +159,8 @@ class ClassFacetMachine():
 
         #print "Append1"; self.IM.CI.E.clear()
         
-        self.OutImShape=(self.nch,self.npol,self.Npix,self.Npix)    
-        
+        self.OutImShape=(self.VS.NFreqBands,self.npol,self.Npix,self.Npix)    
+        stop
         self.DicoImager={}
 
         ChanFreq=self.VS.MS.ChanFreq.flatten()
@@ -422,10 +424,13 @@ class ClassFacetMachine():
     ############################################################################################
     ############################################################################################
 
-    def setCasaImage(self,ImageName=None):
+    def setCasaImage(self,ImageName=None,Shape=None):
         if ImageName==None:
             ImageName=self.ImageName
-        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,self.OutImShape,self.Cell,self.MainRaDec)
+
+        if Shape==None:
+            Shape=self.OutImShape
+        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec)
 
     def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None):
         # if ImageIn==None:
@@ -443,8 +448,8 @@ class ClassFacetMachine():
         # im.setBeam((0.,0.,0.))
         # im.close()
 
-        if self.CasaImage==None:
-            self.setCasaImage(ImageName=ImageName)
+        #if self.CasaImage==None:
+        self.setCasaImage(ImageName=ImageName,Shape=ImageIn.shape)
 
         self.CasaImage.setdata(ImageIn,CorrT=True)
 
@@ -541,36 +546,15 @@ class ClassFacetMachine():
         for Channel in range(self.VS.NFreqBands):
             DicoImages["freqs"][Channel]=self.VS.FreqBandsInfos[Channel]
             DicoImages["SumWeights"][Channel]=self.DicoImager[0]["SumWeights"][Channel]
-            ImagData[Channel]=self.FacetsToIm_Channel(Channel=Channel)[0]
-            if DoCalcNormData:
-                self.NormData[Channel]=self.FacetsToIm_Channel(Channel=Channel,BeamWeightImage=True)[0]
+
+        ImagData=self.FacetsToIm_Channel()
+
+        if DoCalcNormData:
+            self.NormData=self.FacetsToIm_Channel(BeamWeightImage=True)
 
         T.timeit("2")
                 
-        # if self.VS.MultiFreqMode:
-        #     DicoImages["SumWeights"]={}
-        #     for Channel in range(self.VS.NFreqBands):
-        #         DicoImages["freqs"][Channel]=self.VS.FreqBandsInfos[Channel]
-        #         DicoImages["SumWeights"][Channel]=self.DicoImager[0]["SumWeights"][Channel]
-        #         if NormJones:
-        #             ImagData[Channel]=self.FacetsToIm_Channel(Channel=Channel)[0]
-        #             NormData[Channel]=self.FacetsToIm_Channel(Channel=Channel,BeamWeightImage=True)[0]
-        #         else:
-        #             ImagData[Channel] = self.FacetsToIm_Channel(Channel=Channel)[0]
-        # else:
-        #     Channel=0
-        #     DicoImages["freqs"][Channel]=self.VS.FreqBandsInfos[Channel]
-        #     if NormJones:
-        #         ImagData[Channel] = self.FacetsToIm_Channel(Channel=0)
-        #         NormData[Channel] = self.FacetsToIm_Channel(Channel=0,BeamWeightImage=True)
-        #     else:
-        #         ImagData[Channel] = self.FacetsToIm_Channel(Channel=0)
-        #     DicoImages["MeanImage"]=ImagData
-                
         if NormJones: 
-            
-            #self.NormData.fill(1)
-            #ImagData/=(self.NormData)
             ImagData/=np.sqrt(self.NormData)
 
         T.timeit("3")
@@ -594,18 +578,17 @@ class ClassFacetMachine():
             self.DicoPSF={}
             for iFacet in self.DicoGridMachine.keys():
                 self.DicoPSF[iFacet]={}
-                self.DicoPSF[iFacet]["PSF"]=self.DicoGridMachine[iFacet]["Dirty"]
+                self.DicoPSF[iFacet]["PSF"]=(self.DicoGridMachine[iFacet]["Dirty"]).copy()
                 self.DicoPSF[iFacet]["l0m0"]=self.DicoImager[iFacet]["l0m0"]
                 self.DicoPSF[iFacet]["pixCentral"]=self.DicoImager[iFacet]["pixCentral"]
 
-                nch=len(self.DicoPSF[iFacet]["PSF"])
-                _,npol,n,n=self.DicoPSF[iFacet]["PSF"][0].shape
+                nch,npol,n,n=self.DicoPSF[iFacet]["PSF"].shape
                 PSFChannel=np.zeros((nch,npol,n,n),np.float32)
                 for ch in range(nch):
-                    self.DicoPSF[iFacet]["PSF"][ch][0,0]=self.DicoPSF[iFacet]["PSF"][ch][0,0].T[::-1,:]
+                    self.DicoPSF[iFacet]["PSF"][ch][0]=self.DicoPSF[iFacet]["PSF"][ch][0].T[::-1,:]
                     self.DicoPSF[iFacet]["PSF"][ch]/=np.max(self.DicoPSF[iFacet]["PSF"][ch])
-                    PSFChannel[ch,:,:,:]=self.DicoPSF[iFacet]["PSF"][ch][0,:,:,:]
-                    
+                    PSFChannel[ch,:,:,:]=self.DicoPSF[iFacet]["PSF"][ch][:,:,:]
+
                 W=DicoImages["WeightChansImages"]
                 W=np.float32(W.reshape((self.VS.NFreqBands,1,1,1)))
                 
@@ -618,18 +601,18 @@ class ClassFacetMachine():
             NFacets=len(DicoVariablePSF.keys())
             NPixMin=1e6
             for iFacet in sorted(DicoVariablePSF.keys()):
-                _,npol,n,n=DicoVariablePSF[iFacet]["PSF"][0].shape
+                _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
                 if n<NPixMin: NPixMin=n
 
             nch=self.GD["MultiFreqs"]["NFreqBands"]
             CubeVariablePSF=np.zeros((NFacets,nch,npol,NPixMin,NPixMin),np.float32)
             CubeMeanVariablePSF=np.zeros((NFacets,1,npol,NPixMin,NPixMin),np.float32)
             for iFacet in sorted(DicoVariablePSF.keys()):
-                _,npol,n,n=DicoVariablePSF[iFacet]["PSF"][0].shape
+                _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
                 for ch in range(nch):
                     i=n/2-NPixMin/2
                     j=n/2+NPixMin/2+1
-                    CubeVariablePSF[iFacet,ch,:,:,:]=DicoVariablePSF[iFacet]["PSF"][ch][0,:,i:j,i:j]
+                    CubeVariablePSF[iFacet,ch,:,:,:]=DicoVariablePSF[iFacet]["PSF"][ch][:,i:j,i:j]
                 CubeMeanVariablePSF[iFacet,0,:,:,:]=DicoVariablePSF[iFacet]["MeanPSF"][0,:,i:j,i:j]
 
             self.DicoPSF["CubeVariablePSF"]=CubeVariablePSF
@@ -638,36 +621,16 @@ class ClassFacetMachine():
 
         T.timeit("5")
 
-        for iFacet in self.DicoImager.keys():
-            del(self.DicoGridMachine[iFacet]["Dirty"])
-            DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
-            _=NpShared.DelArray(DirtyName)
+        # for iFacet in self.DicoImager.keys():
+        #     del(self.DicoGridMachine[iFacet]["Dirty"])
+        #     DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
+        #     _=NpShared.DelArray(DirtyName)
 
 
 
         return DicoImages
 
 
-
-            #self.BeamNormChannelImage[Channel] = self.NormImage.copy()
-            #self.BeamNormChannelImage[Channel] = self.Im.copy()
-            
-        # pylab.clf()
-        # pylab.subplot(2,2,1)
-        # pylab.imshow(ChannelImage[0][0,0],interpolation="nearest")
-        # pylab.subplot(2,2,2)
-        # pylab.imshow(BeamNormChannelImage[0][0,0],interpolation="nearest")
-        # #pylab.imshow(self.BeamNormChannelImage[0],interpolation="nearest")
-        # pylab.colorbar()
-        # pylab.subplot(2,2,3)
-        # pylab.imshow(ChannelImage[1][0,0],interpolation="nearest")
-        # pylab.subplot(2,2,4)
-        # pylab.imshow(BeamNormChannelImage[1][0,0],interpolation="nearest")
-        # #pylab.imshow(self.BeamNormChannelImage[1],interpolation="nearest")
-        # pylab.colorbar()
-        # pylab.draw()
-        # pylab.show(False)
-        # stop
         
         
     def BuildFacetNormImage(self):
@@ -695,183 +658,76 @@ class ClassFacetMachine():
             NormImage[x0d:x1d,y0d:y1d]+=SW#Sphe
 
 
-            # M_xc=xc
-            # M_yc=yc
-            # NpixMain=NPixOut
-            # F_xc=NpixFacet/2
-            # F_yc=NpixFacet/2
-            
-            
-            # ## X
-            # M_x0=M_xc-NpixFacet/2
-            # x0main=np.max([0,M_x0])
-            # dx0=x0main-M_x0
-            # x0facet=dx0
-            
-            # M_x1=M_xc+NpixFacet/2
-            # x1main=np.min([NpixMain-1,M_x1])
-            # dx1=M_x1-x1main
-            # x1facet=NpixFacet-dx1
-            # x1main+=1
-            # ## Y
-            # M_y0=M_yc-NpixFacet/2
-            # y0main=np.max([0,M_y0])
-            # dy0=y0main-M_y0
-            # y0facet=dy0
-            
-            # M_y1=M_yc+NpixFacet/2
-            # y1main=np.min([NpixMain-1,M_y1])
-            # dy1=M_y1-y1main
-            # y1facet=NpixFacet-dy1
-            # y1main+=1
-
-            
-            # SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
-            # SW=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
-            # NormImage[x0main:x1main,y0main:y1main]+=SW#Sphe
 
         nx,nx=NormImage.shape
         self.NormImage=NormImage
         self.NormImageReShape=self.NormImage.reshape((1,1,nx,nx))
         
 
-    def FacetsToIm_Channel(self,Channel=0,BeamWeightImage=False):
+    def FacetsToIm_Channel(self,BeamWeightImage=False):
         T=ClassTimeIt.ClassTimeIt("FacetsToIm_Channel")
         T.disable()
         Image=self.GiveEmptyMainField()
-        nch,npol=self.nch,self.npol
-        _,_,NPixOut,NPixOut=self.OutImShape
 
-        print>>log, "Combining facets using %s mode for Channel=%i [JonesNormImage = %i]..."%(self.ConstructMode,Channel,BeamWeightImage)
+        nch,npol,NPixOut,NPixOut=self.OutImShape
+
+        print>>log, "Combining facets using %s mode for [JonesNormImage = %i]..."%(self.ConstructMode,BeamWeightImage)
 
         self.BuildFacetNormImage()
         NormImage=self.NormImage
 
-
         for iFacet in self.DicoImager.keys():
-            if self.ConstructMode=="Sharp":
-                x0,x1,y0,y1=self.DicoImager[iFacet]["pixExtent"]
-                for ch in range(nch):
-                    for pol in range(npol):
-                        Image[ch,pol,x0:x1,y0:y1]=self.DicoGridMachine[iFacet]["Dirty"][Channel][ch,pol][::-1,:].T.real
-            elif self.ConstructMode=="Fader":
                 
-                SharedMemName="%sSpheroidal"%(self.IdSharedMem)#"%sWTerm.Facet_%3.3i"%(self.IdSharedMem,0)
-                SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
-                #SPhe=NpShared.UnPackListSquareMatrix(SharedMemName)[0]
-                SPhe=NpShared.GiveArray(SharedMemName)
+            SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+            SPhe=NpShared.GiveArray(SharedMemName)
+            
 
-                xc,yc=self.DicoImager[iFacet]["pixCentral"]
-                NpixFacet=self.DicoGridMachine[iFacet]["Dirty"][Channel].shape[2]
-                
-                M_xc=xc
-                M_yc=yc
-                NpixMain=NPixOut
-                F_xc=NpixFacet/2
-                F_yc=NpixFacet/2
-                
+            xc,yc=self.DicoImager[iFacet]["pixCentral"]
+            NpixFacet=self.DicoGridMachine[iFacet]["Dirty"][0].shape[2]
+            
+            Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(NpixFacet/2,NpixFacet/2),NpixFacet)
+            x0main,x1main,y0main,y1main=Aedge
+            x0facet,x1facet,y0facet,y1facet=Bedge
 
-                ## X
-                M_x0=M_xc-NpixFacet/2
-                x0main=np.max([0,M_x0])
-                dx0=x0main-M_x0
-                x0facet=dx0
-                
-                M_x1=M_xc+NpixFacet/2
-                x1main=np.min([NpixMain-1,M_x1])
-                dx1=M_x1-x1main
-                x1facet=NpixFacet-dx1
-                x1main+=1
-                ## Y
-                M_y0=M_yc-NpixFacet/2
-                y0main=np.max([0,M_y0])
-                dy0=y0main-M_y0
-                y0facet=dy0
-                
-                M_y1=M_yc+NpixFacet/2
-                y1main=np.min([NpixMain-1,M_y1])
-                dy1=M_y1-y1main
-                y1facet=NpixFacet-dy1
-                y1main+=1
-
-
-                # print "======================="
-                # print "Facet %i %s"%(iFacet,str(self.DicoGridMachine[iFacet]["Dirty"].shape))
-                # print "Facet %i:%i (%i)"%(x0facet,x1facet,x1facet-x0facet)
-                # print "Main  %i:%i (%i)"%(x0main,x1main,x1main-x0main)
-
+            for Channel in range(self.VS.NFreqBands):
+            
+            
                 ThisSumWeights=self.DicoImager[iFacet]["SumWeights"][Channel]
                 ThisSumJones=1.
-
-                indRandX,indRandY=np.int64(np.random.rand(100)*NpixFacet),np.int64(np.random.rand(100)*NpixFacet)
+            
                 if BeamWeightImage:
                     ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][Channel][1]
                     if ThisSumSqWeights==0: ThisSumSqWeights=1.
                     ThisSumJones=self.DicoImager[iFacet]["SumJones"][Channel][0]/ThisSumSqWeights
-                    #ThisSumJones2=np.std(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][indRandX,indRandY])
                     if ThisSumJones==0:
                         ThisSumJones=1.
-                    #else:
-                    #    ThisSumJones=ThisSumJones2
 
-                T.timeit("2")
-                import DDFacet.ToolsDir.rad2hmsdms
-                
-                # if iFacet!=14: continue
-                ra,dec=self.DicoImager[iFacet]["RaDec"]
-                sra=DDFacet.ToolsDir.rad2hmsdms.rad2hmsdms(ra,Type="ra")
-                sdec=DDFacet.ToolsDir.rad2hmsdms.rad2hmsdms(dec)
-                sumweight=ThisSumWeights.reshape((nch,npol,1,1))[0,0,0,0]
-
-                # Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][0,0][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
-                # l0,m0=self.DicoImager[iFacet]["l0m0"]
-                # print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f (l0, m0)=(%.15f, %.15f)"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im),l0,m0)
-                
-                
+            
                 SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
                 T.timeit("3")
-                for ch in range(nch):
-                    for pol in range(npol):
-                        #Image[ch,pol,x0main:x1main,y0main:y1main]+=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
-                        sumweight=ThisSumWeights.reshape((nch,npol,1,1))[ch,pol,0,0]
-                        # if (self.ApplyCal)&(FlatNoise):
-                        #     Im/=np.sqrt(ThisSumJones)
-                        if BeamWeightImage:
-                            # S=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
-                            # Im=np.ones(S.shape,dtype=np.float64)*ThisSumJones*S
-
-                            Im=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]*ThisSumJones
-                        else:
-
-                            Im=self.DicoGridMachine[iFacet]["Dirty"][Channel][ch,pol]
-                            Im/=SPhe.real
-                            Im[SPhe<1e-3]=0
-                            Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][ch,pol][::-1,:].T.real/sumweight)
-                            #Sphe0=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
-                            #Im/=Sphe0
-                            #Im[Sphe0<1e-3]=0
-                            SW=SpacialWeigth[::-1,:].T
-                            Im*=SW
-                            
-                            Im=Im[x0facet:x1facet,y0facet:y1facet]
-                        T.timeit("4")
-
-
-                        #print "[%i] (W, J) = (%f, %f), (ra, dec)=(%s, %s) max=%f"%(iFacet,ThisSumWeights,ThisSumJones,sra,sdec,np.max(Im))
-                        Image[ch,pol,x0main:x1main,y0main:y1main]+=Im
-                        T.timeit("5")
-
-                #Sphe=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
-                
-
-                # M=Mask[::-1,:].T[x0facet:x1facet,y0facet:y1facet]
-                # Sphe[M==0]=0
-
-        #NormImage[NormImage==0]=1.
-        if self.ConstructMode=="Fader": 
-            for ch in range(nch):
                 for pol in range(npol):
-                    Image[ch,pol]/=NormImage
+                    sumweight=ThisSumWeights[pol]#ThisSumWeights.reshape((nch,npol,1,1))[Channel, pol, 0, 0]
+                    
+                    if BeamWeightImage:
+                        Im=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]*ThisSumJones
+                    else:
+                    
+                        Im=self.DicoGridMachine[iFacet]["Dirty"][Channel][pol]
+                        Im/=SPhe.real
+                        Im[SPhe<1e-3]=0
+                        Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][pol][::-1,:].T.real/sumweight)
+                        SW=SpacialWeigth[::-1,:].T
+                        Im*=SW
+                        
+                        Im=Im[x0facet:x1facet,y0facet:y1facet]
+                
+                
+                    Image[Channel,pol,x0main:x1main,y0main:y1main]+=Im
+
+
+        for Channel in range(self.VS.NFreqBands):
+            for pol in range(npol):
+                Image[Channel,pol]/=NormImage
  
 
 
@@ -939,21 +795,34 @@ class ClassFacetMachine():
             visOut+=vis
         return visOut
 
+    def InitGrids(self):
+        
+        for iFacet in self.DicoGridMachine.keys():
+            NX=self.DicoImager[iFacet]["NpixFacetPadded"]
+            GridName="%sGridFacet.%3.3i"%(self.IdSharedMem,iFacet)
+            self.DicoGridMachine[iFacet]["Dirty"]=NpShared.zeros(GridName,(self.VS.NFreqBands,self.npol,NX,NX),self.CType)
+            self.DicoGridMachine[iFacet]["Dirty"]+=1
+            self.DicoGridMachine[iFacet]["Dirty"].fill(0)
+
     def ReinitDirty(self):
         self.SumWeights.fill(0)
         self.IsDirtyInit=True
         for iFacet in self.DicoGridMachine.keys():
-            if "Dirty" in self.DicoGridMachine[iFacet].keys():
-                for Channel in self.DicoGridMachine[iFacet]["Dirty"].keys():
-                    self.DicoGridMachine[iFacet]["Dirty"][Channel].fill(0)
-            if "GM" in self.DicoGridMachine[iFacet].keys():
-                self.DicoGridMachine[iFacet]["GM"].reinitGrid() # reinitialise sumWeights
+            NX=self.DicoImager[iFacet]["NpixFacetPadded"]
+            GridName="%sGridFacet.%3.3i"%(self.IdSharedMem,iFacet)
+            #self.DicoGridMachine[iFacet]["Dirty"]=NpShared.zeros(GridName,(self.VS.NFreqBands,self.npol,NX,NX),self.CType)
+            self.DicoGridMachine[iFacet]["Dirty"]=np.zeros((self.VS.NFreqBands,self.npol,NX,NX),self.FType)
+            #self.DicoGridMachine[iFacet]["Dirty"]+=1
+            #self.DicoGridMachine[iFacet]["Dirty"].fill(0)
 
-            self.DicoImager[iFacet]["SumWeights"]={}
-            self.DicoImager[iFacet]["SumJones"]={}
-            for Channel in range(self.VS.NFreqBands):
-                self.DicoImager[iFacet]["SumWeights"][Channel] = np.zeros((self.NChanGrid,self.npol),np.float32)
-                self.DicoImager[iFacet]["SumJones"][Channel]   = np.zeros((2,),np.float32)
+            #     if "Dirty" in self.DicoGridMachine[iFacet].keys():
+            #         for Channel in self.DicoGridMachine[iFacet]["Dirty"].keys():
+            #             self.DicoGridMachine[iFacet]["Dirty"][Channel].fill(0)
+            #     if "GM" in self.DicoGridMachine[iFacet].keys():
+            #         self.DicoGridMachine[iFacet]["GM"].reinitGrid() # reinitialise sumWeights
+
+            self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands,self.npol),np.float32)
+            self.DicoImager[iFacet]["SumJones"]   = np.zeros((self.VS.NFreqBands,2),np.float32)
             
             
         # if self.Parallel:
