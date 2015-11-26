@@ -38,7 +38,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
     def appendMainField(self,Npix=512,Cell=10.,NFacets=5,
                         Support=11,OverS=5,Padding=1.2,
                         wmax=10000,Nw=11,RaDecRad=(0.,0.),
-                        ImageName="Facet.image"):
+                        ImageName="Facet.image",**kw):
         
 
         Cell=self.GD["ImagerMainFacet"]["Cell"]
@@ -684,7 +684,9 @@ class WorkerImager(multiprocessing.Process):
                                                             self.DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
                                                             self.DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                                                             lmShift=self.DicoImager[iFacet]["lmShift"],
-                                                            IdSharedMem=self.IdSharedMem,IDFacet=iFacet,
+                                                            IdSharedMem=self.IdSharedMem,
+                                                            IdSharedMemData=self.IdSharedMemData,
+                                                            IDFacet=iFacet,
                                                             SpheNorm=self.SpheNorm)#,
         return GridMachine
         

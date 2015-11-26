@@ -39,7 +39,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
     def appendMainField(self,Npix=512,Cell=10.,NFacets=5,
                         Support=11,OverS=5,Padding=1.2,
                         wmax=10000,Nw=11,RaDecRad=(0.,0.),
-                        ImageName="Facet.image"):
+                        ImageName="Facet.image",**kw):
         
 
         Cell=self.GD["ImagerMainFacet"]["Cell"]
@@ -56,6 +56,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         ChanFreq=self.VS.MS.ChanFreq.flatten()
         self.ChanFreq=ChanFreq
         
+        self.NFacets = NFacets
         self.Cell=Cell
         self.CellSizeRad=(Cell/3600.)*np.pi/180.
         rac,decc=MS.radec
@@ -70,9 +71,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
 
     def setFacetsLocsTessel(self):
-
+        NFacets = self.NFacets
         Npix=self.GD["ImagerMainFacet"]["Npix"]
-        NFacets=self.GD["ImagerMainFacet"]["NFacets"]
         Padding=self.GD["ImagerMainFacet"]["Padding"]
         self.Padding=Padding
         Npix,_=EstimateNpix(float(Npix),Padding=1)
@@ -495,7 +495,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
 
     def AppendFacet(self,iFacet,l0,m0,diam):
-    
+        diam *= self.Oversize
 
         DicoConfigGM=None
         lmShift=(l0,m0)
@@ -690,6 +690,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            FFTW_Wisdom=self.FFTW_Wisdom,
                            DicoImager=self.DicoImager,
                            IdSharedMem=self.IdSharedMem,
+                           IdSharedMemData=self.IdSharedMemData,
                            ApplyCal=self.ApplyCal)
             workerlist.append(W)
             workerlist[ii].start()
@@ -713,7 +714,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].terminate()
             workerlist[ii].join()
 
-        NpShared.DelAll("%sModelGrid"%(self.IdSharedMem))
+        NpShared.DelAll("%sModelGrid"%(self.IdSharedMemData))
             
         return True
 
@@ -753,6 +754,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            FFTW_Wisdom=self.FFTW_Wisdom,
                            DicoImager=self.DicoImager,
                            IdSharedMem=self.IdSharedMem,
+                           IdSharedMemData=self.IdSharedMemData,
                            ApplyCal=self.ApplyCal,
                            SpheNorm=SpheNorm,
                            PSFMode=PSFMode)
@@ -843,6 +845,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            FFTW_Wisdom=self.FFTW_Wisdom,
                            DicoImager=self.DicoImager,
                            IdSharedMem=self.IdSharedMem,
+                           IdSharedMemData=self.IdSharedMemData,
                            ApplyCal=self.ApplyCal,
                            CornersImageTot=self.CornersImageTot)
             workerlist.append(W)
@@ -888,6 +891,7 @@ class WorkerImager(multiprocessing.Process):
                  FFTW_Wisdom=None,
                  DicoImager=None,
                  IdSharedMem=None,
+                 IdSharedMemData=None,
                  ApplyCal=False,
                  SpheNorm=True,
                  PSFMode=False,
@@ -902,6 +906,7 @@ class WorkerImager(multiprocessing.Process):
         self.GD=GD
         self.DicoImager=DicoImager
         self.IdSharedMem=IdSharedMem
+        self.IdSharedMemData=IdSharedMemData
         self.Apply_killMS=(GD["DDESolutions"]["DDSols"]!="")&(GD["DDESolutions"]["DDSols"]!=None)
         self.Apply_Beam=(GD["Beam"]["BeamModel"]!=None)
         self.ApplyCal=(self.Apply_killMS)|(self.Apply_Beam)
@@ -918,30 +923,32 @@ class WorkerImager(multiprocessing.Process):
                                                             self.DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
                                                             self.DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                                                             lmShift=self.DicoImager[iFacet]["lmShift"],
-                                                            IdSharedMem=self.IdSharedMem,IDFacet=iFacet,
+                                                            IdSharedMem=self.IdSharedMem,
+                                                            IdSharedMemData=self.IdSharedMemData,
+                                                            IDFacet=iFacet,
                                                             SpheNorm=self.SpheNorm)#,
         return GridMachine
         
     def GiveDicoJonesMatrices(self):
         DicoJonesMatrices=None
-        if self.PSFMode:
-            return None
+#       if self.PSFMode:
+#            return None
 
         if self.ApplyCal:
             DicoJonesMatrices={}
 
         if self.Apply_killMS:
-            DicoJones_killMS=NpShared.SharedToDico("%sJonesFile_killMS"%self.IdSharedMem)
+            DicoJones_killMS=NpShared.SharedToDico("%sJonesFile_killMS"%self.IdSharedMemData)
             DicoJonesMatrices["DicoJones_killMS"]=DicoJones_killMS
-            DicoJonesMatrices["DicoJones_killMS"]["MapJones"]=NpShared.GiveArray("%sMapJones_killMS"%self.IdSharedMem)
-            DicoClusterDirs_killMS=NpShared.SharedToDico("%sDicoClusterDirs_killMS"%self.IdSharedMem)
+            DicoJonesMatrices["DicoJones_killMS"]["MapJones"]=NpShared.GiveArray("%sMapJones_killMS"%self.IdSharedMemData)
+            DicoClusterDirs_killMS=NpShared.SharedToDico("%sDicoClusterDirs_killMS"%self.IdSharedMemData)
             DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]=DicoClusterDirs_killMS
 
         if self.Apply_Beam:
-            DicoJones_Beam=NpShared.SharedToDico("%sJonesFile_Beam"%self.IdSharedMem)
+            DicoJones_Beam=NpShared.SharedToDico("%sJonesFile_Beam"%self.IdSharedMemData)
             DicoJonesMatrices["DicoJones_Beam"]=DicoJones_Beam
-            DicoJonesMatrices["DicoJones_Beam"]["MapJones"]=NpShared.GiveArray("%sMapJones_Beam"%self.IdSharedMem)
-            DicoClusterDirs_Beam=NpShared.SharedToDico("%sDicoClusterDirs_Beam"%self.IdSharedMem)
+            DicoJonesMatrices["DicoJones_Beam"]["MapJones"]=NpShared.GiveArray("%sMapJones_Beam"%self.IdSharedMemData)
+            DicoClusterDirs_Beam=NpShared.SharedToDico("%sDicoClusterDirs_Beam"%self.IdSharedMemData)
             DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"]=DicoClusterDirs_Beam
 
         return DicoJonesMatrices
@@ -1010,7 +1017,7 @@ class WorkerImager(multiprocessing.Process):
                 #import gc
                 #gc.enable()
                 GridMachine=self.GiveGM(iFacet)
-                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMem)
+                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMemData)
                 uvwThis=DATA["uvw"]
                 visThis=DATA["data"]
                 flagsThis=DATA["flags"]
@@ -1049,7 +1056,7 @@ class WorkerImager(multiprocessing.Process):
             elif self.Mode=="DeGrid":
                 
                 GridMachine=self.GiveGM(iFacet)
-                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMem)
+                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMemData)
                 uvwThis=DATA["uvw"]
                 visThis=DATA["data"]
                 #PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")

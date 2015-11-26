@@ -16,6 +16,7 @@ import ClassModelMachine
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,CycleFactor=2.5,
+                 FluxThreshold=None,
                  GD=None,CleanMaskImage=None):
         #self.im=CasaImage
         
@@ -30,6 +31,7 @@ class ClassImageDeconvMachine():
         self.SubPSF=None
         self.MultiFreqMode=(self.GD["MultiFreqs"]["NFreqBands"]>1)
         self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD)
+        self.FluxThreshold = FluxThreshold 
 
         
         if CleanMaskImage!=None:
@@ -244,18 +246,18 @@ class ClassImageDeconvMachine():
         # pylab.show(False)
         # pylab.pause(0.1)
 
-        print>>log, "  Running minor cycle [MaxMinorIter = %i, CycleFactor=%3.1f]"%(Nminor,self.CycleFactor)
+        print>>log, "  Running minor cycle [MaxMinorIter = %i, CycleFactor=%3.1f, FluxThreshold=%g]"%(Nminor,self.CycleFactor,self.FluxThreshold)
 
         NPixStats=1000
         RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
         RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
         
         self.RMS=RMS
-        Threshold_RMS=5./(1.-self.SideLobeLevel)
+        Threshold_RMS=5./(1.-self.SideLobeLevel)  ## 5
 
         x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1,Mask=self.MaskArray)
         #MaxDirty=np.max(np.abs(self.Dirty))
-        FluxLimit_RMS=Threshold_RMS*RMS
+        FluxLimit_RMS = Threshold_RMS*RMS
         #FluxLimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
         #Threshold_SideLobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
         Threshold_SideLobe=((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty
@@ -284,8 +286,11 @@ class ClassImageDeconvMachine():
         #print x,y
 
         if ThisFlux < FluxLimit_RMS:
-            print>>log, ModColor.Str("    Initial maximum peak %f Jy lower that rms-based limit of %f Jy (%i-sigma)" % (ThisFlux,FluxLimit_RMS,Threshold_RMS))
+            print>>log, ModColor.Str("    Initial maximum peak %g Jy lower that rms-based limit of %g Jy (%i-sigma)" % (ThisFlux,FluxLimit_RMS,Threshold_RMS))
             return "DoneMinFlux"
+        if ThisFlux < self.FluxThreshold:
+            print>>log, ModColor.Str("    Initial maximum peak %g Jy lower thatflux threshold of %g Jy" % (ThisFlux,self.FluxThreshold))
+            return "DoneFluxThreshold"
 
 
 
@@ -310,19 +315,27 @@ class ClassImageDeconvMachine():
             T.timeit("max0")
 
             if ThisFlux < FluxLimit_RMS:
-                print>>log, "    [iter=%i] Maximum peak of %f Jy lower than rms-based limit of %f Jy (%i-sigma)" % (i,ThisFlux,FluxLimit_RMS,Threshold_RMS)
+                print>>log, "    [iter=%i] Maximum peak of %g Jy lower than rms-based limit of %g Jy (%i-sigma)" % (i,ThisFlux,FluxLimit_RMS,Threshold_RMS)
                 # DoneScale*=100./np.sum(DoneScale)
                 # for iScale in range(DoneScale.size):
                 #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
                 return "MinFlux"
 
             if ThisFlux < Threshold_SideLobe:
-                print>>log, "    [iter=%i] Peak residual flux %f Jy lower than sidelobe-based limit of %f Jy" % (i,ThisFlux, Threshold_SideLobe)
+                print>>log, "    [iter=%i] Peak residual flux %g Jy lower than sidelobe-based limit of %g Jy" % (i,ThisFlux, Threshold_SideLobe)
                 # DoneScale*=100./np.sum(DoneScale)
                 # for iScale in range(DoneScale.size):
                 #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
 
                 return "MinFlux"
+
+            if ThisFlux < self.FluxThreshold:
+                print>>log, "    [iter=%i] Peak residual flux %g Jy lower than flux threshold of %g Jy" % (i,ThisFlux, self.FluxThreshold)
+                # DoneScale*=100./np.sum(DoneScale)
+                # for iScale in range(DoneScale.size):
+                #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
+
+                return "DoneFluxThreshold"
 
             if (i>0)&((i%1000)==0):
                 print>>log, "    [iter=%i] Peak residual flux %f Jy" % (i,ThisFlux)

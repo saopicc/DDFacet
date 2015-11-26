@@ -67,6 +67,7 @@ class ClassImagerDeconv():
         self.DATA=None
         self.Precision=self.GD["ImagerGlobal"]["Precision"]#"S"
         self.PolMode=self.GD["ImagerGlobal"]["PolMode"]
+        self.PSFFacets = self.GD["ImagerGlobal"]["PSFFacets"]
         self.HasCleaned=False
         self.Parallel=self.GD["Parallel"]["Enable"]
         self.IdSharedMem=IdSharedMem
@@ -214,14 +215,30 @@ class ClassImagerDeconv():
 
 
         print>>log, ModColor.Str("=============================== Making PSF ===============================")
-        # FacetMachinePSF=ClassFacetMachine.ClassFacetMachine(self.VS,self.GD,Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
-        #                                                     IdSharedMem=self.IdSharedMem,DoPSF=True)#,Sols=SimulSols)
-
-        FacetMachinePSF=self.FacetMachine
-
-        # MainFacetOptions=self.GiveMainFacetOptions()
-        # FacetMachinePSF.appendMainField(ImageName="%s.psf"%self.BaseName,**MainFacetOptions)
-        # FacetMachinePSF.Init()
+        if self.PSFFacets:
+            print>>log,"the PSFFacets version is currently not supported, using 0 (i.e. same facets as image)"
+            self.PSFFacets = 0
+        oversize = self.GD["ImagerGlobal"]["PSFOversize"]
+        if oversize == 1 and not self.PSFFacets:
+            print>>log,"PSFOversize=1 and PSFFacets=0, same facet machine will be reused for PSF"
+            FacetMachinePSF=self.FacetMachine
+        else:
+            MainFacetOptions=self.GiveMainFacetOptions()
+            if self.PSFFacets:
+                MainFacetOptions["NFacets"] = self.PSFFacets
+                print>>log,"using %d facets to compute the PSF"%self.PSFFacets
+                if self.PSFFacets == 1:
+                    oversize = 1
+                    print>>log,"PSFFacets=1 implies PSFOversize=1"
+            print>>log,"PSFOversize=%.2f, making a separate facet machine for the PSFs"%oversize
+            FacetMachinePSF=ClassFacetMachine(self.VS,self.GD,
+                Precision=self.Precision,PolMode=self.PolMode,Parallel=self.Parallel,
+                IdSharedMem=self.IdSharedMem+"psf.",
+                IdSharedMemData=self.IdSharedMem,
+                DoPSF=True,
+                Oversize=oversize)
+            FacetMachinePSF.appendMainField(ImageName="%s.psf"%self.BaseName,**MainFacetOptions)
+            FacetMachinePSF.Init()
         # self.CellSizeRad=(FacetMachinePSF.Cell/3600.)*np.pi/180
         # self.CellArcSec=FacetMachinePSF.Cell
 
@@ -301,6 +318,8 @@ class ClassImagerDeconv():
 
         self.FitPSF()
         FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+
+        FacetMachinePSF = None
 
         # if self.VS.MultiFreqMode:
         #     for Channel in range(self.VS.NFreqBands):
@@ -520,7 +539,7 @@ class ClassImagerDeconv():
             #self.DeconvMachine.setSideLobeLevel(0.2,10)
 
             repMinor=self.DeconvMachine.Clean()
-            if repMinor=="DoneMinFlux":
+            if repMinor=="DoneMinFlux" or repMinor=="DoneFluxThreshold":
                 break
 
             #self.ResidImage=DicoImage["MeanImage"]
