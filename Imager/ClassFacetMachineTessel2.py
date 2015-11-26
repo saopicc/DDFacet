@@ -640,6 +640,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
     def ImToGrids(self,Image):
         Im2Grid=ClassImToGrid(OverS=self.GD["ImagerCF"]["OverS"],GD=self.GD)
         nch,npol=self.nch,self.npol
+        ChanSel=sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
         for iFacet in sorted(self.DicoImager.keys()):
             
             SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
@@ -648,7 +649,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             # Grid,_=Im2Grid.GiveGridTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight)
             # GridSharedMemName="%sModelGrid.Facet_%3.3i"%(self.IdSharedMem,iFacet)
             # NpShared.ToShared(GridSharedMemName,Grid)
-            ModelFacet,_=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight)
+            
+            ModelFacet,_=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight,ChanSel=ChanSel)
             ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
             
             NpShared.ToShared(ModelSharedMemName,ModelFacet)

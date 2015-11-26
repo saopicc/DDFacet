@@ -657,6 +657,7 @@ class ClassDDEGridMachine():
 
         if ChanMapping==None:
             ChanMapping=np.zeros((self.GridShape[0],),np.int64)
+        self.ChanMappingGrid=ChanMapping
 
         T.timeit("2")
         Grid=np.zeros(self.GridShape,dtype=self.dtype)
@@ -918,7 +919,7 @@ class ClassDDEGridMachine():
         if ChanMapping==None:
             ChanMapping=np.zeros((self.GridShape[0],),np.int32)
 
-        print ChanMapping
+        self.ChanMappingDegrid=ChanMapping
 
         if TranformModelInput=="FT":
             if np.max(np.abs(ModelImage))==0: return vis
@@ -1106,18 +1107,21 @@ class ClassDDEGridMachine():
         T=ClassTimeIt.ClassTimeIt("GridToIm")
         T.disable()
 
+        LDoChans=sorted(list(set(self.ChanMappingGrid.tolist())))
+
         if self.DoNormWeights:
             Grid/=self.SumWeigths.reshape((self.NChan,npol,1,1))
 
         Grid*=(self.WTerm.OverS)**2
         T.timeit("norm")
-        Dirty=np.real(self.FFTWMachine.ifft(Grid))
+        Dirty=np.real(self.FFTWMachine.ifft(Grid,ChanList=LDoChans))
         nchan,npol,_,_=Grid.shape
         del(Grid)
         #Dirty=GridCorr
         T.timeit("fft")
 
-        for ichan in range(nchan):
+
+        for ichan in LDoChans:#range(nchan):
             for ipol in range(npol):
                 #Dirty[ichan,ipol][:,:]=Dirty[ichan,ipol][:,:]#.real
                 if self.SpheNorm:
