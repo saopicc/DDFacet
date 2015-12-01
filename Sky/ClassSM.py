@@ -165,7 +165,7 @@ class ClassSM():
         self.SourceCat.Cluster=-1
         indSubSel=np.arange(self.SourceCat.shape[0])
         NPreCluster=0
-        if PreClusterCat!=None:
+        if (PreClusterCat!=None)&(FromClusterCat==""):
             N=PreClusterCat.shape[0]
             Ns=self.SourceCat.ra.shape[0]
             for iReg in range(N):
@@ -177,7 +177,7 @@ class ClassSM():
             NPreCluster=np.max(PreClusterCat.Cluster)+1
             SourceCatPreCluster=self.SourceCat[indPreCluster]
             indSubSel=np.where(self.SourceCat.Cluster==-1)[0]
-        print "number of preselected clusters: %i"%NPreCluster
+            print "number of preselected clusters: %i"%NPreCluster
 
         SourceCat=self.SourceCat[indSubSel]
         self.rarad=np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
