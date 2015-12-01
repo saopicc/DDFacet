@@ -95,7 +95,7 @@ def main(options=None):
                        SelSource=DoSelect,ClusterMethod=CMethod)
 
     if True:
-        print "Removing fake gaussians"
+        print>>log, "Removing fake gaussians"
         Cat=SM.SourceCat
         
         indG=np.where(Cat["Gmaj"]>0)[0]
