@@ -23,6 +23,7 @@ def read_options():
     group.add_option('--CMethod',help=' Clustering method [1,2,3,4]. Default is %default',default="4")
     group.add_option('--PreClusterFile',help=' PreClusterFile. Default is %default',default="")
     group.add_option('--RemoveNegComp',help=' PreClusterFile. Default is %default',type=int,default=0)
+    group.add_option('--FromClusterCat',help=' PreClusterFile. Default is %default',type=str,default="")
     opt.add_option_group(group)
 
 
@@ -120,7 +121,7 @@ def main(options=None):
         #np.save(SkyModel,Cat)
 
     PreCluster=options.PreClusterFile
-    SM.Cluster(NCluster=NCluster,DoPlot=DoPlot,PreCluster=PreCluster)
+    SM.Cluster(NCluster=NCluster,DoPlot=DoPlot,PreCluster=PreCluster,FromClusterCat=options.FromClusterCat)
     SM.MakeREG()
     SM.Save()
 
