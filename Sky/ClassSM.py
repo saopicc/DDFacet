@@ -98,7 +98,7 @@ class ClassSM():
         print "   - Number of Directions  = ",self.NDir
         print
 
-    def Cluster(self,NCluster=1,DoPlot=True,PreCluster=""):
+    def Cluster(self,NCluster=1,DoPlot=True,PreCluster="",FromClusterCat=""):
 
 
         if PreCluster!="":
@@ -117,7 +117,7 @@ class ClassSM():
                 self.SourceCat.Exclude[d<ExcludeCat.Radius[j]]=True
 
         if NCluster!=0:
-            self.cluster(NCluster,DoPlot,PreClusterCat=PreClusterCat)#,ExcludeCat=ExcludeCat)
+            self.cluster(NCluster,DoPlot,PreClusterCat=PreClusterCat,FromClusterCat=FromClusterCat)#,ExcludeCat=ExcludeCat)
         else:
             self.SourceCat.Cluster=np.arange(self.SourceCat.shape[0])
 
@@ -154,7 +154,7 @@ class ClassSM():
 
 
 
-    def cluster(self,nk=10,DoPlot=False,PreClusterCat=None):
+    def cluster(self,nk=10,DoPlot=False,PreClusterCat=None,FromClusterCat=""):
 
         # pylab.clf()
     
@@ -186,6 +186,7 @@ class ClassSM():
         x,y=self.radec2lm_scalar(x,y)
         
         SourceCat.Cluster=0
+
         if self.ClusterMethod==1:
             CM=ClassClusterClean(x,y,s,nk,DoPlot=DoPlot)
         elif self.ClusterMethod==2:
@@ -196,8 +197,37 @@ class ClassSM():
             CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot)
             REGFile="%s.tessel.reg"%self.TargetList
 
+        print FromClusterCat
+        if FromClusterCat=="":
+            DictNode=CM.Cluster()
+        else:
+            DictNode={}
+            SourceCatRef=np.load(FromClusterCat)
+            SourceCatRef=SourceCatRef.view(np.recarray)
+            ClusterList=sorted(list(set(SourceCatRef.Cluster.tolist())))
+            xc,yc=self.radec2lm_scalar(SourceCatRef.ra,SourceCatRef.dec)
+            lc=np.zeros((len(ClusterList),),dtype=np.float32)
+            mc=np.zeros((len(ClusterList),),dtype=np.float32)
+            for iCluster in ClusterList:
+                indC=np.where(SourceCatRef.Cluster==iCluster)[0]
+                lc[iCluster]=np.sum(SourceCatRef.I[indC]*xc[indC])/np.sum(SourceCatRef.I[indC])
+                mc[iCluster]=np.sum(SourceCatRef.I[indC]*yc[indC])/np.sum(SourceCatRef.I[indC])
+            Ns=x.size
+            Nc=lc.size
+            D=np.sqrt((x.reshape((Ns,1))-lc.reshape((1,Nc)))**2+(y.reshape((Ns,1))-mc.reshape((1,Nc)))**2)
+            Cid=np.argmin(D,axis=1)
 
-        DictNode=CM.Cluster()
+            #pylab.clf()
+            for iCluster in ClusterList:
+                ind=np.where(Cid==iCluster)[0]
+                DictNode["%3.3i"%iCluster]={}
+                DictNode["%3.3i"%iCluster]["ListCluster"]=ind.tolist()
+                # pylab.scatter(x[ind],y[ind],c=np.ones((ind.size,))*iCluster,vmin=0,vmax=Nc,lw=0)
+                # pylab.draw()
+                # pylab.show(False)
+            
+
+
         try:
             CM.ToReg(REGFile,self.rarad,self.decrad)
         except:
@@ -213,6 +243,9 @@ class ClassSM():
                 continue
             self.SourceCat["Cluster"][indSubSel[ind]]=iK
             iK+=1
+
+
+
         # if PreClusterCat!=None:
         #     SourceCat=np.concatenate((SourceCatPreCluster,SourceCat))
         #     SourceCat=SourceCat.view(np.recarray)
