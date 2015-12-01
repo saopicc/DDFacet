@@ -8,6 +8,8 @@ import os
 from DDFacet.Array import ModLinAlg
 import ClassLOFARBeam
 
+import ClassFITSBeam
+
 class ClassJones():
     def __init__(self,GD,MS,FacetMachine=None,IdSharedMem=""):
         self.GD=GD
@@ -309,18 +311,25 @@ class ClassJones():
             print>>log, "  Not applying any beam"
             return
 
+
+        DtBeamMin=GD["Beam"]["DtBeamMin"]
+        self.DtBeamMin=DtBeamMin
         if GD["Beam"]["BeamModel"]=="LOFAR":
             self.ApplyBeam=True
             self.BeamMachine=ClassLOFARBeam.ClassLOFARBeam(self.MS,self.GD)
             self.GiveInstrumentBeam=self.BeamMachine.GiveInstrumentBeam
+
+        elif GD["Beam"]["BeamModel"]=="FITS":
+            self.FITSBeam = ClassFITSBeam.ClassFITSBeam(self.MS,GD["Beam"])
+            self.GiveInstrumentBeam = self.FITSBeam.evaluateBeam
+            print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
 
         RAs=self.ClusterCatBeam.ra
         DECs=self.ClusterCatBeam.dec
         t0=self.DATA["times"][0]
         t1=self.DATA["times"][-1]
 
-        DtBeamMin=GD["Beam"]["DtBeamMin"]
-        self.DtBeamMin=DtBeamMin
+
         print>>log, "  Estimating beam every %5.1f min."%(DtBeamMin)
         DicoBeam=self.EstimateBeam(t0,t1,RAs,DECs)
         return DicoBeam
