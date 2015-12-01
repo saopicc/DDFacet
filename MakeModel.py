@@ -3,6 +3,8 @@
 import optparse
 import pickle
 import numpy as np
+from killMS2.Other import MyLogger
+log=MyLogger.getLogger("MakeModel")
 
 SaveName="last_MakeModel.obj"
 
