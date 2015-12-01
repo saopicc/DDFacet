@@ -77,6 +77,7 @@ def main(options=None):
         print Cat.shape
         np.save(SkyModel,Cat)
         
+
         
     NCluster=int(options.NCluster)
     DoPlot=(int(options.DoPlot)==1)
@@ -93,10 +94,38 @@ def main(options=None):
                        DoREG=True,SaveNp=True,
                        SelSource=DoSelect,ClusterMethod=CMethod)
 
+    if True:
+        print "Removing fake gaussians"
+        Cat=SM.SourceCat
+        
+        indG=np.where(Cat["Gmaj"]>0)[0]
+        CatSel=Cat[indG]
+        Gmaj=CatSel["Gmaj"]*180/np.pi*3600
+        I=CatSel["I"]
+        
+        ind=np.where((I/Gmaj)>3)[0]
+        CatSel[ind]["Gmaj"]=0.
+        CatSel[ind]["Gmin"]=0.
+        CatSel[ind]["Gangle"]=0.
+        CatSel[ind]["Type"]=0.
+        #SM.SourceCat[indG][ind]=CatSel
+        
+
+        indN=np.arange(SM.SourceCat.shape[0])[indG][ind]
+        
+        SM.SourceCat["Gmaj"][indN]=0.
+        SM.SourceCat["Gmin"][indN]=0.
+        SM.SourceCat["Gangle"][indN]=0.
+        SM.SourceCat["Type"][indN]=0.
+        #print SM.SourceCat[indG][ind]
+        #np.save(SkyModel,Cat)
+
     PreCluster=options.PreClusterFile
     SM.Cluster(NCluster=NCluster,DoPlot=DoPlot,PreCluster=PreCluster,FromClusterCat=options.FromClusterCat)
     SM.MakeREG()
     SM.Save()
+
+
 
     if options.DoPrint=="1":
         SM.print_sm2()
