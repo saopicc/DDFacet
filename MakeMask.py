@@ -18,6 +18,9 @@ from SkyModel.Other.ClassCasaImage import PutDataInNewImage
 import scipy.special
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("MakeMask")
+from killMS2.Other.progressbar import ProgressBar
+import collections
+import pylab
 
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
@@ -26,7 +29,7 @@ def read_options():
     group = optparse.OptionGroup(opt, "* Data-related options")
     group.add_option('--RestoredIm',type="str",help="default is %default",default=None)
     group.add_option('--Th',type="float",default=10,help="default is %default")
-    group.add_option("--Box",type="str",default="120,2",help="default is %default")
+    group.add_option("--Box",type="str",default="30,2",help="default is %default")
     #group.add_option("--MedFilter",type="str",default="50,10")
     opt.add_option_group(group)
 
@@ -77,6 +80,38 @@ class ClassMakeMask():
         self.box=self.Box,self.Box
         self.CasaIm=image(self.FitsFile)
         self.Restored=self.CasaIm.getdata()
+
+        im=self.CasaIm
+        PMaj=(im.imageinfo()["restoringbeam"]["major"]["value"])
+        PMin=(im.imageinfo()["restoringbeam"]["minor"]["value"])
+        PPA=(im.imageinfo()["restoringbeam"]["positionangle"]["value"])
+        c=im.coordinates()
+        incr=np.abs(c.dict()["direction0"]["cdelt"][0])
+        
+        ToSig=(1./3600.)*(np.pi/180.)/(2.*np.sqrt(2.*np.log(2)))
+        SigMaj_rad=PMaj*ToSig
+        SigMin_rad=PMin*ToSig
+        SixMaj_pix=SigMaj_rad/incr
+        SixMin_pix=SigMin_rad/incr
+        PPA_rad=PPA*np.pi/180
+        
+        _,_,nx,ny=self.Restored.shape
+        from SkyModel.PSourceExtract import Gaussian
+        xc,yc=nx/2,nx/2
+        sup=200
+        x,y=np.mgrid[-sup:sup:1,-sup:sup:1]
+        
+        G=Gaussian.GaussianXY(x,y,1.,sig=(30,30),pa=0.)
+        self.Restored[0,0,xc:xc+2*sup,yc:yc+2*sup]=G[:,:]
+        
+        x,y=np.mgrid[-10:11:1,-10:11:1]
+        self.RefGauss=Gaussian.GaussianXY(x,y,1.,sig=(SixMin_pix,SixMaj_pix),pa=PPA_rad)
+        self.RefGauss_xy=x,y
+
+        BeamMin_pix=SixMin_pix*(2.*np.sqrt(2.*np.log(2)))
+        BeamMaj_pix=SixMaj_pix*(2.*np.sqrt(2.*np.log(2)))
+        print>>log, "Restoring Beam size of (%i, %i) pixels"%(BeamMin_pix, BeamMaj_pix)
+        
         #self.Restored=np.load("testim.npy")
         self.A=self.Restored[0,0]
 
@@ -163,12 +198,11 @@ class ClassMakeMask():
 
         print>>log,"  Found %i islands"%NIslands
         
-
-        NMaxPix=20000
+        NMaxPix=100000
         Island=np.zeros((NIslands,NMaxPix,2),np.int32)
         NIslandNonZero=np.zeros((NIslands,),np.int32)
 
-        print>>log,"  Extractinng pixels in islands"
+        print>>log,"  Extracting pixels in islands"
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Extracting ", HeaderSize=10,TitleSize=13)
         comment=''
 
@@ -186,33 +220,114 @@ class ClassMakeMask():
                     NIslandNonZero[iIsland]+=1
 
         print>>log,"  Listing pixels in islands"
-        LIslands=[]
+
+        NMinPixIsland=5
+        DicoIslands=collections.OrderedDict()
         for iIsland in range(1,NIslands):
             ind=np.where(Island[iIsland,:,0]!=0)[0]
-            ThisIsland=[]
+            if ind.size < NMinPixIsland: continue
             Npix=ind.size
+            Comps=np.zeros((Npix,3),np.float32)
             for ipix in range(Npix):
-                ThisIsland.append([Island[iIsland,ipix,0].tolist(),Island[iIsland,ipix,1]])
-            LIslands.append(ThisIsland)
+                x,y=Island[iIsland,ipix,0],Island[iIsland,ipix,1]
+                s=self.Restored[0,0,x,y]
+                Comps[ipix,0]=x
+                Comps[ipix,1]=y
+                Comps[ipix,2]=s
+            DicoIslands[iIsland]=Comps
+
+        print>>log,"  Final number of islands: %i"%len(DicoIslands)
+        self.DicoIslands=DicoIslands
+        
+
+    def FilterIslands(self):
+        from SkyModel.Other.MyHist import MyCumulHist
+        DicoIslands=self.DicoIslands
+        NIslands=len(self.DicoIslands)
+        print>>log, "  Filter each individual islands"
+        for iIsland in DicoIslands.keys():
+            x,y,s=DicoIslands[iIsland].T
+            #Im=self.GiveIm(x,y,s)
+            #pylab.subplot(1,2,1)
+            #pylab.imshow(Im,interpolation="nearest")
+            # pylab.subplot(1,2,2)
+
+            sr=self.RefGauss.copy()*np.max(s)
+
+            xm,ym=int(np.mean(x)),int(np.mean(y))
+            Th=self.Th*self.Noise[xm,ym]
+
+            xg,yg=self.RefGauss_xy
+
+            MaskSel=(sr>Th)
+            xg_sel=xg[MaskSel].ravel()
+            yg_sel=yg[MaskSel].ravel()
+            sr_sel=sr[MaskSel].ravel()
 
 
+            ###############
+            logs=s*s.size#np.log10(s*s.size)
+            X,Y=MyCumulHist(logs)
+            logsr=sr_sel*sr_sel.size#np.log10(sr_sel*sr_sel.size)
+            Xr,Yr=MyCumulHist(logsr)
+            Cut=0.9
+            ThisTh=np.interp(Cut,Yr,Xr)
+            #ThisTh=(ThisTh)/sr_sel.size
+            
+            #Im=self.GiveIm(xg_sel,yg_sel,sr_sel)
+            #pylab.subplot(1,2,2)
+            #pylab.imshow(Im,interpolation="nearest")
+            
 
 
+            ind=np.where(s*s.size>ThisTh)[0]
+            #print ThisTh,ind.size/float(s.size )
+            DicoIslands[iIsland]=DicoIslands[iIsland][ind].copy()
+        #     pylab.clf()
+        #     pylab.plot(X,Y)
+        #     pylab.plot([ThisTh,ThisTh],[0,1],color="black")
+        #     pylab.plot(Xr,Yr,color="black",lw=2,ls="--")
+        #     pylab.draw()
+        #     pylab.show(False)
+        #     pylab.pause(0.1)
+        #     import time
+        #     time.sleep(1)
+        # stop
 
+    def IslandsToMask(self):
+        self.ImMask.fill(0)
+        DicoIslands=self.DicoIslands
+        NIslands=len(self.DicoIslands)
+        print>>log, "  Building mask image from filtered islands"
+        for iIsland in DicoIslands.keys():
+            x,y,s=DicoIslands[iIsland].T
+            self.ImMask[np.int32(x),np.int32(y)]=1
+
+
+    def GiveIm(self,x,y,s):
+        dx=np.int32(x-x.min())
+        dy=np.int32(y-y.min())
+        nx=dx.max()+1
+        ny=dy.max()+1
+        print nx,ny
+        Im=np.zeros((nx,ny),np.float32)
+        Im[dx,dy]=s
+        return Im
 
     def CreateMask(self):
         self.ComputeNoiseMap()
         self.MakeMask()
         # Make island list
         self.BuildIslandList()
-
+        self.FilterIslands()
+        self.IslandsToMask()
+        self.plot()
         nx,ny=self.ImMask.shape
         ImWrite=self.ImMask.reshape((1,1,nx,ny))
         
         PutDataInNewImage(self.FitsFile,self.FitsFile+".mask",np.float32(ImWrite))
 
     def plot(self):
-        import pylab
         pylab.clf()
         ax1=pylab.subplot(2,3,1)
         vmin,vmax=-np.max(self.Noise),5*np.max(self.Noise)
@@ -237,7 +352,7 @@ class ClassMakeMask():
         pylab.ylim(0,self.A.shape[0]-1)
 
         pylab.draw()
-        pylab.show()
+        pylab.show(False)
 
 def main(options=None):
     
