@@ -22,6 +22,7 @@ from killMS2.Other.progressbar import ProgressBar
 import collections
 import pylab
 from SkyModel.Other.MyHist import MyCumulHist
+from SkyModel.PSourceExtract import Gaussian
 
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
@@ -29,6 +30,7 @@ def read_options():
     opt = optparse.OptionParser(usage='Usage: %prog --ms=somename.MS <options>',version='%prog version 1.0',description=desc)
     group = optparse.OptionGroup(opt, "* Data-related options")
     group.add_option('--RestoredIm',type="str",help="default is %default",default=None)
+    group.add_option('--UseIslands',type="int",help="default is %default",default=0)
     group.add_option('--Th',type="float",default=10,help="default is %default")
     group.add_option("--Box",type="str",default="30,2",help="default is %default")
     #group.add_option("--MedFilter",type="str",default="50,10")
@@ -96,14 +98,12 @@ class ClassMakeMask():
         SixMin_pix=SigMin_rad/incr
         PPA_rad=PPA*np.pi/180
         
-        _,_,nx,ny=self.Restored.shape
-        from SkyModel.PSourceExtract import Gaussian
-        xc,yc=nx/2,nx/2
-        sup=200
-        x,y=np.mgrid[-sup:sup:1,-sup:sup:1]
-        
-        G=Gaussian.GaussianXY(x,y,1.,sig=(30,30),pa=0.)
-        self.Restored[0,0,xc:xc+2*sup,yc:yc+2*sup]=G[:,:]
+        # _,_,nx,ny=self.Restored.shape
+        # xc,yc=nx/2,nx/2
+        # sup=200
+        # x,y=np.mgrid[-sup:sup:1,-sup:sup:1]
+        # G=Gaussian.GaussianXY(x,y,1.,sig=(30,30),pa=0.)
+        # self.Restored[0,0,xc:xc+2*sup,yc:yc+2*sup]=G[:,:]
         
         x,y=np.mgrid[-10:11:1,-10:11:1]
         self.RefGauss=Gaussian.GaussianXY(x,y,1.,sig=(SixMin_pix,SixMaj_pix),pa=PPA_rad)
@@ -302,7 +302,10 @@ class ClassMakeMask():
         DicoIslands=self.DicoIslands
         NIslands=len(self.DicoIslands)
         print>>log, "  Building mask image from filtered islands"
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Building ", HeaderSize=10,TitleSize=13)
+        comment=''
         for iIsland in DicoIslands.keys():
+            pBAR.render(int(100*iIsland / (len(DicoIslands.keys())-1)), comment)
             x,y,s=DicoIslands[iIsland].T
             self.ImMask[np.int32(x),np.int32(y)]=1
 
@@ -320,11 +323,13 @@ class ClassMakeMask():
     def CreateMask(self):
         self.ComputeNoiseMap()
         self.MakeMask()
-        # Make island list
-        self.BuildIslandList()
-        self.FilterIslands()
-        self.IslandsToMask()
-        self.plot()
+        if self.UseIslands:
+            # Make island list
+            self.BuildIslandList()
+            self.FilterIslands()
+            self.IslandsToMask()
+
+        #self.plot()
         nx,ny=self.ImMask.shape
         ImWrite=self.ImMask.reshape((1,1,nx,ny))
         
@@ -368,7 +373,7 @@ def main(options=None):
         
     MaskMachine=ClassMakeMask(options.RestoredIm,
                        Th=options.Th,
-                       Box=Box)
+                              Box=Box,UseIslands=options.UseIslands)
     MaskMachine.CreateMask()
 
 if __name__=="__main__":
