@@ -21,6 +21,7 @@ log=MyLogger.getLogger("MakeMask")
 from killMS2.Other.progressbar import ProgressBar
 import collections
 import pylab
+from SkyModel.Other.MyHist import MyCumulHist
 
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
@@ -241,11 +242,13 @@ class ClassMakeMask():
         
 
     def FilterIslands(self):
-        from SkyModel.Other.MyHist import MyCumulHist
         DicoIslands=self.DicoIslands
         NIslands=len(self.DicoIslands)
         print>>log, "  Filter each individual islands"
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Filter ", HeaderSize=10,TitleSize=13)
+        comment=''
         for iIsland in DicoIslands.keys():
+            pBAR.render(int(100*iIsland / (len(DicoIslands.keys())-1)), comment)
             x,y,s=DicoIslands[iIsland].T
             #Im=self.GiveIm(x,y,s)
             #pylab.subplot(1,2,1)
