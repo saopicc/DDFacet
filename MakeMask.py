@@ -148,10 +148,68 @@ class ClassMakeMask():
     #     ind=np.where(self.Noise==0.)
     #     self.Noise[ind]=1e-10
 
-    def FindIslands(self):
-        self.ImIsland=(self.Restored[0,0,:,:]>self.Th*self.Noise)
+    def MakeMask(self):
+        self.ImMask=(self.Restored[0,0,:,:]>self.Th*self.Noise)
         #self.ImIsland=scipy.ndimage.filters.median_filter(self.ImIsland,size=(3,3))
 
+    def BuildIslandList(self):
+        import scipy.ndimage
+
+        print>>log,"  Labeling islands"
+        self.ImIsland,NIslands=scipy.ndimage.label(self.ImMask)
+        ImIsland=self.ImIsland
+        NIslands+=1
+        nx,_=ImIsland.shape
+
+        print>>log,"  Found %i islands"%NIslands
+        
+
+        NMaxPix=20000
+        Island=np.zeros((NIslands,NMaxPix,2),np.int32)
+        NIslandNonZero=np.zeros((NIslands,),np.int32)
+
+        print>>log,"  Extractinng pixels in islands"
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Extracting ", HeaderSize=10,TitleSize=13)
+        comment=''
+
+
+
+        for ipix in range(nx):
+            
+            pBAR.render(int(100*ipix / (nx-1)), comment)
+            for jpix in range(nx):
+                iIsland=self.ImIsland[ipix,jpix]
+                if iIsland:
+                    NThis=NIslandNonZero[iIsland]
+                    Island[iIsland,NThis,0]=ipix
+                    Island[iIsland,NThis,1]=jpix
+                    NIslandNonZero[iIsland]+=1
+
+        print>>log,"  Listing pixels in islands"
+        LIslands=[]
+        for iIsland in range(1,NIslands):
+            ind=np.where(Island[iIsland,:,0]!=0)[0]
+            ThisIsland=[]
+            Npix=ind.size
+            for ipix in range(Npix):
+                ThisIsland.append([Island[iIsland,ipix,0].tolist(),Island[iIsland,ipix,1]])
+            LIslands.append(ThisIsland)
+
+
+
+
+
+
+    def CreateMask(self):
+        self.ComputeNoiseMap()
+        self.MakeMask()
+        # Make island list
+        self.BuildIslandList()
+
+        nx,ny=self.ImMask.shape
+        ImWrite=self.ImMask.reshape((1,1,nx,ny))
+        
+        PutDataInNewImage(self.FitsFile,self.FitsFile+".mask",np.float32(ImWrite))
 
     def plot(self):
         import pylab
@@ -172,23 +230,14 @@ class ClassMakeMask():
 
 
         ax3=pylab.subplot(2,3,6,sharex=ax1,sharey=ax1)
-        ax3.imshow(self.ImIsland,vmin=vmin,vmax=vmax,interpolation="nearest",cmap="gray",origin="lower")
-        ax3.format_coord = lambda x,y : self.GiveVal(self.ImIsland,x,y)
+        ax3.imshow(self.ImMask,vmin=vmin,vmax=vmax,interpolation="nearest",cmap="gray",origin="lower")
+        ax3.format_coord = lambda x,y : self.GiveVal(self.ImMask,x,y)
         pylab.title("Island Image")
         pylab.xlim(0,self.A.shape[0]-1)
         pylab.ylim(0,self.A.shape[0]-1)
 
         pylab.draw()
         pylab.show()
-
-    def CreateMask(self):
-        self.ComputeNoiseMap()
-        self.FindIslands()
-        
-        nx,ny=self.ImIsland.shape
-        ImWrite=self.ImIsland.reshape((1,1,nx,ny))
-        
-        PutDataInNewImage(self.FitsFile,self.FitsFile+".mask",np.float32(ImWrite))
 
 def main(options=None):
     
