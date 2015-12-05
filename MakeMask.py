@@ -33,6 +33,8 @@ def read_options():
     group.add_option('--UseIslands',type="int",help="default is %default",default=0)
     group.add_option('--Th',type="float",default=10,help="default is %default")
     group.add_option("--Box",type="str",default="30,2",help="default is %default")
+    group.add_option("--OutName",type="str",help="default is %default",default="mask")
+    
     #group.add_option("--MedFilter",type="str",default="50,10")
     opt.add_option_group(group)
 
@@ -47,35 +49,16 @@ def read_options():
 
 #####################"
 
-def test():
-    FitsFile="/media/tasse/data/DDFacet/Test/MultiFreqs3.restored.fits"
-    Conv=ClassMakeMask(FitsFile=FitsFile,Th=5.,Box=(50,10))
-    Conv.ComputeNoiseMap()
-    Conv.FindIslands()
-
-    nx,ny=Conv.ImIsland.shape
-    ImWrite=Conv.ImIsland.reshape((1,1,nx,ny))
-
-    PutDataInNewImage(FitsFile,FitsFile+".mask",np.float32(ImWrite))
-
-    #Conv.plot()
-
-    # import pylab
-    # pylab.clf()
-    # ax=pylab.subplot(1,2,1)
-    # pylab.imshow(Conv.Restored[0,0],cmap="gray")
-    # pylab.subplot(1,2,2,sharex=ax,sharey=ax)
-    # pylab.imshow(Conv.IslandsMachine.ImIsland,cmap="gray")
-    # pylab.draw()
-    # pylab.show(False)
-    # stop
     
 
 
 class ClassMakeMask():
     def __init__(self,FitsFile=None,
                  Th=5.,
-                 Box=(50,10)):
+                 Box=(50,10),
+                 UseIslands=False,
+                 OutName="mask"):
+
         self.FitsFile=FitsFile
         self.Th=Th
         self.Box,self.IncrPix=Box
@@ -83,6 +66,8 @@ class ClassMakeMask():
         self.box=self.Box,self.Box
         self.CasaIm=image(self.FitsFile)
         self.Restored=self.CasaIm.getdata()
+        self.UseIslands=UseIslands
+        self.OutName=OutName
 
         im=self.CasaIm
         PMaj=(im.imageinfo()["restoringbeam"]["major"]["value"])
@@ -111,7 +96,7 @@ class ClassMakeMask():
 
         BeamMin_pix=SixMin_pix*(2.*np.sqrt(2.*np.log(2)))
         BeamMaj_pix=SixMaj_pix*(2.*np.sqrt(2.*np.log(2)))
-        print>>log, "Restoring Beam size of (%i, %i) pixels"%(BeamMin_pix, BeamMaj_pix)
+        print>>log, "Restoring Beam size of (%3.3f, %3.3f) pixels"%(BeamMin_pix, BeamMaj_pix)
         
         #self.Restored=np.load("testim.npy")
         self.A=self.Restored[0,0]
@@ -245,10 +230,10 @@ class ClassMakeMask():
         DicoIslands=self.DicoIslands
         NIslands=len(self.DicoIslands)
         print>>log, "  Filter each individual islands"
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Filter ", HeaderSize=10,TitleSize=13)
-        comment=''
+        #pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Filter ", HeaderSize=10,TitleSize=13)
+        #comment=''
         for iIsland in DicoIslands.keys():
-            pBAR.render(int(100*iIsland / (len(DicoIslands.keys())-1)), comment)
+            #pBAR.render(int(100*iIsland / float(len(DicoIslands.keys())-1)), comment)
             x,y,s=DicoIslands[iIsland].T
             #Im=self.GiveIm(x,y,s)
             #pylab.subplot(1,2,1)
@@ -266,7 +251,7 @@ class ClassMakeMask():
             xg_sel=xg[MaskSel].ravel()
             yg_sel=yg[MaskSel].ravel()
             sr_sel=sr[MaskSel].ravel()
-
+            if sr_sel.size<7: continue
 
             ###############
             logs=s*s.size#np.log10(s*s.size)
@@ -302,10 +287,10 @@ class ClassMakeMask():
         DicoIslands=self.DicoIslands
         NIslands=len(self.DicoIslands)
         print>>log, "  Building mask image from filtered islands"
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Building ", HeaderSize=10,TitleSize=13)
-        comment=''
+        #pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Building ", HeaderSize=10,TitleSize=13)
+        #comment=''
         for iIsland in DicoIslands.keys():
-            pBAR.render(int(100*iIsland / (len(DicoIslands.keys())-1)), comment)
+            #pBAR.render(int(100*iIsland / float(len(DicoIslands.keys())-1)), comment)
             x,y,s=DicoIslands[iIsland].T
             self.ImMask[np.int32(x),np.int32(y)]=1
 
@@ -333,7 +318,7 @@ class ClassMakeMask():
         nx,ny=self.ImMask.shape
         ImWrite=self.ImMask.reshape((1,1,nx,ny))
         
-        PutDataInNewImage(self.FitsFile,self.FitsFile+".mask",np.float32(ImWrite))
+        PutDataInNewImage(self.FitsFile,self.FitsFile+"."+self.OutName,np.float32(ImWrite))
 
     def plot(self):
         pylab.clf()
@@ -372,8 +357,10 @@ def main(options=None):
     Box=(int(s0),int(s1))
         
     MaskMachine=ClassMakeMask(options.RestoredIm,
-                       Th=options.Th,
-                              Box=Box,UseIslands=options.UseIslands)
+                              Th=options.Th,
+                              Box=Box,
+                              UseIslands=options.UseIslands,
+                              OutName=options.OutName)
     MaskMachine.CreateMask()
 
 if __name__=="__main__":
@@ -382,3 +369,25 @@ if __name__=="__main__":
     options = pickle.load(f)
     main(options=options)
 
+def test():
+    FitsFile="/media/tasse/data/DDFacet/Test/MultiFreqs3.restored.fits"
+    Conv=ClassMakeMask(FitsFile=FitsFile,Th=5.,Box=(50,10))
+    Conv.ComputeNoiseMap()
+    Conv.FindIslands()
+
+    nx,ny=Conv.ImIsland.shape
+    ImWrite=Conv.ImIsland.reshape((1,1,nx,ny))
+
+    PutDataInNewImage(FitsFile,FitsFile+".mask",np.float32(ImWrite))
+
+    #Conv.plot()
+
+    # import pylab
+    # pylab.clf()
+    # ax=pylab.subplot(1,2,1)
+    # pylab.imshow(Conv.Restored[0,0],cmap="gray")
+    # pylab.subplot(1,2,2,sharex=ax,sharey=ax)
+    # pylab.imshow(Conv.IslandsMachine.ImIsland,cmap="gray")
+    # pylab.draw()
+    # pylab.show(False)
+    # stop
