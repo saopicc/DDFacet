@@ -494,7 +494,7 @@ class ClassMakeMask():
             self.FilterIslands()
             self.IslandsToMask()
 
-        self.plot()
+        #self.plot()
         nx,ny=self.ImMask.shape
         ImWrite=self.ImMask.reshape((1,1,nx,ny))
         
