@@ -23,6 +23,7 @@ import collections
 import pylab
 from SkyModel.Other.MyHist import MyCumulHist
 from SkyModel.PSourceExtract import Gaussian
+from SkyModel.Sky import ModRegFile
 
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
@@ -34,6 +35,7 @@ def read_options():
     group.add_option('--Th',type="float",default=10,help="default is %default")
     group.add_option("--Box",type="str",default="30,2",help="default is %default")
     group.add_option("--OutName",type="str",help="default is %default",default="mask")
+    group.add_option("--ds9Mask",type="str",help="default is %default",default="mask")
     
     #group.add_option("--MedFilter",type="str",default="50,10")
     opt.add_option_group(group)
@@ -57,8 +59,10 @@ class ClassMakeMask():
                  Th=5.,
                  Box=(50,10),
                  UseIslands=False,
-                 OutName="mask"):
+                 OutName="mask",
+                 ds9Mask=""):
 
+        self.ds9Mask=ds9Mask
         self.FitsFile=FitsFile
         self.Th=Th
         self.Box,self.IncrPix=Box
@@ -75,7 +79,8 @@ class ClassMakeMask():
         PPA=(im.imageinfo()["restoringbeam"]["positionangle"]["value"])
         c=im.coordinates()
         incr=np.abs(c.dict()["direction0"]["cdelt"][0])
-        
+        self.incr_rad=incr
+
         ToSig=(1./3600.)*(np.pi/180.)/(2.*np.sqrt(2.*np.log(2)))
         SigMaj_rad=PMaj*ToSig
         SigMin_rad=PMin*ToSig
@@ -83,20 +88,33 @@ class ClassMakeMask():
         SixMin_pix=SigMin_rad/incr
         PPA_rad=PPA*np.pi/180
         
+
+        # #################"
         # _,_,nx,ny=self.Restored.shape
         # xc,yc=nx/2,nx/2
         # sup=200
         # x,y=np.mgrid[-sup:sup:1,-sup:sup:1]
-        # G=Gaussian.GaussianXY(x,y,1.,sig=(30,30),pa=0.)
-        # self.Restored[0,0,xc:xc+2*sup,yc:yc+2*sup]=G[:,:]
+        # G=Gaussian.GaussianXY(x,y,1.,sig=(7,18),pa=0.)
+        # self.Restored[0,0,xc:xc+2*sup,yc:yc+2*sup]+=G[:,:]
+
+        # xc,yc=nx/2+10,nx/2+10
+
+        # G=Gaussian.GaussianXY(x,y,1.,sig=(3,3),pa=0.)
+        # self.Restored[0,0,xc:xc+2*sup,yc:yc+2*sup]+=G[:,:]
+
+
+        # #################"
         
         x,y=np.mgrid[-10:11:1,-10:11:1]
         self.RefGauss=Gaussian.GaussianXY(x,y,1.,sig=(SixMin_pix,SixMaj_pix),pa=PPA_rad)
         self.RefGauss_xy=x,y
 
-        BeamMin_pix=SixMin_pix*(2.*np.sqrt(2.*np.log(2)))
-        BeamMaj_pix=SixMaj_pix*(2.*np.sqrt(2.*np.log(2)))
-        print>>log, "Restoring Beam size of (%3.3f, %3.3f) pixels"%(BeamMin_pix, BeamMaj_pix)
+        self.BeamMin_pix=SixMin_pix*(2.*np.sqrt(2.*np.log(2)))
+        self.BeamMaj_pix=SixMaj_pix*(2.*np.sqrt(2.*np.log(2)))
+        print>>log, "Restoring Beam size of (%3.3f, %3.3f) pixels"%(self.BeamMin_pix, self.BeamMaj_pix)
+        
+        
+        self.RBeam_pix=SixMaj_pix
         
         #self.Restored=np.load("testim.npy")
         self.A=self.Restored[0,0]
@@ -173,6 +191,66 @@ class ClassMakeMask():
         self.ImMask=(self.Restored[0,0,:,:]>self.Th*self.Noise)
         #self.ImIsland=scipy.ndimage.filters.median_filter(self.ImIsland,size=(3,3))
 
+    def MaskSelectedDS9(self):
+        ds9Mask=self.ds9Mask
+        print>>log,"Reading ds9 region file: %s"%ds9Mask
+        R=ModRegFile.RegToNp(ds9Mask)
+        R.Read()
+        
+        IncludeCat=R.CatSel
+        
+        ExcludeCat=R.CatExclude
+        
+        print>>log,"  Excluding pixels"
+
+        for iRegExclude in range(R.CatExclude.shape[0]):
+            rac,decc,Radius=R.CatExclude.ra[iRegExclude],R.CatExclude.dec[iRegExclude],R.CatExclude.Radius[iRegExclude]
+            RadiusPix=(1.1*Radius/self.incr_rad)
+            freq,pol,_,_=self.CasaIm.toworld((0,0,0,0))
+
+            _,_,yc,xc=self.CasaIm.topixel((freq,pol,decc,rac))
+
+            xGrid,yGrid=np.mgrid[int(xc-RadiusPix):int(xc+RadiusPix)+1,int(yc-RadiusPix):int(yc+RadiusPix)+1]
+            xGrid=xGrid.flatten().tolist()
+            yGrid=yGrid.flatten().tolist()
+
+            for ipix,jpix in zip(xGrid,yGrid):
+                _,_,dec,ra=self.CasaIm.toworld((0,0,jpix,ipix))
+                #d=np.sqrt((ra-rac)**2+(dec-decc)**2)
+                d=self.GiveAngDist(ra,dec,rac,decc)
+                if d<Radius:
+                    #print "zeros",ipix,jpix
+                    self.ImMask[jpix,ipix]=0
+                
+        print>>log,"  Including pixels"
+        for iRegInclude in range(IncludeCat.shape[0]):
+            rac,decc,Radius=IncludeCat.ra[iRegInclude],IncludeCat.dec[iRegInclude],IncludeCat.Radius[iRegInclude]
+            RadiusPix=(1.1*Radius/self.incr_rad)
+            freq,pol,_,_=self.CasaIm.toworld((0,0,0,0))
+
+            _,_,yc,xc=self.CasaIm.topixel((freq,pol,decc,rac))
+            
+            xGrid,yGrid=np.mgrid[int(xc-RadiusPix):int(xc+RadiusPix)+1,int(yc-RadiusPix):int(yc+RadiusPix)+1]
+            xGrid=xGrid.flatten().tolist()
+            yGrid=yGrid.flatten().tolist()
+
+            for ipix,jpix in zip(xGrid,yGrid):
+                _,_,dec,ra=self.CasaIm.toworld((0,0,jpix,ipix))
+                #d=np.sqrt((ra-rac)**2+(dec-decc)**2)
+                d=self.GiveAngDist(ra,dec,rac,decc)
+                #print ipix,jpix
+                if d<Radius: 
+                    #print "ones",ipix,jpix
+                    self.ImMask[jpix,ipix]=1
+
+    def GiveAngDist(self,ra1,dec1,ra2,dec2):
+        sin=np.sin
+        cos=np.cos
+        #cosA = sin(dec1)*sin(dec2) + cos(dec1)*cos(dec1)*cos(ra1 - ra2) 
+        #A=np.arccos(cosA)
+        A=np.sqrt(((ra1-ra2)*cos((dec1+dec2)/2.))**2+(dec1-dec2)**2)
+        return A
+
     def BuildIslandList(self):
         import scipy.ndimage
 
@@ -232,6 +310,9 @@ class ClassMakeMask():
         print>>log, "  Filter each individual islands"
         #pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Filter ", HeaderSize=10,TitleSize=13)
         #comment=''
+
+        NormHist=True
+
         for iIsland in DicoIslands.keys():
             #pBAR.render(int(100*iIsland / float(len(DicoIslands.keys())-1)), comment)
             x,y,s=DicoIslands[iIsland].T
@@ -255,9 +336,9 @@ class ClassMakeMask():
 
             ###############
             logs=s*s.size#np.log10(s*s.size)
-            X,Y=MyCumulHist(logs)
+            X,Y=MyCumulHist(logs,Norm=NormHist)
             logsr=sr_sel*sr_sel.size#np.log10(sr_sel*sr_sel.size)
-            Xr,Yr=MyCumulHist(logsr)
+            Xr,Yr=MyCumulHist(logsr,Norm=NormHist)
             Cut=0.9
             ThisTh=np.interp(Cut,Yr,Xr)
             #ThisTh=(ThisTh)/sr_sel.size
@@ -281,6 +362,102 @@ class ClassMakeMask():
         #     import time
         #     time.sleep(1)
         # stop
+
+    # def FilterIslands2(self):
+    #     DicoIslands=self.DicoIslands
+    #     NIslands=len(self.DicoIslands)
+    #     print>>log, "  Filter each individual islands"
+    #     #pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Filter ", HeaderSize=10,TitleSize=13)
+    #     #comment=''
+
+    #     NormHist=False
+
+    #     gamma=1.
+    #     d0=1.
+    #     for iIsland in [DicoIslands.keys()[0],DicoIslands.keys()[2]]:#DicoIslands.keys():
+    #         #pBAR.render(int(100*iIsland / float(len(DicoIslands.keys())-1)), comment)
+    #         x,y,s=DicoIslands[iIsland].T
+    #         #Im=self.GiveIm(x,y,s)
+    #         #pylab.subplot(1,2,1)
+    #         #pylab.imshow(Im,interpolation="nearest")
+    #         # pylab.subplot(1,2,2)
+
+    #         #sr=self.RefGauss.copy()*np.max(s)
+
+    #         xm,ym=int(np.mean(x)),int(np.mean(y))
+    #         Th=self.Th*self.Noise[xm,ym]
+
+    #         Np=x.size
+    #         DMat=np.sqrt((x.reshape((Np,1))-x.reshape((1,Np)))**2+(y.reshape((Np,1))-y.reshape((1,Np)))**2)#/self.RBeam_pix
+            
+    #         C=s.reshape((Np,1))*(1./(d0+DMat))**gamma
+    #         #C=1./(d0+DMat)**gamma
+
+            
+    #         #C-=np.diag(np.diag(C))
+    #         #MaxVec=np.mean(C,axis=1)
+    #         #ind=(MaxVec>s).ravel()
+
+    #         MaxVec=np.sum(C,axis=1)#*s#/Th
+
+    #         pylab.clf()
+
+    #         for iPix in range(C.shape[0])[0::10]:
+    #             X,Y=MyCumulHist(C[iPix],Norm=False)
+    #             pylab.plot(X,Y,color="gray")
+
+    #         ic=np.argmax(s)
+    #         X,Y=MyCumulHist(C[ic],Norm=False)
+    #         pylab.plot(X,Y,color="black",ls="--",lw=2)
+
+    #         pylab.draw()
+    #         pylab.show(False)
+    #         pylab.pause(0.1)
+
+    #     #     Im0=self.GiveIm(x,y,s)
+    #     #     #Im1=self.GiveIm(x,y,MaxVec)
+    #     #     MNorm=MaxVec/s
+    #     #     Im1=self.GiveIm(x,y,MNorm)
+    #     #     ImMask=self.GiveIm(x,y,(MaxVec>1.))
+
+    #     #     pylab.clf()
+    #     #     pylab.subplot(1,3,1)
+    #     #     pylab.imshow(Im0,interpolation="nearest")
+    #     #     pylab.colorbar()
+    #     #     #pylab.title("Th = %f"%Th)
+    #     #     pylab.subplot(1,3,2)
+    #     #     pylab.imshow(Im1,interpolation="nearest",vmin=MNorm.min(),vmax=MNorm.max())
+    #     #     pylab.colorbar()
+    #     #     pylab.subplot(1,3,3)
+    #     #     pylab.imshow(ImMask,interpolation="nearest")
+    #     #     pylab.draw()
+    #     #     pylab.show(False)
+    #     #     pylab.pause(0.1)
+    #     #     import time
+    #     #     time.sleep(1)
+            
+            
+
+    #     #     # xg,yg=self.RefGauss_xy
+
+    #     #     # MaskSel=(sr>Th)
+    #     #     # xg_sel=xg[MaskSel].ravel()
+    #     #     # yg_sel=yg[MaskSel].ravel()
+    #     #     # sr_sel=sr[MaskSel].ravel()
+    #     #     # if sr_sel.size<7: continue
+
+    #     #     #DicoIslands[iIsland]=DicoIslands[iIsland][ind].copy()
+    #     # #     pylab.clf()
+    #     # #     pylab.plot(X,Y)
+    #     # #     pylab.plot([ThisTh,ThisTh],[0,1],color="black")
+    #     # #     pylab.plot(Xr,Yr,color="black",lw=2,ls="--")
+    #     # #     pylab.draw()
+    #     # #     pylab.show(False)
+    #     # #     pylab.pause(0.1)
+    #     # #     import time
+    #     # #     time.sleep(1)
+    #     stop
+
 
     def IslandsToMask(self):
         self.ImMask.fill(0)
@@ -308,13 +485,16 @@ class ClassMakeMask():
     def CreateMask(self):
         self.ComputeNoiseMap()
         self.MakeMask()
+
+        if self.ds9Mask!="":
+            self.MaskSelectedDS9()
         if self.UseIslands:
             # Make island list
             self.BuildIslandList()
             self.FilterIslands()
             self.IslandsToMask()
 
-        #self.plot()
+        self.plot()
         nx,ny=self.ImMask.shape
         ImWrite=self.ImMask.reshape((1,1,nx,ny))
         
@@ -360,7 +540,8 @@ def main(options=None):
                               Th=options.Th,
                               Box=Box,
                               UseIslands=options.UseIslands,
-                              OutName=options.OutName)
+                              OutName=options.OutName,
+                              ds9Mask=options.ds9Mask)
     MaskMachine.CreateMask()
 
 if __name__=="__main__":
