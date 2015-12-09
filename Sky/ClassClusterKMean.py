@@ -135,13 +135,13 @@ class ClassClusterKMean():
         d=np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
         indk=np.argmin(d,axis=1)
         
-        # if self.DoPlot:
-        #     pylab.clf()
-        #     pylab.scatter(x,y,c=indk,s=ss,vmin=0,vmax=Nk,lw=0)
-        #     pylab.scatter(xc,yc,c="black",marker="s")
-        #     pylab.draw()
-        #     pylab.show(False)
-        #     pylab.pause(0.1)
+        if self.DoPlot:
+            pylab.clf()
+            pylab.scatter(x,y,c=indk,s=ss,vmin=0,vmax=Nk,lw=0)
+            pylab.scatter(xc,yc,c="black",marker="s")
+            pylab.draw()
+            pylab.show(False)
+            pylab.pause(0.1)
     
 
         KK={}
