@@ -7,15 +7,15 @@ from SkyModel.Other import ModCoord
 def test():
     
     N0=1000
-    x=np.random.randn(N0)
-    y=np.random.randn(N0)
+    x=np.random.rand(N0)*0.1
+    y=np.random.rand(N0)*0.1
     s=np.random.rand(N0)**2
     #s.fill(1)
     s=(s-np.min(s))/(np.max(s)-np.min(s))
     s+=1
     s*=10
     
-    s[0]=50
+    s[0]=500
     s[1]=30
 
 
@@ -48,10 +48,39 @@ class ClassClusterKMean():
             sz=(s-s.min())/(s.max()-s.min())*10+2
         else:
             sz=np.ones_like(s)*10
+
+        # sz=s
+
+        # Sk=np.ones((Nk,),np.float32)
+        # d=np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
+        # indk=np.argmin(d,axis=1)
+        # for iK in range(Nk):
+        #     ind=np.where(indk==iK)[0]
+        #     if ind.size==0: continue
+        #     xx=x[ind]
+        #     yy=y[ind]
+        #     ss=s[ind]
+        #     xc[iK]=np.sum(ss*xx)/np.sum(ss)
+        #     yc[iK]=np.sum(ss*yy)/np.sum(ss)
+        #     Sk=np.sum(ss)
+
+
         while True:
             #d=np.abs(s.reshape((ns,1))**2)*np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
+
+            
             d=np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
             indk=np.argmin(d,axis=1)
+            
+            # indk=np.zeros((ns,),np.int64)
+            # for iSource in range(ns):
+            #     xs=x[iSource]
+            #     ys=y[iSource]
+            #     dk=np.abs((xs-xc.reshape((Nk,1)))*Sk.reshape((Nk,1))-(xs-xc.reshape((1,Nk)))*Sk.reshape((1,Nk))))
+            #     indk[iSource]=np.arg
+                
+
+
             xc0=xc.copy()
             yc0=yc.copy()
             if self.DoPlot:
@@ -65,8 +94,8 @@ class ClassClusterKMean():
                 
                 xc[iK]=np.sum(ss*xx)/np.sum(ss)
                 yc[iK]=np.sum(ss*yy)/np.sum(ss)
-                xc[iK]=np.mean(xx)
-                yc[iK]=np.mean(yy)
+                #xc[iK]=np.mean(xx)
+                #yc[iK]=np.mean(yy)
                 c=np.ones(xx.size)*iK
                 ssz=sz[ind]
                 
