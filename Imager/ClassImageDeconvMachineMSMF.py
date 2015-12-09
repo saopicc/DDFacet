@@ -62,7 +62,7 @@ class ClassImageDeconvMachine():
     def InitMSMF(self):
 
         self.DicoMSMachine={}
-
+        print>>log,"Initialise MSMF Machine ..."
         for iFacet in range(self.PSFServer.NFacets):
             self.PSFServer.setFacet(iFacet)
             MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.Gain)
@@ -310,8 +310,8 @@ class ClassImageDeconvMachine():
         pBAR.render(0)
         StopFlux=np.max([FluxLimit_RMS,Threshold_SideLobe])
         def GivePercentDone(ThisMaxFlux):
-            fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxFlux-StopFlux)
-            return round(100*fracDone)
+            fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
+            return int(round(100*fracDone))
 
 
         for i in range(Nminor):

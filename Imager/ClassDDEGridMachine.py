@@ -1083,7 +1083,7 @@ class ClassDDEGridMachine():
         return ModelUVCorr
     
     def FT(self,Image):
-        LDoChans=sorted(list(set(self.ChanMappingDeGrid.tolist())))
+        LDoChans=sorted(list(set(self.ChanMappingDegrid.tolist())))
         return np.complex64(self.FFTWMachine.fft(np.complex128(Image),ChanList=LDoChans))
 
         

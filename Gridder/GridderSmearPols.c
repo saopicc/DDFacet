@@ -1014,7 +1014,11 @@ void DeGridderWPol(PyArrayObject *grid,
 
       visChanMean/=NVisThisblock;
       int ThisGridChan=p_ChanMapping[chStart];
-      if(visChanMean!=ThisGridChan){printf("degridder: probably there is a problem in the BDA mapping\n");}
+      float diffChan=visChanMean-visChanMean;
+      
+
+      //if(diffChan!=0.){printf("degridder: probably there is a problem in the BDA mapping\n");}
+      if(diffChan!=0.){printf("degridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);}
       visChanMean=0.;
       //printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6));
       /* int ThisPol; */
