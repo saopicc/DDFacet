@@ -1083,7 +1083,8 @@ class ClassDDEGridMachine():
         return ModelUVCorr
     
     def FT(self,Image):
-        return np.complex64(self.FFTWMachine.fft(np.complex128(Image)))
+        LDoChans=sorted(list(set(self.ChanMappingDeGrid.tolist())))
+        return np.complex64(self.FFTWMachine.fft(np.complex128(Image),ChanList=LDoChans))
 
         
     def cutImPadded(self,Dirty):
