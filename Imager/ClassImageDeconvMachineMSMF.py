@@ -310,7 +310,8 @@ class ClassImageDeconvMachine():
         pBAR.render(0)
         StopFlux=np.max([FluxLimit_RMS,Threshold_SideLobe])
         def GivePercentDone(ThisMaxFlux):
-            return round(1.-(ThisMaxFlux-StopFlux)/(MaxFlux-StopFlux))
+            fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxFlux-StopFlux)
+            return round(100*fracDone)
 
 
         for i in range(Nminor):
