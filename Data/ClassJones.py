@@ -264,13 +264,24 @@ class ClassJones():
         DicoSols["tm"]=(Sols.t1+Sols.t0)/2.
         nt,na,nd,_,_=Sols.G.shape
         G=np.swapaxes(Sols.G,1,2).reshape((nt,nd,na,1,2,2))
+        
+
+        if GlobalMode=="MeanAbsAnt":
+             print>>log, "  Normalising by the mean of the amplitude (against time)"
+             gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
+             gmean_abs=gmean_abs.reshape((1,nd,na,1))
+             G[:,:,:,:,0,0]/=gmean_abs
+             G[:,:,:,:,1,1]/=gmean_abs
+         
         if GlobalMode=="MeanAbs":
-            print>>log, "  Normalising by the mean of the amplitude"
-            gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
-            gmean_abs=gmean_abs.reshape((1,nd,na,1))
+            print>>log, "  Normalising by the mean of the amplitude (against time, antenna)"
+            gmean_abs=np.mean(np.mean(np.abs(G[:,:,:,:,0,0]),axis=0),axis=1)
+            gmean_abs=gmean_abs.reshape((1,nd,1,1))
             G[:,:,:,:,0,0]/=gmean_abs
             G[:,:,:,:,1,1]/=gmean_abs
         
+
+
         if not("A" in JonesMode):
             print>>log, "  Normalising by the amplitude"
             G[G!=0.]/=np.abs(G[G!=0.])

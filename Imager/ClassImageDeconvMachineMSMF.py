@@ -17,9 +17,9 @@ class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,CycleFactor=2.5,
                  FluxThreshold=None,
-                 GD=None,CleanMaskImage=None):
+                 GD=None,SearchMaxAbs=1,CleanMaskImage=None):
         #self.im=CasaImage
-        
+        self.SearchMaxAbs=SearchMaxAbs
         self.Gain=Gain
         self.ModelImage=None
         self.MaxMinorIter=MaxMinorIter
@@ -246,7 +246,8 @@ class ClassImageDeconvMachine():
         # pylab.show(False)
         # pylab.pause(0.1)
 
-        print>>log, "  Running minor cycle [MaxMinorIter = %i, CycleFactor=%3.1f, FluxThreshold=%g]"%(Nminor,self.CycleFactor,self.FluxThreshold)
+        DoAbs=int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
+        print>>log, "  Running minor cycle [MaxMinorIter = %i, CycleFactor = %3.1f, SearchMaxAbs = %i]"%(Nminor,self.CycleFactor,DoAbs)
 
         NPixStats=1000
         RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
@@ -255,7 +256,7 @@ class ClassImageDeconvMachine():
         self.RMS=RMS
         Threshold_RMS=5./(1.-self.SideLobeLevel)  ## 5
 
-        x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1,Mask=self.MaskArray)
+        x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
         #MaxDirty=np.max(np.abs(self.Dirty))
         FluxLimit_RMS = Threshold_RMS*RMS
         #FluxLimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
@@ -266,9 +267,9 @@ class ClassImageDeconvMachine():
 
 
         mm0,mm1=self.Dirty.min(),self.Dirty.max()
-        print>>log, "    Dirty image peak flux   = %7.3f Jy [(min, max) = (%7.3f, %7.3f) Jy]"%(MaxDirty,mm0,mm1)
-        print>>log, "    RMS threshold flux      = %7.3f Jy [rms      = %7.3f Jy]"%(FluxLimit_RMS, RMS)
-        print>>log, "    Sidelobs threshold flux = %7.3f Jy [sidelobe = %7.3f of peak]"%(Threshold_SideLobe,self.SideLobeLevel)
+        print>>log, "    Dirty image peak flux   = %10.6f Jy [(min, max) = (%7.3f, %7.3f) Jy]"%(MaxDirty,mm0,mm1)
+        print>>log, "    RMS threshold flux      = %10.6f Jy [rms      = %7.3f Jy]"%(FluxLimit_RMS, RMS)
+        print>>log, "    Sidelobs threshold flux = %10.6f Jy [sidelobe = %7.3f of peak]"%(Threshold_SideLobe,self.SideLobeLevel)
 
         MaxModelInit=np.max(np.abs(self.ModelImage))
 
@@ -300,6 +301,8 @@ class ClassImageDeconvMachine():
 
         #        DoneScale=np.zeros((self.MSMachine.NScales,),np.float32)
 
+        PreviousMaxFlux=1e30
+
         for i in range(Nminor):
 
             #x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
@@ -319,7 +322,7 @@ class ClassImageDeconvMachine():
                 # DoneScale*=100./np.sum(DoneScale)
                 # for iScale in range(DoneScale.size):
                 #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
-                return "MinFlux"
+                return "MinFluxRms"
 
             if ThisFlux < Threshold_SideLobe:
                 print>>log, "    [iter=%i] Peak residual flux %g Jy lower than sidelobe-based limit of %g Jy" % (i,ThisFlux, Threshold_SideLobe)

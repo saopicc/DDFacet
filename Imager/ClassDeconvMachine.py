@@ -676,6 +676,7 @@ class ClassImagerDeconv():
 
             self.HasCleaned=True
             if repMinor=="MaxIter": break
+            if repMinor=="MinFluxRms": break
 
         #self.FacetMachine.ToCasaImage(Image,ImageName="%s.residual"%self.BaseName,Fits=True)
         if self.HasCleaned:

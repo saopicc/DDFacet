@@ -357,9 +357,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         
 
         regFile="%s.tessel.reg"%self.GD["Images"]["ImageName"]
-
-
-        VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=[str(i) for i in range(len(LPolygonNew))])
+        labels=["[F%i.C%i]"%(i,DicoPolygon[i]["iSol"]) for i in range(len(LPolygonNew))]
+        VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=labels)
 
         # pylab.clf()
         # x,y=LPolygonNew[11].T
@@ -940,8 +939,8 @@ class WorkerImager(multiprocessing.Process):
         
     def GiveDicoJonesMatrices(self):
         DicoJonesMatrices=None
-        #if self.PSFMode:
-        #    return None
+        if self.PSFMode:
+            return None
 
         if self.ApplyCal:
             DicoJonesMatrices={}

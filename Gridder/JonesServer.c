@@ -412,6 +412,8 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight){
       
       float Rij_sq=1.+Rij*Rij;
       WeightVaryJJ  = 1./(Rij_sq);
+
+      if((abs_g0*abs_g1)>2.){WeightVaryJJ=0.;};
       
       /* // TEST */
       /* float Rij=(abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR; */
