@@ -145,6 +145,7 @@ def read_options():
     OP.OptionGroup("* Clean","ImagerDeconv")
     OP.add_option("MaxMajorIter")
     OP.add_option("Gain")
+    OP.add_option("SearchMaxAbs")
     OP.add_option("MaxMinorIter")
     OP.add_option("CycleFactor")
     OP.add_option("CleanMaskImage")
