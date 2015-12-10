@@ -25,12 +25,9 @@ class ClassSM():
         self.infile_cluster=infile_cluster
         self.TargetList=infile
         self.Type="Catalog"
-        if ".npz" in infile:
-            NpFile=np.load(infile)
-            Cat=NpFile["SourceCat"]
+        if ".npy" in infile:
+            Cat=np.load(infile)
             Cat=Cat.view(np.recarray)
-            self.ClusterCatIn=NpFile["ClusterCat"]
-            self.ClusterCatIn=self.ClusterCatIn.view(np.recarray)
         elif Tigger:
             Cat=ModTigger.ReadTiggerModel(infile)
         elif FromExt!=None:
@@ -83,7 +80,7 @@ class ClassSM():
         print "   - SkyModel File Name: %s"%ModColor.Str(infile,col="green")
         if self.REGFile!=None: print "   - ds9 region file: %s"%ModColor.Str(self.REGFile,col="green")
         npext=""
-        if not(".npz" in infile): npext=".npz"
+        if not(".npy" in infile): npext=".npy"
         self.NpFile="%s%s"%(infile,npext)
         np.save(infile,self.SourceCat)
         self.PrintBasics()
@@ -91,7 +88,7 @@ class ClassSM():
     def PrintBasics(self):
         infile=self.infile
         npext=""
-        if not(".npz" in infile): npext=".npz"
+        if not(".npy" in infile): npext=".npy"
         print "   - Numpy catalog file: %s"%ModColor.Str("%s%s"%(infile,npext),col="green")
 
         #print "Oufile: %s"%self.infile_cluster
@@ -205,17 +202,16 @@ class ClassSM():
             DictNode=CM.Cluster()
         else:
             DictNode={}
-            SourceCatRef=np.load(FromClusterCat)["ClusterCat"]
+            SourceCatRef=np.load(FromClusterCat)
             SourceCatRef=SourceCatRef.view(np.recarray)
             ClusterList=sorted(list(set(SourceCatRef.Cluster.tolist())))
-            #xc,yc=self.radec2lm_scalar(SourceCatRef.ra,SourceCatRef.dec)
-            lc,mc=self.radec2lm_scalar(SourceCatRef.ra,SourceCatRef.dec)
-            # lc=np.zeros((len(ClusterList),),dtype=np.float32)
-            # mc=np.zeros((len(ClusterList),),dtype=np.float32)
-            # for iCluster in ClusterList:
-            #     indC=np.where(SourceCatRef.Cluster==iCluster)[0]
-            #     lc[iCluster]=np.sum(SourceCatRef.I[indC]*xc[indC])/np.sum(SourceCatRef.I[indC])
-            #     mc[iCluster]=np.sum(SourceCatRef.I[indC]*yc[indC])/np.sum(SourceCatRef.I[indC])
+            xc,yc=self.radec2lm_scalar(SourceCatRef.ra,SourceCatRef.dec)
+            lc=np.zeros((len(ClusterList),),dtype=np.float32)
+            mc=np.zeros((len(ClusterList),),dtype=np.float32)
+            for iCluster in ClusterList:
+                indC=np.where(SourceCatRef.Cluster==iCluster)[0]
+                lc[iCluster]=np.sum(SourceCatRef.I[indC]*xc[indC])/np.sum(SourceCatRef.I[indC])
+                mc[iCluster]=np.sum(SourceCatRef.I[indC]*yc[indC])/np.sum(SourceCatRef.I[indC])
             Ns=x.size
             Nc=lc.size
             D=np.sqrt((x.reshape((Ns,1))-lc.reshape((1,Nc)))**2+(y.reshape((Ns,1))-mc.reshape((1,Nc)))**2)
