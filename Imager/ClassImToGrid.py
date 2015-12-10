@@ -110,7 +110,9 @@ class ClassImToGrid():
         return Grid,SumFlux
 
     def GiveModelTessel(self,Image,DicoImager,iFacet,NormIm,Sphe,SpacialWeight,ToGrid=False,ChanSel=None):
+        
         nch,npol,NPixOut,_=Image.shape
+
         N1=DicoImager[iFacet]["NpixFacetPadded"]
         N1NonPadded=DicoImager[iFacet]["NpixFacetPadded"]
         dx=(N1-N1NonPadded)/2

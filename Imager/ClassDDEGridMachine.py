@@ -658,7 +658,7 @@ class ClassDDEGridMachine():
 
 
         if ChanMapping==None:
-            ChanMapping=np.zeros((self.GridShape[0],),np.int64)
+            ChanMapping=np.zeros((visIn.shape[1],),np.int64)
         self.ChanMappingGrid=ChanMapping
 
         T.timeit("2")
@@ -766,6 +766,7 @@ class ClassDDEGridMachine():
         #print "vis",vis.min(),vis.max()
 
         
+        #print "DEGRID:",Grid.shape,ChanMapping
 
         #print W
         #print "!!!!!!!!!! 0 ",SumWeigths
@@ -904,6 +905,8 @@ class ClassDDEGridMachine():
         T.disable()
         vis=visIn#.copy()
 
+        #self.GridShape=(self.GD,self.npol,self.Npix,self.Npix)
+
         #print DicoJonesMatrices.keys()
         #LTimes=sorted(list(set(times.tolist())))
         #NTimes=len(LTimes)
@@ -919,7 +922,7 @@ class ClassDDEGridMachine():
             Grid=ModelImage
 
         if ChanMapping==None:
-            ChanMapping=np.zeros((self.GridShape[0],),np.int32)
+            ChanMapping=np.zeros((visIn.shape[1],),np.int32)
 
         self.ChanMappingDegrid=ChanMapping
 
@@ -1004,7 +1007,7 @@ class ClassDDEGridMachine():
 
         T.timeit("3")
         #print vis
-
+        #print "DEGRID:",Grid.shape,ChanMapping
         if self.GD["Compression"]["CompDeGridMode"]==0:
             _ = _pyGridder.pyDeGridderWPol(Grid,
                                            vis,

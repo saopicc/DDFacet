@@ -103,6 +103,7 @@ def read_options():
     OP.OptionGroup("* MultiFrequency Options","MultiFreqs")
     OP.add_option("NFreqBands")
     OP.add_option("Alpha")
+    OP.add_option("NChanDegridPerMS")
 
 
     OP.OptionGroup("* Primary Beam Options","Beam")
