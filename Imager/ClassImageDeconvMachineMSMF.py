@@ -13,6 +13,8 @@ from pyrap.images import image
 from ClassPSFServer import ClassPSFServer
 import ClassModelMachine
 from DDFacet.Other.progressbar import ProgressBar
+#import ClassGainMachine
+
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
@@ -285,7 +287,7 @@ class ClassImageDeconvMachine():
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
 
-        x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1,Mask=self.MaskArray)
+        x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
         #print x,y
 
         if ThisFlux < FluxLimit_RMS:
