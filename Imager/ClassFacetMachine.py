@@ -85,7 +85,7 @@ class ClassFacetMachine():
         self.NormImage=None
 
     def __del__ (self):
-        print>>log,"deleting shared memory"
+        #print>>log,"Deleting shared memory"
         NpShared.DelAll(self.IdSharedMem)
 
     def SetLogModeSubModules(self,Mode="Silent"):

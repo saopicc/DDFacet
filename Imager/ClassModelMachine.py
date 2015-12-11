@@ -23,12 +23,13 @@ from SkyModel.Sky import ClassSM
 import os
 
 class ClassModelMachine():
-    def __init__(self,GD=None,Gain=None):
+    def __init__(self,GD=None,Gain=None,GainMachine=None):
         self.GD=GD
         if Gain==None:
             self.Gain=self.GD["ImagerDeconv"]["Gain"]
         else:
             self.Gain=Gain
+        self.GainMachine=GainMachine
         self.DicoSMStacked={}
         self.DicoSMStacked["Comp"]={}
 
@@ -67,7 +68,9 @@ class ClassModelMachine():
             DicoComp[key]["SumWeights"]=0.
 
         Weight=1.
-        SolNorm=Sols.ravel()*self.Gain*np.mean(Fpol)
+        Gain=self.GainMachine.GiveGain()
+
+        SolNorm=Sols.ravel()*Gain*np.mean(Fpol)
 
 
         DicoComp[key]["SumWeights"] += Weight

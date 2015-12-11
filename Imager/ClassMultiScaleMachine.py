@@ -15,9 +15,9 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 class ClassMultiScaleMachine():
 
-    def __init__(self,GD,Gain=0.1):
+    def __init__(self,GD,Gain=0.1,GainMachine=None):
         self.SubPSF=None
-        self.Gain=Gain
+        self.GainMachine=GainMachine
         self.CubePSFScales=None
         self.GD=GD
         self.MultiFreqMode=False

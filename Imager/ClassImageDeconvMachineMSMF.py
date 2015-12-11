@@ -13,7 +13,7 @@ from pyrap.images import image
 from ClassPSFServer import ClassPSFServer
 import ClassModelMachine
 from DDFacet.Other.progressbar import ProgressBar
-#import ClassGainMachine
+import ClassGainMachine
 
 
 class ClassImageDeconvMachine():
@@ -23,7 +23,6 @@ class ClassImageDeconvMachine():
                  GD=None,SearchMaxAbs=1,CleanMaskImage=None):
         #self.im=CasaImage
         self.SearchMaxAbs=SearchMaxAbs
-        self.Gain=Gain
         self.ModelImage=None
         self.MaxMinorIter=MaxMinorIter
         self.NCPU=NCPU
@@ -33,9 +32,9 @@ class ClassImageDeconvMachine():
         self.GD=GD
         self.SubPSF=None
         self.MultiFreqMode=(self.GD["MultiFreqs"]["NFreqBands"]>1)
-        self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD)
         self.FluxThreshold = FluxThreshold 
-
+        self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
+        self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
         
         if CleanMaskImage!=None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
@@ -67,7 +66,7 @@ class ClassImageDeconvMachine():
         print>>log,"Initialise MSMF Machine ..."
         for iFacet in range(self.PSFServer.NFacets):
             self.PSFServer.setFacet(iFacet)
-            MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.Gain)
+            MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.GainMachine)
             MSMachine.setModelMachine(self.ModelMachine)
             MSMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
             ThisPSF,ThisMeanPSF=self.PSFServer.GivePSF()
@@ -257,7 +256,8 @@ class ClassImageDeconvMachine():
         RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
         
         self.RMS=RMS
-        Threshold_RMS=5./(1.-self.SideLobeLevel)  ## 5
+        self.GainMachine.SetRMS(self.RMS)
+        Threshold_RMS=3./(1.-self.SideLobeLevel)  ## 5
 
         x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
         #MaxDirty=np.max(np.abs(self.Dirty))
@@ -309,7 +309,7 @@ class ClassImageDeconvMachine():
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=10,TitleSize=13)
         # pBAR.disable()
-        pBAR.render(0)
+        pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
         StopFlux=np.max([FluxLimit_RMS,Threshold_SideLobe])
         def GivePercentDone(ThisMaxFlux):
             fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
@@ -321,6 +321,8 @@ class ClassImageDeconvMachine():
             #x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
             x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
 
+            self.GainMachine.SetFluxMax(ThisFlux)
+
             # #x,y=1224, 1994
             # print x,y,ThisFlux
             # x,y=np.where(np.abs(self.Dirty[0])==np.max(np.abs(self.Dirty[0])))
@@ -331,7 +333,7 @@ class ClassImageDeconvMachine():
             T.timeit("max0")
 
             if ThisFlux < FluxLimit_RMS:
-                pBAR.render(100)
+                pBAR.render(100,"g=%3.3f"%self.GainMachine.GiveGain())
                 print>>log, "    [iter=%i] Maximum peak of %g Jy lower than rms-based limit of %g Jy (%i-sigma)" % (i,ThisFlux,FluxLimit_RMS,Threshold_RMS)
                 # DoneScale*=100./np.sum(DoneScale)
                 # for iScale in range(DoneScale.size):
@@ -340,7 +342,7 @@ class ClassImageDeconvMachine():
                 return "MinFluxRms"
 
             if ThisFlux < Threshold_SideLobe:
-                pBAR.render(100)
+                pBAR.render(100,"g=%3.3f"%self.GainMachine.GiveGain())
                 print>>log, "    [iter=%i] Peak residual flux %g Jy lower than sidelobe-based limit of %g Jy" % (i,ThisFlux, Threshold_SideLobe)
                 # DoneScale*=100./np.sum(DoneScale)
                 # for iScale in range(DoneScale.size):
@@ -349,7 +351,7 @@ class ClassImageDeconvMachine():
                 return "MinFlux"
 
             if ThisFlux < self.FluxThreshold:
-                pBAR.render(100)
+                pBAR.render(100,"g=%3.3f"%self.GainMachine.GiveGain())
                 print>>log, "    [iter=%i] Peak residual flux %g Jy lower than flux threshold of %g Jy" % (i,ThisFlux, self.FluxThreshold)
                 # DoneScale*=100./np.sum(DoneScale)
                 # for iScale in range(DoneScale.size):
@@ -361,7 +363,7 @@ class ClassImageDeconvMachine():
 #                print>>log, "    [iter=%i] Peak residual flux %f Jy" % (i,ThisFlux)
             if (i>0)&((i%100)==0):
                 PercentDone=GivePercentDone(ThisFlux)                
-                pBAR.render(PercentDone)
+                pBAR.render(PercentDone,"g=%3.3f"%self.GainMachine.GiveGain())
 
             nch,npol,_,_=self._Dirty.shape
             Fpol=np.float32((self._Dirty[:,:,x,y].reshape((nch,npol,1,1))).copy())
@@ -402,8 +404,8 @@ class ClassImageDeconvMachine():
             # #pylab.colorbar()
             
 
-            
-            self.SubStep((x,y),LocalSM*self.Gain)
+            CurrentGain=self.GainMachine.GiveGain()
+            self.SubStep((x,y),LocalSM*CurrentGain)
             T.timeit("SubStep")
 
 
