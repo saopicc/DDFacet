@@ -160,10 +160,6 @@ float complex *J0kMS;
 float complex *J1kMS;
 float complex *J0Beam;
 float complex *J1Beam;
-float complex *J0J0Beam;
-float complex *J1J1Beam;
-float complex *J0J0BeamJ0kMS;
-float complex *J1J1BeamJ0kMS;
 
 
 float complex *J0inv;
@@ -188,10 +184,6 @@ void initJonesMatrices(){
   Unity(J0); Unity(J1);
   Unity(J0kMS); Unity(J1kMS);
   Unity(J0Beam); Unity(J1Beam);
-  Unity(J0J0Beam);
-  Unity(J1J1Beam);
-  Unity(J0J0BeamJ0kMS);
-  Unity(J1J1BeamJ0kMS);
   
 
 
@@ -361,6 +353,7 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight){
     }
 
   }
+
   if(ApplyJones_killMS){
     int i_t=ptrTimeMappingJonesMatrices[irow];
     int i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
