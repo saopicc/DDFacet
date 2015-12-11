@@ -435,7 +435,7 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight){
 
 
 
-  if(SomeJonesHaveChanged){
+  //  if(SomeJonesHaveChanged){
     J0[0]=1;J0[1]=0;J0[2]=0;J0[3]=1;
     J1[0]=1;J1[1]=0;J1[2]=0;J1[3]=1;
     if(ApplyJones_Beam){
@@ -454,7 +454,7 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight){
     BB*=BB;
     MatH(J1,J1H);
     MatH(J0,J0H);
-  }
+    //}
   /* MatInv(J0,J0inv,0); */
   /* MatH(J1,J1H); */
   /* MatInv(J1H,J1Hinv,0); */
