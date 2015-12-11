@@ -354,11 +354,15 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight){
 
   }
 
+
+  ApplyJones_killMS=1;
   if(ApplyJones_killMS){
     int i_t=ptrTimeMappingJonesMatrices[irow];
     int i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
     SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&(CurrentJones_kMS_Chan==i_JonesChan);
     
+    SameAsBefore_kMS=0;
+
     if(SameAsBefore_kMS==0){
       GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, i_JonesChan, ModeInterpolation, J0kMS);
       GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, i_JonesChan, ModeInterpolation, J1kMS);
