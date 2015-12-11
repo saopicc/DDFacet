@@ -378,6 +378,8 @@ void gridderWPol(PyArrayObject *grid,
       float ThisSumSqWeights=0.;
       //int ThisBlockAllFlagged=1;
       float visChanMean=0.;
+      resetJonesServerCounter();
+
       for (inx=0; inx<NRowThisBlock; inx++) {
 	int irow = Row[inx];
 	if(irow>nrows){continue;}
@@ -972,6 +974,7 @@ void DeGridderWPol(PyArrayObject *grid,
       //printf("Block[%i] Nrows=%i %i>%i\n",iBlock,NRowThisBlock,chStart,chEnd);
 
       float visChanMean=0.;
+      resetJonesServerCounter();
       for (inx=0; inx<NRowThisBlock; inx++) {
 	int irow = Row[inx];
 	if(irow>nrows){continue;}
