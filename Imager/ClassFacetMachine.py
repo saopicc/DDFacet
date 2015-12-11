@@ -575,6 +575,7 @@ class ClassFacetMachine():
         T.timeit("4")
 
         if self.DoPSF:
+            print>>log, "  Build PSF facet-slices ..."
             self.DicoPSF={}
             for iFacet in self.DicoGridMachine.keys():
                 self.DicoPSF[iFacet]={}
@@ -607,6 +608,8 @@ class ClassFacetMachine():
             nch=self.GD["MultiFreqs"]["NFreqBands"]
             CubeVariablePSF=np.zeros((NFacets,nch,npol,NPixMin,NPixMin),np.float32)
             CubeMeanVariablePSF=np.zeros((NFacets,1,npol,NPixMin,NPixMin),np.float32)
+
+            print>>log, "  Cutting PSFs facet-slices ..."
             for iFacet in sorted(DicoVariablePSF.keys()):
                 _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
                 for ch in range(nch):
@@ -671,7 +674,11 @@ class ClassFacetMachine():
 
         nch,npol,NPixOut,NPixOut=self.OutImShape
 
-        print>>log, "Combining facets using %s mode for [JonesNormImage = %i]..."%(self.ConstructMode,BeamWeightImage)
+        if BeamWeightImage:
+            print>>log, "Combining facets to average Jones-ampltude image..."
+        else:
+            print>>log, "Combining facets to residual image..."
+            
 
         self.BuildFacetNormImage()
         NormImage=self.NormImage
