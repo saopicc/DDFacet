@@ -319,7 +319,7 @@ class ClassImageDeconvMachine():
         for i in range(Nminor):
 
             #x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
-            x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1,Mask=self.MaskArray)
+            x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
 
             # #x,y=1224, 1994
             # print x,y,ThisFlux

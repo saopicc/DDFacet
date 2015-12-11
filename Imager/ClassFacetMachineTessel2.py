@@ -808,9 +808,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
                 self.DicoGridMachine[iFacet]["Dirty"]+=ThisDirty
             else:
-                self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty
-
-            NCH,_,_,_=ThisDirty.shape
+                self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty.copy()
+            NpShared.DelArray(DirtyName)
+            #NCH,_,_,_=ThisDirty.shape
             #print np.max(self.DicoGridMachine[iFacet]["Dirty"].reshape((NCH,ThisDirty.size/NCH)),axis=1)
 
 

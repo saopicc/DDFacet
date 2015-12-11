@@ -160,6 +160,10 @@ float complex *J0kMS;
 float complex *J1kMS;
 float complex *J0Beam;
 float complex *J1Beam;
+float complex *J0J0Beam;
+float complex *J1J1Beam;
+float complex *J0J0BeamJ0kMS;
+float complex *J1J1BeamJ0kMS;
 
 
 float complex *J0inv;
@@ -184,7 +188,13 @@ void initJonesMatrices(){
   Unity(J0); Unity(J1);
   Unity(J0kMS); Unity(J1kMS);
   Unity(J0Beam); Unity(J1Beam);
+  Unity(J0J0Beam);
+  Unity(J1J1Beam);
+  Unity(J0J0BeamJ0kMS);
+  Unity(J1J1BeamJ0kMS);
   
+
+
   J0inv=calloc(1,(4)*sizeof(float complex));
   J0H=calloc(1,(4)*sizeof(float complex));
   J0Conj=calloc(1,(4)*sizeof(float complex));
@@ -307,7 +317,8 @@ int CurrentJones_kMS_Time=-1;
 int CurrentJones_kMS_Chan=-1;
 int CurrentJones_Beam_Time=-1;
 int CurrentJones_Beam_Chan=-1;
-
+int SameAsBefore_Beam=1;
+int SameAsBefore_kMS=1;
 
 void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight){
 
@@ -326,116 +337,131 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight){
   if((ApplyJones_Beam)&(ApplyJones_killMS)){
     int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
     int i_JonesChan=ptrVisToJonesChanMapping_Beam[visChan];
-    int SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&(CurrentJones_Beam_Chan=i_JonesChan);
+    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&(CurrentJones_Beam_Chan=i_JonesChan);
     i_t=ptrTimeMappingJonesMatrices[irow];
     i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
-    int SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&(CurrentJones_kMS_Chan=i_JonesChan);
-    if(SameAsBefore_Beam==SameAsBefore_kMS){return;}
+    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&(CurrentJones_kMS_Chan=i_JonesChan);
+    if((SameAsBefore_Beam)&(SameAsBefore_kMS)){return;}
   }
 
-  J0[0]=1;J0[1]=0;J0[2]=0;J0[3]=1;
-  J1[0]=1;J1[1]=0;J1[2]=0;J1[3]=1;
-  
+  int SomeJonesHaveChanged=0;
 
   if(ApplyJones_Beam){
     int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
     int i_JonesChan=ptrVisToJonesChanMapping_Beam[visChan];
     //printf("ptrVisToJonesChanMapping_Beam[visChan]=%i %i\n;",visChan,ptrVisToJonesChanMapping_Beam[visChan]);
-    int SameAsBefore=(CurrentJones_Beam_Time==i_t)&(CurrentJones_Beam_Chan==i_JonesChan);
+    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&(CurrentJones_Beam_Chan==i_JonesChan);
 
-    if(SameAsBefore==0){
+    if(SameAsBefore_Beam==0){
       GiveJones(ptrJonesMatrices_Beam, JonesDims_Beam, ptrCoefsInterp, i_t, i_ant0, i_dir_Beam, i_JonesChan, ModeInterpolation, J0Beam);
       GiveJones(ptrJonesMatrices_Beam, JonesDims_Beam, ptrCoefsInterp, i_t, i_ant1, i_dir_Beam, i_JonesChan, ModeInterpolation, J1Beam);
       CurrentJones_Beam_Time=i_t;
       CurrentJones_Beam_Chan=i_JonesChan;
+      SomeJonesHaveChanged=1;
     }
 
-    MatDot(J0Beam,JonesType,J0,JonesType,J0);
-    MatDot(J1Beam,JonesType,J1,JonesType,J1);
   }
   if(ApplyJones_killMS){
     int i_t=ptrTimeMappingJonesMatrices[irow];
     int i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
-    int SameAsBefore=(CurrentJones_kMS_Time==i_t)&(CurrentJones_kMS_Chan==i_JonesChan);
+    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&(CurrentJones_kMS_Chan==i_JonesChan);
     
-    if(SameAsBefore==0){
+    if(SameAsBefore_kMS==0){
       GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, i_JonesChan, ModeInterpolation, J0kMS);
       GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, i_JonesChan, ModeInterpolation, J1kMS);
       NormJones(J0kMS, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
       NormJones(J1kMS, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
       CurrentJones_kMS_Time=i_t;
       CurrentJones_kMS_Chan=i_JonesChan;
-    }
-
-    MatDot(J0kMS,JonesType,J0,JonesType,J0);
-    MatDot(J1kMS,JonesType,J1,JonesType,J1);
+      SomeJonesHaveChanged=1;
     
 
-    if(EstimateWeight==1){
-      int i_t_p1;
-      i_t_p1=i_t+1;
-      if (i_t==(nt_Jones-1)){i_t_p1=i_t;}
-      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_p1, i_ant0, i_dir, i_JonesChan, ModeInterpolation, J0kMS_tp1);
-      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_p1, i_ant1, i_dir, i_JonesChan, ModeInterpolation, J1kMS_tp1);
-      /* float abs_dg0=cabs(J0kMS_tp1[0]-J0kMS[0]); */
-      /* float abs_dg1=cabs(J1kMS_tp1[0]-J1kMS[0]); */
+      if(EstimateWeight==1){
+	int i_t_p1;
+	i_t_p1=i_t+1;
+	if (i_t==(nt_Jones-1)){i_t_p1=i_t;}
+	GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_p1, i_ant0, i_dir, i_JonesChan, ModeInterpolation, J0kMS_tp1);
+	GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_p1, i_ant1, i_dir, i_JonesChan, ModeInterpolation, J1kMS_tp1);
+	/* float abs_dg0=cabs(J0kMS_tp1[0]-J0kMS[0]); */
+	/* float abs_dg1=cabs(J1kMS_tp1[0]-J1kMS[0]); */
+	
+	int i_t_m1;
+	i_t_m1=i_t-1;
+	if (i_t==0){i_t_m1=i_t;}
+	GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_m1, i_ant0, i_dir, i_JonesChan, ModeInterpolation, J0kMS_tm1);
+	GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_m1, i_ant1, i_dir, i_JonesChan, ModeInterpolation, J1kMS_tm1);
+	float abs_dg0=cabs(J0kMS_tp1[0]-J0kMS[0])+cabs(J0kMS_tm1[0]-J0kMS[0]);
+	float abs_dg1=cabs(J1kMS_tp1[0]-J1kMS[0])+cabs(J1kMS_tm1[0]-J1kMS[0]);
+	
+	
+	
+	
+	float abs_g0=cabs(J0kMS[0]);
+	float abs_g1=cabs(J1kMS[0]);
+	
+	//float V0=abs_dg0*abs_dg1;
+	//WeightVaryJJ=1./(1.+V0*V0);
+	
+	/* WeightVaryJJ  = 1./((1.+abs_dg0)*(1.+abs_dg1)); */
+	/* WeightVaryJJ *= WeightVaryJJ; */
+	
+	
+	// Works well
+	/* float Ang0=cargf(J0kMS[0]); */
+	/* float Ang1=cargf(J1kMS[0]); */
+	/* float Rij_Ion=abs_g0*abs_g1*cabs(cexp(I*(Ang1-Ang0)*FracFreqWidth/2.)-1.); */
+	/* float Rij=(Rij_Ion+abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR; */
+	
+	float Rij=(abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR;
+	//float Rij=(abs_g1*abs_dg0*abs_g1*abs_dg0+abs_g0*abs_dg1*abs_g0*abs_dg1)*ReWeightSNR;
+	
+	float Rij_sq=1.+Rij*Rij;
+	WeightVaryJJ  = 1./(Rij_sq);
+	
+	if((abs_g0*abs_g1)>2.){WeightVaryJJ=0.;};
+	
+	/* // TEST */
+	/* float Rij=(abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR; */
+	/* float Rij_sq=1.+Rij*Rij; */
+	/* float V0=0.01; */
+	/* float Vg0=V0+abs_dg0*abs_dg0+abs_g0*abs_g0; */
+	/* float Vg1=V0+abs_dg1*abs_dg1+abs_g1*abs_g1; */
+	/* float Vgigj=Vg0*Vg1; */
+	/* float V=Vgigj*Rij_sq; */
+	/* WeightVaryJJ  = 1./(V); */
+      }
       
-      int i_t_m1;
-      i_t_m1=i_t-1;
-      if (i_t==0){i_t_m1=i_t;}
-      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_m1, i_ant0, i_dir, i_JonesChan, ModeInterpolation, J0kMS_tm1);
-      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_m1, i_ant1, i_dir, i_JonesChan, ModeInterpolation, J1kMS_tm1);
-      float abs_dg0=cabs(J0kMS_tp1[0]-J0kMS[0])+cabs(J0kMS_tm1[0]-J0kMS[0]);
-      float abs_dg1=cabs(J1kMS_tp1[0]-J1kMS[0])+cabs(J1kMS_tm1[0]-J1kMS[0]);
-      
-      
-      
-      
-      float abs_g0=cabs(J0kMS[0]);
-      float abs_g1=cabs(J1kMS[0]);
-      
-      //float V0=abs_dg0*abs_dg1;
-      //WeightVaryJJ=1./(1.+V0*V0);
-      
-      /* WeightVaryJJ  = 1./((1.+abs_dg0)*(1.+abs_dg1)); */
-      /* WeightVaryJJ *= WeightVaryJJ; */
-      
-      
-      // Works well
-      /* float Ang0=cargf(J0kMS[0]); */
-      /* float Ang1=cargf(J1kMS[0]); */
-      /* float Rij_Ion=abs_g0*abs_g1*cabs(cexp(I*(Ang1-Ang0)*FracFreqWidth/2.)-1.); */
-      /* float Rij=(Rij_Ion+abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR; */
-      
-      float Rij=(abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR;
-      //float Rij=(abs_g1*abs_dg0*abs_g1*abs_dg0+abs_g0*abs_dg1*abs_g0*abs_dg1)*ReWeightSNR;
-      
-      float Rij_sq=1.+Rij*Rij;
-      WeightVaryJJ  = 1./(Rij_sq);
-
-      if((abs_g0*abs_g1)>2.){WeightVaryJJ=0.;};
-      
-      /* // TEST */
-      /* float Rij=(abs_g1*abs_dg0+abs_g0*abs_dg1)*ReWeightSNR; */
-      /* float Rij_sq=1.+Rij*Rij; */
-      /* float V0=0.01; */
-      /* float Vg0=V0+abs_dg0*abs_dg0+abs_g0*abs_g0; */
-      /* float Vg1=V0+abs_dg1*abs_dg1+abs_g1*abs_g1; */
-      /* float Vgigj=Vg0*Vg1; */
-      /* float V=Vgigj*Rij_sq; */
-      /* WeightVaryJJ  = 1./(V); */
     }
+
     
+
     
   }
   
-  MatT(J1,J1T);
-  MatConj(J0,J0Conj);
-  BB=cabs(J0Conj[0]*J1T[0]);
-  BB*=BB;
-  MatH(J1,J1H);
-  MatH(J0,J0H);
-  
+
+
+
+
+  if(SomeJonesHaveChanged){
+    J0[0]=1;J0[1]=0;J0[2]=0;J0[3]=1;
+    J1[0]=1;J1[1]=0;J1[2]=0;J1[3]=1;
+    if(ApplyJones_Beam){
+      MatDot(J0Beam,JonesType,J0,JonesType,J0);
+      MatDot(J1Beam,JonesType,J1,JonesType,J1);
+    }
+    
+    if(ApplyJones_killMS){
+      MatDot(J0kMS,JonesType,J0,JonesType,J0);
+      MatDot(J1kMS,JonesType,J1,JonesType,J1);
+    }
+    
+    MatT(J1,J1T);
+    MatConj(J0,J0Conj);
+    BB=cabs(J0Conj[0]*J1T[0]);
+    BB*=BB;
+    MatH(J1,J1H);
+    MatH(J0,J0H);
+  }
   /* MatInv(J0,J0inv,0); */
   /* MatH(J1,J1H); */
   /* MatInv(J1H,J1Hinv,0); */
