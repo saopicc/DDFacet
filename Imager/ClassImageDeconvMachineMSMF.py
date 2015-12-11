@@ -256,8 +256,8 @@ class ClassImageDeconvMachine():
         RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
         
         self.RMS=RMS
-        self.GainMachine.SetRMS(self.RMS)
         Threshold_RMS=3./(1.-self.SideLobeLevel)  ## 5
+        self.GainMachine.SetRMS(Threshold_RMS)
 
         x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
         #MaxDirty=np.max(np.abs(self.Dirty))
