@@ -575,7 +575,7 @@ class ClassFacetMachine():
         T.timeit("4")
 
         if self.DoPSF:
-            print>>log, "  Build PSF facet-slices ..."
+            print>>log, "  Build PSF facet-slices "
             self.DicoPSF={}
             for iFacet in self.DicoGridMachine.keys():
                 self.DicoPSF[iFacet]={}
@@ -609,7 +609,7 @@ class ClassFacetMachine():
             CubeVariablePSF=np.zeros((NFacets,nch,npol,NPixMin,NPixMin),np.float32)
             CubeMeanVariablePSF=np.zeros((NFacets,1,npol,NPixMin,NPixMin),np.float32)
 
-            print>>log, "  Cutting PSFs facet-slices ..."
+            print>>log, "  Cutting PSFs facet-slices "
             for iFacet in sorted(DicoVariablePSF.keys()):
                 _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
                 for ch in range(nch):
@@ -638,7 +638,7 @@ class ClassFacetMachine():
         
     def BuildFacetNormImage(self):
         if self.NormImage!=None: return
-        print>>log,"Building Facet-normalisation image"
+        print>>log,"  Building Facet-normalisation image"
         nch,npol=self.nch,self.npol
         _,_,NPixOut,NPixOut=self.OutImShape
         NormImage=np.zeros((NPixOut,NPixOut),dtype=np.float32)
@@ -675,9 +675,9 @@ class ClassFacetMachine():
         nch,npol,NPixOut,NPixOut=self.OutImShape
 
         if BeamWeightImage:
-            print>>log, "Combining facets to average Jones-ampltude image..."
+            print>>log, "Combining facets to average Jones-amplitude image"
         else:
-            print>>log, "Combining facets to residual image..."
+            print>>log, "Combining facets to residual image"
             
 
         self.BuildFacetNormImage()
