@@ -277,7 +277,7 @@ class ClassVisServer():
         self.CurrentMS=self.ListMS[0]
         self.CurrentChanMapping=self.DicoMSChanMapping[0]
         self.CurrentChanMappingDegrid=self.FreqBandsInfosDegrid[0]
-        print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%self.CurrentFreqBand))
+        #print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%self.CurrentFreqBand))
 
     def setNextMS(self):
         if (self.iCurrentMS+1)==self.nMS:
@@ -292,7 +292,7 @@ class ClassVisServer():
 
             self.CurrentChanMapping=self.DicoMSChanMapping[self.iCurrentMS]
             self.CurrentChanMappingDegrid=self.FreqBandsInfosDegrid[self.iCurrentMS]
-            print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%(self.CurrentFreqBand)))
+            #print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%(self.CurrentFreqBand)))
             return "OK"
         
 
