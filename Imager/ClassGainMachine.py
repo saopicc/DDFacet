@@ -5,7 +5,7 @@ class ClassGainMachine():
     def __init__(self,
                  GainMax=0.9,
                  GainMin=0.1,
-                 SigmaScale=10.,
+                 SigmaScale=5.,
                  Sigma0=1.,
                  Mode="Dynamic"):
         self.SigmaScale=SigmaScale
@@ -21,7 +21,7 @@ class ClassGainMachine():
     def SetFluxMax(self,ThisFlux):
         if self.Mode=="Dynamic":
             x=np.abs(ThisFlux)
-            ExpGain=np.exp(-(x/self.rms-self.Sigma0)/self.SigmaScale)
+            ExpGain=self.GainMax*np.exp(-(x/(self.rms)-self.Sigma0)/self.SigmaScale)
             self.CurrentGain=np.min([self.GainMax,ExpGain])
             self.CurrentGain=np.max([self.CurrentGain,self.GainMin])
             #print "========="
