@@ -3,7 +3,7 @@ import numpy as np
 
 class ClassGainMachine():
     def __init__(self,
-                 GainMax=0.7,
+                 GainMax=0.9,
                  GainMin=0.1,
                  SigmaScale=10.,
                  Sigma0=1.,
@@ -24,6 +24,8 @@ class ClassGainMachine():
             ExpGain=np.exp(-(x/self.rms-self.Sigma0)/self.SigmaScale)
             self.CurrentGain=np.min([self.GainMax,ExpGain])
             self.CurrentGain=np.max([self.CurrentGain,self.GainMin])
+            #print "========="
+            #print "Flux = %f\nRMS  = %f\nsig0 = %f\nsigs = %f\n"%(ThisFlux,self.rms,self.Sigma0,self.SigmaScale)
         else:
             self.CurrentGain=self.GainMin
 
