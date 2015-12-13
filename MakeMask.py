@@ -35,7 +35,7 @@ def read_options():
     group.add_option('--Th',type="float",default=10,help="default is %default")
     group.add_option("--Box",type="str",default="30,2",help="default is %default")
     group.add_option("--OutName",type="str",help="default is %default",default="mask")
-    group.add_option("--ds9Mask",type="str",help="default is %default",default="mask")
+    group.add_option("--ds9Mask",type="str",help="default is %default",default="")
     
     #group.add_option("--MedFilter",type="str",default="50,10")
     opt.add_option_group(group)
