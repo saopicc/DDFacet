@@ -272,8 +272,8 @@ class ClassImageDeconvMachine():
 
         mm0,mm1=self.Dirty.min(),self.Dirty.max()
         print>>log, "    Dirty image peak flux   = %10.6f Jy [(min, max) = (%7.3f, %7.3f) Jy]"%(MaxDirty,mm0,mm1)
-        print>>log, "    RMS threshold flux      = %10.6f Jy [rms      = %7.3f Jy]"%(FluxLimit_RMS, RMS)
-        print>>log, "    Sidelobs threshold flux = %10.6f Jy [sidelobe = %7.3f of peak]"%(Threshold_SideLobe,self.SideLobeLevel)
+        print>>log, "    RMS threshold flux      = %10.6f Jy [rms        = %10.6f Jy]"%(FluxLimit_RMS, RMS)
+        print>>log, "    Sidelobs threshold flux = %10.6f Jy [sidelobe   = %7.3f of peak]"%(Threshold_SideLobe,self.SideLobeLevel)
 
 
         MaxModelInit=np.max(np.abs(self.ModelImage))
@@ -310,6 +310,8 @@ class ClassImageDeconvMachine():
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=10,TitleSize=13)
         # pBAR.disable()
+
+        self.GainMachine.SetFluxMax(ThisFlux)
         pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
         StopFlux=np.max([FluxLimit_RMS,Threshold_SideLobe])
         def GivePercentDone(ThisMaxFlux):

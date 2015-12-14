@@ -5,7 +5,7 @@ class ClassGainMachine():
     def __init__(self,
                  GainMax=0.9,
                  GainMin=0.1,
-                 SigmaScale=5.,
+                 SigmaScale=10.,
                  Sigma0=1.,
                  Mode="Dynamic"):
         self.SigmaScale=SigmaScale
