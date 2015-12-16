@@ -7,7 +7,7 @@ class ClassGainMachine():
                  GainMin=0.1,
                  SigmaScale=10.,
                  Sigma0=1.,
-                 Mode="Dynamic"):
+                 Mode="Constant"):
         self.SigmaScale=SigmaScale
         self.Sigma0=Sigma0
         self.Mode=Mode
