@@ -447,6 +447,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 dmin=d
                 iCentralFacet=iFacet
         self.iCentralFacet=iCentralFacet
+
+        MyPickle.Save(self.DicoImager,"%s.DicoFacet"%self.GD["Images"]["ImageName"])
+
         
 
     def MakeMasksTessel(self):
