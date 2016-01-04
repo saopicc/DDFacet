@@ -402,7 +402,8 @@ class ClassMS():
         self.nRowRead=row1-row0
         nRowRead=self.nRowRead
 
-        print>>log, "[%s] Reading next data chunk in [%i, %i] rows"%(self.MSName,row0,row1)
+        strMS="%s"%(ModColor.Str(self.MSName,col="green"))
+        print>>log, "%s: Reading next data chunk in [%i, %i] rows"%(strMS,row0,row1)
 
         table_all=table(self.MSName,ack=False)
         #SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead)

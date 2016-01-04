@@ -112,7 +112,10 @@ static PyObject *pyWhereMaxMask(PyObject *self, PyObject *args)
       	      int ii=i_a*NY+j_a;
 	      ThisVal=a[ii];
 	      ThisVal=((pMask[ii]==1) ? 0 : ThisVal);
-	      ThisVal = ((ThisVal > 0) ? ThisVal : -ThisVal);
+
+	      if(doabs){ThisVal = ((ThisVal > 0) ? ThisVal : -ThisVal);};
+
+
 	      ThisxMax= ((ThisVal > ThisMax) ? i_a : ThisxMax);
 	      ThisyMax= ((ThisVal > ThisMax) ? j_a : ThisyMax);
 	      ThisMax = ((ThisVal > ThisMax) ? ThisVal : ThisMax);

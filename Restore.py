@@ -20,10 +20,10 @@ def read_options():
     group = optparse.OptionGroup(opt, "* Data selection options")
     group.add_option('--BaseImageName',help='')
     group.add_option('--ResidualImage',help='',type="str",default="")
-    group.add_option('--BeamPix',help='',default=5)
+    group.add_option('--BeamPix',type='float',help='',default=5)
     group.add_option('--MaskName',type="str",help='',default=5)
     group.add_option('--NBands',type="int",help='',default=1)
-    group.add_option('--CleanNegComp',type="int",help='',default=5)
+    group.add_option('--CleanNegComp',type="int",help='',default=0)
     group.add_option('--DoAlpha',type="int",help='',default=0)
     opt.add_option_group(group)
     
@@ -108,7 +108,7 @@ class ClassRestoreMachine():
         self.ModelMachine.ListScales[0]["Alpha"]=-0.8
 
         # model image
-        ModelMachine.GiveModelImage(Freq=RefFreq)
+        ModelMachine.GiveModelImage(RefFreq)
 
         FEdge=np.linspace(RefFreq-df,RefFreq+df,self.NBands+1)
         FCenter=(FEdge[0:-1]+FEdge[1::])/2.
@@ -120,16 +120,16 @@ class ClassRestoreMachine():
 
         ListRestoredIm=[]
         Lambda=[Lambda0+i*dLambda for i in range(self.NBands)]
-        print C/np.array(Lambda)
+        #print C/np.array(Lambda)
         # restored image
         for l in Lambda:
             freq=C/l
-            ModelImage=ModelMachine.GiveModelImage(Freq=freq)
+            ModelImage=ModelMachine.GiveModelImage(freq)
             RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
             RestoredImageRes=RestoredImage+self.Residual
             ListRestoredIm.append(RestoredImageRes)
         
-        print FEdge,FCenter
+        #print FEdge,FCenter
 
         _,_,nx,_=RestoredImageRes.shape
         RestoredImageRes=np.array(ListRestoredIm).reshape((self.NBands,1,nx,nx))

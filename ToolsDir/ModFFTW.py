@@ -171,7 +171,7 @@ class FFTW_2Donly_np():
 
         return
 
-    def fft(self,A):
+    def fft(self,A,ChanList=None):
         axes=(-1,-2)
 
         T=ClassTimeIt.ClassTimeIt("ModFFTW")
@@ -179,7 +179,13 @@ class FFTW_2Donly_np():
         
         nch,npol,n,n=A.shape
 
-        for ich in range(nch):
+        if ChanList!=None:
+            CSel=ChanList
+        else:
+            CSel=range(nch)
+
+
+        for ich in CSel:
             for ipol in range(npol):
                 B = iFs(A[ich,ipol].astype(A.dtype),axes=axes)
                 T.timeit("shift and copy")
@@ -191,11 +197,17 @@ class FFTW_2Donly_np():
         return A
  
 
-    def ifft(self,A):
+    def ifft(self,A,ChanList=None):
         axes=(-1,-2)
         #log=MyLogger.getLogger("ModToolBox.FFTM2.ifft")
         nch,npol,_,_=A.shape
-        for ich in range(nch):
+
+        if ChanList!=None:
+            CSel=ChanList
+        else:
+            CSel=range(nch)
+
+        for ich in CSel:
             for ipol in range(npol):
                 B = iFs(A[ich,ipol].astype(A.dtype),axes=axes)
                 B = np.fft.ifft2(B,axes=axes)

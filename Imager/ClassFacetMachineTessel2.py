@@ -39,7 +39,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
     def appendMainField(self,Npix=512,Cell=10.,NFacets=5,
                         Support=11,OverS=5,Padding=1.2,
                         wmax=10000,Nw=11,RaDecRad=(0.,0.),
-                        ImageName="Facet.image"):
+                        ImageName="Facet.image",**kw):
         
 
         Cell=self.GD["ImagerMainFacet"]["Cell"]
@@ -56,12 +56,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         ChanFreq=self.VS.MS.ChanFreq.flatten()
         self.ChanFreq=ChanFreq
         
+        self.NFacets = NFacets
         self.Cell=Cell
         self.CellSizeRad=(Cell/3600.)*np.pi/180.
         rac,decc=MS.radec
         self.MainRaDec=(rac,decc)
-        self.nch=1
-        self.NChanGrid=1
+        self.nch=self.GD["MultiFreqs"]["NFreqBands"]
+        self.NChanGrid=self.nch
         self.SumWeights=np.zeros((self.NChanGrid,self.npol),float)
 
         self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
@@ -70,9 +71,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
 
     def setFacetsLocsTessel(self):
-
+        NFacets = self.NFacets
         Npix=self.GD["ImagerMainFacet"]["Npix"]
-        NFacets=self.GD["ImagerMainFacet"]["NFacets"]
         Padding=self.GD["ImagerMainFacet"]["Padding"]
         self.Padding=Padding
         Npix,_=EstimateNpix(float(Npix),Padding=1)
@@ -357,9 +357,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         
 
         regFile="%s.tessel.reg"%self.GD["Images"]["ImageName"]
-
-
-        VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=[str(i) for i in range(len(LPolygonNew))])
+        labels=["[F%i.C%i]"%(i,DicoPolygon[i]["iSol"]) for i in range(len(LPolygonNew))]
+        VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=labels)
 
         # pylab.clf()
         # x,y=LPolygonNew[11].T
@@ -448,6 +447,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 dmin=d
                 iCentralFacet=iFacet
         self.iCentralFacet=iCentralFacet
+
+        MyPickle.Save(self.DicoImager,"%s.DicoFacet"%self.GD["Images"]["ImageName"])
+
         
 
     def MakeMasksTessel(self):
@@ -495,7 +497,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
 
     def AppendFacet(self,iFacet,l0,m0,diam):
-    
+        diam *= self.Oversize
 
         DicoConfigGM=None
         lmShift=(l0,m0)
@@ -640,6 +642,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
     def ImToGrids(self,Image):
         Im2Grid=ClassImToGrid(OverS=self.GD["ImagerCF"]["OverS"],GD=self.GD)
         nch,npol=self.nch,self.npol
+        ChanSel=sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
         for iFacet in sorted(self.DicoImager.keys()):
             
             SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
@@ -648,7 +651,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             # Grid,_=Im2Grid.GiveGridTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight)
             # GridSharedMemName="%sModelGrid.Facet_%3.3i"%(self.IdSharedMem,iFacet)
             # NpShared.ToShared(GridSharedMemName,Grid)
-            ModelFacet,_=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight)
+            
+            ModelFacet,_=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight,ChanSel=ChanSel)
             ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
             
             NpShared.ToShared(ModelSharedMemName,ModelFacet)
@@ -690,12 +694,16 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            FFTW_Wisdom=self.FFTW_Wisdom,
                            DicoImager=self.DicoImager,
                            IdSharedMem=self.IdSharedMem,
-                           ApplyCal=self.ApplyCal)
+                           IdSharedMemData=self.IdSharedMemData,
+                           ApplyCal=self.ApplyCal,
+                           NFreqBands=self.GD["MultiFreqs"]["NFreqBands"])
+
             workerlist.append(W)
             workerlist[ii].start()
 
+
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="DeGridding ", HeaderSize=10,TitleSize=13)
-#        pBAR.disable()
+        # pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
         while iResult < NJobs:
@@ -713,11 +721,11 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].terminate()
             workerlist[ii].join()
 
-        NpShared.DelAll("%sModelGrid"%(self.IdSharedMem))
+        NpShared.DelAll("%sModelGrid"%(self.IdSharedMemData))
             
         return True
 
-    def CalcDirtyImagesParallel(self,times,uvwIn,visIn,flag,A0A1,W=None,doStack=True,Channel=0):
+    def CalcDirtyImagesParallel(self,times,uvwIn,visIn,flag,A0A1,W=None,doStack=True):#,Channel=0):
         
         
         NCPU=self.NCPU
@@ -753,9 +761,11 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            FFTW_Wisdom=self.FFTW_Wisdom,
                            DicoImager=self.DicoImager,
                            IdSharedMem=self.IdSharedMem,
+                           IdSharedMemData=self.IdSharedMemData,
                            ApplyCal=self.ApplyCal,
                            SpheNorm=SpheNorm,
-                           PSFMode=PSFMode)
+                           PSFMode=PSFMode,
+                           NFreqBands=self.GD["MultiFreqs"]["NFreqBands"])
             workerlist.append(W)
             workerlist[ii].start()
 
@@ -786,8 +796,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
             iFacet=DicoResult["iFacet"]
 
-            self.DicoImager[iFacet]["SumWeights"][Channel]+=DicoResult["Weights"]
-            self.DicoImager[iFacet]["SumJones"][Channel]+=DicoResult["SumJones"]
+            self.DicoImager[iFacet]["SumWeights"]+=DicoResult["Weights"]
+            self.DicoImager[iFacet]["SumJones"]+=DicoResult["SumJones"]
 
             # if iFacet==0:
             #     ThisSumWeights=DicoResult["Weights"]
@@ -797,16 +807,15 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             ThisDirty=NpShared.GiveArray(DirtyName)
             #print "minmax facet = %f %f"%(ThisDirty.min(),ThisDirty.max())
 
+
             if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
-                #print>>log, (iFacet,Channel)
-                if Channel in self.DicoGridMachine[iFacet]["Dirty"].keys():
-                    self.DicoGridMachine[iFacet]["Dirty"][Channel]+=ThisDirty
-                else:
-                    self.DicoGridMachine[iFacet]["Dirty"][Channel]=ThisDirty
-                #print "minmax stack = %f %f"%(self.DicoGridMachine[iFacet]["Dirty"].min(),self.DicoGridMachine[iFacet]["Dirty"].max())
+                self.DicoGridMachine[iFacet]["Dirty"]+=ThisDirty
             else:
-                self.DicoGridMachine[iFacet]["Dirty"]={}
-                self.DicoGridMachine[iFacet]["Dirty"][Channel]=ThisDirty
+                self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty.copy()
+            NpShared.DelArray(DirtyName)
+            #NCH,_,_,_=ThisDirty.shape
+            #print np.max(self.DicoGridMachine[iFacet]["Dirty"].reshape((NCH,ThisDirty.size/NCH)),axis=1)
+
 
         for ii in range(NCPU):
             workerlist[ii].shutdown()
@@ -843,8 +852,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            FFTW_Wisdom=self.FFTW_Wisdom,
                            DicoImager=self.DicoImager,
                            IdSharedMem=self.IdSharedMem,
+                           IdSharedMemData=self.IdSharedMemData,
                            ApplyCal=self.ApplyCal,
-                           CornersImageTot=self.CornersImageTot)
+                           CornersImageTot=self.CornersImageTot,
+                           NFreqBands=self.GD["MultiFreqs"]["NFreqBands"])
             workerlist.append(W)
             workerlist[ii].start()
 
@@ -888,10 +899,11 @@ class WorkerImager(multiprocessing.Process):
                  FFTW_Wisdom=None,
                  DicoImager=None,
                  IdSharedMem=None,
+                 IdSharedMemData=None,
                  ApplyCal=False,
                  SpheNorm=True,
                  PSFMode=False,
-                 CornersImageTot=None):
+                 CornersImageTot=None,NFreqBands=1):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -902,12 +914,14 @@ class WorkerImager(multiprocessing.Process):
         self.GD=GD
         self.DicoImager=DicoImager
         self.IdSharedMem=IdSharedMem
+        self.IdSharedMemData=IdSharedMemData
         self.Apply_killMS=(GD["DDESolutions"]["DDSols"]!="")&(GD["DDESolutions"]["DDSols"]!=None)
         self.Apply_Beam=(GD["Beam"]["BeamModel"]!=None)
         self.ApplyCal=(self.Apply_killMS)|(self.Apply_Beam)
         self.SpheNorm=SpheNorm
         self.PSFMode=PSFMode
         self.CornersImageTot=CornersImageTot
+        self.NFreqBands=NFreqBands
 
 
     def shutdown(self):
@@ -918,30 +932,34 @@ class WorkerImager(multiprocessing.Process):
                                                             self.DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
                                                             self.DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                                                             lmShift=self.DicoImager[iFacet]["lmShift"],
-                                                            IdSharedMem=self.IdSharedMem,IDFacet=iFacet,
-                                                            SpheNorm=self.SpheNorm)#,
+                                                            IdSharedMem=self.IdSharedMem,
+                                                            IdSharedMemData=self.IdSharedMemData,
+                                                            IDFacet=iFacet,
+                                                            SpheNorm=self.SpheNorm,
+                                                            NFreqBands=self.NFreqBands)
+
         return GridMachine
         
     def GiveDicoJonesMatrices(self):
         DicoJonesMatrices=None
-        if self.PSFMode:
-            return None
+        #if self.PSFMode:
+        #    return None
 
         if self.ApplyCal:
             DicoJonesMatrices={}
 
         if self.Apply_killMS:
-            DicoJones_killMS=NpShared.SharedToDico("%sJonesFile_killMS"%self.IdSharedMem)
+            DicoJones_killMS=NpShared.SharedToDico("%sJonesFile_killMS"%self.IdSharedMemData)
             DicoJonesMatrices["DicoJones_killMS"]=DicoJones_killMS
-            DicoJonesMatrices["DicoJones_killMS"]["MapJones"]=NpShared.GiveArray("%sMapJones_killMS"%self.IdSharedMem)
-            DicoClusterDirs_killMS=NpShared.SharedToDico("%sDicoClusterDirs_killMS"%self.IdSharedMem)
+            DicoJonesMatrices["DicoJones_killMS"]["MapJones"]=NpShared.GiveArray("%sMapJones_killMS"%self.IdSharedMemData)
+            DicoClusterDirs_killMS=NpShared.SharedToDico("%sDicoClusterDirs_killMS"%self.IdSharedMemData)
             DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]=DicoClusterDirs_killMS
 
         if self.Apply_Beam:
-            DicoJones_Beam=NpShared.SharedToDico("%sJonesFile_Beam"%self.IdSharedMem)
+            DicoJones_Beam=NpShared.SharedToDico("%sJonesFile_Beam"%self.IdSharedMemData)
             DicoJonesMatrices["DicoJones_Beam"]=DicoJones_Beam
-            DicoJonesMatrices["DicoJones_Beam"]["MapJones"]=NpShared.GiveArray("%sMapJones_Beam"%self.IdSharedMem)
-            DicoClusterDirs_Beam=NpShared.SharedToDico("%sDicoClusterDirs_Beam"%self.IdSharedMem)
+            DicoJonesMatrices["DicoJones_Beam"]["MapJones"]=NpShared.GiveArray("%sMapJones_Beam"%self.IdSharedMemData)
+            DicoClusterDirs_Beam=NpShared.SharedToDico("%sDicoClusterDirs_Beam"%self.IdSharedMemData)
             DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"]=DicoClusterDirs_Beam
 
         return DicoJonesMatrices
@@ -987,9 +1005,11 @@ class WorkerImager(multiprocessing.Process):
                 # pylab.clf()
                 # pylab.subplot(1,2,1)
                 # pylab.imshow(SpacialWeigth.reshape((Npix,Npix)),vmin=0,vmax=1.1,cmap="gray")
+
                 SpacialWeigth=ModFFTW.ConvolveGaussian(SpacialWeigth,CellSizeRad=1,GaussPars=[GaussPars])
                 SpacialWeigth=SpacialWeigth.reshape((Npix,Npix))
                 SpacialWeigth/=np.max(SpacialWeigth)
+
                 # pylab.subplot(1,2,2)
                 # pylab.imshow(SpacialWeigth,vmin=0,vmax=1.1,cmap="gray")
                 # pylab.draw()
@@ -1010,7 +1030,7 @@ class WorkerImager(multiprocessing.Process):
                 #import gc
                 #gc.enable()
                 GridMachine=self.GiveGM(iFacet)
-                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMem)
+                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMemData)
                 uvwThis=DATA["uvw"]
                 visThis=DATA["data"]
                 flagsThis=DATA["flags"]
@@ -1020,6 +1040,7 @@ class WorkerImager(multiprocessing.Process):
                 A0A1=A0,A1
                 W=DATA["Weights"]
                 freqs=DATA["freqs"]
+                ChanMapping=DATA["ChanMapping"]
 
                 DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
                 if ('F' in DecorrMode)|("T" in DecorrMode):
@@ -1027,12 +1048,18 @@ class WorkerImager(multiprocessing.Process):
                     DT,Dnu=DATA["MSInfos"]
                     GridMachine.setDecorr(uvw_dt,DT,Dnu,SmearMode=DecorrMode)
 
+                GridName="%sGridFacet.%3.3i"%(self.IdSharedMem,iFacet)
+                Grid=NpShared.GiveArray(GridName)
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
-                Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices,freqs=freqs,DoPSF=self.PSFMode)#,doStack=False)
+                Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,
+                                      DoNormWeights=False, 
+                                      DicoJonesMatrices=DicoJonesMatrices,
+                                      freqs=freqs,DoPSF=self.PSFMode,
+                                      ChanMapping=ChanMapping)#,doStack=False)
 
                 DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
                 _=NpShared.ToShared(DirtyName,Dirty)
-                del(Dirty)
+                #del(Dirty)
                 Sw=GridMachine.SumWeigths.copy()
                 SumJones=GridMachine.SumJones.copy()
                 del(GridMachine)
@@ -1049,7 +1076,7 @@ class WorkerImager(multiprocessing.Process):
             elif self.Mode=="DeGrid":
                 
                 GridMachine=self.GiveGM(iFacet)
-                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMem)
+                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMemData)
                 uvwThis=DATA["uvw"]
                 visThis=DATA["data"]
                 #PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
@@ -1061,6 +1088,8 @@ class WorkerImager(multiprocessing.Process):
                 A0A1=A0,A1
                 W=DATA["Weights"]
                 freqs=DATA["freqs"]
+                ChanMapping=DATA["ChanMappingDegrid"]
+
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
                 #GridSharedMemName="%sModelGrid.Facet_%3.3i"%(self.IdSharedMem,iFacet)
                 #ModelGrid = NpShared.GiveArray(GridSharedMemName)
@@ -1073,7 +1102,8 @@ class WorkerImager(multiprocessing.Process):
                     DT,Dnu=DATA["MSInfos"]
                     GridMachine.setDecorr(uvw_dt,DT,Dnu,SmearMode=DecorrMode)
 
-                vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelGrid,ImToGrid=False,DicoJonesMatrices=DicoJonesMatrices,freqs=freqs,TranformModelInput="FT")
+                vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelGrid,ImToGrid=False,DicoJonesMatrices=DicoJonesMatrices,freqs=freqs,TranformModelInput="FT",
+                                      ChanMapping=ChanMapping)
                 # V=visThis[:,:,0]
                 # f=flagsThis[:,:,0]
                 # V=V[f==0]

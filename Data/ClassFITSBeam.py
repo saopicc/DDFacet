@@ -7,6 +7,9 @@ import pyrap.measures
 import pyrap.quanta
 import pyrap.tables
 
+import numpy as np
+
+
 dm = pyrap.measures.measures()
 dq = pyrap.quanta
 
@@ -78,11 +81,10 @@ class ClassFITSBeam (object):
             filename_imag.append(make_beam_filename(self.filename,corr,'im'))
 
         # load beam interpolator
-        print 'Loading FITS Beams'
         import Siamese.OMS.InterpolatedBeams as InterpolatedBeams
         self.vbs = []
         for reFits, imFits in zip(filename_real,filename_imag):        
-            print>>log,"Loading beam patterns",filename_real,filename_imag
+            print>>log,"Loading beam patterns %s, %s"%(list(filename_real),list(filename_imag))
             vb = InterpolatedBeams.LMVoltageBeam(verbose=0,l_axis="-X",m_axis="Y")  # verbose, XY must come from options
             vb.read(reFits,imFits)
             self.vbs.append(vb)
@@ -116,6 +118,12 @@ class ClassFITSBeam (object):
             beam_times.append(times[-1])
         return beam_times
 
+    def getFreqDomains (self):
+        domains = np.zeros((len(self.freqs),2),np.float64)
+        df = (self.freqs[1]-self.freqs[0])/2 if len(self.freqs)>1 else self.freqs[0]
+        domains[:,0] = self.freqs-df
+        domains[:,1] = self.freqs+df
+        return domains
 
     def evaluateBeam (self, t0, ra, dec):
         """Evaluates beam at time t0, in directions ra, dec.
