@@ -26,6 +26,8 @@ class ClassFITSBeam (object):
     def __init__ (self, ms, opts):
         self.ms = ms
         self.filename = opts["FITSFile"]
+        self.pa_inc = opts["FITSParAngleIncDeg"]
+        self.time_inc = opts["DtBeamMin"]
 
         # make masure for zenith
         self.zenith = dm.direction('AZEL','0deg','90deg')
@@ -84,6 +86,36 @@ class ClassFITSBeam (object):
             vb = InterpolatedBeams.LMVoltageBeam(verbose=0,l_axis="-X",m_axis="Y")  # verbose, XY must come from options
             vb.read(reFits,imFits)
             self.vbs.append(vb)
+
+    def getBeamSampleTimes (self, times):
+        """For a given list of timeslots, returns times at which the beam must be sampled"""
+        print>>log,"computing beam sample times for %d timeslots"%len(times)
+        dt = self.time_inc*60
+        beam_times = [ times[0] ]
+        for t in times[1:]:
+            if t - beam_times[-1] >= dt:
+                beam_times.append(t)
+        print>>log,"  DtBeamMin=%.2f min results in %d samples"%(self.time_inc, len(beam_times))
+        if self.pa_inc:
+            pas = [ 
+                # put antenna0 position as reference frame. NB: in the future may want to do it per antenna
+                dm.do_frame(self.pos0) and 
+                # put time into reference frame
+                dm.do_frame(dm.epoch("UTC",dq.quantity(t0,"s"))) and
+                # compute PA 
+                dm.posangle(self.field_centre,self.zenith).get_value("deg") for t0 in beam_times ]
+            pa0 = pas[0]
+            beam_times1 = [ beam_times[0] ]
+            for t, pa in zip(beam_times[1:], pas[1:]):
+                if abs(pa-pa0) >= self.pa_inc:
+                    beam_times1.append(t)
+                    pa0 = pa
+            print>>log,"  FITSParAngleIncrement=%.2f deg results in %d samples"%(self.pa_inc, len(beam_times1))
+            beam_times = beam_times1
+        if beam_times[-1] != times[-1]:
+            beam_times.append(times[-1])
+        return beam_times
+
 
     def evaluateBeam (self, t0, ra, dec):
         """Evaluates beam at time t0, in directions ra, dec.
