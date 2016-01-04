@@ -5,7 +5,6 @@ class ClassPSFServer():
         self.GD=GD
 
     def setDicoVariablePSF(self,DicoVariablePSF):
-        self.DicoVariablePSF=DicoVariablePSF
         # NFacets=len(DicoVariablePSF.keys())
         # NPixMin=1e6
         # for iFacet in sorted(DicoVariablePSF.keys()):
@@ -23,6 +22,7 @@ class ClassPSFServer():
         #         CubeVariablePSF[iFacet,ch,:,:,:]=DicoVariablePSF[iFacet]["PSF"][ch][0,:,i:j,i:j]
         #     CubeMeanVariablePSF[iFacet,0,:,:,:]=DicoVariablePSF[iFacet]["MeanPSF"][0,:,i:j,i:j]
 
+        self.DicoVariablePSF=DicoVariablePSF
         self.CubeVariablePSF=DicoVariablePSF["CubeVariablePSF"]
         self.CubeMeanVariablePSF=DicoVariablePSF["CubeMeanVariablePSF"]
         self.NFacets,nch,npol,NPixMin,_=self.CubeVariablePSF.shape

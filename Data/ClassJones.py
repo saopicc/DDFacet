@@ -6,6 +6,7 @@ from DDFacet.Other import reformat
 from DDFacet.Array import NpShared
 import os
 from DDFacet.Array import ModLinAlg
+import ClassLOFARBeam
 
 import ClassFITSBeam
 
@@ -66,9 +67,17 @@ class ClassJones():
         tm=DicoSols["tm"]
         Jones=DicoSols["Jones"]
         TimeMapping=TimeMapping
+        VisToJonesChanMapping=DicoSols["VisToJonesChanMapping"]
 
-        #np.savez(self.JonesNorm_killMS,l=l,m=m,I=I,Cluster=Cluster,t0=t0,t1=t1,tm=tm,Jones=Jones,TimeMapping=TimeMapping)
-        np.savez(OutName,l=l,m=m,I=I,Cluster=Cluster,t0=t0,t1=t1,tm=tm,Jones=Jones,TimeMapping=TimeMapping)
+        # np.savez(self.JonesNorm_killMS,l=l,m=m,I=I,Cluster=Cluster,t0=t0,t1=t1,tm=tm,Jones=Jones,TimeMapping=TimeMapping)
+
+        np.savez(OutName,
+                 l=l,m=m,I=I,Cluster=Cluster,
+                 t0=t0,t1=t1,tm=tm,
+                 Jones=Jones,
+                 TimeMapping=TimeMapping,
+                 VisToJonesChanMapping=VisToJonesChanMapping)
+
 
     def DiskToSols(self,InName):
         #SolsFile_killMS=np.load(self.JonesNorm_killMS)
@@ -86,6 +95,7 @@ class ClassJones():
         DicoSols["t1"]=SolsFile["t1"]
         DicoSols["tm"]=SolsFile["tm"]
         DicoSols["Jones"]=SolsFile["Jones"]
+        DicoSols["VisToJonesChanMapping"]=SolsFile["VisToJonesChanMapping"]
         TimeMapping=SolsFile["TimeMapping"]
         return DicoSols,TimeMapping,DicoClusterDirs
 
@@ -219,6 +229,9 @@ class ClassJones():
         for DicoJones1 in ListDicoSols[1::]:
             DicoJones=self.MergeJones(DicoJones1,DicoJones)
 
+
+        DicoJones["VisToJonesChanMapping"]=np.zeros((self.MS.NSPWChan,),np.int32)
+
         return DicoClusterDirs,DicoJones
 
     def GiveKillMSSols_SingleFile(self,SolsFile,JonesMode="AP",GlobalMode=""):
@@ -251,13 +264,24 @@ class ClassJones():
         DicoSols["tm"]=(Sols.t1+Sols.t0)/2.
         nt,na,nd,_,_=Sols.G.shape
         G=np.swapaxes(Sols.G,1,2).reshape((nt,nd,na,1,2,2))
+        
+
+        if GlobalMode=="MeanAbsAnt":
+             print>>log, "  Normalising by the mean of the amplitude (against time)"
+             gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
+             gmean_abs=gmean_abs.reshape((1,nd,na,1))
+             G[:,:,:,:,0,0]/=gmean_abs
+             G[:,:,:,:,1,1]/=gmean_abs
+         
         if GlobalMode=="MeanAbs":
-            print>>log, "  Normalising by the mean of the amplitude"
-            gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
-            gmean_abs=gmean_abs.reshape((1,nd,na,1))
+            print>>log, "  Normalising by the mean of the amplitude (against time, antenna)"
+            gmean_abs=np.mean(np.mean(np.abs(G[:,:,:,:,0,0]),axis=0),axis=1)
+            gmean_abs=gmean_abs.reshape((1,nd,1,1))
             G[:,:,:,:,0,0]/=gmean_abs
             G[:,:,:,:,1,1]/=gmean_abs
         
+
+
         if not("A" in JonesMode):
             print>>log, "  Normalising by the amplitude"
             G[G!=0.]/=np.abs(G[G!=0.])
@@ -275,6 +299,7 @@ class ClassJones():
         RefAnt=0
         print>>log,"  Normalising Jones Matrices with reference Antenna %i ..."%RefAnt
         nt,nd,na,nf,_,_=G.shape
+
         for iDir in range(nd):
             for it in range(nt):
                 for iF in range(nf):
@@ -293,13 +318,18 @@ class ClassJones():
 
     def GiveBeam(self):
         GD=self.GD
+        if (GD["Beam"]["BeamModel"]==None)|(GD["Beam"]["BeamModel"]==""):
+            print>>log, "  Not applying any beam"
+            return
+
+
         DtBeamMin=GD["Beam"]["DtBeamMin"]
         self.DtBeamMin=DtBeamMin
         if GD["Beam"]["BeamModel"]=="LOFAR":
-            self.InitLOFARBeam()
-            LOFARBeamMode=GD["Beam"]["LOFARBeamMode"]
-            print>>log, "  Estimating LOFAR beam model in %s mode every %5.1f min."%(LOFARBeamMode,DtBeamMin)
-            self.GiveInstrumentBeam=self.MS.GiveBeam
+            self.ApplyBeam=True
+            self.BeamMachine=ClassLOFARBeam.ClassLOFARBeam(self.MS,self.GD)
+            self.GiveInstrumentBeam=self.BeamMachine.GiveInstrumentBeam
+
         elif GD["Beam"]["BeamModel"]=="FITS":
             self.FITSBeam = ClassFITSBeam.ClassFITSBeam(self.MS,GD["Beam"])
             self.GiveInstrumentBeam = self.FITSBeam.evaluateBeam
@@ -309,17 +339,18 @@ class ClassJones():
         DECs=self.ClusterCatBeam.dec
         t0=self.DATA["times"][0]
         t1=self.DATA["times"][-1]
+
+
+        print>>log, "  Estimating beam every %5.1f min."%(DtBeamMin)
         DicoBeam=self.EstimateBeam(t0,t1,RAs,DECs)
         return DicoBeam
 
-    def InitLOFARBeam(self):
-        GD=self.GD
-        LOFARBeamMode=GD["Beam"]["LOFARBeamMode"]
-        #self.BeamMode,self.DtBeamMin,self.BeamRAs,self.BeamDECs = LofarBeam
-        useArrayFactor=("A" in LOFARBeamMode)
-        useElementBeam=("E" in LOFARBeamMode)
-        self.MS.LoadSR(useElementBeam=useElementBeam,useArrayFactor=useArrayFactor)
-        self.ApplyBeam=True
+    def GiveVisToJonesChanMapping(self,FreqDomains):
+        NChanJones=FreqDomains.shape[0]
+        MeanFreqJonesChan=(FreqDomains[:,0]+FreqDomains[:,1])/2.
+        DFreq=np.abs(self.MS.ChanFreq.reshape((self.MS.NSPWChan,1))-MeanFreqJonesChan.reshape((1,NChanJones)))
+        return np.argmin(DFreq,axis=1)
+
 
     def EstimateBeam(self,t0,t1,RA,DEC):
         DtBeamSec=self.DtBeamMin*60
@@ -330,13 +361,21 @@ class ClassJones():
         T0s=TimesBeam[:-1].copy()
         T1s=TimesBeam[1:].copy()
         Tm=(T0s+T1s)/2.
-        #RA,DEC=self.BeamRAs,self.BeamDECs
+        # RA,DEC=self.BeamRAs,self.BeamDECs
         NDir=RA.size
+
+        
         DicoBeam={}
-        DicoBeam["Jones"]=np.zeros((Tm.size,NDir,self.MS.na,self.MS.NSPWChan,2,2),dtype=np.complex64)
+        FreqDomains=self.BeamMachine.getFreqDomains()
+
+        DicoBeam["VisToJonesChanMapping"]=self.GiveVisToJonesChanMapping(FreqDomains)
+
+        DicoBeam["Jones"]=np.zeros((Tm.size,NDir,self.MS.na,FreqDomains.shape[0],2,2),dtype=np.complex64)
         DicoBeam["t0"]=np.zeros((Tm.size,),np.float64)
         DicoBeam["t1"]=np.zeros((Tm.size,),np.float64)
         DicoBeam["tm"]=np.zeros((Tm.size,),np.float64)
+        
+        
         rac,decc=self.MS.radec
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]
@@ -345,7 +384,7 @@ class ClassJones():
             ThisTime=Tm[itime]
 
             Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)
-
+            #
             if self.GD["Beam"]["CenterNorm"]==1:
                 Beam0=self.GiveInstrumentBeam(ThisTime,np.array([rac]),np.array([decc]))
                 Beam0inv=ModLinAlg.BatchInverse(Beam0)
@@ -357,8 +396,12 @@ class ClassJones():
  
             DicoBeam["Jones"][itime]=Beam
 
+
         nt,nd,na,nch,_,_= DicoBeam["Jones"].shape
         DicoBeam["Jones"]=np.mean(DicoBeam["Jones"],axis=3).reshape((nt,nd,na,1,2,2))
+
+
+
         del(self.MS.SR)
         # print TimesBeam-TimesBeam[0]
         # print t0-t1

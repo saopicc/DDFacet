@@ -85,6 +85,9 @@ class ClassFITSBeam (object):
             vb.read(reFits,imFits)
             self.vbs.append(vb)
 
+    def getFreqs (self):
+        return self.freqs
+
     def evaluateBeam (self, t0, ra, dec):
         """Evaluates beam at time t0, in directions ra, dec.
         Inputs: t0 is a single time. ra, dec are Ndir vectors of directions.

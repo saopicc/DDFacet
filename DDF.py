@@ -82,6 +82,8 @@ def read_options():
     OP.add_option('Precision')
     OP.add_option('Weighting')
     OP.add_option('Robust')
+    OP.add_option("PSFOversize")
+    OP.add_option("PSFFacets")
 
     OP.OptionGroup("* Visibility compression parameters","Compression")
     OP.add_option('CompGridMode')
@@ -102,6 +104,7 @@ def read_options():
     OP.OptionGroup("* MultiFrequency Options","MultiFreqs")
     OP.add_option("NFreqBands")
     OP.add_option("Alpha")
+    OP.add_option("NChanDegridPerMS")
 
 
     OP.OptionGroup("* Primary Beam Options","Beam")
@@ -143,9 +146,11 @@ def read_options():
     OP.OptionGroup("* Clean","ImagerDeconv")
     OP.add_option("MaxMajorIter")
     OP.add_option("Gain")
+    OP.add_option("SearchMaxAbs")
     OP.add_option("MaxMinorIter")
     OP.add_option("CycleFactor")
     OP.add_option("CleanMaskImage")
+    OP.add_option("FluxThreshold")
  
     OP.Finalise()
     OP.ReadInput()

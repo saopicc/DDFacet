@@ -15,9 +15,9 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 class ClassMultiScaleMachine():
 
-    def __init__(self,GD,Gain=0.1):
+    def __init__(self,GD,Gain=0.1,GainMachine=None):
         self.SubPSF=None
-        self.Gain=Gain
+        self.GainMachine=GainMachine
         self.CubePSFScales=None
         self.GD=GD
         self.MultiFreqMode=False
@@ -99,11 +99,11 @@ class ClassMultiScaleMachine():
                     itest+=1
             x0=xtest[itest]
             dx0=(x0-NPSF/2)
-            print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
+            #print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
         elif Method=="FromSideLobe":
             dx0=2*self.OffsetSideLobe
             dx0=np.max([dx0,50])
-            print>>log, "PSF extends to [%i] from center"%(dx0)
+            #print>>log, "PSF extends to [%i] from center"%(dx0)
         
         dx0=np.max([dx0,100])
         dx0=np.min([dx0,NPSF/2])
@@ -127,7 +127,7 @@ class ClassMultiScaleMachine():
 
     def MakeMultiScaleCube(self):
         if self.CubePSFScales!=None: return
-        print>>log, "Making MultiScale PSFs..."
+        #print>>log, "Making MultiScale PSFs..."
         LScales=self.GD["MultiScale"]["Scales"]
         ScaleStart=0
         if 0 in LScales: 
@@ -283,7 +283,7 @@ class ClassMultiScaleMachine():
         self.GlobalWeightFunction=self.GlobalWeightFunction.reshape((1,1,self.SubPSF.shape[-1],self.SubPSF.shape[-1]))*np.ones((nch,npol,1,1),np.float32)
         #self.GlobalWeightFunction.fill(1)
         self.SupWeightWidth=3.*self.WeightWidth
-        print>>log, "   ... Done"
+        #print>>log, "   ... Done"
 
     def MakeBasisMatrix(self):
         nxPSF=self.CubePSFScales.shape[-1]
@@ -296,7 +296,7 @@ class ClassMultiScaleMachine():
 
 
     def GiveBasisMatrix(self,SubSubSubCoord=None):
-        print>>log,"Calculating basisc function for SubSubSubCoord=%s"%(str(SubSubSubCoord))
+#        print>>log,"Calculating basisc function for SubSubSubCoord=%s"%(str(SubSubSubCoord))
         if SubSubSubCoord==None:
             CubePSF=self.SubCubePSF
             WeightFunction=self.SubWeightFunction
