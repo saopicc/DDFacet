@@ -5,6 +5,7 @@
 
 
 import optparse
+import traceback
 SaveFile="last_DDFacet.obj"
 import pickle
 import os
@@ -224,6 +225,7 @@ if __name__=="__main__":
         print>>log, ModColor.Str("DDFacet ended successfully",col="green")
     except:
         print>>log, ModColor.Str("There was a problem, please help yourself",col="red")
+        traceback.print_exc()
         NpShared.DelAll(IdSharedMem)
 
     # main(options)

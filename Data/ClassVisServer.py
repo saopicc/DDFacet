@@ -534,21 +534,41 @@ class ClassVisServer():
 
 
     def GiveAllUVW(self):
-        t=table(self.MS.MSName,ack=False)
-        uvw=t.getcol("UVW")
-
+        """Reads UVWs, weights and flags. Returns uvw,weight,flags, where shapes are 
+        (nrow,3), (nrow,nchan) and (nrow,nchan,ncorr) respectively.
+        """
+        t = table(self.MS.MSName,ack=False)
+        uvw = t.getcol("UVW")
+        flags=t.getcol("FLAG")
+        nrow = t.nrows()
         WeightCol=self.GD["VisData"]["WeightCol"]
-        print>>log, "  Reading column %s for the weights"%WeightCol
 
-        WEIGHT=t.getcol(WeightCol)
-        if WeightCol=="WEIGHT_SPECTRUM":
-            WEIGHT=(WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
+        if WeightCol == "WEIGHT_SPECTRUM":
+            WEIGHT=t.getcol(WeightCol)
+            print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
+            WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
+        elif WeightCol == "WEIGHT":
+            WEIGHT=t.getcol(WeightCol)
+            print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
+            WEIGHT = (WEIGHT[:,0]+WEIGHT[:,3])/2.
+            # expand to have frequency axis
+            WEIGHT = WEIGHT[:,np.newaxis] + np.zeros(self.MS.Nchan,np.float32)[np.newaxis,:]
+        elif WeightCol == "WEIGHT+WEIGHT_SPECTRUM" or WeightCol == "WEIGHT_SPECTRUM+WEIGHT":
+            w = t.getcol("WEIGHT")
+            ws = t.getcol("WEIGHT_SPECTRUM")
+            print>>log, "  Reading column %s for the weights, shape is %s and %s"%(WeightCol,w.shape,ws.shape)
+            WEIGHT = w[:,np.newaxis,:] * ws
+            WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
+        
+        ## in all other cases (i.e. IMAGING_WEIGHT) assume a column of shape NRow,NFreq to begin with, check for this:
+        if WEIGHT.shape != (nrow, self.MS.Nchan):
+            raise TypeError,"weights expected to have shape of %s"%((nrow, self.MS.Nchan),)
+
 
         MeamW=np.mean(WEIGHT)
         if MeamW!=0.:
             WEIGHT/=MeamW
 
-        flags=t.getcol("FLAG")
         t.close()
         return uvw,WEIGHT,flags
 
