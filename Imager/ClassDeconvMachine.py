@@ -80,7 +80,8 @@ class ClassImagerDeconv():
         DC=self.GD
 
         
-        MSName=DC["VisData"]["MSName"]
+        MSName0 = MSName = DC["VisData"]["MSName"]
+
         if ".txt" in MSName:#DC["VisData"]["MSListFile"]!="":
             f=open(MSName)#DC["VisData"]["MSListFile"])
             Ls=f.readlines()
@@ -89,8 +90,17 @@ class ClassImagerDeconv():
             for l in Ls:
                 ll=l.replace("\n","")
                 MSName.append(ll)
+            print>>log,"list file %s contains %d MSs"%(MSName0, len(MSName))
         elif ("*" in MSName)|("?" in MSName):
             MSName=sorted(glob.glob(MSName))
+            print>>log,"found %d MSs matching %s"%(len(MSName), MSName0)
+        else:
+            submss = os.path.join(MSName,"SUBMSS") 
+            if os.path.exists(submss) and os.path.isdir(submss):
+                MSName = sorted(glob.glob(os.path.join(submss,"*")))
+                print>>log,"multi-MS mode for %s, found %d sub-MSs"%(MSName0, len(MSName))
+            else:
+                print>>log,"single-MS mode for %s"%MSName
 
 
         self.VS=ClassVisServer.ClassVisServer(MSName,
@@ -532,7 +542,7 @@ class ClassImagerDeconv():
         
             
 
-
+        nminor = 0
         for iMajor in range(NMajor):
 
             print>>log, ModColor.Str("========================== Runing major Cycle %i ========================="%iMajor)
@@ -540,9 +550,12 @@ class ClassImagerDeconv():
             self.DeconvMachine.SetDirty(DicoImage)
             #self.DeconvMachine.setSideLobeLevel(0.2,10)
 
-            repMinor=self.DeconvMachine.Clean()
-            if repMinor=="DoneMinFlux" or repMinor=="DoneFluxThreshold":
+            repMinor, niter = self.DeconvMachine.Clean(initMinor=nminor)
+            ## returned with nothing done in minor cycle? Break out
+            if niter == nminor:
                 break
+            nminor = niter+1  # increase count by one for next cycle
+
 
             #self.ResidImage=DicoImage["MeanImage"]
             #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
@@ -675,7 +688,9 @@ class ClassImagerDeconv():
             # #stop
 
             self.HasCleaned=True
-            if repMinor=="MaxIter": break
+            # break out if iter max reached
+            if repMinor=="MaxIter": 
+                break
             #if repMinor=="MinFluxRms": break
 
         #self.FacetMachine.ToCasaImage(Image,ImageName="%s.residual"%self.BaseName,Fits=True)
