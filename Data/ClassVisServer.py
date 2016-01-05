@@ -201,7 +201,7 @@ class ClassVisServer():
         ImShape=self.PaddedFacetShape
         CellSizeRad=self.CellSizeRad
         WeightMachine=ClassWeighting.ClassWeighting(ImShape,CellSizeRad)
-        uvw,WEIGHT,flags=self.GiveAllUVW()
+        uvw,WEIGHT,flags,nrows = self.GiveAllUVW()
         # uvw=DATA["uvw"]
         # WEIGHT=DATA["Weights"]
         VisWeights=WEIGHT#[:,0]#np.ones((uvw.shape[0],),dtype=np.float32)
@@ -213,9 +213,17 @@ class ClassVisServer():
 
         #self.VisWeights=np.ones((uvw.shape[0],self.MS.ChanFreq.size),dtype=np.float64)
 
-        self.VisWeights=WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
-                                                  Robust=Robust,
-                                                  Weighting=self.Weighting)
+        allweights = WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
+                                              Robust=Robust,
+                                              Weighting=self.Weighting)
+
+        # self.WisWeights is a list of weight arrays, one per each MS in self.ListMS
+        self.VisWeights = []
+        row0 = 0
+        for nr in nrows:
+            self.VisWeights.append(allweights[row0:(row0+nr)])
+            row0 += nr
+        self.CurrentVisWeights = self.VisWeights[0]
 
 
     def VisChunkToShared(self):
@@ -272,6 +280,7 @@ class ClassVisServer():
         self.iCurrentVisTime=0
         self.iCurrentMS=0
         self.CurrentFreqBand=0
+        self.CurrentVisWeights = self.VisWeights and self.VisWeights[0]   # first time VisWeights might still be unset -- but then CurrentVisWeights will be set later in CalcWeights
         for MS in self.ListMS:
             MS.ReinitChunkIter(self.TMemChunkSize)
         self.CurrentMS=self.ListMS[0]
@@ -284,9 +293,11 @@ class ClassVisServer():
             print>>log, ModColor.Str("Reached end of MSList")
             return "EndListMS"
         else:
+            print>>log,"next ms"
             self.iCurrentMS+=1
             self.CurrentMS=self.ListMS[self.iCurrentMS]
             self.CurrentFreqBand=0
+            self.CurrentVisWeights = self.VisWeights[self.iCurrentMS]
             if self.MultiFreqMode:
                 self.CurrentFreqBand = np.where((self.FreqBandsMin <= np.mean(self.CurrentMS.ChanFreq))&(self.FreqBandsMax > np.mean(self.CurrentMS.ChanFreq)))[0][0]
 
@@ -345,7 +356,7 @@ class ClassVisServer():
         DATA["times"]=times
         
 
-        DATA["Weights"]=self.VisWeights[MS.ROW0:MS.ROW1]
+        DATA["Weights"]=self.CurrentVisWeights[MS.ROW0:MS.ROW1]
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
 
         
@@ -408,7 +419,7 @@ class ClassVisServer():
                      "ROW0":MS.ROW0,
                      "ROW1":MS.ROW1,
                      "infos":np.array([MS.na]),
-                     "Weights":self.VisWeights[MS.ROW0:MS.ROW1],
+                     "Weights":self.CurrentVisWeights[MS.ROW0:MS.ROW1],
                      "ChanMapping":DATA["ChanMapping"],
                      "ChanMappingDegrid":DATA["ChanMappingDegrid"]
                      }
@@ -583,42 +594,59 @@ class ClassVisServer():
 
 
     def GiveAllUVW(self):
-        """Reads UVWs, weights and flags. Returns uvw,weight,flags, where shapes are 
+        """Reads UVWs, weights and flags from all MSs in the list and concatenates them into 
+        consolidated arrays.
+        Returns uvw,weight,flags,nrows, where shapes are 
         (nrow,3), (nrow,nchan) and (nrow,nchan,ncorr) respectively.
+        nrows is a vector showing the number of rows in each MS in the list.
         """
-        t = table(self.MS.MSName,ack=False)
-        uvw = t.getcol("UVW")
-        flags=t.getcol("FLAG")
-        nrow = t.nrows()
         WeightCol=self.GD["VisData"]["WeightCol"]
+        # make lists of tables and row counts (one per MS)
+        tabs = [ table(ms.MSName,ack=False) for ms in self.ListMS ]
+        nrows = [ tab.nrows() for tab in tabs ]
+        nr = sum(nrows)
+        # preallocate arrays
+        # NB: this assumes nchan and ncorr is the same across all MSs in self.ListMS. Tough luck if it isn't!
+        uvws = np.zeros((nr,3),np.float64)
+        weights = np.zeros((nr,self.MS.Nchan),np.float32)
+        flags = np.zeros((nr,self.MS.Nchan,len(self.MS.CorrelationNames)),bool)
 
-        if WeightCol == "WEIGHT_SPECTRUM":
-            WEIGHT=t.getcol(WeightCol)
-            print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
-            WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
-        elif WeightCol == "WEIGHT":
-            WEIGHT=t.getcol(WeightCol)
-            print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
-            WEIGHT = (WEIGHT[:,0]+WEIGHT[:,3])/2.
-            # expand to have frequency axis
-            WEIGHT = WEIGHT[:,np.newaxis] + np.zeros(self.MS.Nchan,np.float32)[np.newaxis,:]
-        elif WeightCol == "WEIGHT+WEIGHT_SPECTRUM" or WeightCol == "WEIGHT_SPECTRUM+WEIGHT":
-            w = t.getcol("WEIGHT")
-            ws = t.getcol("WEIGHT_SPECTRUM")
-            print>>log, "  Reading column %s for the weights, shape is %s and %s"%(WeightCol,w.shape,ws.shape)
-            WEIGHT = w[:,np.newaxis,:] * ws
-            WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
+        # now loop over MSs and read data
+        row0 = 0
+        for num_ms, (nrow, tab) in enumerate(zip(nrows, tabs)):
+            uvws[row0:(row0+nrow),...]   = tab.getcol("UVW")
+            flags[row0:(row0+nrow),...] = tab.getcol("FLAG")
+
+            if WeightCol == "WEIGHT_SPECTRUM":
+                WEIGHT=tab.getcol(WeightCol)
+                print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
+                WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
+            elif WeightCol == "WEIGHT":
+                WEIGHT=tab.getcol(WeightCol)
+                print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
+                WEIGHT = (WEIGHT[:,0]+WEIGHT[:,3])/2.
+                # expand to have frequency axis
+                WEIGHT = WEIGHT[:,np.newaxis] + np.zeros(self.MS.Nchan,np.float32)[np.newaxis,:]
+            elif WeightCol == "WEIGHT+WEIGHT_SPECTRUM" or WeightCol == "WEIGHT_SPECTRUM+WEIGHT":
+                w = tab.getcol("WEIGHT")
+                ws = tab.getcol("WEIGHT_SPECTRUM")
+                print>>log, "  Reading column %s for the weights, shape is %s and %s"%(WeightCol,w.shape,ws.shape)
+                WEIGHT = w[:,np.newaxis,:] * ws
+                WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
         
-        ## in all other cases (i.e. IMAGING_WEIGHT) assume a column of shape NRow,NFreq to begin with, check for this:
-        if WEIGHT.shape != (nrow, self.MS.Nchan):
-            raise TypeError,"weights expected to have shape of %s"%((nrow, self.MS.Nchan),)
+            ## in all other cases (i.e. IMAGING_WEIGHT) assume a column of shape NRow,NFreq to begin with, check for this:
+            if WEIGHT.shape != (nrow, self.MS.Nchan):
+                raise TypeError,"weights expected to have shape of %s"%((nrow, self.MS.Nchan),)
 
+            MeanW=np.mean(WEIGHT)
+            if MeanW!=0.:
+                WEIGHT/=MeanW
 
-        MeamW=np.mean(WEIGHT)
-        if MeamW!=0.:
-            WEIGHT/=MeamW
+            weights[row0:(row0+nrow),...] = WEIGHT
 
-        t.close()
-        return uvw,WEIGHT,flags
+            tab.close()
+            row0 += nrow
+
+        return uvws,weights,flags,nrows
 
 

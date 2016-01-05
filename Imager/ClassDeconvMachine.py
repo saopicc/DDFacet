@@ -689,7 +689,7 @@ class ClassImagerDeconv():
 
             self.HasCleaned=True
             # break out if iter max reached
-            if repMinor=="MaxIter": 
+            if repMinor=="MaxIter" or "FluxThreshold" in repMinor: 
                 break
             #if repMinor=="MinFluxRms": break
 
