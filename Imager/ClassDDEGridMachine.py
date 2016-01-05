@@ -524,7 +524,7 @@ class ClassDDEGridMachine():
         #self.Grid.fill(0)
         self.NChan, self.npol, _,_=self.GridShape
         self.SumWeigths=np.zeros((self.NChan,self.npol),np.float64)
-        self.SumJones=np.zeros((2,),np.float64)
+        self.SumJones=np.zeros((2,self.NChan),np.float64)
 
     def setDecorr(self,uvw_dt,DT,Dnu,SmearMode="FT"):
         DoSmearFreq=0
@@ -696,6 +696,8 @@ class ClassDDEGridMachine():
         NChan=self.NChan
 
         NVisChan=vis.shape[1]
+        self.SumJonesChan=np.zeros((2,NVisChan),np.float64)
+
         if type(W)==type(None):
             W=np.ones((uvw.shape[0],NVisChan),dtype=np.float64)
             
@@ -750,8 +752,9 @@ class ClassDDEGridMachine():
                 CalibError=(self.GD["DDESolutions"]["CalibErr"]/3600.)*np.pi/180
             LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
             LSumJones=[self.SumJones]
+            LSumJonesChan=[self.SumJonesChan]
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
-            ParamJonesList=ParamJonesList+LApplySol+LSumJones+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
+            ParamJonesList=ParamJonesList+LApplySol+LSumJones+LSumJonesChan+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
 
         T.timeit("3")
@@ -770,6 +773,7 @@ class ClassDDEGridMachine():
 
         #print W
         #print "!!!!!!!!!! 0 ",SumWeigths
+        #print self.SumJonesChan
         if self.GD["Compression"]["CompGridMode"]==0:
             Grid=_pyGridder.pyGridderWPol(Grid,
                                               vis,
@@ -810,6 +814,7 @@ class ClassDDEGridMachine():
                                           np.int32(ChanMapping))
         #print "!!!!!!!!!! 1 ",SumWeigths
 
+        #print self.SumJonesChan[0]/self.SumJonesChan[1]
 
         NCH,_,_,_=Grid.shape
         
@@ -931,7 +936,8 @@ class ClassDDEGridMachine():
             Grid=self.FT(ModelImage)
 
         #np.save("Grid",Grid)
-        
+        NVisChan=visIn.shape[1]
+        self.SumJonesChan=np.zeros((2,NVisChan),np.float64)
 
         T.timeit("1")
         #dummy=np.abs(vis).astype(np.float32)
@@ -999,8 +1005,9 @@ class ClassDDEGridMachine():
 
             LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
             LSumJones=[self.SumJones]
+            LSumJonesChan=[self.SumJonesChan]
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
-            ParamJonesList=ParamJonesList+LApplySol+LSumJones+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
+            ParamJonesList=ParamJonesList+LApplySol+LSumJones+LSumJonesChan+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
         if type(freqs)==type(None):
             freqs=np.float64(self.ChanFreq)

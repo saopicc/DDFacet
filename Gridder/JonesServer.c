@@ -153,6 +153,7 @@ int *ptrModeInterpolation;
 int ApplyAmp,ApplyPhase,DoScaleJones;
 float CalibError,CalibError2,ReWeightSNR;
 double *ptrSumJones;
+double *ptrSumJonesChan;
 
 float complex *J0;
 float complex *J1;
@@ -293,6 +294,7 @@ void initJonesServer(PyObject *LJones, int JonesTypeIn, double WaveLengthMeanIn)
     CalibError2=CalibError*CalibError;
     
     ptrSumJones=p_float64((PyArrayObject *) PyList_GetItem(LJones, idList)); idList+=1;
+    ptrSumJonesChan=p_float64((PyArrayObject *) PyList_GetItem(LJones, idList)); idList+=1;
     
     PyObject *_FReWeightSNR  = PyList_GetItem(LJones, idList); idList+=1;
     ReWeightSNR=(float) PyFloat_AsDouble(_FReWeightSNR);

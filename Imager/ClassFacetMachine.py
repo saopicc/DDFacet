@@ -622,8 +622,17 @@ class ClassFacetMachine():
             self.DicoPSF["CubeMeanVariablePSF"]=CubeMeanVariablePSF
             self.DicoPSF["MeanFacetPSF"]=np.mean(CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
 
-        T.timeit("5")
+            self.DicoPSF["MeanJonesChan"]=[]
+            for iFacet in sorted(self.DicoImager.keys()):
+                ThisFacetMeanJonesChan=[]
+                for iMS in range(self.VS.nMS):
+                    MeanJonesChan=np.sqrt(self.DicoImager[iFacet]["SumJonesChan"][iMS][0,:]/self.DicoImager[iFacet]["SumJonesChan"][iMS][1,:])
+                    ThisFacetMeanJonesChan.append(MeanJonesChan)
+                    
+                self.DicoPSF["MeanJonesChan"].append(ThisFacetMeanJonesChan)
+            stop
 
+        T.timeit("5")
         # for iFacet in self.DicoImager.keys():
         #     del(self.DicoGridMachine[iFacet]["Dirty"])
         #     DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
@@ -703,9 +712,9 @@ class ClassFacetMachine():
                 ThisSumJones=1.
             
                 if BeamWeightImage:
-                    ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][Channel][1]
+                    ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][1][Channel]
                     if ThisSumSqWeights==0: ThisSumSqWeights=1.
-                    ThisSumJones=self.DicoImager[iFacet]["SumJones"][Channel][0]/ThisSumSqWeights
+                    ThisSumJones=self.DicoImager[iFacet]["SumJones"][0][Channel]/ThisSumSqWeights
                     if ThisSumJones==0:
                         ThisSumJones=1.
 
@@ -829,8 +838,12 @@ class ClassFacetMachine():
             #         self.DicoGridMachine[iFacet]["GM"].reinitGrid() # reinitialise sumWeights
 
             self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands,self.npol),np.float32)
-            self.DicoImager[iFacet]["SumJones"]   = np.zeros((self.VS.NFreqBands,2),np.float32)
-            
+            self.DicoImager[iFacet]["SumJones"]   = np.zeros((2,self.VS.NFreqBands),np.float32)
+            self.DicoImager[iFacet]["SumJonesChan"]=[]
+            for iMS in range(self.VS.nMS):
+                MS=self.VS.ListMS[iMS]
+                nVisChan=MS.ChanFreq.size
+                self.DicoImager[iFacet]["SumJonesChan"].append(np.zeros((2,nVisChan),np.float64))
             
         # if self.Parallel:
         #     V=self.IM.CI.E.GiveSubCluster("Imag")["V"]

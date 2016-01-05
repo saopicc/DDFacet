@@ -507,7 +507,8 @@ void gridderWPol(PyArrayObject *grid,
 	    Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);
 	    ThisSumJones+=BB*(FWeight)*(FWeight);
 	    ThisSumSqWeights+=(FWeight)*(FWeight);
-	    
+	    ptrSumJonesChan[visChan]+=BB*(FWeight)*(FWeight);
+	    ptrSumJonesChan[nVisChan+visChan]+=(FWeight)*(FWeight);
 
 
 	  }else{
@@ -667,8 +668,8 @@ void gridderWPol(PyArrayObject *grid,
       	      }
       	      sumWtPtr[gridPol+gridChan*nGridPol] += ThisWeight;
 	      if(DoApplyJones){
-		ptrSumJones[0]+=ThisSumJones;
-		ptrSumJones[1]+=ThisSumSqWeights;
+		ptrSumJones[gridChan]+=ThisSumJones;
+		ptrSumJones[gridChan+nGridChan]+=ThisSumSqWeights;
 	      }
       	    } // end if gridPol
       	  } // end for ipol

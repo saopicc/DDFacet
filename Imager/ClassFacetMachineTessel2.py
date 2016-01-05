@@ -798,7 +798,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
             self.DicoImager[iFacet]["SumWeights"]+=DicoResult["Weights"]
             self.DicoImager[iFacet]["SumJones"]+=DicoResult["SumJones"]
-
+            #print self.DicoImager[iFacet]["SumJones"],DicoResult["SumJones"]
+            self.DicoImager[iFacet]["SumJonesChan"][self.VS.iCurrentMS]+=DicoResult["SumJonesChan"]
+            #print self.DicoImager[iFacet]["SumJonesChan"]
             # if iFacet==0:
             #     ThisSumWeights=DicoResult["Weights"]
             #     self.SumWeights+=ThisSumWeights
@@ -1062,9 +1064,10 @@ class WorkerImager(multiprocessing.Process):
                 #del(Dirty)
                 Sw=GridMachine.SumWeigths.copy()
                 SumJones=GridMachine.SumJones.copy()
+                SumJonesChan=GridMachine.SumJonesChan.copy()
                 del(GridMachine)
 
-                self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":Sw,"SumJones":SumJones})
+                self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":Sw,"SumJones":SumJones,"SumJonesChan":SumJonesChan})
                 
 
                 # gc.collect()
