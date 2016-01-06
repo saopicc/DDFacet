@@ -511,7 +511,7 @@ class ClassImagerDeconv():
     def setPSF(self):
 
         self.MakePSF()
-        self.DeconvMachine.SetPSF(self.DicoImagePSF,self.DicoVariablePSF)
+        self.DeconvMachine.SetPSF(self.DicoVariablePSF)
         self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
         self.DeconvMachine.InitMSMF()
         

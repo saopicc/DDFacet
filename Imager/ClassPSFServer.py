@@ -48,3 +48,24 @@ class ClassPSFServer():
 
 
 
+    def GiveFreqBandsFluxRatio(self,iFacet,Alpha):
+        NAlpha=Alpha.size
+        NFreqBand=self.DicoVariablePSF["CubeVariablePSF"].shape[1]
+        MeanJonesChan=self.DicoVariablePSF["MeanJonesChan"][iFacet]
+        ChanMappingGrid=self.DicoVariablePSF["ChanMappingGrid"]
+        RefFreq=self.RefFreq
+        FreqBandsFluxRatio=np.zeros((NAlpha,NFreqBand),np.float32)
+
+        for iChannel in range(NFreqBand):
+            ThisMeanJonesChan=[]
+            for iMS in range(len(MeanJonesChan)):
+                ind=np.where(ChanMappingGrid[iMS]==iChannel)[0]
+                ThisMeanJonesChan+=MeanJonesChan[iMS][ind].tolist()
+                
+            BeamFactor=np.array(ThisMeanJonesChan)
+            ThisFreqs=self.DicoVariablePSF["freqs"][iChannel]
+            for iAlpha in range(NAlpha):
+                ThisAlpha=Alpha[iAlpha]
+                
+                FreqBandsFluxRatio[iAlpha,iChannel]=np.mean(BeamFactor*(ThisFreqs/RefFreq)**ThisAlpha)
+        return FreqBandsFluxRatio

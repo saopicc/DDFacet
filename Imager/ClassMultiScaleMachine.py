@@ -36,8 +36,15 @@ class ClassMultiScaleMachine():
         self.SideLobeLevel=SideLobeLevel
         self.OffsetSideLobe=OffsetSideLobe
 
-    def SetPSF(self,DicoPSF,PSF,MeanPSF):
-        self.DicoPSF=DicoPSF
+    def SetFacet(self,iFacet):
+        self.iFacet=iFacet
+
+
+    def SetPSF(self,PSFServer):#PSF,MeanPSF):
+        #self.DicoPSF=DicoPSF
+        self.PSFServer=PSFServer
+        self.DicoVariablePSF=self.PSFServer.DicoVariablePSF
+        PSF,MeanPSF=self.PSFServer.GivePSF()
         self._PSF=PSF#self.DicoPSF["ImagData"]
         self._MeanPSF=MeanPSF
         
@@ -162,26 +169,27 @@ class ClassMultiScaleMachine():
         ListPSFScalesWeights=[]
         # Scale Zero
 
-        FreqBandsFluxRatio=np.zeros((NAlpha,self.NFreqBand),np.float32)
+
+        ######################
 
         AllFreqs=[]
         AllFreqsMean=np.zeros((self.NFreqBand,),np.float32)
         for iChannel in range(self.NFreqBand):
-            AllFreqs+=self.DicoPSF["freqs"][iChannel]
-            AllFreqsMean[iChannel]=np.mean(self.DicoPSF["freqs"][iChannel])
+            AllFreqs+=self.DicoVariablePSF["freqs"][iChannel]
+            AllFreqsMean[iChannel]=np.mean(self.DicoVariablePSF["freqs"][iChannel])
 
-        RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoPSF["WeightChansImages"].ravel())
+        RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoVariablePSF["WeightChansImages"].ravel())
+
+
 
         self.ModelMachine.setRefFreq(RefFreq,AllFreqs)
         self.RefFreq=RefFreq
+        self.PSFServer.RefFreq=RefFreq
+        FreqBandsFluxRatio=self.PSFServer.GiveFreqBandsFluxRatio(self.iFacet,Alpha)
 
-        for iChannel in range(self.NFreqBand):
-            for iAlpha in range(NAlpha):
-                ThisAlpha=Alpha[iAlpha]
-                ThisFreqs=self.DicoPSF["freqs"][iChannel]
-                
-                FreqBandsFluxRatio[iAlpha,iChannel]=np.mean((ThisFreqs/RefFreq)**ThisAlpha)
             
+        #####################
+
 #        print FreqBandsFluxRatio
         self.Alpha=Alpha
         nch,_,nx,ny=self.SubPSF.shape

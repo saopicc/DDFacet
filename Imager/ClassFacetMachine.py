@@ -630,8 +630,9 @@ class ClassFacetMachine():
                     ThisFacetMeanJonesChan.append(MeanJonesChan)
                     
                 self.DicoPSF["MeanJonesChan"].append(ThisFacetMeanJonesChan)
-            stop
-
+            self.DicoPSF["ChanMappingGrid"]=self.VS.DicoMSChanMapping
+            self.DicoPSF["freqs"]=DicoImages["freqs"]
+            self.DicoPSF["WeightChansImages"]=DicoImages["WeightChansImages"]
         T.timeit("5")
         # for iFacet in self.DicoImager.keys():
         #     del(self.DicoGridMachine[iFacet]["Dirty"])

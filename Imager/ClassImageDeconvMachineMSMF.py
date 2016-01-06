@@ -53,10 +53,10 @@ class ClassImageDeconvMachine():
         self.OffsetSideLobe=OffsetSideLobe
         
 
-    def SetPSF(self,DicoPSF,DicoVariablePSF):
+    def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
-        self.DicoPSF=DicoPSF
+        #self.DicoPSF=DicoPSF
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
 
@@ -69,8 +69,9 @@ class ClassImageDeconvMachine():
             MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.GainMachine)
             MSMachine.setModelMachine(self.ModelMachine)
             MSMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
-            ThisPSF,ThisMeanPSF=self.PSFServer.GivePSF()
-            MSMachine.SetPSF(self.DicoPSF,ThisPSF,ThisMeanPSF)
+            MSMachine.SetFacet(iFacet)
+
+            MSMachine.SetPSF(self.PSFServer)#ThisPSF,ThisMeanPSF)
             MSMachine.FindPSFExtent(Method="FromSideLobe")
             MSMachine.MakeMultiScaleCube()
             MSMachine.MakeBasisMatrix()
