@@ -117,6 +117,8 @@ class ClassMultiScaleMachine():
         npix=2*dx0+1
         npix=ModToolBox.GiveClosestFastSize(npix,Odd=False)
 
+
+        # npix=1
         self.PSFMargin=(NPSF-npix)/2
 
         dx=npix/2
@@ -164,6 +166,8 @@ class ClassMultiScaleMachine():
 
 
         Support=31
+        #Support=1
+
         #CubePSFScales=np.zeros((self.NFreqBand,NScales+NRatios*NTheta*(NScales-1),nx,ny))
         ListPSFScales=[]
         ListPSFScalesWeights=[]
@@ -186,8 +190,15 @@ class ClassMultiScaleMachine():
         self.RefFreq=RefFreq
         self.PSFServer.RefFreq=RefFreq
         FreqBandsFluxRatio=self.PSFServer.GiveFreqBandsFluxRatio(self.iFacet,Alpha)
+        # if self.iFacet==96: 
+        #     print 96
+        #     print FreqBandsFluxRatio
+        # if self.iFacet==60: 
+        #     print 60
+        #     print FreqBandsFluxRatio
 
-            
+        #FreqBandsFluxRatio.fill(1.)
+
         #####################
 
 #        print FreqBandsFluxRatio
@@ -521,7 +532,7 @@ class ClassMultiScaleMachine():
             #Sol=DicoBasisMatrix["BMnorm"]*np.dot(BM.T,WVecPSF*dirtyVec)
             Sol=DicoBasisMatrix["BMnorm"]*np.dot(BM.T,WVecPSF*(dirtyVec/MeanFluxTrue-BM))
             #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
-            print x0,y0,Sol
+            #print x0,y0,Sol
             indMaxSol1=np.where(np.abs(Sol)==np.max(np.abs(Sol)))[0]
             indMaxSol0=np.where(np.abs(Sol)!=np.max(np.abs(Sol)))[0]
 
@@ -544,8 +555,13 @@ class ClassMultiScaleMachine():
             #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
             
 
-            #print "=====",x,y
-            #print "Sum, Sol",np.sum(Sol),Sol.ravel()
+            # print "=====",x,y
+            # print "Data",dirtyVec.shape
+            # print dirtyVec
+            # print "BM",BM.shape
+            # print BM
+            # print "Sum, Sol",np.sum(Sol),Sol.ravel()
+
             #print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
             #print "MeanFluxTrue",MeanFluxTrue
             coef=np.min([np.abs(np.sum(Sol)/MeanFluxTrue),1.])
@@ -561,6 +577,8 @@ class ClassMultiScaleMachine():
                 # if np.abs(np.sum(Sol))>np.abs(MeanFluxTrue):
                 #     Sol=SolReg
 
+
+            
             Sol*=(MeanFluxTrue/np.sum(Sol))
                 
             #print "Sum, Sol",np.sum(Sol),Sol.ravel()

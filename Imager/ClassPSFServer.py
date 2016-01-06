@@ -56,6 +56,8 @@ class ClassPSFServer():
         RefFreq=self.RefFreq
         FreqBandsFluxRatio=np.zeros((NAlpha,NFreqBand),np.float32)
 
+        
+        ListBeamFactor=[]
         for iChannel in range(NFreqBand):
             ThisMeanJonesChan=[]
             for iMS in range(len(MeanJonesChan)):
@@ -63,9 +65,41 @@ class ClassPSFServer():
                 ThisMeanJonesChan+=MeanJonesChan[iMS][ind].tolist()
                 
             BeamFactor=np.array(ThisMeanJonesChan)
+            ListBeamFactor.append(BeamFactor)
+
+        # SumListBeamFactor=0
+        # NChan=0
+        # for iChannel in range(NFreqBand):
+        #     SumListBeamFactor+=np.sum(ListBeamFactor[iChannel])
+        #     NChan+=ListBeamFactor[iChannel].size
+        # SumListBeamFactor/=NChan
+        # for iChannel in range(NFreqBand):
+        #     ListBeamFactor[iChannel]/=SumListBeamFactor
+
+        for iChannel in range(NFreqBand):
+            ListBeamFactor[iChannel]/=np.mean(ListBeamFactor[iChannel])
+            # ListBeamFactor[iChannel]=np.sqrt(ListBeamFactor[iChannel])
+            # ListBeamFactor[iChannel]/=np.mean(ListBeamFactor[iChannel])
+            # ListBeamFactor[iChannel]*=np.sqrt(self.DicoVariablePSF["MeanJonesBand"][iFacet][iChannel])
+            # print self.DicoVariablePSF["MeanJonesBand"][iFacet]
+
+
+        for iChannel in range(NFreqBand):
+            BeamFactor=ListBeamFactor[iChannel]
+
             ThisFreqs=self.DicoVariablePSF["freqs"][iChannel]
+            #if iFacet==60:
+            #    print iChannel,iMS,BeamFactor
+            #BeamFactor.fill(1.)
             for iAlpha in range(NAlpha):
                 ThisAlpha=Alpha[iAlpha]
-                
                 FreqBandsFluxRatio[iAlpha,iChannel]=np.mean(BeamFactor*(ThisFreqs/RefFreq)**ThisAlpha)
+
+        #MeanFreqBandsFluxRatio=np.mean(FreqBandsFluxRatio,axis=1)
+        #FreqBandsFluxRatio=FreqBandsFluxRatio/MeanFreqBandsFluxRatio.reshape((NAlpha,1))
+
+        # print "=============="
+        # print iFacet
+        # print FreqBandsFluxRatio
+
         return FreqBandsFluxRatio
