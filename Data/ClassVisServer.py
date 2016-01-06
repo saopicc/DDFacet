@@ -633,8 +633,11 @@ class ClassVisServer():
                 print>>log, "  Reading column %s for the weights, shape is %s and %s"%(WeightCol,w.shape,ws.shape)
                 WEIGHT = w[:,np.newaxis,:] * ws
                 WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
-        
-            ## in all other cases (i.e. IMAGING_WEIGHT) assume a column of shape NRow,NFreq to begin with, check for this:
+            else:
+                ## in all other cases (i.e. IMAGING_WEIGHT) assume a column of shape NRow,NFreq to begin with, check for this:
+                WEIGHT=tab.getcol(WeightCol)
+                print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
+
             if WEIGHT.shape != (nrow, self.MS.Nchan):
                 raise TypeError,"weights expected to have shape of %s"%((nrow, self.MS.Nchan),)
 
