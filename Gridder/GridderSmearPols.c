@@ -351,6 +351,9 @@ void gridderWPol(PyArrayObject *grid,
     float complex *VisMeas=calloc(1,(4)*sizeof(float complex));
     int ThisPol;
 
+    float *ThisSumJonesChan=calloc(1,(nVisChan)*sizeof(float));
+    float *ThisSumSqWeightsChan=calloc(1,(nVisChan)*sizeof(float));
+
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
@@ -376,8 +379,12 @@ void gridderWPol(PyArrayObject *grid,
       double ThisWeight=0.;
       float ThisSumJones=0.;
       float ThisSumSqWeights=0.;
-      float *ThisSumJonesChan=calloc(1,(nVisChan)*sizeof(float));
-      float *ThisSumSqWeightsChan=calloc(1,(nVisChan)*sizeof(float));
+      for(visChan=0; visChan<nVisChan; visChan++){
+	ThisSumJonesChan[visChan]=0;
+	ThisSumSqWeightsChan[visChan]=0;
+      }
+
+
 
       //int ThisBlockAllFlagged=1;
       float visChanMean=0.;
