@@ -118,7 +118,7 @@ class ClassMultiScaleMachine():
         npix=ModToolBox.GiveClosestFastSize(npix,Odd=False)
 
 
-        # npix=1
+        #npix=1
         self.PSFMargin=(NPSF-npix)/2
 
         dx=npix/2
@@ -532,7 +532,7 @@ class ClassMultiScaleMachine():
             #Sol=DicoBasisMatrix["BMnorm"]*np.dot(BM.T,WVecPSF*dirtyVec)
             Sol=DicoBasisMatrix["BMnorm"]*np.dot(BM.T,WVecPSF*(dirtyVec/MeanFluxTrue-BM))
             #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
-            #print x0,y0,Sol
+            print x0,y0,Sol
             indMaxSol1=np.where(np.abs(Sol)==np.max(np.abs(Sol)))[0]
             indMaxSol0=np.where(np.abs(Sol)!=np.max(np.abs(Sol)))[0]
 
@@ -555,7 +555,7 @@ class ClassMultiScaleMachine():
             #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
             
 
-            # print "=====",x,y
+            # print "=====",self.iFacet,x,y
             # print "Data",dirtyVec.shape
             # print dirtyVec
             # print "BM",BM.shape

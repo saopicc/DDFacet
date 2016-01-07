@@ -622,30 +622,39 @@ class ClassFacetMachine():
             self.DicoPSF["CubeMeanVariablePSF"]=CubeMeanVariablePSF
             self.DicoPSF["MeanFacetPSF"]=np.mean(CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
 
-            self.DicoPSF["MeanJonesChan"]=[]
 
             self.DicoPSF["MeanJonesBand"]=[]
             for iFacet in sorted(self.DicoImager.keys()):
+                #print "==============="
                 MeanJonesBand=np.zeros((self.VS.NFreqBands,),np.float64)
                 for Channel in range(self.VS.NFreqBands):
                     ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][1][Channel]
                     if ThisSumSqWeights==0: ThisSumSqWeights=1.
-                    ThisSumJones=self.DicoImager[iFacet]["SumJones"][0][Channel]/ThisSumSqWeights
+                    ThisSumJones=(self.DicoImager[iFacet]["SumJones"][0][Channel]/ThisSumSqWeights)
                     if ThisSumJones==0:
                         ThisSumJones=1.
+                    #print "0",iFacet,Channel,np.sqrt(ThisSumJones)
                     MeanJonesBand[Channel]=ThisSumJones
                 self.DicoPSF["MeanJonesBand"].append(MeanJonesBand)
 
+
+            self.DicoPSF["SumJonesChan"]=[]
+            self.DicoPSF["SumJonesChanWeightSq"]=[]
             for iFacet in sorted(self.DicoImager.keys()):
-                ThisFacetMeanJonesChan=[]
+
+                ThisFacetSumJonesChan=[]
+                ThisFacetSumJonesChanWeightSq=[]
+                #print "==============="
                 for iMS in range(self.VS.nMS):
                     A=self.DicoImager[iFacet]["SumJonesChan"][iMS][1,:]
                     A[A==0]=1.
                     A=self.DicoImager[iFacet]["SumJonesChan"][iMS][0,:]
                     A[A==0]=1.
-                    MeanJonesChan=((self.DicoImager[iFacet]["SumJonesChan"][iMS][0,:]/self.DicoImager[iFacet]["SumJonesChan"][iMS][1,:]))
-                    
-                    ThisFacetMeanJonesChan.append(MeanJonesChan)
+                    SumJonesChan=self.DicoImager[iFacet]["SumJonesChan"][iMS][0,:]
+                    SumJonesChanWeightSq=self.DicoImager[iFacet]["SumJonesChan"][iMS][1,:]
+                    #print "1",iFacet,iMS,MeanJonesChan
+                    ThisFacetSumJonesChan.append(SumJonesChan)
+                    ThisFacetSumJonesChanWeightSq.append(SumJonesChanWeightSq)
 
 
                     # # ###############################
@@ -659,8 +668,9 @@ class ClassFacetMachine():
                     #     print self.DicoImager[iFacet]["SumJonesChan"][iMS][0,:]
                     #     print MeanJonesChan
 
-                    
-                self.DicoPSF["MeanJonesChan"].append(ThisFacetMeanJonesChan)
+                
+                self.DicoPSF["SumJonesChan"].append(ThisFacetSumJonesChan)
+                self.DicoPSF["SumJonesChanWeightSq"].append(ThisFacetSumJonesChanWeightSq)
             self.DicoPSF["ChanMappingGrid"]=self.VS.DicoMSChanMapping
             self.DicoPSF["freqs"]=DicoImages["freqs"]
             self.DicoPSF["WeightChansImages"]=DicoImages["WeightChansImages"]
@@ -778,6 +788,7 @@ class ClassFacetMachine():
                         Im*=SW
 
                         Im/=np.sqrt(ThisSumJones)
+                        #Im/=(ThisSumJones)
 
                         Im=Im[x0facet:x1facet,y0facet:y1facet]
                 
@@ -881,8 +892,8 @@ class ClassFacetMachine():
             #     if "GM" in self.DicoGridMachine[iFacet].keys():
             #         self.DicoGridMachine[iFacet]["GM"].reinitGrid() # reinitialise sumWeights
 
-            self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands,self.npol),np.float32)
-            self.DicoImager[iFacet]["SumJones"]   = np.zeros((2,self.VS.NFreqBands),np.float32)
+            self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands,self.npol),np.float64)
+            self.DicoImager[iFacet]["SumJones"]   = np.zeros((2,self.VS.NFreqBands),np.float64)
             self.DicoImager[iFacet]["SumJonesChan"]=[]
             for iMS in range(self.VS.nMS):
                 MS=self.VS.ListMS[iMS]
