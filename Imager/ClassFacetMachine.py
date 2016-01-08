@@ -554,8 +554,8 @@ class ClassFacetMachine():
 
         T.timeit("2")
                 
-        if NormJones: 
-            ImagData/=np.sqrt(self.NormData)
+        # if NormJones: 
+        #     ImagData/=np.sqrt(self.NormData)
 
         T.timeit("3")
 
@@ -622,8 +622,59 @@ class ClassFacetMachine():
             self.DicoPSF["CubeMeanVariablePSF"]=CubeMeanVariablePSF
             self.DicoPSF["MeanFacetPSF"]=np.mean(CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
 
-        T.timeit("5")
 
+            self.DicoPSF["MeanJonesBand"]=[]
+            for iFacet in sorted(self.DicoImager.keys()):
+                #print "==============="
+                MeanJonesBand=np.zeros((self.VS.NFreqBands,),np.float64)
+                for Channel in range(self.VS.NFreqBands):
+                    ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][1][Channel]
+                    if ThisSumSqWeights==0: ThisSumSqWeights=1.
+                    ThisSumJones=(self.DicoImager[iFacet]["SumJones"][0][Channel]/ThisSumSqWeights)
+                    if ThisSumJones==0:
+                        ThisSumJones=1.
+                    #print "0",iFacet,Channel,np.sqrt(ThisSumJones)
+                    MeanJonesBand[Channel]=ThisSumJones
+                self.DicoPSF["MeanJonesBand"].append(MeanJonesBand)
+
+
+            self.DicoPSF["SumJonesChan"]=[]
+            self.DicoPSF["SumJonesChanWeightSq"]=[]
+            for iFacet in sorted(self.DicoImager.keys()):
+
+                ThisFacetSumJonesChan=[]
+                ThisFacetSumJonesChanWeightSq=[]
+                #print "==============="
+                for iMS in range(self.VS.nMS):
+                    A=self.DicoImager[iFacet]["SumJonesChan"][iMS][1,:]
+                    A[A==0]=1.
+                    A=self.DicoImager[iFacet]["SumJonesChan"][iMS][0,:]
+                    A[A==0]=1.
+                    SumJonesChan=self.DicoImager[iFacet]["SumJonesChan"][iMS][0,:]
+                    SumJonesChanWeightSq=self.DicoImager[iFacet]["SumJonesChan"][iMS][1,:]
+                    #print "1",iFacet,iMS,MeanJonesChan
+                    ThisFacetSumJonesChan.append(SumJonesChan)
+                    ThisFacetSumJonesChanWeightSq.append(SumJonesChanWeightSq)
+
+
+                    # # ###############################
+                    # l0,m0=self.DicoImager[iFacet]["lmShift"]
+                    # d=np.sqrt(l0**2+m0**2)
+                    # if d<0.0001:
+                    #     print "========================="
+                    #     print iFacet
+                    #     print self.DicoImager[iFacet]["lmShift"]
+                    #     print self.DicoImager[iFacet]["SumJonesChan"][iMS][1,:]
+                    #     print self.DicoImager[iFacet]["SumJonesChan"][iMS][0,:]
+                    #     print MeanJonesChan
+
+                
+                self.DicoPSF["SumJonesChan"].append(ThisFacetSumJonesChan)
+                self.DicoPSF["SumJonesChanWeightSq"].append(ThisFacetSumJonesChanWeightSq)
+            self.DicoPSF["ChanMappingGrid"]=self.VS.DicoMSChanMapping
+            self.DicoPSF["freqs"]=DicoImages["freqs"]
+            self.DicoPSF["WeightChansImages"]=DicoImages["WeightChansImages"]
+        T.timeit("5")
         # for iFacet in self.DicoImager.keys():
         #     del(self.DicoGridMachine[iFacet]["Dirty"])
         #     DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
@@ -674,13 +725,15 @@ class ClassFacetMachine():
 
         nch,npol,NPixOut,NPixOut=self.OutImShape
 
+
+        self.BuildFacetNormImage()
+
         if BeamWeightImage:
             print>>log, "Combining facets to average Jones-amplitude image"
         else:
             print>>log, "Combining facets to residual image"
             
 
-        self.BuildFacetNormImage()
         NormImage=self.NormImage
 
         for iFacet in self.DicoImager.keys():
@@ -695,6 +748,8 @@ class ClassFacetMachine():
             Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(NpixFacet/2,NpixFacet/2),NpixFacet)
             x0main,x1main,y0main,y1main=Aedge
             x0facet,x1facet,y0facet,y1facet=Bedge
+            
+            #print "#%3.3i %s"%(iFacet,str(self.DicoImager[iFacet]["SumJones"][0]/self.DicoImager[iFacet]["SumJones"][1]))
 
             for Channel in range(self.VS.NFreqBands):
             
@@ -702,12 +757,18 @@ class ClassFacetMachine():
                 ThisSumWeights=self.DicoImager[iFacet]["SumWeights"][Channel]
                 ThisSumJones=1.
             
-                if BeamWeightImage:
-                    ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][Channel][1]
-                    if ThisSumSqWeights==0: ThisSumSqWeights=1.
-                    ThisSumJones=self.DicoImager[iFacet]["SumJones"][Channel][0]/ThisSumSqWeights
-                    if ThisSumJones==0:
-                        ThisSumJones=1.
+                # if BeamWeightImage:
+                #     ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][1][Channel]
+                #     if ThisSumSqWeights==0: ThisSumSqWeights=1.
+                #     ThisSumJones=self.DicoImager[iFacet]["SumJones"][0][Channel]/ThisSumSqWeights
+                #     if ThisSumJones==0:
+                #         ThisSumJones=1.
+
+                ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][1][Channel]
+                if ThisSumSqWeights==0: ThisSumSqWeights=1.
+                ThisSumJones=self.DicoImager[iFacet]["SumJones"][0][Channel]/ThisSumSqWeights
+                if ThisSumJones==0:
+                    ThisSumJones=1.
 
             
                 SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
@@ -725,7 +786,10 @@ class ClassFacetMachine():
                         Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][pol][::-1,:].T.real/sumweight)
                         SW=SpacialWeigth[::-1,:].T
                         Im*=SW
-                        
+
+                        Im/=np.sqrt(ThisSumJones)
+                        #Im/=(ThisSumJones)
+
                         Im=Im[x0facet:x1facet,y0facet:y1facet]
                 
                 
@@ -828,9 +892,13 @@ class ClassFacetMachine():
             #     if "GM" in self.DicoGridMachine[iFacet].keys():
             #         self.DicoGridMachine[iFacet]["GM"].reinitGrid() # reinitialise sumWeights
 
-            self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands,self.npol),np.float32)
-            self.DicoImager[iFacet]["SumJones"]   = np.zeros((self.VS.NFreqBands,2),np.float32)
-            
+            self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands,self.npol),np.float64)
+            self.DicoImager[iFacet]["SumJones"]   = np.zeros((2,self.VS.NFreqBands),np.float64)
+            self.DicoImager[iFacet]["SumJonesChan"]=[]
+            for iMS in range(self.VS.nMS):
+                MS=self.VS.ListMS[iMS]
+                nVisChan=MS.ChanFreq.size
+                self.DicoImager[iFacet]["SumJonesChan"].append(np.zeros((2,nVisChan),np.float64))
             
         # if self.Parallel:
         #     V=self.IM.CI.E.GiveSubCluster("Imag")["V"]

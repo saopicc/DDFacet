@@ -280,10 +280,16 @@ class ClassImagerDeconv():
 
         #np.savez("PSF.npz",ImagData=self.DicoImagePSF["ImagData"],MeanImage=self.DicoImagePSF["MeanImage"])
 
-        self.PSF=self.DicoImagePSF["MeanImage"]#/np.sqrt(self.DicoImagePSF["NormData"])
+        self.PSF=self.DicoImagePSF["MeanImage"]/np.sqrt(self.DicoImagePSF["NormData"])
 
         self.MeanFacetPSF=self.DicoVariablePSF["MeanFacetPSF"]
 
+        # ImageName="%s.psf.corr.MF"%self.BaseName
+        # ImagData=self.DicoImagePSF["ImagData"]#/np.sqrt(self.DicoImagePSF["NormData"])
+        # im=ClassCasaImage.ClassCasaimage(ImageName,ImagData.shape,self.FacetMachine.Cell,self.FacetMachine.MainRaDec)
+        # im.setdata(ImagData,CorrT=True)
+        # im.ToFits()
+        # im.close()
 
         FacetMachinePSF.DoPSF=False
 
@@ -521,7 +527,7 @@ class ClassImagerDeconv():
     def setPSF(self):
 
         self.MakePSF()
-        self.DeconvMachine.SetPSF(self.DicoImagePSF,self.DicoVariablePSF)
+        self.DeconvMachine.SetPSF(self.DicoVariablePSF)
         self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
         self.DeconvMachine.InitMSMF()
         

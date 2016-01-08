@@ -380,8 +380,8 @@ class ClassVisServer():
         DATA["ChanMapping"]=self.CurrentChanMapping
         DATA["ChanMappingDegrid"]=self.DicoMSChanMappingDegridding[self.iCurrentMS]
         
-        #print>>log, "  Channel Mapping Gridding  : %s"%(str(self.CurrentChanMapping))
-        #print>>log, "  Channel Mapping DeGridding: %s"%(str(DATA["ChanMappingDegrid"]))
+        print>>log, "  Channel Mapping Gridding  : %s"%(str(self.CurrentChanMapping))
+        print>>log, "  Channel Mapping DeGridding: %s"%(str(DATA["ChanMappingDegrid"]))
 
         self.UpdateCompression(DATA,
                                ChanMappingGridding=DATA["ChanMapping"],

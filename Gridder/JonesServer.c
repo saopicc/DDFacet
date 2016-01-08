@@ -153,6 +153,7 @@ int *ptrModeInterpolation;
 int ApplyAmp,ApplyPhase,DoScaleJones;
 float CalibError,CalibError2,ReWeightSNR;
 double *ptrSumJones;
+double *ptrSumJonesChan;
 
 float complex *J0;
 float complex *J1;
@@ -165,6 +166,7 @@ float complex *J1Beam;
 float complex *J0inv;
 float complex *J0H;
 float complex *J0Conj;
+float complex *J1Conj;
 float complex *J1H;
 float complex *J1T;
 float complex *J1Hinv;
@@ -190,6 +192,7 @@ void initJonesMatrices(){
   J0inv=calloc(1,(4)*sizeof(float complex));
   J0H=calloc(1,(4)*sizeof(float complex));
   J0Conj=calloc(1,(4)*sizeof(float complex));
+  J1Conj=calloc(1,(4)*sizeof(float complex));
   J1H=calloc(1,(4)*sizeof(float complex));
   J1T=calloc(1,(4)*sizeof(float complex));
   J1Hinv=calloc(1,(4)*sizeof(float complex));
@@ -293,6 +296,7 @@ void initJonesServer(PyObject *LJones, int JonesTypeIn, double WaveLengthMeanIn)
     CalibError2=CalibError*CalibError;
     
     ptrSumJones=p_float64((PyArrayObject *) PyList_GetItem(LJones, idList)); idList+=1;
+    ptrSumJonesChan=p_float64((PyArrayObject *) PyList_GetItem(LJones, idList)); idList+=1;
     
     PyObject *_FReWeightSNR  = PyList_GetItem(LJones, idList); idList+=1;
     ReWeightSNR=(float) PyFloat_AsDouble(_FReWeightSNR);
@@ -466,7 +470,11 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight){
     
     MatT(J1,J1T);
     MatConj(J0,J0Conj);
-    BB=cabs(J0Conj[0]*J1T[0]);
+    //MatConj(J1,J1Conj);
+    //BB=cabs(J0Conj[0]*J1T[0]);
+    //BB=cabs(J0Conj[0]*J0[0]*J1[0]*J1Conj[0]);
+    //BB*=BB;
+    BB=(cabs(J0[0])*cabs(J1[0])+cabs(J0[3])*cabs(J1[3]))/2.;
     BB*=BB;
     MatH(J1,J1H);
     MatH(J0,J0H);

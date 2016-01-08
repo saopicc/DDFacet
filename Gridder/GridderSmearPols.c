@@ -351,6 +351,9 @@ void gridderWPol(PyArrayObject *grid,
     float complex *VisMeas=calloc(1,(4)*sizeof(float complex));
     int ThisPol;
 
+    float *ThisSumJonesChan=calloc(1,(nVisChan)*sizeof(float));
+    float *ThisSumSqWeightsChan=calloc(1,(nVisChan)*sizeof(float));
+
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
@@ -376,6 +379,13 @@ void gridderWPol(PyArrayObject *grid,
       double ThisWeight=0.;
       float ThisSumJones=0.;
       float ThisSumSqWeights=0.;
+      for(visChan=0; visChan<nVisChan; visChan++){
+	ThisSumJonesChan[visChan]=0;
+	ThisSumSqWeightsChan[visChan]=0;
+      }
+
+
+
       //int ThisBlockAllFlagged=1;
       float visChanMean=0.;
       resetJonesServerCounter();
@@ -505,10 +515,22 @@ void gridderWPol(PyArrayObject *grid,
 	    
 	    // Vis+=visPtr*Weight
 	    Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);
-	    ThisSumJones+=BB*(FWeight)*(FWeight);
-	    ThisSumSqWeights+=(FWeight)*(FWeight);
-	    
 
+	    float FWeightSq=(FWeight)*(FWeight);
+	    ThisSumJones+=BB*FWeightSq;
+	    ThisSumSqWeights+=FWeightSq;
+
+	    ThisSumJonesChan[visChan]+=BB*FWeightSq;
+	    ThisSumSqWeightsChan[visChan]+=FWeightSq;
+
+	    //ptrSumJonesChan[visChan]+=BB*FWeightSq;
+	    //ptrSumJonesChan[nVisChan+visChan]+=FWeightSq;
+
+	    ////====================================
+	    //int gridChan=p_ChanMapping[visChan];
+	    //ptrSumJones[gridChan]+=BB*FWeightSq;
+	    //ptrSumJones[gridChan+nGridChan]+=FWeightSq;
+	    ////====================================
 
 	  }else{
 	    Mat_A_Bl_Sum(Vis,SkyType,VisMeas,SkyType,Weight);
@@ -579,7 +601,11 @@ void gridderWPol(PyArrayObject *grid,
       double wcoord=Wmean;
       int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);
       int skipW=0;
-      if(iwplane>NwPlanes-1){skipW=1;continue;};
+      if(iwplane>NwPlanes-1){
+	skipW=1;
+	printf("SIP\n");
+	continue;
+      };
       
       if(wcoord>0){
       	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);
@@ -667,9 +693,16 @@ void gridderWPol(PyArrayObject *grid,
       	      }
       	      sumWtPtr[gridPol+gridChan*nGridPol] += ThisWeight;
 	      if(DoApplyJones){
-		ptrSumJones[0]+=ThisSumJones;
-		ptrSumJones[1]+=ThisSumSqWeights;
+	      	ptrSumJones[gridChan]+=ThisSumJones;
+	      	ptrSumJones[gridChan+nGridChan]+=ThisSumSqWeights;
+
+		for(visChan=0; visChan<nVisChan; visChan++){
+		  ptrSumJonesChan[visChan]+=ThisSumJonesChan[visChan];
+		  ptrSumJonesChan[nVisChan+visChan]+=ThisSumSqWeightsChan[visChan];
+		}
+
 	      }
+
       	    } // end if gridPol
       	  } // end for ipol
       	} // end if ongrid

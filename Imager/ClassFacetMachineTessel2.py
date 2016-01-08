@@ -29,7 +29,7 @@ from SkyModel.Sky.ClassClusterKMean import ClassClusterKMean
 from SkyModel.Sky import ModVoronoiToReg
 import time
 import Polygon
-
+from DDFacet.ToolsDir import rad2hmsdms
 
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
@@ -119,6 +119,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             NpixFacet=Npix/NFacets
             lfacet=NpixFacet*CellSizeRad*0.5
             lcenter_max=lrad-lfacet
+            
             lFacet,mFacet,=np.mgrid[-lcenter_max:lcenter_max:(NFacets)*1j,-lcenter_max:lcenter_max:(NFacets)*1j]
             lFacet=lFacet.flatten()
             mFacet=mFacet.flatten()
@@ -419,6 +420,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.DicoImager={} 
         indDiam=np.argsort(l_m_Diam[:,2])[::-1]
         l_m_Diam=l_m_Diam[indDiam]
+                
+
         for iFacet in range(l_m_Diam.shape[0]):
             self.DicoImager[iFacet]={}
             self.DicoImager[iFacet]["Polygon"]=D[l_m_Diam[iFacet,3]]["Polygon"]
@@ -431,6 +434,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             diam=round(l_m_Diam[iFacet,2]/self.CellSizeRad)*self.CellSizeRad
             #self.AppendFacet(iFacet,l0,m0,diam)
             self.AppendFacet(iFacet,l0,m0,diam)
+
+
+
+
 
         #self.MakeMasksTessel()
 
@@ -447,10 +454,30 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 dmin=d
                 iCentralFacet=iFacet
         self.iCentralFacet=iCentralFacet
-
-        MyPickle.Save(self.DicoImager,"%s.DicoFacet"%self.GD["Images"]["ImageName"])
-
         
+        #regFile="%s.tessel.reg"%self.GD["Images"]["ImageName"]
+        #labels=["[F%i]"%(i,self.DicoImager[i]["Polygon"]["iSol"]) for i in range(len(LPolygonNew))]
+        #VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=labels)
+
+        self.WriteCoordFacetFile()
+
+        DicoName="%s.DicoFacet"%self.GD["Images"]["ImageName"]
+        print>>log, "Saving DicoImager in %s"%DicoName
+        MyPickle.Save(self.DicoImager,DicoName)
+
+    def WriteCoordFacetFile(self):
+        FacetCoordFile="%s.facetCoord.txt"%self.GD["Images"]["ImageName"]
+        print>>log, "Writing facet coordinates in %s"%FacetCoordFile
+        f = open(FacetCoordFile, 'w')
+        ss="# (Name, Type, Ra, Dec, I, Q, U, V, ReferenceFrequency='7.38000e+07', SpectralIndex='[]', MajorAxis, MinorAxis, Orientation) = format"
+        for iFacet in range(len(self.DicoImager)):
+            ra,dec=self.DicoImager[iFacet]["RaDec"]
+            sra =rad2hmsdms.rad2hmsdms(ra,Type="ra").replace(" ",":")
+            sdec=rad2hmsdms.rad2hmsdms(dec).replace(" ",".")
+            ss="%s, %s"%(sra,sdec)
+            f.write(ss+'\n')
+        f.close()
+
 
     def MakeMasksTessel(self):
         for iFacet in sorted(self.DicoImager.keys()):
@@ -521,7 +548,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.DicoImager[iFacet]["lmExtent"]=l0-RadiusFacet,l0+RadiusFacet,m0-RadiusFacet,m0+RadiusFacet
         self.DicoImager[iFacet]["lmExtentPadded"]=l0-RadiusFacetPadded,l0+RadiusFacetPadded,m0-RadiusFacetPadded,m0+RadiusFacetPadded
 
-
+        
+        #print>>log,"#[%3.3i] %f, %f"%(iFacet,l0,m0)
         DicoConfigGM={"Npix":NpixFacet,
                       "Cell":self.GD["ImagerMainFacet"]["Cell"],
                       "ChanFreq":self.ChanFreq,
@@ -798,7 +826,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
             self.DicoImager[iFacet]["SumWeights"]+=DicoResult["Weights"]
             self.DicoImager[iFacet]["SumJones"]+=DicoResult["SumJones"]
-
+            #print self.DicoImager[iFacet]["SumJones"],DicoResult["SumJones"]
+            self.DicoImager[iFacet]["SumJonesChan"][self.VS.iCurrentMS]+=DicoResult["SumJonesChan"]
+            #print self.DicoImager[iFacet]["SumJonesChan"]
             # if iFacet==0:
             #     ThisSumWeights=DicoResult["Weights"]
             #     self.SumWeights+=ThisSumWeights
@@ -1062,9 +1092,10 @@ class WorkerImager(multiprocessing.Process):
                 #del(Dirty)
                 Sw=GridMachine.SumWeigths.copy()
                 SumJones=GridMachine.SumJones.copy()
+                SumJonesChan=GridMachine.SumJonesChan.copy()
                 del(GridMachine)
 
-                self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":Sw,"SumJones":SumJones})
+                self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":Sw,"SumJones":SumJones,"SumJonesChan":SumJonesChan})
                 
 
                 # gc.collect()
