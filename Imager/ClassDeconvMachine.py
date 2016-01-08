@@ -543,24 +543,23 @@ class ClassImagerDeconv():
         self.setPSF()
         
         DicoImage=self.DicoDirty
-
+        continue_deconv = True
 
         
-            
-
-        nminor = 0
         for iMajor in range(NMajor):
+            # previous minor loop indicated it has reached bottom? Break out
+            if not continue_deconv:
+                break
 
             print>>log, ModColor.Str("========================== Runing major Cycle %i ========================="%iMajor)
             
             self.DeconvMachine.SetDirty(DicoImage)
             #self.DeconvMachine.setSideLobeLevel(0.2,10)
 
-            repMinor, niter = self.DeconvMachine.Clean(initMinor=nminor)
+            repMinor, continue_deconv, update_model = self.DeconvMachine.Clean()
             ## returned with nothing done in minor cycle? Break out
-            if niter == nminor:
+            if not update_model:
                 break
-            nminor = niter+1  # increase count by one for next cycle
 
 
             #self.ResidImage=DicoImage["MeanImage"]
@@ -694,10 +693,6 @@ class ClassImagerDeconv():
             # #stop
 
             self.HasCleaned=True
-            # break out if iter max reached
-            if repMinor=="MaxIter" or "FluxThreshold" in repMinor: 
-                break
-            #if repMinor=="MinFluxRms": break
 
         #self.FacetMachine.ToCasaImage(Image,ImageName="%s.residual"%self.BaseName,Fits=True)
         if self.HasCleaned:
