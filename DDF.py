@@ -148,9 +148,11 @@ def read_options():
     OP.add_option("Gain")
     OP.add_option("SearchMaxAbs")
     OP.add_option("MaxMinorIter")
-    OP.add_option("CycleFactor")
     OP.add_option("CleanMaskImage")
     OP.add_option("FluxThreshold")
+    OP.add_option("CycleFactor")
+    OP.add_option("PeakFactor")
+    OP.add_option("RMSFactor")
  
     OP.Finalise()
     OP.ReadInput()

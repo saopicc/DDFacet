@@ -39,7 +39,7 @@ ReWeightSNR = 0.0
 DecorrMode =  
 
 [Beam]
-BeamModel   = None # None/LOFAR/FITS
+BeamModel   = FITS # None/LOFAR/FITS
 LOFARBeamMode   = AE     # A/AE
 BeamNFreqPerMS      = 1 # Number of frequency domains for which J is constant
 CenterNorm    = False
@@ -106,4 +106,6 @@ CycleFactor = 2
 CleanMaskImage = None 
 FluxThreshold = 0.001 
 SearchMaxAbs    = 1
+PeakFactor = 0.1
+RMSFactor = 3
 
