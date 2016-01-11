@@ -24,6 +24,7 @@ def test():
 class ClassVisServer():
     def __init__(self,MSName,GD=None,
                  ColName="DATA",
+                 Field=0,
                  TChunkSize=1,
                  TVisSizeMin=1,
                  DicoSelectOptions={},
@@ -57,6 +58,8 @@ class ClassVisServer():
         self.VisWeights=None
         self.CountPickle=0
         self.ColName=ColName
+        self.Field = Field
+        self.TaQL = "FIELD_ID==%d"%Field 
         self.DicoSelectOptions=DicoSelectOptions
         self.SharedNames=[]
         self.PrefixShared=PrefixShared
@@ -84,7 +87,7 @@ class ClassVisServer():
         self.ListGlobalFreqs=[]
         NChanMax=0
         for MSName in self.ListMSName:
-            MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3)) 
+            MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3),Field=self.Field) 
             self.ListMS.append(MS)
             self.ListGlobalFreqs+=MS.ChanFreq.flatten().tolist()
             
@@ -602,7 +605,7 @@ class ClassVisServer():
         """
         WeightCol=self.GD["VisData"]["WeightCol"]
         # make lists of tables and row counts (one per MS)
-        tabs = [ table(ms.MSName,ack=False) for ms in self.ListMS ]
+        tabs = [ ms.GiveMainTable() for ms in self.ListMS ]
         nrows = [ tab.nrows() for tab in tabs ]
         nr = sum(nrows)
         # preallocate arrays

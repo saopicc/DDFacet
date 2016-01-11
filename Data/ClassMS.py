@@ -21,7 +21,7 @@ except:
 class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
-                 AverageTimeFreq=None):
+                 AverageTimeFreq=None,Field=0):
 
         if MSname=="": exit()
         self.AverageSteps=AverageTimeFreq
@@ -36,6 +36,8 @@ class ClassMS():
         self.RejectAutoCorr=RejectAutoCorr
         self.SelectSPW=SelectSPW
         self.DelStationList=DelStationList
+        self.Field = Field
+        self.TaQL = "FIELD_ID==%d"%Field
         self.ReadMSInfo(MSname,DoPrint=DoPrint)
         self.LFlaggedStations=[]
 
@@ -55,6 +57,13 @@ class ClassMS():
         self.SR=None
         if GetBeam:
             self.LoadSR()
+
+    def GiveMainTable (self,**kw):
+        """Returns main MS table, applying TaQL selection if any"""
+        t = table(self.MSName,ack=False,**kw)
+        if self.TaQL:
+            t = t.query(self.TaQL)
+        return t
 
     def GiveDate(self,tt):
         time_start = qa.quantity(tt, 's')
@@ -405,7 +414,7 @@ class ClassMS():
         strMS="%s"%(ModColor.Str(self.MSName,col="green"))
         print>>log, "%s: Reading next data chunk in [%i, %i] rows"%(strMS,row0,row1)
 
-        table_all=table(self.MSName,ack=False)
+        table_all = self.GiveMainTable()
         #SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead)
         A0=table_all.getcol('ANTENNA1',row0,nRowRead)#[SPW==self.ListSPW[0]]
         A1=table_all.getcol('ANTENNA2',row0,nRowRead)#[SPW==self.ListSPW[0]]
@@ -563,7 +572,7 @@ class ClassMS():
         
 
     def SaveAllDataStruct(self):
-        t=table(self.MSName,ack=False,readonly=False)
+        t=self.GiveMainTable(readonly=False)
 
         t.putcol('ANTENNA1',self.A0)
         t.putcol('ANTENNA2',self.A1)
@@ -697,7 +706,7 @@ class ClassMS():
 
 
 
-        rarad,decrad=ta.getcol('PHASE_DIR')[0][0]
+        rarad,decrad=ta.getcol('PHASE_DIR')[self.Field][0]
         if rarad<0.: rarad+=2.*np.pi
 
         T.timeit()
@@ -768,8 +777,9 @@ class ClassMS():
         ll.append(ModColor.Str(" MS PROPERTIES: "))
         ll.append("   - File Name: %s"%ModColor.Str(self.MSName,col="green"))
         ll.append("   - Column Name: %s"%ModColor.Str(str(self.ColName),col="green"))
-        ll.append("   - Pointing center: (ra, dec)=(%s, %s) "%(rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
-                                                               ,rad2hmsdms(self.decrad,Type="dec").replace(" ",".")))
+        ll.append("   - Selection: %s"%ModColor.Str(str(self.TaQL),col="green"))
+        ll.append("   - Phase centre (field %d): (ra, dec)=(%s, %s) "%(self.Field, rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
+                                                                       ,rad2hmsdms(self.decrad,Type="dec").replace(" ",".")))
         ll.append("   - Frequency = %s MHz"%str(self.reffreq/1e6))
         ll.append("   - Wavelength = %5.2f meters"%(np.mean(self.wavelength_chan)))
         ll.append("   - Time bin = %4.1f seconds"%(self.dt))
@@ -791,7 +801,7 @@ class ClassMS():
         if vis==None:
             vis=self.data
         if DoPrint: print>>log, "Writting data in column %s"%ModColor.Str(Col,col="green")
-        table_all=table(self.MSName,ack=False,readonly=False)
+        table_all=self.GiveMainTable(readonly=False)
 
         if self.swapped:
             visout=np.swapaxes(vis[spw*self.Nchan:(spw+1)*self.Nchan],0,1)
@@ -857,7 +867,7 @@ class ClassMS():
             pylab.show()
 
     def GiveCol(self,ColName):
-        t=table(self.MSName,readonly=False,ack=False)
+        t=self.GiveMainTable(readonly=False)
         col=t.getcol(ColName)
         t.close()
         return col
@@ -887,7 +897,7 @@ class ClassMS():
             flagout=np.swapaxes(self.flag_all[spw*self.Nchan:(spw+1)*self.Nchan],0,1)
         else:
             flagout=self.flag_all
-        t=table(self.MSName,readonly=False,ack=False)
+        t=self.GiveMainTable(readonly=False)
         t.putcol("FLAG",flagout)
         
         t.close()
@@ -975,7 +985,7 @@ class ClassMS():
         ta.putcol("PHASE_DIR",radec)
         ta.putcol("REFERENCE_DIR",radec)
         ta.close()
-        t=table(self.MSName,ack=False,readonly=False)
+        t=self.GiveMainTable(readonly=False)
         t.putcol(self.ColName,self.data)
         t.putcol("UVW",self.uvw)
         t.close()

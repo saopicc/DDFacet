@@ -105,6 +105,7 @@ class ClassImagerDeconv():
 
         self.VS=ClassVisServer.ClassVisServer(MSName,
                                               ColName=DC["VisData"]["ColName"],
+                                              Field=DC["VisData"]["Field"],
                                               TVisSizeMin=DC["VisData"]["TChunkSize"]*60,
                                               #DicoSelectOptions=DicoSelectOptions,
                                               TChunkSize=DC["VisData"]["TChunkSize"],

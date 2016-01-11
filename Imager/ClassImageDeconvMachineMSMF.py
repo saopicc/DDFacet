@@ -312,7 +312,7 @@ class ClassImageDeconvMachine():
         #print x,y
 
         if ThisFlux < StopFlux:
-            print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here") % (ThisFlux)
+            print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),color="green" )
             return "FluxThreshold", False, False
 
         #self._MaskArray.fill(1)
@@ -333,8 +333,7 @@ class ClassImageDeconvMachine():
             fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
             return int(round(100*fracDone))
 
-
-        for i in range(self._niter+1,self.MaxMinorIter):
+        for i in range(self._niter+1,self.MaxMinorIter+1):
             self._niter = i
 
             #x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
@@ -351,12 +350,12 @@ class ClassImageDeconvMachine():
 
             T.timeit("max0")
 
-            if ThisFlux < StopFlux:
+            if ThisFlux <= StopFlux:
                 pBAR.render(100,"g=%3.3f"%self.GainMachine.GiveGain())
-                print>>log, "    [iter=%i] Maximum peak of %g Jy lower than stopping flux" % (i,ThisFlux)
+                print>>log, ModColor.Str("    [iter=%i] peak of %.3g Jy lower than stopping flux" % (i,ThisFlux),col="green")
                 cont = ThisFlux > self.FluxThreshold
                 if not cont:
-                      print>>log, "    [iter=%i] absolute flux threshold of %g Jy has been reached" % (i,self.FluxThreshold)
+                      print>>log, ModColor.Str("    [iter=%i] absolute flux threshold of %.3g Jy has been reached" % (i,self.FluxThreshold),col="green",Bold=True)
                 # DoneScale*=100./np.sum(DoneScale)
                 # for iScale in range(DoneScale.size):
                 #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
@@ -469,7 +468,7 @@ class ClassImageDeconvMachine():
 
 
 
-        print>>log, ModColor.Str("    [iter=%i] Reached maximum number of iterations" % (self._niter))
+        print>>log, ModColor.Str("    [iter=%i] Reached maximum number of iterations, peak flux %.3g" % (self._niter, ThisFlux))
         # DoneScale*=100./np.sum(DoneScale)
         # for iScale in range(DoneScale.size):
         #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
