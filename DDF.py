@@ -221,7 +221,7 @@ if __name__=="__main__":
     if TestParset.Success==True:
         #global Parset
         
-        Parset=TestParset
+        Parset.update(TestParset)
         print >>log,ModColor.Str("Successfully read %s parset"%ParsetFile)
 
     OP=read_options()
