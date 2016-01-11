@@ -376,6 +376,8 @@ class ClassJones():
         FreqDomains=self.BeamMachine.getFreqDomains()
 
         DicoBeam["VisToJonesChanMapping"]=self.GiveVisToJonesChanMapping(FreqDomains)
+        print>>log,"VisToJonesChanMapping: %s"%DicoBeam["VisToJonesChanMapping"]
+
 
         DicoBeam["Jones"]=np.zeros((Tm.size,NDir,self.MS.na,FreqDomains.shape[0],2,2),dtype=np.complex64)
         DicoBeam["t0"]=np.zeros((Tm.size,),np.float64)

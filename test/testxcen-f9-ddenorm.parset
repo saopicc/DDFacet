@@ -40,8 +40,8 @@ DecorrMode =
 
 [Beam]
 BeamModel   = FITS # None/LOFAR/FITS
-LOFARBeamMode   = AE     # A/AE
-BeamNFreqPerMS      = 1 # Number of frequency domains for which J is constant
+LOFARBeamMode  = AE     # A/AE
+BeamNFreqPerMS  = 1 # Number of constant-beam frequency domains into which to subdivide the bandwidth. 0 means NChannel? 
 CenterNorm    = False
 # change in minutes on which the beam is re-evaluated
 DtBeamMin       = 5

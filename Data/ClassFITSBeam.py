@@ -31,6 +31,7 @@ class ClassFITSBeam (object):
         self.filename = opts["FITSFile"]
         self.pa_inc = opts["FITSParAngleIncDeg"]
         self.time_inc = opts["DtBeamMin"]
+        self.nchan = opts["BeamNFreqPerMS"]
 
         # make masure for zenith
         self.zenith = dm.direction('AZEL','0deg','90deg')
@@ -45,6 +46,11 @@ class ClassFITSBeam (object):
 
         # get channel frequencies from MS
         self.freqs = self.ms.ChanFreq.ravel()
+        if not self.nchan:
+            self.nchan = len(self.freqs)
+        else:
+            chanstep = len(self.freqs) / self.nchan
+            self.freqs = self.freqs[chanstep/2::chanstep]
 
         # NB: need to check correlation names better. This assumes four correlations in that order!
         if "x" in self.ms.CorrelationNames[0]:
@@ -164,7 +170,8 @@ class ClassFITSBeam (object):
         # antenna
         for iant in xrange(self.ms.na):
             for ijones,(ix,iy) in enumerate(((0,0),(0,1),(1,0),(1,1))):
-                jones[:,iant,:,ix,iy] = beamjones[ijones]
+                bj = beamjones[ijones]
+                jones[:,iant,:,ix,iy] = beamjones[ijones].reshape((len(bj),1)) if bj.ndim == 1 else bj
         return jones
 
 
