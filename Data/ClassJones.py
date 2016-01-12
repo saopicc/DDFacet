@@ -338,7 +338,7 @@ class ClassJones():
         RAs=self.ClusterCatBeam.ra
         DECs=self.ClusterCatBeam.dec
         t0=self.DATA["times"][0]
-        t1=self.DATA["times"][-1]
+        t1=self.DATA["times"][-1]+1
 
 
         print>>log, "  Estimating beam every %5.1f min."%(DtBeamMin)
@@ -398,7 +398,8 @@ class ClassJones():
 
 
         nt,nd,na,nch,_,_= DicoBeam["Jones"].shape
-        DicoBeam["Jones"]=np.mean(DicoBeam["Jones"],axis=3).reshape((nt,nd,na,1,2,2))
+
+        # DicoBeam["Jones"]=np.mean(DicoBeam["Jones"],axis=3).reshape((nt,nd,na,1,2,2))
 
 
 

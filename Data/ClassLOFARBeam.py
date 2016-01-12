@@ -32,6 +32,8 @@ class ClassLOFARBeam():
         ChanFreqs=self.MS.ChanFreq.flatten()
 
         NChanJones=self.GD["Beam"]["BeamNFreqPerMS"]
+        if NChanJones==0:
+            NChanJones=self.MS.NSPWChan
         ChanEdges=np.linspace(ChanFreqs.min()-ChanWidth/2.,ChanFreqs.max()+ChanWidth/2.,NChanJones+1)
 
         FreqDomains=[[ChanEdges[iF],ChanEdges[iF+1]] for iF in range(NChanJones)]
