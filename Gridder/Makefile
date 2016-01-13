@@ -27,7 +27,7 @@ _pyGridderSmearPols.so:  GridderSmearPols.o
 	gcc -fopenmp -pthread -shared GridderSmearPols.o -o _pyGridderSmearPols.so -lrt -L. -lTools
 
 # ---- gcc C compile ------------------
-GridderSmearPols.o:  GridderSmearPols.c GridderSmearPols.h
+GridderSmearPols.o:  GridderSmearPols.c GridderSmearPols.h Matrix.c JonesServer.c
 	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c GridderSmearPols.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -I/home/cyril.tasse/bin/lib/python2.7/site-packages/numpy/core/include/numpy -fPIC -lrt  -L. -lTools
 
 
