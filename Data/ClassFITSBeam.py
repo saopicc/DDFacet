@@ -31,7 +31,7 @@ class ClassFITSBeam (object):
         self.filename = opts["FITSFile"]
         self.pa_inc = opts["FITSParAngleIncDeg"]
         self.time_inc = opts["DtBeamMin"]
-        self.nchan = opts["BeamNFreqPerMS"]
+        self.nchan = opts["NChanBeamPerMS"]
 
         # make masure for zenith
         self.zenith = dm.direction('AZEL','0deg','90deg')

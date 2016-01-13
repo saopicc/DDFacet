@@ -354,6 +354,8 @@ class ClassJones():
         DECs=self.ClusterCatBeam.dec
         DicoBeam=self.EstimateBeam(beam_times,RAs,DECs)
 
+        return DicoBeam
+
 
     def GiveVisToJonesChanMapping(self,FreqDomains):
         NChanJones=FreqDomains.shape[0]

@@ -112,6 +112,7 @@ def read_options():
     OP.add_option("BeamModel")
     OP.add_option("LOFARBeamMode")
     OP.add_option("DtBeamMin")
+    OP.add_option("NChanBeamPerMS")
     OP.add_option("CenterNorm")
     OP.add_option("FITSFile")
     OP.add_option("FITSFeed")  # XY or RL
