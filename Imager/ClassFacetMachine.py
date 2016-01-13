@@ -882,7 +882,8 @@ class ClassFacetMachine():
             NX=self.DicoImager[iFacet]["NpixFacetPadded"]
             GridName="%sGridFacet.%3.3i"%(self.IdSharedMem,iFacet)
             #self.DicoGridMachine[iFacet]["Dirty"]=NpShared.zeros(GridName,(self.VS.NFreqBands,self.npol,NX,NX),self.CType)
-            self.DicoGridMachine[iFacet]["Dirty"]=np.zeros((self.VS.NFreqBands,self.npol,NX,NX),self.FType)
+            self.DicoGridMachine[iFacet]["Dirty"]=np.ones((self.VS.NFreqBands,self.npol,NX,NX),self.FType)
+            self.DicoGridMachine[iFacet]["Dirty"].fill(0)
             #self.DicoGridMachine[iFacet]["Dirty"]+=1
             #self.DicoGridMachine[iFacet]["Dirty"].fill(0)
 

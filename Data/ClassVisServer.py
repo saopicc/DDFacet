@@ -202,7 +202,8 @@ class ClassVisServer():
 
     def CalcWeigths(self):
         if self.VisWeights!=None: return
-        ImShape=self.PaddedFacetShape
+        #ImShape=self.PaddedFacetShape
+        ImShape=self.FullImShape#self.FacetShape
         CellSizeRad=self.CellSizeRad
         WeightMachine=ClassWeighting.ClassWeighting(ImShape,CellSizeRad)
         uvw,WEIGHT,flags,nrows = self.GiveAllUVW()
@@ -265,7 +266,8 @@ class ClassVisServer():
                 DATA[key]=D[key][:]
 
 
-        
+
+
         if "DicoBeam" in D.keys():
             DATA["DicoBeam"]=D["DicoBeam"]
 

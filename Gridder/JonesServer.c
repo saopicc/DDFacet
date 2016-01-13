@@ -257,9 +257,7 @@ void initJonesServer(PyObject *LJones, int JonesTypeIn, double WaveLengthMeanIn)
     int ifor;
     npA1= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
     ptrA1=p_int32(npA1);
-    
-    
-    
+
     npJonesIDIR= (PyArrayObject *) (PyList_GetItem(LJones, idList)); idList+=1;
     ptrJonesIDIR=p_int32(npJonesIDIR);
     i_dir=ptrJonesIDIR[0];

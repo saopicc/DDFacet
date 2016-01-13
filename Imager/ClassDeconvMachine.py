@@ -281,8 +281,8 @@ class ClassImagerDeconv():
 
         #np.savez("PSF.npz",ImagData=self.DicoImagePSF["ImagData"],MeanImage=self.DicoImagePSF["MeanImage"])
 
-        self.PSF=self.DicoImagePSF["MeanImage"]/np.sqrt(self.DicoImagePSF["NormData"])
-
+        self.PSF=self.DicoImagePSF["MeanImage"]#/np.sqrt(self.DicoImagePSF["NormData"])
+        
         self.MeanFacetPSF=self.DicoVariablePSF["MeanFacetPSF"]
 
         # ImageName="%s.psf.corr.MF"%self.BaseName
@@ -335,7 +335,7 @@ class ClassImagerDeconv():
 
         self.FitPSF()
         FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeam)
-
+        
         FacetMachinePSF = None
 
         # if self.VS.MultiFreqMode:

@@ -119,11 +119,11 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
       i=irow*nch+ich;
       if(flags[i]==1){continue;}
 
-      //xp=round((u[irow]*freqs[ich]/C)/ucell);
-      //yp=round((v[irow]*freqs[ich]/C)/vcell);
+      xp=round((u[irow]*freqs[ich]/C)/ucell);
+      yp=round((v[irow]*freqs[ich]/C)/vcell);
 
-      xp=floor((u[irow]*freqs[ich]/C)/ucell+0.5);
-      yp=floor((v[irow]*freqs[ich]/C)/vcell+0.5);
+      //xp=floor((u[irow]*freqs[ich]/C)/ucell+0.5);
+      //yp=floor((v[irow]*freqs[ich]/C)/vcell+0.5);
 
       /* printf("[%i,%i]: u=%f f=%f ucell=%f xp=%i\n",(int)irow,(int)ich,(float)u[irow],(float)freqs[ich],(float)ucell,(int)xp); */
       /* printf("[%i,%i]: v=%f f=%f ucell=%f yp=%i\n",(int)irow,(int)ich,(float)v[irow],(float)freqs[ich],(float)vcell,(int)yp); */
@@ -148,7 +148,7 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
       //printf("%i: (x,y)=(%i,%i): %f %f\n",(int)i,ii,jj,wp[i],grid[ii+nx*jj]);
       //printf("\n");
       ThisW=wp[i];
-      sumw+=ThisW*2.;//(2.*(wp[i]));
+      sumw+=ThisW;//(2.*(wp[i]));
     }
   }
 
@@ -188,9 +188,15 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
     }
   }
 
+  sumWk/=sumw;
 
-  double fact=  (sumw/sumWk)*pow(5.*pow(10.,-R),2.);
-  //printf("fact=(%f)\n",fact);
+  double num = 5.0 * exp10(-R);
+  double fact = num*num / sumWk;
+
+  //double fact=  (sumw/sumWk)*pow(5.*pow(10.,-R),2.);
+  /* double fact=  (sumw/sumWk)*pow(5.*pow(10.,-R),2.); */
+  /* double fact=  (sumw/sumWk)*pow(5.*exp10(-R),2.); */
+  //printf("fact=(%f)\n",fact); 
   //printf("sumw,sumWk=%f,%f\n",sumw,sumWk);
 
 
@@ -202,14 +208,22 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
   	if(flags[i]==1){continue;}
   	xp=round((u[irow]*freqs[ich]/C)/ucell);
   	yp=round((v[irow]*freqs[ich]/C)/vcell);
+
+
   	ii=xp+xc;
   	jj=yp+yc;
-  	if((ii<0)|(ii>nx-1)){continue;}
-  	if((jj<0)|(jj>ny-1)){continue;}
+  	if((ii<0)|(ii>nx-1)){
+	  printf("(%i, %i)\n",xp,yp);
+	  continue;}
+  	if((jj<0)|(jj>ny-1)){	  
+	  printf("(%i, %i)\n",xp,yp);
+	  continue;
+	}
   	iii=ii+nx*jj;
   	if(wp[i]>0.){
   	  Wk=grid[iii];
   	  wp[i]/=(1.+fact*Wk);
+	  //wp[i]=1.0 / (1.0 + Wk * fact);
   	}
   	//wp[i]/=(Wk);
       }
