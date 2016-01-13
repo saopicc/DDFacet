@@ -339,8 +339,7 @@ class ClassJones():
             for t in times[1:]:
                 if t - beam_times[0] >= DtBeamSec:
                     beam_times.append(t)
-            if beam_times[-1] != times[-1]:
-                beam_times.append(times[-1])
+            beam_times.append(times[-1]+1)
 
 
         elif GD["Beam"]["BeamModel"]=="FITS":
@@ -354,7 +353,7 @@ class ClassJones():
         RAs=self.ClusterCatBeam.ra
         DECs=self.ClusterCatBeam.dec
         DicoBeam=self.EstimateBeam(beam_times,RAs,DECs)
-        return DicoBeam
+
 
     def GiveVisToJonesChanMapping(self,FreqDomains):
         NChanJones=FreqDomains.shape[0]
@@ -409,7 +408,8 @@ class ClassJones():
 
 
         nt,nd,na,nch,_,_= DicoBeam["Jones"].shape
-        DicoBeam["Jones"]=np.mean(DicoBeam["Jones"],axis=3).reshape((nt,nd,na,1,2,2))
+
+        # DicoBeam["Jones"]=np.mean(DicoBeam["Jones"],axis=3).reshape((nt,nd,na,1,2,2))
 
 
 

@@ -147,6 +147,9 @@ void Mat_A_l_SumProd(float complex *Out, int TypeMatOut, float complex lambda){
 
 void Mat_A_Bl_Sum(float complex *Out, int TypeMatOut, float complex* B, int TypeMatB, float complex lambda){
 
+  TypeMatOut=2;
+  TypeMatB=2;
+
   if(TypeMatOut==0){
     if (TypeMatB==0){
       Out[0]+=B[0]*lambda;
@@ -190,52 +193,64 @@ void Mat_A_Bl_Sum(float complex *Out, int TypeMatOut, float complex* B, int Type
 
 }
 
-void MatDot(float complex *A, int TypeMatA, float complex* B, int TypeMatB, float complex* Out){
 
-  if(TypeMatA==0){
-    if (TypeMatB==0){
-      Out[0]=A[0]*B[0];
-      Out[3]=Out[0];
-    }else if (TypeMatB==1){
-      Out[0]=A[0]*B[0];
-      Out[3]=A[0]*B[3];
-    }else if(TypeMatB==2){
-      Out[0]=A[0]*B[0];
-      Out[1]=A[0]*B[1];
-      Out[2]=A[0]*B[2];
-      Out[3]=A[0]*B[3];
-    }
-  }else if (TypeMatA==1){
-    if(TypeMatB==0){
-      Out[0]=A[0]*B[0];
-      Out[3]=A[3]*B[0];
-    }else if(TypeMatB==1){
-      Out[0]=A[0]*B[0];
-      Out[3]=A[3]*B[3];
-    }else if(TypeMatB==2){
-      Out[0]=A[0]*B[0];
-      Out[1]=A[0]*B[1];
-      Out[2]=A[3]*B[2];
-      Out[3]=A[3]*B[3];
-    }
-  }else if(TypeMatA==2){
-    if(TypeMatB==0){
-      Out[0]=A[0]*B[0];
-      Out[1]=A[1]*B[0];
-      Out[2]=A[2]*B[0];
-      Out[3]=A[3]*B[0];
-    }else if(TypeMatB==1){
-      Out[0]=A[0]*B[0];
-      Out[1]=A[1]*B[3];
-      Out[2]=A[2]*B[0];
-      Out[3]=A[3]*B[3];
-    }else if(TypeMatB==2){
-      Out[0]=A[0]*B[0]+A[1]*B[2];
-      Out[1]=A[0]*B[1]+A[1]*B[3];
-      Out[2]=A[2]*B[0]+A[3]*B[2];
-      Out[3]=A[2]*B[1]+A[3]*B[3];
-    }
+float complex DotBuf[4];
+int iPolBuf;
+void MatDot(float complex *A, int TypeMatA, float complex* B, int TypeMatB, float complex* Out){
+  DotBuf[0]=A[0]*B[0]+A[1]*B[2];
+  DotBuf[1]=A[0]*B[1]+A[1]*B[3];
+  DotBuf[2]=A[2]*B[0]+A[3]*B[2];
+  DotBuf[3]=A[2]*B[1]+A[3]*B[3];
+
+  for(iPolBuf=0; iPolBuf<4; iPolBuf++){
+    Out[iPolBuf]=DotBuf[iPolBuf];
   }
+  
+
+  /* if(TypeMatA==0){ */
+  /*   if (TypeMatB==0){ */
+  /*     Out[0]=A[0]*B[0]; */
+  /*     Out[3]=Out[0]; */
+  /*   }else if (TypeMatB==1){ */
+  /*     Out[0]=A[0]*B[0]; */
+  /*     Out[3]=A[0]*B[3]; */
+  /*   }else if(TypeMatB==2){ */
+  /*     Out[0]=A[0]*B[0]; */
+  /*     Out[1]=A[0]*B[1]; */
+  /*     Out[2]=A[0]*B[2]; */
+  /*     Out[3]=A[0]*B[3]; */
+  /*   } */
+  /* }else if (TypeMatA==1){ */
+  /*   if(TypeMatB==0){ */
+  /*     Out[0]=A[0]*B[0]; */
+  /*     Out[3]=A[3]*B[0]; */
+  /*   }else if(TypeMatB==1){ */
+  /*     Out[0]=A[0]*B[0]; */
+  /*     Out[3]=A[3]*B[3]; */
+  /*   }else if(TypeMatB==2){ */
+  /*     Out[0]=A[0]*B[0]; */
+  /*     Out[1]=A[0]*B[1]; */
+  /*     Out[2]=A[3]*B[2]; */
+  /*     Out[3]=A[3]*B[3]; */
+  /*   } */
+  /* }else if(TypeMatA==2){ */
+  /*   if(TypeMatB==0){ */
+  /*     Out[0]=A[0]*B[0]; */
+  /*     Out[1]=A[1]*B[0]; */
+  /*     Out[2]=A[2]*B[0]; */
+  /*     Out[3]=A[3]*B[0]; */
+  /*   }else if(TypeMatB==1){ */
+  /*     Out[0]=A[0]*B[0]; */
+  /*     Out[1]=A[1]*B[3]; */
+  /*     Out[2]=A[2]*B[0]; */
+  /*     Out[3]=A[3]*B[3]; */
+  /*   }else if(TypeMatB==2){ */
+  /*     Out[0]=A[0]*B[0]+A[1]*B[2]; */
+  /*     Out[1]=A[0]*B[1]+A[1]*B[3]; */
+  /*     Out[2]=A[2]*B[0]+A[3]*B[2]; */
+  /*     Out[3]=A[2]*B[1]+A[3]*B[3]; */
+  /*   } */
+  /* } */
   
 }
 

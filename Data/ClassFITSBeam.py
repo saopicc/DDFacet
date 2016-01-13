@@ -120,8 +120,7 @@ class ClassFITSBeam (object):
                     pa0 = pa
             print>>log,"  FITSParAngleIncrement=%.2f deg results in %d samples"%(self.pa_inc, len(beam_times1))
             beam_times = beam_times1
-        if beam_times[-1] != times[-1]:
-            beam_times.append(times[-1])
+        beam_times.append(times[-1]+1)
         return beam_times
 
     def getFreqDomains (self):
