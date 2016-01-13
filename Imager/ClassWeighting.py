@@ -64,6 +64,7 @@ class ClassWeighting():
         d=np.sqrt(u**2+v**2)
         VisWeights[d==0]=0
         Lmean=3e8/np.mean(freqs)
+        Lmean=3e8/np.max(freqs)
 
         uvmax=np.max(d)/Lmean#(1./self.CellSizeRad)#/2#np.max(d)
         npix=2*(int(uvmax/cell)+1)
