@@ -198,16 +198,15 @@ float complex DotBuf[4];
 int iPolBuf;
 void MatDot(float complex *A, int TypeMatA, float complex* B, int TypeMatB, float complex* Out){
 
-  /* return */
-  /* DotBuf[0]=A[0]*B[0]+A[1]*B[2]; */
-  /* DotBuf[1]=A[0]*B[1]+A[1]*B[3]; */
-  /* DotBuf[2]=A[2]*B[0]+A[3]*B[2]; */
-  /* DotBuf[3]=A[2]*B[1]+A[3]*B[3]; */
+  DotBuf[0]=A[0]*B[0]+A[1]*B[2];
+  DotBuf[1]=A[0]*B[1]+A[1]*B[3];
+  DotBuf[2]=A[2]*B[0]+A[3]*B[2];
+  DotBuf[3]=A[2]*B[1]+A[3]*B[3];
 
-  /* Out[0]=DotBuf[0]; */
-  /* Out[1]=DotBuf[1]; */
-  /* Out[2]=DotBuf[2]; */
-  /* Out[3]=DotBuf[3]; */
+  Out[0]=DotBuf[0];
+  Out[1]=DotBuf[1];
+  Out[2]=DotBuf[2];
+  Out[3]=DotBuf[3];
 
   
 
