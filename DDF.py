@@ -5,6 +5,7 @@
 
 
 import optparse
+import traceback
 SaveFile="last_DDFacet.obj"
 import pickle
 import os
@@ -57,6 +58,7 @@ def read_options():
     OP.add_option('TChunkSize')
     OP.add_option('InitDicoModel',help='Image name [%default]')
     OP.add_option('WeightCol')
+    OP.add_option('Field')
     
     OP.OptionGroup("* Images-related options","Images")
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
@@ -110,7 +112,7 @@ def read_options():
     OP.add_option("BeamModel")
     OP.add_option("LOFARBeamMode")
     OP.add_option("DtBeamMin")
-    OP.add_option("BeamNFreqPerMS")
+    OP.add_option("NChanBeamPerMS")
     OP.add_option("CenterNorm")
     OP.add_option("FITSFile")
     OP.add_option("FITSFeed")  # XY or RL
@@ -148,9 +150,11 @@ def read_options():
     OP.add_option("Gain")
     OP.add_option("SearchMaxAbs")
     OP.add_option("MaxMinorIter")
-    OP.add_option("CycleFactor")
     OP.add_option("CleanMaskImage")
     OP.add_option("FluxThreshold")
+    OP.add_option("CycleFactor")
+    OP.add_option("PeakFactor")
+    OP.add_option("RMSFactor")
  
     OP.Finalise()
     OP.ReadInput()
@@ -218,7 +222,7 @@ if __name__=="__main__":
     if TestParset.Success==True:
         #global Parset
         
-        Parset=TestParset
+        Parset.update(TestParset)
         print >>log,ModColor.Str("Successfully read %s parset"%ParsetFile)
 
     OP=read_options()
@@ -230,6 +234,7 @@ if __name__=="__main__":
         print>>log, ModColor.Str("DDFacet ended successfully",col="green")
     except:
         print>>log, ModColor.Str("There was a problem, please help yourself",col="red")
+        traceback.print_exc()
         NpShared.DelAll(IdSharedMem)
 
     # main(options)

@@ -80,7 +80,8 @@ class ClassImagerDeconv():
         DC=self.GD
 
         
-        MSName=DC["VisData"]["MSName"]
+        MSName0 = MSName = DC["VisData"]["MSName"]
+
         if ".txt" in MSName:#DC["VisData"]["MSListFile"]!="":
             f=open(MSName)#DC["VisData"]["MSListFile"])
             Ls=f.readlines()
@@ -89,12 +90,22 @@ class ClassImagerDeconv():
             for l in Ls:
                 ll=l.replace("\n","")
                 MSName.append(ll)
+            print>>log,"list file %s contains %d MSs"%(MSName0, len(MSName))
         elif ("*" in MSName)|("?" in MSName):
             MSName=sorted(glob.glob(MSName))
+            print>>log,"found %d MSs matching %s"%(len(MSName), MSName0)
+        else:
+            submss = os.path.join(MSName,"SUBMSS") 
+            if os.path.exists(submss) and os.path.isdir(submss):
+                MSName = sorted(glob.glob(os.path.join(submss,"*")))
+                print>>log,"multi-MS mode for %s, found %d sub-MSs"%(MSName0, len(MSName))
+            else:
+                print>>log,"single-MS mode for %s"%MSName
 
 
         self.VS=ClassVisServer.ClassVisServer(MSName,
                                               ColName=DC["VisData"]["ColName"],
+                                              Field=DC["VisData"]["Field"],
                                               TVisSizeMin=DC["VisData"]["TChunkSize"]*60,
                                               #DicoSelectOptions=DicoSelectOptions,
                                               TChunkSize=DC["VisData"]["TChunkSize"],
@@ -533,22 +544,24 @@ class ClassImagerDeconv():
         self.setPSF()
         
         DicoImage=self.DicoDirty
-
+        continue_deconv = True
 
         
-            
-
-
         for iMajor in range(NMajor):
+            # previous minor loop indicated it has reached bottom? Break out
+            if not continue_deconv:
+                break
 
             print>>log, ModColor.Str("========================== Runing major Cycle %i ========================="%iMajor)
             
             self.DeconvMachine.SetDirty(DicoImage)
             #self.DeconvMachine.setSideLobeLevel(0.2,10)
 
-            repMinor=self.DeconvMachine.Clean()
-            if repMinor=="DoneMinFlux" or repMinor=="DoneFluxThreshold":
+            repMinor, continue_deconv, update_model = self.DeconvMachine.Clean()
+            ## returned with nothing done in minor cycle? Break out
+            if not update_model:
                 break
+
 
             #self.ResidImage=DicoImage["MeanImage"]
             #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
@@ -681,8 +694,6 @@ class ClassImagerDeconv():
             # #stop
 
             self.HasCleaned=True
-            if repMinor=="MaxIter": break
-            #if repMinor=="MinFluxRms": break
 
         #self.FacetMachine.ToCasaImage(Image,ImageName="%s.residual"%self.BaseName,Fits=True)
         if self.HasCleaned:

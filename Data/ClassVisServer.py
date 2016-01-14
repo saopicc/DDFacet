@@ -24,6 +24,7 @@ def test():
 class ClassVisServer():
     def __init__(self,MSName,GD=None,
                  ColName="DATA",
+                 Field=0,
                  TChunkSize=1,
                  TVisSizeMin=1,
                  DicoSelectOptions={},
@@ -57,6 +58,8 @@ class ClassVisServer():
         self.VisWeights=None
         self.CountPickle=0
         self.ColName=ColName
+        self.Field = Field
+        self.TaQL = "FIELD_ID==%d"%Field 
         self.DicoSelectOptions=DicoSelectOptions
         self.SharedNames=[]
         self.PrefixShared=PrefixShared
@@ -84,7 +87,7 @@ class ClassVisServer():
         self.ListGlobalFreqs=[]
         NChanMax=0
         for MSName in self.ListMSName:
-            MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3)) 
+            MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3),Field=self.Field) 
             self.ListMS.append(MS)
             self.ListGlobalFreqs+=MS.ChanFreq.flatten().tolist()
             
@@ -153,7 +156,8 @@ class ClassVisServer():
                 indChan=np.where(ThisMapping==iFreqBand)[0]
                 self.FreqBandsInfos[iFreqBand]+=(ThisFreqs[indChan]).tolist()
             
-            NChanDegrid=np.min([self.GD["MultiFreqs"]["NChanDegridPerMS"],ThisFreqs.size])
+            NChanDegrid = self.GD["MultiFreqs"]["NChanDegridPerMS"] or ThisFreqs.size
+            NChanDegrid = min(NChanDegrid, ThisFreqs.size)
             ChanDegridding=np.linspace(ThisFreqs.min(),ThisFreqs.max(),NChanDegrid+1)
             FreqChanDegridding=(ChanDegridding[1::]+ChanDegridding[0:-1])/2.
             NChanDegrid=FreqChanDegridding.size
@@ -202,7 +206,7 @@ class ClassVisServer():
         ImShape=self.FullImShape#self.FacetShape
         CellSizeRad=self.CellSizeRad
         WeightMachine=ClassWeighting.ClassWeighting(ImShape,CellSizeRad)
-        uvw,WEIGHT,flags=self.GiveAllUVW()
+        uvw,WEIGHT,flags,nrows = self.GiveAllUVW()
         # uvw=DATA["uvw"]
         # WEIGHT=DATA["Weights"]
         VisWeights=WEIGHT#[:,0]#np.ones((uvw.shape[0],),dtype=np.float32)
@@ -214,9 +218,17 @@ class ClassVisServer():
 
         #self.VisWeights=np.ones((uvw.shape[0],self.MS.ChanFreq.size),dtype=np.float64)
 
-        self.VisWeights=WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
-                                                  Robust=Robust,
-                                                  Weighting=self.Weighting)
+        allweights = WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
+                                              Robust=Robust,
+                                              Weighting=self.Weighting)
+
+        # self.WisWeights is a list of weight arrays, one per each MS in self.ListMS
+        self.VisWeights = []
+        row0 = 0
+        for nr in nrows:
+            self.VisWeights.append(allweights[row0:(row0+nr)])
+            row0 += nr
+        self.CurrentVisWeights = self.VisWeights[0]
 
 
     def VisChunkToShared(self):
@@ -274,6 +286,7 @@ class ClassVisServer():
         self.iCurrentVisTime=0
         self.iCurrentMS=0
         self.CurrentFreqBand=0
+        self.CurrentVisWeights = self.VisWeights and self.VisWeights[0]   # first time VisWeights might still be unset -- but then CurrentVisWeights will be set later in CalcWeights
         for MS in self.ListMS:
             MS.ReinitChunkIter(self.TMemChunkSize)
         self.CurrentMS=self.ListMS[0]
@@ -286,9 +299,11 @@ class ClassVisServer():
             print>>log, ModColor.Str("Reached end of MSList")
             return "EndListMS"
         else:
+            print>>log,"next ms"
             self.iCurrentMS+=1
             self.CurrentMS=self.ListMS[self.iCurrentMS]
             self.CurrentFreqBand=0
+            self.CurrentVisWeights = self.VisWeights[self.iCurrentMS]
             if self.MultiFreqMode:
                 self.CurrentFreqBand = np.where((self.FreqBandsMin <= np.mean(self.CurrentMS.ChanFreq))&(self.FreqBandsMax > np.mean(self.CurrentMS.ChanFreq)))[0][0]
 
@@ -347,7 +362,7 @@ class ClassVisServer():
         DATA["times"]=times
         
 
-        DATA["Weights"]=self.VisWeights[MS.ROW0:MS.ROW1]
+        DATA["Weights"]=self.CurrentVisWeights[MS.ROW0:MS.ROW1]
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
 
         
@@ -410,7 +425,7 @@ class ClassVisServer():
                      "ROW0":MS.ROW0,
                      "ROW1":MS.ROW1,
                      "infos":np.array([MS.na]),
-                     "Weights":self.VisWeights[MS.ROW0:MS.ROW1],
+                     "Weights":self.CurrentVisWeights[MS.ROW0:MS.ROW1],
                      "ChanMapping":DATA["ChanMapping"],
                      "ChanMappingDegrid":DATA["ChanMappingDegrid"]
                      }
@@ -585,22 +600,62 @@ class ClassVisServer():
 
 
     def GiveAllUVW(self):
-        t=table(self.MS.MSName,ack=False)
-        uvw=t.getcol("UVW")
-
+        """Reads UVWs, weights and flags from all MSs in the list and concatenates them into 
+        consolidated arrays.
+        Returns uvw,weight,flags,nrows, where shapes are 
+        (nrow,3), (nrow,nchan) and (nrow,nchan,ncorr) respectively.
+        nrows is a vector showing the number of rows in each MS in the list.
+        """
         WeightCol=self.GD["VisData"]["WeightCol"]
-        print>>log, "  Reading column %s for the weights"%WeightCol
+        # make lists of tables and row counts (one per MS)
+        tabs = [ ms.GiveMainTable() for ms in self.ListMS ]
+        nrows = [ tab.nrows() for tab in tabs ]
+        nr = sum(nrows)
+        # preallocate arrays
+        # NB: this assumes nchan and ncorr is the same across all MSs in self.ListMS. Tough luck if it isn't!
+        uvws = np.zeros((nr,3),np.float64)
+        weights = np.zeros((nr,self.MS.Nchan),np.float32)
+        flags = np.zeros((nr,self.MS.Nchan,len(self.MS.CorrelationNames)),bool)
 
-        WEIGHT=t.getcol(WeightCol)
-        if WeightCol=="WEIGHT_SPECTRUM":
-            WEIGHT=(WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
+        # now loop over MSs and read data
+        row0 = 0
+        for num_ms, (nrow, tab) in enumerate(zip(nrows, tabs)):
+            uvws[row0:(row0+nrow),...]   = tab.getcol("UVW")
+            flags[row0:(row0+nrow),...] = tab.getcol("FLAG")
 
-        MeamW=np.mean(WEIGHT)
-        if MeamW!=0.:
-            WEIGHT/=MeamW
+            if WeightCol == "WEIGHT_SPECTRUM":
+                WEIGHT=tab.getcol(WeightCol)
+                print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
+                WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
+            elif WeightCol == "WEIGHT":
+                WEIGHT=tab.getcol(WeightCol)
+                print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
+                WEIGHT = (WEIGHT[:,0]+WEIGHT[:,3])/2.
+                # expand to have frequency axis
+                WEIGHT = WEIGHT[:,np.newaxis] + np.zeros(self.MS.Nchan,np.float32)[np.newaxis,:]
+            elif WeightCol == "WEIGHT+WEIGHT_SPECTRUM" or WeightCol == "WEIGHT_SPECTRUM+WEIGHT":
+                w = tab.getcol("WEIGHT")
+                ws = tab.getcol("WEIGHT_SPECTRUM")
+                print>>log, "  Reading column %s for the weights, shape is %s and %s"%(WeightCol,w.shape,ws.shape)
+                WEIGHT = w[:,np.newaxis,:] * ws
+                WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
+            else:
+                ## in all other cases (i.e. IMAGING_WEIGHT) assume a column of shape NRow,NFreq to begin with, check for this:
+                WEIGHT=tab.getcol(WeightCol)
+                print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
 
-        flags=t.getcol("FLAG")
-        t.close()
-        return uvw,WEIGHT,flags
+            if WEIGHT.shape != (nrow, self.MS.Nchan):
+                raise TypeError,"weights expected to have shape of %s"%((nrow, self.MS.Nchan),)
+
+            MeanW=np.mean(WEIGHT)
+            if MeanW!=0.:
+                WEIGHT/=MeanW
+
+            weights[row0:(row0+nrow),...] = WEIGHT
+
+            tab.close()
+            row0 += nrow
+
+        return uvws,weights,flags,nrows
 
 

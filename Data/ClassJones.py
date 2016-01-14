@@ -6,8 +6,8 @@ from DDFacet.Other import reformat
 from DDFacet.Array import NpShared
 import os
 from DDFacet.Array import ModLinAlg
+from DDFacet.Other.progressbar import ProgressBar
 import ClassLOFARBeam
-
 import ClassFITSBeam
 
 class ClassJones():
@@ -322,28 +322,40 @@ class ClassJones():
             print>>log, "  Not applying any beam"
             return
 
+        DtBeamMin = GD["Beam"]["DtBeamMin"]
+        self.DtBeamMin = DtBeamMin
+        times = self.DATA["times"]
 
-        DtBeamMin=GD["Beam"]["DtBeamMin"]
-        self.DtBeamMin=DtBeamMin
+
         if GD["Beam"]["BeamModel"]=="LOFAR":
             self.ApplyBeam=True
             self.BeamMachine=ClassLOFARBeam.ClassLOFARBeam(self.MS,self.GD)
             self.GiveInstrumentBeam=self.BeamMachine.GiveInstrumentBeam
+            print>>log, "  Estimating LOFAR beam model in %s mode every %5.1f min."%(LOFARBeamMode,DtBeamMin)
+            self.GiveInstrumentBeam=self.MS.GiveBeam
+            # estimate beam sample times using DtBeamMin
+            DtBeamSec = self.DtBeamMin*60
+            beam_times = [ times[0] ]
+            for t in times[1:]:
+                if t - beam_times[0] >= DtBeamSec:
+                    beam_times.append(t)
+            beam_times.append(times[-1]+1)
+
 
         elif GD["Beam"]["BeamModel"]=="FITS":
-            self.FITSBeam = ClassFITSBeam.ClassFITSBeam(self.MS,GD["Beam"])
-            self.GiveInstrumentBeam = self.FITSBeam.evaluateBeam
-            print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
+            self.BeamMachine = ClassFITSBeam.ClassFITSBeam(self.MS,GD["Beam"])
+            self.GiveInstrumentBeam = self.BeamMachine.evaluateBeam
+            beam_times = self.BeamMachine.getBeamSampleTimes(times)
+            # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
+
+            # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
 
         RAs=self.ClusterCatBeam.ra
         DECs=self.ClusterCatBeam.dec
-        t0=self.DATA["times"][0]
-        t1=self.DATA["times"][-1]+1
+        DicoBeam=self.EstimateBeam(beam_times,RAs,DECs)
 
-
-        print>>log, "  Estimating beam every %5.1f min."%(DtBeamMin)
-        DicoBeam=self.EstimateBeam(t0,t1,RAs,DECs)
         return DicoBeam
+
 
     def GiveVisToJonesChanMapping(self,FreqDomains):
         NChanJones=FreqDomains.shape[0]
@@ -352,11 +364,7 @@ class ClassJones():
         return np.argmin(DFreq,axis=1)
 
 
-    def EstimateBeam(self,t0,t1,RA,DEC):
-        DtBeamSec=self.DtBeamMin*60
-        tmin,tmax=t0,t1
-        TimesBeam=np.arange(tmin,tmax,DtBeamSec).tolist()
-        if not(tmax in TimesBeam): TimesBeam.append(tmax)
+    def EstimateBeam(self,TimesBeam,RA,DEC):
         TimesBeam=np.float64(np.array(TimesBeam))
         T0s=TimesBeam[:-1].copy()
         T1s=TimesBeam[1:].copy()
@@ -369,6 +377,8 @@ class ClassJones():
         FreqDomains=self.BeamMachine.getFreqDomains()
 
         DicoBeam["VisToJonesChanMapping"]=self.GiveVisToJonesChanMapping(FreqDomains)
+        print>>log,"VisToJonesChanMapping: %s"%DicoBeam["VisToJonesChanMapping"]
+
 
         DicoBeam["Jones"]=np.zeros((Tm.size,NDir,self.MS.na,FreqDomains.shape[0],2,2),dtype=np.complex64)
         DicoBeam["t0"]=np.zeros((Tm.size,),np.float64)
@@ -377,12 +387,14 @@ class ClassJones():
         
         
         rac,decc=self.MS.radec
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="  Init E-Jones ", HeaderSize=10,TitleSize=13)
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]
             DicoBeam["t1"][itime]=T1s[itime]
             DicoBeam["tm"][itime]=Tm[itime]
             ThisTime=Tm[itime]
 
+            pBAR.render(itime*100/(Tm.size-1), "%d/%d"%(itime+1, Tm.size))
             Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)
             #
             if self.GD["Beam"]["CenterNorm"]==1:
