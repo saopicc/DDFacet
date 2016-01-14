@@ -61,6 +61,7 @@ class ClassMS():
     def GiveMainTable (self,**kw):
         """Returns main MS table, applying TaQL selection if any"""
         t = table(self.MSName,ack=False,**kw)
+
         if self.TaQL:
             t = t.query(self.TaQL)
         return t
@@ -616,7 +617,7 @@ class ClassMS():
         T.enableIncr()
         T.disable()
         #print MSname+'/ANTENNA'
-        ta=table(table(MSname).getkeyword('ANTENNA'),ack=False)
+        ta=table(table(MSname,ack=False).getkeyword('ANTENNA'),ack=False)
 
         StationNames=ta.getcol('NAME')
 
@@ -634,7 +635,7 @@ class ClassMS():
         MS_STOKES_ENUMS = [
             "Undefined", "I", "Q", "U", "V", "RR", "RL", "LR", "LL", "XX", "XY", "YX", "YY", "RX", "RY", "LX", "LY", "XR", "XL", "YR", "YL", "PP", "PQ", "QP", "QQ", "RCircular", "LCircular", "Linear", "Ptotal", "Plinear", "PFtotal", "PFlinear", "Pangle"
           ]
-        tp = table(table(MSname).getkeyword('POLARIZATION'),ack=False)
+        tp = table(table(MSname,ack=False).getkeyword('POLARIZATION'),ack=False)
         # get list of corrype enums for first row of polarization table, and convert to strings via MS_STOKES_ENUMS. 
         # self.CorrelationNames will be a list of strings
         self.CorrelationNames = [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
@@ -670,7 +671,7 @@ class ClassMS():
 
         T.timeit()
 
-        ta_spectral=table(table(MSname).getkeyword('SPECTRAL_WINDOW'),ack=False)
+        ta_spectral=table(table(MSname,ack=False).getkeyword('SPECTRAL_WINDOW'),ack=False)
         reffreq=ta_spectral.getcol('REF_FREQUENCY')
         chan_freq=ta_spectral.getcol('CHAN_FREQ')
 
@@ -700,7 +701,7 @@ class ClassMS():
 
         Nchan=wavelength_chan.shape[1]
         NSPWChan=NSPW*Nchan
-        ta=table(table(MSname).getkeyword('FIELD'),ack=False)
+        ta=table(table(MSname,ack=False).getkeyword('FIELD'),ack=False)
 
 
 

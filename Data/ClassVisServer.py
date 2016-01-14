@@ -14,6 +14,7 @@ from DDFacet.Other import reformat
 import ClassSmearMapping
 import os
 import ClassJones
+import ClassBeamMean
 
 def test():
     MSName="/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
@@ -229,7 +230,12 @@ class ClassVisServer():
             self.VisWeights.append(allweights[row0:(row0+nr)])
             row0 += nr
         self.CurrentVisWeights = self.VisWeights[0]
+        #self.CalcMeanBeam()
 
+    def CalcMeanBeam(self):
+        AverageBeamMachine=ClassBeamMean.ClassBeamMean(self)
+        AverageBeamMachine.LoadData()
+        AverageBeamMachine.CalcMeanBeam()
 
     def VisChunkToShared(self):
 

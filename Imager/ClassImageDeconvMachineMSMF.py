@@ -352,7 +352,7 @@ class ClassImageDeconvMachine():
 
             if ThisFlux <= StopFlux:
                 pBAR.render(100,"g=%3.3f"%self.GainMachine.GiveGain())
-                print>>log, ModColor.Str("    [iter=%i] peak of %.3g Jy lower than stopping flux" % (i,ThisFlux),col="green")
+                print>>log, ModColor.Str("    [iter=%i] peak of %.3g Jy lower than stopping flux" % (i,ThisFlux),col="green",Bold=False)
                 cont = ThisFlux > self.FluxThreshold
                 if not cont:
                       print>>log, ModColor.Str("    [iter=%i] absolute flux threshold of %.3g Jy has been reached" % (i,self.FluxThreshold),col="green",Bold=True)

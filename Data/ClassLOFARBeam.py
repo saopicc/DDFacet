@@ -23,6 +23,14 @@ class ClassLOFARBeam():
         useElementBeam=("E" in LOFARBeamMode)
         self.MS.LoadSR(useElementBeam=useElementBeam,useArrayFactor=useArrayFactor)
 
+    def getBeamSampleTimes(self,times):
+        DtBeamMin = self.GD["Beam"]["DtBeamMin"]
+        DtBeamSec = DtBeamMin*60
+        tmin=times[0]
+        tmax=times[-1]+1
+        TimesBeam=np.arange(tmin,tmax,DtBeamSec).tolist()
+        if not(tmax in TimesBeam): TimesBeam.append(tmax)
+        return TimesBeam
 
     def getFreqDomains(self):
         return self.FreqDomains
