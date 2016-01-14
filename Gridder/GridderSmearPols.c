@@ -603,7 +603,7 @@ void gridderWPol(PyArrayObject *grid,
       int skipW=0;
       if(iwplane>NwPlanes-1){
 	skipW=1;
-	printf("SIP\n");
+	//printf("SIP\n");
 	continue;
       };
       
