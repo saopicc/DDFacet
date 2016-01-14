@@ -112,7 +112,7 @@ class ClassMultiScaleMachine():
             dx0=np.max([dx0,50])
             #print>>log, "PSF extends to [%i] from center"%(dx0)
         
-        dx0=np.max([dx0,100])
+        dx0=np.max([dx0,200])
         dx0=np.min([dx0,NPSF/2])
         npix=2*dx0+1
         npix=ModToolBox.GiveClosestFastSize(npix,Odd=False)
@@ -301,7 +301,12 @@ class ClassMultiScaleMachine():
         # weight=(r/r0+1.)**(-1)
         self.GlobalWeightFunction=self.GlobalWeightFunction.reshape((1,1,self.SubPSF.shape[-1],self.SubPSF.shape[-1]))*np.ones((nch,npol,1,1),np.float32)
         #self.GlobalWeightFunction.fill(1)
-        self.SupWeightWidth=3.*self.WeightWidth
+
+        ScaleMax=np.max(Scales)
+        self.SupWeightWidth=ScaleMax#3.*self.WeightWidth
+        
+
+
         #print>>log, "   ... Done"
 
     def MakeBasisMatrix(self):
@@ -558,8 +563,8 @@ class ClassMultiScaleMachine():
             # print "=====",self.iFacet,x,y
             # print "Data",dirtyVec.shape
             # print dirtyVec
-            # print "BM",BM.shape
-            # print BM
+            # #print "BM",BM.shape
+            # #print BM
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
 
             #print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
@@ -577,14 +582,17 @@ class ClassMultiScaleMachine():
                 # if np.abs(np.sum(Sol))>np.abs(MeanFluxTrue):
                 #     Sol=SolReg
 
+            # print "Fin, Sol",np.sum(Sol),Sol.ravel()
+            
 
             
             Sol*=(MeanFluxTrue/np.sum(Sol))
                 
-            #print "Sum, Sol",np.sum(Sol),Sol.ravel()
+            # print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
 
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
+
             #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()
         elif self.SolveMode=="NNLS":
@@ -650,7 +658,6 @@ class ClassMultiScaleMachine():
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
         LocalSM=LocalSM*np.sqrt(JonesNorm)
         
-
 
         # print self.AlphaVec,Sol
         # print "alpha",np.sum(self.AlphaVec.ravel()*Sol.ravel())/np.sum(Sol)
