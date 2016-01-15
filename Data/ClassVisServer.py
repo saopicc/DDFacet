@@ -230,7 +230,7 @@ class ClassVisServer():
             self.VisWeights.append(allweights[row0:(row0+nr)])
             row0 += nr
         self.CurrentVisWeights = self.VisWeights[0]
-        #self.CalcMeanBeam()
+        # self.CalcMeanBeam()
 
     def CalcMeanBeam(self):
         AverageBeamMachine=ClassBeamMean.ClassBeamMean(self)

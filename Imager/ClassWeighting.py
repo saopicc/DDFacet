@@ -53,7 +53,7 @@ class ClassWeighting():
         FOV=self.CellSizeRad*npixIm#/2
 
         #cell=1.5*4./(FOV)
-        cell=1./(FOV)
+        cell=2./(FOV)
         #cell=4./(FOV)
 
         #wave=6.
@@ -111,7 +111,7 @@ class ClassWeighting():
                                      VisWeights,
                                      float(Robust),
                                      Mode,
-                                     np.float32(freqs.flatten()),
+                                     np.float64(freqs.flatten()),
                                      np.array([cell,cell],np.float64))
 
 

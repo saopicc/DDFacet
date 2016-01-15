@@ -3,6 +3,8 @@ from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassBeamMean")
 from DDFacet.ToolsDir import ModCoord
 import ClassJones
+from DDFacet.Imager import ModCF
+from DDFacet.ToolsDir import ModFFTW
 
 class ClassBeamMean():
     def __init__(self,VS):
@@ -13,6 +15,7 @@ class ClassBeamMean():
         self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
         self.CalcGrid()
         self.GD=self.VS.GD
+        self.Padding=Padding
 
     def CalcGrid(self):
         _,_,nx,_=self.VS.FullImShape
@@ -32,7 +35,7 @@ class ClassBeamMean():
             ra[i],dec[i]=self.CoordMachine.lm2radec(np.array([lc[i]]),
                                                     np.array([mc[i]]))
         self.radec=ra,dec
-        self.MeanJJsq=np.zeros((npix,npix),np.float64)
+        self.npix=npix
 
     def LoadData(self):
         # make lists of tables and row counts (one per MS)
@@ -70,6 +73,8 @@ class ClassBeamMean():
 
         RAs,DECs = self.radec
 
+        SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
+        SumWsq=0.
 
         for iMS,MS in zip(range(self.VS.nMS),self.ListMS):
             JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine,IdSharedMem=self.VS.IdSharedMem)
@@ -85,12 +90,58 @@ class ClassBeamMean():
             beam_times = np.array(JonesMachine.BeamMachine.getBeamSampleTimes(times))
             CurrentBeamITime=-1
             DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs, DECs)
-            stop
 
-            for irow in range(A0.size):
-                ThisTime=times[irow]
-                ClosestITime=np.argmin(ThisTime-beam_times)
+            NTRange=DicoBeam["t0"].size
+            for iTRange in range(len(DicoBeam)):
+                t0=DicoBeam["t0"][iTRange]
+                t1=DicoBeam["t1"][iTRange]
+                J=DicoBeam["Jones"][iTRange]
+                ind=np.where((times>=t0)&(times<t1))[0]
+                A0s=A0[ind]
+                A1s=A1[ind]
+                fs=flags[ind]
+                Ws=W[ind]
+                
+                J0=J[:,A0s,:,:,:]
+                J1=J[:,A1s,:,:,:]
+                JJ=(np.abs(J0[:,:,:,0,0])*np.abs(J1[:,:,:,0,0])+np.abs(J0[:,:,:,1,1])*np.abs(J1[:,:,:,1,1]))/2.
 
-                BeamThisTime=DicoBeam["Jones"][ClosestITime]
-                stop
-                    
+                WW=Ws**2
+                WW=WW.reshape((1,ind.size,self.MS.Nchan))
+                JJsq=WW*JJ**2
+
+                SumWsqThisRange=np.sum(JJsq,axis=1)
+                SumJJsq+=SumWsqThisRange.reshape((self.npix,self.npix,self.MS.Nchan))
+                SumWsq+=np.sum(WW,axis=1)
+        SumJJsq/=SumWsq.reshape(1,1,self.MS.Nchan)
+        self.SumJJsq=np.mean(SumJJsq,axis=2)
+        self.Smooth()
+        
+    def Smooth(self):
+        _,_,nx,_=self.VS.FullImShape
+        
+        SpheM=ModCF.SpheMachine(Support=self.npix,SupportSpheCalc=111)
+        CF, fCF, ifzfCF=SpheM.MakeSphe(nx)
+
+        FT=ModFFTW.FFTW_2Donly_np()
+        
+        SumJJsq_Sphe=self.SumJJsq.copy()*SpheM.if_cut_fCF
+        A=np.complex64(SumJJsq_Sphe.reshape((1,1,self.npix,self.npix)))
+        f_SumJJsq=FT.fft(A).reshape((self.npix,self.npix))
+        z_f_SumJJsq=np.complex64(ModCF.ZeroPad(f_SumJJsq,outshape=nx))
+        
+        if_z_f_SumJJsq=FT.ifft(z_f_SumJJsq.reshape((1,1,nx,nx))).real.reshape((nx,nx))
+        if_z_f_SumJJsq/=ifzfCF
+
+
+        vmin=self.SumJJsq.min()
+        vmax=self.SumJJsq.max()
+        import pylab
+        pylab.clf()
+        pylab.subplot(1,2,1)
+        pylab.imshow(self.SumJJsq,interpolation="nearest")
+        pylab.subplot(1,2,2)
+        pylab.imshow(if_z_f_SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax)
+        pylab.show(False)
+        
+        stop
