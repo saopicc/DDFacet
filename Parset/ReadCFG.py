@@ -98,8 +98,8 @@ class Parset():
             FVal=FormatValue(Val)#,StrMode=True)
 
             dict1[option] = FVal
-            if dict1[option] == -1:
-                DebugPrint("skip: %s" % option)
+            # if dict1[option] == -1:
+            #     DebugPrint("skip: %s" % option)
         return dict1
 
 

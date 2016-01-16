@@ -105,19 +105,19 @@ class ClassImagerDeconv():
 
         self.VS=ClassVisServer.ClassVisServer(MSName,
                                               ColName=DC["VisData"]["ColName"],
-                                              Field=DC["VisData"]["Field"],
                                               TVisSizeMin=DC["VisData"]["TChunkSize"]*60,
                                               #DicoSelectOptions=DicoSelectOptions,
                                               TChunkSize=DC["VisData"]["TChunkSize"],
                                               IdSharedMem=self.IdSharedMem,
                                               Robust=DC["ImagerGlobal"]["Robust"],
                                               Weighting=DC["ImagerGlobal"]["Weighting"],
+                                              Super=DC["ImagerGlobal"]["Super"],
                                               DicoSelectOptions=dict(DC["DataSelection"]),
                                               NCPU=self.GD["Parallel"]["NCPU"],
                                               GD=self.GD)
         
         # self.VS.setFOV([1,1,1000,1000],[1,1,1000,1000],[1,1,1000,1000],2./3600.*np.pi/180)
-        # self.VS.CalcWeigths()
+        # self.VS.CalcWeights()
         # for i in range(10):
         #     print>>log, self.setNextData()
         # stop
@@ -142,9 +142,9 @@ class ClassImagerDeconv():
 
         self.InitFacetMachine()
         #self.VS.SetImagingPars(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
-        #self.VS.CalcWeigths(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
+        #self.VS.CalcWeights(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
         self.VS.setFacetMachine(self.FacetMachine)
-        self.VS.CalcWeigths()
+        self.VS.CalcWeights()
 
 
 
@@ -519,10 +519,7 @@ class ClassImagerDeconv():
 
             MSName=self.VS.CurrentMS.MSName
             print>>log, "Writing predicted data in column %s of %s"%(PredictColName,MSName)
-            self.VS.CurrentMS.AddCol(PredictColName)
-            t=table(MSName,readonly=False,ack=False)
-            t.putcol(PredictColName,vis)
-            t.close()
+            self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
             
 
     def setPSF(self):

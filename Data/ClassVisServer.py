@@ -18,19 +18,18 @@ import ClassJones
 def test():
     MSName="/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
     VS=ClassVisServer(MSName,TVisSizeMin=1e8,Weighting="Natural")
-    VS.CalcWeigths((1,1,1000,1000),20.*np.pi/180)
+    VS.CalcWeights((1,1,1000,1000),20.*np.pi/180)
     VS.LoadNextVisChunk()
 
 class ClassVisServer():
     def __init__(self,MSName,GD=None,
                  ColName="DATA",
-                 Field=0,
                  TChunkSize=1,
                  TVisSizeMin=1,
                  DicoSelectOptions={},
                  LofarBeam=None,
                  AddNoiseJy=None,IdSharedMem="",
-                 Robust=2,Weighting="Briggs",NCPU=6):
+                 Robust=2,Weighting="Briggs",Super=1,NCPU=6):
 
         self.ReadOnce=False
         self.ReadOnce_AlreadyRead=False
@@ -54,12 +53,14 @@ class ClassVisServer():
         self.TVisSizeMin=TVisSizeMin
 
         self.Weighting=Weighting
+        self.Super=Super
         self.NCPU=NCPU
         self.VisWeights=None
         self.CountPickle=0
         self.ColName=ColName
-        self.Field = Field
-        self.TaQL = "FIELD_ID==%d"%Field 
+        self.Field = DicoSelectOptions.get("Field",0)
+        self.DDID = DicoSelectOptions.get("DDID",0)
+        self.TaQL = "FIELD_ID==%d&&DATA_DESC_ID==%d" % (self.Field, self.DDID)
         self.DicoSelectOptions=DicoSelectOptions
         self.SharedNames=[]
         self.PrefixShared=PrefixShared
@@ -86,8 +87,17 @@ class ClassVisServer():
         self.ListMS=[]
         self.ListGlobalFreqs=[]
         NChanMax=0
+        ChanStart = self.DicoSelectOptions.get("ChanStart",0)
+        ChanEnd   = self.DicoSelectOptions.get("ChanEnd",-1)
+        ChanStep  = self.DicoSelectOptions.get("ChanStep",1)
+        if (ChanStart,ChanEnd,ChanStep) == (0,-1,1):
+            chanslice = None
+        else:
+            chanslice = slice(ChanStart, ChanEnd if ChanEnd != -1 else None, ChanStep) 
         for MSName in self.ListMSName:
-            MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3),Field=self.Field) 
+            MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3),
+                Field=self.Field,DDID=self.DDID,
+                ChanSlice=chanslice) 
             self.ListMS.append(MS)
             self.ListGlobalFreqs+=MS.ChanFreq.flatten().tolist()
             
@@ -200,7 +210,7 @@ class ClassVisServer():
         self.OutImShape=OutImShape
         self.CellSizeRad=CellSizeRad
 
-    def CalcWeigths(self):
+    def CalcWeights(self):
         if self.VisWeights!=None: return
         #ImShape=self.PaddedFacetShape
         ImShape=self.FullImShape#self.FacetShape
@@ -220,7 +230,8 @@ class ClassVisServer():
 
         allweights = WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
                                               Robust=Robust,
-                                              Weighting=self.Weighting)
+                                              Weighting=self.Weighting,
+                                              Super=self.Super)
 
         # self.WisWeights is a list of weight arrays, one per each MS in self.ListMS
         self.VisWeights = []
@@ -609,6 +620,7 @@ class ClassVisServer():
         WeightCol=self.GD["VisData"]["WeightCol"]
         # make lists of tables and row counts (one per MS)
         tabs = [ ms.GiveMainTable() for ms in self.ListMS ]
+        chanslices = [ ms.ChanSlice for ms in self.ListMS ]
         nrows = [ tab.nrows() for tab in tabs ]
         nr = sum(nrows)
         # preallocate arrays
@@ -619,12 +631,12 @@ class ClassVisServer():
 
         # now loop over MSs and read data
         row0 = 0
-        for num_ms, (nrow, tab) in enumerate(zip(nrows, tabs)):
+        for num_ms, (nrow, tab, chanslice) in enumerate(zip(nrows, tabs, chanslices)):
             uvws[row0:(row0+nrow),...]   = tab.getcol("UVW")
-            flags[row0:(row0+nrow),...] = tab.getcol("FLAG")
+            flags[row0:(row0+nrow),...] = tab.getcol("FLAG")[:,chanslice,:]
 
             if WeightCol == "WEIGHT_SPECTRUM":
-                WEIGHT=tab.getcol(WeightCol)
+                WEIGHT=tab.getcol(WeightCol)[:,chanslice]
                 print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
                 WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
             elif WeightCol == "WEIGHT":
@@ -635,13 +647,13 @@ class ClassVisServer():
                 WEIGHT = WEIGHT[:,np.newaxis] + np.zeros(self.MS.Nchan,np.float32)[np.newaxis,:]
             elif WeightCol == "WEIGHT+WEIGHT_SPECTRUM" or WeightCol == "WEIGHT_SPECTRUM+WEIGHT":
                 w = tab.getcol("WEIGHT")
-                ws = tab.getcol("WEIGHT_SPECTRUM")
+                ws = tab.getcol("WEIGHT_SPECTRUM")[:,chanslice]
                 print>>log, "  Reading column %s for the weights, shape is %s and %s"%(WeightCol,w.shape,ws.shape)
                 WEIGHT = w[:,np.newaxis,:] * ws
                 WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
             else:
                 ## in all other cases (i.e. IMAGING_WEIGHT) assume a column of shape NRow,NFreq to begin with, check for this:
-                WEIGHT=tab.getcol(WeightCol)
+                WEIGHT=tab.getcol(WeightCol)[:,chanslice]
                 print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
 
             if WEIGHT.shape != (nrow, self.MS.Nchan):
