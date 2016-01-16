@@ -80,7 +80,7 @@ class ClassWeighting():
         uvl = np.floor(uvl/cell).astype(int)
         x = uvl[:,0,:] + x0
         y = uvl[:,1,:]
-        inbounds = (x<npix)&(y<npix/2)
+        inbounds = (x>=0)&(x<npix)&(y<npix/2)
 
         # this is the only slow part
         print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 1)"%(npix,npix,cell)
@@ -107,11 +107,11 @@ class ClassWeighting():
         # print>>log,"weight grid computed"
 
         if Weighting == "Uniform":
-            print>>log,"adjusting grid to uniform weight"
-            grid[grid!=0] = 1/grid[grid!=0]
-            print>>log,"applying grid"
+#            print>>log,"adjusting grid to uniform weight"
+ #           grid[grid!=0] = 1/grid[grid!=0]
+            print>>log,"applying grid (uniform weighting)"
             grid[npix*npix/2] = 1
-            VisWeights *= grid[index]
+            VisWeights /= grid[index]
 
         elif Weighting == "Briggs":
             grid[npix*npix/2] = 0
