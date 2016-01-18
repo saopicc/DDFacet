@@ -312,7 +312,7 @@ class ClassImageDeconvMachine():
         #print x,y
 
         if ThisFlux < StopFlux:
-            print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),color="green" )
+            print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" )
             return "FluxThreshold", False, False
 
         #self._MaskArray.fill(1)

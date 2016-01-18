@@ -41,7 +41,7 @@ DecorrMode =
 [Beam]
 BeamModel   = FITS # None/LOFAR/FITS
 LOFARBeamMode  = AE     # A/AE
-BeamNFreqPerMS  = 1 # Number of constant-beam frequency domains into which to subdivide the bandwidth. 0 means NChannel? 
+NChanBeamPerMS = 0 # Number of constant-beam frequency domains into which to subdivide the bandwidth. 0 means NChannel? 
 CenterNorm    = False
 # change in minutes on which the beam is re-evaluated
 DtBeamMin       = 5
@@ -79,10 +79,10 @@ PSFFacets = 0
 
 [Compression]
 CompGridMode = 1 
-CompGridDecorr = 0.001 
+CompGridDecorr = 0 # 0.001 
 CompGridFOV = Facet 
 CompDeGridMode = 1 
-CompDeGridDecorr = 0.001 
+CompDeGridDecorr = 0 # 0.001 
 CompDeGridFOV = Facet 
 
 [ImagerCF]

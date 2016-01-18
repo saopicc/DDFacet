@@ -21,13 +21,15 @@ except:
 class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
-                 AverageTimeFreq=None,Field=0):
+                 AverageTimeFreq=None,
+                 Field=0,DDID=0,ChanSlice=None):
 
         if MSname=="": exit()
         self.AverageSteps=AverageTimeFreq
         MSname=reformat.reformat(os.path.abspath(MSname),LastSlash=False)
         self.MSName=MSname
         self.ColName=Col
+        self.ChanSlice = ChanSlice or slice(None)
         self.zero_flag=zero_flag
         self.ReOrder=ReOrder
         self.EqualizeFlag=EqualizeFlag
@@ -37,7 +39,8 @@ class ClassMS():
         self.SelectSPW=SelectSPW
         self.DelStationList=DelStationList
         self.Field = Field
-        self.TaQL = "FIELD_ID==%d"%Field
+        self.DDID = DDID
+        self.TaQL = "FIELD_ID==%d && DATA_DESC_ID==%d" % (Field, DDID)
         self.ReadMSInfo(MSname,DoPrint=DoPrint)
         self.LFlaggedStations=[]
 
@@ -428,7 +431,6 @@ class ClassMS():
         flag_all=table_all.getcol("FLAG",row0,nRowRead)#[SPW==self.ListSPW[0]]
         if ReadWeight==True:
             self.Weights=table_all.getcol("WEIGHT",row0,nRowRead)
-
         
         
         uvw=table_all.getcol('UVW',row0,nRowRead)#[SPW==self.ListSPW[0]]
@@ -438,6 +440,11 @@ class ClassMS():
         #print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
         vis_all[np.isnan(vis_all)]=0.
         #print "visMS",vis_all.min(),vis_all.max()
+
+        if self.ChanSlice:
+            flag_all = flag_all[:,self.ChanSlice,:]
+            vis_all  = vis_all[:,self.ChanSlice,:]
+
 
         table_all.close()
 
@@ -616,8 +623,12 @@ class ClassMS():
         T=ClassTimeIt.ClassTimeIt()
         T.enableIncr()
         T.disable()
+
+        # open main table
+        table_all=table(MSname,ack=False)
+
         #print MSname+'/ANTENNA'
-        ta=table(table(MSname,ack=False).getkeyword('ANTENNA'),ack=False)
+        ta=table(table_all.getkeyword('ANTENNA'),ack=False)
 
         StationNames=ta.getcol('NAME')
 
@@ -628,6 +639,13 @@ class ClassMS():
         ta.close()
         T.timeit()
 
+        # get spectral window and polarization id
+        ta_ddid = table(table_all.getkeyword('DATA_DESCRIPTION'),ack=False)
+        self._spwid = ta_ddid.getcol("SPECTRAL_WINDOW_ID")[self.DDID]
+        self._polid = ta_ddid.getcol("POLARIZATION_ID")[self.DDID]
+        ta_ddid.close()
+
+
         # get polarizations
         # This a list of the Stokes enums (as defined in casacore header measures/Stokes.h)
         # These are referenced by the CORR_TYPE column of the MS POLARIZATION subtable.
@@ -635,14 +653,13 @@ class ClassMS():
         MS_STOKES_ENUMS = [
             "Undefined", "I", "Q", "U", "V", "RR", "RL", "LR", "LL", "XX", "XY", "YX", "YY", "RX", "RY", "LX", "LY", "XR", "XL", "YR", "YL", "PP", "PQ", "QP", "QQ", "RCircular", "LCircular", "Linear", "Ptotal", "Plinear", "PFtotal", "PFlinear", "Pangle"
           ]
-        tp = table(table(MSname,ack=False).getkeyword('POLARIZATION'),ack=False)
+        tp = table(table_all.getkeyword('POLARIZATION'),ack=False)
         # get list of corrype enums for first row of polarization table, and convert to strings via MS_STOKES_ENUMS. 
         # self.CorrelationNames will be a list of strings
         self.CorrelationNames = [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
-                None for ctype in tp.getcol('CORR_TYPE',0,1)[0] ]
+                None for ctype in tp.getcol('CORR_TYPE',0,1)[self._polid] ]
         # NB: it is possible for the MS to have different polarization
 
-        table_all=table(MSname,ack=False)
         self.ColNames=table_all.colnames()
         self.F_nrows=table_all.nrows()#-nbl
         T0=table_all.getcol('TIME',0,1)[0]
@@ -667,17 +684,17 @@ class ClassMS():
         #F_time_slots_all=np.array(sorted(list(set(F_time_all.tolist()))))
         #F_ntimes=F_time_slots_all.shape[0]
         dt=table_all.getcol('INTERVAL',0,1)[0]
-        table_all.close()
 
         T.timeit()
 
-        ta_spectral=table(table(MSname,ack=False).getkeyword('SPECTRAL_WINDOW'),ack=False)
-        reffreq=ta_spectral.getcol('REF_FREQUENCY')
-        chan_freq=ta_spectral.getcol('CHAN_FREQ')
+        ta_spectral=table(table_all.getkeyword('SPECTRAL_WINDOW'),ack=False)
+        NSPW = ta_spectral.nrows()
+        reffreq=ta_spectral.getcol('REF_FREQUENCY')[self._spwid]
+        chan_freq=ta_spectral.getcol('CHAN_FREQ')[self._spwid,self.ChanSlice]
 
 
-        self.dFreq=ta_spectral.getcol("CHAN_WIDTH").flatten()[0]
-        self.ChanWidth=ta_spectral.getcol('CHAN_WIDTH')
+        self.dFreq=ta_spectral.getcol("CHAN_WIDTH")[self._spwid,self.ChanSlice].flatten()[0]
+        self.ChanWidth=ta_spectral.getcol('CHAN_WIDTH')[self._spwid,self.ChanSlice]
 
 
         # if chan_freq.shape[0]>len(self.ListSPW):
@@ -689,7 +706,6 @@ class ClassMS():
         T.timeit()
 
         wavelength=299792458./reffreq
-        NSPW=chan_freq.shape[0]
         self.ChanFreq=chan_freq
         self.ChanFreqOrig=self.ChanFreq.copy()
         self.Freq_Mean=np.mean(chan_freq)
@@ -699,14 +715,10 @@ class ClassMS():
             print "Don't deal with multiple SPW yet"
 
 
-        Nchan=wavelength_chan.shape[1]
+        Nchan=len(wavelength_chan)
         NSPWChan=NSPW*Nchan
-        ta=table(table(MSname,ack=False).getkeyword('FIELD'),ack=False)
 
-
-
-
-
+        ta=table(table_all.getkeyword('FIELD'),ack=False)
         rarad,decrad=ta.getcol('PHASE_DIR')[self.Field][0]
         if rarad<0.: rarad+=2.*np.pi
 
@@ -768,6 +780,7 @@ class ClassMS():
         self.StrRA  = rad2hmsdms(self.rarad,Type="ra").replace(" ",":")
         self.StrDEC = rad2hmsdms(self.decrad,Type="dec").replace(" ",".")
 
+        table_all.close()
         T.timeit()
         # self.StrRADEC=(rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
         #                ,rad2hmsdms(self.decrad,Type="dec").replace(" ","."))
@@ -778,7 +791,7 @@ class ClassMS():
         ll.append(ModColor.Str(" MS PROPERTIES: "))
         ll.append("   - File Name: %s"%ModColor.Str(self.MSName,col="green"))
         ll.append("   - Column Name: %s"%ModColor.Str(str(self.ColName),col="green"))
-        ll.append("   - Selection: %s"%ModColor.Str(str(self.TaQL),col="green"))
+        ll.append("   - Selection: %s, channels: %s"%( ModColor.Str(str(self.TaQL),col="green"), self.ChanSlice))
         ll.append("   - Phase centre (field %d): (ra, dec)=(%s, %s) "%(self.Field, rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
                                                                        ,rad2hmsdms(self.decrad,Type="dec").replace(" ",".")))
         ll.append("   - Frequency = %s MHz"%str(self.reffreq/1e6))
@@ -797,6 +810,17 @@ class ClassMS():
         l = np.cos(dec) * np.sin(ra - self.rarad)
         m = np.sin(dec) * np.cos(self.decrad) - np.cos(dec) * np.sin(self.decrad) * np.cos(ra - self.rarad)
         return l,m
+
+    def PutVisColumn (self,colname,vis):
+        self.AddCol(colname)
+        t = self.GiveMainTable(readonly=False,ack=False)
+        if self.ChanSlice:
+            vis0 = t.getcol(colname)
+            vis0[:,self.ChanSlice,:] = vis
+            t.putcol(colname,vis0)
+        else:
+            t.putcol(colname,vis)
+        t.close()
 
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
         if vis==None:

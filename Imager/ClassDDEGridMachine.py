@@ -96,6 +96,7 @@ def testGrid():
                                      IdSharedMem=IdSharedMem,
                                      Robust=DC["ImagerGlobal"]["Robust"],
                                      Weighting=DC["ImagerGlobal"]["Weighting"],
+                                     Super=DC["ImagerGlobal"]["Super"],
                                      DicoSelectOptions=dict(DC["DataSelection"]),
                                      NCPU=DC["Parallel"]["NCPU"],GD=DC)
 
@@ -104,7 +105,7 @@ def testGrid():
     sh=[1,1,npix,npix]
     VS.setFOV(sh,sh,sh,CellRad)
 
-    VS.CalcWeigths()
+    VS.CalcWeights()
     Load=VS.LoadNextVisChunk()
     DATA=VS.VisChunkToShared()
 

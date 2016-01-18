@@ -58,7 +58,6 @@ def read_options():
     OP.add_option('TChunkSize')
     OP.add_option('InitDicoModel',help='Image name [%default]')
     OP.add_option('WeightCol')
-    OP.add_option('Field')
     
     OP.OptionGroup("* Images-related options","Images")
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
@@ -73,6 +72,11 @@ def read_options():
    
 
     OP.OptionGroup("* Selection","DataSelection")
+    OP.add_option('Field')
+    OP.add_option('DDID')
+    OP.add_option('ChanStart')
+    OP.add_option('ChanEnd')
+    OP.add_option('ChanStep')
     OP.add_option('FlagAnts')
     OP.add_option('UVRangeKm')
     OP.add_option('DistMaxToCore')
