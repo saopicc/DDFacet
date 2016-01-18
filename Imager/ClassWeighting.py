@@ -1,5 +1,6 @@
 import numpy as np
 from DDFacet.Gridder import _pyGridder
+from DDFacet.Gridder.WeightingCore import accumulate_weights_onto_grid
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassWeighting")
@@ -96,6 +97,10 @@ class ClassWeighting():
            x,w = arg
            grid[x] += w
         reduce(gridinc,index_iter)
+        print>>log,"weight grid computed"
+        print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 2)"%(npix,npix,cell)
+        grid = np.zeros(npix*npix/2+1,np.float64)
+        accumulate_weights_onto_grid(grid,VisWeights,index)
         print>>log,"weight grid computed"
 
         # print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 2)"%(npix,npix,cell)
