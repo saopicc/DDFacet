@@ -76,18 +76,22 @@ class ClassWeighting():
         uv = uvw[:,0:2].copy()
         uv[ uv[:,1]<0 ] *= -1
         # convert u/v to lambda, and then to pixel offset
-        uvl = uv[...,np.newaxis]*freqs[np.newaxis,np.newaxis,:]/_cc
-        uvl = np.floor(uvl/cell).astype(int)
-        x = uvl[:,0,:] + x0
-        y = uvl[:,1,:]
-        inbounds = (x>=0)&(x<npix)&(y<npix/2)
+        uv = uv[...,np.newaxis]*freqs[np.newaxis,np.newaxis,:]/_cc
+        uv = np.floor(uv/cell).astype(int)
+        # u is offset, v doesn't since it's the top half
+        uv[:,0,:] += x0
+        x = uv[:,0,:]
+        y = uv[:,1,:]
+        # convert to index
+        index = y*npix + x
+        inbounds = (index>=0)&(index<npix*npix/2)
+        index[~inbounds] = npix*npix/2
+        del uv
 
         # this is the only slow part
         print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 1)"%(npix,npix,cell)
         grid = np.zeros(npix*npix/2+1,np.float64)
-        index = y*npix+x
-        index[~inbounds] = npix*npix/2
-        index_iter = zip(index,VisWeights)
+        index_iter = zip(index.ravel(),VisWeights.ravel())
         def gridinc (dum,arg):
            x,w = arg
            grid[x] += w

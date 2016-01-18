@@ -229,7 +229,7 @@ class ClassImagerDeconv():
         if self.PSFFacets:
             print>>log,"the PSFFacets version is currently not supported, using 0 (i.e. same facets as image)"
             self.PSFFacets = 0
-        oversize = self.GD["ImagerGlobal"]["PSFOversize"]
+        oversize = self.GD["ImagerGlobal"]["PSFOversize"] or 1
         if oversize == 1 and not self.PSFFacets:
             print>>log,"PSFOversize=1 and PSFFacets=0, same facet machine will be reused for PSF"
             FacetMachinePSF=self.FacetMachine
