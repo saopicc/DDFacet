@@ -1,6 +1,6 @@
 import numpy as np
 from DDFacet.Gridder import _pyGridder
-from DDFacet.Gridder.WeightingCore import accumulate_weights_onto_grid
+from DDFacet.Gridder import WeightingCore 
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassWeighting")
@@ -58,12 +58,6 @@ class ClassWeighting():
         FOV = self.CellSizeRad*npixIm
         cell =1./(Super*FOV)
 
-        npix = npixIm   # could be smarter and make it equal to uvmax/cell but why bother
-        # make even number of pixels in uv-weighting grid
-        if npixIm%2:
-            npix += 1
-        x0 = y0 = npix/2
-
         # if any polarization is flagged, flag all 4 correlations
         flags = flags.max(axis=2)
         # zero weight to flagged points
@@ -79,28 +73,35 @@ class ClassWeighting():
         # convert u/v to lambda, and then to pixel offset
         uv = uv[...,np.newaxis]*freqs[np.newaxis,np.newaxis,:]/_cc
         uv = np.floor(uv/cell).astype(int)
-        # u is offset, v doesn't since it's the top half
-        uv[:,0,:] += x0
+        # u is offset, v isn't since it's the top half
         x = uv[:,0,:]
         y = uv[:,1,:]
+        x -= x.min()
+        npixx = x.max()+1
+        npixy = y.max()+1
+        npix = npixx*npixy
         # convert to index
-        index = y*npix + x
-        inbounds = (index>=0)&(index<npix*npix/2)
-        index[~inbounds] = npix*npix/2
+        index = y*npixx + x
         del uv
 
-        # this is the only slow part
-        print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 1)"%(npix,npix,cell)
-        grid = np.zeros(npix*npix/2+1,np.float64)
-        index_iter = zip(index.ravel(),VisWeights.ravel())
-        def gridinc (dum,arg):
-           x,w = arg
-           grid[x] += w
-        reduce(gridinc,index_iter)
-        print>>log,"weight grid computed"
-        print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 2)"%(npix,npix,cell)
-        grid = np.zeros(npix*npix/2+1,np.float64)
-        accumulate_weights_onto_grid(grid,VisWeights,index)
+        # # this is the only slow part -- takes ~20 mins on CygA data (3 million rows x 256 channels so just under a billion uv-points)
+        # print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 1)"%(npixx,npixy,cell)
+        # grid = np.zeros(npix,np.float64)
+        # index_iter = zip(index.ravel(),VisWeights.ravel())
+        # def gridinc (dum,arg):
+        #    x,w = arg
+        #    grid[x] += w
+        # reduce(gridinc,index_iter)
+        # print>>log,"weight grid computed"
+        # # first attempt with cython using nditer. Not so effective: ~25 mins
+        # print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 2)"%(npixx,npixy,cell)
+        # grid = np.zeros(npix,np.float64)
+        # WeightingCore.accumulate_weights_onto_grid_using_nditer(grid,VisWeights,index)
+        # print>>log,"weight grid computed"
+        # second attept with cython using a simple for loop over 1D arrays: bingo, 3 seconds
+        print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 3)"%(npixx,npixy,cell)
+        grid = np.zeros(npix,np.float64)
+        WeightingCore.accumulate_weights_onto_grid_1d(grid,VisWeights.ravel(),index.ravel())
         print>>log,"weight grid computed"
 
         # print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 2)"%(npix,npix,cell)
@@ -119,18 +120,15 @@ class ClassWeighting():
 #            print>>log,"adjusting grid to uniform weight"
  #           grid[grid!=0] = 1/grid[grid!=0]
             print>>log,"applying grid (uniform weighting)"
-            grid[npix*npix/2] = 1
             VisWeights /= grid[index]
 
         elif Weighting == "Briggs":
-            grid[npix*npix/2] = 0
             print>>log,"adjusting grid to briggs weight"
             avgW = (grid**2).sum() / grid.sum()
             numeratorSqrt = 5.0 * 10**(-Robust)
             sSq = numeratorSqrt**2 / avgW
             grid = 1/(1+grid*sSq)
             print>>log,"applying grid"
-            grid[npix*npix/2] = 1
             VisWeights *= grid[index]
 
         print>>log,"weights computed"
