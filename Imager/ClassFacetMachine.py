@@ -780,10 +780,10 @@ class ClassFacetMachine():
                         Im=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]*ThisSumJones
                     else:
                     
-                        Im=self.DicoGridMachine[iFacet]["Dirty"][Channel][pol]
+                        Im=self.DicoGridMachine[iFacet]["Dirty"][Channel][pol].copy()
                         Im/=SPhe.real
                         Im[SPhe<1e-3]=0
-                        Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][pol][::-1,:].T.real/sumweight)
+                        Im=(Im[::-1,:].T.real/sumweight)
                         SW=SpacialWeigth[::-1,:].T
                         Im*=SW
 

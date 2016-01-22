@@ -213,9 +213,12 @@ class ClassImageDeconvMachine():
         # # NpParallel.A_add_B_prod_factor((self.Dirty),LocalSM,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
 
         self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
-        if self.MultiFreqMode:
-            W=np.float32(self.DicoDirty["WeightChansImages"])
-            self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
+        #if self.MultiFreqMode:
+        #    W=np.float32(self.DicoDirty["WeightChansImages"])
+        #    self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
+
+        W=np.float32(self.DicoDirty["WeightChansImages"])
+        self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
             
         # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
         # pylab.imshow(self._Dirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
@@ -379,6 +382,7 @@ class ClassImageDeconvMachine():
 
             #iScale=self.MSMachine.FindBestScale((x,y),Fpol)
 
+            #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y)
             self.PSFServer.setLocation(x,y)
             MSMachine=self.DicoMSMachine[self.PSFServer.iFacet]
 

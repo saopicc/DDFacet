@@ -303,8 +303,9 @@ class ClassMultiScaleMachine():
         #self.GlobalWeightFunction.fill(1)
 
         ScaleMax=np.max(Scales)
-        self.SupWeightWidth=ScaleMax#3.*self.WeightWidth
-        
+        # self.SupWeightWidth=ScaleMax
+        self.SupWeightWidth=3.*self.WeightWidth
+       
 
 
         #print>>log, "   ... Done"
@@ -593,8 +594,10 @@ class ClassMultiScaleMachine():
 
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
 
-            #print "Max abs model",np.max(np.abs(LocalSM))
-            #print "Min Max model",LocalSM.min(),LocalSM.max()
+            # print "Min Max dirty",dirtyNormIm.min(),dirtyNormIm.max()
+
+            # #print "Max abs model",np.max(np.abs(LocalSM))
+            # print "Min Max model",LocalSM.min(),LocalSM.max()
         elif self.SolveMode=="NNLS":
             import scipy.optimize
 

@@ -399,6 +399,7 @@ class ClassImagerDeconv():
             if self.BaseName==self.GD["VisData"]["InitDicoModel"][0:-10]:
                 self.BaseName+=".continue"
 
+        iMS=0
         while True:
             Res=self.setNextData()
             # if not(isPlotted):
@@ -418,6 +419,13 @@ class ClassImagerDeconv():
             self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)#,Channel=self.VS.CurrentFreqBand)
             
             
+            # self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
+            # self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty.%i"%(self.BaseName,iMS),Fits=True)
+            # # self.FacetMachine.NormData=None
+            # # self.FacetMachine.NormImage=None
+            
+
+            iMS+=1
             
             # Image=self.FacetMachine.FacetsToIm()
             # pylab.clf()
@@ -554,14 +562,29 @@ class ClassImagerDeconv():
             self.DeconvMachine.SetDirty(DicoImage)
             #self.DeconvMachine.setSideLobeLevel(0.2,10)
 
+
+            # # ######## TEST
+            # for iClean in range(10):
+            #     repMinor, continue_deconv, update_model = self.DeconvMachine.Clean()
+            #     self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_Iter%2.2i"%(self.BaseName,iClean),Fits=True)
+            # # ######## TEST
+
+
             repMinor, continue_deconv, update_model = self.DeconvMachine.Clean()
+
+            
+
             ## returned with nothing done in minor cycle? Break out
+
+
+
+
             if not update_model:
                 break
 
 
             #self.ResidImage=DicoImage["MeanImage"]
-            self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
+            #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
 
             self.FacetMachine.ReinitDirty()
 
