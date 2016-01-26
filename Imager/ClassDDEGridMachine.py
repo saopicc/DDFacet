@@ -773,8 +773,11 @@ class ClassDDEGridMachine():
         #print "DEGRID:",Grid.shape,ChanMapping
 
         #print W
-        #print "!!!!!!!!!! 0 ",SumWeigths
+        print "!!!!!!!!!! 0 ",SumWeigths
         #print self.SumJonesChan
+
+        print vis.shape
+
         if self.GD["Compression"]["CompGridMode"]==0:
             Grid=_pyGridder.pyGridderWPol(Grid,
                                               vis,
@@ -795,6 +798,7 @@ class ClassDDEGridMachine():
             OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType,self.PolModeID]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMemData))
 
+            print W
             _pyGridderSmear.pyGridderWPol(Grid,
                                           vis,
                                           uvw,
@@ -813,7 +817,7 @@ class ClassDDEGridMachine():
                                           OptimisationInfos,
                                           self.LSmear,
                                           np.int32(ChanMapping))
-        #print "!!!!!!!!!! 1 ",SumWeigths
+        print "!!!!!!!!!! 1 ",SumWeigths
 
         #print self.SumJonesChan[0]/self.SumJonesChan[1]
 

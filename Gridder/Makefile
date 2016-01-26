@@ -43,7 +43,7 @@ WeightingCore.c: WeightingCore.pyx
 	cython $<
 	
 WeightingCore.so: WeightingCore.c
-	gcc -shared -pthread -fPIC -fwrapv -O2 -Wall -I/usr/include/python2.7 -fno-strict-aliasing -o $@ $<
+	gcc -shared -pthread -fPIC -fwrapv -O2 -Wall -I/usr/include/python2.7 -I/home/cyril.tasse/bin/lib/python2.7/site-packages/numpy/core/include -fno-strict-aliasing -o $@ $<
 
 
 

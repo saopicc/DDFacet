@@ -229,11 +229,13 @@ class ClassVisServer():
 
         #self.VisWeights=np.ones((uvw.shape[0],self.MS.ChanFreq.size),dtype=np.float64)
 
+        stop
         allweights = WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
                                               Robust=Robust,
                                               Weighting=self.Weighting,
                                               Super=self.Super)
 
+        #allweights.fill(1.)
         # self.WisWeights is a list of weight arrays, one per each MS in self.ListMS
         self.VisWeights = []
         row0 = 0
@@ -643,8 +645,12 @@ class ClassVisServer():
 
             if WeightCol == "WEIGHT_SPECTRUM":
                 WEIGHT=tab.getcol(WeightCol)[:,chanslice]
+                
                 print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
                 WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
+                print np.min(WEIGHT),np.max(WEIGHT),np.mean(WEIGHT)
+                stop
+                
             elif WeightCol == "WEIGHT":
                 WEIGHT=tab.getcol(WeightCol)
                 print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
@@ -665,14 +671,25 @@ class ClassVisServer():
             if WEIGHT.shape != (nrow, self.MS.Nchan):
                 raise TypeError,"weights expected to have shape of %s"%((nrow, self.MS.Nchan),)
 
-            MeanW=np.mean(WEIGHT)
-            if MeanW!=0.:
-                WEIGHT/=MeanW
+            # print "0", WEIGHT
+            # MeanW=np.mean(WEIGHT)
+            # print "00", WEIGHT
+            # print "00", MeanW
 
+            # #if MeanW!=0.:
+            # #    WEIGHT/=MeanW
+
+            #print "000",WEIGHT
             weights[row0:(row0+nrow),...] = WEIGHT
 
             tab.close()
             row0 += nrow
+        #stop
+
+        MeanW=np.mean(np.float64(weights))
+        if MeanW!=0.:
+            weights/=MeanW
+
 
         return uvws,weights,flags,nrows
 
