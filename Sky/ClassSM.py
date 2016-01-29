@@ -116,10 +116,13 @@ class ClassSM():
                 d=np.sqrt((self.SourceCat.ra-ExcludeCat.ra[j])**2+(self.SourceCat.dec-ExcludeCat.dec[j])**2)
                 self.SourceCat.Exclude[d<ExcludeCat.Radius[j]]=True
 
-        if NCluster!=0:
-            self.cluster(NCluster,DoPlot,PreClusterCat=PreClusterCat,FromClusterCat=FromClusterCat)#,ExcludeCat=ExcludeCat)
-        else:
+        if NCluster==0:
             self.SourceCat.Cluster=np.arange(self.SourceCat.shape[0])
+        elif NCluster==1:
+            self.SourceCat.Cluster=0
+        else:
+            self.cluster(NCluster,DoPlot,PreClusterCat=PreClusterCat,FromClusterCat=FromClusterCat)#,ExcludeCat=ExcludeCat)
+            
 
         self.SourceCat=self.SourceCat[self.SourceCat.Exclude==False]
 

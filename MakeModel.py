@@ -15,6 +15,7 @@ def read_options():
 
     group = optparse.OptionGroup(opt, "* Data-related options", "Won't work if not specified.")
     group.add_option('--SkyModel',help='List of targets [no default]',default='')
+    group.add_option('--OutSkyModel',help='List of targets [no default]',default='')
     group.add_option('--BaseImageName',help='List of targets [no default]',default='')
     group.add_option('--MaskName',help='List of targets [no default]',default='')
     group.add_option('--CleanNegComp',help='List of targets [no default]',type="int",default=0)
@@ -39,6 +40,28 @@ def main(options=None):
         options = pickle.load(f)
 
     SkyModel=options.SkyModel
+
+    if "," in SkyModel:
+        SMList=SkyModel.split(",")
+        print>>log, "Concatenating SkyModels %s"%(str(SMList))
+        ThisCat=np.load(SMList[0])
+        ThisCat=ThisCat.view(np.recarray)
+        ThisNDir=len(list(set(ThisCat.Cluster.tolist())))
+        CurrentMaxCluster=ThisNDir
+        CatList=[ThisCat]
+        for SM in SMList[1::]:
+            ThisCat=np.load(SM)
+            ThisCat=ThisCat.view(np.recarray)
+            ThisNDir=len(list(set(ThisCat.Cluster.tolist())))
+            ThisCat.Cluster+=CurrentMaxCluster
+            CurrentMaxCluster+=ThisNDir
+            CatList.append(ThisCat)
+        cat=np.concatenate(CatList)
+        cat=cat.view(np.recarray)
+        OutSkyModel=options.OutSkyModel
+        print>>log, "Saving in %s"%(OutSkyModel)
+        np.save(OutSkyModel,cat)
+        return
 
     if options.BaseImageName!="":
         from pyrap.images import image

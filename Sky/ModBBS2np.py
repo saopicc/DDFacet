@@ -119,7 +119,10 @@ def ReadBBSModel(infile,infile_cluster=""):
                 continue
             if F[i]=="spectralindex":
                 SAlpha=L[i].replace("[","").replace("]","")
-                ss=float(SAlpha)
+                if "," in SAlpha:
+                    ss=float(SAlpha.split(",")[0])
+                else:
+                    ss=float(SAlpha)
                 Cat.alpha[icat]=ss
                 continue
             if F[i]=="kill":
