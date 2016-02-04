@@ -176,19 +176,16 @@ class ClassMultiScaleMachine():
 
         ######################
 
-        AllFreqs=[]
-        AllFreqsMean=np.zeros((self.NFreqBand,),np.float32)
-        for iChannel in range(self.NFreqBand):
-            AllFreqs+=self.DicoVariablePSF["freqs"][iChannel]
-            AllFreqsMean[iChannel]=np.mean(self.DicoVariablePSF["freqs"][iChannel])
-
-        RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoVariablePSF["WeightChansImages"].ravel())
 
 
 
-        self.ModelMachine.setRefFreq(RefFreq,AllFreqs)
+        self.ModelMachine.setRefFreq(self.PSFServer.RefFreq,self.PSFServer.AllFreqs)
+
+        RefFreq=self.PSFServer.RefFreq
+        AllFreqs=self.PSFServer.AllFreqs
         self.RefFreq=RefFreq
-        self.PSFServer.RefFreq=RefFreq
+
+
         FreqBandsFluxRatio=self.PSFServer.GiveFreqBandsFluxRatio(self.iFacet,Alpha)
         # if self.iFacet==96: 
         #     print 96

@@ -382,7 +382,7 @@ class ClassVisServer():
         DATA["A0"]=A0
         DATA["A1"]=A1
         DATA["times"]=times
-        
+
 
         DATA["Weights"]=self.CurrentVisWeights[MS.ROW0:MS.ROW1]
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]

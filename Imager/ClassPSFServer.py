@@ -1,4 +1,5 @@
 import numpy as np
+from DDFacet.ToolsDir import ClassSpectralFunctions
 
 class ClassPSFServer():
     def __init__(self,GD):
@@ -28,6 +29,18 @@ class ClassPSFServer():
         self.NFacets,nch,npol,NPixMin,_=self.CubeVariablePSF.shape
         self.ShapePSF=nch,npol,NPixMin,NPixMin
         self.NPSF=NPixMin
+        
+        DicoMappingDesc={"freqs":DicoVariablePSF["freqs"],
+                         "WeightChansImages":DicoVariablePSF["WeightChansImages"],
+                         "SumJonesChan":DicoVariablePSF["SumJonesChan"],
+                         "SumJonesChanWeightSq":DicoVariablePSF["SumJonesChanWeightSq"],
+                         "ChanMappingGrid":DicoVariablePSF["ChanMappingGrid"],
+                         "MeanJonesBand":DicoVariablePSF["MeanJonesBand"]}
+
+
+        self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.GD,DicoMappingDesc)
+        self.RefFreq=self.SpectralFunctionsMachine.RefFreq
+        self.AllFreqs=self.SpectralFunctionsMachine.AllFreqs
         #self.CalcJacobian()
 
     def setLocation(self,xp,yp):
@@ -115,69 +128,5 @@ class ClassPSFServer():
     def GivePSF(self):
         return self.CubeVariablePSF[self.iFacet],self.CubeMeanVariablePSF[self.iFacet]
 
-
-
-    def GiveFreqBandsFluxRatio(self,iFacet,Alpha):
-        NAlpha=Alpha.size
-        NFreqBand=self.DicoVariablePSF["CubeVariablePSF"].shape[1]
-        SumJonesChan=self.DicoVariablePSF["SumJonesChan"][iFacet]
-        SumJonesChanWeightSq=self.DicoVariablePSF["SumJonesChanWeightSq"][iFacet]
-        ChanMappingGrid=self.DicoVariablePSF["ChanMappingGrid"]
-        RefFreq=self.RefFreq
-        FreqBandsFluxRatio=np.zeros((NAlpha,NFreqBand),np.float32)
-
-        
-        ListBeamFactor=[]
-        ListBeamFactorWeightSq=[]
-        #print "============"
-        for iChannel in range(NFreqBand):
-            ThisSumJonesChan=[]
-            ThisSumJonesChanWeightSq=[]
-            for iMS in range(len(SumJonesChan)):
-                ind=np.where(ChanMappingGrid[iMS]==iChannel)[0]
-                ThisSumJonesChan+=SumJonesChan[iMS][ind].tolist()
-                ThisSumJonesChanWeightSq+=SumJonesChanWeightSq[iMS][ind].tolist()
-            
-            #print "== ",iFacet,iChannel,np.sqrt(np.sum(np.array(ThisSumJonesChan))/np.sum(np.array(ThisSumJonesChanWeightSq)))
-
-            ListBeamFactor.append(np.array(ThisSumJonesChan))
-            ListBeamFactorWeightSq.append(np.array(ThisSumJonesChanWeightSq))
-
-        # SumListBeamFactor=0
-        # NChan=0
-        # for iChannel in range(NFreqBand):
-        #     SumListBeamFactor+=np.sum(ListBeamFactor[iChannel])
-        #     NChan+=ListBeamFactor[iChannel].size
-        # SumListBeamFactor/=NChan
-        # for iChannel in range(NFreqBand):
-        #     ListBeamFactor[iChannel]/=SumListBeamFactor
-
-        # for iChannel in range(NFreqBand):
-        # #     ListBeamFactor[iChannel]/=np.mean(ListBeamFactor[iChannel])
-        # #     # ListBeamFactor[iChannel]=np.sqrt(ListBeamFactor[iChannel])
-        # #     # ListBeamFactor[iChannel]/=np.mean(ListBeamFactor[iChannel])
-        #     ListBeamFactor[iChannel]/=(self.DicoVariablePSF["SumJonesBand"][iFacet][iChannel])
-        # #     # print self.DicoVariablePSF["MeanJonesBand"][iFacet]
-
-
-        for iChannel in range(NFreqBand):
-            BeamFactor=ListBeamFactor[iChannel]
-            BeamFactorWeightSq=ListBeamFactorWeightSq[iChannel]
-            
-            ThisFreqs=self.DicoVariablePSF["freqs"][iChannel]
-            #if iFacet==60:
-            #    print iChannel,iMS,BeamFactor
-            #BeamFactor.fill(1.)
-            for iAlpha in range(NAlpha):
-                ThisAlpha=Alpha[iAlpha]
-                
-                FreqBandsFluxRatio[iAlpha,iChannel]=np.sqrt(np.sum(BeamFactor*((ThisFreqs/RefFreq)**ThisAlpha)**2))/np.sqrt(np.sum(BeamFactorWeightSq))
-                FreqBandsFluxRatio[iAlpha,iChannel]/=np.sqrt(self.DicoVariablePSF["MeanJonesBand"][iFacet][iChannel])
-        #MeanFreqBandsFluxRatio=np.mean(FreqBandsFluxRatio,axis=1)
-        #FreqBandsFluxRatio=FreqBandsFluxRatio/MeanFreqBandsFluxRatio.reshape((NAlpha,1))
-
-        # print "=============="
-        # print iFacet
-        # print FreqBandsFluxRatio
-
-        return FreqBandsFluxRatio
+    def GiveFreqBandsFluxRatio(self,*args,**kwargs):
+        return self.SpectralFunctionsMachine.GiveFreqBandsFluxRatio(*args,**kwargs)

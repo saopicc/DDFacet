@@ -427,11 +427,13 @@ class ClassMS():
         #print np.max(time_all)-np.min(time_all)
         #time_slots_all=np.array(sorted(list(set(time_all))))
         ntimes=time_all.shape[0]/self.nbl
-
+        
         flag_all=table_all.getcol("FLAG",row0,nRowRead)#[SPW==self.ListSPW[0]]
+        _,_,npol=flag_all.shape
+
         if ReadWeight==True:
             self.Weights=table_all.getcol("WEIGHT",row0,nRowRead)
-        
+            
         
         uvw=table_all.getcol('UVW',row0,nRowRead)#[SPW==self.ListSPW[0]]
         vis_all=table_all.getcol(self.ColName,row0,nRowRead)
@@ -470,12 +472,25 @@ class ClassMS():
         DATA["data"]=vis_all
         DATA["flag"]=flag_all
 
+        if npol==1:
+            self.To4Pols(DATA)
+
         # if self.AverageSteps!=None:
         #     StepTime,StepFreq=self.AverageSteps
         #     DATA=self.GiveAverageTimeFreq(DATA,StepTime=StepTime,StepFreq=StepFreq)
 
         return DATA
             
+    def To4Pols(self,DATA):
+        nrow,nchan,_=DATA["data"].shape
+        data4=np.zeros((nrow,nchan,4),DATA["data"].dtype)
+        data4[:,:,0]=DATA["data"][:,:,0]
+        data4[:,:,3]=DATA["data"][:,:,0]
+        flag4=np.zeros((nrow,nchan,4),DATA["flag"].dtype)
+        flag4[:,:,0]=DATA["flag"][:,:,0]
+        flag4[:,:,3]=DATA["flag"][:,:,0]
+        DATA["flag"]=flag4
+        DATA["data"]=data4
 
     def GiveAverageTimeFreq(self,DicoData,StepTime=None,StepFreq=None):
         DicoDataOut={}
