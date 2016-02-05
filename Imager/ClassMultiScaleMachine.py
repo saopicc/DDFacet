@@ -303,7 +303,8 @@ class ClassMultiScaleMachine():
         #self.GlobalWeightFunction.fill(1)
 
         ScaleMax=np.max(Scales)
-        self.SupWeightWidth=ScaleMax#3.*self.WeightWidth
+        #self.SupWeightWidth=ScaleMax#3.*self.WeightWidth
+        self.SupWeightWidth=3.*self.WeightWidth
         
 
 

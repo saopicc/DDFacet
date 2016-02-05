@@ -229,7 +229,7 @@ class ClassVisServer():
 
         #self.VisWeights=np.ones((uvw.shape[0],self.MS.ChanFreq.size),dtype=np.float64)
 
-        stop
+
         allweights = WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
                                               Robust=Robust,
                                               Weighting=self.Weighting,
@@ -648,8 +648,6 @@ class ClassVisServer():
                 
                 print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
                 WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
-                print np.min(WEIGHT),np.max(WEIGHT),np.mean(WEIGHT)
-                stop
                 
             elif WeightCol == "WEIGHT":
                 WEIGHT=tab.getcol(WeightCol)

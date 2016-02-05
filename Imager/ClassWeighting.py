@@ -62,7 +62,7 @@ class ClassWeighting():
         flags = flags.max(axis=2)
         # zero weight to flagged points
         VisWeights = VisWeights.astype(np.float64) * ~flags
-        stop
+        
         if Weighting=="Natural":
             print>>log, "Weighting in Natural mode"
             return VisWeights
