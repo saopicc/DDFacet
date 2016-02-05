@@ -133,13 +133,7 @@ class ClassSM():
             self.SourceCat.Cluster[ind]=iNewCluster
             self.REGName=False
 
-
-        for diri in range(self.NDir):
-            ind=np.where(self.SourceCat.Cluster==diri)[0]
-            #CatSel=self.SourceCat[self.SourceCat.Cluster==diri]
-            Names=["c%is%i."%(diri,i) for i in range(ind.shape[0])]
-            self.SourceCat.Name[ind]=Names
-        self.REGName=True
+        self.Rename()
 
         self.REGFile=None
         self.MakeREG()
@@ -154,6 +148,14 @@ class ClassSM():
         self.ExistToSub=False
         self.ExistToSub=(np.count_nonzero(self.SourceCat.kill==-1)>0)
         self.BuildClusterCat()
+
+    def Rename(self):
+        for diri in range(self.NDir):
+            ind=np.where(self.SourceCat.Cluster==diri)[0]
+            #CatSel=self.SourceCat[self.SourceCat.Cluster==diri]
+            Names=["c%is%i."%(diri,i) for i in range(ind.shape[0])]
+            self.SourceCat.Name[ind]=Names
+        self.REGName=True
 
 
 

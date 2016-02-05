@@ -5,6 +5,7 @@ import pickle
 import numpy as np
 from killMS2.Other import MyLogger
 log=MyLogger.getLogger("MakeModel")
+from Sky import ClassSM
 
 SaveName="last_MakeModel.obj"
 
@@ -61,6 +62,13 @@ def main(options=None):
         OutSkyModel=options.OutSkyModel
         print>>log, "Saving in %s"%(OutSkyModel)
         np.save(OutSkyModel,cat)
+        SM=ClassSM.ClassSM(OutSkyModel+".npy",
+                           ReName=True,
+                           DoREG=True,
+                           SaveNp=True)
+        SM.Rename()
+        SM.Save()
+
         return
 
     if options.BaseImageName!="":
@@ -113,7 +121,6 @@ def main(options=None):
         import matplotlib
         matplotlib.use('agg')
 
-    from Sky import ClassSM
 
     SM=ClassSM.ClassSM(SkyModel,ReName=True,
                        DoREG=True,SaveNp=True,
