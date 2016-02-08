@@ -10,6 +10,7 @@ from pyrap.images import image
 import ClassImageDeconvMachineMultiScale
 import ClassImageDeconvMachineSingleScale
 import ClassImageDeconvMachineMSMF
+import ClassImageDeconvMachineGA
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
@@ -134,7 +135,8 @@ class ClassImagerDeconv():
                 self.MinorCycleMode="MS"
                 MinorCycleConfig["GD"]=self.GD
                 #self.DeconvMachine=ClassImageDeconvMachineMultiScale.ClassImageDeconvMachine(**MinorCycleConfig)
-                self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
+                #self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
             else:
                 print>>log, "Minor cycle deconvolution in Single Scale Mode" 
                 self.MinorCycleMode="SS"

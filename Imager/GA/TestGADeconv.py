@@ -3,6 +3,7 @@ from DDFacet.ToolsDir import ModFFTW
 import numpy as np
 
 from ClassEvolveGA import ClassEvolveGA 
+from DDFacet.Other import MyPickle
 
 def test():
     nx=17
@@ -109,6 +110,9 @@ def testMF():
     #DataModel[0,0,nx/2+5,nx/2+4]=1.
     DataModel=ModFFTW.ConvolveGaussian(DataModel,CellSizeRad=1,GaussPars=[(1,.5,0.)])
     #Alpha[0,0,nx/2,nx/2]=-.8
+
+    DataModel[0,0,nx/2,nx/2]=+1.
+    Alpha[0,0,nx/2,nx/2]=.8
     DataModel[0,0,nx/2-5,nx/2+4]+=2.
     #DataModel[0,0,nx/2-2,nx/2+2]+=2.
     Alpha[0,0,nx/2-5,nx/2+4]=-.8
@@ -135,3 +139,14 @@ def testMF():
     return CEv
 
 
+def testMF_DATA():
+    Dico=MyPickle.Load("SaveTest")
+    Dirty=Dico["Dirty"]
+    PSF=Dico["PSF"]
+    ListPixData=Dico["ListPixData"]
+    FreqsInfo=Dico["FreqsInfo"]
+    ListPixParms=ListPixData
+
+    CEv=ClassEvolveGA(Dirty,PSF,FreqsInfo,ListPixParms=ListPixParms,ListPixData=ListPixData)
+    
+    return CEv

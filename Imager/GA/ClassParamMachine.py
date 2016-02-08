@@ -23,9 +23,18 @@ class ClassParamMachine():
         self.NParam=len(self.SolveParam)
         self.AM=AM
         self.DicoIParm={}
-        DefaultValues={"S":{"Mean":0.},
+        DefaultValues={"S":{"Mean":0.,
+                            "Sigma":{
+                                "Type":"PeakFlux",
+                                "Value":0.01}
+                        },
                        "Alpha":{"Mean":0.,
-                                "Sigma":0.1}}
+                                "Sigma":{
+                                    "Type":"Abs",
+                                    "Value":0.01}
+                                }
+                   }
+
         for Type in DefaultValues.keys():
             self.DicoIParm[Type]={}
             self.DicoIParm[Type]["Default"]=DefaultValues[Type]
@@ -40,7 +49,7 @@ class ClassParamMachine():
     def setFreqs(self,DicoMappingDesc):
         self.DicoMappingDesc=DicoMappingDesc
         if self.DicoMappingDesc==None: return
-        self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.GD,self.DicoMappingDesc,BeamEnable=False)
+        self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.GD,self.DicoMappingDesc)#,BeamEnable=False)
         
 
     def GiveInitList(self,toolbox):
@@ -54,6 +63,29 @@ class ClassParamMachine():
                 ListPars+=[toolbox.attr_float_normal_Alpha]*self.AM.NPixListParms
         return ListPars
 
+    def ReinitPop(self,pop):
+        SModelArray=self.AM.DeconvCLEAN()
+
+        for Type in self.SolveParam:
+            DicoSigma=self.DicoIParm[Type]["Default"]["Sigma"]
+            MeanVal=self.DicoIParm[Type]["Default"]["Mean"]
+            if DicoSigma["Type"]=="Abs":
+                SigVal=DicoSigma["Value"]
+            elif DicoSigma["Type"]=="PeakFlux":
+                SigVal=DicoSigma["Value"]*np.max(np.abs(SModelArray))
+            
+            for indiv in pop:
+                SubArray=self.ArrayToSubArray(indiv,Type=Type)
+                if Type=="S":
+                    SubArray[:]=SModelArray[:]+np.random.randn(SModelArray.size)*SigVal
+                if Type=="Alpha":
+                    SubArray[:]=MeanVal+np.random.randn(SModelArray.size)*SigVal
+                    
+
+
+
+
+            
     def ArrayToSubArray(self,A,Type):
         iSlice=self.DicoIParm[Type]["iSlice"]
         if iSlice!=None:
@@ -127,7 +159,7 @@ class ClassParamMachine():
 
         ArrayPix=self.SquareGrids[TypeIn]["ArrayPix"]
 
-        Ain=Ain.reshape((self.NParam,self.AM.NPixListParms))
+        Ain=Ain.reshape((NSlice,Ain.size/NSlice))
 
         x,y=ArrayPix.T
         #print "=============",TypeInOut,A.shape,Ain.shape
@@ -175,6 +207,7 @@ class ClassParamMachine():
 
         S=self.ArrayToSubArray(A,"S")
         Alpha=self.ArrayToSubArray(A,"Alpha")
+
         self.MultiFreqMode=True
         for iBand in range(self.NFreqBands):
             if self.MultiFreqMode:
@@ -182,7 +215,6 @@ class ClassParamMachine():
             else:
                 MA[iBand]=S[:]
             #Alpha=self.ParmToArray(A,"Alpha")
-
 
 
         return MA

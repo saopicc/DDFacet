@@ -64,6 +64,8 @@ class ClassEvolveGA():
 
         self.toolbox=toolbox
 
+
+
     def main(self):
         os.system("rm png/*.png")
         random.seed(64)
@@ -79,9 +81,25 @@ class ClassEvolveGA():
         stats.register("min", numpy.min)
         stats.register("max", numpy.max)
 
+        self.ArrayMethodsMachine.PM.ReinitPop(self.pop)
+
         self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=.5, ngen=1000, 
                                            stats=stats, halloffame=self.hof, verbose=True, 
                                            ArrayMethodsMachine=self.ArrayMethodsMachine)
+
         
-        
+        # #:param mu: The number of individuals to select for the next generation.
+        # #:param lambda\_: The number of children to produce at each generation.
+        # #:param cxpb: The probability that an offspring is produced by crossover.
+        # #:param mutpb: The probability that an offspring is produced by mutation.
+
+        # mu=70
+        # lambda_=50
+        # cxpb=0.3
+        # mutpb=0.5
+        # ngen=1000
+
+        # self.pop, log= algorithms.eaMuPlusLambda(self.pop, toolbox, mu, lambda_, cxpb, mutpb, ngen,
+        #                               stats=None, halloffame=None, verbose=__debug__,
+        #                               ArrayMethodsMachine=self.ArrayMethodsMachine)
 

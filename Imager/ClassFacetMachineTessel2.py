@@ -289,6 +289,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         from scipy.spatial import ConvexHull
         for iFacet in sorted(DicoPolygon.keys()):
             diam=DicoPolygon[iFacet]["diamMin"]
+            # print iFacet,diam,DiamMin
             if diam<DiamMin:
                 dmin=1e6
                 xc0,yc0=DicoPolygon[iFacet]["xyc"]
@@ -296,46 +297,49 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 for iFacetOther in sorted(DicoPolygon.keys()):
                     if iFacetOther==iFacet: continue
                     iSolOther=DicoPolygon[iFacetOther]["iSol"]
-                    if iSolOther!=DicoPolygon[iFacet]["iSol"]: continue
+                    # print "  ",iSolOther,DicoPolygon[iFacet]["iSol"]
+                    if iSolOther!=DicoPolygon[iFacet]["iSol"]:
+                        continue
                     xc,yc=DicoPolygon[iFacetOther]["xyc"]
                     d=np.sqrt((xc-xc0)**2+(yc-yc0)**2)
                     if d<dmin:
                         dmin=d
                         iFacetClosest=iFacetOther
-                if not(HasClosest): break
-                print>>log, "Merging facet #%i to #%i"%(iFacet,iFacetClosest)
-                P0=Polygon.Polygon(DicoPolygon[iFacet]["poly"])
-                P1=Polygon.Polygon(DicoPolygon[iFacetClosest]["poly"])
-                P2=(P0|P1)
-                POut=[]
-                for iP in range(len(P2)):
-                    POut+=P2[iP]
+                        HasClosest=True
+                if (HasClosest):
+                    print>>log, "Merging facet #%i to #%i"%(iFacet,iFacetClosest)
+                    P0=Polygon.Polygon(DicoPolygon[iFacet]["poly"])
+                    P1=Polygon.Polygon(DicoPolygon[iFacetClosest]["poly"])
+                    P2=(P0|P1)
+                    POut=[]
+                    for iP in range(len(P2)):
+                        POut+=P2[iP]
                 
-                poly=np.array(POut)
-                hull = ConvexHull(poly)
-                Contour=np.array([hull.points[hull.vertices,0],hull. points[hull.vertices,1]])
-                poly2=Contour.T
-                # poly2=hull.points
-                # pylab.clf()
-                # x,y=poly.T
-                # pylab.plot(x,y)
-                # x,y=poly2.T
-                # pylab.plot(x,y)
-                # # PlotPolygon(P0)
-                # # PlotPolygon(P1)
-                # # #PlotPolygon(P2,color="black")
-                # # x,y=poly2.T
-                # # PlotPolygon(x,y,color="black")
-                # pylab.draw()
-                # pylab.show()
-                # time.sleep(0.5)
-                
-                #poly2=np.array(P2[0])
-                del(DicoPolygon[iFacet])
-                DicoPolygon[iFacetClosest]["poly"]=poly2
-                DicoPolygon[iFacetClosest]["diam"]=GiveDiam(poly2)[0]
-                DicoPolygon[iFacetClosest]["xyc"]=np.mean(poly2[:,0]),np.mean(poly2[:,1])
-
+                    poly=np.array(POut)
+                    hull = ConvexHull(poly)
+                    Contour=np.array([hull.points[hull.vertices,0],hull. points[hull.vertices,1]])
+                    poly2=Contour.T
+                    # poly2=hull.points
+                    # pylab.clf()
+                    # x,y=poly.T
+                    # pylab.plot(x,y)
+                    # x,y=poly2.T
+                    # pylab.plot(x,y)
+                    # # PlotPolygon(P0)
+                    # # PlotPolygon(P1)
+                    # # #PlotPolygon(P2,color="black")
+                    # # x,y=poly2.T
+                    # # PlotPolygon(x,y,color="black")
+                    # pylab.draw()
+                    # pylab.show()
+                    # time.sleep(0.5)
+                    
+                    #poly2=np.array(P2[0])
+                    del(DicoPolygon[iFacet])
+                    DicoPolygon[iFacetClosest]["poly"]=poly2
+                    DicoPolygon[iFacetClosest]["diam"]=GiveDiam(poly2)[0]
+                    DicoPolygon[iFacetClosest]["xyc"]=np.mean(poly2[:,0]),np.mean(poly2[:,1])
+        #stop
         LPolygonNew=[]
         for iFacet in sorted(DicoPolygon.keys()):
             LPolygonNew.append(DicoPolygon[iFacet]["poly"])
@@ -358,8 +362,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         
 
         regFile="%s.tessel.reg"%self.GD["Images"]["ImageName"]
-        labels=["[F%i.C%i]"%(i,DicoPolygon[i]["iSol"]) for i in range(len(LPolygonNew))]
-        VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=labels)
+        #labels=["[F%i.C%i]"%(i,DicoPolygon[i]["iSol"]) for i in range(len(LPolygonNew))]
+        #VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=labels)
+
+        VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green")
 
         # pylab.clf()
         # x,y=LPolygonNew[11].T
@@ -1144,10 +1150,3 @@ class WorkerImager(multiprocessing.Process):
 
                 self.result_queue.put({"Success":True,"iFacet":iFacet})
 #            print "Done %i"%iFacet
-
-
-
-
-
-
-

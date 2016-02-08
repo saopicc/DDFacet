@@ -176,7 +176,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
 
 
     T=ClassTimeIt.ClassTimeIt()
-    T.disable()
+    #T.disable()
     best_ind0 = tools.selBest(population, 1)[0]
 
     # from operator import attrgetter
@@ -232,7 +232,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
 
 
         if ArrayMethodsMachine!=None:
-            if gen%30==0:
+            if gen%50==0:
                 ArrayMethodsMachine.Plot(population,gen)
         #if gen%30==0:
         #    Plot(population,gen)
@@ -306,7 +306,7 @@ def varOr(population, toolbox, lambda_, cxpb, mutpb):
     return offspring
 
 def eaMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, ngen,
-                   stats=None, halloffame=None, verbose=__debug__):
+                   stats=None, halloffame=None, verbose=__debug__,ArrayMethodsMachine=None):
     """This is the :math:`(\mu + \lambda)` evolutionary algorithm.
     
     :param population: A list of individuals.
@@ -376,6 +376,7 @@ def eaMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, ngen,
     if verbose:
         print logbook.stream
 
+    ArrayMethodsMachine.Plot(population,0)
     # Begin the generational process
     for gen in range(1, ngen+1):
         # Vary the population
@@ -394,6 +395,10 @@ def eaMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, ngen,
         # Select the next generation population
         population[:] = toolbox.select(population + offspring, mu)
 
+
+        if ArrayMethodsMachine!=None:
+            if gen%30==0:
+                ArrayMethodsMachine.Plot(population,gen)
         # Update the statistics with the new population
         record = stats.compile(population) if stats is not None else {}
         logbook.record(gen=gen, nevals=len(invalid_ind), **record)
@@ -476,7 +481,6 @@ def eaMuCommaLambda(population, toolbox, mu, lambda_, cxpb, mutpb, ngen,
 
         # Select the next generation population
         population[:] = toolbox.select(offspring, mu)
-
         # Update the statistics with the new population
         record = stats.compile(population) if stats is not None else {}
         logbook.record(gen=gen, nevals=len(invalid_ind), **record)

@@ -18,14 +18,20 @@ class ClassArrayMethodGA():
 
         self.Dirty=Dirty
         self.PSF=PSF
+
+        #ListPixData=self.IncreaseIsland(ListPixData,dx=2)
+
+        #ListPixParms=ListPixData
         self.ListPixParms=ListPixParms
+
+
         self.ListPixData=ListPixData
         self.NPixListParms=len(ListPixParms)
         self.NPixListData=len(ListPixData)
         self.GD=GD
         self.WeightMaxFunc=collections.OrderedDict()
         self.WeightMaxFunc["Chi2"]=1.
-        self.WeightMaxFunc["MinFlux"]=1.
+        self.WeightMaxFunc["MinFlux"]=10.
         #self.WeightMaxFunc["L0"]=1.
         self.MaxFunc=self.WeightMaxFunc.keys()
         
@@ -45,8 +51,11 @@ class ClassArrayMethodGA():
         self.DataTrue=None
         pylab.figure(3,figsize=(5,3))
         pylab.clf()
-        pylab.figure(4,figsize=(5,3))
-        pylab.clf()
+        # pylab.figure(4,figsize=(5,3))
+        # pylab.clf()
+
+    
+
 
     def SetConvMatrix(self):
         PSF=self.PSF
@@ -61,8 +70,8 @@ class ClassArrayMethodGA():
 
         M=np.zeros((self.NFreqBands,1,self.NPixListData,self.NPixListParms),np.float32)
         xc=yc=NPixPSF/2
-        self.DirtyArray=np.zeros((self.NFreqBands,1,self.NPixListData),np.float32)
 
+        self.DirtyArray=np.zeros((self.NFreqBands,1,self.NPixListData),np.float32)
         for iBand in range(self.NFreqBands):
             for iPix in range(self.NPixListData):
                 x0,y0=self.ListPixData[iPix]
@@ -73,16 +82,81 @@ class ClassArrayMethodGA():
                         M[iBand,0,iPix,jPix]=PSF[iBand,0,i,j]
 
         self.DirtyArrayMean=np.mean(self.DirtyArray,axis=0).reshape((1,1,self.NPixListData))
+        self.DirtyCMMean=np.mean(M,axis=0).reshape((1,1,self.NPixListData,self.NPixListParms))
         self.DirtyArrayAbsMean=np.mean(np.abs(self.DirtyArray),axis=0).reshape((1,1,self.NPixListData))
         self.CM=M
-    
-    def Convolve(self,A):
+
+        MParms=np.zeros((self.NFreqBands,1,self.NPixListParms,self.NPixListParms),np.float32)
+        self.DirtyArrayParms=np.zeros((self.NFreqBands,1,self.NPixListParms),np.float32)
+        for iBand in range(self.NFreqBands):
+            for iPix in range(self.NPixListParms):
+                x0,y0=self.ListPixParms[iPix]
+                self.DirtyArrayParms[iBand,0,iPix]=self.Dirty[iBand,0,x0,y0]
+                for jPix,(x,y) in zip(range(self.NPixListParms),self.ListPixParms):
+                    i,j=(x-x0)+xc,(y-y0)+yc
+                    if (i>=0)&(i<NPixPSF)&(j>=0)&(j<NPixPSF):
+                        MParms[iBand,0,iPix,jPix]=PSF[iBand,0,i,j]
+
+        self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
+        self.CMParms=MParms
+        self.CMParmsMean=np.mean(MParms,axis=0).reshape((1,1,self.NPixListParms,self.NPixListParms))
+        
+        # DirtyArrayOnes=np.ones_like(self.DirtyArray)
+        # NormArray=self.Convolve(DirtyArrayOnes,Norm=False)
+        # NormPSFInteg=np.sum(self.CM,axis=2)[:,0,0]
+        # self.NormArray=NormArray/NormPSFInteg.reshape((self.NFreqBands,1,1))
+        # # Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
+        # # pylab.clf()
+        # # pylab.imshow(Dirty[0,0])
+        # # pylab.colorbar()
+        # # pylab.draw()
+        # # pylab.show()
+        # # stop
+
+
+
+    def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01):
+        CM=self.CMParmsMean.reshape((self.NPixListParms,self.NPixListParms))
+        A=self.DirtyArrayParmsMean.ravel().copy()
+        SModelArray=np.zeros_like(A)
+
+        MaxA=np.max(A)
+        Th=StopThFrac*MaxA
+        while True: 
+            iPix=np.argmax(np.abs(A))
+            f=A[iPix]
+            if np.abs(f)<Th: break
+            A-=CM[iPix]*gain*f
+            SModelArray[iPix]+=gain*f
+        return SModelArray
+#        stop
+
+    def IncreaseIsland(self,ListPix,dx=2):
+        nx=dx*2+1
+        xg,yg=np.mgrid[-dx:dx:1j*nx,-dx:dx:1j*nx]
+        xg=np.int64(xg.flatten())
+        yg=np.int64(yg.flatten())
+        OutListPix=[]
+        for Pix in ListPix:
+            x0,y0=Pix
+            x1=xg+x0
+            y1=yg+y0
+            for iPixAdd in range(xg.size):
+                OutListPix.append((x1[iPixAdd],y1[iPixAdd]))
+        OutListPix=list(set(OutListPix))
+        OutListPix2=[[x,y] for x,y in OutListPix]
+        return OutListPix2
+
+    def Convolve(self,A,Norm=True):
         sh=A.shape
         ConvA=np.zeros((self.NFreqBands,1,self.NPixListData),np.float32)
         for iBand in range(self.NFreqBands):
             AThisBand=A[iBand]
+            # if Norm:
+            #     AThisBand=AThisBand/self.NormArray[iBand,0]
             CF=self.CM[iBand,0]
             ConvA[iBand,0]=np.dot(CF,AThisBand.reshape((AThisBand.size,1))).reshape((self.NPixListData,))
+            #if Norm: ConvA[iBand,0]/=self.NormArray[iBand,0]
         return ConvA
 
     def ToConvArray(self,V):
@@ -132,7 +206,7 @@ class ClassArrayMethodGA():
                 # ResidNonZero=S[S!=0]
                 # W=self.WeightMaxFunc[FuncType]
                 # l0=-(ResidNonZero.size)
-                l0=-self.GiveCompacity(S)
+                l0=self.GiveCompacity(S)
 
                 ContinuousFitNess.append(l0*W)
             if FuncType=="MinFlux":
@@ -287,12 +361,14 @@ class ClassArrayMethodGA():
         if RType < _pFlux:
             Type=0
             N=1
+            N=int(random.uniform(0, 3.))
         elif RType < _pFlux+_pMove:
             Type=1
             N=np.max([(NNonZero/10),1])
         else:
             Type=2
             N=1
+            N=int(random.uniform(0, 3.))
     
         indR=sorted(list(set(np.int32(np.random.rand(N)*NNonZero).tolist())))
         indSel=ind[indR]
@@ -309,7 +385,7 @@ class ClassArrayMethodGA():
                         ds=0.1*np.abs(self.DirtyArrayAbsMean.ravel()[iPix]-np.abs(A[iPix]))
                     else:
                         if "Sigma" in self.PM.DicoIParm[TypeParm]["Default"].keys():
-                            ds=self.PM.DicoIParm[TypeParm]["Default"]["Sigma"]
+                            ds=self.PM.DicoIParm[TypeParm]["Default"]["Sigma"]["Value"]
                         else:
                             ds=A[iPix]
                     A[iPix] += random.gauss(0, 1.)*ds
@@ -458,7 +534,7 @@ class ClassArrayMethodGA():
         IM=self.PM.ModelToSquareArray(ModelArray)
         print "            difference between channels: ", np.max(np.abs(IM[0,0]-IM[1,0]))
 
-        im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+        im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=vmax)
         ax4.axes.get_xaxis().set_visible(False)
         ax4.axes.get_yaxis().set_visible(False)
         pylab.title("Best individual")

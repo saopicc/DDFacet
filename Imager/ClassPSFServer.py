@@ -37,6 +37,7 @@ class ClassPSFServer():
                          "ChanMappingGrid":DicoVariablePSF["ChanMappingGrid"],
                          "MeanJonesBand":DicoVariablePSF["MeanJonesBand"]}
 
+        self.DicoMappingDesc=DicoMappingDesc
 
         self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.GD,DicoMappingDesc)
         self.RefFreq=self.SpectralFunctionsMachine.RefFreq
@@ -44,13 +45,17 @@ class ClassPSFServer():
         #self.CalcJacobian()
 
     def setLocation(self,xp,yp):
-        #print "set loc"
+        self.iFacet=self.giveFacetID(xp,yp)
+
+    def giveFacetID(self,xp,yp):
         dmin=1e6
         for iFacet in range(self.NFacets):
             d=np.sqrt((xp-self.DicoVariablePSF[iFacet]["pixCentral"][0])**2+(yp-self.DicoVariablePSF[iFacet]["pixCentral"][1])**2)
             if d<dmin:
                 dmin=d
-                self.iFacet=iFacet
+                ClosestFacet=iFacet
+        return ClosestFacet
+                
 
     def setFacet(self,iFacet):
         #print "set facetloc"
