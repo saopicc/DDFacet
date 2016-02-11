@@ -10,23 +10,25 @@ from DDFacet.ToolsDir import ClassSpectralFunctions
 
 
 class ClassParamMachine():
-    def __init__(self,AM,GD=None):
-        self.GD=GD
-        
-        self.SolveParam=["S","Alpha"]
-        #self.SolveParam=["S"]
-        #self.SolveParam=["Alpha"]
+    def __init__(self,ListPixParms,ListPixData,FreqsInfo,SolveParam=["S","Alpha"]):
+
+        self.ListPixParms=ListPixParms
+        self.ListPixData=ListPixData
+        self.NPixListParms=len(self.ListPixParms)
+        self.NPixListData=len(self.ListPixData)
+
+        self.SolveParam=SolveParam
 
         self.MultiFreqMode=False
         if "Alpha" in self.SolveParam: self.MultiFreqMode=True
 
         self.NParam=len(self.SolveParam)
-        self.AM=AM
+
         self.DicoIParm={}
         DefaultValues={"S":{"Mean":0.,
                             "Sigma":{
                                 "Type":"PeakFlux",
-                                "Value":0.01}
+                                "Value":0.001}
                         },
                        "Alpha":{"Mean":0.,
                                 "Sigma":{
@@ -43,13 +45,13 @@ class ClassParamMachine():
         for iParm,Type in zip(range(self.NParam),self.SolveParam):
             self.DicoIParm[Type]["iSlice"]=iParm
 
-        self.NFreqBands=self.AM.NFreqBands
+        self.NFreqBands=len(FreqsInfo["freqs"])
         self.SetSquareGrids()
 
     def setFreqs(self,DicoMappingDesc):
         self.DicoMappingDesc=DicoMappingDesc
         if self.DicoMappingDesc==None: return
-        self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.GD,self.DicoMappingDesc)#,BeamEnable=False)
+        self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.DicoMappingDesc)#,BeamEnable=False)
         
 
     def GiveInitList(self,toolbox):
@@ -57,14 +59,13 @@ class ClassParamMachine():
         for Type in self.SolveParam:
             if Type=="S":
                 toolbox.register("attr_float_unif_S", random.uniform, 0., 0.1)
-                ListPars+=[toolbox.attr_float_unif_S]*self.AM.NPixListParms
+                ListPars+=[toolbox.attr_float_unif_S]*self.NPixListParms
             if Type=="Alpha":
                 toolbox.register("attr_float_normal_Alpha", random.gauss, 0., 0.3)
-                ListPars+=[toolbox.attr_float_normal_Alpha]*self.AM.NPixListParms
+                ListPars+=[toolbox.attr_float_normal_Alpha]*self.NPixListParms
         return ListPars
 
-    def ReinitPop(self,pop):
-        SModelArray=self.AM.DeconvCLEAN()
+    def ReinitPop(self,pop,SModelArray):
 
         for Type in self.SolveParam:
             DicoSigma=self.DicoIParm[Type]["Default"]["Sigma"]
@@ -89,11 +90,11 @@ class ClassParamMachine():
     def ArrayToSubArray(self,A,Type):
         iSlice=self.DicoIParm[Type]["iSlice"]
         if iSlice!=None:
-            ParmsArray=A.reshape((self.NParam,self.AM.NPixListParms))[iSlice]
+            ParmsArray=A.reshape((self.NParam,self.NPixListParms))[iSlice]
         elif "DataModel" in self.DicoIParm[Type].keys():
             ParmsArray=self.DicoIParm[Type]["DataModel"].flatten().copy()
         else:
-            ParmsArray=np.zeros((self.AM.NPixListParms,),np.float32)
+            ParmsArray=np.zeros((self.NPixListParms,),np.float32)
             ParmsArray.fill(self.DicoIParm[Type]["Default"]["Mean"])
 
         return ParmsArray
@@ -110,9 +111,9 @@ class ClassParamMachine():
 
     def SetSquareGrid(self,Type):
         if Type=="Data":
-            ArrayPix=np.array(self.AM.ListPixData)
+            ArrayPix=np.array(self.ListPixData)
         else:
-            ArrayPix=np.array(self.AM.ListPixParms)
+            ArrayPix=np.array(self.ListPixParms)
 
         x,y=ArrayPix.T
         nx=x.max()-x.min()+1
@@ -189,9 +190,9 @@ class ClassParamMachine():
         dx=x0y0_in[0]-x0y0_out[0]
         dy=x0y0_in[1]-x0y0_out[1]
         if TypeOut=="Data":
-            NPixOut=self.AM.NPixListData
+            NPixOut=self.NPixListData
         else:
-            NPixOut=self.AM.NPixListParms
+            NPixOut=self.NPixListParms
         
         ArrayPix=self.SquareGrids[TypeOut]["ArrayPix"]
         x,y=ArrayPix.T
@@ -203,7 +204,7 @@ class ClassParamMachine():
 
     def GiveModelArray(self,A):
         
-        MA=np.zeros((self.NFreqBands,self.AM.NPixListParms),np.float32)
+        MA=np.zeros((self.NFreqBands,self.NPixListParms),np.float32)
 
         S=self.ArrayToSubArray(A,"S")
         Alpha=self.ArrayToSubArray(A,"Alpha")

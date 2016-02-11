@@ -7,19 +7,25 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from DDFacet.Other import ClassTimeIt
 from itertools import repeat
 import collections
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("ClassArrayMethodGA")
 
 
 from ClassParamMachine import ClassParamMachine
 from DDFacet.ToolsDir.GeneDist import ClassDistMachine
+from SkyModel.PSourceExtract import ClassIncreaseIsland
+
 
 
 class ClassArrayMethodGA():
-    def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,PixVariance=1.e-2):
+    def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,PixVariance=1.e-2,IslandBestIndiv=None):
 
         self.Dirty=Dirty
         self.PSF=PSF
+        self.IslandBestIndiv=IslandBestIndiv
 
-        #ListPixData=self.IncreaseIsland(ListPixData,dx=2)
+        IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+        ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
 
         #ListPixParms=ListPixData
         self.ListPixParms=ListPixParms
@@ -31,7 +37,7 @@ class ClassArrayMethodGA():
         self.GD=GD
         self.WeightMaxFunc=collections.OrderedDict()
         self.WeightMaxFunc["Chi2"]=1.
-        self.WeightMaxFunc["MinFlux"]=10.
+        self.WeightMaxFunc["MinFlux"]=1.
         #self.WeightMaxFunc["L0"]=1.
         self.MaxFunc=self.WeightMaxFunc.keys()
         
@@ -43,7 +49,7 @@ class ClassArrayMethodGA():
         self.FreqsInfo=FreqsInfo
         
         self.NFreqBands,self.npol,self.NPixPSF,_=PSF.shape
-        self.PM=ClassParamMachine(self,self.GD)
+        self.PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,SolveParam=GD["GAClean"]["GASolvePars"])
         self.PM.setFreqs(FreqsInfo)
 
         self.SetConvMatrix()
@@ -58,6 +64,7 @@ class ClassArrayMethodGA():
 
 
     def SetConvMatrix(self):
+        print>>log,"SetConvMatrix"
         PSF=self.PSF
         NPixPSF=PSF.shape[-1]
         if self.ListPixData==None:
@@ -71,6 +78,7 @@ class ClassArrayMethodGA():
         M=np.zeros((self.NFreqBands,1,self.NPixListData,self.NPixListParms),np.float32)
         xc=yc=NPixPSF/2
 
+        print>>log,"  Calculate M"
         self.DirtyArray=np.zeros((self.NFreqBands,1,self.NPixListData),np.float32)
         for iBand in range(self.NFreqBands):
             for iPix in range(self.NPixListData):
@@ -81,11 +89,16 @@ class ClassArrayMethodGA():
                     if (i>=0)&(i<NPixPSF)&(j>=0)&(j<NPixPSF):
                         M[iBand,0,iPix,jPix]=PSF[iBand,0,i,j]
 
+        self.CM=M
+        if self.IslandBestIndiv!=None:
+            self.DirtyArray+=self.ToConvArray(self.IslandBestIndiv,OutMode="Data")
+
+        print>>log,"  Average M"
         self.DirtyArrayMean=np.mean(self.DirtyArray,axis=0).reshape((1,1,self.NPixListData))
         self.DirtyCMMean=np.mean(M,axis=0).reshape((1,1,self.NPixListData,self.NPixListParms))
         self.DirtyArrayAbsMean=np.mean(np.abs(self.DirtyArray),axis=0).reshape((1,1,self.NPixListData))
-        self.CM=M
 
+        print>>log,"  Calculate MParms"
         MParms=np.zeros((self.NFreqBands,1,self.NPixListParms,self.NPixListParms),np.float32)
         self.DirtyArrayParms=np.zeros((self.NFreqBands,1,self.NPixListParms),np.float32)
         for iBand in range(self.NFreqBands):
@@ -97,10 +110,14 @@ class ClassArrayMethodGA():
                     if (i>=0)&(i<NPixPSF)&(j>=0)&(j<NPixPSF):
                         MParms[iBand,0,iPix,jPix]=PSF[iBand,0,i,j]
 
-        self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
         self.CMParms=MParms
+        if self.IslandBestIndiv!=None:
+            self.DirtyArrayParms+=self.ToConvArray(self.IslandBestIndiv,OutMode="Parms")
+        print>>log,"  Mean MParms"
+        self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
         self.CMParmsMean=np.mean(MParms,axis=0).reshape((1,1,self.NPixListParms,self.NPixListParms))
         
+        print>>log,"Done"
         # DirtyArrayOnes=np.ones_like(self.DirtyArray)
         # NormArray=self.Convolve(DirtyArrayOnes,Norm=False)
         # NormPSFInteg=np.sum(self.CM,axis=2)[:,0,0]
@@ -113,7 +130,7 @@ class ClassArrayMethodGA():
         # # pylab.show()
         # # stop
 
-
+    
 
     def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01):
         CM=self.CMParmsMean.reshape((self.NPixListParms,self.NPixListParms))
@@ -131,38 +148,30 @@ class ClassArrayMethodGA():
         return SModelArray
 #        stop
 
-    def IncreaseIsland(self,ListPix,dx=2):
-        nx=dx*2+1
-        xg,yg=np.mgrid[-dx:dx:1j*nx,-dx:dx:1j*nx]
-        xg=np.int64(xg.flatten())
-        yg=np.int64(yg.flatten())
-        OutListPix=[]
-        for Pix in ListPix:
-            x0,y0=Pix
-            x1=xg+x0
-            y1=yg+y0
-            for iPixAdd in range(xg.size):
-                OutListPix.append((x1[iPixAdd],y1[iPixAdd]))
-        OutListPix=list(set(OutListPix))
-        OutListPix2=[[x,y] for x,y in OutListPix]
-        return OutListPix2
 
-    def Convolve(self,A,Norm=True):
+    def Convolve(self,A,Norm=True,OutMode="Data"):
         sh=A.shape
-        ConvA=np.zeros((self.NFreqBands,1,self.NPixListData),np.float32)
+        if OutMode=="Data":
+            CM=self.CM
+            OutSize=self.NPixListData
+        elif OutMode=="Parms":
+            CM=self.CMParms
+            OutSize=self.NPixListParms
+
+        ConvA=np.zeros((self.NFreqBands,1,OutSize),np.float32)
         for iBand in range(self.NFreqBands):
             AThisBand=A[iBand]
             # if Norm:
             #     AThisBand=AThisBand/self.NormArray[iBand,0]
-            CF=self.CM[iBand,0]
-            ConvA[iBand,0]=np.dot(CF,AThisBand.reshape((AThisBand.size,1))).reshape((self.NPixListData,))
+            CF=CM[iBand,0]
+            ConvA[iBand,0]=np.dot(CF,AThisBand.reshape((AThisBand.size,1))).reshape((OutSize,))
             #if Norm: ConvA[iBand,0]/=self.NormArray[iBand,0]
         return ConvA
 
-    def ToConvArray(self,V):
+    def ToConvArray(self,V,OutMode="Data"):
         A=self.PM.GiveModelArray(V)
         #A=ModFFTW.ConvolveGaussian(A,CellSizeRad=1,GaussPars=[(1.,1.,0.)])
-        A=self.Convolve(A)
+        A=self.Convolve(A,OutMode=OutMode)
         return A
 
     def setBestIndiv(self,BestIndiv):
@@ -268,11 +277,9 @@ class ClassArrayMethodGA():
             pylab.show(False)
             pylab.pause(0.1)
     
-    def MovePix(self,indiv,iPix,alpha=None,FluxWeighted=True,InReg=None):
+    def MovePix(self,indiv,iPix,Flux,FluxWeighted=True,InReg=None):
     
         
-        if alpha==None:
-            alpha=random.random()
         dx,dy=np.mgrid[-1:1:3*1j,-1:1:3*1j]
         Dx=np.int32(np.concatenate((dx.flatten()[0:4],dx.flatten()[5::])))
         Dy=np.int32(np.concatenate((dy.flatten()[0:4],dy.flatten()[5::])))
@@ -308,16 +315,22 @@ class ClassArrayMethodGA():
             ind=np.max([0,ind])
             ind=np.min([ind,iAround.size-1])
             ind=indIN[ind]
-        else:
-            if InReg==None:
-                reg=random.random()
-            else:
-                reg=InReg
-            ind=int(reg*8)
+
+        # else:
+        #     if InReg==None:
+        #         reg=random.random()
+        #     else:
+        #         reg=InReg
+        #     ind=int(reg*8)
+
         
-        i1=i0+Dx[ind]
-        j1=j0+Dy[ind]
-        f0=alpha*A[0,0,i0,j0]
+        
+        i1=i0+Dx[InReg]
+        j1=j0+Dy[InReg]
+
+            
+
+        f0=Flux#alpha*A[0,0,i0,j0]
         
         _,_,nx,ny=A.shape
         condx=((i1>0)&(i1<nx))
@@ -347,7 +360,7 @@ class ClassArrayMethodGA():
         _pFlux=pFlux/np.sum(Ps)
     
         T.timeit("start1")
-    
+        
         Af=self.PM.ArrayToSubArray(individual,"S")
         index=np.arange(Af.size)
         ind=np.where(Af!=0.)[0]
@@ -369,6 +382,12 @@ class ClassArrayMethodGA():
             Type=2
             N=1
             N=int(random.uniform(0, 3.))
+            
+            # InReg=random.uniform(-1,1)
+            # if InReg<0:
+            #     InReg=-1
+
+
     
         indR=sorted(list(set(np.int32(np.random.rand(N)*NNonZero).tolist())))
         indSel=ind[indR]
@@ -397,7 +416,19 @@ class ClassArrayMethodGA():
                     A[iPix] = 0.#1e-3
     
             if Type==2:
-                individual=self.MovePix(individual,iPix)
+
+                Flux=random.random()*Af[iPix]
+                InReg=random.random()*8
+                individual=self.MovePix(individual,iPix,Flux,InReg=InReg)
+
+                # if random.random()<0.5:
+                #     Flux=random.random()*Af[iPix]
+                #     InReg=random.random()*8
+                #     individual=self.MovePix(individual,iPix,Flux,InReg=InReg)
+                # else:
+                #     Flux=random.random()*0.3*Af[iPix]
+                #     for iReg in [1,3,5,7]:
+                #         individual=self.MovePix(individual,iPix,Flux,InReg=iReg)
                     
     
                 
@@ -532,9 +563,10 @@ class ClassArrayMethodGA():
         ax4=pylab.subplot(2,3,5)
         ModelArray=self.PM.GiveModelArray(V)
         IM=self.PM.ModelToSquareArray(ModelArray)
-        print "            difference between channels: ", np.max(np.abs(IM[0,0]-IM[1,0]))
 
-        im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=vmax)
+
+        #im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=vmax)
+        im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=1.5)
         ax4.axes.get_xaxis().set_visible(False)
         ax4.axes.get_yaxis().set_visible(False)
         pylab.title("Best individual")

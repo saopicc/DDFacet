@@ -150,6 +150,7 @@ def read_options():
     OP.add_option("ConstructMode")
 
     OP.OptionGroup("* Clean","ImagerDeconv")
+    OP.add_option("MinorCycleMode")
     OP.add_option("MaxMajorIter")
     OP.add_option("Gain")
     OP.add_option("SearchMaxAbs")

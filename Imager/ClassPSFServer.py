@@ -39,7 +39,7 @@ class ClassPSFServer():
 
         self.DicoMappingDesc=DicoMappingDesc
 
-        self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.GD,DicoMappingDesc)
+        self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(DicoMappingDesc)
         self.RefFreq=self.SpectralFunctionsMachine.RefFreq
         self.AllFreqs=self.SpectralFunctionsMachine.AllFreqs
         #self.CalcJacobian()

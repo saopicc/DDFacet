@@ -22,7 +22,7 @@ from DDFacet.ToolsDir import ModFitPSF
 from DDFacet.Data import ClassVisServer
 from DDFacet.Other import MyPickle
 import ClassCasaImage
-from ClassModelMachine import ClassModelMachine
+#from ClassModelMachine import ClassModelMachine
 from pyrap.tables import table
 
 import time
@@ -135,8 +135,11 @@ class ClassImagerDeconv():
                 self.MinorCycleMode="MS"
                 MinorCycleConfig["GD"]=self.GD
                 #self.DeconvMachine=ClassImageDeconvMachineMultiScale.ClassImageDeconvMachine(**MinorCycleConfig)
-                #self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
-                self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
+
+                if self.GD["ImagerDeconv"]["MinorCycleMode"]=="MSMF":
+                    self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
+                elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="GA":
+                    self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
             else:
                 print>>log, "Minor cycle deconvolution in Single Scale Mode" 
                 self.MinorCycleMode="SS"
@@ -493,7 +496,7 @@ class ClassImagerDeconv():
         self.FacetMachine.ReinitDirty()
         BaseName=self.GD["Images"]["ImageName"]
 
-        ModelMachine=ClassModelMachine(self.GD)
+        #ModelMachine=ClassModelMachine(self.GD)
         NormImageName="%s.NormFacets.fits"%BaseName
         CasaNormImage=image(NormImageName)
         NormImage=CasaNormImage.getdata()

@@ -3,7 +3,7 @@ import pylab
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassModelMachine")
+log=MyLogger.getLogger("ClassModelMachineGA")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
@@ -31,6 +31,8 @@ class ClassModelMachine():
         self.GainMachine=GainMachine
         self.DicoSMStacked={}
         self.DicoSMStacked["Comp"]={}
+        self.SolveParam=GD["GAClean"]["GASolvePars"]
+        self.NParam=len(self.SolveParam)
 
     def setRefFreq(self,RefFreq,AllFreqs):
         self.RefFreq=RefFreq
@@ -43,41 +45,141 @@ class ClassModelMachine():
             D=self.DicoSMStacked
         else:
             D=DicoIn
-            
-        D["ListScales"]=self.ListScales
+
+        #D["PM"]=self.PM
         D["ModelShape"]=self.ModelShape
+
         MyPickle.Save(D,FileName)
 
     def FromFile(self,FileName):
         print>>log, "Reading dico model from %s"%FileName
         self.DicoSMStacked=MyPickle.Load(FileName)
+        #self.PM=self.DicoSMStacked["PM"]
         self.RefFreq=self.DicoSMStacked["RefFreq"]
-        self.ListScales=self.DicoSMStacked["ListScales"]
         self.ModelShape=self.DicoSMStacked["ModelShape"]
 
     def setModelShape(self,ModelShape):
         self.ModelShape=ModelShape
 
-    def AppendComponentToDictStacked(self,key,Fpol,Sols):
+    def setThreshold(self,Th):
+        self.Th=Th
+
+    def setParamMachine(self,PM):
+        self.PM=PM
+        
+    def GiveIndividual(self,ListPixParms):
+        NParms=self.NParam
+        OutArr=np.zeros((NParms,len(ListPixParms)),np.float32)
+        for iPix in (ListPixParms):
+            try:
+                Vals=DicoComp[ListPixParms[iPix]]["Vals"][0]
+                OutArr[iPix][:]=Vals[:]
+                del(DicoComp[ListPixParms[iPix]])
+            except:
+                pass
+        return OutArr.flatten()
+
+
+    def AppendIsland(self,ListPixParms,V):
+        ListPix=ListPixParms
+        Vr=V.reshape((self.NParam,V.size/self.NParam))
+        NPixListParms=len(ListPixParms)
+
+        
+        #S=self.PM.ArrayToSubArray(V,Type="S")
+
+        #S[np.abs(S)<self.Th]=0
+        #S-=self.Th*np.sign(S)
+        SolveParam=np.array(self.SolveParam)
+        iS=np.where(SolveParam=="S")[0][0]
+        S=Vr[iS]
+        #S*=self.GainMachine.GiveGain()
+
+        for (x,y),iComp in zip(ListPix,range(NPixListParms)):
+            if S[iComp]==0: continue
+            Vals=np.array(Vr[:,iComp]).copy()
+            self.AppendComponentToDictStacked((x,y),Vals)
+
+
+    def AppendComponentToDictStacked(self,key,Vals):
         DicoComp=self.DicoSMStacked["Comp"]
+
         if not(key in DicoComp.keys()):
-            #print>>log, ModColor.Str("Add key %s"%(str(key)))
             DicoComp[key]={}
-            DicoComp[key]["SolsArray"]=np.zeros((Sols.size,),np.float32)
-            DicoComp[key]["SumWeights"]=0.
+            DicoComp[key]["Vals"]=[]
 
-        Weight=1.
-        Gain=self.GainMachine.GiveGain()
+        #Gain=self.GainMachine.GiveGain()
+        #DicoComp[key]["Vals"].append(Vals*Gain)
+        DicoComp[key]["Vals"].append(Vals)
 
-        SolNorm=Sols.ravel()*Gain*np.mean(Fpol)
+    def GiveModelImage(self,FreqIn=None):
 
+        RefFreq=self.DicoSMStacked["RefFreq"]
+        if FreqIn==None:
+            FreqIn=np.array([RefFreq])
 
-        DicoComp[key]["SumWeights"] += Weight
-        DicoComp[key]["SolsArray"]  += Weight*SolNorm
-        # print>>log, "Append %s: %s %s"%(str(key),str(DicoComp[key]["SolsArray"]),str(SolNorm))
+        #if type(FreqIn)==float:
+        #    FreqIn=np.array([FreqIn]).flatten()
+        #if type(FreqIn)==np.ndarray:
+
+        FreqIn=np.array([FreqIn.ravel()]).flatten()
+
+        DicoComp=self.DicoSMStacked["Comp"]
+        _,npol,nx,ny=self.ModelShape
+        N0=nx
+
+        nchan=FreqIn.size
+        ModelImage=np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+        DicoSM={}
+        SolveParam=np.array(self.SolveParam)
+        for x,y in DicoComp.keys():
+            ListSols=DicoComp[(x,y)]["Vals"]#/self.DicoSMStacked[key]["SumWeights"]
+
+            for iSol in range(len(ListSols)):
+                ThisSol=ListSols[iSol]
+
+                #print>>log,((x,y),iSol,ThisSol)
+
+                iS=np.where(SolveParam=="S")[0]
+                S=ThisSol[iS]
+                
+                ThisAlpha=0
+                iAlpha=np.where(SolveParam=="Alpha")[0]
+                if iAlpha.size!=0:
+                    ThisAlpha=ThisSol[iAlpha]
+
+                for ch in range(nchan):
+                    Flux=S*(FreqIn[ch]/RefFreq)**(ThisAlpha)
+
+                    for pol in range(npol):
+                        ModelImage[ch,pol,x,y]+=Flux
+                    
+        # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
+        # vmin,vmax=-1,1
+        # #vmin,vmax=np.min(ModelImage),np.max(ModelImage)
+        # pylab.clf()
+        # ax=pylab.subplot(1,3,1)
+        # pylab.imshow(self._MeanDirtyOrig[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
+        # pylab.imshow(self._MeanDirty[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.colorbar()
+        # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+        # pylab.imshow( ModelImage[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.colorbar()
+        # pylab.draw()
+        # pylab.show(False)
+        # print np.max(ModelImage[0,0])
+        # # stop
+
+ 
+        return ModelImage
+        
+
         
     def setListComponants(self,ListScales):
         self.ListScales=ListScales
+
+
 
 
     def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True):
@@ -101,73 +203,6 @@ class ClassModelMachine():
         alpha[Mask]=(np.log(M0[Mask])-np.log(M1[Mask]))/(np.log(f0/f1))
         return alpha
 
-    def GiveModelImage(self,FreqIn=None):
-
-        RefFreq=self.DicoSMStacked["RefFreq"]
-        if FreqIn==None:
-            FreqIn=np.array([RefFreq])
-
-        #if type(FreqIn)==float:
-        #    FreqIn=np.array([FreqIn]).flatten()
-        #if type(FreqIn)==np.ndarray:
-
-        FreqIn=np.array([FreqIn.ravel()]).flatten()
-
-        DicoComp=self.DicoSMStacked["Comp"]
-        _,npol,nx,ny=self.ModelShape
-        N0=nx
-
-        nchan=FreqIn.size
-        ModelImage=np.zeros((nchan,npol,nx,ny),dtype=np.float32)
-        DicoSM={}
-        for key in DicoComp.keys():
-            Sol=DicoComp[key]["SolsArray"]#/self.DicoSMStacked[key]["SumWeights"]
-            x,y=key
-
-            #print>>log, "%s : %s"%(str(key),str(Sol))
-
-            for iFunc in range(Sol.size):
-                ThisComp=self.ListScales[iFunc]
-                ThisAlpha=ThisComp["Alpha"]
-                for ch in range(nchan):
-                    Flux=Sol[iFunc]*(FreqIn[ch]/RefFreq)**(ThisAlpha)
-                    if ThisComp["ModelType"]=="Delta":
-                        for pol in range(npol):
-                            ModelImage[ch,pol,x,y]+=Flux
-                
-                    elif ThisComp["ModelType"]=="Gaussian":
-                        Gauss=ThisComp["Model"]
-                        Sup,_=Gauss.shape
-                        x0,x1=x-Sup/2,x+Sup/2+1
-                        y0,y1=y-Sup/2,y+Sup/2+1
-                        
-                        
-                        Aedge,Bedge=GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
-                        x0d,x1d,y0d,y1d=Aedge
-                        x0p,x1p,y0p,y1p=Bedge
-                        
-                        for pol in range(npol):
-                            ModelImage[ch,pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Flux
-        
-        # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
-        # vmin,vmax=-1,1
-        # #vmin,vmax=np.min(ModelImage),np.max(ModelImage)
-        # pylab.clf()
-        # ax=pylab.subplot(1,3,1)
-        # pylab.imshow(self._MeanDirtyOrig[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)
-        # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
-        # pylab.imshow(self._MeanDirty[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)
-        # pylab.colorbar()
-        # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-        # pylab.imshow( ModelImage[0,0],interpolation="nearest",vmin=vmin,vmax=vmax)
-        # pylab.colorbar()
-        # pylab.draw()
-        # pylab.show(False)
-        # print np.max(ModelImage[0,0])
-        # # stop
-
- 
-        return ModelImage
         
     def CleanNegComponants(self,box=20,sig=3,RemoveNeg=True):
         print>>log, "Cleaning model dictionary from negative componants with (box, sig) = (%i, %i)"%(box,sig)

@@ -19,7 +19,7 @@ import ClassArrayMethodGA
 
 
 class ClassEvolveGA():
-    def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,GD=None):
+    def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None):
         _,_,NPixPSF,_=PSF.shape
         if ListPixData==None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
@@ -27,7 +27,7 @@ class ClassEvolveGA():
         if ListPixParms==None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
             ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
-        self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=GD)
+        self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,IslandBestIndiv=IslandBestIndiv,GD=GD)
         self.InitEvolutionAlgo()
         #self.ArrayMethodsMachine.testMovePix()
         #stop
@@ -57,23 +57,24 @@ class ClassEvolveGA():
         toolbox.register("mate", tools.cxUniform, indpb=0.5)
         # toolbox.register("mate", tools.cxOrdered)
         # toolbox.register("mutate", tools.mutGaussian, indpb=0.3,  mu=0.0, sigma=.1)
-        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.3, p0=0.3, pMove=0.3)
+        #toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.3, p0=0.3, pMove=0.3)
+        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.1, p0=0.5, pMove=0.1)
 
-        toolbox.register("select", tools.selTournament, tournsize=30)
+        toolbox.register("select", tools.selTournament, tournsize=3)
         #toolbox.register("select", tools.selRoulette)
 
         self.toolbox=toolbox
 
 
 
-    def main(self):
+    def main(self,NGen=1000,NIndiv=100,DoPlot=True):
         os.system("rm png/*.png")
         random.seed(64)
         np.random.seed(64)
         toolbox=self.toolbox
         # pool = multiprocessing.Pool(processes=6)
         # toolbox.register("map", pool.map)
-        self.pop = toolbox.population(n=100)
+        self.pop = toolbox.population(n=NIndiv)
         self.hof = tools.HallOfFame(1, similar=numpy.array_equal)
         stats = tools.Statistics(lambda ind: ind.fitness.values)
         stats.register("avg", numpy.mean)
@@ -81,11 +82,13 @@ class ClassEvolveGA():
         stats.register("min", numpy.min)
         stats.register("max", numpy.max)
 
-        self.ArrayMethodsMachine.PM.ReinitPop(self.pop)
+        SModelArray=self.ArrayMethodsMachine.DeconvCLEAN()
+        self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray)
 
-        self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=.5, ngen=1000, 
+
+        self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.1, ngen=NGen, 
                                            stats=stats, halloffame=self.hof, verbose=True, 
-                                           ArrayMethodsMachine=self.ArrayMethodsMachine)
+                                           ArrayMethodsMachine=self.ArrayMethodsMachine,DoPlot=DoPlot)
 
         
         # #:param mu: The number of individuals to select for the next generation.
@@ -103,3 +106,5 @@ class ClassEvolveGA():
         #                               stats=None, halloffame=None, verbose=__debug__,
         #                               ArrayMethodsMachine=self.ArrayMethodsMachine)
 
+        V = tools.selBest(self.pop, 1)[0]
+        return V

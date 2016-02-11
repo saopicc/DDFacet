@@ -95,7 +95,7 @@ def varAnd(population, toolbox, cxpb, mutpb):
 import numpy as np
 
 def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
-             halloffame=None, verbose=__debug__,ArrayMethodsMachine=None):
+             halloffame=None, verbose=__debug__,ArrayMethodsMachine=None,DoPlot=True):
     """This algorithm reproduce the simplest evolutionary algorithm as
     presented in chapter 7 of [Back2000]_.
     
@@ -176,7 +176,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
 
 
     T=ClassTimeIt.ClassTimeIt()
-    #T.disable()
+    T.disable()
     best_ind0 = tools.selBest(population, 1)[0]
 
     # from operator import attrgetter
@@ -188,8 +188,8 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     # print A[0:-1]-A[1::]
     # print np.argmax(A)
     # stop
-
-    ArrayMethodsMachine.Plot(population,0)
+    if (ArrayMethodsMachine!=None)&(DoPlot):
+        ArrayMethodsMachine.Plot(population,0)
     
     # Begin the generational process
     for gen in range(1, ngen+1):
@@ -231,7 +231,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         # print "IND=",np.argmax(A)
 
 
-        if ArrayMethodsMachine!=None:
+        if (ArrayMethodsMachine!=None)&(DoPlot):
             if gen%50==0:
                 ArrayMethodsMachine.Plot(population,gen)
         #if gen%30==0:
