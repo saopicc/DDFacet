@@ -10,7 +10,7 @@ from DDFacet.ToolsDir import ClassSpectralFunctions
 
 
 class ClassParamMachine():
-    def __init__(self,ListPixParms,ListPixData,FreqsInfo,SolveParam=["S","Alpha"]):
+    def __init__(self,ListPixParms,ListPixData,FreqsInfo,SolveParam=["S","Alpha"],MultiFreqMode=False):
 
         self.ListPixParms=ListPixParms
         self.ListPixData=ListPixData
@@ -19,9 +19,11 @@ class ClassParamMachine():
 
         self.SolveParam=SolveParam
 
-        self.MultiFreqMode=False
+        self.MultiFreqMode=MultiFreqMode
+        if not(MultiFreqMode):
+            if "Alpha" in self.SolveParam: self.SolveParam.remove("Alpha")
+            
         if "Alpha" in self.SolveParam: self.MultiFreqMode=True
-
         self.NParam=len(self.SolveParam)
 
         self.DicoIParm={}

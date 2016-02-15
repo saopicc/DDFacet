@@ -19,7 +19,7 @@ import ClassArrayMethodGA
 
 
 class ClassEvolveGA():
-    def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None):
+    def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,MultiFreqMode=False):
         _,_,NPixPSF,_=PSF.shape
         if ListPixData==None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
@@ -27,7 +27,7 @@ class ClassEvolveGA():
         if ListPixParms==None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
             ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
-        self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,IslandBestIndiv=IslandBestIndiv,GD=GD)
+        self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,IslandBestIndiv=IslandBestIndiv,GD=GD,MultiFreqMode=MultiFreqMode)
         self.InitEvolutionAlgo()
         #self.ArrayMethodsMachine.testMovePix()
         #stop
@@ -69,8 +69,8 @@ class ClassEvolveGA():
 
     def main(self,NGen=1000,NIndiv=100,DoPlot=True):
         #os.system("rm png/*.png")
-        random.seed(64)
-        np.random.seed(64)
+        #random.seed(64)
+        #np.random.seed(64)
         toolbox=self.toolbox
         # pool = multiprocessing.Pool(processes=6)
         # toolbox.register("map", pool.map)

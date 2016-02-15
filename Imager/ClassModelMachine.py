@@ -44,6 +44,7 @@ class ClassModelMachine():
         else:
             D=DicoIn
             
+        D["Type"]="MSMF"
         D["ListScales"]=self.ListScales
         D["ModelShape"]=self.ModelShape
         MyPickle.Save(D,FileName)

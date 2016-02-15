@@ -77,6 +77,8 @@ class ClassImageDeconvMachine():
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
         self.ModelMachine.setRefFreq(self.PSFServer.RefFreq,self.PSFServer.AllFreqs)
+        
+
 
     def InitMSMF(self):
         pass
@@ -250,7 +252,10 @@ class ClassImageDeconvMachine():
             # print "saving ok"
 
             IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
-            CEv=ClassEvolveGA(self._Dirty,PSF,FreqsInfo,ListPixParms=ThisPixList,ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,GD=self.GD)
+            CEv=ClassEvolveGA(self._Dirty,PSF,FreqsInfo,ListPixParms=ThisPixList,
+                              ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,
+                              GD=self.GD,
+                              MultiFreqMode=self.MultiFreqMode)
             Model=CEv.main(NGen=100,DoPlot=True)#False)
             
 
@@ -364,7 +369,8 @@ class ClassImageDeconvMachine():
                                  List_Result_queue[ii],
                                  self.GD,
                                  IdSharedMem=self.IdSharedMem,
-                                 FreqsInfo=self.PSFServer.DicoMappingDesc)
+                                 FreqsInfo=self.PSFServer.DicoMappingDesc,
+                                 MultiFreqMode=self.MultiFreqMode)
             workerlist.append(W)
             workerlist[ii].start()
 
@@ -377,14 +383,19 @@ class ClassImageDeconvMachine():
             DicoResult=None
             for result_queue in List_Result_queue:
                 if result_queue.qsize()!=0:
-                    #DicoResult=result_queue.get_nowait()
-                    DicoResult=result_queue.get()
+                    try:
+                        DicoResult=result_queue.get_nowait()
+                        
+                        break
+                    except:
+                        
+                        pass
+                    #DicoResult=result_queue.get()
 
 
             if DicoResult==None:
                 time.sleep(0.5)
                 continue
-
 
             if DicoResult["Success"]:
                 iResult+=1
@@ -392,12 +403,13 @@ class ClassImageDeconvMachine():
                 intPercent=int(100*  NDone / float(NJobs))
                 pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
 
+
             iIsland=DicoResult["iIsland"]
-            ThisPixList=DicoResult["PixList"]
-            Model=DicoResult["Model"]
-
+            ThisPixList=ThisPixList=self.ListIslands[iIsland]
+            SharedIslandName="%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland)
+            Model=NpShared.GiveArray(SharedIslandName)
             self.ModelMachine.AppendIsland(ThisPixList,Model)
-
+            NpShared.DelArray(SharedIslandName)
 
 
 
@@ -478,8 +490,10 @@ class WorkerDeconvIsland(multiprocessing.Process):
                  result_queue,
                  GD,
                  IdSharedMem=None,
-                 FreqsInfo=None):
+                 FreqsInfo=None,
+                 MultiFreqMode=False):
         multiprocessing.Process.__init__(self)
+        self.MultiFreqMode=MultiFreqMode
         self.work_queue = work_queue
         self.result_queue = result_queue
         self.kill_received = False
@@ -510,11 +524,19 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
             PSF=self.CubeVariablePSF[FacetID]
 
-            CEv=ClassEvolveGA(self._Dirty,PSF,self.FreqsInfo,ListPixParms=ThisPixList,ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,GD=self.GD)
+            CEv=ClassEvolveGA(self._Dirty,
+                              PSF,
+                              self.FreqsInfo,
+                              ListPixParms=ThisPixList,
+                              ListPixData=ThisPixList,
+                              IslandBestIndiv=IslandBestIndiv,
+                              GD=self.GD,
+                              MultiFreqMode=self.MultiFreqMode)
             Model=CEv.main(NGen=100,DoPlot=False)
+            Model=np.array(Model)
             
+            NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
 
-            
 
-            self.result_queue.put({"Success":True,"iIsland":iIsland,"Model":np.array(Model),"PixList":ThisPixList})
+            self.result_queue.put({"Success":True,"iIsland":iIsland})
                 

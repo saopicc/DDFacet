@@ -42,6 +42,7 @@ class ClassPSFServer():
         self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(DicoMappingDesc)
         self.RefFreq=self.SpectralFunctionsMachine.RefFreq
         self.AllFreqs=self.SpectralFunctionsMachine.AllFreqs
+        print "PSFServer:",self.RefFreq, self.AllFreqs
         #self.CalcJacobian()
 
     def setLocation(self,xp,yp):

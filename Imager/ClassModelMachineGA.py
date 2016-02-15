@@ -38,7 +38,10 @@ class ClassModelMachine():
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
         self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
+        print "ModelMachine:",self.RefFreq, self.DicoSMStacked["RefFreq"], self.DicoSMStacked["AllFreqs"]
         
+
+
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName
         if DicoIn==None:
@@ -48,6 +51,7 @@ class ClassModelMachine():
 
         #D["PM"]=self.PM
         D["ModelShape"]=self.ModelShape
+        D["Type"]="GA"
 
         MyPickle.Save(D,FileName)
 
@@ -125,6 +129,11 @@ class ClassModelMachine():
         #if type(FreqIn)==np.ndarray:
 
         FreqIn=np.array([FreqIn.ravel()]).flatten()
+
+
+        print "ModelMachine GiveModelImage:",FreqIn, RefFreq
+
+
 
         DicoComp=self.DicoSMStacked["Comp"]
         _,npol,nx,ny=self.ModelShape
