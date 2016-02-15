@@ -22,6 +22,8 @@ from DDFacet.Other import MyPickle
 import multiprocessing
 import time
 
+MyLogger.setSilent("ClassArrayMethodGA")
+
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,
@@ -359,15 +361,15 @@ class ClassImageDeconvMachine():
 
         for ii in range(NCPU):
             W=WorkerDeconvIsland(work_queue, 
-                                  List_Result_queue[ii],
-                                  self.GD,
-                                  IdSharedMem=self.IdSharedMem,
-                                  FreqsInfo=self.PSFServer.DicoMappingDesc)
+                                 List_Result_queue[ii],
+                                 self.GD,
+                                 IdSharedMem=self.IdSharedMem,
+                                 FreqsInfo=self.PSFServer.DicoMappingDesc)
             workerlist.append(W)
             workerlist[ii].start()
 
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="  Gridding ", HeaderSize=10,TitleSize=13)
-        pBAR.disable()
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolve pop ", HeaderSize=10,TitleSize=13)
+        #pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NJobs))
 
         iResult=0
@@ -375,12 +377,10 @@ class ClassImageDeconvMachine():
             DicoResult=None
             for result_queue in List_Result_queue:
                 if result_queue.qsize()!=0:
-                    try:
-                        DicoResult=result_queue.get_nowait()
-                        break
-                    except:
-                        pass
-                
+                    #DicoResult=result_queue.get_nowait()
+                    DicoResult=result_queue.get()
+
+
             if DicoResult==None:
                 time.sleep(0.5)
                 continue
@@ -397,7 +397,7 @@ class ClassImageDeconvMachine():
             Model=DicoResult["Model"]
 
             self.ModelMachine.AppendIsland(ThisPixList,Model)
-            
+
 
 
 
@@ -407,14 +407,6 @@ class ClassImageDeconvMachine():
             workerlist[ii].join()
 
         
-        return True
-
-        
-
-
-
-
-            
 
 
         return "MaxIter", True, True   # stop deconvolution but do update model
@@ -519,11 +511,10 @@ class WorkerDeconvIsland(multiprocessing.Process):
             PSF=self.CubeVariablePSF[FacetID]
 
             CEv=ClassEvolveGA(self._Dirty,PSF,self.FreqsInfo,ListPixParms=ThisPixList,ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,GD=self.GD)
-            Model=CEv.main(NGen=100,DoPlot=True)#False)
+            Model=CEv.main(NGen=100,DoPlot=False)
             
 
+            
 
-
-
-            self.result_queue.put({"Success":True,"iIsland":iIsland,"Model":Model,"PixList":PixList})
+            self.result_queue.put({"Success":True,"iIsland":iIsland,"Model":np.array(Model),"PixList":ThisPixList})
                 

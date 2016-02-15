@@ -68,7 +68,7 @@ class ClassEvolveGA():
 
 
     def main(self,NGen=1000,NIndiv=100,DoPlot=True):
-        os.system("rm png/*.png")
+        #os.system("rm png/*.png")
         random.seed(64)
         np.random.seed(64)
         toolbox=self.toolbox
@@ -76,18 +76,21 @@ class ClassEvolveGA():
         # toolbox.register("map", pool.map)
         self.pop = toolbox.population(n=NIndiv)
         self.hof = tools.HallOfFame(1, similar=numpy.array_equal)
-        stats = tools.Statistics(lambda ind: ind.fitness.values)
-        stats.register("avg", numpy.mean)
-        stats.register("std", numpy.std)
-        stats.register("min", numpy.min)
-        stats.register("max", numpy.max)
+
+        # stats = tools.Statistics(lambda ind: ind.fitness.values)
+        # stats.register("avg", numpy.mean)
+        # stats.register("std", numpy.std)
+        # stats.register("min", numpy.min)
+        # stats.register("max", numpy.max)
 
         SModelArray=self.ArrayMethodsMachine.DeconvCLEAN()
         self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray)
 
 
         self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.1, ngen=NGen, 
-                                           stats=stats, halloffame=self.hof, verbose=True, 
+                                           halloffame=self.hof, 
+                                           #stats=stats,
+                                           verbose=False, 
                                            ArrayMethodsMachine=self.ArrayMethodsMachine,DoPlot=DoPlot)
 
         
