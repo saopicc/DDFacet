@@ -10,7 +10,7 @@ log=MyLogger.getLogger("ClassIsland")
 
 
 class ClassIslands():
-    def __init__(self,A,T=None,box=(100,100),MinPerIsland=10,Boost=3,DoPlot=False,FillNoise=True,
+    def __init__(self,A,T=None,box=(100,100),MinPerIsland=4,Boost=3,DoPlot=False,FillNoise=True,
                  MaskImage=None):
         self.A=A
         self.T=T
@@ -18,7 +18,7 @@ class ClassIslands():
         self.Noise=None
         self.box=box
         self.MinPerIsland=MinPerIsland
-        self.DeltaXYMin=4
+        self.DeltaXYMin=2
         self.FitIm=None
         self.FittedComps=None
         self.Boost=Boost
@@ -152,7 +152,6 @@ class ClassIslands():
         self.Noise[ind]=1e-10
 
 
-
     def FindAllIslands(self):
         A=self.A
         if (self.Noise==None)&(self.MaskImage==None):
@@ -208,7 +207,7 @@ class ClassIslands():
         print>>log,"  Labeling islands"
         self.ImIsland,NIslands=scipy.ndimage.label(self.MaskImage)
         ImIsland=self.ImIsland
-        NIslands+=1
+        #NIslands+=1
         nx,_=ImIsland.shape
 
         print>>log,"  Found %i islands"%NIslands
@@ -224,26 +223,38 @@ class ClassIslands():
 
 
 
-        for ipix in range(nx):
-            
-            pBAR.render(int(100*ipix / (nx-1)), comment)
-            for jpix in range(nx):
-                iIsland=self.ImIsland[ipix,jpix]
-                if iIsland:
-                    NThis=NIslandNonZero[iIsland]
-                    Island[iIsland,NThis,0]=ipix
-                    Island[iIsland,NThis,1]=jpix
-                    NIslandNonZero[iIsland]+=1
+        # for ipix in range(nx):
+        #     pBAR.render(int(100*ipix / (nx-1)), comment)
+        #     for jpix in range(nx):
+        #         iIsland=self.ImIsland[ipix,jpix]
+        #         if iIsland:
+        #             NThis=NIslandNonZero[iIsland-1]
+        #             Island[iIsland-1,NThis,0]=ipix
+        #             Island[iIsland-1,NThis,1]=jpix
+        #             NIslandNonZero[iIsland-1]+=1
+
+        indx,indy=np.where(self.ImIsland)
+        nx=indx.size
+        for iPix in range(nx):
+            #pBAR.render(int(100*iPix / (nx-1)), comment)
+            x,y=indx[iPix],indy[iPix]
+            iIsland=self.ImIsland[x,y]
+            if iIsland:
+                NThis=NIslandNonZero[iIsland-1]
+                Island[iIsland-1,NThis,0]=x
+                Island[iIsland-1,NThis,1]=y
+                NIslandNonZero[iIsland-1]+=1
 
         print>>log,"  Listing pixels in islands"
         LIslands=[]
-        for iIsland in range(1,NIslands):
+        for iIsland in range(NIslands):
             ind=np.where(Island[iIsland,:,0]!=0)[0]
             ThisIsland=[]
             Npix=ind.size
             for ipix in range(Npix):
-                ThisIsland.append([Island[iIsland,ipix,0].tolist(),Island[iIsland,ipix,1]])
+                ThisIsland.append([Island[iIsland,ipix,0].tolist(),Island[iIsland,ipix,1].tolist()])
             LIslands.append(ThisIsland)
+
 
         
         print>>log,"  Selecting pixels in islands"

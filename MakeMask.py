@@ -169,6 +169,7 @@ class ClassMakeMask():
                 self.Noise[i::Boost,j::Boost][0:s0,0:s1]=Noise[:,:][0:s0,0:s1]
         ind=np.where(self.Noise==0.)
         self.Noise[ind]=1e-10
+        
 
     # def ComputeNoiseMap(self):
     #     print "Compute noise map..."
@@ -189,7 +190,12 @@ class ClassMakeMask():
 
     def MakeMask(self):
         self.ImMask=(self.Restored[0,0,:,:]>self.Th*self.Noise)
+        self.ImMask[:,-1]=0
+        self.ImMask[:,0]=0
+        self.ImMask[0,:]=0
+        self.ImMask[-1,:]=0
         #self.ImIsland=scipy.ndimage.filters.median_filter(self.ImIsland,size=(3,3))
+
 
     def MaskSelectedDS9(self):
         ds9Mask=self.ds9Mask
