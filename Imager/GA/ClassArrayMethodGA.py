@@ -132,14 +132,14 @@ class ClassArrayMethodGA():
 
     
 
-    def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01):
+    def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01,NMaxIter=100):
         CM=self.CMParmsMean.reshape((self.NPixListParms,self.NPixListParms))
         A=self.DirtyArrayParmsMean.ravel().copy()
         SModelArray=np.zeros_like(A)
 
         MaxA=np.max(A)
         Th=StopThFrac*MaxA
-        while True: 
+        for iIter in range(NMaxIter): 
             iPix=np.argmax(np.abs(A))
             f=A[iPix]
             if np.abs(f)<Th: break

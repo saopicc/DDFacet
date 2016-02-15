@@ -64,19 +64,21 @@ class ClassModelMachine():
     def setThreshold(self,Th):
         self.Th=Th
 
-    def setParamMachine(self,PM):
-        self.PM=PM
         
     def GiveIndividual(self,ListPixParms):
         NParms=self.NParam
         OutArr=np.zeros((NParms,len(ListPixParms)),np.float32)
-        for iPix in (ListPixParms):
-            try:
-                Vals=DicoComp[ListPixParms[iPix]]["Vals"][0]
-                OutArr[iPix][:]=Vals[:]
-                del(DicoComp[ListPixParms[iPix]])
-            except:
-                pass
+        DicoComp=self.DicoSMStacked["Comp"]
+
+        for iPix in range(len(ListPixParms)):
+            x,y=ListPixParms[iPix]
+
+            if (x,y) in DicoComp.keys():
+                xy=x,y
+                Vals=DicoComp[xy]["Vals"][0]
+                OutArr[:,iPix]=Vals[:]
+                del(DicoComp[xy])
+
         return OutArr.flatten()
 
 
