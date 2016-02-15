@@ -254,9 +254,9 @@ class ClassImageDeconvMachine():
             Model=CEv.main(NGen=100,DoPlot=True)#False)
             
 
-            self.ModelMachine.setParamMachine(CEv.ArrayMethodsMachine.PM)
-            Threshold=self.GiveThreshold(np.max(np.abs(Model)))
-            self.ModelMachine.setThreshold(Threshold)
+            #self.ModelMachine.setParamMachine(CEv.ArrayMethodsMachine.PM)
+            #Threshold=self.GiveThreshold(np.max(np.abs(Model)))
+            #self.ModelMachine.setThreshold(Threshold)
             self.ModelMachine.AppendIsland(ThisPixList,Model)
             
 
