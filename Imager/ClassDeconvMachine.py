@@ -575,8 +575,8 @@ class ClassImagerDeconv():
             # # ######## TEST
 
 
-            repMinor, continue_deconv, update_model = self.DeconvMachine.Clean()
-            #repMinor, continue_deconv, update_model = self.DeconvMachine.CleanSerial()
+            #repMinor, continue_deconv, update_model = self.DeconvMachine.Clean()
+            repMinor, continue_deconv, update_model = self.DeconvMachine.CleanSerial()
 
             
 

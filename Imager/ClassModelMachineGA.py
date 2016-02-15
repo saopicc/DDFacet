@@ -38,7 +38,7 @@ class ClassModelMachine():
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
         self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
-        print "ModelMachine:",self.RefFreq, self.DicoSMStacked["RefFreq"], self.DicoSMStacked["AllFreqs"]
+        # print "ModelMachine:",self.RefFreq, self.DicoSMStacked["RefFreq"], self.DicoSMStacked["AllFreqs"]
         
 
 
@@ -131,7 +131,7 @@ class ClassModelMachine():
         FreqIn=np.array([FreqIn.ravel()]).flatten()
 
 
-        print "ModelMachine GiveModelImage:",FreqIn, RefFreq
+        # print "ModelMachine GiveModelImage:",FreqIn, RefFreq
 
 
 

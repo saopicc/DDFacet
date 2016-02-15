@@ -19,7 +19,7 @@ import ClassArrayMethodGA
 
 
 class ClassEvolveGA():
-    def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,MultiFreqMode=False):
+    def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None):
         _,_,NPixPSF,_=PSF.shape
         if ListPixData==None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
@@ -27,7 +27,7 @@ class ClassEvolveGA():
         if ListPixParms==None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
             ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
-        self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,IslandBestIndiv=IslandBestIndiv,GD=GD,MultiFreqMode=MultiFreqMode)
+        self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,IslandBestIndiv=IslandBestIndiv,GD=GD)
         self.InitEvolutionAlgo()
         #self.ArrayMethodsMachine.testMovePix()
         #stop

@@ -18,7 +18,7 @@ from SkyModel.PSourceExtract import ClassIncreaseIsland
 
 
 class ClassArrayMethodGA():
-    def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,PixVariance=1.e-2,IslandBestIndiv=None,MultiFreqMode=False):
+    def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,PixVariance=1.e-2,IslandBestIndiv=None):
 
         self.Dirty=Dirty
         self.PSF=PSF
@@ -49,8 +49,8 @@ class ClassArrayMethodGA():
         self.FreqsInfo=FreqsInfo
         
         self.NFreqBands,self.npol,self.NPixPSF,_=PSF.shape
-        self.PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,SolveParam=GD["GAClean"]["GASolvePars"],
-                                  MultiFreqMode=MultiFreqMode)
+        self.PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,SolveParam=GD["GAClean"]["GASolvePars"])
+
         self.PM.setFreqs(FreqsInfo)
 
         self.SetConvMatrix()

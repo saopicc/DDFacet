@@ -129,13 +129,18 @@ class ClassVisServer():
         self.MultiFreqMode=False
         NFreqBands=self.NFreqBands
         if self.NFreqBands>1: 
-            self.MultiFreqMode=True
             print>>log, ModColor.Str("MultiFrequency Mode: ON")
+            if not("Alpha" in self.GD["GAClean"]["GASolvePars"]):
+                self.GD["GAClean"]["GASolvePars"].append("Alpha")
+            
         else:
             self.GD["MultiFreqs"]["NFreqBands"] = 1
             self.GD["MultiFreqs"]["Alpha"] = [0.,0.,1.]
+            if "Alpha" in self.GD["GAClean"]["GASolvePars"]:
+                self.GD["GAClean"]["GASolvePars"].remove("Alpha")
             print>>log, ModColor.Str("MultiFrequency Mode: OFF")
             
+
         FreqBands=np.linspace(self.GlobalFreqs.min(),self.GlobalFreqs.max(),NFreqBands+1)
         self.FreqBandsMean=(FreqBands[0:-1]+FreqBands[1::])/2.
         self.FreqBandsMin=FreqBands[0:-1].copy()

@@ -254,8 +254,7 @@ class ClassImageDeconvMachine():
             IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
             CEv=ClassEvolveGA(self._Dirty,PSF,FreqsInfo,ListPixParms=ThisPixList,
                               ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,
-                              GD=self.GD,
-                              MultiFreqMode=self.MultiFreqMode)
+                              GD=self.GD)
             Model=CEv.main(NGen=100,DoPlot=True)#False)
             
 
@@ -369,8 +368,7 @@ class ClassImageDeconvMachine():
                                  List_Result_queue[ii],
                                  self.GD,
                                  IdSharedMem=self.IdSharedMem,
-                                 FreqsInfo=self.PSFServer.DicoMappingDesc,
-                                 MultiFreqMode=self.MultiFreqMode)
+                                 FreqsInfo=self.PSFServer.DicoMappingDesc)
             workerlist.append(W)
             workerlist[ii].start()
 
