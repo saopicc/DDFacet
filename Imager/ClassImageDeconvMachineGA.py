@@ -127,7 +127,7 @@ class ClassImageDeconvMachine():
                 self.ListIslands.append(ListIslands[iIsland])
 
         self.NIslands=len(self.ListIslands)
-
+        print>>log,"Selected %i islands [out of %i] with peak flux > %.3g Jy"%(self.NIslands,len(ListIslands),Threshold)
 
         IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
         for iIsland in range(self.NIslands):
