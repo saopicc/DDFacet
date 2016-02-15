@@ -262,6 +262,7 @@ class ClassIslands():
             condMinPix=(len(i)>self.MinPerIsland)
             xpos=[i[ii][0] for ii in range(len(i))]
             ypos=[i[ii][1] for ii in range(len(i))]
+            if len(xpos)==0: continue
             dx=np.max(xpos)-np.min(xpos)
             dy=np.max(ypos)-np.min(ypos)
             condDelta=(dx>=self.DeltaXYMin)&(dy>=self.DeltaXYMin)
