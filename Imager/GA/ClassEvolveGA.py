@@ -2,7 +2,7 @@
 import random
 
 #from deap import base
-import base
+from deap import base
 from deap import creator
 from deap import tools
 import numpy
