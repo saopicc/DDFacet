@@ -133,7 +133,7 @@ class ClassArrayMethodGA():
 
     
 
-    def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01,NMaxIter=100):
+    def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01,NMaxIter=1000):
         CM=self.CMParmsMean.reshape((self.NPixListParms,self.NPixListParms))
         A=self.DirtyArrayParmsMean.ravel().copy()
         SModelArray=np.zeros_like(A)
@@ -592,6 +592,6 @@ class ClassArrayMethodGA():
         pylab.draw()
         pylab.show(False)
         pylab.pause(0.1)
-        #fig.savefig("png/fig%4.4i.png"%iGen)
+        fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))
 
     

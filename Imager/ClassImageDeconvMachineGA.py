@@ -230,7 +230,7 @@ class ClassImageDeconvMachine():
             print>>log,"  Fitting island #%4.4i with %i pixels"%(iIsland,len(ThisPixList))
 
             XY=np.array(ThisPixList,dtype=np.float32)
-            xm,ym=np.mean(np.float32(XY),axis=0)
+            xm,ym=np.int64(np.mean(np.float32(XY),axis=0))
 
             FacetID=self.PSFServer.giveFacetID(xm,ym)
             PSF=self.DicoVariablePSF["CubeVariablePSF"][FacetID]
@@ -261,7 +261,11 @@ class ClassImageDeconvMachine():
             #self.ModelMachine.setParamMachine(CEv.ArrayMethodsMachine.PM)
             #Threshold=self.GiveThreshold(np.max(np.abs(Model)))
             #self.ModelMachine.setThreshold(Threshold)
-            self.ModelMachine.AppendIsland(ThisPixList,Model)
+            nchan,npol,_,_=self._Dirty.shape
+            JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))
+            W=self.DicoDirty["WeightChansImages"]
+            JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
+            self.ModelMachine.AppendIsland(ThisPixList,Model,JonesNorm=JonesNorm)
             
 
 
@@ -403,10 +407,17 @@ class ClassImageDeconvMachine():
 
 
             iIsland=DicoResult["iIsland"]
-            ThisPixList=ThisPixList=self.ListIslands[iIsland]
+            ThisPixList=self.ListIslands[iIsland]
             SharedIslandName="%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland)
             Model=NpShared.GiveArray(SharedIslandName)
-            self.ModelMachine.AppendIsland(ThisPixList,Model)
+
+            nchan,npol,_,_=self._Dirty.shape
+            JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))
+            W=self.DicoDirty["WeightChansImages"]
+            JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
+            self.ModelMachine.AppendIsland(ThisPixList,Model,JonesNorm=JonesNorm)
+
+
             NpShared.DelArray(SharedIslandName)
 
 
@@ -530,7 +541,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
                               IslandBestIndiv=IslandBestIndiv,
                               GD=self.GD,
                               MultiFreqMode=self.MultiFreqMode)
-            Model=CEv.main(NGen=100,DoPlot=False)
+            Model=CEv.main(NGen=1000,DoPlot=False)
             Model=np.array(Model)
             
             NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)

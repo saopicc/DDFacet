@@ -86,7 +86,7 @@ class ClassModelMachine():
         return OutArr.flatten()
 
 
-    def AppendIsland(self,ListPixParms,V):
+    def AppendIsland(self,ListPixParms,V,JonesNorm=None):
         ListPix=ListPixParms
         Vr=V.reshape((self.NParam,V.size/self.NParam))
         NPixListParms=len(ListPixParms)
@@ -100,6 +100,9 @@ class ClassModelMachine():
         iS=np.where(SolveParam=="S")[0][0]
         S=Vr[iS]
         #S*=self.GainMachine.GiveGain()
+
+        if JonesNorm!=None:
+            Vr[iS,:]/=np.sqrt(JonesNorm).flat[0]
 
         for (x,y),iComp in zip(ListPix,range(NPixListParms)):
             if S[iComp]==0: continue

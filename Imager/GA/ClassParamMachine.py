@@ -31,7 +31,7 @@ class ClassParamMachine():
                                 "Type":"PeakFlux",
                                 "Value":0.001}
                         },
-                       "Alpha":{"Mean":0.,
+                       "Alpha":{"Mean":-0.6,
                                 "Sigma":{
                                     "Type":"Abs",
                                     "Value":0.01}
@@ -58,11 +58,13 @@ class ClassParamMachine():
     def GiveInitList(self,toolbox):
         ListPars=[]
         for Type in self.SolveParam:
+            DicoSigma=self.DicoIParm[Type]["Default"]["Sigma"]
+            MeanVal=self.DicoIParm[Type]["Default"]["Mean"]
             if Type=="S":
                 toolbox.register("attr_float_unif_S", random.uniform, 0., 0.1)
                 ListPars+=[toolbox.attr_float_unif_S]*self.NPixListParms
             if Type=="Alpha":
-                toolbox.register("attr_float_normal_Alpha", random.gauss, 0., 0.3)
+                toolbox.register("attr_float_normal_Alpha", random.gauss, MeanVal, DicoSigma["Value"])
                 ListPars+=[toolbox.attr_float_normal_Alpha]*self.NPixListParms
         return ListPars
 
