@@ -144,6 +144,10 @@ class ClassImageDeconvMachine():
     def GiveThreshold(self,Max):
         return ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*Max if self.CycleFactor else 0
 
+    def Clean(self,*args,**kwargs):
+        # return self.CleanSerial(*args,**kwargs)
+        return self.CleanParallel(*args,**kwargs)
+
     def CleanSerial(self,ch=0):
         """
         Runs minor cycle over image channel 'ch'.
@@ -251,7 +255,15 @@ class ClassImageDeconvMachine():
             # MyPickle.Save(DicoSave, "SaveTest")
             # print "saving ok"
 
-            IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
+            nchan,npol,_,_=self._Dirty.shape
+            JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))
+            W=self.DicoDirty["WeightChansImages"]
+            JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
+            
+
+
+            IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)*np.sqrt(JonesNorm.flat[0])
+            
             CEv=ClassEvolveGA(self._Dirty,PSF,FreqsInfo,ListPixParms=ThisPixList,
                               ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,
                               GD=self.GD)
@@ -261,10 +273,6 @@ class ClassImageDeconvMachine():
             #self.ModelMachine.setParamMachine(CEv.ArrayMethodsMachine.PM)
             #Threshold=self.GiveThreshold(np.max(np.abs(Model)))
             #self.ModelMachine.setThreshold(Threshold)
-            nchan,npol,_,_=self._Dirty.shape
-            JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))
-            W=self.DicoDirty["WeightChansImages"]
-            JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
             self.ModelMachine.AppendIsland(ThisPixList,Model,JonesNorm=JonesNorm)
             
 
@@ -273,7 +281,9 @@ class ClassImageDeconvMachine():
 
 
 
-    def Clean(self,ch=0):
+
+
+    def CleanParallel(self,ch=0):
         if self._niter >= self.MaxMinorIter:
             return "MaxIter", False, False
 
@@ -352,12 +362,19 @@ class ClassImageDeconvMachine():
             ThisPixList=self.ListIslands[iIsland]
             XY=np.array(ThisPixList,dtype=np.float32)
             xm,ym=np.mean(np.float32(XY),axis=0)
+
+            nchan,npol,_,_=self._Dirty.shape
+            JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))
+            W=self.DicoDirty["WeightChansImages"]
+            JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
+
             IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
             FacetID=self.PSFServer.giveFacetID(xm,ym)
             DicoOrder={"PixList":ThisPixList,
                        "iIsland":iIsland,
                        "FacetID":FacetID,
-                       "IslandBestIndiv":IslandBestIndiv}
+                       "IslandBestIndiv":IslandBestIndiv,
+                       "JonesNorm":JonesNorm}
             work_queue.put(DicoOrder)
 
         workerlist=[]
@@ -376,7 +393,8 @@ class ClassImageDeconvMachine():
             workerlist.append(W)
             workerlist[ii].start()
 
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolve pop ", HeaderSize=10,TitleSize=13)
+
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolving Sourclings", HeaderSize=15,TitleSize=13)
         #pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NJobs))
 
@@ -411,11 +429,7 @@ class ClassImageDeconvMachine():
             SharedIslandName="%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland)
             Model=NpShared.GiveArray(SharedIslandName)
 
-            nchan,npol,_,_=self._Dirty.shape
-            JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))
-            W=self.DicoDirty["WeightChansImages"]
-            JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
-            self.ModelMachine.AppendIsland(ThisPixList,Model,JonesNorm=JonesNorm)
+            self.ModelMachine.AppendIsland(ThisPixList,Model)
 
 
             NpShared.DelArray(SharedIslandName)
@@ -530,7 +544,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
             FacetID=DicoOrder["FacetID"]
             ThisPixList=DicoOrder["PixList"]
             IslandBestIndiv=DicoOrder["IslandBestIndiv"]
-
+            JonesNorm=DicoOrder["JonesNorm"]
+            
             PSF=self.CubeVariablePSF[FacetID]
 
             CEv=ClassEvolveGA(self._Dirty,
@@ -538,11 +553,10 @@ class WorkerDeconvIsland(multiprocessing.Process):
                               self.FreqsInfo,
                               ListPixParms=ThisPixList,
                               ListPixData=ThisPixList,
-                              IslandBestIndiv=IslandBestIndiv,
-                              GD=self.GD,
-                              MultiFreqMode=self.MultiFreqMode)
-            Model=CEv.main(NGen=1000,DoPlot=False)
-            Model=np.array(Model)
+                              IslandBestIndiv=IslandBestIndiv*np.sqrt(JonesNorm.flat[0]),
+                              GD=self.GD)
+            Model=CEv.main(NGen=100,DoPlot=False)
+            Model=np.array(Model)/np.sqrt(JonesNorm.flat[0])
             
             NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
 
