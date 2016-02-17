@@ -179,7 +179,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             return diam,(l0,l1,m0,m1)
 
         DiamMax=1.5*np.pi/180
-        #DiamMax=4.5*np.pi/180
+        DiamMax=4.5*np.pi/180
         DiamMin=0.1*np.pi/180
         
         def ClosePolygon(polygon):

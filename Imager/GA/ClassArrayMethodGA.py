@@ -101,10 +101,10 @@ class ClassArrayMethodGA():
             #     Gain=1.-np.max(np.abs(self.DirtyArray))/np.max(np.abs(AddArray))
             #     Gain=np.min([1.,Gain])
             #     self.Gain=np.max([.3,Gain])
-            ind=np.where(AddArray==np.max(np.abs(AddArray)))
-            R=self.DirtyArray[ind]
-            D=AddArray[ind]
-            self.ALPHA=1.-R/D
+            #ind=np.where(AddArray==np.max(np.abs(AddArray)))
+            #R=self.DirtyArray[ind]
+            #D=AddArray[ind]
+            #self.ALPHA=1.-R/D
             self.DirtyArray+=AddArray
 
 

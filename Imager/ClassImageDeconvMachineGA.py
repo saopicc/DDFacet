@@ -622,7 +622,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
                               GD=self.GD)
             Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
             
-            Model=np.array(Model).copy()/np.sqrt(JonesNorm)
+            Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
             #Model*=CEv.ArrayMethodsMachine.Gain
 
             del(CEv)

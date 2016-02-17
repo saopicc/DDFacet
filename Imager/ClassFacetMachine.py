@@ -594,12 +594,21 @@ class ClassFacetMachine():
                 PSFChannel=np.zeros((nch,npol,n,n),np.float32)
                 for ch in range(nch):
                     self.DicoPSF[iFacet]["PSF"][ch][0]=self.DicoPSF[iFacet]["PSF"][ch][0].T[::-1,:]
-                    self.DicoPSF[iFacet]["PSF"][ch]/=np.max(self.DicoPSF[iFacet]["PSF"][ch])
+                    SumJonesNorm=self.DicoImager[iFacet]["SumJonesNorm"][ch]
+                    self.DicoPSF[iFacet]["PSF"][ch]/=np.sqrt(SumJonesNorm)
+                    # np.max(self.DicoPSF[iFacet]["PSF"][ch])
+                    for pol in range(npol):
+                        ThisSumWeights=self.DicoImager[iFacet]["SumWeights"][ch][pol]
+                        self.DicoPSF[iFacet]["PSF"][ch][pol]/=ThisSumWeights
+                        
                     PSFChannel[ch,:,:,:]=self.DicoPSF[iFacet]["PSF"][ch][:,:,:]
 
                 W=DicoImages["WeightChansImages"]
                 W=np.float32(W.reshape((self.VS.NFreqBands,1,1,1)))
-                
+
+                ich,ipol,i,j=np.where(self.DicoPSF[iFacet]["PSF"]==np.max(np.abs(self.DicoPSF[iFacet]["PSF"])))
+                print self.DicoPSF[iFacet]["PSF"][:,:,i,j]
+
                 MeanPSF=np.sum(PSFChannel*W,axis=0).reshape((1,npol,n,n))
                 self.DicoPSF[iFacet]["MeanPSF"]=MeanPSF
 
@@ -638,6 +647,7 @@ class ClassFacetMachine():
                     ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][1][Channel]
                     if ThisSumSqWeights==0: ThisSumSqWeights=1.
                     ThisSumJones=(self.DicoImager[iFacet]["SumJones"][0][Channel]/ThisSumSqWeights)
+
                     if ThisSumJones==0:
                         ThisSumJones=1.
                     #print "0",iFacet,Channel,np.sqrt(ThisSumJones)
@@ -758,6 +768,8 @@ class ClassFacetMachine():
             
             #print "#%3.3i %s"%(iFacet,str(self.DicoImager[iFacet]["SumJones"][0]/self.DicoImager[iFacet]["SumJones"][1]))
 
+            self.DicoImager[iFacet]["SumJonesNorm"]=np.zeros((self.VS.NFreqBands,),np.float64)
+
             for Channel in range(self.VS.NFreqBands):
             
             
@@ -776,7 +788,7 @@ class ClassFacetMachine():
                 ThisSumJones=self.DicoImager[iFacet]["SumJones"][0][Channel]/ThisSumSqWeights
                 if ThisSumJones==0:
                     ThisSumJones=1.
-
+                self.DicoImager[iFacet]["SumJonesNorm"][Channel]=ThisSumJones
             
                 SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
                 T.timeit("3")
