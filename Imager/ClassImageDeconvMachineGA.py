@@ -23,6 +23,7 @@ import multiprocessing
 import time
 
 MyLogger.setSilent("ClassArrayMethodGA")
+MyLogger.setSilent("ClassIsland")
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
@@ -61,6 +62,7 @@ class ClassImageDeconvMachine():
                     self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
             self.MaskArray=self._MaskArray[0]
             self.IslandArray=np.zeros_like(self._MaskArray)
+            self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
 
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
@@ -106,6 +108,7 @@ class ClassImageDeconvMachine():
         if self.MaskArray==None:
             self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
             self.IslandArray=np.zeros_like(self._MaskArray)
+            self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
 
 
     def SearchIslands(self,Threshold):
@@ -125,15 +128,31 @@ class ClassImageDeconvMachine():
         for iIsland in range(len(ListIslands)):
             x,y=np.array(ListIslands[iIsland]).T
             PixVals=Dirty[0,0,x,y]
+            DoThisOne=False
             if np.max(np.abs(PixVals))>Threshold:
+                DoThisOne=True
+                self.IslandHasBeenDone[0,0,x,y]=1
+
+            if ((DoThisOne)|self.IslandHasBeenDone[0,0,x[0],y[0]]):
                 self.ListIslands.append(ListIslands[iIsland])
+
 
         self.NIslands=len(self.ListIslands)
         print>>log,"Selected %i islands [out of %i] with peak flux > %.3g Jy"%(self.NIslands,len(ListIslands),Threshold)
 
-        IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-        for iIsland in range(self.NIslands):
-            self.ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(self.ListIslands[iIsland],dx=2)
+        dx=self.GD["GAClean"]["NEnlargePars"]
+        if dx>0:
+            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+            for iIsland in range(self.NIslands):
+                self.ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(self.ListIslands[iIsland],dx=dx)
+
+        Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
+        ind=np.argsort(Sz)[::-1]
+
+        ListIslandsOut=[self.ListIslands[ind[i]] for i in ind]
+        self.ListIslands=ListIslandsOut
+
+                
 
     def setChannel(self,ch=0):
         self.Dirty=self._MeanDirty[ch]
@@ -352,41 +371,65 @@ class ClassImageDeconvMachine():
 
         # ================== Parallel part
         NCPU=self.NCPU
-        work_queue = multiprocessing.JoinableQueue()
+        work_queue = multiprocessing.Queue()
 
 
-
+        ListBestIndiv=[]
 
         NJobs=self.NIslands
+        T=ClassTimeIt.ClassTimeIt("    ")
+        T.disable()
         for iIsland in range(self.NIslands):
+            # print "%i/%i"%(iIsland,self.NIslands)
             ThisPixList=self.ListIslands[iIsland]
             XY=np.array(ThisPixList,dtype=np.float32)
             xm,ym=np.mean(np.float32(XY),axis=0)
-
+            T.timeit("xm,ym")
             nchan,npol,_,_=self._Dirty.shape
             JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))
             W=self.DicoDirty["WeightChansImages"]
             JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
+            T.timeit("JonesNorm")
 
             IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
+            T.timeit("GiveIndividual")
+            ListBestIndiv.append(IslandBestIndiv)
             FacetID=self.PSFServer.giveFacetID(xm,ym)
-            DicoOrder={"PixList":ThisPixList,
-                       "iIsland":iIsland,
+            T.timeit("FacetID")
+
+            DicoOrder={"iIsland":iIsland,
                        "FacetID":FacetID,
-                       "IslandBestIndiv":IslandBestIndiv,
                        "JonesNorm":JonesNorm}
-            work_queue.put(DicoOrder)
+            
+            ListOrder=[iIsland,FacetID,JonesNorm.flat[0]]
+
+
+            work_queue.put(ListOrder)
+            T.timeit("Put")
+            
+        SharedListIsland="%s.ListIslands"%(self.IdSharedMem)
+        ListArrayIslands=[np.array(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)]
+        NpShared.PackListArray(SharedListIsland,ListArrayIslands)
+        T.timeit("Pack0")
+        SharedBestIndiv="%s.ListBestIndiv"%(self.IdSharedMem)
+        NpShared.PackListArray(SharedBestIndiv,ListBestIndiv)
+        T.timeit("Pack1")
+        
 
         workerlist=[]
 
-        List_Result_queue=[]
-        for ii in range(NCPU):
-            List_Result_queue.append(multiprocessing.JoinableQueue())
+        # List_Result_queue=[]
+        # for ii in range(NCPU):
+        #     List_Result_queue.append(multiprocessing.JoinableQueue())
+
+
+        result_queue=multiprocessing.Queue()
 
 
         for ii in range(NCPU):
             W=WorkerDeconvIsland(work_queue, 
-                                 List_Result_queue[ii],
+                                 result_queue,
+                                 # List_Result_queue[ii],
                                  self.GD,
                                  IdSharedMem=self.IdSharedMem,
                                  FreqsInfo=self.PSFServer.DicoMappingDesc)
@@ -394,27 +437,34 @@ class ClassImageDeconvMachine():
             workerlist[ii].start()
 
 
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolving Sourclings", HeaderSize=15,TitleSize=13)
+        print>>log, "  Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolve pop.", HeaderSize=10,TitleSize=13)
         #pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NJobs))
 
         iResult=0
         while iResult < NJobs:
             DicoResult=None
-            for result_queue in List_Result_queue:
-                if result_queue.qsize()!=0:
-                    try:
-                        DicoResult=result_queue.get_nowait()
+            # for result_queue in List_Result_queue:
+            #     if result_queue.qsize()!=0:
+            #         try:
+            #             DicoResult=result_queue.get_nowait()
                         
-                        break
-                    except:
+            #             break
+            #         except:
                         
-                        pass
+            #             pass
+            #         #DicoResult=result_queue.get()
+            if result_queue.qsize()!=0:
+                try:
+                    DicoResult=result_queue.get_nowait()
+                except:
+                    pass
                     #DicoResult=result_queue.get()
 
 
             if DicoResult==None:
-                time.sleep(0.5)
+                time.sleep(0.05)
                 continue
 
             if DicoResult["Success"]:
@@ -532,34 +582,54 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
  
     def run(self):
-        #print multiprocessing.current_process()
         while not self.kill_received:
             #gc.enable()
             try:
-                DicoOrder = self.work_queue.get()
+                iIsland,FacetID,JonesNorm = self.work_queue.get()
             except:
                 break
 
-            iIsland=DicoOrder["iIsland"]
-            FacetID=DicoOrder["FacetID"]
-            ThisPixList=DicoOrder["PixList"]
-            IslandBestIndiv=DicoOrder["IslandBestIndiv"]
-            JonesNorm=DicoOrder["JonesNorm"]
+
+            # iIsland=DicoOrder["iIsland"]
+            # FacetID=DicoOrder["FacetID"]
+            
+            # JonesNorm=DicoOrder["JonesNorm"]
+
+            SharedListIsland="%s.ListIslands"%(self.IdSharedMem)
+            ThisPixList=NpShared.UnPackListArray(SharedListIsland)[iIsland].tolist()
+
+            SharedBestIndiv="%s.ListBestIndiv"%(self.IdSharedMem)
+            IslandBestIndiv=NpShared.UnPackListArray(SharedBestIndiv)[iIsland]
             
             PSF=self.CubeVariablePSF[FacetID]
+            NGen=self.GD["GAClean"]["NMaxGen"]
+            NIndiv=self.GD["GAClean"]["NSourceKin"]
+
+            ListPixParms=ThisPixList
+            ListPixData=ThisPixList
+            dx=self.GD["GAClean"]["NEnlargeData"]
+            if dx>0:
+                IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+                ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
+
 
             CEv=ClassEvolveGA(self._Dirty,
                               PSF,
                               self.FreqsInfo,
-                              ListPixParms=ThisPixList,
-                              ListPixData=ThisPixList,
-                              IslandBestIndiv=IslandBestIndiv*np.sqrt(JonesNorm.flat[0]),
+                              ListPixParms=ListPixParms,
+                              ListPixData=ListPixData,
+                              IslandBestIndiv=IslandBestIndiv*np.sqrt(JonesNorm),
                               GD=self.GD)
-            Model=CEv.main(NGen=100,DoPlot=False)
-            Model=np.array(Model)/np.sqrt(JonesNorm.flat[0])
+            Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
             
+            Model=np.array(Model).copy()/np.sqrt(JonesNorm)
+            #Model*=CEv.ArrayMethodsMachine.Gain
+
+            del(CEv)
+
             NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
 
+            #print "Current process: %s [%s left]"%(str(multiprocessing.current_process()),str(self.work_queue.qsize()))
 
             self.result_queue.put({"Success":True,"iIsland":iIsland})
                 

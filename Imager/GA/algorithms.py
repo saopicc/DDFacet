@@ -95,7 +95,7 @@ def varAnd(population, toolbox, cxpb, mutpb):
 import numpy as np
 
 def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
-             halloffame=None, verbose=__debug__,ArrayMethodsMachine=None,DoPlot=True):
+             halloffame=None, verbose=__debug__,ArrayMethodsMachine=None,DoPlot=True,StopFitness=1e-2):
     """This algorithm reproduce the simplest evolutionary algorithm as
     presented in chapter 7 of [Back2000]_.
     
@@ -230,10 +230,15 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         # A=np.array(V0)+np.array(V1)
         # print "IND=",np.argmax(A)
 
-
         if (ArrayMethodsMachine!=None)&(DoPlot):
             if gen%50==0:
                 ArrayMethodsMachine.Plot(population,gen)
+
+        
+        #BestFitNess=best_ind.fitness.values[0]
+        #if BestFitNess<StopFitness:
+        #    break
+
         #if gen%30==0:
         #    Plot(population,gen)
         #Plot(population,gen)

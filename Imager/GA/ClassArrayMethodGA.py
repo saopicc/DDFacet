@@ -91,8 +91,22 @@ class ClassArrayMethodGA():
                         M[iBand,0,iPix,jPix]=PSF[iBand,0,i,j]
 
         self.CM=M
+        
+        #self.Gain=.5
+        ALPHA=1.
         if self.IslandBestIndiv!=None:
-            self.DirtyArray+=self.ToConvArray(self.IslandBestIndiv,OutMode="Data")
+            #self.IslandBestIndiv/=self.Gain
+            AddArray=self.ToConvArray(self.IslandBestIndiv,OutMode="Data")
+            # if np.max(self.IslandBestIndiv)!=0:
+            #     Gain=1.-np.max(np.abs(self.DirtyArray))/np.max(np.abs(AddArray))
+            #     Gain=np.min([1.,Gain])
+            #     self.Gain=np.max([.3,Gain])
+            ind=np.where(AddArray==np.max(np.abs(AddArray)))
+            R=self.DirtyArray[ind]
+            D=AddArray[ind]
+            self.ALPHA=1.-R/D
+            self.DirtyArray+=AddArray
+
 
         print>>log,"  Average M"
         self.DirtyArrayMean=np.mean(self.DirtyArray,axis=0).reshape((1,1,self.NPixListData))

@@ -32,7 +32,9 @@ class ClassModelMachine():
         self.DicoSMStacked={}
         self.DicoSMStacked["Comp"]={}
         self.SolveParam=GD["GAClean"]["GASolvePars"]
+        print>>log,"Solved parameters: %s"%(str(self.SolveParam))
         self.NParam=len(self.SolveParam)
+        
 
     def setRefFreq(self,RefFreq,AllFreqs):
         self.RefFreq=RefFreq
@@ -77,11 +79,13 @@ class ClassModelMachine():
         for iPix in range(len(ListPixParms)):
             x,y=ListPixParms[iPix]
 
-            if (x,y) in DicoComp.keys():
-                xy=x,y
+            xy=x,y
+            try:
                 Vals=DicoComp[xy]["Vals"][0]
                 OutArr[:,iPix]=Vals[:]
                 del(DicoComp[xy])
+            except:
+                pass
 
         return OutArr.flatten()
 
@@ -113,13 +117,13 @@ class ClassModelMachine():
     def AppendComponentToDictStacked(self,key,Vals):
         DicoComp=self.DicoSMStacked["Comp"]
 
-        if not(key in DicoComp.keys()):
+        try:
+            DicoComp[key]["Vals"].append(Vals)
+        except:
             DicoComp[key]={}
             DicoComp[key]["Vals"]=[]
+            DicoComp[key]["Vals"].append(Vals)
 
-        #Gain=self.GainMachine.GiveGain()
-        #DicoComp[key]["Vals"].append(Vals*Gain)
-        DicoComp[key]["Vals"].append(Vals)
 
     def GiveModelImage(self,FreqIn=None):
 
