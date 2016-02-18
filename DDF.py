@@ -5,6 +5,7 @@
 
 
 import optparse
+import traceback
 SaveFile="last_DDFacet.obj"
 import pickle
 import os
@@ -55,7 +56,14 @@ def read_options():
     OP.add_option('MSListFile',help='Input MSs')
     OP.add_option('ColName')
     OP.add_option('TChunkSize')
+    OP.add_option('InitDicoModel',help='Image name [%default]')
+    OP.add_option('WeightCol')
+    
+    OP.OptionGroup("* Images-related options","Images")
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
+    OP.add_option('PredictModelName',help='Predict Image name [%default]',default='')
+    OP.add_option('SaveIms',help='Image name [%default]')
+
 
     OP.OptionGroup("* File storing options","Stores")
     OP.add_option('DeleteDDFProducts')
@@ -64,6 +72,11 @@ def read_options():
    
 
     OP.OptionGroup("* Selection","DataSelection")
+    OP.add_option('Field')
+    OP.add_option('DDID')
+    OP.add_option('ChanStart')
+    OP.add_option('ChanEnd')
+    OP.add_option('ChanStep')
     OP.add_option('FlagAnts')
     OP.add_option('UVRangeKm')
     OP.add_option('DistMaxToCore')
@@ -74,6 +87,8 @@ def read_options():
     OP.add_option('Precision')
     OP.add_option('Weighting')
     OP.add_option('Robust')
+    OP.add_option("PSFOversize")
+    OP.add_option("PSFFacets")
 
     OP.OptionGroup("* Visibility compression parameters","Compression")
     OP.add_option('CompGridMode')
@@ -91,10 +106,24 @@ def read_options():
     OP.add_option("Ratios")
     OP.add_option("NTheta")
 
+    OP.OptionGroup("* MultiFrequency Options","MultiFreqs")
+    OP.add_option("NFreqBands")
+    OP.add_option("Alpha")
+    OP.add_option("NChanDegridPerMS")
 
+
+    OP.OptionGroup("* Primary Beam Options","Beam")
+    OP.add_option("BeamModel")
+    OP.add_option("LOFARBeamMode")
+    OP.add_option("DtBeamMin")
+    OP.add_option("NChanBeamPerMS")
+    OP.add_option("CenterNorm")
+    OP.add_option("FITSFile")
+    OP.add_option("FITSFeed")  # XY or RL
 
     OP.OptionGroup("* DDE Solutions","DDESolutions")
     OP.add_option("DDSols")
+    OP.add_option("JonesMode")
     OP.add_option("GlobalNorm")
     OP.add_option("DDModeGrid")
     OP.add_option("DDModeDeGrid")
@@ -104,6 +133,8 @@ def read_options():
     OP.add_option('Type')
     OP.add_option('Scale')
     OP.add_option('gamma')
+    OP.add_option("RestoreSub")
+    OP.add_option("ReWeightSNR")
 
     OP.OptionGroup("* Convolution functions","ImagerCF")
     OP.add_option("Support")
@@ -115,14 +146,20 @@ def read_options():
     OP.add_option("NFacets",help="Number of facets, default is %default. ")
     OP.add_option("Npix")
     OP.add_option("Cell")
+    OP.add_option("Padding")
     OP.add_option("ConstructMode")
 
     OP.OptionGroup("* Clean","ImagerDeconv")
     OP.add_option("MaxMajorIter")
     OP.add_option("Gain")
+    OP.add_option("SearchMaxAbs")
     OP.add_option("MaxMinorIter")
+    OP.add_option("CleanMaskImage")
+    OP.add_option("FluxThreshold")
     OP.add_option("CycleFactor")
-
+    OP.add_option("PeakFactor")
+    OP.add_option("RMSFactor")
+ 
     OP.Finalise()
     OP.ReadInput()
     OP.Print()
@@ -155,7 +192,7 @@ def main(OP=None):
     global IdSharedMem
     IdSharedMem=str(int(os.getpid()))+"."
 
-    ImageName=DicoConfig["VisData"]["ImageName"]
+    ImageName=DicoConfig["Images"]["ImageName"]
     OP.ToParset("%s.parset"%ImageName)
 
     NpShared.DelAll(IdSharedMem)
@@ -166,11 +203,14 @@ def main(OP=None):
 
     # Imager.testDegrid()
     # stop
-    if "Clean"==Mode:
+    if "Predict" in Mode:
+        Imager.GivePredict()
+
+    if "Clean" in Mode:
         Imager.main()
-    elif "Dirty"==Mode:
+    if "Dirty" in Mode:
         Imager.GiveDirty()
-    elif "PSF"==Mode:
+    if "PSF" in Mode:
         Imager.MakePSF()
 
     NpShared.DelAll(IdSharedMem)
@@ -186,7 +226,7 @@ if __name__=="__main__":
     if TestParset.Success==True:
         #global Parset
         
-        Parset=TestParset
+        Parset.update(TestParset)
         print >>log,ModColor.Str("Successfully read %s parset"%ParsetFile)
 
     OP=read_options()
@@ -195,7 +235,10 @@ if __name__=="__main__":
     #main(OP)
     try:
         main(OP)
+        print>>log, ModColor.Str("DDFacet ended successfully",col="green")
     except:
+        print>>log, ModColor.Str("There was a problem, please help yourself",col="red")
+        traceback.print_exc()
         NpShared.DelAll(IdSharedMem)
 
     # main(options)

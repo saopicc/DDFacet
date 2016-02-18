@@ -13,11 +13,13 @@ from DDFacet.Imager import ClassWeighting
 from DDFacet.Other import reformat
 import ClassSmearMapping
 import os
+import ClassJones
+import ClassBeamMean
 
 def test():
     MSName="/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
     VS=ClassVisServer(MSName,TVisSizeMin=1e8,Weighting="Natural")
-    VS.CalcWeigths((1,1,1000,1000),20.*np.pi/180)
+    VS.CalcWeights((1,1,1000,1000),20.*np.pi/180)
     VS.LoadNextVisChunk()
 
 class ClassVisServer():
@@ -28,7 +30,7 @@ class ClassVisServer():
                  DicoSelectOptions={},
                  LofarBeam=None,
                  AddNoiseJy=None,IdSharedMem="",
-                 Robust=2,Weighting="Briggs",NCPU=6):
+                 Robust=2,Weighting="Briggs",Super=1,NCPU=6):
 
         self.ReadOnce=False
         self.ReadOnce_AlreadyRead=False
@@ -43,7 +45,7 @@ class ClassVisServer():
             self.MultiMSMode=False
             self.ListMSName=[MSName]
         self.ListMSName=[MSName for MSName in self.ListMSName if MSName!=""]
-
+        self.FacetMachine=None
         self.IdSharedMem=IdSharedMem
         self.Robust=Robust
         PrefixShared="%sSharedVis"%self.IdSharedMem
@@ -52,10 +54,14 @@ class ClassVisServer():
         self.TVisSizeMin=TVisSizeMin
 
         self.Weighting=Weighting
+        self.Super=Super
         self.NCPU=NCPU
         self.VisWeights=None
         self.CountPickle=0
         self.ColName=ColName
+        self.Field = DicoSelectOptions.get("Field",0)
+        self.DDID = DicoSelectOptions.get("DDID",0)
+        self.TaQL = "FIELD_ID==%d&&DATA_DESC_ID==%d" % (self.Field, self.DDID)
         self.DicoSelectOptions=DicoSelectOptions
         self.SharedNames=[]
         self.PrefixShared=PrefixShared
@@ -73,12 +79,6 @@ class ClassVisServer():
 
         #self.TEST_TLIST=[]
 
-    def SetBeam(self,LofarBeam):
-        self.BeamMode,self.DtBeamMin,self.BeamRAs,self.BeamDECs = LofarBeam
-        useArrayFactor=("A" in self.BeamMode)
-        useElementBeam=("E" in self.BeamMode)
-        self.MS.LoadSR(useElementBeam=useElementBeam,useArrayFactor=useArrayFactor)
-        self.ApplyBeam=True
 
     def Init(self,PointingID=0):
         #MSName=self.MDC.giveMS(PointingID).MSName
@@ -86,16 +86,26 @@ class ClassVisServer():
             print>>log, "Multiple MS mode"
 
         self.ListMS=[]
+        self.ListGlobalFreqs=[]
+        NChanMax=0
+        ChanStart = self.DicoSelectOptions.get("ChanStart",0)
+        ChanEnd   = self.DicoSelectOptions.get("ChanEnd",-1)
+        ChanStep  = self.DicoSelectOptions.get("ChanStep",1)
+        if (ChanStart,ChanEnd,ChanStep) == (0,-1,1):
+            chanslice = None
+        else:
+            chanslice = slice(ChanStart, ChanEnd if ChanEnd != -1 else None, ChanStep) 
         for MSName in self.ListMSName:
-            MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False) 
+            MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3),
+                Field=self.Field,DDID=self.DDID,
+                ChanSlice=chanslice) 
             self.ListMS.append(MS)
+            self.ListGlobalFreqs+=MS.ChanFreq.flatten().tolist()
+            
             if self.GD["Stores"]["DeleteDDFProducts"]:
                 ThisMSName=reformat.reformat(os.path.abspath(MS.MSName),LastSlash=False)
 
                 MapName="%s/Flagging.npy"%ThisMSName
-                os.system("rm %s"%MapName)
-
-                MapName="%s/Mapping.DDESolsTime.npy"%ThisMSName
                 os.system("rm %s"%MapName)
 
                 MapName="%s/Mapping.CompGrid.npy"%ThisMSName
@@ -104,11 +114,83 @@ class ClassVisServer():
                 MapName="%s/Mapping.CompDeGrid.npy"%ThisMSName
                 os.system("rm %s"%MapName)
 
+                JonesName="%s/JonesNorm_Beam.npz"%ThisMSName
+                os.system("rm %s"%JonesName)
+
+                JonesName="%s/JonesNorm_killMS.npz"%ThisMSName
+                os.system("rm %s"%JonesName)
+
+        self.nMS=len(self.ListMS)
+        self.GlobalFreqs=np.array(self.ListGlobalFreqs)
+        self.NFreqBands=np.min([self.GD["MultiFreqs"]["NFreqBands"],len(self.GlobalFreqs)])#self.nMS])
         self.CurrentMS=self.ListMS[0]
         self.iCurrentMS=0
-        self.nMS=len(self.ListMS)
+
+        self.MultiFreqMode=False
+        NFreqBands=self.NFreqBands
+        if self.NFreqBands>1: 
+            self.MultiFreqMode=True
+            print>>log, ModColor.Str("MultiFrequency Mode: ON")
+        else:
+            self.GD["MultiFreqs"]["NFreqBands"] = 1
+            self.GD["MultiFreqs"]["Alpha"] = [0.,0.,1.]
+            print>>log, ModColor.Str("MultiFrequency Mode: OFF")
+            
+        FreqBands=np.linspace(self.GlobalFreqs.min(),self.GlobalFreqs.max(),NFreqBands+1)
+        self.FreqBandsMean=(FreqBands[0:-1]+FreqBands[1::])/2.
+        self.FreqBandsMin=FreqBands[0:-1].copy()
+        self.FreqBandsMax=FreqBands[1::].copy()
+        self.FreqBandsInfos={}
+        for iBand in range(self.NFreqBands):
+            self.FreqBandsInfos[iBand]=[]
+
+        self.FreqBandsInfosDegrid={}
+
+        print
+        self.ListFreqs=[]
+        self.DicoMSChanMapping={}
+        self.DicoMSChanMappingDegridding={}
+        for MS,iMS in zip(self.ListMS,range(self.nMS)):
+            FreqBand = np.where((self.FreqBandsMin <= np.mean(MS.ChanFreq))&(self.FreqBandsMax >= np.mean(MS.ChanFreq)))[0][0]
+            self.ListFreqs+=MS.ChanFreq.tolist()
+
+            nch=MS.ChanFreq.size
+            FreqBandsMin=self.FreqBandsMin.reshape((1,NFreqBands))
+            FreqBandsMax=self.FreqBandsMax.reshape((1,NFreqBands))
+            ThisChanFreq=MS.ChanFreq.reshape((nch,1))
+            Mask=((ThisChanFreq>=FreqBandsMin)&(ThisChanFreq<=FreqBandsMax))
+            ThisMapping=np.argmax(Mask,axis=1)
+            self.DicoMSChanMapping[iMS]=ThisMapping
+            
+            ThisFreqs=MS.ChanFreq.ravel()
+            for iFreqBand in list(set(ThisMapping.tolist())):
+                indChan=np.where(ThisMapping==iFreqBand)[0]
+                self.FreqBandsInfos[iFreqBand]+=(ThisFreqs[indChan]).tolist()
+            
+            NChanDegrid = self.GD["MultiFreqs"]["NChanDegridPerMS"] or ThisFreqs.size
+            NChanDegrid = min(NChanDegrid, ThisFreqs.size)
+            ChanDegridding=np.linspace(ThisFreqs.min(),ThisFreqs.max(),NChanDegrid+1)
+            FreqChanDegridding=(ChanDegridding[1::]+ChanDegridding[0:-1])/2.
+            NChanDegrid=FreqChanDegridding.size
+            NChanMS=MS.ChanFreq.size
+            DChan=np.abs(MS.ChanFreq.reshape((NChanMS,1))-FreqChanDegridding.reshape((1,NChanDegrid)))
+            ThisMappingDegrid=np.argmin(DChan,axis=1)
+            self.DicoMSChanMappingDegridding[iMS]=ThisMappingDegrid
+
+            
+            
+            MeanFreqDegrid=np.zeros((NChanDegrid),np.float32)
+            for iFreqBand in range(NChanDegrid):
+                ind=np.where(ThisMappingDegrid==iFreqBand)[0]
+                MeanFreqDegrid[iFreqBand]=np.mean(ThisFreqs[ind])
+            self.FreqBandsInfosDegrid[iMS]=MeanFreqDegrid
+            print MS
+            
+        self.RefFreq=np.mean(self.ListFreqs)
+
+        
+
         MS=self.ListMS[0]
-        print MS
         TimesInt=np.arange(0,MS.DTh,self.TMemChunkSize).tolist()
         if not(MS.DTh in TimesInt): TimesInt.append(MS.DTh)
         self.TimesInt=TimesInt
@@ -129,14 +211,15 @@ class ClassVisServer():
         self.OutImShape=OutImShape
         self.CellSizeRad=CellSizeRad
 
-    def CalcWeigths(self):
+    def CalcWeights(self):
         if self.VisWeights!=None: return
-        ImShape=self.PaddedFacetShape
+        #ImShape=self.PaddedFacetShape
+        ImShape=self.FullImShape#self.FacetShape
         CellSizeRad=self.CellSizeRad
         WeightMachine=ClassWeighting.ClassWeighting(ImShape,CellSizeRad)
-        uvw,WEIGHT,flags=self.GiveAllUVW()
-        #uvw=DATA["uvw"]
-        #WEIGHT=DATA["Weights"]
+        uvw,WEIGHT,flags,nrows = self.GiveAllUVW()
+        # uvw=DATA["uvw"]
+        # WEIGHT=DATA["Weights"]
         VisWeights=WEIGHT#[:,0]#np.ones((uvw.shape[0],),dtype=np.float32)
         if np.max(VisWeights)==0.:
             print>>log,"All imaging weights are 0, setting them to ones"
@@ -146,9 +229,26 @@ class ClassVisServer():
 
         #self.VisWeights=np.ones((uvw.shape[0],self.MS.ChanFreq.size),dtype=np.float64)
 
-        self.VisWeights=WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
-                                                  Robust=Robust,
-                                                  Weighting=self.Weighting)
+
+        allweights = WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
+                                              Robust=Robust,
+                                              Weighting=self.Weighting,
+                                              Super=self.Super)
+
+        #allweights.fill(1.)
+        # self.WisWeights is a list of weight arrays, one per each MS in self.ListMS
+        self.VisWeights = []
+        row0 = 0
+        for nr in nrows:
+            self.VisWeights.append(allweights[row0:(row0+nr)])
+            row0 += nr
+        self.CurrentVisWeights = self.VisWeights[0]
+        # self.CalcMeanBeam()
+
+    def CalcMeanBeam(self):
+        AverageBeamMachine=ClassBeamMean.ClassBeamMean(self)
+        AverageBeamMachine.LoadData()
+        AverageBeamMachine.CalcMeanBeam()
 
     def VisChunkToShared(self):
 
@@ -179,13 +279,20 @@ class ClassVisServer():
         DATA={}
         for key in D.keys():
             if type(D[key])!=np.ndarray: continue
-            if not(key in ['times', 'A1', 'A0', 'flags', 'uvw', 'data',"Weights"]):             
+            if not(key in ['times', 'A1', 'A0', 'flags', 'uvw', 'data',"Weights","uvw_dt", "MSInfos","ChanMapping","ChanMappingDegrid"]):             
                 DATA[key]=D[key]
             else:
                 DATA[key]=D[key][:]
 
+
+
+
         if "DicoBeam" in D.keys():
             DATA["DicoBeam"]=D["DicoBeam"]
+
+        #print>>log, "!!!!!!!!!"
+        #DATA["flags"].fill(0)
+
 
         print>>log, "Putting data in shared memory"
         DATA=NpShared.DicoToShared("%sDicoData"%self.IdSharedMem,DATA)
@@ -197,19 +304,31 @@ class ClassVisServer():
         self.CurrentVisTimes_SinceStart_Sec=0.,0.
         self.iCurrentVisTime=0
         self.iCurrentMS=0
+        self.CurrentFreqBand=0
+        self.CurrentVisWeights = self.VisWeights and self.VisWeights[0]   # first time VisWeights might still be unset -- but then CurrentVisWeights will be set later in CalcWeights
         for MS in self.ListMS:
             MS.ReinitChunkIter(self.TMemChunkSize)
         self.CurrentMS=self.ListMS[0]
-        print>>log, ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green")
+        self.CurrentChanMapping=self.DicoMSChanMapping[0]
+        self.CurrentChanMappingDegrid=self.FreqBandsInfosDegrid[0]
+        #print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%self.CurrentFreqBand))
 
     def setNextMS(self):
         if (self.iCurrentMS+1)==self.nMS:
             print>>log, ModColor.Str("Reached end of MSList")
             return "EndListMS"
         else:
+            print>>log,"next ms"
             self.iCurrentMS+=1
             self.CurrentMS=self.ListMS[self.iCurrentMS]
-            print>>log, ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green")
+            self.CurrentFreqBand=0
+            self.CurrentVisWeights = self.VisWeights[self.iCurrentMS]
+            if self.MultiFreqMode:
+                self.CurrentFreqBand = np.where((self.FreqBandsMin <= np.mean(self.CurrentMS.ChanFreq))&(self.FreqBandsMax > np.mean(self.CurrentMS.ChanFreq)))[0][0]
+
+            self.CurrentChanMapping=self.DicoMSChanMapping[self.iCurrentMS]
+            self.CurrentChanMappingDegrid=self.FreqBandsInfosDegrid[self.iCurrentMS]
+            #print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%(self.CurrentFreqBand)))
             return "OK"
         
 
@@ -230,6 +349,7 @@ class ClassVisServer():
             break
         
         
+
         self.TimeMemChunkRange_sec=DATA["times"][0],DATA["times"][-1]
 
         times=DATA["times"]
@@ -242,31 +362,8 @@ class ClassVisServer():
         freqs=MS.ChanFreq.flatten()
         nbl=MS.nbl
 
-        DATA={}
-        DATA["flags"]=flags
-        DATA["data"]=data
-        DATA["uvw"]=uvw
-        DATA["A0"]=A0
-        DATA["A1"]=A1
-        DATA["times"]=times
-        DATA["Weights"]=self.VisWeights[MS.ROW0:MS.ROW1]
-
-        ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
-        TimeMapName="%s/Flagging.npy"%ThisMSName
-        try:
-            DATA["flags"]=np.load(TimeMapName)
-        except:
-            self.UpdateFlag(DATA)
-
-        self.UpdateCompression(DATA)
-        self.InitDDESols(DATA)
-
-        #############################
-        #############################
-
-        
         # ## debug
-        # ind=np.where((A0==0)&(A1==1))[0]
+        # ind=np.where((A0==14)&(A1==31))[0]
         # flags=flags[ind]
         # data=data[ind]
         # A0=A0[ind]
@@ -275,63 +372,96 @@ class ClassVisServer():
         # times=times[ind]
         # ##
 
+        DATA={}
+        DATA["flags"]=flags
+        DATA["data"]=data
+        DATA["uvw"]=uvw
+        DATA["A0"]=A0
+        DATA["A1"]=A1
+        DATA["times"]=times
+        
+
+        DATA["Weights"]=self.CurrentVisWeights[MS.ROW0:MS.ROW1]
+        DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
+
+        
+        if ('F' in DecorrMode)|("T" in DecorrMode):
+            DATA["uvw_dt"]=np.float64(self.CurrentMS.Give_dUVW_dt(times,A0,A1))
+            DATA["MSInfos"]=np.array([repLoadChunk["dt"],repLoadChunk["dnu"].ravel()[0]],np.float32)
+            #DATA["MSInfos"][1]=20000.*30
+            #DATA["MSInfos"][0]=500.
+
+
+        ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
+        TimeMapName="%s/Flagging.npy"%ThisMSName
+        try:
+            DATA["flags"]=np.load(TimeMapName)
+        except:
+            self.UpdateFlag(DATA)
+
+
+        
+
+        DATA["ChanMapping"]=self.CurrentChanMapping
+        DATA["ChanMappingDegrid"]=self.DicoMSChanMappingDegridding[self.iCurrentMS]
+        
+        print>>log, "  Channel Mapping Gridding  : %s"%(str(self.CurrentChanMapping))
+        print>>log, "  Channel Mapping DeGridding: %s"%(str(DATA["ChanMappingDegrid"]))
+
+        self.UpdateCompression(DATA,
+                               ChanMappingGridding=DATA["ChanMapping"],
+                               ChanMappingDeGridding=self.DicoMSChanMappingDegridding[self.iCurrentMS])
+
+
+        JonesMachine=ClassJones.ClassJones(self.GD,self.CurrentMS,self.FacetMachine,IdSharedMem=self.IdSharedMem)
+        JonesMachine.InitDDESols(DATA)
+
+        #############################
+        #############################
+
+        
 
 
 
 
         if self.AddNoiseJy!=None:
             data+=(self.AddNoiseJy/np.sqrt(2.))*(np.random.randn(*data.shape)+1j*np.random.randn(*data.shape))
+
+        if freqs.size>1:
+            freqs=np.float64(freqs)
+        else:
+            freqs=np.array([freqs[0]],dtype=np.float64)
         
-        DicoDataOut={"times":times,
-                     "freqs":np.float64(freqs),
-                     "A0":A0,
-                     "A1":A1,
-                     "uvw":uvw,
-                     "flags":flags,
+        DicoDataOut={"times":DATA["times"],
+                     "freqs":freqs,
+                     "A0":DATA["A0"],
+                     "A1":DATA["A1"],
+                     "uvw":DATA["uvw"],
+                     "flags":DATA["flags"],
                      "nbl":nbl,
                      "na":MS.na,
-                     "data":data,
+                     "data":DATA["data"],
                      "ROW0":MS.ROW0,
                      "ROW1":MS.ROW1,
                      "infos":np.array([MS.na]),
-                     "Weights":self.VisWeights[MS.ROW0:MS.ROW1]
+                     "Weights":self.CurrentVisWeights[MS.ROW0:MS.ROW1],
+                     "ChanMapping":DATA["ChanMapping"],
+                     "ChanMappingDegrid":DATA["ChanMappingDegrid"]
                      }
         
-
-
-        if self.ApplyBeam:
-            print>>log, "Update LOFAR beam .... "
-            DtBeamSec=self.DtBeamMin*60
-            tmin,tmax=np.min(times),np.max(times)
-            TimesBeam=np.arange(np.min(times),np.max(times),DtBeamSec).tolist()
-            if not(tmax in TimesBeam): TimesBeam.append(tmax)
-            TimesBeam=np.array(TimesBeam)
-            T0s=TimesBeam[:-1]
-            T1s=TimesBeam[1:]
-            Tm=(T0s+T1s)/2.
-            RA,DEC=self.BeamRAs,self.BeamDECs
-            NDir=RA.size
-            Beam=np.zeros((Tm.size,NDir,self.MS.na,self.MS.NSPWChan,2,2),np.complex64)
-            for itime in range(Tm.size):
-                ThisTime=Tm[itime]
-                Beam[itime]=self.MS.GiveBeam(ThisTime,self.BeamRAs,self.BeamDECs)
-            BeamH=ModLinAlg.BatchH(Beam)
-
-            DicoBeam={}
-            DicoBeam["t0"]=T0s
-            DicoBeam["t1"]=T1s
-            DicoBeam["tm"]=Tm
-            DicoBeam["Beam"]=Beam
-            DicoBeam["BeamH"]=BeamH
-            DicoDataOut["DicoBeam"]=DicoBeam
-            
-            print>>log, "       .... done Update LOFAR beam "
+        DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
+        if ('F' in DecorrMode)|("T" in DecorrMode):
+            DicoDataOut["uvw_dt"]=DATA["uvw_dt"]
+            DicoDataOut["MSInfos"]=DATA["MSInfos"]
 
 
         DATA=DicoDataOut
 
         self.ThisDataChunk = DATA
         return "LoadOK"
+
+
+
 
     def UpdateFlag(self,DATA):
         print>>log, "Updating flags ..."
@@ -351,6 +481,7 @@ class ClassVisServer():
         for A in range(MS.na):
             ind=np.where((A0==A)|(A1==A))[0]
             fA=flags[ind].ravel()
+            if ind.size==0: continue
             nf=np.count_nonzero(fA)
             Frac=nf/float(fA.size)
             if Frac>self.ThresholdFlag:
@@ -422,91 +553,27 @@ class ClassVisServer():
 
         DATA["flags"]=flags
 
-    def InitDDESols(self,DATA):
-        GD=self.GD
-        SolsFile=GD["DDESolutions"]["DDSols"]
-        self.ApplyCal=False
-        if (SolsFile!=""):#&(False):
-            if not(".npz" in SolsFile):
-                Method=SolsFile
-                ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
-                SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
-                
-            print>>log, "Loading solution file: %s"%SolsFile
-            self.ApplyCal=True
-            DicoSolsFile=np.load(SolsFile)
-            DicoSols={}
-            DicoSols["t0"]=DicoSolsFile["Sols"]["t0"]
-            DicoSols["t1"]=DicoSolsFile["Sols"]["t1"]
-            nt,na,nd,_,_=DicoSolsFile["Sols"]["G"].shape
-            G=np.swapaxes(DicoSolsFile["Sols"]["G"],1,2).reshape((nt,nd,na,1,2,2))
-            DicoSols["Jones"]=G
-            DicoSols["Jones"]=np.require(DicoSols["Jones"], dtype=np.complex64, requirements="C_CONTIGUOUS")
 
-            if GD["DDESolutions"]["GlobalNorm"]=="MeanAbs":
-                print>>log, "  Normalising by the mean of the amplitude"
-                gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
-                gmean_abs=gmean_abs.reshape((1,nd,na,1))
-                DicoSols["Jones"][:,:,:,:,0,0]/=gmean_abs
-                DicoSols["Jones"][:,:,:,:,1,1]/=gmean_abs
+        DATA["data"][flags]=1e9
+
+        # if dt0<dt1:
+        #     JonesBeam=np.zeros((Tm.size,),dtype=[("t0",np.float32),("t1",np.float32),("tm",np.float32),("Jones",(NDir,self.MS.na,self.MS.NSPWChan,2,2),np.complex64)])
 
 
-            # if not("A" in self.GD["DDESolutions"]["ApplyMode"]):
-            #     print>>log, "  Amplitude normalisation"
-            #     gabs=np.abs(G)
-            #     gabs[gabs==0]=1.
-            #     G/=gabs
+    def setFacetMachine(self,FacetMachine):
+        self.FacetMachine=FacetMachine
+        self.FullImShape=self.FacetMachine.OutImShape
+        self.PaddedFacetShape=self.FacetMachine.PaddedGridShape
+        self.FacetShape=self.FacetMachine.FacetShape
+        self.CellSizeRad=self.FacetMachine.CellSizeRad
 
+    def setFOV(self,sh0,sh1,sh2,cell):
+        self.FullImShape=sh0
+        self.PaddedFacetShape=sh1
+        self.FacetShape=sh2
+        self.CellSizeRad=cell
 
-            NpShared.DicoToShared("%skillMSSolutionFile"%self.IdSharedMem,DicoSols)
-            #D=NpShared.SharedToDico("killMSSolutionFile")
-            #ClusterCat=DicoSolsFile["ClusterCat"]
-            ClusterCat=DicoSolsFile["SkyModel"]
-            ClusterCat=ClusterCat.view(np.recarray)
-            DicoClusterDirs={}
-            DicoClusterDirs["l"]=ClusterCat.l
-            DicoClusterDirs["m"]=ClusterCat.m
-            #DicoClusterDirs["l"]=ClusterCat.l
-            #DicoClusterDirs["m"]=ClusterCat.m
-            DicoClusterDirs["I"]=ClusterCat.SumI
-            DicoClusterDirs["Cluster"]=ClusterCat.Cluster
-            
-            _D=NpShared.DicoToShared("%sDicoClusterDirs"%self.IdSharedMem,DicoClusterDirs)
-
-
-            ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
-            TimeMapName="%s/Mapping.DDESolsTime.npy"%ThisMSName
-            try:
-                ind=np.load(TimeMapName)
-            except:
-                print>>log, "  Build VisTime-to-solution mapping"
-                DicoJonesMatrices=DicoSols
-                
-                times=DATA["times"]
-                ind=np.zeros((times.size,),np.int32)
-                nt,na,nd,_,_,_=DicoJonesMatrices["Jones"].shape
-                ii=0
-                for it in range(nt):
-                    t0=DicoJonesMatrices["t0"][it]
-                    t1=DicoJonesMatrices["t1"][it]
-                    indMStime=np.where((times>=t0)&(times<t1))[0]
-                    indMStime=np.ones((indMStime.size,),np.int32)*it
-                    ind[ii:ii+indMStime.size]=indMStime[:]
-                    ii+=indMStime.size
-            np.save(TimeMapName,ind)
-
-            NpShared.ToShared("%sMapJones"%self.IdSharedMem,ind)
-            print>>log, "Done"
-
-
-
-    def setFOV(self,FullImShape,PaddedFacetShape,FacetShape,CellSizeRad):
-        self.FullImShape=FullImShape
-        self.PaddedFacetShape=PaddedFacetShape
-        self.FacetShape=FacetShape
-        self.CellSizeRad=CellSizeRad
-
-    def UpdateCompression(self,DATA):
+    def UpdateCompression(self,DATA,ChanMappingGridding=None,ChanMappingDeGridding=None):
         ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
         if self.GD["Compression"]["CompGridMode"]:
             MapName="%s/Mapping.CompGrid.npy"%ThisMSName
@@ -520,7 +587,11 @@ class ClassVisServer():
                 FOV=self.CellSizeRad*nx*(np.sqrt(2.)/2.)*180./np.pi
                 SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompGridDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
                 #SmearMapMachine.BuildSmearMapping(DATA)
-                FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA)
+
+                #FinalMapping,fact=SmearMapMachine.BuildSmearMapping(DATA)
+                #stop
+                FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA,ChanMappingGridding)
+
                 np.save(MapName,FinalMapping)
                 print>>log, ModColor.Str("  Effective compression [Grid]  :   %.2f%%"%fact,col="green")
 
@@ -538,7 +609,7 @@ class ClassVisServer():
                 FOV=self.CellSizeRad*nx*(np.sqrt(2.)/2.)*180./np.pi
                 SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompDeGridDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
                 #SmearMapMachine.BuildSmearMapping(DATA)
-                FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA)
+                FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA,ChanMappingDeGridding)
                 np.save(MapName,FinalMapping)
                 print>>log, ModColor.Str("  Effective compression [DeGrid]:   %.2f%%"%fact,col="green")
 
@@ -548,11 +619,76 @@ class ClassVisServer():
 
 
     def GiveAllUVW(self):
-        t=table(self.MS.MSName,ack=False)
-        uvw=t.getcol("UVW")
-        WEIGHT=t.getcol("IMAGING_WEIGHT")
-        flags=t.getcol("FLAG")
-        t.close()
-        return uvw,WEIGHT,flags
+        """Reads UVWs, weights and flags from all MSs in the list and concatenates them into 
+        consolidated arrays.
+        Returns uvw,weight,flags,nrows, where shapes are 
+        (nrow,3), (nrow,nchan) and (nrow,nchan,ncorr) respectively.
+        nrows is a vector showing the number of rows in each MS in the list.
+        """
+        WeightCol=self.GD["VisData"]["WeightCol"]
+        # make lists of tables and row counts (one per MS)
+        tabs = [ ms.GiveMainTable() for ms in self.ListMS ]
+        chanslices = [ ms.ChanSlice for ms in self.ListMS ]
+        nrows = [ tab.nrows() for tab in tabs ]
+        nr = sum(nrows)
+        # preallocate arrays
+        # NB: this assumes nchan and ncorr is the same across all MSs in self.ListMS. Tough luck if it isn't!
+        uvws = np.zeros((nr,3),np.float64)
+        weights = np.zeros((nr,self.MS.Nchan),np.float32)
+        flags = np.zeros((nr,self.MS.Nchan,len(self.MS.CorrelationNames)),bool)
+
+        # now loop over MSs and read data
+        row0 = 0
+        for num_ms, (nrow, tab, chanslice) in enumerate(zip(nrows, tabs, chanslices)):
+            uvws[row0:(row0+nrow),...]   = tab.getcol("UVW")
+            flags[row0:(row0+nrow),...] = tab.getcol("FLAG")[:,chanslice,:]
+
+            if WeightCol == "WEIGHT_SPECTRUM":
+                WEIGHT=tab.getcol(WeightCol)[:,chanslice]
+                
+                print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
+                WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
+                
+            elif WeightCol == "WEIGHT":
+                WEIGHT=tab.getcol(WeightCol)
+                print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
+                WEIGHT = (WEIGHT[:,0]+WEIGHT[:,3])/2.
+                # expand to have frequency axis
+                WEIGHT = WEIGHT[:,np.newaxis] + np.zeros(self.MS.Nchan,np.float32)[np.newaxis,:]
+            elif WeightCol == "WEIGHT+WEIGHT_SPECTRUM" or WeightCol == "WEIGHT_SPECTRUM+WEIGHT":
+                w = tab.getcol("WEIGHT")
+                ws = tab.getcol("WEIGHT_SPECTRUM")[:,chanslice]
+                print>>log, "  Reading column %s for the weights, shape is %s and %s"%(WeightCol,w.shape,ws.shape)
+                WEIGHT = w[:,np.newaxis,:] * ws
+                WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
+            else:
+                ## in all other cases (i.e. IMAGING_WEIGHT) assume a column of shape NRow,NFreq to begin with, check for this:
+                WEIGHT=tab.getcol(WeightCol)[:,chanslice]
+                print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
+
+            if WEIGHT.shape != (nrow, self.MS.Nchan):
+                raise TypeError,"weights expected to have shape of %s"%((nrow, self.MS.Nchan),)
+
+            # print "0", WEIGHT
+            # MeanW=np.mean(WEIGHT)
+            # print "00", WEIGHT
+            # print "00", MeanW
+
+            # #if MeanW!=0.:
+            # #    WEIGHT/=MeanW
+
+            #print "000",WEIGHT
+            weights[row0:(row0+nrow),...] = WEIGHT
+
+            tab.close()
+            row0 += nrow
+        #stop
+
+        MeanW=np.mean(np.float64(weights))
+        if MeanW!=0.:
+            weights/=MeanW
+
+
+        return uvws,weights,flags,nrows
 
 

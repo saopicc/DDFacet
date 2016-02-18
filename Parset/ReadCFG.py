@@ -60,6 +60,14 @@ class Parset():
     def __init__(self,File="../Parset/DefaultParset.cfg"):
         self.File=File
         self.Read()
+
+    def update (self, other):
+        """Updates this Parset with all keys found in other parset"""
+        for secname, secmap in other.DicoPars.iteritems():
+            if secname in self.DicoPars:
+                self.DicoPars[secname].update(secmap)
+            else:
+                self.DicoPars[secname] = secmap
     
 
     def Read(self):
@@ -90,8 +98,8 @@ class Parset():
             FVal=FormatValue(Val)#,StrMode=True)
 
             dict1[option] = FVal
-            if dict1[option] == -1:
-                DebugPrint("skip: %s" % option)
+            # if dict1[option] == -1:
+            #     DebugPrint("skip: %s" % option)
         return dict1
 
 

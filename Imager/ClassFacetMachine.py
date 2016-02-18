@@ -12,14 +12,15 @@ import pyfftw
 from DDFacet.ToolsDir import ModCoord
 #import ToolsDir
 from DDFacet.Other import MyPickle
-from DDFacet.Other import MyLogger
 #import ModSharedArray
 import time
 from DDFacet.Other import ModColor
 from DDFacet.Array import NpShared
 from DDFacet.ToolsDir import ModFFTW
 import pyfftw
+from DDFacet.Other import ClassTimeIt
 
+from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassFacetImager")
 MyLogger.setSilent("MyLogger")
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
@@ -35,16 +36,25 @@ class ClassFacetMachine():
                  PolMode="I",Sols=None,PointingID=0,
                  Parallel=False,#True,
                  DoPSF=False,
+                 Oversize=1,   # factor my which image is oversized
                  NCPU=6,
                  IdSharedMem="",
+                 IdSharedMemData=None,       # == IdSharedMem if None
                  ApplyCal=False):
-        self.IdSharedMem=IdSharedMem
+        # IdSharedMem is used to identify structures in shared memory used by this FacetMachine
+        self.IdSharedMem = IdSharedMem
+        # IdSharedMemData is used to identify "global" structures in shared memory such as DicoData
+        self.IdSharedMemData = IdSharedMemData or IdSharedMem
         self.NCPU=int(GD["Parallel"]["NCPU"])
         self.ApplyCal=ApplyCal
         if Precision=="S":
             self.dtype=np.complex64
+            self.CType=np.complex64
+            self.FType=np.float32
         elif Precision=="D":
             self.dtype=np.complex128
+            self.CType=np.complex128
+            self.FType=np.float64
         self.DoDDE=False
         if Sols!=None:
             self.setSols(Sols)
@@ -66,7 +76,17 @@ class ClassFacetMachine():
         self.IsDDEGridMachineInit=False
         self.SharedNames=[]
         self.ConstructMode= GD["ImagerMainFacet"]["ConstructMode"]
+        self.SpheNorm=True
+        if self.ConstructMode=="Fader":
+            self.SpheNorm=False
+        self.Oversize = Oversize
 
+        self.NormData=None
+        self.NormImage=None
+
+    def __del__ (self):
+        #print>>log,"Deleting shared memory"
+        NpShared.DelAll(self.IdSharedMem)
 
     def SetLogModeSubModules(self,Mode="Silent"):
         SubMods=["ModelBeamSVD","ClassParam","ModToolBox","ModelIonSVD2","ClassPierce"]
@@ -86,7 +106,8 @@ class ClassFacetMachine():
 
 
     def appendMainField(self,Npix=512,Cell=10.,NFacets=5,
-                        Support=11,OverS=5,Padding=1.2,wmax=10000,Nw=11,RaDecRad=(0.,0.),
+                        Support=11,OverS=5,Padding=1.2,
+                        wmax=10000,Nw=11,RaDecRad=(0.,0.),
                         ImageName="Facet.image"):
         
 
@@ -109,25 +130,23 @@ class ClassFacetMachine():
         self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
 
         _,NpixPaddedGrid=EstimateNpix(NpixFacet,Padding=Padding)
-        self.NChanGrid=1
+
         self.NpixPaddedFacet=NpixPaddedGrid
-        self.PaddedGridShape=(self.NChanGrid,self.npol,NpixPaddedGrid,NpixPaddedGrid)
+        self.PaddedGridShape=(self.VS.NFreqBands,self.npol,NpixPaddedGrid,NpixPaddedGrid)
         print>>log,"Sizes (%i x %i facets):"%(NFacets,NFacets)
         print>>log,"   - Main field :   [%i x %i] pix"%(self.Npix,self.Npix)
         print>>log,"   - Each facet :   [%i x %i] pix"%(NpixFacet,NpixFacet)
         print>>log,"   - Padded-facet : [%i x %i] pix"%(NpixPaddedGrid,NpixPaddedGrid)
         
         #self.setWisdom()
-        self.SumWeights=np.zeros((self.NChanGrid,self.npol),float)
-
-        self.nch=1
+        self.SumWeights=np.zeros((self.VS.NFreqBands,self.npol),float)
 
         self.NFacets=NFacets
         lrad=Npix*(Cell/3600.)*0.5*np.pi/180.
         self.ImageExtent=[-lrad,lrad,-lrad,lrad]
         lfacet=NpixFacet*(Cell/3600.)*0.5*np.pi/180.
         self.NpixFacet=NpixFacet
-        self.FacetShape=(self.nch,self.npol,NpixFacet,NpixFacet)
+        self.FacetShape=(self.VS.NFreqBands,self.npol,NpixFacet,NpixFacet)
         lcenter_max=lrad-lfacet
         lFacet,mFacet,=np.mgrid[-lcenter_max:lcenter_max:(NFacets)*1j,-lcenter_max:lcenter_max:(NFacets)*1j]
         lFacet=lFacet.flatten()
@@ -140,8 +159,8 @@ class ClassFacetMachine():
 
         #print "Append1"; self.IM.CI.E.clear()
         
-        self.OutImShape=(self.nch,self.npol,self.Npix,self.Npix)    
-        
+        self.OutImShape=(self.VS.NFreqBands,self.npol,self.Npix,self.Npix)    
+        stop
         self.DicoImager={}
 
         ChanFreq=self.VS.MS.ChanFreq.flatten()
@@ -165,6 +184,16 @@ class ClassFacetMachine():
 
         self.LraFacet=[]
         self.LdecFacet=[]
+
+        self.FacetCat=np.zeros((lFacet.size,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),
+                                                     ("Cluster",int),
+                                                     ("l",np.float),("m",np.float),
+                                                     ("I",np.float)])
+        self.FacetCat=self.FacetCat.view(np.recarray)
+        self.FacetCat.I=1
+        self.FacetCat.SumI=1
+        
+
         for iFacet in range(lFacet.size):
             self.DicoImager[iFacet]={}
             lmShift=(lFacet[iFacet],mFacet[iFacet])
@@ -173,6 +202,7 @@ class ClassFacetMachine():
             
             self.DicoImager[iFacet]["lmDiam"]=lfacet
             raFacet,decFacet=self.CoordMachine.lm2radec(np.array([lmShift[0]]),np.array([lmShift[1]]))
+            
             self.DicoImager[iFacet]["l0m0"]=self.CoordMachine.radec2lm(raFacet,decFacet)
             self.DicoImager[iFacet]["RaDec"]=raFacet[0],decFacet[0]
             self.LraFacet.append(raFacet[0])
@@ -184,8 +214,15 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["DicoConfigGM"]=DicoConfigGM
             self.DicoImager[iFacet]["IDFacet"]=iFacet
 
+            self.FacetCat.ra[iFacet]=raFacet[0]
+            self.FacetCat.dec[iFacet]=decFacet[0]
+            l,m=self.DicoImager[iFacet]["l0m0"]
+            self.FacetCat.l[iFacet]=l
+            self.FacetCat.m[iFacet]=m
+            self.FacetCat.Cluster[iFacet]=iFacet
 
-            
+        self.DicoImagerCentralFacet=self.DicoImager[lFacet.size/2]
+
 
 
         #print "Append3"; self.IM.CI.E.clear()
@@ -200,6 +237,51 @@ class ClassFacetMachine():
 
 
         self.SetLogModeSubModules("Silent")
+        self.MakeREG()
+
+    def MakeREG(self):
+
+        regFile="%s.Facets.reg"%self.ImageName
+        print>>log, "Writing facets locations in %s"%regFile
+        f=open(regFile,"w")
+        f.write("# Region file format: DS9 version 4.1\n")
+        ss0='global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=1 highlite=1 dash=0'
+        ss1=' fixed=0 edit=1 move=1 delete=1 include=1 source=1\n'
+        
+        f.write(ss0+ss1)
+        f.write("fk5\n")
+ 
+        for iFacet in self.DicoImager.keys():
+            #rac,decc=self.DicoImager[iFacet]["RaDec"]
+            l0,m0=self.DicoImager[iFacet]["l0m0"]
+            diam=self.DicoImager[iFacet]["lmDiam"]
+            dl=np.array([-1,1,1,-1,-1])*diam
+            dm=np.array([-1,-1,1,1,-1])*diam
+            l=((dl.flatten()+l0)).tolist()
+            m=((dm.flatten()+m0)).tolist()
+            x=[]; y=[]
+            
+            for iPoint in range(len(l)):
+                xp,yp=self.CoordMachine.lm2radec(np.array([l[iPoint]]),np.array([m[iPoint]]))
+                x.append(xp)
+                y.append(yp)
+
+            x=np.array(x)#+[x[2]])
+            y=np.array(y)#+[y[2]])
+
+            x*=180/np.pi
+            y*=180/np.pi
+
+
+            for iline in range(x.shape[0]-1):
+                x0=x[iline]
+                y0=y[iline]
+                x1=x[iline+1]
+                y1=y[iline+1]
+                f.write("line(%f,%f,%f,%f) # line=0 0\n"%(x0,y0,x1,y1))
+            
+        f.close()
+
 
 
     ############################################################################################
@@ -209,7 +291,7 @@ class ClassFacetMachine():
 
     def PlotFacetSols(self):
 
-        DicoClusterDirs=NpShared.SharedToDico("%sDicoClusterDirs"%self.IdSharedMem)
+        DicoClusterDirs=NpShared.SharedToDico("%sDicoClusterDirs"%self.IdSharedMemData)
         lc=DicoClusterDirs["l"]
         mc=DicoClusterDirs["m"]
         sI=DicoClusterDirs["I"]
@@ -265,7 +347,9 @@ class ClassFacetMachine():
                                                                 self.DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
                                                                 self.DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                                                                 lmShift=self.DicoImager[iFacet]["lmShift"],
-                                                                IdSharedMem=self.IdSharedMem,IDFacet=iFacet,SpheNorm=SpheNorm)
+                                                                IdSharedMem=self.IdSharedMem,
+                                                                IdSharedMemData=self.IdSharedMemData,
+                                                                IDFacet=iFacet,SpheNorm=SpheNorm)
             #,
              #                                                   **self.DicoImager[iFacet]["DicoConfigGM"])
 
@@ -298,6 +382,8 @@ class ClassFacetMachine():
         for iFacet in range(NFacets):
             work_queue.put(iFacet)
 
+        self.SpacialWeigth={}
+
         workerlist=[]
         for ii in range(NCPU):
             W=WorkerImager(work_queue, result_queue,
@@ -306,12 +392,13 @@ class ClassFacetMachine():
                            FFTW_Wisdom=self.FFTW_Wisdom,
                            DicoImager=self.DicoImager,
                            IdSharedMem=self.IdSharedMem,
+                           IdSharedMemData=self.IdSharedMemData,
                            ApplyCal=self.ApplyCal)
             workerlist.append(W)
             workerlist[ii].start()
 
         #print>>log, ModColor.Str("  --- Initialising DDEGridMachines ---",col="green")
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Init ", HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Init W ", HeaderSize=10,TitleSize=13)
         pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
 
@@ -329,7 +416,7 @@ class ClassFacetMachine():
             workerlist[ii].terminate()
             workerlist[ii].join()
 
-            
+
         return True
 
 
@@ -337,10 +424,13 @@ class ClassFacetMachine():
     ############################################################################################
     ############################################################################################
 
-    def setCasaImage(self,ImageName=None):
+    def setCasaImage(self,ImageName=None,Shape=None):
         if ImageName==None:
             ImageName=self.ImageName
-        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,self.OutImShape,self.Cell,self.MainRaDec)
+
+        if Shape==None:
+            Shape=self.OutImShape
+        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec)
 
     def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None):
         # if ImageIn==None:
@@ -358,8 +448,8 @@ class ClassFacetMachine():
         # im.setBeam((0.,0.,0.))
         # im.close()
 
-        if self.CasaImage==None:
-            self.setCasaImage(ImageName=ImageName)
+        #if self.CasaImage==None:
+        self.setCasaImage(ImageName=ImageName,Shape=ImageIn.shape)
 
         self.CasaImage.setdata(ImageIn,CorrT=True)
 
@@ -428,88 +518,292 @@ class ClassFacetMachine():
                 self.DicoGridMachine[iFacet]["Dirty"]=Dirty.copy()
                 
             self.DicoGridMachine[iFacet]["Weights"]=GridMachine.SumWeigths
-            print>>log, "Gridding facet #%i: done"%iFacet
+            print>>log, "Gridding facet #%i: done [%s]"%(iFacet,str(GridMachine.SumWeigths))
 
         ThisSumWeights=self.DicoGridMachine[0]["Weights"]
         self.SumWeights+=ThisSumWeights
         print self.SumWeights
 
+    def FacetsToIm(self,NormJones=False):
+        T=ClassTimeIt.ClassTimeIt("FacetsToIm")
+        T.disable()
+        _,npol,Npix,Npix=self.OutImShape
+        DicoImages={}
+        DicoImages["freqs"]={}
+        ImagData=np.zeros((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
 
-    def FacetsToIm(self):
-        Image=self.GiveEmptyMainField()
+        T.timeit("0")
+        
+        DoCalcNormData=False
+        if (NormJones)&(self.NormData==None): 
+            DoCalcNormData=True
+            self.NormData=np.ones((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
+
+        T.timeit("1")
+
+
+        DicoImages["SumWeights"]=np.zeros((self.VS.NFreqBands,),np.float64)
+        for Channel in range(self.VS.NFreqBands):
+            DicoImages["freqs"][Channel]=self.VS.FreqBandsInfos[Channel]
+            DicoImages["SumWeights"][Channel]=self.DicoImager[0]["SumWeights"][Channel]
+
+        ImagData=self.FacetsToIm_Channel()
+
+        if DoCalcNormData:
+            self.NormData=self.FacetsToIm_Channel(BeamWeightImage=True)
+
+        T.timeit("2")
+                
+        # if NormJones: 
+        #     ImagData/=np.sqrt(self.NormData)
+
+        T.timeit("3")
+
+        DicoImages["ImagData"]=ImagData
+        DicoImages["NormData"]=self.NormData
+        DicoImages["WeightChansImages"]=DicoImages["SumWeights"]/np.sum(DicoImages["SumWeights"])
+        if self.VS.MultiFreqMode:
+            ImMean=np.zeros_like(ImagData)
+            W=np.array([DicoImages["SumWeights"][Channel] for Channel in range(self.VS.NFreqBands)])
+            W/=np.sum(W)
+            W=np.float32(W.reshape((self.VS.NFreqBands,1,1,1)))
+            DicoImages["MeanImage"]=np.sum(ImagData*W,axis=0).reshape((1,npol,Npix,Npix))
+
+        else:
+            DicoImages["MeanImage"]=ImagData
+
+        T.timeit("4")
+
+        if self.DoPSF:
+            print>>log, "  Build PSF facet-slices "
+            self.DicoPSF={}
+            for iFacet in self.DicoGridMachine.keys():
+                self.DicoPSF[iFacet]={}
+                self.DicoPSF[iFacet]["PSF"]=(self.DicoGridMachine[iFacet]["Dirty"]).copy()
+                self.DicoPSF[iFacet]["l0m0"]=self.DicoImager[iFacet]["l0m0"]
+                self.DicoPSF[iFacet]["pixCentral"]=self.DicoImager[iFacet]["pixCentral"]
+
+                nch,npol,n,n=self.DicoPSF[iFacet]["PSF"].shape
+                PSFChannel=np.zeros((nch,npol,n,n),np.float32)
+                for ch in range(nch):
+                    self.DicoPSF[iFacet]["PSF"][ch][0]=self.DicoPSF[iFacet]["PSF"][ch][0].T[::-1,:]
+                    self.DicoPSF[iFacet]["PSF"][ch]/=np.max(self.DicoPSF[iFacet]["PSF"][ch])
+                    PSFChannel[ch,:,:,:]=self.DicoPSF[iFacet]["PSF"][ch][:,:,:]
+
+                W=DicoImages["WeightChansImages"]
+                W=np.float32(W.reshape((self.VS.NFreqBands,1,1,1)))
+                
+                MeanPSF=np.sum(PSFChannel*W,axis=0).reshape((1,npol,n,n))
+                self.DicoPSF[iFacet]["MeanPSF"]=MeanPSF
+
+
+
+            DicoVariablePSF=self.DicoPSF
+            NFacets=len(DicoVariablePSF.keys())
+            NPixMin=1e6
+            for iFacet in sorted(DicoVariablePSF.keys()):
+                _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
+                if n<NPixMin: NPixMin=n
+
+            nch=self.GD["MultiFreqs"]["NFreqBands"]
+            CubeVariablePSF=np.zeros((NFacets,nch,npol,NPixMin,NPixMin),np.float32)
+            CubeMeanVariablePSF=np.zeros((NFacets,1,npol,NPixMin,NPixMin),np.float32)
+
+            print>>log, "  Cutting PSFs facet-slices "
+            for iFacet in sorted(DicoVariablePSF.keys()):
+                _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
+                for ch in range(nch):
+                    i=n/2-NPixMin/2
+                    j=n/2+NPixMin/2+1
+                    CubeVariablePSF[iFacet,ch,:,:,:]=DicoVariablePSF[iFacet]["PSF"][ch][:,i:j,i:j]
+                CubeMeanVariablePSF[iFacet,0,:,:,:]=DicoVariablePSF[iFacet]["MeanPSF"][0,:,i:j,i:j]
+
+            self.DicoPSF["CubeVariablePSF"]=CubeVariablePSF
+            self.DicoPSF["CubeMeanVariablePSF"]=CubeMeanVariablePSF
+            self.DicoPSF["MeanFacetPSF"]=np.mean(CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
+
+
+            self.DicoPSF["MeanJonesBand"]=[]
+            for iFacet in sorted(self.DicoImager.keys()):
+                #print "==============="
+                MeanJonesBand=np.zeros((self.VS.NFreqBands,),np.float64)
+                for Channel in range(self.VS.NFreqBands):
+                    ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][1][Channel]
+                    if ThisSumSqWeights==0: ThisSumSqWeights=1.
+                    ThisSumJones=(self.DicoImager[iFacet]["SumJones"][0][Channel]/ThisSumSqWeights)
+                    if ThisSumJones==0:
+                        ThisSumJones=1.
+                    #print "0",iFacet,Channel,np.sqrt(ThisSumJones)
+                    MeanJonesBand[Channel]=ThisSumJones
+                self.DicoPSF["MeanJonesBand"].append(MeanJonesBand)
+
+
+            self.DicoPSF["SumJonesChan"]=[]
+            self.DicoPSF["SumJonesChanWeightSq"]=[]
+            for iFacet in sorted(self.DicoImager.keys()):
+
+                ThisFacetSumJonesChan=[]
+                ThisFacetSumJonesChanWeightSq=[]
+                #print "==============="
+                for iMS in range(self.VS.nMS):
+                    A=self.DicoImager[iFacet]["SumJonesChan"][iMS][1,:]
+                    A[A==0]=1.
+                    A=self.DicoImager[iFacet]["SumJonesChan"][iMS][0,:]
+                    A[A==0]=1.
+                    SumJonesChan=self.DicoImager[iFacet]["SumJonesChan"][iMS][0,:]
+                    SumJonesChanWeightSq=self.DicoImager[iFacet]["SumJonesChan"][iMS][1,:]
+                    #print "1",iFacet,iMS,MeanJonesChan
+                    ThisFacetSumJonesChan.append(SumJonesChan)
+                    ThisFacetSumJonesChanWeightSq.append(SumJonesChanWeightSq)
+
+
+                    # # ###############################
+                    # l0,m0=self.DicoImager[iFacet]["lmShift"]
+                    # d=np.sqrt(l0**2+m0**2)
+                    # if d<0.0001:
+                    #     print "========================="
+                    #     print iFacet
+                    #     print self.DicoImager[iFacet]["lmShift"]
+                    #     print self.DicoImager[iFacet]["SumJonesChan"][iMS][1,:]
+                    #     print self.DicoImager[iFacet]["SumJonesChan"][iMS][0,:]
+                    #     print MeanJonesChan
+
+                
+                self.DicoPSF["SumJonesChan"].append(ThisFacetSumJonesChan)
+                self.DicoPSF["SumJonesChanWeightSq"].append(ThisFacetSumJonesChanWeightSq)
+            self.DicoPSF["ChanMappingGrid"]=self.VS.DicoMSChanMapping
+            self.DicoPSF["freqs"]=DicoImages["freqs"]
+            self.DicoPSF["WeightChansImages"]=DicoImages["WeightChansImages"]
+        T.timeit("5")
+        # for iFacet in self.DicoImager.keys():
+        #     del(self.DicoGridMachine[iFacet]["Dirty"])
+        #     DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
+        #     _=NpShared.DelArray(DirtyName)
+
+
+
+        return DicoImages
+
+
+        
+        
+    def BuildFacetNormImage(self):
+        if self.NormImage!=None: return
+        print>>log,"  Building Facet-normalisation image"
         nch,npol=self.nch,self.npol
         _,_,NPixOut,NPixOut=self.OutImShape
-        print>>log, "Combining facets using %s mode..."%self.ConstructMode
-        if self.ConstructMode=="Fader": 
+        NormImage=np.zeros((NPixOut,NPixOut),dtype=np.float32)
+        for iFacet in self.DicoImager.keys():
             SharedMemName="%sSpheroidal"%(self.IdSharedMem)#"%sWTerm.Facet_%3.3i"%(self.IdSharedMem,0)
-            NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
+            SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
             #SPhe=NpShared.UnPackListSquareMatrix(SharedMemName)[0]
             SPhe=NpShared.GiveArray(SharedMemName)
             
+            xc,yc=self.DicoImager[iFacet]["pixCentral"]
+            #NpixFacet=self.DicoGridMachine[iFacet]["Dirty"][Channel].shape[2]
+            NpixFacet=self.DicoImager[iFacet]["NpixFacetPadded"]
+
+            Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(NpixFacet/2,NpixFacet/2),NpixFacet)
+            x0d,x1d,y0d,y1d=Aedge
+            x0p,x1p,y0p,y1p=Bedge
+
+            SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
+            SW=SpacialWeigth[::-1,:].T[x0p:x1p,y0p:y1p]
+            NormImage[x0d:x1d,y0d:y1d]+=SW#Sphe
+
+
+
+        nx,nx=NormImage.shape
+        self.NormImage=NormImage
+        self.NormImageReShape=self.NormImage.reshape((1,1,nx,nx))
+        
+
+    def FacetsToIm_Channel(self,BeamWeightImage=False):
+        T=ClassTimeIt.ClassTimeIt("FacetsToIm_Channel")
+        T.disable()
+        Image=self.GiveEmptyMainField()
+
+        nch,npol,NPixOut,NPixOut=self.OutImShape
+
+
+        self.BuildFacetNormImage()
+
+        if BeamWeightImage:
+            print>>log, "Combining facets to average Jones-amplitude image"
+        else:
+            print>>log, "Combining facets to residual image"
+            
+
+        NormImage=self.NormImage
+
         for iFacet in self.DicoImager.keys():
-            if self.ConstructMode=="Sharp":
-                x0,x1,y0,y1=self.DicoImager[iFacet]["pixExtent"]
-                for ch in range(nch):
-                    for pol in range(npol):
-                        Image[ch,pol,x0:x1,y0:y1]=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real
-            elif self.ConstructMode=="Fader":
                 
-                xc,yc=self.DicoImager[iFacet]["pixCentral"]
-                NpixFacet=self.DicoGridMachine[iFacet]["Dirty"].shape[2]
+            SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+            SPhe=NpShared.GiveArray(SharedMemName)
+            
 
-                M_xc=xc
-                M_yc=yc
-                NpixMain=NPixOut
-                F_xc=NpixFacet/2
-                F_yc=NpixFacet/2
-                
-                ## X
-                M_x0=M_xc-NpixFacet/2
-                x0main=np.max([0,M_x0])
-                dx0=x0main-M_x0
-                x0facet=dx0
-                
-                M_x1=M_xc+NpixFacet/2
-                x1main=np.min([NpixMain-1,M_x1])
-                dx1=M_x1-x1main
-                x1facet=NpixFacet-dx1
-                x1main+=1
-                ## Y
-                M_y0=M_yc-NpixFacet/2
-                y0main=np.max([0,M_y0])
-                dy0=y0main-M_y0
-                y0facet=dy0
-                
-                M_y1=M_yc+NpixFacet/2
-                y1main=np.min([NpixMain-1,M_y1])
-                dy1=M_y1-y1main
-                y1facet=NpixFacet-dy1
-                y1main+=1
+            xc,yc=self.DicoImager[iFacet]["pixCentral"]
+            NpixFacet=self.DicoGridMachine[iFacet]["Dirty"][0].shape[2]
+            
+            Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(NpixFacet/2,NpixFacet/2),NpixFacet)
+            x0main,x1main,y0main,y1main=Aedge
+            x0facet,x1facet,y0facet,y1facet=Bedge
+            
+            #print "#%3.3i %s"%(iFacet,str(self.DicoImager[iFacet]["SumJones"][0]/self.DicoImager[iFacet]["SumJones"][1]))
 
+            for Channel in range(self.VS.NFreqBands):
+            
+            
+                ThisSumWeights=self.DicoImager[iFacet]["SumWeights"][Channel]
+                ThisSumJones=1.
+            
+                # if BeamWeightImage:
+                #     ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][1][Channel]
+                #     if ThisSumSqWeights==0: ThisSumSqWeights=1.
+                #     ThisSumJones=self.DicoImager[iFacet]["SumJones"][0][Channel]/ThisSumSqWeights
+                #     if ThisSumJones==0:
+                #         ThisSumJones=1.
 
-                # print "======================="
-                # print "Facet %i %s"%(iFacet,str(self.DicoGridMachine[iFacet]["Dirty"].shape))
-                # print "Facet %i:%i (%i)"%(x0facet,x1facet,x1facet-x0facet)
-                # print "Main  %i:%i (%i)"%(x0main,x1main,x1main-x0main)
-                for ch in range(nch):
-                    for pol in range(npol):
-                        #Image[ch,pol,x0main:x1main,y0main:y1main]+=self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
-                        sumweight=self.SumWeights.reshape((nch,npol,1,1))[ch,pol,0,0]
-                        Image[ch,pol,x0main:x1main,y0main:y1main]+=(self.DicoGridMachine[iFacet]["Dirty"][ch,pol][::-1,:]\
-                                                                        .T.real[x0facet:x1facet,y0facet:y1facet]/sumweight)
-                NormImage[x0main:x1main,y0main:y1main]+=SPhe[::-1,:].T.real[x0facet:x1facet,y0facet:y1facet]
+                ThisSumSqWeights=self.DicoImager[iFacet]["SumJones"][1][Channel]
+                if ThisSumSqWeights==0: ThisSumSqWeights=1.
+                ThisSumJones=self.DicoImager[iFacet]["SumJones"][0][Channel]/ThisSumSqWeights
+                if ThisSumJones==0:
+                    ThisSumJones=1.
 
-        if self.ConstructMode=="Fader": 
-            for ch in range(nch):
+            
+                SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
+                T.timeit("3")
                 for pol in range(npol):
-                    Image[ch,pol]/=NormImage
+                    sumweight=ThisSumWeights[pol]#ThisSumWeights.reshape((nch,npol,1,1))[Channel, pol, 0, 0]
+                    
+                    if BeamWeightImage:
+                        Im=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]*ThisSumJones
+                    else:
+                    
+                        Im=self.DicoGridMachine[iFacet]["Dirty"][Channel][pol]
+                        Im/=SPhe.real
+                        Im[SPhe<1e-3]=0
+                        Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][pol][::-1,:].T.real/sumweight)
+                        SW=SpacialWeigth[::-1,:].T
+                        Im*=SW
+
+                        Im/=np.sqrt(ThisSumJones)
+                        #Im/=(ThisSumJones)
+
+                        Im=Im[x0facet:x1facet,y0facet:y1facet]
+                
+                
+                    Image[Channel,pol,x0main:x1main,y0main:y1main]+=Im
+
+
+        for Channel in range(self.VS.NFreqBands):
+            for pol in range(npol):
+                Image[Channel,pol]/=NormImage
  
 
 
-        for iFacet in self.DicoImager.keys():
-            del(self.DicoGridMachine[iFacet]["Dirty"])
-            DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
-            _=NpShared.DelArray(DirtyName)
+        #self.ToCasaImage(self.NormImage.reshape((1,1,nx,nx)),Fits=True,ImageName="NormImage")
+        # stop
 
         # for ch in range(nch):
         #     for pol in range(npol):
@@ -524,7 +818,7 @@ class ClassFacetMachine():
         Image=self.GiveEmptyMainField()
         nch,npol=self.nch,self.npol
         _,_,NPixOut,NPixOut=self.OutImShape
-        SharedMemName="%sSpheroidal"%(self.IdSharedMem)
+        SharedMemName="%sSpheroidal"%(self.IdSharedMemData)
         NormImage=np.zeros((NPixOut,NPixOut),dtype=Image.dtype)
         SPhe=NpShared.GiveArray(SharedMemName)
         N1=self.NpixPaddedFacet
@@ -547,7 +841,7 @@ class ClassFacetMachine():
 
     def ImToFacets(self,Image):
         nch,npol=self.nch,self.npol
-        for iFacet in self.DicoImager.keys():
+        for iFacet in sorted(self.DicoImager.keys()):
             x0,x1,y0,y1=self.DicoImager[iFacet]["pixExtent"]
             #GGridMachine=self.DicoImager[iFacet]["GridMachine"]
             ModelIm=np.zeros((nch,npol,self.NpixFacet,self.NpixFacet),dtype=np.float32)
@@ -572,19 +866,46 @@ class ClassFacetMachine():
             visOut+=vis
         return visOut
 
+    def InitGrids(self):
+        
+        for iFacet in self.DicoGridMachine.keys():
+            NX=self.DicoImager[iFacet]["NpixFacetPadded"]
+            GridName="%sGridFacet.%3.3i"%(self.IdSharedMem,iFacet)
+            self.DicoGridMachine[iFacet]["Dirty"]=NpShared.zeros(GridName,(self.VS.NFreqBands,self.npol,NX,NX),self.CType)
+            self.DicoGridMachine[iFacet]["Dirty"]+=1
+            self.DicoGridMachine[iFacet]["Dirty"].fill(0)
+
     def ReinitDirty(self):
         self.SumWeights.fill(0)
         self.IsDirtyInit=True
         for iFacet in self.DicoGridMachine.keys():
-            if "Dirty" in self.DicoGridMachine[iFacet].keys():
-                self.DicoGridMachine[iFacet]["Dirty"].fill(0)
-            if "GM" in self.DicoGridMachine[iFacet].keys():
-                self.DicoGridMachine[iFacet]["GM"].reinitGrid() # reinitialise sumWeights
+            NX=self.DicoImager[iFacet]["NpixFacetPadded"]
+            GridName="%sGridFacet.%3.3i"%(self.IdSharedMem,iFacet)
+            #self.DicoGridMachine[iFacet]["Dirty"]=NpShared.zeros(GridName,(self.VS.NFreqBands,self.npol,NX,NX),self.CType)
+            self.DicoGridMachine[iFacet]["Dirty"]=np.ones((self.VS.NFreqBands,self.npol,NX,NX),self.FType)
+            self.DicoGridMachine[iFacet]["Dirty"].fill(0)
+            #self.DicoGridMachine[iFacet]["Dirty"]+=1
+            #self.DicoGridMachine[iFacet]["Dirty"].fill(0)
+
+            #     if "Dirty" in self.DicoGridMachine[iFacet].keys():
+            #         for Channel in self.DicoGridMachine[iFacet]["Dirty"].keys():
+            #             self.DicoGridMachine[iFacet]["Dirty"][Channel].fill(0)
+            #     if "GM" in self.DicoGridMachine[iFacet].keys():
+            #         self.DicoGridMachine[iFacet]["GM"].reinitGrid() # reinitialise sumWeights
+
+            self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands,self.npol),np.float64)
+            self.DicoImager[iFacet]["SumJones"]   = np.zeros((2,self.VS.NFreqBands),np.float64)
+            self.DicoImager[iFacet]["SumJonesChan"]=[]
+            for iMS in range(self.VS.nMS):
+                MS=self.VS.ListMS[iMS]
+                nVisChan=MS.ChanFreq.size
+                self.DicoImager[iFacet]["SumJonesChan"].append(np.zeros((2,nVisChan),np.float64))
+            
         # if self.Parallel:
         #     V=self.IM.CI.E.GiveSubCluster("Imag")["V"]
         #     LaunchAndCheck(V,'execfile("%s/Scripts/ScriptReinitGrids.py")'%self.GD.HYPERCAL_DIR)
 
-    def CalcDirtyImagesParallel(self,times,uvwIn,visIn,flag,A0A1,W=None,doStack=True):
+    def CalcDirtyImagesParallel(self,times,uvwIn,visIn,flag,A0A1,W=None,doStack=True,Channel=0):
         
         
         NCPU=self.NCPU
@@ -596,7 +917,7 @@ class ClassFacetMachine():
 
         PSFMode=False
         if self.DoPSF:
-            visIn.fill(1)
+            #visIn.fill(1)
             PSFMode=True
 
         NJobs=NFacets
@@ -620,6 +941,7 @@ class ClassFacetMachine():
                            FFTW_Wisdom=self.FFTW_Wisdom,
                            DicoImager=self.DicoImager,
                            IdSharedMem=self.IdSharedMem,
+                           IdSharedMemData=self.IdSharedMemData,
                            ApplyCal=self.ApplyCal,
                            SpheNorm=SpheNorm,
                            PSFMode=PSFMode)
@@ -627,6 +949,7 @@ class ClassFacetMachine():
             workerlist[ii].start()
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="  Gridding ", HeaderSize=10,TitleSize=13)
+        pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
         while iResult < NJobs:
@@ -649,27 +972,37 @@ class ClassFacetMachine():
                 NDone=iResult
                 intPercent=int(100*  NDone / float(NFacets))
                 pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
+
             iFacet=DicoResult["iFacet"]
 
-            if iFacet==0:
-                ThisSumWeights=DicoResult["Weights"]
-                self.SumWeights+=ThisSumWeights
+            self.DicoImager[iFacet]["SumWeights"][Channel]+=DicoResult["Weights"]
+            self.DicoImager[iFacet]["SumJones"][Channel]+=DicoResult["SumJones"]
+
+            # if iFacet==0:
+            #     ThisSumWeights=DicoResult["Weights"]
+            #     self.SumWeights+=ThisSumWeights
 
             DirtyName=DicoResult["DirtyName"]
             ThisDirty=NpShared.GiveArray(DirtyName)
             #print "minmax facet = %f %f"%(ThisDirty.min(),ThisDirty.max())
+
             if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
-                self.DicoGridMachine[iFacet]["Dirty"]+=ThisDirty
+                #print>>log, (iFacet,Channel)
+                if Channel in self.DicoGridMachine[iFacet]["Dirty"].keys():
+                    self.DicoGridMachine[iFacet]["Dirty"][Channel]+=ThisDirty
+                else:
+                    self.DicoGridMachine[iFacet]["Dirty"][Channel]=ThisDirty
                 #print "minmax stack = %f %f"%(self.DicoGridMachine[iFacet]["Dirty"].min(),self.DicoGridMachine[iFacet]["Dirty"].max())
             else:
-                self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty
+                self.DicoGridMachine[iFacet]["Dirty"]={}
+                self.DicoGridMachine[iFacet]["Dirty"][Channel]=ThisDirty
 
         for ii in range(NCPU):
             workerlist[ii].shutdown()
             workerlist[ii].terminate()
             workerlist[ii].join()
 
-            
+        
         return True
 
 
@@ -690,7 +1023,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             ListModelImage.append(self.DicoImager[iFacet]["ModelFacet"])
         
-        NpShared.PackListArray("%sModelImage"%self.IdSharedMem,ListModelImage)
+        NpShared.PackListArray("%sModelImage"%self.IdSharedMemData,ListModelImage)
         del(ListModelImage)
         for iFacet in self.DicoImager.keys():
             del(self.DicoImager[iFacet]["ModelFacet"])
@@ -713,12 +1046,14 @@ class ClassFacetMachine():
                            FFTW_Wisdom=self.FFTW_Wisdom,
                            DicoImager=self.DicoImager,
                            IdSharedMem=self.IdSharedMem,
+                           IdSharedMemData=self.IdSharedMemData,
                            ApplyCal=self.ApplyCal)
             workerlist.append(W)
             workerlist[ii].start()
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="DeGridding ", HeaderSize=10,TitleSize=13)
         pBAR.render(0, '%4i/%i' % (0,NFacets))
+        
         iResult=0
         while iResult < NJobs:
             DicoResult=result_queue.get()
@@ -735,18 +1070,21 @@ class ClassFacetMachine():
             workerlist[ii].terminate()
             workerlist[ii].join()
 
-        NpShared.DelArray("%sModelImage"%self.IdSharedMem)
+        NpShared.DelArray("%sModelImage"%self.IdSharedMemData)
             
         return True
 
         
     def GiveGM(self,iFacet):
+        
         GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,#RaDec=self.DicoImager[iFacet]["RaDec"],
                                                             self.DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
                                                             self.DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                                                             lmShift=self.DicoImager[iFacet]["lmShift"],
-                                                            IdSharedMem=self.IdSharedMem,IDFacet=iFacet,
-                                                            SpheNorm=True)#,
+                                                            IdSharedMem=self.IdSharedMem,
+                                                            IdSharedMemData=self.IdSharedMemData,
+                                                            IDFacet=iFacet,
+                                                            SpheNorm=self.SpheNorm)#,
         return GridMachine
 
 
@@ -766,6 +1104,7 @@ class WorkerImager(multiprocessing.Process):
                  FFTW_Wisdom=None,
                  DicoImager=None,
                  IdSharedMem=None,
+                 IdSharedMemData=None,
                  ApplyCal=False,
                  SpheNorm=True,
                  PSFMode=False):
@@ -779,7 +1118,10 @@ class WorkerImager(multiprocessing.Process):
         self.GD=GD
         self.DicoImager=DicoImager
         self.IdSharedMem=IdSharedMem
-        self.ApplyCal=ApplyCal
+        self.IdSharedMemData=IdSharedMemData
+        self.Apply_killMS=(GD["DDESolutions"]["DDSols"]!="")&(GD["DDESolutions"]["DDSols"]!=None)
+        self.Apply_Beam=(GD["Beam"]["BeamModel"]!=None)
+        self.ApplyCal=(self.Apply_killMS)|(self.Apply_Beam)
         self.SpheNorm=SpheNorm
         self.PSFMode=PSFMode
 
@@ -792,20 +1134,34 @@ class WorkerImager(multiprocessing.Process):
                                                             self.DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
                                                             self.DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                                                             lmShift=self.DicoImager[iFacet]["lmShift"],
-                                                            IdSharedMem=self.IdSharedMem,IDFacet=iFacet,
+                                                            IdSharedMem=self.IdSharedMem,
+                                                            IdSharedMemData=self.IdSharedMemData,
+                                                            IDFacet=iFacet,
                                                             SpheNorm=self.SpheNorm)#,
-        #**self.DicoImager[iFacet]["DicoConfigGM"])
         return GridMachine
         
     def GiveDicoJonesMatrices(self):
         DicoJonesMatrices=None
-        if self.PSFMode: return None
+        # if self.PSFMode:
+        #     return None
+
         if self.ApplyCal:
-            DicoJonesMatrices=NpShared.SharedToDico("%skillMSSolutionFile"%self.IdSharedMem)
-            DicoClusterDirs=NpShared.SharedToDico("%sDicoClusterDirs"%self.IdSharedMem)
-            DicoJonesMatrices["DicoClusterDirs"]=DicoClusterDirs
-            DicoJonesMatrices["MapJones"]=NpShared.GiveArray("%sMapJones"%self.IdSharedMem)
-            
+            DicoJonesMatrices={}
+
+        if self.Apply_killMS:
+            DicoJones_killMS=NpShared.SharedToDico("%sJonesFile_killMS"%self.IdSharedMemData)
+            DicoJonesMatrices["DicoJones_killMS"]=DicoJones_killMS
+            DicoJonesMatrices["DicoJones_killMS"]["MapJones"]=NpShared.GiveArray("%sMapJones_killMS"%self.IdSharedMemData)
+            DicoClusterDirs_killMS=NpShared.SharedToDico("%sDicoClusterDirs_killMS"%self.IdSharedMemData)
+            DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]=DicoClusterDirs_killMS
+
+        if self.Apply_Beam:
+            DicoJones_Beam=NpShared.SharedToDico("%sJonesFile_Beam"%self.IdSharedMemData)
+            DicoJonesMatrices["DicoJones_Beam"]=DicoJones_Beam
+            DicoJonesMatrices["DicoJones_Beam"]["MapJones"]=NpShared.GiveArray("%sMapJones_Beam"%self.IdSharedMemata)
+            DicoClusterDirs_Beam=NpShared.SharedToDico("%sDicoClusterDirs_Beam"%self.IdSharedMemData)
+            DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"]=DicoClusterDirs_Beam
+
         return DicoJonesMatrices
 
     def run(self):
@@ -830,7 +1186,7 @@ class WorkerImager(multiprocessing.Process):
                 #import gc
                 #gc.enable()
                 GridMachine=self.GiveGM(iFacet)
-                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMem)
+                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMemData)
                 uvwThis=DATA["uvw"]
                 visThis=DATA["data"]
                 flagsThis=DATA["flags"]
@@ -842,15 +1198,16 @@ class WorkerImager(multiprocessing.Process):
                 freqs=DATA["freqs"]
 
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
-                Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices,freqs=freqs)#,doStack=False)
+                Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,DoNormWeights=False, DicoJonesMatrices=DicoJonesMatrices,freqs=freqs,DoPSF=self.PSFMode)#,doStack=False)
 
                 DirtyName="%sImageFacet.%3.3i"%(self.IdSharedMem,iFacet)
                 _=NpShared.ToShared(DirtyName,Dirty)
                 del(Dirty)
-                Sw=GridMachine.SumWeigths
+                Sw=GridMachine.SumWeigths.copy()
+                SumJones=GridMachine.SumJones.copy()
                 del(GridMachine)
 
-                self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":Sw})
+                self.result_queue.put({"Success":True,"iFacet":iFacet,"DirtyName":DirtyName,"Weights":Sw,"SumJones":SumJones})
                 
 
                 # gc.collect()
@@ -862,7 +1219,7 @@ class WorkerImager(multiprocessing.Process):
             elif self.Mode=="DeGrid":
                 
                 GridMachine=self.GiveGM(iFacet)
-                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMem)
+                DATA=NpShared.SharedToDico("%sDicoData"%self.IdSharedMemData)
                 uvwThis=DATA["uvw"]
                 visThis=DATA["data"]
                 #PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
@@ -875,7 +1232,7 @@ class WorkerImager(multiprocessing.Process):
                 W=DATA["Weights"]
                 freqs=DATA["freqs"]
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
-                ModelIm = NpShared.UnPackListArray("%sModelImage"%self.IdSharedMem)[iFacet]
+                ModelIm = NpShared.UnPackListArray("%sModelImage"%self.IdSharedMemData)[iFacet]
                 vis=GridMachine.get(times,uvwThis,visThis,flagsThis,A0A1,ModelIm,DicoJonesMatrices=DicoJonesMatrices,freqs=freqs)
                 
                 self.result_queue.put({"Success":True,"iFacet":iFacet})
