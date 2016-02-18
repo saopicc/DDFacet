@@ -128,7 +128,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             # raNode=ClusterNodes.ra
             # decNode=ClusterNodes.dec
             # lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
-
+        self.lmSols=lFacet.copy(),mFacet.copy()
 
 
         #ClusterNodes=np.load("/data/tasse/BOOTES/BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
@@ -178,9 +178,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             diam=np.max([dl,dm])
             return diam,(l0,l1,m0,m1)
 
-        DiamMax=1.5*np.pi/180
+        DiamMax=self.GD["ImagerMainFacet"]["DiamMaxFacet"]*np.pi/180
         #DiamMax=4.5*np.pi/180
-        DiamMin=0.1*np.pi/180
+        DiamMin=self.GD["ImagerMainFacet"]["DiamMinFacet"]*np.pi/180
         
         def ClosePolygon(polygon):
             P=polygon.tolist()
@@ -549,12 +549,18 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         RadiusFacet=diam*0.5
         RadiusFacetPadded=diamPadded*0.5
         self.DicoImager[iFacet]["lmDiam"]=RadiusFacet
+        self.DicoImager[iFacet]["CellSizeRad"]=self.CellSizeRad
         self.DicoImager[iFacet]["lmDiamPadded"]=RadiusFacetPadded
         self.DicoImager[iFacet]["RadiusFacet"]=RadiusFacet
         self.DicoImager[iFacet]["RadiusFacetPadded"]=RadiusFacetPadded
         self.DicoImager[iFacet]["lmExtent"]=l0-RadiusFacet,l0+RadiusFacet,m0-RadiusFacet,m0+RadiusFacet
         self.DicoImager[iFacet]["lmExtentPadded"]=l0-RadiusFacetPadded,l0+RadiusFacetPadded,m0-RadiusFacetPadded,m0+RadiusFacetPadded
 
+        lSol,mSol=self.lmSols
+        dSol=np.sqrt((l0-lSol)**2+(m0-mSol)**2)
+        iSol=np.where(dSol==np.min(dSol))[0]
+        self.DicoImager[iFacet]["lmSol"]=lSol[iSol],mSol[iSol]
+        
         
         #print>>log,"#[%3.3i] %f, %f"%(iFacet,l0,m0)
         DicoConfigGM={"Npix":NpixFacet,

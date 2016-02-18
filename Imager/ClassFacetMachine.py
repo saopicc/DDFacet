@@ -691,6 +691,7 @@ class ClassFacetMachine():
             self.DicoPSF["ChanMappingGrid"]=self.VS.DicoMSChanMapping
             self.DicoPSF["freqs"]=DicoImages["freqs"]
             self.DicoPSF["WeightChansImages"]=DicoImages["WeightChansImages"]
+            self.DicoPSF["OutImShape"]=self.OutImShape
         T.timeit("5")
         # for iFacet in self.DicoImager.keys():
         #     del(self.DicoGridMachine[iFacet]["Dirty"])

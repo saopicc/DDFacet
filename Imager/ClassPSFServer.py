@@ -46,7 +46,7 @@ class ClassPSFServer():
         #self.CalcJacobian()
 
     def setLocation(self,xp,yp):
-        self.iFacet=self.giveFacetID(xp,yp)
+        self.iFacet=self.giveFacetID2(xp,yp)
 
     def giveFacetID(self,xp,yp):
         dmin=1e6
@@ -57,6 +57,24 @@ class ClassPSFServer():
                 ClosestFacet=iFacet
         return ClosestFacet
                 
+    def giveFacetID2(self,xp,yp):
+        dmin=1e6
+        for iFacet in range(self.NFacets):
+            CellSizeRad=self.DicoVariablePSF[iFacet]["CellSizeRad"]
+            _,_,nx,_=self.DicoVariablePSF[iFacet]["OutImShape"]
+            l=CellSizeRad*(xp-nx/2)
+            m=CellSizeRad*(yp-nx/2)
+            lSol,mSol=self.DicoImager[iFacet]["lmSol"]
+
+            d=np.sqrt((l-lSol)**2+(m-mSol)**2)
+
+            if d<dmin:
+                dmin=d
+                ClosestFacet=iFacet
+
+        return ClosestFacet
+
+
 
     def setFacet(self,iFacet):
         #print "set facetloc"
