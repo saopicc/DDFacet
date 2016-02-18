@@ -133,6 +133,7 @@ class ClassVisServer():
             if not("Alpha" in self.GD["GAClean"]["GASolvePars"]):
                 self.GD["GAClean"]["GASolvePars"].append("Alpha")
             
+            self.MultiFreqMode=True
         else:
             self.GD["MultiFreqs"]["NFreqBands"] = 1
             self.GD["MultiFreqs"]["Alpha"] = [0.,0.,1.]
