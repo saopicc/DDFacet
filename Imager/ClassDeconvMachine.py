@@ -282,7 +282,7 @@ class ClassImagerDeconv():
 
         self.DicoImagePSF=FacetMachinePSF.FacetsToIm(NormJones=True)
         self.DicoVariablePSF=FacetMachinePSF.DicoPSF
-        #FacetMachinePSF.ToCasaImage(self.DicoImagePSF["ImagData"],ImageName="%s.psf"%self.BaseName,Fits=True)
+        FacetMachinePSF.ToCasaImage(self.DicoImagePSF["ImagData"],ImageName="%s.psf"%self.BaseName,Fits=True)
 
         #np.savez("PSF.npz",ImagData=self.DicoImagePSF["ImagData"],MeanImage=self.DicoImagePSF["MeanImage"])
 

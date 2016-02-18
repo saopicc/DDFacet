@@ -589,6 +589,7 @@ class ClassFacetMachine():
                 self.DicoPSF[iFacet]["PSF"][SPhe<1e-3]=0
                 self.DicoPSF[iFacet]["l0m0"]=self.DicoImager[iFacet]["l0m0"]
                 self.DicoPSF[iFacet]["pixCentral"]=self.DicoImager[iFacet]["pixCentral"]
+                self.DicoPSF[iFacet]["lmSol"]=self.DicoImager[iFacet]["lmSol"]
 
                 nch,npol,n,n=self.DicoPSF[iFacet]["PSF"].shape
                 PSFChannel=np.zeros((nch,npol,n,n),np.float32)
@@ -607,7 +608,7 @@ class ClassFacetMachine():
                 W=np.float32(W.reshape((self.VS.NFreqBands,1,1,1)))
 
                 ich,ipol,i,j=np.where(self.DicoPSF[iFacet]["PSF"]==np.max(np.abs(self.DicoPSF[iFacet]["PSF"])))
-                print self.DicoPSF[iFacet]["PSF"][:,:,i,j]
+                # print self.DicoPSF[iFacet]["PSF"][:,:,i,j]
 
                 MeanPSF=np.sum(PSFChannel*W,axis=0).reshape((1,npol,n,n))
                 self.DicoPSF[iFacet]["MeanPSF"]=MeanPSF
@@ -692,6 +693,8 @@ class ClassFacetMachine():
             self.DicoPSF["freqs"]=DicoImages["freqs"]
             self.DicoPSF["WeightChansImages"]=DicoImages["WeightChansImages"]
             self.DicoPSF["OutImShape"]=self.OutImShape
+            self.DicoPSF["CellSizeRad"]=self.CellSizeRad
+
         T.timeit("5")
         # for iFacet in self.DicoImager.keys():
         #     del(self.DicoGridMachine[iFacet]["Dirty"])

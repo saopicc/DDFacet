@@ -255,7 +255,7 @@ class ClassImageDeconvMachine():
             XY=np.array(ThisPixList,dtype=np.float32)
             xm,ym=np.int64(np.mean(np.float32(XY),axis=0))
 
-            FacetID=self.PSFServer.giveFacetID(xm,ym)
+            FacetID=self.PSFServer.giveFacetID2(xm,ym)
             PSF=self.DicoVariablePSF["CubeVariablePSF"][FacetID]
             # self.DicoVariablePSF["CubeMeanVariablePSF"][FacetID]
             
@@ -394,7 +394,7 @@ class ClassImageDeconvMachine():
             IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
             T.timeit("GiveIndividual")
             ListBestIndiv.append(IslandBestIndiv)
-            FacetID=self.PSFServer.giveFacetID(xm,ym)
+            FacetID=self.PSFServer.giveFacetID2(xm,ym)
             T.timeit("FacetID")
 
             DicoOrder={"iIsland":iIsland,
@@ -618,7 +618,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
                               self.FreqsInfo,
                               ListPixParms=ListPixParms,
                               ListPixData=ListPixData,
-                              IslandBestIndiv=IslandBestIndiv*np.sqrt(JonesNorm),
+                              IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
                               GD=self.GD)
             Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
             

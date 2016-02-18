@@ -24,8 +24,8 @@ class ClassArrayMethodGA():
         self.PSF=PSF
         self.IslandBestIndiv=IslandBestIndiv
 
-        IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-        ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
+        #IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+        #ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
 
         #ListPixParms=ListPixData
         self.ListPixParms=ListPixParms
@@ -94,18 +94,31 @@ class ClassArrayMethodGA():
         
         #self.Gain=.5
         ALPHA=1.
-        if self.IslandBestIndiv!=None:
-            #self.IslandBestIndiv/=self.Gain
-            AddArray=self.ToConvArray(self.IslandBestIndiv,OutMode="Data")
-            # if np.max(self.IslandBestIndiv)!=0:
-            #     Gain=1.-np.max(np.abs(self.DirtyArray))/np.max(np.abs(AddArray))
-            #     Gain=np.min([1.,Gain])
-            #     self.Gain=np.max([.3,Gain])
-            #ind=np.where(AddArray==np.max(np.abs(AddArray)))
-            #R=self.DirtyArray[ind]
-            #D=AddArray[ind]
-            #self.ALPHA=1.-R/D
-            self.DirtyArray+=AddArray
+        if (self.IslandBestIndiv!=None):
+            S=self.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
+            if np.max(np.abs(S))>0:
+                AddArray=self.ToConvArray(self.IslandBestIndiv,OutMode="Data")
+                # if np.max(self.IslandBestIndiv)!=0:
+                #     Gain=1.-np.max(np.abs(self.DirtyArray))/np.max(np.abs(AddArray))
+                #     Gain=np.min([1.,Gain])
+                #     self.Gain=np.max([.3,Gain])
+                ind=np.where(AddArray==np.max(np.abs(AddArray)))
+                
+                # print "ind",ind
+                if ind[0].size==0:
+                    ALPHA=1.
+                else:
+                    R=self.DirtyArray[ind].flat[0]
+                    D=AddArray[ind].flat[0]
+                    # print "R",R
+                    # print "D",D
+                    ALPHA=(1.-R/D)
+                    ALPHA=np.max([1.,ALPHA])
+                self.ALPHA=ALPHA
+                # print "ALPHA=",self.ALPHA
+
+                self.DirtyArray/=self.ALPHA
+                self.DirtyArray+=AddArray
 
 
         print>>log,"  Average M"

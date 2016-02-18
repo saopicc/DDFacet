@@ -59,19 +59,19 @@ class ClassPSFServer():
                 
     def giveFacetID2(self,xp,yp):
         dmin=1e6
+        CellSizeRad=self.DicoVariablePSF["CellSizeRad"]
+        _,_,nx,_=self.DicoVariablePSF["OutImShape"]
         for iFacet in range(self.NFacets):
-            CellSizeRad=self.DicoVariablePSF[iFacet]["CellSizeRad"]
-            _,_,nx,_=self.DicoVariablePSF[iFacet]["OutImShape"]
             l=CellSizeRad*(xp-nx/2)
             m=CellSizeRad*(yp-nx/2)
-            lSol,mSol=self.DicoImager[iFacet]["lmSol"]
+            lSol,mSol=self.DicoVariablePSF[iFacet]["lmSol"]
 
             d=np.sqrt((l-lSol)**2+(m-mSol)**2)
 
             if d<dmin:
                 dmin=d
                 ClosestFacet=iFacet
-
+        # print "[%i, %i] ->  %i"%(xp,yp,ClosestFacet)
         return ClosestFacet
 
 
