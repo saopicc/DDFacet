@@ -227,9 +227,6 @@ class ClassVisServer():
         # uvw=DATA["uvw"]
         # WEIGHT=DATA["Weights"]
         VisWeights=WEIGHT#[:,0]#np.ones((uvw.shape[0],),dtype=np.float32)
-        if np.max(VisWeights)==0.:
-            print>>log,"All imaging weights are 0, setting them to ones"
-            VisWeights.fill(1)
         #VisWeights=np.ones((uvw.shape[0],),dtype=np.float32)
         Robust=self.Robust
 
@@ -252,6 +249,7 @@ class ClassVisServer():
             self.VisWeights.append(allweights[row0:(row0+nr)])
             row0 += nr
         self.CurrentVisWeights = self.VisWeights[0]
+
         # self.CalcMeanBeam()
 
     def CalcMeanBeam(self):
@@ -643,7 +641,7 @@ class ClassVisServer():
         # preallocate arrays
         # NB: this assumes nchan and ncorr is the same across all MSs in self.ListMS. Tough luck if it isn't!
         uvws = np.zeros((nr,3),np.float64)
-        weights = np.zeros((nr,self.MS.Nchan),np.float32)
+        weights = np.zeros((nr,self.MS.Nchan),np.float64)
         flags = np.zeros((nr,self.MS.Nchan,len(self.MS.CorrelationNames)),bool)
 
         # now loop over MSs and read data
@@ -676,14 +674,20 @@ class ClassVisServer():
             if WEIGHT.shape != (nrow, self.MS.Nchan):
                 raise TypeError,"weights expected to have shape of %s"%((nrow, self.MS.Nchan),)
 
-            MeanW=np.mean(WEIGHT)
-            if MeanW!=0.:
-                WEIGHT/=MeanW
+            if np.max(WEIGHT)==0:
+                print>>log,"    All imaging weights are 0, setting them to ones"
+                WEIGHT.fill(1)
+
 
             weights[row0:(row0+nrow),...] = WEIGHT
 
             tab.close()
             row0 += nrow
+
+        MeanW=np.mean(weights)
+        if MeanW!=0.:
+            weights/=MeanW
+
 
         return uvws,weights,flags,nrows
 

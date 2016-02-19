@@ -4,6 +4,7 @@ import numpy as np
 
 from ClassEvolveGA import ClassEvolveGA 
 from DDFacet.Other import MyPickle
+from SkyModel.PSourceExtract import ClassIncreaseIsland
 
 def test():
     nx=17
@@ -122,6 +123,7 @@ def testMF():
     DataModelMF=DataModel*(nur/FreqRef)**Alpha
     
     Dirty=ModFFTW.ConvolveGaussian(DataModelMF,CellSizeRad=1,GaussPars=[(1.,1.,0.)]*nf)
+
     #DataConv=ModFFTW.ConvolveGaussian(DataTrue,CellSizeRad=1,GaussPars=[(1.,1.,0.)])
     #DataConv=DataTrue
     #IndDataTrue=ArrayToInd(DataConv)
@@ -131,7 +133,11 @@ def testMF():
     indx,indy=np.where(Dirty[0,0]>1e-2)
     ListPixParms=[ij for ij in zip(indx,indy)]
     ListPixData=ListPixParms
-    CEv=ClassEvolveGA(Dirty,PSF,FreqsInfo,ListPixParms=ListPixParms,ListPixData=ListPixData)
+
+    GD={"GAClean":{"GASolvePars":["S","Alpha"]}}
+
+
+    CEv=ClassEvolveGA(Dirty,PSF,FreqsInfo,ListPixParms=ListPixParms,ListPixData=ListPixData,GD=GD)
     CEv.ArrayMethodsMachine.DataTrue=DataModelMF
     CEv.ArrayMethodsMachine.PM.DicoIParm["S"]["DataModel"]=DataModel
 
@@ -145,8 +151,14 @@ def testMF_DATA():
     PSF=Dico["PSF"]
     ListPixData=Dico["ListPixData"]
     FreqsInfo=Dico["FreqsInfo"]
+    FreqsInfo=Dico["FreqsInfo"]
+    IslandBestIndiv=Dico["IslandBestIndiv"]
     ListPixParms=ListPixData
+    GD=Dico["GD"]
 
-    CEv=ClassEvolveGA(Dirty,PSF,FreqsInfo,ListPixParms=ListPixParms,ListPixData=ListPixData)
+    IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+    ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
+
+    CEv=ClassEvolveGA(Dirty,PSF,FreqsInfo,ListPixParms=ListPixParms,ListPixData=ListPixData,GD=GD,IslandBestIndiv=IslandBestIndiv)
     
     return CEv

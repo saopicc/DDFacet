@@ -164,7 +164,7 @@ class ClassImageDeconvMachine():
         return ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*Max if self.CycleFactor else 0
 
     def Clean(self,*args,**kwargs):
-        # return self.CleanSerial(*args,**kwargs)
+        #return self.CleanSerial(*args,**kwargs)
         return self.CleanParallel(*args,**kwargs)
 
     def CleanSerial(self,ch=0):
@@ -264,15 +264,6 @@ class ClassImageDeconvMachine():
 
             FreqsInfo=self.PSFServer.DicoMappingDesc
 
-            # DicoSave={"Dirty":self._Dirty,
-            #           "PSF":PSF,
-            #           "FreqsInfo":FreqsInfo,
-            #           #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
-            #           "ListPixData":ThisPixList}
-            
-            # print "saving"
-            # MyPickle.Save(DicoSave, "SaveTest")
-            # print "saving ok"
 
             nchan,npol,_,_=self._Dirty.shape
             JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))
@@ -281,7 +272,23 @@ class ClassImageDeconvMachine():
             
 
 
-            IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)*np.sqrt(JonesNorm.flat[0])
+            IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
+
+            ################################
+            DicoSave={"Dirty":self._Dirty,
+                      "PSF":PSF,
+                      "FreqsInfo":FreqsInfo,
+                      #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
+                      "ListPixData":ThisPixList,
+                      "ListPixParms":ThisPixList,
+                      "IslandBestIndiv":IslandBestIndiv,
+                      "GD":self.GD}
+            
+            print "saving"
+            MyPickle.Save(DicoSave, "SaveTest")
+            print "saving ok"
+            ################################
+
             
             CEv=ClassEvolveGA(self._Dirty,PSF,FreqsInfo,ListPixParms=ThisPixList,
                               ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,
@@ -292,7 +299,7 @@ class ClassImageDeconvMachine():
             #self.ModelMachine.setParamMachine(CEv.ArrayMethodsMachine.PM)
             #Threshold=self.GiveThreshold(np.max(np.abs(Model)))
             #self.ModelMachine.setThreshold(Threshold)
-            self.ModelMachine.AppendIsland(ThisPixList,Model,JonesNorm=JonesNorm)
+            self.ModelMachine.AppendIsland(ThisPixList,Model)
             
 
 

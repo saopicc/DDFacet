@@ -78,9 +78,8 @@ class ClassSpectralFunctions():
         ThisFreqs=np.array(self.DicoMappingDesc["freqs"][iChannel])
         
         S0=np.array(S0)
-
-
         Npix=S0.size
+
         if self.BeamEnable:
             ListBeamFactor,ListBeamFactorWeightSq=self.DicoBeamFactors[iFacet]["ListBeamFactor"],self.DicoBeamFactors[iFacet]["ListBeamFactorWeightSq"]
             BeamFactor=ListBeamFactor[iChannel].reshape((1,ThisFreqs.size))
@@ -90,11 +89,15 @@ class ClassSpectralFunctions():
             BeamFactor=1.
             BeamFactorWeightSq=1.
             MeanJonesBand=1.
+
         ThisFreqs=ThisFreqs.reshape((1,ThisFreqs.size))
         ThisAlpha=ThisAlpha.reshape((Npix,1))
         FreqBandsFlux=np.sqrt(np.sum(BeamFactor*((ThisFreqs/RefFreq)**ThisAlpha)**2,axis=1))/np.sqrt(np.sum(BeamFactorWeightSq))
         FreqBandsFlux/=np.sqrt(MeanJonesBand)
+
         S0=S0.reshape((Npix,))
         FreqBandsFlux*=S0
+
+
 
         return FreqBandsFlux.ravel()

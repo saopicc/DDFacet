@@ -29,6 +29,15 @@ log=MyLogger.getLogger("DDFacet")
 
 from DDFacet.Parset import MyOptParse
 
+# # ##############################
+# # Catch numpy warning
+# np.seterr(all='raise')
+# import warnings
+# with warnings.catch_warnings():
+#     warnings.filterwarnings('error')
+# # ##############################
+
+
 
 
 

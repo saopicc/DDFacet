@@ -34,7 +34,7 @@ class ClassParamMachine():
                        "Alpha":{"Mean":-0.6,
                                 "Sigma":{
                                     "Type":"Abs",
-                                    "Value":0.01}
+                                    "Value":0.1}
                                 }
                    }
 
@@ -64,7 +64,7 @@ class ClassParamMachine():
                 toolbox.register("attr_float_unif_S", random.uniform, 0., 0.1)
                 ListPars+=[toolbox.attr_float_unif_S]*self.NPixListParms
             if Type=="Alpha":
-                toolbox.register("attr_float_normal_Alpha", random.gauss, MeanVal, DicoSigma["Value"])
+                toolbox.register("attr_float_normal_Alpha", random.gauss, MeanVal, 0)#DicoSigma["Value"])
                 ListPars+=[toolbox.attr_float_normal_Alpha]*self.NPixListParms
         return ListPars
 
@@ -86,7 +86,8 @@ class ClassParamMachine():
                     if AlphaModel==None:
                         AlphaModel=MeanVal*np.ones((SModelArray.size,),np.float32)
                     SubArray[:]=AlphaModel[:]+np.random.randn(SModelArray.size)*SigVal
-                    
+                    # SubArray[:]=np.zeros_like(AlphaModel)[:]#+np.random.randn(SModelArray.size)*SigVal
+                    # print SubArray[:]
 
 
 

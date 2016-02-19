@@ -84,14 +84,21 @@ class ClassEvolveGA():
         # stats.register("min", numpy.min)
         # stats.register("max", numpy.max)
 
-        if np.max(np.abs(self.IslandBestIndiv))==0:
-            SModelArray=self.ArrayMethodsMachine.DeconvCLEAN()
-        else:
-            SModelArray=self.IslandBestIndiv
-            AlphaModel=None
-            if "Alpha" in self.ArrayMethodsMachine.PM.SolveParam:
-                AlphaModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Alpha")
-            self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray,AlphaModel=AlphaModel)
+
+        if self.IslandBestIndiv!=None:
+            if np.max(np.abs(self.IslandBestIndiv))==0:
+                #print "deconv"
+                SModelArray=self.ArrayMethodsMachine.DeconvCLEAN()
+                #AlphaModel=np.zeros_like(SModelArray)#-0.6
+                #AlphaModel[SModelArray==np.max(SModelArray)]=0
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray)#,AlphaModel=AlphaModel)
+            else:
+                SModelArray=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
+                AlphaModel=None
+                if "Alpha" in self.ArrayMethodsMachine.PM.SolveParam:
+                    AlphaModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Alpha")
+                
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray,AlphaModel=AlphaModel)
 
 
         self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.1, ngen=NGen, 

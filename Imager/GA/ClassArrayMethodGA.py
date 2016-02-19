@@ -24,8 +24,8 @@ class ClassArrayMethodGA():
         self.PSF=PSF
         self.IslandBestIndiv=IslandBestIndiv
 
-        #IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-        #ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
+        # IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+        # ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
 
         #ListPixParms=ListPixData
         self.ListPixParms=ListPixParms
@@ -164,8 +164,12 @@ class ClassArrayMethodGA():
         CM=self.CMParmsMean.reshape((self.NPixListParms,self.NPixListParms))
         A=self.DirtyArrayParmsMean.ravel().copy()
         SModelArray=np.zeros_like(A)
-
         MaxA=np.max(A)
+
+        # iMax=np.argmax(A)
+        # SModelArray[iMax]=A[iMax]
+        # return SModelArray
+
         Th=StopThFrac*MaxA
         for iIter in range(NMaxIter): 
             iPix=np.argmax(np.abs(A))
@@ -174,7 +178,8 @@ class ClassArrayMethodGA():
             A-=CM[iPix]*gain*f
             SModelArray[iPix]+=gain*f
         return SModelArray
-#        stop
+
+        # stop
 
 
     def Convolve(self,A,Norm=True,OutMode="Data"):
