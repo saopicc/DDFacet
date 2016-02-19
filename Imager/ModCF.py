@@ -66,6 +66,7 @@ class SpheMachine():
             CF=np.complex128(CF)#np.array(np.complex128(CF),order="F")
             fCF=fft2(CF)
             fCF=fCF[xc-Support/2:xc+Support/2+1,xc-Support/2:xc+Support/2+1].copy()
+            if_cut_fCF=ifft2(fCF)
         elif self.Type=="Gauss":
             x,y,CF=Gaussian.Gaussian(3,Support,1)
             CF=np.complex128(CF)#np.array(np.complex128(CF),order="F")
@@ -73,7 +74,8 @@ class SpheMachine():
 
         self.Small_fCF=fCF
         self.Small_CF=CF
-        
+        self.if_cut_fCF=if_cut_fCF
+
     def MakeSphe(self,NpixIm):
         fCF=self.Small_fCF
         zfCF=ZeroPad(fCF,NpixIm)

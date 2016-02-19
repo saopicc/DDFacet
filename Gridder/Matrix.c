@@ -65,47 +65,61 @@ void MatInv(float complex *A, float complex* B, int H ){
 
 void MatH(float complex *A, float complex* B){
 
-  if(FullScalarMode)
-    {
-      B[0]=conj(A[0]);
-    }
-  else
-    {
       B[0]=conj(A[0]);
       B[1]=conj(A[2]);
       B[2]=conj(A[1]);
       B[3]=conj(A[3]);
-    }
+
+  /* if(FullScalarMode) */
+  /*   { */
+  /*     B[0]=conj(A[0]); */
+  /*   } */
+  /* else */
+  /*   { */
+  /*     B[0]=conj(A[0]); */
+  /*     B[1]=conj(A[2]); */
+  /*     B[2]=conj(A[1]); */
+  /*     B[3]=conj(A[3]); */
+  /*   } */
 }
 
 void MatT(float complex *A, float complex* B){
 
-  if(FullScalarMode)
-    {
-      B[0]=(A[0]);
-    }
-  else
-    {
       B[0]=(A[0]);
       B[1]=(A[2]);
       B[2]=(A[1]);
       B[3]=(A[3]);
-    }
+  /* if(FullScalarMode) */
+  /*   { */
+  /*     B[0]=(A[0]); */
+  /*   } */
+  /* else */
+  /*   { */
+  /*     B[0]=(A[0]); */
+  /*     B[1]=(A[2]); */
+  /*     B[2]=(A[1]); */
+  /*     B[3]=(A[3]); */
+  /*   } */
 }
 
 void MatConj(float complex *A, float complex* B){
 
-  if(FullScalarMode)
-    {
-      B[0]=conj(A[0]);
-    }
-  else
-    {
       B[0]=conj(A[0]);
       B[1]=conj(A[1]);
       B[2]=conj(A[2]);
       B[3]=conj(A[3]);
-    }
+
+  /* if(FullScalarMode) */
+  /*   { */
+  /*     B[0]=conj(A[0]); */
+  /*   } */
+  /* else */
+  /*   { */
+  /*     B[0]=conj(A[0]); */
+  /*     B[1]=conj(A[1]); */
+  /*     B[2]=conj(A[2]); */
+  /*     B[3]=conj(A[3]); */
+  /*   } */
 }
 
 
@@ -129,67 +143,78 @@ void MatConj(float complex *A, float complex* B){
 
 void Mat_A_l_SumProd(float complex *Out, int TypeMatOut, float complex lambda){
   
-  if(TypeMatOut==0){
-    Out[0]*=lambda;
-    Out[3]=Out[0];
-  }else if (TypeMatOut==1){
-    Out[0]*=lambda;
-    Out[3]*=lambda;
-  }else if(TypeMatOut==2){
-    Out[0]*=lambda;
-    Out[1]*=lambda;
-    Out[2]*=lambda;
-    Out[3]*=lambda;
-  }
+
+  Out[0]*=lambda;
+  Out[1]*=lambda;
+  Out[2]*=lambda;
+  Out[3]*=lambda;
+
+  /* if(TypeMatOut==0){ */
+  /*   Out[0]*=lambda; */
+  /*   Out[3]=Out[0]; */
+  /* }else if (TypeMatOut==1){ */
+  /*   Out[0]*=lambda; */
+  /*   Out[3]*=lambda; */
+  /* }else if(TypeMatOut==2){ */
+  /*   Out[0]*=lambda; */
+  /*   Out[1]*=lambda; */
+  /*   Out[2]*=lambda; */
+  /*   Out[3]*=lambda; */
+  /* } */
   
 }
 
 
 void Mat_A_Bl_Sum(float complex *Out, int TypeMatOut, float complex* B, int TypeMatB, float complex lambda){
 
-  TypeMatOut=2;
-  TypeMatB=2;
+  Out[0]+=B[0]*lambda;
+  Out[1]+=B[1]*lambda;
+  Out[2]+=B[2]*lambda;
+  Out[3]+=B[3]*lambda;
 
-  if(TypeMatOut==0){
-    if (TypeMatB==0){
-      Out[0]+=B[0]*lambda;
-      Out[3]=Out[0];
-    }else if (TypeMatB==1){
-      Out[0]+=B[0]*lambda;
-      Out[3]+=B[3]*lambda;
-    }else if(TypeMatB==2){
-      Out[0]+=B[0]*lambda;
-      Out[1]+=B[1]*lambda;
-      Out[2]+=B[2]*lambda;
-      Out[3]+=B[3]*lambda;
-    }
-  }else if (TypeMatOut==1){
-    if(TypeMatB==0){
-      Out[0]+=B[0]*lambda;
-      Out[3]+=B[0]*lambda;
-    }else if(TypeMatB==1){
-      Out[0]+=B[0]*lambda;
-      Out[3]+=B[3]*lambda;
-    }else if(TypeMatB==2){
-      Out[0]+=B[0]*lambda;
-      Out[1]+=B[1]*lambda;
-      Out[2]+=B[2]*lambda;
-      Out[3]+=B[3]*lambda;
-    }
-  }else if(TypeMatOut==2){
-    if(TypeMatB==0){
-      Out[0]+=B[0]*lambda;
-      Out[3]+=B[0]*lambda;
-    }else if(TypeMatB==1){
-      Out[0]+=B[0]*lambda;
-      Out[3]+=B[3]*lambda;
-    }else if(TypeMatB==2){
-      Out[0]+=B[0]*lambda;
-      Out[1]+=B[1]*lambda;
-      Out[2]+=B[2]*lambda;
-      Out[3]+=B[3]*lambda;
-    }
-  }
+  /* TypeMatOut=2; */
+  /* TypeMatB=2; */
+
+  /* if(TypeMatOut==0){ */
+  /*   if (TypeMatB==0){ */
+  /*     Out[0]+=B[0]*lambda; */
+  /*     Out[3]=Out[0]; */
+  /*   }else if (TypeMatB==1){ */
+  /*     Out[0]+=B[0]*lambda; */
+  /*     Out[3]+=B[3]*lambda; */
+  /*   }else if(TypeMatB==2){ */
+  /*     Out[0]+=B[0]*lambda; */
+  /*     Out[1]+=B[1]*lambda; */
+  /*     Out[2]+=B[2]*lambda; */
+  /*     Out[3]+=B[3]*lambda; */
+  /*   } */
+  /* }else if (TypeMatOut==1){ */
+  /*   if(TypeMatB==0){ */
+  /*     Out[0]+=B[0]*lambda; */
+  /*     Out[3]+=B[0]*lambda; */
+  /*   }else if(TypeMatB==1){ */
+  /*     Out[0]+=B[0]*lambda; */
+  /*     Out[3]+=B[3]*lambda; */
+  /*   }else if(TypeMatB==2){ */
+  /*     Out[0]+=B[0]*lambda; */
+  /*     Out[1]+=B[1]*lambda; */
+  /*     Out[2]+=B[2]*lambda; */
+  /*     Out[3]+=B[3]*lambda; */
+  /*   } */
+  /* }else if(TypeMatOut==2){ */
+  /*   if(TypeMatB==0){ */
+  /*     Out[0]+=B[0]*lambda; */
+  /*     Out[3]+=B[0]*lambda; */
+  /*   }else if(TypeMatB==1){ */
+  /*     Out[0]+=B[0]*lambda; */
+  /*     Out[3]+=B[3]*lambda; */
+  /*   }else if(TypeMatB==2){ */
+  /*     Out[0]+=B[0]*lambda; */
+  /*     Out[1]+=B[1]*lambda; */
+  /*     Out[2]+=B[2]*lambda; */
+  /*     Out[3]+=B[3]*lambda; */
+  /*   } */
+  /* } */
 
 }
 
@@ -197,14 +222,20 @@ void Mat_A_Bl_Sum(float complex *Out, int TypeMatOut, float complex* B, int Type
 float complex DotBuf[4];
 int iPolBuf;
 void MatDot(float complex *A, int TypeMatA, float complex* B, int TypeMatB, float complex* Out){
+
+
+  /* Out[0]=A[0]*B[0]; */
+  /* Out[3]=Out[0]; */
   DotBuf[0]=A[0]*B[0]+A[1]*B[2];
   DotBuf[1]=A[0]*B[1]+A[1]*B[3];
   DotBuf[2]=A[2]*B[0]+A[3]*B[2];
   DotBuf[3]=A[2]*B[1]+A[3]*B[3];
 
-  for(iPolBuf=0; iPolBuf<4; iPolBuf++){
-    Out[iPolBuf]=DotBuf[iPolBuf];
-  }
+  Out[0]=DotBuf[0];
+  Out[1]=DotBuf[1];
+  Out[2]=DotBuf[2];
+  Out[3]=DotBuf[3];
+
   
 
   /* if(TypeMatA==0){ */

@@ -14,6 +14,7 @@ from DDFacet.Other import reformat
 import ClassSmearMapping
 import os
 import ClassJones
+import ClassBeamMean
 
 def test():
     MSName="/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
@@ -228,11 +229,13 @@ class ClassVisServer():
 
         #self.VisWeights=np.ones((uvw.shape[0],self.MS.ChanFreq.size),dtype=np.float64)
 
+
         allweights = WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
                                               Robust=Robust,
                                               Weighting=self.Weighting,
                                               Super=self.Super)
 
+        #allweights.fill(1.)
         # self.WisWeights is a list of weight arrays, one per each MS in self.ListMS
         self.VisWeights = []
         row0 = 0
@@ -240,7 +243,12 @@ class ClassVisServer():
             self.VisWeights.append(allweights[row0:(row0+nr)])
             row0 += nr
         self.CurrentVisWeights = self.VisWeights[0]
+        # self.CalcMeanBeam()
 
+    def CalcMeanBeam(self):
+        AverageBeamMachine=ClassBeamMean.ClassBeamMean(self)
+        AverageBeamMachine.LoadData()
+        AverageBeamMachine.CalcMeanBeam()
 
     def VisChunkToShared(self):
 
@@ -624,11 +632,6 @@ class ClassVisServer():
         nrows = [ tab.nrows() for tab in tabs ]
         for nr,ms in zip(nrows,self.ListMS):
             if not nr:
-
-
-
-
-
                 print>>log,ModColor.Str("MS %s contains no data for this field and/or DDID"%(ms.MSName),col="red")
                 raise RuntimeError,"no data in MS %s"%ms.MSName
         nr = sum(nrows)
@@ -648,8 +651,10 @@ class ClassVisServer():
 
             if WeightCol == "WEIGHT_SPECTRUM":
                 WEIGHT=tab.getcol(WeightCol)[:,chanslice]
+                
                 print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
                 WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.
+                
             elif WeightCol == "WEIGHT":
                 WEIGHT=tab.getcol(WeightCol)
                 print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)

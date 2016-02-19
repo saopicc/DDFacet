@@ -83,7 +83,7 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
   
   double *u=p_float64(np_u);
   double *v=p_float64(np_v);
-  float *freqs=p_float32(np_freqs);;
+  double *freqs=p_float64(np_freqs);;
   int nch=np_freqs->dimensions[0];
   //printf("nch=%i\n",nch);
   //printf("nx=%i\n",nx);
@@ -109,9 +109,9 @@ static PyObject *pyGridderPoints(PyObject *self, PyObject *args)
   xc=nx/2;
   yc=ny/2;
   size_t ii,jj;
-  float ThisW=0.;
+  double ThisW=0.;
   size_t iii;
-  float C=299792458.;
+  double C=299792458.;
   
 
   for (irow=0; irow<np; irow++) {

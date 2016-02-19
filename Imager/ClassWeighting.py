@@ -208,7 +208,7 @@ class ClassWeighting():
                                      VisWeights,
                                      float(Robust),
                                      Mode,
-                                     np.float32(freqs.flatten()),
+                                     np.float64(freqs.flatten()),
                                      np.array([cell,cell],np.float64))
         print>>log,"weights computed"
 

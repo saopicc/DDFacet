@@ -316,40 +316,34 @@ class ClassJones():
     ######################## BEAM #########################
     #######################################################
 
+    def InitBeamMachine(self):
+        GD=self.GD
+        if GD["Beam"]["BeamModel"]=="LOFAR":
+            self.ApplyBeam=True
+            self.BeamMachine=ClassLOFARBeam.ClassLOFARBeam(self.MS,self.GD)
+            self.GiveInstrumentBeam=self.BeamMachine.GiveInstrumentBeam
+            #print>>log, "  Estimating LOFAR beam model in %s mode every %5.1f min."%(LOFARBeamMode,DtBeamMin)
+            self.GiveInstrumentBeam=self.MS.GiveBeam
+            # estimate beam sample times using DtBeamMin
+
+        elif GD["Beam"]["BeamModel"]=="FITS":
+            self.BeamMachine = ClassFITSBeam.ClassFITSBeam(self.MS,GD["Beam"])
+            self.GiveInstrumentBeam = self.BeamMachine.evaluateBeam
+
+            # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
+            # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
+
+
     def GiveBeam(self):
         GD=self.GD
         if (GD["Beam"]["BeamModel"]==None)|(GD["Beam"]["BeamModel"]==""):
             print>>log, "  Not applying any beam"
             return
 
-        DtBeamMin = GD["Beam"]["DtBeamMin"]
-        self.DtBeamMin = DtBeamMin
         times = self.DATA["times"]
+        self.InitBeamMachine()
 
-
-        if GD["Beam"]["BeamModel"]=="LOFAR":
-            self.ApplyBeam=True
-            self.BeamMachine=ClassLOFARBeam.ClassLOFARBeam(self.MS,self.GD)
-            self.GiveInstrumentBeam=self.BeamMachine.GiveInstrumentBeam
-            print>>log, "  Estimating LOFAR beam model in %s mode every %5.1f min."%(LOFARBeamMode,DtBeamMin)
-            self.GiveInstrumentBeam=self.MS.GiveBeam
-            # estimate beam sample times using DtBeamMin
-            DtBeamSec = self.DtBeamMin*60
-            beam_times = [ times[0] ]
-            for t in times[1:]:
-                if t - beam_times[0] >= DtBeamSec:
-                    beam_times.append(t)
-            beam_times.append(times[-1]+1)
-
-
-        elif GD["Beam"]["BeamModel"]=="FITS":
-            self.BeamMachine = ClassFITSBeam.ClassFITSBeam(self.MS,GD["Beam"])
-            self.GiveInstrumentBeam = self.BeamMachine.evaluateBeam
-            beam_times = self.BeamMachine.getBeamSampleTimes(times)
-            # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
-
-            # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
-
+        beam_times = self.BeamMachine.getBeamSampleTimes(times)
         RAs=self.ClusterCatBeam.ra
         DECs=self.ClusterCatBeam.dec
         DicoBeam=self.EstimateBeam(beam_times,RAs,DECs)
