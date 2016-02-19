@@ -27,6 +27,7 @@ class ClassEvolveGA():
         if ListPixParms==None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
             ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
+        self.IslandBestIndiv=IslandBestIndiv
         self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,IslandBestIndiv=IslandBestIndiv,GD=GD)
         self.InitEvolutionAlgo()
         #self.ArrayMethodsMachine.testMovePix()
@@ -83,8 +84,14 @@ class ClassEvolveGA():
         # stats.register("min", numpy.min)
         # stats.register("max", numpy.max)
 
-        SModelArray=self.ArrayMethodsMachine.DeconvCLEAN()
-        self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray)
+        if np.max(np.abs(self.IslandBestIndiv))==0:
+            SModelArray=self.ArrayMethodsMachine.DeconvCLEAN()
+        else:
+            SModelArray=self.IslandBestIndiv
+            AlphaModel=None
+            if "Alpha" in self.ArrayMethodsMachine.PM.SolveParam:
+                AlphaModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Alpha")
+            self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray,AlphaModel=AlphaModel)
 
 
         self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.1, ngen=NGen, 

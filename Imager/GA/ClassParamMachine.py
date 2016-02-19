@@ -68,7 +68,7 @@ class ClassParamMachine():
                 ListPars+=[toolbox.attr_float_normal_Alpha]*self.NPixListParms
         return ListPars
 
-    def ReinitPop(self,pop,SModelArray):
+    def ReinitPop(self,pop,SModelArray,AlphaModel=None):
 
         for Type in self.SolveParam:
             DicoSigma=self.DicoIParm[Type]["Default"]["Sigma"]
@@ -83,7 +83,9 @@ class ClassParamMachine():
                 if Type=="S":
                     SubArray[:]=SModelArray[:]+np.random.randn(SModelArray.size)*SigVal
                 if Type=="Alpha":
-                    SubArray[:]=MeanVal+np.random.randn(SModelArray.size)*SigVal
+                    if AlphaModel==None:
+                        AlphaModel=MeanVal*np.ones((SModelArray.size,),np.float32)
+                    SubArray[:]=AlphaModel[:]+np.random.randn(SModelArray.size)*SigVal
                     
 
 

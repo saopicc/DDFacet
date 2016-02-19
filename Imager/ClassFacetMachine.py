@@ -586,7 +586,7 @@ class ClassFacetMachine():
                 self.DicoPSF[iFacet]["PSF"]=(self.DicoGridMachine[iFacet]["Dirty"]).copy()
                 
                 self.DicoPSF[iFacet]["PSF"]/=SPhe
-                self.DicoPSF[iFacet]["PSF"][SPhe<1e-3]=0
+                self.DicoPSF[iFacet]["PSF"][SPhe<1e-2]=0
                 self.DicoPSF[iFacet]["l0m0"]=self.DicoImager[iFacet]["l0m0"]
                 self.DicoPSF[iFacet]["pixCentral"]=self.DicoImager[iFacet]["pixCentral"]
                 self.DicoPSF[iFacet]["lmSol"]=self.DicoImager[iFacet]["lmSol"]
@@ -610,6 +610,7 @@ class ClassFacetMachine():
                 ich,ipol,i,j=np.where(self.DicoPSF[iFacet]["PSF"]==np.max(np.abs(self.DicoPSF[iFacet]["PSF"])))
                 # print self.DicoPSF[iFacet]["PSF"][:,:,i,j]
 
+                # This is the Channel-averaged-PSF per facet
                 MeanPSF=np.sum(PSFChannel*W,axis=0).reshape((1,npol,n,n))
                 self.DicoPSF[iFacet]["MeanPSF"]=MeanPSF
 
@@ -622,22 +623,42 @@ class ClassFacetMachine():
                 _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
                 if n<NPixMin: NPixMin=n
 
+
+            NPixMin=int(NPixMin/self.GD["ImagerMainFacet"]["Padding"])
+            if (NPixMin%2)==0: NPixMin+=1
+
+            print>>log, "  Smallest facet has %i pixels"%NPixMin
+
             nch=self.GD["MultiFreqs"]["NFreqBands"]
+
+            # This is the Cube hosting the Channel+Facet dependent PSFs (all same shapes)
             CubeVariablePSF=np.zeros((NFacets,nch,npol,NPixMin,NPixMin),np.float32)
+
+            # This is the Cube hosting the Facet dependent Channel-averaged PSFs
             CubeMeanVariablePSF=np.zeros((NFacets,1,npol,NPixMin,NPixMin),np.float32)
 
+            # This is the Cube hosting the Facet-Channel-averaged PSF
+            MeanFacetPSF=np.zeros((1,npol,NPixMin,NPixMin),np.float32)
             print>>log, "  Cutting PSFs facet-slices "
             for iFacet in sorted(DicoVariablePSF.keys()):
                 _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
+
                 for ch in range(nch):
                     i=n/2-NPixMin/2
                     j=n/2+NPixMin/2+1
                     CubeVariablePSF[iFacet,ch,:,:,:]=DicoVariablePSF[iFacet]["PSF"][ch][:,i:j,i:j]
-                CubeMeanVariablePSF[iFacet,0,:,:,:]=DicoVariablePSF[iFacet]["MeanPSF"][0,:,i:j,i:j]
+
+
+                ThisCutPSF=DicoVariablePSF[iFacet]["MeanPSF"][:,:,i:j,i:j]
+                # print iFacet,np.max(ThisCutPSF)
+                CubeMeanVariablePSF[iFacet,:,:,:,:]=ThisCutPSF
+                ThisPSFCenterValue=DicoVariablePSF[iFacet]["PSF"][0,0,n/2,n/2]
+                MeanFacetPSF+=ThisCutPSF/ThisPSFCenterValue
+
 
             self.DicoPSF["CubeVariablePSF"]=CubeVariablePSF
             self.DicoPSF["CubeMeanVariablePSF"]=CubeMeanVariablePSF
-            self.DicoPSF["MeanFacetPSF"]=np.mean(CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
+            self.DicoPSF["MeanFacetPSF"]=MeanFacetPSF/len(DicoVariablePSF)
 
 
             self.DicoPSF["MeanJonesBand"]=[]
