@@ -630,6 +630,10 @@ class ClassVisServer():
         tabs = [ ms.GiveMainTable() for ms in self.ListMS ]
         chanslices = [ ms.ChanSlice for ms in self.ListMS ]
         nrows = [ tab.nrows() for tab in tabs ]
+        for nr,ms in zip(nrows,self.ListMS):
+            if not nr:
+                print>>log,ModColor.Str("MS %s contains no data for this field and/or DDID"%(ms.MSName),col="red")
+                raise RuntimeError,"no data in MS %s"%ms.MSName
         nr = sum(nrows)
         # preallocate arrays
         # NB: this assumes nchan and ncorr is the same across all MSs in self.ListMS. Tough luck if it isn't!
@@ -640,7 +644,9 @@ class ClassVisServer():
         # now loop over MSs and read data
         row0 = 0
         for num_ms, (nrow, tab, chanslice) in enumerate(zip(nrows, tabs, chanslices)):
-            uvws[row0:(row0+nrow),...]   = tab.getcol("UVW")
+            if not nrow:
+                continue
+            uvws[row0:(row0+nrow),...]  = tab.getcol("UVW")
             flags[row0:(row0+nrow),...] = tab.getcol("FLAG")[:,chanslice,:]
 
             if WeightCol == "WEIGHT_SPECTRUM":
@@ -669,25 +675,17 @@ class ClassVisServer():
             if WEIGHT.shape != (nrow, self.MS.Nchan):
                 raise TypeError,"weights expected to have shape of %s"%((nrow, self.MS.Nchan),)
 
-            # print "0", WEIGHT
-            # MeanW=np.mean(WEIGHT)
-            # print "00", WEIGHT
-            # print "00", MeanW
-
-            # #if MeanW!=0.:
-            # #    WEIGHT/=MeanW
-
-            #print "000",WEIGHT
             weights[row0:(row0+nrow),...] = WEIGHT
 
             tab.close()
             row0 += nrow
-        #stop
 
-        MeanW=np.mean(np.float64(weights))
-        if MeanW!=0.:
-            weights/=MeanW
-
+        # normalize weights
+        print>>log,"normalizing weights"
+        mw = weights.mean(dtype=np.float64)
+        if mw!=0.:
+            weights /= mw
+        print>>log,"done"
 
         return uvws,weights,flags,nrows
 

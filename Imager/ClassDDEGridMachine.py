@@ -93,7 +93,6 @@ def testGrid():
                                      TVisSizeMin=DC["VisData"]["TChunkSize"]*60*1.1,
                                      #DicoSelectOptions=DicoSelectOptions,
                                      TChunkSize=DC["VisData"]["TChunkSize"],
-                                     IdSharedMem=IdSharedMem,
                                      Robust=DC["ImagerGlobal"]["Robust"],
                                      Weighting=DC["ImagerGlobal"]["Weighting"],
                                      Super=DC["ImagerGlobal"]["Super"],
@@ -864,45 +863,45 @@ class ClassDDEGridMachine():
             if not(Grid.dtype==np.complex64):
                 raise NameError('Grid.dtype %s %s'%(str(Grid.dtype),str(self.dtype)))
             if not(Grid.flags.c_contiguous):
-                raise NameError("Has to be contiuous")
+                raise NameError("Grid has to be contiguous")
         if type(vis)!=type(None):
             if not(vis.dtype==np.complex64):
-                raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+                raise NameError('vis.dtype %s'%(str(vis.dtype)))
             if not(vis.flags.c_contiguous):
-                raise NameError("Has to be contiuous")
+                raise NameError("vis has to be contiguous")
         if type(uvw)!=type(None):
             if not(uvw.dtype==np.float64):
-                raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+                raise NameError('uvw.dtype %s'%(str(uvw.dtype)))
             if not(uvw.flags.c_contiguous):
-                raise NameError("Has to be contiuous")
+                raise NameError("uvw has to be contiguous")
         if type(flag)!=type(None):
             if not(flag.dtype==np.bool8):
-                raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+                raise NameError('flag.dtype %s'%(str(flag.dtype)))
             if not(flag.flags.c_contiguous):
-                raise NameError("Has to be contiuous")
+                raise NameError("flag to be contiguous")
         if ListWTerm!=None:
             if not(ListWTerm[0].dtype==np.complex64):
-                raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+                raise NameError('ListWTerm.dtype %s'%(str(ListWTerm.dtype)))
         if type(W)!=type(None):
             if not(W.dtype==np.float64):
-                raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+                raise NameError('W.dtype %s'%(str(W.dtype)))
             if not(W.flags.c_contiguous):
-                raise NameError("Has to be contiuous")
+                raise NameError("W has to be contiguous")
         if type(A0)!=type(None):
             if not(A0.dtype==np.int32):
-                raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+                raise NameError('A0.dtype %s'%(str(A0.dtype)))
             if not(A0.flags.c_contiguous):
-                raise NameError("Has to be contiuous")
+                raise NameError("A0 has to be contiguous")
         if type(A1)!=type(None):
             if not(A1.dtype==np.int32):
-                raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+                raise NameError('A1.dtype %s'%(str(A1.dtype)))
             if not(A1.flags.c_contiguous):
-                raise NameError("Has to be contiuous")
+                raise NameError("A1 has to be contiguous")
         if type(Jones)!=type(None):
             if not(Jones.dtype==np.complex64):
-                raise NameError('Grid.dtype %s'%(str(Grid.dtype)))
+                raise NameError('Jones.dtype %s'%(str(Jones.dtype)))
             if not(Jones.flags.c_contiguous):
-                raise NameError("Has to be contiuous")
+                raise NameError("Jones has to be contiguous")
 
 
     def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None,ImToGrid=True,TranformModelInput="",ChanMapping=None):

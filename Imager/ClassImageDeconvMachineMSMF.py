@@ -323,7 +323,7 @@ class ClassImageDeconvMachine():
 
         PreviousMaxFlux=1e30
 
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=20,TitleSize=30)
         # pBAR.disable()
 
         self.GainMachine.SetFluxMax(ThisFlux)
@@ -351,8 +351,8 @@ class ClassImageDeconvMachine():
             T.timeit("max0")
 
             if ThisFlux <= StopFlux:
-                pBAR.render(100,"g=%3.3f"%self.GainMachine.GiveGain())
-                print>>log, ModColor.Str("    [iter=%i] peak of %.3g Jy lower than stopping flux" % (i,ThisFlux),col="green",Bold=False)
+                pBAR.render(100,"peak %.3g"%(ThisFlux,))
+                print>>log, ModColor.Str("    [iter=%i] peak of %.3g Jy lower than stopping flux" % (i,ThisFlux),col="green")
                 cont = ThisFlux > self.FluxThreshold
                 if not cont:
                       print>>log, ModColor.Str("    [iter=%i] absolute flux threshold of %.3g Jy has been reached" % (i,self.FluxThreshold),col="green",Bold=True)
@@ -366,7 +366,7 @@ class ClassImageDeconvMachine():
 #                print>>log, "    [iter=%i] Peak residual flux %f Jy" % (i,ThisFlux)
             if (i>0)&((i%100)==0):
                 PercentDone=GivePercentDone(ThisFlux)                
-                pBAR.render(PercentDone,"g=%3.3f"%self.GainMachine.GiveGain())
+                pBAR.render(PercentDone,"peak %.3g i%d"%(ThisFlux,self._niter))
 
             nch,npol,_,_=self._Dirty.shape
             Fpol=np.float32((self._Dirty[:,:,x,y].reshape((nch,npol,1,1))).copy())

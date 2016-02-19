@@ -87,6 +87,7 @@ def read_options():
     OP.add_option('Precision')
     OP.add_option('Weighting')
     OP.add_option('Robust')
+    OP.add_option('Super')
     OP.add_option("PSFOversize")
     OP.add_option("PSFFacets")
 

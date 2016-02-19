@@ -41,7 +41,7 @@ class ClassMS():
         self.Field = Field
         self.DDID = DDID
         self.TaQL = "FIELD_ID==%d && DATA_DESC_ID==%d" % (Field, DDID)
-        self.ReadMSInfo(MSname,DoPrint=DoPrint)
+        self.ReadMSInfo(DoPrint=DoPrint)
         self.LFlaggedStations=[]
 
         self.CurrentChunkTimeRange_SinceT0_sec=None
@@ -619,13 +619,13 @@ class ClassMS():
         self.nbl=(na*(na-1))/2+na
         
 
-    def ReadMSInfo(self,MSname,DoPrint=True):
+    def ReadMSInfo(self,DoPrint=True):
         T=ClassTimeIt.ClassTimeIt()
         T.enableIncr()
         T.disable()
 
         # open main table
-        table_all=table(MSname,ack=False)
+        table_all = self.GiveMainTable()
 
         #print MSname+'/ANTENNA'
         ta=table(table_all.getkeyword('ANTENNA'),ack=False)

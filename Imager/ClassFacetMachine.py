@@ -780,10 +780,10 @@ class ClassFacetMachine():
                         Im=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]*ThisSumJones
                     else:
                     
-                        Im=self.DicoGridMachine[iFacet]["Dirty"][Channel][pol]
+                        Im=self.DicoGridMachine[iFacet]["Dirty"][Channel][pol].copy()
                         Im/=SPhe.real
                         Im[SPhe<1e-3]=0
-                        Im=(self.DicoGridMachine[iFacet]["Dirty"][Channel][pol][::-1,:].T.real/sumweight)
+                        Im=(Im[::-1,:].T.real/sumweight)
                         SW=SpacialWeigth[::-1,:].T
                         Im*=SW
 
@@ -906,8 +906,9 @@ class ClassFacetMachine():
         #     LaunchAndCheck(V,'execfile("%s/Scripts/ScriptReinitGrids.py")'%self.GD.HYPERCAL_DIR)
 
     def CalcDirtyImagesParallel(self,times,uvwIn,visIn,flag,A0A1,W=None,doStack=True,Channel=0):
-        
-        
+        # the input parameters are not actually used, see
+        ## https://github.com/cyriltasse/DDFacet/issues/32#issuecomment-176072113
+
         NCPU=self.NCPU
 
         NFacets=len(self.DicoImager.keys())

@@ -74,6 +74,7 @@ class ClassImagerDeconv():
         #self.PNGDir="%s.png"%self.BaseName
         #os.system("mkdir -p %s"%self.PNGDir)
         #os.system("rm %s/*.png 2> /dev/null"%self.PNGDir)
+        self._save_intermediate_grids = self.GD["Debugging"]["SaveIntermediateDirtyImages"]
         
 
     def Init(self):
@@ -82,7 +83,7 @@ class ClassImagerDeconv():
         
         MSName0 = MSName = DC["VisData"]["MSName"]
 
-        if ".txt" in MSName:#DC["VisData"]["MSListFile"]!="":
+        if MSName.endswith(".txt"):#DC["VisData"]["MSListFile"]!="":
             f=open(MSName)#DC["VisData"]["MSListFile"])
             Ls=f.readlines()
             f.close()
@@ -91,13 +92,13 @@ class ClassImagerDeconv():
                 ll=l.replace("\n","")
                 MSName.append(ll)
             print>>log,"list file %s contains %d MSs"%(MSName0, len(MSName))
-        elif ("*" in MSName)|("?" in MSName):
-            MSName=sorted(glob.glob(MSName))
+        elif len(glob.glob(MSName))>1:
+            MSName = sorted(glob.glob(MSName))
             print>>log,"found %d MSs matching %s"%(len(MSName), MSName0)
         else:
             submss = os.path.join(MSName,"SUBMSS") 
             if os.path.exists(submss) and os.path.isdir(submss):
-                MSName = sorted(glob.glob(os.path.join(submss,"*")))
+                MSName = [ ms for ms in sorted(glob.glob(os.path.join(submss,"*.[mM][sS]"))) if os.path.isdir(ms) ]
                 print>>log,"multi-MS mode for %s, found %d sub-MSs"%(MSName0, len(MSName))
             else:
                 print>>log,"single-MS mode for %s"%MSName
@@ -399,6 +400,7 @@ class ClassImagerDeconv():
             if self.BaseName==self.GD["VisData"]["InitDicoModel"][0:-10]:
                 self.BaseName+=".continue"
 
+        iloop = 0
         while True:
             Res=self.setNextData()
             # if not(isPlotted):
@@ -417,6 +419,13 @@ class ClassImagerDeconv():
 
             self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)#,Channel=self.VS.CurrentFreqBand)
             
+            if self._save_intermediate_grids:
+                self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
+                self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty.%d."%(self.BaseName,iloop),Fits=True)
+                self.FacetMachine.NormData = None
+                self.FacetMachine.NormImage = None
+
+            iloop += 1
             
             
             # Image=self.FacetMachine.FacetsToIm()
