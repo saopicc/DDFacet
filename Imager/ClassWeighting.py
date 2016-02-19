@@ -58,14 +58,17 @@ class ClassWeighting():
         FOV = self.CellSizeRad*npixIm
         cell =1./(Super*FOV)
 
+        print>>log,"applying flags to weights"
         # if any polarization is flagged, flag all 4 correlations
         flags = flags.max(axis=2)
         # zero weight to flagged points
         VisWeights = VisWeights.astype(np.float64) * ~flags
-        
+        # VisWeights *= ~flags
+
         if Weighting=="Natural":
             print>>log, "Weighting in Natural mode"
             return VisWeights
+        print>>log,"initializing weighting grid"
 
         # flip sign of negative v values -- we'll only grid the top half of the plane
         uv = uvw[:,0:2].copy()
@@ -119,16 +122,15 @@ class ClassWeighting():
         if Weighting == "Uniform":
 #            print>>log,"adjusting grid to uniform weight"
  #           grid[grid!=0] = 1/grid[grid!=0]
-            print>>log,"applying grid (uniform weighting)"
+            print>>log,("applying uniform weighting (super=%.2f)"%Super)
             VisWeights /= grid[index]
 
         elif Weighting == "Briggs":
-            print>>log,"adjusting grid to briggs weight"
+            print>>log,("applying briggs weighting (robust=%.2f, super=%.2f)"%(Robust, Super))
             avgW = (grid**2).sum() / grid.sum()
             numeratorSqrt = 5.0 * 10**(-Robust)
             sSq = numeratorSqrt**2 / avgW
             grid = 1/(1+grid*sSq)
-            print>>log,"applying grid"
             VisWeights *= grid[index]
 
         print>>log,"weights computed"
