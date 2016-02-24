@@ -23,8 +23,8 @@ def FormatValue(ValueIn,StrMode=False):
     if StrMode:
         return ValueIn
 
-    MayBeInt=False
-    if not("." in ValueIn): MayBeInt=True
+    MayBeInt = not( "." in ValueIn or "e" in ValueIn.lower() )
+    
     if "True" in ValueIn:
         Value=True
     elif "False" in ValueIn:
