@@ -1,4 +1,5 @@
-import sharedarray.SharedArray as SharedArray
+#import sharedarray.SharedArray as SharedArray
+import SharedArray
 from DDFacet.Other import ModColor
 import numpy as np
 from DDFacet.Other import MyLogger
@@ -11,7 +12,21 @@ def zeros(Name,*args,**kwargs):
         DelArray(Name)
         return SharedArray.create(Name,*args,**kwargs)
 
+def SizeShm():
+    L=ListNames()
+    S=0
+    for l in L:
+        A=GiveArray(l)
+        if A!=None:
+            S+=A.nbytes
+    return float(S)/(1024**2)
+
+
 def ToShared(Name,A):
+
+    #print "dtype, shape = %s, %s"%(str(A.dtype), str(A.shape))
+    #print "Number of nan in %s: %i"%(Name,np.count_nonzero(np.isnan(A)))
+    #print "Number of inf in %s: %i"%(Name,np.count_nonzero(np.isinf(A)))
 
     try:
         a=SharedArray.create(Name,A.shape,dtype=A.dtype)
@@ -19,6 +34,13 @@ def ToShared(Name,A):
         print>>log, ModColor.Str("File %s exists, delete it..."%Name)
         DelArray(Name)
         a=SharedArray.create(Name,A.shape,dtype=A.dtype)
+
+    # Ex=Exists(Name)
+    # if Ex:
+    #     DelArray(Name)
+    # a=SharedArray.create(Name,A.shape,dtype=A.dtype)
+
+
 
     a[:]=A[:]
     return a
@@ -90,7 +112,7 @@ def SharedToDico(Prefix):
         key=Sharedkey.split(".")[-1]
         print>>log, ModColor.Str("  %s -> %s"%(Sharedkey,key))
         Shared=GiveArray(Sharedkey)
-        if Shared==None:
+        if type(Shared)==type(None):
             print>>log, ModColor.Str("      None existing key"%(key))
             return None
         DicoOut[key]=Shared

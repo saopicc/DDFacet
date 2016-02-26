@@ -1,4 +1,4 @@
-all: _pyGridder.so _pyGridderSmear.so _pyArrays.so
+all: _pyGridder.so _pyGridderSmear.so _pyGridderSmearPols.so _pyArrays.so WeightingCore.so
 
 # ---- Link --------------------------- 
 _pyGridder.so:  Gridder.o 
@@ -8,7 +8,7 @@ _pyGridder.so:  Gridder.o
 Gridder.o:  Gridder.c Gridder.h
 #	gcc -O3 -msse -msse2 -msse2avx -msse3 -msse4.2 -mssse3 -march=corei7 -mtune=corei7 -c Gridder.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC	
 
-	gcc  -lgomp -fopenmp -pthread -O3 -msse -msse2 -msse3 -msse4.2 -mssse3 -march=corei7 -mtune=corei7 --fast-math -lrt  -c Gridder.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC
+	gcc  -lgomp -fopenmp -pthread -O3 -msse -msse2 -msse3 -msse4.2 -mssse3 -march=corei7 -mtune=corei7 --fast-math -lrt  -c Gridder.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -I/home/cyril.tasse/bin/lib/python2.7/site-packages/numpy/core/include/numpy -fPIC
 #	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c Gridder.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC	
 
 ##################################
@@ -17,9 +17,18 @@ _pyGridderSmear.so:  GridderSmear.o
 
 # ---- gcc C compile ------------------
 GridderSmear.o:  GridderSmear.c GridderSmear.h
-	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC -lrt
+	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -I/home/cyril.tasse/bin/lib/python2.7/site-packages/numpy/core/include/numpy -fPIC -lrt
 #	gcc  -lgomp -fopenmp -pthread -O3 -msse -msse2 -msse3 -msse4.2 -mssse3 -march=corei7 -mtune=corei7 --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC -lrt
 #	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c GridderSmear.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC	
+
+
+##################################
+_pyGridderSmearPols.so:  GridderSmearPols.o 
+	gcc -fopenmp -pthread -shared GridderSmearPols.o -o _pyGridderSmearPols.so -lrt -L. -lTools
+
+# ---- gcc C compile ------------------
+GridderSmearPols.o:  GridderSmearPols.c GridderSmearPols.h Matrix.c JonesServer.c
+	gcc  -lgomp -fopenmp -pthread -Ofast --fast-math  -c GridderSmearPols.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -I/home/cyril.tasse/bin/lib/python2.7/site-packages/numpy/core/include/numpy -fPIC -lrt  -L. -lTools
 
 
 ##################################
@@ -27,10 +36,14 @@ _pyArrays.so:  Arrays.o
 	gcc -fopenmp -pthread -shared Arrays.o -o _pyArrays.so -lrt 
 
 Arrays.o:  Arrays.c Arrays.h
-	gcc  -lgomp -fopenmp -pthread  -O3 --fast-math  -c Arrays.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -fPIC -lrt
+	gcc  -lgomp -fopenmp -pthread  -O3 --fast-math  -c Arrays.c -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy -I/home/cyril.tasse/bin/lib/python2.7/site-packages/numpy/core/include/numpy -fPIC -lrt
 
 
-
+WeightingCore.c: WeightingCore.pyx
+	cython $<
+	
+WeightingCore.so: WeightingCore.c
+	gcc -shared -pthread -fPIC -fwrapv -O2 -Wall -I/usr/include/python2.7 -I/home/cyril.tasse/bin/lib/python2.7/site-packages/numpy/core/include -fno-strict-aliasing -o $@ $<
 
 
 

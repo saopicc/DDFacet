@@ -62,9 +62,11 @@ class SpheMachine():
         if self.Type=="Sphe":
             xc=SupportSphe/2
             CF=ModTaper.Sphe2D(SupportSphe)
+            #CF.fill(1)
             CF=np.complex128(CF)#np.array(np.complex128(CF),order="F")
             fCF=fft2(CF)
             fCF=fCF[xc-Support/2:xc+Support/2+1,xc-Support/2:xc+Support/2+1].copy()
+            if_cut_fCF=ifft2(fCF)
         elif self.Type=="Gauss":
             x,y,CF=Gaussian.Gaussian(3,Support,1)
             CF=np.complex128(CF)#np.array(np.complex128(CF),order="F")
@@ -72,10 +74,12 @@ class SpheMachine():
 
         self.Small_fCF=fCF
         self.Small_CF=CF
-        
+        self.if_cut_fCF=if_cut_fCF
+
     def MakeSphe(self,NpixIm):
         fCF=self.Small_fCF
         zfCF=ZeroPad(fCF,NpixIm)
+
         ifzfCF=ifft2(zfCF)
         CF=self.Small_CF
         
@@ -251,19 +255,29 @@ class ClassWTermModified():
         self.IDFacet=IDFacet
         self.IdSharedMem=IdSharedMem
         self.SharedMemName="%sWTerm.Facet_%3.3i"%(self.IdSharedMem,self.IDFacet)
-        self.SharedMemNameSphe="%sSpheroidal"%(self.IdSharedMem)
+        #self.SharedMemNameSphe="%sSpheroidal"%(self.IdSharedMem)
+        self.SharedMemNameSphe="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,self.IDFacet)
 
-        if self.IDFacet==None:
+        # if self.IDFacet==None:
+        #     self.InitSphe()
+        #     self.InitW()
+        # else:
+        #     Exists=NpShared.Exists(self.SharedMemName)
+        #     if Exists:
+        #         self.FromShared()
+        #     else:
+        #         self.InitSphe()
+        #         self.InitW()
+        #         self.ToShared()
+
+        Exists=NpShared.Exists(self.SharedMemName)
+        if Exists:
+            self.FromShared()
+        else:
             self.InitSphe()
             self.InitW()
-        else:
-            Exists=NpShared.Exists(self.SharedMemName)
-            if Exists:
-                self.FromShared()
-            else:
-                self.InitSphe()
-                self.InitW()
-                self.ToShared()
+            self.ToShared()
+
         Freqs=self.Freqs
         C=299792458.
         waveMin=C/Freqs[-1]
@@ -273,8 +287,10 @@ class ClassWTermModified():
     def ToShared(self):
         #print>>log, "Saving WTerm in shared memory (%s)"%self.SharedMemName
         dS=np.complex64
-        if self.IDFacet==0:
-            NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
+        #if self.IDFacet==0:
+        #    NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
+
+        NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
         LArrays=[]
         CuCv=np.array([self.Cu,self.Cv,self.Cu,self.Cv],dtype=dS).reshape(2,2)
         LArrays.append(CuCv)
@@ -302,7 +318,7 @@ class ClassWTermModified():
         T=ClassTimeIt.ClassTimeIt("Wterm")
         #self.CF, self.fCF, self.ifzfCF= MakeSphe(self.Sup,self.Npix)
 
-        self.SpheM=SpheMachine(Support=self.Sup)
+        self.SpheM=SpheMachine(Support=self.Sup)#,Type="Gauss")
         self.CF, self.fCF, self.ifzfCF= self.SpheM.MakeSphe(self.Npix)
 
     def GiveReorgCF(self,A):
@@ -311,6 +327,7 @@ class ClassWTermModified():
         for i in range(self.OverS):
             for j in range(self.OverS):
                 B[i,j,:,:]=A[i::self.OverS,j::self.OverS]#[::-1,:]
+
         B=B.reshape((A.shape[0],A.shape[0]))
         return B
 
@@ -351,10 +368,15 @@ class ClassWTermModified():
         fw1d=fw1d[(SupMax-1)/2::]
         ind=np.argsort(fw1d)
         T.timeit("1")
-        Interp=interp(fw1d[ind],np.arange(fw1d.shape[0])[ind])
-        T.timeit("2")
 
-        SupMax=np.int64(Interp(np.array([1./1000]))[0])
+        try:
+            Interp=interp(fw1d[ind],np.arange(fw1d.shape[0])[ind])
+            T.timeit("2")
+            
+            SupMax=np.int64(Interp(np.array([1./1000]))[0])
+        except:
+            SupMax=Sup
+
         Sups=np.int64(np.linspace(Sup,np.max([SupMax,Sup]),Nw))
 
         w=np.linspace(0,wmax,Nw)

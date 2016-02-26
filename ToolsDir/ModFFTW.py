@@ -167,11 +167,11 @@ class FFTW_2Donly():
         return A
 
 class FFTW_2Donly_np():
-    def __init__(self, shape, dtype, ncores = 1):
+    def __init__(self, shape=None, dtype=None, ncores = 1):
 
         return
 
-    def fft(self,A):
+    def fft(self,A,ChanList=None):
         axes=(-1,-2)
 
         T=ClassTimeIt.ClassTimeIt("ModFFTW")
@@ -179,7 +179,13 @@ class FFTW_2Donly_np():
         
         nch,npol,n,n=A.shape
 
-        for ich in range(nch):
+        if ChanList!=None:
+            CSel=ChanList
+        else:
+            CSel=range(nch)
+
+
+        for ich in CSel:
             for ipol in range(npol):
                 B = iFs(A[ich,ipol].astype(A.dtype),axes=axes)
                 T.timeit("shift and copy")
@@ -191,11 +197,17 @@ class FFTW_2Donly_np():
         return A
  
 
-    def ifft(self,A):
+    def ifft(self,A,ChanList=None):
         axes=(-1,-2)
         #log=MyLogger.getLogger("ModToolBox.FFTM2.ifft")
         nch,npol,_,_=A.shape
-        for ich in range(nch):
+
+        if ChanList!=None:
+            CSel=ChanList
+        else:
+            CSel=range(nch)
+
+        for ich in CSel:
             for ipol in range(npol):
                 B = iFs(A[ich,ipol].astype(A.dtype),axes=axes)
                 B = np.fft.ifft2(B,axes=axes)
@@ -227,7 +239,7 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.)):
     #Gauss/=np.sum(Gauss)
     return Gauss
 
-def ConvolveGaussian(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)]):
+def ConvolveGaussian(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False):
 
     nch,npol,_,_=Ain0.shape
     Aout=np.zeros_like(Ain0)
@@ -236,6 +248,8 @@ def ConvolveGaussian(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)]):
         Ain=Ain0[ch]
         ThisGaussPars=GaussPars[ch]
         PSF=GiveGauss(Ain.shape[-1],CellSizeRad,ThisGaussPars)
+        if Normalise:
+            PSF/=np.sum(PSF)
         FFTM=FFTWnpNonorm(PSF)
         fPSF=np.abs(FFTM.fft(PSF))
         for pol in range(npol):

@@ -58,6 +58,8 @@ bool *p_bool(PyArrayObject *arrayin)  {
 
 
 static PyObject *pyAddArray(PyObject *self, PyObject *args);
+static PyObject *pyProdArray(PyObject *self, PyObject *args);
+static PyObject *pyDivArray(PyObject *self, PyObject *args);
 static PyObject *pyWhereMax(PyObject *self, PyObject *args);
 static PyObject *pyWhereMaxMask(PyObject *self, PyObject *args);
 

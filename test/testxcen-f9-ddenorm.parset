@@ -1,0 +1,111 @@
+[Parallel]
+Enable = True 
+NCPU = 6 
+
+[Stores]
+DeleteDDFProducts = 1 
+PSF = None 
+Dirty = None 
+
+[VisData]
+MSName = test_vlac_4h10s.MS 
+MSListFile =  
+ColName = CORRECTED_DATA 
+PredictColName = MODEL_DATA 
+TChunkSize = 10 
+InitDicoModel = None 
+WeightCol = IMAGING_WEIGHT 
+
+[Images]
+ImageName = testxcen-f9-ddenorm 
+PredictModelName =  
+SaveIms = ['Residual_i', 'Model_i'] 
+
+[DDESolutions]
+DDSols =  
+GlobalNorm = None 
+JonesNormList = AP 
+JonesMode = Full 
+DDModeGrid = AP 
+DDModeDeGrid = AP 
+ScaleAmpGrid = 0 
+ScaleAmpDeGrid = 0 
+CalibErr = 10.0 
+Type = Nearest 
+Scale = 1.0 
+gamma = 4.0 
+RestoreSub = 0 
+ReWeightSNR = 0.0 
+DecorrMode =  
+
+[Beam]
+BeamModel   = FITS # None/LOFAR/FITS
+LOFARBeamMode  = AE     # A/AE
+NChanBeamPerMS = 0 # Number of constant-beam frequency domains into which to subdivide the bandwidth. 0 means NChannel? 
+CenterNorm    = False
+# change in minutes on which the beam is re-evaluated
+DtBeamMin       = 5
+# increment in PA in degrees at which the beam is to be re-evaluated (on top of DtBeamMin)
+FITSParAngleIncDeg = 0
+BeamModel = FITS 
+FITSFile = beams/JVLA-L-normed-$(corr)_$(reim).fits 
+FITSFeed = xy 
+
+[DataSelection]
+FlagAnts = None 
+UVRangeKm = [0.1, 2000.0] 
+TimeRange = None 
+DistMaxToCore = None 
+
+[MultiScale]
+MSEnable = True 
+Scales = [0.0] 
+Ratios = [] 
+NTheta = 6 
+
+[MultiFreqs]
+NFreqBands = 1
+Alpha = [-1.0, 1.0, 11.0] 
+NChanDegridPerMS  = 1
+
+[ImagerGlobal]
+Mode = Clean 
+Weighting = Briggs 
+Robust = 0 
+Precision = S 
+PolMode = I 
+PSFOversize = 1 
+PSFFacets = 0 
+
+[Compression]
+CompGridMode = 1 
+CompGridDecorr = 0 # 0.001 
+CompGridFOV = Facet 
+CompDeGridMode = 1 
+CompDeGridDecorr = 0 # 0.001 
+CompDeGridFOV = Facet 
+
+[ImagerCF]
+OverS = 11 
+Support = 7 
+Nw = 100 
+wmax = 5000 
+
+[ImagerMainFacet]
+NFacets = 9 
+Npix = 5000 
+Cell = 1.5 
+Padding = 1.7 
+ConstructMode = Fader 
+
+[ImagerDeconv]
+MaxMajorIter = 10 
+Gain = 0.1 
+MaxMinorIter = 20000 
+CycleFactor = 2 
+CleanMaskImage = None 
+FluxThreshold = 0.001 
+SearchMaxAbs    = 1
+PeakFactor = 0.1
+RMSFactor = 3
+

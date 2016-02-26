@@ -3,9 +3,12 @@
 #include <math.h>
 #include <time.h>
 #include "arrayobject.h"
-#include "GridderSmear.h"
+#include "GridderSmearPols.h"
 #include "complex.h"
 #include <omp.h>
+#include "Tools.h"
+#include "JonesServer.c"
+
 
 clock_t start;
 
@@ -37,16 +40,17 @@ void AddTimeit(struct timespec PreviousTime, long int *aTime){
 /* #### Globals #################################### */
 
 /* ==== Set up the methods table ====================== */
-static PyMethodDef _pyGridderSmear_testMethods[] = {
+static PyMethodDef _pyGridderSmearPols_testMethods[] = {
 	{"pyGridderWPol", pyGridderWPol, METH_VARARGS},
 	{"pyDeGridderWPol", pyDeGridderWPol, METH_VARARGS},
+	{"pyTestMatrix", pyTestMatrix, METH_VARARGS},
 	{NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
 
 /* ==== Initialize the C_test functions ====================== */
 // Module name must be _C_arraytest in compile and linked 
-void init_pyGridderSmear()  {
-  (void) Py_InitModule("_pyGridderSmear", _pyGridderSmear_testMethods);
+void init_pyGridderSmearPols()  {
+  (void) Py_InitModule("_pyGridderSmearPols", _pyGridderSmearPols_testMethods);
   import_array();  // Must be present for NumPy.  Called first after above line.
 }
 
@@ -63,14 +67,14 @@ void init_pyGridderSmear()  {
 static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 {
   PyObject *ObjGridIn;
-  PyArrayObject *np_grid, *vis, *uvw, *cfs, *flags, *weights, *sumwt, *increment, *freqs,*WInfos,*SmearMapping;
+  PyArrayObject *np_grid, *vis, *uvw, *cfs, *flags, *weights, *sumwt, *increment, *freqs,*WInfos,*SmearMapping,*np_ChanMapping;
 
-  PyObject *Lcfs,*LOptimisation;
+  PyObject *Lcfs,*LOptimisation,*LSmearing;
   PyObject *LJones,*Lmaps;
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!O!O!O!O!O!iO!O!O!O!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "O!O!O!O!O!O!iO!O!O!O!O!O!O!O!O!O!O!", 
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid, 
 			&PyArray_Type,  &vis, 
@@ -87,12 +91,14 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 			&PyList_Type, &Lmaps,
 			&PyList_Type, &LJones,
 			&PyArray_Type,  &SmearMapping,
-			&PyList_Type, &LOptimisation
+			&PyList_Type, &LOptimisation,
+			&PyList_Type, &LSmearing,
+			&PyArray_Type,  &np_ChanMapping
 			))  return NULL;
   int nx,ny,nz,nzz;
   //np_grid = (PyArrayObject *) PyArray_ContiguousFromObject(ObjGridIn, PyArray_COMPLEX64, 0, 4);
 
-  gridderWPol(np_grid, vis, uvw, flags, weights, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping,LOptimisation);
+  gridderWPol(np_grid, vis, uvw, flags, weights, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping,LOptimisation,LSmearing,np_ChanMapping);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -127,7 +133,9 @@ void gridderWPol(PyArrayObject *grid,
 		 PyObject *Lmaps, 
 		 PyObject *LJones,
 		 PyArrayObject *SmearMapping,
-		 PyObject *LOptimisation
+		 PyObject *LOptimisation,
+		 PyObject *LSmearing,
+		 PyArrayObject *np_ChanMapping
 		 )
   {
     // Get size of convolution functions.
@@ -140,115 +148,31 @@ void gridderWPol(PyArrayObject *grid,
     NpFacetInfos = (PyArrayObject *) PyList_GetItem(Lmaps, 1);
 
 
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    int LengthJonesList=PyList_Size(LJones);
-    int DoApplyJones=0;
-    PyArrayObject *npJonesMatrices, *npTimeMappingJonesMatrices, *npA0, *npA1, *npJonesIDIR, *npCoefsInterp,*npModeInterpolation;
-    float complex* ptrJonesMatrices;
-    int *ptrTimeMappingJonesMatrices,*ptrA0,*ptrA1,*ptrJonesIDIR;
-    float *ptrCoefsInterp;
-    int i_dir;
-    int nd_Jones,na_Jones,nch_Jones,nt_Jones;
+    /////////////////////////////////////////
+    int LengthSmearingList=PyList_Size(LSmearing);
+    float DT,Dnu;
+    double* uvw_dt_Ptr;
+    int DoSmearTime,DoSmearFreq;
+    int DoDecorr=(LengthSmearingList>0);
 
-    PyArrayObject *npJonesMatrices_Beam, *npTimeMappingJonesMatrices_Beam;
-    float complex* ptrJonesMatrices_Beam;
-    int *ptrTimeMappingJonesMatrices_Beam;
-    int nd_Jones_Beam,na_Jones_Beam,nch_Jones_Beam,nt_Jones_Beam;
-    int JonesDims_Beam[4];
-    int ApplyJones_Beam=0;
-    int i_dir_Beam;
-    PyArrayObject *npJonesIDIR_Beam;
-    int *ptrJonesIDIR_Beam;
-    int ApplyJones_killMS=0; 
+    int *p_ChanMapping=p_int32(np_ChanMapping);
 
-    //    printf("len %i",LengthJonesList);
-    int JonesDims[4];
-    int ModeInterpolation=1;
-    int *ptrModeInterpolation;
-    int ApplyAmp,ApplyPhase,DoScaleJones;
-    float CalibError,CalibError2;
-    double *ptrSumJones;
+    if(DoDecorr){
+      uvw_dt_Ptr = p_float64((PyArrayObject *) PyList_GetItem(LSmearing, 0));
 
-    if(LengthJonesList>0){
-      DoApplyJones=1;
-
-      // (nt,nd,na,1,2,2)
-      npJonesMatrices = (PyArrayObject *) PyList_GetItem(LJones, 0);
-      ptrJonesMatrices=p_complex64(npJonesMatrices);
-      nt_Jones=(int)npJonesMatrices->dimensions[0];
-      nd_Jones=(int)npJonesMatrices->dimensions[1];
-      na_Jones=(int)npJonesMatrices->dimensions[2];
-      nch_Jones=(int)npJonesMatrices->dimensions[3];
-      JonesDims[0]=nt_Jones;
-      JonesDims[1]=nd_Jones;
-      JonesDims[2]=na_Jones;
-      JonesDims[3]=nch_Jones;
-      npTimeMappingJonesMatrices  = (PyArrayObject *) PyList_GetItem(LJones, 1);
-      ptrTimeMappingJonesMatrices = p_int32(npTimeMappingJonesMatrices);
-      int size_JoneskillMS=JonesDims[0]*JonesDims[1]*JonesDims[2]*JonesDims[3];
-      if(size_JoneskillMS!=0){ApplyJones_killMS=1;}
-      //printf("%i, %i, %i, %i\n",JonesDims[0],JonesDims[1],JonesDims[2],JonesDims[3]);
-
-      npJonesMatrices_Beam = (PyArrayObject *) PyList_GetItem(LJones, 2);
-      ptrJonesMatrices_Beam=p_complex64(npJonesMatrices_Beam);
-      nt_Jones_Beam=(int)npJonesMatrices_Beam->dimensions[0];
-      nd_Jones_Beam=(int)npJonesMatrices_Beam->dimensions[1];
-      na_Jones_Beam=(int)npJonesMatrices_Beam->dimensions[2];
-      nch_Jones_Beam=(int)npJonesMatrices_Beam->dimensions[3];
-      JonesDims_Beam[0]=nt_Jones_Beam;
-      JonesDims_Beam[1]=nd_Jones_Beam;
-      JonesDims_Beam[2]=na_Jones_Beam;
-      JonesDims_Beam[3]=nch_Jones_Beam;
-      npTimeMappingJonesMatrices_Beam  = (PyArrayObject *) PyList_GetItem(LJones, 3);
-      ptrTimeMappingJonesMatrices_Beam = p_int32(npTimeMappingJonesMatrices_Beam);
-      int size_JonesBeam=JonesDims_Beam[0]*JonesDims_Beam[1]*JonesDims_Beam[2]*JonesDims_Beam[3];
-      if(size_JonesBeam!=0){ApplyJones_Beam=1;}
-      //printf("%i, %i, %i, %i\n",JonesDims_Beam[0],JonesDims_Beam[1],JonesDims_Beam[2],JonesDims_Beam[3]);
-
-      npA0 = (PyArrayObject *) PyList_GetItem(LJones, 4);
-      ptrA0 = p_int32(npA0);
-      int ifor;
-      npA1= (PyArrayObject *) PyList_GetItem(LJones, 5);
-      ptrA1=p_int32(npA1);
- 
+      PyObject *_FDT= PyList_GetItem(LSmearing, 1);
+      DT=(float) (PyFloat_AsDouble(_FDT));
+      PyObject *_FDnu= PyList_GetItem(LSmearing, 2);
+      Dnu=(float) (PyFloat_AsDouble(_FDnu));
       
+      PyObject *_DoSmearTime= PyList_GetItem(LSmearing, 3);
+      DoSmearTime=(int) (PyFloat_AsDouble(_DoSmearTime));
 
-      npJonesIDIR= (PyArrayObject *) (PyList_GetItem(LJones, 6));
-      ptrJonesIDIR=p_int32(npJonesIDIR);
-      i_dir=ptrJonesIDIR[0];
+      PyObject *_DoSmearFreq= PyList_GetItem(LSmearing, 4);
+      DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));
 
-      npCoefsInterp= (PyArrayObject *) PyList_GetItem(LJones, 7);
-      ptrCoefsInterp=p_float32(npCoefsInterp);
+    }
 
-      npJonesIDIR_Beam= (PyArrayObject *) (PyList_GetItem(LJones, 8));
-      ptrJonesIDIR_Beam=p_int32(npJonesIDIR_Beam);
-      i_dir_Beam=ptrJonesIDIR_Beam[0];
-
-
-      npModeInterpolation= (PyArrayObject *) PyList_GetItem(LJones, 9);
-      ptrModeInterpolation=p_int32(npModeInterpolation);
-      ModeInterpolation=ptrModeInterpolation[0];
-
-      PyObject *_FApplyAmp  = PyList_GetItem(LJones, 10);
-      ApplyAmp=(int) PyFloat_AsDouble(_FApplyAmp);
-      PyObject *_FApplyPhase  = PyList_GetItem(LJones, 11);
-      ApplyPhase=(int) PyFloat_AsDouble(_FApplyPhase);
-
-      PyObject *_FDoScaleJones  = PyList_GetItem(LJones, 12);
-      DoScaleJones=(int) PyFloat_AsDouble(_FDoScaleJones);
-      PyObject *_FCalibError  = PyList_GetItem(LJones, 13);
-      CalibError=(float) PyFloat_AsDouble(_FCalibError);
-      CalibError2=CalibError*CalibError;
-
-      ptrSumJones=p_float64((PyArrayObject *) PyList_GetItem(LJones, 14));
-
-
-    };
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
     
     double* ptrFacetInfos=p_float64(NpFacetInfos);
     double Cu=ptrFacetInfos[0];
@@ -309,56 +233,58 @@ void gridderWPol(PyArrayObject *grid,
     uvwScale_p[0]=fnGridX*incr[0];
     uvwScale_p[1]=fnGridX*incr[1];
     //printf("uvscale=(%f %f)\n",uvwScale_p[0],uvwScale_p[1]);
-    double C=2.99792458e8;
+    double C=2.99792456e8;
     int inx;
     // Loop over all visibility rows to process.
 
 
     // ################### Prepare full scalar mode
 
-    PyObject *_FullScalarMode  = PyList_GetItem(LOptimisation, 0);
-    FullScalarMode=(int) PyFloat_AsDouble(_FullScalarMode);
+    
+    PyObject *_JonesType  = PyList_GetItem(LOptimisation, 0);
+    int JonesType=(int) PyFloat_AsDouble(_JonesType);
     PyObject *_ChanEquidistant  = PyList_GetItem(LOptimisation, 1);
     int ChanEquidistant=(int) PyFloat_AsDouble(_ChanEquidistant);
-    ScalarJones=0;
-    ScalarVis=0;
-    int nPolJones=4;
-    int nPolVis=4;
-    if(FullScalarMode){
-      //printf("full scalar mode\n");
-      //printf("ChanEquidistant: %i\n",ChanEquidistant);
-      ScalarJones=1;
-      ScalarVis=1;
-      nPolJones=1;
-      nPolVis=1;
-      int ipol;
-      for (ipol=1; ipol<nVisPol; ++ipol) {
-	PolMap[ipol]=5;
+
+    PyObject *_SkyType  = PyList_GetItem(LOptimisation, 2);
+    int SkyType=(int) PyFloat_AsDouble(_SkyType);
+    
+    PyObject *_PolMode  = PyList_GetItem(LOptimisation, 3);
+    int PolMode=(int) PyFloat_AsDouble(_PolMode);
+    
+    /* ScalarJones=0; */
+    /* ScalarVis=0; */
+    /* int nPolJones=4; */
+    /* int nPolVis=4; */
+
+    /* if(FullScalarMode){ */
+    /*   //printf("full scalar mode\n"); */
+    /*   //printf("ChanEquidistant: %i\n",ChanEquidistant); */
+    /*   ScalarJones=1; */
+    /*   ScalarVis=1; */
+    /*   nPolJones=1; */
+    /*   nPolVis=1; */
+    /*   int ipol; */
+    /*   for (ipol=1; ipol<nVisPol; ++ipol) { */
+    /* 	PolMap[ipol]=5; */
+    /*   } */
+    /* } */
+    int ipol;
+    if(PolMode==0){
+      for (ipol=1; ipol<4; ++ipol) {
+    	PolMap[ipol]=5;
       }
     }
+    
 
 
-
-    /* float complex *J0=calloc(1,(nPolJones)*sizeof(float complex)); */
+    /* float complex *J0=calloc(1,(nPolJones)*sizeof(float complex));
     /* float complex *J1=calloc(1,(nPolJones)*sizeof(float complex)); */
     /* float complex *J0inv=calloc(1,(nPolJones)*sizeof(float complex)); */
     /* float complex *J1H=calloc(1,(nPolJones)*sizeof(float complex)); */
     /* float complex *J1Hinv=calloc(1,(nPolJones)*sizeof(float complex)); */
     /* float complex *JJ=calloc(1,(nPolJones)*sizeof(float complex)); */
 
-    float complex *J0=calloc(1,(4)*sizeof(float complex));
-    float complex *J1=calloc(1,(4)*sizeof(float complex));
-    float complex *J0kMS=calloc(1,(4)*sizeof(float complex));
-    float complex *J1kMS=calloc(1,(4)*sizeof(float complex));
-    float complex *J0Beam=calloc(1,(4)*sizeof(float complex));
-    float complex *J1Beam=calloc(1,(4)*sizeof(float complex));
-    float complex *J0inv=calloc(1,(4)*sizeof(float complex));
-    float complex *J0H=calloc(1,(4)*sizeof(float complex));
-    float complex *J0Conj=calloc(1,(4)*sizeof(float complex));
-    float complex *J1H=calloc(1,(4)*sizeof(float complex));
-    float complex *J1T=calloc(1,(4)*sizeof(float complex));
-    float complex *J1Hinv=calloc(1,(4)*sizeof(float complex));
-    float complex *JJ=calloc(1,(4)*sizeof(float complex));
 
     int *MappingBlock = p_int32(SmearMapping);
     int NTotBlocks=MappingBlock[0];
@@ -378,14 +304,38 @@ void gridderWPol(PyArrayObject *grid,
 
     // ########################################################
 
+
+
     double WaveLengthMean=0.;
+    double FreqMean0=0.;
+
     int visChan;
+    
+    float factorFreq=GiveFreqStep();
+    //printf("factorFreq %f\n",factorFreq);
+    
+
     for (visChan=0; visChan<nVisChan; ++visChan){
       WaveLengthMean+=C/Pfreqs[visChan];
+      FreqMean0+=Pfreqs[visChan];
     }
     WaveLengthMean/=nVisChan;
+    FreqMean0/=nVisChan;
+    float FracFreqWidth=0;
+    if (nVisChan>1){
+      float DeltaFreq=(Pfreqs[nVisChan-1]-Pfreqs[0]);
+      FracFreqWidth=DeltaFreq/FreqMean0;
+    }
 
     //PyArrayObject *npMappingBlock=(PyArrayObject *) PyArray_ContiguousFromObject(SmearMapping, PyArray_INT32, 0, 4);
+
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    initJonesServer(LJones,JonesType,WaveLengthMean);
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
 
 
     long int TimeShift[1]={0};
@@ -397,14 +347,17 @@ void gridderWPol(PyArrayObject *grid,
     long int TimeStuff[1]={0};
     struct timespec PreviousTime;
 
-    float complex *Vis=calloc(1,(nPolVis)*sizeof(float complex));
-    float complex *VisMeas=calloc(1,(nPolVis)*sizeof(float complex));
+    float complex *Vis=calloc(1,(4)*sizeof(float complex));
+    float complex *VisMeas=calloc(1,(4)*sizeof(float complex));
     int ThisPol;
 
-    float BB;
+    float *ThisSumJonesChan=calloc(1,(nVisChan)*sizeof(float));
+    float *ThisSumSqWeightsChan=calloc(1,(nVisChan)*sizeof(float));
+
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
+      
       int NRowThisBlock=NRowBlocks[iBlock]-2;
       int indexMap=StartRow[iBlock];
       int chStart=MappingBlock[indexMap];
@@ -418,7 +371,7 @@ void gridderWPol(PyArrayObject *grid,
       int NVisThisblock=0;
       //printf("\n");
       //printf("Block[%i] Nrows=%i %i>%i\n",iBlock,NRowThisBlock,chStart,chEnd);
-      for(ThisPol =0; ThisPol<nPolVis;ThisPol++){
+      for(ThisPol =0; ThisPol<4;ThisPol++){
 	Vis[ThisPol]=0;
 	VisMeas[ThisPol]=0;
       }
@@ -426,45 +379,50 @@ void gridderWPol(PyArrayObject *grid,
       double ThisWeight=0.;
       float ThisSumJones=0.;
       float ThisSumSqWeights=0.;
+      for(visChan=0; visChan<nVisChan; visChan++){
+	ThisSumJonesChan[visChan]=0;
+	ThisSumSqWeightsChan[visChan]=0;
+      }
+
+
+
+      //int ThisBlockAllFlagged=1;
+      float visChanMean=0.;
+      resetJonesServerCounter();
+
       for (inx=0; inx<NRowThisBlock; inx++) {
 	int irow = Row[inx];
 	if(irow>nrows){continue;}
 	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
 	//printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
+	//printf("[%i] %i>%i\n",irow,chStart,chEnd);
 	//printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
 	
 	//clock_gettime(CLOCK_MONOTONIC_RAW, &PreviousTime);
-	if(DoApplyJones){
-	  int i_ant0=ptrA0[irow];
-	  int i_ant1=ptrA1[irow];
-	  J0[0]=1;J0[1]=0;J0[2]=0;J0[3]=1;
-	  J1[0]=1;J1[1]=0;J1[2]=0;J1[3]=1;
-	  if(ApplyJones_Beam){
-	    int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
-	    GiveJones(ptrJonesMatrices_Beam, JonesDims_Beam, ptrCoefsInterp, i_t, i_ant0, i_dir_Beam, ModeInterpolation, J0Beam);
-	    GiveJones(ptrJonesMatrices_Beam, JonesDims_Beam, ptrCoefsInterp, i_t, i_ant1, i_dir_Beam, ModeInterpolation, J1Beam);
-	    MatDot(J0Beam,J0,J0);
-	    MatDot(J1Beam,J1,J1);
-	  }
-	  if(ApplyJones_killMS){
-	    int i_t=ptrTimeMappingJonesMatrices[irow];
-	    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0kMS);
-	    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1kMS);
-	    NormJones(J0kMS, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
-	    NormJones(J1kMS, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
-	    MatDot(J0kMS,J0,J0);
-	    MatDot(J1kMS,J1,J1);
-	  }
-	  MatT(J1,J1T);
-	  MatConj(J0,J0Conj);
-	  BB=cabs(J0Conj[0]*J1T[0]);
-	  BB*=BB;
-	  /* MatH(J1,J1H); */
-	  /* MatInv(J0,J0inv,0); */
-	  /* MatInv(J1H,J1Hinv,0); */
-	  /* BB=cabs(J0inv[0])*cabs(J1Hinv[0]); */
-	  /* //BB*=BB; */
-	} //endif DoApplyJones
+	
+	WeightVaryJJ=1.;
+
+
+	float DeCorrFactor=1.;
+	if(DoDecorr){
+	  int iRowMeanThisBlock=Row[NRowThisBlock/2];
+	  
+	  double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;
+	  double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
+	  
+	  DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
+					       (float)l0, (float)m0,
+					       uvwPtrMidRow,
+					       uvw_dt_PtrMidRow,
+					       (float)FreqMean0,
+					       (float)Dnu, 
+					       (float)DT);
+
+	  //printf("DeCorrFactor %f %f: %f\n",l0,m0,DeCorrFactor);
+
+	}
+	
+
 	//AddTimeit(PreviousTime,TimeGetJones);
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
 	  int doff = (irow * nVisChan + visChan) * nVisPol;
@@ -495,6 +453,8 @@ void gridderWPol(PyArrayObject *grid,
 	    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
 	    corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
 	  }
+
+	  
 	  /* float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
 	  /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
 
@@ -504,37 +464,84 @@ void gridderWPol(PyArrayObject *grid,
 	  // We can do that since all flags in 4-pols are equalised in ClassVisServer
 	  if(flagPtr[0]==1){continue;}
 
+	  if(DoApplyJones){
+	    updateJones(irow, visChan, uvwPtr, 1);
+	  } //endif DoApplyJones
 
+	  //ThisBlockAllFlagged=0;
 	  //AddTimeit(PreviousTime,TimeStuff);
 
 	  float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;
 	  
-	  if(FullScalarMode){
-	    VisMeas[0]=(visPtrMeas[0]+visPtrMeas[3])/2.;
+	  if (dopsf==1) {
+	    VisMeas[0]= 1.;
+	    VisMeas[1]= 0.;
+	    VisMeas[2]= 0.;
+	    VisMeas[3]= 1.;
+	    corr=1.;
+	    if(DoApplyJones){
+	      MatDot(J0,JonesType,VisMeas,SkyType,VisMeas);
+	      MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);
+	    }
+	    if(DoDecorr){
+	      for(ThisPol =0; ThisPol<4;ThisPol++){
+		VisMeas[ThisPol]*=DeCorrFactor;
+
+	      }
+	    }	      
 	  }else{
 	    for(ThisPol =0; ThisPol<4;ThisPol++){
 	      VisMeas[ThisPol]=visPtrMeas[ThisPol];
 	    }
 	  }
 
-
-	  float complex Weight=(*imgWtPtr) * corr;
-	  float complex visPtr[nPolVis];
+	  float FWeight=(*imgWtPtr)*WeightVaryJJ*DeCorrFactor;//*WeightVaryJJ;
+	  float complex Weight=(FWeight) * corr;
+	  float complex visPtr[4];
 	  if(DoApplyJones){
-	    /* MatDot(J0inv,VisMeas,visPtr); */
-	    /* MatDot(visPtr,J1Hinv,visPtr); */
-	    MatDot(J1T,VisMeas,visPtr);
-	    MatDot(visPtr,J0Conj,visPtr);
-	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
-	      Vis[ThisPol]+=visPtr[ThisPol]*(Weight);
-	    }
-	    ThisSumJones+=BB*(*imgWtPtr)*(*imgWtPtr);
-	    ThisSumSqWeights+=(*imgWtPtr)*(*imgWtPtr);
+	    /* MatDot(J0inv,JonesType,VisMeas,SkyType,visPtr); */
+	    /* MatDot(visPtr,SkyType,J1Hinv,JonesType,visPtr); */
+
+	    /* MatDot(J1T,JonesType,VisMeas,SkyType,visPtr); */
+	    /* MatDot(visPtr,SkyType,J0Conj,JonesType,visPtr); */
+
+	    MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);
+	    MatDot(visPtr,SkyType,J1,JonesType,visPtr);
+
+	    /* int ThisPol; */
+	    /* for(ThisPol =0; ThisPol<1;ThisPol++){ */
+	    /*   printf("   vis: %i (%f, %f)\n",ThisPol,creal(visPtr[ThisPol]),cimag(visPtr[ThisPol])); */
+	    /* } */
+	    
+	    // Vis+=visPtr*Weight
+	    Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);
+
+	    float FWeightSq=(FWeight)*(FWeight);
+	    ThisSumJones+=BB*FWeightSq;
+	    ThisSumSqWeights+=FWeightSq;
+
+	    ThisSumJonesChan[visChan]+=BB*FWeightSq;
+	    ThisSumSqWeightsChan[visChan]+=FWeightSq;
+
+	    //ptrSumJonesChan[visChan]+=BB*FWeightSq;
+	    //ptrSumJonesChan[nVisChan+visChan]+=FWeightSq;
+
+	    ////====================================
+	    //int gridChan=p_ChanMapping[visChan];
+	    //ptrSumJones[gridChan]+=BB*FWeightSq;
+	    //ptrSumJones[gridChan+nGridChan]+=FWeightSq;
+	    ////====================================
+
 	  }else{
-	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
-	      Vis[ThisPol]+=VisMeas[ThisPol]*(Weight);
-	    }
+	    Mat_A_Bl_Sum(Vis,SkyType,VisMeas,SkyType,Weight);
 	  };
+
+	  /* if(DoDecorr){ */
+	  /*   for(ThisPol =0; ThisPol<4;ThisPol++){ */
+	  /*     Vis[ThisPol]*=DeCorrFactor; */
+	  /*   } */
+	  /* } */
+
 
 	  //AddTimeit(PreviousTime,TimeApplyJones);
 
@@ -544,10 +551,13 @@ void gridderWPol(PyArrayObject *grid,
 	  Umean+=U;
 	  Vmean+=V;
 	  Wmean+=W;
-	  FreqMean+=(float)Pfreqs[visChan];
-	  ThisWeight+=(*imgWtPtr);
+	  //printf("factorFreq %f\n",factorFreq);
+	  FreqMean+=factorFreq*(float)Pfreqs[visChan];
+	  //FreqMean+=(float)Pfreqs[visChan];
+	  ThisWeight+=(FWeight);
 	  //ThisSumJones+=(*imgWtPtr);
 	  
+	  visChanMean+=p_ChanMapping[visChan];
 
 	  NVisThisblock+=1.;//(*imgWtPtr);
 	  //AddTimeit(PreviousTime,TimeAverage);
@@ -560,6 +570,18 @@ void gridderWPol(PyArrayObject *grid,
       Vmean/=NVisThisblock;
       Wmean/=NVisThisblock;
       FreqMean/=NVisThisblock;
+
+      visChanMean/=NVisThisblock;
+      int ThisGridChan=p_ChanMapping[chStart];
+      float diffChan=visChanMean-visChanMean;
+      if(diffChan!=0.){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);}
+      //printf("%i %i %f\n",i_ant0,i_ant1,visChanMean);
+      visChanMean=0.;
+      if(PolMode==0){
+	Vis[0]=(Vis[0]+Vis[3])/2.;
+	Vis[3]=Vis[0];
+      }
+
       
       /* printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6)); */
       /* int ThisPol; */
@@ -569,16 +591,21 @@ void gridderWPol(PyArrayObject *grid,
       
       // ################################################
       // ############## Start Gridding visibility #######
-      int gridChan = 0;//chanMap_p[visChan];
+      int gridChan = p_ChanMapping[chStart];//0;//chanMap_p[visChan];
+      
       int CFChan = 0;//ChanCFMap[visChan];
       double recipWvl = FreqMean / C;
       double ThisWaveLength=C/FreqMean;
-
+      
       // ############## W-projection ####################
       double wcoord=Wmean;
       int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);
       int skipW=0;
-      if(iwplane>NwPlanes-1){skipW=1;continue;};
+      if(iwplane>NwPlanes-1){
+	skipW=1;
+//	printf("SIP\n");
+	continue;
+      };
       
       if(wcoord>0){
       	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);
@@ -632,12 +659,16 @@ void gridderWPol(PyArrayObject *grid,
       	  int ipol;
       	  for (ipol=0; ipol<nVisPol; ++ipol) {
       	    float complex VisVal;
-      	    if (dopsf==1) {
-      	      VisVal = 1.;
-      	    }else{
-      	      VisVal =Vis[ipol];
-      	    }
+      	    /* if (dopsf==1) { */
+      	    /*   VisVal = 1.; */
+      	    /* }else{ */
+      	    /*   VisVal =Vis[ipol]; */
+      	    /* } */
+	    VisVal =Vis[ipol];
+	    //printf("VisVal=(%f,%f), factor=(%f)\n",creal(VisVal),cimag(VisVal),factorFreq);
       	    //VisVal*=ThisWeight;
+
+	    //if(ThisBlockAllFlagged==0){VisVal = 0.;}
 
       	    // Map to grid polarization. Only use pol if needed.
       	    int gridPol = PolMap[ipol];
@@ -662,9 +693,16 @@ void gridderWPol(PyArrayObject *grid,
       	      }
       	      sumWtPtr[gridPol+gridChan*nGridPol] += ThisWeight;
 	      if(DoApplyJones){
-		ptrSumJones[0]+=ThisSumJones;
-		ptrSumJones[1]+=ThisSumSqWeights;
+	      	ptrSumJones[gridChan]+=ThisSumJones;
+	      	ptrSumJones[gridChan+nGridChan]+=ThisSumSqWeights;
+
+		for(visChan=0; visChan<nVisChan; visChan++){
+		  ptrSumJonesChan[visChan]+=ThisSumJonesChan[visChan];
+		  ptrSumJonesChan[nVisChan+visChan]+=ThisSumSqWeightsChan[visChan];
+		}
+
 	      }
+
       	    } // end if gridPol
       	  } // end for ipol
       	} // end if ongrid
@@ -704,14 +742,14 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 {
   PyObject *ObjGridIn;
   PyObject *ObjVis;
-  PyArrayObject *np_grid, *np_vis, *uvw, *cfs, *flags, *sumwt, *increment, *freqs,*WInfos,*SmearMapping;
+  PyArrayObject *np_grid, *np_vis, *uvw, *cfs, *flags, *sumwt, *increment, *freqs,*WInfos,*SmearMapping,*np_ChanMapping;
 
-  PyObject *Lcfs, *LOptimisation;
+  PyObject *Lcfs, *LOptimisation, *LSmear;
   PyObject *Lmaps,*LJones;
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!", 
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid,
 			&ObjVis,//&PyArray_Type,  &vis, 
@@ -727,7 +765,9 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 			&PyArray_Type,  &freqs,
 			&PyList_Type, &Lmaps, &PyList_Type, &LJones,
 			&PyArray_Type, &SmearMapping,
-			&PyList_Type, &LOptimisation
+			&PyList_Type, &LOptimisation,
+			&PyList_Type, &LSmear,
+			&PyArray_Type, &np_ChanMapping
 			))  return NULL;
   int nx,ny,nz,nzz;
 
@@ -735,7 +775,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 
   
 
-  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, LOptimisation);
+  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, LOptimisation, LSmear,np_ChanMapping);
   
   return PyArray_Return(np_vis);
 
@@ -759,7 +799,8 @@ void DeGridderWPol(PyArrayObject *grid,
 		   PyArrayObject *Winfos,
 		   PyArrayObject *increment,
 		   PyArrayObject *freqs,
-		   PyObject *Lmaps, PyObject *LJones, PyArrayObject *SmearMapping, PyObject *LOptimisation)
+		   PyObject *Lmaps, PyObject *LJones, PyArrayObject *SmearMapping, PyObject *LOptimisation, PyObject *LSmearing,
+		 PyArrayObject *np_ChanMapping)
   {
     // Get size of convolution functions.
     PyArrayObject *cfs;
@@ -768,6 +809,8 @@ void DeGridderWPol(PyArrayObject *grid,
     int npolsMap=NpPolMap->dimensions[0];
     int* PolMap=I_ptr(NpPolMap);
     
+    int *p_ChanMapping=p_int32(np_ChanMapping);
+
     PyArrayObject *NpFacetInfos;
     NpFacetInfos = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 1), PyArray_FLOAT64, 0, 4);
 
@@ -778,155 +821,28 @@ void DeGridderWPol(PyArrayObject *grid,
     int row1=ptrRows[1];
 
 
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    int LengthJonesList=PyList_Size(LJones);
-    int DoApplyJones=0;
-    PyArrayObject *npJonesMatrices, *npTimeMappingJonesMatrices, *npA0, *npA1, *npJonesIDIR, *npCoefsInterp,*npModeInterpolation;
-    float complex* ptrJonesMatrices;
-    int *ptrTimeMappingJonesMatrices,*ptrA0,*ptrA1,*ptrJonesIDIR;
-    float *ptrCoefsInterp;
-    int i_dir;
-    int nd_Jones,na_Jones,nch_Jones,nt_Jones;
+    /////////////////////////////////////////
+    int LengthSmearingList=PyList_Size(LSmearing);
+    float DT,Dnu;
+    double* uvw_dt_Ptr;
+    int DoSmearTime,DoSmearFreq;
+    int DoDecorr=(LengthSmearingList>0);
 
-    //printf("len %i",LengthJonesList);
-    int JonesDims[4];
-    int ModeInterpolation=1;
-    int *ptrModeInterpolation;
-    int ApplyAmp,ApplyPhase,DoScaleJones;
-    float CalibError,CalibError2;
+    if(DoDecorr){
+      uvw_dt_Ptr = p_float64((PyArrayObject *) PyList_GetItem(LSmearing, 0));
 
-    PyArrayObject *npJonesMatrices_Beam, *npTimeMappingJonesMatrices_Beam;
-    float complex* ptrJonesMatrices_Beam;
-    int *ptrTimeMappingJonesMatrices_Beam;
-    int nd_Jones_Beam,na_Jones_Beam,nch_Jones_Beam,nt_Jones_Beam;
-    int JonesDims_Beam[4];
-    int ApplyJones_Beam=0;
-    int ApplyJones_killMS=0;
-    int i_dir_Beam;
-    PyArrayObject *npJonesIDIR_Beam;
-    int *ptrJonesIDIR_Beam;
-
-    if(LengthJonesList>0){
-      DoApplyJones=1;
-
-      // (nt,nd,na,1,2,2)
-      npJonesMatrices = (PyArrayObject *) PyList_GetItem(LJones, 0);
-      ptrJonesMatrices=p_complex64(npJonesMatrices);
-      nt_Jones=(int)npJonesMatrices->dimensions[0];
-      nd_Jones=(int)npJonesMatrices->dimensions[1];
-      na_Jones=(int)npJonesMatrices->dimensions[2];
-      nch_Jones=(int)npJonesMatrices->dimensions[3];
-      JonesDims[0]=nt_Jones;
-      JonesDims[1]=nd_Jones;
-      JonesDims[2]=na_Jones;
-      JonesDims[3]=nch_Jones;
-      npTimeMappingJonesMatrices  = (PyArrayObject *) PyList_GetItem(LJones, 1);
-      ptrTimeMappingJonesMatrices = p_int32(npTimeMappingJonesMatrices);
-      int size_JoneskillMS=JonesDims[0]*JonesDims[1]*JonesDims[2]*JonesDims[3];
-      if(size_JoneskillMS!=0){ApplyJones_killMS=1;}
-      //printf("%i, %i, %i, %i\n",JonesDims[0],JonesDims[1],JonesDims[2],JonesDims[3]);
-
-      npJonesMatrices_Beam = (PyArrayObject *) PyList_GetItem(LJones, 2);
-      ptrJonesMatrices_Beam=p_complex64(npJonesMatrices_Beam);
-      nt_Jones_Beam=(int)npJonesMatrices_Beam->dimensions[0];
-      nd_Jones_Beam=(int)npJonesMatrices_Beam->dimensions[1];
-      na_Jones_Beam=(int)npJonesMatrices_Beam->dimensions[2];
-      nch_Jones_Beam=(int)npJonesMatrices_Beam->dimensions[3];
-      JonesDims_Beam[0]=nt_Jones_Beam;
-      JonesDims_Beam[1]=nd_Jones_Beam;
-      JonesDims_Beam[2]=na_Jones_Beam;
-      JonesDims_Beam[3]=nch_Jones_Beam;
-      npTimeMappingJonesMatrices_Beam  = (PyArrayObject *) PyList_GetItem(LJones, 3);
-      ptrTimeMappingJonesMatrices_Beam = p_int32(npTimeMappingJonesMatrices_Beam);
-      int size_JonesBeam=JonesDims_Beam[0]*JonesDims_Beam[1]*JonesDims_Beam[2]*JonesDims_Beam[3];
-      if(size_JonesBeam!=0){ApplyJones_Beam=1;}
-      //printf("%i, %i, %i, %i\n",JonesDims_Beam[0],JonesDims_Beam[1],JonesDims_Beam[2],JonesDims_Beam[3]);
-
-      npA0 = (PyArrayObject *) PyList_GetItem(LJones, 4);
-      ptrA0 = p_int32(npA0);
-      int ifor;
-      npA1= (PyArrayObject *) PyList_GetItem(LJones, 5);
-      ptrA1=p_int32(npA1);
- 
+      PyObject *_FDT= PyList_GetItem(LSmearing, 1);
+      DT=(float) (PyFloat_AsDouble(_FDT));
+      PyObject *_FDnu= PyList_GetItem(LSmearing, 2);
+      Dnu=(float) (PyFloat_AsDouble(_FDnu));
       
+      PyObject *_DoSmearTime= PyList_GetItem(LSmearing, 3);
+      DoSmearTime=(int) (PyFloat_AsDouble(_DoSmearTime));
 
-      npJonesIDIR= (PyArrayObject *) (PyList_GetItem(LJones, 6));
-      ptrJonesIDIR=p_int32(npJonesIDIR);
-      i_dir=ptrJonesIDIR[0];
+      PyObject *_DoSmearFreq= PyList_GetItem(LSmearing, 4);
+      DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));
 
-      npCoefsInterp= (PyArrayObject *) PyList_GetItem(LJones, 7);
-      ptrCoefsInterp=p_float32(npCoefsInterp);
-
-      npJonesIDIR_Beam= (PyArrayObject *) (PyList_GetItem(LJones, 8));
-      ptrJonesIDIR_Beam=p_int32(npJonesIDIR_Beam);
-      i_dir_Beam=ptrJonesIDIR_Beam[0];
-
-      npModeInterpolation= (PyArrayObject *) PyList_GetItem(LJones, 9);
-      ptrModeInterpolation=p_int32(npModeInterpolation);
-      ModeInterpolation=ptrModeInterpolation[0];
-
-      PyObject *_FApplyAmp  = PyList_GetItem(LJones, 10);
-      ApplyAmp=(int) PyFloat_AsDouble(_FApplyAmp);
-      PyObject *_FApplyPhase  = PyList_GetItem(LJones, 11);
-      ApplyPhase=(int) PyFloat_AsDouble(_FApplyPhase);
-
-      PyObject *_FDoScaleJones  = PyList_GetItem(LJones, 12);
-      DoScaleJones=(int) PyFloat_AsDouble(_FDoScaleJones);
-      PyObject *_FCalibError  = PyList_GetItem(LJones, 13);
-      CalibError=(float) PyFloat_AsDouble(_FCalibError);
-      CalibError2=CalibError*CalibError;
-
-      //ptrSumJones=p_float64((PyArrayObject *) PyList_GetItem(LJones, 13));
-
-      /* DoApplyJones=1; */
-
-      /* npTimeMappingJonesMatrices  = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 0), PyArray_INT32, 0, 4); */
-      /* ptrTimeMappingJonesMatrices = p_int32(npTimeMappingJonesMatrices); */
-
-      /* npA0 = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 1), PyArray_INT32, 0, 4); */
-      /* ptrA0 = p_int32(npA0); */
-      /* int ifor; */
-
-      /* npA1= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 2), PyArray_INT32, 0, 4); */
-      /* ptrA1=p_int32(npA1); */
-      
-      /* // (nt,nd,na,1,2,2) */
-      /* npJonesMatrices = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 3), PyArray_COMPLEX64, 0, 6); */
-      /* ptrJonesMatrices=p_complex64(npJonesMatrices); */
-      /* nt_Jones=(int)npJonesMatrices->dimensions[0]; */
-      /* nd_Jones=(int)npJonesMatrices->dimensions[1]; */
-      /* na_Jones=(int)npJonesMatrices->dimensions[2]; */
-      /* nch_Jones=(int)npJonesMatrices->dimensions[3]; */
-      /* JonesDims[0]=nt_Jones; */
-      /* JonesDims[1]=nd_Jones; */
-      /* JonesDims[2]=na_Jones; */
-      /* JonesDims[3]=nch_Jones; */
-
-      /* npJonesIDIR= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 4), PyArray_INT32, 0, 4); */
-      /* ptrJonesIDIR=p_int32(npJonesIDIR); */
-      /* i_dir=ptrJonesIDIR[0]; */
-
-      /* npCoefsInterp= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 5), PyArray_FLOAT32, 0, 4); */
-      /* ptrCoefsInterp=p_float32(npCoefsInterp); */
-
-      /* npModeInterpolation= (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LJones, 6), PyArray_INT32, 0, 4); */
-      /* ptrModeInterpolation=p_int32(npModeInterpolation); */
-      /* ModeInterpolation=ptrModeInterpolation[0]; */
-
-      /* PyObject *_FApplyAmp  = PyList_GetItem(LJones, 7); */
-      /* ApplyAmp=(int) PyFloat_AsDouble(_FApplyAmp); */
-      /* PyObject *_FApplyPhase  = PyList_GetItem(LJones, 8); */
-      /* ApplyPhase=(int) PyFloat_AsDouble(_FApplyPhase); */
-
-      /* PyObject *_FDoScaleJones  = PyList_GetItem(LJones, 9); */
-      /* DoScaleJones=(int) PyFloat_AsDouble(_FDoScaleJones); */
-      /* PyObject *_FCalibError  = PyList_GetItem(LJones, 10); */
-      /* CalibError=(float) PyFloat_AsDouble(_FCalibError); */
-      /* CalibError2=CalibError*CalibError; */
-
-    };
+    }
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -989,55 +905,53 @@ void DeGridderWPol(PyArrayObject *grid,
     uvwScale_p[0]=fnGridX*incr[0];
     uvwScale_p[1]=fnGridX*incr[1];
     //printf("uvscale=(%f %f)",uvwScale_p[0],uvwScale_p[1]);
-    double C=2.99792458e8;
+    double C=2.99792456e8;
     int inx;
 
 
     // ################### Prepare full scalar mode
 
-    PyObject *_FullScalarMode  = PyList_GetItem(LOptimisation, 0);
-    FullScalarMode=(int) PyFloat_AsDouble(_FullScalarMode);
+    PyObject *_JonesType  = PyList_GetItem(LOptimisation, 0);
+    int JonesType=(int) PyFloat_AsDouble(_JonesType);
     PyObject *_ChanEquidistant  = PyList_GetItem(LOptimisation, 1);
     int ChanEquidistant=(int) PyFloat_AsDouble(_ChanEquidistant);
-    ScalarJones=0;
-    ScalarVis=0;
-    int nPolJones = 4;
-    int nPolVis   = 4;
-    if(FullScalarMode){
-      //printf("full scalar mode\n");
-      //printf("ChanEquidistant: %i\n",ChanEquidistant);
-      ScalarJones=1;
-      ScalarVis=1;
-      nPolJones=1;
-      nPolVis=1;
-      int ipol;
-      for (ipol=1; ipol<nVisPol; ++ipol) {
-	PolMap[ipol]=5;
+
+    PyObject *_SkyType  = PyList_GetItem(LOptimisation, 2);
+    int SkyType=(int) PyFloat_AsDouble(_SkyType);
+
+    PyObject *_PolMode  = PyList_GetItem(LOptimisation, 3);
+    int PolMode=(int) PyFloat_AsDouble(_PolMode);
+
+    int ipol;
+    if(PolMode==0){
+      for (ipol=1; ipol<4; ++ipol) {
+    	PolMap[ipol]=5;
       }
     }
 
+    /* PyObject *_FullScalarMode  = PyList_GetItem(LOptimisation, 0); */
+    /* FullScalarMode=(int) PyFloat_AsDouble(_FullScalarMode); */
+    /* PyObject *_ChanEquidistant  = PyList_GetItem(LOptimisation, 1); */
+    /* int ChanEquidistant=(int) PyFloat_AsDouble(_ChanEquidistant); */
+    /* ScalarJones=0; */
+    /* ScalarVis=0; */
+    /* int nPolJones = 4; */
+    /* int nPolVis   = 4; */
+    /* if(FullScalarMode){ */
+    /*   //printf("full scalar mode\n"); */
+    /*   //printf("ChanEquidistant: %i\n",ChanEquidistant); */
+    /*   ScalarJones=1; */
+    /*   ScalarVis=1; */
+    /*   nPolJones=1; */
+    /*   nPolVis=1; */
+    /*   int ipol; */
+    /*   for (ipol=1; ipol<nVisPol; ++ipol) { */
+    /* 	PolMap[ipol]=5; */
+    /*   } */
+    /* } */
 
 
-    /* float complex *J0=calloc(1,(nPolJones)*sizeof(float complex)); */
-    /* float complex *J1=calloc(1,(nPolJones)*sizeof(float complex)); */
-    /* float complex *J0inv=calloc(1,(nPolJones)*sizeof(float complex)); */
-    /* float complex *J1H=calloc(1,(nPolJones)*sizeof(float complex)); */
-    /* float complex *J1Hinv=calloc(1,(nPolJones)*sizeof(float complex)); */
-    /* float complex *JJ=calloc(1,(nPolJones)*sizeof(float complex)); */
 
-    float complex *J0=calloc(1,(4)*sizeof(float complex));
-    float complex *J1=calloc(1,(4)*sizeof(float complex));
-    float complex *J0kMS=calloc(1,(4)*sizeof(float complex));
-    float complex *J1kMS=calloc(1,(4)*sizeof(float complex));
-    float complex *J0Beam=calloc(1,(4)*sizeof(float complex));
-    float complex *J1Beam=calloc(1,(4)*sizeof(float complex));
-    float complex *J0inv=calloc(1,(4)*sizeof(float complex));
-    float complex *J0H=calloc(1,(4)*sizeof(float complex));
-    float complex *J0Conj=calloc(1,(4)*sizeof(float complex));
-    float complex *J1H=calloc(1,(4)*sizeof(float complex));
-    float complex *J1T=calloc(1,(4)*sizeof(float complex));
-    float complex *J1Hinv=calloc(1,(4)*sizeof(float complex));
-    float complex *JJ=calloc(1,(4)*sizeof(float complex));
 
     int *MappingBlock = p_int32(SmearMapping);
     int NTotBlocks=MappingBlock[0];
@@ -1067,6 +981,13 @@ void DeGridderWPol(PyArrayObject *grid,
     WaveLengthMean/=nVisChan;
 
 
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    initJonesServer(LJones,JonesType,WaveLengthMean);
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
@@ -1085,6 +1006,8 @@ void DeGridderWPol(PyArrayObject *grid,
       //printf("\n");
       //printf("Block[%i] Nrows=%i %i>%i\n",iBlock,NRowThisBlock,chStart,chEnd);
 
+      float visChanMean=0.;
+      resetJonesServerCounter();
       for (inx=0; inx<NRowThisBlock; inx++) {
 	int irow = Row[inx];
 	if(irow>nrows){continue;}
@@ -1099,8 +1022,8 @@ void DeGridderWPol(PyArrayObject *grid,
 	  int OneFlagged=0;
 	  int cond;
 	  //char ch="a";
-	  if(flagPtr[0]==1){OneFlagged=1;}
-	  if(OneFlagged){continue;}
+	  //if(flagPtr[0]==1){OneFlagged=1;}
+	  //if(OneFlagged){continue;}
 	  
 	  float U=(float)uvwPtr[0];
 	  float V=(float)uvwPtr[1];
@@ -1113,6 +1036,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	  Vmean+=V;
 	  Wmean+=W;
 	  FreqMean+=(float)Pfreqs[visChan];
+	  visChanMean+=p_ChanMapping[visChan];
 	  NVisThisblock+=1;
 	  //printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);
 	  
@@ -1124,6 +1048,14 @@ void DeGridderWPol(PyArrayObject *grid,
       Wmean/=NVisThisblock;
       FreqMean/=NVisThisblock;
 
+      visChanMean/=NVisThisblock;
+      int ThisGridChan=p_ChanMapping[chStart];
+      float diffChan=visChanMean-visChanMean;
+      
+
+      //if(diffChan!=0.){printf("degridder: probably there is a problem in the BDA mapping\n");}
+      if(diffChan!=0.){printf("degridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);}
+      visChanMean=0.;
       //printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6));
       /* int ThisPol; */
       /* for(ThisPol =0; ThisPol<4;ThisPol++){ */
@@ -1133,7 +1065,8 @@ void DeGridderWPol(PyArrayObject *grid,
 
       // ################################################
       // ############## Start Gridding visibility #######
-      int gridChan = 0;//chanMap_p[visChan];
+      int gridChan = p_ChanMapping[chStart];//0;//chanMap_p[visChan];
+
       int CFChan = 0;//ChanCFMap[visChan];
       double recipWvl = FreqMean / C;
       double ThisWaveLength=C/FreqMean;
@@ -1263,46 +1196,37 @@ void DeGridderWPol(PyArrayObject *grid,
 	  // ###########################################################
 	  // ################### Now do the correction #################
 
-      for (inx=0; inx<NRowThisBlock; inx++) {
+	  if(PolMode==0){ThisVis[3]=ThisVis[0];}
+
+
+	  ///////////////////////////////////////////////////////
+	  float DeCorrFactor=1.;
+	  if(DoDecorr){
+	    int iRowMeanThisBlock=Row[NRowThisBlock/2];
+	    
+	    double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;
+	    double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
+	    
+	    DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
+						 (float)l0, (float)m0,
+						 uvwPtrMidRow,
+						 uvw_dt_PtrMidRow,
+						 (float)FreqMean,
+						 (float)Dnu, 
+						 (float)DT);
+	    
+	    //printf("DeCorrFactor %f %f: %f\n",l0,m0,DeCorrFactor);
+	    
+	  }
+	  //////////////////////////////////////////////////////
+
+     for (inx=0; inx<NRowThisBlock; inx++) {
 	int irow = Row[inx];
 	if(irow>nrows){continue;}
 	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
 	//printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
 	//printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
 	
-	if(DoApplyJones){
-
-	  int i_ant0=ptrA0[irow];
-	  int i_ant1=ptrA1[irow];
-	  J0[0]=1;J0[1]=0;J0[2]=0;J0[3]=1;
-	  J1[0]=1;J1[1]=0;J1[2]=0;J1[3]=1;
-	  if(ApplyJones_Beam){
-	    int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
-	    GiveJones(ptrJonesMatrices_Beam, JonesDims_Beam, ptrCoefsInterp, i_t, i_ant0, i_dir_Beam, ModeInterpolation, J0Beam);
-	    GiveJones(ptrJonesMatrices_Beam, JonesDims_Beam, ptrCoefsInterp, i_t, i_ant1, i_dir_Beam, ModeInterpolation, J1Beam);
-	    MatDot(J0Beam,J0,J0);
-	    MatDot(J1Beam,J1,J1);
-	  }
-	  if(ApplyJones_killMS){
-	    int i_t=ptrTimeMappingJonesMatrices[irow];
-	    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0kMS);
-	    GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1kMS);
-	    NormJones(J0kMS, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
-	    NormJones(J1kMS, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
-	    MatDot(J0kMS,J0,J0);
-	    MatDot(J1kMS,J1,J1);
-	  }
-
-
-	  /* int i_t=ptrTimeMappingJonesMatrices[irow]; */
-	  /* int i_ant0=ptrA0[irow]; */
-	  /* int i_ant1=ptrA1[irow]; */
-	  /* GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, ModeInterpolation, J0); */
-	  /* GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, ModeInterpolation, J1); */
-	  /* NormJones(J0, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError); */
-	  /* NormJones(J1, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError); */
-	  MatH(J1,J1H);
-	} //endif DoApplyJones
 
 	int ThisPol;
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
@@ -1310,9 +1234,13 @@ void DeGridderWPol(PyArrayObject *grid,
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
 	  int OneFlagged=0;
 	  int cond;
-	  if(flagPtr[0]==1){OneFlagged=1;}
-	  if(OneFlagged){continue;}
+	  //if(flagPtr[0]==1){OneFlagged=1;}
+	  //if(OneFlagged){continue;}
 	  
+	  if(DoApplyJones){
+	    updateJones(irow, visChan, uvwPtr, 0);
+	  } //endif DoApplyJones
+
 	  //###################### Facetting #######################
 	  // Change coordinate and shift visibility to facet center
 	  float U=(float)uvwPtr[0];
@@ -1341,32 +1269,25 @@ void DeGridderWPol(PyArrayObject *grid,
 	  /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
 
 
-
+	  corr*=DeCorrFactor;
 
 	  float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
 	  float complex visBuff[4]={0};
+
+
 	  if(DoApplyJones){
-	    MatDot(J0,ThisVis,visBuff);
-	    MatDot(visBuff,J1H,visBuff);
+	    MatDot(J0,JonesType,ThisVis,SkyType,visBuff);
+	    MatDot(visBuff,SkyType,J1H,JonesType,visBuff);
 	  }else{
-	    for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
+	    for(ThisPol =0; ThisPol<4;ThisPol++){
 	      visBuff[ThisPol]=ThisVis[ThisPol];
 	    }
+	    
 	  }
+	  
+	  Mat_A_l_SumProd(visBuff, SkyType, corr);
 
-	  for(ThisPol =0; ThisPol<nPolJones;ThisPol++){
-	    visBuff[ThisPol]*=corr;
-	  }
-
-	  if(FullScalarMode){
-	    visPtr[0]-=visBuff[0];
-	    visPtr[3]-=visBuff[0];
-	  }
-	  else{
-	    for(ThisPol =0; ThisPol<nPolVis;ThisPol++){
-	      visPtr[ThisPol]-=visBuff[ThisPol];
-	    }
-	  };
+	  Mat_A_Bl_Sum(visPtr, 2, visBuff, 2, (float complex)(-1.));
 
 
 
@@ -1381,5 +1302,5 @@ void DeGridderWPol(PyArrayObject *grid,
       } // end if gridChan
       
     } //end for Block
-    
-  } // end 
+     
+  } // end

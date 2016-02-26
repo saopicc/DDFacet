@@ -1,5 +1,8 @@
 import scipy.optimize
 import numpy as np
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("FitPSF")
+from DDFacet.Other import ModColor
 
 def gauss(x0,y0,SigMaj,SigMin,ang,x,y):
 
@@ -123,9 +126,16 @@ def FindSidelobe(PSF):
     y0=y[0]
     profile=PSF[x0,:]
 
+    nx,ny=PSF.shape
 
     PSFhalf=profile[y0::]
-    dx=np.where(PSFhalf<0)[0][0]
+
+    inddx=np.where(PSFhalf<0)[0]
+    if len(inddx)!=0:
+        dx=inddx[0]
+    else:
+        print>>log, ModColor.Str("Could not find sidelobe within PSF image")
+        dx=nx/2
     PSFsmall=PSF[x0-dx:x0+dx,y0-dx:y0+dx]
     
     popt=FitGauss2(PSFsmall.ravel())
