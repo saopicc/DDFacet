@@ -16,6 +16,7 @@ Then need to clone or checkout the following three:
 ```
 git clone git@github.com:cyriltasse/SkyModel.git
 git clone git@github.com:cyriltasse/killMS2.git
+(cd killMS2; git checkout NewImPredict ) ## for now...
 git clone git@github.com:cyriltasse/DDFacet.git
 
 ```
