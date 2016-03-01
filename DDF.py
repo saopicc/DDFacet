@@ -160,6 +160,14 @@ def read_options():
     OP.add_option("Padding")
     OP.add_option("ConstructMode")
 
+    OP.OptionGroup("* GAClean","GAClean")
+    OP.add_option("GASolvePars")
+    OP.add_option("NSourceKin")
+    OP.add_option("NMaxGen")
+    OP.add_option("NEnlargePars")
+    OP.add_option("NEnlargeData")
+
+
     OP.OptionGroup("* Clean","ImagerDeconv")
     OP.add_option("MinorCycleMode")
     OP.add_option("MaxMajorIter")

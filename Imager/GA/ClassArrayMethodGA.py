@@ -160,7 +160,7 @@ class ClassArrayMethodGA():
 
     
 
-    def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01,NMaxIter=1000):
+    def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01,NMaxIter=20000):
         CM=self.CMParmsMean.reshape((self.NPixListParms,self.NPixListParms))
         A=self.DirtyArrayParmsMean.ravel().copy()
         SModelArray=np.zeros_like(A)
