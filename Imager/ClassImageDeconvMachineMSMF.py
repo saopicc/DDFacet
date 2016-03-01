@@ -3,7 +3,7 @@ import numpy as np
 import pylab
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassImageDeconvMachine")
+log=MyLogger.getLogger("ClassImageDeconvMachineMSMF")
 from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
@@ -11,7 +11,7 @@ from DDFacet.Other import ClassTimeIt
 import ClassMultiScaleMachine
 from pyrap.images import image
 from ClassPSFServer import ClassPSFServer
-import ClassModelMachine
+import ClassModelMachineMSMF as ClassModelMachine
 from DDFacet.Other.progressbar import ProgressBar
 import ClassGainMachine
 

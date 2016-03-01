@@ -57,10 +57,16 @@ class ClassModelMachine():
 
         MyPickle.Save(D,FileName)
 
+
     def FromFile(self,FileName):
         print>>log, "Reading dico model from %s"%FileName
         self.DicoSMStacked=MyPickle.Load(FileName)
+        self.FromDico(self.DicoSMStacked)
+
+
+    def FromDico(self,DicoSMStacked):
         #self.PM=self.DicoSMStacked["PM"]
+        self.DicoSMStacked=DicoSMStacked
         self.RefFreq=self.DicoSMStacked["RefFreq"]
         self.ModelShape=self.DicoSMStacked["ModelShape"]
 

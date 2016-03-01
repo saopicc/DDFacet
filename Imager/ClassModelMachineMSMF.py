@@ -3,7 +3,7 @@ import pylab
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassModelMachine")
+log=MyLogger.getLogger("ClassModelMachineMSMF")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
@@ -52,9 +52,16 @@ class ClassModelMachine():
     def FromFile(self,FileName):
         print>>log, "Reading dico model from %s"%FileName
         self.DicoSMStacked=MyPickle.Load(FileName)
+        self.FromDico(self.DicoSMStacked)
+
+
+    def FromDico(self,DicoSMStacked):
+        self.DicoSMStacked=DicoSMStacked
         self.RefFreq=self.DicoSMStacked["RefFreq"]
         self.ListScales=self.DicoSMStacked["ListScales"]
         self.ModelShape=self.DicoSMStacked["ModelShape"]
+        
+
 
     def setModelShape(self,ModelShape):
         self.ModelShape=ModelShape

@@ -5,7 +5,8 @@ import pickle
 from DDFacet.Imager.ClassModelMachine import ClassModelMachine
 from DDFacet.Imager import ClassCasaImage
 from pyrap.images import image
-from DDFacet.Imager import ClassCasaImage
+from DDFacet.Imager.ModModelMachine import GiveModelMachine
+
 import numpy as np
 from DDFacet.ToolsDir import ModFFTW
 
@@ -41,9 +42,13 @@ class ClassRestoreMachine():
         self.BeamPix=BeamPix
         self.NBands=NBands
 
+
+        FileDicoModel="%s.DicoModel"%BaseImageName
+        ClassModelMachine,DicoModel=GiveModelMachine(FileDicoModel)
+
         self.ModelMachine=ClassModelMachine(Gain=0.1)
-        DicoModel="%s.DicoModel"%BaseImageName
-        self.ModelMachine.FromFile(DicoModel)
+        self.ModelMachine.FromDico(DicoModel)
+
         if MaskName!="":
             self.ModelMachine.CleanMaskedComponants(MaskName)
         if CleanNegComp:
