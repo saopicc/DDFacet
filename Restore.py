@@ -61,6 +61,8 @@ class ClassRestoreMachine():
             FitsFile=ResidualImName
 
 
+        NormImageName="%s.Norm.fits"%BaseImageName
+
         self.FitsFile=FitsFile
         im=image(FitsFile)
 
@@ -74,19 +76,21 @@ class ClassRestoreMachine():
         self.ResidualData=im.getdata()
         nchan,npol,_,_=self.ResidualData.shape
         testImage=np.zeros_like(self.ResidualData)
+        SqrtNormImage=np.zeros_like(self.ResidualData)
+        imNorm=image(NormImageName).getdata()
 
         if ResidualImName!="":
             for ch in range(nchan):
                 for pol in range(npol):
                     testImage[ch,pol,:,:]=self.ResidualData[ch,pol,:,:].T[::-1,:]#*1.0003900000000001
-
+                    SqrtNormImage[ch,pol,:,:]=np.sqrt(imNorm[ch,pol,:,:].T[::-1,:])
 
         _,_,nx,_=testImage.shape
         Nr=10000
         indx,indy=np.int64(np.random.rand(Nr)*nx),np.int64(np.random.rand(Nr)*nx)
         self.StdResidual=np.std(testImage[0,0,indx,indy])
         self.Residual=testImage
-
+        self.SqrtNormImage=SqrtNormImage
 
     def Restore(self):
         print>>log, "Create restored image"
@@ -110,7 +114,7 @@ class ClassRestoreMachine():
         RefFreq=self.ModelMachine.RefFreq
         df=RefFreq*0.5
 
-        self.ModelMachine.ListScales[0]["Alpha"]=-0.8
+        #self.ModelMachine.ListScales[0]["Alpha"]=-0.8
 
         # model image
         ModelMachine.GiveModelImage(RefFreq)
@@ -130,6 +134,7 @@ class ClassRestoreMachine():
         for l in Lambda:
             freq=C/l
             ModelImage=ModelMachine.GiveModelImage(freq)
+            ModelImage*=self.SqrtNormImage
             RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
             RestoredImageRes=RestoredImage+self.Residual
             ListRestoredIm.append(RestoredImageRes)

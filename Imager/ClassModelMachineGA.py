@@ -31,9 +31,10 @@ class ClassModelMachine():
         self.GainMachine=GainMachine
         self.DicoSMStacked={}
         self.DicoSMStacked["Comp"]={}
-        self.SolveParam=GD["GAClean"]["GASolvePars"]
-        print>>log,"Solved parameters: %s"%(str(self.SolveParam))
-        self.NParam=len(self.SolveParam)
+        if GD!=None:
+            self.SolveParam=GD["GAClean"]["GASolvePars"]
+            print>>log,"Solved parameters: %s"%(str(self.SolveParam))
+            self.NParam=len(self.SolveParam)
         
 
     def setRefFreq(self,RefFreq,AllFreqs):
@@ -54,6 +55,7 @@ class ClassModelMachine():
         #D["PM"]=self.PM
         D["ModelShape"]=self.ModelShape
         D["Type"]="GA"
+        D["SolveParam"]=self.SolveParam
 
         MyPickle.Save(D,FileName)
 
@@ -69,6 +71,8 @@ class ClassModelMachine():
         self.DicoSMStacked=DicoSMStacked
         self.RefFreq=self.DicoSMStacked["RefFreq"]
         self.ModelShape=self.DicoSMStacked["ModelShape"]
+        self.SolveParam=["S","Alpha"]#self.DicoSMStacked["SolveParam"]
+        self.NParam=len(self.SolveParam)
 
     def setModelShape(self,ModelShape):
         self.ModelShape=ModelShape

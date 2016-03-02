@@ -130,6 +130,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             # lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
         self.lmSols=lFacet.copy(),mFacet.copy()
 
+        raSols,decSols=self.CoordMachine.lm2radec(lFacet.copy(),mFacet.copy())
+        self.radecSols=raSols,decSols
+
 
         #ClusterNodes=np.load("/data/tasse/BOOTES/BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
 
@@ -557,9 +560,11 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.DicoImager[iFacet]["lmExtentPadded"]=l0-RadiusFacetPadded,l0+RadiusFacetPadded,m0-RadiusFacetPadded,m0+RadiusFacetPadded
 
         lSol,mSol=self.lmSols
+        raSol,decSol=self.lmSols
         dSol=np.sqrt((l0-lSol)**2+(m0-mSol)**2)
         iSol=np.where(dSol==np.min(dSol))[0]
         self.DicoImager[iFacet]["lmSol"]=lSol[iSol],mSol[iSol]
+        self.DicoImager[iFacet]["radecSol"]=raSol[iSol],decSol[iSol]
         
         
         #print>>log,"#[%3.3i] %f, %f"%(iFacet,l0,m0)
