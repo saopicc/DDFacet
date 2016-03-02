@@ -1,11 +1,13 @@
 import numpy as np
 from DDFacet.ToolsDir import ClassSpectralFunctions
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("ClassPSFServer")
 
 class ClassPSFServer():
     def __init__(self,GD):
         self.GD=GD
 
-    def setDicoVariablePSF(self,DicoVariablePSF):
+    def setDicoVariablePSF(self,DicoVariablePSF,NormalisePSF=False):
         # NFacets=len(DicoVariablePSF.keys())
         # NPixMin=1e6
         # for iFacet in sorted(DicoVariablePSF.keys()):
@@ -29,7 +31,13 @@ class ClassPSFServer():
         self.NFacets,nch,npol,NPixMin,_=self.CubeVariablePSF.shape
         self.ShapePSF=nch,npol,NPixMin,NPixMin
         self.NPSF=NPixMin
-        
+
+        if NormalisePSF:
+            print>>log,"Normalising Facets-PSF by their maximum"
+            for iFacet in range(self.NFacets):
+                self.CubeVariablePSF/=np.max(self.CubeVariablePSF[iFacet])
+                self.CubeMeanVariablePSF/=np.max(self.CubeMeanVariablePSF[iFacet])
+
         DicoMappingDesc={"freqs":DicoVariablePSF["freqs"],
                          "WeightChansImages":DicoVariablePSF["WeightChansImages"],
                          "SumJonesChan":DicoVariablePSF["SumJonesChan"],

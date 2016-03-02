@@ -113,7 +113,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             decNode=ClusterNodes.dec
             lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
         else:
-
             CellSizeRad=(self.GD["ImagerMainFacet"]["Cell"]/3600.)*np.pi/180
             lrad=Npix*CellSizeRad*0.5
             NpixFacet=Npix/NFacets
@@ -135,10 +134,17 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
 
         #ClusterNodes=np.load("/data/tasse/BOOTES/BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
-
-
-
-
+        
+        NodesCat=np.zeros((raSols.size,),dtype=[('ra',np.float),('dec',np.float),
+                                                   ('l',np.float),('m',np.float)])
+        NodesCat=NodesCat.view(np.recarray)
+        NodesCat.ra=raSols
+        NodesCat.dec=decSols
+        NodesCat.l=lFacet
+        NodesCat.m=mFacet
+        NodeFile="%s.NodesCat.npy"%self.GD["Images"]["ImageName"]
+        print>>log,"Saving Nodes catalog in %s"%NodeFile
+        np.save(NodeFile,NodesCat)
 
         self.DicoImager={}
         
