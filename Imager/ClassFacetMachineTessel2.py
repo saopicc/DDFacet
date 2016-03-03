@@ -812,7 +812,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             for w in workerlist:
                 w.join(0)
                 if not w.is_alive():
-                    raise RuntimeError,"a worker process has died on us. This is probably a bug in the gridder." 
+                    raise RuntimeError,"a worker process has died with exit code %d. This is probably a bug in the gridder."%w.exitcode
             for result_queue in List_Result_queue:
                 if result_queue.qsize()!=0:
                     try:
@@ -913,7 +913,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 for w in workerlist:
                     w.join(0)
                     if not w.is_alive():
-                        raise RuntimeError,"a worker process has died on us. This is probably a bug in the gridder."
+                        raise RuntimeError,"a worker process has died on us with exit code %d. This is probably a bug."%w.exitcode
                 continue
             if DicoResult["Success"]:
                 iResult+=1
