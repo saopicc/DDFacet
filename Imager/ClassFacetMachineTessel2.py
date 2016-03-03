@@ -809,10 +809,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         iResult=0
         while iResult < NJobs:
             DicoResult=None
+            for w in workerlist:
+                w.join(0)
+                if not w.is_alive():
+                    raise RuntimeError,"a worker process has died on us. This is probably a bug in the gridder." 
             for result_queue in List_Result_queue:
                 if result_queue.qsize()!=0:
                     try:
-                        DicoResult=result_queue.get_nowait()
+                        DicoResult=result_queue.get()
                         break
                     except:
                         pass
@@ -864,7 +868,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
 
     def InitParallel(self):
-
+        import Queue
         
 
         NCPU=self.NCPU
@@ -901,7 +905,16 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         iResult=0
 
         while iResult < NJobs:
-            DicoResult=result_queue.get()
+            try:
+                DicoResult=result_queue.get(True,5)
+            except Queue.Empty:
+                print>>log,"checking for dead workers"
+                # check for dead workers
+                for w in workerlist:
+                    w.join(0)
+                    if not w.is_alive():
+                        raise RuntimeError,"a worker process has died on us. This is probably a bug in the gridder."
+                continue
             if DicoResult["Success"]:
                 iResult+=1
             NDone=iResult
