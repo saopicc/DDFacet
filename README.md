@@ -5,10 +5,10 @@
 From an Ubuntu 14.04 base:
 
 ```
+sudo apt-get install git python-pip python-casacore libfftw3-dev python-pyephem python-numexpr cython
 sudo pip install SharedArray
 sudo pip install Polygon2
 sudo pip install pyFFTW
-sudo apt-get install python-casacore libfftw3-dev python-pyephem python-numexpr cython
 ```
 
 Then need to clone or checkout the following three:
@@ -27,8 +27,9 @@ Build a few libraries:
 
 ```
 (cd DDFacet/Gridder ; make)
-(cd ./killMS2/Predict ; make)
-(cd ./killMS2/Predict ; make)
+(cd killMS2/Predict ; make)
+(cd killMS2/Gridder ; make)
+(cd killMS2/Array/Dot ; make)
 ```
 
 ## Paths etc.
