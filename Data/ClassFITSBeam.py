@@ -53,12 +53,12 @@ class ClassFITSBeam (object):
             self.freqs = self.freqs[chanstep/2::chanstep]
 
         # NB: need to check correlation names better. This assumes four correlations in that order!
-        if "x" in self.ms.CorrelationNames[0]:
+        if "x" in self.ms.CorrelationNames[0].lower():
             CORRS = "xx","xy","yx","yy"
-            print>>log,"polarization basis is linear"
+            print>>log,"polarization basis is linear (%s)"%" ".join(self.ms.CorrelationNames)
         else:
             CORRS = "rr","rl","lr","ll"
-            print>>log,"polarization basis is circular"
+            print>>log,"polarization basis is circular (%s)"%" ".join(self.ms.CorrelationNames)
         # Following code is nicked from Cattery/Siamese/OMS/pybeams_fits.py
         REIM = "re","im";
         REALIMAG = dict(re="real",im="imag");
@@ -91,7 +91,10 @@ class ClassFITSBeam (object):
         self.vbs = []
         for reFits, imFits in zip(filename_real,filename_imag):        
             print>>log,"Loading beam patterns %s, %s"%(list(filename_real),list(filename_imag))
-            vb = InterpolatedBeams.LMVoltageBeam(verbose=0,l_axis="-X",m_axis="Y")  # verbose, XY must come from options
+            vb = InterpolatedBeams.LMVoltageBeam(
+                verbose=opts["FITSVerbosity"],
+                l_axis=opts["FITSLAxis"], m_axis=opts["FITSMAxis"]
+            )  # verbose, XY must come from options
             vb.read(reFits,imFits)
             self.vbs.append(vb)
 
@@ -150,7 +153,8 @@ class ClassFITSBeam (object):
         m0 = numpy.zeros(ndir,float)
         for i,(r1,d1) in enumerate(zip(ra,dec)):
           l0[i], m0[i] = self.ms.radec2lm_scalar(r1,d1)
-
+        # print>>log,ra*180/np.pi,dec*180/np.pi
+        # print>>log,l0*180/np.pi,m0*180/np.pi
         # rotate each by parallactic angle
         r = numpy.sqrt(l0*l0+m0*m0)
         angle = numpy.arctan2(m0,l0)

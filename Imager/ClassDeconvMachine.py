@@ -92,16 +92,19 @@ class ClassImagerDeconv():
                 ll=l.replace("\n","")
                 MSName.append(ll)
             print>>log,"list file %s contains %d MSs"%(MSName0, len(MSName))
-        elif len(glob.glob(MSName))>1:
+        else:
             MSName = sorted(glob.glob(MSName))
             print>>log,"found %d MSs matching %s"%(len(MSName), MSName0)
-        else:
-            submss = os.path.join(MSName,"SUBMSS") 
-            if os.path.exists(submss) and os.path.isdir(submss):
-                MSName = [ ms for ms in sorted(glob.glob(os.path.join(submss,"*.[mM][sS]"))) if os.path.isdir(ms) ]
-                print>>log,"multi-MS mode for %s, found %d sub-MSs"%(MSName0, len(MSName))
+            if len(MSName) == 1:
+                MSName = MSName[0]
+                submss = os.path.join(MSName,"SUBMSS") 
+                if os.path.exists(submss) and os.path.isdir(submss):
+                    MSName = [ ms for ms in sorted(glob.glob(os.path.join(submss,"*.[mM][sS]"))) if os.path.isdir(ms) ]
+                    print>>log,"multi-MS mode for %s, found %d sub-MSs"%(MSName0, len(MSName))
+                else:
+                    print>>log,"single-MS mode for %s"%MSName
             else:
-                print>>log,"single-MS mode for %s"%MSName
+                print>>log,"multi-MS mode"
 
 
         self.VS=ClassVisServer.ClassVisServer(MSName,

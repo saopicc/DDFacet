@@ -120,7 +120,10 @@ def read_options():
     OP.add_option("NChanBeamPerMS")
     OP.add_option("CenterNorm")
     OP.add_option("FITSFile")
-    OP.add_option("FITSFeed")  # XY or RL
+    OP.add_option("FITSFeed")   
+    OP.add_option("FITSLAxis")  
+    OP.add_option("FITSMAxis")  
+    OP.add_option("FITSVerbosity")
 
     OP.OptionGroup("* DDE Solutions","DDESolutions")
     OP.add_option("DDSols")
@@ -160,6 +163,10 @@ def read_options():
     OP.add_option("CycleFactor")
     OP.add_option("PeakFactor")
     OP.add_option("RMSFactor")
+
+    OP.OptionGroup("* Debugging","Debugging")
+    OP.add_option("SaveIntermediateDirtyImages")
+
  
     OP.Finalise()
     OP.ReadInput()
