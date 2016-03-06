@@ -1,6 +1,6 @@
 all: _pyGridder.so _pyGridderSmear.so _pyGridderSmearPols.so _pyArrays.so WeightingCore.so
 
-CFLAGS = -ggdb
+CFLAGS = -ggdb -O3
 
 # ---- Link --------------------------- 
 _pyGridder.so:  Gridder.o 
