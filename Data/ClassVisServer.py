@@ -318,8 +318,8 @@ class ClassVisServer():
             print>>log, ModColor.Str("Reached end of MSList")
             return "EndListMS"
         else:
-            print>>log,"next ms"
             self.iCurrentMS+=1
+            print>>log,"next ms (%d/%d)"%(self.iCurrentMS+1,self.nMS)
             self.CurrentMS=self.ListMS[self.iCurrentMS]
             self.CurrentFreqBand=0
             self.CurrentVisWeights = self.VisWeights[self.iCurrentMS]

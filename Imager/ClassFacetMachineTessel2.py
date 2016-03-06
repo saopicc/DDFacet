@@ -799,7 +799,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            ApplyCal=self.ApplyCal,
                            SpheNorm=SpheNorm,
                            PSFMode=PSFMode,
-                           NFreqBands=self.GD["MultiFreqs"]["NFreqBands"])
+                           NFreqBands=self.GD["MultiFreqs"]["NFreqBands"],
+                           PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"])
             workerlist.append(W)
             workerlist[ii].start()
 
@@ -952,7 +953,8 @@ class WorkerImager(multiprocessing.Process):
                  ApplyCal=False,
                  SpheNorm=True,
                  PSFMode=False,
-                 CornersImageTot=None,NFreqBands=1):
+                 CornersImageTot=None,NFreqBands=1,
+                 PauseOnStart=False):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -971,6 +973,7 @@ class WorkerImager(multiprocessing.Process):
         self.PSFMode=PSFMode
         self.CornersImageTot=CornersImageTot
         self.NFreqBands=NFreqBands
+        self._pause_on_start = PauseOnStart
 
 
     def shutdown(self):
@@ -1015,6 +1018,11 @@ class WorkerImager(multiprocessing.Process):
 
     def run(self):
         #print multiprocessing.current_process()
+        import os
+        import signal
+        # pause self in debugging mode
+        if self._pause_on_start:
+            os.kill(os.getpid(),signal.SIGSTOP)
         while not self.kill_received:
             #gc.enable()
             try:
