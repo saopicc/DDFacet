@@ -73,7 +73,7 @@ class LoggerMemoryFilter (logging.Filter):
         setattr(event,"resident_memory_gb",rss)
         setattr(event,"shared_memory_gb",shm)
         if log_memory and hasattr(event,"msg"):
-            event.msg = "[r:%.1f v:%.1f sh:%.1fGb] "%(rss,vss,shm) + event.msg
+            event.msg = "[%.1f/%.1f/%.1fGb] "%(rss,vss,shm) + event.msg
         return True
 
 
