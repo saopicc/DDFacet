@@ -59,10 +59,18 @@ def _stacksize(since=0.0):
     return _VmB('VmStk:') - since
 
 log_memory = False
+file_handler = None
 
 def enableMemoryLogging (enable=True):
     global log_memory
     log_memory = enable
+
+def logToFile (filename):
+    global file_handler
+    if not file_handler:
+        file_handler = logging.FileHandler(filename)
+    logging.getLogger('').addHandler(file_handler)
+
 
 class LoggerMemoryFilter (logging.Filter):
     def filter(self, event):
@@ -80,12 +88,13 @@ class LoggerMemoryFilter (logging.Filter):
 class MyLogger():
     def __init__(self):
 #fmt="%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s"
-        fmt=" - %(asctime)s - %(name)-25.25s | %(message)s"
-        datefmt='%H:%M:%S'#'%H:%M:%S.%f'
+        fmt = " - %(asctime)s - %(name)-25.25s | %(message)s"
+        datefmt = '%H:%M:%S'#'%H:%M:%S.%f'
         logging.basicConfig(level=logging.DEBUG,format=fmt,datefmt=datefmt)
         self.Dico={}
         self.Silent=False
         self._myfilter = LoggerMemoryFilter()
+        self._formatter = logging.Formatter(fmt,datefmt)
 
 
     def getLogger(self,name,disable=False):
@@ -93,6 +102,10 @@ class MyLogger():
         if not(name in self.Dico.keys()):
             logger = logging.getLogger(name)
             logger.addFilter(self._myfilter)
+            if file_handler:
+                file_handler.setLevel(logging.DEBUG)
+                file_handler.setFormatter(self._formatter)
+                logger.addHandler(file_handler)
             fp = LoggerWriter(logger, logging.INFO)
             self.Dico[name]=fp
             
