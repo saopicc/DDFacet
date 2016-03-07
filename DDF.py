@@ -194,13 +194,18 @@ def main(OP=None):
     DicoConfig=OP.DicoConfig
 
     MyLogger.enableMemoryLogging(DicoConfig["Debugging"]["MemoryLogging"])    
-    MyLogger.logToFile(DicoConfig["Images"]["ImageName"]+".log")
 
     
     global IdSharedMem
     IdSharedMem=str(int(os.getpid()))+"."
 
     ImageName=DicoConfig["Images"]["ImageName"]
+
+    dirname = os.path.dirname(ImageName)
+    if not os.path.exists(dirname):
+        os.mkdir(dirname)
+
+    MyLogger.logToFile(ImageName+".log")
     OP.ToParset("%s.parset"%ImageName)
 
     NpShared.DelAll(IdSharedMem)
