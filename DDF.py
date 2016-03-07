@@ -166,6 +166,7 @@ def read_options():
 
     OP.OptionGroup("* Debugging","Debugging")
     OP.add_option("SaveIntermediateDirtyImages")
+    OP.add_option("PauseGridWorkers")
 
  
     OP.Finalise()
