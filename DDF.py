@@ -167,6 +167,7 @@ def read_options():
     OP.OptionGroup("* Debugging","Debugging")
     OP.add_option("SaveIntermediateDirtyImages")
     OP.add_option("PauseGridWorkers")
+    OP.add_option("MemoryLogging")
 
  
     OP.Finalise()
@@ -194,8 +195,7 @@ def main(OP=None):
         OP = MyPickle.Load(SaveFile)
 
     DicoConfig=OP.DicoConfig
-    
-
+    MyLogger.enableMemoryLogging(DicoConfig["Debugging"]["MemoryLogging"])    
 
     
     global IdSharedMem
