@@ -18,13 +18,11 @@ _proc_status = '/proc/%d/status' % os.getpid()
 _scale = {'kB': 1024.0, 'mB': 1024.0*1024.0,
           'KB': 1024.0, 'MB': 1024.0*1024.0}
 
-def _VmB(VmKey):
-    '''Private.
-    '''
+def _VmB(VmKey,statusfile=None):
     global _proc_status, _scale
      # get pseudo file  /proc/<pid>/status
     try:
-        t = open(_proc_status)
+        t = open(statusfile or _proc_status)
         v = t.read()
         t.close()
     except:
@@ -37,6 +35,11 @@ def _VmB(VmKey):
      # convert Vm value to bytes
     return float(v[1]) * _scale[v[2]]
 
+
+def _shmem_size (since=0.0):
+    '''Return shared memory usage in bytes.
+    '''
+    return _VmB('Shmem:','/proc/meminfo') - since
 
 def _memory(since=0.0):
     '''Return memory usage in bytes.
@@ -65,10 +68,12 @@ class LoggerMemoryFilter (logging.Filter):
     def filter(self, event):
         vss = float(_memory()/(1024**3))
         rss = float(_resident()/(1024**3))
+        shm = float(_shmem_size()/(1024**3))
         setattr(event,"virtual_memory_gb",vss)
         setattr(event,"resident_memory_gb",rss)
+        setattr(event,"shared_memory_gb",shm)
         if log_memory and hasattr(event,"msg"):
-            event.msg = "[%.1f/%.1fGb] "%(rss,vss) + event.msg
+            event.msg = "[r:%.1f v:%.1f sh:%.1fGb] "%(rss,vss,shm) + event.msg
         return True
 
 
