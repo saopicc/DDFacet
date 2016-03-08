@@ -167,6 +167,7 @@ def read_options():
     OP.OptionGroup("* Debugging","Debugging")
     OP.add_option("SaveIntermediateDirtyImages")
     OP.add_option("PauseGridWorkers")
+    OP.add_option("MemoryLogging")
 
  
     OP.Finalise()
@@ -187,21 +188,24 @@ def test():
 
 
 def main(OP=None):
-    
-
-
     if OP==None:
         OP = MyPickle.Load(SaveFile)
 
     DicoConfig=OP.DicoConfig
-    
 
+    MyLogger.enableMemoryLogging(DicoConfig["Debugging"]["MemoryLogging"])    
 
     
     global IdSharedMem
     IdSharedMem=str(int(os.getpid()))+"."
 
     ImageName=DicoConfig["Images"]["ImageName"]
+
+    dirname = os.path.dirname(ImageName)
+    if not os.path.exists(dirname):
+        os.mkdir(dirname)
+
+    MyLogger.logToFile(ImageName+".log")
     OP.ToParset("%s.parset"%ImageName)
 
     NpShared.DelAll(IdSharedMem)
@@ -247,7 +251,7 @@ if __name__=="__main__":
         print>>log, ModColor.Str("DDFacet ended successfully",col="green")
     except:
         print>>log, ModColor.Str("There was a problem, please help yourself",col="red")
-        traceback.print_exc()
+        print>>log, traceback.format_exc()
         NpShared.DelAll(IdSharedMem)
 
     # main(options)
