@@ -1,4 +1,4 @@
-from DDFacet.Gridder import _pyArrays
+import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
 from DDFacet.Other import ClassTimeIt
 import numpy as np
 

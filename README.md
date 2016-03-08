@@ -25,7 +25,8 @@ git clone git@github.com:cyriltasse/DDFacet.git
 Build a few libraries:
 
 ```
-(cd DDFacet/Gridder ; make)
+
+(cd DDFacet/ ; mkdir cbuild ; cd cbuild ; cmake -DCMAKE_BUILD_TYPE=Release .. ; make)
 (cd ./killMS2/Predict ; make)
 (cd ./killMS2/Predict ; make)
 ```
