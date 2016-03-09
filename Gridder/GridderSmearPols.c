@@ -7,7 +7,7 @@
 #include "complex.h"
 #include <omp.h>
 #include "Tools.h"
-#include "JonesServer.c"
+#include "JonesServer.h"
 
 
 clock_t start;
@@ -310,8 +310,8 @@ void gridderWPol(PyArrayObject *grid,
     double FreqMean0=0.;
 
     int visChan;
-    
-    float factorFreq=GiveFreqStep();
+    float factorFreq=1;
+    //float factorFreq=GiveFreqStep();
     //printf("factorFreq %f\n",factorFreq);
     
 

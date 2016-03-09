@@ -1,6 +1,6 @@
 import numpy as np
-from DDFacet.Gridder import _pyGridder
-from DDFacet.Gridder import WeightingCore 
+import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
+import DDFacet.cbuild.Gridder._pyWeightingCore as WeightingCore
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassWeighting")

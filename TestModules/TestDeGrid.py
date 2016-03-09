@@ -1,5 +1,5 @@
 import numpy as np
-from Gridder import _pyGridder
+import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
 #import pylab
 from pyrap.images import image
 import MyPickle

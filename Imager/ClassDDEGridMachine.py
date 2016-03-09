@@ -1,7 +1,6 @@
 import numpy as np
-from DDFacet.Gridder import _pyGridder
-#from DDFacet.Gridder import _pyGridderSmear
-from DDFacet.Gridder import _pyGridderSmearPols as _pyGridderSmear
+import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
+import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmear
 #import pylab
 from pyrap.images import image
 #import MyPickle
