@@ -45,11 +45,11 @@ class ProgressBar(object):
             self.color = getattr(terminal, color.upper())
         else:
             self.color = ''
-        if width and width < terminal.COLUMNS - self.PADDING:
+        if width and width < terminal.getValueChecked("COLUMNS") - self.PADDING:
             self.width = width
         else:
             # Adjust to the width of the terminal
-            self.width = terminal.COLUMNS - self.PADDING
+            self.width = terminal.getValueChecked("COLUMNS") - self.PADDING
         self.block = block
         self.empty = empty
         self.progress = None
@@ -125,10 +125,10 @@ class ProgressBar(object):
             # The length of the first line in the message
             inline_msg_len = len(message.splitlines()[0])+len(self.Title)
 
-        if inline_msg_len + self.width + self.PADDING > terminal.COLUMNS:
+        if inline_msg_len + self.width + self.PADDING > terminal.getValueChecked("COLUMNS"):
             # The message is too long to fit in one line.
             # Adjust the bar width to fit.
-            bar_width = terminal.COLUMNS - inline_msg_len -self.PADDING
+            bar_width = terminal.getValueChecked("COLUMNS") - inline_msg_len -self.PADDING
         else:
             bar_width = self.width
  

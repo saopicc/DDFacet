@@ -202,7 +202,7 @@ def main(OP=None):
     ImageName=DicoConfig["Images"]["ImageName"]
 
     dirname = os.path.dirname(ImageName)
-    if dirname and not os.path.exists(dirname):
+    if not os.path.exists(dirname) and not dirname == "":
         os.mkdir(dirname)
 
     MyLogger.logToFile(ImageName+".log")

@@ -29,7 +29,21 @@ VALUES = {
     'LINES':'lines',  # Height of the terminal (None for unknown)
     'MAX_COLORS': 'colors',
 }
- 
+
+FALLBACK_VALUES = {
+    'COLUMNS':80,
+    'LINES':50,
+    'MAX_COLORS':1
+}
+
+def getValueChecked(id):
+    """Gets capability value, use fall-back if value not set
+    Throws ValueError if value is not in the list
+    """
+    if id not in VALUES:
+        raise ValueError("Invalid key %s" % id)
+    return globals()[id] if globals()[id] is not None else FALLBACK_VALUES[id]
+
 def default():
     """Set the default attribute values"""
     for color in COLORS:
