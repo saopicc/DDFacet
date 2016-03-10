@@ -71,7 +71,12 @@ class ClassModelMachine():
         self.DicoSMStacked=DicoSMStacked
         self.RefFreq=self.DicoSMStacked["RefFreq"]
         self.ModelShape=self.DicoSMStacked["ModelShape"]
-        self.SolveParam=self.DicoSMStacked["SolveParam"]
+        try:
+            self.SolveParam=self.DicoSMStacked["SolveParam"]
+        except:
+            print "SOMETHING IS WRONG WITH THE DICOMODEL"
+            self.SolveParam=["Alpha","S"]
+            
         self.NParam=len(self.SolveParam)
 
     def setModelShape(self,ModelShape):

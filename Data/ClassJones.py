@@ -264,7 +264,13 @@ class ClassJones():
         DicoSols["tm"]=(Sols.t1+Sols.t0)/2.
         nt,na,nd,_,_=Sols.G.shape
         G=np.swapaxes(Sols.G,1,2).reshape((nt,nd,na,1,2,2))
-        
+
+
+        # print>>log, "!!!!!!!!!!!!!!"
+        # #G[:,:,:,:,1,1]=G[:,:,:,:,0,0]
+        # G[:,:,:,:,0,0]=G[:,:,:,:,1,1]
+        # print>>log, "!!!!!!!!!!!!!!"
+
 
         if GlobalMode=="MeanAbsAnt":
              print>>log, "  Normalising by the mean of the amplitude (against time)"
