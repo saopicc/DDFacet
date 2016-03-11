@@ -267,7 +267,7 @@ class ClassImagerDeconv():
             #if Res=="EndChunk": break
             if Res=="EndOfObservation": break
             DATA=self.DATA
-
+            DATA["data"][...]=1+0j #ugly fix: would be better not to read this and to add a template in the gridders to always read "1+0j" when creating a psf
             FacetMachinePSF.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)#,Channel=self.VS.CurrentFreqBand)
 
 
@@ -339,7 +339,7 @@ class ClassImagerDeconv():
 
         self.FitPSF()
         FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeam)
-        
+
         FacetMachinePSF = None
 
         # if self.VS.MultiFreqMode:
