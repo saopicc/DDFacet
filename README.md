@@ -41,7 +41,7 @@ Add this to your ``.bashrc``
 export KILLMS_DIR=$HOME/projects   ### or whereever you've git cloned the repos
 export DDFACET_DIR=$KILLMS_DIR
 export PYTHONPATH=$PYTHONPATH:$KILLMS_DIR
-export LD_LIBRARY_PATH=$KILLMS_DIR/DDFacet/Gridder:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$KILLMS_DIR/DDFacet/cbuild/Gridder:$LD_LIBRARY_PATH
 export PATH=$KILLMS_DIR/killMS2:$KILLMS_DIR/SkyModel:$KILLMS_DIR/DDFacet:$PATH
 ```
 
