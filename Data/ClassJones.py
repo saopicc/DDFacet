@@ -222,7 +222,8 @@ class ClassJones():
 
         for File,ThisGlobalMode,ThisJonesMode in zip(SolsFileList,GlobalNormList,JonesNormList):
 
-            DicoClusterDirs,DicoSols=self.GiveKillMSSols_SingleFile(File,GlobalMode=ThisGlobalMode,JonesMode=ThisJonesMode)
+            DicoClusterDirs,DicoSols,VisToJonesChanMapping=self.GiveKillMSSols_SingleFile(File,GlobalMode=ThisGlobalMode,JonesMode=ThisJonesMode)
+            print>>log,"  VisToJonesChanMapping: %s"%str(VisToJonesChanMapping)
             ListDicoSols.append(DicoSols)
 
         DicoJones=ListDicoSols[0]
@@ -230,7 +231,7 @@ class ClassJones():
             DicoJones=self.MergeJones(DicoJones1,DicoJones)
 
 
-        DicoJones["VisToJonesChanMapping"]=np.zeros((self.MS.NSPWChan,),np.int32)
+        DicoJones["VisToJonesChanMapping"]=VisToJonesChanMapping
 
         return DicoClusterDirs,DicoJones
 
@@ -256,14 +257,22 @@ class ClassJones():
         DicoClusterDirs["I"]=ClusterCat.SumI
         DicoClusterDirs["Cluster"]=ClusterCat.Cluster
         
+
+        if "FreqDomains" in DicoSolsFile.keys():
+            FreqDomains=DicoSolsFile["FreqDomains"]
+            VisToJonesChanMapping=self.GiveVisToJonesChanMapping(FreqDomains)
+        else:
+            VisToJonesChanMapping=np.zeros((self.MS.NSPWChan,),np.int32)
+            
+
         Sols=DicoSolsFile["Sols"]
         Sols=Sols.view(np.recarray)
         DicoSols={}
         DicoSols["t0"]=Sols.t0
         DicoSols["t1"]=Sols.t1
         DicoSols["tm"]=(Sols.t1+Sols.t0)/2.
-        nt,na,nd,_,_=Sols.G.shape
-        G=np.swapaxes(Sols.G,1,2).reshape((nt,nd,na,1,2,2))
+        nt,nf,na,nd,_,_=Sols.G.shape
+        G=np.swapaxes(Sols.G,1,3).reshape((nt,nd,na,nf,2,2))
 
 
         # print>>log, "!!!!!!!!!!!!!!"
@@ -273,15 +282,15 @@ class ClassJones():
 
 
         if GlobalMode=="MeanAbsAnt":
-             print>>log, "  Normalising by the mean of the amplitude (against time)"
-             gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
+             print>>log, "  Normalising by the mean of the amplitude (against time, freq)"
+             gmean_abs=np.mean(np.mean(np.abs(G[:,:,:,:,0,0]),axis=0),axis=2)
              gmean_abs=gmean_abs.reshape((1,nd,na,1))
              G[:,:,:,:,0,0]/=gmean_abs
              G[:,:,:,:,1,1]/=gmean_abs
          
         if GlobalMode=="MeanAbs":
-            print>>log, "  Normalising by the mean of the amplitude (against time, antenna)"
-            gmean_abs=np.mean(np.mean(np.abs(G[:,:,:,:,0,0]),axis=0),axis=1)
+            print>>log, "  Normalising by the mean of the amplitude (against time, freq, antenna)"
+            gmean_abs=np.mean(np.mean(np.mean(np.abs(G[:,:,:,:,0,0]),axis=0),axis=1),axis=1)
             gmean_abs=gmean_abs.reshape((1,nd,1,1))
             G[:,:,:,:,0,0]/=gmean_abs
             G[:,:,:,:,1,1]/=gmean_abs
@@ -299,7 +308,7 @@ class ClassJones():
         G=self.NormDirMatrices(G)
         DicoSols["Jones"]=G
 
-        return DicoClusterDirs,DicoSols
+        return DicoClusterDirs,DicoSols,VisToJonesChanMapping
 
     def NormDirMatrices(self,G):
         RefAnt=0
