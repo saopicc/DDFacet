@@ -37,7 +37,6 @@ class ProgressBar(object):
         block -- progress display character (default '█')
         empty -- bar display character (default ' ')
         """
-        
         if self.silent==1: return
 
         import terminal

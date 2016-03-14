@@ -3,7 +3,7 @@
 import optparse
 import pickle
 import numpy as np
-from killMS2.Other import MyLogger
+from SkyModel.Other import MyLogger
 log=MyLogger.getLogger("MakeModel")
 from Sky import ClassSM
 

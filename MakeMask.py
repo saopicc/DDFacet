@@ -18,7 +18,7 @@ from SkyModel.Other.ClassCasaImage import PutDataInNewImage
 import scipy.special
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("MakeMask")
-from killMS2.Other.progressbar import ProgressBar
+from SkyModel.Other.progressbar import ProgressBar
 import collections
 import pylab
 from SkyModel.Other.MyHist import MyCumulHist
