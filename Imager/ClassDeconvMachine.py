@@ -62,7 +62,13 @@ class ClassImagerDeconv():
         self.DoDeconvolve=DoDeconvolve
         self.FacetMachine=None
         self.PSF=None
+        self.FWHMBeam = None
         self.PSFGaussPars = None
+        self.PSFSidelobes = None
+        self.FWHMBeamAvg = None
+        self.PSFGaussParsAvg = None
+        self.PSFSidelobesAvg = None
+
         self.VisWeights=None
         self.DATA=None
         self.Precision=self.GD["ImagerGlobal"]["Precision"]#"S"
@@ -330,7 +336,7 @@ class ClassImagerDeconv():
 
 
 
-        # self.FWHMBeam=(10.,10.,10.)
+        # self.FWHMBeamAvg=(10.,10.,10.)
         # FacetMachinePSF.ToCasaImage(self.PSF)
 
 
@@ -338,7 +344,7 @@ class ClassImagerDeconv():
         #FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True)
 
         self.FitPSF()
-        FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+        FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg)
         
         FacetMachinePSF = None
 
@@ -347,7 +353,7 @@ class ClassImagerDeconv():
         #         Im=self.DicoImagePSF["ImagData"][Channel]
         #         npol,n,n=Im.shape
         #         Im=Im.reshape((1,npol,n,n))
-        #         FacetMachinePSF.ToCasaImage(Im,ImageName="%s.psf.ch%i"%(self.BaseName,Channel),Fits=True,beam=self.FWHMBeam)
+        #         FacetMachinePSF.ToCasaImage(Im,ImageName="%s.psf.ch%i"%(self.BaseName,Channel),Fits=True,beam=self.FWHMBeamAvg)
 
         #self.FitPSF()
         #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
@@ -538,7 +544,8 @@ class ClassImagerDeconv():
 
         self.MakePSF()
         self.DeconvMachine.SetPSF(self.DicoVariablePSF)
-        self.DeconvMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
+        #initialize the deconvolve machine with the first side lobe level and offset:
+        self.DeconvMachine.setSideLobeLevel(self.PSFSidelobesAvg[0], self.PSFSidelobesAvg[1])
         self.DeconvMachine.InitMSMF()
         
 
@@ -672,10 +679,11 @@ class ClassImagerDeconv():
 
 
             DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
-            #DicoImage["NormData"]=self.NormImage
-            # self.DeconvMachine.MSMachine.ModelMachine.ToFile("%s.DicoModel"%self.BaseName)
+            if self.GD["Images"]["MultiFreqMap"]:
+                self.ResidImage=DicoImage["ImagData"] #get residuals cube
+            else:
+                self.ResidImage=DicoImage["MeanImage"]
 
-            self.ResidImage=DicoImage["MeanImage"]
             if "Residual_i" in self.GD["Images"]["SaveIms"]:
                 self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),Fits=True)
 
@@ -711,57 +719,45 @@ class ClassImagerDeconv():
     def FitPSF(self):
         #PSF=self.PSF
         PSF=self.MeanFacetPSF
-        PSF=self.DicoVariablePSF["CubeMeanVariablePSF"][self.FacetMachine.iCentralFacet]
+        PSF=self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
 
         _,_,x,y=np.where(PSF==np.max(PSF))
-        FitOK=False
-        off=100
-        while FitOK==False:
-
-            # print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
-            # P=PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
-            # self.SideLobeLevel,self.OffsetSideLobe=ModFitPSF.FindSidelobe(P)
-            # sigma_x, sigma_y, theta = ModFitPSF.DoFit(P)
-            # FitOK=True
-            # print>>log, "   ... done"
-
-            # P=PSF[0,0,:,:]
-            # self.SideLobeLevel,self.OffsetSideLobe=ModFitPSF.FindSidelobe(P)
-            # sigma_x, sigma_y, theta = ModFitPSF.DoFit(P)
-            # FitOK=True
-            # print>>log, "   ... done"
-
+        #fit a clean beam for each PSF channel
+        assert PSF.shape[0] == self.VS.NFreqBands, "Expected PSF to have NFreqBands different dirty beams"
+        self.FWHMBeam = []
+        self.PSFGaussPars = []
+        self.PSFSidelobes = []
+        for c in range(self.VS.NFreqBands):
+            off=100 #TODO: how do you know the sidelobe will always be in 100px, this probably needs a dict param
             print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
-            P=PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
-            self.SideLobeLevel,self.OffsetSideLobe=ModFitPSF.FindSidelobe(P)
+            P=PSF[c,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
+            self.PSFSidelobes.append(ModFitPSF.FindSidelobe(P))
             sigma_x, sigma_y, theta = ModFitPSF.DoFit(P)
-            FitOK=True
             print>>log, "   ... done"
 
-            # try:
-            #     print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
-            #     P=PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
-            #     self.SideLobeLevel,self.OffsetSideLobe=ModFitPSF.FindSidelobe(P)
-            #     sigma_x, sigma_y, theta = ModFitPSF.DoFit(P)
-            #     FitOK=True
-            #     print>>log, "   ... done"
-            # except:
-            #     print>>log, "   ... failed"
-            #     off+=100
-                
+            theta=np.pi/2-theta
+            FWHMFact=2.*np.sqrt(2.*np.log(2.))
+            bmaj=np.max([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
+            bmin=np.min([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
+            self.FWHMBeam.append((bmaj/3600., bmin/3600., theta))
+            self.PSFGaussPars.append((sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta))
+            print>>log, "Fitted PSF for channel %i of the cube:" % c
+            print>>log, "\tFitted PSF (sigma): (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec,
+                                                                           sigma_y*self.CellArcSec,
+                                                                           theta)
+            print>>log, "\tFitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec*FWHMFact,
+                                                                           sigma_y*self.CellArcSec*FWHMFact,
+                                                                           theta)
+            print>>log, "\tSecondary sidelobe at the level of %5.1f at a position of %i from the center" % self.PSFSidelobes[c]
+        self.FWHMBeamAvg = (np.average(np.array([tup[0] for tup in self.FWHMBeam])),
+                            np.average(np.array([tup[1] for tup in self.FWHMBeam])),
+                            np.average(np.array([tup[2] for tup in self.FWHMBeam])))
+        self.PSFGaussParsAvg = (np.average(np.array([tup[0] for tup in self.PSFGaussPars])),
+                                np.average(np.array([tup[1] for tup in self.PSFGaussPars])),
+                                np.average(np.array([tup[2] for tup in self.PSFGaussPars])))
+        self.PSFSidelobesAvg = (np.average(np.array([tup[0] for tup in self.PSFSidelobes])),
+                                int(np.round(np.average(np.array([tup[1] for tup in self.PSFSidelobes])))))
 
-        theta=np.pi/2-theta
-        
-        FWHMFact=2.*np.sqrt(2.*np.log(2.))
-        bmaj=np.max([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
-        bmin=np.min([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
-        self.FWHMBeam=(bmaj/3600.,bmin/3600.,theta)
-        self.PSFGaussPars = (sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta)
-        print>>log, "Fitted PSF (sigma): (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec, sigma_y*self.CellArcSec, theta)
-        print>>log, "Fitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec*FWHMFact, sigma_y*self.CellArcSec*FWHMFact, theta)
-        print>>log, "Secondary sidelobe at the level of %5.1f at a position of %i from the center"%(self.SideLobeLevel,self.OffsetSideLobe)
-            
-            
     def Restore(self):
         print>>log, "Create restored image"
         if self.PSFGaussPars==None:
@@ -784,26 +780,39 @@ class ClassImagerDeconv():
 
 
         # model image
-        ModelImage=ModelMachine.GiveModelImage(RefFreq)
-        if "Model" in self.GD["Images"]["SaveIms"]:
-            self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%self.BaseName,Fits=True)
+        modelImage = None
 
+        if self.GD["Images"]["MultiFreqMap"]:
+            modelImage=ModelMachine.GiveModelImage(np.array(
+                [np.average(np.array(self.VS.FreqBandsInfos[band])) for band in self.VS.FreqBandsInfos]))
+        else:
+            modelImage=ModelMachine.GiveModelImage(RefFreq) #Save only reference frequency model
+
+        if "Model" in self.GD["Images"]["SaveIms"]:
+            self.FacetMachine.ToCasaImage(modelImage,ImageName="%s.model"%self.BaseName,Fits=True)
         # restored image
-        self.RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+        self.RestoredImage = ModFFTW.ConvolveGaussian(modelImage,
+                                                      CellSizeRad=self.CellSizeRad,
+                                                      GaussPars=self.PSFGaussPars)
+
+        assert self.RestoredImage.shape == self.ResidImage.shape, "Restored and residual images must have same shape"
         self.RestoredImageRes=self.RestoredImage+self.ResidImage
-        self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+        self.FacetMachine.ToCasaImage(self.RestoredImageRes,
+                                      ImageName="%s.restored"%self.BaseName,
+                                      Fits=True,
+                                      beam=self.FWHMBeamAvg)
 
         # Alpha image
         if ("Alpha" in self.GD["Images"]["SaveIms"])&(self.VS.MultiFreqMode):
-            IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+            IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg])
             # IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
-            self.FacetMachine.ToCasaImage(IndexMap,ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+            self.FacetMachine.ToCasaImage(IndexMap,ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg)
 
 
         # self.RestoredImageRes=self.RestoredImage+self.ResidImage/np.sqrt(self.NormImage)
-        # self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored.corr"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+        # self.FacetMachine.ToCasaImage(self.RestoredImageRes,ImageName="%s.restored.corr"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg)
 
-        # self.FacetMachine.ToCasaImage(self.RestoredImage,ImageName="%s.modelConv"%self.BaseName,Fits=True,beam=self.FWHMBeam)
+        # self.FacetMachine.ToCasaImage(self.RestoredImage,ImageName="%s.modelConv"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg)
 
 
 

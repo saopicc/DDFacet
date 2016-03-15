@@ -28,7 +28,7 @@ from DDFacet.Other import ModColor
 log=MyLogger.getLogger("DDFacet")
 
 from DDFacet.Parset import MyOptParse
-
+import subprocess
 
 
 
@@ -63,8 +63,13 @@ def read_options():
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
     OP.add_option('PredictModelName',help='Predict Image name [%default]',default='')
     OP.add_option('SaveIms',help='Image name [%default]')
-
-
+    OP.add_option('OpenImages',
+                  help="Opens images after exiting successfully."
+                       "List, accepts any combination of: "
+                       "'Dirty','DirtyCorr','PSF','Model','Residual',"
+                       "'Restored','Alpha','Norm','NormFacets'.")
+    OP.add_option('DefaultImageViewer', help="Default image viewer")
+    OP.add_option('MultiFreqMap', help="Outputs multi-frequency cube (NFreqBands) instead of average map")
     OP.OptionGroup("* File storing options","Stores")
     OP.add_option('DeleteDDFProducts')
     OP.add_option('PSF')
@@ -225,6 +230,48 @@ def main(OP=None):
         Imager.GiveDirty()
     if "PSF" in Mode:
         Imager.MakePSF()
+
+    #open default viewer, these options should match those in ClassDeconvMachine if changed:
+    viewer = DicoConfig["Images"]["DefaultImageViewer"]
+    for img in DicoConfig["Images"]["OpenImages"]:
+        if img == "Dirty":
+            ret = subprocess.call("%s %s.dirty.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open dirty image\n",col="yellow")
+        elif img == "DirtyCorr":
+            ret = subprocess.call("%s %s.dirty.corr.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open dirtyCorr image\n",col="yellow")
+        elif img == "PSF":
+            ret = subprocess.call("%s %s.psf.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open PSF image\n",col="yellow")
+        elif img == "Model":
+            ret = subprocess.call("%s %s.model.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open model image\n",col="yellow")
+        elif img == "Residual":
+            ret = subprocess.call("%s %s.residual.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open residual image\n",col="yellow")
+        elif img == "Restored":
+            ret = subprocess.call("%s %s.restored.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open restored image\n",col="yellow")
+        elif img == "Alpha":
+            ret = subprocess.call("%s %s.alpha.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open alpha image\n",col="yellow")
+        elif img == "Norm":
+            ret = subprocess.call("%s %s.Norm.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open norm image\n",col="yellow")
+        elif img == "NormFacets":
+            ret = subprocess.call("%s %s.NormFacets.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open normfacets image\n",col="yellow")
+        else:
+            print>>log, ModColor.Str("\nDon't understand %s, not opening that image\n" % img,col="yellow")
 
     NpShared.DelAll(IdSharedMem)
 
