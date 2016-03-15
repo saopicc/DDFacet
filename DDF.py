@@ -69,6 +69,7 @@ def read_options():
                        "'Dirty','DirtyCorr','PSF','Model','Residual',"
                        "'Restored','Alpha','Norm','NormFacets'.")
     OP.add_option('DefaultImageViewer', help="Default image viewer")
+    OP.add_option('MultiFreqMap', help="Outputs multi-frequency cube (NFreqBands) instead of average map")
     OP.OptionGroup("* File storing options","Stores")
     OP.add_option('DeleteDDFProducts')
     OP.add_option('PSF')
