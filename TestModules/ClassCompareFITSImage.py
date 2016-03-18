@@ -3,7 +3,7 @@ from Parset.ReadCFG import Parset
 from os import path, getenv
 import subprocess
 from astropy.io import fits
-
+import numpy as np
 
 class ClassCompareFITSImage(unittest.TestCase):
     """ Automated assurance test: reference FITS file regression (abstract class)
@@ -42,7 +42,7 @@ class ClassCompareFITSImage(unittest.TestCase):
         Tests cases:
             Tests the output of DDFacet against the reference images. Currently
             we are only testing the following:
-                1. max (ref[]) <= tolerance
+                1. max (ref-output)^2 <= tolerance
     """
 
     @classmethod
@@ -53,8 +53,8 @@ class ClassCompareFITSImage(unittest.TestCase):
             Returns:
                 Tuple of image identifiers to reference and output products
         """
-        return ('dirty', 'dirty.corr', 'psf', 'model', 'residual',
-                'restored', 'alpha', 'Norm', 'NormFacets')
+        return ['dirty', 'dirty.corr', 'psf', 'model', 'residual',
+                'restored', 'alpha', 'Norm', 'NormFacets']
 
     @classmethod
     def defineMaxSquaredError(cls):
@@ -82,8 +82,8 @@ class ClassCompareFITSImage(unittest.TestCase):
         unittest.TestCase.setUpClass()
         cls._inputDir = getenv('DDFACET_TEST_DATA_DIR','./')+"/"
         cls._outputDir =  getenv('DDFACET_TEST_OUTPUT_DIR','/tmp/')+"/"
-        cls._dicoRefHDUList = {}
-        cls._dicoOutHDUList = {}
+        cls._refHDUList = []
+        cls._outHDUList = []
 
         #Read and override default parset
         cls._inputParsetFilename = cls._inputDir + cls.__name__+ ".parset.cfg"
@@ -123,7 +123,7 @@ class ClassCompareFITSImage(unittest.TestCase):
             if not path.isfile(fname):
                 raise RuntimeError("Reference image %s does not exist" % fname)
             fitsHDU = fits.open(fname)
-            cls._dicoRefHDUList[fname] = fitsHDU
+            cls._refHDUList.append(fitsHDU)
 
         #Setup test constants
         cls._maxSqErr = cls.defineMaxSquaredError()
@@ -143,15 +143,15 @@ class ClassCompareFITSImage(unittest.TestCase):
             if not path.isfile(fname):
                 raise RuntimeError("Reference image %s does not exist" % fname)
             fitsHDU = fits.open(fname)
-            cls._dicoOutHDUList[fname] = fitsHDU
+            cls._outHDUList.append(fitsHDU)
 
     @classmethod
     def tearDownClass(cls):
         unittest.TestCase.tearDownClass()
-        for fitsfile in cls._dicoRefHDUList:
-            cls._dicoRefHDUList[fitsfile].close()
-        for fitsfile in cls._dicoOutHDUList:
-            cls._dicoOutHDUList[fitsfile].close()
+        for fitsfile in cls._refHDUList:
+            fitsfile.close()
+        for fitsfile in cls._outHDUList:
+            fitsfile.close()
 
     def setUp(self):
         unittest.TestCase.setUp(self)
@@ -162,11 +162,18 @@ class ClassCompareFITSImage(unittest.TestCase):
     '''
     Test cases:
     '''
-    def testCompareFITSheaders(self):
-        pass
-
     def testMaxSquaredError(self):
-        pass
+        cls = self.__class__
+        for imgI, (ref, out) in enumerate(zip(cls._refHDUList, cls._outHDUList)):
+            imgIdentity = cls.defineImageList()[imgI] + " image"
+            for ref_hdu, out_hdu in zip(ref, out):
+                if ref_hdu.data is None:
+                    assert out_hdu.data is None, "ref_hdu data is None, so out_hdu must be None in %s" % imgIdentity
+                else:
+                    assert out_hdu.data.shape == ref_hdu.data.shape, "ref_hdu data shape doesn't match out_hdu"
+                assert np.all((ref_hdu.data - out_hdu.data)**2 <= cls._maxSqErr), "FITS data not the same for %s" % \
+                                                                                  imgIdentity
+
 
 if __name__ == "__main__":
     pass # abstract class
