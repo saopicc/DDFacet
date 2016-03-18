@@ -18,10 +18,10 @@ if __name__=="__main__":
     
     ind=np.int64(np.random.rand(10000)*d.size)
     std=np.std(d.flat[ind])
-    vmin=-5*std
-    vmax=20*std
+    vmin=-10*std
+    vmax=40*std
 
     S=" ".join(S)
 
-    ss="ds9 -scalelims %f %f %s -lock frame wcs -lock scale yes -match scalelimits -match scale -match colorbar -lock colorbar yes"%(vmin,vmax,S)
+    ss="ds9 -view vertical -cmap bb -scalelims %f %f %s -lock frame wcs -lock scale yes -match scalelimits -match scale -match colorbar -lock colorbar yes"%(vmin,vmax,S)
     os.system(ss)
