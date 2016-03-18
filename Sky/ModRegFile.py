@@ -16,6 +16,7 @@ class RegToNp():
                                     ("Cluster",np.int16),("ID",np.int16)])
         Cat=Cat.view(np.recarray)
         Cat.Cluster=-1
+        Cat.Cluster=np.arange(Cat.shape[0])
         Cat.ID=np.arange(Cat.shape[0])
 
         Ls=f.readlines()

@@ -104,7 +104,7 @@ class ClassSM():
         if PreCluster!="":
             R=ModRegFile.RegToNp(PreCluster)
             R.Read()
-            R.Cluster()
+            #R.Cluster()
             PreClusterCat=R.CatSel
             ExcludeCat=R.CatExclude
         else:
@@ -166,6 +166,9 @@ class ClassSM():
         #s.fill(0.)
         #s[0]=1
 
+        cos=np.cos
+        sin=np.sin
+
 
         self.SourceCat.Cluster=-1
         indSubSel=np.arange(self.SourceCat.shape[0])
@@ -174,16 +177,32 @@ class ClassSM():
             N=PreClusterCat.shape[0]
             Ns=self.SourceCat.ra.shape[0]
             for iReg in range(N):
-                d=np.sqrt((self.SourceCat.ra-PreClusterCat.ra[iReg])**2+(self.SourceCat.dec-PreClusterCat.dec[iReg])**2)
+                #d=np.sqrt((self.SourceCat.ra-PreClusterCat.ra[iReg])**2+(self.SourceCat.dec-PreClusterCat.dec[iReg])**2)
+
+                ra1=self.SourceCat.ra
+                ra2=PreClusterCat.ra[iReg]
+                d1=self.SourceCat.dec
+                d2=PreClusterCat.dec[iReg]
+                cosD = sin(d1)*sin(d2) + cos(d1)*cos(d2)*cos(ra1-ra2)
+                d=np.arccos(cosD)
                 self.SourceCat.Cluster[d<PreClusterCat.Radius[iReg]]=PreClusterCat.Cluster[iReg]
                 self.SourceCat.Exclude[d<PreClusterCat.Radius[iReg]]=False
-                
+        
+            print self.SourceCat.Cluster
+
             indPreCluster=np.where(self.SourceCat.Cluster!=-1)[0]
             NPreCluster=np.max(PreClusterCat.Cluster)+1
             SourceCatPreCluster=self.SourceCat[indPreCluster]
             indSubSel=np.where(self.SourceCat.Cluster==-1)[0]
             print "number of preselected clusters: %i"%NPreCluster
 
+
+        
+        if nk==-1:
+            print "Removing non-clustered sources"%NPreCluster
+            self.SourceCat=self.SourceCat[self.SourceCat.Cluster!=-1]
+            print self.SourceCat.Cluster
+            return
         SourceCat=self.SourceCat[indSubSel]
         self.rarad=np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
         self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
