@@ -170,16 +170,16 @@ class ClassVisServer():
 
         self.FreqBandsInfos = {}
         for iBand in range(self.NFreqBands):
-            self.FreqBandsInfos[iBand] = np.array(sorted([ freq for freq,band in freq_to_grid_band.iteritems() if band == iBand ]))
+            self.FreqBandsInfos[iBand] = sorted([ freq for freq,band in freq_to_grid_band.iteritems() if band == iBand ])
 
         self.FreqBandsInfosDegrid={}
         self.DicoMSChanMapping={}
         self.DicoMSChanMappingDegridding={}
-        # structures initialized by this loop:
+        # structures initialized here:
         # self.FreqBandsInfosDegrid: a dict, indexed by MS number
         #       [iMS] = float32 array of NChanDegridPerMS frequencies at which the degridding will proceed for this MS
         # self.FreqBandsInfos: a list, indexed by freq band number (NFreqBands items)
-        #       [iband] = float32 array of frequencies within that frequency band (already initialized above)
+        #       [iband] = list of frequencies within that frequency band 
         # self.DicoMSChanMappingDegridding: a dict, indexed by MS number
         #       [iMS] = int array of band numbers, as many as there are channels in the MS. For each channel, gives the degridding band number
         #               (from 0 to NChanDegridPerMS-1)
