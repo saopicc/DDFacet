@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
 import DDFacet.cbuild.Gridder._pyWeightingCore as WeightingCore
 from DDFacet.Other import MyLogger
@@ -52,40 +53,54 @@ class ClassWeighting():
         self.ImShape=ImShape
         self.CellSizeRad=CellSizeRad
 
-    def CalcWeights(self,uvw,VisWeights,flags,freqs,Robust=0,Weighting="Briggs",Super=1):
+    def CalcWeights(self,uvw_weights_flags_freqs,Robust=0,Weighting="Briggs",Super=1):
+
+        if Weighting=="Natural":
+            print>>log, "Weighting in Natural mode"
+            return [ x[1] for x in uvw_weights_flags_freqs ]
 
         nch,npol,npixIm,_ = self.ImShape
         FOV = self.CellSizeRad*npixIm
         cell =1./(Super*FOV)
 
-        print>>log,"applying flags to weights"
-        # if any polarization is flagged, flag all 4 correlations
-        flags = flags.max(axis=2)
-        # zero weight to flagged points
-        VisWeights = VisWeights.astype(np.float64) * ~flags
-        # VisWeights *= ~flags
 
-        if Weighting=="Natural":
-            print>>log, "Weighting in Natural mode"
-            return VisWeights
         print>>log,"initializing weighting grid"
 
-        # flip sign of negative v values -- we'll only grid the top half of the plane
-        uv = uvw[:,0:2].copy()
-        uv[ uv[:,1]<0 ] *= -1
-        # convert u/v to lambda, and then to pixel offset
-        uv = uv[...,np.newaxis]*freqs[np.newaxis,np.newaxis,:]/_cc
-        uv = np.floor(uv/cell).astype(int)
-        # u is offset, v isn't since it's the top half
-        x = uv[:,0,:]
-        y = uv[:,1,:]
-        x -= x.min()
-        npixx = x.max()+1
-        npixy = y.max()+1
+        # find max grid extent by consiering _unflagged_ UVs
+        xymax = 0
+        for uv, weights, flags, freqs in uvw_weights_flags_freqs:
+            # max |u|,|v| in lambda 
+            uvmax = abs(uv)[~flags,:].max() * freqs.max()/_cc
+            xymax = max(xymax, int(math.floor(uvmax/cell)))
+        xymax += 1
+        # grid will be from [-xymax,xymax] in U and [0,xymax] in V
+        npixx = xymax*2+1
+        npixy = xymax+1
         npix = npixx*npixy
-        # convert to index
-        index = y*npixx + x
-        del uv
+
+        print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 3)"%(npixx,npixy,cell)
+        grid = np.zeros(npix,np.float64)
+
+        weights_index = [None]*len(uvw_weights_flags_freqs)
+
+        for iMS, (uv, weights, flags, freqs) in enumerate(uvw_weights_flags_freqs):
+            # flip sign of negative v values -- we'll only grid the top half of the plane
+            uv[ uv[:,1]<0 ] *= -1
+            # convert u/v to lambda, and then to pixel offset
+            uv = uv[...,np.newaxis]*freqs[np.newaxis,np.newaxis,:]/_cc
+            uv = np.floor(uv/cell).astype(int)
+            # u is offset, v isn't since it's the top half
+            x = uv[:,0,:]
+            y = uv[:,1,:]
+            x += xymax   # offset, since X grid starts at -xymax
+            # convert to index array
+            index = y*npixx + x
+            weights_index[iMS] = weights, index
+            del uv
+            print>>log,"Accumulating weights (%d/%d)"%(iMS+1, len(uvw_weights_flags_freqs))
+            # accumulate onto grid
+            print>>log,weights,index
+            WeightingCore.accumulate_weights_onto_grid_1d(grid,weights.ravel(),index.ravel())
 
         # # this is the only slow part -- takes ~20 mins on CygA data (3 million rows x 256 channels so just under a billion uv-points)
         # print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 1)"%(npixx,npixy,cell)
@@ -102,28 +117,13 @@ class ClassWeighting():
         # WeightingCore.accumulate_weights_onto_grid_using_nditer(grid,VisWeights,index)
         # print>>log,"weight grid computed"
         # second attept with cython using a simple for loop over 1D arrays: bingo, 3 seconds
-        print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 3)"%(npixx,npixy,cell)
-        grid = np.zeros(npix,np.float64)
-        WeightingCore.accumulate_weights_onto_grid_1d(grid,VisWeights.ravel(),index.ravel())
-        print>>log,"weight grid computed"
-
-        # print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 2)"%(npix,npix,cell)
-        # # grid of weights. Only top half of uv-plane needs to be gridded
-        # grid = np.zeros((npix,npix/2),np.float64)
-        # # remember that y0 is 0 since it's only the top half that's gridded
-        # # this iterator gives us x,y and weight for each uv point on the grid
-        # xyw_iter = zip(x[inbounds],y[inbounds],VisWeights[inbounds])
-        # def gridinc (dum,arg):
-        #    x,y,w = arg
-        #    grid[x,y] += w
-        # reduce(gridinc,xyw_iter)
-        # print>>log,"weight grid computed"
 
         if Weighting == "Uniform":
 #            print>>log,"adjusting grid to uniform weight"
  #           grid[grid!=0] = 1/grid[grid!=0]
             print>>log,("applying uniform weighting (super=%.2f)"%Super)
-            VisWeights /= grid[index]
+            for weights, index in weights_index:
+                weights /= grid[index]
 
         elif Weighting == "Briggs":
             print>>log,("applying briggs weighting (robust=%.2f, super=%.2f)"%(Robust, Super))
@@ -131,10 +131,11 @@ class ClassWeighting():
             numeratorSqrt = 5.0 * 10**(-Robust)
             sSq = numeratorSqrt**2 / avgW
             grid = 1/(1+grid*sSq)
-            VisWeights *= grid[index]
+            for weights, index in weights_index:
+                weights *= grid[index]
 
         print>>log,"weights computed"
-        return VisWeights
+        return [ weights for weights, index in weights_index ]
 
 
 
