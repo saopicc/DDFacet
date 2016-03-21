@@ -54,6 +54,7 @@ class ClassPSFServer():
         SumJonesChan=self.DicoVariablePSF["SumJonesChan"][iFacet]
         SumJonesChanWeightSq=self.DicoVariablePSF["SumJonesChanWeightSq"][iFacet]
         ChanMappingGrid=self.DicoVariablePSF["ChanMappingGrid"]
+        ChanMappingGridChan=self.DicoVariablePSF["ChanMappingGridChan"]
         RefFreq=self.RefFreq
         FreqBandsFluxRatio=np.zeros((NAlpha,NFreqBand),np.float32)
 
@@ -62,17 +63,19 @@ class ClassPSFServer():
         ListBeamFactorWeightSq=[]
         #print "============"
         for iChannel in range(NFreqBand):
-            ThisSumJonesChan=[]
-            ThisSumJonesChanWeightSq=[]
+            nfreq = len(self.DicoVariablePSF["freqs"][iChannel])
+            ThisSumJonesChan = np.zeros(nfreq,np.float64)
+            ThisSumJonesChanWeightSq = np.zeros(nfreq,np.float64)
             for iMS in range(len(SumJonesChan)):
-                ind=np.where(ChanMappingGrid[iMS]==iChannel)[0]
-                ThisSumJonesChan+=SumJonesChan[iMS][ind].tolist()
-                ThisSumJonesChanWeightSq+=SumJonesChanWeightSq[iMS][ind].tolist()
+                ind = np.where(ChanMappingGrid[iMS]==iChannel)[0]
+                channels = ChanMappingGridChan[iMS][ind]
+                ThisSumJonesChan[channels] += SumJonesChan[iMS][ind]
+                ThisSumJonesChanWeightSq[channels] += SumJonesChanWeightSq[iMS][ind]
             
             #print "== ",iFacet,iChannel,np.sqrt(np.sum(np.array(ThisSumJonesChan))/np.sum(np.array(ThisSumJonesChanWeightSq)))
 
-            ListBeamFactor.append(np.array(ThisSumJonesChan))
-            ListBeamFactorWeightSq.append(np.array(ThisSumJonesChanWeightSq))
+            ListBeamFactor.append(ThisSumJonesChan)
+            ListBeamFactorWeightSq.append(ThisSumJonesChanWeightSq)
 
         # SumListBeamFactor=0
         # NChan=0
@@ -96,6 +99,7 @@ class ClassPSFServer():
             BeamFactorWeightSq=ListBeamFactorWeightSq[iChannel]
             
             ThisFreqs=self.DicoVariablePSF["freqs"][iChannel]
+            print "FreqArrays",len(ThisFreqs),len(BeamFactor)
             #if iFacet==60:
             #    print iChannel,iMS,BeamFactor
             #BeamFactor.fill(1.)

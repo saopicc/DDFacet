@@ -169,11 +169,16 @@ class ClassVisServer():
         # print>>log,sorted(freq_to_grid_band.items())
 
         self.FreqBandsInfos = {}
+        # freq_to_grid_band_chan: mapping from frequency to channel number within its grid band 
+        freq_to_grid_band_chan = {}
         for iBand in range(self.NFreqBands):
-            self.FreqBandsInfos[iBand] = sorted([ freq for freq,band in freq_to_grid_band.iteritems() if band == iBand ])
+            freqlist = sorted([ freq for freq,band in freq_to_grid_band.iteritems() if band == iBand ])
+            self.FreqBandsInfos[iBand] = freqlist
+            freq_to_grid_band_chan.update(dict([ (freq,chan) for chan,freq in enumerate(freqlist)]))
 
         self.FreqBandsInfosDegrid={}
         self.DicoMSChanMapping={}
+        self.DicoMSChanMappingChan={}
         self.DicoMSChanMappingDegridding={}
         # structures initialized here:
         # self.FreqBandsInfosDegrid: a dict, indexed by MS number
@@ -186,6 +191,9 @@ class ClassVisServer():
         # self.DicoMSChanMapping: a dict, indexed by MS number
         #       [iMS] = int array of band numbers, as many as there are channels in the MS. For each channel, gives the gridding band number
         #               (from 0 to NFreqBands-1)
+        # self.DicoMSChanMappingChan: a dict, indexed by MS number
+        #       [iMS] = int array of channel numbers, as many as there are channels in the MS. 
+        #               For each channel, gives its number in the gridding band
 
         for iMS, MS in enumerate(self.ListMS):
             min_freq = (MS.ChanFreq - MS.ChanWidth/2).min()
@@ -195,6 +203,7 @@ class ClassVisServer():
             # map each channel to a gridding band
             bands = [ freq_to_grid_band[freq] for freq in MS.ChanFreq ]
             self.DicoMSChanMapping[iMS] = np.array(bands)
+            self.DicoMSChanMappingChan[iMS] = np.array([ freq_to_grid_band_chan[freq] for freq in MS.ChanFreq ])
 
             # now split the bandwidth into NChanDegridPerMS band, and map each channel to a degridding band
             NChanDegrid = self.GD["MultiFreqs"]["NChanDegridPerMS"] or MS.ChanFreq.size
