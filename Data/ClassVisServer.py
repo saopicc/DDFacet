@@ -215,6 +215,9 @@ class ClassVisServer():
             self.FreqBandsInfosDegrid[iMS] = (edges[:-1] + edges[1:])/2
 
             print>>log,"%s   Bandwidth is %g MHz (%g to %g MHz), gridding bands are %s"%(MS, bw*1e-6, min_freq*1e-6, max_freq*1e-6, ", ".join(map(str,set(bands))))
+            print>>log,"Band mapping: %s"%(" ".join(map(str,bands)))
+            print>>log,"Chan mapping: %s"%(" ".join(map(str,self.DicoMSChanMappingChan[iMS])))
+
 #            print>>log,MS
 
             # print>>log,"FreqBandsInfosDegrid %s"%repr(self.FreqBandsInfosDegrid[iMS])
