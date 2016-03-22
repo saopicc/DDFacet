@@ -10,7 +10,7 @@ log=MyLogger.getLogger("ClassIsland")
 
 
 class ClassIslands():
-    def __init__(self,A,T=None,box=(100,100),MinPerIsland=4,Boost=3,DoPlot=False,FillNoise=True,
+    def __init__(self,A,T=None,box=(100,100),MinPerIsland=4,DeltaXYMin=2,Boost=3,DoPlot=False,FillNoise=True,
                  MaskImage=None):
         self.A=A
         self.T=T
@@ -18,7 +18,7 @@ class ClassIslands():
         self.Noise=None
         self.box=box
         self.MinPerIsland=MinPerIsland
-        self.DeltaXYMin=2
+        self.DeltaXYMin=DeltaXYMin
         self.FitIm=None
         self.FittedComps=None
         self.Boost=Boost
