@@ -311,6 +311,7 @@ class ClassVisServer():
         self.CurrentVisTimes_SinceStart_Sec=0.,0.
         self.iCurrentVisTime=0
         self.iCurrentMS=0
+        print>>log,"Reinit ms iterator [%i / %i]"%(self.iCurrentMS+1,self.nMS)
         self.CurrentFreqBand=0
         self.CurrentVisWeights = self.VisWeights and self.VisWeights[0]   # first time VisWeights might still be unset -- but then CurrentVisWeights will be set later in CalcWeights
         for MS in self.ListMS:
@@ -326,7 +327,7 @@ class ClassVisServer():
             return "EndListMS"
         else:
             self.iCurrentMS+=1
-            print>>log,"Setting next ms [%i / %i]"%(self.iCurrentMS,self.nMS)
+            print>>log,"Setting next ms [%i / %i]"%(self.iCurrentMS+1,self.nMS)
             self.CurrentMS=self.ListMS[self.iCurrentMS]
             self.CurrentFreqBand=0
             self.CurrentVisWeights = self.VisWeights[self.iCurrentMS]

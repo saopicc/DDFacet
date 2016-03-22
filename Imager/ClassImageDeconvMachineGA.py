@@ -118,7 +118,8 @@ class ClassImageDeconvMachine():
         MaskImage=(self.IslandArray[0,0])&(np.logical_not(self._MaskArray[0,0]))
         #MaskImage=(np.logical_not(self._MaskArray[0,0]))
         MaskImage=(np.logical_not(self._MaskArray[0,0]))
-        Islands=ClassIslands.ClassIslands(Dirty[0,0],MaskImage=MaskImage)
+        Islands=ClassIslands.ClassIslands(Dirty[0,0],MaskImage=MaskImage,
+                                          MinPerIsland=0,DeltaXYMin=0)
         Islands.FindAllIslands()
         
 
