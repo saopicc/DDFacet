@@ -1,5 +1,20 @@
 cmake_minimum_required(VERSION 2.8)
 set(BUILD_SHARED_LIBS ON) #we always want shared libs out of this for python extensions
+
+#As per http://permalink.gmane.org/gmane.comp.programming.tools.cmake.user/15952
+IF(DEFINED CMAKE_BUILD_TYPE)
+   IF((CMAKE_BUILD_TYPE STREQUAL "Debug") OR (CMAKE_BUILD_TYPE STREQUAL "Release"))
+      MESSAGE("build type is defined as '${CMAKE_BUILD_TYPE}'")
+      SET(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "Choose the type of build, options are: Debug Release. Current: '${CMAKE_BUILD_TYPE}'")
+   ELSE()
+      MESSAGE("Invalid option for BUILD TYPE, defaulting to release build")
+      SET(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are: Debug Release. Current: '${CMAKE_BUILD_TYPE}'")   
+   ENDIF()
+ELSE()
+   SET(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are: Debug Release. Current: '${CMAKE_BUILD_TYPE}'")
+   message("build type isn't defined")
+ENDIF()
+
 option(ENABLE_VECTORIZATION "Enables support for vectorization" OFF)
 option(ENABLE_i7_TUNING "Enables support for optimized code generation (-march=corei7)" OFF)
 if (${ENABLE_i7_TUNING})
@@ -70,6 +85,7 @@ target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 add_custom_command(OUTPUT _pyWeightingCore.c
 		   COMMAND cython ${CMAKE_CURRENT_SOURCE_DIR}/_pyWeightingCore.pyx -o _pyWeightingCore.c
 		   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+		   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/_pyWeightingCore.pyx
 		   COMMENT "Compiling cython module _pyWeightingCore.pyx"
 		   VERBATIM)
 add_library(_pyWeightingCore _pyWeightingCore.c)
