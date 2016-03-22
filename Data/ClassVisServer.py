@@ -175,6 +175,7 @@ class ClassVisServer():
             freqlist = sorted([ freq for freq,band in freq_to_grid_band.iteritems() if band == iBand ])
             self.FreqBandsInfos[iBand] = freqlist
             freq_to_grid_band_chan.update(dict([ (freq,chan) for chan,freq in enumerate(freqlist)]))
+            print>>log,"Band %d: %d channels centred on %g...%g MHz"%(iBand, len(freqlist), freqlist[0]*1e-6, freqlist[-1]*1e-6)
 
         self.FreqBandsInfosDegrid={}
         self.DicoMSChanMapping={}
