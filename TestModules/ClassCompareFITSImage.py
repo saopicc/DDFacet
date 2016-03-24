@@ -36,7 +36,7 @@ class ClassCompareFITSImage(unittest.TestCase):
             1. Output files directory: Set environment variable "DDFACET_TEST_OUTPUT_DIR"
                                         (defaults to tmp)
             2. Run-produced image name: [TestClassName].run.[ImageIdentifier].fits
-            3. DDFacet logfile: [TestClassName].run.log
+            3. DDFacet logfiles: [TestClassName].run.out.log and [TestClassName].run.err.log
             4. Parset with default overrides, including image prefixes: [TestClassName].run.parset.conf
 
         Tests cases:
