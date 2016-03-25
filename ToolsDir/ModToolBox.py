@@ -256,7 +256,9 @@ def GiveFFTFastSizes(Odd=True,NLim=100000):
         sizes = (sizes[np.newaxis,:] * base**np.array(powers)[:,np.newaxis]).ravel()
     sizes = sizes[np.newaxis,:] * np.array([1,11,13])[:,np.newaxis]
 
-    return np.array(sorted(set(sizes[(sizes<NLim)&(sizes>64)])))    
+    # no need to take set(), since sizes are unique by construction (from prime factors...)
+    return np.array(sorted(sizes[(sizes<NLim)&(sizes>64)]))    
+    # return np.array(sorted(set(sizes[(sizes<NLim)&(sizes>64)])))    
 
 FFTOddSizes  = GiveFFTFastSizes(True,200000)
 FFTEvenSizes = GiveFFTFastSizes(False,200000)
