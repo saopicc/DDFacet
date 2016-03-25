@@ -41,7 +41,7 @@ from DDFacet.Other import ModColor
 
 def EstimateNpix(Npix,Padding=1):
     Npix=int(round(Npix))
-    Odd=False
+    Odd=True
 
     NpixOrig=Npix
     #if Npix%2!=0: Npix+=1
@@ -253,16 +253,15 @@ def GiveFFTFastSizes(Odd=True,NLim=100000):
     """
     sizes = np.array([1])
     for base, powers in [
-             (2,[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] if Odd else [0]),
+             (2,[0] if Odd else xrange(1,20)),
              (3,xrange(15)), (5,xrange(15)), (7,xrange(15)) ]:
         sizes = (sizes[np.newaxis,:] * base**np.array(powers)[:,np.newaxis]).ravel()
     sizes = sizes[np.newaxis,:] * np.array([1,11,13])[:,np.newaxis]
 
     return np.array(sorted(set(sizes[(sizes<NLim)&(sizes>64)])))    
 
-FFTOddSizes=GiveFFTFastSizes(True,60000)
-FFTEvenSizes=GiveFFTFastSizes(False,60000)
-
+FFTOddSizes  = GiveFFTFastSizes(True,200000)
+FFTEvenSizes = GiveFFTFastSizes(False,200000)
 
 def GiveClosestFastSize(n,Odd=True):
     #ind=np.argmin(np.abs(n-FFTOddSizes))

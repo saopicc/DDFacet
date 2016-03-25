@@ -80,7 +80,7 @@ class ClassImageDeconvMachine():
         
         dx0=np.max([dx0,50])
         npix=2*dx0+1
-        npix=ModToolBox.GiveClosestFastSize(npix,Odd=False)
+        npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
 
         self.PSFMargin=(NPSF-npix)/2
 
