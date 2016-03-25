@@ -247,9 +247,7 @@ def GiveFFTFastSizes(Odd=True,NLim=100000):
       "FFTW is best at handling sizes of the form 2^a.3^b.5^c.7^d.11^e.13^f,
        where e+f is either 0 or 1, and the other exponents are arbitrary."
     Returns array of such integer numbers, up to NLim.
-    If Odd, this includes factors of 2, otherwise doesn't.
-    (This is the reverse of the normal meaning of "odd", but I'm leaving it just in case because I don't 
-    want to break Cyril's code)
+    If Odd=True, this does not include factors of 2.
     """
     sizes = np.array([1])
     for base, powers in [
