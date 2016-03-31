@@ -99,7 +99,7 @@ class ClassPSFServer():
             BeamFactorWeightSq=ListBeamFactorWeightSq[iChannel]
             
             ThisFreqs=self.DicoVariablePSF["freqs"][iChannel]
-            print "FreqArrays",len(ThisFreqs),len(BeamFactor)
+#            print "FreqArrays",len(ThisFreqs),len(BeamFactor)
             #if iFacet==60:
             #    print iChannel,iMS,BeamFactor
             #BeamFactor.fill(1.)

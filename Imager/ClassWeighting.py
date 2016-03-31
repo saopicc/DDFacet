@@ -99,7 +99,7 @@ class ClassWeighting():
             del uv
             print>>log,"Accumulating weights (%d/%d)"%(iMS+1, len(uvw_weights_flags_freqs))
             # accumulate onto grid
-            print>>log,weights,index
+            # print>>log,weights,index
             WeightingCore.accumulate_weights_onto_grid_1d(grid,weights.ravel(),index.ravel())
 
         # # this is the only slow part -- takes ~20 mins on CygA data (3 million rows x 256 channels so just under a billion uv-points)
