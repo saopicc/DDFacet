@@ -59,10 +59,12 @@ def read_options():
     OP.add_option('InitDicoModel',help='Image name [%default]')
     OP.add_option('WeightCol')
     
-    OP.OptionGroup("* Images-related options","Images")
+    OP.OptionGroup("* Image-related options","Images")
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
     OP.add_option('PredictModelName',help='Predict Image name [%default]',default='')
-    OP.add_option('SaveIms',help='Image name [%default]')
+    OP.add_option('SaveIms',help='')
+    OP.add_option('SaveImages',help='')
+    OP.add_option('SaveOnly',help='')
 
 
     OP.OptionGroup("* File storing options","Stores")
@@ -87,7 +89,6 @@ def read_options():
     OP.add_option('Precision')
     OP.add_option('Weighting')
     OP.add_option('Robust')
-    OP.add_option('Super')
     OP.add_option("PSFOversize")
     OP.add_option("PSFFacets")
 
@@ -120,10 +121,7 @@ def read_options():
     OP.add_option("NChanBeamPerMS")
     OP.add_option("CenterNorm")
     OP.add_option("FITSFile")
-    OP.add_option("FITSFeed")   
-    OP.add_option("FITSLAxis")  
-    OP.add_option("FITSMAxis")  
-    OP.add_option("FITSVerbosity")
+    OP.add_option("FITSFeed")  # XY or RL
 
     OP.OptionGroup("* DDE Solutions","DDESolutions")
     OP.add_option("DDSols")
@@ -163,12 +161,6 @@ def read_options():
     OP.add_option("CycleFactor")
     OP.add_option("PeakFactor")
     OP.add_option("RMSFactor")
-
-    OP.OptionGroup("* Debugging","Debugging")
-    OP.add_option("SaveIntermediateDirtyImages")
-    OP.add_option("PauseGridWorkers")
-    OP.add_option("MemoryLogging")
-
  
     OP.Finalise()
     OP.ReadInput()
@@ -188,24 +180,21 @@ def test():
 
 
 def main(OP=None):
+    
+
+
     if OP==None:
         OP = MyPickle.Load(SaveFile)
 
     DicoConfig=OP.DicoConfig
+    
 
-    MyLogger.enableMemoryLogging(DicoConfig["Debugging"]["MemoryLogging"])    
 
     
     global IdSharedMem
     IdSharedMem=str(int(os.getpid()))+"."
 
     ImageName=DicoConfig["Images"]["ImageName"]
-
-    dirname = os.path.dirname(ImageName)
-    if not os.path.exists(dirname) and not dirname == "":
-        os.mkdir(dirname)
-
-    MyLogger.logToFile(ImageName+".log")
     OP.ToParset("%s.parset"%ImageName)
 
     NpShared.DelAll(IdSharedMem)
@@ -251,7 +240,7 @@ if __name__=="__main__":
         print>>log, ModColor.Str("DDFacet ended successfully",col="green")
     except:
         print>>log, ModColor.Str("There was a problem, please help yourself",col="red")
-        print>>log, traceback.format_exc()
+        traceback.print_exc()
         NpShared.DelAll(IdSharedMem)
 
     # main(options)
