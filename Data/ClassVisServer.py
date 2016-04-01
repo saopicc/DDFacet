@@ -279,7 +279,7 @@ class ClassVisServer():
                                               Super=self.Super)
 
         self.CurrentVisWeights = self.VisWeights[0]
-        print>>log,self.CurrentVisWeights.mean(),self.CurrentVisWeights
+        # print>>log,self.CurrentVisWeights.mean(),self.CurrentVisWeights
         # self.CalcMeanBeam()
 
     def CalcMeanBeam(self):
