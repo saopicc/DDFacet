@@ -43,5 +43,18 @@ export DDFACET_DIR=$KILLMS_DIR
 export PYTHONPATH=$PYTHONPATH:$KILLMS_DIR
 export LD_LIBRARY_PATH=$KILLMS_DIR/DDFacet/cbuild/Gridder:$LD_LIBRARY_PATH
 export PATH=$KILLMS_DIR/killMS2:$KILLMS_DIR/SkyModel:$KILLMS_DIR/DDFacet:$PATH
+export DDFACET_TEST_DATA_DIR=[folder where you keep the acceptance test data and images]
+export DDFACET_TEST_OUTPUT_DIR=[folder where you want the acceptance test output to be dumped]
 ```
 
+## Acceptance tests
+Most of the core use cases will in the nearby future have reference images and an automated acceptance test.
+You can run the automated tests by grabbing the latest set of measurements and reference images from the web and
+extracting them to the directory you set up in your **DDFACET_TEST_DATA_DIR** environment variable. You can run 
+the automated tests by navigating to your DDFacet directory and running nosetests. 
+
+Each of the test cases is labeled by a class name and has reference images and a parset file with the same
+name, ie. if the test case that has failed is called "TestWidefieldDirty" the reference images will be called the same. You should investigate the reason for any severe discrepancies between the output of the test case and the images produced by your changed codebase. See the docstring at the top of the class ClassCompareFITSImage for help and
+filename conventions.
+
+Acceptance test data can be found at [TODO: somewhere we can put a shizload of data]
