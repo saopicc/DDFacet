@@ -76,7 +76,7 @@ class ClassImageDeconvMachine():
             print>>log, "PSF extends to [%i] from center"%(dx0)
         
         npix=2*dx0+1
-        npix=ModToolBox.GiveClosestFastSize(npix,Odd=False)
+        npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
 
         self.PSFMargin=(NPSF-npix)/2
 
