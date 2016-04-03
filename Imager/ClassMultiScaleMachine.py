@@ -115,7 +115,7 @@ class ClassMultiScaleMachine():
         dx0=np.max([dx0,200])
         dx0=np.min([dx0,NPSF/2])
         npix=2*dx0+1
-        npix=ModToolBox.GiveClosestFastSize(npix,Odd=False)
+        npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
 
 
         #npix=1
