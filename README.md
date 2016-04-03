@@ -28,6 +28,7 @@ Build a few libraries:
 ```
 
 (cd DDFacet/ ; mkdir cbuild ; cd cbuild ; cmake -DCMAKE_BUILD_TYPE=Release .. ; make)
+# or -DCMAKE_BUILD_TYPE=RelWithDebInfo for developers: this includes debugging symbols
 (cd ./killMS2/Predict ; make)
 (cd ./killMS2/Predict ; make)
 (cd killMS2/Array/Dot ; make)
