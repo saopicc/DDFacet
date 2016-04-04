@@ -82,6 +82,27 @@ class ClassImagerDeconv():
         #os.system("rm %s/*.png 2> /dev/null"%self.PNGDir)
         self._save_intermediate_grids = self.GD["Debugging"]["SaveIntermediateDirtyImages"]
         
+        # Oleg's "new" interface: set up which output images will be generated
+        # --SaveImages abc means save defaults plus abc
+        # --SaveOnly abc means only save abc
+        # --SaveImages all means save all
+        saveimages = self.GD["Images"]["SaveImages"]
+        saveonly = self.GD["Images"]["SaveOnly"]
+        if saveimages.lower() == "all" or saveonly.lower() == "all":
+            self._saveims = set([chr(x) for x in range(128)])  # all characters
+        else:
+            self._saveims = set(saveimages) | set(saveonly)
+        old_interface_saveims = self.GD["Images"]["SaveIms"] 
+
+        if "Model" in old_interface_saveims:
+            self._saveims.update("M")
+        if "Alpha" in old_interface_saveims:
+            self._saveims.update("A")
+        if "Model_i" in old_interface_saveims:
+            self._saveims.update("o")
+        if "Residual_i" in old_interface_saveims:
+            self._saveims.update("e")
+
 
     def Init(self):
         DC=self.GD
@@ -562,27 +583,6 @@ class ClassImagerDeconv():
     def main(self,NMajor=None):
         if NMajor==None:
             NMajor=self.NMajor
-
-        # Oleg's "new" interface: set up which output images will be generated
-        # --SaveImages abc means save defaults plus abc
-        # --SaveOnly abc means only save abc
-        # --SaveImages all means save all
-        saveimages = self.GD["Images"]["SaveImages"]
-        saveonly = self.GD["Images"]["SaveOnly"]
-        if saveimages.lower() == "all" or saveonly.lower() == "all":
-            self._saveims = set([chr(x) for x in range(128)])  # all characters
-        else:
-            self._saveims = set(saveimages) | set(saveonly)
-        old_interface_saveims = self.GD["Images"]["SaveIms"] 
-
-        if "Model" in old_interface_saveims:
-            self._saveims.update("M")
-        if "Alpha" in old_interface_saveims:
-            self._saveims.update("A")
-        if "Model_i" in old_interface_saveims:
-            self._saveims.update("o")
-        if "Residual_i" in old_interface_saveims:
-            self._saveims.update("e")
 
         self.GiveDirty()
         self.setPSF()
