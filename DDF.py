@@ -28,8 +28,7 @@ from DDFacet.Other import ModColor
 log=MyLogger.getLogger("DDFacet")
 
 from DDFacet.Parset import MyOptParse
-
-
+import subprocess      
 
 
 global Parset
@@ -65,6 +64,13 @@ def read_options():
     OP.add_option('SaveIms',help='')
     OP.add_option('SaveImages',help='')
     OP.add_option('SaveOnly',help='')
+    OP.add_option('OpenImages',
+                  help="Opens images after exiting successfully."
+                       "List, accepts any combination of: "
+                       "'Dirty','DirtyCorr','PSF','Model','Residual',"
+                       "'Restored','Alpha','Norm','NormFacets'.")
+    OP.add_option('DefaultImageViewer', help="Default image viewer")
+    OP.add_option('MultiFreqMap', help="Outputs multi-frequency cube (NFreqBands) instead of average map")
 
 
     OP.OptionGroup("* File storing options","Stores")
@@ -89,6 +95,7 @@ def read_options():
     OP.add_option('Precision')
     OP.add_option('Weighting')
     OP.add_option('Robust')
+    OP.add_option('Super')
     OP.add_option("PSFOversize")
     OP.add_option("PSFFacets")
 
@@ -121,7 +128,10 @@ def read_options():
     OP.add_option("NChanBeamPerMS")
     OP.add_option("CenterNorm")
     OP.add_option("FITSFile")
-    OP.add_option("FITSFeed")  # XY or RL
+    OP.add_option("FITSFeed")   
+    OP.add_option("FITSLAxis")  
+    OP.add_option("FITSMAxis")  
+    OP.add_option("FITSVerbosity")
 
     OP.OptionGroup("* DDE Solutions","DDESolutions")
     OP.add_option("DDSols")
@@ -161,6 +171,11 @@ def read_options():
     OP.add_option("CycleFactor")
     OP.add_option("PeakFactor")
     OP.add_option("RMSFactor")
+
+    OP.OptionGroup("* Debugging","Debugging")
+    OP.add_option("SaveIntermediateDirtyImages")
+    OP.add_option("PauseGridWorkers")
+    OP.add_option("MemoryLogging")
  
     OP.Finalise()
     OP.ReadInput()
@@ -180,21 +195,24 @@ def test():
 
 
 def main(OP=None):
-    
-
-
     if OP==None:
         OP = MyPickle.Load(SaveFile)
 
     DicoConfig=OP.DicoConfig
-    
 
+    MyLogger.enableMemoryLogging(DicoConfig["Debugging"]["MemoryLogging"])    
 
     
     global IdSharedMem
     IdSharedMem=str(int(os.getpid()))+"."
 
     ImageName=DicoConfig["Images"]["ImageName"]
+
+    dirname = os.path.dirname(ImageName)
+    if not os.path.exists(dirname) and not dirname == "":
+        os.mkdir(dirname)
+
+    MyLogger.logToFile(ImageName+".log")
     OP.ToParset("%s.parset"%ImageName)
 
     NpShared.DelAll(IdSharedMem)
@@ -214,6 +232,48 @@ def main(OP=None):
         Imager.GiveDirty()
     if "PSF" in Mode:
         Imager.MakePSF()
+
+    #open default viewer, these options should match those in ClassDeconvMachine if changed:
+    viewer = DicoConfig["Images"]["DefaultImageViewer"]
+    for img in DicoConfig["Images"]["OpenImages"]:
+        if img == "Dirty":
+            ret = subprocess.call("%s %s.dirty.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open dirty image\n",col="yellow")
+        elif img == "DirtyCorr":
+            ret = subprocess.call("%s %s.dirty.corr.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open dirtyCorr image\n",col="yellow")
+        elif img == "PSF":
+            ret = subprocess.call("%s %s.psf.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open PSF image\n",col="yellow")
+        elif img == "Model":
+            ret = subprocess.call("%s %s.model.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open model image\n",col="yellow")
+        elif img == "Residual":
+            ret = subprocess.call("%s %s.residual.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open residual image\n",col="yellow")
+        elif img == "Restored":
+            ret = subprocess.call("%s %s.restored.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open restored image\n",col="yellow")
+        elif img == "Alpha":
+            ret = subprocess.call("%s %s.alpha.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open alpha image\n",col="yellow")
+        elif img == "Norm":
+            ret = subprocess.call("%s %s.Norm.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open norm image\n",col="yellow")
+        elif img == "NormFacets":
+            ret = subprocess.call("%s %s.NormFacets.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            if ret:
+                print>>log, ModColor.Str("\nCan't open normfacets image\n",col="yellow")
+        else:
+            print>>log, ModColor.Str("\nDon't understand %s, not opening that image\n" % img,col="yellow")
 
     NpShared.DelAll(IdSharedMem)
 
@@ -240,11 +300,9 @@ if __name__=="__main__":
         print>>log, ModColor.Str("DDFacet ended successfully",col="green")
     except:
         print>>log, ModColor.Str("There was a problem, please help yourself",col="red")
-        traceback.print_exc()
+        print>>log, traceback.format_exc()
         NpShared.DelAll(IdSharedMem)
 
     # main(options)
     
-    
-        
     
