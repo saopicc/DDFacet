@@ -89,7 +89,9 @@ class ClassImagerDeconv():
         
         MSName0 = MSName = DC["VisData"]["MSName"]
 
-        if MSName.endswith(".txt"):#DC["VisData"]["MSListFile"]!="":
+        if type(MSName) is list:
+            print>>log,"multi-MS mode"
+        elif MSName.endswith(".txt"):
             f=open(MSName)#DC["VisData"]["MSListFile"])
             Ls=f.readlines()
             f.close()

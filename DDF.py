@@ -28,8 +28,16 @@ from DDFacet.Other import ModColor
 log=MyLogger.getLogger("DDFacet")
 
 from DDFacet.Parset import MyOptParse
-import subprocess      
+import subprocess
 
+'''
+The defaults for all the user commandline arguments are stored in a parset configuration file
+called DefaultParset.cfg. When you add a new option you must specify meaningful defaults in
+there.
+
+These options can be overridden by specifying a subset of the parset options in a user parset file
+passed as the first commandline argument. These options will override the corresponding defaults.
+'''
 
 global Parset
 Parset=ReadCFG.Parset("%s/DDFacet/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
@@ -44,8 +52,15 @@ def read_options():
 
     OP=MyOptParse.MyOptParse(usage='Usage: %prog --ms=somename.MS <options>',version='%prog version 1.0',description=desc,
                              DefaultDict=D)
+    '''
+    These options will be read from command line arguments you can specify parset options
+    in Default.parset.
 
+    A default value here will override any user parset value, so set the defaults
+    with caution, as it is counter-intuitive.
 
+    TODO: These options should be created automatically.
+    '''
     OP.OptionGroup("* Parallel", "Parallel")
     OP.add_option('Enable')
     OP.add_option('NCPU')
@@ -60,7 +75,7 @@ def read_options():
     
     OP.OptionGroup("* Image-related options","Images")
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
-    OP.add_option('PredictModelName',help='Predict Image name [%default]',default='')
+    OP.add_option('PredictModelName',help='Predict Image name [%default]')
     OP.add_option('SaveIms',help='')
     OP.add_option('SaveImages',help='')
     OP.add_option('SaveOnly',help='')
@@ -90,7 +105,7 @@ def read_options():
     OP.add_option('DistMaxToCore')
 
     OP.OptionGroup("* Imager Global parameters","ImagerGlobal")
-    OP.add_option('Mode',help='Default %default',default="Clean")
+    OP.add_option('Mode',help='Default %default')
     OP.add_option('PolMode')
     OP.add_option('Precision')
     OP.add_option('Weighting')
@@ -302,7 +317,7 @@ if __name__=="__main__":
         print>>log, ModColor.Str("There was a problem, please help yourself",col="red")
         print>>log, traceback.format_exc()
         NpShared.DelAll(IdSharedMem)
-
+        sys.exit(1) #Should at least give the command line an indication of failure
     # main(options)
     
     
