@@ -6,7 +6,7 @@
 #include "GridderSmearPols.h"
 #include "complex.h"
 #include <omp.h>
-#include "Tools.h"
+//#include "Tools.h"
 #include "JonesServer.c"
 
 
@@ -311,7 +311,7 @@ void gridderWPol(PyArrayObject *grid,
 
     int visChan;
     
-    float factorFreq=GiveFreqStep();
+    float factorFreq=1;//GiveFreqStep();
     //printf("factorFreq %f\n",factorFreq);
     
 
