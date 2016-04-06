@@ -398,25 +398,16 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             D[iFacet]["Polygon"]=polygon
             lPoly,mPoly=polygon.T
 
+            #This fits a bounding box around the polygon (note not axis aligned):
             ThisDiam,(l0,l1,m0,m1)=GiveDiam(polygon)
-
-            X=(np.random.rand(Np))*ThisDiam+l0
-            Y=(np.random.rand(Np))*ThisDiam+m0
-            XY = np.dstack((X, Y))
-            XY_flat = XY.reshape((-1, 2))
-
-            mpath = Path( polygon )
-            XY = np.dstack((X, Y))
-            XY_flat = XY.reshape((-1, 2))
-            mask_flat = mpath.contains_points(XY_flat)
-            mask=mask_flat.reshape(X.shape)
-            
-            lc=np.sum(X*mask)/np.sum(mask)
-            mc=np.sum(Y*mask)/np.sum(mask)
-            dl=np.max(np.abs(X[mask==1]-lc))
-            dm=np.max(np.abs(Y[mask==1]-mc))
-            diam=2*np.max([dl,dm])
-            
+            #Get the centre of the bounding box:
+            lc=(l1+l0)/2.
+            mc=(m1+m0)/2.
+            dl=l1-l0
+            dm=m1-m0
+            diam=np.max([dl,dm]) #Create a square grid
+            #note: if the shape is aligned to an axis other than RA,DEC then this simple strategy does not minimize the facet grid area
+            #A more complicated solution may include fitting an axis-aligned box and passing the facet rotation around the n-axis to the gridder.
             
             l_m_Diam[iFacet,0]=lc
             l_m_Diam[iFacet,1]=mc
