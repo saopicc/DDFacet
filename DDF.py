@@ -25,7 +25,11 @@ import sys
 from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("DDFacet")
+from DDFacet.Other import ClassTimeIt
+
+import SkyModel.Other.ModColor   # because it's duplicated there
+from DDFacet.Other import progressbar
+log = None
 
 from DDFacet.Parset import MyOptParse
 import subprocess
@@ -50,7 +54,7 @@ def read_options():
 
     desc="""Questions and suggestions: cyril.tasse@obspm.fr"""
 
-    OP=MyOptParse.MyOptParse(usage='Usage: %prog --ms=somename.MS <options>',version='%prog version 1.0',description=desc,
+    OP=MyOptParse.MyOptParse(usage='Usage: %prog [parset file] <options>',version='%prog version 1.0',description=desc,
                              DefaultDict=D)
     '''
     These options will be read from command line arguments you can specify parset options
@@ -186,12 +190,15 @@ def read_options():
     OP.OptionGroup("* Debugging","Debugging")
     OP.add_option("SaveIntermediateDirtyImages")
     OP.add_option("PauseGridWorkers")
-    OP.add_option("MemoryLogging")
 
+
+    OP.OptionGroup("* Logging","Logging")
+    OP.add_option("MemoryLogging")
+    OP.add_option("Boring")
+    OP.add_option("AppendLogFile")
  
     OP.Finalise()
     OP.ReadInput()
-    OP.Print()
 
     
     # #optcomplete.autocomplete(opt)
@@ -212,19 +219,31 @@ def main(OP=None):
 
     DicoConfig=OP.DicoConfig
 
-    MyLogger.enableMemoryLogging(DicoConfig["Debugging"]["MemoryLogging"])    
-
-    
-    global IdSharedMem
-    IdSharedMem=str(int(os.getpid()))+"."
-
+    # determine output image name make log file
     ImageName=DicoConfig["Images"]["ImageName"]
 
     dirname = os.path.dirname(ImageName)
     if not os.path.exists(dirname) and not dirname == "":
         os.mkdir(dirname)
 
-    MyLogger.logToFile(ImageName+".log")
+    MyLogger.logToFile(ImageName+".log",append=DicoConfig["Logging"]["AppendLogFile"])
+    global log 
+    log = MyLogger.getLogger("DDFacet")
+    print>>log,"starting DDFacet"
+
+    # disable colors and progressbars if requested
+    ModColor.silent = SkyModel.Other.ModColor.silent = progressbar.ProgressBar.silent = DicoConfig["Logging"]["Boring"]
+
+    # print current options
+    OP.Print(dest=log)
+
+    # enable memory logging
+    MyLogger.enableMemoryLogging(DicoConfig["Logging"]["MemoryLogging"])    
+
+    
+    global IdSharedMem
+    IdSharedMem=str(int(os.getpid()))+"."
+
     OP.ToParset("%s.parset"%ImageName)
 
     NpShared.DelAll(IdSharedMem)
@@ -290,6 +309,8 @@ def main(OP=None):
     NpShared.DelAll(IdSharedMem)
 
 if __name__=="__main__":
+    T = ClassTimeIt.ClassTimeIt()
+
     os.system('clear')
     logo.print_logo()
 
@@ -299,9 +320,8 @@ if __name__=="__main__":
     TestParset=ReadCFG.Parset(ParsetFile)
     if TestParset.Success==True:
         #global Parset
-        
         Parset.update(TestParset)
-        print >>log,ModColor.Str("Successfully read %s parset"%ParsetFile)
+        print>>log,ModColor.Str("Successfully read %s parset"%ParsetFile)
 
     OP=read_options()
 
@@ -309,9 +329,9 @@ if __name__=="__main__":
     #main(OP)
     try:
         main(OP)
-        print>>log, ModColor.Str("DDFacet ended successfully",col="green")
+        print>>log, ModColor.Str("DDFacet ended successfully after %s"%T.timehms(),col="green")
     except:
-        print>>log, ModColor.Str("There was a problem, please help yourself",col="red")
+        print>>log, ModColor.Str("There was a problem after %s, please help yourself"%T.timehms(),col="red")
         print>>log, traceback.format_exc()
         NpShared.DelAll(IdSharedMem)
         sys.exit(1) #Should at least give the command line an indication of failure

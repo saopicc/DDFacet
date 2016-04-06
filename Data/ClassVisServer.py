@@ -184,7 +184,7 @@ class ClassVisServer():
                 ind=np.where(ThisMappingDegrid==iFreqBand)[0]
                 MeanFreqDegrid[iFreqBand]=np.mean(ThisFreqs[ind])
             self.FreqBandsInfosDegrid[iMS]=MeanFreqDegrid
-            print MS
+            print>>log,MS
             
         self.RefFreq=np.mean(self.ListFreqs)
 

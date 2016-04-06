@@ -1,4 +1,5 @@
 import os
+import sys
 import ModColor
 
 class ClassPrint():
@@ -16,13 +17,13 @@ class ClassPrint():
         rows, columns = os.popen('stty size', 'r').read().split()
         return int(columns)
 
-    def Print(self,par,value,value2=None):
+    def Print(self,par,value,value2=None,dest=sys.stdin):
         parout=" - %s %s"%(par,"."*(self.LeftW-len(par)))
         if value2==None:
             valueOut=value
         else:
             valueOut="%s%s"%(value.ljust(self.WV0),(""" "%s" """%value2).rjust(self.WV1))
-        print "%s = %s"%(parout,valueOut)
+        print>>dest,"%s = %s"%(parout,valueOut)
         
     def Print2(self,par,value,helpit,col="white"):
         WidthTerm=self.getWidth()
