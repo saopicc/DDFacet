@@ -63,7 +63,8 @@ class ClassMS():
 
     def GiveMainTable (self,**kw):
         """Returns main MS table, applying TaQL selection if any"""
-        t = table(self.MSName,ack=False,**kw)
+        ack = kw.pop("ack", False)
+        t = table(self.MSName,ack=ack,**kw)
 
         if self.TaQL:
             t = t.query(self.TaQL)
