@@ -335,12 +335,12 @@ if __name__=="__main__":
             Parset.update(TestParset)
             messages.append("Successfully read %s parset"%ParsetFile)
         else:
-            OP.error("Argument must be a valid parset file. Use -h for help.")
+            OP.ExitWithError("Argument must be a valid parset file. Use -h for help.")
             sys.exit(1)
         # re-read options, since defaults will have been updated by the parset
         OP = read_options()
     elif len(args):
-        OP.error("Incorrect number of arguments. Use -h for help.")
+        OP.ExitWithError("Incorrect number of arguments. Use -h for help.")
         sys.exit(1)
 
     try:
