@@ -47,7 +47,13 @@ class MyOptParse():
         self.options, self.arguments = self.opt.parse_args()
         self.GiveDicoConfig()
         self.DicoConfig=self.DefaultDict
-        
+    
+    def GiveArguments(self):
+        return self.arguments
+
+    def ExitWithError(self,message):
+        self.opt.error(message)
+
     def GiveDicoConfig(self):
         DicoDest=vars(self.options)
         for key in DicoDest.keys():

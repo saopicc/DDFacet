@@ -213,26 +213,33 @@ def test():
     options=read_options()
 
 
-def main(OP=None):
+def main(OP=None,messages=[]):
     if OP==None:
         OP = MyPickle.Load(SaveFile)
 
     DicoConfig=OP.DicoConfig
 
-    # determine output image name make log file
+    # determine output image name to make a log file
     ImageName=DicoConfig["Images"]["ImageName"]
-
+    # create directory if it exists
     dirname = os.path.dirname(ImageName)
     if not os.path.exists(dirname) and not dirname == "":
         os.mkdir(dirname)
 
+    # setup logging
     MyLogger.logToFile(ImageName+".log",append=DicoConfig["Logging"]["AppendLogFile"])
     global log 
     log = MyLogger.getLogger("DDFacet")
-    print>>log,"starting DDFacet"
 
     # disable colors and progressbars if requested
     ModColor.silent = SkyModel.Other.ModColor.silent = progressbar.ProgressBar.silent = DicoConfig["Logging"]["Boring"]
+
+    if messages:
+        if not DicoConfig["Logging"]["Boring"]:
+            os.system('clear')
+            logo.print_logo()
+        for msg in messages:
+            print>>log,msg
 
     # print current options
     OP.Print(dest=log)
@@ -311,24 +318,33 @@ def main(OP=None):
 if __name__=="__main__":
     T = ClassTimeIt.ClassTimeIt()
 
-    os.system('clear')
-    logo.print_logo()
+    # parset should have been read in by now
+    OP = read_options()
+    args = OP.GiveArguments()
 
+    # collect messages in a list here because I don't want to log them until the logging system
+    # is set up in main()
+    messages = [ "starting DDFacet (%s)"%" ".join(sys.argv),
+                 "working directory is %s"%os.getcwd() ]
 
-    ParsetFile=sys.argv[1]
+    # single argument is a parset to read
+    if len(args) == 1:
+        ParsetFile = args[0]
+        TestParset = ReadCFG.Parset(ParsetFile)
+        if TestParset.Success==True:
+            Parset.update(TestParset)
+            messages.append("Successfully read %s parset"%ParsetFile)
+        else:
+            OP.error("Argument must be a valid parset file. Use -h for help.")
+            sys.exit(1)
+        # re-read options, since defaults will have been updated by the parset
+        OP = read_options()
+    elif len(args):
+        OP.error("Incorrect number of arguments. Use -h for help.")
+        sys.exit(1)
 
-    TestParset=ReadCFG.Parset(ParsetFile)
-    if TestParset.Success==True:
-        #global Parset
-        Parset.update(TestParset)
-        print>>log,ModColor.Str("Successfully read %s parset"%ParsetFile)
-
-    OP=read_options()
-
-
-    #main(OP)
     try:
-        main(OP)
+        main(OP,messages)
         print>>log, ModColor.Str("DDFacet ended successfully after %s"%T.timehms(),col="green")
     except:
         print>>log, ModColor.Str("There was a problem after %s, please help yourself"%T.timehms(),col="red")
