@@ -5,7 +5,7 @@
 From an Ubuntu 14.04 base:
 
 ```
-sudo apt-get install git python-pip python-casacore libfftw3-dev python-pyephem python-numexpr cython python-meqtrees-cattery
+sudo apt-get install git python-pip python-casacore libfftw3-dev python-pyephem python-numexpr cython cmake python-meqtrees-cattery
 sudo pip install SharedArray
 sudo pip install Polygon2
 sudo pip install pyFFTW
@@ -28,6 +28,7 @@ Build a few libraries:
 ```
 
 (cd DDFacet/ ; mkdir cbuild ; cd cbuild ; cmake -DCMAKE_BUILD_TYPE=Release .. ; make)
+# or -DCMAKE_BUILD_TYPE=RelWithDebInfo for developers: this includes debugging symbols
 (cd ./killMS2/Predict ; make)
 (cd ./killMS2/Predict ; make)
 (cd killMS2/Array/Dot ; make)
@@ -41,7 +42,7 @@ Add this to your ``.bashrc``
 export KILLMS_DIR=$HOME/projects   ### or whereever you've git cloned the repos
 export DDFACET_DIR=$KILLMS_DIR
 export PYTHONPATH=$PYTHONPATH:$KILLMS_DIR
-export LD_LIBRARY_PATH=$KILLMS_DIR/DDFacet/Gridder:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$KILLMS_DIR/DDFacet/cbuild/Gridder:$LD_LIBRARY_PATH
 export PATH=$KILLMS_DIR/killMS2:$KILLMS_DIR/SkyModel:$KILLMS_DIR/DDFacet:$PATH
 export DDFACET_TEST_DATA_DIR=[folder where you keep the acceptance test data and images]
 export DDFACET_TEST_OUTPUT_DIR=[folder where you want the acceptance test output to be dumped]
