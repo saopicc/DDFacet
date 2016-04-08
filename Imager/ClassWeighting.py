@@ -65,7 +65,8 @@ class ClassWeighting():
         VisWeights = VisWeights.astype(np.float64) * ~flags
         # VisWeights *= ~flags
 
-        if Weighting=="Natural":
+        Weighting = Weighting.lower()
+        if Weighting == "natural":
             print>>log, "Weighting in Natural mode"
             return VisWeights
         print>>log,"initializing weighting grid"
@@ -119,19 +120,21 @@ class ClassWeighting():
         # reduce(gridinc,xyw_iter)
         # print>>log,"weight grid computed"
 
-        if Weighting == "Uniform":
+        if Weighting == "uniform":
 #            print>>log,"adjusting grid to uniform weight"
  #           grid[grid!=0] = 1/grid[grid!=0]
-            print>>log,("applying uniform weighting (super=%.2f)"%Super)
+            print>>log,("applying Uniform weighting (super=%.2f)"%Super)
             VisWeights /= grid[index]
 
-        elif Weighting == "Briggs":
-            print>>log,("applying briggs weighting (robust=%.2f, super=%.2f)"%(Robust, Super))
+        elif Weighting == "briggs" or Weighting == "robust":
+            print>>log,("applying Briggs weighting (robust=%.2f, super=%.2f)"%(Robust, Super))
             avgW = (grid**2).sum() / grid.sum()
             numeratorSqrt = 5.0 * 10**(-Robust)
             sSq = numeratorSqrt**2 / avgW
             grid = 1/(1+grid*sSq)
             VisWeights *= grid[index]
+        else:
+            raise ValueError("unknown weighting \"%s\""%Weighting)
 
         print>>log,"weights computed"
         return VisWeights
