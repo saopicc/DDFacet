@@ -25,7 +25,11 @@ import sys
 from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("DDFacet")
+from DDFacet.Other import ClassTimeIt
+
+import SkyModel.Other.ModColor   # because it's duplicated there
+from DDFacet.Other import progressbar
+log = None
 
 from DDFacet.Parset import MyOptParse
 import subprocess
@@ -50,7 +54,7 @@ def read_options():
 
     desc="""Questions and suggestions: cyril.tasse@obspm.fr"""
 
-    OP=MyOptParse.MyOptParse(usage='Usage: %prog --ms=somename.MS <options>',version='%prog version 1.0',description=desc,
+    OP=MyOptParse.MyOptParse(usage='Usage: %prog [parset file] <options>',version='%prog version 1.0',description=desc,
                              DefaultDict=D)
     '''
     These options will be read from command line arguments you can specify parset options
@@ -190,11 +194,14 @@ def read_options():
     OP.OptionGroup("* Debugging","Debugging")
     OP.add_option("SaveIntermediateDirtyImages")
     OP.add_option("PauseGridWorkers")
+
+    OP.OptionGroup("* Logging","Logging")
     OP.add_option("MemoryLogging")
+    OP.add_option("Boring")
+    OP.add_option("AppendLogFile")
  
     OP.Finalise()
     OP.ReadInput()
-    OP.Print()
 
     
     # #optcomplete.autocomplete(opt)
@@ -209,25 +216,44 @@ def test():
     options=read_options()
 
 
-def main(OP=None):
+def main(OP=None,messages=[]):
     if OP==None:
         OP = MyPickle.Load(SaveFile)
 
     DicoConfig=OP.DicoConfig
 
-    MyLogger.enableMemoryLogging(DicoConfig["Debugging"]["MemoryLogging"])    
+    # determine output image name to make a log file
+    ImageName=DicoConfig["Images"]["ImageName"]
+    # create directory if it exists
+    dirname = os.path.dirname(ImageName)
+    if not os.path.exists(dirname) and not dirname == "":
+        os.mkdir(dirname)
+
+    # setup logging
+    MyLogger.logToFile(ImageName+".log",append=DicoConfig["Logging"]["AppendLogFile"])
+    global log 
+    log = MyLogger.getLogger("DDFacet")
+
+    # disable colors and progressbars if requested
+    ModColor.silent = SkyModel.Other.ModColor.silent = progressbar.ProgressBar.silent = DicoConfig["Logging"]["Boring"]
+
+    if messages:
+        if not DicoConfig["Logging"]["Boring"]:
+            os.system('clear')
+            logo.print_logo()
+        for msg in messages:
+            print>>log,msg
+
+    # print current options
+    OP.Print(dest=log)
+
+    # enable memory logging
+    MyLogger.enableMemoryLogging(DicoConfig["Logging"]["MemoryLogging"])    
 
     
     global IdSharedMem
     IdSharedMem=str(int(os.getpid()))+"."
 
-    ImageName=DicoConfig["Images"]["ImageName"]
-
-    dirname = os.path.dirname(ImageName)
-    if not os.path.exists(dirname) and not dirname == "":
-        os.mkdir(dirname)
-
-    MyLogger.logToFile(ImageName+".log")
     OP.ToParset("%s.parset"%ImageName)
 
     NpShared.DelAll(IdSharedMem)
@@ -293,28 +319,38 @@ def main(OP=None):
     NpShared.DelAll(IdSharedMem)
 
 if __name__=="__main__":
-    os.system('clear')
-    logo.print_logo()
+    T = ClassTimeIt.ClassTimeIt()
 
+    # parset should have been read in by now
+    OP = read_options()
+    args = OP.GiveArguments()
 
-    ParsetFile=sys.argv[1]
+    # collect messages in a list here because I don't want to log them until the logging system
+    # is set up in main()
+    messages = [ "starting DDFacet (%s)"%" ".join(sys.argv),
+                 "working directory is %s"%os.getcwd() ]
 
-    TestParset=ReadCFG.Parset(ParsetFile)
-    if TestParset.Success==True:
-        #global Parset
-        
-        Parset.update(TestParset)
-        print >>log,ModColor.Str("Successfully read %s parset"%ParsetFile)
+    # single argument is a parset to read
+    if len(args) == 1:
+        ParsetFile = args[0]
+        TestParset = ReadCFG.Parset(ParsetFile)
+        if TestParset.Success==True:
+            Parset.update(TestParset)
+            messages.append("Successfully read %s parset"%ParsetFile)
+        else:
+            OP.ExitWithError("Argument must be a valid parset file. Use -h for help.")
+            sys.exit(1)
+        # re-read options, since defaults will have been updated by the parset
+        OP = read_options()
+    elif len(args):
+        OP.ExitWithError("Incorrect number of arguments. Use -h for help.")
+        sys.exit(1)
 
-    OP=read_options()
-
-
-    #main(OP)
     try:
-        main(OP)
-        print>>log, ModColor.Str("DDFacet ended successfully",col="green")
+        main(OP,messages)
+        print>>log, ModColor.Str("DDFacet ended successfully after %s"%T.timehms(),col="green")
     except:
-        print>>log, ModColor.Str("There was a problem, please help yourself",col="red")
+        print>>log, ModColor.Str("There was a problem after %s, please help yourself"%T.timehms(),col="red")
         print>>log, traceback.format_exc()
         NpShared.DelAll(IdSharedMem)
         sys.exit(1) #Should at least give the command line an indication of failure

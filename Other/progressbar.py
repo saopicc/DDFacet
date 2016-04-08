@@ -11,6 +11,9 @@ import sys
 import time as timemod
 import ModColor
 
+def disableBars():
+    ProgressBar.silent = 1
+
 def test():
     pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Solving ", HeaderSize=10,TitleSize=13)
     nt=10
