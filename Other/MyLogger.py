@@ -37,25 +37,27 @@ def _VmB(VmKey,statusfile=None):
 
 
 def _shmem_size (since=0.0):
-    '''Return shared memory usage in bytes.
-    '''
+    '''Return shared memory usage in bytes.'''
     return _VmB('Shmem:','/proc/meminfo') - since
 
 def _memory(since=0.0):
-    '''Return memory usage in bytes.
-    '''
+    '''Return memory usage in bytes.'''
     return _VmB('VmSize:') - since
 
+def _memory_peak(since=0.0):
+    '''Return memory usage in bytes.'''
+    return _VmB('VmPeak:') - since
 
 def _resident(since=0.0):
-    '''Return resident memory usage in bytes.
-    '''
+    '''Return resident memory usage in bytes.'''
     return _VmB('VmRSS:') - since
 
+def _resident_peak(since=0.0):
+    '''Return resident memory usage in bytes.'''
+    return _VmB('VmHWM:') - since
 
 def _stacksize(since=0.0):
-    '''Return stack size in bytes.
-    '''
+    '''Return stack size in bytes.'''
     return _VmB('VmStk:') - since
 
 log_memory = False
@@ -65,23 +67,25 @@ def enableMemoryLogging (enable=True):
     global log_memory
     log_memory = enable
 
-def logToFile (filename):
+def logToFile (filename,append=False):
     global file_handler
     if not file_handler:
-        file_handler = logging.FileHandler(filename)
+        file_handler = logging.FileHandler(filename,mode='a' if append else 'w')
     logging.getLogger('').addHandler(file_handler)
 
 
 class LoggerMemoryFilter (logging.Filter):
     def filter(self, event):
         vss = float(_memory()/(1024**3))
+        vss_peak = float(_memory_peak()/(1024**3))
         rss = float(_resident()/(1024**3))
+        rss_peak = float(_resident_peak()/(1024**3))
         shm = float(_shmem_size()/(1024**3))
         setattr(event,"virtual_memory_gb",vss)
         setattr(event,"resident_memory_gb",rss)
         setattr(event,"shared_memory_gb",shm)
         if log_memory and hasattr(event,"msg"):
-            event.msg = "[%.1f/%.1f/%.1fGb] "%(rss,vss,shm) + event.msg
+            event.msg = "[%.1f/%.1f %.1f/%.1f %.1fGb] "%(rss,rss_peak,vss,vss_peak,shm) + event.msg
         return True
 
 
@@ -105,15 +109,12 @@ class MyLogger():
             if file_handler:
                 file_handler.setLevel(logging.DEBUG)
                 file_handler.setFormatter(self._formatter)
-                logger.addHandler(file_handler)
+                # logger.addHandler(file_handler)
             fp = LoggerWriter(logger, logging.INFO)
             self.Dico[name]=fp
             
         #self.Dico[name].logger.log(logging.DEBUG, "Get Logger for: %s"%name)
         log=self.Dico[name]
-
-            
-
 
         return log
 

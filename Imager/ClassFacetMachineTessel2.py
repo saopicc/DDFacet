@@ -31,6 +31,8 @@ import time
 import Polygon
 from DDFacet.ToolsDir import rad2hmsdms
 
+from DDFacet.Other.ClassTimeIt import ClassTimeIt
+
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
     def __init__(self,*args,**kwargs):
@@ -398,25 +400,16 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             D[iFacet]["Polygon"]=polygon
             lPoly,mPoly=polygon.T
 
+            #This fits a bounding box around the polygon (note not axis aligned):
             ThisDiam,(l0,l1,m0,m1)=GiveDiam(polygon)
-
-            X=(np.random.rand(Np))*ThisDiam+l0
-            Y=(np.random.rand(Np))*ThisDiam+m0
-            XY = np.dstack((X, Y))
-            XY_flat = XY.reshape((-1, 2))
-
-            mpath = Path( polygon )
-            XY = np.dstack((X, Y))
-            XY_flat = XY.reshape((-1, 2))
-            mask_flat = mpath.contains_points(XY_flat)
-            mask=mask_flat.reshape(X.shape)
-            
-            lc=np.sum(X*mask)/np.sum(mask)
-            mc=np.sum(Y*mask)/np.sum(mask)
-            dl=np.max(np.abs(X[mask==1]-lc))
-            dm=np.max(np.abs(Y[mask==1]-mc))
-            diam=2*np.max([dl,dm])
-            
+            #Get the centre of the bounding box:
+            lc=(l1+l0)/2.
+            mc=(m1+m0)/2.
+            dl=l1-l0
+            dm=m1-m0
+            diam=np.max([dl,dm]) #Create a square grid
+            #note: if the shape is aligned to an axis other than RA,DEC then this simple strategy does not minimize the facet grid area
+            #A more complicated solution may include fitting an axis-aligned box and passing the facet rotation around the n-axis to the gridder.
             
             l_m_Diam[iFacet,0]=lc
             l_m_Diam[iFacet,1]=mc
@@ -735,8 +728,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist.append(W)
             workerlist[ii].start()
 
+        timer = ClassTimeIt()
+        print>>log,"starting degridding"
 
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="DeGridding ", HeaderSize=10,TitleSize=13)
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ',Title="DeGridding ", HeaderSize=10,TitleSize=13)
         # pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
@@ -756,7 +751,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].join()
 
         NpShared.DelAll("%sModelGrid"%(self.IdSharedMemData))
-            
+        print>>log,"degridding finished in %s"%timer.timehms()
+
         return True
 
     def CalcDirtyImagesParallel(self,times,uvwIn,visIn,flag,A0A1,W=None,doStack=True):#,Channel=0):
@@ -803,6 +799,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"])
             workerlist.append(W)
             workerlist[ii].start()
+
+        timer = ClassTimeIt()
+        print>>log,"starting gridding"
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="  Gridding ", HeaderSize=10,TitleSize=13)
 #        pBAR.disable()
@@ -863,6 +862,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].terminate()
             workerlist[ii].join()
 
+        print>>log,"gridding finished in %s"%timer.timehms()
         
         return True
 
@@ -901,6 +901,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].start()
 
         #print>>log, ModColor.Str("  --- Initialising DDEGridMachines ---",col="green")
+        timer = ClassTimeIt()
+        print>>log,"initializing W kernels"
+
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Init W ", HeaderSize=10,TitleSize=13)
         pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
@@ -927,6 +930,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].shutdown()
             workerlist[ii].terminate()
             workerlist[ii].join()
+
+        print>>log,"init W finished in %s"%timer.timehms()
 
 
         for iFacet in sorted(self.DicoImager.keys()):

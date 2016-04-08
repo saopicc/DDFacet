@@ -8,6 +8,10 @@ bold='\033[1m'
 nobold='\033[0m'
 Separator="================================%s=================================="
 silent=0
+
+def disableColors():
+    global silent
+    silent = 1
     
 def Str(strin0,col="red",Bold=True):
     if silent==1: return strin0

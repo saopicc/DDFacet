@@ -19,18 +19,28 @@ class ClassTimeIt():
     def reinit(self):
         self.t0=timemod.time()
 
+    def timestr (self,hms=False):
+        t1 = timemod.time()
+        dt = t1-self.t0
+        if not hms:
+            return "%7.5fs"%dt
+        else:
+            ss = dt/60.
+            m = int(ss)
+            s = (ss-m)*60.
+            return "%im%.1fs"%(m,s)
+
+    def timehms (self):
+        return self.timestr(hms=True)
+
     def timeit(self,stri=" Time",hms=False):
         if self.IsEnable==False: return
-        t1=timemod.time()
-        dt=t1-self.t0
-        if not(hms):
-            Sout= "  * %s%s %s : %7.5fs"%(self.name,stri,str(self.Counter),dt)
+        ts = self.timestr(hms=hms)
+        if not hms:
+            Sout= "  * %s%s %s : %s"%(self.name,stri,str(self.Counter),ts)
             if self.IsEnableIncr: self.Counter+=1
         else:
-            ss=(dt)/60.
-            m=int(ss)
-            s=(ss-m)*60.
-            Sout= "  * %s computation time: %i min. %4.1f sec."%(stri,m,s)
+            Sout= "  * %s computation time: %s"%(stri,ts)
         self.t0=t1
         if DoLog:
             print>>log, Sout
@@ -38,10 +48,6 @@ class ClassTimeIt():
             print Sout
 
         return dt
-
-    def timeitHMS(self,stri=" Time"):
-        t1=timemod.time()
-        self.t0=t1
 
     def disable(self):
         self.IsEnable=False

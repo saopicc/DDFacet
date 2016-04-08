@@ -64,6 +64,10 @@ class ClassWeighting():
         cell =1./(Super*FOV)
 
 
+        Weighting = Weighting.lower()
+        if Weighting == "natural":
+            print>>log, "Weighting in Natural mode"
+            return VisWeights
         print>>log,"initializing weighting grid"
 
         # find max grid extent by consiering _unflagged_ UVs
@@ -118,21 +122,24 @@ class ClassWeighting():
         # print>>log,"weight grid computed"
         # second attept with cython using a simple for loop over 1D arrays: bingo, 3 seconds
 
-        if Weighting == "Uniform":
+        if Weighting == "uniform":
 #            print>>log,"adjusting grid to uniform weight"
  #           grid[grid!=0] = 1/grid[grid!=0]
             print>>log,("applying uniform weighting (super=%.2f)"%Super)
             for weights, index in weights_index:
                 weights /= grid[index]
 
-        elif Weighting == "Briggs":
-            print>>log,("applying briggs weighting (robust=%.2f, super=%.2f)"%(Robust, Super))
+        elif Weighting == "briggs" or Weighting == "robust":
+            print>>log,("applying Briggs weighting (robust=%.2f, super=%.2f)"%(Robust, Super))
             avgW = (grid**2).sum() / grid.sum()
             numeratorSqrt = 5.0 * 10**(-Robust)
             sSq = numeratorSqrt**2 / avgW
             grid = 1/(1+grid*sSq)
             for weights, index in weights_index:
                 weights *= grid[index]
+                
+        else:
+            raise ValueError("unknown weighting \"%s\""%Weighting)
 
         print>>log,"weights computed"
         return [ weights for weights, index in weights_index ]

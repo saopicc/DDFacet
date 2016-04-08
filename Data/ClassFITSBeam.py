@@ -1,4 +1,4 @@
-import sys,math,numpy,os
+import sys,math,numpy,os,os.path
 
 from DDFacet.Other import MyLogger
 log = MyLogger.getLogger("ClassFITSBeam")
@@ -63,13 +63,23 @@ class ClassFITSBeam (object):
         REIM = "re","im";
         REALIMAG = dict(re="real",im="imag");
 
-        # get the Cattery
-        for varname in 'CATTERY_PATH',"MEQTREES_CATTERY_PATH":
+        # get the Cattery: if an explicit path to Cattery set, use this and import Siamese directly
+        explicit_cattery = False
+        for varname in "CATTERY_PATH","MEQTREES_CATTERY_PATH":
             if varname in os.environ:
                 sys.path.append(os.environ[varname])
+                explicit_cattery = True
 
-        import Siamese.OMS.Utils as Utils
-        import Siamese
+        if explicit_cattery:
+            import Siamese.OMS.Utils as Utils
+            import Siamese
+            import Siamese.OMS.InterpolatedBeams as InterpolatedBeams
+            print>>log,"explicit Cattery path set: using custom Siamese module from %s"%os.path.dirname(Siamese.__file__)
+        else:
+            import Cattery.Siamese.OMS.Utils as Utils
+            import Cattery.Siamese as Siamese
+            import Cattery.Siamese.OMS.InterpolatedBeams as InterpolatedBeams
+            print>>log,"using standard Cattery.Siamese module from %s"%os.path.dirname(Siamese.__file__)
 
         def make_beam_filename (filename_pattern,corr,reim):
             """Makes beam filename for the given correlation and real/imaginary component (one of "re" or "im")"""
@@ -87,7 +97,6 @@ class ClassFITSBeam (object):
             filename_imag.append(make_beam_filename(self.filename,corr,'im'))
 
         # load beam interpolator
-        import Siamese.OMS.InterpolatedBeams as InterpolatedBeams
         self.vbs = []
         for reFits, imFits in zip(filename_real,filename_imag):        
             print>>log,"Loading beam patterns %s, %s"%(list(filename_real),list(filename_imag))
