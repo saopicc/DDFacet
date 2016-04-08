@@ -77,10 +77,12 @@ def read_options():
     OP.add_option('InitDicoModel',help='Image name [%default]')
     OP.add_option('WeightCol')
     
-    OP.OptionGroup("* Images-related options","Images")
+    OP.OptionGroup("* Image-related options","Images")
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
     OP.add_option('PredictModelName',help='Predict Image name [%default]')
-    OP.add_option('SaveIms',help='Image name [%default]')
+    OP.add_option('SaveIms',help='')
+    OP.add_option('SaveImages',help='')
+    OP.add_option('SaveOnly',help='')
     OP.add_option('OpenImages',
                   help="Opens images after exiting successfully."
                        "List, accepts any combination of: "
@@ -88,6 +90,8 @@ def read_options():
                        "'Restored','Alpha','Norm','NormFacets'.")
     OP.add_option('DefaultImageViewer', help="Default image viewer")
     OP.add_option('MultiFreqMap', help="Outputs multi-frequency cube (NFreqBands) instead of average map")
+
+
     OP.OptionGroup("* File storing options","Stores")
     OP.add_option('DeleteDDFProducts')
     OP.add_option('PSF')
@@ -190,7 +194,6 @@ def read_options():
     OP.OptionGroup("* Debugging","Debugging")
     OP.add_option("SaveIntermediateDirtyImages")
     OP.add_option("PauseGridWorkers")
-
 
     OP.OptionGroup("* Logging","Logging")
     OP.add_option("MemoryLogging")
@@ -353,6 +356,4 @@ if __name__=="__main__":
         sys.exit(1) #Should at least give the command line an indication of failure
     # main(options)
     
-    
-        
     
