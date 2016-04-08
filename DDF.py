@@ -187,7 +187,7 @@ def read_options():
     OP.add_option("SaveIntermediateDirtyImages")
     OP.add_option("PauseGridWorkers")
     OP.add_option("MemoryLogging")
-
+    OP.add_option("FacetPhaseShift")
  
     OP.Finalise()
     OP.ReadInput()
@@ -311,7 +311,14 @@ if __name__=="__main__":
         main(OP)
         print>>log, ModColor.Str("DDFacet ended successfully",col="green")
     except:
-        print>>log, ModColor.Str("There was a problem, please help yourself",col="red")
+        ddfacetPath = "." if os.path.dirname(__file__) == "" else os.path.dirname(__file__)
+        commitSha = subprocess.check_output("git -C %s rev-parse HEAD" % ddfacetPath,shell=True)
+        logfileName = MyLogger.getLogFilename()
+        logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
+        print>> log, ModColor.Str("There was a problem, if you think this is a bug please open an "
+                                  "issue, quote your version of DDFacet and attach your logfile", col="red")
+        print>> log, ModColor.Str("You are using DDFacet revision: %s" % commitSha, col="red")
+        print>> log, ModColor.Str("Your logfile is available here: %s" % logfileName, col="red")
         print>>log, traceback.format_exc()
         NpShared.DelAll(IdSharedMem)
         sys.exit(1) #Should at least give the command line an indication of failure
