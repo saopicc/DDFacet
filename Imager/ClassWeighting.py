@@ -55,7 +55,8 @@ class ClassWeighting():
 
     def CalcWeights(self,uvw_weights_flags_freqs,Robust=0,Weighting="Briggs",Super=1):
 
-        if Weighting=="Natural":
+        Weighting = Weighting.lower()
+        if Weighting == "natural":
             print>>log, "Weighting in Natural mode"
             return [ x[1] for x in uvw_weights_flags_freqs ]
 
@@ -64,10 +65,6 @@ class ClassWeighting():
         cell =1./(Super*FOV)
 
 
-        Weighting = Weighting.lower()
-        if Weighting == "natural":
-            print>>log, "Weighting in Natural mode"
-            return VisWeights
         print>>log,"initializing weighting grid"
 
         # find max grid extent by consiering _unflagged_ UVs
