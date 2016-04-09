@@ -194,12 +194,12 @@ def read_options():
     OP.OptionGroup("* Debugging","Debugging")
     OP.add_option("SaveIntermediateDirtyImages")
     OP.add_option("PauseGridWorkers")
+    OP.add_option("FacetPhaseShift")
 
     OP.OptionGroup("* Logging","Logging")
     OP.add_option("MemoryLogging")
     OP.add_option("Boring")
     OP.add_option("AppendLogFile")
-	OP.add_option("FacetPhaseShift")
  
     OP.Finalise()
     OP.ReadInput()
