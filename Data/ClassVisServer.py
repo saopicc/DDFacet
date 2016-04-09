@@ -53,7 +53,10 @@ class ClassVisServer():
         self.TMemChunkSize=TChunkSize
         self.TVisSizeMin=TVisSizeMin
 
-        self.Weighting=Weighting
+        self.Weighting=Weighting.lower()
+        if self.Weighting not in ("natural", "uniform", "briggs", "robust"):
+            raise ValueError("unknown Weighting=%s"%Weighting)
+
         self.Super=Super
         self.NCPU=NCPU
         self.VisWeights=None
@@ -184,7 +187,7 @@ class ClassVisServer():
                 ind=np.where(ThisMappingDegrid==iFreqBand)[0]
                 MeanFreqDegrid[iFreqBand]=np.mean(ThisFreqs[ind])
             self.FreqBandsInfosDegrid[iMS]=MeanFreqDegrid
-            print MS
+            print>>log,MS
             
         self.RefFreq=np.mean(self.ListFreqs)
 

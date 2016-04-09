@@ -31,6 +31,8 @@ import time
 import Polygon
 from DDFacet.ToolsDir import rad2hmsdms
 
+from DDFacet.Other.ClassTimeIt import ClassTimeIt
+
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
     def __init__(self,*args,**kwargs):
@@ -740,8 +742,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist.append(W)
             workerlist[ii].start()
 
+        timer = ClassTimeIt()
+        print>>log,"starting degridding"
 
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="DeGridding ", HeaderSize=10,TitleSize=13)
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ',Title="DeGridding ", HeaderSize=10,TitleSize=13)
         # pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
@@ -761,7 +765,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].join()
 
         NpShared.DelAll("%sModelGrid"%(self.IdSharedMemData))
-            
+        print>>log,"degridding finished in %s"%timer.timehms()
+
         return True
 
     def CalcDirtyImagesParallel(self,times,uvwIn,visIn,flag,A0A1,W=None,doStack=True):#,Channel=0):
@@ -808,6 +813,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"])
             workerlist.append(W)
             workerlist[ii].start()
+
+        timer = ClassTimeIt()
+        print>>log,"starting gridding"
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="  Gridding ", HeaderSize=10,TitleSize=13)
 #        pBAR.disable()
@@ -868,6 +876,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].terminate()
             workerlist[ii].join()
 
+        print>>log,"gridding finished in %s"%timer.timehms()
         
         return True
 
@@ -906,6 +915,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].start()
 
         #print>>log, ModColor.Str("  --- Initialising DDEGridMachines ---",col="green")
+        timer = ClassTimeIt()
+        print>>log,"initializing W kernels"
+
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Init W ", HeaderSize=10,TitleSize=13)
         pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
@@ -932,6 +944,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].shutdown()
             workerlist[ii].terminate()
             workerlist[ii].join()
+
+        print>>log,"init W finished in %s"%timer.timehms()
 
 
         for iFacet in sorted(self.DicoImager.keys()):
