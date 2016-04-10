@@ -55,9 +55,9 @@ class ClassCompareFITSImage(unittest.TestCase):
                 List of image identifiers to reference and output products
         """
         return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm', 'alpha',
-                '.int.residual', '.app.residual', '.int.model', '.app.model',
-                '.int.convmodel', '.app.convmodel', '.int.restored', '.app.restored',
-                '.restored']
+                'int.residual', 'app.residual', 'int.model', 'app.model',
+                'int.convmodel', 'app.convmodel', 'int.restored', 'app.restored',
+                'restored']
 
     @classmethod
     def defineMaxSquaredError(cls):
