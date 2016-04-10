@@ -52,10 +52,12 @@ class ClassCompareFITSImage(unittest.TestCase):
             Can be overridden to add additional output products to the test.
             These must correspond to whatever is used in writing out the FITS files (eg. those in ClassDeconvMachine.py)
             Returns:
-                Tuple of image identifiers to reference and output products
+                List of image identifiers to reference and output products
         """
-        return ['dirty', 'dirty.corr', 'psf', 'model', 'residual',
-                'restored', 'alpha', 'Norm', 'NormFacets']
+        return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm', 'alpha',
+                '.int.residual', '.app.residual', '.int.model', '.app.model',
+                '.int.convmodel', '.app.convmodel', '.int.restored', '.app.restored',
+                '.restored']
 
     @classmethod
     def defineMaxSquaredError(cls):
@@ -138,7 +140,7 @@ class ClassCompareFITSImage(unittest.TestCase):
 
         #Setup test constants
         cls._maxSqErr = cls.defineMaxSquaredError()
-	cls._thresholdMSE = cls.defMeanSquaredErrorLevel()
+        cls._thresholdMSE = cls.defMeanSquaredErrorLevel()
 	
         #Run DDFacet with desired setup. Crash the test if DDFacet gives a non-zero exit code:
         cls._stdoutLogFile = cls._outputDir+cls.__name__+".run.out.log"
