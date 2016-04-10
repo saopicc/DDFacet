@@ -73,6 +73,12 @@ def logToFile (filename,append=False):
         file_handler = logging.FileHandler(filename,mode='a' if append else 'w')
     logging.getLogger('').addHandler(file_handler)
 
+def getLogFilename():
+    '''Returns log filename if logToFile has been called previously, None otherwise'''
+    global file_handler
+    if not file_handler:
+        return None
+    return file_handler.baseFilename
 
 class LoggerMemoryFilter (logging.Filter):
     def filter(self, event):

@@ -5,7 +5,7 @@
 From an Ubuntu 14.04 base:
 
 ```
-sudo apt-get install git python-pip python-casacore libfftw3-dev python-pyephem python-numexpr cython cmake
+sudo apt-get install git python-pip python-casacore libfftw3-dev python-pyephem python-numexpr cython cmake python-meqtrees-cattery
 sudo pip install SharedArray
 sudo pip install Polygon2
 sudo pip install pyFFTW

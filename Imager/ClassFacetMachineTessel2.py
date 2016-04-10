@@ -37,7 +37,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
     def __init__(self,*args,**kwargs):
         ClassFacetMachine.ClassFacetMachine.__init__(self,*args,**kwargs)
-        
+
     def appendMainField(self,Npix=512,Cell=10.,NFacets=5,
                         Support=11,OverS=5,Padding=1.2,
                         wmax=10000,Nw=11,RaDecRad=(0.,0.),
@@ -70,7 +70,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
         # self.setFacetsLocsSquare()
         self.setFacetsLocsTessel()
-
 
     def setFacetsLocsTessel(self):
         NFacets = self.NFacets
@@ -394,6 +393,16 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         l_m_Diam[:,3]=np.arange(NFacets)
 
         D={}
+
+        # Debug phase shift:
+        l_phasor_rad = np.deg2rad(self.GD["Debugging"]["FacetPhaseShift"][0]/3600.0)
+        m_phasor_rad = np.deg2rad(self.GD["Debugging"]["FacetPhaseShift"][1] / 3600.0)
+        shift_px_l = l_phasor_rad / CellSizeRad
+        shift_px_m = m_phasor_rad / CellSizeRad
+        print>> log, "Shifting the facet centres to new reference centres " \
+                     "(%.3f,%.3f) arcsec away [%.3f,%.3f]px" % (float(self.GD["Debugging"]["FacetPhaseShift"][0]),
+                                                                float(self.GD["Debugging"]["FacetPhaseShift"][1]),
+                                                                shift_px_l,shift_px_m)
         for iFacet in range(NFacets):
             D[iFacet]={}
             polygon=LPolygonNew[iFacet]
@@ -403,6 +412,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             #This fits a bounding box around the polygon (note not axis aligned):
             ThisDiam,(l0,l1,m0,m1)=GiveDiam(polygon)
             #Get the centre of the bounding box:
+
             lc=(l1+l0)/2.
             mc=(m1+m0)/2.
             dl=l1-l0
@@ -410,7 +420,11 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             diam=np.max([dl,dm]) #Create a square grid
             #note: if the shape is aligned to an axis other than RA,DEC then this simple strategy does not minimize the facet grid area
             #A more complicated solution may include fitting an axis-aligned box and passing the facet rotation around the n-axis to the gridder.
-            
+
+            #(Mostly for debugging rotate the sky to a new phase centre (now the phase centre will differ from the projection pole of the image):
+            lc += l_phasor_rad
+            mc += m_phasor_rad
+
             l_m_Diam[iFacet,0]=lc
             l_m_Diam[iFacet,1]=mc
             l_m_Diam[iFacet,2]=diam
