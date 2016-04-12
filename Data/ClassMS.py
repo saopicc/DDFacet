@@ -1035,7 +1035,12 @@ class ClassMS():
     
     def Rotate(self,DATA):
         #DDFacet.ToolsDir.ModRotate.Rotate(self,radec)
-        print>>log, ModColor.Str("  Rotate data to new phase center")
+        StrRAOld  = rad2hmsdms(self.OldRadec[0],Type="ra").replace(" ",":")
+        StrDECOld = rad2hmsdms(self.OldRadec[1],Type="dec").replace(" ",".")
+        StrRA  = rad2hmsdms(self.NewRadec[0],Type="ra").replace(" ",":")
+        StrDEC = rad2hmsdms(self.NewRadec[1],Type="dec").replace(" ",".")
+        print>>log, "  Rotate data from [%s, %s]"%(StrRAOld,StrDECOld)
+        print>>log, "                to [%s, %s]"%(StrRA,StrDEC)
         DDFacet.ToolsDir.ModRotate.Rotate2(self.OldRadec,self.NewRadec,DATA["uvw"],DATA["data"],self.wavelength_chan)
         
         # ta=table(self.MSName+'/FIELD/',ack=False,readonly=False)

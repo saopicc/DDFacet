@@ -54,10 +54,29 @@ def Rotate2((ra,dec),(ra1,dec1),uvw,data,wavelength):
     #MS.uvw=uvwNew
 
     nrows,nchan,npol=data.shape
+    
+    C=299792458.
+    wavelength=np.float64(wavelength)
+    ChanFreq=C/wavelength
+    ChanEquidistant=0
+    if ChanFreq.size>2:
+        df=ChanFreq[1::]-ChanFreq[0:-1]
+        ddf=np.abs(df-np.mean(df))
+        ChanEquidistant=int(np.max(ddf)<1.)
+
 
     for chan in range(nchan):
         #wavelength = MS.wavelength_chan.flatten()[chan]
-        f = np.exp(Phase * 2 * np.pi * 1j/wavelength[chan])
+        if ChanEquidistant==0:
+            f = np.exp(Phase * 2 * np.pi * 1j/wavelength[chan])
+        else:
+            if chan==0:
+                f0 = np.exp(Phase * 2 * np.pi * 1j/wavelength[0])
+                df = np.exp(Phase * 2 * np.pi * 1j* (ChanFreq[1]-ChanFreq[0])/C)
+                f=f0
+            else:
+                f*=df
+
         for pol in range(npol):
             data[:,chan,pol]=data[:,chan,pol] * f.reshape((nrows,))
 
