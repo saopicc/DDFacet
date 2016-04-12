@@ -80,9 +80,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.OutImShape=(self.nch,self.npol,self.Npix,self.Npix)    
 
         
-        RadiusTot=self.CellSizeRad*self.Npix/2
-        self.RadiusTot=RadiusTot
-
 
         MSName=self.GD["VisData"]["MSName"]
         if ".txt" in MSName:
@@ -163,12 +160,15 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #VM.PolygonToReg(regFile,LPolygon,radius=0.1,Col="red")
 
         #stop
+        RadiusTot=self.CellSizeRad*self.Npix/2
+        self.RadiusTot=RadiusTot
+
         Np=100000
         X=(np.random.rand(Np)*2-1.)*RadiusTot
         Y=(np.random.rand(Np)*2-1.)*RadiusTot
         XY = np.dstack((X, Y))
         XY_flat = XY.reshape((-1, 2))
-
+        
         self.CornersImageTot=np.array([[-RadiusTot,-RadiusTot],
                                        [RadiusTot,-RadiusTot],
                                        [RadiusTot,RadiusTot],
@@ -421,13 +421,18 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             mask_flat = mpath.contains_points(XY_flat)
             mask=mask_flat.reshape(X.shape)
             
-            lc=np.sum(X*mask)/np.sum(mask)
-            mc=np.sum(Y*mask)/np.sum(mask)
-            dl=np.max(np.abs(X[mask==1]-lc))
-            dm=np.max(np.abs(Y[mask==1]-mc))
+            # lc=np.sum(X*mask)/np.sum(mask)
+            # mc=np.sum(Y*mask)/np.sum(mask)
+            # dl=np.max(np.abs(X[mask==1]-lc))
+            # dm=np.max(np.abs(Y[mask==1]-mc))
+            # diam=2*np.max([dl,dm])
+            
+            lc=(l0+l1)/2.
+            mc=(m0+m1)/2.
+            dl=l1-l0
+            dm=m1-m0
             diam=2*np.max([dl,dm])
-            
-            
+
             l_m_Diam[iFacet,0]=lc
             l_m_Diam[iFacet,1]=mc
             l_m_Diam[iFacet,2]=diam
