@@ -53,12 +53,12 @@ def Rotate2((ra,dec),(ra1,dec1),uvw,data,wavelength):
     uvw[:]=np.dot(uvw, TT.T)
     #MS.uvw=uvwNew
 
-    nrows,nchan,_=data.shape
+    nrows,nchan,npol=data.shape
 
     for chan in range(nchan):
         #wavelength = MS.wavelength_chan.flatten()[chan]
-        f = np.exp(Phase * 2 * np.pi * 1j/wavelength)
-        for pol in range(4):
+        f = np.exp(Phase * 2 * np.pi * 1j/wavelength[chan])
+        for pol in range(npol):
             data[:,chan,pol]=data[:,chan,pol] * f.reshape((nrows,))
 
 

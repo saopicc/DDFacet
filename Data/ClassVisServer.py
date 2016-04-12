@@ -97,8 +97,9 @@ class ClassVisServer():
             chanslice = slice(ChanStart, ChanEnd if ChanEnd != -1 else None, ChanStep) 
         for MSName in self.ListMSName:
             MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3),
-                Field=self.Field,DDID=self.DDID,
-                ChanSlice=chanslice) 
+                               Field=self.Field,DDID=self.DDID,
+                               ChanSlice=chanslice,
+                               ToRADEC=self.GD["ImagerGlobal"]["PhaseCenterRADEC"])
             self.ListMS.append(MS)
             self.ListGlobalFreqs+=MS.ChanFreq.flatten().tolist()
             

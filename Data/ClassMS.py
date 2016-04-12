@@ -747,10 +747,10 @@ class ClassMS():
         if self.ToRADEC!=None:
             SRa,SDec=self.ToRADEC
             srah,sram,sras=SRa.split(":")
-            sdecd,sdecm,sdecs=SRa.split(":")
+            sdecd,sdecm,sdecs=SDec.split(":")
             ranew=(np.pi/180)*15.*(float(srah)+float(sram)/60.+float(sras)/3600.)
-            decnew=(np.pi/180)*(float(sdech)+float(sdecm)/60.+float(sdecs)/3600.)
-            self.OldRadec=self.radec
+            decnew=(np.pi/180)*(float(sdecd)+float(sdecm)/60.+float(sdecs)/3600.)
+            self.OldRadec=rarad,decrad
             self.NewRadec=ranew,decnew
             rarad,decrad=ranew,decnew
 
