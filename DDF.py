@@ -98,6 +98,7 @@ def read_options():
     OP.add_option('Robust')
     OP.add_option("PSFOversize")
     OP.add_option("PSFFacets")
+    OP.add_option("PhaseCenterRADEC")
 
     OP.OptionGroup("* Visibility compression parameters","Compression")
     OP.add_option('CompGridMode')

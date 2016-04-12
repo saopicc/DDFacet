@@ -12,6 +12,7 @@ log=MyLogger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
 import sidereal
 import datetime
+import DDFacet.ToolsDir.ModRotate
 
 try:
     import lofar.stationresponse as lsr
@@ -22,9 +23,10 @@ class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
                  AverageTimeFreq=None,
-                 Field=0,DDID=0,ChanSlice=None):
+                 Field=0,DDID=0,ChanSlice=None,ToRADEC=None):
 
         if MSname=="": exit()
+        self.ToRADEC=ToRADEC
         self.AverageSteps=AverageTimeFreq
         MSname=reformat.reformat(os.path.abspath(MSname),LastSlash=False)
         self.MSName=MSname
@@ -471,6 +473,9 @@ class ClassMS():
         
         DATA["data"]=vis_all
         DATA["flag"]=flag_all
+        
+        if self.ToRADEC!=None:
+            self.Rotate(DATA)
 
         if npol==1:
             self.To4Pols(DATA)
@@ -734,13 +739,31 @@ class ClassMS():
         NSPWChan=NSPW*Nchan
 
         ta=table(table_all.getkeyword('FIELD'),ack=False)
+
+
         rarad,decrad=ta.getcol('PHASE_DIR')[self.Field][0]
         if rarad<0.: rarad+=2.*np.pi
 
-        T.timeit()
+        if self.ToRADEC!=None:
+            SRa,SDec=self.ToRADEC
+            srah,sram,sras=SRa.split(":")
+            sdecd,sdecm,sdecs=SRa.split(":")
+            ranew=(np.pi/180)*15.*(float(srah)+float(sram)/60.+float(sras)/3600.)
+            decnew=(np.pi/180)*(float(sdech)+float(sdecm)/60.+float(sdecs)/3600.)
+            self.OldRadec=self.radec
+            self.NewRadec=ranew,decnew
+            rarad,decrad=ranew,decnew
 
         radeg=rarad*180./np.pi
         decdeg=decrad*180./np.pi
+        self.radec=(rarad,decrad)
+        self.rarad=rarad
+        self.decrad=decrad
+        self.rac=rarad
+        self.decc=decrad
+
+        T.timeit()
+
         ta.close()
          
         self.DoRevertChans=False
@@ -783,14 +806,9 @@ class ClassMS():
         self.dt=dt
         self.DTs=T1-T0
         self.DTh=self.DTs/3600.
-        self.radec=(rarad,decrad)
-        self.rarad=rarad
-        self.decrad=decrad
         self.reffreq=reffreq
         self.StationNames=StationNames
         self.wavelength_chan=wavelength_chan
-        self.rac=rarad
-        self.decc=decrad
         self.nbl=nbl
         self.StrRA  = rad2hmsdms(self.rarad,Type="ra").replace(" ",":")
         self.StrDEC = rad2hmsdms(self.decrad,Type="dec").replace(" ",".")
@@ -1015,20 +1033,22 @@ class ClassMS():
             t.addcols(desc) 
             t.close()
     
-    def RotateMS(self,radec):
-        import ModRotate
-        ModRotate.Rotate(self,radec)
-        ta=table(self.MSName+'/FIELD/',ack=False,readonly=False)
-        ra,dec=radec
-        radec=np.array([[[ra,dec]]])
-        ta.putcol("DELAY_DIR",radec)
-        ta.putcol("PHASE_DIR",radec)
-        ta.putcol("REFERENCE_DIR",radec)
-        ta.close()
-        t=self.GiveMainTable(readonly=False)
-        t.putcol(self.ColName,self.data)
-        t.putcol("UVW",self.uvw)
-        t.close()
+    def RotateMS(self,DATA):
+        #DDFacet.ToolsDir.ModRotate.Rotate(self,radec)
+        print>>log, ModColor.Str("  Rotate data to new phase center")
+        DDFacet.ToolsDir.ModRotate.Rotate2(self.OldRadec,self.NewRadec,DATA["uvw"],DATA["data"],self.wavelength_chan)
+        
+        # ta=table(self.MSName+'/FIELD/',ack=False,readonly=False)
+        # ra,dec=radec
+        # radec=np.array([[[ra,dec]]])
+        # ta.putcol("DELAY_DIR",radec)
+        # ta.putcol("PHASE_DIR",radec)
+        # ta.putcol("REFERENCE_DIR",radec)
+        # ta.close()
+        # t=self.GiveMainTable(readonly=False)
+        # t.putcol(self.ColName,self.data)
+        # t.putcol("UVW",self.uvw)
+        # t.close()
     
     def PutCasaCols(self):
         import pyrap.tables

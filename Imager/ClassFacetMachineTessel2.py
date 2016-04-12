@@ -79,6 +79,23 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.Npix=Npix
         self.OutImShape=(self.nch,self.npol,self.Npix,self.Npix)    
 
+        RadiusTot=self.CellSizeRad*self.Npix/2
+        self.RadiusTot=RadiusTot
+
+
+        # Finding main image bounds
+        # Np=100000
+        # X=(np.random.rand(Np)*2-1.)*RadiusTot
+        # Y=(np.random.rand(Np)*2-1.)*RadiusTot
+        # XY = np.dstack((X, Y))
+        # XY_flat = XY.reshape((-1, 2))
+        lMainCenter,mMainCenter=0.,0.
+        self.lmMainCenter=lMainCenter,mMainCenter
+        self.CornersImageTot=np.array([[lMainCenter-RadiusTot,mMainCenter-RadiusTot],
+                                       [lMainCenter+RadiusTot,mMainCenter-RadiusTot],
+                                       [lMainCenter+RadiusTot,mMainCenter+RadiusTot],
+                                       [lMainCenter-RadiusTot,mMainCenter+RadiusTot]])
+
         
 
         MSName=self.GD["VisData"]["MSName"]
@@ -112,6 +129,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         else:
             CellSizeRad=(self.GD["ImagerMainFacet"]["Cell"]/3600.)*np.pi/180
             lrad=Npix*CellSizeRad*0.5
+
+
             NpixFacet=Npix/NFacets
             lfacet=NpixFacet*CellSizeRad*0.5
             lcenter_max=lrad-lfacet
@@ -160,28 +179,19 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #VM.PolygonToReg(regFile,LPolygon,radius=0.1,Col="red")
 
         #stop
-        RadiusTot=self.CellSizeRad*self.Npix/2
-        self.RadiusTot=RadiusTot
 
-        Np=100000
-        X=(np.random.rand(Np)*2-1.)*RadiusTot
-        Y=(np.random.rand(Np)*2-1.)*RadiusTot
-        XY = np.dstack((X, Y))
-        XY_flat = XY.reshape((-1, 2))
-        
-        self.CornersImageTot=np.array([[-RadiusTot,-RadiusTot],
-                                       [RadiusTot,-RadiusTot],
-                                       [RadiusTot,RadiusTot],
-                                       [-RadiusTot,RadiusTot]])
+
+
+
 
         ###########################################
         # SubDivide
         def GiveDiam(polygon):
             lPoly,mPoly=polygon.T
-            l0=np.max([-RadiusTot,lPoly.min()])
-            l1=np.min([RadiusTot,lPoly.max()])
-            m0=np.max([-RadiusTot,mPoly.min()])
-            m1=np.min([RadiusTot,mPoly.max()])
+            l0=np.max([lMainCenter-RadiusTot,lPoly.min()])
+            l1=np.min([lMainCenter+RadiusTot,lPoly.max()])
+            m0=np.max([mMainCenter-RadiusTot,mPoly.min()])
+            m1=np.min([mMainCenter+RadiusTot,mPoly.max()])
             dl=l1-l0
             dm=m1-m0
             diam=np.max([dl,dm])
@@ -410,16 +420,18 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
             ThisDiam,(l0,l1,m0,m1)=GiveDiam(polygon)
 
-            X=(np.random.rand(Np))*ThisDiam+l0
-            Y=(np.random.rand(Np))*ThisDiam+m0
-            XY = np.dstack((X, Y))
-            XY_flat = XY.reshape((-1, 2))
-
-            mpath = Path( polygon )
-            XY = np.dstack((X, Y))
-            XY_flat = XY.reshape((-1, 2))
-            mask_flat = mpath.contains_points(XY_flat)
-            mask=mask_flat.reshape(X.shape)
+            # ###############################
+            # # Find barycenter of polygon
+            # X=(np.random.rand(Np))*ThisDiam+l0
+            # Y=(np.random.rand(Np))*ThisDiam+m0
+            # XY = np.dstack((X, Y))
+            # XY_flat = XY.reshape((-1, 2))
+            # mpath = Path( polygon )
+            # XY = np.dstack((X, Y))
+            # XY_flat = XY.reshape((-1, 2))
+            # mask_flat = mpath.contains_points(XY_flat)
+            # mask=mask_flat.reshape(X.shape)
+            # ###############################
             
             # lc=np.sum(X*mask)/np.sum(mask)
             # mc=np.sum(Y*mask)/np.sum(mask)

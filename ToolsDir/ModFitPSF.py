@@ -5,9 +5,7 @@ log=MyLogger.getLogger("FitPSF")
 from DDFacet.Other import ModColor
 
 def gauss(x0,y0,SigMaj,SigMin,ang,x,y):
-
-    #SigMaj,SigMin,ang=GaussPars
-
+    # SigMaj,SigMin,ang=GaussPars
     CT=np.cos(ang)
     ST=np.sin(ang)
     C2T=np.cos(2*ang)
