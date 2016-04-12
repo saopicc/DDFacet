@@ -1033,7 +1033,7 @@ class ClassMS():
             t.addcols(desc) 
             t.close()
     
-    def RotateMS(self,DATA):
+    def Rotate(self,DATA):
         #DDFacet.ToolsDir.ModRotate.Rotate(self,radec)
         print>>log, ModColor.Str("  Rotate data to new phase center")
         DDFacet.ToolsDir.ModRotate.Rotate2(self.OldRadec,self.NewRadec,DATA["uvw"],DATA["data"],self.wavelength_chan)
