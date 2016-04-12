@@ -78,6 +78,14 @@ class ClassVisServer():
         self.CurrentVisTimes_SinceStart_Sec=0.,0.
         self.iCurrentVisTime=0
 
+        # This is the shape of the data/flag chunk which will be read into memory at one time.
+        # To avoid reallocation, we do just one array of the "maximum" size, which will be
+        # computed down in GiveUvWeightsFlagsFreqs()
+        self._chunk_shape = None
+        # buffers to hold current chunk
+        self._databuf = None
+        self._flagbuf = None
+
         # self.LoadNextVisChunk()
 
         #self.TEST_TLIST=[]
@@ -369,15 +377,20 @@ class ClassVisServer():
 
             self.CurrentChanMapping=self.DicoMSChanMapping[self.iCurrentMS]
             self.CurrentChanMappingDegrid=self.FreqBandsInfosDegrid[self.iCurrentMS]
-            #print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%(self.CurrentFreqBand)))
             return "OK"
         
 
     def LoadNextVisChunk(self):
 
+        # init data and flag buffers
+        if self._databuf is None:
+            self._databuf = np.empty(self._chunk_shape,np.complex64)
+        if self._flagbuf is None:
+            self._flagbuf = np.empty(self._chunk_shape,np.bool)
+
         while True:
             MS=self.CurrentMS
-            repLoadChunk=MS.GiveNextChunk()
+            repLoadChunk=MS.GiveNextChunk(databuf=self._databuf,flagbuf=self._flagbuf)
             if repLoadChunk=="EndMS":
                 repNextMS=self.setNextMS()
                 if repNextMS=="EndListMS":
@@ -665,12 +678,15 @@ class ClassVisServer():
         (nrow,2), (nrow,nchan), (nrow) and (nchan) respectively. 
         Note that flags are "row flags" i.e. only True if all channels are flagged. 
         Per-channel flagging is taken care of in here, by setting that channel's weight to 0.
+
+        Also, sets self._max_ms_shape to the "maximum" array shape over all MSs 
         """
         WeightCol=self.GD["VisData"]["WeightCol"]
         # now loop over MSs and read data
         weightsum = 0
         nweights = 0
         output_list = []
+        self._chunk_shape = [0,0,0]
         for num_ms, ms in enumerate(self.ListMS):
             tab = ms.GiveMainTable()
             chanslice = ms.ChanSlice
@@ -679,7 +695,10 @@ class ClassVisServer():
                 output_list.append((np.zeros((1,2)), np.zeros((1,len(ms.ChanFreq))), np.array([True]), ms.ChanFreq))
                 continue
             uvs = tab.getcol("UVW")[:,:2]
-            flags = tab.getcol("FLAG")[:,chanslice,:]
+            flags = tab.getcol("FLAG")
+            # update "outer" MS shape. Note that this has to take the full channel axis, no channel slicing
+            self._chunk_shape = [ max(a,b) for a,b in zip(self._chunk_shape, flags.shape) ] 
+            flags = flags[:,chanslice,:]
             # if any polarization is flagged, flag all 4 correlations. Shape of flags becomes nrow,nchan
             flags = flags.max(axis=2)
             # valid: array of Nrow,Nchan, with meaning inverse to flags 
@@ -722,6 +741,10 @@ class ClassVisServer():
             for uvw, weights, flags, freqs in output_list:
                 weights /= mw
         print>>log,"normalization done, mean weight was %g"%mw
+
+        size = reduce(lambda x,y:x*y,self._chunk_shape)
+        print>>log,"shape of data/flag/weight buffer will be %s (%.2f Gel)"%(self._chunk_shape,
+                                                            size/float(2**30))
 
         return output_list
 

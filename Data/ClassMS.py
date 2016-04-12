@@ -397,13 +397,13 @@ class ClassMS():
         self.ROW0=0
         self.ROW1=0
 
-    def GiveNextChunk(self):
+    def GiveNextChunk(self,databuf=None,flagbuf=None):
         row0=self.ROW1
         row1=self.ROW1+self.nRowChunk
-        return self.ReadData(row0,row1)
+        return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf)
         
         
-    def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False):
+    def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False,databuf=None,flagbuf=None):
 
         if row0>=self.F_nrows:
             return "EndMS"
@@ -411,10 +411,11 @@ class ClassMS():
             row1=self.F_nrows
         
 
-        self.ROW0=row0
-        self.ROW1=row1
-        self.nRowRead=row1-row0
-        nRowRead=self.nRowRead
+        self.ROW0 = row0
+        self.ROW1 = row1
+        self.nRowRead = nRowRead = row1-row0
+        # expected data column shape
+        datashape = (nRowRead, len(self.ChanFreq), len(self.CorrelationNames))
 
         strMS="%s"%(ModColor.Str(self.MSName,col="green"))
         print>>log, "%s: Reading next data chunk in [%i, %i] rows"%(strMS,row0,row1)
@@ -429,13 +430,27 @@ class ClassMS():
         #time_slots_all=np.array(sorted(list(set(time_all))))
         ntimes=time_all.shape[0]/self.nbl
 
-        flag_all=table_all.getcol("FLAG",row0,nRowRead)#[SPW==self.ListSPW[0]]
+        # if flag buffer is supplied, use that object's memory for flag array
+        if flagbuf is not None:
+            flag_all = np.ndarray(shape=datashape,dtype=np.bool,buffer=flagbuf)
+            print>>log,"using %d/%d elements of existing flag buffer"%(flag_all.size,flagbuf.size)
+            table_all.getcolnp("FLAG",flag_all,row0,nRowRead)#[SPW==self.ListSPW[0]]
+        else:
+            flag_all = table_all.getcol("FLAG",row0,nRowRead)#[SPW==self.ListSPW[0]]
+
         if ReadWeight==True:
             self.Weights=table_all.getcol("WEIGHT",row0,nRowRead)
         
         
         uvw=table_all.getcol('UVW',row0,nRowRead)#[SPW==self.ListSPW[0]]
-        vis_all=table_all.getcol(self.ColName,row0,nRowRead)
+
+        # if data buffer is supplied, use that object's memory for data array
+        if databuf is not None:
+            vis_all = np.ndarray(shape=datashape,dtype=np.complex64,buffer=databuf)
+            print>>log,"using %d/%d elements of existing visibility buffer"%(vis_all.size,databuf.size)
+            table_all.getcolnp(self.ColName,vis_all,row0,nRowRead)#[SPW==self.ListSPW[0]]
+        else:
+            vis_all = table_all.getcol(self.ColName,row0,nRowRead)
         
         if self.zero_flag: vis_all[flag_all==1]=1e10
         #print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
