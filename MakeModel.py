@@ -6,6 +6,9 @@ import numpy as np
 from SkyModel.Other import MyLogger
 log=MyLogger.getLogger("MakeModel")
 from Sky import ClassSM
+from DDFacet.Imager.ModModelMachine import GiveModelMachine
+from DDFacet.Imager import ClassCasaImage
+from pyrap.images import image
 
 SaveName="last_MakeModel.obj"
 
@@ -35,6 +38,8 @@ def read_options():
     f = open(SaveName,"wb")
     pickle.dump(options,f)
     
+
+
 def main(options=None):
     if options==None:
         f = open(SaveName,'rb')
@@ -72,14 +77,16 @@ def main(options=None):
         return
 
     if options.BaseImageName!="":
-        from pyrap.images import image
-        from DDFacet.Imager.ClassModelMachine import ClassModelMachine
-        from DDFacet.Imager import ClassCasaImage
+        #from DDFacet.Imager.ClassModelMachine import ClassModelMachine
+        FileDicoModel="%s.DicoModel"%options.BaseImageName
+        ClassModelMachine,DicoModel=GiveModelMachine(FileDicoModel)
+
+
         MM=ClassModelMachine(Gain=0.1)
-        DicoModel="%s.DicoModel"%options.BaseImageName
+        MM.FromDico(DicoModel)
         #FitsFile="%s.model.fits"%options.BaseImageName
         FitsFile="%s.dirty.fits"%options.BaseImageName
-        MM.FromFile(DicoModel)
+        #MM.FromFile(DicoModel)
         if options.MaskName!="":
             MM.CleanMaskedComponants(options.MaskName)
         if options.CleanNegComp:

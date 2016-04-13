@@ -74,19 +74,33 @@ class ClassMakeMask():
         self.OutName=OutName
 
         im=self.CasaIm
-        PMaj=(im.imageinfo()["restoringbeam"]["major"]["value"])
-        PMin=(im.imageinfo()["restoringbeam"]["minor"]["value"])
-        PPA=(im.imageinfo()["restoringbeam"]["positionangle"]["value"])
         c=im.coordinates()
         incr=np.abs(c.dict()["direction0"]["cdelt"][0])
         self.incr_rad=incr
 
-        ToSig=(1./3600.)*(np.pi/180.)/(2.*np.sqrt(2.*np.log(2)))
-        SigMaj_rad=PMaj*ToSig
-        SigMin_rad=PMin*ToSig
-        SixMaj_pix=SigMaj_rad/incr
-        SixMin_pix=SigMin_rad/incr
-        PPA_rad=PPA*np.pi/180
+        if self.UseIslands:
+            PMaj=(im.imageinfo()["restoringbeam"]["major"]["value"])
+            PMin=(im.imageinfo()["restoringbeam"]["minor"]["value"])
+            PPA=(im.imageinfo()["restoringbeam"]["positionangle"]["value"])
+
+            
+            ToSig=(1./3600.)*(np.pi/180.)/(2.*np.sqrt(2.*np.log(2)))
+            SigMaj_rad=PMaj*ToSig
+            SigMin_rad=PMin*ToSig
+            SixMaj_pix=SigMaj_rad/incr
+            SixMin_pix=SigMin_rad/incr
+            PPA_rad=PPA*np.pi/180
+
+            x,y=np.mgrid[-10:11:1,-10:11:1]
+            self.RefGauss=Gaussian.GaussianXY(x,y,1.,sig=(SixMin_pix,SixMaj_pix),pa=PPA_rad)
+            self.RefGauss_xy=x,y
+            
+            self.BeamMin_pix=SixMin_pix*(2.*np.sqrt(2.*np.log(2)))
+            self.BeamMaj_pix=SixMaj_pix*(2.*np.sqrt(2.*np.log(2)))
+            self.RBeam_pix=SixMaj_pix
+            print>>log, "Restoring Beam size of (%3.3f, %3.3f) pixels"%(self.BeamMin_pix, self.BeamMaj_pix)
+        
+        
         
 
         # #################"
@@ -105,16 +119,6 @@ class ClassMakeMask():
 
         # #################"
         
-        x,y=np.mgrid[-10:11:1,-10:11:1]
-        self.RefGauss=Gaussian.GaussianXY(x,y,1.,sig=(SixMin_pix,SixMaj_pix),pa=PPA_rad)
-        self.RefGauss_xy=x,y
-
-        self.BeamMin_pix=SixMin_pix*(2.*np.sqrt(2.*np.log(2)))
-        self.BeamMaj_pix=SixMaj_pix*(2.*np.sqrt(2.*np.log(2)))
-        print>>log, "Restoring Beam size of (%3.3f, %3.3f) pixels"%(self.BeamMin_pix, self.BeamMaj_pix)
-        
-        
-        self.RBeam_pix=SixMaj_pix
         
         #self.Restored=np.load("testim.npy")
         self.A=self.Restored[0,0]
