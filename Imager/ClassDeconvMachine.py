@@ -708,6 +708,7 @@ class ClassImagerDeconv():
 
             DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
             if self.GD["Images"]["MultiFreqMap"]:
+                raise NotImplementedError("TODO issue #51: Not yet implemented")
                 self.ResidImage=DicoImage["ImagData"] #get residuals cube
             else:
                 self.ResidImage=DicoImage["MeanImage"]
@@ -744,38 +745,42 @@ class ClassImagerDeconv():
             self.Restore()
 
     def FitPSF(self):
-        #PSF=self.PSF
-        PSF=self.MeanFacetPSF
-        PSF=self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
-
-        _,_,x,y=np.where(PSF==np.max(PSF))
-        #fit a clean beam for each PSF channel
-        assert PSF.shape[0] == self.VS.NFreqBands, "Expected PSF to have NFreqBands different dirty beams"
-        self.FWHMBeam = []
-        self.PSFGaussPars = []
-        self.PSFSidelobes = []
-        for c in range(self.VS.NFreqBands):
-            off=100 #TODO: how do you know the sidelobe will always be in 100px, this probably needs a dict param
+        """
+            Fits the PSF to get the parameters for the clean beam used in restoring
+            Post conditions:
+                self.FWHMBeam: The maj (deg), min (deg), theta (deg) gaussian parameters for the full width half power
+                               fits. This should be passed to the FITS file outputs
+                self.PSFGaussPars: The maj (rad), min (rad), theta (rad) parameters for the fit of the gaussian
+                self.PSFSidelobes: Position of the highest sidelobes (px)
+        """
+        if self.GD["Images"]["MultiFreqMap"]:
+            raise NotImplementedError("TODO issue #51: Not yet implemented")
+        else: #fit to a mean PSF image
+            PSF = self.MeanFacetPSF
+            _, _, x, y = np.where(PSF == np.max(PSF))
+            self.FWHMBeam = []
+            self.PSFGaussPars = []
+            self.PSFSidelobes = []
+            off=self.GD["ImagerDeconv"]["SidelobeSearchWindow"]//2
             print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
-            P=PSF[c,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
+            P=PSF[0, 0, x[0]-off:x[0]+off,y[0]-off:y[0]+off]
             self.PSFSidelobes.append(ModFitPSF.FindSidelobe(P))
-            sigma_x, sigma_y, theta = ModFitPSF.DoFit(P)
+            bmaj, bmin, theta = ModFitPSF.FitCleanBeam(P)
             print>>log, "   ... done"
 
-            theta=np.pi/2-theta
             FWHMFact=2.*np.sqrt(2.*np.log(2.))
-            bmaj=np.max([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
-            bmin=np.min([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
-            self.FWHMBeam.append((bmaj/3600., bmin/3600., theta))
-            self.PSFGaussPars.append((sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta))
-            print>>log, "Fitted PSF for channel %i of the cube:" % c
-            print>>log, "\tFitted PSF (sigma): (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec,
-                                                                           sigma_y*self.CellArcSec,
-                                                                           theta)
-            print>>log, "\tFitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec*FWHMFact,
-                                                                           sigma_y*self.CellArcSec*FWHMFact,
-                                                                           theta)
-            print>>log, "\tSecondary sidelobe at the level of %5.1f at a position of %i from the center" % self.PSFSidelobes[c]
+
+            self.FWHMBeam.append((bmaj*self.CellArcSec*FWHMFact/3600.,
+                                  bmin*self.CellArcSec*FWHMFact/3600.,
+                                  np.rad2deg(theta)))
+            self.PSFGaussPars.append((bmaj*self.CellSizeRad, bmin*self.CellSizeRad, theta))
+            print>>log, "\tFitted PSF (sigma): (Sx, Sy, Th)=(%f, %f, %f deg)"%(bmaj*self.CellArcSec,
+                                                                           bmin*self.CellArcSec,
+                                                                           np.rad2deg(theta))
+            print>>log, "\tFitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f deg)"%(bmaj*self.CellArcSec*FWHMFact,
+                                                                           bmin*self.CellArcSec*FWHMFact,
+                                                                           np.rad2deg(theta))
+            print>>log, "\tSecondary sidelobe at the level of %5.1f at a position of %i from the center" % self.PSFSidelobes[0]
         self.FWHMBeamAvg = (np.average(np.array([tup[0] for tup in self.FWHMBeam])),
                             np.average(np.array([tup[1] for tup in self.FWHMBeam])),
                             np.average(np.array([tup[2] for tup in self.FWHMBeam])))
@@ -804,6 +809,7 @@ class ClassImagerDeconv():
 
         # model image
         if self.GD["Images"]["MultiFreqMap"]:
+            NotImplementedError("TODO issue #51: Not yet implemented")
             modelImage = ModelMachine.GiveModelImage(np.array(
                 [np.average(np.array(self.VS.FreqBandsInfos[band])) for band in self.VS.FreqBandsInfos]))
         else:
