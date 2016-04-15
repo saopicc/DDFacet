@@ -828,7 +828,7 @@ class ClassMS():
         return l,m
 
     def PutVisColumn (self,colname,vis):
-        self.AddCol(colname)
+        self.AddCol(colname,quiet=True)
         t = self.GiveMainTable(readonly=False,ack=False)
         if self.ChanSlice:
             vis0 = t.getcol(colname)
@@ -965,13 +965,14 @@ class ClassMS():
                 t.putcol(Colout,t.getcol(Colin,row0,NRow),row0,NRow)
         t.close()
 
-    def AddCol(self,ColName):
+    def AddCol(self,ColName,quiet=False):
         t=table(self.MSName,readonly=False,ack=False)
         if (ColName in t.colnames()):
-            print>>log, "  Column %s already in %s"%(ColName,self.MSName)
+            if not quiet:
+                print>>log, "  Column %s already in %s"%(ColName,self.MSName)
             t.close()
             return
-        print>>log, "  Putting column %s in %s"%(ColName,self.MSName)
+        print>>log, "  Adding column %s to %s"%(ColName,self.MSName)
         desc=t.getcoldesc("DATA")
         desc["name"]=ColName
         desc['comment']=desc['comment'].replace(" ","_")

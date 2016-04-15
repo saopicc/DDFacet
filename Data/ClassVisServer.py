@@ -141,7 +141,6 @@ class ClassVisServer():
         self.nMS=len(self.ListMS)
         # make list of unique frequencies
         self.GlobalFreqs = np.array(sorted(global_freqs))
-        self.NFreqBands  = np.min([self.GD["MultiFreqs"]["NFreqBands"],len(self.GlobalFreqs)])#self.nMS])
         self.CurrentMS   = self.ListMS[0]
         self.iCurrentMS=0
 
@@ -150,11 +149,22 @@ class ClassVisServer():
 
         # print>>log,"GlobalFreqs: %d: %s"%(len(self.GlobalFreqs),repr(self.GlobalFreqs))
 
-        self.MultiFreqMode=False
-        NFreqBands=self.NFreqBands
-        if self.NFreqBands>1: 
-            self.MultiFreqMode=True
-            print>>log, ModColor.Str("MultiFrequency Mode: ON")
+        ## OMS: ok couldn't resist adding a bandwidth option since I need it for 3C147
+        ## if this is 0, then looks at NFreqBands parameter
+        grid_bw = self.GD["MultiFreqs"]["GridBandMHz"]*1e+6
+        
+        if grid_bw:
+            grid_bw = min(grid_bw,bandwidth)
+            NFreqBands = self.GD["MultiFreqs"]["NFreqBands"] = int(round(bandwidth/grid_bw))
+            print>>log,grid_bw,bandwidth,NFreqBands
+        else:
+            NFreqBands  = np.min([self.GD["MultiFreqs"]["NFreqBands"],len(self.GlobalFreqs)])#self.nMS])
+            grid_bw = bandwidth/NFreqBands
+        
+        self.NFreqBands = NFreqBands
+        self.MultiFreqMode = NFreqBands>1
+        if self.MultiFreqMode:
+            print>>log, ModColor.Str("MultiFrequency Mode: ON, %dx%g MHz bands"%(NFreqBands,grid_bw*1e-6))
         else:
             self.GD["MultiFreqs"]["NFreqBands"] = 1
             self.GD["MultiFreqs"]["Alpha"] = [0.,0.,1.]
@@ -170,42 +180,43 @@ class ClassVisServer():
         # self.FreqBandsMin = FreqBands[0:-1].copy()
         # self.FreqBandsMax = FreqBands[1::].copy()
         # self.FreqBandsMean = (self.FreqBandsMin + self.FreqBandsMax)/2
-        # now make mapping from global frequency into band number
-        grid_bw = bandwidth/NFreqBands
 
-        # grid_band: array of ints, same size as self.GlobalFreqs, giving the grid band number of each frequency
+        # grid_band: array of ints, same size as self.GlobalFreqs, giving the grid band number of each frequency channel
         grid_band = np.floor((self.GlobalFreqs - min_freq)/grid_bw).astype(int)
         # freq_to_grid_band: mapping from frequency to grid band number
         freq_to_grid_band = dict(zip(self.GlobalFreqs, grid_band))
         # print>>log,sorted(freq_to_grid_band.items())
 
-        self.FreqBandsInfos = {}
+        self.FreqBandCenters = np.arange(min_freq+grid_bw/2,max_freq+grid_bw/2,grid_bw) 
+        self.FreqBandChannels = []
         # freq_to_grid_band_chan: mapping from frequency to channel number within its grid band 
         freq_to_grid_band_chan = {}
         for iBand in range(self.NFreqBands):
             freqlist = sorted([ freq for freq,band in freq_to_grid_band.iteritems() if band == iBand ])
-            self.FreqBandsInfos[iBand] = freqlist
+            self.FreqBandChannels.append(freqlist)
             freq_to_grid_band_chan.update(dict([ (freq,chan) for chan,freq in enumerate(freqlist)]))
-            print>>log,"Band %d: %d channels centred on %g...%g MHz"%(iBand, len(freqlist), freqlist[0]*1e-6, freqlist[-1]*1e-6)
+            print>>log,"Band %d: %g MHz; using %d MS channels from %g to %g MHz"%(iBand, 
+                    self.FreqBandCenters[iBand]*1e-6, len(freqlist), freqlist[0]*1e-6, freqlist[-1]*1e-6)
 
-        self.FreqBandsInfosDegrid={}
+        self.FreqBandChannelsDegrid={}
         self.DicoMSChanMapping={}
         self.DicoMSChanMappingChan={}
         self.DicoMSChanMappingDegridding={}
-        # structures initialized here:
-        # self.FreqBandsInfosDegrid: a dict, indexed by MS number
-        #       [iMS] = float32 array of NChanDegridPerMS frequencies at which the degridding will proceed for this MS
-        # self.FreqBandsInfos: a list, indexed by freq band number (NFreqBands items)
-        #       [iband] = list of frequencies within that frequency band 
+        ## When gridding, we make a dirty/residual image with N=NFreqBands output bands
+        ## When degridding, we make a model with M channels (M may depend on MS).
+        ## The structures initialized here map between MS channels and image channels as follows: 
         # self.DicoMSChanMappingDegridding: a dict, indexed by MS number
-        #       [iMS] = int array of band numbers, as many as there are channels in the MS. For each channel, gives the degridding band number
-        #               (from 0 to NChanDegridPerMS-1)
+        #       [iMS] = int array mapping MS channel numbers into model channel numbers (0...M-1)
+        # self.FreqBandChannelsDegrid: a dict, indexed by MS number
+        #       [iMS] = float32 array of M frequencies corresponding to M model channels for this MS
+        # self.FreqBandChannels: a list, indexed by freq band number (N=NFreqBands items)
+        #       [iband] = list of frequency channels that fall within that band 
+        # self.FreqBandCenters: a list of centre frequencies per each band (N=NFreqBands items)
+        #       [iband] = centre frequency of that output band
         # self.DicoMSChanMapping: a dict, indexed by MS number
-        #       [iMS] = int array of band numbers, as many as there are channels in the MS. For each channel, gives the gridding band number
-        #               (from 0 to NFreqBands-1)
+        #       [iMS] = int array mapping MS channel numbers to output band numbers
         # self.DicoMSChanMappingChan: a dict, indexed by MS number
-        #       [iMS] = int array of channel numbers, as many as there are channels in the MS. 
-        #               For each channel, gives its number in the gridding band
+        #       [iMS] = int array mapping MS channel numbers to channel number within the corresponding output band
 
         for iMS, MS in enumerate(self.ListMS):
             min_freq = (MS.ChanFreq - MS.ChanWidth/2).min()
@@ -217,14 +228,21 @@ class ClassVisServer():
             self.DicoMSChanMapping[iMS] = np.array(bands)
             self.DicoMSChanMappingChan[iMS] = np.array([ freq_to_grid_band_chan[freq] for freq in MS.ChanFreq ])
 
-            # now split the bandwidth into NChanDegridPerMS band, and map each channel to a degridding band
-            NChanDegrid = self.GD["MultiFreqs"]["NChanDegridPerMS"] or MS.ChanFreq.size
-            degrid_bw = bw/NChanDegrid
+            ## OMS: new option, DegridBandMHz specifies degridding band step. If 0, fall back to NChanDegridPerMS
+            degrid_bw = self.GD["MultiFreqs"]["DegridBandMHz"]*1e+6
+            if degrid_bw:
+                degrid_bw = min(degrid_bw,bw)
+                NChanDegrid = max(int(round(bw/degrid_bw)),MS.ChanFreq.size)
+            else:
+                NChanDegrid = max(self.GD["MultiFreqs"]["NChanDegridPerMS"] or MS.ChanFreq.size,MS.ChanFreq.size)
+                degrid_bw = bw/NChanDegrid
+
+            # now map each channel to a degridding band
             self.DicoMSChanMappingDegridding[iMS] = np.floor((MS.ChanFreq - min_freq)/degrid_bw).astype(int)
 
             # calculate center frequency of each degridding band
             edges = np.linspace(min_freq, max_freq, NChanDegrid+1)
-            self.FreqBandsInfosDegrid[iMS] = (edges[:-1] + edges[1:])/2
+            self.FreqBandChannelsDegrid[iMS] = (edges[:-1] + edges[1:])/2
 
             print>>log,"%s   Bandwidth is %g MHz (%g to %g MHz), gridding bands are %s"%(MS, bw*1e-6, min_freq*1e-6, max_freq*1e-6, ", ".join(map(str,set(bands))))
             print>>log,"Band mapping: %s"%(" ".join(map(str,bands)))
@@ -232,11 +250,11 @@ class ClassVisServer():
 
 #            print>>log,MS
 
-            # print>>log,"FreqBandsInfosDegrid %s"%repr(self.FreqBandsInfosDegrid[iMS])
+            # print>>log,"FreqBandChannelsDegrid %s"%repr(self.FreqBandChannelsDegrid[iMS])
             # print>>log,"self.DicoMSChanMappingDegriding %s"%repr(self.DicoMSChanMappingDegridding[iMS])
             # print>>log,"self.DicoMSChanMapping %s"%repr(self.DicoMSChanMapping[iMS])
 
-        # print>>log,"FreqBandsInfos %s"%repr(self.FreqBandsInfos)
+        # print>>log,"FreqBandChannels %s"%repr(self.FreqBandChannels)
 
 #        self.RefFreq=np.mean(self.ListFreqs)
         self.RefFreq=np.mean(self.GlobalFreqs)
@@ -358,7 +376,7 @@ class ClassVisServer():
             MS.ReinitChunkIter(self.TMemChunkSize)
         self.CurrentMS=self.ListMS[0]
         self.CurrentChanMapping=self.DicoMSChanMapping[0]
-        self.CurrentChanMappingDegrid=self.FreqBandsInfosDegrid[0]
+        self.CurrentChanMappingDegrid=self.FreqBandChannelsDegrid[0]
         #print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%self.CurrentFreqBand))
 
     def setNextMS(self):
@@ -376,7 +394,7 @@ class ClassVisServer():
             #     self.CurrentFreqBand = np.where((self.FreqBandsMin <= np.mean(self.CurrentMS.ChanFreq))&(self.FreqBandsMax > np.mean(self.CurrentMS.ChanFreq)))[0][0]
 
             self.CurrentChanMapping=self.DicoMSChanMapping[self.iCurrentMS]
-            self.CurrentChanMappingDegrid=self.FreqBandsInfosDegrid[self.iCurrentMS]
+            self.CurrentChanMappingDegrid=self.FreqBandChannelsDegrid[self.iCurrentMS]
             return "OK"
         
 

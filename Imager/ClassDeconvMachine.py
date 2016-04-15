@@ -88,12 +88,15 @@ class ClassImagerDeconv():
         # --SaveImages all means save all
         saveimages = self.GD["Images"]["SaveImages"]
         saveonly = self.GD["Images"]["SaveOnly"]
+        savecubes = self.GD["Images"]["SaveCubes"]
+        allchars = set([chr(x) for x in range(128)])
         if saveimages.lower() == "all" or saveonly.lower() == "all":
-            self._saveims = set([chr(x) for x in range(128)])  # all characters
+            self._saveims = allchars
         else:
             self._saveims = set(saveimages) | set(saveonly)
-        old_interface_saveims = self.GD["Images"]["SaveIms"] 
+        self._savecubes = allchars if savecubes.lower() == "all" else set(savecubes)
 
+        old_interface_saveims = self.GD["Images"]["SaveIms"] 
         if "Model" in old_interface_saveims:
             self._saveims.update("M")
         if "Alpha" in old_interface_saveims:
@@ -161,17 +164,20 @@ class ClassImagerDeconv():
             del(self.GD["ImagerDeconv"]["MaxMajorIter"])
             MinorCycleConfig=dict(self.GD["ImagerDeconv"])
             MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
+            MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
             
             if self.GD["MultiScale"]["MSEnable"]:
                 print>>log, "Minor cycle deconvolution in Multi Scale Mode" 
                 self.MinorCycleMode="MS"
                 MinorCycleConfig["GD"]=self.GD
                 #self.DeconvMachine=ClassImageDeconvMachineMultiScale.ClassImageDeconvMachine(**MinorCycleConfig)
-                self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(
+                    **MinorCycleConfig)
             else:
                 print>>log, "Minor cycle deconvolution in Single Scale Mode" 
                 self.MinorCycleMode="SS"
-                self.DeconvMachine=ClassImageDeconvMachineSingleScale.ClassImageDeconvMachine(**MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineSingleScale.ClassImageDeconvMachine(
+                    **MinorCycleConfig)
 
         self.InitFacetMachine()
         #self.VS.SetImagingPars(self.FacetMachine.OutImShape,self.FacetMachine.CellSizeRad)
@@ -543,22 +549,35 @@ class ClassImagerDeconv():
         
         self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
-        ModelImage=ClassCasaImage.FileToArray(self.GD["Images"]["PredictModelName"],True)
+        modelfile = self.GD["Images"]["PredictModelName"]
+
+        # if model is a dict, init model machine with that
+        # else we use a model image and hope for the best (need to fix frequency axis...)
+        if modelfile.endswith(".DicoModel"):
+            ModelMachine.FromFile(modelfile)
+            FixedModelImage = None
+        else:
+            FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
+
+        current_model_freqs = np.array([])
 
         while True:
             Res=self.setNextData()
             if Res=="EndOfObservation": break
             DATA=self.DATA
-            ThisMeanFreq=np.mean(DATA["freqs"])
 
+            model_freqs = self.VS.CurrentChanMappingDegrid
+            ## redo model image if needed
+            if FixedModelImage is None:
+                if np.array(model_freqs != current_model_freqs).any():
+                    ModelImage = ModelMachine.GiveModelImage(model_freqs)
+                    current_model_freqs = model_freqs
+                    print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
+                else:
+                    print>>log,"reusing model image from previous chunk"
+            else:
+                ModelImage = FixedModelImage
             
-
-            # ######################################
-            # ModelMachine.DicoSMStacked["Comp"][(153, 570)]['SolsArray']=np.array([ 10], dtype=np.float32)
-            # #ModelMachine.DicoSMStacked["Comp"][(11275, 9821)]['SolsArray']=np.array([ 10], dtype=np.float32)
-            # ######################################
-                
-            # ModelImage=ModelMachine.GiveModelImage(ThisMeanFreq)
 
             DATA["data"].fill(0)
             self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
@@ -566,7 +585,7 @@ class ClassImagerDeconv():
             PredictColName=self.GD["VisData"]["PredictColName"]
 
             MSName=self.VS.CurrentMS.MSName
-            print>>log, "Writing predicted data in column %s of %s"%(PredictColName,MSName)
+            print>>log, "Writing predicted data to column %s of %s"%(PredictColName,MSName)
             self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
             
 
@@ -612,8 +631,7 @@ class ClassImagerDeconv():
 
             self.FacetMachine.ReinitDirty()
 
-            
-
+            current_model_freqs = np.array([])
 
             while True:
                 #print>>log, "Max model image: %f"%(np.max(self.DeconvMachine._ModelImage))
@@ -626,11 +644,14 @@ class ClassImagerDeconv():
                 
                 #visData=DATA["data"]
 
-                ThisMeanFreq=self.VS.CurrentChanMappingDegrid#np.mean(DATA["freqs"])
-
-                ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
-
-                print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
+                model_freqs = self.VS.CurrentChanMappingDegrid
+                ## redo model image if needed
+                if np.array(model_freqs != current_model_freqs).any():
+                    ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)
+                    current_model_freqs = model_freqs
+                    print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
+                else:
+                    print>>log,"reusing model image from previous chunk"
 
                 # # stop
                 # # # ModelImage.fill(0)
@@ -707,20 +728,17 @@ class ClassImagerDeconv():
 
 
             DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
-            if self.GD["Images"]["MultiFreqMap"]:
-                self.ResidImage=DicoImage["ImagData"] #get residuals cube
-            else:
-                self.ResidImage=DicoImage["MeanImage"]
+            self.ResidCube  = DicoImage["ImagData"] #get residuals cube
+            self.ResidImage = DicoImage["MeanImage"]
 
             if "e" in self._saveims:
-                self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),Fits=True)
+                self.FacetMachine.ToCasaImage(self.ResidImage,ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),Fits=True)
 
             if "o" in self._saveims:
-                ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
-                self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),Fits=True)
+                self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
+                    Fits=True,Freqs=current_model_freqs)
 
             self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName)
-
 
             # fig=pylab.figure(1)
             # pylab.clf()
@@ -791,8 +809,8 @@ class ClassImagerDeconv():
             self.FitPSF()
         self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName)
 
-        RefFreq=self.VS.RefFreq
-        ModelMachine=self.DeconvMachine.ModelMachine
+        RefFreq = self.VS.RefFreq
+        ModelMachine = self.DeconvMachine.ModelMachine
 
         # Putting back substracted componants
         if self.GD["DDESolutions"]["RestoreSub"]:
@@ -801,13 +819,6 @@ class ClassImagerDeconv():
             except:
                 print>>log, ModColor.Str("Failed Putting back substracted components")
 
-
-        # model image
-        if self.GD["Images"]["MultiFreqMap"]:
-            modelImage = ModelMachine.GiveModelImage(np.array(
-                [np.average(np.array(self.VS.FreqBandsInfos[band])) for band in self.VS.FreqBandsInfos]))
-        else:
-            modelImage = ModelMachine.GiveModelImage(RefFreq) #Save only reference frequency model
 
         # do we have a non-trivial norm (i.e. DDE solutions or beam)?
         # @cyriltasse: maybe there's a quicker way to check?
@@ -825,7 +836,15 @@ class ClassImagerDeconv():
         def intres():
             label = 'intres'
             if label not in _images:
-                _images[label] = intres = self.ResidImage/sqrtnorm() if havenorm else self.ResidImage 
+                _images[label] = intres = intres()/sqrtnorm() if havenorm else intres()
+                intres[~np.isfinite(intres)] = 0
+            return _images[label]
+        def apprescube():
+            return self.ResidCube
+        def intrescube():
+            label = 'intrescube'
+            if label not in _images:
+                _images[label] = intres = apprescube()/sqrtnorm() if havenorm else apprescube()
                 intres[~np.isfinite(intres)] = 0
             return _images[label]
         def appmodel():
@@ -834,7 +853,20 @@ class ClassImagerDeconv():
                 _images[label] = intmodel()*sqrtnorm() if havenorm else intmodel()
             return _images[label]
         def intmodel():
-            return modelImage
+            label = 'intmodel'
+            if label not in _images:
+                _images[label] = ModelMachine.GiveModelImage(RefFreq)
+            return _images[label]
+        def appmodelcube():
+            label = 'appmodelcube'
+            if label not in _images:
+                _images[label] = intmodelcube()*sqrtnorm() if havenorm else intmodel()
+            return _images[label]
+        def intmodelcube():
+            label = 'intmodelcube'
+            if label not in _images:
+                _images[label] = ModelMachine.GiveModelImage(self.VS.FreqBandCenters)
+            return _images[label]
         def appconvmodel():
             label = 'appconvmodel'
             if label not in _images:
@@ -845,6 +877,17 @@ class ClassImagerDeconv():
             label = 'intconvmodel'
             if label not in _images:
                 _images[label] = ModFFTW.ConvolveGaussian(intmodel(),CellSizeRad=self.CellSizeRad,GaussPars=self.PSFGaussPars)
+            return _images[label]
+        def appconvmodelcube():
+            label = 'appconvmodelcube'
+            if label not in _images:
+                _images[label] = ModFFTW.ConvolveGaussian(appmodelcube(),CellSizeRad=self.CellSizeRad,GaussPars=self.PSFGaussPars) \
+                                    if havenorm else intconvmodelcube()
+            return _images[label]
+        def intconvmodelcube():
+            label = 'intconvmodelcube'
+            if label not in _images:
+                _images[label] = ModFFTW.ConvolveGaussian(intmodelcube(),CellSizeRad=self.CellSizeRad,GaussPars=self.PSFGaussPars)
             return _images[label]
 
         # norm
@@ -857,6 +900,14 @@ class ClassImagerDeconv():
         # intrinsic-flux residuals
         if havenorm and "R" in self._saveims:
             self.FacetMachine.ToCasaImage(intres(),ImageName="%s.int.residual"%(self.BaseName),Fits=True)
+        # apparent-flux residual cube
+        if "r" in self._savecubes:
+            self.FacetMachine.ToCasaImage(apprescube(),ImageName="%s.cube.app.residual"%(self.BaseName),Fits=True,
+                Freqs=self.VS.FreqBandCenters)
+        # intrinsic-flux residual cube
+        if havenorm and "R" in self._savecubes:
+            self.FacetMachine.ToCasaImage(intrescube(),ImageName="%s.cube.int.residual"%(self.BaseName),Fits=True,
+                Freqs=self.VS.FreqBandCenters)
 
         # apparent-flux model
         if "m" in self._saveims:
@@ -864,23 +915,52 @@ class ClassImagerDeconv():
         # intrinsic-flux model
         if havenorm and "M" in self._saveims:
             self.FacetMachine.ToCasaImage(intmodel(),ImageName="%s.int.model"%self.BaseName,Fits=True)
+        # apparent-flux model cube
+        if "m" in self._savecubes:
+            self.FacetMachine.ToCasaImage(appmodelcube(),ImageName="%s.cube.app.model"%self.BaseName,Fits=True,
+                Freqs=self.VS.FreqBandCenters)
+        # intrinsic-flux model cube
+        if havenorm and "M" in self._savecubes:
+            self.FacetMachine.ToCasaImage(intmodelcube(),ImageName="%s.cube.int.model"%self.BaseName,Fits=True,
+                Freqs=self.VS.FreqBandCenters)
 
         # convolved-model image in apparent flux
         if "c" in self._saveims:
-            self.FacetMachine.ToCasaImage(appconvmodel(),ImageName="%s.app.convmodel"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg)
+            self.FacetMachine.ToCasaImage(appconvmodel(),ImageName="%s.app.convmodel"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg)
         # convolved-model image in intrinsic flux
         if havenorm and "C" in self._saveims: 
-            self.FacetMachine.ToCasaImage(intconvmodel(),ImageName="%s.int.convmodel"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg)
+            self.FacetMachine.ToCasaImage(intconvmodel(),ImageName="%s.int.convmodel"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg)
+        # convolved-model cube in apparent flux 
+        if "c" in self._savecubes:
+            self.FacetMachine.ToCasaImage(appconvmodelcube(),ImageName="%s.cube.app.convmodel"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg,Freqs=self.VS.FreqBandCenters)
+        # convolved-model cube in intrinsic flux
+        if havenorm and "C" in self._savecubes: 
+            self.FacetMachine.ToCasaImage(intconvmodelcube(),ImageName="%s.cube.int.convmodel"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg,Freqs=self.VS.FreqBandCenters)
 
         # apparent-flux restored image
         if "i" in self._saveims:
-            self.FacetMachine.ToCasaImage(appres()+appconvmodel(),ImageName="%s.app.restored"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg)
+            self.FacetMachine.ToCasaImage(appres()+appconvmodel(),ImageName="%s.app.restored"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg)
         # intrinsic-flux restored image
         if havenorm and "I" in self._saveims:
-            self.FacetMachine.ToCasaImage(intres()+intconvmodel(),ImageName="%s.int.restored"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg)
+            self.FacetMachine.ToCasaImage(intres()+intconvmodel(),ImageName="%s.int.restored"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg)
+        # apparent-flux restored image cube
+        if "i" in self._savecubes:
+            self.FacetMachine.ToCasaImage(apprescube()+appconvmodelcube(),ImageName="%s.cube.app.restored"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg,Freqs=self.VS.FreqBandCenters)
+        # intrinsic-flux restored image cube
+        if havenorm and "I" in self._savecubes:
+            self.FacetMachine.ToCasaImage(intrescube()+intconvmodelcube(),ImageName="%s.cube.int.restored"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg,Freqs=self.VS.FreqBandCenters)
         # mixed-flux restored image
         if havenorm and "x" in self._saveims:
-            self.FacetMachine.ToCasaImage(appres()+intconvmodel(),ImageName="%s.restored"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg)
+            self.FacetMachine.ToCasaImage(appres()+intconvmodel(),ImageName="%s.restored"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg)
         
         # Alpha image
         if "A" in self._saveims and self.VS.MultiFreqMode:

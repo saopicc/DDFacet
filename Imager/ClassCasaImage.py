@@ -104,16 +104,16 @@ def FileToArray(FileName,CorrT):
 
 
 class ClassCasaimage():
-    def __init__(self,ImageName,ImShape,Cell,radec,Lambda=None,KeepCasa=False):
+
+
+    def __init__(self,ImageName,ImShape,Cell,radec,Freqs=None,KeepCasa=False):
         self.Cell=Cell
         self.radec=radec
         self.KeepCasa=KeepCasa
-        self.Lambda=Lambda
-        if Lambda!=None:
-            self.Lambda0,self.dLambda,self.NLambda=Lambda
+        self.Freqs  = Freqs
 
         self.ImShape=ImShape
-        self.nch,self.npol,self.Npix,_=ImShape
+        self.nch,self.npol,self.Npix,_ = ImShape
 
         self.ImageName=ImageName
         #print "image refpix:",rad2hmsdms.rad2hmsdms(radec[0],Type="ra").replace(" ",":"),", ",rad2hmsdms.rad2hmsdms(radec[1],Type="dec").replace(" ",".")
@@ -145,15 +145,9 @@ class ClassCasaimage():
         RaDecRad=self.radec
         RefVal[-1][1]=RaDecRad[0]*180./np.pi*60
         RefVal[-1][0]=RaDecRad[1]*180./np.pi*60
-        if self.Lambda!=None:
-            #print RefVal[0]
-            C=299792458.
-            #Freq0=C/self.Lambda0
-            Lambda=np.array([self.Lambda0+i*self.dLambda for i in range(self.NLambda)])[::-1]
-            self.Freqs=C/Lambda
-            print self.Freqs
-            RefVal[0]=self.Freqs[0]
-            ich,ipol,xy=c.get_referencepixel()
+        if self.Freqs is not None:
+            RefVal[0] = self.Freqs[0]
+            ich,ipol,xy = c.get_referencepixel()
             ich=0
             c.set_referencepixel((ich,ipol,xy))
 

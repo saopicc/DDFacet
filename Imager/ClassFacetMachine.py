@@ -424,15 +424,15 @@ class ClassFacetMachine():
     ############################################################################################
     ############################################################################################
 
-    def setCasaImage(self,ImageName=None,Shape=None):
+    def setCasaImage(self,ImageName=None,Shape=None,Freqs=None):
         if ImageName==None:
             ImageName=self.ImageName
 
         if Shape==None:
             Shape=self.OutImShape
-        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec)
+        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec,Freqs=Freqs)
 
-    def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None):
+    def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None,Freqs=None):
         # if ImageIn==None:
         #     Image=self.FacetsToIm()
         # else:
@@ -449,7 +449,7 @@ class ClassFacetMachine():
         # im.close()
 
         #if self.CasaImage==None:
-        self.setCasaImage(ImageName=ImageName,Shape=ImageIn.shape)
+        self.setCasaImage(ImageName=ImageName,Shape=ImageIn.shape,Freqs=Freqs)
 
         self.CasaImage.setdata(ImageIn,CorrT=True)
 
@@ -543,9 +543,9 @@ class ClassFacetMachine():
 
 
         DicoImages["SumWeights"]=np.zeros((self.VS.NFreqBands,),np.float64)
-        for Channel in range(self.VS.NFreqBands):
-            DicoImages["freqs"][Channel]=self.VS.FreqBandsInfos[Channel]
-            DicoImages["SumWeights"][Channel]=self.DicoImager[0]["SumWeights"][Channel]
+        for band,channels in enumerate(self.VS.FreqBandChannels):
+            DicoImages["freqs"][band] = channels
+            DicoImages["SumWeights"][band] = self.DicoImager[0]["SumWeights"][band]
 
         ImagData=self.FacetsToIm_Channel()
 
@@ -605,7 +605,7 @@ class ClassFacetMachine():
                 _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
                 if n<NPixMin: NPixMin=n
 
-            nch=self.GD["MultiFreqs"]["NFreqBands"]
+            nch = self.VS.NFreqBands
             CubeVariablePSF=np.zeros((NFacets,nch,npol,NPixMin,NPixMin),np.float32)
             CubeMeanVariablePSF=np.zeros((NFacets,1,npol,NPixMin,NPixMin),np.float32)
 

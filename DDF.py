@@ -82,13 +82,14 @@ def read_options():
     OP.add_option('SaveIms',help='')
     OP.add_option('SaveImages',help='')
     OP.add_option('SaveOnly',help='')
+    OP.add_option('SaveCubes',help='')
     OP.add_option('OpenImages',
                   help="Opens images after exiting successfully."
                        "List, accepts any combination of: "
                        "'Dirty','DirtyCorr','PSF','Model','Residual',"
                        "'Restored','Alpha','Norm','NormFacets'.")
     OP.add_option('DefaultImageViewer', help="Default image viewer")
-    OP.add_option('MultiFreqMap', help="Outputs multi-frequency cube (NFreqBands) instead of average map")
+#    OP.add_option('MultiFreqMap', help="Outputs multi-frequency cube (NFreqBands) instead of average map")
 
 
     OP.OptionGroup("* File storing options","Stores")
@@ -137,6 +138,8 @@ def read_options():
     OP.add_option("NFreqBands")
     OP.add_option("Alpha")
     OP.add_option("NChanDegridPerMS")
+    OP.add_option("GridBandMHz")
+    OP.add_option("DegridBandMHz")
 
 
     OP.OptionGroup("* Primary Beam Options","Beam")

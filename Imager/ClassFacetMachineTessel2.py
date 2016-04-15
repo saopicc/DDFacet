@@ -63,7 +63,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.CellSizeRad=(Cell/3600.)*np.pi/180.
         rac,decc=MS.radec
         self.MainRaDec=(rac,decc)
-        self.nch=self.GD["MultiFreqs"]["NFreqBands"]
+        self.nch=self.VS.NFreqBands
         self.NChanGrid=self.nch
         self.SumWeights=np.zeros((self.NChanGrid,self.npol),float)
 
@@ -737,7 +737,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            IdSharedMem=self.IdSharedMem,
                            IdSharedMemData=self.IdSharedMemData,
                            ApplyCal=self.ApplyCal,
-                           NFreqBands=self.GD["MultiFreqs"]["NFreqBands"])
+                           NFreqBands=self.VS.NFreqBands)
 
             workerlist.append(W)
             workerlist[ii].start()
@@ -809,7 +809,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            ApplyCal=self.ApplyCal,
                            SpheNorm=SpheNorm,
                            PSFMode=PSFMode,
-                           NFreqBands=self.GD["MultiFreqs"]["NFreqBands"],
+                           NFreqBands=self.VS.NFreqBands,
                            PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"])
             workerlist.append(W)
             workerlist[ii].start()
@@ -910,7 +910,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            IdSharedMemData=self.IdSharedMemData,
                            ApplyCal=self.ApplyCal,
                            CornersImageTot=self.CornersImageTot,
-                           NFreqBands=self.GD["MultiFreqs"]["NFreqBands"])
+                           NFreqBands=self.VS.NFreqBands)
             workerlist.append(W)
             workerlist[ii].start()
 
