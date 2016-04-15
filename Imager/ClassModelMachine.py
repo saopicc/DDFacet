@@ -81,9 +81,7 @@ class ClassModelMachine():
         self.ListScales=ListScales
 
 
-    def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True):
-
-        
+    def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True,MaxSpi=100,MaxDR=1e+6):
         dFreq=1e6
         f0=self.DicoSMStacked["AllFreqs"].min()
         f1=self.DicoSMStacked["AllFreqs"].max()
@@ -93,13 +91,22 @@ class ClassModelMachine():
             M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
             M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
         
-        Np=1000
-        indx,indy=np.int64(np.random.rand(Np)*M0.shape[0]),np.int64(np.random.rand(Np)*M0.shape[1])
-        med=np.median(np.abs(M0[:,:,indx,indy]))
-
-        Mask=((M1>100*med)&(M0>100*med))
-        alpha=np.zeros_like(M0)
-        alpha[Mask]=(np.log(M0[Mask])-np.log(M1[Mask]))/(np.log(f0/f1))
+        # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
+        minmod = float("%.1e"%(abs(M0.max())/MaxDR))
+        # mask out pixels above threshold
+        mask=(M1<minmod)|(M0<minmod)
+        print>>log,"computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR)
+        with np.errstate(invalid='ignore'):
+            alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
+        alpha[mask] = 0
+        # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
+        mask = alpha>MaxSpi
+        alpha[mask]  = MaxSpi
+        masked = mask.any()
+        mask = alpha<-MaxSpi
+        alpha[mask] = -MaxSpi
+        if masked or mask.any():
+            print>>log,ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them."%MaxSpi,color="red")
         return alpha
 
     def GiveModelImage(self,FreqIn=None):

@@ -225,7 +225,14 @@ class ClassCasaimage():
         self.im.tofits(FileOut)
 
     def setBeam(self,beam):
+        """
+        Add Fitted beam info to FITS header, expects tripple for beam:
+        maj: Length of major axis in degrees
+        min: Length of minor axis in degrees
+        pa: Beam paralactic angle in degrees
+        """
         bmaj, bmin, PA=beam
+        PA = 360 - PA # PA rotates clockwise according to Oleg
         FileOut=self.ImageName+".fits"
         #print>>log, "  ----> Save beam info in FITS file %s"%FileOut
         
