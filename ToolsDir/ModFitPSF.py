@@ -2,7 +2,7 @@ import numpy as np
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("FitPSF")
 from DDFacet.Other import ModColor
-from Tigger.Tools import gaussfitter2
+import gaussfitter2
 
 def FitCleanBeam(PSF):
     """
