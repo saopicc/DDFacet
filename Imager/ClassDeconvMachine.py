@@ -836,16 +836,16 @@ class ClassImagerDeconv():
         def intres():
             label = 'intres'
             if label not in _images:
-                _images[label] = intres = intres()/sqrtnorm() if havenorm else intres()
-                intres[~np.isfinite(intres)] = 0
+                _images[label] = x = appres()/sqrtnorm() if havenorm else appres()
+                x[~np.isfinite(x)] = 0
             return _images[label]
         def apprescube():
             return self.ResidCube
         def intrescube():
             label = 'intrescube'
             if label not in _images:
-                _images[label] = intres = apprescube()/sqrtnorm() if havenorm else apprescube()
-                intres[~np.isfinite(intres)] = 0
+                _images[label] = x = apprescube()/sqrtnorm() if havenorm else apprescube()
+                x[~np.isfinite(x)] = 0
             return _images[label]
         def appmodel():
             label = 'appmodel'
