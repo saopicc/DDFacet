@@ -190,6 +190,7 @@ def read_options():
     OP.add_option("CycleFactor")
     OP.add_option("PeakFactor")
     OP.add_option("RMSFactor")
+    OP.add_option("SidelobeSearchWindow")
 
     OP.OptionGroup("* Debugging","Debugging")
     OP.add_option("SaveIntermediateDirtyImages")
