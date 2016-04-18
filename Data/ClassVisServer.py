@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import ClassMS
 from pyrap.tables import table
 from DDFacet.Other import MyLogger
@@ -155,7 +156,7 @@ class ClassVisServer():
         
         if grid_bw:
             grid_bw = min(grid_bw,bandwidth)
-            NFreqBands = self.GD["MultiFreqs"]["NFreqBands"] = int(round(bandwidth/grid_bw))
+            NFreqBands = self.GD["MultiFreqs"]["NFreqBands"] = int(math.ceil(bandwidth/grid_bw))
             print>>log,grid_bw,bandwidth,NFreqBands
         else:
             NFreqBands  = np.min([self.GD["MultiFreqs"]["NFreqBands"],len(self.GlobalFreqs)])#self.nMS])
@@ -232,7 +233,7 @@ class ClassVisServer():
             degrid_bw = self.GD["MultiFreqs"]["DegridBandMHz"]*1e+6
             if degrid_bw:
                 degrid_bw = min(degrid_bw,bw)
-                NChanDegrid = max(int(round(bw/degrid_bw)),MS.ChanFreq.size)
+                NChanDegrid = max(int(math.ceil(bw/degrid_bw)),MS.ChanFreq.size)
             else:
                 NChanDegrid = max(self.GD["MultiFreqs"]["NChanDegridPerMS"] or MS.ChanFreq.size,MS.ChanFreq.size)
                 degrid_bw = bw/NChanDegrid
