@@ -54,7 +54,7 @@ class ClassCompareFITSImage(unittest.TestCase):
             Returns:
                 List of image identifiers to reference and output products
         """
-        return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm', 'alpha',
+        return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm',
                 'int.residual', 'app.residual', 'int.model', 'app.model',
                 'int.convmodel', 'app.convmodel', 'int.restored', 'app.restored',
                 'restored']
@@ -67,7 +67,7 @@ class ClassCompareFITSImage(unittest.TestCase):
             Returns:
                 constant for maximum tolerance used in test case setup
         """
-        return [1e-7,1e-7,1e-7,1e-7,1e-7,1e-2,
+        return [1e-7,1e-7,1e-7,1e-7,1e-7,
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5] #epsilons per image pair, as listed in defineImageList
@@ -80,7 +80,7 @@ class ClassCompareFITSImage(unittest.TestCase):
 	    Returns:
 		constant for tolerance on mean squared error
 	"""
-	return [1e-7,1e-7,1e-7,1e-7,1e-7,1e-2,
+	return [1e-7,1e-7,1e-7,1e-7,1e-7,
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5] #epsilons per image pair, as listed in defineImageList
