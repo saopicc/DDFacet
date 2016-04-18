@@ -47,12 +47,12 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         if self.DoPSF:
             Npix*=1
 
-        MS=self.VS.MS
+        MS=self.VS.CurrentMS
         self.LraFacet=[]
         self.LdecFacet=[]
         
         
-        ChanFreq=self.VS.MS.ChanFreq.flatten()
+        ChanFreq=self.VS.GlobalFreqs
         self.ChanFreq=ChanFreq
         
         self.Cell=Cell

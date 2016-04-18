@@ -66,7 +66,6 @@ class ClassFacetMachine():
         self.PointingID=PointingID
         self.VS,self.GD=VS,GD
         self.Parallel=Parallel
-        ChanFreq=self.VS.MS.ChanFreq.flatten()
         DicoConfigGM={}
         self.DicoConfigGM=DicoConfigGM
         self.DoPSF=DoPSF
@@ -121,10 +120,9 @@ class ClassFacetMachine():
         Npix=NpixFacet*NFacets
         self.Npix=Npix
 
-        MS=self.VS.MS
-        
 
-        rac,decc=MS.radec
+        rac,decc = self.VS.CurrentMS.radec
+
         self.MainRaDec=(rac,decc)
 
         self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
@@ -163,7 +161,7 @@ class ClassFacetMachine():
         stop
         self.DicoImager={}
 
-        ChanFreq=self.VS.MS.ChanFreq.flatten()
+        ChanFreq=self.VS.GlobalFreqs
 
         DicoConfigGM={"Npix":NpixFacet,
                       "Cell":Cell,

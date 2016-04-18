@@ -157,7 +157,6 @@ class ClassVisServer():
         if grid_bw:
             grid_bw = min(grid_bw,bandwidth)
             NFreqBands = self.GD["MultiFreqs"]["NFreqBands"] = int(math.ceil(bandwidth/grid_bw))
-            print>>log,grid_bw,bandwidth,NFreqBands
         else:
             NFreqBands  = np.min([self.GD["MultiFreqs"]["NFreqBands"],len(self.GlobalFreqs)])#self.nMS])
             grid_bw = bandwidth/NFreqBands
@@ -196,8 +195,9 @@ class ClassVisServer():
             freqlist = sorted([ freq for freq,band in freq_to_grid_band.iteritems() if band == iBand ])
             self.FreqBandChannels.append(freqlist)
             freq_to_grid_band_chan.update(dict([ (freq,chan) for chan,freq in enumerate(freqlist)]))
-            print>>log,"Band %d: %g MHz; using %d MS channels from %g to %g MHz"%(iBand, 
-                    self.FreqBandCenters[iBand]*1e-6, len(freqlist), freqlist[0]*1e-6, freqlist[-1]*1e-6)
+            print>>log,"Image band %d: %g to %g MHz contains %d MS channels from %g to %g MHz"%(iBand,
+                (self.FreqBandCenters[iBand]-grid_bw/2)*1e-6, (self.FreqBandCenters[iBand]+grid_bw/2)*1e-6,
+                len(freqlist), freqlist[0]*1e-6, freqlist[-1]*1e-6)
 
         self.FreqBandChannelsDegrid={}
         self.DicoMSChanMapping={}
@@ -267,7 +267,6 @@ class ClassVisServer():
         if not(MS.DTh in TimesInt): TimesInt.append(MS.DTh)
         self.TimesInt=TimesInt
         self.NTChunk=len(self.TimesInt)-1
-        self.MS=MS
         self.ReInitChunkCount()
 
 
@@ -285,7 +284,7 @@ class ClassVisServer():
 
     def CalcWeights(self):
         if self.VisWeights!=None: return
-        #ImShape=self.PaddedFacetShape
+        # ImShape=self.PaddedFacetShape
         ImShape = self.FullImShape#self.FacetShape
         CellSizeRad = self.CellSizeRad
         WeightMachine = ClassWeighting.ClassWeighting(ImShape,CellSizeRad)
@@ -547,7 +546,7 @@ class ClassVisServer():
         times=DATA["times"]
         #Weights=DATA["Weights"]
 
-        MS=self.MS
+        MS=self.CurrentMS
         self.ThresholdFlag=0.9
         self.FlagAntNumber=[]
 
@@ -658,7 +657,7 @@ class ClassVisServer():
                 elif self.GD["Compression"]["CompGridFOV"]=="Full":
                     _,_,nx,ny=self.FullImShape
                 FOV=self.CellSizeRad*nx*(np.sqrt(2.)/2.)*180./np.pi
-                SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompGridDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
+                SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.CurrentMS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompGridDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
                 #SmearMapMachine.BuildSmearMapping(DATA)
 
                 #FinalMapping,fact=SmearMapMachine.BuildSmearMapping(DATA)
@@ -680,7 +679,7 @@ class ClassVisServer():
                 elif self.GD["Compression"]["CompDeGridFOV"]=="Full":
                     _,_,nx,ny=self.FullImShape
                 FOV=self.CellSizeRad*nx*(np.sqrt(2.)/2.)*180./np.pi
-                SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.MS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompDeGridDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
+                SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.CurrentMS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompDeGridDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
                 #SmearMapMachine.BuildSmearMapping(DATA)
                 FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA,ChanMappingDeGridding)
                 np.save(MapName,FinalMapping)

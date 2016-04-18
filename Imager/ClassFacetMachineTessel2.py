@@ -50,18 +50,15 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         if self.DoPSF:
             Npix*=1
 
-        MS=self.VS.MS
         self.LraFacet=[]
         self.LdecFacet=[]
         
-        
-        ChanFreq=self.VS.MS.ChanFreq.flatten()
-        self.ChanFreq=ChanFreq
+        self.ChanFreq = self.VS.GlobalFreqs
         
         self.NFacets = NFacets
         self.Cell=Cell
         self.CellSizeRad=(Cell/3600.)*np.pi/180.
-        rac,decc=MS.radec
+        rac,decc = self.VS.CurrentMS.radec
         self.MainRaDec=(rac,decc)
         self.nch=self.VS.NFreqBands
         self.NChanGrid=self.nch

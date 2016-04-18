@@ -434,7 +434,6 @@ class ClassMS():
         if flagbuf is not None:
             flag_all = np.ndarray(shape=datashape,dtype=np.bool,buffer=flagbuf)
             print>>log,"using %d/%d elements of existing flag buffer"%(flag_all.size,flagbuf.size)
-            print>>log,flag_all.shape
             table_all.getcolnp("FLAG",flag_all,row0,nRowRead)#[SPW==self.ListSPW[0]]
         else:
             flag_all = table_all.getcol("FLAG",row0,nRowRead)#[SPW==self.ListSPW[0]]
