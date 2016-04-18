@@ -80,7 +80,6 @@ class ClassImagerDeconv():
         #self.PNGDir="%s.png"%self.BaseName
         #os.system("mkdir -p %s"%self.PNGDir)
         #os.system("rm %s/*.png 2> /dev/null"%self.PNGDir)
-        self._save_intermediate_grids = self.GD["Debugging"]["SaveIntermediateDirtyImages"]
         
         # Oleg's "new" interface: set up which output images will be generated
         # --SaveImages abc means save defaults plus abc
@@ -105,6 +104,7 @@ class ClassImagerDeconv():
             self._saveims.update("o")
         if "Residual_i" in old_interface_saveims:
             self._saveims.update("e")
+        self._save_intermediate_grids = self.GD["Debugging"]["SaveIntermediateDirtyImages"]
 
 
     def Init(self):
@@ -461,6 +461,9 @@ class ClassImagerDeconv():
             if self._save_intermediate_grids:
                 self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
                 self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty.%d."%(self.BaseName,iloop),Fits=True)
+                if 'g' in self._savecubes:
+                    self.FacetMachine.ToCasaImage(self.DicoDirty["ImagData"],ImageName="%s.cube.dirty.%d"%(self.BaseName,iloop),
+                        Fits=True,Freqs=self.VS.FreqBandCenters) 
                 self.FacetMachine.NormData = None
                 self.FacetMachine.NormImage = None
 
@@ -481,6 +484,9 @@ class ClassImagerDeconv():
 
         if "d" in self._saveims:
             self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True)
+        if "d" in self._savecubes:
+            self.FacetMachine.ToCasaImage(self.DicoDirty["ImagData"],ImageName="%s.cube.dirty"%self.BaseName,
+                    Fits=True,Freqs=self.VS.FreqBandCenters) 
 
         # ImageName="%s.dirty.MF"%self.BaseName
         # ImagData=self.DicoDirty["ImagData"]
