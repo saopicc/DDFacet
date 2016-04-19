@@ -621,16 +621,17 @@ class ClassImagerDeconv():
             if not continue_deconv:
                 break
 
-            print>>log, ModColor.Str("========================== Runing major Cycle %i ========================="%iMajor)
+            print>>log, ModColor.Str("========================== Running major Cycle %i ========================="%iMajor)
             
             self.DeconvMachine.SetDirty(DicoImage)
             #self.DeconvMachine.setSideLobeLevel(0.2,10)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Clean()
             ## returned with nothing done in minor cycle? Break out
-            if not update_model:
-                break
+            if not update_model or iMajor == NMajor-1:
+                continue_deconv = False
 
+            predict_colname = not continue_deconv and self.GD["VisData"]["PredictColName"]
 
             #self.ResidImage=DicoImage["MeanImage"]
             #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
@@ -648,89 +649,32 @@ class ClassImagerDeconv():
                 if Res=="EndOfObservation": break
                 DATA=self.DATA
                 
-                #visData=DATA["data"]
 
                 model_freqs = self.VS.CurrentChanMappingDegrid
                 ## redo model image if needed
                 if np.array(model_freqs != current_model_freqs).any():
                     ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)
                     current_model_freqs = model_freqs
-                    print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
+                    print>>log,"model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
                 else:
                     print>>log,"reusing model image from previous chunk"
 
-                # # stop
-                # # # ModelImage.fill(0)
-                # # # ModelImage[:,:,487, 487]=0.88
-                # # # ####################
-                # # # testImage=np.zeros((1, 1, 1008, 1008),np.complex64)
-                # # # testImage[0,0,200,650]=100.
-                # # # self.DeconvMachine._ModelImage=testImage
-                # # # ####################
-                
-                # # # PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
-                # # # visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
-                # # # _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),self.DeconvMachine._ModelImage)
-                # # # visData[:,:,:]=visData[:,:,:]-visPredict[:,:,:]
-            
-
-                # ModelImage=np.zeros(self.FacetMachine.OutImShape,np.float32)
-                # # _,_,nx,_=ModelImage.shape
-                # # #ModelImage[0,0].T[::-1,:][1519,508]=-10.
-                # # #ModelImage[0,0].T[::-1,:][1519,508]=-10.
-                # # ModelImage[0,0].T[::-1,:][1625,557]=-10.
-                #ind=np.where(Image==np.max(Image))
-                #print ind
-
-                # ind=np.where(ModelImage==np.max(ModelImage))
-                # #print ind
-                # Max=np.max(ModelImage)
-                # ModelImage.fill(0)
-                # ModelImage[ind]=Max
-
-                # # #ModelImage[0,0,:,:]=ModelImage[0,0]#[::-1].T
-                #d0=DATA["data"].copy()
-                #DATA["data"].fill(0)
-
-                # #ind=np.where(ModelImage==np.max(ModelImage))
-                # ModelImage.fill(0)
-                # ModelImage[0,0,2381,6610]=10.
-                # #ModelImage[ind]=-10
-                # #ModelImage=-ModelImage
-
-                #DATA["data"].fill(0)
+                if predict_colname:
+                    print>>log,"last major cycle: model visibilities will be stored to %s"%predict_colname
+                    modelvis = DATA["data"].copy()
 
                 self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
 
+                if predict_colname:
+                    modelvis -= DATA["data"]
+                    print>>log, "writing model visibilities to column %s" % predict_colname
+                    self.VS.CurrentMS.PutVisColumn(predict_colname, modelvis)
+                    del modelvis
 
+                self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)
 
-                # d1=DATA["data"]
-                # A0,A1=DATA["A0"],DATA["A1"]
-                # for iFreq in [0]:#range(20):
-                #     #ind=np.where((A0==49)&(A1==55))[0]
-                #     ind=range(d0.shape[0])
-                #     op0=np.abs
-                #     op1=np.real
-                #     pylab.clf()
-                #     pylab.subplot(2,1,1)
-                #     pylab.plot(op0(d0[ind,iFreq,0]))
-                #     pylab.plot(op0(d1[ind,iFreq,0]))
-                #     pylab.plot(op0(d1[ind,iFreq,0])-op0(d0[ind,iFreq,0]))
-                #     # pylab.title(iAnt)
-                #     pylab.subplot(2,1,2)
-                #     pylab.plot(op1(d0[ind,iFreq,0]))
-                #     pylab.plot(op1(d1[ind,iFreq,0]))
-                #     pylab.plot(op1(d1[ind,iFreq,0])-op1(d0[ind,iFreq,0]))
-                #     pylab.draw()
-                #     pylab.show(False)
-
-                # stop
-
-
-                self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)#,Channel=self.VS.CurrentFreqBand)
-                
                 # NpShared.DelArray(PredictedDataName)
-                del(DATA)
+                del DATA
 
 
             DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)

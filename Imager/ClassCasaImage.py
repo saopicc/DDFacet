@@ -231,11 +231,10 @@ class ClassCasaimage():
         #print>>log, "  ----> Save beam info in FITS file %s"%FileOut
         
         F2=pyfits.open(FileOut)
-        F2[0].header["BMAJ"]=bmaj
-        F2[0].header["BMIN"]=bmin
-        F2[0].header["BPA"]=PA
+        F2[0].header["BMAJ"] = bmaj
+        F2[0].header["BMIN"] = bmin
+        F2[0].header["BPA"] = PA
         if beamcube is not None:
-            print>>log,"beamcube",beamcube
             for band,(bmaj, bmin, bpa) in enumerate(beamcube):
                 F2[0].header["BMAJ%d"%band] = bmaj
                 F2[0].header["BMIN%d"%band] = bmin
