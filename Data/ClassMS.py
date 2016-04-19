@@ -831,7 +831,12 @@ class ClassMS():
         self.AddCol(colname,quiet=True)
         t = self.GiveMainTable(readonly=False,ack=False)
         if self.ChanSlice and self.ChanSlice != slice(None):
-            vis0 = t.getcol(colname)
+            # if getcol fails, maybe because this is a new col which hasn't been filled
+            # in this case read DATA instead
+            try:
+                vis0 = t.getcol(colname)
+            except RuntimeError:
+                vis0 = t.getcol("DATA")
             vis0[:,self.ChanSlice,:] = vis
             t.putcol(colname,vis0)
         else:
