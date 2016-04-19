@@ -233,21 +233,23 @@ class ClassVisServer():
             degrid_bw = self.GD["MultiFreqs"]["DegridBandMHz"]*1e+6
             if degrid_bw:
                 degrid_bw = min(degrid_bw,bw)
-                NChanDegrid = max(int(math.ceil(bw/degrid_bw)),MS.ChanFreq.size)
+                NChanDegrid = min(int(math.ceil(bw/degrid_bw)),MS.ChanFreq.size)
             else:
-                NChanDegrid = max(self.GD["MultiFreqs"]["NChanDegridPerMS"] or MS.ChanFreq.size,MS.ChanFreq.size)
+                NChanDegrid = min(self.GD["MultiFreqs"]["NChanDegridPerMS"] or MS.ChanFreq.size,MS.ChanFreq.size)
                 degrid_bw = bw/NChanDegrid
 
             # now map each channel to a degridding band
             self.DicoMSChanMappingDegridding[iMS] = np.floor((MS.ChanFreq - min_freq)/degrid_bw).astype(int)
 
             # calculate center frequency of each degridding band
-            edges = np.linspace(min_freq, max_freq, NChanDegrid+1)
+            edges = np.arange(min_freq, max_freq+degrid_bw, degrid_bw)
             self.FreqBandChannelsDegrid[iMS] = (edges[:-1] + edges[1:])/2
 
             print>>log,"%s   Bandwidth is %g MHz (%g to %g MHz), gridding bands are %s"%(MS, bw*1e-6, min_freq*1e-6, max_freq*1e-6, ", ".join(map(str,set(bands))))
-            print>>log,"Band mapping: %s"%(" ".join(map(str,bands)))
-            print>>log,"Chan mapping: %s"%(" ".join(map(str,self.DicoMSChanMappingChan[iMS])))
+            print>>log,"Grid band mapping: %s"%(" ".join(map(str,bands)))
+            print>>log,"Grid chan mapping: %s"%(" ".join(map(str,self.DicoMSChanMappingChan[iMS])))
+            print>>log,"Degrid chan mapping: %s"%(" ".join(map(str,self.DicoMSChanMappingDegridding[iMS])))
+            print>>log,"Degrid frequencies: %s"%(" ".join(["%.2f"%(x*1e-6) for x in self.FreqBandChannelsDegrid[iMS]]))
 
 #            print>>log,MS
 

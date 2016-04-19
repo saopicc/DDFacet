@@ -721,7 +721,9 @@ class ClassImagerDeconv():
             tuple of ((fwhm_xdeg,fwhm_deg,pa_deg),(gx,gy,theta),sidelobes)
         """
         x, y = np.where(PSF == np.max(PSF))[-2:]
+        nx, ny = PSF.shape[-2:]
         off = self.GD["ImagerDeconv"]["SidelobeSearchWindow"] // 2
+        off = min(off, x[0], nx-x[0], y[0], ny-y[0])
         print>> log, "Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2)
         P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off]
         sidelobes = ModFitPSF.FindSidelobe(P)
