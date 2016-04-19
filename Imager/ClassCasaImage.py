@@ -1,6 +1,7 @@
 
 from pyrap.images import image
 import os
+import os.path
 from DDFacet.Other import MyPickle
 import numpy as np
 from DDFacet.Other import MyLogger
@@ -8,6 +9,7 @@ log=MyLogger.getLogger("ClassCasaImage")
 from DDFacet.ToolsDir import rad2hmsdms
 import pyfits
 import pyrap.images
+
 
 def PutDataInNewImage(ImageNameIn,ImageNameOut,data,CorrT=False):
     im=image(ImageNameIn)
@@ -214,7 +216,8 @@ class ClassCasaimage():
 
     def ToFits(self):
         FileOut=self.ImageName+".fits"
-        os.unlink(FileOut)
+        if os.path.exists(FileOut):
+            os.unlink(FileOut)
         print>>log, "  ----> Save data in casa image as FITS file %s"%FileOut
         self.im.tofits(FileOut,overwrite=True)
 
@@ -239,7 +242,8 @@ class ClassCasaimage():
                 F2[0].header["BMAJ%d"%band] = bmaj
                 F2[0].header["BMIN%d"%band] = bmin
                 F2[0].header["BPA%d"%band] = PA
-        os.unlink(FileOut)
+        if os.path.exists(FileOut):
+            os.unlink(FileOut)
         F2.writeto(FileOut,clobber=True)
 
 
