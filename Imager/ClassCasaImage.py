@@ -214,12 +214,19 @@ class ClassCasaimage():
 
     def ToFits(self):
         FileOut=self.ImageName+".fits"
-        os.system("rm -rf %s"%FileOut)
+        os.unlink(FileOut)
         print>>log, "  ----> Save data in casa image as FITS file %s"%FileOut
-        self.im.tofits(FileOut)
+        self.im.tofits(FileOut,overwrite=True)
 
-    def setBeam(self,beam):
-        bmaj, bmin, PA=beam
+    def setBeam(self,beam,beamcube=None):
+        """
+        Add Fitted beam info to FITS header, expects tripple for beam:
+        maj: Length of major axis in degrees
+        min: Length of minor axis in degrees
+        pa: Beam paralactic angle in degrees
+        """
+        bmaj, bmin, PA = beam
+        ###??? PA = 360 - PA # PA rotates clockwise according to Oleg. Oleg: WHAAAAAAAAT? It's CCW North to East.
         FileOut=self.ImageName+".fits"
         #print>>log, "  ----> Save beam info in FITS file %s"%FileOut
         
@@ -227,7 +234,13 @@ class ClassCasaimage():
         F2[0].header["BMAJ"]=bmaj
         F2[0].header["BMIN"]=bmin
         F2[0].header["BPA"]=PA
-        os.system("rm -rf %s"%FileOut)
+        if beamcube is not None:
+            print>>log,"beamcube",beamcube
+            for band,(bmaj, bmin, bpa) in enumerate(beamcube):
+                F2[0].header["BMAJ%d"%band] = bmaj
+                F2[0].header["BMIN%d"%band] = bmin
+                F2[0].header["BPA%d"%band] = PA
+        os.unlink(FileOut)
         F2.writeto(FileOut,clobber=True)
 
 

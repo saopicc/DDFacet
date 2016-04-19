@@ -54,7 +54,7 @@ class ClassCompareFITSImage(unittest.TestCase):
             Returns:
                 List of image identifiers to reference and output products
         """
-        return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm', 'alpha',
+        return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm',
                 'int.residual', 'app.residual', 'int.model', 'app.model',
                 'int.convmodel', 'app.convmodel', 'int.restored', 'app.restored',
                 'restored']
@@ -67,7 +67,10 @@ class ClassCompareFITSImage(unittest.TestCase):
             Returns:
                 constant for maximum tolerance used in test case setup
         """
-        return 0.00000001 #epsilon
+        return [1e-7,1e-7,1e-7,1e-7,1e-7,
+                1e-5,1e-5,1e-5,1e-5,
+                1e-5,1e-5,1e-5,1e-5,
+                1e-5] #epsilons per image pair, as listed in defineImageList
     
     @classmethod
     def defMeanSquaredErrorLevel(cls):
@@ -77,7 +80,10 @@ class ClassCompareFITSImage(unittest.TestCase):
 	    Returns:
 		constant for tolerance on mean squared error
 	"""
-	return 0.00000001
+	return [1e-7,1e-7,1e-7,1e-7,1e-7,
+                1e-5,1e-5,1e-5,1e-5,
+                1e-5,1e-5,1e-5,1e-5,
+                1e-5] #epsilons per image pair, as listed in defineImageList
     
     @classmethod
     def setParsetOption(cls, section, option, value):
@@ -185,8 +191,8 @@ class ClassCompareFITSImage(unittest.TestCase):
                     assert out_hdu.data is None, "ref_hdu data is None, so out_hdu must be None in %s" % imgIdentity
                 else:
                     assert out_hdu.data.shape == ref_hdu.data.shape, "ref_hdu data shape doesn't match out_hdu"
-                assert np.all((ref_hdu.data - out_hdu.data)**2 <= cls._maxSqErr), "FITS data not the same for %s" % \
-                                                                                  imgIdentity
+                assert np.all((ref_hdu.data - out_hdu.data)**2 <= cls._maxSqErr[imgI]), "FITS data not the same for %s" % \
+                                                                                        imgIdentity
     def testMeanSquaredError(self):
 	cls = self.__class__
 	for imgI, (ref, out) in enumerate(zip(cls._refHDUList, cls._outHDUList)):
@@ -196,8 +202,8 @@ class ClassCompareFITSImage(unittest.TestCase):
                     assert out_hdu.data is None, "ref_hdu data is None, so out_hdu must be None in %s" % imgIdentity
                 else:
                     assert out_hdu.data.shape == ref_hdu.data.shape, "ref_hdu data shape doesn't match out_hdu"
-                assert np.mean((ref_hdu.data - out_hdu.data)**2) <= cls._thresholdMSE, "MSE of FITS data not the same for %s" % \
-										       imgIdentity
+                assert np.mean((ref_hdu.data - out_hdu.data)**2) <= cls._thresholdMSE[imgI], "MSE of FITS data not the same for %s" % \
+										             imgIdentity
 
 if __name__ == "__main__":
     pass # abstract class

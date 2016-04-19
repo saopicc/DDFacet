@@ -767,47 +767,64 @@ class ClassImagerDeconv():
         if self.HasCleaned:
             self.Restore()
 
+    def fitSinglePSF(self, PSF, label="mean"):
+        """
+            Fits a PSF given by argument
+        Args:
+            PSF: PSF array
+            label: string label used in output to describe this PSF
+        Returns:
+            tuple of ((fwhm_xdeg,fwhm_deg,pa_deg),(gx,gy,theta),sidelobes)
+        """
+        x, y = np.where(PSF == np.max(PSF))[-2:]
+        off = self.GD["ImagerDeconv"]["SidelobeSearchWindow"] // 2
+        print>> log, "Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2)
+        P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off]
+        sidelobes = ModFitPSF.FindSidelobe(P)
+        bmaj, bmin, theta = ModFitPSF.FitCleanBeam(P)
+
+        FWHMFact = 2. * np.sqrt(2. * np.log(2.))
+
+        fwhm = (bmaj * self.CellArcSec * FWHMFact / 3600.,
+                bmin * self.CellArcSec * FWHMFact / 3600.,
+                np.rad2deg(theta))
+        gausspars = (bmaj * self.CellSizeRad, bmin * self.CellSizeRad, theta)
+        print>> log, "\tsigma is %f, %f (FWHM is %f, %f), PA is %f deg" % (bmaj * self.CellArcSec,
+                                                                           bmin * self.CellArcSec,
+                                                                           bmaj * self.CellArcSec * FWHMFact,
+                                                                           bmin * self.CellArcSec * FWHMFact,
+                                                                           np.rad2deg(theta))
+        print>> log, "\tSecondary sidelobe at the level of %5.1f at a position of %i from the center" % sidelobes
+        return fwhm, gausspars, sidelobes
+
     def FitPSF(self):
-        #PSF=self.PSF
-        PSF=self.MeanFacetPSF
-        PSF=self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
+        """
+            Fits the PSF to get the parameters for the clean beam used in restoring
+            Post conditions:
+                self.FWHMBeam: The maj (deg), min (deg), theta (deg) gaussian parameters for the full width half power
+                               fits. This should be passed to the FITS file outputs
+                self.PSFGaussPars: The maj (rad), min (rad), theta (rad) parameters for the fit of the gaussian
+                self.PSFSidelobes: Position of the highest sidelobes (px)
+        """
+        PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
 
-        _,_,x,y=np.where(PSF==np.max(PSF))
-        #fit a clean beam for each PSF channel
-        assert PSF.shape[0] == self.VS.NFreqBands, "Expected PSF to have NFreqBands different dirty beams"
-        self.FWHMBeam = []
-        self.PSFGaussPars = []
-        self.PSFSidelobes = []
-        for c in range(self.VS.NFreqBands):
-            off=100 #TODO: how do you know the sidelobe will always be in 100px, this probably needs a dict param
-            print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
-            P=PSF[c,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
-            self.PSFSidelobes.append(ModFitPSF.FindSidelobe(P))
-            sigma_x, sigma_y, theta = ModFitPSF.DoFit(P)
-            print>>log, "   ... done"
+        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = \
+            self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
+        # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
 
-            theta=np.pi/2-theta
-            FWHMFact=2.*np.sqrt(2.*np.log(2.))
-            bmaj=np.max([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
-            bmin=np.min([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
-            self.FWHMBeam.append((bmaj/3600., bmin/3600., theta))
-            self.PSFGaussPars.append((sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta))
-            print>>log, "Fitted PSF for channel %i of the cube:" % c
-            print>>log, "\tFitted PSF (sigma): (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec,
-                                                                           sigma_y*self.CellArcSec,
-                                                                           theta)
-            print>>log, "\tFitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec*FWHMFact,
-                                                                           sigma_y*self.CellArcSec*FWHMFact,
-                                                                           theta)
-            print>>log, "\tSecondary sidelobe at the level of %5.1f at a position of %i from the center" % self.PSFSidelobes[c]
-        self.FWHMBeamAvg = (np.average(np.array([tup[0] for tup in self.FWHMBeam])),
-                            np.average(np.array([tup[1] for tup in self.FWHMBeam])),
-                            np.average(np.array([tup[2] for tup in self.FWHMBeam])))
-        self.PSFGaussParsAvg = (np.average(np.array([tup[0] for tup in self.PSFGaussPars])),
-                                np.average(np.array([tup[1] for tup in self.PSFGaussPars])),
-                                np.average(np.array([tup[2] for tup in self.PSFGaussPars])))
-        self.PSFSidelobesAvg = (np.average(np.array([tup[0] for tup in self.PSFSidelobes])),
-                                int(np.round(np.average(np.array([tup[1] for tup in self.PSFSidelobes])))))
+        if self.VS.MultiFreqMode:
+            self.FWHMBeam = []
+            self.PSFGaussPars = []
+            self.PSFSidelobes = []
+            for band in range(self.VS.NFreqBands):
+                beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],"band %d"%band)
+                self.FWHMBeam.append(beam)
+                self.PSFGaussPars.append(gausspars)
+                self.PSFSidelobes.append(sidelobes)
+        else:
+            self.FWHMBeam = [self.FWHMBeamAvg]
+            self.PSFGaussPars = [self.PSFGaussParsAvg]
+            self.PSFSidelobes = [self.PSFSidelobesAvg]
 
     def Restore(self):
         print>>log, "Create restored image"
@@ -941,11 +958,11 @@ class ClassImagerDeconv():
         # convolved-model cube in apparent flux 
         if "c" in self._savecubes:
             self.FacetMachine.ToCasaImage(appconvmodelcube(),ImageName="%s.cube.app.convmodel"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Freqs=self.VS.FreqBandCenters)
+                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters)
         # convolved-model cube in intrinsic flux
         if havenorm and "C" in self._savecubes: 
             self.FacetMachine.ToCasaImage(intconvmodelcube(),ImageName="%s.cube.int.convmodel"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Freqs=self.VS.FreqBandCenters)
+                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters)
 
         # apparent-flux restored image
         if "i" in self._saveims:
@@ -958,11 +975,11 @@ class ClassImagerDeconv():
         # apparent-flux restored image cube
         if "i" in self._savecubes:
             self.FacetMachine.ToCasaImage(apprescube()+appconvmodelcube(),ImageName="%s.cube.app.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Freqs=self.VS.FreqBandCenters)
+                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters)
         # intrinsic-flux restored image cube
         if havenorm and "I" in self._savecubes:
             self.FacetMachine.ToCasaImage(intrescube()+intconvmodelcube(),ImageName="%s.cube.int.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Freqs=self.VS.FreqBandCenters)
+                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters)
         # mixed-flux restored image
         if havenorm and "x" in self._saveims:
             self.FacetMachine.ToCasaImage(appres()+intconvmodel(),ImageName="%s.restored"%self.BaseName,Fits=True,

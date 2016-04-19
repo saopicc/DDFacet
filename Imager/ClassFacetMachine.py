@@ -430,7 +430,7 @@ class ClassFacetMachine():
             Shape=self.OutImShape
         self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec,Freqs=Freqs)
 
-    def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None,Freqs=None):
+    def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None,beamcube=None,Freqs=None):
         # if ImageIn==None:
         #     Image=self.FacetsToIm()
         # else:
@@ -453,8 +453,8 @@ class ClassFacetMachine():
 
         if Fits:
             self.CasaImage.ToFits()
-            if beam!=None:
-                self.CasaImage.setBeam(beam)
+            if beam is not None:
+                self.CasaImage.setBeam(beam,beamcube=beamcube)
         self.CasaImage.close()
         self.CasaImage=None
 

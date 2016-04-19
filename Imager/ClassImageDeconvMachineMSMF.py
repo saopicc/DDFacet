@@ -269,9 +269,12 @@ class ClassImageDeconvMachine():
         DoAbs=int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
         print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
 
-        NPixStats=1000
-        RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
-        RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
+        NPixStats = self.GD["ImagerDeconv"]["NumRMSSamples"]
+        if NPixStats:
+            RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
+            RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
+        else:
+            RMS=np.std(self.Dirty)
         self.RMS=RMS
 
         self.GainMachine.SetRMS(RMS)
