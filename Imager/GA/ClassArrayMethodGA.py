@@ -91,6 +91,7 @@ class ClassArrayMethodGA():
                         M[iBand,0,iPix,jPix]=PSF[iBand,0,i,j]
 
         self.CM=M
+        print>>log,"    Done calculate M"
         
         #self.Gain=.5
         ALPHA=1.
@@ -125,6 +126,7 @@ class ClassArrayMethodGA():
         self.DirtyArrayMean=np.mean(self.DirtyArray,axis=0).reshape((1,1,self.NPixListData))
         self.DirtyCMMean=np.mean(M,axis=0).reshape((1,1,self.NPixListData,self.NPixListParms))
         self.DirtyArrayAbsMean=np.mean(np.abs(self.DirtyArray),axis=0).reshape((1,1,self.NPixListData))
+        print>>log,"    Done average M"
 
         print>>log,"  Calculate MParms"
         MParms=np.zeros((self.NFreqBands,1,self.NPixListParms,self.NPixListParms),np.float32)

@@ -443,7 +443,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             mc=(m0+m1)/2.
             dl=l1-l0
             dm=m1-m0
-            diam=2*np.max([dl,dm])
+            diam=np.max([dl,dm])
 
             l_m_Diam[iFacet,0]=lc
             l_m_Diam[iFacet,1]=mc
