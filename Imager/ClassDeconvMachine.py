@@ -375,7 +375,11 @@ class ClassImagerDeconv():
         self.FitPSF()
         if "P" in self._saveims or "p" in self._saveims:
             FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg)
-        
+        if "P" in self._savecubes or "p" in self._savecubes:
+            self.FacetMachine.ToCasaImage(self.DicoImagePSF["ImagData"],
+                                          ImageName="%s.cube.psf"%self.BaseName,
+                                          Fits=True,beam=self.FWHMBeamAvg,Freqs=self.VS.FreqBandCenters)
+
         FacetMachinePSF = None
 
         # if self.VS.MultiFreqMode:
