@@ -147,6 +147,7 @@ class ClassImagerDeconv():
                                               IdSharedMem=self.IdSharedMem,
                                               Robust=DC["ImagerGlobal"]["Robust"],
                                               Weighting=DC["ImagerGlobal"]["Weighting"],
+                                              MFSWeighting=DC["ImagerGlobal"]["MFSWeighting"],
                                               Super=DC["ImagerGlobal"]["Super"],
                                               DicoSelectOptions=dict(DC["DataSelection"]),
                                               NCPU=self.GD["Parallel"]["NCPU"],

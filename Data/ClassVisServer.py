@@ -31,7 +31,8 @@ class ClassVisServer():
                  DicoSelectOptions={},
                  LofarBeam=None,
                  AddNoiseJy=None,IdSharedMem="",
-                 Robust=2,Weighting="Briggs",Super=1,NCPU=6):
+                 Robust=2,Weighting="Briggs",MFSWeighting=True,Super=1,
+                 NCPU=6):
 
         self.ReadOnce=False
         self.ReadOnce_AlreadyRead=False
@@ -57,6 +58,7 @@ class ClassVisServer():
         self.Weighting=Weighting.lower()
         if self.Weighting not in ("natural", "uniform", "briggs", "robust"):
             raise ValueError("unknown Weighting=%s"%Weighting)
+        self.MFSWeighting = MFSWeighting
 
         self.Super=Super
         self.NCPU=NCPU
@@ -298,16 +300,21 @@ class ClassVisServer():
             print>>log,"All imaging weights are 0, setting them to ones"
             for w in VisWeights:
                 w.fill(1)
-        #VisWeights=np.ones((uvw.shape[0],),dtype=np.float32)
-        
+
         Robust = self.Robust
+        if self.MFSWeighting or self.NFreqBands<2:
+            band_mapping = None
+        else:
+            band_mapping = self.DicoMSChanMapping
 
         #self.VisWeights=np.ones((uvw.shape[0],self.MS.ChanFreq.size),dtype=np.float64)
 
         self.VisWeights = WeightMachine.CalcWeights(uv_weights_flags_freqs,
                                               Robust=Robust,
                                               Weighting=self.Weighting,
-                                              Super=self.Super)
+                                              Super=self.Super,
+                                              nbands=self.NFreqBands if band_mapping is not None else 1,
+                                              band_mapping=band_mapping)
 
         self.CurrentVisWeights = self.VisWeights[0]
         # print>>log,self.CurrentVisWeights.mean(),self.CurrentVisWeights
