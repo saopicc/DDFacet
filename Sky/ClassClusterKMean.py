@@ -65,10 +65,14 @@ class ClassClusterKMean():
         #     Sk=np.sum(ss)
 
 
-        while True:
+        NITerMax=20
+        NIter=0
+        while NIter<NITerMax:#True:
             #d=np.abs(s.reshape((ns,1))**2)*np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
 
-            
+            NIter+=1
+            if NIter==NITerMax:
+                print "Has reached max iter of %i"%NITerMax
             d=np.sqrt((x.reshape((ns,1))-xc.reshape((1,Nk)))**2+(y.reshape((ns,1))-yc.reshape((1,Nk)))**2)
             indk=np.argmin(d,axis=1)
             
