@@ -811,7 +811,7 @@ class ClassImagerDeconv():
         def sqrtnormcube():
             label = 'sqrtnormcube'
             if label not in _images:
-                _images[label] = np.sqrt(self.MeanNorm) if havenorm else 1
+                _images[label] = np.sqrt(self.NormImage) if havenorm else 1
             return _images[label]
         def appres():
             return self.ResidImage
