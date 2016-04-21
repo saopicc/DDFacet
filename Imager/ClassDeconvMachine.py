@@ -497,25 +497,28 @@ class ClassImagerDeconv():
         # ImagData=self.DicoDirty["ImagData"]
         # im=ClassCasaImage.ClassCasaimage(ImageName,ImagData.shape,self.FacetMachine.Cell,self.FacetMachine.MainRaDec)
         # im.setdata(ImagData,CorrT=True)
-        # im.ToFits()
-        # im.close()
 
 
         if "n" in self._saveims:
             self.FacetMachine.ToCasaImage(self.FacetMachine.NormImageReShape,ImageName="%s.NormFacets"%self.BaseName,Fits=True)
 
         if self.DicoDirty["NormData"]!=None:
-            #MeanCorr=self.DicoDirty["ImagData"]*self.DicoDirty["NormData"]
-            MeanCorr=self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
-            #MeanCorr=self.DicoDirty["ImagData"]*(self.DicoDirty["NormData"])
-            nch,npol,nx,ny=MeanCorr.shape
-            MeanCorr=np.mean(MeanCorr,axis=0).reshape((1,npol,nx,ny))
+            DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
+            nch,npol,nx,ny = DirtyCorr.shape
             if "D" in self._saveims:
+                MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
                 self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True)
+            if "D" in self._savecubes:
+                self.FacetMachine.ToCasaImage(DirtyCorr,ImageName="%s.cube.dirty.corr"%self.BaseName,
+                                              Fits=True,Freqs=self.VS.FreqBandCenters)
 
-            self.MeanNormImage = np.mean(self.DicoDirty["NormData"],axis=0).reshape((1,npol,nx,ny))
+            self.NormImage = self.DicoDirty["NormData"]
+            self.MeanNormImage = np.mean(self.NormImage,axis=0).reshape((1,npol,nx,ny))
             if "N" in self._saveims:
                 self.FacetMachine.ToCasaImage(self.MeanNormImage,ImageName="%s.Norm"%self.BaseName,Fits=True)
+            if "N" in self._savecubes:
+                self.FacetMachine.ToCasaImage(self.NormImage, ImageName="%s.cube.Norm" % self.BaseName,
+                                              Fits=True, Freqs=self.VS.FreqBandCenters)
         else:
             self.MeanNormImage = None
 
@@ -805,6 +808,11 @@ class ClassImagerDeconv():
             if label not in _images:
                 _images[label] = np.sqrt(self.MeanNormImage) if havenorm else 1
             return _images[label]
+        def sqrtnormcube():
+            label = 'sqrtnormcube'
+            if label not in _images:
+                _images[label] = np.sqrt(self.MeanNorm) if havenorm else 1
+            return _images[label]
         def appres():
             return self.ResidImage
         def intres():
@@ -818,7 +826,7 @@ class ClassImagerDeconv():
         def intrescube():
             label = 'intrescube'
             if label not in _images:
-                _images[label] = x = apprescube()/sqrtnorm() if havenorm else apprescube()
+                _images[label] = x = apprescube()/sqrtnormcube() if havenorm else apprescube()
                 x[~np.isfinite(x)] = 0
             return _images[label]
         def appmodel():
@@ -834,7 +842,7 @@ class ClassImagerDeconv():
         def appmodelcube():
             label = 'appmodelcube'
             if label not in _images:
-                _images[label] = intmodelcube()*sqrtnorm() if havenorm else intmodel()
+                _images[label] = intmodelcube()*sqrtnormcube() if havenorm else intmodel()
             return _images[label]
         def intmodelcube():
             label = 'intmodelcube'
@@ -867,8 +875,11 @@ class ClassImagerDeconv():
         # norm
         if havenorm and ("S" in self._saveims or "s" in self._saveims):
             self.FacetMachine.ToCasaImage(sqrtnorm(),ImageName="%s.fluxscale"%(self.BaseName),Fits=True)
+        if havenorm and ("S" in self._savecubes or "s" in self._savecubes):
+            self.FacetMachine.ToCasaImage(sqrtnormcube(), ImageName="%s.cube.fluxscale" % (self.BaseName), Fits=True,
+                Freqs=self.VS.FreqBandCenters)
 
-        # apparent-flux residuals
+            # apparent-flux residuals
         if "r" in self._saveims:
             self.FacetMachine.ToCasaImage(appres(),ImageName="%s.app.residual"%(self.BaseName),Fits=True)
         # intrinsic-flux residuals
