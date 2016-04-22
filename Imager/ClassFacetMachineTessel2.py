@@ -30,6 +30,7 @@ from SkyModel.Sky import ModVoronoiToReg
 import time
 import Polygon
 from DDFacet.ToolsDir import rad2hmsdms
+from scipy.spatial import ConvexHull
 
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
@@ -306,7 +307,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
 
 
-        from scipy.spatial import ConvexHull
         for iFacet in sorted(DicoPolygon.keys()):
             diam=DicoPolygon[iFacet]["diamMin"]
             # print iFacet,diam,DiamMin
@@ -359,6 +359,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                     DicoPolygon[iFacetClosest]["poly"]=poly2
                     DicoPolygon[iFacetClosest]["diam"]=GiveDiam(poly2)[0]
                     DicoPolygon[iFacetClosest]["xyc"]=np.mean(poly2[:,0]),np.mean(poly2[:,1])
+
         #stop
         LPolygonNew=[]
         for iFacet in sorted(DicoPolygon.keys()):
