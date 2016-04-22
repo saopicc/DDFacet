@@ -1,4 +1,3 @@
-
 import numpy as np
 import pylab
 from DDFacet.Other import MyLogger
@@ -79,18 +78,11 @@ class ClassImageDeconvMachine():
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
         self.ModelMachine.setRefFreq(self.PSFServer.RefFreq,self.PSFServer.AllFreqs)
-        
-
 
     def InitMSMF(self):
         pass
 
-        
-
-
     def SetDirty(self,DicoDirty):
-
-
         DicoDirty["ImagData"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImagData"])
         DicoDirty["MeanImage"]=NpShared.ToShared("%s.Dirty.MeanImage"%self.IdSharedMem,DicoDirty["MeanImage"])
         self.DicoDirty=DicoDirty

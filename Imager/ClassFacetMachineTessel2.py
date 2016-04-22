@@ -167,13 +167,18 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         xy=np.zeros((lFacet.size,2),np.float32)
         xy[:,0]=lFacet
         xy[:,1]=mFacet
-        vor = Voronoi(xy,furthest_site=False)
-        regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=1.)
-        LPolygon=[np.array(vertices[region]) for region in regions]
-        #
+
+        regFile="%s.tessel.reg"%self.ImageName
+        NFacets=self.NFacets=lFacet.size
         rac,decc=self.MainRaDec
         VM=ModVoronoiToReg.VoronoiToReg(rac,decc)
-        regFile="%s.tessel.reg"%self.ImageName
+        if NFacets>2:
+            vor = Voronoi(xy,furthest_site=False)
+            regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=1.)
+            LPolygon=[np.array(vertices[region]) for region in regions]
+        elif NFacets==1:
+            l0,m0=lFacet[0],mFacet[0]
+            LPolygon=[self.CornersImageTot]
         #VM.ToReg(regFile,lFacet,mFacet,radius=.1)
         
         #VM.PolygonToReg(regFile,LPolygon,radius=0.1,Col="red")
@@ -280,7 +285,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         LPolygonNew=[]
         
-        for iFacet in range(len(regions)):
+        for iFacet in range(len(LPolygon)):
             polygon=LPolygon[iFacet]
             ThisDiamMax=DiamMax
             SubReg=GiveSubDivideRegions(polygon,ThisDiamMax)
