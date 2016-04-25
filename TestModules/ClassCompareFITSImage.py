@@ -67,10 +67,10 @@ class ClassCompareFITSImage(unittest.TestCase):
             Returns:
                 constant for maximum tolerance used in test case setup
         """
-        return [1e-7,1e-7,1e-7,1e-7,1e-7,
-                1e-5,1e-5,1e-5,1e-5,
-                1e-5,1e-5,1e-5,1e-5,
-                1e-5] #epsilons per image pair, as listed in defineImageList
+        return [1e-6,1e-6,1e-6,1e-6,1e-6,
+                1e-3,1e-4,1e-3,1e-4,
+                1e-3,1e-4,1e-3,1e-4,
+                1e-1] #epsilons per image pair, as listed in defineImageList
     
     @classmethod
     def defMeanSquaredErrorLevel(cls):
