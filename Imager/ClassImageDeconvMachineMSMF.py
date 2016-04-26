@@ -333,7 +333,7 @@ class ClassImageDeconvMachine():
 
         def GivePercentDone(ThisMaxFlux):
             fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
-            return int(round(100*fracDone))
+            return max(int(round(100*fracDone)),100)
         try:
             for i in range(self._niter+1,self.MaxMinorIter+1):
                 self._niter = i

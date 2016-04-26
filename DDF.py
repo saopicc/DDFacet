@@ -26,7 +26,6 @@ from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 from DDFacet.Other import ClassTimeIt
-
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
 log = None
@@ -195,6 +194,7 @@ def read_options():
     OP.OptionGroup("* Debugging","Debugging")
     OP.add_option("SaveIntermediateDirtyImages")
     OP.add_option("PauseGridWorkers")
+    OP.add_option("FacetPhaseShift")
 
     OP.OptionGroup("* Logging","Logging")
     OP.add_option("MemoryLogging")
@@ -351,10 +351,16 @@ if __name__=="__main__":
         main(OP,messages)
         print>>log, ModColor.Str("DDFacet ended successfully after %s"%T.timehms(),col="green")
     except:
-        print>>log, ModColor.Str("There was a problem after %s, please help yourself"%T.timehms(),col="red")
+        ddfacetPath = "." if os.path.dirname(__file__) == "" else os.path.dirname(__file__)
+        commitSha = subprocess.check_output("git -C %s rev-parse HEAD" % ddfacetPath,shell=True)
+        logfileName = MyLogger.getLogFilename()
+        logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
+        print>> log, ModColor.Str("There was a problem after %s, if you think this is a bug please open an "
+                                  "issue, quote your version of DDFacet and attach your logfile"%T.timehms(), col="red")
+        print>> log, ModColor.Str("You are using DDFacet revision: %s" % commitSha, col="red")
+        print>> log, ModColor.Str("Your logfile is available here: %s" % logfileName, col="red")
         print>>log, traceback.format_exc()
         NpShared.DelAll(IdSharedMem)
         sys.exit(1) #Should at least give the command line an indication of failure
     # main(options)
-    
     
