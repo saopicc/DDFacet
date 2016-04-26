@@ -375,7 +375,8 @@ class ClassDDEGridMachine():
             self.npol=4
             self.PolMap=np.array([0,1,2,3],np.int32)
             self.PolModeID=1
-
+	else:
+	    raise ValueError("Illegal value for PolMode. Only accepts one of [I,IQUV].")
         self.Npix=Npix
 
         self.NFreqBands=NFreqBands
