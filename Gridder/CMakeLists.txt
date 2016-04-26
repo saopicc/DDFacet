@@ -15,8 +15,10 @@ ELSE()
    message("build type isn't defined")
 ENDIF()
 
-option(ENABLE_VECTORIZATION "Enables support for vectorization" OFF)
-option(ENABLE_i7_TUNING "Enables support for optimized code generation (-march=corei7)" OFF)
+option(ENABLE_VECTORIZATION "Enables support for vectorization" ON)
+option(ENABLE_i7_TUNING "Enables support for optimized code generation (-march=corei7)" ON)
+option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" ON)
+
 if (${ENABLE_i7_TUNING})
   set(TUNING_FLAGS "-march=corei7 -mtune=corei7")
   message(WARNING "Instructing gcc to use corei7 instruction set. This will break .so portability.")
@@ -28,6 +30,12 @@ if (${ENABLE_VECTORIZATION})
 else (${ENABLE_VECTORIZATION})
   set(VECTORIZATION_FLAGS "")
 endif (${ENABLE_VECTORIZATION})
+if (${ENABLE_FAST_MATH})
+  message("-ffast-math is enabled")
+  set(FAST_MATH_FLAGS "-ffast-math")
+else (${ENABLE_FAST_MATH})
+  set(FAST_MATH_FLAGS "")
+endif (${ENABLE_FAST_MATH})
 
 project(backend)
 #Find necessary modules
@@ -58,8 +66,10 @@ execute_process(COMMAND touch __init__.py
 #Add more options for debug and release builds
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -ggdb ${OpenMP_C_FLAGS}")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -ggdb ${OpenMP_CXX_FLAGS}")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${OpenMP_C_FLAGS} ${VECTORIZATION_FLAGS} ${TUNING_FLAGS}")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OpenMP_CXX_FLAGS} ${VECTORIZATION_FLAGS} ${TUNING_FLAGS}")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -ggdb ${OpenMP_C_FLAGS} ${VECTORIZATION_FLAGS} ${TUNING_FLAGS} ${FAST_MATH_FLAGS}")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -ggdb ${OpenMP_CXX_FLAGS} ${VECTORIZATION_FLAGS} ${TUNING_FLAGS} ${FAST_MATH_FLAGS}")
+
+message("CFLAGS are ${CMAKE_C_FLAGS_RELEASE}")
 
 #compile and link _pyArrays.so
 add_library(_pyArrays Arrays.c Arrays.h)
