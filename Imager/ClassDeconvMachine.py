@@ -1,31 +1,22 @@
-
-
-from ClassFacetMachine import ClassFacetMachine
 from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
 import pylab
-#import ToolsDir
-from DDFacet.Other import MyPickle
 from pyrap.images import image
-import ClassImageDeconvMachineMultiScale
 import ClassImageDeconvMachineSingleScale
 import ClassImageDeconvMachineMSMF
 from DDFacet.ToolsDir import ModFFTW
-from DDFacet.Other import ModColor
-from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("ClassImagerDeconv")
 from DDFacet.Array import NpShared
 import os
 from DDFacet.ToolsDir import ModFitPSF
-#from ClassData import ClassMultiPointingData,ClassSinglePointingData,ClassGlobalData
 from DDFacet.Data import ClassVisServer
-from DDFacet.Other import MyPickle
 import ClassCasaImage
 from ClassModelMachine import ClassModelMachine
-from pyrap.tables import table
-
 import time
 import glob
+from DDFacet.Other import ModColor
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("ClassImagerDeconv")
+
 
 def test():
     Imager=ClassImagerDeconv(ParsetFile="ParsetDDFacet.txt")
