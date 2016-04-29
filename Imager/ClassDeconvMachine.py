@@ -1,7 +1,7 @@
 
 
 from ClassFacetMachine import ClassFacetMachine
-from ClassFacetMachineTessel2 import ClassFacetMachineTessel as ClassFacetMachine
+from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
 import pylab
 #import ToolsDir
