@@ -9,15 +9,6 @@ def testSetupWithIQUVString():
     assert conv._gridMSCorrMapping == {StokesTypes["XX"]:0, StokesTypes["XY"]:1,
                                        StokesTypes["YX"]:2, StokesTypes["YY"]:3}
     assert conv._FITSstokesList == ["I","Q","U","V"]
-    assert conv._stokesExpr == [2,2,2,2]
-    assert [StokesDependencies["I"][conv._stokesExpr[0]][0],
-            StokesDependencies["I"][conv._stokesExpr[0]][1]] == [StokesTypes["XX"],StokesTypes["YY"]]
-    assert [StokesDependencies["Q"][conv._stokesExpr[1]][0],
-            StokesDependencies["Q"][conv._stokesExpr[1]][1]] == [StokesTypes["XX"], StokesTypes["YY"]]
-    assert [StokesDependencies["U"][conv._stokesExpr[2]][0],
-            StokesDependencies["U"][conv._stokesExpr[2]][1]] == [StokesTypes["XY"], StokesTypes["YX"]]
-    assert [StokesDependencies["V"][conv._stokesExpr[3]][0],
-            StokesDependencies["V"][conv._stokesExpr[3]][1]] == [StokesTypes["XY"], StokesTypes["YX"]]
     assert conv._FITSstokesSliceLookup[StokesTypes["V"]] == 3
     assert conv._FITSstokesSliceLookup[StokesTypes["I"]] == 0
     assert conv._FITSstokesSliceLookup[StokesTypes["Q"]] == 1
@@ -31,15 +22,6 @@ def testSetupWithIQUVString2():
     assert conv._FITSstokesList == ["I","V","U","Q"]
     assert conv._gridMSCorrMapping == {StokesTypes["XX"]: 0, StokesTypes["XY"]: 1,
                                        StokesTypes["YX"]: 2, StokesTypes["YY"]: 3}
-    assert conv._stokesExpr == [2, 2, 2, 2]
-    assert [StokesDependencies["I"][conv._stokesExpr[0]][0],
-            StokesDependencies["I"][conv._stokesExpr[0]][1]] == [StokesTypes["XX"], StokesTypes["YY"]]
-    assert [StokesDependencies["V"][conv._stokesExpr[1]][0],
-            StokesDependencies["V"][conv._stokesExpr[1]][1]] == [StokesTypes["XY"], StokesTypes["YX"]]
-    assert [StokesDependencies["Q"][conv._stokesExpr[2]][0],
-            StokesDependencies["Q"][conv._stokesExpr[2]][1]] == [StokesTypes["XX"], StokesTypes["YY"]]
-    assert [StokesDependencies["U"][conv._stokesExpr[3]][0],
-            StokesDependencies["U"][conv._stokesExpr[3]][1]] == [StokesTypes["XY"], StokesTypes["YX"]]
     assert conv._FITSstokesSliceLookup[StokesTypes["V"]] == 1
     assert conv._FITSstokesSliceLookup[StokesTypes["I"]] == 0
     assert conv._FITSstokesSliceLookup[StokesTypes["Q"]] == 3
@@ -52,11 +34,6 @@ def testSetupWithIQUVString3():
     assert conv._MScorrLabels == ["RL","LR"]
     assert conv._gridMSCorrMapping == {StokesTypes["RL"]: 0, StokesTypes["LR"]: 1}
     assert conv._FITSstokesList == ["Q","U"]
-    assert conv._stokesExpr == [1, 1]
-    assert [StokesDependencies["Q"][conv._stokesExpr[0]][0],
-            StokesDependencies["Q"][conv._stokesExpr[0]][1]] == [StokesTypes["RL"], StokesTypes["LR"]]
-    assert [StokesDependencies["U"][conv._stokesExpr[1]][0],
-            StokesDependencies["U"][conv._stokesExpr[1]][1]] == [StokesTypes["RL"], StokesTypes["LR"]]
     assert conv._FITSstokesSliceLookup[StokesTypes["U"]] == 1
     assert conv._FITSstokesSliceLookup[StokesTypes["Q"]] == 0
 
@@ -67,9 +44,6 @@ def testSetupWithIQUVString4():
     assert conv._MScorrLabels == ["I","U"]
     assert conv._gridMSCorrMapping == {StokesTypes["I"]: 0, StokesTypes["U"]: 1}
     assert conv._FITSstokesList == ["U","I"]
-    assert conv._stokesExpr == [0, 0]
-    assert [StokesDependencies["U"][conv._stokesExpr[0]][0]] == [StokesTypes["U"]]
-    assert [StokesDependencies["I"][conv._stokesExpr[1]][0]] == [StokesTypes["I"]]
     assert conv._FITSstokesSliceLookup[StokesTypes["U"]] == 0
     assert conv._FITSstokesSliceLookup[StokesTypes["I"]] == 1
 
@@ -81,11 +55,6 @@ def testSetupWithList():
     assert conv._gridMSCorrMapping == {StokesTypes["XX"]: 0, StokesTypes["XY"]: 1,
                                        StokesTypes["YX"]: 2, StokesTypes["YY"]: 3}
     assert conv._FITSstokesList == ["XX","YY","XY","YX"]
-    assert conv._stokesExpr == [0, 0, 0, 0]
-    assert [StokesDependencies["XX"][conv._stokesExpr[0]][0]] == [StokesTypes["XX"]]
-    assert [StokesDependencies["YY"][conv._stokesExpr[1]][0]] == [StokesTypes["YY"]]
-    assert [StokesDependencies["XY"][conv._stokesExpr[2]][0]] == [StokesTypes["XY"]]
-    assert [StokesDependencies["YX"][conv._stokesExpr[3]][0]] == [StokesTypes["YX"]]
     assert conv._FITSstokesSliceLookup[StokesTypes["XX"]] == 0
     assert conv._FITSstokesSliceLookup[StokesTypes["YY"]] == 1
     assert conv._FITSstokesSliceLookup[StokesTypes["XY"]] == 2
@@ -96,15 +65,6 @@ def testGridMapping():
                        ["I", "U", "Q", "V"])
     assert conv._gridMSCorrMapping == {StokesTypes["XX"]: 1, StokesTypes["XY"]: 0,
                                        StokesTypes["YX"]: 3, StokesTypes["YY"]: 2}
-    assert conv._stokesExpr == [2, 2, 2, 2]
-    assert [StokesDependencies["I"][conv._stokesExpr[0]][0],
-            StokesDependencies["I"][conv._stokesExpr[0]][1]] == [StokesTypes["XX"], StokesTypes["YY"]]
-    assert [StokesDependencies["U"][conv._stokesExpr[1]][0],
-            StokesDependencies["U"][conv._stokesExpr[1]][1]] == [StokesTypes["XY"], StokesTypes["YX"]]
-    assert [StokesDependencies["Q"][conv._stokesExpr[2]][0],
-            StokesDependencies["Q"][conv._stokesExpr[2]][1]] == [StokesTypes["XX"], StokesTypes["YY"]]
-    assert [StokesDependencies["V"][conv._stokesExpr[3]][0],
-            StokesDependencies["V"][conv._stokesExpr[3]][1]] == [StokesTypes["XY"], StokesTypes["YX"]]
     assert conv._FITSstokesSliceLookup[StokesTypes["I"]] == 0
     assert conv._FITSstokesSliceLookup[StokesTypes["U"]] == 1
     assert conv._FITSstokesSliceLookup[StokesTypes["Q"]] == 2
@@ -114,38 +74,58 @@ def testGridMapping():
 def testDependenciesNotSatisfied():
     conv = ClassStokes([StokesTypes["XX"], StokesTypes["YY"]],
                        "IU")
+    corrsCube = np.zeros([1, 4, 1, 3], dtype=np.complex64)
+    stokesCube = conv.stokes2corrs(corrsCube)
+
 @raises(ValueError)
 def testDependenciesNotSatisfiedRRwithLinear():
     conv = ClassStokes([StokesTypes["XX"], StokesTypes["YY"]],
                        ["XX","RR"])
+    corrsCube = np.zeros([1, 4, 1, 3], dtype=np.complex64)
+    stokesCube = conv.stokes2corrs(corrsCube)
+
 @raises(ValueError)
 def testInvalidImageStokes():
     conv = ClassStokes([StokesTypes["XX"], StokesTypes["XY"], StokesTypes["YX"], StokesTypes["YY"]],
                        "IQUVW")
+
 @raises(ValueError)
 def testInvalidImageStokesList():
     conv = ClassStokes([StokesTypes["XX"], StokesTypes["XY"], StokesTypes["YX"], StokesTypes["YY"]],
                        ["I","V","YL"])
+
 @raises(ValueError)
 def testUnsupportedMeasurementSetCorrelation():
     conv = ClassStokes([StokesTypes["XX"], StokesTypes["XY"], StokesTypes["YX"], 0],
                        "IQUV")
+
 @raises(ValueError)
 def testCannotReconstructCorrelationXYYX():
     conv = ClassStokes([StokesTypes["XY"], StokesTypes["XX"], StokesTypes["YY"], StokesTypes["YX"]], #non-standard enumeration
                        ["I", "Q"])
+    stokesCube = np.zeros([1,4,1,3],dtype=np.complex64)
+    corrsCube = conv.stokes2corrs(stokesCube)
+
 @raises(ValueError)
 def testCannotReconstructCorrelationXXYY():
     conv = ClassStokes([StokesTypes["XY"], StokesTypes["XX"], StokesTypes["YY"], StokesTypes["YX"]], #non-standard enumeration
                        ["V", "U"])
+    stokesCube = np.zeros([1, 4, 1, 3], dtype=np.complex64)
+    corrsCube = conv.stokes2corrs(stokesCube)
+
 @raises(ValueError)
 def testCannotReconstructCorrelationRRLL():
     conv = ClassStokes([StokesTypes["RR"], StokesTypes["RL"], StokesTypes["LR"], StokesTypes["LL"]], #non-standard enumeration
                        ["U", "V"])
+    stokesCube = np.zeros([1, 4, 1, 3], dtype=np.complex64)
+    corrsCube = conv.stokes2corrs(stokesCube)
+
 @raises(ValueError)
 def testCannotReconstructCorrelationRLLR():
     conv = ClassStokes([StokesTypes["RR"], StokesTypes["RL"], StokesTypes["LR"], StokesTypes["LL"]], #non-standard enumeration
                        ["I", "Q"])
+    stokesCube = np.zeros([1, 4, 1, 3], dtype=np.complex64)
+    corrsCube = conv.stokes2corrs(stokesCube)
 
 def testExpExtraction():
     g = ClassStokes._extractStokesCombinationExpression([5, 6,"0.5i(0+1)"])
@@ -276,3 +256,9 @@ def testCubeTransformStokes2CorrsStokes():
     assert np.allclose(corrCube[0, :, 0, 1], np.array([0, 0, 2+0j, 2+0j]))
     assert np.allclose(corrCube[0, :, 0, 2], np.array([3+0j, 3+0j, 0, 0]))
 
+@raises(TypeError)
+def testCubeMustBeComplexStokes2Corrs():
+    conv = ClassStokes([StokesTypes["I"], StokesTypes["Q"], StokesTypes["U"], StokesTypes["V"]],
+                       "QVUI")
+    stokesCube = np.zeros([1, 4, 1, 3], dtype=np.float32)
+    stokesCube = conv.stokes2corrs(stokesCube)

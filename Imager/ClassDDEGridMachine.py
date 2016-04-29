@@ -1,46 +1,18 @@
 import numpy as np
 import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmear
-#import pylab
-from pyrap.images import image
-#import MyPickle
 import os
-from DDFacet.Other import MyLogger
-from DDFacet.Other import ClassTimeIt
 import ModCF
-from DDFacet.ToolsDir import ModToolBox
-from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
-
-from DDFacet.Other import ModColor
-import ClassCasaImage
-#import ClassApplyJones
-#import ToolsDir.GiveMDC
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
-from DDFacet.Array import ModLinAlg
-import copy
-import time
 from DDFacet.ToolsDir import ModFFTW
-
-#import ClassApplyJones
-#from ClassME import MeasurementEquation
-log=MyLogger.getLogger("ClassDDEGridMachine")
-
-#from DDFacet.Other import ToolsDir
 import pylab
-#import ClassData
 from DDFacet.Array import NpShared
 from DDFacet.Parset import ReadCFG
-
-
 from DDFacet.Other import ClassTimeIt
-
-#import ReadCFG
-#import MyOptParse
-
-
-
-
 from DDFacet.Data import ClassVisServer
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("ClassDDEGridMachine")
+
 
 def testGrid():
     #Parset=ReadCFG.Parset("%s/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
@@ -298,26 +270,6 @@ def testGrid():
     pylab.draw()
     pylab.show()
 
-
-#     for ibl in [122]:#range(1,nbl)[::11]:
-#         d0=data0[ibl::nbl,:,0].ravel()
-#         d1=data1[ibl::nbl,:,0].ravel()
-#         pylab.clf()
-#         pylab.subplot(1,2,1)
-#         pylab.plot(op0(d0))
-#         pylab.plot(op0(d1))
-#         pylab.plot(op0(d0-d1))
-#         pylab.title(ibl)
-#         pylab.subplot(1,2,2)
-#         pylab.plot(op1(d0))
-#         pylab.plot(op1(d1))
-#         pylab.plot(op1(d0-d1))
-#         pylab.draw()
-#         pylab.show(False)
-#         pylab.pause(0.1)
-# #        time.sleep(0.2)
-
-
 class ClassDDEGridMachine():
     def __init__(self,GD,
                  ChanFreq,
@@ -375,8 +327,9 @@ class ClassDDEGridMachine():
             self.npol=4
             self.PolMap=np.array([0,1,2,3],np.int32)
             self.PolModeID=1
-	else:
-	    raise ValueError("Illegal value for PolMode. Only accepts one of [I,IQUV].")
+        else:
+            raise ValueError("Illegal value for PolMode. Only accepts one of [I,IQUV].")
+
         self.Npix=Npix
 
         self.NFreqBands=NFreqBands

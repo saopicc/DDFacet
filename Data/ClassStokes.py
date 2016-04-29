@@ -92,8 +92,6 @@ class ClassStokes:
         ValueError if the Measurement set doesn't contain supported constants (see StokesTypes)
         ValueError if one of requested polarizations are not supported
         ValueError if requested polarizations is not a stokes string or list
-        ValueError if one or more stokes products cannot be formed from the correlations present in the MS
-        ValueError if one or more correlation products cannot be formed from the requested stokes products in the image
     Post conditions:
         self._MSDataDescriptor are the correlations specified as per input arg (as defined in Stokes.h in casacore)
         self._MScorrLabels are the string identifiers of the input MS correlations
@@ -141,38 +139,6 @@ class ClassStokes:
         for slice, stokes in enumerate(self._FITSstokesList):
             self._FITSstokesSliceLookup[StokesTypes[stokes]] = slice
         print >> log, "Stokes parameters required in FITS cube: %s" % self._FITSstokesList
-
-
-        #Check that the Measurement Set has the required correlation data to form the requested polarization products:
-        self._stokesExpr = []
-        for stokesId, stokes in enumerate(self._FITSstokesList):
-            depOptions = StokesDependencies[stokes]
-            satisfied = False
-            for dep_i,dep in enumerate(depOptions):
-                depIndicies = dep[0:len(dep)-1] #skip combining expression
-                if False not in [(corr in self._MSDataDescriptor) for corr in depIndicies]:
-                    satisfied = True
-                    self._stokesExpr.append(dep_i)
-                    break
-            if not satisfied:
-                raise ValueError("Required data for stokes term %s not "
-                                 "available in MS. Verify your parset options." % stokes)
-
-        #Find the Stokes to correlation conversion expressions:
-        self._corrsExpr = []
-        for corrId, corr in enumerate(self._MScorrLabels):
-            depOptions = CorrelationDependencies[corr]
-            satisfied = False
-            for dep_i, dep in enumerate(depOptions):
-                depIndicies = dep[0:len(dep) - 1]  # skip combining expression
-                if False not in [(stokePar in [StokesTypes[s] for s in self._FITSstokesList])
-                                 for stokePar in depIndicies]:
-                    satisfied = True
-                    self._corrsExpr.append(dep_i)
-                    break
-            if not satisfied:
-                raise ValueError("Required data for computing correlation term %s not "
-                                 "available in requested imaging Stokes products. Verify your parset options." % corr)
 
     @staticmethod
     def _extractStokesCombinationExpression(exp):
@@ -222,9 +188,26 @@ class ClassStokes:
         Raises:
             TypeError if correlation cube is not of complex type (required to compute V from linear feeds and U from
             circular feeds)
+            ValueError if one or more stokes products cannot be formed from the correlations present in the MS
         Returns:
             Cube with stokes parameters as specified by initializer
         """
+
+        # Check that the Measurement Set has the required correlation data to form the requested polarization products:
+        _stokesExpr = []
+        for stokesId, stokes in enumerate(self._FITSstokesList):
+            depOptions = StokesDependencies[stokes]
+            satisfied = False
+            for dep_i, dep in enumerate(depOptions):
+                depIndicies = dep[0:len(dep) - 1]  # skip combining expression
+                if False not in [(corr in self._MSDataDescriptor) for corr in depIndicies]:
+                    satisfied = True
+                    _stokesExpr.append(dep_i)
+                    break
+            if not satisfied:
+                raise ValueError("Required data for stokes term %s not "
+                                 "available in MS. Verify your parset options." % stokes)
+
         if not np.iscomplexobj(corrCube):
             raise TypeError("Correlation cube must be of type complex (certain stokes terms cannot be reconstructed from real data)")
         nChan = corrCube.shape[0]
@@ -233,7 +216,7 @@ class ClassStokes:
         nV = corrCube.shape[2]
         nU = corrCube.shape[3]
         stokesCube = np.empty([nChan,nStokesOut,nV,nU], dtype=corrCube.dtype)
-        for stokesId, (stokes, depExprId) in enumerate(zip(self._FITSstokesList, self._stokesExpr)):
+        for stokesId, (stokes, depExprId) in enumerate(zip(self._FITSstokesList, _stokesExpr)):
             ops = self._extractStokesCombinationExpression(StokesDependencies[stokes][depExprId])
             stokesCube[:, stokesId, :, :] = (ops[0]*ops[1])*ops[3](ops[5] * corrCube[:, self._gridMSCorrMapping[ops[2]], :, :],
                                                                    ops[6] * corrCube[:, self._gridMSCorrMapping[ops[4]], :, :])
@@ -245,19 +228,51 @@ class ClassStokes:
         Args:
             stokesCube: numpy complex cube of the form [channels,stokes,nY,nX]
         Raises:
-            None
+            TypeError if stokes cube is not of complex type
+            ValueError if one or more correlation products cannot be formed from the requested stokes products in the image
         Returns:
             Cube with correlation parameters as specified by initializer
         """
+
+        # Find the Stokes to correlation conversion expressions:
+        _corrsExpr = []
+        for corrId, corr in enumerate(self._MScorrLabels):
+            depOptions = CorrelationDependencies[corr]
+            satisfied = False
+            for dep_i, dep in enumerate(depOptions):
+                depIndicies = dep[0:len(dep) - 1]  # skip combining expression
+                if False not in [(stokePar in [StokesTypes[s] for s in self._FITSstokesList])
+                                 for stokePar in depIndicies]:
+                    satisfied = True
+                    _corrsExpr.append(dep_i)
+                    break
+            if not satisfied:
+                raise ValueError("Required data for computing correlation term %s not "
+                                 "available in requested imaging Stokes products. Verify your parset options." % corr)
+
+        if not np.iscomplexobj(stokesCube):
+            raise TypeError("Stokes cube must be of type complex (certain correlation terms cannot be reconstructed from real data)")
         nChan = stokesCube.shape[0]
         nStokesIn = stokesCube.shape[1]
         nCorrOut = len(self._MSDataDescriptor)
         nV = stokesCube.shape[2]
         nU = stokesCube.shape[3]
         corrCube = np.empty([nChan, nCorrOut, nV, nU], dtype=stokesCube.dtype)
-        for corrId, (corr,depExprId) in enumerate(zip(self._MScorrLabels,self._corrsExpr)):
+        for corrId, (corr,depExprId) in enumerate(zip(self._MScorrLabels, _corrsExpr)):
             ops = self._extractStokesCombinationExpression(CorrelationDependencies[corr][depExprId])
             corrCube[:,corrId,:,:] = (ops[0]*ops[1])*ops[3](ops[5] * stokesCube[:, self._FITSstokesSliceLookup[ops[2]], :, :],
                                                             ops[6] * stokesCube[:, self._FITSstokesSliceLookup[ops[4]], :, :])
 
         return corrCube
+
+    def NStokesInImage(self):
+        """
+        Returns: The number of stokes parameters / correlations in image
+        """
+        return len(self._FITSstokesList)
+
+    def RequiredStokesProducts(self):
+        """
+        Returns: Required output stokes parameters
+        """
+        return self._FITSstokesList
