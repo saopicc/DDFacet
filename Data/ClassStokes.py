@@ -1,7 +1,7 @@
 import numpy as np
+import re
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassStokes")
-import re
 
 '''
 Enumeration of stokes and correlations used in MS2.0 - as per Stokes.h in casacore, the rest are left unimplemented:
@@ -116,7 +116,7 @@ class ClassStokes:
         #Check if the correlations specified in the MS are supported by the conversion code:
         for corrId, corr in enumerate(self._MSDataDescriptor):
             if corr not in StokesTypes.values():
-                raise ValueError("Measurement Set contains unsupported correlation specifier %d" % corr)
+                raise ValueError("Measurement Set contains unsupported correlation specifier %s" % corr)
             for k in StokesTypes.keys():
                 if corr == StokesTypes[k]:
                     self._MScorrLabels.append(k)
@@ -220,10 +220,13 @@ class ClassStokes:
         Args:
             corrCube: numpy complex cube of the form [channels,corrs,nY,nX]
         Raises:
-            None
+            TypeError if correlation cube is not of complex type (required to compute V from linear feeds and U from
+            circular feeds)
         Returns:
             Cube with stokes parameters as specified by initializer
         """
+        if not np.iscomplexobj(corrCube):
+            raise TypeError("Correlation cube must be of type complex (certain stokes terms cannot be reconstructed from real data)")
         nChan = corrCube.shape[0]
         nCorrIn = corrCube.shape[1]
         nStokesOut = len(self._FITSstokesList)

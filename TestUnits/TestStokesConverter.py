@@ -221,6 +221,13 @@ def testCubeTransformCorrs2StokesStokes():
     assert np.allclose(stokesCube[0, :, 0, 1], np.array([0, 0, 2+0j, 2+0j]))
     assert np.allclose(stokesCube[0, :, 0, 2], np.array([0, 3+0j, 0, 3+0j]))
 
+@raises(TypeError)
+def testCubeMustBeComplexCorrs2Stokes():
+    conv = ClassStokes([StokesTypes["I"], StokesTypes["Q"], StokesTypes["U"], StokesTypes["V"]],
+                       "QVUI")
+    corrCube = np.zeros([1, 4, 1, 3], dtype=np.float32)
+    stokesCube = conv.corrs2stokes(corrCube)
+
 def testCubeTransformStokes2CorrsLinear():
     conv = ClassStokes([StokesTypes["XX"], StokesTypes["XY"], StokesTypes["YX"], StokesTypes["YY"]],
                        "IQUV")

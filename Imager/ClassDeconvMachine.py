@@ -297,7 +297,10 @@ class ClassImagerDeconv():
             if Res=="EndOfObservation": break
             DATA=self.DATA
 
-            FacetMachinePSF.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)#,Channel=self.VS.CurrentFreqBand)
+            FacetMachinePSF.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],
+                                     (DATA["A0"],DATA["A1"]),
+                                     DATA["Weights"],
+                                     doStack=True)
 
 
             # Image=FacetMachinePSF.FacetsToIm()
@@ -450,7 +453,10 @@ class ClassImagerDeconv():
                 print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
                 _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
 
-            self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)#,Channel=self.VS.CurrentFreqBand)
+            self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],
+                                       (DATA["A0"],DATA["A1"]),
+                                       DATA["Weights"],
+                                       doStack=True)
             
             if self._save_intermediate_grids:
                 self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)

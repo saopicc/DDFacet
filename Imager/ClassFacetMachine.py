@@ -1,31 +1,21 @@
 from DDFacet.Other.progressbar import ProgressBar
-#ProgressBar.silent=1
 import multiprocessing
-#import ClassGridMachine
 import ClassDDEGridMachine
 import numpy as np
-#import ClassMS
 import pylab
 import ClassCasaImage
-#import MyImshow
-import pyfftw
 from DDFacet.ToolsDir import ModCoord
-#import ToolsDir
-from DDFacet.Other import MyPickle
-#import ModSharedArray
 import time
-from DDFacet.Other import ModColor
 from DDFacet.Array import NpShared
 from DDFacet.ToolsDir import ModFFTW
 import pyfftw
 from DDFacet.Other import ClassTimeIt
-
+from DDFacet.ToolsDir.ModToolBox import EstimateNpix
+from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassFacetImager")
 MyLogger.setSilent("MyLogger")
-from DDFacet.ToolsDir.ModToolBox import EstimateNpix
-#import ClassJonesContainer
-from DDFacet.ToolsDir.GiveEdges import GiveEdges
+
 
 class ClassFacetMachine():
     def __init__(self,
@@ -462,22 +452,21 @@ class ClassFacetMachine():
 
 
     def GiveEmptyMainField(self):
-        return np.zeros(self.OutImShape,dtype=np.float32)
-
-        
-        
-
-
-
-    # def setModelIm(self,ModelIm):
-    #     nch,npol,_,_=self.Image.shape
-    #     # for ch in range(nch):
-    #     #     for pol in range(npol):
-    #     #         self.Image[ch,pol]=ModelIm[ch,pol].T[::-1]
-
-    #     self.Image=ModelIm
+        return np.zeros(self.OutImShape,dtype=self.CType)
 
     def putChunk(self,*args,**kwargs):
+        """
+        Args:
+            *args: should consist of the following:
+                time nparray
+                uvw nparray
+                vis nparray
+                flags nparray
+                A0A1 tuple of antenna1 and antenna2 nparrays
+            **kwargs:
+                keyword args must include the following:
+                doStack
+        """
         self.SetLogModeSubModules("Silent")
         if not(self.IsDDEGridMachineInit):
             self.Init()
@@ -486,9 +475,9 @@ class ClassFacetMachine():
             self.ReinitDirty()
 
         if self.Parallel:
-            return self.CalcDirtyImagesParallel(*args,**kwargs)
+            self.CalcDirtyImagesParallel(*args,**kwargs)
         else:
-            return self.GiveDirtyimage(*args,**kwargs)
+            self.GiveDirtyimage(*args,**kwargs)
         self.SetLogModeSubModules("Loud")
 
     def getChunk(self,*args,**kwargs):
@@ -501,8 +490,6 @@ class ClassFacetMachine():
 
     def GiveDirtyimage(self,times,uvwIn,visIn,flag,A0A1,W=None,doStack=False):
         Npix=self.Npix
-        
-
         for iFacet in self.DicoImager.keys():
             print>>log, "Gridding facet #%i"%iFacet
             uvw=uvwIn.copy()
@@ -530,14 +517,12 @@ class ClassFacetMachine():
         _,npol,Npix,Npix=self.OutImShape
         DicoImages={}
         DicoImages["freqs"]={}
-        ImagData=np.zeros((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
 
         T.timeit("0")
         
         DoCalcNormData=False
         if (NormJones)&(self.NormData==None): 
             DoCalcNormData=True
-            self.NormData=np.ones((self.VS.NFreqBands,npol,Npix,Npix),dtype=np.float32)
 
         T.timeit("1")
 
@@ -548,9 +533,10 @@ class ClassFacetMachine():
             DicoImages["SumWeights"][Channel]=self.DicoImager[0]["SumWeights"][Channel]
 
         ImagData=self.FacetsToIm_Channel()
-
+        ImagData = np.real(self.VS.StokesConverter.corrs2stokes(ImagData))
         if DoCalcNormData:
-            self.NormData=self.FacetsToIm_Channel(BeamWeightImage=True)
+            self.NormData = np.real(self.VS.StokesConverter.corrs2stokes(self.FacetsToIm_Channel(BeamWeightImage=True)))
+
 
         T.timeit("2")
                 
@@ -691,7 +677,7 @@ class ClassFacetMachine():
         print>>log,"  Building Facet-normalisation image"
         nch,npol=self.nch,self.npol
         _,_,NPixOut,NPixOut=self.OutImShape
-        NormImage=np.zeros((NPixOut,NPixOut),dtype=np.float32)
+        NormImage=np.zeros((NPixOut,NPixOut),dtype=self.CType)
         for iFacet in self.DicoImager.keys():
             SharedMemName="%sSpheroidal"%(self.IdSharedMem)#"%sWTerm.Facet_%3.3i"%(self.IdSharedMem,0)
             SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
@@ -771,6 +757,7 @@ class ClassFacetMachine():
 
             
                 SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
+
                 T.timeit("3")
                 for pol in range(npol):
                     sumweight=ThisSumWeights[pol]#ThisSumWeights.reshape((nch,npol,1,1))[Channel, pol, 0, 0]
@@ -782,7 +769,7 @@ class ClassFacetMachine():
                         Im=self.DicoGridMachine[iFacet]["Dirty"][Channel][pol].copy()
                         Im/=SPhe.real
                         Im[SPhe<1e-3]=0
-                        Im=(Im[::-1,:].T.real/sumweight)
+                        Im=(Im[::-1,:].T/sumweight)
                         SW=SpacialWeigth[::-1,:].T
                         Im*=SW
 
@@ -881,7 +868,7 @@ class ClassFacetMachine():
             NX=self.DicoImager[iFacet]["NpixFacetPadded"]
             GridName="%sGridFacet.%3.3i"%(self.IdSharedMem,iFacet)
             #self.DicoGridMachine[iFacet]["Dirty"]=NpShared.zeros(GridName,(self.VS.NFreqBands,self.npol,NX,NX),self.CType)
-            self.DicoGridMachine[iFacet]["Dirty"]=np.ones((self.VS.NFreqBands,self.npol,NX,NX),self.FType)
+            self.DicoGridMachine[iFacet]["Dirty"]=np.ones((self.VS.NFreqBands,self.npol,NX,NX),self.CType)
             self.DicoGridMachine[iFacet]["Dirty"].fill(0)
             #self.DicoGridMachine[iFacet]["Dirty"]+=1
             #self.DicoGridMachine[iFacet]["Dirty"].fill(0)

@@ -1127,7 +1127,7 @@ class ClassDDEGridMachine():
 
         Grid*=(self.WTerm.OverS)**2
         T.timeit("norm")
-        Dirty=np.real(self.FFTWMachine.ifft(Grid,ChanList=LDoChans))
+        Dirty=self.FFTWMachine.ifft(Grid,ChanList=LDoChans)
         nchan,npol,_,_=Grid.shape
         del(Grid)
         #Dirty=GridCorr

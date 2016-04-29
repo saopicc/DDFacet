@@ -1,20 +1,17 @@
 import numpy as np
 import ClassMS
-from pyrap.tables import table
-from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("ClassVisServer")
-# import MyPickle
+from DDFacet.Data.ClassStokes import ClassStokes
 from DDFacet.Array import NpShared
-from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-from DDFacet.Array import ModLinAlg
-MyLogger.setSilent(["NpShared"])
 from DDFacet.Imager import ClassWeighting
 from DDFacet.Other import reformat
 import ClassSmearMapping
 import os
 import ClassJones
 import ClassBeamMean
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("ClassVisServer")
+MyLogger.setSilent(["NpShared"])
 
 def test():
     MSName="/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
@@ -77,7 +74,6 @@ class ClassVisServer():
         self.dTimesVisMin=self.TVisSizeMin
         self.CurrentVisTimes_SinceStart_Sec=0.,0.
         self.iCurrentVisTime=0
-
         # self.LoadNextVisChunk()
 
         #self.TEST_TLIST=[]
@@ -122,6 +118,13 @@ class ClassVisServer():
 
                 JonesName="%s/JonesNorm_killMS.npz"%ThisMSName
                 os.system("rm %s"%JonesName)
+        #Assume the correlation layout of the first measurement set for now
+        self.VisCorrelationLayout = self.ListMS[0].CorrelationIds
+        self.StokesConverter = ClassStokes(self.VisCorrelationLayout, self.GD["ImagerGlobal"]["PolMode"])
+        for MS in self.ListMS:
+            if not np.all(MS.CorrelationIds == self.VisCorrelationLayout):
+                raise RuntimeError("Unsupported: Mixing Measurement Sets storing different correlation pairs are not supported at the moment")
+                #TODO: it may be nice to have conversion code to deal with this
 
         self.nMS=len(self.ListMS)
         self.GlobalFreqs=np.array(self.ListGlobalFreqs)
@@ -449,7 +452,8 @@ class ClassVisServer():
                      "infos":np.array([MS.na]),
                      "Weights":self.CurrentVisWeights[MS.ROW0:MS.ROW1],
                      "ChanMapping":DATA["ChanMapping"],
-                     "ChanMappingDegrid":DATA["ChanMappingDegrid"]
+                     "ChanMappingDegrid":DATA["ChanMappingDegrid"],
+                     "VisCorrelationIds":MS.CorrelationIds
                      }
         
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
