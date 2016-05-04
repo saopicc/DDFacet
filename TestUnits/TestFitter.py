@@ -1,7 +1,8 @@
 import DDFacet.ToolsDir.ModFitPSF as fitter
 import numpy as np
 from matplotlib import pyplot as plt
-from Tigger.Tools.gaussfitter2 import twodgaussian as gauss2d
+from DDFacet.ToolsDir.gaussfitter2 import twodgaussian as gauss2d
+import DDFacet.ToolsDir.ModFFTW as fftconvolve
 
 def testFitWONoise():
     def fitRotatedPSF(rotAngle):
@@ -17,7 +18,7 @@ def testFitWONoise():
         psfWnd = psf[(maxAtCrd[0] - wnd):(maxAtCrd[0] + wnd + 1),
                     (maxAtCrd[1] - wnd):(maxAtCrd[1] + wnd + 1)]
         outpars = fitter.FitCleanBeam(psfWnd) * np.array([1,1,180/np.pi])
-        inpars = [1, 0, 0, outpars[0], outpars[1], outpars[2]]
+        inpars = [1, 0, 0, outpars[1], outpars[0], outpars[2]]
         cleanBeam = gauss2d(inpars, circle=0, rotate=1, vheight=0)(xx,yy)
         assert np.allclose(psf,cleanBeam)
     for r in np.linspace(0,360,100):
@@ -38,11 +39,30 @@ def testFitWNoise():
         psfWnd = psf[(maxAtCrd[0] - wnd):(maxAtCrd[0] + wnd + 1),
                  (maxAtCrd[1] - wnd):(maxAtCrd[1] + wnd + 1)]
         outpars = fitter.FitCleanBeam(psfWnd) * np.array([1, 1, 180 / np.pi])
-        inpars = [1, 0, 0, outpars[0], outpars[1], outpars[2]]
+        inpars = [1, 0, 0, outpars[1], outpars[0], outpars[2]]
         cleanBeam = gauss2d(inpars, circle=0, rotate=1, vheight=0)(xx, yy)
         assert np.allclose(psf, cleanBeam, rtol=1e-6, atol=1e-6)
     for r in np.linspace(0,360,100):
         fitRotatedPSF(r)
+
+def testRestore():
+    def restoreFittedBeam(rot):
+        imgSize = 256
+        cellSize = np.deg2rad(4./3600.)
+        params = (10, 5, rot) #maj, min, theta
+        #create input with code borrowed from Tigger:
+        xx,yy = np.meshgrid(np.arange(0,imgSize),np.arange(0,imgSize))
+        inp = gauss2d([1,imgSize/2,imgSize/2,params[1],params[0],params[2]],circle=0,rotate=1,vheight=0)(xx,yy)
+        inp = inp.reshape(1,1,imgSize,imgSize)
+        #fit
+        fittedParams = tuple((fitter.FitCleanBeam(inp[0, 0, :, :]) * np.array([cellSize, cellSize, 1])).tolist())
+        #restore fitted clean beam with an FFT convolution:
+        delta = np.zeros([1, 1, imgSize, imgSize])
+        delta[0, 0, imgSize / 2, imgSize / 2] = 1
+        rest = fftconvolve.ConvolveGaussian(delta,cellSize,GaussPars=[fittedParams],Normalise=False)
+        assert np.allclose(inp, rest, rtol=1e-2, atol=1e-2)
+    for r in np.linspace(0,360,100):
+        restoreFittedBeam(r)
 
 def testFitSinc():
      #make the psf a sinc function

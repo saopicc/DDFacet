@@ -771,12 +771,13 @@ class ClassImagerDeconv():
                                   bmin*self.CellArcSec*FWHMFact/3600.,
                                   np.rad2deg(theta)))
             self.PSFGaussPars.append((bmaj*self.CellSizeRad, bmin*self.CellSizeRad, theta))
+            PA = 90-np.rad2deg(theta) #image is only transposed when written to FITS, so print the correct angle
             print>>log, "\tFitted PSF (sigma): (Sx, Sy, Th)=(%f, %f, %f deg)"%(bmaj*self.CellArcSec,
                                                                            bmin*self.CellArcSec,
-                                                                           np.rad2deg(theta))
+                                                                           PA)
             print>>log, "\tFitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f deg)"%(bmaj*self.CellArcSec*FWHMFact,
                                                                            bmin*self.CellArcSec*FWHMFact,
-                                                                           np.rad2deg(theta))
+                                                                           PA)
             print>>log, "\tSecondary sidelobe at the level of %5.1f at a position of %i from the center" % self.PSFSidelobes[0]
         self.FWHMBeamAvg = (np.average(np.array([tup[0] for tup in self.FWHMBeam])),
                             np.average(np.array([tup[1] for tup in self.FWHMBeam])),

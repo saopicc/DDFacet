@@ -26,7 +26,6 @@ from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 from DDFacet.Other import ClassTimeIt
-
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
 log = None
@@ -364,5 +363,4 @@ if __name__=="__main__":
         NpShared.DelAll(IdSharedMem)
         sys.exit(1) #Should at least give the command line an indication of failure
     # main(options)
-    
     

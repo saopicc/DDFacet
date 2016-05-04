@@ -710,6 +710,7 @@ class ClassFacetMachine():
                 self.DicoPSF["SumJonesChan"].append(ThisFacetSumJonesChan)
                 self.DicoPSF["SumJonesChanWeightSq"].append(ThisFacetSumJonesChanWeightSq)
             self.DicoPSF["ChanMappingGrid"]=self.VS.DicoMSChanMapping
+            self.DicoPSF["ChanMappingGridChan"]=self.VS.DicoMSChanMappingChan
             self.DicoPSF["freqs"]=DicoImages["freqs"]
             self.DicoPSF["WeightChansImages"]=DicoImages["WeightChansImages"]
 

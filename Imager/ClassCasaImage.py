@@ -117,6 +117,7 @@ class ClassCasaimage():
 
         self.ImageName=ImageName
         #print "image refpix:",rad2hmsdms.rad2hmsdms(radec[0],Type="ra").replace(" ",":"),", ",rad2hmsdms.rad2hmsdms(radec[1],Type="dec").replace(" ",".")
+        self.imageFlipped = False
         self.createScratch()
 
     def createScratch(self):
@@ -215,7 +216,7 @@ class ClassCasaimage():
             for ch in range(nch):
                 for pol in range(npol):
                     data[ch,pol]=data[ch,pol][::-1].T
-        
+        self.imageFlipped = CorrT
         self.im.putdata(data)
 
     def ToFits(self):
@@ -229,10 +230,13 @@ class ClassCasaimage():
         Add Fitted beam info to FITS header, expects tripple for beam:
         maj: Length of major axis in degrees
         min: Length of minor axis in degrees
-        pa: Beam paralactic angle in degrees
+        pa: Beam paralactic angle in degrees (counter clockwise, starting from declination-axis)
         """
         bmaj, bmin, PA=beam
-        PA = 360 - PA # PA rotates clockwise according to Oleg
+        # if the corrT parameter was specified then the image was flipped when synthesized, so we have to
+        # reverse the rotation:
+        if self.imageFlipped:
+            PA = 90 - PA
         FileOut=self.ImageName+".fits"
         #print>>log, "  ----> Save beam info in FITS file %s"%FileOut
         
