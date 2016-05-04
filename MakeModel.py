@@ -158,6 +158,7 @@ def main(options=None):
         SM.SourceCat["Type"][indN]=0.
         #print SM.SourceCat[indG][ind]
         #np.save(SkyModel,Cat)
+        print>>log, "  done"
 
     PreCluster=options.PreClusterFile
     SM.Cluster(NCluster=NCluster,DoPlot=DoPlot,PreCluster=PreCluster,FromClusterCat=options.FromClusterCat)

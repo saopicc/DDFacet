@@ -35,6 +35,7 @@ def read_options():
     group.add_option('--Th',type="float",default=10,help="default is %default")
     group.add_option("--Box",type="str",default="30,2",help="default is %default")
     group.add_option("--OutName",type="str",help="default is %default",default="mask")
+    group.add_option("--OutNameNoiseMap",type="str",help="default is %default",default="")
     group.add_option("--ds9Mask",type="str",help="default is %default",default="")
     
     #group.add_option("--MedFilter",type="str",default="50,10")
@@ -60,7 +61,8 @@ class ClassMakeMask():
                  Box=(50,10),
                  UseIslands=False,
                  OutName="mask",
-                 ds9Mask=""):
+                 ds9Mask="",
+                 OutNameNoiseMap=""):
 
         self.ds9Mask=ds9Mask
         self.FitsFile=FitsFile
@@ -72,6 +74,7 @@ class ClassMakeMask():
         self.Restored=self.CasaIm.getdata()
         self.UseIslands=UseIslands
         self.OutName=OutName
+        self.OutNameNoiseMap=OutNameNoiseMap
 
         im=self.CasaIm
         c=im.coordinates()
@@ -173,7 +176,15 @@ class ClassMakeMask():
                 self.Noise[i::Boost,j::Boost][0:s0,0:s1]=Noise[:,:][0:s0,0:s1]
         ind=np.where(self.Noise==0.)
         self.Noise[ind]=1e-10
-        
+
+        if self.OutNameNoiseMap!="":
+            print>>log, "Save noise map as %s"%self.OutNameNoiseMap
+            self.CasaIm.saveas(self.OutNameNoiseMap)
+            CasaNoise=image(self.OutNameNoiseMap)
+            CasaNoise.putdata(self.Noise)
+            CasaNoise.tofits(self.OutNameNoiseMap+".fits")
+            del(CasaNoise)
+            os.system("rm %s"%self.OutNameNoiseMap)
 
     # def ComputeNoiseMap(self):
     #     print "Compute noise map..."
@@ -556,7 +567,8 @@ def main(options=None):
                               Box=Box,
                               UseIslands=options.UseIslands,
                               OutName=options.OutName,
-                              ds9Mask=options.ds9Mask)
+                              ds9Mask=options.ds9Mask,
+                              OutNameNoiseMap=options.OutNameNoiseMap)
     MaskMachine.CreateMask()
 
 if __name__=="__main__":
