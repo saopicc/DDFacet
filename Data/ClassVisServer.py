@@ -1,12 +1,8 @@
 import numpy as np
 import ClassMS
-from pyrap.tables import table
 from DDFacet.Data.ClassStokes import ClassStokes
 from DDFacet.Array import NpShared
-from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-from DDFacet.Array import ModLinAlg
-MyLogger.setSilent(["NpShared"])
 from DDFacet.Imager import ClassWeighting
 from DDFacet.Other import reformat
 import ClassSmearMapping
