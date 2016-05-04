@@ -198,7 +198,8 @@ class ClassMultiScaleMachine():
 
         #####################
 
-#        print FreqBandsFluxRatio
+        # print "FreqBandsFluxRatio"
+        # print FreqBandsFluxRatio
         self.Alpha=Alpha
         nch,_,nx,ny=self.SubPSF.shape
         for iAlpha in range(NAlpha):
@@ -206,7 +207,7 @@ class ClassMultiScaleMachine():
             FluxRatios=FluxRatios.reshape((FluxRatios.size,1,1))
             ThisMFPSF=self.SubPSF[:,0,:,:]*FluxRatios
             ThisAlpha=Alpha[iAlpha]
-
+            
             iSlice=0
 
             ListPSFScales.append(ThisMFPSF)
@@ -302,6 +303,8 @@ class ClassMultiScaleMachine():
         ScaleMax=np.max(Scales)
         # self.SupWeightWidth=ScaleMax
         self.SupWeightWidth=3.*self.WeightWidth
+        # print "!!!!!!!!!!!!! 0"
+        # self.SupWeightWidth=0
        
 
 
@@ -488,6 +491,8 @@ class ClassMultiScaleMachine():
         dirtyVec=dirtyNorm.reshape((dirtyNorm.size,1))
         T.timeit("1")
 
+        # print "!!!!!!!!!!!!! fill"
+        # dirtyVec.fill(10.)
         
 
         # BMCube=DicoBasisMatrix["BMCube"]
@@ -564,6 +569,8 @@ class ClassMultiScaleMachine():
             # #print "BM",BM.shape
             # #print BM
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
+            # print "aaa",np.dot(BM,Sol)
+            # stop
 
             #print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
             #print "MeanFluxTrue",MeanFluxTrue
