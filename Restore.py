@@ -117,7 +117,7 @@ class ClassRestoreMachine():
         #self.ModelMachine.ListScales[0]["Alpha"]=-0.8
 
         # model image
-        ModelMachine.GiveModelImage(RefFreq)
+        #ModelMachine.GiveModelImage(RefFreq)
 
         FEdge=np.linspace(RefFreq-df,RefFreq+df,self.NBands+1)
         FCenter=(FEdge[0:-1]+FEdge[1::])/2.
@@ -133,14 +133,19 @@ class ClassRestoreMachine():
         # restored image
         for l in Lambda:
             freq=C/l
+            print>>log,"Get ModelImage... "
             ModelImage=ModelMachine.GiveModelImage(freq)
+            print>>log,"  ModelImage to apparant flux... "
             ModelImage*=self.SqrtNormImage
+            print>>log,"Convolve... "
+            print>>log,"   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6)
             RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
             RestoredImageRes=RestoredImage+self.Residual
             ListRestoredIm.append(RestoredImageRes)
         
         #print FEdge,FCenter
 
+        print>>log,"Save... "
         _,_,nx,_=RestoredImageRes.shape
         RestoredImageRes=np.array(ListRestoredIm).reshape((self.NBands,1,nx,nx))
 
@@ -162,12 +167,15 @@ class ClassRestoreMachine():
 
         # Alpha image
         if self.DoAlpha:
+            print>>log,"Get Index Map... "
             IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
             ImageName="%s.alphaNew"%self.BaseImageName
+            print>>log,"  Save... "
             CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
             CasaImage.setdata(IndexMap,CorrT=True)
             CasaImage.ToFits()
             CasaImage.close()
+            print>>log,"  Done. "
 
 
 

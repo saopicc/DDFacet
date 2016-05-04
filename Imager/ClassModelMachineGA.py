@@ -74,8 +74,9 @@ class ClassModelMachine():
         try:
             self.SolveParam=self.DicoSMStacked["SolveParam"]
         except:
-            print "SOMETHING IS WRONG WITH THE DICOMODEL"
-            self.SolveParam=["Alpha","S"]
+            print>>log, "SolveParam is not in the keyword lists of DicoSMStacked"
+            print>>log, "  setting SolveParam to [S, Alpha]"
+            self.SolveParam=["S","Alpha"]
             
         self.NParam=len(self.SolveParam)
 
@@ -294,7 +295,7 @@ class ClassModelMachine():
         #pol,freq,decc1,rac1=im.toworld((0,0,1,0))
         dx=abs(im.coordinates().dict()["direction0"]["cdelt"][0])
 
-        SourceCat=np.zeros((100000,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
+        SourceCat=np.zeros((X.size,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
                                            ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
                                            ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
                                            ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool),
