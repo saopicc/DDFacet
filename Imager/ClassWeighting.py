@@ -96,6 +96,8 @@ class ClassWeighting():
             x += xymax   # offset, since X grid starts at -xymax
             # convert to index array
             index = y*npixx + x
+            # zero weight refers to zero cell (otherwise it may end up outside the grid)
+            index[weights==0] = 0
             weights_index[iMS] = weights, index
             del uv
             print>>log,"Accumulating weights (%d/%d)"%(iMS+1, len(uvw_weights_flags_freqs))
