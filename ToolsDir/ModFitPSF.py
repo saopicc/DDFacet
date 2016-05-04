@@ -12,28 +12,29 @@ def FitCleanBeam(PSF):
     Returns:
         sigma_x of gaussian in pixels
         sigma_y of gaussian in pixels
-        theta: The rotation angle (radians) of the gaussian (beware of the periodicity)
+        theta: The rotation angle (radians) of the gaussian from the y axis counter-clockwise (beware of the periodicity)
     """
     popt=gaussfitter2.gaussfit(PSF, vheight=0, return_all=0, rotate=1)
     amp, xo, yo, sigma_x, sigma_y, theta=popt
     theta = np.deg2rad(theta)
-    theta = theta - int(theta / np.pi) * np.pi
     gmaj, gmin = (0, 0)
     '''
     Because two gaussians with parameters (||sigma_x||,||sigma_y||,theta) and
-    (||sigma_y||,||sigma_x||,theta+PI/2) looks exactly the same the fitted parameters may
+    (||sigma_y||,||sigma_x||,theta-PI/2) looks exactly the same the fitted parameters may
     swap between runs, so take this into account
     '''
     if np.abs(sigma_y) >= np.abs(sigma_x):
         gmaj = np.abs(sigma_y)
         gmin = np.abs(sigma_x)
-        theta -= np.pi / 2
+        theta += np.pi / 2
     else:
         gmaj = np.abs(sigma_x)
         gmin = np.abs(sigma_y)
-
-    theta = np.pi / 2 - theta
-
+    #ensure the angle is 0 <= th < PI
+    theta = 2*np.pi - theta
+    theta = theta - (int(theta / (2 * np.pi)) * 2 * np.pi)
+    theta = theta if theta > 0 else 2*np.pi + theta
+    theta = theta if theta <= np.pi else theta - np.pi
     return gmaj, gmin, theta
 
 def FindSidelobe(PSF):
@@ -86,6 +87,22 @@ def FindSidelobe(PSF):
     x0=PSFnew.shape[0]/2
     ii=np.argmax(profile0[x0::])
     return np.max(PSFnew),ii
+
+if __name__ == "__main__":
+    from matplotlib import pyplot as plt
+    import numpy as np
+    import gaussfitter2
+
+    xx,yy = np.meshgrid(np.linspace(-500,500,1000),np.linspace(-500,500,1000))
+    g = gaussfitter2.twodgaussian([1,0,0,50,100,10],0,1,0)(xx,yy)
+    params = FitCleanBeam(g)
+    print params * np.array([1,1,180/np.pi])
+    g2 = gaussfitter2.twodgaussian([1,0,0,params[1],params[0],np.rad2deg(params[2])],0,1,0)(xx,yy)
+    plt.figure()
+    plt.imshow(g)
+    plt.figure()
+    plt.imshow(g2)
+    plt.show()
 
 ''' Old code
 def gauss(x0,y0,SigMaj,SigMin,ang,x,y):
