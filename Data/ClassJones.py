@@ -311,6 +311,7 @@ class ClassJones():
         return DicoClusterDirs,DicoSols,VisToJonesChanMapping
 
     def NormDirMatrices(self,G):
+        return G
         RefAnt=0
         print>>log,"  Normalising Jones Matrices with reference Antenna %i ..."%RefAnt
         nt,nd,na,nf,_,_=G.shape
