@@ -747,7 +747,7 @@ class ClassImagerDeconv():
                                                                            bmin * self.CellArcSec,
                                                                            bmaj * self.CellArcSec * FWHMFact,
                                                                            bmin * self.CellArcSec * FWHMFact,
-                                                                           np.rad2deg(theta))
+                                                                           90-np.rad2deg(theta))
         print>> log, "\tSecondary sidelobe at the level of %5.1f at a position of %i from the center" % sidelobes
         return fwhm, gausspars, sidelobes
 
