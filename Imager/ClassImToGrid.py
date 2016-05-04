@@ -157,7 +157,10 @@ class ClassImToGrid():
                 
                 T.timeit("3")
                 #ind =np.where(np.abs(ModelIm)==np.max(np.abs(ModelIm)))
-                ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
+
+
+                print "!!!!!!!!!!!!!!!!!!!!!!"
+                #ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
 
                 #ModelCutOrig_GNorm=NormIm[x0d:x1d,y0d:y1d].real.copy()
 
@@ -194,17 +197,18 @@ class ClassImToGrid():
         # #return ModelIm, None
         # #Padding=self.GD["ImagerMainFacet"]["Padding"]
 
-        ModelIm*=(self.OverS*N1)**2
         T.timeit("9")
 
         if ToGrid:
             SumFlux=np.sum(ModelIm)
+            ModelIm*=(self.OverS*N1)**2
             Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm),ChanList=CSel))
             #Grid=ModelIm
             
             return Grid,SumFlux
+        else:
+            ModelIm*=(self.OverS*N1)**2
 
-
-        return ModelIm,SumFlux
+            return ModelIm,SumFlux
 
 
