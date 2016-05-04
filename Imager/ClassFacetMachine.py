@@ -457,8 +457,6 @@ class ClassFacetMachine():
             workerlist.append(W)
             if Parallel:
                 workerlist[ii].start()
-            else:
-                workerlist[ii].run() # block until completed
 
         timer = ClassTimeIt.ClassTimeIt()
         print>> log, "initializing W kernels"
@@ -466,6 +464,10 @@ class ClassFacetMachine():
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Init W ", HeaderSize=10,TitleSize=13)
         pBAR.render(0, '%4i/%i' % (0,NFacets))
         iResult=0
+
+        if not Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].run()  # just run until all work is completed
 
         while iResult < NJobs:
             try:
@@ -476,7 +478,8 @@ class ClassFacetMachine():
                 for w in workerlist:
                     w.join(0)
                     if not w.is_alive():
-                        raise RuntimeError, "a worker process has died on us with exit code %d. This is probably a bug." % w.exitcode
+                        if w.exitcode != 0:
+                            raise RuntimeError, "a worker process has died on us with exit code %d. This is probably a bug." % w.exitcode
                 continue
             if DicoResult["Success"]:
                 iResult += 1
@@ -484,12 +487,11 @@ class ClassFacetMachine():
             intPercent = int(100 * NDone / float(NFacets))
             pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
 
-        print>> log, "init W finished in %s" % timer.timehms()
-
-        for ii in range(NCPU):
-            workerlist[ii].shutdown()
-            workerlist[ii].terminate()
-            workerlist[ii].join()
+        if Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].shutdown()
+                workerlist[ii].terminate()
+                workerlist[ii].join()
 
         print>> log, "init W finished in %s" % timer.timehms()
 
@@ -558,7 +560,7 @@ class ClassFacetMachine():
             self.CalcDirtyImagesParallel(*args,**kwargs)
         else:
             kwargs["Parallel"] = False
-            self.GiveDirtyimage(*args,**kwargs)
+            self.CalcDirtyImagesParallel(*args,**kwargs)
         self.SetLogModeSubModules("Loud")
 
     def getChunk(self,*args,**kwargs):
@@ -568,7 +570,7 @@ class ClassFacetMachine():
             self.GiveVisParallel(*args,**kwargs)
         else:
             kwargs["Parallel"] = False
-            self.GiveVis(*args,**kwargs)
+            self.GiveVisParallel(*args,**kwargs)
         self.SetLogModeSubModules("Loud")
 
     def FacetsToIm(self,NormJones=False):
@@ -975,8 +977,7 @@ class ClassFacetMachine():
             workerlist.append(W)
             if Parallel:
                 workerlist[ii].start()
-            else:
-                workerlist[ii].run() #block the main thread until done
+
 
         timer = ClassTimeIt.ClassTimeIt()
         print>> log, "starting gridding"
@@ -985,12 +986,18 @@ class ClassFacetMachine():
         #        pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0, NFacets))
         iResult = 0
+        if not Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].run()  # just run until all work is completed
+
         while iResult < NJobs:
             DicoResult = None
-            for w in workerlist:
-                w.join(0)
-                if not w.is_alive():
-                    raise RuntimeError, "a worker process has died with exit code %d. This is probably a bug in the gridder." % w.exitcode
+            if Parallel:
+                for w in workerlist:
+                    w.join(0)
+                    if not w.is_alive():
+                        if w.exitcode != 0:
+                            raise RuntimeError, "a worker process has died with exit code %d. This is probably a bug in the gridder." % w.exitcode
             for result_queue in List_Result_queue:
                 if result_queue.qsize() != 0:
                     try:
@@ -1025,10 +1032,11 @@ class ClassFacetMachine():
                 self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty.copy()
             NpShared.DelArray(DirtyName)
 
-        for ii in range(NCPU):
-            workerlist[ii].shutdown()
-            workerlist[ii].terminate()
-            workerlist[ii].join()
+        if Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].shutdown()
+                workerlist[ii].terminate()
+                workerlist[ii].join()
 
         print>> log, "gridding finished in %s" % timer.timehms()
         
@@ -1086,8 +1094,6 @@ class ClassFacetMachine():
             workerlist.append(W)
             if Parallel:
                 workerlist[ii].start()
-            else:
-                workerlist[ii].run() #block the main thread until done
 
         timer = ClassTimeIt.ClassTimeIt()
         print>> log, "starting degridding"
@@ -1096,6 +1102,11 @@ class ClassFacetMachine():
         # pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0, NFacets))
         iResult = 0
+
+        if not Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].run()  # just run until all work is completed
+
         while iResult < NJobs:
             DicoResult = result_queue.get()
             if DicoResult["Success"]:
@@ -1104,10 +1115,11 @@ class ClassFacetMachine():
             intPercent = int(100 * NDone / float(NFacets))
             pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
 
-        for ii in range(NCPU):
-            workerlist[ii].shutdown()
-            workerlist[ii].terminate()
-            workerlist[ii].join()
+        if Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].shutdown()
+                workerlist[ii].terminate()
+                workerlist[ii].join()
 
         NpShared.DelAll("%sc" % (self.IdSharedMemData))
         print>> log, "degridding finished in %s" % timer.timehms()
@@ -1323,11 +1335,8 @@ class WorkerImager(multiprocessing.Process):
         # pause self in debugging mode
         if self._pause_on_start:
             os.kill(os.getpid(),signal.SIGSTOP)
-        while not self.kill_received:
-            try:
-                iFacet = self.work_queue.get()
-            except:
-                break
+        while not self.kill_received and not self.work_queue.empty():
+            iFacet = self.work_queue.get()
 
             if self.FFTW_Wisdom!=None:
                 pyfftw.import_wisdom(self.FFTW_Wisdom)
