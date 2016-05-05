@@ -123,7 +123,7 @@ class ClassSmoothJones():
         for iAnt in range(na):
             alpha=np.min([1.,All_alpha[iAnt]])
             alpha=np.max([0.,alpha])
-            AlphaDir[iAnt]=alpha
+            AlphaDir[iAnt]=np.sqrt(alpha)
 
         return AlphaDir
 

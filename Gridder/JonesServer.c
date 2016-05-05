@@ -133,12 +133,16 @@ float *ptrCoefsInterp;
 int i_dir;
 int nd_Jones,na_Jones,nch_Jones,nt_Jones;
 
+PyArrayObject *npAlphaReg_killMS;
+float* ptrAlphaReg_killMS;
+
 PyArrayObject *npJonesMatrices_Beam, *npTimeMappingJonesMatrices_Beam;
 PyArrayObject *npVisToJonesChanMapping_killMS,*npVisToJonesChanMapping_Beam;
 int *ptrVisToJonesChanMapping_killMS,*ptrVisToJonesChanMapping_Beam;
 float complex* ptrJonesMatrices_Beam;
 int *ptrTimeMappingJonesMatrices_Beam;
 int nd_Jones_Beam,na_Jones_Beam,nch_Jones_Beam,nt_Jones_Beam;
+int nd_AlphaReg,na_AlphaReg;
 int JonesDims_Beam[4];
 int ApplyJones_Beam=0;
 int i_dir_Beam;
@@ -175,6 +179,8 @@ float complex *J0kMS_tp1;
 float complex *J1kMS_tp1;
 float complex *J0kMS_tm1;
 float complex *J1kMS_tm1;
+float complex *IMatrix;
+
 
 void initJonesMatrices(){
   J0=calloc(1,(4)*sizeof(float complex));
@@ -186,7 +192,9 @@ void initJonesMatrices(){
   Unity(J0); Unity(J1);
   Unity(J0kMS); Unity(J1kMS);
   Unity(J0Beam); Unity(J1Beam);
-  
+
+  IMatrix=calloc(1,(4)*sizeof(float complex));
+  Unity(IMatrix);
 
 
   J0inv=calloc(1,(4)*sizeof(float complex));
@@ -206,7 +214,7 @@ void initJonesMatrices(){
 int JonesType;
 double WaveLengthMean;
 float WeightVaryJJ;
-
+int Has_AlphaReg_killMS=0;
 
 void initJonesServer(PyObject *LJones, int JonesTypeIn, double WaveLengthMeanIn){
   initJonesMatrices();
@@ -281,7 +289,18 @@ void initJonesServer(PyObject *LJones, int JonesTypeIn, double WaveLengthMeanIn)
     npVisToJonesChanMapping_Beam= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
     ptrVisToJonesChanMapping_Beam=p_int32(npVisToJonesChanMapping_Beam);
     
+    npAlphaReg_killMS= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
+    ptrAlphaReg_killMS=p_float32(npAlphaReg_killMS);
+    nd_AlphaReg=(int)npAlphaReg_killMS->dimensions[0];
+    na_AlphaReg=(int)npAlphaReg_killMS->dimensions[1];
+    Has_AlphaReg_killMS=( nd_AlphaReg>0 );
     
+
+    //////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+
+
     PyObject *_FApplyAmp  = PyList_GetItem(LJones, idList); idList+=1;
     ApplyAmp=(int) PyFloat_AsDouble(_FApplyAmp);
     PyObject *_FApplyPhase  = PyList_GetItem(LJones, idList); idList+=1;
@@ -324,15 +343,16 @@ void resetJonesServerCounter(){
 }
 
 
-void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight){
+int DoApplyAlphaReg=0;
+void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int DoApplyAlphaRegIn){
 
 
 
 
   i_ant0=ptrA0[irow];
   i_ant1=ptrA1[irow];
-
-
+  DoApplyAlphaReg=0;
+  if(DoApplyAlphaRegIn & Has_AlphaReg_killMS){DoApplyAlphaReg=1;};
 
 
   //printf("(%i, %i)\n",i_ant0,i_ant1);
@@ -378,6 +398,21 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight){
     if(SameAsBefore_kMS==0){
       GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, i_JonesChan, ModeInterpolation, J0kMS);
       GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, i_JonesChan, ModeInterpolation, J1kMS);
+      if(DoApplyAlphaReg){
+	size_t off_alpha0=i_dir*na_AlphaReg+i_ant0;
+	size_t off_alpha1=i_dir*na_AlphaReg+i_ant1;
+	float alpha0=*(ptrAlphaReg_killMS+off_alpha0);
+	float alpha1=*(ptrAlphaReg_killMS+off_alpha1);
+	int ipol;
+	//printf("akpha0=%f\n",alpha0);
+	//printf("akpha1=%f\n",alpha1);
+	for(ipol=0;ipol<4;ipol++){
+	  J0kMS[ipol]=J0kMS[ipol]*alpha0+(1.-alpha0)*IMatrix[ipol];
+	  J1kMS[ipol]=J1kMS[ipol]*alpha1+(1.-alpha1)*IMatrix[ipol];
+	}
+      }
+
+
       NormJones(J0kMS, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
       NormJones(J1kMS, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
       CurrentJones_kMS_Time=i_t;

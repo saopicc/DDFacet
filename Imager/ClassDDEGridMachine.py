@@ -613,6 +613,7 @@ class ClassDDEGridMachine():
         VisToJonesChanMapping_Beam=np.array([],np.int32).reshape((0,))
 
         JonesMatrices_killMS=np.array([],np.complex64).reshape((0,0,0,0))
+        AlphaReg_killMS=np.array([],np.float32).reshape((0,0))
         MapJones_killMS=np.array([],np.int32).reshape((0,))
         VisToJonesChanMapping_killMS=np.array([],np.int32).reshape((0,))
 
@@ -625,6 +626,10 @@ class ClassDDEGridMachine():
         if Apply_killMS:
             JonesMatrices_killMS=DicoJonesMatrices["DicoJones_killMS"]["Jones"]
             MapJones_killMS=DicoJonesMatrices["DicoJones_killMS"]["MapJones"]
+            AlphaReg=DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"]
+            if AlphaReg!=None:
+                AlphaReg_killMS=DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"]
+
             VisToJonesChanMapping_killMS=np.int32(DicoJonesMatrices["DicoJones_killMS"]["VisToJonesChanMapping"])
             self.CheckTypes(A0=A0,A1=A1,Jones=JonesMatrices_killMS)
 
@@ -642,7 +647,8 @@ class ClassDDEGridMachine():
                         np.array([idir_Beam],np.int32),
                         np.array([InterpMode],np.int32),
                         VisToJonesChanMapping_killMS,
-                        VisToJonesChanMapping_Beam]
+                        VisToJonesChanMapping_Beam,
+                        AlphaReg_killMS]
         
         return ParamJonesList
 

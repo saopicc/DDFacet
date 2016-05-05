@@ -465,7 +465,7 @@ void gridderWPol(PyArrayObject *grid,
 	  if(flagPtr[0]==1){continue;}
 
 	  if(DoApplyJones){
-	    updateJones(irow, visChan, uvwPtr, 1);
+	    updateJones(irow, visChan, uvwPtr, 1, 1);
 	  } //endif DoApplyJones
 
 	  //ThisBlockAllFlagged=0;
@@ -1238,7 +1238,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	  //if(OneFlagged){continue;}
 	  
 	  if(DoApplyJones){
-	    updateJones(irow, visChan, uvwPtr, 0);
+	    updateJones(irow, visChan, uvwPtr, 0,0);
 	  } //endif DoApplyJones
 
 	  //###################### Facetting #######################
