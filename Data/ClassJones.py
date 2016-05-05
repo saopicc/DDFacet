@@ -9,6 +9,7 @@ from DDFacet.Array import ModLinAlg
 from DDFacet.Other.progressbar import ProgressBar
 import ClassLOFARBeam
 import ClassFITSBeam
+import ClassSoothJones
 
 class ClassJones():
     def __init__(self,GD,MS,FacetMachine=None,IdSharedMem=""):
@@ -46,7 +47,9 @@ class ClassJones():
                 DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("Beam")
             self.ToShared("Beam",DicoSols,TimeMapping,DicoClusterDirs)
             
-
+        SJM=ClassSoothJones.ClassSoothJones(GD,self.IdSharedMemData)
+        SJM.SoothJones()
+        
 
 
     def ToShared(self,StrType,DicoSols,TimeMapping,DicoClusterDirs):
