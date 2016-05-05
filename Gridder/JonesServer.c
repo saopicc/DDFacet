@@ -69,7 +69,7 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
   int ipol,idir;
   
   if(Mode==0){
-    int offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
+    size_t offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
       +i_dir*na_Jones*nch_Jones*4
       +i_ant0*nch_Jones*4
       +iChJones*4;
@@ -90,7 +90,7 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
 
     for(idir=0; idir<nd_Jones; idir++){
       if(ptrCoefs[idir]==0){continue;}
-      int offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
+      size_t offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
 	+i_dir*na_Jones*nch_Jones*4
 	+i_ant0*nch_Jones*4;
 	+iChJones*4;
