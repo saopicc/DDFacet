@@ -1,45 +1,57 @@
 import numpy as np
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassSoothJones")
+from DDFacet.Array import NpShared
 
-class ClassSoothJones():
-    def __init__(self,GD,IdSharedMemData):
+class ClassSmoothJones():
+    def __init__(self,GD,IdSharedMem):
         self.GD=GD
-        self.IdSharedMemData=IdSharedMemData
+        self.IdSharedMem=IdSharedMem
 
     def GiveDicoJonesMatrices(self):
         print>>log, "  Getting Jones matrices from Shared Memory"
-        DicoJonesMatrices=None
+        DicoJonesMatrices={}
 
         GD=self.GD
 
         SolsFile=GD["DDESolutions"]["DDSols"]
 
         if SolsFile!="":
-            DicoJones_killMS=NpShared.SharedToDico("%sJonesFile_killMS"%self.IdSharedMemData)
+            DicoJones_killMS=NpShared.SharedToDico("%sJonesFile_killMS"%self.IdSharedMem)
             DicoJonesMatrices["DicoJones_killMS"]=DicoJones_killMS
-            DicoJonesMatrices["DicoJones_killMS"]["MapJones"]=NpShared.GiveArray("%sMapJones_killMS"%self.IdSharedMemData)
-            DicoClusterDirs_killMS=NpShared.SharedToDico("%sDicoClusterDirs_killMS"%self.IdSharedMemData)
+            DicoJonesMatrices["DicoJones_killMS"]["MapJones"]=NpShared.GiveArray("%sMapJones_killMS"%self.IdSharedMem)
+            DicoClusterDirs_killMS=NpShared.SharedToDico("%sDicoClusterDirs_killMS"%self.IdSharedMem)
             DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]=DicoClusterDirs_killMS
 
         ApplyBeam=(GD["Beam"]["BeamModel"]!=None)
         if ApplyBeam:
-            DicoJones_Beam=NpShared.SharedToDico("%sJonesFile_Beam"%self.IdSharedMemData)
+            DicoJones_Beam=NpShared.SharedToDico("%sJonesFile_Beam"%self.IdSharedMem)
             DicoJonesMatrices["DicoJones_Beam"]=DicoJones_Beam
-            DicoJonesMatrices["DicoJones_Beam"]["MapJones"]=NpShared.GiveArray("%sMapJones_Beam"%self.IdSharedMemData)
-            DicoClusterDirs_Beam=NpShared.SharedToDico("%sDicoClusterDirs_Beam"%self.IdSharedMemData)
+            DicoJonesMatrices["DicoJones_Beam"]["MapJones"]=NpShared.GiveArray("%sMapJones_Beam"%self.IdSharedMem)
+            DicoClusterDirs_Beam=NpShared.SharedToDico("%sDicoClusterDirs_Beam"%self.IdSharedMem)
             DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"]=DicoClusterDirs_Beam
 
         return DicoJonesMatrices
 
-    def SoothJones(self,DicoJonesMatrices):
+
+    def SmoothJones(self):
         print>>log, "Smoothing Jones matrices"
         DicoJonesMatrices=self.GiveDicoJonesMatrices()
+        l_List=DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]["l"].tolist()
+        m_List=DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]["m"].tolist()
+        for (l,m) in zip(l_List,m_List):
+            self.SmoothJonesSingleDir(DicoJonesMatrices,l,m)
+            
+
+
+    def SmoothJonesSingleDir(self,DicoJonesMatrices,l0,m0):
+
+
 
         Apply_killMS=("DicoJones_killMS" in DicoJonesMatrices.keys())
         Apply_Beam=("DicoJones_Beam" in DicoJonesMatrices.keys())
 
-        l0,m0=self.lmShift
+
         idir_kMS=0
         w_kMS=np.array([],np.float32)
 
@@ -47,9 +59,18 @@ class ClassSoothJones():
             DicoClusterDirs=DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]
             lc=DicoClusterDirs["l"]
             mc=DicoClusterDirs["m"]
-            sI=DicoClusterDirs["I"]
             d=np.sqrt((l0-lc)**2+(m0-mc)**2)
             idir_kMS=np.argmin(d)
+            sI=DicoClusterDirs["I"]
+
+            # (10, 4, 36, 5, 2, 2)
+            JonesMatrices_killMS=DicoJonesMatrices["DicoJones_killMS"]["Jones"]
+            JonesMatrices_killMS=(np.abs(JonesMatrices_killMS[:,idir_kMS,:,:,0,0])+np.abs(JonesMatrices_killMS[:,idir_kMS,:,:,1,1]))/2.
+            JonesMatrices_killMS=np.mean(JonesMatrices_killMS,axis=-1)
+            JonesMatrices_killMS=np.mean(JonesMatrices_killMS,axis=0)
+
+            MapJones_killMS=DicoJonesMatrices["DicoJones_killMS"]["MapJones"]
+            VisToJonesChanMapping_killMS=np.int32(DicoJonesMatrices["DicoJones_killMS"]["VisToJonesChanMapping"])
 
         idir_Beam=0
         if Apply_Beam:
@@ -58,6 +79,26 @@ class ClassSoothJones():
             mc=DicoClusterDirs["m"]
             d=np.sqrt((l0-lc)**2+(m0-mc)**2)
             idir_Beam=np.argmin(d)
-            
-        stop
+
+            JonesMatrices_Beam=DicoJonesMatrices["DicoJones_Beam"]["Jones"]
+            JonesMatrices_Beam=(np.abs(JonesMatrices_Beam[:,idir_Beam,:,:,0,0])+np.abs(JonesMatrices_Beam[:,idir_Beam,:,:,1,1]))/2.
+            JonesMatrices_Beam=np.mean(JonesMatrices_Beam,axis=-1)
+            JonesMatrices_Beam=np.mean(JonesMatrices_Beam,axis=0)
+
+            MapJones_Beam=DicoJonesMatrices["DicoJones_Beam"]["MapJones"]
+            VisToJonesChanMapping_Beam=np.int32(DicoJonesMatrices["DicoJones_Beam"]["VisToJonesChanMapping"])
+
+        Jm=DicoJonesMatrices["DicoJones_killMS"]["Jones"]
+        nt,nd,na,nf,_,_=Jm.shape
+        J0=np.zeros_like(Jm)
+        J0[:,:,:,:,0,0]=1
+        J0[:,:,:,:,1,1]=1
+        All_alpha=JonesMatrices_killMS*sI/np.max(sI)
+        for iAnt in range(na):
+            alpha=np.min([1.,All_alpha[iAnt]])
+            alpha=np.max([0.,alpha])
+            Jm[:,idir_kMS,iAnt,:,:,:]=Jm[:,idir_kMS,iAnt,:,:,:]*alpha+(1.-alpha)*J0[:,idir_kMS,iAnt,:,:,:]
+        
+
+
 
