@@ -7,6 +7,7 @@ class ClassSmoothJones():
     def __init__(self,GD,IdSharedMem):
         self.GD=GD
         self.IdSharedMem=IdSharedMem
+        self.AlphaReg=None
 
     def GiveDicoJonesMatrices(self):
         print>>log, "  Getting Jones matrices from Shared Memory"
@@ -34,17 +35,42 @@ class ClassSmoothJones():
         return DicoJonesMatrices
 
 
-    def SmoothJones(self):
-        print>>log, "Smoothing Jones matrices"
-        DicoJonesMatrices=self.GiveDicoJonesMatrices()
+    def FindAlpha(self):
+        self.DicoJonesMatrices=self.GiveDicoJonesMatrices()
+        DicoJonesMatrices=self.DicoJonesMatrices
+        print>>log, "  Find Alpha for smoothing"
         l_List=DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]["l"].tolist()
         m_List=DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]["m"].tolist()
-        for (l,m) in zip(l_List,m_List):
-            self.SmoothJonesSingleDir(DicoJonesMatrices,l,m)
-            
+
+        NDir=len(l_List)
+        Jm=DicoJonesMatrices["DicoJones_killMS"]["Jones"]
+        nt,nd,na,nf,_,_=Jm.shape
+        self.AlphaReg=np.zeros((NDir,na),np.float32)
+
+        for (iDir,l,m) in zip(range(NDir),l_List,m_List):
+            self.AlphaReg[iDir,:]=self.FindAlphaSingleDir(DicoJonesMatrices,l,m)
+        NpShared.ToShared("%sAlphaReg"%self.IdSharedMem,self.AlphaReg)
 
 
-    def SmoothJonesSingleDir(self,DicoJonesMatrices,l0,m0):
+    def SmoothJones(self):
+        if self.AlphaReg==None:
+            self.FindAlpha()
+        DicoJonesMatrices=self.DicoJonesMatrices
+
+        Jm=DicoJonesMatrices["DicoJones_killMS"]["Jones"]
+        nt,nd,na,nf,_,_=Jm.shape
+        J0=np.zeros_like(Jm)
+        J0[:,:,:,:,0,0]=1
+        J0[:,:,:,:,1,1]=1
+        NDir,na=self.AlphaReg.shape
+
+        for idir_kMS in range(NDir):
+            for iAnt in range(na):
+                alpha=self.AlphaReg[idir_kMS,iAnt]
+                Jm[:,idir_kMS,iAnt,:,:,:]=Jm[:,idir_kMS,iAnt,:,:,:]*alpha+(1.-alpha)*J0[:,idir_kMS,iAnt,:,:,:]
+
+
+    def FindAlphaSingleDir(self,DicoJonesMatrices,l0,m0):
 
 
 
@@ -90,14 +116,17 @@ class ClassSmoothJones():
 
         Jm=DicoJonesMatrices["DicoJones_killMS"]["Jones"]
         nt,nd,na,nf,_,_=Jm.shape
-        J0=np.zeros_like(Jm)
-        J0[:,:,:,:,0,0]=1
-        J0[:,:,:,:,1,1]=1
-        All_alpha=JonesMatrices_killMS*sI/np.max(sI)
+        #All_alpha=JonesMatrices_killMS*sI[idir_kMS]/np.max(sI)
+        All_alpha=JonesMatrices_Beam*sI[idir_kMS]/np.max(sI)
+        AlphaDir=np.zeros((na,),np.float32)
+
         for iAnt in range(na):
             alpha=np.min([1.,All_alpha[iAnt]])
             alpha=np.max([0.,alpha])
-            Jm[:,idir_kMS,iAnt,:,:,:]=Jm[:,idir_kMS,iAnt,:,:,:]*alpha+(1.-alpha)*J0[:,idir_kMS,iAnt,:,:,:]
+            AlphaDir[iAnt]=alpha
+
+        return AlphaDir
+
         
 
 
