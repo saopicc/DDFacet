@@ -106,7 +106,7 @@ class ClassModelMachine():
         mask = alpha<-MaxSpi
         alpha[mask] = -MaxSpi
         if masked or mask.any():
-            print>>log,ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them."%MaxSpi,color="red")
+            print>>log,ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them."%MaxSpi,col="red")
         return alpha
 
     def GiveModelImage(self,FreqIn=None):
