@@ -1096,7 +1096,7 @@ class ClassDDEGridMachine():
 
         T.timeit("sphenorm")
 
-        return Dirty
+        return Dirty.real
 
         
 

@@ -60,7 +60,6 @@ class ClassFacetMachine():
         self.PointingID=PointingID
         self.VS,self.GD=VS,GD
         self.npol = self.VS.StokesConverter.NStokesInImage()
-        self.IntensityImagingMode = (self.VS.StokesConverter.RequiredStokesProducts() == ["I"]) #currently intensity gridding doesn't require conversion
         self.Parallel=Parallel
         ChanFreq=self.VS.MS.ChanFreq.flatten()
         DicoConfigGM={}
@@ -532,8 +531,7 @@ class ClassFacetMachine():
         Returns:
             ndarray of type complex
         """
-        # conversion to some stokes terms require complex correlations as input, so keep this complex:
-        return np.zeros(self.OutImShape,dtype=self.CType)
+        return np.zeros(self.OutImShape,dtype=self.stitchedType)
 
     def putChunk(self,*args,**kwargs):
         """
@@ -619,6 +617,9 @@ class ClassFacetMachine():
         # -------------------------------------------------
         if self.NormImage is None:
             self.NormImage = self.BuildFacetNormImage()
+            self.NormImageReShape = self.NormImage.reshape([1,1,
+                                                            self.NormImage.shape[0],
+                                                            self.NormImage.shape[1]])
         self.stitchedResidual = self.FacetsToIm_Channel()
         if DoCalcNormData:
             self.NormData = self.FacetsToIm_Channel(BeamWeightImage=True)
@@ -639,7 +640,6 @@ class ClassFacetMachine():
             self.DicoPSF={}
             for iFacet in self.DicoGridMachine.keys():
                 self.DicoPSF[iFacet]={}
-                # TODO: convert to stokes PSFs... don't just discard imaginary
                 self.DicoPSF[iFacet]["PSF"]=(self.DicoGridMachine[iFacet]["Dirty"]).copy().real
                 self.DicoPSF[iFacet]["l0m0"]=self.DicoImager[iFacet]["l0m0"]
                 self.DicoPSF[iFacet]["pixCentral"]=self.DicoImager[iFacet]["pixCentral"]
@@ -649,7 +649,6 @@ class ClassFacetMachine():
                 for ch in range(nch):
                     self.DicoPSF[iFacet]["PSF"][ch][0]=self.DicoPSF[iFacet]["PSF"][ch][0].T[::-1,:]
                     self.DicoPSF[iFacet]["PSF"][ch]/=np.max(self.DicoPSF[iFacet]["PSF"][ch]) #normalize to peak of 1
-                    #TODO: convert to stokes PSFs
                     PSFChannel[ch,:,:,:]=self.DicoPSF[iFacet]["PSF"][ch][:,:,:]
                 W=DicoImages["WeightChansImages"]
                 W=np.float32(W.reshape((self.VS.NFreqBands,1,1,1)))
@@ -714,15 +713,6 @@ class ClassFacetMachine():
             self.DicoPSF["freqs"]=DicoImages["freqs"]
             self.DicoPSF["WeightChansImages"]=DicoImages["WeightChansImages"]
 
-        #Convert correlation images to stokes images:
-        #-------------------------------------------------
-        c2s = (lambda stokes: stokes) if self.IntensityImagingMode else (lambda corrs: self.VS.StokesConverter.corrs2stokes(corrs))
-        self.stitchedResidual = np.ascontiguousarray(c2s(self.stitchedResidual).real)
-        #norm image the same for all pols and chans
-        self.NormImageReShape = self.NormImage.view().reshape((1, 1, self.NormImage.shape[0], self.NormImage.shape[1]))
-        self.MeanResidual = np.ascontiguousarray(c2s(self.MeanResidual).real)
-        if DoCalcNormData:
-            self.NormData = np.ascontiguousarray(c2s(self.NormData).real)
         DicoImages["ImagData"] = self.stitchedResidual
         DicoImages["NormImage"] = self.NormImage #grid-correcting map
         DicoImages["NormData"] = self.NormData
@@ -828,7 +818,7 @@ class ClassFacetMachine():
                         Im=Im[x0facet:x1facet,y0facet:y1facet]
                 
                 
-                    Image[Channel,pol,x0main:x1main,y0main:y1main]+=Im
+                    Image[Channel,pol,x0main:x1main,y0main:y1main]+=Im.real
 
 
         for Channel in range(self.VS.NFreqBands):
