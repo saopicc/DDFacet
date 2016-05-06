@@ -199,7 +199,7 @@ class ClassVisServer():
             freq_to_grid_band_chan.update(dict([ (freq,chan) for chan,freq in enumerate(freqlist)]))
             print>>log,"Image band %d: %g to %g MHz contains %d MS channels from %g to %g MHz"%(iBand,
                 (self.FreqBandCenters[iBand]-grid_bw/2)*1e-6, (self.FreqBandCenters[iBand]+grid_bw/2)*1e-6,
-                len(freqlist), freqlist[0]*1e-6, freqlist[-1]*1e-6)
+                len(freqlist), len(freqlist) and freqlist[0]*1e-6, len(freqlist) and freqlist[-1]*1e-6)
 
         self.FreqBandChannelsDegrid={}
         self.DicoMSChanMapping={}
