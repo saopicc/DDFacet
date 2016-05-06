@@ -353,6 +353,7 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
   i_ant1=ptrA1[irow];
   DoApplyAlphaReg=0;
   if(DoApplyAlphaRegIn & Has_AlphaReg_killMS){DoApplyAlphaReg=1;};
+  DoApplyAlphaReg=0;
 
 
   //printf("(%i, %i)\n",i_ant0,i_ant1);
@@ -404,6 +405,9 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
 	float alpha0=*(ptrAlphaReg_killMS+off_alpha0);
 	float alpha1=*(ptrAlphaReg_killMS+off_alpha1);
 	int ipol;
+	//alpha0=0.;
+	//alpha1=0.;
+
 	//printf("akpha0=%f\n",alpha0);
 	//printf("akpha1=%f\n",alpha1);
 	for(ipol=0;ipol<4;ipol++){

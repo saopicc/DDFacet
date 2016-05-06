@@ -47,9 +47,9 @@ class ClassJones():
                 DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("Beam")
             self.ToShared("Beam",DicoSols,TimeMapping,DicoClusterDirs)
             
-        SJM=ClassSmoothJones.ClassSmoothJones(GD,self.IdSharedMem)
-        SJM.FindAlpha()
-        # SJM.SmoothJones()
+        # SJM=ClassSmoothJones.ClassSmoothJones(GD,self.IdSharedMem)
+        # SJM.FindAlpha()
+        # # SJM.SmoothJones()
         
 
 

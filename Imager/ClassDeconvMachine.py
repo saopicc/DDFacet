@@ -390,7 +390,22 @@ class ClassImagerDeconv():
         DoSub=(SubstractModel!="")&(SubstractModel!=None)
         if DoSub:
             print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
-            self.DeconvMachine.ModelMachine.FromFile(SubstractModel)        
+            from DDFacet.Imager.ModModelMachine import GiveModelMachine
+            ClassModelMachine,DicoModel=GiveModelMachine(SubstractModel)
+
+            try:
+                self.GD["GAClean"]["GASolvePars"]=DicoModel["SolveParam"]
+            except:
+                self.GD["GAClean"]["GASolvePars"]=["S","Alpha"]
+                DicoModel["SolveParam"]=self.GD["GAClean"]["GASolvePars"]
+
+            MM=ClassModelMachine(self.GD)
+            MM.FromDico(DicoModel)
+
+            #self.DeconvMachine.ModelMachine.FromFile(SubstractModel)        
+
+
+
             InitBaseName=".".join(SubstractModel.split(".")[0:-1])
             self.FacetMachine.BuildFacetNormImage()
             # NormFacetsFile="%s.NormFacets.fits"%InitBaseName
@@ -414,10 +429,17 @@ class ClassImagerDeconv():
             #if Res=="EndChunk": break
             if Res=="EndOfObservation": break
             DATA=self.DATA
-
             if DoSub:
                 ThisMeanFreq=self.VS.CurrentChanMappingDegrid#np.mean(DATA["freqs"])
-                ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
+                ModelImage=MM.GiveModelImage(ThisMeanFreq)
+
+                print "!!!!!!!!!!!!!!!!!!!!!!"
+                DATA["data"].fill(0)
+                ModelImage.fill(0)
+                ModelImage[0,0,1000,2000]=1.
+
+                self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelInit"%(self.BaseName),Fits=True)
+                print ModelImage.shape, ModelImage.dtype
                 print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
                 _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
 
