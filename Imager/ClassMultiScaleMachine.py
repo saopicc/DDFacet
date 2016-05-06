@@ -123,7 +123,7 @@ class ClassMultiScaleMachine():
 
         dx=npix/2
 
-
+        dx=np.min([NPSF/2,dx])
         self.PSFExtent=(NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
 
         #self.PSFExtent=(0,NPSF,0,NPSF)
