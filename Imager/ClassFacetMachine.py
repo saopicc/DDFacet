@@ -452,7 +452,9 @@ class ClassFacetMachine():
                                        IdSharedMemData=self.IdSharedMemData,
                                        ApplyCal=self.ApplyCal,
                                        CornersImageTot=self.CornersImageTot,
-                                       NFreqBands=self.GD["MultiFreqs"]["NFreqBands"])
+                                       NFreqBands=self.GD["MultiFreqs"]["NFreqBands"],
+                                       DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                       ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
             workerlist.append(W)
             if Parallel:
                 workerlist[ii].start()
@@ -964,7 +966,9 @@ class ClassFacetMachine():
                                          SpheNorm=SpheNorm,
                                          PSFMode=PSFMode,
                                          NFreqBands=self.GD["MultiFreqs"]["NFreqBands"],
-                                         PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"])
+                                         PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
+                                         DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                         ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
             workerlist.append(W)
             if Parallel:
                 workerlist[ii].start()
@@ -1080,7 +1084,9 @@ class ClassFacetMachine():
                                          IdSharedMem=self.IdSharedMem,
                                          IdSharedMemData=self.IdSharedMemData,
                                          ApplyCal=self.ApplyCal,
-                                         NFreqBands=self.GD["MultiFreqs"]["NFreqBands"])
+                                         NFreqBands=self.GD["MultiFreqs"]["NFreqBands"],
+                                         DataCorrelationFormat = self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                         ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds())
 
             workerlist.append(W)
             if Parallel:
@@ -1138,7 +1144,9 @@ class WorkerImager(multiprocessing.Process):
                  PSFMode=False,
                  CornersImageTot=None,
                  NFreqBands=1,
-                 PauseOnStart=False):
+                 PauseOnStart=False,
+                 DataCorrelationFormat=[5,6,7,8],
+                 ExpectedOutputStokes=[1]):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -1158,7 +1166,8 @@ class WorkerImager(multiprocessing.Process):
         self.CornersImageTot = CornersImageTot
         self.NFreqBands = NFreqBands
         self._pause_on_start = PauseOnStart
-
+        self.DataCorrelationFormat = DataCorrelationFormat
+        self.ExpectedOutputStokes = ExpectedOutputStokes
 
     def shutdown(self):
         self.exit.set()
@@ -1180,7 +1189,9 @@ class WorkerImager(multiprocessing.Process):
                                                             IdSharedMemData=self.IdSharedMemData,
                                                             IDFacet=iFacet,
                                                             SpheNorm=self.SpheNorm,
-                                                            NFreqBands=self.NFreqBands)
+                                                            NFreqBands=self.NFreqBands,
+                                                            DataCorrelationFormat=self.DataCorrelationFormat,
+                                                            ExpectedOutputStokes=self.ExpectedOutputStokes)
         return GridMachine
         
     def GiveDicoJonesMatrices(self):

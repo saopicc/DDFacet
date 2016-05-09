@@ -48,6 +48,8 @@ find_package(PythonLibs REQUIRED)
 find_package(NumPy REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(RT REQUIRED)
+find_package(CasaCore REQUIRED ms, measures)
+
 if (NOT ${PYTHON_FOUND})
   message(FATAL_ERROR "Failed to find Python, ensure python-dev is installed")
 endif (NOT ${PYTHON_FOUND})
@@ -60,9 +62,13 @@ endif (NOT ${OPENMP_FOUND})
 if (NOT ${HAVE_RT})
   message(FATAL_ERROR "Failed to find librt and header.")
 endif (NOT ${HAVE_RT})
+if (NOT ${CASACORE_FOUND})
+  message(FATAL_ERROR "Failed to find CasaCore.")
+endif (NOT ${CASACORE_FOUND})
+
 
 #Update include paths with found includes above
-include_directories(${PYTHON_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR}/numpy ${RT_INCLUDES})
+include_directories(${PYTHON_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR}/numpy ${RT_INCLUDES} ${CASACORE_INCLUDE_DIR})
 
 #Ensure __init__.py is added to out-of-source build directory
 execute_process(COMMAND touch __init__.py
@@ -75,8 +81,8 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -ggdb ${OpenMP_C_FLAGS} ${VE
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -ggdb ${OpenMP_CXX_FLAGS} ${VECTORIZATION_FLAGS} ${TUNING_FLAGS} ${FAST_MATH_FLAGS}")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE}")
-set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_RELEASE} ${OpenMP_C_FLAGS} ${VECTORIZATION_FLAGS} ${TUNING_FLAGS} ${FAST_MATH_FLAGS}")
-set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_RELEASE} ${OpenMP_CXX_FLAGS} ${VECTORIZATION_FLAGS} ${TUNING_FLAGS} ${FAST_MATH_FLAGS}")
+set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_RELEASE}")
+set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_RELEASE}")
 message("Debug CFLAGS are ${CMAKE_C_FLAGS_DEBUG}")
 message("Release CFLAGS are ${CMAKE_C_FLAGS_RELEASE}")
 
@@ -96,9 +102,9 @@ set_target_properties(_pyGridderSmear PROPERTIES PREFIX "") #remove "lib" prefix
 target_link_libraries(_pyGridderSmear ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
 #compile and link _pyGridderSmearPols.so
-add_library(_pyGridderSmearPols GridderSmearPols.c GridderSmearPols.h Matrix.h JonesServer.h)
+add_library(_pyGridderSmearPols GridderSmearPols.c GridderSmearPols.h Matrix.h JonesServer.h pyArrayCast.h Timer.h)
 set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
-target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
+target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY} StokesConvert)
 
 #compile and link _pyWeightingCore.so
 add_custom_command(OUTPUT _pyWeightingCore.c
@@ -112,3 +118,9 @@ set_target_properties(_pyWeightingCore PROPERTIES
 		      PREFIX "" #remove "lib" prefix from library (PEP8 compliance)
 		      COMPILE_FLAGS "-fwrapv -fno-strict-aliasing")
 target_link_libraries(_pyWeightingCore)
+
+#compile and link StokesConvert.so
+add_library(StokesConvert Stokes.cpp Stokes.h)
+target_link_libraries(StokesConvert ${CASACORE_LIBRARIES})
+
+add_subdirectory(TestUnits)

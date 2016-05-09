@@ -5,6 +5,8 @@
 #include "complex.h"
 #include <omp.h>
 #include "Matrix.h"
+#include "pyArrayCast.h"
+#include "Constants.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -177,30 +179,30 @@ float complex *J0kMS_tm1;
 float complex *J1kMS_tm1;
 
 void initJonesMatrices(){
-  J0=calloc(1,(4)*sizeof(float complex));
-  J1=calloc(1,(4)*sizeof(float complex));
-  J0kMS=calloc(1,(4)*sizeof(float complex));
-  J1kMS=calloc(1,(4)*sizeof(float complex));
-  J0Beam=calloc(1,(4)*sizeof(float complex));
-  J1Beam=calloc(1,(4)*sizeof(float complex));
+  J0=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J1=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J0kMS=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J1kMS=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J0Beam=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J1Beam=(float complex*)calloc(1,(4)*sizeof(float complex));
   Unity(J0); Unity(J1);
   Unity(J0kMS); Unity(J1kMS);
   Unity(J0Beam); Unity(J1Beam);
   
 
 
-  J0inv=calloc(1,(4)*sizeof(float complex));
-  J0H=calloc(1,(4)*sizeof(float complex));
-  J0Conj=calloc(1,(4)*sizeof(float complex));
-  J1Conj=calloc(1,(4)*sizeof(float complex));
-  J1H=calloc(1,(4)*sizeof(float complex));
-  J1T=calloc(1,(4)*sizeof(float complex));
-  J1Hinv=calloc(1,(4)*sizeof(float complex));
-  JJ=calloc(1,(4)*sizeof(float complex));
-  J0kMS_tp1=calloc(1,(4)*sizeof(float complex));
-  J1kMS_tp1=calloc(1,(4)*sizeof(float complex));
-  J0kMS_tm1=calloc(1,(4)*sizeof(float complex));
-  J1kMS_tm1=calloc(1,(4)*sizeof(float complex));
+  J0inv=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J0H=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J0Conj=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J1Conj=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J1H=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J1T=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J1Hinv=(float complex*)calloc(1,(4)*sizeof(float complex));
+  JJ=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J0kMS_tp1=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J1kMS_tp1=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J0kMS_tm1=(float complex*)calloc(1,(4)*sizeof(float complex));
+  J1kMS_tm1=(float complex*)calloc(1,(4)*sizeof(float complex));
 }
 
 int JonesType;

@@ -276,3 +276,15 @@ class ClassStokes:
         Returns: Required output stokes parameters
         """
         return self._FITSstokesList
+
+    def RequiredStokesProductsIds(self):
+        """
+        Returns the stokes.h ids for the required stokes products
+        """
+        return [StokesTypes[s] for s in self._FITSstokesList]
+
+    def AvailableCorrelationProductsIds(self):
+        """
+        Returns the stokes.h ids for the available MS correlation products
+        """
+        return self._MScorrLabels
