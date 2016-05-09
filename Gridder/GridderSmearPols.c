@@ -78,7 +78,13 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 			&PyList_Type, &output_stokes_products
 			))  return NULL;
 
-    gridderWPol(np_grid, vis, uvw, flags, weights, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping,LOptimisation,LSmearing,np_ChanMapping);
+    gridderWPol(np_grid, vis, uvw, 
+		flags, weights, sumwt, 
+		dopsf, Lcfs, LcfsConj, 
+		WInfos, increment, freqs, 
+		Lmaps, LJones, SmearMapping, 
+		LOptimisation, LSmearing, np_ChanMapping,
+		data_corr_products, output_stokes_products);
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -138,18 +144,16 @@ void gridderWPol(PyArrayObject *grid,
                  PyArrayObject *SmearMapping,
                  PyObject *LOptimisation,
                  PyObject *LSmearing,
-                 PyArrayObject *np_ChanMapping
-                )
+                 PyArrayObject *np_ChanMapping,
+		 PyObject *data_corr_products,
+		 PyObject *output_stokes_products)
 {
-    // Get size of convolution functions.
+    
     int nrows     = uvw->dimensions[0];
     PyArrayObject *cfs;
-    PyArrayObject *NpPolMap;
-    NpPolMap = (PyArrayObject *) PyList_GetItem(Lmaps, 0);
-
+    
     PyArrayObject *NpFacetInfos;
-    NpFacetInfos = (PyArrayObject *) PyList_GetItem(Lmaps, 1);
-
+    NpFacetInfos = (PyArrayObject *) PyList_GetItem(Lmaps, 0);
 
     /////////////////////////////////////////
     int LengthSmearingList=PyList_Size(LSmearing);
@@ -188,11 +192,6 @@ void gridderWPol(PyArrayObject *grid,
     double VarTimeGrid=0;
     int Nop=0;
 
-    int npolsMap=NpPolMap->dimensions[0];
-    int* PolMap=I_ptr(NpPolMap);
-
-    //    printf("npols=%i %i\n",npolsMap,PolMap[3]);
-
     // Get size of grid.
     double* ptrWinfo = p_float64(Winfos);
     double WaveRefWave = ptrWinfo[0];
@@ -210,11 +209,9 @@ void gridderWPol(PyArrayObject *grid,
 
 
     // Get visibility data size.
-    int nVisPol   = flags->dimensions[2];
+    int nVisCorr   = flags->dimensions[2];
     int nVisChan  = flags->dimensions[1];
-    //    printf("(nrows, nVisChan, nVisPol)=(%i, %i, %i)\n",nrows,nVisChan,nVisPol);
-
-
+    
     // Get oversampling and support size.
     int sampx = OverS;//int (cfs.sampling[0]);
     int sampy = OverS;//int (cfs.sampling[1]);
@@ -251,43 +248,6 @@ void gridderWPol(PyArrayObject *grid,
 
     PyObject *_SkyType  = PyList_GetItem(LOptimisation, 2);
     int SkyType=(int) PyFloat_AsDouble(_SkyType);
-
-    PyObject *_PolMode  = PyList_GetItem(LOptimisation, 3);
-    int PolMode=(int) PyFloat_AsDouble(_PolMode);
-
-    /* ScalarJones=0; */
-    /* ScalarVis=0; */
-    /* int nPolJones=4; */
-    /* int nPolVis=4; */
-
-    /* if(FullScalarMode){ */
-    /*   //printf("full scalar mode\n"); */
-    /*   //printf("ChanEquidistant: %i\n",ChanEquidistant); */
-    /*   ScalarJones=1; */
-    /*   ScalarVis=1; */
-    /*   nPolJones=1; */
-    /*   nPolVis=1; */
-    /*   int ipol; */
-    /*   for (ipol=1; ipol<nVisPol; ++ipol) { */
-    /* 	PolMap[ipol]=5; */
-    /*   } */
-    /* } */
-    int ipol;
-    if(PolMode==0) {
-        for (ipol=1; ipol<4; ++ipol) {
-            PolMap[ipol]=5;
-        }
-    }
-
-
-
-    /* float complex *J0=calloc(1,(nPolJones)*sizeof(float complex));
-    /* float complex *J1=calloc(1,(nPolJones)*sizeof(float complex)); */
-    /* float complex *J0inv=calloc(1,(nPolJones)*sizeof(float complex)); */
-    /* float complex *J1H=calloc(1,(nPolJones)*sizeof(float complex)); */
-    /* float complex *J1Hinv=calloc(1,(nPolJones)*sizeof(float complex)); */
-    /* float complex *JJ=calloc(1,(nPolJones)*sizeof(float complex)); */
-
 
     int *MappingBlock = p_int32(SmearMapping);
     int NTotBlocks=MappingBlock[0];
@@ -349,9 +309,25 @@ void gridderWPol(PyArrayObject *grid,
     long int TimeGetJones[1]= {0};
     long int TimeStuff[1]= {0};
     struct timespec PreviousTime;
-
-    float complex Vis[4]= {0.,0.,0.,0.};
-    float complex VisMeas[4]= {0.,0.,0.,0.};
+    
+    //Define visibilities (N [normally 4] input, M [#stokes params] output):
+    float complex *VisCorr= (float complex*)calloc(nVisCorr,sizeof(float complex*));
+    float complex *VisMeas= (float complex*)calloc(nVisCorr,sizeof(float complex*));
+    float complex *VisStokes= (float complex*)calloc(nGridPol,sizeof(float complex*));
+    
+    // Get visibility correlation and output stokes descriptors:
+    int* VisCorrDesc= (int*)calloc(nVisCorr,sizeof(int*));
+    int* VisStokesDesc= (int*)calloc(nGridPol,sizeof(int*));
+    {
+      size_t k = 0;
+      for (k = 0; k < nVisCorr; ++k){
+	VisCorrDesc[k] = (int)PyLong_AsLong(PyList_GetItem(data_corr_products, k));
+      }
+      for (k = 0; k < nGridPol; ++k){
+	VisStokesDesc[k] = (int)PyLong_AsLong(PyList_GetItem(output_stokes_products, k));
+      }
+    }
+    
     int ThisPol;
 
     float *ThisSumJonesChan=(float*)calloc(1,(nVisChan)*sizeof(float));
@@ -359,8 +335,6 @@ void gridderWPol(PyArrayObject *grid,
 
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++) {
-        //for(iBlock=3507; iBlock<3508; iBlock++){
-
         int NRowThisBlock=NRowBlocks[iBlock]-2;
         int indexMap=StartRow[iBlock];
         int chStart=MappingBlock[indexMap];
@@ -374,8 +348,8 @@ void gridderWPol(PyArrayObject *grid,
         int NVisThisblock=0;
         //printf("\n");
         //printf("Block[%i] Nrows=%i %i>%i\n",iBlock,NRowThisBlock,chStart,chEnd);
-        for(ThisPol =0; ThisPol<4; ThisPol++) {
-            Vis[ThisPol]=0;
+        for(ThisPol =0; ThisPol<nVisCorr; ThisPol++) {
+            VisCorr[ThisPol]=0;
             VisMeas[ThisPol]=0;
         }
 
@@ -399,14 +373,8 @@ void gridderWPol(PyArrayObject *grid,
                 continue;
             }
             double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
-            //printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
-            //printf("[%i] %i>%i\n",irow,chStart,chEnd);
-            //printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
-
-            //clock_gettime(CLOCK_MONOTONIC_RAW, &PreviousTime);
-
+            
             WeightVaryJJ=1.;
-
 
             float DeCorrFactor=1.;
             if(DoDecorr) {
@@ -430,7 +398,7 @@ void gridderWPol(PyArrayObject *grid,
 
             //AddTimeit(PreviousTime,TimeGetJones);
             for (visChan=chStart; visChan<chEnd; ++visChan) {
-                int doff = (irow * nVisChan + visChan) * nVisPol;
+                int doff = (irow * nVisChan + visChan) * nVisCorr;
                 bool* __restrict__ flagPtr = p_bool(flags) + doff;
                 double*   imgWtPtr = p_float64(weights) + irow  * nVisChan + visChan;
 
@@ -481,6 +449,7 @@ void gridderWPol(PyArrayObject *grid,
                 float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;
 
                 if (dopsf==1) {
+		    //TODO: mod this:
                     VisMeas[0]= 1.;
                     VisMeas[1]= 0.;
                     VisMeas[2]= 0.;
@@ -491,13 +460,12 @@ void gridderWPol(PyArrayObject *grid,
                         MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);
                     }
                     if(DoDecorr) {
-                        for(ThisPol =0; ThisPol<4; ThisPol++) {
+                        for(ThisPol =0; ThisPol<nVisCorr; ThisPol++) {
                             VisMeas[ThisPol]*=DeCorrFactor;
-
                         }
                     }
                 } else {
-                    for(ThisPol =0; ThisPol<4; ThisPol++) {
+                    for(ThisPol =0; ThisPol<nVisCorr; ThisPol++) {
                         VisMeas[ThisPol]=visPtrMeas[ThisPol];
                     }
                 }
@@ -506,22 +474,9 @@ void gridderWPol(PyArrayObject *grid,
                 float complex Weight=(FWeight) * corr;
                 float complex visPtr[4];
                 if(DoApplyJones) {
-                    /* MatDot(J0inv,JonesType,VisMeas,SkyType,visPtr); */
-                    /* MatDot(visPtr,SkyType,J1Hinv,JonesType,visPtr); */
-
-                    /* MatDot(J1T,JonesType,VisMeas,SkyType,visPtr); */
-                    /* MatDot(visPtr,SkyType,J0Conj,JonesType,visPtr); */
-
                     MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);
                     MatDot(visPtr,SkyType,J1,JonesType,visPtr);
-
-                    /* int ThisPol; */
-                    /* for(ThisPol =0; ThisPol<1;ThisPol++){ */
-                    /*   printf("   vis: %i (%f, %f)\n",ThisPol,creal(visPtr[ThisPol]),cimag(visPtr[ThisPol])); */
-                    /* } */
-
-                    // Vis+=visPtr*Weight
-                    Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);
+                    Mat_A_Bl_Sum(VisCorr,SkyType,visPtr,SkyType,Weight);
 
                     float FWeightSq=(FWeight)*(FWeight);
                     ThisSumJones+=BB*FWeightSq;
@@ -530,27 +485,9 @@ void gridderWPol(PyArrayObject *grid,
                     ThisSumJonesChan[visChan]+=BB*FWeightSq;
                     ThisSumSqWeightsChan[visChan]+=FWeightSq;
 
-                    //ptrSumJonesChan[visChan]+=BB*FWeightSq;
-                    //ptrSumJonesChan[nVisChan+visChan]+=FWeightSq;
-
-                    ////====================================
-                    //int gridChan=p_ChanMapping[visChan];
-                    //ptrSumJones[gridChan]+=BB*FWeightSq;
-                    //ptrSumJones[gridChan+nGridChan]+=FWeightSq;
-                    ////====================================
-
                 } else {
-                    Mat_A_Bl_Sum(Vis,SkyType,VisMeas,SkyType,Weight);
+                    Mat_A_Bl_Sum(VisCorr,SkyType,VisMeas,SkyType,Weight);
                 };
-
-                /* if(DoDecorr){ */
-                /*   for(ThisPol =0; ThisPol<4;ThisPol++){ */
-                /*     Vis[ThisPol]*=DeCorrFactor; */
-                /*   } */
-                /* } */
-
-
-                //AddTimeit(PreviousTime,TimeApplyJones);
 
                 U+=W*Cu;
                 V+=W*Cv;
@@ -558,18 +495,11 @@ void gridderWPol(PyArrayObject *grid,
                 Umean+=U;
                 Vmean+=V;
                 Wmean+=W;
-                //printf("factorFreq %f\n",factorFreq);
+               
                 FreqMean+=factorFreq*(float)Pfreqs[visChan];
-                //FreqMean+=(float)Pfreqs[visChan];
                 ThisWeight+=(FWeight);
-                //ThisSumJones+=(*imgWtPtr);
-
                 visChanMean+=p_ChanMapping[visChan];
-
                 NVisThisblock+=1.;//(*imgWtPtr);
-                //AddTimeit(PreviousTime,TimeAverage);
-                //printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);
-
             }//endfor vischan
         }//endfor RowThisBlock
         if(NVisThisblock==0) {
@@ -586,19 +516,11 @@ void gridderWPol(PyArrayObject *grid,
         if(diffChan!=0.) {
             printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);
         }
-        //printf("%i %i %f\n",i_ant0,i_ant1,visChanMean);
-        visChanMean=0.;
-        if(PolMode==0) {
-            Vis[0]=(Vis[0]+Vis[3])/2.;
-            Vis[3]=Vis[0];
-        }
-
-
-        /* printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6)); */
-        /* int ThisPol; */
-        /* for(ThisPol =0; ThisPol<4;ThisPol++){ */
-        /* 	printf("   vis: %i (%f, %f)\n",ThisPol,creal(Vis[ThisPol]),cimag(Vis[ThisPol])); */
-        /* } */
+        
+        //Now that the Jones matricies (correlations) have been applied we can convert visibility correlations of MS to Stokes parameters:
+        convert_corrs_32(nVisCorr,nGridPol,
+			 VisCorrDesc,VisStokesDesc,
+			 VisCorr,VisStokes);
 
         // ################################################
         // ############## Start Gridding visibility #######
@@ -614,7 +536,6 @@ void gridderWPol(PyArrayObject *grid,
         int skipW=0;
         if(iwplane>NwPlanes-1) {
             skipW=1;
-//	printf("SIP\n");
             continue;
         };
 
@@ -629,10 +550,6 @@ void gridderWPol(PyArrayObject *grid,
         int supy = (nConvY/OverS-1)/2;
         int SupportCF=nConvX/OverS;
         // ################################################
-
-
-
-
 
         if (gridChan >= 0  &&  gridChan < nGridChan) {
             double posx,posy;
@@ -668,60 +585,57 @@ void gridderWPol(PyArrayObject *grid,
                     locy-supy >= 0  &&  locy+supy < nGridY) {
 
                 int ipol;
-                for (ipol=0; ipol<nVisPol; ++ipol) {
-                    float complex VisVal;
-                    /* if (dopsf==1) { */
-                    /*   VisVal = 1.; */
-                    /* }else{ */
-                    /*   VisVal =Vis[ipol]; */
-                    /* } */
-                    VisVal =Vis[ipol];
-                    //printf("VisVal=(%f,%f), factor=(%f)\n",creal(VisVal),cimag(VisVal),factorFreq);
-                    //VisVal*=ThisWeight;
-
-                    //if(ThisBlockAllFlagged==0){VisVal = 0.;}
-
+                for ( ipol=0; ipol<nGridPol; ++ipol ) {
+                    float complex VisVal = VisStokes[ipol];
                     // Map to grid polarization. Only use pol if needed.
-                    int gridPol = PolMap[ipol];
-                    if (gridPol >= 0  &&  gridPol < nGridPol) {
-                        int goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
-                        int sy;
-                        float complex* __restrict__ gridPtr;
-                        const float complex* __restrict__ cf0;
-                        int io=(offy - fsupy*fsampy);
-                        int jo=(offx - fsupx*fsampx);
-                        int cfoff = io * OverS * SupportCF*SupportCF + jo * SupportCF*SupportCF;
-                        cf0 =  p_complex64(cfs) + cfoff;
-                        for (sy=-fsupy; sy<=fsupy; ++sy) {
-                            gridPtr =  p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx;
-                            int sx;
-                            for (sx=-fsupx; sx<=fsupx; ++sx) {
-                                //printf("gird=(%f,%f), vis=(%f,%f), cf=(%f,%f)\n",creal((*gridPtr)),cimag((*gridPtr)),creal(VisVal),cimag(VisVal),creal(*cf0),cimag(*cf0));
-                                *gridPtr++ += VisVal * *cf0;
-                                cf0 ++;
-                            }
-
-                        }
-                        sumWtPtr[gridPol+gridChan*nGridPol] += ThisWeight;
-                        if(DoApplyJones) {
-                            ptrSumJones[gridChan]+=ThisSumJones;
-                            ptrSumJones[gridChan+nGridChan]+=ThisSumSqWeights;
-
-                            for(visChan=0; visChan<nVisChan; visChan++) {
-                                ptrSumJonesChan[visChan]+=ThisSumJonesChan[visChan];
-                                ptrSumJonesChan[nVisChan+visChan]+=ThisSumSqWeightsChan[visChan];
-                            }
-
+                    int goff = ( gridChan*nGridPol + ipol ) * nGridX * nGridY;
+                    int sy;
+                    float complex* __restrict__ gridPtr;
+                    const float complex* __restrict__ cf0;
+                    int io= ( offy - fsupy*fsampy );
+                    int jo= ( offx - fsupx*fsampx );
+                    int cfoff = io * OverS * SupportCF*SupportCF + jo * SupportCF*SupportCF;
+                    cf0 =  p_complex64 ( cfs ) + cfoff;
+                    for ( sy=-fsupy; sy<=fsupy; ++sy ) {
+                        gridPtr =  p_complex64 ( grid ) + goff + ( locy+sy ) *nGridX + locx-supx;
+                        int sx;
+                        for ( sx=-fsupx; sx<=fsupx; ++sx ) {
+                            //printf("gird=(%f,%f), vis=(%f,%f), cf=(%f,%f)\n",creal((*gridPtr)),cimag((*gridPtr)),creal(VisVal),cimag(VisVal),creal(*cf0),cimag(*cf0));
+                            *gridPtr++ += VisVal * *cf0;
+                            cf0 ++;
                         }
 
-                    } // end if gridPol
+                    }
+                    
+                    //Accumulate normalization weights for this facet
+                    sumWtPtr[gridChan*nGridPol + ipol] += ThisWeight;
+                    if ( DoApplyJones ) {
+                        ptrSumJones[gridChan]+=ThisSumJones;
+                        ptrSumJones[gridChan+nGridChan]+=ThisSumSqWeights;
+
+                        for ( visChan=0; visChan<nVisChan; visChan++ ) {
+                            ptrSumJonesChan[visChan]+=ThisSumJonesChan[visChan];
+                            ptrSumJonesChan[nVisChan+visChan]+=ThisSumSqWeightsChan[visChan];
+                        }
+                    } //end DoApplyJones
                 } // end for ipol
             } // end if ongrid
         } // end if gridChan
         //AddTimeit(PreviousTime,TimeGrid);
 
     } //end for Block
-
+    
+    //Finally free allocated memory of this method:
+    free(CurrentCorrTerm);
+    free(VisCorr);
+    free(VisMeas);
+    free(VisStokes);
+    free(VisCorrDesc);
+    free(VisStokesDesc);
+    free(ThisSumJonesChan);
+    free(ThisSumSqWeightsChan);
+    free(dCorrTerm);
+    
 
     /* /\* printf("Times:\n"); *\/ */
     /* double tottime=*TimeShift+*TimeApplyJones+*TimeJones+*TimeGrid+*TimeAverage+*TimeGetJones+*TimeStuff; */

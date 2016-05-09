@@ -287,4 +287,4 @@ class ClassStokes:
         """
         Returns the stokes.h ids for the available MS correlation products
         """
-        return self._MScorrLabels
+        return self._MSDataDescriptor

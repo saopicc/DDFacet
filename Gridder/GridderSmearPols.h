@@ -80,7 +80,9 @@ void gridderWPol(PyArrayObject *np_grid,
                  PyArrayObject *SmearMapping,
                  PyObject *LOptimisation,
                  PyObject *LSmear,
-                 PyArrayObject *np_ChanMapping);
+                 PyArrayObject *np_ChanMapping,
+		 PyObject *data_corr_products,
+		 PyObject *output_stokes_products);
 
 
 void DeGridderWPol(PyArrayObject *np_grid,

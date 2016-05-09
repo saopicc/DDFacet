@@ -670,7 +670,7 @@ class ClassDDEGridMachine():
                                               [self.PolMap,FacetInfos],
                                               ParamJonesList) # Input the jones matrices
         else:
-            OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType,self.PolModeID]
+            OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMemData))
 
             _pyGridderSmear.pyGridderWPol(Grid,
@@ -685,14 +685,14 @@ class ClassDDEGridMachine():
                                           np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
                                           self.incr.astype(np.float64),
                                           freqs,
-                                          [self.PolMap,FacetInfos],
+                                          [FacetInfos],
                                           ParamJonesList,
                                           MapSmear,
                                           OptimisationInfos,
                                           self.LSmear,
                                           np.int32(ChanMapping),
-                                          self.DataCorrelationFormat,
-                                          self.ExpectedOutputStokes)
+                                          [np.int32(corr) for corr in self.DataCorrelationFormat],
+                                          [np.int32(stokes) for stokes in self.ExpectedOutputStokes])
 
         NCH,_,_,_=Grid.shape
         Dirty= self.GridToIm(Grid)
