@@ -96,12 +96,10 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
     int dopsf;
 
     if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!",
-                          &ObjGridIn,
                           &PyArray_Type,  &np_grid,
-                          &ObjVis,//&PyArray_Type,  &vis,
+                          &ObjVis,
                           &PyArray_Type,  &uvw,
                           &PyArray_Type,  &flags,
-                          //&PyArray_Type,  &rows,
                           &PyArray_Type,  &sumwt,
                           &dopsf,
                           &PyList_Type, &Lcfs,
