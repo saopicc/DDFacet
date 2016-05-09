@@ -186,3 +186,25 @@ TEST_CASE( "Test stokes to circular correlation double", "[stokes2circdbl]" ) {
       REQUIRE(data_out[3] == 1+0*_Complex_I);
     }
 }
+
+TEST_CASE( "Test give PSF vis float", "[psf_vis_float]" )
+{
+  int out[4] = {casacore::Stokes::RR, casacore::Stokes::RL, casacore::Stokes::LR, casacore::Stokes::LL};
+  float _Complex data_out[4] = {0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I};
+  give_psf_vis_32(4,out,data_out);
+  REQUIRE(data_out[0] == 2+0*_Complex_I); //I+V
+  REQUIRE(data_out[1] == 1+1*_Complex_I); //Q+iU
+  REQUIRE(data_out[2] == 1-1*_Complex_I); //Q-iU
+  REQUIRE(data_out[3] == 0+0*_Complex_I); //I-V
+}
+
+TEST_CASE( "Test give PSF vis double", "[psf_vis_double]" )
+{
+  int out[4] = {casacore::Stokes::RR, casacore::Stokes::RL, casacore::Stokes::LR, casacore::Stokes::LL};
+  double _Complex data_out[4] = {0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I};
+  give_psf_vis_64(4,out,data_out);
+  REQUIRE(data_out[0] == 2+0*_Complex_I); //I+V
+  REQUIRE(data_out[1] == 1+1*_Complex_I); //Q+iU
+  REQUIRE(data_out[2] == 1-1*_Complex_I); //Q-iU
+  REQUIRE(data_out[3] == 0+0*_Complex_I); //I-V
+}

@@ -653,7 +653,7 @@ class ClassFacetMachine():
                     self.DicoPSF[iFacet]["PSF"][ch]/=np.max(self.DicoPSF[iFacet]["PSF"][ch]) #normalize to peak of 1
                     PSFChannel[ch,:,:,:]=self.DicoPSF[iFacet]["PSF"][ch][:,:,:]
                 W=DicoImages["WeightChansImages"]
-                W=np.float32(W.reshape((self.VS.NFreqBands,1,1,1)))
+                W=np.float32(W.reshape((self.VS.NFreqBands,npol,1,1)))
                 MeanPSF=np.sum(PSFChannel*W,axis=0).reshape((1,npol,n,n)) #weight each of the cube slices and average
                 self.DicoPSF[iFacet]["MeanPSF"]=MeanPSF
 

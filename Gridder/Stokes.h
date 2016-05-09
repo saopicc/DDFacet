@@ -13,6 +13,11 @@
 #include <stdint.h>
 #include <complex.h>
 #ifdef __cplusplus
+  #undef complex
+  #undef I
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
   // Converts float32 complex visibility from one correlation format to
@@ -46,6 +51,23 @@ extern "C" {
 		      	int * out_format,
 			double _Complex * in_data,
 			double _Complex * out_data);
+  
+  // Gives the psf visibility (float32 correlations) for an array of a
+  // provided correlation format (as specified by casacore's Stokes.h)
+  // Inputs:
+  //	out_format_len: number of visibilities wanted in the correlation
+  //	out_format: correlation format array of size out_format_len
+  //	out_data: vis data buffer of size out_format_len
+  void give_psf_vis_32(size_t out_format_len,
+		       int * out_format,
+		       float _Complex * out_data);
+  
+  // Gives the psf visibility (float64 correlations) for an array of a
+  // provided correlation format (as specified by casacore's Stokes.h)
+  // See also give_psf_vis_32
+  void give_psf_vis_64(size_t out_format_len,
+		       int * out_format,
+		       double _Complex * out_data);
 
 #ifdef __cplusplus
 }
