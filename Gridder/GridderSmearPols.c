@@ -391,7 +391,7 @@ void gridderWPol(PyArrayObject *grid,
       resetJonesServerCounter();
 
       for (inx=0; inx<NRowThisBlock; inx++) {
-	int irow = Row[inx];
+	size_t irow = Row[inx];
 	if(irow>nrows){continue;}
 	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
 	//printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
@@ -1009,7 +1009,7 @@ void DeGridderWPol(PyArrayObject *grid,
       float visChanMean=0.;
       resetJonesServerCounter();
       for (inx=0; inx<NRowThisBlock; inx++) {
-	int irow = Row[inx];
+	size_t irow = Row[inx];
 	if(irow>nrows){continue;}
 	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
 	//printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
@@ -1017,7 +1017,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	
 	int ThisPol;
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
-	  int doff = (irow * nVisChan + visChan) * nVisPol;
+	  size_t doff = (irow * nVisChan + visChan) * nVisPol;
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
 	  int OneFlagged=0;
 	  int cond;
@@ -1221,7 +1221,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	  //////////////////////////////////////////////////////
 
      for (inx=0; inx<NRowThisBlock; inx++) {
-	int irow = Row[inx];
+	size_t irow = Row[inx];
 	if(irow>nrows){continue;}
 	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
 	//printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
