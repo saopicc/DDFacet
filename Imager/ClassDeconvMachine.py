@@ -433,13 +433,13 @@ class ClassImagerDeconv():
                 ThisMeanFreq=self.VS.CurrentChanMappingDegrid#np.mean(DATA["freqs"])
                 ModelImage=MM.GiveModelImage(ThisMeanFreq)
 
-                print "!!!!!!!!!!!!!!!!!!!!!!"
-                DATA["data"].fill(0)
-                ModelImage.fill(0)
-                ModelImage[0,0,1000,2000]=1.
+                #print "!!!!!!!!!!!!!!!!!!!!!!"
+                #DATA["data"].fill(0)
+                #ModelImage.fill(0)
+                #ModelImage[0,0,1000,2000]=1.
 
                 self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelInit"%(self.BaseName),Fits=True)
-                print ModelImage.shape, ModelImage.dtype
+                #print ModelImage.shape, ModelImage.dtype
                 print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
                 _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
 

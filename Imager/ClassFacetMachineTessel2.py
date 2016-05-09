@@ -169,22 +169,43 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         xy[:,0]=lFacet
         xy[:,1]=mFacet
 
-        regFile="%s.tessel.reg"%self.ImageName
+        regFile="%s.tessel0.reg"%self.ImageName
         NFacets=self.NFacets=lFacet.size
         rac,decc=self.MainRaDec
         VM=ModVoronoiToReg.VoronoiToReg(rac,decc)
         if NFacets>2:
             vor = Voronoi(xy,furthest_site=False)
             regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor,radius=1.)
-            LPolygon=[np.array(vertices[region]) for region in regions]
+
+            # points=xy
+            # pylab.clf()
+            # for region in regions:
+            #     polygon = vertices[region]
+            #     pylab.fill(*zip(*polygon), alpha=0.4)
+            #     pylab.plot(points[:,0], points[:,1], 'ko')
+            #     pylab.draw()
+            #     pylab.show(False)
+
+            # stop
+
+            PP=Polygon.Polygon(self.CornersImageTot)
+
+            LPolygon=[np.array(PP & Polygon.Polygon(np.array(vertices[region])))[0] for region in regions]
+
+
+
         elif NFacets==1:
             l0,m0=lFacet[0],mFacet[0]
             LPolygon=[self.CornersImageTot]
         #VM.ToReg(regFile,lFacet,mFacet,radius=.1)
         
+        for iFacet,polygon0 in zip(range(len(LPolygon)),LPolygon):
+            #polygon0 = vertices[region]
+            P=polygon0.tolist()
+            
         #VM.PolygonToReg(regFile,LPolygon,radius=0.1,Col="red")
 
-        #stop
+        # stop
 
 
 
@@ -495,8 +516,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.iCentralFacet=iCentralFacet
         
         #regFile="%s.tessel.reg"%self.GD["Images"]["ImageName"]
-        #labels=["[F%i]"%(i,self.DicoImager[i]["Polygon"]["iSol"]) for i in range(len(LPolygonNew))]
-        #VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=labels)
+        labels=[(self.DicoImager[i]["lmShift"][0],self.DicoImager[i]["lmShift"][1],"[F%i_S%i]"%(i,self.DicoImager[i]["iSol"])) for i in range(len(LPolygonNew))]
+        VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=labels)
 
         self.WriteCoordFacetFile()
 
@@ -594,9 +615,11 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         iSol=np.where(dSol==np.min(dSol))[0]
         self.DicoImager[iFacet]["lmSol"]=lSol[iSol],mSol[iSol]
         self.DicoImager[iFacet]["radecSol"]=raSol[iSol],decSol[iSol]
+        self.DicoImager[iFacet]["iSol"]=iSol
         
         
         #print>>log,"#[%3.3i] %f, %f"%(iFacet,l0,m0)
+        print>>log,"   Delta %f, %f"%(l0-self.DicoImager[iFacet]["lmSol"][0],m0-self.DicoImager[iFacet]["lmSol"][1])
         DicoConfigGM={"Npix":NpixFacet,
                       "Cell":self.GD["ImagerMainFacet"]["Cell"],
                       "ChanFreq":self.ChanFreq,
