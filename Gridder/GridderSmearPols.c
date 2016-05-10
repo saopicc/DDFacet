@@ -1309,7 +1309,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	  /* ////////////// end debug */
 	    
 
-	  Sem_mutex=GiveSemaphoreFromCell(irow);
+	  Sem_mutex=GiveSemaphoreFromCell(irow*visChan);
 
 	  sem_wait(Sem_mutex);
 	  
