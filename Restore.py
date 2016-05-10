@@ -135,8 +135,8 @@ class ClassRestoreMachine():
             freq=C/l
             print>>log,"Get ModelImage... "
             ModelImage=ModelMachine.GiveModelImage(freq)
-            print>>log,"  ModelImage to apparant flux... "
-            ModelImage*=self.SqrtNormImage
+            #print>>log,"  ModelImage to apparant flux... "
+            #ModelImage*=self.SqrtNormImage
             print>>log,"Convolve... "
             print>>log,"   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6)
             RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])

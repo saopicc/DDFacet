@@ -622,7 +622,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         
         
         #print>>log,"#[%3.3i] %f, %f"%(iFacet,l0,m0)
-        print>>log,"   Delta %f, %f"%(l0-self.DicoImager[iFacet]["lmSol"][0],m0-self.DicoImager[iFacet]["lmSol"][1])
+        #print>>log,"   Delta %f, %f"%(l0-self.DicoImager[iFacet]["lmSol"][0],m0-self.DicoImager[iFacet]["lmSol"][1])
         DicoConfigGM={"Npix":NpixFacet,
                       "Cell":self.GD["ImagerMainFacet"]["Cell"],
                       "ChanFreq":self.ChanFreq,

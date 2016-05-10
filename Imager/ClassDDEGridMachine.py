@@ -590,7 +590,7 @@ class ClassDDEGridMachine():
             mc=DicoClusterDirs["m"]
             d=np.sqrt((l0-lc)**2+(m0-mc)**2)
             idir_Beam=np.argmin(d)
-            
+            #print self.IDFacet,idir_Beam
 
 
         # pylab.clf()
