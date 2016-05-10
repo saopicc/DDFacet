@@ -9,7 +9,9 @@
 //#include "Tools.h"
 #include "JonesServer.c"
 #include <fcntl.h>           /* For O_* constants */
-#include <semaphore.h>
+#include "Semaphores.h"
+
+
 
 clock_t start;
 
@@ -23,40 +25,7 @@ void timeit(char* Name){
   printf("%s: %f\n",Name,msec);
 }
 
-sem_t * GiveSemaphore(const char *SemaphoreName){
-  sem_t * Sem_mutex;
-  if ((Sem_mutex = sem_open(SemaphoreName, O_CREAT, 0644, 1)) == SEM_FAILED) {
-    perror("semaphore initilization");
-    exit(1);
-  }
-  return Sem_mutex;
-}
 
-const char* SemaphoreName;
-static PyObject *pyCreateSemaphore(PyObject *self, PyObject *args)
-{
-  if (!PyArg_ParseTuple(args, "s",&SemaphoreName))  return NULL;
-  sem_t * SEM=GiveSemaphore(SemaphoreName);
-  Py_INCREF(Py_None);
-  return Py_None;
-
-}
-
-static PyObject *pyDeleteSemaphore(PyObject *self, PyObject *args)
-{
-  if (!PyArg_ParseTuple(args, "s",&SemaphoreName))  return NULL;
-  int ret=sem_unlink(SemaphoreName);
-
-  Py_INCREF(Py_None);
-  return Py_None;
-
-}
-
-  
-  /* sem_unlink("47999..Semaphore"); */
-  /* sem_unlink("mysemaphore"); */
-  /* sem_unlink("caca"); */
-  /* sem_unlink("SemaphoreDDFacet"); */
 
 /* double AppendTimeit(){ */
 /*   clock_t diff; */
@@ -80,7 +49,7 @@ static PyMethodDef _pyGridderSmearPols_testMethods[] = {
 	{"pyGridderWPol", pyGridderWPol, METH_VARARGS},
 	{"pyDeGridderWPol", pyDeGridderWPol, METH_VARARGS},
 	{"pyTestMatrix", pyTestMatrix, METH_VARARGS},
-	{"pyCreateSemaphore", pyCreateSemaphore, METH_VARARGS},
+	{"pySetSemaphores", pySetSemaphores, METH_VARARGS},
 	{"pyDeleteSemaphore", pyDeleteSemaphore, METH_VARARGS},
 	{NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
@@ -91,7 +60,6 @@ void init_pyGridderSmearPols()  {
   (void) Py_InitModule("_pyGridderSmearPols", _pyGridderSmearPols_testMethods);
   import_array();  // Must be present for NumPy.  Called first after above line.
 }
-
 
 
 
@@ -785,7 +753,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!s", 
+  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!", 
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid,
 			&ObjVis,//&PyArray_Type,  &vis, 
@@ -803,8 +771,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 			&PyArray_Type, &SmearMapping,
 			&PyList_Type, &LOptimisation,
 			&PyList_Type, &LSmear,
-			&PyArray_Type, &np_ChanMapping,
-			&SemaphoreName
+			&PyArray_Type, &np_ChanMapping
 			))  return NULL;
   int nx,ny,nz,nzz;
 
@@ -860,7 +827,6 @@ void DeGridderWPol(PyArrayObject *grid,
 
 
     /////////////////////////////////////////
-    sem_t * Sem_mutex=GiveSemaphore(SemaphoreName);
 
     /* sem_t * Sem_mutex; */
     /* if ((Sem_mutex = sem_open("/SemaphoreDDFacet", O_CREAT, 0644, 1)) == SEM_FAILED) { */
@@ -1026,7 +992,7 @@ void DeGridderWPol(PyArrayObject *grid,
     }
     WaveLengthMean/=nVisChan;
 
-
+    sem_t * Sem_mutex;
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -1342,6 +1308,9 @@ void DeGridderWPol(PyArrayObject *grid,
 	  /* visBuff[3]=1.; */
 	  /* ////////////// end debug */
 	    
+
+	  Sem_mutex=GiveSemaphoreFromCell(irow);
+
 	  sem_wait(Sem_mutex);
 	  
 	  Mat_A_Bl_Sum(visPtr, 2, visBuff, 2, (float complex)(-1.));

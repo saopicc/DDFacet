@@ -31,6 +31,7 @@ import time
 import Polygon
 from DDFacet.ToolsDir import rad2hmsdms
 from scipy.spatial import ConvexHull
+from DDFacet.Gridder import _pyGridderSmearPols as _pyGridderSmear
 
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
@@ -780,9 +781,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         print>>log, "    ... done"
 
 
-        from DDFacet.Gridder import _pyGridderSmearPols as _pyGridderSmear
-        _pyGridderSmear.pyCreateSemaphore("%sSemaphore"%self.IdSharedMem)
-
+        ListSemaphores=["%sSemaphore%3.3i"%(self.IdSharedMem,i) for i in range(self.NCPU)]
+        _pyGridderSmear.pySetSemaphores(ListSemaphores)
         work_queue = multiprocessing.Queue()
         result_queue = multiprocessing.Queue()
 
@@ -800,7 +800,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            IdSharedMem=self.IdSharedMem,
                            IdSharedMemData=self.IdSharedMemData,
                            ApplyCal=self.ApplyCal,
-                           NFreqBands=self.GD["MultiFreqs"]["NFreqBands"])
+                           NFreqBands=self.GD["MultiFreqs"]["NFreqBands"],
+                           ListSemaphores=ListSemaphores)
 
             workerlist.append(W)
             workerlist[ii].start()
@@ -826,7 +827,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].join()
 
         NpShared.DelAll("%sModelGrid"%(self.IdSharedMemData))
-        _pyGridderSmear.pyDeleteSemaphore("%sSemaphore"%self.IdSharedMem)
+        _pyGridderSmear.pyDeleteSemaphore(ListSemaphores)
             
         return True
 
@@ -1011,7 +1012,7 @@ class WorkerImager(multiprocessing.Process):
                  ApplyCal=False,
                  SpheNorm=True,
                  PSFMode=False,
-                 CornersImageTot=None,NFreqBands=1):
+                 CornersImageTot=None,NFreqBands=1,ListSemaphores=None):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -1030,7 +1031,7 @@ class WorkerImager(multiprocessing.Process):
         self.PSFMode=PSFMode
         self.CornersImageTot=CornersImageTot
         self.NFreqBands=NFreqBands
-
+        self.ListSemaphores=ListSemaphores
 
     def shutdown(self):
         self.exit.set()
@@ -1044,7 +1045,9 @@ class WorkerImager(multiprocessing.Process):
                                                             IdSharedMemData=self.IdSharedMemData,
                                                             IDFacet=iFacet,
                                                             SpheNorm=self.SpheNorm,
-                                                            NFreqBands=self.NFreqBands)
+                                                            NFreqBands=self.NFreqBands,
+                                                            ListSemaphores=self.ListSemaphores)
+        
 
         return GridMachine
         

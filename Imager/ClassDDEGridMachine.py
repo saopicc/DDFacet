@@ -329,13 +329,13 @@ class ClassDDEGridMachine():
                  IdSharedMemData="",
                  IDFacet=0,
                  SpheNorm=True,
-                 NFreqBands=1):
+                 NFreqBands=1,ListSemaphores=None):
         T=ClassTimeIt.ClassTimeIt("Init_ClassDDEGridMachine")
         T.disable()
         self.GD=GD
         self.IDFacet=IDFacet
         self.SpheNorm=SpheNorm
-
+        self.ListSemaphores=ListSemaphores
         self.IdSharedMem=IdSharedMem
         self.IdSharedMemData=IdSharedMemData
 
@@ -1042,7 +1042,8 @@ class ClassDDEGridMachine():
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType,self.PolModeID]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMemData))
-            SemaphoreName="%sSemaphore"%self.IdSharedMem
+            _pyGridderSmear.pySetSemaphores(self.ListSemaphores)
+
             vis = _pyGridderSmear.pyDeGridderWPol(Grid,
                                                   vis,
                                                   uvw,
@@ -1059,8 +1060,7 @@ class ClassDDEGridMachine():
                                                   MapSmear,
                                                   OptimisationInfos,
                                                   self.LSmear,
-                                                  np.int32(ChanMapping),
-                                                  SemaphoreName)
+                                                  np.int32(ChanMapping))
             
 
         T.timeit("4 (degrid)")
