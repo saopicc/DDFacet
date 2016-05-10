@@ -278,6 +278,11 @@ class ClassJones():
         nt,nf,na,nd,_,_=Sols.G.shape
         G=np.swapaxes(Sols.G,1,3).reshape((nt,nd,na,nf,2,2))
 
+        # G[:,:,:,:,0,0]=0.
+        # G[:,:,:,:,1,1]=0.
+        # G[:,0,:,:,0,0]=1.
+        # G[:,0,:,:,1,1]=1.
+        #G.fill(0)
 
         # print>>log, "!!!!!!!!!!!!!!"
         # #G[:,:,:,:,1,1]=G[:,:,:,:,0,0]

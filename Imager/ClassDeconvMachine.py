@@ -462,6 +462,14 @@ class ClassImagerDeconv():
             # pylab.show(False)
             # pylab.pause(0.1)
 
+        # ###################################################"
+        # vis=-DATA["data"]
+        # PredictColName=self.GD["VisData"]["PredictColName"]
+        # MSName=self.VS.CurrentMS.MSName
+        # print>>log, "Writing predicted data in column %s of %s"%(PredictColName,MSName)
+        # self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
+        # ###################################################"
+
         self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
         
         # self.DicoDirty=self.FacetMachine.FacetsToIm()

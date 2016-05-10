@@ -8,7 +8,8 @@
 #include <omp.h>
 //#include "Tools.h"
 #include "JonesServer.c"
-
+#include <fcntl.h>           /* For O_* constants */
+#include <semaphore.h>
 
 clock_t start;
 
@@ -21,6 +22,41 @@ void timeit(char* Name){
   float msec = diff * 1000 / CLOCKS_PER_SEC;
   printf("%s: %f\n",Name,msec);
 }
+
+sem_t * GiveSemaphore(const char *SemaphoreName){
+  sem_t * Sem_mutex;
+  if ((Sem_mutex = sem_open(SemaphoreName, O_CREAT, 0644, 1)) == SEM_FAILED) {
+    perror("semaphore initilization");
+    exit(1);
+  }
+  return Sem_mutex;
+}
+
+const char* SemaphoreName;
+static PyObject *pyCreateSemaphore(PyObject *self, PyObject *args)
+{
+  if (!PyArg_ParseTuple(args, "s",&SemaphoreName))  return NULL;
+  sem_t * SEM=GiveSemaphore(SemaphoreName);
+  Py_INCREF(Py_None);
+  return Py_None;
+
+}
+
+static PyObject *pyDeleteSemaphore(PyObject *self, PyObject *args)
+{
+  if (!PyArg_ParseTuple(args, "s",&SemaphoreName))  return NULL;
+  int ret=sem_unlink(SemaphoreName);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+
+}
+
+  
+  /* sem_unlink("47999..Semaphore"); */
+  /* sem_unlink("mysemaphore"); */
+  /* sem_unlink("caca"); */
+  /* sem_unlink("SemaphoreDDFacet"); */
 
 /* double AppendTimeit(){ */
 /*   clock_t diff; */
@@ -44,6 +80,8 @@ static PyMethodDef _pyGridderSmearPols_testMethods[] = {
 	{"pyGridderWPol", pyGridderWPol, METH_VARARGS},
 	{"pyDeGridderWPol", pyDeGridderWPol, METH_VARARGS},
 	{"pyTestMatrix", pyTestMatrix, METH_VARARGS},
+	{"pyCreateSemaphore", pyCreateSemaphore, METH_VARARGS},
+	{"pyDeleteSemaphore", pyDeleteSemaphore, METH_VARARGS},
 	{NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
 
@@ -53,7 +91,6 @@ void init_pyGridderSmearPols()  {
   (void) Py_InitModule("_pyGridderSmearPols", _pyGridderSmearPols_testMethods);
   import_array();  // Must be present for NumPy.  Called first after above line.
 }
-
 
 
 
@@ -102,7 +139,6 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
   
   Py_INCREF(Py_None);
   return Py_None;
-  //return PyArray_Return(np_grid);
 
 }
 
@@ -749,7 +785,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!s", 
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid,
 			&ObjVis,//&PyArray_Type,  &vis, 
@@ -767,10 +803,12 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 			&PyArray_Type, &SmearMapping,
 			&PyList_Type, &LOptimisation,
 			&PyList_Type, &LSmear,
-			&PyArray_Type, &np_ChanMapping
+			&PyArray_Type, &np_ChanMapping,
+			&SemaphoreName
 			))  return NULL;
   int nx,ny,nz,nzz;
 
+  
   np_vis = (PyArrayObject *) PyArray_ContiguousFromObject(ObjVis, PyArray_COMPLEX64, 0, 3);
 
   
@@ -821,6 +859,14 @@ void DeGridderWPol(PyArrayObject *grid,
     int row1=ptrRows[1];
 
 
+    /////////////////////////////////////////
+    sem_t * Sem_mutex=GiveSemaphore(SemaphoreName);
+
+    /* sem_t * Sem_mutex; */
+    /* if ((Sem_mutex = sem_open("/SemaphoreDDFacet", O_CREAT, 0644, 1)) == SEM_FAILED) { */
+    /*   perror("semaphore initilization"); */
+    /*   exit(1); */
+    /* } */
     /////////////////////////////////////////
     int LengthSmearingList=PyList_Size(LSmearing);
     float DT,Dnu;
@@ -1287,7 +1333,20 @@ void DeGridderWPol(PyArrayObject *grid,
 	  
 	  Mat_A_l_SumProd(visBuff, SkyType, corr);
 
+	  
+	  /* ////////////// debug */
+	  /* for(ThisPol =0; ThisPol<4;ThisPol++){ */
+	  /*   visBuff[ThisPol]=0.; */
+	  /* } */
+	  /* visBuff[0]=1.; */
+	  /* visBuff[3]=1.; */
+	  /* ////////////// end debug */
+	    
+	  sem_wait(Sem_mutex);
+	  
 	  Mat_A_Bl_Sum(visPtr, 2, visBuff, 2, (float complex)(-1.));
+
+	  sem_post(Sem_mutex);
 
 
 
@@ -1302,5 +1361,5 @@ void DeGridderWPol(PyArrayObject *grid,
       } // end if gridChan
       
     } //end for Block
-     
+    sem_close(Sem_mutex);
   } // end

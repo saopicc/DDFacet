@@ -846,7 +846,7 @@ class ClassMS():
 
     def PutVisColumn (self,colname,vis):
         self.AddCol(colname)
-        t = self.GiveMainTable(readonly=False,ack=False)
+        t = self.GiveMainTable(readonly=False)#,ack=False)
         if self.ChanSlice:
             vis0 = t.getcol(colname)
             vis0[:,self.ChanSlice,:] = vis

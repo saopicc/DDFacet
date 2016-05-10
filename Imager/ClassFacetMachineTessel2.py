@@ -518,7 +518,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #regFile="%s.tessel.reg"%self.GD["Images"]["ImageName"]
         labels=[(self.DicoImager[i]["lmShift"][0],self.DicoImager[i]["lmShift"][1],"[F%i_S%i]"%(i,self.DicoImager[i]["iSol"])) for i in range(len(LPolygonNew))]
         VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=labels)
+        
 
+        
         self.WriteCoordFacetFile()
 
         DicoName="%s.DicoFacet"%self.GD["Images"]["ImageName"]
@@ -742,15 +744,17 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         nch,npol=self.nch,self.npol
         ChanSel=sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
         for iFacet in sorted(self.DicoImager.keys()):
-            
+
             SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
             SPhe=NpShared.GiveArray(SharedMemName)
             SpacialWeight=self.SpacialWeigth[iFacet]
             # Grid,_=Im2Grid.GiveGridTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight)
             # GridSharedMemName="%sModelGrid.Facet_%3.3i"%(self.IdSharedMem,iFacet)
             # NpShared.ToShared(GridSharedMemName,Grid)
+
             
             ModelFacet,_=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight,ChanSel=ChanSel)
+            
             ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
             
             NpShared.ToShared(ModelSharedMemName,ModelFacet)
@@ -776,6 +780,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         print>>log, "    ... done"
 
 
+        from DDFacet.Gridder import _pyGridderSmearPols as _pyGridderSmear
+        _pyGridderSmear.pyCreateSemaphore("%sSemaphore"%self.IdSharedMem)
 
         work_queue = multiprocessing.Queue()
         result_queue = multiprocessing.Queue()
@@ -820,6 +826,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             workerlist[ii].join()
 
         NpShared.DelAll("%sModelGrid"%(self.IdSharedMemData))
+        _pyGridderSmear.pyDeleteSemaphore("%sSemaphore"%self.IdSharedMem)
             
         return True
 
@@ -957,6 +964,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                            CornersImageTot=self.CornersImageTot,
                            NFreqBands=self.GD["MultiFreqs"]["NFreqBands"])
             workerlist.append(W)
+            
             workerlist[ii].start()
 
         #print>>log, ModColor.Str("  --- Initialising DDEGridMachines ---",col="green")

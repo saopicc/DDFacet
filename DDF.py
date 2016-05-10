@@ -67,6 +67,8 @@ def read_options():
     OP.add_option('TChunkSize')
     OP.add_option('InitDicoModel',help='Image name [%default]')
     OP.add_option('WeightCol')
+    OP.add_option('PredictColName')
+    
     
     OP.OptionGroup("* Images-related options","Images")
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
@@ -239,7 +241,6 @@ def main(OP=None):
 if __name__=="__main__":
     os.system('clear')
     logo.print_logo()
-
 
     ParsetFile=sys.argv[1]
 
