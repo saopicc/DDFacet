@@ -139,16 +139,22 @@ class ClassImToGrid():
         else:
             CSel=ChanSel
 
+        SumFlux=0
+
+
         for ch in CSel:
             for pol in range(npol):
                 #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].T[::-1,:].real[x0d:x1d,y0d:y1d]
                 #ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol].real[x0d:x1d,y0d:y1d]
                 
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]=Image[ch,pol][x0d:x1d,y0d:y1d].real
-                #if np.max(ModelIm[ch,pol])==0: return False, False, False, False, False, False
+                
+                if np.max(ModelIm[ch,pol])==0: continue
                 T.timeit("0")
+
                 M=ModelIm[ch,pol][dx:dx+N1NonPadded+1,dx:dx+N1NonPadded+1].copy()
                 T.timeit("1")
+
                 ModelIm[ch,pol].fill(0)
                 T.timeit("2")
                 ModelIm[ch,pol][dx:dx+N1NonPadded+1,dx:dx+N1NonPadded+1]=M[:,:]
@@ -166,6 +172,8 @@ class ClassImToGrid():
 
                 T.timeit("4")
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]*=SpacialWeight[x0p:x1p,y0p:y1p]
+                SumFlux+=np.sum(ModelIm[ch,pol])
+
                 ModelCutOrig_SW=SpacialWeight[x0p:x1p,y0p:y1p].copy()
 
                 #ModelCutOrig_GNorm_SW_Sphe_CorrT=ModelIm[ch,pol].copy()
@@ -198,12 +206,14 @@ class ClassImToGrid():
         # #Padding=self.GD["ImagerMainFacet"]["Padding"]
 
         T.timeit("9")
+        SumFlux/=nch
 
         if ToGrid:
-            SumFlux=np.sum(ModelIm)
             ModelIm*=(self.OverS*N1)**2
-            Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm),ChanList=CSel))
-            #Grid=ModelIm
+            if SumFlux!=0:
+                Grid=np.complex64(self.FFTWMachine.fft(np.complex64(ModelIm),ChanList=CSel))
+            else:
+                Grid=np.complex64(ModelIm)
             
             return Grid,SumFlux
         else:

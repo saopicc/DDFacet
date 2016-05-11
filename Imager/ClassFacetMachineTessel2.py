@@ -740,10 +740,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
     #===========================================
 
-    def ImToGrids(self,Image):
+    def ImToGrids(self,Image,ToGrid=False):
         Im2Grid=ClassImToGrid(OverS=self.GD["ImagerCF"]["OverS"],GD=self.GD)
         nch,npol=self.nch,self.npol
         ChanSel=sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
+
+        self.ListFacetModel=[]
+        self.ListFacetSumFlux=[]
         for iFacet in sorted(self.DicoImager.keys()):
 
             SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
@@ -754,12 +757,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             # NpShared.ToShared(GridSharedMemName,Grid)
 
             
-            ModelFacet,_=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight,ChanSel=ChanSel)
+            ModelFacet,SumFlux=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight,ChanSel=ChanSel,ToGrid=ToGrid)
             
             ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
             
-            NpShared.ToShared(ModelSharedMemName,ModelFacet)
-
+            ModelFacet=NpShared.ToShared(ModelSharedMemName,ModelFacet)
+            self.ListFacetModel.append(ModelFacet)
+            self.ListFacetSumFlux.append(SumFlux)
 
     def GiveVisParallel(self,times,uvwIn,visIn,flag,A0A1,ModelImage):
         NCPU=self.NCPU

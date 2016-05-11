@@ -1024,19 +1024,20 @@ class ClassDDEGridMachine():
         #print vis
         #print "DEGRID:",Grid.shape,ChanMapping
         if self.GD["Compression"]["CompDeGridMode"]==0:
+
             _ = _pyGridder.pyDeGridderWPol(Grid,
                                            vis,
-                                             uvw,
-                                             flag,
-                                             SumWeigths,
-                                             0,
-                                             self.WTerm.WplanesConj,
-                                             self.WTerm.Wplanes,
-                                             np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
-                                             self.incr.astype(np.float64),
-                                             freqs,
-                                             [self.PolMap,FacetInfos,RowInfos],
-                                             ParamJonesList)
+                                           uvw,
+                                           flag,
+                                           SumWeigths,
+                                           0,
+                                           self.WTerm.WplanesConj,
+                                           self.WTerm.Wplanes,
+                                           np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
+                                           self.incr.astype(np.float64),
+                                           freqs,
+                                           [self.PolMap,FacetInfos,RowInfos],
+                                           ParamJonesList)
         else:
 
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
