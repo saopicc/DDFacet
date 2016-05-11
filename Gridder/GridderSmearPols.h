@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <Python.h>
 #include <omp.h>
-
+#include "cerror.h"
 #include "Stokes.h"
 #include "Tools.h"
 #include "JonesServer.h"

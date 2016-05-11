@@ -155,15 +155,17 @@ void gridderWPol(PyArrayObject *grid,
     PyArrayObject *NpFacetInfos;
     NpFacetInfos = (PyArrayObject *) PyList_GetItem(Lmaps, 0);
 
-    /////////////////////////////////////////
+    //###################### Decorrelation #######################
+    //Activates decorrelation smearing when LSmearing python list is not empty
     int LengthSmearingList=PyList_Size(LSmearing);
     float DT,Dnu;
     double* uvw_dt_Ptr;
     int DoSmearTime,DoSmearFreq;
     int DoDecorr=(LengthSmearingList>0);
-
-    int *p_ChanMapping=p_int32(np_ChanMapping);
-
+    if (DoDecorr)
+      if (LengthSmearingList != 4)
+	cexcept("Expect LSmearing python list to be composed of [DT,Dnu,DoSmearTime,DoSmearFreq]");
+      
     if(DoDecorr) {
         uvw_dt_Ptr = p_float64((PyArrayObject *) PyList_GetItem(LSmearing, 0));
 
@@ -177,17 +179,16 @@ void gridderWPol(PyArrayObject *grid,
 
         PyObject *_DoSmearFreq= PyList_GetItem(LSmearing, 4);
         DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));
-
     }
-
-
+    // ########################################################
+    //###################### Facet centre #######################
     double* ptrFacetInfos=p_float64(NpFacetInfos);
     double Cu=ptrFacetInfos[0];
     double Cv=ptrFacetInfos[1];
     double l0=ptrFacetInfos[2];
     double m0=ptrFacetInfos[3];
     double n0=sqrt(1-l0*l0-m0*m0)-1;
-
+    // ########################################################
 
     double VarTimeGrid=0;
     int Nop=0;
@@ -199,25 +200,41 @@ void gridderWPol(PyArrayObject *grid,
     int OverS=floor(ptrWinfo[3]);
 
     // Get size of grid.
+    if (grid->nd != 4)
+      cexcept("Grid must be 4 dimensional: #channel x #pol x #gridY x #gridX\n");
     int nGridX    = grid->dimensions[3];
     int nGridY    = grid->dimensions[2];
     int nGridPol  = grid->dimensions[1];
     int nGridChan = grid->dimensions[0];
 
     // Get visibility data size.
+    if (flags->nd != 3)
+      cexcept("Flags must be 3 dimensional: #rows x #chan x #corr\n");
+    if (vis->nd != 3)
+      cexcept("Vis must be 3 dimensional: #rows x #chan x #corr\n");
+    if (!((vis->dimensions[0] == flags->dimensions[0]) && 
+	  (vis->dimensions[1] == flags->dimensions[1]) &&
+	  (vis->dimensions[2] == flags->dimensions[2])))
+      cexcept("Expect Vis and Flags dimensions to be the same - one flag per channel correlation\n");
     int nVisCorr   = flags->dimensions[2];
     int nVisChan  = flags->dimensions[1];
+    if (DoApplyJones && nVisCorr != 4)
+      cexcept("When applying Jones terms the number of correlations must be 4\n");
+    if (np_ChanMapping->nd != 1)
+      cexcept("Expect Channel to Grid Mapping to have one dimension\n");
+    if (np_ChanMapping->dimensions[0] != nVisChan)
+      cexcept("Expect Channel to Grid Mapping to have a mapping for each channel\n");
+    int *p_ChanMapping=p_int32(np_ChanMapping);
     
     // Get oversampling and support size.
     int sampx = OverS;//int (cfs.sampling[0]);
     int sampy = OverS;//int (cfs.sampling[1]);
 
     double* __restrict__ sumWtPtr = p_float64(sumwt);
-    double complex psfValues[4];
-    psfValues[0] = psfValues[1] = psfValues[2] = psfValues[3] = 1;
 
     double offset_p[2],uvwScale_p[2];
-
+    
+    //u,v = 0,0 lies in the centre of the grid:
     offset_p[0]=nGridX/2;
     offset_p[1]=nGridY/2;
     float fnGridX=nGridX;
@@ -228,22 +245,23 @@ void gridderWPol(PyArrayObject *grid,
     uvwScale_p[1]=fnGridX*incr[1];
    
     int inx;
-    // Loop over all visibility rows to process.
-
+    
+    // Get any optimizations to apply
+    if (PyList_Size(LOptimisation) != 3)
+      cexcept("Expect LOptimization list to contain [JonesType, ChanEquidistant, SkyType]\n");
     PyObject *_JonesType  = PyList_GetItem(LOptimisation, 0);
     int JonesType=(int) PyFloat_AsDouble(_JonesType);
     PyObject *_ChanEquidistant  = PyList_GetItem(LOptimisation, 1);
     int ChanEquidistant=(int) PyFloat_AsDouble(_ChanEquidistant);
-
     PyObject *_SkyType  = PyList_GetItem(LOptimisation, 2);
     int SkyType=(int) PyFloat_AsDouble(_SkyType);
 
+    //Work out the maximum number of rows in contained in any of the smearing (compression) blocks:
     int *MappingBlock = p_int32(SmearMapping);
     int NTotBlocks=MappingBlock[0];
     int *NRowBlocks=MappingBlock+1;
     int *StartRow=MappingBlock+1+NTotBlocks;
     int iBlock;
-
     int NMaxRow=0;
     for(iBlock=0; iBlock<NTotBlocks; iBlock++) {
         int NRowThisBlock=NRowBlocks[iBlock]-2;
@@ -290,6 +308,14 @@ void gridderWPol(PyArrayObject *grid,
     float complex *VisMeas= (float complex*)calloc(nVisCorr,sizeof(float complex*));
     float complex *VisStokes= (float complex*)calloc(nGridPol,sizeof(float complex*));
     
+    //need to use #nCorr flags in the channel loop later:
+    float * VisFlagWeight = (float *)calloc(nVisCorr,sizeof(float *)); 
+    float * VisRealWeight = (float *)calloc(nVisCorr,sizeof(float *)); 
+    float complex * VisComplexWeight = (float complex *)calloc(nVisCorr,sizeof(float complex *)); 
+    //allocate buffers for jones blocks used in channel loop later on:
+    double * BlockVisWeight = (double *)calloc(nVisCorr,sizeof(double *)); 
+    float * BlockSumJones = (float *)calloc(nVisCorr,sizeof(float *)); 
+    float * BlockSumSqWeights = (float *)calloc(nVisCorr,sizeof(float *)); 
     // Get visibility correlation and output stokes descriptors:
     int* VisCorrDesc= (int*)calloc(nVisCorr,sizeof(int*));
     int* VisStokesDesc= (int*)calloc(nGridPol,sizeof(int*));
@@ -301,18 +327,21 @@ void gridderWPol(PyArrayObject *grid,
       for (k = 0; k < nGridPol; ++k){
 	VisStokesDesc[k] = (int)PyLong_AsLong(PyList_GetItem(output_stokes_products, k));
       }
+      //Init stokes conversion library:
+      init_stokes_converter(nVisCorr,nGridPol,VisCorrDesc,VisStokesDesc);
     }
+    
     //Define visibilities to be gridded when constructing the PSF
     float complex *VisCorrPSF= (float complex*)calloc(nVisCorr,sizeof(float complex*));
     give_psf_vis_32(nVisCorr,VisCorrDesc,VisCorrPSF);
     
     int ThisPol;
 
-    float *ThisSumJonesChan=(float*)calloc(1,(nVisChan)*sizeof(float));
-    float *ThisSumSqWeightsChan=(float*)calloc(1,(nVisChan)*sizeof(float));
+    float *ThisSumJonesChan=(float*)calloc(1,(nVisChan*nVisCorr)*sizeof(float));
+    float *ThisSumSqWeightsChan=(float*)calloc(1,(nVisChan*nVisCorr)*sizeof(float));
 
     //Loop over all smearing blocks:
-    for(iBlock=0; iBlock<NTotBlocks; iBlock++) {
+    for(iBlock=0; iBlock<NTotBlocks; ++iBlock) {
         int NRowThisBlock=NRowBlocks[iBlock]-2;
         int indexMap=StartRow[iBlock];
         int chStart=MappingBlock[indexMap];
@@ -324,22 +353,24 @@ void gridderWPol(PyArrayObject *grid,
         float Wmean=0;
         float FreqMean=0;
         int NVisThisblock=0;
+	//zero out the average visibility accumulators for this block:
         for(ThisPol =0; ThisPol<nVisCorr; ThisPol++) {
             VisCorr[ThisPol]=0;
             VisMeas[ThisPol]=0;
-        }
-        double ThisWeight=0.;
-        float ThisSumJones=0.;
-        float ThisSumSqWeights=0.;
-        for(visChan=0; visChan<nVisChan; visChan++) {
-            ThisSumJonesChan[visChan]=0;
-            ThisSumSqWeightsChan[visChan]=0;
+	    BlockVisWeight[ThisPol]=0;
+	    BlockSumJones[ThisPol]=0;
+	    BlockSumSqWeights[ThisPol]=0;
+	    for(visChan=0; visChan<nVisChan; visChan++) {
+	      size_t weightOff = ThisPol*nVisChan+visChan;
+	      ThisSumJonesChan[weightOff]=0;
+	      ThisSumSqWeightsChan[weightOff]=0;
+	    }
         }
 
         float visChanMean=0.;
         resetJonesServerCounter();
 
-        for (inx=0; inx<NRowThisBlock; inx++) {
+        for (inx=0; inx<NRowThisBlock; ++inx) {
             int irow = Row[inx];
             if(irow>nrows) {
                 continue;
@@ -363,19 +394,27 @@ void gridderWPol(PyArrayObject *grid,
                                                      (float)Dnu,
                                                      (float)DT);
             }
-
+	    //Average all the channels within this bda block together.
+	    //Since the Jones terms may vary faster than the bda smearing, the
+	    //bda must happen on the fly.
             for (visChan=chStart; visChan<chEnd; ++visChan) {
                 int doff = (irow * nVisChan + visChan) * nVisCorr;
-                bool* __restrict__ flagPtr = p_bool(flags) + doff;
-                double*   imgWtPtr = p_float64(weights) + irow  * nVisChan + visChan;
-
                 //###################### Facetting #######################
                 // Change coordinate and shift visibility to facet center
+		// This is in line with a coplanar faceting approach, where
+		// the projection error at the edge of the facet is removed
+		// by w-kernel per facet. Otherwise an additional uvw 
+		// transform would be required. This Faceting phase shift 
+		// is to be applied to all visibilities, rotating the sky over the
+		// image plane of the facet and is direction independent
+		// (only the facet reference centre is involved, so it can
+		// be taken out of the RIME integral). The term it may be 
+		// treated as a scalar (complex) Jones term.
                 float U=(float)uvwPtr[0];
                 float V=(float)uvwPtr[1];
                 float W=(float)uvwPtr[2];
                 
-                float complex corr;
+                float complex facetPhasor;
                 if(ChanEquidistant) {
                     if(visChan==0) {
                         float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
@@ -385,33 +424,25 @@ void gridderWPol(PyArrayObject *grid,
                     } else {
                         CurrentCorrTerm[inx]*=dCorrTerm[inx];
                     }
-                    corr=CurrentCorrTerm[inx];
+                    facetPhasor=CurrentCorrTerm[inx];
                 }
                 else {
                     float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-                    corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
+                    facetPhasor=cexp(-UVNorm*(U*l0+V*m0+W*n0));
                 }
 		//#######################################################
 		
-                int OneFlagged=0;
-                int cond;
-                // We can do that since all flags in 4-pols are equalised in ClassVisServer
-                if(flagPtr[0]==1) {
-                    continue;
-                }
-
+		//###################### Apply Jones #######################
                 if(DoApplyJones) {
                     updateJones(irow, visChan, uvwPtr, 1);
                 } //endif DoApplyJones
-
-                float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;
-
+		//beam-weight the psf:
                 if (dopsf==1) {
 		    //We want a PSF for every possible correlation
 		    for (ThisPol = 0; ThisPol < nVisCorr; ++ThisPol){
 		      VisMeas[ThisPol]= VisCorrPSF[ThisPol];
 		    }
-                    corr=1.;
+                    facetPhasor=1.;
                     if(DoApplyJones) {
                         MatDot(J0,JonesType,VisMeas,SkyType,VisMeas);
                         MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);
@@ -422,29 +453,55 @@ void gridderWPol(PyArrayObject *grid,
                         }
                     }
                 } else {
+		    float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;
                     for(ThisPol =0; ThisPol<nVisCorr; ThisPol++) {
                         VisMeas[ThisPol]=visPtrMeas[ThisPol];
                     }
                 }
-
-                float FWeight=(*imgWtPtr)*WeightVaryJJ*DeCorrFactor;//*WeightVaryJJ;
-                float complex Weight=(FWeight) * corr;
-                float complex visPtr[4];
-                if(DoApplyJones) {
+		
+		if(DoApplyJones) {
+		    float complex visPtr[4];
                     MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);
                     MatDot(visPtr,SkyType,J1,JonesType,visPtr);
-                    Mat_A_Bl_Sum(VisCorr,SkyType,visPtr,SkyType,Weight);
-
-                    float FWeightSq=(FWeight)*(FWeight);
-                    ThisSumJones+=BB*FWeightSq;
-                    ThisSumSqWeights+=FWeightSq;
-
-                    ThisSumJonesChan[visChan]+=BB*FWeightSq;
-                    ThisSumSqWeightsChan[visChan]+=FWeightSq;
-
-                } else {
-                    Mat_A_Bl_Sum(VisCorr,SkyType,VisMeas,SkyType,Weight);
-                };
+		    {
+		      size_t corr;
+		      for (corr=0;corr<nVisCorr;++corr)
+			VisMeas[corr] = visPtr[corr];
+		    }
+                } 
+                //#######################################################
+		
+		//###################### Flagging #######################
+		//Weights flagged visibilities down to 0. Each correlation
+		//may have its' own flag, so this term is not scalar and
+		//should be viewed as being applied per baseline.
+                bool* __restrict__ flagPtr = p_bool(flags) + doff;
+		{
+		  int corr;
+		  for (corr = 0; corr < nVisCorr; ++corr)
+		    VisFlagWeight[corr] = (flagPtr[0]==0) ? 1.0f : 0.0f;
+		}
+		//#######################################################
+		
+		//################# Visibility Weighting ################
+		//These are visibility weights which may take the
+		//visibility noise level and uniform/robust weighting
+		//into account. Each correlation may have its own weight
+		//so this term is not scalar. This term is also applied
+		//per baseline. Pointwise apply per baseline-weights to 
+		//jones-corrected visibilities:
+		//TODO: the weights should include a weight for each correlation
+		double* imgWtPtr = p_float64(weights) + irow  * nVisChan + visChan;
+		{
+		  int corr;
+		  for (corr = 0; corr < nVisCorr; ++corr){
+		    VisRealWeight[corr] = (*imgWtPtr)*WeightVaryJJ*DeCorrFactor*VisFlagWeight[corr];
+		    VisComplexWeight[corr] = VisRealWeight[corr] * facetPhasor;
+		    BlockVisWeight[corr]+=VisRealWeight[corr];
+		    VisCorr[corr] += VisMeas[corr]*VisComplexWeight[corr];
+		  }
+		}
+		//#######################################################
 
                 U+=W*Cu;
                 V+=W*Cv;
@@ -452,11 +509,22 @@ void gridderWPol(PyArrayObject *grid,
                 Umean+=U;
                 Vmean+=V;
                 Wmean+=W;
-               
+		if(DoApplyJones) {
+		  int corr;
+		  size_t jones_weight_offset;
+		  for (corr=0;corr<nVisCorr;++corr){
+		    float FWeightSq=(VisRealWeight[corr])*(VisRealWeight[corr]);
+		    BlockSumJones[corr]+=BB*FWeightSq;
+		    BlockSumSqWeights[corr]+=FWeightSq;
+		    size_t weightsOffset = visChan*nVisCorr + corr;
+		    ThisSumJonesChan[weightsOffset]+=BB*FWeightSq;
+		    ThisSumSqWeightsChan[weightsOffset]+=FWeightSq;
+		  }
+		}//DoApplyJones 
                 FreqMean+=factorFreq*(float)Pfreqs[visChan];
-                ThisWeight+=(FWeight);
                 visChanMean+=p_ChanMapping[visChan];
-                NVisThisblock+=1.;//(*imgWtPtr);
+                NVisThisblock+=1.;
+                //#######################################################
             }//endfor vischan
         }//endfor RowThisBlock
         if(NVisThisblock==0) {
@@ -465,29 +533,27 @@ void gridderWPol(PyArrayObject *grid,
         Umean/=NVisThisblock;
         Vmean/=NVisThisblock;
         Wmean/=NVisThisblock;
-        FreqMean/=NVisThisblock;
-
+        FreqMean/=NVisThisblock;	
         visChanMean/=NVisThisblock;
         int ThisGridChan=p_ChanMapping[chStart];
         float diffChan=visChanMean-visChanMean;
         if(diffChan!=0.) {
             printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);
+	    cexcept("Check your BDA mapping");
         }
-        
-        //Now that the Jones matricies (correlations) have been applied we can convert visibility correlations of MS to Stokes parameters:
-        convert_corrs_32(nVisCorr,nGridPol,
-			 VisCorrDesc,VisStokesDesc,
-			 VisCorr,VisStokes);
-
-        // ################################################
-        // ############## Start Gridding visibility #######
-        int gridChan = p_ChanMapping[chStart];//0;//chanMap_p[visChan];
-
-        int CFChan = 0;//ChanCFMap[visChan];
+	//Use the mean (smeared) frequency for uv scaling in this block:
+        int gridChan = p_ChanMapping[chStart];
         double recipWvl = FreqMean / C;
         double ThisWaveLength=C/FreqMean;
-
+	
+        // ############## Vis Correlations -> Stokes ################
+        //Now that the Jones matricies (correlations) have been applied we can 
+	//convert visibility correlations of MS to Stokes parameters:
+        convert_corrs_32(VisCorr,VisStokes);
+        // ##########################################################
+	
         // ############## W-projection ####################
+	// 
         double wcoord=Wmean;
         int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);
         int skipW=0;
@@ -495,7 +561,6 @@ void gridderWPol(PyArrayObject *grid,
             skipW=1;
             continue;
         };
-
         if(wcoord>0) {
             cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);
         } else {
@@ -507,37 +572,29 @@ void gridderWPol(PyArrayObject *grid,
         int supy = (nConvY/OverS-1)/2;
         int SupportCF=nConvX/OverS;
         // ################################################
-
+	
+	// ############## Start Gridding visibility #######
         if (gridChan >= 0  &&  gridChan < nGridChan) {
             double posx,posy;
             //For Even/Odd take the -1 off
             posx = uvwScale_p[0] * Umean * recipWvl + offset_p[0];//#-1;
             posy = uvwScale_p[1] * Vmean * recipWvl + offset_p[1];//-1;
 
-            int locx = nint (posx);    // location in grid
+            int locx = nint (posx);    // round to nearest location in grid
             int locy = nint (posy);
-            //printf("locx=%i, locy=%i\n",locx,locy);
             double diffx = locx - posx;
             double diffy = locy - posy;
-            //printf("diffx=%f, diffy=%f\n",diffx,diffy);
-
             int offx = nint (diffx * sampx); // location in
             int offy = nint (diffy * sampy); // oversampling
-            //printf("offx=%i, offy=%i\n",offx,offy);
             offx += (nConvX-1)/2;
             offy += (nConvY-1)/2;
-            // Scaling with frequency is not necessary (according to Cyril).
-            double freqFact = 1;
-            int fsampx = nint (sampx * freqFact);
-            int fsampy = nint (sampy * freqFact);
-            int fsupx  = nint (supx / freqFact);
-            int fsupy  = nint (supy / freqFact);
+            //support and oversampling factors should be ints:
+            int fsampx = nint (sampx);
+            int fsampy = nint (sampy);
+            int fsupx  = nint (supx);
+            int fsupy  = nint (supy);
 
             // Only use visibility point if the full support is within grid.
-
-            //printf("offx=%i, offy=%i\n",offx,offy);
-            //assert(1==0);
-
             if (locx-supx >= 0  &&  locx+supx < nGridX  &&
                     locy-supy >= 0  &&  locy+supy < nGridY) {
 
@@ -557,7 +614,6 @@ void gridderWPol(PyArrayObject *grid,
                         gridPtr =  p_complex64 ( grid ) + goff + ( locy+sy ) *nGridX + locx-supx;
                         int sx;
                         for ( sx=-fsupx; sx<=fsupx; ++sx ) {
-                            //printf("gird=(%f,%f), vis=(%f,%f), cf=(%f,%f)\n",creal((*gridPtr)),cimag((*gridPtr)),creal(VisVal),cimag(VisVal),creal(*cf0),cimag(*cf0));
                             *gridPtr++ += VisVal * *cf0;
                             cf0 ++;
                         }
@@ -565,14 +621,17 @@ void gridderWPol(PyArrayObject *grid,
                     }
                     
                     //Accumulate normalization weights for this facet
-                    sumWtPtr[gridChan*nGridPol + ipol] += ThisWeight;
+                    sumWtPtr[gridChan*nGridPol + ipol] += BlockVisWeight[ipol];
                     if ( DoApplyJones ) {
-                        ptrSumJones[gridChan]+=ThisSumJones;
-                        ptrSumJones[gridChan+nGridChan]+=ThisSumSqWeights;
+			//TODO: This has to be changed to include all polarizations
+                        ptrSumJones[gridChan]+=BlockSumJones[0];
+                        ptrSumJones[gridChan+nGridChan]+=BlockSumSqWeights[0];
 
                         for ( visChan=0; visChan<nVisChan; visChan++ ) {
-                            ptrSumJonesChan[visChan]+=ThisSumJonesChan[visChan];
-                            ptrSumJonesChan[nVisChan+visChan]+=ThisSumSqWeightsChan[visChan];
+			    //TODO: This has to be changed to include all polarizations
+			    size_t weightOffset = visChan*nVisCorr + 0;
+                            ptrSumJonesChan[visChan]+=ThisSumJonesChan[weightOffset];
+                            ptrSumJonesChan[nVisChan+visChan]+=ThisSumSqWeightsChan[weightOffset];
                         }
                     } //end DoApplyJones
                 } // end for ipol
@@ -592,7 +651,13 @@ void gridderWPol(PyArrayObject *grid,
     free(ThisSumJonesChan);
     free(ThisSumSqWeightsChan);
     free(dCorrTerm);
-    
+    free(VisFlagWeight);
+    free(VisRealWeight);
+    free(VisComplexWeight);
+    free(BlockVisWeight);
+    free(BlockSumJones);
+    free(BlockSumSqWeights);
+    free_stokes_library();
 
     /* /\* printf("Times:\n"); *\/ */
     /* double tottime=*TimeShift+*TimeApplyJones+*TimeJones+*TimeGrid+*TimeAverage+*TimeGetJones+*TimeStuff; */
