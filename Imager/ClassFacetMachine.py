@@ -898,7 +898,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoGridMachine.keys():
             NX=self.DicoImager[iFacet]["NpixFacetPadded"]
             GridName="%sGridFacet.%3.3i"%(self.IdSharedMem,iFacet)
-            self.DicoGridMachine[iFacet]["Dirty"]=np.ones((self.VS.NFreqBands,self.npol,NX,NX),self.CType)
+            self.DicoGridMachine[iFacet]["Dirty"]=np.ones((self.VS.NFreqBands,self.npol,NX,NX),self.FType)
             self.DicoGridMachine[iFacet]["Dirty"].fill(0)
             self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands,self.npol),np.float64)
             self.DicoImager[iFacet]["SumJones"]   = np.zeros((2,self.VS.NFreqBands),np.float64)
