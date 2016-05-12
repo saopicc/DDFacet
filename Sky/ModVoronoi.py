@@ -1,6 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as pylab
 from scipy.spatial import Voronoi
+import SkyModel.Tools.PolygonTools as PT
+
 
 def voronoi_finite_polygons_2d(vor, radius=None):
     """
@@ -73,22 +75,39 @@ def voronoi_finite_polygons_2d(vor, radius=None):
             V=vor.vertices[v2]
             R=np.sqrt(np.sum(V**2))
             
-            while R>0.1:
-                V*=0.9
-                R=np.sqrt(np.sum(V**2))
-                #print R
-
+            # while R>0.1:
+            #     V*=0.9
+            #     R=np.sqrt(np.sum(V**2))
+            #     #print R
+        
             vor.vertices[v2][:]=V[:]
 
             ThisRad=radius
             far_point = vor.vertices[v2] + direction * radius
             R=np.sqrt(np.sum(far_point**2))
-            while R>0.7:
-                ThisRad*=0.9
-                far_point = vor.vertices[v2] + direction * ThisRad
-                R=np.sqrt(np.sum(far_point**2))
-                #print R,np.sqrt(np.sum(vor.vertices[v2]**2))
+            ThisRad=R
+
+            # while R>1:
+            #     ThisRad*=0.9
+            #     far_point = vor.vertices[v2] + direction * ThisRad
+            #     R=np.sqrt(np.sum(far_point**2))
+            #     print "=============="
+            #     print R,np.sqrt(np.sum(vor.vertices[v2]**2))
+            #     print vor.vertices[v2]
+            #     print direction
+            #     print ThisRad
+            #     #if R>1000:
+            #     #    stop
             
+            # RadiusTot=.3
+            # Poly=np.array([[-RadiusTot,-RadiusTot],
+            #                [+RadiusTot,-RadiusTot],
+            #                [+RadiusTot,+RadiusTot],
+            #                [-RadiusTot,+RadiusTot]])*1
+            # stop
+            # PT.CutLineInside(Poly,Line)
+
+
             new_region.append(len(new_vertices))
             new_vertices.append(far_point.tolist())
 
@@ -101,34 +120,49 @@ def voronoi_finite_polygons_2d(vor, radius=None):
         # finish
         new_regions.append(new_region.tolist())
 
-    return new_regions, np.asarray(new_vertices)
+    regions, vertices=new_regions, np.asarray(new_vertices)
+
+    return regions, vertices
 
 
 def test():
     # make up data points
+
+
     np.random.seed(1234)
-    points = np.random.rand(15, 2)
     
-# compute Voronoi tesselation
+    R=3*np.pi/180
+    points = np.random.rand(15, 2)*R
+
+    x,y=np.mgrid[-R:R:11*1j,-R:R:11*1j]
+    points=np.array([x.ravel(),y.ravel()]).T.reshape((x.size,2))
+
+    
+    # compute Voronoi tesselation
     vor = Voronoi(points)
     
-# plot
+    # plot
     regions, vertices = voronoi_finite_polygons_2d(vor)
     print "--"
     print regions
     print "--"
     print vertices
-    
-# colorize
+    Plot(points,regions, vertices)
+    # colorize
+
+def Plot(points,regions, vertices):
+    pylab.clf()
     for region in regions:
         polygon = vertices[region]
-        plt.fill(*zip(*polygon), alpha=0.4)
-        
-    plt.plot(points[:,0], points[:,1], 'ko')
-    plt.xlim(vor.min_bound[0] - 0.1, vor.max_bound[0] + 0.1)
-    plt.ylim(vor.min_bound[1] - 0.1, vor.max_bound[1] + 0.1)
+        pylab.fill(*zip(*polygon), alpha=0.4)
+
     
-    plt.show()
+    pylab.plot(points[:,0], points[:,1], 'ko')
+    #plt.xlim(vor.min_bound[0] - 0.1, vor.max_bound[0] + 0.1)
+    #plt.ylim(vor.min_bound[1] - 0.1, vor.max_bound[1] + 0.1)
+    
+    pylab.draw()
+    pylab.show(False)
 
 if __name__=="__main__":
     test()

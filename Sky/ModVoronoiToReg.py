@@ -47,6 +47,7 @@ class VoronoiToReg():
                 x1*=180./np.pi
                 y1*=180./np.pi
 
+
                 f.write("line(%f,%f,%f,%f) # line=0 0 color=%s dash=1\n"%(x0,y0,x1,y1,Col))
                 #f.write("line(%f,%f,%f,%f) # line=0 0 color=red dash=1\n"%(x1,y0,x0,y1))
             
@@ -110,25 +111,38 @@ class VoronoiToReg():
             polygon=np.array(P+[P[0]])
             ThisText=""
             if labels!=None:
-                lmean=np.mean(polygon[:,0])
-                mmean=np.mean(polygon[:,1])
+                lmean0=np.mean(polygon[:,0])
+                mmean0=np.mean(polygon[:,1])
+
+                lmean,mmean,ThisText=labels[iFacet]
+                # print "!!!!======"
+                # print lmean0,mmean0
+                # print lmean,mmean
+
                 xm,ym=CoordMachine.lm2radec(np.array([lmean]),np.array([mmean]))
                 xm*=180./np.pi
                 ym*=180./np.pi
-                ThisText=str(labels[iFacet])
                 f.write("point(%f,%f) # text={%s} point=circle 5 color=red width=2\n"%(xm,ym,ThisText))
 
             for iline in range(polygon.shape[0]-1):
                 
-                x0,y0=CoordMachine.lm2radec(np.array([polygon[iline][0]]),np.array([polygon[iline][1]]))
-                x1,y1=CoordMachine.lm2radec(np.array([polygon[iline+1][0]]),np.array([polygon[iline+1][1]]))
 
+                L0,M0=np.array([polygon[iline][0]]),np.array([polygon[iline][1]])
+                x0,y0=CoordMachine.lm2radec(L0,M0)
+                L1,M1=np.array([polygon[iline+1][0]]),np.array([polygon[iline+1][1]])
+                x1,y1=CoordMachine.lm2radec(L1,M1)
 
                 x0*=180./np.pi
                 y0*=180./np.pi
                 x1*=180./np.pi
                 y1*=180./np.pi
 
+                # print "===================="
+                # print "[%3.3i] %f %f %f %f"%(iline,x0,y0,x1,y1)
+                # print "       %s"%str(L0)
+                # print "       %s"%str(L1)
+                # print "       %s"%str(M0)
+                # print "       %s"%str(M1)
                 f.write("line(%f,%f,%f,%f) # line=0 0 color=%s dash=1 \n"%(x0,y0,x1,y1,Col))
 
                 #f.write("line(%f,%f,%f,%f) # line=0 0 color=red dash=1\n"%(x1,y0,x0,y1))
