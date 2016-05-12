@@ -1,3 +1,4 @@
+#include <fcntl.h>           /* For O_* constants */
 #include <semaphore.h>
 
 PyObject *LSemaphoreNames;

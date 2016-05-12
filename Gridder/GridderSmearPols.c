@@ -8,7 +8,7 @@
 #include <omp.h>
 //#include "Tools.h"
 #include "JonesServer.c"
-#include <fcntl.h>           /* For O_* constants */
+//#include <fcntl.h>           /* For O_* constants */
 #include "Semaphores.h"
 
 
@@ -1242,7 +1242,8 @@ void DeGridderWPol(PyArrayObject *grid,
 
 	int ThisPol;
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
-	  size_t doff = (irow * nVisChan + visChan) * nVisPol;
+	  size_t doff_chan = irow * nVisChan + visChan;
+	  size_t doff = (doff_chan) * nVisPol;
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
 	  int OneFlagged=0;
 	  int cond;
@@ -1314,8 +1315,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	    
 
 
-	  size_t indx=irow * nVisChan + visChan;
-	  Sem_mutex=GiveSemaphoreFromCell(indx);
+	  Sem_mutex=GiveSemaphoreFromCell(doff_chan);
 
 	  sem_wait(Sem_mutex);
 	  

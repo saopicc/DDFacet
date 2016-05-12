@@ -433,8 +433,8 @@ class ClassImagerDeconv():
                 ThisMeanFreq=self.VS.CurrentChanMappingDegrid#np.mean(DATA["freqs"])
                 ModelImage=MM.GiveModelImage(ThisMeanFreq)
 
-                #print "dd!!!!!!!!!!!!!!!!!!!!!!"
-                #DATA["data"].fill(0)
+                print "dd!!!!!!!!!!!!!!!!!!!!!!"
+                DATA["data"].fill(0)
                 #ModelImage.fill(0)
                 #ModelImage[0,0,1000,2000]=1.
 
@@ -463,14 +463,14 @@ class ClassImagerDeconv():
             # pylab.show(False)
             # pylab.pause(0.1)
 
-        # ###################################################"
-        # vis=-DATA["data"]
-        # PredictColName=self.GD["VisData"]["PredictColName"]
-        # MSName=self.VS.CurrentMS.MSName
-        # print>>log, "Writing predicted data in column %s of %s"%(PredictColName,MSName)
-        # self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
-        # stop
-        # ###################################################"
+        ###################################################"
+        vis=-DATA["data"]
+        PredictColName=self.GD["VisData"]["PredictColName"]
+        MSName=self.VS.CurrentMS.MSName
+        print>>log, "Writing predicted data in column %s of %s"%(PredictColName,MSName)
+        self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
+        stop
+        ###################################################"
 
         self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
         

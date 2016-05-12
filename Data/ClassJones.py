@@ -334,10 +334,11 @@ class ClassJones():
 
         G=self.NormDirMatrices(G)
 
-        print "G!!!!!!!!!!!!!!!"
-        G.fill(0)
-        G[:,:,:,:,0,0]=1
-        G[:,:,:,:,1,1]=1
+        # print "G!!!!!!!!!!!!!!!"
+        # G.fill(0)
+        # G[:,:,:,:,0,0]=1
+        # G[:,:,:,:,1,1]=1
+
         DicoSols["Jones"]=G
 
         return DicoClusterDirs,DicoSols,VisToJonesChanMapping
