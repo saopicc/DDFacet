@@ -21,8 +21,8 @@ class ClassJones():
         self.DicoClusterDirs=None
         self.JonesNormSolsFile_killMS="%s/JonesNorm_killMS.npz"%ThisMSName
         self.JonesNormSolsFile_Beam="%s/JonesNorm_Beam.npz"%ThisMSName
-
-
+        self.HasKillMSSols=False
+        self.BeamTimes_kMS=None
 
 
     def InitDDESols(self,DATA):
@@ -37,6 +37,8 @@ class ClassJones():
             except:
                 DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("killMS")
             self.ToShared("killMS",DicoSols,TimeMapping,DicoClusterDirs)
+            self.HasKillMSSols=True
+            self.DicoClusterDirs_kMS=DicoClusterDirs
 
         ApplyBeam=(GD["Beam"]["BeamModel"]!=None)
         if ApplyBeam:
@@ -118,22 +120,35 @@ class ClassJones():
             print>>log, "  Build VisTime-to-Solution mapping"
             TimeMapping=self.GiveTimeMapping(DicoSols)
             self.SolsToDisk(self.JonesNormSolsFile_killMS,DicoSols,DicoClusterDirs_killMS,TimeMapping)
-
         BeamJones=None
         if StrType=="Beam":
-            print>>log,"  Getting Jones directions from Facets"
 
             if self.FacetMachine!=None:
-                DicoImager=self.FacetMachine.DicoImager
-                NFacets=len(DicoImager)
-                self.ClusterCatBeam=self.FacetMachine.FacetCat
-                DicoClusterDirs={}
-                DicoClusterDirs["l"]=self.ClusterCatBeam.l
-                DicoClusterDirs["m"]=self.ClusterCatBeam.m
-                DicoClusterDirs["ra"]=self.ClusterCatBeam.ra
-                DicoClusterDirs["dec"]=self.ClusterCatBeam.dec
-                DicoClusterDirs["I"]=self.ClusterCatBeam.I
-                DicoClusterDirs["Cluster"]=self.ClusterCatBeam.Cluster
+                if not(self.HasKillMSSols):
+                    print>>log,"  Getting Jones directions from Facets"
+                    DicoImager=self.FacetMachine.DicoImager
+                    NFacets=len(DicoImager)
+                    self.ClusterCatBeam=self.FacetMachine.FacetCat
+                    DicoClusterDirs={}
+                    DicoClusterDirs["l"]=self.ClusterCatBeam.l
+                    DicoClusterDirs["m"]=self.ClusterCatBeam.m
+                    DicoClusterDirs["ra"]=self.ClusterCatBeam.ra
+                    DicoClusterDirs["dec"]=self.ClusterCatBeam.dec
+                    DicoClusterDirs["I"]=self.ClusterCatBeam.I
+                    DicoClusterDirs["Cluster"]=self.ClusterCatBeam.Cluster
+                else:
+                    print>>log,"  Getting Jones directions from DDE-solutions"
+                    DicoClusterDirs=self.DicoClusterDirs_kMS
+                    NDir=DicoClusterDirs["l"].size
+                    self.ClusterCatBeam=np.zeros((NDir,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),
+                                                                ("Cluster",int),
+                                                                ("l",np.float),("m",np.float),
+                                                                ("I",np.float)])
+                    self.ClusterCatBeam=self.ClusterCatBeam.view(np.recarray)
+                    self.ClusterCatBeam.I=self.DicoClusterDirs_kMS["I"]
+                    self.ClusterCatBeam.SumI=self.DicoClusterDirs_kMS["I"]
+                    self.ClusterCatBeam.ra[:]=self.DicoClusterDirs_kMS["ra"]
+                    self.ClusterCatBeam.dec[:]=self.DicoClusterDirs_kMS["dec"]
             else:
                 
                 self.ClusterCatBeam=np.zeros((1,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),
@@ -256,6 +271,8 @@ class ClassJones():
         DicoClusterDirs={}
         DicoClusterDirs["l"]=ClusterCat.l
         DicoClusterDirs["m"]=ClusterCat.m
+        DicoClusterDirs["ra"]=ClusterCat.ra
+        DicoClusterDirs["dec"]=ClusterCat.dec
         #DicoClusterDirs["l"]=ClusterCat.l
         #DicoClusterDirs["m"]=ClusterCat.m
         DicoClusterDirs["I"]=ClusterCat.SumI
@@ -268,6 +285,7 @@ class ClassJones():
         else:
             VisToJonesChanMapping=np.zeros((self.MS.NSPWChan,),np.int32)
             
+        self.BeamTimes_kMS=DicoSolsFile["BeamTimes"]
 
         Sols=DicoSolsFile["Sols"]
         Sols=Sols.view(np.recarray)
@@ -315,6 +333,11 @@ class ClassJones():
             G=(np.abs(G).astype(dtype)).copy()
 
         G=self.NormDirMatrices(G)
+
+        print "G!!!!!!!!!!!!!!!"
+        G.fill(0)
+        G[:,:,:,:,0,0]=1
+        G[:,:,:,:,1,1]=1
         DicoSols["Jones"]=G
 
         return DicoClusterDirs,DicoSols,VisToJonesChanMapping
@@ -368,7 +391,13 @@ class ClassJones():
         times = self.DATA["times"]
         self.InitBeamMachine()
 
-        beam_times = self.BeamMachine.getBeamSampleTimes(times)
+        if self.BeamTimes_kMS.size!=0:
+            print>>log,"  Taking beam-times from DDE-solutions"
+            beam_times = self.BeamTimes_kMS
+        else:
+            beam_times = self.BeamMachine.getBeamSampleTimes(times)
+
+
         RAs=self.ClusterCatBeam.ra
         DECs=self.ClusterCatBeam.dec
         DicoBeam=self.EstimateBeam(beam_times,RAs,DECs)

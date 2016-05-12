@@ -413,7 +413,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #labels=["[F%i.C%i]"%(i,DicoPolygon[i]["iSol"]) for i in range(len(LPolygonNew))]
         #VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=labels)
 
-        VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green")
+        #VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green")
 
         # pylab.clf()
         # x,y=LPolygonNew[11].T
@@ -785,7 +785,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         print>>log, "    ... done"
 
 
-        ListSemaphores=["%sSemaphore%3.3i"%(self.IdSharedMem,i) for i in range(5*self.NCPU)]
+
+        NSemaphores=200
+        ListSemaphores=["%sSemaphore%3.3i"%(self.IdSharedMem,i) for i in range(NSemaphores)]
         _pyGridderSmear.pySetSemaphores(ListSemaphores)
         work_queue = multiprocessing.Queue()
         result_queue = multiprocessing.Queue()

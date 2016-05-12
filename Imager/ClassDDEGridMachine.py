@@ -590,6 +590,13 @@ class ClassDDEGridMachine():
             mc=DicoClusterDirs["m"]
             d=np.sqrt((l0-lc)**2+(m0-mc)**2)
             idir_Beam=np.argmin(d)
+            # from killMS2.Other.rad2hmsdms import rad2hmsdms
+            # print
+            # print DicoClusterDirs.keys()
+            # ra,dec=DicoClusterDirs["ra"][idir_Beam],DicoClusterDirs["dec"][idir_Beam]
+            # print rad2hmsdms(ra,Type="ra").replace(" ",":"),rad2hmsdms(dec,Type="dec").replace(" ",".")
+            # print
+
             #print self.IDFacet,idir_Beam
 
 

@@ -1,7 +1,7 @@
 #include <semaphore.h>
 
 PyObject *LSemaphoreNames;
-int NSemaphores;
+size_t NSemaphores;
 sem_t **Tab_SEM;
 
 const char *GiveSemaphoreName(int iS){
@@ -13,8 +13,10 @@ const char *GiveSemaphoreName(int iS){
 
 sem_t * GiveSemaphoreFromCell(size_t irow){
   sem_t *Sem_mutex;
-  int index=irow-NSemaphores*(irow / NSemaphores);
-  //printf("fetching sem %i for irow=%i\n",index,irow);
+  //printf("NSemaphores=%i\n",(int)NSemaphores);
+  /* int index=irow-NSemaphores*(irow / NSemaphores); */
+  int index= irow % NSemaphores;
+  //printf("sem %i for irow=%i\n",(int)index,(int)irow);
   Sem_mutex=Tab_SEM[index];
   return Sem_mutex;
 }
@@ -59,8 +61,9 @@ static PyObject *pyDeleteSemaphore(PyObject *self, PyObject *args)
   
   int iSemaphore=0;
   for(iSemaphore=0; iSemaphore<NSemaphores; iSemaphore++){
-    const char* SemaphoreName=GiveSemaphoreName(iSemaphore);
     //printf("delete %s\n",SemaphoreName);
+    //sem_close(Tab_SEM[iSemaphore]);
+    const char* SemaphoreName=GiveSemaphoreName(iSemaphore);
     int ret=sem_unlink(SemaphoreName);
   }
   free(Tab_SEM);

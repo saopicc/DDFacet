@@ -313,7 +313,7 @@ void gridderWPol(PyArrayObject *grid,
     double WaveLengthMean=0.;
     double FreqMean0=0.;
 
-    int visChan;
+    size_t visChan;
     
     float factorFreq=1;//GiveFreqStep();
     //printf("factorFreq %f\n",factorFreq);
@@ -986,7 +986,7 @@ void DeGridderWPol(PyArrayObject *grid,
     double posx,posy;
 
     double WaveLengthMean=0.;
-    int visChan;
+    size_t visChan;
     for (visChan=0; visChan<nVisChan; ++visChan){
       WaveLengthMean+=C/Pfreqs[visChan];
     }
@@ -1242,7 +1242,7 @@ void DeGridderWPol(PyArrayObject *grid,
 
 	int ThisPol;
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
-	  int doff = (irow * nVisChan + visChan) * nVisPol;
+	  size_t doff = (irow * nVisChan + visChan) * nVisPol;
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
 	  int OneFlagged=0;
 	  int cond;
@@ -1287,6 +1287,10 @@ void DeGridderWPol(PyArrayObject *grid,
 	  float complex visBuff[4]={0};
 
 
+	  /* ThisVis[0]=1; */
+	  /* ThisVis[1]=0; */
+	  /* ThisVis[2]=0; */
+	  /* ThisVis[3]=1; */
 	  if(DoApplyJones){
 	    MatDot(J0,JonesType,ThisVis,SkyType,visBuff);
 	    MatDot(visBuff,SkyType,J1H,JonesType,visBuff);
@@ -1309,7 +1313,9 @@ void DeGridderWPol(PyArrayObject *grid,
 	  /* ////////////// end debug */
 	    
 
-	  Sem_mutex=GiveSemaphoreFromCell(irow*visChan);
+
+	  size_t indx=irow * nVisChan + visChan;
+	  Sem_mutex=GiveSemaphoreFromCell(indx);
 
 	  sem_wait(Sem_mutex);
 	  
@@ -1317,7 +1323,8 @@ void DeGridderWPol(PyArrayObject *grid,
 
 	  sem_post(Sem_mutex);
 
-
+	  //sem_close(Sem_mutex);
+ 
 
 
 	  
@@ -1330,5 +1337,4 @@ void DeGridderWPol(PyArrayObject *grid,
       } // end if gridChan
       
     } //end for Block
-    sem_close(Sem_mutex);
-  } // end
+ } // end
