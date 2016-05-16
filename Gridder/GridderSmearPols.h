@@ -18,7 +18,7 @@
 #include "arrayobject.h"
 #include "pyArrayCast.h"
 #include "Constants.h"
-
+#include "gridding_parameters.h"
 
 /* .... C vector utility functions ..................*/
 //PyArrayObject *pyvector(PyObject *objin);
@@ -63,6 +63,8 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
                               float Dnu,
                               float DT);
 
+// gridding_parameters parse_python_objects();
+
 void gridderWPol(PyArrayObject *np_grid,
                  PyArrayObject *vis,
                  PyArrayObject *uvw,
@@ -89,7 +91,6 @@ void DeGridderWPol(PyArrayObject *np_grid,
                    PyArrayObject *vis,
                    PyArrayObject *uvw,
                    PyArrayObject *flags,
-                   //PyArrayObject *rows,
                    PyArrayObject *sumwt,
                    int dopsf,
                    PyObject *Lcfs,
@@ -102,7 +103,9 @@ void DeGridderWPol(PyArrayObject *np_grid,
                    PyArrayObject *SmearMapping,
                    PyObject *LOptimisation,
                    PyObject *LSmear,
-                   PyArrayObject *np_ChanMapping);
+                   PyArrayObject *np_ChanMapping,
+		   PyObject *data_corr_products,
+		   PyObject *output_stokes_products);
 
 int FullScalarMode;
 int ScalarJones;

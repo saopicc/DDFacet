@@ -862,7 +862,9 @@ class ClassDDEGridMachine():
                                                   MapSmear,
                                                   OptimisationInfos,
                                                   self.LSmear,
-                                                  np.int32(ChanMapping))
+                                                  np.int32(ChanMapping),
+						  [np.int32(corr) for corr in self.DataCorrelationFormat],
+						  [np.int32(stokes) for stokes in self.ExpectedOutputStokes])
             
 
         T.timeit("4 (degrid)")

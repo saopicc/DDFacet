@@ -43,6 +43,31 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
     return DecorrFactor;
 }
 
+// gridding_parameters parse_python_objects(PyArrayObject *grid,
+// 					 PyArrayObject *vis,
+// 					 PyArrayObject *uvw,
+// 					 PyArrayObject *flags,
+// 					 PyArrayObject *weights,
+// 					 PyArrayObject *sumwt,
+// 					 int dopsf,
+// 					 PyObject *Lcfs,
+// 					 PyObject *LcfsConj,
+// 					 PyArrayObject *Winfos,
+// 					 PyArrayObject *increment,
+// 					 PyArrayObject *freqs,
+// 					 PyObject *Lmaps,
+// 					 PyObject *LJones,
+// 					 PyArrayObject *SmearMapping,
+// 					 PyObject *LOptimisation,
+// 					 PyObject *LSmearing,
+// 					 PyArrayObject *np_ChanMapping,
+// 					 PyObject *data_corr_products,
+// 					 PyObject *output_stokes_products)
+// {
+//   gridding_parameters params;
+//   
+// }
+
 static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 {
     PyObject *ObjGridIn;
@@ -100,8 +125,10 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
     PyObject *Lmaps,*LJones;
     PyObject *LcfsConj;
     int dopsf;
+    PyObject * data_corr_products;
+    PyObject * output_stokes_products;
 
-    if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!",
+    if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!O!O!",
                           &PyArray_Type,  &np_grid,
                           &ObjVis,
                           &PyArray_Type,  &uvw,
@@ -118,12 +145,20 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
                           &PyArray_Type, &SmearMapping,
                           &PyList_Type, &LOptimisation,
                           &PyList_Type, &LSmear,
-                          &PyArray_Type, &np_ChanMapping
+                          &PyArray_Type, &np_ChanMapping,
+			  &PyList_Type, &data_corr_products,
+			  &PyList_Type, &output_stokes_products
                          ))  return NULL;
 
     np_vis = (PyArrayObject *) PyArray_ContiguousFromObject(ObjVis, PyArray_COMPLEX64, 0, 3);
-    DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, LOptimisation, LSmear,np_ChanMapping);
-
+    DeGridderWPol(np_grid, np_vis, uvw, 
+		  flags, sumwt, dopsf, 
+		  Lcfs, LcfsConj, WInfos, 
+		  increment, freqs, Lmaps, 
+		  LJones, SmearMapping, LOptimisation, 
+		  LSmear, np_ChanMapping,
+		  data_corr_products, output_stokes_products);
+    
     return PyArray_Return(np_vis);
 }
 
@@ -695,7 +730,9 @@ void DeGridderWPol(PyArrayObject *grid,
                    PyArrayObject *SmearMapping,
                    PyObject *LOptimisation,
                    PyObject *LSmearing,
-                   PyArrayObject *np_ChanMapping)
+                   PyArrayObject *np_ChanMapping,
+		   PyObject *data_corr_products,
+		   PyObject *output_stokes_products)
 {
     // Get size of convolution functions.
     PyArrayObject *cfs;
@@ -824,30 +861,6 @@ void DeGridderWPol(PyArrayObject *grid,
         }
     }
 
-    /* PyObject *_FullScalarMode  = PyList_GetItem(LOptimisation, 0); */
-    /* FullScalarMode=(int) PyFloat_AsDouble(_FullScalarMode); */
-    /* PyObject *_ChanEquidistant  = PyList_GetItem(LOptimisation, 1); */
-    /* int ChanEquidistant=(int) PyFloat_AsDouble(_ChanEquidistant); */
-    /* ScalarJones=0; */
-    /* ScalarVis=0; */
-    /* int nPolJones = 4; */
-    /* int nPolVis   = 4; */
-    /* if(FullScalarMode){ */
-    /*   //printf("full scalar mode\n"); */
-    /*   //printf("ChanEquidistant: %i\n",ChanEquidistant); */
-    /*   ScalarJones=1; */
-    /*   ScalarVis=1; */
-    /*   nPolJones=1; */
-    /*   nPolVis=1; */
-    /*   int ipol; */
-    /*   for (ipol=1; ipol<nVisPol; ++ipol) { */
-    /* 	PolMap[ipol]=5; */
-    /*   } */
-    /* } */
-
-
-
-
     int *MappingBlock = p_int32(SmearMapping);
     int NTotBlocks=MappingBlock[0];
     int *NRowBlocks=MappingBlock+1;
@@ -957,12 +970,6 @@ void DeGridderWPol(PyArrayObject *grid,
             printf("degridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);
         }
         visChanMean=0.;
-        //printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6));
-        /* int ThisPol; */
-        /* for(ThisPol =0; ThisPol<4;ThisPol++){ */
-        /* 	printf("   vis: %i (%f, %f)\n",ThisPol,creal(Vis[ThisPol]),cimag(Vis[ThisPol])); */
-        /* } */
-
 
         // ################################################
         // ############## Start Gridding visibility #######
