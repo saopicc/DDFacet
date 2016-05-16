@@ -234,7 +234,8 @@ class ClassMultiScaleMachine():
                 #ThisPSF*=fact
                 ListPSFScales.append(ThisPSF)
                 self.ListScales.append({"ModelType":"Gaussian",#"fact":fact,
-                                        "Model":Gauss,"Scale":iScales,"Alpha":ThisAlpha})
+                                        "Model":Gauss, "ModelParams":PSFGaussPars,
+                                        "Scale":iScales,"Alpha":ThisAlpha})
             
             iSlice+=1
         
@@ -265,7 +266,8 @@ class ClassMultiScaleMachine():
                         #fact=np.max(Gauss)/np.sum(Gauss)
                         #Gauss*=fact
                         self.ListScales.append({"ModelType":"Gaussian",
-                                                "Model":Gauss,"Scale":iScale,
+                                                "Model":Gauss, "ModelParams": PSFGaussPars,
+                                                "Scale":iScale,
                                                 "Alpha":ThisAlpha})
 
         # Max=np.max(np.max(CubePSFScales,axis=1),axis=1)
