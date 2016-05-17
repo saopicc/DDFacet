@@ -613,7 +613,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.DicoImager[iFacet]["lmExtentPadded"]=l0-RadiusFacetPadded,l0+RadiusFacetPadded,m0-RadiusFacetPadded,m0+RadiusFacetPadded
 
         lSol,mSol=self.lmSols
-        raSol,decSol=self.lmSols
+        raSol,decSol=self.radecSols
         dSol=np.sqrt((l0-lSol)**2+(m0-mSol)**2)
         iSol=np.where(dSol==np.min(dSol))[0]
         self.DicoImager[iFacet]["lmSol"]=lSol[iSol],mSol[iSol]

@@ -1456,8 +1456,8 @@ void DeGridderWPol(PyArrayObject *grid,
 	/* ThisVis[1]=0; */
 	/* ThisVis[2]=0; */
 	/* ThisVis[3]=1; */
-
-
+	/* corr=1.; */
+	
 	    for(ipol=0; ipol<4; ipol++){
 	      visPtr[ipol]+=ThisVis[ipol] *corr*(-1.);
 	    }

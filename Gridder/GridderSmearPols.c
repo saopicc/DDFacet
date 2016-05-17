@@ -1292,6 +1292,9 @@ void DeGridderWPol(PyArrayObject *grid,
 	  /* ThisVis[1]=0; */
 	  /* ThisVis[2]=0; */
 	  /* ThisVis[3]=1; */
+	  /* corr=1.; */
+
+
 	  if(DoApplyJones){
 	    MatDot(J0,JonesType,ThisVis,SkyType,visBuff);
 	    MatDot(visBuff,SkyType,J1H,JonesType,visBuff);

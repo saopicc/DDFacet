@@ -332,12 +332,20 @@ class ClassJones():
             dtype=G.dtype
             G=(np.abs(G).astype(dtype)).copy()
 
-        G=self.NormDirMatrices(G)
+        #G=self.NormDirMatrices(G)
 
-        # print "G!!!!!!!!!!!!!!!"
-        # G.fill(0)
-        # G[:,:,:,:,0,0]=1
-        # G[:,:,:,:,1,1]=1
+        # print "G!!!!!!!!!!!!!!!"#nt,nd,na,nf,2,2
+        
+        #G.fill(0)
+        #G[:,:,:,:,0,0]=1
+        #G[:,:,:,:,1,1]=1
+
+        # Gc=G.copy()
+        # Gc.fill(0)
+        # N=5
+
+        # Gc[:,N,:,:,:,:]=G[:,N,:,:,:,:]
+        # G=Gc
 
         DicoSols["Jones"]=G
 
@@ -401,6 +409,14 @@ class ClassJones():
 
         RAs=self.ClusterCatBeam.ra
         DECs=self.ClusterCatBeam.dec
+        
+        from killMS2.Other.rad2hmsdms import rad2hmsdms
+        for i in range(RAs.size): 
+            ra,dec=RAs[i],DECs[i]
+            print rad2hmsdms(ra,Type="ra").replace(" ",":"),rad2hmsdms(dec,Type="dec").replace(" ",".")
+        
+
+
         DicoBeam=self.EstimateBeam(beam_times,RAs,DECs)
 
         return DicoBeam
@@ -442,6 +458,9 @@ class ClassJones():
             DicoBeam["t1"][itime]=T1s[itime]
             DicoBeam["tm"][itime]=Tm[itime]
             ThisTime=Tm[itime]
+
+
+
 
             pBAR.render(itime*100/(Tm.size-1), "%d/%d"%(itime+1, Tm.size))
             Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)
