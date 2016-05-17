@@ -123,12 +123,21 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
 
         if SolsFile!="":
+            print>>log,"Taking facet directions from solutions file"
             ClusterNodes=np.load(SolsFile)["ClusterCat"]
             ClusterNodes=ClusterNodes.view(np.recarray)
             raNode=ClusterNodes.ra
             decNode=ClusterNodes.dec
             lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
+        elif "CatNodes" in self.GD.keys():
+            print>>log,"Taking facet directions from Nodes catalog"
+            ClusterNodes=self.GD["CatNodes"]
+            ClusterNodes=ClusterNodes.view(np.recarray)
+            raNode=ClusterNodes.ra
+            decNode=ClusterNodes.dec
+            lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
         else:
+            print>>log,"Taking facet directions from regular grid"
             CellSizeRad=(self.GD["ImagerMainFacet"]["Cell"]/3600.)*np.pi/180
             lrad=Npix*CellSizeRad*0.5
 
