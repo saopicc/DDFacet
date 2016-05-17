@@ -410,10 +410,10 @@ class ClassJones():
         RAs=self.ClusterCatBeam.ra
         DECs=self.ClusterCatBeam.dec
         
-        from killMS2.Other.rad2hmsdms import rad2hmsdms
-        for i in range(RAs.size): 
-            ra,dec=RAs[i],DECs[i]
-            print rad2hmsdms(ra,Type="ra").replace(" ",":"),rad2hmsdms(dec,Type="dec").replace(" ",".")
+        # from killMS2.Other.rad2hmsdms import rad2hmsdms
+        # for i in range(RAs.size): 
+        #     ra,dec=RAs[i],DECs[i]
+        #     print rad2hmsdms(ra,Type="ra").replace(" ",":"),rad2hmsdms(dec,Type="dec").replace(" ",".")
         
 
 
