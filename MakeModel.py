@@ -31,6 +31,7 @@ def read_options():
     group.add_option('--PreClusterFile',help=' PreClusterFile. Default is %default',default="")
     group.add_option('--RemoveNegComp',help=' PreClusterFile. Default is %default',type=int,default=0)
     group.add_option('--FromClusterCat',help=' PreClusterFile. Default is %default',type=str,default="")
+    group.add_option('--ApparantFlux',type="int",help=' PreClusterFile. Default is %default',default=0)
     opt.add_option_group(group)
 
 
@@ -84,6 +85,19 @@ def main(options=None):
 
         MM=ClassModelMachine(Gain=0.1)
         MM.FromDico(DicoModel)
+        SqrtNormImage=None
+        if options.ApparantFlux:
+            FileSqrtNormImage="%s.Norm.fits"%options.BaseImageName
+            imSqrtNormImage=image(FileSqrtNormImage)
+            SqrtNormImage=imSqrtNormImage.getdata()
+            nchan,npol,_,_=SqrtNormImage.shape
+            for ch in range(nchan):
+                for pol in range(npol):
+                    SqrtNormImage[ch,pol,:,:]=np.sqrt(SqrtNormImage[ch,pol,:,:].T[::-1,:])
+            
+
+        
+
         #FitsFile="%s.model.fits"%options.BaseImageName
         FitsFile="%s.dirty.fits"%options.BaseImageName
         #MM.FromFile(DicoModel)
@@ -93,7 +107,7 @@ def main(options=None):
             MM.CleanNegComponants(box=10,sig=2)
 
         SkyModel=options.BaseImageName+".npy"
-        MM.ToNPYModel(FitsFile,SkyModel)
+        MM.ToNPYModel(FitsFile,SkyModel,BeamImage=SqrtNormImage)
 
         # SkyModel="tmpSourceCat.npy"
         # ModelImage=MM.GiveModelImage()
