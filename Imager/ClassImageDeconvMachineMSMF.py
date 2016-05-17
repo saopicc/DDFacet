@@ -232,7 +232,7 @@ class ClassImageDeconvMachine():
 
     def setChannel(self,ch=0):
         #self.PSF=self._MeanPSF[ch]
-        self.Dirty=self._MeanDirty[ch]
+        self.Dirty=self._MeanDirty.view()[ch] if self.MultiFreqMode else self._Dirty.view()[ch] #MeanDirty and Dirty may not be the same data
         self.ModelImage=self._ModelImage[ch]
         self.MaskArray=self._MaskArray[ch]
 
@@ -374,7 +374,6 @@ class ClassImageDeconvMachine():
 
                 nch,npol,_,_=self._Dirty.shape
                 Fpol=np.float32((self._Dirty[:,:,x,y].reshape((nch,npol,1,1))).copy())
-
                 #print "Fpol",Fpol
                 dx=x-xc
                 dy=y-xc
@@ -414,8 +413,6 @@ class ClassImageDeconvMachine():
                 CurrentGain=self.GainMachine.GiveGain()
                 self.SubStep((x,y),LocalSM*CurrentGain)
                 T.timeit("SubStep")
-
-
 
                 # pylab.subplot(1,2,2)
                 # pylab.imshow(self.Dirty[0][x0:x1,y0:y1],interpolation="nearest",vmin=mm0,vmax=mm1)#,vmin=m0,vmax=m1)

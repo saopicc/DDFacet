@@ -40,9 +40,11 @@ def A_whereMax(A,NCPU=6,DoAbs=1,Mask=None):
     
     NX,NY=A.shape[-2],A.shape[-1]
     Blocks = np.int32(np.linspace(0,NX,NCPU+1))
-    
+
+    if not (A.flags.c_contiguous):
+        raise TypeError("Expected contiguous array as input")
     if A.dtype!=np.float32:
-        stop
+        raise TypeError("Expected input array dtype: float32")
     
     nz=A.size/(NX*NY)
     A=A.reshape((nz,NX,NY))

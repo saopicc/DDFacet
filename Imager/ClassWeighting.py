@@ -111,6 +111,7 @@ class ClassWeighting():
             uv = uv[..., np.newaxis] * freqs[np.newaxis, np.newaxis, :] / _cc
             uv = np.floor(uv / cell).astype(int)
             # u is offset, v isn't since it's the top half
+
             x = uv[:, 0, :]
             y = uv[:, 1, :]
             x += xymax  # offset, since X grid starts at -xymax
@@ -121,6 +122,10 @@ class ClassWeighting():
                 bandmap = band_mapping[iMS]
                 # uv has shape nvis,nfreq; bandmap has shape nfreq
                 index += bandmap[np.newaxis,:]*npix
+            # zero weight refers to zero cell (otherwise it may end up outside the grid, since grid is
+            # only big enough to accommodate the *unflagged* uv-points)
+            index[weights==0] = 0
+
             weights_index[iMS] = weights, index
             del uv
             print>> log, "Accumulating weights (%d/%d)" % (iMS + 1, len(uvw_weights_flags_freqs))
