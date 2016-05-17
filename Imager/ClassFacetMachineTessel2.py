@@ -131,7 +131,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
         elif "CatNodes" in self.GD.keys():
             print>>log,"Taking facet directions from Nodes catalog"
-            ClusterNodes=self.GD["CatNodes"]
+            ClusterNodes=np.load(self.GD["CatNodes"])
             ClusterNodes=ClusterNodes.view(np.recarray)
             raNode=ClusterNodes.ra
             decNode=ClusterNodes.dec

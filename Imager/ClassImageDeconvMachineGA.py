@@ -62,6 +62,10 @@ class ClassImageDeconvMachine():
             self.MaskArray=self._MaskArray[0]
             self.IslandArray=np.zeros_like(self._MaskArray)
             self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
+        else:
+            print>>log, "You have to provide a mask image for GAClean"
+
+
 
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
@@ -102,6 +106,70 @@ class ClassImageDeconvMachine():
             self.IslandArray=np.zeros_like(self._MaskArray)
             self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
 
+    def CalcCrossIslandPSF(self,ListIslands):
+        PSF=self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
+        nPSF,_=PSF.shape
+        xcPSF,ycPSF=nPSF/2,nPSF/2
+
+        IN=lambda x: ((x>=0)&(x<nPSF))
+
+        NIslands=len(ListIslands)
+        PSFCross=np.zeros((NIslands,NIslands),np.float32)
+        for iIsland in range(NIslands):
+            x0,y0=np.array(ListIslands[iIsland]).T
+            xc0,yc0=int(np.mean(x0)),int(np.mean(y0))
+            for jIsland in range(NIslands):
+                x1,y1=np.array(ListIslands[jIsland]).T
+                xc1,yc1=int(np.mean(x1)),int(np.mean(y1))
+                dx,dy=xc1-xc0+xcPSF,yc1-yc0+xcPSF
+                if (IN(dx))&(IN(dy)):
+                    PSFCross[iIsland,jIsland]=PSF[dx,dy]
+        
+        self.PSFCross=PSFCross
+
+    def CalcCrossIslandFlux(self,ListIslands):
+        if self.PSFCross==None:
+            self.CalcCrossIslandPSF(ListIslands)
+        NIslands=len(ListIslands)
+
+        ContribCross=np.zeros((NIslands,NIslands),np.float32)
+        DicoIsland={}
+
+
+
+        # for iIsland in range(NIslands):
+        #     x0,y0=np.array(ListIslands[iIsland]).T
+        #     PixVals0=Dirty[0,0,x0,y0]
+        #     Sum0=np.sum(PixVals0)
+        #     N0=x0.size
+        #     for jIsland in range(NIslands):
+        #         x1,y1=np.array(ListIslands[jIsland]).T
+        #         PixVals1=Dirty[0,0,x1,y1]
+        #         Sum1=np.sum(PixVals1)
+        #         ContribCross[iIsland,jIsland]=np.abs(Sum1*self.PSFCross[iIsland,jIsland])*N0
+        # SumSelfContrib=np.diag(ContribCross)
+        # SumExternalContrib=np.sum(ContribCross,axis=0)-SumSelfContrib
+
+        for iIsland in range(NIslands):
+            DicoIsland[iIsland]=ListIslands[iIsland]
+        
+        Th=0.05
+        ListIslandMerged=[]
+        for iIsland in range(NIslands):
+            indiIsland=np.where(np.abs(self.PSFCross[iIsland])>Th)[0]
+            ListX=[]
+            ListY=[]
+            for jIsland in indiIsland:
+                try:
+                    ListX+=DicoIsland[iIsland][0]
+                    ListY+=DicoIsland[iIsland][0]
+                    del(DicoIsland[iIsland])
+                except:
+                    pass
+            ListIslandMerged.append([ListX,ListY])
+        return ListIslandMerged
+
+
 
     def SearchIslands(self,Threshold):
         print>>log,"Searching Islands"
@@ -122,6 +190,7 @@ class ClassImageDeconvMachine():
             x,y=np.array(ListIslands[iIsland]).T
             PixVals=Dirty[0,0,x,y]
             DoThisOne=False
+
             if np.max(np.abs(PixVals))>Threshold:
                 DoThisOne=True
                 self.IslandHasBeenDone[0,0,x,y]=1

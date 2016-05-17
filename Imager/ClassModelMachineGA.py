@@ -285,7 +285,7 @@ class ClassModelMachine():
                 AlphaMap[ch,pol]=AlphaMap[ch,pol][::-1]#.T
 
         if BeamImage!=None:
-            ModelMap*=np.sqrt(BeamImage)
+            ModelMap*=(BeamImage)
 
 
         im=image(FitsFile)
