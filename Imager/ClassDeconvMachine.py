@@ -1,31 +1,22 @@
-
-
-from ClassFacetMachine import ClassFacetMachine
-from ClassFacetMachineTessel2 import ClassFacetMachineTessel as ClassFacetMachine
+from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
 import pylab
-#import ToolsDir
-from DDFacet.Other import MyPickle
 from pyrap.images import image
-import ClassImageDeconvMachineMultiScale
 import ClassImageDeconvMachineSingleScale
 import ClassImageDeconvMachineMSMF
 from DDFacet.ToolsDir import ModFFTW
-from DDFacet.Other import ModColor
-from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("ClassImagerDeconv")
 from DDFacet.Array import NpShared
 import os
 from DDFacet.ToolsDir import ModFitPSF
-#from ClassData import ClassMultiPointingData,ClassSinglePointingData,ClassGlobalData
 from DDFacet.Data import ClassVisServer
-from DDFacet.Other import MyPickle
 import ClassCasaImage
 from ClassModelMachine import ClassModelMachine
-from pyrap.tables import table
-
 import time
 import glob
+from DDFacet.Other import ModColor
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("ClassImagerDeconv")
+
 
 def test():
     Imager=ClassImagerDeconv(ParsetFile="ParsetDDFacet.txt")
@@ -297,7 +288,10 @@ class ClassImagerDeconv():
             if Res=="EndOfObservation": break
             DATA=self.DATA
 
-            FacetMachinePSF.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)#,Channel=self.VS.CurrentFreqBand)
+            FacetMachinePSF.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],
+                                     (DATA["A0"],DATA["A1"]),
+                                     DATA["Weights"],
+                                     doStack=True)
 
 
             # Image=FacetMachinePSF.FacetsToIm()
@@ -450,7 +444,10 @@ class ClassImagerDeconv():
                 print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
                 _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
 
-            self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)#,Channel=self.VS.CurrentFreqBand)
+            self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],
+                                       (DATA["A0"],DATA["A1"]),
+                                       DATA["Weights"],
+                                       doStack=True)
             
             if self._save_intermediate_grids:
                 self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
@@ -774,12 +771,13 @@ class ClassImagerDeconv():
                                   bmin*self.CellArcSec*FWHMFact/3600.,
                                   np.rad2deg(theta)))
             self.PSFGaussPars.append((bmaj*self.CellSizeRad, bmin*self.CellSizeRad, theta))
+            PA = 90-np.rad2deg(theta) #image is only transposed when written to FITS, so print the correct angle
             print>>log, "\tFitted PSF (sigma): (Sx, Sy, Th)=(%f, %f, %f deg)"%(bmaj*self.CellArcSec,
                                                                            bmin*self.CellArcSec,
-                                                                           np.rad2deg(theta))
+                                                                           PA)
             print>>log, "\tFitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f deg)"%(bmaj*self.CellArcSec*FWHMFact,
                                                                            bmin*self.CellArcSec*FWHMFact,
-                                                                           np.rad2deg(theta))
+                                                                           PA)
             print>>log, "\tSecondary sidelobe at the level of %5.1f at a position of %i from the center" % self.PSFSidelobes[0]
         self.FWHMBeamAvg = (np.average(np.array([tup[0] for tup in self.FWHMBeam])),
                             np.average(np.array([tup[1] for tup in self.FWHMBeam])),
