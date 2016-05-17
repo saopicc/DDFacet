@@ -26,11 +26,16 @@ def test():
 
 class ClassClusterKMean():
     def __init__(self,x,y,s,NCluster=10,DoPlot=True):
-        self.X=x
-        self.Y=y
-        self.S=s
+        self.X=x.copy()
+        self.Y=y.copy()
+        self.S=s.copy()
         self.NCluster=NCluster
         self.DoPlot=DoPlot
+
+        
+
+
+
 
     def Cluster(self):
         x=self.X

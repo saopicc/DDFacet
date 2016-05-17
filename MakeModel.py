@@ -93,7 +93,7 @@ def main(options=None):
             nchan,npol,_,_=SqrtNormImage.shape
             for ch in range(nchan):
                 for pol in range(npol):
-                    SqrtNormImage[ch,pol,:,:]=np.sqrt(SqrtNormImage[ch,pol,:,:].T[::-1,:])
+                    SqrtNormImage[ch,pol,:,:]=(SqrtNormImage[ch,pol,:,:].T[::-1,:])
             
 
         

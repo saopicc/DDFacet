@@ -83,6 +83,11 @@ class ClassSM():
         if not(".npy" in infile): npext=".npy"
         self.NpFile="%s%s"%(infile,npext)
         np.save(infile,self.SourceCat)
+
+        FileClusterCat="%s.ClusterCat.npy"%(self.infile)
+        print "   - ClusterCat File Name: %s"%ModColor.Str(FileClusterCat,col="green")
+        np.save(FileClusterCat,self.ClusterCat)
+
         self.PrintBasics()
 
     def PrintBasics(self):
