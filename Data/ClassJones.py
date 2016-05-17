@@ -22,7 +22,7 @@ class ClassJones():
         self.JonesNormSolsFile_killMS="%s/JonesNorm_killMS.npz"%ThisMSName
         self.JonesNormSolsFile_Beam="%s/JonesNorm_Beam.npz"%ThisMSName
         self.HasKillMSSols=False
-        self.BeamTimes_kMS=None
+        self.BeamTimes_kMS=np.array([],np.float32)
 
 
     def InitDDESols(self,DATA):
