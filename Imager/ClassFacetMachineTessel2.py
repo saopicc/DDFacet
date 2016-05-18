@@ -448,6 +448,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         l_m_Diam=np.zeros((NFacets,4),np.float32)
         l_m_Diam[:,3]=np.arange(NFacets)
 
+        Np=10000
         D={}
         for iFacet in range(NFacets):
             D[iFacet]={}
@@ -469,18 +470,24 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             # mask_flat = mpath.contains_points(XY_flat)
             # mask=mask_flat.reshape(X.shape)
             # ###############################
-            
-            # lc=np.sum(X*mask)/np.sum(mask)
-            # mc=np.sum(Y*mask)/np.sum(mask)
-            # dl=np.max(np.abs(X[mask==1]-lc))
-            # dm=np.max(np.abs(Y[mask==1]-mc))
-            # diam=2*np.max([dl,dm])
-            
-            lc=(l0+l1)/2.
-            mc=(m0+m1)/2.
-            dl=l1-l0
-            dm=m1-m0
-            diam=np.max([dl,dm])
+            ThisPolygon=Polygon.Polygon(polygon)
+            lc,mc=ThisPolygon.center()
+            dl=np.max(np.abs([l0-lc,l1-lc]))
+            dm=np.max(np.abs([m0-mc,m1-mc]))
+            ###############################
+            #lc=np.sum(X*mask)/np.sum(mask)
+            #mc=np.sum(Y*mask)/np.sum(mask)
+            #dl=np.max(np.abs(X[mask==1]-lc))
+            #dm=np.max(np.abs(Y[mask==1]-mc))
+            diam=2*np.max([dl,dm])
+
+
+            ######################
+            # lc=(l0+l1)/2.
+            # mc=(m0+m1)/2.
+            # dl=l1-l0
+            # dm=m1-m0
+            # diam=np.max([dl,dm])
 
             l_m_Diam[iFacet,0]=lc
             l_m_Diam[iFacet,1]=mc

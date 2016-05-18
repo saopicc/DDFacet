@@ -24,6 +24,8 @@ import time
 MyLogger.setSilent("ClassArrayMethodGA")
 MyLogger.setSilent("ClassIsland")
 
+
+
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,
@@ -50,7 +52,8 @@ class ClassImageDeconvMachine():
         self.ModelMachine=ClassModelMachineGA.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
         # reset overall iteration counter
         self._niter = 0
-        
+        self.PSFCross=None
+
         if CleanMaskImage!=None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
@@ -107,66 +110,152 @@ class ClassImageDeconvMachine():
             self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
 
     def CalcCrossIslandPSF(self,ListIslands):
+        print>>log,"  calculating global islands cross-contamination"
         PSF=self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
         nPSF,_=PSF.shape
         xcPSF,ycPSF=nPSF/2,nPSF/2
 
         IN=lambda x: ((x>=0)&(x<nPSF))
 
+
         NIslands=len(ListIslands)
-        PSFCross=np.zeros((NIslands,NIslands),np.float32)
+        # NDone=0
+        # NJobs=NIslands
+        # pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Calc Cross Contam.", HeaderSize=10,TitleSize=13)
+        # #pBAR.disable()
+        # pBAR.render(0, '%4i/%i' % (0,NJobs))
+
+
+        # PSFCross=np.zeros((NIslands,NIslands),np.float32)
+        # for iIsland in range(NIslands):
+        #     NDone+=1
+        #     intPercent=int(100*  NDone / float(NJobs))
+        #     pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+        #     x0,y0=np.array(ListIslands[iIsland]).T
+        #     xc0,yc0=int(np.mean(x0)),int(np.mean(y0))
+        #     for jIsland in range(iIsland,NIslands):
+        #         x1,y1=np.array(ListIslands[jIsland]).T
+        #         xc1,yc1=int(np.mean(x1)),int(np.mean(y1))
+        #         dx,dy=xc1-xc0+xcPSF,yc1-yc0+xcPSF
+        #         if (IN(dx))&(IN(dy)):
+        #             PSFCross[iIsland,jIsland]=np.abs(PSF[dx,dy])
+        # Diag=np.diag(np.diag(PSFCross))
+        # PSFCross+=PSFCross.T
+        # PSFCross.flat[0::NIslands+1]=Diag.flat[0::NIslands+1]
+
+        xMean=np.zeros((NIslands,),np.int32)
+        yMean=xMean.copy()
         for iIsland in range(NIslands):
             x0,y0=np.array(ListIslands[iIsland]).T
             xc0,yc0=int(np.mean(x0)),int(np.mean(y0))
-            for jIsland in range(NIslands):
-                x1,y1=np.array(ListIslands[jIsland]).T
-                xc1,yc1=int(np.mean(x1)),int(np.mean(y1))
-                dx,dy=xc1-xc0+xcPSF,yc1-yc0+xcPSF
-                if (IN(dx))&(IN(dy)):
-                    PSFCross[iIsland,jIsland]=PSF[dx,dy]
+            xMean[iIsland]=xc0
+            yMean[iIsland]=yc0
+
+        PSFCross=np.zeros((NIslands,NIslands),np.float32)
+        dx=xMean.reshape((NIslands,1))-xMean.reshape((1,NIslands))+xcPSF
+        dy=yMean.reshape((NIslands,1))-yMean.reshape((1,NIslands))+xcPSF
+        indPSF=np.arange(NIslands**2)
+        Cx=((dx>=0)&(dx<nPSF))
+        Cy=((dy>=0)&(dy<nPSF))
+        C=(Cx&Cy)
+        indPSF_sel=indPSF[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*nPSF+dy.ravel()[C.ravel()]
+        PSFCross.flat[indPSF_sel]=np.abs(PSF.flat[indPixPSF.ravel()])
+
+
+
         
         self.PSFCross=PSFCross
+
+    def GiveNearbyIsland(self,DicoIsland,iIsland):
+        Th=0.05
+        indNearbyIsland=np.where((self.PSFCross[iIsland])>Th)[0]
+
+
+        #Th=0.3
+        #Flux=self.CrossFluxContrib[iIsland,iIsland]
+        #C0=(self.CrossFluxContrib[iIsland] > Flux*Th)
+        #indNearbyIsland=np.where(C0)[0]
+
+        ii=0
+        #print DicoIsland.keys()
+        #print>>log,"Looking around island #%i"%(iIsland)
+        for jIsland in indNearbyIsland:
+            #if jIsland in DicoIsland.keys():
+            try:
+                Island=DicoIsland[jIsland]
+                #print>>log,"  merging island #%i -> #%i"%(jIsland,iIsland)
+                del(DicoIsland[jIsland])
+                SubIslands=self.GiveNearbyIsland(DicoIsland,jIsland)
+                if SubIslands!=None:
+                    Island+=SubIslands
+                return Island
+            except:
+                continue
+
+
+        #print>>log,"  could not find island #%i"%(iIsland)
+                
+        return None
+
+
+
 
     def CalcCrossIslandFlux(self,ListIslands):
         if self.PSFCross==None:
             self.CalcCrossIslandPSF(ListIslands)
         NIslands=len(ListIslands)
+        print>>log,"  grouping cross contaninating islands..."
 
-        ContribCross=np.zeros((NIslands,NIslands),np.float32)
+        MaxIslandFlux=np.zeros((NIslands,),np.float32)
         DicoIsland={}
 
+        Dirty=self.DicoDirty["MeanImage"]
 
-
-        # for iIsland in range(NIslands):
-        #     x0,y0=np.array(ListIslands[iIsland]).T
-        #     PixVals0=Dirty[0,0,x0,y0]
-        #     Sum0=np.sum(PixVals0)
-        #     N0=x0.size
-        #     for jIsland in range(NIslands):
-        #         x1,y1=np.array(ListIslands[jIsland]).T
-        #         PixVals1=Dirty[0,0,x1,y1]
-        #         Sum1=np.sum(PixVals1)
-        #         ContribCross[iIsland,jIsland]=np.abs(Sum1*self.PSFCross[iIsland,jIsland])*N0
-        # SumSelfContrib=np.diag(ContribCross)
-        # SumExternalContrib=np.sum(ContribCross,axis=0)-SumSelfContrib
 
         for iIsland in range(NIslands):
+
+            x0,y0=np.array(ListIslands[iIsland]).T
+            PixVals0=Dirty[0,0,x0,y0]
+            MaxIslandFlux[iIsland]=np.max(PixVals0)
             DicoIsland[iIsland]=ListIslands[iIsland]
+
+        self.CrossFluxContrib=self.PSFCross*MaxIslandFlux.reshape((1,NIslands))
         
+
+        NDone=0
+        NJobs=NIslands
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Group islands", HeaderSize=10,TitleSize=13)
+        pBAR.disable()
+        pBAR.render(0, '%4i/%i' % (0,NJobs))
+
         Th=0.05
         ListIslandMerged=[]
         for iIsland in range(NIslands):
-            indiIsland=np.where(np.abs(self.PSFCross[iIsland])>Th)[0]
-            ListX=[]
-            ListY=[]
-            for jIsland in indiIsland:
-                try:
-                    ListX+=DicoIsland[iIsland][0]
-                    ListY+=DicoIsland[iIsland][0]
-                    del(DicoIsland[iIsland])
-                except:
-                    pass
-            ListIslandMerged.append([ListX,ListY])
+            NDone+=1
+            intPercent=int(100*  NDone / float(NJobs))
+            pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+
+            ThisIsland=self.GiveNearbyIsland(DicoIsland,iIsland)
+            
+            # indiIsland=np.where((self.PSFCross[iIsland])>Th)[0]
+            # ThisIsland=[]
+            # #print "Island #%i: %s"%(iIsland,str(np.abs(self.PSFCross[iIsland])))
+            # for jIsland in indiIsland:
+            #     if not(jIsland in DicoIsland.keys()): 
+            #         #print>>log,"    island #%i not there "%(jIsland)
+            #         continue
+            #     #print>>log,"  Putting island #%i in #%i"%(jIsland,iIsland)
+            #     for iPix in range(len(DicoIsland[jIsland])):
+            #         ThisIsland.append(DicoIsland[jIsland][iPix])
+            #     del(DicoIsland[jIsland])
+
+
+            if ThisIsland!=None:
+                ListIslandMerged.append(ThisIsland)
+
+        print>>log,"    have grouped %i --> %i islands"%(NIslands, len(ListIslandMerged))
+
         return ListIslandMerged
 
 
@@ -181,9 +270,30 @@ class ClassImageDeconvMachine():
         Islands=ClassIslands.ClassIslands(Dirty[0,0],MaskImage=MaskImage,
                                           MinPerIsland=0,DeltaXYMin=0)
         Islands.FindAllIslands()
-        
 
         ListIslands=Islands.LIslands
+
+        print>>log,"  found %i islands"%len(ListIslands)
+        dx=self.GD["GAClean"]["NEnlargePars"]
+        if dx>0:
+            print>>log,"  increase their sizes by %i pixels"%dx
+            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+            for iIsland in range(self.NIslands):
+                ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
+
+        ListIslands=self.CalcCrossIslandFlux(ListIslands)
+
+
+        # FluxIslands=[]
+        # for iIsland in range(len(ListIslands)):
+        #     x,y=np.array(ListIslands[iIsland]).T
+        #     FluxIslands.append(np.sum(Dirty[0,0,x,y]))
+        # ind=np.argsort(np.array(FluxIslands))[::-1]
+
+        # ListIslandsSort=[ListIslands[i] for i in ind]
+        
+
+        # ListIslands=self.CalcCrossIslandFlux(ListIslandsSort)
         self.ListIslands=[]
 
         for iIsland in range(len(ListIslands)):
@@ -200,13 +310,8 @@ class ClassImageDeconvMachine():
 
 
         self.NIslands=len(self.ListIslands)
-        print>>log,"Selected %i islands [out of %i] with peak flux > %.3g Jy"%(self.NIslands,len(ListIslands),Threshold)
+        print>>log,"  selected %i islands [out of %i] with peak flux > %.3g Jy"%(self.NIslands,len(ListIslands),Threshold)
 
-        dx=self.GD["GAClean"]["NEnlargePars"]
-        if dx>0:
-            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-            for iIsland in range(self.NIslands):
-                self.ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(self.ListIslands[iIsland],dx=dx)
 
         Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
         ind=np.argsort(Sz)[::-1]
@@ -506,7 +611,7 @@ class ClassImageDeconvMachine():
             workerlist[ii].start()
 
 
-        print>>log, "  Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
+        print>>log, "Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolve pop.", HeaderSize=10,TitleSize=13)
         #pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NJobs))
