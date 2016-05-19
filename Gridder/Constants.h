@@ -1,4 +1,4 @@
 #pragma once
-//double PI=3.14159265359;
-float C=299792456.;
-float PI=3.141592;
+#include <math.h>
+double C=2.99792456e8;
+#define PI M_PI

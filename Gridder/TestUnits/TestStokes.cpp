@@ -243,7 +243,7 @@ TEST_CASE( "Test give PSF vis double", "[psf_vis_double]" )
 
 TEST_CASE( "Test I to XX,YY", "[I_XXYY]" )
 {
-  double _Complex data[4] = {3+0*_Complex_I};
+  double _Complex data[1] = {3+0*_Complex_I};
   double _Complex data_out[2] = {0+0*_Complex_I, 0+0*_Complex_I};
   int in[1] = {casacore::Stokes::I};
   int out[2] = {casacore::Stokes::XX, casacore::Stokes::YY};
@@ -258,7 +258,7 @@ TEST_CASE( "Test I to XX,YY", "[I_XXYY]" )
 
 TEST_CASE( "Test I to RR,LL", "[I_RRLL]" )
 {
-  double _Complex data[4] = {3+0*_Complex_I};
+  double _Complex data[1] = {3+0*_Complex_I};
   double _Complex data_out[2] = {0+0*_Complex_I, 0+0*_Complex_I};
   int in[1] = {casacore::Stokes::I};
   int out[2] = {casacore::Stokes::RR, casacore::Stokes::LL};
@@ -267,4 +267,34 @@ TEST_CASE( "Test I to RR,LL", "[I_RRLL]" )
   free_stokes_library();
   REQUIRE(data_out[0] == 3+0*_Complex_I);
   REQUIRE(data_out[1] == 3+0*_Complex_I);
+}
+
+TEST_CASE( "Test I to RR,RL,LR,LL", "[I_RRRLLRLL]" )
+{
+  double _Complex data[1] = {3+0*_Complex_I};
+  double _Complex data_out[4] = {0+0*_Complex_I, 0+0*_Complex_I, 0+0*_Complex_I, 0+0*_Complex_I};
+  int in[1] = {casacore::Stokes::I};
+  int out[4] = {casacore::Stokes::RR, casacore::Stokes::RL, casacore::Stokes::LR, casacore::Stokes::LL};
+  init_stokes_converter(1,4,in,out);
+  convert_corrs_64(data,data_out);
+  free_stokes_library();
+  REQUIRE(data_out[0] == 3+0*_Complex_I);
+  REQUIRE(data_out[1] == 0+0*_Complex_I);
+  REQUIRE(data_out[2] == 0+0*_Complex_I);
+  REQUIRE(data_out[3] == 3+0*_Complex_I);
+}
+
+TEST_CASE( "Test I to XX,XY,YX,YY", "[I_XXXYYXYY]" )
+{
+  double _Complex data[1] = {3+0*_Complex_I};
+  double _Complex data_out[4] = {0+0*_Complex_I, 0+0*_Complex_I, 0+0*_Complex_I, 0+0*_Complex_I};
+  int in[1] = {casacore::Stokes::I};
+  int out[4] = {casacore::Stokes::RR, casacore::Stokes::RL, casacore::Stokes::LR, casacore::Stokes::LL};
+  init_stokes_converter(1,4,in,out);
+  convert_corrs_64(data,data_out);
+  free_stokes_library();
+  REQUIRE(data_out[0] == 3+0*_Complex_I);
+  REQUIRE(data_out[1] == 0+0*_Complex_I);
+  REQUIRE(data_out[2] == 0+0*_Complex_I);
+  REQUIRE(data_out[3] == 3+0*_Complex_I);
 }

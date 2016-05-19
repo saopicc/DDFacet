@@ -691,8 +691,8 @@ class ClassDDEGridMachine():
                                           OptimisationInfos,
                                           self.LSmear,
                                           np.int32(ChanMapping),
-                                          [np.int32(corr) for corr in self.DataCorrelationFormat],
-                                          [np.int32(stokes) for stokes in self.ExpectedOutputStokes])
+                                          np.array(self.DataCorrelationFormat, dtype=np.int32),
+                                          np.array(self.ExpectedOutputStokes, dtype=np.int32))
 
         NCH,_,_,_=Grid.shape
         Dirty= self.GridToIm(Grid)
@@ -857,14 +857,14 @@ class ClassDDEGridMachine():
                                                   np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
                                                   self.incr.astype(np.float64),
                                                   freqs,
-                                                  [self.PolMap,FacetInfos,RowInfos],
+                                                  [FacetInfos,self.PolMap],
                                                   ParamJonesList,
                                                   MapSmear,
                                                   OptimisationInfos,
                                                   self.LSmear,
                                                   np.int32(ChanMapping),
-						  [np.int32(corr) for corr in self.DataCorrelationFormat],
-						  [np.int32(stokes) for stokes in self.ExpectedOutputStokes])
+						  np.array(self.DataCorrelationFormat, dtype=np.int32),
+						  np.array(self.ExpectedOutputStokes, dtype=np.int32))
             
 
         T.timeit("4 (degrid)")

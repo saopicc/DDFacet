@@ -63,49 +63,31 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
                               float Dnu,
                               float DT);
 
-// gridding_parameters parse_python_objects();
+void parse_python_objects(PyArrayObject *grid,
+			  PyArrayObject *vis,
+			  PyArrayObject *uvw,
+			  PyArrayObject *flags,
+			  PyArrayObject *weights,
+			  PyArrayObject *sumwt,
+			  int dopsf,
+			  PyObject *Lcfs,
+			  PyObject *LcfsConj,
+			  PyArrayObject *Winfos,
+			  PyArrayObject *increment,
+			  PyArrayObject *freqs,
+			  PyObject *Lmaps,
+			  PyObject *LJones,
+			  PyArrayObject *SmearMapping,
+			  PyObject *LOptimisation,
+			  PyObject *LSmearing,
+			  PyArrayObject *np_ChanMapping,
+			  PyArrayObject *data_corr_products,
+			  PyArrayObject *output_stokes_products,
+			  gridding_parameters * out);
 
-void gridderWPol(PyArrayObject *np_grid,
-                 PyArrayObject *vis,
-                 PyArrayObject *uvw,
-                 PyArrayObject *flags,
-                 PyArrayObject *weigths,
-                 PyArrayObject *sumwt,
-                 int dopsf,
-                 PyObject *Lcfs,
-                 PyObject *LcfsConj,
-                 PyArrayObject *Winfos,
-                 PyArrayObject *increment,
-                 PyArrayObject *freqs,
-                 PyObject *Lmaps,
-                 PyObject *LJones,
-                 PyArrayObject *SmearMapping,
-                 PyObject *LOptimisation,
-                 PyObject *LSmear,
-                 PyArrayObject *np_ChanMapping,
-		 PyObject *data_corr_products,
-		 PyObject *output_stokes_products);
+void gridderWPol(gridding_parameters * params);
 
-
-void DeGridderWPol(PyArrayObject *np_grid,
-                   PyArrayObject *vis,
-                   PyArrayObject *uvw,
-                   PyArrayObject *flags,
-                   PyArrayObject *sumwt,
-                   int dopsf,
-                   PyObject *Lcfs,
-                   PyObject *LcfsConj,
-                   PyArrayObject *Winfos,
-                   PyArrayObject *increment,
-                   PyArrayObject *freqs,
-                   PyObject *Lmaps,
-                   PyObject *LJones,
-                   PyArrayObject *SmearMapping,
-                   PyObject *LOptimisation,
-                   PyObject *LSmear,
-                   PyArrayObject *np_ChanMapping,
-		   PyObject *data_corr_products,
-		   PyObject *output_stokes_products);
+void DeGridderWPol(gridding_parameters *  params);
 
 int FullScalarMode;
 int ScalarJones;
