@@ -500,7 +500,7 @@ class ClassImageDeconvMachine():
 
     def ToFile(self, fname):
         """
-        Method to write model image to file
+        Write model dict to file
         """
         self.ModelMachine.ToFile(fname)
 

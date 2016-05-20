@@ -126,11 +126,11 @@ class ClassImagerDeconv():
             del(self.GD["ImagerDeconv"]["MaxMajorIter"])
             MinorCycleConfig=dict(self.GD["ImagerDeconv"])
             MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
+            MinorCycleConfig["GD"] = self.GD
 
             if self.GD["MultiScale"]["MSEnable"]:
                 print>>log, "Minor cycle deconvolution in Multi Scale Mode"
                 self.MinorCycleMode="MS"
-                MinorCycleConfig["GD"]=self.GD
                 # Specify which deconvolution algorithm to use
                 if self.GD["ImagerDeconv"]["MinorCycleMode"] == "MSMF":
                     self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
