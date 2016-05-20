@@ -313,9 +313,9 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
     PyArrayObject * data_corr_products;
     PyArrayObject * output_stokes_products;
 
-    if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!O!O!",
+    if (!PyArg_ParseTuple(args, "O!O!O!O!O!iO!O!O!O!O!O!O!O!O!O!O!O!O!",
                           &PyArray_Type,  &np_grid,
-                          &ObjVis,
+                          &PyArray_Type,  &np_vis,
                           &PyArray_Type,  &uvw,
                           &PyArray_Type,  &flags,
                           &PyArray_Type,  &sumwt,
@@ -334,7 +334,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 			  &PyArray_Type, &data_corr_products,
 			  &PyArray_Type, &output_stokes_products
                          ))  return NULL;
-    np_vis = (PyArrayObject *) PyArray_ContiguousFromObject(ObjVis, PyArray_COMPLEX64, 0, 3);
+//     np_vis = (PyArrayObject *) PyArray_ContiguousFromObject(ObjVis, PyArray_COMPLEX64, 0, 3);
     gridding_parameters params;
     parse_python_objects(np_grid, np_vis, uvw, 
 			 flags, NULL, sumwt, 
@@ -348,8 +348,10 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
     init_stokes_converter(params.nGridPol,params.nVisCorr,
 			  params.VisStokesDesc,params.VisCorrDesc);
     DeGridderWPol(&params);
-    
-    return PyArray_Return(np_vis);
+    free_stokes_library();
+
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 void gridderWPol(gridding_parameters * params)

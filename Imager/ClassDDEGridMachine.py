@@ -756,7 +756,7 @@ class ClassDDEGridMachine():
     def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None,ImToGrid=True,TranformModelInput="",ChanMapping=None):
         T=ClassTimeIt.ClassTimeIt("get")
         T.disable()
-        vis=visIn
+        vis=visIn.view()
         A0,A1=A0A1
 
         T.timeit("0")
@@ -846,7 +846,7 @@ class ClassDDEGridMachine():
             OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType,self.PolModeID]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMemData))
 
-            vis = _pyGridderSmear.pyDeGridderWPol(Grid,
+            _pyGridderSmear.pyDeGridderWPol(Grid,
                                                   vis,
                                                   uvw,
                                                   flag,
