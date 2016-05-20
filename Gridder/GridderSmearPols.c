@@ -991,7 +991,7 @@ void DeGridderWPol(gridding_parameters *  params)
                                 phased_vis_corr[ThisPol]=visBuff[ThisPol]*phasor;
                             }
                         } else {
-			  for(ThisPol =0; ThisPol<4; ThisPol++) {
+			  for(ThisPol =0; ThisPol < params->nVisCorr; ThisPol++) {
                                 phased_vis_corr[ThisPol]=model_vis_corr[ThisPol]*phasor;
                           }
                         }
