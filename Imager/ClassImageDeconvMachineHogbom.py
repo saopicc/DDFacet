@@ -78,7 +78,12 @@ class ClassImageDeconvMachine():
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.SetModelRefFreq()
-        tmp = [{'Alpha':0.0,'Scale':0, 'ModelType': 'Delta'}]
+        tmp = []
+        AlphaMin, AlphaMax, NAlpha = self.GD["MultiFreqs"]["Alpha"]
+        Alpha = np.linspace(AlphaMin,AlphaMax,NAlpha+1)
+        for i in range(self.NFreqBand):
+            tmp.append({'Alpha': Alpha[i], 'Scale': 0, 'ModelType': 'Delta'})
+
         self.ModelMachine.setListComponants(tmp)
 
 
@@ -195,6 +200,7 @@ class ClassImageDeconvMachine():
         #if self.MultiFreqMode:  #If multiple frequencies are present construct the weighted mean
         W=np.float32(self.DicoDirty["WeightChansImages"])  #Get the weights
         self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0) #Sum over frequency
+        #print 'x=1'
 
     def setChannel(self,ch=0):
         """
@@ -256,7 +262,7 @@ class ClassImageDeconvMachine():
         MaxDirty = self.Dirty[0][x,y]
 
         #Get peak factor stopping criterion
-        Fluxlimit_Peak = 0.15*2.55 #MaxDirty*self.PeakFactor
+        Fluxlimit_Peak = MaxDirty*self.PeakFactor
 
         #Get side lobe stopping criterion
         Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
@@ -337,7 +343,7 @@ class ClassImageDeconvMachine():
                 CurrentGain = self.GainMachine.GiveGain()
                 #Subtract LocalSM*CurrentGain from dirty image
                 tmp = PSF*Fpol*CurrentGain*np.sqrt(JonesNorm)
-                self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, Fpol)
+                self.ModelMachine.AppendComponentToDictStacked((x, y), Fpol, Sol)
                 self.SubStep((x,y),PSF*Fpol*CurrentGain*np.sqrt(JonesNorm))
                 T.timeit("SubStep")
 
