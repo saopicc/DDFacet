@@ -15,16 +15,15 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 class ClassMultiScaleMachine():
 
-    def __init__(self,GD,Gain=0.1,GainMachine=None):
+    def __init__(self,GD,Gain=0.1,GainMachine=None,NFreqBands=1):
         self.SubPSF=None
         self.GainMachine=GainMachine
         self.CubePSFScales=None
         self.GD=GD
         self.MultiFreqMode=False
         self.Alpha=np.array([0.],float)
-        if self.GD["MultiFreqs"]["NFreqBands"]:
-            self.MultiFreqMode=True
-            self.NFreqBand=self.GD["MultiFreqs"]["NFreqBands"]
+        self.NFreqBands = NFreqBands
+        self.MultiFreqMode = NFreqBands>1
 
 
     def setModelMachine(self,ModelMachine):
@@ -168,7 +167,7 @@ class ClassMultiScaleMachine():
         Support=31
         #Support=1
 
-        #CubePSFScales=np.zeros((self.NFreqBand,NScales+NRatios*NTheta*(NScales-1),nx,ny))
+        #CubePSFScales=np.zeros((self.NFreqBands,NScales+NRatios*NTheta*(NScales-1),nx,ny))
         ListPSFScales=[]
         ListPSFScalesWeights=[]
         # Scale Zero
@@ -177,8 +176,8 @@ class ClassMultiScaleMachine():
         ######################
 
         AllFreqs=[]
-        AllFreqsMean=np.zeros((self.NFreqBand,),np.float32)
-        for iChannel in range(self.NFreqBand):
+        AllFreqsMean=np.zeros((self.NFreqBands,),np.float32)
+        for iChannel in range(self.NFreqBands):
             AllFreqs+=self.DicoVariablePSF["freqs"][iChannel]
             AllFreqsMean[iChannel]=np.mean(self.DicoVariablePSF["freqs"][iChannel])
 
@@ -223,7 +222,7 @@ class ClassMultiScaleMachine():
                 Minor=Scales[iScales]/(2.*np.sqrt(2.*np.log(2.)))
                 Major=Minor
                 PSFGaussPars=(Major,Minor,0.)
-                ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBand)[:,0,:,:]#[0,0]
+                ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBands)[:,0,:,:]#[0,0]
                 Max=np.max(ThisPSF)
                 ThisPSF/=Max
                 ThisSupport=int(np.max([Support,3*Major]))
@@ -234,7 +233,8 @@ class ClassMultiScaleMachine():
                 #ThisPSF*=fact
                 ListPSFScales.append(ThisPSF)
                 self.ListScales.append({"ModelType":"Gaussian",#"fact":fact,
-                                        "Model":Gauss,"Scale":iScales,"Alpha":ThisAlpha})
+                                        "Model":Gauss, "ModelParams":PSFGaussPars,
+                                        "Scale":iScales,"Alpha":ThisAlpha})
             
             iSlice+=1
         
@@ -247,7 +247,7 @@ class ClassMultiScaleMachine():
                         Minor=Scales[iScale]/(2.*np.sqrt(2.*np.log(2.)))
                         Major=Minor*ratio
                         PSFGaussPars=(Major,Minor,th)
-                        ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBand)[:,0,:,:]
+                        ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBands)[:,0,:,:]
                         Max=np.max(ThisPSF)
                         ThisPSF/=Max
                         ListPSFScales.append(ThisPSF)
@@ -265,14 +265,15 @@ class ClassMultiScaleMachine():
                         #fact=np.max(Gauss)/np.sum(Gauss)
                         #Gauss*=fact
                         self.ListScales.append({"ModelType":"Gaussian",
-                                                "Model":Gauss,"Scale":iScale,
+                                                "Model":Gauss, "ModelParams": PSFGaussPars,
+                                                "Scale":iScale,
                                                 "Alpha":ThisAlpha})
 
         # Max=np.max(np.max(CubePSFScales,axis=1),axis=1)
         # Max=Max.reshape((Max.size,1,1))
         # CubePSFScales=CubePSFScales/Max
 
-        # for iChannel in range(self.NFreqBand):
+        # for iChannel in range(self.NFreqBands):
         #     Flat=np.zeros((nch,nx,ny),ThisPSF.dtype)
         #     Flat[iChannel]=1
         #     ListPSFScales.append(Flat)
@@ -671,7 +672,7 @@ class ClassMultiScaleMachine():
         ConvSM=((np.dot(BM,Sol)).ravel())#*(WVecPSF.ravel())
         #Sol/=self.Bias
 
-        #Sol[-self.NFreqBand::]=0
+        #Sol[-self.NFreqBands::]=0
         # Sol=np.dot(BM.T,WVecPSF*dirtyVec)
         # Sol[Sol<0]=0
 

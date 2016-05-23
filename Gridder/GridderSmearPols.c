@@ -41,10 +41,10 @@ void AddTimeit(struct timespec PreviousTime, long int *aTime){
 
 /* ==== Set up the methods table ====================== */
 static PyMethodDef _pyGridderSmearPols_testMethods[] = {
-	{"pyGridderWPol", pyGridderWPol, METH_VARARGS},
-	{"pyDeGridderWPol", pyDeGridderWPol, METH_VARARGS},
-	{"pyTestMatrix", pyTestMatrix, METH_VARARGS},
-	{NULL, NULL}     /* Sentinel - marks the end of this structure */
+        {"pyGridderWPol", pyGridderWPol, METH_VARARGS},
+        {"pyDeGridderWPol", pyDeGridderWPol, METH_VARARGS},
+        {"pyTestMatrix", pyTestMatrix, METH_VARARGS},
+        {NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
 
 /* ==== Initialize the C_test functions ====================== */
@@ -75,26 +75,26 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
   int dopsf;
 
   if (!PyArg_ParseTuple(args, "O!O!O!O!O!O!iO!O!O!O!O!O!O!O!O!O!O!", 
-			//&ObjGridIn,
-			&PyArray_Type,  &np_grid, 
-			&PyArray_Type,  &vis, 
-			&PyArray_Type,  &uvw, 
-			&PyArray_Type,  &flags, 
-			&PyArray_Type,  &weights,
-			&PyArray_Type,  &sumwt, 
-			&dopsf, 
-			&PyList_Type, &Lcfs,
-			&PyList_Type, &LcfsConj,
-			&PyArray_Type,  &WInfos,
-			&PyArray_Type,  &increment,
-			&PyArray_Type,  &freqs,
-			&PyList_Type, &Lmaps,
-			&PyList_Type, &LJones,
-			&PyArray_Type,  &SmearMapping,
-			&PyList_Type, &LOptimisation,
-			&PyList_Type, &LSmearing,
-			&PyArray_Type,  &np_ChanMapping
-			))  return NULL;
+                        //&ObjGridIn,
+                        &PyArray_Type,  &np_grid, 
+                        &PyArray_Type,  &vis, 
+                        &PyArray_Type,  &uvw, 
+                        &PyArray_Type,  &flags, 
+                        &PyArray_Type,  &weights,
+                        &PyArray_Type,  &sumwt, 
+                        &dopsf, 
+                        &PyList_Type, &Lcfs,
+                        &PyList_Type, &LcfsConj,
+                        &PyArray_Type,  &WInfos,
+                        &PyArray_Type,  &increment,
+                        &PyArray_Type,  &freqs,
+                        &PyList_Type, &Lmaps,
+                        &PyList_Type, &LJones,
+                        &PyArray_Type,  &SmearMapping,
+                        &PyList_Type, &LOptimisation,
+                        &PyList_Type, &LSmearing,
+                        &PyArray_Type,  &np_ChanMapping
+                        ))  return NULL;
   int nx,ny,nz,nzz;
   //np_grid = (PyArrayObject *) PyArray_ContiguousFromObject(ObjGridIn, PyArray_COMPLEX64, 0, 4);
 
@@ -119,27 +119,27 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 
 
 void gridderWPol(PyArrayObject *grid,
-		 PyArrayObject *vis,
-		 PyArrayObject *uvw,
-		 PyArrayObject *flags,
-		 PyArrayObject *weights,
-		 PyArrayObject *sumwt,
-		 int dopsf,
-		 PyObject *Lcfs,
-		 PyObject *LcfsConj,
-		 PyArrayObject *Winfos,
-		 PyArrayObject *increment,
-		 PyArrayObject *freqs,
-		 PyObject *Lmaps, 
-		 PyObject *LJones,
-		 PyArrayObject *SmearMapping,
-		 PyObject *LOptimisation,
-		 PyObject *LSmearing,
-		 PyArrayObject *np_ChanMapping
-		 )
+                 PyArrayObject *vis,
+                 PyArrayObject *uvw,
+                 PyArrayObject *flags,
+                 PyArrayObject *weights,
+                 PyArrayObject *sumwt,
+                 int dopsf,
+                 PyObject *Lcfs,
+                 PyObject *LcfsConj,
+                 PyArrayObject *Winfos,
+                 PyArrayObject *increment,
+                 PyArrayObject *freqs,
+                 PyObject *Lmaps, 
+                 PyObject *LJones,
+                 PyArrayObject *SmearMapping,
+                 PyObject *LOptimisation,
+                 PyObject *LSmearing,
+                 PyArrayObject *np_ChanMapping
+                 )
   {
     // Get size of convolution functions.
-    int nrows     = uvw->dimensions[0];
+    size_t nrows     = uvw->dimensions[0];
     PyArrayObject *cfs;
     PyArrayObject *NpPolMap;
     NpPolMap = (PyArrayObject *) PyList_GetItem(Lmaps, 0);
@@ -266,13 +266,13 @@ void gridderWPol(PyArrayObject *grid,
     /*   nPolVis=1; */
     /*   int ipol; */
     /*   for (ipol=1; ipol<nVisPol; ++ipol) { */
-    /* 	PolMap[ipol]=5; */
+    /*         PolMap[ipol]=5; */
     /*   } */
     /* } */
     int ipol;
     if(PolMode==0){
       for (ipol=1; ipol<4; ++ipol) {
-    	PolMap[ipol]=5;
+            PolMap[ipol]=5;
       }
     }
     
@@ -290,13 +290,13 @@ void gridderWPol(PyArrayObject *grid,
     int NTotBlocks=MappingBlock[0];
     int *NRowBlocks=MappingBlock+1;
     int *StartRow=MappingBlock+1+NTotBlocks;
-    int iBlock;
+    size_t iBlock;
 
     int NMaxRow=0;
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
       int NRowThisBlock=NRowBlocks[iBlock]-2;
       if(NRowThisBlock>NMaxRow){
-	NMaxRow=NRowThisBlock;
+        NMaxRow=NRowThisBlock;
       }
     }
     float complex *CurrentCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
@@ -372,16 +372,16 @@ void gridderWPol(PyArrayObject *grid,
       //printf("\n");
       //printf("Block[%i] Nrows=%i %i>%i\n",iBlock,NRowThisBlock,chStart,chEnd);
       for(ThisPol =0; ThisPol<4;ThisPol++){
-	Vis[ThisPol]=0;
-	VisMeas[ThisPol]=0;
+        Vis[ThisPol]=0;
+        VisMeas[ThisPol]=0;
       }
 
       double ThisWeight=0.;
       float ThisSumJones=0.;
       float ThisSumSqWeights=0.;
       for(visChan=0; visChan<nVisChan; visChan++){
-	ThisSumJonesChan[visChan]=0;
-	ThisSumSqWeightsChan[visChan]=0;
+        ThisSumJonesChan[visChan]=0;
+        ThisSumSqWeightsChan[visChan]=0;
       }
 
 
@@ -391,179 +391,179 @@ void gridderWPol(PyArrayObject *grid,
       resetJonesServerCounter();
 
       for (inx=0; inx<NRowThisBlock; inx++) {
-	int irow = Row[inx];
-	if(irow>nrows){continue;}
-	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
-	//printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
-	//printf("[%i] %i>%i\n",irow,chStart,chEnd);
-	//printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
-	
-	//clock_gettime(CLOCK_MONOTONIC_RAW, &PreviousTime);
-	
-	WeightVaryJJ=1.;
+        size_t irow = Row[inx];
+        if(irow>nrows){continue;}
+        double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
+        //printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
+        //printf("[%i] %i>%i\n",irow,chStart,chEnd);
+        //printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
+        
+        //clock_gettime(CLOCK_MONOTONIC_RAW, &PreviousTime);
+        
+        WeightVaryJJ=1.;
 
 
-	float DeCorrFactor=1.;
-	if(DoDecorr){
-	  int iRowMeanThisBlock=Row[NRowThisBlock/2];
-	  
-	  double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;
-	  double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
-	  
-	  DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
-					       (float)l0, (float)m0,
-					       uvwPtrMidRow,
-					       uvw_dt_PtrMidRow,
-					       (float)FreqMean0,
-					       (float)Dnu, 
-					       (float)DT);
+        float DeCorrFactor=1.;
+        if(DoDecorr){
+          int iRowMeanThisBlock=Row[NRowThisBlock/2];
+          
+          double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;
+          double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
+          
+          DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
+                                               (float)l0, (float)m0,
+                                               uvwPtrMidRow,
+                                               uvw_dt_PtrMidRow,
+                                               (float)FreqMean0,
+                                               (float)Dnu, 
+                                               (float)DT);
 
-	  //printf("DeCorrFactor %f %f: %f\n",l0,m0,DeCorrFactor);
+          //printf("DeCorrFactor %f %f: %f\n",l0,m0,DeCorrFactor);
 
-	}
-	
+        }
+        
 
-	//AddTimeit(PreviousTime,TimeGetJones);
-	for (visChan=chStart; visChan<chEnd; ++visChan) {
-	  int doff = (irow * nVisChan + visChan) * nVisPol;
-	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
-	  double*   imgWtPtr = p_float64(weights) + irow  * nVisChan + visChan;
-	  
-	  //###################### Facetting #######################
-	  // Change coordinate and shift visibility to facet center
-	  float U=(float)uvwPtr[0];
-	  float V=(float)uvwPtr[1];
-	  float W=(float)uvwPtr[2];
-	  //AddTimeit(PreviousTime,TimeShift);
-	  //#######################################################
+        //AddTimeit(PreviousTime,TimeGetJones);
+        for (visChan=chStart; visChan<chEnd; ++visChan) {
+          size_t doff = (irow * nVisChan + visChan) * nVisPol;
+          bool* __restrict__ flagPtr = p_bool(flags) + doff;
+          double*   imgWtPtr = p_float64(weights) + irow  * nVisChan + visChan;
+          
+          //###################### Facetting #######################
+          // Change coordinate and shift visibility to facet center
+          float U=(float)uvwPtr[0];
+          float V=(float)uvwPtr[1];
+          float W=(float)uvwPtr[2];
+          //AddTimeit(PreviousTime,TimeShift);
+          //#######################################################
 
-	  float complex corr;
-	  if(ChanEquidistant){
-	    if(visChan==0){
-	      float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-	      CurrentCorrTerm[inx]=cexp(-UVNorm*(U*l0+V*m0+W*n0));
-	      float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
-	      dCorrTerm[inx]=cexp(-dUVNorm*(U*l0+V*m0+W*n0));
-	    }else{
-	      CurrentCorrTerm[inx]*=dCorrTerm[inx];
-	    }
-	    corr=CurrentCorrTerm[inx];
-	  }
-	  else{
-	    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-	    corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
-	  }
+          float complex corr;
+          if(ChanEquidistant){
+            if(visChan==0){
+              float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+              CurrentCorrTerm[inx]=cexp(-UVNorm*(U*l0+V*m0+W*n0));
+              float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
+              dCorrTerm[inx]=cexp(-dUVNorm*(U*l0+V*m0+W*n0));
+            }else{
+              CurrentCorrTerm[inx]*=dCorrTerm[inx];
+            }
+            corr=CurrentCorrTerm[inx];
+          }
+          else{
+            float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+            corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
+          }
 
-	  
-	  /* float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
-	  /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
+          
+          /* float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
+          /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
 
-	  
-	  int OneFlagged=0;
-	  int cond;
-	  // We can do that since all flags in 4-pols are equalised in ClassVisServer
-	  if(flagPtr[0]==1){continue;}
+          
+          int OneFlagged=0;
+          int cond;
+          // We can do that since all flags in 4-pols are equalised in ClassVisServer
+          if(flagPtr[0]==1){continue;}
 
-	  if(DoApplyJones){
-	    updateJones(irow, visChan, uvwPtr, 1);
-	  } //endif DoApplyJones
+          if(DoApplyJones){
+            updateJones(irow, visChan, uvwPtr, 1);
+          } //endif DoApplyJones
 
-	  //ThisBlockAllFlagged=0;
-	  //AddTimeit(PreviousTime,TimeStuff);
+          //ThisBlockAllFlagged=0;
+          //AddTimeit(PreviousTime,TimeStuff);
 
-	  float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;
-	  
-	  if (dopsf==1) {
-	    VisMeas[0]= 1.;
-	    VisMeas[1]= 0.;
-	    VisMeas[2]= 0.;
-	    VisMeas[3]= 1.;
-	    corr=1.;
-	    if(DoApplyJones){
-	      MatDot(J0,JonesType,VisMeas,SkyType,VisMeas);
-	      MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);
-	    }
-	    if(DoDecorr){
-	      for(ThisPol =0; ThisPol<4;ThisPol++){
-		VisMeas[ThisPol]*=DeCorrFactor;
+          float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;
+          
+          if (dopsf==1) {
+            VisMeas[0]= 1.;
+            VisMeas[1]= 0.;
+            VisMeas[2]= 0.;
+            VisMeas[3]= 1.;
+            corr=1.;
+            if(DoApplyJones){
+              MatDot(J0,JonesType,VisMeas,SkyType,VisMeas);
+              MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);
+            }
+            if(DoDecorr){
+              for(ThisPol =0; ThisPol<4;ThisPol++){
+                VisMeas[ThisPol]*=DeCorrFactor;
 
-	      }
-	    }	      
-	  }else{
-	    for(ThisPol =0; ThisPol<4;ThisPol++){
-	      VisMeas[ThisPol]=visPtrMeas[ThisPol];
-	    }
-	  }
+              }
+            }              
+          }else{
+            for(ThisPol =0; ThisPol<4;ThisPol++){
+              VisMeas[ThisPol]=visPtrMeas[ThisPol];
+            }
+          }
 
-	  float FWeight=(*imgWtPtr)*WeightVaryJJ*DeCorrFactor;//*WeightVaryJJ;
-	  float complex Weight=(FWeight) * corr;
-	  float complex visPtr[4];
-	  if(DoApplyJones){
-	    /* MatDot(J0inv,JonesType,VisMeas,SkyType,visPtr); */
-	    /* MatDot(visPtr,SkyType,J1Hinv,JonesType,visPtr); */
+          float FWeight=(*imgWtPtr)*WeightVaryJJ*DeCorrFactor;//*WeightVaryJJ;
+          float complex Weight=(FWeight) * corr;
+          float complex visPtr[4];
+          if(DoApplyJones){
+            /* MatDot(J0inv,JonesType,VisMeas,SkyType,visPtr); */
+            /* MatDot(visPtr,SkyType,J1Hinv,JonesType,visPtr); */
 
-	    /* MatDot(J1T,JonesType,VisMeas,SkyType,visPtr); */
-	    /* MatDot(visPtr,SkyType,J0Conj,JonesType,visPtr); */
+            /* MatDot(J1T,JonesType,VisMeas,SkyType,visPtr); */
+            /* MatDot(visPtr,SkyType,J0Conj,JonesType,visPtr); */
 
-	    MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);
-	    MatDot(visPtr,SkyType,J1,JonesType,visPtr);
+            MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);
+            MatDot(visPtr,SkyType,J1,JonesType,visPtr);
 
-	    /* int ThisPol; */
-	    /* for(ThisPol =0; ThisPol<1;ThisPol++){ */
-	    /*   printf("   vis: %i (%f, %f)\n",ThisPol,creal(visPtr[ThisPol]),cimag(visPtr[ThisPol])); */
-	    /* } */
-	    
-	    // Vis+=visPtr*Weight
-	    Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);
+            /* int ThisPol; */
+            /* for(ThisPol =0; ThisPol<1;ThisPol++){ */
+            /*   printf("   vis: %i (%f, %f)\n",ThisPol,creal(visPtr[ThisPol]),cimag(visPtr[ThisPol])); */
+            /* } */
+            
+            // Vis+=visPtr*Weight
+            Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);
 
-	    float FWeightSq=(FWeight)*(FWeight);
-	    ThisSumJones+=BB*FWeightSq;
-	    ThisSumSqWeights+=FWeightSq;
+            float FWeightSq=(FWeight)*(FWeight);
+            ThisSumJones+=BB*FWeightSq;
+            ThisSumSqWeights+=FWeightSq;
 
-	    ThisSumJonesChan[visChan]+=BB*FWeightSq;
-	    ThisSumSqWeightsChan[visChan]+=FWeightSq;
+            ThisSumJonesChan[visChan]+=BB*FWeightSq;
+            ThisSumSqWeightsChan[visChan]+=FWeightSq;
 
-	    //ptrSumJonesChan[visChan]+=BB*FWeightSq;
-	    //ptrSumJonesChan[nVisChan+visChan]+=FWeightSq;
+            //ptrSumJonesChan[visChan]+=BB*FWeightSq;
+            //ptrSumJonesChan[nVisChan+visChan]+=FWeightSq;
 
-	    ////====================================
-	    //int gridChan=p_ChanMapping[visChan];
-	    //ptrSumJones[gridChan]+=BB*FWeightSq;
-	    //ptrSumJones[gridChan+nGridChan]+=FWeightSq;
-	    ////====================================
+            ////====================================
+            //int gridChan=p_ChanMapping[visChan];
+            //ptrSumJones[gridChan]+=BB*FWeightSq;
+            //ptrSumJones[gridChan+nGridChan]+=FWeightSq;
+            ////====================================
 
-	  }else{
-	    Mat_A_Bl_Sum(Vis,SkyType,VisMeas,SkyType,Weight);
-	  };
+          }else{
+            Mat_A_Bl_Sum(Vis,SkyType,VisMeas,SkyType,Weight);
+          };
 
-	  /* if(DoDecorr){ */
-	  /*   for(ThisPol =0; ThisPol<4;ThisPol++){ */
-	  /*     Vis[ThisPol]*=DeCorrFactor; */
-	  /*   } */
-	  /* } */
+          /* if(DoDecorr){ */
+          /*   for(ThisPol =0; ThisPol<4;ThisPol++){ */
+          /*     Vis[ThisPol]*=DeCorrFactor; */
+          /*   } */
+          /* } */
 
 
-	  //AddTimeit(PreviousTime,TimeApplyJones);
+          //AddTimeit(PreviousTime,TimeApplyJones);
 
-	  U+=W*Cu;
-	  V+=W*Cv;
-	  //###################### Averaging #######################
-	  Umean+=U;
-	  Vmean+=V;
-	  Wmean+=W;
-	  //printf("factorFreq %f\n",factorFreq);
-	  FreqMean+=factorFreq*(float)Pfreqs[visChan];
-	  //FreqMean+=(float)Pfreqs[visChan];
-	  ThisWeight+=(FWeight);
-	  //ThisSumJones+=(*imgWtPtr);
-	  
-	  visChanMean+=p_ChanMapping[visChan];
+          U+=W*Cu;
+          V+=W*Cv;
+          //###################### Averaging #######################
+          Umean+=U;
+          Vmean+=V;
+          Wmean+=W;
+          //printf("factorFreq %f\n",factorFreq);
+          FreqMean+=factorFreq*(float)Pfreqs[visChan];
+          //FreqMean+=(float)Pfreqs[visChan];
+          ThisWeight+=(FWeight);
+          //ThisSumJones+=(*imgWtPtr);
+          
+          visChanMean+=p_ChanMapping[visChan];
 
-	  NVisThisblock+=1.;//(*imgWtPtr);
-	  //AddTimeit(PreviousTime,TimeAverage);
-	  //printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);
-	  
-	}//endfor vischan
+          NVisThisblock+=1.;//(*imgWtPtr);
+          //AddTimeit(PreviousTime,TimeAverage);
+          //printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);
+          
+        }//endfor vischan
       }//endfor RowThisBlock
       if(NVisThisblock==0){continue;}
       Umean/=NVisThisblock;
@@ -578,21 +578,20 @@ void gridderWPol(PyArrayObject *grid,
       //printf("%i %i %f\n",i_ant0,i_ant1,visChanMean);
       visChanMean=0.;
       if(PolMode==0){
-	Vis[0]=(Vis[0]+Vis[3])/2.;
-	Vis[3]=Vis[0];
+        Vis[0]=(Vis[0]+Vis[3])/2.;
+        Vis[3]=Vis[0];
       }
 
       
       /* printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6)); */
       /* int ThisPol; */
       /* for(ThisPol =0; ThisPol<4;ThisPol++){ */
-      /* 	printf("   vis: %i (%f, %f)\n",ThisPol,creal(Vis[ThisPol]),cimag(Vis[ThisPol])); */
+      /*         printf("   vis: %i (%f, %f)\n",ThisPol,creal(Vis[ThisPol]),cimag(Vis[ThisPol])); */
       /* } */
       
       // ################################################
       // ############## Start Gridding visibility #######
-      int gridChan = p_ChanMapping[chStart];//0;//chanMap_p[visChan];
-      
+      size_t gridChan = p_ChanMapping[chStart];//0;//chanMap_p[visChan];  // gridChan is the output image band onto which this channel is gridded
       int CFChan = 0;//ChanCFMap[visChan];
       double recipWvl = FreqMean / C;
       double ThisWaveLength=C/FreqMean;
@@ -602,15 +601,15 @@ void gridderWPol(PyArrayObject *grid,
       int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);
       int skipW=0;
       if(iwplane>NwPlanes-1){
-	skipW=1;
-//	printf("SIP\n");
-	continue;
+        skipW=1;
+//        printf("SIP\n");
+        continue;
       };
       
       if(wcoord>0){
-      	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);
+              cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);
       } else{
-      	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);
+              cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);
       }
       int nConvX = cfs->dimensions[0];
       int nConvY = cfs->dimensions[1];
@@ -620,92 +619,91 @@ void gridderWPol(PyArrayObject *grid,
       // ################################################
 
 
-	
-	
+        
+        
 
       if (gridChan >= 0  &&  gridChan < nGridChan) {
-      	double posx,posy;
-      	//For Even/Odd take the -1 off
-      	posx = uvwScale_p[0] * Umean * recipWvl + offset_p[0];//#-1;
-      	posy = uvwScale_p[1] * Vmean * recipWvl + offset_p[1];//-1;
-	
-      	int locx = nint (posx);    // location in grid
-      	int locy = nint (posy);
-      	//printf("locx=%i, locy=%i\n",locx,locy);
-      	double diffx = locx - posx;
-      	double diffy = locy - posy;
-      	//printf("diffx=%f, diffy=%f\n",diffx,diffy);
-	
-      	int offx = nint (diffx * sampx); // location in
-      	int offy = nint (diffy * sampy); // oversampling
-      	//printf("offx=%i, offy=%i\n",offx,offy);
-      	offx += (nConvX-1)/2;
-      	offy += (nConvY-1)/2;
-      	// Scaling with frequency is not necessary (according to Cyril).
-      	double freqFact = 1;
-      	int fsampx = nint (sampx * freqFact);
-      	int fsampy = nint (sampy * freqFact);
-      	int fsupx  = nint (supx / freqFact);
-      	int fsupy  = nint (supy / freqFact);
-	
-      	// Only use visibility point if the full support is within grid.
-	
-      	//printf("offx=%i, offy=%i\n",offx,offy);
-      	//assert(1==0);
-	
-      	if (locx-supx >= 0  &&  locx+supx < nGridX  &&
-      	    locy-supy >= 0  &&  locy+supy < nGridY) {
-	  
-      	  int ipol;
-      	  for (ipol=0; ipol<nVisPol; ++ipol) {
-      	    float complex VisVal;
-      	    /* if (dopsf==1) { */
-      	    /*   VisVal = 1.; */
-      	    /* }else{ */
-      	    /*   VisVal =Vis[ipol]; */
-      	    /* } */
-	    VisVal =Vis[ipol];
-	    //printf("VisVal=(%f,%f), factor=(%f)\n",creal(VisVal),cimag(VisVal),factorFreq);
-      	    //VisVal*=ThisWeight;
+              double posx,posy;
+              //For Even/Odd take the -1 off
+              posx = uvwScale_p[0] * Umean * recipWvl + offset_p[0];//#-1;
+              posy = uvwScale_p[1] * Vmean * recipWvl + offset_p[1];//-1;
+        
+              int locx = nint (posx);    // location in grid
+              int locy = nint (posy);
+              //printf("locx=%i, locy=%i\n",locx,locy);
+              double diffx = locx - posx;
+              double diffy = locy - posy;
+              //printf("diffx=%f, diffy=%f\n",diffx,diffy);
+        
+              int offx = nint (diffx * sampx); // location in
+              int offy = nint (diffy * sampy); // oversampling
+              //printf("offx=%i, offy=%i\n",offx,offy);
+              offx += (nConvX-1)/2;
+              offy += (nConvY-1)/2;
+              // Scaling with frequency is not necessary (according to Cyril).
+              double freqFact = 1;
+              int fsampx = nint (sampx * freqFact);
+              int fsampy = nint (sampy * freqFact);
+              int fsupx  = nint (supx / freqFact);
+              int fsupy  = nint (supy / freqFact);
+        
+              // Only use visibility point if the full support is within grid.
+        
+              //printf("offx=%i, offy=%i\n",offx,offy);
+              //assert(1==0);
+        
+              if (locx-supx >= 0  &&  locx+supx < nGridX  &&
+                  locy-supy >= 0  &&  locy+supy < nGridY) {
+          
+                int ipol;
+                for (ipol=0; ipol<nVisPol; ++ipol) {
+                  float complex VisVal;
+                  /* if (dopsf==1) { */
+                  /*   VisVal = 1.; */
+                  /* }else{ */
+                  /*   VisVal =Vis[ipol]; */
+                  /* } */
+                  VisVal =Vis[ipol];
+            //printf("VisVal=(%f,%f), factor=(%f)\n",creal(VisVal),cimag(VisVal),factorFreq);
+                  //VisVal*=ThisWeight;
 
-	    //if(ThisBlockAllFlagged==0){VisVal = 0.;}
+            //if(ThisBlockAllFlagged==0){VisVal = 0.;}
 
-      	    // Map to grid polarization. Only use pol if needed.
-      	    int gridPol = PolMap[ipol];
-      	    if (gridPol >= 0  &&  gridPol < nGridPol) {
-      	      int goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
-      	      int sy;
-      	      float complex* __restrict__ gridPtr;
-      	      const float complex* __restrict__ cf0;
-      	      int io=(offy - fsupy*fsampy);
-      	      int jo=(offx - fsupx*fsampx);
-      	      int cfoff = io * OverS * SupportCF*SupportCF + jo * SupportCF*SupportCF;
-      	      cf0 =  p_complex64(cfs) + cfoff;
-      	      for (sy=-fsupy; sy<=fsupy; ++sy) {
-      		gridPtr =  p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx;
-      		int sx;
-      		for (sx=-fsupx; sx<=fsupx; ++sx) {
-      		  //printf("gird=(%f,%f), vis=(%f,%f), cf=(%f,%f)\n",creal((*gridPtr)),cimag((*gridPtr)),creal(VisVal),cimag(VisVal),creal(*cf0),cimag(*cf0));
-      		  *gridPtr++ += VisVal * *cf0;
-      		  cf0 ++;
-      		}
-		
-      	      }
-      	      sumWtPtr[gridPol+gridChan*nGridPol] += ThisWeight;
-	      if(DoApplyJones){
-	      	ptrSumJones[gridChan]+=ThisSumJones;
-	      	ptrSumJones[gridChan+nGridChan]+=ThisSumSqWeights;
+                  // Map to grid polarization. Only use pol if needed.
+                  int gridPol = PolMap[ipol];
+                  if (gridPol >= 0  &&  gridPol < nGridPol) {
+                    size_t goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
+                    int sy;
+                    float complex* __restrict__ gridPtr;
+                    const float complex* __restrict__ cf0;
+                    int io=(offy - fsupy*fsampy);
+                    int jo=(offx - fsupx*fsampx);
+                    int cfoff = io * OverS * SupportCF*SupportCF + jo * SupportCF*SupportCF;
+                    cf0 =  p_complex64(cfs) + cfoff;
+                    for (sy=-fsupy; sy<=fsupy; ++sy) {
+                      gridPtr =  p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx;
+                      int sx;
+                      for (sx=-fsupx; sx<=fsupx; ++sx) {
+                        //printf("gird=(%f,%f), vis=(%f,%f), cf=(%f,%f)\n",creal((*gridPtr)),cimag((*gridPtr)),creal(VisVal),cimag(VisVal),creal(*cf0),cimag(*cf0));
+                        *gridPtr++ += VisVal * *cf0;
+                        cf0 ++;
+                      }
 
-		for(visChan=0; visChan<nVisChan; visChan++){
-		  ptrSumJonesChan[visChan]+=ThisSumJonesChan[visChan];
-		  ptrSumJonesChan[nVisChan+visChan]+=ThisSumSqWeightsChan[visChan];
-		}
+                    }
+                    sumWtPtr[gridPol+gridChan*nGridPol] += ThisWeight;
+                    if(DoApplyJones) {
+                        ptrSumJones[gridChan]+=ThisSumJones;
+                        ptrSumJones[gridChan+nGridChan]+=ThisSumSqWeights;
 
-	      }
+                        for(visChan=0; visChan<nVisChan; visChan++){
+                          ptrSumJonesChan[visChan]+=ThisSumJonesChan[visChan];
+                          ptrSumJonesChan[nVisChan+visChan]+=ThisSumSqWeightsChan[visChan];
+                        }
 
-      	    } // end if gridPol
-      	  } // end for ipol
-      	} // end if ongrid
+                    }
+                  } // end if gridPol
+                } // end for ipol
+              } // end if ongrid
       } // end if gridChan
       //AddTimeit(PreviousTime,TimeGrid);
  
@@ -750,25 +748,25 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
   int dopsf;
 
   if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!", 
-			//&ObjGridIn,
-			&PyArray_Type,  &np_grid,
-			&ObjVis,//&PyArray_Type,  &vis, 
-			&PyArray_Type,  &uvw, 
-			&PyArray_Type,  &flags, 
-			//&PyArray_Type,  &rows, 
-			&PyArray_Type,  &sumwt, 
-			&dopsf, 
-			&PyList_Type, &Lcfs,
-			&PyList_Type, &LcfsConj,
-			&PyArray_Type,  &WInfos,
-			&PyArray_Type,  &increment,
-			&PyArray_Type,  &freqs,
-			&PyList_Type, &Lmaps, &PyList_Type, &LJones,
-			&PyArray_Type, &SmearMapping,
-			&PyList_Type, &LOptimisation,
-			&PyList_Type, &LSmear,
-			&PyArray_Type, &np_ChanMapping
-			))  return NULL;
+                        //&ObjGridIn,
+                        &PyArray_Type,  &np_grid,
+                        &ObjVis,//&PyArray_Type,  &vis, 
+                        &PyArray_Type,  &uvw, 
+                        &PyArray_Type,  &flags, 
+                        //&PyArray_Type,  &rows, 
+                        &PyArray_Type,  &sumwt, 
+                        &dopsf, 
+                        &PyList_Type, &Lcfs,
+                        &PyList_Type, &LcfsConj,
+                        &PyArray_Type,  &WInfos,
+                        &PyArray_Type,  &increment,
+                        &PyArray_Type,  &freqs,
+                        &PyList_Type, &Lmaps, &PyList_Type, &LJones,
+                        &PyArray_Type, &SmearMapping,
+                        &PyList_Type, &LOptimisation,
+                        &PyList_Type, &LSmear,
+                        &PyArray_Type, &np_ChanMapping
+                        ))  return NULL;
   int nx,ny,nz,nzz;
 
   np_vis = (PyArrayObject *) PyArray_ContiguousFromObject(ObjVis, PyArray_COMPLEX64, 0, 3);
@@ -788,19 +786,19 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 
 
 void DeGridderWPol(PyArrayObject *grid,
-		   PyArrayObject *vis,
-		   PyArrayObject *uvw,
-		   PyArrayObject *flags,
-		   //PyArrayObject *rows,
-		   PyArrayObject *sumwt,
-		   int dopsf,
-		   PyObject *Lcfs,
-		   PyObject *LcfsConj,
-		   PyArrayObject *Winfos,
-		   PyArrayObject *increment,
-		   PyArrayObject *freqs,
-		   PyObject *Lmaps, PyObject *LJones, PyArrayObject *SmearMapping, PyObject *LOptimisation, PyObject *LSmearing,
-		 PyArrayObject *np_ChanMapping)
+                   PyArrayObject *vis,
+                   PyArrayObject *uvw,
+                   PyArrayObject *flags,
+                   //PyArrayObject *rows,
+                   PyArrayObject *sumwt,
+                   int dopsf,
+                   PyObject *Lcfs,
+                   PyObject *LcfsConj,
+                   PyArrayObject *Winfos,
+                   PyArrayObject *increment,
+                   PyArrayObject *freqs,
+                   PyObject *Lmaps, PyObject *LJones, PyArrayObject *SmearMapping, PyObject *LOptimisation, PyObject *LSmearing,
+                 PyArrayObject *np_ChanMapping)
   {
     // Get size of convolution functions.
     PyArrayObject *cfs;
@@ -925,7 +923,7 @@ void DeGridderWPol(PyArrayObject *grid,
     int ipol;
     if(PolMode==0){
       for (ipol=1; ipol<4; ++ipol) {
-    	PolMap[ipol]=5;
+            PolMap[ipol]=5;
       }
     }
 
@@ -946,7 +944,7 @@ void DeGridderWPol(PyArrayObject *grid,
     /*   nPolVis=1; */
     /*   int ipol; */
     /*   for (ipol=1; ipol<nVisPol; ++ipol) { */
-    /* 	PolMap[ipol]=5; */
+    /*         PolMap[ipol]=5; */
     /*   } */
     /* } */
 
@@ -963,7 +961,7 @@ void DeGridderWPol(PyArrayObject *grid,
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
       int NRowThisBlock=NRowBlocks[iBlock]-2;
       if(NRowThisBlock>NMaxRow){
-	NMaxRow=NRowThisBlock;
+        NMaxRow=NRowThisBlock;
       }
     }
     float complex *CurrentCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
@@ -1009,38 +1007,38 @@ void DeGridderWPol(PyArrayObject *grid,
       float visChanMean=0.;
       resetJonesServerCounter();
       for (inx=0; inx<NRowThisBlock; inx++) {
-	int irow = Row[inx];
-	if(irow>nrows){continue;}
-	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
-	//printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
-	//printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
-	
-	int ThisPol;
-	for (visChan=chStart; visChan<chEnd; ++visChan) {
-	  int doff = (irow * nVisChan + visChan) * nVisPol;
-	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
-	  int OneFlagged=0;
-	  int cond;
-	  //char ch="a";
-	  //if(flagPtr[0]==1){OneFlagged=1;}
-	  //if(OneFlagged){continue;}
-	  
-	  float U=(float)uvwPtr[0];
-	  float V=(float)uvwPtr[1];
-	  float W=(float)uvwPtr[2];
+        int irow = Row[inx];
+        if(irow>nrows){continue;}
+        double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
+        //printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
+        //printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
+        
+        int ThisPol;
+        for (visChan=chStart; visChan<chEnd; ++visChan) {
+          int doff = (irow * nVisChan + visChan) * nVisPol;
+          bool* __restrict__ flagPtr = p_bool(flags) + doff;
+          int OneFlagged=0;
+          int cond;
+          //char ch="a";
+          //if(flagPtr[0]==1){OneFlagged=1;}
+          //if(OneFlagged){continue;}
+          
+          float U=(float)uvwPtr[0];
+          float V=(float)uvwPtr[1];
+          float W=(float)uvwPtr[2];
 
-	  U+=W*Cu;
-	  V+=W*Cv;
-	  //###################### Averaging #######################
-	  Umean+=U;
-	  Vmean+=V;
-	  Wmean+=W;
-	  FreqMean+=(float)Pfreqs[visChan];
-	  visChanMean+=p_ChanMapping[visChan];
-	  NVisThisblock+=1;
-	  //printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);
-	  
-	}//endfor vischan
+          U+=W*Cu;
+          V+=W*Cv;
+          //###################### Averaging #######################
+          Umean+=U;
+          Vmean+=V;
+          Wmean+=W;
+          FreqMean+=(float)Pfreqs[visChan];
+          visChanMean+=p_ChanMapping[visChan];
+          NVisThisblock+=1;
+          //printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);
+          
+        }//endfor vischan
       }//endfor RowThisBlock
       if(NVisThisblock==0){continue;}
       Umean/=NVisThisblock;
@@ -1059,7 +1057,7 @@ void DeGridderWPol(PyArrayObject *grid,
       //printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6));
       /* int ThisPol; */
       /* for(ThisPol =0; ThisPol<4;ThisPol++){ */
-      /* 	printf("   vis: %i (%f, %f)\n",ThisPol,creal(Vis[ThisPol]),cimag(Vis[ThisPol])); */
+      /*         printf("   vis: %i (%f, %f)\n",ThisPol,creal(Vis[ThisPol]),cimag(Vis[ThisPol])); */
       /* } */
       
 
@@ -1078,9 +1076,9 @@ void DeGridderWPol(PyArrayObject *grid,
       /* if(iwplane>NwPlanes-1){skipW=1;continue;}; */
       
       /* if(wcoord>0){ */
-      /* 	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2); */
+      /*         cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2); */
       /* } else{ */
-      /* 	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2); */
+      /*         cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2); */
       /* } */
       /* int nConvX = cfs->dimensions[0]; */
       /* int nConvY = cfs->dimensions[1]; */
@@ -1090,215 +1088,215 @@ void DeGridderWPol(PyArrayObject *grid,
       /* // ################################################ */
 
 
-	int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);
-	int skipW=0;
-	if(iwplane>NwPlanes-1){skipW=1;continue;};
+        int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);
+        int skipW=0;
+        if(iwplane>NwPlanes-1){skipW=1;continue;};
 
-	//int iwplane = floor((NwPlanes-1)*abs(wcoord)/wmax);
+        //int iwplane = floor((NwPlanes-1)*abs(wcoord)/wmax);
 
-	//printf("wcoord=%f, iw=%i \n",wcoord,iwplane);
+        //printf("wcoord=%f, iw=%i \n",wcoord,iwplane);
 
-	if(wcoord>0){
-	  cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);
-	} else{
-	  cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);
-	}
-	int nConvX = cfs->dimensions[0];
-	int nConvY = cfs->dimensions[1];
-	int supx = (nConvX/OverS-1)/2;
-	int supy = (nConvY/OverS-1)/2;
-	int SupportCF=nConvX/OverS;
-	
-	
+        if(wcoord>0){
+          cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);
+        } else{
+          cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);
+        }
+        int nConvX = cfs->dimensions[0];
+        int nConvY = cfs->dimensions[1];
+        int supx = (nConvX/OverS-1)/2;
+        int supy = (nConvY/OverS-1)/2;
+        int SupportCF=nConvX/OverS;
+        
+        
 
       if (gridChan >= 0  &&  gridChan < nGridChan) {
-      	double posx,posy;
-      	//For Even/Odd take the -1 off
-      	posx = uvwScale_p[0] * Umean * recipWvl + offset_p[0];//#-1;
-      	posy = uvwScale_p[1] * Vmean * recipWvl + offset_p[1];//-1;
-	
-      	int locx = nint (posx);    // location in grid
-      	int locy = nint (posy);
-      	//printf("locx=%i, locy=%i\n",locx,locy);
-      	double diffx = locx - posx;
-      	double diffy = locy - posy;
-      	//printf("diffx=%f, diffy=%f\n",diffx,diffy);
-      	int offx = nint (diffx * sampx); // location in
-      	int offy = nint (diffy * sampy); // oversampling
-      	//printf("offx=%i, offy=%i\n",offx,offy);
-      	offx += (nConvX-1)/2;
-      	offy += (nConvY-1)/2;
-      	// Scaling with frequency is not necessary (according to Cyril).
-      	double freqFact = 1;
-      	int fsampx = nint (sampx * freqFact);
-      	int fsampy = nint (sampy * freqFact);
-      	int fsupx  = nint (supx / freqFact);
-      	int fsupy  = nint (supy / freqFact);
+              double posx,posy;
+              //For Even/Odd take the -1 off
+              posx = uvwScale_p[0] * Umean * recipWvl + offset_p[0];//#-1;
+              posy = uvwScale_p[1] * Vmean * recipWvl + offset_p[1];//-1;
+        
+              int locx = nint (posx);    // location in grid
+              int locy = nint (posy);
+              //printf("locx=%i, locy=%i\n",locx,locy);
+              double diffx = locx - posx;
+              double diffy = locy - posy;
+              //printf("diffx=%f, diffy=%f\n",diffx,diffy);
+              int offx = nint (diffx * sampx); // location in
+              int offy = nint (diffy * sampy); // oversampling
+              //printf("offx=%i, offy=%i\n",offx,offy);
+              offx += (nConvX-1)/2;
+              offy += (nConvY-1)/2;
+              // Scaling with frequency is not necessary (according to Cyril).
+              double freqFact = 1;
+              int fsampx = nint (sampx * freqFact);
+              int fsampy = nint (sampy * freqFact);
+              int fsupx  = nint (supx / freqFact);
+              int fsupy  = nint (supy / freqFact);
 
-	
-      	// Only use visibility point if the full support is within grid.
-      	if (locx-supx >= 0  &&  locx+supx < nGridX  &&
-      	    locy-supy >= 0  &&  locy+supy < nGridY) {
-      	  ///            cout << "in grid"<<endl;
-      	  // Get pointer to data and flags for this channel.
-      	  //int doff = (irow * nVisChan + visChan) * nVisPol;
-      	  //float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
-      	  //bool* __restrict__ flagPtr = p_bool(flags) + doff;
-      	  float complex ThisVis[4]={0};
-	  
-      	  int ipol;
-	  
-      	  // Handle a visibility if not flagged.
-      	  /* for (ipol=0; ipol<nVisPol; ++ipol) { */
-      	  /*   if (! flagPtr[ipol]) { */
-      	  /* 	visPtr[ipol] = Complex(0,0); */
-      	  /*   } */
-      	  /* } */
-	  
-      	  //for (Int w=0; w<4; ++w) {
-      	  //  Double weight_interp(Weights_Lin_Interp[w]);
-      	  for (ipol=0; ipol<nVisPol; ++ipol) {
-      	    //if (((int)flagPtr[ipol])==0) {
-      	      // Map to grid polarization. Only use pol if needed.
-      	      int gridPol = PolMap[ipol];
-      	      if (gridPol >= 0  &&  gridPol < nGridPol) {
-		
-      		int goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
-      		int sy;
-		
-      		const float complex* __restrict__ gridPtr;
-      		const float complex* __restrict__ cf0;
-		
-      		int io=(offy - fsupy*fsampy);
-      		int jo=(offx - fsupx*fsampx);
-      		int cfoff = io * OverS * SupportCF*SupportCF + jo * SupportCF*SupportCF;
-      		cf0 =  p_complex64(cfs) + cfoff;
-		
-		
-		
-		
-      		for (sy=-fsupy; sy<=fsupy; ++sy) {
-      		  gridPtr =  p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx;
-      		  int sx;
-      		  for (sx=-fsupx; sx<=fsupx; ++sx) {
-      		    ThisVis[ipol] += *gridPtr  * *cf0;
-      		    cf0 ++;
-      		    gridPtr++;
-      		  }
-      		}
-      	      } // end if gridPol
-	      
-	      
-	      
-      	    //} // end if !flagPtr
-      	  } // end for ipol
-	  
-	  // ###########################################################
-	  // ################### Now do the correction #################
+        
+              // Only use visibility point if the full support is within grid.
+              if (locx-supx >= 0  &&  locx+supx < nGridX  &&
+                  locy-supy >= 0  &&  locy+supy < nGridY) {
+                ///            cout << "in grid"<<endl;
+                // Get pointer to data and flags for this channel.
+                //int doff = (irow * nVisChan + visChan) * nVisPol;
+                //float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
+                //bool* __restrict__ flagPtr = p_bool(flags) + doff;
+                float complex ThisVis[4]={0};
+          
+                int ipol;
+          
+                // Handle a visibility if not flagged.
+                /* for (ipol=0; ipol<nVisPol; ++ipol) { */
+                /*   if (! flagPtr[ipol]) { */
+                /*         visPtr[ipol] = Complex(0,0); */
+                /*   } */
+                /* } */
+          
+                //for (Int w=0; w<4; ++w) {
+                //  Double weight_interp(Weights_Lin_Interp[w]);
+                for (ipol=0; ipol<nVisPol; ++ipol) {
+                  //if (((int)flagPtr[ipol])==0) {
+                    // Map to grid polarization. Only use pol if needed.
+                    int gridPol = PolMap[ipol];
+                    if (gridPol >= 0  &&  gridPol < nGridPol) {
+                
+                      int goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
+                      int sy;
+                
+                      const float complex* __restrict__ gridPtr;
+                      const float complex* __restrict__ cf0;
+                
+                      int io=(offy - fsupy*fsampy);
+                      int jo=(offx - fsupx*fsampx);
+                      int cfoff = io * OverS * SupportCF*SupportCF + jo * SupportCF*SupportCF;
+                      cf0 =  p_complex64(cfs) + cfoff;
+                
+                
+                
+                
+                      for (sy=-fsupy; sy<=fsupy; ++sy) {
+                        gridPtr =  p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx;
+                        int sx;
+                        for (sx=-fsupx; sx<=fsupx; ++sx) {
+                          ThisVis[ipol] += *gridPtr  * *cf0;
+                          cf0 ++;
+                          gridPtr++;
+                        }
+                      }
+                    } // end if gridPol
+              
+              
+              
+                  //} // end if !flagPtr
+                } // end for ipol
+          
+          // ###########################################################
+          // ################### Now do the correction #################
 
-	  if(PolMode==0){ThisVis[3]=ThisVis[0];}
+          if(PolMode==0){ThisVis[3]=ThisVis[0];}
 
 
-	  ///////////////////////////////////////////////////////
-	  float DeCorrFactor=1.;
-	  if(DoDecorr){
-	    int iRowMeanThisBlock=Row[NRowThisBlock/2];
-	    
-	    double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;
-	    double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
-	    
-	    DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
-						 (float)l0, (float)m0,
-						 uvwPtrMidRow,
-						 uvw_dt_PtrMidRow,
-						 (float)FreqMean,
-						 (float)Dnu, 
-						 (float)DT);
-	    
-	    //printf("DeCorrFactor %f %f: %f\n",l0,m0,DeCorrFactor);
-	    
-	  }
-	  //////////////////////////////////////////////////////
+          ///////////////////////////////////////////////////////
+          float DeCorrFactor=1.;
+          if(DoDecorr){
+            int iRowMeanThisBlock=Row[NRowThisBlock/2];
+            
+            double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;
+            double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
+            
+            DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
+                                                 (float)l0, (float)m0,
+                                                 uvwPtrMidRow,
+                                                 uvw_dt_PtrMidRow,
+                                                 (float)FreqMean,
+                                                 (float)Dnu, 
+                                                 (float)DT);
+            
+            //printf("DeCorrFactor %f %f: %f\n",l0,m0,DeCorrFactor);
+            
+          }
+          //////////////////////////////////////////////////////
 
      for (inx=0; inx<NRowThisBlock; inx++) {
-	int irow = Row[inx];
-	if(irow>nrows){continue;}
-	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
-	//printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
-	//printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
-	
+        int irow = Row[inx];
+        if(irow>nrows){continue;}
+        double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
+        //printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
+        //printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
+        
 
-	int ThisPol;
-	for (visChan=chStart; visChan<chEnd; ++visChan) {
-	  int doff = (irow * nVisChan + visChan) * nVisPol;
-	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
-	  int OneFlagged=0;
-	  int cond;
-	  //if(flagPtr[0]==1){OneFlagged=1;}
-	  //if(OneFlagged){continue;}
-	  
-	  if(DoApplyJones){
-	    updateJones(irow, visChan, uvwPtr, 0);
-	  } //endif DoApplyJones
+        int ThisPol;
+        for (visChan=chStart; visChan<chEnd; ++visChan) {
+          int doff = (irow * nVisChan + visChan) * nVisPol;
+          bool* __restrict__ flagPtr = p_bool(flags) + doff;
+          int OneFlagged=0;
+          int cond;
+          //if(flagPtr[0]==1){OneFlagged=1;}
+          //if(OneFlagged){continue;}
+          
+          if(DoApplyJones){
+            updateJones(irow, visChan, uvwPtr, 0);
+          } //endif DoApplyJones
 
-	  //###################### Facetting #######################
-	  // Change coordinate and shift visibility to facet center
-	  float U=(float)uvwPtr[0];
-	  float V=(float)uvwPtr[1];
-	  float W=(float)uvwPtr[2];
-	  //AddTimeit(PreviousTime,TimeShift);
-	  //#######################################################
+          //###################### Facetting #######################
+          // Change coordinate and shift visibility to facet center
+          float U=(float)uvwPtr[0];
+          float V=(float)uvwPtr[1];
+          float W=(float)uvwPtr[2];
+          //AddTimeit(PreviousTime,TimeShift);
+          //#######################################################
 
-	  float complex corr;
-	  if(ChanEquidistant){
-	    if(visChan==0){
-	      float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-	      CurrentCorrTerm[inx]=cexp(UVNorm*(U*l0+V*m0+W*n0));
-	      float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
-	      dCorrTerm[inx]=cexp(dUVNorm*(U*l0+V*m0+W*n0));
-	    }else{
-	      CurrentCorrTerm[inx]*=dCorrTerm[inx];
-	    }
-	    corr=CurrentCorrTerm[inx];
-	  }
-	  else{
-	    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-	    corr=cexp(UVNorm*(U*l0+V*m0+W*n0));
-	  }
-	  /* float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
-	  /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
-
-
-	  corr*=DeCorrFactor;
-
-	  float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
-	  float complex visBuff[4]={0};
+          float complex corr;
+          if(ChanEquidistant){
+            if(visChan==0){
+              float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+              CurrentCorrTerm[inx]=cexp(UVNorm*(U*l0+V*m0+W*n0));
+              float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
+              dCorrTerm[inx]=cexp(dUVNorm*(U*l0+V*m0+W*n0));
+            }else{
+              CurrentCorrTerm[inx]*=dCorrTerm[inx];
+            }
+            corr=CurrentCorrTerm[inx];
+          }
+          else{
+            float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+            corr=cexp(UVNorm*(U*l0+V*m0+W*n0));
+          }
+          /* float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
+          /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
 
 
-	  if(DoApplyJones){
-	    MatDot(J0,JonesType,ThisVis,SkyType,visBuff);
-	    MatDot(visBuff,SkyType,J1H,JonesType,visBuff);
-	  }else{
-	    for(ThisPol =0; ThisPol<4;ThisPol++){
-	      visBuff[ThisPol]=ThisVis[ThisPol];
-	    }
-	    
-	  }
-	  
-	  Mat_A_l_SumProd(visBuff, SkyType, corr);
+          corr*=DeCorrFactor;
 
-	  Mat_A_Bl_Sum(visPtr, 2, visBuff, 2, (float complex)(-1.));
+          float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
+          float complex visBuff[4]={0};
 
 
+          if(DoApplyJones){
+            MatDot(J0,JonesType,ThisVis,SkyType,visBuff);
+            MatDot(visBuff,SkyType,J1H,JonesType,visBuff);
+          }else{
+            for(ThisPol =0; ThisPol<4;ThisPol++){
+              visBuff[ThisPol]=ThisVis[ThisPol];
+            }
+            
+          }
+          
+          Mat_A_l_SumProd(visBuff, SkyType, corr);
+
+          Mat_A_Bl_Sum(visPtr, 2, visBuff, 2, (float complex)(-1.));
 
 
-	  
-	}//endfor vischan
+
+
+          
+        }//endfor vischan
       }//endfor RowThisBlock
 
 
-	  
-      	} // end if ongrid
+          
+              } // end if ongrid
       } // end if gridChan
       
     } //end for Block

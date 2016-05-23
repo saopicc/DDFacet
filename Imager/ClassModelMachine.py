@@ -1,3 +1,6 @@
+import collections
+import itertools
+
 import numpy as np
 import pylab
 from DDFacet.Other import MyLogger
@@ -106,8 +109,60 @@ class ClassModelMachine():
         mask = alpha<-MaxSpi
         alpha[mask] = -MaxSpi
         if masked or mask.any():
-            print>>log,ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them."%MaxSpi,color="red")
+            print>>log,ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them."%MaxSpi,col="red")
         return alpha
+
+    def GiveModelList(self):
+        """
+        Iterates through components in the "Comp" dictionary of DicoSMStacked,
+        returning a list of model sources in tuples looking like
+        (model_type, coord, flux, ref_freq, alpha, model_params).
+
+        model_type is obtained from self.ListScales
+        coord is obtained from the keys of "Comp"
+        flux is obtained from the entries in Comp["SolsArray"]
+        ref_freq is obtained from DicoSMStacked["RefFreq"]
+        alpha is obtained from self.ListScales
+        model_params is obtained from self.ListScales
+
+        If multiple scales exist, multiple sources will be created
+        at the same position, but different fluxes, alphas etc.
+
+        """
+        DicoComp = self.DicoSMStacked["Comp"]
+        ref_freq = self.DicoSMStacked["RefFreq"]
+
+        # Assumptions:
+        # DicoSMStacked is a dictionary of "Solution" dictionaries
+        # keyed on (l, m), corresponding to some point or
+        # gaussian source. Depending on whether this is multi-scale,
+        # there may be multiple solutions (intensities) for a source in SolsArray.
+        # Components associated with the source for each scale are
+        # located in self.ListScales.
+
+        def _model_map(coord, component):
+            """
+            Given a coordinate and component obtained from DicoMap
+            returns a tuple with the following information
+            (ModelType, coordinate, solution (flux), alpha, shape data)
+            """
+            sa = component["SolsArray"]
+
+            return map(lambda (i, sol, ls): (ls["ModelType"],               # type
+                                             coord,                         # coordinate
+                                             sol,                           # flux
+                                             ref_freq,                      # reference frequency
+                                             ls.get("Alpha", 0.0),          # alpha
+                                             ls.get("ModelParams", None)),  # shape
+               map(lambda i: (i, sa[i], self.ListScales[i]), range(sa.size)))
+
+        # Lazily iterate through DicoComp entries and associated ListScales and SolsArrays,
+        # assigning values to arrays
+        source_iter = itertools.chain.from_iterable(_model_map(coord, comp)
+            for coord, comp in DicoComp.iteritems())
+
+        # Create list with iterator results
+        return [s for s in source_iter]
 
     def GiveModelImage(self,FreqIn=None):
 

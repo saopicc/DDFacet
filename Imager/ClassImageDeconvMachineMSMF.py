@@ -21,6 +21,7 @@ class ClassImageDeconvMachine():
                  MaxMinorIter=100,NCPU=6,
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
                  GD=None,SearchMaxAbs=1,CleanMaskImage=None,
+                 NFreqBands=1,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
@@ -32,7 +33,8 @@ class ClassImageDeconvMachine():
         self.MaskArray=None
         self.GD=GD
         self.SubPSF=None
-        self.MultiFreqMode=(self.GD["MultiFreqs"]["NFreqBands"]>1)
+        self.MultiFreqMode = NFreqBands>1
+        self.NFreqBands = NFreqBands
         self.FluxThreshold = FluxThreshold 
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
@@ -82,7 +84,7 @@ class ClassImageDeconvMachine():
         print>>log,"Initialise MSMF Machine ..."
         for iFacet in range(self.PSFServer.NFacets):
             self.PSFServer.setFacet(iFacet)
-            MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.GainMachine)
+            MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.GainMachine,NFreqBands=self.NFreqBands)
             MSMachine.setModelMachine(self.ModelMachine)
             MSMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
             MSMachine.SetFacet(iFacet)

@@ -1,6 +1,7 @@
 
 from pyrap.images import image
 import os
+import os.path
 from DDFacet.Other import MyPickle
 import numpy as np
 from DDFacet.Other import MyLogger
@@ -8,6 +9,7 @@ log=MyLogger.getLogger("ClassCasaImage")
 from DDFacet.ToolsDir import rad2hmsdms
 import pyfits
 import pyrap.images
+
 
 def PutDataInNewImage(ImageNameIn,ImageNameOut,data,CorrT=False):
     im=image(ImageNameIn)
@@ -104,16 +106,16 @@ def FileToArray(FileName,CorrT):
 
 
 class ClassCasaimage():
-    def __init__(self,ImageName,ImShape,Cell,radec,Lambda=None,KeepCasa=False):
+
+
+    def __init__(self,ImageName,ImShape,Cell,radec,Freqs=None,KeepCasa=False):
         self.Cell=Cell
         self.radec=radec
         self.KeepCasa=KeepCasa
-        self.Lambda=Lambda
-        if Lambda!=None:
-            self.Lambda0,self.dLambda,self.NLambda=Lambda
+        self.Freqs  = Freqs
 
         self.ImShape=ImShape
-        self.nch,self.npol,self.Npix,_=ImShape
+        self.nch,self.npol,self.Npix,_ = ImShape
 
         self.ImageName=ImageName
         #print "image refpix:",rad2hmsdms.rad2hmsdms(radec[0],Type="ra").replace(" ",":"),", ",rad2hmsdms.rad2hmsdms(radec[1],Type="dec").replace(" ",".")
@@ -146,15 +148,9 @@ class ClassCasaimage():
         RaDecRad=self.radec
         RefVal[-1][1]=RaDecRad[0]*180./np.pi*60
         RefVal[-1][0]=RaDecRad[1]*180./np.pi*60
-        if self.Lambda!=None:
-            #print RefVal[0]
-            C=299792458.
-            #Freq0=C/self.Lambda0
-            Lambda=np.array([self.Lambda0+i*self.dLambda for i in range(self.NLambda)])[::-1]
-            self.Freqs=C/Lambda
-            print self.Freqs
-            RefVal[0]=self.Freqs[0]
-            ich,ipol,xy=c.get_referencepixel()
+        if self.Freqs is not None:
+            RefVal[0] = self.Freqs[0]
+            ich,ipol,xy = c.get_referencepixel()
             ich=0
             c.set_referencepixel((ich,ipol,xy))
 
@@ -221,18 +217,19 @@ class ClassCasaimage():
 
     def ToFits(self):
         FileOut=self.ImageName+".fits"
-        os.system("rm -rf %s"%FileOut)
+        if os.path.exists(FileOut):
+            os.unlink(FileOut)
         print>>log, "  ----> Save data in casa image as FITS file %s"%FileOut
-        self.im.tofits(FileOut)
+        self.im.tofits(FileOut,overwrite=True)
 
-    def setBeam(self,beam):
+    def setBeam(self,beam,beamcube=None):
         """
         Add Fitted beam info to FITS header, expects tripple for beam:
         maj: Length of major axis in degrees
         min: Length of minor axis in degrees
         pa: Beam paralactic angle in degrees (counter clockwise, starting from declination-axis)
         """
-        bmaj, bmin, PA=beam
+        bmaj, bmin, PA = beam
         # if the corrT parameter was specified then the image was flipped when synthesized, so we have to
         # reverse the rotation:
         if self.imageFlipped:
@@ -241,10 +238,16 @@ class ClassCasaimage():
         #print>>log, "  ----> Save beam info in FITS file %s"%FileOut
         
         F2=pyfits.open(FileOut)
-        F2[0].header["BMAJ"]=bmaj
-        F2[0].header["BMIN"]=bmin
-        F2[0].header["BPA"]=PA
-        os.system("rm -rf %s"%FileOut)
+        F2[0].header["BMAJ"] = bmaj
+        F2[0].header["BMIN"] = bmin
+        F2[0].header["BPA"] = PA
+        if beamcube is not None:
+            for band,(bmaj, bmin, bpa) in enumerate(beamcube):
+                F2[0].header["BMAJ%d"%band] = bmaj
+                F2[0].header["BMIN%d"%band] = bmin
+                F2[0].header["BPA%d"%band] = PA
+        if os.path.exists(FileOut):
+            os.unlink(FileOut)
         F2.writeto(FileOut,clobber=True)
 
 
