@@ -131,6 +131,7 @@ class ClassImagerDeconv():
             MinorCycleConfig=dict(self.GD["ImagerDeconv"])
             MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
             MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
+            MinorCycleConfig["GD"] = self.GD
             
             if self.GD["MultiScale"]["MSEnable"]:
                 print>>log, "Minor cycle deconvolution in Multi Scale Mode"
@@ -539,7 +540,7 @@ class ClassImagerDeconv():
                 self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
                     Fits=True,Freqs=current_model_freqs)
 
-            self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName)
+            self.DeconvMachine.ToFile(self.DicoModelName)
 
             # fig=pylab.figure(1)
             # pylab.clf()

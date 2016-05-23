@@ -343,7 +343,7 @@ class ClassImageDeconvMachine():
                 CurrentGain = self.GainMachine.GiveGain()
                 #Subtract LocalSM*CurrentGain from dirty image
                 tmp = PSF*Fpol*CurrentGain*np.sqrt(JonesNorm)
-                self.ModelMachine.AppendComponentToDictStacked((x, y), Fpol, Sol)
+                self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, Fpol)
                 self.SubStep((x,y),PSF*Fpol*CurrentGain*np.sqrt(JonesNorm))
                 T.timeit("SubStep")
 
