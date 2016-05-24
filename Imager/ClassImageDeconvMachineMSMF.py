@@ -55,6 +55,11 @@ class ClassImageDeconvMachine():
 
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
+    # def Init(self):
+    #     self.SetPSF(DicoVariablePSF)
+    #     self.setSideLobeLevel(self.PSFSidelobesAvg[0], self.PSFSidelobesAvg[1])
+    #     self.InitMSMF()
+
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
         self.SideLobeLevel=SideLobeLevel
         self.OffsetSideLobe=OffsetSideLobe
@@ -66,6 +71,12 @@ class ClassImageDeconvMachine():
         #self.DicoPSF=DicoPSF
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
+
+    def Init(self,**kwargs):
+        self.SetPSF(kwargs["PSFVar"])
+        self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
+        self.InitMSMF()
+
 
     def InitMSMF(self):
 
@@ -383,6 +394,7 @@ class ClassImageDeconvMachine():
                 #iScale=self.MSMachine.FindBestScale((x,y),Fpol)
 
                 self.PSFServer.setLocation(x,y)
+                PSF = self.PSFServer.GivePSF()
                 MSMachine=self.DicoMSMachine[self.PSFServer.iFacet]
 
                 LocalSM=MSMachine.GiveLocalSM((x,y),Fpol)
@@ -480,3 +492,22 @@ class ClassImageDeconvMachine():
         #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
         return "MaxIter", False, True   # stop deconvolution but do update model
 
+
+    def Update(self,DicoDirty,**kwargs):
+        """
+        Method to update attributes from ClassDeconvMachine
+        """
+        #Update image dict
+        self.SetDirty(DicoDirty)
+
+    def ToFile(self, fname):
+        """
+        Write model dict to file
+        """
+        self.ModelMachine.ToFile(fname)
+
+    def FromFile(self, fname):
+        """
+        Read model dict from file SubtractModel
+        """
+        self.ModelMachine.FromFile(fname)
