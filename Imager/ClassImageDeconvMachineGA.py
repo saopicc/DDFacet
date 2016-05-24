@@ -301,17 +301,18 @@ class ClassImageDeconvMachine():
             PixVals=Dirty[0,0,x,y]
             DoThisOne=False
 
+            MaxIsland=np.max(np.abs(PixVals))
 
-            # ###############################
-            # if np.max(np.abs(PixVals))>Threshold:
-            #     DoThisOne=True
-            #     self.IslandHasBeenDone[0,0,x,y]=1
-            # if ((DoThisOne)|self.IslandHasBeenDone[0,0,x[0],y[0]]):
+            # if (MaxIsland>(3.*self.RMS))|(MaxIsland>Threshold):
             #     self.ListIslands.append(ListIslands[iIsland])
-            # ###############################
-            print "!!!!!!!!!!!!"
-            self.ListIslands.append(ListIslands[iIsland])
-            # ###############################
+
+            ###############################
+            if np.max(np.abs(PixVals))>Threshold:
+                DoThisOne=True
+                self.IslandHasBeenDone[0,0,x,y]=1
+            if ((DoThisOne)|self.IslandHasBeenDone[0,0,x[0],y[0]]):
+                self.ListIslands.append(ListIslands[iIsland])
+            ###############################
 
 
         self.NIslands=len(self.ListIslands)

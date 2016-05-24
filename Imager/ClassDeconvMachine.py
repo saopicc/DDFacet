@@ -402,7 +402,7 @@ class ClassImagerDeconv():
             MM=ClassModelMachine(self.GD)
             MM.FromDico(DicoModel)
 
-            #self.DeconvMachine.ModelMachine.FromFile(SubstractModel)        
+            self.DeconvMachine.ModelMachine.FromDico(DicoModel)
 
 
 
