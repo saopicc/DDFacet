@@ -245,6 +245,7 @@ if __name__=="__main__":
     ParsetFile=sys.argv[1]
 
     TestParset=ReadCFG.Parset(ParsetFile)
+    
     if TestParset.Success==True:
         #global Parset
         

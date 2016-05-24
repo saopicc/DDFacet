@@ -438,7 +438,7 @@ class ClassImagerDeconv():
                 #ModelImage.fill(0)
                 #ModelImage[0,0,1000,2000]=1.
 
-                self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelInit"%(self.BaseName),Fits=True)
+                #self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelInit"%(self.BaseName),Fits=True)
                 #print ModelImage.shape, ModelImage.dtype
                 print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
 
