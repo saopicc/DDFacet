@@ -77,22 +77,53 @@ class ClassArrayMethodGA():
 
 
         M=np.zeros((self.NFreqBands,1,self.NPixListData,self.NPixListParms),np.float32)
+        self.DirtyArray=np.zeros((self.NFreqBands,1,self.NPixListData),np.float32)
         xc=yc=NPixPSF/2
 
+        #PSF.flat[:]=np.arange(PSF.size)
+        #LL=[]
+
         print>>log,"  Calculate M"
-        self.DirtyArray=np.zeros((self.NFreqBands,1,self.NPixListData),np.float32)
+
+        # #####################################
+        # for iBand in range(self.NFreqBands):
+        #     for iPix in range(self.NPixListData):
+        #         x0,y0=self.ListPixData[iPix]
+        #         self.DirtyArray[iBand,0,iPix]=self.Dirty[iBand,0,x0,y0]
+        #         for jPix,(x,y) in zip(range(self.NPixListParms),self.ListPixParms):
+        #             i,j=(x-x0)+xc,(y-y0)+yc
+        #             if (i>=0)&(i<NPixPSF)&(j>=0)&(j<NPixPSF):
+        #                 M[iBand,0,iPix,jPix]=PSF[iBand,0,i,j]
+        #                 #LL.append((i,j))
+        # #####################################
+
+        #M2=np.zeros((self.NFreqBands,1,self.NPixListData,self.NPixListParms),np.float32)
+        #DirtyArray2=np.zeros((self.NFreqBands,1,self.NPixListData),np.float32)
+        M2=M
+        DirtyArray2=self.DirtyArray
+
+        x0,y0=np.array(self.ListPixData).T
+        x1,y1=np.array(self.ListPixParms).T
+        N0=x0.size
+        N1=x1.size
+        dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
+        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+xc).T
+        Cx=((dx>=0)&(dx<NPixPSF))
+        Cy=((dy>=0)&(dy<NPixPSF))
+        C=(Cx&Cy)
+        indPSF=np.arange(M2.shape[-1]*M2.shape[-2])
+        indPSF_sel=indPSF[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF+dy.ravel()[C.ravel()]
         for iBand in range(self.NFreqBands):
-            for iPix in range(self.NPixListData):
-                x0,y0=self.ListPixData[iPix]
-                self.DirtyArray[iBand,0,iPix]=self.Dirty[iBand,0,x0,y0]
-                for jPix,(x,y) in zip(range(self.NPixListParms),self.ListPixParms):
-                    i,j=(x-x0)+xc,(y-y0)+yc
-                    if (i>=0)&(i<NPixPSF)&(j>=0)&(j<NPixPSF):
-                        M[iBand,0,iPix,jPix]=PSF[iBand,0,i,j]
+            DirtyArray2[iBand,0,:]=self.Dirty[iBand,0,x0,y0]
+            PSF_Chan=PSF[iBand,0]
+            M2[iBand,0].flat[indPSF_sel] = PSF_Chan.flat[indPixPSF.ravel()]
+
 
         self.CM=M
-        print>>log,"    Done calculate M"
         
+        print>>log,"    Done calculate M"
+
         #self.Gain=.5
         ALPHA=1.
         if (self.IslandBestIndiv!=None):
@@ -121,7 +152,7 @@ class ClassArrayMethodGA():
                 self.DirtyArray/=self.ALPHA
                 self.DirtyArray+=AddArray
 
-
+        
         print>>log,"  Average M"
         self.DirtyArrayMean=np.mean(self.DirtyArray,axis=0).reshape((1,1,self.NPixListData))
         self.DirtyCMMean=np.mean(M,axis=0).reshape((1,1,self.NPixListData,self.NPixListParms))
@@ -131,14 +162,41 @@ class ClassArrayMethodGA():
         print>>log,"  Calculate MParms"
         MParms=np.zeros((self.NFreqBands,1,self.NPixListParms,self.NPixListParms),np.float32)
         self.DirtyArrayParms=np.zeros((self.NFreqBands,1,self.NPixListParms),np.float32)
+        # ###############################
+        # for iBand in range(self.NFreqBands):
+        #     for iPix in range(self.NPixListParms):
+        #         x0,y0=self.ListPixParms[iPix]
+        #         self.DirtyArrayParms[iBand,0,iPix]=self.Dirty[iBand,0,x0,y0]
+        #         for jPix,(x,y) in zip(range(self.NPixListParms),self.ListPixParms):
+        #             i,j=(x-x0)+xc,(y-y0)+yc
+        #             if (i>=0)&(i<NPixPSF)&(j>=0)&(j<NPixPSF):
+        #                 MParms[iBand,0,iPix,jPix]=PSF[iBand,0,i,j]
+        # ###############################
+
+        #M2=np.zeros((self.NFreqBands,1,self.NPixListParms,self.NPixListParms),np.float32)
+        #DirtyArray2=np.zeros_like(self.DirtyArrayParms)
+        M2=MParms
+        DirtyArray2=self.DirtyArrayParms
+
+        x0,y0=np.array(self.ListPixParms).T
+        x1,y1=np.array(self.ListPixParms).T
+        N0=x0.size
+        N1=x1.size
+        dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
+        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+xc).T
+        Cx=((dx>=0)&(dx<NPixPSF))
+        Cy=((dy>=0)&(dy<NPixPSF))
+        C=(Cx&Cy)
+        indPSF=np.arange(M2.shape[-1]*M2.shape[-2])
+        indPSF_sel=indPSF[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF+dy.ravel()[C.ravel()]
         for iBand in range(self.NFreqBands):
-            for iPix in range(self.NPixListParms):
-                x0,y0=self.ListPixParms[iPix]
-                self.DirtyArrayParms[iBand,0,iPix]=self.Dirty[iBand,0,x0,y0]
-                for jPix,(x,y) in zip(range(self.NPixListParms),self.ListPixParms):
-                    i,j=(x-x0)+xc,(y-y0)+yc
-                    if (i>=0)&(i<NPixPSF)&(j>=0)&(j<NPixPSF):
-                        MParms[iBand,0,iPix,jPix]=PSF[iBand,0,i,j]
+            DirtyArray2[iBand,0,:]=self.Dirty[iBand,0,x0,y0]
+            PSF_Chan=PSF[iBand,0]
+            M2[iBand,0].flat[indPSF_sel] = PSF_Chan.flat[indPixPSF.ravel()]
+
+
+
 
         self.CMParms=MParms
         if self.IslandBestIndiv!=None:

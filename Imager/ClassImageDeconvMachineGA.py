@@ -264,7 +264,7 @@ class ClassImageDeconvMachine():
         print>>log,"Searching Islands"
         Dirty=self.DicoDirty["MeanImage"]
         self.IslandArray[0,0]=(Dirty[0,0]>Threshold)|(self.IslandArray[0,0])
-        MaskImage=(self.IslandArray[0,0])&(np.logical_not(self._MaskArray[0,0]))
+        #MaskImage=(self.IslandArray[0,0])&(np.logical_not(self._MaskArray[0,0]))
         #MaskImage=(np.logical_not(self._MaskArray[0,0]))
         MaskImage=(np.logical_not(self._MaskArray[0,0]))
         Islands=ClassIslands.ClassIslands(Dirty[0,0],MaskImage=MaskImage,
@@ -301,12 +301,17 @@ class ClassImageDeconvMachine():
             PixVals=Dirty[0,0,x,y]
             DoThisOne=False
 
-            if np.max(np.abs(PixVals))>Threshold:
-                DoThisOne=True
-                self.IslandHasBeenDone[0,0,x,y]=1
 
-            if ((DoThisOne)|self.IslandHasBeenDone[0,0,x[0],y[0]]):
-                self.ListIslands.append(ListIslands[iIsland])
+            # ###############################
+            # if np.max(np.abs(PixVals))>Threshold:
+            #     DoThisOne=True
+            #     self.IslandHasBeenDone[0,0,x,y]=1
+            # if ((DoThisOne)|self.IslandHasBeenDone[0,0,x[0],y[0]]):
+            #     self.ListIslands.append(ListIslands[iIsland])
+            # ###############################
+            print "!!!!!!!!!!!!"
+            self.ListIslands.append(ListIslands[iIsland])
+            # ###############################
 
 
         self.NIslands=len(self.ListIslands)
@@ -451,16 +456,17 @@ class ClassImageDeconvMachine():
                       "IslandBestIndiv":IslandBestIndiv,
                       "GD":self.GD}
             
-            print "saving"
-            MyPickle.Save(DicoSave, "SaveTest")
-            print "saving ok"
+            #print "saving"
+            #MyPickle.Save(DicoSave, "SaveTest")
+            #print "saving ok"
             ################################
 
             
             CEv=ClassEvolveGA(self._Dirty,PSF,FreqsInfo,ListPixParms=ThisPixList,
                               ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,
                               GD=self.GD)
-            Model=CEv.main(NGen=100,DoPlot=True)#False)
+            #Model=CEv.main(NGen=100,DoPlot=True)#False)
+            Model=CEv.main(NGen=100,DoPlot=False)
             
 
             #self.ModelMachine.setParamMachine(CEv.ArrayMethodsMachine.PM)
