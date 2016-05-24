@@ -278,7 +278,7 @@ class ClassImageDeconvMachine():
         if dx>0:
             print>>log,"  increase their sizes by %i pixels"%dx
             IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-            for iIsland in range(self.NIslands):
+            for iIsland in range(len(ListIslands)):#self.NIslands):
                 ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
 
         ListIslands=self.CalcCrossIslandFlux(ListIslands)
@@ -303,16 +303,16 @@ class ClassImageDeconvMachine():
 
             MaxIsland=np.max(np.abs(PixVals))
 
-            # if (MaxIsland>(3.*self.RMS))|(MaxIsland>Threshold):
-            #     self.ListIslands.append(ListIslands[iIsland])
-
-            ###############################
-            if np.max(np.abs(PixVals))>Threshold:
-                DoThisOne=True
-                self.IslandHasBeenDone[0,0,x,y]=1
-            if ((DoThisOne)|self.IslandHasBeenDone[0,0,x[0],y[0]]):
+            if (MaxIsland>(3.*self.RMS))|(MaxIsland>Threshold):
                 self.ListIslands.append(ListIslands[iIsland])
-            ###############################
+
+            # ###############################
+            # if np.max(np.abs(PixVals))>Threshold:
+            #     DoThisOne=True
+            #     self.IslandHasBeenDone[0,0,x,y]=1
+            # if ((DoThisOne)|self.IslandHasBeenDone[0,0,x[0],y[0]]):
+            #     self.ListIslands.append(ListIslands[iIsland])
+            # ###############################
 
 
         self.NIslands=len(self.ListIslands)
@@ -466,8 +466,8 @@ class ClassImageDeconvMachine():
             CEv=ClassEvolveGA(self._Dirty,PSF,FreqsInfo,ListPixParms=ThisPixList,
                               ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,
                               GD=self.GD)
-            #Model=CEv.main(NGen=100,DoPlot=True)#False)
-            Model=CEv.main(NGen=100,DoPlot=False)
+            Model=CEv.main(NGen=100,DoPlot=True)#False)
+            #Model=CEv.main(NGen=100,DoPlot=False)
             
 
             #self.ModelMachine.setParamMachine(CEv.ArrayMethodsMachine.PM)

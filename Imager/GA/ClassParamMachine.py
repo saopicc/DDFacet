@@ -78,14 +78,20 @@ class ClassParamMachine():
             elif DicoSigma["Type"]=="PeakFlux":
                 SigVal=DicoSigma["Value"]*np.max(np.abs(SModelArray))
             
-            for indiv in pop:
+
+            for i_indiv,indiv in zip(range(len(pop)),pop):
                 SubArray=self.ArrayToSubArray(indiv,Type=Type)
                 if Type=="S":
-                    SubArray[:]=SModelArray[:]+np.random.randn(SModelArray.size)*SigVal
+                    SubArray[:]=SModelArray[:]
+                    if i_indiv!=0: 
+                        SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
                 if Type=="Alpha":
                     if AlphaModel==None:
                         AlphaModel=MeanVal*np.ones((SModelArray.size,),np.float32)
-                    SubArray[:]=AlphaModel[:]+np.random.randn(SModelArray.size)*SigVal
+                    SubArray[:]=AlphaModel[:]
+                    if i_indiv!=0: 
+                        SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+
                     # SubArray[:]=np.zeros_like(AlphaModel)[:]#+np.random.randn(SModelArray.size)*SigVal
                     # print SubArray[:]
 

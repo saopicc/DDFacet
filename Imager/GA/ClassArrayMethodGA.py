@@ -38,6 +38,8 @@ class ClassArrayMethodGA():
         self.WeightMaxFunc=collections.OrderedDict()
         self.WeightMaxFunc["Chi2"]=1.
         self.WeightMaxFunc["MinFlux"]=1.
+        self.WeightMaxFunc["MaxFlux"]=1.
+
         #self.WeightMaxFunc["L0"]=1.
         self.MaxFunc=self.WeightMaxFunc.keys()
         
@@ -304,6 +306,10 @@ class ClassArrayMethodGA():
                 chi2=-np.sum((Resid)**2)/(self.PixVariance*Resid.size)
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(chi2*W)
+            if FuncType=="MaxFlux":
+                FMax=-np.max(np.abs(S))/(np.sqrt(self.PixVariance)*Resid.size)
+                W=self.WeightMaxFunc[FuncType]
+                ContinuousFitNess.append(FMax*W)
             if FuncType=="L0":
                 # ResidNonZero=S[S!=0]
                 # W=self.WeightMaxFunc[FuncType]
