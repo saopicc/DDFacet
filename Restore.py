@@ -26,6 +26,7 @@ def read_options():
     group.add_option('--NBands',type="int",help='',default=1)
     group.add_option('--CleanNegComp',type="int",help='',default=0)
     group.add_option('--DoAlpha',type="int",help='',default=0)
+    group.add_option('--OutName',type="str",help='',default="")
     opt.add_option_group(group)
     
     options, arguments = opt.parse_args()
@@ -36,12 +37,12 @@ def read_options():
 
 class ClassRestoreMachine():
     def __init__(self,BaseImageName,BeamPix=5,ResidualImName="",DoAlpha=1,
-                 MaskName="",CleanNegComp=False,NBands=1):
+                 MaskName="",CleanNegComp=False,NBands=1,OutName=""):
         self.DoAlpha=DoAlpha
         self.BaseImageName=BaseImageName
         self.BeamPix=BeamPix
         self.NBands=NBands
-
+        self.OutName=OutName
 
         FileDicoModel="%s.DicoModel"%BaseImageName
         ClassModelMachine,DicoModel=GiveModelMachine(FileDicoModel)
@@ -135,8 +136,8 @@ class ClassRestoreMachine():
             freq=C/l
             print>>log,"Get ModelImage... "
             ModelImage=ModelMachine.GiveModelImage(freq)
-            #print>>log,"  ModelImage to apparant flux... "
-            #ModelImage*=self.SqrtNormImage
+            print>>log,"  ModelImage to apparant flux... "
+            ModelImage*=self.SqrtNormImage
             print>>log,"Convolve... "
             print>>log,"   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6)
             RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
@@ -149,7 +150,11 @@ class ClassRestoreMachine():
         _,_,nx,_=RestoredImageRes.shape
         RestoredImageRes=np.array(ListRestoredIm).reshape((self.NBands,1,nx,nx))
 
-        ImageName="%s.restoredNew"%self.BaseImageName
+        if self.OutName=="":
+            ImageName="%s.restoredNew"%self.BaseImageName
+        else:
+            ImageName=self.OutName
+
         CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec,Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(RestoredImageRes,CorrT=True)
         CasaImage.ToFits()
@@ -195,7 +200,8 @@ def main(options=None):
     CRM=ClassRestoreMachine(options.BaseImageName,BeamPix=options.BeamPix,ResidualImName=options.ResidualImage,
                             DoAlpha=options.DoAlpha,
                             NBands=options.NBands,
-                            CleanNegComp=options.CleanNegComp)
+                            CleanNegComp=options.CleanNegComp,
+                            OutName=options.OutName)
     CRM.Restore()
 
 

@@ -206,7 +206,7 @@ class ClassModelMachine():
             if MaskArray[x,y]==0:
                 del(self.DicoSMStacked["Comp"][(x,y)])
 
-    def ToNPYModel(self,FitsFile,SkyModel):
+    def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):
         #R=ModRegFile.RegToNp(PreCluster)
         #R.Read()
         #R.Cluster()
@@ -222,6 +222,9 @@ class ClassModelMachine():
             for pol in range(npol):
                 ModelMap[ch,pol]=ModelMap[ch,pol][::-1]#.T
                 AlphaMap[ch,pol]=AlphaMap[ch,pol][::-1]#.T
+
+        if BeamImage!=None:
+            ModelMap*=(BeamImage)
 
         im=image(FitsFile)
         pol,freq,decc,rac=im.toworld((0,0,0,0))

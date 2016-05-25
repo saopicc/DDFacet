@@ -172,7 +172,8 @@ class ClassImToGrid():
 
                 T.timeit("4")
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]*=SpacialWeight[x0p:x1p,y0p:y1p]
-                SumFlux+=np.sum(ModelIm[ch,pol])
+                indPos=np.where(ModelIm[ch,pol]>0)
+                SumFlux+=np.sum(ModelIm[ch,pol][indPos])
 
                 ModelCutOrig_SW=SpacialWeight[x0p:x1p,y0p:y1p].copy()
 
