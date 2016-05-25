@@ -131,6 +131,7 @@ class ClassImagerDeconv():
             MinorCycleConfig=dict(self.GD["ImagerDeconv"])
             MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
             MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
+            MinorCycleConfig["GD"] = self.GD
             
             if self.GD["MultiScale"]["MSEnable"]:
                 print>>log, "Minor cycle deconvolution in Multi Scale Mode"
