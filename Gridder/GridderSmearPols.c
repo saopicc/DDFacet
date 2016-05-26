@@ -749,13 +749,8 @@ void DeGridderWPol(gridding_parameters *  params)
     int inx;
     int iBlock;
     int visChan;
-    
-    // Get size of convolution functions.
     PyArrayObject *cfs;
     
-    PyArrayObject *NpPolMap;
-    int PolMode = 0;
-    int PolMap[4] = {0,5,5,5};
 //     double VarTimeDeGrid=0;
 //     int Nop=0;
     
