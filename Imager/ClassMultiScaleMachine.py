@@ -150,6 +150,8 @@ class ClassMultiScaleMachine():
             NAlpha=int(NAlpha)
             AlphaL=np.linspace(AlphaMin,AlphaMax,NAlpha)
             Alpha=np.array([0.]+[al for al in AlphaL if not(al==0.)])
+        else:
+            Alpha = np.array([0.0])
 
         _,_,nx,ny=self.SubPSF.shape
         NScales=len(LScales)

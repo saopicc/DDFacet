@@ -78,11 +78,10 @@ class ClassImageDeconvMachine():
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.SetModelRefFreq()
-        tmp = []
+        tmp = [{'Alpha': 0.0, 'Scale': 0, 'ModelType': 'Delta'}]
         AlphaMin, AlphaMax, NAlpha = self.GD["MultiFreqs"]["Alpha"]
-        Alpha = np.linspace(AlphaMin,AlphaMax,NAlpha+1)
-        for i in range(self.NFreqBand):
-            tmp.append({'Alpha': Alpha[i], 'Scale': 0, 'ModelType': 'Delta'})
+        if NAlpha > 1:
+            print>>log, "Multi-frequency synthesis not supported in Hogbom CLEAN. Setting alpha to zero"
 
         self.ModelMachine.setListComponants(tmp)
 
@@ -197,10 +196,9 @@ class ClassImageDeconvMachine():
         #Subtract from each channel/band
         self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
         #Subtract from the average
-        #if self.MultiFreqMode:  #If multiple frequencies are present construct the weighted mean
-        W=np.float32(self.DicoDirty["WeightChansImages"])  #Get the weights
-        self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0) #Sum over frequency
-        #print 'x=1'
+        if self.MultiFreqMode:  #If multiple frequencies are present construct the weighted mean
+            W=np.float32(self.DicoDirty["WeightChansImages"])  #Get the weights
+            self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0) #Sum over frequency
 
     def setChannel(self,ch=0):
         """
@@ -208,9 +206,12 @@ class ClassImageDeconvMachine():
         Currently just sets self.Dirty to average over freq bands.
         """
         #self.PSF=self._MeanPSF[ch]
-        self.Dirty=self._MeanDirty[ch]
-        self.ModelImage=self._ModelImage[ch]
-        self.MaskArray=self._MaskArray[ch]
+        if self.MultiFreqMode:
+            self.Dirty = self._MeanDirty.view()[ch]
+        else:
+            self.Dirty = self._Dirty.view()[ch]
+        self.ModelImage = self._ModelImage.view()[ch]
+        self.MaskArray = self._MaskArray.view()[ch]
 
 
     def Clean(self,ch=0):
@@ -256,10 +257,10 @@ class ClassImageDeconvMachine():
         Fluxlimit_RMS = self.RMSFactor*RMS
 
         #Find position and intensity of first peak
-        #x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
-        Itmp = np.argwhere(self.Dirty[0] == np.max(self.Dirty[0]))
-        x, y = Itmp[0]
-        MaxDirty = self.Dirty[0][x,y]
+        x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
+        #Itmp = np.argwhere(self.Dirty[0] == np.max(self.Dirty[0]))
+        #x, y = Itmp[0]
+        #MaxDirty = self.Dirty[0][x,y]
 
         #Get peak factor stopping criterion
         Fluxlimit_Peak = MaxDirty*self.PeakFactor
@@ -304,10 +305,10 @@ class ClassImageDeconvMachine():
             for i in range(self._niter+1,self.MaxMinorIter+1):
                 self._niter = i
 
-                #x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
-                Itmp = np.argwhere(self.Dirty[0] == np.max(self.Dirty[0]))
-                x, y = Itmp[0]
-                ThisFlux = self.Dirty[0][x, y]
+                x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
+                #Itmp = np.argwhere(self.Dirty[0] == np.max(self.Dirty[0]))
+                #x, y = Itmp[0]
+                #ThisFlux = self.Dirty[0][x, y]
                 self.GainMachine.SetFluxMax(ThisFlux)
 
                 T.timeit("max0")
@@ -326,7 +327,7 @@ class ClassImageDeconvMachine():
                     pBAR.render(PercentDone,"peak %.3g i%d"%(ThisFlux,self._niter))
 
                 nch,npol,_,_=self._Dirty.shape
-                #I think Fpol contains the intensities at (x,y) per freq and polarisation
+                #Fpol contains the intensities at (x,y) per freq and polarisation
                 Fpol=np.float32((self._Dirty[:,:,x,y].reshape((nch,npol,1,1))).copy())
                 nchan, npol, _, _ = Fpol.shape
                 JonesNorm = (self.DicoDirty["NormData"][:, :, x, y]).reshape((nchan, npol, 1, 1))
@@ -335,15 +336,16 @@ class ClassImageDeconvMachine():
 
                 T.timeit("stuff")
 
+                #Find PSF corresponding to location (x,y)
                 self.PSFServer.setLocation(x,y) #Selects the facet closest to (x,y)
-                PSF,meanPSF = self.PSFServer.GivePSF()  #Get corresonding PSF
+                PSF,meanPSF = self.PSFServer.GivePSF()  #Gives associated PSF
 
                 T.timeit("FindScale")
 
                 CurrentGain = self.GainMachine.GiveGain()
                 #Subtract LocalSM*CurrentGain from dirty image
                 tmp = PSF*Fpol*CurrentGain*np.sqrt(JonesNorm)
-                self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, Fpol)
+                self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, np.mean(Fpol))
                 self.SubStep((x,y),PSF*Fpol*CurrentGain*np.sqrt(JonesNorm))
                 T.timeit("SubStep")
 
