@@ -121,17 +121,16 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             ThisMSName=reformat.reformat(os.path.abspath(MSName),LastSlash=False)
             SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
 
-
-        if SolsFile!="":
-            print>>log,"Taking facet directions from solutions file"
-            ClusterNodes=np.load(SolsFile)["ClusterCat"]
+        if "CatNodes" in self.GD.keys():
+            print>>log,"Taking facet directions from Nodes catalog: %s"%self.GD["CatNodes"]
+            ClusterNodes=np.load(self.GD["CatNodes"])
             ClusterNodes=ClusterNodes.view(np.recarray)
             raNode=ClusterNodes.ra
             decNode=ClusterNodes.dec
             lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
-        elif "CatNodes" in self.GD.keys():
-            print>>log,"Taking facet directions from Nodes catalog"
-            ClusterNodes=np.load(self.GD["CatNodes"])
+        elif SolsFile!="":
+            print>>log,"Taking facet directions from solutions file: %s"%SolsFile
+            ClusterNodes=np.load(SolsFile)["ClusterCat"]
             ClusterNodes=ClusterNodes.view(np.recarray)
             raNode=ClusterNodes.ra
             decNode=ClusterNodes.dec
@@ -154,6 +153,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             # raNode=ClusterNodes.ra
             # decNode=ClusterNodes.dec
             # lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
+        print>>log,"  There are %i Jones-directions"%lFacet.size
         self.lmSols=lFacet.copy(),mFacet.copy()
 
         raSols,decSols=self.CoordMachine.lm2radec(lFacet.copy(),mFacet.copy())

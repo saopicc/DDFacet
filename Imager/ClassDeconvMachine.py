@@ -616,6 +616,7 @@ class ClassImagerDeconv():
 
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Clean()
+            self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName)
             #repMinor, continue_deconv, update_model = self.DeconvMachine.CleanSerial()
 
             
@@ -741,7 +742,6 @@ class ClassImagerDeconv():
                 ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
                 self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),Fits=True)
 
-            self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName)
 
 
             # fig=pylab.figure(1)
