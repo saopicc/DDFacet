@@ -278,6 +278,45 @@ class ClassImagerDeconv():
 
         FacetMachinePSF.DoPSF=False
 
+#        MyPickle.Save(self.DicoImagePSF,"DicoPSF")
+
+        
+        # # Image=FacetMachinePSF.FacetsToIm()
+        # pylab.clf()
+        # pylab.imshow(self.PSF[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
+        # pylab.draw()
+        # pylab.show(False)
+        # pylab.pause(0.1)
+        # stop
+
+
+
+        # so strange... had to put pylab statement after ToCasaimage, otherwise screw fits header
+        # and even sending a copy of PSF to imshow doesn't help...
+        # Error validating header for HDU 0 (note: PyFITS uses zero-based indexing).
+        # Unparsable card (BZERO), fix it first with .verify('fix').
+        # There may be extra bytes after the last HDU or the file is corrupted.
+        # Edit: Only with lastest matplotlib!!!!!!!!!!!!!
+        # WHOOOOOWWWW... AMAZING!
+
+        # m0=-1;m1=1
+        # pylab.clf()
+        # FF=self.PSF[0,0].copy()
+        # pylab.imshow(FF,interpolation="nearest")#,vmin=m0,vmax=m1)
+        # pylab.draw()
+        # pylab.show(False)
+        # pylab.pause(0.1)
+        # time.sleep(1)
+
+
+
+        # self.FWHMBeamAvg=(10.,10.,10.)
+        # FacetMachinePSF.ToCasaImage(self.PSF)
+
+
+
+        #FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True)
+
         self.FitPSF()
         if "P" in self._saveims or "p" in self._saveims:
             FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg)
@@ -287,6 +326,21 @@ class ClassImagerDeconv():
                                           Fits=True,beam=self.FWHMBeamAvg,Freqs=self.VS.FreqBandCenters)
 
         FacetMachinePSF = None
+
+        # if self.VS.MultiFreqMode:
+        #     for Channel in range(self.VS.NFreqBands):
+        #         Im=self.DicoImagePSF["ImagData"][Channel]
+        #         npol,n,n=Im.shape
+        #         Im=Im.reshape((1,npol,n,n))
+        #         FacetMachinePSF.ToCasaImage(Im,ImageName="%s.psf.ch%i"%(self.BaseName,Channel),Fits=True,beam=self.FWHMBeamAvg)
+
+        #self.FitPSF()
+        #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
+
+
+        
+        #del(FacetMachinePSF)
+
 
     def LoadPSF(self,CasaFilePSF):
         self.CasaPSF=image(CasaFilePSF)
@@ -301,7 +355,7 @@ class ClassImagerDeconv():
 
         print>>log, ModColor.Str("============================== Making Residual Image ==============================")
 
-        #self.InitFacetMachine()
+        self.InitFacetMachine()
         
         self.FacetMachine.ReinitDirty()
         isPlotted=False
@@ -323,6 +377,13 @@ class ClassImagerDeconv():
             self.DeconvMachine.FromFile(SubstractModel)
             InitBaseName=".".join(SubstractModel.split(".")[0:-1])
             self.FacetMachine.BuildFacetNormImage()
+            # NormFacetsFile="%s.NormFacets.fits"%InitBaseName
+            # if InitBaseName!=BaseName:
+            #     print>>log, ModColor.Str("You are substracting a model build from a different facetting mode")
+            #     print>>log, ModColor.Str("  This is rather dodgy because of the ")
+            # self.FacetMachine.NormImage=ClassCasaImage.FileToArray(NormFacetsFile,True)
+            # _,_,nx,nx=self.FacetMachine.NormImage.shape
+            # self.FacetMachine.NormImage=self.FacetMachine.NormImage.reshape((nx,nx))
 
             if self.BaseName==self.GD["VisData"]["InitDicoModel"][0:-10]:
                 self.BaseName+=".continue"
@@ -398,7 +459,7 @@ class ClassImagerDeconv():
     def GivePredict(self):
 
         print>>log, ModColor.Str("============================== Making Predict ==============================")
-        #self.InitFacetMachine()
+        self.InitFacetMachine()
         
         self.FacetMachine.ReinitDirty()
         BaseName=self.GD["Images"]["ImageName"]
@@ -804,6 +865,29 @@ class ClassImagerDeconv():
         #if Res=="EndChunk": break
 
         DATA=self.DATA
+
+
+        # ###########################################
+        # self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)
+        # testImage=self.FacetMachine.FacetsToIm()
+        # testImage.fill(0)
+        # _,_,nx,_=testImage.shape
+        # print "shape image:",testImage.shape
+        # xc=nx/2
+        # n=2
+        # dn=200
+        # #for i in range(-n,n+1):
+        # #   for j in range(-n,n+1):
+        # #       testImage[0,0,int(xc+i*dn),int(xc+j*dn)]=100.
+        # # for i in range(n+1):
+        # #     testImage[0,0,int(xc+i*dn),int(xc+i*dn)]=100.
+        # testImage[0,0,200,400]=100.
+        # #testImage[0,0,xc+200,xc+300]=100.
+        # self.FacetMachine.ToCasaImage(ImageIn=testImage, ImageName="testImage",Fits=True)
+        # stop
+        # ###########################################
+
+        #testImage=np.zeros((1, 1, 1008, 1008),np.complex64)
 
         im=image("lala2.nocompDeg3.model.fits")
         testImageIn=im.getdata()

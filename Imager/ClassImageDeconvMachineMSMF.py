@@ -55,10 +55,6 @@ class ClassImageDeconvMachine():
 
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
-    # def Init(self):
-    #     self.SetPSF(DicoVariablePSF)
-    #     self.setSideLobeLevel(self.PSFSidelobesAvg[0], self.PSFSidelobesAvg[1])
-    #     self.InitMSMF()
 
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
         self.SideLobeLevel=SideLobeLevel
