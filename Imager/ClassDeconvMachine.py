@@ -658,7 +658,7 @@ class ClassImagerDeconv():
 
                 model_freqs = self.VS.CurrentChanMappingDegrid
                 ## redo model image if needed
-                if np.array(model_freqs != current_model_freqs).any():
+                if not np.array_equal(model_freqs, current_model_freqs):
                     ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)
                     current_model_freqs = model_freqs
                     print>>log,"model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
