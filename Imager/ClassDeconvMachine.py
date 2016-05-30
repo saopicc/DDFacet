@@ -850,13 +850,13 @@ class ClassImagerDeconv():
         def appconvmodel():
             label = 'appconvmodel'
             if label not in _images:
-                _images[label] = ModFFTW.ConvolveGaussian(appmodel(),CellSizeRad=self.CellSizeRad,GaussPars=self.PSFGaussPars) \
+                _images[label] = ModFFTW.ConvolveGaussian(appmodel(),CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg]) \
                                     if havenorm else intconvmodel()
             return _images[label]
         def intconvmodel():
             label = 'intconvmodel'
             if label not in _images:
-                _images[label] = ModFFTW.ConvolveGaussian(intmodel(),CellSizeRad=self.CellSizeRad,GaussPars=self.PSFGaussPars)
+                _images[label] = ModFFTW.ConvolveGaussian(intmodel(),CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg])
             return _images[label]
         def appconvmodelcube():
             label = 'appconvmodelcube'
