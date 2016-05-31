@@ -238,6 +238,9 @@ class ClassVisServer():
                                               Weighting=self.Weighting,
                                               Super=self.Super)
 
+
+
+
         # allweights = WeightMachine.CalcWeightsOld(uvw,VisWeights,flags,self.MS.ChanFreq,
         #                                       Robust=Robust,
         #                                       Weighting=self.Weighting,
@@ -250,6 +253,15 @@ class ClassVisServer():
             self.VisWeights.append(allweights[row0:(row0+nr)])
             row0 += nr
         self.CurrentVisWeights = self.VisWeights[0]
+
+        # DDF_WEIGHTS="DDF_WEIGHTS"
+        # print>>log, "Writing weights in column %s"%(DDF_WEIGHTS)
+        # for iMS,ThisMS in zip(range(len(self.ListMS)),self.ListMS):
+        #     ThisMS.AddCol(DDF_WEIGHTS,LikeCol="IMAGING_WEIGHT")
+        #     t=table(ThisMS.MSName,readonly=False,ack=False)
+        #     t.putcol(DDF_WEIGHTS,self.VisWeights[iMS])
+        #     t.close()
+
 
         # self.CalcMeanBeam()
 
