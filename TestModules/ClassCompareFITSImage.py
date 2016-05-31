@@ -38,6 +38,7 @@ class ClassCompareFITSImage(unittest.TestCase):
             2. Run-produced image name: [TestClassName].run.[ImageIdentifier].fits
             3. DDFacet logfiles: [TestClassName].run.out.log and [TestClassName].run.err.log
             4. Parset with default overrides, including image prefixes: [TestClassName].run.parset.conf
+            5. Diff map as computed with fitstool.py with filename [TestClassName].diff.[ImageIdentifier].fits
 
         Tests cases:
             Tests the output of DDFacet against the reference images. Currently
@@ -147,6 +148,7 @@ class ClassCompareFITSImage(unittest.TestCase):
         #Setup test constants
         cls._maxSqErr = cls.defineMaxSquaredError()
         cls._thresholdMSE = cls.defMeanSquaredErrorLevel()
+
 	
         #Run DDFacet with desired setup. Crash the test if DDFacet gives a non-zero exit code:
         cls._stdoutLogFile = cls._outputDir+cls.__name__+".run.out.log"
@@ -164,6 +166,15 @@ class ClassCompareFITSImage(unittest.TestCase):
                 raise RuntimeError("Reference image %s does not exist" % fname)
             fitsHDU = fits.open(fname)
             cls._outHDUList.append(fitsHDU)
+
+        #Save diffmaps for later use:
+        for ref_id in cls.defineImageList():
+            fname = cls._inputDir + cls.__name__ + "." + ref_id + ".fits"
+            compfname = cls._outputDir + cls.__name__ + ".run." + ref_id + ".fits"
+            difffname = cls._outputDir + cls.__name__ + ".diff." + ref_id + ".fits"
+            subprocess.check_call("fitstool.py -f --diff --output %s %s %s" % (difffname,
+                                                                               fname,
+                                                                               compfname), shell=True)
 
     @classmethod
     def tearDownClass(cls):
