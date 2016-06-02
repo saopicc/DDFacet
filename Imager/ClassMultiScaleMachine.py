@@ -152,7 +152,7 @@ class ClassMultiScaleMachine():
             Alpha=np.array([0.]+[al for al in AlphaL if not(al==0.)])
         else:
             Alpha=np.array([0.]) #not in multi-frequency synthesis mode. Assume no ((v-v0)/v) modulation of I_model
-            
+
         _,_,nx,ny=self.SubPSF.shape
         NScales=len(LScales)
         self.NScales=NScales
