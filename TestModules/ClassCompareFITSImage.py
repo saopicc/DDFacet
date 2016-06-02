@@ -184,26 +184,42 @@ class ClassCompareFITSImage(unittest.TestCase):
     '''
     def testMaxSquaredError(self):
         cls = self.__class__
+        list_except = []
         for imgI, (ref, out) in enumerate(zip(cls._refHDUList, cls._outHDUList)):
             imgIdentity = cls.defineImageList()[imgI] + " image"
             for ref_hdu, out_hdu in zip(ref, out):
-                if ref_hdu.data is None:
-                    assert out_hdu.data is None, "ref_hdu data is None, so out_hdu must be None in %s" % imgIdentity
-                else:
-                    assert out_hdu.data.shape == ref_hdu.data.shape, "ref_hdu data shape doesn't match out_hdu"
-                assert np.all((ref_hdu.data - out_hdu.data)**2 <= cls._maxSqErr[imgI]), "FITS data not the same for %s" % \
-                                                                                        imgIdentity
+                try:
+                    if ref_hdu.data is None:
+                        assert out_hdu.data is None, "ref_hdu data is None, so out_hdu must be None in %s" % imgIdentity
+                    else:
+                        assert out_hdu.data.shape == ref_hdu.data.shape, "ref_hdu data shape doesn't match out_hdu"
+                    assert np.all((ref_hdu.data - out_hdu.data)**2 <= cls._maxSqErr[imgI]), "FITS data not the same for %s" % \
+                                                                                            imgIdentity
+                except AssertionError, e:
+                    list_except.append(str(e))
+                    continue
+        if len(list_except) != 0:
+            msg = "\n".join(list_except)
+            raise AssertionError("The following assertions failed:\n %s" % msg)
     def testMeanSquaredError(self):
-	cls = self.__class__
-	for imgI, (ref, out) in enumerate(zip(cls._refHDUList, cls._outHDUList)):
-            imgIdentity = cls.defineImageList()[imgI] + " image"
-            for ref_hdu, out_hdu in zip(ref, out):
-                if ref_hdu.data is None:
-                    assert out_hdu.data is None, "ref_hdu data is None, so out_hdu must be None in %s" % imgIdentity
-                else:
-                    assert out_hdu.data.shape == ref_hdu.data.shape, "ref_hdu data shape doesn't match out_hdu"
-                assert np.mean((ref_hdu.data - out_hdu.data)**2) <= cls._thresholdMSE[imgI], "MSE of FITS data not the same for %s" % \
-										             imgIdentity
+        cls = self.__class__
+        list_except = []
+        for imgI, (ref, out) in enumerate(zip(cls._refHDUList, cls._outHDUList)):
+                imgIdentity = cls.defineImageList()[imgI] + " image"
+                for ref_hdu, out_hdu in zip(ref, out):
+                    try:
+                        if ref_hdu.data is None:
+                            assert out_hdu.data is None, "ref_hdu data is None, so out_hdu must be None in %s" % imgIdentity
+                        else:
+                            assert out_hdu.data.shape == ref_hdu.data.shape, "ref_hdu data shape doesn't match out_hdu"
+                        assert np.mean((ref_hdu.data - out_hdu.data)**2) <= cls._thresholdMSE[imgI], "MSE of FITS data not the same for %s" % \
+                                                             imgIdentity
+                    except AssertionError, e:
+                        list_except.append(str(e))
+                    continue
+        if len(list_except) != 0:
+            msg = "\n".join(list_except)
+            raise AssertionError("The following assertions failed:\n %s" % msg)
 
 if __name__ == "__main__":
     pass # abstract class
