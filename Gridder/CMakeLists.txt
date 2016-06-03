@@ -1,24 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 set(BUILD_SHARED_LIBS ON) #we always want shared libs out of this for python extensions
 
-#As per http://permalink.gmane.org/gmane.comp.programming.tools.cmake.user/15952
-IF(DEFINED CMAKE_BUILD_TYPE)
-   MESSAGE("Build type previously defined as '${CMAKE_BUILD_TYPE}'")
-   IF((CMAKE_BUILD_TYPE STREQUAL "Debug") OR (CMAKE_BUILD_TYPE STREQUAL "Release") OR (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo") OR (CMAKE_BUILD_TYPE STREQUAL "MinSizeRel"))
-      MESSAGE("\tbuild type is defined as '${CMAKE_BUILD_TYPE}'")
-      SET(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "Choose the type of build, options are: Debug, Release, RelWithDebInfo and MinSizeRel. Current: '${CMAKE_BUILD_TYPE}'")
-   ELSE()
-      MESSAGE("\tInvalid option for BUILD TYPE, defaulting to release build")
-      SET(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug, Release, RelWithDebInfo and MinSizeRel. Current: '${CMAKE_BUILD_TYPE}'")   
-   ENDIF()
-ELSE()
-   SET(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug, Release, RelWithDebInfo and MinSizeRel. Current: '${CMAKE_BUILD_TYPE}'")
-   message("build type wasn't defined, so defaulting to release")
-ENDIF()
-IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  message(WARNING "You are compiling the backend in debugging mode... things may be slower than usual. Overriding all optimizations to 'OFF'")
-ENDIF()
-
 option(ENABLE_VECTORIZATION "Enables support for vectorization" ON)
 option(ENABLE_i7_TUNING "Enables support for optimized code generation (-march=corei7)" ON)
 option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" ON)

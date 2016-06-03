@@ -61,7 +61,6 @@ class ClassFacetMachine():
         self.VS,self.GD=VS,GD
         self.npol = self.VS.StokesConverter.NStokesInImage()
         self.Parallel=Parallel
-        ChanFreq=self.VS.MS.ChanFreq.flatten()
         DicoConfigGM={}
         self.DicoConfigGM=DicoConfigGM
         self.DoPSF=DoPSF
@@ -122,19 +121,17 @@ class ClassFacetMachine():
         if self.DoPSF:
             Npix *= 1
 
-        MS = self.VS.MS
         self.LraFacet = []
         self.LdecFacet = []
 
-        ChanFreq = self.VS.MS.ChanFreq.flatten()
-        self.ChanFreq = ChanFreq
+        self.ChanFreq = self.VS.GlobalFreqs
 
         self.NFacets = NFacets
         self.Cell = Cell
         self.CellSizeRad = (Cell / 3600.) * np.pi / 180.
-        rac, decc = MS.radec
+        rac, decc = self.VS.CurrentMS.radec
         self.MainRaDec = (rac, decc)
-        self.nch = self.GD["MultiFreqs"]["NFreqBands"]
+        self.nch = self.VS.NFreqBands
         self.NChanGrid = self.nch
         self.SumWeights = np.zeros((self.NChanGrid, self.npol), float)
 
@@ -452,8 +449,8 @@ class ClassFacetMachine():
                                        IdSharedMemData=self.IdSharedMemData,
                                        ApplyCal=self.ApplyCal,
                                        CornersImageTot=self.CornersImageTot,
-                                       NFreqBands=self.GD["MultiFreqs"]["NFreqBands"],
-                                       DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                       NFreqBands=self.VS.NFreqBands,
+		                               DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                        ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
             workerlist.append(W)
             if Parallel:
@@ -507,23 +504,23 @@ class ClassFacetMachine():
     ############################################################################################
     ############################################################################################
 
-    def setCasaImage(self,ImageName=None,Shape=None):
+    def setCasaImage(self,ImageName=None,Shape=None,Freqs=None):
         if ImageName==None:
             ImageName=self.ImageName
 
         if Shape==None:
             Shape=self.OutImShape
-        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec)
+        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec,Freqs=Freqs)
 
-    def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None):
-        self.setCasaImage(ImageName=ImageName,Shape=ImageIn.shape)
+    def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None,beamcube=None,Freqs=None):
+        self.setCasaImage(ImageName=ImageName,Shape=ImageIn.shape,Freqs=Freqs)
 
         self.CasaImage.setdata(ImageIn,CorrT=True)
 
         if Fits:
             self.CasaImage.ToFits()
-            if beam!=None:
-                self.CasaImage.setBeam(beam)
+            if beam is not None:
+                self.CasaImage.setBeam(beam,beamcube=beamcube)
         self.CasaImage.close()
         self.CasaImage=None
 
@@ -610,9 +607,9 @@ class ClassFacetMachine():
         #assume all facets have the same weight sums. Store the normalization weights for reference
         # -------------------------------------------------
         DicoImages["SumWeights"]=np.zeros((self.VS.NFreqBands,self.npol),np.float64)
-        for Channel in range(self.VS.NFreqBands):
-            DicoImages["freqs"][Channel]=self.VS.FreqBandsInfos[Channel]
-            DicoImages["SumWeights"][Channel]=self.DicoImager[0]["SumWeights"][Channel]
+        for band,channels in enumerate(self.VS.FreqBandChannels):
+            DicoImages["freqs"][band] = channels
+            DicoImages["SumWeights"][band] = self.DicoImager[0]["SumWeights"][band]
         DicoImages["WeightChansImages"] = DicoImages["SumWeights"] / np.sum(DicoImages["SumWeights"])
 
         #Build a residual image consisting of multiple continuum bands
@@ -664,7 +661,7 @@ class ClassFacetMachine():
                 _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
                 if n<NPixMin: NPixMin=n
 
-            nch=self.GD["MultiFreqs"]["NFreqBands"]
+            nch = self.VS.NFreqBands
             CubeVariablePSF=np.zeros((NFacets,nch,npol,NPixMin,NPixMin),np.float32)
             CubeMeanVariablePSF=np.zeros((NFacets,1,npol,NPixMin,NPixMin),np.float32)
 
@@ -965,7 +962,7 @@ class ClassFacetMachine():
                                          ApplyCal=self.ApplyCal,
                                          SpheNorm=SpheNorm,
                                          PSFMode=PSFMode,
-                                         NFreqBands=self.GD["MultiFreqs"]["NFreqBands"],
+                                         NFreqBands=self.VS.NFreqBands,
                                          PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
                                          DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                          ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
@@ -1084,7 +1081,7 @@ class ClassFacetMachine():
                                          IdSharedMem=self.IdSharedMem,
                                          IdSharedMemData=self.IdSharedMemData,
                                          ApplyCal=self.ApplyCal,
-                                         NFreqBands=self.GD["MultiFreqs"]["NFreqBands"],
+                                         NFreqBands=self.VS.NFreqBands,
                                          DataCorrelationFormat = self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                          ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds())
 

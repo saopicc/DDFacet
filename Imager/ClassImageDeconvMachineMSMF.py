@@ -21,6 +21,7 @@ class ClassImageDeconvMachine():
                  MaxMinorIter=100,NCPU=6,
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
                  GD=None,SearchMaxAbs=1,CleanMaskImage=None,
+                 NFreqBands=1,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
@@ -32,7 +33,8 @@ class ClassImageDeconvMachine():
         self.MaskArray=None
         self.GD=GD
         self.SubPSF=None
-        self.MultiFreqMode=(self.GD["MultiFreqs"]["NFreqBands"]>1)
+        self.MultiFreqMode = NFreqBands>1
+        self.NFreqBands = NFreqBands
         self.FluxThreshold = FluxThreshold 
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
@@ -53,6 +55,7 @@ class ClassImageDeconvMachine():
 
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
+
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
         self.SideLobeLevel=SideLobeLevel
         self.OffsetSideLobe=OffsetSideLobe
@@ -65,13 +68,19 @@ class ClassImageDeconvMachine():
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
 
+    def Init(self,**kwargs):
+        self.SetPSF(kwargs["PSFVar"])
+        self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
+        self.InitMSMF()
+
+
     def InitMSMF(self):
 
         self.DicoMSMachine={}
         print>>log,"Initialise MSMF Machine ..."
         for iFacet in range(self.PSFServer.NFacets):
             self.PSFServer.setFacet(iFacet)
-            MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.GainMachine)
+            MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.GainMachine,NFreqBands=self.NFreqBands)
             MSMachine.setModelMachine(self.ModelMachine)
             MSMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
             MSMachine.SetFacet(iFacet)
@@ -381,6 +390,7 @@ class ClassImageDeconvMachine():
                 #iScale=self.MSMachine.FindBestScale((x,y),Fpol)
 
                 self.PSFServer.setLocation(x,y)
+                PSF = self.PSFServer.GivePSF()
                 MSMachine=self.DicoMSMachine[self.PSFServer.iFacet]
 
                 LocalSM=MSMachine.GiveLocalSM((x,y),Fpol)
@@ -478,3 +488,22 @@ class ClassImageDeconvMachine():
         #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
         return "MaxIter", False, True   # stop deconvolution but do update model
 
+
+    def Update(self,DicoDirty,**kwargs):
+        """
+        Method to update attributes from ClassDeconvMachine
+        """
+        #Update image dict
+        self.SetDirty(DicoDirty)
+
+    def ToFile(self, fname):
+        """
+        Write model dict to file
+        """
+        self.ModelMachine.ToFile(fname)
+
+    def FromFile(self, fname):
+        """
+        Read model dict from file SubtractModel
+        """
+        self.ModelMachine.FromFile(fname)

@@ -5,18 +5,17 @@
 From an Ubuntu 14.04 base:
 
 ```
-sudo apt-get install git python-pip python-casacore libfftw3-dev python-pyephem python-numexpr cython cmake python-meqtrees-cattery
-sudo pip install SharedArray
-sudo pip install Polygon2
-sudo pip install pyFFTW
+sudo add-apt-repository ppa:radio-astro/main
+sudo apt-get install git casacore2 python-pip libfftw3-dev \
+    cmake python-meqtrees-cattery makems
+sudo pip install cython pyephem numexpr SharedArray Polygon2 \
+    pyFFTW python-casacore scipy pyfits pylab
 ```
 
 Then need to clone or checkout the following three:
 
 ```
 git clone git@github.com:cyriltasse/SkyModel.git
-git clone git@github.com:cyriltasse/killMS2.git
-(cd killMS2; git checkout NewImPredict ) ## for now...
 git clone git@github.com:cyriltasse/DDFacet.git
 
 ```
@@ -29,9 +28,6 @@ Build a few libraries:
 
 (cd DDFacet/ ; mkdir cbuild ; cd cbuild ; cmake -DCMAKE_BUILD_TYPE=Release .. ; make)
 # or -DCMAKE_BUILD_TYPE=RelWithDebInfo for developers: this includes debugging symbols
-(cd ./killMS2/Predict ; make)
-(cd ./killMS2/Predict ; make)
-(cd killMS2/Array/Dot ; make)
 ```
 
 ## Paths etc.
@@ -39,11 +35,11 @@ Build a few libraries:
 Add this to your ``.bashrc``
 
 ```
-export KILLMS_DIR=$HOME/projects   ### or whereever you've git cloned the repos
-export DDFACET_DIR=$KILLMS_DIR
-export PYTHONPATH=$PYTHONPATH:$KILLMS_DIR
-export LD_LIBRARY_PATH=$KILLMS_DIR/DDFacet/cbuild/Gridder:$LD_LIBRARY_PATH
-export PATH=$KILLMS_DIR/killMS2:$KILLMS_DIR/SkyModel:$KILLMS_DIR/DDFacet:$PATH
+export DDF_ROOT_DIR=$HOME/projects ### or wherever you've git cloned the repos
+export DDFACET_DIR=$DDF_ROOT_DIR
+export PYTHONPATH=$PYTHONPATH:$DDF_ROOT_DIR
+export LD_LIBRARY_PATH=$DDF_ROOT_DIR/DDFacet/cbuild/Gridder:$LD_LIBRARY_PATH
+export PATH=$DDF_ROOT_DIR/SkyModel:$DDF_ROOT_DIR/DDFacet:$PATH
 export DDFACET_TEST_DATA_DIR=[folder where you keep the acceptance test data and images]
 export DDFACET_TEST_OUTPUT_DIR=[folder where you want the acceptance test output to be dumped]
 ```

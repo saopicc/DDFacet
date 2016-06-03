@@ -356,10 +356,10 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 
 void gridderWPol(gridding_parameters * params)
 {
-    int inx;
-    int iBlock;
-    int ThisPol;
-    int visChan;
+    size_t inx;
+    size_t iBlock;
+    size_t ThisPol;
+    size_t visChan;
     float factorFreq=1;
     
     PyArrayObject *cfs;
@@ -440,7 +440,7 @@ void gridderWPol(gridding_parameters * params)
         resetJonesServerCounter();
 
         for (inx=0; inx<NRowThisBlock; ++inx) {
-            int irow = Row[inx];
+            size_t irow = Row[inx];
             if(irow>params->nrows) {
                 continue;
             }
@@ -666,7 +666,7 @@ void gridderWPol(gridding_parameters * params)
             if (locx-supx >= 0  &&  locx+supx < params->nGridX  &&
                     locy-supy >= 0  &&  locy+supy < params->nGridY) {
 
-                int ipol;
+                size_t ipol;
                 for ( ipol=0; ipol<params->nGridPol; ++ipol ) {
                     float complex VisVal = VisStokes[ipol];
                     // Map to grid polarization. Only use pol if needed.
@@ -746,9 +746,9 @@ void gridderWPol(gridding_parameters * params)
 
 void DeGridderWPol(gridding_parameters *  params)
 {
-    int inx;
-    int iBlock;
-    int visChan;
+    size_t inx;
+    size_t iBlock;
+    size_t visChan;
     PyArrayObject *cfs;
     
 //     double VarTimeDeGrid=0;
@@ -929,14 +929,14 @@ void DeGridderWPol(gridding_parameters *  params)
                 // ###########################################################
 		//Now put the gathered average visibility into the contributing channels
                 for (inx=0; inx<NRowThisBlock; inx++) {
-                    int irow = Row[inx];
+                    size_t irow = Row[inx];
                     if(irow>params->nrows) {
                         continue;
                     }
                     double*  __restrict__ uvwPtr   = params->uvw + irow*3;
-                    int ThisPol;
+                    size_t ThisPol;
                     for (visChan=chStart; visChan<chEnd; ++visChan) {
-                        int doff = (irow * params->nVisChan + visChan) * params->nVisCorr;
+                        size_t doff = (irow * params->nVisChan + visChan) * params->nVisCorr;
 
                         if(DoApplyJones) {
                             updateJones(irow, visChan, uvwPtr, 0);

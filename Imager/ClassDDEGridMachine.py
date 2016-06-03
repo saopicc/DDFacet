@@ -95,7 +95,7 @@ def testGrid():
     #                        IdSharedMem="caca",
     #                        **DicoConfigGMself.DicoImager[iFacet]["DicoConfigGM"])
 
-    ChanFreq=VS.MS.ChanFreq.flatten()
+    ChanFreq=VS.CurrentMS.ChanFreq.flatten()
     GM=ClassDDEGridMachine(DC,
                            ChanFreq,
                            npix,
@@ -221,7 +221,7 @@ def testGrid():
     #op0=np.abs
     #op1=np.angle
     
-    nbl=VS.MS.nbl
+    nbl=VS.CurrentMS.nbl
 
     U,V,W=uvw.T
     C=299792456.
@@ -357,14 +357,6 @@ class ClassDDEGridMachine():
         self.Cell=Cell
         self.incr=(np.array([-Cell,Cell],dtype=np.float64)/3600.)*(np.pi/180)
         #CF.fill(1.)
-        ChanFreq=ChanFreq.flatten()
-        self.ChanFreq=ChanFreq
-        if self.ChanFreq.size>1:
-            df=self.ChanFreq[1::]-self.ChanFreq[0:-1]
-            ddf=np.abs(df-np.mean(df))
-            self.ChanEquidistant=int(np.max(ddf)<1.)
-        else:
-            self.ChanEquidistant=0
         # print self.ChanEquidistant
         #self.FullScalarMode=int(GD["DDESolutions"]["FullScalarMode"])
         #self.FullScalarMode=0
@@ -380,9 +372,8 @@ class ClassDDEGridMachine():
         
         T.timeit("3")
 
-        self.ChanWave=2.99792458e8/self.ChanFreq
-        self.UVNorm=2.*1j*np.pi/self.ChanWave
-        self.UVNorm.reshape(1,self.UVNorm.size)
+
+        self.ChanFreq = ChanFreq
         self.Sup=Support
         self.WProj=True
         self.wmax=wmax
@@ -601,6 +592,12 @@ class ClassDDEGridMachine():
         if not(self.DoNormWeights):
             self.reinitGrid()
 
+        if freqs.size > 1:
+            df = freqs[1::] - freqs[0:-1]
+            ddf = np.abs(df - np.mean(df))
+            chan_equidistant = int(np.max(ddf) < 1.)
+        else:
+            chan_equidistant = 0
 
         if ChanMapping==None:
             ChanMapping=np.zeros((visIn.shape[1],),np.int64)
@@ -648,9 +645,6 @@ class ClassDDEGridMachine():
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
             ParamJonesList=ParamJonesList+LApplySol+LSumJones+LSumJonesChan+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
-        if type(freqs)==type(None):
-            freqs=np.float64(self.ChanFreq)
-        
         T2=ClassTimeIt.ClassTimeIt("Gridder")
         T2.disable()
 
@@ -670,7 +664,7 @@ class ClassDDEGridMachine():
                                               [self.PolMap,FacetInfos],
                                               ParamJonesList) # Input the jones matrices
         else:
-            OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType]
+            OptimisationInfos=[self.JonesType,chan_equidistant,self.SkyType]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMemData))
 
             _pyGridderSmear.pyGridderWPol(Grid,
@@ -761,6 +755,7 @@ class ClassDDEGridMachine():
 
         T.timeit("0")
 
+        
         if ImToGrid:
             if np.max(np.abs(ModelImage))==0: return vis
             Grid=self.dtype(self.setModelIm(ModelImage))
@@ -776,6 +771,14 @@ class ClassDDEGridMachine():
             if np.max(np.abs(ModelImage))==0: return vis
             Grid=self.FT(ModelImage)
 
+        if freqs.size > 1:
+            df = freqs[1::] - freqs[0:-1]
+            ddf = np.abs(df - np.mean(df))
+            chan_equidistant = int(np.max(ddf) < 1.)
+        else:
+            chan_equidistant = 0
+
+        #np.save("Grid",Grid)
         NVisChan=visIn.shape[1]
         self.SumJonesChan=np.zeros((2,NVisChan),np.float64)
 
@@ -820,9 +823,6 @@ class ClassDDEGridMachine():
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
             ParamJonesList=ParamJonesList+LApplySol+LSumJones+LSumJonesChan+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
-        if type(freqs)==type(None):
-            freqs=np.float64(self.ChanFreq)
-
         T.timeit("3")
         #print vis
         #print "DEGRID:",Grid.shape,ChanMapping
@@ -843,7 +843,7 @@ class ClassDDEGridMachine():
         else:
 
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
-            OptimisationInfos=[self.JonesType,self.ChanEquidistant,self.SkyType,self.PolModeID]
+            OptimisationInfos=[self.JonesType,chan_equidistant,self.SkyType,self.PolModeID]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMemData))
 
             _pyGridderSmear.pyDeGridderWPol(Grid,

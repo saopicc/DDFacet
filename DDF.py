@@ -75,20 +75,23 @@ def read_options():
     OP.add_option('TChunkSize')
     OP.add_option('InitDicoModel',help='Image name [%default]')
     OP.add_option('WeightCol')
-    
+    OP.add_option('PredictColName')
+
+
     OP.OptionGroup("* Image-related options","Images")
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
     OP.add_option('PredictModelName',help='Predict Image name [%default]')
     OP.add_option('SaveIms',help='')
     OP.add_option('SaveImages',help='')
     OP.add_option('SaveOnly',help='')
+    OP.add_option('SaveCubes',help='')
     OP.add_option('OpenImages',
                   help="Opens images after exiting successfully."
                        "List, accepts any combination of: "
                        "'Dirty','DirtyCorr','PSF','Model','Residual',"
                        "'Restored','Alpha','Norm','NormFacets'.")
     OP.add_option('DefaultImageViewer', help="Default image viewer")
-    OP.add_option('MultiFreqMap', help="Outputs multi-frequency cube (NFreqBands) instead of average map")
+#    OP.add_option('MultiFreqMap', help="Outputs multi-frequency cube (NFreqBands) instead of average map")
 
 
     OP.OptionGroup("* File storing options","Stores")
@@ -112,6 +115,7 @@ def read_options():
     OP.add_option('PolMode')
     OP.add_option('Precision')
     OP.add_option('Weighting')
+    OP.add_option('MFSWeighting')
     OP.add_option('Robust')
     OP.add_option('Super')
     OP.add_option("PSFOversize")
@@ -137,6 +141,8 @@ def read_options():
     OP.add_option("NFreqBands")
     OP.add_option("Alpha")
     OP.add_option("NChanDegridPerMS")
+    OP.add_option("GridBandMHz")
+    OP.add_option("DegridBandMHz")
 
 
     OP.OptionGroup("* Primary Beam Options","Beam")
@@ -190,6 +196,7 @@ def read_options():
     OP.add_option("PeakFactor")
     OP.add_option("RMSFactor")
     OP.add_option("SidelobeSearchWindow")
+    OP.add_option("MinorCycleMode")
 
     OP.OptionGroup("* Debugging","Debugging")
     OP.add_option("SaveIntermediateDirtyImages")
