@@ -570,7 +570,7 @@ class ClassFacetMachine():
             DicoImages["MeanImage"]=np.sum(ImagData*W,axis=0).reshape((1,npol,Npix,Npix))
 
         else:
-            DicoImages["MeanImage"]=ImagData
+            DicoImages["MeanImage"]=ImagData.copy()
 
         T.timeit("4")
 
