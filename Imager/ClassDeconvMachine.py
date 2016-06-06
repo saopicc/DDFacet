@@ -132,12 +132,14 @@ class ClassImagerDeconv():
             MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
             MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
             MinorCycleConfig["GD"] = self.GD
-            
+            MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
             if self.GD["MultiScale"]["MSEnable"]:
                 print>>log, "Minor cycle deconvolution in Multi Scale Mode"
                 self.MinorCycleMode="MS"
                 # Specify which deconvolution algorithm to use
                 if self.GD["ImagerDeconv"]["MinorCycleMode"] == "MSMF":
+                    if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                        raise NotImplementedError("Multi-polarization CLEAN is not supported in MSMF")
                     self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
                 else:
                     print>>log, "Currently MSMF is the only multi-scale algorithm"
@@ -540,10 +542,13 @@ class ClassImagerDeconv():
             self.DeconvMachine.Update(DicoImage)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Clean()
+
             ## returned with nothing done in minor cycle? Break out
             if not update_model or iMajor == NMajor-1:
                 continue_deconv = False
-
+                print>> log, "This is the last major cycle"
+            else:
+                print>> log, "Finished CLEANing for this major cycle... Going back to visibility space."
             predict_colname = not continue_deconv and self.GD["VisData"]["PredictColName"]
 
             #self.ResidImage=DicoImage["MeanImage"]

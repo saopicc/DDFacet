@@ -44,7 +44,7 @@ class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
-                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,
+                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,ImagePolDescriptor=["I"],
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         self.SearchMaxAbs = SearchMaxAbs
@@ -61,8 +61,26 @@ class ClassImageDeconvMachine():
         self.PeakFactor = PeakFactor
         self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=Gain)
         self.ModelMachine = ClassModelMachine.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
+        self.PolarizationDescriptor = ImagePolDescriptor
+        self.PolarizationCleanTasks = []
+        if "I" in self.PolarizationDescriptor:
+            self.PolarizationCleanTasks.append("I")
+            print>>log,"Found Stokes I. I will be CLEANed independently"
+        else:
+            print>>log, "Stokes I not available. Not performing intensity CLEANing."
+        if "V" in self.PolarizationDescriptor:
+            self.PolarizationCleanTasks.append("V")
+            print>> log, "Found Stokes V. V will be CLEANed independently"
+        else:
+            print>>log, "Did not find stokes V image. Will not clean Circular Polarization."
+        if set(["Q","U"]) < set(self.PolarizationDescriptor):
+            self.PolarizationCleanTasks.append("Q+iU") #Luke Pratley's complex polarization CLEAN
+            print>> log, "Found Stokes Q and U. Will perform joint linear (Pratley-Johnston-Hollitt) CLEAN."
+        else:
+            print>>log, "Stokes Images Q and U must both be synthesized to CLEAN linear polarization. " \
+                        "Will not CLEAN these."
         # reset overall iteration counter
-        self._niter = 0
+        self._niter = np.zeros([len(self.PolarizationCleanTasks)],dtype=np.int64)
         if CleanMaskImage!=None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
@@ -222,142 +240,248 @@ class ClassImageDeconvMachine():
 
         Returns tuple of: return_code,continue,updated
         where return_code is a status string;
-        continue is True if another cycle should be executed;
-        update is True if model has been updated (note that update=False implies continue=False)
+        continue is True if another cycle should be executed (one or more polarizations still need cleaning);
+        update is True if one or more polarization models have been updated
         """
-        if self._niter >= self.MaxMinorIter:
-            return "MaxIter", False, False
-
         #No need to set the channel when doing joint deconvolution
         self.setChannel(ch)
 
-        _,npix,_=self.Dirty.shape
-        xc=(npix)/2
+        exit_msg = ""
+        continue_deconvolution = False
+        update_model = False
+        for pol_task_id, pol_task in enumerate(self.PolarizationCleanTasks):
+            if self._niter[pol_task_id] >= self.MaxMinorIter:
+                print>>log, ModColor.Str("Minor cycle CLEANing of %s has already reached the maximum number of minor "
+                                         "cycles... won't CLEAN this polarization further." % pol_task)
+                exit_msg = exit_msg +" " + "MaxIter"
+                continue_deconvolution = continue_deconvolution or False
+                update_model = update_model or False
+                continue #Previous minor clean on this polarization has reached the maximum number of minor cycles.... onwards to the next polarization
+            PeakMap = None
+            if pol_task == "I":
+                indexI = self.PolarizationDescriptor.index("I")
+                PeakMap = self.Dirty[indexI, :, :]
+            elif pol_task == "Q+iU":
+                indexQ = self.PolarizationDescriptor.index("Q")
+                indexU = self.PolarizationDescriptor.index("U")
+                PeakMap = np.abs(self.Dirty[indexQ, :, :] + 1.0j * self.Dirty[indexU, :, :]) ** 2
+            elif pol_task == "V":
+                indexV = self.PolarizationDescriptor.index("V")
+                PeakMap = self.Dirty[indexV, :, :]
+            else:
+                raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
 
-        npol,_,_=self.Dirty.shape
+            _,npix,_=self.Dirty.shape
+            xc=(npix)/2
 
-        m0,m1=self.Dirty[0].min(),self.Dirty[0].max()
+            npol,_,_=self.Dirty.shape
 
-        #These options should probably be moved into MinorCycleConfig in parset
-        DoAbs=int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
-        print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
+            m0,m1=PeakMap.min(),PeakMap.max()
 
-        ## Determine which stopping criterion to use for flux limit
-        #Get RMS stopping criterion
-        NPixStats = self.GD["ImagerDeconv"]["NumRMSSamples"]
-        if NPixStats:
-            RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
-            RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
-        else:
-            RMS=np.std(self.Dirty)
-        self.RMS=RMS
+            #These options should probably be moved into MinorCycleConfig in parset
+            DoAbs=int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
+            print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter[pol_task_id],self.MaxMinorIter,DoAbs)
 
-        self.GainMachine.SetRMS(RMS)
-        
-        Fluxlimit_RMS = self.RMSFactor*RMS
+            ## Determine which stopping criterion to use for flux limit
+            #Get RMS stopping criterion
+            NPixStats = self.GD["ImagerDeconv"]["NumRMSSamples"]
+            if NPixStats:
+                RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
+                RMS=np.std(np.real(PeakMap.ravel()[RandomInd]))
+            else:
+                RMS=np.std(PeakMap)
+            self.RMS=RMS
 
-        #Find position and intensity of first peak
-        x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
-        #Itmp = np.argwhere(self.Dirty[0] == np.max(self.Dirty[0]))
-        #x, y = Itmp[0]
-        #MaxDirty = self.Dirty[0][x,y]
+            self.GainMachine.SetRMS(RMS)
 
-        #Get peak factor stopping criterion
-        Fluxlimit_Peak = MaxDirty*self.PeakFactor
+            Fluxlimit_RMS = self.RMSFactor*RMS
 
-        #Get side lobe stopping criterion
-        Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
+            #Find position and intensity of first peak
+            x,y,MaxDirty=NpParallel.A_whereMax(PeakMap,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
+            if pol_task == "I":
+                pass
+            elif pol_task == "Q+iU":
+                MaxDirty = np.sqrt(MaxDirty)
+            elif pol_task == "V":
+                pass
+            else:
+                raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
+            #Itmp = np.argwhere(self.Dirty[0] == np.max(self.Dirty[0]))
+            #x, y = Itmp[0]
+            #MaxDirty = self.Dirty[0][x,y]
 
-        mm0,mm1=self.Dirty.min(),self.Dirty.max()
+            #Get peak factor stopping criterion
+            Fluxlimit_Peak = MaxDirty*self.PeakFactor
 
-        # Choose whichever threshold is highest
-        StopFlux = max(Fluxlimit_Peak, Fluxlimit_RMS, Fluxlimit_Sidelobe, self.FluxThreshold)
+            #Get side lobe stopping criterion
+            Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
 
-        print>>log, "    Dirty image peak flux      = %10.6f Jy [(min, max) = (%.3g, %.3g) Jy]"%(MaxDirty,mm0,mm1)
-        print>>log, "      RMS-based threshold      = %10.6f Jy [rms = %.3g Jy; RMS factor %.1f]"%(Fluxlimit_RMS, RMS, self.RMSFactor)
-        print>>log, "      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor)
-        print>>log, "      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor)
-        print>>log, "      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold)
-        print>>log, "    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty)
-        
-        T=ClassTimeIt.ClassTimeIt()
-        T.disable()
+            mm0,mm1=PeakMap.min(),PeakMap.max()
 
-        ThisFlux=MaxDirty
-        #print x,y
+            # Choose whichever threshold is highest
+            StopFlux = max(Fluxlimit_Peak, Fluxlimit_RMS, Fluxlimit_Sidelobe, self.FluxThreshold)
 
-        if ThisFlux < StopFlux:
-            print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" )
-            return "FluxThreshold", False, False
+            print>>log, "    Dirty %s image peak flux      = %10.6f Jy [(min, max) = (%.3g, %.3g) Jy]"%(pol_task,MaxDirty,mm0,mm1)
+            print>>log, "      RMS-based threshold      = %10.6f Jy [rms = %.3g Jy; RMS factor %.1f]"%(Fluxlimit_RMS, RMS, self.RMSFactor)
+            print>>log, "      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor)
+            print>>log, "      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor)
+            print>>log, "      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold)
+            print>>log, "    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty)
 
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=20,TitleSize=30)
-        # pBAR.disable()
+            T=ClassTimeIt.ClassTimeIt()
+            T.disable()
 
-        self.GainMachine.SetFluxMax(ThisFlux)
-        pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
+            ThisFlux=MaxDirty
+            #print x,y
 
-        def GivePercentDone(ThisMaxFlux):
-            fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
-            return max(int(round(100*fracDone)),100)
+            if ThisFlux < StopFlux:
+                print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done CLEANing %s" % (ThisFlux, pol_task),col="green" )
+                exit_msg = exit_msg + " " + "FluxThreshold"
+                continue_deconvolution = False or continue_deconvolution
+                update_model = False or update_model
+                continue #onto the next polarization
 
-        #Do minor cycle deconvolution loop
-        try:
-            for i in range(self._niter+1,self.MaxMinorIter+1):
-                self._niter = i
+            pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning  %s " %  pol_task, HeaderSize=20,TitleSize=30)
+            # pBAR.disable()
 
-                x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
-                #Itmp = np.argwhere(self.Dirty[0] == np.max(self.Dirty[0]))
-                #x, y = Itmp[0]
-                #ThisFlux = self.Dirty[0][x, y]
-                self.GainMachine.SetFluxMax(ThisFlux)
+            self.GainMachine.SetFluxMax(ThisFlux)
+            pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
 
-                T.timeit("max0")
+            def GivePercentDone(ThisMaxFlux):
+                fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
+                return max(int(round(100*fracDone)),100)
 
-                if ThisFlux <= StopFlux:
-                    pBAR.render(100,"peak %.3g"%(ThisFlux,))
-                    print>>log, ModColor.Str("    [iter=%i] peak of %.3g Jy lower than stopping flux" % (i,ThisFlux),col="green")
-                    cont = ThisFlux > self.FluxThreshold
-                    if not cont:
-                          print>>log, ModColor.Str("    [iter=%i] absolute flux threshold of %.3g Jy has been reached" % (i,self.FluxThreshold),col="green",Bold=True)
+            #Do minor cycle deconvolution loop
+            try:
+                for i in range(self._niter[pol_task_id]+1,self.MaxMinorIter+1):
+                    self._niter[pol_task_id] = i
+                    #grab a new peakmap
+                    PeakMap = None
+                    if pol_task == "I":
+                        indexI = self.PolarizationDescriptor.index("I")
+                        PeakMap = self.Dirty[indexI, :, :]
+                    elif pol_task == "Q+iU":
+                        indexQ = self.PolarizationDescriptor.index("Q")
+                        indexU = self.PolarizationDescriptor.index("U")
+                        PeakMap = np.abs(self.Dirty[indexQ, :, :] + 1.0j * self.Dirty[indexU, :, :]) ** 2
+                    elif pol_task == "V":
+                        indexV = self.PolarizationDescriptor.index("V")
+                        PeakMap = self.Dirty[indexV, :, :]
+                    else:
+                        raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
 
-                    return "MinFluxRms", cont, True    # stop deconvolution if hit absolute treshold; update model
+                    x,y,ThisFlux=NpParallel.A_whereMax(PeakMap,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
+                    if pol_task == "I":
+                        pass
+                    elif pol_task == "Q+iU":
+                        ThisFlux = np.sqrt(ThisFlux)
+                    elif pol_task == "V":
+                        pass
+                    else:
+                        raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
 
-                if (i>0)&((i%100)==0):
-                    PercentDone=GivePercentDone(ThisFlux)                
-                    pBAR.render(PercentDone,"peak %.3g i%d"%(ThisFlux,self._niter))
+                    self.GainMachine.SetFluxMax(ThisFlux)
 
-                nch,npol,_,_=self._Dirty.shape
-                #Fpol contains the intensities at (x,y) per freq and polarisation
-                Fpol=np.float32((self._Dirty[:,:,x,y].reshape((nch,npol,1,1))).copy())
-                nchan, npol, _, _ = Fpol.shape
-                JonesNorm = (self.DicoDirty["NormData"][:, :, x, y]).reshape((nchan, npol, 1, 1))
-                # dx=x-xc
-                # dy=y-xc
+                    T.timeit("max0")
 
-                T.timeit("stuff")
+                    if ThisFlux <= StopFlux:
+                        pBAR.render(100,"peak %.3g"%(ThisFlux,))
+                        print>>log, ModColor.Str("    CLEANing %s [iter=%i] peak of %.3g Jy lower than stopping flux" % (pol_task,i,ThisFlux),col="green")
+                        cont = ThisFlux > self.FluxThreshold
+                        if not cont:
+                              print>>log, ModColor.Str("    CLEANing %s [iter=%i] absolute flux threshold of %.3g Jy has been reached" % (pol_task,i,self.FluxThreshold),col="green",Bold=True)
+                        exit_msg = exit_msg + " " + "MinFluxRms"
+                        continue_deconvolution = cont or continue_deconvolution
+                        update_model = True or update_model
 
-                #Find PSF corresponding to location (x,y)
-                self.PSFServer.setLocation(x,y) #Selects the facet closest to (x,y)
-                PSF,meanPSF = self.PSFServer.GivePSF()  #Gives associated PSF
+                        break # stop cleaning this polariztion and move on to the next polarization job
 
-                T.timeit("FindScale")
+                    if (i>0)&((i%100)==0):
+                        PercentDone=GivePercentDone(ThisFlux)
+                        pBAR.render(PercentDone,"peak %.3g i%d"%(ThisFlux,self._niter[pol_task_id]))
 
-                CurrentGain = self.GainMachine.GiveGain()
-                #Subtract LocalSM*CurrentGain from dirty image
-                tmp = PSF*Fpol*CurrentGain*np.sqrt(JonesNorm)
-                self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, np.mean(Fpol))
-                self.SubStep((x,y),PSF*Fpol*CurrentGain*np.sqrt(JonesNorm))
-                T.timeit("SubStep")
+                    nch,npol,_,_=self._Dirty.shape
+                    #Fpol contains the intensities at (x,y) per freq and polarisation
+                    Fpol = np.zeros([nch, npol, 1, 1], dtype=np.float32)
+                    if pol_task == "I":
+                        indexI = self.PolarizationDescriptor.index("I")
+                        Fpol[:, indexI, 0, 0] = self._Dirty[:, indexI, x, y].reshape([nch, 1, 1, 1])
+                    elif pol_task == "Q+iU":
+                        indexQ = self.PolarizationDescriptor.index("Q")
+                        indexU = self.PolarizationDescriptor.index("U")
+                        Fpol[:, indexQ, 0, 0] = self._Dirty[:, indexQ, x, y].reshape([nch, 1, 1, 1])
+                        Fpol[:, indexU, 0, 0] = self._Dirty[:, indexU, x, y].reshape([nch, 1, 1, 1])
+                    elif pol_task == "V":
+                        indexV = self.PolarizationDescriptor.index("V")
+                        Fpol[:, indexV, 0, 0] = self._Dirty[:, indexV, x, y].reshape([nch, 1, 1, 1])
+                    else:
+                        raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
+                    nchan, npol, _, _ = Fpol.shape
+                    JonesNorm = (self.DicoDirty["NormData"][:, :, x, y]).reshape((nchan, npol, 1, 1))
+                    # dx=x-xc
+                    # dy=y-xc
 
-                T.timeit("End")
+                    T.timeit("stuff")
 
-        except KeyboardInterrupt:
-            print>>log, ModColor.Str("    [iter=%i] minor cycle interrupted with Ctrl+C, peak flux %.3g" % (self._niter, ThisFlux))
-            return "MaxIter", False, True   # stop deconvolution but do update model
+                    #Find PSF corresponding to location (x,y)
+                    self.PSFServer.setLocation(x,y) #Selects the facet closest to (x,y)
+                    PSF,meanPSF = self.PSFServer.GivePSF()  #Gives associated PSF
 
-        print>>log, ModColor.Str("    [iter=%i] Reached maximum number of iterations, peak flux %.3g" % (self._niter, ThisFlux))
+                    T.timeit("FindScale")
 
-        return "MaxIter", False, True   # stop deconvolution but do update model
+                    CurrentGain = self.GainMachine.GiveGain()
+                    #Update model
+                    if pol_task == "I":
+                        indexI = self.PolarizationDescriptor.index("I")
+                        self.ModelMachine.AppendComponentToDictStacked((x, y),
+                                                                       1.0,
+                                                                       np.mean(Fpol[:,indexI,0,0], axis=0),
+                                                                       indexI)
+                    elif pol_task == "Q+iU":
+                        indexQ = self.PolarizationDescriptor.index("Q")
+                        indexU = self.PolarizationDescriptor.index("U")
+                        self.ModelMachine.AppendComponentToDictStacked((x, y),
+                                                                       1.0,
+                                                                       np.mean(Fpol[:,indexQ,0,0], axis=0),
+                                                                       indexQ)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y),
+                                                                       1.0,
+                                                                       np.mean(Fpol[:,indexU,0,0], axis=0),
+                                                                       indexU)
+                        print "*********"
+                        print "\tQ: ",np.mean(Fpol[:,indexQ,0,0], axis=0)
+                        print "\tU: ",np.mean(Fpol[:,indexU,0,0], axis=0)
+                        print "*********"
+                    elif pol_task == "V":
+                        indexV = self.PolarizationDescriptor.index("V")
+                        self.ModelMachine.AppendComponentToDictStacked((x, y),
+                                                                       1.0,
+                                                                       np.mean(Fpol[:,indexV,0,0], axis=0),
+                                                                       indexV)
+                    else:
+                        raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
+
+                    # Subtract LocalSM*CurrentGain from dirty image
+                    self.SubStep((x,y),PSF*Fpol*CurrentGain*np.sqrt(JonesNorm))
+                    T.timeit("SubStep")
+
+                    T.timeit("End")
+
+            except KeyboardInterrupt:
+                print>>log, ModColor.Str("    CLEANing %s [iter=%i] minor cycle interrupted with Ctrl+C, peak flux %.3g" % (pol_task,self._niter[pol_task_id], ThisFlux))
+                exit_msg = exit_msg + " " + "MaxIter"
+                continue_deconvolution = False or continue_deconvolution
+                update_model = True or update_model
+                break #stop cleaning this polarization and move on to the next one
+
+            if self._niter[pol_task_id] >= self.MaxMinorIter: #Reached maximum iterations for this polarization:
+                print>> log, ModColor.Str("    CLEANing %s [iter=%i] Reached maximum number of iterations, peak flux %.3g" % (pol_task, self._niter[pol_task_id], ThisFlux))
+                exit_msg = exit_msg + " " + "MaxIter"
+                continue_deconvolution = False or continue_deconvolution
+                update_model = True or update_model
+            #onwards to the next polarization <--
+
+        return exit_msg, continue_deconvolution, update_model
 
     def Update(self,DicoDirty,**kwargs):
         """

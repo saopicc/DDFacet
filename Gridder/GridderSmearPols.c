@@ -467,7 +467,7 @@ void gridderWPol(gridding_parameters * params)
 	    //Since the Jones terms may vary faster than the bda smearing, the
 	    //bda must happen on the fly.
             for (visChan=chStart; visChan<chEnd; ++visChan) {
-                int doff = (irow * params->nVisChan + visChan) * params->nVisCorr;
+                size_t doff = (irow * params->nVisChan + visChan) * params->nVisCorr;
                 //###################### Facetting #######################
                 // Change coordinate and shift visibility to facet center
 		// This is in line with a coplanar faceting approach, where
@@ -749,6 +749,8 @@ void DeGridderWPol(gridding_parameters *  params)
     size_t inx;
     size_t iBlock;
     size_t visChan;
+    size_t ipol;
+    size_t irow;
     PyArrayObject *cfs;
     
 //     double VarTimeDeGrid=0;
@@ -789,7 +791,7 @@ void DeGridderWPol(gridding_parameters *  params)
         resetJonesServerCounter();
 	//Compute average u,v,w coordinate and frequency of the block:
         for (inx=0; inx<NRowThisBlock; inx++) {
-            int irow = Row[inx];
+            irow = Row[inx];
             if(irow>params->nrows) {
                 continue;
             }
@@ -878,10 +880,9 @@ void DeGridderWPol(gridding_parameters *  params)
             // Only use visibility point if the full support is within grid.
             if (locx-supx >= 0  &&  locx+supx < params->nGridX  &&
                     locy-supy >= 0  &&  locy+supy < params->nGridY) {                
-                int ipol;
                 for (ipol=0; ipol<params->nGridPol; ++ipol) {
 		    model_vis_stokes[ipol] = 0 + 0*_Complex_I; //reset accumulator
-		    int goff = (gridChan*params->nGridPol + ipol) * params->nGridX * params->nGridY;
+		    size_t goff = (gridChan*params->nGridPol + ipol) * params->nGridX * params->nGridY;
 		    int sy;
 
 		    const float complex* __restrict__ gridPtr;

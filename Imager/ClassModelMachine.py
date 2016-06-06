@@ -62,23 +62,40 @@ class ClassModelMachine():
     def setModelShape(self,ModelShape):
         self.ModelShape=ModelShape
 
-    def AppendComponentToDictStacked(self,key,Fpol,Sols):
+    def AppendComponentToDictStacked(self,key,Fpol,Sols,pol_array_index=0):
+        """
+        Adds component to model dictionary (with key l,m location tupple). Each
+        component may contain #basis_functions worth of solutions. Note that
+        each basis solution will have multiple Stokes components associated to it.
+        Args:
+            key: the (l,m) centre of the component
+            Fpol: Weight of the solution
+            Sols: Nd array of solutions with length equal to the number of basis functions representing the component.
+            pol_array_index: Index of the polarization (assumed 0 <= pol_array_index < number of Stokes terms in the model)
+        Post conditions:
+        Added component list to dictionary (with keys (l,m) coordinates). This dictionary is stored in
+        self.DicoSMStacked["Comp"] and has keys:
+            "SolsArray": solutions ndArray with shape [#basis_functions,#stokes_terms]
+            "SumWeights": weights ndArray with shape [#stokes_terms]
+        """
+        nchan, npol, nx, ny = self.ModelShape
+        if not (pol_array_index >= 0 and pol_array_index < npol):
+            raise ValueError("Pol_array_index must specify the index of the slice in the "
+                             "model cube the solution should be stored at. Please report this bug.")
         DicoComp=self.DicoSMStacked["Comp"]
         if not(key in DicoComp.keys()):
-            #print>>log, ModColor.Str("Add key %s"%(str(key)))
             DicoComp[key]={}
-            DicoComp[key]["SolsArray"]=np.zeros((Sols.size,),np.float32)
-            DicoComp[key]["SumWeights"]=0.
+            for p in range(npol):
+                DicoComp[key]["SolsArray"]=np.zeros((Sols.size,npol),np.float32)
+                DicoComp[key]["SumWeights"]=np.zeros((npol),np.float32)
 
         Weight=1.
         Gain=self.GainMachine.GiveGain()
 
         SolNorm=Sols.ravel()*Gain*np.mean(Fpol)
 
-
-        DicoComp[key]["SumWeights"] += Weight
-        DicoComp[key]["SolsArray"]  += Weight*SolNorm
-        # print>>log, "Append %s: %s %s"%(str(key),str(DicoComp[key]["SolsArray"]),str(SolNorm))
+        DicoComp[key]["SumWeights"][pol_array_index] += Weight
+        DicoComp[key]["SolsArray"][:,pol_array_index] += Weight*SolNorm
         
     def setListComponants(self,ListScales):
         self.ListScales=ListScales
@@ -144,13 +161,13 @@ class ClassModelMachine():
             """
             Given a coordinate and component obtained from DicoMap
             returns a tuple with the following information
-            (ModelType, coordinate, solution (flux), alpha, shape data)
+            (ModelType, coordinate, vector of STOKES solutions per basis function, alpha, shape data)
             """
             sa = component["SolsArray"]
 
             return map(lambda (i, sol, ls): (ls["ModelType"],               # type
                                              coord,                         # coordinate
-                                             sol,                           # flux
+                                             sol,                           # vector of STOKES parameters
                                              ref_freq,                      # reference frequency
                                              ls.get("Alpha", 0.0),          # alpha
                                              ls.get("ModelParams", None)),  # shape
@@ -184,32 +201,31 @@ class ClassModelMachine():
         ModelImage=np.zeros((nchan,npol,nx,ny),dtype=np.float32)
         DicoSM={}
         for key in DicoComp.keys():
-            Sol=DicoComp[key]["SolsArray"]#/self.DicoSMStacked[key]["SumWeights"]
-            x,y=key
+            for pol in range(npol):
+                Sol=DicoComp[key]["SolsArray"][:,pol]#/self.DicoSMStacked[key]["SumWeights"]
+                x,y=key
 
-            #print>>log, "%s : %s"%(str(key),str(Sol))
+                #print>>log, "%s : %s"%(str(key),str(Sol))
 
-            for iFunc in range(Sol.size):
-                ThisComp=self.ListScales[iFunc]
-                ThisAlpha=ThisComp["Alpha"]
-                for ch in range(nchan):
-                    Flux=Sol[iFunc]*(FreqIn[ch]/RefFreq)**(ThisAlpha)
-                    if ThisComp["ModelType"]=="Delta":
-                        for pol in range(npol):
+                for iFunc in range(Sol.size):
+                    ThisComp=self.ListScales[iFunc]
+                    ThisAlpha=ThisComp["Alpha"]
+                    for ch in range(nchan):
+                        Flux=Sol[iFunc]*(FreqIn[ch]/RefFreq)**(ThisAlpha)
+                        if ThisComp["ModelType"]=="Delta":
                             ModelImage[ch,pol,x,y]+=Flux
-                
-                    elif ThisComp["ModelType"]=="Gaussian":
-                        Gauss=ThisComp["Model"]
-                        Sup,_=Gauss.shape
-                        x0,x1=x-Sup/2,x+Sup/2+1
-                        y0,y1=y-Sup/2,y+Sup/2+1
-                        
-                        
-                        Aedge,Bedge=GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
-                        x0d,x1d,y0d,y1d=Aedge
-                        x0p,x1p,y0p,y1p=Bedge
-                        
-                        for pol in range(npol):
+
+                        elif ThisComp["ModelType"]=="Gaussian":
+                            Gauss=ThisComp["Model"]
+                            Sup,_=Gauss.shape
+                            x0,x1=x-Sup/2,x+Sup/2+1
+                            y0,y1=y-Sup/2,y+Sup/2+1
+
+
+                            Aedge,Bedge=GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
+                            x0d,x1d,y0d,y1d=Aedge
+                            x0p,x1p,y0p,y1p=Bedge
+
                             ModelImage[ch,pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Flux
         
         # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
@@ -260,6 +276,8 @@ class ClassModelMachine():
         for (x,y) in self.DicoSMStacked["Comp"].keys():
             if MaskArray[x,y]==0:
                 del(self.DicoSMStacked["Comp"][(x,y)])
+    """
+    Broken code: Marked for removal.
 
     def ToNPYModel(self,FitsFile,SkyModel):
         #R=ModRegFile.RegToNp(PreCluster)
@@ -321,7 +339,7 @@ class ClassModelMachine():
         SourceCat=(SourceCat[SourceCat.ra!=0]).copy()
         np.save(SkyModel,SourceCat)
         self.AnalyticSourceCat=ClassSM.ClassSM(SkyModel)
-
+    """
     def DelAllComp(self):
         for key in self.DicoSMStacked["Comp"].keys():
             del(self.DicoSMStacked["Comp"][key])

@@ -32,9 +32,9 @@ typedef struct{
   double FreqMean0;
   double * Pfreqs; //ref frequencies
   //uv data dimensions
-  int nrows;
-  int nVisCorr;
-  int nVisChan;
+  size_t nrows;
+  size_t nVisCorr;
+  size_t nVisChan;
   //mappings
   int *p_ChanMapping;
   int32_t *VisCorrDesc;
@@ -49,6 +49,6 @@ typedef struct{
   int *MappingBlock;
   int *NRowBlocks;
   int *StartRow;
-  int NTotBlocks;
-  int NMaxRow;
+  size_t NTotBlocks;
+  size_t NMaxRow;
 } gridding_parameters;
