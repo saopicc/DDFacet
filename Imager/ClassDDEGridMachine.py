@@ -319,18 +319,8 @@ class ClassDDEGridMachine():
         # 0: scalar
         # 1: diag
         # 2: full
-        if PolMode=="I":
-            self.npol=1
-            self.PolMap=np.array([0,5,5,0],np.int32)
-            self.SkyType=1
-            self.PolModeID=0
-        elif PolMode=="IQUV":
-            self.SkyType=2
-            self.npol=4
-            self.PolMap=np.array([0,1,2,3],np.int32)
-            self.PolModeID=1
-        else:
-            raise ValueError("Illegal value for PolMode. Only accepts one of [I,IQUV].")
+        self.npol = len(ExpectedOutputStokes)
+        self.SkyType = 2
 
         self.Npix=Npix
 
@@ -843,7 +833,7 @@ class ClassDDEGridMachine():
         else:
 
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
-            OptimisationInfos=[self.JonesType,chan_equidistant,self.SkyType,self.PolModeID]
+            OptimisationInfos=[self.JonesType,chan_equidistant,self.SkyType]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMemData))
 
             _pyGridderSmear.pyDeGridderWPol(Grid,
@@ -857,7 +847,7 @@ class ClassDDEGridMachine():
                                                   np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
                                                   self.incr.astype(np.float64),
                                                   freqs,
-                                                  [FacetInfos,self.PolMap],
+                                                  [FacetInfos],
                                                   ParamJonesList,
                                                   MapSmear,
                                                   OptimisationInfos,

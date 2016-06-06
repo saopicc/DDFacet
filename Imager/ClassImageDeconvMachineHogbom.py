@@ -448,10 +448,6 @@ class ClassImageDeconvMachine():
                                                                        1.0,
                                                                        np.mean(Fpol[:,indexU,0,0], axis=0),
                                                                        indexU)
-                        print "*********"
-                        print "\tQ: ",np.mean(Fpol[:,indexQ,0,0], axis=0)
-                        print "\tU: ",np.mean(Fpol[:,indexU,0,0], axis=0)
-                        print "*********"
                     elif pol_task == "V":
                         indexV = self.PolarizationDescriptor.index("V")
                         self.ModelMachine.AppendComponentToDictStacked((x, y),

@@ -504,16 +504,16 @@ class ClassFacetMachine():
     ############################################################################################
     ############################################################################################
 
-    def setCasaImage(self,ImageName=None,Shape=None,Freqs=None):
+    def setCasaImage(self,ImageName=None,Shape=None,Freqs=None,Stokes=["I"]):
         if ImageName==None:
             ImageName=self.ImageName
 
         if Shape==None:
             Shape=self.OutImShape
-        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec,Freqs=Freqs)
+        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec,Freqs=Freqs,Stokes=Stokes)
 
-    def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None,beamcube=None,Freqs=None):
-        self.setCasaImage(ImageName=ImageName,Shape=ImageIn.shape,Freqs=Freqs)
+    def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None,beamcube=None,Freqs=None,Stokes=["I"]):
+        self.setCasaImage(ImageName=ImageName,Shape=ImageIn.shape,Freqs=Freqs,Stokes=Stokes)
 
         self.CasaImage.setdata(ImageIn,CorrT=True)
 

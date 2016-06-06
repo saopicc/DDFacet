@@ -321,11 +321,13 @@ class ClassImagerDeconv():
 
         self.FitPSF()
         if "P" in self._saveims or "p" in self._saveims:
-            FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg)
+            FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg,
+                                        Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         if "P" in self._savecubes or "p" in self._savecubes:
             self.FacetMachine.ToCasaImage(self.DicoImagePSF["ImagData"],
                                           ImageName="%s.cube.psf"%self.BaseName,
-                                          Fits=True,beam=self.FWHMBeamAvg,Freqs=self.VS.FreqBandCenters)
+                                          Fits=True,beam=self.FWHMBeamAvg,Freqs=self.VS.FreqBandCenters,
+                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
         FacetMachinePSF = None
 
@@ -414,10 +416,11 @@ class ClassImagerDeconv():
             
             if self._save_intermediate_grids:
                 self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
-                self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty.%d."%(self.BaseName,iloop),Fits=True)
+                self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty.%d."%(self.BaseName,iloop),
+                                              Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
                 if 'g' in self._savecubes:
                     self.FacetMachine.ToCasaImage(self.DicoDirty["ImagData"],ImageName="%s.cube.dirty.%d"%(self.BaseName,iloop),
-                        Fits=True,Freqs=self.VS.FreqBandCenters) 
+                        Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
                 self.FacetMachine.NormData = None
                 self.FacetMachine.NormImage = None
 
@@ -426,32 +429,38 @@ class ClassImagerDeconv():
         self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
 
         if "d" in self._saveims:
-            self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True)
+            self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
+                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         if "d" in self._savecubes:
             self.FacetMachine.ToCasaImage(self.DicoDirty["ImagData"],ImageName="%s.cube.dirty"%self.BaseName,
-                    Fits=True,Freqs=self.VS.FreqBandCenters) 
+                    Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
 
         if "n" in self._saveims:
-            self.FacetMachine.ToCasaImage(self.FacetMachine.NormImageReShape,ImageName="%s.NormFacets"%self.BaseName,Fits=True)
+            self.FacetMachine.ToCasaImage(self.FacetMachine.NormImageReShape,ImageName="%s.NormFacets"%self.BaseName,
+                                          Fits=True)
 
         if self.DicoDirty["NormData"]!=None:
             DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
             nch,npol,nx,ny = DirtyCorr.shape
             if "D" in self._saveims:
                 MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
-                self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True)
+                self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             if "D" in self._savecubes:
                 self.FacetMachine.ToCasaImage(DirtyCorr,ImageName="%s.cube.dirty.corr"%self.BaseName,
-                                              Fits=True,Freqs=self.VS.FreqBandCenters)
+                                              Fits=True,Freqs=self.VS.FreqBandCenters,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             self.NormImage = self.DicoDirty["NormData"]
             self.MeanNormImage = np.mean(self.NormImage,axis=0).reshape((1,npol,nx,ny))
             if "N" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.MeanNormImage,ImageName="%s.Norm"%self.BaseName,Fits=True)
+                self.FacetMachine.ToCasaImage(self.MeanNormImage,ImageName="%s.Norm"%self.BaseName,Fits=True,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             if "N" in self._savecubes:
                 self.FacetMachine.ToCasaImage(self.NormImage, ImageName="%s.cube.Norm" % self.BaseName,
-                                              Fits=True, Freqs=self.VS.FreqBandCenters)
+                                              Fits=True, Freqs=self.VS.FreqBandCenters,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         else:
             self.MeanNormImage = None
 
@@ -600,11 +609,12 @@ class ClassImagerDeconv():
             self.ResidImage = DicoImage["MeanImage"]
 
             if "e" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.ResidImage,ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),Fits=True)
+                self.FacetMachine.ToCasaImage(self.ResidImage,ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),
+                                              Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             if "o" in self._saveims:
                 self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
-                    Fits=True,Freqs=current_model_freqs)
+                    Fits=True,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             self.DeconvMachine.ToFile(self.DicoModelName)
 
@@ -783,84 +793,94 @@ class ClassImagerDeconv():
 
         # norm
         if havenorm and ("S" in self._saveims or "s" in self._saveims):
-            self.FacetMachine.ToCasaImage(sqrtnorm(),ImageName="%s.fluxscale"%(self.BaseName),Fits=True)
+            self.FacetMachine.ToCasaImage(sqrtnorm(),ImageName="%s.fluxscale"%(self.BaseName),
+                                          Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         if havenorm and ("S" in self._savecubes or "s" in self._savecubes):
             self.FacetMachine.ToCasaImage(sqrtnormcube(), ImageName="%s.cube.fluxscale" % (self.BaseName), Fits=True,
-                Freqs=self.VS.FreqBandCenters)
+                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             # apparent-flux residuals
         if "r" in self._saveims:
-            self.FacetMachine.ToCasaImage(appres(),ImageName="%s.app.residual"%(self.BaseName),Fits=True)
+            self.FacetMachine.ToCasaImage(appres(),ImageName="%s.app.residual"%(self.BaseName),
+                                          Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # intrinsic-flux residuals
         if havenorm and "R" in self._saveims:
-            self.FacetMachine.ToCasaImage(intres(),ImageName="%s.int.residual"%(self.BaseName),Fits=True)
+            self.FacetMachine.ToCasaImage(intres(),ImageName="%s.int.residual"%(self.BaseName),Fits=True,
+                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # apparent-flux residual cube
         if "r" in self._savecubes:
             self.FacetMachine.ToCasaImage(apprescube(),ImageName="%s.cube.app.residual"%(self.BaseName),Fits=True,
-                Freqs=self.VS.FreqBandCenters)
+                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # intrinsic-flux residual cube
         if havenorm and "R" in self._savecubes:
             self.FacetMachine.ToCasaImage(intrescube(),ImageName="%s.cube.int.residual"%(self.BaseName),Fits=True,
-                Freqs=self.VS.FreqBandCenters)
+                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
         # apparent-flux model
         if "m" in self._saveims:
-            self.FacetMachine.ToCasaImage(appmodel(),ImageName="%s.app.model"%self.BaseName,Fits=True)
+            self.FacetMachine.ToCasaImage(appmodel(),ImageName="%s.app.model"%self.BaseName,Fits=True,
+                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # intrinsic-flux model
         if havenorm and "M" in self._saveims:
-            self.FacetMachine.ToCasaImage(intmodel(),ImageName="%s.int.model"%self.BaseName,Fits=True)
+            self.FacetMachine.ToCasaImage(intmodel(),ImageName="%s.int.model"%self.BaseName,Fits=True,
+                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # apparent-flux model cube
         if "m" in self._savecubes:
             self.FacetMachine.ToCasaImage(appmodelcube(),ImageName="%s.cube.app.model"%self.BaseName,Fits=True,
-                Freqs=self.VS.FreqBandCenters)
+                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # intrinsic-flux model cube
         if havenorm and "M" in self._savecubes:
             self.FacetMachine.ToCasaImage(intmodelcube(),ImageName="%s.cube.int.model"%self.BaseName,Fits=True,
-                Freqs=self.VS.FreqBandCenters)
+                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
         # convolved-model image in apparent flux
         if "c" in self._saveims:
             self.FacetMachine.ToCasaImage(appconvmodel(),ImageName="%s.app.convmodel"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg)
+                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # convolved-model image in intrinsic flux
         if havenorm and "C" in self._saveims: 
             self.FacetMachine.ToCasaImage(intconvmodel(),ImageName="%s.int.convmodel"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg)
+                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # convolved-model cube in apparent flux 
         if "c" in self._savecubes:
             self.FacetMachine.ToCasaImage(appconvmodelcube(),ImageName="%s.cube.app.convmodel"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters)
+                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
+                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # convolved-model cube in intrinsic flux
         if havenorm and "C" in self._savecubes: 
             self.FacetMachine.ToCasaImage(intconvmodelcube(),ImageName="%s.cube.int.convmodel"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters)
+                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
+                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
         # apparent-flux restored image
         if "i" in self._saveims:
             self.FacetMachine.ToCasaImage(appres()+appconvmodel(),ImageName="%s.app.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg)
+                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # intrinsic-flux restored image
         if havenorm and "I" in self._saveims:
             self.FacetMachine.ToCasaImage(intres()+intconvmodel(),ImageName="%s.int.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg)
+                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # apparent-flux restored image cube
         if "i" in self._savecubes:
             self.FacetMachine.ToCasaImage(apprescube()+appconvmodelcube(),ImageName="%s.cube.app.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters)
+                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
+                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # intrinsic-flux restored image cube
         if havenorm and "I" in self._savecubes:
             self.FacetMachine.ToCasaImage(intrescube()+intconvmodelcube(),ImageName="%s.cube.int.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters)
+                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
+                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # mixed-flux restored image
         if havenorm and "x" in self._saveims:
             self.FacetMachine.ToCasaImage(appres()+intconvmodel(),ImageName="%s.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg)
+                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         
         # Alpha image
         if "A" in self._saveims and self.VS.MultiFreqMode:
             IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg])
             # IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
-            self.FacetMachine.ToCasaImage(IndexMap,ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg)
+            self.FacetMachine.ToCasaImage(IndexMap,ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg,
+                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
     def testDegrid(self):
         self.InitFacetMachine()
