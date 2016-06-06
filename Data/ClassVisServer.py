@@ -741,7 +741,7 @@ class ClassVisServer():
                 WEIGHT=tab.getcol(WeightCol)[:,chanslice]
                 print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
                 # take mean weight and apply this to all correlations:
-                WEIGHT = np.mean(WEIGHT,axis=3) * valid
+                WEIGHT = np.mean(WEIGHT,axis=2) * valid
                 
             elif WeightCol == "WEIGHT":
                 WEIGHT=tab.getcol(WeightCol)
