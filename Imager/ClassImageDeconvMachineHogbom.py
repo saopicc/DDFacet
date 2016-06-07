@@ -113,8 +113,8 @@ class ClassImageDeconvMachine():
         for iChannel in range(self.NFreqBand):
             AllFreqs += self.DicoVariablePSF["freqs"][iChannel]
             AllFreqsMean[iChannel] = np.mean(self.DicoVariablePSF["freqs"][iChannel])
-
-        RefFreq = np.sum(AllFreqsMean.ravel() * self.DicoVariablePSF["WeightChansImages"].ravel())
+        #assume that the frequency variance is somewhat the same in all the stokes images:
+        RefFreq = np.sum(AllFreqsMean.ravel() * np.mean(self.DicoVariablePSF["WeightChansImages"],axis=1).ravel())
 
         self.ModelMachine.setRefFreq(RefFreq, AllFreqs)
 
@@ -215,7 +215,7 @@ class ClassImageDeconvMachine():
         self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
         #Subtract from the average
         if self.MultiFreqMode:  #If multiple frequencies are present construct the weighted mean
-            W=np.float32(self.DicoDirty["WeightChansImages"])  #Get the weights
+            W=np.mean(np.float32(self.DicoDirty["WeightChansImages"]),axis=1)  #Get the weights (assuming they stay relatively the same over stokes terms)
             self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0) #Sum over frequency
 
     def setChannel(self,ch=0):
@@ -405,15 +405,15 @@ class ClassImageDeconvMachine():
                     Fpol = np.zeros([nch, npol, 1, 1], dtype=np.float32)
                     if pol_task == "I":
                         indexI = self.PolarizationDescriptor.index("I")
-                        Fpol[:, indexI, 0, 0] = self._Dirty[:, indexI, x, y].reshape([nch, 1, 1, 1])
+                        Fpol[:, indexI, 0, 0] = self._Dirty[:, indexI, x, y]
                     elif pol_task == "Q+iU":
                         indexQ = self.PolarizationDescriptor.index("Q")
                         indexU = self.PolarizationDescriptor.index("U")
-                        Fpol[:, indexQ, 0, 0] = self._Dirty[:, indexQ, x, y].reshape([nch, 1, 1, 1])
-                        Fpol[:, indexU, 0, 0] = self._Dirty[:, indexU, x, y].reshape([nch, 1, 1, 1])
+                        Fpol[:, indexQ, 0, 0] = self._Dirty[:, indexQ, x, y]
+                        Fpol[:, indexU, 0, 0] = self._Dirty[:, indexU, x, y]
                     elif pol_task == "V":
                         indexV = self.PolarizationDescriptor.index("V")
-                        Fpol[:, indexV, 0, 0] = self._Dirty[:, indexV, x, y].reshape([nch, 1, 1, 1])
+                        Fpol[:, indexV, 0, 0] = self._Dirty[:, indexV, x, y]
                     else:
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
                     nchan, npol, _, _ = Fpol.shape
