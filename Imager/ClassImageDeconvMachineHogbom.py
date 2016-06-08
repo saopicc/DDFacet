@@ -287,9 +287,15 @@ class ClassImageDeconvMachine():
             NPixStats = self.GD["ImagerDeconv"]["NumRMSSamples"]
             if NPixStats:
                 RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
-                RMS=np.std(np.real(PeakMap.ravel()[RandomInd]))
+                if pol_task == "Q+iU":
+                    RMS = np.std(np.sqrt(np.real(PeakMap).ravel()[RandomInd]))
+                else:
+                    RMS=np.std(np.real(PeakMap.ravel()[RandomInd]))
             else:
-                RMS=np.std(PeakMap)
+                if pol_task == "Q+iU":
+                    RMS=np.std(np.sqrt(PeakMap))
+                else:
+                    RMS = np.std(PeakMap)
             self.RMS=RMS
 
             self.GainMachine.SetRMS(RMS)
