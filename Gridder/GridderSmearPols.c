@@ -393,10 +393,6 @@ void gridderWPol(gridding_parameters * params)
     float complex *VisMeas= (float complex*)calloc(params->nVisCorr,sizeof(float complex*));
     float complex *VisStokes= (float complex*)calloc(params->nGridPol,sizeof(float complex*));
     
-    //need to use #nCorr flags in the channel loop later:
-    float * VisFlagWeight = (float *)calloc(params->nVisCorr,sizeof(float *)); 
-    float * VisRealWeight = (float *)calloc(params->nVisCorr,sizeof(float *)); 
-    float complex * VisComplexWeight = (float complex *)calloc(params->nVisCorr,sizeof(float complex *)); 
     //allocate buffers for jones blocks used in channel loop later on:
     double * BlockVisWeight = (double *)calloc(params->nVisCorr,sizeof(double *)); 
     float * BlockSumJones = (float *)calloc(params->nVisCorr,sizeof(float *)); 
@@ -468,6 +464,18 @@ void gridderWPol(gridding_parameters * params)
 	    //bda must happen on the fly.
             for (visChan=chStart; visChan<chEnd; ++visChan) {
                 size_t doff = (irow * params->nVisChan + visChan) * params->nVisCorr;
+		//###################### Flagging #######################
+		//Weights flagged visibilities down to 0. Assumes if
+		//one correlation is flagged all others are flagged as well.
+                bool* __restrict__ flagPtr = params->flags + doff;
+		{
+		  int corr;
+		  for (corr = 0; corr < params->nVisCorr; ++corr){
+		    if (flagPtr[corr]!=0) continue;
+		  }
+		}
+		//#######################################################
+		
                 //###################### Facetting #######################
                 // Change coordinate and shift visibility to facet center
 		// This is in line with a coplanar faceting approach, where
@@ -477,7 +485,7 @@ void gridderWPol(gridding_parameters * params)
 		// is to be applied to all visibilities, rotating the sky over the
 		// image plane of the facet and is direction independent
 		// (only the facet reference centre is involved, so it can
-		// be taken out of the RIME integral). The term it may be 
+		// be taken out of the RIME integral). The term may be 
 		// treated as a scalar (complex) Jones term.
                 float U=(float)uvwPtr[0];
                 float V=(float)uvwPtr[1];
@@ -540,34 +548,19 @@ void gridderWPol(gridding_parameters * params)
                 } 
                 //#######################################################
 		
-		//###################### Flagging #######################
-		//Weights flagged visibilities down to 0. Each correlation
-		//may have its' own flag, so this term is not scalar and
-		//should be viewed as being applied per baseline.
-                bool* __restrict__ flagPtr = params->flags + doff;
-		{
-		  int corr;
-		  for (corr = 0; corr < params->nVisCorr; ++corr)
-		    VisFlagWeight[corr] = (flagPtr[0]==0) ? 1.0f : 0.0f;
-		}
-		//#######################################################
-		
 		//################# Visibility Weighting ################
 		//These are visibility weights which may take the
 		//visibility noise level and uniform/robust weighting
-		//into account. Each correlation may have its own weight
-		//so this term is not scalar. This term is also applied
-		//per baseline. Pointwise apply per baseline-weights to 
-		//jones-corrected visibilities:
-		//TODO: the weights should include a weight for each correlation
+		//into account. We assume this is a scalar applied to all
+		//correlations.
 		double* imgWtPtr = params->weights + irow  * params->nVisChan + visChan;
+		float VisRealWeight = (*imgWtPtr)*WeightVaryJJ*DeCorrFactor;
+		float complex VisComplexWeight = VisRealWeight * facetPhasor;
 		{
-		  int corr;
+		  int corr;  
 		  for (corr = 0; corr < params->nVisCorr; ++corr){
-		    VisRealWeight[corr] = (*imgWtPtr)*WeightVaryJJ*DeCorrFactor*VisFlagWeight[corr];
-		    VisComplexWeight[corr] = VisRealWeight[corr] * facetPhasor;
-		    BlockVisWeight[corr]+=VisRealWeight[corr];
-		    VisCorr[corr] += VisMeas[corr]*VisComplexWeight[corr];
+		    BlockVisWeight[corr]+=VisRealWeight;
+		    VisCorr[corr] += VisMeas[corr]*VisComplexWeight;
 		  }
 		}
 		//#######################################################
@@ -581,7 +574,7 @@ void gridderWPol(gridding_parameters * params)
 		if(DoApplyJones) {
 		  int corr;
 		  for (corr=0;corr<params->nVisCorr;++corr){
-		    float FWeightSq=(VisRealWeight[corr])*(VisRealWeight[corr]);
+		    float FWeightSq=(VisRealWeight)*(VisRealWeight);
 		    BlockSumJones[corr]+=BB*FWeightSq;
 		    BlockSumSqWeights[corr]+=FWeightSq;
 		    size_t weightsOffset = visChan*params->nVisCorr + corr;
@@ -717,9 +710,6 @@ void gridderWPol(gridding_parameters * params)
     free(ThisSumJonesChan);
     free(ThisSumSqWeightsChan);
     free(dCorrTerm);
-    free(VisFlagWeight);
-    free(VisRealWeight);
-    free(VisComplexWeight);
     free(BlockVisWeight);
     free(BlockSumJones);
     free(BlockSumSqWeights);
