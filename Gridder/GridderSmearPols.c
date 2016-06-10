@@ -470,9 +470,14 @@ void gridderWPol(gridding_parameters * params)
                 bool* __restrict__ flagPtr = params->flags + doff;
 		{
 		  int corr;
+		  bool row_flagged = false;
 		  for (corr = 0; corr < params->nVisCorr; ++corr){
-		    if (flagPtr[corr]!=0) continue;
+		    if (flagPtr[corr]!=0){ 
+		      row_flagged = true;
+		      break;
+		    }
 		  }
+		  if (row_flagged) continue;
 		}
 		//#######################################################
 		
