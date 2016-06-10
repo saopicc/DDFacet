@@ -39,9 +39,11 @@ def moments (data,circle,rotate,vheight):
     X, Y = indices(data.shape)
     x = (X*data).sum()/total
     y = (Y*data).sum()/total
-    col = data[:, int(y)]
+    col = data[:, int(y)].copy()
+    col[where(col < 0)] = 0.0 #clamp the negatives to 0 to make sure the moments computation doesn't fall over
     width_x = sqrt(abs((arange(col.size)-y)**2*col).sum()/col.sum())
-    row = data[int(x), :]
+    row = data[int(x), :].copy()
+    row[where(row < 0)] = 0.0  # clamp the negatives to 0 to make sure the moments computation doesn't fall over
     width_y = sqrt(abs((arange(row.size)-x)**2*row).sum()/row.sum())
     width = ( width_x + width_y ) / 2.
     height = stats.mode(data.ravel())[0][0] if vheight else 0;
