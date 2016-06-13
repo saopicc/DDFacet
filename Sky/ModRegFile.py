@@ -12,13 +12,13 @@ class RegToNp():
     def Read(self):
         f=open(self.REGFile,"r")
 
-        Cat=np.zeros((1000,),dtype=[("ra",np.float32),("dec",np.float32),("Radius",np.float32),("Exclude",np.bool8),
+        Cat=np.zeros((1000,),dtype=[("ra",np.float32),("dec",np.float32),("I",np.float32),("Radius",np.float32),("Exclude",np.bool8),
                                     ("Cluster",np.int16),("ID",np.int16)])
         Cat=Cat.view(np.recarray)
         Cat.Cluster=-1
         Cat.Cluster=np.arange(Cat.shape[0])
         Cat.ID=np.arange(Cat.shape[0])
-
+        Cat.I=1
         Ls=f.readlines()
         f.close()
         iCat=0
@@ -40,9 +40,13 @@ class RegToNp():
                 ra*=np.pi/180
 
                 sdech,sdecm,sdecs=sdec.split(":")
-                dec=(float(sdech)+float(sdecm)/60+float(sdecs)/3600.)
+                sgndec=np.sign(float(sdech))
+                dech=np.abs(float(sdech))
+                dec=sgndec*(dech+float(sdecm)/60+float(sdecs)/3600.)
                 dec*=np.pi/180
                 
+                
+
                 rad=(float(srad[0:-1])/3600.)*np.pi/180
 
                 Cat.ra[iCat]=ra

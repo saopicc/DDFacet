@@ -230,9 +230,16 @@ class ClassSM():
         if FromClusterCat=="":
             DictNode=CM.Cluster()
         else:
+
             DictNode={}
-            SourceCatRef=np.load(FromClusterCat)
-            SourceCatRef=SourceCatRef.view(np.recarray)
+            if not("reg" in FromClusterCat):
+                SourceCatRef=np.load(FromClusterCat)
+                SourceCatRef=SourceCatRef.view(np.recarray)
+            else:
+                R=ModRegFile.RegToNp(FromClusterCat)
+                R.Read()
+                SourceCatRef=R.CatSel
+
             ClusterList=sorted(list(set(SourceCatRef.Cluster.tolist())))
             xc,yc=self.radec2lm_scalar(SourceCatRef.ra,SourceCatRef.dec)
             lc=np.zeros((len(ClusterList),),dtype=np.float32)
