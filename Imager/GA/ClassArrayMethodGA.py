@@ -307,7 +307,7 @@ class ClassArrayMethodGA():
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(chi2*W)
             if FuncType=="MaxFlux":
-                FMax=-np.max(np.abs(S))/(np.sqrt(self.PixVariance)*Resid.size)
+                FMax=-np.max(np.abs(Resid))/(np.sqrt(self.PixVariance)*Resid.size)
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(FMax*W)
             if FuncType=="L0":

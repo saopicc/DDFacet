@@ -429,6 +429,8 @@ class ClassImagerDeconv():
             #if Res=="EndChunk": break
             if Res=="EndOfObservation": break
             DATA=self.DATA
+
+
             if DoSub:
                 ThisMeanFreq=self.VS.CurrentChanMappingDegrid#np.mean(DATA["freqs"])
                 ModelImage=MM.GiveModelImage(ThisMeanFreq)

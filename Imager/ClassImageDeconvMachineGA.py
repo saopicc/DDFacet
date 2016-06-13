@@ -89,6 +89,17 @@ class ClassImageDeconvMachine():
     def InitMSMF(self):
         pass
 
+    def AdaptArrayShape(self,A,Nout):
+        nch,npol,Nin,_=A.shape
+        if Nin==Nout: 
+            return A
+        elif Nin<Nout:
+            off=(Nout-Nin)/2
+            B=np.zeros((nch,npol,Nout,Nout),A.dtype)
+            B[:,:,off:off+Nin,off:off+Nin]=A
+            return B
+
+
     def SetDirty(self,DicoDirty):
         DicoDirty["ImagData"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImagData"])
         DicoDirty["MeanImage"]=NpShared.ToShared("%s.Dirty.MeanImage"%self.IdSharedMem,DicoDirty["MeanImage"])
@@ -99,6 +110,15 @@ class ClassImageDeconvMachine():
         _,_,NDirty,_=self._Dirty.shape
 
         off=(NPSF-NDirty)/2
+
+        _,_,NMask,_=self._MaskArray.shape
+        if NMask!=NDirty:
+            print>>log,"Adapt mask shape"
+            self._MaskArray=self.AdaptArrayShape(self._MaskArray,NDirty)
+            self.MaskArray=self._MaskArray[0]
+            self.IslandArray=np.zeros_like(self._MaskArray)
+            self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
+
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
 
         if self.ModelImage==None:

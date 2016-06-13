@@ -499,7 +499,7 @@ void gridderWPol(PyArrayObject *grid,
 	    }
 	  }
 
-	  float FWeight=(*imgWtPtr)*WeightVaryJJ*DeCorrFactor;//*WeightVaryJJ;
+	  float FWeight=(*imgWtPtr)*WeightVaryJJ;//*WeightVaryJJ;
 	  float complex Weight=(FWeight) * corr;
 	  float complex visPtr[4];
 	  if(DoApplyJones){
@@ -520,7 +520,7 @@ void gridderWPol(PyArrayObject *grid,
 	    // Vis+=visPtr*Weight
 	    Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);
 
-	    float FWeightSq=(FWeight)*(FWeight);
+	    float FWeightSq=(FWeight)*DeCorrFactor*DeCorrFactor;//*(FWeight);
 	    ThisSumJones+=BB*FWeightSq;
 	    ThisSumSqWeights+=FWeightSq;
 

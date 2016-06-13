@@ -369,6 +369,7 @@ class ClassVisServer():
             DATA=repLoadChunk
             break
         
+        DATA["data"][DATA["flag"]]=0
         
 
         self.TimeMemChunkRange_sec=DATA["times"][0],DATA["times"][-1]
@@ -378,11 +379,9 @@ class ClassVisServer():
         A0=DATA["A0"]
         A1=DATA["A1"]
         uvw=DATA["uvw"]
-
         flags=DATA["flag"]
         freqs=MS.ChanFreq.flatten()
         nbl=MS.nbl
-
         # ## debug
         # ind=np.where((A0==14)&(A1==31))[0]
         # flags=flags[ind]
@@ -662,9 +661,16 @@ class ClassVisServer():
         row0 = 0
         for num_ms, (nrow, tab, chanslice) in enumerate(zip(nrows, tabs, chanslices)):
             uvws[row0:(row0+nrow),...]   = tab.getcol("UVW")
-            flags[row0:(row0+nrow),...] = tab.getcol("FLAG")[:,chanslice,:]
+            ThisFlag=tab.getcol("FLAG")[:,chanslice,:]
+            ThisNRows,ThisNChan,_=ThisFlag.shape
+            flags[row0:(row0+nrow),...] = ThisFlag
+            
+            
 
-            if WeightCol == "WEIGHT_SPECTRUM":
+            if not(WeightCol in tab.colnames()):
+                WEIGHT = np.ones((ThisNRows,ThisNChan),np.float32)
+
+            elif WeightCol == "WEIGHT_SPECTRUM":
                 WEIGHT=tab.getcol(WeightCol)[:,chanslice]
                 print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
                 WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2.

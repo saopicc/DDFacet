@@ -480,6 +480,13 @@ class ClassMS():
         if npol==1:
             self.To4Pols(DATA)
 
+
+        if self.DoRevertChans:
+            DATA["data"]=DATA["data"][:,::-1,:]
+            DATA["flag"]=DATA["flag"][:,::-1,:]
+
+
+
         # if self.AverageSteps!=None:
         #     StepTime,StepFreq=self.AverageSteps
         #     DATA=self.GiveAverageTimeFreq(DATA,StepTime=StepTime,StepFreq=StepFreq)
@@ -771,8 +778,8 @@ class ClassMS():
             self.DoRevertChans=(self.ChanFreq.flatten()[0]>self.ChanFreq.flatten()[-1])
         if self.DoRevertChans:
             print ModColor.Str("  ====================== >> Revert Channel order!")
-            wavelength_chan=wavelength_chan[0,::-1]
-            self.ChanFreq=self.ChanFreq[0,::-1]
+            wavelength_chan=wavelength_chan[::-1]
+            self.ChanFreq=self.ChanFreq[::-1]
             self.dFreq=np.abs(self.dFreq)
 
         # if self.AverageSteps!=None:
