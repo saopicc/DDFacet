@@ -369,7 +369,7 @@ class ClassVisServer():
             DATA=repLoadChunk
             break
         
-        DATA["data"][DATA["flag"]]=0
+        # DATA["data"][DATA["flag"]]=0
         
 
         self.TimeMemChunkRange_sec=DATA["times"][0],DATA["times"][-1]
