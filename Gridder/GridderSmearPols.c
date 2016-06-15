@@ -516,7 +516,7 @@ void gridderWPol(PyArrayObject *grid,
             // Vis+=visPtr*Weight
             Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);
 
-            float FWeightSq=(FWeight)*(FWeight);
+            float FWeightSq=(FWeight);
             ThisSumJones+=BB*FWeightSq;
             ThisSumSqWeights+=FWeightSq;
 
