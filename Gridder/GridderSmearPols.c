@@ -579,7 +579,8 @@ void gridderWPol(gridding_parameters * params)
 		if(DoApplyJones) {
 		  int corr;
 		  for (corr=0;corr<params->nVisCorr;++corr){
-		    float FWeightSq=(VisRealWeight)*(VisRealWeight);
+		    //Sigma_bl{(w)(M^H)(M)} approximation for the Mueller Matrix:
+		    float FWeightSq=(VisRealWeight); 
 		    BlockSumJones[corr]+=BB*FWeightSq;
 		    BlockSumSqWeights[corr]+=FWeightSq;
 		    size_t weightsOffset = visChan*params->nVisCorr + corr;
@@ -689,12 +690,12 @@ void gridderWPol(gridding_parameters * params)
                     //Accumulate normalization weights for this facet
                     params->sumWtPtr[gridChan*params->nGridPol + ipol] += BlockVisWeight[ipol];
                     if ( DoApplyJones ) {
-			//TODO: This has to be changed to include all polarizations
+			//TODO: Currently we use a scalar approximation for the Muler matrix... this may have to be changed for higher accuracy in the future
                         ptrSumJones[gridChan]+=BlockSumJones[0];
                         ptrSumJones[gridChan+params->nGridChan]+=BlockSumSqWeights[0];
 
                         for ( visChan=0; visChan<params->nVisChan; visChan++ ) {
-			    //TODO: This has to be changed to include all polarizations
+			    //TODO: Currently we use a scalar approximation for the Muler matrix... this may have to be changed for higher accuracy in the future
 			    size_t weightOffset = visChan*params->nVisCorr + 0;
                             ptrSumJonesChan[visChan]+=ThisSumJonesChan[weightOffset];
                             ptrSumJonesChan[params->nVisChan+visChan]+=ThisSumSqWeightsChan[weightOffset];
