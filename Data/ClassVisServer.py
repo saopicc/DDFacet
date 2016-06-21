@@ -467,6 +467,11 @@ class ClassVisServer():
         
 
         DATA["Weights"]=self.CurrentVisWeights[MS.ROW0:MS.ROW1]
+        weights_file = "%s.weights.cp"%ThisMSName
+        print>>log,"saving weights to %s"%weights_file
+        cPickle.dump(DATA["Weights"],file(weights_file,"a"),2)
+
+
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
 
         
