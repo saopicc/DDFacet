@@ -2,7 +2,7 @@
 import optparse
 import sys
 import pickle
-from DDFacet.Imager.ClassModelMachine import ClassModelMachine
+#from DDFacet.Imager.ClassModelMachine import ClassModelMachine
 from DDFacet.Imager import ClassCasaImage
 from pyrap.images import image
 from DDFacet.Imager.ModModelMachine import GiveModelMachine
