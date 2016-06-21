@@ -467,9 +467,6 @@ class ClassVisServer():
         
 
         DATA["Weights"]=self.CurrentVisWeights[MS.ROW0:MS.ROW1]
-        weights_file = "%s.weights.cp"%ThisMSName
-        print>>log,"saving weights to %s"%weights_file
-        cPickle.dump(DATA["Weights"],file(weights_file,"a"),2)
 
 
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
@@ -488,9 +485,6 @@ class ClassVisServer():
             DATA["flags"]=np.load(TimeMapName)
         except:
             self.UpdateFlag(DATA)
-
-
-        
 
         DATA["ChanMapping"]=self.CurrentChanMapping
         DATA["ChanMappingDegrid"]=self.DicoMSChanMappingDegridding[self.iCurrentMS]
@@ -548,6 +542,12 @@ class ClassVisServer():
         DATA=DicoDataOut
 
         self.ThisDataChunk = DATA
+
+
+        data_file = "%s.data.cp"%ThisMSName
+        print>>log,"saving DATA to %s"%data_file
+        cPickle.dump(DATA,file(data_file,"a"),2)
+
         return "LoadOK"
 
 
