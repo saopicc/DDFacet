@@ -29,6 +29,7 @@ class ClassEvolveGA():
             ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
         self.IslandBestIndiv=IslandBestIndiv
         self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,IslandBestIndiv=IslandBestIndiv,GD=GD)
+        
         self.InitEvolutionAlgo()
         #self.ArrayMethodsMachine.testMovePix()
         #stop

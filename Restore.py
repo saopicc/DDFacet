@@ -77,14 +77,18 @@ class ClassRestoreMachine():
         self.ResidualData=im.getdata()
         nchan,npol,_,_=self.ResidualData.shape
         testImage=np.zeros_like(self.ResidualData)
-        SqrtNormImage=np.zeros_like(self.ResidualData)
-        imNorm=image(NormImageName).getdata()
 
         if ResidualImName!="":
             for ch in range(nchan):
                 for pol in range(npol):
                     testImage[ch,pol,:,:]=self.ResidualData[ch,pol,:,:].T[::-1,:]#*1.0003900000000001
-                    SqrtNormImage[ch,pol,:,:]=np.sqrt(imNorm[ch,pol,:,:].T[::-1,:])
+
+
+        SqrtNormImage=np.zeros_like(self.ResidualData)
+        imNorm=image(NormImageName).getdata()
+        for ch in range(nchan):
+            for pol in range(npol):
+                SqrtNormImage[ch,pol,:,:]=np.sqrt(imNorm[ch,pol,:,:].T[::-1,:])
 
         _,_,nx,_=testImage.shape
         Nr=10000

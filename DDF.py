@@ -239,7 +239,7 @@ def main(OP=None):
     NpShared.DelAll(IdSharedMem)
 
 if __name__=="__main__":
-    os.system('clear')
+    #os.system('clear')
     logo.print_logo()
 
     ParsetFile=sys.argv[1]

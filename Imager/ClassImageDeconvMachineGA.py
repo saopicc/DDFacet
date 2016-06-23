@@ -668,22 +668,18 @@ class ClassImageDeconvMachine():
                 time.sleep(0.05)
                 continue
 
+            iResult+=1
+            NDone=iResult
+            intPercent=int(100*  NDone / float(NJobs))
+            pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+
             if DicoResult["Success"]:
-                iResult+=1
-                NDone=iResult
-                intPercent=int(100*  NDone / float(NJobs))
-                pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
-
-
-            iIsland=DicoResult["iIsland"]
-            ThisPixList=self.ListIslands[iIsland]
-            SharedIslandName="%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland)
-            Model=NpShared.GiveArray(SharedIslandName)
-
-            self.ModelMachine.AppendIsland(ThisPixList,Model)
-
-
-            NpShared.DelArray(SharedIslandName)
+                iIsland=DicoResult["iIsland"]
+                ThisPixList=self.ListIslands[iIsland]
+                SharedIslandName="%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland)
+                Model=NpShared.GiveArray(SharedIslandName)
+                self.ModelMachine.AppendIsland(ThisPixList,Model)
+                NpShared.DelArray(SharedIslandName)
 
 
 
@@ -814,23 +810,27 @@ class WorkerDeconvIsland(multiprocessing.Process):
                 ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
 
 
-            CEv=ClassEvolveGA(self._Dirty,
-                              PSF,
-                              self.FreqsInfo,
-                              ListPixParms=ListPixParms,
-                              ListPixData=ListPixData,
-                              IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
-                              GD=self.GD)
-            Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
+            # if island lies inside image
+            try:
+                CEv=ClassEvolveGA(self._Dirty,
+                                  PSF,
+                                  self.FreqsInfo,
+                                  ListPixParms=ListPixParms,
+                                  ListPixData=ListPixData,
+                                  IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
+                                  GD=self.GD)
+                Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
             
-            Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
-            #Model*=CEv.ArrayMethodsMachine.Gain
-
-            del(CEv)
-
-            NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
-
-            #print "Current process: %s [%s left]"%(str(multiprocessing.current_process()),str(self.work_queue.qsize()))
-
-            self.result_queue.put({"Success":True,"iIsland":iIsland})
+                Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
+                #Model*=CEv.ArrayMethodsMachine.Gain
                 
+                del(CEv)
+                
+                NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
+                
+                #print "Current process: %s [%s left]"%(str(multiprocessing.current_process()),str(self.work_queue.qsize()))
+                
+                self.result_queue.put({"Success":True,"iIsland":iIsland})
+            except:
+                self.result_queue.put({"Success":False})
+
