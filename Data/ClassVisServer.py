@@ -538,19 +538,9 @@ class ClassVisServer():
             DicoDataOut["uvw_dt"]=DATA["uvw_dt"]
             DicoDataOut["MSInfos"]=DATA["MSInfos"]
 
-
-        DATA=DicoDataOut
-
-        self.ThisDataChunk = DATA
-
-
-        data_file = "%s.data.cp"%ThisMSName
-        print>>log,"saving DATA to %s"%data_file
-        cPickle.dump(DATA,file(data_file,"a"),2)
+        self.ThisDataChunk = DATA = DicoDataOut
 
         return "LoadOK"
-
-
 
 
     def UpdateFlag(self,DATA):
