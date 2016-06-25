@@ -802,8 +802,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
 
 
-        NSemaphores=313
-        ListSemaphores=["%sSemaphore%3.3i"%(self.IdSharedMem,i) for i in range(NSemaphores)]
+        NSemaphores=3373
+        ListSemaphores=["%sSemaphore%4.4i"%(self.IdSharedMem,i) for i in range(NSemaphores)]
         _pyGridderSmear.pySetSemaphores(ListSemaphores)
         work_queue = multiprocessing.Queue()
         result_queue = multiprocessing.Queue()
