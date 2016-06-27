@@ -100,7 +100,8 @@ class ClassWeighting():
 
 
         print>> log, "Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell)
-        grid = np.zeros(nbands*npix, np.float64)
+        grid0 = np.zeros((nbands, npix), np.float64)
+        grid = grid0.reshape((nbands*npix,))
 
         weights_index = [None] * len(uvw_weights_flags_freqs)
 
@@ -141,11 +142,13 @@ class ClassWeighting():
                 weights /= grid[index]
 
         elif Weighting == "briggs" or Weighting == "robust":
-            print>> log, ("applying Briggs weighting (robust=%.2f, super=%.2f)" % (Robust, Super))
-            avgW = (grid ** 2).sum() / grid.sum()
             numeratorSqrt = 5.0 * 10 ** (-Robust)
-            sSq = numeratorSqrt ** 2 / avgW
-            grid = 1 / (1 + grid * sSq)
+            for band in range(nbands):
+                print>> log, ("applying Briggs weighting (robust=%.2f, super=%.2f, band %d)" % (Robust, Super, band))
+                grid1 = grid0[band,:]
+                avgW = (grid1 ** 2).sum() / grid1.sum()
+                sSq = numeratorSqrt ** 2 / avgW
+                grid1[...] = 1 / (1 + grid1 * sSq)
             for weights, index in weights_index:
                 weights *= grid[index]
 

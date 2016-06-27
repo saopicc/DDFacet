@@ -467,6 +467,8 @@ class ClassVisServer():
         
 
         DATA["Weights"]=self.CurrentVisWeights[MS.ROW0:MS.ROW1]
+
+
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
 
         
@@ -483,9 +485,6 @@ class ClassVisServer():
             DATA["flags"]=np.load(TimeMapName)
         except:
             self.UpdateFlag(DATA)
-
-
-        
 
         DATA["ChanMapping"]=self.CurrentChanMapping
         DATA["ChanMappingDegrid"]=self.DicoMSChanMappingDegridding[self.iCurrentMS]
@@ -539,13 +538,9 @@ class ClassVisServer():
             DicoDataOut["uvw_dt"]=DATA["uvw_dt"]
             DicoDataOut["MSInfos"]=DATA["MSInfos"]
 
+        self.ThisDataChunk = DATA = DicoDataOut
 
-        DATA=DicoDataOut
-
-        self.ThisDataChunk = DATA
         return "LoadOK"
-
-
 
 
     def UpdateFlag(self,DATA):
