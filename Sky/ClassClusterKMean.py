@@ -25,12 +25,13 @@ def test():
     CM.Cluster()
 
 class ClassClusterKMean():
-    def __init__(self,x,y,s,NCluster=10,DoPlot=True):
+    def __init__(self,x,y,s,NCluster=10,DoPlot=True,Precluster=None):
         self.X=x.copy()
         self.Y=y.copy()
         self.S=s.copy()
         self.NCluster=NCluster
         self.DoPlot=DoPlot
+        self.Precluster=Precluster
 
         
 
@@ -45,7 +46,15 @@ class ClassClusterKMean():
         nk=Nk=self.NCluster
         
         indC=np.int32(np.random.rand(Nk)*x.size)
-        xc,yc=x[indC],y[indC]
+        xc,yc=x[indC].copy(),y[indC].copy()
+
+        if self.Precluster!=None:
+            xc1,yc1=self.Precluster
+            Npk=xc1.size
+            xc[0:Npk]=xc1[:]
+            yc[0:Npk]=yc1[:]
+        
+
         DicoSources={}
     
         ns=x.size
@@ -111,6 +120,13 @@ class ClassClusterKMean():
                 if self.DoPlot:
                     pylab.scatter(xx,yy,c=c,s=ssz,vmin=0,vmax=Nk,lw=0)
                     pylab.scatter(xc[iK],yc[iK],c="black",marker="s")
+
+            if self.Precluster!=None:
+                xc1,yc1=self.Precluster
+                Npk=xc1.size
+                xc[0:Npk]=xc1[:]
+                yc[0:Npk]=yc1[:]
+
 
 
             if self.DoPlot:

@@ -178,36 +178,35 @@ class ClassSM():
         self.SourceCat.Cluster=-1
         indSubSel=np.arange(self.SourceCat.shape[0])
         NPreCluster=0
-        if (PreClusterCat!=None)&(FromClusterCat==""):
-            N=PreClusterCat.shape[0]
-            Ns=self.SourceCat.ra.shape[0]
-            for iReg in range(N):
-                #d=np.sqrt((self.SourceCat.ra-PreClusterCat.ra[iReg])**2+(self.SourceCat.dec-PreClusterCat.dec[iReg])**2)
 
-                ra1=self.SourceCat.ra
-                ra2=PreClusterCat.ra[iReg]
-                d1=self.SourceCat.dec
-                d2=PreClusterCat.dec[iReg]
-                cosD = sin(d1)*sin(d2) + cos(d1)*cos(d2)*cos(ra1-ra2)
-                d=np.arccos(cosD)
-                self.SourceCat.Cluster[d<PreClusterCat.Radius[iReg]]=PreClusterCat.Cluster[iReg]
-                self.SourceCat.Exclude[d<PreClusterCat.Radius[iReg]]=False
+        # #######################################
+        # if (PreClusterCat!=None)&(FromClusterCat==""):
+        #     N=PreClusterCat.shape[0]
+        #     Ns=self.SourceCat.ra.shape[0]
+        #     for iReg in range(N):
+        #         #d=np.sqrt((self.SourceCat.ra-PreClusterCat.ra[iReg])**2+(self.SourceCat.dec-PreClusterCat.dec[iReg])**2)
+        #         ra1=self.SourceCat.ra
+        #         ra2=PreClusterCat.ra[iReg]
+        #         d1=self.SourceCat.dec
+        #         d2=PreClusterCat.dec[iReg]
+        #         cosD = sin(d1)*sin(d2) + cos(d1)*cos(d2)*cos(ra1-ra2)
+        #         d=np.arccos(cosD)
+        #         self.SourceCat.Cluster[d<PreClusterCat.Radius[iReg]]=PreClusterCat.Cluster[iReg]
+        #         self.SourceCat.Exclude[d<PreClusterCat.Radius[iReg]]=False
+        #     print self.SourceCat.Cluster
+        #     indPreCluster=np.where(self.SourceCat.Cluster!=-1)[0]
+        #     NPreCluster=np.max(PreClusterCat.Cluster)+1
+        #     SourceCatPreCluster=self.SourceCat[indPreCluster]
+        #     indSubSel=np.where(self.SourceCat.Cluster==-1)[0]
+        #     print "number of preselected clusters: %i"%NPreCluster
         
-            print self.SourceCat.Cluster
+        # if nk==-1:
+        #     print "Removing non-clustered sources"%NPreCluster
+        #     self.SourceCat=self.SourceCat[self.SourceCat.Cluster!=-1]
+        #     print self.SourceCat.Cluster
+        #     return
+        # #######################################
 
-            indPreCluster=np.where(self.SourceCat.Cluster!=-1)[0]
-            NPreCluster=np.max(PreClusterCat.Cluster)+1
-            SourceCatPreCluster=self.SourceCat[indPreCluster]
-            indSubSel=np.where(self.SourceCat.Cluster==-1)[0]
-            print "number of preselected clusters: %i"%NPreCluster
-
-
-        
-        if nk==-1:
-            print "Removing non-clustered sources"%NPreCluster
-            self.SourceCat=self.SourceCat[self.SourceCat.Cluster!=-1]
-            print self.SourceCat.Cluster
-            return
         SourceCat=self.SourceCat[indSubSel]
         self.rarad=np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
         self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
@@ -223,7 +222,12 @@ class ClassSM():
         elif self.ClusterMethod==3:
             CM=ClassClusterRadial(x,y,s,nk,DoPlot=DoPlot)
         elif self.ClusterMethod==4:
-            CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot)
+            if PreClusterCat!=None:
+                l0,m0=self.radec2lm_scalar(PreClusterCat.ra,PreClusterCat.dec)
+                CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot,PreCluster=(l0,m0))
+            else:
+                CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot)
+
             REGFile="%s.tessel.reg"%self.TargetList
 
         print FromClusterCat

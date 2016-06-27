@@ -31,7 +31,7 @@ def read_options():
     group.add_option('--PreClusterFile',help=' PreClusterFile. Default is %default',default="")
     group.add_option('--RemoveNegComp',help=' PreClusterFile. Default is %default',type=int,default=0)
     group.add_option('--FromClusterCat',help=' PreClusterFile. Default is %default',type=str,default="")
-    group.add_option('--ApparantFlux',type="int",help=' PreClusterFile. Default is %default',default=0)
+    group.add_option('--ApparantFlux',type="int",help=' PreClusterFile. Default is %default',default=1)
     opt.add_option_group(group)
 
 
