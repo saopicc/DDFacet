@@ -464,22 +464,6 @@ void gridderWPol(gridding_parameters * params)
 	    //bda must happen on the fly.
             for (visChan=chStart; visChan<chEnd; ++visChan) {
                 size_t doff = (irow * params->nVisChan + visChan) * params->nVisCorr;
-		//###################### Flagging #######################
-		//Weights flagged visibilities down to 0. Assumes if
-		//one correlation is flagged all others are flagged as well.
-                bool* __restrict__ flagPtr = params->flags + doff;
-		{
-		  int corr;
-		  bool row_flagged = false;
-		  for (corr = 0; corr < params->nVisCorr; ++corr){
-		    if (flagPtr[corr]!=0){ 
-		      row_flagged = true;
-		      break;
-		    }
-		  }
-		  if (row_flagged) continue;
-		}
-		//#######################################################
 		
                 //###################### Facetting #######################
                 // Change coordinate and shift visibility to facet center
@@ -512,6 +496,20 @@ void gridderWPol(gridding_parameters * params)
                     float complex UVNorm=2.*I*PI*params->Pfreqs[visChan]/C;
                     facetPhasor=cexp(-UVNorm*(U*params->l0+V*params->m0+W*params->n0));
                 }
+		//#######################################################
+		
+		//###################### Flagging #######################
+		//Weights flagged visibilities down to 0. Assumes if
+		//one correlation is flagged all others are flagged as well.
+                bool* __restrict__ flagPtr = params->flags + doff;
+		{
+		  int corr;
+		  bool row_flagged = false;
+		  for (corr = 0; corr < params->nVisCorr; ++corr){
+		    row_flagged = row_flagged || flagPtr[corr];
+		  }
+		  if (row_flagged) continue;
+		}
 		//#######################################################
 		
 		//###################### Apply Jones #######################
