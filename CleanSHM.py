@@ -35,5 +35,6 @@ if __name__=="__main__":
     print>>log, "Clear Semaphores"
     
     ListSemaphores=[".".join(l.split(".")[1::]) for l in ll]
-    #print ListSemaphores
+
+    _pyGridderSmear.pySetSemaphores(ListSemaphores)
     _pyGridderSmear.pyDeleteSemaphore(ListSemaphores)

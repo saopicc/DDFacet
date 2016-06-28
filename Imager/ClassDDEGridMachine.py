@@ -786,6 +786,8 @@ class ClassDDEGridMachine():
         
         #print "DEGRID:",Grid.shape,ChanMapping
 
+
+
         #print W
         #print "!!!!!!!!!! 0 ",SumWeigths
         #print self.SumJonesChan

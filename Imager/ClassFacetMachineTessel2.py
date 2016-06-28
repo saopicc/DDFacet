@@ -1087,7 +1087,7 @@ class WorkerImager(multiprocessing.Process):
             DicoJonesMatrices["DicoJones_killMS"]["MapJones"]=NpShared.GiveArray("%sMapJones_killMS"%self.IdSharedMemData)
             DicoClusterDirs_killMS=NpShared.SharedToDico("%sDicoClusterDirs_killMS"%self.IdSharedMemData)
             DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]=DicoClusterDirs_killMS
-            DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"]=NpShared.GiveArray("%sAlphaReg"%self.IdSharedMemData)
+            DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"]=None#NpShared.GiveArray("%sAlphaReg"%self.IdSharedMemData)
 
         if self.Apply_Beam:
             DicoJones_Beam=NpShared.SharedToDico("%sJonesFile_Beam"%self.IdSharedMemData)
@@ -1184,8 +1184,8 @@ class WorkerImager(multiprocessing.Process):
                     DT,Dnu=DATA["MSInfos"]
                     GridMachine.setDecorr(uvw_dt,DT,Dnu,SmearMode=DecorrMode)
 
-                GridName="%sGridFacet.%3.3i"%(self.IdSharedMem,iFacet)
-                Grid=NpShared.GiveArray(GridName)
+                #GridName="%sGridFacet.%3.3i"%(self.IdSharedMem,iFacet)
+                #Grid=NpShared.GiveArray(GridName)
                 DicoJonesMatrices=self.GiveDicoJonesMatrices()
                 Dirty=GridMachine.put(times,uvwThis,visThis,flagsThis,A0A1,W,
                                       DoNormWeights=False, 

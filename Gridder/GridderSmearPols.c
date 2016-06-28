@@ -1340,4 +1340,5 @@ void DeGridderWPol(PyArrayObject *grid,
       } // end if gridChan
       
     } //end for Block
+    //sem_close(Sem_mutex);
  } // end

@@ -36,9 +36,9 @@ class ClassJones():
                 DicoSols,TimeMapping,DicoClusterDirs=self.DiskToSols(self.JonesNormSolsFile_killMS)
             except:
                 DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("killMS")
+            self.DicoClusterDirs_kMS=DicoClusterDirs
             self.ToShared("killMS",DicoSols,TimeMapping,DicoClusterDirs)
             self.HasKillMSSols=True
-            self.DicoClusterDirs_kMS=DicoClusterDirs
 
         ApplyBeam=(GD["Beam"]["BeamModel"]!=None)
         if ApplyBeam:
@@ -52,11 +52,16 @@ class ClassJones():
         # SJM=ClassSmoothJones.ClassSmoothJones(GD,self.IdSharedMem)
         # SJM.FindAlpha()
         # # SJM.SmoothJones()
-        
+
+        del(self.DicoClusterDirs_kMS,DicoClusterDirs,DicoSols,TimeMapping)
+        #del(self.DicoClusterDirs_kMS)
 
 
     def ToShared(self,StrType,DicoSols,TimeMapping,DicoClusterDirs):
         print>>log, "  Putting %s Jones in shm"%StrType
+        NpShared.DelAll("%sDicoClusterDirs_%s"%(self.IdSharedMem,StrType))
+        NpShared.DelAll("%sJonesFile_%s"%(self.IdSharedMem,StrType))
+        NpShared.DelAll("%sMapJones_%s"%(self.IdSharedMem,StrType))
         NpShared.DicoToShared("%sDicoClusterDirs_%s"%(self.IdSharedMem,StrType),DicoClusterDirs)
         NpShared.DicoToShared("%sJonesFile_%s"%(self.IdSharedMem,StrType),DicoSols)
         NpShared.ToShared("%sMapJones_%s"%(self.IdSharedMem,StrType),TimeMapping)

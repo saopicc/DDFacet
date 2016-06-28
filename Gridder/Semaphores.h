@@ -60,12 +60,18 @@ static PyObject *pyDeleteSemaphore(PyObject *self, PyObject *args)
 
   NSemaphores=PyList_Size(LSemaphoreNames);
   
+  //Tab_SEM=calloc(1,(NSemaphores)*sizeof(sem_t*));
   int iSemaphore=0;
   for(iSemaphore=0; iSemaphore<NSemaphores; iSemaphore++){
     //printf("delete %s\n",SemaphoreName);
-    //sem_close(Tab_SEM[iSemaphore]);
     const char* SemaphoreName=GiveSemaphoreName(iSemaphore);
+    //sem_t * SEM=GiveSemaphoreFromID(iSemaphore);
+    //sem_close(SEM);
+    //sem_t * SEM=GiveSemaphoreFromID(iSemaphore);
+    //Tab_SEM[iSemaphore]=SEM;
+    sem_close(Tab_SEM[iSemaphore]);
     int ret=sem_unlink(SemaphoreName);
+    //free(Tab_SEM[iSemaphore]);
   }
   free(Tab_SEM);
   
