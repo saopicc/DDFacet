@@ -68,11 +68,11 @@ def GiveArray(Name):
     try:
         return SharedArray.attach(Name)
     except Exception,e:# as exception:
-        #print str(e)
-        print 
-        print "Exception for key [%s]:"%Name 
-        print "   %s"%(str(e))
-        print 
+        # #print str(e)
+        # print 
+        # print "Exception for key [%s]:"%Name 
+        # print "   %s"%(str(e))
+        # print 
         return None
 
 def Exists(Name):
