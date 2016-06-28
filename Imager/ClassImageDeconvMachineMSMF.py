@@ -1,6 +1,7 @@
 
 import numpy as np
 import pylab
+import math
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassImageDeconvMachine")
@@ -378,6 +379,9 @@ class ClassImageDeconvMachine():
                 if (i>0)&((i%100)==0):
                     PercentDone=GivePercentDone(ThisFlux)                
                     pBAR.render(PercentDone,"peak %.3g i%d"%(ThisFlux,self._niter))
+                rounded_iter_step = int(10**math.floor(math.log10(i)))
+                if i>=10 and i%rounded_iter_step == 0:
+                	print>>log, ModColor.Str("    [iter=%i] peak residual %.3g" % (i,ThisFlux))
 
                 nch,npol,_,_=self._Dirty.shape
                 Fpol=np.float32((self._Dirty[:,:,x,y].reshape((nch,npol,1,1))).copy())
