@@ -279,7 +279,9 @@ class ClassDDEGridMachine():
                  IdSharedMemData="",
                  IDFacet=0,
                  SpheNorm=True,
-                 NFreqBands=1):
+                 NFreqBands=1,
+                 DataCorrelationFormat=[5,6,7,8],
+                 ExpectedOutputStokes=[1]):
         T=ClassTimeIt.ClassTimeIt("Init_ClassDDEGridMachine")
         T.disable()
         self.GD=GD
@@ -317,18 +319,8 @@ class ClassDDEGridMachine():
         # 0: scalar
         # 1: diag
         # 2: full
-        if PolMode=="I":
-            self.npol=1
-            self.PolMap=np.array([0,5,5,0],np.int32)
-            self.SkyType=1
-            self.PolModeID=0
-        elif PolMode=="IQUV":
-            self.SkyType=2
-            self.npol=4
-            self.PolMap=np.array([0,1,2,3],np.int32)
-            self.PolModeID=1
-        else:
-            raise ValueError("Illegal value for PolMode. Only accepts one of [I,IQUV].")
+        self.npol = len(ExpectedOutputStokes)
+        self.SkyType = 2
 
         self.Npix=Npix
 
@@ -386,18 +378,11 @@ class ClassDDEGridMachine():
         self.CasaImage=None
         self.DicoATerm=None
         T.timeit("5")
+        self.DataCorrelationFormat = DataCorrelationFormat
+        self.ExpectedOutputStokes = ExpectedOutputStokes
 
     def CalcCF(self):
-        #Grid=np.zeros(self.GridShape,dtype=self.dtype)
-        #self.FFTWMachine=ModFFTW.FFTW_2Donly(Grid, ncores = 1)
-        #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
-        #self.FFTWMachine=ModFFTW.FFTW_2Donly_np(Grid, ncores = 1)
-
         self.FFTWMachine=ModFFTW.FFTW_2Donly_np(self.GridShape,self.dtype, ncores = 1)
-
-        #SharedName="%sFFTW.%i"%(self.IdSharedMem,self.IDFacet)
-        #self.FFTWMachine=ModFFTW.FFTW_2Donly(self.GridShape,self.dtype, ncores = 1, FromSharedId=SharedName)
-
         self.WTerm=ModCF.ClassWTermModified(Cell=self.Cell,
                                             Sup=self.Sup,
                                             Npix=self.Npix,
@@ -408,33 +393,37 @@ class ClassDDEGridMachine():
                                             lmShift=self.lmShift,
                                             IdSharedMem=self.IdSharedMem,
                                             IDFacet=self.IDFacet)
-
-        # if self.WProj:
-        #     self.WTerm=ModCF.ClassWTermModified(Cell=self.Cell,
-        #                                         Sup=self.Sup,
-        #                                         Npix=self.Npix,
-        #                                         Freqs=self.ChanFreq,
-        #                                         wmax=self.wmax,
-        #                                         Nw=self.Nw,
-        #                                         OverS=self.OverS,
-        #                                         lmShift=self.lmShift,
-        #                                         IdSharedMem=self.IdSharedMem,
-        #                                         IDFacet=self.IDFacet)
-        # else:
-        #     self.WTerm=ModCF.ClassSTerm(Cell=self.Cell,
-        #                                 Sup=self.Support,
-        #                                 Npix=self.Npix,
-        #                                 Freqs=self.ChanFreq,
-        #                                 wmax=self.wmax,
-        #                                 Nw=self.Nw,
-        #                                 OverS=self.OverS)
-
         self.ifzfCF= self.WTerm.ifzfCF
  
 
     def setSols(self,times,xi):
         self.Sols={"times":times,"xi":xi}
 
+
+    def ShiftVis(self,uvw,vis,reverse=False):
+        l0,m0=self.lmShift
+        u,v,w=uvw.T
+        U=u.reshape((u.size,1))
+        V=v.reshape((v.size,1))
+        W=w.reshape((w.size,1))
+        n0=np.sqrt(1-l0**2-m0**2)-1
+        if reverse: 
+            corr=np.exp(-self.UVNorm*(U*l0+V*m0+W*n0))
+        else:
+            corr=np.exp(self.UVNorm*(U*l0+V*m0+W*n0))
+        
+        U+=W*self.WTerm.Cu
+        V+=W*self.WTerm.Cv
+
+        corr=corr.reshape((U.size,self.UVNorm.size,1))
+        vis*=corr
+
+        U=U.reshape((U.size,))
+        V=V.reshape((V.size,))
+        W=W.reshape((W.size,))
+        uvw=np.array((U,V,W)).T.copy()
+
+        return uvw,vis
 
 
 
@@ -522,7 +511,8 @@ class ClassDDEGridMachine():
 
                 
         #ParamJonesList=[MapJones,A0.astype(np.int32),A1.astype(np.int32),JonesMatrices.astype(np.complex64),idir]
-        if A0.size!=uvw.shape[0]: stop
+        if A0.size!=uvw.shape[0]:
+            raise RuntimeError("Antenna array is expected to have the same number of rows as the uvw array")
         
 
         JonesMatrices_Beam=np.array([],np.complex64).reshape((0,0,0,0))
@@ -564,9 +554,27 @@ class ClassDDEGridMachine():
         return ParamJonesList
 
 
-    def put(self,times,uvw,visIn,flag,A0A1,W=None,PointingID=0,DoNormWeights=True,DicoJonesMatrices=None,freqs=None,DoPSF=0,ChanMapping=None):#,doStack=False):
-        #log=MyLogger.getLogger("ClassImager.addChunk")
-        vis=visIn#.copy()
+    def put(self,times,uvw,visIn,flag,A0A1,W=None,PointingID=0,DoNormWeights=True,DicoJonesMatrices=None,freqs=None,DoPSF=0,ChanMapping=None):
+        """
+        Gridding routine, wraps external python extension C gridder
+        Args:
+            times:
+            uvw:
+            visIn:
+            flag:
+            A0A1:
+            W:
+            PointingID:
+            DoNormWeights:
+            DicoJonesMatrices:
+            freqs:
+            DoPSF:
+            ChanMapping:
+
+        Returns:
+
+        """
+        vis=visIn
 
         T=ClassTimeIt.ClassTimeIt("put")
         T.disable()
@@ -585,37 +593,9 @@ class ClassDDEGridMachine():
             ChanMapping=np.zeros((visIn.shape[1],),np.int64)
         self.ChanMappingGrid=ChanMapping
 
-        T.timeit("2")
         Grid=np.zeros(self.GridShape,dtype=self.dtype)
-
-        #isleep=0
-        #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
-
-        #LTimes=sorted(list(set(times.tolist())))
-        #NTimes=len(LTimes)
         A0,A1=A0A1
 
-        # if self.DicoATerm==None:
-        #     self.CalcAterm(times,A0A1,PointingID=PointingID)
-        # if self.DoDDE:
-        #     for ThisTime,itime0 in zip(LTimes,range(NTimes)):
-        #         Jones,JonesH=self.DicoATerm[ThisTime]
-        #         JonesInv=ModLinAlg.BatchInverse(Jones)
-        #         JonesHInv=ModLinAlg.BatchInverse(JonesH)
-        #         indThisTime=np.where(times==ThisTime)[0]
-        #         ThisA0=A0[indThisTime]
-        #         ThisA1=A1[indThisTime]
-        #         P0=ModLinAlg.BatchDot(JonesInv[ThisA0,:,:],vis[indThisTime])
-        #         vis[indThisTime]=ModLinAlg.BatchDot(P0,JonesHInv[ThisA1,:,:])
-        #     vis/=self.norm
-                
-        T.timeit("1")
-        # uvw,vis=self.ShiftVis(uvw,vis,reverse=True)
-
-
-        #if not(doStack):
-        #    self.reinitGrid()
-        #self.reinitGrid()
         npol=self.npol
         NChan=self.NChan
 
@@ -624,40 +604,15 @@ class ClassDDEGridMachine():
 
         if type(W)==type(None):
             W=np.ones((uvw.shape[0],NVisChan),dtype=np.float64)
-            
-        #else:
-        #    W=W.reshape((uvw.shape[0],1))*np.ones((1,NVisChan))
 
-        #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
         SumWeigths=self.SumWeigths
         if vis.shape!=flag.shape:
             raise Exception('vis[%s] and flag[%s] should have the same shape'%(str(vis.shape),str(flag.shape)))
-        
+
         u,v,w=uvw.T
-        #vis[u==0,:,:]=0
-        #flag[u==0,:,:]=True
-        # if self.DoPSF:
-        #     vis.fill(0)
-        #     vis[:,:,0]=1
-        #     vis[:,:,3]=1
-
-
-
-
-        #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
 
         l0,m0=self.lmShift
         FacetInfos=np.float64(np.array([self.WTerm.Cu,self.WTerm.Cv,l0,m0]))
-
-        # if not(vis.dtype==np.complex64):
-        #     print "vis should be of type complex128 (and has type %s)"%str(vis.dtype)
-        #     stop
-
-        #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
-
-        #print vis.dtype
-        #vis.fill(1)
-
 
         self.CheckTypes(Grid=Grid,vis=vis,uvw=uvw,flag=flag,ListWTerm=self.WTerm.Wplanes,W=W)
         ParamJonesList=[]
@@ -680,21 +635,9 @@ class ClassDDEGridMachine():
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
             ParamJonesList=ParamJonesList+LApplySol+LSumJones+LSumJonesChan+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
-
-        T.timeit("3")
-        #print "sleeping DDE..."; time.sleep(5)
-
-
         T2=ClassTimeIt.ClassTimeIt("Gridder")
         T2.disable()
-        #print "vis",vis.min(),vis.max()
 
-        
-        #print "DEGRID:",Grid.shape,ChanMapping
-
-        #print W
-        #print "!!!!!!!!!! 0 ",SumWeigths
-        #print self.SumJonesChan
         if self.GD["Compression"]["CompGridMode"]==0:
             Grid=_pyGridder.pyGridderWPol(Grid,
                                               vis,
@@ -711,9 +654,9 @@ class ClassDDEGridMachine():
                                               [self.PolMap,FacetInfos],
                                               ParamJonesList) # Input the jones matrices
         else:
-            #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
-            OptimisationInfos=[self.JonesType,chan_equidistant,self.SkyType,self.PolModeID]
+            OptimisationInfos=[self.JonesType,chan_equidistant,self.SkyType]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMemData))
+
             _pyGridderSmear.pyGridderWPol(Grid,
                                           vis,
                                           uvw,
@@ -726,56 +669,26 @@ class ClassDDEGridMachine():
                                           np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
                                           self.incr.astype(np.float64),
                                           freqs,
-                                          [self.PolMap,FacetInfos],
+                                          [FacetInfos],
                                           ParamJonesList,
                                           MapSmear,
                                           OptimisationInfos,
                                           self.LSmear,
-                                          np.int32(ChanMapping))
-        #print "!!!!!!!!!! 1 ",SumWeigths
-
-        #print self.SumJonesChan[0]/self.SumJonesChan[1]
+                                          np.int32(ChanMapping),
+                                          np.array(self.DataCorrelationFormat, dtype=np.int32),
+                                          np.array(self.ExpectedOutputStokes, dtype=np.int32))
 
         NCH,_,_,_=Grid.shape
-        
-
-        #return Grid
-        T2.timeit("gridder")
-        # print SumWeigths
-        # return
-        # del(Grid)
-        T.timeit("4 (grid)")
-
-
-        #print "minmax grid=",Grid.min(),Grid.max()
-
         Dirty= self.GridToIm(Grid)
 
-        #print "minmax dirty=",Dirty.min(),Dirty.max()
-        #Dirty=Grid
-        #print Grid.max()
         del(Grid)
-        T.timeit("5 (grid)")
-        #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
+
         if self.SpheNorm:
             Dirty = self.cutImPadded(Dirty)
-        
-
-        #print "sleeping DDE... %i"%isleep; time.sleep(5); isleep+=1
-        T.timeit("6")
-        # Grid[:,:,:,:]=Grid.real
-        # import pylab
-        # pylab.clf()
-        # pylab.imshow(np.abs(Grid[0,0]))
-        # pylab.draw()
-        # pylab.show(False)
-        # stop
 
         import gc
         gc.enable()
         gc.collect()
-        #print np.max(Dirty)
-        #print np.int32(ChanMapping),np.max(Dirty.reshape((NCH,Dirty.size/NCH)),axis=1)
         return Dirty
 
     def CheckTypes(self,Grid=None,vis=None,uvw=None,flag=None,ListWTerm=None,W=None,A0=None,A1=None,Jones=None):
@@ -825,16 +738,9 @@ class ClassDDEGridMachine():
 
 
     def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None,ImToGrid=True,TranformModelInput="",ChanMapping=None):
-        #log=MyLogger.getLogger("ClassImager.addChunk")
         T=ClassTimeIt.ClassTimeIt("get")
         T.disable()
-        vis=visIn#.copy()
-
-        #self.GridShape=(self.GD,self.npol,self.Npix,self.Npix)
-
-        #print DicoJonesMatrices.keys()
-        #LTimes=sorted(list(set(times.tolist())))
-        #NTimes=len(LTimes)
+        vis=visIn.view()
         A0,A1=A0A1
 
         T.timeit("0")
@@ -867,27 +773,12 @@ class ClassDDEGridMachine():
         self.SumJonesChan=np.zeros((2,NVisChan),np.float64)
 
         T.timeit("1")
-        #dummy=np.abs(vis).astype(np.float32)
-
-
-
 
         npol=self.npol
         NChan=self.NChan
         SumWeigths=self.SumWeigths
         if vis.shape!=flag.shape:
             raise Exception('vis[%s] and flag[%s] should have the same shape'%(str(vis.shape),str(flag.shape)))
-
-        
-        #u,v,w=uvw.T
-        #vis[u==0,:,:]=0
-        #flag[u==0,:,:]=True
-      
-        #uvwOrig=uvw.copy()
-        
-        # uvw,vis=self.ShiftVis(uvw,vis,reverse=False)
-        
-        # vis.fill(0)
         
         l0,m0=self.lmShift
         FacetInfos=np.float64(np.array([self.WTerm.Cu,self.WTerm.Cv,l0,m0]))
@@ -901,16 +792,6 @@ class ClassDDEGridMachine():
         self.CheckTypes(Grid=Grid,vis=vis,uvw=uvw,flag=flag,ListWTerm=self.WTerm.Wplanes)
 
         ParamJonesList=[]
-        # if DicoJonesMatrices!=None:
-        #     ApplyAmp=0
-        #     ApplyPhase=0
-        #     if "A" in self.GD["DDESolutions"]["DDModeDeGrid"]:
-        #         ApplyAmp=1
-        #     if "P" in self.GD["DDESolutions"]["DDModeDeGrid"]:
-        #         ApplyPhase=1
-        #     LApplySol=[ApplyAmp,ApplyPhase]
-        #     ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
-        #     ParamJonesList=ParamJonesList+LApplySol
 
         if DicoJonesMatrices!=None:
             ApplyAmp=0
@@ -925,10 +806,6 @@ class ClassDDEGridMachine():
             if self.GD["DDESolutions"]["ScaleAmpDeGrid"]:
                 ScaleAmplitude=1
                 CalibError=(self.GD["DDESolutions"]["CalibErr"]/3600.)*np.pi/180
-
-            # LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
-            # ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
-            # ParamJonesList=ParamJonesList+LApplySol
 
             LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
             LSumJones=[self.SumJones]
@@ -956,10 +833,10 @@ class ClassDDEGridMachine():
         else:
 
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
-            OptimisationInfos=[self.JonesType,chan_equidistant,self.SkyType,self.PolModeID]
+            OptimisationInfos=[self.JonesType,chan_equidistant,self.SkyType]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMemData))
 
-            vis = _pyGridderSmear.pyDeGridderWPol(Grid,
+            _pyGridderSmear.pyDeGridderWPol(Grid,
                                                   vis,
                                                   uvw,
                                                   flag,
@@ -970,17 +847,19 @@ class ClassDDEGridMachine():
                                                   np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
                                                   self.incr.astype(np.float64),
                                                   freqs,
-                                                  [self.PolMap,FacetInfos,RowInfos],
+                                                  [FacetInfos],
                                                   ParamJonesList,
                                                   MapSmear,
                                                   OptimisationInfos,
                                                   self.LSmear,
-                                                  np.int32(ChanMapping))
+                                                  np.int32(ChanMapping),
+						  np.array(self.DataCorrelationFormat, dtype=np.int32),
+						  np.array(self.ExpectedOutputStokes, dtype=np.int32))
             
 
         T.timeit("4 (degrid)")
         #print vis
-        
+
         # uvw,vis=self.ShiftVis(uvwOrig,vis,reverse=False)
 
         #T.timeit("5")

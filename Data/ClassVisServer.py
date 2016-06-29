@@ -735,13 +735,14 @@ class ClassVisServer():
             if WeightCol == "WEIGHT_SPECTRUM":
                 WEIGHT=tab.getcol(WeightCol)[:,chanslice]
                 print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
-                # take the mean XX/YY weight
-                WEIGHT = (WEIGHT[:,:,0]+WEIGHT[:,:,3])/2 * valid
+                # take mean weight and apply this to all correlations:
+                WEIGHT = np.mean(WEIGHT,axis=2) * valid
                 
             elif WeightCol == "WEIGHT":
                 WEIGHT=tab.getcol(WeightCol)
                 print>>log, "  Reading column %s for the weights, shape is %s, will expand frequency axis"%(WeightCol,WEIGHT.shape)
-                WEIGHT = (WEIGHT[:,0]+WEIGHT[:,3])/2.
+                # take mean weight and apply this to all correlations:
+                WEIGHT = np.mean(WEIGHT,axis=1)
                 # expand to have frequency axis
                 WEIGHT = WEIGHT[:,np.newaxis] * valid
             else:

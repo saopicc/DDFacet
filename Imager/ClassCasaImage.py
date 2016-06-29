@@ -5,6 +5,7 @@ import os.path
 from DDFacet.Other import MyPickle
 import numpy as np
 from DDFacet.Other import MyLogger
+import DDFacet.Data.ClassStokes as ClassStokes
 log=MyLogger.getLogger("ClassCasaImage")
 from DDFacet.ToolsDir import rad2hmsdms
 import pyfits
@@ -30,7 +31,7 @@ def PutDataInNewImage(ImageNameIn,ImageNameOut,data,CorrT=False):
     CasaImage.ToFits()
     CasaImage.close()
 
-def GiveCoord(nx,npol=1,Freqs=None):
+def GiveCoord(nx,npol=1,Freqs=None,Stokes=["I"]):
 
     df=Freqs[1]-Freqs[0]
     D={'spectral2': {'_axes_sizes': np.array([Freqs.size], dtype=np.int32),
@@ -78,7 +79,7 @@ def GiveCoord(nx,npol=1,Freqs=None):
                  'crpix': np.array([ 0.]),
                  'crval': np.array([ 1.]),
                  'pc': np.array([[ 1.]]),
-                 'stokes': ['I']},
+                 'stokes': [ClassStokes.FitsStokesTypes[sid] for sid in Stokes]},
      'telescope': 'VLA',
      'telescopeposition': {'m0': {'unit': 'rad', 'value': -1.8782942581394362},
                            'm1': {'unit': 'rad', 'value': 0.5916750987501983},
@@ -108,12 +109,26 @@ def FileToArray(FileName,CorrT):
 class ClassCasaimage():
 
 
-    def __init__(self,ImageName,ImShape,Cell,radec,Freqs=None,KeepCasa=False):
+    def __init__(self,ImageName,ImShape,Cell,radec,Freqs=None,KeepCasa=False,Stokes=["I"]):
         self.Cell=Cell
         self.radec=radec
         self.KeepCasa=KeepCasa
         self.Freqs  = Freqs
+        self.Stokes = [ClassStokes.FitsStokesTypes[sid] for sid in Stokes]
+        self.sorted_stokes = [s for s in self.Stokes]
+        self.sorted_stokes.sort()
+        #work out the FITS spacing between stokes parameters
+        if len(self.sorted_stokes) > 1:
+            self.delta_stokes = self.sorted_stokes[1] - self.sorted_stokes[0]
+        else:
+            self.delta_stokes = 1
 
+        for si in range(len(self.sorted_stokes)-1):
+            if self.sorted_stokes[si+1] - self.sorted_stokes[si] != self.delta_stokes:
+                raise RuntimeError("Your selection of Stokes parameters cannot "
+                                   "be stored in a FITS file. The selection must be linearly spaced."
+                                   "See FITS standard 3.0 (A&A 524 A42) Table 28 for the indicies of the stokes "
+                                   "parameters you want to image.")
         self.ImShape=ImShape
         self.nch,self.npol,self.Npix,_ = ImShape
 
@@ -135,6 +150,7 @@ class ClassCasaimage():
         incrRad=(self.Cell/60.)#*np.pi/180
         incr[-1][0]=incrRad
         incr[-1][1]=-incrRad
+        incr[-2][0]=self.delta_stokes
         #RefPix=c.get_referencepixel()
         Npix=self.Npix
         #RefPix[0][0]=Npix/2
@@ -148,6 +164,19 @@ class ClassCasaimage():
         RaDecRad=self.radec
         RefVal[-1][1]=RaDecRad[0]*180./np.pi*60
         RefVal[-1][0]=RaDecRad[1]*180./np.pi*60
+        RefVal[-2][0] = self.sorted_stokes[0]
+
+        D = c.__dict__["_csys"]
+        stokes_ids = []
+        for k in ClassStokes.FitsStokesTypes:
+            stokes_ids.append((k, ClassStokes.FitsStokesTypes[k]))
+        images_stokes_values = []
+        for key,val in stokes_ids:
+            for sval in self.sorted_stokes:
+                if val == sval:
+                    images_stokes_values.append(key)
+        D["stokes1"]["stokes"] = images_stokes_values
+
         if self.Freqs is not None:
             RefVal[0] = self.Freqs[0]
             ich,ipol,xy = c.get_referencepixel()
@@ -161,6 +190,7 @@ class ClassCasaimage():
                 incr[0]=df
                 D=c.__dict__["_csys"]
                 fmean=np.mean(self.Freqs)
+
                 D["worldreplace2"]=np.array([F[0]])
 
                 D["spectral2"]["restfreq"]=0.#self.Freqs[0]
@@ -211,7 +241,9 @@ class ClassCasaimage():
             nch,npol,_,_=dataIn.shape
             for ch in range(nch):
                 for pol in range(npol):
-                    data[ch,pol]=data[ch,pol][::-1].T
+                    #Need to place stokes data in increasing order because of the linear spacing assumption used in FITS
+                    stokes_slice_id = self.Stokes.index(self.sorted_stokes[pol])
+                    data[ch,pol]=dataIn[ch][stokes_slice_id][::-1].T
         self.imageFlipped = CorrT
         self.im.putdata(data)
 

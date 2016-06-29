@@ -449,7 +449,9 @@ class ClassFacetMachine():
                                        IdSharedMemData=self.IdSharedMemData,
                                        ApplyCal=self.ApplyCal,
                                        CornersImageTot=self.CornersImageTot,
-                                       NFreqBands=self.VS.NFreqBands)
+                                       NFreqBands=self.VS.NFreqBands,
+		                               DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                       ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
             workerlist.append(W)
             if Parallel:
                 workerlist[ii].start()
@@ -502,16 +504,16 @@ class ClassFacetMachine():
     ############################################################################################
     ############################################################################################
 
-    def setCasaImage(self,ImageName=None,Shape=None,Freqs=None):
+    def setCasaImage(self,ImageName=None,Shape=None,Freqs=None,Stokes=["I"]):
         if ImageName==None:
             ImageName=self.ImageName
 
         if Shape==None:
             Shape=self.OutImShape
-        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec,Freqs=Freqs)
+        self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec,Freqs=Freqs,Stokes=Stokes)
 
-    def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None,beamcube=None,Freqs=None):
-        self.setCasaImage(ImageName=ImageName,Shape=ImageIn.shape,Freqs=Freqs)
+    def ToCasaImage(self,ImageIn,Fits=True,ImageName=None,beam=None,beamcube=None,Freqs=None,Stokes=["I"]):
+        self.setCasaImage(ImageName=ImageName,Shape=ImageIn.shape,Freqs=Freqs,Stokes=Stokes)
 
         self.CasaImage.setdata(ImageIn,CorrT=True)
 
@@ -648,7 +650,7 @@ class ClassFacetMachine():
                     self.DicoPSF[iFacet]["PSF"][ch]/=np.max(self.DicoPSF[iFacet]["PSF"][ch]) #normalize to peak of 1
                     PSFChannel[ch,:,:,:]=self.DicoPSF[iFacet]["PSF"][ch][:,:,:]
                 W=DicoImages["WeightChansImages"]
-                W=np.float32(W.reshape((self.VS.NFreqBands,1,1,1)))
+                W=np.float32(W.reshape((self.VS.NFreqBands,npol,1,1)))
                 MeanPSF=np.sum(PSFChannel*W,axis=0).reshape((1,npol,n,n)) #weight each of the cube slices and average
                 self.DicoPSF[iFacet]["MeanPSF"]=MeanPSF
 
@@ -893,7 +895,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoGridMachine.keys():
             NX=self.DicoImager[iFacet]["NpixFacetPadded"]
             GridName="%sGridFacet.%3.3i"%(self.IdSharedMem,iFacet)
-            self.DicoGridMachine[iFacet]["Dirty"]=np.ones((self.VS.NFreqBands,self.npol,NX,NX),self.CType)
+            self.DicoGridMachine[iFacet]["Dirty"]=np.ones((self.VS.NFreqBands,self.npol,NX,NX),self.FType)
             self.DicoGridMachine[iFacet]["Dirty"].fill(0)
             self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands,self.npol),np.float64)
             self.DicoImager[iFacet]["SumJones"]   = np.zeros((2,self.VS.NFreqBands),np.float64)
@@ -961,7 +963,9 @@ class ClassFacetMachine():
                                          SpheNorm=SpheNorm,
                                          PSFMode=PSFMode,
                                          NFreqBands=self.VS.NFreqBands,
-                                         PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"])
+                                         PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
+                                         DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                         ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
             workerlist.append(W)
             if Parallel:
                 workerlist[ii].start()
@@ -1077,7 +1081,9 @@ class ClassFacetMachine():
                                          IdSharedMem=self.IdSharedMem,
                                          IdSharedMemData=self.IdSharedMemData,
                                          ApplyCal=self.ApplyCal,
-                                         NFreqBands=self.VS.NFreqBands)
+                                         NFreqBands=self.VS.NFreqBands,
+                                         DataCorrelationFormat = self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                         ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds())
 
             workerlist.append(W)
             if Parallel:
@@ -1135,7 +1141,9 @@ class WorkerImager(multiprocessing.Process):
                  PSFMode=False,
                  CornersImageTot=None,
                  NFreqBands=1,
-                 PauseOnStart=False):
+                 PauseOnStart=False,
+                 DataCorrelationFormat=[5,6,7,8],
+                 ExpectedOutputStokes=[1]):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -1155,7 +1163,8 @@ class WorkerImager(multiprocessing.Process):
         self.CornersImageTot = CornersImageTot
         self.NFreqBands = NFreqBands
         self._pause_on_start = PauseOnStart
-
+        self.DataCorrelationFormat = DataCorrelationFormat
+        self.ExpectedOutputStokes = ExpectedOutputStokes
 
     def shutdown(self):
         self.exit.set()
@@ -1177,7 +1186,9 @@ class WorkerImager(multiprocessing.Process):
                                                             IdSharedMemData=self.IdSharedMemData,
                                                             IDFacet=iFacet,
                                                             SpheNorm=self.SpheNorm,
-                                                            NFreqBands=self.NFreqBands)
+                                                            NFreqBands=self.NFreqBands,
+                                                            DataCorrelationFormat=self.DataCorrelationFormat,
+                                                            ExpectedOutputStokes=self.ExpectedOutputStokes)
         return GridMachine
         
     def GiveDicoJonesMatrices(self):
