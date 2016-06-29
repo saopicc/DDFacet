@@ -134,6 +134,7 @@ class ClassRestoreMachine():
 
         ListRestoredIm=[]
         Lambda=[Lambda0+i*dLambda for i in range(self.NBands)]
+        ListRestoredImCorr=[]
         #print C/np.array(Lambda)
         # restored image
         for l in Lambda:
@@ -147,23 +148,35 @@ class ClassRestoreMachine():
             RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
             RestoredImageRes=RestoredImage+self.Residual
             ListRestoredIm.append(RestoredImageRes)
+            RestoredImageResCorr=RestoredImageRes/self.SqrtNormImage
+            ListRestoredImCorr.append(RestoredImageResCorr)
         
         #print FEdge,FCenter
 
         print>>log,"Save... "
         _,_,nx,_=RestoredImageRes.shape
         RestoredImageRes=np.array(ListRestoredIm).reshape((self.NBands,1,nx,nx))
+        RestoredImageResCorr=np.array(ListRestoredImCorr).reshape((self.NBands,1,nx,nx))
 
         if self.OutName=="":
             ImageName="%s.restoredNew"%self.BaseImageName
+            ImageNameCorr="%s.restoredNew.corr"%self.BaseImageName
         else:
             ImageName=self.OutName
+            ImageNameCorr=self.OutName+".corr"
 
         CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec,Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(RestoredImageRes,CorrT=True)
         CasaImage.ToFits()
         CasaImage.setBeam(self.FWHMBeam)
         CasaImage.close()
+
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameCorr,RestoredImageResCorr.shape,self.Cell,self.radec,Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage.setdata(RestoredImageResCorr,CorrT=True)
+        CasaImage.ToFits()
+        CasaImage.setBeam(self.FWHMBeam)
+        CasaImage.close()
+        
 
 
         # ImageName="%s.modelConv"%self.BaseImageName
