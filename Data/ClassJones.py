@@ -29,6 +29,7 @@ class ClassJones():
         self.DATA=DATA
         SolsFile=GD["DDESolutions"]["DDSols"]
         self.ApplyCal=False
+        DicoClusterDirs = DicoSols = TimeMapping = None
         if SolsFile!="":
             self.ApplyCal=True
             try:
@@ -47,6 +48,7 @@ class ClassJones():
             self.ToShared("Beam",DicoSols,TimeMapping,DicoClusterDirs)
             
 
+        del(DicoClusterDirs,DicoSols,TimeMapping)
 
 
     def ToShared(self,StrType,DicoSols,TimeMapping,DicoClusterDirs):
