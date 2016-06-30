@@ -360,7 +360,15 @@ class ClassMultiScaleMachine():
         UVTaper=1.-np.exp(-(r/r0)**2)
         
         UVTaper=UVTaper.reshape((1,1,nx,ny))*np.ones((nch,npol,1,1),np.float32)
+
+
         UVTaper.fill(1)
+
+        self.WeightMeanJonesBand=self.DicoVariablePSF["MeanJonesBand"][self.iFacet].reshape((nch,1,1,1))
+        WeightMueller=self.WeightMeanJonesBand.ravel()
+        WeightMuellerSignal=WeightMueller*self.DicoVariablePSF["WeightChansImages"].ravel()
+        self.WeightMuellerSignal=WeightMuellerSignal
+        UVTaper*=WeightMuellerSignal.reshape((nch,1,1,1))
 
         # fCubePSF[:,:,nx/2,ny/2]=0
         # import pylab
@@ -474,19 +482,24 @@ class ClassMultiScaleMachine():
 
         self.Repr="FT"
         self.Repr="IM"
+        
+
+
         if self.Repr=="FT":
             BM=DicoBasisMatrix["fBM"]
-            WCubePSF=DicoBasisMatrix["fWeightFunction"]
-            WCubePSFIm=DicoBasisMatrix["WeightFunction"]
+            WCubePSF=DicoBasisMatrix["fWeightFunction"]#*(JonesNorm)
+            WCubePSFIm=DicoBasisMatrix["WeightFunction"]#*(JonesNorm)
             WVecPSF=WCubePSF.reshape((WCubePSF.size,1))
             dirtyNorm=np.float32(self.OPFT(self.FFTMachine.fft(np.complex64(dirtyNormIm*WCubePSFIm))))#.real)
             BMT_BM_inv=DicoBasisMatrix["fBMT_fBM_inv"]
         else:
-            WCubePSF=DicoBasisMatrix["WeightFunction"]
+            #print "0:",DicoBasisMatrix["WeightFunction"].shape,JonesNorm.shape
+            WCubePSF=DicoBasisMatrix["WeightFunction"]#*(JonesNorm)
             WVecPSF=WCubePSF.reshape((WCubePSF.size,1))
             dirtyNorm=dirtyNormIm
             BM=DicoBasisMatrix["BM"]
             BMT_BM_inv=DicoBasisMatrix["BMT_BM_inv"]
+
 
         dirtyVec=dirtyNorm.reshape((dirtyNorm.size,1))
         T.timeit("1")
@@ -514,7 +527,9 @@ class ClassMultiScaleMachine():
         #self.SolveMode="ComplementaryMatchingPursuit"
         #self.SolveMode="NNLS"
 
-        MeanFluxTrue=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())
+        MeanFluxTrue=np.sum(FpolTrue.ravel()*self.WeightMuellerSignal)/np.sum(self.WeightMuellerSignal)
+        
+        
         if  self.SolveMode=="MatchingPursuit":
             #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
             Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
@@ -554,6 +569,9 @@ class ClassMultiScaleMachine():
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
 
         elif self.SolveMode=="PI":
+            
+
+            
             Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
             #Sol.fill(1)
 
@@ -563,19 +581,26 @@ class ClassMultiScaleMachine():
             #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
             
 
-            # print "=====",self.iFacet,x,y
-            # print "Data",dirtyVec.shape
-            # print dirtyVec
-            # #print "BM",BM.shape
-            # #print BM
-            # print "Sum, Sol",np.sum(Sol),Sol.ravel()
-            # print "aaa",np.dot(BM,Sol)
-            # stop
-
-            #print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
-            #print "MeanFluxTrue",MeanFluxTrue
             coef=np.min([np.abs(np.sum(Sol)/MeanFluxTrue),1.])
-            #print "coef",coef
+
+            # # ############## debug
+            # print
+            # print "=====",self.iFacet,x,y
+            # print Fpol.ravel()
+            # print FpolTrue.ravel()
+            # print self.DicoDirty["WeightChansImages"].ravel()
+            # print "Data shape",dirtyVec.shape
+            # # print dirtyVec
+            # # #print "BM",BM.shape
+            # # #print BM
+            # print "Sum, Sol",np.sum(Sol),Sol.ravel()
+            # # print "aaa",np.dot(BM,Sol)
+            # # stop
+            # #print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
+            # print "MeanFluxTrue",MeanFluxTrue
+            # print "coef",coef
+            # # ##########################
+
             SolReg=np.zeros_like(Sol)
             SolReg[0]=MeanFluxTrue
             #print "SolReg",SolReg.ravel()
@@ -587,7 +612,7 @@ class ClassMultiScaleMachine():
                 # if np.abs(np.sum(Sol))>np.abs(MeanFluxTrue):
                 #     Sol=SolReg
 
-            # print "Fin, Sol",np.sum(Sol),Sol.ravel()
+            # print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
 
             

@@ -823,7 +823,6 @@ class ClassFacetMachine():
                     if BeamWeightImage:
                         Im=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]*ThisSumJones
                     else:
-                    
                         Im=self.DicoGridMachine[iFacet]["Dirty"][Channel][pol].copy()
                         Im/=SPhe.real
                         Im[SPhe<1e-3]=0

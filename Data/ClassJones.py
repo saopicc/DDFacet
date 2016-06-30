@@ -53,7 +53,8 @@ class ClassJones():
         # SJM.FindAlpha()
         # # SJM.SmoothJones()
 
-        del(self.DicoClusterDirs_kMS,DicoClusterDirs,DicoSols,TimeMapping)
+        del(DicoClusterDirs,DicoSols,TimeMapping)
+        if self.HasKillMSSols: del(self.DicoClusterDirs_kMS)
         #del(self.DicoClusterDirs_kMS)
 
 
