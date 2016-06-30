@@ -25,13 +25,13 @@ def test():
     CM.Cluster()
 
 class ClassClusterKMean():
-    def __init__(self,x,y,s,NCluster=10,DoPlot=True,Precluster=None):
+    def __init__(self,x,y,s,NCluster=10,DoPlot=True,PreCluster=None):
         self.X=x.copy()
         self.Y=y.copy()
         self.S=s.copy()
         self.NCluster=NCluster
         self.DoPlot=DoPlot
-        self.Precluster=Precluster
+        self.PreCluster=PreCluster
 
         
 
@@ -48,8 +48,8 @@ class ClassClusterKMean():
         indC=np.int32(np.random.rand(Nk)*x.size)
         xc,yc=x[indC].copy(),y[indC].copy()
 
-        if self.Precluster!=None:
-            xc1,yc1=self.Precluster
+        if self.PreCluster!=None:
+            xc1,yc1=self.PreCluster
             Npk=xc1.size
             xc[0:Npk]=xc1[:]
             yc[0:Npk]=yc1[:]
@@ -117,15 +117,20 @@ class ClassClusterKMean():
                 c=np.ones(xx.size)*iK
                 ssz=sz[ind]
                 
-                if self.DoPlot:
-                    pylab.scatter(xx,yy,c=c,s=ssz,vmin=0,vmax=Nk,lw=0)
-                    pylab.scatter(xc[iK],yc[iK],c="black",marker="s")
 
-            if self.Precluster!=None:
-                xc1,yc1=self.Precluster
+
+
+            if self.DoPlot:
+                #pylab.scatter(xx,yy,c=c,s=ssz,vmin=0,vmax=Nk,lw=0)
+                pylab.scatter(xc,yc,c="black",marker="s")
+
+            if self.PreCluster!=None:
+                xc1,yc1=self.PreCluster
                 Npk=xc1.size
                 xc[0:Npk]=xc1[:]
                 yc[0:Npk]=yc1[:]
+                pylab.scatter(xc1,yc1,c="red",marker="s")
+
 
 
 
