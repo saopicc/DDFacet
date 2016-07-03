@@ -80,7 +80,7 @@ class ClassImageDeconvMachine():
         
         dx0=np.max([dx0,50])
         npix=2*dx0+1
-        npix=ModToolBox.GiveClosestFastSize(npix,Odd=False)
+        npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
 
         self.PSFMargin=(NPSF-npix)/2
 
@@ -129,7 +129,8 @@ class ClassImageDeconvMachine():
             #fact=np.max(Gauss)/np.sum(Gauss)
             #Gauss*=fact
             self.ListScales.append({"ModelType":"Gaussian",
-                                    "Model":Gauss,"Scale":i})
+                                    "Model":Gauss,"ModelParams":PSFGaussPars,
+                                    "Scale":i})
 
             iSlice+=1
 
@@ -159,8 +160,9 @@ class ClassImageDeconvMachine():
                     Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)/Max
                     #fact=np.max(Gauss)/np.sum(Gauss)
                     #Gauss*=fact
-                    self.ListScales.append({"ModelType":"Gaussian",
-                                            "Model":Gauss,"Scale":iScale})
+                    self.ListScales.append({"ModelType": "Gaussian",
+                                            "Model":Gauss, "ModelParams": PSFGaussPars,
+                                            "Scale": iScale})
 
         # Max=np.max(np.max(CubePSFScales,axis=1),axis=1)
         # Max=Max.reshape((Max.size,1,1))

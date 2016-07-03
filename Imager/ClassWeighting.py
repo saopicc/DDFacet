@@ -1,6 +1,7 @@
 import numpy as np
-from DDFacet.Gridder import _pyGridder
-from DDFacet.Gridder import WeightingCore 
+import math
+import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
+import DDFacet.cbuild.Gridder._pyWeightingCore as WeightingCore
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassWeighting")
@@ -52,91 +53,112 @@ class ClassWeighting():
         self.ImShape=ImShape
         self.CellSizeRad=CellSizeRad
 
-    def CalcWeights(self,uvw,VisWeights,flags,freqs,Robust=0,Weighting="Briggs",Super=1):
+    def CalcWeights(self, uvw_weights_flags_freqs, Robust=0, Weighting="Briggs", Super=1,
+                          nbands=1, band_mapping=None):
+        """
+        Computes imaging weights in "MFS mode", when all uv-points are binned onto a single grid.
+        Args:
+            uvw_weights_flags_freqs: list of (uv, weights, flags, freqs) tuples, one per each MS
+            Robust:                  robustness
+            Weighting:               natural, uniform, briggs
+            Super:                   !=1 for superuniform or superrobust: uv bin size is 1/(super*FoV)
+            nbands:                  number of frequency bands to compute weights on (if band_mapping is not None)
+            band_mapping:            band_mapping[iMS][ichan] gives the band number of channel #ichan of MS #iMS
+                                     if None, the "MFS weighting" is used, with all frequency points weighted
+                                     on a single grid
 
-        nch,npol,npixIm,_ = self.ImShape
-        FOV = self.CellSizeRad*npixIm
-        cell =1./(Super*FOV)
+        Returns:
+            list of imaging weights arrays, one per MS, same shape as original data weights
+        """
 
-        # if any polarization is flagged, flag all 4 correlations
-        flags = flags.max(axis=2)
-        # zero weight to flagged points
-        VisWeights = VisWeights.astype(np.float64) * ~flags
-        
-        if Weighting=="Natural":
-            print>>log, "Weighting in Natural mode"
-            return VisWeights
+        Weighting = Weighting.lower()
+        if Weighting == "natural":
+            print>> log, "Weighting in natural mode"
+            return [x[1] for x in uvw_weights_flags_freqs]
 
-        # flip sign of negative v values -- we'll only grid the top half of the plane
-        uv = uvw[:,0:2].copy()
-        uv[ uv[:,1]<0 ] *= -1
-        # convert u/v to lambda, and then to pixel offset
-        uv = uv[...,np.newaxis]*freqs[np.newaxis,np.newaxis,:]/_cc
-        uv = np.floor(uv/cell).astype(int)
-        # u is offset, v isn't since it's the top half
-        x = uv[:,0,:]
-        y = uv[:,1,:]
-        x -= x.min()
-        npixx = x.max()+1
-        npixy = y.max()+1
-        npix = npixx*npixy
-        # convert to index
-        index = y*npixx + x
-        del uv
+        nch, npol, npixIm, _ = self.ImShape
+        FOV = self.CellSizeRad * npixIm
+        cell = 1. / (Super * FOV)
 
-        # # this is the only slow part -- takes ~20 mins on CygA data (3 million rows x 256 channels so just under a billion uv-points)
-        # print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 1)"%(npixx,npixy,cell)
-        # grid = np.zeros(npix,np.float64)
-        # index_iter = zip(index.ravel(),VisWeights.ravel())
-        # def gridinc (dum,arg):
-        #    x,w = arg
-        #    grid[x] += w
-        # reduce(gridinc,index_iter)
-        # print>>log,"weight grid computed"
-        # # first attempt with cython using nditer. Not so effective: ~25 mins
-        # print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 2)"%(npixx,npixy,cell)
-        # grid = np.zeros(npix,np.float64)
-        # WeightingCore.accumulate_weights_onto_grid_using_nditer(grid,VisWeights,index)
-        # print>>log,"weight grid computed"
-        # second attept with cython using a simple for loop over 1D arrays: bingo, 3 seconds
-        print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 3)"%(npixx,npixy,cell)
-        grid = np.zeros(npix,np.float64)
-        WeightingCore.accumulate_weights_onto_grid_1d(grid,VisWeights.ravel(),index.ravel())
-        print>>log,"weight grid computed"
+        if band_mapping is None:
+            nbands = 1
+            print>> log, "initializing weighting grid for single band (or MFS weighting)"
+        else:
+            print>> log, "initializing weighting grids for %d bands"%nbands
 
-        # print>>log, "Calculating imaging weights on an [%i,%i] grid with cellsize %g (method 2)"%(npix,npix,cell)
-        # # grid of weights. Only top half of uv-plane needs to be gridded
-        # grid = np.zeros((npix,npix/2),np.float64)
-        # # remember that y0 is 0 since it's only the top half that's gridded
-        # # this iterator gives us x,y and weight for each uv point on the grid
-        # xyw_iter = zip(x[inbounds],y[inbounds],VisWeights[inbounds])
-        # def gridinc (dum,arg):
-        #    x,y,w = arg
-        #    grid[x,y] += w
-        # reduce(gridinc,xyw_iter)
-        # print>>log,"weight grid computed"
-
-        if Weighting == "Uniform":
-#            print>>log,"adjusting grid to uniform weight"
- #           grid[grid!=0] = 1/grid[grid!=0]
-            print>>log,"applying grid (uniform weighting)"
-            VisWeights /= grid[index]
-
-        elif Weighting == "Briggs":
-            print>>log,"adjusting grid to briggs weight"
-            avgW = (grid**2).sum() / grid.sum()
-            numeratorSqrt = 5.0 * 10**(-Robust)
-            sSq = numeratorSqrt**2 / avgW
-            grid = 1/(1+grid*sSq)
-            print>>log,"applying grid"
-            VisWeights *= grid[index]
-
-        print>>log,"weights computed"
-        return VisWeights
+        # find max grid extent by considering _unflagged_ UVs
+        xymax = 0
+        for uv, weights, flags, freqs in uvw_weights_flags_freqs:
+            # max |u|,|v| in lambda
+            uvmax = abs(uv)[~flags, :].max() * freqs.max() / _cc
+            xymax = max(xymax, int(math.floor(uvmax / cell)))
+        xymax += 1
+        # grid will be from [-xymax,xymax] in U and [0,xymax] in V
+        npixx = xymax * 2 + 1
+        npixy = xymax + 1
+        npix = npixx * npixy
 
 
+        print>> log, "Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell)
+        grid0 = np.zeros((nbands, npix), np.float64)
+        grid = grid0.reshape((nbands*npix,))
 
-        
+        weights_index = [None] * len(uvw_weights_flags_freqs)
+
+        for iMS, (uv, weights, flags, freqs) in enumerate(uvw_weights_flags_freqs):
+            # flip sign of negative v values -- we'll only grid the top half of the plane
+            uv[uv[:, 1] < 0] *= -1
+            # convert u/v to lambda, and then to pixel offset
+            uv = uv[..., np.newaxis] * freqs[np.newaxis, np.newaxis, :] / _cc
+            uv = np.floor(uv / cell).astype(int)
+            # u is offset, v isn't since it's the top half
+
+            x = uv[:, 0, :]
+            y = uv[:, 1, :]
+            x += xymax  # offset, since X grid starts at -xymax
+            # convert to index array -- this gives the number of the uv-bin on the grid
+            index = y * npixx + x
+            # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
+            if band_mapping is not None:
+                bandmap = band_mapping[iMS]
+                # uv has shape nvis,nfreq; bandmap has shape nfreq
+                index += bandmap[np.newaxis,:]*npix
+            # zero weight refers to zero cell (otherwise it may end up outside the grid, since grid is
+            # only big enough to accommodate the *unflagged* uv-points)
+            index[weights==0] = 0
+
+            weights_index[iMS] = weights, index
+            del uv
+            print>> log, "Accumulating weights (%d/%d)" % (iMS + 1, len(uvw_weights_flags_freqs))
+            # accumulate onto grid
+            # print>>log,weights,index
+            WeightingCore.accumulate_weights_onto_grid_1d(grid, weights.ravel(), index.ravel())
+
+        if Weighting == "uniform":
+            #            print>>log,"adjusting grid to uniform weight"
+            #           grid[grid!=0] = 1/grid[grid!=0]
+            print>> log, ("applying uniform weighting (super=%.2f)" % Super)
+            for weights, index in weights_index:
+                weights /= grid[index]
+
+        elif Weighting == "briggs" or Weighting == "robust":
+            numeratorSqrt = 5.0 * 10 ** (-Robust)
+            for band in range(nbands):
+                print>> log, ("applying Briggs weighting (robust=%.2f, super=%.2f, band %d)" % (Robust, Super, band))
+                grid1 = grid0[band,:]
+                avgW = (grid1 ** 2).sum() / grid1.sum()
+                sSq = numeratorSqrt ** 2 / avgW
+                grid1[...] = 1 / (1 + grid1 * sSq)
+            for weights, index in weights_index:
+                weights *= grid[index]
+
+        else:
+            raise ValueError("unknown weighting \"%s\"" % Weighting)
+
+        print>> log, "weights computed"
+        return [weights for weights, index in weights_index]
+
+
     def CalcWeightsOld(self,uvw,VisWeights,flags,freqs,Robust=0,Weighting="Briggs",Super=1):
 
 

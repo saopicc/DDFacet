@@ -240,6 +240,7 @@ class ClassSmearMapping():
         fact=(100.*(NVis-NTotBlocks)/float(NVis))
 
         #self.UnPackMapping()
+        print FinalMapping
 
         return FinalMapping,fact
 

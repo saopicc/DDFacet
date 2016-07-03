@@ -36,7 +36,7 @@ class ClassJones():
                 DicoSols,TimeMapping,DicoClusterDirs=self.DiskToSols(self.JonesNormSolsFile_killMS)
             except:
                 DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("killMS")
-            self.DicoClusterDirs_kMS=DicoClusterDirs
+            #self.DicoClusterDirs_kMS=DicoClusterDirs
             self.ToShared("killMS",DicoSols,TimeMapping,DicoClusterDirs)
             self.HasKillMSSols=True
 
@@ -53,7 +53,10 @@ class ClassJones():
         # SJM.FindAlpha()
         # # SJM.SmoothJones()
 
-        del(self.DicoClusterDirs_kMS,DicoClusterDirs,DicoSols,TimeMapping)
+        try:
+            del(DicoClusterDirs,DicoSols,TimeMapping)
+        except:
+            pass
         #del(self.DicoClusterDirs_kMS)
 
 
