@@ -1151,7 +1151,7 @@ class ClassFacetMachine():
                 workerlist[ii].terminate()
                 workerlist[ii].join()
 
-
+        _pyGridderSmearPols.pyDeleteSemaphore(ListSemaphores)
 
         NpShared.DelAll("%sc" % (self.IdSharedMemData))
         print>> log, "degridding finished in %s" % timer.timehms()

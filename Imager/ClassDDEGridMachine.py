@@ -533,7 +533,7 @@ class ClassDDEGridMachine():
             JonesMatrices_killMS=DicoJonesMatrices["DicoJones_killMS"]["Jones"]
             MapJones_killMS=DicoJonesMatrices["DicoJones_killMS"]["MapJones"]
             AlphaReg=DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"]
-            if AlphaReg!=None:
+            if AlphaReg is not None:
                 AlphaReg_killMS=DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"]
 
             VisToJonesChanMapping_killMS=np.int32(DicoJonesMatrices["DicoJones_killMS"]["VisToJonesChanMapping"])
@@ -594,7 +594,7 @@ class ClassDDEGridMachine():
         else:
             chan_equidistant = 0
 
-        if ChanMapping==None:
+        if ChanMapping is None:
             ChanMapping=np.zeros((visIn.shape[1],),np.int64)
         self.ChanMappingGrid=ChanMapping
 
@@ -621,7 +621,7 @@ class ClassDDEGridMachine():
 
         self.CheckTypes(Grid=Grid,vis=vis,uvw=uvw,flag=flag,ListWTerm=self.WTerm.Wplanes,W=W)
         ParamJonesList=[]
-        if DicoJonesMatrices!=None:
+        if DicoJonesMatrices is not None:
             ApplyAmp=0
             ApplyPhase=0
             ScaleAmplitude=0
@@ -712,30 +712,30 @@ class ClassDDEGridMachine():
                 raise NameError('uvw.dtype %s'%(str(uvw.dtype)))
             if not(uvw.flags.c_contiguous):
                 raise NameError("uvw has to be contiguous")
-        if type(flag)!=type(None):
+        if type(flag) is not type(None):
             if not(flag.dtype==np.bool8):
                 raise NameError('flag.dtype %s'%(str(flag.dtype)))
             if not(flag.flags.c_contiguous):
                 raise NameError("flag to be contiguous")
-        if ListWTerm!=None:
+        if ListWTerm is not None:
             if not(ListWTerm[0].dtype==np.complex64):
                 raise NameError('ListWTerm.dtype %s'%(str(ListWTerm.dtype)))
-        if type(W)!=type(None):
+        if type(W) is not type(None):
             if not(W.dtype==np.float64):
                 raise NameError('W.dtype %s'%(str(W.dtype)))
             if not(W.flags.c_contiguous):
                 raise NameError("W has to be contiguous")
-        if type(A0)!=type(None):
+        if type(A0) is not type(None):
             if not(A0.dtype==np.int32):
                 raise NameError('A0.dtype %s'%(str(A0.dtype)))
             if not(A0.flags.c_contiguous):
                 raise NameError("A0 has to be contiguous")
-        if type(A1)!=type(None):
+        if type(A1) is not type(None):
             if not(A1.dtype==np.int32):
                 raise NameError('A1.dtype %s'%(str(A1.dtype)))
             if not(A1.flags.c_contiguous):
                 raise NameError("A1 has to be contiguous")
-        if type(Jones)!=type(None):
+        if type(Jones) is not type(None):
             if not(Jones.dtype==np.complex64):
                 raise NameError('Jones.dtype %s'%(str(Jones.dtype)))
             if not(Jones.flags.c_contiguous):
@@ -757,7 +757,7 @@ class ClassDDEGridMachine():
         else:
             Grid=ModelImage
 
-        if ChanMapping==None:
+        if ChanMapping is None:
             ChanMapping=np.zeros((visIn.shape[1],),np.int32)
 
         self.ChanMappingDegrid=ChanMapping
@@ -798,7 +798,7 @@ class ClassDDEGridMachine():
 
         ParamJonesList=[]
 
-        if DicoJonesMatrices!=None:
+        if DicoJonesMatrices is not None:
             ApplyAmp=0
             ApplyPhase=0
             ScaleAmplitude=0
