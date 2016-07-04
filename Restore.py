@@ -135,14 +135,16 @@ class ClassRestoreMachine():
         ListRestoredIm=[]
         Lambda=[Lambda0+i*dLambda for i in range(self.NBands)]
         ListRestoredImCorr=[]
+        ListModelIm=[]
         #print C/np.array(Lambda)
         # restored image
         for l in Lambda:
             freq=C/l
             print>>log,"Get ModelImage... "
             ModelImage=ModelMachine.GiveModelImage(freq)
+            ListModelIm.append(ModelImage)
             print>>log,"  ModelImage to apparant flux... "
-            ModelImage*=self.SqrtNormImage
+            ModelImage=ModelImage*self.SqrtNormImage
             print>>log,"Convolve... "
             print>>log,"   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6)
             RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
@@ -150,7 +152,7 @@ class ClassRestoreMachine():
             ListRestoredIm.append(RestoredImageRes)
             RestoredImageResCorr=RestoredImageRes/self.SqrtNormImage
             ListRestoredImCorr.append(RestoredImageResCorr)
-        
+
         #print FEdge,FCenter
 
         print>>log,"Save... "
@@ -158,12 +160,23 @@ class ClassRestoreMachine():
         RestoredImageRes=np.array(ListRestoredIm).reshape((self.NBands,1,nx,nx))
         RestoredImageResCorr=np.array(ListRestoredImCorr).reshape((self.NBands,1,nx,nx))
 
+        ModelImage=np.array(ListModelIm).reshape((self.NBands,1,nx,nx))
+        
+
+
         if self.OutName=="":
             ImageName="%s.restoredNew"%self.BaseImageName
             ImageNameCorr="%s.restoredNew.corr"%self.BaseImageName
+            ImageNameModel="%s.model"%self.BaseImageName
         else:
             ImageName=self.OutName
             ImageNameCorr=self.OutName+".corr"
+
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModel,RestoredImageRes.shape,self.Cell,self.radec,Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage.setdata(ModelImage,CorrT=True)
+        CasaImage.ToFits()
+        CasaImage.setBeam(self.FWHMBeam)
+        CasaImage.close()
 
         CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec,Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(RestoredImageRes,CorrT=True)
