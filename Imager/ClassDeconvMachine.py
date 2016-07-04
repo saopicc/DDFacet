@@ -634,7 +634,7 @@ class ClassImagerDeconv():
 
                 self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)
                 
-				# NpShared.DelArray(PredictedDataName)
+                # NpShared.DelArray(PredictedDataName)
                 del(DATA)
 
 
@@ -719,7 +719,7 @@ class ClassImagerDeconv():
             self.PSFGaussPars = [self.PSFGaussParsAvg]
             self.PSFSidelobes = [self.PSFSidelobesAvg]
 		
-		## LB - Remove his chunk ?
+        ## LB - Remove his chunk ?
         #theta=np.pi/2-theta
         #
         #FWHMFact=2.*np.sqrt(2.*np.log(2.))
