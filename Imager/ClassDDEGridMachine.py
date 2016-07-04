@@ -672,7 +672,7 @@ class ClassDDEGridMachine():
             self.reinitGrid()
 
 
-        if ChanMapping==None:
+        if type(ChanMapping)==type(None):
             ChanMapping=np.zeros((visIn.shape[1],),np.int64)
         self.ChanMappingGrid=ChanMapping
 
@@ -943,7 +943,7 @@ class ClassDDEGridMachine():
         else:
             Grid=ModelImage
 
-        if ChanMapping==None:
+        if type(ChanMapping)==type(None):
             ChanMapping=np.zeros((visIn.shape[1],),np.int32)
 
         self.ChanMappingDegrid=ChanMapping
