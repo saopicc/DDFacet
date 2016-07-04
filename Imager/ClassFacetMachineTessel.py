@@ -22,7 +22,7 @@ from DDFacet.Other.ClassTimeIt import ClassTimeIt
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassFacetMachineTessel")
 MyLogger.setSilent("MyLogger")
-from DDFacet.Gridder import _pyGridderSmearPols as _pyGridderSmear
+#from DDFacet.cbuild.Gridder import _pyGridderSmearPols as _pyGridderSmear
 
 class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
     """

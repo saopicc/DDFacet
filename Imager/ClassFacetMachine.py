@@ -16,7 +16,7 @@ from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassFacetImager")
 MyLogger.setSilent("MyLogger")
-
+from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 
 class ClassFacetMachine():
     """
@@ -1098,7 +1098,7 @@ class ClassFacetMachine():
 
         NSemaphores = 3373
         ListSemaphores = ["%sSemaphore%4.4i" % (self.IdSharedMem, i) for i in range(NSemaphores)]
-        _pyGridderSmear.pySetSemaphores(ListSemaphores)
+        _pyGridderSmearPols.pySetSemaphores(ListSemaphores)
         work_queue = multiprocessing.Queue()
         result_queue = multiprocessing.Queue()
 
@@ -1150,6 +1150,8 @@ class ClassFacetMachine():
                 workerlist[ii].shutdown()
                 workerlist[ii].terminate()
                 workerlist[ii].join()
+
+
 
         NpShared.DelAll("%sc" % (self.IdSharedMemData))
         print>> log, "degridding finished in %s" % timer.timehms()
