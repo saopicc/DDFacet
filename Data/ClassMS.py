@@ -675,6 +675,7 @@ class ClassMS():
         self.CorrelationIds = tp.getcol('CORR_TYPE',0,1)[self._polid]
         self.CorrelationNames = [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
                 None for ctype in self.CorrelationIds ]
+        self.Ncorr = len(self.CorrelationNames)
         # NB: it is possible for the MS to have different polarization
 
         self.ColNames=table_all.colnames()
@@ -714,14 +715,16 @@ class ClassMS():
         self.dFreq=ta_spectral.getcol("CHAN_WIDTH")[self._spwid,self.ChanSlice].flatten()[0]
         self.ChanWidth=ta_spectral.getcol('CHAN_WIDTH')[self._spwid,self.ChanSlice]
 
-        # 
+        # set up cs_tlc,cd_brc,cs_inc: these are pyrap-style slice selection arguments
+        # to select the [subset] of the column
         if self.ChanSlice is not None:
             chan_nums = range(len(orig_freq))[self.ChanSlice]
-            self.cs_tlc = (chan_nums[0], -1)
-            self.cs_brc = (chan_nums[-1], -1)
-            self.cs_inc = (self.ChanSlice.step, 1)
+            self.cs_tlc = (chan_nums[0], 0)
+            self.cs_brc = (chan_nums[-1], self.Ncorr-1)
+            self.cs_inc = (self.ChanSlice.step or 1, 1)
         else:
-            self.cs_tlc = self.cs_brc = (-1, -1)
+            self.cs_tlc = (0, 0)
+            self.cs_brc = (self.Nchan-1, self.Ncorr-1)
             self.cs_inc = (1, 1)
 
 
