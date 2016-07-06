@@ -155,8 +155,9 @@ class ClassArrayMethodGA():
                     ALPHA=np.max([1.,ALPHA])
                 self.ALPHA=ALPHA
                 # print "ALPHA=",self.ALPHA
-
-                self.DirtyArray/=self.ALPHA
+                
+                if self.GD["GAClean"]["ArtifactRobust"]:
+                    self.DirtyArray/=self.ALPHA
                 self.DirtyArray+=AddArray
 
         
