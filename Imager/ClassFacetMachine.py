@@ -663,10 +663,6 @@ class ClassFacetMachine():
                 self.DicoPSF[iFacet]["PSF"]=(self.DicoGridMachine[iFacet]["Dirty"]).copy().real
                 self.DicoPSF[iFacet]["l0m0"]=self.DicoImager[iFacet]["l0m0"]
                 self.DicoPSF[iFacet]["pixCentral"]=self.DicoImager[iFacet]["pixCentral"]
-                lSol, mSol = self.lmSols
-                raSol, decSol = self.radecSols
-                #dSol = np.sqrt((l0 - lSol) ** 2 + (m0 - mSol) ** 2)
-                #iSol = np.where(dSol == np.min(dSol))[0]
                 self.DicoPSF[iFacet]["lmSol"] = self.DicoImager[iFacet]["lmSol"]
                 #self.DicoPSF[iFacet]["radecSol"] = raSol[iSol], decSol[iSol]
                 #self.DicoPSF[iFacet]["iSol"] = iSol
