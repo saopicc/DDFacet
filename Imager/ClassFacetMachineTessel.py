@@ -58,6 +58,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
 
 
+        CellSizeRad=(self.GD["ImagerMainFacet"]["Cell"]/3600.)*np.pi/180
         if SolsFile!="":
             ClusterNodes=np.load(SolsFile)["ClusterCat"]
             ClusterNodes=ClusterNodes.view(np.recarray)
@@ -65,8 +66,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             decNode=ClusterNodes.dec
             lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
         else:
-
-            CellSizeRad=(self.GD["ImagerMainFacet"]["Cell"]/3600.)*np.pi/180
             lrad=self.Npix*CellSizeRad*0.5
             NpixFacet=self.Npix/NFacets
             lfacet=NpixFacet*CellSizeRad*0.5
