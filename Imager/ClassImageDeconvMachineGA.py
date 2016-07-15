@@ -131,7 +131,8 @@ class ClassImageDeconvMachine():
 
     def CalcCrossIslandPSF(self,ListIslands):
         print>>log,"  calculating global islands cross-contamination"
-        PSF=self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
+        PSF=np.mean(self.PSFServer.DicoVariablePSF["MeanFacetPSF"][:,0],axis=0)#self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
+        
         nPSF,_=PSF.shape
         xcPSF,ycPSF=nPSF/2,nPSF/2
 
@@ -300,6 +301,7 @@ class ClassImageDeconvMachine():
             IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
             for iIsland in range(len(ListIslands)):#self.NIslands):
                 ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
+
 
         ListIslands=self.CalcCrossIslandFlux(ListIslands)
 
@@ -475,17 +477,23 @@ class ClassImageDeconvMachine():
                       "ListPixData":ThisPixList,
                       "ListPixParms":ThisPixList,
                       "IslandBestIndiv":IslandBestIndiv,
-                      "GD":self.GD}
+                      "GD":self.GD,
+                      "FacetID":FacetID}
             
-            #print "saving"
-            #MyPickle.Save(DicoSave, "SaveTest")
-            #print "saving ok"
+            print "saving"
+            MyPickle.Save(DicoSave, "SaveTest")
+            print "saving ok"
             ################################
 
-            
+            nch=nchan
+            self.FreqsInfo=FreqsInfo
+            WeightMeanJonesBand=self.FreqsInfo["MeanJonesBand"][FacetID].reshape((nch,1,1,1))
+            WeightMueller=WeightMeanJonesBand.ravel()
+            WeightMuellerSignal=WeightMueller*self.FreqsInfo["WeightChansImages"].ravel()
+
             CEv=ClassEvolveGA(self._Dirty,PSF,FreqsInfo,ListPixParms=ThisPixList,
                               ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,
-                              GD=self.GD)
+                              GD=self.GD,WeightFreqBands=WeightMuellerSignal)
             Model=CEv.main(NGen=100,DoPlot=True)#False)
             #Model=CEv.main(NGen=100,DoPlot=False)
             
@@ -773,6 +781,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
         self.FreqsInfo=FreqsInfo
         self.CubeVariablePSF=NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
         self._Dirty=NpShared.GiveArray("%s.Dirty.ImagData"%self.IdSharedMem)
+        #self.WeightFreqBands=WeightFreqBands
 
     def shutdown(self):
         self.exit.set()
@@ -812,13 +821,19 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
             # if island lies inside image
             try:
+                nch=self.FreqsInfo["MeanJonesBand"][FacetID].size
+                WeightMeanJonesBand=self.FreqsInfo["MeanJonesBand"][FacetID].reshape((nch,1,1,1))
+                WeightMueller=WeightMeanJonesBand.ravel()
+                WeightMuellerSignal=np.sqrt(WeightMueller*self.FreqsInfo["WeightChansImages"].ravel())
+
                 CEv=ClassEvolveGA(self._Dirty,
                                   PSF,
                                   self.FreqsInfo,
                                   ListPixParms=ListPixParms,
                                   ListPixData=ListPixData,
                                   IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
-                                  GD=self.GD)
+                                  GD=self.GD,
+                                  WeightFreqBands=WeightMuellerSignal)
                 Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
             
                 Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
@@ -831,6 +846,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
                 #print "Current process: %s [%s left]"%(str(multiprocessing.current_process()),str(self.work_queue.qsize()))
                 
                 self.result_queue.put({"Success":True,"iIsland":iIsland})
-            except:
+            except Exception,e:
+                print "Exception : %s"%str(e)
+
                 self.result_queue.put({"Success":False})
 

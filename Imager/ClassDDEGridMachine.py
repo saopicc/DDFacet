@@ -595,7 +595,7 @@ class ClassDDEGridMachine():
             chan_equidistant = 0
 
         if ChanMapping is None:
-            ChanMapping=np.zeros((visIn.shape[1],),np.int64)
+            ChanMapping = np.zeros((visIn.shape[1],),np.int64)
         self.ChanMappingGrid=ChanMapping
 
         Grid=np.zeros(self.GridShape,dtype=self.dtype)
@@ -760,7 +760,7 @@ class ClassDDEGridMachine():
         if ChanMapping is None:
             ChanMapping=np.zeros((visIn.shape[1],),np.int32)
 
-        self.ChanMappingDegrid=ChanMapping
+        self.ChanMappingDegrid=np.int32(ChanMapping)
 
         if TranformModelInput=="FT":
             if np.max(np.abs(ModelImage))==0: return vis
@@ -833,7 +833,7 @@ class ClassDDEGridMachine():
                                            np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
                                            self.incr.astype(np.float64),
                                            freqs,
-                                           [self.PolMap,FacetInfos,RowInfos],
+                                           [self.PolMap,FacetInfos,RowInfos,ChanMapping],
                                            ParamJonesList)
         else:
 

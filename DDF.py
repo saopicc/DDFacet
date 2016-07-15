@@ -203,6 +203,7 @@ def read_options():
     OP.add_option("NMaxGen")
     OP.add_option("NEnlargePars")
     OP.add_option("NEnlargeData")
+    OP.add_option("ArtifactRobust")
 
 
     OP.OptionGroup("* Clean","ImagerDeconv")

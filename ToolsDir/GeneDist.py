@@ -36,6 +36,7 @@ class ClassDistMachine():
             x=np.linspace(xmm[0]-1e-6,xmm[1]+1e-6,Ns)
             
 
+        print x
         if W==None:
             W=np.ones((X.size,),np.float32)
 
@@ -44,6 +45,7 @@ class ClassDistMachine():
 
         if Norm:
             D/=D[-1]
+        
         return x,D
 
     def GiveSample(self,N):

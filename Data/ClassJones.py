@@ -49,12 +49,15 @@ class ClassJones():
                 DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("Beam")
             self.ToShared("Beam",DicoSols,TimeMapping,DicoClusterDirs)
             
+            del(DicoClusterDirs,DicoSols,TimeMapping)
         # SJM=ClassSmoothJones.ClassSmoothJones(GD,self.IdSharedMem)
         # SJM.FindAlpha()
         # # SJM.SmoothJones()
 
         try:
             del(DicoClusterDirs,DicoSols,TimeMapping)
+            if self.HasKillMSSols: 
+                del(self.DicoClusterDirs_kMS)
         except:
             pass
         #del(self.DicoClusterDirs_kMS)

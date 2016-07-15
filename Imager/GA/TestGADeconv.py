@@ -155,10 +155,17 @@ def testMF_DATA():
     IslandBestIndiv=Dico["IslandBestIndiv"]
     ListPixParms=ListPixData
     GD=Dico["GD"]
+    FacetID=Dico["FacetID"]
+
+    nch=FreqsInfo["MeanJonesBand"][FacetID].size
+    WeightMeanJonesBand=FreqsInfo["MeanJonesBand"][FacetID].reshape((nch,1,1,1))
+    WeightMueller=WeightMeanJonesBand.ravel()
+    WeightMuellerSignal=WeightMueller*FreqsInfo["WeightChansImages"].ravel()
 
     IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
     ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
 
-    CEv=ClassEvolveGA(Dirty,PSF,FreqsInfo,ListPixParms=ListPixParms,ListPixData=ListPixData,GD=GD,IslandBestIndiv=IslandBestIndiv)
+    CEv=ClassEvolveGA(Dirty,PSF,FreqsInfo,ListPixParms=ListPixParms,ListPixData=ListPixData,GD=GD,
+                      IslandBestIndiv=IslandBestIndiv,WeightFreqBands=WeightMuellerSignal)
     
     return CEv
