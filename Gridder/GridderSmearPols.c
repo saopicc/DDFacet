@@ -989,12 +989,12 @@ void DeGridderWPol(gridding_parameters *  params)
 			//#######################################################
 			
 			//###################### Form residuals #######################
-			//Sem_mutex=GiveSemaphoreFromCell(doff_chan);
-	  		//sem_wait(Sem_mutex);			
+			Sem_mutex=GiveSemaphoreFromCell(doff_chan);
+	  		sem_wait(Sem_mutex);			
 			for (ThisPol=0; ThisPol < params->nVisCorr; ++ThisPol){
 			    visPtr[ThisPol] = visPtr[ThisPol] - phased_vis_corr[ThisPol];
 			}
-			//sem_post(Sem_mutex);
+			sem_post(Sem_mutex);
 			//#######################################################
                     }//endfor vischan
                 }//endfor RowThisBlock
