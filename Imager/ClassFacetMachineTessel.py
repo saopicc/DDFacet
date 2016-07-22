@@ -46,12 +46,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         RadiusTot = self.CellSizeRad * self.Npix / 2
         self.RadiusTot = RadiusTot
 
-        # Finding main image bounds
-        # Np=100000
-        # X=(np.random.rand(Np)*2-1.)*RadiusTot
-        # Y=(np.random.rand(Np)*2-1.)*RadiusTot
-        # XY = np.dstack((X, Y))
-        # XY_flat = XY.reshape((-1, 2))
         lMainCenter, mMainCenter = 0., 0.
         self.lmMainCenter = lMainCenter, mMainCenter
         self.CornersImageTot = np.array([[lMainCenter - RadiusTot, mMainCenter - RadiusTot],
@@ -105,21 +99,13 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             lFacet, mFacet, = np.mgrid[-lcenter_max:lcenter_max:(NFacets) * 1j, -lcenter_max:lcenter_max:(NFacets) * 1j]
             lFacet = lFacet.flatten()
             mFacet = mFacet.flatten()
-            # ClusterNodes=np.load("BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
-            # ClusterNodes=ClusterNodes.view(np.recarray)
-            # raNode=ClusterNodes.ra
-            # decNode=ClusterNodes.dec
-            # lFacet,mFacet=self.CoordMachine.radec2lm(raNode,decNode)
         print>> log, "  There are %i Jones-directions" % lFacet.size
         self.lmSols = lFacet.copy(), mFacet.copy()
 
         raSols, decSols = self.CoordMachine.lm2radec(lFacet.copy(), mFacet.copy())
         self.radecSols = raSols, decSols
 
-        # ClusterNodes=np.load("/data/tasse/BOOTES/BOOTES24_SB100-109.2ch8s.ms/killMS.KAFCA.sols.npz")["ClusterCat"]
-
-        NodesCat = np.zeros((raSols.size,), dtype=[('ra', np.float), ('dec', np.float),
-                                                   ('l', np.float), ('m', np.float)])
+        NodesCat = np.zeros((raSols.size,), dtype=[('ra', np.float), ('dec', np.float),                                                   ('l', np.float), ('m', np.float)])
         NodesCat = NodesCat.view(np.recarray)
         NodesCat.ra = raSols
         NodesCat.dec = decSols
@@ -142,17 +128,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         if NFacets > 2:
             vor = Voronoi(xy, furthest_site=False)
             regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor, radius=1.)
-
-            # points=xy
-            # pylab.clf()
-            # for region in regions:
-            #     polygon = vertices[region]
-            #     pylab.fill(*zip(*polygon), alpha=0.4)
-            #     pylab.plot(points[:,0], points[:,1], 'ko')
-            #     pylab.draw()
-            #     pylab.show(False)
-
-            # stop
 
             PP = Polygon.Polygon(self.CornersImageTot)
 
@@ -327,22 +302,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                     hull = ConvexHull(poly)
                     Contour = np.array([hull.points[hull.vertices, 0], hull.points[hull.vertices, 1]])
                     poly2 = Contour.T
-                    # poly2=hull.points
-                    # pylab.clf()
-                    # x,y=poly.T
-                    # pylab.plot(x,y)
-                    # x,y=poly2.T
-                    # pylab.plot(x,y)
-                    # # PlotPolygon(P0)
-                    # # PlotPolygon(P1)
-                    # # #PlotPolygon(P2,color="black")
-                    # # x,y=poly2.T
-                    # # PlotPolygon(x,y,color="black")
-                    # pylab.draw()
-                    # pylab.show()
-                    # time.sleep(0.5)
 
-                    # poly2=np.array(P2[0])
                     del (DicoPolygon[iFacet])
                     DicoPolygon[iFacetClosest]["poly"] = poly2
                     DicoPolygon[iFacetClosest]["diam"] = GiveDiam(poly2)[0]
