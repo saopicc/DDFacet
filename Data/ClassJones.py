@@ -9,6 +9,7 @@ from DDFacet.Array import ModLinAlg
 from DDFacet.Other.progressbar import ProgressBar
 import ClassLOFARBeam
 import ClassFITSBeam
+import ClassSmoothJones
 
 class ClassJones():
     def __init__(self,GD,MS,FacetMachine=None,IdSharedMem=""):
@@ -20,8 +21,8 @@ class ClassJones():
         self.DicoClusterDirs=None
         self.JonesNormSolsFile_killMS="%s/JonesNorm_killMS.npz"%ThisMSName
         self.JonesNormSolsFile_Beam="%s/JonesNorm_Beam.npz"%ThisMSName
-
-
+        self.HasKillMSSols=False
+        self.BeamTimes_kMS=np.array([],np.float32)
 
 
     def InitDDESols(self,DATA):
@@ -35,7 +36,9 @@ class ClassJones():
                 DicoSols,TimeMapping,DicoClusterDirs=self.DiskToSols(self.JonesNormSolsFile_killMS)
             except:
                 DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("killMS")
+            #self.DicoClusterDirs_kMS=DicoClusterDirs
             self.ToShared("killMS",DicoSols,TimeMapping,DicoClusterDirs)
+            self.HasKillMSSols=True
 
         ApplyBeam=(GD["Beam"]["BeamModel"]!=None)
         if ApplyBeam:
@@ -46,11 +49,25 @@ class ClassJones():
                 DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("Beam")
             self.ToShared("Beam",DicoSols,TimeMapping,DicoClusterDirs)
             
+            del(DicoClusterDirs,DicoSols,TimeMapping)
+        # SJM=ClassSmoothJones.ClassSmoothJones(GD,self.IdSharedMem)
+        # SJM.FindAlpha()
+        # # SJM.SmoothJones()
 
+        try:
+            del(DicoClusterDirs,DicoSols,TimeMapping)
+            if self.HasKillMSSols: 
+                del(self.DicoClusterDirs_kMS)
+        except:
+            pass
+        #del(self.DicoClusterDirs_kMS)
 
 
     def ToShared(self,StrType,DicoSols,TimeMapping,DicoClusterDirs):
         print>>log, "  Putting %s Jones in shm"%StrType
+        NpShared.DelAll("%sDicoClusterDirs_%s"%(self.IdSharedMem,StrType))
+        NpShared.DelAll("%sJonesFile_%s"%(self.IdSharedMem,StrType))
+        NpShared.DelAll("%sMapJones_%s"%(self.IdSharedMem,StrType))
         NpShared.DicoToShared("%sDicoClusterDirs_%s"%(self.IdSharedMem,StrType),DicoClusterDirs)
         NpShared.DicoToShared("%sJonesFile_%s"%(self.IdSharedMem,StrType),DicoSols)
         NpShared.ToShared("%sMapJones_%s"%(self.IdSharedMem,StrType),TimeMapping)
@@ -114,22 +131,35 @@ class ClassJones():
             print>>log, "  Build VisTime-to-Solution mapping"
             TimeMapping=self.GiveTimeMapping(DicoSols)
             self.SolsToDisk(self.JonesNormSolsFile_killMS,DicoSols,DicoClusterDirs_killMS,TimeMapping)
-
         BeamJones=None
         if StrType=="Beam":
-            print>>log,"  Getting Jones directions from Facets"
 
             if self.FacetMachine!=None:
-                DicoImager=self.FacetMachine.DicoImager
-                NFacets=len(DicoImager)
-                self.ClusterCatBeam=self.FacetMachine.FacetCat
-                DicoClusterDirs={}
-                DicoClusterDirs["l"]=self.ClusterCatBeam.l
-                DicoClusterDirs["m"]=self.ClusterCatBeam.m
-                DicoClusterDirs["ra"]=self.ClusterCatBeam.ra
-                DicoClusterDirs["dec"]=self.ClusterCatBeam.dec
-                DicoClusterDirs["I"]=self.ClusterCatBeam.I
-                DicoClusterDirs["Cluster"]=self.ClusterCatBeam.Cluster
+                if not(self.HasKillMSSols):
+                    print>>log,"  Getting Jones directions from Facets"
+                    DicoImager=self.FacetMachine.DicoImager
+                    NFacets=len(DicoImager)
+                    self.ClusterCatBeam=self.FacetMachine.FacetCat
+                    DicoClusterDirs={}
+                    DicoClusterDirs["l"]=self.ClusterCatBeam.l
+                    DicoClusterDirs["m"]=self.ClusterCatBeam.m
+                    DicoClusterDirs["ra"]=self.ClusterCatBeam.ra
+                    DicoClusterDirs["dec"]=self.ClusterCatBeam.dec
+                    DicoClusterDirs["I"]=self.ClusterCatBeam.I
+                    DicoClusterDirs["Cluster"]=self.ClusterCatBeam.Cluster
+                else:
+                    print>>log,"  Getting Jones directions from DDE-solutions"
+                    DicoClusterDirs=self.DicoClusterDirs_kMS
+                    NDir=DicoClusterDirs["l"].size
+                    self.ClusterCatBeam=np.zeros((NDir,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),
+                                                                ("Cluster",int),
+                                                                ("l",np.float),("m",np.float),
+                                                                ("I",np.float)])
+                    self.ClusterCatBeam=self.ClusterCatBeam.view(np.recarray)
+                    self.ClusterCatBeam.I=self.DicoClusterDirs_kMS["I"]
+                    self.ClusterCatBeam.SumI=self.DicoClusterDirs_kMS["I"]
+                    self.ClusterCatBeam.ra[:]=self.DicoClusterDirs_kMS["ra"]
+                    self.ClusterCatBeam.dec[:]=self.DicoClusterDirs_kMS["dec"]
             else:
                 
                 self.ClusterCatBeam=np.zeros((1,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),
@@ -222,7 +252,8 @@ class ClassJones():
 
         for File,ThisGlobalMode,ThisJonesMode in zip(SolsFileList,GlobalNormList,JonesNormList):
 
-            DicoClusterDirs,DicoSols=self.GiveKillMSSols_SingleFile(File,GlobalMode=ThisGlobalMode,JonesMode=ThisJonesMode)
+            DicoClusterDirs,DicoSols,VisToJonesChanMapping=self.GiveKillMSSols_SingleFile(File,GlobalMode=ThisGlobalMode,JonesMode=ThisJonesMode)
+            print>>log,"  VisToJonesChanMapping: %s"%str(VisToJonesChanMapping)
             ListDicoSols.append(DicoSols)
 
         DicoJones=ListDicoSols[0]
@@ -230,7 +261,7 @@ class ClassJones():
             DicoJones=self.MergeJones(DicoJones1,DicoJones)
 
 
-        DicoJones["VisToJonesChanMapping"]=np.zeros((self.MS.NSPWChan,),np.int32)
+        DicoJones["VisToJonesChanMapping"]=VisToJonesChanMapping
 
         return DicoClusterDirs,DicoJones
 
@@ -251,31 +282,53 @@ class ClassJones():
         DicoClusterDirs={}
         DicoClusterDirs["l"]=ClusterCat.l
         DicoClusterDirs["m"]=ClusterCat.m
+        DicoClusterDirs["ra"]=ClusterCat.ra
+        DicoClusterDirs["dec"]=ClusterCat.dec
         #DicoClusterDirs["l"]=ClusterCat.l
         #DicoClusterDirs["m"]=ClusterCat.m
         DicoClusterDirs["I"]=ClusterCat.SumI
         DicoClusterDirs["Cluster"]=ClusterCat.Cluster
         
+
+        if "FreqDomains" in DicoSolsFile.keys():
+            FreqDomains=DicoSolsFile["FreqDomains"]
+            VisToJonesChanMapping=self.GiveVisToJonesChanMapping(FreqDomains)
+        else:
+            VisToJonesChanMapping=np.zeros((self.MS.NSPWChan,),np.int32)
+            
+        self.BeamTimes_kMS=DicoSolsFile["BeamTimes"]
+
         Sols=DicoSolsFile["Sols"]
         Sols=Sols.view(np.recarray)
         DicoSols={}
         DicoSols["t0"]=Sols.t0
         DicoSols["t1"]=Sols.t1
         DicoSols["tm"]=(Sols.t1+Sols.t0)/2.
-        nt,na,nd,_,_=Sols.G.shape
-        G=np.swapaxes(Sols.G,1,2).reshape((nt,nd,na,1,2,2))
-        
+        nt,nf,na,nd,_,_=Sols.G.shape
+        G=np.swapaxes(Sols.G,1,3).reshape((nt,nd,na,nf,2,2))
+
+        # G[:,:,:,:,0,0]=0.
+        # G[:,:,:,:,1,1]=0.
+        # G[:,0,:,:,0,0]=1.
+        # G[:,0,:,:,1,1]=1.
+        #G.fill(0)
+
+        # print>>log, "!!!!!!!!!!!!!!"
+        # #G[:,:,:,:,1,1]=G[:,:,:,:,0,0]
+        # G[:,:,:,:,0,0]=G[:,:,:,:,1,1]
+        # print>>log, "!!!!!!!!!!!!!!"
+
 
         if GlobalMode=="MeanAbsAnt":
-             print>>log, "  Normalising by the mean of the amplitude (against time)"
-             gmean_abs=np.mean(np.abs(G[:,:,:,:,0,0]),axis=0)
+             print>>log, "  Normalising by the mean of the amplitude (against time, freq)"
+             gmean_abs=np.mean(np.mean(np.abs(G[:,:,:,:,0,0]),axis=0),axis=2)
              gmean_abs=gmean_abs.reshape((1,nd,na,1))
              G[:,:,:,:,0,0]/=gmean_abs
              G[:,:,:,:,1,1]/=gmean_abs
          
         if GlobalMode=="MeanAbs":
-            print>>log, "  Normalising by the mean of the amplitude (against time, antenna)"
-            gmean_abs=np.mean(np.mean(np.abs(G[:,:,:,:,0,0]),axis=0),axis=1)
+            print>>log, "  Normalising by the mean of the amplitude (against time, freq, antenna)"
+            gmean_abs=np.mean(np.mean(np.mean(np.abs(G[:,:,:,:,0,0]),axis=0),axis=1),axis=1)
             gmean_abs=gmean_abs.reshape((1,nd,1,1))
             G[:,:,:,:,0,0]/=gmean_abs
             G[:,:,:,:,1,1]/=gmean_abs
@@ -290,12 +343,27 @@ class ClassJones():
             dtype=G.dtype
             G=(np.abs(G).astype(dtype)).copy()
 
-        G=self.NormDirMatrices(G)
+        #G=self.NormDirMatrices(G)
+
+        # print "G!!!!!!!!!!!!!!!"#nt,nd,na,nf,2,2
+        
+        #G.fill(0)
+        #G[:,:,:,:,0,0]=1
+        #G[:,:,:,:,1,1]=1
+
+        # Gc=G.copy()
+        # Gc.fill(0)
+        # N=5
+
+        # Gc[:,N,:,:,:,:]=G[:,N,:,:,:,:]
+        # G=Gc
+
         DicoSols["Jones"]=G
 
-        return DicoClusterDirs,DicoSols
+        return DicoClusterDirs,DicoSols,VisToJonesChanMapping
 
     def NormDirMatrices(self,G):
+        return G
         RefAnt=0
         print>>log,"  Normalising Jones Matrices with reference Antenna %i ..."%RefAnt
         nt,nd,na,nf,_,_=G.shape
@@ -323,7 +391,7 @@ class ClassJones():
             self.BeamMachine=ClassLOFARBeam.ClassLOFARBeam(self.MS,self.GD)
             self.GiveInstrumentBeam=self.BeamMachine.GiveInstrumentBeam
             #print>>log, "  Estimating LOFAR beam model in %s mode every %5.1f min."%(LOFARBeamMode,DtBeamMin)
-            self.GiveInstrumentBeam=self.MS.GiveBeam
+            #self.GiveInstrumentBeam=self.MS.GiveBeam
             # estimate beam sample times using DtBeamMin
 
         elif GD["Beam"]["BeamModel"]=="FITS":
@@ -343,9 +411,23 @@ class ClassJones():
         times = self.DATA["times"]
         self.InitBeamMachine()
 
-        beam_times = self.BeamMachine.getBeamSampleTimes(times)
+        if self.BeamTimes_kMS.size!=0:
+            print>>log,"  Taking beam-times from DDE-solutions"
+            beam_times = self.BeamTimes_kMS
+        else:
+            beam_times = self.BeamMachine.getBeamSampleTimes(times)
+
+
         RAs=self.ClusterCatBeam.ra
         DECs=self.ClusterCatBeam.dec
+        
+        # from killMS2.Other.rad2hmsdms import rad2hmsdms
+        # for i in range(RAs.size): 
+        #     ra,dec=RAs[i],DECs[i]
+        #     print rad2hmsdms(ra,Type="ra").replace(" ",":"),rad2hmsdms(dec,Type="dec").replace(" ",".")
+        
+
+
         DicoBeam=self.EstimateBeam(beam_times,RAs,DECs)
 
         return DicoBeam
@@ -387,6 +469,9 @@ class ClassJones():
             DicoBeam["t1"][itime]=T1s[itime]
             DicoBeam["tm"][itime]=Tm[itime]
             ThisTime=Tm[itime]
+
+
+
 
             pBAR.render(itime*100/(Tm.size-1), "%d/%d"%(itime+1, Tm.size))
             Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)
