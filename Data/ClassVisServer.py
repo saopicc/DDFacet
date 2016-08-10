@@ -3,18 +3,16 @@ import math
 import ClassMS
 from DDFacet.Data.ClassStokes import ClassStokes
 from DDFacet.Array import NpShared
-from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-from DDFacet.Array import ModLinAlg
-from DDFacet.Other import MyLogger
-MyLogger.setSilent(["NpShared"])
 from DDFacet.Imager import ClassWeighting
 from DDFacet.Other import reformat
 import ClassSmearMapping
 import os
 import ClassJones
 import ClassBeamMean
+from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassVisServer")
+MyLogger.setSilent(["NpShared"])
 
 def test():
     MSName="/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
@@ -90,7 +88,7 @@ class ClassVisServer():
 
         # self.LoadNextVisChunk()
 
-        # self.TEST_TLIST=[]
+        #self.TEST_TLIST=[]
 
 
     def Init(self,PointingID=0):
@@ -139,22 +137,19 @@ class ClassVisServer():
 
                 JonesName="%s/JonesNorm_killMS.npz"%ThisMSName
                 os.system("rm %s"%JonesName)
-
-
-        # Assume the correlation layout of the first measurement set for now
+        #Assume the correlation layout of the first measurement set for now
         self.VisCorrelationLayout = self.ListMS[0].CorrelationIds
         self.StokesConverter = ClassStokes(self.VisCorrelationLayout, self.GD["ImagerGlobal"]["PolMode"])
         for MS in self.ListMS:
             if not np.all(MS.CorrelationIds == self.VisCorrelationLayout):
-                raise RuntimeError(
-                    "Unsupported: Mixing Measurement Sets storing different correlation pairs are not supported at the moment")
-                # TODO: it may be nice to have conversion code to deal with this
+                raise RuntimeError("Unsupported: Mixing Measurement Sets storing different correlation pairs are not supported at the moment")
+                #TODO: it may be nice to have conversion code to deal with this
 
-        self.nMS = len(self.ListMS)
+        self.nMS=len(self.ListMS)
         # make list of unique frequencies
         self.GlobalFreqs = np.array(sorted(global_freqs))
-        self.CurrentMS = self.ListMS[0]
-        self.iCurrentMS = 0
+        self.CurrentMS   = self.ListMS[0]
+        self.iCurrentMS=0
 
         bandwidth = max_freq - min_freq
         print>>log,"Total bandwidth is %g MHz (%g to %g MHz), with %d channels"%(bandwidth*1e-6, min_freq*1e-6, max_freq*1e-6, len(global_freqs))
@@ -176,21 +171,15 @@ class ClassVisServer():
         self.MultiFreqMode = NFreqBands>1
         if self.MultiFreqMode:
             print>>log, ModColor.Str("MultiFrequency Mode: ON, %dx%g MHz bands"%(NFreqBands,grid_bw*1e-6))
-
-            if not ("Alpha" in self.GD["GAClean"]["GASolvePars"]):
-                self.GD["GAClean"]["GASolvePars"].append("Alpha")
-
         else:
             self.GD["MultiFreqs"]["NFreqBands"] = 1
             self.GD["MultiFreqs"]["Alpha"] = [0.,0.,1.]
-            if "Alpha" in self.GD["GAClean"]["GASolvePars"]:
-                self.GD["GAClean"]["GASolvePars"].remove("Alpha")
             print>>log, ModColor.Str("MultiFrequency Mode: OFF")
-
+            
         # Divide the global frequencies into frequency bands.
         # Somewhat of an open question how best to do it (equal bandwidth, or equal number of channels?), this is where
         # we can play various games with mapping the GlobalFreqs into a number of image bands.
-        # For now, let's do it by equal bandwith as Cyril used to do:
+        # For now, let's do it by equal bandwith as Cyril used to do: 
 
         ## these aren't used anywhere except the loop to construct the mapping below, so I'll remove them
         # FreqBands = np.linspace(self.GlobalFreqs.min(),self.GlobalFreqs.max(),NFreqBands+1)
@@ -204,9 +193,9 @@ class ClassVisServer():
         freq_to_grid_band = dict(zip(self.GlobalFreqs, grid_band))
         # print>>log,sorted(freq_to_grid_band.items())
 
-        self.FreqBandCenters = np.arange(min_freq+grid_bw/2,max_freq+grid_bw/2,grid_bw)
+        self.FreqBandCenters = np.arange(min_freq+grid_bw/2,max_freq+grid_bw/2,grid_bw) 
         self.FreqBandChannels = []
-        # freq_to_grid_band_chan: mapping from frequency to channel number within its grid band
+        # freq_to_grid_band_chan: mapping from frequency to channel number within its grid band 
         freq_to_grid_band_chan = {}
         for iBand in range(self.NFreqBands):
             freqlist = sorted([ freq for freq,band in freq_to_grid_band.iteritems() if band == iBand ])
@@ -222,13 +211,13 @@ class ClassVisServer():
         self.DicoMSChanMappingDegridding={}
         ## When gridding, we make a dirty/residual image with N=NFreqBands output bands
         ## When degridding, we make a model with M channels (M may depend on MS).
-        ## The structures initialized here map between MS channels and image channels as follows:
+        ## The structures initialized here map between MS channels and image channels as follows: 
         # self.DicoMSChanMappingDegridding: a dict, indexed by MS number
         #       [iMS] = int array mapping MS channel numbers into model channel numbers (0...M-1)
         # self.FreqBandChannelsDegrid: a dict, indexed by MS number
         #       [iMS] = float32 array of M frequencies corresponding to M model channels for this MS
         # self.FreqBandChannels: a list, indexed by freq band number (N=NFreqBands items)
-        #       [iband] = list of frequency channels that fall within that band
+        #       [iband] = list of frequency channels that fall within that band 
         # self.FreqBandCenters: a list of centre frequencies per each band (N=NFreqBands items)
         #       [iband] = centre frequency of that output band
         # self.DicoMSChanMapping: a dict, indexed by MS number
@@ -279,7 +268,7 @@ class ClassVisServer():
 #        self.RefFreq=np.mean(self.ListFreqs)
         self.RefFreq=np.mean(self.GlobalFreqs)
 
-
+        
 
         MS=self.ListMS[0]
         TimesInt=np.arange(0,MS.DTh,self.TMemChunkSize).tolist()
@@ -287,6 +276,7 @@ class ClassVisServer():
         self.TimesInt=TimesInt
         self.NTChunk=len(self.TimesInt)-1
         self.ReInitChunkCount()
+
 
         
 
@@ -329,7 +319,6 @@ class ClassVisServer():
                                               Super=self.Super,
                                               nbands=self.NFreqBands if band_mapping is not None else 1,
                                               band_mapping=band_mapping)
-
 
         self.CurrentVisWeights = self.VisWeights[0]
         # print>>log,self.CurrentVisWeights.mean(),self.CurrentVisWeights
@@ -394,13 +383,13 @@ class ClassVisServer():
         self.CurrentVisTimes_SinceStart_Sec=0.,0.
         self.iCurrentVisTime=0
         self.iCurrentMS=0
-        self.CurrentFreqBand=0
+        # self.CurrentFreqBand=0
         self.CurrentVisWeights = self.VisWeights and self.VisWeights[0]   # first time VisWeights might still be unset -- but then CurrentVisWeights will be set later in CalcWeights
         for MS in self.ListMS:
             MS.ReinitChunkIter(self.TMemChunkSize)
         self.CurrentMS=self.ListMS[0]
         self.CurrentChanMapping=self.DicoMSChanMapping[0]
-        self.CurrentChanMappingDegrid = self.FreqBandChannelsDegrid[0]
+        self.CurrentChanMappingDegrid=self.FreqBandChannelsDegrid[0]
         #print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%self.CurrentFreqBand))
 
     def setNextMS(self):
@@ -408,7 +397,6 @@ class ClassVisServer():
             print>>log, ModColor.Str("Reached end of MSList")
             return "EndListMS"
         else:
-            print>>log,"next ms"
             self.iCurrentMS+=1
             print>>log,"next ms (%d/%d)"%(self.iCurrentMS+1,self.nMS)
             self.CurrentMS=self.ListMS[self.iCurrentMS]
@@ -498,9 +486,6 @@ class ClassVisServer():
         except:
             self.UpdateFlag(DATA)
 
-
-        
-
         DATA["ChanMapping"]=self.CurrentChanMapping
         DATA["ChanMappingDegrid"]=self.DicoMSChanMappingDegridding[self.iCurrentMS]
         
@@ -556,8 +541,6 @@ class ClassVisServer():
         self.ThisDataChunk = DATA = DicoDataOut
 
         return "LoadOK"
-
-
 
 
     def UpdateFlag(self,DATA):
@@ -670,103 +653,104 @@ class ClassVisServer():
         self.FacetShape=sh2
         self.CellSizeRad=cell
 
-    def UpdateCompression(self, DATA, ChanMappingGridding=None, ChanMappingDeGridding=None):
-        ThisMSName = reformat.reformat(os.path.abspath(self.CurrentMS.MSName), LastSlash=False)
+    def UpdateCompression(self,DATA,ChanMappingGridding=None,ChanMappingDeGridding=None):
+        ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
         if self.GD["Compression"]["CompGridMode"]:
-            MapName = "%s/Mapping.CompGrid.npy" % ThisMSName
+            MapName="%s/Mapping.CompGrid.npy"%ThisMSName
             try:
-                FinalMapping = np.load(MapName)
+                FinalMapping=np.load(MapName)
             except:
-                if self.GD["Compression"]["CompGridFOV"] == "Facet":
-                    _, _, nx, ny = self.FacetShape
-                elif self.GD["Compression"]["CompGridFOV"] == "Full":
-                    _, _, nx, ny = self.FullImShape
-                FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
-                SmearMapMachine = ClassSmearMapping.ClassSmearMapping(self.CurrentMS, radiusDeg=FOV, Decorr=(
-                1. - self.GD["Compression"]["CompGridDecorr"]), IdSharedMem=self.IdSharedMem, NCPU=self.NCPU)
-                # SmearMapMachine.BuildSmearMapping(DATA)
+                if self.GD["Compression"]["CompGridFOV"]=="Facet":
+                    _,_,nx,ny=self.FacetShape
+                elif self.GD["Compression"]["CompGridFOV"]=="Full":
+                    _,_,nx,ny=self.FullImShape
+                FOV=self.CellSizeRad*nx*(np.sqrt(2.)/2.)*180./np.pi
+                SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.CurrentMS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompGridDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
+                #SmearMapMachine.BuildSmearMapping(DATA)
 
-                # FinalMapping,fact=SmearMapMachine.BuildSmearMapping(DATA)
-                # stop
-                FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingGridding)
+                #FinalMapping,fact=SmearMapMachine.BuildSmearMapping(DATA)
+                #stop
+                FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA,ChanMappingGridding)
 
-                np.save(MapName, FinalMapping)
-                print>> log, ModColor.Str("  Effective compression [Grid]  :   %.2f%%" % fact, col="green")
+                np.save(MapName,FinalMapping)
+                print>>log, ModColor.Str("  Effective compression [Grid]  :   %.2f%%"%fact,col="green")
 
-            Map = NpShared.ToShared("%sMappingSmearing.Grid" % (self.IdSharedMem), FinalMapping)
+            Map=NpShared.ToShared("%sMappingSmearing.Grid"%(self.IdSharedMem),FinalMapping)
 
         if self.GD["Compression"]["CompDeGridMode"]:
-            MapName = "%s/Mapping.CompDeGrid.npy" % ThisMSName
+            MapName="%s/Mapping.CompDeGrid.npy"%ThisMSName
             try:
-                FinalMapping = np.load(MapName)
+                FinalMapping=np.load(MapName)
             except:
-                if self.GD["Compression"]["CompDeGridFOV"] == "Facet":
-                    _, _, nx, ny = self.FacetShape
-                elif self.GD["Compression"]["CompDeGridFOV"] == "Full":
-                    _, _, nx, ny = self.FullImShape
-                FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
-                SmearMapMachine = ClassSmearMapping.ClassSmearMapping(self.CurrentMS, radiusDeg=FOV, Decorr=(
-                1. - self.GD["Compression"]["CompDeGridDecorr"]), IdSharedMem=self.IdSharedMem, NCPU=self.NCPU)
-                # SmearMapMachine.BuildSmearMapping(DATA)
-                FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingDeGridding)
-                np.save(MapName, FinalMapping)
-                print>> log, ModColor.Str("  Effective compression [DeGrid]:   %.2f%%" % fact, col="green")
+                if self.GD["Compression"]["CompDeGridFOV"]=="Facet":
+                    _,_,nx,ny=self.FacetShape
+                elif self.GD["Compression"]["CompDeGridFOV"]=="Full":
+                    _,_,nx,ny=self.FullImShape
+                FOV=self.CellSizeRad*nx*(np.sqrt(2.)/2.)*180./np.pi
+                SmearMapMachine=ClassSmearMapping.ClassSmearMapping(self.CurrentMS,radiusDeg=FOV,Decorr=(1.-self.GD["Compression"]["CompDeGridDecorr"]),IdSharedMem=self.IdSharedMem,NCPU=self.NCPU)
+                #SmearMapMachine.BuildSmearMapping(DATA)
+                FinalMapping,fact=SmearMapMachine.BuildSmearMappingParallel(DATA,ChanMappingDeGridding)
+                np.save(MapName,FinalMapping)
+                print>>log, ModColor.Str("  Effective compression [DeGrid]:   %.2f%%"%fact,col="green")
 
-            Map = NpShared.ToShared("%sMappingSmearing.DeGrid" % (self.IdSharedMem), FinalMapping)
+            Map=NpShared.ToShared("%sMappingSmearing.DeGrid"%(self.IdSharedMem),FinalMapping)
 
-    def GiveUvWeightsFlagsFreqs(self):
+
+
+
+    def GiveUvWeightsFlagsFreqs (self):
         """Reads UVs, weights, flags, freqs from all MSs in the list.
-        Returns list of (uv,weights,flags,freqs) tuples, one per each MS in self.ListMS, where shapes are
-        (nrow,2), (nrow,nchan), (nrow) and (nchan) respectively.
-        Note that flags are "row flags" i.e. only True if all channels are flagged.
+        Returns list of (uv,weights,flags,freqs) tuples, one per each MS in self.ListMS, where shapes are 
+        (nrow,2), (nrow,nchan), (nrow) and (nchan) respectively. 
+        Note that flags are "row flags" i.e. only True if all channels are flagged. 
         Per-channel flagging is taken care of in here, by setting that channel's weight to 0.
-        Also, sets self._max_ms_shape to the "maximum" array shape over all MSs
+
+        Also, sets self._max_ms_shape to the "maximum" array shape over all MSs 
         """
-        WeightCol = self.GD["VisData"]["WeightCol"]
+        WeightCol=self.GD["VisData"]["WeightCol"]
         # now loop over MSs and read data
         weightsum = 0
         nweights = 0
         output_list = []
-        self._chunk_shape = [0, 0, 0]
+        self._chunk_shape = [0,0,0]
         for num_ms, ms in enumerate(self.ListMS):
             tab = ms.GiveMainTable()
             chanslice = ms.ChanSlice
             if not tab.nrows():
                 # if no data in this MS, make single, flagged entry
-                output_list.append((np.zeros((1, 2)), np.zeros((1, len(ms.ChanFreq))), np.array([True]), ms.ChanFreq))
+                output_list.append((np.zeros((1,2)), np.zeros((1,len(ms.ChanFreq))), np.array([True]), ms.ChanFreq))
                 continue
-            uvs = tab.getcol("UVW")[:, :2]
+            uvs = tab.getcol("UVW")[:,:2]
             flags = tab.getcol("FLAG")
             # update "outer" MS shape. Note that this has to take the full channel axis, no channel slicing
-            self._chunk_shape = [max(a, b) for a, b in zip(self._chunk_shape, flags.shape)]
-            flags = flags[:, chanslice, :]
+            self._chunk_shape = [ max(a,b) for a,b in zip(self._chunk_shape, flags.shape) ] 
+            flags = flags[:,chanslice,:]
             # if any polarization is flagged, flag all 4 correlations. Shape of flags becomes nrow,nchan
             flags = flags.max(axis=2)
-            # valid: array of Nrow,Nchan, with meaning inverse to flags
+            # valid: array of Nrow,Nchan, with meaning inverse to flags 
             valid = ~flags
             # if all channels are flagged, flag whole row. Shape of flags becomes nrow
             flags = flags.min(axis=1)
 
             if WeightCol == "WEIGHT_SPECTRUM":
-                WEIGHT = tab.getcol(WeightCol)[:, chanslice]
-                print>> log, "  Reading column %s for the weights, shape is %s" % (WeightCol, WEIGHT.shape)
+                WEIGHT=tab.getcol(WeightCol)[:,chanslice]
+                print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
                 # take mean weight and apply this to all correlations:
-                WEIGHT = np.mean(WEIGHT, axis=2) * valid
-
+                WEIGHT = np.mean(WEIGHT,axis=2) * valid
+                
             elif WeightCol == "WEIGHT":
-                WEIGHT = tab.getcol(WeightCol)
-                print>> log, "  Reading column %s for the weights, shape is %s, will expand frequency axis" % (
-                WeightCol, WEIGHT.shape)
+                WEIGHT=tab.getcol(WeightCol)
+                print>>log, "  Reading column %s for the weights, shape is %s, will expand frequency axis"%(WeightCol,WEIGHT.shape)
                 # take mean weight and apply this to all correlations:
-                WEIGHT = np.mean(WEIGHT, axis=1)
+                WEIGHT = np.mean(WEIGHT,axis=1)
                 # expand to have frequency axis
-                WEIGHT = WEIGHT[:, np.newaxis] * valid
+                WEIGHT = WEIGHT[:,np.newaxis] * valid
             else:
                 ## in all other cases (i.e. IMAGING_WEIGHT) assume a column of shape NRow,NFreq to begin with, check for this:
-                WEIGHT = tab.getcol(WeightCol)[:, chanslice]
-                print>> log, "  Reading column %s for the weights, shape is %s" % (WeightCol, WEIGHT.shape)
+                WEIGHT = tab.getcol(WeightCol)[:,chanslice]
+                print>>log, "  Reading column %s for the weights, shape is %s"%(WeightCol,WEIGHT.shape)
                 if WEIGHT.shape != valid.shape:
-                    raise TypeError, "weights column expected to have shape of %s" % (valid.shape,)
+                    raise TypeError,"weights column expected to have shape of %s"%(valid.shape,)
                 WEIGHT *= valid
 
             WEIGHT = WEIGHT.astype(np.float64)
@@ -778,16 +762,16 @@ class ClassVisServer():
             nweights += valid.sum()
 
         # normalize weights
-        print>> log, "normalizing weights (sum %g from %d valid visibility points)" % (weightsum, nweights)
+        print>>log,"normalizing weights (sum %g from %d valid visibility points)"%(weightsum, nweights)
         mw = nweights and weightsum / nweights
         if mw:
             for uvw, weights, flags, freqs in output_list:
                 weights /= mw
-        print>> log, "normalization done, mean weight was %g" % mw
+        print>>log,"normalization done, mean weight was %g"%mw
 
-        size = reduce(lambda x, y: x * y, self._chunk_shape)
-        print>> log, "shape of data/flag/weight buffer will be %s (%.2f Gel)" % (self._chunk_shape,
-                                                                                 size / float(2 ** 30))
+        size = reduce(lambda x,y:x*y,self._chunk_shape)
+        print>>log,"shape of data/flag/weight buffer will be %s (%.2f Gel)"%(self._chunk_shape,
+                                                            size/float(2**30))
 
         return output_list
 
