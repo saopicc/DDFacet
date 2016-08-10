@@ -17,7 +17,6 @@ from DDFacet.Other import reformat
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
-import ClassModelMachine
 from DDFacet.ToolsDir import ModFFTW
 import scipy.ndimage
 from SkyModel.Sky import ModRegFile

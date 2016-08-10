@@ -11,7 +11,7 @@ from DDFacet.Other import ClassTimeIt
 import ClassMultiScaleMachine
 from pyrap.images import image
 from ClassPSFServer import ClassPSFServer
-import ClassModelMachine
+import ClassModelMachineMSMF as ClassModelMachine
 from DDFacet.Other.progressbar import ProgressBar
 import ClassGainMachine
 
