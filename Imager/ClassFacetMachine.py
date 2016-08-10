@@ -622,7 +622,7 @@ class ClassFacetMachine():
         DicoImages["freqs"]={}
         
         DoCalcNormData=False
-        if (NormJones)&(self.NormData==None): 
+        if (NormJones)&(self.NormData is None):
             DoCalcNormData=True
 
         #assume all facets have the same weight sums. Store the normalization weights for reference

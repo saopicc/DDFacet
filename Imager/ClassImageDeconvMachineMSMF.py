@@ -121,9 +121,9 @@ class ClassImageDeconvMachine():
         
 
 
-        if self.ModelImage==None:
+        if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)
-        if self.MaskArray==None:
+        if self.MaskArray is None:
             self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
 
 
