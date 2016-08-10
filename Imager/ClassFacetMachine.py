@@ -1223,8 +1223,8 @@ class WorkerImager(multiprocessing.Process):
                                                             SpheNorm=self.SpheNorm,
                                                             NFreqBands=self.NFreqBands,
                                                             DataCorrelationFormat=self.DataCorrelationFormat,
-                                                            ExpectedOutputStokes=self.ExpectedOutputStokes,
-                                                            ListSemaphores=self.ListSemaphores)
+                                                            ExpectedOutputStokes=self.ExpectedOutputStokes) #,
+                                                            #ListSemaphores=self.ListSemaphores)
         return GridMachine
         
     def GiveDicoJonesMatrices(self):

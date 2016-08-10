@@ -9,7 +9,7 @@ from DDFacet.Array import ModLinAlg
 from DDFacet.Other.progressbar import ProgressBar
 import ClassLOFARBeam
 import ClassFITSBeam
-import ClassSmoothJones
+#import ClassSmoothJones is not used anywhere, should be able to remove it
 
 class ClassJones():
     def __init__(self,GD,MS,FacetMachine=None,IdSharedMem=""):
