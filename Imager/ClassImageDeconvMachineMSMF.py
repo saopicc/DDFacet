@@ -63,7 +63,7 @@ class ClassImageDeconvMachine():
 
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
-        self.PSFServer.setDicoVariablePSF(DicoVariablePSF,NormalisePSF=True)
+        self.PSFServer.setDicoVariablePSF(DicoVariablePSF,NormalisePSF=False)
         #self.DicoPSF=DicoPSF
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
