@@ -281,14 +281,13 @@ class ClassDDEGridMachine():
                  SpheNorm=True,
                  NFreqBands=1,
                  DataCorrelationFormat=[5,6,7,8],
-                 ExpectedOutputStokes=[1],
-				 ListSemaphores=None):
+                 ExpectedOutputStokes=[1]):
         T=ClassTimeIt.ClassTimeIt("Init_ClassDDEGridMachine")
         T.disable()
         self.GD=GD
         self.IDFacet=IDFacet
         self.SpheNorm=SpheNorm
-        self.ListSemaphores= ListSemaphores
+
         self.IdSharedMem=IdSharedMem
         self.IdSharedMemData=IdSharedMemData
 
@@ -470,6 +469,7 @@ class ClassDDEGridMachine():
             
             #lc,mc=np.random.randn(100)*np.pi/180,np.random.randn(100)*np.pi/180
             
+            
         
             #d=np.sqrt((l0-lc)**2+(m0-mc)**2)
             #idir=np.argmin(d)
@@ -495,6 +495,7 @@ class ClassDDEGridMachine():
             mc=DicoClusterDirs["m"]
             d=np.sqrt((l0-lc)**2+(m0-mc)**2)
             idir_Beam=np.argmin(d)
+            
 
 
         # pylab.clf()
@@ -519,7 +520,6 @@ class ClassDDEGridMachine():
         VisToJonesChanMapping_Beam=np.array([],np.int32).reshape((0,))
 
         JonesMatrices_killMS=np.array([],np.complex64).reshape((0,0,0,0))
-        AlphaReg_killMS=np.array([],np.float32).reshape((0,0))
         MapJones_killMS=np.array([],np.int32).reshape((0,))
         VisToJonesChanMapping_killMS=np.array([],np.int32).reshape((0,))
 
@@ -532,10 +532,6 @@ class ClassDDEGridMachine():
         if Apply_killMS:
             JonesMatrices_killMS=DicoJonesMatrices["DicoJones_killMS"]["Jones"]
             MapJones_killMS=DicoJonesMatrices["DicoJones_killMS"]["MapJones"]
-            AlphaReg=DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"]
-            if AlphaReg is not None:
-                AlphaReg_killMS=DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"]
-
             VisToJonesChanMapping_killMS=np.int32(DicoJonesMatrices["DicoJones_killMS"]["VisToJonesChanMapping"])
             self.CheckTypes(A0=A0,A1=A1,Jones=JonesMatrices_killMS)
 
@@ -553,8 +549,7 @@ class ClassDDEGridMachine():
                         np.array([idir_Beam],np.int32),
                         np.array([InterpMode],np.int32),
                         VisToJonesChanMapping_killMS,
-                        VisToJonesChanMapping_Beam,
-                        AlphaReg_killMS]
+                        VisToJonesChanMapping_Beam]
         
         return ParamJonesList
 
@@ -594,8 +589,8 @@ class ClassDDEGridMachine():
         else:
             chan_equidistant = 0
 
-        if ChanMapping is None:
-            ChanMapping = np.zeros((visIn.shape[1],),np.int64)
+        if ChanMapping==None:
+            ChanMapping=np.zeros((visIn.shape[1],),np.int64)
         self.ChanMappingGrid=ChanMapping
 
         Grid=np.zeros(self.GridShape,dtype=self.dtype)
@@ -621,7 +616,7 @@ class ClassDDEGridMachine():
 
         self.CheckTypes(Grid=Grid,vis=vis,uvw=uvw,flag=flag,ListWTerm=self.WTerm.Wplanes,W=W)
         ParamJonesList=[]
-        if DicoJonesMatrices is not None:
+        if DicoJonesMatrices!=None:
             ApplyAmp=0
             ApplyPhase=0
             ScaleAmplitude=0
@@ -712,30 +707,30 @@ class ClassDDEGridMachine():
                 raise NameError('uvw.dtype %s'%(str(uvw.dtype)))
             if not(uvw.flags.c_contiguous):
                 raise NameError("uvw has to be contiguous")
-        if type(flag) is not type(None):
+        if type(flag)!=type(None):
             if not(flag.dtype==np.bool8):
                 raise NameError('flag.dtype %s'%(str(flag.dtype)))
             if not(flag.flags.c_contiguous):
                 raise NameError("flag to be contiguous")
-        if ListWTerm is not None:
+        if ListWTerm!=None:
             if not(ListWTerm[0].dtype==np.complex64):
                 raise NameError('ListWTerm.dtype %s'%(str(ListWTerm.dtype)))
-        if type(W) is not type(None):
+        if type(W)!=type(None):
             if not(W.dtype==np.float64):
                 raise NameError('W.dtype %s'%(str(W.dtype)))
             if not(W.flags.c_contiguous):
                 raise NameError("W has to be contiguous")
-        if type(A0) is not type(None):
+        if type(A0)!=type(None):
             if not(A0.dtype==np.int32):
                 raise NameError('A0.dtype %s'%(str(A0.dtype)))
             if not(A0.flags.c_contiguous):
                 raise NameError("A0 has to be contiguous")
-        if type(A1) is not type(None):
+        if type(A1)!=type(None):
             if not(A1.dtype==np.int32):
                 raise NameError('A1.dtype %s'%(str(A1.dtype)))
             if not(A1.flags.c_contiguous):
                 raise NameError("A1 has to be contiguous")
-        if type(Jones) is not type(None):
+        if type(Jones)!=type(None):
             if not(Jones.dtype==np.complex64):
                 raise NameError('Jones.dtype %s'%(str(Jones.dtype)))
             if not(Jones.flags.c_contiguous):
@@ -757,10 +752,10 @@ class ClassDDEGridMachine():
         else:
             Grid=ModelImage
 
-        if ChanMapping is None:
+        if ChanMapping==None:
             ChanMapping=np.zeros((visIn.shape[1],),np.int32)
 
-        self.ChanMappingDegrid=np.int32(ChanMapping)
+        self.ChanMappingDegrid=ChanMapping
 
         if TranformModelInput=="FT":
             if np.max(np.abs(ModelImage))==0: return vis
@@ -798,7 +793,7 @@ class ClassDDEGridMachine():
 
         ParamJonesList=[]
 
-        if DicoJonesMatrices is not None:
+        if DicoJonesMatrices!=None:
             ApplyAmp=0
             ApplyPhase=0
             ScaleAmplitude=0
@@ -824,23 +819,22 @@ class ClassDDEGridMachine():
         if self.GD["Compression"]["CompDeGridMode"]==0:
             _ = _pyGridder.pyDeGridderWPol(Grid,
                                            vis,
-                                           uvw,
-                                           flag,
-                                           SumWeigths,
-                                           0,
-                                           self.WTerm.WplanesConj,
-                                           self.WTerm.Wplanes,
-                                           np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
-                                           self.incr.astype(np.float64),
-                                           freqs,
-                                           [self.PolMap,FacetInfos,RowInfos,ChanMapping],
-                                           ParamJonesList)
+                                             uvw,
+                                             flag,
+                                             SumWeigths,
+                                             0,
+                                             self.WTerm.WplanesConj,
+                                             self.WTerm.Wplanes,
+                                             np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
+                                             self.incr.astype(np.float64),
+                                             freqs,
+                                             [self.PolMap,FacetInfos,RowInfos],
+                                             ParamJonesList)
         else:
 
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos=[self.JonesType,chan_equidistant,self.SkyType]
             MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMemData))
-            _pyGridderSmear.pySetSemaphores(self.ListSemaphores)
 
             _pyGridderSmear.pyDeGridderWPol(Grid,
                                                   vis,
