@@ -74,6 +74,7 @@ class ClassPSFServer():
             l=CellSizeRad*(xp-nx/2)
             m=CellSizeRad*(yp-nx/2)
             lSol,mSol=self.DicoVariablePSF[iFacet]["lmSol"]
+            #print "lsol, msol = ",lSol,mSol,self.DicoVariablePSF[iFacet]["pixCentral"][0],self.DicoVariablePSF[iFacet]["pixCentral"][1]
 
             d=np.sqrt((l-lSol)**2+(m-mSol)**2)
 

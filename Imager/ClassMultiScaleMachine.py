@@ -447,7 +447,7 @@ class ClassMultiScaleMachine():
         #print self.DicoDirty.keys()
         #print Fpol
         FpolTrue=Fpol
-        if self.DicoDirty["NormData"]!=None:
+        if self.DicoDirty["NormData"] is not None:
             JonesNorm=(self.DicoDirty["NormData"][:,:,x,y]).reshape((nchan,npol,1,1))
             
             FpolTrue=Fpol/np.sqrt(JonesNorm)
