@@ -391,25 +391,25 @@ class ClassImagerDeconv():
         if DoSub:
             print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
 			
-            ##This should be returned through the minor cycle interface
-            #from DDFacet.Imager.ModModelMachine import GiveModelMachine
-            #ClassModelMachine,DicoModel=GiveModelMachine(SubstractModel)
-			#
-            #try:
+            # #This should be returned through the minor cycle interface
+            # from DDFacet.Imager.ModModelMachine import GiveModelMachine
+            # ClassModelMachine,DicoModel=GiveModelMachine(SubstractModel)
+            #
+            # try:
             #    self.GD["GAClean"]["GASolvePars"]=DicoModel["SolveParam"]
-            #except:
+            # except:
             #    self.GD["GAClean"]["GASolvePars"]=["S","Alpha"]
             #    DicoModel["SolveParam"]=self.GD["GAClean"]["GASolvePars"]
-			#
+
             #MM=ClassModelMachine(self.GD)
             #MM.FromDico(DicoModel)
-			#
+
 
             try:
                 self.DeconvMachine.FromDico(DicoModel)
                 print>>log, "Current instance of DeconvMachine does not have FromDico method. Using FromFile instead."
             except:
-                self.DeconvMachine.FromFile(DicoModel)
+                self.DeconvMachine.FromFile(SubstractModel)
 
             self.DeconvMachine.FromFile(SubstractModel)
             InitBaseName=".".join(SubstractModel.split(".")[0:-1])
@@ -527,6 +527,7 @@ class ClassImagerDeconv():
 
         # if model is a dict, init model machine with that
         # else we use a model image and hope for the best (need to fix frequency axis...)
+        print>>log,modelfile
         if modelfile.endswith(".DicoModel"):
             try:
                 self.DeconvMachine.FromDico(modelfile)

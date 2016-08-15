@@ -851,3 +851,31 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
                 self.result_queue.put({"Success":False})
 
+
+    def Update(self, DicoDirty, **kwargs):
+        """
+        Method to update attributes from ClassDeconvMachine
+        """
+        # Update image dict
+        self.SetDirty(DicoDirty)
+
+
+    def ToFile(self, fname):
+        """
+        Write model dict to file
+        """
+        self.ModelMachine.ToFile(fname)
+
+
+    def FromFile(self, fname):
+        """
+        Read model dict from file SubtractModel
+        """
+        self.ModelMachine.FromFile(fname)
+
+
+    def FromDico(self, DicoName):
+        """
+        Read in model dict
+        """
+        self.ModelMachine.FromDico(DicoName)

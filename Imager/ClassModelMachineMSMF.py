@@ -191,7 +191,7 @@ class ClassModelMachine():
     def GiveModelImage(self,FreqIn=None):
 
         RefFreq=self.DicoSMStacked["RefFreq"]
-        if FreqIn==None:
+        if FreqIn is None:
             FreqIn=np.array([RefFreq])
 
         #if type(FreqIn)==float:

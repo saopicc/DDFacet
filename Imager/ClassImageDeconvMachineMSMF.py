@@ -508,3 +508,9 @@ class ClassImageDeconvMachine():
         Read model dict from file SubtractModel
         """
         self.ModelMachine.FromFile(fname)
+
+    def FromDico(self,DicoName):
+        """
+        Read in model dict
+        """
+        self.ModelMachine.FromDico(DicoName)
