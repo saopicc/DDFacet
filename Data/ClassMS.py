@@ -741,8 +741,8 @@ class ClassMS():
 
         T.timeit()
 
-        radeg=rarad*180./np.pi
-        decdeg=decrad*180./np.pi
+        self.radeg=rarad*180./np.pi
+        self.decdeg=decrad*180./np.pi
         ta.close()
          
         self.DoRevertChans=False
