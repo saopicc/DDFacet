@@ -17,38 +17,40 @@ import glob
 from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassImagerDeconv")
-from astropy import wcs
-from astropy.io import fits
+import pyfits
 
-def load_wcs_from_file(filename):
-    # Load the FITS hdulist using astropy.io.fits
-    hdulist = fits.open(filename)
-
-    # Parse the WCS keywords in the primary HDU
-    w = wcs.WCS(hdulist[0].header)
-
-    # Print out the "name" of the WCS, as defined in the FITS header
-    print w.wcs.name
-
-    # Print out all of the settings that were parsed from the header
-    w.wcs.print_contents()
-
-    # Some pixel coordinates of interest.
-    pixcrd = np.array([[0, 0], [24, 38], [45, 98]], numpy.float_)
-
-    # Convert pixel coordinates to world coordinates
-    # The second argument is "origin" -- in this case we're declaring we
-    # have 1-based (Fortran-like) coordinates.
-    world = w.wcs_pix2world(pixcrd, 1)
-    print world
-
-    # Convert the same coordinates back to pixel coordinates.
-    pixcrd2 = w.wcs_world2pix(world, 1)
-    print pixcrd2
-
-    # These should be the same as the original pixel coordinates, modulo
-    # some floating-point error.
-    assert np.max(np.abs(pixcrd - pixcrd2)) < 1e-6
+# from astropy import wcs
+# from astropy.io import fits
+#
+# def load_wcs_from_file(filename):
+#     # Load the FITS hdulist using astropy.io.fits
+#     hdulist = fits.open(filename)
+#
+#     # Parse the WCS keywords in the primary HDU
+#     w = wcs.WCS(hdulist[0].header)
+#
+#     # Print out the "name" of the WCS, as defined in the FITS header
+#     print w.wcs.name
+#
+#     # Print out all of the settings that were parsed from the header
+#     w.wcs.print_contents()
+#
+#     # Some pixel coordinates of interest.
+#     pixcrd = np.array([[0, 0], [24, 38], [45, 98]], numpy.float_)
+#
+#     # Convert pixel coordinates to world coordinates
+#     # The second argument is "origin" -- in this case we're declaring we
+#     # have 1-based (Fortran-like) coordinates.
+#     world = w.wcs_pix2world(pixcrd, 1)
+#     print world
+#
+#     # Convert the same coordinates back to pixel coordinates.
+#     pixcrd2 = w.wcs_world2pix(world, 1)
+#     print pixcrd2
+#
+#     # These should be the same as the original pixel coordinates, modulo
+#     # some floating-point error.
+#     assert np.max(np.abs(pixcrd - pixcrd2)) < 1e-6
 
 
 class ClassImagerDeconv():
@@ -535,7 +537,7 @@ class ClassImagerDeconv():
         return self.DicoDirty["MeanImage"]
         
 
-    def GivePredict(self) #,from_Tigger_LSM=True):
+    def GivePredict(self,from_fits=True):
         print>>log, ModColor.Str("============================== Making Predict ==============================")
         self.InitFacetMachine()
 
@@ -587,6 +589,7 @@ class ClassImagerDeconv():
                 else:
                     print>>log,"reusing model image from previous chunk"
             else:
+                print "loaded from fits file"
                 ModelImage = FixedModelImage
 
 
@@ -599,9 +602,11 @@ class ClassImagerDeconv():
             print>>log, "Writing predicted data to column %s of %s"%(PredictColName,MSName)
             self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
 
-        # if from_Tigger_LSM:
+        # if from_fits:
+        #     print "Predicting from fits and saving in %s",(PredictColName)
         #     #Read in the LSM
-        #     Imtodegrid = fits.open("/home/landman/Projects/Processed_Images/ddfacet_out/Test-D147-HI-NOIFS-NOPOL-4M5Sa/test-src1-hi-gamerge-fixpsf-sem-uni-thr10-0.dirty.0..fits")
+        #     Imtodegrid = pyfits.open("/home/landman/Projects/Processed_Images/ddfacet_out/Test-D147-HI-NOIFS-NOPOL-4M5Sa/model-true.fits")[0].data
+        #     print ModelImage.shape, Imtodegrid.shape
         #     self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),Imtodegrid)
         #     vis = - DATA["data"]
         #     PredictColName = self.GD["VisData"]["PredictColName"]

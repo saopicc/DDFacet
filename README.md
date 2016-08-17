@@ -44,6 +44,20 @@ export DDFACET_TEST_DATA_DIR=[folder where you keep the acceptance test data and
 export DDFACET_TEST_OUTPUT_DIR=[folder where you want the acceptance test output to be dumped]
 ```
 
+## Configure max shared memory
+
+Running DDFacet on large images requires a lot of shared memory. Most systems limit the amount of shared memory to about 10%. To increase this limit add the following line to your ``/etc/default/tmpfs`` file:
+
+```
+SHM_SIZE=100% 
+```
+
+A restart will be required for this change to reflect. If you would prefer a once off solution execute the following line 
+
+```
+sudo mount -o remount,size=100% /run/shm
+```
+ 
 ## Acceptance tests
 Most of the core use cases will in the nearby future have reference images and an automated acceptance test.
 
