@@ -972,15 +972,16 @@ class ClassMS():
                 t.putcol(Colout,t.getcol(Colin,row0,NRow),row0,NRow)
         t.close()
 
-    def AddCol(self,ColName,quiet=False):
+    def AddCol(self,ColName,LikeCol="DATA"):
         t=table(self.MSName,readonly=False,ack=False)
-        if (ColName in t.colnames()) and not self.GD["Images"]["AllowColumnOverwrite"]:
-            if not quiet:
-                print>>log, "  Column %s already in %s"%(ColName,self.MSName)
+        if (ColName in t.colnames() and not self.GD["Images"]["AllowColumnOverwrite"]):
+            print>>log, "  Column %s already in %s"%(ColName,self.MSName)
             t.close()
             return
-        print>>log, "  Adding column %s to %s"%(ColName,self.MSName)
-        desc=t.getcoldesc("DATA")
+        elif (ColName in t.colnames() and self.GD["Images"]["AllowColumnOverwrite"]):
+            t.removecols(ColName)
+        print>>log, "  Putting column %s in %s"%(ColName,self.MSName)
+        desc=t.getcoldesc(LikeCol)
         desc["name"]=ColName
         desc['comment']=desc['comment'].replace(" ","_")
         t.addcols(desc)
