@@ -22,7 +22,7 @@ class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
                  AverageTimeFreq=None,
-                 Field=0,DDID=0,ChanSlice=None):
+                 Field=0,DDID=0,ChanSlice=None,GD=None):
 
         if MSname=="": exit()
         self.AverageSteps=AverageTimeFreq
@@ -43,6 +43,7 @@ class ClassMS():
         self.TaQL = "FIELD_ID==%d && DATA_DESC_ID==%d" % (Field, DDID)
         self.ReadMSInfo(DoPrint=DoPrint)
         self.LFlaggedStations=[]
+        self.GD = GD
 
         self.CurrentChunkTimeRange_SinceT0_sec=None
         try:

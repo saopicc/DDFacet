@@ -115,7 +115,7 @@ class ClassVisServer():
         for MSName in self.ListMSName:
             MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3),
                 Field=self.Field,DDID=self.DDID,
-                ChanSlice=chanslice) 
+                ChanSlice=chanslice,GD=self.GD)
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
             global_freqs.update(MS.ChanFreq)
