@@ -973,7 +973,7 @@ class ClassMS():
 
     def AddCol(self,ColName,quiet=False):
         t=table(self.MSName,readonly=False,ack=False)
-        if (ColName in t.colnames()):
+        if (ColName in t.colnames()) and not self.GD["Images"]["AllowColumnOverwrite"]:
             if not quiet:
                 print>>log, "  Column %s already in %s"%(ColName,self.MSName)
             t.close()
