@@ -972,10 +972,11 @@ class ClassMS():
                 t.putcol(Colout,t.getcol(Colin,row0,NRow),row0,NRow)
         t.close()
 
-    def AddCol(self,ColName,LikeCol="DATA"):
+    def AddCol(self,ColName,LikeCol="DATA",quiet=False):
         t=table(self.MSName,readonly=False,ack=False)
         if (ColName in t.colnames() and not self.GD["Images"]["AllowColumnOverwrite"]):
-            print>>log, "  Column %s already in %s"%(ColName,self.MSName)
+            if not quiet:
+                print>>log, "  Column %s already in %s"%(ColName,self.MSName)
             t.close()
             return
         elif (ColName in t.colnames() and self.GD["Images"]["AllowColumnOverwrite"]):
