@@ -325,7 +325,7 @@ class ClassMultiScaleMachine():
 
     def GiveBasisMatrix(self,SubSubSubCoord=None):
 #        print>>log,"Calculating basisc function for SubSubSubCoord=%s"%(str(SubSubSubCoord))
-        if SubSubSubCoord==None:
+        if SubSubSubCoord is None:
             CubePSF=self.SubCubePSF
             WeightFunction=self.SubWeightFunction
         else:

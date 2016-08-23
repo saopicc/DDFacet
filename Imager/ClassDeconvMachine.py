@@ -589,7 +589,6 @@ class ClassImagerDeconv():
                 else:
                     print>>log,"reusing model image from previous chunk"
             else:
-                print "loaded from fits file"
                 ModelImage = FixedModelImage
 
 
