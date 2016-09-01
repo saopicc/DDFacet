@@ -431,7 +431,7 @@ class ClassMS():
         row0=self.ROW1
         row1=self.ROW1+self.nRowChunk
         if (row0,row1) not in self._chunk_caches:
-            self._chunk_caches[row0,row1] = CacheManager(self.MSName+".ddfcache/%d:%d" % (row0,row1), self._reset_cache)
+            self._chunk_caches[row0,row1] = CacheManager(self.MSName+".ddfcache/F%d:D%d:%d:%d" % (self.Field,self.DDID,row0,row1), self._reset_cache)
         self.cache = self._chunk_caches[row0,row1]
         return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf)
         

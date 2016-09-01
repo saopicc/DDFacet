@@ -660,7 +660,8 @@ class ClassVisServer():
 
     def UpdateCompression(self,DATA,ChanMappingGridding=None,ChanMappingDeGridding=None):
         if self.GD["Compression"]["CompGridMode"]:
-            mapname, valid = self.cache.checkCache("BDA.Grid", self.GD["Compression"])
+            mapname, valid = self.cache.checkCache("BDA.Grid",
+                dict(Compression=self.GD["Compression"],DataSelection=self.GD["DataSelection"]))
             if valid:
                 print>>log,"  using cached BDA mapping %s"%mapname
             else:
@@ -682,7 +683,8 @@ class ClassVisServer():
                 self.cache.saveCache("BDA.Grid")
 
         if self.GD["Compression"]["CompDeGridMode"]:
-            mapname, valid = self.cache.checkCache("BDA.DeGrid", self.GD["Compression"])
+            mapname, valid = self.cache.checkCache("BDA.DeGrid",
+                                dict(Compression=self.GD["Compression"], DataSelection=self.GD["DataSelection"]))
             if valid:
                 print>>log,"  using cached BDA mapping %s"%mapname
             else:
