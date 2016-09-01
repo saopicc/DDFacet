@@ -438,63 +438,77 @@ class ClassFacetMachine():
 
         self.SpacialWeigth={}
 
-        workerlist=[]
-        for ii in range(NCPU):
-            W=self.FacetParallelEngine(work_queue, result_queue,
-                                       self.GD,
-                                       Mode="Init",
-                                       FFTW_Wisdom=self.FFTW_Wisdom,
-                                       DicoImager=self.DicoImager,
-                                       IdSharedMem=self.IdSharedMem,
-                                       IdSharedMemData=self.IdSharedMemData,
-                                       ApplyCal=self.ApplyCal,
-                                       CornersImageTot=self.CornersImageTot,
-                                       NFreqBands=self.VS.NFreqBands,
-		                               DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-                                       ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
-            workerlist.append(W)
+        # check if spacial weights are cached
+        cachepath, cachevalid = self.VS.maincache.checkCache("FacetData",
+                dict(ImagerCF=self.GD["ImagerCF"],
+                     ImagerMainFacet=self.GD["ImagerMainFacet"]),
+            directory=True)
+
+        self.FacetDataCache = "file://" + cachepath + "/"
+
+        if not cachevalid:
+            workerlist=[]
+            for ii in range(NCPU):
+                W=self.FacetParallelEngine(work_queue, result_queue,
+                                           self.GD,
+                                           Mode="Init",
+                                           FFTW_Wisdom=self.FFTW_Wisdom,
+                                           DicoImager=self.DicoImager,
+                                           IdSharedMem=self.IdSharedMem,
+                                           IdSharedMemData=self.IdSharedMemData,
+                                           FacetDataCache=self.FacetDataCache,
+                                           ChunkDataCache=None,
+                                           ApplyCal=self.ApplyCal,
+                                           CornersImageTot=self.CornersImageTot,
+                                           NFreqBands=self.VS.NFreqBands,
+                                           DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                           ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
+                workerlist.append(W)
+                if Parallel:
+                    workerlist[ii].start()
+
+            timer = ClassTimeIt.ClassTimeIt()
+            print>> log, "initializing W kernels"
+
+            pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Init W ", HeaderSize=10,TitleSize=13)
+            pBAR.render(0, '%4i/%i' % (0,NFacets))
+            iResult=0
+
+            if not Parallel:
+                for ii in range(NCPU):
+                    workerlist[ii].run()  # just run until all work is completed
+
+            while iResult < NJobs:
+                try:
+                    DicoResult = result_queue.get(True, 5)
+                except Queue.Empty:
+                    print>> log, "checking for dead workers"
+                    # check for dead workers
+                    for w in workerlist:
+                        w.join(0)
+                        if not w.is_alive():
+                            if w.exitcode != 0:
+                                raise RuntimeError, "a worker process has died on us with exit code %d. This is probably a bug." % w.exitcode
+                    continue
+                if DicoResult["Success"]:
+                    iResult += 1
+                NDone = iResult
+                intPercent = int(100 * NDone / float(NFacets))
+                pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
+
             if Parallel:
-                workerlist[ii].start()
+                for ii in range(NCPU):
+                    workerlist[ii].shutdown()
+                    workerlist[ii].terminate()
+                    workerlist[ii].join()
 
-        timer = ClassTimeIt.ClassTimeIt()
-        print>> log, "initializing W kernels"
-
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Init W ", HeaderSize=10,TitleSize=13)
-        pBAR.render(0, '%4i/%i' % (0,NFacets))
-        iResult=0
-
-        if not Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].run()  # just run until all work is completed
-
-        while iResult < NJobs:
-            try:
-                DicoResult = result_queue.get(True, 5)
-            except Queue.Empty:
-                print>> log, "checking for dead workers"
-                # check for dead workers
-                for w in workerlist:
-                    w.join(0)
-                    if not w.is_alive():
-                        if w.exitcode != 0:
-                            raise RuntimeError, "a worker process has died on us with exit code %d. This is probably a bug." % w.exitcode
-                continue
-            if DicoResult["Success"]:
-                iResult += 1
-            NDone = iResult
-            intPercent = int(100 * NDone / float(NFacets))
-            pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
-
-        if Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].shutdown()
-                workerlist[ii].terminate()
-                workerlist[ii].join()
-
-        print>> log, "init W finished in %s" % timer.timehms()
-
+            print>> log, "init W finished in %s" % timer.timehms()
+            self.VS.maincache.saveCache("FacetData")
+        else:
+            print>>log,"using W kernels from cache %s"%cachepath
+        # now load cached weights
         for iFacet in sorted(self.DicoImager.keys()):
-            NameSpacialWeigth="%sSpacialWeigth.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+            NameSpacialWeigth="%sSpacialWeight.Facet_%3.3i"%(self.FacetDataCache,iFacet)
             SpacialWeigth=NpShared.GiveArray(NameSpacialWeigth)
             self.SpacialWeigth[iFacet]=SpacialWeigth
         return True
@@ -769,7 +783,7 @@ class ClassFacetMachine():
 
         for iFacet in self.DicoImager.keys():
                 
-            SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+            SharedMemName="%s/Spheroidal.Facet_%3.3i"%(self.FacetDataCache,iFacet)
             SPhe=NpShared.GiveArray(SharedMemName)
             
 
@@ -868,7 +882,7 @@ class ClassFacetMachine():
         ChanSel=sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
         for iFacet in sorted(self.DicoImager.keys()):
 
-            SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+            SharedMemName="%s/Spheroidal.Facet_%3.3i"%(self.FacetDataCache,iFacet)
             SPhe=NpShared.GiveArray(SharedMemName)
             SpacialWeight=self.SpacialWeigth[iFacet]
             # Grid,_=Im2Grid.GiveGridTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight)
@@ -959,6 +973,8 @@ class ClassFacetMachine():
                                          DicoImager=self.DicoImager,
                                          IdSharedMem=self.IdSharedMem,
                                          IdSharedMemData=self.IdSharedMemData,
+                                         FacetDataCache=self.FacetDataCache,
+                                         ChunkDataCache="file://" + self.VS.cache.dirname + "/",
                                          ApplyCal=self.ApplyCal,
                                          SpheNorm=SpheNorm,
                                          PSFMode=PSFMode,
@@ -1080,6 +1096,8 @@ class ClassFacetMachine():
                                          DicoImager=self.DicoImager,
                                          IdSharedMem=self.IdSharedMem,
                                          IdSharedMemData=self.IdSharedMemData,
+                                         FacetDataCache=self.FacetDataCache,
+                                         ChunkDataCache="file://" + self.VS.cache.dirname + "/",
                                          ApplyCal=self.ApplyCal,
                                          NFreqBands=self.VS.NFreqBands,
                                          DataCorrelationFormat = self.VS.StokesConverter.AvailableCorrelationProductsIds(),
@@ -1136,6 +1154,8 @@ class WorkerImager(multiprocessing.Process):
                  DicoImager=None,
                  IdSharedMem=None,
                  IdSharedMemData=None,
+                 FacetDataCache=None,
+                 ChunkDataCache=None,
                  ApplyCal=False,
                  SpheNorm=True,
                  PSFMode=False,
@@ -1155,6 +1175,8 @@ class WorkerImager(multiprocessing.Process):
         self.DicoImager=DicoImager
         self.IdSharedMem=IdSharedMem
         self.IdSharedMemData=IdSharedMemData
+        self.FacetDataCache = FacetDataCache
+        self.ChunkDataCache = ChunkDataCache
         self.Apply_killMS=(GD["DDESolutions"]["DDSols"]!="")&(GD["DDESolutions"]["DDSols"]!=None)
         self.Apply_Beam=(GD["Beam"]["BeamModel"]!=None)
         self.ApplyCal=(self.Apply_killMS)|(self.Apply_Beam)
@@ -1184,6 +1206,8 @@ class WorkerImager(multiprocessing.Process):
                                                             lmShift=self.DicoImager[iFacet]["lmShift"],
                                                             IdSharedMem=self.IdSharedMem,
                                                             IdSharedMemData=self.IdSharedMemData,
+                                                            FacetDataCache=self.FacetDataCache,
+                                                            ChunkDataCache=self.ChunkDataCache,
                                                             IDFacet=iFacet,
                                                             SpheNorm=self.SpheNorm,
                                                             NFreqBands=self.NFreqBands,
@@ -1219,7 +1243,7 @@ class WorkerImager(multiprocessing.Process):
         the weighting grid for a particular facet.
         Post conditions:
             Griders initialized
-            Tesselation mask stored in sSpacialWeigth.Facet_%3.3i. This should be used to downweight the areas of
+            Tesselation mask stored in sSpacialWeight.Facet_%3.3i. This should be used to downweight the areas of
             padding (overlap) in the reprojected image. This makes the transition between edges less noticible.
 
         Returns:
@@ -1236,7 +1260,7 @@ class WorkerImager(multiprocessing.Process):
         SpacialWeigth = ModFFTW.ConvolveGaussian(mask.reshape(1,1,NpixPadded,NpixPadded),
                                                  CellSizeRad=1,
                                                  GaussPars=[GaussPars]).reshape(NpixPadded,NpixPadded)
-        NameSpacialWeigth = "%sSpacialWeigth.Facet_%3.3i" % (self.IdSharedMem, iFacet)
+        NameSpacialWeigth = "%sSpacialWeight.Facet_%3.3i" % (self.FacetDataCache, iFacet)
         NpShared.ToShared(NameSpacialWeigth, SpacialWeigth)
         # Initialize a grid machine per facet:
         self.GiveGM(iFacet)

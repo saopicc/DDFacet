@@ -10,6 +10,7 @@ import ephem
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
+from DDFacet.Other.CacheManager import CacheManager
 import sidereal
 import datetime
 
@@ -22,7 +23,28 @@ class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
                  AverageTimeFreq=None,
-                 Field=0,DDID=0,ChanSlice=None):
+                 Field=0,DDID=0,ChanSlice=None,
+                 ResetCache=False):
+        """
+        Args:
+            MSname:
+            Col:
+            zero_flag:
+            ReOrder:
+            EqualizeFlag:
+            DoPrint:
+            DoReadData:
+            TimeChunkSize:
+            GetBeam:
+            RejectAutoCorr:
+            SelectSPW:
+            DelStationList:
+            AverageTimeFreq:
+            Field:
+            DDID:
+            ChanSlice:
+            ResetCache: if True, cached products will be reset
+        """
 
         if MSname=="": exit()
         self.AverageSteps=AverageTimeFreq
@@ -60,6 +82,14 @@ class ClassMS():
         self.SR=None
         if GetBeam:
             self.LoadSR()
+
+        # the MS has two caches associated with it. self.maincache stores DDF-related data that is not related to
+        # iterating through the MS. self.cache is created in GiveNextChunk, and is thus different from chunk
+        # to chunk. It is stored in self._chunk_caches, so that the per-chunk cache manager is initialized only
+        # once.
+        self._reset_cache = ResetCache
+        self._chunk_caches = {}
+        self.maincache = CacheManager(MSname+".ddfcache", reset=ResetCache)
 
     def GiveMainTable (self,**kw):
         """Returns main MS table, applying TaQL selection if any"""
@@ -400,6 +430,9 @@ class ClassMS():
     def GiveNextChunk(self,databuf=None,flagbuf=None):
         row0=self.ROW1
         row1=self.ROW1+self.nRowChunk
+        if (row0,row1) not in self._chunk_caches:
+            self._chunk_caches[row0,row1] = CacheManager(self.MSName+".ddfcache/%d:%d" % (row0,row1), self._reset_cache)
+        self.cache = self._chunk_caches[row0,row1]
         return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf)
         
         
