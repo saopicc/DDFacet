@@ -140,6 +140,8 @@ class ClassImagerDeconv():
                     self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
                 elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="GA":
                     self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
+                elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD":
+                    self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
             else:
                 print>>log, "Minor cycle deconvolution in Single Scale Mode" 
                 self.MinorCycleMode="SS"
