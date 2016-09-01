@@ -12,6 +12,18 @@ from DDFacet.Other import ClassTimeIt
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
+import pickle
+
+def writetofile(fname,val):
+    file1 = open(fname,'a+')
+    file1.write('%s\n' % (val))
+    file1.close()
+    return
+
+def pickleadic(dname,dict):
+    with open(dname, 'wb') as handle:
+        pickle.dump(dict, handle)
+    return
 
 class ClassMultiScaleMachine():
 
@@ -673,10 +685,17 @@ class ClassMultiScaleMachine():
             # Sol=x
             # LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
             
+
+
         nch,nx,ny=LocalSM.shape
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
         LocalSM=LocalSM*np.sqrt(JonesNorm)
-        
+
+        BaseName = self.GD["Images"]["ImageName"]
+
+        pickleadic(BaseName.strip('SimpleSimSpI.run') + 'MergetestCompDiffs.pickle', DicoBasisMatrix)
+
+        writetofile(BaseName.strip('SimpleSimSpI.run') + 'MergetestCompDiffs.txt', Sol)
 
         # print self.AlphaVec,Sol
         # print "alpha",np.sum(self.AlphaVec.ravel()*Sol.ravel())/np.sum(Sol)
