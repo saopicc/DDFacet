@@ -233,18 +233,18 @@ class ClassVisServer():
 
         #self.VisWeights=np.ones((uvw.shape[0],self.MS.ChanFreq.size),dtype=np.float64)
 
-        allweights = WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
-                                              Robust=Robust,
-                                              Weighting=self.Weighting,
-                                              Super=self.Super)
-
-
-
-
-        # allweights = WeightMachine.CalcWeightsOld(uvw,VisWeights,flags,self.MS.ChanFreq,
+        # allweights = WeightMachine.CalcWeights(uvw,VisWeights,flags,self.MS.ChanFreq,
         #                                       Robust=Robust,
         #                                       Weighting=self.Weighting,
         #                                       Super=self.Super)
+
+
+
+
+        allweights = WeightMachine.CalcWeightsOld(uvw,VisWeights,flags,self.MS.ChanFreq,
+                                              Robust=Robust,
+                                              Weighting=self.Weighting,
+                                              Super=self.Super)
 
         # self.WisWeights is a list of weight arrays, one per each MS in self.ListMS
         self.VisWeights = []
