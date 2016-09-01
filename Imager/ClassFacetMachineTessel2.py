@@ -3,8 +3,7 @@ from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Other.progressbar import ProgressBar
 import multiprocessing
 import ClassDDEGridMachine
-import numpy as np
-import pylab
+#import pylab
 import ClassCasaImage
 import pyfftw
 from DDFacet.ToolsDir import ModCoord

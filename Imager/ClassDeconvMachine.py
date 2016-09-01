@@ -3,7 +3,7 @@
 from ClassFacetMachine import ClassFacetMachine
 from ClassFacetMachineTessel2 import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
-import pylab
+#import pylab
 #import ToolsDir
 from DDFacet.Other import MyPickle
 from pyrap.images import image

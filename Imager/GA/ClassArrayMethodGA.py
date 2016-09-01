@@ -58,8 +58,8 @@ class ClassArrayMethodGA():
         self.SetConvMatrix()
         self.NParms=self.NPixListParms*self.PM.NParam
         self.DataTrue=None
-        pylab.figure(3,figsize=(5,3))
-        pylab.clf()
+        #pylab.figure(3,figsize=(5,3))
+        #pylab.clf()
         # pylab.figure(4,figsize=(5,3))
         # pylab.clf()
 

@@ -27,7 +27,7 @@ from DDFacet.ToolsDir import ModFFTW
 log=MyLogger.getLogger("ClassDDEGridMachine")
 
 #from DDFacet.Other import ToolsDir
-import pylab
+#import pylab
 #import ClassData
 from DDFacet.Array import NpShared
 from DDFacet.Parset import ReadCFG

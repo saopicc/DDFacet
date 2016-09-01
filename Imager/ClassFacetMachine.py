@@ -5,7 +5,7 @@ import multiprocessing
 import ClassDDEGridMachine
 import numpy as np
 #import ClassMS
-import pylab
+#import pylab
 import ClassCasaImage
 #import MyImshow
 import pyfftw
