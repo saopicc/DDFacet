@@ -18,9 +18,10 @@ from SkyModel.PSourceExtract import ClassIncreaseIsland
 
 
 class ClassArrayMethodGA():
-    def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,PixVariance=1.e-2,IslandBestIndiv=None):
+    def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,PixVariance=1.e-2,IslandBestIndiv=None,WeightFreqBands=None):
 
         self.Dirty=Dirty
+        self.WeightFreqBands=WeightFreqBands
         self.PSF=PSF
         self.IslandBestIndiv=IslandBestIndiv
 
@@ -28,9 +29,13 @@ class ClassArrayMethodGA():
         # ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
 
         #ListPixParms=ListPixData
+        _,_,nx,_=self.Dirty.shape
+        
+        
+        
+        
+        
         self.ListPixParms=ListPixParms
-
-
         self.ListPixData=ListPixData
         self.NPixListParms=len(ListPixParms)
         self.NPixListData=len(ListPixData)
@@ -38,7 +43,7 @@ class ClassArrayMethodGA():
         self.WeightMaxFunc=collections.OrderedDict()
         self.WeightMaxFunc["Chi2"]=1.
         self.WeightMaxFunc["MinFlux"]=1.
-        self.WeightMaxFunc["MaxFlux"]=1.
+        #self.WeightMaxFunc["MaxFlux"]=1.
 
         #self.WeightMaxFunc["L0"]=1.
         self.MaxFunc=self.WeightMaxFunc.keys()
@@ -150,8 +155,9 @@ class ClassArrayMethodGA():
                     ALPHA=np.max([1.,ALPHA])
                 self.ALPHA=ALPHA
                 # print "ALPHA=",self.ALPHA
-
-                self.DirtyArray/=self.ALPHA
+                
+                if self.GD["GAClean"]["ArtifactRobust"]:
+                    self.DirtyArray/=self.ALPHA
                 self.DirtyArray+=AddArray
 
         
@@ -297,12 +303,18 @@ class ClassArrayMethodGA():
         A=self.ToConvArray(individual)
         fitness=0.
         Resid=self.DirtyArray-A
+
+        nFreqBands,_,_=Resid.shape
         
+        #ResidShape=(self.NFreqBands,1,self.NPixListData)
+        WeightFreqBands=self.WeightFreqBands.reshape((nFreqBands,1,1))
+        Weight=WeightFreqBands/np.sum(WeightFreqBands)
         S=self.PM.ArrayToSubArray(individual,"S")
         
         ContinuousFitNess=[]
         for FuncType in self.MaxFunc:
             if FuncType=="Chi2":
+                #chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
                 chi2=-np.sum((Resid)**2)/(self.PixVariance*Resid.size)
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(chi2*W)
@@ -558,12 +570,21 @@ class ClassArrayMethodGA():
     
     
     def Plot(self,pop,iGen):
-        for iChannel in range(self.NFreqBands):
-            self.PlotChannel(pop,iGen,iChannel=iChannel)
 
         V = tools.selBest(pop, 1)[0]
 
-        pylab.figure(3,figsize=(5,3))
+        S=self.PM.ArrayToSubArray(V,"S")
+        Al=self.PM.ArrayToSubArray(V,"Alpha")
+        # Al.fill(0)
+        # Al[11]=0.
+        # S[0:11]=0
+        # S[12:]=0
+        # S[11]=10000.
+
+        for iChannel in range(self.NFreqBands):
+            self.PlotChannel(pop,iGen,iChannel=iChannel)
+
+        pylab.figure(30,figsize=(5,3))
         #pylab.clf()
         S=self.PM.ArrayToSubArray(V,"S")
         Al=self.PM.ArrayToSubArray(V,"Alpha")

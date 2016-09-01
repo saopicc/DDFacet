@@ -74,6 +74,7 @@ class ClassSpectralFunctions():
     def IntExpFunc(self,S0=1.,Alpha=0.,iChannel=0,iFacet=0):
         
         RefFreq=self.RefFreq
+
         ThisAlpha=Alpha
         ThisFreqs=np.array(self.DicoMappingDesc["freqs"][iChannel])
         

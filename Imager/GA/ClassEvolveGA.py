@@ -17,9 +17,18 @@ import os
 
 import ClassArrayMethodGA
 
+def FilterIslandsPix(ListIn,Npix):
+    ListOut=[]
+    for x,y in ListIn:
+        Cx=((x>=0)&(x<Npix))
+        Cy=((y>=0)&(y<Npix))
+        if (Cx&Cy):
+            ListOut.append([x,y])
+    return ListOut
+
 
 class ClassEvolveGA():
-    def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None):
+    def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,WeightFreqBands=None):
         _,_,NPixPSF,_=PSF.shape
         if ListPixData==None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
@@ -28,7 +37,12 @@ class ClassEvolveGA():
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
             ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
         self.IslandBestIndiv=IslandBestIndiv
-        self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,IslandBestIndiv=IslandBestIndiv,GD=GD)
+
+        _,_,Npix,_=Dirty.shape
+        ListPixData=FilterIslandsPix(ListPixData,Npix)
+        ListPixParms=FilterIslandsPix(ListPixParms,Npix)
+
+        self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,IslandBestIndiv=IslandBestIndiv,GD=GD,WeightFreqBands=WeightFreqBands)
         
         self.InitEvolutionAlgo()
         #self.ArrayMethodsMachine.testMovePix()
@@ -125,4 +139,6 @@ class ClassEvolveGA():
         #                               ArrayMethodsMachine=self.ArrayMethodsMachine)
 
         V = tools.selBest(self.pop, 1)[0]
+        
+
         return V

@@ -672,7 +672,7 @@ class ClassDDEGridMachine():
             self.reinitGrid()
 
 
-        if ChanMapping==None:
+        if type(ChanMapping)==type(None):
             ChanMapping=np.zeros((visIn.shape[1],),np.int64)
         self.ChanMappingGrid=ChanMapping
 
@@ -943,10 +943,10 @@ class ClassDDEGridMachine():
         else:
             Grid=ModelImage
 
-        if ChanMapping==None:
+        if type(ChanMapping)==type(None):
             ChanMapping=np.zeros((visIn.shape[1],),np.int32)
 
-        self.ChanMappingDegrid=ChanMapping
+        self.ChanMappingDegrid=np.int32(ChanMapping)
 
         if TranformModelInput=="FT":
             if np.max(np.abs(ModelImage))==0: return vis
@@ -1045,7 +1045,7 @@ class ClassDDEGridMachine():
                                            np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
                                            self.incr.astype(np.float64),
                                            freqs,
-                                           [self.PolMap,FacetInfos,RowInfos],
+                                           [self.PolMap,FacetInfos,RowInfos,ChanMapping],
                                            ParamJonesList)
         else:
 
