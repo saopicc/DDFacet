@@ -667,7 +667,6 @@ class ClassFacetMachine():
                 self.DicoPSF[iFacet]={}
                 self.DicoPSF[iFacet]["PSF"]=(self.DicoGridMachine[iFacet]["Dirty"]).copy().real
                 self.DicoPSF[iFacet]["PSF"]/=SPhe
-                self.DicoPSF[iFacet]["PSF"][SPhe<1e-2]=0
                 self.DicoPSF[iFacet]["l0m0"]=self.DicoImager[iFacet]["l0m0"]
                 self.DicoPSF[iFacet]["pixCentral"]=self.DicoImager[iFacet]["pixCentral"]
                 self.DicoPSF[iFacet]["lmSol"] = self.DicoImager[iFacet]["lmSol"]
@@ -675,6 +674,7 @@ class ClassFacetMachine():
                 nch,npol,n,n=self.DicoPSF[iFacet]["PSF"].shape
                 PSFChannel=np.zeros((nch,npol,n,n),self.stitchedType)
                 for ch in range(nch):
+                    self.DicoPSF[iFacet]["PSF"][ch][SPhe[0] < 1e-2] = 0
                     self.DicoPSF[iFacet]["PSF"][ch][0]=self.DicoPSF[iFacet]["PSF"][ch][0].T[::-1,:]
                     SumJonesNorm=self.DicoImager[iFacet]["SumJonesNorm"][ch]
                     self.DicoPSF[iFacet]["PSF"][ch]/=np.sqrt(SumJonesNorm) #normalize to bring back transfer functions to approximate convolution
@@ -694,7 +694,6 @@ class ClassFacetMachine():
             for iFacet in sorted(DicoVariablePSF.keys()):
                 _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
                 if n<NPixMin: NPixMin=n
-
             nch = self.VS.NFreqBands
             CubeVariablePSF=np.zeros((NFacets,nch,npol,NPixMin,NPixMin),np.float32)
             CubeMeanVariablePSF=np.zeros((NFacets,1,npol,NPixMin,NPixMin),np.float32)
@@ -815,7 +814,7 @@ class ClassFacetMachine():
             Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(NpixFacet/2,NpixFacet/2),NpixFacet)
             x0main,x1main,y0main,y1main=Aedge
             x0facet,x1facet,y0facet,y1facet=Bedge
-
+            self.DicoImager[iFacet]["SumJonesNorm"] = np.zeros((self.VS.NFreqBands,), np.float64)
             for Channel in range(self.VS.NFreqBands):
             
             
@@ -828,7 +827,7 @@ class ClassFacetMachine():
                 ThisSumJones=self.DicoImager[iFacet]["SumJones"][0][Channel]/ThisSumSqWeights
                 if ThisSumJones==0:
                     ThisSumJones=1.
-
+                self.DicoImager[iFacet]["SumJonesNorm"][Channel] = ThisSumJones
             
                 SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
 
