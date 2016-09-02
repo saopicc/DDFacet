@@ -667,6 +667,7 @@ class ClassFacetMachine():
                 self.DicoPSF[iFacet]={}
                 self.DicoPSF[iFacet]["PSF"]=(self.DicoGridMachine[iFacet]["Dirty"]).copy().real
                 self.DicoPSF[iFacet]["PSF"]/=SPhe
+                #self.DicoPSF[iFacet]["PSF"][SPhe < 1e-2] = 0
                 self.DicoPSF[iFacet]["l0m0"]=self.DicoImager[iFacet]["l0m0"]
                 self.DicoPSF[iFacet]["pixCentral"]=self.DicoImager[iFacet]["pixCentral"]
                 self.DicoPSF[iFacet]["lmSol"] = self.DicoImager[iFacet]["lmSol"]
