@@ -545,7 +545,7 @@ class ClassImagerDeconv():
         BaseName=self.GD["Images"]["ImageName"]
 
         #ModelMachine=ClassModelMachine(self.GD)
-        NormImageName='/home/landman/Projects/Processed_Images/ddfacet_out/Test-D147-HI-NOIFS-NOPOL-4M5Sa/test-src1-hi-gamerge-fixpsf-sem-uni-thr10-0.NormFacets.fits'  #"%s.NormFacets.fits"%BaseName
+        NormImageName="%s.NormFacets.fits"%BaseName
         CasaNormImage=image(NormImageName)
         NormImage=CasaNormImage.getdata()
         nch,npol,nx,_=NormImage.shape

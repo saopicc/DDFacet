@@ -570,10 +570,7 @@ class ClassMultiScaleMachine():
         elif self.SolveMode=="PI":
             
 
-            
-            file1 = open('/home/landman/Projects/Processed_Images/ddfacet_out/Test-D147-HI-NOIFS-NOPOL-4M5Sa/testfileMerge.txt', 'a+')
             Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
-            file1.write('%s'%(Sol))
             #Sol.fill(1)
 
             #LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)*FpolMean.ravel()[0]
