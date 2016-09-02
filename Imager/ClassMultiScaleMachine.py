@@ -688,12 +688,6 @@ class ClassMultiScaleMachine():
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
         LocalSM=LocalSM*np.sqrt(JonesNorm)
 
-        BaseName = self.GD["Images"]["ImageName"]
-
-        pickleadic(BaseName.strip('SimpleSimSpI.run') + 'MergetestCompDiffs.pickle', DicoBasisMatrix)
-
-        writetofile(BaseName.strip('SimpleSimSpI.run') + 'MergetestCompDiffs.txt', Sol)
-
         # print self.AlphaVec,Sol
         # print "alpha",np.sum(self.AlphaVec.ravel()*Sol.ravel())/np.sum(Sol)
 
