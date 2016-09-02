@@ -814,7 +814,9 @@ class ClassFacetMachine():
             Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(NpixFacet/2,NpixFacet/2),NpixFacet)
             x0main,x1main,y0main,y1main=Aedge
             x0facet,x1facet,y0facet,y1facet=Bedge
-            self.DicoImager[iFacet]["SumJonesNorm"] = np.zeros((self.VS.NFreqBands,), np.float64)
+
+            self.DicoImager[iFacet]["SumJonesNorm"]=np.zeros((self.VS.NFreqBands,),np.float64)
+
             for Channel in range(self.VS.NFreqBands):
             
             
@@ -827,7 +829,8 @@ class ClassFacetMachine():
                 ThisSumJones=self.DicoImager[iFacet]["SumJones"][0][Channel]/ThisSumSqWeights
                 if ThisSumJones==0:
                     ThisSumJones=1.
-                self.DicoImager[iFacet]["SumJonesNorm"][Channel] = ThisSumJones
+                self.DicoImager[iFacet]["SumJonesNorm"][Channel]=ThisSumJones
+
             
                 SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
 
