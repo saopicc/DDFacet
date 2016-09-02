@@ -745,7 +745,7 @@ class ClassDDEGridMachine():
     def get(self,times,uvw,visIn,flag,A0A1,ModelImage,PointingID=0,Row0Row1=(0,-1),DicoJonesMatrices=None,freqs=None,ImToGrid=True,TranformModelInput="",ChanMapping=None):
         T=ClassTimeIt.ClassTimeIt("get")
         T.disable()
-        vis=visIn.copy()
+        vis=visIn.view()
         A0,A1=A0A1
 
         T.timeit("0")
