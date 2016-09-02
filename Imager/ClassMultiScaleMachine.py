@@ -432,8 +432,12 @@ class ClassMultiScaleMachine():
                          "fBMT_fBM_inv":fBMT_fBM_inv,
                          "CubePSF":CubePSF,
                          "WeightFunction":(WeightFunction),
-                         "fWeightFunction":UVTaper}
+                         "fWeightFunction":UVTaper,
+                         "CubePSFScales":self.CubePSFScales}
 
+
+        BaseName = self.GD["Images"]["ImageName"]
+        pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
         return DicoBasisMatrix
         
         
