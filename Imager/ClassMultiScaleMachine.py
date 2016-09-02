@@ -686,7 +686,9 @@ class ClassMultiScaleMachine():
             # Sol=x
             # LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
             
+        BaseName = self.GD["Images"]["ImageName"]
 
+        writetofile(BaseName+"SolComps.txt",Sol)
 
         nch,nx,ny=LocalSM.shape
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
