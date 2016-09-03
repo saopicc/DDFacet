@@ -12,16 +12,17 @@ import ClassMultiScaleMachine
 from pyrap.images import image
 from ClassPSFServer import ClassPSFServer
 import ClassModelMachineGA
+import ClassModelMachineMORESANE
+
 from DDFacet.Other.progressbar import ProgressBar
 import ClassGainMachine
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.PSourceExtract import ClassIncreaseIsland
-from GA.ClassEvolveGA import ClassEvolveGA 
+from GA.ClassEvolveGA import ClassEvolveGA
+from MORESANE.ClassMoresane import ClassMoresane
+
 from DDFacet.Other import MyPickle
 import ipdb
-
-# JG MOD
-import MORESANE
 
 import multiprocessing
 import time
@@ -55,14 +56,16 @@ class ClassImageDeconvMachine():
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
         self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
-        self.ModelMachine=ClassModelMachineGA.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
         # reset overall iteration counter
         self._niter = 0
         self.PSFCross=None
 
-        #self.IslandDeconvMode="GA" # or "Moresane"
-
         self.IslandDeconvMode=self.GD["SSD"]["IslandDeconvMode"]  # "GA" or "Moresane"
+
+        if self.IslandDeconvMode=="GA":
+            self.ModelMachine = ClassModelMachineGA.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
+        elif self.IslandDeconvMode=="Moresane":
+            self.ModelMachine = ClassModelMachineMORESANE.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
 
         if CleanMaskImage!=None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
@@ -251,11 +254,43 @@ class ClassImageDeconvMachine():
             locxc,locyc=npix/2,npix/2                         # center of the square around island
 
             SquareIsland=np.zeros((npix,npix),np.float32)
-            #SquareIsland[locxc+(minx-xc):locxc+(maxx-xc)+1,locyc+(miny-yc):locyc+(maxy-yc)+1]=Dirty[0,0,xc-(npix-1)/2:minx:maxx+1,miny:maxy+1]
             SquareIsland[0:npix,0:npix]=Dirty[0,0,xc-(npix-1)/2:xc+(npix-1)/2+1,yc-(npix-1)/2:yc+(npix-1)/2+1]
-            DicoSquareIslands[iIsland]={"Islandcenter":(xc,yc), "Squaredata":SquareIsland}
+
+            SquareIsland_Mask=np.zeros((npix,npix),np.float32)
+            SquareIsland_Mask[locxc+(x-xc),locyc+(y-yc)]=1 # put 1 on the Island
+            #SquareIsland[locxc+(minx-xc):locxc+(maxx-xc)+1,locyc+(miny-yc):locyc+(maxy-yc)+1]=Dirty[0,0,minx:maxx+1,miny:maxy+1]
+
+            DicoSquareIslands[iIsland]={"IslandCenter":(xc,yc), "IslandSquareData":SquareIsland, "IslandSquareMask":SquareIsland_Mask}
 
         return DicoSquareIslands
+
+    def SquareIslandtoIsland(self, Model,ThisSquarePixList,ThisPixList):
+        ### Build ThisPixList from Model, in the reference frame of the Dirty
+
+        xc,yc = ThisSquarePixList['IslandCenter']  # island center in original dirty
+        ListSquarePix_Data = ThisSquarePixList['IslandSquareData']  # square image of the dirty around Island center
+        ListSquarePix_Mask = ThisSquarePixList['IslandSquareMask']  # Corresponding square mask image
+
+        NIslandPix=len(ThisPixList)
+
+        Mod_x,Mod_y=Model.shape
+        SquarePix_x,SquarePix_y=ListSquarePix_Data.shape
+
+        if Mod_x != SquarePix_x or Mod_y != SquarePix_y:
+            raise NameError('Mismatch between output Model image dims and original Square image dims. Please check if the even to uneven correction worked.')
+
+        FluxV = []
+        NewThisPixList = []
+        for tmpcoor in ThisPixList:
+            currentx = tmpcoor[0]
+            currenty = tmpcoor[1]
+            x_loc_coor = (currentx - xc) + SquarePix_x / 2  # coordinates in the small Model image
+            y_loc_coor = (currenty - yc) + SquarePix_y / 2  # coordinates in the small Model image
+            if ListSquarePix_Mask[x_loc_coor, y_loc_coor] == 1:  # if it is not masked (e.g. part of the island)
+                FluxV.append(ListSquarePix_Data[x_loc_coor, y_loc_coor])
+                NewThisPixList.append([currentx, currenty])
+
+        return FluxV, NewThisPixList
 
     def CalcCrossIslandFlux(self,ListIslands):
         if self.PSFCross==None:
@@ -378,14 +413,14 @@ class ClassImageDeconvMachine():
 
         self.ListIslands_Keep=self.ListIslands
 
-
         Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
         ind=np.argsort(Sz)[::-1]
 
         ListIslandsOut=[self.ListIslands[ind[i]] for i in ind]
         self.ListIslands=ListIslandsOut
 
-        if self.IslandDeconvMode == "Moresane":
+        # MORESANE MOD TO MAKE SQUARE IMAGE AROUND EACH ISLAND
+        if self.IslandDeconvMode == "Moresane":  # convert island to square image to pass to MORESANE
             self.ListSquareIslands = self.ToSquareIslands(self.ListIslands)
                 
 
@@ -541,46 +576,62 @@ class ClassImageDeconvMachine():
                 CEv=ClassEvolveGA(self._Dirty,PSF,FreqsInfo,ListPixParms=ThisPixList,
                                   ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,
                                   GD=self.GD,WeightFreqBands=WeightMuellerSignal)
-                Model=CEv.main(NGen=100,DoPlot=True)#False)
+                Model=CEv.main(NGen=100,DoPlot=False)
 
             if self.IslandDeconvMode=="Moresane":
 
-                PSF=self.PSFServer.CropPSF(PSF,npix)
+                # 0) Load Island info (center and square data)
+                ListSquarePix_Center = ThisSquarePixList['IslandCenter']    # island center in original dirty
+                ListSquarePix_Data = ThisSquarePixList['IslandSquareData']  # square image of the dirty around Island center
+                ListSquarePix_Mask= ThisSquarePixList['IslandSquareMask']   # Corresponding square mask image
+                xisland, yisland = ListSquarePix_Data.shape  # size of the square postage stamp around island
 
-                # shape PSF & postage stamp around island
-                if nxpsf % 2 != 0 or nypsf % 2 != 0:  # MORESANE requires even sized images
-                    PSF = PSF[:, :, :-1, :-1] # cropping PSF
-                    _, _, nxpsf, nypsf = PSF.shape
+                # 1) Shape PSF and Dirty to have even number of pixels (required by Moresane)
+                # DEAL WITH SQUARE DATA OF ISLAND IF UNEVEN
 
-                # computing the coordinates of the edges
-                Aedge, Bedge = self.GiveEdges((x, y), ny, (nxpsfcrop / 2, nypsfcrop / 2), nxpsfcrop)
+                cropped_square_to_even = False
+                if xisland % 2 != 0:
+                    #    PSFCrop_even = np.zeros((xisland+1, xisland+1))
+                    #    PSFCrop_even[:-1, :-1] = np.squeeze(PSFCrop)
+                    Dirty_even = np.zeros((xisland - 1, xisland - 1))
+                    Dirty_even[:, :] = ListSquarePix_Data[:-1, :-1]
+                    cropped_square_to_even = True
+                else:
+                    Dirty_even = ListSquarePix_Data
+                # make it even by removing one line and one column (usually outside of the interesting island region)
 
-                x0d, x1d, y0d, y1d = Aedge  # in the dirty
-                x0p, x1p, y0p, y1p = Bedge  # in the facet
+                # DEAL WITH PSF IF UNEVEN
+                # Single Channel for the moment
+                PSF_monochan=np.squeeze(PSF[0,0,:,:])
+                PSF_monochan_nx,PSF_monochan_ny=PSF_monochan.shape
 
-                # Extract corresponding dirty
-                subdirty = np.squeeze(self._Dirty[:, :, x0d:x1d, y0d:y1d])
+                if PSF_monochan_nx % 2 != 0:
+                    PSF_monochan_even = np.zeros((PSF_monochan_nx+1, PSF_monochan_nx+1)) # increasing this time because MORESANE will deal with subregion
+                    PSF_monochan_even[:-1, :-1] = PSF_monochan
+                else:
+                    PSF_monochan_even = PSF_monochan
 
-                sdnx, sdny = subdirty.shape
-                if sdnx % 2 != 0 or sdny % 2 != 0:  # MORESANE requires even sized images
-                    subdirty = np.squeeze(self._Dirty[:, :, x0d:x1d - 1, y0d:y1d - 1])
-                    sdnx, sdny = subdirty.shape
+                # 2) Run the actual MinorCycle algo
+                #Moresane = ClassMoresane(Dirty_even, PSF_monochan_even, DictMoresaneParms, GD=self.GD)
+                Moresane = ClassMoresane(PSF_monochan_even, PSF_monochan_even, DictMoresaneParms, GD=self.GD)
+                Model_Square=Moresane.main()
 
+                # 3) Apply Island mask to model to get rid of regions outside the island.
+                if cropped_square_to_even: # then restore the model to its original uneven dimension
+                    Model_Square_uneven = np.zeros((xisland,xisland))
+                    Model_Square_uneven[:-1, :-1] = Model_Square
+                    Model_Square = Model_Square_uneven
 
+                Model_Square *= ListSquarePix_Mask # masking outside the island
 
-                #Model= # TO FILL
-                pass
+                # 4) Convert back to Island format ( "S" and ThisPixList )
+                NewModel, NewThisPixList=self.SquareIslandtoIsland(Model_Square, ThisSquarePixList, ThisPixList)
 
+                Model = NewModel
+                ThisPixList = NewThisPixList
 
-            #Model=CEv.main(NGen=100,DoPlot=False)
-            
-
-            #self.ModelMachine.setParamMachine(CEv.ArrayMethodsMachine.PM)
-            #Threshold=self.GiveThreshold(np.max(np.abs(Model)))
-            #self.ModelMachine.setThreshold(Threshold)
-            self.ModelMachine.AppendIsland(ThisPixList,Model)
-            
-
+            # Common command for every MinorCycle deconvolution algo
+            self.ModelMachine.AppendIsland(ThisPixList, Model)
 
         return "MaxIter", True, True   # stop deconvolution but do update model
 

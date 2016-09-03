@@ -7,8 +7,7 @@ import pymoresane.iuwt_convolution as conv
 import pymoresane.iuwt_toolbox as tools
 import pymoresane.parser as pparser
 from pymoresane.beam_fit import beam_fit
-from pymoresane.main import FitsImage as FI# importing the class
-#from pymoresane.main import moresane,moresane_by_scale
+from pymoresane.main import FitsImage as FI # importing the class
 
 from scipy.signal import fftconvolve
 import pylab as plt
@@ -16,7 +15,7 @@ import pylab as plt
 logger = logging.getLogger(__name__)
 
 
-class ClassMoresane(FI):
+class ClassMoresane(FI): # inherits from FitsImage but overriding __init__ to get rid of FITS file processing
     def __init__(self,Dirty,PSF,DictMoresaneParms,GD=None):
 
         # manage Dirty
@@ -78,7 +77,7 @@ class ClassMoresane(FI):
     def main(self):
 
         # Proper Moresane run
-        if 0: #self.singlerun:
+        if self.singlerun:
             print "Single run"
             self.moresane(self.subregion, self.scalecount, self.sigmalevel, self.loopgain, self.tolerance, self.accuracy,
                           self.majorloopmiter, self.minorloopmiter, self.allongpu, self.decommode, self.corecount,
