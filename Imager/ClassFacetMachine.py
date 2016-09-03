@@ -659,29 +659,50 @@ class ClassFacetMachine():
             print>>log, "  Build PSF facet-slices "
             self.DicoPSF={}
             for iFacet in self.DicoGridMachine.keys():
-                #first normalize by spheriodals - these facet psfs will be used in deconvolution per facet
+                self.DicoPSF[iFacet]={}
+                self.DicoPSF[iFacet]["PSF"]=(self.DicoGridMachine[iFacet]["Dirty"]).copy().real
+                self.DicoPSF[iFacet]["l0m0"]=self.DicoImager[iFacet]["l0m0"]
+                self.DicoPSF[iFacet]["pixCentral"]=self.DicoImager[iFacet]["pixCentral"]
+                self.DicoPSF[iFacet]["lmSol"] = self.DicoImager[iFacet]["lmSol"]
+                #self.DicoPSF[iFacet]["radecSol"] = raSol[iSol], decSol[iSol]
+                #self.DicoPSF[iFacet]["iSol"] = iSol
+
                 SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
                 SPhe=NpShared.GiveArray(SharedMemName)
                 nx=SPhe.shape[0]
                 SPhe=SPhe.reshape((1,1,nx,nx)).real
-                self.DicoPSF[iFacet]={}
-                self.DicoPSF[iFacet]["PSF"]=(self.DicoGridMachine[iFacet]["Dirty"]).copy().real
                 self.DicoPSF[iFacet]["PSF"]/=SPhe
-                self.DicoPSF[iFacet]["l0m0"]=self.DicoImager[iFacet]["l0m0"]
-                self.DicoPSF[iFacet]["pixCentral"]=self.DicoImager[iFacet]["pixCentral"]
-                self.DicoPSF[iFacet]["lmSol"] = self.DicoImager[iFacet]["lmSol"]
+
+                
 
                 nch,npol,n,n=self.DicoPSF[iFacet]["PSF"].shape
                 PSFChannel=np.zeros((nch,npol,n,n),self.stitchedType)
+                # for ch in range(nch):
+                #     self.DicoPSF[iFacet]["PSF"][ch][0]=self.DicoPSF[iFacet]["PSF"][ch][0].T[::-1,:]
+                #     self.DicoPSF[iFacet]["PSF"][ch]/=np.max(self.DicoPSF[iFacet]["PSF"][ch]) #normalize to peak of 1
+                #     PSFChannel[ch,:,:,:]=self.DicoPSF[iFacet]["PSF"][ch][:,:,:]
                 for ch in range(nch):
-                    self.DicoPSF[iFacet]["PSF"][ch][SPhe[0] < 1e-2] = 0
+                    self.DicoPSF[iFacet]["PSF"][ch][SPhe[0]<1e-2]=0
                     self.DicoPSF[iFacet]["PSF"][ch][0]=self.DicoPSF[iFacet]["PSF"][ch][0].T[::-1,:]
                     SumJonesNorm=self.DicoImager[iFacet]["SumJonesNorm"][ch]
-                    self.DicoPSF[iFacet]["PSF"][ch]/=np.sqrt(SumJonesNorm) #normalize to bring back transfer functions to approximate convolution
+                    self.DicoPSF[iFacet]["PSF"][ch]/=np.sqrt(SumJonesNorm)
+                    # np.max(self.DicoPSF[iFacet]["PSF"][ch])
                     for pol in range(npol):
                         ThisSumWeights=self.DicoImager[iFacet]["SumWeights"][ch][pol]
-                        self.DicoPSF[iFacet]["PSF"][ch][pol]/=ThisSumWeights #normalize the response per facet channel if jones corrections are enabled
+                        self.DicoPSF[iFacet]["PSF"][ch][pol]/=ThisSumWeights
+                        
                     PSFChannel[ch,:,:,:]=self.DicoPSF[iFacet]["PSF"][ch][:,:,:]
+
+                    # pylab.clf()
+                    # pylab.imshow(PSFChannel[ch,0,:,:],interpolation="nearest")
+                    # pylab.colorbar()
+                    # pylab.draw()
+                    # pylab.show(False)
+                    # pylab.pause(0.1)
+
+
+
+
 
                 W=DicoImages["WeightChansImages"]
                 W=np.float32(W.reshape((self.VS.NFreqBands,npol,1,1)))
@@ -694,6 +715,7 @@ class ClassFacetMachine():
             for iFacet in sorted(DicoVariablePSF.keys()):
                 _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
                 if n<NPixMin: NPixMin=n
+
             nch = self.VS.NFreqBands
             CubeVariablePSF=np.zeros((NFacets,nch,npol,NPixMin,NPixMin),np.float32)
             CubeMeanVariablePSF=np.zeros((NFacets,1,npol,NPixMin,NPixMin),np.float32)
@@ -705,7 +727,7 @@ class ClassFacetMachine():
                     i=n/2-NPixMin/2
                     j=n/2+NPixMin/2+1
                     CubeVariablePSF[iFacet,ch,:,:,:]=DicoVariablePSF[iFacet]["PSF"][ch][:,i:j,i:j]
-                CubeMeanVariablePSF[iFacet,:,:,:,:]=DicoVariablePSF[iFacet]["MeanPSF"][:,:,i:j,i:j]
+                CubeMeanVariablePSF[iFacet,0,:,:,:]=DicoVariablePSF[iFacet]["MeanPSF"][0,:,i:j,i:j]
 
             self.DicoPSF["CubeVariablePSF"]=CubeVariablePSF
             self.DicoPSF["CubeMeanVariablePSF"]=CubeMeanVariablePSF

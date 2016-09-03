@@ -614,7 +614,10 @@ void gridderWPol(gridding_parameters * params)
         // ############## Vis Correlations -> Stokes ################
         //Now that the Jones matricies (correlations) have been applied we can 
 	//convert visibility correlations of MS to Stokes parameters:
-        convert_corrs_32(VisCorr,VisStokes);
+        //*********hardwiring I
+        // convert_corrs_32(VisCorr,VisStokes);
+        VisStokes[0] = (VisCorr[0] + VisCorr[3])/2;
+        // VisStokes[1] = VisStokes[2] = VisStokes[3] = 0;
         // ##########################################################
 	
         // ############## W-projection ####################
@@ -900,7 +903,10 @@ void DeGridderWPol(gridding_parameters *  params)
                 // ################### Stokes -> Corrs #################
 		// Need to convert stokes fourier components to correlations
 		// before applying the Jones corruptions
-                convert_corrs_32(model_vis_stokes,model_vis_corr);
+                // convert_corrs_32(model_vis_stokes,model_vis_corr);
+                //***** hardwiring Stokes I
+                model_vis_corr[0] = model_vis_corr[3] = model_vis_stokes[0];
+                model_vis_corr[1] = model_vis_corr[2] = 0;
 		// ###########################################################
 		
                 // ################### Decorrelation #################
