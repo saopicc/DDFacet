@@ -578,15 +578,16 @@ class ClassFacetMachine():
             print>>log, "  Build PSF facet-slices "
             self.DicoPSF={}
             for iFacet in self.DicoGridMachine.keys():
+                self.DicoPSF[iFacet]={}
+                self.DicoPSF[iFacet]["PSF"]=(self.DicoGridMachine[iFacet]["Dirty"]).copy()
+
                 SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,iFacet)
                 SPhe=NpShared.GiveArray(SharedMemName)
                 nx=SPhe.shape[0]
                 SPhe=SPhe.reshape((1,1,nx,nx)).real
-                self.DicoPSF[iFacet]={}
-                self.DicoPSF[iFacet]["PSF"]=(self.DicoGridMachine[iFacet]["Dirty"]).copy()
-                
                 self.DicoPSF[iFacet]["PSF"]/=SPhe
-                self.DicoPSF[iFacet]["PSF"][SPhe<1e-2]=0
+                
+
                 self.DicoPSF[iFacet]["l0m0"]=self.DicoImager[iFacet]["l0m0"]
                 self.DicoPSF[iFacet]["pixCentral"]=self.DicoImager[iFacet]["pixCentral"]
                 self.DicoPSF[iFacet]["lmSol"]=self.DicoImager[iFacet]["lmSol"]
@@ -594,6 +595,7 @@ class ClassFacetMachine():
                 nch,npol,n,n=self.DicoPSF[iFacet]["PSF"].shape
                 PSFChannel=np.zeros((nch,npol,n,n),np.float32)
                 for ch in range(nch):
+                    self.DicoPSF[iFacet]["PSF"][ch][SPhe[0]<1e-2]=0
                     self.DicoPSF[iFacet]["PSF"][ch][0]=self.DicoPSF[iFacet]["PSF"][ch][0].T[::-1,:]
                     SumJonesNorm=self.DicoImager[iFacet]["SumJonesNorm"][ch]
                     self.DicoPSF[iFacet]["PSF"][ch]/=np.sqrt(SumJonesNorm)
@@ -603,6 +605,7 @@ class ClassFacetMachine():
                         self.DicoPSF[iFacet]["PSF"][ch][pol]/=ThisSumWeights
                         
                     PSFChannel[ch,:,:,:]=self.DicoPSF[iFacet]["PSF"][ch][:,:,:]
+
 
                 W=DicoImages["WeightChansImages"]
                 W=np.float32(W.reshape((self.VS.NFreqBands,1,1,1)))

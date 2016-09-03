@@ -799,6 +799,16 @@ class ClassImagerDeconv():
             FitOK=True
             print>>log, "   ... done"
 
+
+            # print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
+            # self.SideLobeLevel,self.OffsetSideLobe=0.1,18
+            # sigma_x, sigma_y, theta = 1.,1.,0
+            # FitOK=True
+            # print>>log, "   ... done"
+
+
+
+
             # try:
             #     print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
             #     P=PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]

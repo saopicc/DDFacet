@@ -9,6 +9,7 @@ from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import MyPickle
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
@@ -187,6 +188,8 @@ class ClassMultiScaleMachine():
 
 
         FreqBandsFluxRatio=self.PSFServer.GiveFreqBandsFluxRatio(self.iFacet,Alpha)
+        self.FreqBandsFluxRatio=FreqBandsFluxRatio
+        print self.iFacet,self.FreqBandsFluxRatio
         # if self.iFacet==96: 
         #     print 96
         #     print FreqBandsFluxRatio
@@ -417,7 +420,9 @@ class ClassMultiScaleMachine():
                          "fBMT_fBM_inv":fBMT_fBM_inv,
                          "CubePSF":CubePSF,
                          "WeightFunction":(WeightFunction),
-                         "fWeightFunction":UVTaper}
+                         "fWeightFunction":UVTaper,
+                         "FreqBandsFluxRatio":self.FreqBandsFluxRatio,
+                         "CubePSFScales":self.CubePSFScales}
 
         return DicoBasisMatrix
         
@@ -590,7 +595,7 @@ class ClassMultiScaleMachine():
             # print FpolTrue.ravel()
             # print self.DicoDirty["WeightChansImages"].ravel()
             # print "Data shape",dirtyVec.shape
-            # # print dirtyVec
+            # print dirtyVec
             # # #print "BM",BM.shape
             # # #print BM
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
@@ -599,6 +604,9 @@ class ClassMultiScaleMachine():
             # #print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
             # print "MeanFluxTrue",MeanFluxTrue
             # print "coef",coef
+
+            # MyPickle.Save(DicoBasisMatrix,"BM.GAClean")
+            # stop
             # # ##########################
 
             SolReg=np.zeros_like(Sol)
