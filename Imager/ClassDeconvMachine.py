@@ -510,7 +510,7 @@ class ClassImagerDeconv():
             self.FacetMachine.ToCasaImage(self.FacetMachine.NormImageReShape,ImageName="%s.NormFacets"%self.BaseName,
                                           Fits=True)
 
-        if self.DicoDirty["NormData"]!=None:
+        if self.DicoDirty["NormData"] is not None:
             DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
             nch,npol,nx,ny = DirtyCorr.shape
             if "D" in self._saveims:

@@ -135,7 +135,7 @@ class ClassMultiScaleMachine():
         dx=npix/2
 
         dx=np.min([NPSF/2,dx])
-        self.PSFExtent=(NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
+        self.PSFExtent=(NPSF//2-dx,NPSF//2+dx+1,NPSF//2-dx,NPSF//2+dx+1)
 
         #self.PSFExtent=(0,NPSF,0,NPSF)
 
@@ -193,6 +193,7 @@ class ClassMultiScaleMachine():
         AllFreqsMean=np.zeros((self.NFreqBands,),np.float32)
         for iChannel in range(self.NFreqBands):
             AllFreqs+=self.DicoVariablePSF["freqs"][iChannel]
+
             AllFreqsMean[iChannel]=np.mean(self.DicoVariablePSF["freqs"][iChannel])
 
         RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoVariablePSF["WeightChansImages"].ravel())
@@ -327,8 +328,8 @@ class ClassMultiScaleMachine():
 
     def MakeBasisMatrix(self):
         nxPSF=self.CubePSFScales.shape[-1]
-        x0,x1=nxPSF/2-self.SupWeightWidth,nxPSF/2+self.SupWeightWidth+1
-        y0,y1=nxPSF/2-self.SupWeightWidth,nxPSF/2+self.SupWeightWidth+1
+        x0,x1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
+        y0,y1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
         self.SubSubCoord=(x0,x1,y0,y1)
         self.SubCubePSF=self.CubePSFScales[:,:,x0:x1,y0:y1]
         self.SubWeightFunction=self.GlobalWeightFunction[:,:,x0:x1,y0:y1]
@@ -432,12 +433,8 @@ class ClassMultiScaleMachine():
                          "fBMT_fBM_inv":fBMT_fBM_inv,
                          "CubePSF":CubePSF,
                          "WeightFunction":(WeightFunction),
-                         "fWeightFunction":UVTaper,
-                         "CubePSFScales":self.CubePSFScales}
+                         "fWeightFunction":UVTaper}
 
-
-        BaseName = self.GD["Images"]["ImageName"]
-        pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
         return DicoBasisMatrix
         
         
@@ -684,10 +681,6 @@ class ClassMultiScaleMachine():
                     
             # Sol=x
             # LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
-            
-        BaseName = self.GD["Images"]["ImageName"]
-
-        writetofile(BaseName+"SolComps.txt",Sol)
 
         nch,nx,ny=LocalSM.shape
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
