@@ -493,7 +493,7 @@ class WorkerImager(ClassFacetMachine.WorkerImager):
         SpacialWeigth = ModFFTW.ConvolveGaussian(SpacialWeigth, CellSizeRad=1, GaussPars=[GaussPars])
         SpacialWeigth = SpacialWeigth.reshape((Npix, Npix))
         SpacialWeigth /= np.max(SpacialWeigth)
-        NameSpacialWeigth = "%sSpacialWeigth.Facet_%3.3i" % (self.IdSharedMem, iFacet)
+        NameSpacialWeigth = "%sSpacialWeight.Facet_%3.3i" % (self.FacetDataCache, iFacet)
         NpShared.ToShared(NameSpacialWeigth, SpacialWeigth)
         #Initialize a grid machine per facet:
         self.GiveGM(iFacet)

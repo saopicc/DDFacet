@@ -277,6 +277,8 @@ class ClassDDEGridMachine():
                  lmShift=(0.,0.),
                  IdSharedMem="",
                  IdSharedMemData="",
+                 FacetDataCache="",
+                 ChunkDataCache="",
                  IDFacet=0,
                  SpheNorm=True,
                  NFreqBands=1,
@@ -291,6 +293,8 @@ class ClassDDEGridMachine():
         self.ListSemaphores= ListSemaphores
         self.IdSharedMem=IdSharedMem
         self.IdSharedMemData=IdSharedMemData
+        self.FacetDataCache=FacetDataCache
+        self.ChunkDataCache=ChunkDataCache
 
         #self.DoPSF=DoPSF
         self.DoPSF=False
@@ -392,7 +396,7 @@ class ClassDDEGridMachine():
                                             Nw=self.Nw,
                                             OverS=self.OverS,
                                             lmShift=self.lmShift,
-                                            IdSharedMem=self.IdSharedMem,
+                                            IdSharedMem=self.FacetDataCache,
                                             IDFacet=self.IDFacet)
         self.ifzfCF= self.WTerm.ifzfCF
  
@@ -660,7 +664,7 @@ class ClassDDEGridMachine():
                                               ParamJonesList) # Input the jones matrices
         else:
             OptimisationInfos=[self.JonesType,chan_equidistant,self.SkyType]
-            MapSmear=NpShared.GiveArray("%sMappingSmearing.Grid"%(self.IdSharedMemData))
+            MapSmear=NpShared.GiveArray("%sBDA.Grid"%(self.ChunkDataCache))
 
             _pyGridderSmear.pyGridderWPol(Grid,
                                           vis,
@@ -839,7 +843,7 @@ class ClassDDEGridMachine():
 
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos=[self.JonesType,chan_equidistant,self.SkyType]
-            MapSmear=NpShared.GiveArray("%sMappingSmearing.DeGrid"%(self.IdSharedMemData))
+            MapSmear=NpShared.GiveArray("%sBDA.DeGrid"%(self.ChunkDataCache))
             _pyGridderSmear.pySetSemaphores(self.ListSemaphores)
 
             _pyGridderSmear.pyDeGridderWPol(Grid,
