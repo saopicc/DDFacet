@@ -17,50 +17,45 @@ class ClassJones():
         self.FacetMachine=FacetMachine
         self.IdSharedMem=IdSharedMem
         self.MS=MS
-        ThisMSName=reformat.reformat(os.path.abspath(self.MS.MSName),LastSlash=False)
-        self.DicoClusterDirs=None
-        self.JonesNormSolsFile_killMS="%s/JonesNorm_killMS.npz"%ThisMSName
-        self.JonesNormSolsFile_Beam="%s/JonesNorm_Beam.npz"%ThisMSName
         self.HasKillMSSols=False
         self.BeamTimes_kMS=np.array([],np.float32)
 
+        # self.JonesNormSolsFile_killMS="%s/JonesNorm_killMS.npz"%ThisMSName
+        # self.JonesNormSolsFile_Beam="%s/JonesNorm_Beam.npz"%ThisMSName
 
     def InitDDESols(self,DATA):
         GD=self.GD
         self.DATA=DATA
         SolsFile=GD["DDESolutions"]["DDSols"]
         self.ApplyCal=False
+        DicoClusterDirs = DicoSols = TimeMapping = None
         if SolsFile!="":
             self.ApplyCal=True
-            try:
+            self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache("JonesNorm_killMS.npz",
+                                                    dict(DDESolutions=GD["DDESolutions"],DataSelection=self.GD["DataSelection"]))
+            if valid:
+                print>>log,"  using cached Jones matrices from %s"%self.JonesNormSolsFile_killMS
                 DicoSols,TimeMapping,DicoClusterDirs=self.DiskToSols(self.JonesNormSolsFile_killMS)
-            except:
+            else:
                 DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("killMS")
-            #self.DicoClusterDirs_kMS=DicoClusterDirs
+                self.MS.cache.saveCache("JonesNorm_killMS.npz")
             self.ToShared("killMS",DicoSols,TimeMapping,DicoClusterDirs)
             self.HasKillMSSols=True
 
         ApplyBeam=(GD["Beam"]["BeamModel"]!=None)
         if ApplyBeam:
             self.ApplyCal=True
-            try:
+            self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam.npz",
+                                                    dict(Beam=GD["Beam"],DataSelection=self.GD["DataSelection"]))
+            if valid:
+                print>>log,"  using cached Jones matrices from %s"%self.JonesNormSolsFile_Beam
                 DicoSols,TimeMapping,DicoClusterDirs=self.DiskToSols(self.JonesNormSolsFile_Beam)
-            except:
+            else:
                 DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("Beam")
+                self.MS.cache.saveCache("JonesNorm_Beam.npz")
             self.ToShared("Beam",DicoSols,TimeMapping,DicoClusterDirs)
             
-            del(DicoClusterDirs,DicoSols,TimeMapping)
-        # SJM=ClassSmoothJones.ClassSmoothJones(GD,self.IdSharedMem)
-        # SJM.FindAlpha()
-        # # SJM.SmoothJones()
-
-        try:
-            del(DicoClusterDirs,DicoSols,TimeMapping)
-            if self.HasKillMSSols: 
-                del(self.DicoClusterDirs_kMS)
-        except:
-            pass
-        #del(self.DicoClusterDirs_kMS)
+        del(DicoClusterDirs,DicoSols,TimeMapping)
 
 
     def ToShared(self,StrType,DicoSols,TimeMapping,DicoClusterDirs):
@@ -88,7 +83,7 @@ class ClassJones():
 
         # np.savez(self.JonesNorm_killMS,l=l,m=m,I=I,Cluster=Cluster,t0=t0,t1=t1,tm=tm,Jones=Jones,TimeMapping=TimeMapping)
 
-        np.savez(OutName,
+        np.savez(file(OutName,"w"),
                  l=l,m=m,I=I,Cluster=Cluster,
                  t0=t0,t1=t1,tm=tm,
                  Jones=Jones,
@@ -99,6 +94,7 @@ class ClassJones():
     def DiskToSols(self,InName):
         #SolsFile_killMS=np.load(self.JonesNorm_killMS)
         #print>>log, "  Loading %s"%InName
+
         SolsFile=np.load(InName)
         print>>log, "  %s loaded"%InName
         

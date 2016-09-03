@@ -573,7 +573,6 @@ class ClassMultiScaleMachine():
 
         elif self.SolveMode=="PI":
             
-
             Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
             #Sol.fill(1)
 

@@ -113,6 +113,7 @@ def read_options():
     OP.OptionGroup("* Selection","DataSelection")
     OP.add_option('Field')
     OP.add_option('DDID')
+    OP.add_option('TaQL')
     OP.add_option('ChanStart')
     OP.add_option('ChanEnd')
     OP.add_option('ChanStep')

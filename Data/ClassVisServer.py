@@ -66,7 +66,7 @@ class ClassVisServer():
         self.ColName=ColName
         self.Field = DicoSelectOptions.get("Field",0)
         self.DDID = DicoSelectOptions.get("DDID",0)
-        self.TaQL = "FIELD_ID==%d&&DATA_DESC_ID==%d" % (self.Field, self.DDID)
+        self.TaQL = DicoSelectOptions.get("TaQL",None)
         self.DicoSelectOptions=DicoSelectOptions
         self.SharedNames=[]
         self.PrefixShared=PrefixShared
@@ -115,33 +115,37 @@ class ClassVisServer():
         for MSName in self.ListMSName:
             MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3),
                 Field=self.Field,DDID=self.DDID,
-                ChanSlice=chanslice,GD=self.GD)
+                TaQL=self.TaQL,
+                ChanSlice=chanslice,GD=self.GD,
+                ResetCache = self.GD["Stores"]["DeleteDDFProducts"])
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
             global_freqs.update(MS.ChanFreq)
             min_freq = min(min_freq,(MS.ChanFreq-MS.ChanWidth/2).min())
             max_freq = max(max_freq,(MS.ChanFreq+MS.ChanWidth/2).max())
             
-            if self.GD["Stores"]["DeleteDDFProducts"]:
-                ThisMSName=reformat.reformat(os.path.abspath(MS.MSName),LastSlash=False)
+            # if self.GD["Stores"]["DeleteDDFProducts"]:
+            #     ThisMSName=reformat.reformat(os.path.abspath(MS.MSName),LastSlash=False)
+            #
+            #     MapName="%s/Flagging.npy"%ThisMSName
+            #     os.system("rm %s"%MapName)
+            #
+            #     MapName="%s/Mapping.CompGrid.npy"%ThisMSName
+            #     os.system("rm %s"%MapName)
+            #
+            #     MapName="%s/Mapping.CompDeGrid.npy"%ThisMSName
+            #     os.system("rm %s"%MapName)
+            #
+            #     JonesName="%s/JonesNorm_Beam.npz"%ThisMSName
+            #     os.system("rm %s"%JonesName)
+            #
+            #     JonesName="%s/JonesNorm_killMS.npz"%ThisMSName
+            #     os.system("rm %s"%JonesName)
 
-                MapName="%s/Flagging.npy"%ThisMSName
-                os.system("rm %s"%MapName)
+        # main cache is initialized from main cache of first MS
+        self.maincache = self.cache = self.ListMS[0].maincache
 
-                MapName="%s/Mapping.CompGrid.npy"%ThisMSName
-                os.system("rm %s"%MapName)
-
-                MapName="%s/Mapping.CompDeGrid.npy"%ThisMSName
-                os.system("rm %s"%MapName)
-
-                JonesName="%s/JonesNorm_Beam.npz"%ThisMSName
-                os.system("rm %s"%JonesName)
-
-                JonesName="%s/JonesNorm_killMS.npz"%ThisMSName
-                os.system("rm %s"%JonesName)
-
-
-        # Assume the correlation layout of the first measurement set for now
+        #Assume the correlation layout of the first measurement set for now
         self.VisCorrelationLayout = self.ListMS[0].CorrelationIds
         self.StokesConverter = ClassStokes(self.VisCorrelationLayout, self.GD["ImagerGlobal"]["PolMode"])
         for MS in self.ListMS:
@@ -250,6 +254,7 @@ class ClassVisServer():
             degrid_bw = self.GD["MultiFreqs"]["DegridBandMHz"]*1e+6
             if degrid_bw:
                 degrid_bw = min(degrid_bw,bw)
+                degrid_bw = max(degrid_bw,MS.ChanWidth[0])
                 NChanDegrid = min(int(math.ceil(bw/degrid_bw)),MS.ChanFreq.size)
             else:
                 NChanDegrid = min(self.GD["MultiFreqs"]["NChanDegridPerMS"] or MS.ChanFreq.size,MS.ChanFreq.size)
@@ -434,6 +439,7 @@ class ClassVisServer():
         while True:
             MS=self.CurrentMS
             repLoadChunk=MS.GiveNextChunk(databuf=self._databuf,flagbuf=self._flagbuf)
+            self.cache = MS.cache
             if repLoadChunk=="EndMS":
                 repNextMS=self.setNextMS()
                 if repNextMS=="EndListMS":
@@ -490,13 +496,15 @@ class ClassVisServer():
             #DATA["MSInfos"][1]=20000.*30
             #DATA["MSInfos"][0]=500.
 
-
-        ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
-        TimeMapName="%s/Flagging.npy"%ThisMSName
-        try:
-            DATA["flags"]=np.load(TimeMapName)
-        except:
+        # flagging cache depends on DicoSelectOptions
+        flagpath, valid = self.cache.checkCache("Flagging.npy",self.DicoSelectOptions)
+        if valid:
+            print>> log, "  using cached flags from %s" % flagpath
+            DATA["flags"] = np.load(flagpath)
+        else:
             self.UpdateFlag(DATA)
+            np.save(flagpath, DATA["flags"])
+            self.cache.saveCache("Flagging.npy")
 
 
         
@@ -504,8 +512,8 @@ class ClassVisServer():
         DATA["ChanMapping"]=self.CurrentChanMapping
         DATA["ChanMappingDegrid"]=self.DicoMSChanMappingDegridding[self.iCurrentMS]
         
-        print>>log, "  Channel Mapping Gridding  : %s"%(str(self.CurrentChanMapping))
-        print>>log, "  Channel Mapping DeGridding: %s"%(str(DATA["ChanMappingDegrid"]))
+        print>>log, "  channel Mapping Gridding  : %s"%(str(self.CurrentChanMapping))
+        print>>log, "  channel Mapping DeGridding: %s"%(str(DATA["ChanMappingDegrid"]))
 
         self.UpdateCompression(DATA,
                                ChanMappingGridding=DATA["ChanMapping"],
@@ -644,10 +652,6 @@ class ClassVisServer():
         ind=np.where(np.isnan(data))
         flags[ind]=1
 
-        ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
-        TimeMapName="%s/Flagging.npy"%ThisMSName
-        np.save(TimeMapName,flags)
-
         DATA["flags"]=flags
 
 
@@ -671,50 +675,56 @@ class ClassVisServer():
         self.CellSizeRad=cell
 
     def UpdateCompression(self, DATA, ChanMappingGridding=None, ChanMappingDeGridding=None):
-        ThisMSName = reformat.reformat(os.path.abspath(self.CurrentMS.MSName), LastSlash=False)
         if self.GD["Compression"]["CompGridMode"]:
-            MapName = "%s/Mapping.CompGrid.npy" % ThisMSName
-            try:
-                FinalMapping = np.load(MapName)
-            except:
+            mapname, valid = self.cache.checkCache("BDA.Grid",
+                                                   dict(Compression=self.GD["Compression"],
+                                                        DataSelection=self.GD["DataSelection"]))
+            if valid:
+                print>> log, "  using cached BDA mapping %s" % mapname
+            else:
                 if self.GD["Compression"]["CompGridFOV"] == "Facet":
                     _, _, nx, ny = self.FacetShape
                 elif self.GD["Compression"]["CompGridFOV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
-                SmearMapMachine = ClassSmearMapping.ClassSmearMapping(self.CurrentMS, radiusDeg=FOV, Decorr=(
-                1. - self.GD["Compression"]["CompGridDecorr"]), IdSharedMem=self.IdSharedMem, NCPU=self.NCPU)
+                SmearMapMachine = ClassSmearMapping.ClassSmearMapping(self.CurrentMS, radiusDeg=FOV, 
+                    Decorr=(1. - self.GD["Compression"]["CompGridDecorr"]), IdSharedMem=self.IdSharedMem, NCPU=self.NCPU)
                 # SmearMapMachine.BuildSmearMapping(DATA)
 
                 # FinalMapping,fact=SmearMapMachine.BuildSmearMapping(DATA)
                 # stop
                 FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingGridding)
 
-                np.save(MapName, FinalMapping)
                 print>> log, ModColor.Str("  Effective compression [Grid]  :   %.2f%%" % fact, col="green")
 
-            Map = NpShared.ToShared("%sMappingSmearing.Grid" % (self.IdSharedMem), FinalMapping)
+                NpShared.ToShared("file://" + mapname, FinalMapping)
+                self.cache.saveCache("BDA.Grid")
 
         if self.GD["Compression"]["CompDeGridMode"]:
-            MapName = "%s/Mapping.CompDeGrid.npy" % ThisMSName
-            try:
-                FinalMapping = np.load(MapName)
-            except:
+            mapname, valid = self.cache.checkCache("BDA.DeGrid",
+                                                   dict(Compression=self.GD["Compression"],
+                                                        DataSelection=self.GD["DataSelection"]))
+            if valid:
+                print>> log, "  using cached BDA mapping %s" % mapname
+            else:
                 if self.GD["Compression"]["CompDeGridFOV"] == "Facet":
                     _, _, nx, ny = self.FacetShape
                 elif self.GD["Compression"]["CompDeGridFOV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
-                SmearMapMachine = ClassSmearMapping.ClassSmearMapping(self.CurrentMS, radiusDeg=FOV, Decorr=(
-                1. - self.GD["Compression"]["CompDeGridDecorr"]), IdSharedMem=self.IdSharedMem, NCPU=self.NCPU)
+                SmearMapMachine = ClassSmearMapping.ClassSmearMapping(self.CurrentMS, radiusDeg=FOV, 
+                        Decorr=(1.-self.GD["Compression"]["CompDeGridDecorr"]), IdSharedMem=self.IdSharedMem, NCPU=self.NCPU)
                 # SmearMapMachine.BuildSmearMapping(DATA)
                 FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingDeGridding)
-                np.save(MapName, FinalMapping)
                 print>> log, ModColor.Str("  Effective compression [DeGrid]:   %.2f%%" % fact, col="green")
 
-            Map = NpShared.ToShared("%sMappingSmearing.DeGrid" % (self.IdSharedMem), FinalMapping)
+                NpShared.ToShared("file://" + mapname, FinalMapping)
 
-    def GiveUvWeightsFlagsFreqs(self):
+                # Map = NpShared.ToShared("%sMappingSmearing.DeGrid" % (self.IdSharedMem), FinalMapping)
+
+                self.cache.saveCache("BDA.DeGrid")
+
+    def GiveUvWeightsFlagsFreqs (self):
         """Reads UVs, weights, flags, freqs from all MSs in the list.
         Returns list of (uv,weights,flags,freqs) tuples, one per each MS in self.ListMS, where shapes are
         (nrow,2), (nrow,nchan), (nrow) and (nchan) respectively.
