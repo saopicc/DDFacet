@@ -32,7 +32,7 @@ class ClassMoresane(FI): # inherits from FitsImage but overriding __init__ to ge
         self.stopscale=DictMoresaneParms['stopscale']
         self.subregion=DictMoresaneParms['subregion']
         self.scalecount=DictMoresaneParms['scalecount']
-        self.sigmalevel=DictMoresaneParms['sigmalevel']
+        self.sigmalevel=1 #DictMoresaneParms['sigmalevel']
         self.loopgain=DictMoresaneParms['loopgain']
         self.tolerance=DictMoresaneParms['tolerance']
         self.accuracy=DictMoresaneParms['accuracy']

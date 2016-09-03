@@ -290,7 +290,7 @@ class ClassImageDeconvMachine():
                 FluxV.append(ListSquarePix_Data[x_loc_coor, y_loc_coor])
                 NewThisPixList.append([currentx, currenty])
 
-        return FluxV, NewThisPixList
+        return np.array(FluxV), np.array(NewThisPixList)
 
     def CalcCrossIslandFlux(self,ListIslands):
         if self.PSFCross==None:
@@ -561,7 +561,7 @@ class ClassImageDeconvMachine():
             print "saving"
             MyPickle.Save(DicoSave, "SaveTest")
             print "saving ok"
-            ipdb.set_trace()
+            #ipdb.set_trace()
 
             ################################
 
@@ -588,6 +588,9 @@ class ClassImageDeconvMachine():
 
                 # 1) Shape PSF and Dirty to have even number of pixels (required by Moresane)
                 # DEAL WITH SQUARE DATA OF ISLAND IF UNEVEN
+                PSF_monochan=np.squeeze(PSF[0,0,:,:])
+                # Single Channel for the moment
+                PSF_monochan_nx,PSF_monochan_ny=PSF_monochan.shape
 
                 cropped_square_to_even = False
                 if xisland % 2 != 0:
@@ -595,25 +598,25 @@ class ClassImageDeconvMachine():
                     #    PSFCrop_even[:-1, :-1] = np.squeeze(PSFCrop)
                     Dirty_even = np.zeros((xisland - 1, xisland - 1))
                     Dirty_even[:, :] = ListSquarePix_Data[:-1, :-1]
+
+                    PSF2_monochan=self.PSFServer.CropPSF(PSF_monochan,2*(xisland-1)+1) # PSF uneven cropped to double uneven dirty island
                     cropped_square_to_even = True
                 else:
                     Dirty_even = ListSquarePix_Data
-                # make it even by removing one line and one column (usually outside of the interesting island region)
+                    PSF2_monochan=self.PSFServer.CropPSF(PSF_monochan,2*(xisland)+1) # PSF uneven cropped to double even dirty island
 
-                # DEAL WITH PSF IF UNEVEN
-                # Single Channel for the moment
-                PSF_monochan=np.squeeze(PSF[0,0,:,:])
-                PSF_monochan_nx,PSF_monochan_ny=PSF_monochan.shape
+                PSF2_monochan_nx, PSF2_monochan_ny = PSF2_monochan.shape
 
-                if PSF_monochan_nx % 2 != 0:
-                    PSF_monochan_even = np.zeros((PSF_monochan_nx+1, PSF_monochan_nx+1)) # increasing this time because MORESANE will deal with subregion
-                    PSF_monochan_even[:-1, :-1] = PSF_monochan
+                # DEAL WITH PSF IF UNEVEN (WILL ALWAYS BE UNEVEN EXCEPT IN PYMORESANE)
+                if PSF2_monochan_nx % 2 != 0:
+                    PSF2_monochan_even = np.zeros((PSF2_monochan_nx-1, PSF2_monochan_nx-1))
+                    PSF2_monochan_even = PSF2_monochan[:-1,:-1]
                 else:
-                    PSF_monochan_even = PSF_monochan
+                    PSF2_monochan_even = PSF2_monochan
 
                 # 2) Run the actual MinorCycle algo
                 #Moresane = ClassMoresane(Dirty_even, PSF_monochan_even, DictMoresaneParms, GD=self.GD)
-                Moresane = ClassMoresane(PSF_monochan_even, PSF_monochan_even, DictMoresaneParms, GD=self.GD)
+                Moresane = ClassMoresane(Dirty_even, PSF2_monochan_even, self.GD['MORESANE'], GD=self.GD)
                 Model_Square=Moresane.main()
 
                 # 3) Apply Island mask to model to get rid of regions outside the island.
