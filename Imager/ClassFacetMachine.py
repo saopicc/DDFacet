@@ -695,6 +695,10 @@ class ClassFacetMachine():
             for iFacet in sorted(DicoVariablePSF.keys()):
                 _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
                 if n<NPixMin: NPixMin=n
+
+            NPixMin=int(NPixMin/self.GD["ImagerMainFacet"]["Padding"])
+            if (NPixMin%2)==0: NPixMin+=1
+            
             nch = self.VS.NFreqBands
             CubeVariablePSF=np.zeros((NFacets,nch,npol,NPixMin,NPixMin),np.float32)
             CubeMeanVariablePSF=np.zeros((NFacets,1,npol,NPixMin,NPixMin),np.float32)
