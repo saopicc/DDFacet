@@ -18,6 +18,11 @@ from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.PSourceExtract import ClassIncreaseIsland
 from GA.ClassEvolveGA import ClassEvolveGA 
 from DDFacet.Other import MyPickle
+import ipdb
+
+# JG MOD
+import MORESANE
+
 import multiprocessing
 import time
 
@@ -34,6 +39,7 @@ class ClassImageDeconvMachine():
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
+
         self.SearchMaxAbs=SearchMaxAbs
         self.ModelImage=None
         self.MaxMinorIter=MaxMinorIter
@@ -54,6 +60,10 @@ class ClassImageDeconvMachine():
         self._niter = 0
         self.PSFCross=None
 
+        #self.IslandDeconvMode="GA" # or "Moresane"
+
+        self.IslandDeconvMode=self.GD["SSD"]["IslandDeconvMode"]  # "GA" or "Moresane"
+
         if CleanMaskImage!=None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
@@ -66,9 +76,8 @@ class ClassImageDeconvMachine():
             self.IslandArray=np.zeros_like(self._MaskArray)
             self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
         else:
-            print>>log, "You have to provide a mask image for GAClean"
+            print>>log, "You have to provide a mask image for SSD deconvolution"
 
-        self.IslandDeconvMode="GA"
 
 
 
@@ -221,14 +230,38 @@ class ClassImageDeconvMachine():
                 
         return None
 
+# JG Mod
+    def ToSquareIslands(self,ListIslands):
+        NIslands=len(ListIslands)
+        DicoSquareIslands={}
+        Dirty=self.DicoDirty["MeanImage"]
 
+        for iIsland in range(NIslands):
+            x, y = np.array(ListIslands[iIsland]).T
+            minx,maxx=x.min(),x.max()
+            miny,maxy=y.min(),y.max()
+            nxisl,nyisl=maxx-minx+1,maxy-miny+1                   # size of the smallest square around the island
+            npix=np.max([nxisl,nyisl])
 
+            if npix %2 == 0:
+                npix+=1
+
+            xc,yc=np.round((maxx+minx)/2),np.round((maxy+miny)/2) # compute island centre from minx,maxx,miny,maxy in the
+
+            locxc,locyc=npix/2,npix/2                         # center of the square around island
+
+            SquareIsland=np.zeros((npix,npix),np.float32)
+            #SquareIsland[locxc+(minx-xc):locxc+(maxx-xc)+1,locyc+(miny-yc):locyc+(maxy-yc)+1]=Dirty[0,0,xc-(npix-1)/2:minx:maxx+1,miny:maxy+1]
+            SquareIsland[0:npix,0:npix]=Dirty[0,0,xc-(npix-1)/2:xc+(npix-1)/2+1,yc-(npix-1)/2:yc+(npix-1)/2+1]
+            DicoSquareIslands[iIsland]={"Islandcenter":(xc,yc), "Squaredata":SquareIsland}
+
+        return DicoSquareIslands
 
     def CalcCrossIslandFlux(self,ListIslands):
         if self.PSFCross==None:
             self.CalcCrossIslandPSF(ListIslands)
         NIslands=len(ListIslands)
-        print>>log,"  grouping cross contaninating islands..."
+        print>>log,"  grouping cross contaminating islands..."
 
         MaxIslandFlux=np.zeros((NIslands,),np.float32)
         DicoIsland={}
@@ -344,9 +377,6 @@ class ClassImageDeconvMachine():
         
 
         self.ListIslands_Keep=self.ListIslands
-        if self.IslandDeconvMode=="Moresane":
-            self.ListIslands=self.ToSquareIslands(self.ListIslands)
-            
 
 
         Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
@@ -355,6 +385,8 @@ class ClassImageDeconvMachine():
         ListIslandsOut=[self.ListIslands[ind[i]] for i in ind]
         self.ListIslands=ListIslandsOut
 
+        if self.IslandDeconvMode == "Moresane":
+            self.ListSquareIslands = self.ToSquareIslands(self.ListIslands)
                 
 
     def setChannel(self,ch=0):
@@ -453,6 +485,8 @@ class ClassImageDeconvMachine():
 
         for iIsland in range(self.NIslands):
             ThisPixList=self.ListIslands[iIsland]
+            ThisSquarePixList=self.ListSquareIslands[iIsland]
+
             print>>log,"  Fitting island #%4.4i with %i pixels"%(iIsland,len(ThisPixList))
 
             XY=np.array(ThisPixList,dtype=np.float32)
@@ -460,7 +494,6 @@ class ClassImageDeconvMachine():
 
             FacetID=self.PSFServer.giveFacetID2(xm,ym)
             PSF=self.DicoVariablePSF["CubeVariablePSF"][FacetID]
-
 
             # self.DicoVariablePSF["CubeMeanVariablePSF"][FacetID]
             
@@ -474,11 +507,11 @@ class ClassImageDeconvMachine():
             JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))
             W=self.DicoDirty["WeightChansImages"]
             JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
-            
 
 
             IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
 
+            # COMMENT TO RUN IN DDF, UNCOMMENT TO TEST WITH TESTXXDeconv.py under XX folder
             ################################
             DicoSave={"Dirty":self._Dirty,
                       "PSF":PSF,
@@ -486,13 +519,15 @@ class ClassImageDeconvMachine():
                       #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
                       "ListPixData":ThisPixList,
                       "ListPixParms":ThisPixList,
+                      "ListSquarePix": ThisSquarePixList,
                       "IslandBestIndiv":IslandBestIndiv,
                       "GD":self.GD,
                       "FacetID":FacetID}
             print "saving"
             MyPickle.Save(DicoSave, "SaveTest")
             print "saving ok"
-            stop
+            ipdb.set_trace()
+
             ################################
 
             nch=nchan
@@ -507,8 +542,33 @@ class ClassImageDeconvMachine():
                                   ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,
                                   GD=self.GD,WeightFreqBands=WeightMuellerSignal)
                 Model=CEv.main(NGen=100,DoPlot=True)#False)
+
             if self.IslandDeconvMode=="Moresane":
+
                 PSF=self.PSFServer.CropPSF(PSF,npix)
+
+                # shape PSF & postage stamp around island
+                if nxpsf % 2 != 0 or nypsf % 2 != 0:  # MORESANE requires even sized images
+                    PSF = PSF[:, :, :-1, :-1] # cropping PSF
+                    _, _, nxpsf, nypsf = PSF.shape
+
+                # computing the coordinates of the edges
+                Aedge, Bedge = self.GiveEdges((x, y), ny, (nxpsfcrop / 2, nypsfcrop / 2), nxpsfcrop)
+
+                x0d, x1d, y0d, y1d = Aedge  # in the dirty
+                x0p, x1p, y0p, y1p = Bedge  # in the facet
+
+                # Extract corresponding dirty
+                subdirty = np.squeeze(self._Dirty[:, :, x0d:x1d, y0d:y1d])
+
+                sdnx, sdny = subdirty.shape
+                if sdnx % 2 != 0 or sdny % 2 != 0:  # MORESANE requires even sized images
+                    subdirty = np.squeeze(self._Dirty[:, :, x0d:x1d - 1, y0d:y1d - 1])
+                    sdnx, sdny = subdirty.shape
+
+
+
+                #Model= # TO FILL
                 pass
 
 

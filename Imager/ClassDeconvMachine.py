@@ -11,6 +11,7 @@ import ClassImageDeconvMachineMultiScale
 import ClassImageDeconvMachineSingleScale
 import ClassImageDeconvMachineMSMF
 import ClassImageDeconvMachineGA
+import ClassImageDeconvMachineSSD
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
@@ -24,7 +25,7 @@ from DDFacet.Other import MyPickle
 import ClassCasaImage
 #from ClassModelMachine import ClassModelMachine
 from pyrap.tables import table
-
+import ipdb
 import time
 import glob
 
@@ -794,6 +795,7 @@ class ClassImagerDeconv():
 
             print>>log, "Try fitting PSF in a [%i,%i] box ..."%(off*2,off*2)
             P=PSF[0,0,x[0]-off:x[0]+off,y[0]-off:y[0]+off]
+
             self.SideLobeLevel,self.OffsetSideLobe=ModFitPSF.FindSidelobe(P)
             sigma_x, sigma_y, theta = ModFitPSF.DoFit(P)
             FitOK=True
