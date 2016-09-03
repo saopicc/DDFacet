@@ -157,7 +157,7 @@ def CropPSF(PSF, npix):
 
     npixside = (npix - 1) / 2  # pixel to include from PSF center.
 
-    PSFCrop = PSF[xc_psf - npixside:xc_psf + npixside + 1,xc_psf - npixside:xc_psf + npixside + 1]
+    PSFCrop = PSF[xc_psf - npixside:xc_psf  + npixside + 1,xc_psf - npixside:xc_psf + npixside + 1]
     return PSFCrop
 
 
@@ -174,9 +174,7 @@ def SquareIslandtoIsland(Model, ThisSquarePixList, ThisPixList):
     SquarePix_x, SquarePix_y = ListSquarePix_Data.shape
 
     if Mod_x != SquarePix_x or Mod_y != SquarePix_y:
-        Print
-        "Mismatch between output Model image dims and original Square image dims. Please check if the even to uneven correction worked."
-        Stop
+        raise NameError('Mismatch between output Model image dims and original Square image dims. Please check if the even to uneven correction worked.')
 
     FluxV = []
     NewThisPixList = []
@@ -226,6 +224,7 @@ def testMO_DATA():
     ListSquarePix_Data=PSF2
 
     xisland,yisland=ListSquarePix_Data.shape # size of the square postage stamp around island
+    print xisland
 
     # 1) Shape PSF and Dirty to have even number of pixels (required by Moresane)
     # DEAL WITH SQUARE DATA OF ISLAND IF UNEVEN
