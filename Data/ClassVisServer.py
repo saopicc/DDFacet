@@ -66,7 +66,7 @@ class ClassVisServer():
         self.ColName=ColName
         self.Field = DicoSelectOptions.get("Field",0)
         self.DDID = DicoSelectOptions.get("DDID",0)
-        self.TaQL = "FIELD_ID==%d&&DATA_DESC_ID==%d" % (self.Field, self.DDID)
+        self.TaQL = DicoSelectOptions.get("TaQL",None)
         self.DicoSelectOptions=DicoSelectOptions
         self.SharedNames=[]
         self.PrefixShared=PrefixShared
@@ -115,6 +115,7 @@ class ClassVisServer():
         for MSName in self.ListMSName:
             MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3),
                 Field=self.Field,DDID=self.DDID,
+                TaQL=self.TaQL,
                 ChanSlice=chanslice,GD=self.GD,
                 ResetCache = self.GD["Stores"]["DeleteDDFProducts"])
             self.ListMS.append(MS)

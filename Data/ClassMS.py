@@ -23,7 +23,7 @@ class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
                  AverageTimeFreq=None,
-                 Field=0,DDID=0,ChanSlice=None,GD=None,
+                 Field=0,DDID=0,TaQL=None,ChanSlice=None,GD=None,
                  ResetCache=False):
         """
         Args:
@@ -63,6 +63,8 @@ class ClassMS():
         self.Field = Field
         self.DDID = DDID
         self.TaQL = "FIELD_ID==%d && DATA_DESC_ID==%d" % (Field, DDID)
+        if TaQL:
+            self.TaQL += " && (%s)"%TaQL
         self.ReadMSInfo(DoPrint=DoPrint)
         self.LFlaggedStations=[]
         self.GD = GD
@@ -676,6 +678,8 @@ class ClassMS():
 
         # open main table
         table_all = self.GiveMainTable()
+        if not table_all.nrows():
+            raise RuntimeError,"no rows in MS %s, check your Field/DDID/TaQL settings"%(self.MSName)
 
         #print MSname+'/ANTENNA'
         ta=table(table_all.getkeyword('ANTENNA'),ack=False)
