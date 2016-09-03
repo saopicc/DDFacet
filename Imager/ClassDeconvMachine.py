@@ -259,9 +259,9 @@ class ClassImagerDeconv():
         return MainFacetOptions
 
     def MakePSF(self):
-        if self.PSF!=None: return
+        if self.PSF is not None: return
 
-        if self.GD["Stores"]["PSF"]!=None:
+        if self.GD["Stores"]["PSF"] is not None:
             print>>log, "Reading PSF image from %s"%self.GD["Stores"]["PSF"]
             CasaPSF=image(self.GD["Stores"]["PSF"])
             PSF=CasaPSF.getdata()
