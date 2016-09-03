@@ -17,7 +17,6 @@ class ClassJones():
         self.FacetMachine=FacetMachine
         self.IdSharedMem=IdSharedMem
         self.MS=MS
-        self.DicoClusterDirs=None
         self.HasKillMSSols=False
         self.BeamTimes_kMS=np.array([],np.float32)
 
@@ -29,6 +28,7 @@ class ClassJones():
         self.DATA=DATA
         SolsFile=GD["DDESolutions"]["DDSols"]
         self.ApplyCal=False
+        DicoClusterDirs = DicoSols = TimeMapping = None
         if SolsFile!="":
             self.ApplyCal=True
             self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache("JonesNorm_killMS.npz",
@@ -55,18 +55,7 @@ class ClassJones():
                 self.MS.cache.saveCache("JonesNorm_Beam.npz")
             self.ToShared("Beam",DicoSols,TimeMapping,DicoClusterDirs)
             
-            del(DicoClusterDirs,DicoSols,TimeMapping)
-        # SJM=ClassSmoothJones.ClassSmoothJones(GD,self.IdSharedMem)
-        # SJM.FindAlpha()
-        # # SJM.SmoothJones()
-
-        try:
-            del(DicoClusterDirs,DicoSols,TimeMapping)
-            if self.HasKillMSSols: 
-                del(self.DicoClusterDirs_kMS)
-        except:
-            pass
-        #del(self.DicoClusterDirs_kMS)
+        del(DicoClusterDirs,DicoSols,TimeMapping)
 
 
     def ToShared(self,StrType,DicoSols,TimeMapping,DicoClusterDirs):
