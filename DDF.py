@@ -198,6 +198,7 @@ def read_options():
     OP.add_option("Cell")
     OP.add_option("Padding")
     OP.add_option("ConstructMode")
+    OP.add_option("Circumcision")
 
     OP.OptionGroup("* GAClean","GAClean")
     OP.add_option("GASolvePars")

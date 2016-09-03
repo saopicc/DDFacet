@@ -722,14 +722,20 @@ class ClassFacetMachine():
 
             DicoVariablePSF=self.DicoPSF
             NFacets=len(DicoVariablePSF.keys())
-            NPixMin=1e6
-            for iFacet in sorted(DicoVariablePSF.keys()):
-                _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
-                if n<NPixMin: NPixMin=n
 
-            NPixMin = int(NPixMin/self.GD["ImagerMainFacet"]["Padding"])
-            if not NPixMin%2:
-                NPixMin += 1
+            if self.GD["ImagerMainFacet"]["Circumcision"]:
+                NPixMin = self.GD["ImagerMainFacet"]["Circumcision"]
+                print>>log,"using explicit Circumcision=%d"%NPixMin
+            else:
+                NPixMin=1e6
+                for iFacet in sorted(DicoVariablePSF.keys()):
+                    _,npol,n,n=DicoVariablePSF[iFacet]["PSF"].shape
+                    if n<NPixMin: NPixMin=n
+
+                NPixMin = int(NPixMin/self.GD["ImagerMainFacet"]["Padding"])
+                if not NPixMin%2:
+                    NPixMin += 1
+                print>>log,"using computed Circumcision=%d"%NPixMin
 
             nch = self.VS.NFreqBands
             CubeVariablePSF=np.zeros((NFacets,nch,npol,NPixMin,NPixMin),np.float32)
