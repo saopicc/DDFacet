@@ -161,6 +161,37 @@ def CropPSF(PSF, npix):
     return PSFCrop
 
 
+def SquareIslandtoIsland(Model, ThisSquarePixList, ThisPixList):
+    ### Build ThisPixList from Model, in the reference frame of the Dirty
+
+    xc, yc = ThisSquarePixList['IslandCenter']  # island center in original dirty
+    ListSquarePix_Data = ThisSquarePixList['IslandSquareData']  # square image of the dirty around Island center
+    ListSquarePix_Mask = ThisSquarePixList['IslandSquareMask']  # Corresponding square mask image
+
+    NIslandPix = len(ThisPixList)
+
+    Mod_x, Mod_y = Model.shape
+    SquarePix_x, SquarePix_y = ListSquarePix_Data.shape
+
+    if Mod_x != SquarePix_x or Mod_y != SquarePix_y:
+        Print
+        "Mismatch between output Model image dims and original Square image dims. Please check if the even to uneven correction worked."
+        Stop
+
+    FluxV = []
+    NewThisPixList = []
+    for tmpcoor in ThisPixList:
+        currentx = tmpcoor[0]
+        currenty = tmpcoor[1]
+        x_loc_coor = (currentx - xc) + SquarePix_x / 2  # coordinates in the small Model image
+        y_loc_coor = (currenty - yc) + SquarePix_y / 2  # coordinates in the small Model image
+        if ListSquarePix_Mask[x_loc_coor, y_loc_coor] == 1:  # if it is not masked (e.g. part of the island)
+            FluxV.append(ListSquarePix_Data[x_loc_coor, y_loc_coor])
+            NewThisPixList.append([currentx, currenty])
+
+    return FluxV,NewThisPixList
+
+
 def testMO_DATA():
     Dico=MyPickle.Load("SaveTest")
     Dirty=Dico["Dirty"]
@@ -172,6 +203,8 @@ def testMO_DATA():
     IslandBestIndiv=Dico["IslandBestIndiv"]
     ListPixParms=ListPixData
     ListSquarePix=Dico["ListSquarePix"]
+    ThisPixList=ListPixData
+    ThisSquarePixList=ListSquarePix
     GD=Dico["GD"]
     FacetID=Dico["FacetID"]
 
@@ -183,37 +216,74 @@ def testMO_DATA():
     #IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
     #ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
 
-    # Load Postage Stamp around current Island
-    ListSquarePix_center=ListSquarePix['Islandcenter']
-    ListSquarePix_data=ListSquarePix['Squaredata']
-    xisland,yisland=ListSquarePix_data.shape # size of the square postage stamp around island
+    # 0) Load Island info (center and square data)
+
+    ListSquarePix_Center=ListSquarePix['IslandCenter']
+    ListSquarePix_Data=ListSquarePix['IslandSquareData']
+    ListSquarePix_Mask=ListSquarePix['IslandSquareMask']
+    orixisland,oriyisland=ListSquarePix_Data.shape # size of the square postage stamp around island
+
+    ListSquarePix_Data=PSF2
+
+    xisland,yisland=ListSquarePix_Data.shape # size of the square postage stamp around island
+
+    # 1) Shape PSF and Dirty to have even number of pixels (required by Moresane)
+    # DEAL WITH SQUARE DATA OF ISLAND IF UNEVEN
 
     # Crop PSF to the island postage stamp
     #PSFCrop=CropPSF(PSF,xisland)
-    PSF2=CropPSF(PSF2,71)
+    #PSF2=CropPSF(PSF2,71)
     # MORESANE requires even sized images ==> Padding by one row and one column
+    cropped_square_data_to_even = False
     if xisland % 2 != 0:
-    #    PSFCrop_even = np.zeros((xisland+1, xisland+1))
-    #    PSFCrop_even[:-1, :-1] = np.squeeze(PSFCrop)
-        Dirty_even=np.zeros((xisland-1,xisland-1))
-        Dirty_even[:,:]=ListSquarePix_data[:-1,:-1]
+        #    PSFCrop_even = np.zeros((xisland+1, xisland+1))
+        #    PSFCrop_even[:-1, :-1] = np.squeeze(PSFCrop)
+        Dirty_even = np.zeros((xisland - 1, xisland - 1))
+        Dirty_even[:, :] = ListSquarePix_Data[:-1, :-1]
+        cropped_square_data_to_even = True
+    else:
+        Dirty_even = ListSquarePix_Data
+    # make it even by removing one line and one column (usually outside of the interesting island region)
 
 
-    xbigdirty,ybigdirty=np.squeeze(Dirty).shape
-    if xbigdirty % 2 != 0:
-        Dirty_even=np.zeros((xbigdirty-1,xbigdirty-1))
-        Dirty_even[:,:]=np.squeeze(Dirty)[:-1,:-1]
+    # xbigdirty,ybigdirty=np.squeeze(Dirty).shape
+    # if xbigdirty % 2 != 0:
+    #     Dirty_even=np.zeros((xbigdirty-1,xbigdirty-1))
+    #     Dirty_even[:,:]=np.squeeze(Dirty)[:-1,:-1]
 
     xbigpsf,ybigpsf=PSF2.shape
+    cropped_square_psf_to_even = False
     if xbigpsf % 2 != 0:
         PSF2_even=np.zeros((xbigpsf-1,xbigpsf-1))
         PSF2_even[:,:]=PSF2[:-1,:-1]
+        cropped_square_data_to_even = True
+    else:
+        PSF2_even=PSF2
 
-
-
+    # 2) Run the actual MinorCycle algo
     DictMoresaneParms=GD['MORESANE']
-    Moresane=ClassMoresane(PSF2_even,PSF2_even,DictMoresaneParms,GD=GD)
-    Model=Moresane.main()
-    ipdb.set_trace()
+    Moresane=ClassMoresane(Dirty_even,PSF2_even,DictMoresaneParms,GD=GD)
+
+    Model_Square=Moresane.main()
+
+    # 3) Apply Island mask to model to get rid of regions outside the island.
+
+    cropped_square_to_even = False
+    if cropped_square_data_to_even:  # then restore the model to its original uneven dimension
+        Model_Square_uneven = np.zeros((xisland, xisland))
+        Model_Square_uneven[:-1, :-1] = Model_Square
+        Model_Square = Model_Square_uneven
+
+    if cropped_square_psf_to_even: # restore original PSF size
+        PSF_uneven=PSF2
+
+    Model_Square=CropPSF(Model_Square, orixisland)
+    Model_Square *= ListSquarePix_Mask  # masking outside the island
+
+    # 4) Convert back to Island format ( "S" and ThisPixList )
+    NewModel, NewThisPixList = SquareIslandtoIsland(Model_Square, ThisSquarePixList, ThisPixList)
+
+    Model = NewModel
+    ThisPixList = NewThisPixList
 
     return Model

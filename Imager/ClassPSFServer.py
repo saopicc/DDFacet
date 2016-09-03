@@ -83,8 +83,6 @@ class ClassPSFServer():
         # print "[%i, %i] ->  %i"%(xp,yp,ClosestFacet)
         return ClosestFacet
 
-
-
     def setFacet(self,iFacet):
         #print "set facetloc"
         self.iFacet=iFacet
@@ -155,8 +153,6 @@ class ClassPSFServer():
             yc+=delta_y
             print delta_x,delta_y
         return xc,yc
-            
-            
 
     def GivePSF(self):
         return self.CubeVariablePSF[self.iFacet],self.CubeMeanVariablePSF[self.iFacet]
