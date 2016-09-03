@@ -163,3 +163,21 @@ class ClassPSFServer():
 
     def GiveFreqBandsFluxRatio(self,*args,**kwargs):
         return self.SpectralFunctionsMachine.GiveFreqBandsFluxRatio(*args,**kwargs)
+
+    def CropPSF(self,PSF,npix):
+        _,_,nx_psf,_=PSF.shape
+        xc_psf = nx_psf / 2
+
+        if npix % 2 == 0:
+            print >> log, "Cropping size should be odd (npix=%d) !!! Adding 1 pixel"%npix
+            npix=npix+1
+
+        if npix > nxpsf or npix > nypsf:
+            print >> log, "Cropping size larger than PSF size !!!"
+            stop
+
+        npixside=(npix-1)/2 #pixel to include from PSF center.
+
+        PSFCrop=PSF[:,:,xc_psf-npixside:xc_psf+npixside+1]
+
+        return PSFCrop
