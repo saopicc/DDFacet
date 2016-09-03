@@ -138,9 +138,10 @@ class ClassMultiScaleMachine():
         box = self.GD["MultiScale"]["PSFBox"]
         if box:
             dx = box
-            print>> log, "explicitly set PSFBox=%d" % dx
+#            print>> log, "explicitly set PSFBox=%d" % dx
         else:
-            print>> log, "PSF box extent computed as %d" % dx
+            pass
+#            print>> log, "PSF box extent computed as %d" % dx
         self.PSFExtent=(NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
 
         #self.PSFExtent=(0,NPSF,0,NPSF)
