@@ -459,6 +459,7 @@ class ClassFacetMachine():
 
         self.SpacialWeigth={}
 
+
         # check if spacial weights are cached
         cachepath, cachevalid = self.VS.maincache.checkCache("FacetData",
                 dict(ImagerCF=self.GD["ImagerCF"],
@@ -688,32 +689,15 @@ class ClassFacetMachine():
 
                 nch,npol,n,n=self.DicoPSF[iFacet]["PSF"].shape
                 PSFChannel=np.zeros((nch,npol,n,n),self.stitchedType)
-                # for ch in range(nch):
-                #     self.DicoPSF[iFacet]["PSF"][ch][0]=self.DicoPSF[iFacet]["PSF"][ch][0].T[::-1,:]
-                #     self.DicoPSF[iFacet]["PSF"][ch]/=np.max(self.DicoPSF[iFacet]["PSF"][ch]) #normalize to peak of 1
-                #     PSFChannel[ch,:,:,:]=self.DicoPSF[iFacet]["PSF"][ch][:,:,:]
                 for ch in range(nch):
-                    self.DicoPSF[iFacet]["PSF"][ch][SPhe[0]<1e-2]=0
+                    self.DicoPSF[iFacet]["PSF"][ch][SPhe[0] < 1e-2] = 0
                     self.DicoPSF[iFacet]["PSF"][ch][0]=self.DicoPSF[iFacet]["PSF"][ch][0].T[::-1,:]
                     SumJonesNorm=self.DicoImager[iFacet]["SumJonesNorm"][ch]
-                    self.DicoPSF[iFacet]["PSF"][ch]/=np.sqrt(SumJonesNorm)
-                    # np.max(self.DicoPSF[iFacet]["PSF"][ch])
+                    self.DicoPSF[iFacet]["PSF"][ch]/=np.sqrt(SumJonesNorm) #normalize to bring back transfer functions to approximate convolution
                     for pol in range(npol):
                         ThisSumWeights=self.DicoImager[iFacet]["SumWeights"][ch][pol]
-                        self.DicoPSF[iFacet]["PSF"][ch][pol]/=ThisSumWeights
-                        
+                        self.DicoPSF[iFacet]["PSF"][ch][pol]/=ThisSumWeights #normalize the response per facet channel if jones corrections are enabled
                     PSFChannel[ch,:,:,:]=self.DicoPSF[iFacet]["PSF"][ch][:,:,:]
-
-                    # pylab.clf()
-                    # pylab.imshow(PSFChannel[ch,0,:,:],interpolation="nearest")
-                    # pylab.colorbar()
-                    # pylab.draw()
-                    # pylab.show(False)
-                    # pylab.pause(0.1)
-
-
-
-
 
                 W=DicoImages["WeightChansImages"]
                 W=np.float32(W.reshape((self.VS.NFreqBands,npol,1,1)))
