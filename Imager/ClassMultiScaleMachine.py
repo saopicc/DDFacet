@@ -13,6 +13,9 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 import pickle
+import cPickle
+
+debug_dump_file = None
 
 def writetofile(fname,val):
     file1 = open(fname,'a+')
@@ -621,7 +624,12 @@ class ClassMultiScaleMachine():
                 #     Sol=SolReg
 
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
-            
+
+            if self.GD["Debugging"]["DumpCleanSolutions"]:
+                global debug_dump_file
+                if not debug_dump_file:
+                    debugfile = file(self.GD["Debugging"]["DumpCleanSolutions"], "w")
+                cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, SolReg, coef), debug_dump_file, 2)
 
             
             Sol*=(MeanFluxTrue/np.sum(Sol))
@@ -630,6 +638,8 @@ class ClassMultiScaleMachine():
             
 
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
+
+
 
             #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()

@@ -382,7 +382,12 @@ class ClassImageDeconvMachine():
     #                 pBAR.render(PercentDone,"peak %.3g i%d"%(ThisFlux,self._niter))
                 rounded_iter_step = min(int(10**math.floor(math.log10(i))), 10000)
                 if i>=10 and i%rounded_iter_step == 0:
-                	print>>log, "    [iter=%i] peak residual %.3g" % (i,ThisFlux)
+                    if self.GD["Debugging"]["PrintMinorCycleRMS"]:
+                        print>>log, "    [iter=%i] peak residual %.3g, rms %g" % (i,ThisFlux, self._Dirty.std())
+                    else:
+                        print>> log, "    [iter=%i] peak residual %.3g" % (i, ThisFlux)
+                    if ClassMultiScaleMachine.debug_dump_file:
+                        ClassMultiScaleMachine.debug_dump_file.flush()
 
                 nch,npol,_,_=self._Dirty.shape
                 Fpol=np.float32((self._Dirty[:,:,x,y].reshape((nch,npol,1,1))).copy())

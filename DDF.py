@@ -227,6 +227,8 @@ def read_options():
     OP.add_option("SaveIntermediateDirtyImages")
     OP.add_option("PauseGridWorkers")
     OP.add_option("FacetPhaseShift")
+    OP.add_option("DumpCleanSolutions")
+    OP.add_option("PrintMinorCycleRMS")
 
     OP.OptionGroup("* Logging","Logging")
     OP.add_option("MemoryLogging")
