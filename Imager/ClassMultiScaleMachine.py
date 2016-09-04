@@ -628,7 +628,7 @@ class ClassMultiScaleMachine():
             if self.GD["Debugging"]["DumpCleanSolutions"]:
                 global debug_dump_file
                 if not debug_dump_file:
-                    debugfile = file(self.GD["Debugging"]["DumpCleanSolutions"], "w")
+                    debug_dump_file = file(self.GD["Debugging"]["DumpCleanSolutions"], "w")
                 cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, SolReg, coef), debug_dump_file, 2)
 
             
