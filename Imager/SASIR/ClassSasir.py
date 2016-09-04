@@ -4,14 +4,12 @@ import numpy as np
 import logging
 import time
 
-
-
-#import pymoresane.iuwt as iuwt
-#import pymoresane.iuwt_convolution as conv
-#import pymoresane.iuwt_toolbox as tools
-#import pymoresane.parser as pparser
-#from pymoresane.beam_fit import beam_fit
-#from pymoresane.main import FitsImage as FI # importing the class
+import pymoresane.iuwt as iuwt
+import pymoresane.iuwt_convolution as conv
+import pymoresane.iuwt_toolbox as tools
+import pymoresane.parser as pparser
+from pymoresane.beam_fit import beam_fit
+from pymoresane.main import FitsImage as FI # importing the class
 
 from scipy.signal import fftconvolve
 import pylab as plt
