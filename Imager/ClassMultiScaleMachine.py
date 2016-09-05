@@ -541,8 +541,8 @@ class ClassMultiScaleMachine():
         #self.SolveMode="ComplementaryMatchingPursuit"
         #self.SolveMode="NNLS"
 
-        MeanFluxTrue=np.sum(FpolTrue.ravel()*self.WeightMuellerSignal)/np.sum(self.WeightMuellerSignal)
-        
+        # MeanFluxTrue=np.sum(FpolTrue.ravel()*self.WeightMuellerSignal)/np.sum(self.WeightMuellerSignal)
+        MeanFluxTrue = Fpol.mean()/np.sqrt(JonesNorm).mean()
         
         if  self.SolveMode=="MatchingPursuit":
             #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
