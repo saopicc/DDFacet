@@ -10,9 +10,9 @@ import ephem
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
+from DDFacet.Other.CacheManager import CacheManager
 import sidereal
 import datetime
-import DDFacet.ToolsDir.ModRotate
 
 try:
     import lofar.stationresponse as lsr
@@ -23,10 +23,30 @@ class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
                  AverageTimeFreq=None,
-                 Field=0,DDID=0,ChanSlice=None,ToRADEC=None):
+                 Field=0,DDID=0,TaQL=None,ChanSlice=None,GD=None,
+                 ResetCache=False):
+        """
+        Args:
+            MSname:
+            Col:
+            zero_flag:
+            ReOrder:
+            EqualizeFlag:
+            DoPrint:
+            DoReadData:
+            TimeChunkSize:
+            GetBeam:
+            RejectAutoCorr:
+            SelectSPW:
+            DelStationList:
+            AverageTimeFreq:
+            Field:
+            DDID:
+            ChanSlice:
+            ResetCache: if True, cached products will be reset
+        """
 
         if MSname=="": exit()
-        self.ToRADEC=ToRADEC
         self.AverageSteps=AverageTimeFreq
         MSname=reformat.reformat(os.path.abspath(MSname),LastSlash=False)
         self.MSName=MSname
@@ -43,8 +63,11 @@ class ClassMS():
         self.Field = Field
         self.DDID = DDID
         self.TaQL = "FIELD_ID==%d && DATA_DESC_ID==%d" % (Field, DDID)
-        self.ReadMSInfo(MSname,DoPrint=DoPrint)
+        if TaQL:
+            self.TaQL += " && (%s)"%TaQL
+        self.ReadMSInfo(DoPrint=DoPrint)
         self.LFlaggedStations=[]
+        self.GD = GD
 
         self.CurrentChunkTimeRange_SinceT0_sec=None
         try:
@@ -63,9 +86,18 @@ class ClassMS():
         if GetBeam:
             self.LoadSR()
 
+        # the MS has two caches associated with it. self.maincache stores DDF-related data that is not related to
+        # iterating through the MS. self.cache is created in GiveNextChunk, and is thus different from chunk
+        # to chunk. It is stored in self._chunk_caches, so that the per-chunk cache manager is initialized only
+        # once.
+        self._reset_cache = ResetCache
+        self._chunk_caches = {}
+        self.maincache = CacheManager(MSname+".ddfcache", reset=ResetCache)
+
     def GiveMainTable (self,**kw):
         """Returns main MS table, applying TaQL selection if any"""
-        t = table(self.MSName,ack=False,**kw)
+        ack = kw.pop("ack", False)
+        t = table(self.MSName,ack=ack,**kw)
 
         if self.TaQL:
             t = t.query(self.TaQL)
@@ -398,13 +430,16 @@ class ClassMS():
         self.ROW0=0
         self.ROW1=0
 
-    def GiveNextChunk(self):
+    def GiveNextChunk(self,databuf=None,flagbuf=None):
         row0=self.ROW1
         row1=self.ROW1+self.nRowChunk
-        return self.ReadData(row0,row1)
+        if (row0,row1) not in self._chunk_caches:
+            self._chunk_caches[row0,row1] = CacheManager(self.MSName+".ddfcache/F%d:D%d:%d:%d" % (self.Field,self.DDID,row0,row1), self._reset_cache)
+        self.cache = self._chunk_caches[row0,row1]
+        return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf)
         
         
-    def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False):
+    def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False,databuf=None,flagbuf=None):
 
         if row0>=self.F_nrows:
             return "EndMS"
@@ -412,10 +447,11 @@ class ClassMS():
             row1=self.F_nrows
         
 
-        self.ROW0=row0
-        self.ROW1=row1
-        self.nRowRead=row1-row0
-        nRowRead=self.nRowRead
+        self.ROW0 = row0
+        self.ROW1 = row1
+        self.nRowRead = nRowRead = row1-row0
+        # expected data column shape
+        datashape = (nRowRead, len(self.ChanFreq), len(self.CorrelationNames))
 
         strMS="%s"%(ModColor.Str(self.MSName,col="green"))
         print>>log, "%s: Reading next data chunk in [%i, %i] rows"%(strMS,row0,row1)
@@ -429,16 +465,28 @@ class ClassMS():
         #print np.max(time_all)-np.min(time_all)
         #time_slots_all=np.array(sorted(list(set(time_all))))
         ntimes=time_all.shape[0]/self.nbl
-        
-        flag_all=table_all.getcol("FLAG",row0,nRowRead)#[SPW==self.ListSPW[0]]
-        _,_,npol=flag_all.shape
+
+        # if flag buffer is supplied, use that object's memory for flag array
+        if flagbuf is not None:
+            flag_all = np.ndarray(shape=datashape,dtype=np.bool,buffer=flagbuf)
+            print>>log,"using %d/%d elements of existing flag buffer"%(flag_all.size,flagbuf.size)
+            table_all.getcolnp("FLAG",flag_all,row0,nRowRead)#[SPW==self.ListSPW[0]]
+        else:
+            flag_all = table_all.getcol("FLAG",row0,nRowRead)#[SPW==self.ListSPW[0]]
 
         if ReadWeight==True:
             self.Weights=table_all.getcol("WEIGHT",row0,nRowRead)
-            
+        
         
         uvw=table_all.getcol('UVW',row0,nRowRead)#[SPW==self.ListSPW[0]]
-        vis_all=table_all.getcol(self.ColName,row0,nRowRead)
+
+        # if data buffer is supplied, use that object's memory for data array
+        if databuf is not None:
+            vis_all = np.ndarray(shape=datashape,dtype=np.complex64,buffer=databuf)
+            print>>log,"using %d/%d elements of existing visibility buffer"%(vis_all.size,databuf.size)
+            table_all.getcolnp(self.ColName,vis_all,row0,nRowRead)#[SPW==self.ListSPW[0]]
+        else:
+            vis_all = table_all.getcol(self.ColName,row0,nRowRead)
         
         if self.zero_flag: vis_all[flag_all==1]=1e10
         #print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
@@ -473,19 +521,6 @@ class ClassMS():
         
         DATA["data"]=vis_all
         DATA["flag"]=flag_all
-        
-        if self.ToRADEC!=None:
-            self.Rotate(DATA)
-
-        if npol==1:
-            self.To4Pols(DATA)
-
-
-        if self.DoRevertChans:
-            DATA["data"]=DATA["data"][:,::-1,:]
-            DATA["flag"]=DATA["flag"][:,::-1,:]
-
-
 
         # if self.AverageSteps!=None:
         #     StepTime,StepFreq=self.AverageSteps
@@ -493,16 +528,6 @@ class ClassMS():
 
         return DATA
             
-    def To4Pols(self,DATA):
-        nrow,nchan,_=DATA["data"].shape
-        data4=np.zeros((nrow,nchan,4),DATA["data"].dtype)
-        data4[:,:,0]=DATA["data"][:,:,0]
-        data4[:,:,3]=DATA["data"][:,:,0]
-        flag4=np.zeros((nrow,nchan,4),DATA["flag"].dtype)
-        flag4[:,:,0]=DATA["flag"][:,:,0]
-        flag4[:,:,3]=DATA["flag"][:,:,0]
-        DATA["flag"]=flag4
-        DATA["data"]=data4
 
     def GiveAverageTimeFreq(self,DicoData,StepTime=None,StepFreq=None):
         DicoDataOut={}
@@ -646,13 +671,15 @@ class ClassMS():
         self.nbl=(na*(na-1))/2+na
         
 
-    def ReadMSInfo(self,MSname,DoPrint=True):
+    def ReadMSInfo(self,DoPrint=True):
         T=ClassTimeIt.ClassTimeIt()
         T.enableIncr()
         T.disable()
 
         # open main table
-        table_all=table(MSname,ack=False)
+        table_all = self.GiveMainTable()
+        if not table_all.nrows():
+            raise RuntimeError,"no rows in MS %s, check your Field/DDID/TaQL settings"%(self.MSName)
 
         #print MSname+'/ANTENNA'
         ta=table(table_all.getkeyword('ANTENNA'),ack=False)
@@ -683,8 +710,9 @@ class ClassMS():
         tp = table(table_all.getkeyword('POLARIZATION'),ack=False)
         # get list of corrype enums for first row of polarization table, and convert to strings via MS_STOKES_ENUMS. 
         # self.CorrelationNames will be a list of strings
+        self.CorrelationIds = tp.getcol('CORR_TYPE',0,1)[self._polid]
         self.CorrelationNames = [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
-                None for ctype in tp.getcol('CORR_TYPE',0,1)[self._polid] ]
+                None for ctype in self.CorrelationIds ]
         # NB: it is possible for the MS to have different polarization
 
         self.ColNames=table_all.colnames()
@@ -746,31 +774,13 @@ class ClassMS():
         NSPWChan=NSPW*Nchan
 
         ta=table(table_all.getkeyword('FIELD'),ack=False)
-
-
         rarad,decrad=ta.getcol('PHASE_DIR')[self.Field][0]
         if rarad<0.: rarad+=2.*np.pi
 
-        if self.ToRADEC!=None:
-            SRa,SDec=self.ToRADEC
-            srah,sram,sras=SRa.split(":")
-            sdecd,sdecm,sdecs=SDec.split(":")
-            ranew=(np.pi/180)*15.*(float(srah)+float(sram)/60.+float(sras)/3600.)
-            decnew=(np.pi/180)*(float(sdecd)+float(sdecm)/60.+float(sdecs)/3600.)
-            self.OldRadec=rarad,decrad
-            self.NewRadec=ranew,decnew
-            rarad,decrad=ranew,decnew
-
-        radeg=rarad*180./np.pi
-        decdeg=decrad*180./np.pi
-        self.radec=(rarad,decrad)
-        self.rarad=rarad
-        self.decrad=decrad
-        self.rac=rarad
-        self.decc=decrad
-
         T.timeit()
 
+        self.radeg=rarad*180./np.pi
+        self.decdeg=decrad*180./np.pi
         ta.close()
          
         self.DoRevertChans=False
@@ -778,8 +788,8 @@ class ClassMS():
             self.DoRevertChans=(self.ChanFreq.flatten()[0]>self.ChanFreq.flatten()[-1])
         if self.DoRevertChans:
             print ModColor.Str("  ====================== >> Revert Channel order!")
-            wavelength_chan=wavelength_chan[::-1]
-            self.ChanFreq=self.ChanFreq[::-1]
+            wavelength_chan=wavelength_chan[0,::-1]
+            self.ChanFreq=self.ChanFreq[0,::-1]
             self.dFreq=np.abs(self.dFreq)
 
         # if self.AverageSteps!=None:
@@ -813,9 +823,14 @@ class ClassMS():
         self.dt=dt
         self.DTs=T1-T0
         self.DTh=self.DTs/3600.
+        self.radec=(rarad,decrad)
+        self.rarad=rarad
+        self.decrad=decrad
         self.reffreq=reffreq
         self.StationNames=StationNames
         self.wavelength_chan=wavelength_chan
+        self.rac=rarad
+        self.decc=decrad
         self.nbl=nbl
         self.StrRA  = rad2hmsdms(self.rarad,Type="ra").replace(" ",":")
         self.StrDEC = rad2hmsdms(self.decrad,Type="dec").replace(" ",".")
@@ -852,10 +867,15 @@ class ClassMS():
         return l,m
 
     def PutVisColumn (self,colname,vis):
-        self.AddCol(colname)
-        t = self.GiveMainTable(readonly=False)#,ack=False)
-        if self.ChanSlice:
-            vis0 = t.getcol(colname)
+        self.AddCol(colname,quiet=True)
+        t = self.GiveMainTable(readonly=False,ack=False)
+        if self.ChanSlice and self.ChanSlice != slice(None):
+            # if getcol fails, maybe because this is a new col which hasn't been filled
+            # in this case read DATA instead
+            try:
+                vis0 = t.getcol(colname)
+            except RuntimeError:
+                vis0 = t.getcol("DATA")
             vis0[:,self.ChanSlice,:] = vis
             t.putcol(colname,vis0)
         else:
@@ -989,13 +1009,15 @@ class ClassMS():
                 t.putcol(Colout,t.getcol(Colin,row0,NRow),row0,NRow)
         t.close()
 
-
-    def AddCol(self,ColName,LikeCol="DATA"):
+    def AddCol(self,ColName,LikeCol="DATA",quiet=False):
         t=table(self.MSName,readonly=False,ack=False)
-        if (ColName in t.colnames()):
-            print>>log, "  Column %s already in %s"%(ColName,self.MSName)
+        if (ColName in t.colnames() and not self.GD["Images"]["AllowColumnOverwrite"]):
+            if not quiet:
+                print>>log, "  Column %s already in %s"%(ColName,self.MSName)
             t.close()
             return
+        elif (ColName in t.colnames() and self.GD["Images"]["AllowColumnOverwrite"]):
+            t.removecols(ColName)
         print>>log, "  Putting column %s in %s"%(ColName,self.MSName)
         desc=t.getcoldesc(LikeCol)
         desc["name"]=ColName
@@ -1041,27 +1063,20 @@ class ClassMS():
             t.addcols(desc) 
             t.close()
     
-    def Rotate(self,DATA):
-        #DDFacet.ToolsDir.ModRotate.Rotate(self,radec)
-        StrRAOld  = rad2hmsdms(self.OldRadec[0],Type="ra").replace(" ",":")
-        StrDECOld = rad2hmsdms(self.OldRadec[1],Type="dec").replace(" ",".")
-        StrRA  = rad2hmsdms(self.NewRadec[0],Type="ra").replace(" ",":")
-        StrDEC = rad2hmsdms(self.NewRadec[1],Type="dec").replace(" ",".")
-        print>>log, "  Rotate data from [%s, %s]"%(StrRAOld,StrDECOld)
-        print>>log, "                to [%s, %s]"%(StrRA,StrDEC)
-        DDFacet.ToolsDir.ModRotate.Rotate2(self.OldRadec,self.NewRadec,DATA["uvw"],DATA["data"],self.wavelength_chan)
-        
-        # ta=table(self.MSName+'/FIELD/',ack=False,readonly=False)
-        # ra,dec=radec
-        # radec=np.array([[[ra,dec]]])
-        # ta.putcol("DELAY_DIR",radec)
-        # ta.putcol("PHASE_DIR",radec)
-        # ta.putcol("REFERENCE_DIR",radec)
-        # ta.close()
-        # t=self.GiveMainTable(readonly=False)
-        # t.putcol(self.ColName,self.data)
-        # t.putcol("UVW",self.uvw)
-        # t.close()
+    def RotateMS(self,radec):
+        import ModRotate
+        ModRotate.Rotate(self,radec)
+        ta=table(self.MSName+'/FIELD/',ack=False,readonly=False)
+        ra,dec=radec
+        radec=np.array([[[ra,dec]]])
+        ta.putcol("DELAY_DIR",radec)
+        ta.putcol("PHASE_DIR",radec)
+        ta.putcol("REFERENCE_DIR",radec)
+        ta.close()
+        t=self.GiveMainTable(readonly=False)
+        t.putcol(self.ColName,self.data)
+        t.putcol("UVW",self.uvw)
+        t.close()
     
     def PutCasaCols(self):
         import pyrap.tables

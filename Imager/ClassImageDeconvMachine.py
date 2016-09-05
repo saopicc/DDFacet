@@ -76,7 +76,7 @@ class ClassImageDeconvMachine():
             print>>log, "PSF extends to [%i] from center"%(dx0)
         
         npix=2*dx0+1
-        npix=ModToolBox.GiveClosestFastSize(npix,Odd=False)
+        npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
 
         self.PSFMargin=(NPSF-npix)/2
 
@@ -119,7 +119,8 @@ class ClassImageDeconvMachine():
             CubePSFScales[iSlice,:,:]=ModFFTW.ConvolveGaussian(self.SubPSF,CellSizeRad=1.,GaussPars=[PSFGaussPars])[0,0]
             Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)
             self.ListScales.append({"ModelType":"Gaussian",
-                                    "Model":Gauss})
+                                    "Model":Gauss, "ModelParams":PSFGaussPars,
+                                    "Scale":i})
 
             iSlice+=1
 
@@ -148,7 +149,8 @@ class ClassImageDeconvMachine():
                     iSlice+=1
                     Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)/Max
                     self.ListScales.append({"ModelType":"Gaussian",
-                                            "Model":Gauss})
+                                            "Model":Gauss, "ModelParams":PSFGaussPars,
+                                            "Scale":iScale})
 
         # Max=np.max(np.max(CubePSFScales,axis=1),axis=1)
         # Max=Max.reshape((Max.size,1,1))

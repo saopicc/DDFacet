@@ -74,6 +74,7 @@ class ClassPSFServer():
             l=CellSizeRad*(xp-nx/2)
             m=CellSizeRad*(yp-nx/2)
             lSol,mSol=self.DicoVariablePSF[iFacet]["lmSol"]
+            #print "lsol, msol = ",lSol,mSol #,self.DicoVariablePSF[iFacet]["pixCentral"][0],self.DicoVariablePSF[iFacet]["pixCentral"][1]
 
             d=np.sqrt((l-lSol)**2+(m-mSol)**2)
 
@@ -157,30 +158,72 @@ class ClassPSFServer():
     def GivePSF(self):
         return self.CubeVariablePSF[self.iFacet],self.CubeMeanVariablePSF[self.iFacet]
 
-    def GiveFreqBandsFluxRatio(self,*args,**kwargs):
-        return self.SpectralFunctionsMachine.GiveFreqBandsFluxRatio(*args,**kwargs)
 
-    def CropPSF(self,PSF,npix):
-        PSFshape=PSF.shape
-        if len(PSFshape) == 4:
-            nfreq,npol,nx_psf,ny_psf=PSF.shape
-        else:
-            nx_psf,ny_psf=PSF.shape
+    def GiveFreqBandsFluxRatio(self,iFacet,Alpha):
+        NAlpha=Alpha.size
+        NFreqBand=self.DicoVariablePSF["CubeVariablePSF"].shape[1]
+        SumJonesChan=self.DicoVariablePSF["SumJonesChan"][iFacet]
+        SumJonesChanWeightSq=self.DicoVariablePSF["SumJonesChanWeightSq"][iFacet]
+        ChanMappingGrid=self.DicoVariablePSF["ChanMappingGrid"]
+        ChanMappingGridChan=self.DicoVariablePSF["ChanMappingGridChan"]
+        RefFreq=self.RefFreq
+        FreqBandsFluxRatio=np.zeros((NAlpha,NFreqBand),np.float32)
 
-        xc_psf = nx_psf / 2
+        
+        ListBeamFactor=[]
+        ListBeamFactorWeightSq=[]
+        #print "============"
+        for iChannel in range(NFreqBand):
+            nfreq = len(self.DicoVariablePSF["freqs"][iChannel])
+            ThisSumJonesChan = np.zeros(nfreq,np.float64)
+            ThisSumJonesChanWeightSq = np.zeros(nfreq,np.float64)
+            for iMS in range(len(SumJonesChan)):
+                ind = np.where(ChanMappingGrid[iMS]==iChannel)[0]
+                channels = ChanMappingGridChan[iMS][ind]
+                ThisSumJonesChan[channels] += SumJonesChan[iMS][ind]
+                ThisSumJonesChanWeightSq[channels] += SumJonesChanWeightSq[iMS][ind]
+            
+            #print "== ",iFacet,iChannel,np.sqrt(np.sum(np.array(ThisSumJonesChan))/np.sum(np.array(ThisSumJonesChanWeightSq)))
 
-        if npix % 2 == 0:
-            print >> log, "Cropping size should be odd (npix=%d) !!! Adding 1 pixel"%npix
-            npix=npix+1
+            ListBeamFactor.append(ThisSumJonesChan)
+            ListBeamFactorWeightSq.append(ThisSumJonesChanWeightSq)
 
-        if npix > nx_psf or npix > ny_psf:
-            print >> log, "Cropping size larger than PSF size !!!"
-            raise NameError("Cropping size larger than PSF size !!!")
+        # SumListBeamFactor=0
+        # NChan=0
+        # for iChannel in range(NFreqBand):
+        #     SumListBeamFactor+=np.sum(ListBeamFactor[iChannel])
+        #     NChan+=ListBeamFactor[iChannel].size
+        # SumListBeamFactor/=NChan
+        # for iChannel in range(NFreqBand):
+        #     ListBeamFactor[iChannel]/=SumListBeamFactor
 
-        npixside=(npix-1)/2 #pixel to include from PSF center.
-        if len(PSFshape) == 4:
-            PSFCrop = PSF[nfreq,npol,xc_psf - npixside:xc_psf + npixside + 1, xc_psf - npixside:xc_psf + npixside + 1] # making it square psf
-        else:
-            PSFCrop = PSF[xc_psf - npixside:xc_psf + npixside + 1, xc_psf - npixside:xc_psf + npixside + 1] # making it square psf
+        # for iChannel in range(NFreqBand):
+        # #     ListBeamFactor[iChannel]/=np.mean(ListBeamFactor[iChannel])
+        # #     # ListBeamFactor[iChannel]=np.sqrt(ListBeamFactor[iChannel])
+        # #     # ListBeamFactor[iChannel]/=np.mean(ListBeamFactor[iChannel])
+        #     ListBeamFactor[iChannel]/=(self.DicoVariablePSF["SumJonesBand"][iFacet][iChannel])
+        # #     # print self.DicoVariablePSF["MeanJonesBand"][iFacet]
 
-        return PSFCrop
+
+        for iChannel in range(NFreqBand):
+            BeamFactor=ListBeamFactor[iChannel]
+            BeamFactorWeightSq=ListBeamFactorWeightSq[iChannel]
+            
+            ThisFreqs=self.DicoVariablePSF["freqs"][iChannel]
+#            print "FreqArrays",len(ThisFreqs),len(BeamFactor)
+            #if iFacet==60:
+            #    print iChannel,iMS,BeamFactor
+            #BeamFactor.fill(1.)
+            for iAlpha in range(NAlpha):
+                ThisAlpha=Alpha[iAlpha]
+                
+                FreqBandsFluxRatio[iAlpha,iChannel]=np.sqrt(np.sum(BeamFactor*((ThisFreqs/RefFreq)**ThisAlpha)**2))/np.sqrt(np.sum(BeamFactorWeightSq))
+                FreqBandsFluxRatio[iAlpha,iChannel]/=np.sqrt(self.DicoVariablePSF["MeanJonesBand"][iFacet][iChannel])
+        #MeanFreqBandsFluxRatio=np.mean(FreqBandsFluxRatio,axis=1)
+        #FreqBandsFluxRatio=FreqBandsFluxRatio/MeanFreqBandsFluxRatio.reshape((NAlpha,1))
+
+        # print "=============="
+        # print iFacet
+        # print FreqBandsFluxRatio
+
+        return FreqBandsFluxRatio
