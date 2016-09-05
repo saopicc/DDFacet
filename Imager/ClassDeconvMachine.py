@@ -5,6 +5,8 @@ from pyrap.images import image
 import ClassImageDeconvMachineHogbom
 import ClassImageDeconvMachineMSMF
 import ClassImageDeconvMachineGA
+import ClassImageDeconvMachineSSD
+
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Array import NpShared
 import os
@@ -186,7 +188,7 @@ class ClassImagerDeconv():
                     self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
                 elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD":
                     self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
-				else:
+                else:
 					raise NotImplementedError("Currently MSMF, GA are the only multi-scale algorithm")
             else:
                 print>>log, "Minor cycle deconvolution in Single Scale Mode"

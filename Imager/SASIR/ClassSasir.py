@@ -4,55 +4,24 @@ import numpy as np
 import logging
 import time
 
-import pymoresane.iuwt as iuwt
-import pymoresane.iuwt_convolution as conv
-import pymoresane.iuwt_toolbox as tools
-import pymoresane.parser as pparser
-from pymoresane.beam_fit import beam_fit
-from pymoresane.main import FitsImage as FI # importing the class
-
 from scipy.signal import fftconvolve
-import pylab as plt
 
 logger = logging.getLogger(__name__)
 
 
-class ClassMoresane(FI): # inherits from FitsImage but overriding __init__ to get rid of FITS file processing
-    def __init__(self,Dirty,PSF,DictMoresaneParms,GD=None):
+class ClassSasir: # inherits from FitsImage but overriding __init__ to get rid of FITS file processing
+    def __init__(self,Dirty,PSF,DictSasirParms,GD=None):
 
         # manage Dirty
         self.Dirty=Dirty
         self.PSF=PSF
-        self.DictMoresaneParms=DictMoresaneParms
-        self.InitMoresane(self.DictMoresaneParms)
+        self.DictSasirParms=DictSasirParms
+        self.InitSasir(self.DictSasirParms)
 
-    def InitMoresane(self,DictMoresaneParms):
-        # load Moresane parms
+    def InitSasir(self,DictSasirParms):
+        pass
+        # load Sasir parms
 
-        self.singlerun=DictMoresaneParms['singlerun']
-        self.startscale=DictMoresaneParms['startscale']
-        self.stopscale=DictMoresaneParms['stopscale']
-        self.subregion=DictMoresaneParms['subregion']
-        self.scalecount=DictMoresaneParms['scalecount']
-        self.sigmalevel=DictMoresaneParms['sigmalevel']
-        self.loopgain=DictMoresaneParms['loopgain']
-        self.tolerance=DictMoresaneParms['tolerance']
-        self.accuracy=DictMoresaneParms['accuracy']
-        self.majorloopmiter=DictMoresaneParms['majorloopmiter']
-        self.minorloopmiter=DictMoresaneParms['minorloopmiter']
-        self.allongpu=DictMoresaneParms['allonggpu']
-        self.decommode=DictMoresaneParms['decommode']
-        self.corecount=DictMoresaneParms['corecount']
-        self.convdevice=DictMoresaneParms['convdevice']
-        self.convmode=DictMoresaneParms['convmode']
-        self.extractionmode=DictMoresaneParms['extractionmode']
-        self.enforcepositivity=DictMoresaneParms['enforcepositivity']
-        self.edgesuppression=DictMoresaneParms['edgesuppression']
-        self.edgeoffset=DictMoresaneParms['edgeoffset']
-        self.fluxthreshold=DictMoresaneParms['fluxthreshold']
-        self.negcomp=DictMoresaneParms['negcomp']
-        self.edgeexcl=DictMoresaneParms['edgeexcl']
-        self.intexcl=DictMoresaneParms['intexcl']
 
         # Init
         mask_name= None
@@ -77,26 +46,28 @@ class ClassMoresane(FI): # inherits from FitsImage but overriding __init__ to ge
 
 
     def main(self):
-
+        pass
         # Proper Moresane run
-        if self.singlerun:
-            print "Single run"
-            self.moresane(self.subregion, self.scalecount, self.sigmalevel, self.loopgain, self.tolerance, self.accuracy,
-                          self.majorloopmiter, self.minorloopmiter, self.allongpu, self.decommode, self.corecount,
-                          self.convdevice, self.convmode, self.extractionmode, self.enforcepositivity,
-                          self.edgesuppression, self.edgeoffset,self.fluxthreshold, self.negcomp, self.edgeexcl, self.intexcl)
-        else:
-            print "By scale"
-            self.moresane_by_scale(self.startscale, self.stopscale, self.subregion, self.sigmalevel, self.loopgain, self.tolerance, self.accuracy,
-                                   self.majorloopmiter, self.minorloopmiter, self.allongpu, self.decommode, self.corecount,
-                                   self.convdevice, self.convmode, self.extractionmode, self.enforcepositivity,
-                                   self.edgesuppression, self.edgeoffset,self.fluxthreshold, self.negcomp, self.edgeexcl, self.intexcl)
+        #if self.singlerun:
+        #    print "Single run"
+        #    self.moresane(self.subregion, self.scalecount, self.sigmalevel, self.loopgain, self.tolerance, self.accuracy,
+        #                  self.majorloopmiter, self.minorloopmiter, self.allongpu, self.decommode, self.corecount,
+        #                  self.convdevice, self.convmode, self.extractionmode, self.enforcepositivity,
+        #                  self.edgesuppression, self.edgeoffset,self.fluxthreshold, self.negcomp, self.edgeexcl, self.intexcl)
+        #else:
+        #    print "By scale"
+        #    self.moresane_by_scale(self.startscale, self.stopscale, self.subregion, self.sigmalevel, self.loopgain, self.tolerance, self.accuracy,
+        #                           self.majorloopmiter, self.minorloopmiter, self.allongpu, self.decommode, self.corecount,
+        #                           self.convdevice, self.convmode, self.extractionmode, self.enforcepositivity,
+        #                           self.edgesuppression, self.edgeoffset,self.fluxthreshold, self.negcomp, self.edgeexcl, self.intexcl)
         return self.model,self.residual #IslandModel
 
     def residuals(self):
+        pass
         return self.residual
 
     def GiveCLEANBeam(self,PSF,cellsize):
+        pass
         cellsizeindeg=cellsize*1./3600 # to convert arcsec in degrees
         fakePSFFitsHeader={"CDELT1":cellsize,"CDELT2":cellsize}
 
@@ -104,6 +75,7 @@ class ClassMoresane(FI): # inherits from FitsImage but overriding __init__ to ge
         return clean_beam,beam_params
 
     def GiveBeamArea(self,beam_params,cellsize):
+        pass
         cellsizedeg=cellsize*1./3600
         bx,by,_=beam_params     # bx and by in degrees
         px,py=cellsizedeg,cellsizedeg # in degrees
