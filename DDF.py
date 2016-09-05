@@ -149,6 +149,7 @@ def read_options():
     OP.add_option("Ratios")
     OP.add_option("NTheta")
     OP.add_option("PSFBox")
+    OP.add_option("SolverMode")
 
     OP.OptionGroup("* MultiFrequency Options","MultiFreqs")
     OP.add_option("NFreqBands")

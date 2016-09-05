@@ -39,6 +39,7 @@ class ClassMultiScaleMachine():
         self.Alpha=np.array([0.],float)
         self.NFreqBands = NFreqBands
         self.MultiFreqMode = NFreqBands>1
+        self.SolveMode = self.GD["MultiScale"]["SolverMode"]
 
 
     def setModelMachine(self,ModelMachine):
@@ -536,7 +537,7 @@ class ClassMultiScaleMachine():
 
 
         #self.SolveMode="MatchingPursuit"
-        self.SolveMode="PI"
+        # self.SolveMode="PI"
         #self.SolveMode="ComplementaryMatchingPursuit"
         #self.SolveMode="NNLS"
 
@@ -628,7 +629,7 @@ class ClassMultiScaleMachine():
             if self.GD["Debugging"]["DumpCleanSolutions"]:
                 global debug_dump_file
                 if not debug_dump_file:
-                    debug_dump_file = file(self.GD["Debugging"]["DumpCleanSolutions"], "w")
+                    debug_dump_file = file(self.GD["Images"]["ImageName"]+".clean.solutions", "w")
                 cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, SolReg, coef), debug_dump_file, 2)
 
             
@@ -651,7 +652,14 @@ class ClassMultiScaleMachine():
             x,_=scipy.optimize.nnls(A, y.ravel())
             Sol=x
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
-            
+
+            if self.GD["Debugging"]["DumpCleanSolutions"]:
+                global debug_dump_file
+                if not debug_dump_file:
+                    debug_dump_file = file(self.GD["Images"]["ImageName"]+".clean.solutions", "w")
+                cPickle.dump((self.iFacet, xc, yc, Fpol, FpolTrue, Sol), debug_dump_file, 2)
+
+
             # P=set()
             # R=set(range(self.nFunc))
             # x=np.zeros((self.nFunc,1),np.float32)
