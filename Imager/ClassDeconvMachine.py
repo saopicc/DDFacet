@@ -656,7 +656,7 @@ class ClassImagerDeconv():
             
             self.DeconvMachine.Update(DicoImage)
 
-            repMinor, continue_deconv, update_model = self.DeconvMachine.Clean()
+            repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
             #self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName) LB - Not sure this is necessary anymore
 
             ## returned with nothing done in minor cycle? Break out
