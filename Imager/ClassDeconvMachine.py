@@ -83,7 +83,7 @@ class ClassImagerDeconv():
         self.Precision=self.GD["ImagerGlobal"]["Precision"]#"S"
         self.PolMode=self.GD["ImagerGlobal"]["PolMode"]
         self.PSFFacets = self.GD["ImagerGlobal"]["PSFFacets"]
-        self.HasCleaned=False
+        self.HasDeconvolved=False
         self.Parallel=self.GD["Parallel"]["Enable"]
         self.IdSharedMem=IdSharedMem
         #self.PNGDir="%s.png"%self.BaseName
@@ -187,6 +187,8 @@ class ClassImagerDeconv():
                         raise NotImplementedError("Multi-polarization CLEAN is not supported in GA")
                     self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
                 elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD":
+                    if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                        raise NotImplementedError("Multi-polarization is not supported in SSD")
                     self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
                 else:
 					raise NotImplementedError("Currently MSMF, GA are the only multi-scale algorithm")
@@ -656,7 +658,7 @@ class ClassImagerDeconv():
             
             self.DeconvMachine.Update(DicoImage)
 
-            repMinor, continue_deconv, update_model = self.DeconvMachine.Clean()
+            repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
             #self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName) LB - Not sure this is necessary anymore
 
             ## returned with nothing done in minor cycle? Break out
@@ -664,7 +666,7 @@ class ClassImagerDeconv():
                 continue_deconv = False
                 print>> log, "This is the last major cycle"
             else:
-                print>> log, "Finished CLEANing for this major cycle... Going back to visibility space."
+                print>> log, "Finished Deconvolving for this major cycle... Going back to visibility space."
             predict_colname = not continue_deconv and self.GD["VisData"]["PredictColName"]
 
             #self.ResidImage=DicoImage["MeanImage"]
@@ -726,9 +728,9 @@ class ClassImagerDeconv():
             self.DeconvMachine.ToFile(self.DicoModelName)
 
 
-            self.HasCleaned=True
+            self.HasDeconvolved=True
 
-        if self.HasCleaned:
+        if self.HasDeconvolved:
             self.Restore()
 
     def fitSinglePSF(self, PSF, label="mean"):

@@ -359,11 +359,11 @@ class ClassImageDeconvMachine():
     def GiveThreshold(self,Max):
         return ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*Max if self.CycleFactor else 0
 
-    def Clean(self,*args,**kwargs):
-        #return self.CleanSerial(*args,**kwargs)
-        return self.CleanParallel(*args,**kwargs)
+    def Deconvolve(self,*args,**kwargs):
+        #return self.DeconvolveSerial(*args, **kwargs)
+        return self.DeconvolveParallel(*args, **kwargs)
 
-    def CleanSerial(self,ch=0):
+    def DeconvolveSerial(self, ch=0):
         """
         Runs minor cycle over image channel 'ch'.
         initMinor is number of minor iteration (keeps continuous count through major iterations)
@@ -512,7 +512,7 @@ class ClassImageDeconvMachine():
 
 
 
-    def CleanParallel(self,ch=0):
+    def DeconvolveParallel(self, ch=0):
         if self._niter >= self.MaxMinorIter:
             return "MaxIter", False, False
 

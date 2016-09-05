@@ -12,7 +12,7 @@ def test():
     DC=ClassImageDeconvMachine.ClassImageDeconvMachine(Gain=0.051,MaxMinorIter=200,NCPU=30)
     DC.SetDirtyPSF(dirty,psf)
     DC.setSideLobeLevel(0.1)
-    DC.Clean()
+    DC.Deconvolve()
 
 
 def test2():
@@ -38,7 +38,7 @@ def test2():
     DC.FindPSFExtent(Method="FromSideLobe")
     DC.MakeMultiScaleCube()
 
-    DC.Clean()
+    DC.Deconvolve()
     
 def test3():
 
@@ -61,7 +61,7 @@ def test3():
     DC.FindPSFExtent(Method="FromSideLobe")
 
     DC.MakeMultiScaleCube()
-    DC.Clean()
+    DC.Deconvolve()
     
 
     c=imdirty.coordinates()
@@ -118,7 +118,7 @@ def test4():
     DC.SetDirtyPSF(DicoDirty,DicoPSF)
     DC.setSideLobeLevel(0.2,10)
     DC.InitMSMF()
-    DC.Clean()
+    DC.Deconvolve()
     
 
     nu=np.linspace(100,300,10)*1e6
