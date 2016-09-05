@@ -613,6 +613,7 @@ class ClassMultiScaleMachine():
             # print "coef",coef
             # # ##########################
 
+            Sol0 = Sol
             SolReg=np.zeros_like(Sol)
             SolReg[0]=MeanFluxTrue
             #print "SolReg",SolReg.ravel()
@@ -626,15 +627,19 @@ class ClassMultiScaleMachine():
 
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
 
+            Sol*=(MeanFluxTrue/np.sum(Sol))
+
+            if abs(Sol).max() < 1e-7:
+                print>>log,"Null clean solution!"
+                print>>log,(self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal)
+                raise RuntimeError("Null CLEAN solution. This is a bug!")
+
             if self.GD["Debugging"]["DumpCleanSolutions"]:
                 global debug_dump_file
                 if not debug_dump_file:
-                    debug_dump_file = file(self.GD["Images"]["ImageName"]+".clean.solutions", "w")
-                cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, SolReg, coef), debug_dump_file, 2)
+                    debug_dump_file = file(self.GD["Images"]["ImageName"] + ".clean.solutions", "w")
+                cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal), debug_dump_file, 2)
 
-            
-            Sol*=(MeanFluxTrue/np.sum(Sol))
-                
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
 
