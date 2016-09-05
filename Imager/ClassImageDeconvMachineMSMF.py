@@ -245,7 +245,7 @@ class ClassImageDeconvMachine():
         self.MaskArray=self._MaskArray[ch]
 
 
-    def Clean(self,ch=0):
+    def Deconvolve(self, ch=0):
         """
         Runs minor cycle over image channel 'ch'.
         initMinor is number of minor iteration (keeps continuous count through major iterations)
