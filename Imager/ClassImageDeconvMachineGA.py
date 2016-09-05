@@ -339,6 +339,7 @@ class ClassImageDeconvMachine():
             #     self.ListIslands.append(ListIslands[iIsland])
             # ###############################
 
+        self.NIslands=len(self.ListIslands)
         print>>log,"  selected %i islands [out of %i] with peak flux > %.3g Jy"%(self.NIslands,len(ListIslands),Threshold)
 
 
@@ -765,6 +766,24 @@ class ClassImageDeconvMachine():
         #Update image dict
         self.SetDirty(DicoDirty)
 
+    def ToFile(self, fname):
+        """
+        Write model dict to file
+        """
+        self.ModelMachine.ToFile(fname)
+
+    def FromFile(self, fname):
+        """
+        Read model dict from file SubtractModel
+        """
+        self.ModelMachine.FromFile(fname)
+
+    def FromDico(self, DicoName):
+        """
+        Read in model dict
+        """
+        self.ModelMachine.FromDico(DicoName)
+
 #===============================================
 #===============================================
 #===============================================
@@ -858,32 +877,3 @@ class WorkerDeconvIsland(multiprocessing.Process):
                 print "Exception : %s"%str(e)
 
                 self.result_queue.put({"Success":False})
-
-
-    def Update(self, DicoDirty, **kwargs):
-        """
-        Method to update attributes from ClassDeconvMachine
-        """
-        # Update image dict
-        self.SetDirty(DicoDirty)
-
-
-    def ToFile(self, fname):
-        """
-        Write model dict to file
-        """
-        self.ModelMachine.ToFile(fname)
-
-
-    def FromFile(self, fname):
-        """
-        Read model dict from file SubtractModel
-        """
-        self.ModelMachine.FromFile(fname)
-
-
-    def FromDico(self, DicoName):
-        """
-        Read in model dict
-        """
-        self.ModelMachine.FromDico(DicoName)
