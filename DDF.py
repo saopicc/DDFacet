@@ -230,6 +230,7 @@ def read_options():
     OP.add_option("FacetPhaseShift")
     OP.add_option("DumpCleanSolutions")
     OP.add_option("PrintMinorCycleRMS")
+    OP.add_option("CleanStallThreshold")
 
     OP.OptionGroup("* Logging","Logging")
     OP.add_option("MemoryLogging")

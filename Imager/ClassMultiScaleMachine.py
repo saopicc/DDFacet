@@ -40,6 +40,7 @@ class ClassMultiScaleMachine():
         self.NFreqBands = NFreqBands
         self.MultiFreqMode = NFreqBands>1
         self.SolveMode = self.GD["MultiScale"]["SolverMode"]
+        self._stall_threshold = self.GD["Debugging"]["CleanStallThreshold"]
 
 
     def setModelMachine(self,ModelMachine):
@@ -629,10 +630,10 @@ class ClassMultiScaleMachine():
 
             Sol*=(MeanFluxTrue/np.sum(Sol))
 
-            if abs(Sol).max() < 1e-7:
-                print>>log,"Null clean solution!"
+            if abs(Sol).max() < self._stall_threshold:
+                print>>log,"Stalled CLEAN!"
                 print>>log,(self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal)
-                raise RuntimeError("Null CLEAN solution. This is a bug!")
+                raise RuntimeError("CLEAN has stalled. This is a bug!")
 
             if self.GD["Debugging"]["DumpCleanSolutions"]:
                 global debug_dump_file

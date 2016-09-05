@@ -247,7 +247,7 @@ class ClassImageDeconvMachine():
         """
         if self._niter >= self.MaxMinorIter:
             return "MaxIter", False, False
-        
+
         _,npol,npix,_ = self._MeanDirty.shape
         xc=(npix)/2
 
