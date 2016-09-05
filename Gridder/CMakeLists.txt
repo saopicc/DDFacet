@@ -84,7 +84,7 @@ set_target_properties(_pyGridderSmear PROPERTIES PREFIX "") #remove "lib" prefix
 target_link_libraries(_pyGridderSmear ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
 #compile and link _pyGridderSmearPols.so
-add_library(_pyGridderSmearPols GridderSmearPols.c GridderSmearPols.h Matrix.h JonesServer.h pyArrayCast.h Timer.h cerror.h)
+add_library(_pyGridderSmearPols GridderSmearPols.c GridderSmearPols.h Matrix.h JonesServer.h pyArrayCast.h Timer.h cerror.h Semaphores.h)
 set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
 target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY} StokesConvert)
 

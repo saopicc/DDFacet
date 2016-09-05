@@ -250,16 +250,19 @@ def ConvolveGaussian(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=Fals
         Ain=Ain0[ch]
         ThisGaussPars=GaussPars[ch]
         PSF=GiveGauss(Ain.shape[-1],CellSizeRad,ThisGaussPars)
+        # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
         if Normalise:
             PSF/=np.sum(PSF)
         FFTM=FFTWnpNonorm(PSF)
-        fPSF=np.abs(FFTM.fft(PSF))
+        fPSF=FFTM.fft(PSF)
+        fPSF=np.abs(fPSF)
         for pol in range(npol):
             A=Ain[pol]
             FFTM=FFTWnpNonorm(A)
             fA=FFTM.fft(A)
             nfA=fA*fPSF#Gauss
             if_fA=FFTM.ifft(nfA)
+            # if_fA=(nfA)
             Aout[ch,pol,:,:]=if_fA.real
 
     return Aout

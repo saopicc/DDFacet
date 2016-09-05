@@ -1,6 +1,7 @@
 
 import numpy as np
 import pylab
+import math
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassImageDeconvMachine")
@@ -11,7 +12,7 @@ from DDFacet.Other import ClassTimeIt
 import ClassMultiScaleMachine
 from pyrap.images import image
 from ClassPSFServer import ClassPSFServer
-import ClassModelMachine
+import ClassModelMachineMSMF as ClassModelMachine
 from DDFacet.Other.progressbar import ProgressBar
 import ClassGainMachine
 
@@ -43,6 +44,7 @@ class ClassImageDeconvMachine():
         self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
         # reset overall iteration counter
         self._niter = 0
+        
         if CleanMaskImage!=None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
@@ -55,7 +57,6 @@ class ClassImageDeconvMachine():
 
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
-
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
         self.SideLobeLevel=SideLobeLevel
         self.OffsetSideLobe=OffsetSideLobe
@@ -63,7 +64,7 @@ class ClassImageDeconvMachine():
 
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
-        self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
+        self.PSFServer.setDicoVariablePSF(DicoVariablePSF,NormalisePSF=True)
         #self.DicoPSF=DicoPSF
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
@@ -121,9 +122,9 @@ class ClassImageDeconvMachine():
         
 
 
-        if self.ModelImage==None:
+        if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)
-        if self.MaskArray==None:
+        if self.MaskArray is None:
             self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
 
 
@@ -334,15 +335,16 @@ class ClassImageDeconvMachine():
 
         PreviousMaxFlux=1e30
 
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=20,TitleSize=30)
+        # pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=20,TitleSize=30)
         # pBAR.disable()
 
         self.GainMachine.SetFluxMax(ThisFlux)
-        pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
+        # pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
 
         def GivePercentDone(ThisMaxFlux):
             fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
             return max(int(round(100*fracDone)),100)
+
         try:
             for i in range(self._niter+1,self.MaxMinorIter+1):
                 self._niter = i
@@ -362,7 +364,7 @@ class ClassImageDeconvMachine():
                 T.timeit("max0")
 
                 if ThisFlux <= StopFlux:
-                    pBAR.render(100,"peak %.3g"%(ThisFlux,))
+                    # pBAR.render(100,"peak %.3g"%(ThisFlux,))
                     print>>log, ModColor.Str("    [iter=%i] peak of %.3g Jy lower than stopping flux" % (i,ThisFlux),col="green")
                     cont = ThisFlux > self.FluxThreshold
                     if not cont:
@@ -375,9 +377,17 @@ class ClassImageDeconvMachine():
 
     #            if (i>0)&((i%1000)==0):
     #                print>>log, "    [iter=%i] Peak residual flux %f Jy" % (i,ThisFlux)
-                if (i>0)&((i%100)==0):
-                    PercentDone=GivePercentDone(ThisFlux)                
-                    pBAR.render(PercentDone,"peak %.3g i%d"%(ThisFlux,self._niter))
+    #             if (i>0)&((i%100)==0):
+    #                 PercentDone=GivePercentDone(ThisFlux)
+    #                 pBAR.render(PercentDone,"peak %.3g i%d"%(ThisFlux,self._niter))
+                rounded_iter_step = min(int(10**math.floor(math.log10(i))), 10000)
+                if i>=10 and i%rounded_iter_step == 0:
+                    if self.GD["Debugging"]["PrintMinorCycleRMS"]:
+                        print>>log, "    [iter=%i] peak residual %.3g, rms %g" % (i,ThisFlux, self._Dirty.std())
+                    else:
+                        print>> log, "    [iter=%i] peak residual %.3g" % (i, ThisFlux)
+                    if ClassMultiScaleMachine.debug_dump_file:
+                        ClassMultiScaleMachine.debug_dump_file.flush()
 
                 nch,npol,_,_=self._Dirty.shape
                 Fpol=np.float32((self._Dirty[:,:,x,y].reshape((nch,npol,1,1))).copy())
@@ -507,3 +517,9 @@ class ClassImageDeconvMachine():
         Read model dict from file SubtractModel
         """
         self.ModelMachine.FromFile(fname)
+
+    def FromDico(self,DicoName):
+        """
+        Read in model dict
+        """
+        self.ModelMachine.FromDico(DicoName)

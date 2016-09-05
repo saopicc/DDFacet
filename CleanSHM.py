@@ -6,6 +6,8 @@ import sys
 from Other import MyLogger
 from Array import NpShared
 log=MyLogger.getLogger("ClearSHM")
+from DDFacet.Gridder import _pyGridderSmearPols as _pyGridderSmear
+import glob
 
 def read_options():
     desc="""CohJones Questions and suggestions: cyril.tasse@obspm.fr"""
@@ -28,3 +30,11 @@ if __name__=="__main__":
     else:
         NpShared.DelAll()
 
+    ll=glob.glob("/dev/shm/sem.*")
+        
+    print>>log, "Clear Semaphores"
+    
+    ListSemaphores=[".".join(l.split(".")[1::]) for l in ll]
+
+    _pyGridderSmear.pySetSemaphores(ListSemaphores)
+    _pyGridderSmear.pyDeleteSemaphore(ListSemaphores)

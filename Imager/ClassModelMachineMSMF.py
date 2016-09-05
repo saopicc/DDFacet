@@ -6,7 +6,7 @@ import pylab
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassModelMachine")
+log=MyLogger.getLogger("ClassModelMachineMSMF")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
@@ -39,14 +39,15 @@ class ClassModelMachine():
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
         self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
-
+        
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName
         if DicoIn==None:
             D=self.DicoSMStacked
         else:
             D=DicoIn
-
+            
+        D["Type"]="MSMF"
         D["ListScales"]=self.ListScales
         D["ModelShape"]=self.ModelShape
         MyPickle.Save(D,FileName)
@@ -54,9 +55,16 @@ class ClassModelMachine():
     def FromFile(self,FileName):
         print>>log, "Reading dico model from %s"%FileName
         self.DicoSMStacked=MyPickle.Load(FileName)
+        self.FromDico(self.DicoSMStacked)
+
+
+    def FromDico(self,DicoSMStacked):
+        self.DicoSMStacked=DicoSMStacked
         self.RefFreq=self.DicoSMStacked["RefFreq"]
         self.ListScales=self.DicoSMStacked["ListScales"]
         self.ModelShape=self.DicoSMStacked["ModelShape"]
+        
+
 
     def setModelShape(self,ModelShape):
         self.ModelShape=ModelShape
@@ -95,7 +103,7 @@ class ClassModelMachine():
 
         DicoComp[key]["SumWeights"][pol_array_index] += Weight
         DicoComp[key]["SolsArray"][:,pol_array_index] += Weight*SolNorm
-
+        
     def setListComponants(self,ListScales):
         self.ListScales=ListScales
 
@@ -109,7 +117,7 @@ class ClassModelMachine():
         if DoConv:
             M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
             M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-
+        
         # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
         minmod = float("%.1e"%(abs(M0.max())/MaxDR))
         # mask out pixels above threshold
@@ -133,14 +141,17 @@ class ClassModelMachine():
         Iterates through components in the "Comp" dictionary of DicoSMStacked,
         returning a list of model sources in tuples looking like
         (model_type, coord, flux, ref_freq, alpha, model_params).
+
         model_type is obtained from self.ListScales
         coord is obtained from the keys of "Comp"
         flux is obtained from the entries in Comp["SolsArray"]
         ref_freq is obtained from DicoSMStacked["RefFreq"]
         alpha is obtained from self.ListScales
         model_params is obtained from self.ListScales
+
         If multiple scales exist, multiple sources will be created
         at the same position, but different fluxes, alphas etc.
+
         """
         DicoComp = self.DicoSMStacked["Comp"]
         ref_freq = self.DicoSMStacked["RefFreq"]
@@ -180,7 +191,7 @@ class ClassModelMachine():
     def GiveModelImage(self,FreqIn=None):
 
         RefFreq=self.DicoSMStacked["RefFreq"]
-        if FreqIn==None:
+        if FreqIn is None:
             FreqIn=np.array([RefFreq])
 
         #if type(FreqIn)==float:
@@ -223,7 +234,7 @@ class ClassModelMachine():
                             x0p,x1p,y0p,y1p=Bedge
 
                             ModelImage[ch,pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Flux
-
+        
         # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
         # vmin,vmax=-1,1
         # #vmin,vmax=np.min(ModelImage),np.max(ModelImage)
@@ -241,13 +252,13 @@ class ClassModelMachine():
         # print np.max(ModelImage[0,0])
         # # stop
 
-
+ 
         return ModelImage
-
+        
     def CleanNegComponants(self,box=20,sig=3,RemoveNeg=True):
         print>>log, "Cleaning model dictionary from negative componants with (box, sig) = (%i, %i)"%(box,sig)
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
-
+        
         Min=scipy.ndimage.filters.minimum_filter(ModelImage,(box,box))
         Min[Min>0]=0
         Min=-Min
@@ -274,37 +285,50 @@ class ClassModelMachine():
                 del(self.DicoSMStacked["Comp"][(x,y)])
     """
     Broken code: Marked for removal.
-    def ToNPYModel(self,FitsFile,SkyModel):
+
+    def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):
         #R=ModRegFile.RegToNp(PreCluster)
         #R.Read()
         #R.Cluster()
         #PreClusterCat=R.CatSel
         #ExcludeCat=R.CatExclude
+
+
         AlphaMap=self.GiveSpectralIndexMap(DoConv=False)
         ModelMap=self.GiveModelImage()
         nch,npol,_,_=ModelMap.shape
+
         for ch in range(nch):
             for pol in range(npol):
                 ModelMap[ch,pol]=ModelMap[ch,pol][::-1]#.T
                 AlphaMap[ch,pol]=AlphaMap[ch,pol][::-1]#.T
+
+        if BeamImage!=None:
+            ModelMap*=(BeamImage)
+
         im=image(FitsFile)
         pol,freq,decc,rac=im.toworld((0,0,0,0))
-        Lx,Ly=np.where(ModelMap[0,0]!=0)
 
+        Lx,Ly=np.where(ModelMap[0,0]!=0)
+        
         X=np.array(Lx)
         Y=np.array(Ly)
+
         #pol,freq,decc1,rac1=im.toworld((0,0,1,0))
         dx=abs(im.coordinates().dict()["direction0"]["cdelt"][0])
+
         SourceCat=np.zeros((100000,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
                                            ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
                                            ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
                                            ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool),
                                            ("X",np.int32),("Y",np.int32)])
         SourceCat=SourceCat.view(np.recarray)
+
         IndSource=0
+
         SourceCat.RefFreq[:]=self.DicoSMStacked["RefFreq"]
         _,_,nx,ny=ModelMap.shape
-
+        
         for iSource in range(X.shape[0]):
             x_iSource,y_iSource=X[iSource],Y[iSource]
             _,_,dec_iSource,ra_iSource=im.toworld((0,0,y_iSource,x_iSource))
@@ -312,7 +336,7 @@ class ClassModelMachine():
             SourceCat.dec[iSource]=dec_iSource
             SourceCat.X[iSource]=(nx-1)-X[iSource]
             SourceCat.Y[iSource]=Y[iSource]
-
+            
             #print self.DicoSMStacked["Comp"][(SourceCat.X[iSource],SourceCat.Y[iSource])]
             # SourceCat.Cluster[IndSource]=iCluster
             Flux=ModelMap[0,0,x_iSource,y_iSource]
@@ -320,6 +344,8 @@ class ClassModelMachine():
             # print iSource,"/",X.shape[0],":",x_iSource,y_iSource,Flux,Alpha
             SourceCat.I[iSource]=Flux
             SourceCat.alpha[iSource]=Alpha
+
+
         SourceCat=(SourceCat[SourceCat.ra!=0]).copy()
         np.save(SkyModel,SourceCat)
         self.AnalyticSourceCat=ClassSM.ClassSM(SkyModel)
@@ -342,30 +368,31 @@ class ClassModelMachine():
         SourceCat=SourceCat.view(np.recarray)
         #RestoreDico=self.GD["VisData"]["RestoreDico"]
         RestoreDico=DicoSolsFile["ModelName"][()][0:-4]+".DicoModel"
-
+        
         print>>log, "Adding previously substracted components"
         ModelMachine0=ClassModelMachine(self.GD)
 
-
+        
         ModelMachine0.FromFile(RestoreDico)
 
-
+        
 
         _,_,nx0,ny0=ModelMachine0.DicoSMStacked["ModelShape"]
-
+        
         _,_,nx1,ny1=self.ModelShape
         dx=nx1-nx0
 
-
+        
 
         for iSource in range(SourceCat.shape[0]):
             x0=SourceCat.X[iSource]
             y0=SourceCat.Y[iSource]
-
+            
             x1=x0+dx
             y1=y0+dx
-
+            
             if not((x1,y1) in self.DicoSMStacked["Comp"].keys()):
                 self.DicoSMStacked["Comp"][(x1,y1)]=ModelMachine0.DicoSMStacked["Comp"][(x0,y0)]
             else:
                 self.DicoSMStacked["Comp"][(x1,y1)]+=ModelMachine0.DicoSMStacked["Comp"][(x0,y0)]
+                

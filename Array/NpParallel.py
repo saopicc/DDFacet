@@ -53,7 +53,7 @@ def A_whereMax(A,NCPU=6,DoAbs=1,Mask=None):
 
     for iz in range(nz):
         ThisA=A[iz]
-        if Mask==None:
+        if Mask is None:
             _pyArrays.pyWhereMax(ThisA,Blocks,Ans[iz],DoAbs)
         else:
             _pyArrays.pyWhereMaxMask(ThisA,Mask,Blocks,Ans[iz],DoAbs)

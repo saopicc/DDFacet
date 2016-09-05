@@ -2,10 +2,11 @@
 import optparse
 import sys
 import pickle
-from DDFacet.Imager.ClassModelMachine import ClassModelMachine
+#from DDFacet.Imager.ClassModelMachine import ClassModelMachine
 from DDFacet.Imager import ClassCasaImage
 from pyrap.images import image
-from DDFacet.Imager import ClassCasaImage
+from DDFacet.Imager.ModModelMachine import GiveModelMachine
+
 import numpy as np
 from DDFacet.ToolsDir import ModFFTW
 
@@ -25,6 +26,7 @@ def read_options():
     group.add_option('--NBands',type="int",help='',default=1)
     group.add_option('--CleanNegComp',type="int",help='',default=0)
     group.add_option('--DoAlpha',type="int",help='',default=0)
+    group.add_option('--OutName',type="str",help='',default="")
     opt.add_option_group(group)
     
     options, arguments = opt.parse_args()
@@ -35,15 +37,19 @@ def read_options():
 
 class ClassRestoreMachine():
     def __init__(self,BaseImageName,BeamPix=5,ResidualImName="",DoAlpha=1,
-                 MaskName="",CleanNegComp=False,NBands=1):
+                 MaskName="",CleanNegComp=False,NBands=1,OutName=""):
         self.DoAlpha=DoAlpha
         self.BaseImageName=BaseImageName
         self.BeamPix=BeamPix
         self.NBands=NBands
+        self.OutName=OutName
+
+        FileDicoModel="%s.DicoModel"%BaseImageName
+        ClassModelMachine,DicoModel=GiveModelMachine(FileDicoModel)
 
         self.ModelMachine=ClassModelMachine(Gain=0.1)
-        DicoModel="%s.DicoModel"%BaseImageName
-        self.ModelMachine.FromFile(DicoModel)
+        self.ModelMachine.FromDico(DicoModel)
+
         if MaskName!="":
             self.ModelMachine.CleanMaskedComponants(MaskName)
         if CleanNegComp:
@@ -55,6 +61,8 @@ class ClassRestoreMachine():
         else:
             FitsFile=ResidualImName
 
+
+        NormImageName="%s.Norm.fits"%BaseImageName
 
         self.FitsFile=FitsFile
         im=image(FitsFile)
@@ -76,12 +84,18 @@ class ClassRestoreMachine():
                     testImage[ch,pol,:,:]=self.ResidualData[ch,pol,:,:].T[::-1,:]#*1.0003900000000001
 
 
+        SqrtNormImage=np.zeros_like(self.ResidualData)
+        imNorm=image(NormImageName).getdata()
+        for ch in range(nchan):
+            for pol in range(npol):
+                SqrtNormImage[ch,pol,:,:]=np.sqrt(imNorm[ch,pol,:,:].T[::-1,:])
+
         _,_,nx,_=testImage.shape
         Nr=10000
         indx,indy=np.int64(np.random.rand(Nr)*nx),np.int64(np.random.rand(Nr)*nx)
         self.StdResidual=np.std(testImage[0,0,indx,indy])
         self.Residual=testImage
-
+        self.SqrtNormImage=SqrtNormImage
 
     def Restore(self):
         print>>log, "Create restored image"
@@ -105,10 +119,10 @@ class ClassRestoreMachine():
         RefFreq=self.ModelMachine.RefFreq
         df=RefFreq*0.5
 
-        self.ModelMachine.ListScales[0]["Alpha"]=-0.8
+        #self.ModelMachine.ListScales[0]["Alpha"]=-0.8
 
         # model image
-        ModelMachine.GiveModelImage(RefFreq)
+        #ModelMachine.GiveModelImage(RefFreq)
 
         FEdge=np.linspace(RefFreq-df,RefFreq+df,self.NBands+1)
         FCenter=(FEdge[0:-1]+FEdge[1::])/2.
@@ -120,26 +134,62 @@ class ClassRestoreMachine():
 
         ListRestoredIm=[]
         Lambda=[Lambda0+i*dLambda for i in range(self.NBands)]
+        ListRestoredImCorr=[]
+        ListModelIm=[]
         #print C/np.array(Lambda)
         # restored image
         for l in Lambda:
             freq=C/l
+            print>>log,"Get ModelImage... "
             ModelImage=ModelMachine.GiveModelImage(freq)
+            ListModelIm.append(ModelImage)
+            print>>log,"  ModelImage to apparant flux... "
+            ModelImage=ModelImage*self.SqrtNormImage
+            print>>log,"Convolve... "
+            print>>log,"   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6)
             RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
             RestoredImageRes=RestoredImage+self.Residual
             ListRestoredIm.append(RestoredImageRes)
-        
+            RestoredImageResCorr=RestoredImageRes/self.SqrtNormImage
+            ListRestoredImCorr.append(RestoredImageResCorr)
+
         #print FEdge,FCenter
 
+        print>>log,"Save... "
         _,_,nx,_=RestoredImageRes.shape
         RestoredImageRes=np.array(ListRestoredIm).reshape((self.NBands,1,nx,nx))
+        RestoredImageResCorr=np.array(ListRestoredImCorr).reshape((self.NBands,1,nx,nx))
 
-        ImageName="%s.restoredNew"%self.BaseImageName
+        ModelImage=np.array(ListModelIm).reshape((self.NBands,1,nx,nx))
+        
+
+
+        if self.OutName=="":
+            ImageName="%s.restoredNew"%self.BaseImageName
+            ImageNameCorr="%s.restoredNew.corr"%self.BaseImageName
+            ImageNameModel="%s.model"%self.BaseImageName
+        else:
+            ImageName=self.OutName
+            ImageNameCorr=self.OutName+".corr"
+
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModel,RestoredImageRes.shape,self.Cell,self.radec,Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage.setdata(ModelImage,CorrT=True)
+        CasaImage.ToFits()
+        CasaImage.setBeam(self.FWHMBeam)
+        CasaImage.close()
+
         CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec,Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(RestoredImageRes,CorrT=True)
         CasaImage.ToFits()
         CasaImage.setBeam(self.FWHMBeam)
         CasaImage.close()
+
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameCorr,RestoredImageResCorr.shape,self.Cell,self.radec,Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage.setdata(RestoredImageResCorr,CorrT=True)
+        CasaImage.ToFits()
+        CasaImage.setBeam(self.FWHMBeam)
+        CasaImage.close()
+        
 
 
         # ImageName="%s.modelConv"%self.BaseImageName
@@ -152,12 +202,15 @@ class ClassRestoreMachine():
 
         # Alpha image
         if self.DoAlpha:
+            print>>log,"Get Index Map... "
             IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
             ImageName="%s.alphaNew"%self.BaseImageName
+            print>>log,"  Save... "
             CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
             CasaImage.setdata(IndexMap,CorrT=True)
             CasaImage.ToFits()
             CasaImage.close()
+            print>>log,"  Done. "
 
 
 
@@ -177,7 +230,8 @@ def main(options=None):
     CRM=ClassRestoreMachine(options.BaseImageName,BeamPix=options.BeamPix,ResidualImName=options.ResidualImage,
                             DoAlpha=options.DoAlpha,
                             NBands=options.NBands,
-                            CleanNegComp=options.CleanNegComp)
+                            CleanNegComp=options.CleanNegComp,
+                            OutName=options.OutName)
     CRM.Restore()
 
 

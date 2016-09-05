@@ -935,6 +935,10 @@ void DeGridderWPol(PyArrayObject *grid,
     int row0=ptrRows[0];
     int row1=ptrRows[1];
 
+    PyArrayObject *NpGridChanMap;
+    NpGridChanMap = (PyArrayObject *) PyList_GetItem(Lmaps, 3);
+    //int nGridChanMap=NpGridChanMap->dimensions[0];
+    int* GridChanMap=I_ptr(NpGridChanMap);
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -1188,7 +1192,7 @@ void DeGridderWPol(PyArrayObject *grid,
       // Skip channel if data are not needed.
       
       for (visChan=0; visChan<nVisChan; ++visChan) {
-        int gridChan = 0;//chanMap_p[visChan];
+        int gridChan = GridChanMap[visChan];//chanMap_p[visChan];
         int CFChan = 0;//ChanCFMap[visChan];
 	double recipWvl = Pfreqs[visChan] / C;
 	double ThisWaveLength=C/Pfreqs[visChan];
@@ -1452,6 +1456,12 @@ void DeGridderWPol(PyArrayObject *grid,
 	      
 	    };
 
+	/* ThisVis[0]=1; */
+	/* ThisVis[1]=0; */
+	/* ThisVis[2]=0; */
+	/* ThisVis[3]=1; */
+	/* corr=1.; */
+	
 	    for(ipol=0; ipol<4; ipol++){
 	      visPtr[ipol]+=ThisVis[ipol] *corr*(-1.);
 	    }

@@ -64,9 +64,15 @@ def DelAll(key=None):
             DelArray(name)
 
 def GiveArray(Name):
+    #return SharedArray.attach(Name)
     try:
         return SharedArray.attach(Name)
-    except:
+    except Exception,e:# as exception:
+        # #print str(e)
+        # print 
+        # print "Exception for key [%s]:"%Name 
+        # print "   %s"%(str(e))
+        # print 
         return None
 
 def Exists(Name):
@@ -113,7 +119,7 @@ def SharedToDico(Prefix):
         print>>log, ModColor.Str("  %s -> %s"%(Sharedkey,key))
         Shared=GiveArray(Sharedkey)
         if type(Shared)==type(None):
-            print>>log, ModColor.Str("      None existing key"%(key))
+            print>>log, ModColor.Str("      None existing key %s"%(key))
             return None
         DicoOut[key]=Shared
     print>>log, ModColor.Str("SharedToDico: done")

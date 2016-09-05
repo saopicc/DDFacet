@@ -33,6 +33,14 @@ log = None
 from DDFacet.Parset import MyOptParse
 import subprocess
 
+# # ##############################
+# # Catch numpy warning
+# np.seterr(all='raise')
+# import warnings
+# with warnings.catch_warnings():
+#     warnings.filterwarnings('error')
+# # ##############################
+
 '''
 The defaults for all the user commandline arguments are stored in a parset configuration file
 called DefaultParset.cfg. When you add a new option you must specify meaningful defaults in
@@ -76,11 +84,13 @@ def read_options():
     OP.add_option('InitDicoModel',help='Image name [%default]')
     OP.add_option('WeightCol')
     OP.add_option('PredictColName')
+    
+    
+    OP.OptionGroup("* Images-related options","Images")
 
-
-    OP.OptionGroup("* Image-related options","Images")
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
     OP.add_option('PredictModelName',help='Predict Image name [%default]')
+    OP.add_option('AllowColumnOverwrite', help='Whether to overwrite existing column or not [%default]')
     OP.add_option('SaveIms',help='')
     OP.add_option('SaveImages',help='')
     OP.add_option('SaveOnly',help='')
@@ -103,6 +113,7 @@ def read_options():
     OP.OptionGroup("* Selection","DataSelection")
     OP.add_option('Field')
     OP.add_option('DDID')
+    OP.add_option('TaQL')
     OP.add_option('ChanStart')
     OP.add_option('ChanEnd')
     OP.add_option('ChanStep')
@@ -120,6 +131,7 @@ def read_options():
     OP.add_option('Super')
     OP.add_option("PSFOversize")
     OP.add_option("PSFFacets")
+    OP.add_option("PhaseCenterRADEC")
 
     OP.OptionGroup("* Visibility compression parameters","Compression")
     OP.add_option('CompGridMode')
@@ -136,6 +148,7 @@ def read_options():
     OP.add_option("Scales")
     OP.add_option("Ratios")
     OP.add_option("NTheta")
+    OP.add_option("PSFBox")
 
     OP.OptionGroup("* MultiFrequency Options","MultiFreqs")
     OP.add_option("NFreqBands")
@@ -180,10 +193,22 @@ def read_options():
 
     OP.OptionGroup("* Imager's Mainfacet","ImagerMainFacet")
     OP.add_option("NFacets",help="Number of facets, default is %default. ")
+    OP.add_option("DiamMaxFacet")
+    OP.add_option("DiamMinFacet")
     OP.add_option("Npix")
     OP.add_option("Cell")
     OP.add_option("Padding")
     OP.add_option("ConstructMode")
+    OP.add_option("Circumcision")
+
+    OP.OptionGroup("* GAClean","GAClean")
+    OP.add_option("GASolvePars")
+    OP.add_option("NSourceKin")
+    OP.add_option("NMaxGen")
+    OP.add_option("NEnlargePars")
+    OP.add_option("NEnlargeData")
+    OP.add_option("ArtifactRobust")
+
 
     OP.OptionGroup("* Clean","ImagerDeconv")
     OP.add_option("MaxMajorIter")
@@ -202,6 +227,8 @@ def read_options():
     OP.add_option("SaveIntermediateDirtyImages")
     OP.add_option("PauseGridWorkers")
     OP.add_option("FacetPhaseShift")
+    OP.add_option("DumpCleanSolutions")
+    OP.add_option("PrintMinorCycleRMS")
 
     OP.OptionGroup("* Logging","Logging")
     OP.add_option("MemoryLogging")
@@ -327,6 +354,23 @@ def main(OP=None,messages=[]):
     NpShared.DelAll(IdSharedMem)
 
 if __name__=="__main__":
+    #os.system('clear')
+    logo.print_logo()
+
+    ParsetFile=sys.argv[1]
+
+    TestParset=ReadCFG.Parset(ParsetFile)
+    
+    if TestParset.Success==True:
+        #global Parset
+        
+        Parset.update(TestParset)
+        print >>log,ModColor.Str("Successfully read %s parset"%ParsetFile)
+
+    OP=read_options()
+
+
+    #main(OP)
     T = ClassTimeIt.ClassTimeIt()
 
     # parset should have been read in by now

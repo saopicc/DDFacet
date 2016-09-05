@@ -12,6 +12,21 @@ from DDFacet.Other import ClassTimeIt
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
+import pickle
+import cPickle
+
+debug_dump_file = None
+
+def writetofile(fname,val):
+    file1 = open(fname,'a+')
+    file1.write('%s\n' % (val))
+    file1.close()
+    return
+
+def pickleadic(dname,dict):
+    with open(dname, 'wb') as handle:
+        pickle.dump(dict, handle)
+    return
 
 class ClassMultiScaleMachine():
 
@@ -122,7 +137,14 @@ class ClassMultiScaleMachine():
 
         dx=npix/2
 
-
+        dx=np.min([NPSF/2,dx])
+        box = self.GD["MultiScale"]["PSFBox"]
+        if box:
+            dx = box
+#            print>> log, "explicitly set PSFBox=%d" % dx
+        else:
+            pass
+#            print>> log, "PSF box extent computed as %d" % dx
         self.PSFExtent=(NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
 
         #self.PSFExtent=(0,NPSF,0,NPSF)
@@ -308,7 +330,7 @@ class ClassMultiScaleMachine():
         ScaleMax=np.max(Scales)
         #self.SupWeightWidth=ScaleMax#3.*self.WeightWidth
         self.SupWeightWidth=3.*self.WeightWidth
-        
+
 
 
         #print>>log, "   ... Done"
@@ -325,7 +347,7 @@ class ClassMultiScaleMachine():
 
     def GiveBasisMatrix(self,SubSubSubCoord=None):
 #        print>>log,"Calculating basisc function for SubSubSubCoord=%s"%(str(SubSubSubCoord))
-        if SubSubSubCoord==None:
+        if SubSubSubCoord is None:
             CubePSF=self.SubCubePSF
             WeightFunction=self.SubWeightFunction
         else:
@@ -363,7 +385,15 @@ class ClassMultiScaleMachine():
         UVTaper=1.-np.exp(-(r/r0)**2)
         
         UVTaper=UVTaper.reshape((1,1,nx,ny))*np.ones((nch,npol,1,1),np.float32)
+
+
         UVTaper.fill(1)
+
+        self.WeightMeanJonesBand=self.DicoVariablePSF["MeanJonesBand"][self.iFacet].reshape((nch,1,1,1))
+        WeightMueller=self.WeightMeanJonesBand.ravel()
+        WeightMuellerSignal=WeightMueller*self.DicoVariablePSF["WeightChansImages"].ravel()
+        self.WeightMuellerSignal=WeightMuellerSignal
+        UVTaper*=WeightMuellerSignal.reshape((nch,1,1,1))
 
         # fCubePSF[:,:,nx/2,ny/2]=0
         # import pylab
@@ -412,8 +442,12 @@ class ClassMultiScaleMachine():
                          "fBMT_fBM_inv":fBMT_fBM_inv,
                          "CubePSF":CubePSF,
                          "WeightFunction":(WeightFunction),
-                         "fWeightFunction":UVTaper}
+                         "fWeightFunction":UVTaper,
+                         "CubePSFScales":self.CubePSFScales}
 
+
+        BaseName = self.GD["Images"]["ImageName"]
+        pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
         return DicoBasisMatrix
         
         
@@ -439,7 +473,7 @@ class ClassMultiScaleMachine():
         #print self.DicoDirty.keys()
         #print Fpol
         FpolTrue=Fpol
-        if self.DicoDirty["NormData"]!=None:
+        if self.DicoDirty["NormData"] is not None:
             JonesNorm=(self.DicoDirty["NormData"][:,:,x,y]).reshape((nchan,npol,1,1))
             
             FpolTrue=Fpol/np.sqrt(JonesNorm)
@@ -477,37 +511,28 @@ class ClassMultiScaleMachine():
 
         self.Repr="FT"
         self.Repr="IM"
+        
+
+
         if self.Repr=="FT":
             BM=DicoBasisMatrix["fBM"]
-            WCubePSF=DicoBasisMatrix["fWeightFunction"]
-            WCubePSFIm=DicoBasisMatrix["WeightFunction"]
+            WCubePSF=DicoBasisMatrix["fWeightFunction"]#*(JonesNorm)
+            WCubePSFIm=DicoBasisMatrix["WeightFunction"]#*(JonesNorm)
             WVecPSF=WCubePSF.reshape((WCubePSF.size,1))
             dirtyNorm=np.float32(self.OPFT(self.FFTMachine.fft(np.complex64(dirtyNormIm*WCubePSFIm))))#.real)
             BMT_BM_inv=DicoBasisMatrix["fBMT_fBM_inv"]
         else:
-            WCubePSF=DicoBasisMatrix["WeightFunction"]
+            #print "0:",DicoBasisMatrix["WeightFunction"].shape,JonesNorm.shape
+            WCubePSF=DicoBasisMatrix["WeightFunction"]#*(JonesNorm)
             WVecPSF=WCubePSF.reshape((WCubePSF.size,1))
             dirtyNorm=dirtyNormIm
             BM=DicoBasisMatrix["BM"]
             BMT_BM_inv=DicoBasisMatrix["BMT_BM_inv"]
 
+
         dirtyVec=dirtyNorm.reshape((dirtyNorm.size,1))
         T.timeit("1")
 
-        
-
-        # BMCube=DicoBasisMatrix["BMCube"]
-        # nch,_,_=MeanData.shape
-        # BMCubeSub=BMCube.copy()
-        # nData,nFunc=BM.shape
-        # for iFunc in range(nFunc):
-        #     BMCubeSub[iFunc]=BMCube[iFunc]-MeanData
-        # BM=(BMCubeSub.reshape((nFunc,nData)).T.copy())
-
-        # ModLinAlg.invSVD(BMT_BM)
-
-        # BMT_BM=np.dot(BM.T,WVecPSF*BM)
-        # BMT_BM_inv=ModLinAlg.invSVD(BMT_BM)
 
 
         #self.SolveMode="MatchingPursuit"
@@ -515,7 +540,9 @@ class ClassMultiScaleMachine():
         #self.SolveMode="ComplementaryMatchingPursuit"
         #self.SolveMode="NNLS"
 
-        MeanFluxTrue=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())
+        MeanFluxTrue=np.sum(FpolTrue.ravel()*self.WeightMuellerSignal)/np.sum(self.WeightMuellerSignal)
+        
+        
         if  self.SolveMode=="MatchingPursuit":
             #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
             Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
@@ -555,6 +582,7 @@ class ClassMultiScaleMachine():
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
 
         elif self.SolveMode=="PI":
+            
             Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
             #Sol.fill(1)
 
@@ -564,17 +592,26 @@ class ClassMultiScaleMachine():
             #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
             
 
-            # print "=====",self.iFacet,x,y
-            # print "Data",dirtyVec.shape
-            # print dirtyVec
-            # #print "BM",BM.shape
-            # #print BM
-            # print "Sum, Sol",np.sum(Sol),Sol.ravel()
-
-            #print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
-            #print "MeanFluxTrue",MeanFluxTrue
             coef=np.min([np.abs(np.sum(Sol)/MeanFluxTrue),1.])
-            #print "coef",coef
+
+            # # ############## debug
+            # print
+            # print "=====",self.iFacet,x,y
+            # print Fpol.ravel()
+            # print FpolTrue.ravel()
+            # print self.DicoDirty["WeightChansImages"].ravel()
+            # print "Data shape",dirtyVec.shape
+            # # print dirtyVec
+            # # #print "BM",BM.shape
+            # # #print BM
+            # print "Sum, Sol",np.sum(Sol),Sol.ravel()
+            # # print "aaa",np.dot(BM,Sol)
+            # # stop
+            # #print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
+            # print "MeanFluxTrue",MeanFluxTrue
+            # print "coef",coef
+            # # ##########################
+
             SolReg=np.zeros_like(Sol)
             SolReg[0]=MeanFluxTrue
             #print "SolReg",SolReg.ravel()
@@ -586,8 +623,13 @@ class ClassMultiScaleMachine():
                 # if np.abs(np.sum(Sol))>np.abs(MeanFluxTrue):
                 #     Sol=SolReg
 
-            # print "Fin, Sol",np.sum(Sol),Sol.ravel()
-            
+            # print "Sum, Sol",np.sum(Sol),Sol.ravel()
+
+            if self.GD["Debugging"]["DumpCleanSolutions"]:
+                global debug_dump_file
+                if not debug_dump_file:
+                    debug_dump_file = file(self.GD["Debugging"]["DumpCleanSolutions"], "w")
+                cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, SolReg, coef), debug_dump_file, 2)
 
             
             Sol*=(MeanFluxTrue/np.sum(Sol))
@@ -596,6 +638,8 @@ class ClassMultiScaleMachine():
             
 
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
+
+
 
             #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()
@@ -658,10 +702,11 @@ class ClassMultiScaleMachine():
             # Sol=x
             # LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
             
+
+
         nch,nx,ny=LocalSM.shape
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
         LocalSM=LocalSM*np.sqrt(JonesNorm)
-        
 
         # print self.AlphaVec,Sol
         # print "alpha",np.sum(self.AlphaVec.ravel()*Sol.ravel())/np.sum(Sol)
