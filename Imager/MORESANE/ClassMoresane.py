@@ -96,16 +96,17 @@ class ClassMoresane(FI): # inherits from FitsImage but overriding __init__ to ge
     def residuals(self):
         return self.residual
 
-    def GiveCLEANBeam(self,PSF,cellsize):
-        cellsizeindeg=cellsize*1./3600 # to convert arcsec in degrees
-        fakePSFFitsHeader={"CDELT1":cellsize,"CDELT2":cellsize}
+    def GiveCLEANBeam(self, PSF, cellsize):
+        cellsizeindeg = cellsize * 1. / 3600  # to convert arcsec in degrees
+        fakePSFFitsHeader = {"CDELT1": cellsizeindeg, "CDELT2": cellsizeindeg}
 
-        clean_beam, beam_params=beam_fit(self.psf_data,fakePSFFitsHeader)
-        return clean_beam,beam_params
+        clean_beam, beam_params = beam_fit(PSF, fakePSFFitsHeader)
+        return clean_beam, beam_params
 
-    def GiveBeamArea(self,beam_params,cellsize):
-        cellsizedeg=cellsize*1./3600
-        bx,by,_=beam_params     # bx and by in degrees
-        px,py=cellsizedeg,cellsizedeg # in degrees
-        BeamArea=np.pi*bx*by/(4*np.log(2)*px*py)
+    def GiveBeamArea(self, beam_params, cellsize):
+        print beam_params
+        cellsizedeg = cellsize * 1. / 3600
+        bx, by, _ = beam_params  # bx and by in degrees
+        px, py = cellsizedeg, cellsizedeg  # in degrees
+        BeamArea = np.pi * bx * by / (4 * np.log(2) * px * py)
         return BeamArea
