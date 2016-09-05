@@ -104,7 +104,12 @@ class ClassImageDeconvMachine():
         #self.NChannels=self.DicoDirty["NChannels"]
         self.ModelMachine.setRefFreq(self.PSFServer.RefFreq,self.PSFServer.AllFreqs)
 
-    def InitMSMF(self):
+    def Init(self,**kwargs):
+        self.SetPSF(kwargs["PSFVar"])
+        self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
+        self.InitSSD()
+
+    def InitSSD(self):
         pass
 
     def AdaptArrayShape(self,A,Nout):
@@ -437,7 +442,7 @@ class ClassImageDeconvMachine():
     def GiveThreshold(self,Max):
         return ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*Max if self.CycleFactor else 0
 
-    def Deconvolve(self,*args,**kwargs):
+    def Clean(self,*args,**kwargs):
         return self.DeconvolveSerial(*args, **kwargs)
         #return self.DeconvolveParallel(*args,**kwargs)
 
@@ -842,11 +847,33 @@ class ClassImageDeconvMachine():
             workerlist[ii].terminate()
             workerlist[ii].join()
 
-        
-
 
         return "MaxIter", True, True   # stop deconvolution but do update model
 
+    def Update(self, DicoDirty, **kwargs):
+        """
+        Method to update attributes from ClassDeconvMachine
+        """
+        # Update image dict
+        self.SetDirty(DicoDirty)
+
+    def ToFile(self, fname):
+        """
+        Write model dict to file
+        """
+        self.ModelMachine.ToFile(fname)
+
+    def FromFile(self, fname):
+        """
+        Read model dict from file SubtractModel
+        """
+        self.ModelMachine.FromFile(fname)
+
+    def FromDico(self, DicoName):
+        """
+        Read in model dict
+        """
+        self.ModelMachine.FromDico(DicoName)
 
     ###################################################################################
     ###################################################################################
