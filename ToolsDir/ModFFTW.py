@@ -218,7 +218,9 @@ class FFTW_2Donly_np():
 def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.)):
     uvscale=Npix*CellSizeRad/2
     SigMaj,SigMin,ang=GaussPars
+    ang = 2*np.pi - ang #need counter-clockwise rotation
     U,V=np.mgrid[-uvscale:uvscale:Npix*1j,-uvscale:uvscale:Npix*1j]
+    
     CT=np.cos(ang)
     ST=np.sin(ang)
     C2T=np.cos(2*ang)

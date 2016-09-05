@@ -1,4 +1,4 @@
-import sys,math,numpy,os
+import sys,math,numpy,os,os.path
 
 from DDFacet.Other import MyLogger
 log = MyLogger.getLogger("ClassFITSBeam")
@@ -53,23 +53,33 @@ class ClassFITSBeam (object):
             self.freqs = self.freqs[chanstep/2::chanstep]
 
         # NB: need to check correlation names better. This assumes four correlations in that order!
-        if "x" in self.ms.CorrelationNames[0]:
+        if "x" in self.ms.CorrelationNames[0].lower():
             CORRS = "xx","xy","yx","yy"
-            print>>log,"polarization basis is linear"
+            print>>log,"polarization basis is linear (%s)"%" ".join(self.ms.CorrelationNames)
         else:
             CORRS = "rr","rl","lr","ll"
-            print>>log,"polarization basis is circular"
+            print>>log,"polarization basis is circular (%s)"%" ".join(self.ms.CorrelationNames)
         # Following code is nicked from Cattery/Siamese/OMS/pybeams_fits.py
         REIM = "re","im";
         REALIMAG = dict(re="real",im="imag");
 
-        # get the Cattery
-        for varname in 'CATTERY_PATH',"MEQTREES_CATTERY_PATH":
+        # get the Cattery: if an explicit path to Cattery set, use this and import Siamese directly
+        explicit_cattery = False
+        for varname in "CATTERY_PATH","MEQTREES_CATTERY_PATH":
             if varname in os.environ:
                 sys.path.append(os.environ[varname])
+                explicit_cattery = True
 
-        import Siamese.OMS.Utils as Utils
-        import Siamese
+        if explicit_cattery:
+            import Siamese.OMS.Utils as Utils
+            import Siamese
+            import Siamese.OMS.InterpolatedBeams as InterpolatedBeams
+            print>>log,"explicit Cattery path set: using custom Siamese module from %s"%os.path.dirname(Siamese.__file__)
+        else:
+            import Cattery.Siamese.OMS.Utils as Utils
+            import Cattery.Siamese as Siamese
+            import Cattery.Siamese.OMS.InterpolatedBeams as InterpolatedBeams
+            print>>log,"using standard Cattery.Siamese module from %s"%os.path.dirname(Siamese.__file__)
 
         def make_beam_filename (filename_pattern,corr,reim):
             """Makes beam filename for the given correlation and real/imaginary component (one of "re" or "im")"""
@@ -87,11 +97,13 @@ class ClassFITSBeam (object):
             filename_imag.append(make_beam_filename(self.filename,corr,'im'))
 
         # load beam interpolator
-        import Siamese.OMS.InterpolatedBeams as InterpolatedBeams
         self.vbs = []
         for reFits, imFits in zip(filename_real,filename_imag):        
             print>>log,"Loading beam patterns %s, %s"%(list(filename_real),list(filename_imag))
-            vb = InterpolatedBeams.LMVoltageBeam(verbose=0,l_axis="-X",m_axis="Y")  # verbose, XY must come from options
+            vb = InterpolatedBeams.LMVoltageBeam(
+                verbose=opts["FITSVerbosity"],
+                l_axis=opts["FITSLAxis"], m_axis=opts["FITSMAxis"]
+            )  # verbose, XY must come from options
             vb.read(reFits,imFits)
             self.vbs.append(vb)
 
@@ -150,7 +162,8 @@ class ClassFITSBeam (object):
         m0 = numpy.zeros(ndir,float)
         for i,(r1,d1) in enumerate(zip(ra,dec)):
           l0[i], m0[i] = self.ms.radec2lm_scalar(r1,d1)
-
+        # print>>log,ra*180/np.pi,dec*180/np.pi
+        # print>>log,l0*180/np.pi,m0*180/np.pi
         # rotate each by parallactic angle
         r = numpy.sqrt(l0*l0+m0*m0)
         angle = numpy.arctan2(m0,l0)

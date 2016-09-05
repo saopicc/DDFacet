@@ -1,5 +1,5 @@
 import numpy as np
-#import pylab
+import pylab
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
@@ -9,23 +9,33 @@ from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
-from DDFacet.Other import MyPickle
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
+import pickle
+
+def writetofile(fname,val):
+    file1 = open(fname,'a+')
+    file1.write('%s\n' % (val))
+    file1.close()
+    return
+
+def pickleadic(dname,dict):
+    with open(dname, 'wb') as handle:
+        pickle.dump(dict, handle)
+    return
 
 class ClassMultiScaleMachine():
 
-    def __init__(self,GD,Gain=0.1,GainMachine=None):
+    def __init__(self,GD,Gain=0.1,GainMachine=None,NFreqBands=1):
         self.SubPSF=None
         self.GainMachine=GainMachine
         self.CubePSFScales=None
         self.GD=GD
         self.MultiFreqMode=False
         self.Alpha=np.array([0.],float)
-        if self.GD["MultiFreqs"]["NFreqBands"]:
-            self.MultiFreqMode=True
-            self.NFreqBand=self.GD["MultiFreqs"]["NFreqBands"]
+        self.NFreqBands = NFreqBands
+        self.MultiFreqMode = NFreqBands>1
 
 
     def setModelMachine(self,ModelMachine):
@@ -116,7 +126,7 @@ class ClassMultiScaleMachine():
         dx0=np.max([dx0,200])
         dx0=np.min([dx0,NPSF/2])
         npix=2*dx0+1
-        npix=ModToolBox.GiveClosestFastSize(npix,Odd=False)
+        npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
 
 
         #npix=1
@@ -125,6 +135,13 @@ class ClassMultiScaleMachine():
         dx=npix/2
 
         dx=np.min([NPSF/2,dx])
+        box = self.GD["MultiScale"]["PSFBox"]
+        if box:
+            dx = box
+#            print>> log, "explicitly set PSFBox=%d" % dx
+        else:
+            pass
+#            print>> log, "PSF box extent computed as %d" % dx
         self.PSFExtent=(NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
 
         #self.PSFExtent=(0,NPSF,0,NPSF)
@@ -152,6 +169,8 @@ class ClassMultiScaleMachine():
             NAlpha=int(NAlpha)
             AlphaL=np.linspace(AlphaMin,AlphaMax,NAlpha)
             Alpha=np.array([0.]+[al for al in AlphaL if not(al==0.)])
+        else:
+            Alpha=np.array([0.]) #not in multi-frequency synthesis mode. Assume no ((v-v0)/v) modulation of I_model
 
         _,_,nx,ny=self.SubPSF.shape
         NScales=len(LScales)
@@ -169,7 +188,7 @@ class ClassMultiScaleMachine():
         Support=31
         #Support=1
 
-        #CubePSFScales=np.zeros((self.NFreqBand,NScales+NRatios*NTheta*(NScales-1),nx,ny))
+        #CubePSFScales=np.zeros((self.NFreqBands,NScales+NRatios*NTheta*(NScales-1),nx,ny))
         ListPSFScales=[]
         ListPSFScalesWeights=[]
         # Scale Zero
@@ -177,19 +196,20 @@ class ClassMultiScaleMachine():
 
         ######################
 
+        AllFreqs=[]
+        AllFreqsMean=np.zeros((self.NFreqBands,),np.float32)
+        for iChannel in range(self.NFreqBands):
+            AllFreqs+=self.DicoVariablePSF["freqs"][iChannel]
+            AllFreqsMean[iChannel]=np.mean(self.DicoVariablePSF["freqs"][iChannel])
+
+        RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoVariablePSF["WeightChansImages"].ravel())
 
 
 
-        self.ModelMachine.setRefFreq(self.PSFServer.RefFreq,self.PSFServer.AllFreqs)
-
-        RefFreq=self.PSFServer.RefFreq
-        AllFreqs=self.PSFServer.AllFreqs
+        self.ModelMachine.setRefFreq(RefFreq,AllFreqs)
         self.RefFreq=RefFreq
-
-
+        self.PSFServer.RefFreq=RefFreq
         FreqBandsFluxRatio=self.PSFServer.GiveFreqBandsFluxRatio(self.iFacet,Alpha)
-        self.FreqBandsFluxRatio=FreqBandsFluxRatio
-        print self.iFacet,self.FreqBandsFluxRatio
         # if self.iFacet==96: 
         #     print 96
         #     print FreqBandsFluxRatio
@@ -201,8 +221,7 @@ class ClassMultiScaleMachine():
 
         #####################
 
-        # print "FreqBandsFluxRatio"
-        # print FreqBandsFluxRatio
+#        print FreqBandsFluxRatio
         self.Alpha=Alpha
         nch,_,nx,ny=self.SubPSF.shape
         for iAlpha in range(NAlpha):
@@ -210,7 +229,7 @@ class ClassMultiScaleMachine():
             FluxRatios=FluxRatios.reshape((FluxRatios.size,1,1))
             ThisMFPSF=self.SubPSF[:,0,:,:]*FluxRatios
             ThisAlpha=Alpha[iAlpha]
-            
+
             iSlice=0
 
             ListPSFScales.append(ThisMFPSF)
@@ -224,7 +243,7 @@ class ClassMultiScaleMachine():
                 Minor=Scales[iScales]/(2.*np.sqrt(2.*np.log(2.)))
                 Major=Minor
                 PSFGaussPars=(Major,Minor,0.)
-                ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBand)[:,0,:,:]#[0,0]
+                ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBands)[:,0,:,:]#[0,0]
                 Max=np.max(ThisPSF)
                 ThisPSF/=Max
                 ThisSupport=int(np.max([Support,3*Major]))
@@ -235,7 +254,8 @@ class ClassMultiScaleMachine():
                 #ThisPSF*=fact
                 ListPSFScales.append(ThisPSF)
                 self.ListScales.append({"ModelType":"Gaussian",#"fact":fact,
-                                        "Model":Gauss,"Scale":iScales,"Alpha":ThisAlpha})
+                                        "Model":Gauss, "ModelParams":PSFGaussPars,
+                                        "Scale":iScales,"Alpha":ThisAlpha})
             
             iSlice+=1
         
@@ -248,7 +268,7 @@ class ClassMultiScaleMachine():
                         Minor=Scales[iScale]/(2.*np.sqrt(2.*np.log(2.)))
                         Major=Minor*ratio
                         PSFGaussPars=(Major,Minor,th)
-                        ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBand)[:,0,:,:]
+                        ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBands)[:,0,:,:]
                         Max=np.max(ThisPSF)
                         ThisPSF/=Max
                         ListPSFScales.append(ThisPSF)
@@ -266,14 +286,15 @@ class ClassMultiScaleMachine():
                         #fact=np.max(Gauss)/np.sum(Gauss)
                         #Gauss*=fact
                         self.ListScales.append({"ModelType":"Gaussian",
-                                                "Model":Gauss,"Scale":iScale,
+                                                "Model":Gauss, "ModelParams": PSFGaussPars,
+                                                "Scale":iScale,
                                                 "Alpha":ThisAlpha})
 
         # Max=np.max(np.max(CubePSFScales,axis=1),axis=1)
         # Max=Max.reshape((Max.size,1,1))
         # CubePSFScales=CubePSFScales/Max
 
-        # for iChannel in range(self.NFreqBand):
+        # for iChannel in range(self.NFreqBands):
         #     Flat=np.zeros((nch,nx,ny),ThisPSF.dtype)
         #     Flat[iChannel]=1
         #     ListPSFScales.append(Flat)
@@ -304,19 +325,17 @@ class ClassMultiScaleMachine():
         #self.GlobalWeightFunction.fill(1)
 
         ScaleMax=np.max(Scales)
-        # self.SupWeightWidth=ScaleMax
+        #self.SupWeightWidth=ScaleMax#3.*self.WeightWidth
         self.SupWeightWidth=3.*self.WeightWidth
-        # print "!!!!!!!!!!!!! 0"
-        # self.SupWeightWidth=0
-       
+
 
 
         #print>>log, "   ... Done"
 
     def MakeBasisMatrix(self):
         nxPSF=self.CubePSFScales.shape[-1]
-        x0,x1=nxPSF/2-self.SupWeightWidth,nxPSF/2+self.SupWeightWidth+1
-        y0,y1=nxPSF/2-self.SupWeightWidth,nxPSF/2+self.SupWeightWidth+1
+        x0,x1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
+        y0,y1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
         self.SubSubCoord=(x0,x1,y0,y1)
         self.SubCubePSF=self.CubePSFScales[:,:,x0:x1,y0:y1]
         self.SubWeightFunction=self.GlobalWeightFunction[:,:,x0:x1,y0:y1]
@@ -325,7 +344,7 @@ class ClassMultiScaleMachine():
 
     def GiveBasisMatrix(self,SubSubSubCoord=None):
 #        print>>log,"Calculating basisc function for SubSubSubCoord=%s"%(str(SubSubSubCoord))
-        if SubSubSubCoord==None:
+        if SubSubSubCoord is None:
             CubePSF=self.SubCubePSF
             WeightFunction=self.SubWeightFunction
         else:
@@ -421,9 +440,11 @@ class ClassMultiScaleMachine():
                          "CubePSF":CubePSF,
                          "WeightFunction":(WeightFunction),
                          "fWeightFunction":UVTaper,
-                         "FreqBandsFluxRatio":self.FreqBandsFluxRatio,
                          "CubePSFScales":self.CubePSFScales}
 
+
+        BaseName = self.GD["Images"]["ImageName"]
+        pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
         return DicoBasisMatrix
         
         
@@ -449,7 +470,7 @@ class ClassMultiScaleMachine():
         #print self.DicoDirty.keys()
         #print Fpol
         FpolTrue=Fpol
-        if self.DicoDirty["NormData"]!=None:
+        if self.DicoDirty["NormData"] is not None:
             JonesNorm=(self.DicoDirty["NormData"][:,:,x,y]).reshape((nchan,npol,1,1))
             
             FpolTrue=Fpol/np.sqrt(JonesNorm)
@@ -509,25 +530,9 @@ class ClassMultiScaleMachine():
         dirtyVec=dirtyNorm.reshape((dirtyNorm.size,1))
         T.timeit("1")
 
-        # print "!!!!!!!!!!!!! fill"
-        # dirtyVec.fill(10.)
-        
-
-        # BMCube=DicoBasisMatrix["BMCube"]
-        # nch,_,_=MeanData.shape
-        # BMCubeSub=BMCube.copy()
-        # nData,nFunc=BM.shape
-        # for iFunc in range(nFunc):
-        #     BMCubeSub[iFunc]=BMCube[iFunc]-MeanData
-        # BM=(BMCubeSub.reshape((nFunc,nData)).T.copy())
-
-        # ModLinAlg.invSVD(BMT_BM)
-
-        # BMT_BM=np.dot(BM.T,WVecPSF*BM)
-        # BMT_BM_inv=ModLinAlg.invSVD(BMT_BM)
 
 
-        self.SolveMode="MatchingPursuit"
+        #self.SolveMode="MatchingPursuit"
         self.SolveMode="PI"
         #self.SolveMode="ComplementaryMatchingPursuit"
         #self.SolveMode="NNLS"
@@ -575,8 +580,6 @@ class ClassMultiScaleMachine():
 
         elif self.SolveMode=="PI":
             
-
-            
             Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
             #Sol.fill(1)
 
@@ -595,7 +598,7 @@ class ClassMultiScaleMachine():
             # print FpolTrue.ravel()
             # print self.DicoDirty["WeightChansImages"].ravel()
             # print "Data shape",dirtyVec.shape
-            # print dirtyVec
+            # # print dirtyVec
             # # #print "BM",BM.shape
             # # #print BM
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
@@ -604,9 +607,6 @@ class ClassMultiScaleMachine():
             # #print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
             # print "MeanFluxTrue",MeanFluxTrue
             # print "coef",coef
-
-            # MyPickle.Save(DicoBasisMatrix,"BM.GAClean")
-            # stop
             # # ##########################
 
             SolReg=np.zeros_like(Sol)
@@ -631,10 +631,8 @@ class ClassMultiScaleMachine():
 
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
 
-            # print "Min Max dirty",dirtyNormIm.min(),dirtyNormIm.max()
-
-            # #print "Max abs model",np.max(np.abs(LocalSM))
-            # print "Min Max model",LocalSM.min(),LocalSM.max()
+            #print "Max abs model",np.max(np.abs(LocalSM))
+            #print "Min Max model",LocalSM.min(),LocalSM.max()
         elif self.SolveMode=="NNLS":
             import scipy.optimize
 
@@ -694,10 +692,11 @@ class ClassMultiScaleMachine():
             # Sol=x
             # LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
             
+
+
         nch,nx,ny=LocalSM.shape
         LocalSM=LocalSM.reshape((nch,1,nx,ny))
         LocalSM=LocalSM*np.sqrt(JonesNorm)
-        
 
         # print self.AlphaVec,Sol
         # print "alpha",np.sum(self.AlphaVec.ravel()*Sol.ravel())/np.sum(Sol)
@@ -710,7 +709,7 @@ class ClassMultiScaleMachine():
         ConvSM=((np.dot(BM,Sol)).ravel())#*(WVecPSF.ravel())
         #Sol/=self.Bias
 
-        #Sol[-self.NFreqBand::]=0
+        #Sol[-self.NFreqBands::]=0
         # Sol=np.dot(BM.T,WVecPSF*dirtyVec)
         # Sol[Sol<0]=0
 
