@@ -68,7 +68,8 @@ class ClassImageDeconvMachine():
         elif self.IslandDeconvMode=="Moresane":
             self.ModelMachine = ClassModelMachineMORESANE.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
         elif self.IslandDeconvMode=="Sasir":
-            self.ModelMachine = ClassModelMachineSASIR.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
+            raise NotImplementedError("ClassModelMachineSASIR is not implemented")
+            #self.ModelMachine = ClassModelMachineSASIR.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
 
         if CleanMaskImage!=None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
