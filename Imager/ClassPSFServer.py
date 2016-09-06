@@ -158,6 +158,32 @@ class ClassPSFServer():
     def GivePSF(self):
         return self.CubeVariablePSF[self.iFacet],self.CubeMeanVariablePSF[self.iFacet]
 
+    def CropPSF(self, PSF, npix):
+        PSFshape = PSF.shape
+        if len(PSFshape) == 4:
+            nfreq, npol, nx_psf, ny_psf = PSF.shape
+        else:
+            nx_psf, ny_psf = PSF.shape
+
+        xc_psf = nx_psf / 2
+
+        if npix % 2 == 0:
+            print >> log, "Cropping size should be odd (npix=%d) !!! Adding 1 pixel" % npix
+            npix = npix + 1
+
+        if npix > nx_psf or npix > ny_psf:
+            print >> log, "Cropping size larger than PSF size !!!"
+            raise NameError("Cropping size larger than PSF size !!!")
+
+        npixside = (npix - 1) / 2  # pixel to include from PSF center.
+        if len(PSFshape) == 4:
+            PSFCrop = PSF[nfreq, npol, xc_psf - npixside:xc_psf + npixside + 1,
+                      xc_psf - npixside:xc_psf + npixside + 1]  # making it square psf
+        else:
+            PSFCrop = PSF[xc_psf - npixside:xc_psf + npixside + 1,
+                      xc_psf - npixside:xc_psf + npixside + 1]  # making it square psf
+
+        return PSFCrop
 
     def GiveFreqBandsFluxRatio(self,iFacet,Alpha):
         NAlpha=Alpha.size

@@ -6,7 +6,7 @@ import sys
 from Other import MyLogger
 from Array import NpShared
 log=MyLogger.getLogger("ClearSHM")
-from DDFacet.Gridder import _pyGridderSmearPols as _pyGridderSmear
+from DDFacet.cbuild.Gridder import _pyGridderSmearPols as _pyGridderSmear
 import glob
 
 def read_options():

@@ -468,8 +468,8 @@ class ClassJones():
 
 
 
-
-            pBAR.render(itime*100/(Tm.size-1), "%d/%d"%(itime+1, Tm.size))
+            if Tm.size>1:
+                pBAR.render(itime*100/(Tm.size-1), "%d/%d"%(itime+1, Tm.size))
             Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)
             #
             if self.GD["Beam"]["CenterNorm"]==1:

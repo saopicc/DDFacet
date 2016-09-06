@@ -2,7 +2,7 @@ import collections
 import itertools
 
 import numpy as np
-import pylab
+#import pylab
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor

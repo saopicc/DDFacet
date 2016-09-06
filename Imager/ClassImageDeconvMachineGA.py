@@ -54,7 +54,7 @@ class ClassImageDeconvMachine():
         self._niter = 0
         self.PSFCross=None
 
-        if CleanMaskImage!=None:
+        if CleanMaskImage is not None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
             nch,npol,_,_=MaskArray.shape
@@ -66,7 +66,8 @@ class ClassImageDeconvMachine():
             self.IslandArray=np.zeros_like(self._MaskArray)
             self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
         else:
-            print>>log, "You have to provide a mask image for GAClean"
+            raise NotImplementedError("You have to provide a mask image for GAClean")
+
 
 
 
@@ -86,8 +87,9 @@ class ClassImageDeconvMachine():
         #self.NChannels=self.DicoDirty["NChannels"]
         self.ModelMachine.setRefFreq(self.PSFServer.RefFreq,self.PSFServer.AllFreqs)
 
-    def InitMSMF(self):
-        pass
+    def Init(self,**kwargs):
+        self.SetPSF(kwargs["PSFVar"])
+        self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
 
     def AdaptArrayShape(self,A,Nout):
         nch,npol,Nin,_=A.shape
@@ -302,8 +304,9 @@ class ClassImageDeconvMachine():
             for iIsland in range(len(ListIslands)):#self.NIslands):
                 ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
 
-
+        print "NIslands = ", len(ListIslands)
         ListIslands=self.CalcCrossIslandFlux(ListIslands)
+        print "NIslands = ",len(ListIslands)
 
 
         # FluxIslands=[]
@@ -336,7 +339,6 @@ class ClassImageDeconvMachine():
             #     self.ListIslands.append(ListIslands[iIsland])
             # ###############################
 
-
         self.NIslands=len(self.ListIslands)
         print>>log,"  selected %i islands [out of %i] with peak flux > %.3g Jy"%(self.NIslands,len(ListIslands),Threshold)
 
@@ -358,11 +360,11 @@ class ClassImageDeconvMachine():
     def GiveThreshold(self,Max):
         return ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*Max if self.CycleFactor else 0
 
-    def Clean(self,*args,**kwargs):
-        #return self.CleanSerial(*args,**kwargs)
-        return self.CleanParallel(*args,**kwargs)
+    def Deconvolve(self,*args,**kwargs):
+        #return self.DeconvolveSerial(*args, **kwargs)
+        return self.DeconvolveParallel(*args, **kwargs)
 
-    def CleanSerial(self,ch=0):
+    def DeconvolveSerial(self, ch=0):
         """
         Runs minor cycle over image channel 'ch'.
         initMinor is number of minor iteration (keeps continuous count through major iterations)
@@ -469,21 +471,21 @@ class ClassImageDeconvMachine():
 
             IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
 
-            ################################
-            DicoSave={"Dirty":self._Dirty,
-                      "PSF":PSF,
-                      "FreqsInfo":FreqsInfo,
-                      #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
-                      "ListPixData":ThisPixList,
-                      "ListPixParms":ThisPixList,
-                      "IslandBestIndiv":IslandBestIndiv,
-                      "GD":self.GD,
-                      "FacetID":FacetID}
+            # ################################
+            # DicoSave={"Dirty":self._Dirty,
+            #           "PSF":PSF,
+            #           "FreqsInfo":FreqsInfo,
+            #           #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
+            #           "ListPixData":ThisPixList,
+            #           "ListPixParms":ThisPixList,
+            #           "IslandBestIndiv":IslandBestIndiv,
+            #           "GD":self.GD,
+            #           "FacetID":FacetID}
             
-            print "saving"
-            MyPickle.Save(DicoSave, "SaveTest")
-            print "saving ok"
-            ################################
+            # print "saving"
+            # MyPickle.Save(DicoSave, "SaveTest")
+            # print "saving ok"
+            # ################################
 
             nch=nchan
             self.FreqsInfo=FreqsInfo
@@ -511,7 +513,7 @@ class ClassImageDeconvMachine():
 
 
 
-    def CleanParallel(self,ch=0):
+    def DeconvolveParallel(self, ch=0):
         if self._niter >= self.MaxMinorIter:
             return "MaxIter", False, False
 
@@ -617,6 +619,7 @@ class ClassImageDeconvMachine():
             T.timeit("Put")
             
         SharedListIsland="%s.ListIslands"%(self.IdSharedMem)
+        print "NIslands = ", self.NIslands
         ListArrayIslands=[np.array(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)]
         NpShared.PackListArray(SharedListIsland,ListArrayIslands)
         T.timeit("Pack0")
@@ -756,6 +759,30 @@ class ClassImageDeconvMachine():
         W=np.float32(self.DicoDirty["WeightChansImages"])
         self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
 
+    def Update(self,DicoDirty,**kwargs):
+        """
+        Method to update attributes from ClassDeconvMachine
+        """
+        #Update image dict
+        self.SetDirty(DicoDirty)
+
+    def ToFile(self, fname):
+        """
+        Write model dict to file
+        """
+        self.ModelMachine.ToFile(fname)
+
+    def FromFile(self, fname):
+        """
+        Read model dict from file SubtractModel
+        """
+        self.ModelMachine.FromFile(fname)
+
+    def FromDico(self, DicoName):
+        """
+        Read in model dict
+        """
+        self.ModelMachine.FromDico(DicoName)
 
 #===============================================
 #===============================================
@@ -850,32 +877,3 @@ class WorkerDeconvIsland(multiprocessing.Process):
                 print "Exception : %s"%str(e)
 
                 self.result_queue.put({"Success":False})
-
-
-    def Update(self, DicoDirty, **kwargs):
-        """
-        Method to update attributes from ClassDeconvMachine
-        """
-        # Update image dict
-        self.SetDirty(DicoDirty)
-
-
-    def ToFile(self, fname):
-        """
-        Write model dict to file
-        """
-        self.ModelMachine.ToFile(fname)
-
-
-    def FromFile(self, fname):
-        """
-        Read model dict from file SubtractModel
-        """
-        self.ModelMachine.FromFile(fname)
-
-
-    def FromDico(self, DicoName):
-        """
-        Read in model dict
-        """
-        self.ModelMachine.FromDico(DicoName)
