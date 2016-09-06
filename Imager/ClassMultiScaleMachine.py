@@ -352,7 +352,7 @@ class ClassMultiScaleMachine():
             self.DicoBasisMatrix = cachedmatrix
         else:
             self.DicoBasisMatrix = self.GiveBasisMatrix()
-        return cachedmatrix
+        return self.DicoBasisMatrix
 
 
     def GiveBasisMatrix(self,SubSubSubCoord=None):
