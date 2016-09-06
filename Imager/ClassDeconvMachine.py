@@ -194,7 +194,7 @@ class ClassImagerDeconv():
                     self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
                     print>>log,"Using SSD algorithm"
                 else:
-					raise NotImplementedError("Currently MSMF, GA are the only multi-scale algorithm")
+                    raise NotImplementedError("Currently MSMF, GA are the only multi-scale algorithm")
             else:
                 print>>log, "Minor cycle deconvolution in Single Scale Mode"
                 self.MinorCycleMode="SS"
