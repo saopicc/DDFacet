@@ -175,35 +175,27 @@ class ClassImagerDeconv():
             MinorCycleConfig["GD"] = self.GD
             MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
             
-            if self.GD["MultiScale"]["MSEnable"]:
-                print>>log, "Minor cycle deconvolution in Multi Scale Mode"
-                self.MinorCycleMode="MS"
                 # Specify which deconvolution algorithm to use
-                if self.GD["ImagerDeconv"]["MinorCycleMode"] == "MSMF":
-                    if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                        raise NotImplementedError("Multi-polarization CLEAN is not supported in MSMF")
-                    self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
-                    print>>log,"Using MSMF algorithm"
-                elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="GA":
-                    if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                        raise NotImplementedError("Multi-polarization CLEAN is not supported in GA")
-                    self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
-                    print>>log,"Using GA algorithm"
-                elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD":
-                    if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                        raise NotImplementedError("Multi-polarization is not supported in SSD")
-                    self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
-                    print>>log,"Using SSD algorithm"
-                else:
-					raise NotImplementedError("Currently MSMF, GA are the only multi-scale algorithm")
+            if self.GD["ImagerDeconv"]["MinorCycleMode"] == "MSMF":
+                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                    raise NotImplementedError("Multi-polarization CLEAN is not supported in MSMF")
+                self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
+                print>>log,"Using MSMF algorithm"
+            elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="GA":
+                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                    raise NotImplementedError("Multi-polarization CLEAN is not supported in GA")
+                self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
+                print>>log,"Using GA algorithm"
+            elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD":
+                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                    raise NotImplementedError("Multi-polarization is not supported in SSD")
+                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
+                print>>log,"Using SSD algorithm"
+            elif self.GD["ImagerDeconv"]["MinorCycleMode"] == "Hogbom":
+                self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
+                print>>log,"Using Hogbom algorithm"
             else:
-                print>>log, "Minor cycle deconvolution in Single Scale Mode"
-                self.MinorCycleMode="SS"
-                if self.GD["ImagerDeconv"]["MinorCycleMode"] == "Hogbom":
-                    self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
-                    print>>log,"Using Hogbom algorithm"
-                else:
-                    raise NotImplementedError("Currently Hogbom is the only single-scale algorithm")
+                raise NotImplementedError("Algorithm %s does not exist"%self.GD["ImagerDeconv"]["MinorCycleMode"])
 
             self.InitFacetMachine()
             self.VS.setFacetMachine(self.FacetMachine)

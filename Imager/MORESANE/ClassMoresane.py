@@ -4,18 +4,26 @@ import numpy as np
 import logging
 import time
 
-import pymoresane.iuwt as iuwt
-import pymoresane.iuwt_convolution as conv
-import pymoresane.iuwt_toolbox as tools
-import pymoresane.parser as pparser
-from pymoresane.beam_fit import beam_fit
-from pymoresane.main import FitsImage as FI # importing the class
+    
+
 
 from scipy.signal import fftconvolve
 import pylab as plt
 
-logger = logging.getLogger(__name__)
+#logger = logging.getLogger(__name__)
+from DDFacet.Other import MyLogger
+from DDFacet.Other import ModColor
+log=MyLogger.getLogger("ClassMoresane")
 
+try:
+    import pymoresane.iuwt as iuwt
+    import pymoresane.iuwt_convolution as conv
+    import pymoresane.iuwt_toolbox as tools
+    import pymoresane.parser as pparser
+    from pymoresane.beam_fit import beam_fit
+    from pymoresane.main import FitsImage as FI # importing the class
+except:
+    print>>log,"pymoresane could not be imported"
 
 class ClassMoresane(FI): # inherits from FitsImage but overriding __init__ to get rid of FITS file processing
     def __init__(self,Dirty,PSF,DictMoresaneParms,GD=None):

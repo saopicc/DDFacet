@@ -12,14 +12,19 @@ import ClassMultiScaleMachine
 from pyrap.images import image
 from ClassPSFServer import ClassPSFServer
 import ClassModelMachineGA
-import ClassModelMachineMORESANE
+
+try:
+    import ClassModelMachineMORESANE
+    from MORESANE.ClassMoresane import ClassMoresane
+except:
+    pass
+
 
 from DDFacet.Other.progressbar import ProgressBar
 import ClassGainMachine
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.PSourceExtract import ClassIncreaseIsland
 from GA.ClassEvolveGA import ClassEvolveGA
-from MORESANE.ClassMoresane import ClassMoresane
 from SASIR.ClassSasir import ClassSasir
 
 from DDFacet.Other import MyPickle
