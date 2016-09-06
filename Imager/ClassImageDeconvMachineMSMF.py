@@ -94,7 +94,6 @@ class ClassImageDeconvMachine():
 
 #        t = ClassTimeIt.ClassTimeIt()
         for iFacet in range(self.PSFServer.NFacets):
-            t.timeit('0')
             self.PSFServer.setFacet(iFacet)
             MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.GainMachine,NFreqBands=self.NFreqBands)
             MSMachine.setModelMachine(self.ModelMachine)
