@@ -347,7 +347,7 @@ class ClassImageDeconvMachine():
         self.SideLobeLevel=SideLobeLevel
         self.OffsetSideLobe=OffsetSideLobe
 
-    def Clean(self,Nminor=None,ch=0):
+    def Deconvolve(self, Nminor=None, ch=0):
         if Nminor==None:
             Nminor=self.MaxMinorIter
 

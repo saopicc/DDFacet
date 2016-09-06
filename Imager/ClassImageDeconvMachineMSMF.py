@@ -109,22 +109,22 @@ class ClassImageDeconvMachine():
             MSMachine.SetDirty(DicoDirty)
 
         #self._PSF=self.MSMachine._PSF
-        self._CubeDirty=MSMachine._Dirty
+        self._Dirty=MSMachine._Dirty
         #self._MeanPSF=self.MSMachine._MeanPSF
         self._MeanDirty=MSMachine._MeanDirty
         NPSF=self.PSFServer.NPSF
         #_,_,NPSF,_=self._PSF.shape
-        _,_,NDirty,_=self._CubeDirty.shape
+        _,_,NDirty,_=self._Dirty.shape
 
         off=(NPSF-NDirty)/2
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
         
 
 
-        if self._ModelImage is None:
-            self._ModelImage = np.zeros_like(self._CubeDirty)
-        if self._MaskArray is None:
-            self._MaskArray = np.zeros(self._CubeDirty.shape,dtype=np.bool8)
+        if self.ModelImage is None:
+            self._ModelImage=np.zeros_like(self._Dirty)
+        if self.MaskArray is None:
+            self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
 
 
 
@@ -234,7 +234,7 @@ class ClassImageDeconvMachine():
         # print Bedge
         # print self.Dirty[0,x0d:x1d,y0d:y1d]
 
-    def Clean(self,ch=0):
+    def Deconvolve(self, ch=0):
         """
         Runs minor cycle over image channel 'ch'.
         initMinor is number of minor iteration (keeps continuous count through major iterations)

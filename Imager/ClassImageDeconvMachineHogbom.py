@@ -26,7 +26,7 @@ class ClassImageDeconvMachine():
         Init(**kwargs) - contains minor cycle specific initialisations which are only used once
             Input: currently kwargs are minor cycle specific and should be set from ClassDeconvMachine but a
                      ideally a generic interface has these set in the parset somehow.
-        Clean() - does joint deconvolution over all the channels/bands.
+        Deconvolve() - does joint deconvolution over all the channels/bands.
             Output: return_code - "MaxIter"????
                     continue - whether to continue the deconvolution
                     updated - whether the model has been updated
@@ -232,7 +232,7 @@ class ClassImageDeconvMachine():
         self.MaskArray = self._MaskArray.view()[ch]
 
 
-    def Clean(self,ch=0):
+    def Deconvolve(self, ch=0):
         """
         Runs minor cycle over image channel 'ch'.
         initMinor is number of minor iteration (keeps continuous count through major iterations)
