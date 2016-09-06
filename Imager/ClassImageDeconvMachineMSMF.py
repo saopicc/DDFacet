@@ -109,22 +109,20 @@ class ClassImageDeconvMachine():
             MSMachine.SetDirty(DicoDirty)
 
         #self._PSF=self.MSMachine._PSF
-        self._Dirty=MSMachine._Dirty
+        self._CubeDirty=MSMachine._Dirty
         #self._MeanPSF=self.MSMachine._MeanPSF
-        self._MeanDirty=MSMachine._MeanDirty
+        self._MeanDirty = MSMachine._MeanDirty
         NPSF=self.PSFServer.NPSF
         #_,_,NPSF,_=self._PSF.shape
-        _,_,NDirty,_=self._Dirty.shape
+        _,_,NDirty,_=self._CubeDirty.shape
 
         off=(NPSF-NDirty)/2
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
-        
 
-
-        if self.ModelImage is None:
-            self._ModelImage=np.zeros_like(self._Dirty)
-        if self.MaskArray is None:
-            self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
+        if self._ModelImage is None:
+            self._ModelImage=np.zeros_like(self._CubeDirty)
+        if self._MaskArray is None:
+            self._MaskArray=np.zeros(self._CubeDirty.shape,dtype=np.bool8)
 
 
 
@@ -221,7 +219,7 @@ class ClassImageDeconvMachine():
         # # NpParallel.A_add_B_prod_factor((self.Dirty),LocalSM,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
 
         self._CubeDirty[:,:,x0d:x1d,y0d:y1d] -= LocalSM[:,:,x0p:x1p,y0p:y1p]
-        if self.MultiFreqMode:
+        if self._MeanDirty is not self._CubeDirty:
             # W=np.float32(self.DicoDirty["WeightChansImages"])
             # self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
             self._MeanDirty[0,:,x0d:x1d,y0d:y1d] = self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0)
