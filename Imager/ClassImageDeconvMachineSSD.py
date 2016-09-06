@@ -528,7 +528,8 @@ class ClassImageDeconvMachine():
 
         for iIsland in range(self.NIslands):
             ThisPixList=self.ListIslands[iIsland]
-            ThisSquarePixList=self.ListSquareIslands[iIsland]
+            if self.IslandDeconvMode == "Moresane" or self.IslandDeconvMode == "Sasir":  # convert island to square image to pass to MORESANE & SASIR
+                ThisSquarePixList=self.ListSquareIslands[iIsland]
 
             print>>log,"  Fitting island #%4.4i with %i pixels"%(iIsland,len(ThisPixList))
 
@@ -556,19 +557,19 @@ class ClassImageDeconvMachine():
 
             # COMMENT TO RUN IN DDF, UNCOMMENT TO TEST WITH TESTXXDeconv.py under XX folder
             ################################
-            DicoSave={"Dirty":self._Dirty,
-                      "PSF":PSF,
-                      "FreqsInfo":FreqsInfo,
+            #DicoSave={"Dirty":self._Dirty,
+            #          "PSF":PSF,
+            #          "FreqsInfo":FreqsInfo,
                       #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
-                      "ListPixData":ThisPixList,
-                      "ListPixParms":ThisPixList,
-                      "ListSquarePix": ThisSquarePixList,
-                      "IslandBestIndiv":IslandBestIndiv,
-                      "GD":self.GD,
-                      "FacetID":FacetID}
-            print "saving"
-            MyPickle.Save(DicoSave, "SaveTest")
-            print "saving ok"
+            #          "ListPixData":ThisPixList,
+            #          "ListPixParms":ThisPixList,
+            ##          "ListSquarePix": ThisSquarePixList, ## When Moresane or SASIR are used
+            #          "IslandBestIndiv":IslandBestIndiv,
+            #          "GD":self.GD,
+            #          "FacetID":FacetID}
+            #print "saving"
+            #MyPickle.Save(DicoSave, "SaveTest")
+            #print "saving ok"
             #ipdb.set_trace()
 
             ################################
