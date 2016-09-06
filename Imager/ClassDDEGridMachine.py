@@ -224,7 +224,7 @@ def testGrid():
     nbl=VS.CurrentMS.nbl
 
     U,V,W=uvw.T
-    C=299792456.
+    C=299792458.
     N=np.sqrt(1.-L**2-M**2)
     U=U.reshape(U.size,1)
     V=V.reshape(U.size,1)
