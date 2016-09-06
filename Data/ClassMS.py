@@ -470,9 +470,9 @@ class ClassMS():
         if flagbuf is not None:
             flag_all = np.ndarray(shape=datashape,dtype=np.bool,buffer=flagbuf)
             print>>log,"using %d/%d elements of existing flag buffer"%(flag_all.size,flagbuf.size)
-            table_all.getcolnp("FLAG",flag_all,row0,nRowRead)#[SPW==self.ListSPW[0]]
+            table_all.getcolslicenp("FLAG",flag_all,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
         else:
-            flag_all = table_all.getcol("FLAG",row0,nRowRead)#[SPW==self.ListSPW[0]]
+            flag_all = table_all.getcolslice("FLAG",self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
 
         if ReadWeight==True:
             self.Weights=table_all.getcol("WEIGHT",row0,nRowRead)
@@ -484,18 +484,18 @@ class ClassMS():
         if databuf is not None:
             vis_all = np.ndarray(shape=datashape,dtype=np.complex64,buffer=databuf)
             print>>log,"using %d/%d elements of existing visibility buffer"%(vis_all.size,databuf.size)
-            table_all.getcolnp(self.ColName,vis_all,row0,nRowRead)#[SPW==self.ListSPW[0]]
+            table_all.getcolslicenp(self.ColName,vis_all,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
         else:
-            vis_all = table_all.getcol(self.ColName,row0,nRowRead)
+            vis_all = table_all.getcolslice(self.ColName,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)
         
         if self.zero_flag: vis_all[flag_all==1]=1e10
         #print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
         vis_all[np.isnan(vis_all)]=0.
         #print "visMS",vis_all.min(),vis_all.max()
 
-        if self.ChanSlice:
-            flag_all = flag_all[:,self.ChanSlice,:]
-            vis_all  = vis_all[:,self.ChanSlice,:]
+        # if self.ChanSlice:
+        #     flag_all = flag_all[:,self.ChanSlice,:]
+        #     vis_all  = vis_all[:,self.ChanSlice,:]
 
 
         table_all.close()
@@ -713,6 +713,7 @@ class ClassMS():
         self.CorrelationIds = tp.getcol('CORR_TYPE',0,1)[self._polid]
         self.CorrelationNames = [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
                 None for ctype in self.CorrelationIds ]
+        self.Ncorr = len(self.CorrelationNames)
         # NB: it is possible for the MS to have different polarization
 
         self.ColNames=table_all.colnames()
@@ -745,11 +746,24 @@ class ClassMS():
         ta_spectral=table(table_all.getkeyword('SPECTRAL_WINDOW'),ack=False)
         NSPW = ta_spectral.nrows()
         reffreq=ta_spectral.getcol('REF_FREQUENCY')[self._spwid]
-        chan_freq=ta_spectral.getcol('CHAN_FREQ')[self._spwid,self.ChanSlice]
+        orig_freq = ta_spectral.getcol('CHAN_FREQ')[self._spwid,:] 
+        chan_freq = orig_freq[self.ChanSlice]
 
 
         self.dFreq=ta_spectral.getcol("CHAN_WIDTH")[self._spwid,self.ChanSlice].flatten()[0]
         self.ChanWidth=ta_spectral.getcol('CHAN_WIDTH')[self._spwid,self.ChanSlice]
+
+        # set up cs_tlc,cd_brc,cs_inc: these are pyrap-style slice selection arguments
+        # to select the [subset] of the column
+        if self.ChanSlice is not None:
+            chan_nums = range(len(orig_freq))[self.ChanSlice]
+            self.cs_tlc = (chan_nums[0], 0)
+            self.cs_brc = (chan_nums[-1], self.Ncorr-1)
+            self.cs_inc = (self.ChanSlice.step or 1, 1)
+        else:
+            self.cs_tlc = (0, 0)
+            self.cs_brc = (self.Nchan-1, self.Ncorr-1)
+            self.cs_inc = (1, 1)
 
 
         # if chan_freq.shape[0]>len(self.ListSPW):

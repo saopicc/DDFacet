@@ -745,11 +745,13 @@ class ClassVisServer():
                 # if no data in this MS, make single, flagged entry
                 output_list.append((np.zeros((1, 2)), np.zeros((1, len(ms.ChanFreq))), np.array([True]), ms.ChanFreq))
                 continue
-            uvs = tab.getcol("UVW")[:, :2]
-            flags = tab.getcol("FLAG")
+
+            uvs = tab.getcol("UVW")[:,:2]
+            flags = np.empty((tab.nrows(), len(ms.ChanFreq), len(ms.CorrelationIds)), bool)
+            # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
+            tab.getcolslicenp("FLAG",flags,ms.cs_tlc,ms.cs_brc,ms.cs_inc)
             # update "outer" MS shape. Note that this has to take the full channel axis, no channel slicing
-            self._chunk_shape = [max(a, b) for a, b in zip(self._chunk_shape, flags.shape)]
-            flags = flags[:, chanslice, :]
+            self._chunk_shape = [ max(a,b) for a,b in zip(self._chunk_shape, flags.shape) ] 
             # if any polarization is flagged, flag all 4 correlations. Shape of flags becomes nrow,nchan
             flags = flags.max(axis=2)
             # valid: array of Nrow,Nchan, with meaning inverse to flags

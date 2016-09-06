@@ -49,16 +49,24 @@ class ClassFITSBeam (object):
         if not self.nchan:
             self.nchan = len(self.freqs)
         else:
-            chanstep = len(self.freqs) / self.nchan
+            chanstep = max(1, len(self.freqs) / self.nchan)
             self.freqs = self.freqs[chanstep/2::chanstep]
 
-        # NB: need to check correlation names better. This assumes four correlations in that order!
-        if "x" in self.ms.CorrelationNames[0].lower():
-            CORRS = "xx","xy","yx","yy"
-            print>>log,"polarization basis is linear (%s)"%" ".join(self.ms.CorrelationNames)
+        feed = opts["FITSFeed"]
+        if feed:
+            if len(feed) != 2:
+                raise ValueError,"FITSFeed parameter must be two characters (e.g. 'xy')"
+            feed = feed.lower()
+            CORRS = [ a+b for a in feed for b in feed ]
+            print>>log,"polarization basis specified by FITSFeed parameter: %s"%" ".join(CORRS)
         else:
-            CORRS = "rr","rl","lr","ll"
-            print>>log,"polarization basis is circular (%s)"%" ".join(self.ms.CorrelationNames)
+            # NB: need to check correlation names better. This assumes four correlations in that order!
+            if "x" in self.ms.CorrelationNames[0].lower():
+                CORRS = "xx","xy","yx","yy"
+                print>>log,"polarization basis is linear (MS corrs: %s)"%" ".join(self.ms.CorrelationNames)
+            else:
+                CORRS = "rr","rl","lr","ll"
+                print>>log,"polarization basis is circular (MS corrs: %s)"%" ".join(self.ms.CorrelationNames)
         # Following code is nicked from Cattery/Siamese/OMS/pybeams_fits.py
         REIM = "re","im";
         REALIMAG = dict(re="real",im="imag");
