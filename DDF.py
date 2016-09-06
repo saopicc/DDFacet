@@ -104,11 +104,13 @@ def read_options():
 #    OP.add_option('MultiFreqMap', help="Outputs multi-frequency cube (NFreqBands) instead of average map")
 
 
-    OP.OptionGroup("* File storing options","Stores")
-    OP.add_option('DeleteDDFProducts')
-    OP.add_option('PSF')
-    OP.add_option('Dirty')
-   
+    OP.OptionGroup("* Caching options","Caching")
+    OP.add_option('ResetCache')
+    OP.add_option('ResetPSF')
+    OP.add_option('ResetDirty')
+    OP.add_option('CachePSF')
+    OP.add_option('CacheDirty')
+
 
     OP.OptionGroup("* Selection","DataSelection")
     OP.add_option('Field')
