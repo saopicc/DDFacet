@@ -271,6 +271,7 @@ class ClassWTermModified():
         #         self.ToShared()
 
         Exists=NpShared.Exists(self.SharedMemName)
+#        print self.SharedMemName,"exists",Exists
         if Exists:
             self.FromShared()
         else:

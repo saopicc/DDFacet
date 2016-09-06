@@ -39,6 +39,8 @@ class ClassMultiScaleMachine():
         self.Alpha=np.array([0.],float)
         self.NFreqBands = NFreqBands
         self.MultiFreqMode = NFreqBands>1
+        self.SolveMode = self.GD["MultiScale"]["SolverMode"]
+        self._stall_threshold = self.GD["Debugging"]["CleanStallThreshold"]
 
 
     def setModelMachine(self,ModelMachine):
@@ -536,12 +538,12 @@ class ClassMultiScaleMachine():
 
 
         #self.SolveMode="MatchingPursuit"
-        self.SolveMode="PI"
+        # self.SolveMode="PI"
         #self.SolveMode="ComplementaryMatchingPursuit"
         #self.SolveMode="NNLS"
 
-        MeanFluxTrue=np.sum(FpolTrue.ravel()*self.WeightMuellerSignal)/np.sum(self.WeightMuellerSignal)
-        
+        # MeanFluxTrue=np.sum(FpolTrue.ravel()*self.WeightMuellerSignal)/np.sum(self.WeightMuellerSignal)
+        MeanFluxTrue = Fpol.mean()/np.sqrt(JonesNorm).mean()
         
         if  self.SolveMode=="MatchingPursuit":
             #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
@@ -612,6 +614,7 @@ class ClassMultiScaleMachine():
             # print "coef",coef
             # # ##########################
 
+            Sol0 = Sol
             SolReg=np.zeros_like(Sol)
             SolReg[0]=MeanFluxTrue
             #print "SolReg",SolReg.ravel()
@@ -625,15 +628,19 @@ class ClassMultiScaleMachine():
 
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
 
+            Sol*=(MeanFluxTrue/np.sum(Sol))
+
+            if abs(Sol).max() < self._stall_threshold:
+                print>>log,"Stalled CLEAN!"
+                print>>log,(self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal)
+                raise RuntimeError("CLEAN has stalled. This is a bug!")
+
             if self.GD["Debugging"]["DumpCleanSolutions"]:
                 global debug_dump_file
                 if not debug_dump_file:
-                    debug_dump_file = file(self.GD["Debugging"]["DumpCleanSolutions"], "w")
-                cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, SolReg, coef), debug_dump_file, 2)
+                    debug_dump_file = file(self.GD["Images"]["ImageName"] + ".clean.solutions", "w")
+                cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal), debug_dump_file, 2)
 
-            
-            Sol*=(MeanFluxTrue/np.sum(Sol))
-                
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
 
@@ -651,7 +658,14 @@ class ClassMultiScaleMachine():
             x,_=scipy.optimize.nnls(A, y.ravel())
             Sol=x
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
-            
+
+            if self.GD["Debugging"]["DumpCleanSolutions"]:
+                global debug_dump_file
+                if not debug_dump_file:
+                    debug_dump_file = file(self.GD["Images"]["ImageName"]+".clean.solutions", "w")
+                cPickle.dump((self.iFacet, xc, yc, Fpol, FpolTrue, Sol), debug_dump_file, 2)
+
+
             # P=set()
             # R=set(range(self.nFunc))
             # x=np.zeros((self.nFunc,1),np.float32)

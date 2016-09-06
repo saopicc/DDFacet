@@ -149,6 +149,7 @@ def read_options():
     OP.add_option("Ratios")
     OP.add_option("NTheta")
     OP.add_option("PSFBox")
+    OP.add_option("SolverMode")
 
     OP.OptionGroup("* MultiFrequency Options","MultiFreqs")
     OP.add_option("NFreqBands")
@@ -229,6 +230,7 @@ def read_options():
     OP.add_option("FacetPhaseShift")
     OP.add_option("DumpCleanSolutions")
     OP.add_option("PrintMinorCycleRMS")
+    OP.add_option("CleanStallThreshold")
 
     OP.OptionGroup("* Logging","Logging")
     OP.add_option("MemoryLogging")
