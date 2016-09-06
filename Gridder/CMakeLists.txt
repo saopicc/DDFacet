@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 2.8)
 set(BUILD_SHARED_LIBS ON) #we always want shared libs out of this for python extensions
 
-option(ENABLE_VECTORIZATION "Enables support for vectorization" ON)
+option(ENABLE_VECTORIZATION "Enables support for vectorization" OFF)
 option(ENABLE_i7_TUNING "Enables support for optimized code generation (-march=corei7)" ON)
 option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" ON)
 
 if (${ENABLE_i7_TUNING})
-  set(TUNING_FLAGS "-march=corei7 -mtune=corei7")
+  set(TUNING_FLAGS "-march=native -mtune=native")
   message(WARNING "Instructing gcc to use corei7 instruction set. This will break .so portability and may raise the ILLEGAL_INSTRUCTION signal on incompatible chipsets")
 else (${ENABLE_i7_TUNING})
   set(TUNING_FLAGS "")

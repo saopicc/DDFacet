@@ -78,6 +78,7 @@ class ClassImagerDeconv():
         self.PSFGaussParsAvg = None
         self.PSFSidelobesAvg = None
 
+
         self.VisWeights=None
         self.DATA=None
         self.Precision=self.GD["ImagerGlobal"]["Precision"]#"S"
@@ -328,9 +329,10 @@ class ClassImagerDeconv():
 
         self.DicoImagePSF=FacetMachinePSF.FacetsToIm(NormJones=True)
         self.DicoVariablePSF=FacetMachinePSF.DicoPSF
-        #FacetMachinePSF.ToCasaImage(self.DicoImagePSF["ImagData"],ImageName="%s.psf"%self.BaseName,Fits=True)
+
 
         self.PSF=self.DicoImagePSF["MeanImage"]#/np.sqrt(self.DicoImagePSF["NormData"])
+        FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True)
         
         self.MeanFacetPSF=self.DicoVariablePSF["MeanFacetPSF"]
 
@@ -737,7 +739,7 @@ class ClassImagerDeconv():
         if self.HasDeconvolved:
             self.Restore()
 
-    def fitSinglePSF(self, PSF, label="mean"):
+    def fitSinglePSF(self, PSF, off, label="mean"):
         """
             Fits a PSF given by argument
         Args:
@@ -748,7 +750,7 @@ class ClassImagerDeconv():
         """
         x, y = np.where(PSF == np.max(PSF))[-2:]
         nx, ny = PSF.shape[-2:]
-        off = self.GD["ImagerDeconv"]["SidelobeSearchWindow"] // 2
+        #off = offStart
         off = min(off, x[0], nx-x[0], y[0], ny-y[0])
         print>> log, "Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2)
         P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off]
@@ -780,16 +782,18 @@ class ClassImagerDeconv():
         """
         PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
 
-        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = \
-            self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
-        # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
 
+
+        off=self.GD["ImagerDeconv"]["SidelobeSearchWindow"] // 2
+        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
+
+        # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
         if self.VS.MultiFreqMode:
             self.FWHMBeam = []
             self.PSFGaussPars = []
             self.PSFSidelobes = []
             for band in range(self.VS.NFreqBands):
-                beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],"band %d"%band)
+                beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],off,"band %d"%band)
                 self.FWHMBeam.append(beam)
                 self.PSFGaussPars.append(gausspars)
                 self.PSFSidelobes.append(sidelobes)

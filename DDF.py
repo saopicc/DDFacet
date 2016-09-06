@@ -85,9 +85,7 @@ def read_options():
     OP.add_option('WeightCol')
     OP.add_option('PredictColName')
     
-    
     OP.OptionGroup("* Images-related options","Images")
-
     OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
     OP.add_option('PredictModelName',help='Predict Image name [%default]')
     OP.add_option('AllowColumnOverwrite', help='Whether to overwrite existing column or not [%default]')
