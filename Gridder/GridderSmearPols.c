@@ -514,7 +514,7 @@ void gridderWPol(gridding_parameters * params)
 		
 		//###################### Apply Jones #######################
                 if(DoApplyJones) {
-                    updateJones(irow, visChan, uvwPtr, 1);
+                    updateJones(irow, visChan, uvwPtr, 1, 1);
                 } //endif DoApplyJones
 		//beam-weight the psf:
                 if (params->dopsf==1) {
@@ -557,7 +557,7 @@ void gridderWPol(gridding_parameters * params)
 		//into account. We assume this is a scalar applied to all
 		//correlations.
 		double* imgWtPtr = params->weights + irow  * params->nVisChan + visChan;
-		float VisRealWeight = (*imgWtPtr)*WeightVaryJJ*DeCorrFactor;
+		float VisRealWeight = (*imgWtPtr)*WeightVaryJJ;
 		float complex VisComplexWeight = VisRealWeight * facetPhasor;
 		{
 		  int corr;  
@@ -578,7 +578,7 @@ void gridderWPol(gridding_parameters * params)
 		  int corr;
 		  for (corr=0;corr<params->nVisCorr;++corr){
 		    //Sigma_bl{(w)(M^H)(M)} approximation for the Mueller Matrix:
-		    float FWeightSq=(VisRealWeight); 
+		    float FWeightSq=(VisRealWeight*DeCorrFactor*DeCorrFactor); 
 		    BlockSumJones[corr]+=BB*FWeightSq;
 		    BlockSumSqWeights[corr]+=FWeightSq;
 		    size_t weightsOffset = visChan*params->nVisCorr + corr;
@@ -614,7 +614,10 @@ void gridderWPol(gridding_parameters * params)
         // ############## Vis Correlations -> Stokes ################
         //Now that the Jones matricies (correlations) have been applied we can 
 	//convert visibility correlations of MS to Stokes parameters:
-        convert_corrs_32(VisCorr,VisStokes);
+        //*********hardwiring I
+        // convert_corrs_32(VisCorr,VisStokes);
+        VisStokes[0] = (VisCorr[0] + VisCorr[3])/2;
+        // VisStokes[1] = VisStokes[2] = VisStokes[3] = 0;
         // ##########################################################
 	
         // ############## W-projection ####################
@@ -746,7 +749,7 @@ void DeGridderWPol(gridding_parameters *  params)
     size_t ipol;
     size_t irow;
     PyArrayObject *cfs;
-    
+    sem_t * Sem_mutex;
 //     double VarTimeDeGrid=0;
 //     int Nop=0;
     
@@ -900,7 +903,10 @@ void DeGridderWPol(gridding_parameters *  params)
                 // ################### Stokes -> Corrs #################
 		// Need to convert stokes fourier components to correlations
 		// before applying the Jones corruptions
-                convert_corrs_32(model_vis_stokes,model_vis_corr);
+                // convert_corrs_32(model_vis_stokes,model_vis_corr);
+                //***** hardwiring Stokes I
+                model_vis_corr[0] = model_vis_corr[3] = model_vis_stokes[0];
+                model_vis_corr[1] = model_vis_corr[2] = 0;
 		// ###########################################################
 		
                 // ################### Decorrelation #################
@@ -931,10 +937,11 @@ void DeGridderWPol(gridding_parameters *  params)
                     double*  __restrict__ uvwPtr   = params->uvw + irow*3;
                     size_t ThisPol;
                     for (visChan=chStart; visChan<chEnd; ++visChan) {
-                        size_t doff = (irow * params->nVisChan + visChan) * params->nVisCorr;
+						size_t doff_chan = (irow * params->nVisChan + visChan);
+						size_t doff = doff_chan * params->nVisCorr;
 
                         if(DoApplyJones) {
-                            updateJones(irow, visChan, uvwPtr, 0);
+                            updateJones(irow, visChan, uvwPtr, 0, 0);
                         } //endif DoApplyJones
 
                         //###################### Facetting #######################
@@ -988,9 +995,12 @@ void DeGridderWPol(gridding_parameters *  params)
 			//#######################################################
 			
 			//###################### Form residuals #######################
+			Sem_mutex=GiveSemaphoreFromCell(doff_chan);
+	  		sem_wait(Sem_mutex);			
 			for (ThisPol=0; ThisPol < params->nVisCorr; ++ThisPol){
 			    visPtr[ThisPol] = visPtr[ThisPol] - phased_vis_corr[ThisPol];
 			}
+			sem_post(Sem_mutex);
 			//#######################################################
                     }//endfor vischan
                 }//endfor RowThisBlock

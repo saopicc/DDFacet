@@ -19,6 +19,7 @@
 #include "pyArrayCast.h"
 #include "Constants.h"
 #include "gridding_parameters.h"
+#include "Semaphores.h"
 
 /* .... C vector utility functions ..................*/
 //PyArrayObject *pyvector(PyObject *objin);
@@ -39,6 +40,8 @@ static PyObject *pyDeGridderWPol(PyObject *self,
 static PyMethodDef _pyGridderSmearPols_testMethods[] = {
     {"pyGridderWPol", pyGridderWPol, METH_VARARGS},
     {"pyDeGridderWPol", pyDeGridderWPol, METH_VARARGS},
+	{"pySetSemaphores", pySetSemaphores, METH_VARARGS},
+	{"pyDeleteSemaphore", pyDeleteSemaphore, METH_VARARGS},
     {NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
 
@@ -92,3 +95,4 @@ void DeGridderWPol(gridding_parameters *  params);
 int FullScalarMode;
 int ScalarJones;
 int ScalarVis;
+

@@ -95,6 +95,8 @@ class Parset():
 
             Val=Config.get(section, option)
             Val=Val.replace(" ","")
+            Val=Val.replace('"',"")
+            Val=Val.replace("'","")
             FVal=FormatValue(Val)#,StrMode=True)
 
             dict1[option] = FVal

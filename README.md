@@ -8,7 +8,7 @@ From an Ubuntu 14.04 base:
 sudo add-apt-repository ppa:radio-astro/main
 sudo apt-get install git casacore2 python-pip libfftw3-dev \
     cmake python-meqtrees-cattery makems
-sudo pip install cython pyephem numexpr SharedArray Polygon2 \
+sudo pip install cython deap pyephem numexpr SharedArray Polygon2 \
     pyFFTW python-casacore scipy pyfits pylab
 ```
 
@@ -44,6 +44,20 @@ export DDFACET_TEST_DATA_DIR=[folder where you keep the acceptance test data and
 export DDFACET_TEST_OUTPUT_DIR=[folder where you want the acceptance test output to be dumped]
 ```
 
+## Configure max shared memory
+
+Running DDFacet on large images requires a lot of shared memory. Most systems limit the amount of shared memory to about 10%. To increase this limit add the following line to your ``/etc/default/tmpfs`` file:
+
+```
+SHM_SIZE=100%
+```
+
+A restart will be required for this change to reflect. If you would prefer a once off solution execute the following line
+
+```
+sudo mount -o remount,size=100% /run/shm
+```
+
 ## Acceptance tests
 Most of the core use cases will in the nearby future have reference images and an automated acceptance test.
 
@@ -53,14 +67,14 @@ to merge changes into master. Once you opened a pull request add the following c
 
 ###To run the tests on your local machine:
 You can run the automated tests by grabbing the latest set of measurements and reference images from the web and
-extracting them to the directory you set up in your **DDFACET_TEST_DATA_DIR** environment variable. You can run 
-the automated tests by navigating to your DDFacet directory and running nosetests. 
+extracting them to the directory you set up in your **DDFACET_TEST_DATA_DIR** environment variable. You can run
+the automated tests by navigating to your DDFacet directory and running nosetests.
 
 Each of the test cases is labeled by a class name and has reference images and a parset file with the same
 name, ie. if the test case that has failed is called "TestWidefieldDirty" the reference images will be called the same. You should investigate the reason for any severe discrepancies between the output of the test case and the images produced by your changed codebase. See the docstring at the top of the class ClassCompareFITSImage for help and
 filename conventions.
 
-Acceptance test data can be found on the Jenkins server in the **/data/test-data** directory. 
+Acceptance test data can be found on the Jenkins server in the **/data/test-data** directory.
 
 ###Adding more tests and creating new reference images.
 

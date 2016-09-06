@@ -1,6 +1,7 @@
 
 import numpy as np
 import pylab
+import math
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassImageDeconvMachine")
@@ -11,7 +12,7 @@ from DDFacet.Other import ClassTimeIt
 import ClassMultiScaleMachine
 from pyrap.images import image
 from ClassPSFServer import ClassPSFServer
-import ClassModelMachine
+import ClassModelMachineMSMF as ClassModelMachine
 from DDFacet.Other.progressbar import ProgressBar
 import ClassGainMachine
 
@@ -26,11 +27,11 @@ class ClassImageDeconvMachine():
                  ):
         #self.im=CasaImage
         self.SearchMaxAbs=SearchMaxAbs
-        self.ModelImage=None
+        self._ModelImage = None
         self.MaxMinorIter=MaxMinorIter
         self.NCPU=NCPU
         self.Chi2Thr=10000
-        self.MaskArray=None
+        self._MaskArray=None
         self.GD=GD
         self.SubPSF=None
         self.MultiFreqMode = NFreqBands>1
@@ -43,6 +44,7 @@ class ClassImageDeconvMachine():
         self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
         # reset overall iteration counter
         self._niter = 0
+        
         if CleanMaskImage!=None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
@@ -51,10 +53,8 @@ class ClassImageDeconvMachine():
             for ch in range(nch):
                 for pol in range(npol):
                     self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
-            self.MaskArray=self._MaskArray[0]
 
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
-
 
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
         self.SideLobeLevel=SideLobeLevel
@@ -63,7 +63,7 @@ class ClassImageDeconvMachine():
 
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
-        self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
+        self.PSFServer.setDicoVariablePSF(DicoVariablePSF,NormalisePSF=True)
         #self.DicoPSF=DicoPSF
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
@@ -109,22 +109,22 @@ class ClassImageDeconvMachine():
             MSMachine.SetDirty(DicoDirty)
 
         #self._PSF=self.MSMachine._PSF
-        self._Dirty=MSMachine._Dirty
+        self._CubeDirty=MSMachine._Dirty
         #self._MeanPSF=self.MSMachine._MeanPSF
         self._MeanDirty=MSMachine._MeanDirty
         NPSF=self.PSFServer.NPSF
         #_,_,NPSF,_=self._PSF.shape
-        _,_,NDirty,_=self._Dirty.shape
+        _,_,NDirty,_=self._CubeDirty.shape
 
         off=(NPSF-NDirty)/2
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
         
 
 
-        if self.ModelImage==None:
-            self._ModelImage=np.zeros_like(self._Dirty)
-        if self.MaskArray==None:
-            self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
+        if self._ModelImage is None:
+            self._ModelImage = np.zeros_like(self._CubeDirty)
+        if self._MaskArray is None:
+            self._MaskArray = np.zeros(self._CubeDirty.shape,dtype=np.bool8)
 
 
 
@@ -166,13 +166,13 @@ class ClassImageDeconvMachine():
 
 
     def SubStep(self,(dx,dy),LocalSM):
-        npol,_,_=self.Dirty.shape
+        _,npol,_,_ = self._MeanDirty.shape
         x0,x1,y0,y1=self.DirtyExtent
 
         xc,yc=dx,dy
         #NpixFacet=self.SubPSF.shape[-1]
         #PSF=self.CubePSFScales[iScale]
-        N0=self.Dirty.shape[-1]
+        N0=self._MeanDirty.shape[-1]
         N1=LocalSM.shape[-1]
 
         # PSF=PSF[N1/2-1:N1/2+2,N1/2-1:N1/2+2]
@@ -213,36 +213,26 @@ class ClassImageDeconvMachine():
         # pylab.clf()
         # ax=pylab.subplot(1,3,1)
         # vmin,vmax=self.Dirty.min(),self.Dirty.max()
-        # pylab.imshow(self._Dirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.imshow(self._CubeDirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
         # pylab.subplot(1,3,2)
         # pylab.imshow(LocalSM[0,0,x0p:x1p,y0p:y1p],interpolation="nearest",vmin=vmin,vmax=vmax)
         # pylab.draw()
         # #print "Fpol02",Fpol
         # # NpParallel.A_add_B_prod_factor((self.Dirty),LocalSM,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
 
-        self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
+        self._CubeDirty[:,:,x0d:x1d,y0d:y1d] -= LocalSM[:,:,x0p:x1p,y0p:y1p]
         if self.MultiFreqMode:
-            W=np.float32(self.DicoDirty["WeightChansImages"])
-            self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
-            
+            # W=np.float32(self.DicoDirty["WeightChansImages"])
+            # self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
+            self._MeanDirty[0,:,x0d:x1d,y0d:y1d] = self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0)
+
         # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-        # pylab.imshow(self._Dirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.imshow(self._CubeDirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
         # pylab.draw()
         # pylab.show(False)
         # print Aedge
         # print Bedge
         # print self.Dirty[0,x0d:x1d,y0d:y1d]
-
-        
-        
-
-
-    def setChannel(self,ch=0):
-        #self.PSF=self._MeanPSF[ch]
-        self.Dirty=self._MeanDirty.view()[ch] if self.MultiFreqMode else self._Dirty.view()[ch] #MeanDirty and Dirty may not be the same data
-        self.ModelImage=self._ModelImage[ch]
-        self.MaskArray=self._MaskArray[ch]
-
 
     def Clean(self,ch=0):
         """
@@ -258,14 +248,10 @@ class ClassImageDeconvMachine():
         if self._niter >= self.MaxMinorIter:
             return "MaxIter", False, False
 
-        self.setChannel(ch)
-
-        _,npix,_=self.Dirty.shape
+        _,npol,npix,_ = self._MeanDirty.shape
         xc=(npix)/2
 
-        npol,_,_=self.Dirty.shape
-
-        m0,m1=self.Dirty[0].min(),self.Dirty[0].max()
+        # m0,m1=self._CubeDirty.min(),self._CubeDirty.max()
         # pylab.clf()
         # pylab.subplot(1,2,1)
         # pylab.imshow(self.Dirty[0],interpolation="nearest",vmin=m0,vmax=m1)
@@ -279,23 +265,23 @@ class ClassImageDeconvMachine():
         NPixStats = self.GD["ImagerDeconv"]["NumRMSSamples"]
         if NPixStats:
             RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
-            RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
+            RMS=np.std(np.real(self._MeanDirty.ravel()[RandomInd]))
         else:
-            RMS=np.std(self.Dirty)
+            RMS=np.std(self._MeanDirty)
         self.RMS=RMS
 
         self.GainMachine.SetRMS(RMS)
         
         Fluxlimit_RMS = self.RMSFactor*RMS
 
-        x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
+        x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self._MaskArray)
         #MaxDirty=np.max(np.abs(self.Dirty))
         #Fluxlimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
         #Fluxlimit_Sidelobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
         Fluxlimit_Peak = MaxDirty*self.PeakFactor
         Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
 
-        mm0,mm1=self.Dirty.min(),self.Dirty.max()
+        mm0,mm1 = self._MeanDirty.min(),self._MeanDirty.max()
 
         # work out uper threshold
         StopFlux = max(Fluxlimit_Peak, Fluxlimit_RMS, Fluxlimit_Sidelobe, Fluxlimit_Peak, self.FluxThreshold)
@@ -307,9 +293,7 @@ class ClassImageDeconvMachine():
         print>>log, "      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold)
         print>>log, "    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty)
 
-        MaxModelInit=np.max(np.abs(self.ModelImage))
-
-        
+        # MaxModelInit=np.max(np.abs(self.ModelImage))
         # Fact=4
         # self.BookKeepShape=(npix/Fact,npix/Fact)
         # BookKeep=np.zeros(self.BookKeepShape,np.float32)
@@ -319,7 +303,7 @@ class ClassImageDeconvMachine():
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
 
-        x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
+        x,y,ThisFlux=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self._MaskArray)
         #print x,y
 
         if ThisFlux < StopFlux:
@@ -334,21 +318,22 @@ class ClassImageDeconvMachine():
 
         PreviousMaxFlux=1e30
 
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=20,TitleSize=30)
+        # pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=20,TitleSize=30)
         # pBAR.disable()
 
         self.GainMachine.SetFluxMax(ThisFlux)
-        pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
+        # pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
 
         def GivePercentDone(ThisMaxFlux):
             fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
             return max(int(round(100*fracDone)),100)
+
         try:
             for i in range(self._niter+1,self.MaxMinorIter+1):
                 self._niter = i
 
                 #x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
-                x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
+                x,y,ThisFlux=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self._MaskArray)
 
                 self.GainMachine.SetFluxMax(ThisFlux)
 
@@ -362,7 +347,7 @@ class ClassImageDeconvMachine():
                 T.timeit("max0")
 
                 if ThisFlux <= StopFlux:
-                    pBAR.render(100,"peak %.3g"%(ThisFlux,))
+                    # pBAR.render(100,"peak %.3g"%(ThisFlux,))
                     print>>log, ModColor.Str("    [iter=%i] peak of %.3g Jy lower than stopping flux" % (i,ThisFlux),col="green")
                     cont = ThisFlux > self.FluxThreshold
                     if not cont:
@@ -375,12 +360,20 @@ class ClassImageDeconvMachine():
 
     #            if (i>0)&((i%1000)==0):
     #                print>>log, "    [iter=%i] Peak residual flux %f Jy" % (i,ThisFlux)
-                if (i>0)&((i%100)==0):
-                    PercentDone=GivePercentDone(ThisFlux)                
-                    pBAR.render(PercentDone,"peak %.3g i%d"%(ThisFlux,self._niter))
+    #             if (i>0)&((i%100)==0):
+    #                 PercentDone=GivePercentDone(ThisFlux)
+    #                 pBAR.render(PercentDone,"peak %.3g i%d"%(ThisFlux,self._niter))
+                rounded_iter_step = min(int(10**math.floor(math.log10(i))), 10000)
+                if i>=10 and i%rounded_iter_step == 0:
+                    if self.GD["Debugging"]["PrintMinorCycleRMS"]:
+                        print>>log, "    [iter=%i] peak residual %.3g, rms %g" % (i,ThisFlux, self._CubeDirty.std())
+                    else:
+                        print>> log, "    [iter=%i] peak residual %.3g" % (i, ThisFlux)
+                    if ClassMultiScaleMachine.debug_dump_file:
+                        ClassMultiScaleMachine.debug_dump_file.flush()
 
-                nch,npol,_,_=self._Dirty.shape
-                Fpol=np.float32((self._Dirty[:,:,x,y].reshape((nch,npol,1,1))).copy())
+                nch,npol,_,_=self._CubeDirty.shape
+                Fpol=np.float32((self._CubeDirty[:,:,x,y].reshape((nch,npol,1,1))).copy())
                 #print "Fpol",Fpol
                 dx=x-xc
                 dy=y-xc
@@ -507,3 +500,9 @@ class ClassImageDeconvMachine():
         Read model dict from file SubtractModel
         """
         self.ModelMachine.FromFile(fname)
+
+    def FromDico(self,DicoName):
+        """
+        Read in model dict
+        """
+        self.ModelMachine.FromDico(DicoName)

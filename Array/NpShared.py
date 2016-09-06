@@ -4,6 +4,7 @@ from DDFacet.Other import ModColor
 import numpy as np
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("NpShared")
+import os.path
 
 def zeros(Name,*args,**kwargs):
     try:
@@ -64,19 +65,23 @@ def DelAll(key=None):
             DelArray(name)
 
 def GiveArray(Name):
+    #return SharedArray.attach(Name)
     try:
         return SharedArray.attach(Name)
-    except:
+    except Exception,e:# as exception:
+        # #print str(e)
+        # print 
+        # print "Exception for key [%s]:"%Name 
+        # print "   %s"%(str(e))
+        # print 
         return None
 
 def Exists(Name):
-    LNames=ListNames()
-    Exists=False
-    for ThisName in LNames:
-        if Name==ThisName:
-            Exists=True
-    return Exists
-    
+    if Name.startswith("file://"):
+        return os.path.exists(Name[7:])
+    if Name.startswith("shm://"):
+        Name = Name[6:]
+    return Name in ListNames()
 
 
 def DicoToShared(Prefix,Dico,DelInput=False):
@@ -113,7 +118,7 @@ def SharedToDico(Prefix):
         print>>log, ModColor.Str("  %s -> %s"%(Sharedkey,key))
         Shared=GiveArray(Sharedkey)
         if type(Shared)==type(None):
-            print>>log, ModColor.Str("      None existing key"%(key))
+            print>>log, ModColor.Str("      None existing key %s"%(key))
             return None
         DicoOut[key]=Shared
     print>>log, ModColor.Str("SharedToDico: done")

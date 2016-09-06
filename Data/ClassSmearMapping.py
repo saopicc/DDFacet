@@ -240,7 +240,7 @@ class ClassSmearMapping():
         fact=(100.*(NVis-NTotBlocks)/float(NVis))
 
         #self.UnPackMapping()
-        print FinalMapping
+        # print FinalMapping
 
         return FinalMapping,fact
 
@@ -250,11 +250,11 @@ class ClassSmearMapping():
 
 def GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,IdSharedMem,GridChanMapping):
     DicoSmearMapping=NpShared.SharedToDico("%sSmearMapping"%IdSharedMem)
-
+    
     A0=DicoSmearMapping["A0"]
     A1=DicoSmearMapping["A1"]
     ind=np.where((A0==a0)&(A1==a1))[0]
-    if(ind.size==0): return
+    if(ind.size<=1): return
     C=3e8
 
     uvw=DicoSmearMapping["uvw"]

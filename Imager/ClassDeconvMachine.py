@@ -4,6 +4,7 @@ import pylab
 from pyrap.images import image
 import ClassImageDeconvMachineHogbom
 import ClassImageDeconvMachineMSMF
+import ClassImageDeconvMachineGA
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Array import NpShared
 import os
@@ -16,6 +17,40 @@ import glob
 from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassImagerDeconv")
+import pyfits
+
+# from astropy import wcs
+# from astropy.io import fits
+#
+# def load_wcs_from_file(filename):
+#     # Load the FITS hdulist using astropy.io.fits
+#     hdulist = fits.open(filename)
+#
+#     # Parse the WCS keywords in the primary HDU
+#     w = wcs.WCS(hdulist[0].header)
+#
+#     # Print out the "name" of the WCS, as defined in the FITS header
+#     print w.wcs.name
+#
+#     # Print out all of the settings that were parsed from the header
+#     w.wcs.print_contents()
+#
+#     # Some pixel coordinates of interest.
+#     pixcrd = np.array([[0, 0], [24, 38], [45, 98]], numpy.float_)
+#
+#     # Convert pixel coordinates to world coordinates
+#     # The second argument is "origin" -- in this case we're declaring we
+#     # have 1-based (Fortran-like) coordinates.
+#     world = w.wcs_pix2world(pixcrd, 1)
+#     print world
+#
+#     # Convert the same coordinates back to pixel coordinates.
+#     pixcrd2 = w.wcs_world2pix(world, 1)
+#     print pixcrd2
+#
+#     # These should be the same as the original pixel coordinates, modulo
+#     # some floating-point error.
+#     assert np.max(np.abs(pixcrd - pixcrd2)) < 1e-6
 
 
 class ClassImagerDeconv():
@@ -24,7 +59,7 @@ class ClassImagerDeconv():
         if ParsetFile!=None:
             GD=ClassGlobalData(ParsetFile)
             self.GD=GD
-
+            
         if GD!=None:
             self.GD=GD
 
@@ -96,6 +131,9 @@ class ClassImagerDeconv():
                 ll=l.replace("\n","")
                 MSName.append(ll)
             print>>log,"list file %s contains %d MSs"%(MSName0, len(MSName))
+        elif ("*" in MSName)|("?" in MSName):
+            MSName=sorted(glob.glob(MSName))
+            print>>log,"found %d MSs matching %s"%(len(MSName), MSName0)
         else:
             MSName = sorted(glob.glob(MSName))
             print>>log,"found %d MSs matching %s"%(len(MSName), MSName0)
@@ -133,6 +171,7 @@ class ClassImagerDeconv():
             MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
             MinorCycleConfig["GD"] = self.GD
             MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
+            
             if self.GD["MultiScale"]["MSEnable"]:
                 print>>log, "Minor cycle deconvolution in Multi Scale Mode"
                 self.MinorCycleMode="MS"
@@ -141,13 +180,19 @@ class ClassImagerDeconv():
                     if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                         raise NotImplementedError("Multi-polarization CLEAN is not supported in MSMF")
                     self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**MinorCycleConfig)
+                elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="GA":
+                    if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                        raise NotImplementedError("Multi-polarization CLEAN is not supported in GA")
+                    self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
                 else:
-                    print>>log, "Currently MSMF is the only multi-scale algorithm"
+                    raise NotImplementedError("Currently MSMF and GA are the only multi-scale algorithm")
             else:
                 print>>log, "Minor cycle deconvolution in Single Scale Mode"
                 self.MinorCycleMode="SS"
                 if self.GD["ImagerDeconv"]["MinorCycleMode"] == "Hogbom":
                     self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
+                else:
+                    raise NotImplementedError("Currently Hogbom is the only single-scale algorithm")
 
             self.InitFacetMachine()
             self.VS.setFacetMachine(self.FacetMachine)
@@ -171,6 +216,7 @@ class ClassImagerDeconv():
                                             ApplyCal=ApplyCal)
 
         MainFacetOptions=self.GiveMainFacetOptions()
+
         self.FacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
         self.FacetMachine.Init()
 
@@ -213,9 +259,9 @@ class ClassImagerDeconv():
         return MainFacetOptions
 
     def MakePSF(self):
-        if self.PSF!=None: return
+        if self.PSF is not None: return
 
-        if self.GD["Stores"]["PSF"]!=None:
+        if self.GD["Stores"]["PSF"] is not None:
             print>>log, "Reading PSF image from %s"%self.GD["Stores"]["PSF"]
             CasaPSF=image(self.GD["Stores"]["PSF"])
             PSF=CasaPSF.getdata()
@@ -378,7 +424,27 @@ class ClassImagerDeconv():
         DoSub=(SubstractModel!="")&(SubstractModel!=None)
         if DoSub:
             print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
-            self.DeconvMachine.FromFile(SubstractModel)
+			
+            # #This should be returned through the minor cycle interface
+            # from DDFacet.Imager.ModModelMachine import GiveModelMachine
+            # ClassModelMachine,DicoModel=GiveModelMachine(SubstractModel)
+            #
+            # try:
+            #    self.GD["GAClean"]["GASolvePars"]=DicoModel["SolveParam"]
+            # except:
+            #    self.GD["GAClean"]["GASolvePars"]=["S","Alpha"]
+            #    DicoModel["SolveParam"]=self.GD["GAClean"]["GASolvePars"]
+
+            #MM=ClassModelMachine(self.GD)
+            #MM.FromDico(DicoModel)
+
+
+            try:
+                self.DeconvMachine.FromDico(DicoModel)
+                print>>log, "Current instance of DeconvMachine does not have FromDico method. Using FromFile instead."
+            except:
+                self.DeconvMachine.FromFile(SubstractModel)
+
             InitBaseName=".".join(SubstractModel.split(".")[0:-1])
             self.FacetMachine.BuildFacetNormImage()
             # NormFacetsFile="%s.NormFacets.fits"%InitBaseName
@@ -403,11 +469,15 @@ class ClassImagerDeconv():
             if Res=="EndOfObservation": break
             DATA=self.DATA
 
+
             if DoSub:
                 ThisMeanFreq=self.VS.CurrentChanMappingDegrid#np.mean(DATA["freqs"])
                 ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
                 print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
+
+                
                 _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
+                
 
             self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],
                                        (DATA["A0"],DATA["A1"]),
@@ -440,7 +510,7 @@ class ClassImagerDeconv():
             self.FacetMachine.ToCasaImage(self.FacetMachine.NormImageReShape,ImageName="%s.NormFacets"%self.BaseName,
                                           Fits=True)
 
-        if self.DicoDirty["NormData"]!=None:
+        if self.DicoDirty["NormData"] is not None:
             DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
             nch,npol,nx,ny = DirtyCorr.shape
             if "D" in self._saveims:
@@ -467,15 +537,14 @@ class ClassImagerDeconv():
         return self.DicoDirty["MeanImage"]
         
 
-    def GivePredict(self):
-
+    def GivePredict(self,from_fits=True):
         print>>log, ModColor.Str("============================== Making Predict ==============================")
         self.InitFacetMachine()
-        
+
         self.FacetMachine.ReinitDirty()
         BaseName=self.GD["Images"]["ImageName"]
 
-        ModelMachine=ClassModelMachine(self.GD)
+        #ModelMachine=ClassModelMachine(self.GD)
         NormImageName="%s.NormFacets.fits"%BaseName
         CasaNormImage=image(NormImageName)
         NormImage=CasaNormImage.getdata()
@@ -484,15 +553,20 @@ class ClassImagerDeconv():
             for pol in range(npol):
                 NormImage[ch,pol]=NormImage[ch,pol].T[::-1]
 
-        
+
         self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
         modelfile = self.GD["Images"]["PredictModelName"]
 
         # if model is a dict, init model machine with that
         # else we use a model image and hope for the best (need to fix frequency axis...)
+        print>>log,modelfile
         if modelfile.endswith(".DicoModel"):
-            ModelMachine.FromFile(modelfile)
+            try:
+                self.DeconvMachine.FromDico(modelfile)
+                print>>log, "Current instance of DeconvMachine does not have FromDico method. Using FromFile instead."
+            except:
+                self.DeconvMachine.FromFile(modelfile)
             FixedModelImage = None
         else:
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
@@ -503,19 +577,20 @@ class ClassImagerDeconv():
             Res=self.setNextData()
             if Res=="EndOfObservation": break
             DATA=self.DATA
+            #ThisMeanFreq=np.mean(DATA["freqs"]) #LB - didnt seem like it was being used anymore
 
             model_freqs = self.VS.CurrentChanMappingDegrid
             ## redo model image if needed
             if FixedModelImage is None:
                 if np.array(model_freqs != current_model_freqs).any():
-                    ModelImage = ModelMachine.GiveModelImage(model_freqs)
+                    ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)
                     current_model_freqs = model_freqs
                     print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
                 else:
                     print>>log,"reusing model image from previous chunk"
             else:
                 ModelImage = FixedModelImage
-            
+
 
             DATA["data"].fill(0)
             self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
@@ -526,6 +601,33 @@ class ClassImagerDeconv():
             print>>log, "Writing predicted data to column %s of %s"%(PredictColName,MSName)
             self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
 
+        # if from_fits:
+        #     print "Predicting from fits and saving in %s",(PredictColName)
+        #     #Read in the LSM
+        #     Imtodegrid = pyfits.open("/home/landman/Projects/Processed_Images/ddfacet_out/Test-D147-HI-NOIFS-NOPOL-4M5Sa/model-true.fits")[0].data
+        #     print ModelImage.shape, Imtodegrid.shape
+        #     self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),Imtodegrid)
+        #     vis = - DATA["data"]
+        #     PredictColName = self.GD["VisData"]["PredictColName"]
+        #
+        #     MSName = self.VS.CurrentMS.MSName
+        #     print>>log, "Writing data predicted from Tigger LSM to column %s of %s"%(PredictColName,MSName)
+        #     self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
+
+
+
+            # #Convert to radians
+            # ra = ra_d*np.pi/180.0
+            # dec = dec_d*np.pi/180
+            # #Convert to lm coords
+            # l,m = self.VS.CurrentMS.radec2lm_scalar(ra,dec)
+            # #Find pixels corresponding to these coords
+            # #get pointing center
+            # ra0 = self.VS.CurrentMS.rarad
+            # dec0 = self.VS.CurrentMS.decrad
+            # #Now get deltapix in radians
+            #
+            # print self.VS.CurrentMS.Field
 
     def main(self,NMajor=None):
         if NMajor==None:
@@ -551,6 +653,7 @@ class ClassImagerDeconv():
             self.DeconvMachine.Update(DicoImage)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Clean()
+            #self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName) LB - Not sure this is necessary anymore
 
             ## returned with nothing done in minor cycle? Break out
             if not update_model or iMajor == NMajor-1:
@@ -599,9 +702,9 @@ class ClassImagerDeconv():
                     del modelvis
 
                 self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)
-
+                
                 # NpShared.DelArray(PredictedDataName)
-                del DATA
+                del(DATA)
 
 
             DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
@@ -618,20 +721,6 @@ class ClassImagerDeconv():
 
             self.DeconvMachine.ToFile(self.DicoModelName)
 
-            # fig=pylab.figure(1)
-            # pylab.clf()
-            # ax=pylab.subplot(1,2,1)
-            # pylab.imshow(self.ResidImage[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
-            # pylab.colorbar()
-            # pylab.subplot(1,2,2,sharex=ax,sharey=ax)
-            # pylab.imshow(ModelImage[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
-            # pylab.colorbar()
-            # pylab.draw()
-            # #PNGName="%s/Residual%3.3i.png"%(self.PNGDir,iMajor)
-            # #fig.savefig(PNGName)
-            # pylab.show(False)
-            # pylab.pause(0.1)
-            # #stop
 
             self.HasCleaned=True
 
@@ -698,6 +787,18 @@ class ClassImagerDeconv():
             self.FWHMBeam = [self.FWHMBeamAvg]
             self.PSFGaussPars = [self.PSFGaussParsAvg]
             self.PSFSidelobes = [self.PSFSidelobesAvg]
+		
+        ## LB - Remove his chunk ?
+        #theta=np.pi/2-theta
+        #
+        #FWHMFact=2.*np.sqrt(2.*np.log(2.))
+        #bmaj=np.max([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
+        #bmin=np.min([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
+        #self.FWHMBeam=(bmaj/3600.,bmin/3600.,theta)
+        #self.PSFGaussPars = (sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta)
+        #print>>log, "Fitted PSF (sigma): (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec, sigma_y*self.CellArcSec, theta)
+        #print>>log, "Fitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec*FWHMFact, sigma_y*self.CellArcSec*FWHMFact, theta)
+        #print>>log, "Secondary sidelobe at the level of %5.1f at a position of %i from the center"%(self.SideLobeLevel,self.OffsetSideLobe)
 
     def Restore(self):
         print>>log, "Create restored image"

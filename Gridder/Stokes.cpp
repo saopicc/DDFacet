@@ -67,9 +67,9 @@ void give_psf_vis_32 ( size_t out_format_len,
     in[3] = casacore::Stokes::V;
     casa::Vector<casacore::Complex> casa_data_in ( 4 );
     casa_data_in[0] = 1 + 0 * _Complex_I;
-    casa_data_in[1] = 1 + 0 * _Complex_I;
-    casa_data_in[2] = 1 + 0 * _Complex_I;
-    casa_data_in[3] = 1 + 0 * _Complex_I;
+    casa_data_in[1] = 0 + 0 * _Complex_I;
+    casa_data_in[2] = 0 + 0 * _Complex_I;
+    casa_data_in[3] = 0 + 0 * _Complex_I;
     casacore::StokesConverter conv ( out,in,true );
     conv.convert ( casa_data_out,casa_data_in );
     for ( std::size_t corr = 0; corr < out_format_len; ++corr ) {
@@ -93,9 +93,9 @@ void give_psf_vis_64 ( size_t out_format_len,
     in[3] = casacore::Stokes::V;
     casa::Vector<casacore::Complex> casa_data_in ( 4 );
     casa_data_in[0] = 1 + 0 * _Complex_I;
-    casa_data_in[1] = 1 + 0 * _Complex_I;
-    casa_data_in[2] = 1 + 0 * _Complex_I;
-    casa_data_in[3] = 1 + 0 * _Complex_I;
+    casa_data_in[1] = 0 + 0 * _Complex_I;
+    casa_data_in[2] = 0 + 0 * _Complex_I;
+    casa_data_in[3] = 0 + 0 * _Complex_I;
     casacore::StokesConverter conv ( out,in,true );
     conv.convert ( casa_data_out,casa_data_in );
     for ( std::size_t corr = 0; corr < out_format_len; ++corr ) {

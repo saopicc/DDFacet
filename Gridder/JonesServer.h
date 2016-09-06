@@ -30,6 +30,7 @@ void ScaleJones(float complex* J0, float AlphaScaleJones){
 
 
 
+
 void NormJones(float complex* J0, int ApplyAmp, int ApplyPhase, int DoScaleJones, double *uvwPtr, float WaveLengthMean, float CalibError){
   int ThisPol;
   int nPol=4;
@@ -58,6 +59,14 @@ void NormJones(float complex* J0, int ApplyAmp, int ApplyPhase, int DoScaleJones
   }
 }
 
+void PrintArray(float complex *A){
+  printf("===================\n");
+  printf("[[(%f %f 1j)   ",creal(A[0]),cimag(A[0]));
+  printf("(%f %f 1j)] \n",creal(A[1]),cimag(A[1]));
+  printf(" [(%f %f 1j)   ",creal(A[2]),cimag(A[2]));
+  printf("(%f %f 1j)]] \n",creal(A[3]),cimag(A[3]));
+}
+
 
 void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs, int i_t, int i_ant0, int i_dir, int iChJones, int Mode, float complex *Jout){
   size_t nd_Jones,na_Jones,nch_Jones;
@@ -68,13 +77,17 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
   int nPol=4;
   //int iChJones=0;
   if(FullScalarMode){nPol=1;}
-  int ipol,idir;
+  int ipol;
   
   if(Mode==0){
     size_t offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
       +i_dir*na_Jones*nch_Jones*4
       +i_ant0*nch_Jones*4
       +iChJones*4;
+    
+    //printf("%i %i %i %i -> %f %f\n",i_t,i_dir,i_ant0,iChJones,creal(*(ptrJonesMatrices+offJ0)),cimag(*(ptrJonesMatrices+offJ0)));
+    //PrintArray(ptrJonesMatrices+offJ0);
+    
     for(ipol=0; ipol<nPol; ipol++){
       Jout[ipol]=*(ptrJonesMatrices+offJ0+ipol);
     }
@@ -90,6 +103,7 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
       Jout[ipol]=0;
     }
 
+    int idir;
     for(idir=0; idir<nd_Jones; idir++){
       if(ptrCoefs[idir]==0){continue;}
       size_t offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
@@ -132,8 +146,11 @@ PyArrayObject *npJonesMatrices, *npTimeMappingJonesMatrices, *npA0, *npA1, *npJo
 float complex* ptrJonesMatrices;
 int *ptrTimeMappingJonesMatrices,*ptrA0,*ptrA1,*ptrJonesIDIR;
 float *ptrCoefsInterp;
-int i_dir;
+int i_dir_kMS;
 int nd_Jones,na_Jones,nch_Jones,nt_Jones;
+
+PyArrayObject *npAlphaReg_killMS;
+float* ptrAlphaReg_killMS;
 
 PyArrayObject *npJonesMatrices_Beam, *npTimeMappingJonesMatrices_Beam;
 PyArrayObject *npVisToJonesChanMapping_killMS,*npVisToJonesChanMapping_Beam;
@@ -141,6 +158,7 @@ int *ptrVisToJonesChanMapping_killMS,*ptrVisToJonesChanMapping_Beam;
 float complex* ptrJonesMatrices_Beam;
 int *ptrTimeMappingJonesMatrices_Beam;
 int nd_Jones_Beam,na_Jones_Beam,nch_Jones_Beam,nt_Jones_Beam;
+int nd_AlphaReg,na_AlphaReg;
 int JonesDims_Beam[4];
 int ApplyJones_Beam=0;
 int i_dir_Beam;
@@ -177,6 +195,8 @@ float complex *J0kMS_tp1;
 float complex *J1kMS_tp1;
 float complex *J0kMS_tm1;
 float complex *J1kMS_tm1;
+float complex *IMatrix;
+
 
 void initJonesMatrices(){
   J0=(float complex*)calloc(1,(4)*sizeof(float complex));
@@ -188,7 +208,9 @@ void initJonesMatrices(){
   Unity(J0); Unity(J1);
   Unity(J0kMS); Unity(J1kMS);
   Unity(J0Beam); Unity(J1Beam);
-  
+
+  IMatrix=calloc(1,(4)*sizeof(float complex));
+  Unity(IMatrix);
 
 
   J0inv=(float complex*)calloc(1,(4)*sizeof(float complex));
@@ -208,7 +230,7 @@ void initJonesMatrices(){
 int JonesType;
 double WaveLengthMean;
 float WeightVaryJJ;
-
+int Has_AlphaReg_killMS=0;
 
 void initJonesServer(PyObject *LJones, int JonesTypeIn, double WaveLengthMeanIn){
   initJonesMatrices();
@@ -262,8 +284,23 @@ void initJonesServer(PyObject *LJones, int JonesTypeIn, double WaveLengthMeanIn)
 
     npJonesIDIR= (PyArrayObject *) (PyList_GetItem(LJones, idList)); idList+=1;
     ptrJonesIDIR=p_int32(npJonesIDIR);
-    i_dir=ptrJonesIDIR[0];
-    
+    i_dir_kMS=ptrJonesIDIR[0];
+
+    /* if(i_dir_kMS==0){ */
+    /*   int v; */
+      
+    /*   if (sem_init(&count_sem, 0, 1) == -1) */
+    /* 	{ printf("sem_init: failed: %s\n", strerror(errno)); } */
+      
+    /*   // Mac OS X does not actually implement sem_getvalue() */
+    /*   if (sem_getvalue(&count_sem, &v) == -1) */
+    /* 	{ printf("sem_getvalue: failed: %s\n", strerror(errno)); } */
+    /*   else */
+    /* 	{ printf("main: count_sem value = %d\n", v); } */
+    /* } */
+
+    //i_dir_kMS=0;
+    //printf("%i\n",i_dir);
     npCoefsInterp= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
     ptrCoefsInterp=p_float32(npCoefsInterp);
     
@@ -283,7 +320,18 @@ void initJonesServer(PyObject *LJones, int JonesTypeIn, double WaveLengthMeanIn)
     npVisToJonesChanMapping_Beam= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
     ptrVisToJonesChanMapping_Beam=p_int32(npVisToJonesChanMapping_Beam);
     
+    npAlphaReg_killMS= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
+    ptrAlphaReg_killMS=p_float32(npAlphaReg_killMS);
+    nd_AlphaReg=(int)npAlphaReg_killMS->dimensions[0];
+    na_AlphaReg=(int)npAlphaReg_killMS->dimensions[1];
+    Has_AlphaReg_killMS=( nd_AlphaReg>0 );
     
+
+    //////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////
+
+
     PyObject *_FApplyAmp  = PyList_GetItem(LJones, idList); idList+=1;
     ApplyAmp=(int) PyFloat_AsDouble(_FApplyAmp);
     PyObject *_FApplyPhase  = PyList_GetItem(LJones, idList); idList+=1;
@@ -326,15 +374,17 @@ void resetJonesServerCounter(){
 }
 
 
-void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight){
+int DoApplyAlphaReg=0;
+void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int DoApplyAlphaRegIn){
 
 
 
 
   i_ant0=ptrA0[irow];
   i_ant1=ptrA1[irow];
-
-
+  DoApplyAlphaReg=0;
+  if(DoApplyAlphaRegIn & Has_AlphaReg_killMS){DoApplyAlphaReg=1;};
+  DoApplyAlphaReg=0;
 
 
   //printf("(%i, %i)\n",i_ant0,i_ant1);
@@ -378,8 +428,26 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight){
     //SameAsBefore_kMS=0;
 
     if(SameAsBefore_kMS==0){
-      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir, i_JonesChan, ModeInterpolation, J0kMS);
-      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir, i_JonesChan, ModeInterpolation, J1kMS);
+      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir_kMS, i_JonesChan, ModeInterpolation, J0kMS);
+      GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir_kMS, i_JonesChan, ModeInterpolation, J1kMS);
+      if(DoApplyAlphaReg){
+	size_t off_alpha0=i_dir_kMS*na_AlphaReg+i_ant0;
+	size_t off_alpha1=i_dir_kMS*na_AlphaReg+i_ant1;
+	float alpha0=*(ptrAlphaReg_killMS+off_alpha0);
+	float alpha1=*(ptrAlphaReg_killMS+off_alpha1);
+	int ipol;
+	//alpha0=0.;
+	//alpha1=0.;
+
+	//printf("akpha0=%f\n",alpha0);
+	//printf("akpha1=%f\n",alpha1);
+	for(ipol=0;ipol<4;ipol++){
+	  J0kMS[ipol]=J0kMS[ipol]*alpha0+(1.-alpha0)*IMatrix[ipol];
+	  J1kMS[ipol]=J1kMS[ipol]*alpha1+(1.-alpha1)*IMatrix[ipol];
+	}
+      }
+
+
       NormJones(J0kMS, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
       NormJones(J1kMS, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
       CurrentJones_kMS_Time=i_t;
@@ -391,16 +459,16 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight){
 	int i_t_p1;
 	i_t_p1=i_t+1;
 	if (i_t==(nt_Jones-1)){i_t_p1=i_t;}
-	GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_p1, i_ant0, i_dir, i_JonesChan, ModeInterpolation, J0kMS_tp1);
-	GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_p1, i_ant1, i_dir, i_JonesChan, ModeInterpolation, J1kMS_tp1);
+	GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_p1, i_ant0, i_dir_kMS, i_JonesChan, ModeInterpolation, J0kMS_tp1);
+	GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_p1, i_ant1, i_dir_kMS, i_JonesChan, ModeInterpolation, J1kMS_tp1);
 	/* float abs_dg0=cabs(J0kMS_tp1[0]-J0kMS[0]); */
 	/* float abs_dg1=cabs(J1kMS_tp1[0]-J1kMS[0]); */
 	
 	int i_t_m1;
 	i_t_m1=i_t-1;
 	if (i_t==0){i_t_m1=i_t;}
-	GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_m1, i_ant0, i_dir, i_JonesChan, ModeInterpolation, J0kMS_tm1);
-	GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_m1, i_ant1, i_dir, i_JonesChan, ModeInterpolation, J1kMS_tm1);
+	GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_m1, i_ant0, i_dir_kMS, i_JonesChan, ModeInterpolation, J0kMS_tm1);
+	GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t_m1, i_ant1, i_dir_kMS, i_JonesChan, ModeInterpolation, J1kMS_tm1);
 	float abs_dg0=cabs(J0kMS_tp1[0]-J0kMS[0])+cabs(J0kMS_tm1[0]-J0kMS[0]);
 	float abs_dg1=cabs(J1kMS_tp1[0]-J1kMS[0])+cabs(J1kMS_tm1[0]-J1kMS[0]);
 	

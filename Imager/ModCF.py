@@ -271,6 +271,7 @@ class ClassWTermModified():
         #         self.ToShared()
 
         Exists=NpShared.Exists(self.SharedMemName)
+#        print self.SharedMemName,"exists",Exists
         if Exists:
             self.FromShared()
         else:
@@ -333,6 +334,7 @@ class ClassWTermModified():
 
     def InitW(self):
 
+        #print>>log, "InitW"
         Nw=self.Nw
         Cell=self.Cell
         Sup=self.Sup
@@ -408,6 +410,7 @@ class ClassWTermModified():
         #print "done FIT"
 
         for i in range(Nw):
+            #print>>log, "%i/%i"%(i,Nw)
             if not(Sups[i]%2): Sups[i]+=1
             dummy, dymmy, ThisSphe= self.SpheM.MakeSphe(Sups[i])
             wl=w[i]/waveMin
@@ -533,248 +536,4 @@ class ClassWTermModified():
         self.Nw=Nw
 
 
-            
-
-class ClassWTerm():
-    def __init__(self,Cell=10,Sup=15,Nw=11,wmax=30000,Npix=101,Freqs=np.array([100.e6]),OverS=11,lmShift=None):
-
-        T=ClassTimeIt.ClassTimeIt("Wterm")
-        self.CF, self.fCF, self.ifzfCF= MakeSphe(Sup,Npix)
-        self.OverS=OverS
         
-
-
-        SupMax=501
-        dummy, dummy, self.SpheW= MakeSphe(Sup,SupMax)
-
-        # #print>>log, "MAX Sphe=",np.max(np.abs(self.SpheW))
-        # T.timeit("initsphe")
-
-        C=299792458.
-        D=Npix*Cell/3600.
-        lrad=D*0.5*np.pi/180.
-        l,m=np.mgrid[-lrad*np.sqrt(2.):np.sqrt(2.)*lrad:SupMax*1j,-lrad*np.sqrt(2.):np.sqrt(2.)*lrad:SupMax*1j]
-        n_1=np.sqrt(1.-l**2-m**2)-1
-        waveMin=C/Freqs[-1]
-
-        W=np.exp(-2.*1j*np.pi*(wmax/waveMin)*n_1)*self.SpheW
-        fW=fft2(W)
-        fw1d=np.abs(fW[(SupMax-1)/2,:])
-        fw1d/=np.max(fw1d)
-        fw1d=fw1d[(SupMax-1)/2::]
-        ind=np.argsort(fw1d)
-        Interp=interp(fw1d[ind],np.arange(fw1d.shape[0])[ind])
-
-        SupMax=np.int64(Interp(np.array([1./10]))[0])
-        Sups=np.int64(np.linspace(self.CF.shape[0],np.max([2*SupMax,self.CF.shape[0]]),Nw))
-        #print "Supports=",Sups
-
-        #Sups=np.ones((Nw,),int)*Sup
-
-        w=np.linspace(0,wmax,Nw)
-        Wplanes=[]
-        WplanesConj=[]
-        l0,m0=0.,0.
-
-        if lmShift!=None:
-            l0,m0=lmShift
-
-        n0=np.sqrt(1-l0**2-m0**2)
-
-        for i in range(Nw):
-            if not(Sups[i]%2): Sups[i]+=1
-            l,m=np.mgrid[-lrad:lrad:Sups[i]*1j,-lrad:lrad:Sups[i]*1j]
-            n_1=np.sqrt(1.-l**2-m**2)-1
-            #n_1=np.sqrt(1.-(l-l0)**2-(m-m0)**2)-1
-            #n_1=(1./np.sqrt(1.-l0**2-m0**2))*(l0*l+m0*m)
-            wl=w[i]/waveMin
-            W=np.exp(-2.*1j*np.pi*wl*(n_1))
-            dummy, dymmy, ThisSphe= MakeSphe(Sup,Sups[i])
-            #W.fill(1.)
-            
-            W*=np.abs(ThisSphe)
-
-            W=ZeroPad(W,outshape=W.shape[0]*self.OverS)
-            Wconj=np.conj(W)
-            #FFTWMachine=ModToolBox.FFTM2D(W)
-            W=fft2(W)
-            Wconj=fft2(Wconj)
-            
-            #W=FFTWMachine.fft(W)
-            #Wconj=FFTWMachine.fft(Wconj)
-
-
-            # pylab.clf()
-            # pylab.subplot(2,2,1)
-            # z=np.abs(ThisSphe)
-            # pylab.imshow(z,interpolation="nearest")
-            # pylab.title("abs(ThisSphe), max=%f"%np.max(z))
-            # pylab.subplot(2,2,2)
-            # z=np.angle(W)
-            # pylab.imshow(z,interpolation="nearest",vmin=-np.pi,vmax=np.pi)
-            # pylab.title("angle(W), max=%f"%np.max(z))
-            # pylab.subplot(2,2,3)
-            # z=np.real(W)
-            # pylab.imshow(z,interpolation="nearest")
-            # pylab.title("real(W), max=%f"%np.max(z))
-            # pylab.subplot(2,2,4)
-            # z=np.imag(W)
-            # pylab.imshow(z,interpolation="nearest")
-            # pylab.title("imag(W), max=%f"%np.max(z))
-            # pylab.draw()
-            # pylab.show(False)
-
-
-            Wplanes.append(W.copy())
-            WplanesConj.append(Wconj.copy())
-            # if i==3:
-            #     stop
-        T.timeit("loop")
-        #stop
-
-        self.Wplanes=Wplanes
-        self.WplanesConj=WplanesConj
-        self.Freqs=Freqs
-        self.wmap=w
-        self.wmax=wmax
-        self.Nw=Nw
-        self.RefWave=waveMin
-        T.timeit("rest")
-
-    def plot(self):
-        pylab.ion()
-        for i in range(self.Nw):
-            pylab.clf()
-            pylab.subplot(2,2,1)
-            #pylab.imshow(np.angle(self.Wplanes[i]),interpolation="nearest",vmin=-np.pi,vmax=np.pi)
-            pylab.imshow(np.real(self.Wplanes[i]),interpolation="nearest")
-            pylab.subplot(2,2,2)
-            pylab.imshow(np.imag(self.Wplanes[i]),interpolation="nearest")
-            pylab.subplot(2,2,3)
-            pylab.imshow(np.abs(self.Wplanes[i]),interpolation="nearest")
-            pylab.subplot(2,2,4)
-            pylab.imshow(np.angle(self.Wplanes[i]),interpolation="nearest",vmin=-np.pi,vmax=np.pi)
-
-            #pylab.imshow(np.abs(self.Wplanes[i]),interpolation="nearest")
-            pylab.title("%f"%self.wmap[i])
-            pylab.draw()
-            pylab.show()
-
-
-class ClassSTerm():
-    def __init__(self,Cell=10,Sup=15,Nw=11,wmax=30000,Npix=101,Freqs=np.array([100.e6]),OverS=11):
-
-        Nw=int(Nw)
-        T=ClassTimeIt.ClassTimeIt("Wterm")
-        self.CF, self.fCF, self.ifzfCF= MakeSphe(Sup,Npix)
-        self.OverS=OverS
-        
-
-
-        SupMax=501
-        dummy, dummy, self.SpheW= MakeSphe(Sup,SupMax)
-
-        # #print>>log, "MAX Sphe=",np.max(np.abs(self.SpheW))
-        # T.timeit("initsphe")
-
-        C=299792458.
-        D=Npix*Cell/3600.
-        lrad=D*0.5*np.pi/180.
-        self.lrad=lrad
-        # l,m=np.mgrid[-lrad*np.sqrt(2.):np.sqrt(2.)*lrad:SupMax*1j,-lrad*np.sqrt(2.):np.sqrt(2.)*lrad:SupMax*1j]
-        # n_1=np.sqrt(1.-l**2-m**2)-1
-        waveMin=C/Freqs[-1]
-
-        # W=np.exp(-2.*1j*np.pi*(wmax/waveMin)*n_1)*self.SpheW
-        # fW=fft2(W)
-        # fw1d=np.abs(fW[(SupMax-1)/2,:])
-        # fw1d/=np.max(fw1d)
-        # fw1d=fw1d[(SupMax-1)/2::]
-        # ind=np.argsort(fw1d)
-        # Interp=interp(fw1d[ind],np.arange(fw1d.shape[0])[ind])
-
-        # SupMax=np.int64(Interp(np.array([1./10]))[0])
-        # Sups=np.int64(np.linspace(self.CF.shape[0],np.max([2*SupMax,self.CF.shape[0]]),Nw))
-        # print "Supports=",Sups
-
-        Sups=np.ones((Nw,),int)*Sup
-        self.Cv,self.Cu=0,0
-
-        w=np.linspace(0,wmax,Nw)
-        Wplanes=[]
-        WplanesConj=[]
-        for i in range(Nw):
-            if not(Sups[i]%2): Sups[i]+=1
-            l,m=np.mgrid[-lrad:lrad:Sups[i]*1j,-lrad:lrad:Sups[i]*1j]
-            n_1=np.sqrt(1.-l**2-m**2)-1
-            wl=w[i]/waveMin
-            W=np.exp(-2.*1j*np.pi*wl*n_1)
-            dummy, dymmy, ThisSphe= MakeSphe(Sup,Sups[i])
-            W.fill(1.)
-
-            W*=np.abs(ThisSphe)
-            
-            W=ZeroPad(W,outshape=W.shape[0]*self.OverS)
-            Wconj=np.conj(W)
-            FFTWMachine=ModToolBox.FFTM2D(W)
-            #W=fft2(W)
-            #Wconj=fft2(Wconj)
-            W=FFTWMachine.fft(W)
-            Wconj=FFTWMachine.fft(Wconj)
-
-
-            # pylab.clf()
-            # pylab.subplot(2,2,1)
-            # z=np.abs(ThisSphe)
-            # pylab.imshow(z,interpolation="nearest")
-            # pylab.title("abs(ThisSphe), max=%f"%np.max(z))
-            # pylab.subplot(2,2,2)
-            # z=np.angle(W)
-            # pylab.imshow(z,interpolation="nearest",vmin=-np.pi,vmax=np.pi)
-            # pylab.title("angle(W), max=%f"%np.max(z))
-            # pylab.subplot(2,2,3)
-            # z=np.real(W)
-            # pylab.imshow(z,interpolation="nearest")
-            # pylab.title("real(W), max=%f"%np.max(z))
-            # pylab.subplot(2,2,4)
-            # z=np.imag(W)
-            # pylab.imshow(z,interpolation="nearest")
-            # pylab.title("imag(W), max=%f"%np.max(z))
-            # pylab.draw()
-            # pylab.show(False)
-
-
-            Wplanes.append(W.copy())
-            WplanesConj.append(Wconj.copy())
-            # if i==3:
-            #     stop
-        T.timeit("loop")
-        #stop
-
-        self.Wplanes=Wplanes
-        self.WplanesConj=WplanesConj
-        self.Freqs=Freqs
-        self.wmap=w
-        self.wmax=wmax
-        self.Nw=Nw
-        self.RefWave=waveMin
-        T.timeit("rest")
-
-    def plot(self):
-        pylab.ion()
-        for i in range(self.Nw):
-            pylab.clf()
-            pylab.subplot(2,2,1)
-            #pylab.imshow(np.angle(self.Wplanes[i]),interpolation="nearest",vmin=-np.pi,vmax=np.pi)
-            pylab.imshow(np.real(self.Wplanes[i]),interpolation="nearest")
-            pylab.subplot(2,2,2)
-            pylab.imshow(np.imag(self.Wplanes[i]),interpolation="nearest")
-            pylab.subplot(2,2,3)
-            pylab.imshow(np.abs(self.Wplanes[i]),interpolation="nearest")
-            pylab.subplot(2,2,4)
-            pylab.imshow(np.angle(self.Wplanes[i]),interpolation="nearest",vmin=-np.pi,vmax=np.pi)
-
-            #pylab.imshow(np.abs(self.Wplanes[i]),interpolation="nearest")
-            pylab.title("%f"%self.wmap[i])
-            pylab.draw()
-            pylab.show()
