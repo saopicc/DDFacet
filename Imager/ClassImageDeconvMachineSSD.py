@@ -23,7 +23,6 @@ from MORESANE.ClassMoresane import ClassMoresane
 from SASIR.ClassSasir import ClassSasir
 
 from DDFacet.Other import MyPickle
-import ipdb
 
 import multiprocessing
 import time
