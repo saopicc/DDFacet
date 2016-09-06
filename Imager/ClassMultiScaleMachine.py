@@ -348,7 +348,10 @@ class ClassMultiScaleMachine():
         self.SubSubCoord=(x0,x1,y0,y1)
         self.SubCubePSF=self.CubePSFScales[:,:,x0:x1,y0:y1]
         self.SubWeightFunction=self.GlobalWeightFunction[:,:,x0:x1,y0:y1]
-        self.DicoBasisMatrix = cachedmatrix if cachedmatrix is not None else self.GiveBasisMatrix()
+        if cachedmatrix is not None:
+            self.DicoBasisMatrix = cachedmatrix
+        else:
+            self.DicoBasisMatrix = self.GiveBasisMatrix()
         return cachedmatrix
 
 

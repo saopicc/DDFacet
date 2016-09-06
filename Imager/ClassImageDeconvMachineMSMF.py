@@ -92,18 +92,24 @@ class ClassImageDeconvMachine():
             print>>log,"Initialising MSMF Machine"
             facetcache = {}
 
+        t = ClassTimeIt.ClassTimeIt()
         for iFacet in range(self.PSFServer.NFacets):
+            t.timeit('0')
             self.PSFServer.setFacet(iFacet)
             MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.GainMachine,NFreqBands=self.NFreqBands)
             MSMachine.setModelMachine(self.ModelMachine)
             MSMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
             MSMachine.SetFacet(iFacet)
-
             MSMachine.SetPSF(self.PSFServer)#ThisPSF,ThisMeanPSF)
+            t.timeit('1')
             MSMachine.FindPSFExtent(Method="FromSideLobe")
+            t.timeit('2')
             cachedscales, cachedmatrix = facetcache.get(iFacet,(None, None))
+            t.timeit('3')
             cachedscales = MSMachine.MakeMultiScaleCube(cachedscales)
+            t.timeit('4')
             cachedmatrix = MSMachine.MakeBasisMatrix(cachedmatrix)
+            t.timeit('5')
             facetcache[iFacet] = cachedscales, cachedmatrix
             self.DicoMSMachine[iFacet]=MSMachine
         if not valid:
