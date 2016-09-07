@@ -316,7 +316,11 @@ class ClassVisServer():
         if self.MFSWeighting or self.NFreqBands<2:
             band_mapping = None
         else:
-            band_mapping = self.DicoMSChanMapping
+            # we need provide a band mapping for every chunk of weights, so construct a list
+            # where each MS's mapping is repeated Nchunk times
+            band_mapping = []
+            for i, ms in enumerate(self.ListMS):
+                band_mapping += [self.DicoMSChanMapping[i]]*ms.Nchunk
 
         #self.VisWeights=np.ones((uvw.shape[0],self.MS.ChanFreq.size),dtype=np.float64)
 
