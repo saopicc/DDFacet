@@ -61,9 +61,9 @@ def testGrid():
 
     VS=ClassVisServer.ClassVisServer(DC["VisData"]["MSName"],
                                      ColName=DC["VisData"]["ColName"],
-                                     TVisSizeMin=DC["VisData"]["TChunkSize"]*60*1.1,
+                                     TVisSizeMin=DC["VisData"]["ChunkHours"]*60*1.1,
                                      #DicoSelectOptions=DicoSelectOptions,
-                                     TChunkSize=DC["VisData"]["TChunkSize"],
+                                     TChunkSize=DC["VisData"]["ChunkHours"],
                                      Robust=DC["ImagerGlobal"]["Robust"],
                                      Weighting=DC["ImagerGlobal"]["Weighting"],
                                      Super=DC["ImagerGlobal"]["Super"],

@@ -424,20 +424,23 @@ class ClassMS():
             UVW_dt=np.dot(R_dt,L.T).T
             return np.float32(UVW_dt)
 
-    def ReinitChunkIter(self,ChunkSizeH):
-        self.ChunkSizeH=ChunkSizeH
-        self.nRowChunk=self.nbl*int(self.ChunkSizeH*3600/self.dt)
-        self.ROW0=0
-        self.ROW1=0
+    def ReinitChunkIter(self):
+        self.current_chunk = -1
 
     def GiveNextChunk(self,databuf=None,flagbuf=None):
-        row0=self.ROW1
-        row1=self.ROW1+self.nRowChunk
-        if (row0,row1) not in self._chunk_caches:
-            self._chunk_caches[row0,row1] = CacheManager(self.MSName+".ddfcache/F%d:D%d:%d:%d" % (self.Field,self.DDID,row0,row1), self._reset_cache)
-        self.cache = self._chunk_caches[row0,row1]
-        return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf)
-        
+        # get row0:row1 of next chunk. If row1==row0, chunk is empty and we must skip it
+        while self.current_chunk < self.Nchunk-1:
+            self.current_chunk += 1
+            row0, row1 = self._chunk_r0r1[self.current_chunk]
+            if row1 > row0:
+                if (row0,row1) not in self._chunk_caches:
+                    self._chunk_caches[row0,row1] = CacheManager(self.MSName+".ddfcache/F%d:D%d:%d:%d" % (self.Field,self.DDID,row0,row1), self._reset_cache)
+                self.cache = self._chunk_caches[row0,row1]
+                return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf)
+        return "EndMS"
+
+    def getChunkRow0Row1 (self):
+        return self._chunk_r0r1
         
     def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False,databuf=None,flagbuf=None):
 
@@ -446,7 +449,6 @@ class ClassMS():
         if row1>(self.F_nrows):
             row1=self.F_nrows
         
-
         self.ROW0 = row0
         self.ROW1 = row1
         self.nRowRead = nRowRead = row1-row0
@@ -718,8 +720,31 @@ class ClassMS():
 
         self.ColNames=table_all.colnames()
         self.F_nrows=table_all.nrows()#-nbl
-        T0=table_all.getcol('TIME',0,1)[0]
-        T1=table_all.getcol('TIME',self.F_nrows-1,1)[0]
+
+        # make mapping into chunks
+        if not self.TimeChunkSize:
+            T0=table_all.getcol('TIME',0,1)[0]
+            T1=table_all.getcol('TIME',self.F_nrows-1,1)[0]
+            print>>log,"ChunkHours is not set; MS %s (%d rows) will be processed as a single chunk"%(self.MSName, self.F_nrows)
+            chunk_rows = [0]
+        else:
+            all_times = table_all.getcol("TIME")
+            if (all_times[1:] - all_times[:-1]).min() < 0:
+                raise RuntimeError,"MS %s: the TIME column must be in increasing order"%self.MSName
+            T0, T1 = all_times[0], all_times[-1]
+            chunk_t0 = np.arange(T0, T1, self.TimeChunkSize*3600)
+            # chunk_t0 now gives starting time of each chunk
+            chunk_row0 = [ np.argmax(all_times>=ch_t0) for ch_t0 in chunk_t0 ]
+            # chunk_row0 gives the starting row of each chunk
+            if len(chunk_row0) == 1:
+                print>>log,"MS %s (%d rows) will be processed as a single chunk"%(self.MSName, self.F_nrows)
+            else:
+                print>>log,"MS %s (%d rows) will be split into %d chunks, at rows %s"%(self.MSName, self.F_nrows,
+                                                                                       len(chunk_row0), " ".join(map(str,chunk_row0)))
+        self.Nchunk = len(chunk_row0)
+        chunk_row0.append(self.F_nrows)
+        self._chunk_r0r1 = [ chunk_row0[i:i+2] for i in range(self.Nchunk) ]
+
         #SPW=table_all.getcol('DATA_DESC_ID')
         # if self.SelectSPW!=None:
         #     self.ListSPW=self.SelectSPW
@@ -871,7 +896,8 @@ class ClassMS():
         ll.append("   - Number of baseline = %i"%self.nbl)
         ll.append("   - Number of SPW = %i"%self.NSPW)
         ll.append("   - Number of channels = %i"%self.Nchan)
-        
+        ll.append("   - Number of time chunks = %i"%self.Nchunk)
+
         ss="\n".join(ll)+"\n"
         return ss
 
