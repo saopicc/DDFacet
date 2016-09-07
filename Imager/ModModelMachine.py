@@ -17,8 +17,6 @@ class ClassModModelMachine():
         """
         Input:
             GD          = Global dictionary
-            FileName    = The file to read
-            DicoIn      = Dictionary to instantiate ModelMachine with
         """
         self.GD = GD
         self.GAMM = None
