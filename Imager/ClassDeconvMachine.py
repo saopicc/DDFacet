@@ -14,6 +14,7 @@ from DDFacet.ToolsDir import ModFitPSF
 from DDFacet.Data import ClassVisServer
 import ClassCasaImage
 from ClassModelMachine import ClassModelMachine
+from ModModelMachine import ClassModModelMachine
 import time
 import glob
 from DDFacet.Other import ModColor
@@ -86,6 +87,12 @@ class ClassImagerDeconv():
         self.HasDeconvolved=False
         self.Parallel=self.GD["Parallel"]["Enable"]
         self.IdSharedMem=IdSharedMem
+        if self.GD["VisData"]["InitDicoModel"] is not None:
+            ModConstructor = ClassModModelMachine(self.GD)
+            self.ModelMachine = ModConstructor.GiveModelFromFile(self.GD["VisData"]["InitDicoModel"])
+        else:
+            self.ModelMachine = None
+
         #self.PNGDir="%s.png"%self.BaseName
         #os.system("mkdir -p %s"%self.PNGDir)
         #os.system("rm %s/*.png 2> /dev/null"%self.PNGDir)

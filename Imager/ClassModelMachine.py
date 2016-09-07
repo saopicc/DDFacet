@@ -1,30 +1,41 @@
-import collections
 import itertools
-
 import numpy as np
-import pylab
 from DDFacet.Other import MyLogger
-from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassModelMachine")
-from DDFacet.Array import NpParallel
-from DDFacet.Array import ModLinAlg
-from DDFacet.ToolsDir import ModFFTW
-from DDFacet.ToolsDir import ModToolBox
-from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
-
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
-
 from DDFacet.ToolsDir import ModFFTW
 import scipy.ndimage
-from SkyModel.Sky import ModRegFile
 from pyrap.images import image
-from SkyModel.Sky import ClassSM
 import os
 
 class ClassModelMachine():
+    """
+    This is the interface to ClassModelMachine.
+    Methods to be accessed from anywhere:
+    GiveModelImage(FreqIn)
+        Input:
+            FreqIn      = The frequencies at which to return the model image
+
+    ToFile(FileName,DicoIn)
+        Input:
+            FileName    = The name of the file to write to
+            DicoIn      = The dictionary to write to file. If None it writes the current dict in DicoSMStacked to file
+
+    FromFile(FileName)
+        Input:
+            FileName    = The name of the file to read dict from
+
+    FromDico(DicoIn)
+        Input:
+            DicoIn      = The dictionary to read in
+
+    The following methods should only be accessed through the minor cycle class (i.e. ClassImageDeconvMachineXXX)):
+    MontBlancAble       = True/False Tells
+
+    """
     def __init__(self,GD=None,Gain=None,GainMachine=None):
         self.GD=GD
         if Gain==None:
@@ -272,100 +283,50 @@ class ClassModelMachine():
         for (x,y) in self.DicoSMStacked["Comp"].keys():
             if MaskArray[x,y]==0:
                 del(self.DicoSMStacked["Comp"][(x,y)])
-    """
-    Broken code: Marked for removal.
-    def ToNPYModel(self,FitsFile,SkyModel):
-        #R=ModRegFile.RegToNp(PreCluster)
-        #R.Read()
-        #R.Cluster()
-        #PreClusterCat=R.CatSel
-        #ExcludeCat=R.CatExclude
-        AlphaMap=self.GiveSpectralIndexMap(DoConv=False)
-        ModelMap=self.GiveModelImage()
-        nch,npol,_,_=ModelMap.shape
-        for ch in range(nch):
-            for pol in range(npol):
-                ModelMap[ch,pol]=ModelMap[ch,pol][::-1]#.T
-                AlphaMap[ch,pol]=AlphaMap[ch,pol][::-1]#.T
-        im=image(FitsFile)
-        pol,freq,decc,rac=im.toworld((0,0,0,0))
-        Lx,Ly=np.where(ModelMap[0,0]!=0)
 
-        X=np.array(Lx)
-        Y=np.array(Ly)
-        #pol,freq,decc1,rac1=im.toworld((0,0,1,0))
-        dx=abs(im.coordinates().dict()["direction0"]["cdelt"][0])
-        SourceCat=np.zeros((100000,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('Sref',np.float),('I',np.float),('Q',np.float),\
-                                           ('U',np.float),('V',np.float),('RefFreq',np.float),('alpha',np.float),('ESref',np.float),\
-                                           ('Ealpha',np.float),('kill',np.int),('Cluster',np.int),('Type',np.int),('Gmin',np.float),\
-                                           ('Gmaj',np.float),('Gangle',np.float),("Select",np.int),('l',np.float),('m',np.float),("Exclude",bool),
-                                           ("X",np.int32),("Y",np.int32)])
-        SourceCat=SourceCat.view(np.recarray)
-        IndSource=0
-        SourceCat.RefFreq[:]=self.DicoSMStacked["RefFreq"]
-        _,_,nx,ny=ModelMap.shape
-
-        for iSource in range(X.shape[0]):
-            x_iSource,y_iSource=X[iSource],Y[iSource]
-            _,_,dec_iSource,ra_iSource=im.toworld((0,0,y_iSource,x_iSource))
-            SourceCat.ra[iSource]=ra_iSource
-            SourceCat.dec[iSource]=dec_iSource
-            SourceCat.X[iSource]=(nx-1)-X[iSource]
-            SourceCat.Y[iSource]=Y[iSource]
-
-            #print self.DicoSMStacked["Comp"][(SourceCat.X[iSource],SourceCat.Y[iSource])]
-            # SourceCat.Cluster[IndSource]=iCluster
-            Flux=ModelMap[0,0,x_iSource,y_iSource]
-            Alpha=AlphaMap[0,0,x_iSource,y_iSource]
-            # print iSource,"/",X.shape[0],":",x_iSource,y_iSource,Flux,Alpha
-            SourceCat.I[iSource]=Flux
-            SourceCat.alpha[iSource]=Alpha
-        SourceCat=(SourceCat[SourceCat.ra!=0]).copy()
-        np.save(SkyModel,SourceCat)
-        self.AnalyticSourceCat=ClassSM.ClassSM(SkyModel)
-    """
-    def DelAllComp(self):
-        for key in self.DicoSMStacked["Comp"].keys():
-            del(self.DicoSMStacked["Comp"][key])
-
-
-    def PutBackSubsComps(self):
-        #if self.GD["VisData"]["RestoreDico"]==None: return
-
-        SolsFile=self.GD["DDESolutions"]["DDSols"]
-        if not(".npz" in SolsFile):
-            Method=SolsFile
-            ThisMSName=reformat.reformat(os.path.abspath(self.GD["VisData"]["MSName"]),LastSlash=False)
-            SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
-        DicoSolsFile=np.load(SolsFile)
-        SourceCat=DicoSolsFile["SourceCatSub"]
-        SourceCat=SourceCat.view(np.recarray)
-        #RestoreDico=self.GD["VisData"]["RestoreDico"]
-        RestoreDico=DicoSolsFile["ModelName"][()][0:-4]+".DicoModel"
-
-        print>>log, "Adding previously substracted components"
-        ModelMachine0=ClassModelMachine(self.GD)
-
-
-        ModelMachine0.FromFile(RestoreDico)
-
-
-
-        _,_,nx0,ny0=ModelMachine0.DicoSMStacked["ModelShape"]
-
-        _,_,nx1,ny1=self.ModelShape
-        dx=nx1-nx0
-
-
-
-        for iSource in range(SourceCat.shape[0]):
-            x0=SourceCat.X[iSource]
-            y0=SourceCat.Y[iSource]
-
-            x1=x0+dx
-            y1=y0+dx
-
-            if not((x1,y1) in self.DicoSMStacked["Comp"].keys()):
-                self.DicoSMStacked["Comp"][(x1,y1)]=ModelMachine0.DicoSMStacked["Comp"][(x0,y0)]
-            else:
-                self.DicoSMStacked["Comp"][(x1,y1)]+=ModelMachine0.DicoSMStacked["Comp"][(x0,y0)]
+# ### Not being used anymore
+#     def DelAllComp(self):
+#         for key in self.DicoSMStacked["Comp"].keys():
+#             del(self.DicoSMStacked["Comp"][key])
+#
+#
+#     def PutBackSubsComps(self):
+#         #if self.GD["VisData"]["RestoreDico"]==None: return
+#
+#         SolsFile=self.GD["DDESolutions"]["DDSols"]
+#         if not(".npz" in SolsFile):
+#             Method=SolsFile
+#             ThisMSName=reformat.reformat(os.path.abspath(self.GD["VisData"]["MSName"]),LastSlash=False)
+#             SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
+#         DicoSolsFile=np.load(SolsFile)
+#         SourceCat=DicoSolsFile["SourceCatSub"]
+#         SourceCat=SourceCat.view(np.recarray)
+#         #RestoreDico=self.GD["VisData"]["RestoreDico"]
+#         RestoreDico=DicoSolsFile["ModelName"][()][0:-4]+".DicoModel"
+#
+#         print>>log, "Adding previously substracted components"
+#         ModelMachine0=ClassModelMachine(self.GD)
+#
+#
+#         ModelMachine0.FromFile(RestoreDico)
+#
+#
+#
+#         _,_,nx0,ny0=ModelMachine0.DicoSMStacked["ModelShape"]
+#
+#         _,_,nx1,ny1=self.ModelShape
+#         dx=nx1-nx0
+#
+#
+#
+#         for iSource in range(SourceCat.shape[0]):
+#             x0=SourceCat.X[iSource]
+#             y0=SourceCat.Y[iSource]
+#
+#             x1=x0+dx
+#             y1=y0+dx
+#
+#             if not((x1,y1) in self.DicoSMStacked["Comp"].keys()):
+#                 self.DicoSMStacked["Comp"][(x1,y1)]=ModelMachine0.DicoSMStacked["Comp"][(x0,y0)]
+#             else:
+#                 self.DicoSMStacked["Comp"][(x1,y1)]+=ModelMachine0.DicoSMStacked["Comp"][(x0,y0)]
