@@ -40,6 +40,7 @@ class ClassFacetMachine():
                  ApplyCal=False):
         # IdSharedMem is used to identify structures in shared memory used by this FacetMachine
         self.IdSharedMem = IdSharedMem
+        self.HasFourierTransformed=False
         # IdSharedMemData is used to identify "global" structures in shared memory such as DicoData
         self.IdSharedMemData = IdSharedMemData or IdSharedMem
         self.NCPU=int(GD["Parallel"]["NCPU"])
@@ -51,7 +52,7 @@ class ClassFacetMachine():
             self.stitchedType=np.float32 #cleaning requires float32
         elif Precision=="D":
             self.dtype=np.complex128
-            self.CType=np.complex128
+            self.CType=np.complex64
             self.FType=np.float64
             self.stitchedType=np.float32  # cleaning requires float32
         self.DoDDE=False
@@ -73,6 +74,8 @@ class ClassFacetMachine():
         self.SpheNorm=True
         if self.ConstructMode=="Fader":
             self.SpheNorm=False
+        else:
+            raise RuntimeError("Deprecated Facet construct mode. Only supports 'Fader'")
         self.Oversize = Oversize
 
         self.NormData=None
@@ -423,12 +426,11 @@ class ClassFacetMachine():
         Set fft wisdom
         """
         self.FFTW_Wisdom=None
-        return
         print>>log, "Set fftw widsdom for shape = %s"%str(self.PaddedGridShape)
         a=np.random.randn(*(self.PaddedGridShape))+1j*np.random.randn(*(self.PaddedGridShape))
         FM=ModFFTW.FFTW_2Donly(self.PaddedGridShape, np.complex64)
         b=FM.fft(a)
-        self.FFTW_Wisdom=None#pyfftw.export_wisdom()
+        self.FFTW_Wisdom=pyfftw.export_wisdom()
         for iFacet in sorted(self.DicoImager.keys()):
             A=ModFFTW.GiveFFTW_aligned(self.PaddedGridShape, np.complex64)
             NpShared.ToShared("%sFFTW.%i"%(self.IdSharedMem,iFacet),A)
@@ -608,6 +610,7 @@ class ClassFacetMachine():
 
     def FacetsToIm(self,NormJones=False):
         """
+        Fourier transforms the individual facet grids and then
         Stitches the gridded facets and builds the following maps:
             self.stitchedResidual (initial residual is the dirty map)
             self.NormImage (grid-correcting map, see also: BuildFacetNormImage)
@@ -632,6 +635,9 @@ class ClassFacetMachine():
             "SumWeights" = sum of visibility weights used in normalizing the gridded correlations
             "WeightChansImages" = normalized weights
         """
+        if not self.HasFourierTransformed:
+            self.FourierTransform(Parallel=self.GD["Parallel"]["Enable"])
+            self.HasFourierTransformed = True
         _,npol,Npix,Npix=self.OutImShape
         DicoImages={}
         DicoImages["freqs"]={}
@@ -956,11 +962,15 @@ class ClassFacetMachine():
         """
         self.SumWeights.fill(0)
         self.IsDirtyInit=True
+        self.HasFourierTransformed = False
         for iFacet in self.DicoGridMachine.keys():
             NX=self.DicoImager[iFacet]["NpixFacetPadded"]
-            GridName="%sGridFacet.%3.3i"%(self.IdSharedMem,iFacet)
-            self.DicoGridMachine[iFacet]["Dirty"]=np.ones((self.VS.NFreqBands,self.npol,NX,NX),self.FType)
-            self.DicoGridMachine[iFacet]["Dirty"].fill(0)
+            if "Dirty" in self.DicoGridMachine[iFacet]:
+                self.DicoGridMachine[iFacet]["Dirty"][...] = 0
+            else:
+                GridName = "%sGridFacet.%3.3i" % (self.IdSharedMem, iFacet)
+                ResidueGrid = NpShared.ToShared(GridName, np.zeros((self.VS.NFreqBands,self.npol,NX,NX),self.CType))
+                self.DicoGridMachine[iFacet]["Dirty"]=ResidueGrid
             self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands,self.npol),np.float64)
             self.DicoImager[iFacet]["SumJones"]   = np.zeros((2,self.VS.NFreqBands),np.float64)
             self.DicoImager[iFacet]["SumJonesChan"]=[]
@@ -1007,9 +1017,7 @@ class ClassFacetMachine():
             work_queue.put(iFacet)
 
         workerlist=[]
-        SpheNorm=True
-        if self.ConstructMode=="Fader":
-            SpheNorm=False
+        SpheNorm=self.SpheNorm
 
         List_Result_queue=[]
         for ii in range(NCPU):
@@ -1081,15 +1089,6 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["SumJones"] += DicoResult["SumJones"]
             self.DicoImager[iFacet]["SumJonesChan"][self.VS.iCurrentMS] += DicoResult["SumJonesChan"]
 
-            DirtyName=DicoResult["DirtyName"]
-            ThisDirty=NpShared.GiveArray(DirtyName)
-
-            if (doStack==True)&("Dirty" in self.DicoGridMachine[iFacet].keys()):
-                self.DicoGridMachine[iFacet]["Dirty"]+=ThisDirty
-            else:
-                self.DicoGridMachine[iFacet]["Dirty"]=ThisDirty.copy()
-            NpShared.DelArray(DirtyName)
-
         if Parallel:
             for ii in range(NCPU):
                 workerlist[ii].shutdown()
@@ -1099,6 +1098,108 @@ class ClassFacetMachine():
         print>> log, "gridding finished in %s" % timer.timehms()
         
         return True
+
+    def FourierTransform(self,doStack=False,Parallel=True):
+        '''
+        Fourier transforms the individual facet grids
+        Postconditions:
+            self.DicoGridMachine[iFacet]["Dirty"] is created (or added to if doStack is true)
+        Args:
+            doStack: Add fourier transformed facets to existing facet grids.
+            Parallel: Calls FFTW in parallel
+        '''
+        NCPU = self.NCPU
+
+        NFacets = len(self.DicoImager.keys())
+
+        work_queue = multiprocessing.JoinableQueue()
+
+        NJobs = NFacets
+        for iFacet in range(NFacets):
+            work_queue.put(iFacet)
+
+        workerlist = []
+        SpheNorm = self.SpheNorm
+
+        List_Result_queue = []
+        for ii in range(NCPU):
+            List_Result_queue.append(multiprocessing.JoinableQueue())
+
+        for ii in range(NCPU):
+            W = self.FacetParallelEngine(work_queue, List_Result_queue[ii],
+                                         self.GD,
+                                         Mode="FourierTransform",
+                                         FFTW_Wisdom=self.FFTW_Wisdom,
+                                         DicoImager=self.DicoImager,
+                                         IdSharedMem=self.IdSharedMem,
+                                         IdSharedMemData=self.IdSharedMemData,
+                                         FacetDataCache=self.FacetDataCache,
+                                         ChunkDataCache="file://" + self.VS.cache.dirname + "/",
+                                         ApplyCal=self.ApplyCal,
+                                         SpheNorm=SpheNorm,
+                                         PSFMode=self.DoPSF,
+                                         NFreqBands=self.VS.NFreqBands,
+                                         PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
+                                         DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                         ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
+            workerlist.append(W)
+            if Parallel:
+                workerlist[ii].start()
+
+        timer = ClassTimeIt.ClassTimeIt()
+        print>> log, "Fourier transforming facet grids"
+
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  Fourier Transforming ", HeaderSize=10, TitleSize=13)
+        #        pBAR.disable()
+        pBAR.render(0, '%4i/%i' % (0, NFacets))
+        iResult = 0
+        if not Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].run()  # just run until all work is completed
+
+        while iResult < NJobs:
+            DicoResult = None
+            if Parallel:
+                for w in workerlist:
+                    w.join(0)
+                    if not w.is_alive():
+                        if w.exitcode != 0:
+                            raise RuntimeError, "a worker process has died with exit code %d. This is probably a bug in the ClassDDEGridMachine." % w.exitcode
+            for result_queue in List_Result_queue:
+                if result_queue.qsize() != 0:
+                    try:
+                        DicoResult = result_queue.get()
+                        break
+                    except:
+                        pass
+
+            if DicoResult == None:
+                time.sleep(1)
+                continue
+
+            if DicoResult["Success"]:
+                iResult += 1
+                NDone = iResult
+                intPercent = int(100 * NDone / float(NFacets))
+                pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
+
+            iFacet = DicoResult["iFacet"]
+            GridName = "%sGridFacet.%3.3i" % (self.IdSharedMem, iFacet)
+            Grid = NpShared.GiveArray(GridName)
+
+            if (doStack == True) & ("Dirty" in self.DicoGridMachine[iFacet].keys()):
+                self.DicoGridMachine[iFacet]["Dirty"] += Grid
+            else:
+                self.DicoGridMachine[iFacet]["Dirty"] = Grid
+
+        if Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].shutdown()
+                workerlist[ii].terminate()
+                workerlist[ii].join()
+
+        print>> log, "Fourier transforms finished in %s" % timer.timehms()
+
 
     def GiveVisParallel(self,times,uvwIn,visIn,flag,A0A1,ModelImage,Parallel=True):
         """
@@ -1356,21 +1457,20 @@ class WorkerImager(multiprocessing.Process):
         GridName = "%sGridFacet.%3.3i" % (self.IdSharedMem, iFacet)
         Grid = NpShared.GiveArray(GridName)
         DicoJonesMatrices = self.GiveDicoJonesMatrices()
-        Dirty = GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
-                                DoNormWeights=False,
-                                DicoJonesMatrices=DicoJonesMatrices,
-                                freqs=freqs, DoPSF=self.PSFMode,
-                                ChanMapping=ChanMapping)
+        GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
+                        DoNormWeights=False,
+                        DicoJonesMatrices=DicoJonesMatrices,
+                        freqs=freqs, DoPSF=self.PSFMode,
+                        ChanMapping=ChanMapping,
+                        ResidueGrid=Grid)
 
-        DirtyName = "%sImageFacet.%3.3i" % (self.IdSharedMem, iFacet)
-        _ = NpShared.ToShared(DirtyName, Dirty)
         Sw = GridMachine.SumWeigths.copy()
         SumJones = GridMachine.SumJones.copy()
         SumJonesChan = GridMachine.SumJonesChan.copy()
         del (GridMachine)
 
         self.result_queue.put(
-            {"Success": True, "iFacet": iFacet, "DirtyName": DirtyName, "Weights": Sw, "SumJones": SumJones,
+            {"Success": True, "iFacet": iFacet, "Weights": Sw, "SumJones": SumJones,
              "SumJonesChan": SumJonesChan})
 
     def degrid(self, iFacet):
@@ -1409,6 +1509,21 @@ class WorkerImager(multiprocessing.Process):
 
         self.result_queue.put({"Success": True, "iFacet": iFacet})
 
+    def fourierTransform(self, iFacet):
+        """
+        Fourier transforms the grids currently housed in shared memory
+        Precondition:
+            Should be called after all data has been gridded
+        Returns:
+            Dictionary of success and facet identifier
+        """
+        GridMachine = self.GiveGM(iFacet)
+        GridName = "%sGridFacet.%3.3i" % (self.IdSharedMem, iFacet)
+        Grid = NpShared.GiveArray(GridName)
+        Dirty = GridMachine.GridToIm(Grid)
+        Grid[...] = Dirty[...]
+        self.result_queue.put({"Success": True, "iFacet": iFacet})
+
     def run(self):
         """
         Runs a task in parallel
@@ -1425,12 +1540,14 @@ class WorkerImager(multiprocessing.Process):
             if self.FFTW_Wisdom!=None:
                 pyfftw.import_wisdom(self.FFTW_Wisdom)
 
-            if self.Mode=="Init":
+            if self.Mode == "Init":
                 self.init(iFacet)
-            elif self.Mode=="Grid":
+            elif self.Mode == "Grid":
                 self.grid(iFacet)
-            elif self.Mode=="DeGrid":
+            elif self.Mode == "DeGrid":
                 self.degrid(iFacet)
+            elif self.Mode == "FourierTransform":
+                self.fourierTransform(iFacet)
 
 
 
