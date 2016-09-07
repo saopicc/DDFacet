@@ -30,7 +30,7 @@ class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
-                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,IdSharedMem="",
+                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,IdSharedMem="",ModelMachine=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
@@ -49,7 +49,10 @@ class ClassImageDeconvMachine():
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
         self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
-        self.ModelMachine=ClassModelMachineGA.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
+        if ModelMachine is None:
+            self.ModelMachine=ClassModelMachineGA.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
+        else:
+            self.ModelMachine = ModelMachine
         # reset overall iteration counter
         self._niter = 0
         self.PSFCross=None

@@ -44,7 +44,7 @@ class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
-                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,ImagePolDescriptor=["I"],
+                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,ImagePolDescriptor=["I"],ModelMachine=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         self.SearchMaxAbs = SearchMaxAbs
@@ -60,7 +60,10 @@ class ClassImageDeconvMachine():
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
         self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=Gain)
-        self.ModelMachine = ClassModelMachine.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
+        if ModelMachine is None:
+            self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
+        else:
+            self.ModelMachine = ModelMachine
         self.PolarizationDescriptor = ImagePolDescriptor
         self.PolarizationCleanTasks = []
         if "I" in self.PolarizationDescriptor:

@@ -6,14 +6,13 @@ import ClassImageDeconvMachineHogbom
 import ClassImageDeconvMachineMSMF
 import ClassImageDeconvMachineGA
 import ClassImageDeconvMachineSSD
-
+from DDFacet.Other import MyPickle
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Array import NpShared
 import os
 from DDFacet.ToolsDir import ModFitPSF
 from DDFacet.Data import ClassVisServer
 import ClassCasaImage
-from ClassModelMachine import ClassModelMachine
 from ModModelMachine import ClassModModelMachine
 import time
 import glob
@@ -87,11 +86,7 @@ class ClassImagerDeconv():
         self.HasDeconvolved=False
         self.Parallel=self.GD["Parallel"]["Enable"]
         self.IdSharedMem=IdSharedMem
-        if self.GD["VisData"]["InitDicoModel"] is not None:
-            ModConstructor = ClassModModelMachine(self.GD)
-            self.ModelMachine = ModConstructor.GiveModelFromFile(self.GD["VisData"]["InitDicoModel"])
-        else:
-            self.ModelMachine = None
+        self.ModConstructor = ClassModModelMachine(self.GD)
 
         #self.PNGDir="%s.png"%self.BaseName
         #os.system("mkdir -p %s"%self.PNGDir)
@@ -175,12 +170,17 @@ class ClassImagerDeconv():
         if self.DoDeconvolve:
             self.NMajor=self.GD["ImagerDeconv"]["MaxMajorIter"]
             del(self.GD["ImagerDeconv"]["MaxMajorIter"])
+
+            # If we do the deconvolution construct a model according to what is in MinorCycleConfig
+            ModMachine = self.ModConstructor.GiveMM(Mode=self.GD["ImagerDeconv"]["MinorCycleMode"])
             MinorCycleConfig=dict(self.GD["ImagerDeconv"])
             MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
             MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
             MinorCycleConfig["GD"] = self.GD
             MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
-            
+            MinorCycleConfig["ModelMachine"] = ModMachine
+
+
             if self.GD["MultiScale"]["MSEnable"]:
                 print>>log, "Minor cycle deconvolution in Multi Scale Mode"
                 self.MinorCycleMode="MS"
@@ -437,32 +437,31 @@ class ClassImagerDeconv():
                     Dirty[ch,pol]=Dirty[ch,pol].T[::-1]
             return Dirty
 
+        # Check if we are initialising from a dictionary
         SubstractModel=self.GD["VisData"]["InitDicoModel"]
-        DoSub=(SubstractModel!="")&(SubstractModel!=None)
+        DoSub=(SubstractModel!="")&(SubstractModel is not None)
         if DoSub:
             print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
-			
-            # #This should be returned through the minor cycle interface
-            # from DDFacet.Imager.ModModelMachine import GiveModelMachine
-            # ClassModelMachine,DicoModel=GiveModelMachine(SubstractModel)
-            #
+            # Load model dict
+            DicoSMStacked = MyPickle.Load(SubstractModel)
+            # Get the correct model machine from SubtractModel file
+            ModelMachine = self.ModConstructor.GiveMMFromDico(DicoSMStacked)
+
             # try:
             #    self.GD["GAClean"]["GASolvePars"]=DicoModel["SolveParam"]
             # except:
             #    self.GD["GAClean"]["GASolvePars"]=["S","Alpha"]
             #    DicoModel["SolveParam"]=self.GD["GAClean"]["GASolvePars"]
 
-            #MM=ClassModelMachine(self.GD)
-            #MM.FromDico(DicoModel)
+            ModelMachine.FromDico(DicoSMStacked)
 
-
-            try:
-                self.DeconvMachine.FromDico(DicoModel)
-                print>>log, "Current instance of DeconvMachine does not have FromDico method. Using FromFile instead."
-            except:
-                self.DeconvMachine.FromFile(SubstractModel)
-
-            InitBaseName=".".join(SubstractModel.split(".")[0:-1])
+            # try:
+            #     self.DeconvMachine.FromDico(DicoModel)
+            #     print>>log, "Current instance of DeconvMachine does not have FromDico method. Using FromFile instead."
+            # except:
+            #     self.DeconvMachine.FromFile(SubstractModel)
+            #
+            # InitBaseName=".".join(SubstractModel.split(".")[0:-1])
             self.FacetMachine.BuildFacetNormImage()
             # NormFacetsFile="%s.NormFacets.fits"%InitBaseName
             # if InitBaseName!=BaseName:
@@ -474,6 +473,8 @@ class ClassImagerDeconv():
 
             if self.BaseName==self.GD["VisData"]["InitDicoModel"][0:-10]:
                 self.BaseName+=".continue"
+        # else:
+        #     MM = self.ModConstructor.GiveMM(Mode=self.GD["ImagerDeonv"]["MinorCycleMode"])
 
         iloop = 0
         while True:
@@ -489,7 +490,7 @@ class ClassImagerDeconv():
 
             if DoSub:
                 ThisMeanFreq=self.VS.CurrentChanMappingDegrid#np.mean(DATA["freqs"])
-                ModelImage=self.DeconvMachine.GiveModelImage(ThisMeanFreq)
+                ModelImage=ModelMachine.GiveModelImage(ThisMeanFreq)
                 print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
 
                 
@@ -562,9 +563,15 @@ class ClassImagerDeconv():
         BaseName=self.GD["Images"]["ImageName"]
 
         #ModelMachine=ClassModelMachine(self.GD)
-        NormImageName="%s.NormFacets.fits"%BaseName
-        CasaNormImage=image(NormImageName)
-        NormImage=CasaNormImage.getdata()
+        try:
+            NormImageName="%s.NormFacets.fits"%BaseName
+            CasaNormImage = image(NormImageName)
+            NormImage = CasaNormImage.getdata()
+            print NormImage.shape
+        except:
+            NormImage = self.FacetMachine.BuildFacetNormImage()
+            NormImage = NormImage.reshape([1,1,NormImage.shape[0],NormImage.shape[1]])
+
         nch,npol,nx,_=NormImage.shape
         for ch in range(nch):
             for pol in range(npol):
@@ -579,14 +586,18 @@ class ClassImagerDeconv():
         # else we use a model image and hope for the best (need to fix frequency axis...)
         print>>log,modelfile
         if modelfile.endswith(".DicoModel"):
-            try:
-                self.DeconvMachine.FromDico(modelfile)
-                print>>log, "Current instance of DeconvMachine does not have FromDico method. Using FromFile instead."
-            except:
-                self.DeconvMachine.FromFile(modelfile)
+            ModelMachine = self.ModConstructor.GiveMMFromFile(self.GD["Images"]["PredictModelName"])
+            ModelMachine.FromFile(modelfile)
+            # try:
+            #     self.DeconvMachine.FromDico(modelfile)
+            #     print>>log, "Current instance of DeconvMachine does not have FromDico method. Using FromFile instead."
+            # except:
+            #     self.DeconvMachine.FromFile(modelfile)
             FixedModelImage = None
-        else:
+        elif modelfile.endswith(".fits"):
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
+        else:
+            raise NotImplementedError("Can only predict from a dict of fits file")
 
         current_model_freqs = np.array([])
 
@@ -600,7 +611,7 @@ class ClassImagerDeconv():
             ## redo model image if needed
             if FixedModelImage is None:
                 if np.array(model_freqs != current_model_freqs).any():
-                    ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)
+                    ModelImage = ModelMachine.GiveModelImage(model_freqs)
                     current_model_freqs = model_freqs
                     print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
                 else:

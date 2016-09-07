@@ -1,8 +1,6 @@
-import collections
 import itertools
 
 import numpy as np
-#import pylab
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
@@ -16,7 +14,7 @@ from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
-
+import ClassModelMachine as ClassModelMachinebase
 from DDFacet.ToolsDir import ModFFTW
 import scipy.ndimage
 from SkyModel.Sky import ModRegFile
@@ -24,16 +22,18 @@ from pyrap.images import image
 from SkyModel.Sky import ClassSM
 import os
 
-class ClassModelMachine():
-    def __init__(self,GD=None,Gain=None,GainMachine=None):
-        self.GD=GD
-        if Gain==None:
-            self.Gain=self.GD["ImagerDeconv"]["Gain"]
-        else:
-            self.Gain=Gain
-        self.GainMachine=GainMachine
-        self.DicoSMStacked={}
-        self.DicoSMStacked["Comp"]={}
+class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
+    def __init__(self,*args,**kwargs):
+        ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
+        self.Test = True
+        # self.GD=GD
+        # if Gain==None:
+        #     self.Gain=self.GD["ImagerDeconv"]["Gain"]
+        # else:
+        #     self.Gain=Gain
+        # self.GainMachine=GainMachine
+        # self.DicoSMStacked={}
+        # self.DicoSMStacked["Comp"]={}
 
     def setRefFreq(self,RefFreq,AllFreqs):
         self.RefFreq=RefFreq
@@ -46,7 +46,7 @@ class ClassModelMachine():
             D=self.DicoSMStacked
         else:
             D=DicoIn
-            
+
         D["Type"]="MSMF"
         D["ListScales"]=self.ListScales
         D["ModelShape"]=self.ModelShape

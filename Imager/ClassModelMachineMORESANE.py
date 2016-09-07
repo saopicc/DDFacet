@@ -13,7 +13,7 @@ from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
-
+import ClassModelMachine as ClassModelMachinebase
 from DDFacet.ToolsDir import ModFFTW
 import scipy.ndimage
 from SkyModel.Sky import ModRegFile
@@ -22,18 +22,19 @@ from SkyModel.Sky import ClassSM
 import os
 import ipdb
 
-class ClassModelMachine():
-    def __init__(self,GD=None,Gain=None,GainMachine=None):
-        self.GD=GD
-        if Gain==None:
-            self.Gain=self.GD["ImagerDeconv"]["Gain"]
-        else:
-            self.Gain=Gain
-        self.GainMachine=GainMachine
-        self.DicoSMStacked={}
-        self.DicoSMStacked["Comp"]={}
-        if GD!=None:
-            self.SolveParam=GD["MORESANE"]["MOSolvePars"]
+class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
+    def __init__(self,*args,**kwargs):
+        ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
+        # self.GD=GD
+        # if Gain==None:
+        #     self.Gain=self.GD["ImagerDeconv"]["Gain"]
+        # else:
+        #     self.Gain=Gain
+        # self.GainMachine=GainMachine
+        # self.DicoSMStacked={}
+        # self.DicoSMStacked["Comp"]={}
+        if self.GD!=None:
+            self.SolveParam = self.GD["MORESANE"]["MOSolvePars"]
             print>>log,"Solved parameters: %s"%(str(self.SolveParam))
             self.NParam=len(self.SolveParam)
         
@@ -43,7 +44,7 @@ class ClassModelMachine():
         self.DicoSMStacked["RefFreq"]=RefFreq
         self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
         # print "ModelMachine:",self.RefFreq, self.DicoSMStacked["RefFreq"], self.DicoSMStacked["AllFreqs"]
-        
+
 
 
     def ToFile(self,FileName,DicoIn=None):

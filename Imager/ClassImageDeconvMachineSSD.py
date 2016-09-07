@@ -37,7 +37,7 @@ class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
-                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,IdSharedMem="",
+                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,IdSharedMem="",ModelMachine=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
@@ -62,13 +62,15 @@ class ClassImageDeconvMachine():
         self.PSFCross=None
 
         self.IslandDeconvMode=self.GD["SSD"]["IslandDeconvMode"]  # "GA" or "Moresane" or "Sasir"
-
-        if self.IslandDeconvMode=="GA":
-            self.ModelMachine = ClassModelMachineGA.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
-        elif self.IslandDeconvMode=="Moresane":
-            self.ModelMachine = ClassModelMachineMORESANE.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
-        elif self.IslandDeconvMode=="Sasir":
-            raise NotImplementedError("ClassModelMachineSASIR is not implemented")
+        if ModelMachine is None:
+            if self.IslandDeconvMode == "GA":
+                self.ModelMachine = ClassModelMachineGA.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
+            elif self.IslandDeconvMode == "Moresane":
+                self.ModelMachine = ClassModelMachineMORESANE.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
+            elif self.IslandDeconvMode == "Sasir":
+                raise NotImplementedError("ClassModelMachineSASIR is not implemented")
+        else:
+            self.ModelMachine = ModelMachine
             #self.ModelMachine = ClassModelMachineSASIR.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
 
         if CleanMaskImage!=None:

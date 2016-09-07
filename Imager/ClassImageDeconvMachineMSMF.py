@@ -12,7 +12,7 @@ from DDFacet.Other import ClassTimeIt
 import ClassMultiScaleMachine
 from pyrap.images import image
 from ClassPSFServer import ClassPSFServer
-import ClassModelMachineMSMF as ClassModelMachine
+import ClassModelMachineMSMF
 from DDFacet.Other.progressbar import ProgressBar
 import ClassGainMachine
 
@@ -21,7 +21,7 @@ class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
-                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,
+                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,ModelMachine=None,
                  NFreqBands=1,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
@@ -41,7 +41,10 @@ class ClassImageDeconvMachine():
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
         self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
-        self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
+        if ModelMachine is None:
+            self.ModelMachine=ClassModelMachineMSMF.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
+        else:
+            self.ModelMachine = ModelMachine
         # reset overall iteration counter
         self._niter = 0
         
