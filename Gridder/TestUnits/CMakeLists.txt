@@ -1,8 +1,0 @@
-cmake_minimum_required(VERSION 2.8)
-project(backend_tests)
-find_package(CasaCore REQUIRED ms, measures)
-if (NOT ${CASACORE_FOUND})
-  message(FATAL_ERROR "Failed to find CasaCore.")
-endif (NOT ${CASACORE_FOUND})
-add_executable(TestStokes TestStokes.cpp catch.hpp)
-target_link_libraries(TestStokes StokesConvert)
