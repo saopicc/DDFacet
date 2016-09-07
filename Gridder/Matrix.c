@@ -1,16 +1,15 @@
-#include <complex.h>
+#include "complex.h"
 #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <Python.h>
+#include "arrayobject.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <time.h>
-#include "pyArrayCast.h"
-extern int FullScalarMode;
 
+#include <time.h>
 
 void printMat(float complex *A){
   printf("================================================================================================");
