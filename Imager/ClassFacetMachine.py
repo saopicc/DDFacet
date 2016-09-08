@@ -56,7 +56,7 @@ class ClassFacetMachine():
             self.FType=np.float64
             self.stitchedType=np.float32  # cleaning requires float32
         self.DoDDE=False
-        if Sols!=None:
+        if Sols is not None:
             self.setSols(Sols)
         self.PointingID=PointingID
         self.VS,self.GD=VS,GD
@@ -542,10 +542,10 @@ class ClassFacetMachine():
     ############################################################################################
 
     def setCasaImage(self,ImageName=None,Shape=None,Freqs=None,Stokes=["I"]):
-        if ImageName==None:
+        if ImageName is None:
             ImageName=self.ImageName
 
-        if Shape==None:
+        if Shape is None:
             Shape=self.OutImShape
         self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec,Freqs=Freqs,Stokes=Stokes)
 
@@ -1335,8 +1335,8 @@ class WorkerImager(multiprocessing.Process):
         self.IdSharedMemData=IdSharedMemData
         self.FacetDataCache = FacetDataCache
         self.ChunkDataCache = ChunkDataCache
-        self.Apply_killMS=(GD["DDESolutions"]["DDSols"]!="")&(GD["DDESolutions"]["DDSols"]!=None)
-        self.Apply_Beam=(GD["Beam"]["BeamModel"]!=None)
+        self.Apply_killMS=(GD["DDESolutions"]["DDSols"]!="")&(GD["DDESolutions"]["DDSols"] is not None)
+        self.Apply_Beam=(GD["Beam"]["BeamModel"] is not None)
         self.ApplyCal=(self.Apply_killMS)|(self.Apply_Beam)
         self.SpheNorm=SpheNorm
         self.PSFMode=PSFMode
@@ -1536,7 +1536,7 @@ class WorkerImager(multiprocessing.Process):
         while not self.kill_received and not self.work_queue.empty():
             iFacet = self.work_queue.get()
 
-            if self.FFTW_Wisdom!=None:
+            if self.FFTW_Wisdom is not None:
                 pyfftw.import_wisdom(self.FFTW_Wisdom)
 
             if self.Mode == "Init":

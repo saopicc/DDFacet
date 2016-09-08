@@ -256,7 +256,7 @@ def test():
 
 
 def main(OP=None,messages=[]):
-    if OP==None:
+    if OP is None:
         OP = MyPickle.Load(SaveFile)
 
     DicoConfig=OP.DicoConfig

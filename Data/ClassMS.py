@@ -175,7 +175,7 @@ class ClassMS():
 
 
     def LoadSR(self,useElementBeam=True,useArrayFactor=True):
-        if self.SR!=None: return
+        if self.SR is not None: return
         # t=table(self.MSName,ack=False,readonly=False)
         # if not("LOFAR_ANTENNA_FIELD" in t.getkeywords().keys()):
         #     self.PutLOFARKeys()
@@ -269,7 +269,7 @@ class ClassMS():
 
         print>>log, ModColor.Str("  ... Building BL-mapping for %s"%str(ListStrSel))
 
-        if row1==None:
+        if row1 is None:
             row0=0
             row1=self.nbl
         A0=self.F_A0[row0:row1]
@@ -338,7 +338,7 @@ class ClassMS():
 
     #     print ModColor.Str("  ... Building BL-mapping for %s"%str(ListStrSel))
 
-    #     if row1==None:
+    #     if row1 is None:
     #         row0=0
     #         row1=self.nbl
     #     A0=self.A0[row0:row1]
@@ -369,7 +369,7 @@ class ClassMS():
 
 
     # def SelChannel(self,(start,end,step)=(None,None,None),Revert=False):
-    #     if start!=None:
+    #     if start is not None:
     #         if Revert==False:
     #             ind=np.arange(self.Nchan)[start:end:step]
     #         else:
@@ -524,7 +524,7 @@ class ClassMS():
         DATA["data"]=vis_all
         DATA["flag"]=flag_all
 
-        # if self.AverageSteps!=None:
+        # if self.AverageSteps is not None:
         #     StepTime,StepFreq=self.AverageSteps
         #     DATA=self.GiveAverageTimeFreq(DATA,StepTime=StepTime,StepFreq=StepFreq)
 
@@ -538,10 +538,10 @@ class ClassMS():
         #DicoDataOut["nrows"]=DicoData["nrows"]
         DicoDataOut["uvw"]=DicoData["uvw"]
 
-        if StepFreq==None:
+        if StepFreq is None:
             StepFreq=1
 
-        if StepTime==None:
+        if StepTime is None:
             StepTime=1
             
         NTimesIn=(DicoData["times"][-1]-DicoData["times"][0])/DicoData["dt"]
@@ -649,7 +649,7 @@ class ClassMS():
     def RemoveStation(self):
         
         DelStationList=self.DelStationList
-        if DelStationList==None: return
+        if DelStationList is None: return
 
         StationNames=self.StationNames
         self.MapStationsKeep=np.arange(len(StationNames))
@@ -746,7 +746,7 @@ class ClassMS():
         self._chunk_r0r1 = [ chunk_row0[i:i+2] for i in range(self.Nchunk) ]
 
         #SPW=table_all.getcol('DATA_DESC_ID')
-        # if self.SelectSPW!=None:
+        # if self.SelectSPW is not None:
         #     self.ListSPW=self.SelectSPW
         #     #print "dosel"
         # else:
@@ -831,7 +831,7 @@ class ClassMS():
             self.ChanFreq=self.ChanFreq[0,::-1]
             self.dFreq=np.abs(self.dFreq)
 
-        # if self.AverageSteps!=None:
+        # if self.AverageSteps is not None:
         #     _,StepFreq=self.AverageSteps
         #     NChanOut=self.ChanFreq.size/StepFreq
         #     NChanMS=self.ChanFreq.size
@@ -923,7 +923,7 @@ class ClassMS():
         t.close()
 
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
-        if vis==None:
+        if vis is None:
             vis=self.data
         if DoPrint: print>>log, "Writting data in column %s"%ModColor.Str(Col,col="green")
         table_all=self.GiveMainTable(readonly=False)
@@ -948,12 +948,12 @@ class ClassMS():
             vecout=self.data[col][(self.A0==a0)&(self.A1==a1),:,:]
         else:
             vecout=self.data[(self.A0==a0)&(self.A1==a1),:,:]
-        if pol!=None:
+        if pol is not None:
             vecout=vecout[:,:,pol]
         return vecout
 
     def GiveVisBLChan(self,a0,a1,chan,pol=None):
-        if pol==None:
+        if pol is None:
             vecout=(self.data[(self.A0==a0)&(self.A1==a1),chan,0]+self.data[(self.A0==a0)&(self.A1==a1),chan,3])/2.
         else:
             vecout=self.data[(self.A0==a0)&(self.A1==a1),chan,pol]
@@ -1029,7 +1029,7 @@ class ClassMS():
 
     def CopyCol(self,Colin,Colout):
         t=table(self.MSName,readonly=False,ack=False)
-        if self.TimeChunkSize==None:
+        if self.TimeChunkSize is None:
             print>>log, "  ... Copying column %s to %s"%(Colin,Colout)
             t.putcol(Colout,t.getcol(Colin))
         else:

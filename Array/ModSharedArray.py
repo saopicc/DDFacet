@@ -35,7 +35,7 @@ def SharedToNumpy(lA):
             B=[SingleSharedToNumpy(A0),SingleSharedToNumpy(A1)]
             print "TUPLE"
             print B
-        elif obj==None:
+        elif obj is None:
             B=None
             print "None"
             print B
@@ -92,7 +92,7 @@ def SingleNumpyToShared(A):
 
 def SingleSharedToNumpy(S_ctypes):
     if type(S_ctypes)==np.ndarray: return S_ctypes
-    if S_ctypes==None: return None
+    if S_ctypes is None: return None
     S = ctypeslib.as_array(S_ctypes)
     if S_ctypes.DicoType["ComplexMode"]:
         S = S.view(S_ctypes.DicoType["nptype"])

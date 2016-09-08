@@ -21,7 +21,7 @@ class MyOptParse():
         self.DicoGroupDesc=collections.OrderedDict()
 
     def OptionGroup(self,Name,key=None):
-        if self.CurrentGroup!=None:
+        if self.CurrentGroup is not None:
             self.Finalise()
         self.CurrentGroup = OptParse.OptionGroup(self.opt, Name)
         self.CurrentGroupKey=key
@@ -29,7 +29,7 @@ class MyOptParse():
 
 
     def add_option(self,Name='Mode',help='Default %default',type="str",default=None):
-        if default==None:
+        if default is None:
             default=self.DefaultDict[self.CurrentGroupKey][Name]
         
         self.CurrentGroup.add_option('--%s'%Name,help=help,type=type,default=default,dest=self.GiveKeyDest(self.CurrentGroupKey,Name))

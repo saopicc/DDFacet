@@ -19,7 +19,7 @@ class ClassPrint():
 
     def Print(self,par,value,value2=None,dest=sys.stdin):
         parout=" - %s %s"%(par,"."*(self.LeftW-len(par)))
-        if value2==None:
+        if value2 is None:
             valueOut=value
         else:
             valueOut="%s%s"%(value.ljust(self.WV0),(""" "%s" """%value2).rjust(self.WV1))

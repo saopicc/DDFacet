@@ -188,7 +188,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     # print A[0:-1]-A[1::]
     # print np.argmax(A)
     # stop
-    if (ArrayMethodsMachine!=None)&(DoPlot):
+    if (ArrayMethodsMachine is not None)&(DoPlot):
         ArrayMethodsMachine.Plot(population,0)
     
     # Begin the generational process
@@ -230,7 +230,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         # A=np.array(V0)+np.array(V1)
         # print "IND=",np.argmax(A)
 
-        if (ArrayMethodsMachine!=None)&(DoPlot):
+        if (ArrayMethodsMachine is not None)&(DoPlot):
             if gen%50==0:
                 ArrayMethodsMachine.Plot(population,gen)
 
@@ -401,7 +401,7 @@ def eaMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, ngen,
         population[:] = toolbox.select(population + offspring, mu)
 
 
-        if ArrayMethodsMachine!=None:
+        if ArrayMethodsMachine is not None:
             if gen%30==0:
                 ArrayMethodsMachine.Plot(population,gen)
         # Update the statistics with the new population

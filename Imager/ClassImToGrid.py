@@ -36,7 +36,7 @@ class ClassImToGrid():
         nchan,npol,n,_=ModelIm.shape
         ModelImCorr=ModelIm*(self.OverS*n)**2
 
-        if self.ifzfCF!=None:
+        if self.ifzfCF is not None:
             for ichan in range(nchan):
                 for ipol in range(npol):
                     ModelImCorr[ichan,ipol][:,:]=ModelImCorr[ichan,ipol][:,:].real/self.ifzfCF
@@ -134,7 +134,7 @@ class ClassImToGrid():
         T=ClassTimeIt.ClassTimeIt("ClassImToGrid")
         T.disable()
 
-        if ChanSel==None:
+        if ChanSel is None:
             CSel=range(nch)
         else:
             CSel=ChanSel

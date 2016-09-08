@@ -58,11 +58,11 @@ import pyfits
 class ClassImagerDeconv():
     def __init__(self,ParsetFile=None,GD=None,
                  PointingID=0,BaseName="ImageTest2",ReplaceDico=None,IdSharedMem="CACA.",DoDeconvolve=True):
-        if ParsetFile!=None:
+        if ParsetFile is not None:
             GD=ClassGlobalData(ParsetFile)
             self.GD=GD
             
-        if GD!=None:
+        if GD is not None:
             self.GD=GD
 
         self.BaseName=BaseName
@@ -217,12 +217,12 @@ class ClassImagerDeconv():
 
 
     def InitFacetMachine(self):
-        if self.FacetMachine!=None:
+        if self.FacetMachine is not None:
             return
 
         ApplyCal=False
         SolsFile=self.GD["DDESolutions"]["DDSols"]
-        if (SolsFile!="")|(self.GD["Beam"]["BeamModel"]!=None): ApplyCal=True
+        if (SolsFile!="")|(self.GD["Beam"]["BeamModel"] is not None): ApplyCal=True
 
         self.FacetMachine=ClassFacetMachine(self.VS,
                                             self.GD,
@@ -461,7 +461,7 @@ class ClassImagerDeconv():
             self.FacetMachine.ReinitDirty()
             isPlotted=False
 
-            # if self.GD["Stores"]["Dirty"]!=None:
+            # if self.GD["Stores"]["Dirty"] is not None:
             #     print>>log, "Reading Dirty image from %s"%self.GD["Stores"]["Dirty"]
             #     CasaDirty=image(self.GD["Stores"]["Dirty"])
             #     Dirty=CasaDirty.getdata()
@@ -473,7 +473,7 @@ class ClassImagerDeconv():
             #
 
             SubstractModel=self.GD["VisData"]["InitDicoModel"]
-            DoSub=(SubstractModel!="")&(SubstractModel!=None)
+            DoSub=(SubstractModel!="")&(SubstractModel is not None)
             if DoSub:
                 print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
                 # Load model dict
@@ -680,7 +680,7 @@ class ClassImagerDeconv():
             # print self.VS.CurrentMS.Field
 
     def main(self,NMajor=None):
-        if NMajor==None:
+        if NMajor is None:
             NMajor=self.NMajor
 
         self.GiveDirty()
@@ -723,7 +723,7 @@ class ClassImagerDeconv():
             while True:
                 #print>>log, "Max model image: %f"%(np.max(self.DeconvMachine._ModelImage))
                 #DATA=self.VS.GiveNextVisChunk()            
-                #if (DATA==None): break
+                #if (DATA is None): break
                 Res=self.setNextData()
                 #if Res=="EndChunk": break
                 if Res=="EndOfObservation": break
@@ -852,7 +852,7 @@ class ClassImagerDeconv():
 
     def Restore(self):
         print>>log, "Create restored image"
-        if self.PSFGaussPars==None:
+        if self.PSFGaussPars is None:
             self.FitPSF()
         self.DeconvMachine.ToFile(self.DicoModelName)
 

@@ -37,7 +37,7 @@ class ClassGlobalData():
         self.setDicoConfig()
         # self.SelSubFreqCat()
         
-        if ReplaceDico!=None:
+        if ReplaceDico is not None:
             SetValDico(self.DicoConfig,ReplaceDico)
 
         #self.HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
@@ -112,7 +112,7 @@ class ClassMultiPointingData():
         return ClassSinglePointingData(self,PointingID=PointingID)
         
     def MountSolsSimul(self):
-        if self.DicoConfig["Files"]["Simul"]["File"]!=None:
+        if self.DicoConfig["Files"]["Simul"]["File"] is not None:
             DicoSimul=MyPickle.Load(self.DicoConfig["Files"]["Simul"]["File"])
             self.std=DicoSimul["std"]
             self.TrueSols=DicoSimul["Sols"]
@@ -152,7 +152,7 @@ class ClassMultiPointingData():
 
     def setMappingBL(self,PointingID=0):
         self.initDicoKey(PointingID)
-        if self.DicoConfig["Select"]["FlagAntBL"]!=None:
+        if self.DicoConfig["Select"]["FlagAntBL"] is not None:
             BLSel=self.DicoConfig["Select"]["FlagAntBL"]#.replace(" ","").split(',')
         else:
             BLSel=[]
@@ -177,7 +177,7 @@ class ClassMultiPointingData():
 
     # def setCurrentData(self,key,Data,PointingID=None):
 
-    #     if PointingID==None:
+    #     if PointingID is None:
     #         for PointingID in self.ListID:
     #             self.setCurrentDataPointing(key,Data[PointingID],PointingID=PointingID)
     #     else:

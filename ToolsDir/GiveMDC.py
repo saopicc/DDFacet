@@ -12,7 +12,7 @@ def GiveMDC(ParsetFile="ParsetNew.txt",
 
     MS=[]
     SM=[]
-    if GD==None:
+    if GD is None:
         GD=ClassGlobalData(ParsetFile)
 
         
@@ -53,7 +53,7 @@ def GiveMDC(ParsetFile="ParsetNew.txt",
         MDC.setMS(MS[ID],PointingID=ID)
         if ThereIsSM:
             MDC.setSM(SM[ID],PointingID=ID)
-        if freqs==None: freqs=MS[ID].ChanFreq.flatten()
+        if freqs is None: freqs=MS[ID].ChanFreq.flatten()
         MDC.setFreqs(freqs,PointingID=ID)
         MDC.setMappingBL(PointingID=ID)
 

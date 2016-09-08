@@ -27,7 +27,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
         self.Test = True
         # self.GD=GD
-        # if Gain==None:
+        # if Gain is None:
         #     self.Gain=self.GD["ImagerDeconv"]["Gain"]
         # else:
         #     self.Gain=Gain
@@ -42,7 +42,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName
-        if DicoIn==None:
+        if DicoIn is None:
             D=self.DicoSMStacked
         else:
             D=DicoIn
@@ -303,7 +303,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 ModelMap[ch,pol]=ModelMap[ch,pol][::-1]#.T
                 AlphaMap[ch,pol]=AlphaMap[ch,pol][::-1]#.T
 
-        if BeamImage!=None:
+        if BeamImage is not None:
             ModelMap*=(BeamImage)
 
         im=image(FitsFile)
@@ -356,7 +356,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def PutBackSubsComps(self):
-        #if self.GD["VisData"]["RestoreDico"]==None: return
+        #if self.GD["VisData"]["RestoreDico"] is None: return
 
         SolsFile=self.GD["DDESolutions"]["DDSols"]
         if not(".npz" in SolsFile):

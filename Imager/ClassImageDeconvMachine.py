@@ -41,15 +41,15 @@ class ClassImageDeconvMachine():
         
 
 
-        if self.ModelImage==None:
+        if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)
-        if self.MaskArray==None:
+        if self.MaskArray is None:
             self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
 
 
 
     def FindPSFExtent(self,Method="FromBox"):
-        if self.SubPSF!=None: return
+        if self.SubPSF is not None: return
         PSF=self._PSF
         _,_,NPSF,_=PSF.shape
         xtest=np.int64(np.linspace(NPSF/2,NPSF,100))
@@ -88,7 +88,7 @@ class ClassImageDeconvMachine():
 
 
     def MakeMultiScaleCube(self):
-        if self.CubePSFScales!=None: return
+        if self.CubePSFScales is not None: return
         print>>log, "Making MultiScale PSFs..."
         LScales=self.GD["MultiScale"]["Scales"]
         if 0 in LScales: LScales.remove(0)
@@ -348,7 +348,7 @@ class ClassImageDeconvMachine():
         self.OffsetSideLobe=OffsetSideLobe
 
     def Deconvolve(self, Nminor=None, ch=0):
-        if Nminor==None:
+        if Nminor is None:
             Nminor=self.MaxMinorIter
 
         self.setChannel(ch)

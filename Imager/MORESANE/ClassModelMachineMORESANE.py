@@ -25,14 +25,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def __init__(self,*args,**kwargs):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
         # self.GD=GD
-        # if Gain==None:
+        # if Gain is None:
         #     self.Gain=self.GD["ImagerDeconv"]["Gain"]
         # else:
         #     self.Gain=Gain
         # self.GainMachine=GainMachine
         # self.DicoSMStacked={}
         # self.DicoSMStacked["Comp"]={}
-        if self.GD!=None:
+        if self.GD is not None:
             self.SolveParam = self.GD["MORESANE"]["MOSolvePars"]
             print>>log,"Solved parameters: %s"%(str(self.SolveParam))
             self.NParam=len(self.SolveParam)
@@ -48,7 +48,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName
-        if DicoIn==None:
+        if DicoIn is None:
             D=self.DicoSMStacked
         else:
             D=DicoIn
@@ -122,7 +122,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         S=Vr[iS]
         #S*=self.GainMachine.GiveGain()
 
-        if JonesNorm!=None:
+        if JonesNorm is not None:
             Vr[iS,:]/=np.sqrt(JonesNorm).flat[0]
 
         for (x,y),iComp in zip(ListPix,range(NPixListParms)):
@@ -145,7 +145,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def GiveModelImage(self,FreqIn=None):
 
         RefFreq=self.DicoSMStacked["RefFreq"]
-        if FreqIn==None:
+        if FreqIn is None:
             FreqIn=np.array([RefFreq])
 
         #if type(FreqIn)==float:
@@ -285,7 +285,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 ModelMap[ch,pol]=ModelMap[ch,pol][::-1]#.T
                 AlphaMap[ch,pol]=AlphaMap[ch,pol][::-1]#.T
 
-        if BeamImage!=None:
+        if BeamImage is not None:
             ModelMap*=(BeamImage)
 
 
@@ -339,7 +339,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def PutBackSubsComps(self):
-        #if self.GD["VisData"]["RestoreDico"]==None: return
+        #if self.GD["VisData"]["RestoreDico"] is None: return
 
         SolsFile=self.GD["DDESolutions"]["DDSols"]
         if not(".npz" in SolsFile):

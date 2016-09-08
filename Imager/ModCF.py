@@ -258,7 +258,7 @@ class ClassWTermModified():
         #self.SharedMemNameSphe="%sSpheroidal"%(self.IdSharedMem)
         self.SharedMemNameSphe="%sSpheroidal.Facet_%3.3i"%(self.IdSharedMem,self.IDFacet)
 
-        # if self.IDFacet==None:
+        # if self.IDFacet is None:
         #     self.InitSphe()
         #     self.InitW()
         # else:
@@ -398,7 +398,7 @@ class ClassWTermModified():
         WplanesConj=[]
         l0,m0=0.,0.
         
-        if lmShift!=None:
+        if lmShift is not None:
             l0,m0=lmShift
 
         rad=3*lrad

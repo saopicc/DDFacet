@@ -101,7 +101,7 @@ class ClassMultiScaleMachine():
 
 
     def FindPSFExtent(self,Method="FromBox"):
-        if self.SubPSF!=None: return
+        if self.SubPSF is not None: return
         PSF=self._MeanPSF
         _,_,NPSF,_=PSF.shape
         xtest=np.int64(np.linspace(NPSF/2,NPSF,100))
@@ -158,7 +158,7 @@ class ClassMultiScaleMachine():
 
 
     def MakeMultiScaleCube(self, cachedscales=None):
-        if self.CubePSFScales!=None: return
+        if self.CubePSFScales is not None: return
         #print>>log, "Making MultiScale PSFs..."
         LScales=self.GD["MultiScale"]["Scales"]
         ScaleStart=0

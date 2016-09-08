@@ -75,10 +75,10 @@ class ClassArrayMethodGA():
         print>>log,"SetConvMatrix"
         PSF=self.PSF
         NPixPSF=PSF.shape[-1]
-        if self.ListPixData==None:
+        if self.ListPixData is None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
             self.ListPixData=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
-        if self.ListPixParms==None:
+        if self.ListPixParms is None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
             self.ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
 
@@ -133,7 +133,7 @@ class ClassArrayMethodGA():
 
         #self.Gain=.5
         ALPHA=1.
-        if (self.IslandBestIndiv!=None):
+        if (self.IslandBestIndiv is not None):
             S=self.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
             if np.max(np.abs(S))>0:
                 AddArray=self.ToConvArray(self.IslandBestIndiv,OutMode="Data")
@@ -207,7 +207,7 @@ class ClassArrayMethodGA():
 
 
         self.CMParms=MParms
-        if self.IslandBestIndiv!=None:
+        if self.IslandBestIndiv is not None:
             self.DirtyArrayParms+=self.ToConvArray(self.IslandBestIndiv,OutMode="Parms")
         print>>log,"  Mean MParms"
         self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
@@ -428,7 +428,7 @@ class ClassArrayMethodGA():
             ind=indIN[ind]
 
         # else:
-        #     if InReg==None:
+        #     if InReg is None:
         #         reg=random.random()
         #     else:
         #         reg=InReg
@@ -667,7 +667,7 @@ class ClassArrayMethodGA():
     
     
         #pylab.colorbar()
-        if self.DataTrue!=None:
+        if self.DataTrue is not None:
             DataTrue=self.DataTrue
             vmin,vmax=DataTrue.min(),DataTrue.max()
             ax3=pylab.subplot(2,3,4)

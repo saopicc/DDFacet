@@ -49,14 +49,14 @@ def PrintOptParse(Obj,ValObj,RejectGroup=[]):
 
 
             V=getattr(ValObj,oname)
-#            if (V!="")&(V!=None):
+#            if (V!="")&(V is not None):
             if True:#V!="":
                 if V=="": V="''"
 
                 #P.Print(oname,V)
                 default=o.default
                 H=o.help
-                # if H!=None:
+                # if H is not None:
                 #     H=o.help.replace("%default",str(default))
                 #     P.Print2(oname,V,H)
                 # else:

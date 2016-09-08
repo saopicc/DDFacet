@@ -27,7 +27,7 @@ class ClassModelMachine():
     """
     def __init__(self,GD=None,Gain=None,GainMachine=None):
         self.GD=GD
-        if Gain==None:
+        if Gain is None:
             self.Gain=self.GD["ImagerDeconv"]["Gain"]
         else:
             self.Gain=Gain
@@ -42,7 +42,7 @@ class ClassModelMachine():
 
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName
-        if DicoIn==None:
+        if DicoIn is None:
             D=self.DicoSMStacked
         else:
             D=DicoIn
@@ -185,7 +185,7 @@ class ClassModelMachine():
     # def GiveModelImage(self,FreqIn=None):
     #
     #     RefFreq=self.DicoSMStacked["RefFreq"]
-    #     if FreqIn==None:
+    #     if FreqIn is None:
     #         FreqIn=np.array([RefFreq])
     #
     #     #if type(FreqIn)==float:
@@ -285,7 +285,7 @@ class ClassModelMachine():
 #
 #
 #     def PutBackSubsComps(self):
-#         #if self.GD["VisData"]["RestoreDico"]==None: return
+#         #if self.GD["VisData"]["RestoreDico"] is None: return
 #
 #         SolsFile=self.GD["DDESolutions"]["DDSols"]
 #         if not(".npz" in SolsFile):

@@ -70,7 +70,7 @@ class ClassVisServer():
         self.DicoSelectOptions=DicoSelectOptions
         self.SharedNames=[]
         self.PrefixShared=PrefixShared
-        self.VisInSharedMem = (PrefixShared!=None)
+        self.VisInSharedMem = (PrefixShared is not None)
         self.LofarBeam=LofarBeam
         self.ApplyBeam=False
         self.GD=GD
@@ -280,7 +280,7 @@ class ClassVisServer():
         self.CellSizeRad=CellSizeRad
 
     def CalcWeights(self):
-        if self.VisWeights!=None: return
+        if self.VisWeights is not None: return
         # ImShape=self.PaddedFacetShape
         ImShape = self.FullImShape#self.FacetShape
         CellSizeRad = self.CellSizeRad
@@ -496,7 +496,7 @@ class ClassVisServer():
 
 
 
-        if self.AddNoiseJy!=None:
+        if self.AddNoiseJy is not None:
             data+=(self.AddNoiseJy/np.sqrt(2.))*(np.random.randn(*data.shape)+1j*np.random.randn(*data.shape))
 
         if freqs.size>1:
@@ -560,7 +560,7 @@ class ClassVisServer():
                 self.FlagAntNumber.append(A)
         
 
-        if self.DicoSelectOptions["UVRangeKm"]!=None:
+        if self.DicoSelectOptions["UVRangeKm"] is not None:
             d0,d1=self.DicoSelectOptions["UVRangeKm"]
             print>>log, "  Flagging uv data outside uv distance of [%5.1f~%5.1f] km"%(d0,d1)
             d0*=1e3
@@ -571,7 +571,7 @@ class ClassVisServer():
             flags[ind,:,:]=True
 
         
-        if self.DicoSelectOptions["TimeRange"]!=None:
+        if self.DicoSelectOptions["TimeRange"] is not None:
             t0=times[0]
             tt=(times-t0)/3600.
             st0,st1=self.DicoSelectOptions["TimeRange"]
@@ -579,9 +579,9 @@ class ClassVisServer():
             indt=np.where((tt>=st0)&(tt<st1))[0]
             flags[ind,:,:]=True
 
-        if self.DicoSelectOptions["FlagAnts"]!=None:
+        if self.DicoSelectOptions["FlagAnts"] is not None:
             FlagAnts=self.DicoSelectOptions["FlagAnts"]
-            if not((FlagAnts==None)|(FlagAnts=="")|(FlagAnts==[])): 
+            if not((FlagAnts is None)|(FlagAnts=="")|(FlagAnts==[])):
                 if type(FlagAnts)==str: FlagAnts=[FlagAnts] 
                 for Name in FlagAnts:
                     for iAnt in range(MS.na):
@@ -589,7 +589,7 @@ class ClassVisServer():
                             print>>log, "  Flagging antenna #%2.2i[%s]"%(iAnt,MS.StationNames[iAnt])
                             self.FlagAntNumber.append(iAnt)
 
-        if self.DicoSelectOptions["DistMaxToCore"]!=None:
+        if self.DicoSelectOptions["DistMaxToCore"] is not None:
             DMax=self.DicoSelectOptions["DistMaxToCore"]*1e3
             X,Y,Z=MS.StationPos.T
             Xm,Ym,Zm=np.median(MS.StationPos,axis=0).flatten().tolist()

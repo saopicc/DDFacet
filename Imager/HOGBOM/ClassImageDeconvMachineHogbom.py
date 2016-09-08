@@ -84,7 +84,7 @@ class ClassImageDeconvMachine():
                         "Will not CLEAN these."
         # reset overall iteration counter
         self._niter = np.zeros([len(self.PolarizationCleanTasks)],dtype=np.int64)
-        if CleanMaskImage!=None:
+        if CleanMaskImage is not None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
             nch,npol,_,_=MaskArray.shape
@@ -150,9 +150,9 @@ class ClassImageDeconvMachine():
         off=(NPSF-NDirty)/2
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
 
-        if self.ModelImage==None:
+        if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)
-        if self.MaskArray==None:
+        if self.MaskArray is None:
             self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
 
     def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):

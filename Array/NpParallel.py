@@ -9,9 +9,9 @@ def A_add_B_prod_factor(A,B,Aedge=None,Bedge=None,factor=1.,NCPU=6):
     if NDimsB!=2: stop
     ShapeOrig=A.shape
 
-    if Aedge==None:
+    if Aedge is None:
         Aedge=np.array([0,A.shape[-2],0,A.shape[-1]])
-    if Bedge==None:
+    if Bedge is None:
         Bedge=np.array([0,B.shape[-2],0,B.shape[-1]])
 
     Aedge=np.int32(Aedge)

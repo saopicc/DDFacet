@@ -42,7 +42,7 @@ class ClassJones():
             self.ToShared("killMS",DicoSols,TimeMapping,DicoClusterDirs)
             self.HasKillMSSols=True
 
-        ApplyBeam=(GD["Beam"]["BeamModel"]!=None)
+        ApplyBeam=(GD["Beam"]["BeamModel"] is not None)
         if ApplyBeam:
             self.ApplyCal=True
             self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam.npz",
@@ -130,7 +130,7 @@ class ClassJones():
         BeamJones=None
         if StrType=="Beam":
 
-            if self.FacetMachine!=None:
+            if self.FacetMachine is not None:
                 if not(self.HasKillMSSols):
                     print>>log,"  Getting Jones directions from Facets"
                     DicoImager=self.FacetMachine.DicoImager
@@ -181,12 +181,12 @@ class ClassJones():
             TimeMapping=self.GiveTimeMapping(DicoSols)
             self.SolsToDisk(self.JonesNormSolsFile_Beam,DicoSols,DicoClusterDirs_Beam,TimeMapping)
 
-        # if (BeamJones!=None)&(KillMSSols!=None):
+        # if (BeamJones is not None)&(KillMSSols is not None):
         #     print>>log,"  Merging killMS and Beam Jones matrices"
         #     DicoSols=self.MergeJones(KillMSSols,BeamJones)
-        # elif BeamJones!=None:
+        # elif BeamJones is not None:
         #     DicoSols=BeamJones
-        # elif KillMSSols!=None:
+        # elif KillMSSols is not None:
         #     DicoSols=KillMSSols
 
         DicoSols["Jones"]=np.require(DicoSols["Jones"], dtype=np.complex64, requirements="C")
@@ -226,14 +226,14 @@ class ClassJones():
         else:
             SolsFileList=[SolsFile]
 
-        if GD["DDESolutions"]["GlobalNorm"]==None:
+        if GD["DDESolutions"]["GlobalNorm"] is None:
             GD["DDESolutions"]["GlobalNorm"]=""
 
         GlobalNormList=GD["DDESolutions"]["GlobalNorm"]
         if type(GlobalNormList)!=list:
             GlobalNormList=[GD["DDESolutions"]["GlobalNorm"]]*len(GD["DDESolutions"]["DDSols"])
 
-        if GD["DDESolutions"]["JonesNormList"]==None:
+        if GD["DDESolutions"]["JonesNormList"] is None:
             GD["DDESolutions"]["JonesNormList"]="AP"
 
         JonesNormList=GD["DDESolutions"]["JonesNormList"]
@@ -400,7 +400,7 @@ class ClassJones():
 
     def GiveBeam(self):
         GD=self.GD
-        if (GD["Beam"]["BeamModel"]==None)|(GD["Beam"]["BeamModel"]==""):
+        if (GD["Beam"]["BeamModel"] is None)|(GD["Beam"]["BeamModel"]==""):
             print>>log, "  Not applying any beam"
             return
 

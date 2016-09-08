@@ -30,10 +30,10 @@ def FilterIslandsPix(ListIn,Npix):
 class ClassEvolveGA():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,WeightFreqBands=None):
         _,_,NPixPSF,_=PSF.shape
-        if ListPixData==None:
+        if ListPixData is None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
             ListPixData=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
-        if ListPixParms==None:
+        if ListPixParms is None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
             ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
         self.IslandBestIndiv=IslandBestIndiv
@@ -92,6 +92,7 @@ class ClassEvolveGA():
         # toolbox.register("map", pool.map)
         self.pop = toolbox.population(n=NIndiv)
         self.hof = tools.HallOfFame(1, similar=numpy.array_equal)
+        #self.hof = tools.ParetoFront(1, similar=numpy.array_equal)
 
         # stats = tools.Statistics(lambda ind: ind.fitness.values)
         # stats.register("avg", numpy.mean)
@@ -100,7 +101,7 @@ class ClassEvolveGA():
         # stats.register("max", numpy.max)
 
 
-        if self.IslandBestIndiv!=None:
+        if self.IslandBestIndiv is not None:
             if np.max(np.abs(self.IslandBestIndiv))==0:
                 #print "deconv"
                 SModelArray=self.ArrayMethodsMachine.DeconvCLEAN()
@@ -139,6 +140,5 @@ class ClassEvolveGA():
         #                               ArrayMethodsMachine=self.ArrayMethodsMachine)
 
         V = tools.selBest(self.pop, 1)[0]
-        
 
         return V

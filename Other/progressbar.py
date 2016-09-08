@@ -68,7 +68,7 @@ class ProgressBar(object):
         self.disableTag=False
 
     def format(self,strin,Size,side=0,TitleIn=None):
-        if TitleIn==None:
+        if TitleIn is None:
             Title=self.TitleIn
         else:
             Title=TitleIn
@@ -109,12 +109,12 @@ class ProgressBar(object):
         if self.disableTag: return
         import terminal
 
-        if (self.Title!=None)&(self.HasRendered==False):
+        if (self.Title is not None)&(self.HasRendered==False):
             #print
             #print "  %s"%self.Title
             self.HasRendered=True
 
-        if self.t0==None:
+        if self.t0 is None:
             self.t0=timemod.time()
 
         StrTime=""

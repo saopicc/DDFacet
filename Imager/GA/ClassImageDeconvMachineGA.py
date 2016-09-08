@@ -126,10 +126,10 @@ class ClassImageDeconvMachine():
 
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
 
-        if self.ModelImage==None:
+        if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)
         self.ModelMachine.setModelShape(self._Dirty.shape)
-        if self.MaskArray==None:
+        if self.MaskArray is None:
             self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
             self.IslandArray=np.zeros_like(self._MaskArray)
             self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
@@ -213,7 +213,7 @@ class ClassImageDeconvMachine():
                 #print>>log,"  merging island #%i -> #%i"%(jIsland,iIsland)
                 del(DicoIsland[jIsland])
                 SubIslands=self.GiveNearbyIsland(DicoIsland,jIsland)
-                if SubIslands!=None:
+                if SubIslands is not None:
                     Island+=SubIslands
                 return Island
             except:
@@ -228,7 +228,7 @@ class ClassImageDeconvMachine():
 
 
     def CalcCrossIslandFlux(self,ListIslands):
-        if self.PSFCross==None:
+        if self.PSFCross is None:
             self.CalcCrossIslandPSF(ListIslands)
         NIslands=len(ListIslands)
         print>>log,"  grouping cross contaninating islands..."
@@ -277,7 +277,7 @@ class ClassImageDeconvMachine():
             #     del(DicoIsland[jIsland])
 
 
-            if ThisIsland!=None:
+            if ThisIsland is not None:
                 ListIslandMerged.append(ThisIsland)
 
         print>>log,"    have grouped %i --> %i islands"%(NIslands, len(ListIslandMerged))
@@ -622,7 +622,6 @@ class ClassImageDeconvMachine():
             T.timeit("Put")
             
         SharedListIsland="%s.ListIslands"%(self.IdSharedMem)
-        print "NIslands = ", self.NIslands
         ListArrayIslands=[np.array(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)]
         NpShared.PackListArray(SharedListIsland,ListArrayIslands)
         T.timeit("Pack0")
@@ -678,7 +677,7 @@ class ClassImageDeconvMachine():
                     #DicoResult=result_queue.get()
 
 
-            if DicoResult==None:
+            if DicoResult is None:
                 time.sleep(0.05)
                 continue
 
