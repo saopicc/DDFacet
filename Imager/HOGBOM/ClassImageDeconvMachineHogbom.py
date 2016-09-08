@@ -12,10 +12,10 @@ log=MyLogger.getLogger("ClassImageDeconvMachine")
 from DDFacet.Array import NpParallel
 from DDFacet.Other import ClassTimeIt
 from pyrap.images import image
-from ClassPSFServer import ClassPSFServer
-import ClassModelMachine
+from DDFacet.Imager.ClassPSFServer import ClassPSFServer
+from DDFacet.Imager import ClassModelMachine
 from DDFacet.Other.progressbar import ProgressBar
-import ClassGainMachine # Currently required by model machine but fixed to static mode
+from DDFacet.Imager import ClassGainMachine # Currently required by model machine but fixed to static mode
 
 
 class ClassImageDeconvMachine():

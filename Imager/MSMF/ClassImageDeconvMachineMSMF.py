@@ -9,12 +9,12 @@ from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
-import ClassMultiScaleMachine
+from DDFacet.Imager import ClassMultiScaleMachine
 from pyrap.images import image
-from ClassPSFServer import ClassPSFServer
+from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 import ClassModelMachineMSMF
 from DDFacet.Other.progressbar import ProgressBar
-import ClassGainMachine
+from DDFacet.Imager import ClassGainMachine
 import cPickle
 
 class ClassImageDeconvMachine():

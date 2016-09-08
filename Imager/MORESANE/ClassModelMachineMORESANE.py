@@ -3,7 +3,7 @@ import pylab
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassModelMachineGA")
+log=MyLogger.getLogger("ClassModelMachineMoresane")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
@@ -13,7 +13,7 @@ from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
-import ClassModelMachine as ClassModelMachinebase
+from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.ToolsDir import ModFFTW
 import scipy.ndimage
 from SkyModel.Sky import ModRegFile
@@ -33,7 +33,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # self.DicoSMStacked={}
         # self.DicoSMStacked["Comp"]={}
         if self.GD!=None:
-            self.SolveParam = self.GD["GAClean"]["GASolvePars"]
+            self.SolveParam = self.GD["MORESANE"]["MOSolvePars"]
             print>>log,"Solved parameters: %s"%(str(self.SolveParam))
             self.NParam=len(self.SolveParam)
         
@@ -43,7 +43,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.DicoSMStacked["RefFreq"]=RefFreq
         self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
         # print "ModelMachine:",self.RefFreq, self.DicoSMStacked["RefFreq"], self.DicoSMStacked["AllFreqs"]
-        
+
 
 
     def ToFile(self,FileName,DicoIn=None):
@@ -55,7 +55,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         #D["PM"]=self.PM
         D["ModelShape"]=self.ModelShape
-        D["Type"]="GA"
+        D["Type"]="GA"  # WILL CHANGE WHEN REFACTORING MODELMACHINE
         D["SolveParam"]=self.SolveParam
 
         MyPickle.Save(D,FileName)
@@ -76,8 +76,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             self.SolveParam=self.DicoSMStacked["SolveParam"]
         except:
             print>>log, "SolveParam is not in the keyword lists of DicoSMStacked"
-            print>>log, "  setting SolveParam to [S, Alpha]"
-            self.SolveParam=["S","Alpha"]
+            print>>log, "  setting SolveParam to [S]"
+            self.SolveParam=["S"]
             
         self.NParam=len(self.SolveParam)
 

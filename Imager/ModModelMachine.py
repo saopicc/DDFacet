@@ -1,7 +1,7 @@
 import ClassModelMachine
-import ClassModelMachineGA
-import ClassModelMachineMSMF
-import ClassModelMachineMORESANE
+from DDFacet.Imager.GA import ClassModelMachineGA
+from DDFacet.Imager.MSMF import ClassModelMachineMSMF
+from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
 import ClassGainMachine
 from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger

@@ -2,10 +2,10 @@ from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
 import pylab
 from pyrap.images import image
-import ClassImageDeconvMachineHogbom
-import ClassImageDeconvMachineMSMF
-import ClassImageDeconvMachineGA
-import ClassImageDeconvMachineSSD
+from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
+from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
+from DDFacet.Imager.GA import ClassImageDeconvMachineGA
+from DDFacet.Imager.MORESANE import ClassImageDeconvMachineSSD
 from DDFacet.Other import MyPickle
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Array import NpShared

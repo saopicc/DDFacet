@@ -8,15 +8,15 @@ from DDFacet.Array import NpShared
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
-import ClassMultiScaleMachine
+from DDFacet.Imager import ClassMultiScaleMachine
 from pyrap.images import image
-from ClassPSFServer import ClassPSFServer
-import ClassModelMachineGA
+from DDFacet.Imager.ClassPSFServer import ClassPSFServer
+from DDFacet.Imager.GA import ClassModelMachineGA
 from DDFacet.Other.progressbar import ProgressBar
-import ClassGainMachine
+from DDFacet.Imager import ClassGainMachine
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.PSourceExtract import ClassIncreaseIsland
-from GA.ClassEvolveGA import ClassEvolveGA 
+from ClassEvolveGA import ClassEvolveGA
 from DDFacet.Other import MyPickle
 import multiprocessing
 import time

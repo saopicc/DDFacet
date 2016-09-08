@@ -14,7 +14,7 @@ from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
-import ClassModelMachine as ClassModelMachinebase
+from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.ToolsDir import ModFFTW
 import scipy.ndimage
 from SkyModel.Sky import ModRegFile
