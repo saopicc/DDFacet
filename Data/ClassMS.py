@@ -443,9 +443,9 @@ class ClassMS():
 
         if row0>=self.F_nrows:
             return "EndMS"
+
         if row1>(self.F_nrows):
             row1=self.F_nrows
-        
 
         self.ROW0 = row0
         self.ROW1 = row1

@@ -324,8 +324,16 @@ class ClassDDEGridMachine():
         # 0: scalar
         # 1: diag
         # 2: full
-        self.npol = len(ExpectedOutputStokes)
-        self.SkyType = 2
+        if PolMode=="I":
+            self.npol=1
+            self.PolMap=np.array([0,5,5,0],np.int32)
+            self.SkyType=1
+            self.PolModeID=0
+        elif PolMode=="IQUV":
+            self.SkyType=2
+            self.npol=4
+            self.PolMap=np.array([0,1,2,3],np.int32)
+            self.PolModeID=1
 
         self.Npix=Npix
 
@@ -594,9 +602,9 @@ class ClassDDEGridMachine():
         if freqs.size > 1:
             df = freqs[1::] - freqs[0:-1]
             ddf = np.abs(df - np.mean(df))
-            chan_equidistant = int(np.max(ddf) < 1.)
+            ChanEquidistant = int(np.max(ddf) < 1.)
         else:
-            chan_equidistant = 0
+            ChanEquidistant = 0
 
         if ChanMapping is None:
             ChanMapping = np.zeros((visIn.shape[1],),np.int64)
@@ -648,24 +656,10 @@ class ClassDDEGridMachine():
         T2.disable()
 
         if self.GD["Compression"]["CompGridMode"]==0:
-            Grid=_pyGridder.pyGridderWPol(Grid,
-                                              vis,
-                                              uvw,
-                                              flag,
-                                              W,
-                                              SumWeigths,
-                                              0,
-                                              self.WTerm.Wplanes,
-                                              self.WTerm.WplanesConj,
-                                              np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
-                                              self.incr.astype(np.float64),
-                                              freqs,
-                                              [self.PolMap,FacetInfos],
-                                              ParamJonesList) # Input the jones matrices
+            raise RuntimeError("Depricated flag. Please use BDA gridder")
         else:
-            OptimisationInfos=[self.JonesType,chan_equidistant,self.SkyType]
+            OptimisationInfos=[self.JonesType,ChanEquidistant,self.SkyType,self.PolModeID]
             MapSmear=NpShared.GiveArray("%sBDA.Grid"%(self.ChunkDataCache))
-
             _pyGridderSmear.pyGridderWPol(Grid,
                                           vis,
                                           uvw,
@@ -678,15 +672,15 @@ class ClassDDEGridMachine():
                                           np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
                                           self.incr.astype(np.float64),
                                           freqs,
-                                          [FacetInfos],
+                                          [self.PolMap,FacetInfos],
                                           ParamJonesList,
                                           MapSmear,
                                           OptimisationInfos,
                                           self.LSmear,
-                                          np.int32(ChanMapping),
-                                          np.array(self.DataCorrelationFormat, dtype=np.int32),
-                                          np.array(self.ExpectedOutputStokes, dtype=np.int32))
+                                          np.int32(ChanMapping))
 
+
+        T2.timeit("gridder")
         NCH,_,_,_=Grid.shape
         Dirty= self.GridToIm(Grid)
 
@@ -773,9 +767,9 @@ class ClassDDEGridMachine():
         if freqs.size > 1:
             df = freqs[1::] - freqs[0:-1]
             ddf = np.abs(df - np.mean(df))
-            chan_equidistant = int(np.max(ddf) < 1.)
+            ChanEquidistant = int(np.max(ddf) < 1.)
         else:
-            chan_equidistant = 0
+            ChanEquidistant = 0
 
         #np.save("Grid",Grid)
         NVisChan=visIn.shape[1]
@@ -826,27 +820,13 @@ class ClassDDEGridMachine():
         #print vis
         #print "DEGRID:",Grid.shape,ChanMapping
         if self.GD["Compression"]["CompDeGridMode"]==0:
-            _ = _pyGridder.pyDeGridderWPol(Grid,
-                                           vis,
-                                           uvw,
-                                           flag,
-                                           SumWeigths,
-                                           0,
-                                           self.WTerm.WplanesConj,
-                                           self.WTerm.Wplanes,
-                                           np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
-                                           self.incr.astype(np.float64),
-                                           freqs,
-                                           [self.PolMap,FacetInfos,RowInfos,ChanMapping],
-                                           ParamJonesList)
+            raise RuntimeError("Depricated flag. Please use BDA gridder")
         else:
-
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
-            OptimisationInfos=[self.JonesType,chan_equidistant,self.SkyType]
+            OptimisationInfos=[self.JonesType,ChanEquidistant,self.SkyType,self.PolModeID]
             MapSmear=NpShared.GiveArray("%sBDA.DeGrid"%(self.ChunkDataCache))
             _pyGridderSmear.pySetSemaphores(self.ListSemaphores)
-
-            _pyGridderSmear.pyDeGridderWPol(Grid,
+            vis = _pyGridderSmear.pyDeGridderWPol(Grid,
                                                   vis,
                                                   uvw,
                                                   flag,
@@ -857,14 +837,12 @@ class ClassDDEGridMachine():
                                                   np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
                                                   self.incr.astype(np.float64),
                                                   freqs,
-                                                  [FacetInfos],
+                                                  [self.PolMap,FacetInfos,RowInfos],
                                                   ParamJonesList,
                                                   MapSmear,
                                                   OptimisationInfos,
                                                   self.LSmear,
-                                                  np.int32(ChanMapping),
-						  np.array(self.DataCorrelationFormat, dtype=np.int32),
-						  np.array(self.ExpectedOutputStokes, dtype=np.int32))
+                                                  np.int32(ChanMapping))
             
 
         T.timeit("4 (degrid)")
@@ -940,7 +918,7 @@ class ClassDDEGridMachine():
 
         Grid*=(self.WTerm.OverS)**2
         T.timeit("norm")
-        Dirty=self.FFTWMachine.ifft(Grid,ChanList=LDoChans)
+        Dirty=np.real(self.FFTWMachine.ifft(Grid,ChanList=LDoChans))
         nchan,npol,_,_=Grid.shape
         del(Grid)
         #Dirty=GridCorr

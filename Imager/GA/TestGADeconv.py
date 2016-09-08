@@ -157,10 +157,15 @@ def testMF_DATA():
     GD=Dico["GD"]
     FacetID=Dico["FacetID"]
 
+    GD["GAClean"]["GASolvePars"]=["S","Alpha","GSig"]
+
     nch=FreqsInfo["MeanJonesBand"][FacetID].size
     WeightMeanJonesBand=FreqsInfo["MeanJonesBand"][FacetID].reshape((nch,1,1,1))
     WeightMueller=WeightMeanJonesBand.ravel()
     WeightMuellerSignal=WeightMueller*FreqsInfo["WeightChansImages"].ravel()
+
+    IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+    ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=20)
 
     IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
     ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)

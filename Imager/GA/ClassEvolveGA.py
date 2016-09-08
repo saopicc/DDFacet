@@ -55,9 +55,9 @@ class ClassEvolveGA():
 
         toolbox = base.Toolbox()
 
-        #Obj=[toolbox.attr_float_unif]*self.ArrayMethodsMachine.NParms
-        #Obj=[toolbox.attr_float_unif]*self.ArrayMethodsMachine.NParms
-        #Obj=[toolbox.attr_float_normal]*self.ArrayMethodsMachine.NParms
+        # Obj=[toolbox.attr_float_unif]*self.ArrayMethodsMachine.NParms
+        # Obj=[toolbox.attr_float_unif]*self.ArrayMethodsMachine.NParms
+        # Obj=[toolbox.attr_float_normal]*self.ArrayMethodsMachine.NParms
 
         Obj=self.ArrayMethodsMachine.PM.GiveInitList(toolbox)
 
@@ -100,20 +100,32 @@ class ClassEvolveGA():
         # stats.register("max", numpy.max)
 
 
+        for indiv in self.pop:
+            indiv.fill(0)
+
         if self.IslandBestIndiv!=None:
             if np.max(np.abs(self.IslandBestIndiv))==0:
                 #print "deconv"
                 SModelArray=self.ArrayMethodsMachine.DeconvCLEAN()
                 #AlphaModel=np.zeros_like(SModelArray)#-0.6
                 #AlphaModel[SModelArray==np.max(SModelArray)]=0
+
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray)#,AlphaModel=AlphaModel)
+
+                #print self.ArrayMethodsMachine.GiveFitness(self.pop[0],DoPlot=True)
+                #stop
+                #print self.pop
             else:
                 SModelArray=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
                 AlphaModel=None
                 if "Alpha" in self.ArrayMethodsMachine.PM.SolveParam:
                     AlphaModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Alpha")
                 
-                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray,AlphaModel=AlphaModel)
+                GSigModel=None
+                if "GSig" in self.ArrayMethodsMachine.PM.SolveParam:
+                    GSigModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"GSig")
+                
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray,AlphaModel=AlphaModel,GSigModel=GSigModel)
 
 
         self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.1, ngen=NGen, 
@@ -122,7 +134,6 @@ class ClassEvolveGA():
                                            verbose=False, 
                                            ArrayMethodsMachine=self.ArrayMethodsMachine,DoPlot=DoPlot)
 
-        
         # #:param mu: The number of individuals to select for the next generation.
         # #:param lambda\_: The number of children to produce at each generation.
         # #:param cxpb: The probability that an offspring is produced by crossover.
@@ -139,6 +150,22 @@ class ClassEvolveGA():
         #                               ArrayMethodsMachine=self.ArrayMethodsMachine)
 
         V = tools.selBest(self.pop, 1)[0]
+
+        # V.fill(0)
+        # S=self.ArrayMethodsMachine.PM.ArrayToSubArray(V,"S")
+        # G=self.ArrayMethodsMachine.PM.ArrayToSubArray(V,"GSig")
         
+        # S[0]=1.
+        # #S[1]=2.
+        # G[0]=1.
+        # #G[1]=2.
+
+        # MA=self.ArrayMethodsMachine.PM.GiveModelArray(V)
+
+        # # print "Sum best indiv",MA.sum(axis=1)
+        # # print "Size indiv",V.size
+        # # print "indiv",V
+        # # print self.ArrayMethodsMachine.ListPixData
+        # # print MA[0,:]
 
         return V

@@ -297,12 +297,22 @@ class ClassArrayMethodGA():
         # print "Out ",DecreteFitNess
         return DecreteFitNess
     
-    def GiveFitness(self,individual):
+    def GiveFitness(self,individual,DoPlot=False):
 
         # individual.fill(-0.8)
         A=self.ToConvArray(individual)
         fitness=0.
         Resid=self.DirtyArray-A
+
+        if DoPlot:
+            import pylab
+            pylab.plot(A.flatten())
+            pylab.plot(self.DirtyArray.flatten())
+            pylab.plot(Resid.flatten())
+            pylab.draw()
+            pylab.show(False)
+            pylab.pause(0.1)
+            stop
 
         nFreqBands,_,_=Resid.shape
         
@@ -314,7 +324,7 @@ class ClassArrayMethodGA():
         ContinuousFitNess=[]
         for FuncType in self.MaxFunc:
             if FuncType=="Chi2":
-                #chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
+                # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
                 chi2=-np.sum((Resid)**2)/(self.PixVariance*Resid.size)
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(chi2*W)
@@ -508,9 +518,12 @@ class ClassArrayMethodGA():
 
         for iPix in indSel:
             #print iPix,Type
+
+            # randomly change value of parameter
             if Type==0:
                 for TypeParm in self.PM.SolveParam:
                     A=self.PM.ArrayToSubArray(individual,TypeParm)
+                    if TypeParm=="GSig": continue
                     if TypeParm=="S":
                         ds=0.1*np.abs(self.DirtyArrayAbsMean.ravel()[iPix]-np.abs(A[iPix]))
                     else:
@@ -518,16 +531,18 @@ class ClassArrayMethodGA():
                             ds=self.PM.DicoIParm[TypeParm]["Default"]["Sigma"]["Value"]
                         else:
                             ds=A[iPix]
+                    #print "Mutating %f"%A[iPix],TypeParm
                     A[iPix] += random.gauss(0, 1.)*ds
+                    #print "      ---> %f"%A[iPix]
 
-
+            # zero a pixel
             if Type==1:
                 for TypeParm in self.PM.SolveParam:
                     A=self.PM.ArrayToSubArray(individual,TypeParm)
                     A[iPix] = 0.#1e-3
     
+            # move a pixel
             if Type==2:
-
                 Flux=random.random()*Af[iPix]
                 InReg=random.random()*8
                 individual=self.MovePix(individual,iPix,Flux,InReg=InReg)
@@ -541,11 +556,14 @@ class ClassArrayMethodGA():
                 #     for iReg in [1,3,5,7]:
                 #         individual=self.MovePix(individual,iPix,Flux,InReg=iReg)
                     
-    
-                
-            # if individual[i]==0:
-            #     if random.random() < indpb/100.:
-            #         individual[i] += random.gauss(m, s)
+        # if "GSig" in self.PM.SolveParam:
+        #     GSig=self.PM.ArrayToSubArray(individual,"GSig")
+        #     GSig[GSig<0]=0
+        #     GSig.fill(0)
+        #     #print GSig
+        #     # if individual[i]==0:
+        #     #     if random.random() < indpb/100.:
+        #     #         individual[i] += random.gauss(m, s)
     
         T.timeit("for")
     

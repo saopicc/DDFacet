@@ -124,8 +124,10 @@ class ClassModelMachine():
         if JonesNorm!=None:
             Vr[iS,:]/=np.sqrt(JonesNorm).flat[0]
 
+            print "NORM!!!!!!!!!!!!!!!!!!!!!!!!!!!",np.sqrt(JonesNorm)
+
         for (x,y),iComp in zip(ListPix,range(NPixListParms)):
-            if S[iComp]==0: continue
+            #if S[iComp]==0: continue
             Vals=np.array(Vr[:,iComp]).copy()
             self.AppendComponentToDictStacked((x,y),Vals)
 
@@ -168,7 +170,7 @@ class ClassModelMachine():
         SolveParam=np.array(self.SolveParam)
         for x,y in DicoComp.keys():
             ListSols=DicoComp[(x,y)]["Vals"]#/self.DicoSMStacked[key]["SumWeights"]
-
+#            print "pixel %i,%i len(listsol):"%(x,y),len(ListSols)
             for iSol in range(len(ListSols)):
                 ThisSol=ListSols[iSol]
 
@@ -176,18 +178,54 @@ class ClassModelMachine():
 
                 iS=np.where(SolveParam=="S")[0]
                 S=ThisSol[iS]
-                
+                if S==0: continue
+
                 ThisAlpha=0
                 iAlpha=np.where(SolveParam=="Alpha")[0]
                 if iAlpha.size!=0:
                     ThisAlpha=ThisSol[iAlpha]
 
+                iGSig=np.where(SolveParam=="GSig")[0]
+                ThisGSig=0.
+                if iGSig.size!=0:
+                    ThisGSig=ThisSol[iGSig]
+
                 for ch in range(nchan):
                     Flux=S*(FreqIn[ch]/RefFreq)**(ThisAlpha)
-
-                    for pol in range(npol):
-                        ModelImage[ch,pol,x,y]+=Flux
                     
+                    sig=np.abs(ThisGSig)
+#                    print Flux,sig
+                    Sum=0
+                    if sig!=0:#>0.5:
+                        marg=round(5*sig)
+                        if marg%2==0: marg+=1
+                        xx,yy=np.mgrid[-marg:marg:(2*marg+1)*1j,-marg:marg:(2*marg+1)*1j]
+                        d=np.sqrt(xx**2+yy**2)
+                        a=Flux/(2.*np.pi*sig**2)
+                        v=a*np.exp(-d**2/(2.*sig**2))
+                        for pol in range(npol):
+                            indx=x+xx.flatten()
+                            indy=y+yy.flatten()
+                            #ModelImage[ch,pol,np.int32(indx),np.int32(indy)]+=v.ravel()
+
+                            for iPix in range(indx.size):
+                                try:
+                                    _=DicoComp[(indx[iPix],indy[iPix])]["Vals"]
+                                    ModelImage[ch,pol,np.int32(indx[iPix]),np.int32(indy[iPix])]+=v.ravel()[iPix]
+
+                                    Sum+=v.ravel()[iPix]
+#                                    print "Added pix ",np.int32(indx[iPix]),np.int32(indy[iPix]),v.ravel()[iPix]
+                                except:
+                                    pass
+#                        print "ThisSum",Sum
+                                    #print "SUM MM:",np.sum(v)/Flux
+                    else:
+                        for pol in range(npol):
+                            ModelImage[ch,pol,x,y]+=Flux
+
+        
+        print "np.sum(ModelImage)",np.sum(ModelImage[0])
+#        stop
         # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
         # vmin,vmax=-1,1
         # #vmin,vmax=np.min(ModelImage),np.max(ModelImage)

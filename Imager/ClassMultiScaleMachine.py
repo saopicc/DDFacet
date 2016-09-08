@@ -449,7 +449,7 @@ class ClassMultiScaleMachine():
 
 
         BaseName = self.GD["Images"]["ImageName"]
-        pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
+        #pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
 
         return DicoBasisMatrix
         
@@ -597,23 +597,23 @@ class ClassMultiScaleMachine():
 
             coef=np.min([np.abs(np.sum(Sol)/MeanFluxTrue),1.])
 
-            # ############## debug
-            print
-            print "=====",self.iFacet,x,y
-            print Fpol.ravel()
-            print FpolTrue.ravel()
-            print self.DicoDirty["WeightChansImages"].ravel()
-            print "Data shape",dirtyVec.shape
-            # print dirtyVec
-            # #print "BM",BM.shape
-            # #print BM
-            print "Sum, Sol",np.sum(Sol),Sol.ravel()
-            # print "aaa",np.dot(BM,Sol)
-            # stop
-            #print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
-            print "MeanFluxTrue",MeanFluxTrue
-            print "coef",coef
-            # ##########################
+            # # ############## debug
+            # print
+            # print "=====",self.iFacet,x,y
+            # print Fpol.ravel()
+            # print FpolTrue.ravel()
+            # print self.DicoDirty["WeightChansImages"].ravel()
+            # print "Data shape",dirtyVec.shape
+            # # print dirtyVec
+            # # #print "BM",BM.shape
+            # # #print BM
+            # print "Sum, Sol",np.sum(Sol),Sol.ravel()
+            # # print "aaa",np.dot(BM,Sol)
+            # # stop
+            # #print "FpolTrue,WeightChansImages:",FpolTrue.ravel(),self.DicoDirty["WeightChansImages"].ravel()
+            # print "MeanFluxTrue",MeanFluxTrue
+            # print "coef",coef
+            # # ##########################
 
             Sol0 = Sol
             SolReg=np.zeros_like(Sol)

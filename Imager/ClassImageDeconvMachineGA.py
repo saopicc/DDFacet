@@ -304,9 +304,10 @@ class ClassImageDeconvMachine():
             for iIsland in range(len(ListIslands)):#self.NIslands):
                 ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
 
-        print "NIslands = ", len(ListIslands)
+        #print "NIslands = ", len(ListIslands)
+
         ListIslands=self.CalcCrossIslandFlux(ListIslands)
-        print "NIslands = ",len(ListIslands)
+        #print "NIslands = ",len(ListIslands)
 
 
         # FluxIslands=[]
@@ -325,7 +326,7 @@ class ClassImageDeconvMachine():
             x,y=np.array(ListIslands[iIsland]).T
             PixVals=Dirty[0,0,x,y]
             DoThisOne=False
-
+            
             MaxIsland=np.max(np.abs(PixVals))
 
             if (MaxIsland>(3.*self.RMS))|(MaxIsland>Threshold):
@@ -339,6 +340,7 @@ class ClassImageDeconvMachine():
             #     self.ListIslands.append(ListIslands[iIsland])
             # ###############################
 
+        #stop
         self.NIslands=len(self.ListIslands)
         print>>log,"  selected %i islands [out of %i] with peak flux > %.3g Jy"%(self.NIslands,len(ListIslands),Threshold)
 
@@ -361,8 +363,8 @@ class ClassImageDeconvMachine():
         return ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*Max if self.CycleFactor else 0
 
     def Deconvolve(self,*args,**kwargs):
-        #return self.DeconvolveSerial(*args, **kwargs)
-        return self.DeconvolveParallel(*args, **kwargs)
+        return self.DeconvolveSerial(*args, **kwargs)
+        #return self.DeconvolveParallel(*args, **kwargs)
 
     def DeconvolveSerial(self, ch=0):
         """
@@ -471,21 +473,20 @@ class ClassImageDeconvMachine():
 
             IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
 
-            # ################################
-            # DicoSave={"Dirty":self._Dirty,
-            #           "PSF":PSF,
-            #           "FreqsInfo":FreqsInfo,
-            #           #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
-            #           "ListPixData":ThisPixList,
-            #           "ListPixParms":ThisPixList,
-            #           "IslandBestIndiv":IslandBestIndiv,
-            #           "GD":self.GD,
-            #           "FacetID":FacetID}
-            
-            # print "saving"
-            # MyPickle.Save(DicoSave, "SaveTest")
-            # print "saving ok"
-            # ################################
+            ################################
+            DicoSave={"Dirty":self._Dirty,
+                      "PSF":PSF,
+                      "FreqsInfo":FreqsInfo,
+                      #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
+                      "ListPixData":ThisPixList,
+                      "ListPixParms":ThisPixList,
+                      "IslandBestIndiv":IslandBestIndiv,
+                      "GD":self.GD,
+                      "FacetID":FacetID}
+            print "saving"
+            MyPickle.Save(DicoSave, "SaveTest")
+            print "saving ok"
+            ################################
 
             nch=nchan
             self.FreqsInfo=FreqsInfo
@@ -496,7 +497,7 @@ class ClassImageDeconvMachine():
             CEv=ClassEvolveGA(self._Dirty,PSF,FreqsInfo,ListPixParms=ThisPixList,
                               ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,
                               GD=self.GD,WeightFreqBands=WeightMuellerSignal)
-            Model=CEv.main(NGen=100,DoPlot=True)#False)
+            Model=CEv.main(NGen=100,DoPlot=False)
             #Model=CEv.main(NGen=100,DoPlot=False)
             
 

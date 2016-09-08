@@ -35,6 +35,11 @@ class ClassParamMachine():
                                 "Sigma":{
                                     "Type":"Abs",
                                     "Value":0.1}
+                                },
+                       "GSig":{"Mean":0.,
+                                "Sigma":{
+                                    "Type":"Abs",
+                                    "Value":1}
                                 }
                    }
 
@@ -66,9 +71,12 @@ class ClassParamMachine():
             if Type=="Alpha":
                 toolbox.register("attr_float_normal_Alpha", random.gauss, MeanVal, 0)#DicoSigma["Value"])
                 ListPars+=[toolbox.attr_float_normal_Alpha]*self.NPixListParms
+            if Type=="GSig":
+                toolbox.register("attr_float_normal_GSig", random.uniform, 0, 1)#DicoSigma["Value"])
+                ListPars+=[toolbox.attr_float_normal_GSig]*self.NPixListParms
         return ListPars
 
-    def ReinitPop(self,pop,SModelArray,AlphaModel=None):
+    def ReinitPop(self,pop,SModelArray,AlphaModel=None,GSigModel=None):
 
         for Type in self.SolveParam:
             DicoSigma=self.DicoIParm[Type]["Default"]["Sigma"]
@@ -81,16 +89,26 @@ class ClassParamMachine():
 
             for i_indiv,indiv in zip(range(len(pop)),pop):
                 SubArray=self.ArrayToSubArray(indiv,Type=Type)
+
                 if Type=="S":
                     SubArray[:]=SModelArray[:]
                     if i_indiv!=0: 
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+
                 if Type=="Alpha":
                     if AlphaModel==None:
                         AlphaModel=MeanVal*np.ones((SModelArray.size,),np.float32)
                     SubArray[:]=AlphaModel[:]
                     if i_indiv!=0: 
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+
+                # if Type=="GSig":
+                #     if GSigModel==None:
+                #         GSigModel=MeanVal*np.ones((SModelArray.size,),np.float32)
+                #     SubArray[:]=GSigModel[:]
+                #     if i_indiv!=0: 
+                #         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+
 
                     # SubArray[:]=np.zeros_like(AlphaModel)[:]#+np.random.randn(SModelArray.size)*SigVal
                     # print SubArray[:]
@@ -118,7 +136,6 @@ class ClassParamMachine():
     #     else:
     #         ParmsArray=np.zeros((self.AM.NPixListParm,),np.float32)
     #         ParmsArray.fill(self.DicoIParm[Type]["Default"])
-
     #     return ParmsArray
 
     def SetSquareGrid(self,Type):
@@ -220,6 +237,7 @@ class ClassParamMachine():
 
         S=self.ArrayToSubArray(A,"S")
         Alpha=self.ArrayToSubArray(A,"Alpha")
+        
 
         self.MultiFreqMode=True
         for iBand in range(self.NFreqBands):
@@ -228,6 +246,32 @@ class ClassParamMachine():
             else:
                 MA[iBand]=S[:]
             #Alpha=self.ParmToArray(A,"Alpha")
+
+
+
+        if "GSig" in self.SolveParam:
+            GSig=self.ArrayToSubArray(A,"GSig")
+            
+            ArrayPix=np.array(self.ListPixParms)
+            x,y=ArrayPix.T
+            MAOut=np.zeros_like(MA)
+            
+            for iPix in range(self.NPixListParms):
+                sig=GSig[iPix]
+                if sig==0: 
+                    MAOut[iBand,iPix]+=MA[iBand,iPix]
+                    continue#np.abs(sig)<=0.5: continue
+                SMax=S[iPix]
+                d=np.sqrt((x[iPix]-x)**2+(y[iPix]-y)**2)
+                a=SMax/(2.*np.pi*sig**2)
+                v=a*np.exp(-d**2/(2.*sig**2))
+                #v[v<0.05*SMax]=0
+                for iBand in range(self.NFreqBands):
+                    MAOut[iBand]+=np.ones_like(MA[iBand])*v
+            MA=MAOut
+
+            #print MA.sum(axis=1)
+
 
 
         return MA

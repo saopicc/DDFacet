@@ -1,22 +1,16 @@
 cmake_minimum_required(VERSION 2.8)
 set(BUILD_SHARED_LIBS ON) #we always want shared libs out of this for python extensions
 
-option(ENABLE_VECTORIZATION "Enables support for vectorization" OFF)
-option(ENABLE_i7_TUNING "Enables support for optimized code generation (-march=corei7)" ON)
+option(ENABLE_NATIVE_TUNING "Enables support for optimized code generation (-march=native)" ON)
 option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" ON)
 
-if (${ENABLE_i7_TUNING})
+if (${ENABLE_NATIVE_TUNING})
   set(TUNING_FLAGS "-march=native -mtune=native")
-  message(WARNING "Instructing gcc to use corei7 instruction set. This will break .so portability and may raise the ILLEGAL_INSTRUCTION signal on incompatible chipsets")
-else (${ENABLE_i7_TUNING})
+  message(WARNING "Instructing gcc to use your native supported instruction set. This will break .so portability and may raise the ILLEGAL_INSTRUCTION signal on incompatible chipsets")
+else (${ENABLE_NATIVE_TUNING})
+
   set(TUNING_FLAGS "")
-endif (${ENABLE_i7_TUNING})
-if (${ENABLE_VECTORIZATION})
-  set(VECTORIZATION_FLAGS "-msse -msse2 -msse2avx -msse3 -msse4.2 -mssse3")
-  message(WARNING "Enabling vectorization instructions. This may raise the ILLEGAL_INSTRUCTION signal on incompatible chipsets")
-else (${ENABLE_VECTORIZATION})
-  set(VECTORIZATION_FLAGS "")
-endif (${ENABLE_VECTORIZATION})
+endif (${ENABLE_NATIVE_TUNING})
 if (${ENABLE_FAST_MATH})
   message("-ffast-math is enabled")
   set(FAST_MATH_FLAGS "-ffast-math")
@@ -30,7 +24,6 @@ find_package(PythonLibs REQUIRED)
 find_package(NumPy REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(RT REQUIRED)
-find_package(CasaCore REQUIRED ms, measures)
 
 if (NOT ${PYTHON_FOUND})
   message(FATAL_ERROR "Failed to find Python, ensure python-dev is installed")
@@ -44,10 +37,6 @@ endif (NOT ${OPENMP_FOUND})
 if (NOT ${HAVE_RT})
   message(FATAL_ERROR "Failed to find librt and header.")
 endif (NOT ${HAVE_RT})
-if (NOT ${CASACORE_FOUND})
-  message(FATAL_ERROR "Failed to find CasaCore.")
-endif (NOT ${CASACORE_FOUND})
-
 
 #Update include paths with found includes above
 include_directories(${PYTHON_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR}/numpy ${RT_INCLUDES} ${CASACORE_INCLUDE_DIR})
@@ -84,9 +73,9 @@ set_target_properties(_pyGridderSmear PROPERTIES PREFIX "") #remove "lib" prefix
 target_link_libraries(_pyGridderSmear ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
 #compile and link _pyGridderSmearPols.so
-add_library(_pyGridderSmearPols GridderSmearPols.c GridderSmearPols.h Matrix.h JonesServer.h pyArrayCast.h Timer.h cerror.h Semaphores.h)
+add_library(_pyGridderSmearPols GridderSmearPols.c GridderSmearPols.h Semaphores.h)
 set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
-target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY} StokesConvert)
+target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
 #compile and link _pyWeightingCore.so
 add_custom_command(OUTPUT _pyWeightingCore.c
@@ -100,9 +89,3 @@ set_target_properties(_pyWeightingCore PROPERTIES
 		      PREFIX "" #remove "lib" prefix from library (PEP8 compliance)
 		      COMPILE_FLAGS "-fwrapv -fno-strict-aliasing")
 target_link_libraries(_pyWeightingCore)
-
-#compile and link StokesConvert.so
-add_library(StokesConvert Stokes.cpp Stokes.h)
-target_link_libraries(StokesConvert ${CASACORE_LIBRARIES})
-
-add_subdirectory(TestUnits)
