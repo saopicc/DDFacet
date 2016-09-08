@@ -90,7 +90,7 @@ class CacheManager (object):
                 os.system("rm -fr "+dirname)
                 os.mkdir(dirname)
 
-    def checkCache (self, name, hashkeys, directory=False):
+    def checkCache (self, name, hashkeys, directory=False, reset=False):
         """
         Checks if cached object named "name" is valid.
 
@@ -100,6 +100,7 @@ class CacheManager (object):
                 match the stored hash value, the cache is invalid and will be reset.
             directory: if True, cache is a directory and not a file. The directory will be created if it
                 doesn't exist. If the cache is invalid, the contents of the directory will be deleted.
+            reset: if True, cache item is deleted
 
         Returns:
             tuple of (path, valid)
@@ -110,25 +111,28 @@ class CacheManager (object):
         hashpath = cachepath + ".hash"
         # convert hash keys into a single list
         hash = hashkeys
-        reset = False
-        if not os.path.exists(cachepath):
-            print>>log, "cache element %s does not exist, will re-make" % cachepath
-            if directory:
-                os.mkdir(cachepath)
-            reset = True
-        # check for stored hash
-        if not reset:
-            try:
-                storedhash = cPickle.load(file(hashpath))
-            except:
-                print>>log, "cache hash %s invalid, will re-make" % hashpath
+        # delete cache if explicitly asked to
+        if reset:
+            print>>log, "cache element %s will be explicitly reset" % cachepath
+        else:
+            if not os.path.exists(cachepath):
+                print>>log, "cache element %s does not exist, will re-make" % cachepath
+                if directory:
+                    os.mkdir(cachepath)
                 reset = True
-        # check for hash match
-        if not reset and hash != storedhash:
-            print>>log, "cache hash %s does not match, will re-make" % hashpath
-            reset = True
-        # if resetting cache, then mark new hash value for saving (will be saved in flushCache),
-        # and remove any existing cache/hash
+            # check for stored hash
+            if not reset:
+                try:
+                    storedhash = cPickle.load(file(hashpath))
+                except:
+                    print>>log, "cache hash %s invalid, will re-make" % hashpath
+                    reset = True
+            # check for hash match
+            if not reset and hash != storedhash:
+                print>>log, "cache hash %s does not match, will re-make" % hashpath
+                reset = True
+            # if resetting cache, then mark new hash value for saving (will be saved in flushCache),
+            # and remove any existing cache/hash
         if reset:
             if os.path.exists(hashpath):
                 os.unlink(hashpath)

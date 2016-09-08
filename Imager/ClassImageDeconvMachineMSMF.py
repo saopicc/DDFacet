@@ -15,7 +15,7 @@ from ClassPSFServer import ClassPSFServer
 import ClassModelMachineMSMF
 from DDFacet.Other.progressbar import ProgressBar
 import ClassGainMachine
-
+import cPickle
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
@@ -23,6 +23,7 @@ class ClassImageDeconvMachine():
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
                  GD=None,SearchMaxAbs=1,CleanMaskImage=None,ModelMachine=None,
                  NFreqBands=1,
+                 MainCache=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
@@ -46,9 +47,10 @@ class ClassImageDeconvMachine():
         else:
             self.ModelMachine = ModelMachine
         # reset overall iteration counter
+        self.maincache = MainCache
         self._niter = 0
         
-        if CleanMaskImage!=None:
+        if CleanMaskImage is not None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
             nch,npol,_,_=MaskArray.shape
@@ -80,7 +82,20 @@ class ClassImageDeconvMachine():
     def InitMSMF(self):
 
         self.DicoMSMachine={}
-        print>>log,"Initialise MSMF Machine ..."
+        cachepath, valid = self.maincache.checkCache("MSMFMachine",dict(
+            [(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
+                                                        "MultiFreqs", "ImagerGlobal", "Compression",
+                                                        "ImagerCF", "ImagerMainFacet", "MultiScale" ],
+            reset=self.GD["Caching"]["ResetPSF"]
+        ))
+        if valid:
+            print>>log,"Initialising MSMF Machine from cache %s"%cachepath
+            facetcache = cPickle.load(file(cachepath))
+        else:
+            print>>log,"Initialising MSMF Machine"
+            facetcache = {}
+
+#        t = ClassTimeIt.ClassTimeIt()
         for iFacet in range(self.PSFServer.NFacets):
             self.PSFServer.setFacet(iFacet)
             MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.GainMachine,NFreqBands=self.NFreqBands)
@@ -90,9 +105,14 @@ class ClassImageDeconvMachine():
 
             MSMachine.SetPSF(self.PSFServer)#ThisPSF,ThisMeanPSF)
             MSMachine.FindPSFExtent(Method="FromSideLobe")
-            MSMachine.MakeMultiScaleCube()
-            MSMachine.MakeBasisMatrix()
+            cachedscales, cachedmatrix = facetcache.get(iFacet,(None, None))
+            cachedscales = MSMachine.MakeMultiScaleCube(cachedscales)
+            cachedmatrix = MSMachine.MakeBasisMatrix(cachedmatrix)
+            facetcache[iFacet] = cachedscales, cachedmatrix
             self.DicoMSMachine[iFacet]=MSMachine
+        if not valid:
+            cPickle.dump(facetcache, file(cachepath, 'w'), 2)
+            self.maincache.saveCache("MSMFMachine")
 
         
 

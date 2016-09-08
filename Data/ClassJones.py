@@ -488,9 +488,6 @@ class ClassJones():
 
         # DicoBeam["Jones"]=np.mean(DicoBeam["Jones"],axis=3).reshape((nt,nd,na,1,2,2))
 
-
-
-        del(self.MS.SR)
         # print TimesBeam-TimesBeam[0]
         # print t0-t1
         # print DicoBeam["t1"][-1]-DicoBeam["t0"][0]
