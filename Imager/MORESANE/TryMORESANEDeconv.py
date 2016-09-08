@@ -1,8 +1,7 @@
 
 from DDFacet.ToolsDir import ModFFTW
 import numpy as np
-import ipdb
-from ClassSasir import ClassSasir
+from ClassMoresane import ClassMoresane
 from DDFacet.Other import MyPickle
 from SkyModel.PSourceExtract import ClassIncreaseIsland
 

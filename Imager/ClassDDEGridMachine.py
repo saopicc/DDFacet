@@ -342,6 +342,7 @@ class ClassDDEGridMachine():
         
 
         self.GridShape=(self.NFreqBands,self.npol,self.Npix,self.Npix)
+
         x0=(self.Npix-self.NonPaddedNpix)/2#+1
         self.PaddingInnerCoord=(x0,x0+self.NonPaddedNpix)
 
@@ -395,7 +396,7 @@ class ClassDDEGridMachine():
         self.ExpectedOutputStokes = ExpectedOutputStokes
 
     def CalcCF(self):
-        self.FFTWMachine=ModFFTW.FFTW_2Donly_np(self.GridShape,self.dtype, ncores = 1)
+        self.FFTWMachine=ModFFTW.FFTW_2Donly(self.GridShape,self.dtype, ncores = 1)
         self.WTerm=ModCF.ClassWTermModified(Cell=self.Cell,
                                             Sup=self.Sup,
                                             Npix=self.Npix,
@@ -571,7 +572,9 @@ class ClassDDEGridMachine():
         return ParamJonesList
 
 
-    def put(self,times,uvw,visIn,flag,A0A1,W=None,PointingID=0,DoNormWeights=True,DicoJonesMatrices=None,freqs=None,DoPSF=0,ChanMapping=None):
+    def put(self,times,uvw,visIn,flag,A0A1,W=None,
+            PointingID=0,DoNormWeights=True,DicoJonesMatrices=None,
+            freqs=None,DoPSF=0,ChanMapping=None,ResidueGrid=None):
         """
         Gridding routine, wraps external python extension C gridder
         Args:
@@ -587,7 +590,7 @@ class ClassDDEGridMachine():
             freqs:
             DoPSF:
             ChanMapping:
-
+            ResidueGrid:
         Returns:
 
         """
@@ -610,7 +613,10 @@ class ClassDDEGridMachine():
             ChanMapping = np.zeros((visIn.shape[1],),np.int64)
         self.ChanMappingGrid=ChanMapping
 
-        Grid=np.zeros(self.GridShape,dtype=self.dtype)
+        Grid=ResidueGrid
+
+        if Grid.dtype != self.dtype:
+            raise TypeError("Grid must be of type "+str(self.dtype))
         A0,A1=A0A1
 
         npol=self.npol
@@ -678,20 +684,6 @@ class ClassDDEGridMachine():
                                           OptimisationInfos,
                                           self.LSmear,
                                           np.int32(ChanMapping))
-
-
-        NCH,_,_,_=Grid.shape
-        Dirty= self.GridToIm(Grid)
-
-        del(Grid)
-
-        if self.SpheNorm:
-            Dirty = self.cutImPadded(Dirty)
-
-        import gc
-        gc.enable()
-        gc.collect()
-        return Dirty
 
     def CheckTypes(self,Grid=None,vis=None,uvw=None,flag=None,ListWTerm=None,W=None,A0=None,A1=None,Jones=None):
         if type(Grid)!=type(None):
@@ -761,7 +753,7 @@ class ClassDDEGridMachine():
 
         if TranformModelInput=="FT":
             if np.max(np.abs(ModelImage))==0: return vis
-            Grid=self.FT(ModelImage)
+            Grid= np.complex64(self.FFTWMachine.fft(np.complex128(ModelImage)))
 
         if freqs.size > 1:
             df = freqs[1::] - freqs[0:-1]
@@ -881,59 +873,12 @@ class ClassDDEGridMachine():
         ModelUVCorr=self.FT(ModelImCorr)
 
         return ModelUVCorr
-    
-    def FT(self,Image):
-        LDoChans=sorted(list(set(self.ChanMappingDegrid.tolist())))
-        return np.complex64(self.FFTWMachine.fft(np.complex128(Image),ChanList=LDoChans))
-
-        
-    def cutImPadded(self,Dirty):
-        x0,x1=self.PaddingInnerCoord
-        Dirty=Dirty[:,:,x0:x1,x0:x1]
-        # if self.CasaImage!=None:
-        #     self.CasaImage.im.putdata(Dirty[0,0].real)
-        return Dirty
-        
-
-    def getDirtyIm(self):
-        Dirty= self.GridToIm()
-        x0,x1=self.PaddingInnerCoord
-        Dirty=Dirty[:,:,x0:x1,x0:x1]
-        # if self.CasaImage!=None:
-        #     self.CasaImage.im.putdata(Dirty[0,0].real)
-        return Dirty
 
     def GridToIm(self,Grid):
-        #log=MyLogger.getLogger("ClassImager.GridToIm")
-
-        npol=self.npol
-        T=ClassTimeIt.ClassTimeIt("GridToIm")
-        T.disable()
-
-        LDoChans=sorted(list(set(self.ChanMappingGrid.tolist())))
-
-        if self.DoNormWeights:
-            Grid/=self.SumWeigths.reshape((self.NChan,npol,1,1))
-
         Grid*=(self.WTerm.OverS)**2
-        T.timeit("norm")
-        Dirty=np.real(self.FFTWMachine.ifft(Grid,ChanList=LDoChans))
-        nchan,npol,_,_=Grid.shape
-        del(Grid)
-        #Dirty=GridCorr
-        T.timeit("fft")
+        Dirty=self.FFTWMachine.ifft(Grid)
 
-
-        for ichan in LDoChans:#range(nchan):
-            for ipol in range(npol):
-                #Dirty[ichan,ipol][:,:]=Dirty[ichan,ipol][:,:]#.real
-                if self.SpheNorm:
-                    print "sphenoorm"
-                    Dirty[ichan,ipol][:,:]/=self.ifzfCF
-
-        T.timeit("sphenorm")
-
-        return Dirty.real
+        return Dirty
 
         
 
