@@ -117,31 +117,13 @@ class ClassVisServer():
                 Field=self.Field,DDID=self.DDID,
                 TaQL=self.TaQL,
                 ChanSlice=chanslice,GD=self.GD,
-                ResetCache = self.GD["Stores"]["DeleteDDFProducts"])
+                ResetCache = self.GD["Caching"]["ResetCache"])
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
             global_freqs.update(MS.ChanFreq)
             min_freq = min(min_freq,(MS.ChanFreq-MS.ChanWidth/2).min())
             max_freq = max(max_freq,(MS.ChanFreq+MS.ChanWidth/2).max())
             
-            # if self.GD["Stores"]["DeleteDDFProducts"]:
-            #     ThisMSName=reformat.reformat(os.path.abspath(MS.MSName),LastSlash=False)
-            #
-            #     MapName="%s/Flagging.npy"%ThisMSName
-            #     os.system("rm %s"%MapName)
-            #
-            #     MapName="%s/Mapping.CompGrid.npy"%ThisMSName
-            #     os.system("rm %s"%MapName)
-            #
-            #     MapName="%s/Mapping.CompDeGrid.npy"%ThisMSName
-            #     os.system("rm %s"%MapName)
-            #
-            #     JonesName="%s/JonesNorm_Beam.npz"%ThisMSName
-            #     os.system("rm %s"%JonesName)
-            #
-            #     JonesName="%s/JonesNorm_killMS.npz"%ThisMSName
-            #     os.system("rm %s"%JonesName)
-
         # main cache is initialized from main cache of first MS
         self.maincache = self.cache = self.ListMS[0].maincache
 
