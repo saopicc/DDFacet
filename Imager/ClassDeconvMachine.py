@@ -192,7 +192,7 @@ class ClassImagerDeconv():
                     if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                         raise NotImplementedError("Multi-polarization is not supported in SSD")
                     self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
-                    print>>log,"Using SSD algorithm"
+                    print>>log,"Using SSD with %s Minor Cycle algorithm"%self.GD["SSD"]["IslandDeconvMode"]
                 else:
                     raise NotImplementedError("Currently MSMF, GA are the only multi-scale algorithm")
             else:
