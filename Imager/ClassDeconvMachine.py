@@ -153,9 +153,9 @@ class ClassImagerDeconv():
 
         self.VS=ClassVisServer.ClassVisServer(MSName,
                                               ColName=DC["VisData"]["ColName"],
-                                              TVisSizeMin=DC["VisData"]["TChunkSize"]*60,
+                                              TVisSizeMin=DC["VisData"]["ChunkHours"]*60,
                                               #DicoSelectOptions=DicoSelectOptions,
-                                              TChunkSize=DC["VisData"]["TChunkSize"],
+                                              TChunkSize=DC["VisData"]["ChunkHours"],
                                               IdSharedMem=self.IdSharedMem,
                                               Robust=DC["ImagerGlobal"]["Robust"],
                                               Weighting=DC["ImagerGlobal"]["Weighting"],

@@ -80,7 +80,7 @@ def read_options():
     OP.add_option('MSName',help='Input MS')
     OP.add_option('MSListFile',help='Input MSs')
     OP.add_option('ColName')
-    OP.add_option('TChunkSize')
+    OP.add_option('ChunkHours')
     OP.add_option('InitDicoModel',help='Image name [%default]')
     OP.add_option('WeightCol')
     OP.add_option('PredictColName')
