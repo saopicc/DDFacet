@@ -8,7 +8,7 @@ From an Ubuntu 14.04 base:
 sudo add-apt-repository ppa:radio-astro/main
 sudo apt-get install git casacore2 python-pip libfftw3-dev \
     cmake python-meqtrees-cattery makems
-sudo pip install cython deap pyephem numexpr SharedArray Polygon2 \
+sudo pip install cython deap pymoresane pyephem numexpr SharedArray Polygon2 \
     pyFFTW python-casacore scipy pyfits pylab
 ```
 

@@ -20,7 +20,6 @@ from SkyModel.Sky import ModRegFile
 from pyrap.images import image
 from SkyModel.Sky import ClassSM
 import os
-import ipdb
 
 class ClassModelMachine():
     def __init__(self,GD=None,Gain=None,GainMachine=None):
