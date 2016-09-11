@@ -107,11 +107,12 @@ class ClassImageDeconvMachine():
             facetcache[iFacet] = cachedscales, cachedmatrix
             self.DicoMSMachine[iFacet]=MSMachine
         if not valid:
-            cPickle.dump(facetcache, file(cachepath, 'w'), 2)
-            self.maincache.saveCache("MSMFMachine")
-
-        
-
+            try:
+                cPickle.dump(facetcache, file(cachepath, 'w'), 2)
+                self.maincache.saveCache("MSMFMachine")
+            except:
+                print>>log, traceback.format_exc()
+                print>>log, ModColor.Str("WARNING: MSMF cache could not be written, see error report above. Proceeding anyway.")
 
     def SetDirty(self,DicoDirty):
         # if len(PSF.shape)==4:

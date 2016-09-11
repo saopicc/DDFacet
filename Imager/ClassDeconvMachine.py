@@ -18,6 +18,8 @@ import time
 import glob
 from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
+import traceback
+
 log=MyLogger.getLogger("ClassImagerDeconv")
 import pyfits
 
@@ -335,8 +337,12 @@ class ClassImagerDeconv():
             self.DicoVariablePSF = FacetMachinePSF.DicoPSF
             #FacetMachinePSF.ToCasaImage(self.DicoImagePSF["ImagData"],ImageName="%s.psf"%self.BaseName,Fits=True)
             if self.GD["Caching"]["CachePSF"]:
-                cPickle.dump(self.DicoVariablePSF, file(cachepath,'w'), 2)
-                self.VS.maincache.saveCache("PSF")
+                try:
+                    cPickle.dump(self.DicoVariablePSF, file(cachepath,'w'), 2)
+                    self.VS.maincache.saveCache("PSF")
+                except:
+                    print>>log,traceback.format_exc()
+                    print>>log,ModColor.Str("WARNING: PSF cache could not be written, see error report above. Proceeding anyway.")
             FacetMachinePSF.DoPSF = False
 
         # self.PSF = self.DicoImagePSF["MeanImage"]#/np.sqrt(self.DicoImagePSF["NormData"])
@@ -582,9 +588,12 @@ class ClassImagerDeconv():
 
             # dump dirty to cache
             if self.GD["Caching"]["CacheDirty"]:
-                cPickle.dump(self.DicoDirty, file(cachepath, 'w'), 2)
-                self.VS.maincache.saveCache("Dirty")
-
+                try:
+                    cPickle.dump(self.DicoDirty, file(cachepath, 'w'), 2)
+                    self.VS.maincache.saveCache("Dirty")
+                except:
+                    print>> log, traceback.format_exc()
+                    print>> log, ModColor.Str("WARNING: Dirty image cache could not be written, see error report above. Proceeding anyway.")
 
         return self.DicoDirty["MeanImage"]
         
