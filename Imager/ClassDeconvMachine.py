@@ -334,8 +334,9 @@ class ClassImagerDeconv():
             psfmean, psfcube = psfdict["MeanImage"], psfdict["ImagData"]   # this is only for the casa image saving
             self.DicoVariablePSF = FacetMachinePSF.DicoPSF
             #FacetMachinePSF.ToCasaImage(self.DicoImagePSF["ImagData"],ImageName="%s.psf"%self.BaseName,Fits=True)
-            cPickle.dump(self.DicoVariablePSF, file(cachepath,'w'), 2)
-            self.VS.maincache.saveCache("PSF")
+            if self.GD["Caching"]["CachePSF"]:
+                cPickle.dump(self.DicoVariablePSF, file(cachepath,'w'), 2)
+                self.VS.maincache.saveCache("PSF")
             FacetMachinePSF.DoPSF = False
 
         # self.PSF = self.DicoImagePSF["MeanImage"]#/np.sqrt(self.DicoImagePSF["NormData"])
