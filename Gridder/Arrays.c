@@ -87,7 +87,7 @@ static PyObject *pyWhereMaxMask(PyObject *self, PyObject *args)
   yMaxBlock=malloc((nblocks-1)*sizeof(int));
 
   {
-#pragma omp parallel for
+#pragma omp parallel for private(iblock)
     for (iblock = 0; iblock < nblocks-1; iblock++){
       int i0=pBlocks[iblock];
       int i1=pBlocks[iblock+1];
@@ -170,7 +170,9 @@ static PyObject *pyWhereMaxMask(PyObject *self, PyObject *args)
   ans[0]=(float)xMax;
   ans[1]=(float)yMax;
   ans[2]=(float)Max;
-
+  free(MaxBlock);
+  free(xMaxBlock);
+  free(yMaxBlock);
   return PyArray_Return(Ans);
 
 }
@@ -212,7 +214,7 @@ static PyObject *pyWhereMax(PyObject *self, PyObject *args)
   yMaxBlock=malloc((nblocks-1)*sizeof(int));
 
   {
-#pragma omp parallel for
+#pragma omp parallel for private(iblock)
     for (iblock = 0; iblock < nblocks-1; iblock++){
       int i0=pBlocks[iblock];
       int i1=pBlocks[iblock+1];
@@ -276,7 +278,9 @@ static PyObject *pyWhereMax(PyObject *self, PyObject *args)
   ans[0]=(float)xMax;
   ans[1]=(float)yMax;
   ans[2]=(float)Max;
-
+  free(MaxBlock);
+  free(xMaxBlock);
+  free(yMaxBlock);
   return PyArray_Return(Ans);
 
 }
@@ -334,7 +338,7 @@ static PyObject *pyAddArray(PyObject *self, PyObject *args)
 /* } */
 
   {
-#pragma omp parallel for
+#pragma omp parallel for private(iblock)
     for (iblock = 0; iblock < nblocks-1; iblock++){
       int i0=pBlocks[iblock];
       int i1=pBlocks[iblock+1];
@@ -441,7 +445,7 @@ static PyObject *pyProdArray(PyObject *self, PyObject *args)
 /* } */
 
   {
-#pragma omp parallel for
+#pragma omp parallel for private(iblock)
     for (iblock = 0; iblock < nblocks-1; iblock++){
       int i0=pBlocks[iblock];
       int i1=pBlocks[iblock+1];
@@ -543,7 +547,7 @@ static PyObject *pyDivArray(PyObject *self, PyObject *args)
 /* } */
 
   {
-#pragma omp parallel for
+#pragma omp parallel for private(iblock)
     for (iblock = 0; iblock < nblocks-1; iblock++){
       int i0=pBlocks[iblock];
       int i1=pBlocks[iblock+1];
