@@ -300,8 +300,6 @@ class ClassImageDeconvMachine():
         MaxDirty = abs(self._MeanDirty[x,y])
         print>>log,"argmax: %d %d %g%"(x,y,MaxDirty)
 
-            ,MaxDirty=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self._MaskArray)
-
         Fluxlimit_Peak = MaxDirty*self.PeakFactor
         Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
 
