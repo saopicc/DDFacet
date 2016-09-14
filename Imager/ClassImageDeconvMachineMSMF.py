@@ -1,5 +1,6 @@
 
 import numpy as np
+import numpy.ma as ma
 import pylab
 import math
 from DDFacet.Other import MyLogger
@@ -295,10 +296,10 @@ class ClassImageDeconvMachine():
         #MaxDirty=np.max(np.abs(self.Dirty))
         #Fluxlimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
         #Fluxlimit_Sidelobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
-        print>>log,"npp: %d %d %g%"(x,y,MaxDirty)
-        x, y = numpy.ma.argmax(numpy.ma.masked_array(abs(self._MeanDirty), self._MaskArray))
+        print>>log,"npp: %d %d %g"%(x,y,MaxDirty)
+        x, y = ma.argmax(ma.masked_array(abs(self._MeanDirty), self._MaskArray))
         MaxDirty = abs(self._MeanDirty[x,y])
-        print>>log,"argmax: %d %d %g%"(x,y,MaxDirty)
+        print>>log,"argmax: %d %d %g"%(x,y,MaxDirty)
 
         Fluxlimit_Peak = MaxDirty*self.PeakFactor
         Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
@@ -327,10 +328,10 @@ class ClassImageDeconvMachine():
 
         x,y,ThisFlux=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self._MaskArray)
         #print x,y
-        print>>log, "npp: %d %d %g%"(x,y,ThisFlux)
-        x, y = numpy.ma.argmax(numpy.ma.masked_array(abs(self._MeanDirty), self._MaskArray))
+        print>>log, "npp: %d %d %g"%(x,y,ThisFlux)
+        x, y = ma.argmax(ma.masked_array(abs(self._MeanDirty), self._MaskArray))
         ThisFlux = abs(self._MeanDirty[x,y])
-        print>> log, "argmax: %d %d %g%"(x, y, ThisFlux)
+        print>> log, "argmax: %d %d %g"%(x, y, ThisFlux)
 
         if ThisFlux < StopFlux:
             print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" )
