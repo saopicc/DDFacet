@@ -49,13 +49,13 @@ class ClassImageDeconvMachine():
         self._niter = 0
         
         if CleanMaskImage!=None:
-            print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
-            nch,npol,_,_=MaskArray.shape
-            self._MaskArray=np.zeros(MaskArray.shape,np.bool8)
-            for ch in range(nch):
-                for pol in range(npol):
-                    self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
+            nch,npol,nx,ny=MaskArray.shape
+            print>>log, "Using mask image %s of shape %dx%d"%(CleanMaskImage,nx,ny)
+            # mask array has only one channel, one pol, so take the first plane from the image
+            # (and transpose the axes to X,Y from the FITS Y,X)
+            self._MaskArray = np.zeros((1,1,ny,nx),np.bool8)
+            self._MaskArray[0,0,:,:] = np.bool8(1-MaskArray[0,0].T[::-1])
 
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
@@ -142,9 +142,26 @@ class ClassImageDeconvMachine():
         if self._ModelImage is None:
             self._ModelImage=np.zeros_like(self._CubeDirty)
         if self._MaskArray is None:
-            self._MaskArray=np.zeros(self._CubeDirty.shape,dtype=np.bool8)
-
-
+            self._MaskArray=np.zeros(self._MeanDirty.shape,dtype=np.bool8)
+        else:
+            maskshape = (1,1,NDirty,NDirty)
+            # check for mask shape
+            if maskshape != self._MaskArray.shape:
+                ma0 = self._MaskArray
+                _,_,nx,ny = ma0.shape
+                def match_shapes (n1,n2):
+                    if n1<n2:
+                        return slice(None), slice((n2-n1)/2,(n2-n1)/2+n1)
+                    elif n1>n2:
+                        return slice((n1-n2)/2,(n1-n2)/2+n2), slice(None)
+                    else:
+                        return slice(None), slice(None)
+                sx1, sx2 = match_shapes(NDirty, nx) 
+                sy1, sy2 = match_shapes(NDirty, ny) 
+                self._MaskArray = np.zeros(maskshape, dtype=np.bool8)
+                self._MaskArray[0,0,sx1,sy1] = ma0[0,0,sx2,sy2]
+                print>>log,ModColor.Str("WARNING: reshaping mask image from %dx%d to %dx%d"%(nx, ny, NDirty, NDirty))
+                print>>log,ModColor.Str("Are you sure you supplied the correct cleaning mask?")
 
 
     def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):
@@ -293,13 +310,11 @@ class ClassImageDeconvMachine():
         Fluxlimit_RMS = self.RMSFactor*RMS
 
         x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self._MaskArray)
-        #MaxDirty=np.max(np.abs(self.Dirty))
-        #Fluxlimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
-        #Fluxlimit_Sidelobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
-        print>>log,"npp: %d %d %g"%(x,y,MaxDirty)
-        x, y = ma.argmax(ma.masked_array(abs(self._MeanDirty), self._MaskArray))
-        MaxDirty = abs(self._MeanDirty[x,y])
-        print>>log,"argmax: %d %d %g"%(x,y,MaxDirty)
+        # print>>log,"npp: %d %d %g"%(x,y,MaxDirty)
+        # xy = ma.argmax(ma.masked_array(abs(self._MeanDirty), self._MaskArray))
+        # x1, y1 = xy/npix, xy%npix
+        # MaxDirty1 = abs(self._MeanDirty[0,0,x1,y1])
+        # print>>log,"argmax: %d %d %g"%(x1,y1,MaxDirty1)
 
         Fluxlimit_Peak = MaxDirty*self.PeakFactor
         Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
@@ -309,12 +324,12 @@ class ClassImageDeconvMachine():
         # work out uper threshold
         StopFlux = max(Fluxlimit_Peak, Fluxlimit_RMS, Fluxlimit_Sidelobe, Fluxlimit_Peak, self.FluxThreshold)
 
-        print>>log, "    Dirty image peak flux      = %10.6f Jy [(min, max) = (%.3g, %.3g) Jy]"%(MaxDirty,mm0,mm1)
-        print>>log, "      RMS-based threshold      = %10.6f Jy [rms = %.3g Jy; RMS factor %.1f]"%(Fluxlimit_RMS, RMS, self.RMSFactor)
-        print>>log, "      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor)
-        print>>log, "      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor)
-        print>>log, "      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold)
-        print>>log, "    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty)
+        print>>log, "    Dirty image peak flux      = %10.6g Jy [(min, max) = (%.3g, %.3g) Jy]"%(MaxDirty,mm0,mm1)
+        print>>log, "      RMS-based threshold      = %10.6g Jy [rms = %.3g Jy; RMS factor %.1f]"%(Fluxlimit_RMS, RMS, self.RMSFactor)
+        print>>log, "      Sidelobe-based threshold = %10.6g Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor)
+        print>>log, "      Peak-based threshold     = %10.6g Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor)
+        print>>log, "      Absolute threshold       = %10.6g Jy"%(self.FluxThreshold)
+        print>>log, "    Stopping flux              = %10.6g Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty)
 
         # MaxModelInit=np.max(np.abs(self.ModelImage))
         # Fact=4
@@ -327,14 +342,15 @@ class ClassImageDeconvMachine():
         T.disable()
 
         x,y,ThisFlux=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self._MaskArray)
-        #print x,y
-        print>>log, "npp: %d %d %g"%(x,y,ThisFlux)
-        x, y = ma.argmax(ma.masked_array(abs(self._MeanDirty), self._MaskArray))
-        ThisFlux = abs(self._MeanDirty[x,y])
-        print>> log, "argmax: %d %d %g"%(x, y, ThisFlux)
+        # #print x,y
+        # print>>log, "npp: %d %d %g"%(x,y,ThisFlux)
+        # xy = ma.argmax(ma.masked_array(abs(self._MeanDirty), self._MaskArray))
+        # x, y = xy/npix, xy%npix
+        # ThisFlux = abs(self._MeanDirty[0,0,x,y])
+        # print>> log, "argmax: %d %d %g"%(x, y, ThisFlux)
 
         if ThisFlux < StopFlux:
-            print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" )
+            print>>log, ModColor.Str("    Initial maximum peak %10.6g Jy below threshold, we're done here" % (ThisFlux),col="green" )
             return "FluxThreshold", False, False
 
         #self._MaskArray.fill(1)
