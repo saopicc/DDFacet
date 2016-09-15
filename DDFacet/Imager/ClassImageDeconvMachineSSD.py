@@ -1,11 +1,15 @@
 import numpy as np
 from DDFacet.Other import ModColor
+import pylab
 from DDFacet.Other import MyLogger
-
-log= MyLogger.getLogger("ClassImageDeconvMachine")
+from DDFacet.Other import ModColor
+log=MyLogger.getLogger("ClassImageDeconvMachine")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import NpShared
+from DDFacet.ToolsDir import ModFFTW
+from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
+import ClassMultiScaleMachine
 from pyrap.images import image
 from ClassPSFServer import ClassPSFServer
 try:
@@ -49,6 +53,8 @@ except:
 ####### End of Deconvolution Algos imports #######
 ##################################################
 
+from DDFacet.Other import MyPickle
+
 import multiprocessing
 import time
 
@@ -88,8 +94,20 @@ class ClassImageDeconvMachine():
         self.IslandDeconvMode=self.GD["SSD"]["IslandDeconvMode"]  # "GA" or "Moresane" or "Sasir"
 
         if self.IslandDeconvMode=="GA":
+            try:
+                import ClassModelMachineGA
+                import ClassEvolveGA
+            except ImportError:
+                raise ImportError("Failed to import the Genetic Algorithm Class (ClassEvolveGA). This may be because you don't have the 'deap' package installed")  
             self.ModelMachine = ClassModelMachineGA.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
+
         elif self.IslandDeconvMode=="Moresane":
+            try:
+                import ClassModelMachineMORESANE
+                import ClassMoresane
+            except ImportError:
+                raise ImportError("Failed to import the Genetic Algorithm Class (ClassEvolveMORESANE). This may be because you don't have the 'pymoresane' package installed")  
+
             self.ModelMachine = ClassModelMachineMORESANE.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
         elif self.IslandDeconvMode=="Sasir":
             raise NotImplementedError("ClassModelMachineSASIR is not implemented")
