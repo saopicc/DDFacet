@@ -2,7 +2,10 @@ from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassSmearMapping")
 import numpy as np
 from DDFacet.Array import NpShared
+import multiprocessing as mp
 import multiprocessing
+import psutil
+import Queue
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Other import ModColor
 
@@ -24,7 +27,7 @@ class ClassSmearMapping():
         #print NRowInBlocks.tolist()
         #print StartRow.tolist()
         MaxRow=0
-        
+
         for i in [3507]:#range(Nb):
             ii=StartRow[i]
             MaxRow=np.max([MaxRow,np.max(Map[ii:ii+NRowInBlocks[i]])])
@@ -42,7 +45,7 @@ class ClassSmearMapping():
         data=DATA["data"]
         A0=DATA["A0"]
         A1=DATA["A1"]
-        
+
         DicoSmearMapping={}
         DicoSmearMapping["A0"]=A0
         DicoSmearMapping["A1"]=A1
@@ -100,7 +103,7 @@ class ClassSmearMapping():
 
         #print A0.shape[0]
 
-        
+
         DicoSmearMapping={}
         DicoSmearMapping["A0"]=A0
         DicoSmearMapping["A1"]=A1
@@ -126,43 +129,57 @@ class ClassSmearMapping():
         InfoSmearMapping["dPhi"]=dPhi
         InfoSmearMapping["l"]=l
         BlocksRowsList=[]
-        
-        
-        NCPU=self.NCPU
-            
+
+        procs = list() #list of processes that are running
+        n_cpus = psutil.cpu_count() #ask the OS for the number of CPU's. Only tested without HT
+        procinfo = psutil.Process() #this will be used to control CPU affinity
+        qlimit = n_cpus*4
+
+        #work_queue = multiprocessing.Queue(qlimit)
+        #result_queue = multiprocessing.Queue()
+
         ThisWorkerMapName="%sBlocksRowsList"%(self.IdSharedMem)
         NpShared.DelAll(ThisWorkerMapName)
         work_queue = multiprocessing.Queue()
         result_queue = multiprocessing.Queue()
+
+        for cpu in xrange(n_cpus):
+            W=WorkerMap(work_queue,
+                        result_queue,
+                        self.IdSharedMem,
+                        InfoSmearMapping,
+                        cpu,GridChanMapping)
+            procs.append(W)
+
+        main_core=0 #CPU affinity placement
+        #start all processes and pin them each to a core
+        for p in procs:
+            p.start()
+            procinfo.cpu_affinity([main_core])
+            main_core+=1
+
+
+        DicoWorkerResult={}
+        for IdWorker in range(n_cpus):
+            DicoWorkerResult[IdWorker]={}
+            DicoWorkerResult[IdWorker]["BlocksSizesBL"]={}
+
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Mapping ", HeaderSize=10,TitleSize=13)
+        iResult=0
+        NTotBlocks=0
+        NTotRows=0
+
         for a0 in range(na):
             for a1 in range(na):
                 if a0==a1: continue
                 work_queue.put((a0,a1))
 
         NJobs=work_queue.qsize()
-        workerlist=[]
-        for ii in range(NCPU):
-            W=WorkerMap(work_queue, 
-                        result_queue,
-                        self.IdSharedMem,
-                        InfoSmearMapping,
-                        ii,GridChanMapping)
-            workerlist.append(W)
-            workerlist[ii].start()
 
-
-        DicoWorkerResult={}
-        for IdWorker in range(NCPU):
-            DicoWorkerResult[IdWorker]={}
-            DicoWorkerResult[IdWorker]["BlocksSizesBL"]={}
-
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Mapping ", HeaderSize=10,TitleSize=13)
         pBAR.render(0, '%4i/%i' % (0,NJobs))
-        iResult=0
-        NTotBlocks=0
-        NTotRows=0
+
         while iResult < NJobs:
-            DicoResult=result_queue.get()
+            DicoResult=result_queue.get(True, 10)
             if DicoResult["Success"]:
                 iResult+=1
                 if DicoResult["Empty"]!=True:
@@ -177,21 +194,20 @@ class ClassSmearMapping():
             intPercent=int(100*  NDone / float(NJobs))
             pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
 
-        for ii in range(NCPU):
-            workerlist[ii].shutdown()
-            workerlist[ii].terminate()
-            workerlist[ii].join()
+        for p in procs:
+            p.shutdown()
+            p.join()
 
         NpShared.DelAll("%sSmearMapping"%self.IdSharedMem)
-        
+
 
 
 
         FinalMappingHeader=np.zeros((2*NTotBlocks+1,),np.int32)
         FinalMappingHeader[0]=NTotBlocks
-        
-        
-        
+
+
+
         iStart=1
         #MM=np.array([],np.int32)
         MM=np.zeros((NTotBlocks,),np.int32)
@@ -199,14 +215,14 @@ class ClassSmearMapping():
         FinalMapping=np.zeros((NTotRows,),np.int32)
         iii=0
         jjj=0
-        for IdWorker in range(NCPU):
+        for IdWorker in range(n_cpus):
             #print>>log, "  Worker: %i"%(IdWorker)
             ThisWorkerMapName="%sBlocksRowsList.Worker_%3.3i"%(self.IdSharedMem,IdWorker)
             BlocksRowsListBLWorker=NpShared.GiveArray(ThisWorkerMapName)
             if type(BlocksRowsListBLWorker)==type(None): continue
-            
+
             #FinalMapping=np.concatenate((FinalMapping,BlocksRowsListBLWorker))
-            
+
             FinalMapping[iii:iii+BlocksRowsListBLWorker.size]=BlocksRowsListBLWorker[:]
             iii+=BlocksRowsListBLWorker.size
 
@@ -232,7 +248,7 @@ class ClassSmearMapping():
         NpShared.DelAll("%sBlocksRowsList"%(self.IdSharedMem))
 
         #print>>log, "  Put in shared mem"
-        
+
 
         NVis=np.where(A0!=A1)[0].size*NChan
         #print>>log, "  Number of blocks:         %i"%NTotBlocks
@@ -250,7 +266,7 @@ class ClassSmearMapping():
 
 def GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,IdSharedMem,GridChanMapping):
     DicoSmearMapping=NpShared.SharedToDico("%sSmearMapping"%IdSharedMem)
-    
+
     A0=DicoSmearMapping["A0"]
     A1=DicoSmearMapping["A1"]
     ind=np.where((A0==a0)&(A1==a1))[0]
@@ -264,17 +280,17 @@ def GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,IdSharedMem,GridChanMapping):
     freqs=InfoSmearMapping["freqs"]
     NChan=freqs.size
     nu0=np.max(freqs)
-    
+
     u,v,w=uvw[ind,:].T
     NChanBlockMax=1e3
     du=u[1::]-u[0:-1]
     dv=v[1::]-v[0:-1]
     dw=w[1::]-w[0:-1]
-    
+
     du=np.concatenate((du,[du[-1]]))
     dv=np.concatenate((dv,[dv[-1]]))
     dw=np.concatenate((dw,[dw[-1]]))
-    
+
     Duv=C*(dPhi)/(np.pi*l*nu0)
     duvtot=0
 
@@ -297,11 +313,11 @@ def GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,IdSharedMem,GridChanMapping):
         duvtot+=np.sqrt(du[iRowBL]**2+dv[iRowBL]**2+dw[iRowBL]**2)
         if (duvtot>Duv)|(iRowBL==(ind.size-1)):
             #BlocksRowsListBL.append(CurrentRows)
-        
+
             NChanBlockMax=np.max([NChanBlockMax,1])
-            
+
             ch=np.arange(0,NChan,NChanBlockMax).tolist()
-            
+
             if not((NChan) in ch): ch.append((NChan))
             NChBlocks=len(ch)
             ChBlock=np.int32(np.linspace(0,NChan,NChBlocks))
@@ -376,7 +392,7 @@ class WorkerMap(multiprocessing.Process):
             #gc.enable()
             #a0,a1 = self.work_queue.get()
             try:
-                a0,a1 = self.work_queue.get()
+                a0,a1 = self.work_queue.get(True, 0.5)
             except:
                 break
 
@@ -395,6 +411,6 @@ class WorkerMap(multiprocessing.Process):
                 self.result_queue.put({"Success":True,"bl":(a0,a1),"IdWorker":self.IdWorker,"AppendId":self.AppendId,"Empty":False,
                                        "BlocksSizesBL":BlocksSizesBL,"NBlocksTotBL":NBlocksTotBL})
                 self.AppendId+=1
-                
+
             else:
                 self.result_queue.put({"Success":True,"bl":(a0,a1),"IdWorker":self.IdWorker,"AppendId":self.AppendId,"Empty":True})
