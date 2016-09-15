@@ -1,0 +1,15 @@
+SharedArray
+Polygon2
+pyFFTW
+nose
+astropy
+deap
+ipdb
+pymoresane
+python-casacore
+pyephem
+numexpr
+cython
+pyfits
+matplotlib
+scipy
