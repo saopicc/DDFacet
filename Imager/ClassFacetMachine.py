@@ -978,17 +978,11 @@ class ClassFacetMachine():
                 nVisChan=MS.ChanFreq.size
                 self.DicoImager[iFacet]["SumJonesChan"].append(np.zeros((2,nVisChan),np.float64))
 
-    def CalcDirtyImagesParallel(self,times,uvwIn,visIn,flag,A0A1,W=None,doStack=True,Parallel=True):
+    def CalcDirtyImagesParallel(self,Weights=None,Parallel=True):
         """
         Grids a chunk of input visibilities onto many facets
-        Args:
-            times:
-            uvwIn:
-            visIn:
-            flag:
-            A0A1:
-            W:
-            doStack:
+        Visibility data is already in shared memory (packed there by VisServer.VisChunkToShared(),
+        only the weights are passed as a string, since they refer to an mmap()d file.
 
         Post conditions:
         Sets the following normalization weights, as produced by the gridding process:
@@ -1036,6 +1030,7 @@ class ClassFacetMachine():
                                          SpheNorm=SpheNorm,
                                          PSFMode=PSFMode,
                                          NFreqBands=self.VS.NFreqBands,
+                                         Weights=Weights,
                                          PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
                                          DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                          ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
@@ -1318,6 +1313,7 @@ class WorkerImager(multiprocessing.Process):
                  PSFMode=False,
                  CornersImageTot=None,
                  NFreqBands=1,
+                 Weights=None,
                  PauseOnStart=False,
                  DataCorrelationFormat=[5,6,7,8],
                  ExpectedOutputStokes=[1],
@@ -1346,6 +1342,7 @@ class WorkerImager(multiprocessing.Process):
         self.DataCorrelationFormat = DataCorrelationFormat
         self.ExpectedOutputStokes = ExpectedOutputStokes
         self.ListSemaphores = ListSemaphores
+        self.Weights = Weights
 
     def shutdown(self):
         self.exit.set()
@@ -1443,7 +1440,7 @@ class WorkerImager(multiprocessing.Process):
         A0 = DATA["A0"]
         A1 = DATA["A1"]
         A0A1 = A0, A1
-        W = DATA["Weights"]
+        W = NpShared.GiveArray("file://"+self.Weights)
         freqs = DATA["freqs"]
         ChanMapping = DATA["ChanMapping"]
 
@@ -1488,7 +1485,6 @@ class WorkerImager(multiprocessing.Process):
         A0 = DATA["A0"]
         A1 = DATA["A1"]
         A0A1 = A0, A1
-        W = DATA["Weights"]
         freqs = DATA["freqs"]
         ChanMapping = DATA["ChanMappingDegrid"]
 

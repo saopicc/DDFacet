@@ -427,15 +427,19 @@ class ClassMS():
     def ReinitChunkIter(self):
         self.current_chunk = -1
 
+    def getChunkCache (self, row0, row1):
+        if (row0, row1) not in self._chunk_caches:
+            self._chunk_caches[row0, row1] = CacheManager(
+                self.MSName + ".ddfcache/F%d:D%d:%d:%d" % (self.Field, self.DDID, row0, row1), self._reset_cache)
+        return self._chunk_caches[row0, row1]
+
     def GiveNextChunk(self,databuf=None,flagbuf=None):
         # get row0:row1 of next chunk. If row1==row0, chunk is empty and we must skip it
         while self.current_chunk < self.Nchunk-1:
             self.current_chunk += 1
             row0, row1 = self._chunk_r0r1[self.current_chunk]
             if row1 > row0:
-                if (row0,row1) not in self._chunk_caches:
-                    self._chunk_caches[row0,row1] = CacheManager(self.MSName+".ddfcache/F%d:D%d:%d:%d" % (self.Field,self.DDID,row0,row1), self._reset_cache)
-                self.cache = self._chunk_caches[row0,row1]
+                self.cache = self.getChunkCache(row0,row1)
                 return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf)
         return "EndMS"
 

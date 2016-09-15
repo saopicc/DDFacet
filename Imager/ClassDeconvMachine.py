@@ -255,7 +255,8 @@ class ClassImagerDeconv():
         if DATA=="EndChunk":
             print>>log, ModColor.Str("Reached end of data chunk")
             return "EndChunk"
-        self.DATA=DATA
+        self.DATA = DATA
+        self.WEIGHTS = self.VS.CurrentVisWeights
         
         return True
 
@@ -325,10 +326,7 @@ class ClassImagerDeconv():
                 if Res=="EndOfObservation": break
                 DATA=self.DATA
 
-                FacetMachinePSF.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],
-                                         (DATA["A0"],DATA["A1"]),
-                                         DATA["Weights"],
-                                         doStack=True)
+                FacetMachinePSF.putChunk(Weights=self.WEIGHTS)
 
             psfdict = FacetMachinePSF.FacetsToIm(NormJones=True)
             psfmean, psfcube = psfdict["MeanImage"], psfdict["ImagData"]   # this is only for the casa image saving
@@ -524,10 +522,7 @@ class ClassImagerDeconv():
                     _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
 
 
-                self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],
-                                           (DATA["A0"],DATA["A1"]),
-                                           DATA["Weights"],
-                                           doStack=True)
+                self.FacetMachine.putChunk(Weights=self.WEIGHTS)
 
                 if self._save_intermediate_grids:
                     self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
@@ -729,6 +724,7 @@ class ClassImagerDeconv():
                 #if Res=="EndChunk": break
                 if Res=="EndOfObservation": break
                 DATA=self.DATA
+                print DATA.keys()
                 
 
                 model_freqs = self.VS.CurrentChanMappingDegrid
@@ -752,7 +748,7 @@ class ClassImagerDeconv():
                     self.VS.CurrentMS.PutVisColumn(predict_colname, modelvis)
                     del modelvis
 
-                self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)
+                self.FacetMachine.putChunk(Weights=self.WEIGHTS)
                 
                 # NpShared.DelArray(PredictedDataName)
                 del(DATA)
@@ -1121,7 +1117,7 @@ class ClassImagerDeconv():
 
         DATA["data"][:,:,:]=visData[:,:,:]-DATA["data"][:,:,:]
         
-        self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visData,DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"])
+        self.FacetMachine.putChunk(Weights=self.WEIGHTS)
         Image=self.FacetMachine.FacetsToIm()
         self.ResidImage=Image
         #self.FacetMachine.ToCasaImage(ImageName="test.residual",Fits=True)
