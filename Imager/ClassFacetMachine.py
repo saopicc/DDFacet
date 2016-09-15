@@ -1,6 +1,6 @@
 from DDFacet.Other.progressbar import ProgressBar
 import multiprocessing as mp
-import multiprocessing 
+import multiprocessing
 import psutil
 import ClassDDEGridMachine
 import numpy as np
@@ -331,10 +331,10 @@ class ClassFacetMachine():
         f.write("# Region file format: DS9 version 4.1\n")
         ss0='global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=1 highlite=1 dash=0'
         ss1=' fixed=0 edit=1 move=1 delete=1 include=1 source=1\n'
-        
+
         f.write(ss0+ss1)
         f.write("fk5\n")
- 
+
         for iFacet in self.DicoImager.keys():
             #rac,decc=self.DicoImager[iFacet]["RaDec"]
             l0,m0=self.DicoImager[iFacet]["l0m0"]
@@ -344,7 +344,7 @@ class ClassFacetMachine():
             l=((dl.flatten()+l0)).tolist()
             m=((dm.flatten()+m0)).tolist()
             x=[]; y=[]
-            
+
             for iPoint in range(len(l)):
                 xp,yp=self.CoordMachine.lm2radec(np.array([l[iPoint]]),np.array([m[iPoint]]))
                 x.append(xp)
@@ -363,7 +363,7 @@ class ClassFacetMachine():
                 x1=x[iline+1]
                 y1=y[iline+1]
                 f.write("line(%f,%f,%f,%f) # line=0 0\n"%(x0,y0,x1,y1))
-            
+
         f.close()
 
 
@@ -387,7 +387,7 @@ class ClassFacetMachine():
                 l0,m0=self.DicoImager[iFacet]["lmShift"]
                 d0=self.GD["DDESolutions"]["Scale"]*np.pi/180
                 gamma=self.GD["DDESolutions"]["gamma"]
-        
+
                 d=np.sqrt((l0-lc)**2+(m0-mc)**2)
                 idir=np.argmin(d)
                 w=sI/(1.+d/d0)**gamma
@@ -436,7 +436,7 @@ class ClassFacetMachine():
         for iFacet in sorted(self.DicoImager.keys()):
             A=ModFFTW.GiveFFTW_aligned(self.PaddedGridShape, np.complex64)
             NpShared.ToShared("%sFFTW.%i"%(self.IdSharedMem,iFacet),A)
-            
+
 
 
     def InitParallel(self, Parallel=True):
@@ -450,9 +450,8 @@ class ClassFacetMachine():
 
         """
         import Queue
-	
-        NFacets=len(self.DicoImager.keys())
 
+        NFacets=len(self.DicoImager.keys())
         self.SpacialWeigth={}
 
         procs = list() #list of processes that are running
@@ -466,7 +465,7 @@ class ClassFacetMachine():
             directory=True)
 
         self.FacetDataCache = "file://" + cachepath + "/"
-        
+
         if Parallel:
             qlimit = n_cpus*4
         else:
@@ -493,7 +492,6 @@ class ClassFacetMachine():
                                            ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
                 procs.append(W) #add WorkerImager's to the process list
 
-            
             if Parallel:
                 main_core=0 #CPU affinity placement
                 #start all processes and pin them each to a core
@@ -504,7 +502,7 @@ class ClassFacetMachine():
 
             timer = ClassTimeIt.ClassTimeIt()
             print>> log, "initializing W kernels"
-            
+
             pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Init W ", HeaderSize=10,TitleSize=13)
             pBAR.render(0, '%4i/%i' % (0,NFacets))
             iResult=0
@@ -656,7 +654,7 @@ class ClassFacetMachine():
         _,npol,Npix,Npix=self.OutImShape
         DicoImages={}
         DicoImages["freqs"]={}
-        
+
         DoCalcNormData=False
         if (NormJones)&(self.NormData is None):
             DoCalcNormData=True
@@ -846,19 +844,19 @@ class ClassFacetMachine():
             print>>log, "Combining facets to average Jones-amplitude image"
         else:
             print>>log, "Combining facets to residual image"
-            
+
 
         NormImage=self.NormImage
 
         for iFacet in self.DicoImager.keys():
-                
+
             SharedMemName="%s/Spheroidal.Facet_%3.3i"%(self.FacetDataCache,iFacet)
             SPhe=NpShared.GiveArray(SharedMemName)
-            
+
 
             xc,yc=self.DicoImager[iFacet]["pixCentral"]
             NpixFacet=self.DicoGridMachine[iFacet]["Dirty"][0].shape[2]
-            
+
             Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(NpixFacet/2,NpixFacet/2),NpixFacet)
             x0main,x1main,y0main,y1main=Aedge
             x0facet,x1facet,y0facet,y1facet=Bedge
@@ -866,8 +864,8 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["SumJonesNorm"]=np.zeros((self.VS.NFreqBands,),np.float64)
 
             for Channel in range(self.VS.NFreqBands):
-            
-            
+
+
                 ThisSumWeights=self.DicoImager[iFacet]["SumWeights"][Channel]
                 ThisSumJones=1.
 
@@ -879,13 +877,13 @@ class ClassFacetMachine():
                     ThisSumJones=1.
                 self.DicoImager[iFacet]["SumJonesNorm"][Channel]=ThisSumJones
 
-            
+
                 SpacialWeigth=self.SpacialWeigth[iFacet].T[::-1,:]
 
                 T.timeit("3")
                 for pol in range(npol):
                     sumweight=ThisSumWeights[pol]#ThisSumWeights.reshape((nch,npol,1,1))[Channel, pol, 0, 0]
-                    
+
                     if BeamWeightImage:
                         Im=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]*ThisSumJones
                     else:
@@ -900,8 +898,8 @@ class ClassFacetMachine():
                         #Im/=(ThisSumJones)
 
                         Im=Im[x0facet:x1facet,y0facet:y1facet]
-                
-                
+
+
                     Image[Channel,pol,x0main:x1main,y0main:y1main]+=Im.real
 
 
@@ -925,14 +923,14 @@ class ClassFacetMachine():
         NormImage=np.zeros((NPixOut,NPixOut),dtype=self.stitchedType)
         SPhe=NpShared.GiveArray(SharedMemName)
         N1=self.NpixPaddedFacet
-            
+
         for iFacet in self.DicoImager.keys():
-                
+
             xc,yc=self.DicoImager[iFacet]["pixCentral"]
             Aedge,Bedge=GiveEdges((xc,yc),NPixOut,(N1/2,N1/2),N1)
             x0d,x1d,y0d,y1d=Aedge
             x0p,x1p,y0p,y1p=Bedge
-            
+
             for ch in range(nch):
                 for pol in range(npol):
                     NormImage[x0d:x1d,y0d:y1d]+=SPhe[::-1,:].T.real[x0p:x1p,y0p:y1p]
@@ -1017,7 +1015,7 @@ class ClassFacetMachine():
         import Queue
 
         NFacets=len(self.DicoImager.keys())
-        
+
         procs = list() #list of processes that are running
         n_cpus = psutil.cpu_count() #ask the OS for the number of CPU's. Only tested without HT
         procinfo = psutil.Process() #this will be used to control CPU affinity
@@ -1034,7 +1032,7 @@ class ClassFacetMachine():
         if self.DoPSF:
             #visIn.fill(1)
             PSFMode=True
-        
+
         SpheNorm=self.SpheNorm
 
         List_Result_queue=[]
@@ -1058,7 +1056,7 @@ class ClassFacetMachine():
                                          DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                          ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
             procs.append(W)
-         
+
         if Parallel:
             main_core=0 #CPU affinity placement
             #start all processes and pin them each to a core
@@ -1069,7 +1067,7 @@ class ClassFacetMachine():
 
         timer = ClassTimeIt.ClassTimeIt()
         print>> log, "starting gridding"
-        
+
         pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  Gridding ", HeaderSize=10, TitleSize=13)
         #        pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0, NFacets))
@@ -1122,7 +1120,7 @@ class ClassFacetMachine():
                 p.join()
 
         print>> log, "gridding finished in %s" % timer.timehms()
-        
+
         return True
 
     def FourierTransform(self,doStack=False,Parallel=True):
@@ -1175,7 +1173,7 @@ class ClassFacetMachine():
                                          DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                          ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
             procs.append(W)
-          
+
         if Parallel:
             main_core=0 #CPU affinity placement
             #start all processes and pin them each to a core
@@ -1191,7 +1189,7 @@ class ClassFacetMachine():
         #        pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0, NFacets))
         iResult = 0
-        
+
         NJobs = NFacets
         for iFacet in range(NFacets):
             work_queue.put(iFacet)
@@ -1267,7 +1265,7 @@ class ClassFacetMachine():
             qlimit = n_cpus*4
         else:
             qlimit=0
-        
+
         work_queue = multiprocessing.Queue(maxsize=qlimit)
         result_queue = multiprocessing.Queue()
 
@@ -1306,7 +1304,7 @@ class ClassFacetMachine():
                                          ListSemaphores=ListSemaphores)
 
             procs.append(W)
-            
+
         if Parallel:
             main_core=0 #CPU affinity placement
             #start a ll processes and pin them each to a core
@@ -1357,7 +1355,7 @@ class ClassFacetMachine():
 import os
 import signal
 import Queue
-           
+
 class WorkerImager(multiprocessing.Process):
     def __init__(self,
                  work_queue,
@@ -1431,7 +1429,7 @@ class WorkerImager(multiprocessing.Process):
                                                             ExpectedOutputStokes=self.ExpectedOutputStokes,
                                                             ListSemaphores=self.ListSemaphores)
         return GridMachine
-        
+
     def GiveDicoJonesMatrices(self):
         DicoJonesMatrices=None
 
