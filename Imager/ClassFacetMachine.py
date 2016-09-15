@@ -1,5 +1,7 @@
 from DDFacet.Other.progressbar import ProgressBar
-import multiprocessing
+import multiprocessing as mp
+import multiprocessing 
+import psutil
 import ClassDDEGridMachine
 import numpy as np
 import pylab
@@ -448,11 +450,14 @@ class ClassFacetMachine():
 
         """
         import Queue
-
-        NCPU=self.NCPU
+	
         NFacets=len(self.DicoImager.keys())
 
         self.SpacialWeigth={}
+
+        procs = list() #list of processes that are running
+        n_cpus = psutil.cpu_count() #ask the OS for the number of CPU's. Only tested without HT
+        procinfo = psutil.Process() #this will be used to control CPU affinity
 
         # check if spacial weights are cached
         cachepath, cachevalid = self.VS.maincache.checkCache("FacetData",
@@ -461,17 +466,17 @@ class ClassFacetMachine():
             directory=True)
 
         self.FacetDataCache = "file://" + cachepath + "/"
+        
+        if Parallel:
+            qlimit = n_cpus*4
+        else:
+            qlimit=0
 
         if not cachevalid:
-            work_queue = multiprocessing.Queue()
+            work_queue = multiprocessing.Queue(maxsize=qlimit)
             result_queue = multiprocessing.Queue()
 
-            NJobs = NFacets
-            for iFacet in range(NFacets):
-                work_queue.put(iFacet)
-
-            workerlist=[]
-            for ii in range(NCPU):
+            for cpu in xrange(n_cpus):
                 W=self.FacetParallelEngine(work_queue, result_queue,
                                            self.GD,
                                            Mode="Init",
@@ -486,44 +491,55 @@ class ClassFacetMachine():
                                            NFreqBands=self.VS.NFreqBands,
                                            DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                            ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
-                workerlist.append(W)
-                if Parallel:
-                    workerlist[ii].start()
+                procs.append(W) #add WorkerImager's to the process list
+
+            
+            if Parallel:
+                main_core=0 #CPU affinity placement
+                #start all processes and pin them each to a core
+                for p in procs:
+                    p.start()
+                    procinfo.cpu_affinity([main_core])
+                    main_core+=1
 
             timer = ClassTimeIt.ClassTimeIt()
             print>> log, "initializing W kernels"
-
+            
             pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Init W ", HeaderSize=10,TitleSize=13)
             pBAR.render(0, '%4i/%i' % (0,NFacets))
             iResult=0
 
             if not Parallel:
-                for ii in range(NCPU):
-                    workerlist[ii].run()  # just run until all work is completed
+                for p in procs:
+                    p.run()  # just run until all work is completed
+
+            NJobs = NFacets
+            for iFacet in range(NFacets):
+                work_queue.put(iFacet)
 
             while iResult < NJobs:
                 try:
-                    DicoResult = result_queue.get(True, 5)
+                    DicoResult = result_queue.get(True, 10)
+                    if DicoResult["Success"]:
+                       iResult += 1
                 except Queue.Empty:
                     print>> log, "checking for dead workers"
                     # check for dead workers
-                    for w in workerlist:
+                    for w in procs:
                         w.join(0)
                         if not w.is_alive():
                             if w.exitcode != 0:
                                 raise RuntimeError, "a worker process has died on us with exit code %d. This is probably a bug." % w.exitcode
                     continue
-                if DicoResult["Success"]:
-                    iResult += 1
+
                 NDone = iResult
                 intPercent = int(100 * NDone / float(NFacets))
                 pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
 
             if Parallel:
-                for ii in range(NCPU):
-                    workerlist[ii].shutdown()
-                    workerlist[ii].terminate()
-                    workerlist[ii].join()
+                for p in procs:
+                    p.shutdown()
+                    p.join()
 
             print>> log, "init W finished in %s" % timer.timehms()
             self.VS.maincache.saveCache("FacetData")
@@ -542,10 +558,10 @@ class ClassFacetMachine():
     ############################################################################################
 
     def setCasaImage(self,ImageName=None,Shape=None,Freqs=None,Stokes=["I"]):
-        if ImageName==None:
+        if ImageName is None:
             ImageName=self.ImageName
 
-        if Shape==None:
+        if Shape is None:
             Shape=self.OutImShape
         self.CasaImage=ClassCasaImage.ClassCasaimage(ImageName,Shape,self.Cell,self.MainRaDec,Freqs=Freqs,Stokes=Stokes)
 
@@ -998,32 +1014,34 @@ class ClassFacetMachine():
         """
         # the input parameters are not actually used, see
         ## https://github.com/cyriltasse/DDFacet/issues/32#issuecomment-176072113
-
-        NCPU=self.NCPU
+        import Queue
 
         NFacets=len(self.DicoImager.keys())
+        
+        procs = list() #list of processes that are running
+        n_cpus = psutil.cpu_count() #ask the OS for the number of CPU's. Only tested without HT
+        procinfo = psutil.Process() #this will be used to control CPU affinity
 
-        work_queue = multiprocessing.JoinableQueue()
+        if Parallel:
+            qlimit = n_cpus*4
+        else:
+            qlimit=0
 
+        work_queue = multiprocessing.Queue(maxsize=qlimit)
+        result_queue = multiprocessing.Queue()
 
         PSFMode=False
         if self.DoPSF:
             #visIn.fill(1)
             PSFMode=True
-
-        NJobs=NFacets
-        for iFacet in range(NFacets):
-            work_queue.put(iFacet)
-
-        workerlist=[]
+        
         SpheNorm=self.SpheNorm
 
         List_Result_queue=[]
-        for ii in range(NCPU):
-            List_Result_queue.append(multiprocessing.JoinableQueue())
 
-        for ii in range(NCPU):
-            W = self.FacetParallelEngine(work_queue, List_Result_queue[ii],
+        for cpu in xrange(n_cpus):
+            List_Result_queue.append(result_queue)
+            W = self.FacetParallelEngine(work_queue, List_Result_queue[cpu],
                                          self.GD,
                                          Mode="Grid",
                                          FFTW_Wisdom=self.FFTW_Wisdom,
@@ -1039,26 +1057,36 @@ class ClassFacetMachine():
                                          PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
                                          DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                          ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
-            workerlist.append(W)
-            if Parallel:
-                workerlist[ii].start()
-
+            procs.append(W)
+         
+        if Parallel:
+            main_core=0 #CPU affinity placement
+            #start all processes and pin them each to a core
+            for p in procs:
+                p.start()
+                procinfo.cpu_affinity([main_core])
+                main_core+=1
 
         timer = ClassTimeIt.ClassTimeIt()
         print>> log, "starting gridding"
-
+        
         pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  Gridding ", HeaderSize=10, TitleSize=13)
         #        pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0, NFacets))
         iResult = 0
+
+        NJobs=NFacets
+        for iFacet in range(NFacets):
+            work_queue.put(iFacet)
+
         if not Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].run()  # just run until all work is completed
+            for p in procs:
+                p.run()  # just run until all work is completed
 
         while iResult < NJobs:
             DicoResult = None
             if Parallel:
-                for w in workerlist:
+                for w in procs:
                     w.join(0)
                     if not w.is_alive():
                         if w.exitcode != 0:
@@ -1066,7 +1094,7 @@ class ClassFacetMachine():
             for result_queue in List_Result_queue:
                 if result_queue.qsize() != 0:
                     try:
-                        DicoResult = result_queue.get()
+                        DicoResult = result_queue.get(True, 10)
                         break
                     except:
                         pass
@@ -1089,10 +1117,9 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["SumJonesChan"][self.VS.iCurrentMS] += DicoResult["SumJonesChan"]
 
         if Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].shutdown()
-                workerlist[ii].terminate()
-                workerlist[ii].join()
+            for p in procs:
+                p.shutdown()
+                p.join()
 
         print>> log, "gridding finished in %s" % timer.timehms()
         
@@ -1107,25 +1134,31 @@ class ClassFacetMachine():
             doStack: Add fourier transformed facets to existing facet grids.
             Parallel: Calls FFTW in parallel
         '''
-        NCPU = self.NCPU
+        import Queue
 
         NFacets = len(self.DicoImager.keys())
 
-        work_queue = multiprocessing.JoinableQueue()
 
-        NJobs = NFacets
-        for iFacet in range(NFacets):
-            work_queue.put(iFacet)
+        procs = list() #list of processes that are running
+        n_cpus = psutil.cpu_count() #ask the OS for the number of CPU's. Only tested without HT
+        procinfo = psutil.Process() #this will be used to control CPU affinity
 
-        workerlist = []
+        if Parallel:
+            qlimit = n_cpus*4
+        else:
+            qlimit=0
+
+        work_queue = multiprocessing.Queue(maxsize=qlimit)
+        result_queue = multiprocessing.Queue()
+
+
         SpheNorm = self.SpheNorm
 
         List_Result_queue = []
-        for ii in range(NCPU):
-            List_Result_queue.append(multiprocessing.JoinableQueue())
 
-        for ii in range(NCPU):
-            W = self.FacetParallelEngine(work_queue, List_Result_queue[ii],
+        for cpu in xrange(n_cpus):
+            List_Result_queue.append(result_queue)
+            W = self.FacetParallelEngine(work_queue, List_Result_queue[cpu],
                                          self.GD,
                                          Mode="FourierTransform",
                                          FFTW_Wisdom=self.FFTW_Wisdom,
@@ -1141,9 +1174,15 @@ class ClassFacetMachine():
                                          PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
                                          DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                          ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
-            workerlist.append(W)
-            if Parallel:
-                workerlist[ii].start()
+            procs.append(W)
+          
+        if Parallel:
+            main_core=0 #CPU affinity placement
+            #start all processes and pin them each to a core
+            for p in procs:
+                p.start()
+                procinfo.cpu_affinity([main_core])
+                main_core+=1
 
         timer = ClassTimeIt.ClassTimeIt()
         print>> log, "Fourier transforming facet grids"
@@ -1152,14 +1191,19 @@ class ClassFacetMachine():
         #        pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0, NFacets))
         iResult = 0
+        
+        NJobs = NFacets
+        for iFacet in range(NFacets):
+            work_queue.put(iFacet)
+
         if not Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].run()  # just run until all work is completed
+            for p in procs:
+                p.run()  # just run until all work is completed
 
         while iResult < NJobs:
             DicoResult = None
             if Parallel:
-                for w in workerlist:
+                for w in procs:
                     w.join(0)
                     if not w.is_alive():
                         if w.exitcode != 0:
@@ -1167,7 +1211,7 @@ class ClassFacetMachine():
             for result_queue in List_Result_queue:
                 if result_queue.qsize() != 0:
                     try:
-                        DicoResult = result_queue.get()
+                        DicoResult = result_queue.get(True, 10)
                         break
                     except:
                         pass
@@ -1192,10 +1236,9 @@ class ClassFacetMachine():
                 self.DicoGridMachine[iFacet]["Dirty"] = Grid
 
         if Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].shutdown()
-                workerlist[ii].terminate()
-                workerlist[ii].join()
+            for p in procs:
+                p.shutdown()
+                p.join()
 
         print>> log, "Fourier transforms finished in %s" % timer.timehms()
 
@@ -1214,7 +1257,19 @@ class ClassFacetMachine():
             A0A1:
             ModelImage:
         """
-        NCPU = self.NCPU
+        import Queue
+
+        procs = list() #list of processes that are running
+        n_cpus = psutil.cpu_count() #ask the OS for the number of CPU's. Only tested without HT
+        procinfo = psutil.Process() #this will be used to control CPU affinity
+
+        if Parallel:
+            qlimit = n_cpus*4
+        else:
+            qlimit=0
+        
+        work_queue = multiprocessing.Queue(maxsize=qlimit)
+        result_queue = multiprocessing.Queue()
 
         print>> log, "Model image to facets ..."
         self.ImToGrids(ModelImage)
@@ -1230,19 +1285,11 @@ class ClassFacetMachine():
 
         print>> log, "    ... done"
 
-
         NSemaphores = 3373
         ListSemaphores = ["%sSemaphore%4.4i" % (self.IdSharedMem, i) for i in range(NSemaphores)]
         _pyGridderSmearPols.pySetSemaphores(ListSemaphores)
-        work_queue = multiprocessing.Queue()
-        result_queue = multiprocessing.Queue()
 
-        NJobs = NFacets
-        for iFacet in range(NFacets):
-            work_queue.put(iFacet)
-
-        workerlist = []
-        for ii in range(NCPU):
+        for cpu in xrange(n_cpus):
             W = self.FacetParallelEngine(work_queue, result_queue,
                                          self.GD,
                                          Mode="DeGrid",
@@ -1258,9 +1305,15 @@ class ClassFacetMachine():
                                          ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds(),
                                          ListSemaphores=ListSemaphores)
 
-            workerlist.append(W)
-            if Parallel:
-                workerlist[ii].start()
+            procs.append(W)
+            
+        if Parallel:
+            main_core=0 #CPU affinity placement
+            #start a ll processes and pin them each to a core
+            for ii in xrange(n_cpus):
+                procs[ii].start()
+                procinfo.cpu_affinity([main_core])
+                main_core+=1
 
         timer = ClassTimeIt.ClassTimeIt()
         print>> log, "starting degridding"
@@ -1270,12 +1323,16 @@ class ClassFacetMachine():
         pBAR.render(0, '%4i/%i' % (0, NFacets))
         iResult = 0
 
+        NJobs = NFacets
+        for iFacet in range(NFacets):
+            work_queue.put(iFacet)
+
         if not Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].run()  # just run until all work is completed
+            for p in procs:
+                p.run()  # just run until all work is completed
 
         while iResult < NJobs:
-            DicoResult = result_queue.get()
+            DicoResult = result_queue.get(True, 10)
             if DicoResult["Success"]:
                 iResult += 1
             NDone = iResult
@@ -1283,10 +1340,9 @@ class ClassFacetMachine():
             pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
 
         if Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].shutdown()
-                workerlist[ii].terminate()
-                workerlist[ii].join()
+            for p in procs:
+                p.shutdown()
+                p.join()
 
         _pyGridderSmearPols.pyDeleteSemaphore(ListSemaphores)
 
@@ -1300,6 +1356,7 @@ class ClassFacetMachine():
 ##########################################
 import os
 import signal
+import Queue
            
 class WorkerImager(multiprocessing.Process):
     def __init__(self,
@@ -1533,20 +1590,23 @@ class WorkerImager(multiprocessing.Process):
         # pause self in debugging mode
         if self._pause_on_start:
             os.kill(os.getpid(),signal.SIGSTOP)
-        while not self.kill_received and not self.work_queue.empty():
-            iFacet = self.work_queue.get()
+        while not self.kill_received: #and not self.work_queue.empty():
+            try:
+                iFacet = self.work_queue.get(True, 0.5)
+            except Queue.Empty:
+                break
+            else:
+                if self.FFTW_Wisdom!=None:
+                    pyfftw.import_wisdom(self.FFTW_Wisdom)
 
-            if self.FFTW_Wisdom!=None:
-                pyfftw.import_wisdom(self.FFTW_Wisdom)
-
-            if self.Mode == "Init":
-                self.init(iFacet)
-            elif self.Mode == "Grid":
-                self.grid(iFacet)
-            elif self.Mode == "DeGrid":
-                self.degrid(iFacet)
-            elif self.Mode == "FourierTransform":
-                self.fourierTransform(iFacet)
+                if self.Mode == "Init":
+                   self.init(iFacet)
+                elif self.Mode == "Grid":
+                   self.grid(iFacet)
+                elif self.Mode == "DeGrid":
+                   self.degrid(iFacet)
+                elif self.Mode == "FourierTransform":
+                   self.fourierTransform(iFacet)
 
 
 
