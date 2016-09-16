@@ -734,8 +734,6 @@ class ClassImagerDeconv():
                 #if Res=="EndChunk": break
                 if Res=="EndOfObservation": break
                 DATA=self.DATA
-                print DATA.keys()
-                
 
                 model_freqs = self.VS.CurrentChanMappingDegrid
                 ## redo model image if needed
