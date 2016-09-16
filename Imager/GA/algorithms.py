@@ -178,8 +178,11 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     T=ClassTimeIt.ClassTimeIt()
     T.disable()
     best_ind0 = tools.selBest(population, 1)[0]
-    print best_ind0
+
+    #print best_ind0
+    #print "Best indiv 0",best_ind0
     print "Best indiv 0 fitness",best_ind0.fitness
+
     # from operator import attrgetter
     # k=1
     # popsorted=sorted(population, key=attrgetter("fitness"), reverse=True)#[:k]
@@ -236,8 +239,8 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
                 ArrayMethodsMachine.Plot(population,gen)
 
 
-        print best_ind
-        print "Best indiv fitness",best_ind.fitness
+        #print best_ind
+        #print "Best indiv fitness",best_ind.fitness
 
         
         #BestFitNess=best_ind.fitness.values[0]
@@ -255,6 +258,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         if verbose:
             print logbook.stream        
 
+    print "Best indiv1 fitness",best_ind.fitness
     return population, logbook
 
 #from ModArrayOps_np import *

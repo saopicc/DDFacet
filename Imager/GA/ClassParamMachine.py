@@ -102,12 +102,12 @@ class ClassParamMachine():
                     if i_indiv!=0: 
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
 
-                # if Type=="GSig":
-                #     if GSigModel==None:
-                #         GSigModel=MeanVal*np.ones((SModelArray.size,),np.float32)
-                #     SubArray[:]=GSigModel[:]
-                #     if i_indiv!=0: 
-                #         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+                if Type=="GSig":
+                    if GSigModel==None:
+                        GSigModel=MeanVal*np.ones((SModelArray.size,),np.float32)
+                    SubArray[:]=GSigModel[:]
+                    if i_indiv!=0: 
+                        SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
 
 
                     # SubArray[:]=np.zeros_like(AlphaModel)[:]#+np.random.randn(SModelArray.size)*SigVal
@@ -259,7 +259,8 @@ class ClassParamMachine():
             for iPix in range(self.NPixListParms):
                 sig=GSig[iPix]
                 if sig==0: 
-                    MAOut[iBand,iPix]+=MA[iBand,iPix]
+                    for iBand in range(self.NFreqBands):
+                        MAOut[iBand,iPix]+=MA[iBand,iPix]
                     continue#np.abs(sig)<=0.5: continue
                 SMax=S[iPix]
                 d=np.sqrt((x[iPix]-x)**2+(y[iPix]-y)**2)

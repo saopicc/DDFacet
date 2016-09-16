@@ -473,20 +473,20 @@ class ClassImageDeconvMachine():
 
             IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
 
-            ################################
-            DicoSave={"Dirty":self._Dirty,
-                      "PSF":PSF,
-                      "FreqsInfo":FreqsInfo,
-                      #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
-                      "ListPixData":ThisPixList,
-                      "ListPixParms":ThisPixList,
-                      "IslandBestIndiv":IslandBestIndiv,
-                      "GD":self.GD,
-                      "FacetID":FacetID}
-            print "saving"
-            MyPickle.Save(DicoSave, "SaveTest")
-            print "saving ok"
-            ################################
+            # ################################
+            # DicoSave={"Dirty":self._Dirty,
+            #           "PSF":PSF,
+            #           "FreqsInfo":FreqsInfo,
+            #           #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
+            #           "ListPixData":ThisPixList,
+            #           "ListPixParms":ThisPixList,
+            #           "IslandBestIndiv":IslandBestIndiv,
+            #           "GD":self.GD,
+            #           "FacetID":FacetID}
+            # print "saving"
+            # MyPickle.Save(DicoSave, "SaveTest")
+            # print "saving ok"
+            # ################################
 
             nch=nchan
             self.FreqsInfo=FreqsInfo

@@ -158,6 +158,7 @@ def testMF_DATA():
     FacetID=Dico["FacetID"]
 
     GD["GAClean"]["GASolvePars"]=["S","Alpha","GSig"]
+    GD["GAClean"]["GASolvePars"]=["S","Alpha"]
 
     nch=FreqsInfo["MeanJonesBand"][FacetID].size
     WeightMeanJonesBand=FreqsInfo["MeanJonesBand"][FacetID].reshape((nch,1,1,1))

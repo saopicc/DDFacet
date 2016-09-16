@@ -43,7 +43,7 @@ class ClassArrayMethodGA():
         self.WeightMaxFunc=collections.OrderedDict()
         self.WeightMaxFunc["Chi2"]=1.
         self.WeightMaxFunc["MinFlux"]=1.
-        #self.WeightMaxFunc["MaxFlux"]=1.
+        self.WeightMaxFunc["MaxFlux"]=1.
 
         #self.WeightMaxFunc["L0"]=1.
         self.MaxFunc=self.WeightMaxFunc.keys()
@@ -523,7 +523,7 @@ class ClassArrayMethodGA():
             if Type==0:
                 for TypeParm in self.PM.SolveParam:
                     A=self.PM.ArrayToSubArray(individual,TypeParm)
-                    if TypeParm=="GSig": continue
+                    #if TypeParm=="GSig": continue
                     if TypeParm=="S":
                         ds=0.1*np.abs(self.DirtyArrayAbsMean.ravel()[iPix]-np.abs(A[iPix]))
                     else:
