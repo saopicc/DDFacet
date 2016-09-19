@@ -496,7 +496,8 @@ class ClassImageDeconvMachine():
 
             CEv=ClassEvolveGA(self._Dirty,PSF,FreqsInfo,ListPixParms=ThisPixList,
                               ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,
-                              GD=self.GD,WeightFreqBands=WeightMuellerSignal)
+                              GD=self.GD,WeightFreqBands=WeightMuellerSignal,
+                              iFacet=FacetID,PixVariance=self.RMS**2)
             Model=CEv.main(NGen=100,DoPlot=False)
             #Model=CEv.main(NGen=100,DoPlot=False)
             
@@ -613,7 +614,7 @@ class ClassImageDeconvMachine():
                        "FacetID":FacetID,
                        "JonesNorm":JonesNorm}
             
-            ListOrder=[iIsland,FacetID,JonesNorm.flat[0]]
+            ListOrder=[iIsland,FacetID,JonesNorm.flat[0],FacetID,self.RMS**2]
 
 
             work_queue.put(ListOrder)
@@ -819,7 +820,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
         while not self.kill_received:
             #gc.enable()
             try:
-                iIsland,FacetID,JonesNorm = self.work_queue.get()
+                iIsland,FacetID,JonesNorm,FacetID,PixVariance = self.work_queue.get()
             except:
                 break
 
@@ -850,18 +851,20 @@ class WorkerDeconvIsland(multiprocessing.Process):
             # if island lies inside image
             try:
                 nch=self.FreqsInfo["MeanJonesBand"][FacetID].size
-                WeightMeanJonesBand=self.FreqsInfo["MeanJonesBand"][FacetID].reshape((nch,1,1,1))
-                WeightMueller=WeightMeanJonesBand.ravel()
-                WeightMuellerSignal=np.sqrt(WeightMueller*self.FreqsInfo["WeightChansImages"].ravel())
+                #WeightMeanJonesBand=self.FreqsInfo["MeanJonesBand"][FacetID].reshape((nch,1,1,1))
+                #WeightMueller=WeightMeanJonesBand.ravel()
+                #WeightMuellerSignal=np.sqrt(WeightMueller*self.FreqsInfo["WeightChansImages"].ravel())
 
                 CEv=ClassEvolveGA(self._Dirty,
                                   PSF,
                                   self.FreqsInfo,
                                   ListPixParms=ListPixParms,
                                   ListPixData=ListPixData,
+                                  iFacet=FacetID,PixVariance=PixVariance,
                                   IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
-                                  GD=self.GD,
-                                  WeightFreqBands=WeightMuellerSignal)
+                                  GD=self.GD)
+                #,
+                 #                 WeightFreqBands=WeightMuellerSignal)
                 Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
             
                 Model=np.array(Model).copy()#/np.sqrt(JonesNorm)

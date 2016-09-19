@@ -28,7 +28,8 @@ def FilterIslandsPix(ListIn,Npix):
 
 
 class ClassEvolveGA():
-    def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,WeightFreqBands=None):
+    def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,
+                 WeightFreqBands=None,PixVariance=1e-2,iFacet=0):
         _,_,NPixPSF,_=PSF.shape
         if ListPixData==None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
@@ -41,8 +42,11 @@ class ClassEvolveGA():
         _,_,Npix,_=Dirty.shape
         ListPixData=FilterIslandsPix(ListPixData,Npix)
         ListPixParms=FilterIslandsPix(ListPixParms,Npix)
-
-        self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,IslandBestIndiv=IslandBestIndiv,GD=GD,WeightFreqBands=WeightFreqBands)
+        
+        self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
+                                                                       #PixVariance=PixVariance,
+                                                                       iFacet=iFacet,
+                                                                       IslandBestIndiv=IslandBestIndiv,GD=GD,WeightFreqBands=WeightFreqBands)
         
         self.InitEvolutionAlgo()
         #self.ArrayMethodsMachine.testMovePix()
@@ -103,11 +107,16 @@ class ClassEvolveGA():
         for indiv in self.pop:
             indiv.fill(0)
 
+        print "Best indiv start",
+        self.ArrayMethodsMachine.PM.PrintIndiv(self.IslandBestIndiv)
+
         if self.IslandBestIndiv!=None:
             if np.max(np.abs(self.IslandBestIndiv))==0:
                 #print "deconv"
-                SModelArray=self.ArrayMethodsMachine.DeconvCLEAN()
-                #AlphaModel=np.zeros_like(SModelArray)#-0.6
+                SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
+
+                print "Estimated alpha",Alpha
+                AlphaModel=np.zeros_like(SModelArray)+Alpha
                 #AlphaModel[SModelArray==np.max(SModelArray)]=0
 
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray)#,AlphaModel=AlphaModel)
@@ -128,7 +137,7 @@ class ClassEvolveGA():
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray,AlphaModel=AlphaModel,GSigModel=GSigModel)
 
 
-        self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.1, ngen=NGen, 
+        self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.5, ngen=NGen, 
                                            halloffame=self.hof, 
                                            #stats=stats,
                                            verbose=False, 
@@ -151,6 +160,9 @@ class ClassEvolveGA():
 
         V = tools.selBest(self.pop, 1)[0]
 
+        print "Best indiv end"
+        self.ArrayMethodsMachine.PM.PrintIndiv(V)
+        
         # V.fill(0)
         # S=self.ArrayMethodsMachine.PM.ArrayToSubArray(V,"S")
         # G=self.ArrayMethodsMachine.PM.ArrayToSubArray(V,"GSig")

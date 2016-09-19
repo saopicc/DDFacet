@@ -10,12 +10,13 @@ from DDFacet.ToolsDir import ClassSpectralFunctions
 
 
 class ClassParamMachine():
-    def __init__(self,ListPixParms,ListPixData,FreqsInfo,SolveParam=["S","Alpha"]):
+    def __init__(self,ListPixParms,ListPixData,FreqsInfo,iFacet=0,SolveParam=["S","Alpha"]):
 
         self.ListPixParms=ListPixParms
         self.ListPixData=ListPixData
         self.NPixListParms=len(self.ListPixParms)
         self.NPixListData=len(self.ListPixData)
+        self.iFacet=iFacet
 
         self.SolveParam=SolveParam
 
@@ -31,7 +32,7 @@ class ClassParamMachine():
                                 "Type":"PeakFlux",
                                 "Value":0.001}
                         },
-                       "Alpha":{"Mean":0.,
+                       "Alpha":{"Mean":-0.6,
                                 "Sigma":{
                                     "Type":"Abs",
                                     "Value":0.1}
@@ -95,6 +96,7 @@ class ClassParamMachine():
                     if i_indiv!=0: 
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
 
+
                 if Type=="Alpha":
                     if AlphaModel==None:
                         AlphaModel=MeanVal*np.ones((SModelArray.size,),np.float32)
@@ -107,12 +109,14 @@ class ClassParamMachine():
                         GSigModel=MeanVal*np.ones((SModelArray.size,),np.float32)
                     SubArray[:]=GSigModel[:]
                     #SubArray[:]=0
+
                     #SubArray[49]=1.
                     #SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
                     #SubArray[SubArray<0]=0
-                    if i_indiv!=0: 
-                       SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
-
+                    #if i_indiv!=0: 
+                    #   SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+                    SubArray[SubArray<0]=0
+                    #SubArray.fill(0)
 
                     # SubArray[:]=np.zeros_like(AlphaModel)[:]#+np.random.randn(SModelArray.size)*SigVal
                     # print SubArray[:]
@@ -238,6 +242,15 @@ class ClassParamMachine():
 
         return ArrayModel
         
+    def PrintIndiv(self,indiv):
+        S=self.ArrayToSubArray(indiv,"S")
+        for iPix in range(self.NPixListParms):
+            if S[iPix]==0: continue
+            print "iPix = %i"%iPix
+            for ParamType in self.SolveParam:
+                Q=self.ArrayToSubArray(indiv,ParamType)
+                print "  %s = %f"%(ParamType,Q[iPix])
+
 
     def GiveModelArray(self,A):
         
@@ -250,7 +263,7 @@ class ClassParamMachine():
         self.MultiFreqMode=True
         for iBand in range(self.NFreqBands):
             if self.MultiFreqMode:
-                MA[iBand]=self.SpectralFunctionsMachine.IntExpFunc(S0=S,Alpha=Alpha,iChannel=iBand,iFacet=0)
+                MA[iBand]=self.SpectralFunctionsMachine.IntExpFunc(S0=S,Alpha=Alpha,iChannel=iBand,iFacet=self.iFacet)
             else:
                 MA[iBand]=S[:]
             #Alpha=self.ParmToArray(A,"Alpha")
@@ -265,6 +278,7 @@ class ClassParamMachine():
             MAOut=np.zeros_like(MA)
             
             for iPix in range(self.NPixListParms):
+                if S[iPix]==0: continue
 
                 sig=GSig[iPix]
                 if sig==0: 
@@ -273,13 +287,13 @@ class ClassParamMachine():
                     continue#np.abs(sig)<=0.5: continue
 
 
-                SMax=S[iPix]
                 d=np.sqrt((x[iPix]-x)**2+(y[iPix]-y)**2)
-                a=SMax/(2.*np.pi*sig**2)
-                v=a*np.exp(-d**2/(2.*sig**2))
+                v=np.exp(-d**2/(2.*sig**2))
                 #v[v<0.05*SMax]=0
                 for iBand in range(self.NFreqBands):
-                    MAOut[iBand]+=np.ones_like(MA[iBand])*v
+                    SMax=MA[iBand,iPix]#S[iPix]
+                    a=SMax/(2.*np.pi*sig**2)
+                    MAOut[iBand]+=np.ones_like(MA[iBand])*a*v
             MA=MAOut
 
             #print MA.sum(axis=1)

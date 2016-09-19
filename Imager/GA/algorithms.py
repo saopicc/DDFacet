@@ -208,7 +208,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         T.timeit("vary")
         
         # Evaluate the individuals with an invalid fitness
-        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+        invalid_ind = [ind for ind in offspring]# if not ind.fitness.valid]
         fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
         T.timeit("fitness")
         for ind, fit in zip(invalid_ind, fitnesses):

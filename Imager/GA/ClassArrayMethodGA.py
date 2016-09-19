@@ -18,8 +18,10 @@ from SkyModel.PSourceExtract import ClassIncreaseIsland
 
 
 class ClassArrayMethodGA():
-    def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,PixVariance=1.e-2,IslandBestIndiv=None,WeightFreqBands=None):
+    def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
+                 PixVariance=1.e-2,IslandBestIndiv=None,WeightFreqBands=None,iFacet=0):
 
+        self.iFacet=iFacet
         self.Dirty=Dirty
         self.WeightFreqBands=WeightFreqBands
         self.PSF=PSF
@@ -235,6 +237,16 @@ class ClassArrayMethodGA():
         SModelArray=np.zeros_like(A)
         MaxA=np.max(A)
 
+        Alpha=0
+        if self.NFreqBands>1:
+            FluxFreq=np.sum(self.DirtyArrayParms,axis=-1).reshape((self.NFreqBands,))
+            Freqs=self.FreqsInfo["freqs"]
+            nf=len(Freqs)
+            FreqsMean=np.array([np.mean(Freqs[i]) for i in range(nf)])
+            Alpha=np.log(FluxFreq[-1]/FluxFreq[0])/np.log(FreqsMean[-1]/FreqsMean[0])
+            
+            #stop
+
         # iMax=np.argmax(A)
         # SModelArray[iMax]=A[iMax]
         # return SModelArray
@@ -246,7 +258,9 @@ class ClassArrayMethodGA():
             if np.abs(f)<Th: break
             A-=CM[iPix]*gain*f
             SModelArray[iPix]+=gain*f
-        return SModelArray
+
+        
+        return SModelArray,Alpha
 
         # stop
 
@@ -318,8 +332,8 @@ class ClassArrayMethodGA():
         nFreqBands,_,_=Resid.shape
         
         #ResidShape=(self.NFreqBands,1,self.NPixListData)
-        WeightFreqBands=self.WeightFreqBands.reshape((nFreqBands,1,1))
-        Weight=WeightFreqBands/np.sum(WeightFreqBands)
+        #WeightFreqBands=self.WeightFreqBands.reshape((nFreqBands,1,1))
+        #Weight=WeightFreqBands/np.sum(WeightFreqBands)
         S=self.PM.ArrayToSubArray(individual,"S")
         
         ContinuousFitNess=[]
@@ -530,7 +544,10 @@ class ClassArrayMethodGA():
 
             # randomly change value of parameter
             if Type==0:
-                for TypeParm in self.PM.SolveParam:
+                iTypeParm=int(np.random.rand(1)[0]*len(self.PM.SolveParam))
+                
+#                for TypeParm in self.PM.SolveParam:
+                for TypeParm in [self.PM.SolveParam[iTypeParm]]:
                     A=self.PM.ArrayToSubArray(individual,TypeParm)
                     #if TypeParm=="GSig": continue
                     if TypeParm=="S":
@@ -565,15 +582,15 @@ class ClassArrayMethodGA():
                 #     for iReg in [1,3,5,7]:
                 #         individual=self.MovePix(individual,iPix,Flux,InReg=iReg)
                     
-        # if "GSig" in self.PM.SolveParam:
-        #     GSig=self.PM.ArrayToSubArray(individual,"GSig")
-        #     #GSig[GSig<0]=0
-        #     GSig.fill(0)
-        #     GSig[49]=1
-        #     #print GSig
-        #     # if individual[i]==0:
-        #     #     if random.random() < indpb/100.:
-        #     #         individual[i] += random.gauss(m, s)
+        if "GSig" in self.PM.SolveParam:
+            GSig=self.PM.ArrayToSubArray(individual,"GSig")
+            GSig[GSig<0]=0
+            #GSig.fill(0)
+            # GSig[49]=1
+            # #print GSig
+            # # if individual[i]==0:
+            # #     if random.random() < indpb/100.:
+            # #         individual[i] += random.gauss(m, s)
     
         T.timeit("for")
     

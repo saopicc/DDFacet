@@ -194,8 +194,8 @@ class ClassModelMachine():
                     Flux=S*(FreqIn[ch]/RefFreq)**(ThisAlpha)
                     
                     sig=np.abs(ThisGSig)
-#                    print Flux,sig
                     Sum=0
+                    #print "Flux,Sig",Flux,sig
                     if sig!=0:#>0.5:
                         marg=round(5*sig)
                         if marg%2==0: marg+=1

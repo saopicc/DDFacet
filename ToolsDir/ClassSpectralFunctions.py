@@ -81,6 +81,8 @@ class ClassSpectralFunctions():
         S0=np.array(S0)
         Npix=S0.size
 
+
+
         if self.BeamEnable:
             ListBeamFactor,ListBeamFactorWeightSq=self.DicoBeamFactors[iFacet]["ListBeamFactor"],self.DicoBeamFactors[iFacet]["ListBeamFactorWeightSq"]
             BeamFactor=ListBeamFactor[iChannel].reshape((1,ThisFreqs.size))
