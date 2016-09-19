@@ -484,6 +484,7 @@ class ClassFacetMachine():
                                            ApplyCal=self.ApplyCal,
                                            CornersImageTot=self.CornersImageTot,
                                            NFreqBands=self.VS.NFreqBands,
+                                           DataShape=self.VS.datashape,
                                            DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                            ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
                 workerlist.append(W)
@@ -1032,6 +1033,9 @@ class ClassFacetMachine():
                                          NFreqBands=self.VS.NFreqBands,
                                          Weights=Weights,
                                          PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
+                                         DataPath=self.VS.datapath,
+                                         FlagPath=self.VS.flagpath,
+                                         DataShape=self.VS.datashape,
                                          DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                          ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
             workerlist.append(W)
@@ -1134,6 +1138,7 @@ class ClassFacetMachine():
                                          PSFMode=self.DoPSF,
                                          NFreqBands=self.VS.NFreqBands,
                                          PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
+                                         DataShape=self.VS.datashape,
                                          DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                          ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
             workerlist.append(W)
@@ -1197,19 +1202,12 @@ class ClassFacetMachine():
         print>> log, "Fourier transforms finished in %s" % timer.timehms()
 
 
-    def GiveVisParallel(self,times,uvwIn,visIn,flag,A0A1,ModelImage,Parallel=True):
+    def GiveVisParallel(self,ModelImage,Parallel=True):
         """
         Degrids visibilities from model image. The model image is unprojected into many facets
         before degridding and subtracting each of the model facets contributions from the residual image.
         Preconditions: the dirty image buffers should be cleared before calling the predict and regridding methods
         to construct a new residual map
-        Args:
-            times:
-            uvwIn:
-            visIn:
-            flag:
-            A0A1:
-            ModelImage:
         """
         NCPU = self.NCPU
 
@@ -1251,6 +1249,9 @@ class ClassFacetMachine():
                                          ChunkDataCache="file://" + self.VS.cache.dirname + "/",
                                          ApplyCal=self.ApplyCal,
                                          NFreqBands=self.VS.NFreqBands,
+                                         DataPath=self.VS.datapath,
+                                         FlagPath=self.VS.flagpath,
+                                         DataShape=self.VS.datashape,
                                          DataCorrelationFormat = self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                          ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds(),
                                          ListSemaphores=ListSemaphores)
@@ -1317,6 +1318,9 @@ class WorkerImager(multiprocessing.Process):
                  NFreqBands=1,
                  Weights=None,
                  PauseOnStart=False,
+                 DataShape=None,
+                 DataPath=None,
+                 FlagPath=None,
                  DataCorrelationFormat=[5,6,7,8],
                  ExpectedOutputStokes=[1],
                  ListSemaphores=None):
@@ -1341,6 +1345,9 @@ class WorkerImager(multiprocessing.Process):
         self.CornersImageTot = CornersImageTot
         self.NFreqBands = NFreqBands
         self._pause_on_start = PauseOnStart
+        self.DataPath = DataPath
+        self.FlagPath = FlagPath
+        self.DataShape = DataShape
         self.DataCorrelationFormat = DataCorrelationFormat
         self.ExpectedOutputStokes = ExpectedOutputStokes
         self.ListSemaphores = ListSemaphores
@@ -1436,8 +1443,11 @@ class WorkerImager(multiprocessing.Process):
         GridMachine = self.GiveGM(iFacet)
         DATA = NpShared.SharedToDico("%sDicoData" % self.IdSharedMemData)
         uvwThis = DATA["uvw"]
-        visThis = DATA["data"]
-        flagsThis = DATA["flags"]
+        visThis0 = visThis = NpShared.GiveArray(self.DataPath)
+        flagsThis0 = flagsThis = NpShared.GiveArray(self.FlagPath)
+        if self.DataShape:
+            visThis = np.ndarray(shape=self.DataShape, dtype=np.complex64, buffer=visThis0)
+            flagsThis = np.ndarray(shape=self.DataShape, dtype=np.bool, buffer=flagsThis0)
         times = DATA["times"]
         A0 = DATA["A0"]
         A1 = DATA["A1"]
@@ -1486,8 +1496,11 @@ class WorkerImager(multiprocessing.Process):
         GridMachine = self.GiveGM(iFacet)
         DATA = NpShared.SharedToDico("%sDicoData" % self.IdSharedMemData)
         uvwThis = DATA["uvw"]
-        visThis = DATA["data"]
-        flagsThis = DATA["flags"]
+        visThis0 = visThis = NpShared.GiveArray(self.DataPath)
+        flagsThis0 = flagsThis = NpShared.GiveArray(self.FlagPath)
+        if self.DataShape:
+            visThis = np.ndarray(shape=self.DataShape, dtype=np.complex64, buffer=visThis0)
+            flagsThis = np.ndarray(shape=self.DataShape, dtype=np.bool, buffer=flagsThis0)
         times = DATA["times"]
         A0 = DATA["A0"]
         A1 = DATA["A1"]
@@ -1505,9 +1518,11 @@ class WorkerImager(multiprocessing.Process):
             DT, Dnu = DATA["MSInfos"]
             GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
 
-        vis = GridMachine.get(times, uvwThis, visThis, flagsThis, A0A1, ModelGrid, ImToGrid=False,
+        GridMachine.get(times, uvwThis, visThis, flagsThis, A0A1, ModelGrid, ImToGrid=False,
                               DicoJonesMatrices=DicoJonesMatrices, freqs=freqs, TranformModelInput="FT",
                               ChanMapping=ChanMapping)
+
+        del visThis, flagsThis, visThis0, flagsThis0
 
         self.result_queue.put({"Success": True, "iFacet": iFacet})
 

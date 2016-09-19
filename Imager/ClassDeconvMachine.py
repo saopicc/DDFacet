@@ -526,7 +526,7 @@ class ClassImagerDeconv():
                     print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
 
 
-                    _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
+                    _=self.FacetMachine.getChunk(ModelImage)
 
 
                 self.FacetMachine.putChunk(Weights=self.WEIGHTS)
@@ -649,7 +649,7 @@ class ClassImagerDeconv():
 
 
             DATA["data"].fill(0)
-            self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
+            self.FacetMachine.getChunk(ModelImage)
             vis=-DATA["data"]
             PredictColName=self.GD["VisData"]["PredictColName"]
 
@@ -748,7 +748,7 @@ class ClassImagerDeconv():
                     print>>log,"last major cycle: model visibilities will be stored to %s"%predict_colname
                     modelvis = DATA["data"].copy()
 
-                self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
+                self.FacetMachine.getChunk(ModelImage)
 
                 if predict_colname:
                     modelvis -= DATA["data"]

@@ -74,6 +74,8 @@ class ClassVisServer():
         self.LofarBeam=LofarBeam
         self.ApplyBeam=False
         self.GD=GD
+        self.datashape = None
+        self._use_data_cache = self.GD["Caching"]["CacheVisData"]
         self.Init()
 
         # buffers to hold current chunk
@@ -113,7 +115,8 @@ class ClassVisServer():
                 TaQL=self.TaQL,
                 TimeChunkSize=self.TMemChunkSize,
                 ChanSlice=chanslice,GD=self.GD,
-                ResetCache = self.GD["Caching"]["ResetCache"])
+                ResetCache = self.GD["Caching"]["ResetCache"],
+                DicoSelectOptions = self.DicoSelectOptions)
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
             global_freqs.update(MS.ChanFreq)
@@ -294,47 +297,17 @@ class ClassVisServer():
 
     def VisChunkToShared(self):
 
-        # t0_bef,t1_bef=self.CurrentVisTimes_SinceStart_Sec
-        # t0_sec,t1_sec=t1_bef,t1_bef+60.*self.dTimesVisMin
-        # its_t0,its_t1=self.MS.CurrentChunkTimeRange_SinceT0_sec
-        # t1_sec=np.min([its_t1,t1_sec])
-        # self.iCurrentVisTime+=1
-        # self.CurrentVisTimes_SinceStart_Minutes = t0_sec/60.,t1_sec/60.
-        # self.CurrentVisTimes_SinceStart_Sec     = t0_sec,t1_sec
-        # #print>>log,("(t0_sec,t1_sec,t1_bef,t1_bef+60.*self.dTimesVisMin)",t0_sec,t1_sec,t1_bef,t1_bef+60.*self.dTimesVisMin)
-        # #print>>log,("(its_t0,its_t1)",its_t0,its_t1)
-        # #print>>log,("self.CurrentVisTimes_SinceStart_Minutes",self.CurrentVisTimes_SinceStart_Minutes)
-        # if (t0_sec>=its_t1):
-        #     return "EndChunk"
-        # MS=self.MS
-        # t0_MS=self.MS.F_tstart
-        # t0_sec+=t0_MS
-        # t1_sec+=t0_MS
-        # self.CurrentVisTimes_MS_Sec=t0_sec,t1_sec
-        # # time selection
-        # ind=np.where((self.ThisDataChunk["times"]>=t0_sec)&(self.ThisDataChunk["times"]<t1_sec))[0]
-        # if ind.shape[0]==0:
-        #     return "EndChunk"
-
-
         D=self.ThisDataChunk
         DATA={}
-        for key in D.keys():
-            if type(D[key])!=np.ndarray: continue
-            if not(key in ['times', 'A1', 'A0', 'flags', 'uvw', 'data',"uvw_dt", "MSInfos","ChanMapping","ChanMappingDegrid"]):
-                DATA[key]=D[key]
-            else:
-                DATA[key]=D[key][:]
-
-
-
+        for key,entry in D.iteritems():
+            # data and flags is not stored in shared memory
+            if type(entry) is not np.ndarray or key == "data" or key == "flags":
+                continue
+            # if key not in ['times', 'A1', 'A0', 'flagpath', 'uvw', 'datapath', "uvw_dt", "MSInfos", "ChanMapping", "ChanMappingDegrid"]:
+            DATA[key] = entry
 
         if "DicoBeam" in D.keys():
             DATA["DicoBeam"]=D["DicoBeam"]
-
-        #print>>log, "!!!!!!!!!"
-        #DATA["flags"].fill(0)
-
 
         print>>log, "Putting data in shared memory"
         DATA=NpShared.DicoToShared("%sDicoData"%self.IdSharedMem,DATA)
@@ -365,16 +338,20 @@ class ClassVisServer():
         
 
     def LoadNextVisChunk(self):
-
-        # init data and flag buffers
+        # if not using cache, create persistent flag buffer in shared memory
+        if not self._use_data_cache:
+            self.flagpath = self.IdSharedMem+".Flags"
+            if self._flagbuf is None:
+                self._flagbuf = NpShared.CreateShared(self.flagpath, self._chunk_shape,np.bool)
+        # for data, we make a buffer whether we use the cache or not. This is because
+        # degridding manipulates the data in place, and we don't want to write that back to cache
+        self.datapath = self.IdSharedMem + ".VisData"
         if self._databuf is None:
-            self._databuf = np.empty(self._chunk_shape,np.complex64)
-        if self._flagbuf is None:
-            self._flagbuf = np.empty(self._chunk_shape,np.bool)
+            self._databuf = NpShared.CreateShared(self.datapath, self._chunk_shape, np.complex64)
 
         while True:
             MS=self.CurrentMS
-            repLoadChunk = MS.GiveNextChunk(databuf=self._databuf,flagbuf=self._flagbuf)
+            repLoadChunk = MS.GiveNextChunk(databuf=self._databuf,flagbuf=self._flagbuf,use_cache=self._use_data_cache)
             self.cache = MS.cache
             if repLoadChunk=="EndMS":
                 repNextMS=self.setNextMS()
@@ -388,17 +365,29 @@ class ClassVisServer():
             break
         print>> log, "processing ms %d of %d, chunk %d of %d" % (self.iCurrentMS + 1, self.nMS, self.CurrentMS.current_chunk+1,self.CurrentMS.Nchunk)
 
+
         times=DATA["times"]
         data=DATA["data"]
         A0=DATA["A0"]
         A1=DATA["A1"]
         uvw=DATA["uvw"]
-
-        flags=DATA["flag"]
+        flags=DATA["flags"]
         freqs=MS.ChanFreq.flatten()
         nbl=MS.nbl
+        self.datashape = data.shape
 
-        # ## debug
+        # if using caching, set the flagpath from the cached array (flags are read-only),
+        # and copy data from cached structure to the buffer
+        if self._use_data_cache:
+            self.flagpath = DATA["flagpath"]
+            # copy data from cached array to shared memory data buffer
+            data1 = np.ndarray(shape=self.datashape,dtype=np.complex64,buffer=self._databuf)
+            np.copyto(data1, data)
+            # release cached array since we don't need it now, replace it with buffer version
+            DATA["data"] = data = data1
+
+
+            # ## debug
         # ind=np.where((A0==14)&(A1==31))[0]
         # flags=flags[ind]
         # data=data[ind]
@@ -408,40 +397,27 @@ class ClassVisServer():
         # times=times[ind]
         # ##
 
-        DATA={}
-        DATA["flags"]=flags
-        DATA["data"]=data
-        DATA["uvw"]=uvw
-        DATA["A0"]=A0
-        DATA["A1"]=A1
-        DATA["times"]=times
-        
         # note that this is now a string (filename of the shared array object), and so won't be packed
         # into the shared memory structure
         DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
 
-
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
 
-        
         if ('F' in DecorrMode)|("T" in DecorrMode):
             DATA["uvw_dt"]=np.float64(self.CurrentMS.Give_dUVW_dt(times,A0,A1))
             DATA["MSInfos"]=np.array([repLoadChunk["dt"],repLoadChunk["dnu"].ravel()[0]],np.float32)
             #DATA["MSInfos"][1]=20000.*30
             #DATA["MSInfos"][0]=500.
 
-        # flagging cache depends on DicoSelectOptions
-        flagpath, valid = self.cache.checkCache("Flagging.npy",self.DicoSelectOptions)
-        if valid:
-            print>> log, "  using cached flags from %s" % flagpath
-            DATA["flags"] = np.load(flagpath)
-        else:
-            self.UpdateFlag(DATA)
-            np.save(flagpath, DATA["flags"])
-            self.cache.saveCache("Flagging.npy")
-
-
-        
+        # # flagging cache depends on DicoSelectOptions
+        # flagpath, valid = self.cache.checkCache("Flagging.npy",self.DicoSelectOptions)
+        # if valid:
+        #     print>> log, "  using cached flags from %s" % flagpath
+        #     DATA["flags"] = np.load(flagpath)
+        # else:
+        #     self.UpdateFlag(DATA)
+        #     np.save(flagpath, DATA["flags"])
+        #     self.cache.saveCache("Flagging.npy")
 
         DATA["ChanMapping"]=self.CurrentChanMapping
         DATA["ChanMappingDegrid"]=self.DicoMSChanMappingDegridding[self.iCurrentMS]
@@ -456,14 +432,6 @@ class ClassVisServer():
 
         JonesMachine=ClassJones.ClassJones(self.GD,self.CurrentMS,self.FacetMachine,IdSharedMem=self.IdSharedMem)
         JonesMachine.InitDDESols(DATA)
-
-        #############################
-        #############################
-
-        
-
-
-
 
         if self.AddNoiseJy!=None:
             data+=(self.AddNoiseJy/np.sqrt(2.))*(np.random.randn(*data.shape)+1j*np.random.randn(*data.shape))
@@ -487,7 +455,7 @@ class ClassVisServer():
                      "infos":np.array([MS.na]),
                      "Weights":self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk],
                      "ChanMapping":DATA["ChanMapping"],
-                     "ChanMappingDegrid":DATA["ChanMappingDegrid"]
+                     "ChanMappingDegrid":DATA["ChanMappingDegrid"],
                      }
         
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
@@ -499,101 +467,6 @@ class ClassVisServer():
         self.CurrentVisWeights = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
 
         return "LoadOK"
-
-
-
-
-    def UpdateFlag(self,DATA):
-        print>>log, "Updating flags ..."
-
-        flags=DATA["flags"]
-        uvw=DATA["uvw"]
-        data=DATA["data"]
-        A0=DATA["A0"]
-        A1=DATA["A1"]
-        times=DATA["times"]
-
-        MS=self.CurrentMS
-        self.ThresholdFlag=0.9
-        self.FlagAntNumber=[]
-
-        for A in range(MS.na):
-            ind=np.where((A0==A)|(A1==A))[0]
-            fA=flags[ind].ravel()
-            if ind.size==0: continue
-            nf=np.count_nonzero(fA)
-            Frac=nf/float(fA.size)
-            if Frac>self.ThresholdFlag:
-                print>>log, "  Flagging antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)"%\
-                    (A,Frac*100,"%",self.ThresholdFlag*100,"%")
-                self.FlagAntNumber.append(A)
-        
-
-        if self.DicoSelectOptions["UVRangeKm"]!=None:
-            d0,d1=self.DicoSelectOptions["UVRangeKm"]
-            print>>log, "  Flagging uv data outside uv distance of [%5.1f~%5.1f] km"%(d0,d1)
-            d0*=1e3
-            d1*=1e3
-            u,v,w=uvw.T
-            duv=np.sqrt(u**2+v**2)
-            ind=np.where(((duv>d0)&(duv<d1))!=True)[0]
-            flags[ind,:,:]=True
-
-        
-        if self.DicoSelectOptions["TimeRange"]!=None:
-            t0=times[0]
-            tt=(times-t0)/3600.
-            st0,st1=self.DicoSelectOptions["TimeRange"]
-            print>>log, "  Selecting uv data in time range [%.4f~%5.4f] hours"%(st0,st1)
-            indt=np.where((tt>=st0)&(tt<st1))[0]
-            flags[ind,:,:]=True
-
-        if self.DicoSelectOptions["FlagAnts"]!=None:
-            FlagAnts=self.DicoSelectOptions["FlagAnts"]
-            if not((FlagAnts==None)|(FlagAnts=="")|(FlagAnts==[])): 
-                if type(FlagAnts)==str: FlagAnts=[FlagAnts] 
-                for Name in FlagAnts:
-                    for iAnt in range(MS.na):
-                        if Name in MS.StationNames[iAnt]:
-                            print>>log, "  Flagging antenna #%2.2i[%s]"%(iAnt,MS.StationNames[iAnt])
-                            self.FlagAntNumber.append(iAnt)
-
-        if self.DicoSelectOptions["DistMaxToCore"]!=None:
-            DMax=self.DicoSelectOptions["DistMaxToCore"]*1e3
-            X,Y,Z=MS.StationPos.T
-            Xm,Ym,Zm=np.median(MS.StationPos,axis=0).flatten().tolist()
-            Dist=np.sqrt((X-Xm)**2+(Y-Ym)**2+(Z-Zm)**2)
-            ind=np.where(Dist>DMax)[0]
-            for iAnt in ind.tolist():
-                print>>log,"  Flagging antenna #%2.2i[%s] (distance to core: %.1f km)"%(iAnt,MS.StationNames[iAnt],Dist[iAnt]/1e3)
-                self.FlagAntNumber.append(iAnt)
-
-
-        for A in self.FlagAntNumber:
-            ind=np.where((A0==A)|(A1==A))[0]
-            flags[ind,:,:]=True
-
-        ind=np.where(A0==A1)[0]
-        flags[ind,:,:]=True
-
-        ind=np.any(flags,axis=2)
-        flags[ind]=True
-        
-        # flags.fill(0)
-        # ind=np.where(A0!=A1)[0]
-        # flags[ind,:,:]=True
-
-        ind=np.where(np.isnan(data))
-        flags[ind]=1
-
-        DATA["flags"]=flags
-
-
-        DATA["data"][flags]=1e9
-
-        # if dt0<dt1:
-        #     JonesBeam=np.zeros((Tm.size,),dtype=[("t0",np.float32),("t1",np.float32),("tm",np.float32),("Jones",(NDir,self.MS.na,self.MS.NSPWChan,2,2),np.complex64)])
-
 
     def setFacetMachine(self,FacetMachine):
         self.FacetMachine=FacetMachine
