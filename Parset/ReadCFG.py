@@ -12,7 +12,7 @@ def FormatDico(DicoIn):
 
 def FormatValue(ValueIn,StrMode=False):
 
-    if ValueIn==None: return None
+    if ValueIn is None: return None
 
 
     if "#" in ValueIn:

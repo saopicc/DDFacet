@@ -175,7 +175,7 @@ class ClassMS():
 
 
     def LoadSR(self,useElementBeam=True,useArrayFactor=True):
-        if self.SR!=None: return
+        if self.SR is not None: return
         # t=table(self.MSName,ack=False,readonly=False)
         # if not("LOFAR_ANTENNA_FIELD" in t.getkeywords().keys()):
         #     self.PutLOFARKeys()
@@ -269,7 +269,7 @@ class ClassMS():
 
         print>>log, ModColor.Str("  ... Building BL-mapping for %s"%str(ListStrSel))
 
-        if row1==None:
+        if row1 is None:
             row0=0
             row1=self.nbl
         A0=self.F_A0[row0:row1]
@@ -338,7 +338,7 @@ class ClassMS():
 
     #     print ModColor.Str("  ... Building BL-mapping for %s"%str(ListStrSel))
 
-    #     if row1==None:
+    #     if row1 is None:
     #         row0=0
     #         row1=self.nbl
     #     A0=self.A0[row0:row1]
@@ -369,7 +369,7 @@ class ClassMS():
 
 
     # def SelChannel(self,(start,end,step)=(None,None,None),Revert=False):
-    #     if start!=None:
+    #     if start is not None:
     #         if Revert==False:
     #             ind=np.arange(self.Nchan)[start:end:step]
     #         else:
@@ -424,20 +424,23 @@ class ClassMS():
             UVW_dt=np.dot(R_dt,L.T).T
             return np.float32(UVW_dt)
 
-    def ReinitChunkIter(self,ChunkSizeH):
-        self.ChunkSizeH=ChunkSizeH
-        self.nRowChunk=self.nbl*int(self.ChunkSizeH*3600/self.dt)
-        self.ROW0=0
-        self.ROW1=0
+    def ReinitChunkIter(self):
+        self.current_chunk = -1
 
     def GiveNextChunk(self,databuf=None,flagbuf=None):
-        row0=self.ROW1
-        row1=self.ROW1+self.nRowChunk
-        if (row0,row1) not in self._chunk_caches:
-            self._chunk_caches[row0,row1] = CacheManager(self.MSName+".ddfcache/F%d:D%d:%d:%d" % (self.Field,self.DDID,row0,row1), self._reset_cache)
-        self.cache = self._chunk_caches[row0,row1]
-        return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf)
-        
+        # get row0:row1 of next chunk. If row1==row0, chunk is empty and we must skip it
+        while self.current_chunk < self.Nchunk-1:
+            self.current_chunk += 1
+            row0, row1 = self._chunk_r0r1[self.current_chunk]
+            if row1 > row0:
+                if (row0,row1) not in self._chunk_caches:
+                    self._chunk_caches[row0,row1] = CacheManager(self.MSName+".ddfcache/F%d:D%d:%d:%d" % (self.Field,self.DDID,row0,row1), self._reset_cache)
+                self.cache = self._chunk_caches[row0,row1]
+                return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf)
+        return "EndMS"
+
+    def getChunkRow0Row1 (self):
+        return self._chunk_r0r1
         
     def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False,databuf=None,flagbuf=None):
 
@@ -522,7 +525,7 @@ class ClassMS():
         DATA["data"]=vis_all
         DATA["flag"]=flag_all
 
-        # if self.AverageSteps!=None:
+        # if self.AverageSteps is not None:
         #     StepTime,StepFreq=self.AverageSteps
         #     DATA=self.GiveAverageTimeFreq(DATA,StepTime=StepTime,StepFreq=StepFreq)
 
@@ -536,10 +539,10 @@ class ClassMS():
         #DicoDataOut["nrows"]=DicoData["nrows"]
         DicoDataOut["uvw"]=DicoData["uvw"]
 
-        if StepFreq==None:
+        if StepFreq is None:
             StepFreq=1
 
-        if StepTime==None:
+        if StepTime is None:
             StepTime=1
             
         NTimesIn=(DicoData["times"][-1]-DicoData["times"][0])/DicoData["dt"]
@@ -647,7 +650,7 @@ class ClassMS():
     def RemoveStation(self):
         
         DelStationList=self.DelStationList
-        if DelStationList==None: return
+        if DelStationList is None: return
 
         StationNames=self.StationNames
         self.MapStationsKeep=np.arange(len(StationNames))
@@ -718,10 +721,33 @@ class ClassMS():
 
         self.ColNames=table_all.colnames()
         self.F_nrows=table_all.nrows()#-nbl
-        T0=table_all.getcol('TIME',0,1)[0]
-        T1=table_all.getcol('TIME',self.F_nrows-1,1)[0]
+
+        # make mapping into chunks
+        if not self.TimeChunkSize:
+            T0=table_all.getcol('TIME',0,1)[0]
+            T1=table_all.getcol('TIME',self.F_nrows-1,1)[0]
+            print>>log,"ChunkHours is not set; MS %s (%d rows) will be processed as a single chunk"%(self.MSName, self.F_nrows)
+            chunk_rows = [0]
+        else:
+            all_times = table_all.getcol("TIME")
+            if (all_times[1:] - all_times[:-1]).min() < 0:
+                raise RuntimeError,"MS %s: the TIME column must be in increasing order"%self.MSName
+            T0, T1 = all_times[0], all_times[-1]
+            chunk_t0 = np.arange(T0, T1, self.TimeChunkSize*3600)
+            # chunk_t0 now gives starting time of each chunk
+            chunk_row0 = [ np.argmax(all_times>=ch_t0) for ch_t0 in chunk_t0 ]
+            # chunk_row0 gives the starting row of each chunk
+            if len(chunk_row0) == 1:
+                print>>log,"MS %s (%d rows) will be processed as a single chunk"%(self.MSName, self.F_nrows)
+            else:
+                print>>log,"MS %s (%d rows) will be split into %d chunks, at rows %s"%(self.MSName, self.F_nrows,
+                                                                                       len(chunk_row0), " ".join(map(str,chunk_row0)))
+        self.Nchunk = len(chunk_row0)
+        chunk_row0.append(self.F_nrows)
+        self._chunk_r0r1 = [ chunk_row0[i:i+2] for i in range(self.Nchunk) ]
+
         #SPW=table_all.getcol('DATA_DESC_ID')
-        # if self.SelectSPW!=None:
+        # if self.SelectSPW is not None:
         #     self.ListSPW=self.SelectSPW
         #     #print "dosel"
         # else:
@@ -806,7 +832,7 @@ class ClassMS():
             self.ChanFreq=self.ChanFreq[0,::-1]
             self.dFreq=np.abs(self.dFreq)
 
-        # if self.AverageSteps!=None:
+        # if self.AverageSteps is not None:
         #     _,StepFreq=self.AverageSteps
         #     NChanOut=self.ChanFreq.size/StepFreq
         #     NChanMS=self.ChanFreq.size
@@ -871,7 +897,8 @@ class ClassMS():
         ll.append("   - Number of baseline = %i"%self.nbl)
         ll.append("   - Number of SPW = %i"%self.NSPW)
         ll.append("   - Number of channels = %i"%self.Nchan)
-        
+        ll.append("   - Number of time chunks = %i"%self.Nchunk)
+
         ss="\n".join(ll)+"\n"
         return ss
 
@@ -897,7 +924,7 @@ class ClassMS():
         t.close()
 
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
-        if vis==None:
+        if vis is None:
             vis=self.data
         if DoPrint: print>>log, "Writting data in column %s"%ModColor.Str(Col,col="green")
         table_all=self.GiveMainTable(readonly=False)
@@ -922,12 +949,12 @@ class ClassMS():
             vecout=self.data[col][(self.A0==a0)&(self.A1==a1),:,:]
         else:
             vecout=self.data[(self.A0==a0)&(self.A1==a1),:,:]
-        if pol!=None:
+        if pol is not None:
             vecout=vecout[:,:,pol]
         return vecout
 
     def GiveVisBLChan(self,a0,a1,chan,pol=None):
-        if pol==None:
+        if pol is None:
             vecout=(self.data[(self.A0==a0)&(self.A1==a1),chan,0]+self.data[(self.A0==a0)&(self.A1==a1),chan,3])/2.
         else:
             vecout=self.data[(self.A0==a0)&(self.A1==a1),chan,pol]
@@ -1003,7 +1030,7 @@ class ClassMS():
 
     def CopyCol(self,Colin,Colout):
         t=table(self.MSName,readonly=False,ack=False)
-        if self.TimeChunkSize==None:
+        if self.TimeChunkSize is None:
             print>>log, "  ... Copying column %s to %s"%(Colin,Colout)
             t.putcol(Colout,t.getcol(Colin))
         else:

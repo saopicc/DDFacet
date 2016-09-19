@@ -38,10 +38,10 @@ def test():
 class ConvertMachine():
     def __init__(self,FitsName,NameOut=None,regFile=None):
         self.FitsName=FitsName
-        if NameOut==None:
+        if NameOut is None:
             NameOut=self.FitsName+".png"
         self.NameOut=NameOut
-        if regFile!=None:
+        if regFile is not None:
             self.ReadReg(regFile)
         
     def ReadReg(self,infile):
@@ -161,7 +161,7 @@ class ConvertMachine():
         print rac,decc,radius
         lmc.recenter(rac,decc,width=0.5,height=0.3)
         
-        # if radecbox!=None:
+        # if radecbox is not None:
         #     rac,decc,radius=radecbox
         #     lmc.recenter(rac,decc,radius)
             

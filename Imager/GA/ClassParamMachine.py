@@ -57,7 +57,7 @@ class ClassParamMachine():
 
     def setFreqs(self,DicoMappingDesc):
         self.DicoMappingDesc=DicoMappingDesc
-        if self.DicoMappingDesc==None: return
+        if self.DicoMappingDesc is None: return
         self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.DicoMappingDesc)#,BeamEnable=False)
         
 
@@ -98,7 +98,7 @@ class ClassParamMachine():
 
 
                 if Type=="Alpha":
-                    if AlphaModel==None:
+                    if AlphaModel is None:
                         AlphaModel=MeanVal*np.ones((SModelArray.size,),np.float32)
                     SubArray[:]=AlphaModel[:]
                     if i_indiv!=0: 
@@ -131,7 +131,7 @@ class ClassParamMachine():
             
     def ArrayToSubArray(self,A,Type):
         iSlice=self.DicoIParm[Type]["iSlice"]
-        if iSlice!=None:
+        if iSlice is not None:
             ParmsArray=A.reshape((self.NParam,self.NPixListParms))[iSlice]
         elif "DataModel" in self.DicoIParm[Type].keys():
             ParmsArray=self.DicoIParm[Type]["DataModel"].flatten().copy()
@@ -143,7 +143,7 @@ class ClassParamMachine():
 
     # def SubArrayToArray(self,A,Type):
     #     iSlice=self.DicoIParm[Type]["iSlice"]
-    #     if iSlice!=None:
+    #     if iSlice is not None:
     #         ParmsArray=A.reshape((self.NParam,self.AM.NPixListParms))[iSlice]
     #     else:
     #         ParmsArray=np.zeros((self.AM.NPixListParm,),np.float32)

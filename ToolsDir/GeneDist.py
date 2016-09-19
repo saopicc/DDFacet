@@ -29,7 +29,7 @@ class ClassDistMachine():
     def giveCumulDist(self,X,W=None,Ns=10,Norm=True,xmm=None):
         xmin=X.min()
         xmax=X.max()
-        if xmm==None:
+        if xmm is None:
             xr=xmax-xmin
             x=np.linspace(xmin-0.1*xr,xmax+0.1*xr,Ns)
         else:
@@ -37,7 +37,7 @@ class ClassDistMachine():
             
 
         print x
-        if W==None:
+        if W is None:
             W=np.ones((X.size,),np.float32)
 
         D=(x.reshape((Ns,1))>(X).reshape((1,X.size)))*W.reshape((1,X.size))

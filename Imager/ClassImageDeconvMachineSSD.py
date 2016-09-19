@@ -11,24 +11,52 @@ from DDFacet.Other import ClassTimeIt
 import ClassMultiScaleMachine
 from pyrap.images import image
 from ClassPSFServer import ClassPSFServer
-import ClassModelMachineGA
+import sys
+try:
+    from DDFacet.Imager.GA import ClassModelMachineGA
+except:
+    print>> log, ModColor.Str("Problem loading ClassModelMachineGA, please check if ClassModelMachineGA.py exists in DDFace dir")
+    sys.exit(1)
 
 try:
-    import ClassModelMachineMORESANE
-    from MORESANE.ClassMoresane import ClassMoresane
+    from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
 except:
-    pass
+    print>> log, ModColor.Str("Problem loading ClassModelMachineMORESANE, please check if ClassModelMachineMORESANE.py exists in DDFace dir")
+    #sys.exit(1)
 
 
 from DDFacet.Other.progressbar import ProgressBar
 import ClassGainMachine
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.PSourceExtract import ClassIncreaseIsland
-from GA.ClassEvolveGA import ClassEvolveGA
-from SASIR.ClassSasir import ClassSasir
+
+####################################################
+####### Start of Deconvolution Algos imports #######
+####################################################
+try: # Genetic Algo
+    from GA.ClassEvolveGA import ClassEvolveGA
+except:
+    print>> log, ModColor.Str("Failed to import the Genetic Algorithm Class (ClassEvolveGA)")
+    sys.exit(1)
+
+try: # MORESANE
+    from MORESANE.ClassMoresane import ClassMoresane
+except:
+    print>> log, ModColor.Str("Failed to import the Moresane Class (ClassMoresane)")
+    #sys.exit(1)
+
+try: # SASIR
+    from SASIR.ClassSasir import ClassSasir
+except:
+    print>> log, ModColor.Str("Failed to import the Sasir Class (ClassSasir)")
+    #sys.exit(1)
+
+##################################################
+####### End of Deconvolution Algos imports #######
+##################################################
+
 
 from DDFacet.Other import MyPickle
-import ipdb
 
 import multiprocessing
 import time
@@ -67,16 +95,18 @@ class ClassImageDeconvMachine():
         self.PSFCross=None
 
         self.IslandDeconvMode=self.GD["SSD"]["IslandDeconvMode"]  # "GA" or "Moresane" or "Sasir"
-
-        if self.IslandDeconvMode=="GA":
-            self.ModelMachine = ClassModelMachineGA.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
-        elif self.IslandDeconvMode=="Moresane":
-            self.ModelMachine = ClassModelMachineMORESANE.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
-        elif self.IslandDeconvMode=="Sasir":
-            raise NotImplementedError("ClassModelMachineSASIR is not implemented")
+        if ModelMachine is None:
+            if self.IslandDeconvMode == "GA":
+                self.ModelMachine = ClassModelMachineGA.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
+            elif self.IslandDeconvMode == "Moresane":
+                self.ModelMachine = ClassModelMachineMORESANE.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
+            elif self.IslandDeconvMode == "Sasir":
+                raise NotImplementedError("ClassModelMachineSASIR is not implemented")
+        else:
+            self.ModelMachine = ModelMachine
             #self.ModelMachine = ClassModelMachineSASIR.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
 
-        if CleanMaskImage!=None:
+        if CleanMaskImage is not None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
             nch,npol,_,_=MaskArray.shape
@@ -448,8 +478,13 @@ class ClassImageDeconvMachine():
         return ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*Max if self.CycleFactor else 0
 
     def Deconvolve(self, *args, **kwargs):
-        return self.DeconvolveSerial(*args, **kwargs)
-        #return self.DeconvolveParallel(*args,**kwargs)
+
+        if self.GD['SSD']['Parallel'] == True:
+            print>>log,"Using Deconvolve Parallel for GA"
+            return self.DeconvolveParallel(*args,**kwargs)
+        else:
+            print>>log,"Using Deconvolve Serial for GA"
+            return self.DeconvolveSerial(*args, **kwargs)
 
     def DeconvolveSerial(self, ch=0):
         """
@@ -534,7 +569,8 @@ class ClassImageDeconvMachine():
 
         for iIsland in range(self.NIslands):
             ThisPixList=self.ListIslands[iIsland]
-            ThisSquarePixList=self.ListSquareIslands[iIsland]
+            if self.IslandDeconvMode == "Moresane" or self.IslandDeconvMode == "Sasir":  # convert island to square image to pass to MORESANE & SASIR
+                ThisSquarePixList=self.ListSquareIslands[iIsland]
 
             print>>log,"  Fitting island #%4.4i with %i pixels"%(iIsland,len(ThisPixList))
 
@@ -562,19 +598,19 @@ class ClassImageDeconvMachine():
 
             # COMMENT TO RUN IN DDF, UNCOMMENT TO TEST WITH TESTXXDeconv.py under XX folder
             ################################
-            DicoSave={"Dirty":self._Dirty,
-                      "PSF":PSF,
-                      "FreqsInfo":FreqsInfo,
+            #DicoSave={"Dirty":self._Dirty,
+            #          "PSF":PSF,
+            #          "FreqsInfo":FreqsInfo,
                       #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
-                      "ListPixData":ThisPixList,
-                      "ListPixParms":ThisPixList,
-                      "ListSquarePix": ThisSquarePixList,
-                      "IslandBestIndiv":IslandBestIndiv,
-                      "GD":self.GD,
-                      "FacetID":FacetID}
-            print "saving"
-            MyPickle.Save(DicoSave, "SaveTest")
-            print "saving ok"
+            #          "ListPixData":ThisPixList,
+            #          "ListPixParms":ThisPixList,
+            ##          "ListSquarePix": ThisSquarePixList, ## When Moresane or SASIR are used
+            #          "IslandBestIndiv":IslandBestIndiv,
+            #          "GD":self.GD,
+            #          "FacetID":FacetID}
+            #print "saving"
+            #MyPickle.Save(DicoSave, "SaveTest")
+            #print "saving ok"
             #ipdb.set_trace()
 
             ################################

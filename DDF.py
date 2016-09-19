@@ -80,13 +80,14 @@ def read_options():
     OP.add_option('MSName',help='Input MS')
     OP.add_option('MSListFile',help='Input MSs')
     OP.add_option('ColName')
-    OP.add_option('TChunkSize')
+    OP.add_option('ChunkHours')
     OP.add_option('InitDicoModel',help='Image name [%default]')
     OP.add_option('WeightCol')
     OP.add_option('PredictColName')
     
     OP.OptionGroup("* Images-related options","Images")
-    OP.add_option('ImageName',help='Image name [%default]',default='DefaultName')
+    OP.add_option('ImageName',help='Image name [%default]')
+
     OP.add_option('PredictModelName',help='Predict Image name [%default]')
     OP.add_option('AllowColumnOverwrite', help='Whether to overwrite existing column or not [%default]')
     OP.add_option('SaveIms',help='')
@@ -102,11 +103,13 @@ def read_options():
 #    OP.add_option('MultiFreqMap', help="Outputs multi-frequency cube (NFreqBands) instead of average map")
 
 
-    OP.OptionGroup("* File storing options","Stores")
-    OP.add_option('DeleteDDFProducts')
-    OP.add_option('PSF')
-    OP.add_option('Dirty')
-   
+    OP.OptionGroup("* Caching options","Caching")
+    OP.add_option('ResetCache')
+    OP.add_option('ResetPSF')
+    OP.add_option('ResetDirty')
+    OP.add_option('CachePSF')
+    OP.add_option('CacheDirty')
+
 
     OP.OptionGroup("* Selection","DataSelection")
     OP.add_option('Field')
@@ -252,7 +255,7 @@ def test():
 
 
 def main(OP=None,messages=[]):
-    if OP==None:
+    if OP is None:
         OP = MyPickle.Load(SaveFile)
 
     DicoConfig=OP.DicoConfig

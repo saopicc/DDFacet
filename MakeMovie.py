@@ -28,7 +28,7 @@ def read_options():
 def main(options=None):
     
 
-    if options==None:
+    if options is None:
         f = open("last_param.obj",'rb')
         options = pickle.load(f)
     

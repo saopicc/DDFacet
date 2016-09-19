@@ -51,7 +51,7 @@ def monitorMem():
 
         smem=psutil.swap_memory()
         Smem=smem.used/float(2**20)
-        if Swap0==None:
+        if Swap0 is None:
             Swap0=Smem
         LSMem.append(Smem-Swap0)
 

@@ -18,7 +18,7 @@ def SizeShm():
     S=0
     for l in L:
         A=GiveArray(l)
-        if A!=None:
+        if A is not None:
             S+=A.nbytes
     return float(S)/(1024**2)
 
@@ -59,7 +59,7 @@ def ListNames():
 def DelAll(key=None):
     ll=ListNames()
     for name in ll:
-        if key!=None:
+        if key is not None:
             if key in name: DelArray(name)
         else:
             DelArray(name)

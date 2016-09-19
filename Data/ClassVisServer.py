@@ -25,7 +25,7 @@ def test():
 class ClassVisServer():
     def __init__(self,MSName,GD=None,
                  ColName="DATA",
-                 TChunkSize=1,
+                 TChunkSize=1,                # chunk size, in hours
                  TVisSizeMin=1,
                  DicoSelectOptions={},
                  LofarBeam=None,
@@ -70,15 +70,11 @@ class ClassVisServer():
         self.DicoSelectOptions=DicoSelectOptions
         self.SharedNames=[]
         self.PrefixShared=PrefixShared
-        self.VisInSharedMem = (PrefixShared!=None)
+        self.VisInSharedMem = (PrefixShared is not None)
         self.LofarBeam=LofarBeam
         self.ApplyBeam=False
         self.GD=GD
         self.Init()
-        
-        self.dTimesVisMin=self.TVisSizeMin
-        self.CurrentVisTimes_SinceStart_Sec=0.,0.
-        self.iCurrentVisTime=0
 
         # This is the shape of the data/flag chunk which will be read into memory at one time.
         # To avoid reallocation, we do just one array of the "maximum" size, which will be
@@ -116,32 +112,15 @@ class ClassVisServer():
             MS=ClassMS.ClassMS(MSName,Col=self.ColName,DoReadData=False,AverageTimeFreq=(1,3),
                 Field=self.Field,DDID=self.DDID,
                 TaQL=self.TaQL,
+                TimeChunkSize=self.TMemChunkSize,
                 ChanSlice=chanslice,GD=self.GD,
-                ResetCache = self.GD["Stores"]["DeleteDDFProducts"])
+                ResetCache = self.GD["Caching"]["ResetCache"])
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
             global_freqs.update(MS.ChanFreq)
             min_freq = min(min_freq,(MS.ChanFreq-MS.ChanWidth/2).min())
             max_freq = max(max_freq,(MS.ChanFreq+MS.ChanWidth/2).max())
             
-            # if self.GD["Stores"]["DeleteDDFProducts"]:
-            #     ThisMSName=reformat.reformat(os.path.abspath(MS.MSName),LastSlash=False)
-            #
-            #     MapName="%s/Flagging.npy"%ThisMSName
-            #     os.system("rm %s"%MapName)
-            #
-            #     MapName="%s/Mapping.CompGrid.npy"%ThisMSName
-            #     os.system("rm %s"%MapName)
-            #
-            #     MapName="%s/Mapping.CompDeGrid.npy"%ThisMSName
-            #     os.system("rm %s"%MapName)
-            #
-            #     JonesName="%s/JonesNorm_Beam.npz"%ThisMSName
-            #     os.system("rm %s"%JonesName)
-            #
-            #     JonesName="%s/JonesNorm_killMS.npz"%ThisMSName
-            #     os.system("rm %s"%JonesName)
-
         # main cache is initialized from main cache of first MS
         self.maincache = self.cache = self.ListMS[0].maincache
 
@@ -287,13 +266,8 @@ class ClassVisServer():
 
 
         MS=self.ListMS[0]
-        TimesInt=np.arange(0,MS.DTh,self.TMemChunkSize).tolist()
-        if not(MS.DTh in TimesInt): TimesInt.append(MS.DTh)
-        self.TimesInt=TimesInt
-        self.NTChunk=len(self.TimesInt)-1
-        self.ReInitChunkCount()
 
-        
+        self.ReInitChunkCount()
 
         #TimesVisMin=np.arange(0,MS.DTh*60.,self.TVisSizeMin).tolist()
         #if not(MS.DTh*60. in TimesVisMin): TimesVisMin.append(MS.DTh*60.)
@@ -306,7 +280,7 @@ class ClassVisServer():
         self.CellSizeRad=CellSizeRad
 
     def CalcWeights(self):
-        if self.VisWeights!=None: return
+        if self.VisWeights is not None: return
         # ImShape=self.PaddedFacetShape
         ImShape = self.FullImShape#self.FacetShape
         CellSizeRad = self.CellSizeRad
@@ -324,21 +298,26 @@ class ClassVisServer():
         if self.MFSWeighting or self.NFreqBands<2:
             band_mapping = None
         else:
-            band_mapping = self.DicoMSChanMapping
+            # we need provide a band mapping for every chunk of weights, so construct a list
+            # where each MS's mapping is repeated Nchunk times
+            band_mapping = []
+            for i, ms in enumerate(self.ListMS):
+                band_mapping += [self.DicoMSChanMapping[i]]*ms.Nchunk
 
         #self.VisWeights=np.ones((uvw.shape[0],self.MS.ChanFreq.size),dtype=np.float64)
 
-        self.VisWeights = WeightMachine.CalcWeights(uv_weights_flags_freqs,
+        weight_list = WeightMachine.CalcWeights(uv_weights_flags_freqs,
                                               Robust=Robust,
                                               Weighting=self.Weighting,
                                               Super=self.Super,
                                               nbands=self.NFreqBands if band_mapping is not None else 1,
                                               band_mapping=band_mapping)
 
-
-        self.CurrentVisWeights = self.VisWeights[0]
-        # print>>log,self.CurrentVisWeights.mean(),self.CurrentVisWeights
-        # self.CalcMeanBeam()
+        # VisWeights has an entry for every chunk of every MS. Break it up into per-MS sets
+        self.VisWeights = []
+        for ms in self.ListMS:
+            self.VisWeights.append(weight_list[:ms.Nchunk])
+            del weight_list[:ms.Nchunk]
 
     def CalcMeanBeam(self):
         AverageBeamMachine=ClassBeamMean.ClassBeamMean(self)
@@ -395,14 +374,11 @@ class ClassVisServer():
         return DATA
 
     def ReInitChunkCount(self):
-        self.CurrentMemTimeChunk=0
-        self.CurrentVisTimes_SinceStart_Sec=0.,0.
-        self.iCurrentVisTime=0
         self.iCurrentMS=0
+        self.iCurrentChunk=0
         self.CurrentFreqBand=0
-        self.CurrentVisWeights = self.VisWeights and self.VisWeights[0]   # first time VisWeights might still be unset -- but then CurrentVisWeights will be set later in CalcWeights
         for MS in self.ListMS:
-            MS.ReinitChunkIter(self.TMemChunkSize)
+            MS.ReinitChunkIter()
         self.CurrentMS=self.ListMS[0]
         self.CurrentChanMapping=self.DicoMSChanMapping[0]
         self.CurrentChanMappingDegrid = self.FreqBandChannelsDegrid[0]
@@ -413,16 +389,8 @@ class ClassVisServer():
             print>>log, ModColor.Str("Reached end of MSList")
             return "EndListMS"
         else:
-            print>>log,"next ms"
             self.iCurrentMS+=1
-            print>>log,"next ms (%d/%d)"%(self.iCurrentMS+1,self.nMS)
             self.CurrentMS=self.ListMS[self.iCurrentMS]
-            # self.CurrentFreqBand=0
-            self.CurrentVisWeights = self.VisWeights[self.iCurrentMS]
-            ## OMS: CurrentFreqBand no longer used anywhere, so I remove it. An MS can correspond to multiple (gridding) bands anyway.
-            # if self.MultiFreqMode:
-            #     self.CurrentFreqBand = np.where((self.FreqBandsMin <= np.mean(self.CurrentMS.ChanFreq))&(self.FreqBandsMax > np.mean(self.CurrentMS.ChanFreq)))[0][0]
-
             self.CurrentChanMapping=self.DicoMSChanMapping[self.iCurrentMS]
             self.CurrentChanMappingDegrid=self.FreqBandChannelsDegrid[self.iCurrentMS]
             return "OK"
@@ -438,7 +406,7 @@ class ClassVisServer():
 
         while True:
             MS=self.CurrentMS
-            repLoadChunk=MS.GiveNextChunk(databuf=self._databuf,flagbuf=self._flagbuf)
+            repLoadChunk = MS.GiveNextChunk(databuf=self._databuf,flagbuf=self._flagbuf)
             self.cache = MS.cache
             if repLoadChunk=="EndMS":
                 repNextMS=self.setNextMS()
@@ -450,10 +418,7 @@ class ClassVisServer():
                     continue
             DATA=repLoadChunk
             break
-        
-        
-
-        self.TimeMemChunkRange_sec=DATA["times"][0],DATA["times"][-1]
+        print>> log, "processing ms %d of %d, chunk %d of %d" % (self.iCurrentMS + 1, self.nMS, self.CurrentMS.current_chunk+1,self.CurrentMS.Nchunk)
 
         times=DATA["times"]
         data=DATA["data"]
@@ -484,7 +449,7 @@ class ClassVisServer():
         DATA["times"]=times
         
 
-        DATA["Weights"]=self.CurrentVisWeights[MS.ROW0:MS.ROW1]
+        DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
 
 
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
@@ -531,7 +496,7 @@ class ClassVisServer():
 
 
 
-        if self.AddNoiseJy!=None:
+        if self.AddNoiseJy is not None:
             data+=(self.AddNoiseJy/np.sqrt(2.))*(np.random.randn(*data.shape)+1j*np.random.randn(*data.shape))
 
         if freqs.size>1:
@@ -551,7 +516,7 @@ class ClassVisServer():
                      "ROW0":MS.ROW0,
                      "ROW1":MS.ROW1,
                      "infos":np.array([MS.na]),
-                     "Weights":self.CurrentVisWeights[MS.ROW0:MS.ROW1],
+                     "Weights":self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk],
                      "ChanMapping":DATA["ChanMapping"],
                      "ChanMappingDegrid":DATA["ChanMappingDegrid"]
                      }
@@ -595,7 +560,7 @@ class ClassVisServer():
                 self.FlagAntNumber.append(A)
         
 
-        if self.DicoSelectOptions["UVRangeKm"]!=None:
+        if self.DicoSelectOptions["UVRangeKm"] is not None:
             d0,d1=self.DicoSelectOptions["UVRangeKm"]
             print>>log, "  Flagging uv data outside uv distance of [%5.1f~%5.1f] km"%(d0,d1)
             d0*=1e3
@@ -606,7 +571,7 @@ class ClassVisServer():
             flags[ind,:,:]=True
 
         
-        if self.DicoSelectOptions["TimeRange"]!=None:
+        if self.DicoSelectOptions["TimeRange"] is not None:
             t0=times[0]
             tt=(times-t0)/3600.
             st0,st1=self.DicoSelectOptions["TimeRange"]
@@ -614,9 +579,9 @@ class ClassVisServer():
             indt=np.where((tt>=st0)&(tt<st1))[0]
             flags[ind,:,:]=True
 
-        if self.DicoSelectOptions["FlagAnts"]!=None:
+        if self.DicoSelectOptions["FlagAnts"] is not None:
             FlagAnts=self.DicoSelectOptions["FlagAnts"]
-            if not((FlagAnts==None)|(FlagAnts=="")|(FlagAnts==[])): 
+            if not((FlagAnts is None)|(FlagAnts=="")|(FlagAnts==[])):
                 if type(FlagAnts)==str: FlagAnts=[FlagAnts] 
                 for Name in FlagAnts:
                     for iAnt in range(MS.na):
@@ -624,7 +589,7 @@ class ClassVisServer():
                             print>>log, "  Flagging antenna #%2.2i[%s]"%(iAnt,MS.StationNames[iAnt])
                             self.FlagAntNumber.append(iAnt)
 
-        if self.DicoSelectOptions["DistMaxToCore"]!=None:
+        if self.DicoSelectOptions["DistMaxToCore"] is not None:
             DMax=self.DicoSelectOptions["DistMaxToCore"]*1e3
             X,Y,Z=MS.StationPos.T
             Xm,Ym,Zm=np.median(MS.StationPos,axis=0).flatten().tolist()
@@ -739,55 +704,57 @@ class ClassVisServer():
         output_list = []
         self._chunk_shape = [0, 0, 0]
         for num_ms, ms in enumerate(self.ListMS):
-            tab = ms.GiveMainTable()
-            chanslice = ms.ChanSlice
-            if not tab.nrows():
-                # if no data in this MS, make single, flagged entry
-                output_list.append((np.zeros((1, 2)), np.zeros((1, len(ms.ChanFreq))), np.array([True]), ms.ChanFreq))
-                continue
+            for row0, row1 in ms.getChunkRow0Row1():
+                nrows = row1-row0
+                tab = ms.GiveMainTable()
+                chanslice = ms.ChanSlice
+                if not nrows:
+                    # if no data in this chunk, make single, flagged entry
+                    output_list.append((np.zeros((1, 2)), np.zeros((1, len(ms.ChanFreq))), np.array([True]), ms.ChanFreq))
+                    continue
 
-            uvs = tab.getcol("UVW")[:,:2]
-            flags = np.empty((tab.nrows(), len(ms.ChanFreq), len(ms.CorrelationIds)), bool)
-            # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
-            tab.getcolslicenp("FLAG",flags,ms.cs_tlc,ms.cs_brc,ms.cs_inc)
-            # update "outer" MS shape. Note that this has to take the full channel axis, no channel slicing
-            self._chunk_shape = [ max(a,b) for a,b in zip(self._chunk_shape, flags.shape) ] 
-            # if any polarization is flagged, flag all 4 correlations. Shape of flags becomes nrow,nchan
-            flags = flags.max(axis=2)
-            # valid: array of Nrow,Nchan, with meaning inverse to flags
-            valid = ~flags
-            # if all channels are flagged, flag whole row. Shape of flags becomes nrow
-            flags = flags.min(axis=1)
+                uvs = tab.getcol("UVW",row0,nrows)[:,:2]
+                flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), bool)
+                # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
+                tab.getcolslicenp("FLAG",flags,ms.cs_tlc,ms.cs_brc,ms.cs_inc,row0,nrows)
+                # update "outer" MS shape. Note that this has to take the full channel axis, no channel slicing
+                self._chunk_shape = [ max(a,b) for a,b in zip(self._chunk_shape, flags.shape) ]
+                # if any polarization is flagged, flag all 4 correlations. Shape of flags becomes nrow,nchan
+                flags = flags.max(axis=2)
+                # valid: array of Nrow,Nchan, with meaning inverse to flags
+                valid = ~flags
+                # if all channels are flagged, flag whole row. Shape of flags becomes nrow
+                flags = flags.min(axis=1)
 
-            if WeightCol == "WEIGHT_SPECTRUM":
-                WEIGHT = tab.getcol(WeightCol)[:, chanslice]
-                print>> log, "  Reading column %s for the weights, shape is %s" % (WeightCol, WEIGHT.shape)
-                # take mean weight and apply this to all correlations:
-                WEIGHT = np.mean(WEIGHT, axis=2) * valid
+                if WeightCol == "WEIGHT_SPECTRUM":
+                    WEIGHT = tab.getcol(WeightCol,row0,nrows)[:, chanslice]
+                    print>> log, "  Reading column %s for the weights, shape is %s" % (WeightCol, WEIGHT.shape)
+                    # take mean weight and apply this to all correlations:
+                    WEIGHT = np.mean(WEIGHT, axis=2) * valid
 
-            elif WeightCol == "WEIGHT":
-                WEIGHT = tab.getcol(WeightCol)
-                print>> log, "  Reading column %s for the weights, shape is %s, will expand frequency axis" % (
-                WeightCol, WEIGHT.shape)
-                # take mean weight and apply this to all correlations:
-                WEIGHT = np.mean(WEIGHT, axis=1)
-                # expand to have frequency axis
-                WEIGHT = WEIGHT[:, np.newaxis] * valid
-            else:
-                ## in all other cases (i.e. IMAGING_WEIGHT) assume a column of shape NRow,NFreq to begin with, check for this:
-                WEIGHT = tab.getcol(WeightCol)[:, chanslice]
-                print>> log, "  Reading column %s for the weights, shape is %s" % (WeightCol, WEIGHT.shape)
-                if WEIGHT.shape != valid.shape:
-                    raise TypeError, "weights column expected to have shape of %s" % (valid.shape,)
-                WEIGHT *= valid
+                elif WeightCol == "WEIGHT":
+                    WEIGHT = tab.getcol(WeightCol,row0,nrows)
+                    print>> log, "  Reading column %s for the weights, shape is %s, will expand frequency axis" % (
+                    WeightCol, WEIGHT.shape)
+                    # take mean weight and apply this to all correlations:
+                    WEIGHT = np.mean(WEIGHT, axis=1)
+                    # expand to have frequency axis
+                    WEIGHT = WEIGHT[:, np.newaxis] * valid
+                else:
+                    ## in all other cases (i.e. IMAGING_WEIGHT) assume a column of shape NRow,NFreq to begin with, check for this:
+                    WEIGHT = tab.getcol(WeightCol,row0,nrows)[:, chanslice]
+                    print>> log, "  Reading column %s for the weights, shape is %s" % (WeightCol, WEIGHT.shape)
+                    if WEIGHT.shape != valid.shape:
+                        raise TypeError, "weights column expected to have shape of %s" % (valid.shape,)
+                    WEIGHT *= valid
 
-            WEIGHT = WEIGHT.astype(np.float64)
+                WEIGHT = WEIGHT.astype(np.float64)
 
-            output_list.append((uvs, WEIGHT, flags, ms.ChanFreq))
-            tab.close()
+                output_list.append((uvs, WEIGHT, flags, ms.ChanFreq))
+                tab.close()
 
-            weightsum = weightsum + WEIGHT.sum(dtype=np.float64)
-            nweights += valid.sum()
+                weightsum = weightsum + WEIGHT.sum(dtype=np.float64)
+                nweights += valid.sum()
 
         # normalize weights
         print>> log, "normalizing weights (sum %g from %d valid visibility points)" % (weightsum, nweights)

@@ -74,7 +74,7 @@ class ClassSmearMapping():
             for a1 in range(na):
                 if a0==a1: continue
                 MapBL=GiveBlocksRowsListBL(a0,a1,InfoSmearMapping,self.IdSharedMem)
-                if MapBL==None: continue
+                if MapBL is None: continue
                 BlocksRowsListBL,BlocksSizesBL,NBlocksTotBL=MapBL
                 BlocksRowsList+=BlocksRowsListBL
                 NBlocksTot+=NBlocksTotBL
@@ -382,7 +382,7 @@ class WorkerMap(multiprocessing.Process):
 
             rep=GiveBlocksRowsListBL(a0,a1,self.InfoSmearMapping,self.IdSharedMem,self.GridChanMapping)
 
-            if rep!=None:
+            if rep is not None:
                 ThisWorkerMapName="%sBlocksRowsList.Worker_%3.3i"%(self.IdSharedMem,self.IdWorker)
                 BlocksRowsListBLWorker=NpShared.GiveArray(ThisWorkerMapName)
                 if type(BlocksRowsListBLWorker)==type(None):

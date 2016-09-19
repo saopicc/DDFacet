@@ -73,16 +73,16 @@ def setValue(Dico,key,Value):
 
 
 def FileToDict(fname=None,AppendToDico=None,ListOptions=None):
-    if AppendToDico==None:
+    if AppendToDico is None:
         Dict={}
     else:
         Dict=AppendToDico
         
     
-    if fname!=None:
+    if fname is not None:
         f=file(fname,"r")
         ListOut=f.readlines()
-    if ListOptions!=None:
+    if ListOptions is not None:
         ListOut=ListOptions
 
     ListToDict(Dict,ListOut)

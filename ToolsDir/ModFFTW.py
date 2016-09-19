@@ -109,7 +109,7 @@ def GiveFFTW_aligned(shape, dtype):
 
 class FFTW_2Donly():
     def __init__(self, shape, dtype, ncores = 1, FromSharedId=None):
-        if FromSharedId==None:
+        if FromSharedId is None:
             self.A = pyfftw.n_byte_align_empty( shape[-2::], 16, dtype=dtype)
         else:
             self.A = NpShared.GiveArray(FromSharedId)
@@ -179,7 +179,7 @@ class FFTW_2Donly_np():
         
         nch,npol,n,n=A.shape
 
-        if ChanList!=None:
+        if ChanList is not None:
             CSel=ChanList
         else:
             CSel=range(nch)
@@ -202,7 +202,7 @@ class FFTW_2Donly_np():
         #log=MyLogger.getLogger("ModToolBox.FFTM2.ifft")
         nch,npol,_,_=A.shape
 
-        if ChanList!=None:
+        if ChanList is not None:
             CSel=ChanList
         else:
             CSel=range(nch)

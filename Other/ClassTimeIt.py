@@ -47,8 +47,6 @@ class ClassTimeIt():
         else:
             print Sout
 
-        # return dt
-
     def disable(self):
         self.IsEnable=False
 

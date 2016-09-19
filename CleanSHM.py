@@ -25,7 +25,7 @@ def read_options():
 if __name__=="__main__":
     options = read_options()
     print>>log, "Clear shared memory"
-    if options.ID!=None:
+    if options.ID is not None:
         NpShared.DelAll(options.ID)
     else:
         NpShared.DelAll()
