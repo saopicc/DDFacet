@@ -10,6 +10,7 @@ from distutils.command.build import build
 from os.path import join as pjoin
 
 pkg='DDFacet'
+skymodel_pkg='SkyModel'
 build_root=os.path.dirname(__file__)
 
 def get_version():
@@ -61,11 +62,11 @@ class custom_build(build):
         backend()
         build.run(self)
 
-def src_pkg_dirs():
-    pkg_dirs = []
-    mbdir = os.path.join(build_root, pkg)
-    l = len(mbdir) + len(os.sep)
+def src_pkg_dirs(pkg_name):
+    mbdir = os.path.join(build_root, pkg_name)
     # Ignore
+    pkg_dirs = []
+    l = len(mbdir) + len(os.sep)
     exclude = ['docs', '.git', '.svn', 'CMakeFiles']
     for root, dirs, files in os.walk(mbdir, topdown=True):
         # Prune out everything we're not interested in
@@ -101,9 +102,10 @@ setup(name=pkg,
       license='Closed source',
       cmdclass={'install': custom_install,
                 'build': custom_build},
-      packages=[pkg],
+      packages=[pkg,skymodel_pkg],
       install_requires=requirements(),
-      package_data={pkg: src_pkg_dirs()},
+      package_data={pkg: src_pkg_dirs(pkg),
+                    skymodel_pkg: src_pkg_dirs(skymodel_pkg)},
       include_package_data=True,
       zip_safe=False,
       scripts=define_scripts()

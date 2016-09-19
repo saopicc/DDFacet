@@ -1,1 +1,3 @@
 recursive-include DDFacet/cbuild/Gridder *.so
+include DDFacet/cbuild/__init__.py
+include DDFacet/cbuild/Gridder/__init__.py
