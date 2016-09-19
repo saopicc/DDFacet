@@ -307,9 +307,7 @@ class ClassImageDeconvMachine():
             for iIsland in range(len(ListIslands)):#self.NIslands):
                 ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
 
-        print "NIslands = ", len(ListIslands)
         ListIslands=self.CalcCrossIslandFlux(ListIslands)
-        print "NIslands = ",len(ListIslands)
 
 
         # FluxIslands=[]
