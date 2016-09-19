@@ -452,15 +452,7 @@ class ClassFacetMachine():
         NCPU=self.NCPU
         NFacets=len(self.DicoImager.keys())
 
-        work_queue = multiprocessing.Queue()
-        result_queue = multiprocessing.Queue()
-
-        NJobs=NFacets
-        for iFacet in range(NFacets):
-            work_queue.put(iFacet)
-
         self.SpacialWeigth={}
-
 
         # check if spacial weights are cached
         cachepath, cachevalid = self.VS.maincache.checkCache("FacetData",
@@ -471,6 +463,13 @@ class ClassFacetMachine():
         self.FacetDataCache = "file://" + cachepath + "/"
 
         if not cachevalid:
+            work_queue = multiprocessing.Queue()
+            result_queue = multiprocessing.Queue()
+
+            NJobs = NFacets
+            for iFacet in range(NFacets):
+                work_queue.put(iFacet)
+
             workerlist=[]
             for ii in range(NCPU):
                 W=self.FacetParallelEngine(work_queue, result_queue,
