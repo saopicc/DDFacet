@@ -546,8 +546,8 @@ class ClassArrayMethodGA():
             if Type==0:
                 iTypeParm=int(np.random.rand(1)[0]*len(self.PM.SolveParam))
                 
-#                for TypeParm in self.PM.SolveParam:
-                for TypeParm in [self.PM.SolveParam[iTypeParm]]:
+                for TypeParm in self.PM.SolveParam:
+#                for TypeParm in [self.PM.SolveParam[iTypeParm]]:
                     A=self.PM.ArrayToSubArray(individual,TypeParm)
                     #if TypeParm=="GSig": continue
                     if TypeParm=="S":
