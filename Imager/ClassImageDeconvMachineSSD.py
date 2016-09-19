@@ -12,46 +12,11 @@ from DDFacet.Other import ClassTimeIt
 import ClassMultiScaleMachine
 from pyrap.images import image
 from ClassPSFServer import ClassPSFServer
-try:
-    import ClassModelMachineGA
-except:
-    print>> log, ModColor.Str("Problem loading ClassModelMachineGA, please check if ClassModelMachineGA.py exists in DDFace dir")
-    sys.exit(1)
-try:
-    import ClassModelMachineMORESANE
-except:
-    print>> log, ModColor.Str("Problem loading ClassModelMachineMORESANE, please check if ClassModelMachineMORESANE.py exists in DDFace dir")
-    sys.exit(1)
 
 from DDFacet.Other.progressbar import ProgressBar
 import ClassGainMachine
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.PSourceExtract import ClassIncreaseIsland
-
-####################################################
-####### Start of Deconvolution Algos imports #######
-####################################################
-try: # Genetic Algo
-    from GA.ClassEvolveGA import ClassEvolveGA
-except:
-    print>> log, ModColor.Str("Failed to import the Genetic Algorithm Class (ClassEvolveGA)")
-    sys.exit(1)
-
-try: # MORESANE
-    from MORESANE.ClassMoresane import ClassMoresane
-except:
-    print>> log, ModColor.Str("Failed to import the Moresane Class (ClassMoresane)")
-    sys.exit(1)
-
-try: # SASIR
-    from SASIR.ClassSasir import ClassSasir
-except:
-    print>> log, ModColor.Str("Failed to import the Sasir Class (ClassSasir)")
-    sys.exit(1)
-
-##################################################
-####### End of Deconvolution Algos imports #######
-##################################################
 
 from DDFacet.Other import MyPickle
 
@@ -97,8 +62,20 @@ class ClassImageDeconvMachine():
         self.IslandDeconvMode=self.GD["SSD"]["IslandDeconvMode"]  # "GA" or "Moresane" or "Sasir"
 
         if self.IslandDeconvMode=="GA":
+            try:
+                import ClassModelMachineGA
+                import ClassEvolveGA
+            except ImportError:
+                raise ImportError("Failed to import the Genetic Algorithm Class (ClassEvolveGA). This may be because you don't have the 'deap' package installed")  
             self.ModelMachine = ClassModelMachineGA.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
+
         elif self.IslandDeconvMode=="Moresane":
+            try:
+                import ClassModelMachineMORESANE
+                import ClassMoresane
+            except ImportError:
+                raise ImportError("Failed to import the Genetic Algorithm Class (ClassEvolveMORESANE). This may be because you don't have the 'pymoresane' package installed")  
+
             self.ModelMachine = ClassModelMachineMORESANE.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
         elif self.IslandDeconvMode=="Sasir":
             raise NotImplementedError("ClassModelMachineSASIR is not implemented")
