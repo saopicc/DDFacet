@@ -31,7 +31,7 @@ class ClassParamMachine():
                                 "Type":"PeakFlux",
                                 "Value":0.001}
                         },
-                       "Alpha":{"Mean":-0.6,
+                       "Alpha":{"Mean":0.,
                                 "Sigma":{
                                     "Type":"Abs",
                                     "Value":0.1}
@@ -106,15 +106,23 @@ class ClassParamMachine():
                     if GSigModel==None:
                         GSigModel=MeanVal*np.ones((SModelArray.size,),np.float32)
                     SubArray[:]=GSigModel[:]
+                    #SubArray[:]=0
+                    #SubArray[49]=1.
+                    #SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+                    #SubArray[SubArray<0]=0
                     if i_indiv!=0: 
-                        SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+                       SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
 
 
                     # SubArray[:]=np.zeros_like(AlphaModel)[:]#+np.random.randn(SModelArray.size)*SigVal
                     # print SubArray[:]
 
-
-
+                # SubArray=self.ArrayToSubArray(indiv,Type="S")
+                # SubArray.fill(0)
+                # SubArray[49]=1.
+                # SubArray=self.ArrayToSubArray(indiv,Type="GSig")
+                # SubArray.fill(0)
+                # SubArray[49]=1.
 
             
     def ArrayToSubArray(self,A,Type):
@@ -251,17 +259,20 @@ class ClassParamMachine():
 
         if "GSig" in self.SolveParam:
             GSig=self.ArrayToSubArray(A,"GSig")
-            
+            #GSig[49]=1.
             ArrayPix=np.array(self.ListPixParms)
             x,y=ArrayPix.T
             MAOut=np.zeros_like(MA)
             
             for iPix in range(self.NPixListParms):
+
                 sig=GSig[iPix]
                 if sig==0: 
                     for iBand in range(self.NFreqBands):
                         MAOut[iBand,iPix]+=MA[iBand,iPix]
                     continue#np.abs(sig)<=0.5: continue
+
+
                 SMax=S[iPix]
                 d=np.sqrt((x[iPix]-x)**2+(y[iPix]-y)**2)
                 a=SMax/(2.*np.pi*sig**2)

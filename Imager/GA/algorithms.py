@@ -159,7 +159,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
 
     # Evaluate the individuals with an invalid fitness
     
-    invalid_ind = [ind for ind in population if not ind.fitness.valid]
+    invalid_ind = [ind for ind in population]# if not ind.fitness.valid]
     fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
     #print fitnesses[0]
     #stop
@@ -182,7 +182,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     #print best_ind0
     #print "Best indiv 0",best_ind0
     print "Best indiv 0 fitness",best_ind0.fitness
-
+    best_ind=best_ind0
     # from operator import attrgetter
     # k=1
     # popsorted=sorted(population, key=attrgetter("fitness"), reverse=True)#[:k]
@@ -204,6 +204,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
 
         # Vary the pool of individuals
         offspring = varAnd(offspring, toolbox, cxpb, mutpb)
+        offspring[0]=best_ind
         T.timeit("vary")
         
         # Evaluate the individuals with an invalid fitness
@@ -211,12 +212,17 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
         T.timeit("fitness")
         for ind, fit in zip(invalid_ind, fitnesses):
+            #print fit
             ind.fitness.values = fit
+#        best_ind0 = tools.selBest(population, 1)[0]
+#        print "Best indiv 0b fitness",best_ind0.fitness
         T.timeit("export")
         
         # Update the hall of fame with the generated individuals
         if halloffame is not None:
             halloffame.update(offspring)
+#        best_ind0 = tools.selBest(population, 1)[0]
+#        print "Best indiv 0c fitness",best_ind0.fitness
         T.timeit("hof")
             
         # Replace the current population by the offspring
@@ -240,7 +246,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
 
 
         #print best_ind
-        #print "Best indiv fitness",best_ind.fitness
+        print "Best indiv fitness",best_ind.fitness
 
         
         #BestFitNess=best_ind.fitness.values[0]

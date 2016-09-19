@@ -720,8 +720,13 @@ class ClassImagerDeconv():
                                               Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             if "o" in self._saveims:
-                self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
-                    Fits=True,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
+                #     Fits=True,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                nf,npol,nx,nx=ModelImage.shape
+                ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
+
+                self.FacetMachine.ToCasaImage(ModelImageAvg,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
+                                              Fits=True)#,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             self.DeconvMachine.ToFile(self.DicoModelName)
 

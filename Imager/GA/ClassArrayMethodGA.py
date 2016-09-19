@@ -41,9 +41,10 @@ class ClassArrayMethodGA():
         self.NPixListData=len(ListPixData)
         self.GD=GD
         self.WeightMaxFunc=collections.OrderedDict()
-        self.WeightMaxFunc["Chi2"]=1.
+        #self.WeightMaxFunc["Chi2"]=1.
+        self.WeightMaxFunc["BIC"]=1.
         self.WeightMaxFunc["MinFlux"]=1.
-        self.WeightMaxFunc["MaxFlux"]=1.
+        #self.WeightMaxFunc["MaxFlux"]=1.
 
         #self.WeightMaxFunc["L0"]=1.
         self.MaxFunc=self.WeightMaxFunc.keys()
@@ -325,11 +326,19 @@ class ClassArrayMethodGA():
         for FuncType in self.MaxFunc:
             if FuncType=="Chi2":
                 # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
-                chi2=-np.sum((Resid)**2)/(self.PixVariance*Resid.size)
+                chi2=-np.sum((Resid)**2)/(self.PixVariance)
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(chi2*W)
+            if FuncType=="BIC":
+                chi2=np.sum((Resid)**2)/(self.PixVariance)
+                n=Resid.size
+                k=np.count_nonzero(S)
+                #BIC=chi2+100*k*np.log(n)
+                BIC=chi2+self.GD["GAClean"]["BICFactor"]*k*np.log(n)
+                W=self.WeightMaxFunc[FuncType]
+                ContinuousFitNess.append(-BIC*W)
             if FuncType=="MaxFlux":
-                FMax=-np.max(np.abs(Resid))/(np.sqrt(self.PixVariance)*Resid.size)
+                FMax=-np.max(np.abs(Resid))/(np.sqrt(self.PixVariance))
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(FMax*W)
             if FuncType=="L0":
@@ -341,7 +350,7 @@ class ClassArrayMethodGA():
                 ContinuousFitNess.append(l0*W)
             if FuncType=="MinFlux":
                 SNegArr=np.abs(S[S<0])[()]
-                FNeg=-np.sum(SNegArr)/(np.sqrt(self.PixVariance)*Resid.size)
+                FNeg=-np.sum(SNegArr)/(np.sqrt(self.PixVariance))
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(FNeg*W)
 
@@ -558,8 +567,9 @@ class ClassArrayMethodGA():
                     
         # if "GSig" in self.PM.SolveParam:
         #     GSig=self.PM.ArrayToSubArray(individual,"GSig")
-        #     GSig[GSig<0]=0
+        #     #GSig[GSig<0]=0
         #     GSig.fill(0)
+        #     GSig[49]=1
         #     #print GSig
         #     # if individual[i]==0:
         #     #     if random.random() < indpb/100.:
