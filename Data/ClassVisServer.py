@@ -662,6 +662,10 @@ class ClassVisServer():
     def CalcWeights(self):
         if self.VisWeights != None: return
 
+        # in RAM-greedy mode, we keep all weight arrays around in RAM while computing weights
+        # Otherwise we leave them in mmap()ed files and etach, and let the kernel take care of caching etc.
+        greedy = self.GD["Debugging"]["MemoryGreedy"]
+
         # check if every MS+chunk weight is available in cache
         self.VisWeights = []
         have_all_weights = True
@@ -691,13 +695,13 @@ class ClassVisServer():
 
         WeightCol = self.GD["VisData"]["WeightCol"]
         # now loop over MSs and read data
-        weightsum = 0
-        nweights = 0
+        weightsum = nweights = 0
+        weights_are_null = True
         output_list = []
         for ms, ms_weight_list in zip(self.ListMS, self.VisWeights):
+            tab = ms.GiveMainTable()
             for (row0, row1), cachepath in zip(ms.getChunkRow0Row1(), ms_weight_list):
                 nrows = row1 - row0
-                tab = ms.GiveMainTable()
                 chanslice = ms.ChanSlice
                 if not nrows:
                     # if no data in this chunk, make single, flagged entry
@@ -714,61 +718,49 @@ class ClassVisServer():
                 valid = ~flags
                 # if all channels are flagged, flag whole row. Shape of flags becomes nrow
                 flags = flags.min(axis=1)
+                # each weight is kept in an mmap()ed file in the cache, shape (nrows,nchan)
+                weightpath = "file://"+cachepath
+                WEIGHT = NpShared.CreateShared(weightpath, (nrows, ms.Nchan), np.float64)
 
                 if WeightCol == "WEIGHT_SPECTRUM":
-                    WEIGHT = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
-                    print>> log, "  Reading column %s for the weights, shape is %s" % (WeightCol, WEIGHT.shape)
-                    # take mean weight and apply this to all correlations:
-                    WEIGHT = np.mean(WEIGHT, axis=2) * valid
+                    w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
+                    print>> log, "  Reading column %s for the weights, shape is %s" % (WeightCol, w.shape)
+                    # take mean weight across correlations and apply this to all
+                    WEIGHT[...] = w.mean(axis=2) * valid
 
                 elif WeightCol == "WEIGHT":
-                    WEIGHT = tab.getcol(WeightCol, row0, nrows)
+                    w = tab.getcol(WeightCol, row0, nrows)
                     print>> log, "  Reading column %s for the weights, shape is %s, will expand frequency axis" % (
-                        WeightCol, WEIGHT.shape)
-                    # take mean weight and apply this to all correlations:
-                    WEIGHT = np.mean(WEIGHT, axis=1)
-                    # expand to have frequency axis
-                    WEIGHT = WEIGHT[:, np.newaxis] * valid
+                        WeightCol, w.shape)
+                    # take mean weight and apply this to all correlations, and expand to have frequency axis
+                    WEIGHT[...] = w.mean(axis=1)[:, np.newaxis] * valid
                 else:
                     ## in all other cases (i.e. IMAGING_WEIGHT) assume a column of shape NRow,NFreq to begin with, check for this:
-                    WEIGHT = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
-                    print>> log, "  Reading column %s for the weights, shape is %s" % (WeightCol, WEIGHT.shape)
-                    if WEIGHT.shape != valid.shape:
+                    w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
+                    print>> log, "  Reading column %s for the weights, shape is %s" % (WeightCol, w.shape)
+                    if w.shape != valid.shape:
                         raise TypeError, "weights column expected to have shape of %s" % (valid.shape,)
-                    WEIGHT *= valid
-
-                WEIGHT = WEIGHT.astype(np.float64)
-                # store to mmap file
-                WEIGHT = NpShared.ToShared("file://"+cachepath, WEIGHT)
-
-                output_list.append((uvs, WEIGHT, flags, ms.ChanFreq))
-                tab.close()
+                    WEIGHT[...] = w*valid
 
                 weightsum = weightsum + WEIGHT.sum(dtype=np.float64)
                 nweights += valid.sum()
+                weights_are_null = weights_are_null and (WEIGHT==0).all()
 
-        # normalize weights
-        print>> log, "normalizing weights (sum %g from %d valid visibility points)" % (weightsum, nweights)
-        mw = nweights and weightsum / nweights
-        if mw:
-            for uvw, weights, flags, freqs in output_list:
-                weights /= mw
-        print>> log, "normalization done, mean weight was %g" % mw
+                output_list.append((uvs, WEIGHT if greedy else weightpath, flags, ms.ChanFreq))
+                if greedy:
+                    del WEIGHT
+            tab.close()
+
+        # compute normalization factor
+        weightnorm = nweights / weightsum if weightsum else 1
+        print>> log, "weight norm is %g (sum %g from %d valid visibility points)" % (weightnorm, weightsum, nweights)
 
         # now compute actual imaging weights
-
         ImShape = self.FullImShape  # self.FacetShape
         CellSizeRad = self.CellSizeRad
         WeightMachine = ClassWeighting.ClassWeighting(ImShape, CellSizeRad)
-
-        VisWeights = [weights for uv, weights, flags, freqs in output_list]
-
-        if all([w.max() == 0 for w in VisWeights]):
-            print>> log, "All imaging weights are 0, setting them to ones"
-            for w in VisWeights:
-                w.fill(1)
-
         Robust = self.Robust
+
         if self.MFSWeighting or self.NFreqBands < 2:
             band_mapping = None
         else:
@@ -778,14 +770,15 @@ class ClassVisServer():
             for i, ms in enumerate(self.ListMS):
                 band_mapping += [self.DicoMSChanMapping[i]] * ms.Nchunk
 
-        # self.VisWeights=np.ones((uvw.shape[0],self.MS.ChanFreq.size),dtype=np.float64)
 
         WeightMachine.CalcWeights(output_list,
                                     Robust=Robust,
                                     Weighting=self.Weighting,
                                     Super=self.Super,
                                     nbands=self.NFreqBands if band_mapping is not None else 1,
-                                    band_mapping=band_mapping)
+                                    band_mapping=band_mapping,
+                                    weightnorm=weightnorm,
+                                    force_unity_weight=weights_are_null)
 
         # done, every weight array in output_list has been normalized to proper imaging weights
         # we now release the arrays, which will flush the buffers to disk (eventually)

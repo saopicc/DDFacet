@@ -1180,6 +1180,8 @@ class ClassFacetMachine():
             iFacet = DicoResult["iFacet"]
             GridName = "%sGridFacet.%3.3i" % (self.IdSharedMem, iFacet)
             Grid = NpShared.GiveArray(GridName)
+            # if iFacet == 12:
+            #     print "in FT, ##grid",Grid.sum(dtype=np.float64),doStack
 
             if (doStack == True) & ("Dirty" in self.DicoGridMachine[iFacet].keys()):
                 self.DicoGridMachine[iFacet]["Dirty"] += Grid
@@ -1453,12 +1455,17 @@ class WorkerImager(multiprocessing.Process):
         GridName = "%sGridFacet.%3.3i" % (self.IdSharedMem, iFacet)
         Grid = NpShared.GiveArray(GridName)
         DicoJonesMatrices = self.GiveDicoJonesMatrices()
+        # if iFacet == 12:
+        #     print "before put ##grid", Grid.sum(dtype=np.float64)
+
         GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                         DoNormWeights=False,
                         DicoJonesMatrices=DicoJonesMatrices,
                         freqs=freqs, DoPSF=self.PSFMode,
                         ChanMapping=ChanMapping,
                         ResidueGrid=Grid)
+        # if iFacet == 12:
+        #     print "after put ##grid",Grid.sum(dtype=np.float64)
 
         Sw = GridMachine.SumWeigths.copy()
         SumJones = GridMachine.SumJones.copy()
