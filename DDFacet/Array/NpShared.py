@@ -1,8 +1,7 @@
 #import sharedarray.SharedArray as SharedArray
 import SharedArray
-
-import numpy as np
 from DDFacet.Other import ModColor
+import numpy as np
 from DDFacet.Other import MyLogger
 
 log= MyLogger.getLogger("NpShared")
@@ -24,27 +23,17 @@ def SizeShm():
             S+=A.nbytes
     return float(S)/(1024**2)
 
+def CreateShared (Name,shape,dtype):
+    try:
+        a = SharedArray.create(Name, shape, dtype=dtype)
+    except:
+        print>> log, ModColor.Str("File %s exists, deleting" % Name)
+        DelArray(Name)
+        a = SharedArray.create(Name, shape, dtype=dtype)
+    return a
 
 def ToShared(Name,A):
-
-    #print "dtype, shape = %s, %s"%(str(A.dtype), str(A.shape))
-    #print "Number of nan in %s: %i"%(Name,np.count_nonzero(np.isnan(A)))
-    #print "Number of inf in %s: %i"%(Name,np.count_nonzero(np.isinf(A)))
-
-    try:
-        a=SharedArray.create(Name,A.shape,dtype=A.dtype)
-    except:
-        print>>log, ModColor.Str("File %s exists, delete it..." % Name)
-        DelArray(Name)
-        a=SharedArray.create(Name,A.shape,dtype=A.dtype)
-
-    # Ex=Exists(Name)
-    # if Ex:
-    #     DelArray(Name)
-    # a=SharedArray.create(Name,A.shape,dtype=A.dtype)
-
-
-
+    a = CreateShared(Name, A.shape, A.dtype)
     a[:]=A[:]
     return a
 
@@ -88,12 +77,12 @@ def Exists(Name):
 
 def DicoToShared(Prefix,Dico,DelInput=False):
     DicoOut={}
-    print>>log, ModColor.Str("DicoToShared: start [prefix = %s]" % Prefix)
+    print>>log, ModColor.Str("DicoToShared: start [prefix = %s]"%Prefix)
     for key in Dico.keys():
         if type(Dico[key])!=np.ndarray: continue
         #print "%s.%s"%(Prefix,key)
         ThisKeyPrefix="%s.%s"%(Prefix,key)
-        print>>log, ModColor.Str("  %s -> %s" % (key, ThisKeyPrefix))
+        print>>log, ModColor.Str("  %s -> %s"%(key,ThisKeyPrefix))
         ar=Dico[key]
         Shared=ToShared(ThisKeyPrefix,ar)
         DicoOut[key]=Shared
@@ -110,17 +99,17 @@ def DicoToShared(Prefix,Dico,DelInput=False):
 
 def SharedToDico(Prefix):
 
-    print>>log, ModColor.Str("SharedToDico: start [prefix = %s]" % Prefix)
+    print>>log, ModColor.Str("SharedToDico: start [prefix = %s]"%Prefix)
     Lnames=ListNames()
     keys=[Name for Name in Lnames if Prefix in Name]
     if len(keys)==0: return None
     DicoOut={}
     for Sharedkey in keys:
         key=Sharedkey.split(".")[-1]
-        print>>log, ModColor.Str("  %s -> %s" % (Sharedkey, key))
+        print>>log, ModColor.Str("  %s -> %s"%(Sharedkey,key))
         Shared=GiveArray(Sharedkey)
         if type(Shared)==type(None):
-            print>>log, ModColor.Str("      None existing key %s" % (key))
+            print>>log, ModColor.Str("      None existing key %s"%(key))
             return None
         DicoOut[key]=Shared
     print>>log, ModColor.Str("SharedToDico: done")

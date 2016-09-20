@@ -1,25 +1,27 @@
-import glob
-import os
-import time
-from pyrap.images import image
-
-import ClassCasaImage
-import ClassImageDeconvMachineGA
-import ClassImageDeconvMachineHogbom
-import ClassImageDeconvMachineMSMF
-import ClassImageDeconvMachineSSD
+from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
 import pylab
-from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
+from pyrap.images import image
+import ClassImageDeconvMachineHogbom
+import ClassImageDeconvMachineMSMF
+import ClassImageDeconvMachineGA
+import ClassImageDeconvMachineSSD
+
+from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Array import NpShared
+import os
+from DDFacet.ToolsDir import ModFitPSF
 from DDFacet.Data import ClassVisServer
+import ClassCasaImage
+from ClassModelMachine import ClassModelMachine
+import time
+import glob
 from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
-from DDFacet.ToolsDir import ModFFTW
-from DDFacet.ToolsDir import ModFitPSF
+import traceback
 
-log= MyLogger.getLogger("ClassImagerDeconv")
-
+log=MyLogger.getLogger("ClassImagerDeconv")
+import pyfits
 
 # from astropy import wcs
 # from astropy.io import fits
@@ -151,19 +153,19 @@ class ClassImagerDeconv():
                 print>>log,"multi-MS mode"
 
 
-        self.VS= ClassVisServer.ClassVisServer(MSName,
-                                               ColName=DC["VisData"]["ColName"],
-                                               TVisSizeMin=DC["VisData"]["ChunkHours"]*60,
-                                               #DicoSelectOptions=DicoSelectOptions,
+        self.VS=ClassVisServer.ClassVisServer(MSName,
+                                              ColName=DC["VisData"]["ColName"],
+                                              TVisSizeMin=DC["VisData"]["ChunkHours"]*60,
+                                              #DicoSelectOptions=DicoSelectOptions,
                                               TChunkSize=DC["VisData"]["ChunkHours"],
-                                               IdSharedMem=self.IdSharedMem,
-                                               Robust=DC["ImagerGlobal"]["Robust"],
-                                               Weighting=DC["ImagerGlobal"]["Weighting"],
-                                               MFSWeighting=DC["ImagerGlobal"]["MFSWeighting"],
-                                               Super=DC["ImagerGlobal"]["Super"],
-                                               DicoSelectOptions=dict(DC["DataSelection"]),
-                                               NCPU=self.GD["Parallel"]["NCPU"],
-                                               GD=self.GD)
+                                              IdSharedMem=self.IdSharedMem,
+                                              Robust=DC["ImagerGlobal"]["Robust"],
+                                              Weighting=DC["ImagerGlobal"]["Weighting"],
+                                              MFSWeighting=DC["ImagerGlobal"]["MFSWeighting"],
+                                              Super=DC["ImagerGlobal"]["Super"],
+                                              DicoSelectOptions=dict(DC["DataSelection"]),
+                                              NCPU=self.GD["Parallel"]["NCPU"],
+                                              GD=self.GD)
 
         if self.DoDeconvolve:
             self.NMajor=self.GD["ImagerDeconv"]["MaxMajorIter"]
@@ -199,7 +201,7 @@ class ClassImagerDeconv():
                 print>>log, "Minor cycle deconvolution in Single Scale Mode"
                 self.MinorCycleMode="SS"
                 if self.GD["ImagerDeconv"]["MinorCycleMode"] == "Hogbom":
-                    self.DeconvMachine= ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
+                    self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
                     print>>log,"Using Hogbom algorithm"
                 else:
                     raise NotImplementedError("Currently Hogbom is the only single-scale algorithm")
@@ -240,7 +242,7 @@ class ClassImagerDeconv():
             pass
 
         try:
-            NpShared.DelAll("%s%s" % (self.IdSharedMem, "DicoData"))
+            NpShared.DelAll("%s%s"%(self.IdSharedMem,"DicoData"))
         except:
             pass
 
@@ -255,7 +257,8 @@ class ClassImagerDeconv():
         if DATA=="EndChunk":
             print>>log, ModColor.Str("Reached end of data chunk")
             return "EndChunk"
-        self.DATA=DATA
+        self.DATA = DATA
+        self.WEIGHTS = self.VS.CurrentVisWeights
         
         return True
 
@@ -325,17 +328,19 @@ class ClassImagerDeconv():
                 if Res=="EndOfObservation": break
                 DATA=self.DATA
 
-                FacetMachinePSF.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],
-                                         (DATA["A0"],DATA["A1"]),
-                                         DATA["Weights"],
-                                         doStack=True)
+                FacetMachinePSF.putChunk(Weights=self.WEIGHTS)
 
             psfdict = FacetMachinePSF.FacetsToIm(NormJones=True)
             psfmean, psfcube = psfdict["MeanImage"], psfdict["ImagData"]   # this is only for the casa image saving
             self.DicoVariablePSF = FacetMachinePSF.DicoPSF
             #FacetMachinePSF.ToCasaImage(self.DicoImagePSF["ImagData"],ImageName="%s.psf"%self.BaseName,Fits=True)
-            cPickle.dump(self.DicoVariablePSF, file(cachepath,'w'), 2)
-            self.VS.maincache.saveCache("PSF")
+            if self.GD["Caching"]["CachePSF"]:
+                try:
+                    cPickle.dump(self.DicoVariablePSF, file(cachepath,'w'), 2)
+                    self.VS.maincache.saveCache("PSF")
+                except:
+                    print>>log,traceback.format_exc()
+                    print>>log,ModColor.Str("WARNING: PSF cache could not be written, see error report above. Proceeding anyway.")
             FacetMachinePSF.DoPSF = False
 
         # self.PSF = self.DicoImagePSF["MeanImage"]#/np.sqrt(self.DicoImagePSF["NormData"])
@@ -468,7 +473,7 @@ class ClassImagerDeconv():
             SubstractModel=self.GD["VisData"]["InitDicoModel"]
             DoSub=(SubstractModel!="")&(SubstractModel!=None)
             if DoSub:
-                print>>log, ModColor.Str("Initialise sky model using %s" % SubstractModel, col="blue")
+                print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
 
                 # #This should be returned through the minor cycle interface
                 # from DDFacet.Imager.ModModelMachine import GiveModelMachine
@@ -524,10 +529,7 @@ class ClassImagerDeconv():
                     _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
 
 
-                self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],
-                                           (DATA["A0"],DATA["A1"]),
-                                           DATA["Weights"],
-                                           doStack=True)
+                self.FacetMachine.putChunk(Weights=self.WEIGHTS)
 
                 if self._save_intermediate_grids:
                     self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
@@ -581,9 +583,12 @@ class ClassImagerDeconv():
 
             # dump dirty to cache
             if self.GD["Caching"]["CacheDirty"]:
-                cPickle.dump(self.DicoDirty, file(cachepath, 'w'), 2)
-                self.VS.maincache.saveCache("Dirty")
-
+                try:
+                    cPickle.dump(self.DicoDirty, file(cachepath, 'w'), 2)
+                    self.VS.maincache.saveCache("Dirty")
+                except:
+                    print>> log, traceback.format_exc()
+                    print>> log, ModColor.Str("WARNING: Dirty image cache could not be written, see error report above. Proceeding anyway.")
 
         return self.DicoDirty["MeanImage"]
         
@@ -699,7 +704,7 @@ class ClassImagerDeconv():
             if not continue_deconv:
                 break
 
-            print>>log, ModColor.Str("========================== Running major Cycle %i =========================" % iMajor)
+            print>>log, ModColor.Str("========================== Running major Cycle %i ========================="%iMajor)
             
             self.DeconvMachine.Update(DicoImage)
 
@@ -729,7 +734,6 @@ class ClassImagerDeconv():
                 #if Res=="EndChunk": break
                 if Res=="EndOfObservation": break
                 DATA=self.DATA
-                
 
                 model_freqs = self.VS.CurrentChanMappingDegrid
                 ## redo model image if needed
@@ -752,7 +756,7 @@ class ClassImagerDeconv():
                     self.VS.CurrentMS.PutVisColumn(predict_colname, modelvis)
                     del modelvis
 
-                self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"],doStack=True)
+                self.FacetMachine.putChunk(Weights=self.WEIGHTS)
                 
                 # NpShared.DelArray(PredictedDataName)
                 del(DATA)
@@ -1078,7 +1082,7 @@ class ClassImagerDeconv():
         visData=DATA["data"].copy()
         DATA["data"].fill(0)
         PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
-        visPredict= NpShared.zeros(PredictedDataName, visData.shape, visData.dtype)
+        visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
         
         _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),testImage)
 
@@ -1121,7 +1125,7 @@ class ClassImagerDeconv():
 
         DATA["data"][:,:,:]=visData[:,:,:]-DATA["data"][:,:,:]
         
-        self.FacetMachine.putChunk(DATA["times"],DATA["uvw"],visData,DATA["flags"],(DATA["A0"],DATA["A1"]),DATA["Weights"])
+        self.FacetMachine.putChunk(Weights=self.WEIGHTS)
         Image=self.FacetMachine.FacetsToIm()
         self.ResidImage=Image
         #self.FacetMachine.ToCasaImage(ImageName="test.residual",Fits=True)
