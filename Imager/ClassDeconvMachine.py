@@ -293,7 +293,9 @@ class ClassImagerDeconv():
             print>>log, ModColor.Str("or if your MS has been substantially flagged or otherwise had its uv-coverage")
             print>>log, ModColor.Str("affected, please remove the cache, or else run with --ResetPSF 1.")
             psfmean, psfcube = None, None
-            self.DicoVariablePSF = cPickle.load(file(cachepath))
+            #self.DicoVariablePSF = cPickle.load(file(cachepath))
+            self.DicoVariablePSF = MyPickle.FileToDicoNP(cachepath)
+
         else:
             print>>log, ModColor.Str("=============================== Making PSF ===============================")
             if self.PSFFacets:
@@ -342,7 +344,8 @@ class ClassImagerDeconv():
             #FacetMachinePSF.ToCasaImage(self.DicoImagePSF["ImagData"],ImageName="%s.psf"%self.BaseName,Fits=True)
             if self.GD["Caching"]["CachePSF"]:
                 try:
-                    cPickle.dump(self.DicoVariablePSF, file(cachepath,'w'), 2)
+                    #cPickle.dump(self.DicoVariablePSF, file(cachepath,'w'), 2)
+                    MyPickle.DicoNPToFile(self.DicoVariablePSF,cachepath)
                     self.VS.maincache.saveCache("PSF")
                 except:
                     print>>log,traceback.format_exc()
@@ -449,8 +452,8 @@ class ClassImagerDeconv():
             print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
             print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --ResetDirty 1.")
 
-            self.DicoDirty = cPickle.load(file(cachepath))
-
+            #self.DicoDirty = cPickle.load(file(cachepath))
+            self.DicoDirty = MyPickle.FileToDicoNP(cachepath)
             if self.DicoDirty["NormData"] is not None:
                 nch, npol, nx, ny = self.DicoDirty["ImagData"].shape
                 self.NormImage = self.DicoDirty["NormData"]
@@ -579,7 +582,8 @@ class ClassImagerDeconv():
             # dump dirty to cache
             if self.GD["Caching"]["CacheDirty"]:
                 try:
-                    cPickle.dump(self.DicoDirty, file(cachepath, 'w'), 2)
+                    #cPickle.dump(self.DicoDirty, file(cachepath, 'w'), 2)
+                    MyPickle.DicoNPToFile(self.DicoDirty, cachepath)
                     self.VS.maincache.saveCache("Dirty")
                 except:
                     print>> log, traceback.format_exc()

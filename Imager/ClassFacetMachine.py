@@ -505,7 +505,10 @@ class ClassFacetMachine():
                 try:
                     DicoResult = result_queue.get(True, 5)
                 except Queue.Empty:
-                    print>> log, "checking for dead workers"
+                    
+                    # Printing this check sucks - maybe print it when a verbose option is set to debug?  
+                    #print>> log, "checking for dead workers"
+
                     # check for dead workers
                     for w in workerlist:
                         w.join(0)
