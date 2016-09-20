@@ -283,7 +283,7 @@ class ClassImagerDeconv():
         if valid:
             print>>log, ModColor.Str("============================ Loading cached PSF ==========================")
             print>>log, "found valid cached PSF in %s"%cachepath
-            print>>log, ModColor.Str("as near as we can tell, we can reuse this cached PSF because it was produced")
+            print>>log, ModColor.Str("As near as we can tell, we can reuse this cached PSF because it was produced")
             print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
             print>>log, ModColor.Str("or if your MS has been substantially flagged or otherwise had its uv-coverage")
             print>>log, ModColor.Str("affected, please remove the cache, or else run with --ResetPSF 1.")
@@ -433,7 +433,7 @@ class ClassImagerDeconv():
         if valid:
             print>>log, ModColor.Str("============================ Loading cached dirty image =======================")
             print>>log, "found valid cached dirty image in %s"%cachepath
-            print>>log, ModColor.Str("as near as we can tell, we can reuse this cached dirty because it was produced")
+            print>>log, ModColor.Str("As near as we can tell, we can reuse this cached dirty because it was produced")
             print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
             print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --ResetDirty 1.")
 
