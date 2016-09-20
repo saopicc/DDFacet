@@ -6,7 +6,10 @@ import numpy as np
 from SkyModel.Other import MyLogger
 log=MyLogger.getLogger("MakeModel")
 from Sky import ClassSM
-from DDFacet.Imager.ModModelMachine import GiveModelMachine
+try:
+    from DDFacet.Imager.ModModelMachine import GiveModelMachine
+except:
+    from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager import ClassCasaImage
 from pyrap.images import image
 
@@ -79,12 +82,16 @@ def main(options=None):
 
     if options.BaseImageName!="":
         #from DDFacet.Imager.ClassModelMachine import ClassModelMachine
+
         FileDicoModel="%s.DicoModel"%options.BaseImageName
-        ClassModelMachine,DicoModel=GiveModelMachine(FileDicoModel)
 
+        # ClassModelMachine,DicoModel=GiveModelMachine(FileDicoModel)
+        # MM=ClassModelMachine(Gain=0.1)
+        # MM.FromDico(DicoModel)
 
-        MM=ClassModelMachine(Gain=0.1)
-        MM.FromDico(DicoModel)
+        ModConstructor = ClassModModelMachine.ClassModModelMachine()
+        MM=ModConstructor.GiveInitialisedMMFromFile(FileDicoModel)
+
         SqrtNormImage=None
         if options.ApparantFlux:
             FileSqrtNormImage="%s.Norm.fits"%options.BaseImageName
