@@ -53,7 +53,7 @@ def DicoNPToFile(Dico,FileOut):
             DicoSave[key]=DicoFile
 
         else:
-            print "  key=%s is not a numpy array"%key
+            #print "  key=%s is not a numpy array"%key
             DicoSave[key]=Dico[key]
     
 
