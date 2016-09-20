@@ -39,8 +39,10 @@ ADD requirements.txt /src/DDFacet/requirements.txt
 ADD setup.py /src/DDFacet/setup.py
 ADD README.md /src/DDFacet/README.md
 ADD .git /src/DDFacet/.git
+ADD .gitignore /src/DDFacet/.gitignore
+ADD .gitmodules /src/DDFacet/.gitmodules
 #Install DDFacet
-RUN cd /src/DDFacet/ ; git rm --cached SkyModel ; git submodule update --init --recursive
+RUN cd /src/DDFacet/ ; git submodule update --init --recursive
 RUN pip install /src/DDFacet/
 #Pass any environment variables down to DDFacet
 ENTRYPOINT ["DDF.py"]
