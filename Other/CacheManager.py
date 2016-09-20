@@ -111,6 +111,7 @@ class CacheManager (object):
         hashpath = cachepath + ".hash"
         # convert hash keys into a single list
         hash = hashkeys
+        self.hashes[name] = hashpath, hash
         # delete cache if explicitly asked to
         if reset:
             print>>log, "cache element %s will be explicitly reset" % cachepath
@@ -140,7 +141,6 @@ class CacheManager (object):
                 if os.path.exists(cachepath):
                     os.system("rm -fr %s"%cachepath)
                 os.mkdir(cachepath)
-            self.hashes[name] = hashpath, hash
         return cachepath, not reset
 
 

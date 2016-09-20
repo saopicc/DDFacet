@@ -10,6 +10,7 @@ log=MyLogger.getLogger("ClassWeighting")
 #import ImagingWeights
 from DDFacet.Data import ClassMS
 from pyrap.tables import table
+from DDFacet.Array import NpShared
 
 def test(field=0,weight="Uniform"):
     print>>log,"reading test MS"
@@ -54,11 +55,12 @@ class ClassWeighting():
         self.CellSizeRad=CellSizeRad
 
     def CalcWeights(self, uvw_weights_flags_freqs, Robust=0, Weighting="Briggs", Super=1,
-                          nbands=1, band_mapping=None):
+                          nbands=1, band_mapping=None, weightnorm=1, force_unity_weight=False):
         """
         Computes imaging weights in "MFS mode", when all uv-points are binned onto a single grid.
         Args:
             uvw_weights_flags_freqs: list of (uv, weights, flags, freqs) tuples, one per each MS
+                if weights is a string, it is treated as the filename for a shared array
             Robust:                  robustness
             Weighting:               natural, uniform, briggs
             Super:                   !=1 for superuniform or superrobust: uv bin size is 1/(super*FoV)
@@ -66,6 +68,8 @@ class ClassWeighting():
             band_mapping:            band_mapping[iMS][ichan] gives the band number of channel #ichan of MS #iMS
                                      if None, the "MFS weighting" is used, with all frequency points weighted
                                      on a single grid
+            weightnorm:              multiply weights by this factor
+            force_unity_weight:      force all weights to 1
 
         Returns:
             list of imaging weights arrays, one per MS, same shape as original data weights
@@ -74,6 +78,10 @@ class ClassWeighting():
         Weighting = Weighting.lower()
         if Weighting == "natural":
             print>> log, "Weighting in natural mode"
+            if force_unity_weight:
+                for uv, weights, flags, freqs in uvw_weights_flags_freqs:
+                    if type(weights) is str:
+                        NpShared.GiveArray(weights).fill(1)
             return [x[1] for x in uvw_weights_flags_freqs]
 
         nch, npol, npixIm, _ = self.ImShape
@@ -105,7 +113,12 @@ class ClassWeighting():
 
         weights_index = [None] * len(uvw_weights_flags_freqs)
 
-        for iMS, (uv, weights, flags, freqs) in enumerate(uvw_weights_flags_freqs):
+        for iMS, (uv, weights_or_path, flags, freqs) in enumerate(uvw_weights_flags_freqs):
+            weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
+            if force_unity_weight:
+                weights.fill(1)
+            elif weightnorm != 1:
+                weights *= weightnorm
             # flip sign of negative v values -- we'll only grid the top half of the plane
             uv[uv[:, 1] < 0] *= -1
             # convert u/v to lambda, and then to pixel offset
@@ -127,7 +140,7 @@ class ClassWeighting():
             # only big enough to accommodate the *unflagged* uv-points)
             index[weights==0] = 0
 
-            weights_index[iMS] = weights, index
+            weights_index[iMS] = weights_or_path, index
             del uv
             print>> log, "Accumulating weights (%d/%d)" % (iMS + 1, len(uvw_weights_flags_freqs))
             # accumulate onto grid
@@ -138,7 +151,8 @@ class ClassWeighting():
             #            print>>log,"adjusting grid to uniform weight"
             #           grid[grid!=0] = 1/grid[grid!=0]
             print>> log, ("applying uniform weighting (super=%.2f)" % Super)
-            for weights, index in weights_index:
+            for weights_or_path, index in weights_index:
+                weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
                 weights /= grid[index]
 
         elif Weighting == "briggs" or Weighting == "robust":
@@ -149,14 +163,15 @@ class ClassWeighting():
                 avgW = (grid1 ** 2).sum() / grid1.sum()
                 sSq = numeratorSqrt ** 2 / avgW
                 grid1[...] = 1 / (1 + grid1 * sSq)
-            for weights, index in weights_index:
+            for weights_or_path, index in weights_index:
+                weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
                 weights *= grid[index]
 
         else:
             raise ValueError("unknown weighting \"%s\"" % Weighting)
 
         print>> log, "weights computed"
-        return [weights for weights, index in weights_index]
+        return [weights for weights_or_path, index in weights_index]
 
 
     def CalcWeightsOld(self,uvw,VisWeights,flags,freqs,Robust=0,Weighting="Briggs",Super=1):
