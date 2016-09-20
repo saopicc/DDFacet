@@ -14,7 +14,7 @@ from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from DDFacet.Other import MyLogger
-log=MyLogger.getLogger("ClassFacetMACHINE")
+log=MyLogger.getLogger("ClassFacetMachine")
 MyLogger.setSilent("MyLogger")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 
