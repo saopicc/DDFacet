@@ -1,0 +1,12 @@
+echo ###### Ubuntu Main Repos
+deb http://za.archive.ubuntu.com/ trusty main restricted universe multiverse
+deb-src http://za.archive.ubuntu.com/ trusty main restricted universe multiverse
+###### Ubuntu Update Repos
+deb http://za.archive.ubuntu.com/ trusty-security main restricted universe multiverse
+deb http://za.archive.ubuntu.com/ trusty-updates main restricted universe multiverse
+deb http://za.archive.ubuntu.com/ trusty-proposed main restricted universe multiverse
+deb http://za.archive.ubuntu.com/ trusty-backports main restricted universe multiverse
+deb-src http://za.archive.ubuntu.com/ trusty-security main restricted universe multiverse
+deb-src http://za.archive.ubuntu.com/ trusty-updates main restricted universe multiverse
+deb-src http://za.archive.ubuntu.com/ trusty-proposed main restricted universe multiverse
+deb-src http://za.archive.ubuntu.com/ trusty-backports main restricted universe multiverse

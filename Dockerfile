@@ -1,6 +1,7 @@
 FROM radioastro/base
 MAINTAINER Ben Hugo "bhugo@ska.ac.za"
 #Package dependencies\n\
+COPY apt.sources.list /etc/apt/sources.list
 RUN apt-get update
 RUN apt-get install -y software-properties-common
 RUN add-apt-repository -y -s ppa:radio-astro/main
