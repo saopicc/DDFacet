@@ -29,8 +29,8 @@ RUN apt-get install -y liblapack-dev
 RUN apt-get install -y python-tk
 RUN apt-get install -y meqtrees-timba
 #Setup environment
-ENV DDFACET_TEST_DATA_DIR /WORKSPACE
-ENV DDFACET_TEST_OUTPUT_DIR /WORKSPACE
+ENV DDFACET_TEST_DATA_DIR /test_data
+ENV DDFACET_TEST_OUTPUT_DIR /test_output
 #Copy DDFacet and SkyModel into the image
 ADD DDFacet /src/DDFacet/DDFacet
 ADD SkyModel /src/DDFacet/SkyModel
