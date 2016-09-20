@@ -108,8 +108,8 @@ class ClassEvolveGA():
         for indiv in self.pop:
             indiv.fill(0)
 
-        print "Best indiv start",
-        self.ArrayMethodsMachine.PM.PrintIndiv(self.IslandBestIndiv)
+        #print "Best indiv start",
+        #self.ArrayMethodsMachine.PM.PrintIndiv(self.IslandBestIndiv)
 
         if self.IslandBestIndiv is not None:
 
@@ -117,7 +117,7 @@ class ClassEvolveGA():
                 #print "deconv"
                 SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
 
-                print "Estimated alpha",Alpha
+                #print "Estimated alpha",Alpha
                 AlphaModel=np.zeros_like(SModelArray)+Alpha
                 #AlphaModel[SModelArray==np.max(SModelArray)]=0
 
@@ -162,8 +162,8 @@ class ClassEvolveGA():
 
         V = tools.selBest(self.pop, 1)[0]
 
-        print "Best indiv end"
-        self.ArrayMethodsMachine.PM.PrintIndiv(V)
+        #print "Best indiv end"
+        #self.ArrayMethodsMachine.PM.PrintIndiv(V)
         
         # V.fill(0)
         # S=self.ArrayMethodsMachine.PM.ArrayToSubArray(V,"S")

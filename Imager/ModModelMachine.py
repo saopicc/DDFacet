@@ -23,6 +23,19 @@ class ClassModModelMachine():
         self.MSMFMM = None
         self.MORSANEMM = None
 
+    def GiveInitialisedMMFromFile(self,FileName):
+        """
+        Initialise a model machine from a file
+        Input:
+            FileName    = The file to read
+        """
+
+
+        DicoSMStacked = MyPickle.Load(FileName)
+        MM=self.GiveMMFromDico(DicoSMStacked)
+        MM.FromDico(DicoSMStacked)
+        return MM
+
     def GiveMMFromFile(self,FileName=None):
         """
         Initialise a model machine from a file
