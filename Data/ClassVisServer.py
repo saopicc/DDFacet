@@ -335,23 +335,53 @@ class ClassVisServer():
             self.CurrentChanMapping=self.DicoMSChanMapping[self.iCurrentMS]
             self.CurrentChanMappingDegrid=self.FreqBandChannelsDegrid[self.iCurrentMS]
             return "OK"
-        
 
-    def LoadNextVisChunk(self):
+    def getVisibilityData (self):
+        """Returns array of visibility data for current chunk. Note that this can only be called if
+        LoadNextVisChunk() was called with keep_data=True (since otherwise it is discarded to consever RAM)."""
+        if self.orig_data is not None:
+            return self.orig_data
+        if self.orig_datapath is not None:
+            return NpShared.GiveArray(self.orig_datapath)
+        else:
+            raise RuntimeError("original data requested but keep_data was not specified. This is a bug.")
+
+    def getVisibilityResiduals (self):
+        """Returns array of visibility residuals for current chunk."""
+        return self.residual_data
+
+    def LoadNextVisChunk(self, keep_data=False, null_data=False):
+        """
+        Loads next visibility chunk (from current MS or next MS).
+
+        Args:
+            keep_data: if True, then we want to keep a separate copy of the visibilities (retrieved
+                by getOriginalData()) above. Normally the
+                visibility buffer is modified during degridding (overwritten by residuals). If we want
+                to retain the original data (e.g. for computing the predict), we set keep_data=True.
+
+            null_data: if True, then we don't want to read the data at all, but rather just want to make
+                a null buffer of the same shape as the data.
+
+        Returns:
+
+        """
+        self.residual_data = self.orig_data = self.orig_datapath = None
         # if not using cache, create persistent flag buffer in shared memory
         if not self._use_data_cache:
             self.flagpath = self.IdSharedMem+".Flags"
             if self._flagbuf is None:
                 self._flagbuf = NpShared.CreateShared(self.flagpath, self._chunk_shape,np.bool)
         # for data, we make a buffer whether we use the cache or not. This is because
-        # degridding manipulates the data in place, and we don't want to write that back to cache
+        # degridding computes residuals in place, and we don't want to write that back to cache
         self.datapath = self.IdSharedMem + ".VisData"
         if self._databuf is None:
             self._databuf = NpShared.CreateShared(self.datapath, self._chunk_shape, np.complex64)
 
         while True:
             MS=self.CurrentMS
-            repLoadChunk = MS.GiveNextChunk(databuf=self._databuf,flagbuf=self._flagbuf,use_cache=self._use_data_cache)
+            repLoadChunk = MS.GiveNextChunk(databuf=self._databuf,flagbuf=self._flagbuf,
+                                            use_cache=self._use_data_cache,read_data=not null_data)
             self.cache = MS.cache
             if repLoadChunk=="EndMS":
                 repNextMS=self.setNextMS()
@@ -382,10 +412,26 @@ class ClassVisServer():
             self.flagpath = DATA["flagpath"]
             # copy data from cached array to shared memory data buffer
             data1 = np.ndarray(shape=self.datashape,dtype=np.complex64,buffer=self._databuf)
-            np.copyto(data1, data)
-            # release cached array since we don't need it now, replace it with buffer version
+            if null_data:
+                data1.fill(0)
+            else:
+                np.copyto(data1, data)
+            # keep a path to the shared array
+            self.orig_datapath = DATA["datapath"]
+            self.orig_data = None
+            # replace shared array in data structure with buffer version
             DATA["data"] = data = data1
+        # if not caching and keep data was requested, simply make a copy
+        else:
+            if null_data:
+                data1 = np.ndarray(shape=self.datashape,dtype=np.complex64,buffer=self._databuf)
+                data1.fill(0)
+                DATA["data"] = data = data1
+            if keep_data:
+                self.orig_data = data.copy()
+                self.orig_datapath = None
 
+        self.residual_data = data
 
             # ## debug
         # ind=np.where((A0==14)&(A1==31))[0]

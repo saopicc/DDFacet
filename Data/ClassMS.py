@@ -439,7 +439,7 @@ class ClassMS():
                 self.MSName + ".ddfcache/F%d:D%d:%d:%d" % (self.Field, self.DDID, row0, row1), self._reset_cache)
         return self._chunk_caches[row0, row1]
 
-    def GiveNextChunk(self,databuf=None,flagbuf=None,use_cache=None):
+    def GiveNextChunk(self,databuf=None,flagbuf=None,use_cache=None,read_data=True):
         # release data/flag arrays, if holding them, and mark cache as valid
         if self._datapath:
             self.cache.saveCache("Data")
@@ -452,14 +452,22 @@ class ClassMS():
             row0, row1 = self._chunk_r0r1[self.current_chunk]
             if row1 > row0:
                 self.cache = self.getChunkCache(row0,row1)
-                return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf,use_cache=use_cache)
+                return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf,use_cache=use_cache,read_data=read_data)
         return "EndMS"
 
     def getChunkRow0Row1 (self):
         return self._chunk_r0r1
         
-    def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False,databuf=None,flagbuf=None,use_cache=False):
+    def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False,databuf=None,flagbuf=None,use_cache=False,read_data=True):
         """
+        We have two modes of reading data/flags:
+
+        * If use_cache is True, then ClassMS uses the cache manager to create shared arrays in the cache, and
+        reads the data and flag columns into them on first call. Subsequent calls then simply return the shared
+        arrays.
+
+        * Is use_cache is False, then ClassMS reads data and flags into the supplied buffers. It is up to the caller
+        to ensure the buffers are large enough for the incoming chunk of data.
 
         Args:
             row0:
@@ -469,6 +477,7 @@ class ClassMS():
             use_cache: if True, reads data and flags into SharedArrays associated with the chunk cache
             databuf: if not using cache, this must be a buffer to read data into
             flagbuf: if not using cache, this must be a buffer to read flags into
+            read_data: if False, visibilities will not be read, only flags and other data
 
         Returns:
 
@@ -503,15 +512,18 @@ class ClassMS():
         if use_cache:
             # note that we use start_time for the cache key. This ensures that the cache is reset on first use
             # (i.e. is not persistent across runs)
-            self._datapath, datavalid = self.cache.checkCache("Data", dict(time=self._start_time))
-            self._datapath = "file://"+self._datapath
-            visdata = datavalid and NpShared.GiveArray(self._datapath)
-            if not datavalid or visdata is None:
-                print>> log, "reading MS visibilities into shared array %s" % self._datapath
-                visdata = NpShared.CreateShared(self._datapath, datashape, np.complex64)
-                table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+            if read_data:
+                self._datapath, datavalid = self.cache.checkCache("Data", dict(time=self._start_time))
+                self._datapath = "file://"+self._datapath
+                visdata = datavalid and NpShared.GiveArray(self._datapath)
+                if not datavalid or visdata is None:
+                    print>> log, "reading MS visibilities into shared array %s" % self._datapath
+                    visdata = NpShared.CreateShared(self._datapath, datashape, np.complex64)
+                    table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                else:
+                    print>> log, "visibilities are already in shared array %s" % self._datapath
             else:
-                print>> log, "visibilities are already in shared array %s" % self._datapath
+                visdata = None
             self._flagpath, flagvalid = self.cache.checkCache("Flags", dict(time=self._start_time))
             self._flagpath = "file://"+self._flagpath
             flags = flagvalid and NpShared.GiveArray(self._flagpath)
@@ -529,10 +541,13 @@ class ClassMS():
             flags = np.ndarray(shape=datashape,dtype=np.bool,buffer=flagbuf)
             print>>log,"using %d/%d elements of existing flag buffer"%(flags.size,flagbuf.size)
             table_all.getcolslicenp("FLAG",flags,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
-            visdata = np.ndarray(shape=datashape,dtype=np.complex64,buffer=databuf)
-            print>>log,"using %d/%d elements of existing visibility buffer"%(visdata.size,databuf.size)
-            table_all.getcolslicenp(self.ColName,visdata,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
-            # this needs to be carried along to reform arrays properly down the line
+            if read_data:
+                visdata = np.ndarray(shape=datashape,dtype=np.complex64,buffer=databuf)
+                print>>log,"using %d/%d elements of existing visibility buffer"%(visdata.size,databuf.size)
+                table_all.getcolslicenp(self.ColName,visdata,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
+                # this needs to be carried along to reform arrays properly down the line
+            else:
+                visdata = None
 
         DATA={}
 
@@ -1007,18 +1022,19 @@ class ClassMS():
 
     def PutVisColumn (self,colname,vis):
         self.AddCol(colname,quiet=True)
+        print>>log,"writing column %s rows %d:%d"%(colname,self.ROW0,self.ROW1-1)
         t = self.GiveMainTable(readonly=False,ack=False)
         if self.ChanSlice and self.ChanSlice != slice(None):
             # if getcol fails, maybe because this is a new col which hasn't been filled
             # in this case read DATA instead
             try:
-                vis0 = t.getcol(colname)
+                vis0 = t.getcol(colname,self.ROW0,self.nRowRead)
             except RuntimeError:
-                vis0 = t.getcol("DATA")
+                vis0 = t.getcol("DATA",self.ROW0,self.nRowRead)
             vis0[:,self.ChanSlice,:] = vis
-            t.putcol(colname,vis0)
+            t.putcol(colname,vis0,self.ROW0,self.nRowRead)
         else:
-            t.putcol(colname,vis)
+            t.putcol(colname,vis,self.ROW0,self.nRowRead)
         t.close()
 
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
