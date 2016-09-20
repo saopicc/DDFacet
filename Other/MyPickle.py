@@ -23,31 +23,35 @@ def DicoNPToFile(Dico,FileOut):
     DirArrays="%s.SubArray"%FileOut
     DirDico="%s.SubDico"%FileOut
 
-    print "============================="
+    #    print "============================="
 
     for key in Dico.keys():
         Obj=Dico[key]
-        print "key %s has type %s"%(str(key),str(type(Obj)))
+        #print "key %s has type %s"%(str(key),str(type(Obj)))
         if type(Obj).__module__ == np.__name__:
             if not(os.path.isdir(DirArrays)):
-                print "Create directory"
+                #print "Create directory"
                 os.makedirs(DirArrays)  
             
             ThisArrayFile="%s/%s%s.npy"%(DirArrays,ARRAY_GEN_NAME,str(key))
-            print "  Save %s"%ThisArrayFile
+            #print "  Save %s"%ThisArrayFile
             np.save(ThisArrayFile,Obj)
-            print "    Save OK"
+            #print "    Save OK"
             DicoSave[key]=ThisArrayFile
+
+        # ============================================
+        # Need to be recursive for dictionnaries containinung nparrays 
         elif type(Obj)==dict:
-            print "  key=%s is a dico"%key
+            #print "  key=%s is a dico"%key
             if not(os.path.isdir(DirDico)):
-                print "Create directory %s"%DirDico
+                #print "Create directory %s"%DirDico
                 os.makedirs(DirDico)  
 
             DicoFile="%s/%s%s"%(DirDico,DICO_GEN_NAME,str(key))
-            print "Saving Dico in %s"%DicoFile
+            #print "Saving Dico in %s"%DicoFile
             DicoNPToFile(Obj,DicoFile)
             DicoSave[key]=DicoFile
+
         else:
             print "  key=%s is not a numpy array"%key
             DicoSave[key]=Dico[key]
