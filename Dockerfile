@@ -26,6 +26,7 @@ RUN apt-get install -y gfortran
 RUN apt-get install -y libatlas-dev
 RUN apt-get install -y liblapack-dev
 RUN apt-get install -y python-tk
+RUN apt-get install -y meqtrees-timba
 #Setup environment
 ENV DDFACET_TEST_DATA_DIR /WORKSPACE
 ENV DDFACET_TEST_OUTPUT_DIR /WORKSPACE
