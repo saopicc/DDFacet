@@ -1,4 +1,4 @@
-echo ###### Ubuntu Main Repos
+###### Ubuntu Main Repos
 deb http://za.archive.ubuntu.com/ trusty main restricted universe multiverse
 deb-src http://za.archive.ubuntu.com/ trusty main restricted universe multiverse
 ###### Ubuntu Update Repos
