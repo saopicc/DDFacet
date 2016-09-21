@@ -738,8 +738,8 @@ class ClassImagerDeconv():
                     data = self.VS.getVisibilityData()
                     resid = self.VS.getVisibilityResiduals()
                     # model is data minus residuals
-                    resid[...] = data-resid
-                    self.VS.CurrentMS.PutVisColumn(predict_colname, resid)
+                    model = data-resid
+                    self.VS.CurrentMS.PutVisColumn(predict_colname, model)
                     data = resid = None
 
                 self.FacetMachine.putChunk(Weights=self.WEIGHTS)
