@@ -1229,12 +1229,13 @@ class ClassFacetMachine():
         NSemaphores = 3373
         ListSemaphores = ["%sSemaphore%4.4i" % (self.IdSharedMem, i) for i in range(NSemaphores)]
         _pyGridderSmearPols.pySetSemaphores(ListSemaphores)
-        work_queue = multiprocessing.Queue()
-        result_queue = multiprocessing.Queue()
+        try:
+            work_queue = multiprocessing.Queue()
+            result_queue = multiprocessing.Queue()
 
-        NJobs = NFacets
-        for iFacet in range(NFacets):
-            work_queue.put(iFacet)
+            NJobs = NFacets
+            for iFacet in range(NFacets):
+                work_queue.put(iFacet)
 
         workerlist = []
         for ii in range(NCPU):
@@ -1256,39 +1257,40 @@ class ClassFacetMachine():
                                          ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds(),
                                          ListSemaphores=ListSemaphores)
 
-            workerlist.append(W)
+                workerlist.append(W)
+                if Parallel:
+                    workerlist[ii].start()
+
+            timer = ClassTimeIt.ClassTimeIt()
+            print>> log, "starting degridding"
+
+            pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="DeGridding ", HeaderSize=10, TitleSize=13)
+            # pBAR.disable()
+            pBAR.render(0, '%4i/%i' % (0, NFacets))
+            iResult = 0
+
+            if not Parallel:
+                for ii in range(NCPU):
+                    workerlist[ii].run()  # just run until all work is completed
+
+            while iResult < NJobs:
+                DicoResult = result_queue.get()
+                if DicoResult["Success"]:
+                    iResult += 1
+                NDone = iResult
+                intPercent = int(100 * NDone / float(NFacets))
+                pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
+
             if Parallel:
-                workerlist[ii].start()
+                for ii in range(NCPU):
+                    workerlist[ii].shutdown()
+                    workerlist[ii].terminate()
+                    workerlist[ii].join()
 
-        timer = ClassTimeIt.ClassTimeIt()
-        print>> log, "starting degridding"
+        finally:
+            _pyGridderSmearPols.pyDeleteSemaphore(ListSemaphores)
+            NpShared.DelAll("%sc" % (self.IdSharedMemData))
 
-        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="DeGridding ", HeaderSize=10, TitleSize=13)
-        # pBAR.disable()
-        pBAR.render(0, '%4i/%i' % (0, NFacets))
-        iResult = 0
-
-        if not Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].run()  # just run until all work is completed
-
-        while iResult < NJobs:
-            DicoResult = result_queue.get()
-            if DicoResult["Success"]:
-                iResult += 1
-            NDone = iResult
-            intPercent = int(100 * NDone / float(NFacets))
-            pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
-
-        if Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].shutdown()
-                workerlist[ii].terminate()
-                workerlist[ii].join()
-
-        _pyGridderSmearPols.pyDeleteSemaphore(ListSemaphores)
-
-        NpShared.DelAll("%sc" % (self.IdSharedMemData))
         print>> log, "degridding finished in %s" % timer.timehms()
 
         return True
