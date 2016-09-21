@@ -89,7 +89,7 @@ def main(options=None):
         # MM=ClassModelMachine(Gain=0.1)
         # MM.FromDico(DicoModel)
 
-        ModConstructor = ClassModModelMachine.ClassModModelMachine()
+        ModConstructor = ClassModModelMachine()
         MM=ModConstructor.GiveInitialisedMMFromFile(FileDicoModel)
 
         SqrtNormImage=None
