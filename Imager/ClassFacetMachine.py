@@ -1237,25 +1237,25 @@ class ClassFacetMachine():
             for iFacet in range(NFacets):
                 work_queue.put(iFacet)
 
-        workerlist = []
-        for ii in range(NCPU):
-            W = self.FacetParallelEngine(work_queue, result_queue,
-                                         self.GD,
-                                         Mode="DeGrid",
-                                         FFTW_Wisdom=self.FFTW_Wisdom,
-                                         DicoImager=self.DicoImager,
-                                         IdSharedMem=self.IdSharedMem,
-                                         IdSharedMemData=self.IdSharedMemData,
-                                         FacetDataCache=self.FacetDataCache,
-                                         ChunkDataCache="file://" + self.VS.cache.dirname + "/",
-                                         ApplyCal=self.ApplyCal,
-                                         NFreqBands=self.VS.NFreqBands,
-                                         DataPath=self.VS.datapath,
-                                         FlagPath=self.VS.flagpath,
-                                         DataShape=self.VS.datashape,
-                                         DataCorrelationFormat = self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-                                         ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds(),
-                                         ListSemaphores=ListSemaphores)
+            workerlist = []
+            for ii in range(NCPU):
+                W = self.FacetParallelEngine(work_queue, result_queue,
+                                             self.GD,
+                                             Mode="DeGrid",
+                                             FFTW_Wisdom=self.FFTW_Wisdom,
+                                             DicoImager=self.DicoImager,
+                                             IdSharedMem=self.IdSharedMem,
+                                             IdSharedMemData=self.IdSharedMemData,
+                                             FacetDataCache=self.FacetDataCache,
+                                             ChunkDataCache="file://" + self.VS.cache.dirname + "/",
+                                             ApplyCal=self.ApplyCal,
+                                             NFreqBands=self.VS.NFreqBands,
+                                             DataPath=self.VS.datapath,
+                                             FlagPath=self.VS.flagpath,
+                                             DataShape=self.VS.datashape,
+                                             DataCorrelationFormat = self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                             ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds(),
+                                             ListSemaphores=ListSemaphores)
 
                 workerlist.append(W)
                 if Parallel:
