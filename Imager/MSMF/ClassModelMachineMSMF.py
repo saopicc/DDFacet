@@ -112,6 +112,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         dFreq=1e6
         f0=self.DicoSMStacked["AllFreqs"].min()
         f1=self.DicoSMStacked["AllFreqs"].max()
+
         M0=self.GiveModelImage(f0)
         M1=self.GiveModelImage(f1)
         if DoConv:
@@ -123,9 +124,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # mask out pixels above threshold
         mask=(M1<minmod)|(M0<minmod)
         print>>log,"computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR)
+        M0[mask]=minmod
+        M1[mask]=minmod
         with np.errstate(invalid='ignore'):
             alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
         alpha[mask] = 0
+
         # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
         mask = alpha>MaxSpi
         alpha[mask]  = MaxSpi
@@ -283,8 +287,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         for (x,y) in self.DicoSMStacked["Comp"].keys():
             if MaskArray[x,y]==0:
                 del(self.DicoSMStacked["Comp"][(x,y)])
-    """
-    Broken code: Marked for removal.
 
     def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):
         #R=ModRegFile.RegToNp(PreCluster)
@@ -349,7 +351,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         SourceCat=(SourceCat[SourceCat.ra!=0]).copy()
         np.save(SkyModel,SourceCat)
         self.AnalyticSourceCat=ClassSM.ClassSM(SkyModel)
-    """
+
     def DelAllComp(self):
         for key in self.DicoSMStacked["Comp"].keys():
             del(self.DicoSMStacked["Comp"][key])

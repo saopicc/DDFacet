@@ -396,7 +396,13 @@ class ClassDDEGridMachine():
         self.ExpectedOutputStokes = ExpectedOutputStokes
 
     def CalcCF(self):
-        self.FFTWMachine=ModFFTW.FFTW_2Donly(self.GridShape,self.dtype, ncores = 1)
+
+        if self.GD["ImagerGlobal"]["FFTMachine"]=="FFTW":
+            self.FFTWMachine=ModFFTW.FFTW_2Donly(self.GridShape,self.dtype, ncores = 1)
+        else:
+            self.FFTWMachine=ModFFTW.FFTW_2Donly_np(self.GridShape,self.dtype, ncores = 1)
+
+
         self.WTerm=ModCF.ClassWTermModified(Cell=self.Cell,
                                             Sup=self.Sup,
                                             Npix=self.Npix,
@@ -831,7 +837,20 @@ class ClassDDEGridMachine():
         #print vis
         #print "DEGRID:",Grid.shape,ChanMapping
         if self.GD["Compression"]["CompDeGridMode"]==0:
-            raise RuntimeError("Depricated flag. Please use BDA gridder")
+            _ = _pyGridder.pyDeGridderWPol(Grid,
+                                           vis,
+                                           uvw,
+                                           flag,
+                                           SumWeigths,
+                                           0,
+                                           self.WTerm.WplanesConj,
+                                           self.WTerm.Wplanes,
+                                           np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
+                                           self.incr.astype(np.float64),
+                                           freqs,
+                                           [self.PolMap,FacetInfos,RowInfos,ChanMapping],
+                                           ParamJonesList)
+#            raise RuntimeError("Depricated flag. Please use BDA gridder")
         else:
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos=[self.JonesType,ChanEquidistant,self.SkyType,self.PolModeID]

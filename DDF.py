@@ -103,6 +103,7 @@ def read_options():
 #    OP.add_option('MultiFreqMap', help="Outputs multi-frequency cube (NFreqBands) instead of average map")
 
 
+
     OP.OptionGroup("* Caching options","Caching")
     OP.add_option('ResetCache')
     OP.add_option('ResetPSF')
@@ -133,6 +134,7 @@ def read_options():
     OP.add_option("PSFOversize")
     OP.add_option("PSFFacets")
     OP.add_option("PhaseCenterRADEC")
+    OP.add_option('FFTMachine')
 
     OP.OptionGroup("* Visibility compression parameters","Compression")
     OP.add_option('CompGridMode')

@@ -86,6 +86,9 @@ class ClassFacetMachine():
         self.AverageBeamMachine=None
         self.DoComputeSmoothBeam=False
 
+        NSemaphores = 3373
+        self.ListSemaphores = ["%sSemaphore%4.4i" % (self.IdSharedMem, i) for i in range(NSemaphores)]
+
     def __del__ (self):
         #print>>log,"Deleting shared memory"
         NpShared.DelAll(self.IdSharedMem)
@@ -432,6 +435,7 @@ class ClassFacetMachine():
         Set fft wisdom
         """
         self.FFTW_Wisdom=None
+        if self.GD["ImagerGlobal"]["FFTMachine"]!="FFTW": return
         print>>log, "Set fftw widsdom for shape = %s"%str(self.PaddedGridShape)
         a=np.random.randn(*(self.PaddedGridShape))+1j*np.random.randn(*(self.PaddedGridShape))
         FM=ModFFTW.FFTW_2Donly(self.PaddedGridShape, np.complex64)
@@ -1249,8 +1253,7 @@ class ClassFacetMachine():
         print>> log, "    ... done"
 
 
-        NSemaphores = 3373
-        ListSemaphores = ["%sSemaphore%4.4i" % (self.IdSharedMem, i) for i in range(NSemaphores)]
+        ListSemaphores=self.ListSemaphores
         _pyGridderSmearPols.pySetSemaphores(ListSemaphores)
         work_queue = multiprocessing.Queue()
         result_queue = multiprocessing.Queue()
@@ -1312,6 +1315,36 @@ class ClassFacetMachine():
         print>> log, "degridding finished in %s" % timer.timehms()
 
         return True
+
+
+    # ###################################################################
+    # Needed for killMS, please do no remove
+    def GiveGM(self,iFacet):
+        """
+        Factory: Initializes a gridding machine for this facet
+        Args:
+            iFacet: index of facet
+
+        Returns:
+            grid machine instance
+        """
+        GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,#RaDec=self.DicoImager[iFacet]["RaDec"],
+                                                            self.DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
+                                                            self.DicoImager[iFacet]["DicoConfigGM"]["Npix"],
+                                                            lmShift=self.DicoImager[iFacet]["lmShift"],
+                                                            IdSharedMem=self.IdSharedMem,
+                                                            IdSharedMemData=self.IdSharedMemData,
+                                                            FacetDataCache=self.FacetDataCache,
+                                                            ChunkDataCache="file://" + self.VS.cache.dirname + "/",
+                                                            IDFacet=iFacet,
+                                                            SpheNorm=self.SpheNorm,
+                                                            NFreqBands=self.VS.NFreqBands,
+                                                            DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                                            ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds(),
+                                                            ListSemaphores=self.ListSemaphores)
+
+        return GridMachine
+    # ###################################################################
 
 ##########################################
 ####### Workers
