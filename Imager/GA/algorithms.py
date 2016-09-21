@@ -264,7 +264,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         if verbose:
             print logbook.stream        
 
-    print "Best indiv1 fitness",best_ind.fitness
+    #print "Best indiv1 fitness",best_ind.fitness
     return population, logbook
 
 #from ModArrayOps_np import *

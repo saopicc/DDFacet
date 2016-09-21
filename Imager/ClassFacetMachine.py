@@ -17,6 +17,8 @@ from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassFacetMachine")
 MyLogger.setSilent("MyLogger")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
+import DDFacet.Data.ClassBeamMean as ClassBeamMean
+from DDFacet.Other import ModColor
 
 class ClassFacetMachine():
     """
@@ -81,10 +83,14 @@ class ClassFacetMachine():
         self.NormData=None
         self.NormImage=None
         self.FacetParallelEngine=WorkerImager
+        self.AverageBeamMachine=None
+        self.DoComputeSmoothBeam=False
 
     def __del__ (self):
         #print>>log,"Deleting shared memory"
         NpShared.DelAll(self.IdSharedMem)
+
+
 
     def SetLogModeSubModules(self,Mode="Silent"):
         SubMods=["ModelBeamSVD","ClassParam","ModToolBox","ModelIonSVD2","ClassPierce"]
@@ -666,6 +672,15 @@ class ClassFacetMachine():
         self.stitchedResidual = self.FacetsToIm_Channel()
         if DoCalcNormData:
             self.NormData = self.FacetsToIm_Channel(BeamWeightImage=True)
+
+        if self.DoComputeSmoothBeam and self.GD["Beam"]["BeamModel"]!=None:
+            self.AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
+            self.AverageBeamMachine.LoadData()
+            self.AverageBeamMachine.CalcMeanBeam()
+            self.SmoothMeanNormImage = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
+            #self.AverageBeamMachine.GiveMergedWithDiscrete( np.mean(self.NormData, axis=0).reshape((Npix,Npix) ))
+            #self.SmoothMeanNormImage = self.SmoothMeanNormImage.reshape((1,1,Npix,Npix))
+            DicoImages["SmoothMeanNormImage"] = self.SmoothMeanNormImage 
 
         #Normalize each of the continuum bands of the combined residual by the weights that contributed to that band:
         # -------------------------------------------------

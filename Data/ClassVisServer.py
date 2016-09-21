@@ -13,7 +13,6 @@ from DDFacet.Other import reformat
 import ClassSmearMapping
 import os
 import ClassJones
-import ClassBeamMean
 log=MyLogger.getLogger("ClassVisServer")
 
 def test():
@@ -314,15 +313,14 @@ class ClassVisServer():
                                               band_mapping=band_mapping)
 
         # VisWeights has an entry for every chunk of every MS. Break it up into per-MS sets
+
         self.VisWeights = []
         for ms in self.ListMS:
             self.VisWeights.append(weight_list[:ms.Nchunk])
             del weight_list[:ms.Nchunk]
 
-    def CalcMeanBeam(self):
-        AverageBeamMachine=ClassBeamMean.ClassBeamMean(self)
-        AverageBeamMachine.LoadData()
-        AverageBeamMachine.CalcMeanBeam()
+            
+
 
     def VisChunkToShared(self):
 

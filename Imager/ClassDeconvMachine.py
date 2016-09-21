@@ -119,7 +119,7 @@ class ClassImagerDeconv():
         if "Residual_i" in old_interface_saveims:
             self._saveims.update("e")
         self._save_intermediate_grids = self.GD["Debugging"]["SaveIntermediateDirtyImages"]
-
+        self.SmoothMeanNormImage=None
 
     def Init(self):
         DC=self.GD
@@ -210,6 +210,9 @@ class ClassImagerDeconv():
                 raise NotImplementedError("Algorithm %s does not exist"%self.GD["ImagerDeconv"]["MinorCycleMode"])
 
             self.InitFacetMachine()
+            
+            self.FacetMachine.DoComputeSmoothBeam=("H" in self._saveims)
+
             self.VS.setFacetMachine(self.FacetMachine)
             self.VS.CalcWeights()
 
@@ -458,6 +461,19 @@ class ClassImagerDeconv():
                 nch, npol, nx, ny = self.DicoDirty["ImagData"].shape
                 self.NormImage = self.DicoDirty["NormData"]
                 self.MeanNormImage = np.mean(self.NormImage, axis=0).reshape((1, npol, nx, ny))
+
+                self.FacetMachine.NormImage = self.DicoDirty["NormImage"]
+                self.FacetMachine.NormData = self.DicoDirty["NormData"] 
+                self.FacetMachine.MeanResidual = self.DicoDirty["MeanImage"]
+                self.FacetMachine.DoCalcNormData = False
+
+                if "SmoothMeanNormImage" in self.DicoDirty.keys():
+                    #print>>log,"A smooth beam is used for the averaged Muller "
+                    self.SmoothMeanNormImage=self.DicoDirty["SmoothMeanNormImage"]
+                    self.FacetMachine.SmoothMeanNormImage = self.DicoDirty["SmoothMeanNormImage"]
+                    self.FacetMachine.DoComputeSmoothBeam = False
+                
+
                 DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
                 nch,npol,nx,ny = DirtyCorr.shape
             else:
@@ -569,6 +585,7 @@ class ClassImagerDeconv():
 
                 self.NormImage = self.DicoDirty["NormData"]
                 self.MeanNormImage = np.mean(self.NormImage,axis=0).reshape((1,npol,nx,ny))
+
                 if "N" in self._saveims:
                     self.FacetMachine.ToCasaImage(self.MeanNormImage,ImageName="%s.Norm"%self.BaseName,Fits=True,
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
@@ -771,6 +788,9 @@ class ClassImagerDeconv():
             DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
             self.ResidCube  = DicoImage["ImagData"] #get residuals cube
             self.ResidImage = DicoImage["MeanImage"]
+
+            if "SmoothMeanNormImage" in DicoImage.keys():
+                self.SmoothMeanNormImage=DicoImage["SmoothMeanNormImage"]
 
             if "e" in self._saveims:
                 self.FacetMachine.ToCasaImage(self.ResidImage,ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),
@@ -976,6 +996,7 @@ class ClassImagerDeconv():
         if havenorm and "R" in self._saveims:
             self.FacetMachine.ToCasaImage(intres(),ImageName="%s.int.residual"%(self.BaseName),Fits=True,
                                           Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+        
         # apparent-flux residual cube
         if "r" in self._savecubes:
             self.FacetMachine.ToCasaImage(apprescube(),ImageName="%s.cube.app.residual"%(self.BaseName),Fits=True,
@@ -1029,6 +1050,19 @@ class ClassImagerDeconv():
         if havenorm and "I" in self._saveims:
             self.FacetMachine.ToCasaImage(intres()+intconvmodel(),ImageName="%s.int.restored"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
+        # intrinsic-flux restored image
+        if havenorm and ("H" in self._saveims):
+            if self.SmoothMeanNormImage is None:
+                print>>log, ModColor.Str("You requested a restored imaged but the smooth beam is not in there")
+                print>>log, ModColor.Str("  so just not doing it")
+            else:
+                self.FacetMachine.ToCasaImage(self.SmoothMeanNormImage,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                SmoothRestored=(appres()+appconvmodel())/np.sqrt(self.SmoothMeanNormImage)
+                self.FacetMachine.ToCasaImage(SmoothRestored,ImageName="%s.smooth.int.restored"%self.BaseName,Fits=True,
+                                              beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
         # apparent-flux restored image cube
         if "i" in self._savecubes:
             self.FacetMachine.ToCasaImage(apprescube()+appconvmodelcube(),ImageName="%s.cube.app.restored"%self.BaseName,Fits=True,

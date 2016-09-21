@@ -5,6 +5,9 @@ from DDFacet.ToolsDir import ModCoord
 import ClassJones
 from DDFacet.Imager import ModCF
 from DDFacet.ToolsDir import ModFFTW
+from DDFacet.Other import ClassTimeIt
+from DDFacet.Other.progressbar import ProgressBar
+from DDFacet.Other import ModColor
 
 class ClassBeamMean():
     def __init__(self,VS):
@@ -15,7 +18,7 @@ class ClassBeamMean():
         self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
         self.CalcGrid()
         self.GD=self.VS.GD
-        self.Padding=Padding
+        #self.Padding=Padding
 
     def CalcGrid(self):
         _,_,nx,_=self.VS.FullImShape
@@ -48,7 +51,9 @@ class ClassBeamMean():
         print>>log, "Loading some data for all MS..."
 
         self.Data={}
+        
         for iMS,MS in zip(range(self.VS.nMS),self.ListMS):
+
             tab = MS.GiveMainTable()
             times = tab.getcol("TIME")
             flags = tab.getcol("FLAG")
@@ -62,13 +67,13 @@ class ClassBeamMean():
             ThisMSData["A1"]=A1
             ThisMSData["times"]=times
             ThisMSData["flags"]=flags
-            ThisMSData["W"]=weights
+            ThisMSData["W"]=np.concatenate(weights)
+
     
-        self.Data[iMS]=ThisMSData
+            self.Data[iMS]=ThisMSData
 
     def CalcMeanBeam(self):
         
-        print>>log, "Calculating mean beam..."
         Dt=self.GD["Beam"]["DtBeamMin"]*60.
 
         RAs,DECs = self.radec
@@ -76,7 +81,11 @@ class ClassBeamMean():
         SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
         SumWsq=0.
 
+        print>>log, ModColor.Str("========================= Calculating smooth beams =======================")
+
         for iMS,MS in zip(range(self.VS.nMS),self.ListMS):
+            print>>log,"Compute beam for %s"%MS.MSName
+            print>>log,"  in %i directions"%RAs.size
             JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine,IdSharedMem=self.VS.IdSharedMem)
             JonesMachine.InitBeamMachine()
 
@@ -86,35 +95,74 @@ class ClassBeamMean():
             A1=ThisMSData["A1"]
             flags=ThisMSData["flags"]
             W=ThisMSData["W"]
-
+            
             beam_times = np.array(JonesMachine.BeamMachine.getBeamSampleTimes(times))
+            
             CurrentBeamITime=-1
+            #print "  Estimate beam in %i directions"%(RAs.size)
             DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs, DECs)
-
+            T=ClassTimeIt.ClassTimeIt()
+            T.disable()
             NTRange=DicoBeam["t0"].size
-            for iTRange in range(len(DicoBeam)):
+            pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Mean Beam", HeaderSize=10,TitleSize=13)
+            pBAR.render(0, '%4i/%i' % (0,NTRange))
+            for iTRange in range(DicoBeam["t0"].size):
+
                 t0=DicoBeam["t0"][iTRange]
                 t1=DicoBeam["t1"][iTRange]
                 J=DicoBeam["Jones"][iTRange]
                 ind=np.where((times>=t0)&(times<t1))[0]
+                T.timeit("0")
                 A0s=A0[ind]
                 A1s=A1[ind]
                 fs=flags[ind]
                 Ws=W[ind]
+                T.timeit("1")
                 
-                J0=J[:,A0s,:,:,:]
-                J1=J[:,A1s,:,:,:]
+                nt,na,nch,_,_=J.shape
+
+                # # ######################
+                # # This call is slow
+                # J0=J[:,A0s,:,:,:]
+                # J1=J[:,A1s,:,:,:]
+                # T.timeit("2")
+                # # ######################
+                J0=np.zeros((nt,A0s.size,nch,2,2),dtype=J.dtype)
+                J0List=[J[:,A0s[i],:,:,:] for i in range(A0s.size)]
+                J1=np.zeros((nt,A0s.size,nch,2,2),dtype=J.dtype)
+                J1List=[J[:,A1s[i],:,:,:] for i in range(A0s.size)]
+                for i in range(A0s.size):
+                    J0[:,i,:,:,:]=J0List[i]
+                    J1[:,i,:,:,:]=J1List[i]
+                T.timeit("2b")
+
+
+
                 JJ=(np.abs(J0[:,:,:,0,0])*np.abs(J1[:,:,:,0,0])+np.abs(J0[:,:,:,1,1])*np.abs(J1[:,:,:,1,1]))/2.
+                T.timeit("3")
 
                 WW=Ws**2
+                T.timeit("4")
                 WW=WW.reshape((1,ind.size,self.MS.Nchan))
+                T.timeit("5")
                 JJsq=WW*JJ**2
+                T.timeit("6")
 
                 SumWsqThisRange=np.sum(JJsq,axis=1)
+                T.timeit("7")
                 SumJJsq+=SumWsqThisRange.reshape((self.npix,self.npix,self.MS.Nchan))
+                T.timeit("8")
                 SumWsq+=np.sum(WW,axis=1)
+                T.timeit("9")
+
+                NDone = iTRange+1
+                intPercent = int(100 * NDone / float(NTRange))
+                pBAR.render(intPercent, '%4i/%i' % (NDone, NTRange))
+
         SumJJsq/=SumWsq.reshape(1,1,self.MS.Nchan)
+        #self.SumJJsq=np.rollaxis(SumJJsq,2)#np.mean(SumJJsq,axis=2)
         self.SumJJsq=np.mean(SumJJsq,axis=2)
+
         self.Smooth()
         
     def Smooth(self):
@@ -122,26 +170,42 @@ class ClassBeamMean():
         
         SpheM=ModCF.SpheMachine(Support=self.npix,SupportSpheCalc=111)
         CF, fCF, ifzfCF=SpheM.MakeSphe(nx)
-
+        
+        
+        ifzfCF.fill(1)
+        SpheM.if_cut_fCF.fill(1)
+        
         FT=ModFFTW.FFTW_2Donly_np()
         
         SumJJsq_Sphe=self.SumJJsq.copy()*SpheM.if_cut_fCF
+
         A=np.complex64(SumJJsq_Sphe.reshape((1,1,self.npix,self.npix)))
         f_SumJJsq=FT.fft(A).reshape((self.npix,self.npix))
         z_f_SumJJsq=np.complex64(ModCF.ZeroPad(f_SumJJsq,outshape=nx))
         
         if_z_f_SumJJsq=FT.ifft(z_f_SumJJsq.reshape((1,1,nx,nx))).real.reshape((nx,nx))
-        if_z_f_SumJJsq/=ifzfCF
+        if_z_f_SumJJsq/=np.real(ifzfCF)#.reshape((1,1,nx,nx)))
+        #if_z_f_SumJJsq[ifzfCF.real<1e-2]=-1.
 
+        # vmin=0#self.SumJJsq.min()
+        # vmax=self.SumJJsq.max()
+        # import pylab
+        # pylab.clf()
+        # ax=pylab.subplot(1,3,1)
+        # pylab.imshow(self.SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
+        # pylab.imshow(ifzfCF.real,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+        # pylab.imshow(if_z_f_SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # pylab.show(False)
+        # stop
 
-        vmin=self.SumJJsq.min()
-        vmax=self.SumJJsq.max()
-        import pylab
-        pylab.clf()
-        pylab.subplot(1,2,1)
-        pylab.imshow(self.SumJJsq,interpolation="nearest")
-        pylab.subplot(1,2,2)
-        pylab.imshow(if_z_f_SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax)
-        pylab.show(False)
-        
-        stop
+        self.ifzfCF=np.real(ifzfCF)
+        self.SmoothBeam=np.real(if_z_f_SumJJsq)
+
+        print>>log, ModColor.Str("======================= Done calculating smooth beams ====================")
+
+    def GiveMergedWithDiscrete(self,DiscreteMeanBeam):
+        Mask=(self.ifzfCF<1e-2)
+        self.SmoothBeam[Mask]=DiscreteMeanBeam[Mask]
+        return self.SmoothBeam

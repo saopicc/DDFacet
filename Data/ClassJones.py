@@ -460,6 +460,7 @@ class ClassJones():
         
         rac,decc=self.MS.radec
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="  Init E-Jones ", HeaderSize=10,TitleSize=13)
+        pBAR.render(0, "%d/%d"%(0, Tm.size))
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]
             DicoBeam["t1"][itime]=T1s[itime]
@@ -468,8 +469,7 @@ class ClassJones():
 
 
 
-            if Tm.size>1:
-                pBAR.render(itime*100/(Tm.size-1), "%d/%d"%(itime+1, Tm.size))
+
             Beam=self.GiveInstrumentBeam(ThisTime,RA,DEC)
             #
             if self.GD["Beam"]["CenterNorm"]==1:
@@ -482,6 +482,8 @@ class ClassJones():
                 
  
             DicoBeam["Jones"][itime]=Beam
+            NDone=itime+1
+            pBAR.render(int(NDone*100/float(Tm.size)), "%d/%d"%(NDone, Tm.size))
 
 
         nt,nd,na,nch,_,_= DicoBeam["Jones"].shape
