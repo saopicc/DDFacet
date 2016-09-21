@@ -531,7 +531,7 @@ class ClassVisServer():
         if self.GD["Compression"]["CompGridMode"]:
             mapname, valid = self.cache.checkCache("BDA.Grid",
                                                    dict(Compression=self.GD["Compression"],
-                                                        DataSelection=self.GD["DataSelection"]))
+                                                        DataSelection=self.GD["DataSelection"],ImagerMainFacet=self.GD["ImagerMainFacet"]))
             if valid:
                 print>> log, "  using cached BDA mapping %s" % mapname
             else:
@@ -556,7 +556,7 @@ class ClassVisServer():
         if self.GD["Compression"]["CompDeGridMode"]:
             mapname, valid = self.cache.checkCache("BDA.DeGrid",
                                                    dict(Compression=self.GD["Compression"],
-                                                        DataSelection=self.GD["DataSelection"]))
+                                                        DataSelection=self.GD["DataSelection"],ImagerMainFacet=self.GD["ImagerMainFacet"]))
             if valid:
                 print>> log, "  using cached BDA mapping %s" % mapname
             else:
