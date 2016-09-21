@@ -427,15 +427,19 @@ class ClassMS():
     def ReinitChunkIter(self):
         self.current_chunk = -1
 
+    def getChunkCache (self, row0, row1):
+        if (row0, row1) not in self._chunk_caches:
+            self._chunk_caches[row0, row1] = CacheManager(
+                self.MSName + ".ddfcache/F%d:D%d:%d:%d" % (self.Field, self.DDID, row0, row1), self._reset_cache)
+        return self._chunk_caches[row0, row1]
+
     def GiveNextChunk(self,databuf=None,flagbuf=None):
         # get row0:row1 of next chunk. If row1==row0, chunk is empty and we must skip it
         while self.current_chunk < self.Nchunk-1:
             self.current_chunk += 1
             row0, row1 = self._chunk_r0r1[self.current_chunk]
             if row1 > row0:
-                if (row0,row1) not in self._chunk_caches:
-                    self._chunk_caches[row0,row1] = CacheManager(self.MSName+".ddfcache/F%d:D%d:%d:%d" % (self.Field,self.DDID,row0,row1), self._reset_cache)
-                self.cache = self._chunk_caches[row0,row1]
+                self.cache = self.getChunkCache(row0,row1)
                 return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf)
         return "EndMS"
 
@@ -778,19 +782,6 @@ class ClassMS():
         self.dFreq=ta_spectral.getcol("CHAN_WIDTH")[self._spwid,self.ChanSlice].flatten()[0]
         self.ChanWidth=ta_spectral.getcol('CHAN_WIDTH')[self._spwid,self.ChanSlice]
 
-        # set up cs_tlc,cd_brc,cs_inc: these are pyrap-style slice selection arguments
-        # to select the [subset] of the column
-        if self.ChanSlice is not None:
-            chan_nums = range(len(orig_freq))[self.ChanSlice]
-            self.cs_tlc = (chan_nums[0], 0)
-            self.cs_brc = (chan_nums[-1], self.Ncorr-1)
-            self.cs_inc = (self.ChanSlice.step or 1, 1)
-        else:
-            self.cs_tlc = (0, 0)
-            self.cs_brc = (self.Nchan-1, self.Ncorr-1)
-            self.cs_inc = (1, 1)
-
-
         # if chan_freq.shape[0]>len(self.ListSPW):
         #     print ModColor.Str("  ====================== >> More SPW in headers, modifying that error....")
         #     chan_freq=chan_freq[np.array(self.ListSPW),:]
@@ -808,9 +799,20 @@ class ClassMS():
         if NSPW>1:
             print "Don't deal with multiple SPW yet"
 
-
-        Nchan=len(wavelength_chan)
+        self.Nchan = Nchan = len(wavelength_chan)
         NSPWChan=NSPW*Nchan
+
+        # set up cs_tlc,cd_brc,cs_inc: these are pyrap-style slice selection arguments
+        # to select the [subset] of the column
+        if self.ChanSlice is not None:
+            chan_nums = range(len(orig_freq))[self.ChanSlice]
+            self.cs_tlc = (chan_nums[0], 0)
+            self.cs_brc = (chan_nums[-1], self.Ncorr - 1)
+            self.cs_inc = (self.ChanSlice.step or 1, 1)
+        else:
+            self.cs_tlc = (0, 0)
+            self.cs_brc = (self.Nchan - 1, self.Ncorr - 1)
+            self.cs_inc = (1, 1)
 
         ta=table(table_all.getkeyword('FIELD'),ack=False)
         rarad,decrad=ta.getcol('PHASE_DIR')[self.Field][0]

@@ -348,6 +348,12 @@ class ClassMultiScaleMachine():
         self.SubSubCoord=(x0,x1,y0,y1)
         self.SubCubePSF=self.CubePSFScales[:,:,x0:x1,y0:y1]
         self.SubWeightFunction=self.GlobalWeightFunction[:,:,x0:x1,y0:y1]
+        _,nch,_,_ = self.SubCubePSF.shape
+
+        self.WeightMeanJonesBand=self.DicoVariablePSF["MeanJonesBand"][self.iFacet].reshape((nch,1,1,1))
+        WeightMueller=self.WeightMeanJonesBand.ravel()
+        self.WeightMuellerSignal = WeightMueller*self.DicoVariablePSF["WeightChansImages"].ravel()
+
         if cachedmatrix is not None:
             self.DicoBasisMatrix = cachedmatrix
         else:
@@ -397,11 +403,7 @@ class ClassMultiScaleMachine():
 
         UVTaper.fill(1)
 
-        self.WeightMeanJonesBand=self.DicoVariablePSF["MeanJonesBand"][self.iFacet].reshape((nch,1,1,1))
-        WeightMueller=self.WeightMeanJonesBand.ravel()
-        WeightMuellerSignal=WeightMueller*self.DicoVariablePSF["WeightChansImages"].ravel()
-        self.WeightMuellerSignal=WeightMuellerSignal
-        UVTaper*=WeightMuellerSignal.reshape((nch,1,1,1))
+        UVTaper*=self.WeightMuellerSignal.reshape((nch,1,1,1))
 
         # fCubePSF[:,:,nx/2,ny/2]=0
         # import pylab
@@ -454,8 +456,9 @@ class ClassMultiScaleMachine():
                          "CubePSFScales":self.CubePSFScales}
 
 
-        BaseName = self.GD["Images"]["ImageName"]
-        pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
+        if self.GD["Debugging"]["DumpCleanSolutions"]:
+            BaseName = self.GD["Images"]["ImageName"]
+            pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
         return DicoBasisMatrix
         
         
@@ -663,6 +666,18 @@ class ClassMultiScaleMachine():
             y=dirtyVec
             x,_=scipy.optimize.nnls(A, y.ravel())
             Sol=x
+
+            SolReg = np.zeros_like(Sol)
+            SolReg[0] = MeanFluxTrue
+
+            if np.sign(SolReg[0]) != np.sign(np.sum(Sol)):
+                Sol = SolReg
+            else:
+                coef = np.min([np.abs(np.sum(Sol) / MeanFluxTrue), 1.])
+                Sol = Sol * coef + SolReg * (1. - coef)
+                # if np.abs(np.sum(Sol))>np.abs(MeanFluxTrue):
+                #     Sol=SolReg
+
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
 
             if self.GD["Debugging"]["DumpCleanSolutions"]:
