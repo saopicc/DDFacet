@@ -620,6 +620,16 @@ class ClassFacetMachine():
             self.GiveVisParallel(*args,**kwargs)
         self.SetLogModeSubModules("Loud")
 
+    def ComputeSmoothBeam(self):
+        if self.DoComputeSmoothBeam and self.GD["Beam"]["BeamModel"]!=None and self.SmoothMeanNormImage is None:
+            _,npol,Npix,Npix=self.OutImShape
+            self.AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
+            self.AverageBeamMachine.CalcMeanBeam()
+            self.SmoothMeanNormImage = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
+            #self.AverageBeamMachine.GiveMergedWithDiscrete( np.mean(self.NormData, axis=0).reshape((Npix,Npix) ))
+            #self.SmoothMeanNormImage = self.SmoothMeanNormImage.reshape((1,1,Npix,Npix))
+            #DicoImages["SmoothMeanNormImage"] = self.SmoothMeanNormImage 
+
     def FacetsToIm(self,NormJones=False):
         """
         Fourier transforms the individual facet grids and then
@@ -677,14 +687,6 @@ class ClassFacetMachine():
         if DoCalcNormData:
             self.NormData = self.FacetsToIm_Channel(BeamWeightImage=True)
 
-        if self.DoComputeSmoothBeam and self.GD["Beam"]["BeamModel"]!=None and self.SmoothMeanNormImage is None:
-            self.AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
-            self.AverageBeamMachine.LoadData()
-            self.AverageBeamMachine.CalcMeanBeam()
-            self.SmoothMeanNormImage = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
-            #self.AverageBeamMachine.GiveMergedWithDiscrete( np.mean(self.NormData, axis=0).reshape((Npix,Npix) ))
-            #self.SmoothMeanNormImage = self.SmoothMeanNormImage.reshape((1,1,Npix,Npix))
-            DicoImages["SmoothMeanNormImage"] = self.SmoothMeanNormImage 
 
         #Normalize each of the continuum bands of the combined residual by the weights that contributed to that band:
         # -------------------------------------------------

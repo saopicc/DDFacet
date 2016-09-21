@@ -12,12 +12,16 @@ from DDFacet.Other import ModColor
 class ClassBeamMean():
     def __init__(self,VS):
         self.VS=VS
+        self.GD=self.VS.GD
+        self.CheckCache()
+        if self.CacheValid: return
+
+
         self.ListMS=self.VS.ListMS
         self.MS=self.ListMS[0]
         rac,decc=self.MS.radec
         self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
         self.CalcGrid()
-        self.GD=self.VS.GD
         #self.Padding=Padding
 
     def CalcGrid(self):
@@ -41,6 +45,7 @@ class ClassBeamMean():
         self.npix=npix
 
     def LoadData(self):
+        print>>log, "Loading some data for all MS..."
         # make lists of tables and row counts (one per MS)
         tabs = [ ms.GiveMainTable() for ms in self.ListMS ]
         nrows = [ tab.nrows() for tab in tabs ]
@@ -48,8 +53,6 @@ class ClassBeamMean():
         # preallocate arrays
         # NB: this assumes nchan and ncorr is the same across all MSs in self.ListMS. Tough luck if it isn't!
 
-        print>>log, ModColor.Str("========================= Calculating smooth beams =======================")
-        print>>log, "Loading some data for all MS..."
 
         self.Data={}
         
@@ -74,7 +77,11 @@ class ClassBeamMean():
             self.Data[iMS]=ThisMSData
 
     def CalcMeanBeam(self):
-        
+        if self.CacheValid:
+            return 
+
+        print>>log, ModColor.Str("========================= Calculating smooth beams =======================")
+        self.LoadData()
         Dt=self.GD["Beam"]["DtBeamMin"]*60.
 
         RAs,DECs = self.radec
@@ -110,7 +117,7 @@ class ClassBeamMean():
 
                 t0=DicoBeam["t0"][iTRange]
                 t1=DicoBeam["t1"][iTRange]
-                J=DicoBeam["Jones"][iTRange]
+                J=np.abs(DicoBeam["Jones"][iTRange])
                 ind=np.where((times>=t0)&(times<t1))[0]
                 T.timeit("0")
                 A0s=A0[ind]
@@ -138,7 +145,7 @@ class ClassBeamMean():
 
 
 
-                JJ=(np.abs(J0[:,:,:,0,0])*np.abs(J1[:,:,:,0,0])+np.abs(J0[:,:,:,1,1])*np.abs(J1[:,:,:,1,1]))/2.
+                JJ=(J0[:,:,:,0,0]*J1[:,:,:,0,0]+J0[:,:,:,1,1]*J1[:,:,:,1,1])/2.
                 T.timeit("3")
 
                 WW=Ws**2
@@ -202,8 +209,25 @@ class ClassBeamMean():
 
         self.ifzfCF=np.real(ifzfCF)
         self.SmoothBeam=np.real(if_z_f_SumJJsq)
-
+        np.save(self.CachePath,self.SmoothBeam)
+        self.VS.maincache.saveCache("SmoothBeam.npy")
         print>>log, ModColor.Str("======================= Done calculating smooth beams ====================")
+
+       
+    def CheckCache(self):
+        self.CachePath, self.CacheValid = self.VS.maincache.checkCache("SmoothBeam.npy", 
+                                                                  dict([("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
+                                                                       [(section, self.GD[section]) 
+                                                                        for section in "VisData", 
+                                                                        "Beam", "DataSelection",
+                                                                        "MultiFreqs", "ImagerGlobal", "Compression",
+                                                                        "ImagerCF", "ImagerMainFacet"]), 
+                                                                  reset=self.GD["Caching"]["ResetSmoothBeam"])
+
+
+        if self.CacheValid:
+            print>>log,"found valid cached dirty image in %s"%self.CachePath
+            self.SmoothBeam=np.load(self.CachePath)
 
     def GiveMergedWithDiscrete(self,DiscreteMeanBeam):
         Mask=(self.ifzfCF<1e-2)

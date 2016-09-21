@@ -120,8 +120,17 @@ class ClassVisServer():
             min_freq = min(min_freq,(MS.ChanFreq-MS.ChanWidth/2).min())
             max_freq = max(max_freq,(MS.ChanFreq+MS.ChanWidth/2).max())
             
-        # main cache is initialized from main cache of first MS
-        self.maincache = self.cache = self.ListMS[0].maincache
+        if ".txt" in self.GD["VisData"]["MSName"]:
+            # main cache is initialized from main cache of the MSList
+            from DDFacet.Other.CacheManager import CacheManager
+            self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["VisData"]["MSName"], reset=self.GD["Caching"]["ResetCache"])
+        else:
+            # main cache is initialized from main cache of first MS
+            self.maincache = self.cache = self.ListMS[0].maincache
+
+        print>>log,"Main caching directory is %s"%self.maincache.dirname
+        
+            
 
         #Assume the correlation layout of the first measurement set for now
         self.VisCorrelationLayout = self.ListMS[0].CorrelationIds
