@@ -85,7 +85,7 @@ class ClassFacetMachine():
         self.FacetParallelEngine=WorkerImager
         self.AverageBeamMachine=None
         self.DoComputeSmoothBeam=False
-
+        self.SmoothMeanNormImage=None
         NSemaphores = 3373
         self.ListSemaphores = ["%sSemaphore%4.4i" % (self.IdSharedMem, i) for i in range(NSemaphores)]
 
@@ -677,7 +677,7 @@ class ClassFacetMachine():
         if DoCalcNormData:
             self.NormData = self.FacetsToIm_Channel(BeamWeightImage=True)
 
-        if self.DoComputeSmoothBeam and self.GD["Beam"]["BeamModel"]!=None:
+        if self.DoComputeSmoothBeam and self.GD["Beam"]["BeamModel"]!=None and self.SmoothMeanNormImage is None:
             self.AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
             self.AverageBeamMachine.LoadData()
             self.AverageBeamMachine.CalcMeanBeam()

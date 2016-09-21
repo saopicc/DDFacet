@@ -472,7 +472,7 @@ class ClassImagerDeconv():
                     self.SmoothMeanNormImage=self.DicoDirty["SmoothMeanNormImage"]
                     self.FacetMachine.SmoothMeanNormImage = self.DicoDirty["SmoothMeanNormImage"]
                     self.FacetMachine.DoComputeSmoothBeam = False
-                
+
 
                 DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
                 nch,npol,nx,ny = DirtyCorr.shape
@@ -558,6 +558,9 @@ class ClassImagerDeconv():
                 iloop += 1
 
             self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
+
+            if "SmoothMeanNormImage" in self.DicoDirty.keys():
+                self.SmoothMeanNormImage=self.DicoDirty["SmoothMeanNormImage"]
 
             if "d" in self._saveims:
                 self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
@@ -1056,6 +1059,7 @@ class ClassImagerDeconv():
             if self.SmoothMeanNormImage is None:
                 print>>log, ModColor.Str("You requested a restored imaged but the smooth beam is not in there")
                 print>>log, ModColor.Str("  so just not doing it")
+                stop
             else:
                 self.FacetMachine.ToCasaImage(self.SmoothMeanNormImage,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())

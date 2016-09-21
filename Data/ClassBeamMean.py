@@ -48,6 +48,7 @@ class ClassBeamMean():
         # preallocate arrays
         # NB: this assumes nchan and ncorr is the same across all MSs in self.ListMS. Tough luck if it isn't!
 
+        print>>log, ModColor.Str("========================= Calculating smooth beams =======================")
         print>>log, "Loading some data for all MS..."
 
         self.Data={}
@@ -81,7 +82,6 @@ class ClassBeamMean():
         SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
         SumWsq=0.
 
-        print>>log, ModColor.Str("========================= Calculating smooth beams =======================")
 
         for iMS,MS in zip(range(self.VS.nMS),self.ListMS):
             print>>log,"Compute beam for %s"%MS.MSName
