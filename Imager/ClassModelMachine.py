@@ -27,10 +27,10 @@ class ClassModelMachine():
     """
     def __init__(self,GD=None,Gain=None,GainMachine=None):
         self.GD=GD
-        if Gain is None:
-            self.Gain=self.GD["ImagerDeconv"]["Gain"]
-        else:
-            self.Gain=Gain
+        # if Gain is None:
+        #     self.Gain=self.GD["ImagerDeconv"]["Gain"]
+        # else:
+        #     self.Gain=Gain
         self.GainMachine=GainMachine
         self.DicoSMStacked={}
         self.DicoSMStacked["Comp"]={}

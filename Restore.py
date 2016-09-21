@@ -22,6 +22,7 @@ def read_options():
     group.add_option('--BaseImageName',help='')
     group.add_option('--ResidualImage',help='',type="str",default="")
     group.add_option('--BeamPix',type='float',help='',default=5)
+    group.add_option('--SmoothMode',type='int',help='',default=0)
     group.add_option('--MaskName',type="str",help='',default=5)
     group.add_option('--NBands',type="int",help='',default=1)
     group.add_option('--CleanNegComp',type="int",help='',default=0)
@@ -37,12 +38,15 @@ def read_options():
 
 class ClassRestoreMachine():
     def __init__(self,BaseImageName,BeamPix=5,ResidualImName="",DoAlpha=1,
-                 MaskName="",CleanNegComp=False,NBands=1,OutName=""):
+                 MaskName="",CleanNegComp=False,NBands=1,OutName="",
+                 SmoothMode=0):
         self.DoAlpha=DoAlpha
         self.BaseImageName=BaseImageName
         self.BeamPix=BeamPix
         self.NBands=NBands
         self.OutName=OutName
+
+        self.SmoothMode=SmoothMode
 
         FileDicoModel="%s.DicoModel"%BaseImageName
 
@@ -51,7 +55,7 @@ class ClassRestoreMachine():
         # self.ModelMachine.FromDico(DicoModel)
 
         ModConstructor = ClassModModelMachine()
-        MM=ModConstructor.GiveInitialisedMMFromFile(FileDicoModel)
+        self.ModelMachine=ModConstructor.GiveInitialisedMMFromFile(FileDicoModel)
 
 
         if MaskName!="":
@@ -61,12 +65,19 @@ class ClassRestoreMachine():
 
 
         if ResidualImName=="":
-            FitsFile="%s.residual.fits"%BaseImageName
+            #if "App" in self.ModeNorm:
+            #    FitsFile="%s.app.residual.fits"%BaseImageName
+            #else:
+            #    FitsFile="%s.int.residual.fits"%BaseImageName
+            ResidualImName=FitsFile="%s.app.residual.fits"%BaseImageName
         else:
-            FitsFile=ResidualImName
+            ResidualImName=FitsFile=ResidualImName
 
-
-        NormImageName="%s.Norm.fits"%BaseImageName
+        if self.SmoothMode:
+            NormImageName="%s.SmoothNorm.fits"%BaseImageName
+        else:
+            NormImageName="%s.Norm.fits"%BaseImageName
+            
 
         self.FitsFile=FitsFile
         im=image(FitsFile)
@@ -87,6 +98,7 @@ class ClassRestoreMachine():
                 for pol in range(npol):
                     testImage[ch,pol,:,:]=self.ResidualData[ch,pol,:,:].T[::-1,:]#*1.0003900000000001
 
+            
 
         SqrtNormImage=np.zeros_like(self.ResidualData)
         imNorm=image(NormImageName).getdata()
@@ -176,19 +188,19 @@ class ClassRestoreMachine():
             ImageName=self.OutName
             ImageNameCorr=self.OutName+".corr"
 
-        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModel,RestoredImageRes.shape,self.Cell,self.radec,Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModel,RestoredImageRes.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(ModelImage,CorrT=True)
         CasaImage.ToFits()
         CasaImage.setBeam(self.FWHMBeam)
         CasaImage.close()
 
-        CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec,Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec)#,Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(RestoredImageRes,CorrT=True)
         CasaImage.ToFits()
         CasaImage.setBeam(self.FWHMBeam)
         CasaImage.close()
 
-        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameCorr,RestoredImageResCorr.shape,self.Cell,self.radec,Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameCorr,RestoredImageResCorr.shape,self.Cell,self.radec)#,Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(RestoredImageResCorr,CorrT=True)
         CasaImage.ToFits()
         CasaImage.setBeam(self.FWHMBeam)
@@ -235,7 +247,8 @@ def main(options=None):
                             DoAlpha=options.DoAlpha,
                             NBands=options.NBands,
                             CleanNegComp=options.CleanNegComp,
-                            OutName=options.OutName)
+                            OutName=options.OutName,
+                            SmoothMode=options.SmoothMode)
     CRM.Restore()
 
 
