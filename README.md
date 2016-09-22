@@ -12,22 +12,22 @@ docker run --shm-size 6g -v /scratch/TEST_DATA:/mnt ddf /mnt/test-master1.parset
 ```
 Important: if you ran ```git submodule update --init --recursive``` before you may need to remove the cached SkyModel before building the docker image with ```git rm --cached SkyModel```
 
-# (Users): building and installing DDFacet from an Ubuntu 14.04 base
-1. You need to add in the radio-astro ppa if you don't already have it:
+## (Users): building and installing DDFacet from an Ubuntu 14.04 base
+1 You need to add in the radio-astro ppa if you don't already have it:
 ```
 sudo add-apt-repository ppa:radio-astro/main
 ```
-2. Install each of the dependencies. The latest full list of apt dependencies can be be found in the [Dockerfile](https://github.com/cyriltasse/DDFacet/blob/master/Dockerfile) 
+2 Install each of the dependencies. The latest full list of apt dependencies can be be found in the [Dockerfile](https://github.com/cyriltasse/DDFacet/blob/master/Dockerfile) 
 
-3. Then need to clone:
+3 Then need to clone:
 ```
 git clone git@github.com:cyriltasse/DDFacet.git
 ```
-4. Once checked out you can run the following to pull module dependencies
+4 Once checked out you can run the following to pull module dependencies
 ```
 git submodule update --init --recursive
 ```
-5. Once submodules are pulled installation is as simple as navigating down to the directory below your checked out copy of DDFacet and running:
+5 Once submodules are pulled installation is as simple as navigating down to the directory below your checked out copy of DDFacet and running:
 ```
 pip install DDFacet/ --user
 ```
