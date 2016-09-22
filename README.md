@@ -1,15 +1,28 @@
 # DDFacet
+## (Users/Recommended) Docker-based installation 
+Simply pull the latest DDFacet and build the Docker image:
+```
+git clone git@github.com:cyriltasse/DDFacet.git
+cd DDFacet
+docker build -t ddf .
+```
+You should now be able to run DDFacet in a container. Note that your parsets must have filenames relative to the mounted volume inside the container, for instance:
+```
+docker run --shm-size 6g -v /scratch/TEST_DATA:/mnt ddf /mnt/test-master1.parset
+```
+Important: if you ran ```git submodule update --init --recursive``` before you may need to remove the cached SkyModel before building the docker image with ```git rm --cached SkyModel```
 
 ## Dependencies
 
 From an Ubuntu 14.04 base:
 
+1. You need to pull in the radio-astro ppa:
 ```
 sudo add-apt-repository ppa:radio-astro/main
 ```
-The latest full list of apt dependencies can be be found in the Dockerfile
+2. Install each of the dependencies. The latest full list of apt dependencies can be be found in the [Dockerfile](https://github.com/cyriltasse/DDFacet/blob/master/Dockerfile) 
 
-Then need to clone:
+3. Then need to clone:
 ```
 git clone git@github.com:cyriltasse/DDFacet.git
 ```
