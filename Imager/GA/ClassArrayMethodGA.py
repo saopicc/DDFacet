@@ -15,7 +15,7 @@ from ClassParamMachine import ClassParamMachine
 from DDFacet.ToolsDir.GeneDist import ClassDistMachine
 from SkyModel.PSourceExtract import ClassIncreaseIsland
 
-
+import ClassConvMachine
 
 class ClassArrayMethodGA():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
@@ -34,7 +34,7 @@ class ClassArrayMethodGA():
         _,_,nx,_=self.Dirty.shape
         
         
-        
+        self.ConvMachine=ClassConvMachine.ClassConvMachine(PSF,ListPixParms,ListPixData)
         
         
         self.ListPixParms=ListPixParms
@@ -63,7 +63,8 @@ class ClassArrayMethodGA():
 
         self.PM.setFreqs(FreqsInfo)
 
-        self.SetConvMatrix()
+        self.SetDirtyArrays()
+
         self.NParms=self.NPixListParms*self.PM.NParam
         self.DataTrue=None
         #pylab.figure(3,figsize=(5,3))
@@ -74,7 +75,7 @@ class ClassArrayMethodGA():
     
 
 
-    def SetConvMatrix(self):
+    def SetDirtyArrays(self):
         print>>log,"SetConvMatrix"
         PSF=self.PSF
         NPixPSF=PSF.shape[-1]
@@ -85,56 +86,13 @@ class ClassArrayMethodGA():
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
             self.ListPixParms=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
 
-
-        M=np.zeros((self.NFreqBands,1,self.NPixListData,self.NPixListParms),np.float32)
         self.DirtyArray=np.zeros((self.NFreqBands,1,self.NPixListData),np.float32)
         xc=yc=NPixPSF/2
 
-        #PSF.flat[:]=np.arange(PSF.size)
-        #LL=[]
-
-        print>>log,"  Calculate M"
-
-        # #####################################
-        # for iBand in range(self.NFreqBands):
-        #     for iPix in range(self.NPixListData):
-        #         x0,y0=self.ListPixData[iPix]
-        #         self.DirtyArray[iBand,0,iPix]=self.Dirty[iBand,0,x0,y0]
-        #         for jPix,(x,y) in zip(range(self.NPixListParms),self.ListPixParms):
-        #             i,j=(x-x0)+xc,(y-y0)+yc
-        #             if (i>=0)&(i<NPixPSF)&(j>=0)&(j<NPixPSF):
-        #                 M[iBand,0,iPix,jPix]=PSF[iBand,0,i,j]
-        #                 #LL.append((i,j))
-        # #####################################
-
-        #M2=np.zeros((self.NFreqBands,1,self.NPixListData,self.NPixListParms),np.float32)
-        #DirtyArray2=np.zeros((self.NFreqBands,1,self.NPixListData),np.float32)
-        M2=M
-        DirtyArray2=self.DirtyArray
-
         x0,y0=np.array(self.ListPixData).T
-        x1,y1=np.array(self.ListPixParms).T
-        N0=x0.size
-        N1=x1.size
-        dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
-        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+xc).T
-        Cx=((dx>=0)&(dx<NPixPSF))
-        Cy=((dy>=0)&(dy<NPixPSF))
-        C=(Cx&Cy)
-        indPSF=np.arange(M2.shape[-1]*M2.shape[-2])
-        indPSF_sel=indPSF[C.ravel()]
-        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF+dy.ravel()[C.ravel()]
         for iBand in range(self.NFreqBands):
-            DirtyArray2[iBand,0,:]=self.Dirty[iBand,0,x0,y0]
-            PSF_Chan=PSF[iBand,0]
-            M2[iBand,0].flat[indPSF_sel] = PSF_Chan.flat[indPixPSF.ravel()]
+            self.DirtyArray[iBand,0,:]=self.Dirty[iBand,0,x0,y0]
 
-
-        self.CM=M
-        
-        print>>log,"    Done calculate M"
-
-        #self.Gain=.5
         ALPHA=1.
         if (self.IslandBestIndiv is not None):
             S=self.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
@@ -162,77 +120,25 @@ class ClassArrayMethodGA():
                 if self.GD["GAClean"]["ArtifactRobust"]:
                     self.DirtyArray/=self.ALPHA
                 self.DirtyArray+=AddArray
-
         
-        print>>log,"  Average M"
         self.DirtyArrayMean=np.mean(self.DirtyArray,axis=0).reshape((1,1,self.NPixListData))
-        self.DirtyCMMean=np.mean(M,axis=0).reshape((1,1,self.NPixListData,self.NPixListParms))
         self.DirtyArrayAbsMean=np.mean(np.abs(self.DirtyArray),axis=0).reshape((1,1,self.NPixListData))
-        print>>log,"    Done average M"
-
-        print>>log,"  Calculate MParms"
-        MParms=np.zeros((self.NFreqBands,1,self.NPixListParms,self.NPixListParms),np.float32)
         self.DirtyArrayParms=np.zeros((self.NFreqBands,1,self.NPixListParms),np.float32)
-        # ###############################
-        # for iBand in range(self.NFreqBands):
-        #     for iPix in range(self.NPixListParms):
-        #         x0,y0=self.ListPixParms[iPix]
-        #         self.DirtyArrayParms[iBand,0,iPix]=self.Dirty[iBand,0,x0,y0]
-        #         for jPix,(x,y) in zip(range(self.NPixListParms),self.ListPixParms):
-        #             i,j=(x-x0)+xc,(y-y0)+yc
-        #             if (i>=0)&(i<NPixPSF)&(j>=0)&(j<NPixPSF):
-        #                 MParms[iBand,0,iPix,jPix]=PSF[iBand,0,i,j]
-        # ###############################
-
-        #M2=np.zeros((self.NFreqBands,1,self.NPixListParms,self.NPixListParms),np.float32)
-        #DirtyArray2=np.zeros_like(self.DirtyArrayParms)
-        M2=MParms
-        DirtyArray2=self.DirtyArrayParms
 
         x0,y0=np.array(self.ListPixParms).T
-        x1,y1=np.array(self.ListPixParms).T
-        N0=x0.size
-        N1=x1.size
-        dx=(x1.reshape((N1,1))-x0.reshape((1,N0))+xc).T
-        dy=(y1.reshape((N1,1))-y0.reshape((1,N0))+xc).T
-        Cx=((dx>=0)&(dx<NPixPSF))
-        Cy=((dy>=0)&(dy<NPixPSF))
-        C=(Cx&Cy)
-        indPSF=np.arange(M2.shape[-1]*M2.shape[-2])
-        indPSF_sel=indPSF[C.ravel()]
-        indPixPSF=dx.ravel()[C.ravel()]*NPixPSF+dy.ravel()[C.ravel()]
         for iBand in range(self.NFreqBands):
-            DirtyArray2[iBand,0,:]=self.Dirty[iBand,0,x0,y0]
-            PSF_Chan=PSF[iBand,0]
-            M2[iBand,0].flat[indPSF_sel] = PSF_Chan.flat[indPixPSF.ravel()]
+            self.DirtyArrayParms[iBand,0,:]=self.Dirty[iBand,0,x0,y0]
 
-
-
-
-        self.CMParms=MParms
         if self.IslandBestIndiv is not None:
             self.DirtyArrayParms+=self.ToConvArray(self.IslandBestIndiv,OutMode="Parms")
-        print>>log,"  Mean MParms"
+
         self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
-        self.CMParmsMean=np.mean(MParms,axis=0).reshape((1,1,self.NPixListParms,self.NPixListParms))
-        
-        print>>log,"Done"
-        # DirtyArrayOnes=np.ones_like(self.DirtyArray)
-        # NormArray=self.Convolve(DirtyArrayOnes,Norm=False)
-        # NormPSFInteg=np.sum(self.CM,axis=2)[:,0,0]
-        # self.NormArray=NormArray/NormPSFInteg.reshape((self.NFreqBands,1,1))
-        # # Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
-        # # pylab.clf()
-        # # pylab.imshow(Dirty[0,0])
-        # # pylab.colorbar()
-        # # pylab.draw()
-        # # pylab.show()
-        # # stop
 
     
 
     def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01,NMaxIter=20000):
-        CM=self.CMParmsMean.reshape((self.NPixListParms,self.NPixListParms))
+
+        CM=self.ConvMachine.CMParmsMean.reshape((self.NPixListParms,self.NPixListParms))
         A=self.DirtyArrayParmsMean.ravel().copy()
         SModelArray=np.zeros_like(A)
         MaxA=np.max(A)
@@ -265,29 +171,11 @@ class ClassArrayMethodGA():
         # stop
 
 
-    def Convolve(self,A,Norm=True,OutMode="Data"):
-        sh=A.shape
-        if OutMode=="Data":
-            CM=self.CM
-            OutSize=self.NPixListData
-        elif OutMode=="Parms":
-            CM=self.CMParms
-            OutSize=self.NPixListParms
-
-        ConvA=np.zeros((self.NFreqBands,1,OutSize),np.float32)
-        for iBand in range(self.NFreqBands):
-            AThisBand=A[iBand]
-            # if Norm:
-            #     AThisBand=AThisBand/self.NormArray[iBand,0]
-            CF=CM[iBand,0]
-            ConvA[iBand,0]=np.dot(CF,AThisBand.reshape((AThisBand.size,1))).reshape((OutSize,))
-            #if Norm: ConvA[iBand,0]/=self.NormArray[iBand,0]
-        return ConvA
 
     def ToConvArray(self,V,OutMode="Data"):
         A=self.PM.GiveModelArray(V)
         #A=ModFFTW.ConvolveGaussian(A,CellSizeRad=1,GaussPars=[(1.,1.,0.)])
-        A=self.Convolve(A,OutMode=OutMode)
+        A=self.ConvMachine.Convolve(A,OutMode=OutMode)
         return A
 
     def setBestIndiv(self,BestIndiv):
