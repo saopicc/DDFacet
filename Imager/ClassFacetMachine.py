@@ -1018,9 +1018,9 @@ class ClassFacetMachine():
                 workerlist[ii].start()
 
         timer = ClassTimeIt.ClassTimeIt()
-        print>> log, "Model images to facets..."
+        #print>> log, "Model images to facets..."
 
-        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  Model to facets", HeaderSize=10, TitleSize=13)
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="Model to facets", HeaderSize=10, TitleSize=13)
         #        pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0, NFacets))
         iResult = 0
@@ -1331,7 +1331,7 @@ class ClassFacetMachine():
         """
         NCPU = self.NCPU
 
-        print>> log, "Model image to facets ..."
+        #print>> log, "Model image to facets ..."
         self.ImToGrids(ModelImage)
 
         NFacets = len(self.DicoImager.keys())
