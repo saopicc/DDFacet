@@ -1,0 +1,3 @@
+[submodule "SkyModel"]
+	path = SkyModel
+	url = https://github.com/cyriltasse/SkyModel
