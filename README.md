@@ -13,6 +13,8 @@ docker run --shm-size 6g -v /scratch/TEST_DATA:/mnt ddf /mnt/test-master1.parset
 Important: if you ran ```git submodule update --init --recursive``` before you may need to remove the cached SkyModel before building the docker image with ```git rm --cached SkyModel```
 
 ## (Users): building and installing DDFacet from an Ubuntu 14.04 base
+Important: ensure that ```.local``` folder in your home folder (as with debian systems) is in your ```PATH``` if you want to install using ```--user```. Otherwise set up a virtual environment.
+
 1 You need to add in the radio-astro ppa if you don't already have it:
 ```
 sudo add-apt-repository ppa:radio-astro/main
