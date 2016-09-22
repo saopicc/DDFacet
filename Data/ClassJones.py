@@ -42,7 +42,7 @@ class ClassJones():
             self.ToShared("killMS",DicoSols,TimeMapping,DicoClusterDirs)
             self.DicoClusterDirs_kMS=DicoClusterDirs
             self.HasKillMSSols=True
-            print self.DicoClusterDirs_kMS.keys()
+            #print self.DicoClusterDirs_kMS.keys()
 
         ApplyBeam=(GD["Beam"]["BeamModel"] is not None)
         if ApplyBeam:
