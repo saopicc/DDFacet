@@ -6,10 +6,8 @@ From an Ubuntu 14.04 base:
 
 ```
 sudo add-apt-repository ppa:radio-astro/main
-sudo apt-get install git casacore2 python-pip libfftw3-dev \
-    cmake python-meqtrees-cattery makems
-
 ```
+The latest full list of apt dependencies can be be found in the Dockerfile
 
 Then need to clone:
 ```
