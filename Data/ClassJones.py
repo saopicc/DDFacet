@@ -40,13 +40,15 @@ class ClassJones():
                 DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("killMS")
                 self.MS.cache.saveCache("JonesNorm_killMS.npz")
             self.ToShared("killMS",DicoSols,TimeMapping,DicoClusterDirs)
+            self.DicoClusterDirs_kMS=DicoClusterDirs
             self.HasKillMSSols=True
+            print self.DicoClusterDirs_kMS.keys()
 
         ApplyBeam=(GD["Beam"]["BeamModel"] is not None)
         if ApplyBeam:
             self.ApplyCal=True
             self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam.npz",
-                                                    dict(Beam=GD["Beam"],DataSelection=self.GD["DataSelection"]))
+                                                    dict(Beam=GD["Beam"],DDESolutions=GD["DDESolutions"],DataSelection=self.GD["DataSelection"]))
             if valid:
                 print>>log,"  using cached Jones matrices from %s"%self.JonesNormSolsFile_Beam
                 DicoSols,TimeMapping,DicoClusterDirs=self.DiskToSols(self.JonesNormSolsFile_Beam)
@@ -73,6 +75,8 @@ class ClassJones():
         l=DicoClusterDirs["l"]
         m=DicoClusterDirs["m"]
         I=DicoClusterDirs["I"]
+        ra=DicoClusterDirs["ra"]
+        dec=DicoClusterDirs["dec"]
         Cluster=DicoClusterDirs["Cluster"]
         t0=DicoSols["t0"]
         t1=DicoSols["t1"]
@@ -84,7 +88,9 @@ class ClassJones():
         # np.savez(self.JonesNorm_killMS,l=l,m=m,I=I,Cluster=Cluster,t0=t0,t1=t1,tm=tm,Jones=Jones,TimeMapping=TimeMapping)
 
         np.savez(file(OutName,"w"),
-                 l=l,m=m,I=I,Cluster=Cluster,
+                 l=l,m=m,
+                 ra=ra,dec=dec,
+                 I=I,Cluster=Cluster,
                  t0=t0,t1=t1,tm=tm,
                  Jones=Jones,
                  TimeMapping=TimeMapping,
@@ -102,6 +108,8 @@ class ClassJones():
         DicoClusterDirs["l"]=SolsFile["l"]
         DicoClusterDirs["m"]=SolsFile["m"]
         DicoClusterDirs["I"]=SolsFile["I"]
+        DicoClusterDirs["ra"]=SolsFile["ra"]
+        DicoClusterDirs["dec"]=SolsFile["dec"]
         DicoClusterDirs["Cluster"]=SolsFile["Cluster"]
         DicoSols={}
         DicoSols["t0"]=SolsFile["t0"]
@@ -127,9 +135,9 @@ class ClassJones():
             print>>log, "  Build VisTime-to-Solution mapping"
             TimeMapping=self.GiveTimeMapping(DicoSols)
             self.SolsToDisk(self.JonesNormSolsFile_killMS,DicoSols,DicoClusterDirs_killMS,TimeMapping)
+            self.DicoClusterDirs_kMS=DicoClusterDirs_killMS
         BeamJones=None
         if StrType=="Beam":
-
             if self.FacetMachine is not None:
                 if not(self.HasKillMSSols):
                     print>>log,"  Getting Jones directions from Facets"
@@ -226,15 +234,18 @@ class ClassJones():
         else:
             SolsFileList=[SolsFile]
 
-        if GD["DDESolutions"]["GlobalNorm"] is None:
-            GD["DDESolutions"]["GlobalNorm"]=""
+
+        GlobalNorm=GD["DDESolutions"]["GlobalNorm"]
+        if GlobalNorm is None:
+            GlobalNorm=""
 
         GlobalNormList=GD["DDESolutions"]["GlobalNorm"]
         if type(GlobalNormList)!=list:
             GlobalNormList=[GD["DDESolutions"]["GlobalNorm"]]*len(GD["DDESolutions"]["DDSols"])
 
-        if GD["DDESolutions"]["JonesNormList"] is None:
-            GD["DDESolutions"]["JonesNormList"]="AP"
+        JonesNormList=GD["DDESolutions"]["JonesNormList"]
+        if JonesNormList is None:
+            JonesNormList="AP"
 
         JonesNormList=GD["DDESolutions"]["JonesNormList"]
         if type(JonesNormList)!=list:

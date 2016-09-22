@@ -129,7 +129,17 @@ class CacheManager (object):
                     reset = True
             # check for hash match
             if not reset and hash != storedhash:
+                ListDiffer=[]
+                for MainField in storedhash.keys(): 
+                    D0=hash[MainField]
+                    D1=storedhash[MainField]
+                    for key in D0.keys():
+                        if D0[key]!=D1[key]:
+                            ListDiffer.append("(%s.%s: %s vs %s)"%(str(MainField),str(key),str(D0[key]),str(D1[key])))
+
                 print>>log, "cache hash %s does not match, will re-make" % hashpath
+                print>>log, "  differences in parameters (Param: this vs cached): %s"%" & ".join(ListDiffer)
+                
                 reset = True
             # if resetting cache, then mark new hash value for saving (will be saved in flushCache),
             # and remove any existing cache/hash
