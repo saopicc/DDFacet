@@ -1,4 +1,3 @@
-
 import numpy as np
 import numpy.ma as ma
 import pylab
@@ -17,10 +16,11 @@ import ClassModelMachineMSMF as ClassModelMachine
 from DDFacet.Other.progressbar import ProgressBar
 import ClassGainMachine
 import cPickle
+import psutil
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
-                 MaxMinorIter=100,NCPU=6,
+                 MaxMinorIter=100,NCPU=psutil.cpu_count(),
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
                  GD=None,SearchMaxAbs=1,CleanMaskImage=None,
                  NFreqBands=1,
@@ -38,7 +38,7 @@ class ClassImageDeconvMachine():
         self.SubPSF=None
         self.MultiFreqMode = NFreqBands>1
         self.NFreqBands = NFreqBands
-        self.FluxThreshold = FluxThreshold 
+        self.FluxThreshold = FluxThreshold
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
@@ -47,7 +47,7 @@ class ClassImageDeconvMachine():
         self.maincache = MainCache
         # reset overall iteration counter
         self._niter = 0
-        
+
         if CleanMaskImage!=None:
             MaskArray=image(CleanMaskImage).getdata()
             nch,npol,nx,ny=MaskArray.shape
@@ -62,7 +62,7 @@ class ClassImageDeconvMachine():
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
         self.SideLobeLevel=SideLobeLevel
         self.OffsetSideLobe=OffsetSideLobe
-        
+
 
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
@@ -172,13 +172,13 @@ class ClassImageDeconvMachine():
         F_xc=xc1
         F_yc=yc1
         NpixFacet=N1
-                
+
         ## X
         M_x0=M_xc-NpixFacet/2
         x0main=np.max([0,M_x0])
         dx0=x0main-M_x0
         x0facet=dx0
-                
+
         M_x1=M_xc+NpixFacet/2
         x1main=np.min([NpixMain-1,M_x1])
         dx1=M_x1-x1main
@@ -189,7 +189,7 @@ class ClassImageDeconvMachine():
         y0main=np.max([0,M_y0])
         dy0=y0main-M_y0
         y0facet=dy0
-        
+
         M_y1=M_yc+NpixFacet/2
         y1main=np.min([NpixMain-1,M_y1])
         dy1=M_y1-y1main
@@ -216,7 +216,7 @@ class ClassImageDeconvMachine():
 
         Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
 
-        
+
 
 
         #_,n,n=self.PSF.shape
@@ -307,7 +307,7 @@ class ClassImageDeconvMachine():
         self.RMS=RMS
 
         self.GainMachine.SetRMS(RMS)
-        
+
         Fluxlimit_RMS = self.RMSFactor*RMS
 
         x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self._MaskArray)
@@ -338,7 +338,7 @@ class ClassImageDeconvMachine():
         # BookKeep=np.zeros(self.BookKeepShape,np.float32)
         # NPixBook,_=self.BookKeepShape
         # FactorBook=float(NPixBook)/npix
-        
+
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
 
@@ -399,7 +399,7 @@ class ClassImageDeconvMachine():
                     # DoneScale*=100./np.sum(DoneScale)
                     # for iScale in range(DoneScale.size):
                     #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
-                    
+
                     return "MinFluxRms", cont, True    # stop deconvolution if hit absolute treshold; update model
 
     #            if (i>0)&((i%1000)==0):
@@ -437,7 +437,7 @@ class ClassImageDeconvMachine():
 
                 #if iScale=="BadFit": continue
 
-                    
+
 
                 # box=50
                 # x0,x1=x-box,x+box
@@ -453,7 +453,7 @@ class ClassImageDeconvMachine():
                 # # pylab.imshow(self.ModelImage[0][x0:x1,y0:y1],interpolation="nearest",cmap="gray")
                 # #pylab.imshow(PSF[0],interpolation="nearest",vmin=0,vmax=1)
                 # #pylab.colorbar()
-                
+
 
                 CurrentGain=self.GainMachine.GiveGain()
                 self.SubStep((x,y),LocalSM*CurrentGain)
@@ -487,7 +487,7 @@ class ClassImageDeconvMachine():
                 # if ThisComp["ModelType"]=="Delta":
                 #     for pol in range(npol):
                 #        self.ModelImage[pol,x,y]+=Fpol[pol,0,0]*self.Gain
-                    
+
                 # elif ThisComp["ModelType"]=="Gaussian":
                 #     Gauss=ThisComp["Model"]
                 #     Sup,_=Gauss.shape
@@ -495,11 +495,11 @@ class ClassImageDeconvMachine():
                 #     y0,y1=y-Sup/2,y+Sup/2+1
 
                 #     _,N0,_=self.ModelImage.shape
-                    
+
                 #     Aedge,Bedge=self.GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
                 #     x0d,x1d,y0d,y1d=Aedge
                 #     x0p,x1p,y0p,y1p=Bedge
-                    
+
 
                 #     for pol in range(npol):
                 #         self.ModelImage[pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*pol[pol,0,0]*self.Gain

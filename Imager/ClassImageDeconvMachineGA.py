@@ -31,7 +31,7 @@ MyLogger.setSilent("ClassIsland")
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
-                 MaxMinorIter=100,NCPU=6,
+                 MaxMinorIter=100,NCPU=psutil.cpu_count(),
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
                  GD=None,SearchMaxAbs=1,CleanMaskImage=None,IdSharedMem="",
                  **kw    # absorb any unknown keywords arguments into this

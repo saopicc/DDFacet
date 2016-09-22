@@ -10,7 +10,7 @@ from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Other import ModColor
 
 class ClassSmearMapping():
-    def __init__(self,MS,radiusDeg=1.,Decorr=0.98,IdSharedMem="",NCPU=6):
+    def __init__(self,MS,radiusDeg=1.,Decorr=0.98,IdSharedMem="",NCPU=psutil.cpu_count()):
         self.radiusDeg=radiusDeg
         self.radiusRad=radiusDeg*np.pi/180
         self.Decorr=Decorr

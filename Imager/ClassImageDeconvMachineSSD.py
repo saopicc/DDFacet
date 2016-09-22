@@ -33,7 +33,7 @@ MyLogger.setSilent("ClassIsland")
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
-                 MaxMinorIter=100,NCPU=6,
+                 MaxMinorIter=100,NCPU=psutil.cpu_count(), #ask the OS for the number of CPU's. Only tested without HT
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
                  GD=None,SearchMaxAbs=1,CleanMaskImage=None,IdSharedMem="",
                  **kw    # absorb any unknown keywords arguments into this
@@ -66,7 +66,7 @@ class ClassImageDeconvMachine():
                 import ClassModelMachineGA
                 import ClassEvolveGA
             except ImportError:
-                raise ImportError("Failed to import the Genetic Algorithm Class (ClassEvolveGA). This may be because you don't have the 'deap' package installed")  
+                raise ImportError("Failed to import the Genetic Algorithm Class (ClassEvolveGA). This may be because you don't have the 'deap' package installed")
             self.ModelMachine = ClassModelMachineGA.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
 
         elif self.IslandDeconvMode=="Moresane":
@@ -74,7 +74,7 @@ class ClassImageDeconvMachine():
                 import ClassModelMachineMORESANE
                 import ClassMoresane
             except ImportError:
-                raise ImportError("Failed to import the Genetic Algorithm Class (ClassEvolveMORESANE). This may be because you don't have the 'pymoresane' package installed")  
+                raise ImportError("Failed to import the Genetic Algorithm Class (ClassEvolveMORESANE). This may be because you don't have the 'pymoresane' package installed")
 
             self.ModelMachine = ClassModelMachineMORESANE.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
         elif self.IslandDeconvMode=="Sasir":

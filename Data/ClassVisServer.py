@@ -12,6 +12,7 @@ from DDFacet.Imager import ClassWeighting
 from DDFacet.Other import reformat
 import ClassSmearMapping
 import os
+import psutil
 import ClassJones
 import ClassBeamMean
 log=MyLogger.getLogger("ClassVisServer")
@@ -31,7 +32,7 @@ class ClassVisServer():
                  LofarBeam=None,
                  AddNoiseJy=None,IdSharedMem="",
                  Robust=2,Weighting="Briggs",MFSWeighting=True,Super=1,
-                 NCPU=6):
+                 NCPU=psutil.cpu_count()):
 
         self.ReadOnce=False
         self.ReadOnce_AlreadyRead=False
@@ -99,7 +100,7 @@ class ClassVisServer():
         if (ChanStart,ChanEnd,ChanStep) == (0,-1,1):
             chanslice = None
         else:
-            chanslice = slice(ChanStart, ChanEnd if ChanEnd != -1 else None, ChanStep) 
+            chanslice = slice(ChanStart, ChanEnd if ChanEnd != -1 else None, ChanStep)
 
         min_freq = 1e+999
         max_freq = 0
@@ -154,14 +155,14 @@ class ClassVisServer():
         ## OMS: ok couldn't resist adding a bandwidth option since I need it for 3C147
         ## if this is 0, then looks at NFreqBands parameter
         grid_bw = self.GD["MultiFreqs"]["GridBandMHz"]*1e+6
-        
+
         if grid_bw:
             grid_bw = min(grid_bw,bandwidth)
             NFreqBands = self.GD["MultiFreqs"]["NFreqBands"] = int(math.ceil(bandwidth/grid_bw))
         else:
             NFreqBands  = np.min([self.GD["MultiFreqs"]["NFreqBands"],len(self.GlobalFreqs)])#self.nMS])
             grid_bw = bandwidth/NFreqBands
-        
+
         self.NFreqBands = NFreqBands
         self.MultiFreqMode = NFreqBands>1
         if self.MultiFreqMode:
@@ -362,7 +363,7 @@ class ClassVisServer():
             self.CurrentChanMapping=self.DicoMSChanMapping[self.iCurrentMS]
             self.CurrentChanMappingDegrid=self.FreqBandChannelsDegrid[self.iCurrentMS]
             return "OK"
-        
+
 
     def LoadNextVisChunk(self):
 
@@ -416,14 +417,14 @@ class ClassVisServer():
         DATA["A1"]=A1
         DATA["times"]=times
         
-        # note that this is now a string (filename of the shared array object), and so won't be packed
+
         # into the shared memory structure
         DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
 
 
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
 
-        
+
         if ('F' in DecorrMode)|("T" in DecorrMode):
             DATA["uvw_dt"]=np.float64(self.CurrentMS.Give_dUVW_dt(times,A0,A1))
             DATA["MSInfos"]=np.array([repLoadChunk["dt"],repLoadChunk["dnu"].ravel()[0]],np.float32)
@@ -441,11 +442,11 @@ class ClassVisServer():
             self.cache.saveCache("Flagging.npy")
 
 
-        
+
 
         DATA["ChanMapping"]=self.CurrentChanMapping
         DATA["ChanMappingDegrid"]=self.DicoMSChanMappingDegridding[self.iCurrentMS]
-        
+
         print>>log, "  channel Mapping Gridding  : %s"%(str(self.CurrentChanMapping))
         print>>log, "  channel Mapping DeGridding: %s"%(str(DATA["ChanMappingDegrid"]))
 
@@ -460,7 +461,7 @@ class ClassVisServer():
         #############################
         #############################
 
-        
+
 
 
 
@@ -472,7 +473,7 @@ class ClassVisServer():
             freqs=np.float64(freqs)
         else:
             freqs=np.array([freqs[0]],dtype=np.float64)
-        
+
         DicoDataOut={"times":DATA["times"],
                      "freqs":freqs,
                      "A0":DATA["A0"],
@@ -489,7 +490,7 @@ class ClassVisServer():
                      "ChanMapping":DATA["ChanMapping"],
                      "ChanMappingDegrid":DATA["ChanMappingDegrid"]
                      }
-        
+
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
         if ('F' in DecorrMode)|("T" in DecorrMode):
             DicoDataOut["uvw_dt"]=DATA["uvw_dt"]
@@ -527,7 +528,7 @@ class ClassVisServer():
                 print>>log, "  Flagging antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)"%\
                     (A,Frac*100,"%",self.ThresholdFlag*100,"%")
                 self.FlagAntNumber.append(A)
-        
+
 
         if self.DicoSelectOptions["UVRangeKm"]!=None:
             d0,d1=self.DicoSelectOptions["UVRangeKm"]
@@ -539,7 +540,7 @@ class ClassVisServer():
             ind=np.where(((duv>d0)&(duv<d1))!=True)[0]
             flags[ind,:,:]=True
 
-        
+
         if self.DicoSelectOptions["TimeRange"]!=None:
             t0=times[0]
             tt=(times-t0)/3600.
@@ -550,8 +551,8 @@ class ClassVisServer():
 
         if self.DicoSelectOptions["FlagAnts"]!=None:
             FlagAnts=self.DicoSelectOptions["FlagAnts"]
-            if not((FlagAnts==None)|(FlagAnts=="")|(FlagAnts==[])): 
-                if type(FlagAnts)==str: FlagAnts=[FlagAnts] 
+            if not((FlagAnts==None)|(FlagAnts=="")|(FlagAnts==[])):
+                if type(FlagAnts)==str: FlagAnts=[FlagAnts]
                 for Name in FlagAnts:
                     for iAnt in range(MS.na):
                         if Name in MS.StationNames[iAnt]:
@@ -578,7 +579,7 @@ class ClassVisServer():
 
         ind=np.any(flags,axis=2)
         flags[ind]=True
-        
+
         # flags.fill(0)
         # ind=np.where(A0!=A1)[0]
         # flags[ind,:,:]=True
@@ -621,7 +622,7 @@ class ClassVisServer():
                 elif self.GD["Compression"]["CompGridFOV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
-                SmearMapMachine = ClassSmearMapping.ClassSmearMapping(self.CurrentMS, radiusDeg=FOV, 
+                SmearMapMachine = ClassSmearMapping.ClassSmearMapping(self.CurrentMS, radiusDeg=FOV,
                     Decorr=(1. - self.GD["Compression"]["CompGridDecorr"]), IdSharedMem=self.IdSharedMem, NCPU=self.NCPU)
                 # SmearMapMachine.BuildSmearMapping(DATA)
 
@@ -646,7 +647,7 @@ class ClassVisServer():
                 elif self.GD["Compression"]["CompDeGridFOV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
-                SmearMapMachine = ClassSmearMapping.ClassSmearMapping(self.CurrentMS, radiusDeg=FOV, 
+                SmearMapMachine = ClassSmearMapping.ClassSmearMapping(self.CurrentMS, radiusDeg=FOV,
                         Decorr=(1.-self.GD["Compression"]["CompDeGridDecorr"]), IdSharedMem=self.IdSharedMem, NCPU=self.NCPU)
                 # SmearMapMachine.BuildSmearMapping(DATA)
                 FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingDeGridding)

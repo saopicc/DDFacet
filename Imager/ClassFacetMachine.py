@@ -36,7 +36,7 @@ class ClassFacetMachine():
                  Parallel=False,#True,
                  DoPSF=False,
                  Oversize=1,   # factor my which image is oversized
-                 NCPU=6,
+                 NCPU=psutil.cpu_count(),
                  IdSharedMem="",
                  IdSharedMemData=None,       # == IdSharedMem if None
                  ApplyCal=False):

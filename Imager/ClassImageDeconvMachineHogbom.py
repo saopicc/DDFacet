@@ -6,6 +6,7 @@ algorithms into DDFacet.
 
 import numpy as np
 import pylab
+import psutil
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassImageDeconvMachine")
@@ -42,7 +43,7 @@ class ClassImageDeconvMachine():
             Input: fname - the name of the file to write the dico image to
     """
     def __init__(self,Gain=0.3,
-                 MaxMinorIter=100,NCPU=6,
+                 MaxMinorIter=100,NCPU=psutil.cpu_count(),
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
                  GD=None,SearchMaxAbs=1,CleanMaskImage=None,ImagePolDescriptor=["I"],
                  **kw    # absorb any unknown keywords arguments into this
@@ -55,7 +56,7 @@ class ClassImageDeconvMachine():
         self.GD=GD
         self.MultiFreqMode = (self.GD["MultiFreqs"]["NFreqBands"] > 1)
         self.NFreqBand = self.GD["MultiFreqs"]["NFreqBands"]
-        self.FluxThreshold = FluxThreshold 
+        self.FluxThreshold = FluxThreshold
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
@@ -129,7 +130,7 @@ class ClassImageDeconvMachine():
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
         self.SideLobeLevel=SideLobeLevel
         self.OffsetSideLobe=OffsetSideLobe
-        
+
 
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
@@ -165,13 +166,13 @@ class ClassImageDeconvMachine():
         F_xc=xc1
         F_yc=yc1
         NpixFacet=N1
-                
+
         ## X
         M_x0=M_xc-NpixFacet/2
         x0main=np.max([0,M_x0])
         dx0=x0main-M_x0
         x0facet=dx0
-                
+
         M_x1=M_xc+NpixFacet/2
         x1main=np.min([NpixMain-1,M_x1])
         dx1=M_x1-x1main
@@ -183,7 +184,7 @@ class ClassImageDeconvMachine():
         y0main=np.max([0,M_y0])
         dy0=y0main-M_y0
         y0facet=dy0
-        
+
         M_y1=M_yc+NpixFacet/2
         y1main=np.min([NpixMain-1,M_y1])
         dy1=M_y1-y1main
