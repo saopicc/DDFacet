@@ -11,11 +11,9 @@ sudo apt-get install git casacore2 python-pip libfftw3-dev \
 
 ```
 
-Then need to clone or checkout the following three:
+Then need to clone:
 ```
-git clone git@github.com:cyriltasse/SkyModel.git
 git clone git@github.com:cyriltasse/DDFacet.git
-
 ```
 
 # (Users): building and installing DDFacet
