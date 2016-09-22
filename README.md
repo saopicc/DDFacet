@@ -12,11 +12,8 @@ docker run --shm-size 6g -v /scratch/TEST_DATA:/mnt ddf /mnt/test-master1.parset
 ```
 Important: if you ran ```git submodule update --init --recursive``` before you may need to remove the cached SkyModel before building the docker image with ```git rm --cached SkyModel```
 
-## Dependencies
-
-From an Ubuntu 14.04 base:
-
-1. You need to pull in the radio-astro ppa:
+# (Users): building and installing DDFacet from an Ubuntu 14.04 base
+1. You need to add in the radio-astro ppa if you don't already have it:
 ```
 sudo add-apt-repository ppa:radio-astro/main
 ```
@@ -26,20 +23,31 @@ sudo add-apt-repository ppa:radio-astro/main
 ```
 git clone git@github.com:cyriltasse/DDFacet.git
 ```
-
-# (Users): building and installing DDFacet
-Once checked out you can run the following to pull module dependencies
+4. Once checked out you can run the following to pull module dependencies
 ```
 git submodule update --init --recursive
 ```
-
-Once submodules are pulled installation is as simple as navigating down to the directory below your checked out copy of DDFacet and running:
+5. Once submodules are pulled installation is as simple as navigating down to the directory below your checked out copy of DDFacet and running:
 ```
 pip install DDFacet/ --user
 ```
 This will install the DDF.py driver files to your .local/bin under Debian
 
-# (Developers): setting up your dev environment
+## Configure max shared memory
+
+Running DDFacet on large images requires a lot of shared memory. Most systems limit the amount of shared memory to about 10%. To increase this limit add the following line to your ``/etc/default/tmpfs`` file:
+
+```
+SHM_SIZE=100%
+```
+
+A restart will be required for this change to reflect. If you would prefer a once off solution execute the following line
+
+```
+sudo mount -o remount,size=100% /run/shm
+```
+
+## (Developers): setting up your dev environment
 
 ###(easy) Build using setup.py
 To setup your local development environment navigate to the DDFacet directory and run
@@ -58,8 +66,8 @@ IMPORTANT NOTE: You may need to remove the development version before running PI
 # or -DCMAKE_BUILD_TYPE=Debug to inspect the stacks using kdevelop
 ```
 
-## (optional) Paths etc.
-
+## Acceptance tests
+### Paths
 Add this to your ``.bashrc``
 
 ```
@@ -67,24 +75,9 @@ export DDFACET_TEST_DATA_DIR=[folder where you keep the acceptance test data and
 export DDFACET_TEST_OUTPUT_DIR=[folder where you want the acceptance test output to be dumped]
 ```
 
-## Configure max shared memory
-
-Running DDFacet on large images requires a lot of shared memory. Most systems limit the amount of shared memory to about 10%. To increase this limit add the following line to your ``/etc/default/tmpfs`` file:
-
-```
-SHM_SIZE=100%
-```
-
-A restart will be required for this change to reflect. If you would prefer a once off solution execute the following line
-
-```
-sudo mount -o remount,size=100% /run/shm
-```
-
-## (Developers) Acceptance tests
+###To test your branch against the master branch using Jenkins
 Most of the core use cases will in the nearby future have reference images and an automated acceptance test.
 
-###To test your branch against the master branch using Jenkins
 Please **do not** commit against cyriltasse/master. The correct strategy is to branch/fork and do a pull request on Github
 to merge changes into master. Once you opened a pull request add the following comment: "ok to test". This will let the Jenkins server know to start testing. You should see that the pull request and commit statusses shows "Pending". If the test succeeds you should see "All checks have passed" above the green merge button. Once the code is reviewed it will be merged into the master branch.
 
