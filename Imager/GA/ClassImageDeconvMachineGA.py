@@ -364,8 +364,8 @@ class ClassImageDeconvMachine():
         return ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*Max if self.CycleFactor else 0
 
     def Deconvolve(self,*args,**kwargs):
-        return self.DeconvolveSerial(*args, **kwargs)
-        #return self.DeconvolveParallel(*args, **kwargs)
+        #return self.DeconvolveSerial(*args, **kwargs)
+        return self.DeconvolveParallel(*args, **kwargs)
 
     def DeconvolveSerial(self, ch=0):
         """

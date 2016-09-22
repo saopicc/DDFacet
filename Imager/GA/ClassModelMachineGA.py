@@ -225,7 +225,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                             ModelImage[ch,pol,x,y]+=Flux
 
         
-        print "np.sum(ModelImage)",np.sum(ModelImage[0])
+        #print "np.sum(ModelImage)",np.sum(ModelImage[0])
 #        stop
         # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
         # vmin,vmax=-1,1

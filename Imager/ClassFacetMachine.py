@@ -478,7 +478,7 @@ class ClassFacetMachine():
 
             NJobs = NFacets
             for iFacet in range(NFacets):
-                work_queue.put(iFacet)
+                work_queue.put({"iFacet":iFacet})
 
             workerlist=[]
             for ii in range(NCPU):
@@ -680,6 +680,7 @@ class ClassFacetMachine():
         # -------------------------------------------------
         if self.NormImage is None:
             self.NormImage = self.BuildFacetNormImage()
+            self.NormImage = NpShared.ToShared("%sNormImage"%self.IdSharedMem,self.NormImage)
             self.NormImageReShape = self.NormImage.reshape([1,1,
                                                             self.NormImage.shape[0],
                                                             self.NormImage.shape[1]])
@@ -948,30 +949,120 @@ class ClassFacetMachine():
 
         return NormImage
 
-    def ImToGrids(self,Image):
-        """
-        Unprojects image to facets (necessary for degridding). This also applies the tesselation
-        mask weights to each of the facets. The group of facets are stored in shared memory with
-        identifier: sModelImage.Facet_%3.3i
-        Args:
-            Image: The stitched image to be unprojected / "unstitched"
-        """
-        Im2Grid=ClassImToGrid(OverS=self.GD["ImagerCF"]["OverS"],GD=self.GD)
-        nch,npol=self.nch,self.npol
+    # def ImToGrids(self,Image):
+    #     """
+    #     Unprojects image to facets (necessary for degridding). This also applies the tesselation
+    #     mask weights to each of the facets. The group of facets are stored in shared memory with
+    #     identifier: sModelImage.Facet_%3.3i
+    #     Args:
+    #         Image: The stitched image to be unprojected / "unstitched"
+    #     """
+    #     Im2Grid=ClassImToGrid(OverS=self.GD["ImagerCF"]["OverS"],GD=self.GD)
+    #     nch,npol=self.nch,self.npol
+    #     ChanSel=sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
+    #     for iFacet in sorted(self.DicoImager.keys()):
+
+    #         SharedMemName="%s/Spheroidal.Facet_%3.3i"%(self.FacetDataCache,iFacet)
+    #         SPhe=NpShared.GiveArray(SharedMemName)
+    #         SpacialWeight=self.SpacialWeigth[iFacet]
+    #         # Grid,_=Im2Grid.GiveGridTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight)
+    #         # GridSharedMemName="%sModelGrid.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+    #         # NpShared.ToShared(GridSharedMemName,Grid)
+
+    #         ModelFacet,_=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight,ChanSel=ChanSel)
+    #         ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+
+    #         NpShared.ToShared(ModelSharedMemName,ModelFacet)
+
+    def ImToGrids(self,Image,Parallel=True):
+        NCPU = self.NCPU
+
+        ModelImageName = "%sModelImage" % (self.IdSharedMem)
+        Image=NpShared.ToShared(ModelImageName,Image)
+
+        NFacets = len(self.DicoImager.keys())
+        
+        work_queue = multiprocessing.JoinableQueue()
+
+        NJobs = NFacets
         ChanSel=sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
-        for iFacet in sorted(self.DicoImager.keys()):
+        for iFacet in range(NFacets):
+            work_queue.put({"iFacet":iFacet,"ChanSel":ChanSel})
 
-            SharedMemName="%s/Spheroidal.Facet_%3.3i"%(self.FacetDataCache,iFacet)
-            SPhe=NpShared.GiveArray(SharedMemName)
-            SpacialWeight=self.SpacialWeigth[iFacet]
-            # Grid,_=Im2Grid.GiveGridTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight)
-            # GridSharedMemName="%sModelGrid.Facet_%3.3i"%(self.IdSharedMem,iFacet)
-            # NpShared.ToShared(GridSharedMemName,Grid)
+        workerlist = []
+        SpheNorm = self.SpheNorm
 
-            ModelFacet,_=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight,ChanSel=ChanSel)
-            ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+        List_Result_queue = []
+        for ii in range(NCPU):
+            List_Result_queue.append(multiprocessing.JoinableQueue())
 
-            NpShared.ToShared(ModelSharedMemName,ModelFacet)
+        for ii in range(NCPU):
+            W = self.FacetParallelEngine(work_queue, List_Result_queue[ii],
+                                         self.GD,
+                                         Mode="Im2Facet",
+                                         FFTW_Wisdom=self.FFTW_Wisdom,
+                                         DicoImager=self.DicoImager,
+                                         IdSharedMem=self.IdSharedMem,
+                                         IdSharedMemData=self.IdSharedMemData,
+                                         FacetDataCache=self.FacetDataCache,
+                                         ChunkDataCache="file://" + self.VS.cache.dirname + "/",
+                                         ApplyCal=self.ApplyCal,
+                                         SpheNorm=SpheNorm,
+                                         PSFMode=self.DoPSF,
+                                         NFreqBands=self.VS.NFreqBands,
+                                         PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
+                                         DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                         ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
+            workerlist.append(W)
+            if Parallel:
+                workerlist[ii].start()
+
+        timer = ClassTimeIt.ClassTimeIt()
+        print>> log, "Model images to facets..."
+
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  Model to facets", HeaderSize=10, TitleSize=13)
+        #        pBAR.disable()
+        pBAR.render(0, '%4i/%i' % (0, NFacets))
+        iResult = 0
+        if not Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].run()  # just run until all work is completed
+
+        while iResult < NJobs:
+            DicoResult = None
+            if Parallel:
+                for w in workerlist:
+                    w.join(0)
+                    if not w.is_alive():
+                        if w.exitcode != 0:
+                            raise RuntimeError, "a worker process has died with exit code %d. This is probably a bug in the ClassDDEGridMachine." % w.exitcode
+            for result_queue in List_Result_queue:
+                if result_queue.qsize() != 0:
+                    try:
+                        DicoResult = result_queue.get()
+                        break
+                    except:
+                        pass
+
+            if DicoResult == None:
+                time.sleep(1)
+                continue
+
+            if DicoResult["Success"]:
+                iResult += 1
+                NDone = iResult
+                intPercent = int(100 * NDone / float(NFacets))
+                pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
+
+        if Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].shutdown()
+                workerlist[ii].terminate()
+                workerlist[ii].join()
+
+        print>> log, "Fourier transforms finished in %s" % timer.timehms()
+
+
 
     def ReinitDirty(self):
         """
@@ -1037,7 +1128,7 @@ class ClassFacetMachine():
 
         NJobs=NFacets
         for iFacet in range(NFacets):
-            work_queue.put(iFacet)
+            work_queue.put({"iFacet":iFacet})
 
         workerlist=[]
         SpheNorm=self.SpheNorm
@@ -1139,7 +1230,7 @@ class ClassFacetMachine():
 
         NJobs = NFacets
         for iFacet in range(NFacets):
-            work_queue.put(iFacet)
+            work_queue.put({"iFacet":iFacet})
 
         workerlist = []
         SpheNorm = self.SpheNorm
@@ -1262,7 +1353,7 @@ class ClassFacetMachine():
 
         NJobs = NFacets
         for iFacet in range(NFacets):
-            work_queue.put(iFacet)
+            work_queue.put({"iFacet":iFacet})
 
         workerlist = []
         for ii in range(NCPU):
@@ -1451,7 +1542,7 @@ class WorkerImager(multiprocessing.Process):
 
         return DicoJonesMatrices
 
-    def init(self, iFacet):
+    def init(self, DicoJob):
         """
         Initializes the gridding machines (primarily the convolution kernels) and
         the weighting grid for a particular facet.
@@ -1465,6 +1556,7 @@ class WorkerImager(multiprocessing.Process):
         """
         #in the basic tesselation scheme the facets are all in a grid layout, so we want to use all of the area
         # except the padding. Weight down the padding and smoothen the edges:
+        iFacet=DicoJob["iFacet"]
         NpixPadded = self.DicoImager[iFacet]["NpixFacetPadded"]
         Npix = self.DicoImager[iFacet]["NpixFacet"]
         maskOffset = (NpixPadded - Npix)/2
@@ -1480,13 +1572,14 @@ class WorkerImager(multiprocessing.Process):
         self.GiveGM(iFacet)
         self.result_queue.put({"Success": True, "iFacet": iFacet})
 
-    def grid(self, iFacet):
+    def grid(self, DicoJob):
         """
         Grids the data currently housed in shared memory
 
         Returns:
             Dictionary of gridder output products and weights
         """
+        iFacet=DicoJob["iFacet"]
         GridMachine = self.GiveGM(iFacet)
         DATA = NpShared.SharedToDico("%sDicoData" % self.IdSharedMemData)
         uvwThis = DATA["uvw"]
@@ -1525,13 +1618,14 @@ class WorkerImager(multiprocessing.Process):
             {"Success": True, "iFacet": iFacet, "Weights": Sw, "SumJones": SumJones,
              "SumJonesChan": SumJonesChan})
 
-    def degrid(self, iFacet):
+    def degrid(self, DicoJob):
         """
         Degrids input model facets and subtracts model visibilities from residuals. Assumes degridding input data is
         placed in DATA shared memory dictionary.
         Returns:
             Dictionary of success and facet identifier
         """
+        iFacet=DicoJob["iFacet"]
         GridMachine = self.GiveGM(iFacet)
         DATA = NpShared.SharedToDico("%sDicoData" % self.IdSharedMemData)
         uvwThis = DATA["uvw"]
@@ -1561,7 +1655,7 @@ class WorkerImager(multiprocessing.Process):
 
         self.result_queue.put({"Success": True, "iFacet": iFacet})
 
-    def fourierTransform(self, iFacet):
+    def fourierTransform(self, DicoJob):
         """
         Fourier transforms the grids currently housed in shared memory
         Precondition:
@@ -1569,11 +1663,30 @@ class WorkerImager(multiprocessing.Process):
         Returns:
             Dictionary of success and facet identifier
         """
+        iFacet=DicoJob["iFacet"]
         GridMachine = self.GiveGM(iFacet)
         GridName = "%sGridFacet.%3.3i" % (self.IdSharedMem, iFacet)
         Grid = NpShared.GiveArray(GridName)
         Dirty = GridMachine.GridToIm(Grid)
         Grid[...] = Dirty[...]
+        self.result_queue.put({"Success": True, "iFacet": iFacet})
+
+    def Im2Facet(self, DicoJob):
+        iFacet=DicoJob["iFacet"]
+        ChanSel=DicoJob["ChanSel"]
+        Im2Grid=ClassImToGrid(OverS=self.GD["ImagerCF"]["OverS"],GD=self.GD)
+
+        SharedMemName="%s/Spheroidal.Facet_%3.3i"%(self.FacetDataCache,iFacet)
+        SPhe=NpShared.GiveArray(SharedMemName)
+        NameSpacialWeigth="%sSpacialWeight.Facet_%3.3i"%(self.FacetDataCache,iFacet)
+        SpacialWeight=NpShared.GiveArray(NameSpacialWeigth)
+
+        ModelImageName = "%sModelImage" % (self.IdSharedMem)
+        Image=NpShared.GiveArray(ModelImageName)
+        NormImage=NpShared.GiveArray("%sNormImage"%self.IdSharedMem)
+        ModelFacet,_=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,NormImage,SPhe,SpacialWeight,ChanSel=ChanSel)
+        ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
+        NpShared.ToShared(ModelSharedMemName,ModelFacet)
         self.result_queue.put({"Success": True, "iFacet": iFacet})
 
     def run(self):
@@ -1587,19 +1700,21 @@ class WorkerImager(multiprocessing.Process):
         if self._pause_on_start:
             os.kill(os.getpid(),signal.SIGSTOP)
         while not self.kill_received and not self.work_queue.empty():
-            iFacet = self.work_queue.get()
+            DicoJob = self.work_queue.get()
 
             if self.FFTW_Wisdom is not None:
                 pyfftw.import_wisdom(self.FFTW_Wisdom)
 
             if self.Mode == "Init":
-                self.init(iFacet)
+                self.init(DicoJob)
             elif self.Mode == "Grid":
-                self.grid(iFacet)
+                self.grid(DicoJob)
             elif self.Mode == "DeGrid":
-                self.degrid(iFacet)
+                self.degrid(DicoJob)
             elif self.Mode == "FourierTransform":
-                self.fourierTransform(iFacet)
+                self.fourierTransform(DicoJob)
+            elif self.Mode == "Im2Facet":
+                self.Im2Facet(DicoJob)
 
 
 
