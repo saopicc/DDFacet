@@ -182,6 +182,7 @@ class ClassImagerDeconv():
             MinorCycleConfig["GD"] = self.GD
             MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
             MinorCycleConfig["ModelMachine"] = ModMachine
+            MinorCycleConfig["IdSharedMem"] = self.IdSharedMem
 
 
             if self.GD["MultiScale"]["MSEnable"]:

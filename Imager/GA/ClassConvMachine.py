@@ -117,7 +117,7 @@ class ClassConvMachine():
         
 
     def SetConvMatrix(self):
-        print>>log,"SetConvMatrix"
+        #print>>log,"SetConvMatrix"
         PSF=self.PSF
         NPixPSF=PSF.shape[-1]
 
