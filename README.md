@@ -19,7 +19,12 @@ git clone git@github.com:cyriltasse/DDFacet.git
 ```
 
 # (Users): building and installing DDFacet
-This should be as simple as navigating down to the directory below your checked out copy of DDFacet and running:
+Once checked out you can run the following to pull module dependencies
+```
+git submodule update --init --recursive
+```
+
+Once submodules are pulled installation is as simple as navigating down to the directory below your checked out copy of DDFacet and running:
 ```
 pip install DDFacet/ --user
 ```
@@ -30,6 +35,7 @@ This will install the DDF.py driver files to your .local/bin under Debian
 ###(easy) Build using setup.py
 To setup your local development environment navigate to the DDFacet directory and run
 ```
+git submodule update --init --recursive
 python setup.py develop --user (to remove add a --uninstall option with this)
 python setup.py build
 
