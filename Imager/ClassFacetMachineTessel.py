@@ -469,7 +469,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
 
 class WorkerImager(ClassFacetMachine.WorkerImager):
-    def init(self, iFacet):
+    def init(self, DicoJob):
+        iFacet=DicoJob["iFacet"]
         #Create smoothned facet tessel mask:
         Npix = self.DicoImager[iFacet]["NpixFacetPadded"]
         l0, l1, m0, m1 = self.DicoImager[iFacet]["lmExtentPadded"]

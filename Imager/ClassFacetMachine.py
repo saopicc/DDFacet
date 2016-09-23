@@ -977,7 +977,11 @@ class ClassFacetMachine():
     def ImToGrids(self,Image,Parallel=True):
         NCPU = self.NCPU
 
+        ModelSharedMemName="%sModelImage.Facet_"%(self.IdSharedMem)
+        NpShared.DelAll(ModelSharedMemName)
+
         ModelImageName = "%sModelImage" % (self.IdSharedMem)
+        NpShared.DelAll(ModelImageName)
         Image=NpShared.ToShared(ModelImageName,Image)
 
         NFacets = len(self.DicoImager.keys())
@@ -996,6 +1000,10 @@ class ClassFacetMachine():
         for ii in range(NCPU):
             List_Result_queue.append(multiprocessing.JoinableQueue())
 
+        timer = ClassTimeIt.ClassTimeIt()
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="Model to facets", HeaderSize=10, TitleSize=13)
+        #        pBAR.disable()
+        pBAR.render(0, '%4i/%i' % (0, NFacets))
         for ii in range(NCPU):
             W = self.FacetParallelEngine(work_queue, List_Result_queue[ii],
                                          self.GD,
@@ -1017,12 +1025,6 @@ class ClassFacetMachine():
             if Parallel:
                 workerlist[ii].start()
 
-        timer = ClassTimeIt.ClassTimeIt()
-        #print>> log, "Model images to facets..."
-
-        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="Model to facets", HeaderSize=10, TitleSize=13)
-        #        pBAR.disable()
-        pBAR.render(0, '%4i/%i' % (0, NFacets))
         iResult = 0
         if not Parallel:
             for ii in range(NCPU):
@@ -1060,7 +1062,7 @@ class ClassFacetMachine():
                 workerlist[ii].terminate()
                 workerlist[ii].join()
 
-        print>> log, "Fourier transforms finished in %s" % timer.timehms()
+        #print>> log, "Fourier transforms finished in %s" % timer.timehms()
 
 
 
@@ -1239,6 +1241,12 @@ class ClassFacetMachine():
         for ii in range(NCPU):
             List_Result_queue.append(multiprocessing.JoinableQueue())
 
+        timer = ClassTimeIt.ClassTimeIt()
+        print>> log, "Fourier transforming facet grids"
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  Fourier Transforming ", HeaderSize=10, TitleSize=13)
+        #        pBAR.disable()
+        pBAR.render(0, '%4i/%i' % (0, NFacets))
+
         for ii in range(NCPU):
             W = self.FacetParallelEngine(work_queue, List_Result_queue[ii],
                                          self.GD,
@@ -1260,12 +1268,8 @@ class ClassFacetMachine():
             if Parallel:
                 workerlist[ii].start()
 
-        timer = ClassTimeIt.ClassTimeIt()
-        print>> log, "Fourier transforming facet grids"
 
-        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  Fourier Transforming ", HeaderSize=10, TitleSize=13)
-        #        pBAR.disable()
-        pBAR.render(0, '%4i/%i' % (0, NFacets))
+
         iResult = 0
         if not Parallel:
             for ii in range(NCPU):
@@ -1672,21 +1676,35 @@ class WorkerImager(multiprocessing.Process):
         self.result_queue.put({"Success": True, "iFacet": iFacet})
 
     def Im2Facet(self, DicoJob):
+
+        T=ClassTimeIt.ClassTimeIt("Im2Facet")
         iFacet=DicoJob["iFacet"]
         ChanSel=DicoJob["ChanSel"]
         Im2Grid=ClassImToGrid(OverS=self.GD["ImagerCF"]["OverS"],GD=self.GD)
-
+        T.timeit("Init")
         SharedMemName="%s/Spheroidal.Facet_%3.3i"%(self.FacetDataCache,iFacet)
         SPhe=NpShared.GiveArray(SharedMemName)
+        T.timeit("Sphe")
         NameSpacialWeigth="%sSpacialWeight.Facet_%3.3i"%(self.FacetDataCache,iFacet)
         SpacialWeight=NpShared.GiveArray(NameSpacialWeigth)
-
+        T.timeit("SpacialWeight")
         ModelImageName = "%sModelImage" % (self.IdSharedMem)
         Image=NpShared.GiveArray(ModelImageName)
+        T.timeit("ModelImage")
         NormImage=NpShared.GiveArray("%sNormImage"%self.IdSharedMem)
+        T.timeit("Normimage")
+
+
+
         ModelFacet,_=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,NormImage,SPhe,SpacialWeight,ChanSel=ChanSel)
+        T.timeit("Calculation")
+
         ModelSharedMemName="%sModelImage.Facet_%3.3i"%(self.IdSharedMem,iFacet)
         NpShared.ToShared(ModelSharedMemName,ModelFacet)
+        T.timeit("ToShared")
+
+
+
         self.result_queue.put({"Success": True, "iFacet": iFacet})
 
     def run(self):

@@ -71,7 +71,7 @@ class ClassConvMachine():
                 self.ConvMode="Matrix"
             else:
                 self.ConvMode="Vector"
-
+        self.ConvMode="Vector"
         if self.ConvMode=="Matrix":
             self.SetConvMatrix()
         
@@ -192,7 +192,7 @@ class ClassConvMachine():
         T=ClassTimeIt.ClassTimeIt("Vec")
         T.disable()
         for iPix in range(self.NPixListParms):
-            Fch=A[:,0,iPix]
+            Fch=A[:,iPix]
             if np.abs(Fch).max()==0: continue
 
             Vec_iPix=self.GiveConvVector(iPix)

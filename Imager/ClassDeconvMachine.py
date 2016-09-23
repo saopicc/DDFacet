@@ -299,6 +299,8 @@ class ClassImagerDeconv():
             psfmean, psfcube = None, None
             #self.DicoVariablePSF = cPickle.load(file(cachepath))
             self.DicoVariablePSF = MyPickle.FileToDicoNP(cachepath)
+            self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg=self.DicoVariablePSF["EstimatesAvgPSF"]
+
 
         else:
             print>>log, ModColor.Str("=============================== Making PSF ===============================")
@@ -346,6 +348,14 @@ class ClassImagerDeconv():
             psfmean, psfcube = psfdict["MeanImage"], psfdict["ImagData"]   # this is only for the casa image saving
             self.DicoVariablePSF = FacetMachinePSF.DicoPSF
             #FacetMachinePSF.ToCasaImage(self.DicoImagePSF["ImagData"],ImageName="%s.psf"%self.BaseName,Fits=True)
+            self.PSF=self.MeanFacetPSF=self.DicoVariablePSF["MeanFacetPSF"]
+            self.FitPSF()
+
+            self.DicoVariablePSF["FWHMBeam"]=self.FWHMBeam
+            self.DicoVariablePSF["PSFGaussPars"]=self.PSFGaussPars
+            self.DicoVariablePSF["PSFSidelobes"]=self.PSFSidelobes
+            self.DicoVariablePSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
+
             if self.GD["Caching"]["CachePSF"]:
                 try:
                     #cPickle.dump(self.DicoVariablePSF, file(cachepath,'w'), 2)
@@ -358,6 +368,11 @@ class ClassImagerDeconv():
 
         # self.PSF = self.DicoImagePSF["MeanImage"]#/np.sqrt(self.DicoImagePSF["NormData"])
         self.PSF = self.MeanFacetPSF=self.DicoVariablePSF["MeanFacetPSF"]
+
+        self.FWHMBeam=self.DicoVariablePSF["FWHMBeam"]
+        self.PSFGaussPars=self.DicoVariablePSF["PSFGaussPars"]
+        self.PSFSidelobes=self.DicoVariablePSF["PSFSidelobes"]
+
 #        MyPickle.Save(self.DicoImagePSF,"DicoPSF")
 
         
@@ -397,7 +412,6 @@ class ClassImagerDeconv():
 
         #FacetMachinePSF.ToCasaImage(self.PSF,ImageName="%s.psf"%self.BaseName,Fits=True)
 
-        self.FitPSF()
         if psfmean is not None:
             if "P" in self._saveims or "p" in self._saveims:
                 FacetMachinePSF.ToCasaImage(psfmean,ImageName="%s.psf"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg,

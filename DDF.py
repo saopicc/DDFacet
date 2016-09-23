@@ -208,6 +208,8 @@ def read_options():
 
     OP.OptionGroup("* GAClean","GAClean")
     OP.add_option("GASolvePars")
+    OP.add_option("GACostFunc")
+    OP.add_option("BICFactor")
     OP.add_option("NSourceKin")
     OP.add_option("NMaxGen")
     OP.add_option("NEnlargePars")
@@ -408,15 +410,22 @@ if __name__=="__main__":
         main(OP,messages)
         print>>log, ModColor.Str("DDFacet ended successfully after %s"%T.timehms(),col="green")
     except:
+        str_ERROR=str(traceback.format_exc())
+
         ddfacetPath = "." if os.path.dirname(__file__) == "" else os.path.dirname(__file__)
-        commitSha = subprocess.check_output("git -C %s rev-parse HEAD" % ddfacetPath,shell=True)
+        try:
+            commitSha = subprocess.check_output("git -C %s rev-parse HEAD" % ddfacetPath,shell=True)
+        except:
+            commitSha = "Unknown"
+            print>>log, ModColor.Str("Could not get your DDF revision number, probably your git version is outdated")
+            
         logfileName = MyLogger.getLogFilename()
         logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
         print>> log, ModColor.Str("There was a problem after %s, if you think this is a bug please open an "
                                   "issue, quote your version of DDFacet and attach your logfile"%T.timehms(), col="red")
         print>> log, ModColor.Str("You are using DDFacet revision: %s" % commitSha, col="red")
         print>> log, ModColor.Str("Your logfile is available here: %s" % logfileName, col="red")
-        print>>log, traceback.format_exc()
+        print>>log, str_ERROR
         NpShared.DelAll(IdSharedMem)
         sys.exit(1) #Should at least give the command line an indication of failure
     # main(options)

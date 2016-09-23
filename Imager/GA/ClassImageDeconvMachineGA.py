@@ -330,9 +330,11 @@ class ClassImageDeconvMachine():
             
             MaxIsland=np.max(np.abs(PixVals))
 
-            if (MaxIsland>(3.*self.RMS))|(MaxIsland>Threshold):
-                self.ListIslands.append(ListIslands[iIsland])
+           # print "island %i [%i]: %f"%(iIsland,x.size,MaxIsland)
 
+#            if (MaxIsland>(3.*self.RMS))|(MaxIsland>Threshold):
+            if (MaxIsland>Threshold):
+                self.ListIslands.append(ListIslands[iIsland])
             # ###############################
             # if np.max(np.abs(PixVals))>Threshold:
             #     DoThisOne=True
@@ -349,7 +351,7 @@ class ClassImageDeconvMachine():
         Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
         ind=np.argsort(Sz)[::-1]
 
-        ListIslandsOut=[self.ListIslands[ind[i]] for i in ind]
+        ListIslandsOut=[self.ListIslands[i] for i in ind]
         self.ListIslands=ListIslandsOut
 
                 
@@ -648,12 +650,13 @@ class ClassImageDeconvMachine():
                                  IdSharedMem=self.IdSharedMem,
                                  FreqsInfo=self.PSFServer.DicoMappingDesc)
             workerlist.append(W)
-            workerlist[ii].start()
+            #workerlist[ii].start()
+            workerlist[ii].run()
 
 
         print>>log, "Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolve pop.", HeaderSize=10,TitleSize=13)
-        #pBAR.disable()
+        pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NJobs))
 
         iResult=0
@@ -848,36 +851,61 @@ class WorkerDeconvIsland(multiprocessing.Process):
                 ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
 
 
-            # if island lies inside image
-            try:
-                nch=self.FreqsInfo["MeanJonesBand"][FacetID].size
-                #WeightMeanJonesBand=self.FreqsInfo["MeanJonesBand"][FacetID].reshape((nch,1,1,1))
-                #WeightMueller=WeightMeanJonesBand.ravel()
-                #WeightMuellerSignal=np.sqrt(WeightMueller*self.FreqsInfo["WeightChansImages"].ravel())
+            nch=self.FreqsInfo["MeanJonesBand"][FacetID].size
 
-                CEv=ClassEvolveGA(self._Dirty,
-                                  PSF,
-                                  self.FreqsInfo,
-                                  ListPixParms=ListPixParms,
-                                  ListPixData=ListPixData,
-                                  iFacet=FacetID,PixVariance=PixVariance,
-                                  IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
-                                  GD=self.GD)
-                #,
-                 #                 WeightFreqBands=WeightMuellerSignal)
-                Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
+            CEv=ClassEvolveGA(self._Dirty,
+                              PSF,
+                              self.FreqsInfo,
+                              ListPixParms=ListPixParms,
+                              ListPixData=ListPixData,
+                              iFacet=FacetID,PixVariance=PixVariance,
+                              IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
+                              GD=self.GD)
+            #,
+            #                 WeightFreqBands=WeightMuellerSignal)
+            Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
             
-                Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
-                #Model*=CEv.ArrayMethodsMachine.Gain
+            Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
+            #Model*=CEv.ArrayMethodsMachine.Gain
                 
-                del(CEv)
+            del(CEv)
                 
-                NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
+            NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
                 
-                #print "Current process: %s [%s left]"%(str(multiprocessing.current_process()),str(self.work_queue.qsize()))
                 
-                self.result_queue.put({"Success":True,"iIsland":iIsland})
-            except Exception,e:
-                print "Exception : %s"%str(e)
+            self.result_queue.put({"Success":True,"iIsland":iIsland})
 
-                self.result_queue.put({"Success":False})
+
+            # # if island lies inside image
+            # try:
+            #     nch=self.FreqsInfo["MeanJonesBand"][FacetID].size
+            #     #WeightMeanJonesBand=self.FreqsInfo["MeanJonesBand"][FacetID].reshape((nch,1,1,1))
+            #     #WeightMueller=WeightMeanJonesBand.ravel()
+            #     #WeightMuellerSignal=np.sqrt(WeightMueller*self.FreqsInfo["WeightChansImages"].ravel())
+
+            #     CEv=ClassEvolveGA(self._Dirty,
+            #                       PSF,
+            #                       self.FreqsInfo,
+            #                       ListPixParms=ListPixParms,
+            #                       ListPixData=ListPixData,
+            #                       iFacet=FacetID,PixVariance=PixVariance,
+            #                       IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
+            #                       GD=self.GD)
+            #     #,
+            #      #                 WeightFreqBands=WeightMuellerSignal)
+            #     Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
+            
+            #     Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
+            #     #Model*=CEv.ArrayMethodsMachine.Gain
+                
+            #     del(CEv)
+                
+            #     NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
+                
+            #     #print "Current process: %s [%s left]"%(str(multiprocessing.current_process()),str(self.work_queue.qsize()))
+                
+            #     self.result_queue.put({"Success":True,"iIsland":iIsland})
+            # except Exception,e:
+            #     print "Exception on island %i: %s"%(iIsland,str(e))
+
+            #     self.result_queue.put({"Success":False})

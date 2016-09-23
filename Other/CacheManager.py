@@ -1,6 +1,7 @@
 import os
 import os.path
 import cPickle
+import collections
 
 from DDFacet.Other import MyLogger
 log = MyLogger.getLogger("CacheManager")
@@ -133,9 +134,13 @@ class CacheManager (object):
                 for MainField in storedhash.keys(): 
                     D0=hash[MainField]
                     D1=storedhash[MainField]
-                    for key in D0.keys():
-                        if D0[key]!=D1[key]:
-                            ListDiffer.append("(%s.%s: %s vs %s)"%(str(MainField),str(key),str(D0[key]),str(D1[key])))
+                    if (type(D0)==dict)|(type(D0)==type(collections.OrderedDict())):
+                        for key in D0.keys():
+                            if D0[key]!=D1[key]:
+                                ListDiffer.append("(%s.%s: %s vs %s)"%(str(MainField),str(key),str(D0[key]),str(D1[key])))
+                    else:
+                        if D0!=D1:
+                            ListDiffer.append("(%s: %s vs %s)"%(str(MainField),str(D0),str(D1)))
 
                 print>>log, "cache hash %s does not match, will re-make" % hashpath
                 print>>log, "  differences in parameters (Param: this vs cached): %s"%" & ".join(ListDiffer)

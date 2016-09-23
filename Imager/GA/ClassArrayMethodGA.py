@@ -63,10 +63,10 @@ class ClassArrayMethodGA():
 
         self.PM.setFreqs(FreqsInfo)
 
-        self.SetDirtyArrays()
 
         self.NParms=self.NPixListParms*self.PM.NParam
         self.DataTrue=None
+        self.SetDirtyArrays()
         #pylab.figure(3,figsize=(5,3))
         #pylab.clf()
         # pylab.figure(4,figsize=(5,3))
@@ -130,7 +130,7 @@ class ClassArrayMethodGA():
             self.DirtyArrayParms[iBand,0,:]=self.Dirty[iBand,0,x0,y0]
 
         if self.IslandBestIndiv is not None:
-            self.DirtyArrayParms+=self.ToConvArray(self.IslandBestIndiv,OutMode="Parms")
+            self.DirtyArrayParms+=self.ToConvArray(self.IslandBestIndiv.reshape((self.PM.NParam,self.NPixListParms)),OutMode="Parms")
 
         self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
 
@@ -138,20 +138,18 @@ class ClassArrayMethodGA():
 
     def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01,NMaxIter=20000):
 
-        CM=self.ConvMachine.CMParmsMean.reshape((self.NPixListParms,self.NPixListParms))
-        A=self.DirtyArrayParmsMean.ravel().copy()
-        SModelArray=np.zeros_like(A)
+        A=self.DirtyArrayParmsMean#.reshape((1,1,self.NPixListParms))
+        SModelArray=np.zeros_like(A.flatten())
         MaxA=np.max(A)
 
         Alpha=0
-        if self.NFreqBands>1:
-            FluxFreq=np.sum(self.DirtyArrayParms,axis=-1).reshape((self.NFreqBands,))
-            Freqs=self.FreqsInfo["freqs"]
-            nf=len(Freqs)
-            FreqsMean=np.array([np.mean(Freqs[i]) for i in range(nf)])
-            Alpha=np.log(FluxFreq[-1]/FluxFreq[0])/np.log(FreqsMean[-1]/FreqsMean[0])
-            
-            #stop
+        # if self.NFreqBands>1:
+        #     FluxFreq=np.sum(self.DirtyArrayParms,axis=-1).reshape((self.NFreqBands,))
+        #     Freqs=self.FreqsInfo["freqs"]
+        #     nf=len(Freqs)
+        #     FreqsMean=np.array([np.mean(Freqs[i]) for i in range(nf)])
+        #     Alpha=np.log(FluxFreq[-1]/FluxFreq[0])/np.log(FreqsMean[-1]/FreqsMean[0])
+        #     # stop
 
         # iMax=np.argmax(A)
         # SModelArray[iMax]=A[iMax]
@@ -160,9 +158,16 @@ class ClassArrayMethodGA():
         Th=StopThFrac*MaxA
         for iIter in range(NMaxIter): 
             iPix=np.argmax(np.abs(A))
-            f=A[iPix]
+            f=A[0,0,iPix]
             if np.abs(f)<Th: break
-            A-=CM[iPix]*gain*f
+            if self.ConvMachine.ConvMode=="Matrix":
+                CM=self.ConvMachine.CMParmsMean[0,0]
+                A-=CM[iPix]*gain*f
+            else:
+                V=self.ConvMachine.GiveConvVector(iPix)
+                Vm=np.mean(np.array(V),axis=0).reshape((1,1,self.NPixListParms))
+                A-=Vm*gain*f
+                
             SModelArray[iPix]+=gain*f
 
         
