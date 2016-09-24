@@ -160,6 +160,7 @@ class ClassParamMachine():
         nx=x.max()-x.min()+1
         ny=y.max()-y.min()+1
         NPixSquare=np.max((nx,ny))
+        if NPixSquare%2==0: NPixSquare+=1
         xx,yy=np.mgrid[0:NPixSquare,0:NPixSquare]
 
         MappingIndexToXYPix=(xx[x-x.min(),y-y.min()],yy[x-x.min(),y-y.min()])

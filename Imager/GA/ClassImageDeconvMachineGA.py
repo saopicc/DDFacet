@@ -860,7 +860,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
                               ListPixData=ListPixData,
                               iFacet=FacetID,PixVariance=PixVariance,
                               IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
-                              GD=self.GD)
+                              GD=self.GD,
+                              iIsland=iIsland,IdSharedMem=self.IdSharedMem)
             #,
             #                 WeightFreqBands=WeightMuellerSignal)
             Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)

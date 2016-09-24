@@ -471,7 +471,7 @@ class ClassFacetMachine():
             directory=True)
 
         self.FacetDataCache = "file://" + cachepath + "/"
-
+        
         if not cachevalid:
             work_queue = multiprocessing.Queue()
             result_queue = multiprocessing.Queue()

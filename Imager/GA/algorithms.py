@@ -160,7 +160,9 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     # Evaluate the individuals with an invalid fitness
     
     invalid_ind = [ind for ind in population]# if not ind.fitness.valid]
-    fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+    #fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+    fitnesses = ArrayMethodsMachine.GiveFitnessPop(population)
+    
     #print fitnesses[0]
     #stop
     for ind, fit in zip(invalid_ind, fitnesses):

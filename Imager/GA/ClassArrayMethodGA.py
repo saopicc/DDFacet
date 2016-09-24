@@ -14,24 +14,28 @@ log=MyLogger.getLogger("ClassArrayMethodGA")
 from ClassParamMachine import ClassParamMachine
 from DDFacet.ToolsDir.GeneDist import ClassDistMachine
 from SkyModel.PSourceExtract import ClassIncreaseIsland
-
+from DDFacet.Data import NpShared
 import ClassConvMachine
 
 class ClassArrayMethodGA():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
-                 PixVariance=1.e-2,IslandBestIndiv=None,WeightFreqBands=None,iFacet=0):
+                 PixVariance=1.e-2,IslandBestIndiv=None,WeightFreqBands=None,iFacet=0,
+                 IdSharedMem="",
+                 iIsland=0):
 
         self.iFacet=iFacet
-        self.Dirty=Dirty
         self.WeightFreqBands=WeightFreqBands
-        self.PSF=PSF
+
+        self.IdSharedMem=IdSharedMem
+        self.iIsland=iIsland
+        self.PSF=NpShared.ToShared("%sPSF_Island_%4.4i"%iIsland)
         self.IslandBestIndiv=IslandBestIndiv
 
         # IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
         # ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
 
         #ListPixParms=ListPixData
-        _,_,nx,_=self.Dirty.shape
+        _,_,nx,_=Dirty.shape
         
         
         self.ConvMachine=ClassConvMachine.ClassConvMachine(PSF,ListPixParms,ListPixData)
@@ -62,11 +66,11 @@ class ClassArrayMethodGA():
         self.PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,SolveParam=GD["GAClean"]["GASolvePars"])
 
         self.PM.setFreqs(FreqsInfo)
-
-
+        self.ConvMachine.setParamMachine(self.PM)
+        
         self.NParms=self.NPixListParms*self.PM.NParam
         self.DataTrue=None
-        self.SetDirtyArrays()
+        self.SetDirtyArrays(Dirty)
         #pylab.figure(3,figsize=(5,3))
         #pylab.clf()
         # pylab.figure(4,figsize=(5,3))
@@ -75,7 +79,7 @@ class ClassArrayMethodGA():
     
 
 
-    def SetDirtyArrays(self):
+    def SetDirtyArrays(self,Dirty):
         print>>log,"SetConvMatrix"
         PSF=self.PSF
         NPixPSF=PSF.shape[-1]
@@ -91,7 +95,7 @@ class ClassArrayMethodGA():
 
         x0,y0=np.array(self.ListPixData).T
         for iBand in range(self.NFreqBands):
-            self.DirtyArray[iBand,0,:]=self.Dirty[iBand,0,x0,y0]
+            self.DirtyArray[iBand,0,:]=Dirty[iBand,0,x0,y0]
 
         ALPHA=1.
         if (self.IslandBestIndiv is not None):
@@ -127,7 +131,7 @@ class ClassArrayMethodGA():
 
         x0,y0=np.array(self.ListPixParms).T
         for iBand in range(self.NFreqBands):
-            self.DirtyArrayParms[iBand,0,:]=self.Dirty[iBand,0,x0,y0]
+            self.DirtyArrayParms[iBand,0,:]=Dirty[iBand,0,x0,y0]
 
         if self.IslandBestIndiv is not None:
             self.DirtyArrayParms+=self.ToConvArray(self.IslandBestIndiv.reshape((self.PM.NParam,self.NPixListParms)),OutMode="Parms")
@@ -136,10 +140,29 @@ class ClassArrayMethodGA():
 
     
 
+    def ToConvArray(self,V,OutMode="Data"):
+        A=self.PM.GiveModelArray(V)
+        A=self.ConvMachine.Convolve(A,OutMode=OutMode)
+        return A
+
     def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01,NMaxIter=20000):
 
-        A=self.DirtyArrayParmsMean#.reshape((1,1,self.NPixListParms))
-        SModelArray=np.zeros_like(A.flatten())
+        if self.ConvMachine.ConvMode=="Matrix" or  self.ConvMachine.ConvMode=="Vector":
+            A=self.DirtyArrayParmsMean.copy()#.reshape((1,1,self.NPixListParms))
+            SModelArray=np.zeros_like(A.flatten())
+            ArrayMode="Array"
+        else:
+            Asq=self.PM.ModelToSquareArray(self.DirtyArrayParms.copy(),TypeInOut=("Parms","Parms"))
+            _,npol,NPix,_=Asq.shape
+            A=np.mean(Asq,axis=0).reshape((NPix,NPix))
+            Mask=(A==0)
+            _,_,NPixPSF,_=self.PSF.shape
+            PSFMean=np.mean(self.PSF,axis=0).reshape((NPixPSF,NPixPSF))
+            ArrayMode="Image"
+            xcPSF=NPixPSF/2
+            xcDirty=NPix/2
+            SModelArray=np.zeros_like(A)
+
         MaxA=np.max(A)
 
         Alpha=0
@@ -156,32 +179,57 @@ class ClassArrayMethodGA():
         # return SModelArray
 
         Th=StopThFrac*MaxA
-        for iIter in range(NMaxIter): 
-            iPix=np.argmax(np.abs(A))
-            f=A[0,0,iPix]
-            if np.abs(f)<Th: break
-            if self.ConvMachine.ConvMode=="Matrix":
-                CM=self.ConvMachine.CMParmsMean[0,0]
-                A-=CM[iPix]*gain*f
-            else:
-                V=self.ConvMachine.GiveConvVector(iPix)
-                Vm=np.mean(np.array(V),axis=0).reshape((1,1,self.NPixListParms))
-                A-=Vm*gain*f
-                
-            SModelArray[iPix]+=gain*f
+        if ArrayMode=="Array":
+            for iIter in range(NMaxIter): 
+                iPix=np.argmax(np.abs(A))
+                f=A[0,0,iPix]
+                if np.abs(f)<Th: break
+                if self.ConvMachine.ConvMode=="Matrix":
+                    CM=self.ConvMachine.CMParmsMean[0,0]
+                    A-=CM[iPix]*gain*f
+                elif self.ConvMachine.ConvMode=="Vector":
+                    V=self.ConvMachine.GiveConvVector(iPix,TypeOut="Parms")
+                    Vm=np.mean(np.array(V),axis=0).reshape((1,1,self.NPixListParms))
+                    A-=Vm*gain*f
+                SModelArray[iPix]+=gain*f
 
-        
+        elif ArrayMode=="Image":
+            for iIter in range(10):#NMaxIter): 
+                print iIter,"/", NMaxIter
+                #import pylab
+                #pylab.clf()
+                #pylab.subplot(1,3,1); pylab.imshow(A,interpolation="nearest")
+
+                AbsA=np.abs(A)
+                iPix,jPix=np.where(AbsA==np.max(AbsA))
+                f=A[iPix,jPix]
+                if np.abs(f)<Th: break
+                dx=iPix-xcDirty
+                dy=jPix-xcDirty
+                ThisPSF=np.roll(np.roll(PSFMean,dx,axis=0),dy,axis=1)
+                ThisPSFCut=ThisPSF[xcPSF-NPix/2:xcPSF+NPix/2+1,xcPSF-NPix/2:xcPSF+NPix/2+1]
+                #pylab.subplot(1,3,2); pylab.imshow(ThisPSFCut,interpolation="nearest")
+                A-=gain*f*ThisPSFCut
+                A[Mask]=0
+                #pylab.subplot(1,3,3); pylab.imshow(A,interpolation="nearest")
+                #pylab.draw()
+                #pylab.show(False)
+                #pylab.pause(0.1)
+                SModelArray[iPix,jPix]+=gain*f
+
+            SModelArraySq=np.zeros_like(Asq)
+            for iFreq in range(self.NFreqBands):
+                for iPol in range(self.npol):
+                    SModelArraySq[iFreq,iPol]=SModelArray[:,:]
+            SModelArray=self.PM.SquareArrayToModel(SModelArraySq,TypeInOut=("Parms","Parms")).reshape((self.NFreqBands,self.npol,self.NPixListParms))
+            SModelArray=SModelArray[0,0]
+
         return SModelArray,Alpha
 
         # stop
 
 
 
-    def ToConvArray(self,V,OutMode="Data"):
-        A=self.PM.GiveModelArray(V)
-        #A=ModFFTW.ConvolveGaussian(A,CellSizeRad=1,GaussPars=[(1.,1.,0.)])
-        A=self.ConvMachine.Convolve(A,OutMode=OutMode)
-        return A
 
     def setBestIndiv(self,BestIndiv):
         self.BestContinuousFitNess=BestIndiv.ContinuousFitNess
@@ -205,81 +253,13 @@ class ClassArrayMethodGA():
         # print "Out ",DecreteFitNess
         return DecreteFitNess
     
-    def GiveFitness(self,individual,DoPlot=False):
+    def GiveFitnessPop(self,pop):
+        fitnesses=[]
+        for individual in pop:
+            fitnesses.append(ArrayMethodsMachine.GiveFitness(individual))
+        return fitnesses
 
-        # individual.fill(-0.8)
-        A=self.ToConvArray(individual)
-        fitness=0.
-        Resid=self.DirtyArray-A
 
-        if DoPlot:
-            import pylab
-            pylab.plot(A.flatten())
-            pylab.plot(self.DirtyArray.flatten())
-            pylab.plot(Resid.flatten())
-            pylab.draw()
-            pylab.show(False)
-            pylab.pause(0.1)
-            stop
-
-        nFreqBands,_,_=Resid.shape
-        
-        #ResidShape=(self.NFreqBands,1,self.NPixListData)
-        #WeightFreqBands=self.WeightFreqBands.reshape((nFreqBands,1,1))
-        #Weight=WeightFreqBands/np.sum(WeightFreqBands)
-        S=self.PM.ArrayToSubArray(individual,"S")
-        
-        ContinuousFitNess=[]
-        for FuncType in self.MaxFunc:
-            if FuncType=="Chi2":
-                # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
-                chi2=-np.sum((Resid)**2)/(self.PixVariance)
-                W=self.WeightMaxFunc[FuncType]
-                ContinuousFitNess.append(chi2*W)
-            if FuncType=="BIC":
-                chi2=np.sum((Resid)**2)/(self.PixVariance)
-                n=Resid.size
-                k=np.count_nonzero(S)
-                #BIC=chi2+100*k*np.log(n)
-                BIC=chi2+self.GD["GAClean"]["BICFactor"]*k*np.log(n)
-                W=self.WeightMaxFunc[FuncType]
-                ContinuousFitNess.append(-BIC*W)
-            if FuncType=="MaxFlux":
-                FMax=-np.max(np.abs(Resid))/(np.sqrt(self.PixVariance))
-                W=self.WeightMaxFunc[FuncType]
-                ContinuousFitNess.append(FMax*W)
-            if FuncType=="L0":
-                # ResidNonZero=S[S!=0]
-                # W=self.WeightMaxFunc[FuncType]
-                # l0=-(ResidNonZero.size)
-                l0=self.GiveCompacity(S)
-
-                ContinuousFitNess.append(l0*W)
-            if FuncType=="MinFlux":
-                SNegArr=np.abs(S[S<0])[()]
-                FNeg=-np.sum(SNegArr)/(np.sqrt(self.PixVariance))
-                W=self.WeightMaxFunc[FuncType]
-                ContinuousFitNess.append(FNeg*W)
-
-        return np.sum(ContinuousFitNess),
-
-        ContinuousFitNess=np.array(ContinuousFitNess)
-        DecreteFitNess=self.GiveDecreteFitNess(ContinuousFitNess)
-        rep=DecreteFitNess.tolist()
-
-        # ContinuousFitNess=np.array(ContinuousFitNess)
-        # setattr(individual,"ContinuousFitNess",ContinuousFitNess)
-        # if "BestContinuousFitNess" in dir(self):
-        #     DecreteFitNess=self.GiveDecreteFitNess(ContinuousFitNess)
-        #     rep=DecreteFitNess.tolist()
-        # else:
-        #     rep=ContinuousFitNess.tolist()#np.sum(ContinuousFitNess)
-
-        return rep
-        # return l0,FNeg,chi2#,STot
-        # print chi2,l0,FNeg
-        # return FNeg,chi2,l0
-        # return fitness,#l0
     
     def testMovePix(self):
         A=np.random.randn(self.PM.NParam,self.NPixListParms)
@@ -651,4 +631,119 @@ class ClassArrayMethodGA():
         pylab.pause(0.1)
         fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))
 
-    
+# #################################################################"    
+# #################################################################"    
+# #################################################################"    
+# #################################################################"    
+
+
+class WorkerFitness(multiprocessing.Process):
+    def __init__(self,
+                 work_queue,
+                 result_queue,
+                 FFTW_Wisdom=None,
+                 DicoImager=None,
+                 IdSharedMem=None,
+                 PauseOnStart=False):
+        multiprocessing.Process.__init__(self)
+        self.work_queue = work_queue
+        self.result_queue = result_queue
+        self.kill_received = False
+        self.exit = multiprocessing.Event()
+        self.IdSharedMem=IdSharedMem
+        self._pause_on_start = PauseOnStart
+
+    def shutdown(self):
+        self.exit.set()
+
+    def run(self):
+        # pause self in debugging mode
+        if self._pause_on_start:
+            os.kill(os.getpid(),signal.SIGSTOP)
+        while not self.kill_received and not self.work_queue.empty():
+            DicoJob = self.work_queue.get()
+            individual=DicoJob["individual"]
+            self.GiveFitness(individual)
+            
+            
+
+    def ToConvArray(self,V,OutMode="Data"):
+        A=self.PM.GiveModelArray(V)
+        A=self.ConvMachine.Convolve(A,OutMode=OutMode)
+        return A
+
+    def GiveFitness(self,individual,DoPlot=False):
+
+        # individual.fill(-0.8)
+        A=self.ToConvArray(individual)
+        fitness=0.
+        Resid=self.DirtyArray-A
+
+        if DoPlot:
+            import pylab
+            pylab.plot(A.flatten())
+            pylab.plot(self.DirtyArray.flatten())
+            pylab.plot(Resid.flatten())
+            pylab.draw()
+            pylab.show(False)
+            pylab.pause(0.1)
+            stop
+
+        nFreqBands,_,_=Resid.shape
+        
+        #ResidShape=(self.NFreqBands,1,self.NPixListData)
+        #WeightFreqBands=self.WeightFreqBands.reshape((nFreqBands,1,1))
+        #Weight=WeightFreqBands/np.sum(WeightFreqBands)
+        S=self.PM.ArrayToSubArray(individual,"S")
+        
+        ContinuousFitNess=[]
+        for FuncType in self.MaxFunc:
+            if FuncType=="Chi2":
+                # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
+                chi2=-np.sum((Resid)**2)/(self.PixVariance)
+                W=self.WeightMaxFunc[FuncType]
+                ContinuousFitNess.append(chi2*W)
+            if FuncType=="BIC":
+                chi2=np.sum((Resid)**2)/(self.PixVariance)
+                n=Resid.size
+                k=np.count_nonzero(S)
+                #BIC=chi2+100*k*np.log(n)
+                BIC=chi2+self.GD["GAClean"]["BICFactor"]*k*np.log(n)
+                W=self.WeightMaxFunc[FuncType]
+                ContinuousFitNess.append(-BIC*W)
+            if FuncType=="MaxFlux":
+                FMax=-np.max(np.abs(Resid))/(np.sqrt(self.PixVariance))
+                W=self.WeightMaxFunc[FuncType]
+                ContinuousFitNess.append(FMax*W)
+            if FuncType=="L0":
+                # ResidNonZero=S[S!=0]
+                # W=self.WeightMaxFunc[FuncType]
+                # l0=-(ResidNonZero.size)
+                l0=self.GiveCompacity(S)
+
+                ContinuousFitNess.append(l0*W)
+            if FuncType=="MinFlux":
+                SNegArr=np.abs(S[S<0])[()]
+                FNeg=-np.sum(SNegArr)/(np.sqrt(self.PixVariance))
+                W=self.WeightMaxFunc[FuncType]
+                ContinuousFitNess.append(FNeg*W)
+
+        return np.sum(ContinuousFitNess),
+
+        ContinuousFitNess=np.array(ContinuousFitNess)
+        DecreteFitNess=self.GiveDecreteFitNess(ContinuousFitNess)
+        rep=DecreteFitNess.tolist()
+
+        # ContinuousFitNess=np.array(ContinuousFitNess)
+        # setattr(individual,"ContinuousFitNess",ContinuousFitNess)
+        # if "BestContinuousFitNess" in dir(self):
+        #     DecreteFitNess=self.GiveDecreteFitNess(ContinuousFitNess)
+        #     rep=DecreteFitNess.tolist()
+        # else:
+        #     rep=ContinuousFitNess.tolist()#np.sum(ContinuousFitNess)
+
+        return rep
+        # return l0,FNeg,chi2#,STot
+        # print chi2,l0,FNeg
+        # return FNeg,chi2,l0
+        # return fitness,#l0
