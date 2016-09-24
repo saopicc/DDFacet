@@ -1032,16 +1032,22 @@ class ClassFacetMachine():
 
         while iResult < NJobs:
             DicoResult = None
-            if Parallel:
-                for w in workerlist:
-                    w.join(0)
-                    if not w.is_alive():
-                        if w.exitcode != 0:
-                            raise RuntimeError, "a worker process has died with exit code %d. This is probably a bug in the ClassDDEGridMachine." % w.exitcode
+            # if Parallel:
+            #     for w in workerlist:
+            #         w.join(0)
+            #         if not w.is_alive():
+            #             if w.exitcode != 0:
+            #                 raise RuntimeError, "a worker process has died with exit code %d. This is probably a bug in the ClassDDEGridMachine." % w.exitcode
+            
+
+
+
+
             for result_queue in List_Result_queue:
                 if result_queue.qsize() != 0:
                     try:
-                        DicoResult = result_queue.get()
+                        #DicoResult = result_queue.get()
+                        DicoResult = result_queue.get_nowait()
                         break
                     except:
                         pass

@@ -69,7 +69,6 @@ class ClassConvMachine():
         self.NFreqBands,self.npol,self.NPixPSF,_=PSF.shape
 
         self.ConvMode=ConvMode
-        print self.ConvMode
         # if ConvMode==None:
         #     if self.NPixListParms<3000:
         #         self.ConvMode="Matrix"
@@ -79,8 +78,11 @@ class ClassConvMachine():
 
         if self.ConvMode=="Matrix":
             self.SetConvMatrix()
+        elif self.ConvMode=="FFT":
+            pass
+        else:
+            stop
 
-        stop
 
     def Convolve(self,A,Norm=True,OutMode="Data",ConvMode=None):
         
@@ -91,10 +93,12 @@ class ClassConvMachine():
             return self.ConvolveMatrix(A,OutMode=OutMode)
         elif ConvMode=="Vector":
             T=ClassTimeIt.ClassTimeIt("ConvVec")
+            T.disable()
             C=self.ConvolveVector(A,OutMode=OutMode)
             T.timeit()
         elif ConvMode=="FFT":
             T=ClassTimeIt.ClassTimeIt("ConvFFT")
+            T.disable()
             C=self.ConvolveFFT(A,OutMode=OutMode)
             T.timeit()
             return C
@@ -106,6 +110,7 @@ class ClassConvMachine():
         shin=A.shape
         
         T=ClassTimeIt.ClassTimeIt("ConvolveFFT")
+        T.disable()
         Asq=self.PM.ModelToSquareArray(A,TypeInOut=("Parms",OutMode))
         T.timeit("0")
         NFreqBand,npol,N,_=Asq.shape

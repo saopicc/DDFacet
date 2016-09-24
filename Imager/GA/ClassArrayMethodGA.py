@@ -203,8 +203,8 @@ class ClassArrayMethodGA():
                 SModelArray[iPix]+=gain*f
 
         elif ArrayMode=="Image":
-            for iIter in range(10):#NMaxIter): 
-                print iIter,"/", NMaxIter
+            for iIter in range(NMaxIter): 
+                #print iIter,"/", NMaxIter
                 #import pylab
                 #pylab.clf()
                 #pylab.subplot(1,3,1); pylab.imshow(A,interpolation="nearest")
@@ -276,6 +276,7 @@ class ClassArrayMethodGA():
                             "iIndividual":iIndividual})
 
         workerlist=[]
+        #print "start"
         for ii in range(NCPU):
             W=WorkerFitness(work_queue,
                             result_queue,
@@ -304,11 +305,26 @@ class ClassArrayMethodGA():
         iResult=0
 
         while iResult < NJobs:
-            try:
-                DicoResult = result_queue.get(True, 5)
-            except:
-                time.sleep(0.1)
-                continue
+            DicoResult=None
+            #print work_queue.qsize(),result_queue.qsize()
+            if result_queue.qsize()!=0:
+                try:
+                    DicoResult=result_queue.get_nowait()
+                except Exception,e:
+                    print "Exception: %s"%(str(e))
+                    pass
+                
+
+            if DicoResult==None:
+                time.sleep(.1)
+                continue            
+
+            # try:
+            #     DicoResult = result_queue.get(True, 5)
+            # except:
+            #     time.sleep(0.1)
+            #     continue
+
 
             if DicoResult["Success"]:
                 iIndividual=DicoResult["iIndividual"]
@@ -317,6 +333,7 @@ class ClassArrayMethodGA():
             NDone = iResult
 
         if Parallel:
+            #print "turn off"
             for ii in range(NCPU):
                 workerlist[ii].shutdown()
                 workerlist[ii].terminate()
@@ -325,6 +342,7 @@ class ClassArrayMethodGA():
         fitnesses=[]
         for iIndividual in range(len(pop)):
             fitnesses.append(DicoFitnesses[iIndividual])
+        #print "finished"
 
         return fitnesses
 
@@ -745,19 +763,35 @@ class WorkerFitness(multiprocessing.Process):
         self.exit.set()
 
     def run(self):
-        # pause self in debugging mode
-        if self._pause_on_start:
-            os.kill(os.getpid(),signal.SIGSTOP)
-        while not self.kill_received and not self.work_queue.empty():
-            DicoJob = self.work_queue.get()
+        # # pause self in debugging mode
+        # #if self._pause_on_start:
+        # #    os.kill(os.getpid(),signal.SIGSTOP)
+        # while not self.kill_received and not self.work_queue.empty():
+        #     DicoJob = self.work_queue.get()
+        #     individual=DicoJob["individual"]
+        #     iIndividual=DicoJob["iIndividual"]
+        #     fitness=self.GiveFitness(individual)
+        #     #print iIndividual
+        #     self.result_queue.put({"Success": True, 
+        #                            "iIndividual": iIndividual,
+        #                            "fitness":fitness})
+         
+        while not self.kill_received:
+            #gc.enable()
+            try:
+                DicoJob = self.work_queue.get()
+            except:
+                break
+
+
             individual=DicoJob["individual"]
             iIndividual=DicoJob["iIndividual"]
             fitness=self.GiveFitness(individual)
-            
+            #print iIndividual
             self.result_queue.put({"Success": True, 
                                    "iIndividual": iIndividual,
                                    "fitness":fitness})
-         
+ 
 
     def ToConvArray(self,V,OutMode="Data"):
         A=self.PM.GiveModelArray(V)
@@ -765,7 +799,7 @@ class WorkerFitness(multiprocessing.Process):
         return A
 
     def GiveFitness(self,individual,DoPlot=False):
-
+        
         A=self.ToConvArray(individual)
         fitness=0.
         Resid=self.DirtyArray-A

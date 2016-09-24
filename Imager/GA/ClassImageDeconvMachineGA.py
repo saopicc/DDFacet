@@ -583,19 +583,36 @@ class ClassImageDeconvMachine():
 
         self.SearchIslands(StopFlux)
         
+        ListBigIslands=[Island for Island in self.ListIslands if len(Island)>self.GD["GAClean"]["ConvFFTSwitch"]]
+        ListSmallIslands=[Island for Island in self.ListIslands if (len(Island)<=self.GD["GAClean"]["ConvFFTSwitch"])]
+        self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland")
+        self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIsland")
 
 
+    def DeconvListIsland(self,ListIsland,ParallelMode="OverIsland"):
         # ================== Parallel part
-        NCPU=self.NCPU
+
+        NIslands=len(ListIsland)
+        if NIslands==0: return
+        if ParallelMode=="OverIslands":
+            NCPU=self.NCPU
+            NCPU=np.min([NCPU,NIslands])
+            Parallel=True
+            ParallelPerIsland=False
+        elif ParallelMode=="PerIsland":
+            NCPU=1
+            Parallel=False
+            ParallelPerIsland=True
+
         work_queue = multiprocessing.Queue()
 
 
         ListBestIndiv=[]
 
-        NJobs=self.NIslands
+        NJobs=NIslands
         T=ClassTimeIt.ClassTimeIt("    ")
         T.disable()
-        for iIsland in range(self.NIslands):
+        for iIsland in range(NIslands):
             # print "%i/%i"%(iIsland,self.NIslands)
             ThisPixList=self.ListIslands[iIsland]
             XY=np.array(ThisPixList,dtype=np.float32)
@@ -624,7 +641,7 @@ class ClassImageDeconvMachine():
             T.timeit("Put")
             
         SharedListIsland="%s.ListIslands"%(self.IdSharedMem)
-        ListArrayIslands=[np.array(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)]
+        ListArrayIslands=[np.array(ListIslands[iIsland]) for iIsland in range(NIslands)]
         NpShared.PackListArray(SharedListIsland,ListArrayIslands)
         T.timeit("Pack0")
         SharedBestIndiv="%s.ListBestIndiv"%(self.IdSharedMem)
@@ -641,14 +658,13 @@ class ClassImageDeconvMachine():
 
         result_queue=multiprocessing.Queue()
 
-
         for ii in range(NCPU):
             W=WorkerDeconvIsland(work_queue, 
                                  result_queue,
                                  # List_Result_queue[ii],
                                  self.GD,
                                  IdSharedMem=self.IdSharedMem,
-                                 FreqsInfo=self.PSFServer.DicoMappingDesc)
+                                 FreqsInfo=self.PSFServer.DicoMappingDesc,ParallelPerIsland=ParallelPerIsland)
             workerlist.append(W)
             #workerlist[ii].start()
             workerlist[ii].run()
@@ -656,10 +672,11 @@ class ClassImageDeconvMachine():
 
         print>>log, "Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolve pop.", HeaderSize=10,TitleSize=13)
-        pBAR.disable()
+        #pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NJobs))
 
         iResult=0
+        #print "!!!!!!!!!!!!!!!!!!!!!!!!",iResult,NJobs
         while iResult < NJobs:
             DicoResult=None
             # for result_queue in List_Result_queue:
@@ -672,6 +689,7 @@ class ClassImageDeconvMachine():
                         
             #             pass
             #         #DicoResult=result_queue.get()
+            #print "!!!!!!!!!!!!!!!!!!!!!!!!! Qsize",result_queue.qsize()
             if result_queue.qsize()!=0:
                 try:
                     DicoResult=result_queue.get_nowait()
@@ -691,7 +709,7 @@ class ClassImageDeconvMachine():
 
             if DicoResult["Success"]:
                 iIsland=DicoResult["iIsland"]
-                ThisPixList=self.ListIslands[iIsland]
+                ThisPixList=ListIslands[iIsland]
                 SharedIslandName="%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland)
                 Model=NpShared.GiveArray(SharedIslandName)
                 self.ModelMachine.AppendIsland(ThisPixList,Model)
@@ -700,10 +718,12 @@ class ClassImageDeconvMachine():
 
 
         for ii in range(NCPU):
-            workerlist[ii].shutdown()
-            workerlist[ii].terminate()
-            workerlist[ii].join()
-
+            try:
+                workerlist[ii].shutdown()
+                workerlist[ii].terminate()
+                workerlist[ii].join()
+            except:
+                pass
         
 
 
@@ -801,7 +821,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
                  GD,
                  IdSharedMem=None,
                  FreqsInfo=None,
-                 MultiFreqMode=False):
+                 MultiFreqMode=False,
+                 ParallelPerIsland=False):
         multiprocessing.Process.__init__(self)
         self.MultiFreqMode=MultiFreqMode
         self.work_queue = work_queue
@@ -814,6 +835,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
         self.CubeVariablePSF=NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
         self._Dirty=NpShared.GiveArray("%s.Dirty.ImagData"%self.IdSharedMem)
         #self.WeightFreqBands=WeightFreqBands
+        self.ParallelPerIsland=ParallelPerIsland
 
     def shutdown(self):
         self.exit.set()
@@ -823,8 +845,9 @@ class WorkerDeconvIsland(multiprocessing.Process):
         while not self.kill_received:
             #gc.enable()
             try:
-                iIsland,FacetID,JonesNorm,FacetID,PixVariance = self.work_queue.get()
-            except:
+                iIsland,FacetID,JonesNorm,FacetID,PixVariance = self.work_queue.get(True,2)
+            except Exception,e:
+                #print "Exception worker: %s"%str(e)
                 break
 
 
@@ -853,21 +876,21 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
             nch=self.FreqsInfo["MeanJonesBand"][FacetID].size
 
-            ################################
-            DicoSave={"Dirty":self._Dirty,
-                      "PSF":PSF,
-                      "FreqsInfo":self.FreqsInfo,
-                      #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
-                      "ListPixData":ListPixData,
-                      "ListPixParms":ListPixParms,
-                      "IslandBestIndiv":IslandBestIndiv,
-                      "GD":self.GD,
-                      "FacetID":FacetID,
-                      "iIsland":iIsland,"IdSharedMem":self.IdSharedMem}
-            print "saving"
-            MyPickle.Save(DicoSave, "SaveTest")
-            print "saving ok"
-            ################################
+            # ################################
+            # DicoSave={"Dirty":self._Dirty,
+            #           "PSF":PSF,
+            #           "FreqsInfo":self.FreqsInfo,
+            #           #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
+            #           "ListPixData":ListPixData,
+            #           "ListPixParms":ListPixParms,
+            #           "IslandBestIndiv":IslandBestIndiv,
+            #           "GD":self.GD,
+            #           "FacetID":FacetID,
+            #           "iIsland":iIsland,"IdSharedMem":self.IdSharedMem}
+            # print "saving"
+            # MyPickle.Save(DicoSave, "SaveTest")
+            # print "saving ok"
+            # ################################
 
             CEv=ClassEvolveGA(self._Dirty,
                               PSF,
@@ -877,7 +900,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
                               iFacet=FacetID,PixVariance=PixVariance,
                               IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
                               GD=self.GD,
-                              iIsland=iIsland,IdSharedMem=self.IdSharedMem)
+                              iIsland=iIsland,IdSharedMem=self.IdSharedMem,
+                              ParallelFitness=self.ParallelPerIsland)
             #,
             #                 WeightFreqBands=WeightMuellerSignal)
             Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
@@ -887,8 +911,10 @@ class WorkerDeconvIsland(multiprocessing.Process):
                 
             del(CEv)
                 
+            #print "OKDONE"
+
             NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
-                
+            
                 
             self.result_queue.put({"Success":True,"iIsland":iIsland})
 
@@ -926,3 +952,5 @@ class WorkerDeconvIsland(multiprocessing.Process):
             #     print "Exception on island %i: %s"%(iIsland,str(e))
 
             #     self.result_queue.put({"Success":False})
+
+        #print "WORKER DONE"

@@ -29,7 +29,8 @@ def FilterIslandsPix(ListIn,Npix):
 
 class ClassEvolveGA():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,
-                 WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,IdSharedMem=""):
+                 WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,IdSharedMem="",
+                 ParallelFitness=False):
         _,_,NPixPSF,_=PSF.shape
         if ListPixData is None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
@@ -50,7 +51,8 @@ class ClassEvolveGA():
                                                                        GD=GD,
                                                                        WeightFreqBands=WeightFreqBands,
                                                                        iIsland=iIsland,
-                                                                       IdSharedMem=IdSharedMem)
+                                                                       IdSharedMem=IdSharedMem,
+                                                                       ParallelFitness=ParallelFitness)
         
         self.InitEvolutionAlgo()
         #self.ArrayMethodsMachine.testMovePix()
