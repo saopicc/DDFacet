@@ -9,27 +9,31 @@ from itertools import repeat
 import collections
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassArrayMethodGA")
-
+import multiprocessing
 
 from ClassParamMachine import ClassParamMachine
 from DDFacet.ToolsDir.GeneDist import ClassDistMachine
 from SkyModel.PSourceExtract import ClassIncreaseIsland
-from DDFacet.Data import NpShared
+from DDFacet.Array import NpShared
 import ClassConvMachine
+import time
 
 class ClassArrayMethodGA():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
                  PixVariance=1.e-2,IslandBestIndiv=None,WeightFreqBands=None,iFacet=0,
                  IdSharedMem="",
-                 iIsland=0):
-
+                 iIsland=0,
+                 ParallelFitness=False):
+        self.ParallelFitness=ParallelFitness
         self.iFacet=iFacet
         self.WeightFreqBands=WeightFreqBands
-
         self.IdSharedMem=IdSharedMem
         self.iIsland=iIsland
-        self.PSF=NpShared.ToShared("%sPSF_Island_%4.4i"%iIsland)
+        NpShared.DelArray("%sPSF_Island_%4.4i"%(IdSharedMem,iIsland))
+        self.PSF=NpShared.ToShared("%sPSF_Island_%4.4i"%(IdSharedMem,iIsland),PSF)
         self.IslandBestIndiv=IslandBestIndiv
+        self.GD=GD
+        self.NCPU=int(self.GD["Parallel"]["NCPU"])
 
         # IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
         # ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
@@ -37,14 +41,19 @@ class ClassArrayMethodGA():
         #ListPixParms=ListPixData
         _,_,nx,_=Dirty.shape
         
-        
-        self.ConvMachine=ClassConvMachine.ClassConvMachine(PSF,ListPixParms,ListPixData)
-        
-        
         self.ListPixParms=ListPixParms
         self.ListPixData=ListPixData
         self.NPixListParms=len(ListPixParms)
         self.NPixListData=len(ListPixData)
+        
+        self.ConvMode="Matrix"
+        if self.NPixListData>self.GD["GAClean"]["ConvFFTSwitch"]:
+            self.ConvMode="FFT"
+
+        self.ConvMachine=ClassConvMachine.ClassConvMachine(PSF,ListPixParms,ListPixData,self.ConvMode)
+
+        
+        
         self.GD=GD
         self.WeightMaxFunc=collections.OrderedDict()
         #self.WeightMaxFunc["Chi2"]=1.
@@ -254,9 +263,69 @@ class ClassArrayMethodGA():
         return DecreteFitNess
     
     def GiveFitnessPop(self,pop):
+        import Queue
+        Parallel=self.ParallelFitness
+
+        NCPU=self.NCPU
+        work_queue = multiprocessing.Queue()
+        result_queue = multiprocessing.Queue()
+        DicoFitnesses={}
+        NJobs = len(pop)
+        for iIndividual,individual in enumerate(pop):
+            work_queue.put({"individual":individual,
+                            "iIndividual":iIndividual})
+
+        workerlist=[]
+        for ii in range(NCPU):
+            W=WorkerFitness(work_queue,
+                            result_queue,
+                            iIsland=self.iIsland,
+                            ListPixParms=self.ListPixParms,
+                            ListPixData=self.ListPixData,
+                            GD=self.GD,
+                            IdSharedMem=self.IdSharedMem,
+                            PauseOnStart=False,
+                            PM=self.PM,
+                            PixVariance=self.PixVariance,
+                            MaxFunc=self.MaxFunc,
+                            WeightMaxFunc=self.WeightMaxFunc,
+                            DirtyArray=self.DirtyArray,
+                            ConvMode=self.ConvMode)
+
+            workerlist.append(W)
+            if Parallel:
+                workerlist[ii].start()
+
+
+        if not Parallel:
+            for ii in range(NCPU):
+
+                workerlist[ii].run()  # just run until all work is completed
+        iResult=0
+
+        while iResult < NJobs:
+            try:
+                DicoResult = result_queue.get(True, 5)
+            except:
+                time.sleep(0.1)
+                continue
+
+            if DicoResult["Success"]:
+                iIndividual=DicoResult["iIndividual"]
+                iResult += 1
+                DicoFitnesses[iIndividual]=DicoResult["fitness"]
+            NDone = iResult
+
+        if Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].shutdown()
+                workerlist[ii].terminate()
+                workerlist[ii].join()
+
         fitnesses=[]
-        for individual in pop:
-            fitnesses.append(ArrayMethodsMachine.GiveFitness(individual))
+        for iIndividual in range(len(pop)):
+            fitnesses.append(DicoFitnesses[iIndividual])
+
         return fitnesses
 
 
@@ -641,10 +710,17 @@ class WorkerFitness(multiprocessing.Process):
     def __init__(self,
                  work_queue,
                  result_queue,
-                 FFTW_Wisdom=None,
+                 iIsland=None,
+                 ListPixParms=None,
+                 ListPixData=None,
+                 GD=None,
                  DicoImager=None,
                  IdSharedMem=None,
-                 PauseOnStart=False):
+                 PauseOnStart=False,
+                 PM=None,
+                 PixVariance=1e-2,
+                 MaxFunc=None,WeightMaxFunc=None,DirtyArray=None,
+                 ConvMode=None):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -652,6 +728,18 @@ class WorkerFitness(multiprocessing.Process):
         self.exit = multiprocessing.Event()
         self.IdSharedMem=IdSharedMem
         self._pause_on_start = PauseOnStart
+        self.GD=GD
+        self.PM=PM
+        self.ListPixParms=ListPixParms
+        self.ListPixData=ListPixData
+        self.iIsland=iIsland
+        self.PSF=NpShared.GiveArray("%sPSF_Island_%4.4i"%(IdSharedMem,iIsland))
+        self.PixVariance=PixVariance
+        self.ConvMachine=ClassConvMachine.ClassConvMachine(self.PSF,self.ListPixParms,self.ListPixData,ConvMode)
+        self.ConvMachine.setParamMachine(self.PM)
+        self.MaxFunc=MaxFunc
+        self.WeightMaxFunc=WeightMaxFunc
+        self.DirtyArray=DirtyArray
 
     def shutdown(self):
         self.exit.set()
@@ -663,9 +751,13 @@ class WorkerFitness(multiprocessing.Process):
         while not self.kill_received and not self.work_queue.empty():
             DicoJob = self.work_queue.get()
             individual=DicoJob["individual"]
-            self.GiveFitness(individual)
+            iIndividual=DicoJob["iIndividual"]
+            fitness=self.GiveFitness(individual)
             
-            
+            self.result_queue.put({"Success": True, 
+                                   "iIndividual": iIndividual,
+                                   "fitness":fitness})
+         
 
     def ToConvArray(self,V,OutMode="Data"):
         A=self.PM.GiveModelArray(V)
@@ -674,7 +766,6 @@ class WorkerFitness(multiprocessing.Process):
 
     def GiveFitness(self,individual,DoPlot=False):
 
-        # individual.fill(-0.8)
         A=self.ToConvArray(individual)
         fitness=0.
         Resid=self.DirtyArray-A
@@ -730,20 +821,4 @@ class WorkerFitness(multiprocessing.Process):
 
         return np.sum(ContinuousFitNess),
 
-        ContinuousFitNess=np.array(ContinuousFitNess)
-        DecreteFitNess=self.GiveDecreteFitNess(ContinuousFitNess)
-        rep=DecreteFitNess.tolist()
 
-        # ContinuousFitNess=np.array(ContinuousFitNess)
-        # setattr(individual,"ContinuousFitNess",ContinuousFitNess)
-        # if "BestContinuousFitNess" in dir(self):
-        #     DecreteFitNess=self.GiveDecreteFitNess(ContinuousFitNess)
-        #     rep=DecreteFitNess.tolist()
-        # else:
-        #     rep=ContinuousFitNess.tolist()#np.sum(ContinuousFitNess)
-
-        return rep
-        # return l0,FNeg,chi2#,STot
-        # print chi2,l0,FNeg
-        # return FNeg,chi2,l0
-        # return fitness,#l0

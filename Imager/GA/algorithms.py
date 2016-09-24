@@ -162,7 +162,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     invalid_ind = [ind for ind in population]# if not ind.fitness.valid]
     #fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
     fitnesses = ArrayMethodsMachine.GiveFitnessPop(population)
-    
+    stop
     #print fitnesses[0]
     #stop
     for ind, fit in zip(invalid_ind, fitnesses):

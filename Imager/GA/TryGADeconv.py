@@ -149,29 +149,37 @@ def testMF_DATA():
     Dico=MyPickle.Load("SaveTest")
     Dirty=Dico["Dirty"]
     PSF=Dico["PSF"]
-    ListPixData=Dico["ListPixData"]
+
     FreqsInfo=Dico["FreqsInfo"]
-    FreqsInfo=Dico["FreqsInfo"]
+
     IslandBestIndiv=Dico["IslandBestIndiv"]
-    ListPixParms=ListPixData
+
+    ListPixData=Dico["ListPixData"]
+    ListPixParms=Dico["ListPixParms"]
+
     GD=Dico["GD"]
     FacetID=Dico["FacetID"]
+    IdSharedMem=Dico["IdSharedMem"]
+    iIsland=Dico["iIsland"]
 
-    GD["GAClean"]["GASolvePars"]=["S","Alpha","GSig"]
-    GD["GAClean"]["GASolvePars"]=["S","Alpha"]
+    #GD["GAClean"]["GASolvePars"]=["S","Alpha","GSig"]
+    #GD["GAClean"]["GASolvePars"]=["S","Alpha"]
 
     nch=FreqsInfo["MeanJonesBand"][FacetID].size
     WeightMeanJonesBand=FreqsInfo["MeanJonesBand"][FacetID].reshape((nch,1,1,1))
     WeightMueller=WeightMeanJonesBand.ravel()
     WeightMuellerSignal=WeightMueller*FreqsInfo["WeightChansImages"].ravel()
 
-    IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-    ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=20)
+    # IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+    # ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=20)
 
-    IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-    ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
-
-    CEv=ClassEvolveGA(Dirty,PSF,FreqsInfo,ListPixParms=ListPixParms,ListPixData=ListPixData,GD=GD,
-                      IslandBestIndiv=IslandBestIndiv,WeightFreqBands=WeightMuellerSignal)
-    
-    return CEv
+    # IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+    # ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
+    #IslandBestIndiv=np.zeros((len(GD["GAClean"]["GASolvePars"])*len(
+    CEv=ClassEvolveGA(Dirty,PSF,FreqsInfo,ListPixParms=ListPixParms,ListPixData=ListPixData,
+                      GD=GD,
+                      IslandBestIndiv=IslandBestIndiv,
+                      WeightFreqBands=WeightMuellerSignal,
+                      iIsland=iIsland,
+                      IdSharedMem=IdSharedMem)
+    CEv.main()

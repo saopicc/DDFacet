@@ -58,7 +58,7 @@ def test():
     stop
 
 class ClassConvMachine():
-    def __init__(self,PSF,ListPixParms,ListPixData,ConvMode=None):
+    def __init__(self,PSF,ListPixParms,ListPixData,ConvMode):
         self.PSF=PSF
         self.ListPixParms=ListPixParms
         self.ListPixData=ListPixData
@@ -69,15 +69,18 @@ class ClassConvMachine():
         self.NFreqBands,self.npol,self.NPixPSF,_=PSF.shape
 
         self.ConvMode=ConvMode
-        if ConvMode==None:
-            if self.NPixListParms<3000:
-                self.ConvMode="Matrix"
-            else:
-                self.ConvMode="FFT"
+        print self.ConvMode
+        # if ConvMode==None:
+        #     if self.NPixListParms<3000:
+        #         self.ConvMode="Matrix"
+        #     else:
+        #         self.ConvMode="FFT"
         #self.ConvMode="FFT"
+
         if self.ConvMode=="Matrix":
             self.SetConvMatrix()
 
+        stop
 
     def Convolve(self,A,Norm=True,OutMode="Data",ConvMode=None):
         

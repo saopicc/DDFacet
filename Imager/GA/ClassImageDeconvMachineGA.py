@@ -853,6 +853,22 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
             nch=self.FreqsInfo["MeanJonesBand"][FacetID].size
 
+            ################################
+            DicoSave={"Dirty":self._Dirty,
+                      "PSF":PSF,
+                      "FreqsInfo":self.FreqsInfo,
+                      #"DicoMappingDesc":self.PSFServer.DicoMappingDesc,
+                      "ListPixData":ListPixData,
+                      "ListPixParms":ListPixParms,
+                      "IslandBestIndiv":IslandBestIndiv,
+                      "GD":self.GD,
+                      "FacetID":FacetID,
+                      "iIsland":iIsland,"IdSharedMem":self.IdSharedMem}
+            print "saving"
+            MyPickle.Save(DicoSave, "SaveTest")
+            print "saving ok"
+            ################################
+
             CEv=ClassEvolveGA(self._Dirty,
                               PSF,
                               self.FreqsInfo,

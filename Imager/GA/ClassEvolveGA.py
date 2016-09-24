@@ -76,7 +76,7 @@ class ClassEvolveGA():
         
         
         
-        toolbox.register("evaluate", self.ArrayMethodsMachine.GiveFitness)
+        #toolbox.register("evaluate", self.ArrayMethodsMachine.GiveFitness)
         # toolbox.register("mate", tools.cxTwoPoint)
         toolbox.register("mate", tools.cxUniform, indpb=0.5)
         # toolbox.register("mate", tools.cxOrdered)
