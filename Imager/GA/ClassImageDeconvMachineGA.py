@@ -589,10 +589,10 @@ class ClassImageDeconvMachine():
         self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIsland")
 
 
-    def DeconvListIsland(self,ListIsland,ParallelMode="OverIsland"):
+    def DeconvListIsland(self,ListIslands,ParallelMode="OverIsland"):
         # ================== Parallel part
 
-        NIslands=len(ListIsland)
+        NIslands=len(ListIslands)
         if NIslands==0: return
         if ParallelMode=="OverIslands":
             NCPU=self.NCPU
@@ -614,7 +614,7 @@ class ClassImageDeconvMachine():
         T.disable()
         for iIsland in range(NIslands):
             # print "%i/%i"%(iIsland,self.NIslands)
-            ThisPixList=self.ListIslands[iIsland]
+            ThisPixList=ListIslands[iIsland]
             XY=np.array(ThisPixList,dtype=np.float32)
             xm,ym=np.mean(np.float32(XY),axis=0)
             T.timeit("xm,ym")

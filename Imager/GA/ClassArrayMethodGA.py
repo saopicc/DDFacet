@@ -211,6 +211,7 @@ class ClassArrayMethodGA():
 
                 AbsA=np.abs(A)
                 iPix,jPix=np.where(AbsA==np.max(AbsA))
+                iPix,jPix=iPix[0],jPix[0]
                 f=A[iPix,jPix]
                 if np.abs(f)<Th: break
                 dx=iPix-xcDirty
@@ -294,7 +295,11 @@ class ClassArrayMethodGA():
                             ConvMode=self.ConvMode)
 
             workerlist.append(W)
-            if Parallel:
+
+        
+        if Parallel:
+            for ii in range(NCPU):
+                print "launch parallel", ii
                 workerlist[ii].start()
 
 
@@ -739,6 +744,7 @@ class WorkerFitness(multiprocessing.Process):
                  PixVariance=1e-2,
                  MaxFunc=None,WeightMaxFunc=None,DirtyArray=None,
                  ConvMode=None):
+        self.T=ClassTimeIt.ClassTimeIt("WorkerFitness")
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -758,7 +764,7 @@ class WorkerFitness(multiprocessing.Process):
         self.MaxFunc=MaxFunc
         self.WeightMaxFunc=WeightMaxFunc
         self.DirtyArray=DirtyArray
-
+        self.T.timeit("init")
     def shutdown(self):
         self.exit.set()
 
@@ -783,7 +789,7 @@ class WorkerFitness(multiprocessing.Process):
             except:
                 break
 
-
+            self.T.reinit()
             individual=DicoJob["individual"]
             iIndividual=DicoJob["iIndividual"]
             fitness=self.GiveFitness(individual)
@@ -791,7 +797,8 @@ class WorkerFitness(multiprocessing.Process):
             self.result_queue.put({"Success": True, 
                                    "iIndividual": iIndividual,
                                    "fitness":fitness})
- 
+            pid=str(multiprocessing.current_process())
+            self.T.timeit("done job: %s"%pid)
 
     def ToConvArray(self,V,OutMode="Data"):
         A=self.PM.GiveModelArray(V)
