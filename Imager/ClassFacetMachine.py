@@ -1277,6 +1277,7 @@ class ClassFacetMachine():
 
         print>> log, "heading for while loop"
         while iResult < NJobs:
+            DicoResult = {}
             try:
                 DicoResult = m_result_queue.get(True, 5)
                 #result_queue.task_done()
@@ -1296,8 +1297,7 @@ class ClassFacetMachine():
                 #           print>> log, "need to restart worker %d." % id
                 #           pass
             #else:
-
-            if DicoResult["Success"]:
+            if len(DicoResult) !=0 and DicoResult["Success"]:
                 iResult += 1
                 m_result_queue.task_done()
                 iFacet=DicoResult["iFacet"]
