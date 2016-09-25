@@ -273,8 +273,8 @@ class ClassArrayMethodGA():
         DicoFitnesses={}
         NJobs = len(pop)
         for iIndividual,individual in enumerate(pop):
-            work_queue.put({"individual":individual,
-                            "iIndividual":iIndividual})
+            NpShared.ToShared("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual),individual)
+            work_queue.put({"iIndividual":iIndividual})
 
         workerlist=[]
         #print "start"
@@ -299,7 +299,7 @@ class ClassArrayMethodGA():
         
         if Parallel:
             for ii in range(NCPU):
-                print "launch parallel", ii
+                #print "launch parallel", ii
                 workerlist[ii].start()
 
 
@@ -316,7 +316,7 @@ class ClassArrayMethodGA():
                 try:
                     DicoResult=result_queue.get_nowait()
                 except Exception,e:
-                    print "Exception: %s"%(str(e))
+                    #print "Exception: %s"%(str(e))
                     pass
                 
 
@@ -348,6 +348,9 @@ class ClassArrayMethodGA():
         for iIndividual in range(len(pop)):
             fitnesses.append(DicoFitnesses[iIndividual])
         #print "finished"
+
+        for iIndividual,individual in enumerate(pop):
+            NpShared.DelArray("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual))
 
         return fitnesses
 
@@ -745,6 +748,7 @@ class WorkerFitness(multiprocessing.Process):
                  MaxFunc=None,WeightMaxFunc=None,DirtyArray=None,
                  ConvMode=None):
         self.T=ClassTimeIt.ClassTimeIt("WorkerFitness")
+        self.T.disable()
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -790,8 +794,11 @@ class WorkerFitness(multiprocessing.Process):
                 break
 
             self.T.reinit()
-            individual=DicoJob["individual"]
             iIndividual=DicoJob["iIndividual"]
+
+            #individual=DicoJob["individual"]
+            Name="%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual)
+            individual=NpShared.GiveArray(Name)
             fitness=self.GiveFitness(individual)
             #print iIndividual
             self.result_queue.put({"Success": True, 

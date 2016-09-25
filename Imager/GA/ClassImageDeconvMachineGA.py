@@ -585,7 +585,10 @@ class ClassImageDeconvMachine():
         
         ListBigIslands=[Island for Island in self.ListIslands if len(Island)>self.GD["GAClean"]["ConvFFTSwitch"]]
         ListSmallIslands=[Island for Island in self.ListIslands if (len(Island)<=self.GD["GAClean"]["ConvFFTSwitch"])]
+        print>>log, "Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
+        print>>log,"Deconvolve large islands (>%i pixels) (parallelised per island)"%(self.GD["GAClean"]["ConvFFTSwitch"])
         self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland")
+        print>>log,"Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["GAClean"]["ConvFFTSwitch"])
         self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIsland")
 
 
@@ -666,11 +669,10 @@ class ClassImageDeconvMachine():
                                  IdSharedMem=self.IdSharedMem,
                                  FreqsInfo=self.PSFServer.DicoMappingDesc,ParallelPerIsland=ParallelPerIsland)
             workerlist.append(W)
-            #workerlist[ii].start()
-            workerlist[ii].run()
+            workerlist[ii].start()
+            #workerlist[ii].run()
 
 
-        print>>log, "Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolve pop.", HeaderSize=10,TitleSize=13)
         #pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NJobs))
