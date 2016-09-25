@@ -301,15 +301,19 @@ class ClassArrayMethodGA():
             workerlist.append(W)
 
         
-        if Parallel:
-            for ii in range(NCPU):
-                #print "launch parallel", ii
-                workerlist[ii].start()
+        # if Parallel:
+        #     for ii in range(NCPU):
+        #         print "launch parallel", ii
+        #         workerlist[ii].start()
+        # if not Parallel:
+        #     for ii in range(NCPU):
+        #         workerlist[ii].run()  # just run until all work is completed
+
+        for ii in range(NCPU):
+            #print "launch parallel", ii
+            workerlist[ii].start()
 
 
-        if not Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].run()  # just run until all work is completed
         iResult=0
 
         while iResult < NJobs:
