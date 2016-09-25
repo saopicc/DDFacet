@@ -21,37 +21,29 @@ log=MyLogger.getLogger("ClassFacetImager")
 MyLogger.setSilent("MyLogger")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 
-def GiveGM(self,iFacet):
-    """
-    Factory: Initializes a gridding machine for this facet
-    Args:
-        iFacet: index of facet
-
-    Returns:
-        grid machine instance
-    """
-    GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(self.GD,#RaDec=self.DicoImager[iFacet]["RaDec"],
-                                                        self.DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
-                                                        self.DicoImager[iFacet]["DicoConfigGM"]["Npix"],
-                                                        lmShift=self.DicoImager[iFacet]["lmShift"],
-                                                        IdSharedMem=self.IdSharedMem,
-                                                        IdSharedMemData=self.IdSharedMemData,
-                                                        FacetDataCache=self.FacetDataCache,
-                                                        ChunkDataCache=self.ChunkDataCache,
-                                                        IDFacet=iFacet,
-                                                        SpheNorm=self.SpheNorm,
-                                                        NFreqBands=self.NFreqBands,
-                                                        DataCorrelationFormat=self.DataCorrelationFormat,
-                                                        ExpectedOutputStokes=self.ExpectedOutputStokes,
-                                                        ListSemaphores=self.ListSemaphores)
-    return GridMachine
-
-def grid_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,IdSharedMem,IdSharedMemData,FacetDataCache,ChunkDataCache,ApplyCal,SpheNorm,PSFMode,NFreqBands,Weights,PauseOnStart,DataCorrelationFormat,ExpectedOutputStokes):
-
-    print>> log, "grid_worker: started"
-    pill = True
-    while pill: #and not self.work_queue.empty():
+#A generic producer that places data items from a list into a queue
+def work_producer(queue, data):
+    print>>  log, "work_producer: started"
+    for item in data:
         try:
+           queue.put(item, 60) #possible issue if no queue space for 60 seconds
+        except Queue.Full:
+           print>> log, "work_producer: queue full"
+           pass
+
+#Gridding worker that is called by Multiprocessing.Process
+#Extracted Gridder code from Worker_Imager Class.
+def grid_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,
+                    IdSharedMem,IdSharedMemData,FacetDataCache,ChunkDataCache,
+                    ApplyCal,SpheNorm,PSFMode,NFreqBands,Weights,PauseOnStart,
+                    DataCorrelationFormat,ExpectedOutputStokes):
+
+    #print>> log, "grid_worker: started"
+    pill = True
+    #While no poisoned pill has been given grab items from the queue.
+    while pill:
+        try:
+            #Get queue item, or timeout after 5 seconds and check if pill perscribed.
             iFacet = m_work_queue.get(True,5)
         except Queue.Empty:
             print>> log, "grid_worker: empty worker queue"
@@ -61,27 +53,27 @@ def grid_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,IdSha
                 pyfftw.import_wisdom(FFTW_Wisdom)
 
             if iFacet == "POISON-E":
-               pill = False
-               print>> log, "grid_worker: has taken POISON-E..."
+               pill = False #The poisoned pill to stop the worker
+               #print>> log, "grid_worker: has taken POISON-E..."
                break
             else:
-                print>> log, "grid_worker: got iFacet data"
+                #print>> log, "grid_worker: got iFacet data"
                 ListSemaphores = None
-                #GridMachine = GiveGM(self,iFacet)
-                GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(GD,#RaDec=self.DicoImager[iFacet]["RaDec"],
-                                                        DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
-                                                        DicoImager[iFacet]["DicoConfigGM"]["Npix"],
-                                                        DicoImager[iFacet]["lmShift"],
-                                                        IdSharedMem,
-                                                        IdSharedMemData,
-                                                        FacetDataCache,
-                                                        ChunkDataCache,
-                                                        iFacet,
-                                                        SpheNorm,
-                                                        NFreqBands,
-                                                        DataCorrelationFormat,
-                                                        ExpectedOutputStokes,
-                                                        ListSemaphores)
+                #Create a new GridMachine
+                GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(GD,
+                                        DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
+                                        DicoImager[iFacet]["DicoConfigGM"]["Npix"],
+                                        DicoImager[iFacet]["lmShift"],
+                                        IdSharedMem,
+                                        IdSharedMemData,
+                                        FacetDataCache,
+                                        ChunkDataCache,
+                                        iFacet,
+                                        SpheNorm,
+                                        NFreqBands,
+                                        DataCorrelationFormat,
+                                        ExpectedOutputStokes,
+                                        ListSemaphores)
 
                 DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
                 uvwThis = DATA["uvw"]
@@ -103,6 +95,8 @@ def grid_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,IdSha
 
                 GridName = "%sGridFacet.%3.3i" % (IdSharedMem, iFacet)
                 Grid = NpShared.GiveArray(GridName)
+
+                #Create Jones Matrices Dictionary
                 DicoJonesMatrices = None
                 Apply_killMS=(GD["DDESolutions"]["DDSols"]!="")&(GD["DDESolutions"]["DDSols"]!=None)
                 Apply_Beam=(GD["Beam"]["BeamModel"]!=None)
@@ -124,28 +118,23 @@ def grid_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,IdSha
                     DicoClusterDirs_Beam=NpShared.SharedToDico("%sDicoClusterDirs_Beam"%IdSharedMemData)
                     DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"]=DicoClusterDirs_Beam
 
-                #DicoJonesMatrices = GiveDicoJonesMatrices()
-                # if iFacet == 12:
-                #     print "before put ##grid", Grid.sum(dtype=np.float64)
-
                 GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                                 DoNormWeights=False,
                                 DicoJonesMatrices=DicoJonesMatrices,
                                 freqs=freqs, DoPSF=PSFMode,
                                 ChanMapping=ChanMapping,
                                 ResidueGrid=Grid)
-                # if iFacet == 12:
-                #     print "after put ##grid",Grid.sum(dtype=np.float64)
 
                 Sw = GridMachine.SumWeigths.copy()
                 SumJones = GridMachine.SumJones.copy()
                 SumJonesChan = GridMachine.SumJonesChan.copy()
                 del (GridMachine)
 
+                #Place results into queue
                 m_result_queue.put(
                     {"Success": True, "iFacet": iFacet, "Weights": Sw, "SumJones": SumJones,
                      "SumJonesChan": SumJonesChan})
-                print>> log, "grid_worker: put iFacet in result queue"
+                #print>> log, "grid_worker: put iFacet in result queue"
 
 class ClassFacetMachine():
     """
@@ -1161,8 +1150,8 @@ class ClassFacetMachine():
         else:
             qlimit=0
 
-        work_queue = multiprocessing.Queue()#(maxsize=qlimit)
-        result_queue = multiprocessing.Queue()
+        m_work_queue = multiprocessing.Queue(maxsize=qlimit)
+        m_result_queue = multiprocessing.JoinableQueue()
 
         PSFMode=False
         if self.DoPSF:
@@ -1170,8 +1159,8 @@ class ClassFacetMachine():
             PSFMode=True
 
         SpheNorm=self.SpheNorm
-        #pool = multiprocessing.Pool(n_cpus)
 
+        #Paramaters for grid_worker execution (from Worker_Imager)
         Mode="Grid"
         FFTW_Wisdom=self.FFTW_Wisdom
         DicoImager=self.DicoImager
@@ -1188,40 +1177,13 @@ class ClassFacetMachine():
         DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds()
         ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds()
 
-        params =[self,work_queue,result_queue,
-                     self.GD,
-                     Mode,
-                     FFTW_Wisdom,
-                     DicoImager,
-                     IdSharedMem,
-                     IdSharedMemData,
-                     FacetDataCache,
-                     ChunkDataCache,
-                     ApplyCal,
-                     SpheNorm,
-                     PSFMode,
-                     NFreqBands,
-                     Weights,
-                     PauseOnStart,
-                     DataCorrelationFormat,
-                     ExpectedOutputStokes]
+        #Create a list of work items for the producer process
+        NFacetsList = []
+        for iFacet in xrange(NFacets):
+           NFacetsList.append(iFacet)
+        work_p = Process(target=work_producer, args=(m_work_queue, NFacetsList,))
 
-
-
-
-        #results={}
-        #print>> log, "Pool starting"
-        #results = pool.apply_async(grid_worker, [(work_queue, result_queue)])
-        #print>> log, results.get()
-        #pool.close()
-        #pool.join()
-        #time.sleep(60)
-        m_work_queue = multiprocessing.Queue()
-        m_result_queue = multiprocessing.JoinableQueue()
-
-        for iFacet in range(NFacets):
-           m_work_queue.put(iFacet)
-
+        #loop for the number of deteccted CPU's
         for cpu in xrange(n_cpus):
                  p = Process(target=grid_worker, args=(m_work_queue,m_result_queue,
                                              self.GD,
@@ -1242,29 +1204,25 @@ class ClassFacetMachine():
                                              ExpectedOutputStokes,))
 
                  procs.append(p)
-            #def producer():
-            #    for iFacet in range(NFacets):
-            #        work_queue.put(iFacet)
-
 
         if Parallel:
             main_core=0 #CPU affinity placement
-                #start all processes and pin them each to a core
+
+            #start a pinned work producer process
+            work_p.start()
+            procinfo.cpu_affinity([main_core])
+
+            #start all processes and pin them each to a core
             for p in procs:
                 p.start()
                 procinfo.cpu_affinity([main_core])
                 main_core+=1
 
-
         timer = ClassTimeIt.ClassTimeIt()
         print>> log, "starting gridding"
 
-         #prod = mp.Process(target=producer())
-            #procinfo.cpu_affinity([0])
-            #prod.start()
-
         pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  Gridding ", HeaderSize=10, TitleSize=13)
-            #        pBAR.disable()
+        #pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0, NFacets))
         iResult = 0
 
@@ -1275,28 +1233,26 @@ class ClassFacetMachine():
             for p in procs:
                 p.run()  # just run until all work is completed
 
-        print>> log, "heading for while loop"
         while iResult < NJobs:
             DicoResult = {}
             try:
-                DicoResult = m_result_queue.get(True, 5)
-                #result_queue.task_done()
+                DicoResult = m_result_queue.get(True, 10)
             except Queue.Empty:
                 pass
                 print>> log, "checking for dead workers"
                 #shoot the zombie process
                 multiprocessing.active_children()
                 # check for dead workers
-                #pids_to_restart = []
-                #for w in procs:
-                #    if not w.is_alive():
-                #       pids_to_restart[w]
-                #       raise RuntimeError, "a worker process has died on us with exit code %d. This is probably a bug." % w.exitcode
+                pids_to_restart = []
+                for w in procs:
+                    if not w.is_alive():
+                       pids_to_restart[w]
+                       raise RuntimeError, "a worker process has died on us with exit code %d. This is probably a bug." % w.exitcode
 
-                #       for id in pids_to_restart:
-                #           print>> log, "need to restart worker %d." % id
-                #           pass
-            #else:
+                       for id in pids_to_restart:
+                           print>> log, "need to restart worker %d." % id
+                           pass
+
             if len(DicoResult) !=0 and DicoResult["Success"]:
                 iResult += 1
                 m_result_queue.task_done()
@@ -1312,27 +1268,28 @@ class ClassFacetMachine():
             intPercent=int(100*  NDone / float(NFacets))
             pBAR.render(intPercent, '%4i/%i' % (NDone,NFacets))
 
-        if iResult == NJobs:
-           print>> log, "finished gridding with grid_worker, sending POISON-E"
-           for p in procs:
-                m_work_queue.put("POISON-E")
 
         if Parallel:
-            m_result_queue.join()
-            m_work_queue.close()
-            m_result_queue.close()
-            for p in procs:
-                p.join()
+            #if all work is done send poinsed pill to workers
+            if iResult == NJobs:
+                for p in procs:
+                    m_work_queue.put("POISON-E")
 
-                #prod.join()
+                #join and close queues
+                m_result_queue.join()
+                m_work_queue.close()
+                m_result_queue.close()
 
-                #for p in multiprocessing.active_children():
-                    #p.terminate()
-                    #time.sleep(0.2)
+                #join producer process
+                work_p.join()
 
-            print>> log, "gridding finished in %s" % timer.timehms()
+                #join producer process
+                for p in procs:
+                    p.join()
 
-            return True
+                print>> log, "gridding finished in %s" % timer.timehms()
+
+                return True
 
     def FourierTransform(self,doStack=False,Parallel=True):
         '''
@@ -1453,7 +1410,6 @@ class ClassFacetMachine():
                 time.sleep(0.2)
 
         print>> log, "Fourier transforms finished in %s" % timer.timehms()
-
 
     def GiveVisParallel(self,times,uvwIn,visIn,flag,A0A1,ModelImage,Parallel=True):
         """
@@ -1838,7 +1794,7 @@ class WorkerImager(multiprocessing.Process):
         #if self._pause_on_start:
         #    os.kill(os.getpid(),signal.SIGSTOP)
 
-        print>> log, "Worker_Imager: worker started"
+        #print>> log, "Worker_Imager: worker started"
         while not self.kill_received: #and not self.work_queue.empty():
             try:
                 iFacet = self.work_queue.get(True, 0.5)
