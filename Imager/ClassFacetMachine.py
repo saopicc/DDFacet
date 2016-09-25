@@ -23,7 +23,6 @@ from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 
 #A generic producer that places data items from a list into a queue
 def work_producer(queue, data):
-    print>>  log, "work_producer: started"
     for item in data:
         try:
            queue.put(item, 60) #possible issue if no queue space for 60 seconds
@@ -38,7 +37,6 @@ def grid_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,
                     ApplyCal,SpheNorm,PSFMode,NFreqBands,Weights,PauseOnStart,
                     DataCorrelationFormat,ExpectedOutputStokes):
 
-    #print>> log, "grid_worker: started"
     pill = True
     #While no poisoned pill has been given grab items from the queue.
     while pill:
@@ -589,7 +587,8 @@ class ClassFacetMachine():
             qlimit=0
 
         if not cachevalid:
-            work_queue = multiprocessing.Queue(maxsize=qlimit)
+            #if data is larger use (maxsize=qlimit), only ints in this case
+            work_queue = multiprocessing.Queue()
             result_queue = multiprocessing.Queue()
 
             for cpu in xrange(n_cpus):
@@ -1146,7 +1145,7 @@ class ClassFacetMachine():
         procinfo = psutil.Process() #this will be used to control CPU affinity
 
         if Parallel:
-            qlimit = n_cpus*4
+            qlimit = n_cpus*8
         else:
             qlimit=0
 
@@ -1255,14 +1254,13 @@ class ClassFacetMachine():
 
             if len(DicoResult) !=0 and DicoResult["Success"]:
                 iResult += 1
-                m_result_queue.task_done()
+                m_result_queue.task_done() #call task_done on the queue
                 iFacet=DicoResult["iFacet"]
                 self.DicoImager[iFacet]["SumWeights"] += DicoResult["Weights"]
                 self.DicoImager[iFacet]["SumJones"] += DicoResult["SumJones"]
                 self.DicoImager[iFacet]["SumJonesChan"][self.VS.iCurrentMS] += DicoResult["SumJonesChan"]
-                print>> log, "got resultfrom grid_worker %d" % iResult
             else:
-                print>> log, "no result from grid_worker"
+                print>> log, "grid_worker: returned no result"
 
             NDone=iResult
             intPercent=int(100*  NDone / float(NFacets))
