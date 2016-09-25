@@ -267,7 +267,11 @@ class ClassArrayMethodGA():
         import Queue
         Parallel=self.ParallelFitness
 
-        NCPU=self.NCPU
+        if not(Parallel):
+            NCPU=1
+        else:
+            NCPU=self.NCPU
+
         work_queue = multiprocessing.Queue()
         result_queue = multiprocessing.Queue()
         DicoFitnesses={}
@@ -305,7 +309,6 @@ class ClassArrayMethodGA():
 
         if not Parallel:
             for ii in range(NCPU):
-
                 workerlist[ii].run()  # just run until all work is completed
         iResult=0
 
