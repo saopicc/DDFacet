@@ -310,7 +310,7 @@ class ClassArrayMethodGA():
         #         workerlist[ii].run()  # just run until all work is completed
 
         for ii in range(NCPU):
-            #print "launch parallel", ii
+            print "launch parallel", ii
             workerlist[ii].start()
 
 
@@ -344,12 +344,17 @@ class ClassArrayMethodGA():
                 DicoFitnesses[iIndividual]=DicoResult["fitness"]
             NDone = iResult
 
-        if Parallel:
-            #print "turn off"
-            for ii in range(NCPU):
-                workerlist[ii].shutdown()
-                workerlist[ii].terminate()
-                workerlist[ii].join()
+        # if Parallel:
+        #     #print "turn off"
+        #     for ii in range(NCPU):
+        #         workerlist[ii].shutdown()
+        #         workerlist[ii].terminate()
+        #         workerlist[ii].join()
+
+        for ii in range(NCPU):
+            workerlist[ii].shutdown()
+            workerlist[ii].terminate()
+            workerlist[ii].join()
 
         fitnesses=[]
         for iIndividual in range(len(pop)):

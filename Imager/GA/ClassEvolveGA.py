@@ -44,6 +44,8 @@ class ClassEvolveGA():
         ListPixData=FilterIslandsPix(ListPixData,Npix)
         ListPixParms=FilterIslandsPix(ListPixParms,Npix)
         
+        print "NDATA",len(ListPixData)
+
         self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
                                                                        #PixVariance=PixVariance,
                                                                        iFacet=iFacet,
