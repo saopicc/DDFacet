@@ -587,12 +587,17 @@ class ClassImageDeconvMachine():
         ListSmallIslands=[Island for Island in self.ListIslands if (len(Island)<=self.GD["GAClean"]["ConvFFTSwitch"])]
         print>>log, "Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
 
-        print>>log,"Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["GAClean"]["ConvFFTSwitch"])
-        self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIslands")
+        if len(ListSmallIslands)>0:
+            print>>log,"Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["GAClean"]["ConvFFTSwitch"])
+            self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIslands")
+        else:
+            print>>log,"No small islands"
 
-        print>>log,"Deconvolve large islands (>%i pixels) (parallelised per island)"%(self.GD["GAClean"]["ConvFFTSwitch"])
-        self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland")
-
+        if len(ListBigIslands)>0:
+            print>>log,"Deconvolve large islands (>%i pixels) (parallelised per island)"%(self.GD["GAClean"]["ConvFFTSwitch"])
+            self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland")
+        else:
+            print>>log,"No large islands"
         return "MaxIter", True, True   # stop deconvolution but do update model
 
     def DeconvListIsland(self,ListIslands,ParallelMode="OverIsland"):
@@ -609,6 +614,15 @@ class ClassImageDeconvMachine():
             NCPU=1
             Parallel=False
             ParallelPerIsland=True
+
+        StopWhenQueueEmpty=True
+
+        # ######### Debug
+        # ParallelPerIsland=False
+        # Parallel=False
+        # StopWhenQueueEmpty=True
+        # ##########################
+
 
         work_queue = multiprocessing.Queue()
 
@@ -664,21 +678,29 @@ class ClassImageDeconvMachine():
 
         result_queue=multiprocessing.Queue()
 
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolve pop.", HeaderSize=10,TitleSize=13)
+        #pBAR.disable()
+        pBAR.render(0, '%4i/%i' % (0,NJobs))
         for ii in range(NCPU):
             W=WorkerDeconvIsland(work_queue, 
                                  result_queue,
                                  # List_Result_queue[ii],
                                  self.GD,
                                  IdSharedMem=self.IdSharedMem,
-                                 FreqsInfo=self.PSFServer.DicoMappingDesc,ParallelPerIsland=ParallelPerIsland)
+                                 FreqsInfo=self.PSFServer.DicoMappingDesc,ParallelPerIsland=ParallelPerIsland,
+                                 StopWhenQueueEmpty=StopWhenQueueEmpty)
             workerlist.append(W)
             workerlist[ii].start()
             #workerlist[ii].run()
 
+        # if Parallel:
+        #     for ii in range(NCPU):
+        #         workerlist[ii].start()
+        # else:
+        #     for ii in range(NCPU):
+        #         workerlist[ii].run()
+            
 
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolve pop.", HeaderSize=10,TitleSize=13)
-        #pBAR.disable()
-        pBAR.render(0, '%4i/%i' % (0,NJobs))
 
         iResult=0
         #print "!!!!!!!!!!!!!!!!!!!!!!!!",iResult,NJobs
@@ -826,7 +848,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
                  IdSharedMem=None,
                  FreqsInfo=None,
                  MultiFreqMode=False,
-                 ParallelPerIsland=False):
+                 ParallelPerIsland=False,
+                 StopWhenQueueEmpty=False):
         multiprocessing.Process.__init__(self)
         self.MultiFreqMode=MultiFreqMode
         self.work_queue = work_queue
@@ -840,13 +863,20 @@ class WorkerDeconvIsland(multiprocessing.Process):
         self._Dirty=NpShared.GiveArray("%s.Dirty.ImagData"%self.IdSharedMem)
         #self.WeightFreqBands=WeightFreqBands
         self.ParallelPerIsland=ParallelPerIsland
+        self.StopWhenQueueEmpty=StopWhenQueueEmpty
 
     def shutdown(self):
         self.exit.set()
 
+    def CondContinue(self):
+        if self.StopWhenQueueEmpty:
+            return not(self.work_queue.qsize()==0)
+        else:
+            return True
+
  
     def run(self):
-        while not self.kill_received:
+        while not self.kill_received and self.CondContinue():
             #gc.enable()
             try:
                 iIsland,FacetID,JonesNorm,FacetID,PixVariance = self.work_queue.get(True,2)

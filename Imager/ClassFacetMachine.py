@@ -554,8 +554,10 @@ class ClassFacetMachine():
             SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.FacetDataCache,iFacet)
             SPhe=NpShared.GiveArray(SharedMemName)
             self.DicoSpheroidal[iFacet]=SPhe
+            # This should actually load the array into RAM - so that it stays there
+            self.DicoSpheroidal[iFacet]*=1.
 
-
+            
         return True
 
 
@@ -1693,6 +1695,7 @@ class WorkerImager(multiprocessing.Process):
     def Im2Facet(self, DicoJob):
 
         T=ClassTimeIt.ClassTimeIt("Im2Facet")
+        T.disable()
         iFacet=DicoJob["iFacet"]
         ChanSel=DicoJob["ChanSel"]
         Im2Grid=ClassImToGrid(OverS=self.GD["ImagerCF"]["OverS"],GD=self.GD)

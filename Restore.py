@@ -11,6 +11,7 @@ import numpy as np
 from DDFacet.ToolsDir import ModFFTW
 
 from DDFacet.Other import MyLogger
+from DDFacet.Other import MyPickle
 log=MyLogger.getLogger("ClassRestoreMachine")
 
 def read_options():
@@ -121,7 +122,6 @@ class ClassRestoreMachine():
 
 
 
-
         
         FWHMFact=2.*np.sqrt(2.*np.log(2.))
         BeamPix=self.BeamPix/FWHMFact
@@ -135,6 +135,39 @@ class ClassRestoreMachine():
         RefFreq=self.ModelMachine.RefFreq
         df=RefFreq*0.5
 
+        # ################################"
+
+        imNorm=image("6SBc.KAFCA.restoredNew.fits.6SBc.KAFCA.restoredNew.fits.MaskLarge.fits").getdata()
+        MASK=np.zeros_like(imNorm)
+        nchan,npol,_,_=MASK.shape
+        for ch in range(nchan):
+            for pol in range(npol):
+                MASK[ch,pol,:,:]=imNorm[ch,pol,:,:].T[::-1,:]
+
+
+
+        MeanModelImage=ModelMachine.GiveModelImage(RefFreq)
+        MeanModelImage[MASK==0]=0
+        from DDFacet.Imager.GA import ClassSmearSM
+        from DDFacet.Imager import ClassPSFServer
+        self.DicoVariablePSF = MyPickle.FileToDicoNP("/car-data/tasse/NE_SB080-089.2ch10s.ms.ddfcache/PSF")
+        self.PSFServer=ClassPSFServer.ClassPSFServer()
+
+        self.PSFServer.setDicoVariablePSF(self.DicoVariablePSF,NormalisePSF=True)
+        #return self.Residual,MeanModelImage,self.PSFServer
+        SmearMachine=ClassSmearSM.ClassSmearSM(self.Residual,MeanModelImage,self.PSFServer,DeltaChi2=4.)
+        SmearedModel=SmearMachine.Smear()
+
+        ModelSmearImage="%s.ModelSmear"%self.BaseImageName
+        CasaImage=ClassCasaImage.ClassCasaimage(ModelSmearImage,SmearedModel.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage.setdata(SmearedModel,CorrT=True)
+        CasaImage.ToFits()
+        #CasaImage.setBeam(self.FWHMBeam)
+        CasaImage.close()
+        
+
+        stop
+        # ################################"
         #self.ModelMachine.ListScales[0]["Alpha"]=-0.8
 
         # model image
@@ -249,7 +282,7 @@ def main(options=None):
                             CleanNegComp=options.CleanNegComp,
                             OutName=options.OutName,
                             SmoothMode=options.SmoothMode)
-    CRM.Restore()
+    return CRM.Restore()
 
 
 

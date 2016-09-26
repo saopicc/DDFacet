@@ -489,7 +489,8 @@ class ClassImagerDeconv():
                 #    self.FacetMachine.DoComputeSmoothBeam = False
 
                 self.FacetMachine.ComputeSmoothBeam()
-                self.SaveDirtyProducts()
+                print "!!!!!!!!!!!!!!!!!!!!!!!"
+                #self.SaveDirtyProducts()
                 DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
                 nch,npol,nx,ny = DirtyCorr.shape
             else:
@@ -922,6 +923,7 @@ class ClassImagerDeconv():
 
         RefFreq = self.VS.RefFreq
         ModelMachine = self.DeconvMachine.ModelMachine
+        
 
         # Putting back substracted componants
         if self.GD["DDESolutions"]["RestoreSub"]:

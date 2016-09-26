@@ -13,7 +13,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.CacheManager import CacheManager
 import sidereal
 import datetime
-
+import DDFacet.ToolsDir.ModRotate
 try:
     import lofar.stationresponse as lsr
 except:
@@ -24,7 +24,7 @@ class ClassMS():
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
                  AverageTimeFreq=None,
                  Field=0,DDID=0,TaQL=None,ChanSlice=None,GD=None,
-                 ResetCache=False):
+                 ResetCache=False,ToRADEC=None):
         """
         Args:
             MSname:
@@ -47,6 +47,7 @@ class ClassMS():
         """
 
         if MSname=="": exit()
+        self.ToRADEC=ToRADEC
         self.AverageSteps=AverageTimeFreq
         MSname=reformat.reformat(os.path.abspath(MSname),LastSlash=False)
         self.MSName=MSname
@@ -525,6 +526,9 @@ class ClassMS():
         DATA["data"]=vis_all
         DATA["flag"]=flag_all
 
+        if self.ToRADEC!=None:
+            self.Rotate(DATA)
+
         # if self.AverageSteps is not None:
         #     StepTime,StepFreq=self.AverageSteps
         #     DATA=self.GiveAverageTimeFreq(DATA,StepTime=StepTime,StepFreq=StepFreq)
@@ -792,6 +796,7 @@ class ClassMS():
             self.cs_inc = (1, 1)
 
 
+
         # if chan_freq.shape[0]>len(self.ListSPW):
         #     print ModColor.Str("  ====================== >> More SPW in headers, modifying that error....")
         #     chan_freq=chan_freq[np.array(self.ListSPW),:]
@@ -816,6 +821,16 @@ class ClassMS():
         ta=table(table_all.getkeyword('FIELD'),ack=False)
         rarad,decrad=ta.getcol('PHASE_DIR')[self.Field][0]
         if rarad<0.: rarad+=2.*np.pi
+
+        if self.ToRADEC!=None:
+            SRa,SDec=self.ToRADEC
+            srah,sram,sras=SRa.split(":")
+            sdecd,sdecm,sdecs=SDec.split(":")
+            ranew=(np.pi/180)*15.*(float(srah)+float(sram)/60.+float(sras)/3600.)
+            decnew=(np.pi/180)*(float(sdecd)+float(sdecm)/60.+float(sdecs)/3600.)
+            self.OldRadec=rarad,decrad
+            self.NewRadec=ranew,decnew
+            rarad,decrad=ranew,decnew
 
         T.timeit()
 
@@ -1104,20 +1119,30 @@ class ClassMS():
             t.addcols(desc) 
             t.close()
     
-    def RotateMS(self,radec):
-        import ModRotate
-        ModRotate.Rotate(self,radec)
-        ta=table(self.MSName+'/FIELD/',ack=False,readonly=False)
-        ra,dec=radec
-        radec=np.array([[[ra,dec]]])
-        ta.putcol("DELAY_DIR",radec)
-        ta.putcol("PHASE_DIR",radec)
-        ta.putcol("REFERENCE_DIR",radec)
-        ta.close()
-        t=self.GiveMainTable(readonly=False)
-        t.putcol(self.ColName,self.data)
-        t.putcol("UVW",self.uvw)
-        t.close()
+    def Rotate(self,DATA):
+        #DDFacet.ToolsDir.ModRotate.Rotate(self,radec)
+        StrRAOld  = rad2hmsdms(self.OldRadec[0],Type="ra").replace(" ",":")
+        StrDECOld = rad2hmsdms(self.OldRadec[1],Type="dec").replace(" ",".")
+        StrRA  = rad2hmsdms(self.NewRadec[0],Type="ra").replace(" ",":")
+        StrDEC = rad2hmsdms(self.NewRadec[1],Type="dec").replace(" ",".")
+        print>>log, "  Rotate data from [%s, %s]"%(StrRAOld,StrDECOld)
+        print>>log, "                to [%s, %s]"%(StrRA,StrDEC)
+        DDFacet.ToolsDir.ModRotate.Rotate2(self.OldRadec,self.NewRadec,DATA["uvw"],DATA["data"],self.wavelength_chan)
+
+    # def RotateMS(self,radec):
+    #     import ModRotate
+    #     ModRotate.Rotate(self,radec)
+    #     ta=table(self.MSName+'/FIELD/',ack=False,readonly=False)
+    #     ra,dec=radec
+    #     radec=np.array([[[ra,dec]]])
+    #     ta.putcol("DELAY_DIR",radec)
+    #     ta.putcol("PHASE_DIR",radec)
+    #     ta.putcol("REFERENCE_DIR",radec)
+    #     ta.close()
+    #     t=self.GiveMainTable(readonly=False)
+    #     t.putcol(self.ColName,self.data)
+    #     t.putcol("UVW",self.uvw)
+    #     t.close()
     
     def PutCasaCols(self):
         import pyrap.tables

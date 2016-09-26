@@ -132,7 +132,7 @@ class ClassImToGrid():
 
         
         T=ClassTimeIt.ClassTimeIt("ClassImToGrid")
-        #T.disable()
+        T.disable()
 
         if ChanSel is None:
             CSel=range(nch)

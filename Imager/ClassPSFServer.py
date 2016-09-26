@@ -4,7 +4,7 @@ from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassPSFServer")
 
 class ClassPSFServer():
-    def __init__(self,GD):
+    def __init__(self,GD=None):
         self.GD=GD
 
     def setDicoVariablePSF(self,DicoVariablePSF,NormalisePSF=False):

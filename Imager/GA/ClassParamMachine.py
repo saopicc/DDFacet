@@ -290,10 +290,11 @@ class ClassParamMachine():
 
                 d=np.sqrt((x[iPix]-x)**2+(y[iPix]-y)**2)
                 v=np.exp(-d**2/(2.*sig**2))
+                Sv=np.sum(v)
                 #v[v<0.05*SMax]=0
                 for iBand in range(self.NFreqBands):
                     SMax=MA[iBand,iPix]#S[iPix]
-                    a=SMax/(2.*np.pi*sig**2)
+                    a=SMax/Sv#(2.*np.pi*sig**2)
                     MAOut[iBand]+=np.ones_like(MA[iBand])*a*v
             MA=MAOut
 

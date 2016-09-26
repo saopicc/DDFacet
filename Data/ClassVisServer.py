@@ -113,7 +113,8 @@ class ClassVisServer():
                 TaQL=self.TaQL,
                 TimeChunkSize=self.TMemChunkSize,
                 ChanSlice=chanslice,GD=self.GD,
-                ResetCache = self.GD["Caching"]["ResetCache"])
+                ResetCache = self.GD["Caching"]["ResetCache"],
+                ToRADEC=self.GD["ImagerGlobal"]["PhaseCenterRADEC"])
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
             global_freqs.update(MS.ChanFreq)

@@ -220,9 +220,13 @@ class ClassArrayMethodGA():
                 dx=iPix-xcDirty
                 dy=jPix-xcDirty
                 ThisPSF=np.roll(np.roll(PSFMean,dx,axis=0),dy,axis=1)
-                ThisPSFCut=ThisPSF[xcPSF-NPix/2:xcPSF+NPix/2+1,xcPSF-NPix/2:xcPSF+NPix/2+1]
+                ThisPSFCut=ThisPSF[xcPSF-NPixPSF/2:xcPSF+NPixPSF/2+1,xcPSF-NPixPSF/2:xcPSF+NPixPSF/2+1]
+
+                NMin=np.min([A.shape[-1],ThisPSFCut.shape[-1]])
+                xc0=A.shape[-1]/2
+                xc1=ThisPSFCut.shape[-1]/2
                 #pylab.subplot(1,3,2); pylab.imshow(ThisPSFCut,interpolation="nearest")
-                A-=gain*f*ThisPSFCut
+                A[xc0-NMin/2:xc0+NMin/2+1,xc0-NMin/2:xc0+NMin/2+1]-=gain*f*ThisPSFCut[xc1-NMin/2:xc1+NMin/2+1,xc1-NMin/2:xc1+NMin/2+1]
                 A[Mask]=0
                 #pylab.subplot(1,3,3); pylab.imshow(A,interpolation="nearest")
                 #pylab.draw()
@@ -855,6 +859,8 @@ class WorkerFitness(multiprocessing.Process):
         A=self.PM.GiveModelArray(V)
         A=self.ConvMachine.Convolve(A,OutMode=OutMode)
         return A
+
+
 
     def GiveFitness(self,individual,DoPlot=False):
         

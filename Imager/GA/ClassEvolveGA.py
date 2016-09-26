@@ -13,7 +13,7 @@ from DDFacet.ToolsDir import ModFFTW
 import numpy as np
 import pylab
 import os
-
+import Select
 
 import ClassArrayMethodGA
 
@@ -88,6 +88,8 @@ class ClassEvolveGA():
         toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.1, p0=0.5, pMove=0.1)
 
         toolbox.register("select", tools.selTournament, tournsize=3)
+        #toolbox.register("select", Select.selTolTournament, tournsize=3, Tol=4)
+
         #toolbox.register("select", tools.selRoulette)
 
         self.toolbox=toolbox
