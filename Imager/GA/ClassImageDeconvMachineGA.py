@@ -351,8 +351,8 @@ class ClassImageDeconvMachine():
         Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
         ind=np.argsort(Sz)[::-1]
 
-        #ListIslandsOut=[self.ListIslands[i] for i in ind]
-        #self.ListIslands=ListIslandsOut
+        ListIslandsOut=[self.ListIslands[i] for i in ind]
+        self.ListIslands=ListIslandsOut
 
                 
 
@@ -401,7 +401,7 @@ class ClassImageDeconvMachine():
         DoAbs=int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
         print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
 
-        NPixStats=1000
+        NPixStats=10000
         RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
         RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
         self.RMS=RMS
@@ -586,11 +586,14 @@ class ClassImageDeconvMachine():
         ListBigIslands=[Island for Island in self.ListIslands if len(Island)>self.GD["GAClean"]["ConvFFTSwitch"]]
         ListSmallIslands=[Island for Island in self.ListIslands if (len(Island)<=self.GD["GAClean"]["ConvFFTSwitch"])]
         print>>log, "Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
+
         print>>log,"Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["GAClean"]["ConvFFTSwitch"])
         self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIslands")
+
         print>>log,"Deconvolve large islands (>%i pixels) (parallelised per island)"%(self.GD["GAClean"]["ConvFFTSwitch"])
         self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland")
 
+        return "MaxIter", True, True   # stop deconvolution but do update model
 
     def DeconvListIsland(self,ListIslands,ParallelMode="OverIsland"):
         # ================== Parallel part
@@ -729,7 +732,6 @@ class ClassImageDeconvMachine():
         
 
 
-        return "MaxIter", True, True   # stop deconvolution but do update model
 
 
     ###################################################################################

@@ -51,7 +51,7 @@ class ClassArrayMethodGA():
             self.ConvMode="FFT"
 
         self.ConvMachine=ClassConvMachine.ClassConvMachine(PSF,ListPixParms,ListPixData,self.ConvMode)
-
+        
         
         
         self.GD=GD
@@ -79,7 +79,10 @@ class ClassArrayMethodGA():
         
         self.NParms=self.NPixListParms*self.PM.NParam
         self.DataTrue=None
+
+
         self.SetDirtyArrays(Dirty)
+        self.InitWorkers()
         #pylab.figure(3,figsize=(5,3))
         #pylab.clf()
         # pylab.figure(4,figsize=(5,3))
@@ -262,24 +265,18 @@ class ClassArrayMethodGA():
         # print "Sig ",Sig
         # print "Out ",DecreteFitNess
         return DecreteFitNess
-    
-    def GiveFitnessPop(self,pop):
+
+    def InitWorkers(self):
         import Queue
         Parallel=self.ParallelFitness
-
         if not(Parallel):
             NCPU=1
         else:
             NCPU=self.NCPU
+        self.NCPU=NCPU
 
         work_queue = multiprocessing.Queue()
         result_queue = multiprocessing.Queue()
-        DicoFitnesses={}
-        NJobs = len(pop)
-        for iIndividual,individual in enumerate(pop):
-            NpShared.ToShared("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual),individual)
-            work_queue.put({"iIndividual":iIndividual})
-
         workerlist=[]
         #print "start"
         for ii in range(NCPU):
@@ -296,22 +293,52 @@ class ClassArrayMethodGA():
                             MaxFunc=self.MaxFunc,
                             WeightMaxFunc=self.WeightMaxFunc,
                             DirtyArray=self.DirtyArray,
-                            ConvMode=self.ConvMode)
+                            ConvMode=self.ConvMode,
+                            StopWhenQueueEmpty=not(Parallel))
 
             workerlist.append(W)
 
-        
-        # if Parallel:
-        #     for ii in range(NCPU):
-        #         print "launch parallel", ii
-        #         workerlist[ii].start()
-        # if not Parallel:
-        #     for ii in range(NCPU):
-        #         workerlist[ii].run()  # just run until all work is completed
+        self.work_queue=work_queue
+        self.result_queue=result_queue
+        self.workerlist=workerlist
+        if self.ParallelFitness:
+            for ii in range(NCPU):
+                #print "launch parallel", ii
+                workerlist[ii].start()
 
-        for ii in range(NCPU):
-            print "launch parallel", ii
-            workerlist[ii].start()
+
+    def KillWorkers(self):
+        workerlist=self.workerlist
+        if self.ParallelFitness:
+            #print "turn off"
+            for ii in range(self.NCPU):
+                workerlist[ii].shutdown()
+                workerlist[ii].terminate()
+                workerlist[ii].join()
+
+
+    def GiveFitnessPop(self,pop):
+
+        work_queue=self.work_queue
+        result_queue=self.result_queue
+        workerlist=self.workerlist
+        Parallel=self.ParallelFitness
+        DicoFitnesses={}
+        NJobs = len(pop)
+        NCPU=self.NCPU
+
+        for iIndividual,individual in enumerate(pop):
+            NpShared.ToShared("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual),individual)
+            work_queue.put({"iIndividual":iIndividual})
+
+        
+        if not Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].run()  # just run until all work is completed
+
+        # for ii in range(NCPU):
+        #     print "launch parallel", ii
+        #     workerlist[ii].start()
 
 
         iResult=0
@@ -344,17 +371,11 @@ class ClassArrayMethodGA():
                 DicoFitnesses[iIndividual]=DicoResult["fitness"]
             NDone = iResult
 
-        # if Parallel:
-        #     #print "turn off"
-        #     for ii in range(NCPU):
-        #         workerlist[ii].shutdown()
-        #         workerlist[ii].terminate()
-        #         workerlist[ii].join()
 
-        for ii in range(NCPU):
-            workerlist[ii].shutdown()
-            workerlist[ii].terminate()
-            workerlist[ii].join()
+        # for ii in range(NCPU):
+        #     workerlist[ii].shutdown()
+        #     workerlist[ii].terminate()
+        #     workerlist[ii].join()
 
         fitnesses=[]
         for iIndividual in range(len(pop)):
@@ -365,6 +386,7 @@ class ClassArrayMethodGA():
             NpShared.DelArray("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual))
 
         return fitnesses
+
 
 
     
@@ -758,7 +780,8 @@ class WorkerFitness(multiprocessing.Process):
                  PM=None,
                  PixVariance=1e-2,
                  MaxFunc=None,WeightMaxFunc=None,DirtyArray=None,
-                 ConvMode=None):
+                 ConvMode=None,
+                 StopWhenQueueEmpty=False):
         self.T=ClassTimeIt.ClassTimeIt("WorkerFitness")
         self.T.disable()
         multiprocessing.Process.__init__(self)
@@ -781,8 +804,17 @@ class WorkerFitness(multiprocessing.Process):
         self.WeightMaxFunc=WeightMaxFunc
         self.DirtyArray=DirtyArray
         self.T.timeit("init")
+        self.StopWhenQueueEmpty=StopWhenQueueEmpty
+
     def shutdown(self):
         self.exit.set()
+
+    def CondContinue(self):
+        if self.StopWhenQueueEmpty:
+            return not(self.work_queue.qsize()==0)
+        else:
+            return True
+
 
     def run(self):
         # # pause self in debugging mode
@@ -798,7 +830,7 @@ class WorkerFitness(multiprocessing.Process):
         #                            "iIndividual": iIndividual,
         #                            "fitness":fitness})
          
-        while not self.kill_received:
+        while not self.kill_received and self.CondContinue():
             #gc.enable()
             try:
                 DicoJob = self.work_queue.get()

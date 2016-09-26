@@ -44,7 +44,7 @@ class ClassEvolveGA():
         ListPixData=FilterIslandsPix(ListPixData,Npix)
         ListPixParms=FilterIslandsPix(ListPixParms,Npix)
         
-        print "NDATA",len(ListPixData)
+
 
         self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
                                                                        #PixVariance=PixVariance,
@@ -55,7 +55,6 @@ class ClassEvolveGA():
                                                                        iIsland=iIsland,
                                                                        IdSharedMem=IdSharedMem,
                                                                        ParallelFitness=ParallelFitness)
-        
         self.InitEvolutionAlgo()
         #self.ArrayMethodsMachine.testMovePix()
         #stop
@@ -152,6 +151,7 @@ class ClassEvolveGA():
                                            #stats=stats,
                                            verbose=False, 
                                            ArrayMethodsMachine=self.ArrayMethodsMachine,DoPlot=DoPlot)
+        self.ArrayMethodsMachine.KillWorkers()
 
         # #:param mu: The number of individuals to select for the next generation.
         # #:param lambda\_: The number of children to produce at each generation.
