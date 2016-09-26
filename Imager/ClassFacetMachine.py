@@ -547,6 +547,15 @@ class ClassFacetMachine():
             NameSpacialWeigth="%sSpacialWeight.Facet_%3.3i"%(self.FacetDataCache,iFacet)
             SpacialWeigth=NpShared.GiveArray(NameSpacialWeigth)
             self.SpacialWeigth[iFacet]=SpacialWeigth
+
+        # Keep spheroidal loaded in the shared memory (otherwise takes to long to laod on disk each time it needs them)
+        self.DicoSpheroidal={}
+        for iFacet in sorted(self.DicoImager.keys()):
+            SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.FacetDataCache,iFacet)
+            SPhe=NpShared.GiveArray(SharedMemName)
+            self.icoSpheroidal[iFacet]=SPhe
+
+
         return True
 
 
