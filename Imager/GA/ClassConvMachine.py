@@ -4,6 +4,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassConvMatrix")
 import scipy.signal
+from DDFacet.Array import ModLinAlg
 
 def test():
     import DDFacet.ToolsDir.Gaussian
@@ -67,7 +68,7 @@ class ClassConvMachine():
         self.ArrayListPixData=np.array(self.ListPixData)
         self.ArrayListPixParms=np.array(self.ListPixParms)
         self.NFreqBands,self.npol,self.NPixPSF,_=PSF.shape
-
+        self.invCM=None
         self.ConvMode=ConvMode
         # if ConvMode==None:
         #     if self.NPixListParms<3000:
@@ -236,8 +237,11 @@ class ClassConvMachine():
             return ListVec
 
 
+    def GiveInvertCov(self,Var):
+        if self.invCM is None:
 
-        
+            self.invCM=ModLinAlg.invSVD(self.CM[0,0])
+        return self.invCM/Var
 
     def SetConvMatrix(self):
         #print>>log,"SetConvMatrix"
@@ -291,3 +295,5 @@ class ClassConvMachine():
 
         self.CMParms=MParms
         self.CMParmsMean=np.mean(MParms,axis=0).reshape((1,1,self.NPixListParms,self.NPixListParms))
+
+        

@@ -137,20 +137,20 @@ class ClassRestoreMachine():
 
         # ################################"
 
-        imNorm=image("6SBc.KAFCA.restoredNew.fits.6SBc.KAFCA.restoredNew.fits.MaskLarge.fits").getdata()
-        MASK=np.zeros_like(imNorm)
-        nchan,npol,_,_=MASK.shape
-        for ch in range(nchan):
-            for pol in range(npol):
-                MASK[ch,pol,:,:]=imNorm[ch,pol,:,:].T[::-1,:]
+        # imNorm=image("6SBc.KAFCA.restoredNew.fits.6SBc.KAFCA.restoredNew.fits.MaskLarge.fits").getdata()
+        # MASK=np.zeros_like(imNorm)
+        # nchan,npol,_,_=MASK.shape
+        # for ch in range(nchan):
+        #     for pol in range(npol):
+        #         MASK[ch,pol,:,:]=imNorm[ch,pol,:,:].T[::-1,:]
 
 
 
         MeanModelImage=ModelMachine.GiveModelImage(RefFreq)
-        MeanModelImage[MASK==0]=0
+        #MeanModelImage[MASK==0]=0
         from DDFacet.Imager.GA import ClassSmearSM
         from DDFacet.Imager import ClassPSFServer
-        self.DicoVariablePSF = MyPickle.FileToDicoNP("/car-data/tasse/NE_SB080-089.2ch10s.ms.ddfcache/PSF")
+        self.DicoVariablePSF = MyPickle.FileToDicoNP("MSList.txt.ddfcache/PSF")
         self.PSFServer=ClassPSFServer.ClassPSFServer()
 
         self.PSFServer.setDicoVariablePSF(self.DicoVariablePSF,NormalisePSF=True)
