@@ -553,7 +553,7 @@ class ClassFacetMachine():
         for iFacet in sorted(self.DicoImager.keys()):
             SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.FacetDataCache,iFacet)
             SPhe=NpShared.GiveArray(SharedMemName)
-            self.icoSpheroidal[iFacet]=SPhe
+            self.DicoSpheroidal[iFacet]=SPhe
 
 
         return True
