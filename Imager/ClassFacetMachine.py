@@ -19,6 +19,12 @@ from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassFacetImager")
 MyLogger.setSilent("MyLogger")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
+from scipy.spatial import Voronoi
+from SkyModel.Sky import ModVoronoi
+from DDFacet.Other import reformat
+import Polygon
+from SkyModel.Sky import ModVoronoiToReg
+from matplotlib.path import Path
 
 
 # A generic producer that places data items from a list into a queue
@@ -29,6 +35,102 @@ def work_producer(queue, data):
         except Queue.Full:
            print>> log, "work_producer: queue full"
            pass
+
+
+def init_w_worker_tessel(m_work_queue,m_result_queue,GD,Mode,
+                                           FFTW_Wisdom,
+                                           DicoImager,
+                                           IdSharedMem,
+                                           FacetDataCache,
+                                           ApplyCal,
+                                           NFreqBands,
+                                           ExpectedOutputStokes,
+                                           CoordMachine,
+                                           nch,npol,
+                                           MainRaDec,
+                                           CellSizeRad,
+                                           NFacets,
+                                           IdSharedMemData,
+                                           ChunkDataCache,
+                                           SpheNorm,
+                                           DataCorrelationFormat,
+                                           ListSemaphores,
+                                           EngineInstance):
+
+    pill = True
+    # While no poisoned pill has been given grab items from the queue.
+    while pill:
+        iFacet = None
+        try:
+            # Get queue item, or timeout after 5 seconds and check if pill perscribed.
+            iFacet = m_work_queue.get(True,5)
+        except Queue.Empty:
+            print>> log, "grid_worker: empty worker queue"
+            pass
+        else:
+            if FFTW_Wisdom!=None:
+                pyfftw.import_wisdom(FFTW_Wisdom)
+
+            if iFacet == "POISON-E":
+                pill = False # The poisoned pill to stop the worker
+                # print>> log, "grid_worker: has taken POISON-E..."
+                break
+            elif iFacet is not None :
+                #Create smoothned facet tessel mask:
+                Npix = DicoImager[iFacet]["NpixFacetPadded"] #from queue
+                l0, l1, m0, m1 = DicoImager[iFacet]["lmExtentPadded"]
+                X, Y = np.mgrid[l0:l1:Npix * 1j, m0:m1:Npix * 1j]
+                XY = np.dstack((X, Y))
+                XY_flat = XY.reshape((-1, 2))
+                vertices = DicoImager[iFacet]["Polygon"]
+                mpath = Path(vertices)   # the vertices of the polygon
+                mask_flat = mpath.contains_points(XY_flat)
+
+                mask = mask_flat.reshape(X.shape)
+                # call set focal method above first
+                #Npix = GD["ImagerMainFacet"]["Npix"]
+                #Padding = GD["ImagerMainFacet"]["Padding"]
+                #Npix, _ = EstimateNpix(float(Npix), Padding=1)
+                #OutImShape = (nch, npol, Npix, Npix)
+
+                #RadiusTot = CellSizeRad * Npix / 2
+
+                #lMainCenter, mMainCenter = 0., 0.
+                #lmMainCenter = lMainCenter, mMainCenter
+                #CornersImageTot = np.array([[lMainCenter - RadiusTot, mMainCenter - RadiusTot],
+                #                                 [lMainCenter + RadiusTot, mMainCenter - RadiusTot],
+                #                                 [lMainCenter + RadiusTot, mMainCenter + RadiusTot],
+                #                                 [lMainCenter - RadiusTot, mMainCenter + RadiusTot]])
+                mpath = Path(EngineInstance.CornersImageTot)  # not found - in tessel
+                mask_flat2 = mpath.contains_points(XY_flat)
+                mask2 = mask_flat2.reshape(X.shape)
+                mask[mask2 == 0] = 0
+
+                GaussPars = (10, 10, 0)
+
+                SpacialWeigth = np.float32(mask.reshape((1, 1, Npix, Npix)))
+                SpacialWeigth = ModFFTW.ConvolveGaussian(SpacialWeigth, CellSizeRad=1, GaussPars=[GaussPars])
+                SpacialWeigth = SpacialWeigth.reshape((Npix, Npix))
+                SpacialWeigth /= np.max(SpacialWeigth)
+                NameSpacialWeigth = "%sSpacialWeight.Facet_%3.3i" % (FacetDataCache, iFacet)
+                NpShared.ToShared(NameSpacialWeigth, SpacialWeigth)
+                # Initialize a grid machine per facet:
+                GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(GD,
+                                        DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
+                                        DicoImager[iFacet]["DicoConfigGM"]["Npix"],
+                                        DicoImager[iFacet]["lmShift"], #facet centre
+                                        IdSharedMem,
+                                        IdSharedMemData,
+                                        FacetDataCache,
+                                        ChunkDataCache,
+                                        iFacet,
+                                        SpheNorm,
+                                        NFreqBands,
+                                        DataCorrelationFormat,
+                                        ExpectedOutputStokes,
+                                        ListSemaphores)
+
+                m_result_queue.put({"Success": True, "iFacet": iFacet})
 
 # Gridding worker that is called by Multiprocessing.Process
 # Extracted Gridder code from Worker_Imager Class.
@@ -61,7 +163,7 @@ def grid_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,
                 GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(GD,
                                         DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
                                         DicoImager[iFacet]["DicoConfigGM"]["Npix"],
-                                        DicoImager[iFacet]["lmShift"],
+                                        DicoImager[iFacet]["lmShift"], #facet centre
                                         IdSharedMem,
                                         IdSharedMemData,
                                         FacetDataCache,
@@ -182,6 +284,42 @@ def FFT_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,
                Grid[...] = Dirty[...]
 
                m_result_queue.put({"Success": True, "iFacet": iFacet})
+
+
+def degrid(self, iFacet):
+    """
+    Degrids input model facets and subtracts model visibilities from residuals. Assumes degridding input data is
+    placed in DATA shared memory dictionary.
+    Returns:
+        Dictionary of success and facet identifier
+    """
+    GridMachine = self.GiveGM(iFacet)
+    DATA = NpShared.SharedToDico("%sDicoData" % self.IdSharedMemData)
+    uvwThis = DATA["uvw"]
+    visThis = DATA["data"]
+    flagsThis = DATA["flags"]
+    times = DATA["times"]
+    A0 = DATA["A0"]
+    A1 = DATA["A1"]
+    A0A1 = A0, A1
+    freqs = DATA["freqs"]
+    ChanMapping = DATA["ChanMappingDegrid"]
+
+    DicoJonesMatrices = self.GiveDicoJonesMatrices()
+    ModelSharedMemName = "%sModelImage.Facet_%3.3i" % (self.IdSharedMem, iFacet)
+    ModelGrid = NpShared.GiveArray(ModelSharedMemName)
+
+    DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
+    if ('F' in DecorrMode) | ("T" in DecorrMode):
+        uvw_dt = DATA["uvw_dt"]
+        DT, Dnu = DATA["MSInfos"]
+        GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
+
+    vis = GridMachine.get(times, uvwThis, visThis, flagsThis, A0A1, ModelGrid, ImToGrid=False,
+                          DicoJonesMatrices=DicoJonesMatrices, freqs=freqs, TranformModelInput="FT",
+                          ChanMapping=ChanMapping)
+
+    self.result_queue.put({"Success": True, "iFacet": iFacet})
 
 class ClassFacetMachine():
     """
@@ -636,11 +774,38 @@ class ClassFacetMachine():
 
         if not cachevalid:
             #if data is larger use (maxsize=qlimit), only ints in this case
-            work_queue = multiprocessing.Queue()
-            result_queue = multiprocessing.Queue()
+            m_work_queue = multiprocessing.Queue()
+            m_result_queue = multiprocessing.JoinableQueue()
 
-            for cpu in xrange(n_cpus):
-                W=self.FacetParallelEngine(work_queue, result_queue,
+            Mode="Init"
+            FFTW_Wisdom=self.FFTW_Wisdom
+            DicoImager=self.DicoImager
+            IdSharedMem=self.IdSharedMem
+            IdSharedMemData=self.IdSharedMemData
+            FacetDataCache=self.FacetDataCache
+            ChunkDataCache=None
+            ApplyCal=self.ApplyCal
+            CornersImageTot=self.CornersImageTot
+            NFreqBands=self.VS.NFreqBands
+            DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds()
+            ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds()
+            CoordMachine = self.CoordMachine
+            npol = self.VS.StokesConverter.NStokesInImage()
+            nch = self.VS.NFreqBands
+            MainRaDec  = self.MainRaDec
+            CellSizeRad = self.CellSizeRad
+            NFacets = self.NFacets
+            IdSharedMemData = self.IdSharedMemData
+            SpheNorm = self.SpheNorm
+            ListSemaphores = None
+
+            #Create a list of work items for the producer process
+            NFacetsList = []
+            for iFacet in xrange(NFacets):
+               NFacetsList.append(iFacet)
+            work_p = Process(target=work_producer, args=(m_work_queue, NFacetsList,))
+
+            EngineInstance = self.FacetParallelEngine(m_work_queue, m_result_queue,
                                            self.GD,
                                            Mode="Init",
                                            FFTW_Wisdom=self.FFTW_Wisdom,
@@ -654,10 +819,39 @@ class ClassFacetMachine():
                                            NFreqBands=self.VS.NFreqBands,
                                            DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                            ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
-                procs.append(W) #add WorkerImager's to the process list
+
+
+            for cpu in xrange(n_cpus):
+                p = Process(target=init_w_worker_tessel, args=(m_work_queue,m_result_queue,
+                                           self.GD,
+                                           Mode,
+                                           FFTW_Wisdom,
+                                           DicoImager,
+                                           IdSharedMem,
+                                           FacetDataCache,
+                                           ApplyCal,
+                                           NFreqBands,
+                                           ExpectedOutputStokes,
+                                           CoordMachine,
+                                           nch,npol,
+                                           MainRaDec,
+                                           CellSizeRad,
+                                           NFacets,
+                                           IdSharedMemData,
+                                           ChunkDataCache,
+                                           SpheNorm,
+                                           DataCorrelationFormat,
+                                           ListSemaphores,
+                                           EngineInstance,))
+                procs.append(p)
 
             if Parallel:
                 main_core=0 #CPU affinity placement
+
+                #start a pinned work producer process
+                work_p.start()
+                procinfo.cpu_affinity([n_cpus-1])
+
                 #start all processes and pin them each to a core
                 for p in procs:
                     p.start()
@@ -675,19 +869,18 @@ class ClassFacetMachine():
                 for p in procs:
                     p.run()  # just run until all work is completed
 
-            NJobs = NFacets
-            for iFacet in range(NFacets):
-                work_queue.put(iFacet)
+            NJobs=NFacets
 
             while iResult < NJobs:
+                DicoResult = {}
                 try:
-                    DicoResult = result_queue.get(True, 5)
+                    DicoResult = m_result_queue.get(True, 5)
                 except Queue.Empty:
                     pass
                     print>> log, "checking for dead workers"
-                    # check for dead workers
-                    #shoot the zombies
+                    #shoot the zombie process
                     multiprocessing.active_children()
+                    # check for dead workers
                     pids_to_restart = []
                     for w in procs:
                         if not w.is_alive():
@@ -697,9 +890,10 @@ class ClassFacetMachine():
                            for id in pids_to_restart:
                                print>> log, "need to restart worker %d." % id
                                pass
-                else:
-                    if DicoResult["Success"]:
-                       iResult += 1
+
+                if len(DicoResult) !=0 and DicoResult["Success"]:
+                    iResult += 1
+                    m_result_queue.task_done() #call task_done on the queue
 
                     NDone = iResult
                     intPercent = int(100 * NDone / float(NFacets))
@@ -707,15 +901,22 @@ class ClassFacetMachine():
 
 
             if Parallel:
-                work_queue.close()
-                result_queue.close()
-                for p in procs:
-                    p.shutdown()
-                    p.join()
+                #if all work is done send poinsed pill to workers
+                if iResult == NJobs:
+                    for p in procs:
+                        m_work_queue.put("POISON-E")
 
-                for p in multiprocessing.active_children():
-                    p.terminate()
-                    time.sleep(0.2)
+                    #join and close queues
+                    m_result_queue.join()
+                    m_work_queue.close()
+                    m_result_queue.close()
+
+                    #join producer process
+                    work_p.join()
+
+                    #join producer process
+                    for p in procs:
+                        p.join()
 
             print>> log, "init W finished in %s" % timer.timehms()
             self.VS.maincache.saveCache("FacetData")
