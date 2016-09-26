@@ -1,7 +1,6 @@
 from DDFacet.Other.progressbar import ProgressBar
-import multiprocessing as mp
 import multiprocessing
-from multiprocessing import Manager, Pool, Process
+from multiprocessing import Process
 import psutil
 import ClassDDEGridMachine
 import numpy as np
@@ -21,27 +20,28 @@ log=MyLogger.getLogger("ClassFacetImager")
 MyLogger.setSilent("MyLogger")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 
-#A generic producer that places data items from a list into a queue
+
+# A generic producer that places data items from a list into a queue
 def work_producer(queue, data):
     for item in data:
         try:
-           queue.put(item, 60) #possible issue if no queue space for 60 seconds
+           queue.put(item, 60) # possible issue if no queue space for 60 seconds
         except Queue.Full:
            print>> log, "work_producer: queue full"
            pass
 
-#Gridding worker that is called by Multiprocessing.Process
-#Extracted Gridder code from Worker_Imager Class.
+# Gridding worker that is called by Multiprocessing.Process
+# Extracted Gridder code from Worker_Imager Class.
 def grid_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,
                     IdSharedMem,IdSharedMemData,FacetDataCache,ChunkDataCache,
                     ApplyCal,SpheNorm,PSFMode,NFreqBands,Weights,PauseOnStart,
                     DataCorrelationFormat,ExpectedOutputStokes):
 
     pill = True
-    #While no poisoned pill has been given grab items from the queue.
+    # While no poisoned pill has been given grab items from the queue.
     while pill:
         try:
-            #Get queue item, or timeout after 5 seconds and check if pill perscribed.
+            # Get queue item, or timeout after 5 seconds and check if pill perscribed.
             iFacet = m_work_queue.get(True,5)
         except Queue.Empty:
             print>> log, "grid_worker: empty worker queue"
@@ -51,13 +51,13 @@ def grid_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,
                 pyfftw.import_wisdom(FFTW_Wisdom)
 
             if iFacet == "POISON-E":
-               pill = False #The poisoned pill to stop the worker
-               #print>> log, "grid_worker: has taken POISON-E..."
+               pill = False # The poisoned pill to stop the worker
+               # print>> log, "grid_worker: has taken POISON-E..."
                break
             else:
-                #print>> log, "grid_worker: got iFacet data"
+                # print>> log, "grid_worker: got iFacet data"
                 ListSemaphores = None
-                #Create a new GridMachine
+                # Create a new GridMachine
                 GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(GD,
                                         DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
                                         DicoImager[iFacet]["DicoConfigGM"]["Npix"],
@@ -94,7 +94,7 @@ def grid_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,
                 GridName = "%sGridFacet.%3.3i" % (IdSharedMem, iFacet)
                 Grid = NpShared.GiveArray(GridName)
 
-                #Create Jones Matrices Dictionary
+                # Create Jones Matrices Dictionary
                 DicoJonesMatrices = None
                 Apply_killMS=(GD["DDESolutions"]["DDSols"]!="")&(GD["DDESolutions"]["DDSols"]!=None)
                 Apply_Beam=(GD["Beam"]["BeamModel"]!=None)
@@ -128,11 +128,11 @@ def grid_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,
                 SumJonesChan = GridMachine.SumJonesChan.copy()
                 del (GridMachine)
 
-                #Place results into queue
+                # Place results into queue
                 m_result_queue.put(
                     {"Success": True, "iFacet": iFacet, "Weights": Sw, "SumJones": SumJones,
                      "SumJonesChan": SumJonesChan})
-                #print>> log, "grid_worker: put iFacet in result queue"
+                # print>> log, "grid_worker: put iFacet in result queue"
 
 def FFT_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,
                     IdSharedMem,IdSharedMemData,FacetDataCache,ChunkDataCache,
@@ -146,18 +146,18 @@ def FFT_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,
         Dictionary of success and facet identifier
     """
     pill = True
-    #While no poisoned pill has been given grab items from the queue.
+    # While no poisoned pill has been given grab items from the queue.
     while pill:
         try:
-            #Get queue item, or timeout after 5 seconds and check if pill perscribed.
+            # Get queue item, or timeout after 5 seconds and check if pill perscribed.
             iFacet = m_work_queue.get(True,5)
         except Queue.Empty:
             print>> log, "grid_worker: empty worker queue"
             pass
         else:
             if iFacet == "POISON-E":
-               pill = False #The poisoned pill to stop the worker
-               #print>> log, "grid_worker: has taken POISON-E..."
+               pill = False # The poisoned pill to stop the worker
+               # print>> log, "grid_worker: has taken POISON-E..."
                break
             else:
                ListSemaphores = None
@@ -1197,7 +1197,7 @@ class ClassFacetMachine():
         else:
             qlimit=0
 
-        m_work_queue = multiprocessing.Queue(maxsize=qlimit)
+        m_work_queue = multiprocessing.Queue() #(maxsize=qlimit)
         m_result_queue = multiprocessing.JoinableQueue()
 
         PSFMode=False
@@ -1257,7 +1257,7 @@ class ClassFacetMachine():
 
             #start a pinned work producer process
             work_p.start()
-            procinfo.cpu_affinity([main_core])
+            procinfo.cpu_affinity([n_cpus-1])
 
             #start all processes and pin them each to a core
             for p in procs:
@@ -1359,7 +1359,7 @@ class ClassFacetMachine():
         else:
             qlimit=0
 
-        m_work_queue = multiprocessing.Queue(maxsize=qlimit)
+        m_work_queue = multiprocessing.Queue()#(maxsize=qlimit)
         m_result_queue = multiprocessing.JoinableQueue()
 
         Mode="FourierTransform"
@@ -1409,7 +1409,7 @@ class ClassFacetMachine():
 
             #start a pinned work producer process
             work_p.start()
-            procinfo.cpu_affinity([main_core])
+            procinfo.cpu_affinity([n_cpus-1])
             #start all processes and pin them each to a core
             for p in procs:
                 p.start()
