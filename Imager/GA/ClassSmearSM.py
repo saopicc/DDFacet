@@ -88,6 +88,11 @@ class ClassSmearSM():
         PSFMean=np.mean(self.PSFServer.DicoVariablePSF['CubeMeanVariablePSF'],axis=0)
         self.ConvMachineMeanPSF=ClassConvMachine.ClassConvMachine(PSFMean,ListPixParms,ListPixData,ConvMode)
         self.FindSupport()
+    
+
+    def CleanUpSHM(self):
+        NpShared.DelAll(self.IdSharedMem)
+
 
     def FindSupport(self):
         ConvMachine=self.CurrentConvMachine=self.ConvMachineMeanPSF
@@ -148,23 +153,25 @@ class ClassSmearSM():
         work_queue = multiprocessing.Queue()
         result_queue=multiprocessing.Queue()
 
-        SizeMax=int(indx.size/float(NCPU))
+        SizeMax=int(indx.size/float(NCPU)/10.)
+        SizeMax=np.max([SizeMax,1])
         iPix=0
         iQueue=0
+        Queue=[]
         while iPix<indx.size:
-            Queue=[]
             xc,yc=indx[iPix],indy[iPix]
             FacetID=self.PSFServer.giveFacetID2(xc,yc)
             #DicoOrder={"xy":(xc,yc),
             #           "FacetID":FacetID}
-            if len(Queue)==SizeMax:
+            Queue.append([xc,yc,FacetID])
+
+            iPix+=1
+            if (len(Queue)==SizeMax)|(iPix==indx.size):
                 NpShared.ToShared("%sQueue_%3.3i"%(self.IdSharedMem,iQueue),np.array(Queue))
                 work_queue.put(iQueue)
                 Queue=[]
                 iQueue+=1
-            else:
-                Queue.append([xc,yc,FacetID])
-            iPix+=1
+
 
         NJobs=indx.size
 
@@ -209,6 +216,7 @@ class ClassSmearSM():
             #             pass
             #         #DicoResult=result_queue.get()
             #print "!!!!!!!!!!!!!!!!!!!!!!!!! Qsize",result_queue.qsize()
+            #print work_queue.qsize(),result_queue.qsize()
             if result_queue.qsize()!=0:
                 try:
                     DicoResult=result_queue.get_nowait()
@@ -218,22 +226,25 @@ class ClassSmearSM():
 
 
             if DicoResult is None:
-                time.sleep(0.05)
+                time.sleep(0.001)
                 continue
 
-            iResult+=1
-            NDone=iResult
-            intPercent=int(100*  NDone / float(NJobs))
-            pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
 
 
             if DicoResult["Success"]:
-                iGauss,SMax=DicoResult["Result"]
-                x0,y0=DicoResult["x0y0"]
-                SubModelOut=self.ModelOut[0,0][x0-N/2:x0+N/2+1,y0-N/2:y0+N/2+1]
-                SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
+                iQueue=DicoResult["iQueue"]
+                Queue=NpShared.GiveArray("%sQueue_%3.3i"%(self.IdSharedMem,iQueue))
+                for iJob in range(Queue.shape[0]):
+                    x0,y0,iGauss=Queue[iJob]
+                    SMax=self.MeanModelImage[0,0,x0,y0]
+                    SubModelOut=self.ModelOut[0,0][x0-N/2:x0+N/2+1,y0-N/2:y0+N/2+1]
+                    SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
 
-                
+                    iResult+=1
+                    NDone=iResult
+                    intPercent=int(100*  NDone / float(NJobs))
+                    pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+
 
 
         for ii in range(NCPU):
@@ -447,7 +458,7 @@ class WorkerSmear(multiprocessing.Process):
         if self.GSig[iGauss]<self.SigMin:
             iGauss=0
 
-        return iGauss,SMax
+        return iGauss
 
 
     def run(self):
@@ -461,8 +472,9 @@ class WorkerSmear(multiprocessing.Process):
 
             Queue=NpShared.GiveArray("%sQueue_%3.3i"%(self.IdSharedMem,iQueue))
             
-            for xc,yc,FacetID in Queue:
-
+            for iJob in range(Queue.shape[0]):
+                x0,y0,FacetID=Queue[iJob]
+                
                 iFacet=FacetID
                 self.CurrentFacetID=FacetID
                 #self.CurrentCF=NpShared.GiveArray("%sConvMatrix_Facet_%4.4i"%(self.IdSharedMem,iFacet))
@@ -472,10 +484,10 @@ class WorkerSmear(multiprocessing.Process):
                     invCM=ModLinAlg.invSVD(np.float64(self.CurrentCM[0,0]))/self.Var
                     self.CurrentInvCov=NpShared.ToShared("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet),invCM)
 
-                Result=self.SmearThisComp(x0,y0)
+                iGauss=self.SmearThisComp(x0,y0)
+                Queue[iJob,2]=iGauss
             
             
-                self.result_queue.put({"Success":True,
-                                       "x0y0":(x0,y0),
-                                       "Result":Result})
+
+            self.result_queue.put({"Success":True,"iQueue":iQueue})
 

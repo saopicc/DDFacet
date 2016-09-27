@@ -176,7 +176,7 @@ class ClassRestoreMachine():
             CasaImage.ToFits()
             CasaImage.setBeam((SmoothFWHM,SmoothFWHM,0))
             CasaImage.close()
-        
+            SmearMachine.CleanUpSHM()
             stop
 
         # ################################"
