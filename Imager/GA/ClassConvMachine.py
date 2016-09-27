@@ -240,7 +240,7 @@ class ClassConvMachine():
     def GiveInvertCov(self,Var):
         if self.invCM is None:
 
-            self.invCM=ModLinAlg.invSVD(self.CM[0,0])
+            self.invCM=ModLinAlg.invSVD(np.float64(self.CM[0,0]))
         return self.invCM/Var
 
     def SetConvMatrix(self):

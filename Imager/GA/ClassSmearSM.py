@@ -26,9 +26,6 @@ class ClassSmearSM():
         ConvMode="Matrix"
         N=self.NImGauss
 
-        for iFacet in range(self.PSFServer.NFacets):
-            PSF=self.PSFServer.DicoVariablePSF['CubeMeanVariablePSF'][iFacet]#[0,0]
-            self.DicoConvMachine[iFacet]=ClassConvMachine.ClassConvMachine(PSF,ListPixParms,ListPixData,ConvMode)
 
         #stop
         #for 
@@ -37,6 +34,7 @@ class ClassSmearSM():
 
 
         d=np.sqrt(dx**2+dy**2)
+        self.dist=d
         self.NGauss=10
 
         GSig=np.linspace(0.,5,self.NGauss)
@@ -51,6 +49,16 @@ class ClassSmearSM():
             v/=Sv
             ListGauss.append(v)
         self.ListGauss=ListGauss
+        
+        for iFacet in range(self.PSFServer.NFacets):
+            PSF=self.PSFServer.DicoVariablePSF['CubeMeanVariablePSF'][iFacet]#[0,0]
+            #sig=1
+            #PSF=(np.exp(-self.dist**2/(2.*sig**2))).reshape(1,1,N,N)
+            self.DicoConvMachine[iFacet]=ClassConvMachine.ClassConvMachine(PSF,ListPixParms,ListPixData,ConvMode)
+
+        PSFMean=np.mean(self.PSFServer.DicoVariablePSF['CubeMeanVariablePSF'],axis=0)
+        self.ConvMachineMeanPSF=ClassConvMachine.ClassConvMachine(PSFMean,ListPixParms,ListPixData,ConvMode)
+        self.FindSupport()
 
     def Smear(self):
         self.ModelOut=np.zeros_like(self.MeanModelImage)
@@ -75,6 +83,41 @@ class ClassSmearSM():
         ConvModel=self.CurrentConvMachine.Convolve(SubModelOrig.reshape(1,SubModelOrig.size)).reshape((N,N))
         return ConvModel
 
+    def FindSupport(self):
+        ConvMachine=self.CurrentConvMachine=self.ConvMachineMeanPSF
+        N=self.NImGauss
+        Dirty=np.zeros((N,N),dtype=np.float32)
+        Dirty[N/2,N/2]=1.
+        Dirty=self.GiveConv(Dirty)
+        InvCov=ConvMachine.GiveInvertCov(1.)
+        Sol=np.dot(InvCov,Dirty.reshape((Dirty.size,1))).reshape((N,N))
+        Profile=(Sol[N/2,:]+Sol[:,N/2])[N/2:]
+        
+        xp=np.arange(N/2+1)
+        Val=np.max(Profile)/2.
+        xx=np.linspace(0,N/2,1000)
+        a=np.interp(xx,xp,Profile-Val)
+        ind=np.where(np.abs(a)==np.min(np.abs(a)))[0]
+        FWHM=a[ind[0]]*2
+        self.SigMin=(FWHM/2.)/np.sqrt(2.*np.log(2.))
+
+        import pylab
+        pylab.clf()
+        pylab.plot(xp,Profile)
+        pylab.scatter(xx,a)
+        # pylab.subplot(1,2,1)
+        # pylab.imshow(Dirty,interpolation="nearest")
+        # pylab.colorbar()
+        # vmax=Sol.max()
+        # pylab.subplot(1,2,2)
+        # pylab.imshow(Sol,interpolation="nearest",vmax=vmax,vmin=-0.1*vmax)
+        # pylab.colorbar()
+        pylab.draw()
+        pylab.show(False)
+        pylab.pause(0.1)
+        stop
+
+
     def SmearThisComp(self,x0,y0):
         FacetID=self.PSFServer.giveFacetID2(x0,y0)
         self.CurrentConvMachine=self.DicoConvMachine[FacetID]
@@ -89,8 +132,8 @@ class ClassSmearSM():
         
         xcPSF=ycPSF=NPSF/2
         SubPSF=PSF[xcPSF-N/2:xcPSF+N/2+1,ycPSF-N/2:ycPSF+N/2+1]
-        SubModelOrig.fill(0)
-        SubModelOrig[N/2,N/2]=10
+        #SubModelOrig.fill(0)
+        #SubModelOrig[N/2,N/2]=1
         #SubModelOrig[N/2+10,N/2+10]=10
         #ConvModel=self.CurrentConvMachine.Convolve(SubModelOrig.reshape(1,SubModelOrig.size)).reshape((N,N))
         #ConvModel1=scipy.signal.fftconvolve(SubModelOrig, SubPSF, mode='same')
@@ -100,22 +143,26 @@ class ClassSmearSM():
         
         # for i in range(10):
         #     Noise=self.GiveConv(np.random.randn(*(Dirty.shape)))
-        #     Noise*=1e-3*np.max(Noise)
-        #     Dirty+=Noise
+        #     #Noise*=1e-1/np.max(Noise)
+        #     #Dirty+=Noise
+        #     Dirty=ConvModel#+Noise
         #     InvCov=self.CurrentConvMachine.GiveInvertCov(1.)#self.Var)
         #     Sol=np.dot(InvCov,Dirty.reshape((Dirty.size,1))).reshape((N,N))
+        #     #Sol=np.dot(InvCov,Sol.reshape((Dirty.size,1))).reshape((N,N))
         #     import pylab
         #     pylab.clf()
         #     pylab.subplot(1,2,1)
         #     pylab.imshow(Dirty,interpolation="nearest")
         #     pylab.colorbar()
+        #     vmax=Sol.max()
         #     pylab.subplot(1,2,2)
-        #     pylab.imshow(Sol,interpolation="nearest")
+
+        #     pylab.imshow(Sol,interpolation="nearest",vmax=vmax,vmin=-0.1*vmax)
         #     pylab.colorbar()
         #     pylab.draw()
         #     pylab.show(False)
         #     pylab.pause(0.1)
-        # stop
+        #     stop
 
 
         

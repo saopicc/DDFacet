@@ -286,7 +286,7 @@ class ClassImagerDeconv():
                 [ ("MSNames", [ms.MSName for ms in self.VS.ListMS]) ] +
                 [ (section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
                                                              "MultiFreqs", "ImagerGlobal", "Compression",
-                                                             "ImagerCF", "ImagerMainFacet" ]
+                                                             "ImagerCF", "ImagerMainFacet","DDESolutions" ]
             ), reset=self.GD["Caching"]["ResetPSF"])
 
         if valid:

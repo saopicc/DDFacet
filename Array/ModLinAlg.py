@@ -200,9 +200,10 @@ def invSVD(A):
     #print "stard"
     u,s,v=np.linalg.svd(Ar)
     #print "ok"
-    s[s<0.]=1.e-6
+    Cut=1e-6
+    s[s<0.]=Cut
 
-    s[s<1.e-6*s.max()]=1.e-6*s.max()
+    s[s<Cut*s.max()]=Cut*s.max()
 
     ssq=(1./s)
     #Asq=np.conj(np.dot(np.dot(v.T,ssq),u.T))
