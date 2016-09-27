@@ -14,6 +14,9 @@ from DDFacet.Other import MyLogger
 from DDFacet.Other import MyPickle
 log=MyLogger.getLogger("ClassRestoreMachine")
 
+import multiprocessing
+NCPU_default=str(int(0.75*multiprocessing.cpu_count()))
+
 def read_options():
     desc="""DDFacet """
     
@@ -30,6 +33,7 @@ def read_options():
     group.add_option('--DoAlpha',type="int",help='',default=0)
     group.add_option('--OutName',type="str",help='',default="")
     group.add_option('--PSFCache',type="str",help='',default="")
+    group.add_option('--NCPU',type="int",help='',default=NCPU_default)
     opt.add_option_group(group)
     
     options, arguments = opt.parse_args()
@@ -145,30 +149,36 @@ class ClassRestoreMachine():
         #     for pol in range(npol):
         #         MASK[ch,pol,:,:]=imNorm[ch,pol,:,:].T[::-1,:]
 
-
-
-        MeanModelImage=ModelMachine.GiveModelImage(RefFreq)
-        #MeanModelImage[MASK==0]=0
-        from DDFacet.Imager.GA import ClassSmearSM
-        from DDFacet.Imager import ClassPSFServer
-        self.DicoVariablePSF = MyPickle.FileToDicoNP(options.PSFCache)
-
-        self.PSFServer=ClassPSFServer.ClassPSFServer()
-
-        self.PSFServer.setDicoVariablePSF(self.DicoVariablePSF,NormalisePSF=True)
-        #return self.Residual,MeanModelImage,self.PSFServer
-        SmearMachine=ClassSmearSM.ClassSmearSM(self.Residual,MeanModelImage,self.PSFServer,DeltaChi2=4.)
-        SmearedModel=SmearMachine.Smear()
-
-        ModelSmearImage="%s.ModelSmear"%self.BaseImageName
-        CasaImage=ClassCasaImage.ClassCasaimage(ModelSmearImage,SmearedModel.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
-        CasaImage.setdata(SmearedModel,CorrT=True)
-        CasaImage.ToFits()
-        #CasaImage.setBeam(self.FWHMBeam)
-        CasaImage.close()
+        if self.options.PSFCache!="":
+            import os
+            IdSharedMem=str(int(os.getpid()))+"."
+            MeanModelImage=ModelMachine.GiveModelImage(RefFreq)
+            #MeanModelImage[MASK==0]=0
+            from DDFacet.Imager.GA import ClassSmearSM
+            from DDFacet.Imager import ClassPSFServer
+            self.DicoVariablePSF = MyPickle.FileToDicoNP(self.options.PSFCache)
+            
+            self.PSFServer=ClassPSFServer.ClassPSFServer()
+            
+            self.PSFServer.setDicoVariablePSF(self.DicoVariablePSF,NormalisePSF=True)
+            #return self.Residual,MeanModelImage,self.PSFServer
+            SmearMachine=ClassSmearSM.ClassSmearSM(self.Residual,
+                                                   MeanModelImage*self.SqrtNormImage,
+                                                   self.PSFServer,
+                                                   DeltaChi2=4.,
+                                                   IdSharedMem=IdSharedMem,
+                                                   NCPU=self.options.NCPU)
+            SmearedModel=SmearMachine.Smear()
+            SmoothFWHM=self.CellArcSec*SmearMachine.RestoreFWHM/3600.
+            ModelSmearImage="%s.RestoredSmear"%self.BaseImageName
+            CasaImage=ClassCasaImage.ClassCasaimage(ModelSmearImage,SmearedModel.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
+            CasaImage.setdata(SmearedModel+self.Residual,CorrT=True)
+            CasaImage.ToFits()
+            CasaImage.setBeam((SmoothFWHM,SmoothFWHM,0))
+            CasaImage.close()
         
 
-        stop
+
         # ################################"
         #self.ModelMachine.ListScales[0]["Alpha"]=-0.8
 
