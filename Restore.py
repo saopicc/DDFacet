@@ -144,17 +144,19 @@ class ClassRestoreMachine():
 
 
         if self.options.PSFCache!="":
+
+            import os
+            IdSharedMem=str(int(os.getpid()))+"."
+            MeanModelImage=ModelMachine.GiveModelImage(RefFreq)
+
             imNorm=image("6SBc.KAFCA.restoredNew.fits.6SBc.KAFCA.restoredNew.fits.MaskLarge.fits").getdata()
             MASK=np.zeros_like(imNorm)
             nchan,npol,_,_=MASK.shape
             for ch in range(nchan):
                 for pol in range(npol):
                     MASK[ch,pol,:,:]=imNorm[ch,pol,:,:].T[::-1,:]
-
-            import os
-            IdSharedMem=str(int(os.getpid()))+"."
-            MeanModelImage=ModelMachine.GiveModelImage(RefFreq)
             MeanModelImage[MASK==0]=0
+
             from DDFacet.Imager.GA import ClassSmearSM
             from DDFacet.Imager import ClassPSFServer
             self.DicoVariablePSF = MyPickle.FileToDicoNP(self.options.PSFCache)
@@ -166,7 +168,7 @@ class ClassRestoreMachine():
             SmearMachine=ClassSmearSM.ClassSmearSM(self.Residual,
                                                    MeanModelImage*self.SqrtNormImage,
                                                    self.PSFServer,
-                                                   DeltaChi2=500.,
+                                                   DeltaChi2=4.,
                                                    IdSharedMem=IdSharedMem,
                                                    NCPU=self.options.NCPU)
             SmearedModel=SmearMachine.Smear()
