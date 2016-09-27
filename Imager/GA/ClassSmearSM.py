@@ -10,7 +10,7 @@ import time
 from DDFacet.Other.progressbar import ProgressBar
 
 class ClassSmearSM():
-    def __init__(self,MeanResidual,MeanModelImage,PSFServer,DeltaChi2=400.,IdSharedMem="",NCPU=6):
+    def __init__(self,MeanResidual,MeanModelImage,PSFServer,DeltaChi2=4.,IdSharedMem="",NCPU=6):
         IdSharedMem+="SmearSM."
         NpShared.DelAll(IdSharedMem)
         self.IdSharedMem=IdSharedMem
@@ -241,8 +241,8 @@ class ClassSmearSM():
                     x0,y0,iGauss=Queue[iJob]
                     SMax=self.MeanModelImage[0,0,x0,y0]
                     SubModelOut=self.ModelOut[0,0][x0-N/2:x0+N/2+1,y0-N/2:y0+N/2+1]
-                    #SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
-                    SubModelOut+=self.ListGauss[iGauss]*SMax
+                    SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
+                    #SubModelOut+=self.ListGauss[iGauss]*SMax
 
                     iResult+=1
                     NDone=iResult
@@ -441,7 +441,7 @@ class WorkerSmear(multiprocessing.Process):
             # # except:
             # #     stop
 
-            if Chi2> Chi2Min+DeltaChi2:
+            if Chi2/Chi2Min> DeltaChi2:#Chi2Min+DeltaChi2:
             #if Chi2> DeltaChi2:
                 #print "reached max chi2 %f"%self.GSig[iGauss]
                 break

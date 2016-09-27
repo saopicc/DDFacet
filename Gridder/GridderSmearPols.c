@@ -565,6 +565,7 @@ void gridderWPol(PyArrayObject *grid,
 	  NVisThisblock+=1.;//(*imgWtPtr);
 	  //AddTimeit(PreviousTime,TimeAverage);
 	  //printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);
+	  //printf("      [%i,%i]\n",visChan,p_ChanMapping[visChan]);
 	  
 	}//endfor vischan
       }//endfor RowThisBlock
@@ -574,10 +575,13 @@ void gridderWPol(PyArrayObject *grid,
       Wmean/=NVisThisblock;
       FreqMean/=NVisThisblock;
 
+      //printf("visChanMean, NVisThisblock: %f %f\n",(float)visChanMean, (float)NVisThisblock);
       visChanMean/=NVisThisblock;
       int ThisGridChan=p_ChanMapping[chStart];
       float diffChan=visChanMean-ThisGridChan;
-      if(diffChan!=0.){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);}
+      if(fabs(diffChan)>1e-6){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);}
+      //if(diffChan!=0.){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %20.18f)\n",visChanMean,ThisGridChan,diffChan);}
+      //printf("!!!!!!!!!!!!!!!!!!!\n");
       //printf("%i %i %f\n",i_ant0,i_ant1,visChanMean);
       visChanMean=0.;
       if(PolMode==0){
@@ -1065,7 +1069,8 @@ void DeGridderWPol(PyArrayObject *grid,
       
 
       //if(diffChan!=0.){printf("degridder: probably there is a problem in the BDA mapping\n");}
-      if(diffChan!=0.){printf("degridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);}
+      if(fabs(diffChan)>1e-6){printf("degridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %10f)\n",visChanMean,ThisGridChan,diffChan);}
+      //if(diffChan!=0.){printf("degridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %10f)\n",visChanMean,ThisGridChan,diffChan);}
       visChanMean=0.;
       //printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6));
       /* int ThisPol; */
