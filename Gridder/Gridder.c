@@ -1296,7 +1296,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	    //  Double weight_interp(Weights_Lin_Interp[w]);
 	    //            for (ipol=0; ipol<nVisPol; ++ipol) {
             for (ipol=0; ipol<1; ++ipol) {
-              if (((int)flagPtr[ipol])==0) {
+              //if (((int)flagPtr[ipol])==0) {
                 // Map to grid polarization. Only use pol if needed.
                 int gridPol = PolMap[ipol];
                 if (gridPol >= 0  &&  gridPol < nGridPol) {
@@ -1374,7 +1374,7 @@ void DeGridderWPol(PyArrayObject *grid,
 
 
 
-              } // end if !flagPtr
+		//} // end if !flagPtr
 	      //visPtr[ipol]*=corr;
             } // end for ipol
 	    ThisVis[3]=ThisVis[0];
