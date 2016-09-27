@@ -166,7 +166,7 @@ class ClassRestoreMachine():
             SmearMachine=ClassSmearSM.ClassSmearSM(self.Residual,
                                                    MeanModelImage*self.SqrtNormImage,
                                                    self.PSFServer,
-                                                   DeltaChi2=4.,
+                                                   DeltaChi2=500.,
                                                    IdSharedMem=IdSharedMem,
                                                    NCPU=self.options.NCPU)
             SmearedModel=SmearMachine.Smear()

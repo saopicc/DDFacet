@@ -10,7 +10,7 @@ import time
 from DDFacet.Other.progressbar import ProgressBar
 
 class ClassSmearSM():
-    def __init__(self,MeanResidual,MeanModelImage,PSFServer,DeltaChi2=40.,IdSharedMem="",NCPU=6):
+    def __init__(self,MeanResidual,MeanModelImage,PSFServer,DeltaChi2=400.,IdSharedMem="",NCPU=6):
         IdSharedMem+="SmearSM."
         NpShared.DelAll(IdSharedMem)
         self.IdSharedMem=IdSharedMem
