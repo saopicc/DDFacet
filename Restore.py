@@ -29,6 +29,7 @@ def read_options():
     group.add_option('--CleanNegComp',type="int",help='',default=0)
     group.add_option('--DoAlpha',type="int",help='',default=0)
     group.add_option('--OutName',type="str",help='',default="")
+    group.add_option('--PSFCache',type="str",help='',default="")
     opt.add_option_group(group)
     
     options, arguments = opt.parse_args()
@@ -40,13 +41,13 @@ def read_options():
 class ClassRestoreMachine():
     def __init__(self,BaseImageName,BeamPix=5,ResidualImName="",DoAlpha=1,
                  MaskName="",CleanNegComp=False,NBands=1,OutName="",
-                 SmoothMode=0):
+                 SmoothMode=0,options=None):
         self.DoAlpha=DoAlpha
         self.BaseImageName=BaseImageName
         self.BeamPix=BeamPix
         self.NBands=NBands
         self.OutName=OutName
-
+        self.options=options
         self.SmoothMode=SmoothMode
 
         FileDicoModel="%s.DicoModel"%BaseImageName
@@ -150,7 +151,8 @@ class ClassRestoreMachine():
         #MeanModelImage[MASK==0]=0
         from DDFacet.Imager.GA import ClassSmearSM
         from DDFacet.Imager import ClassPSFServer
-        self.DicoVariablePSF = MyPickle.FileToDicoNP("MSList.txt.ddfcache/PSF")
+        self.DicoVariablePSF = MyPickle.FileToDicoNP(options.PSFCache)
+
         self.PSFServer=ClassPSFServer.ClassPSFServer()
 
         self.PSFServer.setDicoVariablePSF(self.DicoVariablePSF,NormalisePSF=True)
@@ -281,7 +283,8 @@ def main(options=None):
                             NBands=options.NBands,
                             CleanNegComp=options.CleanNegComp,
                             OutName=options.OutName,
-                            SmoothMode=options.SmoothMode)
+                            SmoothMode=options.SmoothMode,
+                            options=options)
     return CRM.Restore()
 
 
