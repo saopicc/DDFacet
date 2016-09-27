@@ -150,7 +150,7 @@ class ClassRestoreMachine():
         MeanModelImage[MASK==0]=0
         from DDFacet.Imager.GA import ClassSmearSM
         from DDFacet.Imager import ClassPSFServer
-        self.DicoVariablePSF = MyPickle.FileToDicoNP("/car-data/tasse/NE_SB080-089.2ch10s.ms.ddfcache/PSF")
+        self.DicoVariablePSF = MyPickle.FileToDicoNP("MSList6.txt.ddfcache/PSF")
         self.PSFServer=ClassPSFServer.ClassPSFServer()
 
         self.PSFServer.setDicoVariablePSF(self.DicoVariablePSF,NormalisePSF=True)
