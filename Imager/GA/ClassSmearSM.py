@@ -105,10 +105,9 @@ class ClassSmearSM():
         a=np.interp(xx,xp,Profile-Val)
         ind=np.where(np.abs(a)==np.min(np.abs(a)))[0]
         FWHM=a[ind[0]]*2
-        if FWHM<3: FWHM=3.
+        if FWHM<5: FWHM=5.
         self.RestoreFWHM=FWHM
         self.SigMin=(FWHM/2.)/np.sqrt(2.*np.log(2.))
-        print>>log, "Support for restoring beam: %5.2f pixels (sigma = %5.2f pixels)"%(FWHM,self.SigMin)
 
         RestoringBeam=(np.exp(-self.dist**2/(2.*self.SigMin**2))).reshape(N,N)
         
@@ -118,6 +117,7 @@ class ClassSmearSM():
             v=scipy.signal.fftconvolve(Func, RestoringBeam, mode='same')
             ListRestoredGauss.append(v)
         self.ListRestoredGauss=ListRestoredGauss
+        print>>log, "Support for restoring beam: %5.2f pixels (sigma = %5.2f pixels)"%(FWHM,self.SigMin)
         
         # import pylab
         # pylab.clf()
@@ -136,28 +136,41 @@ class ClassSmearSM():
         # stop
 
     def Smear(self,Parallel=True):
-        self.ModelOut=np.zeros_like(self.MeanModelImage)
-        indx,indy=np.where(self.MeanModelImage[0,0]!=0)
-        #indx,indy=np.where(self.MeanModelImage==np.max(self.MeanModelImage))
-        work_queue = multiprocessing.Queue()
-        result_queue=multiprocessing.Queue()
-        for iPix in range(indx.size):
-            xc,yc=indx[iPix],indy[iPix]
-            FacetID=self.PSFServer.giveFacetID2(xc,yc)
-            DicoOrder={"xy":(xc,yc),
-                       "FacetID":FacetID}
-            work_queue.put([xc,yc,FacetID])
-
-        NJobs=work_queue.qsize()
-
-
-
-        workerlist=[]
         if Parallel:
             NCPU=self.NCPU
         else:
             NCPU=1
         StopWhenQueueEmpty=True
+        print>>log, "Building queue"
+        self.ModelOut=np.zeros_like(self.MeanModelImage)
+        indx,indy=np.where(self.MeanModelImage[0,0]!=0)
+        #indx,indy=np.where(self.MeanModelImage==np.max(self.MeanModelImage))
+        work_queue = multiprocessing.Queue()
+        result_queue=multiprocessing.Queue()
+
+        SizeMax=int(indx.size/float(NCPU))
+        iPix=0
+        iQueue=0
+        while iPix<indx.size:
+            Queue=[]
+            xc,yc=indx[iPix],indy[iPix]
+            FacetID=self.PSFServer.giveFacetID2(xc,yc)
+            #DicoOrder={"xy":(xc,yc),
+            #           "FacetID":FacetID}
+            if len(Queue)==SizeMax:
+                NpShared.ToShared("%sQueue_%3.3i"%(self.IdSharedMem,iQueue),np.array(Queue))
+                work_queue.put(iQueue)
+                Queue=[]
+                iQueue+=1
+            else:
+                Queue.append([xc,yc,FacetID])
+            iPix+=1
+
+        NJobs=indx.size
+
+
+
+        workerlist=[]
 
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Find gaussian", HeaderSize=10,TitleSize=13)
         #pBAR.disable()
@@ -441,24 +454,28 @@ class WorkerSmear(multiprocessing.Process):
         while not self.kill_received and self.CondContinue():
             #gc.enable()
             try:
-                x0,y0,FacetID = self.work_queue.get(True,2)
+                iQueue = self.work_queue.get(True,2)
             except Exception,e:
                 #print "Exception worker: %s"%str(e)
                 break
 
-            iFacet=FacetID
-            self.CurrentFacetID=FacetID
-            #self.CurrentCF=NpShared.GiveArray("%sConvMatrix_Facet_%4.4i"%(self.IdSharedMem,iFacet))
-            self.CurrentCM=NpShared.GiveArray("%sCM_Facet%4.4i"%(self.IdSharedMem,iFacet))
-            self.CurrentInvCov=NpShared.GiveArray("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet))
-            if self.CurrentInvCov is None:
-                invCM=ModLinAlg.invSVD(np.float64(self.CurrentCM[0,0]))/self.Var
-                self.CurrentInvCov=NpShared.ToShared("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet),invCM)
+            Queue=NpShared.GiveArray("%sQueue_%3.3i"%(self.IdSharedMem,iQueue))
+            
+            for xc,yc,FacetID in Queue:
 
-            Result=self.SmearThisComp(x0,y0)
+                iFacet=FacetID
+                self.CurrentFacetID=FacetID
+                #self.CurrentCF=NpShared.GiveArray("%sConvMatrix_Facet_%4.4i"%(self.IdSharedMem,iFacet))
+                self.CurrentCM=NpShared.GiveArray("%sCM_Facet%4.4i"%(self.IdSharedMem,iFacet))
+                self.CurrentInvCov=NpShared.GiveArray("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet))
+                if self.CurrentInvCov is None:
+                    invCM=ModLinAlg.invSVD(np.float64(self.CurrentCM[0,0]))/self.Var
+                    self.CurrentInvCov=NpShared.ToShared("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet),invCM)
+
+                Result=self.SmearThisComp(x0,y0)
             
             
-            self.result_queue.put({"Success":True,
-                                   "x0y0":(x0,y0),
-                                   "Result":Result})
+                self.result_queue.put({"Success":True,
+                                       "x0y0":(x0,y0),
+                                       "Result":Result})
 

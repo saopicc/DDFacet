@@ -177,7 +177,7 @@ class ClassRestoreMachine():
             CasaImage.setBeam((SmoothFWHM,SmoothFWHM,0))
             CasaImage.close()
         
-
+            stop
 
         # ################################"
         #self.ModelMachine.ListScales[0]["Alpha"]=-0.8
