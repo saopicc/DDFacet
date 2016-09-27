@@ -1,6 +1,8 @@
 import numpy as np
 import scipy.signal
 import ClassConvMachine
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("ClassSmearSM")
 
 class ClassSmearSM():
     def __init__(self,MeanResidual,MeanModelImage,PSFServer,DeltaChi2=4.):
@@ -50,12 +52,13 @@ class ClassSmearSM():
             ListGauss.append(v)
         self.ListGauss=ListGauss
         
+        print>>log, "Declare convolution machines"
         for iFacet in range(self.PSFServer.NFacets):
             PSF=self.PSFServer.DicoVariablePSF['CubeMeanVariablePSF'][iFacet]#[0,0]
             #sig=1
             #PSF=(np.exp(-self.dist**2/(2.*sig**2))).reshape(1,1,N,N)
             self.DicoConvMachine[iFacet]=ClassConvMachine.ClassConvMachine(PSF,ListPixParms,ListPixData,ConvMode)
-
+            
         PSFMean=np.mean(self.PSFServer.DicoVariablePSF['CubeMeanVariablePSF'],axis=0)
         self.ConvMachineMeanPSF=ClassConvMachine.ClassConvMachine(PSFMean,ListPixParms,ListPixData,ConvMode)
         self.FindSupport()
@@ -99,23 +102,34 @@ class ClassSmearSM():
         a=np.interp(xx,xp,Profile-Val)
         ind=np.where(np.abs(a)==np.min(np.abs(a)))[0]
         FWHM=a[ind[0]]*2
+        if FWHM<3: FWHM=3.
         self.SigMin=(FWHM/2.)/np.sqrt(2.*np.log(2.))
+        print>>log, "Support for restoring beam: %5.2f pixels (sigma = %5.2f pixels)"%(FWHM,self.SigMin)
 
-        import pylab
-        pylab.clf()
-        pylab.plot(xp,Profile)
-        pylab.scatter(xx,a)
-        # pylab.subplot(1,2,1)
-        # pylab.imshow(Dirty,interpolation="nearest")
-        # pylab.colorbar()
-        # vmax=Sol.max()
-        # pylab.subplot(1,2,2)
-        # pylab.imshow(Sol,interpolation="nearest",vmax=vmax,vmin=-0.1*vmax)
-        # pylab.colorbar()
-        pylab.draw()
-        pylab.show(False)
-        pylab.pause(0.1)
-        stop
+        RestoringBeam=(np.exp(-self.dist**2/(2.*self.SigMin**2))).reshape(N,N)
+        
+        ListRestoredGauss=[]
+
+        for Func in self.ListGauss:
+            v=scipy.signal.fftconvolve(Func, RestoringBeam, mode='same')
+            ListRestoredGauss.append(v)
+        self.ListRestoredGauss=ListRestoredGauss
+        
+        # import pylab
+        # pylab.clf()
+        # pylab.plot(xp,Profile)
+        # pylab.scatter(xx,a)
+        # # pylab.subplot(1,2,1)
+        # # pylab.imshow(Dirty,interpolation="nearest")
+        # # pylab.colorbar()
+        # # vmax=Sol.max()
+        # # pylab.subplot(1,2,2)
+        # # pylab.imshow(Sol,interpolation="nearest",vmax=vmax,vmin=-0.1*vmax)
+        # # pylab.colorbar()
+        # pylab.draw()
+        # pylab.show(False)
+        # pylab.pause(0.1)
+        # stop
 
 
     def SmearThisComp(self,x0,y0):
@@ -184,6 +198,9 @@ class ClassSmearSM():
             if iGauss==self.NGauss-1:
                 #print "max size"
                 break
+            if self.GSig[iGauss]<self.SigMin:
+                iGauss+=1
+                continue
 
             v=self.ListGauss[iGauss]
             Add=v*SMax
@@ -215,25 +232,25 @@ class ClassSmearSM():
             Chi2=self.GiveChi2(ThisResid)#/Chi2Min
 
 
-            print Chi2,Chi2Min+DeltaChi2
+            print Chi2,Chi2Min,Chi2Min+DeltaChi2
 
             # print sig,Chi2,Chi2Min
 
-            # try:
-            import pylab
-            vmin,vmax=SubResid.min(),SubResid.max()
-            pylab.subplot(1,3,1)
-            pylab.imshow(SubResid,interpolation="nearest",vmin=vmin,vmax=vmax)
-            pylab.subplot(1,3,2)
-            pylab.imshow(ThisDirty,interpolation="nearest")#,vmin=vmin,vmax=vmax)
-            pylab.subplot(1,3,3)
-            pylab.imshow(ThisResid,interpolation="nearest")#,vmin=vmin,vmax=vmax)
-            pylab.title("%f"%Chi2)
-            pylab.draw()
-            pylab.show(False)
-            pylab.pause(0.1)
-            # except:
-            #     stop
+            # # try:
+            # import pylab
+            # vmin,vmax=SubResid.min(),SubResid.max()
+            # pylab.subplot(1,3,1)
+            # pylab.imshow(SubResid,interpolation="nearest",vmin=vmin,vmax=vmax)
+            # pylab.subplot(1,3,2)
+            # pylab.imshow(ThisDirty,interpolation="nearest")#,vmin=vmin,vmax=vmax)
+            # pylab.subplot(1,3,3)
+            # pylab.imshow(ThisResid,interpolation="nearest")#,vmin=vmin,vmax=vmax)
+            # pylab.title("%f"%Chi2)
+            # pylab.draw()
+            # pylab.show(False)
+            # pylab.pause(0.1)
+            # # except:
+            # #     stop
 
             if Chi2> Chi2Min+DeltaChi2:
             #if Chi2> DeltaChi2:
@@ -242,8 +259,8 @@ class ClassSmearSM():
 
             iGauss+=1
 
-            import time
-            time.sleep(0.5)
+            #import time
+            #time.sleep(0.5)
 
 
         # import pylab
@@ -253,4 +270,7 @@ class ClassSmearSM():
         # pylab.show(False)
         # pylab.pause(0.1)
 
-        SubModelOut+=Add
+        if self.GSig[iGauss]<self.SigMin:
+            iGauss=0
+
+        SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
