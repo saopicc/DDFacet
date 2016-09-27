@@ -10,7 +10,7 @@ import time
 from DDFacet.Other.progressbar import ProgressBar
 
 class ClassSmearSM():
-    def __init__(self,MeanResidual,MeanModelImage,PSFServer,DeltaChi2=4.,IdSharedMem="",NCPU=6):
+    def __init__(self,MeanResidual,MeanModelImage,PSFServer,DeltaChi2=40.,IdSharedMem="",NCPU=6):
         IdSharedMem+="SmearSM."
         NpShared.DelAll(IdSharedMem)
         self.IdSharedMem=IdSharedMem
@@ -88,7 +88,7 @@ class ClassSmearSM():
         PSFMean=np.mean(self.PSFServer.DicoVariablePSF['CubeMeanVariablePSF'],axis=0)
         self.ConvMachineMeanPSF=ClassConvMachine.ClassConvMachine(PSFMean,ListPixParms,ListPixData,ConvMode)
         CM=self.ConvMachineMeanPSF.CM
-        invCM=ModLinAlg.invSVD(np.float64(CM[0,0]))/self.Var
+        invCM=ModLinAlg.invSVD(np.float64(CM[0,0]),Cut=1e-8)/self.Var
         NpShared.ToShared("%sInvCov_AllFacet"%(self.IdSharedMem),invCM)
         self.FindSupport()
     
@@ -156,7 +156,7 @@ class ClassSmearSM():
         work_queue = multiprocessing.Queue()
         result_queue=multiprocessing.Queue()
 
-        SizeMax=int(indx.size/float(NCPU)/10.)
+        SizeMax=int(indx.size/float(NCPU)/100.)
         SizeMax=np.max([SizeMax,1])
         iPix=0
         iQueue=0
@@ -241,7 +241,8 @@ class ClassSmearSM():
                     x0,y0,iGauss=Queue[iJob]
                     SMax=self.MeanModelImage[0,0,x0,y0]
                     SubModelOut=self.ModelOut[0,0][x0-N/2:x0+N/2+1,y0-N/2:y0+N/2+1]
-                    SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
+                    #SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
+                    SubModelOut+=self.ListGauss[iGauss]*SMax
 
                     iResult+=1
                     NDone=iResult
@@ -308,8 +309,8 @@ class WorkerSmear(multiprocessing.Process):
             return True
 
     def GiveChi2(self,Resid):
-        #Chi2=np.sum(Resid**2)/self.Var
-        #return Chi2
+        Chi2=np.sum(Resid**2)/self.Var
+        return Chi2
         InvCov=self.CurrentInvCov#ConvMachine.GiveInvertCov(self.Var)
         NPixResid=Resid.size
         return np.dot(np.dot(Resid.reshape((1,NPixResid)),InvCov),Resid.reshape((NPixResid,1))).ravel()[0]
@@ -458,8 +459,8 @@ class WorkerSmear(multiprocessing.Process):
         # pylab.show(False)
         # pylab.pause(0.1)
 
-        if self.GSig[iGauss]<self.SigMin:
-            iGauss=0
+#        if self.GSig[iGauss]<self.SigMin:
+#            iGauss=0
 
         return iGauss
 
@@ -468,12 +469,15 @@ class WorkerSmear(multiprocessing.Process):
         while not self.kill_received and self.CondContinue():
             #gc.enable()
             try:
-                iQueue = self.work_queue.get(True,2)
+                iQueue = self.work_queue.get_nowait()#(True,2)
             except Exception,e:
                 #print "Exception worker: %s"%str(e)
                 break
 
+            #print "Start %i"%iQueue
+
             Queue=NpShared.GiveArray("%sQueue_%3.3i"%(self.IdSharedMem,iQueue))
+            self.CurrentInvCov=NpShared.GiveArray("%sInvCov_AllFacet"%(self.IdSharedMem))
             
             for iJob in range(Queue.shape[0]):
                 x0,y0,FacetID=Queue[iJob]
@@ -483,7 +487,6 @@ class WorkerSmear(multiprocessing.Process):
                 #self.CurrentCF=NpShared.GiveArray("%sConvMatrix_Facet_%4.4i"%(self.IdSharedMem,iFacet))
                 self.CurrentCM=NpShared.GiveArray("%sCM_Facet%4.4i"%(self.IdSharedMem,iFacet))
                 #self.CurrentInvCov=NpShared.GiveArray("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet))
-                self.CurrentInvCov=NpShared.GiveArray("%sInvCov_AllFacet"%(self.IdSharedMem))
                 # if self.CurrentInvCov is None:
                 #     invCM=ModLinAlg.invSVD(np.float64(self.CurrentCM[0,0]))/self.Var
                 #     self.CurrentInvCov=NpShared.ToShared("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet),invCM)
