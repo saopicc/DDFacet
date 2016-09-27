@@ -77,8 +77,8 @@ class ClassSmearSM():
             self.DicoConvMachine[iFacet]=ClassConvMachine.ClassConvMachine(PSF,ListPixParms,ListPixData,ConvMode)
             CM=self.DicoConvMachine[iFacet].CM
             NpShared.ToShared("%sCM_Facet%4.4i"%(self.IdSharedMem,iFacet),CM)
-            invCM=ModLinAlg.invSVD(np.float64(CM[0,0]))/self.Var
-            NpShared.ToShared("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet),invCM)
+            #invCM=ModLinAlg.invSVD(np.float64(CM[0,0]))/self.Var
+            #NpShared.ToShared("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet),invCM)
 
             NDone=iFacet+1
             intPercent=int(100*  NDone / float(NJobs))
@@ -87,6 +87,9 @@ class ClassSmearSM():
 
         PSFMean=np.mean(self.PSFServer.DicoVariablePSF['CubeMeanVariablePSF'],axis=0)
         self.ConvMachineMeanPSF=ClassConvMachine.ClassConvMachine(PSFMean,ListPixParms,ListPixData,ConvMode)
+        CM=self.ConvMachineMeanPSF.CM
+        invCM=ModLinAlg.invSVD(np.float64(CM[0,0]))/self.Var
+        NpShared.ToShared("%sInvCov_AllFacet"%(self.IdSharedMem),invCM)
         self.FindSupport()
     
 
@@ -479,10 +482,11 @@ class WorkerSmear(multiprocessing.Process):
                 self.CurrentFacetID=FacetID
                 #self.CurrentCF=NpShared.GiveArray("%sConvMatrix_Facet_%4.4i"%(self.IdSharedMem,iFacet))
                 self.CurrentCM=NpShared.GiveArray("%sCM_Facet%4.4i"%(self.IdSharedMem,iFacet))
-                self.CurrentInvCov=NpShared.GiveArray("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet))
-                if self.CurrentInvCov is None:
-                    invCM=ModLinAlg.invSVD(np.float64(self.CurrentCM[0,0]))/self.Var
-                    self.CurrentInvCov=NpShared.ToShared("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet),invCM)
+                #self.CurrentInvCov=NpShared.GiveArray("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet))
+                self.CurrentInvCov=NpShared.GiveArray("%sInvCov_AllFacet"%(self.IdSharedMem))
+                # if self.CurrentInvCov is None:
+                #     invCM=ModLinAlg.invSVD(np.float64(self.CurrentCM[0,0]))/self.Var
+                #     self.CurrentInvCov=NpShared.ToShared("%sInvCov_Facet%4.4i"%(self.IdSharedMem,iFacet),invCM)
 
                 iGauss=self.SmearThisComp(x0,y0)
                 Queue[iJob,2]=iGauss
