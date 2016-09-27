@@ -286,40 +286,99 @@ def FFT_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,
                m_result_queue.put({"Success": True, "iFacet": iFacet})
 
 
-def degrid(self, iFacet):
+def degrid_worker(m_work_queue,m_result_queue,GD,Mode,FFTW_Wisdom,DicoImager,
+                    IdSharedMem,IdSharedMemData,FacetDataCache,ChunkDataCache,
+                    ApplyCal,SpheNorm,NFreqBands,PauseOnStart,
+                    DataCorrelationFormat,ExpectedOutputStokes,ListSemaphores):
+
     """
     Degrids input model facets and subtracts model visibilities from residuals. Assumes degridding input data is
     placed in DATA shared memory dictionary.
     Returns:
         Dictionary of success and facet identifier
     """
-    GridMachine = self.GiveGM(iFacet)
-    DATA = NpShared.SharedToDico("%sDicoData" % self.IdSharedMemData)
-    uvwThis = DATA["uvw"]
-    visThis = DATA["data"]
-    flagsThis = DATA["flags"]
-    times = DATA["times"]
-    A0 = DATA["A0"]
-    A1 = DATA["A1"]
-    A0A1 = A0, A1
-    freqs = DATA["freqs"]
-    ChanMapping = DATA["ChanMappingDegrid"]
+    pill = True
+    # While no poisoned pill has been given grab items from the queue.
+    while pill:
+        try:
+            # Get queue item, or timeout after 5 seconds and check if pill perscribed.
+            iFacet = m_work_queue.get(True,5)
+        except Queue.Empty:
+            print>> log, "degrid_worker: empty worker queue"
+            pass
+        else:
+            if FFTW_Wisdom!=None:
+                pyfftw.import_wisdom(FFTW_Wisdom)
 
-    DicoJonesMatrices = self.GiveDicoJonesMatrices()
-    ModelSharedMemName = "%sModelImage.Facet_%3.3i" % (self.IdSharedMem, iFacet)
-    ModelGrid = NpShared.GiveArray(ModelSharedMemName)
+            if iFacet == "POISON-E":
+               pill = False # The poisoned pill to stop the worker
+               # print>> log, "grid_worker: has taken POISON-E..."
+               break
+            else:
+                # print>> log, "grid_worker: got iFacet data"
+                # Create a new GridMachine
+                GridMachine=ClassDDEGridMachine.ClassDDEGridMachine(GD,
+                                        DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
+                                        DicoImager[iFacet]["DicoConfigGM"]["Npix"],
+                                        DicoImager[iFacet]["lmShift"], #facet centre
+                                        IdSharedMem,
+                                        IdSharedMemData,
+                                        FacetDataCache,
+                                        ChunkDataCache,
+                                        iFacet,
+                                        SpheNorm,
+                                        NFreqBands,
+                                        DataCorrelationFormat,
+                                        ExpectedOutputStokes,
+                                        ListSemaphores)
 
-    DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
-    if ('F' in DecorrMode) | ("T" in DecorrMode):
-        uvw_dt = DATA["uvw_dt"]
-        DT, Dnu = DATA["MSInfos"]
-        GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
+                DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
+                uvwThis = DATA["uvw"]
+                visThis = DATA["data"]
+                flagsThis = DATA["flags"]
+                times = DATA["times"]
+                A0 = DATA["A0"]
+                A1 = DATA["A1"]
+                A0A1 = A0, A1
+                freqs = DATA["freqs"]
+                ChanMapping = DATA["ChanMappingDegrid"]
 
-    vis = GridMachine.get(times, uvwThis, visThis, flagsThis, A0A1, ModelGrid, ImToGrid=False,
-                          DicoJonesMatrices=DicoJonesMatrices, freqs=freqs, TranformModelInput="FT",
-                          ChanMapping=ChanMapping)
+                # Create Jones Matrices Dictionary
+                DicoJonesMatrices = None
+                Apply_killMS=(GD["DDESolutions"]["DDSols"]!="")&(GD["DDESolutions"]["DDSols"]!=None)
+                Apply_Beam=(GD["Beam"]["BeamModel"]!=None)
+                if ApplyCal:
+                    DicoJonesMatrices={}
 
-    self.result_queue.put({"Success": True, "iFacet": iFacet})
+                if Apply_killMS:
+                    DicoJones_killMS=NpShared.SharedToDico("%sJonesFile_killMS"%IdSharedMemData)
+                    DicoJonesMatrices["DicoJones_killMS"]=DicoJones_killMS
+                    DicoJonesMatrices["DicoJones_killMS"]["MapJones"]=NpShared.GiveArray("%sMapJones_killMS"%IdSharedMemData)
+                    DicoClusterDirs_killMS=NpShared.SharedToDico("%sDicoClusterDirs_killMS"%IdSharedMemData)
+                    DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]=DicoClusterDirs_killMS
+                    DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"]=None
+
+                if Apply_Beam:
+                    DicoJones_Beam=NpShared.SharedToDico("%sJonesFile_Beam"%IdSharedMemData)
+                    DicoJonesMatrices["DicoJones_Beam"]=DicoJones_Beam
+                    DicoJonesMatrices["DicoJones_Beam"]["MapJones"]=NpShared.GiveArray("%sMapJones_Beam"%IdSharedMemData)
+                    DicoClusterDirs_Beam=NpShared.SharedToDico("%sDicoClusterDirs_Beam"%IdSharedMemData)
+                    DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"]=DicoClusterDirs_Beam
+
+                ModelSharedMemName = "%sModelImage.Facet_%3.3i" % (IdSharedMem, iFacet)
+                ModelGrid = NpShared.GiveArray(ModelSharedMemName)
+
+                DecorrMode = GD["DDESolutions"]["DecorrMode"]
+                if ('F' in DecorrMode) | ("T" in DecorrMode):
+                    uvw_dt = DATA["uvw_dt"]
+                    DT, Dnu = DATA["MSInfos"]
+                    GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
+
+                vis = GridMachine.get(times, uvwThis, visThis, flagsThis, A0A1, ModelGrid, ImToGrid=False,
+                                      DicoJonesMatrices=DicoJonesMatrices, freqs=freqs, TranformModelInput="FT",
+                                      ChanMapping=ChanMapping)
+
+                m_result_queue.put({"Success": True, "iFacet": iFacet})
 
 class ClassFacetMachine():
     """
@@ -1448,7 +1507,7 @@ class ClassFacetMachine():
                                              NFreqBands,
                                              Weights,
                                              PauseOnStart,
-                                             DataCorrelationFormat,
+                                            DataCorrelationFormat,
                                              ExpectedOutputStokes,))
 
                  procs.append(p)
@@ -1713,12 +1772,12 @@ class ClassFacetMachine():
         procinfo = psutil.Process() #this will be used to control CPU affinity
 
         if Parallel:
-            qlimit = n_cpus*4
+            qlimit = n_cpus*8
         else:
             qlimit=0
 
-        work_queue = multiprocessing.Queue(maxsize=qlimit)
-        result_queue = multiprocessing.Queue()
+        m_work_queue = multiprocessing.Queue() # (maxsize=qlimit)
+        m_result_queue = multiprocessing.JoinableQueue()
 
         print>> log, "Model image to facets ..."
         self.ImToGrids(ModelImage)
@@ -1738,26 +1797,55 @@ class ClassFacetMachine():
         ListSemaphores = ["%sSemaphore%4.4i" % (self.IdSharedMem, i) for i in range(NSemaphores)]
         _pyGridderSmearPols.pySetSemaphores(ListSemaphores)
 
-        for cpu in xrange(n_cpus):
-            W = self.FacetParallelEngine(work_queue, result_queue,
-                                         self.GD,
-                                         Mode="DeGrid",
-                                         FFTW_Wisdom=self.FFTW_Wisdom,
-                                         DicoImager=self.DicoImager,
-                                         IdSharedMem=self.IdSharedMem,
-                                         IdSharedMemData=self.IdSharedMemData,
-                                         FacetDataCache=self.FacetDataCache,
-                                         ChunkDataCache="file://" + self.VS.cache.dirname + "/",
-                                         ApplyCal=self.ApplyCal,
-                                         NFreqBands=self.VS.NFreqBands,
-                                         DataCorrelationFormat = self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-                                         ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds(),
-                                         ListSemaphores=ListSemaphores)
+        SpheNorm=self.SpheNorm
 
-            procs.append(W)
+        #Paramaters for grid_worker execution (from Worker_Imager)
+        Mode="DeGrid"
+        FFTW_Wisdom=self.FFTW_Wisdom
+        DicoImager=self.DicoImager
+        IdSharedMem=self.IdSharedMem
+        IdSharedMemData=self.IdSharedMemData
+        FacetDataCache=self.FacetDataCache
+        ChunkDataCache="file://" + self.VS.cache.dirname + "/"
+        ApplyCal=self.ApplyCal
+        NFreqBands=self.VS.NFreqBands
+        PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"]
+        DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds()
+        ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds()
+
+        #Create a list of work items for the producer process
+        NFacetsList = []
+        for iFacet in xrange(NFacets):
+           NFacetsList.append(iFacet)
+        work_p = Process(target=work_producer, args=(m_work_queue, NFacetsList,))
+
+        for cpu in xrange(n_cpus):
+            p = Process(target=degrid_worker, args=(m_work_queue,m_result_queue,
+                                             self.GD,
+                                             Mode,
+                                             FFTW_Wisdom,
+                                             DicoImager,
+                                             IdSharedMem,
+                                             IdSharedMemData,
+                                             FacetDataCache,
+                                             ChunkDataCache,
+                                             ApplyCal,
+                                             SpheNorm,
+                                             NFreqBands,
+                                             PauseOnStart,
+                                             DataCorrelationFormat,
+                                             ExpectedOutputStokes,
+                                             ListSemaphores,))
+
+            procs.append(p)
 
         if Parallel:
             main_core=0 #CPU affinity placement
+
+            #start a pinned work producer process
+            work_p.start()
+            procinfo.cpu_affinity([n_cpus-1])
+
             #start all processes and pin them each to a core
             for p in procs:
                 p.start()
@@ -1772,52 +1860,57 @@ class ClassFacetMachine():
         pBAR.render(0, '%4i/%i' % (0, NFacets))
         iResult = 0
 
-        NJobs = NFacets
-        for iFacet in range(NFacets):
-            work_queue.put(iFacet)
-
         if not Parallel:
             for p in procs:
                 p.run()  # just run until all work is completed
 
+        NJobs=NFacets
+
         while iResult < NJobs:
+            DicoResult = {}
             try:
-                DicoResult = result_queue.get(True, 10)
-	    except Queue.Empty:
+                DicoResult = m_result_queue.get(True, 10)
+            except Queue.Empty:
                 pass
-	        print>> log, "checking for dead workers"
-	        # check for dead workers
-                pids_to_restart = []
-                #shoot the zombies
+                print>> log, "checking for dead workers"
+                #shoot the zombie process
                 multiprocessing.active_children()
+                # check for dead workers
+                pids_to_restart = []
                 for w in procs:
                     if not w.is_alive():
                        pids_to_restart[w]
                        raise RuntimeError, "a worker process has died on us with exit code %d. This is probably a bug." % w.exitcode
 
-                for id in pids_to_restart:
-                    print>> log, "need to restart worker %d." % id
-                    pass
-            else:
-	        if DicoResult["Success"]:
-	           iResult += 1
-                   NDone = iResult
-                   intPercent = int(100 * NDone / float(NFacets))
-                   pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
+                       for id in pids_to_restart:
+                           print>> log, "need to restart worker %d." % id
+                           pass
 
-            multiprocessing.active_children()
+            if len(DicoResult) !=0 and DicoResult["Success"]:
+                iResult += 1
+                m_result_queue.task_done() #call task_done on the queue
+                NDone = iResult
+                intPercent = int(100 * NDone / float(NFacets))
+                pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
 
 
         if Parallel:
-            work_queue.close()
-            result_queue.close()
-            for p in procs:
-                p.shutdown()
-                p.join()
+            #if all work is done send poinsed pill to workers
+            if iResult == NJobs:
+                for p in procs:
+                    m_work_queue.put("POISON-E")
 
-            for p in multiprocessing.active_children():
-                p.terminate()
-                time.sleep(0.2)
+                #join and close queues
+                m_result_queue.join()
+                m_work_queue.close()
+                m_result_queue.close()
+
+                #join producer process
+                work_p.join()
+
+                #join producer process
+                for p in procs:
+                    p.join()
 
         _pyGridderSmearPols.pyDeleteSemaphore(ListSemaphores)
 
