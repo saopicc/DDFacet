@@ -523,7 +523,7 @@ class ClassMS():
                 else:
                     print>> log, "visibilities are already in shared array %s" % self._datapath
             else:
-                visdata = None
+                visdata = np.zeros(datashape,dtype=np.complex64)
             self._flagpath, flagvalid = self.cache.checkCache("Flags", dict(time=self._start_time))
             self._flagpath = "file://"+self._flagpath
             flags = flagvalid and NpShared.GiveArray(self._flagpath)
@@ -541,13 +541,13 @@ class ClassMS():
             flags = np.ndarray(shape=datashape,dtype=np.bool,buffer=flagbuf)
             print>>log,"using %d/%d elements of existing flag buffer"%(flags.size,flagbuf.size)
             table_all.getcolslicenp("FLAG",flags,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
+            visdata = np.ndarray(shape=datashape,dtype=np.complex64,buffer=databuf)
             if read_data:
-                visdata = np.ndarray(shape=datashape,dtype=np.complex64,buffer=databuf)
                 print>>log,"using %d/%d elements of existing visibility buffer"%(visdata.size,databuf.size)
                 table_all.getcolslicenp(self.ColName,visdata,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
                 # this needs to be carried along to reform arrays properly down the line
             else:
-                visdata = None
+                visdata.fill(0)
 
         DATA={}
 
@@ -570,9 +570,11 @@ class ClassMS():
         DATA["dt"]=self.dt
         DATA["dnu"]=self.ChanWidth
 
-        if self.zero_flag: visdata[flags] = 1e10
+        if visdata is not None:
+            if self.zero_flag: 
+                visdata[flags] = 1e10
         # print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
-        visdata[np.isnan(visdata)] = 0.
+            visdata[np.isnan(visdata)] = 0.
         # print "visMS",vis_all.min(),vis_all.max()
 
         # if self.AverageSteps!=None:
@@ -990,9 +992,10 @@ class ClassMS():
         ind = np.any(flags, axis=2)
         flags[ind] = True
         # flag NaNs
-        ind = np.where(np.isnan(data))
-        flags[ind] = 1
-        data[flags] = 1e9
+        if data is not None:
+            ind = np.where(np.isnan(data))
+            flags[ind] = 1
+            data[flags] = 1e9
 
     def __str__(self):
         ll=[]
