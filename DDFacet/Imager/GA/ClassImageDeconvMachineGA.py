@@ -11,19 +11,17 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Imager import ClassMultiScaleMachine
 from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
-from DDFacet.Imager.GA import ClassModelMachineGA
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Imager import ClassGainMachine
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.PSourceExtract import ClassIncreaseIsland
-from ClassEvolveGA import ClassEvolveGA
+
 from DDFacet.Other import MyPickle
 import multiprocessing
 import time
 
 MyLogger.setSilent("ClassArrayMethodGA")
 MyLogger.setSilent("ClassIsland")
-
 
 
 class ClassImageDeconvMachine():
@@ -50,6 +48,7 @@ class ClassImageDeconvMachine():
         self.PeakFactor = PeakFactor
         self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
         if ModelMachine is None:
+            from DDFacet.Imager.GA import ClassModelMachineGA
             self.ModelMachine=ClassModelMachineGA.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
         else:
             self.ModelMachine = ModelMachine
@@ -376,6 +375,8 @@ class ClassImageDeconvMachine():
         continue is True if another cycle should be executed;
         update is True if model has been updated (note that update=False implies continue=False)
         """
+        # Import EvolveGA module (Hack so we don't trip over it if deap is not installed)
+        from ClassEvolveGA import ClassEvolveGA
         if self._niter >= self.MaxMinorIter:
             return "MaxIter", False, False
 
@@ -815,6 +816,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
  
     def run(self):
+        # Import EvolveGA module (Hack so we don't trip over it if deap is not installed)
+        from ClassEvolveGA import ClassEvolveGA
         while not self.kill_received:
             #gc.enable()
             try:
