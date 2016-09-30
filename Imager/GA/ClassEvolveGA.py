@@ -47,7 +47,7 @@ class ClassEvolveGA():
 
 
         self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
-                                                                       #PixVariance=PixVariance,
+                                                                       PixVariance=PixVariance,
                                                                        iFacet=iFacet,
                                                                        IslandBestIndiv=IslandBestIndiv,
                                                                        GD=GD,

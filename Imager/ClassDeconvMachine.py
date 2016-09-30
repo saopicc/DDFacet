@@ -768,6 +768,9 @@ class ClassImagerDeconv():
                 print>> log, "Finished Deconvolving for this major cycle... Going back to visibility space."
             predict_colname = not continue_deconv and self.GD["VisData"]["PredictColName"]
 
+
+
+
             #self.ResidImage=DicoImage["MeanImage"]
             #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
 
@@ -793,6 +796,16 @@ class ClassImagerDeconv():
                     print>>log,"model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
                 else:
                     print>>log,"reusing model image from previous chunk"
+
+                if "o" in self._saveims:
+                    # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
+                    #     Fits=True,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                    nf,npol,nx,nx=ModelImage.shape
+                    ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
+                    
+                    self.FacetMachine.ToCasaImage(ModelImageAvg,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
+                                                  Fits=True)#,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
 
                 if predict_colname:
                     print>>log,"last major cycle: model visibilities will be stored to %s"%predict_colname
@@ -823,14 +836,6 @@ class ClassImagerDeconv():
                 self.FacetMachine.ToCasaImage(self.ResidImage,ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),
                                               Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
-            if "o" in self._saveims:
-                # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
-                #     Fits=True,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                nf,npol,nx,nx=ModelImage.shape
-                ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
-
-                self.FacetMachine.ToCasaImage(ModelImageAvg,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
-                                              Fits=True)#,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             self.DeconvMachine.ToFile(self.DicoModelName)
 
