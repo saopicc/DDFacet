@@ -20,6 +20,7 @@ class ClassSmearSM():
         NPixStats=10000
         RandomInd=np.int64(np.random.rand(NPixStats)*(MeanResidual.size))
         self.RMS=np.std(np.real(self.MeanResidual.ravel()[RandomInd]))
+        self.FWHMMin=1.
 
         self.PSFServer=PSFServer
         self.DeltaChi2=DeltaChi2
@@ -47,7 +48,7 @@ class ClassSmearSM():
         self.dist=d
         self.NGauss=10
 
-        GSig=np.linspace(0.,5,self.NGauss)
+        GSig=np.linspace(0.,2,self.NGauss)
         self.GSig=GSig
         ListGauss=[]
         One=np.zeros_like(d)
@@ -113,7 +114,7 @@ class ClassSmearSM():
         a=np.interp(xx,xp,Profile-Val)
         ind=np.where(np.abs(a)==np.min(np.abs(a)))[0]
         FWHM=a[ind[0]]*2
-        if FWHM<5: FWHM=5.
+        if FWHM<self.FWHMMin: FWHM=self.FWHMMin
         self.RestoreFWHM=FWHM
         self.SigMin=(FWHM/2.)/np.sqrt(2.*np.log(2.))
 
@@ -241,8 +242,8 @@ class ClassSmearSM():
                     x0,y0,iGauss=Queue[iJob]
                     SMax=self.MeanModelImage[0,0,x0,y0]
                     SubModelOut=self.ModelOut[0,0][x0-N/2:x0+N/2+1,y0-N/2:y0+N/2+1]
-                    SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
-                    #SubModelOut+=self.ListGauss[iGauss]*SMax
+                    #SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
+                    SubModelOut+=self.ListGauss[iGauss]*SMax
 
                     iResult+=1
                     NDone=iResult

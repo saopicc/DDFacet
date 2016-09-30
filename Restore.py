@@ -149,13 +149,14 @@ class ClassRestoreMachine():
             IdSharedMem=str(int(os.getpid()))+"."
             MeanModelImage=ModelMachine.GiveModelImage(RefFreq)
 
-            imNorm=image("6SBc.KAFCA.restoredNew.fits.6SBc.KAFCA.restoredNew.fits.MaskLarge.fits").getdata()
-            MASK=np.zeros_like(imNorm)
-            nchan,npol,_,_=MASK.shape
-            for ch in range(nchan):
-                for pol in range(npol):
-                    MASK[ch,pol,:,:]=imNorm[ch,pol,:,:].T[::-1,:]
-            MeanModelImage[MASK==0]=0
+            # #imNorm=image("6SBc.KAFCA.restoredNew.fits.6SBc.KAFCA.restoredNew.fits.MaskLarge.fits").getdata()
+            # imNorm=image("6SB.KAFCA.GA.BIC_00.AP.dirty.fits.mask.fits").getdata()
+            # MASK=np.zeros_like(imNorm)
+            # nchan,npol,_,_=MASK.shape
+            # for ch in range(nchan):
+            #     for pol in range(npol):
+            #         MASK[ch,pol,:,:]=imNorm[ch,pol,:,:].T[::-1,:]
+            # MeanModelImage[MASK==0]=0
 
             from DDFacet.Imager.GA import ClassSmearSM
             from DDFacet.Imager import ClassPSFServer
