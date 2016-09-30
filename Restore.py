@@ -158,6 +158,10 @@ class ClassRestoreMachine():
             #         MASK[ch,pol,:,:]=imNorm[ch,pol,:,:].T[::-1,:]
             # MeanModelImage[MASK==0]=0
 
+            # MeanModelImage.fill(0)
+            # MeanModelImage[0,0,100,100]=1
+
+
             from DDFacet.Imager.GA import ClassSmearSM
             from DDFacet.Imager import ClassPSFServer
             self.DicoVariablePSF = MyPickle.FileToDicoNP(self.options.PSFCache)
@@ -166,6 +170,15 @@ class ClassRestoreMachine():
             
             self.PSFServer.setDicoVariablePSF(self.DicoVariablePSF,NormalisePSF=True)
             #return self.Residual,MeanModelImage,self.PSFServer
+
+
+            # CasaImage=ClassCasaImage.ClassCasaimage("Model.fits",MeanModelImage.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
+            # CasaImage.setdata(MeanModelImage,CorrT=True)
+            # CasaImage.ToFits()
+            # #CasaImage.setBeam((SmoothFWHM,SmoothFWHM,0))
+            # CasaImage.close()
+
+
             SmearMachine=ClassSmearSM.ClassSmearSM(self.Residual,
                                                    MeanModelImage*self.SqrtNormImage,
                                                    self.PSFServer,
@@ -176,7 +189,7 @@ class ClassRestoreMachine():
             SmoothFWHM=self.CellArcSec*SmearMachine.RestoreFWHM/3600.
             ModelSmearImage="%s.RestoredSmear"%self.BaseImageName
             CasaImage=ClassCasaImage.ClassCasaimage(ModelSmearImage,SmearedModel.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
-            #CasaImage.setdata(SmearedModel+self.Residual,CorrT=True)
+            CasaImage.setdata(SmearedModel+self.Residual,CorrT=True)
             CasaImage.setdata(SmearedModel,CorrT=True)
             CasaImage.ToFits()
             CasaImage.setBeam((SmoothFWHM,SmoothFWHM,0))
