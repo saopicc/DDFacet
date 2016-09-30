@@ -621,7 +621,7 @@ class ClassImageDeconvMachine():
         # ParallelPerIsland=False
         # Parallel=False
         # StopWhenQueueEmpty=True
-        # ##########################
+        ##########################
 
 
         work_queue = multiprocessing.Queue()

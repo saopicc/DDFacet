@@ -34,7 +34,7 @@ class ClassArrayMethodGA():
         self.IslandBestIndiv=IslandBestIndiv
         self.GD=GD
         self.NCPU=int(self.GD["Parallel"]["NCPU"])
-
+        self.BestChi2=1.
         # IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
         # ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
 
@@ -83,6 +83,8 @@ class ClassArrayMethodGA():
 
         self.SetDirtyArrays(Dirty)
         self.InitWorkers()
+
+
         #pylab.figure(3,figsize=(5,3))
         #pylab.clf()
         # pylab.figure(4,figsize=(5,3))
@@ -270,6 +272,9 @@ class ClassArrayMethodGA():
         # print "Out ",DecreteFitNess
         return DecreteFitNess
 
+
+
+
     def InitWorkers(self):
         import Queue
         Parallel=self.ParallelFitness
@@ -298,7 +303,8 @@ class ClassArrayMethodGA():
                             WeightMaxFunc=self.WeightMaxFunc,
                             DirtyArray=self.DirtyArray,
                             ConvMode=self.ConvMode,
-                            StopWhenQueueEmpty=not(Parallel))
+                            StopWhenQueueEmpty=not(Parallel),
+                            BestChi2=self.BestChi2)
 
             workerlist.append(W)
 
@@ -328,6 +334,7 @@ class ClassArrayMethodGA():
         workerlist=self.workerlist
         Parallel=self.ParallelFitness
         DicoFitnesses={}
+        DicoChi2={}
         NJobs = len(pop)
         NCPU=self.NCPU
 
@@ -368,11 +375,11 @@ class ClassArrayMethodGA():
             #     time.sleep(0.1)
             #     continue
 
-
             if DicoResult["Success"]:
                 iIndividual=DicoResult["iIndividual"]
                 iResult += 1
                 DicoFitnesses[iIndividual]=DicoResult["fitness"]
+                DicoChi2[iIndividual]=DicoResult["Chi2"]
             NDone = iResult
 
 
@@ -382,14 +389,18 @@ class ClassArrayMethodGA():
         #     workerlist[ii].join()
 
         fitnesses=[]
+        Chi2=[]
         for iIndividual in range(len(pop)):
             fitnesses.append(DicoFitnesses[iIndividual])
+            Chi2.append(DicoChi2[iIndividual])
         #print "finished"
 
         for iIndividual,individual in enumerate(pop):
             NpShared.DelArray("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual))
 
-        return fitnesses
+        self.BestChi2=np.min(Chi2)
+
+        return fitnesses,Chi2
 
 
 
@@ -785,7 +796,8 @@ class WorkerFitness(multiprocessing.Process):
                  PixVariance=1e-2,
                  MaxFunc=None,WeightMaxFunc=None,DirtyArray=None,
                  ConvMode=None,
-                 StopWhenQueueEmpty=False):
+                 StopWhenQueueEmpty=False,
+                 BestChi2=1.):
         self.T=ClassTimeIt.ClassTimeIt("WorkerFitness")
         self.T.disable()
         multiprocessing.Process.__init__(self)
@@ -809,6 +821,7 @@ class WorkerFitness(multiprocessing.Process):
         self.DirtyArray=DirtyArray
         self.T.timeit("init")
         self.StopWhenQueueEmpty=StopWhenQueueEmpty
+        self.BestChi2=BestChi2
 
     def shutdown(self):
         self.exit.set()
@@ -847,11 +860,12 @@ class WorkerFitness(multiprocessing.Process):
             #individual=DicoJob["individual"]
             Name="%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual)
             individual=NpShared.GiveArray(Name)
-            fitness=self.GiveFitness(individual)
+            fitness,Chi2=self.GiveFitness(individual)
             #print iIndividual
             self.result_queue.put({"Success": True, 
                                    "iIndividual": iIndividual,
-                                   "fitness":fitness})
+                                   "fitness":fitness,
+                                   "Chi2":Chi2})
             pid=str(multiprocessing.current_process())
             self.T.timeit("done job: %s"%pid)
 
@@ -884,7 +898,7 @@ class WorkerFitness(multiprocessing.Process):
         #WeightFreqBands=self.WeightFreqBands.reshape((nFreqBands,1,1))
         #Weight=WeightFreqBands/np.sum(WeightFreqBands)
         S=self.PM.ArrayToSubArray(individual,"S")
-        
+        chi2=0.
         ContinuousFitNess=[]
         for FuncType in self.MaxFunc:
             if FuncType=="Chi2":
@@ -894,6 +908,7 @@ class WorkerFitness(multiprocessing.Process):
                 ContinuousFitNess.append(chi2*W)
             if FuncType=="BIC":
                 chi2=np.sum((Resid)**2)/(self.PixVariance)
+                chi2/=self.BestChi2
                 n=Resid.size
                 k=np.count_nonzero(S)
                 #BIC=chi2+100*k*np.log(n)
@@ -917,6 +932,6 @@ class WorkerFitness(multiprocessing.Process):
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(FNeg*W)
 
-        return np.sum(ContinuousFitNess),
+        return (np.sum(ContinuousFitNess),),chi2
 
 

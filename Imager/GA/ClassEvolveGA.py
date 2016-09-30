@@ -147,6 +147,10 @@ class ClassEvolveGA():
                 
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray,AlphaModel=AlphaModel,GSigModel=GSigModel)
 
+        # set best Chi2
+        _=self.ArrayMethodsMachine.GiveFitnessPop([self.IslandBestIndiv])
+
+
 
         self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.5, ngen=NGen, 
                                            halloffame=self.hof, 
