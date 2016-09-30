@@ -28,6 +28,9 @@ RUN apt-get install -y libatlas-dev
 RUN apt-get install -y liblapack-dev
 RUN apt-get install -y python-tk
 RUN apt-get install -y meqtrees-timba
+#Reference image generation required packages
+RUN apt-get install -y meqtrees
+RUN apt-get install -y makems
 #Setup environment
 ENV DDFACET_TEST_DATA_DIR /test_data
 ENV DDFACET_TEST_OUTPUT_DIR /test_output
