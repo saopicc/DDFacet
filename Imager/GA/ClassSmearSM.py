@@ -59,6 +59,7 @@ class ClassSmearSM():
             Sv=np.sum(v)
             v/=Sv
             ListGauss.append(v)
+
         self.ListGauss=ListGauss
         
         print>>log, "Declare convolution machines"
@@ -242,7 +243,12 @@ class ClassSmearSM():
                     x0,y0,iGauss=Queue[iJob]
                     SMax=self.MeanModelImage[0,0,x0,y0]
                     SubModelOut=self.ModelOut[0,0][x0-N/2:x0+N/2+1,y0-N/2:y0+N/2+1]
-                    #SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
+                    SubModelOut+=self.ListRestoredGauss[iGauss]*SMax
+                    #iGauss=0
+                    #print
+                    #print SMax
+                    #print np.sum(self.ListGauss[iGauss])
+                    #print
                     SubModelOut+=self.ListGauss[iGauss]*SMax
 
                     iResult+=1
@@ -460,8 +466,8 @@ class WorkerSmear(multiprocessing.Process):
         # pylab.show(False)
         # pylab.pause(0.1)
 
-#        if self.GSig[iGauss]<self.SigMin:
-#            iGauss=0
+        if self.GSig[iGauss]<self.SigMin:
+            iGauss=0
 
         return iGauss
 
