@@ -363,7 +363,7 @@ def main(OP=None,messages=[]):
 
 if __name__=="__main__":
     #os.system('clear')
-    logo.print_logo()
+    #logo.print_logo()
 
     ParsetFile=sys.argv[1]
 
