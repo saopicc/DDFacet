@@ -176,8 +176,8 @@ class ClassRestoreMachine():
             SmoothFWHM=self.CellArcSec*SmearMachine.RestoreFWHM/3600.
             ModelSmearImage="%s.RestoredSmear"%self.BaseImageName
             CasaImage=ClassCasaImage.ClassCasaimage(ModelSmearImage,SmearedModel.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
-            #CasaImage.setdata(SmearedModel+self.Residual,CorrT=True)
-            CasaImage.setdata(SmearedModel,CorrT=True)
+            CasaImage.setdata(SmearedModel+self.Residual,CorrT=True)
+            #CasaImage.setdata(SmearedModel,CorrT=True)
             CasaImage.ToFits()
             CasaImage.setBeam((SmoothFWHM,SmoothFWHM,0))
             CasaImage.close()

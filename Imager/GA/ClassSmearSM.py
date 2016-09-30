@@ -20,7 +20,7 @@ class ClassSmearSM():
         NPixStats=10000
         RandomInd=np.int64(np.random.rand(NPixStats)*(MeanResidual.size))
         self.RMS=np.std(np.real(self.MeanResidual.ravel()[RandomInd]))
-        self.FWHMMin=1.
+        self.FWHMMin=3.
 
         self.PSFServer=PSFServer
         self.DeltaChi2=DeltaChi2
