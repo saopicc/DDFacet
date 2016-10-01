@@ -151,7 +151,7 @@ class ClassSmearMapping():
 
         NpShared.DelAll("%sSmearMapping" % self.IdSharedMem)
 
-    def BuildSmearMappingParallel(self,DATA,GridChanMapping):
+    def BuildSmearMappingParallel(self, DATA, GridChanMapping):
         print>>log, "Build decorrelation mapping ..."
 
         flags = DATA["flags"]

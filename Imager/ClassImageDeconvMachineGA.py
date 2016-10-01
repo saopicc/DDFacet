@@ -1,150 +1,274 @@
 import numpy as np
 import pylab
-from DDFacet.Other import MyLogger
-from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassImageDeconvMachine")
-from DDFacet.Array import NpParallel
-from DDFacet.Array import NpShared
-from DDFacet.ToolsDir import ModFFTW
-from DDFacet.ToolsDir import ModToolBox
-from DDFacet.Other import ClassTimeIt
-import ClassMultiScaleMachine
-from pyrap.images import image
-from ClassPSFServer import ClassPSFServer
-import ClassModelMachineGA
-from DDFacet.Other.progressbar import ProgressBar
-import ClassGainMachine
-from SkyModel.PSourceExtract import ClassIslands
-from SkyModel.PSourceExtract import ClassIncreaseIsland
-from GA.ClassEvolveGA import ClassEvolveGA
-from DDFacet.Other import MyPickle
 import multiprocessing as mp
 import multiprocessing
 import psutil
 import time
 import Queue
+import ClassModelMachineGA
+import ClassMultiScaleMachine
+import ClassGainMachine
+from multiprocessing import Process
+from DDFacet.Other import MyLogger
+from DDFacet.Other import ModColor
+from DDFacet.Array import NpParallel
+from DDFacet.Array import NpShared
+from DDFacet.ToolsDir import ModFFTW
+from DDFacet.ToolsDir import ModToolBox
+from DDFacet.Other import ClassTimeIt
+from pyrap.images import image
+from ClassPSFServer import ClassPSFServer
+from DDFacet.Other.progressbar import ProgressBar
+from SkyModel.PSourceExtract import ClassIslands
+from SkyModel.PSourceExtract import ClassIncreaseIsland
+from GA.ClassEvolveGA import ClassEvolveGA
+from DDFacet.Other import MyPickle
+log = MyLogger.getLogger("ClassImageDeconvMachine")
 
 MyLogger.setSilent("ClassArrayMethodGA")
 MyLogger.setSilent("ClassIsland")
 
 
+def work_producer(queue, NIslands, ListIslands, Dirty,
+                  DicoDirty, ModelMachine, PSFServer, IdSharedMem):
+        print>> log, "DeconvGA Starting..."
+        ListBestIndiv = []
+        T = ClassTimeIt.ClassTimeIt("    ")
+        T.disable()
+
+        for iIsland in xrange(NIslands):
+            # print "%i/%i"%(iIsland,self.NIslands)
+            ThisPixList = ListIslands[iIsland]
+            XY = np.array(ThisPixList, dtype=np.float32)
+            xm, ym = np.mean(np.float32(XY), axis=0)
+            T.timeit("xm,ym")
+            nchan, npol, _, _ = Dirty.shape
+            JonesNorm = (DicoDirty["NormData"][:, :, xm, ym]).reshape((nchan, npol, 1, 1))
+            W = DicoDirty["WeightChansImages"]
+            JonesNorm = np.sum(JonesNorm * W.reshape((nchan, 1, 1, 1)), axis=0).reshape((1, npol, 1, 1))
+            T.timeit("JonesNorm")
+
+            IslandBestIndiv = ModelMachine.GiveIndividual(ThisPixList)
+            T.timeit("GiveIndividual")
+            ListBestIndiv.append(IslandBestIndiv)
+            FacetID = PSFServer.giveFacetID2(xm, ym)
+            T.timeit("FacetID")
+
+            DicoOrder = {"iIsland": iIsland,
+                         "FacetID": FacetID,
+                         "JonesNorm": JonesNorm}
+
+            ListOrder = [iIsland, FacetID, JonesNorm.flat[0]]
+
+            try:
+                queue.put(ListOrder, 60)  # possible issue if no space for 60 seconds
+            except Queue.Full:
+                print>> log, "work_producer: queue full"
+                pass
+            T.timeit("Put")
+
+        SharedListIsland = "%s.ListIslands" % (IdSharedMem)
+        print "NIslands = ", NIslands
+        ListArrayIslands = [np.array(ListIslands[iIsland]) for iIsland in range(NIslands)]
+        NpShared.PackListArray(SharedListIsland, ListArrayIslands)
+        T.timeit("Pack0")
+        SharedBestIndiv = "%s.ListBestIndiv" % (IdSharedMem)
+        NpShared.PackListArray(SharedBestIndiv, ListBestIndiv)
+        T.timeit("Pack1")
+
+
+def deconv_island_worker(m_work_queue, m_result_queue, GD, IdSharedMem,
+                         FreqsInfo, Dirty, CubeVariablePSF):
+
+    pill = True
+    # While no poisoned pill has been given grab items from the queue.
+    while pill:
+        try:
+            # Get queue item, or timeout and check if pill perscribed.
+            iIsland, FacetID, JonesNorm = m_work_queue.get(True, 5)
+        except Queue.Empty:
+            print>> log, "grid_worker: empty worker queue"
+            pass
+        else:
+            if iIsland == "POISON-E":
+                pill = False  # The poisoned pill to stop the worker
+                break
+            else:
+                # iIsland=DicoOrder["iIsland"]
+                # FacetID=DicoOrder["FacetID"]
+                # JonesNorm=DicoOrder["JonesNorm"]
+
+                SharedListIsland = "%s.ListIslands" % (IdSharedMem)
+                ThisPixList = NpShared.UnPackListArray(SharedListIsland)[iIsland].tolist()
+
+                SharedBestIndiv = "%s.ListBestIndiv" % (IdSharedMem)
+                IslandBestIndiv = NpShared.UnPackListArray(SharedBestIndiv)[iIsland]
+
+                #CubeVariablePSF = NpShared.GiveArray("%s.CubeVariablePSF" %
+                                                     #IdSharedMem)
+                PSF = CubeVariablePSF[FacetID]
+                NGen = GD["GAClean"]["NMaxGen"]
+                NIndiv = GD["GAClean"]["NSourceKin"]
+
+                ListPixParms = ThisPixList
+                ListPixData = ThisPixList
+                dx = GD["GAClean"]["NEnlargeData"]
+                if dx > 0:
+                    IncreaseIslandMachine = ClassIncreaseIsland.ClassIncreaseIsland()
+                    ListPixData = IncreaseIslandMachine.IncreaseIsland(ListPixData, dx=dx)
+
+                    # if island lies inside image
+                    try:
+                        nch = FreqsInfo["MeanJonesBand"][FacetID].size
+                        WeightMeanJonesBand = FreqsInfo["MeanJonesBand"][FacetID].reshape((nch, 1, 1, 1))
+                        WeightMueller = WeightMeanJonesBand.ravel()
+                        WeightMuellerSignal = np.sqrt(WeightMueller * FreqsInfo["WeightChansImages"].ravel())
+
+                        CEv = ClassEvolveGA(Dirty,
+                                            PSF,
+                                            FreqsInfo,
+                                            ListPixParms=ListPixParms,
+                                            ListPixData=ListPixData,
+                                            IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
+                                            GD=GD,
+                                            WeightFreqBands=WeightMuellerSignal)
+                        Model = CEv.main(NGen=NGen, NIndiv=NIndiv, DoPlot=False)
+
+                        Model = np.array(Model).copy()#/np.sqrt(JonesNorm)
+                        #Model*=CEv.ArrayMethodsMachine.Gain
+
+                        del(CEv)
+
+                        NpShared.ToShared("%s.FitIsland_%5.5i" %
+                                          (IdSharedMem, iIsland), Model)
+
+                        #print "Current process: %s [%s left]"%(str(multiprocessing.current_process()),str(self.work_queue.qsize()))
+
+                        m_result_queue.put({"Success": True, "iIsland": iIsland})
+
+                    except Exception, e:
+                        print "Exception : %s" % str(e)
+                        m_result_queue.put({"Success": False})
+
 
 class ClassImageDeconvMachine():
-    def __init__(self,Gain=0.3,
-                 MaxMinorIter=100,NCPU=psutil.cpu_count(),
-                 CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
-                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,IdSharedMem="",
+    def __init__(self, Gain=0.3,
+                 MaxMinorIter=100, NCPU=psutil.cpu_count(),
+                 CycleFactor=2.5, FluxThreshold=None, RMSFactor=3, PeakFactor=0,
+                 GD=None, SearchMaxAbs=1, CleanMaskImage=None, IdSharedMem="",
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
-        self.SearchMaxAbs=SearchMaxAbs
-        self.ModelImage=None
-        self.MaxMinorIter=MaxMinorIter
-        self.NCPU=NCPU
-        self.Chi2Thr=10000
-        self.MaskArray=None
-        self.GD=GD
-        self.IdSharedMem=IdSharedMem
-        self.SubPSF=None
-        self.MultiFreqMode=(self.GD["MultiFreqs"]["NFreqBands"]>1)
+        self.SearchMaxAbs = SearchMaxAbs
+        self.ModelImage = None
+        self.MaxMinorIter = MaxMinorIter
+        self.NCPU = NCPU
+        self.Chi2Thr = 10000
+        self.MaskArray = None
+        self.GD = GD
+        self.IdSharedMem = IdSharedMem
+        self.SubPSF = None
+        self.MultiFreqMode = (self.GD["MultiFreqs"]["NFreqBands"] > 1)
         self.FluxThreshold = FluxThreshold
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
-        self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
-        self.ModelMachine=ClassModelMachineGA.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
+        self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=Gain)
+        self.ModelMachine = ClassModelMachineGA.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
         # reset overall iteration counter
         self._niter = 0
-        self.PSFCross=None
+        self.PSFCross = None
 
         if CleanMaskImage is not None:
-            print>>log, "Reading mask image: %s"%CleanMaskImage
-            MaskArray=image(CleanMaskImage).getdata()
-            nch,npol,_,_=MaskArray.shape
-            self._MaskArray=np.zeros(MaskArray.shape,np.bool8)
+            print>>log, "Reading mask image: %s" % CleanMaskImage
+            MaskArray = image(CleanMaskImage).getdata()
+            nch, npol, _, _ = MaskArray.shape
+            self._MaskArray = np.zeros(MaskArray.shape, np.bool8)
             for ch in range(nch):
                 for pol in range(npol):
-                    self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
-            self.MaskArray=self._MaskArray[0]
-            self.IslandArray=np.zeros_like(self._MaskArray)
-            self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
+                    self._MaskArray[ch, pol, :, :] = np.bool8(1 - MaskArray[ch, pol].T[::-1].copy())[:, :]
+            self.MaskArray = self._MaskArray[0]
+            self.IslandArray = np.zeros_like(self._MaskArray)
+            self.IslandHasBeenDone = np.zeros_like(self._MaskArray)
         else:
             raise NotImplementedError("You have to provide a mask image for GAClean")
 
+    def GiveModelImage(self, *args): return self.ModelMachine.GiveModelImage(*args)
 
+    def setSideLobeLevel(self, SideLobeLevel, OffsetSideLobe):
+        self.SideLobeLevel = SideLobeLevel
+        self.OffsetSideLobe = OffsetSideLobe
 
-
-    def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
-
-    def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
-        self.SideLobeLevel=SideLobeLevel
-        self.OffsetSideLobe=OffsetSideLobe
-
-
-    def SetPSF(self,DicoVariablePSF):
-        self.PSFServer=ClassPSFServer(self.GD)
-        DicoVariablePSF["CubeVariablePSF"]=NpShared.ToShared("%s.CubeVariablePSF"%self.IdSharedMem,DicoVariablePSF["CubeVariablePSF"])
+    def SetPSF(self, DicoVariablePSF):
+        self.PSFServer = ClassPSFServer(self.GD)
+        DicoVariablePSF["CubeVariablePSF"] = NpShared.ToShared("%s.CubeVariablePSF" %
+                                                               self.IdSharedMem,
+                                                               DicoVariablePSF["CubeVariablePSF"])
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
         #self.DicoPSF=DicoPSF
-        self.DicoVariablePSF=DicoVariablePSF
+        self.DicoVariablePSF = DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
-        self.ModelMachine.setRefFreq(self.PSFServer.RefFreq,self.PSFServer.AllFreqs)
+        self.ModelMachine.setRefFreq(self.PSFServer.RefFreq,
+                                     self.PSFServer.AllFreqs)
 
-    def Init(self,**kwargs):
+    def Init(self, **kwargs):
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
 
-    def AdaptArrayShape(self,A,Nout):
-        nch,npol,Nin,_=A.shape
-        if Nin==Nout:
+    def AdaptArrayShape(self, A, Nout):
+        nch, npol, Nin, _ = A.shape
+        if Nin == Nout:
             return A
-        elif Nin<Nout:
-            off=(Nout-Nin)/2
-            B=np.zeros((nch,npol,Nout,Nout),A.dtype)
-            B[:,:,off:off+Nin,off:off+Nin]=A
+        elif Nin < Nout:
+            off = (Nout - Nin)/2
+            B = np.zeros((nch, npol, Nout, Nout), A.dtype)
+            B[:, :, off:off+Nin, off:off+Nin] = A
             return B
 
+    def SetDirty(self, DicoDirty):
+        DicoDirty["ImagData"] = NpShared.ToShared("%s.Dirty.ImagData" %
+                                                  self.IdSharedMem,
+                                                  DicoDirty["ImagData"])
+        DicoDirty["MeanImage"] = NpShared.ToShared("%s.Dirty.MeanImage" %
+                                                 self.IdSharedMem,
+                                                 DicoDirty["MeanImage"])
+        self.DicoDirty = DicoDirty
+        self._Dirty = self.DicoDirty["ImagData"]
+        self._MeanDirty = self.DicoDirty["MeanImage"]
+        NPSF = self.PSFServer.NPSF
+        _, _, NDirty, _ = self._Dirty.shape
 
-    def SetDirty(self,DicoDirty):
-        DicoDirty["ImagData"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImagData"])
-        DicoDirty["MeanImage"]=NpShared.ToShared("%s.Dirty.MeanImage"%self.IdSharedMem,DicoDirty["MeanImage"])
-        self.DicoDirty=DicoDirty
-        self._Dirty=self.DicoDirty["ImagData"]
-        self._MeanDirty=self.DicoDirty["MeanImage"]
-        NPSF=self.PSFServer.NPSF
-        _,_,NDirty,_=self._Dirty.shape
+        off = (NPSF-NDirty)/2
 
-        off=(NPSF-NDirty)/2
+        _, _, NMask, _ = self._MaskArray.shape
+        if NMask != NDirty:
+            print>>log, "Adapt mask shape"
+            self._MaskArray = self.AdaptArrayShape(self._MaskArray, NDirty)
+            self.MaskArray = self._MaskArray[0]
+            self.IslandArray = np.zeros_like(self._MaskArray)
+            self.IslandHasBeenDone = np.zeros_like(self._MaskArray)
 
-        _,_,NMask,_=self._MaskArray.shape
-        if NMask!=NDirty:
-            print>>log,"Adapt mask shape"
-            self._MaskArray=self.AdaptArrayShape(self._MaskArray,NDirty)
-            self.MaskArray=self._MaskArray[0]
-            self.IslandArray=np.zeros_like(self._MaskArray)
-            self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
+        self.DirtyExtent = (off, off+NDirty, off, off+NDirty)
 
-        self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
-
-        if self.ModelImage==None:
-            self._ModelImage=np.zeros_like(self._Dirty)
+        if self.ModelImage is None:
+            self._ModelImage = np.zeros_like(self._Dirty)
         self.ModelMachine.setModelShape(self._Dirty.shape)
-        if self.MaskArray==None:
-            self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
-            self.IslandArray=np.zeros_like(self._MaskArray)
-            self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
+        if self.MaskArray is None:
+            self._MaskArray = np.zeros(self._Dirty.shape, dtype=np.bool8)
+            self.IslandArray = np.zeros_like(self._MaskArray)
+            self.IslandHasBeenDone = np.zeros_like(self._MaskArray)
 
-    def CalcCrossIslandPSF(self,ListIslands):
-        print>>log,"  calculating global islands cross-contamination"
-        PSF=np.mean(self.PSFServer.DicoVariablePSF["MeanFacetPSF"][:,0],axis=0)#self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
+    def CalcCrossIslandPSF(self, ListIslands):
+        print>>log, "  calculating global islands cross-contamination"
+        PSF = np.mean(self.PSFServer.DicoVariablePSF["MeanFacetPSF"][:, 0], axis=0) #self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
 
-        nPSF,_=PSF.shape
-        xcPSF,ycPSF=nPSF/2,nPSF/2
+        nPSF, _ = PSF.shape
+        xcPSF, ycPSF = nPSF/2, nPSF/2
 
-        IN=lambda x: ((x>=0)&(x<nPSF))
+        IN = lambda x: ((x >= 0) & (x < nPSF))
 
 
-        NIslands=len(ListIslands)
+        NIslands = len(ListIslands)
         # NDone=0
         # NJobs=NIslands
         # pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Calc Cross Contam.", HeaderSize=10,TitleSize=13)
@@ -169,100 +293,89 @@ class ClassImageDeconvMachine():
         # PSFCross+=PSFCross.T
         # PSFCross.flat[0::NIslands+1]=Diag.flat[0::NIslands+1]
 
-        xMean=np.zeros((NIslands,),np.int32)
-        yMean=xMean.copy()
+        xMean = np.zeros((NIslands, ), np.int32)
+        yMean = xMean.copy()
         for iIsland in range(NIslands):
-            x0,y0=np.array(ListIslands[iIsland]).T
-            xc0,yc0=int(np.mean(x0)),int(np.mean(y0))
-            xMean[iIsland]=xc0
-            yMean[iIsland]=yc0
+            x0, y0 = np.array(ListIslands[iIsland]).T
+            xc0, yc0 = int(np.mean(x0)), int(np.mean(y0))
+            xMean[iIsland] = xc0
+            yMean[iIsland] = yc0
 
-        PSFCross=np.zeros((NIslands,NIslands),np.float32)
-        dx=xMean.reshape((NIslands,1))-xMean.reshape((1,NIslands))+xcPSF
-        dy=yMean.reshape((NIslands,1))-yMean.reshape((1,NIslands))+xcPSF
-        indPSF=np.arange(NIslands**2)
-        Cx=((dx>=0)&(dx<nPSF))
-        Cy=((dy>=0)&(dy<nPSF))
-        C=(Cx&Cy)
-        indPSF_sel=indPSF[C.ravel()]
-        indPixPSF=dx.ravel()[C.ravel()]*nPSF+dy.ravel()[C.ravel()]
-        PSFCross.flat[indPSF_sel]=np.abs(PSF.flat[indPixPSF.ravel()])
+        PSFCross = np.zeros((NIslands, NIslands), np.float32)
+        dx = xMean.reshape((NIslands, 1)) - xMean.reshape((1, NIslands)) + xcPSF
+        dy = yMean.reshape((NIslands, 1)) - yMean.reshape((1, NIslands)) + xcPSF
+        indPSF = np.arange(NIslands**2)
+        Cx = ((dx >= 0) & (dx < nPSF))
+        Cy = ((dy >= 0) & (dy < nPSF))
+        C = (Cx & Cy)
+        indPSF_sel = indPSF[C.ravel()]
+        indPixPSF = dx.ravel()[C.ravel()] * nPSF+dy.ravel()[C.ravel()]
+        PSFCross.flat[indPSF_sel] = np.abs(PSF.flat[indPixPSF.ravel()])
+        self.PSFCross = PSFCross
 
-
-
-
-        self.PSFCross=PSFCross
-
-    def GiveNearbyIsland(self,DicoIsland,iIsland):
-        Th=0.05
-        indNearbyIsland=np.where((self.PSFCross[iIsland])>Th)[0]
-
+    def GiveNearbyIsland(self, DicoIsland, iIsland):
+        Th = 0.05
+        indNearbyIsland = np.where((self.PSFCross[iIsland]) > Th)[0]
 
         #Th=0.3
         #Flux=self.CrossFluxContrib[iIsland,iIsland]
         #C0=(self.CrossFluxContrib[iIsland] > Flux*Th)
         #indNearbyIsland=np.where(C0)[0]
 
-        ii=0
+        ii = 0
         #print DicoIsland.keys()
         #print>>log,"Looking around island #%i"%(iIsland)
         for jIsland in indNearbyIsland:
             #if jIsland in DicoIsland.keys():
             try:
-                Island=DicoIsland[jIsland]
+                Island = DicoIsland[jIsland]
                 #print>>log,"  merging island #%i -> #%i"%(jIsland,iIsland)
                 del(DicoIsland[jIsland])
-                SubIslands=self.GiveNearbyIsland(DicoIsland,jIsland)
-                if SubIslands!=None:
-                    Island+=SubIslands
+                SubIslands = self.GiveNearbyIsland(DicoIsland, jIsland)
+                if SubIslands != None:
+                    Island += SubIslands
                 return Island
             except:
                 continue
-
-
         #print>>log,"  could not find island #%i"%(iIsland)
 
         return None
 
-
-
-
-    def CalcCrossIslandFlux(self,ListIslands):
-        if self.PSFCross==None:
+    def CalcCrossIslandFlux(self, ListIslands):
+        if self.PSFCross == None:
             self.CalcCrossIslandPSF(ListIslands)
-        NIslands=len(ListIslands)
-        print>>log,"  grouping cross contaninating islands..."
+        NIslands = len(ListIslands)
+        print>>log, "  grouping cross contaninating islands..."
 
-        MaxIslandFlux=np.zeros((NIslands,),np.float32)
-        DicoIsland={}
+        MaxIslandFlux = np.zeros((NIslands, ), np.float32)
+        DicoIsland = {}
 
-        Dirty=self.DicoDirty["MeanImage"]
-
+        Dirty = self.DicoDirty["MeanImage"]
 
         for iIsland in range(NIslands):
 
-            x0,y0=np.array(ListIslands[iIsland]).T
-            PixVals0=Dirty[0,0,x0,y0]
-            MaxIslandFlux[iIsland]=np.max(PixVals0)
-            DicoIsland[iIsland]=ListIslands[iIsland]
+            x0, y0 = np.array(ListIslands[iIsland]).T
+            PixVals0 = Dirty[0, 0, x0, y0]
+            MaxIslandFlux[iIsland] = np.max(PixVals0)
+            DicoIsland[iIsland] = ListIslands[iIsland]
 
-        self.CrossFluxContrib=self.PSFCross*MaxIslandFlux.reshape((1,NIslands))
+        self.CrossFluxContrib = self.PSFCross * MaxIslandFlux.reshape((1, NIslands))
 
-
-        NDone=0
-        NJobs=NIslands
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Group islands", HeaderSize=10,TitleSize=13)
+        NDone = 0
+        NJobs = NIslands
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ',
+                           Title=" Group islands", HeaderSize=10, TitleSize=13)
         pBAR.disable()
-        pBAR.render(0, '%4i/%i' % (0,NJobs))
+        pBAR.render(0, '%4i/%i' % (0, NJobs))
 
-        Th=0.05
-        ListIslandMerged=[]
+        Th = 0.05
+        ListIslandMerged = []
         for iIsland in range(NIslands):
-            NDone+=1
-            intPercent=int(100*  NDone / float(NJobs))
-            pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+            NDone += 1
+            intPercent = int(100 *  NDone / float(NJobs))
+            pBAR.render(intPercent, '%4i/%i' % (NDone, NJobs))
 
-            ThisIsland=self.GiveNearbyIsland(DicoIsland,iIsland)
+            ThisIsland = self.GiveNearbyIsland(DicoIsland, iIsland)
 
             # indiIsland=np.where((self.PSFCross[iIsland])>Th)[0]
             # ThisIsland=[]
@@ -276,41 +389,38 @@ class ClassImageDeconvMachine():
             #         ThisIsland.append(DicoIsland[jIsland][iPix])
             #     del(DicoIsland[jIsland])
 
-
-            if ThisIsland!=None:
+            if ThisIsland != None:
                 ListIslandMerged.append(ThisIsland)
 
-        print>>log,"    have grouped %i --> %i islands"%(NIslands, len(ListIslandMerged))
+        print>>log, "    have grouped %i --> %i islands" % \
+                    (NIslands, len(ListIslandMerged))
 
         return ListIslandMerged
 
-
-
-    def SearchIslands(self,Threshold):
-        print>>log,"Searching Islands"
-        Dirty=self.DicoDirty["MeanImage"]
-        self.IslandArray[0,0]=(Dirty[0,0]>Threshold)|(self.IslandArray[0,0])
+    def SearchIslands(self, Threshold):
+        print>>log, "Searching Islands"
+        Dirty = self.DicoDirty["MeanImage"]
+        self.IslandArray[0, 0] = (Dirty[0, 0] > Threshold) | (self.IslandArray[0, 0])
         #MaskImage=(self.IslandArray[0,0])&(np.logical_not(self._MaskArray[0,0]))
         #MaskImage=(np.logical_not(self._MaskArray[0,0]))
-        MaskImage=(np.logical_not(self._MaskArray[0,0]))
-        Islands=ClassIslands.ClassIslands(Dirty[0,0],MaskImage=MaskImage,
-                                          MinPerIsland=0,DeltaXYMin=0)
+        MaskImage = (np.logical_not(self._MaskArray[0, 0]))
+        Islands = ClassIslands.ClassIslands(Dirty[0, 0], MaskImage=MaskImage,
+                                            MinPerIsland=0, DeltaXYMin=0)
         Islands.FindAllIslands()
 
-        ListIslands=Islands.LIslands
+        ListIslands = Islands.LIslands
 
-        print>>log,"  found %i islands"%len(ListIslands)
-        dx=self.GD["GAClean"]["NEnlargePars"]
-        if dx>0:
-            print>>log,"  increase their sizes by %i pixels"%dx
-            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+        print>>log, "  found %i islands" % len(ListIslands)
+        dx = self.GD["GAClean"]["NEnlargePars"]
+        if dx > 0:
+            print>>log, "  increase their sizes by %i pixels" % dx
+            IncreaseIslandMachine = ClassIncreaseIsland.ClassIncreaseIsland()
             for iIsland in range(len(ListIslands)):#self.NIslands):
-                ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
+                ListIslands[iIsland] = IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland], dx=dx)
 
         print "NIslands = ", len(ListIslands)
-        ListIslands=self.CalcCrossIslandFlux(ListIslands)
-        print "NIslands = ",len(ListIslands)
-
+        ListIslands = self.CalcCrossIslandFlux(ListIslands)
+        print "NIslands = ", len(ListIslands)
 
         # FluxIslands=[]
         # for iIsland in range(len(ListIslands)):
@@ -320,18 +430,17 @@ class ClassImageDeconvMachine():
 
         # ListIslandsSort=[ListIslands[i] for i in ind]
 
-
         # ListIslands=self.CalcCrossIslandFlux(ListIslandsSort)
-        self.ListIslands=[]
+        self.ListIslands = []
 
         for iIsland in range(len(ListIslands)):
-            x,y=np.array(ListIslands[iIsland]).T
-            PixVals=Dirty[0,0,x,y]
-            DoThisOne=False
+            x, y = np.array(ListIslands[iIsland]).T
+            PixVals = Dirty[0, 0, x, y]
+            DoThisOne = False
 
-            MaxIsland=np.max(np.abs(PixVals))
+            MaxIsland = np.max(np.abs(PixVals))
 
-            if (MaxIsland>(3.*self.RMS))|(MaxIsland>Threshold):
+            if (MaxIsland > (3.*self.RMS)) | (MaxIsland > Threshold):
                 self.ListIslands.append(ListIslands[iIsland])
 
             # ###############################
@@ -342,35 +451,33 @@ class ClassImageDeconvMachine():
             #     self.ListIslands.append(ListIslands[iIsland])
             # ###############################
 
-        self.NIslands=len(self.ListIslands)
-        print>>log,"  selected %i islands [out of %i] with peak flux > %.3g Jy"%(self.NIslands,len(ListIslands),Threshold)
+        self.NIslands = len(self.ListIslands)
+        print>>log, "  selected %i islands [out of %i] with peak flux > %.3g Jy" % \
+                    (self.NIslands, len(ListIslands), Threshold)
 
+        Sz = np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
+        ind = np.argsort(Sz)[::-1]
 
-        Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
-        ind=np.argsort(Sz)[::-1]
+        ListIslandsOut = [self.ListIslands[ind[i]] for i in ind]
+        self.ListIslands = ListIslandsOut
 
-        ListIslandsOut=[self.ListIslands[ind[i]] for i in ind]
-        self.ListIslands=ListIslandsOut
+    def setChannel(self, ch=0):
+        self.Dirty = self._MeanDirty[ch]
+        self.ModelImage = self._ModelImage[ch]
+        self.MaskArray = self._MaskArray[ch]
 
-
-
-    def setChannel(self,ch=0):
-        self.Dirty=self._MeanDirty[ch]
-        self.ModelImage=self._ModelImage[ch]
-        self.MaskArray=self._MaskArray[ch]
-
-
-    def GiveThreshold(self,Max):
+    def GiveThreshold(self, Max):
         return ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*Max if self.CycleFactor else 0
 
-    def Deconvolve(self,*args,**kwargs):
+    def Deconvolve(self, *args, **kwargs):
         #return self.DeconvolveSerial(*args, **kwargs)
         return self.DeconvolveParallel(*args, **kwargs)
 
     def DeconvolveSerial(self, ch=0):
         """
         Runs minor cycle over image channel 'ch'.
-        initMinor is number of minor iteration (keeps continuous count through major iterations)
+        initMinor is number of minor iteration
+        (keeps continuous count through major iterations)
         Nminor is max number of minor iteration
 
         Returns tuple of: return_code,continue,updated
@@ -383,12 +490,12 @@ class ClassImageDeconvMachine():
 
         self.setChannel(ch)
 
-        _,npix,_=self.Dirty.shape
-        xc=(npix)/2
+        _, npix, _ = self.Dirty.shape
+        xci = (npix)/2
 
-        npol,_,_=self.Dirty.shape
+        npol, _, _ = self.Dirty.shape
 
-        m0,m1=self.Dirty[0].min(),self.Dirty[0].max()
+        m0, m1 = self.Dirty[0].min(), self.Dirty[0].max()
         # pylab.clf()
         # pylab.subplot(1,2,1)
         # pylab.imshow(self.Dirty[0],interpolation="nearest",vmin=m0,vmax=m1)
@@ -396,40 +503,51 @@ class ClassImageDeconvMachine():
         # pylab.show(False)
         # pylab.pause(0.1)
 
-        DoAbs=int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
-        print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
+        DoAbs = int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
+        print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]" % \
+                    (self._niter, self.MaxMinorIter, DoAbs)
 
-        NPixStats=1000
-        RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
-        RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
-        self.RMS=RMS
+        NPixStats = 1000
+        RandomInd = np.int64(np.random.rand(NPixStats) * npix**2)
+        RMS = np.std(np.real(self.Dirty.ravel()[RandomInd]))
+        self.RMS = RMS
 
         self.GainMachine.SetRMS(RMS)
 
         Fluxlimit_RMS = self.RMSFactor*RMS
 
-        x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
+        x, y, MaxDirty = NpParallel.A_whereMax(self.Dirty, NCPU=self. NCPU,
+                                               DoAbs=DoAbs, Mask=self.MaskArray)
         #MaxDirty=np.max(np.abs(self.Dirty))
         #Fluxlimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
         #Fluxlimit_Sidelobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
         Fluxlimit_Peak = MaxDirty*self.PeakFactor
         Fluxlimit_Sidelobe = self.GiveThreshold(MaxDirty)
 
-        mm0,mm1=self.Dirty.min(),self.Dirty.max()
+        mm0, mm1 = self.Dirty.min(), self.Dirty.max()
 
         # work out uper threshold
-        StopFlux = max(Fluxlimit_Peak, Fluxlimit_RMS, Fluxlimit_Sidelobe, Fluxlimit_Peak, self.FluxThreshold)
+        StopFlux = max(Fluxlimit_Peak, Fluxlimit_RMS, Fluxlimit_Sidelobe,
+                       Fluxlimit_Peak, self.FluxThreshold)
 
-        print>>log, "    Dirty image peak flux      = %10.6f Jy [(min, max) = (%.3g, %.3g) Jy]"%(MaxDirty,mm0,mm1)
-        print>>log, "      RMS-based threshold      = %10.6f Jy [rms = %.3g Jy; RMS factor %.1f]"%(Fluxlimit_RMS, RMS, self.RMSFactor)
-        print>>log, "      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor)
-        print>>log, "      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor)
-        print>>log, "      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold)
-        print>>log, "    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty)
+        print>>log, "    Dirty image peak flux      \
+                    = %10.6f Jy [(min, max) = (%.3g, %.3g) Jy]" % \
+                    (MaxDirty, mm0, mm1)
+        print>>log, "      RMS-based threshold       \
+                    = % 10.6f Jy [rms = %.3g Jy; RMS factor %.1f]" % \
+                    (Fluxlimit_RMS, RMS, self.RMSFactor)
+        print>>log, "      Sidelobe-based threshold \
+                    = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]" % \
+                    (Fluxlimit_Sidelobe, self.SideLobeLevel, self.CycleFactor)
+        print>>log, "      Peak-based threshold    \
+                     = %10.6f Jy [%.3f of peak]" % \
+                    (Fluxlimit_Peak, self.PeakFactor)
+        print>>log, "      Absolute threshold      \
+                    = % 10.6f Jy" % (self.FluxThreshold)
+        print>>log, "    Stopping flux             \
+                     = %10.6f Jy [%.3f of peak ]" % (StopFlux, StopFlux/MaxDirty)
 
-
-        MaxModelInit=np.max(np.abs(self.ModelImage))
-
+        MaxModelInit = np.max(np.abs(self.ModelImage))
 
         # Fact=4
         # self.BookKeepShape=(npix/Fact,npix/Fact)
@@ -437,42 +555,43 @@ class ClassImageDeconvMachine():
         # NPixBook,_=self.BookKeepShape
         # FactorBook=float(NPixBook)/npix
 
-        T=ClassTimeIt.ClassTimeIt()
+        T = ClassTimeIt.ClassTimeIt()
         T.disable()
 
-        x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
+        x, y, ThisFlux = NpParallel.A_whereMax(self.Dirty, NCPU=self.NCPU,
+                                               DoAbs=DoAbs, Mask=self.MaskArray)
 
         if ThisFlux < StopFlux:
-            print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" )
+            print>>log, ModColor.Str("    Initial maximum peak %g Jy below \
+                                     threshold, we're done here" % (ThisFlux),
+                                     col="green")
             return "FluxThreshold", False, False
 
         self.SearchIslands(StopFlux)
 
         for iIsland in range(self.NIslands):
-            ThisPixList=self.ListIslands[iIsland]
-            print>>log,"  Fitting island #%4.4i with %i pixels"%(iIsland,len(ThisPixList))
+            ThisPixList = self.ListIslands[iIsland]
+            print>>log, "  Fitting island #%4.4i with %i pixels" % \
+                        (iIsland, len(ThisPixList))
 
-            XY=np.array(ThisPixList,dtype=np.float32)
-            xm,ym=np.int64(np.mean(np.float32(XY),axis=0))
+            XY = np.array(ThisPixList, dtype=np.float32)
+            xm, ym = np.int64(np.mean(np.float32(XY), axis=0))
 
-            FacetID=self.PSFServer.giveFacetID2(xm,ym)
-            PSF=self.DicoVariablePSF["CubeVariablePSF"][FacetID]
+            FacetID = self.PSFServer.giveFacetID2(xm, ym)
+            PSF = self.DicoVariablePSF["CubeVariablePSF"][FacetID]
             # self.DicoVariablePSF["CubeMeanVariablePSF"][FacetID]
 
             # FreqsInfo={"freqs":self.DicoVariablePSF["freqs"],
             #            "WeightChansImages":self.DicoVariablePSF["WeightChansImages"]}
 
-            FreqsInfo=self.PSFServer.DicoMappingDesc
+            FreqsInfo = self.PSFServer.DicoMappingDesc
 
+            nchan, npol, _, _ = self._Dirty.shape
+            JonesNorm = (self.DicoDirty["NormData"][:, :, xm, ym]).reshape((nchan, npol, 1, 1))
+            W = self.DicoDirty["WeightChansImages"]
+            JonesNorm = np.sum(JonesNorm * W.reshape((nchan, 1, 1, 1)), axis=0).reshape((1, npol, 1, 1))
 
-            nchan,npol,_,_=self._Dirty.shape
-            JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))
-            W=self.DicoDirty["WeightChansImages"]
-            JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
-
-
-
-            IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
+            IslandBestIndiv = self.ModelMachine.GiveIndividual(ThisPixList)
 
             # ################################
             # DicoSave={"Dirty":self._Dirty,
@@ -490,31 +609,25 @@ class ClassImageDeconvMachine():
             # print "saving ok"
             # ################################
 
-            nch=nchan
-            self.FreqsInfo=FreqsInfo
-            WeightMeanJonesBand=self.FreqsInfo["MeanJonesBand"][FacetID].reshape((nch,1,1,1))
-            WeightMueller=WeightMeanJonesBand.ravel()
-            WeightMuellerSignal=WeightMueller*self.FreqsInfo["WeightChansImages"].ravel()
+            nch = nchan
+            self.FreqsInfo = FreqsInfo
+            WeightMeanJonesBand = self.FreqsInfo["MeanJonesBand"][FacetID].reshape((nch, 1, 1, 1))
+            WeightMueller = WeightMeanJonesBand.ravel()
+            WeightMuellerSignal = WeightMueller * self.FreqsInfo["WeightChansImages"].ravel()
 
-            CEv=ClassEvolveGA(self._Dirty,PSF,FreqsInfo,ListPixParms=ThisPixList,
-                              ListPixData=ThisPixList,IslandBestIndiv=IslandBestIndiv,
-                              GD=self.GD,WeightFreqBands=WeightMuellerSignal)
-            Model=CEv.main(NGen=100,DoPlot=True)#False)
+            CEv = ClassEvolveGA(self._Dirty, PSF, FreqsInfo,
+                                ListPixParms=ThisPixList, ListPixData=ThisPixList,
+                                IslandBestIndiv=IslandBestIndiv, GD=self.GD,
+                                WeightFreqBands=WeightMuellerSignal)
+            Model = CEv.main(NGen=100, DoPlot=True)#False)
             #Model=CEv.main(NGen=100,DoPlot=False)
-
 
             #self.ModelMachine.setParamMachine(CEv.ArrayMethodsMachine.PM)
             #Threshold=self.GiveThreshold(np.max(np.abs(Model)))
             #self.ModelMachine.setThreshold(Threshold)
-            self.ModelMachine.AppendIsland(ThisPixList,Model)
-
-
+            self.ModelMachine.AppendIsland(ThisPixList, Model)
 
         return "MaxIter", True, True   # stop deconvolution but do update model
-
-
-
-
 
     def DeconvolveParallel(self, ch=0):
         if self._niter >= self.MaxMinorIter:
@@ -522,47 +635,56 @@ class ClassImageDeconvMachine():
 
         self.setChannel(ch)
 
-        _,npix,_=self.Dirty.shape
-        xc=(npix)/2
+        _, npix, _ = self.Dirty.shape
+        xc = (npix)/2
 
-        npol,_,_=self.Dirty.shape
+        npol, _, _ = self.Dirty.shape
 
-        m0,m1=self.Dirty[0].min(),self.Dirty[0].max()
+        m0, m1 = self.Dirty[0].min(), self.Dirty[0].max()
 
-        DoAbs=int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
-        print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
+        DoAbs = int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
+        print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]" % \
+                    (self._niter, self.MaxMinorIter, DoAbs)
 
-        NPixStats=1000
-        RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
-        RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
-        self.RMS=RMS
+        NPixStats = 1000
+        RandomInd = np.int64(np.random.rand(NPixStats)*npix**2)
+        RMS = np.std(np.real(self.Dirty.ravel()[RandomInd]))
+        self.RMS = RMS
 
         self.GainMachine.SetRMS(RMS)
 
         Fluxlimit_RMS = self.RMSFactor*RMS
 
-        x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
+        x, y, MaxDirty = NpParallel.A_whereMax(self.Dirty, NCPU=self.NCPU,
+                                               DoAbs=DoAbs, Mask=self.MaskArray)
         #MaxDirty=np.max(np.abs(self.Dirty))
         #Fluxlimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
         #Fluxlimit_Sidelobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
         Fluxlimit_Peak = MaxDirty*self.PeakFactor
         Fluxlimit_Sidelobe = self.GiveThreshold(MaxDirty)
 
-        mm0,mm1=self.Dirty.min(),self.Dirty.max()
+        mm0, mm1 = self.Dirty.min(), self.Dirty.max()
 
         # work out uper threshold
-        StopFlux = max(Fluxlimit_Peak, Fluxlimit_RMS, Fluxlimit_Sidelobe, Fluxlimit_Peak, self.FluxThreshold)
+        StopFlux = max(Fluxlimit_Peak, Fluxlimit_RMS, Fluxlimit_Sidelobe,
+                       Fluxlimit_Peak, self.FluxThreshold)
 
-        print>>log, "    Dirty image peak flux      = %10.6f Jy [(min, max) = (%.3g, %.3g) Jy]"%(MaxDirty,mm0,mm1)
-        print>>log, "      RMS-based threshold      = %10.6f Jy [rms = %.3g Jy; RMS factor %.1f]"%(Fluxlimit_RMS, RMS, self.RMSFactor)
-        print>>log, "      Sidelobe-based threshold = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]"%(Fluxlimit_Sidelobe,self.SideLobeLevel,self.CycleFactor)
-        print>>log, "      Peak-based threshold     = %10.6f Jy [%.3f of peak]"%(Fluxlimit_Peak,self.PeakFactor)
-        print>>log, "      Absolute threshold       = %10.6f Jy"%(self.FluxThreshold)
-        print>>log, "    Stopping flux              = %10.6f Jy [%.3f of peak ]"%(StopFlux,StopFlux/MaxDirty)
+        print>>log, "    Dirty image peak flux      = %10.6f Jy [(min, max) \
+                    = (%.3g, %.3g) Jy]" % (MaxDirty, mm0, mm1)
+        print>>log, "      RMS-based threshold      = %10.6f Jy \
+                    [rms = %.3g Jy; RMS factor %.1f]" % \
+                    (Fluxlimit_RMS, RMS, self.RMSFactor)
+        print>>log, "      Sidelobe-based threshold \
+                     = %10.6f Jy [sidelobe  = %.3f of peak; cycle factor %.1f]" % \
+                    (Fluxlimit_Sidelobe, self.SideLobeLevel, self.CycleFactor)
+        print>>log, "      Peak-based threshold    \
+                     = %10.6f Jy [%.3f of peak]" % (Fluxlimit_Peak, self.PeakFactor)
+        print>>log, "      Absolute threshold     \
+                    = %10.6f Jy" % (self.FluxThreshold)
+        print>>log, "    Stopping flux             \
+                     = %10.6f Jy [%.3f of peak ]" % (StopFlux, StopFlux/MaxDirty)
 
-
-        MaxModelInit=np.max(np.abs(self.ModelImage))
-
+        MaxModelInit = np.max(np.abs(self.ModelImage))
 
         # Fact=4
         # self.BookKeepShape=(npix/Fact,npix/Fact)
@@ -570,111 +692,132 @@ class ClassImageDeconvMachine():
         # NPixBook,_=self.BookKeepShape
         # FactorBook=float(NPixBook)/npix
 
-        T=ClassTimeIt.ClassTimeIt()
+        T = ClassTimeIt.ClassTimeIt()
         T.disable()
 
-        x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
+        x, y, ThisFlux = NpParallel.A_whereMax(self.Dirty, NCPU=self.NCPU,
+                                               DoAbs=DoAbs, Mask=self.MaskArray)
 
         if ThisFlux < StopFlux:
-            print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" )
+            print>>log, ModColor.Str("    Initial maximum peak %g Jy below \
+                                    threshold, we're done here" %
+                                    (ThisFlux), col="green")
             return "FluxThreshold", False, False
 
         self.SearchIslands(StopFlux)
-
 
         # ================== Parallel part
         procs = list() #list of processes that are running
         n_cpus = psutil.cpu_count() #ask the OS for the number of CPU's. Only tested without HT
         procinfo = psutil.Process() #this will be used to control CPU affinity
 
-        qlimit = n_cpus*4
-        work_queue = multiprocessing.Queue(maxsize=qlimit)
-        result_queue=multiprocessing.Queue()
+        NJobs = self.NIslands
 
-        for cpu in range(n_cpus):
-            W=WorkerDeconvIsland(work_queue,
-                                 result_queue,
-                                 self.GD,
-                                 IdSharedMem=self.IdSharedMem,
-                                 FreqsInfo=self.PSFServer.DicoMappingDesc)
-            procs.append(W)
+        if NJobs > 1000:
+            qlimit = n_cpus*8
+        else:
+            qlimit = 0
 
+        m_work_queue = multiprocessing.Queue(maxsize=qlimit)
+        m_result_queue = multiprocessing.Queue()
+        CubeVariablePSF = self.CubeVariablePSF
+        Dirty = self.Dirty
+        GD = self.GD
+        IdSharedMem = self.IdSharedMem
+        FreqsInfo = self.PSFServer.DicoMappingDesc
+        ModelMachine = self.ModelMachine
+        NIslands = self.NIslands
+        PSFServer = self.PSFServer
+        ListIslands = self.ListIslands
+        DicoDirty = self.DicoDirty
+        work_p = Process(target=work_producer,
+                         args=(m_result_queue, NIslands, ListIslands, Dirty,
+                               DicoDirty, ModelMachine, PSFServer, IdSharedMem,))
+
+        for cpu in xrange(n_cpus):
+            p = Process(target=deconv_island_worker, args=(m_work_queue,
+                                                           m_result_queue,
+                                                           GD,
+                                                           IdSharedMem,
+                                                           FreqsInfo,
+                                                           Dirty,
+                                                           CubeVariablePSF,))
+            procs.append(p)
+
+        main_core = 0  # CPU affinity placement
+        # start a pinned work producer process
+        work_p.start()
+        procinfo.cpu_affinity([n_cpus-1])
+
+        # start all processes and pin them each to a core
         for p in procs:
             p.start()
             procinfo.cpu_affinity([main_core])
-            main_core+=1
+            main_core += 1
 
-
-        print>>log, "Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolve pop.", HeaderSize=10,TitleSize=13)
+        print>>log, "Evolving %i generations of %i sourcekin" % \
+                    (self.GD["GAClean"]["NMaxGen"], self.GD["GAClean"]["NSourceKin"])
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ', \
+                           Title=" Evolve pop.", HeaderSize=10, TitleSize=13)
         #pBAR.disable()
-        pBAR.render(0, '%4i/%i' % (0,NJobs))
-
-        ListBestIndiv=[]
-        NJobs=self.NIslands
-        T=ClassTimeIt.ClassTimeIt("    ")
-        T.disable()
-        for iIsland in range(self.NIslands):
-            # print "%i/%i"%(iIsland,self.NIslands)
-            ThisPixList=self.ListIslands[iIsland]
-            XY=np.array(ThisPixList,dtype=np.float32)
-            xm,ym=np.mean(np.float32(XY),axis=0)
-            T.timeit("xm,ym")
-            nchan,npol,_,_=self._Dirty.shape
-            JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))
-            W=self.DicoDirty["WeightChansImages"]
-            JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
-            T.timeit("JonesNorm")
-
-            IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
-            T.timeit("GiveIndividual")
-            ListBestIndiv.append(IslandBestIndiv)
-            FacetID=self.PSFServer.giveFacetID2(xm,ym)
-            T.timeit("FacetID")
-
-            DicoOrder={"iIsland":iIsland,
-                       "FacetID":FacetID,
-                       "JonesNorm":JonesNorm}
-
-            ListOrder=[iIsland,FacetID,JonesNorm.flat[0]]
+        pBAR.render(0, '%4i/%i' % (0, NJobs))
 
 
-            work_queue.put(ListOrder)
-            T.timeit("Put")
+        iResult = 0
 
-        SharedListIsland="%s.ListIslands"%(self.IdSharedMem)
-        print "NIslands = ", self.NIslands
-        ListArrayIslands=[np.array(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)]
-        NpShared.PackListArray(SharedListIsland,ListArrayIslands)
-        T.timeit("Pack0")
-        SharedBestIndiv="%s.ListBestIndiv"%(self.IdSharedMem)
-        NpShared.PackListArray(SharedBestIndiv,ListBestIndiv)
-        T.timeit("Pack1")
-        iResult=0
         while iResult < NJobs:
-            DicoResult=None
-            if result_queue.qsize()!=0:
-                try:
-                    DicoResult=result_queue.get(True,10)
-                except:
-                    pass
+            DicoResult = {}
+            try:
+                DicoResult = m_result_queue.get(True, 10)
+            except Queue.Empty:
+                pass
+                print>> log, "checking for dead workers"
+                # shoot the zombie process
+                multiprocessing.active_children()
+                # check for dead workers
+                pids_to_restart = []
+                for w in procs:
+                    if not w.is_alive():
+                        pids_to_restart[w]
+                        raise RuntimeError, "a worker process has died on \
+                            us with exit code %d. This is probably a bug." \
+                            % w.exitcode
 
-            iResult+=1
-            NDone=iResult
-            intPercent=int(100*  NDone / float(NJobs))
-            pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+                        for id in pids_to_restart:
+                            print>> log, "need to restart worker %d." % id
+                            pass
 
-            if DicoResult["Success"]:
-                iIsland=DicoResult["iIsland"]
-                ThisPixList=self.ListIslands[iIsland]
-                SharedIslandName="%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland)
-                Model=NpShared.GiveArray(SharedIslandName)
-                self.ModelMachine.AppendIsland(ThisPixList,Model)
+            if len(DicoResult) != 0 and DicoResult["Success"]:
+                iResult += 1
+                iIsland = DicoResult["iIsland"]
+                ThisPixList = self.ListIslands[iIsland]
+                SharedIslandName = "%s.FitIsland_%5.5i" % \
+                                   (self.IdSharedMem, iIsland)
+                Model = NpShared.GiveArray(SharedIslandName)
+                self.ModelMachine.AppendIsland(ThisPixList, Model)
                 NpShared.DelArray(SharedIslandName)
+            elif DicoResult["Success"] == False:
+                print>> log, "Deconv: Returned result False"
 
-        for p in procs:
-            p.shutdown()
-            p.join()
+            NDone = iResult
+            intPercent = int(100 *  NDone / float(NJobs))
+            pBAR.render(intPercent, '%4i/%i' % (NDone, NJobs))
+
+        if iResult == NJobs:
+            for p in procs:
+                m_work_queue.put("POISON-E")
+
+            # join and close queues
+            m_result_queue.join()
+            m_work_queue.close()
+            m_result_queue.close()
+
+            # join producer process
+            work_p.join()
+
+            # join producer process
+            for p in procs:
+                p.join()
 
         return "MaxIter", True, True   # stop deconvolution but do update model
 
@@ -682,58 +825,58 @@ class ClassImageDeconvMachine():
     ###################################################################################
     ###################################################################################
 
-    def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):
-        M_xc=xc0
-        M_yc=yc0
-        NpixMain=N0
-        F_xc=xc1
-        F_yc=yc1
-        NpixFacet=N1
+    def GiveEdges(self, (xc0, yc0), N0, (xc1, yc1), N1):
+        M_xc = xc0
+        M_yc = yc0
+        NpixMain = N0
+        F_xc = xc1
+        F_yc = yc1
+        NpixFacet = N1
 
         ## X
-        M_x0=M_xc-NpixFacet/2
-        x0main=np.max([0,M_x0])
-        dx0=x0main-M_x0
-        x0facet=dx0
+        M_x0 = M_xc - NpixFacet/2
+        x0main = np.max([0, M_x0])
+        dx0 = x0main - M_x0
+        x0facet = dx0
 
-        M_x1=M_xc+NpixFacet/2
-        x1main=np.min([NpixMain-1,M_x1])
-        dx1=M_x1-x1main
-        x1facet=NpixFacet-dx1
-        x1main+=1
+        M_x1 = M_xc + NpixFacet/2
+        x1main = np.min([NpixMain - 1, M_x1])
+        dx1 = M_x1 - x1main
+        x1facet = NpixFacet - dx1
+        x1main += 1
         ## Y
-        M_y0=M_yc-NpixFacet/2
-        y0main=np.max([0,M_y0])
-        dy0=y0main-M_y0
-        y0facet=dy0
+        M_y0 = M_yc-NpixFacet/2
+        y0main = np.max([0, M_y0])
+        dy0 = y0main - M_y0
+        y0facet = dy0
 
-        M_y1=M_yc+NpixFacet/2
-        y1main=np.min([NpixMain-1,M_y1])
-        dy1=M_y1-y1main
-        y1facet=NpixFacet-dy1
-        y1main+=1
+        M_y1 = M_yc + NpixFacet/2
+        y1main = np.min([NpixMain - 1, M_y1])
+        dy1 = M_y1 - y1main
+        y1facet = NpixFacet - dy1
+        y1main += 1
 
-        Aedge=[x0main,x1main,y0main,y1main]
-        Bedge=[x0facet,x1facet,y0facet,y1facet]
-        return Aedge,Bedge
+        Aedge = [x0main, x1main, y0main, y1main]
+        Bedge = [x0facet, x1facet, y0facet, y1facet]
+        return Aedge, Bedge
 
 
-    def SubStep(self,(dx,dy),LocalSM):
-        npol,_,_=self.Dirty.shape
-        x0,x1,y0,y1=self.DirtyExtent
-        xc,yc=dx,dy
-        N0=self.Dirty.shape[-1]
-        N1=LocalSM.shape[-1]
-        Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
-        factor=-1.
-        nch,npol,nx,ny=LocalSM.shape
-        x0d,x1d,y0d,y1d=Aedge
-        x0p,x1p,y0p,y1p=Bedge
-        self._Dirty[:,:,x0d:x1d,y0d:y1d]-=LocalSM[:,:,x0p:x1p,y0p:y1p]
-        W=np.float32(self.DicoDirty["WeightChansImages"])
-        self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
+    def SubStep(self, (dx, dy), LocalSM):
+        npol, _, _ = self.Dirty.shape
+        x0, x1, y0, y1 = self.DirtyExtent
+        xc, yc = dx, dy
+        N0 = self.Dirty.shape[-1]
+        N1 = LocalSM.shape[-1]
+        Aedge, Bedge = self.GiveEdges((xc, yc), N0, ( N1/2, N1/2), N1)
+        factor = -1.
+        nch, npol, nx, ny = LocalSM.shape
+        x0d, x1d, y0d, y1d = Aedge
+        x0p, x1p, y0p, y1p = Bedge
+        self._Dirty[:, :, x0d:x1d, y0d:y1d] -= LocalSM[:, :, x0p:x1p, y0p:y1p]
+        W = np.float32(self.DicoDirty["WeightChansImages"])
+        self._MeanDirty[0, :, x0d:x1d, y0d:y1d] -= np.sum(LocalSM[:, :, x0p:x1p, y0p:y1p] * W.reshape((W.size, 1, 1, 1)), axis=0)
 
-    def Update(self,DicoDirty,**kwargs):
+    def Update(self, DicoDirty, **kwargs):
         """
         Method to update attributes from ClassDeconvMachine
         """
@@ -758,10 +901,6 @@ class ClassImageDeconvMachine():
         """
         self.ModelMachine.FromDico(DicoName)
 
-#===============================================
-#===============================================
-#===============================================
-#===============================================
 
 class WorkerDeconvIsland(multiprocessing.Process):
     def __init__(self,
@@ -772,21 +911,21 @@ class WorkerDeconvIsland(multiprocessing.Process):
                  FreqsInfo=None,
                  MultiFreqMode=False):
         multiprocessing.Process.__init__(self)
-        self.MultiFreqMode=MultiFreqMode
+        self.MultiFreqMode = MultiFreqMode
         self.work_queue = work_queue
         self.result_queue = result_queue
         self.kill_received = False
         self.exit = multiprocessing.Event()
-        self.GD=GD
-        self.IdSharedMem=IdSharedMem
-        self.FreqsInfo=FreqsInfo
-        self.CubeVariablePSF=NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
-        self._Dirty=NpShared.GiveArray("%s.Dirty.ImagData"%self.IdSharedMem)
+        self.GD = GD
+        self.IdSharedMem = IdSharedMem
+        self.FreqsInfo = FreqsInfo
+        self.CubeVariablePSF = NpShared.GiveArray("%s.CubeVariablePSF"
+                                                  % self.IdSharedMem)
+        self._Dirty = NpShared.GiveArray("%s.Dirty.ImagData" % self.IdSharedMem)
         #self.WeightFreqBands=WeightFreqBands
 
     def shutdown(self):
         self.exit.set()
-
 
     def run(self):
         while not self.kill_received:
@@ -801,31 +940,31 @@ class WorkerDeconvIsland(multiprocessing.Process):
 		# FacetID=DicoOrder["FacetID"]
 		# JonesNorm=DicoOrder["JonesNorm"]
 
-		SharedListIsland="%s.ListIslands"%(self.IdSharedMem)
-		ThisPixList=NpShared.UnPackListArray(SharedListIsland)[iIsland].tolist()
+		SharedListIsland = "%s.ListIslands" % (self.IdSharedMem)
+		ThisPixList = NpShared.UnPackListArray(SharedListIsland)[iIsland].tolist()
 
-		SharedBestIndiv="%s.ListBestIndiv"%(self.IdSharedMem)
-		IslandBestIndiv=NpShared.UnPackListArray(SharedBestIndiv)[iIsland]
+		SharedBestIndiv = "%s.ListBestIndiv" % (self.IdSharedMem)
+		IslandBestIndiv = NpShared.UnPackListArray(SharedBestIndiv)[iIsland]
 
-		PSF=self.CubeVariablePSF[FacetID]
-		NGen=self.GD["GAClean"]["NMaxGen"]
-		NIndiv=self.GD["GAClean"]["NSourceKin"]
+		PSF = self.CubeVariablePSF[FacetID]
+		NGen = self.GD["GAClean"]["NMaxGen"]
+		NIndiv = self.GD["GAClean"]["NSourceKin"]
 
-		ListPixParms=ThisPixList
-		ListPixData=ThisPixList
-		dx=self.GD["GAClean"]["NEnlargeData"]
-                if dx>0:
-                    IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-                    ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
+		ListPixParms = ThisPixList
+		ListPixData = ThisPixList
+		dx = self.GD["GAClean"]["NEnlargeData"]
+                if dx > 0:
+                    IncreaseIslandMachine = ClassIncreaseIsland.ClassIncreaseIsland()
+                    ListPixData = IncreaseIslandMachine.IncreaseIsland(ListPixData, dx=dx)
 
                     # if island lies inside image
                     try:
-                        nch=self.FreqsInfo["MeanJonesBand"][FacetID].size
-                        WeightMeanJonesBand=self.FreqsInfo["MeanJonesBand"][FacetID].reshape((nch,1,1,1))
-                        WeightMueller=WeightMeanJonesBand.ravel()
-                        WeightMuellerSignal=np.sqrt(WeightMueller*self.FreqsInfo["WeightChansImages"].ravel())
+                        nch = self.FreqsInfo["MeanJonesBand"][FacetID].size
+                        WeightMeanJonesBand = self.FreqsInfo["MeanJonesBand"][FacetID].reshape((nch, 1, 1, 1))
+                        WeightMueller = WeightMeanJonesBand.ravel()
+                        WeightMuellerSignal = np.sqrt(WeightMueller * self.FreqsInfo["WeightChansImages"].ravel())
 
-			CEv=ClassEvolveGA(self._Dirty,
+			CEv = ClassEvolveGA(self._Dirty,
 					  PSF,
 					  self.FreqsInfo,
 					  ListPixParms=ListPixParms,
@@ -833,18 +972,21 @@ class WorkerDeconvIsland(multiprocessing.Process):
 					  IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
 					  GD=self.GD,
 					  WeightFreqBands=WeightMuellerSignal)
-			Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
+			Model = CEv.main(NGen=NGen, NIndiv=NIndiv, DoPlot=False)
 
-			Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
+			Model = np.array(Model).copy()#/np.sqrt(JonesNorm)
 			#Model*=CEv.ArrayMethodsMachine.Gain
 
 			del(CEv)
 
-			NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
+			NpShared.ToShared("%s.FitIsland_%5.5i" %
+                                         (self.IdSharedMem, iIsland),Model)
 
 			#print "Current process: %s [%s left]"%(str(multiprocessing.current_process()),str(self.work_queue.qsize()))
 
-			self.result_queue.put({"Success":True,"iIsland":iIsland})
-                    except Exception,e:
-                        print "Exception : %s"%str(e)
-                        self.result_queue.put({"Success":False})
+			self.result_queue.put({"Success": True,
+                                               "iIsland": iIsland})
+
+                    except Exception, e:
+                        print "Exception : %s" % str(e)
+                        self.result_queue.put({"Success": False})
