@@ -82,7 +82,7 @@ class CacheManager (object):
         self.dirname = dirname
         self.hashes = {}
         if not os.path.exists(dirname):
-            print>>log,("cache directory %s does not exist, creating"%dirname)
+            print>>log, ("cache directory %s does not exist, creating" % dirname)
             os.mkdir(dirname)
         else:
             if reset:
@@ -90,7 +90,7 @@ class CacheManager (object):
                 os.system("rm -fr "+dirname)
                 os.mkdir(dirname)
 
-    def checkCache (self, name, hashkeys, directory=False, reset=False):
+    def checkCache(self, name, hashkeys, directory=False, reset=False):
         """
         Checks if cached object named "name" is valid.
 
@@ -139,12 +139,11 @@ class CacheManager (object):
                 os.unlink(hashpath)
             if directory:
                 if os.path.exists(cachepath):
-                    os.system("rm -fr %s"%cachepath)
+                    os.system("rm -fr %s" % cachepath)
                 os.mkdir(cachepath)
         return cachepath, not reset
 
-
-    def saveCache (self, name=None):
+    def saveCache(self, name=None):
         """
         Saves cache hash to disk. Meant to be called after a cache object has been successfully written to.
 
@@ -154,9 +153,9 @@ class CacheManager (object):
         Returns:
 
         """
-        names = [name] if name else  self.hashes.keys()
+        names = [name] if name else self.hashes.keys()
         for name in names:
             hashpath, hash = self.hashes[name]
-            cPickle.dump(hash, file(hashpath,"w"))
-            print>>log,"writing cache hash %s" % hashpath
+            cPickle.dump(hash, file(hashpath, "w"))
+            print>>log, "writing cache hash %s" % hashpath
             del self.hashes[name]

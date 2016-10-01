@@ -14,7 +14,8 @@ def work_producer(queue, na):
     try:
         for a0 in xrange(na):
             for a1 in xrange(na):
-                if a0 == a1: continue
+                if a0 == a1:
+                    continue
                 # possible issue if no space for 60 seconds
                 queue.put((a0, a1), 60)
     except Queue.Full:
@@ -45,14 +46,16 @@ def smearmapping_worker(m_work_queue, m_result_queue, InfoSmearMapping,
                 if rep is not None:
                     ThisWorkerMapName = "%sBlocksRowsList.Worker_%3.3i" % \
                                           (IdSharedMem, IdWorker)
-                    BlocksRowsListBLWorker = NpShared.GiveArray(ThisWorkerMapName)
-                    if type(BlocksRowsListBLWorker) == type(None):
+                    BlocksRowsListBLWorker = NpShared.GiveArray(
+                                                                ThisWorkerMapName)
+                    if isinstance(BlocksRowsListBLWorker, type(None)):
                         BlocksRowsListBLWorker = np.array([], np.int32)
 
                     BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL = rep
-                    #print "AppendId:",self.AppendId,BlocksSizesBL,BlocksRowsListBL
-                    BlocksRowsListBLWorker = np.concatenate((BlocksRowsListBLWorker,
-                                                             BlocksRowsListBL))
+                    # print
+                    # "AppendId:",self.AppendId,BlocksSizesBL,BlocksRowsListBL
+                    BlocksRowsListBLWorker = np.concatenate(
+                        (BlocksRowsListBLWorker, BlocksRowsListBL))
                     NpShared.ToShared(ThisWorkerMapName, BlocksRowsListBLWorker)
                     m_result_queue.put({"Success": True,
                                         "bl": (a0, a1),
@@ -71,6 +74,7 @@ def smearmapping_worker(m_work_queue, m_result_queue, InfoSmearMapping,
 
 
 class ClassSmearMapping():
+
     def __init__(self, MS, radiusDeg=1., Decorr=0.98,
                  IdSharedMem="", NCPU=psutil.cpu_count()):
         self.radiusDeg = radiusDeg
@@ -85,12 +89,12 @@ class ClassSmearMapping():
         Nb = Map[0]
         NRowInBlocks = Map[1:Nb+1]
         StartRow = Map[Nb+1:2*Nb+1]
-        #print
-        #print NRowInBlocks.tolist()
-        #print StartRow.tolist()
+        # print
+        # print NRowInBlocks.tolist()
+        # print StartRow.tolist()
         MaxRow = 0
 
-        for i in [3507]:#range(Nb):
+        for i in [3507]:  # range(Nb):
             ii = StartRow[i]
             MaxRow = np.max([MaxRow, np.max(Map[ii:ii+NRowInBlocks[i]])])
             print "(iblock= %i , istart= %i), Nrow=%i" % \
@@ -139,10 +143,12 @@ class ClassSmearMapping():
         BlocksRowsListBLWorker = np.array([], np. int32)
         for a0 in xrange(na):
             for a1 in xrange(na):
-                if a0 == a1: continue
+                if a0 == a1:
+                    continue
                 MapBL = GiveBlocksRowsListBL(a0, a1,
                                              InfoSmearMapping, self.IdSharedMem)
-                if MapBL == None: continue
+                if MapBL is None:
+                    continue
                 BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL = MapBL
                 BlocksRowsList += BlocksRowsListBL
                 NBlocksTot += NBlocksTotBL
@@ -159,14 +165,14 @@ class ClassSmearMapping():
         data = DATA["data"]
         A0 = DATA["A0"]
         A1 = DATA["A1"]
-        #GridChanMapping=DATA["ChanMapping"]
+        # GridChanMapping=DATA["ChanMapping"]
 
         # ind=np.where((A0==0))[0]#[0:36*10]
         # uvw=uvw[ind]
         # A0=A0[ind]
         # A1=A1[ind]
 
-        #print A0.shape[0]
+        # print A0.shape[0]
 
         DicoSmearMapping = {}
         DicoSmearMapping["A0"] = A0
@@ -218,18 +224,26 @@ class ClassSmearMapping():
 
         AppendId = 0
         for cpu in xrange(n_cpus):
-            p = Process(target=smearmapping_worker, args=(m_work_queue,
-                        m_result_queue, InfoSmearMapping, self.IdSharedMem,
-                        cpu, GridChanMapping, AppendId,))
+            p = Process(
+                target=smearmapping_worker,
+                args=(
+                    m_work_queue,
+                    m_result_queue,
+                    InfoSmearMapping,
+                    self.IdSharedMem,
+                    cpu,
+                    GridChanMapping,
+                    AppendId,
+                    ))
             procs.append(p)
 
-        main_core = 0 # CPU affinity placement
+        main_core = 0  # CPU affinity placement
 
         # start a pinned work producer process
         work_p.start()
         procinfo.cpu_affinity([n_cpus-1])
 
-        #start all processes and pin them each to a core
+        # start all processes and pin them each to a core
         for p in procs:
             p.start()
             procinfo.cpu_affinity([main_core])
@@ -262,9 +276,9 @@ class ClassSmearMapping():
                 for w in procs:
                     if not w.is_alive():
                         pids_to_restart[w]
-                        raise RuntimeError, "a worker process has died on us \
-                            with exit code %d. This is probably a bug." % \
-                            w.exitcode
+                        raise RuntimeError("a worker process has died on us \
+                            with exit code %d. This is probably a bug." %
+                                           w.exitcode)
 
                         for id in pids_to_restart:
                             print>> log, "need to restart worker %d." % id
@@ -276,13 +290,15 @@ class ClassSmearMapping():
                 if DicoResult["Empty"] != True:
                     IdWorker = DicoResult["IdWorker"]
                     AppendId = DicoResult["AppendId"]
-                    DicoWorkerResult[IdWorker]["BlocksSizesBL"][AppendId] = DicoResult["BlocksSizesBL"]
+                    DicoWorkerResult[IdWorker]["BlocksSizesBL"][
+                        AppendId] = DicoResult["BlocksSizesBL"]
                     NTotBlocks += DicoResult["NBlocksTotBL"]
                     NTotRows += np.sum(DicoResult["BlocksSizesBL"])
-                    #print DicoResult["NBlocksTotBL"],len(DicoResult["BlocksSizesBL"])
+                    # print
+                    # DicoResult["NBlocksTotBL"],len(DicoResult["BlocksSizesBL"])
 
             NDone = iResult
-            intPercent = int(100*  NDone / float(NJobs))
+            intPercent = int(100 * NDone / float(NJobs))
             pBAR.render(intPercent, '%4i/%i' % (NDone, NJobs))
 
         # if all work is done send poinsed pill to workers
@@ -308,7 +324,7 @@ class ClassSmearMapping():
             FinalMappingHeader[0] = NTotBlocks
 
             iStart = 1
-            #MM=np.array([],np.int32)
+            # MM=np.array([],np.int32)
             MM = np.zeros((NTotBlocks, ), np.int32)
 
             FinalMapping = np.zeros((NTotRows, ), np.int32)
@@ -320,24 +336,28 @@ class ClassSmearMapping():
                 ThisWorkerMapName = "%sBlocksRowsList.Worker_%3.3i" % \
                                      (self.IdSharedMem, IdWorker)
                 BlocksRowsListBLWorker = NpShared.GiveArray(ThisWorkerMapName)
-                if type(BlocksRowsListBLWorker) == type(None): continue
+                if isinstance(BlocksRowsListBLWorker, type(None)):
+                    continue
 
-                #FinalMapping=np.concatenate((FinalMapping,BlocksRowsListBLWorker))
+                # FinalMapping=np.concatenate((FinalMapping,BlocksRowsListBLWorker))
 
-                FinalMapping[iii:iii+BlocksRowsListBLWorker.size] = BlocksRowsListBLWorker[:]
+                FinalMapping[
+                    iii:iii+BlocksRowsListBLWorker.size] = BlocksRowsListBLWorker[:]
                 iii += BlocksRowsListBLWorker.size
 
                 N = 0
 
-                for AppendId in sorted(DicoWorkerResult[IdWorker]["BlocksSizesBL"].keys()):
-                    BlocksSizesBL = np.array(DicoWorkerResult[IdWorker]["BlocksSizesBL"][AppendId])
-                    #print "IdWorker,AppendId",IdWorker,AppendId,BlocksSizesBL
-                    #MM=np.concatenate((MM,BlocksSizesBL))
+                for AppendId in sorted(
+                        DicoWorkerResult[IdWorker]["BlocksSizesBL"].keys()):
+                    BlocksSizesBL = np.array(
+                        DicoWorkerResult[IdWorker]["BlocksSizesBL"][AppendId])
+                    # print "IdWorker,AppendId",IdWorker,AppendId,BlocksSizesBL
+                    # MM=np.concatenate((MM,BlocksSizesBL))
                     MM[jjj:jjj+BlocksSizesBL.size] = BlocksSizesBL[:]
                     jjj += BlocksSizesBL.size
-                    #print MM.shape,BlocksSizesBL
+                    # print MM.shape,BlocksSizesBL
                     N += np.sum(BlocksSizesBL)
-                #print N,BlocksRowsListBLWorker.size
+                # print N,BlocksRowsListBLWorker.size
 
             cumul = np.cumsum(MM)
             FinalMappingHeader[1:1+NTotBlocks] = MM
@@ -355,19 +375,25 @@ class ClassSmearMapping():
             #print>>log, "  Number of 4-Visibilities: %i"%NVis
             fact = (100.*(NVis-NTotBlocks)/float(NVis))
 
-            #self.UnPackMapping()
+            # self.UnPackMapping()
             # print FinalMapping
 
             return FinalMapping, fact
 
 
-def GiveBlocksRowsListBL(a0, a1, InfoSmearMapping, IdSharedMem, GridChanMapping):
+def GiveBlocksRowsListBL(
+    a0,
+    a1,
+    InfoSmearMapping,
+    IdSharedMem,
+     GridChanMapping):
     DicoSmearMapping = NpShared.SharedToDico("%sSmearMapping" % IdSharedMem)
 
     A0 = DicoSmearMapping["A0"]
     A1 = DicoSmearMapping["A1"]
     ind = np.where((A0 == a0) & (A1 == a1))[0]
-    if(ind.size <= 1): return
+    if(ind.size <= 1):
+        return
     C = 3e8
 
     uvw = DicoSmearMapping["uvw"]
@@ -409,13 +435,14 @@ def GiveBlocksRowsListBL(a0, a1, InfoSmearMapping, IdSharedMem, GridChanMapping)
         # Time Block
         duvtot += np.sqrt(du[iRowBL]**2+dv[iRowBL]**2+dw[iRowBL]**2)
         if (duvtot > Duv) | (iRowBL == (ind.size-1)):
-            #BlocksRowsListBL.append(CurrentRows)
+            # BlocksRowsListBL.append(CurrentRows)
 
             NChanBlockMax = np.max([NChanBlockMax, 1])
 
             ch = np.arange(0, NChan, NChanBlockMax).tolist()
 
-            if not((NChan) in ch): ch.append((NChan))
+            if not((NChan) in ch):
+                ch.append((NChan))
             NChBlocks = len(ch)
             ChBlock = np.int32(np.linspace(0, NChan, NChBlocks))
 
@@ -437,8 +464,10 @@ def GiveBlocksRowsListBL(a0, a1, InfoSmearMapping, IdSharedMem, GridChanMapping)
                 if CH_N != CH:
                     ChBlock_Cut_ChanGridMapping.append(iCh)
                 CH = CH_N
-            if not((ChBlock[-1]) in ChBlock_Cut_ChanGridMapping): ChBlock_Cut_ChanGridMapping.append(ChBlock[-1])
-            # print "%s -> %s"%(str(ChBlock),str(np.array(ChBlock_Cut_ChanGridMapping,np.int32)))
+            if not((ChBlock[-1]) in ChBlock_Cut_ChanGridMapping):
+                ChBlock_Cut_ChanGridMapping.append(ChBlock[-1])
+            # print "%s ->
+            # %s"%(str(ChBlock),str(np.array(ChBlock_Cut_ChanGridMapping,np.int32)))
 
             ChBlock = np.array(ChBlock_Cut_ChanGridMapping, np.int32)
 
@@ -458,6 +487,7 @@ def GiveBlocksRowsListBL(a0, a1, InfoSmearMapping, IdSharedMem, GridChanMapping)
 
 
 class WorkerMap(multiprocessing.Process):
+
     def __init__(self,
                  work_queue,
                  result_queue,
@@ -481,7 +511,7 @@ class WorkerMap(multiprocessing.Process):
     def run(self):
         # print multiprocessing.current_process()
         while not self.kill_received:
-            #gc.enable()
+            # gc.enable()
             #a0,a1 = self.work_queue.get()
             try:
                 a0, a1 = self.work_queue.get(True, 0.5)
@@ -495,11 +525,11 @@ class WorkerMap(multiprocessing.Process):
                 ThisWorkerMapName = "%sBlocksRowsList.Worker_%3.3i" % \
                                       (self.IdSharedMem, self.IdWorker)
                 BlocksRowsListBLWorker = NpShared.GiveArray(ThisWorkerMapName)
-                if type(BlocksRowsListBLWorker) == type(None):
+                if isinstance(BlocksRowsListBLWorker, type(None)):
                     BlocksRowsListBLWorker = np.array([], np.int32)
 
                 BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL = rep
-                #print "AppendId:",self.AppendId,BlocksSizesBL,BlocksRowsListBL
+                # print "AppendId:",self.AppendId,BlocksSizesBL,BlocksRowsListBL
                 BlocksRowsListBLWorker = np.concatenate((BlocksRowsListBLWorker,
                                                          BlocksRowsListBL))
                 NpShared.ToShared(ThisWorkerMapName, BlocksRowsListBLWorker)
