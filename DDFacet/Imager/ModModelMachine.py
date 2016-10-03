@@ -1,7 +1,7 @@
 import ClassModelMachine
-from DDFacet.Imager.GA import ClassModelMachineGA
-from DDFacet.Imager.MSMF import ClassModelMachineMSMF
-from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
+
+
+
 import ClassGainMachine
 from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger
@@ -51,6 +51,8 @@ class ClassModModelMachine():
         if Mode == "GA":
             if self.GAMM is None:
                 print>> log, "Initialising GA model machine"
+                from DDFacet.Imager.GA import ClassModelMachineGA
+                from DDFacet.Imager.GA import ClassModelMachineGA
                 self.GAMM = ClassModelMachineGA.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
             else:
                 print>> log, "GA model machine already initialised"
@@ -58,6 +60,7 @@ class ClassModModelMachine():
         elif Mode == "MSMF":
             if self.MSMFMM is None:
                 print>> log, "Initialising MSMF model machine"
+                from DDFacet.Imager.MSMF import ClassModelMachineMSMF
                 self.MSMFMM = ClassModelMachineMSMF.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
             else:
                 print>> log, "MSMF model machine already initialised"
@@ -65,6 +68,7 @@ class ClassModModelMachine():
         elif Mode == "MORESANE":
             if self.MORSANEMM is None:
                 print>> log, "Initialising MSMF model machine"
+                from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
                 self.MORESANEMM = ClassModelMachineMORESANE.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
             else:
                 print>> log, "MORSANE model machine already initialised"

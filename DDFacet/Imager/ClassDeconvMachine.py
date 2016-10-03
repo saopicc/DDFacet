@@ -2,10 +2,6 @@ from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
 import pylab
 from pyrap.images import image
-from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
-from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
-from DDFacet.Imager.GA import ClassImageDeconvMachineGA
-from DDFacet.Imager.MORESANE import ClassImageDeconvMachineSSD
 from DDFacet.Other import MyPickle
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Array import NpShared
@@ -190,24 +186,28 @@ class ClassImagerDeconv():
                 if self.GD["ImagerDeconv"]["MinorCycleMode"] == "MSMF":
                     if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                         raise NotImplementedError("Multi-polarization CLEAN is not supported in MSMF")
+                    from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
                     self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
                     print>>log,"Using MSMF algorithm"
                 elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="GA":
                     if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                         raise NotImplementedError("Multi-polarization CLEAN is not supported in GA")
+                    from DDFacet.Imager.GA import ClassImageDeconvMachineGA
                     self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
                     print>>log,"Using GA algorithm"
                 elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD":
                     if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                         raise NotImplementedError("Multi-polarization is not supported in SSD")
+                    from DDFacet.Imager.MORESANE import ClassImageDeconvMachineSSD
                     self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
                     print>>log,"Using SSD with %s Minor Cycle algorithm"%self.GD["SSD"]["IslandDeconvMode"]
                 else:
-					raise NotImplementedError("Currently MSMF, GA are the only multi-scale algorithm")
+                    raise NotImplementedError("Currently MSMF, GA are the only multi-scale algorithm")
             else:
                 print>>log, "Minor cycle deconvolution in Single Scale Mode"
                 self.MinorCycleMode="SS"
                 if self.GD["ImagerDeconv"]["MinorCycleMode"] == "Hogbom":
+                    from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
                     self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
                     print>>log,"Using Hogbom algorithm"
                 else:

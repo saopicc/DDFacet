@@ -11,48 +11,11 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Imager import ClassMultiScaleMachine
 from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
-
 import sys
-try:
-    from DDFacet.Imager.GA import ClassModelMachineGA
-except:
-    print>> log, ModColor.Str("Problem loading ClassModelMachineGA, please check if ClassModelMachineGA.py exists in DDFacet dir")
-    sys.exit(1)
-try:
-    from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
-except:
-    print>> log, ModColor.Str("Problem loading ClassModelMachineMORESANE, please check if ClassModelMachineMORESANE.py exists in DDFacet dir")
-    sys.exit(1)
-
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Imager import ClassGainMachine
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.PSourceExtract import ClassIncreaseIsland
-
-####################################################
-####### Start of Deconvolution Algos imports #######
-####################################################
-try: # Genetic Algo
-    from DDFacet.Imager.GA.ClassEvolveGA import ClassEvolveGA
-except:
-    print>> log, ModColor.Str("Failed to import the Genetic Algorithm Class (ClassEvolveGA)")
-    sys.exit(1)
-
-try: # MORESANE
-    from DDFacet.Imager.MORESANE.ClassMoresane import ClassMoresane
-except:
-    print>> log, ModColor.Str("Failed to import the Moresane Class (ClassMoresane)")
-    sys.exit(1)
-
-try: # SASIR
-    from DDFacet.Imager.SASIR.ClassSasir import ClassSasir
-except:
-    print>> log, ModColor.Str("Failed to import the Sasir Class (ClassSasir)")
-    sys.exit(1)
-
-##################################################
-####### End of Deconvolution Algos imports #######
-##################################################
 
 from DDFacet.Other import MyPickle
 
@@ -95,14 +58,16 @@ class ClassImageDeconvMachine():
         self.IslandDeconvMode=self.GD["SSD"]["IslandDeconvMode"]  # "GA" or "Moresane" or "Sasir"
         if ModelMachine is None:
             if self.IslandDeconvMode == "GA":
+                from DDFacet.Imager.GA import ClassModelMachineGA
                 self.ModelMachine = ClassModelMachineGA.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
             elif self.IslandDeconvMode == "Moresane":
+                from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
                 self.ModelMachine = ClassModelMachineMORESANE.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
             elif self.IslandDeconvMode == "Sasir":
                 raise NotImplementedError("ClassModelMachineSASIR is not implemented")
         else:
+            # Trusting the user to pass correct ModelMachine for deconv algo
             self.ModelMachine = ModelMachine
-            #self.ModelMachine = ClassModelMachineSASIR.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
 
         if CleanMaskImage is not None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
@@ -495,6 +460,9 @@ class ClassImageDeconvMachine():
         continue is True if another cycle should be executed;
         update is True if model has been updated (note that update=False implies continue=False)
         """
+        from DDFacet.Imager.GA.ClassEvolveGA import ClassEvolveGA
+        from DDFacet.Imager.MORESANE.ClassMoresane import ClassMoresane
+        from DDFacet.Imager.SASIR.ClassSasir import ClassSasir
         if self._niter >= self.MaxMinorIter:
             return "MaxIter", False, False
 
@@ -1000,6 +968,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
  
     def run(self):
+        from DDFacet.Imager.GA.ClassEvolveGA import ClassEvolveGA
         while not self.kill_received:
             #gc.enable()
             try:
