@@ -67,7 +67,7 @@ void PrintArray(float complex *A){
 
 
 void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs, int i_t, int i_ant0, int i_dir, int iChJones, int Mode, float complex *Jout){
-  int nd_Jones,na_Jones,nch_Jones;
+  size_t nd_Jones,na_Jones,nch_Jones;
   nd_Jones=JonesDims[1];
   na_Jones=JonesDims[2];
   nch_Jones=JonesDims[3];

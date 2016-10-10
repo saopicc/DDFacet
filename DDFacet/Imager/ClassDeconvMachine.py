@@ -56,9 +56,9 @@ import pyfits
 class ClassImagerDeconv():
     def __init__(self,ParsetFile=None,GD=None,
                  PointingID=0,BaseName="ImageTest2",ReplaceDico=None,IdSharedMem="CACA.",DoDeconvolve=True):
-        if ParsetFile is not None:
-            GD=ClassGlobalData(ParsetFile)
-            self.GD=GD
+        # if ParsetFile is not None:
+        #     GD=ClassGlobalData(ParsetFile)
+        #     self.GD=GD
             
         if GD is not None:
             self.GD=GD
@@ -242,7 +242,7 @@ class ClassImagerDeconv():
         self.CellSizeRad=(self.FacetMachine.Cell/3600.)*np.pi/180
         self.CellArcSec=self.FacetMachine.Cell
 
-    def setNextData(self):
+    def setNextData (self, keep_data=False, null_data=False):
         try:
             del(self.DATA)
         except:
@@ -253,18 +253,15 @@ class ClassImagerDeconv():
         except:
             pass
 
-        Load=self.VS.LoadNextVisChunk()
-        if Load=="EndOfObservation":
+        Load = self.VS.LoadNextVisChunk(keep_data=keep_data, null_data=null_data)
+        if Load == "EndOfObservation":
             return "EndOfObservation"
 
-        DATA=self.VS.VisChunkToShared()
-        if DATA=="EndOfObservation":
-            print>>log, ModColor.Str("Reached end of Observation")
-            return "EndOfObservation"
-        if DATA=="EndChunk":
+        if Load == "EndChunk":
             print>>log, ModColor.Str("Reached end of data chunk")
             return "EndChunk"
-        self.DATA = DATA
+
+        self.DATA = self.VS.VisChunkToShared()
         self.WEIGHTS = self.VS.CurrentVisWeights
         
         return True
@@ -293,7 +290,7 @@ class ClassImagerDeconv():
         if valid:
             print>>log, ModColor.Str("============================ Loading cached PSF ==========================")
             print>>log, "found valid cached PSF in %s"%cachepath
-            print>>log, ModColor.Str("as near as we can tell, we can reuse this cached PSF because it was produced")
+            print>>log, ModColor.Str("As near as we can tell, we can reuse this cached PSF because it was produced")
             print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
             print>>log, ModColor.Str("or if your MS has been substantially flagged or otherwise had its uv-coverage")
             print>>log, ModColor.Str("affected, please remove the cache, or else run with --ResetPSF 1.")
@@ -331,10 +328,7 @@ class ClassImagerDeconv():
 
             while True:
                 Res=self.setNextData()
-                #if Res=="EndChunk": break
                 if Res=="EndOfObservation": break
-                DATA=self.DATA
-
                 FacetMachinePSF.putChunk(Weights=self.WEIGHTS)
 
             psfdict = FacetMachinePSF.FacetsToIm(NormJones=True)
@@ -446,7 +440,7 @@ class ClassImagerDeconv():
         if valid:
             print>>log, ModColor.Str("============================ Loading cached dirty image =======================")
             print>>log, "found valid cached dirty image in %s"%cachepath
-            print>>log, ModColor.Str("as near as we can tell, we can reuse this cached dirty because it was produced")
+            print>>log, ModColor.Str("As near as we can tell, we can reuse this cached dirty because it was produced")
             print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
             print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --ResetDirty 1.")
 
@@ -510,8 +504,6 @@ class ClassImagerDeconv():
                 #     stop
                 #if Res=="EndChunk": break
                 if Res=="EndOfObservation": break
-                DATA=self.DATA
-
 
                 if DoSub:
                     ThisMeanFreq=self.VS.CurrentChanMappingDegrid#np.mean(DATA["freqs"])
@@ -519,7 +511,7 @@ class ClassImagerDeconv():
                     print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
 
 
-                    _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
+                    _=self.FacetMachine.getChunk(ModelImage)
 
 
                 self.FacetMachine.putChunk(Weights=self.WEIGHTS)
@@ -629,10 +621,8 @@ class ClassImagerDeconv():
         current_model_freqs = np.array([])
 
         while True:
-            Res=self.setNextData()
+            Res=self.setNextData(null_data=True)
             if Res=="EndOfObservation": break
-            DATA=self.DATA
-            #ThisMeanFreq=np.mean(DATA["freqs"]) #LB - didnt seem like it was being used anymore
 
             model_freqs = self.VS.CurrentChanMappingDegrid
             ## redo model image if needed
@@ -646,14 +636,11 @@ class ClassImagerDeconv():
             else:
                 ModelImage = FixedModelImage
 
-
-            DATA["data"].fill(0)
-            self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
-            vis=-DATA["data"]
+            self.FacetMachine.getChunk(ModelImage)
+            vis = self.VS.getVisibilityResiduals()
+            vis *= -1 # model was subtracted from null data, so need to invert
             PredictColName=self.GD["VisData"]["PredictColName"]
 
-            MSName=self.VS.CurrentMS.MSName
-            print>>log, "Writing predicted data to column %s of %s"%(PredictColName,MSName)
             self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
 
         # if from_fits:
@@ -726,13 +713,12 @@ class ClassImagerDeconv():
             current_model_freqs = np.array([])
 
             while True:
-                #print>>log, "Max model image: %f"%(np.max(self.DeconvMachine._ModelImage))
-                #DATA=self.VS.GiveNextVisChunk()            
-                #if (DATA is None): break
-                Res=self.setNextData()
+                # if writing predicted visibilities, tell VisServer to keep the original data
+                Res = self.setNextData(keep_data=predict_colname)
+
                 #if Res=="EndChunk": break
-                if Res=="EndOfObservation": break
-                DATA=self.DATA
+                if Res=="EndOfObservation":
+                    break
 
                 model_freqs = self.VS.CurrentChanMappingDegrid
                 ## redo model image if needed
@@ -745,21 +731,19 @@ class ClassImagerDeconv():
 
                 if predict_colname:
                     print>>log,"last major cycle: model visibilities will be stored to %s"%predict_colname
-                    modelvis = DATA["data"].copy()
 
-                self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),ModelImage)
+                self.FacetMachine.getChunk(ModelImage)
 
                 if predict_colname:
-                    modelvis -= DATA["data"]
-                    print>>log, "writing model visibilities to column %s" % predict_colname
-                    self.VS.CurrentMS.PutVisColumn(predict_colname, modelvis)
-                    del modelvis
+                    data = self.VS.getVisibilityData()
+                    resid = self.VS.getVisibilityResiduals()
+                    # model is data minus residuals
+                    model = data-resid
+                    self.VS.CurrentMS.PutVisColumn(predict_colname, model)
+                    data = resid = None
 
                 self.FacetMachine.putChunk(Weights=self.WEIGHTS)
                 
-                # NpShared.DelArray(PredictedDataName)
-                del(DATA)
-
 
             DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
             self.ResidCube  = DicoImage["ImagData"] #get residuals cube

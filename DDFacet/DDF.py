@@ -5,14 +5,10 @@
 import traceback
 SaveFile="last_DDFacet.obj"
 from DDFacet.Other import logo
-#import ClassData
-#import ClassInitMachine
 from DDFacet.Array import NpShared
 from DDFacet.Imager import ClassDeconvMachine
-import os
+import os, errno, re, sys
 from DDFacet.Parset import ReadCFG
-import DDFacet.Parset
-import sys
 from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
@@ -284,8 +280,31 @@ def main(OP=None,messages=[]):
 
     
     global IdSharedMem
-    IdSharedMem=str(int(os.getpid()))+"."
+    IdSharedMem = "ddf.%d."%os.getpid()
+    # check for stale shared memory
+    uid = os.getuid()
+    # list of all files in /dev/shm/ matching ddf.PID.* and belonging to us
+    shmlist = [ (filename, re.match('ddf\.([0-9]+)\..*',filename)) for filename in os.listdir("/dev/shm/")
+                if os.stat("/dev/shm/"+filename).st_uid == uid ]
+    # convert to list of filename,pid tuples
+    shmlist = [ (filename, int(match.group(1))) for filename, match in shmlist if match ]
+    # now check all PIDs to find dead ones
+    # if we get ESRC error from sending signal 0 to the process, it's not running, so we mark it as dead
+    dead_pids = set()
+    for pid in set([x[1] for x in shmlist]):
+        try:
+            os.kill(pid, 0)
+        except OSError, err:
+            if err.errno == errno.ESRCH:
+                dead_pids.add(pid)
+    # ok, make list of candidates for deletion
+    victims = [ filename for filename,pid in shmlist if pid in dead_pids ]
+    if victims:
+        print>>log, "reaping %d shared memory objects associated with %d dead DDFacet processes"%(len(victims), len(dead_pids))
+        for filename in victims:
+            os.unlink("/dev/shm/"+filename)
 
+    # write parset
     OP.ToParset("%s.parset"%ImageName)
 
     NpShared.DelAll(IdSharedMem)
@@ -395,10 +414,16 @@ if __name__=="__main__":
         OP.ExitWithError("Incorrect number of arguments. Use -h for help.")
         sys.exit(1)
 
+    retcode = 0
     try:
         main(OP,messages)
-        print>>log, ModColor.Str("DDFacet ended successfully after %s" % T.timehms(), col="green")
+        print>>log, ModColor.Str("DDFacet ended successfully after %s"%T.timehms(),col="green")
+    except KeyboardInterrupt:
+        print>>log, traceback.format_exc()
+        print>>log, ModColor.Str("DDFacet interrupted by Ctrl+C", col="red")
+        retcode = 1 #Should at least give the command line an indication of failure
     except:
+        print>>log, traceback.format_exc()
         ddfacetPath = "." if os.path.dirname(__file__) == "" else os.path.dirname(__file__)
         traceback_msg = traceback.format_exc()
         try:
@@ -409,12 +434,13 @@ if __name__=="__main__":
 
         logfileName = MyLogger.getLogFilename()
         logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
-        print>> log, ModColor.Str("There was a problem after %s, if you think this is a bug please open an "
+        print>>log, ModColor.Str("There was a problem after %s, if you think this is a bug please open an "
                                   "issue, quote your version of DDFacet and attach your logfile" % T.timehms(), col="red")
-        print>> log, ModColor.Str("You are using DDFacet revision: %s" % commitSha, col="red")
-        print>> log, ModColor.Str("Your logfile is available here: %s" % logfileName, col="red")
+        print>>log, ModColor.Str("You are using DDFacet revision: %s" % commitSha, col="red")
+        print>>log, ModColor.Str("Your logfile is available here: %s" % logfileName, col="red")
         print>>log, traceback_msg
-        NpShared.DelAll(IdSharedMem)
-        sys.exit(1) #Should at least give the command line an indication of failure
-    # main(options)
-    
+        retcode = 1 #Should at least give the command line an indication of failure
+
+    NpShared.DelAll(IdSharedMem)
+    sys.exit(retcode)
+

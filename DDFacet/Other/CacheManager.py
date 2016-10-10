@@ -112,7 +112,6 @@ class CacheManager (object):
         hashpath = cachepath + ".hash"
         # convert hash keys into a single list
         hash = hashkeys
-        self.hashes[name] = hashpath, hash
         # delete cache if explicitly asked to
         if reset:
             print>>log, "cache element %s will be explicitly reset" % cachepath
@@ -142,6 +141,8 @@ class CacheManager (object):
                 if os.path.exists(cachepath):
                     os.system("rm -fr %s"%cachepath)
                 os.mkdir(cachepath)
+        # store hash
+        self.hashes[name] = hashpath, hash, reset
         return cachepath, not reset
 
 
@@ -155,9 +156,10 @@ class CacheManager (object):
         Returns:
 
         """
-        names = [name] if name else  self.hashes.keys()
+        names = [name] if name else self.hashes.keys()
         for name in names:
-            hashpath, hash = self.hashes[name]
-            cPickle.dump(hash, file(hashpath,"w"))
-            print>>log,"writing cache hash %s" % hashpath
-            del self.hashes[name]
+            hashpath, hash, reset = self.hashes[name]
+            if reset:
+                cPickle.dump(hash, file(hashpath,"w"))
+                print>>log,"writing cache hash %s" % hashpath
+                del self.hashes[name]

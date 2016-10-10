@@ -13,7 +13,9 @@ from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 log= MyLogger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.CacheManager import CacheManager
+from DDFacet.Array import NpShared
 import sidereal
+import time
 
 try:
     import lofar.stationresponse as lsr
@@ -25,6 +27,7 @@ class ClassMS():
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
                  AverageTimeFreq=None,
                  Field=0,DDID=0,TaQL=None,ChanSlice=None,GD=None,
+                 DicoSelectOptions={},
                  ResetCache=False):
         """
         Args:
@@ -44,6 +47,7 @@ class ClassMS():
             Field:
             DDID:
             ChanSlice:
+            DicoSelectOptions: dict of data selection options applied to this MS
             ResetCache: if True, cached products will be reset
         """
 
@@ -69,8 +73,10 @@ class ClassMS():
         self.ReadMSInfo(DoPrint=DoPrint)
         self.LFlaggedStations=[]
         self.GD = GD
+        self.DicoSelectOptions = DicoSelectOptions
+        self._datapath = self._flagpath = None
+        self._start_time = time.time()
 
-        self.CurrentChunkTimeRange_SinceT0_sec=None
         try:
             self.LoadLOFAR_ANTENNA_FIELD()
         except:
@@ -434,20 +440,49 @@ class ClassMS():
                 self.MSName + ".ddfcache/F%d:D%d:%d:%d" % (self.Field, self.DDID, row0, row1), self._reset_cache)
         return self._chunk_caches[row0, row1]
 
-    def GiveNextChunk(self,databuf=None,flagbuf=None):
+    def GiveNextChunk(self,databuf=None,flagbuf=None,use_cache=None,read_data=True):
+        # release data/flag arrays, if holding them, and mark cache as valid
+        if self._datapath:
+            self.cache.saveCache("Data")
+        if self._flagpath:
+            self.cache.saveCache("Flags")
+        self._datapath = self._flagpath = None
         # get row0:row1 of next chunk. If row1==row0, chunk is empty and we must skip it
         while self.current_chunk < self.Nchunk-1:
             self.current_chunk += 1
             row0, row1 = self._chunk_r0r1[self.current_chunk]
             if row1 > row0:
                 self.cache = self.getChunkCache(row0,row1)
-                return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf)
+                return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf,use_cache=use_cache,read_data=read_data)
         return "EndMS"
 
     def getChunkRow0Row1 (self):
         return self._chunk_r0r1
         
-    def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False,databuf=None,flagbuf=None):
+    def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False,databuf=None,flagbuf=None,use_cache=False,read_data=True):
+        """
+        We have two modes of reading data/flags:
+
+        * If use_cache is True, then ClassMS uses the cache manager to create shared arrays in the cache, and
+        reads the data and flag columns into them on first call. Subsequent calls then simply return the shared
+        arrays.
+
+        * Is use_cache is False, then ClassMS reads data and flags into the supplied buffers. It is up to the caller
+        to ensure the buffers are large enough for the incoming chunk of data.
+
+        Args:
+            row0:
+            row1:
+            DoPrint:
+            ReadWeight:
+            use_cache: if True, reads data and flags into SharedArrays associated with the chunk cache
+            databuf: if not using cache, this must be a buffer to read data into
+            flagbuf: if not using cache, this must be a buffer to read flags into
+            read_data: if False, visibilities will not be read, only flags and other data
+
+        Returns:
+
+        """
 
         if row0>=self.F_nrows:
             return "EndMS"
@@ -472,52 +507,62 @@ class ClassMS():
         #print np.max(time_all)-np.min(time_all)
         #time_slots_all=np.array(sorted(list(set(time_all))))
         ntimes=time_all.shape[0]/self.nbl
+        uvw = table_all.getcol('UVW', row0, nRowRead)
 
-        # if flag buffer is supplied, use that object's memory for flag array
-        if flagbuf is not None:
-            flag_all = np.ndarray(shape=datashape,dtype=np.bool,buffer=flagbuf)
-            print>>log,"using %d/%d elements of existing flag buffer"%(flag_all.size,flagbuf.size)
-            table_all.getcolslicenp("FLAG",flag_all,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
+        # if shared cache is enabled, get data and flags from cache if possible, else create them in-cache
+        if use_cache:
+            # note that we use start_time for the cache key. This ensures that the cache is reset on first use
+            # (i.e. is not persistent across runs)
+            if read_data:
+                self._datapath, datavalid = self.cache.checkCache("Data", dict(time=self._start_time))
+                self._datapath = "file://"+self._datapath
+                visdata = datavalid and NpShared.GiveArray(self._datapath)
+                if not datavalid or visdata is None:
+                    print>> log, "reading MS visibilities into shared array %s" % self._datapath
+                    visdata = NpShared.CreateShared(self._datapath, datashape, np.complex64)
+                    table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                else:
+                    print>> log, "visibilities are already in shared array %s" % self._datapath
+            else:
+                visdata = np.zeros(datashape,dtype=np.complex64)
+            self._flagpath, flagvalid = self.cache.checkCache("Flags", dict(time=self._start_time))
+            self._flagpath = "file://"+self._flagpath
+            flags = flagvalid and NpShared.GiveArray(self._flagpath)
+            if not flagvalid or flags is None:
+                print>>log,"reading MS flags into shared array %s"%self._flagpath
+                flags = NpShared.CreateShared(self._flagpath, datashape, np.bool)
+                table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)  # [SPW==self.ListSPW[0]]
+                self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
+            else:
+                print>> log, "flags are already in shared array %s" % self._flagpath
         else:
-            flag_all = table_all.getcolslice("FLAG",self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
+            if flagbuf is None or databuf is None:
+                raise RuntimeError,"flagbuf/databuf not supplied. This is a bug."
+            # use supplied buffers for data and flag arrays
+            flags = np.ndarray(shape=datashape,dtype=np.bool,buffer=flagbuf)
+            print>>log,"using %d/%d elements of existing flag buffer"%(flags.size,flagbuf.size)
+            table_all.getcolslicenp("FLAG",flags,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
+            visdata = np.ndarray(shape=datashape,dtype=np.complex64,buffer=databuf)
+            if read_data:
+                print>>log,"using %d/%d elements of existing visibility buffer"%(visdata.size,databuf.size)
+                table_all.getcolslicenp(self.ColName,visdata,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
+                # this needs to be carried along to reform arrays properly down the line
+            else:
+                visdata.fill(0)
+
+        DATA={}
+
+        DATA["data"] = visdata
+        DATA["flags"] = flags
+        # store paths to shared arrays (if any) in DATA dict
+        DATA["flagpath"] = self._flagpath
+        DATA["datapath"] = self._datapath
 
         if ReadWeight==True:
             self.Weights=table_all.getcol("WEIGHT",row0,nRowRead)
-        
-        
-        uvw=table_all.getcol('UVW',row0,nRowRead)#[SPW==self.ListSPW[0]]
-
-        # if data buffer is supplied, use that object's memory for data array
-        if databuf is not None:
-            vis_all = np.ndarray(shape=datashape,dtype=np.complex64,buffer=databuf)
-            print>>log,"using %d/%d elements of existing visibility buffer"%(vis_all.size,databuf.size)
-            table_all.getcolslicenp(self.ColName,vis_all,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
-        else:
-            vis_all = table_all.getcolslice(self.ColName,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)
-        
-        if self.zero_flag: vis_all[flag_all==1]=1e10
-        #print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
-        vis_all[np.isnan(vis_all)]=0.
-        #print "visMS",vis_all.min(),vis_all.max()
-
-        # if self.ChanSlice:
-        #     flag_all = flag_all[:,self.ChanSlice,:]
-        #     vis_all  = vis_all[:,self.ChanSlice,:]
-
 
         table_all.close()
 
-        # self.data=vis_all
-        # self.flag_all=flag_all
-        # self.uvw=uvw
-        # self.times_all=time_all
-        # self.nrows=time_all.shape[0]
-        # self.A0=A0
-        # self.A1=A1
-        # #self.IndFlag=np.where(flag_all==True)
-        # #self.NPol=vis_all.shape[2]
-
-        DATA={}
         DATA["uvw"]=uvw
         DATA["times"]=time_all
         DATA["nrows"]=time_all.shape[0]
@@ -525,9 +570,13 @@ class ClassMS():
         DATA["A1"]=A1
         DATA["dt"]=self.dt
         DATA["dnu"]=self.ChanWidth
-        
-        DATA["data"]=vis_all
-        DATA["flag"]=flag_all
+
+        if visdata is not None:
+            if self.zero_flag: 
+                visdata[flags] = 1e10
+        # print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
+            visdata[np.isnan(visdata)] = 0.
+        # print "visMS",vis_all.min(),vis_all.max()
 
         # if self.AverageSteps is not None:
         #     StepTime,StepFreq=self.AverageSteps
@@ -626,17 +675,8 @@ class ClassMS():
         
         
         DATA["data"]=(VisOut.reshape((NRowOut,NChanOut,4))[ind]).copy()
-        DATA["flag"]=(FlagOut.reshape((NRowOut,NChanOut,4))[ind]).copy()
-        
-
-
+        DATA["flags"]=(FlagOut.reshape((NRowOut,NChanOut,4))[ind]).copy()
         return DATA
-
-        
-
-
-
-        
 
     def SaveAllDataStruct(self):
         t=self.GiveMainTable(readonly=False)
@@ -883,6 +923,81 @@ class ClassMS():
         #                ,rad2hmsdms(self.decrad,Type="dec").replace(" ","."))
 
 
+    def UpdateFlags(self, flags, uvw, data, A0, A1, times):
+        """Updates a flag array in place (flagging stuff)
+        by applying various selection criteria from self.DicoSelectOptions.
+        Also sets flagged data to 1e9.
+        """
+        print>> log, "Updating flags"
+
+        ThresholdFlag = 0.9 # flag antennas with % of flags over threshold
+        FlagAntNumber = []  # accumulates list of flagged antennas
+
+        for A in range(self.na):
+            ind = np.where((A0 == A) | (A1 == A))[0]
+            fA = flags[ind].ravel()
+            if ind.size == 0: continue
+            nf = np.count_nonzero(fA)
+            Frac = nf / float(fA.size)
+            if Frac > ThresholdFlag:
+                print>> log, "  Flagging antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
+                             (A, Frac * 100, "%", ThresholdFlag * 100, "%")
+                FlagAntNumber.append(A)
+
+        if self.DicoSelectOptions["UVRangeKm"] != None:
+            d0, d1 = self.DicoSelectOptions["UVRangeKm"]
+            print>> log, "  Flagging uv data outside uv distance of [%5.1f~%5.1f] km" % (d0, d1)
+            d0 *= 1e3
+            d1 *= 1e3
+            u, v, w = uvw.T
+            duv = np.sqrt(u ** 2 + v ** 2)
+            ind = np.where(((duv > d0) & (duv < d1)) != True)[0]
+            flags[ind, :, :] = True
+
+        if self.DicoSelectOptions["TimeRange"] != None:
+            t0 = times[0]
+            tt = (times - t0) / 3600.
+            st0, st1 = self.DicoSelectOptions["TimeRange"]
+            print>> log, "  Selecting uv data in time range [%.4f~%5.4f] hours" % (st0, st1)
+            ind = np.where((tt >= st0) & (tt < st1))[0]
+            flags[ind, :, :] = True
+
+        if self.DicoSelectOptions["FlagAnts"] != None:
+            FlagAnts = self.DicoSelectOptions["FlagAnts"]
+            if not ((FlagAnts == None) | (FlagAnts == "") | (FlagAnts == [])):
+                if type(FlagAnts) == str: FlagAnts = [FlagAnts]
+                for Name in FlagAnts:
+                    for iAnt in range(self.na):
+                        if Name in self.StationNames[iAnt]:
+                            print>> log, "  Flagging antenna #%2.2i[%s]" % (iAnt, self.StationNames[iAnt])
+                            FlagAntNumber.append(iAnt)
+
+        if self.DicoSelectOptions["DistMaxToCore"] != None:
+            DMax = self.DicoSelectOptions["DistMaxToCore"] * 1e3
+            X, Y, Z = self.StationPos.T
+            Xm, Ym, Zm = np.median(self.StationPos, axis=0).flatten().tolist()
+            Dist = np.sqrt((X - Xm) ** 2 + (Y - Ym) ** 2 + (Z - Zm) ** 2)
+            ind = np.where(Dist > DMax)[0]
+            for iAnt in ind.tolist():
+                print>> log, "  Flagging antenna #%2.2i[%s] (distance to core: %.1f km)" % (
+                iAnt, self.StationNames[iAnt], Dist[iAnt] / 1e3)
+                FlagAntNumber.append(iAnt)
+
+        for A in FlagAntNumber:
+            ind = np.where((A0 == A) | (A1 == A))[0]
+            flags[ind, :, :] = True
+        # flag autocorrelations
+        ind = np.where(A0 == A1)[0]
+        flags[ind, :, :] = True
+        # if one of 4 correlations is flagged, flag all 4
+        ind = np.any(flags, axis=2)
+        flags[ind] = True
+        # flag NaNs
+        if data is not None:
+            ind = np.where(np.isnan(data))
+            flags[ind] = 1
+            data[flags] = 1e9
+
     def __str__(self):
         ll=[]
         ll.append(ModColor.Str(" MS PROPERTIES: "))
@@ -911,18 +1026,19 @@ class ClassMS():
 
     def PutVisColumn (self,colname,vis):
         self.AddCol(colname,quiet=True)
+        print>>log,"writing column %s rows %d:%d"%(colname,self.ROW0,self.ROW1-1)
         t = self.GiveMainTable(readonly=False,ack=False)
         if self.ChanSlice and self.ChanSlice != slice(None):
             # if getcol fails, maybe because this is a new col which hasn't been filled
             # in this case read DATA instead
             try:
-                vis0 = t.getcol(colname)
+                vis0 = t.getcol(colname,self.ROW0,self.nRowRead)
             except RuntimeError:
-                vis0 = t.getcol("DATA")
+                vis0 = t.getcol("DATA",self.ROW0,self.nRowRead)
             vis0[:,self.ChanSlice,:] = vis
-            t.putcol(colname,vis0)
+            t.putcol(colname,vis0,self.ROW0,self.nRowRead)
         else:
-            t.putcol(colname,vis)
+            t.putcol(colname,vis,self.ROW0,self.nRowRead)
         t.close()
 
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
@@ -1118,7 +1234,7 @@ class ClassMS():
         ta.close()
         t=self.GiveMainTable(readonly=False)
         t.putcol(self.ColName,self.data)
-        t.putcol("UVW",self.uvw)
+        # t.putcol("UVW",self.uvw) ??? self.uvw not defined
         t.close()
     
     def PutCasaCols(self):

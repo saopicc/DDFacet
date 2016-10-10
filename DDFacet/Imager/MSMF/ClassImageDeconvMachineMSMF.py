@@ -411,7 +411,8 @@ class ClassImageDeconvMachine():
     #             if (i>0)&((i%100)==0):
     #                 PercentDone=GivePercentDone(ThisFlux)
     #                 pBAR.render(PercentDone,"peak %.3g i%d"%(ThisFlux,self._niter))
-                rounded_iter_step = min(int(10**math.floor(math.log10(i))), 10000)
+                rounded_iter_step = 1 if i<10 else ( 10 if i<200 else ( 100 if i < 2000 else 1000 ))
+                # min(int(10**math.floor(math.log10(i))), 1000)
                 if i>=10 and i%rounded_iter_step == 0:
                     if self.GD["Debugging"]["PrintMinorCycleRMS"]:
                         print>>log, "    [iter=%i] peak residual %.3g, rms %g" % (i,ThisFlux, self._CubeDirty.std())
