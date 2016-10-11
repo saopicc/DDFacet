@@ -57,8 +57,13 @@ class ClassArrayMethodGA():
         self.GD=GD
         self.WeightMaxFunc=collections.OrderedDict()
         #self.WeightMaxFunc["Chi2"]=1.
-        self.WeightMaxFunc["BIC"]=1.
-        self.WeightMaxFunc["MinFlux"]=1.
+
+        for key in self.GD["GAClean"]["GACostFunc"]:
+            self.WeightMaxFunc[key]=1.
+
+
+        #self.WeightMaxFunc["BIC"]=1.
+        #self.WeightMaxFunc["MinFlux"]=1.
         #self.WeightMaxFunc["MaxFlux"]=1.
 
         #self.WeightMaxFunc["L0"]=1.
@@ -340,7 +345,7 @@ class ClassArrayMethodGA():
 
         for iIndividual,individual in enumerate(pop):
             NpShared.ToShared("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual),individual)
-            work_queue.put({"iIndividual":iIndividual})
+            work_queue.put({"iIndividual":iIndividual,"BestChi2":self.BestChi2})
 
         
         if not Parallel:
@@ -399,6 +404,10 @@ class ClassArrayMethodGA():
             NpShared.DelArray("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual))
 
         self.BestChi2=np.min(Chi2)
+
+        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        print "Best chi2 %f"%self.BestChi2
 
         return fitnesses,Chi2
 
@@ -856,7 +865,7 @@ class WorkerFitness(multiprocessing.Process):
 
             self.T.reinit()
             iIndividual=DicoJob["iIndividual"]
-
+            self.BestChi2=DicoJob["BestChi2"]
             #individual=DicoJob["individual"]
             Name="%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual)
             individual=NpShared.GiveArray(Name)
@@ -870,8 +879,8 @@ class WorkerFitness(multiprocessing.Process):
             self.T.timeit("done job: %s"%pid)
 
     def ToConvArray(self,V,OutMode="Data"):
-        A=self.PM.GiveModelArray(V)
-        A=self.ConvMachine.Convolve(A,OutMode=OutMode)
+        self.ModelA=self.PM.GiveModelArray(V)
+        A=self.ConvMachine.Convolve(self.ModelA,OutMode=OutMode)
         return A
 
 
@@ -881,16 +890,23 @@ class WorkerFitness(multiprocessing.Process):
         A=self.ToConvArray(individual)
         fitness=0.
         Resid=self.DirtyArray-A
+        
+        # print self.MaxFunc
+        # print self.DirtyArray
+        # print np.max(A)
+        # print 
 
-        if DoPlot:
-            import pylab
-            pylab.plot(A.flatten())
-            pylab.plot(self.DirtyArray.flatten())
-            pylab.plot(Resid.flatten())
-            pylab.draw()
-            pylab.show(False)
-            pylab.pause(0.1)
-            stop
+
+        # if True:#DoPlot:
+        #     import pylab
+        #     pylab.clf()
+        #     pylab.plot(self.DirtyArray.flatten())
+        #     pylab.plot(A.flatten())
+        #     #pylab.plot(Resid.flatten())
+        #     pylab.draw()
+        #     pylab.show(False)
+        #     pylab.pause(0.1)
+        #     #stop
 
         nFreqBands,_,_=Resid.shape
         
@@ -903,9 +919,22 @@ class WorkerFitness(multiprocessing.Process):
         for FuncType in self.MaxFunc:
             if FuncType=="Chi2":
                 # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
-                chi2=-np.sum((Resid)**2)/(self.PixVariance)
+                chi2=np.sum((Resid)**2)/(self.PixVariance)
+                chi2_norm=chi2#/np.abs(self.BestChi2)
+                #print chi2_norm
                 W=self.WeightMaxFunc[FuncType]
-                ContinuousFitNess.append(chi2*W)
+                ContinuousFitNess.append(-chi2_norm*W)
+            if FuncType=="Chi2Th":
+                chi2=np.sum((Resid)**2)/(self.PixVariance)
+
+                f=chi2/self.BestChi2
+                f=(chi2-self.BestChi2)/self.BestChi2
+                if np.abs(f)<0.5:
+                    chi2Th=0.
+                else:
+                    chi2Th=1e6
+                W=self.WeightMaxFunc[FuncType]
+                ContinuousFitNess.append(-chi2Th*W)
             if FuncType=="BIC":
                 chi2=np.sum((Resid)**2)/(self.PixVariance)
                 chi2/=self.BestChi2
@@ -915,6 +944,15 @@ class WorkerFitness(multiprocessing.Process):
                 BIC=chi2+self.GD["GAClean"]["BICFactor"]*k*np.log(n)
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-BIC*W)
+            if FuncType=="MEM":
+                aS=np.abs(self.ModelA)
+                
+                aS[aS==0]=1e-10
+                #aS/=np.sum(aS)
+                E=-np.sum(aS*np.log10(aS))
+                W=self.WeightMaxFunc[FuncType]
+                #print chi2,chi2/self.BestChi2,self.BestChi2,E
+                ContinuousFitNess.append(E)
             if FuncType=="MaxFlux":
                 FMax=-np.max(np.abs(Resid))/(np.sqrt(self.PixVariance))
                 W=self.WeightMaxFunc[FuncType]
@@ -933,5 +971,6 @@ class WorkerFitness(multiprocessing.Process):
                 ContinuousFitNess.append(FNeg*W)
 
         return (np.sum(ContinuousFitNess),),chi2
+        #return (ContinuousFitNess,),chi2
 
 
