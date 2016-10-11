@@ -1,48 +1,39 @@
 # DDFacet
+## (Users/Recommended) Docker-based installation 
+Simply pull the latest DDFacet and build the Docker image:
+```
+git clone git@github.com:cyriltasse/DDFacet.git
+cd DDFacet
+docker build -t ddf .
+```
+You should now be able to run DDFacet in a container. Note that your parsets must have filenames relative to the mounted volume inside the container, for instance:
+```
+docker run --shm-size 6g -v /scratch/TEST_DATA:/mnt ddf /mnt/test-master1.parset
+```
+Important: if you ran ```git submodule update --init --recursive``` before you may need to remove the cached SkyModel before building the docker image with ```git rm --cached SkyModel```
 
-## Dependencies
+## (Users): building and installing DDFacet from an Ubuntu 14.04 base
+Important: ensure that ```$HOME/.local``` folder is in your ```PATH``` and ```$HOME/.local/lib/python2.7/site-packages``` is in ```PYTHONPATH``` if you want to install using ```--user```. Otherwise set up a virtual environment.
 
-From an Ubuntu 14.04 base:
-
+1 You need to add in the radio-astro ppa if you don't already have it:
 ```
 sudo add-apt-repository ppa:radio-astro/main
-sudo apt-get install git casacore2 python-pip libfftw3-dev \
-    cmake python-meqtrees-cattery makems
-sudo pip install cython deap pymoresane pyephem numexpr SharedArray Polygon2 \
-    pyFFTW python-casacore scipy pyfits pylab
 ```
+2 Install each of the dependencies. The latest full list of apt dependencies can be be found in the [Dockerfile](https://github.com/cyriltasse/DDFacet/blob/master/Dockerfile) 
 
-Then need to clone or checkout the following three:
-
+3 Then need to clone:
 ```
-git clone git@github.com:cyriltasse/SkyModel.git
 git clone git@github.com:cyriltasse/DDFacet.git
-
 ```
-
-## Build
-
-Build a few libraries:
-
+4 Once checked out you can run the following to pull module dependencies
 ```
-
-(cd DDFacet/ ; mkdir cbuild ; cd cbuild ; cmake -DCMAKE_BUILD_TYPE=Release .. ; make)
-# or -DCMAKE_BUILD_TYPE=RelWithDebInfo for developers: this includes debugging symbols
+git submodule update --init --recursive
 ```
-
-## Paths etc.
-
-Add this to your ``.bashrc``
-
+5 Once submodules are pulled installation is as simple as navigating down to the directory below your checked out copy of DDFacet and running:
 ```
-export DDF_ROOT_DIR=$HOME/projects ### or wherever you've git cloned the repos
-export DDFACET_DIR=$DDF_ROOT_DIR
-export PYTHONPATH=$PYTHONPATH:$DDF_ROOT_DIR
-export LD_LIBRARY_PATH=$DDF_ROOT_DIR/DDFacet/cbuild/Gridder:$LD_LIBRARY_PATH
-export PATH=$DDF_ROOT_DIR/SkyModel:$DDF_ROOT_DIR/DDFacet:$PATH
-export DDFACET_TEST_DATA_DIR=[folder where you keep the acceptance test data and images]
-export DDFACET_TEST_OUTPUT_DIR=[folder where you want the acceptance test output to be dumped]
+pip install DDFacet/ --user
 ```
+This will install the DDF.py driver files to your .local/bin under Debian
 
 ## Configure max shared memory
 
@@ -58,10 +49,37 @@ A restart will be required for this change to reflect. If you would prefer a onc
 sudo mount -o remount,size=100% /run/shm
 ```
 
+## (Developers): setting up your dev environment
+
+###(easy) Build using setup.py
+To setup your local development environment navigate to the DDFacet directory and run
+```
+git submodule update --init --recursive
+python setup.py develop --user (to remove add a --uninstall option with this)
+python setup.py build
+
+IMPORTANT NOTE: You may need to remove the development version before running PIP when installing
+```
+###(debugging) Build a few libraries (by hand with custom flags):
+
+```
+(cd DDFacet/ ; mkdir cbuild ; cd cbuild ; cmake -DCMAKE_BUILD_TYPE=Release .. ; make)
+# or -DCMAKE_BUILD_TYPE=RelWithDebInfo for developers: this includes debugging symbols
+# or -DCMAKE_BUILD_TYPE=Debug to inspect the stacks using kdevelop
+```
+
 ## Acceptance tests
-Most of the core use cases will in the nearby future have reference images and an automated acceptance test.
+### Paths
+Add this to your ``.bashrc``
+
+```
+export DDFACET_TEST_DATA_DIR=[folder where you keep the acceptance test data and images]
+export DDFACET_TEST_OUTPUT_DIR=[folder where you want the acceptance test output to be dumped]
+```
 
 ###To test your branch against the master branch using Jenkins
+Most of the core use cases will in the nearby future have reference images and an automated acceptance test.
+
 Please **do not** commit against cyriltasse/master. The correct strategy is to branch/fork and do a pull request on Github
 to merge changes into master. Once you opened a pull request add the following comment: "ok to test". This will let the Jenkins server know to start testing. You should see that the pull request and commit statusses shows "Pending". If the test succeeds you should see "All checks have passed" above the green merge button. Once the code is reviewed it will be merged into the master branch.
 
