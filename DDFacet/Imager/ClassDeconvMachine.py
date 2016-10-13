@@ -59,7 +59,7 @@ class ClassImagerDeconv():
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD
-            
+
         if GD is not None:
             self.GD=GD
 
@@ -87,10 +87,12 @@ class ClassImagerDeconv():
         self.IdSharedMem=IdSharedMem
         self.ModConstructor = ClassModModelMachine(self.GD)
 
+        self.PredictMode = self.GD["ImagerGlobal"]["PredictMode"]
+
         #self.PNGDir="%s.png"%self.BaseName
         #os.system("mkdir -p %s"%self.PNGDir)
         #os.system("rm %s/*.png 2> /dev/null"%self.PNGDir)
-        
+
         # Oleg's "new" interface: set up which output images will be generated
         # --SaveImages abc means save defaults plus abc
         # --SaveOnly abc means only save abc
@@ -105,7 +107,7 @@ class ClassImagerDeconv():
             self._saveims = set(saveimages) | set(saveonly)
         self._savecubes = allchars if savecubes.lower() == "all" else set(savecubes)
 
-        old_interface_saveims = self.GD["Images"]["SaveIms"] 
+        old_interface_saveims = self.GD["Images"]["SaveIms"]
         if "Model" in old_interface_saveims:
             self._saveims.update("M")
         if "Alpha" in old_interface_saveims:
@@ -120,7 +122,7 @@ class ClassImagerDeconv():
     def Init(self):
         DC=self.GD
 
-        
+
         MSName0 = MSName = DC["VisData"]["MSName"]
 
         if type(MSName) is list:
@@ -142,7 +144,7 @@ class ClassImagerDeconv():
             print>>log,"found %d MSs matching %s"%(len(MSName), MSName0)
             if len(MSName) == 1:
                 MSName = MSName[0]
-                submss = os.path.join(MSName,"SUBMSS") 
+                submss = os.path.join(MSName,"SUBMSS")
                 if os.path.exists(submss) and os.path.isdir(submss):
                     MSName = [ ms for ms in sorted(glob.glob(os.path.join(submss,"*.[mM][sS]"))) if os.path.isdir(ms) ]
                     print>>log,"multi-MS mode for %s, found %d sub-MSs"%(MSName0, len(MSName))
@@ -270,7 +272,7 @@ class ClassImagerDeconv():
 
         self.DATA = self.VS.VisChunkToShared()
         self.WEIGHTS = self.VS.CurrentVisWeights
-        
+
         return True
 
     def GiveMainFacetOptions(self):
@@ -374,7 +376,7 @@ class ClassImagerDeconv():
 
 #        MyPickle.Save(self.DicoImagePSF,"DicoPSF")
 
-        
+
         # # Image=FacetMachinePSF.FacetsToIm()
         # pylab.clf()
         # pylab.imshow(self.PSF[0,0],interpolation="nearest")#,vmin=m0,vmax=m1)
@@ -434,7 +436,7 @@ class ClassImagerDeconv():
         #FacetMachinePSF.ToCasaImage(self.PSF,Fits=True)
 
 
-        
+
         #del(FacetMachinePSF)
 
 
@@ -613,7 +615,7 @@ class ClassImagerDeconv():
             self.NormImage = self.DicoDirty["NormData"]
             self.MeanNormImage = np.mean(self.NormImage,axis=0).reshape((1,npol,nx,ny))
 
-            if "H" in self._saveims:
+            if "H" in self._saveims and self.FacetMachine.SmoothMeanNormImage is not None:
                 self.FacetMachine.ToCasaImage(self.FacetMachine.SmoothMeanNormImage,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
@@ -628,7 +630,6 @@ class ClassImagerDeconv():
         else:
             self.MeanNormImage = None
 
-        
 
     def GivePredict(self,from_fits=True):
         print>>log, ModColor.Str("============================== Making Predict ==============================")
@@ -651,7 +652,6 @@ class ClassImagerDeconv():
         for ch in range(nch):
             for pol in range(npol):
                 NormImage[ch,pol]=NormImage[ch,pol].T[::-1]
-
 
         self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
@@ -688,7 +688,17 @@ class ClassImagerDeconv():
             else:
                 ModelImage = FixedModelImage
 
-            self.FacetMachine.getChunk(ModelImage)
+            if self.PredictMode == "DeGridder":
+                self.FacetMachine.getChunk(ModelImage)
+            elif self.PredictMode == "Montblanc":
+                from ClassMontblancMachine import ClassMontblancMachine
+                model = self.DeconvMachine.ModelMachine.GiveModelList()
+                mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
+                mb_machine.getChunk(self.DATA, self.VS.getVisibilityResiduals(), model, self.VS.CurrentMS)
+                mb_machine.close()
+            else:
+                raise ValueError("Invalid PredictMode '%s'" % PredictMode)
+
             vis = self.VS.getVisibilityResiduals()
             vis *= -1 # model was subtracted from null data, so need to invert
             PredictColName=self.GD["VisData"]["PredictColName"]
@@ -732,18 +742,18 @@ class ClassImagerDeconv():
 
         #Pass minor cycle specific options into Init as kwargs
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.PSFSidelobesAvg)
-        
+
         DicoImage=self.DicoDirty
         continue_deconv = True
 
-        
+
         for iMajor in range(NMajor):
             # previous minor loop indicated it has reached bottom? Break out
             if not continue_deconv:
                 break
 
             print>>log, ModColor.Str("========================== Running major Cycle %i ========================="%iMajor)
-            
+
             self.DeconvMachine.Update(DicoImage)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
@@ -797,7 +807,16 @@ class ClassImagerDeconv():
                 if predict_colname:
                     print>>log,"last major cycle: model visibilities will be stored to %s"%predict_colname
 
-                self.FacetMachine.getChunk(ModelImage)
+                if self.PredictMode == "DeGridder":
+                    self.FacetMachine.getChunk(ModelImage)
+                elif self.PredictMode == "Montblanc":
+                    from ClassMontblancMachine import ClassMontblancMachine
+                    model = self.DeconvMachine.ModelMachine.GiveModelList()
+                    mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
+                    mb_machine.getChunk(self.DATA, self.VS.getVisibilityResiduals(), model, self.VS.CurrentMS)
+                    mb_machine.close()
+                else:
+                    raise ValueError("Invalid PredictMode '%s'" % PredictMode)
 
                 if predict_colname:
                     data = self.VS.getVisibilityData()
@@ -808,7 +827,7 @@ class ClassImagerDeconv():
                     data = resid = None
 
                 self.FacetMachine.putChunk(Weights=self.WEIGHTS)
-                
+
 
             DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
             self.ResidCube  = DicoImage["ImagData"] #get residuals cube
@@ -876,7 +895,7 @@ class ClassImagerDeconv():
 
 
         off=self.GD["ImagerDeconv"]["SidelobeSearchWindow"] // 2
-        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
+        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = self.fitSinglePSF(self.MeanFacetPSF[0,...], off, "mean")
 
         # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
         if self.VS.MultiFreqMode:
@@ -892,7 +911,7 @@ class ClassImagerDeconv():
             self.FWHMBeam = [self.FWHMBeamAvg]
             self.PSFGaussPars = [self.PSFGaussParsAvg]
             self.PSFSidelobes = [self.PSFSidelobesAvg]
-		
+
         ## LB - Remove his chunk ?
         #theta=np.pi/2-theta
         #
@@ -1046,16 +1065,16 @@ class ClassImagerDeconv():
             self.FacetMachine.ToCasaImage(appconvmodel(),ImageName="%s.app.convmodel"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # convolved-model image in intrinsic flux
-        if havenorm and "C" in self._saveims: 
+        if havenorm and "C" in self._saveims:
             self.FacetMachine.ToCasaImage(intconvmodel(),ImageName="%s.int.convmodel"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        # convolved-model cube in apparent flux 
+        # convolved-model cube in apparent flux
         if "c" in self._savecubes:
             self.FacetMachine.ToCasaImage(appconvmodelcube(),ImageName="%s.cube.app.convmodel"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # convolved-model cube in intrinsic flux
-        if havenorm and "C" in self._savecubes: 
+        if havenorm and "C" in self._savecubes:
             self.FacetMachine.ToCasaImage(intconvmodelcube(),ImageName="%s.cube.int.convmodel"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts())
@@ -1094,7 +1113,7 @@ class ClassImagerDeconv():
         if havenorm and "x" in self._saveims:
             self.FacetMachine.ToCasaImage(appres()+intconvmodel(),ImageName="%s.restored"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        
+
         # Alpha image
         if "A" in self._saveims and self.VS.MultiFreqMode:
             IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg])
@@ -1104,7 +1123,7 @@ class ClassImagerDeconv():
 
     def testDegrid(self):
         self.InitFacetMachine()
-        
+
         self.FacetMachine.ReinitDirty()
         Res=self.setNextData()
         #if Res=="EndChunk": break
@@ -1147,7 +1166,7 @@ class ClassImagerDeconv():
         DATA["data"].fill(0)
         PredictedDataName="%s%s"%(self.IdSharedMem,"predicted_data")
         visPredict=NpShared.zeros(PredictedDataName,visData.shape,visData.dtype)
-        
+
         _=self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],visPredict,DATA["flags"],(DATA["A0"],DATA["A1"]),testImage)
 
 
@@ -1160,7 +1179,7 @@ class ClassImagerDeconv():
         op1=np.angle
         for iAnt in [0]:#range(36)[::-1]:
             for jAnt in [26]:#range(36)[::-1]:
-            
+
                 ind=np.where((A0==iAnt)&(A1==jAnt))[0]
                 if ind.size==0: continue
                 d0=visData[ind,0,0]
@@ -1188,7 +1207,7 @@ class ClassImagerDeconv():
 
 
         DATA["data"][:,:,:]=visData[:,:,:]-DATA["data"][:,:,:]
-        
+
         self.FacetMachine.putChunk(Weights=self.WEIGHTS)
         Image=self.FacetMachine.FacetsToIm()
         self.ResidImage=Image

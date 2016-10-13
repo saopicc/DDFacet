@@ -138,7 +138,10 @@ class CacheManager (object):
                     D1=storedhash[MainField]
                     if (type(D0)==dict)|(type(D0)==type(collections.OrderedDict())):
                         for key in D0.keys():
-                            if D0[key]!=D1[key]:
+                            if key not in D1:
+                                ListDiffer.append(
+                                    "(%s.%s: %s vs missing)" % (str(MainField), str(key), str(D0[key])))
+                            elif D0[key] != D1[key]:
                                 ListDiffer.append("(%s.%s: %s vs %s)"%(str(MainField),str(key),str(D0[key]),str(D1[key])))
                     else:
                         if D0!=D1:
