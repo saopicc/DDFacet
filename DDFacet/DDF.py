@@ -73,8 +73,8 @@ def read_options():
     OP.add_option('InitDicoModel',help='Image name [%default]')
     OP.add_option('WeightCol')
     OP.add_option('PredictColName')
-    
-    
+
+
     OP.OptionGroup("* Images-related options","Images")
 
     OP.add_option('ImageName',help='Image name [%default]')
@@ -114,6 +114,7 @@ def read_options():
 
     OP.OptionGroup("* Imager Global parameters","ImagerGlobal")
     OP.add_option('Mode',help='Default %default')
+    OP.add_option('PredictMode')
     OP.add_option('PolMode')
     OP.add_option('Precision')
     OP.add_option('Weighting')
@@ -157,9 +158,9 @@ def read_options():
     OP.add_option("NChanBeamPerMS")
     OP.add_option("CenterNorm")
     OP.add_option("FITSFile")
-    OP.add_option("FITSFeed")   
-    OP.add_option("FITSLAxis")  
-    OP.add_option("FITSMAxis")  
+    OP.add_option("FITSFeed")
+    OP.add_option("FITSLAxis")
+    OP.add_option("FITSMAxis")
     OP.add_option("FITSVerbosity")
 
     OP.OptionGroup("* DDE Solutions","DDESolutions")
@@ -227,18 +228,18 @@ def read_options():
     OP.add_option("MemoryLogging")
     OP.add_option("Boring")
     OP.add_option("AppendLogFile")
- 
+
     OP.Finalise()
     OP.ReadInput()
 
-    
+
     # #optcomplete.autocomplete(opt)
 
     # options, arguments = opt.parse_args()
     MyPickle.Save(OP, SaveFile)
     return OP
-    
-    
+
+
 
 def test():
     options=read_options()
@@ -259,7 +260,7 @@ def main(OP=None,messages=[]):
 
     # setup logging
     MyLogger.logToFile(ImageName + ".log", append=DicoConfig["Logging"]["AppendLogFile"])
-    global log 
+    global log
     log = MyLogger.getLogger("DDFacet")
 
     # disable colors and progressbars if requested
@@ -276,9 +277,17 @@ def main(OP=None,messages=[]):
     OP.Print(dest=log)
 
     # enable memory logging
-    MyLogger.enableMemoryLogging(DicoConfig["Logging"]["MemoryLogging"])    
+    MyLogger.enableMemoryLogging(DicoConfig["Logging"]["MemoryLogging"])
 
-    
+    # If we're using Montblanc for the Predict, we need to use a remote
+    # tensorflow server as tensorflow is not fork safe
+    # http://stackoverflow.com/questions/37874838/forking-a-python-process-after-loading-tensorflow
+    # If a TensorFlowServerTarget is not specified, fork a child process containing one.
+    if DicoConfig["ImagerGlobal"]["PredictMode"] == "Montblanc":
+        if not DicoConfig["Montblanc"]["TensorflowServerTarget"]:
+            from DDFacet.TensorFlowServerFork import fork_tensorflow_server
+            DicoConfig["Montblanc"]["TensorflowServerTarget"] = fork_tensorflow_server()
+
     global IdSharedMem
     IdSharedMem = "ddf.%d."%os.getpid()
     # check for stale shared memory
@@ -376,10 +385,10 @@ if __name__=="__main__":
     ParsetFile=sys.argv[1]
 
     TestParset= ReadCFG.Parset(ParsetFile)
-    
+
     if TestParset.Success==True:
         #global Parset
-        
+
         Parset.update(TestParset)
         print >>log, ModColor.Str("Successfully read %s parset" % ParsetFile)
 
