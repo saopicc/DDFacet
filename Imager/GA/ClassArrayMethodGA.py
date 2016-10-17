@@ -405,9 +405,9 @@ class ClassArrayMethodGA():
 
         self.BestChi2=np.min(Chi2)
 
-        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        print "Best chi2 %f"%self.BestChi2
+        #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        #print "Best chi2 %f"%self.BestChi2
 
         return fitnesses,Chi2
 
