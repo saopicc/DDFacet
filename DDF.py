@@ -282,7 +282,7 @@ def main(OP=None,messages=[]):
 
     if messages:
         if not DicoConfig["Logging"]["Boring"]:
-            os.system('clear')
+            #os.system('clear') # don't trash scrollback on xterm!
             logo.print_logo()
         for msg in messages:
             print>>log,msg
