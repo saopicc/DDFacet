@@ -226,7 +226,7 @@ class ClassRestoreMachine():
             print>>log,"Get ModelImage... "
             ModelImage=ModelMachine.GiveModelImage(freq)
             ListModelIm.append(ModelImage)
-            print>>log,"  ModelImage to apparant flux... "
+            print>>log,"  ModelImage to apparent flux... "
             ModelImage=ModelImage*self.SqrtNormImage
             print>>log,"Convolve... "
             print>>log,"   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6)
