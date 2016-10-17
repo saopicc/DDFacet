@@ -7,7 +7,7 @@ from DDFacet.ToolsDir import ModCoord
 from DDFacet.Other import MyPickle
 from DDFacet.Array import NpShared
 from DDFacet.ToolsDir import ModFFTW
-from scipy.spatial import Voronoi
+from scipy.spatial import Voronoi, ConvexHull
 from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
 import os
