@@ -20,13 +20,14 @@ NCPU_default=str(int(0.75*multiprocessing.cpu_count()))
 def read_options():
     desc="""DDFacet """
     
-    opt = optparse.OptionParser(usage='Usage: %prog --Parset=somename.MS <options>',version='%prog version 1.0',description=desc)
+    opt = optparse.OptionParser(usage='Usage: %prog <options>',version='%prog version 1.0',description=desc)
     
     group = optparse.OptionGroup(opt, "* Data selection options")
     group.add_option('--BaseImageName',help='')
     group.add_option('--ResidualImage',help='',type="str",default="")
     group.add_option('--BeamPix',type='float',help='',default=5)
-    group.add_option('--SmoothMode',type='int',help='',default=0)
+    group.add_option('--SmoothMode',type='int',help='0 = use default beam, 1 = use smooth beam, default 0',default=0)
+    group.add_option('--MakeCorrected',type='int',help='0 = no normalization correction, 1 = make corrected image, default 1',default=1)
     group.add_option('--MaskName',type="str",help='',default=5)
     group.add_option('--NBands',type="int",help='',default=1)
     group.add_option('--CleanNegComp',type="int",help='',default=0)
@@ -45,7 +46,7 @@ def read_options():
 class ClassRestoreMachine():
     def __init__(self,BaseImageName,BeamPix=5,ResidualImName="",DoAlpha=1,
                  MaskName="",CleanNegComp=False,NBands=1,OutName="",
-                 SmoothMode=0,options=None):
+                 SmoothMode=0,MakeCorrected=1,options=None):
         self.DoAlpha=DoAlpha
         self.BaseImageName=BaseImageName
         self.BeamPix=BeamPix
@@ -53,6 +54,7 @@ class ClassRestoreMachine():
         self.OutName=OutName
         self.options=options
         self.SmoothMode=SmoothMode
+        self.MakeCorrected=MakeCorrected
 
         FileDicoModel="%s.DicoModel"%BaseImageName
 
@@ -78,11 +80,11 @@ class ClassRestoreMachine():
             ResidualImName=FitsFile="%s.app.residual.fits"%BaseImageName
         else:
             ResidualImName=FitsFile=ResidualImName
-
-        if self.SmoothMode:
-            NormImageName="%s.SmoothNorm.fits"%BaseImageName
-        else:
-            NormImageName="%s.Norm.fits"%BaseImageName
+        if self.MakeCorrected:
+            if self.SmoothMode:
+                NormImageName="%s.SmoothNorm.fits"%BaseImageName
+            else:
+                NormImageName="%s.Norm.fits"%BaseImageName
             
 
         self.FitsFile=FitsFile
@@ -105,12 +107,14 @@ class ClassRestoreMachine():
                     testImage[ch,pol,:,:]=self.ResidualData[ch,pol,:,:].T[::-1,:]#*1.0003900000000001
 
             
-
-        SqrtNormImage=np.zeros_like(self.ResidualData)
-        imNorm=image(NormImageName).getdata()
-        for ch in range(nchan):
-            for pol in range(npol):
-                SqrtNormImage[ch,pol,:,:]=np.sqrt(imNorm[ch,pol,:,:].T[::-1,:])
+        if self.MakeCorrected:
+            SqrtNormImage=np.zeros_like(self.ResidualData)
+            imNorm=image(NormImageName).getdata()
+            for ch in range(nchan):
+                for pol in range(npol):
+                    SqrtNormImage[ch,pol,:,:]=np.sqrt(imNorm[ch,pol,:,:].T[::-1,:])
+        else:
+            SqrtNormImage=np.ones_like(self.ResidualData)
 
         _,_,nx,_=testImage.shape
         Nr=10000
@@ -263,13 +267,13 @@ class ClassRestoreMachine():
         CasaImage.setBeam(self.FWHMBeam)
         CasaImage.close()
 
-        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameCorr,RestoredImageResCorr.shape,self.Cell,self.radec)#,Lambda=(Lambda0,dLambda,self.NBands))
-        CasaImage.setdata(RestoredImageResCorr,CorrT=True)
-        CasaImage.ToFits()
-        CasaImage.setBeam(self.FWHMBeam)
-        CasaImage.close()
+        if self.MakeCorrected:
+            CasaImage=ClassCasaImage.ClassCasaimage(ImageNameCorr,RestoredImageResCorr.shape,self.Cell,self.radec)#,Lambda=(Lambda0,dLambda,self.NBands))
+            CasaImage.setdata(RestoredImageResCorr,CorrT=True)
+            CasaImage.ToFits()
+            CasaImage.setBeam(self.FWHMBeam)
+            CasaImage.close()
         
-
 
         # ImageName="%s.modelConv"%self.BaseImageName
         # CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
@@ -312,6 +316,7 @@ def main(options=None):
                             CleanNegComp=options.CleanNegComp,
                             OutName=options.OutName,
                             SmoothMode=options.SmoothMode,
+                            MakeCorrected=options.MakeCorrected,
                             options=options)
     return CRM.Restore()
 
