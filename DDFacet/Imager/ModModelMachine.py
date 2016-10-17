@@ -74,4 +74,4 @@ class ClassModModelMachine():
                 print>> log, "MORSANE model machine already initialised"
             return self.MORESANEMM
         else:
-            raise NotImplementedError("The %s minor cycle is not currently supported",self.GD["ImagerDeconv"]["MinorCycleMode"])
+            raise NotImplementedError("The %s minor cycle is not currently supported"%self.GD["ImagerDeconv"]["MinorCycleMode"])
