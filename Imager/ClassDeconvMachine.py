@@ -289,7 +289,7 @@ class ClassImagerDeconv():
                                                              "ImagerCF", "ImagerMainFacet","DDESolutions" ]
             ), reset=self.GD["Caching"]["ResetPSF"])
 
-        if valid:
+        if valid or self.GD["Caching"]["ResetPSF"]==-1:
             print>>log, ModColor.Str("============================ Loading cached PSF ==========================")
             print>>log, "found valid cached PSF in %s"%cachepath
             print>>log, ModColor.Str("as near as we can tell, we can reuse this cached PSF because it was produced")
@@ -463,7 +463,7 @@ class ClassImagerDeconv():
         ), reset=self.GD["Caching"]["ResetDirty"])
 
 
-        if valid:
+        if valid or self.GD["Caching"]["ResetDirty"]==-1:
             print>>log, ModColor.Str("============================ Loading cached dirty image =======================")
             print>>log, "found valid cached dirty image in %s"%cachepath
             print>>log, ModColor.Str("as near as we can tell, we can reuse this cached dirty because it was produced")
