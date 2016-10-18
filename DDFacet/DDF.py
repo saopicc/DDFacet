@@ -219,6 +219,7 @@ def read_options():
     OP.add_option("PeakFactor")
     OP.add_option("RMSFactor")
     OP.add_option("SidelobeSearchWindow")
+    OP.add_option("RestoringBeam")
     OP.add_option("MinorCycleMode")
 
     OP.OptionGroup("* Debugging","Debugging")
@@ -273,7 +274,7 @@ def main(OP=None,messages=[]):
 
     if messages:
         if not DicoConfig["Logging"]["Boring"]:
-            os.system('clear')
+            #os.system('clear') # don't trash scrollback on xterm!
             logo.print_logo()
         for msg in messages:
             print>>log,msg

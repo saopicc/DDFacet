@@ -251,7 +251,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
 
 
         #print best_ind
-        print "Best indiv fitness",best_ind.fitness
+        #print "Best indiv fitness",best_ind.fitness
 
         
         #BestFitNess=best_ind.fitness.values[0]

@@ -8,6 +8,9 @@ from DDFacet.Array import NpShared
 from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Other import MyLogger
 from DDFacet.Other import MyPickle
+from DDFacet.ToolsDir import ModFFTW
+from scipy.spatial import Voronoi, ConvexHull
+from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import rad2hmsdms

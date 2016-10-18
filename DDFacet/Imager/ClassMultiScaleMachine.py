@@ -645,7 +645,7 @@ class ClassMultiScaleMachine():
                 raise RuntimeError("CLEAN has stalled. This is a bug!")
 
             if self.GD["Debugging"]["DumpCleanSolutions"]:
-                global debug_dump_file
+                #global debug_dump_file
                 if not debug_dump_file:
                     debug_dump_file = file(self.GD["Images"]["ImageName"] + ".clean.solutions", "w")
                 cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal), debug_dump_file, 2)
