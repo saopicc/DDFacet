@@ -681,6 +681,7 @@ class ClassMultiScaleMachine():
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
 
             if self.GD["Debugging"]["DumpCleanSolutions"]:
+
                 global debug_dump_file
                 if not debug_dump_file:
                     debug_dump_file = file(self.GD["Images"]["ImageName"]+".clean.solutions", "w")
