@@ -228,6 +228,7 @@ def read_options():
     OP.add_option("PeakFactor")
     OP.add_option("RMSFactor")
     OP.add_option("SidelobeSearchWindow")
+    OP.add_option("RestoringBeam")
     OP.add_option("MinorCycleMode")
 
     OP.OptionGroup("* Debugging","Debugging")
