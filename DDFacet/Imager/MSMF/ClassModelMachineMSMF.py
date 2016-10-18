@@ -47,6 +47,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             D=DicoIn
 
+        D["GD"]=self.GD
         D["Type"]="MSMF"
         D["ListScales"]=self.ListScales
         D["ModelShape"]=self.ModelShape
@@ -97,10 +98,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 DicoComp[key]["SumWeights"]=np.zeros((npol),np.float32)
 
         Weight=1.
-        Gain=self.GainMachine.GiveGain()
-
+        #Gain=self.GainMachine.GiveGain()
+        Gain=self.GD["ImagerDeconv"]["Gain"]
+    
         SolNorm=Sols.ravel()*Gain*np.mean(Fpol)
-
+        
         DicoComp[key]["SumWeights"][pol_array_index] += Weight
         DicoComp[key]["SolsArray"][:,pol_array_index] += Weight*SolNorm
         

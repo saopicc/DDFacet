@@ -115,6 +115,7 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
 
   if(FSmear==1){
     phi=PI*(Dnu/C)*phase;
+    //printf("%f %f %f %f = %f\n",PI,Dnu,C,phase,phi);
     if(phi!=0.){
       DecorrFactor*=(float)(sin((double)phi)/((double)phi));
     };

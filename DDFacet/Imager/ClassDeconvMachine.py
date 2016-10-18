@@ -613,7 +613,7 @@ class ClassImagerDeconv():
             self.NormImage = self.DicoDirty["NormData"]
             self.MeanNormImage = np.mean(self.NormImage,axis=0).reshape((1,npol,nx,ny))
 
-            if "H" in self._saveims:
+            if "H" in self._saveims and self.FacetMachine.SmoothMeanNormImage is not None:
                 self.FacetMachine.ToCasaImage(self.FacetMachine.SmoothMeanNormImage,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
@@ -845,6 +845,8 @@ class ClassImagerDeconv():
         off = min(off, x[0], nx-x[0], y[0], ny-y[0])
         print>> log, "Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2)
         P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off]
+        
+
         sidelobes = ModFitPSF.FindSidelobe(P)
         bmaj, bmin, theta = ModFitPSF.FitCleanBeam(P)
 
@@ -873,10 +875,8 @@ class ClassImagerDeconv():
         """
         PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
 
-
-
         off=self.GD["ImagerDeconv"]["SidelobeSearchWindow"] // 2
-        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
+        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = self.fitSinglePSF(self.MeanFacetPSF[0,...], off, "mean")
 
         # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
         if self.VS.MultiFreqMode:

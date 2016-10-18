@@ -559,6 +559,9 @@ class ClassMS():
             else:
                 visdata.fill(0)
 
+
+        # visdata[flags]=1e6
+
         DATA={}
 
         DATA["data"] = visdata
@@ -1004,6 +1007,12 @@ class ClassMS():
                 print>> log, "  Flagging antenna #%2.2i[%s] (distance to core: %.1f km)" % (
                 iAnt, self.StationNames[iAnt], Dist[iAnt] / 1e3)
                 FlagAntNumber.append(iAnt)
+
+        # C0=(A0 == 7) & (A1 == 17)
+        # C1=(A1 == 7) & (A0 == 17)
+        # ind = np.where(np.logical_not(C0|C1))[0]
+        # flags[ind, :, :] = True
+
 
         for A in FlagAntNumber:
             ind = np.where((A0 == A) | (A1 == A))[0]

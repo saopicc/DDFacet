@@ -54,6 +54,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             D=DicoIn
 
         #D["PM"]=self.PM
+        D["GD"]=self.GD
         D["ModelShape"]=self.ModelShape
         D["Type"]="GA"
         D["SolveParam"]=self.SolveParam

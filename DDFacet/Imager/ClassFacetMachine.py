@@ -560,7 +560,6 @@ class ClassFacetMachine():
             self.DicoSpheroidal[iFacet]=SPhe
             # This should actually load the array into RAM - so that it stays there
             self.DicoSpheroidal[iFacet]*=1.
-
             
         return True
 

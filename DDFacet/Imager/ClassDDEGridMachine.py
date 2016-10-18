@@ -485,9 +485,7 @@ class ClassDDEGridMachine():
             DicoClusterDirs=DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]
             lc=DicoClusterDirs["l"]
             mc=DicoClusterDirs["m"]
-
             sI=DicoClusterDirs["I"]
-            
             #lc,mc=np.random.randn(100)*np.pi/180,np.random.randn(100)*np.pi/180
             
         

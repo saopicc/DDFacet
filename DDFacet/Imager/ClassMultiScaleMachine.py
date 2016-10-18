@@ -12,6 +12,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 import pickle
 import cPickle
 
+global debug_dump_file
 debug_dump_file = None
 
 def writetofile(fname,val):
@@ -122,7 +123,7 @@ class ClassMultiScaleMachine():
             #print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
         elif Method=="FromSideLobe":
             dx0=2*self.OffsetSideLobe
-            dx0=np.max([dx0,50])
+            dx0=np.max([dx0,100])
             #print>>log, "PSF extends to [%i] from center"%(dx0)
         
         dx0=np.max([dx0,200])
@@ -326,7 +327,8 @@ class ClassMultiScaleMachine():
         # r0=self.WeightWidth
         # weight=(r/r0+1.)**(-1)
         self.GlobalWeightFunction=self.GlobalWeightFunction.reshape((1,1,self.SubPSF.shape[-1],self.SubPSF.shape[-1]))*np.ones((nch,npol,1,1),np.float32)
-        #self.GlobalWeightFunction.fill(1)
+        # print "!!!!!!!!!!!"
+        # self.GlobalWeightFunction.fill(1)
 
         ScaleMax=np.max(Scales)
         #self.SupWeightWidth=ScaleMax#3.*self.WeightWidth
