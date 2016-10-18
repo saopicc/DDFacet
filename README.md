@@ -1,5 +1,5 @@
 # DDFacet
-## (Users/Recommended) Docker-based installation 
+## (Users/Recommended) Docker-based installation
 Simply pull the latest DDFacet and build the Docker image:
 ```
 git clone git@github.com:cyriltasse/DDFacet.git
@@ -13,27 +13,81 @@ docker run --shm-size 6g -v /scratch/TEST_DATA:/mnt ddf /mnt/test-master1.parset
 Important: if you ran ```git submodule update --init --recursive``` before you may need to remove the cached SkyModel before building the docker image with ```git rm --cached SkyModel```
 
 ## (Users): building and installing DDFacet from an Ubuntu 14.04 base
-Important: ensure that ```$HOME/.local``` folder is in your ```PATH``` and ```$HOME/.local/lib/python2.7/site-packages``` is in ```PYTHONPATH``` if you want to install using ```--user```. Otherwise set up a virtual environment.
 
-1 You need to add in the radio-astro ppa if you don't already have it:
-```
-sudo add-apt-repository ppa:radio-astro/main
-```
-2 Install each of the dependencies. The latest full list of apt dependencies can be be found in the [Dockerfile](https://github.com/cyriltasse/DDFacet/blob/master/Dockerfile) 
+1. You need to add in the radio-astro ppa if you don't already have it:
 
-3 Then need to clone:
-```
-git clone git@github.com:cyriltasse/DDFacet.git
-```
-4 Once checked out you can run the following to pull module dependencies
-```
-git submodule update --init --recursive
-```
-5 Once submodules are pulled installation is as simple as navigating down to the directory below your checked out copy of DDFacet and running:
-```
-pip install DDFacet/ --user
-```
+    ```bash
+    sudo add-apt-repository ppa:radio-astro/main
+    ```
+
+2. Install each of the dependencies. The latest full list of apt dependencies can be be found in the [Dockerfile](https://github.com/cyriltasse/DDFacet/blob/master/Dockerfile)
+
+3. Then, clone the repository:
+
+    ```bash
+    git clone git@github.com:cyriltasse/DDFacet.git
+    ```
+
+4. Once checked out you can run the following to pull module dependencies
+
+    ```bash
+    git submodule update --init --recursive
+    ```
+
+### Installation in user directory
+
+Important: ensure that ```$HOME/.local``` folder is in your ```PATH``` and ```$HOME/.local/lib/python2.7/site-packages``` is in ```PYTHONPATH``` if you want to install using ```--user```.
+
+Navigate to the directory below your checked out copy of DDFacet and run:
+
+    ```bash
+    pip install DDFacet/ --user
+    ```
+
 This will install the DDF.py driver files to your .local/bin under Debian
+
+### Virtual Environment installation
+
+Alternatively, create a virtual environment, activate it and run the install:
+
+    ```bash
+    virtualenv --system-site-packages $HOME/ddfvenv
+    source $HOME/ddfvenv/bin/activate
+    pip install DDFacet/
+    ```
+Adding the `--system-site-packages` directive ensures that the virtualenv has access to system packages (such as meqtrees).
+
+### Montblanc installation
+
+[Montblanc](https://github.com/ska-sa/montblanc) requires DDFacet to be installed in a virtual environment . This section requires the DDFacet virtual environment to be activated:
+
+1. Clone montblanc and checkout the commit to build
+
+    ```bash
+    git clone https://github.com/ska-sa/montblanc.git
+    cd montblanc
+    git checkout ffb4b7573d049dddcd948e79e080bbb3acaa10ec
+    ```
+
+2. Install tensorflow CPU [nightly][tf_nightly_install] build (This can be replaced by the 0.11 version once it is released):
+
+    ```bash
+    pip install https://ci.tensorflow.org/view/Nightly/job/nightly-matrix-cpu/TF_BUILD_IS_OPT=OPT,TF_BUILD_IS_PIP=PIP,TF_BUILD_PYTHON_VERSION=PYTHON2,label=cpu-slave/lastSuccessfulBuild/artifact/pip_test/whl/tensorflow-0.11.0rc0-cp27-none-linux_x86_64.whl
+    ```
+    If you want GPU acceleration and you have CUDA installed, you can alternatively try installing the tensorflow [GPU version][tf_nightly_install].
+
+3. Build montblanc's tensorflow operations:
+
+    ```bash
+    cd montblanc/montblanc/impl/rime/tensorflow/rime_ops
+    make -j 8
+    ```
+4. Install montblanc in development mode:
+
+    ```bash
+    python setup.py develop
+    ```
+
 
 ## Configure max shared memory
 
@@ -98,3 +152,7 @@ Acceptance test data can be found on the Jenkins server in the **/data/test-data
 
 To resimulate images and add more tests:
 In the Jenkins server data directory run **make** to resimulate and set up new reference images. This should only be done with the **origin/master** branch - not your branch or fork! You should manually verify that all the reference images are correct when you regenerate them. Each time you add a new option to DDFacet also add an option to the makefile in this directory. Once the option is set up in the makefile you can build the reference images on Jenkins.
+
+[tf_nightly_install]: https://github.com/tensorflow/tensorflow#installation
+
+
