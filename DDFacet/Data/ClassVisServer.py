@@ -313,14 +313,15 @@ class ClassVisServer():
         D=self.ThisDataChunk
         DATA={}
         for key,entry in D.iteritems():
-            # data and flags is not stored in shared memory
-            if type(entry) is not np.ndarray or key == "data" or key == "flags":
+            # data and flags and Weights is not stored in shared memory
+            if type(entry) is not np.ndarray:# or key == "data" or key == "flags" or key == "Weights":
                 continue
             # if key not in ['times', 'A1', 'A0', 'flagpath', 'uvw', 'datapath', "uvw_dt", "MSInfos", "ChanMapping", "ChanMappingDegrid"]:
             DATA[key] = entry
 
         if "DicoBeam" in D.keys():
             DATA["DicoBeam"]=D["DicoBeam"]
+
 
         print>>log, "Putting data in shared memory"
         DATA=NpShared.DicoToShared("%sDicoData"%self.IdSharedMem,DATA)
@@ -460,6 +461,7 @@ class ClassVisServer():
         # into the shared memory structure
         DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
 
+
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
 
         if ('F' in DecorrMode)|("T" in DecorrMode):
@@ -500,6 +502,8 @@ class ClassVisServer():
         else:
             freqs=np.array([freqs[0]],dtype=np.float64)
         
+
+        # Those nparray fields will be put in SHM
         DicoDataOut={"times":DATA["times"],
                      "freqs":freqs,
                      "A0":DATA["A0"],
@@ -512,7 +516,8 @@ class ClassVisServer():
                      "ROW0":MS.ROW0,
                      "ROW1":MS.ROW1,
                      "infos":np.array([MS.na]),
-                     "Weights":self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk],
+                     #"Weights":DATA["Weights"],
+                     "Weights":NpShared.GiveArray("file://"+DATA["Weights"]),
                      "ChanMapping":DATA["ChanMapping"],
                      "ChanMappingDegrid":DATA["ChanMappingDegrid"],
                      }
@@ -524,6 +529,12 @@ class ClassVisServer():
 
         self.ThisDataChunk = DicoDataOut
         self.CurrentVisWeights = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
+
+        
+        #self.CurrentVisWeightsArray = NpShared.GiveArray("file://"+self.CurrentVisWeights)
+        #self.CurrentVisWeightsArray *= 1
+
+
 
         return "LoadOK"
 
