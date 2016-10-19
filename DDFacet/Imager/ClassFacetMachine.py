@@ -1717,7 +1717,7 @@ class WorkerImager(multiprocessing.Process):
                               DicoJonesMatrices=DicoJonesMatrices, freqs=freqs, TranformModelInput="FT",
                               ChanMapping=ChanMapping)
 
-        del visThis, flagsThis, visThis0, flagsThis0
+        # del visThis, flagsThis, visThis0, flagsThis0
 
         self.result_queue.put({"Success": True, "iFacet": iFacet})
 
