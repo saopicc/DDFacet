@@ -383,7 +383,7 @@ class ClassImageDeconvMachine():
                 #x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
                 x,y,ThisFlux=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self._MaskArray)
 
-                #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y)
+                #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y); ThisFlux=self._MeanDirty[0,0,x,y]
                 self.GainMachine.SetFluxMax(ThisFlux)
 
                 # #x,y=1224, 1994

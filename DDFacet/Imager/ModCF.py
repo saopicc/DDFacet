@@ -84,11 +84,13 @@ class SpheMachine():
         
         # ############" 
         # import pylab
-        # pylab.clf()
-        # pylab.subplot(3,2,1)
         # lpar=list(pylab.imshow.__defaults__)
         # lpar[3]="nearest"
         # pylab.imshow.__defaults__=tuple(lpar)
+
+        # pylab.figure(0)
+        # pylab.clf()
+        # pylab.subplot(3,2,1)
         # pylab.imshow(CF.real)
         # pylab.colorbar()
         # pylab.subplot(3,2,2)
@@ -109,7 +111,23 @@ class SpheMachine():
         # pylab.draw()
         # pylab.show(False)
         # pylab.pause(0.1)
-        # # stop
+
+        # f_inv_ifzfCF=ifft2(1./ifzfCF.real)
+
+        # pylab.figure(1)
+        # pylab.clf()
+        # pylab.subplot(3,2,1)
+        # pylab.imshow(f_inv_ifzfCF.real)
+        # pylab.colorbar()
+        # pylab.subplot(3,2,2)
+        # pylab.imshow(f_inv_ifzfCF.imag)
+        # pylab.colorbar()
+        # pylab.draw()
+        # pylab.show(False)
+        # pylab.pause(0.1)
+
+
+        # stop
         
         ifzfCF[ifzfCF<0]=1e-10
         return CF, fCF, ifzfCF
@@ -291,6 +309,8 @@ class ClassWTermModified():
         #    NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
 
         NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
+        #stop
+
         LArrays=[]
         CuCv=np.array([self.Cu,self.Cv,self.Cu,self.Cv],dtype=dS).reshape(2,2)
         LArrays.append(CuCv)
