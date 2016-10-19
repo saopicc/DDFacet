@@ -6,6 +6,7 @@ import ClassDDEGridMachine
 import numpy as np
 import pyfftw
 import pylab
+import sys
 from DDFacet.Array import NpShared
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from DDFacet.Other import ClassTimeIt
@@ -1112,95 +1113,71 @@ class ClassFacetMachine():
 
         NFacets = len(self.DicoImager.keys())
 
-        work_queue = multiprocessing.JoinableQueue()
-
-        NJobs = NFacets
-        for iFacet in range(NFacets):
-            work_queue.put(iFacet)
-
-        workerlist = []
-        SpheNorm = self.SpheNorm
-
-        List_Result_queue = []
-        for ii in range(NCPU):
-            List_Result_queue.append(multiprocessing.JoinableQueue())
-
-        for ii in range(NCPU):
-            W = self.FacetParallelEngine(work_queue, List_Result_queue[ii],
-                                         self.GD,
-                                         Mode="FourierTransform",
-                                         FFTW_Wisdom=self.FFTW_Wisdom,
-                                         DicoImager=self.DicoImager,
-                                         IdSharedMem=self.IdSharedMem,
-                                         IdSharedMemData=self.IdSharedMemData,
-                                         FacetDataCache=self.FacetDataCache,
-                                         ChunkDataCache="file://" + self.VS.cache.dirname + "/",
-                                         ApplyCal=self.ApplyCal,
-                                         SpheNorm=SpheNorm,
-                                         PSFMode=self.DoPSF,
-                                         NFreqBands=self.VS.NFreqBands,
-                                         PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
-                                         DataShape=self.VS.datashape,
-                                         DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-                                         ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
-            workerlist.append(W)
-            if Parallel:
-                workerlist[ii].start()
-
+        jobs = range(NFacets)
+        workers = dict()
+        exit_status = dict()
+        done = fail = 0
         timer = ClassTimeIt.ClassTimeIt()
         print>> log, "Fourier transforming facet grids"
-
         pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  Fourier Transforming ", HeaderSize=10, TitleSize=13)
         #        pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0, NFacets))
-        iResult = 0
-        if not Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].run()  # just run until all work is completed
 
-        while iResult < NJobs:
-            DicoResult = None
-            if Parallel:
-                for w in workerlist:
-                    w.join(0)
-                    if not w.is_alive():
-                        if w.exitcode != 0:
-                            raise RuntimeError, "a worker process has died with exit code %d. This is probably a bug in the ClassDDEGridMachine." % w.exitcode
-            for result_queue in List_Result_queue:
-                if result_queue.qsize() != 0:
-                    try:
-                        DicoResult = result_queue.get()
-                        break
-                    except:
-                        pass
-
-            if DicoResult == None:
-                time.sleep(1)
-                continue
-
-            if DicoResult["Success"]:
-                iResult += 1
-                NDone = iResult
-                intPercent = int(100 * NDone / float(NFacets))
-                pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
-
-            iFacet = DicoResult["iFacet"]
-            GridName = "%sGridFacet.%3.3i" % (self.IdSharedMem, iFacet)
-            Grid = NpShared.GiveArray(GridName)
-            # if iFacet == 12:
-            #     print "in FT, ##grid",Grid.sum(dtype=np.float64),doStack
-
-            if (doStack == True) & ("Dirty" in self.DicoGridMachine[iFacet].keys()):
-                self.DicoGridMachine[iFacet]["Dirty"] += Grid
-            else:
-                self.DicoGridMachine[iFacet]["Dirty"] = Grid
-
-        if Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].shutdown()
-                workerlist[ii].terminate()
-                workerlist[ii].join()
-
+        while jobs or workers:
+            while jobs and len(workers) < NCPU:
+                iFacet = jobs.pop(0)
+                Grid = NpShared.GiveArray("%sGridFacet.%3.3i" % (self.IdSharedMem, iFacet))
+                pid = os.fork()
+                # child process -- FT and exit with 0 to indicate success
+                if not pid:
+                    W = self.FacetParallelEngine(None, None,
+                                             self.GD,
+                                             Mode="FourierTransform",
+                                             FFTW_Wisdom=self.FFTW_Wisdom,
+                                             DicoImager=self.DicoImager,
+                                             IdSharedMem=self.IdSharedMem,
+                                             IdSharedMemData=self.IdSharedMemData,
+                                             FacetDataCache=self.FacetDataCache,
+                                             ChunkDataCache="file://" + self.VS.cache.dirname + "/",
+                                             ApplyCal=self.ApplyCal,
+                                             SpheNorm=self.SpheNorm,
+                                             PSFMode=self.DoPSF,
+                                             NFreqBands=self.VS.NFreqBands,
+                                             PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
+                                             DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                             ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
+                    if self.FFTW_Wisdom is not None:
+                        pyfftw.import_wisdom(self.FFTW_Wisdom)
+                    GridMachine = W.GiveGM(iFacet)
+                    Dirty = GridMachine.GridToIm(Grid)
+                    Grid[...] = Dirty[...]
+                    os._exit(0)
+                # main process -- associate PID with facet and carry on
+                else:
+                    workers[pid] = iFacet
+            # wait for a child to exit
+            pid, status, _ = os.wait3(0)
+            if pid in workers:
+                done += 1
+                iFacet = workers[pid]
+                exit_status[iFacet] = status
+                del workers[pid]
+                if status:
+                    fail += 1
+                else:
+                    # add facet to grid
+                    Grid = NpShared.GiveArray("%sGridFacet.%3.3i" % (self.IdSharedMem, iFacet))
+                    # if iFacet == 12:
+                    #     print "in FT, ##grid",Grid.sum(dtype=np.float64),doStack
+                    if doStack and "Dirty" in self.DicoGridMachine[iFacet]:
+                        self.DicoGridMachine[iFacet]["Dirty"] += Grid
+                    else:
+                        self.DicoGridMachine[iFacet]["Dirty"] = Grid
+                intPercent = int(100 * done / float(NFacets))
+                pBAR.render(intPercent, '%4i/%i' % (done, NFacets))
+        if fail:
+            raise RuntimeError,"%d child FFT processes have failed (exit status: %s)" % (fail,
+                                " ".join([ "%x"%status for facet,status in exit_status.iteritems() if status ] ))
         print>> log, "Fourier transforms finished in %s" % timer.timehms()
 
 
