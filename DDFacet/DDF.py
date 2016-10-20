@@ -206,6 +206,7 @@ def read_options():
     OP.add_option("NEnlargePars")
     OP.add_option("NEnlargeData")
     OP.add_option("ArtifactRobust")
+    OP.add_option("ConvFFTSwitch")
 
 
     OP.OptionGroup("* Clean","ImagerDeconv")
