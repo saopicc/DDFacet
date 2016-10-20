@@ -426,6 +426,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             self.DicoGridMachine[iFacet]={}
         self.setWisdom()
+
         if self.Parallel:
             self.InitParallel(Parallel=True)
         else:
@@ -988,7 +989,7 @@ class ClassFacetMachine():
 
     #         NpShared.ToShared(ModelSharedMemName,ModelFacet)
 
-    def ImToGrids(self,Image,Parallel=True):
+    def ImToGrids(self,Image,Parallel=False):
         NCPU = self.NCPU
 
         ModelSharedMemName="%sModelImage.Facet_"%(self.IdSharedMem)

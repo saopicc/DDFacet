@@ -126,7 +126,7 @@ class ClassPSFServer():
     def SolveOffsetLM(self,Dirty,xc0,yc0):
         iFacet=self.iFacet
         Lambda=1.
-        nIter=1
+        nIter=5
         beta=np.zeros((2,1),np.float32)
         J=self.CubeJacobianMeanVariablePSF[iFacet]["J"]
         s,_=J.shape
@@ -151,10 +151,12 @@ class ClassPSFServer():
             delta_y=int(round(delta[1,0]))
             if (delta_x==0)&(delta_y==0):
                 break
+            delta_x=np.min([1,np.abs(delta_x)])*np.sign(delta_x)
+            delta_y=np.min([1,np.abs(delta_y)])*np.sign(delta_y)
 
             xc+=delta_x
             yc+=delta_y
-            print delta_x,delta_y
+            #print delta_x,delta_y
         return xc,yc
 
     def GivePSF(self):

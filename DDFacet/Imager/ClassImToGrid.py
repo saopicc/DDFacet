@@ -180,6 +180,7 @@ class ClassImToGrid():
                 #ModelCutOrig_GNorm_SW_Sphe_CorrT=ModelIm[ch,pol].copy()
                 T.timeit("5")
                 #SumFlux=np.sum(ModelIm)
+
                 ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=Sphe[x0p:x1p,y0p:y1p].real
 
 
