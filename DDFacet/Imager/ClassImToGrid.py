@@ -166,7 +166,7 @@ class ClassImToGrid():
 
 
                 ##print "!!!!!!!!!!!!!!!!!!!!!!"
-                #ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
+                ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
 
                 #ModelCutOrig_GNorm=NormIm[x0d:x1d,y0d:y1d].real.copy()
 

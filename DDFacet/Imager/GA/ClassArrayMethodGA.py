@@ -945,7 +945,7 @@ class WorkerFitness(multiprocessing.Process):
                 ContinuousFitNess.append(-chi2Th*W)
             if FuncType=="BIC":
                 chi2=np.sum((Resid)**2)/(self.PixVariance)
-                chi2/=self.BestChi2
+                #chi2/=self.BestChi2
                 n=Resid.size
                 k=np.count_nonzero(S)
                 #BIC=chi2+100*k*np.log(n)

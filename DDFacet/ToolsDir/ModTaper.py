@@ -15,12 +15,12 @@ def Sphe2D(Npix,factor=1.):
     x,y=np.mgrid[-1:1:1j*Npix,-1:1:1j*Npix]
 
 
-    # R=np.sqrt(x**2+y**2)
-    # z=np.zeros_like(R)
-    # zf=z.ravel()
-    # for (i,r) in zip(range(Npix**2),R.ravel()):
-    #     zf[i]=EvalSphe(np.abs(r)*factor)
-    # return z
+    R=np.sqrt(x**2+y**2)
+    z=np.zeros_like(R)
+    zf=z.ravel()
+    for (i,r) in zip(range(Npix**2),R.ravel()):
+        zf[i]=EvalSphe(np.abs(r)*factor)
+    return z
 
 
 
