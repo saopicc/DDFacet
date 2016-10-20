@@ -1129,7 +1129,6 @@ class ClassFacetMachine():
 
         work_queue = multiprocessing.JoinableQueue()
 
-
         PSFMode=False
         if self.DoPSF:
             #visIn.fill(1)
@@ -1596,6 +1595,7 @@ class WorkerImager(multiprocessing.Process):
         self.GiveGM(iFacet)
         self.result_queue.put({"Success": True, "iFacet": iFacet})
 
+
     def grid(self, DicoJob):
         """
         Grids the data currently housed in shared memory
@@ -1603,20 +1603,38 @@ class WorkerImager(multiprocessing.Process):
         Returns:
             Dictionary of gridder output products and weights
         """
+        
+        
+        T=ClassTimeIt.ClassTimeIt("Worker Gridder")
+        T.disable()
+
         iFacet=DicoJob["iFacet"]
         GridMachine = self.GiveGM(iFacet)
         DATA = NpShared.SharedToDico("%sDicoData" % self.IdSharedMemData)
+        T.timeit("get data")
         uvwThis = DATA["uvw"]
-        visThis0 = visThis = NpShared.GiveArray(self.DataPath)
-        flagsThis0 = flagsThis = NpShared.GiveArray(self.FlagPath)
-        if self.DataShape:
-            visThis = np.ndarray(shape=self.DataShape, dtype=np.complex64, buffer=visThis0)
-            flagsThis = np.ndarray(shape=self.DataShape, dtype=np.bool, buffer=flagsThis0)
+
+        # ################
+        # Older behaviour - reading the data from shm-RAM
+        visThis = DATA["data"]
+        flagsThis = DATA["flags"]
+        W = DATA["Weights"]
+        # ################
+        # # Oleg's "slow" behaviour - reading the data from diskaed-map-shm
+        # visThis0 = visThis = NpShared.GiveArray(self.DataPath)
+        # flagsThis0 = flagsThis = NpShared.GiveArray(self.FlagPath)
+        # if self.DataShape:
+        #     visThis = np.ndarray(shape=self.DataShape, dtype=np.complex64, buffer=visThis0)
+        #     flagsThis = np.ndarray(shape=self.DataShape, dtype=np.bool, buffer=flagsThis0)
+        # W = NpShared.GiveArray("file://"+self.Weights)
+        # ################
+
         times = DATA["times"]
         A0 = DATA["A0"]
         A1 = DATA["A1"]
         A0A1 = A0, A1
-        W = NpShared.GiveArray("file://"+self.Weights)
+        
+
         freqs = DATA["freqs"]
         ChanMapping = DATA["ChanMapping"]
 
@@ -1626,11 +1644,16 @@ class WorkerImager(multiprocessing.Process):
             DT, Dnu = DATA["MSInfos"]
             GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
 
+        T.timeit("Stuff")
         GridName = "%sGridFacet.%3.3i" % (self.IdSharedMem, iFacet)
         Grid = NpShared.GiveArray(GridName)
+        T.timeit("give grid")
         DicoJonesMatrices = self.GiveDicoJonesMatrices()
         # if iFacet == 12:
         #     print "before put ##grid", Grid.sum(dtype=np.float64)
+
+        T.timeit("GiveDicoJonesMatrices")
+
 
         GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                         DoNormWeights=False,
@@ -1641,6 +1664,7 @@ class WorkerImager(multiprocessing.Process):
         # if iFacet == 12:
         #     print "after put ##grid",Grid.sum(dtype=np.float64)
 
+        T.timeit("Grid")
         Sw = GridMachine.SumWeigths.copy()
         SumJones = GridMachine.SumJones.copy()
         SumJonesChan = GridMachine.SumJonesChan.copy()
@@ -1649,6 +1673,7 @@ class WorkerImager(multiprocessing.Process):
         self.result_queue.put(
             {"Success": True, "iFacet": iFacet, "Weights": Sw, "SumJones": SumJones,
              "SumJonesChan": SumJonesChan})
+        T.timeit("Rest")
 
     def degrid(self, DicoJob):
         """
@@ -1661,11 +1686,16 @@ class WorkerImager(multiprocessing.Process):
         GridMachine = self.GiveGM(iFacet)
         DATA = NpShared.SharedToDico("%sDicoData" % self.IdSharedMemData)
         uvwThis = DATA["uvw"]
-        visThis0 = visThis = NpShared.GiveArray(self.DataPath)
-        flagsThis0 = flagsThis = NpShared.GiveArray(self.FlagPath)
-        if self.DataShape:
-            visThis = np.ndarray(shape=self.DataShape, dtype=np.complex64, buffer=visThis0)
-            flagsThis = np.ndarray(shape=self.DataShape, dtype=np.bool, buffer=flagsThis0)
+
+
+        visThis = DATA["data"]
+        flagsThis = DATA["flags"]
+        # visThis0 = visThis = NpShared.GiveArray(self.DataPath)
+        # flagsThis0 = flagsThis = NpShared.GiveArray(self.FlagPath)
+        # if self.DataShape:
+        #     visThis = np.ndarray(shape=self.DataShape, dtype=np.complex64, buffer=visThis0)
+        #     flagsThis = np.ndarray(shape=self.DataShape, dtype=np.bool, buffer=flagsThis0)
+
         times = DATA["times"]
         A0 = DATA["A0"]
         A1 = DATA["A1"]
@@ -1687,7 +1717,7 @@ class WorkerImager(multiprocessing.Process):
                               DicoJonesMatrices=DicoJonesMatrices, freqs=freqs, TranformModelInput="FT",
                               ChanMapping=ChanMapping)
 
-        del visThis, flagsThis, visThis0, flagsThis0
+        # del visThis, flagsThis, visThis0, flagsThis0
 
         self.result_queue.put({"Success": True, "iFacet": iFacet})
 

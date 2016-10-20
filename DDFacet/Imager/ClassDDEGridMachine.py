@@ -663,8 +663,9 @@ class ClassDDEGridMachine():
             ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
             ParamJonesList=ParamJonesList+LApplySol+LSumJones+LSumJonesChan+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
-        T2= ClassTimeIt.ClassTimeIt("Gridder")
-        T2.disable()
+        #T2= ClassTimeIt.ClassTimeIt("Gridder")
+        #T2.disable()
+        T.timeit("stuff")
 
         if self.GD["Compression"]["CompGridMode"]==0:
             raise RuntimeError("Depricated flag. Please use BDA gridder")
@@ -690,6 +691,7 @@ class ClassDDEGridMachine():
                                           self.LSmear,
                                           np.int32(ChanMapping))
 
+            T.timeit("gridder")
 # <<<<<<< HEAD
 
 

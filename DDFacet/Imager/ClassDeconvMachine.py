@@ -490,7 +490,6 @@ class ClassImagerDeconv():
                 #    self.FacetMachine.DoComputeSmoothBeam = False
 
                 self.FacetMachine.ComputeSmoothBeam()
-                print "!!!!!!!!!!!!!!!!!!!!!!!"
                 #self.SaveDirtyProducts()
                 DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
                 nch,npol,nx,ny = DirtyCorr.shape
