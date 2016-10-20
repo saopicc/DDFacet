@@ -706,8 +706,6 @@ class ClassImageDeconvMachine():
         # else:
         #     for ii in range(NCPU):
         #         workerlist[ii].run()
-            
-
 
         iResult=0
         #print "!!!!!!!!!!!!!!!!!!!!!!!!",iResult,NJobs
@@ -893,7 +891,6 @@ class WorkerDeconvIsland(multiprocessing.Process):
             except Exception,e:
                 #print "Exception worker: %s"%str(e)
                 break
-
 
             # iIsland=DicoOrder["iIsland"]
             # FacetID=DicoOrder["FacetID"]
