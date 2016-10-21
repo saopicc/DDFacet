@@ -1,7 +1,11 @@
 import os
 
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmear
+##########################################################"
+# Please do not remove this import again - Needed for killMS
 import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
+##########################################################"
+
 import ModCF
 import numpy as np
 import pylab
