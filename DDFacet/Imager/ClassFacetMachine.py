@@ -1003,6 +1003,15 @@ class ClassFacetMachine():
         
         work_queue = multiprocessing.JoinableQueue()
 
+
+        
+        if self.NormImage is None:
+            self.NormImage = self.BuildFacetNormImage()
+            self.NormImage = NpShared.ToShared("%sNormImage"%self.IdSharedMem,self.NormImage)
+            self.NormImageReShape = self.NormImage.reshape([1,1,
+                                                            self.NormImage.shape[0],
+                                                            self.NormImage.shape[1]])
+
         NJobs = NFacets
         ChanSel=sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
         for iFacet in range(NFacets):
@@ -1757,8 +1766,6 @@ class WorkerImager(multiprocessing.Process):
         T.timeit("ModelImage")
         NormImage=NpShared.GiveArray("%sNormImage"%self.IdSharedMem)
         T.timeit("Normimage")
-
-
 
         ModelFacet,_=Im2Grid.GiveModelTessel(Image,self.DicoImager,iFacet,NormImage,SPhe,SpacialWeight,ChanSel=ChanSel)
         T.timeit("Calculation")

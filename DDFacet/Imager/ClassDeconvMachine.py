@@ -479,6 +479,10 @@ class ClassImagerDeconv():
                 self.MeanNormImage = np.mean(self.NormImage, axis=0).reshape((1, npol, nx, ny))
 
                 self.FacetMachine.NormImage = self.DicoDirty["NormImage"]
+                NpShared.ToShared("%sNormImage"%self.IdSharedMem,self.DicoDirty["NormImage"])
+                self.FacetMachine.NormImageReShape = self.NormImage.reshape([1,1,
+                                                                             self.FacetMachine.NormImage.shape[0],
+                                                                             self.FacetMachine.NormImage.shape[1]])
                 self.FacetMachine.NormData = self.DicoDirty["NormData"] 
                 self.FacetMachine.MeanResidual = self.DicoDirty["MeanImage"]
                 self.FacetMachine.DoCalcNormData = False
