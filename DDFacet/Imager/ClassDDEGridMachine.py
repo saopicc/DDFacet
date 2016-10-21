@@ -1,6 +1,7 @@
 import os
 
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmear
+import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
 import ModCF
 import numpy as np
 import pylab
