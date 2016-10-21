@@ -528,7 +528,7 @@ class ClassImagerDeconv():
                 self.FacetMachine.BuildFacetNormImage()
 
                 InitBaseName=".".join(SubstractModel.split(".")[0:-1])
-                self.FacetMachine.BuildFacetNormImage()
+
                 # NormFacetsFile="%s.NormFacets.fits"%InitBaseName
                 # if InitBaseName!=BaseName:
                 #     print>>log, ModColor.Str("You are substracting a model build from a different facetting mode")

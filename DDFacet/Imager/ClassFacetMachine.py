@@ -695,10 +695,7 @@ class ClassFacetMachine():
         # -------------------------------------------------
         if self.NormImage is None:
             self.NormImage = self.BuildFacetNormImage()
-            self.NormImage = NpShared.ToShared("%sNormImage"%self.IdSharedMem,self.NormImage)
-            self.NormImageReShape = self.NormImage.reshape([1,1,
-                                                            self.NormImage.shape[0],
-                                                            self.NormImage.shape[1]])
+
         self.stitchedResidual = self.FacetsToIm_Channel()
         if DoCalcNormData:
             self.NormData = self.FacetsToIm_Channel(BeamWeightImage=True)
@@ -849,6 +846,11 @@ class ClassFacetMachine():
             SW=SpacialWeigth[::-1,:].T[x0p:x1p,y0p:y1p]
             NormImage[x0d:x1d,y0d:y1d]+=np.real(SW)
 
+        self.NormImage = NormImage
+        self.NormImage = NpShared.ToShared("%sNormImage"%self.IdSharedMem,self.NormImage)
+        self.NormImageReShape = self.NormImage.reshape([1,1,
+                                                        self.NormImage.shape[0],
+                                                        self.NormImage.shape[1]])
         return NormImage
 
     def FacetsToIm_Channel(self,BeamWeightImage=False):
@@ -1007,10 +1009,6 @@ class ClassFacetMachine():
         
         if self.NormImage is None:
             self.NormImage = self.BuildFacetNormImage()
-            self.NormImage = NpShared.ToShared("%sNormImage"%self.IdSharedMem,self.NormImage)
-            self.NormImageReShape = self.NormImage.reshape([1,1,
-                                                            self.NormImage.shape[0],
-                                                            self.NormImage.shape[1]])
 
         NJobs = NFacets
         ChanSel=sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
