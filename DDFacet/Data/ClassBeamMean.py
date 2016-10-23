@@ -8,6 +8,8 @@ from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Other import ModColor
+from DDFacet.Array import NpShared
+
 
 class ClassBeamMean():
     def __init__(self,VS):
@@ -71,8 +73,9 @@ class ClassBeamMean():
             ThisMSData["A1"]=A1
             ThisMSData["times"]=times
             ThisMSData["flags"]=flags
-            ThisMSData["W"]=np.concatenate(weights)
-
+            LW=[NpShared.GiveArray("file://"+NameWeights) for NameWeights in weights]
+            ThisMSData["W"]=np.concatenate(LW)
+            
     
             self.Data[iMS]=ThisMSData
 
