@@ -13,11 +13,14 @@ def fork_tensorflow_server():
 
     script = '{d}/tf_server_fork.py'.format(d=os.path.dirname(DDFacet.__file__))
 
+    stderr_file = open('tf_err.log', 'w')
+
+
     proc = subprocess.Popen([sys.executable, script],
         preexec_fn=os.setsid,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
+        stderr=stderr_file)
 
     # Register a handler to kill the child process on exit
     atexit.register(lambda p: os.kill(p.pid, signal.SIGKILL), proc)
