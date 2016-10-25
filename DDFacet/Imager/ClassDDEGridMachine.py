@@ -1,6 +1,8 @@
 import os
 
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmear
+import DDFacet.cbuild.Gridder._pyGridderSmearPolsFaster as _pyGridderSmearFaster
+
 ##########################################################"
 # Please do not remove this import again - Needed for killMS
 import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
@@ -672,9 +674,9 @@ class ClassDDEGridMachine():
         #T2.disable()
         T.timeit("stuff")
 
-        if self.GD["Compression"]["CompGridMode"]==0:
+        if self.GD["ImagerGlobal"]["GriderType"]=="Classic":
             raise RuntimeError("Depricated flag. Please use BDA gridder")
-        else:
+        elif self.GD["ImagerGlobal"]["GriderType"]=="BDA":
             OptimisationInfos=[self.JonesType,ChanEquidistant,self.SkyType,self.PolModeID]
             MapSmear= NpShared.GiveArray("%sBDA.Grid" % (self.ChunkDataCache))
             _pyGridderSmear.pyGridderWPol(Grid,
@@ -695,6 +697,27 @@ class ClassDDEGridMachine():
                                           OptimisationInfos,
                                           self.LSmear,
                                           np.int32(ChanMapping))
+        elif self.GD["ImagerGlobal"]["GriderType"]=="BDA_Faster":
+            OptimisationInfos=[self.JonesType,ChanEquidistant,self.SkyType,self.PolModeID]
+            MapSmear= NpShared.GiveArray("%sBDA.Grid" % (self.ChunkDataCache))
+            _pyGridderSmearFaster.pyGridderWPol(Grid,
+                                                vis,
+                                                uvw,
+                                                flag,
+                                                W,
+                                                SumWeigths,
+                                                DoPSF,
+                                                self.WTerm.Wplanes,
+                                                self.WTerm.WplanesConj,
+                                                np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
+                                                self.incr.astype(np.float64),
+                                                freqs,
+                                                [self.PolMap,FacetInfos],
+                                                ParamJonesList,
+                                                MapSmear,
+                                                OptimisationInfos,
+                                                self.LSmear,
+                                                np.int32(ChanMapping))
 
             T.timeit("gridder")
 # <<<<<<< HEAD
@@ -842,7 +865,7 @@ class ClassDDEGridMachine():
         T.timeit("3")
         #print vis
         #print "DEGRID:",Grid.shape,ChanMapping
-        if self.GD["Compression"]["CompDeGridMode"]==0:
+        if self.GD["ImagerGlobal"]["DeGriderType"]=="Classic":
             _ = _pyGridder.pyDeGridderWPol(Grid,
                                            vis,
                                            uvw,
@@ -856,7 +879,7 @@ class ClassDDEGridMachine():
                                            freqs,
                                            [self.PolMap,FacetInfos,RowInfos,ChanMapping],
                                            ParamJonesList)
-        else:
+        elif self.GD["ImagerGlobal"]["DeGriderType"]=="BDA":
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos=[self.JonesType,ChanEquidistant,self.SkyType,self.PolModeID]
             MapSmear= NpShared.GiveArray("%sBDA.DeGrid" % (self.ChunkDataCache))
@@ -878,7 +901,28 @@ class ClassDDEGridMachine():
                                                   OptimisationInfos,
                                                   self.LSmear,
                                                   np.int32(ChanMapping))
-            
+        elif self.GD["ImagerGlobal"]["DeGriderType"]=="BDA_Faster":
+            OptimisationInfos=[self.JonesType,ChanEquidistant,self.SkyType,self.PolModeID]
+            MapSmear= NpShared.GiveArray("%sBDA.DeGrid" % (self.ChunkDataCache))
+            _pyGridderSmearFaster.pySetSemaphores(self.ListSemaphores)
+            vis = _pyGridderSmearFaster.pyDeGridderWPol(Grid,
+                                                  vis,
+                                                  uvw,
+                                                  flag,
+                                                  SumWeigths,
+                                                  0,
+                                                  self.WTerm.WplanesConj,
+                                                  self.WTerm.Wplanes,
+                                                  np.array([self.WTerm.RefWave,self.WTerm.wmax,len(self.WTerm.Wplanes),self.WTerm.OverS],dtype=np.float64),
+                                                  self.incr.astype(np.float64),
+                                                  freqs,
+                                                  [self.PolMap,FacetInfos,RowInfos],
+                                                  ParamJonesList,
+                                                  MapSmear,
+                                                  OptimisationInfos,
+                                                  self.LSmear,
+                                                  np.int32(ChanMapping))
+
 
         T.timeit("4 (degrid)")
         #print vis

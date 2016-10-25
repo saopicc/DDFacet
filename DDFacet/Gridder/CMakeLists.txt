@@ -77,6 +77,11 @@ add_library(_pyGridderSmearPols GridderSmearPols.c GridderSmearPols.h Semaphores
 set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
 target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
+#compile and link _pyGridderSmearPols2.so
+add_library(_pyGridderSmearPolsFaster GridderSmearPolsFaster.c GridderSmearPols.h Semaphores.h)
+set_target_properties(_pyGridderSmearPolsFaster PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
+target_link_libraries(_pyGridderSmearPolsFaster ${RT_LIBRARIES} ${PYTHON_LIBRARY})
+
 #compile and link _pyWeightingCore.so
 add_custom_command(OUTPUT _pyWeightingCore.c
 		   COMMAND cython ${CMAKE_CURRENT_SOURCE_DIR}/_pyWeightingCore.pyx -o _pyWeightingCore.c

@@ -125,12 +125,12 @@ def read_options():
     OP.add_option("PSFFacets")
     OP.add_option("PhaseCenterRADEC")
     OP.add_option('FFTMachine')
+    OP.add_option('GriderType')
+    OP.add_option('DeGriderType')
 
     OP.OptionGroup("* Visibility compression parameters","Compression")
-    OP.add_option('CompGridMode')
     OP.add_option('CompGridDecorr')
     OP.add_option('CompGridFOV')
-    OP.add_option('CompDeGridMode')
     OP.add_option('CompDeGridDecorr')
     OP.add_option('CompDeGridFOV')
 

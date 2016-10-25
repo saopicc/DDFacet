@@ -447,14 +447,14 @@ class ClassVisServer():
 
         self.residual_data = data
 
-            # ## debug
-        # ind=np.where((A0==14)&(A1==31))[0]
-        # flags=flags[ind]
-        # data=data[ind]
-        # A0=A0[ind]
-        # A1=A1[ind]
-        # uvw=uvw[ind]
-        # times=times[ind]
+        # ## debug
+        # ind=np.where(np.logical_not((A0==0)&(A1==31)))[0]
+        # flags[ind,:,:]=1
+        # #data=data[ind]
+        # #A0=A0[ind]
+        # #A1=A1[ind]
+        # #uvw=uvw[ind]
+        # #times=times[ind]
         # ##
 
         # note that this is now a string (filename of the shared array object), and so won't be packed
@@ -552,7 +552,7 @@ class ClassVisServer():
         self.CellSizeRad=cell
 
     def UpdateCompression(self, DATA, ChanMappingGridding=None, ChanMappingDeGridding=None):
-        if self.GD["Compression"]["CompGridMode"]:
+        if "BDA" in self.GD["ImagerGlobal"]["GriderType"]:
             mapname, valid = self.cache.checkCache("BDA.Grid",
                                                    dict(Compression=self.GD["Compression"],
                                                         DataSelection=self.GD["DataSelection"],ImagerMainFacet=self.GD["ImagerMainFacet"]))
@@ -577,7 +577,8 @@ class ClassVisServer():
                 NpShared.ToShared("file://" + mapname, FinalMapping)
                 self.cache.saveCache("BDA.Grid")
 
-        if self.GD["Compression"]["CompDeGridMode"]:
+
+        if "BDA" in self.GD["ImagerGlobal"]["DeGriderType"]:
             mapname, valid = self.cache.checkCache("BDA.DeGrid",
                                                    dict(Compression=self.GD["Compression"],
                                                         DataSelection=self.GD["DataSelection"],ImagerMainFacet=self.GD["ImagerMainFacet"]))

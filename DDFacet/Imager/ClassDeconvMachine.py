@@ -642,14 +642,17 @@ class ClassImagerDeconv():
         BaseName=self.GD["Images"]["ImageName"]
 
         #ModelMachine=ClassModelMachine(self.GD)
-        try:
-            NormImageName="%s.NormFacets.fits"%BaseName
-            CasaNormImage = image(NormImageName)
-            NormImage = CasaNormImage.getdata()
-            print NormImage.shape
-        except:
-            NormImage = self.FacetMachine.BuildFacetNormImage()
-            NormImage = NormImage.reshape([1,1,NormImage.shape[0],NormImage.shape[1]])
+        # try:
+        #     NormImageName="%s.NormFacets.fits"%BaseName
+        #     CasaNormImage = image(NormImageName)
+        #     NormImage = CasaNormImage.getdata()
+        #     print NormImage.shape
+        # except:
+        #     NormImage = self.FacetMachine.BuildFacetNormImage()
+        #     NormImage = NormImage.reshape([1,1,NormImage.shape[0],NormImage.shape[1]])
+
+        NormImage = self.FacetMachine.BuildFacetNormImage()
+        NormImage = NormImage.reshape([1,1,NormImage.shape[0],NormImage.shape[1]])
 
         nch,npol,nx,_=NormImage.shape
         for ch in range(nch):
@@ -702,7 +705,10 @@ class ClassImagerDeconv():
             else:
                 raise ValueError("Invalid PredictMode '%s'" % PredictMode)
 
-            vis = self.VS.getVisibilityResiduals()
+            # #######################
+            # vis = self.VS.getVisibilityResiduals() # that's crap, gives only zeros, I could not reverse engineer why
+            vis = self.DATA["data"]
+            # #######################
             vis *= -1 # model was subtracted from null data, so need to invert
             PredictColName=self.GD["VisData"]["PredictColName"]
 
@@ -864,6 +870,7 @@ class ClassImagerDeconv():
         x, y = np.where(PSF == np.max(PSF))[-2:]
         nx, ny = PSF.shape[-2:]
         #off = offStart
+
         off = min(off, x[0], nx-x[0], y[0], ny-y[0])
         print>> log, "Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2)
         P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off]
@@ -909,6 +916,8 @@ class ClassImagerDeconv():
         PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
 
         off=self.GD["ImagerDeconv"]["SidelobeSearchWindow"] // 2
+        print off
+
         beam, gausspars, sidelobes = self.fitSinglePSF(self.MeanFacetPSF[0,...], off, "mean")
         if forced_beam is not None:
             print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
