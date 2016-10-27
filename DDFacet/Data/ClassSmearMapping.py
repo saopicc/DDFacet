@@ -134,10 +134,11 @@ class ClassSmearMapping():
         NpShared.DelAll(ThisWorkerMapName)
         work_queue = multiprocessing.Queue()
         result_queue = multiprocessing.Queue()
-        for a0 in range(na):
-            for a1 in range(na):
-                if a0==a1: continue
-                work_queue.put((a0,a1))
+        # for a0 in range(na):
+        #     for a1 in range(na):
+        #         if a0==a1: continue
+        #         work_queue.put((a0,a1))
+        work_queue.put((13,30))
 
         NJobs=work_queue.qsize()
         workerlist=[]
