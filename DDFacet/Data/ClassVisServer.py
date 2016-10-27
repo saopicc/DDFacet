@@ -573,7 +573,7 @@ class ClassVisServer():
                 FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingGridding)
 
                 print>> log, ModColor.Str("  Effective compression [Grid]  :   %.2f%%" % fact, col="green")
-
+                np.save("FinalMapping1.npy",FinalMapping)
                 NpShared.ToShared("file://" + mapname, FinalMapping)
                 self.cache.saveCache("BDA.Grid")
 

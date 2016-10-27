@@ -654,18 +654,17 @@ class ClassImagerDeconv():
         NormImage = self.FacetMachine.BuildFacetNormImage()
         NormImage = NormImage.reshape([1,1,NormImage.shape[0],NormImage.shape[1]])
 
-        nch,npol,nx,_=NormImage.shape
-        for ch in range(nch):
-            for pol in range(npol):
-                NormImage[ch,pol]=NormImage[ch,pol].T[::-1]
-
-        self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
+        # nch,npol,nx,_=NormImage.shape
+        # for ch in range(nch):
+        #     for pol in range(npol):
+        #         NormImage[ch,pol]=NormImage[ch,pol].T[::-1]
+        # self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
         modelfile = self.GD["Images"]["PredictModelName"]
 
         # if model is a dict, init model machine with that
         # else we use a model image and hope for the best (need to fix frequency axis...)
-        print>>log,modelfile
+        # 
         if modelfile.endswith(".DicoModel"):
             try:
                 self.DeconvMachine.FromDico(modelfile)
@@ -674,6 +673,7 @@ class ClassImagerDeconv():
                 self.DeconvMachine.FromFile(modelfile)
             FixedModelImage = None
         else:
+            print>>log,"reading file %s"%modelfile
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
 
         current_model_freqs = np.array([])
@@ -693,6 +693,14 @@ class ClassImagerDeconv():
                     print>>log,"reusing model image from previous chunk"
             else:
                 ModelImage = FixedModelImage
+
+            if ModelImage.shape[0]!=self.VS.CurrentChanMappingDegrid.size:
+                print>>log, "The image model channels and targetted degridded visibilities channels have different sizes (%i vs %i respectively)"%(ModelImage.shape[0],self.VS.CurrentChanMappingDegrid.size)
+                if ModelImage.shape[0]==1:
+                    print>>log, " Matching freq size of model image to visibilities"
+                    ModelImage=ModelImage*np.ones((self.VS.CurrentChanMappingDegrid.size,1,1,1))
+
+
 
             if self.PredictMode == "DeGridder":
                 self.FacetMachine.getChunk(ModelImage)
