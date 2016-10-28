@@ -1009,6 +1009,9 @@ class ClassFacetMachine():
         
         if self.NormImage is None:
             self.NormImage = self.BuildFacetNormImage()
+        elif NpShared.GiveArray("%sNormImage"%self.IdSharedMem) is None:
+            print>>log, ModColor.Str("Strange, the facet norm image has disapeared from the shm, putting it back in")
+            self.NormImage = NpShared.ToShared("%sNormImage"%self.IdSharedMem,self.NormImage)
 
         NJobs = NFacets
         ChanSel=sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
