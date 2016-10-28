@@ -70,7 +70,7 @@ Adding the `--system-site-packages` directive ensures that the virtualenv has ac
     ```bash
     git clone https://github.com/ska-sa/montblanc.git
     cd montblanc
-    git checkout d733dbf14d38ef2411e8deb089f7868c308cf69c
+    git checkout 339eb8f8a0f4a44243f340b7f33882fd9656858b
     ```
 
 2. Install tensorflow CPU [nightly][tf_nightly_install] build (This can be replaced by the 0.11 version once it is released):

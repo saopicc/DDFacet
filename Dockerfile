@@ -56,7 +56,7 @@ RUN . /ddfvenv/bin/activate && pip install -I --force-reinstall /src/DDFacet/
 # Install tensorflow CPU nightly
 RUN . /ddfvenv/bin/activate && pip install https://ci.tensorflow.org/view/Nightly/job/nightly-matrix-cpu/TF_BUILD_IS_OPT=OPT,TF_BUILD_IS_PIP=PIP,TF_BUILD_PYTHON_VERSION=PYTHON2,label=cpu-slave/lastSuccessfulBuild/artifact/pip_test/whl/tensorflow-0.11.0rc1-cp27-none-linux_x86_64.whl
 # Clone montblanc and checkout the tensorflow implementation
-RUN git clone https://github.com/ska-sa/montblanc.git /montblanc/; cd /montblanc/; git checkout d733dbf14d38ef2411e8deb089f7868c308cf69c
+RUN git clone https://github.com/ska-sa/montblanc.git /montblanc/; cd /montblanc/; git checkout 339eb8f8a0f4a44243f340b7f33882fd9656858b
 # Make the tensorflow ops
 RUN cd /montblanc/montblanc/impl/rime/tensorflow/rime_ops; . /ddfvenv/bin/activate && make -j 8
 # Install montblanc in development mode
