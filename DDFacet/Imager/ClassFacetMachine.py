@@ -471,6 +471,7 @@ class ClassFacetMachine():
         # check if spacial weights are cached
         cachepath, cachevalid = self.VS.maincache.checkCache("FacetData",
                 dict(ImagerCF=self.GD["ImagerCF"],
+                     DDESolutions=self.GD["DDESolutions"],
                      ImagerMainFacet=self.GD["ImagerMainFacet"]),
             directory=True)
 

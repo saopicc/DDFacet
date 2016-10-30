@@ -32,7 +32,10 @@ class ClassJones():
         if SolsFile!="":
             self.ApplyCal=True
             self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache("JonesNorm_killMS.npz",
-                                                    dict(DDESolutions=GD["DDESolutions"],DataSelection=self.GD["DataSelection"],ImagerMainFacet=self.GD["ImagerMainFacet"]))
+                                                                            dict(DDESolutions=GD["DDESolutions"],
+                                                                                 DataSelection=self.GD["DataSelection"],
+                                                                                 ImagerMainFacet=self.GD["ImagerMainFacet"]),
+                                                                            reset=self.GD["Caching"]["ResetJones"])
             if valid:
                 print>>log,"  using cached Jones matrices from %s"%self.JonesNormSolsFile_killMS
                 DicoSols,TimeMapping,DicoClusterDirs=self.DiskToSols(self.JonesNormSolsFile_killMS)
@@ -51,7 +54,8 @@ class ClassJones():
                                                                           dict(Beam=GD["Beam"],
                                                                                DDESolutions=GD["DDESolutions"],
                                                                                DataSelection=self.GD["DataSelection"],
-                                                                               ImagerMainFacet=self.GD["ImagerMainFacet"]))
+                                                                               ImagerMainFacet=self.GD["ImagerMainFacet"]),
+                                                                          reset=self.GD["Caching"]["ResetJones"])
             if valid:
                 print>>log,"  using cached Jones matrices from %s"%self.JonesNormSolsFile_Beam
                 DicoSols,TimeMapping,DicoClusterDirs=self.DiskToSols(self.JonesNormSolsFile_Beam)
