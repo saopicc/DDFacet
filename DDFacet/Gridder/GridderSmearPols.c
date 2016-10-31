@@ -429,7 +429,7 @@ void gridderWPol(PyArrayObject *grid,
 
 	//AddTimeit(PreviousTime,TimeGetJones);
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
-	  int doff = (irow * nVisChan + visChan) * nVisPol;
+	  size_t doff = (irow * nVisChan + visChan) * nVisPol;
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
 	  double*   imgWtPtr = p_float64(weights) + irow  * nVisChan + visChan;
 	  
@@ -680,7 +680,7 @@ void gridderWPol(PyArrayObject *grid,
       	    // Map to grid polarization. Only use pol if needed.
       	    int gridPol = PolMap[ipol];
       	    if (gridPol >= 0  &&  gridPol < nGridPol) {
-      	      int goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
+      	      size_t goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
       	      int sy;
       	      float complex* __restrict__ gridPtr;
       	      const float complex* __restrict__ cf0;
