@@ -387,6 +387,7 @@ void gridderWPol(PyArrayObject *grid,
     int *ptrModeInterpolation;
     int ApplyAmp,ApplyPhase,DoScaleJones;
     float CalibError,CalibError2;
+
     if(LengthJonesList>0){
       DoApplyJones=1;
 
@@ -535,7 +536,7 @@ void gridderWPol(PyArrayObject *grid,
     WaveLengthMean/=nVisChan;
 
     for (inx=0; inx<nrows; inx++) {
-      int irow = inx;//rows[inx];
+      size_t irow = inx;//rows[inx];
       //printf("\n");
       //printf("irow=%i/%i\n",irow,nrows);
       //const double*  __restrict__ uvwPtr   = GetDp(uvw) + irow*3;
@@ -1180,7 +1181,7 @@ void DeGridderWPol(PyArrayObject *grid,
 
     // Loop over all visibility rows to process.
     for (inx=row0; inx<row1; ++inx) {
-      int irow = inx;
+      size_t irow = inx;
 
       //printf("row=%i/%i \n",irow,nrows);
 
@@ -1278,7 +1279,7 @@ void DeGridderWPol(PyArrayObject *grid,
               locy-supy >= 0  &&  locy+supy < nGridY) {
             ///            cout << "in grid"<<endl;
             // Get pointer to data and flags for this channel.
-            int doff = (irow * nVisChan + visChan) * nVisPol;
+            size_t doff = (irow * nVisChan + visChan) * nVisPol;
             float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
             bool* __restrict__ flagPtr = p_bool(flags) + doff;
 	    float complex ThisVis[4]={0};
@@ -1303,7 +1304,7 @@ void DeGridderWPol(PyArrayObject *grid,
                   /// Complex norm(0,0);
                   // Get the offset in the grid data array.
 
-                  int goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
+                  size_t goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
                   // Loop over the scaled support.
 		  int sy;
 		  //initTime();
