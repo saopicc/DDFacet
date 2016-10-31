@@ -774,7 +774,7 @@ class ClassImagerDeconv():
             self.DeconvMachine.Update(DicoImage)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
-            #self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName) LB - Not sure this is necessary anymore
+            self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName) 
 
             ## returned with nothing done in minor cycle? Break out
             if not update_model or iMajor == NMajor-1:
@@ -858,7 +858,7 @@ class ClassImagerDeconv():
                                               Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
 
-            self.DeconvMachine.ToFile(self.DicoModelName)
+            #self.DeconvMachine.ToFile(self.DicoModelName)
 
 
             self.HasDeconvolved=True
