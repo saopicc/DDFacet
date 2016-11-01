@@ -73,12 +73,13 @@ Adding the `--system-site-packages` directive ensures that the virtualenv has ac
     git checkout 339eb8f8a0f4a44243f340b7f33882fd9656858b
     ```
 
-2. Install tensorflow CPU [nightly][tf_nightly_install] build (This can be replaced by the 0.11 version once it is released):
+2. Install the tensorflow CPU [0.11.0rc1][tf_pip_install] build (This can be replaced by the 0.11.0 version once it is released):
 
     ```bash
-    pip install https://ci.tensorflow.org/view/Nightly/job/nightly-matrix-cpu/TF_BUILD_IS_OPT=OPT,TF_BUILD_IS_PIP=PIP,TF_BUILD_PYTHON_VERSION=PYTHON2,label=cpu-slave/lastSuccessfulBuild/artifact/pip_test/whl/tensorflow-0.11.0rc1-cp27-none-linux_x86_64.whl
+    pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0rc1-cp27-none-linux_x86_64.whl
     ```
-    If you want GPU acceleration and you have CUDA installed, you can alternatively try installing the tensorflow [GPU version][tf_nightly_install].
+
+    If you want GPU acceleration and you have CUDA installed, you can alternatively try installing the tensorflow [GPU version][tf_pip_install].
 
 3. Build montblanc's tensorflow operations:
 
@@ -157,6 +158,6 @@ Acceptance test data can be found on the Jenkins server in the **/data/test-data
 To resimulate images and add more tests:
 In the Jenkins server data directory run **make** to resimulate and set up new reference images. This should only be done with the **origin/master** branch - not your branch or fork! You should manually verify that all the reference images are correct when you regenerate them. Each time you add a new option to DDFacet also add an option to the makefile in this directory. Once the option is set up in the makefile you can build the reference images on Jenkins.
 
-[tf_nightly_install]: https://github.com/tensorflow/tensorflow#installation
+[tf_pip_install]: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/g3doc/get_started/os_setup.md#pip-installation
 
 
