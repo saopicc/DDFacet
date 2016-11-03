@@ -197,6 +197,7 @@ class ClassBeamMean():
         if_z_f_SumJJsq/=np.real(ifzfCF)#.reshape((1,1,nx,nx)))
         #if_z_f_SumJJsq[ifzfCF.real<1e-2]=-1.
 
+        """
         vmin=0#self.SumJJsq.min()
         vmax=self.SumJJsq.max()
         import pylab
@@ -209,6 +210,7 @@ class ClassBeamMean():
         pylab.imshow(if_z_f_SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
         pylab.show(False)
         stop
+        """
 
         self.ifzfCF=np.real(ifzfCF)
         self.SmoothBeam=np.real(if_z_f_SumJJsq)
