@@ -643,7 +643,7 @@ class ClassImageDeconvMachine():
             # print "%i/%i"%(iIsland,self.NIslands)
             ThisPixList=ListIslands[iIsland]
             XY=np.array(ThisPixList,dtype=np.float32)
-            xm,ym=np.mean(np.float32(XY),axis=0)
+            xm,ym=np.mean(np.float32(XY),axis=0).astype(int)
             T.timeit("xm,ym")
             nchan,npol,_,_=self._Dirty.shape
             JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))
