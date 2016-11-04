@@ -5,7 +5,6 @@ import ClassCasaImage
 import ClassDDEGridMachine
 import numpy as np
 import pyfftw
-import pylab
 from DDFacet.Array import NpShared
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from DDFacet.Other import ClassTimeIt
@@ -393,6 +392,7 @@ class ClassFacetMachine():
         y0,y1=mc.min()-np.pi/180,mc.max()+np.pi/180
         InterpMode=self.GD["DDESolutions"]["Type"]
         if InterpMode=="Krigging":
+            import pylab
             for iFacet in sorted(self.DicoImager.keys()):
                 l0,m0=self.DicoImager[iFacet]["lmShift"]
                 d0=self.GD["DDESolutions"]["Scale"]*np.pi/180

@@ -10,7 +10,6 @@ import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
 
 import ModCF
 import numpy as np
-import pylab
 from DDFacet.Array import NpShared
 from DDFacet.Data import ClassVisServer
 from DDFacet.Other import ClassTimeIt
@@ -23,6 +22,8 @@ log= MyLogger.getLogger("ClassDDEGridMachine")
 
 
 def testGrid():
+    import pylab
+
     #Parset=ReadCFG.Parset("%s/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
     Parset= ReadCFG.Parset("%s/DDFacet/Parset/DefaultParset.cfg" % os.environ["DDFACET_DIR"])
     DC=Parset.DicoPars

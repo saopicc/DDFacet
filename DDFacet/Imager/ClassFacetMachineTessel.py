@@ -3,7 +3,6 @@ from scipy.spatial import Voronoi
 
 import Polygon
 import numpy as np
-import pylab
 from DDFacet.Array import NpShared
 from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Other import MyLogger

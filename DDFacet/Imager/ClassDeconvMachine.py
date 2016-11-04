@@ -1,6 +1,5 @@
 from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
-import pylab
 from pyrap.images import image
 from DDFacet.Other import MyPickle
 from DDFacet.ToolsDir import ModFFTW
@@ -1161,6 +1160,7 @@ class ClassImagerDeconv():
                                           Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
     def testDegrid(self):
+        import pylab
         self.InitFacetMachine()
 
         self.FacetMachine.ReinitDirty()
