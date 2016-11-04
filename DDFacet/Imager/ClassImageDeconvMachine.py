@@ -1,6 +1,4 @@
-
 import numpy as np
-import pylab
 import MyLogger
 import ModColor
 log=MyLogger.getLogger(" ClassImageDeconvMachine")

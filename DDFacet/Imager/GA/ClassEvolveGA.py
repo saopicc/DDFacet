@@ -11,7 +11,6 @@ import multiprocessing
 
 from DDFacet.ToolsDir import ModFFTW
 import numpy as np
-import pylab
 import os
 #import Select
 

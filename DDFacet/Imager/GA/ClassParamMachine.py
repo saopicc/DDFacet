@@ -2,7 +2,6 @@ from DDFacet.ToolsDir import ModFFTW
 import numpy as np
 import random
 from deap import tools
-import pylab
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from DDFacet.Other import ClassTimeIt
 from itertools import repeat

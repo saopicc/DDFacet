@@ -2,7 +2,6 @@ import collections
 import random
 
 import numpy as np
-import pylab
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyLogger
 
@@ -431,10 +430,9 @@ class ClassArrayMethodGA():
         ArrayModel=self.PM.GiveModelArray(A)
         A0=self.PM.ModelToSquareArray(ArrayModel,TypeInOut=("Parms","Parms"),DomainOut="Parms").copy()
 
+        import pylab
         for reg in np.linspace(0,0.99,8):
 
-
-            import pylab
             pylab.clf()
             pylab.imshow(A0[0,0],interpolation="nearest",vmax=1.)
             pylab.draw()
@@ -698,6 +696,7 @@ class ClassArrayMethodGA():
 
     def PlotChannel(self,pop,iGen,iChannel=0):
 
+        import pylab
         best_ind = tools.selBest(pop, 1)[0]
         V=best_ind
 

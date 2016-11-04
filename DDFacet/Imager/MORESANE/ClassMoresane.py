@@ -8,7 +8,6 @@ import time
 
 
 from scipy.signal import fftconvolve
-import pylab as plt
 
 #logger = logging.getLogger(__name__)
 from DDFacet.Other import MyLogger
