@@ -16,7 +16,6 @@ import ClassConvMachine
 import time
 
 from deap import tools
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 log= MyLogger.getLogger("ClassArrayMethodGA")
 
@@ -697,6 +696,8 @@ class ClassArrayMethodGA():
     def PlotChannel(self,pop,iGen,iChannel=0):
 
         import pylab
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+
         best_ind = tools.selBest(pop, 1)[0]
         V=best_ind
 
