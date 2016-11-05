@@ -120,31 +120,56 @@ class ClassEvolveGA():
         #self.ArrayMethodsMachine.PM.PrintIndiv(self.IslandBestIndiv)
 
         if self.IslandBestIndiv is not None:
+            SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
 
             if np.max(np.abs(self.IslandBestIndiv))==0:
-                #print "deconv"
-                SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
-
-                #print "Estimated alpha",Alpha
-                AlphaModel=np.zeros_like(SModelArray)+Alpha
-                #AlphaModel[SModelArray==np.max(SModelArray)]=0
-
-                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray)#,AlphaModel=AlphaModel)
-
-                #print self.ArrayMethodsMachine.GiveFitness(self.pop[0],DoPlot=True)
-                #stop
-                #print self.pop
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray)
             else:
+                NIndiv=len(self.pop)/2
+                pop0=self.pop[0:NIndiv]
+                pop1=self.pop[NIndiv::]
+
+                # half of the pop with the MP model
+                self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArray)
+
+                # other half with the best indiv
                 SModelArray=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
                 AlphaModel=None
                 if "Alpha" in self.ArrayMethodsMachine.PM.SolveParam:
                     AlphaModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Alpha")
-                
                 GSigModel=None
                 if "GSig" in self.ArrayMethodsMachine.PM.SolveParam:
                     GSigModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"GSig")
+                self.ArrayMethodsMachine.PM.ReinitPop(pop1,SModelArray,AlphaModel=AlphaModel,GSigModel=GSigModel)
+                self.pop=pop0+pop1
+
+
+        # if self.IslandBestIndiv is not None:
+
+        #     if np.max(np.abs(self.IslandBestIndiv))==0:
+        #         #print "deconv"
+        #         SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
+
+        #         #print "Estimated alpha",Alpha
+        #         AlphaModel=np.zeros_like(SModelArray)+Alpha
+        #         #AlphaModel[SModelArray==np.max(SModelArray)]=0
+
+        #         self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray)#,AlphaModel=AlphaModel)
+
+        #         #print self.ArrayMethodsMachine.GiveFitness(self.pop[0],DoPlot=True)
+        #         #stop
+        #         #print self.pop
+        #     else:
+        #         SModelArray=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
+        #         AlphaModel=None
+        #         if "Alpha" in self.ArrayMethodsMachine.PM.SolveParam:
+        #             AlphaModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Alpha")
                 
-                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray,AlphaModel=AlphaModel,GSigModel=GSigModel)
+        #         GSigModel=None
+        #         if "GSig" in self.ArrayMethodsMachine.PM.SolveParam:
+        #             GSigModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"GSig")
+                
+        #         self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray,AlphaModel=AlphaModel,GSigModel=GSigModel)
 
         # set best Chi2
         _=self.ArrayMethodsMachine.GiveFitnessPop([self.IslandBestIndiv])
