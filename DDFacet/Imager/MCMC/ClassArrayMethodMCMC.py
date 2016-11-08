@@ -163,6 +163,7 @@ class ClassArrayMethodGA():
 
         self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
 
+
     
 
     def ToConvArray(self,V,OutMode="Data"):
