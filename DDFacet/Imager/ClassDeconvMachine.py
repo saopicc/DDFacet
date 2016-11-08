@@ -923,7 +923,6 @@ class ClassImagerDeconv():
         PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
 
         off=self.GD["ImagerDeconv"]["SidelobeSearchWindow"] // 2
-        print off
 
         beam, gausspars, sidelobes = self.fitSinglePSF(self.MeanFacetPSF[0,...], off, "mean")
         if forced_beam is not None:

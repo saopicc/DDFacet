@@ -443,6 +443,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         self.WriteCoordFacetFile()
 
+        self.FacetDirections=set([self.DicoImager[iFacet]["RaDec"] for iFacet in range(len(self.DicoImager))])
         DicoName = "%s.DicoFacet" % self.GD["Images"]["ImageName"]
         print>> log, "Saving DicoImager in %s" % DicoName
         MyPickle.Save(self.DicoImager, DicoName)
