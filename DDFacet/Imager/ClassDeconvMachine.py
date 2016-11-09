@@ -698,9 +698,11 @@ class ClassImagerDeconv():
             if self.GD["Images"]["MaskSquare"] is not None:
                 # MaskInside: choose mask inside (0) or outside (1) 
                 # NpixInside: Size of the masking region
-                MaskInside,NpixInside = self.GD["Images"]["MaskSquare"]
-                SquareMaskMode="Outside"
-                if MaskInside: SquareMaskMode="Inside"
+                MaskOutSide,NpixInside = self.GD["Images"]["MaskSquare"]
+                if MaskOutSide==0:
+                    SquareMaskMode="Inside"
+                elif MaskOutSide==1:
+                    SquareMaskMode="Outside"
                 NpixInside, _ = EstimateNpix(float(NpixInside), Padding=1)
                 print>>log,"  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside)
                 dn=NpixInside/2
@@ -736,7 +738,9 @@ class ClassImagerDeconv():
             # vis = self.VS.getVisibilityResiduals() # that's crap, gives only zeros, I could not reverse engineer why
             vis = self.DATA["data"]
             # #######################
-            vis *= -1 # model was subtracted from null data, so need to invert
+            if self.GD["ImagerGlobal"]["Mode"]!="Substract":
+                vis *= -1 # model was subtracted from null data, so need to invert
+
             PredictColName=self.GD["VisData"]["PredictColName"]
 
             self.VS.CurrentMS.PutVisColumn(PredictColName, vis)

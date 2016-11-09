@@ -103,12 +103,15 @@ class ClassImageDeconvMachine():
         nch,npol,Nin,_=A.shape
         if Nin==Nout: 
             return A
-        elif Nin<Nout:
-            off=(Nout-Nin)/2
+        elif Nin>Nout:
+            dx=Nout/2
             B=np.zeros((nch,npol,Nout,Nout),A.dtype)
-            B[:,:,off:off+Nin,off:off+Nin]=A
+            print>>log,"  Adapt shapes: %s -> %s"%(str(A.shape),str(B.shape))
+            B[:]=A[...,Nin/2-dx:Nin/2+dx+1,Nin/2-dx:Nin/2+dx+1]
             return B
-
+        else:
+            stop
+            return None
 
     def SetDirty(self,DicoDirty):
         DicoDirty["ImagData"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImagData"])
@@ -123,7 +126,7 @@ class ClassImageDeconvMachine():
 
         _,_,NMask,_=self._MaskArray.shape
         if NMask!=NDirty:
-            print>>log,"Adapt mask shape"
+            print>>log,"Mask do not have the same shape as the residual image"
             self._MaskArray=self.AdaptArrayShape(self._MaskArray,NDirty)
             self.MaskArray=self._MaskArray[0]
             self.IslandArray=np.zeros_like(self._MaskArray)

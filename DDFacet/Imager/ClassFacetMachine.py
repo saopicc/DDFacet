@@ -471,8 +471,8 @@ class ClassFacetMachine():
         # check if spacial weights are cached
         cachepath, cachevalid = self.VS.maincache.checkCache("FacetData",
                 dict(ImagerCF=self.GD["ImagerCF"],
-                     #DDESolutions=self.GD["DDESolutions"],
-                     DDESolutions=self.FacetDirections,
+                     DDESolutions=self.GD["DDESolutions"],
+                     #DDESolutions=self.FacetDirections,
                      ImagerMainFacet=self.GD["ImagerMainFacet"]),
             directory=True)
 
@@ -1094,6 +1094,8 @@ class ClassFacetMachine():
                 workerlist[ii].terminate()
                 workerlist[ii].join()
 
+        
+
 
     def ReinitDirty(self):
         """
@@ -1702,10 +1704,9 @@ class WorkerImager(multiprocessing.Process):
         GridMachine = self.GiveGM(iFacet)
         DATA = NpShared.SharedToDico("%sDicoData" % self.IdSharedMemData)
         uvwThis = DATA["uvw"]
-
-
         visThis = DATA["data"]
         flagsThis = DATA["flags"]
+
         # visThis0 = visThis = NpShared.GiveArray(self.DataPath)
         # flagsThis0 = flagsThis = NpShared.GiveArray(self.FlagPath)
         # if self.DataShape:

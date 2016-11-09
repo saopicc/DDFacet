@@ -109,9 +109,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         NodesCat.dec = decSols
         NodesCat.l = lFacet
         NodesCat.m = mFacet
-        NodeFile = "%s.NodesCat.npy" % self.GD["Images"]["ImageName"]
-        print>> log, "Saving Nodes catalog in %s" % NodeFile
-        np.save(NodeFile, NodesCat)
 
         self.DicoImager = {}
 
@@ -123,20 +120,31 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         NFacets = self.NFacets = lFacet.size
         rac, decc = self.MainRaDec
         VM = ModVoronoiToReg.VoronoiToReg(rac, decc)
+        
         if NFacets > 2:
+            
             vor = Voronoi(xy, furthest_site=False)
             regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor, radius=1.)
 
             PP = Polygon.Polygon(self.CornersImageTot)
 
-            LPolygon = [np.array(PP & Polygon.Polygon(np.array(vertices[region])))[0] for region in regions]
-
-
+            LPolygon=[]
+            ListNode=[]
+            for region,iNode in zip(regions,range(NodesCat.shape[0])):
+                ThisP = np.array(PP & Polygon.Polygon(np.array(vertices[region])))
+                if ThisP.size>0:
+                    LPolygon.append(ThisP[0])
+                    ListNode.append(iNode)
+            NodesCat=NodesCat[np.array(ListNode)].copy()
 
         elif NFacets == 1:
             l0, m0 = lFacet[0], mFacet[0]
             LPolygon = [self.CornersImageTot]
         # VM.ToReg(regFile,lFacet,mFacet,radius=.1)
+
+        NodeFile = "%s.NodesCat.npy" % self.GD["Images"]["ImageName"]
+        print>> log, "Saving Nodes catalog in %s" % NodeFile
+        np.save(NodeFile, NodesCat)
 
         for iFacet, polygon0 in zip(range(len(LPolygon)), LPolygon):
             # polygon0 = vertices[region]
