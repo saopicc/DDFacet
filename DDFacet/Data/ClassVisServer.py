@@ -325,6 +325,7 @@ class ClassVisServer():
 
         print>>log, "Putting data in shared memory"
         DATA=NpShared.DicoToShared("%sDicoData"%self.IdSharedMem,DATA)
+        print>>log, "  done..."
 
         return DATA
 

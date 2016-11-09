@@ -78,13 +78,18 @@ def Exists(Name):
 def DicoToShared(Prefix,Dico,DelInput=False):
     DicoOut={}
     print>>log, ModColor.Str("DicoToShared: start [prefix = %s]"%Prefix)
+    #print ModColor.Str("DicoToShared: start [prefix = %s]"%Prefix)
     for key in Dico.keys():
+        #print key
         if type(Dico[key])!=np.ndarray: continue
-        #print "%s.%s"%(Prefix,key)
+        #print "  %s.%s"%(Prefix,key)
         ThisKeyPrefix="%s.%s"%(Prefix,key)
-        print>>log, ModColor.Str("  %s -> %s"%(key,ThisKeyPrefix))
+        #print ModColor.Str("  %s -> %s"%(key,ThisKeyPrefix))
         ar=Dico[key]
+        #print "toshared"
+
         Shared=ToShared(ThisKeyPrefix,ar)
+        #print "ok"
         DicoOut[key]=Shared
         if DelInput:
             del(Dico[key],ar)
@@ -93,6 +98,7 @@ def DicoToShared(Prefix,Dico,DelInput=False):
         del(Dico)
 
     print>>log, ModColor.Str("DicoToShared: done")
+    #print ModColor.Str("DicoToShared: done")
 
     return DicoOut
 

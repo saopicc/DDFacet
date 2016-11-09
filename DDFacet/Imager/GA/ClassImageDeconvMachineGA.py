@@ -141,7 +141,8 @@ class ClassImageDeconvMachine():
 
     def CalcCrossIslandPSF(self,ListIslands):
         print>>log,"  calculating global islands cross-contamination"
-        PSF=np.mean(self.PSFServer.DicoVariablePSF["MeanFacetPSF"][:,0],axis=0)#self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
+        PSF=np.mean(np.abs(self.PSFServer.DicoVariablePSF["MeanFacetPSF"][:,0]),axis=0)#self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
+        
         
         nPSF,_=PSF.shape
         xcPSF,ycPSF=nPSF/2,nPSF/2
@@ -200,8 +201,9 @@ class ClassImageDeconvMachine():
 
     def GiveNearbyIsland(self,DicoIsland,iIsland):
         Th=0.05
-        indNearbyIsland=np.where((self.PSFCross[iIsland])>Th)[0]
 
+        indNearbyIsland=np.where((self.PSFCross[iIsland])>Th)[0]
+        
 
         #Th=0.3
         #Flux=self.CrossFluxContrib[iIsland,iIsland]

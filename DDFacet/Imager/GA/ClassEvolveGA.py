@@ -8,6 +8,7 @@ from deap import tools
 import numpy
 import algorithms
 import multiprocessing
+from DDFacet.Array import NpShared
 
 from DDFacet.ToolsDir import ModFFTW
 import numpy as np
@@ -44,7 +45,8 @@ class ClassEvolveGA():
         ListPixParms=FilterIslandsPix(ListPixParms,Npix)
         
 
-
+        self.IdSharedMem=IdSharedMem
+        self.iIsland=iIsland
         self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
                                                                        PixVariance=PixVariance,
                                                                        iFacet=iFacet,
@@ -220,5 +222,6 @@ class ClassEvolveGA():
         # # print self.ArrayMethodsMachine.ListPixData
         # # print MA[0,:]
 
+        NpShared.DelArray("%sPSF_Island_%4.4i"%(self.IdSharedMem,self.iIsland))
 
         return V

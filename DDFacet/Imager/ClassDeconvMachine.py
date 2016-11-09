@@ -14,6 +14,7 @@ import glob
 from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
 import traceback
+from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 
 log=MyLogger.getLogger("ClassImagerDeconv")
 import pyfits
@@ -678,13 +679,14 @@ class ClassImagerDeconv():
         current_model_freqs = np.array([])
 
         while True:
-            Res=self.setNextData(null_data=True)
+            null_data=(self.GD["ImagerGlobal"]["Mode"] != "Substract")
+            Res=self.setNextData(null_data=null_data)
             if Res=="EndOfObservation": break
 
             model_freqs = self.VS.CurrentChanMappingDegrid
             ## redo model image if needed
             if FixedModelImage is None:
-                if np.array(model_freqs != current_model_freqs).any():
+                if (np.array(model_freqs != current_model_freqs).any()) or (model_freqs.size != current_model_freqs.size):
                     ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)
                     current_model_freqs = model_freqs
                     print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
@@ -693,11 +695,29 @@ class ClassImagerDeconv():
             else:
                 ModelImage = FixedModelImage
 
+            if self.GD["Images"]["MaskSquare"] is not None:
+                # MaskInside: choose mask inside (0) or outside (1) 
+                # NpixInside: Size of the masking region
+                MaskInside,NpixInside = self.GD["Images"]["MaskSquare"]
+                SquareMaskMode="Outside"
+                if MaskInside: SquareMaskMode="Inside"
+                NpixInside, _ = EstimateNpix(float(NpixInside), Padding=1)
+                print>>log,"  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside)
+                dn=NpixInside/2
+                n=self.FacetMachine.Npix
+                InSquare=np.zeros(ModelImage.shape,bool)
+                InSquare[:,:,n/2-dn:n/2+dn+1,n/2-dn:n/2+dn+1]=1
+                if SquareMaskMode=="Inside":
+                    ModelImage[InSquare]=0
+                elif SquareMaskMode=="Outside":
+                    ModelImage[np.logical_not(InSquare)]=0
+
             if ModelImage.shape[0]!=self.VS.CurrentChanMappingDegrid.size:
                 print>>log, "The image model channels and targetted degridded visibilities channels have different sizes (%i vs %i respectively)"%(ModelImage.shape[0],self.VS.CurrentChanMappingDegrid.size)
                 if ModelImage.shape[0]==1:
                     print>>log, " Matching freq size of model image to visibilities"
                     ModelImage=ModelImage*np.ones((self.VS.CurrentChanMappingDegrid.size,1,1,1))
+
 
 
 
