@@ -103,7 +103,8 @@ void DeGridderWPol(PyArrayObject *np_grid,
 	      PyArrayObject *increment,
 	      PyArrayObject *freqs,
 	      PyObject *Lmaps, 
-	      PyObject *LJones);
+	      PyObject *LJones, 
+	      PyObject *LSmear);
 
 void ScaleJones(float complex* J0, float AlphaScaleJones){
   float complex z0;

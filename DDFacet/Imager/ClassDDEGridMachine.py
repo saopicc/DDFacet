@@ -879,7 +879,8 @@ class ClassDDEGridMachine():
                                            self.incr.astype(np.float64),
                                            freqs,
                                            [self.PolMap,FacetInfos,RowInfos,ChanMapping],
-                                           ParamJonesList)
+                                           ParamJonesList,
+                                           self.LSmear)
         elif self.GD["ImagerGlobal"]["DeGriderType"]=="BDA":
             #OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos=[self.JonesType,ChanEquidistant,self.SkyType,self.PolModeID]
