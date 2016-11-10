@@ -1,5 +1,4 @@
 import numpy as np
-import pylab
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassImageDeconvMachine")
@@ -104,12 +103,15 @@ class ClassImageDeconvMachine():
         nch,npol,Nin,_=A.shape
         if Nin==Nout: 
             return A
-        elif Nin<Nout:
-            off=(Nout-Nin)/2
+        elif Nin>Nout:
+            dx=Nout/2
             B=np.zeros((nch,npol,Nout,Nout),A.dtype)
-            B[:,:,off:off+Nin,off:off+Nin]=A
+            print>>log,"  Adapt shapes: %s -> %s"%(str(A.shape),str(B.shape))
+            B[:]=A[...,Nin/2-dx:Nin/2+dx+1,Nin/2-dx:Nin/2+dx+1]
             return B
-
+        else:
+            stop
+            return None
 
     def SetDirty(self,DicoDirty):
         DicoDirty["ImagData"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImagData"])
@@ -124,7 +126,7 @@ class ClassImageDeconvMachine():
 
         _,_,NMask,_=self._MaskArray.shape
         if NMask!=NDirty:
-            print>>log,"Adapt mask shape"
+            print>>log,"Mask do not have the same shape as the residual image"
             self._MaskArray=self.AdaptArrayShape(self._MaskArray,NDirty)
             self.MaskArray=self._MaskArray[0]
             self.IslandArray=np.zeros_like(self._MaskArray)
@@ -142,7 +144,8 @@ class ClassImageDeconvMachine():
 
     def CalcCrossIslandPSF(self,ListIslands):
         print>>log,"  calculating global islands cross-contamination"
-        PSF=np.mean(self.PSFServer.DicoVariablePSF["MeanFacetPSF"][:,0],axis=0)#self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
+        PSF=np.mean(np.abs(self.PSFServer.DicoVariablePSF["MeanFacetPSF"][:,0]),axis=0)#self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
+        
         
         nPSF,_=PSF.shape
         xcPSF,ycPSF=nPSF/2,nPSF/2
@@ -201,8 +204,9 @@ class ClassImageDeconvMachine():
 
     def GiveNearbyIsland(self,DicoIsland,iIsland):
         Th=0.05
-        indNearbyIsland=np.where((self.PSFCross[iIsland])>Th)[0]
 
+        indNearbyIsland=np.where((self.PSFCross[iIsland])>Th)[0]
+        
 
         #Th=0.3
         #Flux=self.CrossFluxContrib[iIsland,iIsland]
@@ -643,7 +647,7 @@ class ClassImageDeconvMachine():
             # print "%i/%i"%(iIsland,self.NIslands)
             ThisPixList=ListIslands[iIsland]
             XY=np.array(ThisPixList,dtype=np.float32)
-            xm,ym=np.mean(np.float32(XY),axis=0)
+            xm,ym=np.mean(np.float32(XY),axis=0).astype(int)
             T.timeit("xm,ym")
             nchan,npol,_,_=self._Dirty.shape
             JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))

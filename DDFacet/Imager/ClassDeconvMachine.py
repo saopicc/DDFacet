@@ -1,6 +1,5 @@
 from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
-import pylab
 from pyrap.images import image
 from DDFacet.Other import MyPickle
 from DDFacet.ToolsDir import ModFFTW
@@ -15,6 +14,7 @@ import glob
 from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
 import traceback
+from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 
 log=MyLogger.getLogger("ClassImagerDeconv")
 import pyfits
@@ -167,6 +167,8 @@ class ClassImagerDeconv():
                                               DicoSelectOptions=dict(DC["DataSelection"]),
                                               NCPU=self.GD["Parallel"]["NCPU"],
                                               GD=self.GD)
+        
+
 
         if self.DoDeconvolve:
             self.NMajor=self.GD["ImagerDeconv"]["MaxMajorIter"]
@@ -679,13 +681,14 @@ class ClassImagerDeconv():
         current_model_freqs = np.array([])
 
         while True:
-            Res=self.setNextData(null_data=True)
+            null_data=(self.GD["ImagerGlobal"]["Mode"] != "Substract")
+            Res=self.setNextData(null_data=null_data)
             if Res=="EndOfObservation": break
 
             model_freqs = self.VS.CurrentChanMappingDegrid
             ## redo model image if needed
             if FixedModelImage is None:
-                if np.array(model_freqs != current_model_freqs).any():
+                if (np.array(model_freqs != current_model_freqs).any()) or (model_freqs.size != current_model_freqs.size):
                     ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)
                     current_model_freqs = model_freqs
                     print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
@@ -694,11 +697,31 @@ class ClassImagerDeconv():
             else:
                 ModelImage = FixedModelImage
 
+            if self.GD["Images"]["MaskSquare"] is not None:
+                # MaskInside: choose mask inside (0) or outside (1) 
+                # NpixInside: Size of the masking region
+                MaskOutSide,NpixInside = self.GD["Images"]["MaskSquare"]
+                if MaskOutSide==0:
+                    SquareMaskMode="Inside"
+                elif MaskOutSide==1:
+                    SquareMaskMode="Outside"
+                NpixInside, _ = EstimateNpix(float(NpixInside), Padding=1)
+                print>>log,"  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside)
+                dn=NpixInside/2
+                n=self.FacetMachine.Npix
+                InSquare=np.zeros(ModelImage.shape,bool)
+                InSquare[:,:,n/2-dn:n/2+dn+1,n/2-dn:n/2+dn+1]=1
+                if SquareMaskMode=="Inside":
+                    ModelImage[InSquare]=0
+                elif SquareMaskMode=="Outside":
+                    ModelImage[np.logical_not(InSquare)]=0
+
             if ModelImage.shape[0]!=self.VS.CurrentChanMappingDegrid.size:
                 print>>log, "The image model channels and targetted degridded visibilities channels have different sizes (%i vs %i respectively)"%(ModelImage.shape[0],self.VS.CurrentChanMappingDegrid.size)
                 if ModelImage.shape[0]==1:
                     print>>log, " Matching freq size of model image to visibilities"
                     ModelImage=ModelImage*np.ones((self.VS.CurrentChanMappingDegrid.size,1,1,1))
+
 
 
 
@@ -717,7 +740,9 @@ class ClassImagerDeconv():
             # vis = self.VS.getVisibilityResiduals() # that's crap, gives only zeros, I could not reverse engineer why
             vis = self.DATA["data"]
             # #######################
-            vis *= -1 # model was subtracted from null data, so need to invert
+            if self.GD["ImagerGlobal"]["Mode"]!="Substract":
+                vis *= -1 # model was subtracted from null data, so need to invert
+
             PredictColName=self.GD["VisData"]["PredictColName"]
 
             self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
@@ -924,7 +949,6 @@ class ClassImagerDeconv():
         PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
 
         off=self.GD["ImagerDeconv"]["SidelobeSearchWindow"] // 2
-        print off
 
         beam, gausspars, sidelobes = self.fitSinglePSF(self.MeanFacetPSF[0,...], off, "mean")
         if forced_beam is not None:
@@ -1161,6 +1185,7 @@ class ClassImagerDeconv():
                                           Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
     def testDegrid(self):
+        import pylab
         self.InitFacetMachine()
 
         self.FacetMachine.ReinitDirty()

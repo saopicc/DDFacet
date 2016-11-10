@@ -89,6 +89,7 @@ def read_options():
                        "'Restored','Alpha','Norm','NormFacets'.")
     OP.add_option('DefaultImageViewer', help="Default image viewer")
 #    OP.add_option('MultiFreqMap', help="Outputs multi-frequency cube (NFreqBands) instead of average map")
+    OP.add_option('MaskSquare', help="Default image viewer")
 
 
 
@@ -331,7 +332,7 @@ def main(OP=None,messages=[]):
 
     # Imager.testDegrid()
     # stop
-    if "Predict" in Mode:
+    if "Predict" in Mode or "Substract" in Mode:
         Imager.GivePredict()
 
     if "Clean" in Mode:

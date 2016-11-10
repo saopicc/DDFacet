@@ -5,7 +5,6 @@ import ClassCasaImage
 import ClassDDEGridMachine
 import numpy as np
 import pyfftw
-import pylab
 from DDFacet.Array import NpShared
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from DDFacet.Other import ClassTimeIt
@@ -82,6 +81,10 @@ class ClassFacetMachine():
         else:
             raise RuntimeError("Deprecated Facet construct mode. Only supports 'Fader'")
         self.Oversize = Oversize
+
+        DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
+        if DecorrMode is not None and DecorrMode is not "":
+            print>>log,ModColor.Str("Using decorrelation mode %s"%DecorrMode)
 
         self.NormData=None
         self.NormImage=None
@@ -393,6 +396,7 @@ class ClassFacetMachine():
         y0,y1=mc.min()-np.pi/180,mc.max()+np.pi/180
         InterpMode=self.GD["DDESolutions"]["Type"]
         if InterpMode=="Krigging":
+            import pylab
             for iFacet in sorted(self.DicoImager.keys()):
                 l0,m0=self.DicoImager[iFacet]["lmShift"]
                 d0=self.GD["DDESolutions"]["Scale"]*np.pi/180
@@ -472,6 +476,7 @@ class ClassFacetMachine():
         cachepath, cachevalid = self.VS.maincache.checkCache("FacetData",
                 dict(ImagerCF=self.GD["ImagerCF"],
                      DDESolutions=self.GD["DDESolutions"],
+                     #DDESolutions=self.FacetDirections,
                      ImagerMainFacet=self.GD["ImagerMainFacet"]),
             directory=True)
 
@@ -553,6 +558,10 @@ class ClassFacetMachine():
             NameSpacialWeigth="%sSpacialWeight.Facet_%3.3i"%(self.FacetDataCache,iFacet)
             SpacialWeigth= NpShared.GiveArray(NameSpacialWeigth)
             self.SpacialWeigth[iFacet]=SpacialWeigth
+            # This should actually load the array into RAM - so that it stays there
+            self.SpacialWeigth[iFacet]*=1.
+            
+            
 
         # Keep spheroidal loaded in the shared memory (otherwise takes to long to laod on disk each time it needs them)
         self.DicoSpheroidal={}
@@ -779,7 +788,10 @@ class ClassFacetMachine():
 
             self.DicoPSF["CubeVariablePSF"]=CubeVariablePSF
             self.DicoPSF["CubeMeanVariablePSF"]=CubeMeanVariablePSF
-            self.DicoPSF["MeanFacetPSF"]=np.mean(CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
+            PeakFacet=np.max(np.max(np.max(CubeMeanVariablePSF,axis=-1),axis=-1),axis=-1).reshape((NFacets,1,1,1,1))
+            PeakNormed_CubeMeanVariablePSF=CubeMeanVariablePSF/PeakFacet
+            #self.DicoPSF["MeanFacetPSF"]=np.mean(CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
+            self.DicoPSF["MeanFacetPSF"]=np.mean(PeakNormed_CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
             self.DicoPSF["MeanJonesBand"]=[]
             self.DicoPSF["OutImShape"] = self.OutImShape
             self.DicoPSF["CellSizeRad"] = self.CellSizeRad
@@ -1098,6 +1110,8 @@ class ClassFacetMachine():
                 workerlist[ii].shutdown()
                 workerlist[ii].terminate()
                 workerlist[ii].join()
+
+        
 
 
     def ReinitDirty(self):
@@ -1707,10 +1721,9 @@ class WorkerImager(multiprocessing.Process):
         GridMachine = self.GiveGM(iFacet)
         DATA = NpShared.SharedToDico("%sDicoData" % self.IdSharedMemData)
         uvwThis = DATA["uvw"]
-
-
         visThis = DATA["data"]
         flagsThis = DATA["flags"]
+
         # visThis0 = visThis = NpShared.GiveArray(self.DataPath)
         # flagsThis0 = flagsThis = NpShared.GiveArray(self.FlagPath)
         # if self.DataShape:

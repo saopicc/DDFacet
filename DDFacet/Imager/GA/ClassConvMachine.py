@@ -1,5 +1,4 @@
 import numpy as np
-import pylab
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassConvMatrix")
@@ -49,6 +48,7 @@ def test():
     ConvArray1=CC.Convolve(Array,ConvMode="Vector").ravel()
     T.timeit("1")
 
+    import pylab
     pylab.clf()
     pylab.plot(ConvArray0)
     pylab.plot(ConvArray1)

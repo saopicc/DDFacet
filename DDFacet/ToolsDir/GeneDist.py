@@ -1,7 +1,5 @@
 import numpy as np
 
-import pylab
-
 def test():
     X=np.random.randn(100)
     W=np.ones_like(X)

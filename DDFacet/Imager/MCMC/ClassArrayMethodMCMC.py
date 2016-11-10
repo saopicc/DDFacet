@@ -5,7 +5,7 @@ import numpy as np
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyLogger
 
-log=MyLogger.getLogger("ClassArrayMethodGA")
+log=MyLogger.getLogger("ClassArrayMethodMCMC")
 import multiprocessing
 
 from ClassParamMachine import ClassParamMachine
@@ -17,14 +17,13 @@ import time
 
 from deap import tools
 
-log= MyLogger.getLogger("ClassArrayMethodGA")
 
 
 from ClassParamMachine import ClassParamMachine
 from DDFacet.ToolsDir.GeneDist import ClassDistMachine
 
 
-class ClassArrayMethodGA():
+class ClassArrayMethodMCMC():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
                  PixVariance=1.e-2,IslandBestIndiv=None,WeightFreqBands=None,iFacet=0,
                  IdSharedMem="",
@@ -162,8 +161,9 @@ class ClassArrayMethodGA():
             self.DirtyArrayParms+=self.ToConvArray(self.IslandBestIndiv.reshape((self.PM.NParam,self.NPixListParms)),OutMode="Parms")
 
         self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
+        
+        
 
-    
 
     def ToConvArray(self,V,OutMode="Data"):
         A=self.PM.GiveModelArray(V)

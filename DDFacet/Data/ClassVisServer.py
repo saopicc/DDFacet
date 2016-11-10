@@ -325,6 +325,7 @@ class ClassVisServer():
 
         print>>log, "Putting data in shared memory"
         DATA=NpShared.DicoToShared("%sDicoData"%self.IdSharedMem,DATA)
+        print>>log, "  done..."
 
         return DATA
 
@@ -408,7 +409,7 @@ class ClassVisServer():
             DATA=repLoadChunk
             break
         print>> log, "processing ms %d of %d, chunk %d of %d" % (self.iCurrentMS + 1, self.nMS, self.CurrentMS.current_chunk+1,self.CurrentMS.Nchunk)
-
+        
 
         times=DATA["times"]
         data=DATA["data"]
@@ -671,7 +672,9 @@ class ClassVisServer():
                     print>> log, "  Reading column %s for the weights, shape is %s" % (WeightCol, w.shape)
                     # take mean weight across correlations and apply this to all
                     WEIGHT[...] = w.mean(axis=2) * valid
-
+                elif WeightCol == None:
+                    print>> log, "  Selected weights columns is None, filling weights with ones"
+                    WEIGHT.fill(1)
                 elif WeightCol == "WEIGHT":
                     w = tab.getcol(WeightCol, row0, nrows)
                     print>> log, "  Reading column %s for the weights, shape is %s, will expand frequency axis" % (
