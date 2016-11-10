@@ -82,6 +82,10 @@ class ClassFacetMachine():
             raise RuntimeError("Deprecated Facet construct mode. Only supports 'Fader'")
         self.Oversize = Oversize
 
+        DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
+        if DecorrMode is not None and DecorrMode is not "":
+            print>>log,ModColor.Str("Using decorrelation mode %s"%DecorrMode)
+
         self.NormData=None
         self.NormImage=None
         self.FacetParallelEngine=WorkerImager
@@ -554,6 +558,10 @@ class ClassFacetMachine():
             NameSpacialWeigth="%sSpacialWeight.Facet_%3.3i"%(self.FacetDataCache,iFacet)
             SpacialWeigth= NpShared.GiveArray(NameSpacialWeigth)
             self.SpacialWeigth[iFacet]=SpacialWeigth
+            # This should actually load the array into RAM - so that it stays there
+            self.SpacialWeigth[iFacet]*=1.
+            
+            
 
         # Keep spheroidal loaded in the shared memory (otherwise takes to long to laod on disk each time it needs them)
         self.DicoSpheroidal={}

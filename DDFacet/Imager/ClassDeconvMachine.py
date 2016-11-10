@@ -167,6 +167,8 @@ class ClassImagerDeconv():
                                               DicoSelectOptions=dict(DC["DataSelection"]),
                                               NCPU=self.GD["Parallel"]["NCPU"],
                                               GD=self.GD)
+        
+
 
         if self.DoDeconvolve:
             self.NMajor=self.GD["ImagerDeconv"]["MaxMajorIter"]

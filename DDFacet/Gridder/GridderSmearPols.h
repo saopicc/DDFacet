@@ -91,7 +91,7 @@ static PyObject *pyAddArray(PyObject *self, PyObject *args);
 static PyObject *pyWhereMax(PyObject *self, PyObject *args);
 
 //double PI=3.14159265359;
-float C=299792456.;
+float C=299792458.;
 float PI=3.141592;
 
 
