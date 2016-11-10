@@ -197,18 +197,18 @@ class ClassBeamMean():
         if_z_f_SumJJsq/=np.real(ifzfCF)#.reshape((1,1,nx,nx)))
         #if_z_f_SumJJsq[ifzfCF.real<1e-2]=-1.
 
-        vmin=0#self.SumJJsq.min()
-        vmax=self.SumJJsq.max()
-        import pylab
-        pylab.clf()
-        ax=pylab.subplot(1,3,1)
-        pylab.imshow(self.SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
-        pylab.subplot(1,3,2,sharex=ax,sharey=ax)
-        pylab.imshow(ifzfCF.real,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
-        pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-        pylab.imshow(if_z_f_SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
-        pylab.show(False)
-        stop
+        # vmin=0#self.SumJJsq.min()
+        # vmax=self.SumJJsq.max()
+        # import pylab
+        # pylab.clf()
+        # ax=pylab.subplot(1,3,1)
+        # pylab.imshow(self.SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
+        # pylab.imshow(ifzfCF.real,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+        # pylab.imshow(if_z_f_SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # pylab.show(False)
+        # stop
 
         self.ifzfCF=np.real(ifzfCF)
         self.SmoothBeam=np.real(if_z_f_SumJJsq)

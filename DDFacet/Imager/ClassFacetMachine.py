@@ -877,6 +877,13 @@ class ClassFacetMachine():
 
         NormImage=self.NormImage
 
+        for Channel in range(self.VS.NFreqBands):
+            ThisSumWeights=self.DicoImager[0]["SumWeights"][Channel][0]
+            if ThisSumWeights==0:
+                print>>log,ModColor.Str("The sum of the weights are zero for FreqBand #%i, data is all flagged?"%Channel)
+                print>>log,ModColor.Str("  (... will skip normalisation for this FreqBand)")
+                
+
         for iFacet in self.DicoImager.keys():
                 
             SharedMemName="%s/Spheroidal.Facet_%3.3i"%(self.FacetDataCache,iFacet)
@@ -916,6 +923,8 @@ class ClassFacetMachine():
                     if BeamWeightImage:
                         Im=SpacialWeigth[::-1,:].T[x0facet:x1facet,y0facet:y1facet]*ThisSumJones
                     else:
+                        if sumweight==0:
+                            continue
                         Im=self.DicoGridMachine[iFacet]["Dirty"][Channel][pol].copy()
                         Im/=SPhe.real           #grid-correct the image with the gridding convolution function
                         Im[SPhe<1e-3]=0

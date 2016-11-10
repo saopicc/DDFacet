@@ -1039,6 +1039,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	  //char ch="a";
 	  //if(flagPtr[0]==1){OneFlagged=1;}
 	  //if(OneFlagged){continue;}
+	  if(flagPtr[0]==1){continue;}
 	  
 	  float U=(float)uvwPtr[0];
 	  float V=(float)uvwPtr[1];
