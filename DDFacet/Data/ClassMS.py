@@ -523,6 +523,7 @@ class ClassMS():
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 else:
                     print>> log, "visibilities are already in shared array %s" % self._datapath
+                NpShared.Lock(visdata)
             else:
                 visdata = np.zeros(datashape,dtype=np.complex64)
             self._flagpath, flagvalid = self.cache.checkCache("Flags", dict(time=self._start_time))
@@ -535,6 +536,7 @@ class ClassMS():
                 self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
             else:
                 print>> log, "flags are already in shared array %s" % self._flagpath
+            NpShared.Lock(flags)
         else:
             if flagbuf is None or databuf is None:
                 raise RuntimeError,"flagbuf/databuf not supplied. This is a bug."
