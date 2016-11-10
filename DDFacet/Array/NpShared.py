@@ -43,6 +43,16 @@ def DelArray(Name):
     except:
         pass
 
+_locking = True
+
+def Lock (array):
+    if _locking:
+        SharedArray.lock(array)
+
+def Unlock (array):
+    if _locking:
+        SharedArray.unlock(array)
+
 def ListNames():
     ll=list(SharedArray.list())
     return [AR.name for AR in ll]

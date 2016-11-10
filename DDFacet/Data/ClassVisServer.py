@@ -443,8 +443,10 @@ class ClassVisServer():
         # times=times[ind]
         # ##
 
-        # note that this is now a string (filename of the shared array object), and so won't be packed
-        # into the shared memory structure
+        # load and lock weights
+        print self.VisWeights
+        self._visweights = NpShared.GiveArray("file://"+self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk])
+        NpShared.Lock(self._visweights)
         DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
 
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]

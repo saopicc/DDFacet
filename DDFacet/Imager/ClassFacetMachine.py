@@ -532,11 +532,19 @@ class ClassFacetMachine():
             self.VS.maincache.saveCache("FacetData")
         else:
             print>>log,"using W kernels from cache %s"%cachepath
-        # now load cached weights
+        # now load cached spatial weights, wterms and spheroidals and lock them into memory
+        self._wterms_sphes = {}
         for iFacet in sorted(self.DicoImager.keys()):
-            NameSpacialWeigth="%sSpacialWeight.Facet_%3.3i"%(self.FacetDataCache,iFacet)
-            SpacialWeigth= NpShared.GiveArray(NameSpacialWeigth)
-            self.SpacialWeigth[iFacet]=SpacialWeigth
+            NameSpacialWeigth = "%sSpacialWeight.Facet_%3.3i"%(self.FacetDataCache,iFacet)
+            SpacialWeigth = NpShared.GiveArray(NameSpacialWeigth)
+            NpShared.Lock(SpacialWeigth)
+            self.SpacialWeigth[iFacet] = SpacialWeigth
+            wterm = NpShared.GiveArray("%sWTerm.Facet_%3.3i" % (self.FacetDataCache, iFacet))
+            sphe = NpShared.GiveArray("%sSpheroidal.Facet_%3.3i" % (self.FacetDataCache, iFacet))
+            NpShared.Lock(wterm)
+            NpShared.Lock(sphe)
+            self._wterms_sphes[iFacet] = wterm, sphe
+        print>> log, "W kernels loaded and locked into memory"
         return True
 
 
@@ -682,7 +690,7 @@ class ClassFacetMachine():
             print>>log, "  Build PSF facet-slices "
             self.DicoPSF={}
             for iFacet in self.DicoGridMachine.keys():
-                #first normalize by spheriodals - these facet psfs will be used in deconvolution per facet
+                #first normalize by spheroidals - these facet psfs will be used in deconvolution per facet
                 SharedMemName="%sSpheroidal.Facet_%3.3i"%(self.FacetDataCache,iFacet)
                 SPhe=NpShared.GiveArray(SharedMemName)
                 nx=SPhe.shape[0]
