@@ -809,6 +809,9 @@ class ClassImagerDeconv():
                 print>> log, "Finished Deconvolving for this major cycle... Going back to visibility space."
             predict_colname = not continue_deconv and self.GD["VisData"]["PredictColName"]
 
+            # for some reason predict gives zeros 
+            if predict_colname is "" or predict_colname is None:
+                predict_colname=False
 
 
 
@@ -816,9 +819,9 @@ class ClassImagerDeconv():
             #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
 
             self.FacetMachine.ReinitDirty()
-
+            
             current_model_freqs = np.array([])
-
+            
             while True:
                 # if writing predicted visibilities, tell VisServer to keep the original data
                 Res = self.setNextData(keep_data=predict_colname)
