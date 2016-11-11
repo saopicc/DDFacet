@@ -100,6 +100,7 @@ def read_options():
     OP.add_option('ResetSmoothBeam')
     OP.add_option('CachePSF')
     OP.add_option('CacheDirty')
+    OP.add_option('CacheVisData')
 
 
     OP.OptionGroup("* Selection","DataSelection")

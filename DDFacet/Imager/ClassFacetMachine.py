@@ -1625,6 +1625,7 @@ class WorkerImager(multiprocessing.Process):
                                                  CellSizeRad=1,
                                                  GaussPars=[GaussPars]).reshape(NpixPadded,NpixPadded)
         NameSpacialWeigth = "%sSpacialWeight.Facet_%3.3i" % (self.FacetDataCache, iFacet)
+        SpacialWeigth[np.abs(SpacialWeigth)<1e-3]=0 # will decrease number of facets to be degridded
         NpShared.ToShared(NameSpacialWeigth, SpacialWeigth)
         # Initialize a grid machine per facet:
         self.GiveGM(iFacet)

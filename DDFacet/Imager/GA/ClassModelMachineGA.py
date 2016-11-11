@@ -35,9 +35,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             self.SolveParam = self.GD["GAClean"]["GASolvePars"]
             print>>log,"Solved parameters: %s"%(str(self.SolveParam))
             self.NParam=len(self.SolveParam)
-        
+        self.RefFreq=None
 
     def setRefFreq(self,RefFreq,AllFreqs):
+        if self.RefFreq is not None:
+            print>>log,ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6))
+            return
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
         self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
@@ -62,12 +65,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def FromFile(self,FileName):
-        print>>log, "Reading dico model from %s"%FileName
+        print>>log, "Reading dico model from file %s"%FileName
         self.DicoSMStacked=MyPickle.Load(FileName)
         self.FromDico(self.DicoSMStacked)
 
 
     def FromDico(self,DicoSMStacked):
+        print>>log, "Reading dico model from dico with %i componants"%len(DicoSMStacked["Comp"])
         #self.PM=self.DicoSMStacked["PM"]
         self.DicoSMStacked=DicoSMStacked
         self.RefFreq=self.DicoSMStacked["RefFreq"]

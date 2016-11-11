@@ -30,7 +30,10 @@ class ClassVisServer():
                  DicoSelectOptions={},
                  LofarBeam=None,
                  AddNoiseJy=None,IdSharedMem="",
-                 Robust=2,Weighting="Briggs",MFSWeighting=True,Super=1,
+                 Robust=2,
+                 Weighting="Briggs",
+                 MFSWeighting=True,
+                 Super=1,
                  NCPU=6):
 
         self.ReadOnce=False
@@ -75,6 +78,7 @@ class ClassVisServer():
         self.ApplyBeam=False
         self.GD=GD
         self.datashape = None
+        #print "###################################"
         self._use_data_cache = self.GD["Caching"]["CacheVisData"]
         self.Init()
 
@@ -395,8 +399,10 @@ class ClassVisServer():
 
         while True:
             MS=self.CurrentMS
-            repLoadChunk = MS.GiveNextChunk(databuf=self._databuf,flagbuf=self._flagbuf,
-                                            use_cache=self._use_data_cache,read_data=not null_data)
+            repLoadChunk = MS.GiveNextChunk(databuf=self._databuf,
+                                            flagbuf=self._flagbuf,
+                                            use_cache=self._use_data_cache,
+                                            read_data=not null_data)
             self.cache = MS.cache
             if repLoadChunk=="EndMS":
                 repNextMS=self.setNextMS()
