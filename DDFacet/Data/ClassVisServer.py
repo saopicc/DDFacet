@@ -30,7 +30,10 @@ class ClassVisServer():
                  DicoSelectOptions={},
                  LofarBeam=None,
                  AddNoiseJy=None,IdSharedMem="",
-                 Robust=2,Weighting="Briggs",MFSWeighting=True,Super=1,
+                 Robust=2,
+                 Weighting="Briggs",
+                 MFSWeighting=True,
+                 Super=1,
                  NCPU=6):
 
         self.ReadOnce=False
