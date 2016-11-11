@@ -75,8 +75,8 @@ class ClassVisServer():
         self.ApplyBeam=False
         self.GD=GD
         self.datashape = None
-        print "###################################"
-        self._use_data_cache = False#self.GD["Caching"]["CacheVisData"]
+        #print "###################################"
+        self._use_data_cache = self.GD["Caching"]["CacheVisData"]
         self.Init()
 
         # buffers to hold current chunk
