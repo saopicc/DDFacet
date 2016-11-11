@@ -93,7 +93,11 @@ class ClassImageDeconvMachine():
         #self.DicoPSF=DicoPSF
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
+
+        # If the Model machine was already initialised, it will ignore it in the setRefFreq method
+        # and we need to set the reference freq in PSFServer
         self.ModelMachine.setRefFreq(self.PSFServer.RefFreq,self.PSFServer.AllFreqs)
+        self.PSFServer.RefFreq=self.ModelMachine.RefFreq
 
     def Init(self,**kwargs):
         self.SetPSF(kwargs["PSFVar"])

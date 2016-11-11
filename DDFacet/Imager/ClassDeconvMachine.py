@@ -55,7 +55,7 @@ import pyfits
 
 class ClassImagerDeconv():
     def __init__(self,ParsetFile=None,GD=None,
-                 PointingID=0,BaseName="ImageTest2",ReplaceDico=None,IdSharedMem="CACA.",DoDeconvolve=True):
+                 PointingID=0,BaseName="ImageTest2",ReplaceDico=None,IdSharedMem="CACA."):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD
@@ -66,7 +66,7 @@ class ClassImagerDeconv():
         self.BaseName=BaseName
         self.DicoModelName="%s.DicoModel"%self.BaseName
         self.PointingID=PointingID
-        self.DoDeconvolve=DoDeconvolve
+
         self.FacetMachine=None
         self.PSF=None
         self.FWHMBeam = None
@@ -170,63 +170,65 @@ class ClassImagerDeconv():
         
 
 
-        if self.DoDeconvolve:
-            self.NMajor=self.GD["ImagerDeconv"]["MaxMajorIter"]
-            del(self.GD["ImagerDeconv"]["MaxMajorIter"])
+        self.NMajor=self.GD["ImagerDeconv"]["MaxMajorIter"]
+        del(self.GD["ImagerDeconv"]["MaxMajorIter"])
 
-            # If we do the deconvolution construct a model according to what is in MinorCycleConfig
-            ModMachine = self.ModConstructor.GiveMM(Mode=self.GD["ImagerDeconv"]["MinorCycleMode"])
-            MinorCycleConfig=dict(self.GD["ImagerDeconv"])
-            MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
-            MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
-            MinorCycleConfig["GD"] = self.GD
-            MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
-            MinorCycleConfig["ModelMachine"] = ModMachine
-            MinorCycleConfig["IdSharedMem"] = self.IdSharedMem
+        # Construct a model according to what is in MinorCycleConfig
+        MinorCycleConfig=dict(self.GD["ImagerDeconv"])
+        MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
+        MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
+        MinorCycleConfig["GD"] = self.GD
+        MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
+        MinorCycleConfig["IdSharedMem"] = self.IdSharedMem
+
+        SubstractModel=self.GD["VisData"]["InitDicoModel"]
+        DoSub=(SubstractModel!="")&(SubstractModel is not None)
+        if DoSub:
+            print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
+            ModelMachine = self.ModConstructor.GiveInitialisedMMFromFile(SubstractModel)
+            if self.GD["ImagerDeconv"]["MinorCycleMode"] != ModelMachine.DicoSMStacked["Type"]:
+                raise NotImplementedError("You want to use different minor cycle and IniDicoModel types [%s vs %s]"\
+                                          %(self.GD["ImagerDeconv"]["MinorCycleMode"],ModelMachine.DicoSMStacked["Type"]))
+        else:
+            ModelMachine = self.ModConstructor.GiveMM(Mode=self.GD["ImagerDeconv"]["MinorCycleMode"])
+        self.ModelMachine=ModelMachine
+        MinorCycleConfig["ModelMachine"] = ModelMachine
+        if self.BaseName==self.GD["VisData"]["InitDicoModel"][0:-10]:
+            self.BaseName+=".continue"
+
+        # Specify which deconvolution algorithm to use
+        if self.GD["ImagerDeconv"]["MinorCycleMode"] == "MSMF":
+            if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                raise NotImplementedError("Multi-polarization CLEAN is not supported in MSMF")
+            from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
+            self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+            print>>log,"Using MSMF algorithm"
+        elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="GA":
+            if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                raise NotImplementedError("Multi-polarization CLEAN is not supported in GA")
+            from DDFacet.Imager.GA import ClassImageDeconvMachineGA
+            self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
+            print>>log,"Using GA algorithm"
+        elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD":
+            if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                raise NotImplementedError("Multi-polarization is not supported in SSD")
+            from DDFacet.Imager.MORESANE import ClassImageDeconvMachineSSD
+            self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
+            print>>log,"Using SSD with %s Minor Cycle algorithm"%self.GD["SSD"]["IslandDeconvMode"]
+        elif self.GD["ImagerDeconv"]["MinorCycleMode"] == "Hogbom":
+            from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
+            self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
+            print>>log,"Using Hogbom algorithm"
+        else:
+            raise NotImplementedError("Mode %s is not valid"%self.GD["ImagerDeconv"]["MinorCycleMode"])
 
 
-            if self.GD["MultiScale"]["MSEnable"]:
-                print>>log, "Minor cycle deconvolution in Multi Scale Mode"
-                self.MinorCycleMode="MS"
-                # Specify which deconvolution algorithm to use
-                if self.GD["ImagerDeconv"]["MinorCycleMode"] == "MSMF":
-                    if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                        raise NotImplementedError("Multi-polarization CLEAN is not supported in MSMF")
-                    from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
-                    self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
-                    print>>log,"Using MSMF algorithm"
-                elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="GA":
-                    if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                        raise NotImplementedError("Multi-polarization CLEAN is not supported in GA")
-                    from DDFacet.Imager.GA import ClassImageDeconvMachineGA
-                    self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
-                    print>>log,"Using GA algorithm"
-                elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD":
-                    if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                        raise NotImplementedError("Multi-polarization is not supported in SSD")
-                    from DDFacet.Imager.MORESANE import ClassImageDeconvMachineSSD
-                    self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
-                    print>>log,"Using SSD with %s Minor Cycle algorithm"%self.GD["SSD"]["IslandDeconvMode"]
-                else:
-                    raise NotImplementedError("Currently MSMF, GA are the only multi-scale algorithm")
+        self.InitFacetMachine()
+        
+        self.FacetMachine.DoComputeSmoothBeam=("H" in self._saveims)
 
-            else:
-                print>>log, "Minor cycle deconvolution in Single Scale Mode"
-                self.MinorCycleMode="SS"
-                if self.GD["ImagerDeconv"]["MinorCycleMode"] == "Hogbom":
-                    from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
-                    self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
-                    print>>log,"Using Hogbom algorithm"
-                else:
-                    raise NotImplementedError("Currently Hogbom is the only single-scale algorithm")
-
-
-            self.InitFacetMachine()
-            
-            self.FacetMachine.DoComputeSmoothBeam=("H" in self._saveims)
-
-            self.VS.setFacetMachine(self.FacetMachine)
-            self.VS.CalcWeights()
+        self.VS.setFacetMachine(self.FacetMachine)
+        self.VS.CalcWeights()
 
 
     def InitFacetMachine(self):
@@ -362,6 +364,7 @@ class ClassImagerDeconv():
             if self.GD["Caching"]["CachePSF"]:
                 try:
                     #cPickle.dump(self.DicoVariablePSF, file(cachepath,'w'), 2)
+                    print>>log,"Put PSF dico into %s"%cachepath
                     MyPickle.DicoNPToFile(self.DicoVariablePSF,cachepath)
                     self.VS.maincache.saveCache("PSF")
                 except:
@@ -458,13 +461,18 @@ class ClassImagerDeconv():
 
         import cPickle
 
+
+
+
+        SubstractModel=self.GD["VisData"]["InitDicoModel"]
+        DoSub=(SubstractModel!="")&(SubstractModel is not None)
+
         cachepath, valid = self.VS.maincache.checkCache("Dirty", dict(
             [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
             [(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
                                                         "MultiFreqs", "ImagerGlobal", "Compression",
                                                         "ImagerCF", "ImagerMainFacet","DDESolutions"]
         ), reset=self.GD["Caching"]["ResetDirty"])
-
 
         if valid or self.GD["Caching"]["ResetDirty"]==-1:
             print>>log, ModColor.Str("============================ Loading cached dirty image =======================")
@@ -496,7 +504,7 @@ class ClassImagerDeconv():
                 #    self.FacetMachine.DoComputeSmoothBeam = False
 
                 self.FacetMachine.ComputeSmoothBeam()
-                #self.SaveDirtyProducts()
+                # self.SaveDirtyProducts()
                 DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
                 nch,npol,nx,ny = DirtyCorr.shape
             else:
@@ -518,29 +526,6 @@ class ClassImagerDeconv():
             #     return Dirty
             #
 
-            SubstractModel=self.GD["VisData"]["InitDicoModel"]
-            DoSub=(SubstractModel!="")&(SubstractModel is not None)
-            if DoSub:
-                print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
-                # Load model dict
-            	DicoSMStacked = MyPickle.Load(SubstractModel)
-                # Get the correct model machine from SubtractModel file
-            	ModelMachine = self.ModConstructor.GiveMMFromDico(DicoSMStacked)
-                ModelMachine.FromDico(DicoSMStacked)
-                self.FacetMachine.BuildFacetNormImage()
-
-                InitBaseName=".".join(SubstractModel.split(".")[0:-1])
-
-                # NormFacetsFile="%s.NormFacets.fits"%InitBaseName
-                # if InitBaseName!=BaseName:
-                #     print>>log, ModColor.Str("You are substracting a model build from a different facetting mode")
-                #     print>>log, ModColor.Str("  This is rather dodgy because of the ")
-                # self.FacetMachine.NormImage=ClassCasaImage.FileToArray(NormFacetsFile,True)
-                # _,_,nx,nx=self.FacetMachine.NormImage.shape
-                # self.FacetMachine.NormImage=self.FacetMachine.NormImage.reshape((nx,nx))
-
-                if self.BaseName==self.GD["VisData"]["InitDicoModel"][0:-10]:
-                    self.BaseName+=".continue"
 
             iloop = 0
             while True:
@@ -554,9 +539,11 @@ class ClassImagerDeconv():
 
                 if DoSub:
                     ThisMeanFreq=self.VS.CurrentChanMappingDegrid#np.mean(DATA["freqs"])
-                    ModelImage=ModelMachine.GiveModelImage(ThisMeanFreq)
+                    ModelImage=self.ModelMachine.GiveModelImage(ThisMeanFreq)
                     print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
 
+                    # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelSub"%self.BaseName,Fits=True,
+                    #                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
                     _=self.FacetMachine.getChunk(ModelImage)
 
@@ -663,19 +650,13 @@ class ClassImagerDeconv():
         # self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
         modelfile = self.GD["Images"]["PredictModelName"]
+        FixedModelImage = None
 
         # if model is a dict, init model machine with that
         # else we use a model image and hope for the best (need to fix frequency axis...)
         # 
-        if modelfile.endswith(".DicoModel"):
-            try:
-                self.DeconvMachine.FromDico(modelfile)
-                print>>log, "Current instance of DeconvMachine does not have FromDico method. Using FromFile instead."
-            except:
-                self.DeconvMachine.FromFile(modelfile)
-            FixedModelImage = None
-        else:
-            print>>log,"reading file %s"%modelfile
+        if modelfile is not None and modelfile is not "":
+            print>>log,ModColor.Str("Reading image file for the predict: %s"%modelfile)
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
 
         current_model_freqs = np.array([])

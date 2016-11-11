@@ -33,6 +33,7 @@ def CreateShared (Name,shape,dtype):
     return a
 
 def ToShared(Name,A):
+    DelArray(Name)
     a = CreateShared(Name, A.shape, A.dtype)
     a[:]=A[:]
     return a
@@ -119,7 +120,6 @@ def SharedToDico(Prefix):
             return None
         DicoOut[key]=Shared
     print>>log, ModColor.Str("SharedToDico: done")
-
 
     return DicoOut
 

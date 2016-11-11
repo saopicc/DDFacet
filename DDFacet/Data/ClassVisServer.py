@@ -75,7 +75,8 @@ class ClassVisServer():
         self.ApplyBeam=False
         self.GD=GD
         self.datashape = None
-        self._use_data_cache = self.GD["Caching"]["CacheVisData"]
+        print "###################################"
+        self._use_data_cache = False#self.GD["Caching"]["CacheVisData"]
         self.Init()
 
         # buffers to hold current chunk
@@ -395,8 +396,10 @@ class ClassVisServer():
 
         while True:
             MS=self.CurrentMS
-            repLoadChunk = MS.GiveNextChunk(databuf=self._databuf,flagbuf=self._flagbuf,
-                                            use_cache=self._use_data_cache,read_data=not null_data)
+            repLoadChunk = MS.GiveNextChunk(databuf=self._databuf,
+                                            flagbuf=self._flagbuf,
+                                            use_cache=self._use_data_cache,
+                                            read_data=not null_data)
             self.cache = MS.cache
             if repLoadChunk=="EndMS":
                 repNextMS=self.setNextMS()
