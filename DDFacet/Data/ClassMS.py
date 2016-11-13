@@ -393,7 +393,7 @@ class ClassMS():
     #         self.flag_all=self.flag_all[:,ind,:]
     #         shape=self.ChanFreq.shape
     #         self.ChanFreq=self.ChanFreq[ind]
-                
+    
     def Give_dUVW_dt(self,ttVec,A0,A1,LongitudeDeg=6.8689,R="UVW_dt"):
 
         # tt=self.times_all[0]

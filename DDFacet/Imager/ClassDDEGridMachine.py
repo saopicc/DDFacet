@@ -462,18 +462,23 @@ class ClassDDEGridMachine():
         self.SumWeigths=np.zeros((self.NChan,self.npol),np.float64)
         self.SumJones=np.zeros((2,self.NChan),np.float64)
 
-    def setDecorr(self,uvw_dt,DT,Dnu,SmearMode="FT"):
+    def setDecorr(self,uvw_dt,DT,Dnu,SmearMode="FT",lm_min=None):
         DoSmearFreq=0
         if "F" in SmearMode:
             DoSmearFreq=1
         DoSmearTime=0
         if "T" in SmearMode:
             DoSmearTime=1
+            
+        lmin,mmin=self.lmShift
+        if lm_min is not None:
+            lmin,mmin=lm_min
+        
 
         if not(uvw_dt.dtype==np.float64):
             raise NameError('uvw_dt.dtype %s %s'%(str(uvw_dt.dtype),str(np.float64)))
 
-        self.LSmear=[uvw_dt,DT,Dnu,DoSmearTime,DoSmearFreq]
+        self.LSmear=[uvw_dt,DT,Dnu,DoSmearTime,DoSmearFreq,lmin,mmin]
         
 
 

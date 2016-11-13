@@ -131,18 +131,25 @@ class ClassEvolveGA():
                 pop0=self.pop[0:NIndiv]
                 pop1=self.pop[NIndiv::]
 
-                # half of the pop with the MP model
-                self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArray)
+                
+                # self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArray)
 
-                # other half with the best indiv
-                SModelArray=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
+                # half with the best indiv
+                SModelArrayBest=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
                 AlphaModel=None
                 if "Alpha" in self.ArrayMethodsMachine.PM.SolveParam:
                     AlphaModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"Alpha")
                 GSigModel=None
                 if "GSig" in self.ArrayMethodsMachine.PM.SolveParam:
                     GSigModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"GSig")
-                self.ArrayMethodsMachine.PM.ReinitPop(pop1,SModelArray,AlphaModel=AlphaModel,GSigModel=GSigModel)
+                self.ArrayMethodsMachine.PM.ReinitPop(pop1,SModelArrayBest,AlphaModel=AlphaModel,GSigModel=GSigModel)
+
+                # half of the pop with the MP model
+                SModelArrayBest0=SModelArrayBest.copy()
+                mask=(SModelArrayBest0==0)
+                SModelArrayBest0[mask]=SModelArray[mask]
+                self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayBest0,AlphaModel=AlphaModel,GSigModel=GSigModel)
+
                 self.pop=pop0+pop1
 
 

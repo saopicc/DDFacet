@@ -465,6 +465,10 @@ class ClassFacetMachine():
             self.SpacialWeigth, the tesselation area weights are set to those computed by the workers.
 
         """
+
+        #print ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
+        #Parallel=False
+
         import Queue
 
         NCPU=self.NCPU
@@ -539,6 +543,8 @@ class ClassFacetMachine():
                     continue
                 if DicoResult["Success"]:
                     iResult += 1
+                    iFacet=DicoResult["iFacet"]
+                    self.DicoImager[iFacet]["lm_min"]=DicoResult["lm_min"]
                 NDone = iResult
                 intPercent = int(100 * NDone / float(NFacets))
                 pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
@@ -1678,7 +1684,8 @@ class WorkerImager(multiprocessing.Process):
         if ('F' in DecorrMode) | ("T" in DecorrMode):
             uvw_dt = DATA["uvw_dt"]
             DT, Dnu = DATA["MSInfos"]
-            GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
+            lm_min=self.DicoImager[iFacet]["lm_min"]
+            GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode, lm_min=lm_min)
 
         T.timeit("Stuff")
         GridName = "%sGridFacet.%3.3i" % (self.IdSharedMem, iFacet)
@@ -1746,7 +1753,8 @@ class WorkerImager(multiprocessing.Process):
         if ('F' in DecorrMode) | ("T" in DecorrMode):
             uvw_dt = DATA["uvw_dt"]
             DT, Dnu = DATA["MSInfos"]
-            GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
+            lm_min=self.DicoImager[iFacet]["lm_min"]
+            GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode, lm_min=lm_min)
 
         GridMachine.get(times, uvwThis, visThis, flagsThis, A0A1, ModelGrid, ImToGrid=False,
                               DicoJonesMatrices=DicoJonesMatrices, freqs=freqs, TranformModelInput="FT",

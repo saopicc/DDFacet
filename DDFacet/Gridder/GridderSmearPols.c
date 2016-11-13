@@ -154,7 +154,7 @@ void gridderWPol(PyArrayObject *grid,
 
     /////////////////////////////////////////
     int LengthSmearingList=PyList_Size(LSmearing);
-    float DT,Dnu;
+    float DT,Dnu,lmin_decorr,mmin_decorr;
     double* uvw_dt_Ptr;
     int DoSmearTime,DoSmearFreq;
     int DoDecorr=(LengthSmearingList>0);
@@ -174,6 +174,12 @@ void gridderWPol(PyArrayObject *grid,
 
       PyObject *_DoSmearFreq= PyList_GetItem(LSmearing, 4);
       DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));
+
+      PyObject *_Flmin_decorr= PyList_GetItem(LSmearing, 5);
+      lmin_decorr=(float) (PyFloat_AsDouble(_Flmin_decorr));
+      PyObject *_Fmmin_decorr= PyList_GetItem(LSmearing, 6);
+      mmin_decorr=(float) (PyFloat_AsDouble(_Fmmin_decorr));
+
 
     }
 
@@ -415,7 +421,7 @@ void gridderWPol(PyArrayObject *grid,
 	  double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
 	  
 	  DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
-					       (float)l0, (float)m0,
+					       (float)lmin_decorr, (float)mmin_decorr,
 					       uvwPtrMidRow,
 					       uvw_dt_PtrMidRow,
 					       (float)FreqMean0,
@@ -838,7 +844,7 @@ void DeGridderWPol(PyArrayObject *grid,
     /* } */
     /////////////////////////////////////////
     int LengthSmearingList=PyList_Size(LSmearing);
-    float DT,Dnu;
+    float DT,Dnu,lmin_decorr,mmin_decorr;
     double* uvw_dt_Ptr;
     int DoSmearTime,DoSmearFreq;
     int DoDecorr=(LengthSmearingList>0);
@@ -856,6 +862,11 @@ void DeGridderWPol(PyArrayObject *grid,
 
       PyObject *_DoSmearFreq= PyList_GetItem(LSmearing, 4);
       DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));
+
+      PyObject *_Flmin_decorr= PyList_GetItem(LSmearing, 5);
+      lmin_decorr=(float) (PyFloat_AsDouble(_Flmin_decorr));
+      PyObject *_Fmmin_decorr= PyList_GetItem(LSmearing, 6);
+      mmin_decorr=(float) (PyFloat_AsDouble(_Fmmin_decorr));
 
     }
     ////////////////////////////////////////////////////////////////////////////
@@ -1225,8 +1236,8 @@ void DeGridderWPol(PyArrayObject *grid,
 	    double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
 	    
 	    DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
-						 (float)l0,
-						 (float)m0,
+						 (float)lmin_decorr,
+						 (float)mmin_decorr,
 						 uvwPtrMidRow,
 						 uvw_dt_PtrMidRow,
 						 (float)FreqMean,

@@ -488,12 +488,21 @@ class WorkerImager(ClassFacetMachine.WorkerImager):
         mpath = Path(vertices)  # the vertices of the polygon
         mask_flat = mpath.contains_points(XY_flat)
 
+
+
         mask = mask_flat.reshape(X.shape)
 
         mpath = Path(self.CornersImageTot)
         mask_flat2 = mpath.contains_points(XY_flat)
         mask2 = mask_flat2.reshape(X.shape)
         mask[mask2 == 0] = 0
+
+        # Find the minimum l,m in the facet (for decorrelation calculation)
+        R=np.sqrt(X**2+Y**2)
+        R[mask==0]=1e6
+        indx,indy=np.where(R==np.min(R))
+        lmin,mmin=X[indx[0],indy[0]],Y[indx[0],indy[0]]
+        
 
         GaussPars = (10, 10, 0)
 
@@ -505,7 +514,7 @@ class WorkerImager(ClassFacetMachine.WorkerImager):
         NpShared.ToShared(NameSpacialWeigth, SpacialWeigth)
         #Initialize a grid machine per facet:
         self.GiveGM(iFacet)
-        self.result_queue.put({"Success": True, "iFacet": iFacet})
+        self.result_queue.put({"Success": True, "iFacet": iFacet, "lm_min":(lmin,mmin)})
 
 
 
