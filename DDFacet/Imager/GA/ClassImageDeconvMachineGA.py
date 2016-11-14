@@ -29,7 +29,7 @@ MyLogger.setSilent("ClassArrayMethodGA")
 MyLogger.setSilent("ClassIsland")
 
 
-def work_producer(queue, NIslands, ListIslands, Dirty,
+def work_producer(queue, NIslands, ListIslands, Dirty, _Dirty,
                   DicoDirty, ModelMachine, PSFServer, IdSharedMem):
     print>> log, "DeconvGA Starting..."
     ListBestIndiv = []
@@ -42,7 +42,7 @@ def work_producer(queue, NIslands, ListIslands, Dirty,
         XY = np.array(ThisPixList, dtype=np.float32)
         xm, ym = np.mean(np.float32(XY), axis=0)
         T.timeit("xm,ym")
-        nchan, npol, _, _ = Dirty.shape
+        nchan, npol, _, _ = _Dirty.shape
         JonesNorm = (
             DicoDirty["NormData"][
                 :, :, xm, ym]).reshape(
@@ -86,7 +86,7 @@ def work_producer(queue, NIslands, ListIslands, Dirty,
 
 
 def deconv_island_worker(m_work_queue, m_result_queue, GD, IdSharedMem,
-                         FreqsInfo, Dirty, CubeVariablePSF):
+                         FreqsInfo, Dirty, _Dirty, CubeVariablePSF):
 
     pill = True
     # While no poisoned pill has been given grab items from the queue.
@@ -138,7 +138,7 @@ def deconv_island_worker(m_work_queue, m_result_queue, GD, IdSharedMem,
                         WeightMuellerSignal = np.sqrt(
                             WeightMueller * FreqsInfo["WeightChansImages"].ravel())
 
-                        CEv = ClassEvolveGA(Dirty,
+                        CEv = ClassEvolveGA(_Dirty,
                                             PSF,
                                             FreqsInfo,
                                             ListPixParms=ListPixParms,
@@ -166,6 +166,9 @@ def deconv_island_worker(m_work_queue, m_result_queue, GD, IdSharedMem,
                     except Exception as e:
                         print "Exception : %s" % str(e)
                         m_result_queue.put({"Success": False})
+                        import traceback
+                        traceback.print_exc()			
+                        raise e # BUG: crash and burn, parent should catch this
 
 
 class ClassImageDeconvMachine():
@@ -783,8 +786,9 @@ class ClassImageDeconvMachine():
         m_work_queue = multiprocessing.Queue(maxsize=qlimit)
         m_result_queue = multiprocessing.Queue()
 
-        CubeVariablePSF = self.CubeVariablePSF
+        CubeVariablePSF = NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
         Dirty = self.Dirty
+        _Dirty = self._Dirty
         GD = self.GD
         IdSharedMem = self.IdSharedMem
         FreqsInfo = self.PSFServer.DicoMappingDesc
@@ -797,10 +801,11 @@ class ClassImageDeconvMachine():
         work_p = Process(
             target=work_producer,
             args=(
-                m_result_queue,
+                m_work_queue,
                 NIslands,
                 ListIslands,
                 Dirty,
+                _Dirty,
                 DicoDirty,
                 ModelMachine,
                 PSFServer,
@@ -814,6 +819,7 @@ class ClassImageDeconvMachine():
                                                            IdSharedMem,
                                                            FreqsInfo,
                                                            Dirty,
+                                                           _Dirty,
                                                            CubeVariablePSF,))
             procs.append(p)
 

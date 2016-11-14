@@ -26,8 +26,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def __init__(self, *args, **kwargs):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
-        if GD is not None:
-            self.SolveParam = GD["GAClean"]["GASolvePars"]
+        if self.GD is not None:
+            self.SolveParam = self.GD["GAClean"]["GASolvePars"]
             print>>log, "Solved parameters: %s" % (str(self.SolveParam))
             self.NParam = len(self.SolveParam)
 
