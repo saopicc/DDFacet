@@ -1,11 +1,9 @@
-import subprocess
 import unittest
+from Parset.ReadCFG import Parset
 from os import path, getenv
-
-import numpy as np
-from DDFacet.Parset.ReadCFG import Parset
+import subprocess
 from astropy.io import fits
-
+import numpy as np
 
 class ClassCompareFITSImage(unittest.TestCase):
     """ Automated assurance test: reference FITS file regression (abstract class)
