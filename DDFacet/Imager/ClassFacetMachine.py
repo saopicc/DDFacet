@@ -543,8 +543,8 @@ class ClassFacetMachine():
                     continue
                 if DicoResult["Success"]:
                     iResult += 1
-                    iFacet=DicoResult["iFacet"]
-                    self.DicoImager[iFacet]["lm_min"]=DicoResult["lm_min"]
+                    #iFacet=DicoResult["iFacet"]
+                    #self.DicoImager[iFacet]["lm_min"]=DicoResult["lm_min"]
                 NDone = iResult
                 intPercent = int(100 * NDone / float(NFacets))
                 pBAR.render(intPercent, '%4i/%i' % (NDone, NFacets))
@@ -1583,6 +1583,16 @@ class WorkerImager(multiprocessing.Process):
                                                             ListSemaphores=self.ListSemaphores)
         return GridMachine
         
+    def setDecorr(self,GridMachine,DATA,iFacet):
+        DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
+        if ('F' in DecorrMode) | ("T" in DecorrMode):
+            uvw_dt = DATA["uvw_dt"]
+            DT, Dnu = DATA["MSInfos"]
+            lm_min=None
+            if self.GD["DDESolutions"]["DecorrLocation"]=="Edge":
+                lm_min=self.DicoImager[iFacet]["lm_min"]
+            GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode, lm_min=lm_min)
+
     def GiveDicoJonesMatrices(self):
         DicoJonesMatrices=None
 
@@ -1680,12 +1690,6 @@ class WorkerImager(multiprocessing.Process):
         freqs = DATA["freqs"]
         ChanMapping = DATA["ChanMapping"]
 
-        DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
-        if ('F' in DecorrMode) | ("T" in DecorrMode):
-            uvw_dt = DATA["uvw_dt"]
-            DT, Dnu = DATA["MSInfos"]
-            lm_min=self.DicoImager[iFacet]["lm_min"]
-            GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode, lm_min=lm_min)
 
         T.timeit("Stuff")
         GridName = "%sGridFacet.%3.3i" % (self.IdSharedMem, iFacet)
@@ -1698,6 +1702,7 @@ class WorkerImager(multiprocessing.Process):
         T.timeit("GiveDicoJonesMatrices")
 
 
+        self.setDecorr(GridMachine,DATA,iFacet)
         GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                         DoNormWeights=False,
                         DicoJonesMatrices=DicoJonesMatrices,
@@ -1748,14 +1753,7 @@ class WorkerImager(multiprocessing.Process):
         DicoJonesMatrices = self.GiveDicoJonesMatrices()
         ModelSharedMemName = "%sModelImage.Facet_%3.3i" % (self.IdSharedMem, iFacet)
         ModelGrid = NpShared.GiveArray(ModelSharedMemName)
-
-        DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
-        if ('F' in DecorrMode) | ("T" in DecorrMode):
-            uvw_dt = DATA["uvw_dt"]
-            DT, Dnu = DATA["MSInfos"]
-            lm_min=self.DicoImager[iFacet]["lm_min"]
-            GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode, lm_min=lm_min)
-
+        self.setDecorr(GridMachine,DATA,iFacet)
         GridMachine.get(times, uvwThis, visThis, flagsThis, A0A1, ModelGrid, ImToGrid=False,
                               DicoJonesMatrices=DicoJonesMatrices, freqs=freqs, TranformModelInput="FT",
                               ChanMapping=ChanMapping)

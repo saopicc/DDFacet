@@ -1500,7 +1500,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	    
 	    double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;
 	    double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
-	    
+
 	    DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
 						 (float)lmin_decorr,
 						 (float)mmin_decorr,
@@ -1510,8 +1510,8 @@ void DeGridderWPol(PyArrayObject *grid,
 						 (float)Dnu, 
 						 (float)DT);
 
-	    //printf("DeCorrFactor %f %f: %f\n",l0,m0,DeCorrFactor);
-	    corr*=DoDecorr;
+	    //printf("DeCorrFactor %f %f: %f\n",lmin_decorr,mmin_decorr,DeCorrFactor);
+	    corr*=DeCorrFactor;
 	    
 	  }
 	  //////////////////////////////////////////////////////

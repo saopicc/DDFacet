@@ -394,7 +394,7 @@ class ClassMS():
     #         shape=self.ChanFreq.shape
     #         self.ChanFreq=self.ChanFreq[ind]
     
-    def Give_dUVW_dt(self,ttVec,A0,A1,LongitudeDeg=6.8689,R="UVW_dt"):
+    def Give_dUVW_dt(self,ttVec,A0,A1,R="UVW_dt"):
 
         # tt=self.times_all[0]
         # A0=self.A0[self.times_all==tt]
@@ -406,7 +406,6 @@ class ClassMS():
         ra,d=self.radec
         D=self.GiveDate(tt)
         
-        #Lon=LongitudeDeg*np.pi/180
         Lon=np.arctan2(self.StationPos[:,1],self.StationPos[:,0]).mean()
         h= sidereal.raToHourAngle(ra, D, Lon)
         
@@ -573,6 +572,14 @@ class ClassMS():
         if ReadWeight==True:
             self.Weights=table_all.getcol("WEIGHT",row0,nRowRead)
 
+        DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
+        if ('F' in DecorrMode)|("T" in DecorrMode):
+            if 'UVWDT' not in table_all.colnames():
+                import DDFacet.MSTools
+                DDFacet.MSTools.AddUVW_dt(self.MSName)
+            DATA["uvw_dt"]=np.float64(table_all.getcol('UVWDT', row0, nRowRead))
+            DATA["MSInfos"]=np.array([self.dt,self.ChanWidth.ravel()[0]],np.float32)
+            
         table_all.close()
 
         DATA["uvw"]=uvw
@@ -582,7 +589,6 @@ class ClassMS():
         DATA["A1"]=A1
         DATA["dt"]=self.dt
         DATA["dnu"]=self.ChanWidth
-
         if visdata is not None:
             if self.zero_flag: 
                 visdata[flags] = 1e10
@@ -1201,12 +1207,16 @@ class ClassMS():
 
     def AddCol(self,ColName,LikeCol="DATA",quiet=False):
         t=table(self.MSName,readonly=False,ack=False)
-        if (ColName in t.colnames() and not self.GD["Images"]["AllowColumnOverwrite"]):
+        
+        AllowColumnOverwrite=False
+        if self.GD is not None:
+            AllowColumnOverwrite=self.GD["Images"]["AllowColumnOverwrite"]
+        if (ColName in t.colnames() and not AllowColumnOverwrite):
             if not quiet:
                 print>>log, "  Column %s already in %s"%(ColName,self.MSName)
             t.close()
             return
-        elif (ColName in t.colnames() and self.GD["Images"]["AllowColumnOverwrite"]):
+        elif (ColName in t.colnames() and AllowColumnOverwrite):
             t.removecols(ColName)
         print>>log, "  Putting column %s in %s"%(ColName,self.MSName)
         desc=t.getcoldesc(LikeCol)

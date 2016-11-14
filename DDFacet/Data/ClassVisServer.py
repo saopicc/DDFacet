@@ -469,13 +469,6 @@ class ClassVisServer():
         DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
 
 
-        DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
-
-        if ('F' in DecorrMode)|("T" in DecorrMode):
-            DATA["uvw_dt"]=np.float64(self.CurrentMS.Give_dUVW_dt(times,A0,A1))
-            DATA["MSInfos"]=np.array([repLoadChunk["dt"],repLoadChunk["dnu"].ravel()[0]],np.float32)
-            #DATA["MSInfos"][1]=20000.*30
-            #DATA["MSInfos"][0]=500.
 
         # # flagging cache depends on DicoSelectOptions
         # flagpath, valid = self.cache.checkCache("Flagging.npy",self.DicoSelectOptions)
