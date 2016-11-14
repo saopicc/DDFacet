@@ -3,6 +3,7 @@ from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 from DDFacet.Other import ModColor
 from DDFacet.Other import reformat
 import os
+import time
 import pyrap.measures as pm
 import pyrap.quanta as qa
 from pyrap.tables import table

@@ -22,9 +22,16 @@ import psutil
 class ClassImageDeconvMachine():
 
     def __init__(self, Gain=0.3,
-                 MaxMinorIter=100, NCPU=psutil.cpu_count(),
-                 CycleFactor=2.5, FluxThreshold=None, RMSFactor=3, PeakFactor=0,
-                 GD=None, SearchMaxAbs=1, CleanMaskImage=None,
+                 MaxMinorIter=100, 
+                 NCPU=psutil.cpu_count(),
+                 CycleFactor=2.5, 
+                 FluxThreshold=None, 
+                 RMSFactor=3, 
+                 PeakFactor=0,
+                 GD=None, 
+                 SearchMaxAbs=1, 
+                 CleanMaskImage=None,
+                 ModelMachine=None,
                  NFreqBands=1,
                  MainCache=None,
                  **kw    # absorb any unknown keywords arguments into this

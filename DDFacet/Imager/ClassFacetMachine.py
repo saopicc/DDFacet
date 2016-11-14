@@ -138,11 +138,12 @@ def grid_worker(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom, DicoImager,
 
                 DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
                 uvwThis = DATA["uvw"]
-                visThis0 = visThis = NpShared.GiveArray(self.DataPath)
-                flagsThis0 = flagsThis = NpShared.GiveArray(self.FlagPath)
-                if self.DataShape:
-                   visThis = np.ndarray(shape=self.DataShape, dtype=np.complex64, buffer=visThis0)
-                   flagsThis = np.ndarray(shape=self.DataShape, dtype=np.bool, buffer=flagsThis0)
+                visThis0 = visThis = NpShared.GiveArray(DataPath)
+                flagsThis0 = flagsThis = NpShared.GiveArray(FlagPath)
+		
+                if DataShape:
+                   visThis = np.ndarray(shape=DataShape, dtype=np.complex64, buffer=visThis0)
+                   flagsThis = np.ndarray(shape=DataShape, dtype=np.bool, buffer=flagsThis0)
                 times = DATA["times"]
                 A0 = DATA["A0"]
                 A1 = DATA["A1"]
@@ -293,12 +294,12 @@ def degrid_worker(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom,
                     DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores)
 
                 DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
-                visThis0 = visThis = NpShared.GiveArray(self.DataPath)
-                flagsThis0 = flagsThis = NpShared.GiveArray(self.FlagPath)
-                if self.DataShape:
-                   visThis = np.ndarray(shape=self.DataShape, dtype=np.complex64, buffer=visThis0)
-                   flagsThis = np.ndarray(shape=self.DataShape, dtype=np.bool, buffer=flagsThis0)
-                flagsThis = DATA["flags"]
+                uvwThis = DATA["uvw"]
+                visThis0 = visThis = NpShared.GiveArray(DataPath)
+                flagsThis0 = flagsThis = NpShared.GiveArray(FlagPath)
+                if DataShape:
+                   visThis = np.ndarray(shape=DataShape, dtype=np.complex64, buffer=visThis0)
+                   flagsThis = np.ndarray(shape=DataShape, dtype=np.bool, buffer=flagsThis0)
                 times = DATA["times"]
                 A0 = DATA["A0"]
                 A1 = DATA["A1"]
@@ -851,7 +852,10 @@ class ClassFacetMachine():
 
         if not cachevalid:
             # if data is larger use (maxsize=qlimit), only ints in this case
-            m_work_queue = multiprocessing.Queue(maxsize=qlimit)
+            if Parallel:
+            	m_work_queue = multiprocessing.Queue(maxsize=qlimit)
+            else:
+                m_work_queue = multiprocessing.Queue()
             m_result_queue = multiprocessing.JoinableQueue()
 
             Mode = "Init"
@@ -957,9 +961,10 @@ class ClassFacetMachine():
             iResult = 0
 
             if not Parallel:
+		work_p.run()
                 for p in procs:
+                    m_work_queue.put("POISON-E")
                     p.run()  # just run until all work is completed
-
             NJobs = NFacets
 
             while iResult < NJobs:
@@ -1571,7 +1576,10 @@ class ClassFacetMachine():
             else:
                 qlimit = 0
 
-        m_work_queue = multiprocessing.Queue(maxsize=qlimit)
+	if Parallel:
+            m_work_queue = multiprocessing.Queue(maxsize=qlimit)
+        else:
+            m_work_queue = multiprocessing.Queue()
         m_result_queue = multiprocessing.JoinableQueue()
 
         PSFMode = False
@@ -1626,9 +1634,9 @@ class ClassFacetMachine():
                                                   NFreqBands,
                                                   Weights,
                                                   PauseOnStart,
-                                                  DataPath,
-                                                  FlagPath,
                                                   DataShape,
+                                                  DataPath,
+                                                  FlagPath,                                                 
                                                   DataCorrelationFormat,
                                                   ExpectedOutputStokes,))
 
@@ -1660,7 +1668,9 @@ class ClassFacetMachine():
         print>> log, "jobs %d" % NJobs
 
         if not Parallel:
+            work_p.run()
             for p in procs:
+                m_work_queue.put("POISON-E")
                 p.run()  # just run until all work is completed
 
         while iResult < NJobs:
@@ -1746,8 +1756,11 @@ class ClassFacetMachine():
                 qlimit = n_cpus*8
             else:
                 qlimit = 0
+        if Parallel:
+            m_work_queue = multiprocessing.Queue(maxsize=qlimit)
+        else:
+            m_work_queue = multiprocessing.Queue()
 
-        m_work_queue = multiprocessing.Queue(maxsize=qlimit)
         m_result_queue = multiprocessing.JoinableQueue()
 
         Mode = "FourierTransform"
@@ -1818,7 +1831,9 @@ class ClassFacetMachine():
         iResult = 0
 
         if not Parallel:
+            work_p.run()
             for p in procs:
+                m_work_queue.put("POISON-E")
                 p.run()  # just run until all work is completed
 
         NJobs = NFacets
@@ -1885,8 +1900,7 @@ class ClassFacetMachine():
 
         return True
 
-    def GiveVisParallel(self, times, uvwIn, visIn, flag, A0A1,
-                        ModelImage, Parallel=True):
+    def GiveVisParallel(self, ModelImage, Parallel=True):
         """
         Degrids visibilities from model image. The model image is unprojected
         into many facets before degridding and subtracting each of the model
@@ -1920,7 +1934,10 @@ class ClassFacetMachine():
             else:
                 qlimit = 0
 
-        m_work_queue = multiprocessing.Queue(maxsize=qlimit)
+        if Parallel:
+            m_work_queue = multiprocessing.Queue(maxsize=qlimit)
+        else:
+            m_work_queue = multiprocessing.Queue()
         m_result_queue = multiprocessing.JoinableQueue()
 
         # ListModelImage=[]
@@ -1951,6 +1968,7 @@ class ClassFacetMachine():
             FacetDataCache = self.FacetDataCache
             ChunkDataCache = "file://" + self.VS.cache.dirname + "/"
             ApplyCal = self.ApplyCal
+            SpheNorm = self.SpheNorm
             NFreqBands = self.VS.NFreqBands
             PauseOnStart = self.GD["Debugging"]["PauseGridWorkers"]
             DataPath = self.VS.datapath
@@ -1985,6 +2003,9 @@ class ClassFacetMachine():
                         SpheNorm,
                         NFreqBands,
                         PauseOnStart,
+			DataShape,
+			DataPath,
+			FlagPath,
                         DataCorrelationFormat,
                         ExpectedOutputStokes,
                         ListSemaphores,
@@ -2015,7 +2036,9 @@ class ClassFacetMachine():
             iResult = 0
 
             if not Parallel:
+                work_p.run()
                 for p in procs:
+                    m_work_queue.put("POISON-E")
                     p.run()  # just run until all work is completed
 
             NJobs = NFacets
