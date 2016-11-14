@@ -1,9 +1,13 @@
+import subprocess
 import unittest
 from Parset.ReadCFG import Parset
+import os
 from os import path, getenv
-import subprocess
 from astropy.io import fits
 import numpy as np
+from DDFacet.Parset.ReadCFG import Parset
+from astropy.io import fits
+
 
 class ClassCompareFITSImage(unittest.TestCase):
     """ Automated assurance test: reference FITS file regression (abstract class)
@@ -153,11 +157,17 @@ class ClassCompareFITSImage(unittest.TestCase):
         #Run DDFacet with desired setup. Crash the test if DDFacet gives a non-zero exit code:
         cls._stdoutLogFile = cls._outputDir+cls.__name__+".run.out.log"
         cls._stderrLogFile = cls._outputDir+cls.__name__+".run.err.log"
-        subprocess.check_call("DDF.py %s --ImageName=%s 1> %s 2> %s" % (cls._outputParsetFilename,
-                                                                        cls._imagePrefix,
-                                                                        cls._stdoutLogFile,
-                                                                        cls._stderrLogFile),
-                              shell=True)
+
+        args = ['DDF.py',
+            cls._outputParsetFilename,
+            '--ImageName=%s' % cls._imagePrefix]
+
+        stdout_file = open(cls._stdoutLogFile, 'w')
+        stderr_file = open(cls._stderrLogFile, 'w')
+
+        with stdout_file, stderr_file:
+            subprocess.check_call(args, env=os.environ.copy(),
+                stdout=stdout_file, stderr=stderr_file)
 
         #Finally open up output FITS files for testing and build a dictionary of them
         for ref_id in cls.defineImageList():
@@ -172,9 +182,8 @@ class ClassCompareFITSImage(unittest.TestCase):
             fname = cls._inputDir + cls.__name__ + "." + ref_id + ".fits"
             compfname = cls._outputDir + cls.__name__ + ".run." + ref_id + ".fits"
             difffname = cls._outputDir + cls.__name__ + ".diff." + ref_id + ".fits"
-            subprocess.check_call("fitstool.py -f --diff --output %s %s %s" % (difffname,
-                                                                               fname,
-                                                                               compfname), shell=True)
+            args = ["fitstool.py", "-f", "--diff", "--output", difffname, fname, compfname]
+            subprocess.check_call(args, env=os.environ.copy())
 
     @classmethod
     def tearDownClass(cls):

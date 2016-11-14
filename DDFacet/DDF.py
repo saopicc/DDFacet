@@ -2,8 +2,6 @@
 
 #import matplotlib
 # matplotlib.use('agg')
-
-
 import optparse
 import traceback
 SaveFile = "last_DDFacet.obj"
@@ -20,7 +18,6 @@ import numpy as np
 from DDFacet.Imager import ClassDeconvMachine
 from DDFacet.Other import PrintOptParse
 from DDFacet.Parset import ReadCFG
-import sys
 from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
@@ -129,6 +126,7 @@ def read_options():
 
     OP.OptionGroup("* Imager Global parameters", "ImagerGlobal")
     OP.add_option('Mode', help='Default %default')
+    OP.add_option('PredictMode')
     OP.add_option('PolMode')
     OP.add_option('Precision')
     OP.add_option('Weighting')
@@ -290,6 +288,15 @@ def main(OP=None, messages=[]):
 
     # enable memory logging
     MyLogger.enableMemoryLogging(DicoConfig["Logging"]["MemoryLogging"])
+
+    # If we're using Montblanc for the Predict, we need to use a remote
+    # tensorflow server as tensorflow is not fork safe
+    # http://stackoverflow.com/questions/37874838/forking-a-python-process-after-loading-tensorflow
+    # If a TensorFlowServerTarget is not specified, fork a child process containing one.
+    if DicoConfig["ImagerGlobal"]["PredictMode"] == "Montblanc":
+        if not DicoConfig["Montblanc"]["TensorflowServerTarget"]:
+            from DDFacet.TensorFlowServerFork import fork_tensorflow_server
+            DicoConfig["Montblanc"]["TensorflowServerTarget"] = fork_tensorflow_server()
 
     global IdSharedMem
     IdSharedMem = "ddf.%d."%os.getpid()
@@ -501,7 +508,7 @@ if __name__ == "__main__":
             "Your logfile is available here: %s" %
             logfileName, col="red")
         print>>log, traceback_msg
-        NpShared.DelAll(IdSharedMem)
-        # Should at least give the command line an indication of failure
-        sys.exit(1)
+    NpShared.DelAll(IdSharedMem)
+    # Should at least give the command line an indication of failure
+    sys.exit(1)
 

@@ -5,10 +5,12 @@ import psutil
 import time
 import ClassDDEGridMachine
 import numpy as np
-import pylab
 import ClassCasaImage
 import pyfftw
 from matplotlib.path import Path
+import pylab
+from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import MyLogger
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.ToolsDir import ModCoord
 from DDFacet.Array import NpShared
@@ -966,7 +968,7 @@ class ClassFacetMachine():
                     DicoResult = m_result_queue.get(True, 10)
                 except Queue.Empty:
                     pass
-                    print>> log, "checking for dead workers"
+
                     # shoot the zombie process
                     multiprocessing.active_children()
                     # check for dead workers
