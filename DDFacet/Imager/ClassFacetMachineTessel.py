@@ -460,7 +460,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             #Create smoothned facet tessel mask:
             Npix = self.DicoImager[iFacet]["NpixFacetPadded"]
             l0, l1, m0, m1 = self.DicoImager[iFacet]["lmExtentPadded"]
-            X, Y = np.mgrid[l0:l1:Npix * 1j, m0:m1:Npix * 1j]
+            X, Y = np.mgrid[l0:l1:Npix/10 * 1j, m0:m1:Npix/10 * 1j]
             XY = np.dstack((X, Y))
             XY_flat = XY.reshape((-1, 2))
             vertices = self.DicoImager[iFacet]["Polygon"]
