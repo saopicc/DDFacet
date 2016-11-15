@@ -508,7 +508,7 @@ if __name__ == "__main__":
             "Your logfile is available here: %s" %
             logfileName, col="red")
         print>>log, traceback_msg
-    NpShared.DelAll(IdSharedMem)
-    # Should at least give the command line an indication of failure
-    sys.exit(1)
+        NpShared.DelAll(IdSharedMem)
+        # Should at least give the command line an indication of failure
+        sys.exit(1)
 
