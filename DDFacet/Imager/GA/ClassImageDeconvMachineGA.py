@@ -20,6 +20,7 @@ import multiprocessing
 import time
 
 from DDFacet.Imager.GA.ClassEvolveGA import ClassEvolveGA
+from DDFacet.Imager.GA.ClassMetropolis import ClassMetropolis
 #try: # Genetic Algo
 #except:
 #    print>> log, ModColor.Str("Failed to import the Genetic Algorithm Class (ClassEvolveGA)")
@@ -632,11 +633,11 @@ class ClassImageDeconvMachine():
 
         StopWhenQueueEmpty=True
 
-        # ######### Debug
-        # ParallelPerIsland=False
-        # Parallel=False
-        # StopWhenQueueEmpty=True
-        # ##################
+        ######### Debug
+        ParallelPerIsland=False
+        Parallel=False
+        StopWhenQueueEmpty=True
+        ##################
 
 
         work_queue = multiprocessing.Queue()
@@ -705,8 +706,10 @@ class ClassImageDeconvMachine():
                                  FreqsInfo=self.PSFServer.DicoMappingDesc,ParallelPerIsland=ParallelPerIsland,
                                  StopWhenQueueEmpty=StopWhenQueueEmpty)
             workerlist.append(W)
-            workerlist[ii].start()
-            #workerlist[ii].run()
+            if Parallel: 
+                workerlist[ii].start()
+            else:
+                workerlist[ii].run()
 
         # if Parallel:
         #     for ii in range(NCPU):
@@ -941,6 +944,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
             # print "saving ok"
             # ################################
 
+            
             CEv=ClassEvolveGA(self._Dirty,
                               PSF,
                               self.FreqsInfo,
@@ -951,9 +955,19 @@ class WorkerDeconvIsland(multiprocessing.Process):
                               GD=self.GD,
                               iIsland=iIsland,IdSharedMem=self.IdSharedMem,
                               ParallelFitness=self.ParallelPerIsland)
-            #,
-            #                 WeightFreqBands=WeightMuellerSignal)
             Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
+
+            # CEv=ClassMetropolis(self._Dirty,
+            #                     PSF,
+            #                     self.FreqsInfo,
+            #                     ListPixParms=ListPixParms,
+            #                     ListPixData=ListPixData,
+            #                     iFacet=FacetID,PixVariance=PixVariance,
+            #                     IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
+            #                     GD=self.GD,
+            #                     iIsland=iIsland,IdSharedMem=self.IdSharedMem,
+            #                     ParallelFitness=self.ParallelPerIsland)
+            # Model=CEv.main()
             
             Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
             #Model*=CEv.ArrayMethodsMachine.Gain

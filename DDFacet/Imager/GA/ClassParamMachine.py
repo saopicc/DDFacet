@@ -58,6 +58,9 @@ class ClassParamMachine():
         if self.DicoMappingDesc is None: return
         self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.DicoMappingDesc)#,BeamEnable=False)
         
+    def GiveIndivZero(self):
+        return np.zeros((self.NParam,self.NPixListParms),np.float32)
+
 
     def GiveInitList(self,toolbox):
         ListPars=[]

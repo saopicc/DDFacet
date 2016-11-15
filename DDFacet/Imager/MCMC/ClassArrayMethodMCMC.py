@@ -5,7 +5,7 @@ import numpy as np
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyLogger
 
-log=MyLogger.getLogger("ClassArrayMethodMCMC")
+log=MyLogger.getLogger("ClassArrayMethodGA")
 import multiprocessing
 
 from ClassParamMachine import ClassParamMachine
@@ -17,6 +17,7 @@ import time
 
 from deap import tools
 
+log= MyLogger.getLogger("ClassArrayMethodGA")
 
 
 from ClassParamMachine import ClassParamMachine
@@ -161,9 +162,8 @@ class ClassArrayMethodMCMC():
             self.DirtyArrayParms+=self.ToConvArray(self.IslandBestIndiv.reshape((self.PM.NParam,self.NPixListParms)),OutMode="Parms")
 
         self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
-        
-        
 
+    
 
     def ToConvArray(self,V,OutMode="Data"):
         A=self.PM.GiveModelArray(V)
@@ -171,6 +171,8 @@ class ClassArrayMethodMCMC():
         return A
 
     def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01,NMaxIter=20000):
+
+        PSF=self.PSF/np.max(self.PSF)
 
         if self.ConvMachine.ConvMode=="Matrix" or  self.ConvMachine.ConvMode=="Vector":
             A=self.DirtyArrayParmsMean.copy()#.reshape((1,1,self.NPixListParms))
@@ -181,8 +183,8 @@ class ClassArrayMethodMCMC():
             _,npol,NPix,_=Asq.shape
             A=np.mean(Asq,axis=0).reshape((NPix,NPix))
             Mask=(A==0)
-            _,_,NPixPSF,_=self.PSF.shape
-            PSFMean=np.mean(self.PSF,axis=0).reshape((NPixPSF,NPixPSF))
+            _,_,NPixPSF,_=PSF.shape
+            PSFMean=np.mean(PSF,axis=0).reshape((NPixPSF,NPixPSF))
             ArrayMode="Image"
             xcPSF=NPixPSF/2
             xcDirty=NPix/2
@@ -204,11 +206,12 @@ class ClassArrayMethodMCMC():
         # return SModelArray
 
         Th=StopThFrac*MaxA
+        MaxResid=np.max(np.abs(A))
         if ArrayMode=="Array":
             for iIter in range(NMaxIter): 
                 iPix=np.argmax(np.abs(A))
                 f=A[0,0,iPix]
-                if np.abs(f)<Th: break
+                if (np.abs(f)<Th): break
                 if self.ConvMachine.ConvMode=="Matrix":
                     CM=self.ConvMachine.CMParmsMean[0,0]
                     A-=CM[iPix]*gain*f
@@ -217,7 +220,21 @@ class ClassArrayMethodMCMC():
                     Vm=np.mean(np.array(V),axis=0).reshape((1,1,self.NPixListParms))
                     A-=Vm*gain*f
                 SModelArray[iPix]+=gain*f
+                ThisMaxResid=np.max(np.abs(A))
+                if ThisMaxResid<MaxResid:
+                    MaxResid=ThisMaxResid
+                else:
+                    break
 
+                # import pylab
+                # pylab.clf()
+                # pylab.plot(A.ravel())
+                # pylab.plot(SModelArray.ravel())
+                # pylab.draw()
+                # pylab.show(False)
+                # pylab.pause(0.1)
+
+#            stop
         elif ArrayMode=="Image":
             for iIter in range(NMaxIter): 
                 #print iIter,"/", NMaxIter
@@ -247,12 +264,19 @@ class ClassArrayMethodMCMC():
                 #pylab.pause(0.1)
                 SModelArray[iPix,jPix]+=gain*f
 
+                ThisMaxResid=np.max(np.abs(A))
+                if ThisMaxResid<MaxResid:
+                    MaxResid=ThisMaxResid
+                else:
+                    break
+
             SModelArraySq=np.zeros_like(Asq)
             for iFreq in range(self.NFreqBands):
                 for iPol in range(self.npol):
                     SModelArraySq[iFreq,iPol]=SModelArray[:,:]
             SModelArray=self.PM.SquareArrayToModel(SModelArraySq,TypeInOut=("Parms","Parms")).reshape((self.NFreqBands,self.npol,self.NPixListParms))
             SModelArray=SModelArray[0,0]
+
 
         return SModelArray,Alpha
 
