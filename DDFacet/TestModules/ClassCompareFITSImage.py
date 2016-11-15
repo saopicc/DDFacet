@@ -1,6 +1,5 @@
 import subprocess
 import unittest
-from Parset.ReadCFG import Parset
 import os
 from os import path, getenv
 from astropy.io import fits
