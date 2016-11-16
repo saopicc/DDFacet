@@ -464,10 +464,12 @@ class ClassImageDeconvMachine():
 
         elif self.DeconvMode=="MetroClean":
             if self.GD["MetroClean"]["MetroNChains"]!="NCPU":
-                self.NCPU=self.GD["MetroClean"]["MetroNChains"]
-            print>>log, "Evolving %i chains of %i iterations"%(self.NCPU,self.GD["MetroClean"]["MetroNIter"])
-            ListBigIslands=[Island for Island in self.ListIslands if len(Island)>self.GD["SSDClean"]["RestoreMetroSwitch"]]
-            print>>log,"Deconvolve %i large islands (>%i pixels) (parallelised per island)"%(len(ListBigIslands),self.GD["SSDClean"]["RestoreMetroSwitch"])
+                self.NChains=self.GD["MetroClean"]["MetroNChains"]
+            else:
+                self.NChains=self.NCPU
+            print>>log, "Evolving %i chains of %i iterations"%(self.NChains,self.GD["MetroClean"]["MetroNIter"])
+            ListBigIslands=[Island for Island in self.ListIslands if len(Island)>=self.GD["SSDClean"]["RestoreMetroSwitch"]]
+            print>>log,"Deconvolve %i large islands (>=%i pixels) (parallelised per island)"%(len(ListBigIslands),self.GD["SSDClean"]["RestoreMetroSwitch"])
             self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland")
 
         return "MaxIter", True, True   # stop deconvolution but do update model
@@ -561,7 +563,8 @@ class ClassImageDeconvMachine():
                                  IdSharedMem=self.IdSharedMem,
                                  FreqsInfo=self.PSFServer.DicoMappingDesc,ParallelPerIsland=ParallelPerIsland,
                                  StopWhenQueueEmpty=StopWhenQueueEmpty,
-                                 DeconvMode=self.DeconvMode)
+                                 DeconvMode=self.DeconvMode,
+                                 NChains=self.NChains)
             workerlist.append(W)
             if Parallel: 
                 workerlist[ii].start()
@@ -723,7 +726,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
                  MultiFreqMode=False,
                  ParallelPerIsland=False,
                  StopWhenQueueEmpty=False,
-                 DeconvMode="GAClean"):
+                 DeconvMode="GAClean",
+                 NChains=1):
         multiprocessing.Process.__init__(self)
         self.MultiFreqMode=MultiFreqMode
         self.work_queue = work_queue
@@ -739,6 +743,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
         self.ParallelPerIsland=ParallelPerIsland
         self.StopWhenQueueEmpty=StopWhenQueueEmpty
         self.DeconvMode=DeconvMode
+        self.NChains=NChains
 
     def shutdown(self):
         self.exit.set()
@@ -826,8 +831,9 @@ class WorkerDeconvIsland(multiprocessing.Process):
                                     IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
                                     GD=self.GD,
                                     iIsland=iIsland,IdSharedMem=self.IdSharedMem,
-                                    ParallelFitness=self.ParallelPerIsland)
-                Model=CEv.main()
+                                    ParallelFitness=self.ParallelPerIsland,
+                                    NChains=self.NChains)
+                Model=CEv.main(NSteps=self.GD["MetroClean"]["MetroNIter"])
             
             Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
             #Model*=CEv.ArrayMethodsMachine.Gain

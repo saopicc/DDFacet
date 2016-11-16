@@ -925,8 +925,10 @@ class WorkerFitness(multiprocessing.Process):
             except:
                 break
 
+            pid=str(multiprocessing.current_process())
             self.T.reinit()
             iIndividual=DicoJob["iIndividual"]
+            #print "Worker %s processing indiv %i"%(pid,iIndividual)
             self.BestChi2=DicoJob["BestChi2"]
             #individual=DicoJob["individual"]
             Name="%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual)
@@ -937,7 +939,6 @@ class WorkerFitness(multiprocessing.Process):
                                    "iIndividual": iIndividual,
                                    "fitness":fitness,
                                    "Chi2":Chi2})
-            pid=str(multiprocessing.current_process())
             self.T.timeit("done job: %s"%pid)
 
     def ToConvArray(self,V,OutMode="Data"):

@@ -483,7 +483,7 @@ class ClassImagerDeconv():
             print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --ResetDirty 1.")
 
             #self.DicoDirty = cPickle.load(file(cachepath))
-            self.CurrentDicoResidImage = self.DicoDirty = MyPickle.FileToDicoNP(cachepath)
+            self.DicoDirty = MyPickle.FileToDicoNP(cachepath)
             if self.DicoDirty["NormData"] is not None:
                 nch, npol, nx, ny = self.DicoDirty["ImagData"].shape
                 self.NormImage = self.DicoDirty["NormData"]
@@ -564,7 +564,7 @@ class ClassImagerDeconv():
                 iloop += 1
 
             self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
-
+            
             self.FacetMachine.ComputeSmoothBeam()
             self.SaveDirtyProducts()
 
@@ -578,6 +578,9 @@ class ClassImagerDeconv():
                     print>> log, traceback.format_exc()
                     print>> log, ModColor.Str("WARNING: Dirty image cache could not be written, see error report above. Proceeding anyway.")
 
+        self.CurrentDicoResidImage = self.DicoDirty
+        self.ResidCube  = self.CurrentDicoResidImage["ImagData"] #get residuals cube
+        self.ResidImage = self.CurrentDicoResidImage["MeanImage"]
         return self.DicoDirty["MeanImage"]
 
     def SaveDirtyProducts(self):

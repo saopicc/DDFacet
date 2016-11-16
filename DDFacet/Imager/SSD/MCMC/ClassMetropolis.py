@@ -31,7 +31,7 @@ from scipy.stats import chi2
 class ClassMetropolis():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,
                  WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,IdSharedMem="",
-                 ParallelFitness=False,NChains=1):
+                 ParallelFitness=False,NChains=1,NIter=1000):
         _,_,NPixPSF,_=PSF.shape
         if ListPixData is None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
@@ -44,7 +44,10 @@ class ClassMetropolis():
         _,_,Npix,_=Dirty.shape
         ListPixData=FilterIslandsPix(ListPixData,Npix)
         ListPixParms=FilterIslandsPix(ListPixParms,Npix)
+        self.GD=GD
         self.NChains=NChains
+        self.NIter=NIter
+        
         self.PixVariance=PixVariance
         self.IdSharedMem=IdSharedMem
         self.iIsland=iIsland
@@ -142,10 +145,11 @@ class ClassMetropolis():
         for iChain in range(self.NChains):
             ChainParms=self.DicoChains[iChain]["Parms"]
             ChainChi2=self.DicoChains[iChain]["Chi2"]
+            #print len(ChainParms),len(ChainChi2)
             for iPoint in range(len(ChainParms)):
                 P+=ChainParms[iPoint]
-                Model+=self.ArrayMethodsMachine.PM.GiveModelArray(ChainParms[iPoint])
-                Chi2=ChainChi2[iChain]
+                #Model+=self.ArrayMethodsMachine.PM.GiveModelArray(ChainParms[iPoint])
+                Chi2=ChainChi2[iPoint]
                 if Chi2<Chi2Min:
                     Chi2Min=Chi2
                     Pmin=ChainParms[iPoint]
@@ -155,8 +159,7 @@ class ClassMetropolis():
         return Model,P,Pmin
 
 
-    def main(self,NSteps=100):
-
+    def main(self,NSteps=1000):
 
 
         Mut_pFlux, Mut_p0, Mut_pMove=0.3,0.,0.3
