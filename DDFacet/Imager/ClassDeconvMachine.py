@@ -65,6 +65,7 @@ class ClassImagerDeconv():
 
         self.BaseName=BaseName
         self.DicoModelName="%s.DicoModel"%self.BaseName
+        self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
         self.PointingID=PointingID
 
         self.FacetMachine=None
@@ -203,18 +204,12 @@ class ClassImagerDeconv():
             from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
             self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
             print>>log,"Using MSMF algorithm"
-        elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="GA":
-            if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                raise NotImplementedError("Multi-polarization CLEAN is not supported in GA")
-            from DDFacet.Imager.GA import ClassImageDeconvMachineGA
-            self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
-            print>>log,"Using GA algorithm"
         elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD":
             if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                raise NotImplementedError("Multi-polarization is not supported in SSD")
-            from DDFacet.Imager.MORESANE import ClassImageDeconvMachineSSD
+                raise NotImplementedError("Multi-polarization CLEAN is not supported in SSD")
+            from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
             self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
-            print>>log,"Using SSD with %s Minor Cycle algorithm"%self.GD["SSD"]["IslandDeconvMode"]
+            print>>log,"Using SSD algorithm"
         elif self.GD["ImagerDeconv"]["MinorCycleMode"] == "Hogbom":
             from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
             self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
@@ -467,7 +462,13 @@ class ClassImagerDeconv():
         SubstractModel=self.GD["VisData"]["InitDicoModel"]
         DoSub=(SubstractModel!="")&(SubstractModel is not None)
 
-        cachepath, valid = self.VS.maincache.checkCache("Dirty", dict(
+        CacheName="Dirty"
+        if self.GD["Caching"]["DirtyFromLastResid"]:
+            print>>log,"Setting dirty image cache name to last residual image cache, and not doing any substraction"
+            CacheName="LastResidual"
+            DoSub=False
+
+        cachepath, valid = self.VS.maincache.checkCache(CacheName, dict(
             [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
             [(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
                                                         "MultiFreqs", "ImagerGlobal", "Compression",
@@ -855,7 +856,7 @@ class ClassImagerDeconv():
                 self.FacetMachine.putChunk(Weights=self.WEIGHTS)
 
 
-            DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
+            self.CurrentDicoResidImage=DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
             self.ResidCube  = DicoImage["ImagData"] #get residuals cube
             self.ResidImage = DicoImage["MeanImage"]
 
@@ -871,6 +872,24 @@ class ClassImagerDeconv():
 
 
             self.HasDeconvolved=True
+
+        # dump dirty to cache
+        if self.GD["Caching"]["CacheLastResid"]:
+            cachepath, valid = self.VS.maincache.checkCache("LastResidual", 
+                                                            dict(
+                                                                [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
+                                                                [(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
+                                                                 "MultiFreqs", "ImagerGlobal", "Compression",
+                                                                 "ImagerCF", "ImagerMainFacet","DDESolutions"]
+                                                            ), 
+                                                            reset=False)
+            try:
+                print>>log,"Saving last residual image to %s"%cachepath
+                MyPickle.DicoNPToFile(self.CurrentDicoResidImage, cachepath)
+                self.VS.maincache.saveCache("LastResidual")
+            except:
+                print>> log, traceback.format_exc()
+                print>> log, ModColor.Str("WARNING: Dirty image cache could not be written, see error report above. Proceeding anyway.")
 
         if self.HasDeconvolved:
             self.Restore()
@@ -975,12 +994,19 @@ class ClassImagerDeconv():
         print>>log, "Create restored image"
         if self.PSFGaussPars is None:
             self.FitPSF()
-        self.DeconvMachine.ToFile(self.DicoModelName)
+        #self.DeconvMachine.ToFile(self.DicoModelName)
 
         RefFreq = self.VS.RefFreq
-        ModelMachine = self.DeconvMachine.ModelMachine
-        
 
+        if self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD" and self.GD["SSDClean"]["RestoreMetroSwitch"]>0:
+            print>>log,"Runing and Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
+            self.DeconvMachine.setDeconvMode(Mode="MetroClean")
+            self.DeconvMachine.Update(self.CurrentDicoResidImage)
+            repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
+            self.DeconvMachine.ToFile(self.DicoMetroModelName)
+
+
+        ModelMachine = self.DeconvMachine.ModelMachine
         # Putting back substracted componants
         if self.GD["DDESolutions"]["RestoreSub"]:
             try:

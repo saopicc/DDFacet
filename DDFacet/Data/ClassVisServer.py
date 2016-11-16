@@ -187,14 +187,14 @@ class ClassVisServer():
         if self.MultiFreqMode:
             print>>log, ModColor.Str("MultiFrequency Mode: ON, %dx%g MHz bands"%(NFreqBands,grid_bw*1e-6))
 
-            if not ("Alpha" in self.GD["GAClean"]["GASolvePars"]):
-                self.GD["GAClean"]["GASolvePars"].append("Alpha")
+            if not ("Alpha" in self.GD["SSDClean"]["SSDSolvePars"]):
+                self.GD["SSDClean"]["SSDSolvePars"].append("Alpha")
 
         else:
             self.GD["MultiFreqs"]["NFreqBands"] = 1
             self.GD["MultiFreqs"]["Alpha"] = [0.,0.,1.]
-            if "Alpha" in self.GD["GAClean"]["GASolvePars"]:
-                self.GD["GAClean"]["GASolvePars"].remove("Alpha")
+            if "Alpha" in self.GD["SSDClean"]["SSDSolvePars"]:
+                self.GD["SSDClean"]["SSDSolvePars"].remove("Alpha")
             print>>log, ModColor.Str("MultiFrequency Mode: OFF")
 
         # Divide the global frequencies into frequency bands.

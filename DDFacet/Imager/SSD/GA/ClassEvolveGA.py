@@ -6,7 +6,7 @@ from deap import base
 from deap import creator
 from deap import tools
 import numpy
-import algorithms
+from DDFacet.Imager.SSD.GA import algorithms
 import multiprocessing
 from DDFacet.Array import NpShared
 
@@ -15,7 +15,7 @@ import numpy as np
 import os
 #import Select
 
-import ClassArrayMethodGA
+from DDFacet.Imager.SSD import ClassArrayMethodSSD
 
 def FilterIslandsPix(ListIn,Npix):
     ListOut=[]
@@ -47,15 +47,15 @@ class ClassEvolveGA():
 
         self.IdSharedMem=IdSharedMem
         self.iIsland=iIsland
-        self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
-                                                                       PixVariance=PixVariance,
-                                                                       iFacet=iFacet,
-                                                                       IslandBestIndiv=IslandBestIndiv,
-                                                                       GD=GD,
-                                                                       WeightFreqBands=WeightFreqBands,
-                                                                       iIsland=iIsland,
-                                                                       IdSharedMem=IdSharedMem,
-                                                                       ParallelFitness=ParallelFitness)
+        self.ArrayMethodsMachine=ClassArrayMethodSSD.ClassArrayMethodSSD(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
+                                                                         PixVariance=PixVariance,
+                                                                         iFacet=iFacet,
+                                                                         IslandBestIndiv=IslandBestIndiv,
+                                                                         GD=GD,
+                                                                         WeightFreqBands=WeightFreqBands,
+                                                                         iIsland=iIsland,
+                                                                         IdSharedMem=IdSharedMem,
+                                                                         ParallelFitness=ParallelFitness)
         self.InitEvolutionAlgo()
         #self.ArrayMethodsMachine.testMovePix()
         #stop

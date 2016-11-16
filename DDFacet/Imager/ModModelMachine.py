@@ -19,7 +19,7 @@ class ClassModModelMachine():
             GD          = Global dictionary
         """
         self.GD = GD
-        self.GAMM = None
+        self.SSDMM = None
         self.MSMFMM = None
         self.MORSANEMM = None
 
@@ -61,15 +61,14 @@ class ClassModModelMachine():
             return self.GiveMM()
 
     def GiveMM(self,Mode=None):
-        if Mode == "GA":
-            if self.GAMM is None:
-                print>> log, "Initialising GA model machine"
-                from DDFacet.Imager.GA import ClassModelMachineGA
-                from DDFacet.Imager.GA import ClassModelMachineGA
-                self.GAMM = ClassModelMachineGA.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+        if Mode == "SSD":
+            if self.SSDMM is None:
+                print>> log, "Initialising SSD model machine"
+                from DDFacet.Imager.SSD import ClassModelMachineSSD
+                self.SSDMM = ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
             else:
-                print>> log, "GA model machine already initialised"
-            return self.GAMM
+                print>> log, "SSD model machine already initialised"
+            return self.SSDMM
         elif Mode == "MSMF":
             if self.MSMFMM is None:
                 print>> log, "Initialising MSMF model machine"

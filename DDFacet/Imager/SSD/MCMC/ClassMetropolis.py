@@ -6,7 +6,6 @@ from deap import base
 from deap import creator
 from deap import tools
 import numpy
-import algorithms
 import multiprocessing
 from DDFacet.Array import NpShared
 
@@ -15,7 +14,8 @@ import numpy as np
 import os
 #import Select
 
-import ClassArrayMethodGA
+from DDFacet.Imager.SSD import ClassArrayMethodSSD
+
 
 def FilterIslandsPix(ListIn,Npix):
     ListOut=[]
@@ -49,17 +49,17 @@ class ClassMetropolis():
         self.IdSharedMem=IdSharedMem
         self.iIsland=iIsland
 
-        GD["GAClean"]["GACostFunc"]=["Chi2"]
-        self.ArrayMethodsMachine=ClassArrayMethodGA.ClassArrayMethodGA(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
-                                                                       #PixVariance=PixVariance,
-                                                                       PixVariance=1.,
-                                                                       iFacet=iFacet,
-                                                                       IslandBestIndiv=IslandBestIndiv,
-                                                                       GD=GD,
-                                                                       WeightFreqBands=WeightFreqBands,
-                                                                       iIsland=iIsland,
-                                                                       IdSharedMem=IdSharedMem,
-                                                                       ParallelFitness=ParallelFitness)
+        GD["SSDClean"]["SSDCostFunc"]=["Chi2"]
+        self.ArrayMethodsMachine=ClassArrayMethodSSD.ClassArrayMethodSSD(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
+                                                                         #PixVariance=PixVariance,
+                                                                         PixVariance=1.,
+                                                                         iFacet=iFacet,
+                                                                         IslandBestIndiv=IslandBestIndiv,
+                                                                         GD=GD,
+                                                                         WeightFreqBands=WeightFreqBands,
+                                                                         iIsland=iIsland,
+                                                                         IdSharedMem=IdSharedMem,
+                                                                         ParallelFitness=ParallelFitness)
         self.InitChain()
 
     def InitChain(self):

@@ -2,7 +2,7 @@ import numpy as np
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassModelMachineGA")
+log=MyLogger.getLogger("ClassModelMachineSSD")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
@@ -32,7 +32,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # self.DicoSMStacked={}
         # self.DicoSMStacked["Comp"]={}
         if self.GD is not None:
-            self.SolveParam = self.GD["GAClean"]["GASolvePars"]
+            self.SolveParam = self.GD["SSDClean"]["SSDSolvePars"]
             print>>log,"Solved parameters: %s"%(str(self.SolveParam))
             self.NParam=len(self.SolveParam)
         self.RefFreq=None
@@ -46,7 +46,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
         # print "ModelMachine:",self.RefFreq, self.DicoSMStacked["RefFreq"], self.DicoSMStacked["AllFreqs"]
         
-
+        
 
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName
@@ -58,7 +58,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #D["PM"]=self.PM
         D["GD"]=self.GD
         D["ModelShape"]=self.ModelShape
-        D["Type"]="GA"
+        D["Type"]="SSD"
         D["SolveParam"]=self.SolveParam
 
         MyPickle.Save(D,FileName)

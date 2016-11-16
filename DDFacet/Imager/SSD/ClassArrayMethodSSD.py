@@ -5,7 +5,7 @@ import numpy as np
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyLogger
 
-log=MyLogger.getLogger("ClassArrayMethodGA")
+log=MyLogger.getLogger("ClassArrayMethodSSD")
 import multiprocessing
 
 from ClassParamMachine import ClassParamMachine
@@ -17,14 +17,14 @@ import time
 
 from deap import tools
 
-log= MyLogger.getLogger("ClassArrayMethodGA")
+log= MyLogger.getLogger("ClassArrayMethodSSD")
 
 
 from ClassParamMachine import ClassParamMachine
 from DDFacet.ToolsDir.GeneDist import ClassDistMachine
 
 
-class ClassArrayMethodMCMC():
+class ClassArrayMethodSSD():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
                  PixVariance=1.e-2,IslandBestIndiv=None,WeightFreqBands=None,iFacet=0,
                  IdSharedMem="",
@@ -53,7 +53,7 @@ class ClassArrayMethodMCMC():
         self.NPixListData=len(ListPixData)
         
         self.ConvMode="Matrix"
-        if self.NPixListData>self.GD["GAClean"]["ConvFFTSwitch"]:
+        if self.NPixListData>self.GD["SSDClean"]["ConvFFTSwitch"]:
             self.ConvMode="FFT"
 
         self.ConvMachine=ClassConvMachine.ClassConvMachine(PSF,ListPixParms,ListPixData,self.ConvMode)
@@ -64,7 +64,7 @@ class ClassArrayMethodMCMC():
         self.WeightMaxFunc=collections.OrderedDict()
         #self.WeightMaxFunc["Chi2"]=1.
 
-        for key in self.GD["GAClean"]["GACostFunc"]:
+        for key in self.GD["SSDClean"]["SSDCostFunc"]:
             self.WeightMaxFunc[key]=1.
 
 
@@ -83,7 +83,7 @@ class ClassArrayMethodMCMC():
         self.FreqsInfo=FreqsInfo
         
         self.NFreqBands,self.npol,self.NPixPSF,_=PSF.shape
-        self.PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,SolveParam=GD["GAClean"]["GASolvePars"])
+        self.PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,SolveParam=GD["SSDClean"]["SSDSolvePars"])
 
         self.PM.setFreqs(FreqsInfo)
         self.ConvMachine.setParamMachine(self.PM)
@@ -146,7 +146,7 @@ class ClassArrayMethodMCMC():
                 self.ALPHA=ALPHA
                 # print "ALPHA=",self.ALPHA
                 
-                if self.GD["GAClean"]["ArtifactRobust"]:
+                if self.GD["SSDClean"]["ArtifactRobust"]:
                     self.DirtyArray/=self.ALPHA
                 self.DirtyArray+=AddArray
         
@@ -165,16 +165,33 @@ class ClassArrayMethodMCMC():
 
     
 
-    def ToConvArray(self,V,OutMode="Data"):
+    def ToConvArray(self,V,OutMode="Data",Noise=False):
         A=self.PM.GiveModelArray(V)
+        if Noise is not False:
+            A+=np.random.randn(*A.shape)*Noise
         A=self.ConvMachine.Convolve(A,OutMode=OutMode)
         return A
 
+
+    def GiveNoiseRealisation(self):
+        Asq=self.PM.ModelToSquareArray(self.DirtyArrayParms.copy(),TypeInOut=("Parms","Parms"))
+        _,npol,NPix,_=Asq.shape
+        A=np.mean(Asq,axis=0).reshape((NPix,NPix))
+        Mask=(A==0)
+        _,_,NPixPSF,_=PSF.shape
+        PSFMean=np.mean(PSF,axis=0).reshape((NPixPSF,NPixPSF))
+        ArrayMode="Image"
+        xcPSF=NPixPSF/2
+        xcDirty=NPix/2
+        SModelArray=np.zeros_like(A)
+
+
+
     def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01,NMaxIter=20000):
 
-        PSF=self.PSF/np.max(self.PSF)
+        PSF=self.PSF#/np.max(self.PSF)
 
-        if self.ConvMachine.ConvMode=="Matrix" or  self.ConvMachine.ConvMode=="Vector":
+        if False:#self.ConvMachine.ConvMode=="Matrix" or  self.ConvMachine.ConvMode=="Vector":
             A=self.DirtyArrayParmsMean.copy()#.reshape((1,1,self.NPixListParms))
             SModelArray=np.zeros_like(A.flatten())
             ArrayMode="Array"
@@ -543,7 +560,7 @@ class ClassArrayMethodMCMC():
         return indiv
     
     
-    def mutGaussian(self,individual, pFlux, p0, pMove):
+    def mutGaussian(self,individual, pFlux, p0, pMove,FactorAccelerate=1.):
         #return individual,
         T= ClassTimeIt.ClassTimeIt()
         T.disable()
@@ -553,11 +570,13 @@ class ClassArrayMethodMCMC():
 
         T.timeit("start0")
         #A0=IndToArray(individual).copy()
-        Ps=np.array([pFlux, p0, pMove])
-        _p0=p0/np.sum(Ps)
-        _pMove=pMove/np.sum(Ps)
-        _pFlux=pFlux/np.sum(Ps)
-    
+        # Ps=np.array([pFlux, p0, pMove])
+        # _p0=p0/np.sum(Ps)
+        # _pMove=pMove/np.sum(Ps)
+        # _pFlux=pFlux/np.sum(Ps)
+   
+        
+ 
         T.timeit("start1")
         
         Af=self.PM.ArrayToSubArray(individual,"S")
@@ -568,34 +587,42 @@ class ClassArrayMethodMCMC():
 
         T.timeit("start2")
     
+        PMat=np.array([0.,pFlux, p0, pMove])
+        PMat/=np.sum(PMat)
+        PMat=np.cumsum(PMat)
+        
+
         RType=random.random()
+        P0=PMat[0:-1]
+        P1=PMat[1::]
+        Type=np.where((RType>P0)&(RType<P1))[0]
+
         T.timeit("start3")
-        if RType < _pFlux:
-            Type=0
+        if Type==0:
             N=1
-            N=int(random.uniform(0, 3.))
-        elif RType < _pFlux+_pMove:
-            Type=1
+            N=int(random.uniform(1, 3.))
+        elif Type==1:
             N=np.max([(NNonZero/10),1])
         else:
-            Type=2
             N=1
-            N=int(random.uniform(0, 3.))
+            N=int(random.uniform(1, 3.))
             
             # InReg=random.uniform(-1,1)
             # if InReg<0:
             #     InReg=-1
 
 
-    
+        #print pFlux, p0, pMove
+        #print "PPPPPP",PMat,RType,Type
+        
         indR=sorted(list(set(np.int32(np.random.rand(N)*NNonZero).tolist())))
         indSel=ind[indR]
         #Type=0
 
-        #print "Type:",Type
+        #print "Type:",Type,RType
 
         for iPix in indSel:
-            #print iPix,Type
+            #print "    --- Type %i [%i]"%(Type,iPix)
 
             # randomly change value of parameter
             if Type==0:
@@ -613,7 +640,7 @@ class ClassArrayMethodMCMC():
                         else:
                             ds=A[iPix]
                     #print "Mutating %f"%A[iPix],TypeParm
-                    A[iPix] += random.gauss(0, 1.)*ds
+                    A[iPix] += random.gauss(0, 1.)*ds*FactorAccelerate
                     #print "      ---> %f"%A[iPix]
 
             # zero a pixel
@@ -624,10 +651,13 @@ class ClassArrayMethodMCMC():
     
             # move a pixel
             if Type==2:
-                Flux=random.random()*Af[iPix]
+                Flux=random.random()*Af[iPix]#*FactorAccelerate
+                #Flux=np.min([Af[iPix],Flux])
                 InReg=random.random()*8
+                #i0=individual.copy()
                 individual=self.MovePix(individual,iPix,Flux,InReg=InReg)
-
+                #i1=individual.copy()
+                #stop
                 # if random.random()<0.5:
                 #     Flux=random.random()*Af[iPix]
                 #     InReg=random.random()*8
@@ -973,7 +1003,7 @@ class WorkerFitness(multiprocessing.Process):
                 n=Resid.size
                 k=np.count_nonzero(S)
                 #BIC=chi2+100*k*np.log(n)
-                BIC=chi2+self.GD["GAClean"]["BICFactor"]*k*np.log(n)
+                BIC=chi2+self.GD["SSDClean"]["BICFactor"]*k*np.log(n)
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-BIC*W)
             if FuncType=="MEM":

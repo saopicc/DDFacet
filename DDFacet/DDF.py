@@ -101,6 +101,8 @@ def read_options():
     OP.add_option('CachePSF')
     OP.add_option('CacheDirty')
     OP.add_option('CacheVisData')
+    OP.add_option('CacheLastResid')
+    OP.add_option('DirtyFromLastResid')
 
 
     OP.OptionGroup("* Selection","DataSelection")
@@ -199,17 +201,23 @@ def read_options():
     OP.add_option("ConstructMode")
     OP.add_option("Circumcision")
 
-    OP.OptionGroup("* GAClean","GAClean")
-    OP.add_option("GASolvePars")
-    OP.add_option("GACostFunc")
+    OP.OptionGroup("* SSDClean","SSDClean")
+    OP.add_option("SSDSolvePars")
+    OP.add_option("SSDCostFunc")
     OP.add_option("BICFactor")
-    OP.add_option("NSourceKin")
-    OP.add_option("NMaxGen")
     OP.add_option("NEnlargePars")
     OP.add_option("NEnlargeData")
     OP.add_option("ArtifactRobust")
     OP.add_option("ConvFFTSwitch")
+    OP.add_option("RestoreMetroSwitch")
 
+    OP.OptionGroup("* GA Options","GAClean")
+    OP.add_option("NSourceKin")
+    OP.add_option("NMaxGen")
+
+    OP.OptionGroup("* MCMC Options","MetroClean")
+    OP.add_option("MetroNChains")
+    OP.add_option("MetroNIter")
 
     OP.OptionGroup("* Clean","ImagerDeconv")
     OP.add_option("MaxMajorIter")

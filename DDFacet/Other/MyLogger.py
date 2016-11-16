@@ -1,3 +1,4 @@
+#from DDFacet.Other import logging
 import logging
 import os
 
@@ -9,6 +10,7 @@ class LoggerWriter:
     def write(self, message):
         if message != '\n':
             self.logger.log(self.level, message)
+
 
 
 _proc_status = '/proc/%d/status' % os.getpid()
