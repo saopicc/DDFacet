@@ -67,7 +67,7 @@ class ClassImagerDeconv():
         self.DicoModelName="%s.DicoModel"%self.BaseName
         self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
         self.PointingID=PointingID
-
+        self.CurrentDicoResidImage=None
         self.FacetMachine=None
         self.PSF=None
         self.FWHMBeam = None
@@ -874,7 +874,7 @@ class ClassImagerDeconv():
             self.HasDeconvolved=True
 
         # dump dirty to cache
-        if self.GD["Caching"]["CacheLastResid"]:
+        if self.GD["Caching"]["CacheLastResid"] and self.CurrentDicoResidImage is not None:
             cachepath, valid = self.VS.maincache.checkCache("LastResidual", 
                                                             dict(
                                                                 [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
@@ -891,8 +891,11 @@ class ClassImagerDeconv():
                 print>> log, traceback.format_exc()
                 print>> log, ModColor.Str("WARNING: Dirty image cache could not be written, see error report above. Proceeding anyway.")
 
-        if self.HasDeconvolved:
-            self.Restore()
+
+        self.Restore()
+
+        # if self.HasDeconvolved:
+        #     self.Restore()
 
     def fitSinglePSF(self, PSF, off, label="mean"):
         """
@@ -999,11 +1002,26 @@ class ClassImagerDeconv():
         RefFreq = self.VS.RefFreq
 
         if self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD" and self.GD["SSDClean"]["RestoreMetroSwitch"]>0:
+            model_freqs=self.VS.CurrentChanMappingDegrid
+            ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)                    
+            nf,npol,nx,nx=ModelImage.shape
+            ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
+                    
+            self.FacetMachine.ToCasaImage(ModelImageAvg,
+                                          ImageName="%s.model.bef"%(self.BaseName),
+                                          Fits=True)
             print>>log,"Runing and Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
             self.DeconvMachine.setDeconvMode(Mode="MetroClean")
             self.DeconvMachine.Update(self.CurrentDicoResidImage)
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
             self.DeconvMachine.ToFile(self.DicoMetroModelName)
+            ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)                    
+            nf,npol,nx,nx=ModelImage.shape
+            ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
+                    
+            self.FacetMachine.ToCasaImage(ModelImageAvg,
+                                          ImageName="%s.model.aft"%(self.BaseName),
+                                          Fits=True)
 
 
         ModelMachine = self.DeconvMachine.ModelMachine
