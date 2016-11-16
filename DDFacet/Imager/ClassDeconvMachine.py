@@ -483,7 +483,7 @@ class ClassImagerDeconv():
             print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --ResetDirty 1.")
 
             #self.DicoDirty = cPickle.load(file(cachepath))
-            self.DicoDirty = MyPickle.FileToDicoNP(cachepath)
+            self.CurrentDicoResidImage = self.DicoDirty = MyPickle.FileToDicoNP(cachepath)
             if self.DicoDirty["NormData"] is not None:
                 nch, npol, nx, ny = self.DicoDirty["ImagData"].shape
                 self.NormImage = self.DicoDirty["NormData"]

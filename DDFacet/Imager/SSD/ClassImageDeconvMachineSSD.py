@@ -467,7 +467,7 @@ class ClassImageDeconvMachine():
                 self.NCPU=self.GD["MetroClean"]["MetroNChains"]
             print>>log, "Evolving %i chains of %i iterations"%(self.NCPU,self.GD["MetroClean"]["MetroNIter"])
             ListBigIslands=[Island for Island in self.ListIslands if len(Island)>self.GD["SSDClean"]["RestoreMetroSwitch"]]
-            print>>log,"Deconvolve large islands (>%i pixels) (parallelised per island)"%(self.GD["SSDClean"]["RestoreMetroSwitch"])
+            print>>log,"Deconvolve %i large islands (>%i pixels) (parallelised per island)"%(len(ListBigIslands),self.GD["SSDClean"]["RestoreMetroSwitch"])
             self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland")
 
         return "MaxIter", True, True   # stop deconvolution but do update model

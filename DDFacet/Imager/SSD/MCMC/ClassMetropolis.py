@@ -72,14 +72,14 @@ class ClassMetropolis():
         Point0=self.ArrayMethodsMachine.PM.GiveIndivZero()
         self.pop=[Point0]*self.NChains # is the starting chain
 
-        print self.IslandBestIndiv
+        #print self.IslandBestIndiv
         if self.IslandBestIndiv is not None:
             if np.max(np.abs(self.IslandBestIndiv))==0:
-                print "from clean"
+                #print "from clean"
                 SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray)
             else:
-                print "from previous"
+                #print "from previous"
                 SModelArrayBest=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
                 AlphaModel=None
                 if "Alpha" in self.ArrayMethodsMachine.PM.SolveParam:
@@ -124,14 +124,14 @@ class ClassMetropolis():
         self.MinChi2=np.min(Chi2)
         self.Var=self.MinChi2/self.Chi2PMax
 
-        P=self.rv.pdf(x)
-        import pylab
-        pylab.clf()
-        pylab.plot(x,P)
-        pylab.scatter(self.Chi2PMax,P[iMax])
-        pylab.draw()
-        pylab.show(False)
-        # stop
+        # P=self.rv.pdf(x)
+        # import pylab
+        # pylab.clf()
+        # pylab.plot(x,P)
+        # pylab.scatter(self.Chi2PMax,P[iMax])
+        # pylab.draw()
+        # pylab.show(False)
+        # # stop
         
     def StackChain(self):
         P0=self.ArrayMethodsMachine.PM.GiveIndivZero()
@@ -167,7 +167,7 @@ class ClassMetropolis():
         FactorAccelerate=1.
         lAccept=[]
         for iStep in range(NSteps):
-            print "========================"
+            #print "========================"
 
             for iChain in range(self.NChains):
                 self.pop[iChain],=self.ArrayMethodsMachine.mutGaussian(self.pop[iChain].copy(), 
@@ -177,7 +177,7 @@ class ClassMetropolis():
             _,Chi2=self.ArrayMethodsMachine.GiveFitnessPop(self.pop)
             if np.min(Chi2)<self.MinChi2:
                 self.Var=np.min(Chi2)/self.Chi2PMax
-                print "           >>>>>>>>>>>>>> %f"%np.min(Chi2)
+                #print "           >>>>>>>>>>>>>> %f"%np.min(Chi2)
             Chi2Norm=[]
             for iChain in range(self.NChains):
                 Chi2Norm.append(Chi2[iChain]/self.Var)
@@ -192,8 +192,8 @@ class ClassMetropolis():
                 else:
                     R=1
                 r=np.random.rand(1)[0]
-                print "%5.3f [%f -> %f]"%(R,p0,p1)
-                print "MaxDiff ",np.max(np.abs(self.pop[iChain]-DicoChains[iChain]["Parms"][-1]))
+                # print "%5.3f [%f -> %f]"%(R,p0,p1)
+                # print "MaxDiff ",np.max(np.abs(self.pop[iChain]-DicoChains[iChain]["Parms"][-1]))
                 lAccept.append((r<R))
                 if r<R: # accept
                     DicoChains[iChain]["logProb"].append(p1)
@@ -201,25 +201,25 @@ class ClassMetropolis():
                     DicoChains[iChain]["Chi2"].append(Chi2[iChain])
                     
 
-                    import pylab
-                    # pylab.clf()
-                    pylab.scatter([Chi2Norm[iChain]],[np.exp(p1)])
-                    pylab.draw()
-                    pylab.show(False)
-                    pylab.pause(0.1)
-
-                    print "  accept"
-                    # Model=self.StackChain()
-
-                    # Asq=self.ArrayMethodsMachine.PM.ModelToSquareArray(Model,TypeInOut=("Parms","Parms"))
-                    # _,npol,NPix,_=Asq.shape
-                    # A=np.mean(Asq,axis=0).reshape((NPix,NPix))
-                    # Mask=(A==0)
-                    # pylab.clf()
-                    # pylab.imshow(A,interpolation="nearest")
+                    # import pylab
+                    # # pylab.clf()
+                    # pylab.scatter([Chi2Norm[iChain]],[np.exp(p1)])
                     # pylab.draw()
                     # pylab.show(False)
                     # pylab.pause(0.1)
+
+                    # print "  accept"
+                    # # Model=self.StackChain()
+
+                    # # Asq=self.ArrayMethodsMachine.PM.ModelToSquareArray(Model,TypeInOut=("Parms","Parms"))
+                    # # _,npol,NPix,_=Asq.shape
+                    # # A=np.mean(Asq,axis=0).reshape((NPix,NPix))
+                    # # Mask=(A==0)
+                    # # pylab.clf()
+                    # # pylab.imshow(A,interpolation="nearest")
+                    # # pylab.draw()
+                    # # pylab.show(False)
+                    # # pylab.pause(0.1)
 
 
                 else:
@@ -227,7 +227,7 @@ class ClassMetropolis():
 
 
             AccRate=np.count_nonzero(lAccept)/float(len(lAccept))
-            print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
+            #print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
             if (iStep%50==0)&(iStep>10):
                 if AccRate>0.5:
                     FactorAccelerate*=1.5
