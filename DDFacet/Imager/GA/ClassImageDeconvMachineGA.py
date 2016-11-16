@@ -633,11 +633,11 @@ class ClassImageDeconvMachine():
 
         StopWhenQueueEmpty=True
 
-        ######### Debug
-        ParallelPerIsland=False
-        Parallel=False
-        StopWhenQueueEmpty=True
-        ##################
+        # ######### Debug
+        # ParallelPerIsland=False
+        # Parallel=False
+        # StopWhenQueueEmpty=True
+        # ##################
 
 
         work_queue = multiprocessing.Queue()
@@ -945,29 +945,29 @@ class WorkerDeconvIsland(multiprocessing.Process):
             # ################################
 
             
-            # CEv=ClassEvolveGA(self._Dirty,
-            #                   PSF,
-            #                   self.FreqsInfo,
-            #                   ListPixParms=ListPixParms,
-            #                   ListPixData=ListPixData,
-            #                   iFacet=FacetID,PixVariance=PixVariance,
-            #                   IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
-            #                   GD=self.GD,
-            #                   iIsland=iIsland,IdSharedMem=self.IdSharedMem,
-            #                   ParallelFitness=self.ParallelPerIsland)
-            # Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
+            CEv=ClassEvolveGA(self._Dirty,
+                              PSF,
+                              self.FreqsInfo,
+                              ListPixParms=ListPixParms,
+                              ListPixData=ListPixData,
+                              iFacet=FacetID,PixVariance=PixVariance,
+                              IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
+                              GD=self.GD,
+                              iIsland=iIsland,IdSharedMem=self.IdSharedMem,
+                              ParallelFitness=self.ParallelPerIsland)
+            Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
 
-            CEv=ClassMetropolis(self._Dirty,
-                                PSF,
-                                self.FreqsInfo,
-                                ListPixParms=ListPixParms,
-                                ListPixData=ListPixData,
-                                iFacet=FacetID,PixVariance=PixVariance,
-                                IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
-                                GD=self.GD,
-                                iIsland=iIsland,IdSharedMem=self.IdSharedMem,
-                                ParallelFitness=self.ParallelPerIsland)
-            Model=CEv.main()
+            # CEv=ClassMetropolis(self._Dirty,
+            #                     PSF,
+            #                     self.FreqsInfo,
+            #                     ListPixParms=ListPixParms,
+            #                     ListPixData=ListPixData,
+            #                     iFacet=FacetID,PixVariance=PixVariance,
+            #                     IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
+            #                     GD=self.GD,
+            #                     iIsland=iIsland,IdSharedMem=self.IdSharedMem,
+            #                     ParallelFitness=self.ParallelPerIsland)
+            # Model=CEv.main()
             
             Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
             #Model*=CEv.ArrayMethodsMachine.Gain
