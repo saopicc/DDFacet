@@ -162,9 +162,8 @@ class ClassMetropolis():
     def main(self,NSteps=1000):
 
 
-        Mut_pFlux, Mut_p0, Mut_pMove=0.3,0.,0.3
+        Mut_pFlux, Mut_p0, Mut_pMove=0.3,0.,0.
         DicoChains=self.DicoChains
-        
         
         Var=self.Chi2PMax
         FactorAccelerate=1.

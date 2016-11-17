@@ -601,11 +601,13 @@ class ClassArrayMethodSSD():
         if Type==0:
             N=1
             N=int(random.uniform(1, 3.))
+        # zero a pixel
         elif Type==1:
             N=np.max([(NNonZero/10),1])
+        # move a pixel
         else:
-            N=1
             N=int(random.uniform(1, 3.))
+            N=individual.shape[0]#int(random.uniform(1, individual.shape[0]))
             
             # InReg=random.uniform(-1,1)
             # if InReg<0:
@@ -652,6 +654,7 @@ class ClassArrayMethodSSD():
             # move a pixel
             if Type==2:
                 Flux=random.random()*Af[iPix]#*FactorAccelerate
+                #Flux=0.5*Af[iPix]#*FactorAccelerate
                 #Flux=np.min([Af[iPix],Flux])
                 InReg=random.random()*8
                 #i0=individual.copy()

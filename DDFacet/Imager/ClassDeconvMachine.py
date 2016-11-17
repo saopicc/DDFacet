@@ -15,7 +15,7 @@ from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
 import traceback
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
-
+import copy
 log=MyLogger.getLogger("ClassImagerDeconv")
 import pyfits
 
@@ -996,6 +996,52 @@ class ClassImagerDeconv():
         #print>>log, "Fitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec*FWHMFact, sigma_y*self.CellArcSec*FWHMFact, theta)
         #print>>log, "Secondary sidelobe at the level of %5.1f at a position of %i from the center"%(self.SideLobeLevel,self.OffsetSideLobe)
 
+    def GiveMetroModel(self):
+        model_freqs=self.VS.CurrentChanMappingDegrid
+        ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)                    
+        nf,npol,nx,nx=ModelImage.shape
+        ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
+        
+        self.FacetMachine.ToCasaImage(ModelImageAvg,
+                                      ImageName="%s.model.bef"%(self.BaseName),
+                                      Fits=True)
+
+        # Initialise Model machine
+        ThisMode=["S","Alpha","GSig"]
+        GD=copy.deepcopy(self.GD)
+        GD["SSDClean"]["SSDSolvePars"]=ThisMode
+        DicoAugmentedModel=self.DeconvMachine.ModelMachine.GiveConvertedSolveParamDico(ThisMode)
+        MinorCycleConfig=dict(GD["ImagerDeconv"])
+        MinorCycleConfig["NCPU"]=GD["Parallel"]["NCPU"]
+        MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
+        MinorCycleConfig["GD"] = GD
+        MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
+        MinorCycleConfig["IdSharedMem"] = self.IdSharedMem
+        ModelMachine = self.ModConstructor.GiveMM(Mode=GD["ImagerDeconv"]["MinorCycleMode"])
+        ModelMachine.FromDico(DicoAugmentedModel)
+        MinorCycleConfig["ModelMachine"] = ModelMachine
+
+        # Initialise Image deconv machine
+        from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
+        DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
+        DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.PSFSidelobesAvg)
+
+        # Run MetroClean
+        print>>log,"Runing and Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
+        DeconvMachine.setDeconvMode(Mode="MetroClean")
+        DeconvMachine.Update(self.CurrentDicoResidImage)
+        repMinor, continue_deconv, update_model = DeconvMachine.Deconvolve()
+        DeconvMachine.ToFile(self.DicoMetroModelName)
+        ModelImage = DeconvMachine.GiveModelImage(model_freqs)                    
+        nf,npol,nx,nx=ModelImage.shape
+        ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
+        
+        self.FacetMachine.ToCasaImage(ModelImageAvg,
+                                      ImageName="%s.model.aft"%(self.BaseName),
+                                      Fits=True)
+        return ModelMachine
+
+
     def Restore(self):
         print>>log, "Create restored image"
         if self.PSFGaussPars is None:
@@ -1005,29 +1051,10 @@ class ClassImagerDeconv():
         RefFreq = self.VS.RefFreq
 
         if self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD" and self.GD["SSDClean"]["RestoreMetroSwitch"]>0:
-            model_freqs=self.VS.CurrentChanMappingDegrid
-            ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)                    
-            nf,npol,nx,nx=ModelImage.shape
-            ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
-                    
-            self.FacetMachine.ToCasaImage(ModelImageAvg,
-                                          ImageName="%s.model.bef"%(self.BaseName),
-                                          Fits=True)
-            print>>log,"Runing and Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
-            self.DeconvMachine.setDeconvMode(Mode="MetroClean")
-            self.DeconvMachine.Update(self.CurrentDicoResidImage)
-            repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
-            self.DeconvMachine.ToFile(self.DicoMetroModelName)
-            ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)                    
-            nf,npol,nx,nx=ModelImage.shape
-            ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
-                    
-            self.FacetMachine.ToCasaImage(ModelImageAvg,
-                                          ImageName="%s.model.aft"%(self.BaseName),
-                                          Fits=True)
+            ModelMachine=self.GiveMetroModel()
+        else:
+            ModelMachine = self.DeconvMachine.ModelMachine
 
-
-        ModelMachine = self.DeconvMachine.ModelMachine
         # Putting back substracted componants
         if self.GD["DDESolutions"]["RestoreSub"]:
             try:

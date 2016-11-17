@@ -19,6 +19,7 @@ from SkyModel.Sky import ModRegFile
 from pyrap.images import image
 from SkyModel.Sky import ClassSM
 import os
+import copy
 
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def __init__(self,*args,**kwargs):
@@ -76,15 +77,43 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.DicoSMStacked=DicoSMStacked
         self.RefFreq=self.DicoSMStacked["RefFreq"]
         self.ModelShape=self.DicoSMStacked["ModelShape"]
-        try:
-            self.SolveParam=self.DicoSMStacked["SolveParam"]
-        except:
-            print>>log, "SolveParam is not in the keyword lists of DicoSMStacked"
-            print>>log, "  setting SolveParam to [S, Alpha]"
-            self.SolveParam=["S","Alpha"]
+        self.SolveParam=self.DicoSMStacked["SolveParam"]
+        # try:
+        #     self.SolveParam=self.DicoSMStacked["SolveParam"]
+        # except:
+        #     print>>log, "SolveParam is not in the keyword lists of DicoSMStacked"
+        #     print>>log, "  setting SolveParam to [S, Alpha]"
+        #     self.SolveParam=["S","Alpha"]
             
         self.NParam=len(self.SolveParam)
 
+    def GiveConvertedSolveParamDico(self,SolveParam1):
+        SolveParam0=self.DicoSMStacked["SolveParam"]
+        print>>log,"Converting SSD model %s into %s..."%(str(SolveParam0),str(SolveParam1))
+        DicoOut=copy.deepcopy(self.DicoSMStacked)
+        DicoOut["SolveParam"]=SolveParam1
+        del(DicoOut["Comp"])
+        DicoOut["Comp"]={}
+        NParam0=len(SolveParam0)
+        NParam1=len(SolveParam1)
+        indexParm=[]
+        for TypeParm in SolveParam1:
+            indexParm.append(np.where(np.array(SolveParam0)==TypeParm)[0])
+
+        for xy in self.DicoSMStacked["Comp"].keys():
+            Coefs=np.zeros((NParam1,),np.float32)
+            Comp=self.DicoSMStacked["Comp"][xy]
+            for iTypeParm,iIndex in enumerate(indexParm):
+                if iIndex.size==0: continue
+                Coefs[iTypeParm]=Comp["Vals"][0][iIndex[0]]
+            DicoOut["Comp"][xy]={"Vals":[Coefs]}
+
+        print>>log,"   done"
+        return DicoOut
+            
+        
+
+        
     def setModelShape(self,ModelShape):
         self.ModelShape=ModelShape
 
