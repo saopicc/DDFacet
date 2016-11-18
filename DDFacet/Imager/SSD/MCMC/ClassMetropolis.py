@@ -173,6 +173,7 @@ class ClassMetropolis():
 
         Model,V,Vmin=self.StackChain()
 
+        NpShared.DelAll("%sDicoChain"%(self.IdSharedMem))
 
         return V
 
