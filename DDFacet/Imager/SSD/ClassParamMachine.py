@@ -78,7 +78,7 @@ class ClassParamMachine():
                 ListPars+=[toolbox.attr_float_normal_GSig]*self.NPixListParms
         return ListPars
 
-    def ReinitPop(self,pop,SModelArray,AlphaModel=None,GSigModel=None):
+    def ReinitPop(self,pop,SModelArray,AlphaModel=None,GSigModel=None,PutNoise=True):
 
         for Type in self.SolveParam:
             DicoSigma=self.DicoIParm[Type]["Default"]["Sigma"]
@@ -94,7 +94,7 @@ class ClassParamMachine():
 
                 if Type=="S":
                     SubArray[:]=SModelArray[:]
-                    if i_indiv!=0: 
+                    if (i_indiv!=0) and PutNoise:
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
 
 
@@ -102,7 +102,7 @@ class ClassParamMachine():
                     if AlphaModel is None:
                         AlphaModel=MeanVal*np.ones((SModelArray.size,),np.float32)
                     SubArray[:]=AlphaModel[:]
-                    if i_indiv!=0: 
+                    if (i_indiv!=0) and PutNoise: 
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
 
                 if Type=="GSig":
@@ -129,7 +129,11 @@ class ClassParamMachine():
                 # SubArray.fill(0)
                 # SubArray[49]=1.
 
-            
+                
+    def giveIndexParm(self,Type):
+        return self.DicoIParm[Type]["iSlice"]
+
+
     def ArrayToSubArray(self,A,Type):
         iSlice=self.DicoIParm[Type]["iSlice"]
         if iSlice is not None:

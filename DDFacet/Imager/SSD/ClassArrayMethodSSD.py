@@ -14,6 +14,7 @@ from SkyModel.PSourceExtract import ClassIncreaseIsland
 from DDFacet.Array import NpShared
 import ClassConvMachine
 import time
+from scipy.stats import chi2
 
 from deap import tools
 
@@ -22,7 +23,7 @@ log= MyLogger.getLogger("ClassArrayMethodSSD")
 
 from ClassParamMachine import ClassParamMachine
 from DDFacet.ToolsDir.GeneDist import ClassDistMachine
-
+import ClassMutate
 
 class ClassArrayMethodSSD():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
@@ -84,12 +85,12 @@ class ClassArrayMethodSSD():
         
         self.NFreqBands,self.npol,self.NPixPSF,_=PSF.shape
         self.PM=ClassParamMachine(ListPixParms,ListPixData,FreqsInfo,SolveParam=GD["SSDClean"]["SSDSolvePars"])
-
         self.PM.setFreqs(FreqsInfo)
         self.ConvMachine.setParamMachine(self.PM)
         
         self.NParms=self.NPixListParms*self.PM.NParam
         self.DataTrue=None
+        self.MutMachine=ClassMutate.ClassMutate(self.PM)
 
 
         self.SetDirtyArrays(Dirty)
@@ -162,7 +163,7 @@ class ClassArrayMethodSSD():
             self.DirtyArrayParms+=self.ToConvArray(self.IslandBestIndiv.reshape((self.PM.NParam,self.NPixListParms)),OutMode="Parms")
 
         self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
-
+        self.DicoData={"DirtyArrayAbsMean":self.DirtyArrayAbsMean}
     
 
     def ToConvArray(self,V,OutMode="Data",Noise=False):
@@ -171,19 +172,6 @@ class ClassArrayMethodSSD():
             A+=np.random.randn(*A.shape)*Noise
         A=self.ConvMachine.Convolve(A,OutMode=OutMode)
         return A
-
-
-    def GiveNoiseRealisation(self):
-        Asq=self.PM.ModelToSquareArray(self.DirtyArrayParms.copy(),TypeInOut=("Parms","Parms"))
-        _,npol,NPix,_=Asq.shape
-        A=np.mean(Asq,axis=0).reshape((NPix,NPix))
-        Mask=(A==0)
-        _,_,NPixPSF,_=PSF.shape
-        PSFMean=np.mean(PSF,axis=0).reshape((NPixPSF,NPixPSF))
-        ArrayMode="Image"
-        xcPSF=NPixPSF/2
-        xcDirty=NPix/2
-        SModelArray=np.zeros_like(A)
 
 
 
@@ -305,26 +293,6 @@ class ClassArrayMethodSSD():
     def setBestIndiv(self,BestIndiv):
         self.BestContinuousFitNess=BestIndiv.ContinuousFitNess
 
-    def GiveDecreteFitNess(self,ContinuousFitNess):
-        # M=np.concatenate([0.01*np.abs(self.BestContinuousFitNess),self.MinVar]).reshape((2,self.NFuncMin))
-        # Sig=np.max(M,axis=0)
-        # Sig.fill(.01)
-        Sig=self.MinVar
-
-        sh=ContinuousFitNess.shape
-        #d=(ContinuousFitNess-self.BestContinuousFitNess)/Sig
-        d=(ContinuousFitNess)/Sig
-        DecreteFitNess=np.array(np.int64(np.round(d))).reshape(sh)
-        #DecreteFitNess=np.array(d).reshape(sh)
-
-        # print "=============================="
-        # print "Best",self.BestContinuousFitNess
-        # print "In  ",ContinuousFitNess
-        # print "Sig ",Sig
-        # print "Out ",DecreteFitNess
-        return DecreteFitNess
-
-
 
 
     def InitWorkers(self):
@@ -356,7 +324,8 @@ class ClassArrayMethodSSD():
                             DirtyArray=self.DirtyArray,
                             ConvMode=self.ConvMode,
                             StopWhenQueueEmpty=not(Parallel),
-                            BestChi2=self.BestChi2)
+                            BestChi2=self.BestChi2,
+                            DicoData=self.DicoData)
 
             workerlist.append(W)
 
@@ -392,7 +361,9 @@ class ClassArrayMethodSSD():
 
         for iIndividual,individual in enumerate(pop):
             NpShared.ToShared("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual),individual)
-            work_queue.put({"iIndividual":iIndividual,"BestChi2":self.BestChi2})
+            work_queue.put({"iIndividual":iIndividual,
+                            "BestChi2":self.BestChi2,
+                            "OperationType":"Fitness"})
 
         
         if not Parallel:
@@ -460,247 +431,74 @@ class ClassArrayMethodSSD():
 
 
 
-    
-    def testMovePix(self):
-        A=np.random.randn(self.PM.NParam,self.NPixListParms)
-        A.fill(0.)
-        A[:,10]=1.
-        print A.shape
+    def GiveMetroChains(self,pop,NSteps=1000):
 
-        ArrayModel=self.PM.GiveModelArray(A)
-        A0=self.PM.ModelToSquareArray(ArrayModel,TypeInOut=("Parms","Parms"),DomainOut="Parms").copy()
+        work_queue=self.work_queue
+        result_queue=self.result_queue
+        workerlist=self.workerlist
+        Parallel=self.ParallelFitness
+        DicoFitnesses={}
+        DicoChi2={}
+        NJobs = len(pop)
+        NCPU=self.NCPU
 
-        import pylab
-        for reg in np.linspace(0,0.99,8):
-
-            pylab.clf()
-            pylab.imshow(A0[0,0],interpolation="nearest",vmax=1.)
-            pylab.draw()
-            pylab.show(False)
-            pylab.pause(0.1)
-
-
-            
-            A1=self.MovePix(A.copy().ravel(),10,InReg=reg)
-
-            ArrayModel=self.PM.GiveModelArray(A1)
-            A1=self.PM.ModelToSquareArray(ArrayModel,TypeInOut=("Parms","Parms"),DomainOut="Parms").copy()
-
-            #pylab.subplot(1,2,1)
-            #pylab.subplot(1,2,2)
-            pylab.imshow(A1[0,0],interpolation="nearest",vmax=1.)
-            pylab.draw()
-            pylab.show(False)
-            pylab.pause(0.1)
-    
-    def MovePix(self,indiv,iPix,Flux,FluxWeighted=True,InReg=None):
-    
-        
-        dx,dy=np.mgrid[-1:1:3*1j,-1:1:3*1j]
-        Dx=np.int32(np.concatenate((dx.flatten()[0:4],dx.flatten()[5::])))
-        Dy=np.int32(np.concatenate((dy.flatten()[0:4],dy.flatten()[5::])))
+        for iIndividual,individual in enumerate(pop):
+            NpShared.ToShared("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual),individual)
+            work_queue.put({"iIndividual":iIndividual,
+                            "BestChi2":self.BestChi2,
+                            "OperationType":"Metropolis",
+                            "NSteps":NSteps})
 
         
-        
-        # ArrayModel=self.PM.GiveModelArray(indiv)
-        # ArrayModel_S=self.PM.ArrayToSubArray(indiv,Type="S")
-        ArrayModel_S=indiv # ArrayModel_S.reshape((1,ArrayModel_S.size))*np.ones((2,1))
-        A=self.PM.ModelToSquareArray(ArrayModel_S,TypeInOut=("Parms","Parms"),DomainOut="Parms")
-        
-        nf,npol,nx,nx=A.shape
-        #A=np.mean(A,axis=0).reshape(1,npol,nx,nx)
+        if not Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].run()  # just run until all work is completed
 
-        mapi,mapj=self.PM.SquareGrids["Parms"]["MappingIndexToXYPix"]
-        i0,j0=mapi[iPix],mapj[iPix]
-        FluxWeighted=False
-        if FluxWeighted:
-            iAround=i0+Dx
-            jAround=j0+Dy
-            cx=((iAround>=0)&(iAround<nx))
-            cy=((jAround>=0)&(jAround<nx))
-            indIN=(cx&cy)
-            iAround=iAround[indIN]
-            jAround=jAround[indIN]
-            sAround=A[0,0,iAround,jAround].copy()
-            #sInt=np.sum(sAround)
-            #sAround[sAround==0]=sInt*0.05
-            X=np.arange(iAround.size)
-            DM=ClassDistMachine()
-            DM.setRefSample(X,W=sAround,Ns=10)
-            ind=int(round(DM.GiveSample(1)[0]))
-            ind=np.max([0,ind])
-            ind=np.min([ind,iAround.size-1])
-            ind=indIN[ind]
-
-        # else:
-        #     if InReg is None:
-        #         reg=random.random()
-        #     else:
-        #         reg=InReg
-        #     ind=int(reg*8)
-
-        
-        
-        i1=i0+Dx[InReg]
-        j1=j0+Dy[InReg]
-
-            
-
-        f0=Flux#alpha*A[0,0,i0,j0]
-        
-        _,_,nx,ny=A.shape
-        condx=((i1>0)&(i1<nx))
-        condy=((j1>0)&(j1<ny))
-        if condx&condy:
-            A[0,0,i1,j1]+=f0
-            A[0,0,i0,j0]-=f0
-            AParm=self.PM.SquareArrayToModel(A,TypeInOut=("Parms","Parms"))
-
-            ArrayModel_S.flat[:]=AParm.flat[:]
-        return indiv
-    
-    
-    def mutGaussian(self,individual, pFlux, p0, pMove,FactorAccelerate=1.):
-        #return individual,
-        T= ClassTimeIt.ClassTimeIt()
-        T.disable()
-        size = len(individual)
-        #mu = repeat(mu, size)
-        #sigma = repeat(sigma, size)
-
-        T.timeit("start0")
-        #A0=IndToArray(individual).copy()
-        # Ps=np.array([pFlux, p0, pMove])
-        # _p0=p0/np.sum(Ps)
-        # _pMove=pMove/np.sum(Ps)
-        # _pFlux=pFlux/np.sum(Ps)
-   
-        
- 
-        T.timeit("start1")
-        
-        Af=self.PM.ArrayToSubArray(individual,"S")
-        index=np.arange(Af.size)
-        ind=np.where(Af!=0.)[0]
-        NNonZero=(ind.size)
-        if NNonZero==0: return individual,
-
-        T.timeit("start2")
-    
-        PMat=np.array([0.,pFlux, p0, pMove])
-        PMat/=np.sum(PMat)
-        PMat=np.cumsum(PMat)
-        
-
-        RType=random.random()
-        P0=PMat[0:-1]
-        P1=PMat[1::]
-        Type=np.where((RType>P0)&(RType<P1))[0]
-
-        T.timeit("start3")
-        if Type==0:
-            N=1
-            N=int(random.uniform(1, 3.))
-        # zero a pixel
-        elif Type==1:
-            N=np.max([(NNonZero/10),1])
-        # move a pixel
-        else:
-            N=int(random.uniform(1, 3.))
-            N=individual.shape[0]#int(random.uniform(1, individual.shape[0]))
-            
-            # InReg=random.uniform(-1,1)
-            # if InReg<0:
-            #     InReg=-1
+        # for ii in range(NCPU):
+        #     print "launch parallel", ii
+        #     workerlist[ii].start()
 
 
-        #print pFlux, p0, pMove
-        #print "PPPPPP",PMat,RType,Type
-        
-        indR=sorted(list(set(np.int32(np.random.rand(N)*NNonZero).tolist())))
-        indSel=ind[indR]
-        #Type=0
-
-        #print "Type:",Type,RType
-
-        for iPix in indSel:
-            #print "    --- Type %i [%i]"%(Type,iPix)
-
-            # randomly change value of parameter
-            if Type==0:
-                iTypeParm=int(np.random.rand(1)[0]*len(self.PM.SolveParam))
+        iResult=0
+        DicoChain={}
+        while iResult < NJobs:
+            DicoResult=None
+            #print work_queue.qsize(),result_queue.qsize()
+            if result_queue.qsize()!=0:
+                try:
+                    DicoResult=result_queue.get_nowait()
+                except Exception,e:
+                    #print "Exception: %s"%(str(e))
+                    pass
                 
-                for TypeParm in self.PM.SolveParam:
-#                for TypeParm in [self.PM.SolveParam[iTypeParm]]:
-                    A=self.PM.ArrayToSubArray(individual,TypeParm)
-                    #if TypeParm=="GSig": continue
-                    if TypeParm=="S":
-                        ds=0.1*np.abs(self.DirtyArrayAbsMean.ravel()[iPix]-np.abs(A[iPix]))
-                    else:
-                        if "Sigma" in self.PM.DicoIParm[TypeParm]["Default"].keys():
-                            ds=self.PM.DicoIParm[TypeParm]["Default"]["Sigma"]["Value"]
-                        else:
-                            ds=A[iPix]
-                    #print "Mutating %f"%A[iPix],TypeParm
-                    A[iPix] += random.gauss(0, 1.)*ds*FactorAccelerate
-                    #print "      ---> %f"%A[iPix]
 
-            # zero a pixel
-            if Type==1:
-                for TypeParm in self.PM.SolveParam:
-                    A=self.PM.ArrayToSubArray(individual,TypeParm)
-                    A[iPix] = 0.#1e-3
-    
-            # move a pixel
-            if Type==2:
-                Flux=random.random()*Af[iPix]#*FactorAccelerate
-                #Flux=0.5*Af[iPix]#*FactorAccelerate
-                #Flux=np.min([Af[iPix],Flux])
-                InReg=random.random()*8
-                #i0=individual.copy()
-                individual=self.MovePix(individual,iPix,Flux,InReg=InReg)
-                #i1=individual.copy()
-                #stop
-                # if random.random()<0.5:
-                #     Flux=random.random()*Af[iPix]
-                #     InReg=random.random()*8
-                #     individual=self.MovePix(individual,iPix,Flux,InReg=InReg)
-                # else:
-                #     Flux=random.random()*0.3*Af[iPix]
-                #     for iReg in [1,3,5,7]:
-                #         individual=self.MovePix(individual,iPix,Flux,InReg=iReg)
-                    
-        if "GSig" in self.PM.SolveParam:
-            GSig=self.PM.ArrayToSubArray(individual,"GSig")
-            GSig[GSig<0]=0
-            #GSig.fill(0)
-            # GSig[49]=1
-            # #print GSig
-            # # if individual[i]==0:
-            # #     if random.random() < indpb/100.:
-            # #         individual[i] += random.gauss(m, s)
-    
-        T.timeit("for")
-    
-        # if Type==2:
-        #     A1=IndToArray(individual).copy()
-        #     v0,v1=A0.min(),A0.max()
-        #     import pylab
-        #     pylab.clf()
-        #     #pylab.subplot(1,2,1)
-        #     pylab.imshow(A0[0,0],interpolation="nearest",vmin=v0,vmax=v1)
-        #     pylab.draw()
-        #     pylab.show(False)
-        #     pylab.pause(0.1)
-        #     #pylab.subplot(1,2,2)
-        #     pylab.imshow(A1[0,0],interpolation="nearest",vmin=v0,vmax=v1)
-        #     pylab.draw()
-        #     pylab.show(False)
-        #     pylab.pause(0.1)
+            if DicoResult==None:
+                time.sleep(.1)
+                continue            
+
+            # try:
+            #     DicoResult = result_queue.get(True, 5)
+            # except:
+            #     time.sleep(0.1)
+            #     continue
+
+            if DicoResult["Success"]:
+                iIndividual=DicoResult["iIndividual"]
+                iResult += 1
+                DicoChain[iIndividual]=NpShared.SharedToDico(DicoResult["DicoName"])
+            NDone = iResult
+
+        for iIndividual,individual in enumerate(pop):
+            NpShared.DelArray("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual))
+
+
+        return DicoChain
+
+
     
     
-        return individual,
-    
+    def mutGaussian(self,*args,**kwargs):
+        return self.MutMachine.mutGaussian(*args,**kwargs)
     
     def Plot(self,pop,iGen):
 
@@ -871,7 +669,8 @@ class WorkerFitness(multiprocessing.Process):
                  MaxFunc=None,WeightMaxFunc=None,DirtyArray=None,
                  ConvMode=None,
                  StopWhenQueueEmpty=False,
-                 BestChi2=1.):
+                 BestChi2=1.,
+                 DicoData=None):
         self.T=ClassTimeIt.ClassTimeIt("WorkerFitness")
         self.T.disable()
         multiprocessing.Process.__init__(self)
@@ -890,6 +689,9 @@ class WorkerFitness(multiprocessing.Process):
         self.PixVariance=PixVariance
         self.ConvMachine=ClassConvMachine.ClassConvMachine(self.PSF,self.ListPixParms,self.ListPixData,ConvMode)
         self.ConvMachine.setParamMachine(self.PM)
+        self.DicoData=DicoData
+        self.MutMachine=ClassMutate.ClassMutate(self.PM)
+        self.MutMachine.setData(DicoData)
         self.MaxFunc=MaxFunc
         self.WeightMaxFunc=WeightMaxFunc
         self.DirtyArray=DirtyArray
@@ -927,22 +729,29 @@ class WorkerFitness(multiprocessing.Process):
                 DicoJob = self.work_queue.get()
             except:
                 break
+            
+            if DicoJob["OperationType"]=="Fitness":
+                self.GiveFitnessWorker(DicoJob)
+            elif DicoJob["OperationType"]=="Metropolis":
+                self.runMetroSingleChainWorker(DicoJob)
 
-            pid=str(multiprocessing.current_process())
-            self.T.reinit()
-            iIndividual=DicoJob["iIndividual"]
-            #print "Worker %s processing indiv %i"%(pid,iIndividual)
-            self.BestChi2=DicoJob["BestChi2"]
-            #individual=DicoJob["individual"]
-            Name="%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual)
-            individual=NpShared.GiveArray(Name)
-            fitness,Chi2=self.GiveFitness(individual)
-            #print iIndividual
-            self.result_queue.put({"Success": True, 
-                                   "iIndividual": iIndividual,
-                                   "fitness":fitness,
-                                   "Chi2":Chi2})
-            self.T.timeit("done job: %s"%pid)
+
+    def GiveFitnessWorker(self,DicoJob):
+        pid=str(multiprocessing.current_process())
+        self.T.reinit()
+        iIndividual=DicoJob["iIndividual"]
+        #print "Worker %s processing indiv %i"%(pid,iIndividual)
+        self.BestChi2=DicoJob["BestChi2"]
+        #individual=DicoJob["individual"]
+        Name="%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual)
+        individual=NpShared.GiveArray(Name)
+        fitness,Chi2=self.GiveFitness(individual)
+        #print iIndividual
+        self.result_queue.put({"Success": True, 
+                               "iIndividual": iIndividual,
+                               "fitness":fitness,
+                               "Chi2":Chi2})
+        self.T.timeit("done job: %s"%pid)
 
     def ToConvArray(self,V,OutMode="Data"):
         self.ModelA=self.PM.GiveModelArray(V)
@@ -1040,3 +849,137 @@ class WorkerFitness(multiprocessing.Process):
         #return (ContinuousFitNess,),chi2
 
 
+    def runMetroSingleChainWorker(self,DicoJob):
+        pid=str(multiprocessing.current_process())
+        self.T.reinit()
+        iIndividual=DicoJob["iIndividual"]
+        #print "Worker %s processing indiv %i"%(pid,iIndividual)
+        self.BestChi2=DicoJob["BestChi2"]
+        Name="%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual)
+        individual=NpShared.GiveArray(Name)
+        DicoChain=self.runMetroSingleChain(individual,NSteps=DicoJob["NSteps"])
+        DicoName="%sDicoChain_%3.3i"%(self.IdSharedMem,iIndividual)
+        NpShared.DicoToShared(DicoName,DicoChain)
+        self.result_queue.put({"Success": True, 
+                               "iIndividual": iIndividual,
+                               "DicoName":DicoName})
+        self.T.timeit("done job: %s"%pid)
+
+    def runMetroSingleChain(self,individual0,NSteps=1000):
+
+        df=self.PM.NPixListData
+        self.rv = chi2(df)
+        _,Chi2=self.GiveFitness(individual0)
+        logProb=self.rv.logpdf(Chi2)
+
+        x=np.linspace(0,2*self.rv.moment(1),1000)
+        lP=self.rv.logpdf(x)
+        iMax=np.argmax(lP)
+        self.Chi2PMax=x[iMax]
+        self.MinChi2=Chi2
+        self.Var=self.MinChi2/self.Chi2PMax
+        DicoChains={}
+        Parms=individual0
+
+        # # ##################################
+        # import pylab
+        # x=np.linspace(0,2*self.rv.moment(1),1000)
+        # P=self.rv.pdf(x)
+        # pylab.clf()
+        # pylab.plot(x,P)
+        # Chi2Red=Chi2/self.Var
+        # pylab.scatter(Chi2Red,np.mean(P),c="black")
+        # pylab.draw()
+        # pylab.show(False)
+        # # ##################################
+
+        DicoChains["Parms"]=[Parms]
+        DicoChains["Chi2"]=[Chi2]
+        DicoChains["logProb"]=[self.rv.logpdf(Chi2/self.Var)]
+
+        Mut_pFlux, Mut_p0, Mut_pMove=0.3,0.,0.3
+
+
+        FactorAccelerate=1.
+        lAccept=[]
+        for iStep in range(NSteps):
+            #print "========================"
+            #print iStep
+            individual1,=self.MutMachine.mutGaussian(individual0.copy(), 
+                                                     Mut_pFlux, Mut_p0, Mut_pMove,
+                                                     FactorAccelerate=FactorAccelerate)
+
+            _,Chi2=self.GiveFitness(individual1)
+            if Chi2<self.MinChi2:
+                self.Var=Chi2/self.Chi2PMax
+                #print "           >>>>>>>>>>>>>> %f"%np.min(Chi2)
+
+
+            Chi2Norm=Chi2/self.Var
+                
+            logProb=self.rv.logpdf(Chi2Norm)
+            
+            p1=logProb
+            p0=DicoChains["logProb"][-1]
+            if p1-p0>5:
+                R=1
+            elif p1-p0<-5:
+                R=0
+            else:
+                R=np.min([1.,np.exp(p1-p0)])
+
+            r=np.random.rand(1)[0]
+            # print "%5.3f [%f -> %f]"%(R,p0,p1)
+            # print "MaxDiff ",np.max(np.abs(self.pop[iChain]-DicoChains[iChain]["Parms"][-1]))
+            lAccept.append((r<R))
+            if r<R: # accept
+                individual0=individual1
+                DicoChains["logProb"].append(p1)
+                DicoChains["Parms"].append(individual1)
+                DicoChains["Chi2"].append(Chi2)
+                
+                # pylab.scatter(Chi2Norm,np.exp(p1),lw=0)
+                # pylab.draw()
+                # pylab.show(False)
+                # pylab.pause(0.1)
+                
+                # print "  accept"
+                # # Model=self.StackChain()
+                
+                # # Asq=self.ArrayMethodsMachine.PM.ModelToSquareArray(Model,TypeInOut=("Parms","Parms"))
+                # # _,npol,NPix,_=Asq.shape
+                # # A=np.mean(Asq,axis=0).reshape((NPix,NPix))
+                # # Mask=(A==0)
+                # # pylab.clf()
+                # # pylab.imshow(A,interpolation="nearest")
+                # # pylab.draw()
+                # # pylab.show(False)
+                # # pylab.pause(0.1)
+                
+                
+            else:
+                
+                # # #######################
+                # pylab.scatter(Chi2Norm,np.exp(p1),c="red",lw=0)
+                # pylab.draw()
+                # pylab.show(False)
+                # pylab.pause(0.1)
+                # # #######################
+                pass
+
+            AccRate=np.count_nonzero(lAccept)/float(len(lAccept))
+            # print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
+            if (iStep%50==0)&(iStep>10):
+                if AccRate>0.5:
+                    FactorAccelerate*=1.5
+                else:
+                    FactorAccelerate/=1.5
+                FactorAccelerate=np.min([3.,FactorAccelerate])
+                lAccept=[]
+
+
+        DicoChains["logProb"]=np.array(DicoChains["logProb"])
+        DicoChains["Parms"]=np.array(DicoChains["Parms"])
+        DicoChains["Chi2"]=np.array(DicoChains["Chi2"])
+        return DicoChains
+            

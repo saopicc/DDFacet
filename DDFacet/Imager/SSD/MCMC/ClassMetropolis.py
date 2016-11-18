@@ -13,6 +13,7 @@ from DDFacet.ToolsDir import ModFFTW
 import numpy as np
 import os
 #import Select
+import pylab
 
 from DDFacet.Imager.SSD import ClassArrayMethodSSD
 
@@ -80,7 +81,7 @@ class ClassMetropolis():
             if np.max(np.abs(self.IslandBestIndiv))==0:
                 #print "from clean"
                 SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
-                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray)
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray,PutNoise=False)
             else:
                 #print "from previous"
                 SModelArrayBest=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
@@ -90,19 +91,10 @@ class ClassMetropolis():
                 GSigModel=None
                 if "GSig" in self.ArrayMethodsMachine.PM.SolveParam:
                     GSigModel=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"GSig")
-                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayBest,AlphaModel=AlphaModel,GSigModel=GSigModel)
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayBest,AlphaModel=AlphaModel,GSigModel=GSigModel,PutNoise=False)
 
         _,Chi2=self.ArrayMethodsMachine.GiveFitnessPop(self.pop)
         logProb=[self.rv.logpdf(x) for x in Chi2]
-
-        DicoChains={}
-        for iChain in range(self.NChains):
-            DicoChains[iChain]={}
-            Parms=self.pop[iChain]
-            DicoChains[iChain]["Parms"]=[Parms]
-            DicoChains[iChain]["Chi2"]=[Chi2[iChain]]
-            DicoChains[iChain]["logProb"]=[self.rv.logpdf(Chi2[iChain])]
-        self.DicoChains=DicoChains
 
         # MaxP=
 
@@ -126,15 +118,29 @@ class ClassMetropolis():
         self.Chi2PMax=x[iMax]
         self.MinChi2=np.min(Chi2)
         self.Var=self.MinChi2/self.Chi2PMax
+        DicoChains={}
+        for iChain in range(self.NChains):
+            DicoChains[iChain]={}
+            Parms=self.pop[iChain]
+            DicoChains[iChain]["Parms"]=[Parms]
+            DicoChains[iChain]["Chi2"]=[Chi2[iChain]]
+            DicoChains[iChain]["logProb"]=[self.rv.logpdf(Chi2[iChain]/self.Var)]
+        self.DicoChains=DicoChains
 
-        # P=self.rv.pdf(x)
-        # import pylab
-        # pylab.clf()
-        # pylab.plot(x,P)
-        # pylab.scatter(self.Chi2PMax,P[iMax])
-        # pylab.draw()
-        # pylab.show(False)
-        # # stop
+        # self.PlotPDF()
+
+    def PlotPDF(self):
+        x=np.linspace(0,2*self.rv.moment(1),1000)
+        P=self.rv.pdf(x)
+
+        pylab.clf()
+        pylab.plot(x,P)
+        #pylab.scatter(self.Chi2PMax,P[iMax])
+        Chi2Red=self.DicoChains[0]["Chi2"][0]/self.Var
+        pylab.scatter(Chi2Red,np.mean(P),c="black")
+        pylab.draw()
+        pylab.show(False)
+        # stop
         
     def StackChain(self):
         P0=self.ArrayMethodsMachine.PM.GiveIndivZero()
@@ -160,12 +166,24 @@ class ClassMetropolis():
 
 
     def main(self,NSteps=1000):
+        self.DicoChains=self.ArrayMethodsMachine.GiveMetroChains(self.pop,NSteps=NSteps)
+        self.ArrayMethodsMachine.KillWorkers()
+
+        NpShared.DelArray("%sPSF_Island_%4.4i"%(self.IdSharedMem,self.iIsland))
+
+        Model,V,Vmin=self.StackChain()
 
 
-        Mut_pFlux, Mut_p0, Mut_pMove=0.3,0.,0.
+        return V
+
+
+
+    def mainSerial(self,NSteps=1000):
+
+
+        Mut_pFlux, Mut_p0, Mut_pMove=0.,0.,0.3
         DicoChains=self.DicoChains
         
-        Var=self.Chi2PMax
         FactorAccelerate=1.
         lAccept=[]
         for iStep in range(NSteps):
@@ -180,6 +198,8 @@ class ClassMetropolis():
             if np.min(Chi2)<self.MinChi2:
                 self.Var=np.min(Chi2)/self.Chi2PMax
                 #print "           >>>>>>>>>>>>>> %f"%np.min(Chi2)
+
+
             Chi2Norm=[]
             for iChain in range(self.NChains):
                 Chi2Norm.append(Chi2[iChain]/self.Var)
@@ -203,12 +223,10 @@ class ClassMetropolis():
                     DicoChains[iChain]["Chi2"].append(Chi2[iChain])
                     
 
-                    # import pylab
-                    # # pylab.clf()
-                    # pylab.scatter([Chi2Norm[iChain]],[np.exp(p1)])
-                    # pylab.draw()
-                    # pylab.show(False)
-                    # pylab.pause(0.1)
+                    #pylab.scatter([Chi2Norm[iChain]],[np.exp(p1)],lw=0)
+                    #pylab.draw()
+                    #pylab.show(False)
+                    #pylab.pause(0.1)
 
                     # print "  accept"
                     # # Model=self.StackChain()
@@ -226,10 +244,14 @@ class ClassMetropolis():
 
                 else:
                     self.pop[iChain]=DicoChains[iChain]["Parms"][-1]
+                    # pylab.scatter([Chi2Norm[iChain]],[np.exp(p1)],c="red",lw=0)
+                    # pylab.draw()
+                    # pylab.show(False)
+                    # pylab.pause(0.1)
 
 
             AccRate=np.count_nonzero(lAccept)/float(len(lAccept))
-            #print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
+            # print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
             if (iStep%50==0)&(iStep>10):
                 if AccRate>0.5:
                     FactorAccelerate*=1.5
@@ -242,11 +264,3 @@ class ClassMetropolis():
 
                     
             
-        self.ArrayMethodsMachine.KillWorkers()
-
-        NpShared.DelArray("%sPSF_Island_%4.4i"%(self.IdSharedMem,self.iIsland))
-
-        Model,V,Vmin=self.StackChain()
-
-
-        return V

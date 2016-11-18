@@ -108,7 +108,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 Coefs[iTypeParm]=Comp["Vals"][0][iIndex[0]]
             DicoOut["Comp"][xy]={"Vals":[Coefs]}
 
-        print>>log,"   done"
         return DicoOut
             
         

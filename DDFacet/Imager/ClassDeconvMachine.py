@@ -1006,28 +1006,34 @@ class ClassImagerDeconv():
                                       ImageName="%s.model.bef"%(self.BaseName),
                                       Fits=True)
 
-        # Initialise Model machine
-        ThisMode=["S","Alpha","GSig"]
-        GD=copy.deepcopy(self.GD)
-        GD["SSDClean"]["SSDSolvePars"]=ThisMode
-        DicoAugmentedModel=self.DeconvMachine.ModelMachine.GiveConvertedSolveParamDico(ThisMode)
-        MinorCycleConfig=dict(GD["ImagerDeconv"])
-        MinorCycleConfig["NCPU"]=GD["Parallel"]["NCPU"]
-        MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
-        MinorCycleConfig["GD"] = GD
-        MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
-        MinorCycleConfig["IdSharedMem"] = self.IdSharedMem
-        ModelMachine = self.ModConstructor.GiveMM(Mode=GD["ImagerDeconv"]["MinorCycleMode"])
-        ModelMachine.FromDico(DicoAugmentedModel)
-        MinorCycleConfig["ModelMachine"] = ModelMachine
+        # # ####################
+        # # Initialise Model machine for MetroClean
+        # ThisMode=["S","Alpha","GSig"]
+        # GD=copy.deepcopy(self.GD)
+        # GD["SSDClean"]["SSDSolvePars"]=ThisMode
+        # DicoAugmentedModel=self.DeconvMachine.ModelMachine.GiveConvertedSolveParamDico(ThisMode)
+        # MinorCycleConfig=dict(GD["ImagerDeconv"])
+        # MinorCycleConfig["NCPU"]=GD["Parallel"]["NCPU"]
+        # MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
+        # MinorCycleConfig["GD"] = GD
+        # MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
+        # MinorCycleConfig["IdSharedMem"] = self.IdSharedMem
+        # ModelMachine = self.ModConstructor.GiveMM(Mode=GD["ImagerDeconv"]["MinorCycleMode"])
+        # ModelMachine.FromDico(DicoAugmentedModel)
+        # MinorCycleConfig["ModelMachine"] = ModelMachine
 
-        # Initialise Image deconv machine
-        from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
-        DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
-        DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.PSFSidelobesAvg)
+        # # ####################
+        # # Initialise Image deconv machine for MetroClean
+        # from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
+        # DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
+        # DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.PSFSidelobesAvg)
+        
+        DeconvMachine=self.DeconvMachine
+        ModelMachine=self.ModelMachine
 
+        # ####################
         # Run MetroClean
-        print>>log,"Runing and Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
+        print>>log,"Runing a Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
         DeconvMachine.setDeconvMode(Mode="MetroClean")
         DeconvMachine.Update(self.CurrentDicoResidImage)
         repMinor, continue_deconv, update_model = DeconvMachine.Deconvolve()

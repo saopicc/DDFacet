@@ -20,6 +20,7 @@ log = None
 from DDFacet.Parset import MyOptParse
 import subprocess
 
+import numpy as np
 # # ##############################
 # # Catch numpy warning
 # np.seterr(all='raise')

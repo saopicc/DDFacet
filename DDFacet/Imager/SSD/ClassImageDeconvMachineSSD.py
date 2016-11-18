@@ -474,6 +474,9 @@ class ClassImageDeconvMachine():
 
         return "MaxIter", True, True   # stop deconvolution but do update model
 
+    
+
+
     def DeconvListIsland(self,ListIslands,ParallelMode="OverIsland"):
         # ================== Parallel part
 
@@ -551,8 +554,11 @@ class ClassImageDeconvMachine():
 
 
         result_queue=multiprocessing.Queue()
-
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolve pop.", HeaderSize=10,TitleSize=13)
+        Title=" Evolve pop."
+        if self.DeconvMode=="MetroClean":
+            Title=" Running chain"
+            
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=Title, HeaderSize=10,TitleSize=18)
         #pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NJobs))
         for ii in range(NCPU):
