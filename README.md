@@ -73,10 +73,10 @@ Adding the `--system-site-packages` directive ensures that the virtualenv has ac
     git checkout 339eb8f8a0f4a44243f340b7f33882fd9656858b
     ```
 
-2. Install the tensorflow CPU [0.11.0rc2][tf_pip_install] build (This can be replaced by the 0.11.0 version once it is released):
+2. Install the tensorflow CPU [0.11.0][tf_pip_install] release:
 
     ```bash
-    pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0rc2-cp27-none-linux_x86_64.whl
+    pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0-cp27-none-linux_x86_64.whl
     ```
 
     If you want GPU acceleration and you have CUDA installed, you can alternatively try installing the tensorflow [GPU version][tf_pip_install].

@@ -54,7 +54,7 @@ RUN virtualenv --system-site-packages /ddfvenv
 RUN cd /src/DDFacet/ ; git submodule update --init --recursive
 RUN . /ddfvenv/bin/activate && pip install -I --force-reinstall /src/DDFacet/
 # Install tensorflow CPU nightly
-RUN . /ddfvenv/bin/activate && pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0rc2-cp27-none-linux_x86_64.whl
+RUN . /ddfvenv/bin/activate && pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0-cp27-none-linux_x86_64.whl
 # Clone montblanc and checkout the tensorflow implementation
 RUN git clone https://github.com/ska-sa/montblanc.git /montblanc/; cd /montblanc/; git checkout 339eb8f8a0f4a44243f340b7f33882fd9656858b
 # Make the tensorflow ops
