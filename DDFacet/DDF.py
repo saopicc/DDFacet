@@ -219,6 +219,7 @@ def read_options():
     OP.OptionGroup("* MCMC Options","MetroClean")
     OP.add_option("MetroNChains")
     OP.add_option("MetroNIter")
+    OP.add_option("MetroNBurn")
 
     OP.OptionGroup("* Clean","ImagerDeconv")
     OP.add_option("MaxMajorIter")

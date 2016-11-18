@@ -881,6 +881,7 @@ class WorkerFitness(multiprocessing.Process):
         DicoChains={}
         Parms=individual0
 
+
         # # ##################################
         # import pylab
         # x=np.linspace(0,2*self.rv.moment(1),1000)
@@ -893,15 +894,18 @@ class WorkerFitness(multiprocessing.Process):
         # pylab.show(False)
         # # ##################################
 
-        DicoChains["Parms"]=[Parms]
-        DicoChains["Chi2"]=[Chi2]
-        DicoChains["logProb"]=[self.rv.logpdf(Chi2/self.Var)]
+        DicoChains["Parms"]=[]
+        DicoChains["Chi2"]=[]
+        DicoChains["logProb"]=[]
+        logProb0=self.rv.logpdf(Chi2/self.Var)
 
         Mut_pFlux, Mut_p0, Mut_pMove=0.3,0.,0.3
 
 
         FactorAccelerate=1.
         lAccept=[]
+        NBurn=self.GD["MetroClean"]["MetroNBurn"]
+        NSteps=NSteps+NBurn
         for iStep in range(NSteps):
             #print "========================"
             #print iStep
@@ -920,7 +924,7 @@ class WorkerFitness(multiprocessing.Process):
             logProb=self.rv.logpdf(Chi2Norm)
             
             p1=logProb
-            p0=DicoChains["logProb"][-1]
+            p0=logProb0#DicoChains["logProb"][-1]
             if p1-p0>5:
                 R=1
             elif p1-p0<-5:
@@ -934,9 +938,11 @@ class WorkerFitness(multiprocessing.Process):
             lAccept.append((r<R))
             if r<R: # accept
                 individual0=individual1
-                DicoChains["logProb"].append(p1)
-                DicoChains["Parms"].append(individual1)
-                DicoChains["Chi2"].append(Chi2)
+                logProb0=logProb
+                if iStep>NBurn:
+                    DicoChains["logProb"].append(p1)
+                    DicoChains["Parms"].append(individual1)
+                    DicoChains["Chi2"].append(Chi2)
                 
                 # pylab.scatter(Chi2Norm,np.exp(p1),lw=0)
                 # pylab.draw()
