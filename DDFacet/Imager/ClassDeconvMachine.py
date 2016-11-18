@@ -1003,7 +1003,7 @@ class ClassImagerDeconv():
         ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
         
         self.FacetMachine.ToCasaImage(ModelImageAvg,
-                                      ImageName="%s.model.bef"%(self.BaseName),
+                                      ImageName="%s.model.pre_metro"%(self.BaseName),
                                       Fits=True)
 
         # # ####################
@@ -1042,8 +1042,11 @@ class ClassImagerDeconv():
         nf,npol,nx,nx=ModelImage.shape
         ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
         
+        self.FacetMachine.ToCasaImage(DeconvMachine.SelectedIslandsMask,
+                                      ImageName="%s.mask.metro"%(self.BaseName),
+                                      Fits=True)
         self.FacetMachine.ToCasaImage(ModelImageAvg,
-                                      ImageName="%s.model.aft"%(self.BaseName),
+                                      ImageName="%s.model.metro"%(self.BaseName),
                                       Fits=True)
         return ModelMachine
 

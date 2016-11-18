@@ -370,7 +370,7 @@ class ClassImageDeconvMachine():
 
         ListIslandsOut=[self.ListIslands[i] for i in ind]
         self.ListIslands=ListIslandsOut
-
+        
                 
 
     def setChannel(self,ch=0):
@@ -470,11 +470,16 @@ class ClassImageDeconvMachine():
             print>>log, "Evolving %i chains of %i iterations"%(self.NChains,self.GD["MetroClean"]["MetroNIter"])
             ListBigIslands=[Island for Island in self.ListIslands if len(Island)>=self.GD["SSDClean"]["RestoreMetroSwitch"]]
             print>>log,"Deconvolve %i large islands (>=%i pixels) (parallelised per island)"%(len(ListBigIslands),self.GD["SSDClean"]["RestoreMetroSwitch"])
+            self.SelectedIslandsMask=np.zeros_like(self.DicoDirty["MeanImage"])
+            for ThisIsland in ListBigIslands:
+                x,y=np.array(ThisIsland).T
+                self.SelectedIslandsMask[0,0,x,y]=1
+                
             self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland")
 
         return "MaxIter", True, True   # stop deconvolution but do update model
 
-    
+
 
 
     def DeconvListIsland(self,ListIslands,ParallelMode="OverIsland"):
@@ -572,10 +577,11 @@ class ClassImageDeconvMachine():
                                  DeconvMode=self.DeconvMode,
                                  NChains=self.NChains)
             workerlist.append(W)
-            if Parallel: 
-                workerlist[ii].start()
-            else:
-                workerlist[ii].run()
+            workerlist[ii].start()
+            # if Parallel: 
+            #     workerlist[ii].start()
+            # else:
+            #     workerlist[ii].run()
 
         # if Parallel:
         #     for ii in range(NCPU):
