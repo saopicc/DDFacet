@@ -164,6 +164,7 @@ class ClassArrayMethodSSD():
 
         self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
         self.DicoData={"DirtyArrayAbsMean":self.DirtyArrayAbsMean}
+        self.MutMachine.setData(self.DicoData)
     
 
     def ToConvArray(self,V,OutMode="Data",Noise=False):

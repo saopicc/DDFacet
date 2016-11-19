@@ -62,6 +62,7 @@ class ClassImageDeconvMachine():
         # reset overall iteration counter
         self._niter = 0
         self.PSFCross=None
+        self.NChains=self.NCPU
 
         if CleanMaskImage is not None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
