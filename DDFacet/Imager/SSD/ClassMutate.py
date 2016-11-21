@@ -112,7 +112,10 @@ class ClassMutate():
         
         Af=self.PM.ArrayToSubArray(individual,"S")
         index=np.arange(Af.size)
-        ind=np.where(Af!=0.)[0]
+        #ind=np.where(Af!=0.)[0]
+        AbsAf=np.abs(Af)
+        Max=np.max(AbsAf)
+        ind=np.where(AbsAf>1e-2*Max)[0]
         NNonZero=(ind.size)
         if NNonZero==0: return individual,
 
@@ -185,9 +188,9 @@ class ClassMutate():
     
             # move a pixel
             if Type==2:
-                Flux=random.random()*Af[iPix]#*FactorAccelerate
+                Flux=random.random()*Af[iPix]*FactorAccelerate
                 #Flux=0.5*Af[iPix]#*FactorAccelerate
-                #Flux=np.min([Af[iPix],Flux])
+                Flux=np.min([Af[iPix],Flux])
                 InReg=random.random()*8
                 #i0=individual.copy()
                 individual=self.MovePix(individual,iPix,Flux,InReg=InReg)

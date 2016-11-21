@@ -579,6 +579,8 @@ class ClassImageDeconvMachine():
                                  NChains=self.NChains)
             workerlist.append(W)
             workerlist[ii].start()
+            # workerlist[ii].run()
+
             # if Parallel: 
             #     workerlist[ii].start()
             # else:

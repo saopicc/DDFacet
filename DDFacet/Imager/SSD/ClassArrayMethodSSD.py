@@ -30,7 +30,8 @@ class ClassArrayMethodSSD():
                  PixVariance=1.e-2,IslandBestIndiv=None,WeightFreqBands=None,iFacet=0,
                  IdSharedMem="",
                  iIsland=0,
-                 ParallelFitness=False):
+                 ParallelFitness=False,
+                 NCPU=None):
         self.ParallelFitness=ParallelFitness
         self.iFacet=iFacet
         self.WeightFreqBands=WeightFreqBands
@@ -40,7 +41,10 @@ class ClassArrayMethodSSD():
         self.PSF=NpShared.ToShared("%sPSF_Island_%4.4i"%(IdSharedMem,iIsland),PSF)
         self.IslandBestIndiv=IslandBestIndiv
         self.GD=GD
-        self.NCPU=int(self.GD["Parallel"]["NCPU"])
+        self.NCPU=NCPU
+        if NCPU==None:
+            self.NCPU=int(self.GD["Parallel"]["NCPU"])
+
         self.BestChi2=1.
         # IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
         # ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
@@ -870,14 +874,16 @@ class WorkerFitness(multiprocessing.Process):
 
         df=self.PM.NPixListData
         self.rv = chi2(df)
-        _,Chi2=self.GiveFitness(individual0)
-        logProb=self.rv.logpdf(Chi2)
+        _,Chi2_0=self.GiveFitness(individual0)
+        #logProb=self.rv.logpdf(Chi2)
 
+
+        #Sig=self.rv.moment(2)
         x=np.linspace(0,2*self.rv.moment(1),1000)
         lP=self.rv.logpdf(x)
         iMax=np.argmax(lP)
         self.Chi2PMax=x[iMax]
-        self.MinChi2=Chi2
+        self.MinChi2=Chi2_0
         self.Var=self.MinChi2/self.Chi2PMax
         DicoChains={}
         Parms=individual0
@@ -889,7 +895,7 @@ class WorkerFitness(multiprocessing.Process):
         # P=self.rv.pdf(x)
         # pylab.clf()
         # pylab.plot(x,P)
-        # Chi2Red=Chi2/self.Var
+        # Chi2Red=Chi2_0/self.Var
         # pylab.scatter(Chi2Red,np.mean(P),c="black")
         # pylab.draw()
         # pylab.show(False)
@@ -898,11 +904,12 @@ class WorkerFitness(multiprocessing.Process):
         DicoChains["Parms"]=[]
         DicoChains["Chi2"]=[]
         DicoChains["logProb"]=[]
-        logProb0=self.rv.logpdf(Chi2/self.Var)
+        logProb0=self.rv.logpdf(Chi2_0/self.Var)
+        
+        Mut_pFlux, Mut_p0, Mut_pMove=0.,0.,0.3
 
-        Mut_pFlux, Mut_p0, Mut_pMove=0.3,0.,0.3
-
-
+        T=ClassTimeIt.ClassTimeIt("MetroClean")
+        T.disable()
         FactorAccelerate=1.
         lAccept=[]
         NBurn=self.GD["MetroClean"]["MetroNBurn"]
@@ -913,16 +920,20 @@ class WorkerFitness(multiprocessing.Process):
             individual1,=self.MutMachine.mutGaussian(individual0.copy(), 
                                                      Mut_pFlux, Mut_p0, Mut_pMove,
                                                      FactorAccelerate=FactorAccelerate)
+            T.timeit("mutate")
 
             _,Chi2=self.GiveFitness(individual1)
-            if Chi2<self.MinChi2:
-                self.Var=Chi2/self.Chi2PMax
-                #print "           >>>>>>>>>>>>>> %f"%np.min(Chi2)
+            T.timeit("FitNess")
+            # if Chi2<self.MinChi2:
+            #     self.Var=Chi2/self.Chi2PMax
+            #     self.MinChi2=Chi2
+            #     print "           >>>>>>>>>>>>>> %f"%np.min(Chi2)
 
 
             Chi2Norm=Chi2/self.Var
-                
+            
             logProb=self.rv.logpdf(Chi2Norm)
+            T.timeit("LogPDF")
             
             p1=logProb
             p0=logProb0#DicoChains["logProb"][-1]
@@ -934,7 +945,7 @@ class WorkerFitness(multiprocessing.Process):
                 R=np.min([1.,np.exp(p1-p0)])
 
             r=np.random.rand(1)[0]
-            # print "%5.3f [%f -> %f]"%(R,p0,p1)
+            #print "%5.3f [%f -> %f]"%(R,p0,p1)
             # print "MaxDiff ",np.max(np.abs(self.pop[iChain]-DicoChains[iChain]["Parms"][-1]))
             lAccept.append((r<R))
             if r<R: # accept
@@ -950,18 +961,18 @@ class WorkerFitness(multiprocessing.Process):
                 # pylab.show(False)
                 # pylab.pause(0.1)
                 
-                # print "  accept"
-                # # Model=self.StackChain()
+                #print "  accept"
+                # Model=self.StackChain()
                 
-                # # Asq=self.ArrayMethodsMachine.PM.ModelToSquareArray(Model,TypeInOut=("Parms","Parms"))
-                # # _,npol,NPix,_=Asq.shape
-                # # A=np.mean(Asq,axis=0).reshape((NPix,NPix))
-                # # Mask=(A==0)
-                # # pylab.clf()
-                # # pylab.imshow(A,interpolation="nearest")
-                # # pylab.draw()
-                # # pylab.show(False)
-                # # pylab.pause(0.1)
+                # Asq=self.ArrayMethodsMachine.PM.ModelToSquareArray(Model,TypeInOut=("Parms","Parms"))
+                # _,npol,NPix,_=Asq.shape
+                # A=np.mean(Asq,axis=0).reshape((NPix,NPix))
+                # Mask=(A==0)
+                # pylab.clf()
+                # pylab.imshow(A,interpolation="nearest")
+                # pylab.draw()
+                # pylab.show(False)
+                # pylab.pause(0.1)
                 
                 
             else:
@@ -974,15 +985,19 @@ class WorkerFitness(multiprocessing.Process):
                 # # #######################
                 pass
 
+            T.timeit("Compare")
+
             AccRate=np.count_nonzero(lAccept)/float(len(lAccept))
-            # print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
+            #print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
             if (iStep%50==0)&(iStep>10):
                 if AccRate>0.5:
-                    FactorAccelerate*=1.5
+                    FactorAccelerate*=1.2
                 else:
                     FactorAccelerate/=1.5
                 FactorAccelerate=np.min([3.,FactorAccelerate])
+                FactorAccelerate=np.max([.02,FactorAccelerate])
                 lAccept=[]
+            T.timeit("Acceptance")
 
 
         DicoChains["logProb"]=np.array(DicoChains["logProb"])

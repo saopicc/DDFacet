@@ -53,6 +53,9 @@ class ClassMetropolis():
         self.IdSharedMem=IdSharedMem
         self.iIsland=iIsland
 
+
+        #print "PixVariance",PixVariance
+
         GD["SSDClean"]["SSDCostFunc"]=["Chi2"]
         self.ArrayMethodsMachine=ClassArrayMethodSSD.ClassArrayMethodSSD(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
                                                                          #PixVariance=PixVariance,
@@ -63,7 +66,8 @@ class ClassMetropolis():
                                                                          WeightFreqBands=WeightFreqBands,
                                                                          iIsland=iIsland,
                                                                          IdSharedMem=IdSharedMem,
-                                                                         ParallelFitness=ParallelFitness)
+                                                                         ParallelFitness=ParallelFitness,
+                                                                         NCPU=NChains)
         self.InitChain()
 
     def InitChain(self):
