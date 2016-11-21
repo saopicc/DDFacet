@@ -98,6 +98,7 @@ def read_options():
     OP.add_option('ResetCache')
     OP.add_option('ResetPSF')
     OP.add_option('ResetDirty')
+    OP.add_option('ResetJones')
     OP.add_option('ResetSmoothBeam')
     OP.add_option('CachePSF')
     OP.add_option('CacheDirty')

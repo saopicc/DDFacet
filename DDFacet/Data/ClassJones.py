@@ -148,16 +148,41 @@ class ClassJones():
             if self.FacetMachine is not None:
                 if not(self.HasKillMSSols):
                     print>>log,"  Getting Jones directions from Facets"
-                    DicoImager=self.FacetMachine.DicoImager
-                    NFacets=len(DicoImager)
-                    self.ClusterCatBeam=self.FacetMachine.FacetCat
+                    # DicoImager=self.FacetMachine.DicoImager
+                    # NFacets=len(DicoImager)
+                    # self.ClusterCatBeam=self.FacetMachine.FacetCat
+                    # DicoClusterDirs={}
+                    # DicoClusterDirs["l"]=self.ClusterCatBeam.l
+                    # DicoClusterDirs["m"]=self.ClusterCatBeam.m
+                    # DicoClusterDirs["ra"]=self.ClusterCatBeam.ra
+                    # DicoClusterDirs["dec"]=self.ClusterCatBeam.dec
+                    # DicoClusterDirs["I"]=self.ClusterCatBeam.I
+                    # DicoClusterDirs["Cluster"]=self.ClusterCatBeam.Cluster
+
+
+                    lBeam,mBeam=self.FacetMachine.lmSols
+                    raBeam,decBeam=self.FacetMachine.radecSols
+                    IBeam=np.ones_like(raBeam)
+                    ClusterBeam=np.arange(IBeam.size)
+                    print>>log,"  Getting %i Jones directions from Facets"%lBeam.size
+                    NDir=lBeam.size
+                    ClusterCatBeam=np.zeros((NDir,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),
+                                                                ("Cluster",int),
+                                                                ("l",np.float),("m",np.float),
+                                                                ("I",np.float)])
+                    ClusterCatBeam=ClusterCatBeam.view(np.recarray)
+                    self.ClusterCatBeam=ClusterCatBeam
+                    
                     DicoClusterDirs={}
-                    DicoClusterDirs["l"]=self.ClusterCatBeam.l
-                    DicoClusterDirs["m"]=self.ClusterCatBeam.m
-                    DicoClusterDirs["ra"]=self.ClusterCatBeam.ra
-                    DicoClusterDirs["dec"]=self.ClusterCatBeam.dec
-                    DicoClusterDirs["I"]=self.ClusterCatBeam.I
-                    DicoClusterDirs["Cluster"]=self.ClusterCatBeam.Cluster
+                    DicoClusterDirs["l"]=ClusterCatBeam.l=lBeam
+                    DicoClusterDirs["m"]=ClusterCatBeam.m=mBeam
+                    DicoClusterDirs["ra"]=ClusterCatBeam.ra=raBeam
+                    DicoClusterDirs["dec"]=ClusterCatBeam.dec=decBeam
+                    DicoClusterDirs["I"]=ClusterCatBeam.I=IBeam
+                    DicoClusterDirs["Cluster"]=ClusterCatBeam.Cluster=ClusterBeam
+
+
+
                 else:
                     print>>log,"  Getting Jones directions from DDE-solutions"
                     DicoClusterDirs=self.DicoClusterDirs_kMS
