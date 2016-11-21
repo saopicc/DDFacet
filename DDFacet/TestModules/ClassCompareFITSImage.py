@@ -2,7 +2,7 @@ import subprocess
 import unittest
 import os
 from os import path, getenv
-
+from astropy.io import fits
 import numpy as np
 from DDFacet.Parset.ReadCFG import Parset
 from astropy.io import fits
@@ -75,7 +75,7 @@ class ClassCompareFITSImage(unittest.TestCase):
                 1e-3,1e-4,1e-3,1e-4,
                 1e-3,1e-4,1e-3,1e-4,
                 1e-1] #epsilons per image pair, as listed in defineImageList
-
+    
     @classmethod
     def defMeanSquaredErrorLevel(cls):
 	""" Method defining maximum tolerance for the mean squared error between any
@@ -88,7 +88,7 @@ class ClassCompareFITSImage(unittest.TestCase):
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5] #epsilons per image pair, as listed in defineImageList
-
+    
     @classmethod
     def setParsetOption(cls, section, option, value):
         """
@@ -152,7 +152,7 @@ class ClassCompareFITSImage(unittest.TestCase):
         cls._maxSqErr = cls.defineMaxSquaredError()
         cls._thresholdMSE = cls.defMeanSquaredErrorLevel()
 
-
+	
         #Run DDFacet with desired setup. Crash the test if DDFacet gives a non-zero exit code:
         cls._stdoutLogFile = cls._outputDir+cls.__name__+".run.out.log"
         cls._stderrLogFile = cls._outputDir+cls.__name__+".run.err.log"

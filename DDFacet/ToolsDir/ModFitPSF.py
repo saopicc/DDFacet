@@ -1,7 +1,8 @@
 import numpy as np
-import gaussfitter2
 from DDFacet.Other import MyLogger
-log= MyLogger.getLogger("FitPSF")
+log = MyLogger.getLogger("FitPSF")
+from DDFacet.Other import ModColor
+import gaussfitter2
 
 
 def FitCleanBeam(PSF):
@@ -14,8 +15,8 @@ def FitCleanBeam(PSF):
         sigma_y of gaussian in pixels
         theta: The rotation angle (radians) of the gaussian from the y axis counter-clockwise (beware of the periodicity)
     """
-    popt=gaussfitter2.gaussfit(PSF, vheight=0, return_all=0, rotate=1)
-    amp, xo, yo, sigma_x, sigma_y, theta=popt
+    popt = gaussfitter2.gaussfit(PSF, vheight=0, return_all=0, rotate=1)
+    amp, xo, yo, sigma_x, sigma_y, theta = popt
     theta = np.deg2rad(theta)
     gmaj, gmin = (0, 0)
     '''
@@ -30,12 +31,13 @@ def FitCleanBeam(PSF):
     else:
         gmaj = np.abs(sigma_x)
         gmin = np.abs(sigma_y)
-    #ensure the angle is 0 <= th < PI
+    # ensure the angle is 0 <= th < PI
     theta = 2*np.pi - theta
     theta = theta - (int(theta / (2 * np.pi)) * 2 * np.pi)
     theta = theta if theta > 0 else 2*np.pi + theta
     theta = theta if theta <= np.pi else theta - np.pi
     return gmaj, gmin, theta
+
 
 def FindSidelobe(PSF):
     """
@@ -52,52 +54,74 @@ def FindSidelobe(PSF):
         level: PSF sidelobe level (searched up to the first null)
         null_px: position of the first null from the the centre of the PSF window in pixels
     """
-    x,y=np.where(PSF==np.max(PSF))
-    x0=x[0]
-    y0=y[0]
-    profile=PSF[x0,:]
+    x, y = np.where(PSF == np.max(PSF))
+    x0 = x[0]
+    y0 = y[0]
+    profile = PSF[x0, :]
 
-    nx,ny=PSF.shape
+    nx, ny = PSF.shape
 
-    PSFhalf=profile[y0::]
+    PSFhalf = profile[y0::]
 
-    #find first null (this may fail if the window is not big enough):
-    inddx=np.where(PSFhalf<0)[0]
-    if len(inddx)!=0:
-        dx=inddx[0]
+    # find first null (this may fail if the window is not big enough):
+    inddx = np.where(PSFhalf < 0)[0]
+    if len(inddx) != 0:
+        dx = inddx[0]
     else:
-        raise RuntimeError("Cannot find PSF sidelobes. Is your fit search window big enough?")
-  
-    #Cut the window at the location of the first null and then fit to that:
-    PSFsmall=PSF[x0-dx:x0+dx,y0-dx:y0+dx]
+        raise RuntimeError(
+            "Cannot find PSF sidelobes. Is your fit search window big enough?")
+
+    # Cut the window at the location of the first null and then fit to that:
+    PSFsmall = PSF[x0-dx:x0+dx, y0-dx:y0+dx]
     popt = FitCleanBeam(PSF)
-    
-    #Create a clean beam:
-    npix=int(np.sqrt(PSFsmall.ravel().shape[0]))-1
+
+    # Create a clean beam:
+    npix = int(np.sqrt(PSFsmall.ravel().shape[0]))-1
     x = np.linspace(0, npix, npix+1)
     y = np.linspace(0, npix, npix+1)
     x, y = np.meshgrid(x, y)
-    bestFit = [1,x.shape[0] / 2, y.shape[1] / 2,popt[0],popt[1],np.rad2deg(popt[2])]
-    dataFitted = gaussfitter2.twodgaussian(bestFit, circle=0, rotate=1, vheight=0)(x,y)
-    
-    #Create a residual beam without the primary lobe:
-    PSFnew=PSF.copy()
-    PSFnew[x0-dx:x0+dx,y0-dx:y0+dx] = PSFnew[x0-dx:x0+dx,y0-dx:y0+dx] - dataFitted[:,:]
-    profile0=PSFnew[x0,:]
-    x0=PSFnew.shape[0]/2
-    ii=np.argmax(profile0[x0::])
-    return np.max(PSFnew),ii
+    bestFit = [
+        1,
+        x.shape[0] / 2,
+        y.shape[1] / 2,
+        popt[0],
+        popt[1],
+        np.rad2deg(
+            popt[2])]
+    dataFitted = gaussfitter2.twodgaussian(
+        bestFit,
+        circle=0,
+        rotate=1,
+        vheight=0)(
+        x,
+        y)
+
+    # Create a residual beam without the primary lobe:
+    PSFnew = PSF.copy()
+    PSFnew[x0-dx:x0+dx, y0-dx:y0+dx] = PSFnew[x0-dx:x0+dx,
+                                              y0-dx:y0+dx] - dataFitted[:, :]
+    profile0 = PSFnew[x0, :]
+    x0 = PSFnew.shape[0]/2
+    ii = np.argmax(profile0[x0::])
+    return np.max(PSFnew), ii
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
     import numpy as np
     import gaussfitter2
 
-    xx,yy = np.meshgrid(np.linspace(-500,500,1000),np.linspace(-500,500,1000))
-    g = gaussfitter2.twodgaussian([1,0,0,50,100,10],0,1,0)(xx,yy)
+    xx, yy = np.meshgrid(
+        np.linspace(-500, 500, 1000),
+        np.linspace(-500, 500, 1000))
+    g = gaussfitter2.twodgaussian([1, 0, 0, 50, 100, 10], 0, 1, 0)(xx, yy)
     params = FitCleanBeam(g)
-    print params * np.array([1,1,180/np.pi])
-    g2 = gaussfitter2.twodgaussian([1,0,0,params[1],params[0],np.rad2deg(params[2])],0,1,0)(xx,yy)
+    print params * np.array([1, 1, 180/np.pi])
+    g2 = gaussfitter2.twodgaussian(
+        [1, 0, 0, params[1],
+         params[0],
+         np.rad2deg(params[2])],
+        0, 1, 0)(
+        xx, yy)
     plt.figure()
     plt.imshow(g)
     plt.figure()
@@ -129,7 +153,7 @@ def FitGauss(PSF):
     npix,_=PSF.shape
     x0,y0=npix/2,npix/2
     #SigMaj,SigMin,ang
-    
+
     PSFSlice=np.max(PSF,axis=0)
     SigMaj,SigMin,ang=1.,1.,0
     StartSol=np.array([x0,y0,SigMaj,SigMin,ang])
@@ -247,4 +271,3 @@ def test2():
 
     data_fitted = twoD_Gaussian((x, y, 1, 0), *popt)
 '''
-

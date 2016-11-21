@@ -9,7 +9,7 @@ import pymoresane.iuwt_convolution as conv
 import pymoresane.iuwt_toolbox as tools
 import pymoresane.parser as pparser
 from pymoresane.beam_fit import beam_fit
-from pymoresane.main import FitsImage as FI # importing the class
+from pymoresane.main import FitsImage as FI  # importing the class
 
 from scipy.signal import fftconvolve
 import pylab as plt
@@ -17,56 +17,60 @@ import pylab as plt
 logger = logging.getLogger(__name__)
 
 
-class ClassMoresane(FI): # inherits from FitsImage but overriding __init__ to get rid of FITS file processing
-    def __init__(self,Dirty,PSF,DictMoresaneParms,GD=None):
+class ClassMoresane(
+        FI):  # inherits from FitsImage but overriding __init__ to get rid of FITS file processing
+
+    def __init__(self, Dirty, PSF, DictMoresaneParms, GD=None):
 
         # manage Dirty
-        self.Dirty=Dirty
-        self.PSF=PSF
-        self.DictMoresaneParms=DictMoresaneParms
+        self.Dirty = Dirty
+        self.PSF = PSF
+        self.DictMoresaneParms = DictMoresaneParms
         self.InitMoresane(self.DictMoresaneParms)
 
-    def InitMoresane(self,DictMoresaneParms):
+    def InitMoresane(self, DictMoresaneParms):
         # load Moresane parms
 
-        self.singlerun=DictMoresaneParms['singlerun']
-        self.startscale=DictMoresaneParms['startscale']
-        self.stopscale=DictMoresaneParms['stopscale']
-        self.subregion=DictMoresaneParms['subregion']
-        self.scalecount=DictMoresaneParms['scalecount']
-        self.sigmalevel=DictMoresaneParms['sigmalevel']
-        self.loopgain=DictMoresaneParms['loopgain']
-        self.tolerance=DictMoresaneParms['tolerance']
-        self.accuracy=DictMoresaneParms['accuracy']
-        self.majorloopmiter=DictMoresaneParms['majorloopmiter']
-        self.minorloopmiter=DictMoresaneParms['minorloopmiter']
-        self.allongpu=DictMoresaneParms['allonggpu']
-        self.decommode=DictMoresaneParms['decommode']
-        self.corecount=DictMoresaneParms['corecount']
-        self.convdevice=DictMoresaneParms['convdevice']
-        self.convmode=DictMoresaneParms['convmode']
-        self.extractionmode=DictMoresaneParms['extractionmode']
-        self.enforcepositivity=DictMoresaneParms['enforcepositivity']
-        self.edgesuppression=DictMoresaneParms['edgesuppression']
-        self.edgeoffset=DictMoresaneParms['edgeoffset']
-        self.fluxthreshold=DictMoresaneParms['fluxthreshold']
-        self.negcomp=DictMoresaneParms['negcomp']
-        self.edgeexcl=DictMoresaneParms['edgeexcl']
-        self.intexcl=DictMoresaneParms['intexcl']
+        self.singlerun = DictMoresaneParms['singlerun']
+        self.startscale = DictMoresaneParms['startscale']
+        self.stopscale = DictMoresaneParms['stopscale']
+        self.subregion = DictMoresaneParms['subregion']
+        self.scalecount = DictMoresaneParms['scalecount']
+        self.sigmalevel = DictMoresaneParms['sigmalevel']
+        self.loopgain = DictMoresaneParms['loopgain']
+        self.tolerance = DictMoresaneParms['tolerance']
+        self.accuracy = DictMoresaneParms['accuracy']
+        self.majorloopmiter = DictMoresaneParms['majorloopmiter']
+        self.minorloopmiter = DictMoresaneParms['minorloopmiter']
+        self.allongpu = DictMoresaneParms['allonggpu']
+        self.decommode = DictMoresaneParms['decommode']
+        self.corecount = DictMoresaneParms['corecount']
+        self.convdevice = DictMoresaneParms['convdevice']
+        self.convmode = DictMoresaneParms['convmode']
+        self.extractionmode = DictMoresaneParms['extractionmode']
+        self.enforcepositivity = DictMoresaneParms['enforcepositivity']
+        self.edgesuppression = DictMoresaneParms['edgesuppression']
+        self.edgeoffset = DictMoresaneParms['edgeoffset']
+        self.fluxthreshold = DictMoresaneParms['fluxthreshold']
+        self.negcomp = DictMoresaneParms['negcomp']
+        self.edgeexcl = DictMoresaneParms['edgeexcl']
+        self.intexcl = DictMoresaneParms['intexcl']
 
         # Init
-        mask_name= None
+        mask_name = None
         self.mask_name = mask_name
 
         if self.mask_name is not None:
             self.mask = pyfits.open("{}".format(mask_name))[0].data
-            self.mask = self.mask.reshape(self.mask.shape[-2], self.mask.shape[-1])
+            self.mask = self.mask.reshape(
+                self.mask.shape[-2],
+                self.mask.shape[-1])
             self.mask = self.mask / np.max(self.mask)
             self.mask = fftconvolve(self.mask, np.ones([5, 5]), mode="same")
             self.mask = self.mask / np.max(self.mask)
 
-        self.dirty_data=self.Dirty
-        self.psf_data=self.PSF
+        self.dirty_data = self.Dirty
+        self.psf_data = self.PSF
         self.dirty_data_shape = self.dirty_data.shape
         self.psf_data_shape = self.psf_data.shape
 
@@ -75,23 +79,59 @@ class ClassMoresane(FI): # inherits from FitsImage but overriding __init__ to ge
         self.residual = np.copy(self.Dirty)
         self.restored = np.zeros_like(self.Dirty)
 
-
     def main(self):
 
         # Proper Moresane run
         if self.singlerun:
             print "Single run"
-            self.moresane(self.subregion, self.scalecount, self.sigmalevel, self.loopgain, self.tolerance, self.accuracy,
-                          self.majorloopmiter, self.minorloopmiter, self.allongpu, self.decommode, self.corecount,
-                          self.convdevice, self.convmode, self.extractionmode, self.enforcepositivity,
-                          self.edgesuppression, self.edgeoffset,self.fluxthreshold, self.negcomp, self.edgeexcl, self.intexcl)
+            self.moresane(
+                self.subregion,
+                self.scalecount,
+                self.sigmalevel,
+                self.loopgain,
+                self.tolerance,
+                self.accuracy,
+                self.majorloopmiter,
+                self.minorloopmiter,
+                self.allongpu,
+                self.decommode,
+                self.corecount,
+                self.convdevice,
+                self.convmode,
+                self.extractionmode,
+                self.enforcepositivity,
+                self.edgesuppression,
+                self.edgeoffset,
+                self.fluxthreshold,
+                self.negcomp,
+                self.edgeexcl,
+                self.intexcl)
         else:
             print "By scale"
-            self.moresane_by_scale(self.startscale, self.stopscale, self.subregion, self.sigmalevel, self.loopgain, self.tolerance, self.accuracy,
-                                   self.majorloopmiter, self.minorloopmiter, self.allongpu, self.decommode, self.corecount,
-                                   self.convdevice, self.convmode, self.extractionmode, self.enforcepositivity,
-                                   self.edgesuppression, self.edgeoffset,self.fluxthreshold, self.negcomp, self.edgeexcl, self.intexcl)
-        return self.model,self.residual #IslandModel
+            self.moresane_by_scale(
+                self.startscale,
+                self.stopscale,
+                self.subregion,
+                self.sigmalevel,
+                self.loopgain,
+                self.tolerance,
+                self.accuracy,
+                self.majorloopmiter,
+                self.minorloopmiter,
+                self.allongpu,
+                self.decommode,
+                self.corecount,
+                self.convdevice,
+                self.convmode,
+                self.extractionmode,
+                self.enforcepositivity,
+                self.edgesuppression,
+                self.edgeoffset,
+                self.fluxthreshold,
+                self.negcomp,
+                self.edgeexcl,
+                self.intexcl)
+        return self.model, self.residual  # IslandModel
 
     def residuals(self):
         return self.residual

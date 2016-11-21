@@ -1,7 +1,10 @@
 import logging
+import sys
 import os
 
+
 class LoggerWriter:
+
     def __init__(self, logger, level):
         self.logger = logger
         self.level = level
@@ -10,15 +13,17 @@ class LoggerWriter:
         if message != '\n':
             self.logger.log(self.level, message)
 
+import ModColor
 
 _proc_status = '/proc/%d/status' % os.getpid()
 
 _scale = {'kB': 1024.0, 'mB': 1024.0*1024.0,
           'KB': 1024.0, 'MB': 1024.0*1024.0}
 
-def _VmB(VmKey,statusfile=None):
+
+def _VmB(VmKey, statusfile=None):
     global _proc_status, _scale
-     # get pseudo file  /proc/<pid>/status
+    # get pseudo file  /proc/<pid>/status
     try:
         t = open(statusfile or _proc_status)
         v = t.read()
@@ -34,25 +39,30 @@ def _VmB(VmKey,statusfile=None):
     return float(v[1]) * _scale[v[2]]
 
 
-def _shmem_size (since=0.0):
+def _shmem_size(since=0.0):
     '''Return shared memory usage in bytes.'''
-    return _VmB('Shmem:','/proc/meminfo') - since
+    return _VmB('Shmem:', '/proc/meminfo') - since
+
 
 def _memory(since=0.0):
     '''Return memory usage in bytes.'''
     return _VmB('VmSize:') - since
 
+
 def _memory_peak(since=0.0):
     '''Return memory usage in bytes.'''
     return _VmB('VmPeak:') - since
+
 
 def _resident(since=0.0):
     '''Return resident memory usage in bytes.'''
     return _VmB('VmRSS:') - since
 
+
 def _resident_peak(since=0.0):
     '''Return resident memory usage in bytes.'''
     return _VmB('VmHWM:') - since
+
 
 def _stacksize(since=0.0):
     '''Return stack size in bytes.'''
@@ -61,15 +71,19 @@ def _stacksize(since=0.0):
 log_memory = False
 file_handler = None
 
-def enableMemoryLogging (enable=True):
+
+def enableMemoryLogging(enable=True):
     global log_memory
     log_memory = enable
 
-def logToFile (filename,append=False):
+
+def logToFile(filename, append=False):
     global file_handler
     if not file_handler:
-        file_handler = logging.FileHandler(filename,mode='a' if append else 'w')
+        file_handler = logging.FileHandler(
+            filename, mode='a' if append else 'w')
     logging.getLogger('').addHandler(file_handler)
+
 
 def getLogFilename():
     '''Returns log filename if logToFile has been called previously, None otherwise'''
@@ -78,34 +92,37 @@ def getLogFilename():
         return None
     return file_handler.baseFilename
 
+
 class LoggerMemoryFilter (logging.Filter):
+
     def filter(self, event):
         vss = float(_memory()/(1024**3))
         vss_peak = float(_memory_peak()/(1024**3))
         rss = float(_resident()/(1024**3))
         rss_peak = float(_resident_peak()/(1024**3))
         shm = float(_shmem_size()/(1024**3))
-        setattr(event,"virtual_memory_gb",vss)
-        setattr(event,"resident_memory_gb",rss)
-        setattr(event,"shared_memory_gb",shm)
-        if log_memory and hasattr(event,"msg"):
-            event.msg = "[%.1f/%.1f %.1f/%.1f %.1fGb] "%(rss,rss_peak,vss,vss_peak,shm) + event.msg
+        setattr(event, "virtual_memory_gb", vss)
+        setattr(event, "resident_memory_gb", rss)
+        setattr(event, "shared_memory_gb", shm)
+        if log_memory and hasattr(event, "msg"):
+            event.msg = "[%.1f/%.1f %.1f/%.1f %.1fGb] " % (
+                rss, rss_peak, vss, vss_peak, shm) + event.msg
         return True
 
 
 class MyLogger():
+
     def __init__(self):
-#fmt="%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s"
+        #fmt="%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s"
         fmt = " - %(asctime)s - %(name)-25.25s | %(message)s"
-        datefmt = '%H:%M:%S'#'%H:%M:%S.%f'
-        logging.basicConfig(level=logging.DEBUG,format=fmt,datefmt=datefmt)
-        self.Dico={}
-        self.Silent=False
+        datefmt = '%H:%M:%S'  # '%H:%M:%S.%f'
+        logging.basicConfig(level=logging.DEBUG, format=fmt, datefmt=datefmt)
+        self.Dico = {}
+        self.Silent = False
         self._myfilter = LoggerMemoryFilter()
-        self._formatter = logging.Formatter(fmt,datefmt)
+        self._formatter = logging.Formatter(fmt, datefmt)
 
-
-    def getLogger(self,name,disable=False):
+    def getLogger(self, name, disable=False):
 
         if not(name in self.Dico.keys()):
             logger = logging.getLogger(name)
@@ -115,15 +132,12 @@ class MyLogger():
                 file_handler.setFormatter(self._formatter)
                 # logger.addHandler(file_handler)
             fp = LoggerWriter(logger, logging.INFO)
-            self.Dico[name]=fp
-            
+            self.Dico[name] = fp
+
         #self.Dico[name].logger.log(logging.DEBUG, "Get Logger for: %s"%name)
-        log=self.Dico[name]
+        log = self.Dico[name]
 
         return log
-
-
-
 
     #logger2 = logging.getLogger("demo.X")
     #debug_fp = LoggerWriter(logger2, logging.DEBUG)
@@ -131,34 +145,36 @@ class MyLogger():
     #print >> debug_fp, "A DEBUG message"
     #print >> debug_fp, 1
 
-M=MyLogger()
+M = MyLogger()
 
-getLogger=M.getLogger
+getLogger = M.getLogger
 
-itsLog=getLogger("MyLogger")
+itsLog = getLogger("MyLogger")
 import ModColor
+
+
 def setSilent(Lname):
     print>>itsLog, ModColor.Str("Set silent: %s" % Lname, col="red")
-    if type(Lname)==str:
-        log=getLogger(Lname)
+    if isinstance(Lname, str):
+        log = getLogger(Lname)
         log.logger.setLevel(logging.CRITICAL)
-    elif type(Lname)==list:
+    elif isinstance(Lname, list):
         for name in Lname:
-            log=getLogger(name)
+            log = getLogger(name)
             log.logger.setLevel(logging.CRITICAL)
 
 
 def setLoud(Lname):
     print>>itsLog, ModColor.Str("Set loud: %s" % Lname, col="green")
-    if type(Lname)==str:
-        log=getLogger(Lname)
+    if isinstance(Lname, str):
+        log = getLogger(Lname)
         log.logger.setLevel(logging.DEBUG)
-    elif type(Lname)==list:
+    elif isinstance(Lname, list):
         for name in Lname:
-            log=getLogger(name)
+            log = getLogger(name)
             log.logger.setLevel(logging.DEBUG)
 
 
-if __name__=="__main__":
-    log=getLogger("a.x")
+if __name__ == "__main__":
+    log = getLogger("a.x")
     print>>log, "a.x"
