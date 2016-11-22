@@ -1,10 +1,12 @@
+import collections
 import itertools
 
 import numpy as np
+#import pylab
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassModelMachineMSMF")
+log = MyLogger.getLogger("ClassModelMachineMSMF")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
@@ -22,54 +24,53 @@ from pyrap.images import image
 from SkyModel.Sky import ClassSM
 import os
 
+
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
-    def __init__(self,*args,**kwargs):
+
+    def __init__(self, *args, **kwargs):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
         self.Test = True
-        # self.GD=GD
+        # self.GD = GD
         # if Gain is None:
-        #     self.Gain=self.GD["ImagerDeconv"]["Gain"]
+        #     self.Gain = self.GD["ImagerDeconv"]["Gain"]
         # else:
-        #     self.Gain=Gain
-        # self.GainMachine=GainMachine
-        # self.DicoSMStacked={}
-        # self.DicoSMStacked["Comp"]={}
+        #     self.Gain = Gain
+        # self.GainMachine = GainMachine
+        # self.DicoSMStacked = {}
+        # self.DicoSMStacked["Comp"] = {}
 
-    def setRefFreq(self,RefFreq,AllFreqs):
-        self.RefFreq=RefFreq
-        self.DicoSMStacked["RefFreq"]=RefFreq
-        self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
-        
-    def ToFile(self,FileName,DicoIn=None):
-        print>>log, "Saving dico model to %s"%FileName
+    def setRefFreq(self, RefFreq, AllFreqs):
+        self.RefFreq = RefFreq
+        self.DicoSMStacked["RefFreq"] = RefFreq
+        self.DicoSMStacked["AllFreqs"] = np.array(AllFreqs)
+
+    def ToFile(self, FileName, DicoIn=None):
+        print>>log, "Saving dico model to %s" % FileName
         if DicoIn is None:
-            D=self.DicoSMStacked
+            D = self.DicoSMStacked
         else:
-            D=DicoIn
+            D = DicoIn
 
-        D["Type"]="MSMF"
-        D["ListScales"]=self.ListScales
-        D["ModelShape"]=self.ModelShape
-        MyPickle.Save(D,FileName)
+        D["Type"] = "MSMF"
+        D["ListScales"] = self.ListScales
+        D["ModelShape"] = self.ModelShape
+        MyPickle.Save(D, FileName)
 
-    def FromFile(self,FileName):
-        print>>log, "Reading dico model from %s"%FileName
-        self.DicoSMStacked=MyPickle.Load(FileName)
+    def FromFile(self, FileName):
+        print>>log, "Reading dico model from %s" % FileName
+        self.DicoSMStacked = MyPickle.Load(FileName)
         self.FromDico(self.DicoSMStacked)
 
+    def FromDico(self, DicoSMStacked):
+        self.DicoSMStacked = DicoSMStacked
+        self.RefFreq = self.DicoSMStacked["RefFreq"]
+        self.ListScales = self.DicoSMStacked["ListScales"]
+        self.ModelShape = self.DicoSMStacked["ModelShape"]
 
-    def FromDico(self,DicoSMStacked):
-        self.DicoSMStacked=DicoSMStacked
-        self.RefFreq=self.DicoSMStacked["RefFreq"]
-        self.ListScales=self.DicoSMStacked["ListScales"]
-        self.ModelShape=self.DicoSMStacked["ModelShape"]
-        
+    def setModelShape(self, ModelShape):
+        self.ModelShape = ModelShape
 
-
-    def setModelShape(self,ModelShape):
-        self.ModelShape=ModelShape
-
-    def AppendComponentToDictStacked(self,key,Fpol,Sols,pol_array_index=0):
+    def AppendComponentToDictStacked(self, key, Fpol, Sols, pol_array_index=0):
         """
         Adds component to model dictionary (with key l,m location tupple). Each
         component may contain #basis_functions worth of solutions. Note that
@@ -87,53 +88,62 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         """
         nchan, npol, nx, ny = self.ModelShape
         if not (pol_array_index >= 0 and pol_array_index < npol):
-            raise ValueError("Pol_array_index must specify the index of the slice in the "
-                             "model cube the solution should be stored at. Please report this bug.")
-        DicoComp=self.DicoSMStacked["Comp"]
+            raise ValueError(
+                "Pol_array_index must specify the index of the slice in the "
+                "model cube the solution should be stored at. Please report this bug.")
+        DicoComp = self.DicoSMStacked["Comp"]
         if not(key in DicoComp.keys()):
-            DicoComp[key]={}
-            for p in range(npol):
-                DicoComp[key]["SolsArray"]=np.zeros((Sols.size,npol),np.float32)
-                DicoComp[key]["SumWeights"]=np.zeros((npol),np.float32)
+            DicoComp[key] = {}
+            for p in xrange(npol):
+                DicoComp[key]["SolsArray"] = np.zeros(
+                    (Sols.size, npol), np.float32)
+                DicoComp[key]["SumWeights"] = np.zeros((npol), np.float32)
 
-        Weight=1.
-        Gain=self.GainMachine.GiveGain()
+        Weight = 1.
+        Gain = self.GainMachine.GiveGain()
 
-        SolNorm=Sols.ravel()*Gain*np.mean(Fpol)
+        SolNorm = Sols.ravel()*Gain*np.mean(Fpol)
 
         DicoComp[key]["SumWeights"][pol_array_index] += Weight
-        DicoComp[key]["SolsArray"][:,pol_array_index] += Weight*SolNorm
-        
-    def setListComponants(self,ListScales):
-        self.ListScales=ListScales
+        DicoComp[key]["SolsArray"][:, pol_array_index] += Weight*SolNorm
 
+    def setListComponants(self, ListScales):
+        self.ListScales = ListScales
 
-    def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True,MaxSpi=100,MaxDR=1e+6):
-        dFreq=1e6
-        f0=self.DicoSMStacked["AllFreqs"].min()
-        f1=self.DicoSMStacked["AllFreqs"].max()
-        M0=self.GiveModelImage(f0)
-        M1=self.GiveModelImage(f1)
+    def GiveSpectralIndexMap(
+            self, CellSizeRad=1., GaussPars=[(1, 1, 0)],
+            DoConv=True, MaxSpi=100, MaxDR=1e+6):
+        dFreq = 1e6
+        f0 = self.DicoSMStacked["AllFreqs"].min()
+        f1 = self.DicoSMStacked["AllFreqs"].max()
+        M0 = self.GiveModelImage(f0)
+        M1 = self.GiveModelImage(f1)
         if DoConv:
-            M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-            M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-        
-        # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
-        minmod = float("%.1e"%(abs(M0.max())/MaxDR))
+            M0 = ModFFTW.ConvolveGaussian(
+                M0, CellSizeRad=CellSizeRad, GaussPars=GaussPars)
+            M1 = ModFFTW.ConvolveGaussian(
+                M1, CellSizeRad=CellSizeRad, GaussPars=GaussPars)
+
+        # compute threshold for alpha computation by rounding DR threshold to .1
+        # digits (i.e. 1.65e-6 rounds to 1.7e-6)
+        minmod = float("%.1e" % (abs(M0.max())/MaxDR))
         # mask out pixels above threshold
-        mask=(M1<minmod)|(M0<minmod)
-        print>>log,"computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR)
+        mask = (M1 < minmod) | (M0 < minmod)
+        print>>log, "computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)" % (
+            minmod, MaxDR)
         with np.errstate(invalid='ignore'):
             alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
         alpha[mask] = 0
         # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
-        mask = alpha>MaxSpi
-        alpha[mask]  = MaxSpi
+        mask = alpha > MaxSpi
+        alpha[mask] = MaxSpi
         masked = mask.any()
-        mask = alpha<-MaxSpi
+        mask = alpha < -MaxSpi
         alpha[mask] = -MaxSpi
         if masked or mask.any():
-            print>>log,ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them."%MaxSpi,col="red")
+            print>>log, ModColor.Str(
+                "WARNING: some alpha pixels outside +/-%g. Masking them." %
+                MaxSpi, col="red")
         return alpha
 
     def GiveModelList(self):
@@ -172,69 +182,73 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             """
             sa = component["SolsArray"]
 
-            return map(lambda (i, sol, ls): (ls["ModelType"],               # type
-                                             coord,                         # coordinate
-                                             sol,                           # vector of STOKES parameters
-                                             ref_freq,                      # reference frequency
-                                             ls.get("Alpha", 0.0),          # alpha
-                                             ls.get("ModelParams", None)),  # shape
-               map(lambda i: (i, sa[i], self.ListScales[i]), range(sa.size)))
+            return map(lambda i_sol_ls: (i_sol_ls[2]["ModelType"],               # type
+                                         coord,                         # coordinate
+                                         i_sol_ls[1],
+                                         # vector of STOKES parameters
+                                         ref_freq,                      # reference frequency
+                                         i_sol_ls[2].get(
+                                             "Alpha", 0.0),  # alpha
+                                         i_sol_ls[2].get("ModelParams", None)),  # shape
+                       map(lambda i: (i, sa[i], self.ListScales[i]), xrange(sa.size)))
 
         # Lazily iterate through DicoComp entries and associated ListScales and SolsArrays,
         # assigning values to arrays
-        source_iter = itertools.chain.from_iterable(_model_map(coord, comp)
-            for coord, comp in DicoComp.iteritems())
+        source_iter = itertools.chain.from_iterable(_model_map(
+            coord, comp) for coord, comp in DicoComp.iteritems())
 
         # Create list with iterator results
         return [s for s in source_iter]
 
-    def GiveModelImage(self,FreqIn=None):
+    def GiveModelImage(self, FreqIn=None):
 
-        RefFreq=self.DicoSMStacked["RefFreq"]
+        RefFreq = self.DicoSMStacked["RefFreq"]
         if FreqIn is None:
-            FreqIn=np.array([RefFreq])
+            FreqIn = np.array([RefFreq])
 
-        #if type(FreqIn)==float:
+        # if type(FreqIn)==float:
         #    FreqIn=np.array([FreqIn]).flatten()
-        #if type(FreqIn)==np.ndarray:
+        # if type(FreqIn)==np.ndarray:
 
-        FreqIn=np.array([FreqIn.ravel()]).flatten()
+        FreqIn = np.array([FreqIn.ravel()]).flatten()
 
-        DicoComp=self.DicoSMStacked["Comp"]
-        _,npol,nx,ny=self.ModelShape
-        N0=nx
+        DicoComp = self.DicoSMStacked["Comp"]
+        _, npol, nx, ny = self.ModelShape
+        N0 = nx
 
-        nchan=FreqIn.size
-        ModelImage=np.zeros((nchan,npol,nx,ny),dtype=np.float32)
-        DicoSM={}
+        nchan = FreqIn.size
+        ModelImage = np.zeros((nchan, npol, nx, ny), dtype=np.float32)
+        DicoSM = {}
         for key in DicoComp.keys():
-            for pol in range(npol):
-                Sol=DicoComp[key]["SolsArray"][:,pol]#/self.DicoSMStacked[key]["SumWeights"]
-                x,y=key
+            for pol in xrange(npol):
+                Sol = DicoComp[key]["SolsArray"][:, pol]
+                # /self.DicoSMStacked[key]["SumWeights"]
+                x, y = key
 
                 #print>>log, "%s : %s"%(str(key),str(Sol))
 
-                for iFunc in range(Sol.size):
-                    ThisComp=self.ListScales[iFunc]
-                    ThisAlpha=ThisComp["Alpha"]
-                    for ch in range(nchan):
-                        Flux=Sol[iFunc]*(FreqIn[ch]/RefFreq)**(ThisAlpha)
-                        if ThisComp["ModelType"]=="Delta":
-                            ModelImage[ch,pol,x,y]+=Flux
+                for iFunc in xrange(Sol.size):
+                    ThisComp = self.ListScales[iFunc]
+                    ThisAlpha = ThisComp["Alpha"]
+                    for ch in xrange(nchan):
+                        Flux = Sol[iFunc]*(FreqIn[ch]/RefFreq)**(ThisAlpha)
+                        if ThisComp["ModelType"] == "Delta":
+                            ModelImage[ch, pol, x, y] += Flux
 
-                        elif ThisComp["ModelType"]=="Gaussian":
-                            Gauss=ThisComp["Model"]
-                            Sup,_=Gauss.shape
-                            x0,x1=x-Sup/2,x+Sup/2+1
-                            y0,y1=y-Sup/2,y+Sup/2+1
+                        elif ThisComp["ModelType"] == "Gaussian":
+                            Gauss = ThisComp["Model"]
+                            Sup, _ = Gauss.shape
+                            x0, x1 = x-Sup/2, x+Sup/2+1
+                            y0, y1 = y-Sup/2, y+Sup/2+1
 
+                            Aedge, Bedge = GiveEdges(
+                                (x, y), N0, (Sup/2, Sup/2), Sup)
+                            x0d, x1d, y0d, y1d = Aedge
+                            x0p, x1p, y0p, y1p = Bedge
 
-                            Aedge,Bedge=GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
-                            x0d,x1d,y0d,y1d=Aedge
-                            x0p,x1p,y0p,y1p=Bedge
+                            ModelImage[ch, pol, x0d:x1d,
+                                       y0d:y1d] += Gauss[x0p:x1p, y0p:y1p]*Flux
 
-                            ModelImage[ch,pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Flux
-        
         # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
         # vmin,vmax=-1,1
         # #vmin,vmax=np.min(ModelImage),np.max(ModelImage)
@@ -252,37 +266,39 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # print np.max(ModelImage[0,0])
         # # stop
 
- 
         return ModelImage
-        
-    def CleanNegComponants(self,box=20,sig=3,RemoveNeg=True):
-        print>>log, "Cleaning model dictionary from negative componants with (box, sig) = (%i, %i)"%(box,sig)
-        ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
-        
-        Min=scipy.ndimage.filters.minimum_filter(ModelImage,(box,box))
-        Min[Min>0]=0
-        Min=-Min
 
-        if RemoveNeg==False:
-            Lx,Ly=np.where((ModelImage<sig*Min)&(ModelImage!=0))
+    def CleanNegComponants(self, box=20, sig=3, RemoveNeg=True):
+        print>>log, "Cleaning model dictionary from negative componants with (box, sig) = (%i, %i)" % (
+            box, sig)
+        ModelImage = self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0, 0]
+
+        Min = scipy.ndimage.filters.minimum_filter(ModelImage, (box, box))
+        Min[Min > 0] = 0
+        Min = -Min
+
+        if not RemoveNeg:
+            Lx, Ly = np.where((ModelImage < sig*Min) & (ModelImage != 0))
         else:
             print>>log, "  Removing neg componants too"
-            Lx,Ly=np.where( ((ModelImage<sig*Min)&(ModelImage!=0)) | (ModelImage<0))
+            Lx, Ly = np.where(
+                ((ModelImage < sig * Min) & (ModelImage != 0)) | (ModelImage < 0))
 
-        for icomp in range(Lx.size):
-            key=Lx[icomp],Ly[icomp]
+        for icomp in xrange(Lx.size):
+            key = Lx[icomp], Ly[icomp]
             try:
                 del(self.DicoSMStacked["Comp"][key])
             except:
-                print>>log, "  Componant at (%i, %i) not in dict "%key
+                print>>log, "  Componant at (%i, %i) not in dict " % key
 
-    def CleanMaskedComponants(self,MaskName):
-        print>>log, "Cleaning model dictionary from masked componants using %s"%(MaskName)
-        im=image(MaskName)
-        MaskArray=im.getdata()[0,0].T[::-1]
-        for (x,y) in self.DicoSMStacked["Comp"].keys():
-            if MaskArray[x,y]==0:
-                del(self.DicoSMStacked["Comp"][(x,y)])
+    def CleanMaskedComponants(self, MaskName):
+        print>>log, "Cleaning model dictionary from masked componants using %s" % (
+            MaskName)
+        im = image(MaskName)
+        MaskArray = im.getdata()[0, 0].T[::-1]
+        for (x, y) in self.DicoSMStacked["Comp"].keys():
+            if MaskArray[x, y] == 0:
+                del(self.DicoSMStacked["Comp"][(x, y)])
     """
     Broken code: Marked for removal.
 
@@ -310,7 +326,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         pol,freq,decc,rac=im.toworld((0,0,0,0))
 
         Lx,Ly=np.where(ModelMap[0,0]!=0)
-        
+
         X=np.array(Lx)
         Y=np.array(Ly)
 
@@ -328,7 +344,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         SourceCat.RefFreq[:]=self.DicoSMStacked["RefFreq"]
         _,_,nx,ny=ModelMap.shape
-        
+
         for iSource in range(X.shape[0]):
             x_iSource,y_iSource=X[iSource],Y[iSource]
             _,_,dec_iSource,ra_iSource=im.toworld((0,0,y_iSource,x_iSource))
@@ -336,7 +352,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             SourceCat.dec[iSource]=dec_iSource
             SourceCat.X[iSource]=(nx-1)-X[iSource]
             SourceCat.Y[iSource]=Y[iSource]
-            
+
             #print self.DicoSMStacked["Comp"][(SourceCat.X[iSource],SourceCat.Y[iSource])]
             # SourceCat.Cluster[IndSource]=iCluster
             Flux=ModelMap[0,0,x_iSource,y_iSource]
@@ -350,49 +366,49 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         np.save(SkyModel,SourceCat)
         self.AnalyticSourceCat=ClassSM.ClassSM(SkyModel)
     """
+
     def DelAllComp(self):
         for key in self.DicoSMStacked["Comp"].keys():
             del(self.DicoSMStacked["Comp"][key])
 
-
     def PutBackSubsComps(self):
         #if self.GD["VisData"]["RestoreDico"] is None: return
 
-        SolsFile=self.GD["DDESolutions"]["DDSols"]
+        SolsFile = self.GD["DDESolutions"]["DDSols"]
         if not(".npz" in SolsFile):
-            Method=SolsFile
-            ThisMSName=reformat.reformat(os.path.abspath(self.GD["VisData"]["MSName"]),LastSlash=False)
-            SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
-        DicoSolsFile=np.load(SolsFile)
-        SourceCat=DicoSolsFile["SourceCatSub"]
-        SourceCat=SourceCat.view(np.recarray)
-        #RestoreDico=self.GD["VisData"]["RestoreDico"]
-        RestoreDico=DicoSolsFile["ModelName"][()][0:-4]+".DicoModel"
-        
-        print>>log, "Adding previously substracted components"
-        ModelMachine0=ClassModelMachine(self.GD)
+            Method = SolsFile
+            ThisMSName = reformat.reformat(
+                os.path.abspath(
+                    self.GD["VisData"]["MSName"]),
+                LastSlash=False)
+            SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
+        DicoSolsFile = np.load(SolsFile)
+        SourceCat = DicoSolsFile["SourceCatSub"]
+        SourceCat = SourceCat.view(np.recarray)
+        # RestoreDico=self.GD["VisData"]["RestoreDico"]
+        RestoreDico = DicoSolsFile["ModelName"][()][0:-4]+".DicoModel"
 
-        
+        print>>log, "Adding previously substracted components"
+        ModelMachine0 = ClassModelMachine(self.GD)
+
         ModelMachine0.FromFile(RestoreDico)
 
-        
+        _, _, nx0, ny0 = ModelMachine0.DicoSMStacked["ModelShape"]
 
-        _,_,nx0,ny0=ModelMachine0.DicoSMStacked["ModelShape"]
-        
-        _,_,nx1,ny1=self.ModelShape
-        dx=nx1-nx0
+        _, _, nx1, ny1 = self.ModelShape
+        dx = nx1-nx0
 
-        
+        for iSource in xrange(SourceCat.shape[0]):
+            x0 = SourceCat.X[iSource]
+            y0 = SourceCat.Y[iSource]
 
-        for iSource in range(SourceCat.shape[0]):
-            x0=SourceCat.X[iSource]
-            y0=SourceCat.Y[iSource]
-            
-            x1=x0+dx
-            y1=y0+dx
-            
-            if not((x1,y1) in self.DicoSMStacked["Comp"].keys()):
-                self.DicoSMStacked["Comp"][(x1,y1)]=ModelMachine0.DicoSMStacked["Comp"][(x0,y0)]
+            x1 = x0+dx
+            y1 = y0+dx
+
+            if not((x1, y1) in self.DicoSMStacked["Comp"].keys()):
+                self.DicoSMStacked["Comp"][
+                    (x1, y1)] = ModelMachine0.DicoSMStacked["Comp"][
+                    (x0, y0)]
             else:
-                self.DicoSMStacked["Comp"][(x1,y1)]+=ModelMachine0.DicoSMStacked["Comp"][(x0,y0)]
-                
+                self.DicoSMStacked["Comp"][
+                    (x1, y1)] += ModelMachine0.DicoSMStacked["Comp"][(x0, y0)]
