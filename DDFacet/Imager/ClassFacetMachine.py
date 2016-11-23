@@ -814,9 +814,9 @@ class ClassFacetMachine():
         b = FM.fft(a)  # this is never used
         self.FFTW_Wisdom = pyfftw.export_wisdom()
 
-        for iFacet in sorted(self.DicoImager.keys()):
-            A = ModFFTW.GiveFFTW_aligned(self.PaddedGridShape, np.complex64)
-            NpShared.ToShared("%sFFTW.%i" % (self.IdSharedMem, iFacet), A)
+        # for iFacet in sorted(self.DicoImager.keys()):
+        #     A = ModFFTW.GiveFFTW_aligned(self.PaddedGridShape, np.complex64)
+        #     NpShared.ToShared("%sFFTW.%i" % (self.IdSharedMem, iFacet), A)
 
     def InitParallel(self, Parallel=True):
         """

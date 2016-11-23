@@ -114,12 +114,12 @@ class CacheManager (object):
 
     def getShmURL (self, name, **kw):
         """
-        Forms up a URL for a shm-backed shared element. This takes the form of "shm://ddf:PID:", where PID is the
+        Forms up a URL for a shm-backed shared element. This takes the form of "shm://ddf.PID.", where PID is the
         pid of the process where the cache manager was created (so the parent process, presumably), followed
         by a filename of the form "NAME:KEY1_VALUE1:...", as returned by getElementName(). See getElementName()
         for usage.
         """
-        return "shm://ddf:%d:%s" % (os.getpid(), self.getElementName(name, **kw))
+        return "shm://ddf.%d.%s" % (os.getpid(), self.getElementName(name, **kw))
 
     def getCacheURL (self, name, **kw):
         """
