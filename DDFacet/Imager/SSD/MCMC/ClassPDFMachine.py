@@ -7,7 +7,7 @@ class ClassPDFMachine():
         self.ConvMachine=ConvMachine
         self.DM=ClassDistMachine()
 
-    def setPDF(self,indivIn,std,NReal=100):
+    def setPDF(self,indivIn,std,Chi2_0=None,NReal=100):
         indiv=indivIn.copy()
         indiv.fill(0)
         LTries=[]
@@ -21,7 +21,10 @@ class ClassPDFMachine():
 
         AChi2=np.sum(ATries**2,axis=1)
         
+        if Chi2_0 is not None:
+            AChi2*=Chi2_0/np.mean(AChi2)
         self.MeanChi2=np.mean(AChi2)
+
 
         xd,yd=self.DM.giveDist(AChi2,Ns=20)
         dx=xd[1]-xd[0]

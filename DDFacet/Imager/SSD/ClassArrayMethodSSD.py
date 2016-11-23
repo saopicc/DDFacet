@@ -884,10 +884,10 @@ class WorkerFitness(multiprocessing.Process):
         df=self.PM.NPixListData
         # self.rv = chi2(df)
         
-        self.rv=ClassPDFMachine.ClassPDFMachine(self.ConvMachine)
-        self.rv.setPDF(individual0,np.sqrt(self.PixVariance),NReal=1000)
-        #print self.PixVariance
         _,Chi2_0=self.GiveFitness(individual0)
+        self.rv=ClassPDFMachine.ClassPDFMachine(self.ConvMachine)
+        self.rv.setPDF(individual0,np.sqrt(self.PixVariance),Chi2_0=Chi2_0,NReal=1000)
+        #print self.PixVariance
         #logProb=self.rv.logpdf(Chi2)
 
 
@@ -902,17 +902,17 @@ class WorkerFitness(multiprocessing.Process):
         Parms=individual0
 
 
-        # # ##################################
-        # import pylab
-        # x=np.linspace(0,2*self.rv.MeanChi2,1000)
-        # P=self.rv.pdf(x)
-        # pylab.clf()
-        # pylab.plot(x,P)
-        # Chi2Red=Chi2_0#/self.Var
-        # pylab.scatter(Chi2Red,np.mean(P),c="black")
-        # pylab.draw()
-        # pylab.show(False)
-        # # ##################################
+        # ##################################
+        import pylab
+        x=np.linspace(0,2*self.rv.MeanChi2,1000)
+        P=self.rv.pdf(x)
+        pylab.clf()
+        pylab.plot(x,P)
+        Chi2Red=Chi2_0#/self.Var
+        pylab.scatter(Chi2Red,np.mean(P),c="black")
+        pylab.draw()
+        pylab.show(False)
+        # ##################################
 
         DicoChains["Parms"]=[]
         DicoChains["Chi2"]=[]
@@ -970,10 +970,10 @@ class WorkerFitness(multiprocessing.Process):
                     DicoChains["Parms"].append(individual1)
                     DicoChains["Chi2"].append(Chi2)
                 
-                # pylab.scatter(Chi2Norm,np.exp(p1),lw=0)
-                # pylab.draw()
-                # pylab.show(False)
-                # pylab.pause(0.1)
+                pylab.scatter(Chi2Norm,np.exp(p1),lw=0)
+                pylab.draw()
+                pylab.show(False)
+                pylab.pause(0.1)
                 
                 #print "  accept"
                 # Model=self.StackChain()
@@ -991,18 +991,18 @@ class WorkerFitness(multiprocessing.Process):
                 
             else:
                 
-                # # #######################
-                # pylab.scatter(Chi2Norm,np.exp(p1),c="red",lw=0)
-                # pylab.draw()
-                # pylab.show(False)
-                # pylab.pause(0.1)
-                # # #######################
+                # #######################
+                pylab.scatter(Chi2Norm,np.exp(p1),c="red",lw=0)
+                pylab.draw()
+                pylab.show(False)
+                pylab.pause(0.1)
+                # #######################
                 pass
 
             T.timeit("Compare")
 
             AccRate=np.count_nonzero(lAccept)/float(len(lAccept))
-            #print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
+            print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
             if (iStep%50==0)&(iStep>10):
                 if AccRate>0.5:
                     FactorAccelerate*=1.2
