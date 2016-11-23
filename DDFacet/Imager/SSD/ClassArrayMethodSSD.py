@@ -901,12 +901,19 @@ class WorkerFitness(multiprocessing.Process):
         self.rv=ClassPDFMachine.ClassPDFMachine(self.ConvMachine)
         #self.rv.setPDF(individual0,np.sqrt(self.PixVariance),Chi2_0=Chi2_0,NReal=1000)
         #self.rv.setPDF(individual0,np.sqrt(self.PixVariance),NReal=1000)
-        print
-        print
-        print "Estimated %f"%self.EstimatedStdFromMin
-        print
-        print
-        self.rv.setPDF(individual0,self.EstimatedStdFromMin,NReal=1000)
+        # print
+        # print
+        # print "Estimated %f"%self.EstimatedStdFromMin
+        # print
+        # print
+
+        S=np.sum(self.PM.ArrayToSubArray(individual0,"S"))
+        S=np.max(self.DirtyArray)
+        SNRMax=self.GD["MetroClean"]["MetroSNRMax"]
+        SNR=np.min([S/self.EstimatedStdFromMin,SNRMax])
+        Noise=S/SNR
+        #print "%f %f [%f -> %f]"%(S,SNR,self.EstimatedStdFromMin,Noise)
+        self.rv.setPDF(individual0,Noise,NReal=1000)
         
         #print self.PixVariance
         #logProb=self.rv.logpdf(Chi2)
@@ -923,7 +930,7 @@ class WorkerFitness(multiprocessing.Process):
         Parms=individual0
 
         # ##################################
-        DoPlot=False#True
+        DoPlot=0#True
         if DoPlot:
             import pylab
             pylab.figure(1)
@@ -949,8 +956,8 @@ class WorkerFitness(multiprocessing.Process):
         T.disable()
         FactorAccelerate=1.
         lAccept=[]
-        NBurn=self.GD["MetroClean"]["MetroNBurn"]
-        NBurn=0
+        NBurn=self.GD["MetroClean"]["MetroNBurnin"]
+
         NSteps=NSteps+NBurn
         for iStep in range(NSteps):
             #print "========================"
@@ -1044,18 +1051,18 @@ class WorkerFitness(multiprocessing.Process):
             T.timeit("Compare")
 
             AccRate=np.count_nonzero(lAccept)/float(len(lAccept))
-            print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
+            #print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
                 #self.PlotIndiv(individual1)
 
-            # if (iStep%50==0)&(iStep>10):
-            #     if AccRate>0.234:
-            #         FactorAccelerate*=1.2
-            #     else:
-            #         FactorAccelerate/=1.5
-            #     FactorAccelerate=np.min([3.,FactorAccelerate])
-            #     FactorAccelerate=np.max([.02,FactorAccelerate])
-            #     lAccept=[]
-            # T.timeit("Acceptance")
+            if (iStep%50==0)&(iStep>10):
+                if AccRate>0.234:
+                    FactorAccelerate*=1.2
+                else:
+                    FactorAccelerate/=1.5
+                FactorAccelerate=np.min([3.,FactorAccelerate])
+                FactorAccelerate=np.max([.02,FactorAccelerate])
+                lAccept=[]
+            T.timeit("Acceptance")
 
 
         DicoChains["logProb"]=np.array(DicoChains["logProb"])

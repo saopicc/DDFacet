@@ -77,7 +77,7 @@ class ClassMutate():
                 a1=A[iAlpha,0,i1,j1]
 
                 a2=(f0/f2)*(2**a0)+(f1/f2)*(2**a1)
-                if a2>0:
+                if a2>1e-2:
                     a2=np.log(a2)/np.log(2.)
                     # print a0,a1,a2
                     A[iAlpha,0,i1,j1]=a2
@@ -141,7 +141,7 @@ class ClassMutate():
         # move a pixel
         else:
             NMax=int(np.max([3.,self.PM.NPixListParms/10]))
-            N=1#int(random.uniform(1, NMax))
+            N=int(random.uniform(1, NMax))
             #N=int(random.uniform(1, individual.shape[1]/100))
             
             # InReg=random.uniform(-1,1)
@@ -191,7 +191,7 @@ class ClassMutate():
                 Flux=random.random()*Af[iPix]*FactorAccelerate
                 #Flux=0.5*Af[iPix]#*FactorAccelerate
                 Flux=np.min([Af[iPix],Flux])
-                InReg=random.random()*8
+                InReg=int(random.random()*8)
                 #i0=individual.copy()
                 individual=self.MovePix(individual,iPix,Flux,InReg=InReg)
                 #i1=individual.copy()
