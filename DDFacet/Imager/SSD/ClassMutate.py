@@ -112,10 +112,10 @@ class ClassMutate():
         
         Af=self.PM.ArrayToSubArray(individual,"S")
         index=np.arange(Af.size)
-        #ind=np.where(Af!=0.)[0]
-        AbsAf=np.abs(Af)
-        Max=np.max(AbsAf)
-        ind=np.where(AbsAf>1e-2*Max)[0]
+        ind=np.where(Af!=0.)[0]
+        #AbsAf=np.abs(Af)
+        #Max=np.max(AbsAf)
+        #ind=np.where(AbsAf>1e-2*Max)[0]
         NNonZero=(ind.size)
         if NNonZero==0: return individual,
 

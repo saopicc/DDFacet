@@ -1046,10 +1046,10 @@ class ClassImagerDeconv():
         self.FacetMachine.ToCasaImage(ModelImageAvg,
                                       ImageName="%s.model.metro"%(self.BaseName),
                                       Fits=True)
-        stop
         self.FacetMachine.ToCasaImage(DeconvMachine.SelectedIslandsMask,
                                       ImageName="%s.mask.metro"%(self.BaseName),
                                       Fits=True)
+        stop
         return ModelMachine
 
 

@@ -56,10 +56,10 @@ class ClassMetropolis():
 
         #print "PixVariance",PixVariance
 
-        GD["SSDClean"]["SSDCostFunc"]=["Chi2"]
+        GD["SSDClean"]["SSDCostFunc"]=["Sum2"]
         self.ArrayMethodsMachine=ClassArrayMethodSSD.ClassArrayMethodSSD(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
-                                                                         #PixVariance=PixVariance,
-                                                                         PixVariance=1.,
+                                                                         PixVariance=PixVariance,
+                                                                         #PixVariance=1.,
                                                                          iFacet=iFacet,
                                                                          IslandBestIndiv=IslandBestIndiv,
                                                                          GD=GD,

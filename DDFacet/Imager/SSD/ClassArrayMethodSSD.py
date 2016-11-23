@@ -17,6 +17,7 @@ import time
 from scipy.stats import chi2
 
 from deap import tools
+from DDFacet.Imager.SSD.MCMC import ClassPDFMachine
 
 log= MyLogger.getLogger("ClassArrayMethodSSD")
 
@@ -177,6 +178,7 @@ class ClassArrayMethodSSD():
             A+=np.random.randn(*A.shape)*Noise
         A=self.ConvMachine.Convolve(A,OutMode=OutMode)
         return A
+
 
 
 
@@ -804,6 +806,13 @@ class WorkerFitness(multiprocessing.Process):
                 #print chi2_norm
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-chi2_norm*W)
+            if FuncType=="Sum2":
+                # chi2=-np.sum(Weight*(Resid)**2)/(self.PixVariance*Resid.size)
+                chi2=np.sum((Resid)**2)
+                chi2_norm=chi2#/np.abs(self.BestChi2)
+                #print chi2_norm
+                W=self.WeightMaxFunc[FuncType]
+                ContinuousFitNess.append(-chi2_norm*W)
             if FuncType=="Chi2Th":
                 chi2=np.sum((Resid)**2)/(self.PixVariance)
 
@@ -873,29 +882,33 @@ class WorkerFitness(multiprocessing.Process):
     def runMetroSingleChain(self,individual0,NSteps=1000):
 
         df=self.PM.NPixListData
-        self.rv = chi2(df)
+        # self.rv = chi2(df)
+        
+        self.rv=ClassPDFMachine.ClassPDFMachine(self.ConvMachine)
+        self.rv.setPDF(individual0,np.sqrt(self.PixVariance),NReal=1000)
+        #print self.PixVariance
         _,Chi2_0=self.GiveFitness(individual0)
         #logProb=self.rv.logpdf(Chi2)
 
 
-        #Sig=self.rv.moment(2)
-        x=np.linspace(0,2*self.rv.moment(1),1000)
-        lP=self.rv.logpdf(x)
-        iMax=np.argmax(lP)
-        self.Chi2PMax=x[iMax]
-        self.MinChi2=Chi2_0
-        self.Var=self.MinChi2/self.Chi2PMax
+        # #Sig=self.rv.moment(2)
+        # x=np.linspace(0,2*self.rv.moment(1),1000)
+        # lP=self.rv.logpdf(x)
+        # iMax=np.argmax(lP)
+        # self.Chi2PMax=x[iMax]
+        # self.MinChi2=Chi2_0
+        # self.Var=self.MinChi2/self.Chi2PMax
         DicoChains={}
         Parms=individual0
 
 
         # # ##################################
         # import pylab
-        # x=np.linspace(0,2*self.rv.moment(1),1000)
+        # x=np.linspace(0,2*self.rv.MeanChi2,1000)
         # P=self.rv.pdf(x)
         # pylab.clf()
         # pylab.plot(x,P)
-        # Chi2Red=Chi2_0/self.Var
+        # Chi2Red=Chi2_0#/self.Var
         # pylab.scatter(Chi2Red,np.mean(P),c="black")
         # pylab.draw()
         # pylab.show(False)
@@ -904,7 +917,8 @@ class WorkerFitness(multiprocessing.Process):
         DicoChains["Parms"]=[]
         DicoChains["Chi2"]=[]
         DicoChains["logProb"]=[]
-        logProb0=self.rv.logpdf(Chi2_0/self.Var)
+        #logProb0=self.rv.logpdf(Chi2_0/self.Var)
+        logProb0=self.rv.logpdf(Chi2_0)
         
         Mut_pFlux, Mut_p0, Mut_pMove=0.,0.,0.3
 
@@ -930,7 +944,7 @@ class WorkerFitness(multiprocessing.Process):
             #     print "           >>>>>>>>>>>>>> %f"%np.min(Chi2)
 
 
-            Chi2Norm=Chi2/self.Var
+            Chi2Norm=Chi2#/self.Var
             
             logProb=self.rv.logpdf(Chi2Norm)
             T.timeit("LogPDF")
