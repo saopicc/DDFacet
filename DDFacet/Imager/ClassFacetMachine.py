@@ -113,7 +113,7 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisd
                 DataShape, DataPath, FlagPath, DataCorrelationFormat, 
                 ExpectedOutputStokes):
     T = ClassTimeIt.ClassTimeIt()
-    # T.disable()
+    T.disable()
     pill = True
     # While no poisoned pill has been given grab items from the queue.
     while pill:
@@ -206,6 +206,9 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisd
                         "DicoClusterDirs"] = DicoClusterDirs_Beam
 
                 T.timeit("prepare %d"%iFacet)
+                for arr in visThis0, flagsThis0, W:
+                    NpShared.Lock(arr)
+                T.timeit("lock %d"%iFacet)
                 GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                                 DoNormWeights=False,
                                 DicoJonesMatrices=DicoJonesMatrices,
@@ -1046,21 +1049,21 @@ class ClassFacetMachine():
             self.VS.maincache.saveCache("FacetData")
         else:
             print>>log,"using W kernels from cache %s"%cachepath
-            # now load cached spatial weights, wterms and spheroidals from cache and lock them into memory
-            self._wterms = {}
-            self._sphes = {}
-            for iFacet in sorted(self.DicoImager.keys()):
-                NameSpacialWeigth = self.VS.maincache.getCacheURL("SW", facet=iFacet)
-                SpacialWeigth = NpShared.GiveArray(NameSpacialWeigth)
-                NpShared.Lock(SpacialWeigth)
-                self.SpacialWeigth[iFacet] = SpacialWeigth
-                wterm = NpShared.GiveArray( self.VS.maincache.getCacheURL("WTerm", facet=iFacet) )
-                sphe = NpShared.GiveArray( self.VS.maincache.getCacheURL("Sphe", facet=iFacet) )
-                NpShared.Lock(wterm)
-                NpShared.Lock(sphe)
-                # store in dict
-                self._wterms[iFacet] = wterm
-                self._sphes[iFacet] = sphe
+        # now load cached spatial weights, wterms and spheroidals from cache and lock them into memory
+        self._wterms = {}
+        self._sphes = {}
+        for iFacet in sorted(self.DicoImager.keys()):
+            NameSpacialWeigth = self.VS.maincache.getCacheURL("SW", facet=iFacet)
+            SpacialWeigth = NpShared.GiveArray(NameSpacialWeigth)
+            NpShared.Lock(SpacialWeigth)
+            self.SpacialWeigth[iFacet] = SpacialWeigth
+            wterm = NpShared.GiveArray( self.VS.maincache.getCacheURL("WTerm", facet=iFacet) )
+            sphe = NpShared.GiveArray( self.VS.maincache.getCacheURL("Sphe", facet=iFacet) )
+            NpShared.Lock(wterm)
+            NpShared.Lock(sphe)
+            # store in dict
+            self._wterms[iFacet] = wterm
+            self._sphes[iFacet] = sphe
         print>> log, "W kernels loaded and locked into memory"
 
         return True
