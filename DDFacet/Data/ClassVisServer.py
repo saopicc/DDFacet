@@ -682,6 +682,7 @@ class ClassVisServer():
                 # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
                 print>>log,"  reading %s FLAG" % ms.MSName
                 tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
+                print>>log,"  adjusting flags"
                 # if any polarization is flagged, flag all 4 correlations. Shape
                 # of flags becomes nrow,nchan
                 flags = flags.max(axis=2)
