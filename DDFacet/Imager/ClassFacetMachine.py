@@ -109,8 +109,8 @@ def init_w_worker_tessel(m_work_queue, m_result_queue, GD, cachemanager, FFTW_Wi
 # Gridding worker that is called by Multiprocessing.Process
 def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisdom, DicoImager,
                 IdSharedMem, IdSharedMemData, FacetDataCache, ChunkDataCache,
-                ApplyCal, SpheNorm, PSFMode, NFreqBands, Weights, PauseOnStart,
-                DataShape, DataPath, FlagPath, DataCorrelationFormat, 
+                ApplyCal, SpheNorm, PSFMode, NFreqBands, PauseOnStart,
+                DataCorrelationFormat,
                 ExpectedOutputStokes):
     T = ClassTimeIt.ClassTimeIt()
     T.disable()
@@ -144,23 +144,14 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisd
                     wterm=WTerms[iFacet], sphe=Sphes[iFacet],
                 )
                 T.timeit("create %d"%iFacet)
-                ## disabling this: data now passed in directly
-                #DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
                 uvwThis = DATA["uvw"]
-                visThis0 = visThis = DATA["data"]
-                flagsThis0 = flagsThis = DATA["flags"]
-                #visThis0 = visThis = NpShared.GiveArray(DataPath)
-                #flagsThis0 = flagsThis = NpShared.GiveArray(FlagPath)
-		
-                if DataShape:
-                   visThis = np.ndarray(shape=DataShape, dtype=np.complex64, buffer=visThis0)
-                   flagsThis = np.ndarray(shape=DataShape, dtype=np.bool, buffer=flagsThis0)
+                visThis = DATA["data"]
+                flagsThis = DATA["flags"]
                 times = DATA["times"]
                 A0 = DATA["A0"]
                 A1 = DATA["A1"]
                 A0A1 = A0, A1
                 W = DATA["Weights"] ## proof of concept for now
-                # # NpShared.GiveArray("file://"+Weights)
                 freqs = DATA["freqs"]
                 ChanMapping = DATA["ChanMapping"]
 
@@ -206,9 +197,9 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisd
                         "DicoClusterDirs"] = DicoClusterDirs_Beam
 
                 T.timeit("prepare %d"%iFacet)
-                for arr in visThis0, flagsThis0, W:
-                    NpShared.Lock(arr)
-                T.timeit("lock %d"%iFacet)
+                # for arr in visThis0, flagsThis0, W:
+                #     NpShared.Lock(arr)
+                # T.timeit("lock %d"%iFacet)
                 GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                                 DoNormWeights=False,
                                 DicoJonesMatrices=DicoJonesMatrices,
@@ -1616,10 +1607,7 @@ class ClassFacetMachine():
         SpheNorm = SpheNorm
         PSFMode = PSFMode
         NFreqBands = self.VS.NFreqBands
-        Weights = Weights
         PauseOnStart = self.GD["Debugging"]["PauseGridWorkers"]
-        DataPath=self.VS.datapath
-        FlagPath=self.VS.flagpath
         DataShape=self.VS.datashape
         DataCorrelationFormat = self.VS.StokesConverter.AvailableCorrelationProductsIds()
         ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds()
@@ -1648,11 +1636,7 @@ class ClassFacetMachine():
                                                   SpheNorm,
                                                   PSFMode,
                                                   NFreqBands,
-                                                  Weights,
                                                   PauseOnStart,
-                                                  DataShape,
-                                                  DataPath,
-                                                  FlagPath,                                                 
                                                   DataCorrelationFormat,
                                                   ExpectedOutputStokes,))
 
