@@ -102,7 +102,7 @@ def init_w_worker_tessel(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom,
 
 
 # Gridding worker that is called by Multiprocessing.Process
-def grid_worker(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom, DicoImager,
+def grid_worker(m_work_queue, m_result_queue, GD, DATA, FFTW_Wisdom, DicoImager,
                 IdSharedMem, IdSharedMemData, FacetDataCache, ChunkDataCache,
                 ApplyCal, SpheNorm, PSFMode, NFreqBands, Weights, PauseOnStart,
                 DataShape, DataPath, FlagPath, DataCorrelationFormat, 
@@ -134,11 +134,13 @@ def grid_worker(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom, DicoImager,
                     IdSharedMem, IdSharedMemData, FacetDataCache,
                      ChunkDataCache, iFacet, SpheNorm, NFreqBands,
                     DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores)
-
-                DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
+                ## disabling this: data now passed in directly
+                #DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
                 uvwThis = DATA["uvw"]
-                visThis0 = visThis = NpShared.GiveArray(DataPath)
-                flagsThis0 = flagsThis = NpShared.GiveArray(FlagPath)
+                visThis0 = visThis = DATA["data"]
+                flagsThis0 = flagsThis = DATA["flags"]
+                #visThis0 = visThis = NpShared.GiveArray(DataPath)
+                #flagsThis0 = flagsThis = NpShared.GiveArray(FlagPath)
 		
                 if DataShape:
                    visThis = np.ndarray(shape=DataShape, dtype=np.complex64, buffer=visThis0)
@@ -147,13 +149,13 @@ def grid_worker(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom, DicoImager,
                 A0 = DATA["A0"]
                 A1 = DATA["A1"]
                 A0A1 = A0, A1
-                W = Weights ## proof of concept for now
+                W = DATA["Weights"] ## proof of concept for now
                 # # NpShared.GiveArray("file://"+Weights)
                 freqs = DATA["freqs"]
                 ChanMapping = DATA["ChanMapping"]
 
                 DecorrMode = GD["DDESolutions"]["DecorrMode"]
-                if ('F' in DecorrMode) | ("T" in DecorrMode):
+                if ('F' in DecorrMode) or ("T" in DecorrMode):
                     uvw_dt = DATA["uvw_dt"]
                     DT, Dnu = DATA["MSInfos"]
                     GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
@@ -1034,12 +1036,7 @@ class ClassFacetMachine():
 
         return True
 
-    def setCasaImage(
-        self,
-        ImageName=None,
-        Shape=None,
-        Freqs=None,
-     Stokes=["I"]):
+    def setCasaImage(self, ImageName=None, Shape=None, Freqs=None, Stokes=["I"]):
         if ImageName is None:
             ImageName = self.ImageName
 
@@ -1264,18 +1261,10 @@ class ClassFacetMachine():
                 for ch in xrange(nch):
                     i = n/2 - NPixMin/2
                     j = n/2 + NPixMin/2 + 1
-                    CubeVariablePSF[
-                        iFacet,
-                        ch,
-                        :,
-                        :,
-                        :] = DicoVariablePSF[iFacet]["PSF"][ch][
-                        :,
-                        i:j,
-                        i:j]
-                CubeMeanVariablePSF[
-                    iFacet, 0, :, :, :] = DicoVariablePSF[iFacet]["MeanPSF"][
-                    0, :, i:j, i:j]
+                    CubeVariablePSF[iFacet, ch, :, :, :] = \
+                        DicoVariablePSF[iFacet]["PSF"][ch][:, i:j, i:j]
+                CubeMeanVariablePSF[iFacet, 0, :, :, :] = \
+                    DicoVariablePSF[iFacet]["MeanPSF"][0, :, i:j, i:j]
 
             self.DicoPSF["CubeVariablePSF"] = CubeVariablePSF
             self.DicoPSF["CubeMeanVariablePSF"] = CubeMeanVariablePSF
@@ -1625,7 +1614,7 @@ class ClassFacetMachine():
         for cpu in xrange(n_cpus):
             p = Process(target=grid_worker, args=(m_work_queue, m_result_queue,
                                                   self.GD,
-                                                  Mode,
+                                                  self.VS.DATA,
                                                   FFTW_Wisdom,
                                                   DicoImager,
                                                   IdSharedMem,
@@ -2007,9 +1996,9 @@ class ClassFacetMachine():
                         SpheNorm,
                         NFreqBands,
                         PauseOnStart,
-			DataShape,
-			DataPath,
-			FlagPath,
+                        DataShape,
+                        DataPath,
+                        FlagPath,
                         DataCorrelationFormat,
                         ExpectedOutputStokes,
                         ListSemaphores,

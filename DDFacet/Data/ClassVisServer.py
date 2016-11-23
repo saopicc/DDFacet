@@ -326,39 +326,39 @@ class ClassVisServer():
         AverageBeamMachine.LoadData()
         AverageBeamMachine.CalcMeanBeam()
 
-    def VisChunkToShared(self):
-
-        D = self.ThisDataChunk
-        DATA = {}
-        for key,entry in D.iteritems():
-            # data and flags is not stored in shared memory
-            if not isinstance(D[key], np.ndarray) or key == "data" or key == "flags":
-                continue
-            # if not(
-            #    key in [
-            #        'times',
-            #        'A1',
-            #        'A0',
-            #        'flagpath',
-            #        'uvw',
-            #        'datapath',
-            #        "uvw_dt",
-            #        "MSInfos",
-            #        "ChanMapping",
-            #        "ChanMappingDegrid"]):
-            DATA[key] = entry
-
-
-        if "DicoBeam" in D.keys():
-            DATA["DicoBeam"] = D["DicoBeam"]
-
-        #print>>log, "!!!!!!!!!"
-        # DATA["flags"].fill(0)
-
-        print>>log, "Putting data in shared memory"
-        DATA = NpShared.DicoToShared("%sDicoData" % self.IdSharedMem, DATA)
-
-        return DATA
+    # def VisChunkToShared(self):
+    #
+    #     D = self.ThisDataChunk
+    #     DATA = {}
+    #     for key,entry in D.iteritems():
+    #         # data and flags is not stored in shared memory
+    #         if not isinstance(D[key], np.ndarray) or key == "data" or key == "flags":
+    #             continue
+    #         # if not(
+    #         #    key in [
+    #         #        'times',
+    #         #        'A1',
+    #         #        'A0',
+    #         #        'flagpath',
+    #         #        'uvw',
+    #         #        'datapath',
+    #         #        "uvw_dt",
+    #         #        "MSInfos",
+    #         #        "ChanMapping",
+    #         #        "ChanMappingDegrid"]):
+    #         DATA[key] = entry
+    #
+    #
+    #     if "DicoBeam" in D.keys():
+    #         DATA["DicoBeam"] = D["DicoBeam"]
+    #
+    #     #print>>log, "!!!!!!!!!"
+    #     # DATA["flags"].fill(0)
+    #
+    #     print>>log, "Putting data in shared memory"
+    #     DATA = NpShared.DicoToShared("%sDicoData" % self.IdSharedMem, DATA)
+    #
+    #     return DATA
 
     def ReInitChunkCount(self):
         self.iCurrentMS = 0
@@ -399,18 +399,21 @@ class ClassVisServer():
 
     def LoadNextVisChunk(self, keep_data=False, null_data=False):
         """
-        Loads next visibility chunk (from current MS or next MS).
+        Loads next visibility chunk (from current MS or next MS). Populates self.DATA with a dict
+        of the visibilities and associated metadata.
 
         Args:
             keep_data: if True, then we want to keep a separate copy of the visibilities (retrieved
-                by getOriginalData()) above. Normally the
-                visibility buffer is modified during degridding (overwritten by residuals). If we want
-                to retain the original data (e.g. for computing the predict), we set keep_data=True.
+                by getOriginalData()) above. Normally the visibility buffer is modified during degridding
+                (overwritten by residuals). If we want to retain the original data (e.g. for computing the
+                predict), we set keep_data=True.
 
-            null_data: if True, then we don't want to read the data at all, but rather just want to make
-                a null buffer of the same shape as the data.
+            null_data: if True, then we don't want to read the visibility data at all, but rather just want to make
+                a null buffer of the same shape as the visibility data.
 
         Returns:
+            DATA object (dict) the next chunk is loaded. Otherwise, a string indicating the end-of-data condition.
+            ("EndOfObservaton", etc.)
 
         """
         self.residual_data = self.orig_data = self.orig_datapath = None
@@ -450,9 +453,7 @@ class ClassVisServer():
         data = DATA["data"]
         A0 = DATA["A0"]
         A1 = DATA["A1"]
-        uvw = DATA["uvw"]
 
-        flags = DATA["flags"]
         freqs = MS.ChanFreq.flatten()
         nbl = MS.nbl
         self.datashape = data.shape
@@ -496,13 +497,11 @@ class ClassVisServer():
         # ##
 
         # load and lock weights
-        print self.VisWeights
         self._visweights = NpShared.GiveArray("file://"+self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk])
         NpShared.Lock(self._visweights)
         # DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
         # as a proof of concept, pass weights in directly
         DATA["Weights"] = self._visweights
-
 
         DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
 
@@ -526,58 +525,33 @@ class ClassVisServer():
         DATA["ChanMapping"] = self.CurrentChanMapping
         DATA["ChanMappingDegrid"] = self.DicoMSChanMappingDegridding[self.iCurrentMS]
 
-        print>>log, "  channel Mapping Gridding  : %s" % (
-            str(self.CurrentChanMapping))
-        print>>log, "  channel Mapping DeGridding: %s" % (
-            str(DATA["ChanMappingDegrid"]))
+        print>>log, "  channel Mapping Gridding  : %s" % str(self.CurrentChanMapping)
+        print>>log, "  channel Mapping DeGridding: %s" % str(DATA["ChanMappingDegrid"])
 
-        self.UpdateCompression(
-            DATA, ChanMappingGridding=DATA["ChanMapping"],
-            ChanMappingDeGridding=self.DicoMSChanMappingDegridding
-            [self.iCurrentMS])
+        self.UpdateCompression(DATA, ChanMappingGridding=DATA["ChanMapping"],
+            ChanMappingDeGridding=self.DicoMSChanMappingDegridding[self.iCurrentMS])
 
-        JonesMachine = ClassJones.ClassJones(
-            self.GD, self.CurrentMS, self.FacetMachine,
+        JonesMachine = ClassJones.ClassJones(self.GD, self.CurrentMS, self.FacetMachine,
             IdSharedMem=self.IdSharedMem)
         JonesMachine.InitDDESols(DATA)
-
-        #############################
-        #############################
 
         if self.AddNoiseJy is not None:
             data += (self.AddNoiseJy/np.sqrt(2.)
                      )*(np.random.randn(*data.shape)+1j*np.random.randn(*data.shape))
 
         if freqs.size > 1:
-            freqs = np.float64(freqs)
+            DATA["freqs"] = np.float64(freqs)
         else:
-            freqs = np.array([freqs[0]], dtype=np.float64)
+            DATA["freqs"] = np.array([freqs[0]], dtype=np.float64)
 
-        DicoDataOut = {
-            "times": DATA["times"],
-            "freqs": freqs, "A0": DATA["A0"],
-            "A1": DATA["A1"],
-            "uvw": DATA["uvw"],
-            "flags": DATA["flags"],
-            "nbl": nbl, "na": MS.na, "data": DATA["data"],
-            "ROW0": MS.ROW0, "ROW1": MS.ROW1, "infos": np.array([MS.na]),
-            "Weights": self.VisWeights[self.iCurrentMS]
-            [self.CurrentMS.current_chunk],
-            "ChanMapping": DATA["ChanMapping"],
-            "ChanMappingDegrid": DATA["ChanMappingDegrid"]}
+        DATA["nbl"]   = nbl
+        DATA["na"]    = MS.na
+        DATA["ROW0"]  = MS.ROW0
+        DATA["ROW1"]  = MS.ROW1
 
-        DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
-        if ('F' in DecorrMode) | ("T" in DecorrMode):
-            DicoDataOut["uvw_dt"] = DATA["uvw_dt"]
-            DicoDataOut["MSInfos"] = DATA["MSInfos"]
+        self.DATA = DATA
 
-        self.ThisDataChunk = DicoDataOut
-        self.CurrentVisWeights = self._visweights
-        # self.VisWeights[
-        #     self.iCurrentMS][
-        #     self.CurrentMS.current_chunk]
-
-        return "LoadOK"
+        return DATA
 
     def setFacetMachine(self, FacetMachine):
         self.FacetMachine = FacetMachine
