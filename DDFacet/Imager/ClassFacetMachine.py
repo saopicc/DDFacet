@@ -108,7 +108,8 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, FFTW_Wisdom, DicoImager,
                 ApplyCal, SpheNorm, PSFMode, NFreqBands, Weights, PauseOnStart,
                 DataShape, DataPath, FlagPath, DataCorrelationFormat, 
                 ExpectedOutputStokes):
-
+    timer = ClassTimeIt.ClassTimeIt().timeit
+    # timer = lambda x:None
     pill = True
     # While no poisoned pill has been given grab items from the queue.
     while pill:
@@ -126,6 +127,7 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, FFTW_Wisdom, DicoImager,
                 pill = False  # The poisoned pill to stop the worker
                 break
             else:
+                timer("init %d" % iFacet)
                 ListSemaphores = None
                 # Create a new GridMachine
                 GridMachine = ClassDDEGridMachine.ClassDDEGridMachine(
@@ -135,6 +137,7 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, FFTW_Wisdom, DicoImager,
                     IdSharedMem, IdSharedMemData, FacetDataCache,
                      ChunkDataCache, iFacet, SpheNorm, NFreqBands,
                     DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores)
+                timer("create %d"%iFacet)
                 ## disabling this: data now passed in directly
                 #DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
                 uvwThis = DATA["uvw"]
@@ -196,17 +199,19 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, FFTW_Wisdom, DicoImager,
                     DicoJonesMatrices["DicoJones_Beam"][
                         "DicoClusterDirs"] = DicoClusterDirs_Beam
 
+                timer("prepare %d"%iFacet)
                 GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                                 DoNormWeights=False,
                                 DicoJonesMatrices=DicoJonesMatrices,
                                 freqs=freqs, DoPSF=PSFMode,
                                 ChanMapping=ChanMapping,
                                 ResidueGrid=Grid)
+                timer("put %d"%iFacet)
 
                 Sw = GridMachine.SumWeigths.copy()
                 SumJones = GridMachine.SumJones.copy()
                 SumJonesChan = GridMachine.SumJonesChan.copy()
-                del (GridMachine)
+#                del (GridMachine)
 
                 # Place results into queue
                 m_result_queue.put({"Success": True, "iFacet": iFacet,
@@ -941,11 +946,14 @@ class ClassFacetMachine():
                 main_core = 0  # CPU affinity placement
                 # start a pinned work producer process
                 work_p.start()
+                # note that when a child process is forked off by p.start() below, it
+                # inherits this affinity setting.
                 procinfo.cpu_affinity([n_cpus-1])
 
                 # start all processes and pin them each to a core
                 for p in procs:
                     p.start()
+                    # we therefore cycle through affinities, forking off children one by one
                     procinfo.cpu_affinity([main_core])
                     main_core += 1
 
@@ -1022,7 +1030,8 @@ class ClassFacetMachine():
         else:
             print>>log,"using W kernels from cache %s"%cachepath
         # now load cached spatial weights, wterms and spheroidals and lock them into memory
-        self._wterms_sphes = {}
+        self._wterms = {}
+        self._sphes  = {}
         for iFacet in sorted(self.DicoImager.keys()):
             NameSpacialWeigth = "%sSpacialWeight.Facet_%3.3i"%(self.FacetDataCache,iFacet)
             SpacialWeigth = NpShared.GiveArray(NameSpacialWeigth)
@@ -1032,7 +1041,8 @@ class ClassFacetMachine():
             sphe = NpShared.GiveArray("%sSpheroidal.Facet_%3.3i" % (self.FacetDataCache, iFacet))
             NpShared.Lock(wterm)
             NpShared.Lock(sphe)
-            self._wterms_sphes[iFacet] = wterm, sphe
+            self._wterms[iFacet] = wterm
+            self._sphes[iFacet] = sphe
         print>> log, "W kernels loaded and locked into memory"
 
         return True
