@@ -639,21 +639,17 @@ class ClassVisServer():
         output_list = []
         for ms, ms_weight_list in zip(self.ListMS, self.VisWeights):
             tab = ms.GiveMainTable()
-            for (
-                    row0, row1), cachepath in zip(
-                    ms.getChunkRow0Row1(), ms_weight_list):
+            for (row0, row1), cachepath in zip(ms.getChunkRow0Row1(), ms_weight_list):
                 nrows = row1 - row0
                 chanslice = ms.ChanSlice
                 if not nrows:
                     # if no data in this chunk, make single, flagged entry
-                    output_list.append(
-                        (np.zeros((1, 2)), 
-						 np.zeros(
-                            (1, len(
-                                ms.ChanFreq))),
+                    output_list.append( (np.zeros((1, 2)),
+						 np.zeros((1, len(ms.ChanFreq))),
                          np.array([True]), 
                          ms.ChanFreq))
                     continue
+                print>>log,"  reading %s UVW" % ms.MSName
                 uvs = tab.getcol("UVW", row0, nrows)[:, :2]
                 flags = np.empty(
                     (nrows, 
@@ -661,14 +657,8 @@ class ClassVisServer():
                      len(ms.CorrelationIds)),
                     bool)
                 # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
-                tab.getcolslicenp(
-                    "FLAG",
-                    flags,
-                    ms.cs_tlc,
-                    ms.cs_brc,
-                    ms.cs_inc,
-                    row0,
-                    nrows)
+                print>>log,"  reading %s FLAG" % ms.MSName
+                tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
                 # if any polarization is flagged, flag all 4 correlations. Shape
                 # of flags becomes nrow,nchan
                 flags = flags.max(axis=2)
@@ -685,14 +675,14 @@ class ClassVisServer():
 
                 if WeightCol == "WEIGHT_SPECTRUM":
                     w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
-                    print>> log, "  Reading column %s for the weights, shape is %s" % (
+                    print>> log, "  reading column %s for the weights, shape is %s" % (
                         WeightCol, w.shape)
                     # take mean weight across correlations and apply this to all
                     WEIGHT[...] = w.mean(axis=2) * valid
 
                 elif WeightCol == "WEIGHT":
                     w = tab.getcol(WeightCol, row0, nrows)
-                    print>> log, "  Reading column %s for the weights, shape is %s, will expand frequency axis" % (
+                    print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (
                         WeightCol, w.shape)
                     # take mean weight and apply this to all correlations, and
                     # expand to have frequency axis
@@ -701,8 +691,8 @@ class ClassVisServer():
                     # in all other cases (i.e. IMAGING_WEIGHT) assume a column
                     # of shape NRow,NFreq to begin with, check for this:
                     w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
-                    print>> log, "  Reading column %s for the weights, shape is %s" % (
-                        WeightCol, w.shape)
+                    print>> log, "  reading column %s for the weights, shape is %s" % (
+                        WeightCol, w.sshape)
                     if w.shape != valid.shape:
                         raise TypeError(
                             "weights column expected to have shape of %s" %
