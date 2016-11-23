@@ -129,6 +129,16 @@ class ClassArrayMethodSSD():
             self.DirtyArray[iBand,0,:]=Dirty[iBand,0,x0,y0]
 
         ALPHA=1.
+
+        import scipy.special
+        d=self.DirtyArray[:,0,:].ravel()
+        x=np.linspace(-10,10,1000)
+        f=0.5*(1.+scipy.special.erf(x/np.sqrt(2.)))
+        n=d.size
+        F=1.-(1.-f)**n
+        ratio=np.abs(np.interp(0.5,F,x))
+        self.EstimatedStdFromMin=-np.min(d)/ratio
+
         if (self.IslandBestIndiv is not None):
             S=self.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
             if np.max(np.abs(S))>0:
@@ -326,6 +336,7 @@ class ClassArrayMethodSSD():
                             PauseOnStart=False,
                             PM=self.PM,
                             PixVariance=self.PixVariance,
+                            EstimatedStdFromMin=self.EstimatedStdFromMin,
                             MaxFunc=self.MaxFunc,
                             WeightMaxFunc=self.WeightMaxFunc,
                             DirtyArray=self.DirtyArray,
@@ -677,7 +688,8 @@ class WorkerFitness(multiprocessing.Process):
                  ConvMode=None,
                  StopWhenQueueEmpty=False,
                  BestChi2=1.,
-                 DicoData=None):
+                 DicoData=None,
+                 EstimatedStdFromMin=None):
         self.T=ClassTimeIt.ClassTimeIt("WorkerFitness")
         self.T.disable()
         multiprocessing.Process.__init__(self)
@@ -705,6 +717,7 @@ class WorkerFitness(multiprocessing.Process):
         self.T.timeit("init")
         self.StopWhenQueueEmpty=StopWhenQueueEmpty
         self.BestChi2=BestChi2
+        self.EstimatedStdFromMin=EstimatedStdFromMin
 
     def shutdown(self):
         self.exit.set()
@@ -886,7 +899,15 @@ class WorkerFitness(multiprocessing.Process):
         
         _,Chi2_0=self.GiveFitness(individual0)
         self.rv=ClassPDFMachine.ClassPDFMachine(self.ConvMachine)
-        self.rv.setPDF(individual0,np.sqrt(self.PixVariance),Chi2_0=Chi2_0,NReal=1000)
+        #self.rv.setPDF(individual0,np.sqrt(self.PixVariance),Chi2_0=Chi2_0,NReal=1000)
+        #self.rv.setPDF(individual0,np.sqrt(self.PixVariance),NReal=1000)
+        print
+        print
+        print "Estimated %f"%self.EstimatedStdFromMin
+        print
+        print
+        self.rv.setPDF(individual0,self.EstimatedStdFromMin*2.,NReal=1000)
+        
         #print self.PixVariance
         #logProb=self.rv.logpdf(Chi2)
 
@@ -901,17 +922,18 @@ class WorkerFitness(multiprocessing.Process):
         DicoChains={}
         Parms=individual0
 
-
         # ##################################
-        import pylab
-        x=np.linspace(0,2*self.rv.MeanChi2,1000)
-        P=self.rv.pdf(x)
-        pylab.clf()
-        pylab.plot(x,P)
-        Chi2Red=Chi2_0#/self.Var
-        pylab.scatter(Chi2Red,np.mean(P),c="black")
-        pylab.draw()
-        pylab.show(False)
+        DoPlot=0#True
+        if DoPlot:
+            import pylab
+            x=np.linspace(0,2*self.rv.MeanChi2,1000)
+            P=self.rv.pdf(x)
+            pylab.clf()
+            pylab.plot(x,P)
+            Chi2Red=Chi2_0#/self.Var
+            pylab.scatter(Chi2Red,np.mean(P),c="black")
+            pylab.draw()
+            pylab.show(False)
         # ##################################
 
         DicoChains["Parms"]=[]
@@ -927,6 +949,7 @@ class WorkerFitness(multiprocessing.Process):
         FactorAccelerate=1.
         lAccept=[]
         NBurn=self.GD["MetroClean"]["MetroNBurn"]
+        NBurn=0
         NSteps=NSteps+NBurn
         for iStep in range(NSteps):
             #print "========================"
@@ -970,10 +993,11 @@ class WorkerFitness(multiprocessing.Process):
                     DicoChains["Parms"].append(individual1)
                     DicoChains["Chi2"].append(Chi2)
                 
-                pylab.scatter(Chi2Norm,np.exp(p1),lw=0)
-                pylab.draw()
-                pylab.show(False)
-                pylab.pause(0.1)
+                if DoPlot:
+                    pylab.scatter(Chi2Norm,np.exp(p1),lw=0)
+                    pylab.draw()
+                    pylab.show(False)
+                    pylab.pause(0.1)
                 
                 #print "  accept"
                 # Model=self.StackChain()
@@ -992,26 +1016,45 @@ class WorkerFitness(multiprocessing.Process):
             else:
                 
                 # #######################
-                pylab.scatter(Chi2Norm,np.exp(p1),c="red",lw=0)
-                pylab.draw()
-                pylab.show(False)
-                pylab.pause(0.1)
+                if DoPlot:
+                    pylab.scatter(Chi2Norm,np.exp(p1),c="red",lw=0)
+                    pylab.draw()
+                    pylab.show(False)
+                    pylab.pause(0.1)
                 # #######################
+
+
+                r=np.random.rand(1)[0]
+                #print r,1.-R,len(DicoChains["logProb"])
+                if (r<1.-R) and (len(DicoChains["logProb"])>3):
+                    NBack=int(np.random.rand(1)[0]*len(DicoChains["Parms"]))
+                    #print "    REVERT",NBack
+                    individual0=DicoChains["Parms"][-NBack]
+                    logProb0=DicoChains["logProb"][-NBack]
+                    Chi2Norm0=DicoChains["Chi2"][-NBack]
+                    if DoPlot:
+                        pylab.scatter(Chi2Norm0,np.exp(logProb0),c="green",lw=0)
+                        pylab.draw()
+                        pylab.show(False)
+                        pylab.pause(0.1)
+                    
                 pass
 
             T.timeit("Compare")
 
             AccRate=np.count_nonzero(lAccept)/float(len(lAccept))
-            print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
-            if (iStep%50==0)&(iStep>10):
-                if AccRate>0.5:
-                    FactorAccelerate*=1.2
-                else:
-                    FactorAccelerate/=1.5
-                FactorAccelerate=np.min([3.,FactorAccelerate])
-                FactorAccelerate=np.max([.02,FactorAccelerate])
-                lAccept=[]
-            T.timeit("Acceptance")
+            if DoPlot:
+                print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
+
+            # if (iStep%50==0)&(iStep>10):
+            #     if AccRate>0.234:
+            #         FactorAccelerate*=1.2
+            #     else:
+            #         FactorAccelerate/=1.5
+            #     FactorAccelerate=np.min([3.,FactorAccelerate])
+            #     FactorAccelerate=np.max([.02,FactorAccelerate])
+            #     lAccept=[]
+            # T.timeit("Acceptance")
 
 
         DicoChains["logProb"]=np.array(DicoChains["logProb"])
@@ -1019,3 +1062,95 @@ class WorkerFitness(multiprocessing.Process):
         DicoChains["Chi2"]=np.array(DicoChains["Chi2"])
         return DicoChains
             
+    def PlotIndiv(self,best_ind,iChannel=0):
+
+        import pylab
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+        V=best_ind
+
+        ConvModelArray=self.ToConvArray(V)
+        IM=self.PM.ModelToSquareArray(ConvModelArray,TypeInOut=("Data","Data"))
+        Dirty=self.PM.ModelToSquareArray(self.DirtyArray,TypeInOut=("Data","Data"))
+
+
+        vmin,vmax=np.min([Dirty.min(),0]),Dirty.max()
+    
+        fig=pylab.figure(iChannel+1,figsize=(5,3))
+        pylab.clf()
+    
+        ax0=pylab.subplot(2,3,1)
+        im0=pylab.imshow(Dirty[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+        pylab.title("Data")
+        ax0.axes.get_xaxis().set_visible(False)
+        ax0.axes.get_yaxis().set_visible(False)
+        divider0 = make_axes_locatable(ax0)
+        cax0 = divider0.append_axes("right", size="5%", pad=0.05)
+        pylab.colorbar(im0, cax=cax0)
+    
+        ax1=pylab.subplot(2,3,2)
+        im1=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+        pylab.title("Convolved Model")
+        ax1.axes.get_xaxis().set_visible(False)
+        ax1.axes.get_yaxis().set_visible(False)
+        divider1 = make_axes_locatable(ax1)
+        cax1 = divider1.append_axes("right", size="5%", pad=0.05)
+        pylab.colorbar(im1, cax=cax1)
+    
+        ax2=pylab.subplot(2,3,3)
+        R=Dirty[iChannel,0]-IM[iChannel,0]
+        im2=pylab.imshow(R,interpolation="nearest")#,vmin=vmin,vmax=vmax)
+        ax2.axes.get_xaxis().set_visible(False)
+        ax2.axes.get_yaxis().set_visible(False)
+        pylab.title("Residual Data")
+        divider2 = make_axes_locatable(ax2)
+        cax2 = divider2.append_axes("right", size="5%", pad=0.05)
+        pylab.colorbar(im2, cax=cax2)
+    
+    
+        #pylab.colorbar()
+        if self.DataTrue is not None:
+            DataTrue=self.DataTrue
+            vmin,vmax=DataTrue.min(),DataTrue.max()
+            ax3=pylab.subplot(2,3,4)
+            im3=pylab.imshow(DataTrue[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+            ax3.axes.get_xaxis().set_visible(False)
+            ax3.axes.get_yaxis().set_visible(False)
+            pylab.title("True Sky")
+            divider3 = make_axes_locatable(ax3)
+            cax3 = divider3.append_axes("right", size="5%", pad=0.05)
+            pylab.colorbar(im3, cax=cax3)
+    
+    
+        ax4=pylab.subplot(2,3,5)
+        ModelArray=self.PM.GiveModelArray(V)
+        IM=self.PM.ModelToSquareArray(ModelArray)
+
+
+        #im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=vmax)
+        im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=1.5)
+        ax4.axes.get_xaxis().set_visible(False)
+        ax4.axes.get_yaxis().set_visible(False)
+        pylab.title("Best individual")
+        divider4 = make_axes_locatable(ax4)
+        cax4 = divider4.append_axes("right", size="5%", pad=0.05)
+        pylab.colorbar(im4, cax=cax4)
+
+        PSF=self.PSF
+        vmin,vmax=PSF.min(),PSF.max()
+        ax5=pylab.subplot(2,3,6)
+        im5=pylab.imshow(PSF[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+        ax5.axes.get_xaxis().set_visible(False)
+        ax5.axes.get_yaxis().set_visible(False)
+        pylab.title("PSF")
+        divider5 = make_axes_locatable(ax5)
+        cax5 = divider5.append_axes("right", size="5%", pad=0.05)
+        pylab.colorbar(im5, cax=cax5)
+    
+    
+        pylab.suptitle('Population generation %i [%f]'%(iGen,best_ind.fitness.values[0]),size=16)
+        #pylab.tight_layout()
+        pylab.draw()
+        pylab.show(False)
+        pylab.pause(0.1)
+        fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))

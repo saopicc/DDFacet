@@ -31,8 +31,9 @@ class ClassPDFMachine():
         yd/=dx
         pdf=scipy.interpolate.interp1d(xd, yd,"cubic")
         x=np.linspace(xd.min(),xd.max(),1000)
-    
+        
         y=pdf(x)
+        self.MaxPDF=np.max(y)
         #x,y=xd, yd
 
         self.InterpPDF=pdf
@@ -53,12 +54,12 @@ class ClassPDFMachine():
         if not(self.InterpX0<Chi2<self.InterpX1):
             return 1e-20
         p=self.InterpPDF(Chi2)
-        if p<=0:
+        if p<=self.MaxPDF/4.:
             return 1e-20
         return p
 
     def logpdfScalar(self,Chi2):
-        return np.log(self.pdf(Chi2))
+        return np.log(self.pdfScalar(Chi2))
 
     def pdf(self,Chi2):
         if type(Chi2)==list or type(Chi2)==np.ndarray:
