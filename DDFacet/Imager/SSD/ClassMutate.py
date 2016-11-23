@@ -71,16 +71,16 @@ class ClassMutate():
             A[iS,0,i1,j1]+=f1
             A[iS,0,i0,j0]-=f1
 
-            # if iAlpha is not None:
-            #     f2=A[iS,0,i1,j1]
-            #     a0=A[iAlpha,0,i0,j0]
-            #     a1=A[iAlpha,0,i1,j1]
+            if iAlpha is not None:
+                f2=A[iS,0,i1,j1]
+                a0=A[iAlpha,0,i0,j0]
+                a1=A[iAlpha,0,i1,j1]
 
-            #     a2=(f0/f2)*(2**a0)+(f1/f2)*(2**a1)
-            #     if a2>0:
-            #         a2=np.log(a2)/np.log(2.)
-            #         # print a0,a1,a2
-            #         A[iAlpha,0,i1,j1]=a2
+                a2=(f0/f2)*(2**a0)+(f1/f2)*(2**a1)
+                if a2>0:
+                    a2=np.log(a2)/np.log(2.)
+                    # print a0,a1,a2
+                    A[iAlpha,0,i1,j1]=a2
 
                 
             AParm=self.PM.SquareArrayToModel(A,TypeInOut=("Parms","Parms"))
