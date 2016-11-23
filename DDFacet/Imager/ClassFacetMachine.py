@@ -108,7 +108,7 @@ def init_w_worker_tessel(m_work_queue, m_result_queue, GD, cachemanager, FFTW_Wi
 
 
 # Gridding worker that is called by Multiprocessing.Process
-def grid_worker(m_work_queue, m_result_queue, GD, DATA, CFDICT, FFTW_Wisdom, DicoImager,
+def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisdom, DicoImager,
                 IdSharedMem, IdSharedMemData, FacetDataCache, ChunkDataCache,
                 ApplyCal, SpheNorm, PSFMode, NFreqBands, Weights, PauseOnStart,
                 DataShape, DataPath, FlagPath, DataCorrelationFormat, 
@@ -142,7 +142,7 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, CFDICT, FFTW_Wisdom, Dic
                     IdSharedMem, IdSharedMemData, FacetDataCache,
                     ChunkDataCache, iFacet, SpheNorm, NFreqBands,
                     DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
-                    wterm=CFDICT[iFacet][0], sphe=CFDICT[iFacet][1],
+                    wterm=WTerms[iFacet], sphe=Sphes[iFacet],
                 )
                 T.timeit("create %d"%iFacet)
                 ## disabling this: data now passed in directly
@@ -227,7 +227,7 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, CFDICT, FFTW_Wisdom, Dic
 
 
 # FFT worker that is called by Multiprocessing.Process
-def FFT_worker(m_work_queue, m_result_queue, GD, CFDICT, FFTW_Wisdom, DicoImager,
+def FFT_worker(m_work_queue, m_result_queue, GD, WTerms, Sphes, FFTW_Wisdom, DicoImager,
                IdSharedMem, IdSharedMemData, FacetDataCache, ChunkDataCache,
                ApplyCal, SpheNorm, PSFMode, NFreqBands, PauseOnStart,
                DataCorrelationFormat, ExpectedOutputStokes):
@@ -262,7 +262,7 @@ def FFT_worker(m_work_queue, m_result_queue, GD, CFDICT, FFTW_Wisdom, DicoImager
                     IdSharedMem, IdSharedMemData, FacetDataCache,
                      ChunkDataCache, iFacet, SpheNorm, NFreqBands,
                     DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
-                    wterm=CFDICT[iFacet][0], sphe=CFDICT[iFacet][1],
+                    wterm=WTerms[iFacet], sphe=Sphes[iFacet],
                 )
 
                 GridName = "%sGridFacet.%3.3i" % (IdSharedMem, iFacet)
@@ -275,7 +275,7 @@ def FFT_worker(m_work_queue, m_result_queue, GD, CFDICT, FFTW_Wisdom, DicoImager
 
 
 # DeGrid worker that is called by Multiprocessing.Process
-def degrid_worker(m_work_queue, m_result_queue, GD, DATA, CFDICT, FFTW_Wisdom,
+def degrid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisdom,
                   DicoImager, IdSharedMem, IdSharedMemData, FacetDataCache,
                   ChunkDataCache, ApplyCal, SpheNorm, NFreqBands, PauseOnStart,
                   DataShape, DataPath, FlagPath, DataCorrelationFormat, 
@@ -311,7 +311,7 @@ def degrid_worker(m_work_queue, m_result_queue, GD, DATA, CFDICT, FFTW_Wisdom,
                     IdSharedMem, IdSharedMemData, FacetDataCache,
                      ChunkDataCache, iFacet, SpheNorm, NFreqBands,
                     DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
-                    wterm = CFDICT[iFacet][0], sphe = CFDICT[iFacet][1])
+                    wterm=WTerms[iFacet], sphe=Sphes[iFacet])
 
                 # DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
                 uvwThis = DATA["uvw"]
@@ -1048,7 +1048,8 @@ class ClassFacetMachine():
         else:
             print>>log,"using W kernels from cache %s"%cachepath
             # now load cached spatial weights, wterms and spheroidals from cache and lock them into memory
-            self._cfdict = {}
+            self._wterms = {}
+            self._sphes = {}
             for iFacet in sorted(self.DicoImager.keys()):
                 NameSpacialWeigth = self.VS.maincache.getCacheURL("SW", facet=iFacet)
                 SpacialWeigth = NpShared.GiveArray(NameSpacialWeigth)
@@ -1059,7 +1060,8 @@ class ClassFacetMachine():
                 NpShared.Lock(wterm)
                 NpShared.Lock(sphe)
                 # store in dict
-                self._cfdict[iFacet] = wterm, sphe
+                self._wterms[iFacet] = wterm
+                self._sphes[iFacet] = sphe
         print>> log, "W kernels loaded and locked into memory"
 
         return True
@@ -1294,13 +1296,10 @@ class ClassFacetMachine():
                 for ch in xrange(nch):
                     i = n/2 - NPixMin/2
                     j = n/2 + NPixMin/2 + 1
-                    CubeVariablePSF[
-                        iFacet, ch, :, :, :] = \
-                        DicoVariablePSF[iFacet]["PSF"][ch][
-                        :, i:j, i:j]
-                CubeMeanVariablePSF[
-                    iFacet, 0, :, :, :] = DicoVariablePSF[iFacet]["MeanPSF"][
-                    0, :, i:j, i:j]
+                    CubeVariablePSF[iFacet, ch, :, :, :] = \
+                        DicoVariablePSF[iFacet]["PSF"][ch][:, i:j, i:j]
+                CubeMeanVariablePSF[iFacet, 0, :, :, :] = \
+                    DicoVariablePSF[iFacet]["MeanPSF"][0, :, i:j, i:j]
 
             self.DicoPSF["CubeVariablePSF"] = CubeVariablePSF
             self.DicoPSF["CubeMeanVariablePSF"] = CubeMeanVariablePSF
@@ -1410,9 +1409,7 @@ class ClassFacetMachine():
 
         for iFacet in self.DicoImager.keys():
 
-            SharedMemName = "%s/Spheroidal.Facet_%3.3i" % \
-                             (self.FacetDataCache, iFacet)
-            SPhe = NpShared.GiveArray(SharedMemName)
+            SPhe = self._sphes[iFacet]
 
             xc, yc = self.DicoImager[iFacet]["pixCentral"]
             NpixFacet = self.DicoGridMachine[iFacet]["Dirty"][0].shape[2]
@@ -1520,10 +1517,7 @@ class ClassFacetMachine():
                                   [self.VS.iCurrentMS].tolist())))
 
         for iFacet in sorted(self.DicoImager.keys()):
-
-            SharedMemName = "%s/Spheroidal.Facet_%3.3i" % \
-                          (self.FacetDataCache, iFacet)
-            SPhe = NpShared.GiveArray(SharedMemName)
+            SPhe = self._sphes[iFacet]
             SpacialWeight = self.SpacialWeigth[iFacet]
             # Grid,_=Im2Grid.GiveGridTessel(Image,self.DicoImager,iFacet,self.NormImage,SPhe,SpacialWeight)
             # GridSharedMemName="%sModelGrid.Facet_%3.3i"%(self.IdSharedMem,iFacet)
@@ -1650,7 +1644,8 @@ class ClassFacetMachine():
             p = Process(target=grid_worker, args=(m_work_queue, m_result_queue,
                                                   self.GD,
                                                   self.VS.DATA,
-                                                  self._cfdict,
+                                                  self._wterms, 
+                                                  self._sphes,
                                                   FFTW_Wisdom,
                                                   DicoImager,
                                                   IdSharedMem,
@@ -1820,7 +1815,8 @@ class ClassFacetMachine():
         for cpu in xrange(n_cpus):
             p = Process(target=FFT_worker, args=(m_work_queue, m_result_queue,
                                                  self.GD,
-                                                 self._cfdict,
+                                                 self._wterms,
+                                                 self._sphes,
                                                  FFTW_Wisdom,
                                                  DicoImager,
                                                  IdSharedMem,
@@ -2022,7 +2018,8 @@ class ClassFacetMachine():
                         m_result_queue,
                         self.GD,
                         self.VS.DATA,
-                        self._cfdict,
+                        self._wterms, 
+                        self._sphes,
                         FFTW_Wisdom,
                         DicoImager,
                         IdSharedMem,
