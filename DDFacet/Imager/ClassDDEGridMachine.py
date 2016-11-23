@@ -279,7 +279,30 @@ class ClassDDEGridMachine():
                  NFreqBands=1,
                  DataCorrelationFormat=[5, 6, 7, 8],
                  ExpectedOutputStokes=[1],
-                 ListSemaphores=None):
+                 ListSemaphores=None,
+                 wterm=None, sphe=None, compute_cf=False,
+                 ):
+        """
+
+        Args:
+            GD:
+            ChanFreq:
+            Npix:
+            lmShift:
+            IdSharedMem:
+            IdSharedMemData:
+            FacetDataCache:
+            ChunkDataCache:
+            IDFacet:
+            SpheNorm:
+            NFreqBands:
+            DataCorrelationFormat:
+            ExpectedOutputStokes:
+            ListSemaphores:
+            wterm:      numpy array or shared array name for w-term
+            sphe:       numpy array or shared array name for spheroidal
+            compute_cf: if True, wterm/sphe is recomputed and saved to shared arrays given by wterm/sphe
+        """
         T = ClassTimeIt.ClassTimeIt("Init_ClassDDEGridMachine")
         T.disable()
         self.GD = GD
@@ -290,6 +313,8 @@ class ClassDDEGridMachine():
         self.IdSharedMemData = IdSharedMemData
         self.FacetDataCache = FacetDataCache
         self.ChunkDataCache = ChunkDataCache
+        if wterm is None or sphe is None:
+            raise RuntimeError
 
         # self.DoPSF=DoPSF
         self.DoPSF = False
@@ -381,7 +406,7 @@ class ClassDDEGridMachine():
         self.lmShift = lmShift
 
         T.timeit("4")
-        self.CalcCF()
+        self.InitCF(wterm, sphe, compute_cf)
 
         self.reinitGrid()
         self.CasaImage = None
@@ -390,7 +415,7 @@ class ClassDDEGridMachine():
         self.DataCorrelationFormat = DataCorrelationFormat
         self.ExpectedOutputStokes = ExpectedOutputStokes
 
-    def CalcCF(self):
+    def InitCF(self, wterm, sphe, compute_cf):
         self.FFTWMachine = ModFFTW.FFTW_2Donly(
             self.GridShape, self.dtype, ncores=1)
         self.WTerm = ModCF.ClassWTermModified(Cell=self.Cell,
@@ -401,7 +426,8 @@ class ClassDDEGridMachine():
                                               Nw=self.Nw,
                                               OverS=self.OverS,
                                               lmShift=self.lmShift,
-                                              IdSharedMem=self.FacetDataCache,
+                                              WTerm=wterm, Sphe=sphe,
+                                              compute=compute_cf,
                                               IDFacet=self.IDFacet)
         self.ifzfCF = self.WTerm.ifzfCF
 

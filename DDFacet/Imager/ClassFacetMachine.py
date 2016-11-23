@@ -36,7 +36,7 @@ def work_producer(queue, data):
 
 
 # Init W worker that is called by Multiprocessing.Process
-def init_w_worker_tessel(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom,
+def init_w_worker_tessel(m_work_queue, m_result_queue, GD, cachemanager, FFTW_Wisdom,
                          DicoImager, IdSharedMem, FacetDataCache, ApplyCal,
                          NFreqBands, ExpectedOutputStokes, CoordMachine,
                          nch, npol, MainRaDec, CellSizeRad, NFacets,
@@ -49,7 +49,7 @@ def init_w_worker_tessel(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom,
         iFacet = None
         try:
             # Get queue item, or timeout and check if pill perscribed.
-            iFacet = m_work_queue.get(True, 5)
+            jobitem = m_work_queue.get(True, 5)
         except Queue.Empty:
             print>> log, "init_w_worker_tessel: empty worker queue"
             pass
@@ -57,10 +57,15 @@ def init_w_worker_tessel(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom,
             if FFTW_Wisdom is not None:
                 pyfftw.import_wisdom(FFTW_Wisdom)
 
-            if iFacet == "POISON-E":
+            if jobitem == "POISON-E":
                 pill = False  # The poisoned pill to stop the worker
                 break
-            elif iFacet is not None:
+            elif jobitem is not None:
+                # Each job on the queue is a tuple of (iFacet, sw, w, sphe), where
+                # iFacet gives the facet number, and the other three are shared array names
+                # to which the results will be saved
+                iFacet, NameSpacialWeight, NameWTerm, NameSphe = jobitem
+
                 # Create smoothned facet tessel mask:
                 Npix = DicoImager[iFacet]["NpixFacetPadded"]
                 l0, l1, m0, m1 = DicoImager[iFacet]["lmExtentPadded"]
@@ -84,9 +89,7 @@ def init_w_worker_tessel(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom,
                                                          GaussPars=[GaussPars])
                 SpacialWeigth = SpacialWeigth.reshape((Npix, Npix))
                 SpacialWeigth /= np.max(SpacialWeigth)
-                NameSpacialWeigth = "%sSpacialWeight.Facet_%3.3i" % (
-                                    FacetDataCache, iFacet)
-                NpShared.ToShared(NameSpacialWeigth, SpacialWeigth)
+                NpShared.ToShared(NameSpacialWeight, SpacialWeigth)
 
                 # Initialize a grid machine per facet:
                 GridMachine = ClassDDEGridMachine.ClassDDEGridMachine(
@@ -94,21 +97,23 @@ def init_w_worker_tessel(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom,
                     DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                     DicoImager[iFacet]["lmShift"],
                     IdSharedMem, IdSharedMemData, FacetDataCache,
-                     ChunkDataCache, iFacet, SpheNorm, NFreqBands,
-                    DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores)
+                    ChunkDataCache, iFacet, SpheNorm, NFreqBands,
+                    DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
+                    wterm=NameWTerm, sphe=NameSphe,
+                    compute_cf=True)
 
                 # Send result back
                 m_result_queue.put({"Success": True, "iFacet": iFacet})
 
 
 # Gridding worker that is called by Multiprocessing.Process
-def grid_worker(m_work_queue, m_result_queue, GD, DATA, FFTW_Wisdom, DicoImager,
+def grid_worker(m_work_queue, m_result_queue, GD, DATA, CFDICT, FFTW_Wisdom, DicoImager,
                 IdSharedMem, IdSharedMemData, FacetDataCache, ChunkDataCache,
                 ApplyCal, SpheNorm, PSFMode, NFreqBands, Weights, PauseOnStart,
                 DataShape, DataPath, FlagPath, DataCorrelationFormat, 
                 ExpectedOutputStokes):
-    timer = ClassTimeIt.ClassTimeIt().timeit
-    # timer = lambda x:None
+    T = ClassTimeIt.ClassTimeIt()
+    # T.disable()
     pill = True
     # While no poisoned pill has been given grab items from the queue.
     while pill:
@@ -126,7 +131,7 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, FFTW_Wisdom, DicoImager,
                 pill = False  # The poisoned pill to stop the worker
                 break
             else:
-                timer("init %d" % iFacet)
+                T.timeit("init %d" % iFacet)
                 ListSemaphores = None
                 # Create a new GridMachine
                 GridMachine = ClassDDEGridMachine.ClassDDEGridMachine(
@@ -134,9 +139,11 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, FFTW_Wisdom, DicoImager,
                     DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                     DicoImager[iFacet]["lmShift"],
                     IdSharedMem, IdSharedMemData, FacetDataCache,
-                     ChunkDataCache, iFacet, SpheNorm, NFreqBands,
-                    DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores)
-                timer("create %d"%iFacet)
+                    ChunkDataCache, iFacet, SpheNorm, NFreqBands,
+                    DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
+                    wterm=CFDICT[iFacet][0], sphe=CFDICT[iFacet][1],
+                )
+                T.timeit("create %d"%iFacet)
                 ## disabling this: data now passed in directly
                 #DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
                 uvwThis = DATA["uvw"]
@@ -198,14 +205,14 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, FFTW_Wisdom, DicoImager,
                     DicoJonesMatrices["DicoJones_Beam"][
                         "DicoClusterDirs"] = DicoClusterDirs_Beam
 
-                timer("prepare %d"%iFacet)
+                T.timeit("prepare %d"%iFacet)
                 GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                                 DoNormWeights=False,
                                 DicoJonesMatrices=DicoJonesMatrices,
                                 freqs=freqs, DoPSF=PSFMode,
                                 ChanMapping=ChanMapping,
                                 ResidueGrid=Grid)
-                timer("put %d"%iFacet)
+                T.timeit("put %d"%iFacet)
 
                 Sw = GridMachine.SumWeigths.copy()
                 SumJones = GridMachine.SumJones.copy()
@@ -219,7 +226,7 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, FFTW_Wisdom, DicoImager,
 
 
 # FFT worker that is called by Multiprocessing.Process
-def FFT_worker(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom, DicoImager,
+def FFT_worker(m_work_queue, m_result_queue, GD, CFDICT, FFTW_Wisdom, DicoImager,
                IdSharedMem, IdSharedMemData, FacetDataCache, ChunkDataCache,
                ApplyCal, SpheNorm, PSFMode, NFreqBands, PauseOnStart,
                DataCorrelationFormat, ExpectedOutputStokes):
@@ -240,6 +247,8 @@ def FFT_worker(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom, DicoImager,
             print>> log, "grid_worker: empty worker queue"
             pass
         else:
+            if FFTW_Wisdom is not None:
+                pyfftw.import_wisdom(FFTW_Wisdom)
             if iFacet == "POISON-E":
                 pill = False  # The poisoned pill to stop the worker
                 break
@@ -251,7 +260,9 @@ def FFT_worker(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom, DicoImager,
                     DicoImager[iFacet]["lmShift"],
                     IdSharedMem, IdSharedMemData, FacetDataCache,
                      ChunkDataCache, iFacet, SpheNorm, NFreqBands,
-                    DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores)
+                    DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
+                    wterm=CFDICT[iFacet][0], sphe=CFDICT[iFacet][1],
+                )
 
                 GridName = "%sGridFacet.%3.3i" % (IdSharedMem, iFacet)
                 Grid = NpShared.GiveArray(GridName)
@@ -263,7 +274,7 @@ def FFT_worker(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom, DicoImager,
 
 
 # DeGrid worker that is called by Multiprocessing.Process
-def degrid_worker(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom,
+def degrid_worker(m_work_queue, m_result_queue, GD, DATA, CFDICT, FFTW_Wisdom,
                   DicoImager, IdSharedMem, IdSharedMemData, FacetDataCache,
                   ChunkDataCache, ApplyCal, SpheNorm, NFreqBands, PauseOnStart,
                   DataShape, DataPath, FlagPath, DataCorrelationFormat, 
@@ -298,9 +309,10 @@ def degrid_worker(m_work_queue, m_result_queue, GD, Mode, FFTW_Wisdom,
                     DicoImager[iFacet]["lmShift"],
                     IdSharedMem, IdSharedMemData, FacetDataCache,
                      ChunkDataCache, iFacet, SpheNorm, NFreqBands,
-                    DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores)
+                    DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
+                    wterm = CFDICT[iFacet][0], sphe = CFDICT[iFacet][1])
 
-                DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
+                # DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
                 uvwThis = DATA["uvw"]
                 visThis0 = visThis = NpShared.GiveArray(DataPath)
                 flagsThis0 = flagsThis = NpShared.GiveArray(FlagPath)
@@ -389,7 +401,8 @@ class ClassFacetMachine():
                  NCPU=psutil.cpu_count(),
                  IdSharedMem="",
                  IdSharedMemData=None,  # == IdSharedMem if None
-                 ApplyCal=False):
+                 ApplyCal=False,
+                 cfdict=None):
 
         # IdSharedMem is used to identify structures in shared memory
         # used by this FacetMachine
@@ -398,6 +411,8 @@ class ClassFacetMachine():
         # IdSharedMemData is used to identify "global" structures in
         # shared memory such as DicoData
         self.IdSharedMemData = IdSharedMemData or IdSharedMem
+        # dictionary of precomputed convolution functions
+        self._cfdict = cfdict
 
         self.NCPU = int(GD["Parallel"]["NCPU"])
         self.ApplyCal = ApplyCal
@@ -888,12 +903,15 @@ class ClassFacetMachine():
             ListSemaphores = None
 
             # Create a list of work items for the producer process
-            NFacetsList = []
+            joblist = []
             for iFacet in xrange(NFacets):
-                NFacetsList.append(iFacet)
+                joblist.append((iFacet,
+                                    self.VS.maincache.getCacheURL("SW",facet=iFacet),
+                                    self.VS.maincache.getCacheURL("WTerm",facet=iFacet),
+                                    self.VS.maincache.getCacheURL("Sphe",facet=iFacet)))
 
             work_p = Process(target=work_producer,
-                             args=(m_work_queue, NFacetsList,))
+                             args=(m_work_queue, joblist,))
 
             EngineInstance = self.FacetParallelEngine(
                 m_work_queue,
@@ -915,29 +933,29 @@ class ClassFacetMachine():
 
             for cpu in xrange(n_cpus):
                 p = Process(target=init_w_worker_tessel, args=(
-                            m_work_queue,
-                            m_result_queue,
-                            self.GD,
-                            Mode,
-                            FFTW_Wisdom,
-                            DicoImager,
-                            IdSharedMem,
-                            FacetDataCache,
-                            ApplyCal,
-                            NFreqBands,
-                            ExpectedOutputStokes,
-                            CoordMachine,
-                            nch,
-                            npol,
-                            MainRaDec,
-                            CellSizeRad,
-                            NFacets,
-                            IdSharedMemData,
-                            ChunkDataCache,
-                            SpheNorm,
-                            DataCorrelationFormat,
-                            ListSemaphores,
-                            EngineInstance,))
+                                m_work_queue,
+                                m_result_queue,
+                                self.GD,
+                                Mode,
+                                FFTW_Wisdom,
+                                DicoImager,
+                                IdSharedMem,
+                                FacetDataCache,
+                                ApplyCal,
+                                NFreqBands,
+                                ExpectedOutputStokes,
+                                CoordMachine,
+                                nch,
+                                npol,
+                                MainRaDec,
+                                CellSizeRad,
+                                NFacets,
+                                IdSharedMemData,
+                                ChunkDataCache,
+                                SpheNorm,
+                                DataCorrelationFormat,
+                                ListSemaphores,
+                                EngineInstance,))
 
                 procs.append(p)
 
@@ -1028,20 +1046,19 @@ class ClassFacetMachine():
             self.VS.maincache.saveCache("FacetData")
         else:
             print>>log,"using W kernels from cache %s"%cachepath
-        # now load cached spatial weights, wterms and spheroidals and lock them into memory
-        self._wterms = {}
-        self._sphes  = {}
-        for iFacet in sorted(self.DicoImager.keys()):
-            NameSpacialWeigth = "%sSpacialWeight.Facet_%3.3i"%(self.FacetDataCache,iFacet)
-            SpacialWeigth = NpShared.GiveArray(NameSpacialWeigth)
-            NpShared.Lock(SpacialWeigth)
-            self.SpacialWeigth[iFacet] = SpacialWeigth
-            wterm = NpShared.GiveArray("%sWTerm.Facet_%3.3i" % (self.FacetDataCache, iFacet))
-            sphe = NpShared.GiveArray("%sSpheroidal.Facet_%3.3i" % (self.FacetDataCache, iFacet))
-            NpShared.Lock(wterm)
-            NpShared.Lock(sphe)
-            self._wterms[iFacet] = wterm
-            self._sphes[iFacet] = sphe
+            # now load cached spatial weights, wterms and spheroidals from cache and lock them into memory
+            self._cfdict = {}
+            for iFacet in sorted(self.DicoImager.keys()):
+                NameSpacialWeigth = self.VS.maincache.getCacheURL("SW", facet=iFacet)
+                SpacialWeigth = NpShared.GiveArray(NameSpacialWeigth)
+                NpShared.Lock(SpacialWeigth)
+                self.SpacialWeigth[iFacet] = SpacialWeigth
+                wterm = NpShared.GiveArray( self.VS.maincache.getCacheURL("WTerm", facet=iFacet) )
+                sphe = NpShared.GiveArray( self.VS.maincache.getCacheURL("Sphe", facet=iFacet) )
+                NpShared.Lock(wterm)
+                NpShared.Lock(sphe)
+                # store in dict
+                self._cfdict[iFacet] = wterm, sphe
         print>> log, "W kernels loaded and locked into memory"
 
         return True
@@ -1625,6 +1642,7 @@ class ClassFacetMachine():
             p = Process(target=grid_worker, args=(m_work_queue, m_result_queue,
                                                   self.GD,
                                                   self.VS.DATA,
+                                                  self._cfdict,
                                                   FFTW_Wisdom,
                                                   DicoImager,
                                                   IdSharedMem,
@@ -1794,7 +1812,7 @@ class ClassFacetMachine():
         for cpu in xrange(n_cpus):
             p = Process(target=FFT_worker, args=(m_work_queue, m_result_queue,
                                                  self.GD,
-                                                 Mode,
+                                                 self._cfdict,
                                                  FFTW_Wisdom,
                                                  DicoImager,
                                                  IdSharedMem,
@@ -1995,7 +2013,8 @@ class ClassFacetMachine():
                         m_work_queue,
                         m_result_queue,
                         self.GD,
-                        Mode,
+                        self.VS.DATA,
+                        self._cfdict,
                         FFTW_Wisdom,
                         DicoImager,
                         IdSharedMem,
@@ -2013,8 +2032,7 @@ class ClassFacetMachine():
                         ExpectedOutputStokes,
                         ListSemaphores,
                         ))
-
-            procs.append(p)
+                procs.append(p)
 
             if Parallel:
                 main_core = 0  # CPU affinity placement

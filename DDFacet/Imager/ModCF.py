@@ -242,20 +242,33 @@ def Give_dn(l0, m0, rad=1., order=4):
 
 
 class ClassWTermModified():
+    def __init__(self, Cell=10, Sup=15, Nw=11, wmax=30000, Npix=101, Freqs=np.array([100.e6]), OverS=11, lmShift=None,
+                 Sphe=None, WTerm=None,
+                 compute=False,
+                 IDFacet=None):
+        """
+        Class for computing/loading/saving w-kernels and spheroidals.
 
-    def __init__(
-        self,
-        Cell=10,
-        Sup=15,
-        Nw=11,
-        wmax=30000,
-        Npix=101,
-        Freqs=np.array(
-            [100.e6]),
-        OverS=11,
-        lmShift=None,
-        IdSharedMem="",
-         IDFacet=None):
+        @cyriltasse this is new, I don't want to confuse, so: I've removed the shared memory ID (because I want
+        DDEGridMachine or FacetMachine to decide where to store the CFs). Instead, the Sphe and WTerm arguments
+        are either:
+            * numpy arrays, in which case they're just treated as is
+            * strings, in which case they're interpreted as shared array names for GiveArray() or CreateShared()
+
+        Args:
+            Cell:
+            Sup:
+            Nw:
+            wmax:
+            Npix:
+            Freqs:
+            OverS:
+            lmShift:
+            Sphe:       array or string (shared array name)
+            WTerm:      array or string (shared array name)
+            compute:    if True, recompute CFs, and save them to shared arrays given by Sphe and WTerm
+            IDFacet:
+        """
 
         self.Nw = int(Nw)
         self.Cell = Cell
@@ -267,67 +280,56 @@ class ClassWTermModified():
         self.OverS = OverS
         self.lmShift = lmShift
         self.IDFacet = IDFacet
-        self.IdSharedMem = IdSharedMem
-        self.SharedMemName = "%sWTerm.Facet_%3.3i" % (
-            self.IdSharedMem, self.IDFacet)
-        # self.SharedMemNameSphe="%sSpheroidal"%(self.IdSharedMem)
-        self.SharedMemNameSphe = "%sSpheroidal.Facet_%3.3i" % (
-            self.IdSharedMem, self.IDFacet)
 
-        # if self.IDFacet is None:
-        #     self.InitSphe()
-        #     self.InitW()
-        # else:
-        #     Exists=NpShared.Exists(self.SharedMemName)
-        #     if Exists:
-        #         self.FromShared()
-        #     else:
-        #         self.InitSphe()
-        #         self.InitW()
-        #         self.ToShared()
-
-        Exists = NpShared.Exists(self.SharedMemName)
-#        print self.SharedMemName,"exists",Exists
-        if Exists:
-            self.FromShared()
-        else:
+        if type(Sphe) is np.ndarray and type(WTerm) is np.ndarray:
+            self.FromArrays(Sphe, WTerm)
+        elif compute:
             self.InitSphe()
             self.InitW()
-            self.ToShared()
+            self.ToShared(Sphe, WTerm)
+        else:
+            print Sphe,WTerm
+            self.FromShared(Sphe, WTerm)
 
         Freqs = self.Freqs
         C = 299792458.
         waveMin = C/Freqs[-1]
         self.RefWave = waveMin
 
-    def ToShared(self):
+    def ToShared(self, Sphe, WTerm):
+        """Saves W-terms and spheroidals to shared memory"""
         #print>>log, "Saving WTerm in shared memory (%s)"%self.SharedMemName
         dS = np.complex64
         # if self.IDFacet==0:
         #    NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
 
-        NpShared.ToShared(self.SharedMemNameSphe, dS(self.ifzfCF))
+        NpShared.ToShared(Sphe, dS(self.ifzfCF))
         LArrays = []
-        CuCv = np.array(
-            [self.Cu, self.Cv, self.Cu, self.Cv],
-            dtype=dS).reshape(
-            2, 2)
+        CuCv = np.array([self.Cu, self.Cv, self.Cu, self.Cv], dtype=dS).reshape(2, 2)
         LArrays.append(CuCv)
-        LArrays = LArrays+self.Wplanes
-        LArrays = LArrays+self.WplanesConj
-        NpShared.PackListSquareMatrix(self.SharedMemName, LArrays)
+        LArrays = LArrays + self.Wplanes
+        LArrays = LArrays + self.WplanesConj
+        NpShared.PackListSquareMatrix(WTerm, LArrays)
 
-    def FromShared(self):
-        #print>>log, "Loading WTerm from shared memory (%s)"%self.SharedMemName
-        dS = np.complex64
-        self.ifzfCF = NpShared.GiveArray(self.SharedMemNameSphe)
-        LArrays = NpShared.UnPackListSquareMatrix(self.SharedMemName)
+    def FromArrays (self, Sphe, WTerm):
+        """Initializes W-term and spheroidals from two numpy arrays."""
+        self.ifzfCF = Sphe
+        LArrays = NpShared.UnPackListSquareMatrix(WTerm)
         CuCv = LArrays[0]
-        self.Cu, self.Cv = np.float64(
-            CuCv[0, 0].real), np.float64(
-            CuCv[0, 1].real)
+        self.Cu, self.Cv = np.float64(CuCv[0, 0].real), np.float64(CuCv[0, 1].real)
         self.Wplanes = LArrays[1:1+self.Nw]
         self.WplanesConj = LArrays[1+self.Nw::]
+
+    def FromShared(self, Sphe, WTerm):
+        """Initializes W-term and spheroidals from shared arrays."""
+        #print>>log, "Loading WTerm from shared memory (%s)"%self.SharedMemName
+        self.FromArrays( NpShared.GiveArray(Sphe), NpShared.GiveArray(WTerm) )
+        # CuCv = LArrays[0]
+        # self.Cu, self.Cv = np.float64(
+        #     CuCv[0, 0].real), np.float64(
+        #     CuCv[0, 1].real)
+        # self.Wplanes = LArrays[1:1+self.Nw]
+        # self.WplanesConj = LArrays[1+self.Nw::]
 
         # self.ifzfCF=LArrays[0]
         # CuCv=LArrays[1]
