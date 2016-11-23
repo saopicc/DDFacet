@@ -270,10 +270,6 @@ class ClassDDEGridMachine():
                  ChanFreq,
                  Npix,
                  lmShift=(0., 0.),
-                 IdSharedMem="",
-                 IdSharedMemData="",
-                 FacetDataCache="",
-                 ChunkDataCache="",
                  IDFacet=0,
                  SpheNorm=True,
                  NFreqBands=1,
@@ -283,6 +279,8 @@ class ClassDDEGridMachine():
                  wterm=None,
                  sphe=None,
                  compute_cf=False,
+                 bda_grid=None, 
+                 bda_degrid=None,
                  ):
         """
 
@@ -311,12 +309,10 @@ class ClassDDEGridMachine():
         self.IDFacet = IDFacet
         self.SpheNorm = SpheNorm
         self.ListSemaphores = ListSemaphores
-        self.IdSharedMem = IdSharedMem
-        self.IdSharedMemData = IdSharedMemData
-        self.FacetDataCache = FacetDataCache
-        self.ChunkDataCache = ChunkDataCache
         if wterm is None or sphe is None:
             raise RuntimeError
+        self._bda_grid = bda_grid
+        self._bda_degrid = bda_degrid
 
         # self.DoPSF=DoPSF
         self.DoPSF = False
@@ -692,7 +688,7 @@ class ClassDDEGridMachine():
             LSumJonesChan = [self.SumJonesChan]
             ParamJonesList = self.GiveParamJonesList(
                 DicoJonesMatrices, times, A0, A1, uvw)
-            ParamJonesList = ParamJonesList + LApplySol + LSumJones+LSumJonesChan + \
+            ParamJonesList = ParamJonesList + LApplySol + LSumJones + LSumJonesChan + \
                 [np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
         T2 = ClassTimeIt.ClassTimeIt("Gridder")
@@ -706,7 +702,7 @@ class ClassDDEGridMachine():
                 ChanEquidistant,
                 self.SkyType,
                 self.PolModeID]
-            MapSmear = NpShared.GiveArray("%sBDA.Grid" % (self.ChunkDataCache))
+#            MapSmear = NpShared.GiveArray("%sBDA.Grid" % (self.ChunkDataCache))
             _pyGridderSmear.pyGridderWPol(Grid,
                                           vis,
                                           uvw,
@@ -726,7 +722,7 @@ class ClassDDEGridMachine():
                                           [self.PolMap,
                                               FacetInfos],
                                           ParamJonesList,
-                                          MapSmear,
+                                          self._bda_grid,
                                           OptimisationInfos,
                                           self.LSmear,
                                           np.int32(ChanMapping))
@@ -917,9 +913,9 @@ class ClassDDEGridMachine():
                 ChanEquidistant,
                 self.SkyType,
                 self.PolModeID]
-            MapSmear = NpShared.GiveArray(
-                "%sBDA.DeGrid" %
-                (self.ChunkDataCache))
+#            MapSmear = NpShared.GiveArray(
+#                "%sBDA.DeGrid" %
+#               (self.ChunkDataCache))
             _pyGridderSmear.pySetSemaphores(self.ListSemaphores)
             vis = _pyGridderSmear.pyDeGridderWPol(
                 Grid, 
@@ -940,7 +936,7 @@ class ClassDDEGridMachine():
                 freqs, 
                 [self.PolMap, FacetInfos, RowInfos],
                 ParamJonesList, 
-                MapSmear, 
+                self._bda_degrid,
                 OptimisationInfos, 
                 self.LSmear, np.int32(ChanMapping))
 

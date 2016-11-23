@@ -507,9 +507,7 @@ class ClassVisServer():
             ChanMappingDeGridding=self.DicoMSChanMappingDegridding
             [self.iCurrentMS])
 
-        JonesMachine = ClassJones.ClassJones(
-            self.GD, self.CurrentMS, self.FacetMachine,
-            IdSharedMem=self.IdSharedMem)
+        JonesMachine = ClassJones.ClassJones(self.GD, self.CurrentMS, self.FacetMachine)
         JonesMachine.InitDDESols(DATA)
 
         if self.AddNoiseJy is not None:
@@ -557,6 +555,7 @@ class ClassVisServer():
                     ImagerMainFacet=self.GD["ImagerMainFacet"]))
             if valid:
                 print>> log, "  using cached BDA mapping %s" % mapname
+                DATA["BDAGrid"] = np.load(mapname)
             else:
                 if self.GD["Compression"]["CompGridFOV"] == "Facet":
                     _, _, nx, ny = self.FacetShape
@@ -578,7 +577,8 @@ class ClassVisServer():
                     "  Effective compression [Grid]  :   %.2f%%" %
                     fact, col="green")
 
-                NpShared.ToShared("file://" + mapname, FinalMapping)
+                DATA["BDAGrid"] = FinalMapping
+                np.save(file(mapname, 'w'), FinalMapping)
                 self.cache.saveCache("BDA.Grid")
 
         if self.GD["Compression"]["CompDeGridMode"]:
@@ -590,6 +590,7 @@ class ClassVisServer():
                     ImagerMainFacet=self.GD["ImagerMainFacet"]))
             if valid:
                 print>> log, "  using cached BDA mapping %s" % mapname
+                DATA["BDADegrid"] = np.load(mapname)
             else:
                 if self.GD["Compression"]["CompDeGridFOV"] == "Facet":
                     _, _, nx, ny = self.FacetShape
@@ -607,11 +608,8 @@ class ClassVisServer():
                 print>> log, ModColor.Str(
                     "  Effective compression [DeGrid]:   %.2f%%" %
                     fact, col="green")
-
-                NpShared.ToShared("file://" + mapname, FinalMapping)
-
-                # Map = NpShared.ToShared("%sMappingSmearing.DeGrid" % (self.IdSharedMem), FinalMapping)
-
+                DATA["BDADegrid"] = FinalMapping
+                np.save(file(mapname, 'w'), FinalMapping)
                 self.cache.saveCache("BDA.DeGrid")
 
     def CalcWeights(self):
