@@ -232,9 +232,9 @@ def PackListSquareMatrix(Name, LArray):
         idx += A.size
 
 
-def UnPackListSquareMatrix(Name):
+def UnPackListSquareMatrix(Array):
     LArray = []
-    S = GiveArray(Name)
+    S = GiveArray(Array) if type(Array) is str else Array
 
     NArray = np.int32(S[0].real)
     idx = 1
