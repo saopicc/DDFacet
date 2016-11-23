@@ -389,17 +389,14 @@ class ClassVisServer():
 
     def getVisibilityData (self):
         """Returns array of visibility data for current chunk. Note that this can only be called if
-        LoadNextVisChunk() was called with keep_data=True (since otherwise it is discarded to consever RAM)."""
-        if self.orig_data is not None:
-            return self.orig_data
-        if self.orig_datapath is not None:
-            return NpShared.GiveArray(self.orig_datapath)
-        else:
+        LoadNextVisChunk() was called with keep_data=True."""
+        if "orig_data" not in self.DATA:
             raise RuntimeError("original data requested but keep_data was not specified. This is a bug.")
+        return self.DATA["orig_data"]
 
     def getVisibilityResiduals (self):
         """Returns array of visibility residuals for current chunk."""
-        return self.residual_data
+        return self.DATA["data"]
 
     def LoadNextVisChunk(self, keep_data=False, null_data=False):
         """
@@ -421,16 +418,11 @@ class ClassVisServer():
 
         """
         self.residual_data = self.orig_data = self.orig_datapath = None
-        # if not using cache, create persistent flag buffer in shared memory
-        if not self._use_data_cache:
-            self.flagpath = self.IdSharedMem+".Flags"
-            if self._flagbuf is None:
-                self._flagbuf = NpShared.CreateShared(self.flagpath, self._chunk_shape,np.bool)
-        # for data, we make a buffer whether we use the cache or not. This is because
-        # degridding computes residuals in place, and we don't want to write that back to cache
-        self.datapath = self.IdSharedMem + ".VisData"
+        self.datapath = self.maincache.getShmURL("VisData")
         if self._databuf is None:
             self._databuf = NpShared.CreateShared(self.datapath, self._chunk_shape, np.complex64)
+        if self._flagbuf is None:
+            self._flagbuf = np.empty(self._chunk_shape, np.bool)
 
         while True:
             MS = self.CurrentMS
@@ -462,33 +454,9 @@ class ClassVisServer():
         nbl = MS.nbl
         self.datashape = data.shape
 
-        # if using caching, set the flagpath from the cached array (flags are read-only),
-        # and copy data from cached structure to the buffer
-        if self._use_data_cache:
-            self.flagpath = DATA["flagpath"]
-            # copy data from cached array to shared memory data buffer
-            data1 = np.ndarray(shape=self.datashape,dtype=np.complex64,buffer=self._databuf)
-            if null_data:
-                data1.fill(0)
-            else:
-                np.copyto(data1, data)
-            # keep a path to the shared array
-            self.orig_datapath = DATA["datapath"]
-            self.orig_data = None
-            # replace shared array in data structure with buffer version
-            DATA["data"] = data = data1
-        # if not caching and keep data was requested, simply make a copy
-        else:
-            if null_data:
-                data1 = np.ndarray(shape=self.datashape,dtype=np.complex64,buffer=self._databuf)
-                data1.fill(0)
-                DATA["data"] = data = data1
-            if keep_data:
-                self.orig_data = data.copy()
-                self.orig_datapath = None
-
-        self.residual_data = data
-
+        # if requested to keep a copy of original data, make one now
+        if keep_data:
+            DATA["orig_data"] = data.copy()
 
         # ## debug
         # ind=np.where((A0==14)&(A1==31))[0]
@@ -500,7 +468,7 @@ class ClassVisServer():
         # times=times[ind]
         # ##
 
-        # load and lock weights
+        # load weights
         self._visweights = NpShared.GiveArray("file://"+self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk])
         NpShared.Lock(self._visweights)
         # DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
