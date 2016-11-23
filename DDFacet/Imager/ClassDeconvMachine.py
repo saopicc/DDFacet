@@ -255,16 +255,13 @@ class ClassImagerDeconv():
         except:
             pass
 
-        Load = self.VS.LoadNextVisChunk(keep_data=keep_data, null_data=null_data)
-        if Load == "EndOfObservation":
-            return "EndOfObservation"
+        data = self.VS.LoadNextVisChunk(keep_data=keep_data, null_data=null_data)
 
-        if Load == "EndChunk":
-            print>>log, ModColor.Str("Reached end of data chunk")
-            return "EndChunk"
+        if type(data) is str:
+            print>>log, ModColor.Str("Reached end condition (%s)" % data)
+            return data
 
-        self.DATA = self.VS.VisChunkToShared()
-        self.WEIGHTS = self.VS.CurrentVisWeights
+        self.DATA = data
 
         return True
 
@@ -331,7 +328,7 @@ class ClassImagerDeconv():
             while True:
                 Res=self.setNextData()
                 if Res=="EndOfObservation": break
-                FacetMachinePSF.putChunk(Weights=self.WEIGHTS)
+                FacetMachinePSF.putChunk()
 
             psfdict = FacetMachinePSF.FacetsToIm(NormJones=True)
             psfmean, psfcube = psfdict["MeanImage"], psfdict["ImagData"]   # this is only for the casa image saving
@@ -516,7 +513,7 @@ class ClassImagerDeconv():
                     _=self.FacetMachine.getChunk(ModelImage)
 
 
-                self.FacetMachine.putChunk(Weights=self.WEIGHTS)
+                self.FacetMachine.putChunk()
 
                 if self._save_intermediate_grids:
                     self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
@@ -762,7 +759,7 @@ class ClassImagerDeconv():
                     self.VS.CurrentMS.PutVisColumn(predict_colname, model)
                     data = resid = None
 
-                self.FacetMachine.putChunk(Weights=self.WEIGHTS)
+                self.FacetMachine.putChunk()
 
 
             DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
@@ -1128,7 +1125,7 @@ class ClassImagerDeconv():
 
         DATA["data"][:,:,:]=visData[:,:,:]-DATA["data"][:,:,:]
 
-        self.FacetMachine.putChunk(Weights=self.WEIGHTS)
+        self.FacetMachine.putChunk()
         Image=self.FacetMachine.FacetsToIm()
         self.ResidImage=Image
         #self.FacetMachine.ToCasaImage(ImageName="test.residual",Fits=True)
