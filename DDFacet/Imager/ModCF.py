@@ -214,6 +214,7 @@ def GiveSupports(FOVrad, w, NSphe):
     N = np.sqrt(Nw**2+NSphe**2)
     return N
 
+
 def Give_dn(l0, m0, rad=1., order=4):
 
     Np = 100
@@ -312,7 +313,7 @@ class ClassWTermModified():
         # if self.IDFacet==0:
         #    NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
 
-        NpShared.ToShared(self.SharedMemNameSphe, dS(self.ifzfCF))
+        NpShared.ToShared(Sphe, dS(self.ifzfCF))
         LArrays = []
         CuCv = np.array(
             [self.Cu, self.Cv, self.Cu, self.Cv],
