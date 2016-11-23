@@ -14,10 +14,9 @@ import ClassFITSBeam
 
 class ClassJones():
 
-    def __init__(self, GD, MS, FacetMachine=None, IdSharedMem=""):
+    def __init__(self, GD, MS, FacetMachine=None):
         self.GD = GD
         self.FacetMachine = FacetMachine
-        self.IdSharedMem = IdSharedMem
         self.MS = MS
         self.HasKillMSSols = False
         self.BeamTimes_kMS = np.array([], np.float32)
@@ -45,7 +44,7 @@ class ClassJones():
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS")
                 self.MS.cache.saveCache("JonesNorm_killMS.npz")
-            self.ToShared("killMS", DicoSols, TimeMapping, DicoClusterDirs)
+            DATA["killMS"] =  DicoSols, TimeMapping, DicoClusterDirs
             self.HasKillMSSols = True
 
         ApplyBeam = (GD["Beam"]["BeamModel"] != None)
@@ -61,24 +60,22 @@ class ClassJones():
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("Beam")
                 self.MS.cache.saveCache("JonesNorm_Beam.npz")
-            self.ToShared("Beam", DicoSols, TimeMapping, DicoClusterDirs)
+            DATA["Beam"] = DicoSols, TimeMapping, DicoClusterDirs
 
-        del(DicoClusterDirs, DicoSols, TimeMapping)
-
-    def ToShared(self, StrType, DicoSols, TimeMapping, DicoClusterDirs):
-        print>>log, "  Putting %s Jones in shm" % StrType
-        NpShared.DelAll("%sDicoClusterDirs_%s" % (self.IdSharedMem, StrType))
-        NpShared.DelAll("%sJonesFile_%s" % (self.IdSharedMem, StrType))
-        NpShared.DelAll("%sMapJones_%s" % (self.IdSharedMem, StrType))
-        NpShared.DicoToShared(
-            "%sDicoClusterDirs_%s" %
-            (self.IdSharedMem, StrType), DicoClusterDirs)
-        NpShared.DicoToShared(
-            "%sJonesFile_%s" %
-            (self.IdSharedMem, StrType), DicoSols)
-        NpShared.ToShared(
-            "%sMapJones_%s" %
-            (self.IdSharedMem, StrType), TimeMapping)
+    # def ToShared(self, StrType, DicoSols, TimeMapping, DicoClusterDirs):
+    #     print>>log, "  Putting %s Jones in shm" % StrType
+    #     NpShared.DelAll("%sDicoClusterDirs_%s" % (self.IdSharedMem, StrType))
+    #     NpShared.DelAll("%sJonesFile_%s" % (self.IdSharedMem, StrType))
+    #     NpShared.DelAll("%sMapJones_%s" % (self.IdSharedMem, StrType))
+    #     NpShared.DicoToShared(
+    #         "%sDicoClusterDirs_%s" %
+    #         (self.IdSharedMem, StrType), DicoClusterDirs)
+    #     NpShared.DicoToShared(
+    #         "%sJonesFile_%s" %
+    #         (self.IdSharedMem, StrType), DicoSols)
+    #     NpShared.ToShared(
+    #         "%sMapJones_%s" %
+    #         (self.IdSharedMem, StrType), TimeMapping)
 
     def SolsToDisk(self, OutName, DicoSols, DicoClusterDirs, TimeMapping):
 

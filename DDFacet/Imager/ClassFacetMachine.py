@@ -96,8 +96,7 @@ def init_w_worker_tessel(m_work_queue, m_result_queue, GD, cachemanager, FFTW_Wi
                     GD, DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
                     DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                     DicoImager[iFacet]["lmShift"],
-                    IdSharedMem, IdSharedMemData, FacetDataCache,
-                    ChunkDataCache, iFacet, SpheNorm, NFreqBands,
+                    iFacet, SpheNorm, NFreqBands,
                     DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
                     wterm=NameWTerm, sphe=NameSphe,
                     compute_cf=True)
@@ -113,7 +112,7 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisd
                 DataCorrelationFormat,
                 ExpectedOutputStokes):
     T = ClassTimeIt.ClassTimeIt()
-    T.disable()
+    # T.disable()
     pill = True
     # While no poisoned pill has been given grab items from the queue.
     while pill:
@@ -121,7 +120,7 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisd
             # Get queue item, or timeout and check if pill perscribed.
             iFacet = m_work_queue.get(True, 5)
         except Queue.Empty:
-            print>> log, "grid_worker: empty worker queue"
+            # print>> log, "grid_worker: empty worker queue"
             pass
         else:
             if FFTW_Wisdom is not None:
@@ -138,10 +137,10 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisd
                     GD, DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
                     DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                     DicoImager[iFacet]["lmShift"],
-                    IdSharedMem, IdSharedMemData, FacetDataCache,
-                    ChunkDataCache, iFacet, SpheNorm, NFreqBands,
+                    iFacet, SpheNorm, NFreqBands,
                     DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
                     wterm=WTerms[iFacet], sphe=Sphes[iFacet],
+                    bda_grid=DATA["BDAGrid"], bda_degrid=DATA["BDADegrid"]
                 )
                 T.timeit("create %d"%iFacet)
                 uvwThis = DATA["uvw"]
@@ -174,32 +173,22 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisd
                     DicoJonesMatrices = {}
 
                 if Apply_killMS:
-                    DicoJones_killMS = NpShared.SharedToDico(
-                                        "%sJonesFile_killMS" % IdSharedMemData)
-                    DicoJonesMatrices["DicoJones_killMS"] = DicoJones_killMS
-                    DicoJonesMatrices["DicoJones_killMS"]["MapJones"] = NpShared.GiveArray(
-                                        "%sMapJones_killMS" % IdSharedMemData)
-                    DicoClusterDirs_killMS = NpShared.SharedToDico(
-                                            "%sDicoClusterDirs_killMS" % IdSharedMemData)
-                    DicoJonesMatrices["DicoJones_killMS"][
-                        "DicoClusterDirs"] = DicoClusterDirs_killMS
+                    DicoSols, TimeMapping, DicoClusterDirs = DATA["killMS"]
+                    DicoJonesMatrices["DicoJones_killMS"] = DicoSols
+                    DicoJonesMatrices["DicoJones_killMS"]["MapJones"] = TimeMapping
+                    DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"] = DicoClusterDirs
                     DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"] = None
 
                 if Apply_Beam:
-                    DicoJones_Beam = NpShared.SharedToDico(
-                                    "%sJonesFile_Beam" % IdSharedMemData)
-                    DicoJonesMatrices["DicoJones_Beam"] = DicoJones_Beam
-                    DicoJonesMatrices["DicoJones_Beam"]["MapJones"] = NpShared.GiveArray(
-                                                                        "%sMapJones_Beam" % IdSharedMemData)
-                    DicoClusterDirs_Beam = NpShared.SharedToDico(
-                                            "%sDicoClusterDirs_Beam" % IdSharedMemData)
-                    DicoJonesMatrices["DicoJones_Beam"][
-                        "DicoClusterDirs"] = DicoClusterDirs_Beam
+                    DicoSols, TimeMapping, DicoClusterDirs = DATA["Beam"]
+                    DicoJonesMatrices["DicoJones_Beam"] = DicoSols
+                    DicoJonesMatrices["DicoJones_Beam"]["MapJones"] = TimeMapping
+                    DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"] = DicoClusterDirs
+                    DicoJonesMatrices["DicoJones_Beam"]["AlphaReg"] = None
 
                 T.timeit("prepare %d"%iFacet)
-                # for arr in visThis0, flagsThis0, W:
-                #     NpShared.Lock(arr)
-                # T.timeit("lock %d"%iFacet)
+                NpShared.Lock(W)
+                T.timeit("lock %d"%iFacet)
                 GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                                 DoNormWeights=False,
                                 DicoJonesMatrices=DicoJonesMatrices,
@@ -252,8 +241,7 @@ def FFT_worker(m_work_queue, m_result_queue, GD, WTerms, Sphes, FFTW_Wisdom, Dic
                     GD, DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
                     DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                     DicoImager[iFacet]["lmShift"],
-                    IdSharedMem, IdSharedMemData, FacetDataCache,
-                     ChunkDataCache, iFacet, SpheNorm, NFreqBands,
+                    iFacet, SpheNorm, NFreqBands,
                     DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
                     wterm=WTerms[iFacet], sphe=Sphes[iFacet],
                 )
@@ -301,10 +289,11 @@ def degrid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wi
                     GD, DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
                     DicoImager[iFacet]["DicoConfigGM"]["Npix"],
                     DicoImager[iFacet]["lmShift"],
-                    IdSharedMem, IdSharedMemData, FacetDataCache,
-                     ChunkDataCache, iFacet, SpheNorm, NFreqBands,
+                    iFacet, SpheNorm, NFreqBands,
                     DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
-                    wterm=WTerms[iFacet], sphe=Sphes[iFacet])
+                    wterm=WTerms[iFacet], sphe=Sphes[iFacet],
+                    bda_grid = DATA["BDAGrid"], bda_degrid = DATA["BDADegrid"],
+                )
 
                 # DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
                 uvwThis = DATA["uvw"]
