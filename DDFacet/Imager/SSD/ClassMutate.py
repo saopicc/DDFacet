@@ -141,7 +141,7 @@ class ClassMutate():
         # move a pixel
         else:
             NMax=int(np.max([3.,self.PM.NPixListParms/10]))
-            N=int(random.uniform(1, NMax))
+            N=1#int(random.uniform(1, NMax))
             #N=int(random.uniform(1, individual.shape[1]/100))
             
             # InReg=random.uniform(-1,1)

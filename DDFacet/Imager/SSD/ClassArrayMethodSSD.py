@@ -906,7 +906,7 @@ class WorkerFitness(multiprocessing.Process):
         print "Estimated %f"%self.EstimatedStdFromMin
         print
         print
-        self.rv.setPDF(individual0,self.EstimatedStdFromMin*2.,NReal=1000)
+        self.rv.setPDF(individual0,self.EstimatedStdFromMin,NReal=1000)
         
         #print self.PixVariance
         #logProb=self.rv.logpdf(Chi2)
@@ -923,9 +923,10 @@ class WorkerFitness(multiprocessing.Process):
         Parms=individual0
 
         # ##################################
-        DoPlot=0#True
+        DoPlot=False#True
         if DoPlot:
             import pylab
+            pylab.figure(1)
             x=np.linspace(0,2*self.rv.MeanChi2,1000)
             P=self.rv.pdf(x)
             pylab.clf()
@@ -1024,27 +1025,27 @@ class WorkerFitness(multiprocessing.Process):
                 # #######################
 
 
-                r=np.random.rand(1)[0]
-                #print r,1.-R,len(DicoChains["logProb"])
-                if (r<1.-R) and (len(DicoChains["logProb"])>3):
-                    NBack=int(np.random.rand(1)[0]*len(DicoChains["Parms"]))
-                    #print "    REVERT",NBack
-                    individual0=DicoChains["Parms"][-NBack]
-                    logProb0=DicoChains["logProb"][-NBack]
-                    Chi2Norm0=DicoChains["Chi2"][-NBack]
-                    if DoPlot:
-                        pylab.scatter(Chi2Norm0,np.exp(logProb0),c="green",lw=0)
-                        pylab.draw()
-                        pylab.show(False)
-                        pylab.pause(0.1)
+                # r=np.random.rand(1)[0]
+                # #print r,1.-R,len(DicoChains["logProb"])
+                # if (r<1.-R) and (len(DicoChains["logProb"])>3):
+                #     NBack=int(np.random.rand(1)[0]*len(DicoChains["Parms"]))
+                #     #print "    REVERT",NBack
+                #     individual0=DicoChains["Parms"][-NBack]
+                #     logProb0=DicoChains["logProb"][-NBack]
+                #     Chi2Norm0=DicoChains["Chi2"][-NBack]
+                #     if DoPlot:
+                #         pylab.scatter(Chi2Norm0,np.exp(logProb0),c="green",lw=0)
+                #         pylab.draw()
+                #         pylab.show(False)
+                #         pylab.pause(0.1)
                     
                 pass
 
             T.timeit("Compare")
 
             AccRate=np.count_nonzero(lAccept)/float(len(lAccept))
-            if DoPlot:
-                print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
+            print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
+                #self.PlotIndiv(individual1)
 
             # if (iStep%50==0)&(iStep>10):
             #     if AccRate>0.234:
@@ -1076,7 +1077,7 @@ class WorkerFitness(multiprocessing.Process):
 
         vmin,vmax=np.min([Dirty.min(),0]),Dirty.max()
     
-        fig=pylab.figure(iChannel+1,figsize=(5,3))
+        fig=pylab.figure(2,figsize=(5,3))
         pylab.clf()
     
         ax0=pylab.subplot(2,3,1)
@@ -1108,18 +1109,18 @@ class WorkerFitness(multiprocessing.Process):
         pylab.colorbar(im2, cax=cax2)
     
     
-        #pylab.colorbar()
-        if self.DataTrue is not None:
-            DataTrue=self.DataTrue
-            vmin,vmax=DataTrue.min(),DataTrue.max()
-            ax3=pylab.subplot(2,3,4)
-            im3=pylab.imshow(DataTrue[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
-            ax3.axes.get_xaxis().set_visible(False)
-            ax3.axes.get_yaxis().set_visible(False)
-            pylab.title("True Sky")
-            divider3 = make_axes_locatable(ax3)
-            cax3 = divider3.append_axes("right", size="5%", pad=0.05)
-            pylab.colorbar(im3, cax=cax3)
+        # #pylab.colorbar()
+        # if self.DataTrue is not None:
+        #     DataTrue=self.DataTrue
+        #     vmin,vmax=DataTrue.min(),DataTrue.max()
+        #     ax3=pylab.subplot(2,3,4)
+        #     im3=pylab.imshow(DataTrue[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+        #     ax3.axes.get_xaxis().set_visible(False)
+        #     ax3.axes.get_yaxis().set_visible(False)
+        #     pylab.title("True Sky")
+        #     divider3 = make_axes_locatable(ax3)
+        #     cax3 = divider3.append_axes("right", size="5%", pad=0.05)
+        #     pylab.colorbar(im3, cax=cax3)
     
     
         ax4=pylab.subplot(2,3,5)
@@ -1147,10 +1148,11 @@ class WorkerFitness(multiprocessing.Process):
         cax5 = divider5.append_axes("right", size="5%", pad=0.05)
         pylab.colorbar(im5, cax=cax5)
     
-    
-        pylab.suptitle('Population generation %i [%f]'%(iGen,best_ind.fitness.values[0]),size=16)
+        #pylab.suptitle('Population generation %i [%f]'%(iGen,best_ind.fitness.values[0]),size=16)
         #pylab.tight_layout()
         pylab.draw()
         pylab.show(False)
         pylab.pause(0.1)
-        fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))
+
+        #fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))
+        
