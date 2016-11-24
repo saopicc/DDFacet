@@ -82,7 +82,7 @@ class ClassImagerDeconv():
         self.PolMode=self.GD["ImagerGlobal"]["PolMode"]
         self.PSFFacets = self.GD["ImagerGlobal"]["PSFFacets"]
         self.HasDeconvolved=False
-        self.Parallel=self.GD["Parallel"]["Enable"]
+        self.Parallel = self.GD["Parallel"]["NCPU"] != 1
         self.IdSharedMem=IdSharedMem
         self.ModConstructor = ClassModModelMachine(self.GD)
 

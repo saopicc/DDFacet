@@ -77,6 +77,7 @@ def read_options():
     OP.OptionGroup("* Parallel", "Parallel")
     OP.add_option('Enable')
     OP.add_option('NCPU')
+    OP.add_option('Affinity')
 
     OP.OptionGroup("* Data-related options", "VisData")
     OP.add_option('MSName', help='Input MS')
