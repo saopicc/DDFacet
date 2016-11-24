@@ -36,12 +36,10 @@ def work_producer(queue, data):
 
 
 # Init W worker that is called by Multiprocessing.Process
-def init_w_worker_tessel(m_work_queue, m_result_queue, GD, cachemanager, FFTW_Wisdom,
-                         DicoImager, IdSharedMem, FacetDataCache, ApplyCal,
-                         NFreqBands, ExpectedOutputStokes, CoordMachine,
-                         nch, npol, MainRaDec, CellSizeRad, NFacets,
-                         IdSharedMemData, ChunkDataCache, SpheNorm,
-                         DataCorrelationFormat, ListSemaphores, EngineInstance):
+def init_w_worker_tessel(m_work_queue, m_result_queue, GD, FFTW_Wisdom,
+                         DicoImager,
+                         SpheNorm, NFreqBands, DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
+                         CornersImageTot):
 
     pill = True
     # While no poisoned pill has been given grab items from the queue.
@@ -76,7 +74,7 @@ def init_w_worker_tessel(m_work_queue, m_result_queue, GD, cachemanager, FFTW_Wi
                 mpath = Path(vertices)   # the vertices of the polygon
                 mask_flat = mpath.contains_points(XY_flat)
                 mask = mask_flat.reshape(X.shape)
-                mpath = Path(EngineInstance.CornersImageTot)
+                mpath = Path(CornersImageTot)
                 mask_flat2 = mpath.contains_points(XY_flat)
                 mask2 = mask_flat2.reshape(X.shape)
                 mask[mask2 == 0] = 0
@@ -847,25 +845,13 @@ class ClassFacetMachine():
                 m_work_queue = multiprocessing.Queue()
             m_result_queue = multiprocessing.JoinableQueue()
 
-            Mode = "Init"
             FFTW_Wisdom = self.FFTW_Wisdom
             DicoImager = self.DicoImager
-            IdSharedMem = self.IdSharedMem
-            IdSharedMemData = self.IdSharedMemData
-            FacetDataCache = self.FacetDataCache
-            ChunkDataCache = None
-            ApplyCal = self.ApplyCal
             CornersImageTot = self.CornersImageTot
             NFreqBands = self.VS.NFreqBands
             DataCorrelationFormat = self.VS.StokesConverter.AvailableCorrelationProductsIds()
             ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds()
-            CoordMachine = self.CoordMachine
-            npol = self.VS.StokesConverter.NStokesInImage()
-            nch = self.VS.NFreqBands
-            MainRaDec = self.MainRaDec
-            CellSizeRad = self.CellSizeRad
             NFacets = self.NFacets
-            IdSharedMemData = self.IdSharedMemData
             SpheNorm = self.SpheNorm
             ListSemaphores = None
 
@@ -880,49 +866,19 @@ class ClassFacetMachine():
             work_p = Process(target=work_producer,
                              args=(m_work_queue, joblist,))
 
-            EngineInstance = self.FacetParallelEngine(
-                m_work_queue,
-                m_result_queue,
-                self.GD,
-                Mode="Init",
-                FFTW_Wisdom=self.FFTW_Wisdom,
-                DicoImager=self.DicoImager,
-                IdSharedMem=self.IdSharedMem,
-                IdSharedMemData=self.IdSharedMemData,
-                FacetDataCache=self.FacetDataCache,
-                ChunkDataCache=None,
-                ApplyCal=self.ApplyCal,
-                CornersImageTot=self.CornersImageTot,
-                NFreqBands=self.VS.NFreqBands,
-                DataShape=self.VS.datashape,
-                DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-                ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
-
             for cpu in xrange(n_cpus):
                 p = Process(target=init_w_worker_tessel, args=(
                                 m_work_queue,
                                 m_result_queue,
                                 self.GD,
-                                Mode,
                                 FFTW_Wisdom,
                                 DicoImager,
-                                IdSharedMem,
-                                FacetDataCache,
-                                ApplyCal,
-                                NFreqBands,
-                                ExpectedOutputStokes,
-                                CoordMachine,
-                                nch,
-                                npol,
-                                MainRaDec,
-                                CellSizeRad,
-                                NFacets,
-                                IdSharedMemData,
-                                ChunkDataCache,
                                 SpheNorm,
+                                NFreqBands,
                                 DataCorrelationFormat,
+                                ExpectedOutputStokes,
                                 ListSemaphores,
-                                EngineInstance,))
+                                CornersImageTot))
 
                 procs.append(p)
 
