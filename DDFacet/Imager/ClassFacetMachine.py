@@ -108,10 +108,9 @@ def init_w_worker_tessel(m_work_queue, m_result_queue, GD, cachemanager, FFTW_Wi
 
 # Gridding worker that is called by Multiprocessing.Process
 def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisdom, DicoImager,
-                IdSharedMem, IdSharedMemData, FacetDataCache, ChunkDataCache,
+                IdSharedMem,
                 ApplyCal, SpheNorm, PSFMode, NFreqBands, PauseOnStart,
-                DataCorrelationFormat,
-                ExpectedOutputStokes):
+                DataCorrelationFormat, ExpectedOutputStokes):
     T = ClassTimeIt.ClassTimeIt()
     # T.disable()
     pill = True
@@ -166,9 +165,8 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisd
 
                 # Create Jones Matrices Dictionary
                 DicoJonesMatrices = None
-                Apply_killMS = (GD["DDESolutions"]["DDSols"] != "") \
-                    & (GD["DDESolutions"]["DDSols"] != None)
-                Apply_Beam = (GD["Beam"]["BeamModel"] != None)
+                Apply_killMS = GD["DDESolutions"]["DDSols"]
+                Apply_Beam = GD["Beam"]["BeamModel"] is not None
 
                 if ApplyCal:
                     DicoJonesMatrices = {}
@@ -211,7 +209,7 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisd
 
 # FFT worker that is called by Multiprocessing.Process
 def FFT_worker(m_work_queue, m_result_queue, GD, WTerms, Sphes, FFTW_Wisdom, DicoImager,
-               IdSharedMem, IdSharedMemData, FacetDataCache, ChunkDataCache,
+               IdSharedMem,
                ApplyCal, SpheNorm, PSFMode, NFreqBands, PauseOnStart,
                DataCorrelationFormat, ExpectedOutputStokes):
     """
@@ -257,11 +255,10 @@ def FFT_worker(m_work_queue, m_result_queue, GD, WTerms, Sphes, FFTW_Wisdom, Dic
 
 
 # DeGrid worker that is called by Multiprocessing.Process
-def degrid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisdom,
-                  DicoImager, IdSharedMem, IdSharedMemData, FacetDataCache,
-                  ChunkDataCache, ApplyCal, SpheNorm, NFreqBands, PauseOnStart,
-                  DataShape, DataPath, FlagPath, DataCorrelationFormat, 
-                  ExpectedOutputStokes, ListSemaphores):
+def degrid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisdom, DicoImager,
+                  IdSharedMem,
+                  ApplyCal, SpheNorm, NFreqBands, PauseOnStart,
+                  DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores):
     """
     Degrids input model facets and subtracts model visibilities from residuals.
     Assumes degridding input data is placed in DATA shared memory dictionary.
@@ -298,11 +295,8 @@ def degrid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wi
 
                 # DATA = NpShared.SharedToDico("%sDicoData" % IdSharedMemData)
                 uvwThis = DATA["uvw"]
-                visThis0 = visThis = NpShared.GiveArray(DataPath)
-                flagsThis0 = flagsThis = NpShared.GiveArray(FlagPath)
-                if DataShape:
-                   visThis = np.ndarray(shape=DataShape, dtype=np.complex64, buffer=visThis0)
-                   flagsThis = np.ndarray(shape=DataShape, dtype=np.bool, buffer=flagsThis0)
+                visThis = DATA["data"]
+                flagsThis = DATA["flags"]
                 times = DATA["times"]
                 A0 = DATA["A0"]
                 A1 = DATA["A1"]
@@ -312,35 +306,25 @@ def degrid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wi
 
                 # Create Jones Matrices Dictionary
                 DicoJonesMatrices = None
-                Apply_killMS = (GD["DDESolutions"]["DDSols"] != "") \
-                    & (GD["DDESolutions"]["DDSols"] != None)
-                Apply_Beam = (GD["Beam"]["BeamModel"] != None)
+                Apply_killMS = GD["DDESolutions"]["DDSols"]
+                Apply_Beam = GD["Beam"]["BeamModel"] is not None
 
                 if ApplyCal:
                     DicoJonesMatrices = {}
 
                 if Apply_killMS:
-                    DicoJones_killMS = NpShared.SharedToDico(
-                                        "%sJonesFile_killMS" % IdSharedMemData)
-                    DicoJonesMatrices["DicoJones_killMS"] = DicoJones_killMS
-                    DicoJonesMatrices["DicoJones_killMS"]["MapJones"] = NpShared.GiveArray(
-                                                                        "%sMapJones_killMS" % IdSharedMemData)
-                    DicoClusterDirs_killMS = NpShared.SharedToDico(
-                                            "%sDicoClusterDirs_killMS" % IdSharedMemData)
-                    DicoJonesMatrices["DicoJones_killMS"][
-                        "DicoClusterDirs"] = DicoClusterDirs_killMS
+                    DicoSols, TimeMapping, DicoClusterDirs = DATA["killMS"]
+                    DicoJonesMatrices["DicoJones_killMS"] = DicoSols
+                    DicoJonesMatrices["DicoJones_killMS"]["MapJones"] = TimeMapping
+                    DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"] = DicoClusterDirs
                     DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"] = None
 
                 if Apply_Beam:
-                    DicoJones_Beam = NpShared.SharedToDico(
-                                    "%sJonesFile_Beam" % IdSharedMemData)
-                    DicoJonesMatrices["DicoJones_Beam"] = DicoJones_Beam
-                    DicoJonesMatrices["DicoJones_Beam"]["MapJones"] = NpShared.GiveArray(
-                                                                    "%sMapJones_Beam" % IdSharedMemData)
-                    DicoClusterDirs_Beam = NpShared.SharedToDico(
-                                            "%sDicoClusterDirs_Beam" % IdSharedMemData)
-                    DicoJonesMatrices["DicoJones_Beam"][
-                        "DicoClusterDirs"] = DicoClusterDirs_Beam
+                    DicoSols, TimeMapping, DicoClusterDirs = DATA["Beam"]
+                    DicoJonesMatrices["DicoJones_Beam"] = DicoSols
+                    DicoJonesMatrices["DicoJones_Beam"]["MapJones"] = TimeMapping
+                    DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"] = DicoClusterDirs
+                    DicoJonesMatrices["DicoJones_Beam"]["AlphaReg"] = None
 
                 ModelSharedMemName = "%sModelImage.Facet_%3.3i" % (
                     IdSharedMem, iFacet)
@@ -348,7 +332,7 @@ def degrid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wi
 
                 DecorrMode = GD["DDESolutions"]["DecorrMode"]
 
-                if ('F' in DecorrMode) | ("T" in DecorrMode):
+                if ('F' in DecorrMode) or ("T" in DecorrMode):
                     uvw_dt = DATA["uvw_dt"]
                     DT, Dnu = DATA["MSInfos"]
                     GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
@@ -1203,9 +1187,7 @@ class ClassFacetMachine():
             for iFacet in self.DicoGridMachine.keys():
                 # first normalize by spheriodals - these
                 # facet psfs will be used in deconvolution per facet
-                SharedMemName = "%sSpheroidal.Facet_%3.3i" % (
-                                 self.FacetDataCache, iFacet)
-                SPhe = NpShared.GiveArray(SharedMemName)
+                SPhe = self._sphes[iFacet]
                 nx = SPhe.shape[0]
                 SPhe = SPhe.reshape((1, 1, nx, nx)).real
                 self.DicoPSF[iFacet] = {}
@@ -1629,9 +1611,6 @@ class ClassFacetMachine():
                                                   FFTW_Wisdom,
                                                   DicoImager,
                                                   IdSharedMem,
-                                                  IdSharedMemData,
-                                                  FacetDataCache,
-                                                  ChunkDataCache,
                                                   ApplyCal,
                                                   SpheNorm,
                                                   PSFMode,
@@ -1796,9 +1775,6 @@ class ClassFacetMachine():
                                                  FFTW_Wisdom,
                                                  DicoImager,
                                                  IdSharedMem,
-                                                 IdSharedMemData,
-                                                 FacetDataCache,
-                                                 ChunkDataCache,
                                                  ApplyCal,
                                                  SpheNorm,
                                                  PSFMode,
@@ -1972,9 +1948,6 @@ class ClassFacetMachine():
             SpheNorm = self.SpheNorm
             NFreqBands = self.VS.NFreqBands
             PauseOnStart = self.GD["Debugging"]["PauseGridWorkers"]
-            DataPath = self.VS.datapath
-            FlagPath = self.VS.flagpath
-            DataShape = self.VS.datashape
             DataCorrelationFormat = self.VS.StokesConverter.AvailableCorrelationProductsIds()
             ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds()
 
@@ -1999,16 +1972,10 @@ class ClassFacetMachine():
                         FFTW_Wisdom,
                         DicoImager,
                         IdSharedMem,
-                        IdSharedMemData,
-                        FacetDataCache,
-                        ChunkDataCache,
                         ApplyCal,
                         SpheNorm,
                         NFreqBands,
                         PauseOnStart,
-                        DataShape,
-                        DataPath,
-                        FlagPath,
                         DataCorrelationFormat,
                         ExpectedOutputStokes,
                         ListSemaphores,
