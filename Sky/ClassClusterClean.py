@@ -1,6 +1,5 @@
 import numpy as np
 from SkyModel.Other import ModColor
-import pylab
 
 class ClassClusterClean():
     def __init__(self,x,y,s,NCluster=10,DoPlot=True):
@@ -71,6 +70,7 @@ class ClassClusterClean():
         #print
         #print vmin,vmax
         if DoPlot:
+            import pylab
             pylab.ion()
             #pylab.scatter(xx,yy,marker="s",c=ss,s=50,vmin=vmin,vmax=vmax)
             pylab.imshow(ss.reshape((Np,Np)).T[::-1,:],vmin=vmin,vmax=vmax,extent=(x0,x1,y0,y1))
@@ -156,6 +156,7 @@ class ClassClusterClean():
         # #os.system("cat %s"%self.infile_cluster)
 
     def PlotTessel(self,extent=None):
+        import pylab
         x=self.xnode.flatten()
         y=self.ynode.flatten()
         Ncells=400

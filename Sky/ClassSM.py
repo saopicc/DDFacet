@@ -14,7 +14,6 @@ from pyrap.images import image
 import scipy.linalg
 from ModBBS2np import ReadBBSModel
 import ModRegFile
-import pylab
 import time
 
 class ClassSM():

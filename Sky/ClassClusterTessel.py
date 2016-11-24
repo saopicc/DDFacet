@@ -1,6 +1,5 @@
 import numpy as np
 from SkyModel.Other import ModColor
-import pylab
 
 def init(n=20):
     global x,y,s,ns
@@ -230,6 +229,7 @@ class ClassClusterTessel():
         #print DictNode
     
     def PlotTessel(self,extent=None):
+        import pylab
         x=self.X.flatten()
         y=self.Y.flatten()
         Ncells=400

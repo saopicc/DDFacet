@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as pylab
 from scipy.spatial import Voronoi
 import SkyModel.Tools.PolygonTools as PT
 
@@ -151,6 +150,7 @@ def test():
     # colorize
 
 def Plot(points,regions, vertices):
+    import matplotlib.pyplot as pylab
     pylab.clf()
     for region in regions:
         polygon = vertices[region]

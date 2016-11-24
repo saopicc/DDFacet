@@ -1,5 +1,4 @@
 import numpy as np
-import pylab
 from scipy.spatial import Voronoi
 import ModVoronoi
 from SkyModel.Other import ModCoord
@@ -102,6 +101,7 @@ class ClassClusterKMean():
             xc0=xc.copy()
             yc0=yc.copy()
             if self.DoPlot:
+                import pylab
                 pylab.clf()
             for iK in range(Nk):
                 ind=np.where(indk==iK)[0]
@@ -129,7 +129,8 @@ class ClassClusterKMean():
                 Npk=xc1.size
                 xc[0:Npk]=xc1[:]
                 yc[0:Npk]=yc1[:]
-                pylab.scatter(xc1,yc1,c="red",marker="s")
+                if self.DoPlot:
+                    pylab.scatter(xc1,yc1,c="red",marker="s")
 
 
 
