@@ -139,7 +139,7 @@ class ClassArrayMethodSSD():
         ratio=np.abs(np.interp(0.5,F,x))
         self.EstimatedStdFromMin=-np.min(d)/ratio
         if self.EstimatedStdFromMin<0:
-            print "Island has no negative, this is probably that it has not been cleaned at all"
+            #print "Island has no negative, this is probably that it has not been cleaned at all"
             self.EstimatedStdFromMin=np.max(np.abs(d))/ratio
 
 

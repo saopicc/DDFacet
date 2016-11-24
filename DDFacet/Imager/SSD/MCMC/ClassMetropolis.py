@@ -13,7 +13,6 @@ from DDFacet.ToolsDir import ModFFTW
 import numpy as np
 import os
 #import Select
-import pylab
 
 from DDFacet.Imager.SSD import ClassArrayMethodSSD
 
@@ -134,6 +133,7 @@ class ClassMetropolis():
         # self.PlotPDF()
 
     def PlotPDF(self):
+        import pylab
         x=np.linspace(0,2*self.rv.moment(1),1000)
         P=self.rv.pdf(x)
 
