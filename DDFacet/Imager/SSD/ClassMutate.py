@@ -91,6 +91,9 @@ class ClassMutate():
     def setData(self,DicoData):
         self.DicoData=DicoData
 
+
+
+
     def mutGaussian(self,individual, pFlux, p0, pMove,FactorAccelerate=1.):
         #return individual,
         T= ClassTimeIt.ClassTimeIt()
@@ -237,6 +240,15 @@ class ClassMutate():
     
     
         return individual,
+
+    def mutNormal(self,individual,ds):
+        Af=self.PM.ArrayToSubArray(individual,"S")
+        dS=np.random.randn(*Af.shape)*ds
+        Af += dS
+        Af[Af<0]=0
+        return individual,
+
+
     
     def testMovePix(self):
         A=np.random.randn(self.PM.NParam,self.PM.NPixListParms)
