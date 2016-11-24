@@ -560,41 +560,41 @@ class ClassMS():
         if read_data:
             # check cache for visibilities
             if use_cache:
-                datapath, datavalid = self.cache.checkCache("Data", dict(time=self._start_time))
+                datapath, datavalid = self.cache.checkCache("Data.npy", dict(time=self._start_time))
             else:
                 datavalid = False
             # read from cache if available, else from MS
             if datavalid:
                 print>> log, "reading cached visibilities from %s" % datapath
-                visdata[...] = np.fromfile(datapath, dtype=np.complex64)
+                visdata[...] = np.load(datapath)
             else:
                 print>> log, "reading MS visibilities from column %s" % self.ColName
                 table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 if use_cache:
                     print>> log, "caching visibilities to %s" % datapath
-                    visdata.tofile(datapath)
-                    self.cache.saveCache("Data")
+                    np.save(datapath, visdata)
+                    self.cache.saveCache("Data.npy")
         else:
             visdata.fill(0)
         # create flag array (if flagbuf is None, array uses memory of buffer)
         flags = np.ndarray(shape=datashape, dtype=np.bool, buffer=flagbuf)
         # check cache for flags
         if use_cache:
-            flagpath, flagvalid = self.cache.checkCache("Flags", dict(time=self._start_time))
+            flagpath, flagvalid = self.cache.checkCache("Flags.npy", dict(time=self._start_time))
         else:
             flagvalid = False
         # read from cache if available, else from MS
         if flagvalid:
             print>> log, "reading cached flags from %s" % flagpath
-            flags[...] = np.fromfile(flagpath, dtype=np.bool)
+            flags[...] = np.load(flagpath)
         else:
             print>> log, "reading MS flags from column FLAG"
             table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
             self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
             if use_cache:
                 print>> log, "caching visibilities to %s" % flagpath
-                flags.tofile(flagpath)
-                self.cache.saveCache("Flags")
+                np.save(flagpath, flags)
+                self.cache.saveCache("Flags.npy")
 
         DATA={}
 
