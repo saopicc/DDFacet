@@ -616,7 +616,7 @@ class ClassDDEGridMachine():
         vis = visIn
 
         T = ClassTimeIt.ClassTimeIt("put")
-        # T.disable()
+        T.disable()
         self.DoNormWeights = DoNormWeights
         if not(self.DoNormWeights):
             self.reinitGrid()
