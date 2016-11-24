@@ -612,7 +612,7 @@ class ClassDDEGridMachine():
         vis = visIn
 
         T = ClassTimeIt.ClassTimeIt("put")
-        T.disable()
+        # T.disable()
         self.DoNormWeights = DoNormWeights
         if not(self.DoNormWeights):
             self.reinitGrid()
@@ -687,11 +687,12 @@ class ClassDDEGridMachine():
             ParamJonesList = ParamJonesList+LApplySol+LSumJones+LSumJonesChan + \
                 [np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
-        T2 = ClassTimeIt.ClassTimeIt("Gridder")
-        T2.disable()
+        # T2 = ClassTimeIt.ClassTimeIt("Gridder")
+        # T2.disable()
+        T.timeit("prep %d"%self.IDFacet)
 
         if self.GD["Compression"]["CompGridMode"] == 0:
-            raise RuntimeError("Depricated flag. Please use BDA gridder")
+            raise RuntimeError("Deprecated flag. Please use BDA gridder")
         else:
             OptimisationInfos = [
                 self.JonesType,
@@ -722,6 +723,8 @@ class ClassDDEGridMachine():
                                           OptimisationInfos,
                                           self.LSmear,
                                           np.int32(ChanMapping))
+
+            T.timeit("grid %d" % self.IDFacet)
 
     def CheckTypes(
         self,
