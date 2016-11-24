@@ -20,7 +20,6 @@ from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("MakeMask")
 from SkyModel.Other.progressbar import ProgressBar
 import collections
-import pylab
 from SkyModel.Other.MyHist import MyCumulHist
 from SkyModel.PSourceExtract import Gaussian
 from SkyModel.Sky import ModRegFile
@@ -527,6 +526,7 @@ class ClassMakeMask():
         PutDataInNewImage(self.FitsFile,self.FitsFile+"."+self.OutName,np.float32(ImWrite))
 
     def plot(self):
+        import pylab
         pylab.clf()
         ax1=pylab.subplot(2,3,1)
         vmin,vmax=-np.max(self.Noise),5*np.max(self.Noise)

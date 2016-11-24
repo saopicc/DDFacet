@@ -154,7 +154,7 @@ class ClassIslands():
 
     def FindAllIslands(self):
         A=self.A
-        if (self.Noise==None)&(self.MaskImage==None):
+        if (self.Noise is None) and (self.MaskImage is None):
             self.ComputeNoiseMap()
 
         
