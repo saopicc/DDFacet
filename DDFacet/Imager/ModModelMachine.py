@@ -56,6 +56,8 @@ class ClassModModelMachine():
             DicoSMStacked   = Dictionary to instantiate ModelMachine with
         """
         if DicoSMStacked is not None: # If the Dict is provided use it to initialise a model machine
+            if DicoSMStacked["Type"]=="GA":
+                DicoSMStacked["Type"]="SSD"
             return self.GiveMM(Mode=DicoSMStacked["Type"])
         else: # If the dict is not provided use the MinorCycleMode to figure out which model machine to initialise
             return self.GiveMM()

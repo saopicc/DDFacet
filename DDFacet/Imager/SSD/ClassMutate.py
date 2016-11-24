@@ -77,7 +77,7 @@ class ClassMutate():
                 a1=A[iAlpha,0,i1,j1]
 
                 a2=(f0/f2)*(2**a0)+(f1/f2)*(2**a1)
-                if a2>1e-2:
+                if 1e-3<a2<1e3:
                     a2=np.log(a2)/np.log(2.)
                     # print a0,a1,a2
                     A[iAlpha,0,i1,j1]=a2
@@ -132,9 +132,11 @@ class ClassMutate():
         Type=np.where((RType>P0)&(RType<P1))[0]
 
         T.timeit("start3")
+        
+        # randomly change values
         if Type==0:
-            N=1
-            N=int(random.uniform(1, 3.))
+            NMax=int(np.max([3.,10]))
+            N=int(random.uniform(1, NMax))
         # zero a pixel
         elif Type==1:
             N=np.max([(NNonZero/10),1])
@@ -170,7 +172,7 @@ class ClassMutate():
                     A=self.PM.ArrayToSubArray(individual,TypeParm)
                     #if TypeParm=="GSig": continue
                     if TypeParm=="S":
-                        ds=0.1*np.abs(self.DicoData["DirtyArrayAbsMean"].ravel()[iPix]-Af[iPix])
+                        ds=0.1*np.abs(self.DicoData["DirtyArrayParmsMean"].ravel()[iPix]-Af[iPix])
                     else:
                         if "Sigma" in self.PM.DicoIParm[TypeParm]["Default"].keys():
                             ds=self.PM.DicoIParm[TypeParm]["Default"]["Sigma"]["Value"]

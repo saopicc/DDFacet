@@ -452,16 +452,16 @@ class ClassImageDeconvMachine():
             print>>log, "Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
             ListBigIslands=[Island for Island in self.ListIslands if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]]
             ListSmallIslands=[Island for Island in self.ListIslands if (len(Island)<=self.GD["SSDClean"]["ConvFFTSwitch"])]
-            if len(ListSmallIslands)>0:
-                print>>log,"Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["SSDClean"]["ConvFFTSwitch"])
-                self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIslands")
-            else:
-                print>>log,"No small islands"
             if len(ListBigIslands)>0:
                 print>>log,"Deconvolve large islands (>%i pixels) (parallelised per island)"%(self.GD["SSDClean"]["ConvFFTSwitch"])
                 self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland")
             else:
                 print>>log,"No large islands"
+            if len(ListSmallIslands)>0:
+                print>>log,"Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["SSDClean"]["ConvFFTSwitch"])
+                self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIslands")
+            else:
+                print>>log,"No small islands"
 
         elif self.DeconvMode=="MetroClean":
             if self.GD["MetroClean"]["MetroNChains"]!="NCPU":

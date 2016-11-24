@@ -178,7 +178,7 @@ class ClassArrayMethodSSD():
             self.DirtyArrayParms+=self.ToConvArray(self.IslandBestIndiv.reshape((self.PM.NParam,self.NPixListParms)),OutMode="Parms")
 
         self.DirtyArrayParmsMean=np.mean(self.DirtyArrayParms,axis=0).reshape((1,1,self.NPixListParms))
-        self.DicoData={"DirtyArrayAbsMean":self.DirtyArrayAbsMean}
+        self.DicoData={"DirtyArrayParmsMean":self.DirtyArrayParmsMean}
         self.MutMachine.setData(self.DicoData)
     
 
@@ -447,6 +447,71 @@ class ClassArrayMethodSSD():
 
         return fitnesses,Chi2
 
+    def mutatePop(self,pop,mutpb,MutConfig):
+
+        work_queue=self.work_queue
+        result_queue=self.result_queue
+        workerlist=self.workerlist
+        Parallel=self.ParallelFitness
+        DicoFitnesses={}
+        DicoChi2={}
+        NCPU=self.NCPU
+        NJobs = 0
+        for iIndividual,individual in enumerate(pop):
+            if random.random() < mutpb:
+                NJobs+=1
+                NpShared.ToShared("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual),individual)
+                work_queue.put({"iIndividual":iIndividual,
+                                "mutConfig":MutConfig,
+                                "OperationType":"Mutate"})
+
+
+        
+        if not Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].run()  # just run until all work is completed
+
+        # for ii in range(NCPU):
+        #     print "launch parallel", ii
+        #     workerlist[ii].start()
+
+
+        iResult=0
+
+        while iResult < NJobs:
+            DicoResult=None
+            #print work_queue.qsize(),result_queue.qsize()
+            if result_queue.qsize()!=0:
+                try:
+                    DicoResult=result_queue.get_nowait()
+                except Exception,e:
+                    #print "Exception: %s"%(str(e))
+                    pass
+                
+
+            if DicoResult==None:
+                time.sleep(.1)
+                continue            
+
+            # try:
+            #     DicoResult = result_queue.get(True, 5)
+            # except:
+            #     time.sleep(0.1)
+            #     continue
+
+            if DicoResult["Success"]:
+                iIndividual=DicoResult["iIndividual"]
+                iResult += 1
+                mutant=NpShared.GiveArray("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual))
+                pop[iIndividual][:]=mutant[:]
+            NDone = iResult
+
+
+
+        for iIndividual,individual in enumerate(pop):
+            NpShared.DelArray("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual))
+
+        return pop
 
 
     def GiveMetroChains(self,pop,NSteps=1000):
@@ -728,6 +793,10 @@ class WorkerFitness(multiprocessing.Process):
         else:
             return True
 
+    def ToConvArray(self,V,OutMode="Data"):
+        self.ModelA=self.PM.GiveModelArray(V)
+        A=self.ConvMachine.Convolve(self.ModelA,OutMode=OutMode)
+        return A
 
     def run(self):
         # # pause self in debugging mode
@@ -754,6 +823,31 @@ class WorkerFitness(multiprocessing.Process):
                 self.GiveFitnessWorker(DicoJob)
             elif DicoJob["OperationType"]=="Metropolis":
                 self.runMetroSingleChainWorker(DicoJob)
+            elif DicoJob["OperationType"]=="Mutate":
+                self.runSingleMutation(DicoJob)
+
+    def runSingleMutation(self,DicoJob):
+        pid=str(multiprocessing.current_process())
+        self.T.reinit()
+        iIndividual=DicoJob["iIndividual"]
+        Name="%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual)
+        individual=NpShared.GiveArray(Name)
+
+        Mut_pFlux, Mut_p0, Mut_pMove=DicoJob["mutConfig"]
+
+        individualOut,=self.MutMachine.mutGaussian(individual.copy(), 
+                                                Mut_pFlux, Mut_p0, Mut_pMove)
+        individual[:]=individualOut[:]
+        
+        self.result_queue.put({"Success": True, 
+                               "iIndividual": iIndividual})
+        self.T.timeit("done job: %s"%pid)
+
+
+
+
+
+
 
 
     def GiveFitnessWorker(self,DicoJob):
@@ -773,10 +867,6 @@ class WorkerFitness(multiprocessing.Process):
                                "Chi2":Chi2})
         self.T.timeit("done job: %s"%pid)
 
-    def ToConvArray(self,V,OutMode="Data"):
-        self.ModelA=self.PM.GiveModelArray(V)
-        A=self.ConvMachine.Convolve(self.ModelA,OutMode=OutMode)
-        return A
 
 
 
@@ -908,7 +998,7 @@ class WorkerFitness(multiprocessing.Process):
         # print
 
         S=np.sum(self.PM.ArrayToSubArray(individual0,"S"))
-        S=np.max(self.DirtyArray)
+        #S=np.max(self.DirtyArray)
         SNRMax=self.GD["MetroClean"]["MetroSNRMax"]
         SNR=np.min([S/self.EstimatedStdFromMin,SNRMax])
         Noise=S/SNR
@@ -963,8 +1053,8 @@ class WorkerFitness(multiprocessing.Process):
             #print "========================"
             #print iStep
             individual1,=self.MutMachine.mutGaussian(individual0.copy(), 
-                                                     Mut_pFlux, Mut_p0, Mut_pMove,
-                                                     FactorAccelerate=FactorAccelerate)
+                                                     Mut_pFlux, Mut_p0, Mut_pMove)#,
+                                                     #FactorAccelerate=FactorAccelerate)
             T.timeit("mutate")
 
             _,Chi2=self.GiveFitness(individual1)
@@ -975,7 +1065,7 @@ class WorkerFitness(multiprocessing.Process):
             #     print "           >>>>>>>>>>>>>> %f"%np.min(Chi2)
 
 
-            Chi2Norm=Chi2#/self.Var
+            Chi2Norm=Chi2*FactorAccelerate#/self.Var
             
             logProb=self.rv.logpdf(Chi2Norm)
             T.timeit("LogPDF")
@@ -1056,11 +1146,13 @@ class WorkerFitness(multiprocessing.Process):
 
             if (iStep%50==0)&(iStep>10):
                 if AccRate>0.234:
-                    FactorAccelerate*=1.2
+                    FactorAccelerate*=2.
                 else:
-                    FactorAccelerate/=1.5
-                FactorAccelerate=np.min([3.,FactorAccelerate])
-                FactorAccelerate=np.max([.02,FactorAccelerate])
+                    FactorAccelerate/=2.
+                #FactorAccelerate=np.min([3.,FactorAccelerate])
+                #FactorAccelerate=np.max([.02,FactorAccelerate])
+                FactorAccelerate=np.min([10.,FactorAccelerate])
+                FactorAccelerate=np.max([.01,FactorAccelerate])
                 lAccept=[]
             T.timeit("Acceptance")
 

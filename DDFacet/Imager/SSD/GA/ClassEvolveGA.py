@@ -86,7 +86,8 @@ class ClassEvolveGA():
         # toolbox.register("mate", tools.cxOrdered)
         # toolbox.register("mutate", tools.mutGaussian, indpb=0.3,  mu=0.0, sigma=.1)
         #toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.3, p0=0.3, pMove=0.3)
-        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.1, p0=0.5, pMove=0.1)
+        self.MutConfig=pFlux,p0,pMove=0.2,0.5,0.2
+        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.2, p0=0.5, pMove=0.2)
 
         toolbox.register("select", tools.selTournament, tournsize=3)
         #toolbox.register("select", Select.selTolTournament, tournsize=3, Tol=4)
@@ -189,7 +190,9 @@ class ClassEvolveGA():
                                            halloffame=self.hof, 
                                            #stats=stats,
                                            verbose=False, 
-                                           ArrayMethodsMachine=self.ArrayMethodsMachine,DoPlot=DoPlot)
+                                           ArrayMethodsMachine=self.ArrayMethodsMachine,
+                                           DoPlot=DoPlot,
+                                           MutConfig=self.MutConfig)
         self.ArrayMethodsMachine.KillWorkers()
 
         # #:param mu: The number of individuals to select for the next generation.

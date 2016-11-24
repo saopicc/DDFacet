@@ -543,8 +543,8 @@ class ClassImagerDeconv():
                     ModelImage=self.ModelMachine.GiveModelImage(ThisMeanFreq)
                     print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
 
-                    # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelSub"%self.BaseName,Fits=True,
-                    #                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                    self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelSub"%self.BaseName,Fits=True,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
                     _=self.FacetMachine.getChunk(ModelImage)
 
