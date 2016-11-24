@@ -112,7 +112,7 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisd
                 ApplyCal, SpheNorm, PSFMode, NFreqBands, PauseOnStart,
                 DataCorrelationFormat, ExpectedOutputStokes):
     T = ClassTimeIt.ClassTimeIt()
-    # T.disable()
+    T.disable()
     pill = True
     # While no poisoned pill has been given grab items from the queue.
     while pill:
@@ -130,7 +130,7 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisd
                 pill = False  # The poisoned pill to stop the worker
                 break
             else:
-                T.timeit("init %d" % iFacet)
+                #T.timeit("init %d" % iFacet)
                 ListSemaphores = None
                 # Create a new GridMachine
                 GridMachine = ClassDDEGridMachine.ClassDDEGridMachine(
@@ -185,7 +185,7 @@ def grid_worker(m_work_queue, m_result_queue, GD, DATA, WTerms, Sphes, FFTW_Wisd
                     DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"] = DicoClusterDirs
                     DicoJonesMatrices["DicoJones_Beam"]["AlphaReg"] = None
 
-                T.timeit("prepare %d"%iFacet)
+                #T.timeit("prepare %d"%iFacet)
                 NpShared.Lock(W)
                 T.timeit("lock %d"%iFacet)
                 GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
@@ -1135,7 +1135,7 @@ class ClassFacetMachine():
             "WeightChansImages" = normalized weights
         """
         if not self.HasFourierTransformed:
-            self.FourierTransform(Parallel=self.GD["Parallel"]["Enable"])
+            self.FourierTransform(Parallel=self.Parallel)
             self.HasFourierTransformed = True
         _, npol, Npix, Npix = self.OutImShape
         DicoImages = {}
@@ -1556,7 +1556,9 @@ class ClassFacetMachine():
 
         procs = list()  # list of processes that are running
         # ask the OS for the number of CPU's. Only tested without HT
-        n_cpus = psutil.cpu_count()
+        affinity = self.GD["Parallel"]["Affinity"]
+        cpustep = affinity or 1
+        n_cpus = self.GD["Parallel"]["NCPU"] or psutil.cpu_count()/cpustep
         procinfo = psutil.Process()  # this will be used to control CPU affinity
 
         if Parallel:
@@ -1581,15 +1583,11 @@ class ClassFacetMachine():
         FFTW_Wisdom = self.FFTW_Wisdom
         DicoImager = self.DicoImager
         IdSharedMem = self.IdSharedMem
-        IdSharedMemData = self.IdSharedMemData
-        FacetDataCache = self.FacetDataCache
-        ChunkDataCache = "file://" + self.VS.cache.dirname + "/"
         ApplyCal = self.ApplyCal
         SpheNorm = SpheNorm
         PSFMode = PSFMode
         NFreqBands = self.VS.NFreqBands
         PauseOnStart = self.GD["Debugging"]["PauseGridWorkers"]
-        DataShape=self.VS.datashape
         DataCorrelationFormat = self.VS.StokesConverter.AvailableCorrelationProductsIds()
         ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds()
 
@@ -1597,11 +1595,9 @@ class ClassFacetMachine():
         NFacetsList = []
         for iFacet in xrange(NFacets):
             NFacetsList.append(iFacet)
-        work_p = Process(
-            target=work_producer, args=(
-                m_work_queue, NFacetsList,))
+        work_p = Process(target=work_producer, args=(m_work_queue, NFacetsList,))
 
-        # loop for the number of deteccted CPU's
+        # loop for the number of detected CPU's
         for cpu in xrange(n_cpus):
             p = Process(target=grid_worker, args=(m_work_queue, m_result_queue,
                                                   self.GD,
@@ -1622,17 +1618,19 @@ class ClassFacetMachine():
             procs.append(p)
 
         if Parallel:
-            main_core = 0  # CPU affinity placement
-
-            # start a pinned work producer process
-            work_p.start()
-            procinfo.cpu_affinity([n_cpus-1])
-
-            # start all processes and pin them each to a core
-            for p in procs:
-                p.start()
-                procinfo.cpu_affinity([main_core])
-                main_core += 1
+            parent_affinity = procinfo.cpu_affinity()
+            try:
+                # work producer process does nothing, so I won't pin it
+                work_p.start()
+                main_core = 0   # CPU affinity placement
+                # start all processes and pin them each to a core
+                for p in procs:
+                    if affinity:
+                        procinfo.cpu_affinity([main_core])
+                        main_core += cpustep
+                    p.start()
+            finally:
+                procinfo.cpu_affinity(parent_affinity)
 
         timer = ClassTimeIt.ClassTimeIt()
         print>> log, "starting gridding"
