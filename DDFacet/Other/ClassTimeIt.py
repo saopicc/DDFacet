@@ -32,6 +32,12 @@ class ClassTimeIt():
             s = (ss-m)*60.
             return "%im%.1fs" % (m, s)
 
+    def seconds(self):
+        t1 = timemod.time()
+        dt = t1 - self.t0
+        self.t0 = t1
+        return dt
+
     def timehms(self):
         return self.timestr(hms=True)
 

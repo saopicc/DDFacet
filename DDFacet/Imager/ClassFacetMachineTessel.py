@@ -33,7 +33,6 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
     def __init__(self, *args, **kwargs):
         ClassFacetMachine.ClassFacetMachine.__init__(self, *args, **kwargs)
-        self.FacetParallelEngine = WorkerImager
 
     def setFacetsLocs(self):
         NFacets = self.NFacets
@@ -504,42 +503,4 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             f.write(ss+'\n')
         f.close()
 
-#===============================================
-#===============================================
-#===============================================
-#===============================================
 
-
-class WorkerImager(ClassFacetMachine.WorkerImager):
-
-    def init(self, iFacet):
-        # Create smoothned facet tessel mask:
-        Npix = self.DicoImager[iFacet]["NpixFacetPadded"]
-        l0, l1, m0, m1 = self.DicoImager[iFacet]["lmExtentPadded"]
-        X, Y = np.mgrid[l0:l1:Npix * 1j, m0:m1:Npix * 1j]
-        XY = np.dstack((X, Y))
-        XY_flat = XY.reshape((-1, 2))
-        vertices = self.DicoImager[iFacet]["Polygon"]
-        mpath = Path(vertices)  # the vertices of the polygon
-        mask_flat = mpath.contains_points(XY_flat)
-
-        mask = mask_flat.reshape(X.shape)
-
-        mpath = Path(self.CornersImageTot)
-        mask_flat2 = mpath.contains_points(XY_flat)
-        mask2 = mask_flat2.reshape(X.shape)
-        mask[mask2 == 0] = 0
-
-        GaussPars = (10, 10, 0)
-
-        SpacialWeigth = np.float32(mask.reshape((1, 1, Npix, Npix)))
-        SpacialWeigth = ModFFTW.ConvolveGaussian(
-            SpacialWeigth, CellSizeRad=1, GaussPars=[GaussPars])
-        SpacialWeigth = SpacialWeigth.reshape((Npix, Npix))
-        SpacialWeigth /= np.max(SpacialWeigth)
-        NameSpacialWeigth = "%sSpacialWeight.Facet_%3.3i" % (
-            self.FacetDataCache, iFacet)
-        NpShared.ToShared(NameSpacialWeigth, SpacialWeigth)
-        # Initialize a grid machine per facet:
-        self.GiveGM(iFacet)
-        self.result_queue.put({"Success": True, "iFacet": iFacet})

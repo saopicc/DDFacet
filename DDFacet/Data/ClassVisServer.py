@@ -550,10 +550,6 @@ class ClassVisServer():
                     self.CurrentMS, radiusDeg=FOV,
                     Decorr=(1. - self.GD["Compression"]["CompGridDecorr"]),
                     IdSharedMem=self.IdSharedMem, NCPU=self.NCPU)
-                # SmearMapMachine.BuildSmearMapping(DATA)
-
-                # FinalMapping,fact=SmearMapMachine.BuildSmearMapping(DATA)
-                # stop
                 FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingGridding)
 
                 print>> log, ModColor.Str("  Effective compression [Grid]  :   %.2f%%" % fact, col="green")
@@ -580,10 +576,7 @@ class ClassVisServer():
                     self.CurrentMS, radiusDeg=FOV,
                     Decorr=(1. - self.GD["Compression"]["CompDeGridDecorr"]),
                     IdSharedMem=self.IdSharedMem, NCPU=self.NCPU)
-                # SmearMapMachine.BuildSmearMapping(DATA)
-                FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(
-                                                                               DATA,
-                                                                               ChanMappingDeGridding)
+                FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingDeGridding)
                 print>> log, ModColor.Str("  Effective compression [DeGrid]:   %.2f%%" %fact, col="green")
                 DATA["BDADegrid"] = FinalMapping
                 np.save(file(mapname, 'w'), FinalMapping)
