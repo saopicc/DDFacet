@@ -71,9 +71,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             ThisMSName = reformat.reformat(os.path.abspath(MSName), LastSlash=False)
             SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
 
-        if "CatNodes" in self.GD.keys():
-            print>> log, "Taking facet directions from Nodes catalog: %s" % self.GD["CatNodes"]
-            ClusterNodes = np.load(self.GD["CatNodes"])
+#        if "CatNodes" in self.GD.keys():
+        if self.GD["DDESolutions"]["CatNodes"] is not None:
+            print>> log, "Taking facet directions from Nodes catalog: %s" % self.GD["DDESolutions"]["CatNodes"]
+            ClusterNodes = np.load(self.GD["DDESolutions"]["CatNodes"])
             ClusterNodes = ClusterNodes.view(np.recarray)
             raNode = ClusterNodes.ra
             decNode = ClusterNodes.dec
