@@ -195,6 +195,7 @@ def read_options():
 
     OP.OptionGroup("* Imager's Mainfacet","ImagerMainFacet")
     OP.add_option("NFacets",help="Number of facets, default is %default. ")
+    OP.add_option("CatNodes")
     OP.add_option("DiamMaxFacet")
     OP.add_option("DiamMinFacet")
     OP.add_option("Npix")
