@@ -566,12 +566,7 @@ class ClassVisServer():
                     self.CurrentMS, radiusDeg=FOV,
                     Decorr=(1. - self.GD["Compression"]["CompGridDecorr"]),
                     IdSharedMem=self.IdSharedMem, NCPU=self.NCPU)
-                # SmearMapMachine.BuildSmearMapping(DATA)
-
-                # FinalMapping,fact=SmearMapMachine.BuildSmearMapping(DATA)
-                # stop
-                FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA,
-                                                                               ChanMappingGridding)
+                FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingGridding)
 
                 print>> log, ModColor.Str(
                     "  Effective compression [Grid]  :   %.2f%%" %
