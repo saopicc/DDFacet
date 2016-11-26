@@ -21,6 +21,8 @@ class ProcessPool (object):
         if not self.ncpu:
             self.ncpu = psutil.cpu_count() / self.cpustep
         self.procinfo = psutil.Process()  # this will be used to control CPU affinity
+        # not convinced by the work producer pattern so this flag can enable/disable it
+        self._create_work_producer = False
 
 
     def runjobs (self, joblist, target, args=(), kwargs={}, result_callback=None, title=None, pause_on_start=False):
@@ -29,7 +31,7 @@ class ProcessPool (object):
 
         # set up queues
         if parallel:
-            if len(joblist) > 1000:
+            if len(joblist) > 10000000:   # Raz had it at 1000, but I don't buy it
                 qlimit = self.ncpu * 8
             else:
                 qlimit = 0
@@ -39,7 +41,12 @@ class ProcessPool (object):
         m_result_queue = multiprocessing.JoinableQueue()
 
         # create work producer process
-        work_p = multiprocessing.Process(target=self._work_producer, args=(m_work_queue, joblist,))
+        if self._create_work_producer:
+            work_p = multiprocessing.Process(target=self._work_producer, args=(m_work_queue, joblist,))
+        else:
+            work_p = None
+            for item in joblist:
+                m_work_queue.put(item)  # possible issue if no space for 60 seconds
 
         # create worker processes
         for cpu in xrange(self.ncpu):
@@ -51,7 +58,7 @@ class ProcessPool (object):
             parent_affinity = self.procinfo.cpu_affinity()
             try:
                 # work producer process does nothing much, so I won't pin it
-                work_p.start()
+                work_p and work_p.start()
                 main_core = 0  # CPU affinity placement
                 # start all processes and pin them each to a core
                 for p in procs:
@@ -78,7 +85,7 @@ class ProcessPool (object):
 
         # in serial mode, just run both things to completion
         if not parallel:
-            work_p.run()
+            work_p and work_p.run()
             for p in procs:
                 m_work_queue.put("POISON-E")
                 p.run()  # just run until all work is completed
@@ -90,7 +97,7 @@ class ProcessPool (object):
             try:
                 result = m_result_queue.get(True, 10)
             except Queue.Empty:
-                print>> log, "checking for dead workers"
+                # print>> log, "checking for dead workers"
                 # shoot the zombie process
                 multiprocessing.active_children()
                 # check for dead workers
@@ -130,7 +137,7 @@ class ProcessPool (object):
             m_result_queue.close()
 
             # join producer process
-            work_p.join()
+            work_p and work_p.join()
 
             # join consumerr processes
             for p in procs:
@@ -174,7 +181,6 @@ class ProcessPool (object):
                 # Get queue item, or timeout and check if pill perscribed.
                 jobitem = m_work_queue.get(True, 5)
             except Queue.Empty:
-                print>> log, "work_consumer: empty worker queue"
                 pass
             else:
                 if jobitem == "POISON-E":
