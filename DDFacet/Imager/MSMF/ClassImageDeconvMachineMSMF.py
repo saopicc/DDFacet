@@ -353,7 +353,7 @@ class ClassImageDeconvMachine():
 
         mm0, mm1 = self._MeanDirty.min(), self._MeanDirty.max()
 
-        # work out uper threshold
+        # work out upper threshold
         StopFlux = max(
             Fluxlimit_Peak,
             Fluxlimit_RMS,

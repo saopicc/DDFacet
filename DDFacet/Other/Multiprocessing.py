@@ -11,47 +11,19 @@ log = MyLogger.getLogger("Multiprocessing")
 #MyLogger.setSilent("Multiprocessing")
 
 
-# A generic producer that places data items from a list into a queue
-def _work_producer(queue, data):
-    for item in data:
-        try:
-            queue.put(item, 60)  # possible issue if no space for 60 seconds
-        except Queue.Full:
-            print>> log, "work_producer: queue full"
-            pass
-
-
-# Init W worker that is called by Multiprocessing.Process
-def _work_consumer(m_work_queue, m_result_queue, target, args=(), kwargs={}):
-    timer = ClassTimeIt.ClassTimeIt()
-    pill = True
-    # While no poisoned pill has been given grab items from the queue.
-    while pill:
-        try:
-            # Get queue item, or timeout and check if pill perscribed.
-            jobitem = m_work_queue.get(True, 5)
-        except Queue.Empty:
-            print>> log, "work_consumer: empty worker queue"
-            pass
-        else:
-            if jobitem == "POISON-E":
-                break
-            elif jobitem is not None:
-                result = target(jobitem, *args, **kwargs)
-                # Send result back
-                m_result_queue.put(dict(Success=True, Time=timer.seconds(), Result=result))
-
-
 class ProcessPool (object):
-    def __init__ (self, GD):
+    def __init__ (self, GD=None, ncpu=None, affinity=None):
         self.GD = GD
-        self.affinity = self.GD["Parallel"]["Affinity"]
+        self.affinity = self.GD["Parallel"]["Affinity"] if affinity is None else affinity
         self.cpustep = self.affinity or 1
-        self.ncpu = self.GD["Parallel"]["NCPU"] or psutil.cpu_count() / cpustep
+        self.ncpu = self.GD["Parallel"]["NCPU"] if ncpu is None else ncpu
+        # if NCPU is 0, set to number of CPUs on system
+        if not self.ncpu:
+            self.ncpu = psutil.cpu_count() / self.cpustep
         self.procinfo = psutil.Process()  # this will be used to control CPU affinity
 
 
-    def runjobs (self, joblist, target, args=(), kwargs={}, result_callback=None, title=None):
+    def runjobs (self, joblist, target, args=(), kwargs={}, result_callback=None, title=None, pause_on_start=False):
         parallel = self.ncpu > 1
         procs = list()  # list of processes that are running
 
@@ -67,11 +39,11 @@ class ProcessPool (object):
         m_result_queue = multiprocessing.JoinableQueue()
 
         # create work producer process
-        work_p = multiprocessing.Process(target=_work_producer, args=(m_work_queue, joblist,))
+        work_p = multiprocessing.Process(target=self._work_producer, args=(m_work_queue, joblist,))
 
         # create worker processes
         for cpu in xrange(self.ncpu):
-            p = multiprocessing.Process(target=_work_consumer, args=(m_work_queue, m_result_queue, target, args, kwargs))
+            p = multiprocessing.Process(target=self._work_consumer, args=(m_work_queue, m_result_queue, cpu, target, args, kwargs))
             procs.append(p)
 
         # fork off child processes
@@ -171,3 +143,57 @@ class ProcessPool (object):
 
         # extract list of result objects
         return [ r["Result"] for r in results ]
+
+    @staticmethod
+    def _work_producer(queue, data):
+        """Producer worker for ProcessPool"""
+        for item in data:
+            try:
+                queue.put(item, 60)  # possible issue if no space for 60 seconds
+            except Queue.Full:
+                print>> log, "work_producer: queue full"
+                pass
+
+
+    # CPU id. This will be None in the parent process, and a unique number in each worker process
+    cpu_id = None
+
+    @staticmethod
+    def getCPUId ():
+        return ProcessPool.cpu_id
+
+    @staticmethod
+    def _work_consumer(m_work_queue, m_result_queue, cpu, target, args=(), kwargs={}):
+        """Consumer worker for ProcessPool"""
+        ProcessPool.cpu_id = cpu
+        timer = ClassTimeIt.ClassTimeIt()
+        pill = True
+        # While no poisoned pill has been given grab items from the queue.
+        while pill:
+            try:
+                # Get queue item, or timeout and check if pill perscribed.
+                jobitem = m_work_queue.get(True, 5)
+            except Queue.Empty:
+                print>> log, "work_consumer: empty worker queue"
+                pass
+            else:
+                if jobitem == "POISON-E":
+                    break
+                elif jobitem is not None:
+                    result = target(jobitem, *args, **kwargs)
+                    # Send result back
+                    m_result_queue.put(dict(Success=True, Time=timer.seconds(), Result=result))
+
+
+# init default process pool
+def initDefaultPool(GD=None, ncpu=None, affinity=None):
+    global default_pool
+    global runjobs
+    default_pool = ProcessPool(GD, ncpu, affinity)
+    runjobs = default_pool.runjobs
+
+
+initDefaultPool(ncpu=0, affinity=0)
+
+
+

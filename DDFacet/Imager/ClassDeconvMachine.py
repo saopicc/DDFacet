@@ -15,6 +15,7 @@ import glob
 from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
 import traceback
+from DDFacet.Other import Multiprocessing
 
 log=MyLogger.getLogger("ClassImagerDeconv")
 import pyfits
@@ -117,6 +118,8 @@ class ClassImagerDeconv():
             self._saveims.update("e")
         self._save_intermediate_grids = self.GD["Debugging"]["SaveIntermediateDirtyImages"]
 
+        # init process pool for parallelization
+        Multiprocessing.initDefaultPool(GD=self.GD)
 
     def Init(self):
         DC=self.GD

@@ -42,8 +42,18 @@ def A_add_B_prod_factor(
     return A
 
 
-def A_whereMax(A, NCPU=psutil.cpu_count(), DoAbs=1, Mask=None):
+def A_whereMax(A, NCPU=0, DoAbs=1, Mask=None):
+    """
+    Args:
+        A:
+        NCPU: if 0, use all CPUs
+        DoAbs:
+        Mask:
 
+    Returns:
+
+    """
+    NCPU = NCPU or psutil.cpu_count()
     NDimsA = len(A.shape)
     ShapeOrig = A.shape
 

@@ -328,10 +328,10 @@ def main(OP=None, messages=[]):
     OP.ToParset("%s.parset"%ImageName)
 
     NpShared.DelAll(IdSharedMem)
-    Imager = ClassDeconvMachine.ClassImagerDeconv(
-        GD=DicoConfig, IdSharedMem=IdSharedMem, BaseName=ImageName)
 
+    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, IdSharedMem=IdSharedMem, BaseName=ImageName)
     Imager.Init()
+
     Mode = DicoConfig["ImagerGlobal"]["Mode"]
 
     # Imager.testDegrid()
