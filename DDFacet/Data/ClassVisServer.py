@@ -564,8 +564,7 @@ class ClassVisServer():
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
                 SmearMapMachine = ClassSmearMapping.ClassSmearMapping(
                     self.CurrentMS, radiusDeg=FOV,
-                    Decorr=(1. - self.GD["Compression"]["CompGridDecorr"]),
-                    IdSharedMem=self.IdSharedMem, NCPU=self.NCPU)
+                    Decorr=(1. - self.GD["Compression"]["CompGridDecorr"]))
                 FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingGridding)
 
                 print>> log, ModColor.Str(
@@ -594,9 +593,7 @@ class ClassVisServer():
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
                 SmearMapMachine = ClassSmearMapping.ClassSmearMapping(
                     self.CurrentMS, radiusDeg=FOV,
-                    Decorr=(1. - self.GD["Compression"]["CompDeGridDecorr"]),
-                    IdSharedMem=self.IdSharedMem, NCPU=self.NCPU)
-                # SmearMapMachine.BuildSmearMapping(DATA)
+                    Decorr=(1. - self.GD["Compression"]["CompDeGridDecorr"]))
                 FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(
                                                                                DATA,
                                                                                ChanMappingDeGridding)
