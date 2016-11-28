@@ -469,7 +469,7 @@ class ClassVisServer():
         NpShared.Lock(self._visweights)
         # DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
         # as a proof of concept, pass weights in directly
-        DATA["Weights"] = self._visweights
+        DATA["Weights"] = NpShared.ToShared(self.maincache.getShmURL("weights"), self._visweights)
 
         DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
 
