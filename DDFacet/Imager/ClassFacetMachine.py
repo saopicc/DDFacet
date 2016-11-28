@@ -1139,7 +1139,7 @@ class ClassFacetMachine():
             DicoJonesMatrices["DicoJones_Beam"]["AlphaReg"] = None
 
         # T.timeit("prepare %d"%iFacet)
-        NpShared.Lock(W)
+        # NpShared.Lock(W)
         T.timeit("lock %d" % iFacet)
         GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                         DoNormWeights=False,
