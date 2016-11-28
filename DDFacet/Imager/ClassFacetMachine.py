@@ -578,8 +578,6 @@ class ClassFacetMachine():
             # temporary: to see if RAM is faster
             wterm = wterm.copy()
             sphe = sphe.copy()
-            NpShared.Lock(wterm)
-            NpShared.Lock(sphe)
             # store in dict
             self._wterms[iFacet] = wterm
             self._sphes[iFacet] = sphe
