@@ -576,9 +576,9 @@ class ClassFacetMachine():
             self.SpacialWeigth[iFacet] = SpacialWeigth
             wterm = NpShared.GiveArray( self.VS.maincache.getCacheURL("WTerm", facet=iFacet) )
             sphe = NpShared.GiveArray( self.VS.maincache.getCacheURL("Sphe", facet=iFacet) )
-            # temporary: to see if shm is faster
-            wterm = NpShared.ToShared( self.VS.maincache.getShmURL("WTerm", facet=iFacet), wterm)
-            sphe = NpShared.ToShared( self.VS.maincache.getShmURL("Sphe", facet=iFacet), sphe)
+            # temporary: to see if RAM is faster
+            wterm = wterm.copy()
+            sphe = sphe.copy()
             NpShared.Lock(wterm)
             NpShared.Lock(sphe)
             # store in dict
