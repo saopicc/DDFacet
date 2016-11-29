@@ -36,7 +36,7 @@ class ProcessPool (object):
     def __init__ (self, GD=None, ncpu=None, affinity=None):
         self.GD = GD
         self.affinity = self.GD["Parallel"]["Affinity"] if affinity is None else affinity
-        self.cpustep = self.affinity or 1
+        self.cpustep = abs(self.affinity) or 1
         self.ncpu = self.GD["Parallel"]["NCPU"] if ncpu is None else ncpu
         # if NCPU is 0, set to number of CPUs on system
         if not self.ncpu:
@@ -74,6 +74,17 @@ class ProcessPool (object):
             p = multiprocessing.Process(target=self._work_consumer, args=(m_work_queue, m_result_queue, cpu, target, args, kwargs))
             procs.append(p)
 
+        # generate list of CPU cores for workers to run on
+        if self.affinity:
+            if self.affinity == 1:
+                cores = range(self.ncpu)
+            elif self.affinity == 2:
+                cores = range(0, self.ncpu*2, 2)
+            elif self.affinity == -2:
+                cores = range(0, self.ncpu*2, 4) + range(1, self.ncpu*2, 4)
+            else:
+                raise ValueError,"unknown affinity setting %d" % self.affinity
+
         # fork off child processes
         if parallel:
             parent_affinity = self.procinfo.cpu_affinity()
@@ -82,14 +93,14 @@ class ProcessPool (object):
                 work_p and work_p.start()
                 main_core = 0  # CPU affinity placement
                 # start all processes and pin them each to a core
-                for p in procs:
+                for i, p in enumerate(procs):
                     if self.affinity:
-                        self.procinfo.cpu_affinity([main_core])
-                        main_core += self.cpustep
+                        self.procinfo.cpu_affinity([cores[i]])
                     p.start()
             finally:
                 self.procinfo.cpu_affinity(parent_affinity)
-        print>> log, "%s: starting %d workers for %d jobs, affinity %d" % (title or "", self.ncpu, len(joblist), self.affinity)
+        print>> log, "%s: starting %d workers for %d jobs%s" % (title or "", self.ncpu, len(joblist), 
+            ", CPU cores " + " ".join(map(str,cores)) if self.affinity else "")
 
         njobs = len(joblist)
         iResult = 0
