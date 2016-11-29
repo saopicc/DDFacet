@@ -1027,7 +1027,7 @@ class ClassFacetMachine():
         Im2Grid = ClassImToGrid(OverS=self.GD["ImagerCF"]["OverS"], GD=self.GD)
         ChanSel = sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
 
-        joblist = [ (iFacet, self.VS.maincache.getShmURL("ModelImage", facet=iFacet))
+        joblist = [ (iFacet, Multiprocessing.getShmURL("ModelImage", facet=iFacet))
                     for iFacet in sorted(self.DicoImager.keys()) ]
 
         procpool = Multiprocessing.ProcessPool(self.GD)
@@ -1065,7 +1065,7 @@ class ClassFacetMachine():
                 self._facet_grids[iFacet] = self.DicoGridMachine[iFacet]["Dirty"]
                 self.DicoGridMachine[iFacet]["Dirty"][...] = 0
             else:
-                GridName = self.VS.maincache.getShmURL("Grid",facet=iFacet)
+                GridName = Multiprocessing.getShmURL("Grid",facet=iFacet)
                 ResidueGrid = NpShared.CreateShared(GridName,(self.VS.NFreqBands, self.npol, NX, NX), self.CType)
                 self._facet_grids[iFacet] = self.DicoGridMachine[iFacet]["Dirty"] = ResidueGrid
             self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands, self.npol), np.float64)

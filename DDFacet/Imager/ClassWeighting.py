@@ -135,6 +135,7 @@ class ClassWeighting():
                 weights_or_path, str) else weights_or_path
             if force_unity_weight:
                 weights.fill(1)
+                weights[flags,...] = 0
             elif weightnorm != 1:
                 weights *= weightnorm
             # flip sign of negative v values -- we'll only grid the top half of

@@ -117,7 +117,7 @@ class ClassSmearMapping():
 
         joblist = [ (a0, a1) for a0 in xrange(na) for a1 in xrange(na) ]
 
-        WorkerMapName = self.MS.cache.getShmURL("SmearWorker.%d")
+        WorkerMapName = Multiprocessing.getShmURL("SmearWorker.%d")
 
         results = Multiprocessing.runjobs(joblist, title="Smear mapping", target=_smearmapping_worker,
                                             kwargs=dict(DATA=DATA,
