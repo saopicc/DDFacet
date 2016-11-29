@@ -1,11 +1,11 @@
-import DDFacet.Imager.ClassModelMachine
+import ClassModelMachine
 
 
 
 import ClassGainMachine
 from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger
-log = MyLogger.getLogger("GiveModelMachine")
+log=MyLogger.getLogger("GiveModelMachine")
 
 class ClassModModelMachine():
     """
