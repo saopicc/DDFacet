@@ -11,7 +11,28 @@ log = MyLogger.getLogger("Multiprocessing")
 #MyLogger.setSilent("Multiprocessing")
 
 
+def getShmName(self, name, **kw):
+    """
+    Forms up a name for a shm-backed shared element. This takes the form of "ddf.PID.", where PID is the
+    pid of the process where the cache manager was created (so the parent process, presumably), followed
+    by a filename of the form "NAME:KEY1_VALUE1:...", as returned by getElementName(). See getElementName()
+    for usage.
+    """
+    return "ddf.%d.%s" % (os.getpid(), self.getElementName(name, **kw))
+
+
+def getShmURL(self, name, **kw):
+    """
+    Forms up a URL for a shm-backed shared element. This takes the form of "shm://" plus getShmName()
+    """
+    return "shm://" + self.getShmName(name, **kw)
+
+
 class ProcessPool (object):
+    """
+    ProcessPool implements a pool of forked child processes which can execute jobs (defined by a worker
+    function) in paralellel.
+    """
     def __init__ (self, GD=None, ncpu=None, affinity=None):
         self.GD = GD
         self.affinity = self.GD["Parallel"]["Affinity"] if affinity is None else affinity

@@ -112,35 +112,12 @@ class CacheManager (object):
         """
         return os.path.join(self.dirname, self.getElementName(name, **kw))
 
-    def getShmName (self, name, **kw):
-        """
-        Forms up a name for a shm-backed shared element. This takes the form of "ddf.PID.", where PID is the
-        pid of the process where the cache manager was created (so the parent process, presumably), followed
-        by a filename of the form "NAME:KEY1_VALUE1:...", as returned by getElementName(). See getElementName()
-        for usage.
-        """
-        return "ddf.%d.%s" % (os.getpid(), self.getElementName(name, **kw))
-
-    def getShmURL (self, name, **kw):
-        """
-        Forms up a URL for a shm-backed shared element. This takes the form of "shm://" plus getShmName()
-        """
-        return "shm://" + self.getShmName(name, **kw)
-
     def getCacheURL (self, name, **kw):
         """
         Forms up a URL for a disk-backed shared element. This takes the form of "file://PATH", where path is
         the cache element path as formed by getElementPath(). See the latter for usage.
         """
         return "file://" + self.getElementPath(name, **kw)
-
-    def getURL(self, name, disk=False, **kw):
-        """
-        Forms up a URL for a disk- or shm-backed shared element. For disk=False, calls getShmURL(). For disk=True,
-        calls getCacheURL()
-        """
-        return self.getCacheURL(name, **kw) if disk else self.getShmURL(name, **kw)
-
 
     def checkCache(self, name, hashkeys, directory=False, reset=False):
         """

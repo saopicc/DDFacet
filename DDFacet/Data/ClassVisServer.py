@@ -418,7 +418,7 @@ class ClassVisServer():
 
         """
         self.residual_data = self.orig_data = self.orig_datapath = None
-        self.datapath = self.maincache.getShmURL("VisData")
+        self.datapath = Multiprocessing.getShmURL("VisData")
         if self._databuf is None:
             self._databuf = NpShared.CreateShared(self.datapath, self._chunk_shape, np.complex64)
         if self._flagbuf is None:
