@@ -871,14 +871,25 @@ class WorkerFitness(multiprocessing.Process):
         df=self.PM.NPixListData
         self.rv = chi2(df)
         _,Chi2=self.GiveFitness(individual0)
+        self.MinChi2=Chi2
         logProb=self.rv.logpdf(Chi2)
 
         x=np.linspace(0,2*self.rv.moment(1),1000)
         lP=self.rv.logpdf(x)
         iMax=np.argmax(lP)
         self.Chi2PMax=x[iMax]
-        self.MinChi2=Chi2
         self.Var=self.MinChi2/self.Chi2PMax
+        Chi20_n=self.MinChi2/self.Var
+
+        VarMin=(3e-3)**2
+        ThVar=np.max([self.Var,VarMin])
+        ShrinkFactor=np.min([1.,self.Var/ThVar])
+
+        # print
+        # print ShrinkFactor
+        # print
+        # stop
+
         DicoChains={}
         Parms=individual0
 
@@ -900,14 +911,22 @@ class WorkerFitness(multiprocessing.Process):
         DicoChains["logProb"]=[]
         logProb0=self.rv.logpdf(Chi2/self.Var)
 
-        Mut_pFlux, Mut_p0, Mut_pMove=0.3,0.,0.3
+        
+        Mut_pFlux, Mut_p0, Mut_pMove=0.2,0.,0.3
 
 
         FactorAccelerate=1.
         lAccept=[]
         NBurn=self.GD["MetroClean"]["MetroNBurn"]
         NSteps=NSteps+NBurn
-        for iStep in range(NSteps):
+        
+        NAccepted=0
+        iStep=0
+        NMax=10000
+        
+        #for iStep in range(NSteps):
+        while NAccepted<NSteps and iStep<NMax:
+            iStep+=1
             #print "========================"
             #print iStep
             individual1,=self.MutMachine.mutGaussian(individual0.copy(), 
@@ -915,14 +934,17 @@ class WorkerFitness(multiprocessing.Process):
                                                      FactorAccelerate=FactorAccelerate)
 
             _,Chi2=self.GiveFitness(individual1)
-            if Chi2<self.MinChi2:
-                self.Var=Chi2/self.Chi2PMax
-                #print "           >>>>>>>>>>>>>> %f"%np.min(Chi2)
+            # if Chi2<self.MinChi2:
+            #     self.Var=Chi2/self.Chi2PMax
+            #     #print "           >>>>>>>>>>>>>> %f"%np.min(Chi2)
 
 
-            Chi2Norm=Chi2/self.Var
-                
-            logProb=self.rv.logpdf(Chi2Norm)
+            Chi2_n=Chi2/self.Var
+            
+
+            Chi2_n=Chi20_n+ShrinkFactor*(Chi2_n-Chi20_n)
+
+            logProb=self.rv.logpdf(Chi2_n)
             
             p1=logProb
             p0=logProb0#DicoChains["logProb"][-1]
@@ -940,10 +962,11 @@ class WorkerFitness(multiprocessing.Process):
             if r<R: # accept
                 individual0=individual1
                 logProb0=logProb
-                if iStep>NBurn:
+                NAccepted+=1
+                if NAccepted>NBurn:
                     DicoChains["logProb"].append(p1)
                     DicoChains["Parms"].append(individual1)
-                    DicoChains["Chi2"].append(Chi2)
+                    DicoChains["Chi2"].append(Chi2_n)
                 
                 # pylab.scatter(Chi2Norm,np.exp(p1),lw=0)
                 # pylab.draw()
@@ -975,13 +998,14 @@ class WorkerFitness(multiprocessing.Process):
                 pass
 
             AccRate=np.count_nonzero(lAccept)/float(len(lAccept))
-            # print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
+            #print "[%i] Acceptance rate %f [%f with ShrinkFactor %f]"%(iStep,AccRate,FactorAccelerate,ShrinkFactor)
             if (iStep%50==0)&(iStep>10):
                 if AccRate>0.234:
                     FactorAccelerate*=1.5
                 else:
                     FactorAccelerate/=1.5
                 FactorAccelerate=np.min([3.,FactorAccelerate])
+                FactorAccelerate=np.max([.01,FactorAccelerate])
                 lAccept=[]
 
 

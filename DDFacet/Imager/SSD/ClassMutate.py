@@ -60,8 +60,8 @@ class ClassMutate():
         f1=Flux#alpha*A[0,0,i0,j0]
         
         _,_,nx,ny=A.shape
-        condx=((i1>0)&(i1<nx))
-        condy=((j1>0)&(j1<ny))
+        condx=((i1>=0)&(i1<nx))
+        condy=((j1>=0)&(j1<ny))
         iS=self.PM.giveIndexParm("S")
         iAlpha=self.PM.giveIndexParm("Alpha")
         if condx&condy:
