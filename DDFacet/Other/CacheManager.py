@@ -1,8 +1,9 @@
+import cPickle
 import os
 import os.path
-import cPickle
 
 from DDFacet.Other import MyLogger
+
 log = MyLogger.getLogger("CacheManager")
 
 
@@ -82,7 +83,7 @@ class CacheManager (object):
         self.dirname = dirname
         self.hashes = {}
         if not os.path.exists(dirname):
-            print>>log, ("cache directory %s does not exist, creating" % dirname)
+            print>>log,("cache directory %s does not exist, creating"%dirname)
             os.mkdir(dirname)
         else:
             if reset:
@@ -90,7 +91,7 @@ class CacheManager (object):
                 os.system("rm -fr "+dirname)
                 os.mkdir(dirname)
 
-    def checkCache(self, name, hashkeys, directory=False, reset=False):
+    def checkCache (self, name, hashkeys, directory=False, reset=False):
         """
         Checks if cached object named "name" is valid.
 
@@ -111,7 +112,6 @@ class CacheManager (object):
         hashpath = cachepath + ".hash"
         # convert hash keys into a single list
         hash = hashkeys
-        self.hashes[name] = hashpath, hash
         # delete cache if explicitly asked to
         if reset:
             print>>log, "cache element %s will be explicitly reset" % cachepath
@@ -139,13 +139,14 @@ class CacheManager (object):
                 os.unlink(hashpath)
             if directory:
                 if os.path.exists(cachepath):
-                    os.system("rm -fr %s" % cachepath)
+                    os.system("rm -fr %s"%cachepath)
                 os.mkdir(cachepath)
         # store hash
         self.hashes[name] = hashpath, hash, reset
         return cachepath, not reset
 
-    def saveCache(self, name=None):
+
+    def saveCache (self, name=None):
         """
         Saves cache hash to disk. Meant to be called after a cache object has been successfully written to.
 
@@ -159,6 +160,6 @@ class CacheManager (object):
         for name in names:
             hashpath, hash, reset = self.hashes[name]
             if reset:
-                cPickle.dump(hash, file(hashpath, "w"))
-                print>>log, "writing cache hash %s" % hashpath
+                cPickle.dump(hash, file(hashpath,"w"))
+                print>>log,"writing cache hash %s" % hashpath
                 del self.hashes[name]
