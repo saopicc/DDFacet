@@ -977,7 +977,7 @@ class WorkerFitness(multiprocessing.Process):
             AccRate=np.count_nonzero(lAccept)/float(len(lAccept))
             # print "[%i] Acceptance rate %f [%f]"%(iStep,AccRate,FactorAccelerate)
             if (iStep%50==0)&(iStep>10):
-                if AccRate>0.5:
+                if AccRate>0.234:
                     FactorAccelerate*=1.5
                 else:
                     FactorAccelerate/=1.5
