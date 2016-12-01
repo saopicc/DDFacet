@@ -4,6 +4,7 @@ import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
 import DDFacet.cbuild.Gridder._pyWeightingCore as WeightingCore
 import numpy as np
 from DDFacet.Other import MyLogger
+from DDFacet.Other import ModColor
 
 log= MyLogger.getLogger("ClassWeighting")
 
@@ -99,8 +100,15 @@ class ClassWeighting():
         xymax = 0
         for uv, weights, flags, freqs in uvw_weights_flags_freqs:
             # max |u|,|v| in lambda
-            uvmax = abs(uv)[~flags, :].max() * freqs.max() / _cc
+            uvsel=abs(uv)[~flags, :]
+            if uvsel.size==0:
+                print>> log, ModColor.Str("  A dataset is fully flagged")
+                continue
+            uvmax = uvsel.max() * freqs.max() / _cc
             xymax = max(xymax, int(math.floor(uvmax / cell)))
+        if xymax == 0:
+            raise Exception('All datasets are fully flagged')
+        
         xymax += 1
         # grid will be from [-xymax,xymax] in U and [0,xymax] in V
         npixx = xymax * 2 + 1

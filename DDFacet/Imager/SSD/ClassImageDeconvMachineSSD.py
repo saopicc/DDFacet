@@ -372,7 +372,6 @@ class ClassImageDeconvMachine():
         ListIslandsOut=[self.ListIslands[i] for i in ind]
         self.ListIslands=ListIslandsOut
         
-                
 
     def setChannel(self,ch=0):
         self.Dirty=self._MeanDirty[ch]
@@ -469,7 +468,17 @@ class ClassImageDeconvMachine():
             else:
                 self.NChains=self.NCPU
             print>>log, "Evolving %i chains of %i iterations"%(self.NChains,self.GD["MetroClean"]["MetroNIter"])
-            ListBigIslands=[Island for Island in self.ListIslands if len(Island)>=self.GD["SSDClean"]["RestoreMetroSwitch"]]
+            
+            ListBigIslands=[]
+            for ThisPixList in self.ListIslands:
+                x,y=np.array(ThisPixList,dtype=np.float32).T
+                dx,dy=x.max()-x.min(),y.max()-y.min()
+                dd=np.max([dx,dy])+1
+                if dd>self.GD["SSDClean"]["RestoreMetroSwitch"]:
+                    ListBigIslands.append(ThisPixList)
+
+            # ListBigIslands=ListBigIslands[1::]
+            # ListBigIslands=[Island for Island in self.ListIslands if len(Island)>=self.GD["SSDClean"]["RestoreMetroSwitch"]]
             print>>log,"Deconvolve %i large islands (>=%i pixels) (parallelised per island)"%(len(ListBigIslands),self.GD["SSDClean"]["RestoreMetroSwitch"])
             self.SelectedIslandsMask=np.zeros_like(self.DicoDirty["MeanImage"])
             for ThisIsland in ListBigIslands:

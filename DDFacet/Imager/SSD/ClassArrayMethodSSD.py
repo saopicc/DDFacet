@@ -124,6 +124,20 @@ class ClassArrayMethodSSD():
             self.DirtyArray[iBand,0,:]=Dirty[iBand,0,x0,y0]
 
         ALPHA=1.
+
+        import scipy.special
+        d=self.DirtyArray[:,0,:].ravel()
+        x=np.linspace(-10,10,1000)
+        f=0.5*(1.+scipy.special.erf(x/np.sqrt(2.)))
+        n=d.size
+        F=1.-(1.-f)**n
+        ratio=np.abs(np.interp(0.5,F,x))
+        EstimatedStdFromMin=np.abs(np.min(d))/ratio
+        EstimatedStdFromMax=np.abs(np.max(d))/ratio
+        self.EstimatedStdFromResid=np.max([EstimatedStdFromMin,EstimatedStdFromMax])
+        
+
+
         if (self.IslandBestIndiv is not None):
             S=self.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
             if np.max(np.abs(S))>0:
@@ -320,6 +334,7 @@ class ClassArrayMethodSSD():
                             PauseOnStart=False,
                             PM=self.PM,
                             PixVariance=self.PixVariance,
+                            EstimatedStdFromResid=self.EstimatedStdFromResid,
                             MaxFunc=self.MaxFunc,
                             WeightMaxFunc=self.WeightMaxFunc,
                             DirtyArray=self.DirtyArray,
@@ -667,6 +682,7 @@ class WorkerFitness(multiprocessing.Process):
                  PauseOnStart=False,
                  PM=None,
                  PixVariance=1e-2,
+                 EstimatedStdFromResid=0,
                  MaxFunc=None,WeightMaxFunc=None,DirtyArray=None,
                  ConvMode=None,
                  StopWhenQueueEmpty=False,
@@ -683,6 +699,7 @@ class WorkerFitness(multiprocessing.Process):
         self._pause_on_start = PauseOnStart
         self.GD=GD
         self.PM=PM
+        self.EstimatedStdFromResid=EstimatedStdFromResid
         self.ListPixParms=ListPixParms
         self.ListPixData=ListPixData
         self.iIsland=iIsland
@@ -878,38 +895,63 @@ class WorkerFitness(multiprocessing.Process):
         lP=self.rv.logpdf(x)
         iMax=np.argmax(lP)
         self.Chi2PMax=x[iMax]
-        self.Var=self.MinChi2/self.Chi2PMax
+
+        # #####################
+        # # V0
+        #self.Var=self.MinChi2/self.Chi2PMax
+        #Chi20_n=self.MinChi2/self.Var
+        #VarMin=(3e-3)**2
+        #ThVar=np.max([self.Var,VarMin])
+        #ShrinkFactor=np.min([1.,self.Var/ThVar])
+        # # print
+        # # print ShrinkFactor
+        # # print
+        # # stop
+        # #####################
+        VarMin=(3e-4)**2
+        #self.Var=np.max([self.EstimatedStdFromResid**2,VarMin])
+        Var=self.MinChi2/self.Chi2PMax
+        S=self.PM.ArrayToSubArray(individual0,Type="S")
+        B=np.sum(np.abs(S))/float(S.size)
+        B0=7e-4
+        Sig0=3e-3
+        Sig=B*Sig0/B0
+
+        # print 
+        # print "%f %f %f -> %f"%(B,B0,Sig0,Sig)
+        # print 
+
+        self.Var=np.max([4.*self.EstimatedStdFromResid**2,
+                         Sig**2])
+
         Chi20_n=self.MinChi2/self.Var
+        ShrinkFactor=1.
+        # #####################
 
-        VarMin=(3e-3)**2
-        ThVar=np.max([self.Var,VarMin])
-        ShrinkFactor=np.min([1.,self.Var/ThVar])
 
-        # print
-        # print ShrinkFactor
-        # print
-        # stop
-
+        
         DicoChains={}
         Parms=individual0
 
 
-        # # ##################################
-        # import pylab
-        # x=np.linspace(0,2*self.rv.moment(1),1000)
-        # P=self.rv.pdf(x)
-        # pylab.clf()
-        # pylab.plot(x,P)
-        # Chi2Red=Chi2/self.Var
-        # pylab.scatter(Chi2Red,np.mean(P),c="black")
-        # pylab.draw()
-        # pylab.show(False)
-        # # ##################################
+        # ##################################
+        DoPlot=False
+        # DoPlot=True
+        if DoPlot:
+            import pylab
+            x=np.linspace(0,2*self.rv.moment(1),1000)
+            P=self.rv.pdf(x)
+            pylab.clf()
+            pylab.plot(x,P)
+            pylab.scatter(Chi20_n,np.mean(P),c="black")
+            pylab.draw()
+            pylab.show(False)
+        # ##################################
 
         DicoChains["Parms"]=[]
         DicoChains["Chi2"]=[]
         DicoChains["logProb"]=[]
-        logProb0=self.rv.logpdf(Chi2/self.Var)
+        logProb0=self.rv.logpdf(Chi20_n)
 
         
         Mut_pFlux, Mut_p0, Mut_pMove=0.2,0.,0.3
@@ -922,7 +964,7 @@ class WorkerFitness(multiprocessing.Process):
         
         NAccepted=0
         iStep=0
-        NMax=10000
+        NMax=NSteps#10000
         
         #for iStep in range(NSteps):
         while NAccepted<NSteps and iStep<NMax:
@@ -968,11 +1010,12 @@ class WorkerFitness(multiprocessing.Process):
                     DicoChains["Parms"].append(individual1)
                     DicoChains["Chi2"].append(Chi2_n)
                 
-                # pylab.scatter(Chi2Norm,np.exp(p1),lw=0)
-                # pylab.draw()
-                # pylab.show(False)
-                # pylab.pause(0.1)
-                
+                if DoPlot:
+                    pylab.scatter(Chi2_n,np.exp(p1),lw=0)
+                    pylab.draw()
+                    pylab.show(False)
+                    pylab.pause(0.1)
+
                 # print "  accept"
                 # # Model=self.StackChain()
                 
@@ -990,10 +1033,11 @@ class WorkerFitness(multiprocessing.Process):
             else:
                 
                 # # #######################
-                # pylab.scatter(Chi2Norm,np.exp(p1),c="red",lw=0)
-                # pylab.draw()
-                # pylab.show(False)
-                # pylab.pause(0.1)
+                if DoPlot:
+                    pylab.scatter(Chi2_n,np.exp(p1),c="red",lw=0)
+                    pylab.draw()
+                    pylab.show(False)
+                    pylab.pause(0.1)
                 # # #######################
                 pass
 
