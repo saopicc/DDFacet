@@ -16,6 +16,7 @@ import os
 import psutil
 import ClassJones
 import ClassBeamMean
+from DDFacet.Other import Multiprocessing
 log = MyLogger.getLogger("ClassVisServer")
 
 

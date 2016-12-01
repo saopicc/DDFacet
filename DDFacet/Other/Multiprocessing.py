@@ -1,4 +1,5 @@
 import psutil
+import os
 import Queue
 import multiprocessing
 import numpy as np
@@ -11,21 +12,23 @@ log = MyLogger.getLogger("Multiprocessing")
 #MyLogger.setSilent("Multiprocessing")
 
 
-def getShmName(self, name, **kw):
+def getShmName(name, **kw):
     """
     Forms up a name for a shm-backed shared element. This takes the form of "ddf.PID.", where PID is the
     pid of the process where the cache manager was created (so the parent process, presumably), followed
     by a filename of the form "NAME:KEY1_VALUE1:...", as returned by getElementName(). See getElementName()
     for usage.
     """
-    return "ddf.%d.%s" % (os.getpid(), self.getElementName(name, **kw))
+    # join keyword args into "key=value:key=value:..."
+    kws = ":".join([name] + ["%s_%s" % (key, value) for key, value in sorted(kw.items())])
+    return "ddf.%d.%s" % (os.getpid(), kws)
 
 
-def getShmURL(self, name, **kw):
+def getShmURL(name, **kw):
     """
     Forms up a URL for a shm-backed shared element. This takes the form of "shm://" plus getShmName()
     """
-    return "shm://" + self.getShmName(name, **kw)
+    return "shm://" + getShmName(name, **kw)
 
 
 class ProcessPool (object):
