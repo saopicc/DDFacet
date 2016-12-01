@@ -592,7 +592,7 @@ class ClassMS():
             table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
             self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
             if use_cache:
-                print>> log, "caching visibilities to %s" % flagpath
+                print>> log, "caching flags to %s" % flagpath
                 np.save(flagpath, flags)
                 self.cache.saveCache("Flags.npy")
 

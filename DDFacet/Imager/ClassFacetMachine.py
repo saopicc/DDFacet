@@ -6,6 +6,7 @@ import ClassDDEGridMachine
 import numpy as np
 import ClassCasaImage
 import pyfftw
+import cPickle
 from matplotlib.path import Path
 import pylab
 from DDFacet.Other import ClassTimeIt
@@ -467,18 +468,21 @@ class ClassFacetMachine():
         """
         Set fft wisdom
         """
-        self.FFTW_Wisdom = None
+        path, valid = self.VS.maincache.checkCache("FFTW_Wisdom", dict(shape=self.PaddedGridShape))
+        if not valid:
+            print>>log, "Set fftw widsdom for shape = %s" % str(self.PaddedGridShape)
+            a = np.random.randn(*(self.PaddedGridShape)) \
+                + 1j*np.random.randn(*(self.PaddedGridShape))
+            FM = ModFFTW.FFTW_2Donly(self.PaddedGridShape, np.complex64)
+            FM.fft(a)  # this is never used
+            self.FFTW_Wisdom = pyfftw.export_wisdom()
+            cPickle.dump(self.FFTW_Wisdom, file(path, "w"))
+            self.VS.maincache.saveCache("FFTW_Wisdom")
+        else:
+            print>>log, "Loading cached fftw wisdom from %s" % path
+            self.FFTW_Wisdom = cPickle.load(file(path))
 
-        print>>log, "Set fftw widsdom for shape = %s" % str(
-            self.PaddedGridShape)
-
-        a = np.random.randn(*(self.PaddedGridShape)) \
-            + 1j*np.random.randn(*(self.PaddedGridShape))
-        FM = ModFFTW.FFTW_2Donly(self.PaddedGridShape, np.complex64)
-        b = FM.fft(a)  # this is never used
-        self.FFTW_Wisdom = pyfftw.export_wisdom()
-
-        # for iFacet in sorted(self.DicoImager.keys()):
+            # for iFacet in sorted(self.DicoImager.keys()):
         #     A = ModFFTW.GiveFFTW_aligned(self.PaddedGridShape, np.complex64)
         #     NpShared.ToShared("%sFFTW.%i" % (self.IdSharedMem, iFacet), A)
 
@@ -1352,7 +1356,7 @@ class ClassFacetMachine():
         joblist = range(NFacets)
 
         NSemaphores = 3373
-        ListSemaphores = [ self.VS.maincache.getShmName("Semaphore", sem=i) for i in xrange(NSemaphores) ]
+        ListSemaphores = [ Multiprocessing.getShmName("Semaphore", sem=i) for i in xrange(NSemaphores) ]
         _pyGridderSmearPols.pySetSemaphores(ListSemaphores)
 
         joblist = sorted(self.DicoImager.keys())
