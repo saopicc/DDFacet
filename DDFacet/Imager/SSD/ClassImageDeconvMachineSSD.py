@@ -509,11 +509,11 @@ class ClassImageDeconvMachine():
 
         StopWhenQueueEmpty=True
 
-        ######### Debug
-        ParallelPerIsland=False
-        Parallel=False
-        StopWhenQueueEmpty=True
-        ##################
+        # ######### Debug
+        # ParallelPerIsland=False
+        # Parallel=False
+        # StopWhenQueueEmpty=True
+        # ##################
 
 
         work_queue = multiprocessing.Queue()
@@ -587,8 +587,8 @@ class ClassImageDeconvMachine():
                                  DeconvMode=self.DeconvMode,
                                  NChains=self.NChains)
             workerlist.append(W)
-            #workerlist[ii].start()
-            workerlist[ii].run()
+            workerlist[ii].start()
+            #workerlist[ii].run()
 
             # if Parallel: 
             #     workerlist[ii].start()
@@ -642,12 +642,12 @@ class ClassImageDeconvMachine():
                 self.ModelMachine.AppendIsland(ThisPixList,Model)
                 NpShared.DelArray(SharedIslandName)
 
+
                 if DicoResult["HasError"]:
                     SharedIslandName="%s.sFitIsland_%5.5i"%(self.IdSharedMem,iIsland)
                     sModel=NpShared.GiveArray(SharedIslandName)
                     self.ErrorModelMachine.AppendIsland(ThisPixList,sModel)
                     NpShared.DelArray(SharedIslandName)
-
 
 
 

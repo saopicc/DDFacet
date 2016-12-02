@@ -1035,8 +1035,10 @@ class ClassImagerDeconv():
         DicoErrModel=copy.deepcopy(ModelMachine.giveDico())
         del(DicoErrModel["Comp"])
         DicoErrModel["Comp"]={}
-        ErrorModelMachine = self.ModConstructor.GiveMM(Mode=GD["ImagerDeconv"]["MinorCycleMode"])
+        ModConstructor = ClassModModelMachine(self.GD)
+        ErrorModelMachine = ModConstructor.GiveMM(Mode=GD["ImagerDeconv"]["MinorCycleMode"])
         ErrorModelMachine.FromDico(DicoErrModel)
+        
         DeconvMachine.ErrorModelMachine=ErrorModelMachine
         
         # ####################
@@ -1049,7 +1051,7 @@ class ClassImagerDeconv():
         
         ErrModelImage = DeconvMachine.ErrorModelMachine.GiveModelImage(model_freqs)                    
         nf,npol,nx,nx=ErrModelImage.shape
-        ErrModelImageAvg=np.mean(MErrodelImage,axis=0).reshape((1,npol,nx,nx))
+        ErrModelImageAvg=np.mean(ErrModelImage,axis=0).reshape((1,npol,nx,nx))
         self.FacetMachine.ToCasaImage(ModelImageAvg,
                                       ImageName="%s.metro.model.sigma"%(self.BaseName),
                                       Fits=True)
