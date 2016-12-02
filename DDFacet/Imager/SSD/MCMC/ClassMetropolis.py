@@ -76,13 +76,14 @@ class ClassMetropolis():
         Point0=self.ArrayMethodsMachine.PM.GiveIndivZero()
         self.pop=[Point0]*self.NChains # is the starting chain
         #print self.IslandBestIndiv
+        #print
         if self.IslandBestIndiv is not None:
             if np.max(np.abs(self.IslandBestIndiv))==0:
-                print "from clean"
+                #print "from clean"
                 SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray,PutNoise=False)
             else:
-                print "from previous"
+                #print "from previous"
                 SModelArrayBest=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
                 AlphaModel=None
                 if "Alpha" in self.ArrayMethodsMachine.PM.SolveParam:
@@ -94,6 +95,7 @@ class ClassMetropolis():
 
             SModelArray=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.pop[0],"S")
             self.TotFlux0=np.sum(SModelArray)
+        #print
         _,Chi2=self.ArrayMethodsMachine.GiveFitnessPop(self.pop)
         logProb=[self.rv.logpdf(x) for x in Chi2]
 

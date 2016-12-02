@@ -176,11 +176,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         DicoComp=self.DicoSMStacked["Comp"]
 
         try:
-            DicoComp[key]["Vals"].append(Vals)
+            del(DicoComp[key]["Vals"])
         except:
-            DicoComp[key]={}
-            DicoComp[key]["Vals"]=[]
-            DicoComp[key]["Vals"].append(Vals)
+            pass
+        DicoComp[key]={}
+        DicoComp[key]["Vals"]=[]
+        DicoComp[key]["Vals"].append(Vals)
 
 
     def GiveModelImage(self,FreqIn=None):

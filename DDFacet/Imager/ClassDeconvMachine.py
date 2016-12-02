@@ -1047,12 +1047,12 @@ class ClassImagerDeconv():
         DeconvMachine.setDeconvMode(Mode="MetroClean")
         DeconvMachine.Update(self.CurrentDicoResidImage)
         repMinor, continue_deconv, update_model = DeconvMachine.Deconvolve()
-        #DeconvMachine.ToFile(self.DicoMetroModelName)
+        DeconvMachine.ToFile(self.DicoMetroModelName)
         
         ErrModelImage = DeconvMachine.ErrorModelMachine.GiveModelImage(model_freqs)                    
         nf,npol,nx,nx=ErrModelImage.shape
         ErrModelImageAvg=np.mean(ErrModelImage,axis=0).reshape((1,npol,nx,nx))
-        self.FacetMachine.ToCasaImage(ModelImageAvg,
+        self.FacetMachine.ToCasaImage(ErrModelImageAvg,
                                       ImageName="%s.metro.model.sigma"%(self.BaseName),
                                       Fits=True)
 
@@ -1065,7 +1065,7 @@ class ClassImagerDeconv():
         self.FacetMachine.ToCasaImage(DeconvMachine.SelectedIslandsMask,
                                       ImageName="%s.metro.mask"%(self.BaseName),
                                       Fits=True)
-        stop
+
         return ModelMachine
 
 
