@@ -75,9 +75,10 @@ class ClassMetropolis():
         
         Point0=self.ArrayMethodsMachine.PM.GiveIndivZero()
         self.pop=[Point0]*self.NChains # is the starting chain
-
         #print self.IslandBestIndiv
         if self.IslandBestIndiv is not None:
+            SModelArrayBest=self.ArrayMethodsMachine.PM.ArrayToSubArray(self.IslandBestIndiv,"S")
+            self.TotFlux0=np.sum(SModelArrayBest)
             if np.max(np.abs(self.IslandBestIndiv))==0:
                 #print "from clean"
                 SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
@@ -162,20 +163,34 @@ class ClassMetropolis():
                 N+=1
         Model/=N
         P/=N
-        return Model,P,Pmin
+
+        sP=P0.copy()
+        for iChain in range(self.NChains):
+            ChainParms=self.DicoChains[iChain]["Parms"]
+            for iPoint in range(len(ChainParms)):
+                sP+=(ChainParms[iPoint]-P)**2
+                N+=1
+        sP=np.sqrt(sP)/N
+        
+        return Model,P,Pmin,sP
 
 
     def main(self,NSteps=1000):
         self.DicoChains=self.ArrayMethodsMachine.GiveMetroChains(self.pop,NSteps=NSteps)
         self.ArrayMethodsMachine.KillWorkers()
-
         NpShared.DelArray("%sPSF_Island_%4.4i"%(self.IdSharedMem,self.iIsland))
-
-        Model,V,Vmin=self.StackChain()
-
+        Model,V,Vmin,sV=self.StackChain()
         NpShared.DelAll("%sDicoChain"%(self.IdSharedMem))
 
-        return V
+        SModelArray1=self.ArrayMethodsMachine.PM.ArrayToSubArray(V,"S")
+        TotFlux1=np.sum(SModelArray1)
+        SModelArray1*=TotFlux1/self.TotFlux0
+
+        if iAlpha is not None:
+            sAlpha=self.ArrayMethodsMachine.PM.ArrayToSubArray(sV,"Alpha")
+            sAlpha.fill(0)
+
+        return V,sV
 
 
 

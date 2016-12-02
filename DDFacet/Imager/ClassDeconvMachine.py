@@ -1006,10 +1006,10 @@ class ClassImagerDeconv():
                                       ImageName="%s.model.pre_metro"%(self.BaseName),
                                       Fits=True)
 
+        GD=copy.deepcopy(self.GD)
         # # ####################
         # # Initialise Model machine for MetroClean
         # ThisMode=["S","Alpha","GSig"]
-        # GD=copy.deepcopy(self.GD)
         # GD["SSDClean"]["SSDSolvePars"]=ThisMode
         # DicoAugmentedModel=self.DeconvMachine.ModelMachine.GiveConvertedSolveParamDico(ThisMode)
         # MinorCycleConfig=dict(GD["ImagerDeconv"])
@@ -1031,6 +1031,14 @@ class ClassImagerDeconv():
         DeconvMachine=self.DeconvMachine
         ModelMachine=self.ModelMachine
 
+        # Create a ModelMachine to sture the sigma values
+        DicoErrModel=copy.deepcopy(ModelMachine.giveDico())
+        del(DicoErrModel["Comp"])
+        DicoErrModel["Comp"]={}
+        ErrorModelMachine = self.ModConstructor.GiveMM(Mode=GD["ImagerDeconv"]["MinorCycleMode"])
+        ErrorModelMachine.FromDico(DicoErrModel)
+        DeconvMachine.ErrorModelMachine=ErrorModelMachine
+        
         # ####################
         # Run MetroClean
         print>>log,"Runing a Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
@@ -1038,15 +1046,22 @@ class ClassImagerDeconv():
         DeconvMachine.Update(self.CurrentDicoResidImage)
         repMinor, continue_deconv, update_model = DeconvMachine.Deconvolve()
         #DeconvMachine.ToFile(self.DicoMetroModelName)
+        
+        ErrModelImage = DeconvMachine.ErrorModelMachine.GiveModelImage(model_freqs)                    
+        nf,npol,nx,nx=ErrModelImage.shape
+        ErrModelImageAvg=np.mean(MErrodelImage,axis=0).reshape((1,npol,nx,nx))
+        self.FacetMachine.ToCasaImage(ModelImageAvg,
+                                      ImageName="%s.metro.model.sigma"%(self.BaseName),
+                                      Fits=True)
+
         ModelImage = DeconvMachine.GiveModelImage(model_freqs)                    
         nf,npol,nx,nx=ModelImage.shape
         ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
-        
         self.FacetMachine.ToCasaImage(ModelImageAvg,
-                                      ImageName="%s.model.metro"%(self.BaseName),
+                                      ImageName="%s.metro.model"%(self.BaseName),
                                       Fits=True)
         self.FacetMachine.ToCasaImage(DeconvMachine.SelectedIslandsMask,
-                                      ImageName="%s.mask.metro"%(self.BaseName),
+                                      ImageName="%s.metro.mask"%(self.BaseName),
                                       Fits=True)
         stop
         return ModelMachine

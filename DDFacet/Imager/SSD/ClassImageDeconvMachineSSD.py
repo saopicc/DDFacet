@@ -509,11 +509,11 @@ class ClassImageDeconvMachine():
 
         StopWhenQueueEmpty=True
 
-        # ######### Debug
-        # ParallelPerIsland=False
-        # Parallel=False
-        # StopWhenQueueEmpty=True
-        # ##################
+        ######### Debug
+        ParallelPerIsland=False
+        Parallel=False
+        StopWhenQueueEmpty=True
+        ##################
 
 
         work_queue = multiprocessing.Queue()
@@ -587,8 +587,8 @@ class ClassImageDeconvMachine():
                                  DeconvMode=self.DeconvMode,
                                  NChains=self.NChains)
             workerlist.append(W)
-            workerlist[ii].start()
-            #workerlist[ii].run()
+            #workerlist[ii].start()
+            workerlist[ii].run()
 
             # if Parallel: 
             #     workerlist[ii].start()
@@ -641,6 +641,13 @@ class ClassImageDeconvMachine():
                 Model=NpShared.GiveArray(SharedIslandName)
                 self.ModelMachine.AppendIsland(ThisPixList,Model)
                 NpShared.DelArray(SharedIslandName)
+
+                if DicoResult["HasError"]:
+                    SharedIslandName="%s.sFitIsland_%5.5i"%(self.IdSharedMem,iIsland)
+                    sModel=NpShared.GiveArray(SharedIslandName)
+                    self.ErrorModelMachine.AppendIsland(ThisPixList,sModel)
+                    NpShared.DelArray(SharedIslandName)
+
 
 
 
@@ -845,6 +852,11 @@ class WorkerDeconvIsland(multiprocessing.Process):
                                   iIsland=iIsland,IdSharedMem=self.IdSharedMem,
                                   ParallelFitness=self.ParallelPerIsland)
                 Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
+                Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
+                NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
+                del(CEv)
+                self.result_queue.put({"Success":True,"iIsland":iIsland,"HasError":False})
+
             elif self.DeconvMode=="MetroClean":
                 CEv=ClassMetropolis(self._Dirty,
                                     PSF,
@@ -857,19 +869,15 @@ class WorkerDeconvIsland(multiprocessing.Process):
                                     iIsland=iIsland,IdSharedMem=self.IdSharedMem,
                                     ParallelFitness=self.ParallelPerIsland,
                                     NChains=self.NChains)
-                Model=CEv.main(NSteps=self.GD["MetroClean"]["MetroNIter"])
+                Model,sModel=CEv.main(NSteps=self.GD["MetroClean"]["MetroNIter"])
             
-            Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
-            #Model*=CEv.ArrayMethodsMachine.Gain
+                Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
+                sModel=np.array(sModel).copy()#/np.sqrt(JonesNorm)
+                NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
+                NpShared.ToShared("%s.sFitIsland_%5.5i"%(self.IdSharedMem,iIsland),sModel)
                 
-            del(CEv)
-                
-            #print "OKDONE"
-
-            NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
-            
-                
-            self.result_queue.put({"Success":True,"iIsland":iIsland})
+                del(CEv)
+                self.result_queue.put({"Success":True,"iIsland":iIsland,"HasError":True})
 
 
             # # if island lies inside image

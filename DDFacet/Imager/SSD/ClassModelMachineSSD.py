@@ -64,6 +64,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         MyPickle.Save(D,FileName)
 
+    def giveDico(self):
+        D=self.DicoSMStacked
+        D["GD"]=self.GD
+        D["ModelShape"]=self.ModelShape
+        D["Type"]="SSD"
+        D["SolveParam"]=self.SolveParam
+        return D
 
     def FromFile(self,FileName):
         print>>log, "Reading dico model from file %s"%FileName
