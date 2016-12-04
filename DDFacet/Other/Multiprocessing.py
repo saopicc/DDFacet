@@ -154,8 +154,10 @@ class ProcessPool (object):
                 if result_callback:
                     result_callback(iResult, result)
                 results.append(result)
-            else:
-                print>> log, "work_consumer: returned no result"
+            ## nothing returned? That's fine, it means the workers are just busy and we
+            ## timed out (10s timeout to update progress bar)
+            # else:
+            #     print>> log, "work_consumer: returned no result"
             # update progress bar
             if pBAR:
                 intPercent = int(100 * iResult / float(njobs))
