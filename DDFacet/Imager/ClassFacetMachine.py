@@ -1024,30 +1024,43 @@ class ClassFacetMachine():
     def ImToGrids(self, Image):
         """
         Unprojects image to facets (necessary for degridding). This also applies
-        the tesselation mask weights to each of the facets. The group of facets
-        are stored in shared memory with identifier: sModelImage.Facet_%3.3i
-        Args:
+        the tesselation mask weights to each of the facets.
+        The group of facets are stored in self._face_models[iFacet].
             Image: The stitched image to be unprojected / "unstitched"
         """
         Im2Grid = ClassImToGrid(OverS=self.GD["ImagerCF"]["OverS"], GD=self.GD)
         ChanSel = sorted(list(set(self.VS.DicoMSChanMappingDegridding
                                   [self.VS.iCurrentMS].tolist())))
-
-        joblist = [ (iFacet, Multiprocessing.getShmURL("ModelImage", facet=iFacet))
-                    for iFacet in sorted(self.DicoImager.keys()) ]
-
-        procpool = Multiprocessing.ProcessPool(self.GD)
-
-        procpool.runjobs(joblist,
-                         title="Model image to facets", target=self._imtofacet_worker,
-                         kwargs=dict(Im2Grid=Im2Grid, Image=Image,
-                                    Sphes=self._sphes, SpacialWeights=self.SpacialWeigth,
-                                    DicoImager=self.DicoImager, NormImage=self.NormImage,
-                                    ChanSel=ChanSel))
-        # make list of models
+        facets = sorted(self.DicoImager.keys())
         self._facet_models = {}
-        for iFacet, array_name in joblist:
-            self._facet_models[iFacet] = NpShared.GiveArray(array_name)
+        ## parallel version
+        if self.GD["Parallel"]["ImageToFacet"]:
+            joblist = [ (iFacet, Multiprocessing.getShmURL("ModelImage", facet=iFacet)) for iFacet in facets ]
+
+            procpool = Multiprocessing.ProcessPool(self.GD)
+
+            procpool.runjobs(joblist,
+                             title="Model image to facets", target=self._imtofacet_worker,
+                             kwargs=dict(Im2Grid=Im2Grid, Image=Image,
+                                        Sphes=self._sphes, SpacialWeights=self.SpacialWeigth,
+                                        DicoImager=self.DicoImager, NormImage=self.NormImage,
+                                        ChanSel=ChanSel))
+            # make list of models
+            for iFacet, array_name in joblist:
+                self._facet_models[iFacet] = NpShared.GiveArray(array_name)
+        else:
+            pBAR = ProgressBar('white', width=50, block='=', empty=' ',
+                               Title="  Model image to facets (serial) ", HeaderSize=10, TitleSize=13)
+            ## serial version
+            for i, iFacet in enumerate(facets):
+                intPercent = int(100 * i / float(len(facets)))
+                pBAR.render(intPercent, '%4i/%i' % (i, len(facets)))
+                self._facet_models[iFacet], _ = Im2Grid.GiveModelTessel(Image, self.DicoImager,
+                                                    iFacet, self.NormImage,
+                                                    self._sphes[iFacet], self.SpacialWeigth[iFacet],
+                                                    ChanSel=ChanSel)
+
+            pBAR.render(100, '%4i/%i' % (len(facets), len(facets)))
 
     def ReinitDirty(self):
         """
