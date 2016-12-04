@@ -1011,57 +1011,6 @@ class ClassFacetMachine():
 
         return NormImage
 
-
-    @staticmethod
-    def _imtofacet_worker(jobitem, Im2Grid, Image, Sphes, SpacialWeights, DicoImager, NormImage, ChanSel):
-        iFacet, ModelSharedMemName = jobitem
-        ModelFacet, _ = Im2Grid.GiveModelTessel(Image, DicoImager,
-                                                iFacet, NormImage,
-                                                Sphes[iFacet], SpacialWeights[iFacet],
-                                                ChanSel=ChanSel)
-        NpShared.ToShared(ModelSharedMemName, ModelFacet)
-
-    def ImToGrids(self, Image):
-        """
-        Unprojects image to facets (necessary for degridding). This also applies
-        the tesselation mask weights to each of the facets.
-        The group of facets are stored in self._face_models[iFacet].
-            Image: The stitched image to be unprojected / "unstitched"
-        """
-        Im2Grid = ClassImToGrid(OverS=self.GD["ImagerCF"]["OverS"], GD=self.GD)
-        ChanSel = sorted(list(set(self.VS.DicoMSChanMappingDegridding
-                                  [self.VS.iCurrentMS].tolist())))
-        facets = sorted(self.DicoImager.keys())
-        self._facet_models = {}
-        ## parallel version
-        if self.GD["Parallel"]["ImageToFacet"]:
-            joblist = [ (iFacet, Multiprocessing.getShmURL("ModelImage", facet=iFacet)) for iFacet in facets ]
-
-            procpool = Multiprocessing.ProcessPool(self.GD)
-
-            procpool.runjobs(joblist,
-                             title="Model image to facets", target=self._imtofacet_worker,
-                             kwargs=dict(Im2Grid=Im2Grid, Image=Image,
-                                        Sphes=self._sphes, SpacialWeights=self.SpacialWeigth,
-                                        DicoImager=self.DicoImager, NormImage=self.NormImage,
-                                        ChanSel=ChanSel))
-            # make list of models
-            for iFacet, array_name in joblist:
-                self._facet_models[iFacet] = NpShared.GiveArray(array_name)
-        else:
-            pBAR = ProgressBar('white', width=50, block='=', empty=' ',
-                               Title="  Model image to facets (serial) ", HeaderSize=10, TitleSize=13)
-            ## serial version
-            for i, iFacet in enumerate(facets):
-                intPercent = int(100 * i / float(len(facets)))
-                pBAR.render(intPercent, '%4i/%i' % (i, len(facets)))
-                self._facet_models[iFacet], _ = Im2Grid.GiveModelTessel(Image, self.DicoImager,
-                                                    iFacet, self.NormImage,
-                                                    self._sphes[iFacet], self.SpacialWeigth[iFacet],
-                                                    ChanSel=ChanSel)
-
-            pBAR.render(100, '%4i/%i' % (len(facets), len(facets)))
-
     def ReinitDirty(self):
         """
         Reinitializes dirty map and weight buffers for the next round
@@ -1314,18 +1263,24 @@ class ClassFacetMachine():
 
     # DeGrid worker that is called by Multiprocessing.Process
     @staticmethod
-    def _degrid_worker(iFacet, GD, DATA, WTerms, Sphes, Models, FFTW_Wisdom, DicoImager,
-                      ApplyCal, SpheNorm, NFreqBands,
-                      DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores):
+    def _degrid_worker(iFacet, GD, DATA, WTerms, Sphes, SpacialWeights,
+                        ModelImage, Im2Grid, ChanSel, NormImage,
+                        FFTW_Wisdom, DicoImager,
+                        ApplyCal, SpheNorm, NFreqBands,
+                        DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores):
         """
         Degrids input model facets and subtracts model visibilities from residuals.
         Assumes degridding input data is placed in DATA shared memory dictionary.
         Returns:
             Dictionary of success and facet identifier
         """
-
         if FFTW_Wisdom is not None:
             pyfftw.import_wisdom(FFTW_Wisdom)
+
+        # extract facet model from model image
+        ModelGrid, _ = Im2Grid.GiveModelTessel(ModelImage, DicoImager, iFacet, NormImage,
+                                                Sphes[iFacet], SpacialWeights[iFacet],
+                                                ChanSel=ChanSel)
 
         # Create a new GridMachine
         GridMachine = ClassDDEGridMachine.ClassDDEGridMachine(
@@ -1371,8 +1326,6 @@ class ClassFacetMachine():
             DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"] = DicoClusterDirs
             DicoJonesMatrices["DicoJones_Beam"]["AlphaReg"] = None
 
-        ModelGrid = Models[iFacet]
-
         DecorrMode = GD["DDESolutions"]["DecorrMode"]
 
         if ('F' in DecorrMode) or ("T" in DecorrMode):
@@ -1404,17 +1357,16 @@ class ClassFacetMachine():
             A0A1:
             ModelImage:
         """
-        self.ImToGrids(ModelImage)
-
-        NFacets = len(self.DicoImager.keys())
         # our job list is just a list of facet numbers
-        joblist = range(NFacets)
+        joblist = sorted(self.DicoImager.keys())
+
+        Im2Grid = ClassImToGrid(OverS=self.GD["ImagerCF"]["OverS"], GD=self.GD)
+        ChanSel = sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
 
         NSemaphores = 3373
         ListSemaphores = [ Multiprocessing.getShmName("Semaphore", sem=i) for i in xrange(NSemaphores) ]
         _pyGridderSmearPols.pySetSemaphores(ListSemaphores)
 
-        joblist = sorted(self.DicoImager.keys())
 
         try:
             procpool = Multiprocessing.ProcessPool(self.GD)
@@ -1427,7 +1379,11 @@ class ClassFacetMachine():
                                     DATA=self.VS.DATA,
                                     WTerms=self._wterms,
                                     Sphes=self._sphes,
-                                    Models=self._facet_models,
+                                    SpacialWeights = self.SpacialWeigth,
+                                    ModelImage = ModelImage,
+                                    Im2Grid = Im2Grid,
+                                    ChanSel = ChanSel,
+                                    NormImage = self.NormImage,
                                     FFTW_Wisdom = self.FFTW_Wisdom,
                                     DicoImager = self.DicoImager,
                                     ApplyCal = self.ApplyCal,
