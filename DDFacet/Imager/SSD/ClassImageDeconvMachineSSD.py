@@ -18,6 +18,7 @@ from SkyModel.PSourceExtract import ClassIncreaseIsland
 from DDFacet.Other import MyPickle
 import multiprocessing
 import time
+import ClassInitSSDModel
 
 from DDFacet.Imager.SSD.GA.ClassEvolveGA import ClassEvolveGA
 from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
@@ -105,6 +106,7 @@ class ClassImageDeconvMachine():
 
     def Init(self,**kwargs):
         self.SetPSF(kwargs["PSFVar"])
+        self.DicoVariablePSF["PSFSideLobes"]=kwargs["PSFAve"]
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
 
     def AdaptArrayShape(self,A,Nout):
@@ -371,7 +373,15 @@ class ClassImageDeconvMachine():
 
         ListIslandsOut=[self.ListIslands[i] for i in ind]
         self.ListIslands=ListIslandsOut
-        
+        InitMachine=ClassInitSSDModel.ClassInitSSDModel(self.GD,self.DicoVariablePSF,self.DicoDirty)
+        FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
+        ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
+        InitMachine.setSSDModelImage(ModelImage)
+        DicoInitIndiv={}
+        for iIsland,Island in enumerate(self.ListIslands):
+            SModel,AModel=InitMachine.giveModel(Island)
+            DicoInitIndiv[iIsland]={"S":SModel,"Alpha":AModel}
+        self.DicoInitIndiv=DicoInitIndiv
 
     def setChannel(self,ch=0):
         self.Dirty=self._MeanDirty[ch]
@@ -446,7 +456,6 @@ class ClassImageDeconvMachine():
             return "FluxThreshold", False, False
 
         self.SearchIslands(StopFlux)
-        
         if self.DeconvMode=="GAClean":
             print>>log, "Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
             ListBigIslands=[Island for Island in self.ListIslands if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]]
@@ -585,7 +594,8 @@ class ClassImageDeconvMachine():
                                  FreqsInfo=self.PSFServer.DicoMappingDesc,ParallelPerIsland=ParallelPerIsland,
                                  StopWhenQueueEmpty=StopWhenQueueEmpty,
                                  DeconvMode=self.DeconvMode,
-                                 NChains=self.NChains)
+                                 NChains=self.NChains,
+                                 DicoInitIndiv=self.DicoInitIndiv)
             workerlist.append(W)
             workerlist[ii].start()
             #workerlist[ii].run()
@@ -758,12 +768,14 @@ class WorkerDeconvIsland(multiprocessing.Process):
                  ParallelPerIsland=False,
                  StopWhenQueueEmpty=False,
                  DeconvMode="GAClean",
-                 NChains=1):
+                 NChains=1,
+                 DicoInitIndiv=None):
         multiprocessing.Process.__init__(self)
         self.MultiFreqMode=MultiFreqMode
         self.work_queue = work_queue
         self.result_queue = result_queue
         self.kill_received = False
+        self.DicoInitIndiv=DicoInitIndiv
         self.exit = multiprocessing.Event()
         self.GD=GD
         self.IdSharedMem=IdSharedMem
@@ -850,7 +862,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
                                   IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
                                   GD=self.GD,
                                   iIsland=iIsland,IdSharedMem=self.IdSharedMem,
-                                  ParallelFitness=self.ParallelPerIsland)
+                                  ParallelFitness=self.ParallelPerIsland,
+                                  DicoInitIndiv=self.DicoInitIndiv)
                 Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
                 Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
                 NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)

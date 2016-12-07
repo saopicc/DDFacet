@@ -7,6 +7,7 @@ log= MyLogger.getLogger("ClassPSFServer")
 class ClassPSFServer():
     def __init__(self,GD=None):
         self.GD=GD
+        self.blc=None
 
     def setDicoVariablePSF(self,DicoVariablePSF,NormalisePSF=False):
         # NFacets=len(DicoVariablePSF.keys())
@@ -55,8 +56,13 @@ class ClassPSFServer():
         #print "PSFServer:",self.RefFreq, self.AllFreqs
         #self.CalcJacobian()
 
+    def setBLC(self,blc):
+        self.blc=blc
+
+
     def setLocation(self,xp,yp):
         self.iFacet=self.giveFacetID2(xp,yp)
+        #print "ifacet:",self.iFacet
 
     def giveFacetID(self,xp,yp):
         dmin=1e6
@@ -68,6 +74,10 @@ class ClassPSFServer():
         return ClosestFacet
                 
     def giveFacetID2(self,xp,yp):
+        if self.blc is not None:
+            x0,y0=self.blc
+            xp,yp=x0+xp,y0+yp
+
         dmin=1e6
         CellSizeRad=self.DicoVariablePSF["CellSizeRad"]
         _,_,nx,_=self.DicoVariablePSF["OutImShape"]

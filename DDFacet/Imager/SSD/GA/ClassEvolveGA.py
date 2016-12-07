@@ -30,7 +30,9 @@ def FilterIslandsPix(ListIn,Npix):
 class ClassEvolveGA():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,
                  WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,IdSharedMem="",
-                 ParallelFitness=False):
+                 ParallelFitness=False,
+                 DicoInitIndiv=None):
+        self.DicoInitIndiv=DicoInitIndiv
         _,_,NPixPSF,_=PSF.shape
         if ListPixData is None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
@@ -122,8 +124,8 @@ class ClassEvolveGA():
         #self.ArrayMethodsMachine.PM.PrintIndiv(self.IslandBestIndiv)
 
         if self.IslandBestIndiv is not None:
-            SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
-
+            #SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
+            SModelArray,Alpha=self.DicoInitIndiv[self.iIsland]["S"],self.DicoInitIndiv[self.iIsland]["Alpha"]
             if np.max(np.abs(self.IslandBestIndiv))==0:
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray)
             else:

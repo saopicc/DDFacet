@@ -60,6 +60,16 @@ class ClassImageDeconvMachine():
             self._MaskArray = np.zeros((1,1,ny,nx),np.bool8)
             self._MaskArray[0,0,:,:] = np.bool8(1-MaskArray[0,0].T[::-1])
 
+    def updateMask(self,Mask):
+        nx,ny=Mask.shape
+        self._MaskArray = np.zeros((1,1,nx,ny),np.bool8)
+        self._MaskArray[0,0,:,:]=Mask[:,:]
+
+    def updateModelMachine(self,ModelMachine):
+        self.ModelMachine=ModelMachine
+        for iFacet in range(self.PSFServer.NFacets):
+            self.DicoMSMachine[iFacet].setModelMachine(self.ModelMachine)
+
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
@@ -83,12 +93,16 @@ class ClassImageDeconvMachine():
     def InitMSMF(self):
 
         self.DicoMSMachine={}
-        cachepath, valid = self.maincache.checkCache("MSMFMachine",dict(
-            [(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
-                                                        "MultiFreqs", "ImagerGlobal", "Compression",
-                                                        "ImagerCF", "ImagerMainFacet", "MultiScale" ],
-            reset=self.GD["Caching"]["ResetPSF"]
-        ))
+        if self.maincache is not None:
+            cachepath, valid = self.maincache.checkCache("MSMFMachine",dict(
+                [(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
+                 "MultiFreqs", "ImagerGlobal", "Compression",
+                 "ImagerCF", "ImagerMainFacet", "MultiScale" ],
+                reset=self.GD["Caching"]["ResetPSF"]
+            ))
+        else:
+            valid=False
+
         if valid:
             print>>log,"Initialising MSMF Machine from cache %s"%cachepath
             facetcache = cPickle.load(file(cachepath))
@@ -110,13 +124,15 @@ class ClassImageDeconvMachine():
             cachedmatrix = MSMachine.MakeBasisMatrix(cachedmatrix)
             facetcache[iFacet] = cachedscales, cachedmatrix
             self.DicoMSMachine[iFacet]=MSMachine
-        if not valid:
-            try:
-                cPickle.dump(facetcache, file(cachepath, 'w'), 2)
-                self.maincache.saveCache("MSMFMachine")
-            except:
-                print>>log, traceback.format_exc()
-                print>>log, ModColor.Str("WARNING: MSMF cache could not be written, see error report above. Proceeding anyway.")
+
+        if self.maincache is not None:
+            if not valid:
+                try:
+                    cPickle.dump(facetcache, file(cachepath, 'w'), 2)
+                    self.maincache.saveCache("MSMFMachine")
+                except:
+                    print>>log, traceback.format_exc()
+                    print>>log, ModColor.Str("WARNING: MSMF cache could not be written, see error report above. Proceeding anyway.")
 
     def SetDirty(self,DicoDirty):
         # if len(PSF.shape)==4:
@@ -273,7 +289,17 @@ class ClassImageDeconvMachine():
         # print Bedge
         # print self.Dirty[0,x0d:x1d,y0d:y1d]
 
-    def Deconvolve(self, ch=0):
+    def updateRMS(self):
+        _,npol,npix,_ = self._MeanDirty.shape
+        NPixStats = self.GD["ImagerDeconv"]["NumRMSSamples"]
+        if NPixStats:
+            RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
+            RMS=np.std(np.real(self._MeanDirty.ravel()[RandomInd]))
+        else:
+            RMS=np.std(self._MeanDirty)
+        self.RMS=RMS
+
+    def Deconvolve(self, ch=0,UpdateRMS=True):
         """
         Runs minor cycle over image channel 'ch'.
         initMinor is number of minor iteration (keeps continuous count through major iterations)
@@ -301,14 +327,8 @@ class ClassImageDeconvMachine():
         DoAbs=int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
         print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
 
-        NPixStats = self.GD["ImagerDeconv"]["NumRMSSamples"]
-        if NPixStats:
-            RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
-            RMS=np.std(np.real(self._MeanDirty.ravel()[RandomInd]))
-        else:
-            RMS=np.std(self._MeanDirty)
-        self.RMS=RMS
-
+        if UpdateRMS: self.updateRMS()
+        RMS=self.RMS
         self.GainMachine.SetRMS(RMS)
         
         Fluxlimit_RMS = self.RMSFactor*RMS
@@ -430,7 +450,7 @@ class ClassImageDeconvMachine():
                 T.timeit("stuff")
 
                 #iScale=self.MSMachine.FindBestScale((x,y),Fpol)
-
+                
                 self.PSFServer.setLocation(x,y)
                 PSF = self.PSFServer.GivePSF()
                 MSMachine=self.DicoMSMachine[self.PSFServer.iFacet]

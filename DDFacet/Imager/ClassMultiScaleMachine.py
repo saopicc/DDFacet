@@ -253,8 +253,9 @@ class ClassMultiScaleMachine():
                     ThisPSF/=Max
                     ThisSupport=int(np.max([Support,3*Major]))
                     Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)
-                    fact=np.max(Gauss)/np.sum(Gauss)
+                    #fact=np.max(Gauss)/np.sum(Gauss)
                     #fact=1./np.sum(Gauss)
+                    fact=1./Max
                     Gauss*=fact
                     #ThisPSF*=fact
                     ListPSFScales.append(ThisPSF)
@@ -748,6 +749,7 @@ class ClassMultiScaleMachine():
         # print "alpha",np.sum(self.AlphaVec.ravel()*Sol.ravel())/np.sum(Sol)
 
         FpolMean=1.
+
         self.ModelMachine.AppendComponentToDictStacked((xc,yc),FpolMean,Sol)
 
         BM=DicoBasisMatrix["BM"]
