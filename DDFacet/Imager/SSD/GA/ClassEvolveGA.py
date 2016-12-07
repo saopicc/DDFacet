@@ -125,9 +125,9 @@ class ClassEvolveGA():
 
         if self.IslandBestIndiv is not None:
             #SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
-            SModelArray,Alpha=self.DicoInitIndiv[self.iIsland]["S"],self.DicoInitIndiv[self.iIsland]["Alpha"]
-            if np.max(np.abs(self.IslandBestIndiv))==0:
-                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray)
+            SModelArrayMP,AModelArrayMP=self.DicoInitIndiv[self.iIsland]["S"],self.DicoInitIndiv[self.iIsland]["Alpha"]
+            if True:#np.max(np.abs(self.IslandBestIndiv))==0:
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
             else:
                 NIndiv=len(self.pop)/2
                 pop0=self.pop[0:NIndiv]

@@ -5,6 +5,7 @@ import ClassModelMachine
 import ClassGainMachine
 from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger
+from DDFacet.Other import ModColor
 log=MyLogger.getLogger("GiveModelMachine")
 
 class ClassModModelMachine():
@@ -55,6 +56,10 @@ class ClassModModelMachine():
         Input:
             DicoSMStacked   = Dictionary to instantiate ModelMachine with
         """
+        if DicoSMStacked["Type"]=="GA": 
+            print>>log,ModColor.Str("Model is of deprecated type GA, overwritting with type SSD")
+            DicoSMStacked["Type"]="SSD"
+
         if DicoSMStacked is not None: # If the Dict is provided use it to initialise a model machine
             return self.GiveMM(Mode=DicoSMStacked["Type"])
         else: # If the dict is not provided use the MinorCycleMode to figure out which model machine to initialise
