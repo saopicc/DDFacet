@@ -13,13 +13,13 @@ class ClassInitSSDModel():
         GD=copy.deepcopy(GD)
         self.GD=GD
         self.GD["Parallel"]["NCPU"]=1
-        self.GD["MultiFreqs"]["Alpha"]=[-1.,1.,5]
+        self.GD["MultiFreqs"]["Alpha"]=[0,0,1]#[-1.,1.,5]
         self.GD["ImagerDeconv"]["MinorCycleMode"]="MSMF"
         self.GD["ImagerDeconv"]["CycleFactor"]=0
         self.GD["ImagerDeconv"]["PeakFactor"]=0.01
         self.GD["ImagerDeconv"]["RMSFactor"]=0
         self.GD["ImagerDeconv"]["Gain"]=0.02
-        #self.GD["MultiScale"]["Scales"]=[0,1,2,4]
+        self.GD["MultiScale"]["Scales"]=[0,1,2,4]
         self.GD["MultiScale"]["SolverMode"]="NNLS"
         self.NFreqBands=len(DicoVariablePSF["freqs"])
         MinorCycleConfig=dict(self.GD["ImagerDeconv"])
@@ -28,7 +28,7 @@ class ClassInitSSDModel():
         MinorCycleConfig["GD"] = self.GD
         self.MinorCycleConfig=MinorCycleConfig
         self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**self.MinorCycleConfig)
-        self.Margin=10
+        self.Margin=100
         self.DicoDirty=DicoDirty
         self.Dirty=DicoDirty["ImagData"]
         self.MeanDirty=DicoDirty["MeanImage"]
