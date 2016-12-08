@@ -19,7 +19,7 @@ class ClassInitSSDModel():
         self.GD["ImagerDeconv"]["PeakFactor"]=0.01
         self.GD["ImagerDeconv"]["RMSFactor"]=0
         self.GD["ImagerDeconv"]["Gain"]=0.02
-        self.GD["MultiScale"]["Scales"]=[0,1,2,4]
+        #self.GD["MultiScale"]["Scales"]=[0,1,2,4]
         self.GD["MultiScale"]["SolverMode"]="NNLS"
         self.NFreqBands=len(DicoVariablePSF["freqs"])
         MinorCycleConfig=dict(self.GD["ImagerDeconv"])
