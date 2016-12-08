@@ -1022,12 +1022,14 @@ class ClassFacetMachine():
     def ImToGrids(self,Image,Parallel=False):
         NCPU = self.NCPU
 
+        T=ClassTimeIt.ClassTimeIt("FM.ImToGrids")
         ModelSharedMemName="%sModelImage.Facet_"%(self.IdSharedMem)
         NpShared.DelAll(ModelSharedMemName)
-
+        T.timeit("0")
         ModelImageName = "%sModelImage" % (self.IdSharedMem)
         NpShared.DelAll(ModelImageName)
         Image=NpShared.ToShared(ModelImageName,Image)
+        T.timeit("1")
 
         NFacets = len(self.DicoImager.keys())
         
@@ -1040,11 +1042,13 @@ class ClassFacetMachine():
         elif NpShared.GiveArray("%sNormImage"%self.IdSharedMem) is None:
             print>>log, ModColor.Str("Strange, the facet norm image has disapeared from the shm, putting it back in")
             self.NormImage = NpShared.ToShared("%sNormImage"%self.IdSharedMem,self.NormImage)
+        T.timeit("2")
 
         NJobs = NFacets
         ChanSel=sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
         for iFacet in range(NFacets):
             work_queue.put({"iFacet":iFacet,"ChanSel":ChanSel})
+        T.timeit("3")
 
         workerlist = []
         SpheNorm = self.SpheNorm
@@ -1077,6 +1081,7 @@ class ClassFacetMachine():
             workerlist.append(W)
             if Parallel:
                 workerlist[ii].start()
+        T.timeit("4")
 
         iResult = 0
         if not Parallel:

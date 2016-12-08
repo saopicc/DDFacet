@@ -91,7 +91,7 @@ class ClassInitSSDModel():
     def addSubModelToSubDirty(self):
         ConvModel=np.zeros_like(self.SubSSDModelImage)
         nch,_,N0x,N0y=ConvModel.shape
-        _,_,indx,indy=np.where(self.SubSSDModelImage!=0)
+        indx,indy=np.where(self.SubSSDModelImage[0,0]!=0)
         xc,yc=N0x/2,N0y/2
         self.DeconvMachine.PSFServer.setLocation(*self.xy0)
         PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
@@ -106,6 +106,7 @@ class ClassInitSSDModel():
         MeanConvModel=np.mean(ConvModel,axis=0).reshape((1,1,N0x,N0y))
         self.DicoSubDirty['ImagData']+=ConvModel
         self.DicoSubDirty['MeanImage']+=MeanConvModel
+        print "MAX=",np.max(self.DicoSubDirty['MeanImage'])
 
         # import pylab
         # pylab.clf()

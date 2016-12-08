@@ -192,6 +192,9 @@ class ClassImagerDeconv():
                                           %(self.GD["ImagerDeconv"]["MinorCycleMode"],ModelMachine.DicoSMStacked["Type"]))
             if self.BaseName==self.GD["VisData"]["InitDicoModel"][0:-10]:
                 self.BaseName+=".continue"
+                self.DicoModelName="%s.DicoModel"%self.BaseName
+                self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
+
         else:
             ModelMachine = self.ModConstructor.GiveMM(Mode=self.GD["ImagerDeconv"]["MinorCycleMode"])
         self.ModelMachine=ModelMachine
@@ -505,7 +508,7 @@ class ClassImagerDeconv():
                 #    self.FacetMachine.DoComputeSmoothBeam = False
 
                 self.FacetMachine.ComputeSmoothBeam()
-                # self.SaveDirtyProducts()
+                #self.SaveDirtyProducts()
                 DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
                 nch,npol,nx,ny = DirtyCorr.shape
             else:
