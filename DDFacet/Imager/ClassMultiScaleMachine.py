@@ -234,7 +234,7 @@ class ClassMultiScaleMachine():
                 FluxRatios=FluxRatios.reshape((FluxRatios.size,1,1))
                 ThisMFPSF=self.SubPSF[:,0,:,:]*FluxRatios
                 ThisAlpha=Alpha[iAlpha]
-
+                #print FluxRatios,ThisAlpha
                 iSlice=0
 
                 ListPSFScales.append(ThisMFPSF)
@@ -248,16 +248,19 @@ class ClassMultiScaleMachine():
                     Minor=Scales[iScales]/(2.*np.sqrt(2.*np.log(2.)))
                     Major=Minor
                     PSFGaussPars=(Major,Minor,0.)
+                    ThisSupport=int(np.max([Support,10*Major]))
+                    if ThisSupport%2==0: ThisSupport+=1
+                    Gauss=ModFFTW.GiveGauss(ThisSupport,CellSizeRad=1.,GaussPars=PSFGaussPars)
+                    ratio=np.sum(ModFFTW.GiveGauss(101,CellSizeRad=1.,GaussPars=PSFGaussPars))/np.sum(Gauss)
+                    #Gauss*=ratio
                     ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBands)[:,0,:,:]#[0,0]
-                    Max=np.max(ThisPSF)
-                    ThisPSF/=Max
-                    ThisSupport=int(np.max([Support,3*Major]))
-                    Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)
+                    #Max=np.max(ThisPSF)
+                    #ThisPSF/=Max
                     #fact=np.max(Gauss)/np.sum(Gauss)
-                    #fact=1./np.sum(Gauss)
-                    fact=1./Max
-                    Gauss*=fact
-                    #ThisPSF*=fact
+                    fact=1./np.sum(Gauss)
+                    #fact=1./Max
+                    Gauss*=fact*ratio
+                    ThisPSF*=fact
                     ListPSFScales.append(ThisPSF)
                     self.ListScales.append({"ModelType":"Gaussian",#"fact":fact,
                                             "Model":Gauss, "ModelParams":PSFGaussPars,
@@ -288,7 +291,7 @@ class ClassMultiScaleMachine():
                             # pylab.show(False)
                             # pylab.pause(0.1)
                             iSlice+=1
-                            Gauss=ModFFTW.GiveGauss(Support,CellSizeRad=1.,GaussPars=PSFGaussPars)/Max
+                            Gauss=ModFFTW.GiveGauss(ThisSupport,CellSizeRad=1.,GaussPars=PSFGaussPars)/Max
                             #fact=np.max(Gauss)/np.sum(Gauss)
                             #Gauss*=fact
                             self.ListScales.append({"ModelType":"Gaussian",
@@ -667,6 +670,7 @@ class ClassMultiScaleMachine():
             y=dirtyVec
             x,_=scipy.optimize.nnls(A, y.ravel())
             Sol=x
+            #print Sol
 
             SolReg = np.zeros_like(Sol)
             SolReg[0] = MeanFluxTrue

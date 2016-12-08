@@ -137,6 +137,8 @@ class ClassInitSSDModel():
         self.DeconvMachine.updateModelMachine(ModelMachine)
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
 
+        ModelImage=self.ModelMachine.GiveModelImage()
+
         # import pylab
         # pylab.clf()
         # pylab.subplot(2,2,1)
@@ -149,14 +151,14 @@ class ClassInitSSDModel():
         # pylab.imshow(self.SubMask,interpolation="nearest")
         # pylab.colorbar()
         # pylab.subplot(2,2,4)
-        # pylab.imshow(Model[0,0],interpolation="nearest")
+        # pylab.imshow(ModelImage[0,0],interpolation="nearest")
         # pylab.colorbar()
         # pylab.draw()
         # pylab.show(False)
         # pylab.pause(0.1)
-        # stop
+
 
         x,y=self.ArrayPixParms.T
-        SModel=self.ModelMachine.GiveModelImage()[0,0,x,y]
+        SModel=ModelImage[0,0,x,y]
         AModel=self.ModelMachine.GiveSpectralIndexMap()[0,0,x,y]
         return SModel,AModel
