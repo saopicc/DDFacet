@@ -13,7 +13,7 @@ class ClassInitSSDModel():
         GD=copy.deepcopy(GD)
         self.GD=GD
         self.GD["Parallel"]["NCPU"]=1
-        self.GD["MultiFreqs"]["Alpha"]=[0,0,1]#[-1.,1.,5]
+        self.GD["MultiFreqs"]["Alpha"]=[0,0,1]#-1.,1.,5]
         self.GD["ImagerDeconv"]["MinorCycleMode"]="MSMF"
         self.GD["ImagerDeconv"]["CycleFactor"]=0
         self.GD["ImagerDeconv"]["PeakFactor"]=0.01
