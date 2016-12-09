@@ -277,7 +277,7 @@ class ClassDDEGridMachine():
                  ExpectedOutputStokes=[1],
                  ListSemaphores=None,
                  wterm=None, sphe=None, compute_cf=False,
-                 bda_grid=None, bda_degrid=None,
+                 bda_grid=None, bda_degrid=None, sparsification=None,
                  ):
         """
 
@@ -310,6 +310,7 @@ class ClassDDEGridMachine():
             raise RuntimeError
         self._bda_grid = bda_grid
         self._bda_degrid = bda_degrid
+        self._sparsification = sparsification if sparsification is not None else np.array([])
 
         # self.DoPSF=DoPSF
         self.DoPSF = False
@@ -720,6 +721,7 @@ class ClassDDEGridMachine():
                                               FacetInfos],
                                           ParamJonesList,
                                           self._bda_grid,
+                                          self._sparsification,
                                           OptimisationInfos,
                                           self.LSmear,
                                           np.int32(ChanMapping))

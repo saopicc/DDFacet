@@ -154,6 +154,7 @@ void gridderWPol(PyArrayObject *np_grid,
 		 PyObject *Lmaps, 
 		 PyObject *LJones,
 		 PyArrayObject *SmearMapping,
+		 PyArrayObject *Sparsification,
 		 PyObject *LOptimisation,
 		 PyObject *LSmear,
 		 PyArrayObject *np_ChanMapping);

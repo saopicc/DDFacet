@@ -1,16 +1,21 @@
 import psutil
-import os
+import os, re, errno
 import Queue
 import multiprocessing
 import numpy as np
 
+
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.progressbar import ProgressBar
-
+from DDFacet.Array import NpShared
 log = MyLogger.getLogger("Multiprocessing")
 #MyLogger.setSilent("Multiprocessing")
 
+
+def getShmPrefix():
+    """Returns prefix used for shared memory arrays. ddf.PID is the convention"""
+    return "ddf.%d" % os.getpid()
 
 def getShmName(name, **kw):
     """
@@ -21,7 +26,41 @@ def getShmName(name, **kw):
     """
     # join keyword args into "key=value:key=value:..."
     kws = ":".join([name] + ["%s_%s" % (key, value) for key, value in sorted(kw.items())])
-    return "ddf.%d.%s" % (os.getpid(), kws)
+    return "%s.%s" % (getShmPrefix(), kws)
+
+def cleanupShm ():
+    """
+    Deletes all shared arrays for this process
+    """
+    NpShared.DelAll(getShmPrefix())
+
+def cleanupStaleShm ():
+    """
+    Cleans up "stale" shared memory from previous runs of DDF
+    """
+    # check for stale shared memory
+    uid = os.getuid()
+    # list of all files in /dev/shm/ matching ddf.PID.* and belonging to us
+    shmlist = [ (filename, re.match('ddf\.([0-9]+)\..*',filename)) for filename in os.listdir("/dev/shm/")
+                if os.stat("/dev/shm/"+filename).st_uid == uid ]
+    # convert to list of filename,pid tuples
+    shmlist = [ (filename, int(match.group(1))) for filename, match in shmlist if match ]
+    # now check all PIDs to find dead ones
+    # if we get ESRC error from sending signal 0 to the process, it's not running, so we mark it as dead
+    dead_pids = set()
+    for pid in set([x[1] for x in shmlist]):
+        try:
+            os.kill(pid, 0)
+        except OSError, err:
+            if err.errno == errno.ESRCH:
+                dead_pids.add(pid)
+    # ok, make list of candidates for deletion
+    victims = [ filename for filename,pid in shmlist if pid in dead_pids ]
+    if victims:
+        print>>log, "reaping %d shared memory objects associated with %d dead DDFacet processes"%(len(victims), len(dead_pids))
+        for filename in victims:
+            os.unlink("/dev/shm/"+filename)
+
 
 
 def getShmURL(name, **kw):

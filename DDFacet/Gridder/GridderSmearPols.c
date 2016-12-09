@@ -72,14 +72,15 @@ void init_pyGridderSmearPols()  {
 static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 {
   PyObject *ObjGridIn;
-  PyArrayObject *np_grid, *vis, *uvw, *cfs, *flags, *weights, *sumwt, *increment, *freqs,*WInfos,*SmearMapping,*np_ChanMapping;
+  PyArrayObject *np_grid, *vis, *uvw, *cfs, *flags, *weights, *sumwt, *increment, *freqs,*WInfos,
+    *SmearMapping,*Sparsification,*np_ChanMapping;
 
   PyObject *Lcfs,*LOptimisation,*LSmearing;
   PyObject *LJones,*Lmaps;
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!O!O!O!O!O!iO!O!O!O!O!O!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "O!O!O!O!O!O!iO!O!O!O!O!O!O!O!O!O!O!O!",
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid, 
 			&PyArray_Type,  &vis, 
@@ -96,6 +97,7 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 			&PyList_Type, &Lmaps,
 			&PyList_Type, &LJones,
 			&PyArray_Type,  &SmearMapping,
+			&PyArray_Type,  &Sparsification,
 			&PyList_Type, &LOptimisation,
 			&PyList_Type, &LSmearing,
 			&PyArray_Type,  &np_ChanMapping
@@ -103,7 +105,7 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
   int nx,ny,nz,nzz;
   //np_grid = (PyArrayObject *) PyArray_ContiguousFromObject(ObjGridIn, PyArray_COMPLEX64, 0, 4);
 
-  gridderWPol(np_grid, vis, uvw, flags, weights, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping,LOptimisation,LSmearing,np_ChanMapping);
+  gridderWPol(np_grid, vis, uvw, flags, weights, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, Sparsification, LOptimisation,LSmearing,np_ChanMapping);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -137,6 +139,7 @@ void gridderWPol(PyArrayObject *grid,
 		 PyObject *Lmaps, 
 		 PyObject *LJones,
 		 PyArrayObject *SmearMapping,
+		 PyArrayObject *Sparsification,
 		 PyObject *LOptimisation,
 		 PyObject *LSmearing,
 		 PyArrayObject *np_ChanMapping
@@ -296,6 +299,18 @@ void gridderWPol(PyArrayObject *grid,
     int *StartRow=MappingBlock+1+NTotBlocks;
     int iBlock;
 
+    // in sparsification mode, the Sparsification argument is an array of length NTotBlocks flags.
+    // Only blocks with a True flag will be gridded.
+    //
+    bool *sparsificationFlag = 0;
+    if( PyArray_Size((PyObject*)Sparsification) ){
+        if( PyArray_Size((PyObject*)Sparsification) != NTotBlocks ) {
+            PyErr_SetString(PyExc_TypeError, "sparsification argument must be an array of length NTotBlocks");
+            return;
+         }
+        sparsificationFlag = p_bool(Sparsification);
+    }
+
     int NMaxRow=0;
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
       int NRowThisBlock=NRowBlocks[iBlock]-2;
@@ -360,6 +375,9 @@ void gridderWPol(PyArrayObject *grid,
 
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
+    // if sparsification is enabled, then only process blocks for which the flag has been set
+      if( sparsificationFlag && !sparsificationFlag[iBlock] )
+        continue;
     //for(iBlock=3507; iBlock<3508; iBlock++){
       
       int NRowThisBlock=NRowBlocks[iBlock]-2;

@@ -6,7 +6,7 @@ import optparse
 import traceback
 SaveFile = "last_DDFacet.obj"
 import pickle
-import os, errno, re, sys
+import os, errno, re, sys, time
 from DDFacet.Other import logo
 from DDFacet.Imager import ClassDeconvMachine
 from DDFacet.Other import ModColor
@@ -22,6 +22,7 @@ from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import  Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
 log = None
@@ -145,6 +146,7 @@ def read_options():
     OP.add_option('CompDeGridMode')
     OP.add_option('CompDeGridDecorr')
     OP.add_option('CompDeGridFOV')
+    OP.add_option('Sparsification')
 
     # OP.add_option('CompModeDeGrid')
 
@@ -290,6 +292,17 @@ def main(OP=None, messages=[]):
     # enable memory logging
     MyLogger.enableMemoryLogging(DicoConfig["Logging"]["MemoryLogging"])
 
+    # get rid of old shm arrays from previous runs
+    Multiprocessing.cleanupStaleShm()
+
+    # initialize random seed from config if set, or else from system time
+    if DicoConfig["ImagerGlobal"]["RandomSeed"] is not None:
+        print>>log, "random seed=%d (explicit)" % DicoConfig["ImagerGlobal"]["RandomSeed"]
+    else:
+        DicoConfig["ImagerGlobal"]["RandomSeed"] = int(time.time())
+    print>> log, "random seed=%d (automatic)" % DicoConfig["ImagerGlobal"]["RandomSeed"]
+    np.random.seed(DicoConfig["ImagerGlobal"]["RandomSeed"])
+
     # If we're using Montblanc for the Predict, we need to use a remote
     # tensorflow server as tensorflow is not fork safe
     # http://stackoverflow.com/questions/37874838/forking-a-python-process-after-loading-tensorflow
@@ -299,37 +312,10 @@ def main(OP=None, messages=[]):
             from DDFacet.TensorFlowServerFork import fork_tensorflow_server
             DicoConfig["Montblanc"]["TensorflowServerTarget"] = fork_tensorflow_server()
 
-    global IdSharedMem
-    IdSharedMem = "ddf.%d."%os.getpid()
-    # check for stale shared memory
-    uid = os.getuid()
-    # list of all files in /dev/shm/ matching ddf.PID.* and belonging to us
-    shmlist = [ (filename, re.match('ddf\.([0-9]+)\..*',filename)) for filename in os.listdir("/dev/shm/")
-                if os.stat("/dev/shm/"+filename).st_uid == uid ]
-    # convert to list of filename,pid tuples
-    shmlist = [ (filename, int(match.group(1))) for filename, match in shmlist if match ]
-    # now check all PIDs to find dead ones
-    # if we get ESRC error from sending signal 0 to the process, it's not running, so we mark it as dead
-    dead_pids = set()
-    for pid in set([x[1] for x in shmlist]):
-        try:
-            os.kill(pid, 0)
-        except OSError, err:
-            if err.errno == errno.ESRCH:
-                dead_pids.add(pid)
-    # ok, make list of candidates for deletion
-    victims = [ filename for filename,pid in shmlist if pid in dead_pids ]
-    if victims:
-        print>>log, "reaping %d shared memory objects associated with %d dead DDFacet processes"%(len(victims), len(dead_pids))
-        for filename in victims:
-            os.unlink("/dev/shm/"+filename)
-
     # write parset
     OP.ToParset("%s.parset"%ImageName)
 
-    NpShared.DelAll(IdSharedMem)
-
-    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, IdSharedMem=IdSharedMem, BaseName=ImageName)
+    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, IdSharedMem=Multiprocessing.getShmPrefix(), BaseName=ImageName)
     Imager.Init()
 
     Mode = DicoConfig["ImagerGlobal"]["Mode"]
@@ -341,10 +327,8 @@ def main(OP=None, messages=[]):
 
     if "Clean" in Mode:
         Imager.main()
-    if "Dirty" in Mode:
-        Imager.GiveDirty()
-    if "PSF" in Mode:
-        Imager.MakePSF()
+    if "Dirty" in Mode or "PSF" in "Mode":
+        Imager.GiveDirty(psf="PSF" in Mode)
 
     # open default viewer, these options should match those in
     # ClassDeconvMachine if changed:
@@ -425,8 +409,7 @@ def main(OP=None, messages=[]):
             print>>log, ModColor.Str(
                 "\nDon't understand %s, not opening that image\n" %
                 img, col="yellow")
-
-    NpShared.DelAll(IdSharedMem)
+    Multiprocessing.cleanupShm()
 
 if __name__ == "__main__":
     # os.system('clear')
@@ -509,7 +492,7 @@ if __name__ == "__main__":
             "Your logfile is available here: %s" %
             logfileName, col="red")
         print>>log, traceback_msg
-        NpShared.DelAll(IdSharedMem)
+        Multiprocessing.cleanupShm()
         # Should at least give the command line an indication of failure
         sys.exit(1)
 
