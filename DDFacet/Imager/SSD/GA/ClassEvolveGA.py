@@ -127,7 +127,7 @@ class ClassEvolveGA():
             #SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
             SModelArrayMP,AModelArrayMP=self.DicoInitIndiv[self.iIsland]["S"],self.DicoInitIndiv[self.iIsland]["Alpha"]
             if True:#np.max(np.abs(self.IslandBestIndiv))==0:
-                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP)#,AlphaModel=AModelArrayMP)
             else:
                 NIndiv=len(self.pop)/2
                 pop0=self.pop[0:NIndiv]
