@@ -901,6 +901,9 @@ class ClassFacetMachine():
                 print>>log,ModColor.Str("The sum of the weights are zero for FreqBand #%i, data is all flagged?"%Channel)
                 print>>log,ModColor.Str("  (... will skip normalisation for this FreqBand)")
                 
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="Gluing facets", HeaderSize=10, TitleSize=13)
+        NFacets=len(self.DicoImager.keys())
+        pBAR.render(0, '%4i/%i' % (0, NFacets))
 
         for iFacet in self.DicoImager.keys():
                 
@@ -957,6 +960,7 @@ class ClassFacetMachine():
                 
                 
                     Image[Channel,pol,x0main:x1main,y0main:y1main]+=Im.real
+            pBAR.render(iFacet+1, '%4i/%i' % (iFacet+1, NFacets))
 
 
         for Channel in range(self.VS.NFreqBands):

@@ -86,9 +86,11 @@ class ClassEvolveGA():
         # toolbox.register("mate", tools.cxTwoPoint)
         toolbox.register("mate", tools.cxUniform, indpb=0.5)
         # toolbox.register("mate", tools.cxOrdered)
-        # toolbox.register("mutate", tools.mutGaussian, indpb=0.3,  mu=0.0, sigma=.1)
-        #toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.3, p0=0.3, pMove=0.3)
-        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.1, p0=0.5, pMove=0.1)
+
+
+        #toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.1, p0=0.5, pMove=0.1)
+        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.5, p0=0., pMove=0.5)
+
 
         toolbox.register("select", tools.selTournament, tournsize=3)
         #toolbox.register("select", Select.selTolTournament, tournsize=3, Tol=4)
@@ -127,7 +129,7 @@ class ClassEvolveGA():
             #SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
             SModelArrayMP,AModelArrayMP=self.DicoInitIndiv[self.iIsland]["S"],self.DicoInitIndiv[self.iIsland]["Alpha"]
             if True:#np.max(np.abs(self.IslandBestIndiv))==0:
-                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP)#,AlphaModel=AModelArrayMP)
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
             else:
                 NIndiv=len(self.pop)/2
                 pop0=self.pop[0:NIndiv]
@@ -147,10 +149,11 @@ class ClassEvolveGA():
                 self.ArrayMethodsMachine.PM.ReinitPop(pop1,SModelArrayBest,AlphaModel=AlphaModel,GSigModel=GSigModel)
 
                 # half of the pop with the MP model
-                SModelArrayBest0=SModelArrayBest.copy()
-                mask=(SModelArrayBest0==0)
-                SModelArrayBest0[mask]=SModelArray[mask]
-                self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayBest0,AlphaModel=AlphaModel,GSigModel=GSigModel)
+                #SModelArrayBest0=SModelArrayBest.copy()
+                #mask=(SModelArrayBest0==0)
+                #SModelArrayBest0[mask]=SModelArrayMP[mask]
+                #self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayBest0,AlphaModel=AlphaModel,GSigModel=GSigModel)
+                self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayMP,AlphaModel=AModelArrayMP)
 
                 self.pop=pop0+pop1
 
@@ -183,7 +186,8 @@ class ClassEvolveGA():
         #         self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArray,AlphaModel=AlphaModel,GSigModel=GSigModel)
 
         # set best Chi2
-        _=self.ArrayMethodsMachine.GiveFitnessPop([self.IslandBestIndiv])
+        # _=self.ArrayMethodsMachine.GiveFitnessPop([self.IslandBestIndiv])
+        _=self.ArrayMethodsMachine.GiveFitnessPop(self.pop)
 
 
 

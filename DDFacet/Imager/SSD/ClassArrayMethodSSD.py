@@ -442,7 +442,10 @@ class ClassArrayMethodSSD():
         #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         #print "Best chi2 %f"%self.BestChi2
-
+        print "=============================="
+        print fitnesses
+        print Chi2
+        print "=============================="
         return fitnesses,Chi2
 
 
@@ -855,11 +858,10 @@ class WorkerFitness(multiprocessing.Process):
                 # W=self.WeightMaxFunc[FuncType]
                 # l0=-(ResidNonZero.size)
                 l0=self.GiveCompacity(S)
-
                 ContinuousFitNess.append(l0*W)
             if FuncType=="MinFlux":
                 SNegArr=np.abs(S[S<0])[()]
-                FNeg=-np.sum(SNegArr)/(np.sqrt(self.PixVariance))
+                FNeg=-np.sum(SNegArr**2)/((self.PixVariance))
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(FNeg*W)
 
