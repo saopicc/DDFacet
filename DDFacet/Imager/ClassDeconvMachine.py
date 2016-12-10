@@ -626,7 +626,6 @@ class ClassImagerDeconv():
         # finalize other PSF initialization
         if psf:
             self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["MeanFacetPSF"]
-            # fit PSF parameters
             self.FitPSF()
             # if PSF was computed (as opposed to loaded from cache, save it to images
             if psfmean is not None:
@@ -767,7 +766,8 @@ class ClassImagerDeconv():
         self.GiveDirty(psf=True, sparsify=sparsify)
 
         #Pass minor cycle specific options into Init as kwargs
-        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.PSFSidelobesAvg)
+        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF, PSFAve=self.PSFSidelobesAvg,
+                                approx=sparsify)
 
         DicoImage=self.DicoDirty
         continue_deconv = True
@@ -857,9 +857,16 @@ class ClassImagerDeconv():
                 self.FacetMachine.putChunk()
 
 
-            DicoImage=self.FacetMachine.FacetsToIm(NormJones=True)
+            DicoImage = self.FacetMachine.FacetsToIm(NormJones=True)
             self.ResidCube  = DicoImage["ImagData"] #get residuals cube
             self.ResidImage = DicoImage["MeanImage"]
+            # was PSF re-generated?
+            if do_psf:
+                self.DicoVariablePSF = self.FacetMachine.DicoPSF
+                self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["MeanFacetPSF"]
+                self.FitPSF()
+                self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF, PSFAve=self.PSFSidelobesAvg,
+                                        approx=sparsify)
 
             if "e" in self._saveims:
                 self.FacetMachine.ToCasaImage(self.ResidImage,ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),

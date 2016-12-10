@@ -89,24 +89,29 @@ class ClassImageDeconvMachine():
         self.DicoVariablePSF = DicoVariablePSF
         # self.NChannels=self.DicoDirty["NChannels"]
 
-    def Init(self, **kwargs):
-        self.SetPSF(kwargs["PSFVar"])
-        self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
-        self.InitMSMF()
+    def Init(self, PSFVar, PSFAve, approx=False, **kwargs):
+        self.SetPSF(PSFVar)
+        self.setSideLobeLevel(PSFAve[0], PSFAve[1])
+        self.InitMSMF(approx=approx)
 
-    def InitMSMF(self):
-
+    def InitMSMF(self, approx=False):
+        """Initializes MSMF basis functions. If approx is True, then uses the central facet's PSF for
+        all facets."""
         self.DicoMSMachine = {}
-        cachepath, valid = self.maincache.checkCache(
-            "MSMFMachine",
-            dict(
-                [(section, self.GD[section])
-                 for section
-                 in (
-                     "VisData", "Beam", "DataSelection", "MultiFreqs",
-                     "ImagerGlobal", "Compression", "ImagerCF",
-                     "ImagerMainFacet", "MultiScale")],
-                reset=self.GD["Caching"]["ResetPSF"]))
+        # do not use cache in approx mode
+        if approx:
+            valid = False
+        else:
+            cachepath, valid = self.maincache.checkCache(
+                "MSMFMachine",
+                dict(
+                    [(section, self.GD[section])
+                     for section
+                     in (
+                         "VisData", "Beam", "DataSelection", "MultiFreqs",
+                         "ImagerGlobal", "Compression", "ImagerCF",
+                         "ImagerMainFacet", "MultiScale")],
+                    reset=self.GD["Caching"]["ResetPSF"]))
         if valid:
             print>>log, "Initialising MSMF Machine from cache %s" % cachepath
             facetcache = cPickle.load(file(cachepath))
@@ -114,29 +119,51 @@ class ClassImageDeconvMachine():
             print>>log, "Initialising MSMF Machine"
             facetcache = {}
 
-#        t = ClassTimeIt.ClassTimeIt()
-        for iFacet in xrange(self.PSFServer.NFacets):
-            self.PSFServer.setFacet(iFacet)
-            MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(
-                self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
+        if approx:
+            centralFacet = 0
+            centralDist = 1e+999
+            # find central facet
+            for iFacet in xrange(self.PSFServer.NFacets):
+                l, m = self.PSFServer.DicoVariablePSF[iFacet]["l0m0"]
+                dist = l**2 + m**2
+                if dist < centralDist:
+                    centralFacet, centralDist = iFacet, dist
+            print>>log, "MSMF approximation mode: central facet is %d (distance %f)" % (centralFacet, centralDist)
+            self.PSFServer.setFacet(centralFacet)
+            MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
             MSMachine.setModelMachine(self.ModelMachine)
             MSMachine.setSideLobeLevel(self.SideLobeLevel, self.OffsetSideLobe)
-            MSMachine.SetFacet(iFacet)
+            MSMachine.SetFacet(centralFacet)
             MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
             MSMachine.FindPSFExtent(Method="FromSideLobe")
-            cachedscales, cachedmatrix = facetcache.get(iFacet, (None, None))
-            cachedscales = MSMachine.MakeMultiScaleCube(cachedscales)
-            cachedmatrix = MSMachine.MakeBasisMatrix(cachedmatrix)
-            facetcache[iFacet] = cachedscales, cachedmatrix
-            self.DicoMSMachine[iFacet] = MSMachine
-        if not valid:
-            try:
-                cPickle.dump(facetcache, file(cachepath, 'w'), 2)
-                self.maincache.saveCache("MSMFMachine")
-            except:
-                print>>log, traceback.format_exc()
-                print >>log, ModColor.Str(
-                    "WARNING: MSMF cache could not be written, see error report above. Proceeding anyway.")
+            MSMachine.MakeMultiScaleCube()
+            MSMachine.MakeBasisMatrix()
+            for iFacet in xrange(self.PSFServer.NFacets):
+                self.DicoMSMachine[iFacet] = MSMachine
+        else:
+            #        t = ClassTimeIt.ClassTimeIt()
+            for iFacet in xrange(self.PSFServer.NFacets):
+                self.PSFServer.setFacet(iFacet)
+                MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(
+                    self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
+                MSMachine.setModelMachine(self.ModelMachine)
+                MSMachine.setSideLobeLevel(self.SideLobeLevel, self.OffsetSideLobe)
+                MSMachine.SetFacet(iFacet)
+                MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
+                MSMachine.FindPSFExtent(Method="FromSideLobe")
+                cachedscales, cachedmatrix = facetcache.get(iFacet, (None, None))
+                cachedscales = MSMachine.MakeMultiScaleCube(cachedscales)
+                cachedmatrix = MSMachine.MakeBasisMatrix(cachedmatrix)
+                facetcache[iFacet] = cachedscales, cachedmatrix
+                self.DicoMSMachine[iFacet] = MSMachine
+            if not valid:
+                try:
+                    cPickle.dump(facetcache, file(cachepath, 'w'), 2)
+                    self.maincache.saveCache("MSMFMachine")
+                except:
+                    print>>log, traceback.format_exc()
+                    print >>log, ModColor.Str(
+                        "WARNING: MSMF cache could not be written, see error report above. Proceeding anyway.")
 
     def SetDirty(self, DicoDirty):
         # if len(PSF.shape)==4:
@@ -307,7 +334,7 @@ class ClassImageDeconvMachine():
         Returns tuple of: return_code,continue,updated
         where return_code is a status string;
         continue is True if another cycle should be executed;
-        update is True if model has been updated (note that update=False implies continue=False)
+        update is True if model has been updated (note that1-sparse1.model01.fitst update=False implies continue=False)
         """
         if self._niter >= self.MaxMinorIter:
             return "MaxIter", False, False
@@ -437,15 +464,16 @@ class ClassImageDeconvMachine():
                 T.timeit("max0")
 
                 if ThisFlux <= StopFlux:
+                    rms = self._CubeDirty.std()
                     # pBAR.render(100,"peak %.3g"%(ThisFlux,))
                     print>>log, ModColor.Str(
-                        "    [iter=%i] peak of %.3g Jy lower than stopping flux" %
-                        (i, ThisFlux), col="green")
+                        "    [iter=%i] peak of %.3g Jy lower than stopping flux, PNR %.3g" %
+                        (i, ThisFlux, ThisFlux/rms), col="green")
                     cont = ThisFlux > self.FluxThreshold
                     if not cont:
                         print>>log, ModColor.Str(
-                            "    [iter=%i] absolute flux threshold of %.3g Jy has been reached" %
-                            (i, self.FluxThreshold), col="green", Bold=True)
+                            "    [iter=%i] absolute flux threshold of %.3g Jy has been reached, PNR %.3g" %
+                            (i, self.FluxThreshold, ThisFlux/rms), col="green", Bold=True)
                     # DoneScale*=100./np.sum(DoneScale)
                     # for iScale in range(DoneScale.size):
                     #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
@@ -464,12 +492,12 @@ class ClassImageDeconvMachine():
                                                 else 1000 ))
                 # min(int(10**math.floor(math.log10(i))), 10000)
                 if i >= 10 and i % rounded_iter_step == 0:
-                    if self.GD["Debugging"]["PrintMinorCycleRMS"]:
-                        print>>log, "    [iter=%i] peak residual %.3g, rms %g" % (
-                            i, ThisFlux, self._CubeDirty.std())
-                    else:
-                        print >>log, "    [iter=%i] peak residual %.3g" % (
-                            i, ThisFlux)
+                    # if self.GD["Debugging"]["PrintMinorCycleRMS"]:
+                    rms = self._CubeDirty.std()
+                    print>>log, "    [iter=%i] peak residual %.3g, rms %g, PNR %.3g" % (i, ThisFlux, rms, ThisFlux/rms)
+                    # else:
+                    #     print >>log, "    [iter=%i] peak residual %.3g" % (
+                    #         i, ThisFlux)
                     if ClassMultiScaleMachine.debug_dump_file:
                         ClassMultiScaleMachine.debug_dump_file.flush()
 
@@ -556,17 +584,19 @@ class ClassImageDeconvMachine():
 
                 T.timeit("End")
         except KeyboardInterrupt:
+            rms = self._CubeDirty.std()
             print>>log, ModColor.Str(
-                "    [iter=%i] minor cycle interrupted with Ctrl+C, peak flux %.3g" %
-                (self._niter, ThisFlux))
+                "    [iter=%i] minor cycle interrupted with Ctrl+C, peak flux %.3g, PNR %.3g" %
+                (self._niter, ThisFlux, ThisFlux/rms))
             # DoneScale*=100./np.sum(DoneScale)
             # for iScale in range(DoneScale.size):
             #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
             return "MaxIter", False, True   # stop deconvolution but do update model
 
+        rms = self._CubeDirty.std()
         print>>log, ModColor.Str(
-            "    [iter=%i] Reached maximum number of iterations, peak flux %.3g" %
-            (self._niter, ThisFlux))
+            "    [iter=%i] Reached maximum number of iterations, peak flux %.3g, PNR %.3g" %
+            (self._niter, ThisFlux, ThisFlux/rms))
         # DoneScale*=100./np.sum(DoneScale)
         # for iScale in range(DoneScale.size):
         #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])

@@ -439,8 +439,8 @@ class ClassVisServer():
                     continue
             DATA = repLoadChunk
             break
-        print>> log, "processing ms %d of %d, chunk %d of %d" % (
-            self.iCurrentMS + 1, self.nMS, self.CurrentMS.current_chunk+1, self.CurrentMS.Nchunk)
+        print>> log, ModColor.Str("processing ms %d of %d, chunk %d of %d" % (
+            self.iCurrentMS + 1, self.nMS, self.CurrentMS.current_chunk+1, self.CurrentMS.Nchunk), col="green")
 
         times = DATA["times"]
         data = DATA["data"]
