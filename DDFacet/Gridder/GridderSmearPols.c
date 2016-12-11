@@ -313,8 +313,6 @@ void gridderWPol(PyArrayObject *grid,
 
     int NMaxRow=0;
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
-        if( sparsificationFlag && !sparsificationFlag[iBlock] )
-            continue;
         int NRowThisBlock=NRowBlocks[iBlock]-2;
         if(NRowThisBlock>NMaxRow){
             NMaxRow=NRowThisBlock;
