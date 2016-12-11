@@ -30,21 +30,22 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # else:
         #     self.Gain=Gain
         # self.GainMachine=GainMachine
-        # self.DicoSMStacked={}
         # self.DicoSMStacked["Comp"]={}
         if self.GD is not None:
             self.SolveParam = self.GD["SSDClean"]["SSDSolvePars"]
             print>>log,"Solved parameters: %s"%(str(self.SolveParam))
             self.NParam=len(self.SolveParam)
         self.RefFreq=None
+        self.DicoSMStacked={}
+        self.DicoSMStacked["Type"]="SSD"
 
-    def setRefFreq(self,RefFreq,AllFreqs):
-        if self.RefFreq is not None:
+    def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
+        if self.RefFreq is not None and not Force:
             print>>log,ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6))
             return
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
-        self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
+        #self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
         # print "ModelMachine:",self.RefFreq, self.DicoSMStacked["RefFreq"], self.DicoSMStacked["AllFreqs"]
         
         
@@ -130,7 +131,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def GiveIndividual(self,ListPixParms):
         NParms=self.NParam
         OutArr=np.zeros((NParms,len(ListPixParms)),np.float32)
-        DicoComp=self.DicoSMStacked["Comp"]
+        try:
+            DicoComp=self.DicoSMStacked["Comp"]
+        except:
+            self.DicoSMStacked["Comp"]={}
+            DicoComp=self.DicoSMStacked["Comp"]
 
         for iPix in range(len(ListPixParms)):
             x,y=ListPixParms[iPix]
@@ -185,7 +190,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def GiveModelImage(self,FreqIn=None):
-
+        
+        
         RefFreq=self.DicoSMStacked["RefFreq"]
         if FreqIn is None:
             FreqIn=np.array([RefFreq])
@@ -199,14 +205,15 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # print "ModelMachine GiveModelImage:",FreqIn, RefFreq
 
-
-
-        DicoComp=self.DicoSMStacked["Comp"]
         _,npol,nx,ny=self.ModelShape
-        N0=nx
-
         nchan=FreqIn.size
         ModelImage=np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+        if "Comp" not in  self.DicoSMStacked.keys():
+            return ModelImage
+
+        DicoComp=self.DicoSMStacked["Comp"]
+        N0=nx
+
         DicoSM={}
         SolveParam=np.array(self.SolveParam)
         for x,y in DicoComp.keys():
@@ -299,8 +306,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         
         dFreq=1e6
-        f0=self.DicoSMStacked["AllFreqs"].min()
-        f1=self.DicoSMStacked["AllFreqs"].max()
+        RefFreq=self.DicoSMStacked["RefFreq"]
+        f0=RefFreq/1.5#self.DicoSMStacked["AllFreqs"].min()
+        f1=RefFreq*1.5#self.DicoSMStacked["AllFreqs"].max()
         M0=self.GiveModelImage(f0)
         M1=self.GiveModelImage(f1)
         if DoConv:

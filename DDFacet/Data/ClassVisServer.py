@@ -166,6 +166,10 @@ class ClassVisServer():
         self.CurrentMS = self.ListMS[0]
         self.iCurrentMS = 0
 
+
+        self.RefFreq=np.mean(self.GlobalFreqs)
+
+
         bandwidth = max_freq - min_freq
         print>>log,"Total bandwidth is %g MHz (%g to %g MHz), with %d channels"%(bandwidth*1e-6, min_freq*1e-6, max_freq*1e-6, len(global_freqs))
 

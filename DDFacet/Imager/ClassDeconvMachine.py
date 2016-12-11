@@ -190,14 +190,21 @@ class ClassImagerDeconv():
             if self.GD["ImagerDeconv"]["MinorCycleMode"] != ModelMachine.DicoSMStacked["Type"]:
                 raise NotImplementedError("You want to use different minor cycle and IniDicoModel types [%s vs %s]"\
                                           %(self.GD["ImagerDeconv"]["MinorCycleMode"],ModelMachine.DicoSMStacked["Type"]))
+            
+            print>>log, ModColor.Str("Taking reference frequency from the model machine %f MHz (instead of %f MHz from the data)"%(ModelMachine.RefFreq/1e6,self.VS.RefFreq/1e6))
+            self.RefFreq=self.VS.RefFreq=ModelMachine.RefFreq
+
             if self.BaseName==self.GD["VisData"]["InitDicoModel"][0:-10]:
                 self.BaseName+=".continue"
                 self.DicoModelName="%s.DicoModel"%self.BaseName
                 self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
-
         else:
             ModelMachine = self.ModConstructor.GiveMM(Mode=self.GD["ImagerDeconv"]["MinorCycleMode"])
+            ModelMachine.setRefFreq(self.VS.RefFreq)
+            self.RefFreq=self.VS.RefFreq
+            
         self.ModelMachine=ModelMachine
+
         MinorCycleConfig["ModelMachine"] = ModelMachine
 
         # Specify which deconvolution algorithm to use

@@ -195,19 +195,19 @@ class ClassMultiScaleMachine():
 
         ######################
 
-        AllFreqs=[]
-        AllFreqsMean=np.zeros((self.NFreqBands,),np.float32)
-        for iChannel in range(self.NFreqBands):
-            AllFreqs+=self.DicoVariablePSF["freqs"][iChannel]
-            AllFreqsMean[iChannel]=np.mean(self.DicoVariablePSF["freqs"][iChannel])
+        # #############################
+        # # Moving up
+        # AllFreqs=[]
+        # AllFreqsMean=np.zeros((self.NFreqBands,),np.float32)
+        # for iChannel in range(self.NFreqBands):
+        #     AllFreqs+=self.DicoVariablePSF["freqs"][iChannel]
+        #     AllFreqsMean[iChannel]=np.mean(self.DicoVariablePSF["freqs"][iChannel])
+        # RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoVariablePSF["WeightChansImages"].ravel())
+        # self.ModelMachine.setRefFreq(RefFreq)#,AllFreqs)
+        # self.RefFreq=RefFreq
+        # self.PSFServer.RefFreq=RefFreq
+        # #############################
 
-        RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoVariablePSF["WeightChansImages"].ravel())
-
-
-
-        self.ModelMachine.setRefFreq(RefFreq,AllFreqs)
-        self.RefFreq=RefFreq
-        self.PSFServer.RefFreq=RefFreq
         FreqBandsFluxRatio=self.PSFServer.GiveFreqBandsFluxRatio(self.iFacet,Alpha)
         # if self.iFacet==96: 
         #     print 96

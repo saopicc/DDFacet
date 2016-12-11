@@ -960,7 +960,7 @@ class ClassFacetMachine():
                 
                 
                     Image[Channel,pol,x0main:x1main,y0main:y1main]+=Im.real
-            pBAR.render(iFacet+1, '%4i/%i' % (iFacet+1, NFacets))
+            pBAR.render(int((iFacet+1)*100./NFacets), '%4i/%i' % (iFacet+1, NFacets))
 
 
         for Channel in range(self.VS.NFreqBands):

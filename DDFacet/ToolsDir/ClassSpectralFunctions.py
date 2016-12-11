@@ -1,26 +1,25 @@
 import numpy as np
 
 class ClassSpectralFunctions():
-    def __init__(self,DicoMappingDesc,BeamEnable=True):
+    def __init__(self,DicoMappingDesc,BeamEnable=True,RefFreq=None):
 
         self.DicoMappingDesc=DicoMappingDesc
         self.NFreqBand=len(self.DicoMappingDesc["freqs"])
         self.BeamEnable=BeamEnable
-        self.setFreqs()
+        self.RefFreq=RefFreq
+        #self.setFreqs()
         if self.BeamEnable:
             self.setBeamFactors()
     
-    def setFreqs(self):
-        AllFreqs=[]
-        AllFreqsMean=np.zeros((self.NFreqBand,),np.float32)
-        for iChannel in range(self.NFreqBand):
-            AllFreqs+=self.DicoMappingDesc["freqs"][iChannel]
-            AllFreqsMean[iChannel]=np.mean(self.DicoMappingDesc["freqs"][iChannel])
-
-        RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoMappingDesc["WeightChansImages"].ravel())
-
-        self.AllFreqs=AllFreqs
-        self.RefFreq=RefFreq
+    # def setFreqs(self):
+    #     AllFreqs=[]
+    #     AllFreqsMean=np.zeros((self.NFreqBand,),np.float32)
+    #     for iChannel in range(self.NFreqBand):
+    #         AllFreqs+=self.DicoMappingDesc["freqs"][iChannel]
+    #         AllFreqsMean[iChannel]=np.mean(self.DicoMappingDesc["freqs"][iChannel])
+    #     RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoMappingDesc["WeightChansImages"].ravel())
+    #     self.AllFreqs=AllFreqs
+    #     self.RefFreq=RefFreq
 
     def setBeamFactors(self):
         self.DicoBeamFactors={}

@@ -8,7 +8,7 @@ from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
-from DDFacet.Imager import ClassMultiScaleMachine
+from DDFacet.Imager.MSMF import ClassMultiScaleMachine
 from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 import ClassModelMachineMSMF
@@ -26,6 +26,7 @@ class ClassImageDeconvMachine():
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
+
         self.SearchMaxAbs=SearchMaxAbs
         self._ModelImage = None
         self.MaxMinorIter=MaxMinorIter
@@ -41,10 +42,11 @@ class ClassImageDeconvMachine():
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
         self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
-        if ModelMachine is None:
-            self.ModelMachine=ClassModelMachineMSMF.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
-        else:
-            self.ModelMachine = ModelMachine
+        self.ModelMachine = ModelMachine
+        self.RefFreq=self.ModelMachine.RefFreq
+        if self.ModelMachine.DicoSMStacked["Type"]!="MSMF":
+            raise ValueError("ModelMachine Type should be MSMF")
+
         # reset overall iteration counter
         self.maincache = MainCache
         # reset overall iteration counter
@@ -67,6 +69,9 @@ class ClassImageDeconvMachine():
 
     def updateModelMachine(self,ModelMachine):
         self.ModelMachine=ModelMachine
+        if self.ModelMachine.RefFreq!=self.RefFreq:
+            raise ValueError("freqs should be equal")
+
         for iFacet in range(self.PSFServer.NFacets):
             self.DicoMSMachine[iFacet].setModelMachine(self.ModelMachine)
 
@@ -80,6 +85,9 @@ class ClassImageDeconvMachine():
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF,NormalisePSF=True)
+        self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
+
+
         #self.DicoPSF=DicoPSF
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]

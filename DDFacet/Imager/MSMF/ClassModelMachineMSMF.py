@@ -34,11 +34,17 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # self.GainMachine=GainMachine
         # self.DicoSMStacked={}
         # self.DicoSMStacked["Comp"]={}
+        self.DicoSMStacked={}
+        self.DicoSMStacked["Type"]="MSMF"
 
-    def setRefFreq(self,RefFreq,AllFreqs):
+    def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
+        if self.RefFreq is not None and not Force:
+            print>>log,ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6))
+            return
+        
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
-        self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
+        #self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
         
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName
@@ -90,7 +96,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if not (pol_array_index >= 0 and pol_array_index < npol):
             raise ValueError("Pol_array_index must specify the index of the slice in the "
                              "model cube the solution should be stored at. Please report this bug.")
-        DicoComp=self.DicoSMStacked["Comp"]
+        try:
+            DicoComp=self.DicoSMStacked["Comp"]
+        except:
+            self.DicoSMStacked["Comp"]={}
+            DicoComp=self.DicoSMStacked["Comp"]
+            
+
         if not(key in DicoComp.keys()):
             DicoComp[key]={}
             for p in range(npol):
@@ -112,8 +124,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True,MaxSpi=100,MaxDR=1e+6):
         dFreq=1e6
-        f0=self.DicoSMStacked["AllFreqs"].min()
-        f1=self.DicoSMStacked["AllFreqs"].max()
+        #f0=self.DicoSMStacked["AllFreqs"].min()
+        #f1=self.DicoSMStacked["AllFreqs"].max()
+        RefFreq=self.DicoSMStacked["RefFreq"]
+        f0=RefFreq/1.5
+        f1=RefFreq*1.5
 
         M0=self.GiveModelImage(f0)
         M1=self.GiveModelImage(f1)

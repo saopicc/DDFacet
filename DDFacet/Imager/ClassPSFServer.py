@@ -9,7 +9,7 @@ class ClassPSFServer():
         self.GD=GD
         self.blc=None
 
-    def setDicoVariablePSF(self,DicoVariablePSF,NormalisePSF=False):
+    def setDicoVariablePSF(self,DicoVariablePSF,RefFreq=None,NormalisePSF=False):
         # NFacets=len(DicoVariablePSF.keys())
         # NPixMin=1e6
         # for iFacet in sorted(DicoVariablePSF.keys()):
@@ -49,12 +49,19 @@ class ClassPSFServer():
                          "MeanJonesBand":DicoVariablePSF["MeanJonesBand"]}
 
         self.DicoMappingDesc=DicoMappingDesc
-
+        
         self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(DicoMappingDesc)
-        self.RefFreq=self.SpectralFunctionsMachine.RefFreq
-        self.AllFreqs=self.SpectralFunctionsMachine.AllFreqs
+        #self.RefFreq=self.SpectralFunctionsMachine.RefFreq=RefFreq
+        #self.AllFreqs=self.SpectralFunctionsMachine.AllFreqs
         #print "PSFServer:",self.RefFreq, self.AllFreqs
         #self.CalcJacobian()
+
+    def setRefFreq(self,RefFreq):
+        if RefFreq is None:
+            raise ValueError("Reference frequency should be set")
+        self.RefFreq=RefFreq
+        self.SpectralFunctionsMachine.RefFreq=RefFreq
+        self.DicoMappingDesc["RefFreq"]=RefFreq
 
     def setBLC(self,blc):
         self.blc=blc

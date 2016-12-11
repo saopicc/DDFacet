@@ -7,10 +7,11 @@ from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 
 class ClassInitSSDModel():
-    def __init__(self,GD,DicoVariablePSF,DicoDirty):
+    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq):
         self.DicoVariablePSF=DicoVariablePSF
         self.DicoDirty=DicoDirty
         GD=copy.deepcopy(GD)
+        self.RefFreq=RefFreq
         self.GD=GD
         self.GD["Parallel"]["NCPU"]=1
         self.GD["MultiFreqs"]["Alpha"]=[0,0,1]#-1.,1.,5]
@@ -27,6 +28,14 @@ class ClassInitSSDModel():
         MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
         MinorCycleConfig["NFreqBands"]=self.NFreqBands
         MinorCycleConfig["GD"] = self.GD
+        #MinorCycleConfig["RefFreq"] = self.RefFreq
+
+        ModConstructor = ClassModModelMachine(self.GD)
+        ModelMachine = ModConstructor.GiveMM(Mode=self.GD["ImagerDeconv"]["MinorCycleMode"])
+        ModelMachine.setRefFreq(self.RefFreq)
+        MinorCycleConfig["ModelMachine"]=ModelMachine
+
+        
         self.MinorCycleConfig=MinorCycleConfig
         self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**self.MinorCycleConfig)
         self.Margin=100
@@ -36,7 +45,7 @@ class ClassInitSSDModel():
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["PSFSideLobes"])
         self.DeconvMachine.Update(self.DicoDirty)
         self.DeconvMachine.updateRMS()
-        self.DicoBasicModelMachine=copy.deepcopy(self.DeconvMachine.ModelMachine.DicoSMStacked)
+        #self.DicoBasicModelMachine=copy.deepcopy(self.DeconvMachine.ModelMachine.DicoSMStacked)
 
     def setSubDirty(self,ListPixParms):
         x,y=np.array(ListPixParms).T
@@ -128,11 +137,12 @@ class ClassInitSSDModel():
         ModConstructor = ClassModModelMachine(self.GD)
         ModelMachine = ModConstructor.GiveMM(Mode=self.GD["ImagerDeconv"]["MinorCycleMode"])
         self.ModelMachine=ModelMachine
-        self.ModelMachine.DicoSMStacked=self.DicoBasicModelMachine
+        #self.ModelMachine.DicoSMStacked=self.DicoBasicModelMachine
+        self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
         self.MinorCycleConfig["ModelMachine"] = ModelMachine
         self.ModelMachine.setModelShape(self.SubDirty.shape)
         self.ModelMachine.setListComponants(self.DeconvMachine.ModelMachine.ListScales)
-
+        
         self.DeconvMachine.updateMask(np.logical_not(self.SubMask))
         self.DeconvMachine.Update(self.DicoSubDirty)
         self.DeconvMachine.updateModelMachine(ModelMachine)

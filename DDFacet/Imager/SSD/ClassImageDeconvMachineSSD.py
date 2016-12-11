@@ -36,7 +36,8 @@ class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
-                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,IdSharedMem="",ModelMachine=None,
+                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,IdSharedMem="",
+                 ModelMachine=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
@@ -55,11 +56,18 @@ class ClassImageDeconvMachine():
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
         self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
-        if ModelMachine is None:
-            from DDFacet.Imager.SSD import ClassModelMachineSSD
-            self.ModelMachine=ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
-        else:
-            self.ModelMachine = ModelMachine
+        # if ModelMachine is None:
+        #     from DDFacet.Imager.SSD import ClassModelMachineSSD
+        #     self.ModelMachine=ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
+        # else:
+        self.ModelMachine = ModelMachine
+        if self.ModelMachine.DicoSMStacked["Type"]!="SSD":
+            raise ValueError("ModelMachine Type should be SSD")
+
+        ## If the Model machine was already initialised, it will ignore it in the setRefFreq method
+        ## and we need to set the reference freq in PSFServer
+        #self.ModelMachine.setRefFreq(self.RefFreq)#,self.PSFServer.AllFreqs)
+
         # reset overall iteration counter
         self._niter = 0
         self.PSFCross=None
@@ -95,14 +103,15 @@ class ClassImageDeconvMachine():
         self.PSFServer=ClassPSFServer(self.GD)
         DicoVariablePSF["CubeVariablePSF"]=NpShared.ToShared("%s.CubeVariablePSF"%self.IdSharedMem,DicoVariablePSF["CubeVariablePSF"])
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
+        self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
         #self.DicoPSF=DicoPSF
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
 
-        # If the Model machine was already initialised, it will ignore it in the setRefFreq method
-        # and we need to set the reference freq in PSFServer
-        self.ModelMachine.setRefFreq(self.PSFServer.RefFreq,self.PSFServer.AllFreqs)
-        self.PSFServer.RefFreq=self.ModelMachine.RefFreq
+        #self.PSFServer.RefFreq=self.ModelMachine.RefFreq
+        
+
+
 
     def Init(self,**kwargs):
         self.SetPSF(kwargs["PSFVar"])
@@ -373,8 +382,9 @@ class ClassImageDeconvMachine():
 
         ListIslandsOut=[self.ListIslands[i] for i in ind]
         self.ListIslands=ListIslandsOut
-        InitMachine=ClassInitSSDModel.ClassInitSSDModel(self.GD,self.DicoVariablePSF,self.DicoDirty)
+        InitMachine=ClassInitSSDModel.ClassInitSSDModel(self.GD,self.DicoVariablePSF,self.DicoDirty,self.ModelMachine.RefFreq)
         FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
+        
         ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
         #ModelImage*=np.sqrt(self.DicoDirty["NormData"])
         ModelImage*=(self.DicoDirty["NormData"])
