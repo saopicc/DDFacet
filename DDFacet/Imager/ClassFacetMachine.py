@@ -652,7 +652,7 @@ class ClassFacetMachine():
             self.GiveVisParallel(*args, **kwargs)
         self.SetLogModeSubModules("Loud")
 
-    def FacetsToIm(self, NormJones=False):
+    def FacetsToIm(self, NormJones=False, psf=False):
         """
         Fourier transforms the individual facet grids and then
         Stitches the gridded facets and builds the following maps:
@@ -667,6 +667,7 @@ class ClassFacetMachine():
         Args:
             NormJones: if True (and there is Jones Norm data available) also computes self.NormData (ndarray) of jones
             averages.
+            psf: if True (and PSF grids are available), also computes PSF terms
 
 
         Returns:
@@ -723,7 +724,7 @@ class ClassFacetMachine():
             # then the mean image is just the same
             self.MeanResidual = self.stitchedResidual.copy()
             WBAND = 1
-        if self.DoPSF:
+        if psf and self._psf_grids:
             print>>log, "  Build PSF facet-slices "
             self.DicoPSF = {}
             for iFacet in self.DicoGridMachine.keys():
@@ -850,17 +851,15 @@ class ClassFacetMachine():
             else:
                 self.DicoPSF["MeanImage"] = self.DicoPSF["ImagData"]
 
-        DicoImages["ImagData"] = self.stitchedResidual
-        DicoImages["NormImage"] = self.NormImage  # grid-correcting map
-        DicoImages["NormData"] = self.NormData
-        DicoImages["MeanImage"] = self.MeanResidual
-
-        # delete PSF grids, if they were made
-        if self._psf_grids:
             self._psf_grids = None
             for array in self._psf_grid_names.iterkeys():
                 NpShared.DelArray(array)
             self._psf_grid_names = None
+
+        DicoImages["ImagData"] = self.stitchedResidual
+        DicoImages["NormImage"] = self.NormImage  # grid-correcting map
+        DicoImages["NormData"] = self.NormData
+        DicoImages["MeanImage"] = self.MeanResidual
 
         return DicoImages
 

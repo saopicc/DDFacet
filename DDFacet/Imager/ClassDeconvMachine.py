@@ -474,7 +474,7 @@ class ClassImagerDeconv():
             print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
             print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --ResetDirty 1.")
 
-            self.DicoDirty = cPickle.load(file(cachepath))
+            self.DicoDirty = cPickle.load(file(dirty_cachepath))
 
             if self.DicoDirty["NormData"] is not None:
                 nch, npol, nx, ny = self.DicoDirty["ImagData"].shape
@@ -487,7 +487,7 @@ class ClassImagerDeconv():
             if psf:
                 # load PSF
                 psfmean, psfcube = None, None
-                self.DicoVariablePSF = cPickle.load(file(cachepath))
+                self.DicoVariablePSF = cPickle.load(file(psf_cachepath))
         else:
             print>>log, ModColor.Str("============================== Making Dirty Image ==============================")
 
@@ -563,7 +563,7 @@ class ClassImagerDeconv():
 
                 iloop += 1
 
-            self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
+            self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True, psf=psf)
 
             if "d" in self._saveims:
                 self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
@@ -608,7 +608,7 @@ class ClassImagerDeconv():
             # dump dirty to cache
             if self.GD["Caching"]["CacheDirty"] and not sparsify:
                 try:
-                    cPickle.dump(self.DicoDirty, file(cachepath, 'w'), 2)
+                    cPickle.dump(self.DicoDirty, file(dirty_cachepath, 'w'), 2)
                     self.VS.maincache.saveCache("Dirty")
                 except:
                     print>> log, traceback.format_exc()
@@ -616,7 +616,7 @@ class ClassImagerDeconv():
             # dump PSF to cache
             if psf and self.GD["Caching"]["CachePSF"] and not sparsify:
                 try:
-                    cPickle.dump(self.DicoVariablePSF, file(cachepath, 'w'), 2)
+                    cPickle.dump(self.DicoVariablePSF, file(psf_cachepath, 'w'), 2)
                     self.VS.maincache.saveCache("PSF")
                 except:
                     print>> log, traceback.format_exc()
@@ -857,7 +857,7 @@ class ClassImagerDeconv():
                 self.FacetMachine.putChunk()
 
 
-            DicoImage = self.FacetMachine.FacetsToIm(NormJones=True)
+            DicoImage = self.FacetMachine.FacetsToIm(NormJones=True,psf=do_psf)
             self.ResidCube  = DicoImage["ImagData"] #get residuals cube
             self.ResidImage = DicoImage["MeanImage"]
             # was PSF re-generated?
