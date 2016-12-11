@@ -1051,11 +1051,13 @@ class ClassFacetMachine():
         if not factor or "BDAGrid" not in DATA:
             DATA["Sparsification"] = np.array([])
         else:
-            num_blocks = DATA["BDAGrid"][0]
-            DATA["Sparsification"] = sparsification = np.zeros(num_blocks, bool)
             # randomly select blocks with 1/sparsification probability
-            sparsification[:] = numpy.random.sample(num_blocks) < 1.0 / factor
-            print>> log, "applying sparsification factor of %f to %d BDA blocks" % (factor, num_blocks)
+            num_blocks = DATA["BDAGrid"][0]
+            DATA["Sparsification.Grid"] = numpy.random.sample(num_blocks) < 1.0 / factor
+            print>> log, "applying sparsification factor of %f to %d BDA grid blocks" % (factor, num_blocks)
+            num_blocks = DATA["BDADegrid"][0]
+            DATA["Sparsification.Degrid"] = numpy.random.sample(num_blocks) < 1.0 / factor
+            print>> log, "applying sparsification factor of %f to %d BDA degrid blocks" % (factor, num_blocks)
 
     # Gridding worker that is called by Multiprocessing.Process
     @staticmethod
@@ -1077,9 +1079,7 @@ class ClassFacetMachine():
             iFacet, SpheNorm, NFreqBands,
             DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
             wterm=WTerms[iFacet], sphe=Sphes[iFacet],
-            bda_grid=DATA["BDAGrid"], bda_degrid=DATA["BDADegrid"],
-            sparsification=DATA.get("Sparsification")
-        )
+            bda_grid=DATA["BDAGrid"], bda_degrid=DATA["BDADegrid"])
         T.timeit("create %d" % iFacet)
         uvwThis = DATA["uvw"]
         visThis = DATA["data"]
@@ -1128,7 +1128,9 @@ class ClassFacetMachine():
                         DicoJonesMatrices=DicoJonesMatrices,
                         freqs=freqs, DoPSF=False,
                         ChanMapping=ChanMapping,
-                        ResidueGrid=Grids[iFacet])
+                        ResidueGrid=Grids[iFacet],
+                        sparsification=DATA.get("Sparsification.Grid")
+                        )
         T.timeit("put %d" % iFacet)
 
         Sw = GridMachine.SumWeigths.copy()
@@ -1324,7 +1326,9 @@ class ClassFacetMachine():
                           ModelGrid, ImToGrid=False,
                           DicoJonesMatrices=DicoJonesMatrices,
                           freqs=freqs, TranformModelInput="FT",
-                          ChanMapping=ChanMapping)
+                          ChanMapping=ChanMapping,
+                          sparsification=DATA.get("Sparsification.Degrid")
+                        )
 
         return {"iFacet": iFacet}
 

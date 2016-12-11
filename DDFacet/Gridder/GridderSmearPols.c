@@ -301,7 +301,6 @@ void gridderWPol(PyArrayObject *grid,
 
     // in sparsification mode, the Sparsification argument is an array of length NTotBlocks flags.
     // Only blocks with a True flag will be gridded.
-    //
     bool *sparsificationFlag = 0;
     if( PyArray_Size((PyObject*)Sparsification) ){
         if( PyArray_Size((PyObject*)Sparsification) != NTotBlocks ) {
@@ -765,14 +764,15 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 {
   PyObject *ObjGridIn;
   PyObject *ObjVis;
-  PyArrayObject *np_grid, *np_vis, *uvw, *cfs, *flags, *sumwt, *increment, *freqs,*WInfos,*SmearMapping,*np_ChanMapping;
+  PyArrayObject *np_grid, *np_vis, *uvw, *cfs, *flags, *sumwt, *increment, *freqs,*WInfos,
+                *SmearMapping, *Sparsification, *np_ChanMapping;
 
   PyObject *Lcfs, *LOptimisation, *LSmear;
   PyObject *Lmaps,*LJones;
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!O!",
                         //&ObjGridIn,
                         &PyArray_Type,  &np_grid,
                         &ObjVis,//&PyArray_Type,  &vis, 
@@ -788,6 +788,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
                         &PyArray_Type,  &freqs,
                         &PyList_Type, &Lmaps, &PyList_Type, &LJones,
                         &PyArray_Type, &SmearMapping,
+                        &PyArray_Type, &Sparsification,
                         &PyList_Type, &LOptimisation,
                         &PyList_Type, &LSmear,
                         &PyArray_Type, &np_ChanMapping
@@ -799,7 +800,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 
   
 
-  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, LOptimisation, LSmear,np_ChanMapping);
+  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, Sparsification, LOptimisation, LSmear,np_ChanMapping);
   
   return PyArray_Return(np_vis);
 
@@ -823,7 +824,8 @@ void DeGridderWPol(PyArrayObject *grid,
                    PyArrayObject *Winfos,
                    PyArrayObject *increment,
                    PyArrayObject *freqs,
-                   PyObject *Lmaps, PyObject *LJones, PyArrayObject *SmearMapping, PyObject *LOptimisation, PyObject *LSmearing,
+                   PyObject *Lmaps, PyObject *LJones, PyArrayObject *SmearMapping, PyArrayObject *Sparsification,
+                   PyObject *LOptimisation, PyObject *LSmearing,
                  PyArrayObject *np_ChanMapping)
   {
     // Get size of convolution functions.
@@ -990,6 +992,17 @@ void DeGridderWPol(PyArrayObject *grid,
     int *StartRow=MappingBlock+1+NTotBlocks;
     int iBlock;
 
+    // in sparsification mode, the Sparsification argument is an array of length NTotBlocks flags.
+    // Only blocks with a True flag will be gridded.
+    bool *sparsificationFlag = 0;
+    if( PyArray_Size((PyObject*)Sparsification) ){
+        if( PyArray_Size((PyObject*)Sparsification) != NTotBlocks ) {
+            PyErr_SetString(PyExc_TypeError, "sparsification argument must be an array of length NTotBlocks");
+            return;
+         }
+        sparsificationFlag = p_bool(Sparsification);
+    }
+
     int NMaxRow=0;
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
       int NRowThisBlock=NRowBlocks[iBlock]-2;
@@ -1022,6 +1035,10 @@ void DeGridderWPol(PyArrayObject *grid,
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
+      // in sparsification mode, skip unlucky blocks
+      if( sparsificationFlag && !sparsificationFlag[iBlock] )
+        continue;
+
       int NRowThisBlock=NRowBlocks[iBlock]-2;
       int indexMap=StartRow[iBlock];
       int chStart=MappingBlock[indexMap];
@@ -1039,6 +1056,8 @@ void DeGridderWPol(PyArrayObject *grid,
 
       float visChanMean=0.;
       resetJonesServerCounter();
+
+
       for (inx=0; inx<NRowThisBlock; inx++) {
         size_t irow = Row[inx];
         if(irow>nrows){continue;}

@@ -154,10 +154,10 @@ class ClassCasaimage():
         ImageName = self.ImageName
         #print>>log, "  ----> Create casa image %s"%ImageName
         # HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
-        tmpIm = image(imagename=ImageName, shape=self.ImShape)
+        tmpIm = image(imagename="", shape=self.ImShape)
         c = tmpIm.coordinates()
         del(tmpIm)
-        os.system("rm -Rf %s" % ImageName)
+        # os.system("rm -Rf %s" % ImageName)
 
         incr = c.get_increment()
         incrRad = (self.Cell/60.)  # *np.pi/180
@@ -239,7 +239,7 @@ class ClassCasaimage():
 
         # self.im=image(imagename=ImageName,shape=(1,1,Npix,Npix),coordsys=c)
         # self.im=image(imagename=ImageName,shape=(Npix,Npix),coordsys=c)
-        self.im = image(imagename=ImageName, shape=self.ImShape, coordsys=c)
+        self.im = image(imagename=imagename if self.KeepCasa else "", shape=self.ImShape, coordsys=c)
         # data=np.random.randn(*self.ImShape)
         # self.setdata(data)
 
@@ -297,9 +297,9 @@ class ClassCasaimage():
         #print>>log, "  ----> Closing %s"%self.ImageName
         del(self.im)
         #print>>log, "  ----> Closed %s"%self.ImageName
-        if not self.KeepCasa:
-            #print>>log, "  ----> Delete %s"%self.ImageName
-            os.system("rm -rf %s" % self.ImageName)
+#        if not self.KeepCasa:
+#            #print>>log, "  ----> Delete %s"%self.ImageName
+#            os.system("rm -rf %s" % self.ImageName)
 
 
 # def test():

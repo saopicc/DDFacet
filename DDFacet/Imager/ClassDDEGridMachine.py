@@ -277,7 +277,7 @@ class ClassDDEGridMachine():
                  ExpectedOutputStokes=[1],
                  ListSemaphores=None,
                  wterm=None, sphe=None, compute_cf=False,
-                 bda_grid=None, bda_degrid=None, sparsification=None,
+                 bda_grid=None, bda_degrid=None,
                  ):
         """
 
@@ -310,7 +310,6 @@ class ClassDDEGridMachine():
             raise RuntimeError
         self._bda_grid = bda_grid
         self._bda_degrid = bda_degrid
-        self._sparsification = sparsification if sparsification is not None else np.array([])
 
         # self.DoPSF=DoPSF
         self.DoPSF = False
@@ -590,7 +589,7 @@ class ClassDDEGridMachine():
 
     def put(self, times, uvw, visIn, flag, A0A1, W=None,
             PointingID=0, DoNormWeights=True, DicoJonesMatrices=None,
-            freqs=None, DoPSF=0, ChanMapping=None, ResidueGrid=None):
+            freqs=None, DoPSF=0, ChanMapping=None, ResidueGrid=None, sparsification=None):
         """
         Gridding routine, wraps external python extension C gridder
         Args:
@@ -721,7 +720,7 @@ class ClassDDEGridMachine():
                                               FacetInfos],
                                           ParamJonesList,
                                           self._bda_grid,
-                                          self._sparsification,
+                                          sparsification if sparsification is not None else np.array([]),
                                           OptimisationInfos,
                                           self.LSmear,
                                           np.int32(ChanMapping))
@@ -791,7 +790,7 @@ class ClassDDEGridMachine():
             self, times, uvw, visIn, flag, A0A1, ModelImage, PointingID=0,
             Row0Row1=(0, -1),
             DicoJonesMatrices=None, freqs=None, ImToGrid=True,
-            TranformModelInput="", ChanMapping=None):
+            TranformModelInput="", ChanMapping=None, sparsification=None):
         T = ClassTimeIt.ClassTimeIt("get")
         T.disable()
         vis = visIn.view()
@@ -929,7 +928,8 @@ class ClassDDEGridMachine():
                 [self.PolMap, FacetInfos, RowInfos],
                 ParamJonesList, 
                 self._bda_degrid,
-                OptimisationInfos, 
+                sparsification if sparsification is not None else np.array([]),
+                OptimisationInfos,
                 self.LSmear, np.int32(ChanMapping))
 
         T.timeit("4 (degrid)")
