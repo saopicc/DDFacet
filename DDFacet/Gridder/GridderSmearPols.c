@@ -301,7 +301,7 @@ void gridderWPol(PyArrayObject *grid,
 
     // in sparsification mode, the Sparsification argument is an array of length NTotBlocks flags.
     // Only blocks with a True flag will be gridded.
-    bool *sparsificationFlag = 0;
+    const bool *sparsificationFlag = 0;
     if( PyArray_Size((PyObject*)Sparsification) ){
         if( PyArray_Size((PyObject*)Sparsification) != NTotBlocks ) {
             PyErr_SetString(PyExc_TypeError, "sparsification argument must be an array of length NTotBlocks");
@@ -1027,7 +1027,7 @@ void DeGridderWPol(PyArrayObject *grid,
 
     // in sparsification mode, the Sparsification argument is an array of length NTotBlocks flags.
     // Only blocks with a True flag will be gridded.
-    bool *sparsificationFlag = 0;
+    const bool *sparsificationFlag = 0;
     if( PyArray_Size((PyObject*)Sparsification) ){
         if( PyArray_Size((PyObject*)Sparsification) != NTotBlocks ) {
             PyErr_SetString(PyExc_TypeError, "sparsification argument must be an array of length NTotBlocks");
@@ -1070,7 +1070,7 @@ void DeGridderWPol(PyArrayObject *grid,
     ////////////////////////////////////////////////////////////////////////////
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
-    //for(iBlock=3507; iBlock<3508; iBlock++){
+    //for(iBlock=3507; iBlock<3508; https://github.com/ska-sa/vermeerkat/settings/collaborationiBlock++){
       // in sparsification mode, skip unlucky blocks
       if( sparsificationFlag && !sparsificationFlag[iBlock] )
         continue;
@@ -1341,7 +1341,7 @@ void DeGridderWPol(PyArrayObject *grid,
             // init correlation term for first channel that it's not initialized in
             if( CurrentCorrChan[inx] == -1 )
             {
-              float complex dotprod = -2.*I*PI*(U*l0+V*m0+W*n0)/C;
+              float complex dotprod = 2.*I*PI*(U*l0+V*m0+W*n0)/C;
               CurrentCorrTerm[inx] = cexp(Pfreqs[visChan]*dotprod);
               dCorrTerm[inx]       = cexp((Pfreqs[1]-Pfreqs[0])*dotprod);
               CurrentCorrChan[inx] = visChan;

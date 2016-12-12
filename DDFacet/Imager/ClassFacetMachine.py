@@ -1144,7 +1144,9 @@ class ClassFacetMachine():
                             DicoJonesMatrices=DicoJonesMatrices,
                             freqs=freqs, DoPSF=True,
                             ChanMapping=ChanMapping,
-                            ResidueGrid=PSFGrids[iFacet])
+                            ResidueGrid=PSFGrids[iFacet],
+                            sparsification = DATA.get("Sparsification.Grid")
+                            )
 
         return {"iFacet": iFacet, "Weights": Sw, "SumJones": SumJones, "SumJonesChan": SumJonesChan}
 
