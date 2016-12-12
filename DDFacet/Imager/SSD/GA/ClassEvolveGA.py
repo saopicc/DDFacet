@@ -158,6 +158,8 @@ class ClassEvolveGA():
                 self.pop=pop0+pop1
 
 
+
+
         # if self.IslandBestIndiv is not None:
 
         #     if np.max(np.abs(self.IslandBestIndiv))==0:
@@ -191,11 +193,11 @@ class ClassEvolveGA():
 
 
 
-        self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.5, ngen=NGen, 
-                                           halloffame=self.hof, 
-                                           #stats=stats,
-                                           verbose=False, 
-                                           ArrayMethodsMachine=self.ArrayMethodsMachine,DoPlot=DoPlot)
+        # self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.5, ngen=NGen, 
+        #                                    halloffame=self.hof, 
+        #                                    #stats=stats,
+        #                                    verbose=False, 
+        #                                    ArrayMethodsMachine=self.ArrayMethodsMachine,DoPlot=DoPlot)
         self.ArrayMethodsMachine.KillWorkers()
 
         # #:param mu: The number of individuals to select for the next generation.
