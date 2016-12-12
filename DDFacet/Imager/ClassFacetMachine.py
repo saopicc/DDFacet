@@ -1054,10 +1054,10 @@ class ClassFacetMachine():
             # randomly select blocks with 1/sparsification probability
             num_blocks = DATA["BDAGrid"][0]
             DATA["Sparsification.Grid"] = numpy.random.sample(num_blocks) < 1.0 / factor
-            print>> log, "applying sparsification factor of %f to %d BDA grid blocks" % (factor, num_blocks)
+            print>> log, "applying sparsification factor of %f to %d BDA grid blocks, left with %d" % (factor, num_blocks, DATA["Sparsification.Grid"].sum())
             num_blocks = DATA["BDADegrid"][0]
             DATA["Sparsification.Degrid"] = numpy.random.sample(num_blocks) < 1.0 / factor
-            print>> log, "applying sparsification factor of %f to %d BDA degrid blocks" % (factor, num_blocks)
+            print>> log, "applying sparsification factor of %f to %d BDA degrid blocks, left with %d" % (factor, num_blocks, DATA["Sparsification.Degrid"].sum())
 
     # Gridding worker that is called by Multiprocessing.Process
     @staticmethod

@@ -232,17 +232,18 @@ def GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
     BlocksRowsListBL = []
     BlocksSizesBL = []
     NBlocksTotBL = 0
+    # loop over all rows for this baseline
     for iRowBL in xrange(ind.size):
-        CurrentRows.append(ind[iRowBL])
+        CurrentRows.append(ind[iRowBL])   # add to list of rows
         # Frequency Block
-        uv = np.sqrt(u[iRowBL]**2+v[iRowBL]**2+w[iRowBL]**2)
-        dnu = (C/np.pi)*dPhi/(uv*l)
-        NChanBlock = dnu/dFreq
+        uv = np.sqrt(u[iRowBL]**2+v[iRowBL]**2+w[iRowBL]**2)   # uvw distance for this row
+        dnu = (C/np.pi)*dPhi/(uv*l)                            # delta-nu for this row
+        NChanBlock = dnu/dFreq                                 # how many channel blocks to split this row into
         if NChanBlock < NChanBlockMax:
             NChanBlockMax = NChanBlock
 
         # Time Block
-        duvtot += np.sqrt(du[iRowBL]**2+dv[iRowBL]**2+dw[iRowBL]**2)
+        duvtot += np.sqrt(du[iRowBL]**2+dv[iRowBL]**2+dw[iRowBL]**2)   # total delta-uv distance for this row
         if (duvtot > Duv) | (iRowBL == (ind.size-1)):
             # BlocksRowsListBL.append(CurrentRows)
 

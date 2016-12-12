@@ -312,13 +312,19 @@ void gridderWPol(PyArrayObject *grid,
 
     int NMaxRow=0;
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
+        if( sparsificationFlag && !sparsificationFlag[iBlock] )
+            continue;
         int NRowThisBlock=NRowBlocks[iBlock]-2;
         if(NRowThisBlock>NMaxRow){
-            NMaxRow=NRowThisBlock;
+           NMaxRow=NRowThisBlock;
         }
     }
-    float complex *CurrentCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
-    float complex *dCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
+    // these are used for equidistant channels: one holds the phase term in channel 0,
+    // the other one holds the delta-phase across channels
+    float complex *CurrentCorrTerm = calloc(1,(NMaxRow)*sizeof(float complex));
+    float complex *dCorrTerm = calloc(1,(NMaxRow)*sizeof(float complex));
+    // and this indicates for which channel the CurrentCorrTerm is currently computed
+    int * CurrentCorrChan = calloc(1,(NMaxRow)*sizeof(int));
 
     // ########################################################
 
@@ -375,7 +381,10 @@ void gridderWPol(PyArrayObject *grid,
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
-      
+    // if sparsification is enabled, then only process blocks for which the flag has been set
+      if( sparsificationFlag && !sparsificationFlag[iBlock] )
+        continue;
+
       int NRowThisBlock=NRowBlocks[iBlock]-2;
       int indexMap=StartRow[iBlock];
       int chStart=MappingBlock[indexMap];
@@ -408,8 +417,6 @@ void gridderWPol(PyArrayObject *grid,
       float visChanMean=0.;
       resetJonesServerCounter();
 
-      // skip block if sparsifying
-    // if sparsification is enabled, then only process blocks for which the flag has been set
 
       for (inx=0; inx<NRowThisBlock; inx++) {
         size_t irow = Row[inx];
@@ -422,7 +429,8 @@ void gridderWPol(PyArrayObject *grid,
         //clock_gettime(CLOCK_MONOTONIC_RAW, &PreviousTime);
         
         WeightVaryJJ=1.;
-
+        // init this to -1 so the code below knows to initialize it when the first channel hits
+        CurrentCorrChan[inx] = -1;
 
         float DeCorrFactor=1.;
         if(DoDecorr){
@@ -442,12 +450,14 @@ void gridderWPol(PyArrayObject *grid,
           //printf("DeCorrFactor %f %f: %f\n",l0,m0,DeCorrFactor);
 
         }
-        
 
         //AddTimeit(PreviousTime,TimeGetJones);
         for (visChan=chStart; visChan<chEnd; ++visChan) {
           int doff = (irow * nVisChan + visChan) * nVisPol;
           bool* __restrict__ flagPtr = p_bool(flags) + doff;
+
+          // If first visibility is flagged, continue. We can do that since all flags in 4-pols are equalised in ClassVisServer
+          if(flagPtr[0]==1){continue;}
 
           double*   imgWtPtr = p_float64(weights) + irow  * nVisChan + visChan;
           
@@ -459,29 +469,52 @@ void gridderWPol(PyArrayObject *grid,
           //AddTimeit(PreviousTime,TimeShift);
           //#######################################################
 
+
           float complex corr;
-          if(ChanEquidistant){
-            if(visChan==0){
-              float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-              CurrentCorrTerm[inx]=cexp(-UVNorm*(U*l0+V*m0+W*n0));
-              float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
-              dCorrTerm[inx]=cexp(-dUVNorm*(U*l0+V*m0+W*n0));
-            }else{
-              CurrentCorrTerm[inx]*=dCorrTerm[inx];
+
+//           // Danger danger, this is where I landed in poo.
+//           // The important part here is: CurrentCorrTerm[inx] is initialized when
+//           // the block containing chan0 is processed. Subsequent blocks then rely
+//           // on being in channel order (and multiply the value by dCorrTerm[inx] each
+//           // time). So I can't skip the block on sparsification so easily.
+//          if(ChanEquidistant){
+//            if(visChan==0){
+//              float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+//              CurrentCorrTerm[inx]=cexp(-UVNorm*(U*l0+V*m0+W*n0));
+//              float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
+//              dCorrTerm[inx]=cexp(-dUVNorm*(U*l0+V*m0+W*n0));
+//            }else{
+//              CurrentCorrTerm[inx]*=dCorrTerm[inx];
+//            }
+//            corr=CurrentCorrTerm[inx];
+//          }
+          if(ChanEquidistant)
+          {
+            // init correlation term for first channel that it's not initialized in
+            if( CurrentCorrChan[inx] == -1 )
+            {
+              float complex dotprod = -2.*I*PI*(U*l0+V*m0+W*n0)/C;
+              CurrentCorrTerm[inx] = cexp(Pfreqs[visChan]*dotprod);
+              dCorrTerm[inx]       = cexp((Pfreqs[1]-Pfreqs[0])*dotprod);
+              CurrentCorrChan[inx] = visChan;
             }
-            corr=CurrentCorrTerm[inx];
+            // else, wind the correlation term forward by as many channels as necessary
+            // this modification allows us to support blocks that skip across channels
+            else
+            {
+              while( CurrentCorrChan[inx] < visChan )
+              {
+                CurrentCorrTerm[inx] *= dCorrTerm[inx];
+                CurrentCorrChan[inx]++;
+              }
+            }
+            corr = CurrentCorrTerm[inx];
           }
-          else{
+          else
+          {
             float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
             corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
           }
-
-          // If first visibilitty is flagged, continue. We can do that since all flags in 4-pols are equalised in ClassVisServer
-          if(flagPtr[0]==1){continue;}
-          // If sparsifying, and block is not lucky, continue
-          if( sparsificationFlag && !sparsificationFlag[iBlock] )
-              continue;
-
 
           /* float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
           /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
@@ -1010,10 +1043,13 @@ void DeGridderWPol(PyArrayObject *grid,
         NMaxRow=NRowThisBlock;
       }
     }
-    float complex *CurrentCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
-    float complex *dCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
-    // ########################################################
 
+    // these are used for equidistant channels: one holds the phase term in channel 0,
+    // the other one holds the delta-phase across channels
+    float complex *CurrentCorrTerm = calloc(1,(NMaxRow)*sizeof(float complex));
+    float complex *dCorrTerm = calloc(1,(NMaxRow)*sizeof(float complex));
+    // and this indicates for which channel the CurrentCorrTerm is currently computed
+    int * CurrentCorrChan = calloc(1,(NMaxRow)*sizeof(int));
 
     double posx,posy;
 
@@ -1056,7 +1092,6 @@ void DeGridderWPol(PyArrayObject *grid,
 
       float visChanMean=0.;
       resetJonesServerCounter();
-
 
       for (inx=0; inx<NRowThisBlock; inx++) {
         size_t irow = Row[inx];
@@ -1276,7 +1311,7 @@ void DeGridderWPol(PyArrayObject *grid,
         double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
         //printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
         //printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
-        
+        CurrentCorrChan[inx] = -1;
 
         int ThisPol;
         for (visChan=chStart; visChan<chEnd; ++visChan) {
@@ -1301,23 +1336,33 @@ void DeGridderWPol(PyArrayObject *grid,
           //#######################################################
 
           float complex corr;
-          if(ChanEquidistant){
-            if(visChan==0){
-              float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-              CurrentCorrTerm[inx]=cexp(UVNorm*(U*l0+V*m0+W*n0));
-              float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
-              dCorrTerm[inx]=cexp(dUVNorm*(U*l0+V*m0+W*n0));
-            }else{
-              CurrentCorrTerm[inx]*=dCorrTerm[inx];
+          if(ChanEquidistant)
+          {
+            // init correlation term for first channel that it's not initialized in
+            if( CurrentCorrChan[inx] == -1 )
+            {
+              float complex dotprod = -2.*I*PI*(U*l0+V*m0+W*n0)/C;
+              CurrentCorrTerm[inx] = cexp(Pfreqs[visChan]*dotprod);
+              dCorrTerm[inx]       = cexp((Pfreqs[1]-Pfreqs[0])*dotprod);
+              CurrentCorrChan[inx] = visChan;
             }
-            corr=CurrentCorrTerm[inx];
+            // else, wind the correlation term forward by as many channels as necessary
+            // this modification allows us to support blocks that skip across channels
+            else
+            {
+              while( CurrentCorrChan[inx] < visChan )
+              {
+                CurrentCorrTerm[inx] *= dCorrTerm[inx];
+                CurrentCorrChan[inx]++;
+              }
+            }
+            corr = CurrentCorrTerm[inx];
           }
-          else{
+          else
+          {
             float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-            corr=cexp(UVNorm*(U*l0+V*m0+W*n0));
+            corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
           }
-          /* float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
-          /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
 
 
           corr*=DeCorrFactor;
