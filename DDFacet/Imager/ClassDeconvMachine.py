@@ -821,6 +821,8 @@ class ClassImagerDeconv():
                 #if Res=="EndChunk": break
                 if Res=="EndOfObservation":
                     break
+                # sparsify the data according to current levels
+                self.FacetMachine.applySparsification(self.DATA, sparsify)
 
                 model_freqs = self.VS.CurrentChanMappingDegrid
                 ## redo model image if needed
@@ -853,7 +855,6 @@ class ClassImagerDeconv():
                     self.VS.CurrentMS.PutVisColumn(predict_colname, model)
                     data = resid = None
 
-                self.FacetMachine.applySparsification(self.DATA, sparsify)
                 self.FacetMachine.putChunk()
 
 
