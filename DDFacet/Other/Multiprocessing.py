@@ -127,6 +127,8 @@ class ProcessPool (object):
             else:
                 raise ValueError,"unknown affinity setting %d" % self.affinity
 
+        print>> log, "%s: starting %d workers for %d jobs%s" % (title or "", self.ncpu, len(joblist),
+            ", CPU cores " + " ".join(map(str,cores)) if self.affinity else "")
         # fork off child processes
         if parallel:
             parent_affinity = self.procinfo.cpu_affinity()
@@ -141,8 +143,6 @@ class ProcessPool (object):
                     p.start()
             finally:
                 self.procinfo.cpu_affinity(parent_affinity)
-        print>> log, "%s: starting %d workers for %d jobs%s" % (title or "", self.ncpu, len(joblist), 
-            ", CPU cores " + " ".join(map(str,cores)) if self.affinity else "")
 
         njobs = len(joblist)
         iResult = 0
