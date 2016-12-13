@@ -50,11 +50,17 @@ _locking = True
 
 def Lock (array):
     if _locking:
-        SharedArray.mlock(array)
+	try:
+	        SharedArray.mlock(array)
+	except:
+		print>> log, "Warning: Cannot lock memory. Try updating your kernel security settings."
 
 def Unlock (array):
     if _locking:
-        SharedArray.munlock(array)
+	try:
+	        SharedArray.munlock(array)
+	except:
+		print>> log, "Warning Cannot unlock memory. Try updating your kernel security settings."
 
 def ListNames():
     ll = list(SharedArray.list())

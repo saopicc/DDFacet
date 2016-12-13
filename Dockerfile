@@ -44,6 +44,8 @@ ADD README.md /src/DDFacet/README.md
 ADD .git /src/DDFacet/.git
 ADD .gitignore /src/DDFacet/.gitignore
 ADD .gitmodules /src/DDFacet/.gitmodules
+# Support large mlocks
+RUN echo "*        -   memlock     unlimited" > /etc/security/limits.conf
 # Upgrade pip
 RUN pip install -U pip
 RUN pip install -U virtualenv
