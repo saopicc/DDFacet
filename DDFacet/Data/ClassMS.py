@@ -589,7 +589,7 @@ class ClassMS():
             if index.size:
                 self.Weights = self.Weights[index]
 
-        # create data array (if databuf is None, array uses memory of buffer)
+        # create data array (if databuf is not None, array uses memory of buffer)
         visdata = np.ndarray(shape=datashape, dtype=np.complex64, buffer=databuf)
         if read_data:
             # check cache for visibilities
@@ -604,17 +604,21 @@ class ClassMS():
             else:
                 print>> log, "reading MS visibilities from column %s" % self.ColName
                 table_all = table_all or self.GiveMainTable()
-                table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 if index.size:
+                    visdata1 = np.ndarray(shape=datashape, dtype=np.complex64)
+                    table_all.getcolslicenp(self.ColName, visdata1, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                     print>>log,"sorting visibilities"
-                    visdata = visdata[index]
+                    visdata[...] = visdata1[index]
+                    del visdata1
+                else:
+                    table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 if use_cache:
                     print>> log, "caching visibilities to %s" % datapath
                     np.save(datapath, visdata)
                     self.cache.saveCache("Data.npy")
         else:
             visdata.fill(0)
-        # create flag array (if flagbuf is None, array uses memory of buffer)
+        # create flag array (if flagbuf is not None, array uses memory of buffer)
         flags = np.ndarray(shape=datashape, dtype=np.bool, buffer=flagbuf)
         # check cache for flags
         if use_cache:
@@ -628,10 +632,13 @@ class ClassMS():
         else:
             print>> log, "reading MS flags from column FLAG"
             table_all = table_all or self.GiveMainTable()
-            table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
             if index.size:
+                flags1 = table_all.getcolslice("FLAG", self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 print>> log, "sorting flags"
-                flags = flags[index]
+                flags[...] = flags1[index]
+                del flags1
+            else:
+                table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
             self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
             if use_cache:
                 print>> log, "caching flags to %s" % flagpath
