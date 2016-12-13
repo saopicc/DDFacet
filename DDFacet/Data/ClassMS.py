@@ -1059,18 +1059,23 @@ class ClassMS():
         ThresholdFlag = 0.9 # flag antennas with % of flags over threshold
 
         # flag autocorrelations
-        flags[A0==A1,:,:] = True
+        # print>>log,"  flagging autocorrelations"
+        flags[A0==A1] = True
         # flag NaNs
+        # print>>log,"  flagging NaNs"
         if data is not None:
             ind = np.isnan(data)
             flags[ind] = True
             data[flags] = 1e9
         # if one of 4 correlations is flagged, flag all 4. Make smaller array of flags per row/channel
-        flags1 = np.any(flags, axis=2)
+        # print>>log,"  flagging incomplete coherency matrices"
+        flags1 = flags.any(axis=2)
         flags[flags1] = True
-
+        
+        # print>>log,"  forming per-antenna index"
         # per each antenna, form up boolean mask indicating its rows
-        antenna_rows = [ np.where((A0 == A) | (A1 == A))[0] for A in xrange(self.na) ]
+        antenna_rows = [ (A0 == A)|(A1 == A) for A in xrange(self.na) ]
+        # print>>log,"  row index formed"
 
         antenna_flagfrac = [ flags1[rows].sum()/float(flags1[rows].size or 1) for rows in antenna_rows ]
         print>>log, "  flagged fractions per antenna: %s" % " ".join([ "%.2f"%frac for frac in antenna_flagfrac])
