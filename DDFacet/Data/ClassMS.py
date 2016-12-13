@@ -1062,7 +1062,7 @@ class ClassMS():
         # per each antenna, form up boolean mask indicating its rows
         antenna_rows = [ np.where((A0 == A) | (A1 == A))[0] for A in xrange(self.na) ]
 
-        antenna_flagfrac = [ flags[rows,:,:].sum()/float(flags[rows,:,:].size) for rows in antenna_rows ]
+        antenna_flagfrac = [ flags[rows].sum()/float(flags[rows,:,:].size or 1) for rows in antenna_rows ]
         print>>log, "  flagged fractions per antenna: %s" % " ".join([ "%.2f"%frac for frac in antenna_flagfrac])
 
         FlagAntNumber = [ ant for ant,frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag ]
@@ -1077,7 +1077,7 @@ class ClassMS():
             d0 = d0**2*1e6
             d1 = d1**2*1e6
             duv = uvw[:,:2].sum(1)
-            flags[(duv > d0) & (duv < d1), :, :] = True
+            flags[(duv > d0) & (duv < d1),:,:] = True
 
         if self.DicoSelectOptions["TimeRange"] != None:
             t0 = times[0]
@@ -1110,7 +1110,6 @@ class ClassMS():
 
         for A in FlagAntNumber:
             flags[antenna_rows[A], :, :] = True
-        print>>log, "  flagging autocorrelations"
         # flag autocorrelations
         flags[A0==A1,:,:] = True
         print>>log, "  flagging NaNs"
@@ -1119,7 +1118,6 @@ class ClassMS():
             ind = np.isnan(data)
             flags[ind] = True
             data[flags] = 1e9
-        print>>log, "  flagging incomplete coherency matrices"
         # if one of 4 correlations is flagged, flag all 4
         flags[np.any(flags,axis=2)] = True
         print>>log, "Flags updated"
