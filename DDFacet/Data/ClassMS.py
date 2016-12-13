@@ -1054,15 +1054,25 @@ class ClassMS():
         by applying various selection criteria from self.DicoSelectOptions.
         Also sets flagged data to 1e9.
         """
-        print>> log, "Updating flags:"
+        print>> log, "Updating flags"
 
         ThresholdFlag = 0.9 # flag antennas with % of flags over threshold
-        FlagAntNumber = []  # accumulates list of flagged antennas
+
+        # flag autocorrelations
+        flags[A0==A1,:,:] = True
+        # flag NaNs
+        if data is not None:
+            ind = np.isnan(data)
+            flags[ind] = True
+            data[flags] = 1e9
+        # if one of 4 correlations is flagged, flag all 4. Make smaller array of flags per row/channel
+        flags1 = np.any(flags, axis=2)
+        flags[flags1] = True
 
         # per each antenna, form up boolean mask indicating its rows
         antenna_rows = [ np.where((A0 == A) | (A1 == A))[0] for A in xrange(self.na) ]
 
-        antenna_flagfrac = [ flags[rows].sum()/float(flags[rows,:,:].size or 1) for rows in antenna_rows ]
+        antenna_flagfrac = [ flags1[rows].sum()/float(flags1[rows].size or 1) for rows in antenna_rows ]
         print>>log, "  flagged fractions per antenna: %s" % " ".join([ "%.2f"%frac for frac in antenna_flagfrac])
 
         FlagAntNumber = [ ant for ant,frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag ]
@@ -1110,16 +1120,6 @@ class ClassMS():
 
         for A in FlagAntNumber:
             flags[antenna_rows[A], :, :] = True
-        # flag autocorrelations
-        flags[A0==A1,:,:] = True
-        print>>log, "  flagging NaNs"
-        # flag NaNs
-        if data is not None:
-            ind = np.isnan(data)
-            flags[ind] = True
-            data[flags] = 1e9
-        # if one of 4 correlations is flagged, flag all 4
-        flags[np.any(flags,axis=2)] = True
         print>>log, "Flags updated"
 
     def __str__(self):
