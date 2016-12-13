@@ -512,7 +512,8 @@ class ClassMS():
                  databuf=None,
                  flagbuf=None,
                  use_cache=False,
-                 read_data=True):
+                 read_data=True,
+                 sort_by_baseline=True):
         """
         Args:
             row0:
@@ -523,7 +524,7 @@ class ClassMS():
             databuf: a buffer to read data into. If None, a new array is created.
             flagbuf: a buffer to read flags into. If None, a new array is created.
             read_data: if False, visibilities will not be read, only flags and other data
-
+            sort_by_baseline: if True, sorts rows in baseline-time order
         Returns:
 
         """
@@ -542,18 +543,51 @@ class ClassMS():
         strMS = "%s" % (ModColor.Str(self.MSName, col="green"))
         print>>log, "%s: Reading next data chunk in [%i, %i] rows" % (
             strMS, row0, row1)
+        table_all = None
 
-        table_all = self.GiveMainTable()
-        # SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead) 
-        A0 = table_all.getcol('ANTENNA1', row0, nRowRead) # [SPW==self.ListSPW[0]]
-        A1 = table_all.getcol('ANTENNA2', row0, nRowRead) # [SPW==self.ListSPW[0]]
-        # print self.ListSPW[0]
-        time_all = table_all.getcol(
-            "TIME", row0, nRowRead)  # [SPW==self.ListSPW[0]]
-        # print np.max(time_all)-np.min(time_all)
-        # time_slots_all=np.array(sorted(list(set(time_all))))
-        ntimes = time_all.shape[0]/self.nbl
-        uvw = table_all.getcol('UVW', row0, nRowRead)
+        # check cache for A0,A1,time,uvw
+        if use_cache:
+            path, valid = self.cache.checkCache("A0A1UVWT.npz", dict(time=self._start_time))
+        else:
+            valid = False
+        # if cache is valid, we're all good
+        if valid:
+            npz = np.load(path)
+            A0, A1, uvw, time_all, index = npz["A0"], npz["A1"], npz["UVW"], npz["TIME"], npz["INDEX"]
+            if not index.size:
+                index = None
+        else:
+            table_all = table_all or self.GiveMainTable()
+            # SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead)
+            A0 = table_all.getcol('ANTENNA1', row0, nRowRead) # [SPW==self.ListSPW[0]]
+            A1 = table_all.getcol('ANTENNA2', row0, nRowRead) # [SPW==self.ListSPW[0]]
+            # print self.ListSPW[0]
+            time_all = table_all.getcol('TIME', row0, nRowRead)  # [SPW==self.ListSPW[0]]
+            # print np.max(time_all)-np.min(time_all)
+            # time_slots_all=np.array(sorted(list(set(time_all))))
+            uvw = table_all.getcol('UVW', row0, nRowRead)
+            if sort_by_baseline:
+                # make sort index
+                print>>log,"sorting by baseline-time"
+                sortby = sorted(zip(A0, A1, time_all, range(nRowRead)))
+                index = np.array([ s[3] for s in sortby ])
+                print>>log,"applying sort index to metadata rows"
+                A0 = A0[index]
+                A1 = A1[index]
+                uvw = uvw[index]
+                time_all = time_all[index]
+            else:
+                index = np.array([])
+            # save cache
+            if use_cache:
+                np.savez(path,A0=A0,A1=A1,UVW=uvw,TIME=time_all,INDEX=index)
+                self.cache.saveCache("A0A1UVWT.npz")
+
+        if ReadWeight:
+            table_all = table_all or self.GiveMainTable()
+            self.Weights = table_all.getcol("WEIGHT", row0, nRowRead)
+            if index.size:
+                self.Weights = self.Weights[index]
 
         # create data array (if databuf is None, array uses memory of buffer)
         visdata = np.ndarray(shape=datashape, dtype=np.complex64, buffer=databuf)
@@ -569,7 +603,11 @@ class ClassMS():
                 visdata[...] = np.load(datapath)
             else:
                 print>> log, "reading MS visibilities from column %s" % self.ColName
+                table_all = table_all or self.GiveMainTable()
                 table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                if index.size:
+                    print>>log,"sorting visibilities"
+                    visdata = visdata[index]
                 if use_cache:
                     print>> log, "caching visibilities to %s" % datapath
                     np.save(datapath, visdata)
@@ -589,25 +627,24 @@ class ClassMS():
             flags[...] = np.load(flagpath)
         else:
             print>> log, "reading MS flags from column FLAG"
+            table_all = table_all or self.GiveMainTable()
             table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+            if index.size:
+                print>> log, "sorting flags"
+                flags = flags[index]
             self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
             if use_cache:
                 print>> log, "caching flags to %s" % flagpath
                 np.save(flagpath, flags)
                 self.cache.saveCache("Flags.npy")
 
+        if table_all:
+            table_all.close()
+
         DATA={}
 
         DATA["data"] = visdata
         DATA["flags"] = flags
-        # store paths to shared arrays (if any) in DATA dict
-        DATA["flagpath"] = self._flagpath
-        DATA["datapath"] = self._datapath
-
-        if ReadWeight:
-            self.Weights = table_all.getcol("WEIGHT",row0,nRowRead)
-
-        table_all.close()
 
         DATA["uvw"]=uvw
         DATA["times"]=time_all
