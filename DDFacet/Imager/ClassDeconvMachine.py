@@ -532,6 +532,7 @@ class ClassImagerDeconv():
             iloop = 0
             while True:
                 Res=self.setNextData()
+                print>>log,"setNextData returns"
                 # if not(isPlotted):
                 #     isPlotted=True
                 #     self.FacetMachine.PlotFacetSols()

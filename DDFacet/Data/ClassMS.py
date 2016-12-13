@@ -1054,37 +1054,36 @@ class ClassMS():
         by applying various selection criteria from self.DicoSelectOptions.
         Also sets flagged data to 1e9.
         """
-        print>> log, "Updating flags"
+        print>> log, "Updating flags:"
 
         ThresholdFlag = 0.9 # flag antennas with % of flags over threshold
         FlagAntNumber = []  # accumulates list of flagged antennas
 
-        for A in range(self.na):
-            ind = np.where((A0 == A) | (A1 == A))[0]
-            fA = flags[ind].ravel()
-            if ind.size == 0: continue
-            nf = np.count_nonzero(fA)
-            Frac = nf / float(fA.size)
-            if Frac > ThresholdFlag:
-                print>> log, "  Flagging antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
-                             (A, Frac * 100, "%", ThresholdFlag * 100, "%")
-                FlagAntNumber.append(A)
+        # per each antenna, form up boolean mask indicating its rows
+        antenna_rows = [ np.where((A0 == A) | (A1 == A))[0] for A in xrange(self.na) ]
 
-        if self.DicoSelectOptions["UVRangeKm"] != None:
+        antenna_flagfrac = [ flags[rows,:,:].sum()/float(flags[rows,:,:].size) for rows in antenna_rows ]
+        print>>log, "  flagged fractions per antenna: %s" % " ".join([ "%.2f"%frac for frac in antenna_flagfrac])
+
+        FlagAntNumber = [ ant for ant,frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag ]
+
+        for A in FlagAntNumber:
+            print>> log, "    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
+                         (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%")
+
+        if self.DicoSelectOptions["UVRangeKm"] is not None:
             d0, d1 = self.DicoSelectOptions["UVRangeKm"]
-            print>> log, "  Flagging uv data outside uv distance of [%5.1f~%5.1f] km" % (d0, d1)
-            d0 *= 1e3
-            d1 *= 1e3
-            u, v, w = uvw.T
-            duv = np.sqrt(u ** 2 + v ** 2)
-            ind = np.where(((duv > d0) & (duv < d1)) != True)[0]
-            flags[ind, :, :] = True
+            print>> log, "  flagging uv data outside uv distance of [%5.1f~%5.1f] km" % (d0, d1)
+            d0 = d0**2*1e6
+            d1 = d1**2*1e6
+            duv = uvw[:,:2].sum(1)
+            flags[(duv > d0) & (duv < d1), :, :] = True
 
         if self.DicoSelectOptions["TimeRange"] != None:
             t0 = times[0]
             tt = (times - t0) / 3600.
             st0, st1 = self.DicoSelectOptions["TimeRange"]
-            print>> log, "  Selecting uv data in time range [%.4f~%5.4f] hours" % (st0, st1)
+            print>> log, "  selecting uv data in time range [%.4f~%5.4f] hours" % (st0, st1)
             ind = np.where((tt >= st0) & (tt < st1))[0]
             flags[ind, :, :] = True
 
@@ -1095,7 +1094,7 @@ class ClassMS():
                 for Name in FlagAnts:
                     for iAnt in range(self.na):
                         if Name in self.StationNames[iAnt]:
-                            print>> log, "  Flagging antenna #%2.2i[%s]" % (iAnt, self.StationNames[iAnt])
+                            print>> log, "  flagging antenna #%2.2i[%s]" % (iAnt, self.StationNames[iAnt])
                             FlagAntNumber.append(iAnt)
 
         if self.DicoSelectOptions["DistMaxToCore"] != None:
@@ -1105,24 +1104,25 @@ class ClassMS():
             Dist = np.sqrt((X - Xm) ** 2 + (Y - Ym) ** 2 + (Z - Zm) ** 2)
             ind = np.where(Dist > DMax)[0]
             for iAnt in ind.tolist():
-                print>> log, "  Flagging antenna #%2.2i[%s] (distance to core: %.1f km)" % (
+                print>> log, "  flagging antenna #%2.2i[%s] (distance to core: %.1f km)" % (
                 iAnt, self.StationNames[iAnt], Dist[iAnt] / 1e3)
                 FlagAntNumber.append(iAnt)
 
         for A in FlagAntNumber:
-            ind = np.where((A0 == A) | (A1 == A))[0]
-            flags[ind, :, :] = True
+            flags[antenna_rows[A], :, :] = True
+        print>>log, "  flagging autocorrelations"
         # flag autocorrelations
-        ind = np.where(A0 == A1)[0]
-        flags[ind, :, :] = True
-        # if one of 4 correlations is flagged, flag all 4
-        ind = np.any(flags, axis=2)
-        flags[ind] = True
+        flags[A0==A1,:,:] = True
+        print>>log, "  flagging NaNs"
         # flag NaNs
         if data is not None:
-            ind = np.where(np.isnan(data))
-            flags[ind] = 1
+            ind = np.isnan(data)
+            flags[ind] = True
             data[flags] = 1e9
+        print>>log, "  flagging incomplete coherency matrices"
+        # if one of 4 correlations is flagged, flag all 4
+        flags[np.any(flags,axis=2)] = True
+        print>>log, "Flags updated"
 
     def __str__(self):
         ll = []
