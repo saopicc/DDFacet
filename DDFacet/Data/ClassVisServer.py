@@ -537,7 +537,8 @@ class ClassVisServer():
     def UpdateCompression(self, DATA, ChanMappingGridding=None, ChanMappingDeGridding=None):
         if self.GD["Compression"]["CompGridMode"]:
             mapname, valid = self.cache.checkCache("BDA.Grid",
-                dict(Compression=self.GD["Compression"], DataSelection=self.GD["DataSelection"]))
+                                                   dict(Compression=self.GD["Compression"],
+                                                        DataSelection=self.GD["DataSelection"]))
             if valid:
                 print>> log, "  using cached BDA mapping %s" % mapname
                 DATA["BDAGrid"] = np.load(mapname)
@@ -551,6 +552,7 @@ class ClassVisServer():
                     self.CurrentMS, radiusDeg=FOV,
                     Decorr=(1. - self.GD["Compression"]["CompGridDecorr"]))
                 FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingGridding)
+                #FinalMapping, fact = SmearMapMachine.BuildSmearMapping(DATA, ChanMappingGridding)
 
                 print>> log, ModColor.Str("  Effective compression [Grid]  :   %.2f%%" % fact, col="green")
 
@@ -580,6 +582,8 @@ class ClassVisServer():
                 DATA["BDADegrid"] = FinalMapping
                 np.save(file(mapname, 'w'), FinalMapping)
                 self.cache.saveCache("BDA.DeGrid")
+
+
 
     def CalcWeights(self):
         if self.VisWeights is not None:
