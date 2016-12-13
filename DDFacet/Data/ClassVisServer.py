@@ -310,8 +310,6 @@ class ClassVisServer():
 #        self.RefFreq=np.mean(self.ListFreqs)
         self.RefFreq = np.mean(self.GlobalFreqs)
 
-        MS = self.ListMS[0]
-
         self.ReInitChunkCount()
 
         # TimesVisMin=np.arange(0,MS.DTh*60.,self.TVisSizeMin).tolist()
@@ -470,7 +468,10 @@ class ClassVisServer():
         NpShared.Lock(self._visweights)
         # DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
         # as a proof of concept, pass weights in directly
-        DATA["Weights"] = self._visweights.copy()
+        if DATA["index"].size:
+            DATA["Weights"] = self._visweights[DATA["index"]]
+        else:
+            DATA["Weights"] = self._visweights.copy()
 
         DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
 

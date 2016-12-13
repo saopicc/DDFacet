@@ -645,6 +645,7 @@ class ClassMS():
 
         DATA["data"] = visdata
         DATA["flags"] = flags
+        DATA["index"] = index
 
         DATA["uvw"]=uvw
         DATA["times"]=time_all
