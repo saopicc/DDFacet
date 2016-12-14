@@ -671,7 +671,7 @@ class ClassVisServer():
                 if WeightCol == "WEIGHT_SPECTRUM":
                     w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
                     print>> log, "  Reading column %s for the weights, shape is %s" % (WeightCol, w.shape)
-                    if ms._reverse_channels:
+                    if ms._reverse_channel_order:
                         w = w[:,::-1,:]
                     # take mean weight across correlations and apply this to all
                     WEIGHT[...] = w.mean(axis=2) * valid
