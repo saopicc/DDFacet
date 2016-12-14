@@ -227,6 +227,8 @@ class ClassMultiScaleMachine():
         if cachedscales:
             self.ListScales, ListPSFScales = cachedscales
         else:
+            self.ListSumFluxes = []
+
             self.ListScales = []
             ListPSFScales = []
             for iAlpha in range(NAlpha):
@@ -236,7 +238,7 @@ class ClassMultiScaleMachine():
                 ThisAlpha=Alpha[iAlpha]
                 #print FluxRatios,ThisAlpha
                 iSlice=0
-
+                self.ListSumFluxes.append(1.)
                 ListPSFScales.append(ThisMFPSF)
 
                 self.ListScales.append({"ModelType":"Delta","Scale":iSlice,#"fact":1.,
@@ -257,6 +259,7 @@ class ClassMultiScaleMachine():
                     #Max=np.max(ThisPSF)
                     #ThisPSF/=Max
                     #fact=np.max(Gauss)/np.sum(Gauss)
+                    self.ListSumFluxes.append(np.sum(Gauss))
                     fact=1./np.sum(Gauss)
                     #fact=1./Max
                     Gauss*=fact*ratio
@@ -310,7 +313,9 @@ class ClassMultiScaleMachine():
 
         self.ModelMachine.setListComponants(self.ListScales)
 
+
         self.CubePSFScales=np.array(ListPSFScales)
+        self.SumFuncScales=np.array(self.ListSumFluxes)
         self.FFTMachine=ModFFTW.FFTW_2Donly_np(self.CubePSFScales.shape, self.CubePSFScales.dtype)
 
 
@@ -670,6 +675,7 @@ class ClassMultiScaleMachine():
             y=dirtyVec
             x,_=scipy.optimize.nnls(A, y.ravel())
             Sol=x
+            #Sol.flat[:]/=self.SumFuncScales.flat[:]
             #print Sol
 
             SolReg = np.zeros_like(Sol)

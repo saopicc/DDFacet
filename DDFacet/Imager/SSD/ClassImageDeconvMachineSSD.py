@@ -386,8 +386,8 @@ class ClassImageDeconvMachine():
         FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
         
         ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
-        #ModelImage*=np.sqrt(self.DicoDirty["NormData"])
-        ModelImage*=(self.DicoDirty["NormData"])
+        ModelImage*=np.sqrt(self.DicoDirty["NormData"])
+        #ModelImage*=(self.DicoDirty["NormData"])
         
         InitMachine.setSSDModelImage(ModelImage)
         DicoInitIndiv={}

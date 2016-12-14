@@ -182,7 +182,7 @@ class ClassMutate():
                 for TypeParm in self.PM.SolveParam:
                     A=self.PM.ArrayToSubArray(individual,TypeParm)
                     A[iPix] = 0.#1e-3
-                    #A[iPix] *= np.random.rand(1)[0]*2
+                    #A[iPix] *= np.random.rand(1)[0]#*2
     
             # move a pixel
             if Type==2:

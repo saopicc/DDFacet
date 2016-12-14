@@ -89,7 +89,7 @@ class ClassEvolveGA():
 
 
         #toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.1, p0=0.5, pMove=0.1)
-        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.5, p0=0., pMove=0.5)
+        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.5, p0=0.5, pMove=0.5)
 
 
         toolbox.register("select", tools.selTournament, tournsize=3)
@@ -130,6 +130,7 @@ class ClassEvolveGA():
             SModelArrayMP,AModelArrayMP=self.DicoInitIndiv[self.iIsland]["S"],self.DicoInitIndiv[self.iIsland]["Alpha"]
             if True:#np.max(np.abs(self.IslandBestIndiv))==0:
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
+                if NGen==0: return self.pop[0]
             else:
                 NIndiv=len(self.pop)/2
                 pop0=self.pop[0:NIndiv]
@@ -193,11 +194,12 @@ class ClassEvolveGA():
 
 
 
-        # self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.5, ngen=NGen, 
-        #                                    halloffame=self.hof, 
-        #                                    #stats=stats,
-        #                                    verbose=False, 
-        #                                    ArrayMethodsMachine=self.ArrayMethodsMachine,DoPlot=DoPlot)
+        self.pop, log= algorithms.eaSimple(self.pop, toolbox, cxpb=0.3, mutpb=0.5, ngen=NGen, 
+                                           halloffame=self.hof, 
+                                           #stats=stats,
+                                           verbose=False, 
+                                           ArrayMethodsMachine=self.ArrayMethodsMachine,DoPlot=DoPlot)
+
         self.ArrayMethodsMachine.KillWorkers()
 
         # #:param mu: The number of individuals to select for the next generation.
