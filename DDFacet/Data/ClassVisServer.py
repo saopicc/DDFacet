@@ -472,10 +472,9 @@ class ClassVisServer():
         visweights = NpShared.GiveArray("file://"+self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk])
         # DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
         # as a proof of concept, pass weights in directly
+        DATA["Weights"] = visweights.copy()
         if DATA["sort_index"] is not None:
-            DATA["Weights"] = visweights[DATA["sort_index"]]
-        else:
-            DATA["Weights"] = visweights.copy()
+            DATA["Weights"] = DATA["Weights"]["sort_index"]
         del visweights
 
         DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
