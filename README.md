@@ -123,6 +123,13 @@ A restart will be required for this change to reflect. If you would prefer a onc
 sudo mount -o remount,size=100% /run/shm
 ```
 
+It may also be necessary to run the following to remove the kernel security limit on mlock pinning. Without this things may
+be slower than usual.
+
+```
+echo "*        -   memlock     unlimited" > /etc/security/limits.conf
+```
+
 ## (Developers): setting up your dev environment
 
 ### (easy) Build using setup.py
