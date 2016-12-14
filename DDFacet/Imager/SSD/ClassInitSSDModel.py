@@ -7,7 +7,8 @@ from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 
 class ClassInitSSDModel():
-    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq):
+    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,MainCache=None):
+
         self.DicoVariablePSF=DicoVariablePSF
         self.DicoDirty=DicoDirty
         GD=copy.deepcopy(GD)
@@ -21,7 +22,7 @@ class ClassInitSSDModel():
         self.GD["ImagerDeconv"]["PeakFactor"]=0.01
         self.GD["ImagerDeconv"]["RMSFactor"]=0
         self.GD["ImagerDeconv"]["Gain"]=0.02
-        self.GD["MultiScale"]["Scales"]=[0,1,2,4]
+        self.GD["MultiScale"]["Scales"]=[0,1,2,3]
         self.GD["MultiScale"]["SolverMode"]="NNLS"
         self.NFreqBands=len(DicoVariablePSF["freqs"])
         MinorCycleConfig=dict(self.GD["ImagerDeconv"])
@@ -37,7 +38,7 @@ class ClassInitSSDModel():
 
         
         self.MinorCycleConfig=MinorCycleConfig
-        self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(**self.MinorCycleConfig)
+        self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,**self.MinorCycleConfig)
         self.Margin=100
         self.DicoDirty=DicoDirty
         self.Dirty=DicoDirty["ImagData"]
@@ -146,6 +147,7 @@ class ClassInitSSDModel():
         self.DeconvMachine.updateMask(np.logical_not(self.SubMask))
         self.DeconvMachine.Update(self.DicoSubDirty)
         self.DeconvMachine.updateModelMachine(ModelMachine)
+        self.DeconvMachine.resetCounter()
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
 
         ModelImage=self.ModelMachine.GiveModelImage()

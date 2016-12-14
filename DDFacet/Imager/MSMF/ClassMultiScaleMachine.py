@@ -239,8 +239,10 @@ class ClassMultiScaleMachine():
 
                 ListPSFScales.append(ThisMFPSF)
 
-                self.ListScales.append({"ModelType":"Delta","Scale":iSlice,#"fact":1.,
-                                        "Alpha":ThisAlpha})
+                self.ListScales.append({"ModelType":"Delta",
+                                        "Scale":iSlice,#"fact":1.,
+                                        "Alpha":ThisAlpha, 
+                                        "CodeTypeScale":0})
                 iSlice+=1
 
                 for iScales in range(ScaleStart,NScales):
@@ -257,14 +259,18 @@ class ClassMultiScaleMachine():
                     #Max=np.max(ThisPSF)
                     #ThisPSF/=Max
                     #fact=np.max(Gauss)/np.sum(Gauss)
-                    fact=1./np.sum(Gauss)
+                    fact=1.#/np.sum(Gauss)
                     #fact=1./Max
                     Gauss*=fact*ratio
                     ThisPSF*=fact
                     ListPSFScales.append(ThisPSF)
                     self.ListScales.append({"ModelType":"Gaussian",#"fact":fact,
-                                            "Model":Gauss, "ModelParams":PSFGaussPars,
-                                            "Scale":iScales,"Alpha":ThisAlpha})
+                                            "Model":Gauss, 
+                                            "ModelParams":PSFGaussPars,
+                                            "Scale":iScales,
+                                            "Alpha":ThisAlpha, 
+                                            "CodeTypeScale":iScales})
+
 
                 iSlice+=1
 
@@ -309,6 +315,18 @@ class ClassMultiScaleMachine():
         #     ListPSFScales.append(Flat)
 
         self.ModelMachine.setListComponants(self.ListScales)
+
+        self.ListTypeScales=[]
+        for DicoScale in self.ListScales:
+            self.ListTypeScales.append(DicoScale["CodeTypeScale"])
+        
+        self.IndexScales=[]
+        self.ListTypeScales=np.array(self.ListTypeScales)
+        for iScale in range(self.NScales):
+            self.IndexScales.append(np.where(self.ListTypeScales==iScale)[0].tolist())
+        self.IndexScales=np.array(self.IndexScales)
+        self.NScales=self.ListTypeScales.size/NAlpha
+        print self.IndexScales
 
         self.CubePSFScales=np.array(ListPSFScales)
         self.FFTMachine=ModFFTW.FFTW_2Donly_np(self.CubePSFScales.shape, self.CubePSFScales.dtype)
@@ -671,6 +689,19 @@ class ClassMultiScaleMachine():
             x,_=scipy.optimize.nnls(A, y.ravel())
             Sol=x
             #print Sol
+
+            SumCoefScales=np.zeros((self.NScales,),np.float32)
+            for iScale in range(self.NScales):
+                indAlpha=self.IndexScales[iScale]
+                SumCoefScales[iScale]=np.sum(Sol[indAlpha])
+            Mask=np.zeros((Sol.size,),np.float32)
+            ChosenScale=np.argmax(SumCoefScales)
+            print "==============="
+            print SumCoefScales
+            print ChosenScale,self.IndexScales[ChosenScale]
+            Mask[self.IndexScales[ChosenScale]]=1
+            Sol.flat[:]*=Mask.flat[:]
+
 
             SolReg = np.zeros_like(Sol)
             SolReg[0] = MeanFluxTrue

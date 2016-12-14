@@ -14,12 +14,10 @@ from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Imager import ClassGainMachine
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.PSourceExtract import ClassIncreaseIsland
-
 from DDFacet.Other import MyPickle
 import multiprocessing
 import time
 import ClassInitSSDModel
-
 from DDFacet.Imager.SSD.GA.ClassEvolveGA import ClassEvolveGA
 from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
 #try: # Genetic Algo
@@ -38,9 +36,11 @@ class ClassImageDeconvMachine():
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
                  GD=None,SearchMaxAbs=1,CleanMaskImage=None,IdSharedMem="",
                  ModelMachine=None,
+                 MainCache=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
+        self.maincache = MainCache
         self.SearchMaxAbs=SearchMaxAbs
         self.ModelImage=None
         self.MaxMinorIter=MaxMinorIter
@@ -382,19 +382,26 @@ class ClassImageDeconvMachine():
 
         ListIslandsOut=[self.ListIslands[i] for i in ind]
         self.ListIslands=ListIslandsOut
-        InitMachine=ClassInitSSDModel.ClassInitSSDModel(self.GD,self.DicoVariablePSF,self.DicoDirty,self.ModelMachine.RefFreq)
+
+        self.DicoInitIndiv=None
+        #####################################
+        # Init SSD model using MSMF
+        InitMachine=ClassInitSSDModel.ClassInitSSDModel(self.GD,
+                                                        self.DicoVariablePSF,
+                                                        self.DicoDirty,
+                                                        self.ModelMachine.RefFreq,
+                                                        MainCache=self.maincache)
         FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
-        
         ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
-        #ModelImage*=np.sqrt(self.DicoDirty["NormData"])
-        ModelImage*=(self.DicoDirty["NormData"])
-        
+        ModelImage*=np.sqrt(self.DicoDirty["NormData"])
+        # ModelImage*=(self.DicoDirty["NormData"])
         InitMachine.setSSDModelImage(ModelImage)
         DicoInitIndiv={}
         for iIsland,Island in enumerate(self.ListIslands):
             SModel,AModel=InitMachine.giveModel(Island)
             DicoInitIndiv[iIsland]={"S":SModel,"Alpha":AModel}
         self.DicoInitIndiv=DicoInitIndiv
+
 
     def setChannel(self,ch=0):
         self.Dirty=self._MeanDirty[ch]

@@ -218,7 +218,7 @@ class ClassImagerDeconv():
             if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                 raise NotImplementedError("Multi-polarization CLEAN is not supported in SSD")
             from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
-            self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
+            self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
             print>>log,"Using SSD algorithm"
         elif self.GD["ImagerDeconv"]["MinorCycleMode"] == "Hogbom":
             from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
@@ -320,6 +320,10 @@ class ClassImagerDeconv():
 
         else:
             print>>log, ModColor.Str("=============================== Making PSF ===============================")
+
+            # setting this in order of the MSMF cache to be recomputed
+            self.DeconvMachine.PSFHasChanged=True
+
             if self.PSFFacets:
                 print>>log,"the PSFFacets version is currently not supported, using 0 (i.e. same facets as image)"
                 self.PSFFacets = 0
