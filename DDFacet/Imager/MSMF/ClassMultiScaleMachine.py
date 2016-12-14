@@ -688,25 +688,62 @@ class ClassMultiScaleMachine():
         elif self.SolveMode=="NNLS":
             import scipy.optimize
 
-            A=WVecPSF*BM
-            y=WVecPSF*dirtyVec
 
-            x,_=scipy.optimize.nnls(A, y.ravel())
+            W=WVecPSF.copy()
+            Mask=np.zeros(WVecPSF.shape,np.bool8)
+            for iIter in range(10):
+                print iIter
+                A=W*BM
+                y=W*dirtyVec
+
+                x,_=scipy.optimize.nnls(A, y.ravel())
+                ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
+                d=dirtyVec.reshape((nchan,1,nxp,nyp))[:,0]
+                w=W.reshape((nchan,1,nxp,nyp))[:,0]
+                m=Mask.reshape((nchan,1,nxp,nyp))[:,0]
+                Resid=d-ConvSM
+                Resid[m]=0
+                sig=np.std(Resid)
+                indTh=np.where(Resid>3*sig)
+                # import pylab
+                # pylab.clf()
+                # pylab.subplot(2,2,1)
+                # pylab.imshow(d[0],interpolation="nearest")
+                # pylab.subplot(2,2,2)
+                # pylab.imshow(ConvSM[0],interpolation="nearest")
+                # pylab.subplot(2,2,3)
+                # pylab.imshow((Resid)[0],interpolation="nearest")
+                # pylab.subplot(2,2,4)
+                # pylab.imshow(w[0],interpolation="nearest")
+                # pylab.draw()
+                # pylab.show(False)
+                # pylab.pause(0.1)
+
+                if indTh[0].size>0:
+                    w[indTh]=0
+                    m[indTh]=1
+                    W=w.reshape((-1,1))
+                    Mask=m.reshape((-1,1))
+                else:
+                    break
+
+        
+
             Sol=x
             #Sol.flat[:]/=self.SumFuncScales.flat[:]
             #print Sol
 
-            # SumCoefScales=np.zeros((self.NScales,),np.float32)
-            # for iScale in range(self.NScales):
-            #     indAlpha=self.IndexScales[iScale]
-            #     SumCoefScales[iScale]=np.sum(Sol[indAlpha])
-            # Mask=np.zeros((Sol.size,),np.float32)
-            # ChosenScale=np.argmax(SumCoefScales)
-            # print "==============="
-            # print SumCoefScales
-            # print ChosenScale,self.IndexScales[ChosenScale]
-            # Mask[self.IndexScales[ChosenScale]]=1
-            # Sol.flat[:]*=Mask.flat[:]
+            SumCoefScales=np.zeros((self.NScales,),np.float32)
+            for iScale in range(self.NScales):
+                indAlpha=self.IndexScales[iScale]
+                SumCoefScales[iScale]=np.sum(Sol[indAlpha])
+            Mask=np.zeros((Sol.size,),np.float32)
+            ChosenScale=np.argmax(SumCoefScales)
+            print "==============="
+            print SumCoefScales
+            print ChosenScale,self.IndexScales[ChosenScale]
+            Mask[self.IndexScales[ChosenScale]]=1
+            Sol.flat[:]*=Mask.flat[:]
 
 
             SolReg = np.zeros_like(Sol)
@@ -842,7 +879,7 @@ class ClassMultiScaleMachine():
 #             nxp,nyp=3,3
             
 #             FF=ConvSM[:,0]#BBM[iFunc,:,0]
-#             Resid=dirtyNormIm[:,0]-FF[:]
+#             Resid=(dirtyNormIm[:,0]-FF[:])
 #             #FF=BBM[iFunc,:,0]
 #             Resid*=DicoBasisMatrix["WeightFunction"][:,0,:,:]
 #             vmin,vmax=np.min([dirtyNormIm[0,0],ConvSM[0,0],dirtyNormIm[0,0]-FF[0]]),np.max([dirtyNormIm[0,0],ConvSM[0,0],dirtyNormIm[0,0]-FF[0]])
