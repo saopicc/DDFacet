@@ -126,7 +126,8 @@ class ClassEvolveGA():
         #self.ArrayMethodsMachine.PM.PrintIndiv(self.IslandBestIndiv)
 
         if self.IslandBestIndiv is not None:
-            #SModelArray,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
+            #SModelArrayMP,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
+            #AModelArrayMP=None
             SModelArrayMP,AModelArrayMP=self.DicoInitIndiv[self.iIsland]["S"],self.DicoInitIndiv[self.iIsland]["Alpha"]
             if True:#np.max(np.abs(self.IslandBestIndiv))==0:
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)

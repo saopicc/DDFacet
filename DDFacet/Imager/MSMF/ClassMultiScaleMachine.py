@@ -227,7 +227,7 @@ class ClassMultiScaleMachine():
         if cachedscales:
             self.ListScales, ListPSFScales = cachedscales
         else:
-            self.ListSumFluxes = []
+            #self.ListSumFluxes = []
 
             self.ListScales = []
             ListPSFScales = []
@@ -238,11 +238,13 @@ class ClassMultiScaleMachine():
                 ThisAlpha=Alpha[iAlpha]
                 #print FluxRatios,ThisAlpha
                 iSlice=0
-                self.ListSumFluxes.append(1.)
+                #self.ListSumFluxes.append(1.)
                 ListPSFScales.append(ThisMFPSF)
 
-                self.ListScales.append({"ModelType":"Delta","Scale":iSlice,#"fact":1.,
-                                        "Alpha":ThisAlpha})
+                self.ListScales.append({"ModelType":"Delta",
+                                        "Scale":iSlice,#"fact":1.,
+                                        "Alpha":ThisAlpha, 
+                                        "CodeTypeScale":0})
                 iSlice+=1
 
                 for iScales in range(ScaleStart,NScales):
@@ -256,18 +258,21 @@ class ClassMultiScaleMachine():
                     ratio=np.sum(ModFFTW.GiveGauss(101,CellSizeRad=1.,GaussPars=PSFGaussPars))/np.sum(Gauss)
                     #Gauss*=ratio
                     ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBands)[:,0,:,:]#[0,0]
-                    #Max=np.max(ThisPSF)
+                    Max=np.max(ThisPSF)
                     #ThisPSF/=Max
                     #fact=np.max(Gauss)/np.sum(Gauss)
-                    self.ListSumFluxes.append(np.sum(Gauss))
-                    fact=1./np.sum(Gauss)
-                    #fact=1./Max
+                    fact=1.#/np.sum(Gauss)
+                    fact=1./Max
                     Gauss*=fact*ratio
                     ThisPSF*=fact
                     ListPSFScales.append(ThisPSF)
                     self.ListScales.append({"ModelType":"Gaussian",#"fact":fact,
-                                            "Model":Gauss, "ModelParams":PSFGaussPars,
-                                            "Scale":iScales,"Alpha":ThisAlpha})
+                                            "Model":Gauss, 
+                                            "ModelParams":PSFGaussPars,
+                                            "Scale":iScales,
+                                            "Alpha":ThisAlpha, 
+                                            "CodeTypeScale":iScales})
+
 
                 iSlice+=1
 
@@ -298,7 +303,8 @@ class ClassMultiScaleMachine():
                             #fact=np.max(Gauss)/np.sum(Gauss)
                             #Gauss*=fact
                             self.ListScales.append({"ModelType":"Gaussian",
-                                                    "Model":Gauss, "ModelParams": PSFGaussPars,
+                                                    "Model":Gauss, 
+                                                    "ModelParams": PSFGaussPars,
                                                     "Scale":iScale,
                                                     "Alpha":ThisAlpha})
 
@@ -313,9 +319,20 @@ class ClassMultiScaleMachine():
 
         self.ModelMachine.setListComponants(self.ListScales)
 
+        self.ListTypeScales=[]
+        for DicoScale in self.ListScales:
+            self.ListTypeScales.append(DicoScale["CodeTypeScale"])
+        
+        self.IndexScales=[]
+        self.ListTypeScales=np.array(self.ListTypeScales)
+        for iScale in range(self.NScales):
+            self.IndexScales.append(np.where(self.ListTypeScales==iScale)[0].tolist())
+        self.IndexScales=np.array(self.IndexScales)
+        self.NScales=self.ListTypeScales.size/NAlpha
+        print self.IndexScales
 
         self.CubePSFScales=np.array(ListPSFScales)
-        self.SumFuncScales=np.array(self.ListSumFluxes)
+        #self.SumFuncScales=np.array(self.ListSumFluxes)
         self.FFTMachine=ModFFTW.FFTW_2Donly_np(self.CubePSFScales.shape, self.CubePSFScales.dtype)
 
 
@@ -677,6 +694,19 @@ class ClassMultiScaleMachine():
             Sol=x
             #Sol.flat[:]/=self.SumFuncScales.flat[:]
             #print Sol
+
+            SumCoefScales=np.zeros((self.NScales,),np.float32)
+            for iScale in range(self.NScales):
+                indAlpha=self.IndexScales[iScale]
+                SumCoefScales[iScale]=np.sum(Sol[indAlpha])
+            Mask=np.zeros((Sol.size,),np.float32)
+            ChosenScale=np.argmax(SumCoefScales)
+            print "==============="
+            print SumCoefScales
+            print ChosenScale,self.IndexScales[ChosenScale]
+            Mask[self.IndexScales[ChosenScale]]=1
+            Sol.flat[:]*=Mask.flat[:]
+
 
             SolReg = np.zeros_like(Sol)
             SolReg[0] = MeanFluxTrue

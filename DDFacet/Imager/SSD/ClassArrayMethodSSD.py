@@ -42,6 +42,7 @@ class ClassArrayMethodSSD():
         self.GD=GD
         self.NCPU=int(self.GD["Parallel"]["NCPU"])
         self.BestChi2=1.
+        self.EntropyMinMax=None
         # IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
         # ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=5)
 
@@ -379,6 +380,7 @@ class ClassArrayMethodSSD():
             NpShared.ToShared("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual),individual)
             work_queue.put({"iIndividual":iIndividual,
                             "BestChi2":self.BestChi2,
+                            "EntropyMinMax":self.EntropyMinMax,
                             "OperationType":"Fitness"})
 
         
@@ -439,6 +441,14 @@ class ClassArrayMethodSSD():
 
         self.BestChi2=np.min(Chi2)
 
+        iBestChi2=np.argmin(Chi2)
+        BestInidividual=pop[iBestChi2]
+        S=self.PM.ArrayToSubArray(BestInidividual,"S")
+        St=np.sum(np.abs(S))[()]
+        MaxEntropy=-St*np.log(St/self.NPixListParms)
+        MinEntropy=-St*np.log(St)
+        self.EntropyMinMax=MinEntropy,MaxEntropy
+        
         #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         #print "Best chi2 %f"%self.BestChi2
@@ -686,7 +696,9 @@ class WorkerFitness(multiprocessing.Process):
                  PM=None,
                  PixVariance=1e-2,
                  EstimatedStdFromResid=0,
-                 MaxFunc=None,WeightMaxFunc=None,DirtyArray=None,
+                 MaxFunc=None,
+                 WeightMaxFunc=None,
+                 DirtyArray=None,
                  ConvMode=None,
                  StopWhenQueueEmpty=False,
                  BestChi2=1.,
@@ -720,6 +732,7 @@ class WorkerFitness(multiprocessing.Process):
         self.StopWhenQueueEmpty=StopWhenQueueEmpty
         self.BestChi2=BestChi2
 
+
     def shutdown(self):
         self.exit.set()
 
@@ -751,6 +764,7 @@ class WorkerFitness(multiprocessing.Process):
             except:
                 break
             
+
             if DicoJob["OperationType"]=="Fitness":
                 self.GiveFitnessWorker(DicoJob)
             elif DicoJob["OperationType"]=="Metropolis":
@@ -763,6 +777,9 @@ class WorkerFitness(multiprocessing.Process):
         iIndividual=DicoJob["iIndividual"]
         #print "Worker %s processing indiv %i"%(pid,iIndividual)
         self.BestChi2=DicoJob["BestChi2"]
+        if "EntropyMinMax" in DicoJob.keys():
+            self.EntropyMinMax=DicoJob["EntropyMinMax"]
+
         #individual=DicoJob["individual"]
         Name="%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual)
         individual=NpShared.GiveArray(Name)
@@ -841,11 +858,20 @@ class WorkerFitness(multiprocessing.Process):
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(-BIC*W)
             if FuncType=="MEM":
+                chi2=np.sum((Resid)**2)/(self.PixVariance)
+                if self.EntropyMinMax is None:
+                    print "Not computing entropy"
+                    ContinuousFitNess.append(-chi2)
+                    continue
                 aS=np.abs(self.ModelA)
-                
                 aS[aS==0]=1e-10
                 #aS/=np.sum(aS)
                 E=-np.sum(aS*np.log10(aS))
+                e0,e1=self.EntropyMinMax
+                ENorm=(E-e0)/(e1-e0)
+                logChi2n=-np.log10(chi2/np.abs(self.BestChi2))
+                
+                E+=logChi2n/0.1
                 W=self.WeightMaxFunc[FuncType]
                 #print chi2,chi2/self.BestChi2,self.BestChi2,E
                 ContinuousFitNess.append(E)
@@ -864,6 +890,15 @@ class WorkerFitness(multiprocessing.Process):
                 FNeg=-np.sum(SNegArr**2)/((self.PixVariance))
                 W=self.WeightMaxFunc[FuncType]
                 ContinuousFitNess.append(FNeg*W)
+            if FuncType=="MinFluxNorm":
+                SNegArr=np.abs(S[S<0])[()]
+                FNeg=-np.sum(SNegArr**2)/((self.PixVariance))
+                FNeg/=np.abs(self.BestChi2)
+                if FNeg==0: continue
+                FNeg=np.sign(FNeg)*np.log10(np.abs(FNeg))
+                W=self.WeightMaxFunc[FuncType]
+                ContinuousFitNess.append(FNeg*W)
+            
 
         return (np.sum(ContinuousFitNess),),chi2
         #return (ContinuousFitNess,),chi2

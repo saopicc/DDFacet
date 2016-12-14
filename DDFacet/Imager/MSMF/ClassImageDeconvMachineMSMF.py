@@ -46,7 +46,7 @@ class ClassImageDeconvMachine():
         self.RefFreq=self.ModelMachine.RefFreq
         if self.ModelMachine.DicoSMStacked["Type"]!="MSMF":
             raise ValueError("ModelMachine Type should be MSMF")
-
+        self.PSFHasChanged=False
         # reset overall iteration counter
         self.maincache = MainCache
         # reset overall iteration counter
@@ -66,6 +66,9 @@ class ClassImageDeconvMachine():
         nx,ny=Mask.shape
         self._MaskArray = np.zeros((1,1,nx,ny),np.bool8)
         self._MaskArray[0,0,:,:]=Mask[:,:]
+
+    def resetCounter(self):
+        self._niter = 0
 
     def updateModelMachine(self,ModelMachine):
         self.ModelMachine=ModelMachine
@@ -106,7 +109,7 @@ class ClassImageDeconvMachine():
                 [(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
                  "MultiFreqs", "ImagerGlobal", "Compression",
                  "ImagerCF", "ImagerMainFacet", "MultiScale" ],
-                reset=self.GD["Caching"]["ResetPSF"]
+                reset=(self.GD["Caching"]["ResetPSF"] or self.PSFHasChanged)
             ))
         else:
             valid=False
@@ -118,18 +121,25 @@ class ClassImageDeconvMachine():
             print>>log,"Initialising MSMF Machine"
             facetcache = {}
 
-#        t = ClassTimeIt.ClassTimeIt()
+        T = ClassTimeIt.ClassTimeIt()
         for iFacet in range(self.PSFServer.NFacets):
             self.PSFServer.setFacet(iFacet)
+            T.timeit("PSFServer")
             MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.GainMachine,NFreqBands=self.NFreqBands)
+            T.timeit("__init__")
             MSMachine.setModelMachine(self.ModelMachine)
             MSMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
             MSMachine.SetFacet(iFacet)
             MSMachine.SetPSF(self.PSFServer)#ThisPSF,ThisMeanPSF)
+            T.timeit("set")
             MSMachine.FindPSFExtent(Method="FromSideLobe")
+            T.timeit("find")
             cachedscales, cachedmatrix = facetcache.get(iFacet,(None, None))
+            T.timeit("get")
             cachedscales = MSMachine.MakeMultiScaleCube(cachedscales)
+            T.timeit("make")
             cachedmatrix = MSMachine.MakeBasisMatrix(cachedmatrix)
+            T.timeit("make2")
             facetcache[iFacet] = cachedscales, cachedmatrix
             self.DicoMSMachine[iFacet]=MSMachine
 
