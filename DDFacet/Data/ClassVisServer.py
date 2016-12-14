@@ -656,7 +656,7 @@ class ClassVisServer():
                 flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), bool)
                 # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
                 tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
-                if ms._reverse_channels:
+                if ms._reverse_channel_order:
                     flags = flags[:,::-1,:]
                 # if any polarization is flagged, flag all 4 correlations. Shape of flags becomes nrow,nchan
                 flags = flags.max(axis=2)
