@@ -1,7 +1,7 @@
 /**
 DDFacet, a facet-based radio imaging package
 Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
-SKA-SA, Rhodes University
+SKA South Africa, Rhodes University
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
