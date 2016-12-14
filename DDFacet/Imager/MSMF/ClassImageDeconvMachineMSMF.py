@@ -105,12 +105,12 @@ class ClassImageDeconvMachine():
 
         self.DicoMSMachine={}
         if self.maincache is not None:
-            cachepath, valid = self.maincache.checkCache("MSMFMachine",dict(
-                [(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
-                 "MultiFreqs", "ImagerGlobal", "Compression",
-                 "ImagerCF", "ImagerMainFacet", "MultiScale" ],
-                reset=(self.GD["Caching"]["ResetPSF"] or self.PSFHasChanged)
-            ))
+            cachepath, valid = self.maincache.checkCache("MSMFMachine",
+                                                         dict([(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
+                                                               "MultiFreqs", "ImagerGlobal", "Compression",
+                                                               "ImagerCF", "ImagerMainFacet", "MultiScale" ]),
+                                                         reset=(self.GD["Caching"]["ResetPSF"] or self.PSFHasChanged or self.GD["Caching"]["ResetMSMF"]))
+
         else:
             valid=False
 
