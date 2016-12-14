@@ -339,7 +339,7 @@ class ClassMultiScaleMachine():
         self.nFunc=self.CubePSFScales.shape[0]
         self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
 
-        self.WeightWidth=10
+        self.WeightWidth=3
         CellSizeRad=1.
         PSFGaussPars=(self.WeightWidth,self.WeightWidth,0.)
         self.GlobalWeightFunction=ModFFTW.GiveGauss(self.SubPSF.shape[-1],CellSizeRad=1.,GaussPars=PSFGaussPars)
@@ -695,17 +695,17 @@ class ClassMultiScaleMachine():
             #Sol.flat[:]/=self.SumFuncScales.flat[:]
             #print Sol
 
-            SumCoefScales=np.zeros((self.NScales,),np.float32)
-            for iScale in range(self.NScales):
-                indAlpha=self.IndexScales[iScale]
-                SumCoefScales[iScale]=np.sum(Sol[indAlpha])
-            Mask=np.zeros((Sol.size,),np.float32)
-            ChosenScale=np.argmax(SumCoefScales)
-            print "==============="
-            print SumCoefScales
-            print ChosenScale,self.IndexScales[ChosenScale]
-            Mask[self.IndexScales[ChosenScale]]=1
-            Sol.flat[:]*=Mask.flat[:]
+            # SumCoefScales=np.zeros((self.NScales,),np.float32)
+            # for iScale in range(self.NScales):
+            #     indAlpha=self.IndexScales[iScale]
+            #     SumCoefScales[iScale]=np.sum(Sol[indAlpha])
+            # Mask=np.zeros((Sol.size,),np.float32)
+            # ChosenScale=np.argmax(SumCoefScales)
+            # print "==============="
+            # print SumCoefScales
+            # print ChosenScale,self.IndexScales[ChosenScale]
+            # Mask[self.IndexScales[ChosenScale]]=1
+            # Sol.flat[:]*=Mask.flat[:]
 
 
             SolReg = np.zeros_like(Sol)
