@@ -1175,6 +1175,9 @@ class ClassMS():
         self.AddCol(colname, quiet=True)
         print>>log, "writing column %s rows %d:%d"%(colname,self.ROW0,self.ROW1-1)
         t = self.GiveMainTable(readonly=False, ack=False)
+        if self.DATA["index"].size:
+            reverse_index = numpy.arange
+
         if self.ChanSlice and self.ChanSlice != slice(None):
             # if getcol fails, maybe because this is a new col which hasn't been filled
             # in this case read DATA instead

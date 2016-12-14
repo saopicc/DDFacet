@@ -1360,8 +1360,8 @@ void DeGridderWPol(PyArrayObject *grid,
           }
           else
           {
-            float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-            corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
+            float complex UVNorm = 2.*I*PI*Pfreqs[visChan]/C;
+            corr=cexp(UVNorm*(U*l0+V*m0+W*n0));
           }
 
 
