@@ -553,9 +553,7 @@ class ClassMS():
         # if cache is valid, we're all good
         if valid:
             npz = np.load(path)
-            A0, A1, uvw, time_all, index = npz["A0"], npz["A1"], npz["UVW"], npz["TIME"], npz["INDEX"]
-            if not index.size:
-                index = None
+            A0, A1, uvw, time_all, sort_index = npz["A0"], npz["A1"], npz["UVW"], npz["TIME"], npz["SORT_INDEX"]
         else:
             table_all = table_all or self.GiveMainTable()
             # SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead)
@@ -570,24 +568,24 @@ class ClassMS():
                 # make sort index
                 print>>log,"sorting by baseline-time"
                 sortby = sorted(zip(A0, A1, time_all, range(nRowRead)))
-                index = np.array([ s[3] for s in sortby ])
+                sort_index = np.array([ s[3] for s in sortby ])
                 print>>log,"applying sort index to metadata rows"
-                A0 = A0[index]
-                A1 = A1[index]
-                uvw = uvw[index]
-                time_all = time_all[index]
+                A0 = A0[sort_index]
+                A1 = A1[sort_index]
+                uvw = uvw[sort_index]
+                time_all = time_all[sort_index]
             else:
-                index = np.array([])
+                sort_index = None
             # save cache
             if use_cache:
-                np.savez(path,A0=A0,A1=A1,UVW=uvw,TIME=time_all,INDEX=index)
+                np.savez(path,A0=A0,A1=A1,UVW=uvw,TIME=time_all,SORT_INDEX=sort_index)
                 self.cache.saveCache("A0A1UVWT.npz")
 
         if ReadWeight:
             table_all = table_all or self.GiveMainTable()
             self.Weights = table_all.getcol("WEIGHT", row0, nRowRead)
-            if index.size:
-                self.Weights = self.Weights[index]
+            if sort_index is not None:
+                self.Weights = self.Weights[sort_index]
 
         # create data array (if databuf is not None, array uses memory of buffer)
         visdata = np.ndarray(shape=datashape, dtype=np.complex64, buffer=databuf)
@@ -604,11 +602,11 @@ class ClassMS():
             else:
                 print>> log, "reading MS visibilities from column %s" % self.ColName
                 table_all = table_all or self.GiveMainTable()
-                if index.size:
+                if sort_index is not None:
                     visdata1 = np.ndarray(shape=datashape, dtype=np.complex64)
                     table_all.getcolslicenp(self.ColName, visdata1, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                     print>>log,"sorting visibilities"
-                    visdata[...] = visdata1[index]
+                    visdata[...] = visdata1[sort_index]
                     del visdata1
                 else:
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
@@ -632,10 +630,10 @@ class ClassMS():
         else:
             print>> log, "reading MS flags from column FLAG"
             table_all = table_all or self.GiveMainTable()
-            if index.size:
+            if sort_index is not None:
                 flags1 = table_all.getcolslice("FLAG", self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 print>> log, "sorting flags"
-                flags[...] = flags1[index]
+                flags[...] = flags1[sort_index]
                 del flags1
             else:
                 table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
@@ -652,7 +650,7 @@ class ClassMS():
 
         DATA["data"] = visdata
         DATA["flags"] = flags
-        DATA["index"] = index
+        DATA["sort_index"] = self._sort_index = sort_index
 
         DATA["uvw"]=uvw
         DATA["times"]=time_all
@@ -1175,9 +1173,13 @@ class ClassMS():
         self.AddCol(colname, quiet=True)
         print>>log, "writing column %s rows %d:%d"%(colname,self.ROW0,self.ROW1-1)
         t = self.GiveMainTable(readonly=False, ack=False)
-        if self.DATA["index"].size:
-            reverse_index = numpy.arange
-
+        # if sorting rows, rearrange vis array back into MS order
+        # if not sorting, then using slice(None) for row has no effect
+        if self._sort_index is not None:
+            reverse_index = np.empty(self.nRowRead,dtype=int)
+            reverse_index[self._sort_index] = np.arange(0,self.nRowRead,dtype=int)
+        else:
+            reverse_index = slice(None)
         if self.ChanSlice and self.ChanSlice != slice(None):
             # if getcol fails, maybe because this is a new col which hasn't been filled
             # in this case read DATA instead
@@ -1185,10 +1187,10 @@ class ClassMS():
                 vis0 = t.getcol(colname, self.ROW0, self.nRowRead)
             except RuntimeError:
                 vis0 = t.getcol("DATA", self.ROW0, self.nRowRead)
-            vis0[:, self.ChanSlice, :] = vis
+            vis0[reverse_index, self.ChanSlice, :] = vis
             t.putcol(colname, vis0, self.ROW0,self.nRowRead)
         else:
-            t.putcol(colname, vis, self.ROW0,self.nRowRead)
+            t.putcol(colname, vis[reverse_index,:,:], self.ROW0,self.nRowRead)
         t.close()
 
     def SaveVis(self, vis=None, Col="CORRECTED_DATA", spw=0, DoPrint=True):
