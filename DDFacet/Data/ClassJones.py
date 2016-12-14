@@ -47,7 +47,7 @@ class ClassJones():
             DATA["killMS"] =  DicoSols, TimeMapping, DicoClusterDirs
             self.HasKillMSSols = True
 
-        ApplyBeam = (GD["Beam"]["BeamModel"] != None)
+        ApplyBeam=(GD["Beam"]["BeamModel"] is not None)
         if ApplyBeam:
             self.ApplyCal = True
             self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache(
@@ -261,7 +261,7 @@ class ClassJones():
             GlobalNormList = [GD["DDESolutions"]["GlobalNorm"]
                               ]*len(GD["DDESolutions"]["DDSols"])
 
-        if GD["DDESolutions"]["JonesNormList"] == None:
+        if GD["DDESolutions"]["JonesNormList"] is None:
             GD["DDESolutions"]["JonesNormList"] = "AP"
 
         JonesNormList = GD["DDESolutions"]["JonesNormList"]
@@ -291,7 +291,7 @@ class ClassJones():
         self,
         SolsFile,
         JonesMode="AP",
-     GlobalMode=""):
+        GlobalMode=""):
 
         print>>log, "  Loading solution file %s" % (SolsFile)
         if not(".npz" in SolsFile):

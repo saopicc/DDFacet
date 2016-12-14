@@ -88,6 +88,7 @@ def read_options():
     OP.add_option('InitDicoModel', help='Image name [%default]')
     OP.add_option('WeightCol')
     OP.add_option('PredictColName')
+    OP.add_option('Sort')
 
     OP.OptionGroup("* Images-related options", "Images")
 
@@ -270,21 +271,22 @@ def main(OP=None, messages=[]):
 
     # setup logging
     MyLogger.logToFile(
-        ImageName+".log",
+        ImageName + ".log",
      append=DicoConfig["Logging"]["AppendLogFile"])
     global log
     log = MyLogger.getLogger("DDFacet")
 
     # disable colors and progressbars if requested
-    ModColor.silent = SkyModel.Other.ModColor.silent = progressbar.ProgressBar.silent = DicoConfig[
-        "Logging"]["Boring"]
+    ModColor.silent = SkyModel.Other.ModColor.silent = \
+                      progressbar.ProgressBar.silent = \
+                      DicoConfig["Logging"]["Boring"]
 
     if messages:
         if not DicoConfig["Logging"]["Boring"]:
             os.system('clear')
             logo.print_logo()
         for msg in messages:
-            print>>log, msg
+            print>> log, msg
 
     # print current options
     OP.Print(dest=log)
@@ -316,6 +318,7 @@ def main(OP=None, messages=[]):
     OP.ToParset("%s.parset"%ImageName)
 
     Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, IdSharedMem=Multiprocessing.getShmPrefix(), BaseName=ImageName)
+
     Imager.Init()
 
     Mode = DicoConfig["ImagerGlobal"]["Mode"]
@@ -492,7 +495,8 @@ if __name__ == "__main__":
             "Your logfile is available here: %s" %
             logfileName, col="red")
         print>>log, traceback_msg
-        Multiprocessing.cleanupShm()
         # Should at least give the command line an indication of failure
-        sys.exit(1)
+        retcode = 1 # Should at least give the command line an indication of failure
 
+    Multiprocessing.cleanupShm()
+    sys.exit(retcode)

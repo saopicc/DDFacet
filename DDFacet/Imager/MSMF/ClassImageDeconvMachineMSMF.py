@@ -71,12 +71,8 @@ class ClassImageDeconvMachine():
             self._MaskArray = np.zeros((1, 1, ny, nx), np.bool8)
             self._MaskArray[0, 0, :, :] = np.bool8(1-MaskArray[0, 0].T[::-1])
 
-    def GiveModelImage(
-        self,
-        *
-        args): return self.ModelMachine.GiveModelImage(
-        *
-        args)
+    def GiveModelImage(self, *args): 
+        return self.ModelMachine.GiveModelImage(*args)
 
     def setSideLobeLevel(self, SideLobeLevel, OffsetSideLobe):
         self.SideLobeLevel = SideLobeLevel

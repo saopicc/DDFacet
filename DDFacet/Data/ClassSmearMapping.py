@@ -68,7 +68,7 @@ class ClassSmearMapping():
         na = self.MS.na
 
         l = self.radiusRad
-        dPhi = np.sqrt(6.*(1.-self.Decorr))
+        dPhi = np.sqrt(6. * (1. - self.Decorr))
         NBlocksTot = 0
         self.BlocksRowsList = []
 
@@ -84,8 +84,7 @@ class ClassSmearMapping():
             for a1 in xrange(na):
                 if a0 == a1:
                     continue
-                MapBL = GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping)
-                MapBL_1 = GiveBlocksRowsListBL_old(a0, a1, DATA, InfoSmearMapping, GridChanMapping)
+                MapBL = GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping)
                 if MapBL is None:
                     continue
                 stop
@@ -101,7 +100,7 @@ class ClassSmearMapping():
         na = self.MS.na
 
         l = self.radiusRad
-        dPhi = np.sqrt(6.*(1.-self.Decorr))
+        dPhi = np.sqrt(6. * (1. - self.Decorr))
 
         NChan = self.MS.ChanFreq.size
         self.BlocksRowsList = []
@@ -136,7 +135,6 @@ class ClassSmearMapping():
                 BlockSizes.setdefault(MapName,[]).append(np.array(DicoResult["BlocksSizesBL"]))
                 NTotBlocks += DicoResult["NBlocksTotBL"]
                 NTotRows += np.sum(DicoResult["BlocksSizesBL"])
-        print NTotBlocks,NTotRows
 
         FinalMappingHeader = np.zeros((2*NTotBlocks+1, ), np.int32)
         FinalMappingHeader[0] = NTotBlocks
@@ -302,7 +300,6 @@ def GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
 
 
 def GiveBlocksRowsListBL_old(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
-
     A0 = DATA["A0"]
     A1 = DATA["A1"]
     ind = np.where((A0 == a0) & (A1 == a1))[0]
@@ -313,6 +310,8 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
     uvw = DATA["uvw"]
     dFreq = InfoSmearMapping["dfreqs"]   # channel width
     dPhi = InfoSmearMapping["dPhi"]      # delta-phi: max phase change allowed between rows
+    dFreq = InfoSmearMapping["dfreqs"]
+    dPhi = InfoSmearMapping["dPhi"]
     l = InfoSmearMapping["l"]
     freqs = InfoSmearMapping["freqs"]
     NChan = freqs.size

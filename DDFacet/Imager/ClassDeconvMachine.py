@@ -548,7 +548,6 @@ class ClassImagerDeconv():
 
                     _=self.FacetMachine.getChunk(ModelImage)
 
-
                 self.FacetMachine.applySparsification(self.DATA, sparsify)
                 self.FacetMachine.putChunk()
 

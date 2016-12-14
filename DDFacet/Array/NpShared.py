@@ -49,12 +49,23 @@ def DelArray(Name):
 _locking = True
 
 def Lock (array):
+    global _locking
     if _locking:
-        SharedArray.mlock(array)
+        try:
+                SharedArray.mlock(array)
+        except:
+            print>> log, "Warning: Cannot lock memory. Try updating your kernel security settings."
+            _locking = False
 
 def Unlock (array):
+    global _locking
     if _locking:
-        SharedArray.munlock(array)
+        try:
+                SharedArray.munlock(array)
+        except:
+            print>> log, "Warning Cannot unlock memory. Try updating your kernel security settings."
+            _locking = False
+
 
 def ListNames():
     ll = list(SharedArray.list())

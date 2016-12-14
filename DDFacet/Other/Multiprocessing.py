@@ -4,11 +4,11 @@ import Queue
 import multiprocessing
 import numpy as np
 
-
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Array import NpShared
+
 log = MyLogger.getLogger("Multiprocessing")
 #MyLogger.setSilent("Multiprocessing")
 
@@ -60,8 +60,6 @@ def cleanupStaleShm ():
         print>>log, "reaping %d shared memory objects associated with %d dead DDFacet processes"%(len(victims), len(dead_pids))
         for filename in victims:
             os.unlink("/dev/shm/"+filename)
-
-
 
 def getShmURL(name, **kw):
     """
@@ -222,7 +220,7 @@ class ProcessPool (object):
         # compute average processing time
         average_time = np.array([ r["Time"] for r in results ]).mean()
 
-        print>> log, "%s finished in %s, average time %.2fs per job" % (title or "", timer.timehms(), average_time)
+        print>> log, "%s finished in %s, average (single core) time %.2fs per job" % (title or "", timer.timehms(), average_time)
 
         # extract list of result objects
         return [ r["Result"] for r in results ]

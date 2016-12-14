@@ -684,7 +684,7 @@ class ClassDDEGridMachine():
             LSumJonesChan = [self.SumJonesChan]
             ParamJonesList = self.GiveParamJonesList(
                 DicoJonesMatrices, times, A0, A1, uvw)
-            ParamJonesList = ParamJonesList+LApplySol+LSumJones+LSumJonesChan + \
+            ParamJonesList = ParamJonesList + LApplySol + LSumJones + LSumJonesChan + \
                 [np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
         # T2 = ClassTimeIt.ClassTimeIt("Gridder")
@@ -737,7 +737,7 @@ class ClassDDEGridMachine():
         W=None,
         A0=None,
         A1=None,
-     Jones=None):
+        Jones=None):
         if not isinstance(Grid, type(None)):
             if not(Grid.dtype == np.complex64):
                 raise NameError(
@@ -786,8 +786,14 @@ class ClassDDEGridMachine():
             if not(Jones.flags.c_contiguous):
                 raise NameError("Jones has to be contiguous")
 
-    def get(
-            self, times, uvw, visIn, flag, A0A1, ModelImage, PointingID=0,
+    def get(self, 
+            times, 
+            uvw, 
+            visIn, 
+            flag, 
+            A0A1, 
+            ModelImage, 
+            PointingID=0,
             Row0Row1=(0, -1),
             DicoJonesMatrices=None, freqs=None, ImToGrid=True,
             TranformModelInput="", ChanMapping=None, sparsification=None):

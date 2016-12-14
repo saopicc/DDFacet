@@ -35,8 +35,12 @@ class ClassVisServer():
                  TVisSizeMin=1,
                  DicoSelectOptions={},
                  LofarBeam=None,
-                 AddNoiseJy=None, IdSharedMem="",
-                 Robust=2, Weighting="Briggs", MFSWeighting=True, Super=1,
+                 AddNoiseJy=None, 
+                 IdSharedMem="",
+                 Robust=2, 
+                 Weighting="Briggs", 
+                 MFSWeighting=True, 
+                 Super=1,
                  NCPU=psutil.cpu_count()):
 
         self.ReadOnce = False
@@ -425,7 +429,8 @@ class ClassVisServer():
                 databuf=self._databuf, 
                 flagbuf=self._flagbuf,
                 use_cache=self._use_data_cache,
-                read_data=not null_data)
+                read_data=not null_data,
+                sort_by_baseline=self.GD["VisData"]["Sort"])
             self.cache = MS.cache
             if repLoadChunk == "EndMS":
                 repNextMS = self.setNextMS()
@@ -539,7 +544,8 @@ class ClassVisServer():
         if self.GD["Compression"]["CompGridMode"]:
             mapname, valid = self.cache.checkCache("BDA.Grid",
                                                    dict(Compression=self.GD["Compression"],
-                                                        DataSelection=self.GD["DataSelection"]))
+                                                        DataSelection=self.GD["DataSelection"],
+                                                        Sorting=self.GD["VisData"]["Sort"]))
             if valid:
                 print>> log, "  using cached BDA mapping %s" % mapname
                 DATA["BDAGrid"] = np.load(mapname)
@@ -553,7 +559,6 @@ class ClassVisServer():
                     self.CurrentMS, radiusDeg=FOV,
                     Decorr=(1. - self.GD["Compression"]["CompGridDecorr"]))
                 FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingGridding)
-                #FinalMapping, fact = SmearMapMachine.BuildSmearMapping(DATA, ChanMappingGridding)
 
                 print>> log, ModColor.Str("  Effective compression [Grid]  :   %.2f%%" % fact, col="green")
 
@@ -563,9 +568,9 @@ class ClassVisServer():
 
         if self.GD["Compression"]["CompDeGridMode"]:
             mapname, valid = self.cache.checkCache("BDA.DeGrid",
-                dict(Compression=self.GD["Compression"],
-                    DataSelection=self.GD["DataSelection"],
-                    ImagerMainFacet=self.GD["ImagerMainFacet"]))
+                                                   dict(Compression=self.GD["Compression"],
+                                                        DataSelection=self.GD["DataSelection"],
+                                                        Sorting=self.GD["VisData"]["Sort"]))
             if valid:
                 print>> log, "  using cached BDA mapping %s" % mapname
                 DATA["BDADegrid"] = np.load(mapname)
@@ -583,8 +588,6 @@ class ClassVisServer():
                 DATA["BDADegrid"] = FinalMapping
                 np.save(file(mapname, 'w'), FinalMapping)
                 self.cache.saveCache("BDA.DeGrid")
-
-
 
     def CalcWeights(self):
         if self.VisWeights is not None:

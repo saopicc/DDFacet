@@ -1,69 +1,73 @@
 import numpy as np
 
+def CatToFreqs(cat,fmin=0,fmax=-1,nf=0):
 
-def CatToFreqs(cat, fmin=0, fmax=-1, nf=0):
 
-    # cat=np.load("cat_test.npy")
-    # cat=cat.view(np.recarray)
-    indsort = np.argsort(cat.Freq)
-    cat = cat[indsort]
-    keep = np.arange(cat.shape[0])
+    #cat=np.load("cat_test.npy")
+    #cat=cat.view(np.recarray)
+    indsort=np.argsort(cat.Freq)
+    cat=cat[indsort]
+    keep=np.arange(cat.shape[0])
 
-    # cat.Freq/=1.e6
+    #cat.Freq/=1.e6
 
-    if fmin == 0:
-        fmin = np.min(cat.Freq)
-    if fmax == -1:
-        fmax = np.max(cat.Freq)
-    if nf == 0:
-        nf = cat.shape[0]
+    if fmin==0:
+        fmin=np.min(cat.Freq)
+    if fmax==-1:
+        fmax=np.max(cat.Freq)
+    if nf==0:
+        nf=cat.shape[0]
 
-    indf = np.where((cat.Freq <= fmax) & (cat.Freq >= fmin))[0]
-    cat = cat[indf]
+    indf=np.where((cat.Freq<=fmax)&(cat.Freq>=fmin))[0]
+    cat=cat[indf]
+    
+    fMS=cat.Freq
+    dfMS=np.min(np.abs(fMS[1::]-fMS[0:-1]))
 
-    fMS = cat.Freq
-    dfMS = np.min(np.abs(fMS[1::]-fMS[0:-1]))
 
-    fTarget = np.linspace(fmin, fmax, nf)
-    dfTarget = fTarget[1]-fTarget[0]
-    dnCompleteMS = int(round(dfTarget/dfMS))
+    fTarget=np.linspace(fmin,fmax,nf)
+    dfTarget=fTarget[1]-fTarget[0]
+    dnCompleteMS=int(round(dfTarget/dfMS))
 
-    fCompleteMS = np.arange(fMS.min(), fMS.max(), dfMS)
-    ifCompleteMS = np.arange(fCompleteMS.size)
+    fCompleteMS=np.arange(fMS.min(),fMS.max(),dfMS)
+    ifCompleteMS=np.arange(fCompleteMS.size)
 
-    indSelCat = []
-    indTarget = []
-    fSelCat = []
-    fTarget = []
+    indSelCat=[]
+    indTarget=[]
+    fSelCat=[]
+    fTarget=[]
 
-    for i, fi in zip(ifCompleteMS[::dnCompleteMS], fCompleteMS[::dnCompleteMS]):
-        d = np.abs(fi-fMS)
-        idmin = np.argmin(d)
-        dmin = d[idmin]
+    for i,fi in zip(ifCompleteMS[::dnCompleteMS],fCompleteMS[::dnCompleteMS]):
+        d=np.abs(fi-fMS)
+        idmin=np.argmin(d)
+        dmin=d[idmin]
         indTarget.append(i)
         fTarget.append(fi)
 
-        if dmin < .01e6:
+        if dmin<.01e6:
             fSelCat.append(fMS[idmin])
             indSelCat.append(idmin)
         else:
             fSelCat.append(-1)
             indSelCat.append(idmin)
-            print "point at i = %i, with fTarget = %f not found" % (i, fi)
+            print "point at i = %i, with fTarget = %f not found"%(i,fi)
 
-    indSelCat = np.array(indSelCat)
-    fSelCat = np.array(fSelCat)
-    fTarget = np.array(fTarget)
-    indTarget = np.array(indTarget)
+    indSelCat=np.array(indSelCat)
+    fSelCat=np.array(fSelCat)
+    fTarget=np.array(fTarget)
+    indTarget=np.array(indTarget)
 
-    indfound = np.where(fSelCat != -1)[0]
+    indfound=np.where(fSelCat!=-1)[0]
 
-    cat = cat[indSelCat[np.array(indfound)]]
-    fMS = cat.Freq
-    dfMS = np.abs(fMS[1::]-fMS[0:-1])
+    cat=cat[indSelCat[np.array(indfound)]]
+    fMS=cat.Freq
+    dfMS=np.abs(fMS[1::]-fMS[0:-1])
 
-    # print dfMS
+    
+    #print dfMS
 
+            
+            
     # import pylab
     # pylab.ion()
     # pylab.clf()
@@ -75,7 +79,8 @@ def CatToFreqs(cat, fmin=0, fmax=-1, nf=0):
     # pylab.draw()
     # pylab.show(False)
 
-    return cat  # ,fTarget
+
+    return cat#,fTarget
 
     # Nchan=np.max(self.CatEngines.NChan)
     # Nbands=freqs.size/Nchan
