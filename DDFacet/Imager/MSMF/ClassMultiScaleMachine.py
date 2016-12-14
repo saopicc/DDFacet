@@ -339,7 +339,7 @@ class ClassMultiScaleMachine():
         self.nFunc=self.CubePSFScales.shape[0]
         self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
 
-        self.WeightWidth=3
+        self.WeightWidth=1.
         CellSizeRad=1.
         PSFGaussPars=(self.WeightWidth,self.WeightWidth,0.)
         self.GlobalWeightFunction=ModFFTW.GiveGauss(self.SubPSF.shape[-1],CellSizeRad=1.,GaussPars=PSFGaussPars)
@@ -466,7 +466,7 @@ class ClassMultiScaleMachine():
 
         BMnorm=np.sum(BM**2,axis=0)
         BMnorm=1./BMnorm.reshape((nFunc,1))
-
+        #WeightFunction.fill(1.)
         DicoBasisMatrix={"BMCube":CubePSF,
                          "BMnorm":BMnorm,
                          #"DeltaMatrix":DeltaMatrix,
@@ -688,8 +688,9 @@ class ClassMultiScaleMachine():
         elif self.SolveMode=="NNLS":
             import scipy.optimize
 
-            A=BM
-            y=dirtyVec
+            A=WVecPSF*BM
+            y=WVecPSF*dirtyVec
+
             x,_=scipy.optimize.nnls(A, y.ravel())
             Sol=x
             #Sol.flat[:]/=self.SumFuncScales.flat[:]
@@ -889,7 +890,7 @@ class ClassMultiScaleMachine():
 #             # stop
 
         return LocalSM
-        stop
+
             
 
 #################
