@@ -705,19 +705,19 @@ class ClassMultiScaleMachine():
                 Resid[m]=0
                 sig=np.std(Resid)
                 indTh=np.where(Resid>3*sig)
-                # import pylab
-                # pylab.clf()
-                # pylab.subplot(2,2,1)
-                # pylab.imshow(d[0],interpolation="nearest")
-                # pylab.subplot(2,2,2)
-                # pylab.imshow(ConvSM[0],interpolation="nearest")
-                # pylab.subplot(2,2,3)
-                # pylab.imshow((Resid)[0],interpolation="nearest")
-                # pylab.subplot(2,2,4)
-                # pylab.imshow(w[0],interpolation="nearest")
-                # pylab.draw()
-                # pylab.show(False)
-                # pylab.pause(0.1)
+                import pylab
+                pylab.clf()
+                pylab.subplot(2,2,1)
+                pylab.imshow(d[0],interpolation="nearest")
+                pylab.subplot(2,2,2)
+                pylab.imshow(ConvSM[0],interpolation="nearest")
+                pylab.subplot(2,2,3)
+                pylab.imshow((Resid)[0],interpolation="nearest")
+                pylab.subplot(2,2,4)
+                pylab.imshow(w[0],interpolation="nearest")
+                pylab.draw()
+                pylab.show(False)
+                pylab.pause(0.1)
 
                 if indTh[0].size>0:
                     w[indTh]=0

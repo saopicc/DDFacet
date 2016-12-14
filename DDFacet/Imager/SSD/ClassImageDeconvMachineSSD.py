@@ -378,7 +378,7 @@ class ClassImageDeconvMachine():
 
 
         Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
-        ind=np.argsort(Sz)[::-1]
+        ind=np.argsort(Sz)#[::-1]
 
         ListIslandsOut=[self.ListIslands[i] for i in ind]
         self.ListIslands=ListIslandsOut
