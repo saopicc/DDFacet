@@ -656,6 +656,8 @@ class ClassVisServer():
                 flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), bool)
                 # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
                 tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
+                if ms._reverse_channels:
+                    flags = flags[:,::-1,:]
                 # if any polarization is flagged, flag all 4 correlations. Shape of flags becomes nrow,nchan
                 flags = flags.max(axis=2)
                 # valid: array of Nrow,Nchan, with meaning inverse to flags
@@ -669,6 +671,8 @@ class ClassVisServer():
                 if WeightCol == "WEIGHT_SPECTRUM":
                     w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
                     print>> log, "  Reading column %s for the weights, shape is %s" % (WeightCol, w.shape)
+                    if ms._reverse_channels:
+                        w = w[:,::-1,:]
                     # take mean weight across correlations and apply this to all
                     WEIGHT[...] = w.mean(axis=2) * valid
                 elif WeightCol == None:

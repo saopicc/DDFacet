@@ -531,7 +531,7 @@ class ClassMS():
                     visdata = NpShared.CreateShared(self._datapath, datashape, np.complex64)
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                     if self._reverse_channel_order:
-                        visdata[...] = np.flip(visdata, axis=1)
+                        visdata[...] = visdata[:,::-1,:]
                 else:
                     print>> log, "visibilities are already in shared array %s" % self._datapath
             else:
@@ -544,7 +544,7 @@ class ClassMS():
                 flags = NpShared.CreateShared(self._flagpath, datashape, np.bool)
                 table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)  # [SPW==self.ListSPW[0]]
                 if self._reverse_channel_order:
-                    flags[...] = np.flip(flags, axis=1)
+                    flags[...] = flags[:,::-1,:]
                 self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
             else:
                 print>> log, "flags are already in shared array %s" % self._flagpath
@@ -1074,7 +1074,7 @@ class ClassMS():
         self.AddCol(colname,quiet=True)
         print>>log,"writing column %s rows %d:%d"%(colname,self.ROW0,self.ROW1-1)
         if self._reverse_channel_order:
-            vis = np.flip(vis,axis=1)
+            vis = vis[:,::-1,:]
         t = self.GiveMainTable(readonly=False,ack=False)
         if self.ChanSlice and self.ChanSlice != slice(None):
             # if getcol fails, maybe because this is a new col which hasn't been filled
