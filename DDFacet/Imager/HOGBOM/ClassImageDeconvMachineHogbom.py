@@ -13,7 +13,6 @@ from DDFacet.Array import NpParallel
 from DDFacet.Other import ClassTimeIt
 from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
-from DDFacet.Imager import ClassModelMachine
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Imager import ClassGainMachine # Currently required by model machine but fixed to static mode
 
@@ -61,6 +60,7 @@ class ClassImageDeconvMachine():
         self.PeakFactor = PeakFactor
         self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=Gain)
         if ModelMachine is None:
+            from DDFacet.Imager import ClassModelMachineHogbom as ClassModelMachine
             self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
         else:
             self.ModelMachine = ModelMachine

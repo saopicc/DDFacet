@@ -19,7 +19,7 @@ class ClassFrequencyMachine(object):
                 FitGP       : Fits a Gaussian process to the spectral axis of the model image to pixels above a user specified threshold
 
     """
-    def __init__(self,ModelCube, Freqs, ref_freq):
+    def __init__(self,ModelCube, Freqs, ref_freq, order=5):
         self.nchan, self.npol, self.Nx, self.Ny = ModelCube.shape
         # Get Stokes parameters
         self.IStokes = ModelCube[:, 0, :, :]
@@ -32,6 +32,8 @@ class ClassFrequencyMachine(object):
         self.ModelCube = ModelCube
         self.Freqs = Freqs
         self.ref_freq = ref_freq
+        self.order = order
+        self.Xdes = self.setDesMat(order=self.order)
 
     def getFitMask(self, Threshold=0.0, SetNegZero=False, PolMode='I'):
         """
@@ -140,6 +142,12 @@ class ClassFrequencyMachine(object):
             IM[i, :, :] = self.Iref*w[i]**self.alpha_map
         return IM
 
+    def FitPoly(self, Vals):
+        return np.dot(np.linalg.inv(self.XDes.T.dot(self.XDes)), np.dot(self.XDes.T, Vals))
+
+    def EvalPoly(self,coeffs,Freqs):
+        w = Freqs/self.ref_freq
+        return np.dot(w**np.arange(0,self.order).reshape(1,Freqs.size),coeffs)
 
     def FitPolyCube(self, deg=4, threshold = 0.0, PolMode = "I", weights="Default"):
         """
@@ -177,7 +185,7 @@ class ClassFrequencyMachine(object):
         return
 
 
-    def EvalPoly(self, Freqs):  # ,Ix,Iy
+    def EvalPolyCube(self, Freqs):  # ,Ix,Iy
         """
         Evaluates the polynomial at locations (Ix,Iy) and frequencies Freqs
         """
