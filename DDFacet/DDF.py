@@ -1,13 +1,22 @@
 #!/usr/bin/env python
 
 #import matplotlib
-#matplotlib.use('agg')
+# matplotlib.use('agg')
+import optparse
 import traceback
-SaveFile="last_DDFacet.obj"
-from DDFacet.Other import logo
-from DDFacet.Array import NpShared
-from DDFacet.Imager import ClassDeconvMachine
+SaveFile = "last_DDFacet.obj"
+import pickle
 import os, errno, re, sys
+from DDFacet.Other import logo
+from DDFacet.Imager import ClassDeconvMachine
+from DDFacet.Other import ModColor
+from DDFacet.ToolsDir import ModParset
+#import ClassData
+#import ClassInitMachine
+from DDFacet.Array import NpShared
+import numpy as np
+from DDFacet.Imager import ClassDeconvMachine
+from DDFacet.Other import PrintOptParse
 from DDFacet.Parset import ReadCFG
 from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger
@@ -40,18 +49,22 @@ import DDFacet
 print "Using python package located at: " + os.path.dirname(DDFacet.__file__)
 print "Using driver file located at: " + __file__
 global Parset
-Parset= ReadCFG.Parset("%s/DefaultParset.cfg" % os.path.dirname(DDFacet.Parset.__file__))
+Parset= ReadCFG.Parset(
+    "%s/DefaultParset.cfg" %
+     os.path.dirname(DDFacet.Parset.__file__))
 
 
 def read_options():
 
+    D = Parset.DicoPars
 
-    D=Parset.DicoPars
+    desc = """Questions and suggestions: cyril.tasse@obspm.fr"""
 
-    desc="""Questions and suggestions: cyril.tasse@obspm.fr"""
-
-    OP= MyOptParse.MyOptParse(usage='Usage: %prog [parset file] <options>', version='%prog version 1.0', description=desc,
-                              DefaultDict=D)
+    OP = MyOptParse.MyOptParse(
+        usage='Usage: %prog [parset file] <options>',
+        version='%prog version 1.0',
+        description=desc,
+     DefaultDict=D)
     '''
     These options will be read from command line arguments you can specify parset options
     in Default.parset.
@@ -64,26 +77,28 @@ def read_options():
     OP.OptionGroup("* Parallel", "Parallel")
     OP.add_option('Enable')
     OP.add_option('NCPU')
+    OP.add_option('Affinity')
 
-    OP.OptionGroup("* Data-related options","VisData")
-    OP.add_option('MSName',help='Input MS')
-    OP.add_option('MSListFile',help='Input MSs')
+    OP.OptionGroup("* Data-related options", "VisData")
+    OP.add_option('MSName', help='Input MS')
+    OP.add_option('MSListFile', help='Input MSs')
     OP.add_option('ColName')
     OP.add_option('ChunkHours')
-    OP.add_option('InitDicoModel',help='Image name [%default]')
+    OP.add_option('InitDicoModel', help='Image name [%default]')
     OP.add_option('WeightCol')
     OP.add_option('PredictColName')
 
+    OP.OptionGroup("* Images-related options", "Images")
 
-    OP.OptionGroup("* Images-related options","Images")
-
-    OP.add_option('ImageName',help='Image name [%default]')
-    OP.add_option('PredictModelName',help='Predict Image name [%default]')
-    OP.add_option('AllowColumnOverwrite', help='Whether to overwrite existing column or not [%default]')
-    OP.add_option('SaveIms',help='')
-    OP.add_option('SaveImages',help='')
-    OP.add_option('SaveOnly',help='')
-    OP.add_option('SaveCubes',help='')
+    OP.add_option('ImageName', help='Image name [%default]')
+    OP.add_option('PredictModelName', 
+       help='Predict Image name [%default]')
+    OP.add_option('AllowColumnOverwrite', 
+       help='Whether to overwrite existing column or not [%default]')
+    OP.add_option('SaveIms', help='')
+    OP.add_option('SaveImages', help='')
+    OP.add_option('SaveOnly', help='')
+    OP.add_option('SaveCubes', help='')
     OP.add_option('OpenImages',
                   help="Opens images after exiting successfully."
                        "List, accepts any combination of: "
@@ -92,16 +107,14 @@ def read_options():
     OP.add_option('DefaultImageViewer', help="Default image viewer")
 #    OP.add_option('MultiFreqMap', help="Outputs multi-frequency cube (NFreqBands) instead of average map")
 
-
-    OP.OptionGroup("* Caching options","Caching")
+    OP.OptionGroup("* Caching options", "Caching")
     OP.add_option('ResetCache')
     OP.add_option('ResetPSF')
     OP.add_option('ResetDirty')
     OP.add_option('CachePSF')
     OP.add_option('CacheDirty')
 
-
-    OP.OptionGroup("* Selection","DataSelection")
+    OP.OptionGroup("* Selection", "DataSelection")
     OP.add_option('Field')
     OP.add_option('DDID')
     OP.add_option('TaQL')
@@ -112,8 +125,8 @@ def read_options():
     OP.add_option('UVRangeKm')
     OP.add_option('DistMaxToCore')
 
-    OP.OptionGroup("* Imager Global parameters","ImagerGlobal")
-    OP.add_option('Mode',help='Default %default')
+    OP.OptionGroup("* Imager Global parameters", "ImagerGlobal")
+    OP.add_option('Mode', help='Default %default')
     OP.add_option('PredictMode')
     OP.add_option('PolMode')
     OP.add_option('Precision')
@@ -125,7 +138,7 @@ def read_options():
     OP.add_option("PSFFacets")
     OP.add_option("PhaseCenterRADEC")
 
-    OP.OptionGroup("* Visibility compression parameters","Compression")
+    OP.OptionGroup("* Visibility compression parameters", "Compression")
     OP.add_option('CompGridMode')
     OP.add_option('CompGridDecorr')
     OP.add_option('CompGridFOV')
@@ -133,25 +146,23 @@ def read_options():
     OP.add_option('CompDeGridDecorr')
     OP.add_option('CompDeGridFOV')
 
+    # OP.add_option('CompModeDeGrid')
 
-    #OP.add_option('CompModeDeGrid')
-
-    OP.OptionGroup("* MultiScale Options","MultiScale")
+    OP.OptionGroup("* MultiScale Options", "MultiScale")
     OP.add_option("Scales")
     OP.add_option("Ratios")
     OP.add_option("NTheta")
     OP.add_option("PSFBox")
     OP.add_option("SolverMode")
 
-    OP.OptionGroup("* MultiFrequency Options","MultiFreqs")
+    OP.OptionGroup("* MultiFrequency Options", "MultiFreqs")
     OP.add_option("NFreqBands")
     OP.add_option("Alpha")
     OP.add_option("NChanDegridPerMS")
     OP.add_option("GridBandMHz")
     OP.add_option("DegridBandMHz")
 
-
-    OP.OptionGroup("* Primary Beam Options","Beam")
+    OP.OptionGroup("* Primary Beam Options", "Beam")
     OP.add_option("BeamModel")
     OP.add_option("LOFARBeamMode")
     OP.add_option("DtBeamMin")
@@ -163,7 +174,7 @@ def read_options():
     OP.add_option("FITSMAxis")
     OP.add_option("FITSVerbosity")
 
-    OP.OptionGroup("* DDE Solutions","DDESolutions")
+    OP.OptionGroup("* DDE Solutions", "DDESolutions")
     OP.add_option("DDSols")
     OP.add_option("JonesMode")
     OP.add_option("GlobalNorm")
@@ -178,14 +189,14 @@ def read_options():
     OP.add_option("RestoreSub")
     OP.add_option("ReWeightSNR")
 
-    OP.OptionGroup("* Convolution functions","ImagerCF")
+    OP.OptionGroup("* Convolution functions", "ImagerCF")
     OP.add_option("Support")
     OP.add_option("OverS")
     OP.add_option("wmax")
     OP.add_option("Nw")
 
-    OP.OptionGroup("* Imager's Mainfacet","ImagerMainFacet")
-    OP.add_option("NFacets",help="Number of facets, default is %default. ")
+    OP.OptionGroup("* Imager's Mainfacet", "ImagerMainFacet")
+    OP.add_option("NFacets", help="Number of facets, default is %default. ")
     OP.add_option("DiamMaxFacet")
     OP.add_option("DiamMinFacet")
     OP.add_option("Npix")
@@ -194,7 +205,7 @@ def read_options():
     OP.add_option("ConstructMode")
     OP.add_option("Circumcision")
 
-    OP.OptionGroup("* GAClean","GAClean")
+    OP.OptionGroup("* GAClean", "GAClean")
     OP.add_option("GASolvePars")
     OP.add_option("NSourceKin")
     OP.add_option("NMaxGen")
@@ -202,8 +213,7 @@ def read_options():
     OP.add_option("NEnlargeData")
     OP.add_option("ArtifactRobust")
 
-
-    OP.OptionGroup("* Clean","ImagerDeconv")
+    OP.OptionGroup("* Clean", "ImagerDeconv")
     OP.add_option("MaxMajorIter")
     OP.add_option("Gain")
     OP.add_option("SearchMaxAbs")
@@ -216,7 +226,7 @@ def read_options():
     OP.add_option("SidelobeSearchWindow")
     OP.add_option("MinorCycleMode")
 
-    OP.OptionGroup("* Debugging","Debugging")
+    OP.OptionGroup("* Debugging", "Debugging")
     OP.add_option("SaveIntermediateDirtyImages")
     OP.add_option("PauseGridWorkers")
     OP.add_option("FacetPhaseShift")
@@ -224,14 +234,13 @@ def read_options():
     OP.add_option("PrintMinorCycleRMS")
     OP.add_option("CleanStallThreshold")
 
-    OP.OptionGroup("* Logging","Logging")
+    OP.OptionGroup("* Logging", "Logging")
     OP.add_option("MemoryLogging")
     OP.add_option("Boring")
     OP.add_option("AppendLogFile")
 
     OP.Finalise()
     OP.ReadInput()
-
 
     # #optcomplete.autocomplete(opt)
 
@@ -240,38 +249,41 @@ def read_options():
     return OP
 
 
-
 def test():
-    options=read_options()
+    options = read_options()
 
 
-def main(OP=None,messages=[]):
+def main(OP=None, messages=[]):
     if OP is None:
         OP = MyPickle.Load(SaveFile)
 
-    DicoConfig=OP.DicoConfig
+    DicoConfig = OP.DicoConfig
 
     # determine output image name to make a log file
-    ImageName=DicoConfig["Images"]["ImageName"]
+    ImageName = DicoConfig["Images"]["ImageName"]
     # create directory if it exists
     dirname = os.path.dirname(ImageName)
     if not os.path.exists(dirname) and not dirname == "":
         os.mkdir(dirname)
 
     # setup logging
-    MyLogger.logToFile(ImageName + ".log", append=DicoConfig["Logging"]["AppendLogFile"])
+    MyLogger.logToFile(
+        ImageName + ".log",
+     append=DicoConfig["Logging"]["AppendLogFile"])
     global log
     log = MyLogger.getLogger("DDFacet")
 
     # disable colors and progressbars if requested
-    ModColor.silent = SkyModel.Other.ModColor.silent = progressbar.ProgressBar.silent = DicoConfig["Logging"]["Boring"]
+    ModColor.silent = SkyModel.Other.ModColor.silent = \
+                      progressbar.ProgressBar.silent = \
+                      DicoConfig["Logging"]["Boring"]
 
     if messages:
         if not DicoConfig["Logging"]["Boring"]:
             os.system('clear')
             logo.print_logo()
         for msg in messages:
-            print>>log,msg
+            print>> log, msg
 
     # print current options
     OP.Print(dest=log)
@@ -317,10 +329,12 @@ def main(OP=None,messages=[]):
     OP.ToParset("%s.parset"%ImageName)
 
     NpShared.DelAll(IdSharedMem)
-    Imager=ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig,IdSharedMem=IdSharedMem,BaseName=ImageName)
 
+    Imager = ClassDeconvMachine.ClassImagerDeconv(
+        GD=DicoConfig, IdSharedMem=IdSharedMem, BaseName=ImageName)
     Imager.Init()
-    Mode=DicoConfig["ImagerGlobal"]["Mode"]
+
+    Mode = DicoConfig["ImagerGlobal"]["Mode"]
 
     # Imager.testDegrid()
     # stop
@@ -334,68 +348,105 @@ def main(OP=None,messages=[]):
     if "PSF" in Mode:
         Imager.MakePSF()
 
-    #open default viewer, these options should match those in ClassDeconvMachine if changed:
+    # open default viewer, these options should match those in
+    # ClassDeconvMachine if changed:
     viewer = DicoConfig["Images"]["DefaultImageViewer"]
     for img in DicoConfig["Images"]["OpenImages"]:
         if img == "Dirty":
-            ret = subprocess.call("%s %s.dirty.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            ret = subprocess.call(
+                "%s %s.dirty.fits" %
+                (viewer, DicoConfig["Images"]["ImageName"]),
+                shell=True)
             if ret:
-                print>>log, ModColor.Str("\nCan't open dirty image\n", col="yellow")
+                print>>log, ModColor.Str(
+                    "\nCan't open dirty image\n", col="yellow")
         elif img == "DirtyCorr":
-            ret = subprocess.call("%s %s.dirty.corr.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            ret = subprocess.call(
+                "%s %s.dirty.corr.fits" %
+                (viewer, DicoConfig["Images"]["ImageName"]),
+                shell=True)
             if ret:
-                print>>log, ModColor.Str("\nCan't open dirtyCorr image\n", col="yellow")
+                print>>log, ModColor.Str(
+                    "\nCan't open dirtyCorr image\n", col="yellow")
         elif img == "PSF":
-            ret = subprocess.call("%s %s.psf.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            ret = subprocess.call(
+                "%s %s.psf.fits" %
+                (viewer, DicoConfig["Images"]["ImageName"]), shell=True)
             if ret:
-                print>>log, ModColor.Str("\nCan't open PSF image\n", col="yellow")
+                print>>log, ModColor.Str(
+                    "\nCan't open PSF image\n", col="yellow")
         elif img == "Model":
-            ret = subprocess.call("%s %s.model.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            ret = subprocess.call(
+                "%s %s.model.fits" %
+                (viewer, DicoConfig["Images"]["ImageName"]),
+                shell=True)
             if ret:
-                print>>log, ModColor.Str("\nCan't open model image\n", col="yellow")
+                print>>log, ModColor.Str(
+                    "\nCan't open model image\n", col="yellow")
         elif img == "Residual":
-            ret = subprocess.call("%s %s.residual.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            ret = subprocess.call(
+                "%s %s.residual.fits" %
+                (viewer, DicoConfig["Images"]["ImageName"]),
+                shell=True)
             if ret:
-                print>>log, ModColor.Str("\nCan't open residual image\n", col="yellow")
+                print>>log, ModColor.Str(
+                    "\nCan't open residual image\n", col="yellow")
         elif img == "Restored":
-            ret = subprocess.call("%s %s.restored.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            ret = subprocess.call(
+                "%s %s.restored.fits" %
+                (viewer, DicoConfig["Images"]["ImageName"]),
+                shell=True)
             if ret:
-                print>>log, ModColor.Str("\nCan't open restored image\n", col="yellow")
+                print>>log, ModColor.Str(
+                    "\nCan't open restored image\n", col="yellow")
         elif img == "Alpha":
-            ret = subprocess.call("%s %s.alpha.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            ret = subprocess.call(
+                "%s %s.alpha.fits" %
+                (viewer, DicoConfig["Images"]["ImageName"]),
+                shell=True)
             if ret:
-                print>>log, ModColor.Str("\nCan't open alpha image\n", col="yellow")
+                print>>log, ModColor.Str(
+                    "\nCan't open alpha image\n", col="yellow")
         elif img == "Norm":
-            ret = subprocess.call("%s %s.Norm.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            ret = subprocess.call(
+                "%s %s.Norm.fits" %
+                (viewer, DicoConfig["Images"]["ImageName"]),
+                shell=True)
             if ret:
-                print>>log, ModColor.Str("\nCan't open norm image\n", col="yellow")
+                print>>log, ModColor.Str(
+                    "\nCan't open norm image\n", col="yellow")
         elif img == "NormFacets":
-            ret = subprocess.call("%s %s.NormFacets.fits" % (viewer,DicoConfig["Images"]["ImageName"]), shell=True)
+            ret = subprocess.call(
+                "%s %s.NormFacets.fits" %
+                (viewer, DicoConfig["Images"]["ImageName"]),
+                shell=True)
             if ret:
-                print>>log, ModColor.Str("\nCan't open normfacets image\n", col="yellow")
+                print>>log, ModColor.Str(
+                    "\nCan't open normfacets image\n", col="yellow")
         else:
-            print>>log, ModColor.Str("\nDon't understand %s, not opening that image\n" % img, col="yellow")
+            print>>log, ModColor.Str(
+                "\nDon't understand %s, not opening that image\n" %
+                img, col="yellow")
 
     NpShared.DelAll(IdSharedMem)
 
-if __name__=="__main__":
-    #os.system('clear')
+if __name__ == "__main__":
+    # os.system('clear')
     logo.print_logo()
 
-    ParsetFile=sys.argv[1]
+    ParsetFile = sys.argv[1]
 
-    TestParset= ReadCFG.Parset(ParsetFile)
+    TestParset = ReadCFG.Parset(ParsetFile)
 
-    if TestParset.Success==True:
+    if TestParset.Success:
         #global Parset
 
         Parset.update(TestParset)
         print >>log, ModColor.Str("Successfully read %s parset" % ParsetFile)
 
-    OP=read_options()
+    OP = read_options()
 
-
-    #main(OP)
+    # main(OP)
     T = ClassTimeIt.ClassTimeIt()
 
     # parset should have been read in by now
@@ -404,18 +455,19 @@ if __name__=="__main__":
 
     # collect messages in a list here because I don't want to log them until the logging system
     # is set up in main()
-    messages = [ "starting DDFacet (%s)"%" ".join(sys.argv),
-                 "working directory is %s"%os.getcwd() ]
+    messages = ["starting DDFacet (%s)" % " ".join(sys.argv),
+                "working directory is %s" % os.getcwd()]
 
     # single argument is a parset to read
     if len(args) == 1:
         ParsetFile = args[0]
         TestParset = ReadCFG.Parset(ParsetFile)
-        if TestParset.Success==True:
+        if TestParset.Success:
             Parset.update(TestParset)
-            messages.append("Successfully read %s parset"%ParsetFile)
+            messages.append("Successfully read %s parset" % ParsetFile)
         else:
-            OP.ExitWithError("Argument must be a valid parset file. Use -h for help.")
+            OP.ExitWithError(
+                "Argument must be a valid parset file. Use -h for help.")
             sys.exit(1)
         # re-read options, since defaults will have been updated by the parset
         OP = read_options()
@@ -425,31 +477,42 @@ if __name__=="__main__":
 
     retcode = 0
     try:
-        main(OP,messages)
-        print>>log, ModColor.Str("DDFacet ended successfully after %s"%T.timehms(),col="green")
+        main(OP, messages)
+        print>>log, ModColor.Str(
+            "DDFacet ended successfully after %s" %
+            T.timehms(), col="green")
     except KeyboardInterrupt:
         print>>log, traceback.format_exc()
         print>>log, ModColor.Str("DDFacet interrupted by Ctrl+C", col="red")
         retcode = 1 #Should at least give the command line an indication of failure
     except:
         print>>log, traceback.format_exc()
-        ddfacetPath = "." if os.path.dirname(__file__) == "" else os.path.dirname(__file__)
+        ddfacetPath = "." if os.path.dirname(
+            __file__) == "" else os.path.dirname(__file__)
         traceback_msg = traceback.format_exc()
         try:
-            commitSha = subprocess.check_output("git -C %s rev-parse HEAD" % ddfacetPath,shell=True)
+            commitSha = subprocess.check_output(
+                "git -C %s rev-parse HEAD" %
+                ddfacetPath, shell=True)
         except subprocess.CalledProcessError:
             import DDFacet.version as version
             commitSha = version.__version__
 
         logfileName = MyLogger.getLogFilename()
         logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
-        print>>log, ModColor.Str("There was a problem after %s, if you think this is a bug please open an "
-                                  "issue, quote your version of DDFacet and attach your logfile" % T.timehms(), col="red")
-        print>>log, ModColor.Str("You are using DDFacet revision: %s" % commitSha, col="red")
-        print>>log, ModColor.Str("Your logfile is available here: %s" % logfileName, col="red")
+        print>> log, ModColor.Str(
+            "There was a problem after %s, if you think this is a bug please open an "
+            "issue, quote your version of DDFacet and attach your logfile" %
+            T.timehms(), col="red")
+        print>> log, ModColor.Str(
+            "You are using DDFacet revision: %s" %
+            commitSha, col="red")
+        print>> log, ModColor.Str(
+            "Your logfile is available here: %s" %
+            logfileName, col="red")
         print>>log, traceback_msg
-        retcode = 1 #Should at least give the command line an indication of failure
+        retcode = 1 # Should at least give the command line an indication of failure
 
-    NpShared.DelAll(IdSharedMem)
-    sys.exit(retcode)
+NpShared.DelAll(IdSharedMem)
+sys.exit(retcode)
 

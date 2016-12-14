@@ -461,23 +461,14 @@ class ClassMS():
         
     def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False,databuf=None,flagbuf=None,use_cache=False,read_data=True):
         """
-        We have two modes of reading data/flags:
-
-        * If use_cache is True, then ClassMS uses the cache manager to create shared arrays in the cache, and
-        reads the data and flag columns into them on first call. Subsequent calls then simply return the shared
-        arrays.
-
-        * Is use_cache is False, then ClassMS reads data and flags into the supplied buffers. It is up to the caller
-        to ensure the buffers are large enough for the incoming chunk of data.
-
         Args:
             row0:
             row1:
             DoPrint:
             ReadWeight:
-            use_cache: if True, reads data and flags into SharedArrays associated with the chunk cache
-            databuf: if not using cache, this must be a buffer to read data into
-            flagbuf: if not using cache, this must be a buffer to read flags into
+            use_cache: if True, reads data and flags from the chunk cache, if available
+            databuf: a buffer to read data into. If None, a new array is created.
+            flagbuf: a buffer to read flags into. If None, a new array is created.
             read_data: if False, visibilities will not be read, only flags and other data
 
         Returns:
@@ -509,46 +500,46 @@ class ClassMS():
         ntimes=time_all.shape[0]/self.nbl
         uvw = table_all.getcol('UVW', row0, nRowRead)
 
-        # if shared cache is enabled, get data and flags from cache if possible, else create them in-cache
-        if use_cache:
-            # note that we use start_time for the cache key. This ensures that the cache is reset on first use
-            # (i.e. is not persistent across runs)
-            if read_data:
-                self._datapath, datavalid = self.cache.checkCache("Data", dict(time=self._start_time))
-                self._datapath = "file://"+self._datapath
-                visdata = datavalid and NpShared.GiveArray(self._datapath)
-                if not datavalid or visdata is None:
-                    print>> log, "reading MS visibilities into shared array %s" % self._datapath
-                    visdata = NpShared.CreateShared(self._datapath, datashape, np.complex64)
-                    table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
-                else:
-                    print>> log, "visibilities are already in shared array %s" % self._datapath
+        # create data array (if databuf is None, array uses memory of buffer)
+        visdata = np.ndarray(shape=datashape, dtype=np.complex64, buffer=databuf)
+        if read_data:
+            # check cache for visibilities
+            if use_cache:
+                datapath, datavalid = self.cache.checkCache("Data.npy", dict(time=self._start_time))
             else:
-                visdata = np.zeros(datashape,dtype=np.complex64)
-            self._flagpath, flagvalid = self.cache.checkCache("Flags", dict(time=self._start_time))
-            self._flagpath = "file://"+self._flagpath
-            flags = flagvalid and NpShared.GiveArray(self._flagpath)
-            if not flagvalid or flags is None:
-                print>>log,"reading MS flags into shared array %s"%self._flagpath
-                flags = NpShared.CreateShared(self._flagpath, datashape, np.bool)
-                table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)  # [SPW==self.ListSPW[0]]
-                self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
+                datavalid = False
+            # read from cache if available, else from MS
+            if datavalid:
+                print>> log, "reading cached visibilities from %s" % datapath
+                visdata[...] = np.load(datapath)
             else:
-                print>> log, "flags are already in shared array %s" % self._flagpath
+                print>> log, "reading MS visibilities from column %s" % self.ColName
+                table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                if use_cache:
+                    print>> log, "caching visibilities to %s" % datapath
+                    np.save(datapath, visdata)
+                    self.cache.saveCache("Data.npy")
         else:
-            if flagbuf is None or databuf is None:
-                raise RuntimeError,"flagbuf/databuf not supplied. This is a bug."
-            # use supplied buffers for data and flag arrays
-            flags = np.ndarray(shape=datashape,dtype=np.bool,buffer=flagbuf)
-            print>>log,"using %d/%d elements of existing flag buffer"%(flags.size,flagbuf.size)
-            table_all.getcolslicenp("FLAG",flags,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
-            visdata = np.ndarray(shape=datashape,dtype=np.complex64,buffer=databuf)
-            if read_data:
-                print>>log,"using %d/%d elements of existing visibility buffer"%(visdata.size,databuf.size)
-                table_all.getcolslicenp(self.ColName,visdata,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
-                # this needs to be carried along to reform arrays properly down the line
-            else:
-                visdata.fill(0)
+            visdata.fill(0)
+        # create flag array (if flagbuf is None, array uses memory of buffer)
+        flags = np.ndarray(shape=datashape, dtype=np.bool, buffer=flagbuf)
+        # check cache for flags
+        if use_cache:
+            flagpath, flagvalid = self.cache.checkCache("Flags.npy", dict(time=self._start_time))
+        else:
+            flagvalid = False
+        # read from cache if available, else from MS
+        if flagvalid:
+            print>> log, "reading cached flags from %s" % flagpath
+            flags[...] = np.load(flagpath)
+        else:
+            print>> log, "reading MS flags from column FLAG"
+            table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+            self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
+            if use_cache:
+                print>> log, "caching flags to %s" % flagpath
+                np.save(flagpath, flags)
+                self.cache.saveCache("Flags.npy")
 
         DATA={}
 
@@ -558,8 +549,8 @@ class ClassMS():
         DATA["flagpath"] = self._flagpath
         DATA["datapath"] = self._datapath
 
-        if ReadWeight==True:
-            self.Weights=table_all.getcol("WEIGHT",row0,nRowRead)
+        if ReadWeight:
+            self.Weights = table_all.getcol("WEIGHT",row0,nRowRead)
 
         table_all.close()
 
