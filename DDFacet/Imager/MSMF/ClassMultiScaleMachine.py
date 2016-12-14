@@ -688,8 +688,8 @@ class ClassMultiScaleMachine():
         elif self.SolveMode=="NNLS":
             import scipy.optimize
 
-            A=BM
-            y=dirtyVec
+            A=WVecPSF*BM
+            y=WVecPSF*dirtyVec
             x,_=scipy.optimize.nnls(A, y.ravel())
             Sol=x
             #Sol.flat[:]/=self.SumFuncScales.flat[:]
