@@ -474,7 +474,7 @@ class ClassVisServer():
         # as a proof of concept, pass weights in directly
         DATA["Weights"] = visweights.copy()
         if DATA["sort_index"] is not None:
-            DATA["Weights"] = DATA["Weights"]["sort_index"]
+            DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
         del visweights
 
         DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
