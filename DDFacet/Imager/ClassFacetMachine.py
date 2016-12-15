@@ -1027,6 +1027,7 @@ class ClassFacetMachine():
         NCPU = self.NCPU
 
         T=ClassTimeIt.ClassTimeIt("FM.ImToGrids")
+        T.disable()
         ModelSharedMemName="%sModelImage.Facet_"%(self.IdSharedMem)
         NpShared.DelAll(ModelSharedMemName)
         T.timeit("0")

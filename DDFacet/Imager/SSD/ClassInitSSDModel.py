@@ -197,7 +197,7 @@ class ClassInitSSDModel():
             self.SubSSDModelImage=self.SSDModelImage[:,:,x0d:x1d,y0d:y1d].copy()
             for ch in range(self.NFreqBands):
                 self.SubSSDModelImage[ch,0][np.logical_not(self.SubMask)]=0
-#            self.addSubModelToSubDirty()
+            self.addSubModelToSubDirty()
 
 
     def setSSDModelImage(self,ModelImage):
