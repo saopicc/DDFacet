@@ -694,8 +694,7 @@ class ClassFacetMachine():
 
         # Assume all facets have the same weight sums.
         # Store the normalization weights for reference
-        DicoImages["SumWeights"] = np.zeros(
-            (self.VS.NFreqBands, self.npol), np.float64)
+        DicoImages["SumWeights"] = np.zeros((self.VS.NFreqBands, self.npol), np.float64)
         for band, channels in enumerate(self.VS.FreqBandChannels):
             DicoImages["freqs"][band] = channels
             DicoImages["SumWeights"][band] = self.DicoImager[0]["SumWeights"][band]
@@ -704,8 +703,7 @@ class ClassFacetMachine():
         # Build a residual image consisting of multiple continuum bands
         if self.NormImage is None:
             self.NormImage = self.BuildFacetNormImage()
-            self.NormImageReShape = self.NormImage.reshape(
-                [1, 1, self.NormImage.shape[0], self.NormImage.shape[1]])
+            self.NormImageReShape = self.NormImage.reshape([1, 1, self.NormImage.shape[0], self.NormImage.shape[1]])
         self.stitchedResidual = self.FacetsToIm_Channel("Dirty")
         if DoCalcNormData:
             self.NormData = self.FacetsToIm_Channel("Jones-amplitude")
@@ -746,8 +744,7 @@ class ClassFacetMachine():
                 PSFChannel = np.zeros((nch, npol, n, n), self.stitchedType)
                 for ch in xrange(nch):
                     self.DicoPSF[iFacet]["PSF"][ch][SPhe[0] < 1e-2] = 0
-                    self.DicoPSF[iFacet]["PSF"][ch][0] = self.DicoPSF[
-                        iFacet]["PSF"][ch][0].T[::-1, :]
+                    self.DicoPSF[iFacet]["PSF"][ch][0] = self.DicoPSF[iFacet]["PSF"][ch][0].T[::-1, :]
                     SumJonesNorm = self.DicoImager[iFacet]["SumJonesNorm"][ch]
                     # normalize to bring back transfer
                     # functions to approximate convolution
@@ -784,10 +781,8 @@ class ClassFacetMachine():
                     # print>>log,"using computed Circumcision=%d"%NPixMin
 
             nch = self.VS.NFreqBands
-            CubeVariablePSF = np.zeros((NFacets, nch, npol,
-                                        NPixMin, NPixMin), np.float32)
-            CubeMeanVariablePSF = np.zeros((NFacets, 1, npol,
-                                            NPixMin, NPixMin), np.float32)
+            CubeVariablePSF = np.zeros((NFacets, nch, npol, NPixMin, NPixMin), np.float32)
+            CubeMeanVariablePSF = np.zeros((NFacets, 1, npol, NPixMin, NPixMin), np.float32)
 
             print>>log, "  Cutting PSFs facet-slices "
             for iFacet in sorted(DicoVariablePSF.keys()):
