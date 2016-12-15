@@ -346,7 +346,7 @@ class ClassMultiScaleMachine():
         self.nFunc=self.CubePSFScales.shape[0]
         self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
 
-        self.WeightWidth=1.
+        self.WeightWidth=5.
         CellSizeRad=1.
         PSFGaussPars=(self.WeightWidth,self.WeightWidth,0.)
         self.GlobalWeightFunction=ModFFTW.GiveGauss(self.SubPSF.shape[-1],CellSizeRad=1.,GaussPars=PSFGaussPars)
@@ -697,9 +697,10 @@ class ClassMultiScaleMachine():
 
 
             W=WVecPSF.copy()
+            dirtyVec=dirtyVec.copy()
             Mask=np.zeros(WVecPSF.shape,np.bool8)
             for iIter in range(10):
-                print iIter
+                #print "iter=",iIter
                 A=W*BM
                 y=W*dirtyVec
 
@@ -709,30 +710,63 @@ class ClassMultiScaleMachine():
                 w=W.reshape((nchan,1,nxp,nyp))[:,0]
                 m=Mask.reshape((nchan,1,nxp,nyp))[:,0]
                 Resid=d-ConvSM
-                Resid[m]=0
+                #Resid[m]=0
                 sig=np.std(Resid)
-                indTh=np.where(Resid>3*sig)
-                import pylab
-                pylab.clf()
-                pylab.subplot(2,2,1)
-                pylab.imshow(d[0],interpolation="nearest")
-                pylab.subplot(2,2,2)
-                pylab.imshow(ConvSM[0],interpolation="nearest")
-                pylab.subplot(2,2,3)
-                pylab.imshow((Resid)[0],interpolation="nearest")
-                pylab.subplot(2,2,4)
-                pylab.imshow(w[0],interpolation="nearest")
-                pylab.draw()
-                pylab.show(False)
-                pylab.pause(0.1)
+                #indTh=np.where(Resid>3*sig)
+                _,xc1,yc1=np.where((Resid>3*sig)&(Resid==np.max(Resid)))
 
-                if indTh[0].size>0:
-                    w[indTh]=0
-                    m[indTh]=1
-                    W=w.reshape((-1,1))
-                    Mask=m.reshape((-1,1))
-                else:
-                    break
+                dirtyVecSub=d
+
+                if xc1.size>0:
+                    F=Resid[:,xc1[0],yc1[0]]
+                    dx,dy=nxp/2-xc1[0],nyp/2-yc1[0]
+                    _,_,nxPSF,nyPSF=self.SubPSF.shape
+                    xc2,yc2=nxPSF/2+dx,nyPSF/2+dy
+                    ThisPSF=self.SubPSF[:,0,xc2-nxp/2:xc2+nxp/2+1,yc2-nyp/2:yc2+nyp/2+1]
+                    ThisDirty=ThisPSF*F.reshape((-1,1,1))
+                    dirtyVecSub=d-ThisDirty
+                dirtyVec=dirtyVecSub.reshape((-1,1))
+                #     import pylab
+                #     pylab.clf()
+                #     pylab.subplot(2,2,1)
+                #     pylab.imshow(d[0],interpolation="nearest")
+                #     pylab.subplot(2,2,2)
+                #     pylab.imshow(ConvSM[0],interpolation="nearest")
+                #     pylab.subplot(2,2,3)
+                #     pylab.imshow((Resid)[0],interpolation="nearest")
+                #     pylab.subplot(2,2,4)
+                #     pylab.imshow(dirtyVecSub[0],interpolation="nearest")
+                #     pylab.draw()
+                #     pylab.show(False)
+                #     pylab.pause(0.1)
+                #     stop
+
+
+                # import pylab
+                # pylab.clf()
+                # pylab.subplot(2,2,1)
+                # pylab.imshow(d[0],interpolation="nearest")
+                # pylab.colorbar()
+                # pylab.subplot(2,2,2)
+                # pylab.imshow(ConvSM[0],interpolation="nearest")
+                # pylab.colorbar()
+                # pylab.subplot(2,2,3)
+                # pylab.imshow((Resid)[0],interpolation="nearest")
+                # pylab.colorbar()
+                # pylab.subplot(2,2,4)
+                # pylab.imshow(dirtyVecSub[0],interpolation="nearest")
+                # pylab.colorbar()
+                # pylab.draw()
+                # pylab.show(False)
+                # pylab.pause(0.1)
+
+                # if indTh[0].size>0:
+                #     w[indTh]=0
+                #     m[indTh]=1
+                #     W=w.reshape((-1,1))
+                #     Mask=m.reshape((-1,1))
+                # else:
+                #     break
 
         
 
