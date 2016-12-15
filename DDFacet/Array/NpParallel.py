@@ -34,7 +34,41 @@ def A_add_B_prod_factor(A,B,Aedge=None,Bedge=None,factor=1.,NCPU=6):
     A=A.reshape(ShapeOrig)
     return A
 
+
 def A_whereMax(A,NCPU=6,DoAbs=1,Mask=None):
+    if NCPU==1:
+        NX,NY=A.shape[-2],A.shape[-1]
+        nz=A.size/(NX*NY)
+        A=A.reshape((nz,NX,NY))
+        if Mask is not None:
+            Mask=Mask.reshape((nz,NX,NY))
+
+        if DoAbs:
+            AbsA=np.abs(A)
+            if Mask is not None:
+                M=np.max(AbsA[Mask==0])
+                _,x,y=np.where((AbsA == M)&(Mask==0))
+                return x[0],y[0],M
+            else:
+                M=np.max(AbsA)
+                _,x,y=np.where((AbsA == M))
+                return x[0],y[0],M
+        else:
+            AbsA=A
+            if Mask is not None:
+                M=np.max(AbsA[Mask==0])
+                _,x,y=np.where((AbsA == M)&(Mask==0))
+                return x[0],y[0],M
+            else:
+                M=np.max(AbsA)
+                _,x,y=np.where((AbsA == M))
+                return x[0],y[0],M
+                
+    else:
+        return A_whereMaxParallel(A,NCPU=NCPU,DoAbs=DoAbs,Mask=Mask)
+
+
+def A_whereMaxParallel(A,NCPU=6,DoAbs=1,Mask=None):
 
     NDimsA=len(A.shape)
     ShapeOrig=A.shape
@@ -51,7 +85,7 @@ def A_whereMax(A,NCPU=6,DoAbs=1,Mask=None):
     A=A.reshape((nz,NX,NY))
 
     Ans=np.zeros((nz,3),np.float32)
-
+    
     for iz in range(nz):
         ThisA=A[iz]
         if Mask is None:

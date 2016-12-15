@@ -378,30 +378,47 @@ class ClassImageDeconvMachine():
 
 
         Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
-        print ":::::::::::::::::"
-        ind=np.argsort(Sz)#[::-1]
+        #print ":::::::::::::::::"
+        ind=np.argsort(Sz)[::-1]
 
         ListIslandsOut=[self.ListIslands[i] for i in ind]
         self.ListIslands=ListIslandsOut
 
         self.DicoInitIndiv=None
-        #####################################
-        # Init SSD model using MSMF
-        InitMachine=ClassInitSSDModel.ClassInitSSDModel(self.GD,
-                                                        self.DicoVariablePSF,
-                                                        self.DicoDirty,
-                                                        self.ModelMachine.RefFreq,
-                                                        MainCache=self.maincache)
+
+
+        # ##########################################################################
+        # # Init SSD model using MSMF
+
         FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
         ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
         ModelImage*=np.sqrt(self.DicoDirty["NormData"])
-        #ModelImage*=(self.DicoDirty["NormData"])
+        # ######################
+        # SERIAL
+        # InitMachine=ClassInitSSDModel.ClassInitSSDModel(self.GD,
+        #                                                      self.DicoVariablePSF,
+        #                                                      self.DicoDirty,
+        #                                                      self.ModelMachine.RefFreq,
+        #                                                      MainCache=self.maincache)
+        # InitMachine.setSSDModelImage(ModelImage)
+        # DicoInitIndiv={}
+        # for iIsland,Island in enumerate(self.ListIslands):
+        #     SModel,AModel=InitMachine.giveModel(Island)
+        #     DicoInitIndiv[iIsland]={"S":SModel,"Alpha":AModel}
+        # self.DicoInitIndiv=DicoInitIndiv
+        
+        # ######################
+        # Parallel
+        InitMachine=ClassInitSSDModel.ClassInitSSDModelParallel(self.GD,
+                                                                self.DicoVariablePSF,
+                                                                self.DicoDirty,
+                                                                self.ModelMachine.RefFreq,
+                                                                MainCache=self.maincache,
+                                                                NCPU=self.NCPU,
+                                                                IdSharedMem=self.IdSharedMem)
         InitMachine.setSSDModelImage(ModelImage)
-        DicoInitIndiv={}
-        for iIsland,Island in enumerate(self.ListIslands):
-            SModel,AModel=InitMachine.giveModel(Island)
-            DicoInitIndiv[iIsland]={"S":SModel,"Alpha":AModel}
-        self.DicoInitIndiv=DicoInitIndiv
+        self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(ListIslands)
+
 
 
     def setChannel(self,ch=0):

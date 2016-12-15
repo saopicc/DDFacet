@@ -3,7 +3,7 @@ import numpy as np
 import math
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassImageDeconvMachine")
+log=MyLogger.getLogger("ClassImageDeconvMachineMSMF")
 from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
@@ -122,6 +122,7 @@ class ClassImageDeconvMachine():
             facetcache = {}
 
         T = ClassTimeIt.ClassTimeIt()
+        T.disable() 
         for iFacet in range(self.PSFServer.NFacets):
             self.PSFServer.setFacet(iFacet)
             T.timeit("PSFServer")
@@ -134,13 +135,15 @@ class ClassImageDeconvMachine():
             T.timeit("set")
             MSMachine.FindPSFExtent(Method="FromSideLobe")
             T.timeit("find")
-            cachedscales, cachedmatrix = facetcache.get(iFacet,(None, None))
+            cachedscales, cachedmatrix, cachedGlobalWeightFunction = facetcache.get(iFacet,(None, None, None))
+            
+            MSMachine.setGlobalWeightFunction(cachedGlobalWeightFunction)
             T.timeit("get")
             cachedscales = MSMachine.MakeMultiScaleCube(cachedscales)
             T.timeit("make")
             cachedmatrix = MSMachine.MakeBasisMatrix(cachedmatrix)
             T.timeit("make2")
-            facetcache[iFacet] = cachedscales, cachedmatrix
+            facetcache[iFacet] = cachedscales, cachedmatrix, MSMachine.GlobalWeightFunction
             self.DicoMSMachine[iFacet]=MSMachine
 
         if self.maincache is not None:
@@ -350,8 +353,14 @@ class ClassImageDeconvMachine():
         self.GainMachine.SetRMS(RMS)
         
         Fluxlimit_RMS = self.RMSFactor*RMS
-
+        #print "startmax",self._MeanDirty.shape,self._MaskArray.shape
         x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self._MaskArray)
+        #x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty.copy(),NCPU=1,DoAbs=DoAbs,Mask=self._MaskArray.copy())
+        #A=self._MeanDirty.copy()
+        #A.flat[:]=np.arange(A.size)[:]
+        #x,y,MaxDirty=NpParallel.A_whereMax(A,NCPU=1,DoAbs=DoAbs)
+        #print "max",x,y
+        #stop
         # print>>log,"npp: %d %d %g"%(x,y,MaxDirty)
         # xy = ma.argmax(ma.masked_array(abs(self._MeanDirty), self._MaskArray))
         # x1, y1 = xy/npix, xy%npix
@@ -360,6 +369,7 @@ class ClassImageDeconvMachine():
 
         Fluxlimit_Peak = MaxDirty*self.PeakFactor
         Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
+        
 
         mm0,mm1 = self._MeanDirty.min(),self._MeanDirty.max()
 
