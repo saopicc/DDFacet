@@ -245,7 +245,8 @@ class ClassMultiScaleMachine():
                                         "Scale":iSlice,#"fact":1.,
                                         "Alpha":ThisAlpha, 
                                         "CodeTypeScale":0,
-                                        "SumFunc":1.})
+                                        "SumFunc":1.,
+                                        "ModelParams":(0,0,0)})
                 iSlice+=1
 
                 for iScales in range(ScaleStart,NScales):
@@ -508,7 +509,7 @@ class ClassMultiScaleMachine():
             if a==0:
                 b=1.
             else:
-                b=0.55**(-np.log(a[1]/a)/np.log(2.))
+                b=0.55**(-np.log(a1/a)/np.log(2.))
             y.append(b)
         return np.array(y)
 
@@ -802,10 +803,10 @@ class ClassMultiScaleMachine():
 
             Mask=np.zeros((Sol.size,),np.float32)
             FuncScale=self.giveSmallScaleBias()
-            ChosenScale=np.argmax(SumCoefScales/self.SumFluxScales*FuncScale)
+            wCoef=SumCoefScales/self.SumFluxScales*FuncScale
+            ChosenScale=np.argmax(wCoef)
             print "==============="
-            print SumCoefScales/self.SumFluxScales
-            print ChosenScale,self.IndexScales[ChosenScale]
+            print "%s -> %i"(str(wCoef),ChosenScale)
             Mask[self.IndexScales[ChosenScale]]=1
             Sol.flat[:]*=Mask.flat[:]
 
