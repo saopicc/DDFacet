@@ -131,7 +131,9 @@ class ClassEvolveGA():
             SModelArrayMP,AModelArrayMP=self.ListInitIslands[self.iIsland]["S"],self.ListInitIslands[self.iIsland]["Alpha"]
             if np.max(np.abs(self.IslandBestIndiv))==0:
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
-                if NGen==0: return self.pop[0]
+                if NGen==0: 
+                    self.ArrayMethodsMachine.KillWorkers()
+                    return self.pop[0]
             else:
                 NIndiv=len(self.pop)/2
                 pop0=self.pop[0:NIndiv]
