@@ -1,7 +1,3 @@
-import multiprocessing
-import time
-from multiprocessing import Process
-import Queue
 import psutil
 import ClassDDEGridMachine
 import numpy as np
@@ -18,7 +14,7 @@ from DDFacet.Array import NpShared
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import Multiprocessing
-from DDFacet.Other.progressbar import ProgressBar
+from DDFacet.Other import ModColor
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
@@ -546,46 +542,50 @@ class ClassFacetMachine():
         # check if spacial weights are cached
         cachepath, cachevalid = self.VS.maincache.checkCache(
             "FacetData",
-            dict(
-                ImagerCF=self.GD["ImagerCF"],
-                ImagerMainFacet=self.GD["ImagerMainFacet"]),
+            dict(ImagerCF=self.GD["ImagerCF"], ImagerMainFacet=self.GD["ImagerMainFacet"]),
             directory=True)
+        loaded = False
+        while not loaded:
+            if not cachevalid:
+                joblist = [ (iFacet,
+                                self.VS.maincache.getCacheURL("FacetData/SW", facet=iFacet),
+                                self.VS.maincache.getCacheURL("FacetData/WTerm", facet=iFacet),
+                                self.VS.maincache.getCacheURL("FacetData/Sphe", facet=iFacet)) for iFacet in xrange(NFacets) ]
 
-        if not cachevalid:
-            joblist = [ (iFacet,
-                            self.VS.maincache.getCacheURL("SW", facet=iFacet),
-                            self.VS.maincache.getCacheURL("WTerm", facet=iFacet),
-                            self.VS.maincache.getCacheURL("Sphe", facet=iFacet)) for iFacet in xrange(NFacets) ]
-
-            procpool = Multiprocessing.ProcessPool(self.GD)
-            procpool.runjobs(joblist, title="Init W", target=self._init_w_worker_tessel,
-                                kwargs=dict(GD=self.GD,
-                                            DicoImager=self.DicoImager,
-                                            SpheNorm=self.SpheNorm,
-                                            NFreqBands=self.VS.NFreqBands,
-                                            DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-                                            ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds(),
-                                            CornersImageTot=self.CornersImageTot))
-            self.VS.maincache.saveCache("FacetData")
-        else:
-            print>>log,"using W kernels from cache %s"%cachepath
-        # now load cached spatial weights, wterms and spheroidals from cache and lock them into memory
-        self._wterms = {}
-        self._sphes = {}
-        for iFacet in sorted(self.DicoImager.keys()):
-            NameSpacialWeigth = self.VS.maincache.getCacheURL("SW", facet=iFacet)
-            SpacialWeigth = NpShared.GiveArray(NameSpacialWeigth)
-            NpShared.Lock(SpacialWeigth)
-            self.SpacialWeigth[iFacet] = SpacialWeigth
-            wterm = NpShared.GiveArray( self.VS.maincache.getCacheURL("WTerm", facet=iFacet) )
-            sphe = NpShared.GiveArray( self.VS.maincache.getCacheURL("Sphe", facet=iFacet) )
-            # temporary: to see if RAM is faster
-            wterm = wterm.copy()
-            sphe = sphe.copy()
-            # store in dict
-            self._wterms[iFacet] = wterm
-            self._sphes[iFacet] = sphe
-        print>> log, "W kernels loaded and locked into memory"
+                procpool = Multiprocessing.ProcessPool(self.GD)
+                procpool.runjobs(joblist, title="Init W", target=self._init_w_worker_tessel,
+                                    kwargs=dict(GD=self.GD,
+                                                DicoImager=self.DicoImager,
+                                                SpheNorm=self.SpheNorm,
+                                                NFreqBands=self.VS.NFreqBands,
+                                                DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                                ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds(),
+                                                CornersImageTot=self.CornersImageTot))
+                self.VS.maincache.saveCache("FacetData")
+            else:
+                print>>log,"loading W kernels from cache %s"%cachepath
+            # now load cached spatial weights, wterms and spheroidals from cache and lock them into memory
+            self._wterms = {}
+            self._sphes = {}
+            for iFacet in sorted(self.DicoImager.keys()):
+                sw = NpShared.GiveArray(self.VS.maincache.getCacheURL("FacetData/SW", facet=iFacet))
+                wterm = NpShared.GiveArray(self.VS.maincache.getCacheURL("FacetData/WTerm", facet=iFacet))
+                sphe = NpShared.GiveArray(self.VS.maincache.getCacheURL("FacetData/Sphe", facet=iFacet))
+                # check for cache loading errors
+                if sw is None or wterm is None or sphe is None:
+                    if cachevalid:
+                        cachevalid = False
+                        print>>log, ModColor.Str("  Failed to load from cache. Cache invalid? Will re-generate")
+                        break
+                    else:
+                        raise RuntimeError,"failed to load W terms into main process. This is a bug!"
+                self.SpacialWeigth[iFacet] = sw.copy()
+                self._wterms[iFacet] = wterm.copy()
+                self._sphes[iFacet] = sphe.copy()
+            # loaded all? We're ok then
+            else:
+                loaded = True
+        print>> log, "loaded W kernels into memory"
 
         return True
 

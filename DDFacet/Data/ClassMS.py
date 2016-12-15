@@ -987,7 +987,7 @@ class ClassMS():
         # print>>log,"  flagging incomplete coherency matrices"
         flags1 = flags.any(axis=2)
         flags[flags1] = True
-        
+
         # print>>log,"  forming per-antenna index"
         # per each antenna, form up boolean mask indicating its rows
         antenna_rows = [ (A0 == A)|(A1 == A) for A in xrange(self.na) ]
@@ -1007,8 +1007,8 @@ class ClassMS():
             print>> log, "  flagging uv data outside uv distance of [%5.1f~%5.1f] km" % (d0, d1)
             d0 = d0**2*1e6
             d1 = d1**2*1e6
-            duv = uvw[:,:2].sum(1)
-            flags[(duv > d0) & (duv < d1),:,:] = True
+            duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
+            flags[(duv < d0) | (duv > d1),:,:] = True
 
         if self.DicoSelectOptions["TimeRange"] != None:
             t0 = times[0]
