@@ -504,11 +504,11 @@ class ClassMultiScaleMachine():
     def giveSmallScaleBias(self):
         a=self.ListSizeScales
         y=[]
-        a1=self.ListSizeScales[1]
         for a in self.ListSizeScales:
             if a==0:
                 b=1.
             else:
+                a1=self.ListSizeScales[1]
                 b=0.55**(-np.log(a1/a)/np.log(2.))
             y.append(b)
         return np.array(y)
