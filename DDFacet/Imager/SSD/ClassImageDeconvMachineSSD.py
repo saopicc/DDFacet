@@ -503,10 +503,10 @@ class ClassImageDeconvMachine():
             for iIsland,Island in enumerate(self.ListIslands):
                 if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]:
                     ListBigIslands.append(Island)
-                    ListInitBigIslands=self.DicoInitIndiv[iIsland]
+                    ListInitBigIslands.append(self.DicoInitIndiv[iIsland])
                 else:
                     ListSmallIslands.append(Island)
-                    ListInitSmallIslands=self.DicoInitIndiv[iIsland]
+                    ListInitSmallIslands.append(self.DicoInitIndiv[iIsland])
 
             if len(ListSmallIslands)>0:
                 print>>log,"Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["SSDClean"]["ConvFFTSwitch"])
