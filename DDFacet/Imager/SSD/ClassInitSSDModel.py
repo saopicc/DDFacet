@@ -175,11 +175,7 @@ class ClassInitSSDModel():
         ArrayPixParms=np.array(ListPixParms)
         ArrayPixParms[:,0]-=x0d
         ArrayPixParms[:,1]-=y0d
-        Mask=np.zeros((nx,ny),np.bool8)
         self.ArrayPixParms=ArrayPixParms
-        x,y=ArrayPixParms.T
-        Mask[x,y]=1
-        self.SubMask=Mask
         self.DicoSubDirty={}
         for key in self.DicoDirty.keys():
             if key in ['ImagData', "MeanImage",'NormImage',"NormData"]:
@@ -192,6 +188,17 @@ class ClassInitSSDModel():
         # ModelImage[:,:,N0/2+3,N0/2]=10
         # ModelImage[:,:,N0/2-2,N0/2-1]=10
         # self.setSSDModelImage(ModelImage)
+
+        # Mask=np.zeros((nx,ny),np.bool8)
+        # Mask[x,y]=1
+        # self.SubMask=Mask
+
+
+        x,y=ArrayPixParms.T
+        Mask=np.zeros(self.DicoSubDirty['ImagData'].shape[-2::],np.bool8)
+        Mask[x,y]=1
+        self.SubMask=Mask
+
 
         if self.SSDModelImage is not None:
             self.SubSSDModelImage=self.SSDModelImage[:,:,x0d:x1d,y0d:y1d].copy()
@@ -252,8 +259,8 @@ class ClassInitSSDModel():
         self.ModelMachine.setListComponants(self.DeconvMachine.ModelMachine.ListScales)
         T.timeit("setlistcomp")
         
-        self.DeconvMachine.updateMask(np.logical_not(self.SubMask))
         self.DeconvMachine.Update(self.DicoSubDirty)
+        self.DeconvMachine.updateMask(np.logical_not(self.SubMask))
         self.DeconvMachine.updateModelMachine(ModelMachine)
         self.DeconvMachine.resetCounter()
         T.timeit("update")
@@ -283,7 +290,7 @@ class ClassInitSSDModel():
 
         x,y=self.ArrayPixParms.T
         SModel=ModelImage[0,0,x,y]
-        AModel=self.ModelMachine.GiveSpectralIndexMap()[0,0,x,y]
+        AModel=self.ModelMachine.GiveSpectralIndexMap(DoConv=False)[0,0,x,y]
         return SModel,AModel
 
 

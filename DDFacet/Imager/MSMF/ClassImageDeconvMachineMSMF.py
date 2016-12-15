@@ -15,6 +15,8 @@ import ClassModelMachineMSMF
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Imager import ClassGainMachine
 import cPickle
+from DDFacet.ToolsDir.GiveEdges import GiveEdges
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
@@ -254,9 +256,9 @@ class ClassImageDeconvMachine():
         # PSF=PSF[N1/2-1:N1/2+2,N1/2-1:N1/2+2]
         # N1=PSF.shape[-1]
 
-        Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
-
-        
+        #Aedge,Bedge=self.GiveEdges((xc,yc),N0,(N1/2,N1/2),N1)
+        N0x,N0y=self._MeanDirty.shape[-2::]
+        Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
 
 
         #_,n,n=self.PSF.shape
@@ -296,7 +298,10 @@ class ClassImageDeconvMachine():
         # #print "Fpol02",Fpol
         # # NpParallel.A_add_B_prod_factor((self.Dirty),LocalSM,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
 
+
+        
         self._CubeDirty[:,:,x0d:x1d,y0d:y1d] -= LocalSM[:,:,x0p:x1p,y0p:y1p]
+        
         if self._MeanDirty is not self._CubeDirty:
             # W=np.float32(self.DicoDirty["WeightChansImages"])
             # self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
@@ -355,6 +360,7 @@ class ClassImageDeconvMachine():
         Fluxlimit_RMS = self.RMSFactor*RMS
         #print "startmax",self._MeanDirty.shape,self._MaskArray.shape
         x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self._MaskArray)
+
         #x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty.copy(),NCPU=1,DoAbs=DoAbs,Mask=self._MaskArray.copy())
         #A=self._MeanDirty.copy()
         #A.flat[:]=np.arange(A.size)[:]

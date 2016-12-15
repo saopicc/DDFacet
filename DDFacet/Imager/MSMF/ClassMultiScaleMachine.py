@@ -11,6 +11,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 import pickle
 import cPickle
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 
 global debug_dump_file
 debug_dump_file = None
@@ -723,8 +724,9 @@ class ClassMultiScaleMachine():
         elif self.SolveMode=="NNLS":
             import scipy.optimize
 
-
+            Peak=np.max(dirtyVec)
             W=WVecPSF.copy()
+            OrigDirty=dirtyVec.copy().reshape((nchan,1,nxp,nyp))[:,0]
             dirtyVec=dirtyVec.copy()
             Mask=np.zeros(WVecPSF.shape,np.bool8)
             for iIter in range(10):
@@ -733,59 +735,69 @@ class ClassMultiScaleMachine():
                 y=W*dirtyVec
 
                 x,_=scipy.optimize.nnls(A, y.ravel())
+
+                # Compute "dirty" solution and residuals
                 ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
                 d=dirtyVec.reshape((nchan,1,nxp,nyp))[:,0]
                 w=W.reshape((nchan,1,nxp,nyp))[:,0]
                 m=Mask.reshape((nchan,1,nxp,nyp))[:,0]
                 Resid=d-ConvSM
-                #Resid[m]=0
                 sig=np.std(Resid)
-                #indTh=np.where(Resid>3*sig)
-                _,xc1,yc1=np.where((Resid>2*sig)&(Resid==np.max(Resid)))
+                MaxResid=np.max(Resid)
+                
+                # Check if there is contamining nearby sources
+                _,xc1,yc1=np.where((Resid>2*sig)&(Resid==MaxResid))
 
                 dirtyVecSub=d
                 Sol=x
+
+                # Compute flux in each spacial scale
                 SumCoefScales=np.zeros((self.NScales,),np.float32)
                 for iScale in range(self.NScales):
                     indAlpha=self.IndexScales[iScale]
                     SumCoefScales[iScale]=np.sum(Sol[indAlpha])
                 #print "  SumCoefScales",SumCoefScales
-                if xc1.size>0:
+
+
+                # If source is contaminating, substract it with the delta (with alpha=0)
+                if xc1.size>0 and MaxResid>Peak/100.:
                     F=Resid[:,xc1[0],yc1[0]]
                     dx,dy=nxp/2-xc1[0],nyp/2-yc1[0]
                     _,_,nxPSF,nyPSF=self.SubPSF.shape
-                    xc2,yc2=nxPSF/2+dx,nyPSF/2+dy
-                    ThisPSF=self.SubPSF[:,0,xc2-nxp/2:xc2+nxp/2+1,yc2-nyp/2:yc2+nyp/2+1]
+
+                    #xc2,yc2=nxPSF/2+dx,nyPSF/2+dy
+                    #ThisPSF=self.SubPSF[:,0,xc2-nxp/2:xc2+nxp/2+1,yc2-nyp/2:yc2+nyp/2+1]
+
+                    N0x,N0y=d.shape[-2::]
+                    Aedge,Bedge=GiveEdgesDissymetric((xc1[0],yc1[0]),(N0x,N0y),(nxPSF/2,nyPSF/2),(nxPSF,nyPSF))
+                    x0d,x1d,y0d,y1d=Aedge
+                    x0p,x1p,y0p,y1p=Bedge
+                    ThisPSF=self.SubPSF[:,0,x0p:x1p,y0p:y1p]
+                    _,nxThisPSF,nyThisPSF=ThisPSF.shape
+
+                    # find the optimal flux value for the two cross contaminating sources case 
+                    al=np.abs(ThisPSF[:,nxThisPSF/2,nyThisPSF/2])
+                    MeanAl=np.mean(al)
+                    if 0.01<MeanAl<0.99:
+                        ali=1./al
+                        S0e=FpolTrue[:,0].ravel()
+                        S1e=OrigDirty[:,xc1[0],yc1[0]]
+                        F=(S0e-ali*S1e)/(al-ali)
+                    
                     ThisDirty=ThisPSF*F.reshape((-1,1,1))
                     dirtyVecSub=d-ThisDirty
                     dirtyVec=dirtyVecSub.reshape((-1,1))
-                    # import pylab
-                    # pylab.clf()
-                    # pylab.subplot(2,2,1)
-                    # pylab.imshow(d[0],interpolation="nearest")
-                    # pylab.colorbar()
-                    # pylab.subplot(2,2,2)
-                    # pylab.imshow(ConvSM[0],interpolation="nearest")
-                    # pylab.colorbar()
-                    # pylab.subplot(2,2,3)
-                    # pylab.imshow((Resid)[0],interpolation="nearest")
-                    # pylab.colorbar()
-                    # pylab.subplot(2,2,4)
-                    # pylab.imshow(dirtyVecSub[0],interpolation="nearest")
-                    # pylab.colorbar()
-                    # pylab.draw()
-                    # pylab.show(False)
-                    # pylab.pause(0.1)
 
+
+                    DoBreak=False
                 else:
-                    break
-
-
+                    DoBreak=True
 
                 # import pylab
                 # pylab.clf()
                 # pylab.subplot(2,2,1)
                 # pylab.imshow(d[0],interpolation="nearest")
+                # pylab.title("iter=%i"%iIter)
                 # pylab.colorbar()
                 # pylab.subplot(2,2,2)
                 # pylab.imshow(ConvSM[0],interpolation="nearest")
@@ -799,6 +811,9 @@ class ClassMultiScaleMachine():
                 # pylab.draw()
                 # pylab.show(False)
                 # pylab.pause(0.1)
+
+                if DoBreak: break
+
 
                 # if indTh[0].size>0:
                 #     w[indTh]=0
