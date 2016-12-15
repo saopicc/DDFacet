@@ -39,7 +39,7 @@ class ClassMultiScaleMachine():
         self.MultiFreqMode = NFreqBands>1
         self.SolveMode = self.GD["MultiScale"]["SolverMode"]
         self._stall_threshold = self.GD["Debugging"]["CleanStallThreshold"]
-
+        self.GlobalWeightFunction=None
 
     def setModelMachine(self,ModelMachine):
         self.ModelMachine=ModelMachine
@@ -157,6 +157,8 @@ class ClassMultiScaleMachine():
 
     def MakeMultiScaleCube(self, cachedscales=None):
         if self.CubePSFScales is not None: return
+        T=ClassTimeIt.ClassTimeIt("MakeMultiScaleCube")
+        T.disable()
         #print>>log, "Making MultiScale PSFs..."
         LScales=self.GD["MultiScale"]["Scales"]
         ScaleStart=0
@@ -207,8 +209,9 @@ class ClassMultiScaleMachine():
         # self.RefFreq=RefFreq
         # self.PSFServer.RefFreq=RefFreq
         # #############################
-
+        T.timeit("0")
         FreqBandsFluxRatio=self.PSFServer.GiveFreqBandsFluxRatio(self.iFacet,Alpha)
+        T.timeit("1")
         # if self.iFacet==96: 
         #     print 96
         #     print FreqBandsFluxRatio
@@ -225,7 +228,7 @@ class ClassMultiScaleMachine():
         nch,_,nx,ny=self.SubPSF.shape
 
         if cachedscales:
-            self.ListScales, ListPSFScales = cachedscales
+            self.ListScales, self.CubePSFScales = cachedscales
         else:
             #self.ListSumFluxes = []
 
@@ -312,6 +315,8 @@ class ClassMultiScaleMachine():
                                                     "Scale":iScale,
                                                     "Alpha":ThisAlpha})
 
+            self.CubePSFScales=np.array(ListPSFScales)
+        T.timeit("1")
         # Max=np.max(np.max(CubePSFScales,axis=1),axis=1)
         # Max=Max.reshape((Max.size,1,1))
         # CubePSFScales=CubePSFScales/Max
@@ -320,6 +325,7 @@ class ClassMultiScaleMachine():
         #     Flat=np.zeros((nch,nx,ny),ThisPSF.dtype)
         #     Flat[iChannel]=1
         #     ListPSFScales.append(Flat)
+
 
         self.ModelMachine.setListComponants(self.ListScales)
 
@@ -341,40 +347,47 @@ class ClassMultiScaleMachine():
         self.SumFluxScales=np.array(self.SumFluxScales)
         self.ListSizeScales=np.array(self.ListSizeScales)
         self.NScales=self.ListTypeScales.size/NAlpha
-        print self.IndexScales
-
-        self.CubePSFScales=np.array(ListPSFScales)
+        #print self.IndexScales
+        T.timeit("init")
         #self.SumFuncScales=np.array(self.ListSumFluxes)
         self.FFTMachine=ModFFTW.FFTW_2Donly_np(self.CubePSFScales.shape, self.CubePSFScales.dtype)
 
+        T.timeit("init1")
 
         self.nFunc=self.CubePSFScales.shape[0]
         self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
 
+
         self.WeightWidth=1.5
-        CellSizeRad=1.
-        PSFGaussPars=(self.WeightWidth,self.WeightWidth,0.)
-        self.GlobalWeightFunction=ModFFTW.GiveGauss(self.SubPSF.shape[-1],CellSizeRad=1.,GaussPars=PSFGaussPars)
-        nch,npol,_,_=self._PSF.shape
-
-        # N=self.SubPSF.shape[-1]
-        # dW=N/2
-        # Wx,Wy=np.mgrid[-dW:dW:1j*N,-dW:dW:1j*N]
-        # r=np.sqrt(Wx**2+Wy**2)
-        # print r
-        # r0=self.WeightWidth
-        # weight=(r/r0+1.)**(-1)
-        self.GlobalWeightFunction=self.GlobalWeightFunction.reshape((1,1,self.SubPSF.shape[-1],self.SubPSF.shape[-1]))*np.ones((nch,npol,1,1),np.float32)
-        # print "!!!!!!!!!!!"
-        # self.GlobalWeightFunction.fill(1)
-
-        ScaleMax=np.max(Scales)
-        #self.SupWeightWidth=ScaleMax#3.*self.WeightWidth
         self.SupWeightWidth=np.max([3.*self.WeightWidth,15])
+        T.timeit("init2")
+        if self.GlobalWeightFunction is None:
+            CellSizeRad=1.
+            PSFGaussPars=(self.WeightWidth,self.WeightWidth,0.)
+            self.GlobalWeightFunction=ModFFTW.GiveGauss(self.SubPSF.shape[-1],CellSizeRad=1.,GaussPars=PSFGaussPars)
+            T.timeit("givegauss")
+            nch,npol,_,_=self._PSF.shape
 
+            # N=self.SubPSF.shape[-1]
+            # dW=N/2
+            # Wx,Wy=np.mgrid[-dW:dW:1j*N,-dW:dW:1j*N]
+            # r=np.sqrt(Wx**2+Wy**2)
+            # print r
+            # r0=self.WeightWidth
+            # weight=(r/r0+1.)**(-1)
+            self.GlobalWeightFunction=self.GlobalWeightFunction.reshape((1,1,self.SubPSF.shape[-1],self.SubPSF.shape[-1]))*np.ones((nch,npol,1,1),np.float32)
+            # print "!!!!!!!!!!!"
+            # self.GlobalWeightFunction.fill(1)
+            
+            #ScaleMax=np.max(Scales)
+            #self.SupWeightWidth=ScaleMax#3.*self.WeightWidth
+        T.timeit("other")
 
-        return self.ListScales, ListPSFScales
+        return self.ListScales, self.CubePSFScales
         #print>>log, "   ... Done"
+
+    def setGlobalWeightFunction(self,GlobalWeightFunction):
+        self.GlobalWeightFunction=GlobalWeightFunction
 
     def MakeBasisMatrix(self, cachedmatrix=None):
         # self.OPFT=np.real
@@ -715,7 +728,7 @@ class ClassMultiScaleMachine():
             dirtyVec=dirtyVec.copy()
             Mask=np.zeros(WVecPSF.shape,np.bool8)
             for iIter in range(10):
-                print "iter=",iIter
+                #print "iter=",iIter
                 A=W*BM
                 y=W*dirtyVec
 
@@ -736,7 +749,7 @@ class ClassMultiScaleMachine():
                 for iScale in range(self.NScales):
                     indAlpha=self.IndexScales[iScale]
                     SumCoefScales[iScale]=np.sum(Sol[indAlpha])
-                print "  SumCoefScales",SumCoefScales
+                #print "  SumCoefScales",SumCoefScales
                 if xc1.size>0:
                     F=Resid[:,xc1[0],yc1[0]]
                     dx,dy=nxp/2-xc1[0],nyp/2-yc1[0]
@@ -805,8 +818,8 @@ class ClassMultiScaleMachine():
             FuncScale=self.giveSmallScaleBias()
             wCoef=SumCoefScales/self.SumFluxScales*FuncScale
             ChosenScale=np.argmax(wCoef)
-            print "==============="
-            print "%s -> %i"%(str(wCoef),ChosenScale)
+            #print "==============="
+            #print "%s -> %i"%(str(wCoef),ChosenScale)
             Mask[self.IndexScales[ChosenScale]]=1
             Sol.flat[:]*=Mask.flat[:]
 

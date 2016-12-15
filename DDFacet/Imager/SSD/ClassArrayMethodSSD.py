@@ -452,10 +452,10 @@ class ClassArrayMethodSSD():
         #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         #print "Best chi2 %f"%self.BestChi2
-        print "=============================="
-        print fitnesses
-        print Chi2
-        print "=============================="
+        # print "=============================="
+        # print fitnesses
+        # print Chi2
+        # print "=============================="
         return fitnesses,Chi2
 
 
