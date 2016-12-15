@@ -328,13 +328,17 @@ class ClassMultiScaleMachine():
         
         self.IndexScales=[]
         self.SumFluxScales=[]
+        self.ListSizeScales=[]
         self.ListTypeScales=np.array(self.ListTypeScales)
         for iScale in range(self.NScales):
             indScale=np.where(self.ListTypeScales==iScale)[0]
             self.IndexScales.append(indScale.tolist())
             self.SumFluxScales.append(self.ListScales[indScale[0]]["SumFunc"])
+            self.ListSizeScales.append(self.ListScales[indScale[0]]["ModelParams"][0])
+            
         self.IndexScales=np.array(self.IndexScales)
         self.SumFluxScales=np.array(self.SumFluxScales)
+        self.ListSizeScales=np.array(self.ListSizeScales)
         self.NScales=self.ListTypeScales.size/NAlpha
         print self.IndexScales
 
@@ -346,7 +350,7 @@ class ClassMultiScaleMachine():
         self.nFunc=self.CubePSFScales.shape[0]
         self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
 
-        self.WeightWidth=5.
+        self.WeightWidth=1.5
         CellSizeRad=1.
         PSFGaussPars=(self.WeightWidth,self.WeightWidth,0.)
         self.GlobalWeightFunction=ModFFTW.GiveGauss(self.SubPSF.shape[-1],CellSizeRad=1.,GaussPars=PSFGaussPars)
@@ -365,7 +369,7 @@ class ClassMultiScaleMachine():
 
         ScaleMax=np.max(Scales)
         #self.SupWeightWidth=ScaleMax#3.*self.WeightWidth
-        self.SupWeightWidth=3.*self.WeightWidth
+        self.SupWeightWidth=np.max([3.*self.WeightWidth,15])
 
 
         return self.ListScales, ListPSFScales
@@ -496,7 +500,17 @@ class ClassMultiScaleMachine():
         
         
 
-
+    def giveSmallScaleBias(self):
+        a=self.ListSizeScales
+        y=[]
+        a1=self.ListSizeScales[1]
+        for a in self.ListSizeScales:
+            if a==0:
+                b=1.
+            else:
+                b=0.55**(-np.log(a[1]/a)/np.log(2.))
+            y.append(b)
+        return np.array(y)
 
     def GiveLocalSM(self,(x,y),Fpol):
         T= ClassTimeIt.ClassTimeIt("   GiveLocalSM")
@@ -713,7 +727,7 @@ class ClassMultiScaleMachine():
                 #Resid[m]=0
                 sig=np.std(Resid)
                 #indTh=np.where(Resid>3*sig)
-                _,xc1,yc1=np.where((Resid>3*sig)&(Resid==np.max(Resid)))
+                _,xc1,yc1=np.where((Resid>2*sig)&(Resid==np.max(Resid)))
 
                 dirtyVecSub=d
                 Sol=x
@@ -731,23 +745,23 @@ class ClassMultiScaleMachine():
                     ThisDirty=ThisPSF*F.reshape((-1,1,1))
                     dirtyVecSub=d-ThisDirty
                     dirtyVec=dirtyVecSub.reshape((-1,1))
-                    import pylab
-                    pylab.clf()
-                    pylab.subplot(2,2,1)
-                    pylab.imshow(d[0],interpolation="nearest")
-                    pylab.colorbar()
-                    pylab.subplot(2,2,2)
-                    pylab.imshow(ConvSM[0],interpolation="nearest")
-                    pylab.colorbar()
-                    pylab.subplot(2,2,3)
-                    pylab.imshow((Resid)[0],interpolation="nearest")
-                    pylab.colorbar()
-                    pylab.subplot(2,2,4)
-                    pylab.imshow(dirtyVecSub[0],interpolation="nearest")
-                    pylab.colorbar()
-                    pylab.draw()
-                    pylab.show(False)
-                    pylab.pause(0.1)
+                    # import pylab
+                    # pylab.clf()
+                    # pylab.subplot(2,2,1)
+                    # pylab.imshow(d[0],interpolation="nearest")
+                    # pylab.colorbar()
+                    # pylab.subplot(2,2,2)
+                    # pylab.imshow(ConvSM[0],interpolation="nearest")
+                    # pylab.colorbar()
+                    # pylab.subplot(2,2,3)
+                    # pylab.imshow((Resid)[0],interpolation="nearest")
+                    # pylab.colorbar()
+                    # pylab.subplot(2,2,4)
+                    # pylab.imshow(dirtyVecSub[0],interpolation="nearest")
+                    # pylab.colorbar()
+                    # pylab.draw()
+                    # pylab.show(False)
+                    # pylab.pause(0.1)
 
                 else:
                     break
@@ -787,7 +801,8 @@ class ClassMultiScaleMachine():
             #print Sol
 
             Mask=np.zeros((Sol.size,),np.float32)
-            ChosenScale=np.argmax(SumCoefScales/self.SumFluxScales)
+            FuncScale=self.giveSmallScaleBias()
+            ChosenScale=np.argmax(SumCoefScales/self.SumFluxScales*FuncScale)
             print "==============="
             print SumCoefScales/self.SumFluxScales
             print ChosenScale,self.IndexScales[ChosenScale]
