@@ -496,16 +496,26 @@ class ClassImageDeconvMachine():
         self.SearchIslands(StopFlux)
         if self.DeconvMode=="GAClean":
             print>>log, "Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
-            ListBigIslands=[Island for Island in self.ListIslands if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]]
-            ListSmallIslands=[Island for Island in self.ListIslands if (len(Island)<=self.GD["SSDClean"]["ConvFFTSwitch"])]
+            ListBigIslands=[]
+            ListSmallIslands=[]
+            ListInitBigIslands=[]
+            ListInitSmallIslands=[]
+            for iIsland,Island in enumerate(self.ListIslands):
+                if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]:
+                    ListBigIslands.append(Island)
+                    ListInitBigIslands=self.DicoInitIndiv[iIsland]
+                else:
+                    ListSmallIslands.append(Island)
+                    ListInitSmallIslands=self.DicoInitIndiv[iIsland]
+
             if len(ListSmallIslands)>0:
                 print>>log,"Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["SSDClean"]["ConvFFTSwitch"])
-                self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIslands")
+                self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIslands",ListInitIslands=ListInitSmallIslands)
             else:
                 print>>log,"No small islands"
             if len(ListBigIslands)>0:
                 print>>log,"Deconvolve large islands (>%i pixels) (parallelised per island)"%(self.GD["SSDClean"]["ConvFFTSwitch"])
-                self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland")
+                self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland",ListInitIslands=ListInitBigIslands)
             else:
                 print>>log,"No large islands"
 
@@ -539,7 +549,7 @@ class ClassImageDeconvMachine():
 
 
 
-    def DeconvListIsland(self,ListIslands,ParallelMode="OverIsland"):
+    def DeconvListIsland(self,ListIslands,ParallelMode="OverIsland",ListInitIslands=None):
         # ================== Parallel part
 
         NIslands=len(ListIslands)
@@ -633,7 +643,7 @@ class ClassImageDeconvMachine():
                                  StopWhenQueueEmpty=StopWhenQueueEmpty,
                                  DeconvMode=self.DeconvMode,
                                  NChains=self.NChains,
-                                 DicoInitIndiv=self.DicoInitIndiv)
+                                 ListInitIslands=ListInitIslands)
             workerlist.append(W)
             workerlist[ii].start()
             #workerlist[ii].run()
@@ -807,13 +817,13 @@ class WorkerDeconvIsland(multiprocessing.Process):
                  StopWhenQueueEmpty=False,
                  DeconvMode="GAClean",
                  NChains=1,
-                 DicoInitIndiv=None):
+                 ListInitIslands=None):
         multiprocessing.Process.__init__(self)
         self.MultiFreqMode=MultiFreqMode
         self.work_queue = work_queue
         self.result_queue = result_queue
         self.kill_received = False
-        self.DicoInitIndiv=DicoInitIndiv
+        self.ListInitIslands=ListInitIslands
         self.exit = multiprocessing.Event()
         self.GD=GD
         self.IdSharedMem=IdSharedMem
@@ -901,7 +911,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
                                   GD=self.GD,
                                   iIsland=iIsland,IdSharedMem=self.IdSharedMem,
                                   ParallelFitness=self.ParallelPerIsland,
-                                  DicoInitIndiv=self.DicoInitIndiv)
+                                  ListInitIslands=self.ListInitIslands)
                 Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
                 Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
                 NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
