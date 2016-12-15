@@ -15,6 +15,7 @@ from DDFacet.Other import reformat
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
+from DDFacet.Imager import ClassFrequencyMachine
 import scipy.ndimage
 from SkyModel.Sky import ModRegFile
 from pyrap.images import image
@@ -30,6 +31,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.RefFreq = RefFreq
         self.DicoSMStacked["RefFreq"] = RefFreq
         self.DicoSMStacked["AllFreqs"] = np.array(AllFreqs)
+        # Initiaise the Frequency Machine
+        self.FreqMachine = ClassFrequencyMachine(AllFreqs,RefFreq)
 
 
     def ToFile(self, FileName, DicoIn=None):
@@ -56,6 +59,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.RefFreq = self.DicoSMStacked["RefFreq"]
         self.ListScales = self.DicoSMStacked["ListScales"]
         self.ModelShape = self.DicoSMStacked["ModelShape"]
+
 
 
     def setModelShape(self, ModelShape):

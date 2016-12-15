@@ -19,21 +19,22 @@ class ClassFrequencyMachine(object):
                 FitGP       : Fits a Gaussian process to the spectral axis of the model image to pixels above a user specified threshold
 
     """
-    def __init__(self,ModelCube, Freqs, ref_freq, order=5):
-        self.nchan, self.npol, self.Nx, self.Ny = ModelCube.shape
-        # Get Stokes parameters
-        self.IStokes = ModelCube[:, 0, :, :]
-        if self.npol > 1:
-            self.QStokes = ModelCube[:, 1, :, :]
-        if self.npol > 2:
-            self.UStokes = ModelCube[:, 2, :, :]
-        if self.npol > 3:
-            self.VStokes = ModelCube[:, 3, :, :]
-        self.ModelCube = ModelCube
+    def __init__(self, Freqs, ref_freq, order=5):
+        self.nchan = Freqs.size
+        # # Get Stokes parameters
+        # self.IStokes = ModelCube[:, 0, :, :]
+        # if self.npol > 1:
+        #     self.QStokes = ModelCube[:, 1, :, :]
+        # if self.npol > 2:
+        #     self.UStokes = ModelCube[:, 2, :, :]
+        # if self.npol > 3:
+        #     self.VStokes = ModelCube[:, 3, :, :]
+        # self.ModelCube = ModelCube
         self.Freqs = Freqs
         self.ref_freq = ref_freq
         self.order = order
-        self.Xdes = self.setDesMat(order=self.order)
+        self.Xdes = self.setDesMat(Freqs, order=self.order)
+        self.AATinvAT = np.dot(np.linalg.inv(self.XDes.T.dot(self.XDes)), self.XDes.T)
 
     def getFitMask(self, Threshold=0.0, SetNegZero=False, PolMode='I'):
         """
@@ -66,7 +67,7 @@ class ClassFrequencyMachine(object):
         FitMask = FitCube[:, MaskIndices[:, 0], MaskIndices[:, 1]]
         return FitMask, MaskIndices
 
-    def setDesMat(self,order=2,mode="Normal"):
+    def setDesMat(self, Freqs, order=5, mode="Normal"):
         """
         This function creates the design matrix
         Args:
@@ -76,13 +77,18 @@ class ClassFrequencyMachine(object):
             Xdesign    = The design matrix [1, (v/v_0), (v/v_0)**2, ...]
 
         """
-        Xdesign = np.ones([self.nchan, order])
-        for i in xrange(1,order):
-            if mode=="Normal":
-                Xdesign[:, i] = (self.Freqs / self.ref_freq)**i
-            elif mode=="log":
-                Xdesign[:, i] = np.log(self.Freqs / self.ref_freq) ** i
-
+        if mode=="Normal":
+            # Construct vector of frequencies
+            w = (Freqs / self.ref_freq).reshape(Freqs.size, 1)
+            # create tiled array and raise each column to the correct power
+            Xdesign = np.tile(w, order) ** np.arange(0, order)
+        elif mode=="log":
+            # Construct vector of frequencies
+            w = np.log(Freqs / self.ref_freq).reshape(Freqs.size, 1)
+            # create tiled array and raise each column to the correct power
+            Xdesign = np.tile(w, order) ** np.arange(0, order)
+        else:
+            raise NotImplementedError("mode %s not supported" % mode)
         return Xdesign
 
     def FitAlphaMap(self,threshold=0.1,order=2):
@@ -107,7 +113,7 @@ class ClassFrequencyMachine(object):
         logI = np.log(IFlat)
 
         # Create the design matrix
-        XDes = self.setDesMat(order=2, mode="log")
+        XDes = self.setDesMat(self.Freqs, order=order, mode="log")
 
         # Solve the system
         Sol = np.dot(np.linalg.inv(XDes.T.dot(XDes)), np.dot(XDes.T, logI))
@@ -143,11 +149,31 @@ class ClassFrequencyMachine(object):
         return IM
 
     def FitPoly(self, Vals):
-        return np.dot(np.linalg.inv(self.XDes.T.dot(self.XDes)), np.dot(self.XDes.T, Vals))
+        """
+        Fits a polynomial to Vals. The order of the polynomial is set when the class is instantiated and defaults to 5.
+        The input frequencies are also set in the constructor.
+        Args:
+            Vals: Function values at input frequencies
+
+        Returns:
+            Coefficients of polynomial in order (1,v,v**2,...)
+
+        """
+        return np.dot(self.AATinvAT, Vals)
 
     def EvalPoly(self,coeffs,Freqs):
-        w = Freqs/self.ref_freq
-        return np.dot(w**np.arange(0,self.order).reshape(1,Freqs.size),coeffs)
+        """
+        Evaluates a polynomial at Freqs with coefficients coeffs
+        Args:
+            coeffs: the coefficients of the polynomial in order corresponding to (1,v,v**2,...)
+            Freqs: the frequencies at which to evaluate the polynomial
+        Returns:
+            The polynomial evaluated at Freqs
+        """
+        order = coeffs.size
+        Xdes = self.setDesMat(Freqs,order=order)
+        # evaluate poly and return result
+        return np.dot(Xdes,coeffs.reshape(order,1))
 
     def FitPolyCube(self, deg=4, threshold = 0.0, PolMode = "I", weights="Default"):
         """
