@@ -693,7 +693,7 @@ class ClassMultiScaleMachine():
             dirtyVec=dirtyVec.copy()
             Mask=np.zeros(WVecPSF.shape,np.bool8)
             for iIter in range(10):
-                #print "iter=",iIter
+                print "iter=",iIter
                 A=W*BM
                 y=W*dirtyVec
 
@@ -709,7 +709,12 @@ class ClassMultiScaleMachine():
                 _,xc1,yc1=np.where((Resid>3*sig)&(Resid==np.max(Resid)))
 
                 dirtyVecSub=d
-
+                Sol=x
+                SumCoefScales=np.zeros((self.NScales,),np.float32)
+                for iScale in range(self.NScales):
+                    indAlpha=self.IndexScales[iScale]
+                    SumCoefScales[iScale]=np.sum(Sol[indAlpha])
+                print "  SumCoefScales",SumCoefScales
                 if xc1.size>0:
                     F=Resid[:,xc1[0],yc1[0]]
                     dx,dy=nxp/2-xc1[0],nyp/2-yc1[0]
@@ -718,21 +723,28 @@ class ClassMultiScaleMachine():
                     ThisPSF=self.SubPSF[:,0,xc2-nxp/2:xc2+nxp/2+1,yc2-nyp/2:yc2+nyp/2+1]
                     ThisDirty=ThisPSF*F.reshape((-1,1,1))
                     dirtyVecSub=d-ThisDirty
-                dirtyVec=dirtyVecSub.reshape((-1,1))
-                #     import pylab
-                #     pylab.clf()
-                #     pylab.subplot(2,2,1)
-                #     pylab.imshow(d[0],interpolation="nearest")
-                #     pylab.subplot(2,2,2)
-                #     pylab.imshow(ConvSM[0],interpolation="nearest")
-                #     pylab.subplot(2,2,3)
-                #     pylab.imshow((Resid)[0],interpolation="nearest")
-                #     pylab.subplot(2,2,4)
-                #     pylab.imshow(dirtyVecSub[0],interpolation="nearest")
-                #     pylab.draw()
-                #     pylab.show(False)
-                #     pylab.pause(0.1)
-                #     stop
+                    dirtyVec=dirtyVecSub.reshape((-1,1))
+                    import pylab
+                    pylab.clf()
+                    pylab.subplot(2,2,1)
+                    pylab.imshow(d[0],interpolation="nearest")
+                    pylab.colorbar()
+                    pylab.subplot(2,2,2)
+                    pylab.imshow(ConvSM[0],interpolation="nearest")
+                    pylab.colorbar()
+                    pylab.subplot(2,2,3)
+                    pylab.imshow((Resid)[0],interpolation="nearest")
+                    pylab.colorbar()
+                    pylab.subplot(2,2,4)
+                    pylab.imshow(dirtyVecSub[0],interpolation="nearest")
+                    pylab.colorbar()
+                    pylab.draw()
+                    pylab.show(False)
+                    pylab.pause(0.1)
+
+                else:
+                    break
+
 
 
                 # import pylab
@@ -767,10 +779,6 @@ class ClassMultiScaleMachine():
             #Sol.flat[:]/=self.SumFuncScales.flat[:]
             #print Sol
 
-            SumCoefScales=np.zeros((self.NScales,),np.float32)
-            for iScale in range(self.NScales):
-                indAlpha=self.IndexScales[iScale]
-                SumCoefScales[iScale]=np.sum(Sol[indAlpha])
             Mask=np.zeros((Sol.size,),np.float32)
             ChosenScale=np.argmax(SumCoefScales)
             print "==============="
