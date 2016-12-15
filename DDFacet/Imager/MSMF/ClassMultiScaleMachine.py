@@ -806,7 +806,7 @@ class ClassMultiScaleMachine():
             wCoef=SumCoefScales/self.SumFluxScales*FuncScale
             ChosenScale=np.argmax(wCoef)
             print "==============="
-            print "%s -> %i"(str(wCoef),ChosenScale)
+            print "%s -> %i"%(str(wCoef),ChosenScale)
             Mask[self.IndexScales[ChosenScale]]=1
             Sol.flat[:]*=Mask.flat[:]
 
