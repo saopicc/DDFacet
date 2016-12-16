@@ -674,7 +674,7 @@ class ClassVisServer():
                 elif WeightCol == None:
                     print>> log, "  Selected weights columns is None, filling weights with ones"
                     WEIGHT.fill(1)
-                    WEIGHT = WEIGHT * valid.reshape((-1,1))
+                    WEIGHT[...] *= valid
                 elif WeightCol == "WEIGHT":
                     w = tab.getcol(WeightCol, row0, nrows)
                     print>> log, "  Reading column %s for the weights, shape is %s, will expand frequency axis" % (
