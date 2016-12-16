@@ -289,7 +289,7 @@ class ClassInitSSDModel():
         self.ModelMachine.setListComponants(self.DeconvMachine.ModelMachine.ListScales)
         T.timeit("setlistcomp")
         
-        self.DeconvMachine.Update(self.DicoSubDirty)
+        self.DeconvMachine.Update(self.DicoSubDirty,DoSetMask=False)
         self.DeconvMachine.updateMask(np.logical_not(self.SubMask))
         self.DeconvMachine.updateModelMachine(ModelMachine)
         self.DeconvMachine.resetCounter()
@@ -399,7 +399,6 @@ class WorkerInitMSMF(multiprocessing.Process):
 
     def run(self):
         while not self.kill_received and not self.work_queue.empty():
-            self.Init()
             
             DicoJob = self.work_queue.get()
             try:
