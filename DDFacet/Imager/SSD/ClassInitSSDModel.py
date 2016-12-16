@@ -46,18 +46,18 @@ class ClassInitSSDModelParallel():
         NJobs=work_queue.qsize()
         workerlist=[]
 
-        MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","GiveModelMachine","ClassModelMachineMSMF"])
+        #MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","GiveModelMachine","ClassModelMachineMSMF"])
         
         print>>log,"Launch HMP workers"
         for ii in range(NCPU):
             W = WorkerInitMSMF(work_queue,
                                result_queue,
                                self.GD,
-                               None,#self.DicoVariablePSF,
-                               None,#self.DicoDirty,
+                               self.DicoVariablePSF,
+                               self.DicoDirty,
                                self.RefFreq,
                                self.MainCache,
-                               None,#self.ModelImage,
+                               self.ModelImage,
                                ListIslands,
                                self.IdSharedMem)
             workerlist.append(W)
@@ -106,13 +106,13 @@ class ClassInitSSDModelParallel():
                 workerlist[ii].terminate()
                 workerlist[ii].join()
         
-        MyLogger.setLoud(["ClassImageDeconvMachineMSMF","ClassPSFServer","GiveModelMachine","ClassModelMachineMSMF"])
+        #MyLogger.setLoud(["ClassImageDeconvMachineMSMF","ClassPSFServer","GiveModelMachine","ClassModelMachineMSMF"])
         return self.DicoInitIndiv
 
 ######################################################################################################
 
 class ClassInitSSDModel():
-    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,MainCache=None,IdSharedMem=""):
+    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,MainCache=None,IdSharedMem="",DoWait=False):
 
         self.DicoVariablePSF=DicoVariablePSF
         self.DicoDirty=DicoDirty
@@ -142,16 +142,31 @@ class ClassInitSSDModel():
         ModelMachine = ModConstructor.GiveMM(Mode=self.GD["ImagerDeconv"]["MinorCycleMode"])
         ModelMachine.setRefFreq(self.RefFreq)
         MinorCycleConfig["ModelMachine"]=ModelMachine
+        MinorCycleConfig["CleanMaskImage"]=None
 
-        
         self.MinorCycleConfig=MinorCycleConfig
         self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,CacheSharedMode=True,IdSharedMem=IdSharedMem,**self.MinorCycleConfig)
+
+
+
         self.Margin=100
         self.DicoDirty=DicoDirty
         self.Dirty=DicoDirty["ImagData"]
         self.MeanDirty=DicoDirty["MeanImage"]
-        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["PSFSideLobes"])
-        self.DeconvMachine.Update(self.DicoDirty)
+
+        print "Start 3"
+        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["PSFSideLobes"],DoWait=DoWait)
+
+        if DoWait:
+            print "IINit3"
+            time.sleep(10)
+            print "Start 4"
+
+        self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
+        if DoWait:
+            print "IINit4"
+            time.sleep(10)
+
         self.DeconvMachine.updateRMS()
 
         #self.DicoBasicModelMachine=copy.deepcopy(self.DeconvMachine.ModelMachine.DicoSMStacked)
@@ -342,17 +357,18 @@ class WorkerInitMSMF(multiprocessing.Process):
     def Init(self):
 
         print "sleeeping init0"
-        time.sleep(30)
+        time.sleep(10)
         if self.InitMachine is not None: return
         self.InitMachine=ClassInitSSDModel(self.GD,
                                            self.DicoVariablePSF,
                                            self.DicoDirty,
                                            self.RefFreq,
                                            MainCache=self.MainCache,
-                                           IdSharedMem=self.IdSharedMem)
+                                           IdSharedMem=self.IdSharedMem,
+                                           DoWait=True)
         self.InitMachine.setSSDModelImage(self.ModelImage)
         print "sleeeping init1"
-        time.sleep(30)
+        time.sleep(10)
 
 
     def shutdown(self):

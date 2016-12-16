@@ -20,6 +20,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 import traceback
 from DDFacet.Other import MyPickle
 from DDFacet.Array import NpShared
+import time
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
@@ -103,14 +104,17 @@ class ClassImageDeconvMachine():
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
 
-    def Init(self,**kwargs):
+    def Init(self,DoWait=False,**kwargs):
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
-        self.InitMSMF()
+        self.InitMSMF(DoWait=DoWait)
 
 
-    def InitMSMF(self):
-
+    def InitMSMF(self,DoWait=False):
+        TWait=0.
+        if DoWait:
+            TWait=10.
+            
         self.DicoMSMachine={}
         if self.maincache is not None:
             cachepath_DicoFuntions, valid = self.maincache.checkCache("MSMFMachine_DicoFuntions",
@@ -127,10 +131,13 @@ class ClassImageDeconvMachine():
         else:
             valid=False
 
+        print "Start 0"
         if valid:
             print>>log,"Initialising MSMF Machine from cache %s"%cachepath_DicoFuntions
             #facetcache = cPickle.load(file(cachepath))
-            facetcache_DicoFuntions = MyPickle.FileToDicoNP(cachepath_DicoFuntions)
+
+            if not DoWait: facetcache_DicoFuntions = MyPickle.FileToDicoNP(cachepath_DicoFuntions)
+
             if self.CacheSharedMode:
                 facetcache_DicoArrays = {}
                 if NpShared.SharedToDico("%sDicoBasisMatrix_F%4.4i"%(self.IdSharedMem,0)) is not None:
@@ -152,17 +159,26 @@ class ClassImageDeconvMachine():
             facetcache_DicoFuntions = {}
             facetcache_DicoArrays = {}
 
+        time.sleep(TWait)
+        print "Start 1"
+
         T = ClassTimeIt.ClassTimeIt()
         T.disable() 
         for iFacet in range(self.PSFServer.NFacets):
             self.PSFServer.setFacet(iFacet)
             T.timeit("PSFServer")
+            time.sleep(TWait)
+            print "Start 1a"
             MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.GainMachine,NFreqBands=self.NFreqBands)
+            time.sleep(TWait)
+            print "Start 1b"
             T.timeit("__init__")
             MSMachine.setModelMachine(self.ModelMachine)
             MSMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
             MSMachine.SetFacet(iFacet)
             MSMachine.SetPSF(self.PSFServer)#ThisPSF,ThisMeanPSF)
+            time.sleep(TWait)
+            print "Start 1c"
             T.timeit("set")
             MSMachine.FindPSFExtent(Method="FromSideLobe")
             T.timeit("find")
@@ -170,18 +186,29 @@ class ClassImageDeconvMachine():
             ListDicoScales=facetcache_DicoFuntions.get(iFacet,None)
             DicoBasisMatrix=facetcache_DicoArrays.get(iFacet,None)
 
+            time.sleep(TWait)
+            print "Start 1d"
             MSMachine.setListDicoScales(ListDicoScales)
+            time.sleep(TWait)
+            print "Start 1e"
             MSMachine.setDicoBasisMatrix(DicoBasisMatrix)
 
             T.timeit("get")
             MSMachine.MakeMultiScaleCube()
+            time.sleep(TWait)
+            print "Start 1f"
             T.timeit("make")
 
             MSMachine.MakeBasisMatrix()
+            time.sleep(TWait)
+            print "Start 1g"
             T.timeit("make2")
             facetcache_DicoFuntions[iFacet] = MSMachine.ListScales
             facetcache_DicoArrays[iFacet] = MSMachine.DicoBasisMatrix
             self.DicoMSMachine[iFacet]=MSMachine
+
+        print "Start 2"
+        time.sleep(TWait)
 
         if self.maincache is not None:
             if not valid:
@@ -201,8 +228,10 @@ class ClassImageDeconvMachine():
                 # except:
                 #     print>>log, traceback.format_exc()
                 #     print>>log, ModColor.Str("WARNING: MSMF cache could not be written, see error report above. Proceeding anyway.")
+        print "Start 3"
+        time.sleep(TWait)
 
-    def SetDirty(self,DicoDirty):
+    def SetDirty(self,DicoDirty,DoSetMask=True):
         # if len(PSF.shape)==4:
         #     self.PSF=PSF[0,0]
         # else:
@@ -227,29 +256,31 @@ class ClassImageDeconvMachine():
         off=(NPSF-NDirty)/2
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
 
-        if self._ModelImage is None:
-            self._ModelImage=np.zeros_like(self._CubeDirty)
-        if self._MaskArray is None:
-            self._MaskArray=np.zeros(self._MeanDirty.shape,dtype=np.bool8)
-        else:
-            maskshape = (1,1,NDirty,NDirty)
-            # check for mask shape
-            if maskshape != self._MaskArray.shape:
-                ma0 = self._MaskArray
-                _,_,nx,ny = ma0.shape
-                def match_shapes (n1,n2):
-                    if n1<n2:
-                        return slice(None), slice((n2-n1)/2,(n2-n1)/2+n1)
-                    elif n1>n2:
-                        return slice((n1-n2)/2,(n1-n2)/2+n2), slice(None)
-                    else:
-                        return slice(None), slice(None)
-                sx1, sx2 = match_shapes(NDirty, nx) 
-                sy1, sy2 = match_shapes(NDirty, ny) 
-                self._MaskArray = np.zeros(maskshape, dtype=np.bool8)
-                self._MaskArray[0,0,sx1,sy1] = ma0[0,0,sx2,sy2]
-                print>>log,ModColor.Str("WARNING: reshaping mask image from %dx%d to %dx%d"%(nx, ny, NDirty, NDirty))
-                print>>log,ModColor.Str("Are you sure you supplied the correct cleaning mask?")
+#        if self._ModelImage is None:
+#            self._ModelImage=np.zeros_like(self._CubeDirty)
+
+        if DoSetMask:
+            if self._MaskArray is None:
+                self._MaskArray=np.zeros(self._MeanDirty.shape,dtype=np.bool8)
+            else:
+                maskshape = (1,1,NDirty,NDirty)
+                # check for mask shape
+                if maskshape != self._MaskArray.shape:
+                    ma0 = self._MaskArray
+                    _,_,nx,ny = ma0.shape
+                    def match_shapes (n1,n2):
+                        if n1<n2:
+                            return slice(None), slice((n2-n1)/2,(n2-n1)/2+n1)
+                        elif n1>n2:
+                            return slice((n1-n2)/2,(n1-n2)/2+n2), slice(None)
+                        else:
+                            return slice(None), slice(None)
+                    sx1, sx2 = match_shapes(NDirty, nx) 
+                    sy1, sy2 = match_shapes(NDirty, ny) 
+                    self._MaskArray = np.zeros(maskshape, dtype=np.bool8)
+                    self._MaskArray[0,0,sx1,sy1] = ma0[0,0,sx2,sy2]
+                    print>>log,ModColor.Str("WARNING: reshaping mask image from %dx%d to %dx%d"%(nx, ny, NDirty, NDirty))
+                    print>>log,ModColor.Str("Are you sure you supplied the correct cleaning mask?")
 
 
     def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):
@@ -632,12 +663,12 @@ class ClassImageDeconvMachine():
         return "MaxIter", False, True   # stop deconvolution but do update model
 
 
-    def Update(self,DicoDirty,**kwargs):
+    def Update(self,*args,**kwargs):
         """
         Method to update attributes from ClassDeconvMachine
         """
         #Update image dict
-        self.SetDirty(DicoDirty)
+        self.SetDirty(*args,**kwargs)
 
     def ToFile(self, fname):
         """
