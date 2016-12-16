@@ -41,6 +41,7 @@ class ClassInitSSDModelParallel():
     def giveDicoInitIndiv(self,ListIslands,Parallel=True):
         NCPU=self.NCPU
         work_queue = multiprocessing.JoinableQueue()
+        ListIslands=ListIslands#[300:308]
         for iIsland in range(len(ListIslands)):
             work_queue.put({"iIsland":iIsland})
         result_queue=multiprocessing.JoinableQueue()
@@ -407,8 +408,12 @@ class WorkerInitMSMF(multiprocessing.Process):
             try:
                 self.initIsland(DicoJob)
             except:
-                print ModColor.Str("On island %i"%DicoJob["iIsland"])
+                iIsland=DicoJob["iIsland"]
+                print ModColor.Str("On island %i"%iIsland)
                 print traceback.format_exc()
+                print
+                print self.ListIsland[iIsland]
+                print
 
 
 

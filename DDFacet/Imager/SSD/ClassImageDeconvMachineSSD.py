@@ -461,6 +461,7 @@ class ClassImageDeconvMachine():
         NPixStats=1000
         RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
         RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
+        #print "::::::::::::::::::::::"
         self.RMS=RMS
 
         self.GainMachine.SetRMS(RMS)
