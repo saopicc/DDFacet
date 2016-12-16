@@ -20,7 +20,6 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 import traceback
 from DDFacet.Other import MyPickle
 from DDFacet.Array import NpShared
-import time
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
@@ -104,17 +103,14 @@ class ClassImageDeconvMachine():
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
 
-    def Init(self,DoWait=False,**kwargs):
+    def Init(self,**kwargs):
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
-        self.InitMSMF(DoWait=DoWait)
+        self.InitMSMF()
 
 
-    def InitMSMF(self,DoWait=False):
-        TWait=0.
-        if DoWait:
-            TWait=10.
-            
+    def InitMSMF(self):
+
         self.DicoMSMachine={}
         if self.maincache is not None:
             cachepath_DicoFuntions, valid = self.maincache.checkCache("MSMFMachine_DicoFuntions",
@@ -131,13 +127,10 @@ class ClassImageDeconvMachine():
         else:
             valid=False
 
-        print "Start 0"
         if valid:
             print>>log,"Initialising MSMF Machine from cache %s"%cachepath_DicoFuntions
             #facetcache = cPickle.load(file(cachepath))
-
-            if not DoWait: facetcache_DicoFuntions = MyPickle.FileToDicoNP(cachepath_DicoFuntions)
-
+            facetcache_DicoFuntions = MyPickle.FileToDicoNP(cachepath_DicoFuntions)
             if self.CacheSharedMode:
                 facetcache_DicoArrays = {}
                 if NpShared.SharedToDico("%sDicoBasisMatrix_F%4.4i"%(self.IdSharedMem,0)) is not None:
@@ -159,26 +152,17 @@ class ClassImageDeconvMachine():
             facetcache_DicoFuntions = {}
             facetcache_DicoArrays = {}
 
-        time.sleep(TWait)
-        print "Start 1"
-
         T = ClassTimeIt.ClassTimeIt()
         T.disable() 
         for iFacet in range(self.PSFServer.NFacets):
             self.PSFServer.setFacet(iFacet)
             T.timeit("PSFServer")
-            time.sleep(TWait)
-            print "Start 1a"
             MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.GainMachine,NFreqBands=self.NFreqBands)
-            time.sleep(TWait)
-            print "Start 1b"
             T.timeit("__init__")
             MSMachine.setModelMachine(self.ModelMachine)
             MSMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
             MSMachine.SetFacet(iFacet)
             MSMachine.SetPSF(self.PSFServer)#ThisPSF,ThisMeanPSF)
-            time.sleep(TWait)
-            print "Start 1c"
             T.timeit("set")
             MSMachine.FindPSFExtent(Method="FromSideLobe")
             T.timeit("find")
@@ -186,29 +170,18 @@ class ClassImageDeconvMachine():
             ListDicoScales=facetcache_DicoFuntions.get(iFacet,None)
             DicoBasisMatrix=facetcache_DicoArrays.get(iFacet,None)
 
-            time.sleep(TWait)
-            print "Start 1d"
             MSMachine.setListDicoScales(ListDicoScales)
-            time.sleep(TWait)
-            print "Start 1e"
             MSMachine.setDicoBasisMatrix(DicoBasisMatrix)
 
             T.timeit("get")
             MSMachine.MakeMultiScaleCube()
-            time.sleep(TWait)
-            print "Start 1f"
             T.timeit("make")
 
             MSMachine.MakeBasisMatrix()
-            time.sleep(TWait)
-            print "Start 1g"
             T.timeit("make2")
             facetcache_DicoFuntions[iFacet] = MSMachine.ListScales
             facetcache_DicoArrays[iFacet] = MSMachine.DicoBasisMatrix
             self.DicoMSMachine[iFacet]=MSMachine
-
-        print "Start 2"
-        time.sleep(TWait)
 
         if self.maincache is not None:
             if not valid:
@@ -228,8 +201,6 @@ class ClassImageDeconvMachine():
                 # except:
                 #     print>>log, traceback.format_exc()
                 #     print>>log, ModColor.Str("WARNING: MSMF cache could not be written, see error report above. Proceeding anyway.")
-        print "Start 3"
-        time.sleep(TWait)
 
     def SetDirty(self,DicoDirty,DoSetMask=True):
         # if len(PSF.shape)==4:

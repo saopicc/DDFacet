@@ -14,7 +14,7 @@ from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassInitSSDModel")
 import traceback
 from DDFacet.Other import ModColor
-import time
+
 
 class ClassInitSSDModelParallel():
     def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,MainCache=None,NCPU=1,IdSharedMem=""):
@@ -46,7 +46,7 @@ class ClassInitSSDModelParallel():
         NJobs=work_queue.qsize()
         workerlist=[]
 
-        #MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","GiveModelMachine","ClassModelMachineMSMF"])
+        MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","GiveModelMachine","ClassModelMachineMSMF"])
         
         print>>log,"Launch HMP workers"
         for ii in range(NCPU):
@@ -106,7 +106,7 @@ class ClassInitSSDModelParallel():
                 workerlist[ii].terminate()
                 workerlist[ii].join()
         
-        #MyLogger.setLoud(["ClassImageDeconvMachineMSMF","ClassPSFServer","GiveModelMachine","ClassModelMachineMSMF"])
+        MyLogger.setLoud(["ClassImageDeconvMachineMSMF","ClassPSFServer","GiveModelMachine","ClassModelMachineMSMF"])
         return self.DicoInitIndiv
 
 ######################################################################################################
@@ -154,7 +154,7 @@ class ClassInitSSDModel():
         self.Dirty=DicoDirty["ImagData"]
         self.MeanDirty=DicoDirty["MeanImage"]
 
-        print "Start 3"
+        #print "Start 3"
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["PSFSideLobes"],DoWait=DoWait)
 
         if DoWait:
@@ -270,8 +270,8 @@ class ClassInitSSDModel():
         T.timeit("setsub")
         ModConstructor = ClassModModelMachine(self.GD)
         ModelMachine = ModConstructor.GiveMM(Mode=self.GD["ImagerDeconv"]["MinorCycleMode"])
-        print "ModelMachine"
-        time.sleep(30)
+        #print "ModelMachine"
+        #time.sleep(30)
         T.timeit("giveMM")
         self.ModelMachine=ModelMachine
         #self.ModelMachine.DicoSMStacked=self.DicoBasicModelMachine
@@ -286,12 +286,12 @@ class ClassInitSSDModel():
         self.DeconvMachine.updateModelMachine(ModelMachine)
         self.DeconvMachine.resetCounter()
         T.timeit("update")
-        print "update"
-        time.sleep(30)
+        #print "update"
+        #time.sleep(30)
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
         T.timeit("deconv")
-        print "deconv"
-        time.sleep(30)
+        #print "deconv"
+        #time.sleep(30)
 
         ModelImage=self.ModelMachine.GiveModelImage()
 
@@ -356,8 +356,8 @@ class WorkerInitMSMF(multiprocessing.Process):
 
     def Init(self):
 
-        print "sleeeping init0"
-        time.sleep(10)
+        #print "sleeeping init0"
+        #time.sleep(10)
         if self.InitMachine is not None: return
         self.InitMachine=ClassInitSSDModel(self.GD,
                                            self.DicoVariablePSF,
@@ -365,10 +365,10 @@ class WorkerInitMSMF(multiprocessing.Process):
                                            self.RefFreq,
                                            MainCache=self.MainCache,
                                            IdSharedMem=self.IdSharedMem,
-                                           DoWait=True)
+                                           DoWait=False)
         self.InitMachine.setSSDModelImage(self.ModelImage)
-        print "sleeeping init1"
-        time.sleep(10)
+        #print "sleeeping init1"
+        #time.sleep(10)
 
 
     def shutdown(self):
