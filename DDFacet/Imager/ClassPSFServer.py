@@ -35,11 +35,13 @@ class ClassPSFServer():
         self.NPSF=NPixMin
 
         if NormalisePSF:
-            print>>log,"Normalising Facets-PSF by their maximum"
-            for iFacet in range(self.NFacets):
-                self.CubeMeanVariablePSF[iFacet]/=np.max(self.CubeMeanVariablePSF[iFacet])
-                for iChan in range(nch):
-                    self.CubeVariablePSF[iFacet,iChan]/=np.max(self.CubeVariablePSF[iFacet,iChan])
+            print>>log,"Using peak-normalised PSFs"
+            # for iFacet in range(self.NFacets):
+            #     self.CubeMeanVariablePSF[iFacet]/=np.max(self.CubeMeanVariablePSF[iFacet])
+            #     for iChan in range(nch):
+            #         self.CubeVariablePSF[iFacet,iChan]/=np.max(self.CubeVariablePSF[iFacet,iChan])
+            self.CubeMeanVariablePSF=DicoVariablePSF["CubeMeanVariablePSF"]
+            self.CubeVariablePSF=DicoVariablePSF["CubeVariablePSF"]
 
         DicoMappingDesc={"freqs":DicoVariablePSF["freqs"],
                          "WeightChansImages":DicoVariablePSF["WeightChansImages"],

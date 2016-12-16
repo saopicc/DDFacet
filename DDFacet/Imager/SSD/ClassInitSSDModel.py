@@ -12,6 +12,8 @@ import time
 from DDFacet.Array import NpShared
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassInitSSDModel")
+import traceback
+from DDFacet.Other import ModColor
 
 class ClassInitSSDModelParallel():
     def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,MainCache=None,NCPU=1,IdSharedMem=""):
@@ -290,7 +292,7 @@ class ClassInitSSDModel():
 
         x,y=self.ArrayPixParms.T
         SModel=ModelImage[0,0,x,y]
-        AModel=self.ModelMachine.GiveSpectralIndexMap(DoConv=False)[0,0,x,y]
+        AModel=self.ModelMachine.GiveSpectralIndexMap(DoConv=False,MaxDR=1e3)[0,0,x,y]
         return SModel,AModel
 
 
@@ -357,8 +359,11 @@ class WorkerInitMSMF(multiprocessing.Process):
     def run(self):
         while not self.kill_received and not self.work_queue.empty():
             DicoJob = self.work_queue.get()
-            self.initIsland(DicoJob)
-
+            try:
+                self.initIsland(DicoJob)
+            except:
+                print ModColor.Str("On island %i"%DicoJob["iIsland"])
+                print traceback.format_exc()
 
 
 

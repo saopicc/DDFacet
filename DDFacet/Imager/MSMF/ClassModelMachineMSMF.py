@@ -14,6 +14,7 @@ from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.ToolsDir import ModFFTW
 import scipy.ndimage
@@ -137,14 +138,15 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
         
         # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
-        minmod = float("%.1e"%(abs(M0.max())/MaxDR))
+        minmod = float("%.1e"%(np.max(np.abs(M0))/MaxDR))
         # mask out pixels above threshold
         mask=(M1<minmod)|(M0<minmod)
         print>>log,"computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR)
         M0[mask]=minmod
         M1[mask]=minmod
-        with np.errstate(invalid='ignore'):
-            alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
+        #with np.errstate(invalid='ignore'):
+        #    alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
+        alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
         alpha[mask] = 0
 
         # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
@@ -223,7 +225,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         DicoComp=self.DicoSMStacked["Comp"]
         _,npol,nx,ny=self.ModelShape
-        N0=nx
+        N0x=nx
+        N0y=ny
 
         nchan=FreqIn.size
         ModelImage=np.zeros((nchan,npol,nx,ny),dtype=np.float32)
@@ -250,10 +253,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                             y0,y1=y-Sup/2,y+Sup/2+1
 
 
-                            Aedge,Bedge=GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
+                            Aedge,Bedge=GiveEdgesDissymetric((x,y),(N0x,N0y),(Sup/2,Sup/2),(Sup,Sup))
                             x0d,x1d,y0d,y1d=Aedge
                             x0p,x1p,y0p,y1p=Bedge
-
+                            
                             ModelImage[ch,pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Flux
         
         # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
