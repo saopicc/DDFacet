@@ -177,14 +177,15 @@ class ClassMakeMask():
         self.Noise[ind]=1e-10
 
         if self.OutNameNoiseMap!="":
-            print>>log, "Save noise map as %s"%self.OutNameNoiseMap
-            self.CasaIm.saveas(self.OutNameNoiseMap)
-            CasaNoise=image(self.OutNameNoiseMap)
-            CasaNoise.putdata(self.Noise)
-            CasaNoise.tofits(self.OutNameNoiseMap+".fits")
-            del(CasaNoise)
-            os.system("rm %s"%self.OutNameNoiseMap)
-
+            #print>>log, "Save noise map as %s"%self.OutNameNoiseMap
+            #self.CasaIm.saveas(self.OutNameNoiseMap)
+            #CasaNoise=image(self.OutNameNoiseMap)
+            #CasaNoise.putdata(self.Noise)
+            #CasaNoise.tofits(self.OutNameNoiseMap+".fits")
+            #del(CasaNoise)
+            os.system("rm -rf %s"%self.OutNameNoiseMap)
+            os.system("rm -rf %s"%self.OutNameNoiseMap+".fits")
+            PutDataInNewImage(self.FitsFile,self.OutNameNoiseMap+".fits",np.float32(self.Noise))
     # def ComputeNoiseMap(self):
     #     print "Compute noise map..."
     #     Boost=self.Boost
