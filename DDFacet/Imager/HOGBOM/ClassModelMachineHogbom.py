@@ -124,17 +124,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 Sol = DicoComp[key]["SolsArray"][:, pol]  # /self.DicoSMStacked[key]["SumWeights"]
                 x, y = key
 
-                # print>>log, "%s : %s"%(str(key),str(Sol))
-
-                for iFunc in range(Sol.size):
-                    ThisComp = self.ListScales[iFunc]
-                    ThisAlpha = ThisComp["Alpha"]
-                    for ch in range(nchan):
-                        Flux = Sol[iFunc] * (FreqIn[ch] / RefFreq) ** (ThisAlpha)
-                        if ThisComp["ModelType"] == "Delta":
-                            ModelImage[ch, pol, x, y] += Flux
-                        else:
-                            raise NotImplementedError("Hogbom minor cycle only supports Delta models")
+                ModelImage[:, pol, x, y] += self.FreqMachine.EvalPoly(Sol, FreqIn)
 
         return ModelImage
 

@@ -414,17 +414,22 @@ class ClassImageDeconvMachine():
                     nch,npol,_,_=self._Dirty.shape
                     #Fpol contains the intensities at (x,y) per freq and polarisation
                     Fpol = np.zeros([nch, npol, 1, 1], dtype=np.float32)
+                    PolyCoeffs = np.zeros([npol, self.ModelMachine.FreqMachine.order])
                     if pol_task == "I":
                         indexI = self.PolarizationDescriptor.index("I")
-                        Fpol[:, indexI, 0, 0] = self.ModelMachine.FreqMacine.FitPoly(self._Dirty[:, indexI, x, y])
+                        Fpol[:, indexI, 0, 0] = self._Dirty[:, indexI, x, y]
+                        PolyCoeffs[indexI, :] = self.ModelMachine.FreqMacine.FitPoly(Fpol[:, indexI, 0, 0])
                     elif pol_task == "Q+iU":
                         indexQ = self.PolarizationDescriptor.index("Q")
                         indexU = self.PolarizationDescriptor.index("U")
-                        Fpol[:, indexQ, 0, 0] = self.ModelMachine.FreqMachine.FitPoly(self._Dirty[:, indexQ, x, y])
-                        Fpol[:, indexU, 0, 0] = self.ModelMachine.FreqMachine.FitPoly(self._Dirty[:, indexU, x, y])
+                        Fpol[:, indexQ, 0, 0] = self._Dirty[:, indexQ, x, y]
+                        PolyCoeffs[indexQ, :] = self.ModelMachine.FreqMacine.FitPoly(Fpol[:, indexQ, 0, 0])
+                        Fpol[:, indexU, 0, 0] = self._Dirty[:, indexU, x, y]
+                        PolyCoeffs[indexU, :] = self.ModelMachine.FreqMacine.FitPoly(Fpol[:, indexU, 0, 0])
                     elif pol_task == "V":
                         indexV = self.PolarizationDescriptor.index("V")
-                        Fpol[:, indexV, 0, 0] = self.ModelMachine.FreqMachine.FitPoly(self._Dirty[:, indexV, x, y])
+                        Fpol[:, indexV, 0, 0] = self._Dirty[:, indexV, x, y]
+                        PolyCoeffs[indexV, :] = self.ModelMachine.FreqMacine.FitPoly(Fpol[:, indexV, 0, 0])
                     else:
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
                     nchan, npol, _, _ = Fpol.shape
@@ -443,27 +448,15 @@ class ClassImageDeconvMachine():
                     #Update model
                     if pol_task == "I":
                         indexI = self.PolarizationDescriptor.index("I")
-                        self.ModelMachine.AppendComponentToDictStacked((x, y),
-                                                                       1.0,
-                                                                       np.mean(Fpol[:,indexI,0,0], axis=0),
-                                                                       indexI)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexI, :], indexI)
                     elif pol_task == "Q+iU":
                         indexQ = self.PolarizationDescriptor.index("Q")
                         indexU = self.PolarizationDescriptor.index("U")
-                        self.ModelMachine.AppendComponentToDictStacked((x, y),
-                                                                       1.0,
-                                                                       np.mean(Fpol[:,indexQ,0,0], axis=0),
-                                                                       indexQ)
-                        self.ModelMachine.AppendComponentToDictStacked((x, y),
-                                                                       1.0,
-                                                                       np.mean(Fpol[:,indexU,0,0], axis=0),
-                                                                       indexU)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexQ, :], indexQ)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexU, :], indexU)
                     elif pol_task == "V":
                         indexV = self.PolarizationDescriptor.index("V")
-                        self.ModelMachine.AppendComponentToDictStacked((x, y),
-                                                                       1.0,
-                                                                       np.mean(Fpol[:,indexV,0,0], axis=0),
-                                                                       indexV)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexI, :], indexV)
                     else:
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
 
