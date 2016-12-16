@@ -53,11 +53,11 @@ class ClassInitSSDModelParallel():
             W = WorkerInitMSMF(work_queue,
                                result_queue,
                                self.GD,
-                               self.DicoVariablePSF,
-                               self.DicoDirty,
+                               None,#self.DicoVariablePSF,
+                               None,#self.DicoDirty,
                                self.RefFreq,
                                self.MainCache,
-                               self.ModelImage,
+                               None,#self.ModelImage,
                                ListIslands,
                                self.IdSharedMem)
             workerlist.append(W)
@@ -340,17 +340,20 @@ class WorkerInitMSMF(multiprocessing.Process):
         self.IdSharedMem=IdSharedMem
 
     def Init(self):
+
+        print "sleeeping init0"
+        time.sleep(30)
+        if self.InitMachine is not None: return
         self.InitMachine=ClassInitSSDModel(self.GD,
                                            self.DicoVariablePSF,
                                            self.DicoDirty,
                                            self.RefFreq,
                                            MainCache=self.MainCache,
                                            IdSharedMem=self.IdSharedMem)
-        print "sleeeping init0"
-        time.sleep(30)
         self.InitMachine.setSSDModelImage(self.ModelImage)
         print "sleeeping init1"
         time.sleep(30)
+
 
     def shutdown(self):
         self.exit.set()
@@ -372,6 +375,8 @@ class WorkerInitMSMF(multiprocessing.Process):
 
     def run(self):
         while not self.kill_received and not self.work_queue.empty():
+            self.Init()
+            
             DicoJob = self.work_queue.get()
             try:
                 self.initIsland(DicoJob)
