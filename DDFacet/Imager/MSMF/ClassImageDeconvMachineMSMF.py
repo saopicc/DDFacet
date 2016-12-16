@@ -17,6 +17,9 @@ from DDFacet.Imager import ClassGainMachine
 import cPickle
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
+import traceback
+from DDFacet.Other import MyPickle
+from DDFacet.Array import NpShared
 
 class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
@@ -25,10 +28,12 @@ class ClassImageDeconvMachine():
                  GD=None,SearchMaxAbs=1,CleanMaskImage=None,ModelMachine=None,
                  NFreqBands=1,
                  MainCache=None,
+                 CacheSharedMode=False,
+                 IdSharedMem="",
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         #self.im=CasaImage
-
+        self.IdSharedMem=IdSharedMem
         self.SearchMaxAbs=SearchMaxAbs
         self._ModelImage = None
         self.MaxMinorIter=MaxMinorIter
@@ -53,7 +58,8 @@ class ClassImageDeconvMachine():
         self.maincache = MainCache
         # reset overall iteration counter
         self._niter = 0
-        
+        self.CacheSharedMode=CacheSharedMode
+
         if CleanMaskImage is not None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
@@ -107,21 +113,43 @@ class ClassImageDeconvMachine():
 
         self.DicoMSMachine={}
         if self.maincache is not None:
-            cachepath, valid = self.maincache.checkCache("MSMFMachine",
+            cachepath_DicoFuntions, valid = self.maincache.checkCache("MSMFMachine_DicoFuntions",
                                                          dict([(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
                                                                "MultiFreqs", "ImagerGlobal", "Compression",
                                                                "ImagerCF", "ImagerMainFacet", "MultiScale" ]),
                                                          reset=(self.GD["Caching"]["ResetPSF"] or self.PSFHasChanged or self.GD["Caching"]["ResetMSMF"]))
-
+            cachepath_DicoArrays, _ = self.maincache.checkCache("MSMFMachine_DicoArrays",
+                                                         dict([(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
+                                                               "MultiFreqs", "ImagerGlobal", "Compression",
+                                                               "ImagerCF", "ImagerMainFacet", "MultiScale" ]),
+                                                         reset=(self.GD["Caching"]["ResetPSF"] or self.PSFHasChanged or self.GD["Caching"]["ResetMSMF"]))
         else:
             valid=False
 
         if valid:
-            print>>log,"Initialising MSMF Machine from cache %s"%cachepath
-            facetcache = cPickle.load(file(cachepath))
+            print>>log,"Initialising MSMF Machine from cache %s"%cachepath_DicoFuntions
+            #facetcache = cPickle.load(file(cachepath))
+            facetcache_DicoFuntions = MyPickle.FileToDicoNP(cachepath_DicoFuntions)
+            if self.CacheSharedMode:
+                facetcache_DicoArrays = {}
+                if NpShared.SharedToDico("%sDicoBasisMatrix_F%4.4i"%(self.IdSharedMem,0)) is not None:
+                    for iFacet in range(self.PSFServer.NFacets):
+                        facetcache_DicoArrays[iFacet]=NpShared.SharedToDico("%sDicoBasisMatrix_F%4.4i"%(self.IdSharedMem,iFacet))
+                    DicoAlreadyInShared=True
+                    print>>log,"Has loaded DicoBasisMatrix from shared mem"
+                else:
+                    facetcache_DicoArrays = MyPickle.FileToDicoNP(cachepath_DicoArrays)
+                    print>>log,"Put DicoBasisMatrix in shared"
+                    for iFacet in facetcache_DicoArrays.keys():
+                        facetcache_DicoArrays[iFacet]=NpShared.DicoToShared("%sDicoBasisMatrix_F%4.4i"%(self.IdSharedMem,iFacet),facetcache_DicoArrays[iFacet])
+                    
+            else:
+                facetcache_DicoArrays = MyPickle.FileToDicoNP(cachepath_DicoArrays)
+                print>>log,"Has loaded DicoBasisMatrix from disk %s"%cachepath_DicoArrays
         else:
             print>>log,"Initialising MSMF Machine"
-            facetcache = {}
+            facetcache_DicoFuntions = {}
+            facetcache_DicoArrays = {}
 
         T = ClassTimeIt.ClassTimeIt()
         T.disable() 
@@ -137,25 +165,41 @@ class ClassImageDeconvMachine():
             T.timeit("set")
             MSMachine.FindPSFExtent(Method="FromSideLobe")
             T.timeit("find")
-            cachedscales, cachedmatrix, cachedGlobalWeightFunction = facetcache.get(iFacet,(None, None, None))
-            
-            MSMachine.setGlobalWeightFunction(cachedGlobalWeightFunction)
+
+            ListDicoScales=facetcache_DicoFuntions.get(iFacet,None)
+            DicoBasisMatrix=facetcache_DicoArrays.get(iFacet,None)
+
+            MSMachine.setListDicoScales(ListDicoScales)
+            MSMachine.setDicoBasisMatrix(DicoBasisMatrix)
+
             T.timeit("get")
-            cachedscales = MSMachine.MakeMultiScaleCube(cachedscales)
+            MSMachine.MakeMultiScaleCube()
             T.timeit("make")
-            cachedmatrix = MSMachine.MakeBasisMatrix(cachedmatrix)
+
+            MSMachine.MakeBasisMatrix()
             T.timeit("make2")
-            facetcache[iFacet] = cachedscales, cachedmatrix, MSMachine.GlobalWeightFunction
+            facetcache_DicoFuntions[iFacet] = MSMachine.ListScales
+            facetcache_DicoArrays[iFacet] = MSMachine.DicoBasisMatrix
             self.DicoMSMachine[iFacet]=MSMachine
 
         if self.maincache is not None:
             if not valid:
-                try:
-                    cPickle.dump(facetcache, file(cachepath, 'w'), 2)
-                    self.maincache.saveCache("MSMFMachine")
-                except:
-                    print>>log, traceback.format_exc()
-                    print>>log, ModColor.Str("WARNING: MSMF cache could not be written, see error report above. Proceeding anyway.")
+                MyPickle.DicoNPToFile(facetcache_DicoFuntions,cachepath_DicoFuntions)
+                MyPickle.DicoNPToFile(facetcache_DicoArrays,cachepath_DicoArrays)
+                #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
+                self.maincache.saveCache("MSMFMachine_DicoFuntions")
+                self.maincache.saveCache("MSMFMachine_DicoArrays")
+                # try:
+                #     MyPickle.DicoNPToFile(facetcache,cachepath)
+                #     #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
+                #     self.maincache.saveCache("MSMFMachine")
+                #     if self.CacheSharedMode and not DicoAlreadyInShared:
+                #         for iFacet in facetcache.keys():
+                #             facetcache[iFacet]["DicoBasisMatrix"]=NpShared.DicoToShared("%sDicoBasisMatrix_F%4.4i"%(self.IdSharedMem,iFacet),facetcache[iFacet]["DicoBasisMatrix"])
+                            
+                # except:
+                #     print>>log, traceback.format_exc()
+                #     print>>log, ModColor.Str("WARNING: MSMF cache could not be written, see error report above. Proceeding anyway.")
 
     def SetDirty(self,DicoDirty):
         # if len(PSF.shape)==4:

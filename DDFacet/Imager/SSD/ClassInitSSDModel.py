@@ -30,7 +30,8 @@ class ClassInitSSDModelParallel():
                                            self.DicoVariablePSF,
                                            self.DicoDirty,
                                            self.RefFreq,
-                                           MainCache=self.MainCache)
+                                           MainCache=self.MainCache,
+                                           IdSharedMem=self.IdSharedMem)
 
     def setSSDModelImage(self,ModelImage):
         self.ModelImage=ModelImage
@@ -110,7 +111,7 @@ class ClassInitSSDModelParallel():
 ######################################################################################################
 
 class ClassInitSSDModel():
-    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,MainCache=None):
+    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,MainCache=None,IdSharedMem=""):
 
         self.DicoVariablePSF=DicoVariablePSF
         self.DicoDirty=DicoDirty
@@ -143,7 +144,7 @@ class ClassInitSSDModel():
 
         
         self.MinorCycleConfig=MinorCycleConfig
-        self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,**self.MinorCycleConfig)
+        self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,CacheSharedMode=True,IdSharedMem=IdSharedMem,**self.MinorCycleConfig)
         self.Margin=100
         self.DicoDirty=DicoDirty
         self.Dirty=DicoDirty["ImagData"]
@@ -335,7 +336,8 @@ class WorkerInitMSMF(multiprocessing.Process):
                                            self.DicoVariablePSF,
                                            self.DicoDirty,
                                            self.RefFreq,
-                                           MainCache=self.MainCache)
+                                           MainCache=self.MainCache,
+                                           IdSharedMem=self.IdSharedMem)
         self.InitMachine.setSSDModelImage(self.ModelImage)
 
     def shutdown(self):

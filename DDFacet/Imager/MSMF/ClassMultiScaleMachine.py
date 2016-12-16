@@ -41,7 +41,9 @@ class ClassMultiScaleMachine():
         self.SolveMode = self.GD["MultiScale"]["SolverMode"]
         self._stall_threshold = self.GD["Debugging"]["CleanStallThreshold"]
         self.GlobalWeightFunction=None
-
+        self.ListScales=None
+        self.CubePSFScales=None
+        self.IsInit_MultiScaleCube=False
     def setModelMachine(self,ModelMachine):
         self.ModelMachine=ModelMachine
 
@@ -154,10 +156,17 @@ class ClassMultiScaleMachine():
         x0,x1,y0,y1=self.PSFExtent
         self.SubPSF=self._PSF[:,:,x0:x1,y0:y1]
 
+    def setListDicoScales(self,ListScales):
+        self.ListScales=ListScales
 
+    def setDicoBasisMatrix(self,DicoBasisMatrix):
+        if DicoBasisMatrix is None: return
+        self.DicoBasisMatrix=DicoBasisMatrix
+        self.CubePSFScales=DicoBasisMatrix["CubePSFScales"]
+        self.GlobalWeightFunction=DicoBasisMatrix["GlobalWeightFunction"]
 
-    def MakeMultiScaleCube(self, cachedscales=None):
-        if self.CubePSFScales is not None: return
+    def MakeMultiScaleCube(self):
+        if self.IsInit_MultiScaleCube: return
         T=ClassTimeIt.ClassTimeIt("MakeMultiScaleCube")
         T.disable()
         #print>>log, "Making MultiScale PSFs..."
@@ -228,9 +237,7 @@ class ClassMultiScaleMachine():
         self.Alpha=Alpha
         nch,_,nx,ny=self.SubPSF.shape
 
-        if cachedscales:
-            self.ListScales, self.CubePSFScales = cachedscales
-        else:
+        if self.CubePSFScales is None or self.ListScales is None:
             #self.ListSumFluxes = []
 
             self.ListScales = []
@@ -361,6 +368,7 @@ class ClassMultiScaleMachine():
 
         self.WeightWidth=1.5
         self.SupWeightWidth=np.max([3.*self.WeightWidth,15])
+
         T.timeit("init2")
         if self.GlobalWeightFunction is None:
             CellSizeRad=1.
@@ -383,12 +391,9 @@ class ClassMultiScaleMachine():
             #ScaleMax=np.max(Scales)
             #self.SupWeightWidth=ScaleMax#3.*self.WeightWidth
         T.timeit("other")
-
+        self.IsInit_MultiScaleCube=True
         return self.ListScales, self.CubePSFScales
         #print>>log, "   ... Done"
-
-    def setGlobalWeightFunction(self,GlobalWeightFunction):
-        self.GlobalWeightFunction=GlobalWeightFunction
 
     def MakeBasisMatrix(self, cachedmatrix=None):
         # self.OPFT=np.real
@@ -504,7 +509,8 @@ class ClassMultiScaleMachine():
                          "CubePSF":CubePSF,
                          "WeightFunction":(WeightFunction),
                          "fWeightFunction":UVTaper,
-                         "CubePSFScales":self.CubePSFScales}
+                         "CubePSFScales":self.CubePSFScales,
+                         "GlobalWeightFunction":self.GlobalWeightFunction}
 
 
         if self.GD["Debugging"]["DumpCleanSolutions"]:

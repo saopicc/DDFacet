@@ -798,7 +798,7 @@ class ClassFacetMachine():
             print>>log,"  Building Facets-PSF normalised by their maximum"
             self.DicoPSF["PeakNormed_CubeMeanVariablePSF"]=np.zeros_like(self.DicoPSF["CubeMeanVariablePSF"])
             self.DicoPSF["PeakNormed_CubeVariablePSF"]=np.zeros_like(self.DicoPSF["CubeVariablePSF"])
-            for iFacet in sorted(self.DicoImager.keys()):for iFacet in range(self.NFacets):
+            for iFacet in sorted(self.DicoImager.keys()):
                 self.DicoPSF["PeakNormed_CubeMeanVariablePSF"][iFacet]=CubeMeanVariablePSF[iFacet]/np.max(CubeMeanVariablePSF[iFacet])
                 for iChan in range(nch):
                     self.DicoPSF["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]/np.max(CubeVariablePSF[iFacet,iChan])
