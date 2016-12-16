@@ -48,7 +48,8 @@ class ClassInitSSDModelParallel():
         workerlist=[]
 
         MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","GiveModelMachine","ClassModelMachineMSMF"])
-        
+        #MyLogger.setLoud("ClassImageDeconvMachineMSMF")
+
         print>>log,"Launch HMP workers"
         for ii in range(NCPU):
             W = WorkerInitMSMF(work_queue,
@@ -125,7 +126,7 @@ class ClassInitSSDModel():
         self.GD["ImagerDeconv"]["MinorCycleMode"]="MSMF"
         self.GD["ImagerDeconv"]["CycleFactor"]=0
         self.GD["ImagerDeconv"]["PeakFactor"]=0.01
-        self.GD["ImagerDeconv"]["RMSFactor"]=0
+        self.GD["ImagerDeconv"]["RMSFactor"]=1.
         self.GD["ImagerDeconv"]["Gain"]=0.1
 
         self.GD["MultiScale"]["Scales"]=[0,1,2,4]
@@ -173,6 +174,7 @@ class ClassInitSSDModel():
 
     def setSubDirty(self,ListPixParms):
         T=ClassTimeIt.ClassTimeIt("InitSSD.setSubDirty")
+        T.disable()
 
         x,y=np.array(ListPixParms).T
         x0,x1=x.min(),x.max()+1
@@ -236,6 +238,7 @@ class ClassInitSSDModel():
 
     def addSubModelToSubDirty(self):
         T=ClassTimeIt.ClassTimeIt("InitSSD.addSubModelToSubDirty")
+        T.disable()
         ConvModel=np.zeros_like(self.SubSSDModelImage)
         nch,_,N0x,N0y=ConvModel.shape
         indx,indy=np.where(self.SubSSDModelImage[0,0]!=0)
@@ -250,7 +253,7 @@ class ClassInitSSDModel():
             x0d,x1d,y0d,y1d=Aedge
             x0p,x1p,y0p,y1p=Bedge
             ConvModel[...,x0d:x1d,y0d:y1d]+=ThisPSF[...,x0p:x1p,y0p:y1p]*self.SubSSDModelImage[...,i,j].reshape((-1,1,1,1))
-        T.timeit("1")
+        T.timeit("1 %s"%(str(ConvModel.shape)))
 
         MeanConvModel=np.mean(ConvModel,axis=0).reshape((1,1,N0x,N0y))
         self.DicoSubDirty['ImagData']+=ConvModel
@@ -273,7 +276,7 @@ class ClassInitSSDModel():
             
     def giveModel(self,ListPixParms):
         T=ClassTimeIt.ClassTimeIt("giveModel")
-        #T.disable()
+        T.disable()
         self.setSubDirty(ListPixParms)
         T.timeit("setsub")
         ModConstructor = ClassModModelMachine(self.GD)
@@ -297,7 +300,7 @@ class ClassInitSSDModel():
         #print "update"
         #time.sleep(30)
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
-        T.timeit("deconv")
+        T.timeit("deconv %s"%str(self.DicoSubDirty['ImagData'].shape))
         #print "deconv"
         #time.sleep(30)
 
