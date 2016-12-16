@@ -16,6 +16,7 @@ import traceback
 from DDFacet.Other import ModColor
 
 
+
 class ClassInitSSDModelParallel():
     def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,MainCache=None,NCPU=1,IdSharedMem=""):
         self.DicoVariablePSF=DicoVariablePSF
@@ -113,7 +114,6 @@ class ClassInitSSDModelParallel():
 
 class ClassInitSSDModel():
     def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,MainCache=None,IdSharedMem="",DoWait=False):
-
         self.DicoVariablePSF=DicoVariablePSF
         self.DicoDirty=DicoDirty
         GD=copy.deepcopy(GD)
@@ -172,6 +172,8 @@ class ClassInitSSDModel():
         #self.DicoBasicModelMachine=copy.deepcopy(self.DeconvMachine.ModelMachine.DicoSMStacked)
 
     def setSubDirty(self,ListPixParms):
+        T=ClassTimeIt.ClassTimeIt("InitSSD.setSubDirty")
+
         x,y=np.array(ListPixParms).T
         x0,x1=x.min(),x.max()+1
         y0,y1=y.min(),y.max()+1
@@ -188,7 +190,7 @@ class ClassInitSSDModel():
         x0d,x1d,y0d,y1d=Aedge
         x0p,x1p,y0p,y1p=Bedge
         self.SubDirty=self.Dirty[:,:,x0d:x1d,y0d:y1d].copy()
-
+        T.timeit("0")
         self.blc=(x0d,y0d)
         self.DeconvMachine.PSFServer.setBLC(self.blc)
         _,_,nx,ny=self.SubDirty.shape
@@ -203,6 +205,7 @@ class ClassInitSSDModel():
             else:
                 self.DicoSubDirty[key]=self.DicoDirty[key]
 
+        T.timeit("1")
         # ModelImage=np.zeros_like(self.Dirty)
         # ModelImage[:,:,N0/2,N0/2]=10
         # ModelImage[:,:,N0/2+3,N0/2]=10
@@ -225,12 +228,14 @@ class ClassInitSSDModel():
             for ch in range(self.NFreqBands):
                 self.SubSSDModelImage[ch,0][np.logical_not(self.SubMask)]=0
             self.addSubModelToSubDirty()
+        T.timeit("2")
 
 
     def setSSDModelImage(self,ModelImage):
         self.SSDModelImage=ModelImage
 
     def addSubModelToSubDirty(self):
+        T=ClassTimeIt.ClassTimeIt("InitSSD.addSubModelToSubDirty")
         ConvModel=np.zeros_like(self.SubSSDModelImage)
         nch,_,N0x,N0y=ConvModel.shape
         indx,indy=np.where(self.SubSSDModelImage[0,0]!=0)
@@ -238,17 +243,20 @@ class ClassInitSSDModel():
         self.DeconvMachine.PSFServer.setLocation(*self.xy0)
         PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
         N1=PSF.shape[-1]
+        T.timeit("0")
         for i,j in zip(indx.tolist(),indy.tolist()):
             ThisPSF=np.roll(np.roll(PSF,i-xc,axis=-2),j-yc,axis=-1)
             Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
             x0d,x1d,y0d,y1d=Aedge
             x0p,x1p,y0p,y1p=Bedge
             ConvModel[...,x0d:x1d,y0d:y1d]+=ThisPSF[...,x0p:x1p,y0p:y1p]*self.SubSSDModelImage[...,i,j].reshape((-1,1,1,1))
+        T.timeit("1")
 
         MeanConvModel=np.mean(ConvModel,axis=0).reshape((1,1,N0x,N0y))
         self.DicoSubDirty['ImagData']+=ConvModel
         self.DicoSubDirty['MeanImage']+=MeanConvModel
         #print "MAX=",np.max(self.DicoSubDirty['MeanImage'])
+        T.timeit("2")
 
         # import pylab
         # pylab.clf()
@@ -265,7 +273,7 @@ class ClassInitSSDModel():
             
     def giveModel(self,ListPixParms):
         T=ClassTimeIt.ClassTimeIt("giveModel")
-        T.disable()
+        #T.disable()
         self.setSubDirty(ListPixParms)
         T.timeit("setsub")
         ModConstructor = ClassModModelMachine(self.GD)

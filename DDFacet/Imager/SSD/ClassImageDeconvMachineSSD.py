@@ -417,8 +417,15 @@ class ClassImageDeconvMachine():
                                                                 NCPU=self.NCPU,
                                                                 IdSharedMem=self.IdSharedMem)
         InitMachine.setSSDModelImage(ModelImage)
-        self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(self.ListIslands)
+        self.ListSizeIslands=[]
+        for ThisPixList in self.ListIslands:
+            x,y=np.array(ThisPixList,dtype=np.float32).T
+            dx,dy=x.max()-x.min(),y.max()-y.min()
+            dd=np.max([dx,dy])+1
+            self.ListSizeIslands.append(dd)
 
+        ListIslandsInit=[self.ListIslands[iIsland] for iIsland in range(len(self.ListIslands)) if self.ListSizeIslands[iIsland]>=self.GD["SSDClean"]["MinSizeInitHMP"]]
+        self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(ListIslandsInit)
 
 
     def setChannel(self,ch=0):
@@ -503,10 +510,10 @@ class ClassImageDeconvMachine():
             for iIsland,Island in enumerate(self.ListIslands):
                 if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]:
                     ListBigIslands.append(Island)
-                    ListInitBigIslands.append(self.DicoInitIndiv[iIsland])
+                    ListInitBigIslands.append(self.DicoInitIndiv.get(iIsland,None))
                 else:
                     ListSmallIslands.append(Island)
-                    ListInitSmallIslands.append(self.DicoInitIndiv[iIsland])
+                    ListInitSmallIslands.append(self.DicoInitIndiv.get(iIsland,None))
 
             if len(ListSmallIslands)>0:
                 print>>log,"Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["SSDClean"]["ConvFFTSwitch"])
