@@ -6,6 +6,7 @@ import numpy as np
 
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import ModColor
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Array import NpShared
 
@@ -78,9 +79,15 @@ class ProcessPool (object):
         self.affinity = self.GD["Parallel"]["Affinity"] if affinity is None else affinity
         self.cpustep = abs(self.affinity) or 1
         self.ncpu = self.GD["Parallel"]["NCPU"] if ncpu is None else ncpu
+        maxcpu = psutil.cpu_count() / self.cpustep
         # if NCPU is 0, set to number of CPUs on system
         if not self.ncpu:
-            self.ncpu = psutil.cpu_count() / self.cpustep
+            self.ncpu = maxcpu
+        elif self.ncpu > maxcpu:
+            print>>log,ModColor.Str("NCPU=%d is too high for this setup (%d cores, affinity %d)" %
+                                    (self.ncpu, psutil.cpu_count(), self.affinity))
+            print>>log,ModColor.Str("Falling back to NCPU=%d" % (maxcpu))
+            self.ncpu = maxcpu
         self.procinfo = psutil.Process()  # this will be used to control CPU affinity
         # not convinced by the work producer pattern so this flag can enable/disable it
         self._create_work_producer = False
@@ -109,38 +116,30 @@ class ProcessPool (object):
             for item in joblist:
                 m_work_queue.put(item)  # possible issue if no space for 60 seconds
 
+        # generate list of CPU cores for workers to run on
+        if not self.affinity or self.affinity == 1:
+            cores = range(self.ncpu)
+        elif self.affinity == 2:
+            cores = range(0, self.ncpu*2, 2)
+        elif self.affinity == -2:
+            cores = range(0, self.ncpu*2, 4) + range(1, self.ncpu*2, 4)
+        else:
+            raise ValueError,"unknown affinity setting %d" % self.affinity
+
         # create worker processes
-        for cpu in xrange(self.ncpu):
-            p = multiprocessing.Process(target=self._work_consumer, args=(m_work_queue, m_result_queue, cpu, target, args, kwargs))
+        for cpu in cores:
+            p = multiprocessing.Process(target=self._work_consumer,
+                    kwargs=dict(m_work_queue=m_work_queue, m_result_queue=m_result_queue,
+                                cpu=cpu, affinity=[cpu] if self.affinity else None,
+                                target=target, args=args, kwargs=kwargs))
             procs.append(p)
 
-        # generate list of CPU cores for workers to run on
-        if self.affinity:
-            if self.affinity == 1:
-                cores = range(self.ncpu)
-            elif self.affinity == 2:
-                cores = range(0, self.ncpu*2, 2)
-            elif self.affinity == -2:
-                cores = range(0, self.ncpu*2, 4) + range(1, self.ncpu*2, 4)
-            else:
-                raise ValueError,"unknown affinity setting %d" % self.affinity
-
         print>> log, "%s: starting %d workers for %d jobs%s" % (title or "", self.ncpu, len(joblist),
-            ", CPU cores " + " ".join(map(str,cores)) if self.affinity else "")
+                        (", CPU cores " + " ".join(map(str,cores)) if self.affinity else ""))
         # fork off child processes
         if parallel:
-            parent_affinity = self.procinfo.cpu_affinity()
-            try:
-                # work producer process does nothing much, so I won't pin it
-                work_p and work_p.start()
-                main_core = 0  # CPU affinity placement
-                # start all processes and pin them each to a core
-                for i, p in enumerate(procs):
-                    if self.affinity:
-                        self.procinfo.cpu_affinity([cores[i]])
-                    p.start()
-            finally:
-                self.procinfo.cpu_affinity(parent_affinity)
+            for p in procs:
+                p.start()
 
         njobs = len(joblist)
         iResult = 0
@@ -244,9 +243,11 @@ class ProcessPool (object):
         return ProcessPool.cpu_id
 
     @staticmethod
-    def _work_consumer(m_work_queue, m_result_queue, cpu, target, args=(), kwargs={}):
+    def _work_consumer(m_work_queue, m_result_queue, cpu, affinity, target, args=(), kwargs={}):
         """Consumer worker for ProcessPool"""
         ProcessPool.cpu_id = cpu
+        if affinity:
+            psutil.Process().cpu_affinity(affinity)
         timer = ClassTimeIt.ClassTimeIt()
         pill = True
         # While no poisoned pill has been given grab items from the queue.

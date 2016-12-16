@@ -3,6 +3,7 @@ import SharedArray
 from DDFacet.Other import ModColor
 import numpy as np
 from DDFacet.Other import MyLogger
+import traceback
 log = MyLogger.getLogger("NpShared")
 import os.path
 
@@ -28,7 +29,7 @@ def SizeShm():
 def CreateShared(Name, shape, dtype):
     try:
         a = SharedArray.create(Name, shape, dtype=dtype)
-    except:
+    except OSError:
         print>> log, ModColor.Str("File %s exists, deleting" % Name)
         DelArray(Name)
         a = SharedArray.create(Name, shape, dtype=dtype)

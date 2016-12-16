@@ -330,8 +330,11 @@ def main(OP=None, messages=[]):
 
     if "Clean" in Mode:
         Imager.main()
-    if "Dirty" in Mode or "PSF" in "Mode":
-        Imager.GiveDirty(psf="PSF" in Mode)
+    elif "Dirty" in Mode or "PSF" in "Mode":
+        sparsify = DicoConfig["Compression"]["Sparsification"]
+        if sparsify and isinstance(sparsify, list):
+            sparsify = sparsify[0]
+        Imager.GiveDirty(psf="PSF" in Mode, sparsify=sparsify)
 
     # open default viewer, these options should match those in
     # ClassDeconvMachine if changed:

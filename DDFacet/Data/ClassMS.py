@@ -988,20 +988,6 @@ class ClassMS():
         flags1 = flags.any(axis=2)
         flags[flags1] = True
 
-        # print>>log,"  forming per-antenna index"
-        # per each antenna, form up boolean mask indicating its rows
-        antenna_rows = [ (A0 == A)|(A1 == A) for A in xrange(self.na) ]
-        # print>>log,"  row index formed"
-
-        antenna_flagfrac = [ flags1[rows].sum()/float(flags1[rows].size or 1) for rows in antenna_rows ]
-        print>>log, "  flagged fractions per antenna: %s" % " ".join([ "%.2f"%frac for frac in antenna_flagfrac])
-
-        FlagAntNumber = [ ant for ant,frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag ]
-
-        for A in FlagAntNumber:
-            print>> log, "    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
-                         (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%")
-
         if self.DicoSelectOptions["UVRangeKm"] is not None:
             d0, d1 = self.DicoSelectOptions["UVRangeKm"]
             print>> log, "  flagging uv data outside uv distance of [%5.1f~%5.1f] km" % (d0, d1)
@@ -1018,16 +1004,6 @@ class ClassMS():
             ind = np.where((tt >= st0) & (tt < st1))[0]
             flags[ind, :, :] = True
 
-        if self.DicoSelectOptions["FlagAnts"] != None:
-            FlagAnts = self.DicoSelectOptions["FlagAnts"]
-            if not ((FlagAnts == None) | (FlagAnts == "") | (FlagAnts == [])):
-                if type(FlagAnts) == str: FlagAnts = [FlagAnts]
-                for Name in FlagAnts:
-                    for iAnt in range(self.na):
-                        if Name in self.StationNames[iAnt]:
-                            print>> log, "  flagging antenna #%2.2i[%s]" % (iAnt, self.StationNames[iAnt])
-                            FlagAntNumber.append(iAnt)
-
         if self.DicoSelectOptions["DistMaxToCore"] != None:
             DMax = self.DicoSelectOptions["DistMaxToCore"] * 1e3
             X, Y, Z = self.StationPos.T
@@ -1038,6 +1014,31 @@ class ClassMS():
                 print>> log, "  flagging antenna #%2.2i[%s] (distance to core: %.1f km)" % (
                 iAnt, self.StationNames[iAnt], Dist[iAnt] / 1e3)
                 FlagAntNumber.append(iAnt)
+
+        # print>>log,"  forming per-antenna index"
+        # per each antenna, form up boolean mask indicating its rows
+        antenna_rows = [(A0 == A) | (A1 == A) for A in xrange(self.na)]
+        # print>>log,"  row index formed"
+
+        antenna_flagfrac = [flags1[rows].sum() / float(flags1[rows].size or 1) for rows in antenna_rows]
+        print>> log, "  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac])
+
+        FlagAntNumber = [ant for ant, frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag]
+
+        for A in FlagAntNumber:
+            print>> log, "    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
+                         (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%")
+
+        if self.DicoSelectOptions["FlagAnts"] != None:
+            FlagAnts = self.DicoSelectOptions["FlagAnts"]
+            if not ((FlagAnts == None) | (FlagAnts == "") | (FlagAnts == [])):
+                if type(FlagAnts) == str: FlagAnts = [FlagAnts]
+                for Name in FlagAnts:
+                    for iAnt in range(self.na):
+                        if Name in self.StationNames[iAnt]:
+                            print>> log, "  explicitly flagging antenna #%2.2i[%s]" % (
+                            iAnt, self.StationNames[iAnt])
+                            FlagAntNumber.append(iAnt)
 
         for A in FlagAntNumber:
             flags[antenna_rows[A], :, :] = True

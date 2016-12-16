@@ -540,10 +540,8 @@ class ClassFacetMachine():
         NFacets = len(self.DicoImager.keys())
 
         # check if spacial weights are cached
-        cachepath, cachevalid = self.VS.maincache.checkCache(
-            "FacetData",
-            dict(ImagerCF=self.GD["ImagerCF"], ImagerMainFacet=self.GD["ImagerMainFacet"]),
-            directory=True)
+        cachekey = dict(ImagerCF=self.GD["ImagerCF"], ImagerMainFacet=self.GD["ImagerMainFacet"])
+        cachepath, cachevalid = self.VS.maincache.checkCache("FacetData", cachekey, directory=True)
         loaded = False
         while not loaded:
             if not cachevalid:
@@ -571,14 +569,17 @@ class ClassFacetMachine():
                 sw = NpShared.GiveArray(self.VS.maincache.getCacheURL("FacetData/SW", facet=iFacet))
                 wterm = NpShared.GiveArray(self.VS.maincache.getCacheURL("FacetData/WTerm", facet=iFacet))
                 sphe = NpShared.GiveArray(self.VS.maincache.getCacheURL("FacetData/Sphe", facet=iFacet))
-                # check for cache loading errors
+                # if loading from cache, failure is permitted -- go back and regenerate
+                # if loading from just-generated files, failure means something is truly wrong
                 if sw is None or wterm is None or sphe is None:
                     if cachevalid:
-                        cachevalid = False
                         print>>log, ModColor.Str("  Failed to load from cache. Cache invalid? Will re-generate")
+                        # re-check cache with reset=True: this means cache will be deleted
+                        # this is a good idea in case it got corrupted (due e.g. to previous imager run being interrupted)
+                        self.VS.maincache.checkCache("FacetData", cachekey, directory=True, reset=True)
                         break
                     else:
-                        raise RuntimeError,"failed to load W terms into main process. This is a bug!"
+                        raise RuntimeError,"failed to load W terms into main process."
                 self.SpacialWeigth[iFacet] = sw.copy()
                 self._wterms[iFacet] = wterm.copy()
                 self._sphes[iFacet] = sphe.copy()
