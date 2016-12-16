@@ -123,6 +123,7 @@ class ClassImageDeconvMachine():
                                                                "MultiFreqs", "ImagerGlobal", "Compression",
                                                                "ImagerCF", "ImagerMainFacet", "MultiScale" ]),
                                                          reset=(self.GD["Caching"]["ResetPSF"] or self.PSFHasChanged or self.GD["Caching"]["ResetMSMF"]))
+
         else:
             valid=False
 
