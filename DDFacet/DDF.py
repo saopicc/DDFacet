@@ -213,6 +213,7 @@ def read_options():
     OP.add_option("ArtifactRobust")
     OP.add_option("ConvFFTSwitch")
     OP.add_option("RestoreMetroSwitch")
+    OP.add_option("MinSizeInitHMP")
 
     OP.OptionGroup("* GA Options","GAClean")
     OP.add_option("NSourceKin")

@@ -384,7 +384,11 @@ class ClassImageDeconvMachine():
         ListIslandsOut=[self.ListIslands[i] for i in ind]
         self.ListIslands=ListIslandsOut
 
-        self.DicoInitIndiv=None
+        self.InitMSMF()
+
+    def InitMSMF(self):
+        self.DicoInitIndiv={}
+        if self.GD["SSDClean"]["MinSizeInitHMP"]==-1: return
 
 
         # ##########################################################################
@@ -409,14 +413,6 @@ class ClassImageDeconvMachine():
         
         # ######################
         # Parallel
-        InitMachine=ClassInitSSDModel.ClassInitSSDModelParallel(self.GD,
-                                                                self.DicoVariablePSF,
-                                                                self.DicoDirty,
-                                                                self.ModelMachine.RefFreq,
-                                                                MainCache=self.maincache,
-                                                                NCPU=self.NCPU,
-                                                                IdSharedMem=self.IdSharedMem)
-        InitMachine.setSSDModelImage(ModelImage)
         self.ListSizeIslands=[]
         for ThisPixList in self.ListIslands:
             x,y=np.array(ThisPixList,dtype=np.float32).T
@@ -425,7 +421,16 @@ class ClassImageDeconvMachine():
             self.ListSizeIslands.append(dd)
 
         ListIslandsInit=[self.ListIslands[iIsland] for iIsland in range(len(self.ListIslands)) if self.ListSizeIslands[iIsland]>=self.GD["SSDClean"]["MinSizeInitHMP"]]
-        self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(ListIslandsInit)
+        if len(ListIslandsInit)>0:
+            InitMachine=ClassInitSSDModel.ClassInitSSDModelParallel(self.GD,
+                                                                    self.DicoVariablePSF,
+                                                                    self.DicoDirty,
+                                                                    self.ModelMachine.RefFreq,
+                                                                    MainCache=self.maincache,
+                                                                    NCPU=self.NCPU,
+                                                                    IdSharedMem=self.IdSharedMem)
+            InitMachine.setSSDModelImage(ModelImage)
+            self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(ListIslandsInit)
 
 
     def setChannel(self,ch=0):

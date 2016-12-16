@@ -129,7 +129,7 @@ class ClassEvolveGA():
             #SModelArrayMP,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
             #AModelArrayMP=None
             DicoModelMP=self.ListInitIslands[self.iIsland]
-            if DicoModel is not None:
+            if DicoModelMP is not None:
                 SModelArrayMP,AModelArrayMP=DicoModelMP["S"],DicoModelMP["Alpha"]
             else:
                 SModelArrayMP,_=self.ArrayMethodsMachine.DeconvCLEAN()
