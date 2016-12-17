@@ -539,7 +539,7 @@ class ClassFacetMachine():
         """
         NFacets = len(self.DicoImager.keys())
 
-        # check if spacial weights are cached
+        # check if w-kernels, spacial weights, etc. are cached
         cachekey = dict(ImagerCF=self.GD["ImagerCF"], ImagerMainFacet=self.GD["ImagerMainFacet"])
         cachepath, cachevalid = self.VS.maincache.checkCache("FacetData", cachekey, directory=True)
         loaded = False
@@ -575,8 +575,9 @@ class ClassFacetMachine():
                     if cachevalid:
                         print>>log, ModColor.Str("  Failed to load from cache. Cache invalid? Will re-generate")
                         # re-check cache with reset=True: this means cache will be deleted
-                        # this is a good idea in case it got corrupted (due e.g. to previous imager run being interrupted)
+                        # this is in case it got corrupted (due e.g. to previous run being interrupted)
                         self.VS.maincache.checkCache("FacetData", cachekey, directory=True, reset=True)
+                        cachevalid = False  # go back up to regenerate w-terms
                         break
                     else:
                         raise RuntimeError,"failed to load W terms into main process."
