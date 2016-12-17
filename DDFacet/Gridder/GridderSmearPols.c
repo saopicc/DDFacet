@@ -332,7 +332,7 @@ void gridderWPol(PyArrayObject *grid,
     float complex *dCorrTerm = calloc(1,(NMaxRow)*sizeof(float complex));
     // and this indicates for which channel the CurrentCorrTerm is currently computed
     int * CurrentCorrChan = calloc(1,(NMaxRow)*sizeof(int));
-
+    int CurrentCorrRow0 = -1;
     // ########################################################
 
 
@@ -417,7 +417,14 @@ void gridderWPol(PyArrayObject *grid,
 	ThisSumSqWeightsChan[visChan]=0;
       }
 
-
+    // when moving to a new block of rows, init this to -1 so the code below knows to initialize
+    // CurrentCorrTer when the first channel of each row comes in
+    if( Row[0] != CurrentCorrRow0 )
+    {
+      for (inx=0; inx<NRowThisBlock; inx++)
+           CurrentCorrChan[inx] = -1;
+      CurrentCorrRow0 = Row[0];
+    }
 
       //int ThisBlockAllFlagged=1;
       float visChanMean=0.;
