@@ -38,7 +38,7 @@ class ClassInitSSDModelParallel():
     def setSSDModelImage(self,ModelImage):
         self.ModelImage=ModelImage
 
-    def giveDicoInitIndiv(self,ListIslands,Parallel=False):
+    def giveDicoInitIndiv(self,ListIslands,Parallel=True):
         NCPU=self.NCPU
         work_queue = multiprocessing.JoinableQueue()
         ListIslands=ListIslands#[300:308]
