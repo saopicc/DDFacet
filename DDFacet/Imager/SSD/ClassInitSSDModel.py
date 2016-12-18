@@ -38,12 +38,16 @@ class ClassInitSSDModelParallel():
     def setSSDModelImage(self,ModelImage):
         self.ModelImage=ModelImage
 
-    def giveDicoInitIndiv(self,ListIslands,Parallel=True):
+    def giveDicoInitIndiv(self,ListIslands,ListDoIsland=None,Parallel=True):
         NCPU=self.NCPU
         work_queue = multiprocessing.JoinableQueue()
         ListIslands=ListIslands#[300:308]
+        DoIsland=True
         for iIsland in range(len(ListIslands)):
-            work_queue.put({"iIsland":iIsland})
+            if ListDoIsland is not None:
+                DoIsland=ListDoIsland[iIsland]
+            if DoIsland: work_queue.put({"iIsland":iIsland})
+
         result_queue=multiprocessing.JoinableQueue()
         NJobs=work_queue.qsize()
         workerlist=[]
@@ -128,7 +132,7 @@ class ClassInitSSDModel():
         self.GD["ImagerDeconv"]["CycleFactor"]=0
         self.GD["ImagerDeconv"]["PeakFactor"]=0.01
         self.GD["ImagerDeconv"]["RMSFactor"]=1.
-        self.GD["ImagerDeconv"]["Gain"]=0.1
+        self.GD["ImagerDeconv"]["Gain"]=0.2
 
         self.GD["MultiScale"]["Scales"]=[0,1,2,4]
         self.GD["MultiScale"]["SolverMode"]="NNLS"

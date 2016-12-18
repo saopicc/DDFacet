@@ -422,8 +422,9 @@ class ClassImageDeconvMachine():
             dd=np.max([dx,dy])+1
             self.ListSizeIslands.append(dd)
 
-        ListIslandsInit=[self.ListIslands[iIsland] for iIsland in range(len(self.ListIslands)) if self.ListSizeIslands[iIsland]>=self.GD["SSDClean"]["MinSizeInitHMP"]]
-        if len(ListIslandsInit)>0:
+        ListDoMSMFIslandsInit=[True if self.ListSizeIslands[iIsland]>=self.GD["SSDClean"]["MinSizeInitHMP"] else False for iIsland in range(len(self.ListIslands))]
+        
+        if np.count_nonzero(ListDoMSMFIslandsInit)>0:
             InitMachine=ClassInitSSDModel.ClassInitSSDModelParallel(self.GD,
                                                                     self.DicoVariablePSF,
                                                                     self.DicoDirty,
@@ -432,7 +433,7 @@ class ClassImageDeconvMachine():
                                                                     NCPU=self.NCPU,
                                                                     IdSharedMem=self.IdSharedMem)
             InitMachine.setSSDModelImage(ModelImage)
-            self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(ListIslandsInit)
+            self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(self.ListIslands,ListDoIsland=ListDoMSMFIslandsInit)
 
 
     def setChannel(self,ch=0):
