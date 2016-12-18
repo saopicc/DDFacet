@@ -38,7 +38,7 @@ class ClassInitSSDModelParallel():
     def setSSDModelImage(self,ModelImage):
         self.ModelImage=ModelImage
 
-    def giveDicoInitIndiv(self,ListIslands,Parallel=True):
+    def giveDicoInitIndiv(self,ListIslands,Parallel=False):
         NCPU=self.NCPU
         work_queue = multiprocessing.JoinableQueue()
         ListIslands=ListIslands#[300:308]
@@ -405,6 +405,7 @@ class WorkerInitMSMF(multiprocessing.Process):
         while not self.kill_received and not self.work_queue.empty():
             
             DicoJob = self.work_queue.get()
+            #self.initIsland(DicoJob)
             try:
                 self.initIsland(DicoJob)
             except:
