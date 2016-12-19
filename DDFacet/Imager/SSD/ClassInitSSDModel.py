@@ -155,7 +155,7 @@ class ClassInitSSDModel():
 
 
 
-        self.Margin=100
+        self.Margin=20
         self.DicoDirty=DicoDirty
         self.Dirty=DicoDirty["ImagData"]
         self.MeanDirty=DicoDirty["MeanImage"]
@@ -189,8 +189,10 @@ class ClassInitSSDModel():
         Size=np.max([dx,dy])
         if Size%2==0: Size+=1
         _,_,N0,_=self.Dirty.shape
-        xc0,yc0=int(round(np.mean(x))),int(round(np.mean(y)))
+
+        xc0,yc0=int((x1+x0)/2.),int((y1+y0)/2.)
         self.xy0=xc0,yc0
+
         N1=Size
         xc1=yc1=N1/2
         Aedge,Bedge=GiveEdges((xc0,yc0),N0,(xc1,yc1),N1)
@@ -409,16 +411,16 @@ class WorkerInitMSMF(multiprocessing.Process):
         while not self.kill_received and not self.work_queue.empty():
             
             DicoJob = self.work_queue.get()
-            #self.initIsland(DicoJob)
-            try:
-                self.initIsland(DicoJob)
-            except:
-                iIsland=DicoJob["iIsland"]
-                print ModColor.Str("On island %i"%iIsland)
-                print traceback.format_exc()
-                print
-                print self.ListIsland[iIsland]
-                print
+            self.initIsland(DicoJob)
+            # try:
+            #     self.initIsland(DicoJob)
+            # except:
+            #     iIsland=DicoJob["iIsland"]
+            #     print ModColor.Str("On island %i"%iIsland)
+            #     print traceback.format_exc()
+            #     print
+            #     print self.ListIsland[iIsland]
+            #     print
 
 
 
