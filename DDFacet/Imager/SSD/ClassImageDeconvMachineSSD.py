@@ -7,7 +7,6 @@ from DDFacet.Array import NpShared
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
-from DDFacet.Imager import ClassMultiScaleMachine
 from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Other.progressbar import ProgressBar
