@@ -210,14 +210,10 @@ class ClassEvolveGA():
                                            halloffame=self.hof, 
                                            #stats=stats,
                                            verbose=False, 
-<<<<<<< HEAD
-                                           ArrayMethodsMachine=self.ArrayMethodsMachine,DoPlot=DoPlot)
-
-=======
                                            ArrayMethodsMachine=self.ArrayMethodsMachine,
                                            DoPlot=DoPlot,
                                            MutConfig=self.MutConfig)
->>>>>>> ddf-pipeline_Cyril
+
         self.ArrayMethodsMachine.KillWorkers()
 
         # #:param mu: The number of individuals to select for the next generation.
