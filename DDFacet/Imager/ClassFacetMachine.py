@@ -1183,6 +1183,8 @@ class ClassFacetMachine():
         # the input parameters are not actually used, see
         ## https://github.com/cyriltasse/DDFacet/issues/32#issuecomment-176072113
 
+        Parallel=False
+
         NCPU=self.NCPU
 
         NFacets=len(self.DicoImager.keys())
