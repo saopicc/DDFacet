@@ -725,7 +725,7 @@ class ClassVisServer():
                     # of shape NRow,NFreq to begin with, check for this:
                     w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
                     print>> log, "  reading column %s for the weights, shape is %s" % (
-                        WeightCol, w.sshape)
+                        WeightCol, w.shape)
                     if w.shape != valid.shape:
                         raise TypeError(
                             "weights column expected to have shape of %s" %
