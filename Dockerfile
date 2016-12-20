@@ -65,9 +65,9 @@ RUN apt-get update && \
     cd /src/DDFacet/ && git submodule update --init --recursive && cd / && \
     . /ddfvenv/bin/activate ; pip install -I --force-reinstall --no-binary :all: /src/DDFacet/ && \
     # Install tensorflow CPU nightly
-    . /ddfvenv/bin/activate ; pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0-cp27-none-linux_x86_64.whl && \
+    . /ddfvenv/bin/activate ; pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.12.0rc1-cp27-none-linux_x86_64.whl && \
     # Clone montblanc and checkout the tensorflow implementation
-    git clone https://github.com/ska-sa/montblanc.git /montblanc/ ; cd /montblanc/ ; git checkout 339eb8f8a0f4a44243f340b7f33882fd9656858b && \
+    git clone https://github.com/ska-sa/montblanc.git /montblanc/ ; cd /montblanc/ ; git checkout 3c94bfa261354825c584ad1e62314b91f6bf583b && \
     # Make the tensorflow ops
     cd /montblanc/montblanc/impl/rime/tensorflow/rime_ops ; . /ddfvenv/bin/activate && make -j 8 && \
     # Install montblanc in development mode
