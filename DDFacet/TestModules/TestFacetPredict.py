@@ -18,12 +18,28 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-import glob
 import subprocess
-import DDFacet.cbuild
-# 20 / 12 / 2016: No unit tests since gridder was removed, so I'm disabling this one
-#def testRunCatchTests():
-#  ls = glob.glob(DDFacet.cbuild.__path__[0] + "/Gridder/TestUnits/Test*")
-#  for tester in ls:
-#    ret = subprocess.call(tester,shell=True)
-#    assert not ret, "C++ test unit %s failed" % tester
+import unittest
+import os
+from os import path, getenv
+
+class TestFacetPredict(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        unittest.TestCase.setUpClass()
+        pass
+
+    @classmethod
+    def tearDownClass(cls):
+        unittest.TestCase.tearDownClass()
+        pass
+
+    def setUp(self):
+        unittest.TestCase.setUp(self)
+
+    def tearDown(self):
+        unittest.TestCase.tearDown(self)
+
+if __name__ == "__main__":
+    unittest.main()
