@@ -103,10 +103,15 @@ class ClassFacetMachine():
 
         self.NormData = None
         self.NormImage = None
+        self._facet_grids = self._facet_grid_names = None
 
     def __del__(self):
         # print>>log,"Deleting shared memory"
-        NpShared.DelAll(self.IdSharedMem)
+        if self._facet_grids:
+            self._facet_grids = None
+            del self.DicoGridMachine
+            for name in self._facet_grid_names.itervalues():
+                NpShared.DelArray(name)
 
     def SetLogModeSubModules(self, Mode="Silent"):
         SubMods = ["ModelBeamSVD", "ClassParam", "ModToolBox",
@@ -655,7 +660,7 @@ class ClassFacetMachine():
             self.GiveVisParallel(*args, **kwargs)
         self.SetLogModeSubModules("Loud")
 
-    def FacetsToIm(self, NormJones=False, psf=False):
+    def FacetsToIm(self, NormJones=False):
         """
         Fourier transforms the individual facet grids and then
         Stitches the gridded facets and builds the following maps:
@@ -725,7 +730,7 @@ class ClassFacetMachine():
             # then the mean image is just the same
             self.MeanResidual = self.stitchedResidual.copy()
             WBAND = 1
-        if psf and self._psf_grids:
+        if self.DoPSF:
             print>>log, "  Build PSF facet-slices "
             self.DicoPSF = {}
             for iFacet in self.DicoGridMachine.keys():
@@ -735,7 +740,7 @@ class ClassFacetMachine():
                 nx = SPhe.shape[0]
                 SPhe = SPhe.reshape((1, 1, nx, nx)).real
                 self.DicoPSF[iFacet] = {}
-                self.DicoPSF[iFacet]["PSF"] = self._psf_grids[iFacet].real.copy()
+                self.DicoPSF[iFacet]["PSF"] = self._facet_grids[iFacet].real.copy()
                 self.DicoPSF[iFacet]["PSF"] /= SPhe
                 #self.DicoPSF[iFacet]["PSF"][SPhe < 1e-2] = 0
                 self.DicoPSF[iFacet]["l0m0"] = self.DicoImager[iFacet]["l0m0"]
@@ -848,11 +853,6 @@ class ClassFacetMachine():
                 self.DicoPSF["MeanImage"] = np.sum(self.DicoPSF["ImagData"] * WBAND, axis=0).reshape((1, npol, Npix, Npix))
             else:
                 self.DicoPSF["MeanImage"] = self.DicoPSF["ImagData"]
-
-            self._psf_grids = None
-            for array in self._psf_grid_names.iterkeys():
-                NpShared.DelArray(array)
-            self._psf_grid_names = None
 
         DicoImages["ImagData"] = self.stitchedResidual
         DicoImages["NormImage"] = self.NormImage  # grid-correcting map
@@ -1001,7 +1001,7 @@ class ClassFacetMachine():
 
         return NormImage
 
-    def ReinitDirty(self, psf=False):
+    def ReinitDirty(self):
         """
         Reinitializes dirty map and weight buffers for the next round
         of residual calculation
@@ -1012,15 +1012,12 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["SumJones"]
             self.DicoImager[iFacet]["SumJonesChan"]
         Also sets up self._facet_grids as a dict of facet numbers to shared grid arrays.
-        self.DoPSF is set to psf; if True, shared psf grid arrays alaso initialized
         """
         self.SumWeights.fill(0)
         self.IsDirtyInit = True
         self.HasFourierTransformed = False
         self._facet_grids = {}
-        self.DoPSF = psf
-        self._psf_grids = {} if psf else None
-        self._psf_grid_names = {}
+        self._facet_grid_names = {}
 
         for iFacet in self.DicoGridMachine.keys():
             NX = self.DicoImager[iFacet]["NpixFacetPadded"]
@@ -1028,12 +1025,10 @@ class ClassFacetMachine():
                 self._facet_grids[iFacet] = self.DicoGridMachine[iFacet]["Dirty"]
                 self.DicoGridMachine[iFacet]["Dirty"][...] = 0
             else:
-                GridName = Multiprocessing.getShmURL("Grid",facet=iFacet)
+                GridName = Multiprocessing.getShmURL("PSFGrid" if self.DoPSF else "Grid" , facet=iFacet)
                 ResidueGrid = NpShared.CreateShared(GridName,(self.VS.NFreqBands, self.npol, NX, NX), self.CType)
                 self._facet_grids[iFacet] = self.DicoGridMachine[iFacet]["Dirty"] = ResidueGrid
-            if self.DoPSF:
-                self._psf_grid_names[iFacet] = PSFGridName = Multiprocessing.getShmURL("PSFGrid", facet=iFacet)
-                self._psf_grids[iFacet] = NpShared.CreateShared(PSFGridName,(self.VS.NFreqBands, self.npol, NX, NX), self.CType)
+                self._facet_grid_names[iFacet] = GridName
             self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands, self.npol), np.float64)
             self.DicoImager[iFacet]["SumJones"] = np.zeros((2, self.VS.NFreqBands), np.float64)
             self.DicoImager[iFacet]["SumJonesChan"] = []
@@ -1060,8 +1055,8 @@ class ClassFacetMachine():
     # Gridding worker that is called by Multiprocessing.Process
     @staticmethod
     def _grid_worker(iFacet,
-                    GD, DATA, Grids, PSFGrids, WTerms, Sphes, FFTW_Wisdom, DicoImager,
-                    ApplyCal, SpheNorm, NFreqBands,
+                    GD, DATA, Grids, WTerms, Sphes, FFTW_Wisdom, DicoImager,
+                    DoPSF, ApplyCal, SpheNorm, NFreqBands,
                     DataCorrelationFormat, ExpectedOutputStokes):
         T = ClassTimeIt.ClassTimeIt()
         T.disable()
@@ -1124,7 +1119,7 @@ class ClassFacetMachine():
         GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                         DoNormWeights=False,
                         DicoJonesMatrices=DicoJonesMatrices,
-                        freqs=freqs, DoPSF=False,
+                        freqs=freqs, DoPSF=DoPSF,
                         ChanMapping=ChanMapping,
                         ResidueGrid=Grids[iFacet],
                         sparsification=DATA.get("Sparsification.Grid")
@@ -1134,17 +1129,6 @@ class ClassFacetMachine():
         Sw = GridMachine.SumWeigths.copy()
         SumJones = GridMachine.SumJones.copy()
         SumJonesChan = GridMachine.SumJonesChan.copy()
-
-        # an extra call to grid the PSFs
-        if PSFGrids:
-            GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
-                            DoNormWeights=False,
-                            DicoJonesMatrices=DicoJonesMatrices,
-                            freqs=freqs, DoPSF=True,
-                            ChanMapping=ChanMapping,
-                            ResidueGrid=PSFGrids[iFacet],
-                            sparsification = DATA.get("Sparsification.Grid")
-                            )
 
         return {"iFacet": iFacet, "Weights": Sw, "SumJones": SumJones, "SumJonesChan": SumJonesChan}
 
@@ -1168,15 +1152,15 @@ class ClassFacetMachine():
         procpool = Multiprocessing.ProcessPool(self.GD)
 
         results = procpool.runjobs(joblist,
-            title="Gridding (+PSF)" if self._psf_grids else "Gridding", target=self._grid_worker,
+            title="Gridding PSF" if self.DoPSF else "Gridding", target=self._grid_worker,
             kwargs=dict(GD=self.GD,
                     DATA=self.VS.DATA,
                     Grids=self._facet_grids,
-                    PSFGrids=self._psf_grids,
                     WTerms=self._wterms,
                     Sphes=self._sphes,
                     FFTW_Wisdom=self.FFTW_Wisdom,
                     DicoImager=self.DicoImager,
+                    DoPSF=self.DoPSF,
                     ApplyCal=self.ApplyCal,
                     SpheNorm=self.SpheNorm,
                     NFreqBands=self.VS.NFreqBands,
@@ -1195,7 +1179,7 @@ class ClassFacetMachine():
 
     @staticmethod
     def _fft_worker(iFacet,
-                    GD, Grids, PSFGrids, WTerms, Sphes, FFTW_Wisdom, DicoImager,
+                    GD, Grids, WTerms, Sphes, FFTW_Wisdom, DicoImager,
                     SpheNorm, NFreqBands,
                     DataCorrelationFormat, ExpectedOutputStokes):
         """
@@ -1217,9 +1201,6 @@ class ClassFacetMachine():
         )
         Grid = Grids[iFacet]
         Grid[...] = GridMachine.GridToIm(Grid)
-        if PSFGrids:
-            PSFGrid = PSFGrids[iFacet]
-            PSFGrid[...] = GridMachine.GridToIm(PSFGrid)
 
         return {"iFacet": iFacet}
 
@@ -1240,7 +1221,6 @@ class ClassFacetMachine():
                             target=self._fft_worker,
                             kwargs=dict(GD=self.GD,
                                 Grids=self._facet_grids,
-                                PSFGrids=self._psf_grids,
                                 WTerms=self._wterms,
                                 Sphes=self._sphes,
                                 FFTW_Wisdom = self.FFTW_Wisdom,

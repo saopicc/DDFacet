@@ -123,7 +123,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         NodesCat.dec = decSols
         NodesCat.l = lFacet
         NodesCat.m = mFacet
-        NodeFile = "%s.NodesCat.npy" % self.GD["Images"]["ImageName"]
+        NodeFile = "%s.NodesCat.%snpy" % (self.GD["Images"]["ImageName"], "psf." if self.DoPSF else "")
         print>> log, "Saving Nodes catalog in %s" % NodeFile
         np.save(NodeFile, NodesCat)
 
@@ -348,7 +348,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #     LPolygonNew+=SubReg
         #     print
 
-        regFile = "%s.tessel.reg" % self.GD["Images"]["ImageName"]
+        regFile = "%s.tessel.%sreg" % (self.GD["Images"]["ImageName"], "psf." if self.DoPSF else "")
         # labels=["[F%i.C%i]"%(i,DicoPolygon[i]["iSol"]) for i in range(len(LPolygonNew))]
         # VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=labels)
 
@@ -486,12 +486,12 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         self.WriteCoordFacetFile()
 
-        DicoName = "%s.DicoFacet" % self.GD["Images"]["ImageName"]
+        DicoName = "%s.%sDicoFacet" % (self.GD["Images"]["ImageName"], "psf." if self.DoPSF else "")
         print>> log, "Saving DicoImager in %s" % DicoName
         MyPickle.Save(self.DicoImager, DicoName)
 
     def WriteCoordFacetFile(self):
-        FacetCoordFile = "%s.facetCoord.txt" % self.GD["Images"]["ImageName"]
+        FacetCoordFile = "%s.facetCoord.%stxt" % (self.GD["Images"]["ImageName"], "psf." if self.DoPSF else "")
         print>>log, "Writing facet coordinates in %s" % FacetCoordFile
         f = open(FacetCoordFile, 'w')
         ss = "# (Name, Type, Ra, Dec, I, Q, U, V, ReferenceFrequency='7.38000e+07', SpectralIndex='[]', MajorAxis, MinorAxis, Orientation) = format"
