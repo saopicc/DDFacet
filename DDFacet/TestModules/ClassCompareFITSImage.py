@@ -98,13 +98,13 @@ class ClassCompareFITSImage(unittest.TestCase):
 
     @classmethod
     def defMeanSquaredErrorLevel(cls):
-	""" Method defining maximum tolerance for the mean squared error between any
-	    pair of FITS images. Should be overridden if another tolerance is
-	    desired
-	    Returns:
-		constant for tolerance on mean squared error
-	"""
-	return [1e-7,1e-7,1e-7,1e-7,1e-7,
+        """ Method defining maximum tolerance for the mean squared error between any
+            pair of FITS images. Should be overridden if another tolerance is
+            desired
+            Returns:
+            constant for tolerance on mean squared error
+        """
+        return [1e-7,1e-7,1e-7,1e-7,1e-7,
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5] #epsilons per image pair, as listed in defineImageList
@@ -240,6 +240,7 @@ class ClassCompareFITSImage(unittest.TestCase):
         if len(list_except) != 0:
             msg = "\n".join(list_except)
             raise AssertionError("The following assertions failed:\n %s" % msg)
+
     def testMeanSquaredError(self):
         cls = self.__class__
         list_except = []
