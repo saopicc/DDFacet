@@ -1,4 +1,19 @@
 # DDFacet
+A facet-based radio imaging package
+
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
 ## (Users/Recommended) Docker-based installation
 Simply pull the latest DDFacet and build the Docker image:
 ```
@@ -106,6 +121,13 @@ A restart will be required for this change to reflect. If you would prefer a onc
 
 ```
 sudo mount -o remount,size=100% /run/shm
+```
+
+It may also be necessary to run the following to remove the kernel security limit on mlock pinning. Without this things may
+be slower than usual.
+
+```
+echo "*        -   memlock     unlimited" > /etc/security/limits.conf
 ```
 
 ## (Developers): setting up your dev environment
