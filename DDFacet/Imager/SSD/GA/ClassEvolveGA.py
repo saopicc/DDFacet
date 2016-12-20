@@ -86,11 +86,10 @@ class ClassEvolveGA():
         # toolbox.register("mate", tools.cxTwoPoint)
         toolbox.register("mate", tools.cxUniform, indpb=0.5)
         # toolbox.register("mate", tools.cxOrdered)
-
-
-        #toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.1, p0=0.5, pMove=0.1)
-        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.5, p0=0.5, pMove=0.5)
-
+        # toolbox.register("mutate", tools.mutGaussian, indpb=0.3,  mu=0.0, sigma=.1)
+        #toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.3, p0=0.3, pMove=0.3)
+        self.MutConfig=pFlux,p0,pMove=0.5,0.5,0.5
+        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.2, p0=0.5, pMove=0.2)
 
         toolbox.register("select", tools.selTournament, tournsize=3)
         #toolbox.register("select", Select.selTolTournament, tournsize=3, Tol=4)
@@ -211,8 +210,14 @@ class ClassEvolveGA():
                                            halloffame=self.hof, 
                                            #stats=stats,
                                            verbose=False, 
+<<<<<<< HEAD
                                            ArrayMethodsMachine=self.ArrayMethodsMachine,DoPlot=DoPlot)
 
+=======
+                                           ArrayMethodsMachine=self.ArrayMethodsMachine,
+                                           DoPlot=DoPlot,
+                                           MutConfig=self.MutConfig)
+>>>>>>> ddf-pipeline_Cyril
         self.ArrayMethodsMachine.KillWorkers()
 
         # #:param mu: The number of individuals to select for the next generation.

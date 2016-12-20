@@ -7,7 +7,21 @@ from DDFacet.Array import ModLinAlg
 
 def test():
     import DDFacet.ToolsDir.Gaussian
-    _,_,PSF=DDFacet.ToolsDir.Gaussian.Gaussian(10,311,0.5)
+    _,_,PSF=DDFacet.ToolsDir.Gaussian.Gaussian(10,311,1.)
+    #PSF.fill(1.)
+    
+    #import scipy.signal
+    #PP=scipy.signal.fftconvolve(PSF,PSF, mode='same')
+    
+    #print Fact
+    import pylab
+    pylab.clf()
+    pylab.imshow(PSF,interpolation="nearest") 
+    pylab.colorbar()
+    pylab.draw()
+    pylab.show(False)
+    pylab.pause(0.1)
+
     Dirty=np.zeros_like(PSF)
     nx,_=Dirty.shape
     Dirty[nx/2,nx/2+10]+=2.
@@ -18,18 +32,18 @@ def test():
     Dirty=Dirty.reshape((1,1,nx,nx))*np.ones((2,1,1,1))
     Dirty[1,:,:,:]=Dirty[0,:,:,:]*2
     x,y=np.mgrid[0:nx,0:nx]
-    dx=100
+    dx=10
     nc=nx/2
     x=x[nc-dx:nc+dx,nc-dx:nc+dx].flatten()
     y=y[nc-dx:nc+dx,nc-dx:nc+dx].flatten()
     ListPixParms=[(x[i],y[i]) for i in range(x.size)]
     x,y=np.mgrid[0:nx,0:nx]
 
-    dx=102
+    dx=10
     x=x[nc-dx:nc+dx,nc-dx:nc+dx].flatten()
     y=y[nc-dx:nc+dx,nc-dx:nc+dx].flatten()
     ListPixData=[(x[i],y[i]) for i in range(x.size)]
-    CC=ClassConvMachine(PSF,ListPixParms,ListPixData)
+    CC=ClassConvMachine(PSF,ListPixParms,ListPixData,"Matrix")
     
     NFreqBands,_,_,_=Dirty.shape
     NPixListParms=len(ListPixParms)
@@ -42,19 +56,108 @@ def test():
 
     Array=Array.reshape((NFreqBands,NPixListParms))
 
-    T=ClassTimeIt.ClassTimeIt()
-    ConvArray0=CC.Convolve(Array).ravel()
-    T.timeit("0")
-    ConvArray1=CC.Convolve(Array,ConvMode="Vector").ravel()
-    T.timeit("1")
-
     import pylab
+
+
+    Lchi0=[]
+    Lchi1=[]
+
+
+    NTries=5000
+    ArrKeep0=np.zeros((NTries,NPixListParms),Array.dtype)
+    ArrKeep1=np.zeros((NTries,NPixListParms),Array.dtype)
+
+
+    for i in range(NTries):
+        Array=np.random.randn(*Array.shape)
+        #T=ClassTimeIt.ClassTimeIt()
+        chi0=np.sum(Array**2)
+        Lchi0.append(chi0)
+        ConvArray0=CC.Convolve(Array)
+        chi1=np.sum(ConvArray0**2)
+        #T.timeit("0")
+        #ConvArray1=CC.Convolve(Array,ConvMode="Vector").ravel()
+        #T.timeit("1")
+        #r=chi1/chi0
+        #print "%f -> %f [%r]"%(chi0,chi1,r)
+        NChan,_,NN=ConvArray0.shape
+        NN=int(np.sqrt(NN))
+        ArrKeep0[i]=Array[0].ravel()
+        ArrKeep1[i]=ConvArray0[0].ravel()
+        # pylab.clf()
+        # pylab.imshow(ConvArray0.reshape((2,NN,NN))[0],interpolation="nearest")
+        # pylab.draw()
+        # pylab.show(False)
+        # pylab.pause(0.1)
+
+
+        Lchi1.append(chi1)
+        #print np.var(Array),np.var(ConvArray0)/Fact
+
+    Fact=CC.NormData[0]
+    print np.median(np.std(ArrKeep0,axis=0)**2)
+    print np.median(np.std(ArrKeep1,axis=0)**2/Fact)
+    return
+    
+    from scipy.stats import chi2
+    from DDFacet.ToolsDir.GeneDist import ClassDistMachine
+    DM=ClassDistMachine()
+
+
+
+    rv = chi2(Array.size)
+    x=np.linspace(0,2*rv.moment(1),1000)
+    P=rv.cdf(x)
     pylab.clf()
-    pylab.plot(ConvArray0)
-    pylab.plot(ConvArray1)
-    pylab.plot(ConvArray1-ConvArray0)
+    pylab.subplot(2,1,1)
+    #yd,xe=pylab.histogram(Lchi0,bins=100,normed=True)
+    #xd=(xe[1::]+xe[0:-1])/2.
+    #yd/=np.sum(yd)
+    xd,yd=DM.giveCumulDist(np.array(Lchi0),Ns=100)
+    #dx=xd[1]-xd[0]
+    #yd/=dx
+    pylab.plot(xd,yd)
+    pylab.plot(x,P)
+    pylab.xlim(0,1600)
+    pylab.subplot(2,1,2)
+    xd,yd=DM.giveCumulDist(np.array(Lchi1),Ns=20)
+    # yd,xe=pylab.histogram(Lchi1,bins=100,normed=True)
+    # xd=(xe[1::]+xe[0:-1])/2.
+    # dx=xd[1]-xd[0]
+    # yd/=np.sum(yd)
+    # yd/=dx
+    print np.mean(Lchi1)/Fact
+    print np.mean(Lchi0)
+    # #pylab.xlim(0,800)
+    # #pylab.hist(Lchi1,bins=100)
+
+    import scipy.interpolate
+    cdf=scipy.interpolate.interp1d(xd, yd,"cubic")
+    x=np.linspace(xd.min(),xd.max(),1000)
+    #pylab.plot(x,cdf(x),ls="",marker=".")
+    #pylab.plot(xd,yd,ls="",marker="s")
+    
+    y=cdf(x)
+    x,y=xd, yd
+    y=y[1::]-y[0:-1]
+    x=(x[1::]+x[0:-1])/2.
+    pylab.plot(x,y,ls="",marker=".")
+    
+    #pylab.xlim(0,1600)
     pylab.draw()
     pylab.show(False)
+    
+
+    
+
+    # import pylab
+    # pylab.clf()
+    # #pylab.plot(ConvArray0.ravel())
+    # pylab.imshow(PSF[0,0])
+    # #pylab.plot(ConvArray1)
+    # #pylab.plot(ConvArray1-ConvArray0)
+    # pylab.draw()
+    # pylab.show(False)
     
     stop
 
@@ -107,7 +210,7 @@ class ClassConvMachine():
     def setParamMachine(self,PM):
         self.PM=PM
 
-    def ConvolveFFT(self,A,OutMode="Data"):
+    def ConvolveFFT(self,A,OutMode="Data",AddNoise=None):
         shin=A.shape
         
         T=ClassTimeIt.ClassTimeIt("ConvolveFFT")
@@ -119,6 +222,8 @@ class ClassConvMachine():
         zAsq=np.zeros((NFreqBand,npol,zN,zN),dtype=Asq.dtype)
         zAsq[:,:,zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1]=Asq[:,:,:,:]
         T.timeit("1")
+        if AddNoise is not None:
+            zAsq+=np.random.randn(*zAsq.shape)*AddNoise
 
         xc=self.PSF.shape[-1]/2
         SubPSF=self.PSF[:,:,xc-N:xc+N+1,xc-N:xc+N+1]
@@ -269,7 +374,7 @@ class ClassConvMachine():
             M[iBand,0].flat[indPSF_sel] = PSF_Chan.flat[indPixPSF.ravel()]
 
         self.CM=M
-        
+        self.NormData=np.sum(M**2,axis=2).reshape((self.NFreqBands,self.NPixListParms))
         self.DirtyCMMean=np.mean(M,axis=0).reshape((1,1,self.NPixListData,self.NPixListParms))
 
         MParms=np.zeros((self.NFreqBands,1,self.NPixListParms,self.NPixListParms),np.float32)

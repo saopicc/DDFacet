@@ -160,6 +160,10 @@ class CacheManager (object):
                 if os.path.exists(cachepath):
                     os.system("rm -fr %s"%cachepath)
                 os.mkdir(cachepath)
+
+        hashpath=os.path.realpath(hashpath) # deals with symbolic links
+        cachepath=os.path.realpath(cachepath) # deals with symbolic links
+
         # store hash
         self.hashes[name] = hashpath, hash, reset
         return cachepath, not reset

@@ -561,8 +561,8 @@ class ClassImagerDeconv():
                     #     ModelImage[ich,0,:,:][np.logical_not(self.DeconvMachine._MaskArray[0,0,:,:])]=0
                     print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
 
-                    # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelSub"%self.BaseName,Fits=True,
-                    #                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                    self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelSub"%self.BaseName,Fits=True,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
                     _=self.FacetMachine.getChunk(ModelImage)
 
@@ -1083,7 +1083,6 @@ class ClassImagerDeconv():
         self.FacetMachine.ToCasaImage(DeconvMachine.SelectedIslandsMask,
                                       ImageName="%s.metro.mask"%(self.BaseName),
                                       Fits=True)
-
         return ModelMachine
 
 

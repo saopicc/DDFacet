@@ -196,6 +196,7 @@ def read_options():
 
     OP.OptionGroup("* Imager's Mainfacet","ImagerMainFacet")
     OP.add_option("NFacets",help="Number of facets, default is %default. ")
+    OP.add_option("CatNodes")
     OP.add_option("DiamMaxFacet")
     OP.add_option("DiamMinFacet")
     OP.add_option("Npix")
@@ -222,7 +223,7 @@ def read_options():
     OP.OptionGroup("* MCMC Options","MetroClean")
     OP.add_option("MetroNChains")
     OP.add_option("MetroNIter")
-    OP.add_option("MetroNBurn")
+    OP.add_option("MetroNBurnin")
 
     OP.OptionGroup("* Clean","ImagerDeconv")
     OP.add_option("MaxMajorIter")

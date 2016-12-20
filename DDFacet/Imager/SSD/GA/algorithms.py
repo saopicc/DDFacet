@@ -29,9 +29,9 @@ import random
 
 from DDFacet.Other import ClassTimeIt
 from deap import tools
+import copy
 
-
-def varAnd(population, toolbox, cxpb, mutpb):
+def varAnd(population, toolbox, cxpb, mutpb, ArrayMethodsMachine,MutConfig):
     """Part of an evolutionary algorithm applying only the variation part
     (crossover **and** mutation). The modified individuals have their
     fitness invalidated. The individuals are cloned so returned population is
@@ -78,11 +78,17 @@ def varAnd(population, toolbox, cxpb, mutpb):
             del offspring[i-1].fitness.values, offspring[i].fitness.values
     T.timeit("   crossover")
     
-    for i in range(len(offspring)):
-        if random.random() < mutpb:
-            #print "Mutate %i"%i
-            offspring[i], = toolbox.mutate(offspring[i])
-            del offspring[i].fitness.values
+    #P0=copy.deepcopy(offspring)
+    
+    offspring=ArrayMethodsMachine.mutatePop(offspring,mutpb,MutConfig)
+    #P1=offspring
+    #stop
+    # for i in range(len(offspring)):
+    #     if random.random() < mutpb:
+    #         #print "Mutate %i"%i
+    #         ArrayMethodsMachine
+    #         offspring[i], = toolbox.mutate(offspring[i])
+    #         del offspring[i].fitness.values
 
 
     # offspring2 = toolbox.map(toolbox.mutate, offspring)
@@ -95,7 +101,9 @@ def varAnd(population, toolbox, cxpb, mutpb):
 
 
 def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
-             halloffame=None, verbose=__debug__,ArrayMethodsMachine=None,DoPlot=True,StopFitness=1e-2):
+             halloffame=None, verbose=__debug__,ArrayMethodsMachine=None,DoPlot=True,
+             StopFitness=1e-2,
+             MutConfig=None):
     """This algorithm reproduce the simplest evolutionary algorithm as
     presented in chapter 7 of [Back2000]_.
     
@@ -206,7 +214,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         T.timeit("select")
 
         # Vary the pool of individuals
-        offspring = varAnd(offspring, toolbox, cxpb, mutpb)
+        offspring = varAnd(offspring, toolbox, cxpb, mutpb, ArrayMethodsMachine, MutConfig)
         offspring[0]=best_ind
         T.timeit("vary")
         

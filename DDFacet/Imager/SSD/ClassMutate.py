@@ -57,7 +57,7 @@ class ClassMutate():
         i1=i0+Dx[InReg]
         j1=j0+Dy[InReg]
 
-        f1=Flux#alpha*A[0,0,i0,j0]
+        f1=Flux # alpha*A[0,0,i0,j0]
         
         _,_,nx,ny=A.shape
         condx=((i1>=0)&(i1<nx))
@@ -77,7 +77,7 @@ class ClassMutate():
                 a1=A[iAlpha,0,i1,j1]
 
                 a2=(f0/f2)*(2**a0)+(f1/f2)*(2**a1)
-                if a2>0:
+                if 1e-3<a2<1e3:
                     a2=np.log(a2)/np.log(2.)
                     # print a0,a1,a2
                     A[iAlpha,0,i1,j1]=a2
@@ -90,6 +90,9 @@ class ClassMutate():
     
     def setData(self,DicoData):
         self.DicoData=DicoData
+
+
+
 
     def mutGaussian(self,individual, pFlux, p0, pMove,FactorAccelerate=1.):
         #return individual,
@@ -113,6 +116,9 @@ class ClassMutate():
         Af=self.PM.ArrayToSubArray(individual,"S")
         index=np.arange(Af.size)
         ind=np.where(Af!=0.)[0]
+        #AbsAf=np.abs(Af)
+        #Max=np.max(AbsAf)
+        #ind=np.where(AbsAf>1e-2*Max)[0]
         NNonZero=(ind.size)
         if NNonZero==0: return individual,
 
@@ -129,9 +135,11 @@ class ClassMutate():
         Type=np.where((RType>P0)&(RType<P1))[0]
 
         T.timeit("start3")
+        
+        # randomly change values
         if Type==0:
-            N=1
-            N=int(random.uniform(1, 3.))
+            NMax=int(np.max([3.,10]))
+            N=int(random.uniform(1, NMax))
         # zero a pixel
         elif Type==1:
             N=np.max([(NNonZero/10),1])
@@ -167,7 +175,7 @@ class ClassMutate():
                     A=self.PM.ArrayToSubArray(individual,TypeParm)
                     #if TypeParm=="GSig": continue
                     if TypeParm=="S":
-                        ds=0.1*np.abs(self.DicoData["DirtyArrayAbsMean"].ravel()[iPix]-Af[iPix])
+                        ds=0.1*np.abs(self.DicoData["DirtyArrayParmsMean"].ravel()[iPix]-Af[iPix])
                     else:
                         if "Sigma" in self.PM.DicoIParm[TypeParm]["Default"].keys():
                             ds=self.PM.DicoIParm[TypeParm]["Default"]["Sigma"]["Value"]
@@ -186,10 +194,10 @@ class ClassMutate():
     
             # move a pixel
             if Type==2:
-                Flux=random.random()*Af[iPix]#*FactorAccelerate
+                Flux=random.random()*Af[iPix]*FactorAccelerate
                 #Flux=0.5*Af[iPix]#*FactorAccelerate
-                #Flux=np.min([Af[iPix],Flux])
-                InReg=random.random()*8
+                Flux=np.min([Af[iPix],Flux])
+                InReg=int(random.random()*8)
                 #i0=individual.copy()
                 individual=self.MovePix(individual,iPix,Flux,InReg=InReg)
                 #i1=individual.copy()
@@ -233,6 +241,15 @@ class ClassMutate():
     
     
         return individual,
+
+    def mutNormal(self,individual,ds):
+        Af=self.PM.ArrayToSubArray(individual,"S")
+        dS=np.random.randn(*Af.shape)*ds
+        Af += dS
+        Af[Af<0]=0
+        return individual,
+
+
     
     def testMovePix(self):
         A=np.random.randn(self.PM.NParam,self.PM.NPixListParms)

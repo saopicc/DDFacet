@@ -13,7 +13,6 @@ from DDFacet.ToolsDir import ModFFTW
 import numpy as np
 import os
 #import Select
-import pylab
 
 from DDFacet.Imager.SSD import ClassArrayMethodSSD
 
@@ -53,17 +52,21 @@ class ClassMetropolis():
         self.IdSharedMem=IdSharedMem
         self.iIsland=iIsland
 
-        GD["SSDClean"]["SSDCostFunc"]=["Chi2"]
+
+        #print "PixVariance",PixVariance
+
+        GD["SSDClean"]["SSDCostFunc"]=["Sum2"]
         self.ArrayMethodsMachine=ClassArrayMethodSSD.ClassArrayMethodSSD(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
-                                                                         #PixVariance=PixVariance,
-                                                                         PixVariance=1.,
+                                                                         PixVariance=PixVariance,
+                                                                         #PixVariance=1.,
                                                                          iFacet=iFacet,
                                                                          IslandBestIndiv=IslandBestIndiv,
                                                                          GD=GD,
                                                                          WeightFreqBands=WeightFreqBands,
                                                                          iIsland=iIsland,
                                                                          IdSharedMem=IdSharedMem,
-                                                                         ParallelFitness=ParallelFitness)
+                                                                         ParallelFitness=ParallelFitness,
+                                                                         NCPU=NChains)
         self.InitChain()
 
     def InitChain(self):
@@ -133,6 +136,7 @@ class ClassMetropolis():
         # self.PlotPDF()
 
     def PlotPDF(self):
+        import pylab
         x=np.linspace(0,2*self.rv.moment(1),1000)
         P=self.rv.pdf(x)
 

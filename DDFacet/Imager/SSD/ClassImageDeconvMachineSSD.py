@@ -533,6 +533,11 @@ class ClassImageDeconvMachine():
                 self.DeconvListIsland(ListBigIslands,ParallelMode="PerIsland",ListInitIslands=ListInitBigIslands)
             else:
                 print>>log,"No large islands"
+            if len(ListSmallIslands)>0:
+                print>>log,"Deconvolve small islands (<=%i pixels) (parallelised over island)"%(self.GD["SSDClean"]["ConvFFTSwitch"])
+                self.DeconvListIsland(ListSmallIslands,ParallelMode="OverIslands")
+            else:
+                print>>log,"No small islands"
 
         elif self.DeconvMode=="MetroClean":
             if self.GD["MetroClean"]["MetroNChains"]!="NCPU":
