@@ -228,17 +228,11 @@ class ClassImagerDeconv():
         if self.FacetMachine is not None:
             return
 
-        ApplyCal=False
-        SolsFile=self.GD["DDESolutions"]["DDSols"]
-        if (SolsFile!="")|(self.GD["Beam"]["BeamModel"] is not None): ApplyCal=True
-
         self.FacetMachine=ClassFacetMachine(self.VS,
                                             self.GD,
                                             Precision=self.Precision,
                                             PolMode=self.PolMode,
-                                            Parallel=self.Parallel,
-                                            IdSharedMem=self.IdSharedMem,
-                                            ApplyCal=ApplyCal)
+                                            Parallel=self.Parallel)
 
         MainFacetOptions=self.GiveMainFacetOptions()
 
@@ -295,8 +289,6 @@ class ClassImagerDeconv():
         print>> log, "using PSFOversize=%.2f" % oversize
         FacetMachinePSF = ClassFacetMachine(self.VS, self.GD,
                                             Precision=self.Precision, PolMode=self.PolMode, Parallel=self.Parallel,
-                                            IdSharedMem=self.IdSharedMem + "psf.",
-                                            IdSharedMemData=self.IdSharedMem,
                                             DoPSF=True,
                                             Oversize=oversize)
         FacetMachinePSF.appendMainField(ImageName="%s.psf" % self.BaseName, **MainFacetOptions)

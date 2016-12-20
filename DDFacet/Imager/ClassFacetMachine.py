@@ -44,25 +44,12 @@ class ClassFacetMachine():
                  PointingID=0,
                  Parallel=False,  # True,
                  DoPSF=False,
-                 Oversize=1,   # factor my which image is oversized
-                 NCPU=psutil.cpu_count(),
-                 IdSharedMem="",
-                 IdSharedMemData=None,  # == IdSharedMem if None
-                 ApplyCal=False,
-                 cfdict=None):
+                 Oversize=1,   # factor by which image is oversized
+                 ):
 
-        # IdSharedMem is used to identify structures in shared memory
-        # used by this FacetMachine
-        self.IdSharedMem = IdSharedMem
         self.HasFourierTransformed = False
-        # IdSharedMemData is used to identify "global" structures in
-        # shared memory such as DicoData
-        self.IdSharedMemData = IdSharedMemData or IdSharedMem
-        # dictionary of precomputed convolution functions
-        self._cfdict = cfdict
 
         self.NCPU = int(GD["Parallel"]["NCPU"])
-        self.ApplyCal = ApplyCal
 
         if Precision == "S":
             self.dtype = np.complex64
@@ -971,35 +958,35 @@ class ClassFacetMachine():
 
         return Image
 
-    def GiveNormImage(self):
-        """
-        Creates a stitched normalization image of the grid-correction function.
-        This image should be point-wise divided from the stitched gridded map
-        to create a grid-corrected map.
-        Returns:
-            stitched grid-correction norm image
-        """
-        Image = self.GiveEmptyMainField()
-        nch, npol = self.nch, self.npol
-        _, _, NPixOut, NPixOut = self.OutImShape
-        SharedMemName = "%sSpheroidal" % (self.IdSharedMemData)
-        NormImage = np.zeros((NPixOut, NPixOut), dtype=self.stitchedType)
-        SPhe = NpShared.GiveArray(SharedMemName)
-        N1 = self.NpixPaddedFacet
-
-        for iFacet in self.DicoImager.keys():
-
-            xc, yc = self.DicoImager[iFacet]["pixCentral"]
-            Aedge, Bedge = GiveEdges((xc, yc), NPixOut, (N1/2, N1/2), N1)
-            x0d, x1d, y0d, y1d = Aedge
-            x0p, x1p, y0p, y1p = Bedge
-
-            for ch in xrange(nch):
-                for pol in xrange(npol):
-                    NormImage[x0d:x1d, y0d:y1d] += SPhe[::-1,
-                                                        :].T.real[x0p:x1p, y0p:y1p]
-
-        return NormImage
+    # def GiveNormImage(self):
+    #     """
+    #     Creates a stitched normalization image of the grid-correction function.
+    #     This image should be point-wise divided from the stitched gridded map
+    #     to create a grid-corrected map.
+    #     Returns:
+    #         stitched grid-correction norm image
+    #     """
+    #     Image = self.GiveEmptyMainField()
+    #     nch, npol = self.nch, self.npol
+    #     _, _, NPixOut, NPixOut = self.OutImShape
+    #     SharedMemName = "%sSpheroidal" % (self.IdSharedMemData)
+    #     NormImage = np.zeros((NPixOut, NPixOut), dtype=self.stitchedType)
+    #     SPhe = NpShared.GiveArray(SharedMemName)
+    #     N1 = self.NpixPaddedFacet
+    #
+    #     for iFacet in self.DicoImager.keys():
+    #
+    #         xc, yc = self.DicoImager[iFacet]["pixCentral"]
+    #         Aedge, Bedge = GiveEdges((xc, yc), NPixOut, (N1/2, N1/2), N1)
+    #         x0d, x1d, y0d, y1d = Aedge
+    #         x0p, x1p, y0p, y1p = Bedge
+    #
+    #         for ch in xrange(nch):
+    #             for pol in xrange(npol):
+    #                 NormImage[x0d:x1d, y0d:y1d] += SPhe[::-1,
+    #                                                     :].T.real[x0p:x1p, y0p:y1p]
+    #
+    #     return NormImage
 
     def ReinitDirty(self):
         """
@@ -1056,7 +1043,7 @@ class ClassFacetMachine():
     @staticmethod
     def _grid_worker(iFacet,
                     GD, DATA, Grids, WTerms, Sphes, FFTW_Wisdom, DicoImager,
-                    DoPSF, ApplyCal, SpheNorm, NFreqBands,
+                    DoPSF, SpheNorm, NFreqBands,
                     DataCorrelationFormat, ExpectedOutputStokes):
         T = ClassTimeIt.ClassTimeIt()
         T.disable()
@@ -1096,7 +1083,7 @@ class ClassFacetMachine():
         Apply_killMS = GD["DDESolutions"]["DDSols"]
         Apply_Beam = GD["Beam"]["BeamModel"] is not None
 
-        if ApplyCal:
+        if Apply_killMS or Apply_Beam:
             DicoJonesMatrices = {}
 
         if Apply_killMS:
@@ -1161,7 +1148,6 @@ class ClassFacetMachine():
                     FFTW_Wisdom=self.FFTW_Wisdom,
                     DicoImager=self.DicoImager,
                     DoPSF=self.DoPSF,
-                    ApplyCal=self.ApplyCal,
                     SpheNorm=self.SpheNorm,
                     NFreqBands=self.VS.NFreqBands,
                     DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
@@ -1235,7 +1221,7 @@ class ClassFacetMachine():
     def _degrid_worker(iFacet, GD, DATA, WTerms, Sphes, SpacialWeights,
                         ModelImage, Im2Grid, ChanSel, NormImage,
                         FFTW_Wisdom, DicoImager,
-                        ApplyCal, SpheNorm, NFreqBands,
+                        SpheNorm, NFreqBands,
                         DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores):
         """
         Degrids input model facets and subtracts model visibilities from residuals.
@@ -1278,7 +1264,7 @@ class ClassFacetMachine():
         Apply_killMS = GD["DDESolutions"]["DDSols"]
         Apply_Beam = GD["Beam"]["BeamModel"] is not None
 
-        if ApplyCal:
+        if Apply_killMS or Apply_Beam:
             DicoJonesMatrices = {}
 
         if Apply_killMS:
@@ -1357,7 +1343,6 @@ class ClassFacetMachine():
                                     NormImage=self.NormImage,
                                     FFTW_Wisdom = self.FFTW_Wisdom,
                                     DicoImager = self.DicoImager,
-                                    ApplyCal = self.ApplyCal,
                                     SpheNorm = self.SpheNorm,
                                     NFreqBands = self.VS.NFreqBands,
                                     ListSemaphores = ListSemaphores,
