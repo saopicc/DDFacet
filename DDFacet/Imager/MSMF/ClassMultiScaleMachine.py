@@ -838,7 +838,7 @@ class ClassMultiScaleMachine():
             #print Sol
 
             Mask=np.zeros((Sol.size,),np.float32)
-            FuncScale=self.giveSmallScaleBias()
+            FuncScale=1.#self.giveSmallScaleBias()
             wCoef=SumCoefScales/self.SumFluxScales*FuncScale
             ChosenScale=np.argmax(wCoef)
             #print "==============="

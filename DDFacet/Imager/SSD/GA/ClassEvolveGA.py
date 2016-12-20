@@ -124,7 +124,7 @@ class ClassEvolveGA():
 
         #print "Best indiv start",
         #self.ArrayMethodsMachine.PM.PrintIndiv(self.IslandBestIndiv)
-
+        #print
         if self.IslandBestIndiv is not None:
             #SModelArrayMP,Alpha=self.ArrayMethodsMachine.DeconvCLEAN()
             #AModelArrayMP=None
@@ -136,11 +136,14 @@ class ClassEvolveGA():
                 AModelArrayMP=np.zeros_like(SModelArrayMP)
 
             if np.max(np.abs(self.IslandBestIndiv))==0:
+                
+                #print "NEW"
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
                 if NGen==0: 
                     self.ArrayMethodsMachine.KillWorkers()
                     return self.pop[0]
             else:
+                #print "MIX"
                 NIndiv=len(self.pop)/2
                 pop0=self.pop[0:NIndiv]
                 pop1=self.pop[NIndiv::]
@@ -166,6 +169,7 @@ class ClassEvolveGA():
                 self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayMP,AlphaModel=AModelArrayMP)
 
                 self.pop=pop0+pop1
+        #print
 
 
 

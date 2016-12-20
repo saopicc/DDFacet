@@ -131,7 +131,7 @@ class ClassInitSSDModel():
         self.GD["ImagerDeconv"]["MinorCycleMode"]="MSMF"
         self.GD["ImagerDeconv"]["CycleFactor"]=0
         self.GD["ImagerDeconv"]["PeakFactor"]=0.01
-        self.GD["ImagerDeconv"]["RMSFactor"]=1.
+        self.GD["ImagerDeconv"]["RMSFactor"]=.5
         self.GD["ImagerDeconv"]["Gain"]=0.2
 
         self.GD["MultiScale"]["Scales"]=[0,1,2,4]
@@ -192,6 +192,7 @@ class ClassInitSSDModel():
 
         xc0,yc0=int((x1+x0)/2.),int((y1+y0)/2.)
         self.xy0=xc0,yc0
+        self.DeconvMachine.PSFServer.setLocation(*self.xy0)
 
         N1=Size
         xc1=yc1=N1/2
@@ -243,25 +244,29 @@ class ClassInitSSDModel():
     def setSSDModelImage(self,ModelImage):
         self.SSDModelImage=ModelImage
 
-    def addSubModelToSubDirty(self):
-        T=ClassTimeIt.ClassTimeIt("InitSSD.addSubModelToSubDirty")
-        T.disable()
-        ConvModel=np.zeros_like(self.SubSSDModelImage)
+    def giveConvModel(self,SubModelImage):
+        ConvModel=np.zeros_like(SubModelImage)
         nch,_,N0x,N0y=ConvModel.shape
-        indx,indy=np.where(self.SubSSDModelImage[0,0]!=0)
+        indx,indy=np.where(SubModelImage[0,0]!=0)
         xc,yc=N0x/2,N0y/2
-        self.DeconvMachine.PSFServer.setLocation(*self.xy0)
         PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
         N1=PSF.shape[-1]
-        T.timeit("0")
+        #T.timeit("0")
         for i,j in zip(indx.tolist(),indy.tolist()):
             ThisPSF=np.roll(np.roll(PSF,i-xc,axis=-2),j-yc,axis=-1)
             Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
             x0d,x1d,y0d,y1d=Aedge
             x0p,x1p,y0p,y1p=Bedge
-            ConvModel[...,x0d:x1d,y0d:y1d]+=ThisPSF[...,x0p:x1p,y0p:y1p]*self.SubSSDModelImage[...,i,j].reshape((-1,1,1,1))
-        T.timeit("1 %s"%(str(ConvModel.shape)))
+            ConvModel[...,x0d:x1d,y0d:y1d]+=ThisPSF[...,x0p:x1p,y0p:y1p]*SubModelImage[...,i,j].reshape((-1,1,1,1))
+        #T.timeit("1 %s"%(str(ConvModel.shape)))
+        return ConvModel
+    
 
+    def addSubModelToSubDirty(self):
+        T=ClassTimeIt.ClassTimeIt("InitSSD.addSubModelToSubDirty")
+        T.disable()
+        ConvModel=self.giveConvModel(self.SubSSDModelImage)
+        _,_,N0x,N0y=ConvModel.shape
         MeanConvModel=np.mean(ConvModel,axis=0).reshape((1,1,N0x,N0y))
         self.DicoSubDirty['ImagData']+=ConvModel
         self.DicoSubDirty['MeanImage']+=MeanConvModel
@@ -333,7 +338,17 @@ class ClassInitSSDModel():
 
 
         x,y=self.ArrayPixParms.T
-        SModel=ModelImage[0,0,x,y]
+        ConvModel=self.giveConvModel(ModelImage*np.ones((self.NFreqBands,1,1,1)))
+        SumConvModel=np.sum(ConvModel[:,:,x,y])
+        SumResid=np.sum(self.DeconvMachine._CubeDirty[:,:,x,y])
+        factor=(SumResid+SumConvModel)/SumConvModel
+
+        fMult=1.
+        if 1.<factor<2.:
+            fMult=factor
+        #print "fMult",fMult
+        SModel=ModelImage[0,0,x,y]*fMult
+
         AModel=self.ModelMachine.GiveSpectralIndexMap(DoConv=False,MaxDR=1e3)[0,0,x,y]
         return SModel,AModel
 
