@@ -134,7 +134,7 @@ class ClassEvolveGA():
                 SModelArrayMP,_=self.ArrayMethodsMachine.DeconvCLEAN()
                 AModelArrayMP=np.zeros_like(SModelArrayMP)
 
-            if np.max(np.abs(self.IslandBestIndiv))==0:
+            if True:#np.max(np.abs(self.IslandBestIndiv))==0:
                 
                 #print "NEW"
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
