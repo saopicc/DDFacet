@@ -444,7 +444,8 @@ class ClassArrayMethodSSD():
         iBestChi2=np.argmin(Chi2)
         BestInidividual=pop[iBestChi2]
         S=self.PM.ArrayToSubArray(BestInidividual,"S")
-        St=np.sum(np.abs(S))[()]
+        St=np.sum(np.abs(S))[()].copy()
+        if St==0: St=1e-10
         MaxEntropy=-St*np.log(St/self.NPixListParms)
         MinEntropy=-St*np.log(St)
         self.EntropyMinMax=MinEntropy,MaxEntropy
