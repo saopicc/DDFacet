@@ -405,7 +405,7 @@ class ClassImagerDeconv():
             dirty_cachepath, dirty_valid = self.VS.maincache.checkCache("Dirty", cache_key,
                                                                         reset=self.GD["Caching"]["ResetDirty"])
             if psf:
-                psf_cachepath, psf_valid = _checkForCachedPSF(sparsify, key=cache_key)
+                psf_cachepath, psf_valid = self._checkForCachedPSF(sparsify, key=cache_key)
         else:
             dirty_valid = psf_valid = False
 
