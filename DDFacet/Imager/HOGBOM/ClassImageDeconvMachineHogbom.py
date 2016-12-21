@@ -417,8 +417,12 @@ class ClassImageDeconvMachine():
                     PolyCoeffs = np.zeros([npol, self.ModelMachine.FreqMachine.order])
                     if pol_task == "I":
                         indexI = self.PolarizationDescriptor.index("I")
+                        # Get the solution
                         Fpol[:, indexI, 0, 0] = self._Dirty[:, indexI, x, y]
+                        # Fit a polynomial to get coeffs
                         PolyCoeffs[indexI, :] = self.ModelMachine.FreqMacine.FitPoly(Fpol[:, indexI, 0, 0])
+                        #
+                        Fpol[:, indexI, 0, 0] = self.ModelMachine.FreqMachine.
                     elif pol_task == "Q+iU":
                         indexQ = self.PolarizationDescriptor.index("Q")
                         indexU = self.PolarizationDescriptor.index("U")
@@ -461,6 +465,7 @@ class ClassImageDeconvMachine():
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
 
                     # Subtract LocalSM*CurrentGain from dirty image
+                    PolySol = self.ModelMachine.FreqMachine.EvalPoly()
                     self.SubStep((x,y),PSF*Fpol*CurrentGain*np.sqrt(JonesNorm))
                     T.timeit("SubStep")
 
