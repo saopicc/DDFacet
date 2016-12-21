@@ -23,7 +23,7 @@ import subprocess
 import DDFacet.cbuild
 # 20 / 12 / 2016: No unit tests since gridder was removed, so I'm disabling this one
 #def testRunCatchTests():
-#  ls = glob.glob(DDFacet.cbuild.__path__[0] + "/Gridder/TestUnits/Test*")
+#  ls = glob.glob(DDFacet.cbuild.__path__[0] + "/Gridder/UnitTests/Test*")
 #  for tester in ls:
 #    ret = subprocess.call(tester,shell=True)
 #    assert not ret, "C++ test unit %s failed" % tester

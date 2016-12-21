@@ -26,7 +26,7 @@ from os import path, getenv
 import numpy as np
 from DDFacet.Parset.ReadCFG import Parset
 from astropy.io import fits
-
+import timeit
 
 class ClassCompareFITSImage(unittest.TestCase):
     """ Automated assurance test: reference FITS file regression (abstract class)
@@ -110,6 +110,15 @@ class ClassCompareFITSImage(unittest.TestCase):
                 1e-5] #epsilons per image pair, as listed in defineImageList
 
     @classmethod
+    def defExecutionTime(cls):
+        """
+        Fine-tuned time to execute on test server
+        Returns:
+            constant tupple of time in seconds and tolerance
+        """
+        return 1e9, 1.0 # undefined
+
+    @classmethod
     def setParsetOption(cls, section, option, value):
         """
             Sets the default option read by the configuration parser
@@ -177,9 +186,12 @@ class ClassCompareFITSImage(unittest.TestCase):
         cls._stdoutLogFile = cls._outputDir+cls.__name__+".run.out.log"
         cls._stderrLogFile = cls._outputDir+cls.__name__+".run.err.log"
 
+        tic = timeit.timeit()
         args = ['DDF.py',
             cls._outputParsetFilename,
             '--ImageName=%s' % cls._imagePrefix]
+        toc = timeit.timeit()
+        cls._timeToExec = toc - tic
 
         stdout_file = open(cls._stdoutLogFile, 'w')
         stderr_file = open(cls._stderrLogFile, 'w')
@@ -260,6 +272,10 @@ class ClassCompareFITSImage(unittest.TestCase):
         if len(list_except) != 0:
             msg = "\n".join(list_except)
             raise AssertionError("The following assertions failed:\n %s" % msg)
+
+    def testPerformanceRegression(self):
+        average_upper, tol = self.defExecutionTime()
+        assert self._timeToExec <= average_upper * (1.0 + tol)
 
 if __name__ == "__main__":
     pass # abstract class
