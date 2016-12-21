@@ -27,11 +27,11 @@ from pyrap.tables import table
 from matplotlib import pyplot as plt
 import numpy as np
 
-def run_ddf(parset, image_prefix, stdout_filename, stderr_filename):
+def run_ddf(parset, image_prefix, stdout_filename, stderr_filename, beam_model="FITS"):
     """ Execute DDFacet """
     args = ['DDF.py', parset,
-            '--ImageName=%s' % image_prefix]
-
+            '--ImageName=%s' % image_prefix,
+            '--BeamModel=%s' % beam_model]
     stdout_file = open(stdout_filename, 'w')
     stderr_file = open(stderr_filename, 'w')
 
@@ -44,7 +44,7 @@ class TestFacetPredict(unittest.TestCase):
         Automated assurance test for ddfacet predict option
         Finds parset with the name TestFacetPredict.parset.cfg and executes a predict
         Compares the amplitude and phase differences between a DFT (Meqtrees) and a facet-based degridding
-        with a source close to the facet centre
+        with a source close to the facet centre. With and without beam enabled.
         Input:
             TestFacetPredict.parset.cfg in DDFACET_TEST_INPUT_DIR
         Output
@@ -57,7 +57,7 @@ class TestFacetPredict(unittest.TestCase):
 
     @classmethod
     def getPhaseThreshold(cls):
-        return 0.05
+        return 10 # degrees
 
     @classmethod
     def setParsetOption(cls, section, option, value):
@@ -114,15 +114,6 @@ class TestFacetPredict(unittest.TestCase):
         cls._defaultParsetConfig.write(fOutputParset)
         fOutputParset.close()
 
-        # run ddfacet
-        cls._stdoutLogFile = cls._outputDir + cls.__name__ + ".run.out.log"
-        cls._stderrLogFile = cls._outputDir + cls.__name__ + ".run.err.log"
-
-        run_ddf(parset=cls._outputParsetFilename,
-                image_prefix=cls.__class__.__name__,
-                stdout_filename=cls._stdoutLogFile,
-                stderr_filename=cls._stderrLogFile)
-
     @classmethod
     def tearDownClass(cls):
         unittest.TestCase.tearDownClass()
@@ -134,11 +125,102 @@ class TestFacetPredict(unittest.TestCase):
     def tearDown(self):
         unittest.TestCase.tearDown(self)
 
-    def testDDFagainstMeqtreesAmplitude(self):
+    def testDDFagainstMeqtreesWithBeam(self):
+        # run ddfacet
+        self._stdoutLogFile = self._outputDir + self.__class__.__name__ + ".run.withbeam.out.log"
+        self._stderrLogFile = self._outputDir + self.__class__.__name__ + ".run.withbeam.err.log"
+
+        run_ddf(parset=self._outputParsetFilename,
+                image_prefix=self.__class__.__name__,
+                stdout_filename=self._stdoutLogFile,
+                stderr_filename=self._stderrLogFile,
+                beam_model="FITS")
 
         list_except = []
         for ms_i, ms in enumerate(self._ms_list):
             with table(ms) as t:
+                # first test amplitude
+                meqtrees = t.getcol("CORRECTED_DATA")
+                ddfacet = t.getcol("MODEL_DATA")
+                diff = np.abs(meqtrees) / np.abs(ddfacet)
+                for icorr in xrange(4):
+                    gainsPlot = self._outputDir + \
+                                self.__class__.__name__ + \
+                                ".ms" + str(ms_i) + \
+                                ".corr" + str(icorr) + \
+                                ".amp" + \
+                                ".with_beam" + \
+                                ".gainsplot.png"
+                    # Plot amplitudes
+                    fig = plt.figure()
+                    plt.plot(np.abs(meqtrees[:, 0, icorr]), 'rx', label="Meqtrees")
+                    plt.plot(np.abs(ddfacet[:, 0, icorr]), 'bx', label="DDFacet")
+                    plt.title(os.path.basename(ms) + " correlation" + str(icorr))
+                    plt.xlabel("row")
+                    plt.ylabel("Jy")
+                    plt.legend()
+                    fig.savefig(gainsPlot)
+                    plt.close(fig)
+
+                try:
+                    # For the time being we cannot predict Q, U or V, so only check I and V prediction for a model
+                    # with only I in it
+                    assert np.max(np.abs(diff[:, :, 0] - 1.0)) <= TestFacetPredict.getAmpThreshold(), \
+                        "Facet amplitude prediction != meqtrees for ms %s correlation %d" % (ms, 0)
+                    assert np.max(np.abs(diff[:, :, 3] - 1.0)) <= TestFacetPredict.getAmpThreshold(), \
+                        "Facet amplitude prediction != meqtrees for ms %s correlation %d" % (ms, 3)
+                except AssertionError, e:
+                    list_except.append(str(e))
+
+                # next test phase
+                diff_rel = np.angle(meqtrees) - np.angle(ddfacet)
+                for icorr in xrange(4):
+                    gainsPlot = self._outputDir + \
+                                self.__class__.__name__ + \
+                                ".ms" + str(ms_i) + \
+                                ".corr" + str(icorr) + \
+                                ".phase" + \
+                                ".with_beam" + \
+                                ".gainsplot.png"
+                    # Plot phase differences
+                    fig = plt.figure()
+                    plt.plot(diff_rel[:, 0, icorr], 'mx', label="Phase diff")
+                    plt.title(os.path.basename(ms) + " correlation" + str(icorr))
+                    plt.xlabel("row")
+                    plt.ylabel("Relative error (deg)")
+                    plt.legend()
+                    fig.savefig(gainsPlot)
+                    plt.close(fig)
+
+                try:
+                    # For the time being we cannot predict Q, U or V, so only check I and V prediction for a model
+                    # with only I in it
+                    assert np.max(np.abs(diff_rel[:, :, 0] - 1.0)) <= TestFacetPredict.getPhaseThreshold(), \
+                        "Facet phase prediction != meqtrees for ms %s correlation %d" % (ms, 0)
+                    assert np.max(np.abs(diff_rel[:, :, 3] - 1.0)) <= TestFacetPredict.getPhaseThreshold(), \
+                        "Facet phase prediction != meqtrees for ms %s correlation %d" % (ms, 3)
+                except AssertionError, e:
+                    list_except.append(str(e))
+
+        if len(list_except) != 0:
+            msg = "\n".join(list_except)
+            raise AssertionError("The following assertions failed:\n %s" % msg)
+
+    def testDDFagainstMeqtreesWithoutBeam(self):
+        # run ddfacet
+        self._stdoutLogFile = self._outputDir + self.__class__.__name__ + ".run.withoutbeam.out.log"
+        self._stderrLogFile = self._outputDir + self.__class__.__name__ + ".run.withoutbeam.err.log"
+
+        run_ddf(parset=self._outputParsetFilename,
+                image_prefix=self.__class__.__name__,
+                stdout_filename=self._stdoutLogFile,
+                stderr_filename=self._stderrLogFile,
+                beam_model="None")
+
+        list_except = []
+        for ms_i, ms in enumerate(self._ms_list):
+            with table(ms) as t:
+                # first test amplitude
                 meqtrees = t.getcol("DATA")
                 ddfacet = t.getcol("MODEL_DATA")
                 diff = np.abs(meqtrees) / np.abs(ddfacet)
@@ -148,11 +230,12 @@ class TestFacetPredict(unittest.TestCase):
                                 ".ms" + str(ms_i) + \
                                 ".corr" + str(icorr) + \
                                 ".amp" + \
+                                ".without_beam" + \
                                 ".gainsplot.png"
-                    #Amplitude error
+                    # Plot amplitudes
                     fig = plt.figure()
-                    plt.plot(np.abs(meqtrees[:,0,icorr]), 'rx', label="Meqtrees")
-                    plt.plot(np.abs(ddfacet[:,0,icorr]), 'bx', label="DDFacet")
+                    plt.plot(np.abs(meqtrees[:, 0, icorr]), 'rx', label="Meqtrees")
+                    plt.plot(np.abs(ddfacet[:, 0, icorr]), 'bx', label="DDFacet")
                     plt.title(os.path.basename(ms) + " correlation" + str(icorr))
                     plt.xlabel("row")
                     plt.ylabel("Jy")
@@ -161,30 +244,44 @@ class TestFacetPredict(unittest.TestCase):
                     plt.close(fig)
 
                 try:
-                    assert np.max(np.abs(diff - 1.0)) <= TestFacetPredict.getAmpThreshold(), \
-                        "Facet prediction != meqtrees for ms %s" % ms
+                    # For the time being we cannot predict Q, U or V, so only check I and V prediction for a model
+                    # with only I in it
+                    assert np.max(np.abs(diff[:, :, 0] - 1.0)) <= TestFacetPredict.getAmpThreshold(), \
+                        "Facet amplitude prediction != meqtrees for ms %s correlation %d" % (ms, 0)
+                    assert np.max(np.abs(diff[:, :, 3] - 1.0)) <= TestFacetPredict.getAmpThreshold(), \
+                        "Facet amplitude prediction != meqtrees for ms %s correlation %d" % (ms, 3)
                 except AssertionError, e:
                     list_except.append(str(e))
-                continue
 
-        if len(list_except) != 0:
-            msg = "\n".join(list_except)
-            raise AssertionError("The following assertions failed:\n %s" % msg)
+                # next test phase
+                diff_rel = np.angle(meqtrees) - np.angle(ddfacet)
+                for icorr in xrange(4):
+                    gainsPlot = self._outputDir + \
+                                self.__class__.__name__ + \
+                                ".ms" + str(ms_i) + \
+                                ".corr" + str(icorr) + \
+                                ".phase" + \
+                                ".without_beam" + \
+                                ".gainsplot.png"
+                    # Plot phase differences
+                    fig = plt.figure()
+                    plt.plot(diff_rel[:, 0, icorr], 'mx', label="Phase diff")
+                    plt.title(os.path.basename(ms) + " correlation" + str(icorr))
+                    plt.xlabel("row")
+                    plt.ylabel("Relative error (deg)")
+                    plt.legend()
+                    fig.savefig(gainsPlot)
+                    plt.close(fig)
 
-    def testDDFagainstMeqtreesPhase(self):
-
-        list_except = []
-        for ms_i, ms in enumerate(self._ms_list):
-            with table(ms) as t:
-                meqtrees = t.getcol("DATA")
-                ddfacet = t.getcol("MODEL_DATA")
-                diff_rel = np.angle(meqtrees) / np.angle(ddfacet)
                 try:
-                    assert np.max(np.abs(diff_rel - 1.0)) <= TestFacetPredict.getPhaseThreshold(), \
-                        "Facet prediction != meqtrees for ms %s" % ms
+                    # For the time being we cannot predict Q, U or V, so only check I and V prediction for a model
+                    # with only I in it
+                    assert np.max(np.abs(diff_rel[:, :, 0] - 1.0)) <= TestFacetPredict.getPhaseThreshold(), \
+                        "Facet phase prediction != meqtrees for ms %s correlation %d" % (ms, 0)
+                    assert np.max(np.abs(diff_rel[:, :, 3] - 1.0)) <= TestFacetPredict.getPhaseThreshold(), \
+                        "Facet phase prediction != meqtrees for ms %s correlation %d" % (ms, 3)
                 except AssertionError, e:
                     list_except.append(str(e))
-                continue
 
         if len(list_except) != 0:
             msg = "\n".join(list_except)
