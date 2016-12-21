@@ -1,4 +1,19 @@
 # DDFacet
+A facet-based radio imaging package
+
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
 ## (Users/Recommended) Docker-based installation
 Simply pull the latest DDFacet and build the Docker image:
 ```
@@ -70,13 +85,13 @@ Adding the `--system-site-packages` directive ensures that the virtualenv has ac
     ```bash
     git clone https://github.com/ska-sa/montblanc.git
     cd montblanc
-    git checkout 339eb8f8a0f4a44243f340b7f33882fd9656858b
+    git checkout 3c94bfa261354825c584ad1e62314b91f6bf583b
     ```
 
-2. Install the tensorflow CPU [0.11.0][tf_pip_install] release:
+2. Install the tensorflow CPU [0.12.0rc1][tf_pip_install] release:
 
     ```bash
-    pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0-cp27-none-linux_x86_64.whl
+    pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.12.0rc1-cp27-none-linux_x86_64.whl
     ```
 
     If you want GPU acceleration and you have CUDA installed, you can alternatively try installing the tensorflow [GPU version][tf_pip_install].
@@ -106,6 +121,13 @@ A restart will be required for this change to reflect. If you would prefer a onc
 
 ```
 sudo mount -o remount,size=100% /run/shm
+```
+
+It may also be necessary to run the following to remove the kernel security limit on mlock pinning. Without this things may
+be slower than usual.
+
+```
+echo "*        -   memlock     unlimited" > /etc/security/limits.conf
 ```
 
 ## (Developers): setting up your dev environment
@@ -158,6 +180,6 @@ Acceptance test data can be found on the Jenkins server in the **/data/test-data
 To resimulate images and add more tests:
 In the Jenkins server data directory run **make** to resimulate and set up new reference images. This should only be done with the **origin/master** branch - not your branch or fork! You should manually verify that all the reference images are correct when you regenerate them. Each time you add a new option to DDFacet also add an option to the makefile in this directory. Once the option is set up in the makefile you can build the reference images on Jenkins.
 
-[tf_pip_install]: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/g3doc/get_started/os_setup.md#pip-installation
+[tf_pip_install]: https://www.tensorflow.org/get_started/os_setup#pip_installation
 
 
