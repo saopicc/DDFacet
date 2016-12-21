@@ -91,11 +91,11 @@ class ClassModModelMachine():
             else:
                 print>> log, "MORSANE model machine already initialised"
             return self.MORESANEMM
-        elif Mode == "HOGBOM":
+        elif Mode == "Hogbom":
             if self.HOGBOMMM is None:
                 print>> log, "Initialising HOGBOM model machine"
-                from DDFacet.Imager.HOGBOM import ClassModelMachineHOGBOM
-                self.HOGBOMMM = ClassModelMachineHOGBOM.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+                from DDFacet.Imager.HOGBOM import ClassModelMachineHogbom
+                self.HOGBOMMM = ClassModelMachineHogbom.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
             else:
                 print>> log, "HOGBOM model machine already initialised"
             return self.HOGBOMMM

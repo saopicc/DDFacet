@@ -31,8 +31,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.RefFreq = RefFreq
         self.DicoSMStacked["RefFreq"] = RefFreq
         self.DicoSMStacked["AllFreqs"] = np.array(AllFreqs)
+
+
+    def setFreqMachine(self,GridFreqs, order):
         # Initiaise the Frequency Machine
-        self.FreqMachine = ClassFrequencyMachine(AllFreqs,RefFreq)
+        self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, self.DicoSMStacked["RefFreq"], order=order)
 
 
     def ToFile(self, FileName, DicoIn=None):
@@ -42,8 +45,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             D = DicoIn
 
-        D["Type"] = "MSMF"
-        D["ListScales"] = self.ListScales
+        D["Type"] = "Hogbom"
+        D["ListScales"] = "Delta"
         D["ModelShape"] = self.ModelShape
         MyPickle.Save(D, FileName)
 

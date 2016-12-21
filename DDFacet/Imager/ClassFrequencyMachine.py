@@ -39,8 +39,10 @@ class ClassFrequencyMachine(object):
                 FitGP       : Fits a Gaussian process to the spectral axis of the model image to pixels above a user specified threshold
 
     """
-    def __init__(self, Freqs, ref_freq, order=5):
-        self.nchan = Freqs.size
+    def __init__(self, Freqs, ref_freq, order=None):
+        self.Freqs = np.asarray(Freqs)
+        self.nchan = self.Freqs.size
+        #print "nchan =", self.nchan
         # # Get Stokes parameters
         # self.IStokes = ModelCube[:, 0, :, :]
         # if self.npol > 1:
@@ -50,11 +52,13 @@ class ClassFrequencyMachine(object):
         # if self.npol > 3:
         #     self.VStokes = ModelCube[:, 3, :, :]
         # self.ModelCube = ModelCube
-        self.Freqs = Freqs
         self.ref_freq = ref_freq
-        self.order = order
-        self.Xdes = self.setDesMat(Freqs, order=self.order)
-        self.AATinvAT = np.dot(np.linalg.inv(self.XDes.T.dot(self.XDes)), self.XDes.T)
+        if order is not None:
+            self.order = order
+        else:
+            self.order = 3
+        self.Xdes = self.setDesMat(self.Freqs, order=self.order)
+        self.AATinvAT = np.dot(np.linalg.inv(self.Xdes.T.dot(self.Xdes)), self.Xdes.T) # This is required to perform the sudo inverse
 
     def getFitMask(self, Threshold=0.0, SetNegZero=False, PolMode='I'):
         """
@@ -87,7 +91,7 @@ class ClassFrequencyMachine(object):
         FitMask = FitCube[:, MaskIndices[:, 0], MaskIndices[:, 1]]
         return FitMask, MaskIndices
 
-    def setDesMat(self, Freqs, order=5, mode="Normal"):
+    def setDesMat(self, Freqs, order=None, mode="Normal"):
         """
         This function creates the design matrix
         Args:
@@ -97,6 +101,8 @@ class ClassFrequencyMachine(object):
             Xdesign    = The design matrix [1, (v/v_0), (v/v_0)**2, ...]
 
         """
+        if order is None:
+            order = self.order
         if mode=="Normal":
             # Construct vector of frequencies
             w = (Freqs / self.ref_freq).reshape(Freqs.size, 1)
@@ -111,7 +117,7 @@ class ClassFrequencyMachine(object):
             raise NotImplementedError("mode %s not supported" % mode)
         return Xdesign
 
-    def FitAlphaMap(self,threshold=0.1,order=2):
+    def FitAlphaMap(self,threshold=0.1,order=None):
         """
         Here we fit a spectral index model to each pixel in the model image above threshold. Note only positive pixels can be used.
         Args:
@@ -120,7 +126,8 @@ class ClassFrequencyMachine(object):
                         allow for spectral curvature etc. by doing a higher order fit in log space (i.e. order = 3 gives spectral
                         curvature).
         """
-        # Get the mask and mask indices
+        if order is None:
+            order = self.order        # Get the mask and mask indices
         IMask,MaskInd = self.getFitMask(Threshold=threshold, SetNegZero=True, PolMode="I")
         ix = MaskInd[:, 0]
         iy = MaskInd[:, 1]
@@ -181,7 +188,7 @@ class ClassFrequencyMachine(object):
         """
         return np.dot(self.AATinvAT, Vals)
 
-    def EvalPoly(self,coeffs,Freqs):
+    def EvalPoly(self,coeffs,Freqs=None):
         """
         Evaluates a polynomial at Freqs with coefficients coeffs
         Args:
@@ -190,10 +197,12 @@ class ClassFrequencyMachine(object):
         Returns:
             The polynomial evaluated at Freqs
         """
+        if Freqs is None:
+            Freqs = self.Freqs
         order = coeffs.size
-        Xdes = self.setDesMat(Freqs,order=order)
+        Xdes = self.setDesMat(Freqs, order=order)
         # evaluate poly and return result
-        return np.dot(Xdes,coeffs.reshape(order,1))
+        return np.dot(Xdes, coeffs)
 
     def FitPolyCube(self, deg=4, threshold = 0.0, PolMode = "I", weights="Default"):
         """

@@ -119,12 +119,13 @@ class ClassImageDeconvMachine():
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.SetModelRefFreq()
-        tmp = [{'Alpha': 0.0, 'Scale': 0, 'ModelType': 'Delta'}]
-        AlphaMin, AlphaMax, NAlpha = self.GD["MultiFreqs"]["Alpha"]
-        if NAlpha > 1:
-            print>>log, "Multi-frequency synthesis not supported in Hogbom CLEAN. Setting alpha to zero"
-
-        self.ModelMachine.setListComponants(tmp)
+        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"],self.GD["MultiFreqs"]["PolyFitOrder"])
+        # tmp = [{'Alpha': 0.0, 'Scale': 0, 'ModelType': 'Delta'}]
+        # AlphaMin, AlphaMax, NAlpha = self.GD["MultiFreqs"]["Alpha"]
+        # if NAlpha > 1:
+        #     print>>log, "Multi-frequency synthesis not supported in Hogbom CLEAN. Setting alpha to zero"
+        #
+        # self.ModelMachine.setListComponants(tmp)
 
         # Set gridding Freqs
 
@@ -440,20 +441,23 @@ class ClassImageDeconvMachine():
                         # Get the solution
                         Fpol[:, indexI, 0, 0] = self._Dirty[:, indexI, x, y]
                         # Fit a polynomial to get coeffs
-                        PolyCoeffs[indexI, :] = self.ModelMachine.FreqMacine.FitPoly(Fpol[:, indexI, 0, 0])
-                        #
-                        Fpol[:, indexI, 0, 0] = self.ModelMachine.FreqMachine.
+                        PolyCoeffs[indexI, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexI, 0, 0])
+                        # Overwrite with polynoimial fit
+                        Fpol[:, indexI, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexI, :])
                     elif pol_task == "Q+iU":
                         indexQ = self.PolarizationDescriptor.index("Q")
                         indexU = self.PolarizationDescriptor.index("U")
                         Fpol[:, indexQ, 0, 0] = self._Dirty[:, indexQ, x, y]
-                        PolyCoeffs[indexQ, :] = self.ModelMachine.FreqMacine.FitPoly(Fpol[:, indexQ, 0, 0])
+                        PolyCoeffs[indexQ, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexQ, 0, 0])
+                        Fpol[:, indexQ, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexQ, :])
                         Fpol[:, indexU, 0, 0] = self._Dirty[:, indexU, x, y]
-                        PolyCoeffs[indexU, :] = self.ModelMachine.FreqMacine.FitPoly(Fpol[:, indexU, 0, 0])
+                        PolyCoeffs[indexU, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexU, 0, 0])
+                        Fpol[:, indexU, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexU, :])
                     elif pol_task == "V":
                         indexV = self.PolarizationDescriptor.index("V")
                         Fpol[:, indexV, 0, 0] = self._Dirty[:, indexV, x, y]
-                        PolyCoeffs[indexV, :] = self.ModelMachine.FreqMacine.FitPoly(Fpol[:, indexV, 0, 0])
+                        PolyCoeffs[indexV, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexV, 0, 0])
+                        Fpol[:, indexV, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexV, :])
                     else:
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
                     nchan, npol, _, _ = Fpol.shape
@@ -480,12 +484,11 @@ class ClassImageDeconvMachine():
                         self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexU, :], indexU)
                     elif pol_task == "V":
                         indexV = self.PolarizationDescriptor.index("V")
-                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexI, :], indexV)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexV, :], indexV)
                     else:
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
 
                     # Subtract LocalSM*CurrentGain from dirty image
-                    PolySol = self.ModelMachine.FreqMachine.EvalPoly()
                     self.SubStep((x,y),PSF*Fpol*CurrentGain*np.sqrt(JonesNorm))
                     T.timeit("SubStep")
 
