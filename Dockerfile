@@ -22,7 +22,10 @@ ADD .gitmodules /src/DDFacet/.gitmodules
 # Support large mlocks
 RUN echo "*        -   memlock     unlimited" > /etc/security/limits.conf
 ENV DEB_SETUP_DEPENDENCIES \
-    build-essential \
+    dpkg-dev \
+    g++ \
+    gcc \
+    libc-dev \
     cmake \
     gfortran \
     git
@@ -50,7 +53,8 @@ ENV DEB_DEPENCENDIES \
     meqtrees-timba \
     # Reference image generation dependencies
     meqtrees \
-    makems
+    makems \
+    make
 
 RUN apt-get update && \
     apt-get install -y software-properties-common && \
