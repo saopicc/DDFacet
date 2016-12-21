@@ -33,8 +33,14 @@ class TestSSMFClean(ClassCompareFITSImage.ClassCompareFITSImage):
     @classmethod
     def defineMaxSquaredError(cls):
         return [1e-5, 1e-5, 1e-5, 1e-5, 1e-5,
-                1e0, 1e0,
-                1e0, 1e0]  # epsilons per image pair, as listed in defineImageList
+                1e-1, 1e-1,
+                1e-1, 1e-1]  # epsilons per image pair, as listed in defineImageList
+
+    @classmethod
+    def defMeanSquaredErrorLevel(cls):
+        return [1e-6, 1e-6, 1e-6, 1e-6, 1e-6,
+                1e-3, 1e-3,
+                1e-3, 1e-3]  # epsilons per image pair, as listed in defineImageList
 
 class TestSSSFClean(ClassCompareFITSImage.ClassCompareFITSImage):
     @classmethod
@@ -46,8 +52,14 @@ class TestSSSFClean(ClassCompareFITSImage.ClassCompareFITSImage):
     @classmethod
     def defineMaxSquaredError(cls):
         return [1e-5, 1e-5, 1e-5, 1e-5, 1e-5,
-                1e0, 1e0,
-                1e0, 1e0]  # epsilons per image pair, as listed in defineImageList
+                1e-1, 1e-1,
+                1e-1, 1e-1]  # epsilons per image pair, as listed in defineImageList
+
+    @classmethod
+    def defMeanSquaredErrorLevel(cls):
+        return [1e-6, 1e-6, 1e-6, 1e-6, 1e-6,
+                1e-3, 1e-3,
+                1e-3, 1e-3]  # epsilons per image pair, as listed in defineImageList
 
 
 if __name__ == '__main__':
