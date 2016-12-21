@@ -2,6 +2,7 @@
 A facet-based radio imaging package
 
 [![Build Status](https://jenkins.meqtrees.net/job/DDFacet_master_cron/badge/icon)](https://jenkins.meqtrees.net/job/DDFacet_master_cron)
+[![AUR](https://img.shields.io/aur/license/yaourt.svg)]()
 
 Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
 SKA South Africa, Rhodes University
