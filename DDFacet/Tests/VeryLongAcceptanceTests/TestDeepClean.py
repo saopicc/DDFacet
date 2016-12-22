@@ -21,12 +21,31 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import unittest
 
 import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
-
+import numpy as np
 
 class TestDeepClean(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
-    pass #check all images
+    @classmethod
+    def defDRTolerance(cls):
+        """
+        Relative tolerance of clean dynamic range
+        """
+        return 0.03 # 3% drift
 
+    def testDR(self):
+        """
+        Checks clean dynamic range against previous known good result
+        """
+        cls = self.__class__
 
-
+        dirty_ref = cls._refHDUList[cls.defineImageList().index("dirty")]
+        appresidue_ref = cls._refHDUList[cls.defineImageList().index("app.residual")]
+        DR_ref = max(np.max(dirty_ref), abs(np.min(dirty_ref))) / \
+                 max(np.max(appresidue_ref), abs(np.min(appresidue_ref)))
+        dirty_out = cls._outHDUList[cls.defineImageList().index("dirty")]
+        appresidue_out = cls._outHDUList[cls.defineImageList().index("app.residual")]
+        DR_out = max(np.max(dirty_out), abs(np.min(dirty_out))) / \
+                 max(np.max(appresidue_out), abs(np.min(appresidue_out)))
+        assert abs(DR_ref / DR_out) <= cls.defDRTolerance(), "DR value has regressed. " \
+                                                             "Known good: %f, current %f" % (DR_ref, DR_out)
 if __name__ == '__main__':
     unittest.main()
