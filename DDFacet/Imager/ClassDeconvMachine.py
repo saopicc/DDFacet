@@ -306,8 +306,9 @@ class ClassImagerDeconv():
 
 
     def _checkForCachedPSF (self, sparsify, key=None):
-        return self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(),
+        self._psf_cachepath, valid = self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(),
                                             reset=self.GD["Caching"]["ResetPSF"] or sparsify)
+        return self._psf_cachepath, valid
 
     def _loadCachedPSF (self, cachepath):
         import cPickle
@@ -322,7 +323,7 @@ class ClassImagerDeconv():
         self.DicoVariablePSF = FacetMachinePSF.DicoPSF
         if self.GD["Caching"]["CachePSF"] and not sparsify:
             try:
-                cPickle.dump(self.DicoVariablePSF, file(cachepath, 'w'), 2)
+                cPickle.dump(self.DicoVariablePSF, file(self._psf_cachepath, 'w'), 2)
                 self.VS.maincache.saveCache("PSF")
             except:
                 print>> log, traceback.format_exc()
