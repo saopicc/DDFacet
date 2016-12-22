@@ -39,13 +39,17 @@ def _smearmapping_worker(jobitem, DATA, InfoSmearMapping, WorkerMapName, GridCha
         BlocksRowsListBLWorker = NpShared.GiveArray(ThisWorkerMapName)
         if BlocksRowsListBLWorker is None:
             BlocksRowsListBLWorker = np.array([], np.int32)
+        block0 = BlocksRowsListBLWorker.size
 
         BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL = rep
         BlocksRowsListBLWorker = np.concatenate((BlocksRowsListBLWorker, BlocksRowsListBL))
         NpShared.ToShared(ThisWorkerMapName, BlocksRowsListBLWorker)
+        block1 = BlocksRowsListBLWorker.size
+
 
         return {"bl": (a0, a1),
                     "MapName": ThisWorkerMapName,
+                    "Slice": slice(block0, block1),
                     "IdWorker": Multiprocessing.ProcessPool.getCPUId(),
                     "Empty": False,
                     "BlocksSizesBL": BlocksSizesBL,
@@ -197,18 +201,25 @@ class ClassSmearMapping():
                                                         GridChanMapping=GridChanMapping))
 
         # process worker results
-        # for each map (each array resturned from worker), BlockSizes[MapName] will
+        # for each map (each array returned from worker), BlockSizes[MapName] will
         # contain a list of BlocksSizesBL entries returned from that worker
-        BlockSizes = {}
+        RowsBlockSizes = {}
         NTotBlocks = 0
         NTotRows = 0
+        worker_maps = {}
 
         for DicoResult in results:
             if not DicoResult["Empty"]:
                 MapName = DicoResult["MapName"]
-                BlockSizes.setdefault(MapName,[]).append(np.array(DicoResult["BlocksSizesBL"]))
+                map = worker_maps.get(MapName)
+                if map is None:
+                    map = worker_maps[MapName] = NpShared.GiveArray(MapName)
+                bl = DicoResult["bl"]
+                rowslice = DicoResult["Slice"]
+                bsz = np.array(DicoResult["BlocksSizesBL"])
+                RowsBlockSizes["bl"] = map[rowslice], bsz
                 NTotBlocks += DicoResult["NBlocksTotBL"]
-                NTotRows += np.sum(DicoResult["BlocksSizesBL"])
+                NTotRows += bsz.sum()
 
         FinalMappingHeader = np.zeros((2*NTotBlocks+1, ), np.int32)
         FinalMappingHeader[0] = NTotBlocks
@@ -222,27 +233,16 @@ class ClassSmearMapping():
         jjj = 0
 
         # now go through each per-worker mapping
-        for MapName, block_sizes in BlockSizes.iteritems():
+        for (a0,a1), (BlocksRowsListBL, BlocksSizesBL) in sorted(RowsBlockSizes.items()):
             #print>>log, "  Worker: %i"%(IdWorker)
-            BlocksRowsListBLWorker = NpShared.GiveArray(MapName)
-            if BlocksRowsListBLWorker is None:
-                continue
 
-            # FinalMapping=np.concatenate((FinalMapping,BlocksRowsListBLWorker))
+            FinalMapping[iii:iii+BlocksRowsListBL.size] = BlocksRowsListBL[:]
+            iii += BlocksRowsListBL.size
 
-            FinalMapping[iii:iii+BlocksRowsListBLWorker.size] = BlocksRowsListBLWorker[:]
-            iii += BlocksRowsListBLWorker.size
-
-            N = 0
-
-            for BlocksSizesBL in block_sizes:
-                # print "IdWorker,AppendId",IdWorker,AppendId,BlocksSizesBL
-                # MM=np.concatenate((MM,BlocksSizesBL))
-                MM[jjj:jjj+BlocksSizesBL.size] = BlocksSizesBL[:]
-                jjj += BlocksSizesBL.size
-                # print MM.shape,BlocksSizesBL
-                N += np.sum(BlocksSizesBL)
-            # print N,BlocksRowsListBLWorker.size
+            # print "IdWorker,AppendId",IdWorker,AppendId,BlocksSizesBL
+            # MM=np.concatenate((MM,BlocksSizesBL))
+            MM[jjj:jjj+BlocksSizesBL.size] = BlocksSizesBL[:]
+            jjj += BlocksSizesBL.size
 
         cumul = np.cumsum(MM)
         FinalMappingHeader[1:1+NTotBlocks] = MM
@@ -251,7 +251,7 @@ class ClassSmearMapping():
 
         #print>>log, "  Concat header"
         FinalMapping = np.concatenate((FinalMappingHeader, FinalMapping))
-        for MapName in BlockSizes.iterkeys():
+        for MapName in worker_maps.iterkeys():
             NpShared.DelArray(MapName)
 
         #print>>log, "  Put in shared mem"
