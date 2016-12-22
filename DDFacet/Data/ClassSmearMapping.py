@@ -19,6 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import numpy as np
+import math
 import itertools
 from DDFacet.Other import MyLogger
 from DDFacet.Array import NpShared
@@ -29,7 +30,7 @@ from DDFacet.Other import Multiprocessing
 
 def _smearmapping_worker(jobitem, DATA, InfoSmearMapping, WorkerMapName, GridChanMapping):
     a0, a1 = jobitem
-    rep = GiveBlocksRowsListBL_old(a0, a1, DATA, InfoSmearMapping, GridChanMapping)
+    rep = GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping)
 
     if rep is not None:
         # form up map name based on CPU ID
@@ -231,33 +232,40 @@ def GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
     NChan = freqs.size
     nu0 = np.max(freqs)
 
-    # find delta-uv at each row: will have size of (Nrow,2)
-    if True:  # compute delta-uv
-        duv = uvw[:,:2].copy()
-        duv[:-1,:2] = uvw[1:,:2] - uvw[:-1,:2]
-    else:     # comnpute delta-uvw
-        duv = uvw.copy()
-        duv[:-1,:] = uvw[1:,:] - uvw[:-1,:]
-    # last delta copied from previous row        
-    duv[-1,:] = duv[-2,:]
-    # convert to distance
-    duv_array = np.sqrt((duv**2).sum(1))     # delta-uv-distance at each row
-
     # critical delta-uv interval for smearing
-    Duv = C*(dPhi)/(np.pi*l*nu0)
+    Duv = C*(dPhi)/(np.pi*nu0)
+
+    ### old code -- computed delta-uv or delta-uvw and compared this to Duv
+    # # find delta-uv at each row: will have size of (Nrow,2)
+    # UVSLICE = slice(0,3)  # 0,2 for delta-uv-distance, or 0,3 for delta-uvw distance
+    # duv = uvw[:,UVSLICE].copy()
+    # duv[:-1,UVSLICE] = uvw[1:,UVSLICE] - uvw[:-1,UVSLICE]
+    # # last delta copied from previous row
+    # duv[-1,:] = duv[-2,:]
+    # # convert to delta-phase: Cyril's old approximation of u*l+v*l+(w*l)
+    # delta_phase = np.sqrt((duv**2).sum(1))*(l*np.pi*nu0/C)     # delta-phase at facet edge (approximate)
+
+    ### better idea maybe: multiply u and v by l, and w by sqrt(1-2.l^2)-1, this gives the total phase change at the edge
+    ### of a facet (Cyril's old code just took delta-uvw, which probably overweighted w)
+    lmn = np.array([l, l, math.sqrt(1-2*l*l)-1])
+    duvw = uvw.copy()
+    duvw[:-1,:] = uvw[1:,:] - uvw[:-1,:]
+    # last delta copied from previous row
+    duvw[-1,:] = duvw[-2,:]
+    # ddot is delta in uvw*(l,m,n-1)
+    ddot = duvw * lmn[np.newaxis,:]
+    delta_phase = np.sqrt((ddot**2).sum(1))*(np.pi*nu0/C)
 
     # uvw-distance at each row (size Nrow-1)
     uv = np.sqrt((uvw**2).sum(1))
     dnu = (C / np.pi) * dPhi / (uv * l)  # delta-nu for each row
     fracsizeChanBlock = dnu / dFreq  # max size of averaging block, in fractional channels, for each row
 
-    duv_array = np.sqrt((duv**2).sum(1))     # delta-uv-distance at each row
-
     if True:  # fast-style, maybe not as precise
-        # accumulate duv, and divide by Duv. Take the floor of that -- that gives us an integer, the time block number
+        # accumulate delta-phase, and divide by dPhi. Take the floor of that -- that gives us an integer, the time block number
         # for each row
         if Duv:
-            rowblock = np.int32(duv_array.cumsum() / Duv)
+            rowblock = np.int32(delta_phase.cumsum() / dPhi)
             # find row numbers at which the time blocks are cut (adding nrows at end)
             blockcut = np.where(np.roll(rowblock,1) != rowblock)[0]
             nblocks = len(blockcut)
@@ -268,17 +276,16 @@ def GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
             block_slices = [ slice(i,i+1) for i in xrange(nrows) ]
     else:   # slow-style, more like Cyril used to do it
         block_slices = []
-        duvtot = row0 = 0
-    # row0 is start of current block; duv[i] is distance of row i+1 wrt row i
-        for row, duv in enumerate(duv_array):
-            duvtot += duv
-            if duvtot > Duv:  # if more than critical, then block is [row0,row+1)
+        dphtot = row0 = 0
+        # row0 is start of current block; delta_phase[i] is distance of row i+1 wrt row i
+        for row, dph in enumerate(delta_phase):
+            dphtot += dph
+            if dphtot > dPhi:  # if more than critical, then block is [row0,row+1)
                 block_slices.append(slice(row0, row+1))
-                duvtot = 0
+                dphtot = 0
                 row0 = row+1
         # add last block
         block_slices.append(slice(row0,nrows))
-
 
     # now find the minimum (fractional) channel block size for each time block. If this is <1, set to 1
     fracsizeChanBlockMin = np.array([ max(fracsizeChanBlock[slc].min(), 1) for slc in block_slices ])
@@ -322,6 +329,8 @@ def GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
 
     blocklists = [ [ch0, ch1] + list(row_index[block_slices[iblock]]) for iblock, sz in enumerate(sizeChanBlock)
                                                                       for ch0, ch1 in channel_cuts[channelization_num[sz]] ]
+
+#    print>> log, "baseline %d:%d blocklists %s" % (a0, a1, " ".join([",".join(map(str,bl)) for bl in blocklists]))
 
     # list of blocklist sizes, per block
     BlocksSizesBL = [ len(bl) for bl in blocklists ]
@@ -370,6 +379,7 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
     BlocksRowsListBL = []
     BlocksSizesBL = []
     NBlocksTotBL = 0
+    blocklist = []
     # loop over all rows for this baseline
     for iRowBL in xrange(ind.size):
         CurrentRows.append(ind[iRowBL])   # add to list of rows
@@ -431,11 +441,15 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
                 ThiDesc = [ch0, ch1]
                 ThiDesc += CurrentRows
                 BlocksSizesBL.append(len(ThiDesc))
+                blocklist.append(ThiDesc)
                 BlocksRowsListBL += (ThiDesc)
                 NBlocksTotBL += 1
             NChanBlockMax = 1e3
             CurrentRows = []
             duvtot = 0
     # stop
+#    print>> log, "baseline %d:%d blocklists %s" % (a0, a1, " ".join([",".join(map(str,bl)) for bl in blocklist]))
+
+
     return BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL
 

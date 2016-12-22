@@ -779,7 +779,7 @@ class ClassImagerDeconv():
                     mb_machine.getChunk(self.DATA, self.VS.getVisibilityResiduals(), model, self.VS.CurrentMS)
                     mb_machine.close()
                 else:
-                    raise ValueError("Invalid PredictMode '%s'" % PredictMode)
+                    raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
 
                 if predict_colname:
                     data = self.VS.getVisibilityData()
