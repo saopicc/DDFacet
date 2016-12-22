@@ -548,6 +548,7 @@ void gridderWPol(PyArrayObject *grid,
 	    VisMeas[3]= 1.;
 	    corr=1.;
 	    if(DoApplyJones){
+	       // first product seems superfluous, why multiply by identity?
 	      MatDot(J0,JonesType,VisMeas,SkyType,VisMeas);
 	      MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);
 	    }

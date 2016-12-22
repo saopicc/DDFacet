@@ -477,7 +477,7 @@ class ClassMS():
             read_data: if False, visibilities will not be read, only flags and other data
             sort_by_baseline: if True, sorts rows in baseline-time order
         Returns:
-
+            DATA dictionary containing all read elements
         """
 
         if row0>=self.F_nrows:
