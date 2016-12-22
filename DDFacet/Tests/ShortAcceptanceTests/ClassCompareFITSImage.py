@@ -22,11 +22,10 @@ import subprocess
 import unittest
 import os
 from os import path, getenv
-
+import re
 import numpy as np
 from DDFacet.Parset.ReadCFG import Parset
 from astropy.io import fits
-import timeit
 
 class ClassCompareFITSImage(unittest.TestCase):
     """ Automated assurance test: reference FITS file regression (abstract class)
@@ -68,6 +67,7 @@ class ClassCompareFITSImage(unittest.TestCase):
             we are only testing the following:
                 1. max (ref-output)^2 <= tolerance
                 2. Mean Squared Error <= tolerance
+                3. Parse the logs of the reference images and compare runtime against current test case runtime
     """
 
     @classmethod
@@ -112,11 +112,9 @@ class ClassCompareFITSImage(unittest.TestCase):
     @classmethod
     def defExecutionTime(cls):
         """
-        Fine-tuned time to execute on test server
-        Returns:
-            constant tupple of time in seconds and tolerance
+        Relative tolerance for total execution time in comparison with reference runs
         """
-        return 1e9, 1.0 # undefined
+        return 0.1 # 10%
 
     @classmethod
     def setParsetOption(cls, section, option, value):
@@ -140,6 +138,8 @@ class ClassCompareFITSImage(unittest.TestCase):
         #Read and override default parset
         cls._inputParsetFilename = cls._inputDir + cls.__name__+ ".parset.cfg"
         cls._outputParsetFilename = cls._outputDir + cls.__name__+ ".run.parset.cfg"
+        cls._inputLog = cls._inputDir + cls.__name__+ ".log"
+        cls._outputLog = cls._outputDir + cls.__name__ + ".run.log"
         if not path.isfile(cls._inputParsetFilename):
             raise RuntimeError("Default parset file %s does not exist" % cls._inputParsetFilename)
         p = Parset(File=cls._inputParsetFilename)
@@ -186,12 +186,9 @@ class ClassCompareFITSImage(unittest.TestCase):
         cls._stdoutLogFile = cls._outputDir+cls.__name__+".run.out.log"
         cls._stderrLogFile = cls._outputDir+cls.__name__+".run.err.log"
 
-        tic = timeit.timeit()
         args = ['DDF.py',
             cls._outputParsetFilename,
             '--ImageName=%s' % cls._imagePrefix]
-        toc = timeit.timeit()
-        cls._timeToExec = toc - tic
 
         stdout_file = open(cls._stdoutLogFile, 'w')
         stderr_file = open(cls._stderrLogFile, 'w')
@@ -274,8 +271,38 @@ class ClassCompareFITSImage(unittest.TestCase):
             raise AssertionError("The following assertions failed:\n %s" % msg)
 
     def testPerformanceRegression(self):
-        average_upper, tol = self.defExecutionTime()
-        assert self._timeToExec <= average_upper * (1.0 + tol)
-
+        cls = self.__class__
+        assert path.isfile(cls._inputLog), "Reference log file %s does not exist" % cls._inputLog
+        assert path.isfile(cls._outputLog), "Test run log file %s does not exist" % cls._inputLog
+        with open(cls._inputLog) as f:
+            vals = None
+            logtext = f.readline()
+            while logtext:
+                vals = re.match(r".*DDFacet ended successfully after (?P<mins>[0-9]+)?m(?P<secs>[0-9]+.[0-9]+)?s",
+                                logtext)
+                if vals is not None:
+                    break
+                logtext = f.readline()
+            assert vals is not None, "Could not find the successful termination string in reference log... " \
+                                     "have you changed something?"
+            assert vals.group("mins") is not None, "Minutes not found in reference log"
+            assert vals.group("secs") is not None, "Seconds not found in reference log"
+            reftime = float(vals.group("mins")) * 60.0 + float(vals.group("secs"))
+        with open(cls._outputLog) as f:
+            vals = None
+            logtext = f.readline()
+            while logtext:
+                vals = re.match(r".*DDFacet ended successfully after (?P<mins>[0-9]+)?m(?P<secs>[0-9]+.[0-9]+)?s",
+                                logtext)
+                if vals is not None:
+                    break
+                logtext = f.readline()
+            assert vals is not None, "Could not find the successful termination string in test run log... " \
+                                     "have you changed something?"
+            assert vals.group("mins") is not None, "Minutes not found in test run log"
+            assert vals.group("secs") is not None, "Seconds not found in test run log"
+            testruntime = float(vals.group("mins")) * 60.0 + float(vals.group("secs"))
+        assert testruntime / reftime <= 1.0 + cls.defExecutionTime(), "Runtime for this test was significantly " \
+                                                                      "longer than reference run. Check the logs."
 if __name__ == "__main__":
     pass # abstract class
