@@ -47,12 +47,14 @@ class ClassSmearMapping():
         self.MS = MS
 
     def BuildSmearMapping(self, DATA, GridChanMapping):
-        print>>log, "Build decorrelation mapping ..."
+        print>> log, "Build decorrelation mapping ..."
+
         na = self.MS.na
 
         l = self.radiusRad
         dPhi = np.sqrt(6. * (1. - self.Decorr))
-        NBlocksTot = 0
+
+        NChan = self.MS.ChanFreq.size
         self.BlocksRowsList = []
 
         InfoSmearMapping = {}
@@ -62,20 +64,71 @@ class ClassSmearMapping():
         InfoSmearMapping["l"] = l
         BlocksRowsList = []
 
-        BlocksRowsListBLWorker = np.array([], np. int32)
-        for a0 in xrange(na):
-            for a1 in xrange(na):
-                if a0 == a1:
-                    continue
-                MapBL = GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping)
-                if MapBL is None:
-                    continue
-                stop
-                BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL = MapBL
-                BlocksRowsList += BlocksRowsListBL
-                NBlocksTot += NBlocksTotBL
-                BlocksRowsListBLWorker = np.concatenate((BlocksRowsListBLWorker,
-                                                         BlocksRowsListBL))
+        joblist = [(a0, a1) for a0 in xrange(na) for a1 in xrange(na)]
+
+        # process worker results
+        # for each map (each array resturned from worker), BlockSizes[MapName] will
+        # contain a list of BlocksSizesBL entries returned from that worker
+        BlockListsSizes = {}
+        NTotBlocks = 0
+        NTotRows = 0
+
+        for (a0, a1) in joblist:
+            rep = GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping)
+            if rep:
+                BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL = rep
+                BlockListsSizes[a0,a1] = BlocksRowsListBL, BlocksSizesBL
+                NTotBlocks += NBlocksTotBL
+                NTotRows += np.sum(BlocksSizesBL)
+
+        FinalMappingHeader = np.zeros((2 * NTotBlocks + 1,), np.int32)
+        FinalMappingHeader[0] = NTotBlocks
+
+        iStart = 1
+        # MM=np.array([],np.int32)
+        MM = np.zeros((NTotBlocks,), np.int32)
+
+        FinalMapping = np.zeros((NTotRows,), np.int32)
+        iii = 0
+        jjj = 0
+
+        # now go through each per-worker mapping
+        for baseline, (BlocksRowsListBL, BlocksSizesBL) in BlockListsSizes.iteritems():
+            # FinalMapping=np.concatenate((FinalMapping,BlocksRowsListBLWorker))
+
+            FinalMapping[iii:iii + len(BlocksRowsListBL)] = BlocksRowsListBL
+            iii += len(BlocksRowsListBL)
+
+            N = 0
+
+            # print "IdWorker,AppendId",IdWorker,AppendId,BlocksSizesBL
+            # MM=np.concatenate((MM,BlocksSizesBL))
+            MM[jjj:jjj + len(BlocksSizesBL)] = BlocksSizesBL
+            jjj += len(BlocksSizesBL)
+            # print MM.shape,BlocksSizesBL
+            N += np.sum(BlocksSizesBL)
+            # print N,BlocksRowsListBLWorker.size
+
+        cumul = np.cumsum(MM)
+        FinalMappingHeader[1:1 + NTotBlocks] = MM
+        FinalMappingHeader[NTotBlocks + 1 + 1::] = (cumul)[0:-1]
+        FinalMappingHeader[NTotBlocks + 1::] += 2 * NTotBlocks + 1
+
+        # print>>log, "  Concat header"
+        FinalMapping = np.concatenate((FinalMappingHeader, FinalMapping))
+
+        # print>>log, "  Put in shared mem"
+
+        NVis = np.where(DATA["A0"] != DATA["A1"])[0].size * NChan
+        # print>>log, "  Number of blocks:         %i"%NTotBlocks
+        # print>>log, "  Number of 4-Visibilities: %i"%NVis
+        fact = (100. * (NVis - NTotBlocks) / float(NVis))
+
+        # self.UnPackMapping()
+        # print FinalMapping
+
+        return FinalMapping, fact
+
 
     def BuildSmearMappingParallel(self, DATA, GridChanMapping):
         print>>log, "Build decorrelation mapping ..."
