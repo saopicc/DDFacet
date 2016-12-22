@@ -134,7 +134,7 @@ class ClassEvolveGA():
                 SModelArrayMP,_=self.ArrayMethodsMachine.DeconvCLEAN()
                 AModelArrayMP=np.zeros_like(SModelArrayMP)
 
-            if True:#np.max(np.abs(self.IslandBestIndiv))==0:
+            if np.max(np.abs(self.IslandBestIndiv))==0:
                 
                 #print "NEW"
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
@@ -147,7 +147,9 @@ class ClassEvolveGA():
                 pop0=self.pop[0:NIndiv]
                 pop1=self.pop[NIndiv::]
 
-                
+                # pop1=self.pop
+                # pop0=[]
+
                 # self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArray)
 
                 # half with the best indiv

@@ -131,12 +131,16 @@ class ClassInitSSDModel():
         self.GD["ImagerDeconv"]["MinorCycleMode"]="MSMF"
         self.GD["ImagerDeconv"]["CycleFactor"]=0
         self.GD["ImagerDeconv"]["PeakFactor"]=0.01
-        self.GD["ImagerDeconv"]["RMSFactor"]=.5
-        self.GD["ImagerDeconv"]["Gain"]=0.2
+        self.GD["ImagerDeconv"]["RMSFactor"]=0.5
+        self.GD["ImagerDeconv"]["Gain"]=.1
+
+        self.GD["ImagerDeconv"]["MaxMinorIter"]=10000
+        
 
         self.GD["MultiScale"]["Scales"]=[0,1,2,4]
         self.GD["MultiScale"]["SolverMode"]="NNLS"
         #self.GD["MultiScale"]["SolverMode"]="PI"
+
         self.NFreqBands=len(DicoVariablePSF["freqs"])
         MinorCycleConfig=dict(self.GD["ImagerDeconv"])
         MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
@@ -341,13 +345,15 @@ class ClassInitSSDModel():
         ConvModel=self.giveConvModel(ModelImage*np.ones((self.NFreqBands,1,1,1)))
         SumConvModel=np.sum(ConvModel[:,:,x,y])
         SumResid=np.sum(self.DeconvMachine._CubeDirty[:,:,x,y])
+
+        SumConvModel=np.max([SumConvModel,1e-6])
         factor=(SumResid+SumConvModel)/SumConvModel
 
         fMult=1.
         if 1.<factor<2.:
             fMult=factor
         #print "fMult",fMult
-        SModel=ModelImage[0,0,x,y]*fMult
+        SModel=ModelImage[0,0,x,y]#*fMult
 
         AModel=self.ModelMachine.GiveSpectralIndexMap(DoConv=False,MaxDR=1e3)[0,0,x,y]
         return SModel,AModel

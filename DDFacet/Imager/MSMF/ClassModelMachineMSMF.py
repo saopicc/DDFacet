@@ -138,7 +138,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
         
         # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
-        minmod = float("%.1e"%(np.max(np.abs(M0))/MaxDR))
+        if not np.all(M0==0):
+            minmod = float("%.1e"%(np.max(np.abs(M0))/MaxDR))
+        else:
+            minmod=1e-6
+
         # mask out pixels above threshold
         mask=(M1<minmod)|(M0<minmod)
         print>>log,"computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR)
@@ -146,6 +150,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         M1[mask]=minmod
         #with np.errstate(invalid='ignore'):
         #    alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
+        # print 
+        # print np.min(M0),np.min(M1),minmod
+        # print 
         alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
         alpha[mask] = 0
 
@@ -223,13 +230,17 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         FreqIn=np.array([FreqIn.ravel()]).flatten()
 
-        DicoComp=self.DicoSMStacked["Comp"]
         _,npol,nx,ny=self.ModelShape
         N0x=nx
         N0y=ny
 
         nchan=FreqIn.size
         ModelImage=np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+        if "Comp" not in  self.DicoSMStacked.keys():
+            return ModelImage
+
+        DicoComp=self.DicoSMStacked["Comp"]
+
         DicoSM={}
         for key in DicoComp.keys():
             for pol in range(npol):

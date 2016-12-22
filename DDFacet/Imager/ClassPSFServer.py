@@ -40,8 +40,8 @@ class ClassPSFServer():
             #     self.CubeMeanVariablePSF[iFacet]/=np.max(self.CubeMeanVariablePSF[iFacet])
             #     for iChan in range(nch):
             #         self.CubeVariablePSF[iFacet,iChan]/=np.max(self.CubeVariablePSF[iFacet,iChan])
-            self.CubeMeanVariablePSF=DicoVariablePSF["CubeMeanVariablePSF"]
-            self.CubeVariablePSF=DicoVariablePSF["CubeVariablePSF"]
+            self.CubeMeanVariablePSF=DicoVariablePSF["PeakNormed_CubeMeanVariablePSF"]
+            self.CubeVariablePSF=DicoVariablePSF["PeakNormed_CubeVariablePSF"]
 
         DicoMappingDesc={"freqs":DicoVariablePSF["freqs"],
                          "WeightChansImages":DicoVariablePSF["WeightChansImages"],

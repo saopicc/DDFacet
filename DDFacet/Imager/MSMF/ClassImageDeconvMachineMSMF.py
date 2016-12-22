@@ -335,12 +335,15 @@ class ClassImageDeconvMachine():
         # y1p=y0+y1p
         # Bedge=x0p,x1p,y0p,y1p
 
+        # import pylab
         # pylab.clf()
         # ax=pylab.subplot(1,3,1)
-        # vmin,vmax=self.Dirty.min(),self.Dirty.max()
-        # pylab.imshow(self._CubeDirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # vmin,vmax=self._CubeDirty.min(),self._CubeDirty.max()
+        # pylab.imshow(self._MeanDirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.colorbar()
         # pylab.subplot(1,3,2)
-        # pylab.imshow(LocalSM[0,0,x0p:x1p,y0p:y1p],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.imshow(np.mean(LocalSM,axis=0)[0,x0p:x1p,y0p:y1p],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.colorbar()
         # pylab.draw()
         # #print "Fpol02",Fpol
         # # NpParallel.A_add_B_prod_factor((self.Dirty),LocalSM,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
@@ -355,12 +358,13 @@ class ClassImageDeconvMachine():
             self._MeanDirty[0,:,x0d:x1d,y0d:y1d] = self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0)
 
         # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-        # pylab.imshow(self._CubeDirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
+        # pylab.imshow(self._MeanDirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest")#,vmin=vmin,vmax=vmax)
+        # pylab.colorbar()
         # pylab.draw()
         # pylab.show(False)
-        # print Aedge
-        # print Bedge
-        # print self.Dirty[0,x0d:x1d,y0d:y1d]
+        # # print Aedge
+        # # print Bedge
+        # # print self.Dirty[0,x0d:x1d,y0d:y1d]
 
     def updateRMS(self):
         _,npol,npix,_ = self._MeanDirty.shape
