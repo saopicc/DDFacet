@@ -217,7 +217,7 @@ class ClassSmearMapping():
                 bl = DicoResult["bl"]
                 rowslice = DicoResult["Slice"]
                 bsz = np.array(DicoResult["BlocksSizesBL"])
-                RowsBlockSizes["bl"] = map[rowslice], bsz
+                RowsBlockSizes[bl] = map[rowslice], bsz
                 NTotBlocks += DicoResult["NBlocksTotBL"]
                 NTotRows += bsz.sum()
 
@@ -232,8 +232,8 @@ class ClassSmearMapping():
         iii = 0
         jjj = 0
 
-        # now go through each per-worker mapping
-        for (a0,a1), (BlocksRowsListBL, BlocksSizesBL) in sorted(RowsBlockSizes.items()):
+        # now go through each per-baseline mapping, sorted by baseline
+        for _, (BlocksRowsListBL, BlocksSizesBL) in sorted(RowsBlockSizes.items()):
             #print>>log, "  Worker: %i"%(IdWorker)
 
             FinalMapping[iii:iii+BlocksRowsListBL.size] = BlocksRowsListBL[:]
