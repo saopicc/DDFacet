@@ -20,7 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import glob
 import subprocess
-import DDFacet.cbuild
+# import DDFacet.DDFacet.cbuild
 # 20 / 12 / 2016: No unit tests since gridder was removed, so I'm disabling this one
 #def testRunCatchTests():
 #  ls = glob.glob(DDFacet.cbuild.__path__[0] + "/Gridder/UnitTests/Test*")

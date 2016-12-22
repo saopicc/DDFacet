@@ -17,3 +17,16 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+import unittest
+
+import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
+
+
+class TestDeepClean(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
+    pass #check all images
+
+
+
+if __name__ == '__main__':
+    unittest.main()
