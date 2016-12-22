@@ -23,13 +23,19 @@ import unittest
 import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
 import numpy as np
 
-class TestDeepClean(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
+class TestDeepCleanWithBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
     @classmethod
     def defDRTolerance(cls):
         """
         Relative tolerance of clean dynamic range
         """
-        return 0.03 # 3% drift
+        return 0.005 # 0.5% drift
+
+    def testMaxSquaredError(self):
+        pass # skip: since there is only one source we don't care about verifying the components placed on the sidelobes
+
+    def testMeanSquaredError(self):
+        pass # skip: since there is only one source we don't care about verifying the components placed on the sidelobes
 
     def testDR(self):
         """
@@ -47,5 +53,10 @@ class TestDeepClean(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.Cla
                  max(np.max(appresidue_out), abs(np.min(appresidue_out)))
         assert abs(DR_ref / DR_out) <= cls.defDRTolerance(), "DR value has regressed. " \
                                                              "Known good: %f, current %f" % (DR_ref, DR_out)
+
+
+class TestDeepCleanWithoutBeam(TestDeepCleanWithBeam):
+    pass # also do a DR check for the deep clean without the beam (same as above)
+
 if __name__ == '__main__':
     unittest.main()
