@@ -24,6 +24,8 @@ import os
 from os import path, getenv
 from DDFacet.Parset.ReadCFG import Parset
 from pyrap.tables import table
+import matplotlib as mpl
+mpl.use('Agg') # use Agg backend so we don't need to be running an X server
 from matplotlib import pyplot as plt
 import numpy as np
 
