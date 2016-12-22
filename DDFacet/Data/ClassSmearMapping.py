@@ -33,27 +33,9 @@ def _smearmapping_worker(jobitem, DATA, InfoSmearMapping, WorkerMapName, GridCha
     rep = GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping)
 
     if rep is not None:
-        # form up map name based on CPU ID
-        ThisWorkerMapName = WorkerMapName % Multiprocessing.ProcessPool.getCPUId()
-
-        BlocksRowsListBLWorker = NpShared.GiveArray(ThisWorkerMapName)
-        if BlocksRowsListBLWorker is None:
-            BlocksRowsListBLWorker = np.array([], np.int32)
-
-        BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL = rep
-        BlocksRowsListBLWorker = np.concatenate((BlocksRowsListBLWorker, BlocksRowsListBL))
-        NpShared.ToShared(ThisWorkerMapName, BlocksRowsListBLWorker)
-
-        return {"bl": (a0, a1),
-                    "MapName": ThisWorkerMapName,
-                    "IdWorker": Multiprocessing.ProcessPool.getCPUId(),
-                    "Empty": False,
-                    "BlocksSizesBL": BlocksSizesBL,
-                    "NBlocksTotBL": NBlocksTotBL}
+        return {"bl": (a0, a1), "Result": rep, "Empty": False}
     else:
-        return {"bl": (a0, a1),
-                    "IdWorker": Multiprocessing.ProcessPool.getCPUId(),
-                    "Empty": True}
+        return {"bl": (a0, a1), "Empty": True}
 
 
 class ClassSmearMapping():
@@ -63,26 +45,6 @@ class ClassSmearMapping():
         self.radiusRad = radiusDeg*np.pi/180
         self.Decorr = Decorr
         self.MS = MS
-
-    def UnPackMapping(self):
-        Map = NpShared.GiveArray("%sMappingSmearing" % (self.IdSharedMem))
-        Nb = Map[0]
-        NRowInBlocks = Map[1:Nb+1]
-        StartRow = Map[Nb+1:2*Nb+1]
-        # print
-        # print NRowInBlocks.tolist()
-        # print StartRow.tolist()
-        MaxRow = 0
-
-        for i in [3507]:  # range(Nb):
-            ii = StartRow[i]
-            MaxRow = np.max([MaxRow, np.max(Map[ii:ii+NRowInBlocks[i]])])
-            print "(iblock= %i , istart= %i), Nrow=%i" % \
-                  (i, StartRow[i], NRowInBlocks[i]), Map[ii:ii+NRowInBlocks[i]]
-            #if MaxRow>=1080: stop
-
-        print MaxRow
-        # stop
 
     def BuildSmearMapping(self, DATA, GridChanMapping):
         print>>log, "Build decorrelation mapping ..."
@@ -146,16 +108,17 @@ class ClassSmearMapping():
         # process worker results
         # for each map (each array resturned from worker), BlockSizes[MapName] will
         # contain a list of BlocksSizesBL entries returned from that worker
-        BlockSizes = {}
+        BlockListsSizes = {}
         NTotBlocks = 0
         NTotRows = 0
 
         for DicoResult in results:
             if not DicoResult["Empty"]:
-                MapName = DicoResult["MapName"]
-                BlockSizes.setdefault(MapName,[]).append(np.array(DicoResult["BlocksSizesBL"]))
-                NTotBlocks += DicoResult["NBlocksTotBL"]
-                NTotRows += np.sum(DicoResult["BlocksSizesBL"])
+                BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL = DicoResult["Result"]
+                baseline = DicoResult["bl"]
+                BlockListsSizes[baseline] = BlocksRowsListBL, BlocksSizesBL
+                NTotBlocks += NBlocksTotBL
+                NTotRows += np.sum(BlocksSizesBL)
 
         FinalMappingHeader = np.zeros((2*NTotBlocks+1, ), np.int32)
         FinalMappingHeader[0] = NTotBlocks
@@ -169,26 +132,20 @@ class ClassSmearMapping():
         jjj = 0
 
         # now go through each per-worker mapping
-        for MapName, block_sizes in BlockSizes.iteritems():
-            #print>>log, "  Worker: %i"%(IdWorker)
-            BlocksRowsListBLWorker = NpShared.GiveArray(MapName)
-            if BlocksRowsListBLWorker is None:
-                continue
-
+        for baseline, (BlocksRowsListBL, BlocksSizesBL) in BlockListsSizes.iteritems():
             # FinalMapping=np.concatenate((FinalMapping,BlocksRowsListBLWorker))
 
-            FinalMapping[iii:iii+BlocksRowsListBLWorker.size] = BlocksRowsListBLWorker[:]
-            iii += BlocksRowsListBLWorker.size
+            FinalMapping[iii:iii+len(BlocksRowsListBL)] = BlocksRowsListBL
+            iii += len(BlocksRowsListBL)
 
             N = 0
 
-            for BlocksSizesBL in block_sizes:
-                # print "IdWorker,AppendId",IdWorker,AppendId,BlocksSizesBL
-                # MM=np.concatenate((MM,BlocksSizesBL))
-                MM[jjj:jjj+BlocksSizesBL.size] = BlocksSizesBL[:]
-                jjj += BlocksSizesBL.size
-                # print MM.shape,BlocksSizesBL
-                N += np.sum(BlocksSizesBL)
+            # print "IdWorker,AppendId",IdWorker,AppendId,BlocksSizesBL
+            # MM=np.concatenate((MM,BlocksSizesBL))
+            MM[jjj:jjj+len(BlocksSizesBL)] = BlocksSizesBL
+            jjj += len(BlocksSizesBL)
+            # print MM.shape,BlocksSizesBL
+            N += np.sum(BlocksSizesBL)
             # print N,BlocksRowsListBLWorker.size
 
         cumul = np.cumsum(MM)
@@ -198,8 +155,6 @@ class ClassSmearMapping():
 
         #print>>log, "  Concat header"
         FinalMapping = np.concatenate((FinalMappingHeader, FinalMapping))
-        for MapName in BlockSizes.iterkeys():
-            NpShared.DelArray(MapName)
 
         #print>>log, "  Put in shared mem"
 
