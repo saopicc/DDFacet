@@ -248,6 +248,14 @@ class ClassJones():
         return DicoSols, TimeMapping, DicoClusterDirs
 
     def GiveTimeMapping(self, DicoSols):
+        """Builds mapping from MS rows to Jones solutions.
+        Args:
+            DicoSols: dictionary of Jones matrices, which includes t0 and t1 entries
+
+        Returns:
+            Vector of indices, one per each row in DATA, giving the time index of the Jones matrix
+            corresponding to that row.
+        """
         print>>log, "  Build Time Mapping"
         DicoJonesMatrices = DicoSols
         times = self.DATA["times"]
@@ -257,12 +265,14 @@ class ClassJones():
         for it in xrange(nt):
             t0 = DicoJonesMatrices["t0"][it]
             t1 = DicoJonesMatrices["t1"][it]
-            indMStime = np.where((times >= t0) & (times < t1))[0]
-            indMStime = np.ones((indMStime.size,), np.int32)*it
-            ind[ii:ii+indMStime.size] = indMStime[:]
-            ii += indMStime.size
-        TimeMapping = ind
-        return TimeMapping
+            ## new code: no assumption of sortedness
+            ind[(times >= t0) & (times < t1)] = it
+            ## old code: assumed times was sorted
+            # indMStime = np.where((times >= t0) & (times < t1))[0]
+            # indMStime = np.ones((indMStime.size,), np.int32)*it
+            # ind[ii:ii+indMStime.size] = indMStime[:]
+            # ii += indMStime.size
+        return ind
 
     def GiveKillMSSols(self):
         GD = self.GD
