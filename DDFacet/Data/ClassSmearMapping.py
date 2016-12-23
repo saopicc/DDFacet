@@ -298,20 +298,26 @@ def GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
     # # convert to delta-phase: Cyril's old approximation of u*l+v*l+(w*l)
     # delta_phase = np.sqrt((duv**2).sum(1))*(l*np.pi*nu0/C)     # delta-phase at facet edge (approximate)
 
-    ### better idea maybe: multiply u and v by l, and w by sqrt(1-2.l^2)-1, this gives the total phase change at the edge
-    ### of a facet (Cyril's old code just took delta-uvw, which probably overweighted w)
+    ### better idea maybe: multiply uvw by l,m,n-1 at facet edge
+    ### (Cyril's old code just took delta-uvw times l, which probably overweighted w!)
+
+    # take l,m,n-1 at facet edge, compute ul,vm,w(n-1) vector
     lmn = np.array([l, l, math.sqrt(1-2*l*l)-1])
-    duvw = uvw.copy()
-    duvw[:-1,:] = uvw[1:,:] - uvw[:-1,:]
+    uvwlmn = uvw * lmn[np.newaxis,:]
+
+    duvw = uvwlmn.copy()
+    duvw[:-1,:] = uvwlmn[1:,:] - uvwlmn[:-1,:]
     # last delta copied from previous row
     duvw[-1,:] = duvw[-2,:]
-    # ddot is delta in uvw*(l,m,n-1)
-    ddot = duvw * lmn[np.newaxis,:]
-    delta_phase = np.sqrt((ddot**2).sum(1))*(np.pi*nu0/C)
+    # max delta phase is just the length of the delta-vector
+    delta_phase = np.sqrt((duvw**2).sum(1))*(np.pi*nu0/C)
 
-    # uvw-distance at each row (size Nrow-1)
-    uv = np.sqrt((uvw**2).sum(1))
-    dnu = (C / np.pi) * dPhi / (uv * l)  # delta-nu for each row
+    ## same here: instead of uvw distance, multiply uvw by lmn on facet edge
+    # # uvw-distance at each row (size Nrow-1)
+    # uv = np.sqrt((uvw**2).sum(1))
+    # dnu = (C / np.pi) * dPhi / (uv * l)  # delta-nu for each row
+    uv = np.sqrt((uvwlmn**2).sum(1))
+    dnu = (C / np.pi) * dPhi / uv  # delta-nu for each row
     fracsizeChanBlock = dnu / dFreq  # max size of averaging block, in fractional channels, for each row
 
     if True:  # fast-style, maybe not as precise
