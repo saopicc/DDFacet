@@ -143,12 +143,15 @@ class ClassEvolveGA():
                     return self.pop[0]
             else:
                 #print "MIX"
-                NIndiv=len(self.pop)/2
+                NIndiv=len(self.pop)/10
                 pop0=self.pop[0:NIndiv]
                 pop1=self.pop[NIndiv::]
 
-                # pop1=self.pop
-                # pop0=[]
+                pop1=self.pop
+                pop0=[]
+
+                pop0=self.pop[0:1]
+                pop1=self.pop[1::]
 
                 # self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArray)
 
@@ -169,7 +172,7 @@ class ClassEvolveGA():
                 #self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayBest0,AlphaModel=AlphaModel,GSigModel=GSigModel)
                 self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayMP,AlphaModel=AModelArrayMP)
 
-                self.pop=pop0+pop1
+                self.pop=pop1+pop0
         #print
 
 
