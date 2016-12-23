@@ -524,7 +524,8 @@ class ClassMS():
         # if cache is valid, we're all good
         if valid:
             npz = np.load(path)
-            A0, A1, uvw, time_all, sort_index = npz["A0"], npz["A1"], npz["UVW"], npz["TIME"], npz["SORT_INDEX"]
+            A0, A1, uvw, time_all, time_uniq, sort_index = (npz["A0"], npz["A1"], npz["UVW"],
+                                                            npz["TIME"], npz["TIME_UNIQ"], npz["SORT_INDEX"])
             if not sort_index.size:
                 sort_index = None
         else:
@@ -549,9 +550,10 @@ class ClassMS():
                 time_all = time_all[sort_index]
             else:
                 sort_index = None
+            time_uniq = np.array(sorted(set(time_all)))
             # save cache
             if use_cache:
-                np.savez(path,A0=A0,A1=A1,UVW=uvw,TIME=time_all,
+                np.savez(path,A0=A0,A1=A1,UVW=uvw,TIME=time_all,TIME_UNIQ=time_uniq,
                          SORT_INDEX=sort_index if sort_index is not None else np.array([]))
                 self.cache.saveCache("A0A1UVWT.npz")
 
@@ -627,6 +629,7 @@ class ClassMS():
 
         DATA["uvw"]=uvw
         DATA["times"]=time_all
+        DATA["uniq_times"] = time_uniq   # vector of unique timestamps
         DATA["nrows"]=time_all.shape[0]
         DATA["A0"]=A0
         DATA["A1"]=A1

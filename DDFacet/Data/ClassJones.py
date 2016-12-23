@@ -53,9 +53,7 @@ class ClassJones():
             self.ApplyCal = True
             self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache(
                 "JonesNorm_killMS.npz",
-                dict(
-                    DDESolutions=GD["DDESolutions"],
-                    DataSelection=self.GD["DataSelection"]))
+                dict(VisData=GD["VisData"], DDESolutions=GD["DDESolutions"], DataSelection=self.GD["DataSelection"]))
             if valid:
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_killMS
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(
@@ -70,8 +68,7 @@ class ClassJones():
         if ApplyBeam:
             self.ApplyCal = True
             self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache(
-                "JonesNorm_Beam.npz", dict(
-                    Beam=GD["Beam"], DataSelection=self.GD["DataSelection"]))
+                "JonesNorm_Beam.npz", dict(VisData=GD["VisData"], Beam=GD["Beam"], DataSelection=self.GD["DataSelection"]))
             if valid:
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_Beam
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(
@@ -466,7 +463,7 @@ class ClassJones():
             print>>log, "  Not applying any beam"
             return
 
-        times = self.DATA["times"]
+        times = self.DATA["uniq_times"]
         self.InitBeamMachine()
 
         if self.BeamTimes_kMS.size != 0:
