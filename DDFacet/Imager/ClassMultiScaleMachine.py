@@ -117,60 +117,58 @@ class ClassMultiScaleMachine():
 
 
 
-    def FindPSFExtent(self,Method="FromBox"):
+    def FindPSFExtent(self, verbose=False):
         if self.SubPSF is not None: return
         PSF=self._MeanPSF
         _,_,NPSF,_=PSF.shape
-        xtest=np.int64(np.linspace(NPSF/2,NPSF,100))
-        box=100
-        itest=0
 
-        if Method=="FromBox":
-            while True:
-                X=xtest[itest]
-                psf=PSF[0,0,X-box:X+box,NPSF/2-box:NPSF/2+box]
-                std0=np.abs(psf.min()-psf.max())#np.std(psf)
-                psf=PSF[0,0,NPSF/2-box:NPSF/2+box,X-box:X+box]
-                std1=np.abs(psf.min()-psf.max())#np.std(psf)
-                std=np.max([std0,std1])
-                if std<1e-2:
-                    break
-                else:
-                    itest+=1
-            x0=xtest[itest]
-            dx0=(x0-NPSF/2)
-            #print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
-        elif Method=="FromSideLobe":
-            dx0=2*self.OffsetSideLobe
-            dx0=np.max([dx0,50])
-            #print>>log, "PSF extends to [%i] from center"%(dx0)
-        
-        dx0=np.max([dx0,200])
-        dx0=np.min([dx0,NPSF/2])
-        npix=2*dx0+1
-        npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
+        method = self.GD["MultiScale"]["PSFBox"]
 
-
-        #npix=1
-        self.PSFMargin=(NPSF-npix)/2
-
-        dx=npix/2
-
-        dx=np.min([NPSF/2,dx])
-        box = self.GD["MultiScale"]["PSFBox"]
-        if box:
-            dx = box
-#            print>> log, "explicitly set PSFBox=%d" % dx
+        if isinstance(method, int):
+            dx = method
+            method = "explicit"
         else:
-            pass
-#            print>> log, "PSF box extent computed as %d" % dx
-        self.PSFExtent=(NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
+            if method == "auto":
+                xtest = np.int64(np.linspace(NPSF / 2, NPSF, 100))
+                box = 100
+                itest = 0
+                while True:
+                    X=xtest[itest]
+                    psf=PSF[0,0,X-box:X+box,NPSF/2-box:NPSF/2+box]
+                    std0=np.abs(psf.min()-psf.max())#np.std(psf)
+                    psf=PSF[0,0,NPSF/2-box:NPSF/2+box,X-box:X+box]
+                    std1=np.abs(psf.min()-psf.max())#np.std(psf)
+                    std=np.max([std0,std1])
+                    if std<1e-2:
+                        break
+                    else:
+                        itest+=1
+                x0=xtest[itest]
+                dx0=(x0-NPSF/2)
+                #print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
+            elif method == "sidelobe":
+                dx0=2*self.OffsetSideLobe
+                dx0=np.max([dx0,50])
+                #print>>log, "PSF extends to [%i] from center"%(dx0)
+            elif method == "full":
+                dx0 = NPSF/2
+            else:
+                raise ValueError,"unknown PSFBox setting %s" % method
 
-        #self.PSFExtent=(0,NPSF,0,NPSF)
+            dx0=np.max([dx0,200])
+            dx0=np.min([dx0,NPSF/2])
+            npix=2*dx0+1
+            npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
 
+            self.PSFMargin=(NPSF-npix)/2
 
-        x0,x1,y0,y1=self.PSFExtent
-        self.SubPSF=self._PSF[:,:,x0:x1,y0:y1]
+            dx=np.min([NPSF/2, npix/2])
+
+        self.PSFExtent = (NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
+        x0,x1,y0,y1 = self.PSFExtent
+        self.SubPSF = self._PSF[:,:,x0:x1,y0:y1]
+        if verbose:
+            print>>log,"using %s PSF box of size %dx%d in minor cycle subtraction" % (method, dx*2+1, dx*2+1)
 
 
 
@@ -481,7 +479,7 @@ class ClassMultiScaleMachine():
         
 
 
-
+    # @profile
     def GiveLocalSM(self,(x,y),Fpol):
         T= ClassTimeIt.ClassTimeIt("   GiveLocalSM")
         T.disable()
@@ -668,10 +666,11 @@ class ClassMultiScaleMachine():
                 cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal), debug_dump_file, 2)
 
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
-            
 
-            LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
-
+            # multiply basis functions by solutions (first axis is basis index)
+            scales = self.CubePSFScales * Sol.reshape((Sol.size, 1, 1, 1))
+            # model is sum of basis functions
+            LocalSM = scales.sum(axis=0) if Sol.size>1 else scales[0,...]
 
 
             #print "Max abs model",np.max(np.abs(LocalSM))
@@ -756,9 +755,9 @@ class ClassMultiScaleMachine():
             
 
 
-        nch,nx,ny=LocalSM.shape
-        LocalSM=LocalSM.reshape((nch,1,nx,ny))
-        LocalSM=LocalSM*np.sqrt(JonesNorm)
+        nch,nx,ny = LocalSM.shape
+        LocalSM = LocalSM.reshape((nch,1,nx,ny))
+        LocalSM *= np.sqrt(JonesNorm)
 
         # print self.AlphaVec,Sol
         # print "alpha",np.sum(self.AlphaVec.ravel()*Sol.ravel())/np.sum(Sol)

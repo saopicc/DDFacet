@@ -489,7 +489,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             if d < dmin:
                 dmin = d
                 iCentralFacet = iFacet
-        self.iCentralFacet = iCentralFacet
+        self.CentralFacet = iCentralFacet
 
         # regFile="%s.tessel.reg"%self.GD["Images"]["ImageName"]
         labels = [

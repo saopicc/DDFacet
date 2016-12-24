@@ -360,7 +360,7 @@ class ClassFacetMachine():
             # print x0facet[iFacet],y0facet[iFacet],l0,m0
             self.AppendFacet(iFacet, l0, m0, NpixFacet * self.CellSizeRad)
 
-        self.DicoImagerCentralFacet = self.DicoImager[lFacet.size / 2]
+        self.CentralFacet = self.DicoImager[lFacet.size / 2]
 
         self.SetLogModeSubModules("Silent")
         self.MakeREG()
@@ -475,16 +475,17 @@ class ClassFacetMachine():
         """
         Set fft wisdom
         """
-        path, valid = self.VS.maincache.checkCache("FFTW_Wisdom", dict(shape=self.PaddedGridShape))
+        cachename = "FFTW_Wisdom_PSF" if self.DoPSF and self.Oversize != 1 else "FFTW_Wisdom"
+        path, valid = self.VS.maincache.checkCache(cachename, dict(shape=self.PaddedGridShape))
         if not valid:
-            print>>log, "Set fftw widsdom for shape = %s" % str(self.PaddedGridShape)
+            print>>log, "Computing fftw widsdom for shape = %s" % str(self.PaddedGridShape)
             a = np.random.randn(*(self.PaddedGridShape)) \
                 + 1j*np.random.randn(*(self.PaddedGridShape))
             FM = ModFFTW.FFTW_2Donly(self.PaddedGridShape, np.complex64)
             FM.fft(a)  # this is never used
             self.FFTW_Wisdom = pyfftw.export_wisdom()
             cPickle.dump(self.FFTW_Wisdom, file(path, "w"))
-            self.VS.maincache.saveCache("FFTW_Wisdom")
+            self.VS.maincache.saveCache(cachename)
         else:
             print>>log, "Loading cached fftw wisdom from %s" % path
             self.FFTW_Wisdom = cPickle.load(file(path))
@@ -549,17 +550,21 @@ class ClassFacetMachine():
 
         """
         NFacets = len(self.DicoImager.keys())
-
         # check if w-kernels, spacial weights, etc. are cached
         cachekey = dict(ImagerCF=self.GD["ImagerCF"], ImagerMainFacet=self.GD["ImagerMainFacet"])
-        cachepath, cachevalid = self.VS.maincache.checkCache("FacetData", cachekey, directory=True)
+        cachename = "FacetData"
+        # in oversize-PSF mode, make separate cache for PSFs
+        if self.DoPSF and self.Oversize != 1:
+            cachename = "FacetPSF"
+            cachekey["Oversize"] = self.Oversize
+        cachepath, cachevalid = self.VS.maincache.checkCache(cachename, cachekey, directory=True)
         loaded = False
         while not loaded:
             if not cachevalid:
                 joblist = [ (iFacet,
-                                self.VS.maincache.getCacheURL("FacetData/SW", facet=iFacet),
-                                self.VS.maincache.getCacheURL("FacetData/WTerm", facet=iFacet),
-                                self.VS.maincache.getCacheURL("FacetData/Sphe", facet=iFacet)) for iFacet in xrange(NFacets) ]
+                                self.VS.maincache.getCacheURL(cachename+"/SW", facet=iFacet),
+                                self.VS.maincache.getCacheURL(cachename+"/WTerm", facet=iFacet),
+                                self.VS.maincache.getCacheURL(cachename+"/Sphe", facet=iFacet)) for iFacet in xrange(NFacets) ]
 
                 procpool = Multiprocessing.ProcessPool(self.GD)
                 procpool.runjobs(joblist, title="Init W", target=self._init_w_worker_tessel,
@@ -570,16 +575,16 @@ class ClassFacetMachine():
                                                 DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                                 ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds(),
                                                 CornersImageTot=self.CornersImageTot))
-                self.VS.maincache.saveCache("FacetData")
+                self.VS.maincache.saveCache(cachename)
             else:
                 print>>log,"loading W kernels from cache %s"%cachepath
             # now load cached spatial weights, wterms and spheroidals from cache and lock them into memory
             self._wterms = {}
             self._sphes = {}
             for iFacet in sorted(self.DicoImager.keys()):
-                sw = NpShared.GiveArray(self.VS.maincache.getCacheURL("FacetData/SW", facet=iFacet))
-                wterm = NpShared.GiveArray(self.VS.maincache.getCacheURL("FacetData/WTerm", facet=iFacet))
-                sphe = NpShared.GiveArray(self.VS.maincache.getCacheURL("FacetData/Sphe", facet=iFacet))
+                sw = NpShared.GiveArray(self.VS.maincache.getCacheURL(cachename+"/SW", facet=iFacet))
+                wterm = NpShared.GiveArray(self.VS.maincache.getCacheURL(cachename+"/WTerm", facet=iFacet))
+                sphe = NpShared.GiveArray(self.VS.maincache.getCacheURL(cachename+"/Sphe", facet=iFacet))
                 # if loading from cache, failure is permitted -- go back and regenerate
                 # if loading from just-generated files, failure means something is truly wrong
                 if sw is None or wterm is None or sphe is None:
@@ -587,7 +592,7 @@ class ClassFacetMachine():
                         print>>log, ModColor.Str("  Failed to load from cache. Cache invalid? Will re-generate")
                         # re-check cache with reset=True: this means cache will be deleted
                         # this is in case it got corrupted (due e.g. to previous run being interrupted)
-                        self.VS.maincache.checkCache("FacetData", cachekey, directory=True, reset=True)
+                        self.VS.maincache.checkCache(cachename, cachekey, directory=True, reset=True)
                         cachevalid = False  # go back up to regenerate w-terms
                         break
                     else:
@@ -671,7 +676,7 @@ class ClassFacetMachine():
         Fourier transforms the individual facet grids and then
         Stitches the gridded facets and builds the following maps:
             self.stitchedResidual (initial residual is the dirty map)
-            self.NormImage (grid-correcting map, see also: BuildFacetNormImage)
+            self.NormImage (grid-correcting map, see also: BuildFacetNormImage() method)
             self.MeanResidual ("average" residual map taken over all continuum bands of the residual cube,
                                this will be the same as stitchedResidual if there is only one continuum band in the residual
                                cube)
@@ -701,9 +706,7 @@ class ClassFacetMachine():
         DicoImages = {}
         DicoImages["freqs"] = {}
 
-        DoCalcNormData = False
-        if (NormJones) & (self.NormData is None):
-            DoCalcNormData = True
+        DoCalcNormData = NormJones and self.NormData is None
 
         # Assume all facets have the same weight sums.
         # Store the normalization weights for reference
@@ -713,32 +716,38 @@ class ClassFacetMachine():
             DicoImages["SumWeights"][band] = self.DicoImager[0]["SumWeights"][band]
         DicoImages["WeightChansImages"] = DicoImages["SumWeights"] / np.sum(DicoImages["SumWeights"])
 
-        # Build a residual image consisting of multiple continuum bands
+        # compute sum of Jones terms per facet and channel
+        for iFacet in self.DicoImager.keys():
+            self.DicoImager[iFacet]["SumJonesNorm"] = np.zeros(self.VS.NFreqBands, np.float64)
+            for Channel in xrange(self.VS.NFreqBands):
+                ThisSumSqWeights = self.DicoImager[iFacet]["SumJones"][1][Channel]
+                if ThisSumSqWeights == 0:
+                    ThisSumSqWeights = 1.
+                ThisSumJones = self.DicoImager[iFacet]["SumJones"][0][Channel] / ThisSumSqWeights
+                if ThisSumJones == 0:
+                    ThisSumJones = 1.
+                self.DicoImager[iFacet]["SumJonesNorm"][Channel] = ThisSumJones
+
+        # build facet-normalization image
         if self.NormImage is None:
             self.NormImage = self.BuildFacetNormImage()
             self.NormImageReShape = self.NormImage.reshape([1, 1, self.NormImage.shape[0], self.NormImage.shape[1]])
-        self.stitchedResidual = self.FacetsToIm_Channel("Dirty")
+        # build Jones amplitude image
         if DoCalcNormData:
             self.NormData = self.FacetsToIm_Channel("Jones-amplitude")
 
-        # Normalize each of the continuum bands of the combined
-        # residual by the weights that contributed to that band:
+        # compute normalized per-band weights (WBAND)
         if self.VS.MultiFreqMode:
-            WBAND = np.array([DicoImages["SumWeights"][Channel]
-                          for Channel in xrange(self.VS.NFreqBands)])
+            WBAND = np.array([DicoImages["SumWeights"][Channel] for Channel in xrange(self.VS.NFreqBands)])
             # sum frequency contribution to weights per correlation
             WBAND /= np.sum(WBAND, axis=0)
             WBAND = np.float32(WBAND.reshape((self.VS.NFreqBands, npol, 1, 1)))
-            # weight each of the cube slices and average
-            self.MeanResidual = np.sum(self.stitchedResidual * WBAND, axis=0).reshape((1, npol, Npix, Npix))
         else:
-            # if there are no bands in the continuum image
-            # then the mean image is just the same
-            self.MeanResidual = self.stitchedResidual.copy()
             WBAND = 1
+        # PSF mode: construct PSFs
         if self.DoPSF:
-            print>>log, "  Build PSF facet-slices "
             self.DicoPSF = {}
+            print>>log, "building PSF facet-slices"
             for iFacet in self.DicoGridMachine.keys():
                 # first normalize by spheriodals - these
                 # facet psfs will be used in deconvolution per facet
@@ -797,7 +806,7 @@ class ClassFacetMachine():
             CubeVariablePSF = np.zeros((NFacets, nch, npol, NPixMin, NPixMin), np.float32)
             CubeMeanVariablePSF = np.zeros((NFacets, 1, npol, NPixMin, NPixMin), np.float32)
 
-            print>>log, "  Cutting PSFs facet-slices "
+            print>>log, "cutting PSF facet-slices of shape %dx%d" % (NPixMin, NPixMin)
             for iFacet in sorted(DicoVariablePSF.keys()):
                 _, npol, n, n = DicoVariablePSF[iFacet]["PSF"].shape
                 for ch in xrange(nch):
@@ -808,6 +817,7 @@ class ClassFacetMachine():
                 CubeMeanVariablePSF[iFacet, 0, :, :, :] = \
                     DicoVariablePSF[iFacet]["MeanPSF"][0, :, i:j, i:j]
 
+            self.DicoPSF["CentralFacet"] = self.CentralFacet
             self.DicoPSF["CubeVariablePSF"] = CubeVariablePSF
             self.DicoPSF["CubeMeanVariablePSF"] = CubeMeanVariablePSF
             self.DicoPSF["MeanFacetPSF"] = np.mean(CubeMeanVariablePSF, axis=0).reshape((1, npol, NPixMin, NPixMin))
@@ -859,13 +869,24 @@ class ClassFacetMachine():
                 self.DicoPSF["MeanImage"] = np.sum(self.DicoPSF["ImagData"] * WBAND, axis=0).reshape((1, npol, Npix, Npix))
             else:
                 self.DicoPSF["MeanImage"] = self.DicoPSF["ImagData"]
-
-        DicoImages["ImagData"] = self.stitchedResidual
-        DicoImages["NormImage"] = self.NormImage  # grid-correcting map
-        DicoImages["NormData"] = self.NormData
-        DicoImages["MeanImage"] = self.MeanResidual
-
-        return DicoImages
+            return self.DicoPSF
+        # else build Dirty (residual) image
+        else:
+            # Build a residual image consisting of multiple continuum bands
+            self.stitchedResidual = self.FacetsToIm_Channel("Dirty")
+            if self.VS.MultiFreqMode:
+                self.MeanResidual = np.sum(self.stitchedResidual * WBAND, axis=0).reshape((1, npol, Npix, Npix))
+            else:
+                ### (Oleg 24/12/2016: removed the .copy(), why was this needed? Note that in e.g.
+                ### ClassImageDeconvMachineMSMF.SubStep(), there is an if-clause such as
+                ###    "if self._MeanDirty is not self._CubeDirty: do_expensive_operation"
+                ### which the .copy() operation here defeats, so I remove it
+                self.MeanResidual = self.stitchedResidual  #.copy()
+            DicoImages["ImagData"] = self.stitchedResidual
+            DicoImages["NormImage"] = self.NormImage  # grid-correcting map
+            DicoImages["NormData"] = self.NormData
+            DicoImages["MeanImage"] = self.MeanResidual
+            return DicoImages
 
     def BuildFacetNormImage(self):
         """
@@ -924,24 +945,10 @@ class ClassFacetMachine():
             x0main, x1main, y0main, y1main = Aedge
             x0facet, x1facet, y0facet, y1facet = Bedge
 
-            self.DicoImager[iFacet]["SumJonesNorm"] = np.zeros(
-                (self.VS.NFreqBands,), np.float64)
-
             for Channel in xrange(self.VS.NFreqBands):
-
                 ThisSumWeights = self.DicoImager[iFacet]["SumWeights"][Channel]
-                ThisSumJones = 1.
-
-                ThisSumSqWeights = self.DicoImager[iFacet]["SumJones"][1][Channel]
-                if ThisSumSqWeights == 0:
-                    ThisSumSqWeights = 1.
-                ThisSumJones = self.DicoImager[iFacet]["SumJones"][0][Channel] / ThisSumSqWeights
-                if ThisSumJones == 0:
-                    ThisSumJones = 1.
-                self.DicoImager[iFacet]["SumJonesNorm"][Channel] = ThisSumJones
-
+                ThisSumJones = self.DicoImager[iFacet]["SumJonesNorm"][Channel]
                 SpacialWeigth = self.SpacialWeigth[iFacet].T[::-1, :]
-
                 T.timeit("3")
                 for pol in xrange(npol):
                     # ThisSumWeights.reshape((nch,npol,1,1))[Channel, pol, 0, 0]

@@ -338,7 +338,7 @@ class ClassImagerDeconv():
         self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["MeanFacetPSF"]
 
     def _finalizeComputedPSF (self, FacetMachinePSF, sparsify):
-        psfdict = FacetMachinePSF.FacetsToIm(NormJones=True)
+        psfdict = FacetMachinePSF.FacetsToIm(NormJones=False)
         self._psfmean, self._psfcube = psfdict["MeanImage"], psfdict["ImagData"]  # this is only for the casa image saving
         self.DicoVariablePSF = FacetMachinePSF.DicoPSF
         if self.GD["Caching"]["CachePSF"] and not sparsify:
@@ -867,7 +867,7 @@ class ClassImagerDeconv():
                 self.PSFGaussPars: The maj (rad), min (rad), theta (rad) parameters for the fit of the gaussian
                 self.PSFSidelobes: Position of the highest sidelobes (px)
         """
-        PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
+        PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.CentralFacet]
 
         self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = \
             self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")

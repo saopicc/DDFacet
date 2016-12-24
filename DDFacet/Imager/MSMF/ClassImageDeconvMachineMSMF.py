@@ -135,23 +135,16 @@ class ClassImageDeconvMachine():
             print>>log, "Initialising MSMF Machine"
             facetcache = {}
 
+        centralFacet = self.PSFServer.DicoVariablePSF["CentralFacet"]
         if approx:
-            centralFacet = 0
-            centralDist = 1e+999
-            # find central facet
-            for iFacet in xrange(self.PSFServer.NFacets):
-                l, m = self.PSFServer.DicoVariablePSF[iFacet]["l0m0"]
-                dist = l**2 + m**2
-                if dist < centralDist:
-                    centralFacet, centralDist = iFacet, dist
-            print>>log, "MSMF approximation mode: central facet is %d (distance %f)" % (centralFacet, centralDist)
+            print>>log, "MSMF approximation mode: using PSF of central facet (%d)" % centralFacet
             self.PSFServer.setFacet(centralFacet)
             MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
             MSMachine.setModelMachine(self.ModelMachine)
             MSMachine.setSideLobeLevel(self.SideLobeLevel, self.OffsetSideLobe)
             MSMachine.SetFacet(centralFacet)
             MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
-            MSMachine.FindPSFExtent(Method="FromSideLobe")
+            MSMachine.FindPSFExtent(verbose=True)
             MSMachine.MakeMultiScaleCube()
             MSMachine.MakeBasisMatrix()
             for iFacet in xrange(self.PSFServer.NFacets):
@@ -166,7 +159,7 @@ class ClassImageDeconvMachine():
                 MSMachine.setSideLobeLevel(self.SideLobeLevel, self.OffsetSideLobe)
                 MSMachine.SetFacet(iFacet)
                 MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
-                MSMachine.FindPSFExtent(Method="FromSideLobe")
+                MSMachine.FindPSFExtent(verbose=(iFacet==centralFacet))  # only print to log for central facet
                 cachedscales, cachedmatrix = facetcache.get(iFacet, (None, None))
                 cachedscales = MSMachine.MakeMultiScaleCube(cachedscales)
                 cachedmatrix = MSMachine.MakeBasisMatrix(cachedmatrix)
@@ -271,6 +264,7 @@ class ClassImageDeconvMachine():
         Bedge = [x0facet, x1facet, y0facet, y1facet]
         return Aedge, Bedge
 
+    # @profile
     def SubStep(self, xxx_todo_changeme2, LocalSM):
         (dx, dy) = xxx_todo_changeme2
         _, npol, _, _ = self._MeanDirty.shape
@@ -323,15 +317,15 @@ class ClassImageDeconvMachine():
         # #print "Fpol02",Fpol
         # # NpParallel.A_add_B_prod_factor((self.Dirty),LocalSM,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
 
-        self._CubeDirty[:, :, x0d:x1d,
-                        y0d:y1d] -= LocalSM[:, :, x0p:x1p, y0p:y1p]
+        self._CubeDirty[:,:,x0d:x1d,y0d:y1d] -= LocalSM[:,:,x0p:x1p,y0p:y1p]
         if self._MeanDirty is not self._CubeDirty:
-            # W=np.float32(self.DicoDirty["WeightChansImages"])
-            # self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
-            self._MeanDirty[
-                0, :, x0d:x1d, y0d:y1d] = self._CubeDirty[
-                :, :, x0d:x1d, y0d:y1d].mean(
-                axis=0)
+            ### old code, got MeanDirty out of alignment with CubeDirty somehow
+            ## W=np.float32(self.DicoDirty["WeightChansImages"])
+            ## self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
+            # this is faster, a little, as it avoids making an intermediate array
+            self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0, out=self._MeanDirty[0,:,x0d:x1d,y0d:y1d])
+            ## this is slower:
+            # self._MeanDirty[0,:,x0d:x1d,y0d:y1d] = self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0)
 
         # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
         # pylab.imshow(self._CubeDirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
