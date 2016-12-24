@@ -30,7 +30,7 @@ class TestWeightingBriggs1PSF(ClassCompareFITSImage.ClassCompareFITSImage):
         """
         Relative tolerance for total execution time in comparison with reference runs
         """
-        return 0.3 # Longer for shorter tests 30%
+        return 1.0  # Longer for shorter tests 100%
 
     @classmethod
     def defineImageList(cls):
@@ -51,7 +51,7 @@ class TestWeightingBriggs1PSF(ClassCompareFITSImage.ClassCompareFITSImage):
         """
         Relative tolerance for total execution time in comparison with reference runs
         """
-        return 0.3 # Longer for shorter tests 30%
+        return 1.0  # Longer for shorter tests 100%
 
     @classmethod
     def defineImageList(cls):
@@ -72,7 +72,7 @@ class TestWeightingBriggsMinus1PSF(ClassCompareFITSImage.ClassCompareFITSImage):
         """
         Relative tolerance for total execution time in comparison with reference runs
         """
-        return 0.3 # Longer for shorter tests 30%
+        return 1.0  # Longer for shorter tests 100%
 
     @classmethod
     def defineImageList(cls):
@@ -94,7 +94,7 @@ class TestWeightingBriggs0PSF(ClassCompareFITSImage.ClassCompareFITSImage):
         """
         Relative tolerance for total execution time in comparison with reference runs
         """
-        return 0.3 # Longer for shorter tests 30%
+        return 1.0  # Longer for shorter tests 100%
 
     @classmethod
     def defineImageList(cls):
@@ -115,7 +115,7 @@ class TestWeightingNaturalPSF(ClassCompareFITSImage.ClassCompareFITSImage):
         """
         Relative tolerance for total execution time in comparison with reference runs
         """
-        return 0.3 # Longer for shorter tests 30%
+        return 1.0  # Longer for shorter tests 100%
 
     @classmethod
     def defineImageList(cls):
@@ -136,7 +136,7 @@ class TestWeightingUniformPSF(ClassCompareFITSImage.ClassCompareFITSImage):
         """
         Relative tolerance for total execution time in comparison with reference runs
         """
-        return 0.3 # Longer for shorter tests 30%
+        return 1.0 # Longer for shorter tests 100%
 
     @classmethod
     def defineImageList(cls):

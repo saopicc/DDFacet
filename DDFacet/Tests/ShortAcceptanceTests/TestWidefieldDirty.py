@@ -30,7 +30,7 @@ class TestWidefieldDirty(ClassCompareFITSImage.ClassCompareFITSImage):
         """
         Relative tolerance for total execution time in comparison with reference runs
         """
-        return 0.3 # Longer for shorter tests 30%
+        return 1.0 # Longer for shorter tests 100%
 
     @classmethod
     def defineImageList(cls):
