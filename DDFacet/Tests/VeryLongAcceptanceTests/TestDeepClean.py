@@ -24,6 +24,37 @@ import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
 import numpy as np
 
 class TestDeepCleanWithBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
+
+    @classmethod
+    def defineImageList(cls):
+        """ Method to define set of reference images to be tested.
+            Can be overridden to add additional output products to the test.
+            These must correspond to whatever is used in writing out the FITS files (eg. those in ClassDeconvMachine.py)
+            Returns:
+                List of image identifiers to reference and output products
+        """
+        return ['dirty', 'app.residual']
+
+    @classmethod
+    def defineMaxSquaredError(cls):
+        """ Method defining maximum error tolerance between any pair of corresponding
+            pixels in the output and corresponding reference FITS images.
+            Should be overridden if another tolerance is desired
+            Returns:
+                constant for maximum tolerance used in test case setup
+        """
+        return [1e+9, 1e+9]  # dont care about sidelobes DR test will check the one and only source
+
+    @classmethod
+    def defMeanSquaredErrorLevel(cls):
+        """ Method defining maximum tolerance for the mean squared error between any
+            pair of FITS images. Should be overridden if another tolerance is
+            desired
+            Returns:
+            constant for tolerance on mean squared error
+        """
+        return [1e+9, 1e+9]  # dont care about sidelobes DR test will check the one and only source
+
     @classmethod
     def defDRTolerance(cls):
         """

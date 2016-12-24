@@ -24,6 +24,14 @@ import ClassCompareFITSImage
 
 
 class TestWidefieldDirty(ClassCompareFITSImage.ClassCompareFITSImage):
+
+    @classmethod
+    def defExecutionTime(cls):
+        """
+        Relative tolerance for total execution time in comparison with reference runs
+        """
+        return 0.3 # Longer for shorter tests 30%
+
     @classmethod
     def defineImageList(cls):
         return ['dirty', 'dirty.corr', 'Norm', 'NormFacets']

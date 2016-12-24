@@ -24,6 +24,14 @@ import ClassCompareFITSImage
 
 
 class TestWeightingBriggs1PSF(ClassCompareFITSImage.ClassCompareFITSImage):
+
+    @classmethod
+    def defExecutionTime(cls):
+        """
+        Relative tolerance for total execution time in comparison with reference runs
+        """
+        return 0.3 # Longer for shorter tests 30%
+
     @classmethod
     def defineImageList(cls):
         return ['psf']
@@ -37,6 +45,14 @@ class TestWeightingBriggs1PSF(ClassCompareFITSImage.ClassCompareFITSImage):
         return [1e-7] #epsilons per image pair, as listed in defineImageList 
 
 class TestWeightingBriggs1PSF(ClassCompareFITSImage.ClassCompareFITSImage):
+
+    @classmethod
+    def defExecutionTime(cls):
+        """
+        Relative tolerance for total execution time in comparison with reference runs
+        """
+        return 0.3 # Longer for shorter tests 30%
+
     @classmethod
     def defineImageList(cls):
         return ['psf']
@@ -50,6 +66,14 @@ class TestWeightingBriggs1PSF(ClassCompareFITSImage.ClassCompareFITSImage):
         return [1e-7] #epsilons per image pair, as listed in defineImageList 
 
 class TestWeightingBriggsMinus1PSF(ClassCompareFITSImage.ClassCompareFITSImage):
+
+    @classmethod
+    def defExecutionTime(cls):
+        """
+        Relative tolerance for total execution time in comparison with reference runs
+        """
+        return 0.3 # Longer for shorter tests 30%
+
     @classmethod
     def defineImageList(cls):
         return ['psf']
@@ -64,6 +88,14 @@ class TestWeightingBriggsMinus1PSF(ClassCompareFITSImage.ClassCompareFITSImage):
 
 
 class TestWeightingBriggs0PSF(ClassCompareFITSImage.ClassCompareFITSImage):
+
+    @classmethod
+    def defExecutionTime(cls):
+        """
+        Relative tolerance for total execution time in comparison with reference runs
+        """
+        return 0.3 # Longer for shorter tests 30%
+
     @classmethod
     def defineImageList(cls):
         return ['psf']
@@ -77,6 +109,14 @@ class TestWeightingBriggs0PSF(ClassCompareFITSImage.ClassCompareFITSImage):
         return [1e-7] #epsilons per image pair, as listed in defineImageList 
 
 class TestWeightingNaturalPSF(ClassCompareFITSImage.ClassCompareFITSImage):
+
+    @classmethod
+    def defExecutionTime(cls):
+        """
+        Relative tolerance for total execution time in comparison with reference runs
+        """
+        return 0.3 # Longer for shorter tests 30%
+
     @classmethod
     def defineImageList(cls):
         return ['psf']
@@ -90,6 +130,14 @@ class TestWeightingNaturalPSF(ClassCompareFITSImage.ClassCompareFITSImage):
         return [1e-7] #epsilons per image pair, as listed in defineImageList 
 
 class TestWeightingUniformPSF(ClassCompareFITSImage.ClassCompareFITSImage):
+
+    @classmethod
+    def defExecutionTime(cls):
+        """
+        Relative tolerance for total execution time in comparison with reference runs
+        """
+        return 0.3 # Longer for shorter tests 30%
+
     @classmethod
     def defineImageList(cls):
         return ['psf']

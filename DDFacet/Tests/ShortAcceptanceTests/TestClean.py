@@ -24,6 +24,14 @@ import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
 
 
 class TestSSMFClean(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
+
+    @classmethod
+    def defExecutionTime(cls):
+        """
+        Relative tolerance for total execution time in comparison with reference runs
+        """
+        return 0.3 # Longer for shorter tests 30%
+
     @classmethod
     def defineImageList(cls):
         return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm',
@@ -43,6 +51,14 @@ class TestSSMFClean(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.Cla
                 1e-5, 1e-5]  # epsilons per image pair, as listed in defineImageList
 
 class TestSSSFClean(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
+
+    @classmethod
+    def defExecutionTime(cls):
+        """
+        Relative tolerance for total execution time in comparison with reference runs
+        """
+        return 0.3 # Longer for shorter tests 30%
+
     @classmethod
     def defineImageList(cls):
         return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm',
