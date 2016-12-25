@@ -74,8 +74,8 @@ class TestDeepCleanWithBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
         """
         cls = self.__class__
 
-        dirty_ref = cls._refHDUList[cls.defineImageList().index("dirty")]
-        appresidue_ref = cls._refHDUList[cls.defineImageList().index("app.residual")]
+        dirty_ref = cls._refHDUList[cls.defineImageList().index("dirty")][0].data[...]
+        appresidue_ref = cls._refHDUList[cls.defineImageList().index("app.residual")][0].data[...]
         DR_ref = max(np.max(dirty_ref), abs(np.min(dirty_ref))) / \
                  max(np.max(appresidue_ref), abs(np.min(appresidue_ref)))
         dirty_out = cls._outHDUList[cls.defineImageList().index("dirty")]
