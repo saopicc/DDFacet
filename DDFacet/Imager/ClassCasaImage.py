@@ -145,7 +145,7 @@ class ClassCasaimage():
             if self.sorted_stokes[si+1] - self.sorted_stokes[si] != self.delta_stokes:
                 raise RuntimeError("Your selection of Stokes parameters cannot "
                                    "be stored in a FITS file. The selection must be linearly spaced."
-                                   "See FITS standard 3.0 (A&A 524 A42) Table 28 for the indicies of the stokes "
+                                   "See FITS standard 3.0 (A&A 524 A42) Table 28 for the indices of the stokes "
                                    "parameters you want to image.")
         self.ImShape=ImShape
         self.nch,self.npol,self.Npix,_ = ImShape
@@ -273,7 +273,7 @@ class ClassCasaimage():
 
     def setBeam(self,beam,beamcube=None):
         """
-        Add Fitted beam info to FITS header, expects tripple for beam:
+        Add Fitted beam info to FITS header, expects triple for beam:
         maj: Length of major axis in degrees
         min: Length of minor axis in degrees
         pa: Beam paralactic angle in degrees (counter clockwise, starting from declination-axis)
