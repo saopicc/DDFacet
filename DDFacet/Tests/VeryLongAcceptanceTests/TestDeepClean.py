@@ -78,8 +78,8 @@ class TestDeepCleanWithBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
         appresidue_ref = cls._refHDUList[cls.defineImageList().index("app.residual")][0].data[...]
         DR_ref = max(np.max(dirty_ref), abs(np.min(dirty_ref))) / \
                  max(np.max(appresidue_ref), abs(np.min(appresidue_ref)))
-        dirty_out = cls._outHDUList[cls.defineImageList().index("dirty")]
-        appresidue_out = cls._outHDUList[cls.defineImageList().index("app.residual")]
+        dirty_out = cls._outHDUList[cls.defineImageList().index("dirty")][0].data[...]
+        appresidue_out = cls._outHDUList[cls.defineImageList().index("app.residual")][0].data[...]
         DR_out = max(np.max(dirty_out), abs(np.min(dirty_out))) / \
                  max(np.max(appresidue_out), abs(np.min(appresidue_out)))
         assert abs(DR_ref / DR_out) <= cls.defDRTolerance(), "DR value has regressed. " \
