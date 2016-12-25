@@ -749,7 +749,7 @@ class ClassFacetMachine():
             self.DicoPSF = {}
             print>>log, "building PSF facet-slices"
             for iFacet in self.DicoGridMachine.keys():
-                # first normalize by spheriodals - these
+                # first normalize by spheroidals - these
                 # facet psfs will be used in deconvolution per facet
                 SPhe = self._sphes[iFacet]
                 nx = SPhe.shape[0]
@@ -812,10 +812,8 @@ class ClassFacetMachine():
                 for ch in xrange(nch):
                     i = n/2 - NPixMin/2
                     j = n/2 + NPixMin/2 + 1
-                    CubeVariablePSF[iFacet, ch, :, :, :] = \
-                        DicoVariablePSF[iFacet]["PSF"][ch][:, i:j, i:j]
-                CubeMeanVariablePSF[iFacet, 0, :, :, :] = \
-                    DicoVariablePSF[iFacet]["MeanPSF"][0, :, i:j, i:j]
+                    CubeVariablePSF[iFacet, ch, :, :, :] = DicoVariablePSF[iFacet]["PSF"][ch][:, i:j, i:j]
+                CubeMeanVariablePSF[iFacet, 0, :, :, :] = DicoVariablePSF[iFacet]["MeanPSF"][0, :, i:j, i:j]
 
             self.DicoPSF["CentralFacet"] = self.CentralFacet
             self.DicoPSF["CubeVariablePSF"] = CubeVariablePSF
@@ -827,15 +825,8 @@ class ClassFacetMachine():
             for iFacet in sorted(self.DicoImager.keys()):
                 MeanJonesBand = np.zeros((self.VS.NFreqBands,), np.float64)
                 for Channel in xrange(self.VS.NFreqBands):
-                    ThisSumSqWeights = self.DicoImager[
-                        iFacet]["SumJones"][1][Channel]
-                    if ThisSumSqWeights == 0:
-                        ThisSumSqWeights = 1.
-                    ThisSumJones = (
-                        self.DicoImager[iFacet]["SumJones"][0][Channel] /
-                        ThisSumSqWeights)
-                    if ThisSumJones == 0:
-                        ThisSumJones = 1.
+                    ThisSumSqWeights = self.DicoImager[iFacet]["SumJones"][1][Channel] or 1
+                    ThisSumJones = (self.DicoImager[iFacet]["SumJones"][0][Channel] / ThisSumSqWeights) or 1
                     MeanJonesBand[Channel] = ThisSumJones
                 self.DicoPSF["MeanJonesBand"].append(MeanJonesBand)
 
@@ -849,16 +840,13 @@ class ClassFacetMachine():
                     A[A == 0] = 1.
                     A = self.DicoImager[iFacet]["SumJonesChan"][iMS][0, :]
                     A[A == 0] = 1.
-                    SumJonesChan = self.DicoImager[
-                        iFacet]["SumJonesChan"][iMS][0, :]
-                    SumJonesChanWeightSq = self.DicoImager[
-                        iFacet]["SumJonesChan"][iMS][1, :]
+                    SumJonesChan = self.DicoImager[iFacet]["SumJonesChan"][iMS][0, :]
+                    SumJonesChanWeightSq = self.DicoImager[iFacet]["SumJonesChan"][iMS][1, :]
                     ThisFacetSumJonesChan.append(SumJonesChan)
                     ThisFacetSumJonesChanWeightSq.append(SumJonesChanWeightSq)
 
                 self.DicoPSF["SumJonesChan"].append(ThisFacetSumJonesChan)
-                self.DicoPSF["SumJonesChanWeightSq"].append(
-                    ThisFacetSumJonesChanWeightSq)
+                self.DicoPSF["SumJonesChanWeightSq"].append(ThisFacetSumJonesChanWeightSq)
             self.DicoPSF["ChanMappingGrid"] = self.VS.DicoMSChanMapping
             self.DicoPSF["ChanMappingGridChan"] = self.VS.DicoMSChanMappingChan
             self.DicoPSF["freqs"] = DicoImages["freqs"]
@@ -952,30 +940,21 @@ class ClassFacetMachine():
                 T.timeit("3")
                 for pol in xrange(npol):
                     # ThisSumWeights.reshape((nch,npol,1,1))[Channel, pol, 0, 0]
-                    sumweight = ThisSumWeights[pol]
-
                     if kind == "Jones-amplitude":
                         Im = SpacialWeigth[::-1, :].T[x0facet:x1facet, y0facet:y1facet] * ThisSumJones
                     else:
-                        if kind == "Dirty":
-                            Im = self.DicoGridMachine[iFacet]["Dirty"][Channel][pol].copy()
-                        elif kind == "PSF":
-                            Im = self.DicoPSF[iFacet]["PSF"][Channel][pol].copy()
+                        if kind == "Dirty" or kind == "PSF":
+                            Im = self.DicoGridMachine[iFacet]["Dirty"][Channel][pol].real.copy()
                         else:
                             raise RuntimeError,"unknown kind=%s argument -- this is a silly bug"%kind
-                        # grid-correct the image with the
-                        # gridding convolution function
+                        # normalize by facet weight
+                        sumweight = ThisSumWeights[pol]
                         Im /= SPhe.real
                         Im[SPhe < 1e-3] = 0
                         Im = (Im[::-1, :].T / sumweight)
-                        SW = SpacialWeigth[::-1, :].T
-                        Im *= SW
-
                         Im /= np.sqrt(ThisSumJones)
-                        # Im/=(ThisSumJones)
-
+                        Im *= SpacialWeigth[::-1, :].T
                         Im = Im[x0facet:x1facet, y0facet:y1facet]
-
                     Image[Channel, pol, x0main:x1main, y0main:y1main] += Im.real
 
         for Channel in xrange(self.VS.NFreqBands):
