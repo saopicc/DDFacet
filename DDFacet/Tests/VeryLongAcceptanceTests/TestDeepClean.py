@@ -60,7 +60,7 @@ class TestDeepCleanWithBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
         """
         Relative tolerance of clean dynamic range
         """
-        return 0.005 # 0.5% drift
+        return 0.02 # +/- 2% drift
 
     def testMaxSquaredError(self):
         pass # skip: since there is only one source we don't care about verifying the components placed on the sidelobes
@@ -82,8 +82,8 @@ class TestDeepCleanWithBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
         appresidue_out = cls._outHDUList[cls.defineImageList().index("app.residual")][0].data[...]
         DR_out = max(np.max(dirty_out), abs(np.min(dirty_out))) / \
                  max(np.max(appresidue_out), abs(np.min(appresidue_out)))
-        assert abs(DR_ref / DR_out) <= cls.defDRTolerance(), "DR value has regressed. " \
-                                                             "Known good: %f, current %f" % (DR_ref, DR_out)
+        assert abs(1.0 - DR_ref / DR_out) <= cls.defDRTolerance(), "DR value has regressed. " \
+                                                                   "Known good: %f, current %f" % (DR_ref, DR_out)
 
 
 class TestDeepCleanWithoutBeam(TestDeepCleanWithBeam):
