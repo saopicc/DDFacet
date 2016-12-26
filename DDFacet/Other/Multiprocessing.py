@@ -155,7 +155,7 @@ class ProcessPool (object):
                                 target=target, args=args, kwargs=kwargs))
             procs.append(p)
 
-        print>> log, "%s: starting %d workers for %d jobs%s" % (title or "", self.ncpu, len(joblist),
+        print>> log, "%s: starting %d workers for %d jobs%s" % (title or "", len(cores), len(joblist),
                         (", CPU cores " + " ".join(map(str,cores)) if self.affinity else ""))
         # fork off child processes
         if parallel:
