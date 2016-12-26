@@ -123,13 +123,14 @@ class ClassMultiScaleMachine():
         PSF=self._MeanPSF
         _,_,NPSF,_=PSF.shape
 
-        method = self.GD["MultiScale"]["PSFBox"]
+        # for backwards compatibility -- if PSFBox is 0 or unset, use the "auto" method below
+        method = self.GD["MultiScale"]["PSFBox"] or "auto"
 
         if isinstance(method, int):
             dx = method
             method = "explicit"
         else:
-            if method == "auto":
+            if method == "frombox":
                 xtest = np.int64(np.linspace(NPSF / 2, NPSF, 100))
                 box = 100
                 itest = 0
@@ -147,7 +148,7 @@ class ClassMultiScaleMachine():
                 x0=xtest[itest]
                 dx0=(x0-NPSF/2)
                 #print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
-            elif method == "sidelobe":
+            elif method == "auto" or method == "sidelobe":
                 dx0=2*self.OffsetSideLobe
                 dx0=np.max([dx0,50])
                 #print>>log, "PSF extends to [%i] from center"%(dx0)

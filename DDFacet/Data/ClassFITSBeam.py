@@ -128,7 +128,7 @@ class ClassFITSBeam (object):
         # load beam interpolator
         self.vbs = []
         for reFits, imFits in zip(filename_real,filename_imag):        
-            print>>log,"Loading beam patterns %s, %s"%(list(filename_real),list(filename_imag))
+            print>>log,"Loading beam patterns %s %s"%(reFits, imFits)
             vb = InterpolatedBeams.LMVoltageBeam(
                 verbose=opts["FITSVerbosity"],
                 l_axis=opts["FITSLAxis"], m_axis=opts["FITSMAxis"]

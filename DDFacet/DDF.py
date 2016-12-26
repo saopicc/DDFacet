@@ -23,30 +23,22 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import optparse
 import traceback
 SaveFile = "last_DDFacet.obj"
-import pickle
-import os, errno, re, sys, time
-from DDFacet.Other import logo
-from DDFacet.Imager import ClassDeconvMachine
-from DDFacet.Other import ModColor
-from DDFacet.ToolsDir import ModParset
-#import ClassData
-#import ClassInitMachine
-from DDFacet.Array import NpShared
+import os, errno, re, sys, time, subprocess, psutil, numexpr
 import numpy as np
+from DDFacet.Other import logo
+from DDFacet.Array import NpParallel
 from DDFacet.Imager import ClassDeconvMachine
-from DDFacet.Other import PrintOptParse
 from DDFacet.Parset import ReadCFG
 from DDFacet.Other import MyPickle
+from DDFacet.Parset import MyOptParse
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 from DDFacet.Other import ClassTimeIt
-from DDFacet.Other import  Multiprocessing
+from DDFacet.Other import Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
 log = None
 
-from DDFacet.Parset import MyOptParse
-import subprocess
 
 # # ##############################
 # # Catch numpy warning
@@ -320,7 +312,7 @@ def main(OP=None, messages=[]):
         print>>log, "random seed=%d (explicit)" % DicoConfig["ImagerGlobal"]["RandomSeed"]
     else:
         DicoConfig["ImagerGlobal"]["RandomSeed"] = int(time.time())
-    print>> log, "random seed=%d (automatic)" % DicoConfig["ImagerGlobal"]["RandomSeed"]
+        print>> log, "random seed=%d (automatic)" % DicoConfig["ImagerGlobal"]["RandomSeed"]
     np.random.seed(DicoConfig["ImagerGlobal"]["RandomSeed"])
 
     # If we're using Montblanc for the Predict, we need to use a remote
@@ -331,6 +323,12 @@ def main(OP=None, messages=[]):
         if not DicoConfig["Montblanc"]["TensorflowServerTarget"]:
             from DDFacet.TensorFlowServerFork import fork_tensorflow_server
             DicoConfig["Montblanc"]["TensorflowServerTarget"] = fork_tensorflow_server()
+
+    # init NCPU for different bits of parallelism
+    ncpu = DicoConfig["Parallel"]["NCPU"] or psutil.cpu_count()
+    NpParallel.NCPU_global = ncpu
+    numexpr.set_num_threads(ncpu)
+    print>>log,"using up to %d CPUs for parallelism" % ncpu
 
     # write parset
     OP.ToParset("%s.parset"%ImageName)
