@@ -145,7 +145,8 @@ class ProcessPool (object):
             cores = range(0, self.ncpu*2, 4) + range(1, self.ncpu*2, 4)
         else:
             raise ValueError,"unknown affinity setting %d" % self.affinity
-
+        # if fewer jobs than workers, reduce number of cores
+        cores = cores[:len(joblist)]
         # create worker processes
         for cpu in cores:
             p = multiprocessing.Process(target=self._work_consumer,
