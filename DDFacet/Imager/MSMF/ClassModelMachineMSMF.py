@@ -109,20 +109,19 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if not (pol_array_index >= 0 and pol_array_index < npol):
             raise ValueError("Pol_array_index must specify the index of the slice in the "
                              "model cube the solution should be stored at. Please report this bug.")
-        DicoComp=self.DicoSMStacked["Comp"]
-        if not(key in DicoComp.keys()):
-            DicoComp[key]={}
-            for p in range(npol):
-                DicoComp[key]["SolsArray"]=np.zeros((Sols.size,npol),np.float32)
-                DicoComp[key]["SumWeights"]=np.zeros((npol),np.float32)
+        DicoComp = self.DicoSMStacked["Comp"]
+        entry = DicoComp.setdefault(key, {})
+        if not entry:
+            entry["SolsArray"]  = np.zeros((Sols.size, npol),np.float32)
+            entry["SumWeights"] = np.zeros((npol),np.float32)
 
         Weight=1.
         Gain=self.GainMachine.GiveGain()
 
         SolNorm=Sols.ravel()*Gain*np.mean(Fpol)
 
-        DicoComp[key]["SumWeights"][pol_array_index] += Weight
-        DicoComp[key]["SolsArray"][:,pol_array_index] += Weight*SolNorm
+        entry["SumWeights"][pol_array_index] += Weight
+        entry["SolsArray"][:,pol_array_index] += Weight*SolNorm
         
     def setListComponants(self,ListScales):
         self.ListScales=ListScales

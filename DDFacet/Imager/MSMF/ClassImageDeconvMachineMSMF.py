@@ -37,7 +37,12 @@ from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Imager import ClassGainMachine
 import cPickle
 import psutil
+import numexpr
 
+# # if not running under a profiler, declare a do-nothing @profile decorator
+# if "profile" not in globals():
+#     profile = lambda x:x
+#
 
 class ClassImageDeconvMachine():
 
@@ -264,7 +269,7 @@ class ClassImageDeconvMachine():
         Bedge = [x0facet, x1facet, y0facet, y1facet]
         return Aedge, Bedge
 
-    # @profile
+    #@profile
     def SubStep(self, xxx_todo_changeme2, LocalSM):
         (dx, dy) = xxx_todo_changeme2
         _, npol, _, _ = self._MeanDirty.shape
@@ -317,7 +322,10 @@ class ClassImageDeconvMachine():
         # #print "Fpol02",Fpol
         # # NpParallel.A_add_B_prod_factor((self.Dirty),LocalSM,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
 
-        self._CubeDirty[:,:,x0d:x1d,y0d:y1d] -= LocalSM[:,:,x0p:x1p,y0p:y1p]
+        # self._CubeDirty[:,:,x0d:x1d,y0d:y1d] -= LocalSM[:,:,x0p:x1p,y0p:y1p]
+        a, b = self._CubeDirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
+        numexpr.evaluate('a-b',out=a)
+
         if self._MeanDirty is not self._CubeDirty:
             ### old code, got MeanDirty out of alignment with CubeDirty somehow
             ## W=np.float32(self.DicoDirty["WeightChansImages"])

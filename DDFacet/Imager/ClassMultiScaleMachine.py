@@ -31,6 +31,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 import pickle
 import cPickle
+import numexpr
 
 debug_dump_file = None
 
@@ -479,7 +480,7 @@ class ClassMultiScaleMachine():
         
 
 
-    # @profile
+    #@profile
     def GiveLocalSM(self,(x,y),Fpol):
         T= ClassTimeIt.ClassTimeIt("   GiveLocalSM")
         T.disable()
@@ -668,7 +669,8 @@ class ClassMultiScaleMachine():
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
 
             # multiply basis functions by solutions (first axis is basis index)
-            scales = self.CubePSFScales * Sol.reshape((Sol.size, 1, 1, 1))
+            a, b = self.CubePSFScales, np.float32(Sol.reshape((Sol.size, 1, 1, 1)))
+            scales = numexpr.evaluate('a*b')
             # model is sum of basis functions
             LocalSM = scales.sum(axis=0) if Sol.size>1 else scales[0,...]
 
@@ -757,7 +759,8 @@ class ClassMultiScaleMachine():
 
         nch,nx,ny = LocalSM.shape
         LocalSM = LocalSM.reshape((nch,1,nx,ny))
-        LocalSM *= np.sqrt(JonesNorm)
+#        LocalSM *= np.sqrt(JonesNorm)
+        numexpr.evaluate('LocalSM*sqrt(JonesNorm)',out=LocalSM)
 
         # print self.AlphaVec,Sol
         # print "alpha",np.sum(self.AlphaVec.ravel()*Sol.ravel())/np.sum(Sol)
