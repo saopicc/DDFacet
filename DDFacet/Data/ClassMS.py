@@ -847,9 +847,9 @@ class ClassMS():
             chunk_row0 = [ np.argmax(all_times>=ch_t0) for ch_t0 in chunk_t0 ]
             # chunk_row0 gives the starting row of each chunk
             if len(chunk_row0) == 1:
-                print>>log,"MS %s (%d rows) will be processed as a single chunk"%(self.MSName, self.F_nrows)
+                print>>log,"MS %s DDID %d FIELD %d (%d rows) will be processed as a single chunk"%(self.MSName, self.DDID, self.Field, self.F_nrows)
             else:
-                print>>log,"MS %s (%d rows) will be split into %d chunks, at rows %s"%(self.MSName, self.F_nrows,
+                print>>log,"MS %s DDID %d FIELD %d (%d rows) will be split into %d chunks, at rows %s"%(self.MSName, self.DDID, self.Field,  self.F_nrows,
                                                                                        len(chunk_row0), " ".join(map(str,chunk_row0)))
         self.Nchunk = len(chunk_row0)
         chunk_row0.append(self.F_nrows)
@@ -1081,7 +1081,7 @@ class ClassMS():
         ll.append("   - Total Integration time = %6.2f hours"%self.DTh)
         ll.append("   - Number of antenna  = %i"%self.na)
         ll.append("   - Number of baseline = %i"%self.nbl)
-        ll.append("   - Number of SPW = %i/%i"%(self._spwid, self.NSPW)
+        ll.append("   - Number of SPW = %i/%i"%(self._spwid, self.NSPW))
         ll.append("   - Number of channels = %i"%self.Nchan)
         ll.append("   - Number of time chunks = %i"%self.Nchunk)
 
