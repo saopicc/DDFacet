@@ -101,8 +101,11 @@ class ClassWeighting():
             print>> log, "Weighting in natural mode"
             if force_unity_weight:
                 for uv, weights, flags, freqs in uvw_weights_flags_freqs:
-                    if type(weights) is str:
-                        NpShared.GiveArray(weights).fill(1)
+                    if flags is not None:
+                        if type(weights) is str:
+                            NpShared.GiveArray(weights).fill(1)
+                        else:
+                            weights.fill(1)
             return [x[1] for x in uvw_weights_flags_freqs]
 
         nch, npol, npixIm, _ = self.ImShape
@@ -118,9 +121,10 @@ class ClassWeighting():
         # find max grid extent by considering _unflagged_ UVs
         xymax = 0
         for uv, weights, flags, freqs in uvw_weights_flags_freqs:
-            # max |u|,|v| in lambda
-            uvmax = abs(uv)[~flags, :].max() * freqs.max() / _cc
-            xymax = max(xymax, int(math.floor(uvmax / cell)))
+            if flags is not None:
+                # max |u|,|v| in lambda
+                uvmax = abs(uv)[~flags, :].max() * freqs.max() / _cc
+                xymax = max(xymax, int(math.floor(uvmax / cell)))
         xymax += 1
         # grid will be from [-xymax,xymax] in U and [0,xymax] in V
         npixx = xymax * 2 + 1
@@ -135,6 +139,8 @@ class ClassWeighting():
         weights_index = [None] * len(uvw_weights_flags_freqs)
 
         for iMS, (uv, weights_or_path, flags, freqs) in enumerate(uvw_weights_flags_freqs):
+            if flags is None:  # entire chunk flagged
+                continue
             weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
             if force_unity_weight:
                 weights.fill(1)
@@ -193,7 +199,6 @@ class ClassWeighting():
             raise ValueError("unknown weighting \"%s\"" % Weighting)
 
         print>> log, "weights computed"
-        return [weights for weights_or_path, index in weights_index]
 
 
     def CalcWeightsOld(self,uvw,VisWeights,flags,freqs,Robust=0,Weighting="Briggs",Super=1):

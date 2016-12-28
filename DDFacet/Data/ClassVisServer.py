@@ -53,9 +53,7 @@ class ClassVisServer():
                  ColName="DATA",
                  TChunkSize=1,                # chunk size, in hours
                  LofarBeam=None,
-                 AddNoiseJy=None,
-                 DicoSelectOptions={},
-                 ):
+                 AddNoiseJy=None):
         self.GD = GD
 
         self.MSList = [ MSList ] if isinstance(MSList, str) else MSList
@@ -73,7 +71,7 @@ class ClassVisServer():
 
         self.CountPickle = 0
         self.ColName = ColName
-        self.DicoSelectOptions = DicoSelectOptions
+        self.DicoSelectOptions = GD["DataSelection"]
         self.TaQL = self.DicoSelectOptions.get("TaQL", None)
         self.LofarBeam = LofarBeam
         self.ApplyBeam = False
@@ -430,6 +428,16 @@ class ClassVisServer():
                 elif repNextMS == "OK":
                     continue
             DATA = repLoadChunk
+            ## now load weights. Note that an all-flagged chunk of data is markjed by a null weights file.
+            ## so we check it here to go on to the next chunk as needed
+            weightspath = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
+            if not os.path.getsize(weightspath):
+                print>> log, ModColor.Str("This chunk is all flagged or has zero weight, skipping it")
+                continue
+            # mmap() arrays caused mysterious performance hits, so load and copy
+            DATA["Weights"] = NpShared.GiveArray("file://" + weightspath).copy()
+            if DATA["sort_index"] is not None:
+                DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
             break
         print>> log, ModColor.Str("processing ms %d of %d, chunk %d of %d" % (
             self.iCurrentMS + 1, self.nMS, self.CurrentMS.current_chunk+1, self.CurrentMS.Nchunk), col="green")
@@ -456,15 +464,6 @@ class ClassVisServer():
         # uvw=uvw[ind]
         # times=times[ind]
         # ##
-
-        # load weights
-        visweights = NpShared.GiveArray("file://"+self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk])
-        # DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
-        # as a proof of concept, pass weights in directly
-        DATA["Weights"] = visweights.copy()
-        if DATA["sort_index"] is not None:
-            DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
-        del visweights
 
         DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
 
@@ -652,11 +651,20 @@ class ClassVisServer():
                 # if all channels are flagged, flag whole row. Shape of flags
                 # becomes nrow
                 flags = flags.min(axis=1)
+
                 # each weight is kept in an mmap()ed file in the cache, shape
                 # (nrows,nchan)
                 weightpath = "file://"+cachepath
-                WEIGHT = NpShared.CreateShared(
-                    weightpath, (nrows, ms.Nchan), np.float64)
+
+                # if everything is flagged, skip this entry, and mark it with a zero-length weights file
+                if flags.all():
+                    # Nones tell CalcWeights to skip this chunk entirely
+                    output_list.append((uvs, None, None, ms.ChanFreq))
+                    # make an empty weights file in the cache
+                    file(cachepath,'w').truncate(0)
+                    continue
+
+                WEIGHT = NpShared.CreateShared(weightpath, (nrows, ms.Nchan), np.float64)
 
                 if WeightCol == "WEIGHT_SPECTRUM":
                     w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
@@ -664,7 +672,6 @@ class ClassVisServer():
                         WeightCol, w.shape)
                     # take mean weight across correlations and apply this to all
                     WEIGHT[...] = w.mean(axis=2) * valid
-
                 elif WeightCol == "WEIGHT":
                     w = tab.getcol(WeightCol, row0, nrows)
                     print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (
@@ -688,8 +695,7 @@ class ClassVisServer():
                 nweights += valid.sum()
                 weights_are_null = weights_are_null and (WEIGHT == 0).all()
 
-                output_list.append(
-                    (uvs, WEIGHT if greedy else weightpath, flags, ms.ChanFreq))
+                output_list.append((uvs, WEIGHT if greedy else weightpath, flags, ms.ChanFreq))
                 if greedy:
                     del WEIGHT
             tab.close()
