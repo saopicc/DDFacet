@@ -49,61 +49,34 @@ def test():
 
 class ClassVisServer():
 
-    def __init__(self, MSName, GD=None,
+    def __init__(self, MSList, GD=None,
                  ColName="DATA",
                  TChunkSize=1,                # chunk size, in hours
-                 TVisSizeMin=1,
-                 DicoSelectOptions={},
                  LofarBeam=None,
-                 AddNoiseJy=None, 
-                 IdSharedMem="",
-                 Robust=2, 
-                 Weighting="Briggs", 
-                 MFSWeighting=True, 
-                 Super=1,
-                 NCPU=psutil.cpu_count()):
+                 AddNoiseJy=None,
+                 DicoSelectOptions={},
+                 ):
+        self.GD = GD
 
-        self.ReadOnce = False
-        self.ReadOnce_AlreadyRead = False
-        if TChunkSize <= TVisSizeMin*60:
-            self.ReadOnce = True
-
-        if isinstance(MSName, list):
-            self.MultiMSMode = True
-            self.ListMSName = MSName
-            self.ReadOnce = False
-        else:
-            self.MultiMSMode = False
-            self.ListMSName = [MSName]
-        self.ListMSName = [MSName for MSName in self.ListMSName if MSName != ""]
+        self.MSList = [ MSList ] if isinstance(MSList, str) else MSList
         self.FacetMachine = None
-        self.IdSharedMem = IdSharedMem
-        self.Robust = Robust
-        PrefixShared = "%sSharedVis" % self.IdSharedMem
         self.AddNoiseJy = AddNoiseJy
         self.TMemChunkSize = TChunkSize
-        self.TVisSizeMin = TVisSizeMin
 
-        self.Weighting = Weighting.lower()
+        self.Weighting = GD["ImagerGlobal"]["Weighting"].lower()
         if self.Weighting not in ("natural", "uniform", "briggs", "robust"):
             raise ValueError("unknown Weighting=%s" % Weighting)
-        self.MFSWeighting = MFSWeighting
-
-        self.Super = Super
-        self.NCPU = NCPU
+        self.MFSWeighting = GD["ImagerGlobal"]["MFSWeighting"]
+        self.Robust = GD["ImagerGlobal"]["Robust"]
+        self.Super = GD["ImagerGlobal"]["Super"]
         self.VisWeights = None
+
         self.CountPickle = 0
         self.ColName = ColName
-        self.Field = DicoSelectOptions.get("Field", 0)
-        self.DDID = DicoSelectOptions.get("DDID", 0)
-        self.TaQL = DicoSelectOptions.get("TaQL", None)
         self.DicoSelectOptions = DicoSelectOptions
-        self.SharedNames = []
-        self.PrefixShared = PrefixShared
-        self.VisInSharedMem = (PrefixShared is not None)
+        self.TaQL = self.DicoSelectOptions.get("TaQL", None)
         self.LofarBeam = LofarBeam
         self.ApplyBeam = False
-        self.GD = GD
         self.datashape = None
         self._use_data_cache = self.GD["Caching"]["CacheVisData"]
         self.Init()
@@ -112,15 +85,7 @@ class ClassVisServer():
         self._databuf = None
         self._flagbuf = None
 
-        # self.LoadNextVisChunk()
-
-        # self.TEST_TLIST=[]
-
     def Init(self, PointingID=0):
-        # MSName=self.MDC.giveMS(PointingID).MSName
-        if self.MultiMSMode:
-            print>>log, "Multiple MS mode"
-
         self.ListMS = []
         global_freqs = set()
         NChanMax = 0
@@ -142,11 +107,15 @@ class ClassVisServer():
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
 
-        for MSName in self.ListMSName:
+        for msspec in self.MSList:
+            if type(msspec) is not str:
+                msname, ddid, field = msspec
+            else:
+                msname, ddid, field = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"]
             MS = ClassMS.ClassMS(
-                MSName, Col=self.ColName, DoReadData=False,
+                msname, Col=self.ColName, DoReadData=False,
                 AverageTimeFreq=(1, 3),
-                Field=self.Field, DDID=self.DDID, TaQL=self.TaQL,
+                Field=field, DDID=ddid, TaQL=self.TaQL,
                 TimeChunkSize=self.TMemChunkSize, ChanSlice=chanslice,
                 GD=self.GD, ResetCache=self.GD["Caching"]["ResetCache"],
                 DicoSelectOptions = self.DicoSelectOptions)
