@@ -279,7 +279,7 @@ class ClassMS():
         
     def GiveBeam(self,time,ra,dec):
         self.LoadSR()
-        Beam=np.zeros((ra.shape[0],self.na,self.NSPWChan,2,2),dtype=np.complex)
+        Beam=np.zeros((ra.shape[0],self.na,self.NChan,2,2),dtype=np.complex)
         for i in range(ra.shape[0]):
             self.SR.setDirection(ra[i],dec[i])
             Beam[i]=self.SR.evaluate(time)
@@ -902,8 +902,8 @@ class ClassMS():
         self.Freq_Mean=np.mean(chan_freq)
         wavelength_chan=299792458./chan_freq
 
-        if NSPW>1:
-            print "Don't deal with multiple SPW yet"
+        #if NSPW>1:
+        #    print "Don't deal with multiple SPW yet"
 
         self.Nchan = Nchan = len(wavelength_chan)
         NSPWChan=NSPW*Nchan
@@ -962,7 +962,7 @@ class ClassMS():
         self.na=na
         self.Nchan=Nchan
         self.NSPW=NSPW
-        self.NSPWChan=NSPWChan
+        # self.NSPWChan=NSPWChan: removed this: each SPW is iterated over independently
         self.F_tstart=T0
         #self.F_times_all=T1
         #self.F_times=F_time_slots_all
@@ -1081,7 +1081,7 @@ class ClassMS():
         ll.append("   - Total Integration time = %6.2f hours"%self.DTh)
         ll.append("   - Number of antenna  = %i"%self.na)
         ll.append("   - Number of baseline = %i"%self.nbl)
-        ll.append("   - Number of SPW = %i"%self.NSPW)
+        ll.append("   - Number of SPW = %i/%i"%(self._spwid, self.NSPW)
         ll.append("   - Number of channels = %i"%self.Nchan)
         ll.append("   - Number of time chunks = %i"%self.Nchunk)
 
