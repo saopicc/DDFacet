@@ -22,6 +22,7 @@ import unittest
 
 import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
 import numpy as np
+import path
 
 class TestDeepCleanWithBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
     @classmethod
@@ -53,7 +54,6 @@ class TestDeepCleanWithBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
                  max(np.max(appresidue_out), abs(np.min(appresidue_out)))
         assert abs(DR_ref / DR_out) <= cls.defDRTolerance(), "DR value has regressed. " \
                                                              "Known good: %f, current %f" % (DR_ref, DR_out)
-
 
 class TestDeepCleanWithoutBeam(TestDeepCleanWithBeam):
     pass # also do a DR check for the deep clean without the beam (same as above)

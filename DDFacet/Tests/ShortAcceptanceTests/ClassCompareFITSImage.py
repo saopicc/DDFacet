@@ -117,6 +117,20 @@ class ClassCompareFITSImage(unittest.TestCase):
         return 0.1 # 10%
 
     @classmethod
+    def defMinorCycleTolerance(cls):
+        """
+        Relative tolerance on minor cycle count
+        """
+        return 25  # +/- 25 minor cycles
+
+    @classmethod
+    def defMajorCycleTolerance(cls):
+        """
+        Relative tolerance on minor cycle count
+        """
+        return 0  # +/- 0 major cycles
+
+    @classmethod
     def setParsetOption(cls, section, option, value):
         """
             Sets the default option read by the configuration parser
@@ -289,14 +303,6 @@ class ClassCompareFITSImage(unittest.TestCase):
             assert vals.group("secs") is not None, "Seconds not found in reference log"
             reftime = float(vals.group("mins")) * 60.0 + float(vals.group("secs"))
         with open(cls._outputLog) as f:
-            vals = None
-            logtext = f.readline()
-            while logtext:
-                vals = re.match(r".*DDFacet ended successfully after (?P<mins>[0-9]+)?m(?P<secs>[0-9]+.[0-9]+)?s",
-                                logtext)
-                if vals is not None:
-                    break
-                logtext = f.readline()
             assert vals is not None, "Could not find the successful termination string in test run log... " \
                                      "have you changed something?"
             assert vals.group("mins") is not None, "Minutes not found in test run log"
@@ -304,5 +310,55 @@ class ClassCompareFITSImage(unittest.TestCase):
             testruntime = float(vals.group("mins")) * 60.0 + float(vals.group("secs"))
         assert testruntime / reftime <= 1.0 + cls.defExecutionTime(), "Runtime for this test was significantly " \
                                                                       "longer than reference run. Check the logs."
+
+    def testMajorMinorCycleCount(self):
+        cls = self.__class__
+        assert path.isfile(cls._inputLog), "Reference log file %s does not exist" % cls._inputLog
+        assert path.isfile(cls._outputLog), "Test run log file %s does not exist" % cls._inputLog
+        input_major = 0
+        input_minor = 0
+        output_major = 0
+        output_minor = 0
+        with open(cls._inputLog) as f:
+            vals = None
+            logtext = f.readline()
+            while logtext:
+                vals = re.match(r".*=== Running major Cycle (?P<majors>[0-9]+)? ====.*",
+                                logtext)
+                if vals is not None:
+                    input_major = max(input_major, int(vals.group("majors")))
+
+                vals = None
+                vals = re.match(r".*\[iter=(?P<minors>[0-9]+)?\].*",
+                                logtext)
+                if vals is not None:
+                    input_minor = max(input_minor, int(vals.group("minors")))
+                logtext = f.readline()
+
+        with open(cls._outputLog) as f:
+            vals = None
+            logtext = f.readline()
+            while logtext:
+                vals = re.match(r".*=== Running major Cycle (?P<majors>[0-9]+)? ====.*",
+                                logtext)
+                if vals is not None:
+                    output_major = max(output_major, int(vals.group("majors")))
+
+                vals = None
+                vals = re.match(r".*\[iter=(?P<minors>[0-9]+)?\].*",
+                                logtext)
+                if vals is not None:
+                    output_minor = max(output_minor, int(vals.group("minors")))
+                logtext = f.readline()
+        assert abs(input_major -
+                   output_major) <= cls.defMajorCycleTolerance(), "Number of major cycles used to reach termination " \
+                                                                  "differs: Known good: %d, current %d" % (
+                                                                  input_major, output_major)
+        assert abs(input_minor -
+                   output_minor) <= cls.defMinorCycleTolerance(), "Number of minor cycles used to reach termination " \
+                                                                  "differs: Known good: %d, current %d" % (
+                                                                  input_minor, output_minor)
+
+
 if __name__ == "__main__":
     pass # abstract class
