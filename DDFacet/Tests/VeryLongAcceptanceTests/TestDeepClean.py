@@ -61,7 +61,7 @@ class TestDeepCleanWithBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
         """
         Relative tolerance of clean dynamic range
         """
-        return 0.2 # +/- 20% drift
+        return 0.05 # +/- 5% drift
 
     def testMaxSquaredError(self):
         pass # skip: since there is only one source we don't care about verifying the components placed on the sidelobes
