@@ -20,10 +20,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import unittest
 
-import ClassCompareFITSImage
+import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
 
 
-class Test3C147(ClassCompareFITSImage.ClassCompareFITSImage):
+class Test3C147(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
     pass #check all images
 
 
