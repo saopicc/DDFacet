@@ -22,7 +22,6 @@ import unittest
 
 import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
 import numpy as np
-import path
 
 class TestDeepCleanWithBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
 
