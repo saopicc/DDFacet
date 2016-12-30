@@ -18,7 +18,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-import os
+import os, re, glob
 import pyrap.measures as pm
 import pyrap.quanta as qa
 from pyrap.tables import table
@@ -847,9 +847,9 @@ class ClassMS():
             chunk_row0 = [ np.argmax(all_times>=ch_t0) for ch_t0 in chunk_t0 ]
             # chunk_row0 gives the starting row of each chunk
             if len(chunk_row0) == 1:
-                print>>log,"MS %s (%d rows) will be processed as a single chunk"%(self.MSName, self.F_nrows)
+                print>>log,"MS %s DDID %d FIELD %d (%d rows) will be processed as a single chunk"%(self.MSName, self.DDID, self.Field, self.F_nrows)
             else:
-                print>>log,"MS %s (%d rows) will be split into %d chunks, at rows %s"%(self.MSName, self.F_nrows,
+                print>>log,"MS %s DDID %d FIELD %d (%d rows) will be split into %d chunks, at rows %s"%(self.MSName, self.DDID, self.Field,  self.F_nrows,
                                                                                        len(chunk_row0), " ".join(map(str,chunk_row0)))
         self.Nchunk = len(chunk_row0)
         chunk_row0.append(self.F_nrows)
@@ -902,8 +902,8 @@ class ClassMS():
         self.Freq_Mean=np.mean(chan_freq)
         wavelength_chan=299792458./chan_freq
 
-        if NSPW>1:
-            print "Don't deal with multiple SPW yet"
+        #if NSPW>1:
+        #    print "Don't deal with multiple SPW yet"
 
         self.Nchan = Nchan = len(wavelength_chan)
         NSPWChan=NSPW*Nchan
@@ -962,7 +962,8 @@ class ClassMS():
         self.na=na
         self.Nchan=Nchan
         self.NSPW=NSPW
-        self.NSPWChan=NSPWChan
+        # self.NSPWChan=NSPWChan: removed this: each SPW is iterated over independently
+        self.NSPWChan = Nchan
         self.F_tstart=T0
         #self.F_times_all=T1
         #self.F_times=F_time_slots_all
@@ -1081,7 +1082,7 @@ class ClassMS():
         ll.append("   - Total Integration time = %6.2f hours"%self.DTh)
         ll.append("   - Number of antenna  = %i"%self.na)
         ll.append("   - Number of baseline = %i"%self.nbl)
-        ll.append("   - Number of SPW = %i"%self.NSPW)
+        ll.append("   - Number of SPW = %i/%i"%(self._spwid, self.NSPW))
         ll.append("   - Number of channels = %i"%self.Nchan)
         ll.append("   - Number of time chunks = %i"%self.Nchunk)
 
@@ -1319,3 +1320,90 @@ class ClassMS():
         pyrap.tables.addImagingColumns(self.MSName,ack=False)
         #self.PutNewCol("CORRECTED_DATA")
         #self.PutNewCol("MODEL_DATA")
+
+
+def expandMSList(MSName,defaultField=0,defaultDDID=0):
+    """Given an MSName argument, converts it into a list of measurement sets.
+
+    MSName can be a single filename, or a list of filenames, or a *.txt file (in which case a list
+    of filenames will be read from the text file).
+
+    Furthermore, each filename in the list can contain wildcards (*?) to select multiple MSs, and
+    con be suffixed with //Dx and/or //Fy to select specific DATA_DESC_ID and FIELD_IDs in the MS. "x" and "y"
+    can take the form of a single number, a Pythonic range (e.g. "0:16"), an inclusive range ("0~15");
+    or "*" to select all. E.g. foo.MS//D*//F0:2 selects all DDIDs, and fields 0 and 1 from foo.MS.
+
+    The defaultField and defaultDDID arguments will be used for those MSs where //D or //F is not specified.
+
+    Ultimately, returns a list of (MSName, ddid, field) tuples, where MSName is a proper MS path, and ddid
+    and field are indices.
+    """
+    if type(MSName) is list:
+        print>> log, "multi-MS mode"
+    elif type(MSName) is not str:
+        raise TypeError, "MSName parameter must be a list or a filename"
+    elif MSName.endswith(".txt"):
+        MSName0 = MSName
+        MSName = [ l.strip() for l in open(MSName).readlines() ]
+        print>> log, "list file %s contains %d MSs" % (MSName0, len(MSName))
+    else:
+        MSName = [MSName]
+    # now, at this point each entry in the list can still contain wildcards, and ":Fx:Dx" groups. Process it
+    mslist = []
+    for msspec in MSName:
+        regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N-M or *
+        # match :F and :D suffixes, if present. Don't regexes make your brain melt
+        match = re.match("^(?P<ms>.*)//D(?P<d>" + regrp + ")(//F(?P<f>" + regrp + "))?$", msspec) or \
+                re.match("^(?P<ms>.*)//F(?P<f>" + regrp + ")(//D(?P<d>" + regrp + "))?$", msspec)
+        if match:
+            msname, dgroup, fgroup = match.group('ms'), match.group('d'), match.group('f')
+        else:
+            msname, dgroup, fgroup = msspec, None, None
+        # now convert dgroup and fgroup into slice objects
+        def groupToSlice (group):
+            """Converts a group specification into a slice object"""
+            match = re.match("^" + regrp +"$", group)
+            if not match:
+                raise ValueError,"invalid group '%s' in MS specification %s" % (group, msspec)
+            _, single, rng1, sep, rng2, wild = match.groups()
+            if single:
+                return int(single)
+            elif rng1:
+                return slice(int(rng1), int(rng2) + (1 if sep==":" else 2))
+            elif wild:
+                return slice(0,None)
+            else:
+                raise ValueError, "invalid group '%s' in MS specification %s" % (group, msspec)
+        # now, fgroup/dgroup will become a slice, or a single number
+        fg = groupToSlice(fgroup) if fgroup else defaultField
+        dg = groupToSlice(dgroup) if dgroup else defaultDDID
+        # now, go over MSs specified by the name
+        paths = sorted(glob.glob(msname))
+        print>> log, "found %d MSs matching %s" % (len(paths), msname)
+        for mspath in paths:
+            # if F/D was specified as a slice or wildcard, look into MS to determine numbers
+            if type(dg) is slice:
+                nddid = table(table(mspath, ack=False).getkeyword('DATA_DESCRIPTION'), ack=False).nrows()
+                ddids = range(nddid)[dg]
+                if ddids:
+                    print>>log,"%s: selecting DDIDs %s" % (mspath, " ".join(map(str,ddids)))
+                else:
+                    print>>log,ModColor.Str("%s: no DDIDs in range %s" % (mspath, dgroup))
+                    continue
+            else:
+                ddids = [ dg ]
+                print>> log, "%s: selecting DDID %d" % (mspath, dg)
+            if type(fg) is slice:
+                nf = table(table(mspath, ack=False).getkeyword('FIELD'), ack=False).nrows()
+                fields = range(nf)[fg]
+                if fields:
+                    print>>log,"%s: selecting fields %s" % (mspath, " ".join(map(str,fields)))
+                else:
+                    print>> log, ModColor.Str("%s: no fields in range %s" % (mspath, fgroup))
+            else:
+                fields = [ fg ]
+                print>> log, "%s: selecting field %d" % (mspath, fg)
+            # make output list
+            mslist += [ (mspath,d,f) for d in ddids for f in fields ]
+    print>>log, "%d MS section(s) selected" % len(mslist)
+    return mslist

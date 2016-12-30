@@ -49,61 +49,32 @@ def test():
 
 class ClassVisServer():
 
-    def __init__(self, MSName, GD=None,
+    def __init__(self, MSList, GD=None,
                  ColName="DATA",
                  TChunkSize=1,                # chunk size, in hours
-                 TVisSizeMin=1,
-                 DicoSelectOptions={},
                  LofarBeam=None,
-                 AddNoiseJy=None, 
-                 IdSharedMem="",
-                 Robust=2, 
-                 Weighting="Briggs", 
-                 MFSWeighting=True, 
-                 Super=1,
-                 NCPU=psutil.cpu_count()):
+                 AddNoiseJy=None):
+        self.GD = GD
 
-        self.ReadOnce = False
-        self.ReadOnce_AlreadyRead = False
-        if TChunkSize <= TVisSizeMin*60:
-            self.ReadOnce = True
-
-        if isinstance(MSName, list):
-            self.MultiMSMode = True
-            self.ListMSName = MSName
-            self.ReadOnce = False
-        else:
-            self.MultiMSMode = False
-            self.ListMSName = [MSName]
-        self.ListMSName = [MSName for MSName in self.ListMSName if MSName != ""]
+        self.MSList = [ MSList ] if isinstance(MSList, str) else MSList
         self.FacetMachine = None
-        self.IdSharedMem = IdSharedMem
-        self.Robust = Robust
-        PrefixShared = "%sSharedVis" % self.IdSharedMem
         self.AddNoiseJy = AddNoiseJy
         self.TMemChunkSize = TChunkSize
-        self.TVisSizeMin = TVisSizeMin
 
-        self.Weighting = Weighting.lower()
+        self.Weighting = GD["ImagerGlobal"]["Weighting"].lower()
         if self.Weighting not in ("natural", "uniform", "briggs", "robust"):
             raise ValueError("unknown Weighting=%s" % Weighting)
-        self.MFSWeighting = MFSWeighting
-
-        self.Super = Super
-        self.NCPU = NCPU
+        self.MFSWeighting = GD["ImagerGlobal"]["MFSWeighting"]
+        self.Robust = GD["ImagerGlobal"]["Robust"]
+        self.Super = GD["ImagerGlobal"]["Super"]
         self.VisWeights = None
+
         self.CountPickle = 0
         self.ColName = ColName
-        self.Field = DicoSelectOptions.get("Field", 0)
-        self.DDID = DicoSelectOptions.get("DDID", 0)
-        self.TaQL = DicoSelectOptions.get("TaQL", None)
-        self.DicoSelectOptions = DicoSelectOptions
-        self.SharedNames = []
-        self.PrefixShared = PrefixShared
-        self.VisInSharedMem = (PrefixShared is not None)
+        self.DicoSelectOptions = GD["DataSelection"]
+        self.TaQL = self.DicoSelectOptions.get("TaQL", None)
         self.LofarBeam = LofarBeam
         self.ApplyBeam = False
-        self.GD = GD
         self.datashape = None
         self._use_data_cache = self.GD["Caching"]["CacheVisData"]
         self.Init()
@@ -112,15 +83,7 @@ class ClassVisServer():
         self._databuf = None
         self._flagbuf = None
 
-        # self.LoadNextVisChunk()
-
-        # self.TEST_TLIST=[]
-
     def Init(self, PointingID=0):
-        # MSName=self.MDC.giveMS(PointingID).MSName
-        if self.MultiMSMode:
-            print>>log, "Multiple MS mode"
-
         self.ListMS = []
         global_freqs = set()
         NChanMax = 0
@@ -142,11 +105,15 @@ class ClassVisServer():
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
 
-        for MSName in self.ListMSName:
+        for msspec in self.MSList:
+            if type(msspec) is not str:
+                msname, ddid, field = msspec
+            else:
+                msname, ddid, field = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"]
             MS = ClassMS.ClassMS(
-                MSName, Col=self.ColName, DoReadData=False,
+                msname, Col=self.ColName, DoReadData=False,
                 AverageTimeFreq=(1, 3),
-                Field=self.Field, DDID=self.DDID, TaQL=self.TaQL,
+                Field=field, DDID=ddid, TaQL=self.TaQL,
                 TimeChunkSize=self.TMemChunkSize, ChanSlice=chanslice,
                 GD=self.GD, ResetCache=self.GD["Caching"]["ResetCache"],
                 DicoSelectOptions = self.DicoSelectOptions)
@@ -461,6 +428,16 @@ class ClassVisServer():
                 elif repNextMS == "OK":
                     continue
             DATA = repLoadChunk
+            ## now load weights. Note that an all-flagged chunk of data is markjed by a null weights file.
+            ## so we check it here to go on to the next chunk as needed
+            weightspath = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
+            if not os.path.getsize(weightspath):
+                print>> log, ModColor.Str("This chunk is all flagged or has zero weight, skipping it")
+                continue
+            # mmap() arrays caused mysterious performance hits, so load and copy
+            DATA["Weights"] = NpShared.GiveArray("file://" + weightspath).copy()
+            if DATA["sort_index"] is not None:
+                DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
             break
         print>> log, ModColor.Str("processing ms %d of %d, chunk %d of %d" % (
             self.iCurrentMS + 1, self.nMS, self.CurrentMS.current_chunk+1, self.CurrentMS.Nchunk), col="green")
@@ -487,15 +464,6 @@ class ClassVisServer():
         # uvw=uvw[ind]
         # times=times[ind]
         # ##
-
-        # load weights
-        visweights = NpShared.GiveArray("file://"+self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk])
-        # DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
-        # as a proof of concept, pass weights in directly
-        DATA["Weights"] = visweights.copy()
-        if DATA["sort_index"] is not None:
-            DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
-        del visweights
 
         DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
 
@@ -683,11 +651,20 @@ class ClassVisServer():
                 # if all channels are flagged, flag whole row. Shape of flags
                 # becomes nrow
                 flags = flags.min(axis=1)
+
                 # each weight is kept in an mmap()ed file in the cache, shape
                 # (nrows,nchan)
                 weightpath = "file://"+cachepath
-                WEIGHT = NpShared.CreateShared(
-                    weightpath, (nrows, ms.Nchan), np.float64)
+
+                # if everything is flagged, skip this entry, and mark it with a zero-length weights file
+                if flags.all():
+                    # Nones tell CalcWeights to skip this chunk entirely
+                    output_list.append((uvs, None, None, ms.ChanFreq))
+                    # make an empty weights file in the cache
+                    file(cachepath,'w').truncate(0)
+                    continue
+
+                WEIGHT = NpShared.CreateShared(weightpath, (nrows, ms.Nchan), np.float64)
 
                 if WeightCol == "WEIGHT_SPECTRUM":
                     w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
@@ -695,7 +672,6 @@ class ClassVisServer():
                         WeightCol, w.shape)
                     # take mean weight across correlations and apply this to all
                     WEIGHT[...] = w.mean(axis=2) * valid
-
                 elif WeightCol == "WEIGHT":
                     w = tab.getcol(WeightCol, row0, nrows)
                     print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (
@@ -719,8 +695,7 @@ class ClassVisServer():
                 nweights += valid.sum()
                 weights_are_null = weights_are_null and (WEIGHT == 0).all()
 
-                output_list.append(
-                    (uvs, WEIGHT if greedy else weightpath, flags, ms.ChanFreq))
+                output_list.append((uvs, WEIGHT if greedy else weightpath, flags, ms.ChanFreq))
                 if greedy:
                     del WEIGHT
             tab.close()
