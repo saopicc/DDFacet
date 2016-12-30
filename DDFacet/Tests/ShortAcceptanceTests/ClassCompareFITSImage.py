@@ -22,11 +22,10 @@ import subprocess
 import unittest
 import os
 from os import path, getenv
-
+import re
 import numpy as np
 from DDFacet.Parset.ReadCFG import Parset
 from astropy.io import fits
-
 
 class ClassCompareFITSImage(unittest.TestCase):
     """ Automated assurance test: reference FITS file regression (abstract class)
@@ -68,6 +67,7 @@ class ClassCompareFITSImage(unittest.TestCase):
             we are only testing the following:
                 1. max (ref-output)^2 <= tolerance
                 2. Mean Squared Error <= tolerance
+                3. Parse the logs of the reference images and compare runtime against current test case runtime
     """
 
     @classmethod
@@ -98,16 +98,37 @@ class ClassCompareFITSImage(unittest.TestCase):
 
     @classmethod
     def defMeanSquaredErrorLevel(cls):
-	""" Method defining maximum tolerance for the mean squared error between any
-	    pair of FITS images. Should be overridden if another tolerance is
-	    desired
-	    Returns:
-		constant for tolerance on mean squared error
-	"""
-	return [1e-7,1e-7,1e-7,1e-7,1e-7,
+        """ Method defining maximum tolerance for the mean squared error between any
+            pair of FITS images. Should be overridden if another tolerance is
+            desired
+            Returns:
+            constant for tolerance on mean squared error
+        """
+        return [1e-7,1e-7,1e-7,1e-7,1e-7,
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5] #epsilons per image pair, as listed in defineImageList
+
+    @classmethod
+    def defExecutionTime(cls):
+        """
+        Relative tolerance for total execution time in comparison with reference runs
+        """
+        return 0.1 # 10%
+
+    @classmethod
+    def defMinorCycleTolerance(cls):
+        """
+        Relative tolerance on minor cycle count
+        """
+        return 25  # +/- 25 minor cycles
+
+    @classmethod
+    def defMajorCycleTolerance(cls):
+        """
+        Relative tolerance on minor cycle count
+        """
+        return 0  # +/- 0 major cycles
 
     @classmethod
     def setParsetOption(cls, section, option, value):
@@ -131,6 +152,8 @@ class ClassCompareFITSImage(unittest.TestCase):
         #Read and override default parset
         cls._inputParsetFilename = cls._inputDir + cls.__name__+ ".parset.cfg"
         cls._outputParsetFilename = cls._outputDir + cls.__name__+ ".run.parset.cfg"
+        cls._inputLog = cls._inputDir + cls.__name__+ ".log"
+        cls._outputLog = cls._outputDir + cls.__name__ + ".run.log"
         if not path.isfile(cls._inputParsetFilename):
             raise RuntimeError("Default parset file %s does not exist" % cls._inputParsetFilename)
         p = Parset(File=cls._inputParsetFilename)
@@ -240,6 +263,7 @@ class ClassCompareFITSImage(unittest.TestCase):
         if len(list_except) != 0:
             msg = "\n".join(list_except)
             raise AssertionError("The following assertions failed:\n %s" % msg)
+
     def testMeanSquaredError(self):
         cls = self.__class__
         list_except = []
@@ -259,6 +283,82 @@ class ClassCompareFITSImage(unittest.TestCase):
         if len(list_except) != 0:
             msg = "\n".join(list_except)
             raise AssertionError("The following assertions failed:\n %s" % msg)
+
+    def testPerformanceRegression(self):
+        cls = self.__class__
+        assert path.isfile(cls._inputLog), "Reference log file %s does not exist" % cls._inputLog
+        assert path.isfile(cls._outputLog), "Test run log file %s does not exist" % cls._inputLog
+        with open(cls._inputLog) as f:
+            vals = None
+            logtext = f.readline()
+            while logtext:
+                vals = re.match(r".*DDFacet ended successfully after (?P<mins>[0-9]+)?m(?P<secs>[0-9]+.[0-9]+)?s",
+                                logtext)
+                if vals is not None:
+                    break
+                logtext = f.readline()
+            assert vals is not None, "Could not find the successful termination string in reference log... " \
+                                     "have you changed something?"
+            assert vals.group("mins") is not None, "Minutes not found in reference log"
+            assert vals.group("secs") is not None, "Seconds not found in reference log"
+            reftime = float(vals.group("mins")) * 60.0 + float(vals.group("secs"))
+        with open(cls._outputLog) as f:
+            assert vals is not None, "Could not find the successful termination string in test run log... " \
+                                     "have you changed something?"
+            assert vals.group("mins") is not None, "Minutes not found in test run log"
+            assert vals.group("secs") is not None, "Seconds not found in test run log"
+            testruntime = float(vals.group("mins")) * 60.0 + float(vals.group("secs"))
+        assert testruntime / reftime <= 1.0 + cls.defExecutionTime(), "Runtime for this test was significantly " \
+                                                                      "longer than reference run. Check the logs."
+
+    def testMajorMinorCycleCount(self):
+        cls = self.__class__
+        assert path.isfile(cls._inputLog), "Reference log file %s does not exist" % cls._inputLog
+        assert path.isfile(cls._outputLog), "Test run log file %s does not exist" % cls._inputLog
+        input_major = 0
+        input_minor = 0
+        output_major = 0
+        output_minor = 0
+        with open(cls._inputLog) as f:
+            vals = None
+            logtext = f.readline()
+            while logtext:
+                vals = re.match(r".*=== Running major Cycle (?P<majors>[0-9]+)? ====.*",
+                                logtext)
+                if vals is not None:
+                    input_major = max(input_major, int(vals.group("majors")))
+
+                vals = None
+                vals = re.match(r".*\[iter=(?P<minors>[0-9]+)?\].*",
+                                logtext)
+                if vals is not None:
+                    input_minor = max(input_minor, int(vals.group("minors")))
+                logtext = f.readline()
+
+        with open(cls._outputLog) as f:
+            vals = None
+            logtext = f.readline()
+            while logtext:
+                vals = re.match(r".*=== Running major Cycle (?P<majors>[0-9]+)? ====.*",
+                                logtext)
+                if vals is not None:
+                    output_major = max(output_major, int(vals.group("majors")))
+
+                vals = None
+                vals = re.match(r".*\[iter=(?P<minors>[0-9]+)?\].*",
+                                logtext)
+                if vals is not None:
+                    output_minor = max(output_minor, int(vals.group("minors")))
+                logtext = f.readline()
+        assert abs(input_major -
+                   output_major) <= cls.defMajorCycleTolerance(), "Number of major cycles used to reach termination " \
+                                                                  "differs: Known good: %d, current %d" % (
+                                                                  input_major, output_major)
+        assert abs(input_minor -
+                   output_minor) <= cls.defMinorCycleTolerance(), "Number of minor cycles used to reach termination " \
+                                                                  "differs: Known good: %d, current %d" % (
+                                                                  input_minor, output_minor)
+
 
 if __name__ == "__main__":
     pass # abstract class
