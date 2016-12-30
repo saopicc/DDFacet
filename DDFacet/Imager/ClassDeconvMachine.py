@@ -651,6 +651,9 @@ class ClassImagerDeconv():
         else:
             sparsify_list = []
 
+        # use an approximate PSF when sparsification is above this value. 0 means never
+        approximate_psf_above = self.GD["ImagerDeconv"]["ApproximatePSF"] or 999999
+
         # previous_sparsify keeps track of the sparsity factor at which the dirty/PSF was computed
         # in the previous cycle. We use this to decide when to recompute the PSF.
         sparsify = previous_sparsify = sparsify_list and sparsify_list[0]
@@ -664,7 +667,7 @@ class ClassImagerDeconv():
 
         #Pass minor cycle specific options into Init as kwargs
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF, PSFAve=self.PSFSidelobesAvg,
-                                approx=sparsify)
+                                approx=(sparsify >= approximate_psf_above))
 
         DicoImage=self.DicoDirty
         continue_deconv = True
@@ -707,6 +710,9 @@ class ClassImagerDeconv():
                 print>>log, "applying a sparsification factor of %f (was %f in previous cycle)" % (sparsify, previous_sparsify)
             if do_psf:
                 print>>log, "the PSF will be recomputed"
+                # check PSF cache to make sure paths are set up
+                if not sparsify:
+                    self._checkForCachedPSF(self, sparsify)
                 self.FacetMachinePSF.ReinitDirty()
             previous_sparsify = sparsify
 
@@ -764,7 +770,7 @@ class ClassImagerDeconv():
                 self._finalizeComputedPSF(self.FacetMachinePSF, sparsify)
                 self._fitAndSavePSF(self.FacetMachinePSF, cycle=iMajor)
                 self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF, PSFAve=self.PSFSidelobesAvg,
-                                        approx=sparsify)
+                                        approx=(sparsify >= approximate_psf_above))
 
             # if we reached a sparsification of 1, we shan't be re-making the PSF
             if sparsify <= 1:
