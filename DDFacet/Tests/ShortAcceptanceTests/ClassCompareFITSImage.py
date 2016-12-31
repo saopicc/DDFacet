@@ -323,8 +323,8 @@ class ClassCompareFITSImage(unittest.TestCase):
             vals = None
             logtext = f.readline()
             while logtext:
-                vals = re.match(r".*=== Running major Cycle (?P<majors>[0-9]+)? ====.*",
-                                logtext)
+                vals = re.match(r".*=== Running major cycle (?P<majors>[0-9]+)? ====.*",
+                                logtext, re.IGNORECASE)
                 if vals is not None:
                     input_major = max(input_major, int(vals.group("majors")))
 
@@ -339,8 +339,8 @@ class ClassCompareFITSImage(unittest.TestCase):
             vals = None
             logtext = f.readline()
             while logtext:
-                vals = re.match(r".*=== Running major Cycle (?P<majors>[0-9]+)? ====.*",
-                                logtext)
+                vals = re.match(r".*=== Running major cycle (?P<majors>[0-9]+)? ====.*",
+                                logtext, re.IGNORECASE)
                 if vals is not None:
                     output_major = max(output_major, int(vals.group("majors")))
 
@@ -350,12 +350,11 @@ class ClassCompareFITSImage(unittest.TestCase):
                 if vals is not None:
                     output_minor = max(output_minor, int(vals.group("minors")))
                 logtext = f.readline()
-        assert abs(input_major -
-                   output_major) <= cls.defMajorCycleTolerance(), "Number of major cycles used to reach termination " \
+        # OMS: check for output-input rather than abs(): fewer cycles is OK
+        assert output_major - input_major <= cls.defMajorCycleTolerance(), "Number of major cycles used to reach termination " \
                                                                   "differs: Known good: %d, current %d" % (
                                                                   input_major, output_major)
-        assert abs(input_minor -
-                   output_minor) <= cls.defMinorCycleTolerance(), "Number of minor cycles used to reach termination " \
+        assert output_minor - input_minor <= cls.defMinorCycleTolerance(), "Number of minor cycles used to reach termination " \
                                                                   "differs: Known good: %d, current %d" % (
                                                                   input_minor, output_minor)
 

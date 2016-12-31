@@ -667,7 +667,7 @@ class ClassImagerDeconv():
 
         #Pass minor cycle specific options into Init as kwargs
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF, PSFAve=self.PSFSidelobesAvg,
-                                approx=(sparsify >= approximate_psf_above))
+                                approx=(sparsify >= approximate_psf_above), cache=not sparsify)
 
         DicoImage=self.DicoDirty
         continue_deconv = True
@@ -770,7 +770,8 @@ class ClassImagerDeconv():
                 self._finalizeComputedPSF(self.FacetMachinePSF, sparsify)
                 self._fitAndSavePSF(self.FacetMachinePSF, cycle=iMajor)
                 self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF, PSFAve=self.PSFSidelobesAvg,
-                                        approx=(sparsify >= approximate_psf_above))
+                                        approx=(sparsify >= approximate_psf_above),
+                                        cache=not sparsify)
 
             # if we reached a sparsification of 1, we shan't be re-making the PSF
             if sparsify <= 1:

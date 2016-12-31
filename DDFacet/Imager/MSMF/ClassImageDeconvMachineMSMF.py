@@ -110,29 +110,27 @@ class ClassImageDeconvMachine():
         self.DicoVariablePSF = DicoVariablePSF
         # self.NChannels=self.DicoDirty["NChannels"]
 
-    def Init(self, PSFVar, PSFAve, approx=False, **kwargs):
+    def Init(self, PSFVar, PSFAve, approx=False, cache=True, **kwargs):
         self.SetPSF(PSFVar)
         self.setSideLobeLevel(PSFAve[0], PSFAve[1])
-        self.InitMSMF(approx=approx)
+        self.InitMSMF(approx=approx, cache=cache)
 
-    def InitMSMF(self, approx=False):
+    def InitMSMF(self, approx=False, cache=True):
         """Initializes MSMF basis functions. If approx is True, then uses the central facet's PSF for
-        all facets."""
+        all facets.
+
+        The cachekey dict is added to the cache key. If PSF is sparsified, for example, this needs to
+        be indicated in the cache key so that a different version is not picked up.
+        """
         self.DicoMSMachine = {}
+        cachehash = dict( [(section, self.GD[section]) for section in (
+                                 "VisData", "Beam", "DataSelection", "MultiFreqs",
+                                 "ImagerGlobal", "Compression", "ImagerCF",
+                                 "ImagerMainFacet", "MultiScale")])
+        cachepath, valid = self.maincache.checkCache("MSMFMachine", cachehash)
         # do not use cache in approx mode
-        if approx:
+        if approx or not cache:
             valid = False
-        else:
-            cachepath, valid = self.maincache.checkCache(
-                "MSMFMachine",
-                dict(
-                    [(section, self.GD[section])
-                     for section
-                     in (
-                         "VisData", "Beam", "DataSelection", "MultiFreqs",
-                         "ImagerGlobal", "Compression", "ImagerCF",
-                         "ImagerMainFacet", "MultiScale")],
-                    reset=self.GD["Caching"]["ResetPSF"]))
         if valid:
             print>>log, "Initialising MSMF Machine from cache %s" % cachepath
             facetcache = cPickle.load(file(cachepath))
@@ -170,7 +168,7 @@ class ClassImageDeconvMachine():
                 cachedmatrix = MSMachine.MakeBasisMatrix(cachedmatrix)
                 facetcache[iFacet] = cachedscales, cachedmatrix
                 self.DicoMSMachine[iFacet] = MSMachine
-            if not valid:
+            if not valid and cache and not approx:
                 try:
                     cPickle.dump(facetcache, file(cachepath, 'w'), 2)
                     self.maincache.saveCache("MSMFMachine")
