@@ -382,7 +382,7 @@ class ClassMultiScaleMachine():
         self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
 
 
-        self.WeightWidth=1.5
+        self.WeightWidth=6.
         self.SupWeightWidth=np.max([3.*self.WeightWidth,15])
 
         T.timeit("init2")
@@ -853,14 +853,14 @@ class ClassMultiScaleMachine():
                     ThisPSF=self.SubPSF[:,0,x0p:x1p,y0p:y1p]
                     _,nxThisPSF,nyThisPSF=ThisPSF.shape
 
-                    # find the optimal flux value for the two cross contaminating sources case 
-                    al=np.abs(ThisPSF[:,nxThisPSF/2,nyThisPSF/2])
-                    MeanAl=np.mean(al)
-                    if 0.01<MeanAl<0.99:
-                        ali=1./al
-                        S0e=FpolTrue[:,0].ravel()
-                        S1e=OrigDirty[:,xc1[0],yc1[0]]
-                        F=(S0e-ali*S1e)/(al-ali)
+                    # # find the optimal flux value for the two cross contaminating sources case 
+                    # al=np.abs(ThisPSF[:,nxThisPSF/2,nyThisPSF/2])
+                    # MeanAl=np.mean(al)
+                    # if 0.01<MeanAl<0.99:
+                    #     ali=1./al
+                    #     S0e=FpolTrue[:,0].ravel()
+                    #     S1e=OrigDirty[:,xc1[0],yc1[0]]
+                    #     F=(S0e-ali*S1e)/(al-ali)
                     
                     ThisDirty=ThisPSF*F.reshape((-1,1,1))
                     dirtyVecSub=d-ThisDirty
@@ -914,13 +914,16 @@ class ClassMultiScaleMachine():
             FuncScale=1.#self.giveSmallScaleBias()
             wCoef=SumCoefScales/self.SumFluxScales*FuncScale
             ChosenScale=np.argmax(wCoef)
-            Mask[self.IndexScales[ChosenScale]]=1
-            Sol.flat[:]*=Mask.flat[:]
 
             # print "==============="
             # print "%s -> %i"%(str(wCoef),ChosenScale)
             # print "Sol =  %s"%str(Sol)
             # print
+
+
+            Mask[self.IndexScales[ChosenScale]]=1
+            Sol.flat[:]*=Mask.flat[:]
+
 
 
             SolReg = np.zeros_like(Sol)
