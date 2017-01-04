@@ -150,8 +150,8 @@ class ClassEvolveGA():
                 pop1=self.pop
                 pop0=[]
 
-                pop0=self.pop[0:1]
-                pop1=self.pop[1::]
+                pop1=self.pop[0:1]
+                pop0=self.pop[1::]
 
                 # self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArray)
 
@@ -171,6 +171,14 @@ class ClassEvolveGA():
                 #SModelArrayBest0[mask]=SModelArrayMP[mask]
                 #self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayBest0,AlphaModel=AlphaModel,GSigModel=GSigModel)
                 self.ArrayMethodsMachine.PM.ReinitPop(pop0,SModelArrayMP,AlphaModel=AModelArrayMP)
+
+                _,Chi20=self.ArrayMethodsMachine.GiveFitnessPop(pop0)
+                _,Chi21=self.ArrayMethodsMachine.GiveFitnessPop(pop1)
+                print
+                print Chi20
+                print Chi21
+                stop
+
 
                 self.pop=pop1+pop0
         #print
