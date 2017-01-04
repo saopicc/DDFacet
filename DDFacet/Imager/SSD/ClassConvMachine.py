@@ -319,18 +319,17 @@ class ClassConvMachine():
             ConvA[iBand,0]=np.dot(CF,AThisBand.reshape((AThisBand.size,1))).reshape((OutSize,))
 
 
-        IM0=self.PM.ModelToSquareArray(A,TypeInOut=("Parms",OutMode))
-        IM1=self.PM.ModelToSquareArray(ConvA,TypeInOut=(OutMode,OutMode))
-
-        import pylab 
-        pylab.clf()
-        pylab.subplot(1,2,1)
-        pylab.imshow(IM0[0,0],interpolation="nearest")
-        pylab.subplot(1,2,2)
-        pylab.imshow(IM1[0,0],interpolation="nearest")
-        pylab.draw()
-        pylab.show(False)
-
+        # IM0=self.PM.ModelToSquareArray(A,TypeInOut=("Parms",OutMode))
+        # IM1=self.PM.ModelToSquareArray(ConvA,TypeInOut=(OutMode,OutMode))
+        # import pylab 
+        # pylab.clf()
+        # pylab.subplot(1,2,1)
+        # pylab.imshow(IM0[0,0],interpolation="nearest")
+        # pylab.subplot(1,2,2)
+        # pylab.imshow(IM1[0,0],interpolation="nearest")
+        # pylab.draw()
+        # pylab.show(False)
+        # stop
 
         return ConvA
 
