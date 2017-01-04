@@ -191,7 +191,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
 
     #print best_ind0
     #print "Best indiv 0",best_ind0
-    #print "Best indiv 0 fitness",best_ind0.fitness
+    print "Best indiv 0 fitness",best_ind0.fitness
     best_ind=best_ind0
     # from operator import attrgetter
     # k=1
@@ -257,9 +257,14 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
             if gen%50==0:
                 ArrayMethodsMachine.Plot(population,gen)
 
-
+        if gen%10==0:
+            ArrayMethodsMachine.Plot(population,gen)
+            stop
+        ArrayMethodsMachine.Plot(population,gen)
+        stop
+        
         #print best_ind
-        #print "Best indiv fitness",best_ind.fitness
+        print "Best indiv fitness",best_ind.fitness
 
         
         #BestFitNess=best_ind.fitness.values[0]

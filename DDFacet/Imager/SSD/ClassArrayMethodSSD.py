@@ -197,7 +197,7 @@ class ClassArrayMethodSSD():
 
 
     def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01,NMaxIter=20000):
-
+        print "CLEAN"
         PSF=self.PSF#/np.max(self.PSF)
 
         if False:#self.ConvMachine.ConvMode=="Matrix" or  self.ConvMachine.ConvMode=="Vector":
@@ -615,18 +615,19 @@ class ClassArrayMethodSSD():
         for iChannel in range(self.NFreqBands):
             self.PlotChannel(pop,iGen,iChannel=iChannel)
 
-        pylab.figure(30,figsize=(5,3))
-        #pylab.clf()
-        S=self.PM.ArrayToSubArray(V,"S")
-        Al=self.PM.ArrayToSubArray(V,"Alpha")
+        # import pylab
+        # pylab.figure(30,figsize=(5,3))
+        # #pylab.clf()
+        # S=self.PM.ArrayToSubArray(V,"S")
+        # Al=self.PM.ArrayToSubArray(V,"Alpha")
 
-        pylab.subplot(1,2,1)
-        pylab.plot(S)
-        pylab.subplot(1,2,2)
-        pylab.plot(Al)
-        pylab.draw()
-        pylab.show(False)
-        pylab.pause(0.1)
+        # pylab.subplot(1,2,1)
+        # pylab.plot(S)
+        # pylab.subplot(1,2,2)
+        # pylab.plot(Al)
+        # pylab.draw()
+        # pylab.show(False)
+        # pylab.pause(0.1)
         
 
     def GiveCompacity(self,S):
@@ -680,8 +681,8 @@ class ClassArrayMethodSSD():
         cax0 = divider0.append_axes("right", size="5%", pad=0.05)
         pylab.colorbar(im0, cax=cax0)
     
-        ax1=pylab.subplot(2,3,2)
-        im1=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin,vmax=vmax)
+        ax1=pylab.subplot(2,3,2,sharex=ax0,sharey=ax0)
+        im1=pylab.imshow(IM[iChannel,0],interpolation="nearest")#,vmin=vmin,vmax=vmax)
         pylab.title("Convolved Model")
         ax1.axes.get_xaxis().set_visible(False)
         ax1.axes.get_yaxis().set_visible(False)
@@ -689,7 +690,7 @@ class ClassArrayMethodSSD():
         cax1 = divider1.append_axes("right", size="5%", pad=0.05)
         pylab.colorbar(im1, cax=cax1)
     
-        ax2=pylab.subplot(2,3,3)
+        ax2=pylab.subplot(2,3,3,sharex=ax0,sharey=ax0)
         R=Dirty[iChannel,0]-IM[iChannel,0]
         im2=pylab.imshow(R,interpolation="nearest")#,vmin=vmin,vmax=vmax)
         ax2.axes.get_xaxis().set_visible(False)
@@ -714,13 +715,13 @@ class ClassArrayMethodSSD():
             pylab.colorbar(im3, cax=cax3)
     
     
-        ax4=pylab.subplot(2,3,5)
+        ax4=pylab.subplot(2,3,5,sharex=ax0,sharey=ax0)
         ModelArray=self.PM.GiveModelArray(V)
         IM=self.PM.ModelToSquareArray(ModelArray)
 
 
         #im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=vmax)
-        im4=pylab.imshow(IM[iChannel,0],interpolation="nearest",vmin=vmin-0.1,vmax=1.5)
+        im4=pylab.imshow(IM[iChannel,0],interpolation="nearest")#,vmin=vmin-0.1,vmax=1.5)
         ax4.axes.get_xaxis().set_visible(False)
         ax4.axes.get_yaxis().set_visible(False)
         pylab.title("Best individual")
@@ -746,7 +747,7 @@ class ClassArrayMethodSSD():
         pylab.show(False)
         pylab.pause(0.1)
         fig.savefig("png/fig%2.2i_%4.4i.png"%(iChannel,iGen))
-
+        stop
 # #################################################################"    
 # #################################################################"    
 # #################################################################"    

@@ -117,12 +117,12 @@ class ClassImageDeconvMachine():
                                                          dict([(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
                                                                "MultiFreqs", "ImagerGlobal", "Compression",
                                                                "ImagerCF", "ImagerMainFacet", "MultiScale" ]),
-                                                         reset=(self.GD["Caching"]["ResetPSF"] or self.PSFHasChanged or self.GD["Caching"]["ResetMSMF"]))
+                                                         reset=(self.GD["Caching"]["ResetPSF"]==1 or self.PSFHasChanged or self.GD["Caching"]["ResetMSMF"]))
             cachepath_DicoArrays, _ = self.maincache.checkCache("MSMFMachine_DicoArrays",
                                                          dict([(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
                                                                "MultiFreqs", "ImagerGlobal", "Compression",
                                                                "ImagerCF", "ImagerMainFacet", "MultiScale" ]),
-                                                         reset=(self.GD["Caching"]["ResetPSF"] or self.PSFHasChanged or self.GD["Caching"]["ResetMSMF"]))
+                                                         reset=(self.GD["Caching"]["ResetPSF"]==1 or self.PSFHasChanged or self.GD["Caching"]["ResetMSMF"]))
 
         else:
             valid=False

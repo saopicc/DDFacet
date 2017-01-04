@@ -136,13 +136,13 @@ class ClassEvolveGA():
 
             if np.max(np.abs(self.IslandBestIndiv))==0:
                 
-                #print "NEW"
+                print "NEW"
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
                 if NGen==0: 
                     self.ArrayMethodsMachine.KillWorkers()
                     return self.pop[0]
             else:
-                #print "MIX"
+                print "MIX"
                 NIndiv=len(self.pop)/10
                 pop0=self.pop[0:NIndiv]
                 pop1=self.pop[NIndiv::]

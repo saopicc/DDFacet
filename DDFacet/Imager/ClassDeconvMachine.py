@@ -671,6 +671,13 @@ class ClassImagerDeconv():
         #         NormImage[ch,pol]=NormImage[ch,pol].T[::-1]
         # self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
+        CleanMaskImage=None
+        CleanMaskImageName=self.GD["ImagerDeconv"]["CleanMaskImage"]
+        if CleanMaskImageName is not None and CleanMaskImageName is not "":
+            print>>log,ModColor.Str("Will use mask image %s for the predict"%CleanMaskImageName)
+            CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
+
+
         modelfile = self.GD["Images"]["PredictModelName"]
         FixedModelImage = None
 
@@ -726,6 +733,15 @@ class ClassImagerDeconv():
                     ModelImage=ModelImage*np.ones((self.VS.CurrentChanMappingDegrid.size,1,1,1))
 
 
+            if CleanMaskImage is not None:
+                nch,npol,_,_=ModelImage.shape
+                indZero=(CleanMaskImage[0,0]!=0)
+                for ich in range(nch):
+                    for ipol in range(npol):
+                        ModelImage[ich,ipol][indZero]=0
+
+            self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelPredict"%self.BaseName,Fits=True,
+                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
 
             if self.PredictMode == "DeGridder":
