@@ -84,6 +84,7 @@ class ClassImageDeconvMachine():
             self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
         else:
             self.ModelMachine = ModelMachine
+        self.GainMachine = self.ModelMachine.GainMachine
         self.PolarizationDescriptor = ImagePolDescriptor
         self.PolarizationCleanTasks = []
         if "I" in self.PolarizationDescriptor:

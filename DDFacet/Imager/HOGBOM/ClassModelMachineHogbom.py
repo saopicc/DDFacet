@@ -131,6 +131,34 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         return ModelImage
 
+    def GiveSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6):
+        dFreq = 1e6
+        f0 = self.DicoSMStacked["AllFreqs"].min()
+        f1 = self.DicoSMStacked["AllFreqs"].max()
+        M0 = self.GiveModelImage(f0)
+        M1 = self.GiveModelImage(f1)
+        if DoConv:
+            M0 = ModFFTW.ConvolveGaussian(M0, CellSizeRad=CellSizeRad, GaussPars=GaussPars)
+            M1 = ModFFTW.ConvolveGaussian(M1, CellSizeRad=CellSizeRad, GaussPars=GaussPars)
+
+        # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
+        minmod = float("%.1e" % (abs(M0.max()) / MaxDR))
+        # mask out pixels above threshold
+        mask = (M1 < minmod) | (M0 < minmod)
+        print>> log, "computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)" % (
+        minmod, MaxDR)
+        with np.errstate(invalid='ignore'):
+            alpha = (np.log(M0) - np.log(M1)) / (np.log(f0 / f1))
+        alpha[mask] = 0
+        # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
+        mask = alpha > MaxSpi
+        alpha[mask] = MaxSpi
+        masked = mask.any()
+        mask = alpha < -MaxSpi
+        alpha[mask] = -MaxSpi
+        if masked or mask.any():
+            print>> log, ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them." % MaxSpi, col="red")
+        return alpha
 
     def PutBackSubsComps(self):
         # if self.GD["VisData"]["RestoreDico"] is None: return
