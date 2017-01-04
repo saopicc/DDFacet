@@ -215,6 +215,9 @@ class ClassImageDeconvMachine():
         indPixPSF=dx.ravel()[C.ravel()]*nPSF+dy.ravel()[C.ravel()]
         PSFCross.flat[indPSF_sel]=np.abs(PSF.flat[indPixPSF.ravel()])
 
+        dx=xMean.reshape((NIslands,1))-xMean.reshape((1,NIslands))
+        dy=yMean.reshape((NIslands,1))-yMean.reshape((1,NIslands))
+
         self.DistCross=np.sqrt(dx**2+dy**2)
 
         
