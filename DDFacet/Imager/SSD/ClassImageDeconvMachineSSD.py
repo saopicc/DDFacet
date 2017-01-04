@@ -215,7 +215,7 @@ class ClassImageDeconvMachine():
         indPixPSF=dx.ravel()[C.ravel()]*nPSF+dy.ravel()[C.ravel()]
         PSFCross.flat[indPSF_sel]=np.abs(PSF.flat[indPixPSF.ravel()])
 
-
+        self.DistCross=np.sqrt(dx**2+dy**2)
 
         
         self.PSFCross=PSFCross
@@ -223,7 +223,14 @@ class ClassImageDeconvMachine():
     def GiveNearbyIsland(self,DicoIsland,iIsland):
         Th=0.05
 
-        indNearbyIsland=np.where((self.PSFCross[iIsland])>Th)[0]
+        #indNearbyIsland=np.where((self.PSFCross[iIsland])>Th)[0]
+
+        D0,D1=self.GD["SSDClean"]["MinMaxGroupDistance"]
+
+        CTh=(self.PSFCross[iIsland]>Th)
+        C0=(self.DistCross[iIsland]<D0)
+        C1=(self.DistCross[iIsland]<D1)
+        indNearbyIsland=np.where( (CTh | C0) & (C1) )[0]
         
 
         #Th=0.3
