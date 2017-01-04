@@ -71,7 +71,9 @@ class ClassModModelMachine():
                 print>> log, "Initialising GA model machine"
                 from DDFacet.Imager.GA import ClassModelMachineGA
                 from DDFacet.Imager.GA import ClassModelMachineGA
-                self.GAMM = ClassModelMachineGA.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+                self.GAMM = ClassModelMachineGA.ClassModelMachine(
+                    self.GD,
+                    GainMachine= ClassGainMachine.ClassGainMachine(GainMin=self.GD["ImagerDeconv"]["Gain"]))
             else:
                 print>> log, "GA model machine already initialised"
             return self.GAMM
@@ -79,7 +81,9 @@ class ClassModModelMachine():
             if self.MSMFMM is None:
                 print>> log, "Initialising MSMF model machine"
                 from DDFacet.Imager.MSMF import ClassModelMachineMSMF
-                self.MSMFMM = ClassModelMachineMSMF.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+                self.MSMFMM = ClassModelMachineMSMF.ClassModelMachine(
+                    self.GD,
+                    GainMachine= ClassGainMachine.ClassGainMachine(GainMin=self.GD["ImagerDeconv"]["Gain"]))
             else:
                 print>> log, "MSMF model machine already initialised"
             return self.MSMFMM
@@ -87,7 +91,9 @@ class ClassModModelMachine():
             if self.MORSANEMM is None:
                 print>> log, "Initialising MORESANE model machine"
                 from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
-                self.MORESANEMM = ClassModelMachineMORESANE.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+                self.MORESANEMM = ClassModelMachineMORESANE.ClassModelMachine(
+                    self.GD,
+                    GainMachine= ClassGainMachine.ClassGainMachine(GainMin=self.GD["MORESANE"]["loopgain"]))
             else:
                 print>> log, "MORSANE model machine already initialised"
             return self.MORESANEMM
