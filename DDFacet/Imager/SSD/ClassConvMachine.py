@@ -164,6 +164,11 @@ def test():
 
 class ClassConvMachine():
     def __init__(self,PSF,ListPixParms,ListPixData,ConvMode):
+
+        # _,_,nx,_=PSF.shape
+        # dx=5
+        # PSF=PSF[...,nx/2-dx:nx/2+dx+1,nx/2-dx:nx/2+dx+1]
+
         self.PSF=PSF
         self.ListPixParms=ListPixParms
         self.ListPixData=ListPixData
@@ -279,6 +284,7 @@ class ClassConvMachine():
         ConvA=np.zeros((self.NFreqBands,1,OutSize),np.float32)
         T=ClassTimeIt.ClassTimeIt("Vec")
         T.disable()
+        
         for iPix in range(self.NPixListParms):
             Fch=A[:,iPix]
             if np.abs(Fch).max()==0: continue
@@ -289,6 +295,8 @@ class ClassConvMachine():
                 F=Fch[iBand]
                 ConvA[iBand]+=F*Vec_iPix[iBand]
             T.timeit("Sum")
+
+
         return ConvA
 
 
@@ -301,11 +309,28 @@ class ClassConvMachine():
             CM=self.CMParms
             OutSize=self.NPixListParms
 
+        # A.fill(0)
+        # A[...,100]=10.
+
         ConvA=np.zeros((self.NFreqBands,1,OutSize),np.float32)
         for iBand in range(self.NFreqBands):
             AThisBand=A[iBand]
             CF=CM[iBand,0]
             ConvA[iBand,0]=np.dot(CF,AThisBand.reshape((AThisBand.size,1))).reshape((OutSize,))
+
+
+        IM0=self.PM.ModelToSquareArray(A,TypeInOut=("Parms",OutMode))
+        IM1=self.PM.ModelToSquareArray(ConvA,TypeInOut=(OutMode,OutMode))
+
+        import pylab 
+        pylab.clf()
+        pylab.subplot(1,2,1)
+        pylab.imshow(IM0[0,0],interpolation="nearest")
+        pylab.subplot(1,2,2)
+        pylab.imshow(IM1[0,0],interpolation="nearest")
+        pylab.draw()
+        pylab.show(False)
+
 
         return ConvA
 
