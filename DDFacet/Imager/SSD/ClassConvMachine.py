@@ -4,6 +4,7 @@ from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassConvMatrix")
 import scipy.signal
 from DDFacet.Array import ModLinAlg
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 
 def test():
     import DDFacet.ToolsDir.Gaussian
@@ -225,8 +226,19 @@ class ClassConvMachine():
         if AddNoise is not None:
             zAsq+=np.random.randn(*zAsq.shape)*AddNoise
 
-        xc=self.PSF.shape[-1]/2
-        SubPSF=self.PSF[:,:,xc-N:xc+N+1,xc-N:xc+N+1]
+
+        N0x=zAsq.shape[-1]
+        xc0=N0x/2
+        N1=self.PSF.shape[-1]
+        Aedge,Bedge=GiveEdgesDissymetric((xc0,xc0),(N0x,N0x),(N1/2,N1/2),(N1,N1))
+        x0d,x1d,y0d,y1d=Aedge
+        x0s,x1s,y0s,y1s=Bedge
+        SubPSF=self.PSF[:,:,x0s:x1s,y0s:y1s]
+
+
+        #xc=self.PSF.shape[-1]/2
+        #SubPSF=self.PSF[:,:,xc-N:xc+N+1,xc-N:xc+N+1]
+
         Conv=np.zeros_like(zAsq)
         T.timeit("2")
         for ich in range(NFreqBand):
@@ -243,8 +255,6 @@ class ClassConvMachine():
             NPixOut=self.NPixListParms
             
 
-        return A.reshape((NFreqBand,npol,NPixOut))
-
         # import pylab 
         # pylab.clf()
         # pylab.subplot(1,3,1)
@@ -256,6 +266,9 @@ class ClassConvMachine():
         # pylab.draw()
         # pylab.show(False)
         # stop
+
+        return A.reshape((NFreqBand,npol,NPixOut))
+
 
     def ConvolveVector(self,A,Norm=True,OutMode="Data"):
         sh=A.shape
