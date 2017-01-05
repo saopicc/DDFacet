@@ -33,7 +33,8 @@ class ClassInitSSDModelParallel():
                                            self.DicoDirty,
                                            self.RefFreq,
                                            MainCache=self.MainCache,
-                                           IdSharedMem=self.IdSharedMem)
+                                           IdSharedMem=self.IdSharedMem,
+                                           ResetMSMFCache=True)
 
     def setSSDModelImage(self,ModelImage):
         self.ModelImage=ModelImage
@@ -133,10 +134,12 @@ class ClassInitSSDModel():
         self.GD["MultiFreqs"]["Alpha"]=[0,0,1]#-1.,1.,5]
         self.GD["MultiFreqs"]["Alpha"]=[-1.,1.,5]
         self.GD["ImagerDeconv"]["MinorCycleMode"]="MSMF"
+        self.GD["ImagerDeconv"]["MinorCycleMode"]="MSMF"
         self.GD["ImagerDeconv"]["CycleFactor"]=0
         self.GD["ImagerDeconv"]["PeakFactor"]=0.01
         self.GD["ImagerDeconv"]["RMSFactor"]=0.5
         self.GD["ImagerDeconv"]["Gain"]=.1
+        self.GD["Caching"]["ResetMSMF"]=ResetMSMFCache
 
         self.GD["ImagerDeconv"]["MaxMinorIter"]=10000
         
