@@ -48,6 +48,7 @@ class ClassPSFServer():
                          "SumJonesChan":DicoVariablePSF["SumJonesChan"],
                          "SumJonesChanWeightSq":DicoVariablePSF["SumJonesChanWeightSq"],
                          "ChanMappingGrid":DicoVariablePSF["ChanMappingGrid"],
+                         "ChanMappingGridChan":DicoVariablePSF["ChanMappingGridChan"],
                          "MeanJonesBand":DicoVariablePSF["MeanJonesBand"]}
 
         self.DicoMappingDesc=DicoMappingDesc
