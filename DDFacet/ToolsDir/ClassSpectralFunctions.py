@@ -31,6 +31,9 @@ class ClassSpectralFunctions():
             self.DicoBeamFactors[iFacet]["ListBeamFactorWeightSq"]=ListBeamFactorWeightSq
 
 
+
+
+
     def GiveBeamFactorsFacet(self,iFacet):
         
 
@@ -38,21 +41,36 @@ class ClassSpectralFunctions():
         SumJonesChanWeightSq=self.DicoMappingDesc["SumJonesChanWeightSq"][iFacet]
         ChanMappingGrid=self.DicoMappingDesc["ChanMappingGrid"]
         
+        # ListBeamFactor=[]
+        # ListBeamFactorWeightSq=[]
+
+        # for iChannel in range(self.NFreqBand):
+        #     ThisSumJonesChan=[]
+        #     ThisSumJonesChanWeightSq=[]
+        #     for iMS in range(len(SumJonesChan)):
+        #         ind=np.where(ChanMappingGrid[iMS]==iChannel)[0]
+        #         ThisSumJonesChan+=SumJonesChan[iMS][ind].tolist()
+        #         ThisSumJonesChanWeightSq+=SumJonesChanWeightSq[iMS][ind].tolist()
+        #     ListBeamFactor.append(np.array(ThisSumJonesChan))
+        #     ListBeamFactorWeightSq.append(np.array(ThisSumJonesChanWeightSq))
+
+        
+        ChanMappingGridChan=self.DicoMappingDesc["ChanMappingGridChan"]
         ListBeamFactor=[]
         ListBeamFactorWeightSq=[]
-
         for iChannel in range(self.NFreqBand):
-            ThisSumJonesChan=[]
-            ThisSumJonesChanWeightSq=[]
+            nfreq = len(self.DicoMappingDesc["freqs"][iChannel])
+            ThisSumJonesChan = np.zeros(nfreq,np.float64)
+            ThisSumJonesChanWeightSq = np.zeros(nfreq,np.float64)
             for iMS in range(len(SumJonesChan)):
-                ind=np.where(ChanMappingGrid[iMS]==iChannel)[0]
-                ThisSumJonesChan+=SumJonesChan[iMS][ind].tolist()
-                ThisSumJonesChanWeightSq+=SumJonesChanWeightSq[iMS][ind].tolist()
-            ListBeamFactor.append(np.array(ThisSumJonesChan))
-            ListBeamFactorWeightSq.append(np.array(ThisSumJonesChanWeightSq))
+                ind = np.where(ChanMappingGrid[iMS]==iChannel)[0]
+                channels = ChanMappingGridChan[iMS][ind]
+                ThisSumJonesChan[channels] += SumJonesChan[iMS][ind]
+                ThisSumJonesChanWeightSq[channels] += SumJonesChanWeightSq[iMS][ind]
+            ListBeamFactor.append(ThisSumJonesChan)
+            ListBeamFactorWeightSq.append(ThisSumJonesChanWeightSq)
 
         return ListBeamFactor,ListBeamFactorWeightSq
-        
 
 
     def GiveFreqBandsFluxRatio(self,iFacet,Alpha):
