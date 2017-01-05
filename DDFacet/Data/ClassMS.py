@@ -530,6 +530,8 @@ class ClassMS():
                     print>> log, "reading MS visibilities into shared array %s" % self._datapath
                     visdata = NpShared.CreateShared(self._datapath, datashape, np.complex64)
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                    if self._reverse_channel_order:
+                        visdata[...] = visdata[:,::-1,:]
                 else:
                     print>> log, "visibilities are already in shared array %s" % self._datapath
             else:
@@ -541,6 +543,8 @@ class ClassMS():
                 print>>log,"reading MS flags into shared array %s"%self._flagpath
                 flags = NpShared.CreateShared(self._flagpath, datashape, np.bool)
                 table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)  # [SPW==self.ListSPW[0]]
+                if self._reverse_channel_order:
+                    flags[...] = flags[:,::-1,:]
                 self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
             else:
                 print>> log, "flags are already in shared array %s" % self._flagpath
@@ -849,8 +853,8 @@ class ClassMS():
         chan_freq = orig_freq[self.ChanSlice]
 
 
-        self.dFreq=ta_spectral.getcol("CHAN_WIDTH")[self._spwid,self.ChanSlice].flatten()[0]
-        self.ChanWidth=ta_spectral.getcol('CHAN_WIDTH')[self._spwid,self.ChanSlice]
+        self.dFreq = ta_spectral.getcol("CHAN_WIDTH")[self._spwid,self.ChanSlice].flatten()[0]
+        self.ChanWidth = np.abs(ta_spectral.getcol('CHAN_WIDTH')[self._spwid,self.ChanSlice])
 
         # if chan_freq.shape[0]>len(self.ListSPW):
         #     print ModColor.Str("  ====================== >> More SPW in headers, modifying that error....")
@@ -860,7 +864,6 @@ class ClassMS():
 
         T.timeit()
 
-        wavelength=299792458./reffreq
         self.ChanFreq=chan_freq
         self.ChanFreqOrig=self.ChanFreq.copy()
         self.Freq_Mean=np.mean(chan_freq)
@@ -904,14 +907,12 @@ class ClassMS():
         self.decdeg=decrad*180./np.pi
         ta.close()
          
-        self.DoRevertChans=False
-        if Nchan>1:
-            self.DoRevertChans=(self.ChanFreq.flatten()[0]>self.ChanFreq.flatten()[-1])
-        if self.DoRevertChans:
-            print ModColor.Str("  ====================== >> Revert Channel order!")
-            wavelength_chan=wavelength_chan[0,::-1]
-            self.ChanFreq=self.ChanFreq[0,::-1]
-            self.dFreq=np.abs(self.dFreq)
+        self._reverse_channel_order = Nchan>1 and self.ChanFreq[0] > self.ChanFreq[-1]
+        if self._reverse_channel_order:
+            print>>log, ModColor.Str("(NB: this MS has reverse channel order)",col="blue")
+            wavelength_chan = wavelength_chan[::-1]
+            self.ChanFreq = self.ChanFreq[::-1]
+            self.dFreq = np.abs(self.dFreq)
 
         # if self.AverageSteps is not None:
         #     _,StepFreq=self.AverageSteps
@@ -1072,6 +1073,8 @@ class ClassMS():
     def PutVisColumn (self,colname,vis):
         self.AddCol(colname,quiet=True)
         print>>log,"writing column %s rows %d:%d"%(colname,self.ROW0,self.ROW1-1)
+        if self._reverse_channel_order:
+            vis = vis[:,::-1,:]
         t = self.GiveMainTable(readonly=False,ack=False)
         if self.ChanSlice and self.ChanSlice != slice(None):
             # if getcol fails, maybe because this is a new col which hasn't been filled
