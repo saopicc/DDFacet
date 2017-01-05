@@ -163,7 +163,11 @@ class ClassImageDeconvMachine():
 
     def SearchIslands(self,Threshold):
 
-        IslandDistanceMachine=ClassIslandDistanceMachine.ClassIslandDistanceMachine(self.GD,self._MaskArray,self.PSFServer,self.DicoDirty)
+        IslandDistanceMachine=ClassIslandDistanceMachine.ClassIslandDistanceMachine(self.GD,
+                                                                                    self._MaskArray,
+                                                                                    self.PSFServer,
+                                                                                    self.DicoDirty,
+                                                                                    IdSharedMem=self.IdSharedMem)
         ListIslands=IslandDistanceMachine.SearchIslands(Threshold)
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
         self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)

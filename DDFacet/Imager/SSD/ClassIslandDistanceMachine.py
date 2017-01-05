@@ -8,7 +8,7 @@ from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.PSourceExtract import ClassIncreaseIsland
 
 class ClassIslandDistanceMachine():
-    def __init__(self,GD,MaskArray,PSFServer,DicoDirty):
+    def __init__(self,GD,MaskArray,PSFServer,DicoDirty,IdSharedMem=""):
         self.GD=GD
         self._MaskArray=MaskArray
         self.PSFServer=PSFServer
@@ -267,8 +267,7 @@ class ClassIslandDistanceMachine():
 
         work_queue = multiprocessing.JoinableQueue()
         for iIsland in range(NIslands):
-            for jIsland in range(iIsland+1,NIslands):
-                work_queue.put({"ijIsland":(iIsland,jIsland)})
+            work_queue.put({"iIsland":(iIsland)})
 
         result_queue=multiprocessing.JoinableQueue()
         NJobs=work_queue.qsize()
@@ -279,7 +278,8 @@ class ClassIslandDistanceMachine():
         for ii in range(NCPU):
             W = WorkerDistance(work_queue,
                                result_queue,
-                               ListIslands)
+                               ListIslands,
+                               self.IdSharedMem)
             workerlist.append(W)
             if Parallel:
                 workerlist[ii].start()
@@ -309,11 +309,12 @@ class ClassIslandDistanceMachine():
                 intPercent=int(100*  NDone / float(NJobs))
                 pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
 
-                iIsland,jIsland=DicoResult["ijIsland"]
-                dx,dy,dmin=DicoResult["Result"]
-                self.D[jIsland,iIsland]=self.D[iIsland,jIsland]=dmin
-                self.dx[jIsland,iIsland]=self.dx[iIsland,jIsland]=dx
-                self.dy[jIsland,iIsland]=self.dy[iIsland,jIsland]=dy
+                iIsland=DicoResult["iIsland"]
+                Result=NpShared.GiveArray("%sDistances_%6.6i"%(self.IdSharedMem,iIsland))
+
+                self.dx[iIsland]=Result[0]
+                self.dy[iIsland]=Result[1]
+                self.D[iIsland]=Result[2]
 
 
         if Parallel:
@@ -337,29 +338,41 @@ class WorkerDistance(multiprocessing.Process):
     def __init__(self,
                  work_queue,
                  result_queue,
-                 ListIsland):
+                 ListIsland,
+                 IdSharedMem):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
         self.kill_received = False
         self.exit = multiprocessing.Event()
         self.ListIslands=ListIsland
+        self.IdSharedMem=IdSharedMem
 
     def shutdown(self):
         self.exit.set()
 
 
     def giveMinDist(self, DicoJob):
-        iIsland,jIsland=DicoJob["ijIsland"]
+        iIsland=DicoJob["iIsland"]
+        NIslands=len(self.ListIslands)
+        Result=np.zeros((3,NIslands),np.int32)
+
         x0,y0=np.array(self.ListIslands[iIsland]).T
-        x1,y1=np.array(self.ListIslands[jIsland]).T
-        dx=x0.reshape((-1,1))-x1.reshape((1,-1))
-        dy=y0.reshape((-1,1))-y1.reshape((1,-1))
-        d=np.sqrt(dx**2+dy**2)
-        dmin=np.min(d)
-        indx,indy=np.where(d==dmin)
-        Res=dx[indx[0],indy[0]],dy[indx[0],indy[0]],dmin
-        self.result_queue.put({"Result": Res, "ijIsland": DicoJob["ijIsland"], "Success":True})
+        for jIsland in range(NIslands):
+            x1,y1=np.array(self.ListIslands[jIsland]).T
+            dx=x0.reshape((-1,1))-x1.reshape((1,-1))
+            dy=y0.reshape((-1,1))-y1.reshape((1,-1))
+            d=np.sqrt(dx**2+dy**2)
+            dmin=np.min(d)
+            indx,indy=np.where(d==dmin)
+            Res=dmin
+            Result[0,jIsland]=dx[indx[0],indy[0]]
+            Result[1,jIsland]=dy[indx[0],indy[0]]
+            Result[2,jIsland]=dmin
+
+        NpShared.ToShared("%sDistances_%6.6i"%(self.IdSharedMem,iIsland),Result)
+
+        self.result_queue.put({"iIsland": iIsland, "Success":True})
 
     def run(self):
         while not self.kill_received and not self.work_queue.empty():
