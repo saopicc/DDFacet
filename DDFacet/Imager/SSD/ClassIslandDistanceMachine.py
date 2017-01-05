@@ -1,4 +1,4 @@
-
+import time
 import numpy as np
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
@@ -14,6 +14,7 @@ class ClassIslandDistanceMachine():
         self.PSFServer=PSFServer
         self.PSFCross=None
         self.DicoDirty=DicoDirty
+        self.NCPU=self.GD["Parallel"]["NCPU"]
 
     def SearchIslands(self,Threshold):
         print>>log,"Searching Islands"
@@ -96,7 +97,7 @@ class ClassIslandDistanceMachine():
         # dy=yMean.reshape((NIslands,1))-yMean.reshape((1,NIslands))
 
         #self.calcDistanceMatrixMean(ListIslands)
-        self.calcDistanceMatrixMin(ListIslands)
+        self.calcDistanceMatrixMinParallel(ListIslands)
         dx,dy=self.dx,self.dy
         self.DistCross=np.sqrt(dx**2+dy**2)
 
@@ -257,3 +258,127 @@ class ClassIslandDistanceMachine():
             NDone+=1
             intPercent=int(100*  NDone / float(NJobs))
             pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+
+    def calcDistanceMatrixMinParallel(self,ListIslands,Parallel=True):
+        NIslands=len(ListIslands)
+        self.D=np.zeros((NIslands,NIslands),np.float32)
+        self.dx=np.zeros((NIslands,NIslands),np.int32)
+        self.dy=np.zeros((NIslands,NIslands),np.int32)
+
+        work_queue = multiprocessing.JoinableQueue()
+        for iIsland in range(NIslands):
+            for jIsland in range(iIsland+1,NIslands):
+                work_queue.put({"ijIsland":(iIsland,jIsland)})
+
+        result_queue=multiprocessing.JoinableQueue()
+        NJobs=work_queue.qsize()
+        workerlist=[]
+        NCPU=self.NCPU
+
+
+        for ii in range(NCPU):
+            W = WorkerDistance(work_queue,
+                               result_queue,
+                               ListIslands)
+            workerlist.append(W)
+            if Parallel:
+                workerlist[ii].start()
+
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  HMPing islands ", HeaderSize=10, TitleSize=13)
+        pBAR.render(0, '%4i/%i' % (0, NJobs))
+        iResult = 0
+        if not Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].run()  # just run until all work is completed
+
+        while iResult < NJobs:
+            DicoResult = None
+            if result_queue.qsize() != 0:
+                try:
+                    DicoResult = result_queue.get()
+                except:
+                    pass
+
+            if DicoResult == None:
+                time.sleep(0.5)
+                continue
+
+            if DicoResult["Success"]:
+                iResult+=1
+                NDone=iResult
+                intPercent=int(100*  NDone / float(NJobs))
+                pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+
+                iIsland,jIsland=DicoResult["ijIsland"]
+                dx,dy,dmin=DicoResult["Result"]
+                self.D[jIsland,iIsland]=self.D[iIsland,jIsland]=dmin
+                self.dx[jIsland,iIsland]=self.dx[iIsland,jIsland]=dx
+                self.dy[jIsland,iIsland]=self.dy[iIsland,jIsland]=dy
+
+
+        if Parallel:
+            for ii in range(NCPU):
+                workerlist[ii].shutdown()
+                workerlist[ii].terminate()
+                workerlist[ii].join()
+
+
+
+
+
+##########################################
+####### Workers
+##########################################
+import os
+import signal
+import multiprocessing
+
+class WorkerDistance(multiprocessing.Process):
+    def __init__(self,
+                 work_queue,
+                 result_queue,
+                 ListIsland):
+        multiprocessing.Process.__init__(self)
+        self.work_queue = work_queue
+        self.result_queue = result_queue
+        self.kill_received = False
+        self.exit = multiprocessing.Event()
+        self.ListIslands=ListIsland
+
+    def shutdown(self):
+        self.exit.set()
+
+
+    def giveMinDist(self, DicoJob):
+        iIsland,jIsland=DicoJob["ijIsland"]
+        x0,y0=np.array(self.ListIslands[iIsland]).T
+        x1,y1=np.array(self.ListIslands[jIsland]).T
+        dx=x0.reshape((-1,1))-x1.reshape((1,-1))
+        dy=y0.reshape((-1,1))-y1.reshape((1,-1))
+        d=np.sqrt(dx**2+dy**2)
+        dmin=np.min(d)
+        indx,indy=np.where(d==dmin)
+        Res=dx[indx[0],indy[0]],dy[indx[0],indy[0]],dmin
+        self.result_queue.put({"Result": Res, "ijIsland": DicoJob["ijIsland"], "Success":True})
+
+    def run(self):
+        while not self.kill_received and not self.work_queue.empty():
+            
+            DicoJob = self.work_queue.get()
+            self.giveMinDist(DicoJob)
+            # try:
+            #     self.initIsland(DicoJob)
+            # except:
+            #     iIsland=DicoJob["iIsland"]
+            #     print ModColor.Str("On island %i"%iIsland)
+            #     print traceback.format_exc()
+            #     print
+            #     print self.ListIsland[iIsland]
+            #     print
+
+
+
+
+
+
+
