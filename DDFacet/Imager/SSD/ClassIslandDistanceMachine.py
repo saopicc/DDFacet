@@ -1,0 +1,259 @@
+
+import numpy as np
+from DDFacet.Other import MyLogger
+from DDFacet.Other import ModColor
+log=MyLogger.getLogger("ClassIslandDistanceMachine")
+from DDFacet.Other.progressbar import ProgressBar
+from SkyModel.PSourceExtract import ClassIslands
+from SkyModel.PSourceExtract import ClassIncreaseIsland
+
+class ClassIslandDistanceMachine():
+    def __init__(self,GD,MaskArray,PSFServer,DicoDirty):
+        self.GD=GD
+        self._MaskArray=MaskArray
+        self.PSFServer=PSFServer
+        self.PSFCross=None
+        self.DicoDirty=DicoDirty
+
+    def SearchIslands(self,Threshold):
+        print>>log,"Searching Islands"
+        Dirty=self.DicoDirty["MeanImage"]
+        #self.IslandArray[0,0]=(Dirty[0,0]>Threshold)|(self.IslandArray[0,0])
+        #MaskImage=(self.IslandArray[0,0])&(np.logical_not(self._MaskArray[0,0]))
+        #MaskImage=(np.logical_not(self._MaskArray[0,0]))
+        MaskImage=(np.logical_not(self._MaskArray[0,0]))
+        Islands=ClassIslands.ClassIslands(Dirty[0,0],MaskImage=MaskImage,
+                                          MinPerIsland=0,DeltaXYMin=0)
+        Islands.FindAllIslands()
+
+        ListIslands=Islands.LIslands
+
+        print>>log,"  found %i islands"%len(ListIslands)
+        dx=self.GD["SSDClean"]["NEnlargePars"]
+        if dx>0:
+            print>>log,"  increase their sizes by %i pixels"%dx
+            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+            for iIsland in range(len(ListIslands)):#self.NIslands):
+                ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
+
+        
+        return ListIslands
+
+    def CalcLabelImage(self,ListIslands):
+        print>>log,"  calculating label image"
+        _,_,nx,_=self._MaskArray.shape
+        Labels=np.zeros((nx,nx),dtype=np.float32)
+
+        for iIsland,ThisIsland in enumerate(ListIslands):
+            x,y=np.array(ThisIsland).T
+            Labels[np.int32(x),np.int32(y)]=iIsland+1
+        return Labels.reshape((1,1,nx,nx))
+
+    def CalcCrossIslandPSF(self,ListIslands):
+        print>>log,"  calculating global islands cross-contamination"
+        PSF=np.mean(np.abs(self.PSFServer.DicoVariablePSF["MeanFacetPSF"][:,0]),axis=0)#self.PSFServer.DicoVariablePSF["MeanFacetPSF"][0,0]
+        
+        
+        nPSF,_=PSF.shape
+        xcPSF,ycPSF=nPSF/2,nPSF/2
+
+        IN=lambda x: ((x>=0)&(x<nPSF))
+
+
+        NIslands=len(ListIslands)
+        # NDone=0
+        # NJobs=NIslands
+        # pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Calc Cross Contam.", HeaderSize=10,TitleSize=13)
+        # #pBAR.disable()
+        # pBAR.render(0, '%4i/%i' % (0,NJobs))
+
+
+        # PSFCross=np.zeros((NIslands,NIslands),np.float32)
+        # for iIsland in range(NIslands):
+        #     NDone+=1
+        #     intPercent=int(100*  NDone / float(NJobs))
+        #     pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+        #     x0,y0=np.array(ListIslands[iIsland]).T
+        #     xc0,yc0=int(np.mean(x0)),int(np.mean(y0))
+        #     for jIsland in range(iIsland,NIslands):
+        #         x1,y1=np.array(ListIslands[jIsland]).T
+        #         xc1,yc1=int(np.mean(x1)),int(np.mean(y1))
+        #         dx,dy=xc1-xc0+xcPSF,yc1-yc0+xcPSF
+        #         if (IN(dx))&(IN(dy)):
+        #             PSFCross[iIsland,jIsland]=np.abs(PSF[dx,dy])
+        # Diag=np.diag(np.diag(PSFCross))
+        # PSFCross+=PSFCross.T
+        # PSFCross.flat[0::NIslands+1]=Diag.flat[0::NIslands+1]
+
+        # xMean=np.zeros((NIslands,),np.int32)
+        # yMean=xMean.copy()
+        # for iIsland in range(NIslands):
+        #     x0,y0=np.array(ListIslands[iIsland]).T
+        #     xc0,yc0=int(np.mean(x0)),int(np.mean(y0))
+        #     xMean[iIsland]=xc0
+        #     yMean[iIsland]=yc0
+        # dx=xMean.reshape((NIslands,1))-xMean.reshape((1,NIslands))
+        # dy=yMean.reshape((NIslands,1))-yMean.reshape((1,NIslands))
+
+        #self.calcDistanceMatrixMean(ListIslands)
+        self.calcDistanceMatrixMin(ListIslands)
+        dx,dy=self.dx,self.dy
+        self.DistCross=np.sqrt(dx**2+dy**2)
+
+        dx+=xcPSF
+        dy+=xcPSF
+        PSFCross=np.zeros((NIslands,NIslands),np.float32)
+        indPSF=np.arange(NIslands**2)
+        Cx=((dx>=0)&(dx<nPSF))
+        Cy=((dy>=0)&(dy<nPSF))
+        C=(Cx&Cy)
+        indPSF_sel=indPSF[C.ravel()]
+        indPixPSF=dx.ravel()[C.ravel()]*nPSF+dy.ravel()[C.ravel()]
+        PSFCross.flat[indPSF_sel]=np.abs(PSF.flat[indPixPSF.ravel()])
+
+
+
+        
+        self.PSFCross=PSFCross
+
+    def GiveNearbyIsland(self,DicoIsland,iIsland):
+        Th=0.05
+
+        #indNearbyIsland=np.where((self.PSFCross[iIsland])>Th)[0]
+
+        D0,D1=self.GD["SSDClean"]["MinMaxGroupDistance"]
+
+        CTh=(self.PSFCross[iIsland]>Th)
+        C0=(self.DistCross[iIsland]<D0)
+        C1=(self.DistCross[iIsland]<D1)
+        indNearbyIsland=np.where( (CTh | C0) & (C1) )[0]
+        
+
+        #Th=0.3
+        #Flux=self.CrossFluxContrib[iIsland,iIsland]
+        #C0=(self.CrossFluxContrib[iIsland] > Flux*Th)
+        #indNearbyIsland=np.where(C0)[0]
+
+        ii=0
+        #print DicoIsland.keys()
+        #print>>log,"Looking around island #%i"%(iIsland)
+        for jIsland in indNearbyIsland:
+            #if jIsland in DicoIsland.keys():
+            try:
+                Island=DicoIsland[jIsland]
+                #print>>log,"  merging island #%i -> #%i"%(jIsland,iIsland)
+                del(DicoIsland[jIsland])
+                SubIslands=self.GiveNearbyIsland(DicoIsland,jIsland)
+                if SubIslands is not None:
+                    Island+=SubIslands
+                return Island
+            except:
+                continue
+
+
+        #print>>log,"  could not find island #%i"%(iIsland)
+                
+        return None
+
+
+
+    def CalcCrossIslandFlux(self,ListIslands):
+        if self.PSFCross is None:
+            self.CalcCrossIslandPSF(ListIslands)
+        NIslands=len(ListIslands)
+        print>>log,"  grouping cross contaninating islands..."
+
+        MaxIslandFlux=np.zeros((NIslands,),np.float32)
+        DicoIsland={}
+
+        Dirty=self.DicoDirty["MeanImage"]
+
+
+        for iIsland in range(NIslands):
+
+            x0,y0=np.array(ListIslands[iIsland]).T
+            PixVals0=Dirty[0,0,x0,y0]
+            MaxIslandFlux[iIsland]=np.max(PixVals0)
+            DicoIsland[iIsland]=ListIslands[iIsland]
+
+        self.CrossFluxContrib=self.PSFCross*MaxIslandFlux.reshape((1,NIslands))
+        
+
+        NDone=0
+        NJobs=NIslands
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Group islands", HeaderSize=10,TitleSize=13)
+        pBAR.disable()
+        pBAR.render(0, '%4i/%i' % (0,NJobs))
+
+        Th=0.05
+        ListIslandMerged=[]
+        for iIsland in range(NIslands):
+            NDone+=1
+            intPercent=int(100*  NDone / float(NJobs))
+            pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+
+            ThisIsland=self.GiveNearbyIsland(DicoIsland,iIsland)
+            
+            # indiIsland=np.where((self.PSFCross[iIsland])>Th)[0]
+            # ThisIsland=[]
+            # #print "Island #%i: %s"%(iIsland,str(np.abs(self.PSFCross[iIsland])))
+            # for jIsland in indiIsland:
+            #     if not(jIsland in DicoIsland.keys()): 
+            #         #print>>log,"    island #%i not there "%(jIsland)
+            #         continue
+            #     #print>>log,"  Putting island #%i in #%i"%(jIsland,iIsland)
+            #     for iPix in range(len(DicoIsland[jIsland])):
+            #         ThisIsland.append(DicoIsland[jIsland][iPix])
+            #     del(DicoIsland[jIsland])
+
+
+            if ThisIsland is not None:
+                ListIslandMerged.append(ThisIsland)
+
+        print>>log,"    have grouped %i --> %i islands"%(NIslands, len(ListIslandMerged))
+
+        return ListIslandMerged
+
+    def calcDistanceMatrixMean(self,ListIslands):
+        NIslands=len(ListIslands)
+        xMean=np.zeros((NIslands,),np.int32)
+        yMean=xMean.copy()
+        for iIsland in range(NIslands):
+            x0,y0=np.array(ListIslands[iIsland]).T
+            xc0,yc0=int(np.mean(x0)),int(np.mean(y0))
+            xMean[iIsland]=xc0
+            yMean[iIsland]=yc0
+
+        self.dx=xMean.reshape((NIslands,1))-xMean.reshape((1,NIslands))
+        self.dy=yMean.reshape((NIslands,1))-yMean.reshape((1,NIslands))
+        self.D=np.sqrt(self.dx**2+self.dy**2)
+        
+
+    
+    def calcDistanceMatrixMin(self,ListIslands):
+        NIslands=len(ListIslands)
+        self.D=np.zeros((NIslands,NIslands),np.float32)
+        self.dx=np.zeros((NIslands,NIslands),np.int32)
+        self.dy=np.zeros((NIslands,NIslands),np.int32)
+
+        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Calc Dist", HeaderSize=10,TitleSize=13)
+        #pBAR.disable()
+        NDone=0; NJobs=NIslands
+        pBAR.render(0, '%4i/%i' % (0,NJobs))
+        for iIsland in range(NIslands):
+            x0,y0=np.array(ListIslands[iIsland]).T
+            for jIsland in range(iIsland+1,NIslands):
+                x1,y1=np.array(ListIslands[jIsland]).T
+                
+                dx=x0.reshape((-1,1))-x1.reshape((1,-1))
+                dy=y0.reshape((-1,1))-y1.reshape((1,-1))
+                d=np.sqrt(dx**2+dy**2)
+                dmin=np.min(d)
+                self.D[jIsland,iIsland]=self.D[iIsland,jIsland]=dmin
+                indx,indy=np.where(d==dmin)
+                #print dx[indx[0],indy[0]],dy[indx[0],indy[0]],dmin
+                self.dx[jIsland,iIsland]=self.dx[iIsland,jIsland]=dx[indx[0],indy[0]]
+                self.dy[jIsland,iIsland]=self.dy[iIsland,jIsland]=dy[indx[0],indy[0]]
+            NDone+=1
+            intPercent=int(100*  NDone / float(NJobs))
+            pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
