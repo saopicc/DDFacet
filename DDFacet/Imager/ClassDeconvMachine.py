@@ -818,10 +818,9 @@ class ClassImagerDeconv():
             self.DeconvMachine.Update(DicoImage)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
-            
-            self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,ImageName="%s.labelIslands"%self.BaseName,Fits=True,
+            self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,
                                           Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-            stop
+            # stop
             self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName) 
 
             ## returned with nothing done in minor cycle? Break out

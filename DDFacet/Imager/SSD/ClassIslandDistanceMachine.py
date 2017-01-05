@@ -286,7 +286,7 @@ class ClassIslandDistanceMachine():
             if Parallel:
                 workerlist[ii].start()
 
-        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  HMPing islands ", HeaderSize=10, TitleSize=13)
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  Calc. Dist. ", HeaderSize=10, TitleSize=13)
         pBAR.render(0, '%4i/%i' % (0, NJobs))
         iResult = 0
         if not Parallel:

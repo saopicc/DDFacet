@@ -169,8 +169,6 @@ class ClassImageDeconvMachine():
                                                                                     self.DicoDirty,
                                                                                     IdSharedMem=self.IdSharedMem)
         ListIslands=IslandDistanceMachine.SearchIslands(Threshold)
-        ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
-        self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
 
         # FluxIslands=[]
         # for iIsland in range(len(ListIslands)):
@@ -182,8 +180,10 @@ class ClassImageDeconvMachine():
         
 
         # ListIslands=self.CalcCrossIslandFlux(ListIslandsSort)
-        self.ListIslands=[]
 
+        # #############################
+        # Filter by peak flux 
+        ListIslandsFiltered=[]
         Dirty=self.DicoDirty["MeanImage"]
         for iIsland in range(len(ListIslands)):
             x,y=np.array(ListIslands[iIsland]).T
@@ -196,7 +196,7 @@ class ClassImageDeconvMachine():
 
 #            if (MaxIsland>(3.*self.RMS))|(MaxIsland>Threshold):
             if (MaxIsland>Threshold):
-                self.ListIslands.append(ListIslands[iIsland])
+                ListIslandsFiltered.append(ListIslands[iIsland])
             # ###############################
             # if np.max(np.abs(PixVals))>Threshold:
             #     DoThisOne=True
@@ -204,10 +204,15 @@ class ClassImageDeconvMachine():
             # if ((DoThisOne)|self.IslandHasBeenDone[0,0,x[0],y[0]]):
             #     self.ListIslands.append(ListIslands[iIsland])
             # ###############################
+        # #############################
+        print>>log,"  selected %i islands [out of %i] with peak flux > %.3g Jy"%(len(ListIslandsFiltered),len(ListIslands),Threshold)
+        ListIslands=ListIslandsFiltered
 
-        #stop
+        ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
+        self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
+        
+        self.ListIslands=ListIslands
         self.NIslands=len(self.ListIslands)
-        print>>log,"  selected %i islands [out of %i] with peak flux > %.3g Jy"%(self.NIslands,len(ListIslands),Threshold)
 
 
         Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
@@ -342,7 +347,7 @@ class ClassImageDeconvMachine():
             return "FluxThreshold", False, False
 
         self.SearchIslands(StopFlux)
-        return None,None,None
+        #return None,None,None
         self.InitMSMF()
 
 
