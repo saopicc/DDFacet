@@ -119,7 +119,11 @@ class ClassInitSSDModelParallel():
 ######################################################################################################
 
 class ClassInitSSDModel():
-    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,MainCache=None,IdSharedMem="",DoWait=False):
+    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,
+                 MainCache=None,
+                 IdSharedMem="",
+                 DoWait=False,
+                 ResetMSMFCache=False):
         self.DicoVariablePSF=DicoVariablePSF
         self.DicoDirty=DicoDirty
         GD=copy.deepcopy(GD)
@@ -155,7 +159,10 @@ class ClassInitSSDModel():
         MinorCycleConfig["CleanMaskImage"]=None
 
         self.MinorCycleConfig=MinorCycleConfig
-        self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,CacheSharedMode=True,IdSharedMem=IdSharedMem,**self.MinorCycleConfig)
+        self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,
+                                                                               CacheSharedMode=True,
+                                                                               IdSharedMem=IdSharedMem,
+                                                                               **self.MinorCycleConfig)
 
 
 

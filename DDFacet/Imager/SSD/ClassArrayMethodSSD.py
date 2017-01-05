@@ -197,7 +197,7 @@ class ClassArrayMethodSSD():
 
 
     def DeconvCLEAN(self,gain=0.1,StopThFrac=0.01,NMaxIter=20000):
-        print "CLEAN"
+
         PSF=self.PSF#/np.max(self.PSF)
 
         if False:#self.ConvMachine.ConvMode=="Matrix" or  self.ConvMachine.ConvMode=="Vector":
