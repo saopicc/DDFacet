@@ -222,8 +222,8 @@ class ClassMakeMask():
         ExcludeCat=R.CatExclude
         
         print>>log,"  Excluding pixels"
-
         for iRegExclude in range(R.CatExclude.shape[0]):
+            
             rac,decc,Radius=R.CatExclude.ra[iRegExclude],R.CatExclude.dec[iRegExclude],R.CatExclude.Radius[iRegExclude]
             RadiusPix=(1.1*Radius/self.incr_rad)
             freq,pol,_,_=self.CasaIm.toworld((0,0,0,0))
@@ -242,7 +242,6 @@ class ClassMakeMask():
                 #d=np.sqrt((ra-rac)**2+(dec-decc)**2)
                 d=self.GiveAngDist(ra,dec,rac,decc)
                 if d<Radius:
-                    #print "zeros",ipix,jpix
                     self.ImMask[jpix,ipix]=0
         
 
