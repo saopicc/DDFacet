@@ -6,6 +6,7 @@ log=MyLogger.getLogger("ClassIslandDistanceMachine")
 from DDFacet.Other.progressbar import ProgressBar
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.PSourceExtract import ClassIncreaseIsland
+from DDFacet.Array import NpShared
 
 class ClassIslandDistanceMachine():
     def __init__(self,GD,MaskArray,PSFServer,DicoDirty,IdSharedMem=""):
@@ -15,6 +16,7 @@ class ClassIslandDistanceMachine():
         self.PSFCross=None
         self.DicoDirty=DicoDirty
         self.NCPU=self.GD["Parallel"]["NCPU"]
+        self.IdSharedMem=IdSharedMem
 
     def SearchIslands(self,Threshold):
         print>>log,"Searching Islands"
