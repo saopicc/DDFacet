@@ -35,6 +35,7 @@ def read_options():
     group.add_option("--Box",type="str",default="30,2",help="default is %default")
     group.add_option("--OutName",type="str",help="default is %default",default="mask")
     group.add_option("--OutNameNoiseMap",type="str",help="default is %default",default="")
+    group.add_option("--ExternalMask",type="str",help="default is %default",default="")
     group.add_option("--ds9Mask",type="str",help="default is %default",default="")
     
     #group.add_option("--MedFilter",type="str",default="50,10")
@@ -61,7 +62,8 @@ class ClassMakeMask():
                  UseIslands=False,
                  OutName="mask",
                  ds9Mask="",
-                 OutNameNoiseMap=""):
+                 OutNameNoiseMap="",
+                 options=None):
 
         self.ds9Mask=ds9Mask
         self.FitsFile=FitsFile
@@ -74,6 +76,7 @@ class ClassMakeMask():
         self.UseIslands=UseIslands
         self.OutName=OutName
         self.OutNameNoiseMap=OutNameNoiseMap
+        self.options=options
 
         im=self.CasaIm
         c=im.coordinates()
@@ -177,14 +180,15 @@ class ClassMakeMask():
         self.Noise[ind]=1e-10
 
         if self.OutNameNoiseMap!="":
-            print>>log, "Save noise map as %s"%self.OutNameNoiseMap
-            self.CasaIm.saveas(self.OutNameNoiseMap)
-            CasaNoise=image(self.OutNameNoiseMap)
-            CasaNoise.putdata(self.Noise)
-            CasaNoise.tofits(self.OutNameNoiseMap+".fits")
-            del(CasaNoise)
-            os.system("rm %s"%self.OutNameNoiseMap)
-
+            #print>>log, "Save noise map as %s"%self.OutNameNoiseMap
+            #self.CasaIm.saveas(self.OutNameNoiseMap)
+            #CasaNoise=image(self.OutNameNoiseMap)
+            #CasaNoise.putdata(self.Noise)
+            #CasaNoise.tofits(self.OutNameNoiseMap+".fits")
+            #del(CasaNoise)
+            os.system("rm -rf %s"%self.OutNameNoiseMap)
+            os.system("rm -rf %s"%self.OutNameNoiseMap+".fits")
+            PutDataInNewImage(self.FitsFile,self.OutNameNoiseMap+".fits",np.float32(self.Noise))
     # def ComputeNoiseMap(self):
     #     print "Compute noise map..."
     #     Boost=self.Boost
@@ -266,6 +270,10 @@ class ClassMakeMask():
                 if d<Radius: 
                     #print "ones",ipix,jpix
                     self.ImMask[jpix,ipix]=1
+
+            
+
+        
 
     def GiveAngDist(self,ra1,dec1,ra2,dec2):
         sin=np.sin
@@ -512,6 +520,16 @@ class ClassMakeMask():
 
         if self.ds9Mask!="":
             self.MaskSelectedDS9()
+
+        ExternalAndMask=self.options.ExternalMask
+        if ExternalAndMask is not None and ExternalAndMask is not "":
+            from DDFacet.Imager import ClassCasaImage
+            CleanMaskImageName=ExternalAndMask
+            print>>log,"Use mask image %s"%CleanMaskImageName
+            CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,False))[0,0]
+            self.ImMask=(self.ImMask & CleanMaskImage)
+
+
         if self.UseIslands:
             # Make island list
             self.BuildIslandList()
@@ -567,7 +585,8 @@ def main(options=None):
                               UseIslands=options.UseIslands,
                               OutName=options.OutName,
                               ds9Mask=options.ds9Mask,
-                              OutNameNoiseMap=options.OutNameNoiseMap)
+                              OutNameNoiseMap=options.OutNameNoiseMap,
+                              options=options)
     MaskMachine.CreateMask()
 
 if __name__=="__main__":
