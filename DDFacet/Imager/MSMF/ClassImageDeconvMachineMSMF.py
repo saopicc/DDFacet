@@ -137,7 +137,7 @@ class ClassImageDeconvMachine():
                 
                 # For MSMF machines to be run in Parallel, need to get the heavy stuff from shared
                 # otherwise each worker has its own copy and RAM comsuption explodes
-                
+
                 # run in workers
                 if DicoIsInShared:
                     for iFacet in range(self.PSFServer.NFacets):
