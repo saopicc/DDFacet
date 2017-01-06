@@ -317,6 +317,9 @@ class ClassIslandDistanceMachine():
                 self.dx[iIsland]=Result[0]
                 self.dy[iIsland]=Result[1]
                 self.D[iIsland]=Result[2]
+                NpShared.DelAll("%sDistances_%6.6i"%(self.IdSharedMem,iIsland))
+
+
 
 
         if Parallel:

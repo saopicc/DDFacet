@@ -133,11 +133,18 @@ class ClassImageDeconvMachine():
             facetcache_DicoFuntions = MyPickle.FileToDicoNP(cachepath_DicoFuntions)
             if self.CacheSharedMode:
                 facetcache_DicoArrays = {}
-                if NpShared.SharedToDico("%sDicoBasisMatrix_F%4.4i"%(self.IdSharedMem,0)) is not None:
+                DicoIsInShared=(NpShared.SharedToDico("%sDicoBasisMatrix_F%4.4i"%(self.IdSharedMem,0)) is not None)
+                
+                # For MSMF machines to be run in Parallel, need to get the heavy stuff from shared
+                # otherwise each worker has its own copy and RAM comsuption explodes
+                
+                # run in workers
+                if DicoIsInShared:
                     for iFacet in range(self.PSFServer.NFacets):
                         facetcache_DicoArrays[iFacet]=NpShared.SharedToDico("%sDicoBasisMatrix_F%4.4i"%(self.IdSharedMem,iFacet))
                     DicoAlreadyInShared=True
                     print>>log,"Has loaded DicoBasisMatrix from shared mem"
+                # run in main process
                 else:
                     facetcache_DicoArrays = MyPickle.FileToDicoNP(cachepath_DicoArrays)
                     print>>log,"Put DicoBasisMatrix in shared"
@@ -190,6 +197,11 @@ class ClassImageDeconvMachine():
                 #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
                 self.maincache.saveCache("MSMFMachine_DicoFuntions")
                 self.maincache.saveCache("MSMFMachine_DicoArrays")
+
+                if self.CacheSharedMode:
+                    for iFacet in facetcache_DicoArrays.keys():
+                        facetcache_DicoArrays[iFacet]=NpShared.DicoToShared("%sDicoBasisMatrix_F%4.4i"%(self.IdSharedMem,iFacet),facetcache_DicoArrays[iFacet])
+
                 # try:
                 #     MyPickle.DicoNPToFile(facetcache,cachepath)
                 #     #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
