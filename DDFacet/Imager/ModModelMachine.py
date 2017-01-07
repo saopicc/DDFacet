@@ -39,6 +39,7 @@ class ClassModModelMachine():
         self.GAMM = None
         self.MSMFMM = None
         self.MORSANEMM = None
+        self.HOGBOMMM = None
 
     def GiveMMFromFile(self,FileName=None):
         """
@@ -88,7 +89,7 @@ class ClassModModelMachine():
             return self.MSMFMM
         elif Mode == "MORESANE":
             if self.MORSANEMM is None:
-                print>> log, "Initialising MSMF model machine"
+                print>> log, "Initialising MORESANE model machine"
                 from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
                 self.MORESANEMM = ClassModelMachineMORESANE.ClassModelMachine(
                     self.GD,
@@ -96,5 +97,13 @@ class ClassModModelMachine():
             else:
                 print>> log, "MORSANE model machine already initialised"
             return self.MORESANEMM
+        elif Mode == "Hogbom":
+            if self.HOGBOMMM is None:
+                print>> log, "Initialising HOGBOM model machine"
+                from DDFacet.Imager.HOGBOM import ClassModelMachineHogbom
+                self.HOGBOMMM = ClassModelMachineHogbom.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+            else:
+                print>> log, "HOGBOM model machine already initialised"
+            return self.HOGBOMMM
         else:
             raise NotImplementedError("The %s minor cycle is not currently supported",self.GD["ImagerDeconv"]["MinorCycleMode"])
