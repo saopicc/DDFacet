@@ -174,6 +174,7 @@ def read_options():
     OP.add_option("NChanDegridPerMS")
     OP.add_option("GridBandMHz")
     OP.add_option("DegridBandMHz")
+    OP.add_option("PolyFitOrder")
 
     OP.OptionGroup("* Primary Beam Options", "Beam")
     OP.add_option("BeamModel")
