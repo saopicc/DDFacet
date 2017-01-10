@@ -462,7 +462,9 @@ class ClassDDEGridMachine():
         self.SumWeigths=np.zeros((self.NChan,self.npol),np.float64)
         self.SumJones=np.zeros((2,self.NChan),np.float64)
 
-    def setDecorr(self,uvw_dt,DT,Dnu,SmearMode="FT",lm_min=None):
+    def setDecorr(self,uvw_dt,DT,Dnu,SmearMode="FT",
+                  lm_min=None,
+                  lm_PhaseCenter=None):
         DoSmearFreq=0
         if "F" in SmearMode:
             DoSmearFreq=1
@@ -473,7 +475,9 @@ class ClassDDEGridMachine():
         lmin,mmin=self.lmShift
         if lm_min is not None:
             lmin,mmin=lm_min
-        
+        if lm_PhaseCenter is not None:
+            lmin-=lm_PhaseCenter[0]
+            mmin-=lm_PhaseCenter[1]
 
         if not(uvw_dt.dtype==np.float64):
             raise NameError('uvw_dt.dtype %s %s'%(str(uvw_dt.dtype),str(np.float64)))
@@ -538,7 +542,6 @@ class ClassDDEGridMachine():
             InterpMode=0
         elif InterpMode=="Krigging":
             InterpMode=1
-
                 
         #ParamJonesList=[MapJones,A0.astype(np.int32),A1.astype(np.int32),JonesMatrices.astype(np.complex64),idir]
         if A0.size!=uvw.shape[0]:

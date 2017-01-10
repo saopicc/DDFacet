@@ -517,7 +517,7 @@ class ClassMS():
         #time_slots_all=np.array(sorted(list(set(time_all))))
         ntimes=time_all.shape[0]/self.nbl
         uvw = table_all.getcol('UVW', row0, nRowRead)
-
+        self.RotateType=["uvw","vis"]
         # if shared cache is enabled, get data and flags from cache if possible, else create them in-cache
         if use_cache:
             # note that we use start_time for the cache key. This ensures that the cache is reset on first use
@@ -532,8 +532,11 @@ class ClassMS():
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                     if self._reverse_channel_order:
                         visdata[...] = visdata[:,::-1,:]
+
                 else:
                     print>> log, "visibilities are already in shared array %s" % self._datapath
+                    # if rotation is enabled, no need to rotate the visibilities
+                    self.RotateType=["uvw"]
             else:
                 visdata = np.zeros(datashape,dtype=np.complex64)
             self._flagpath, flagvalid = self.cache.checkCache("Flags", dict(time=self._start_time))
@@ -556,6 +559,7 @@ class ClassMS():
             print>>log,"using %d/%d elements of existing flag buffer"%(flags.size,flagbuf.size)
             table_all.getcolslicenp("FLAG",flags,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
             visdata = np.ndarray(shape=datashape,dtype=np.complex64,buffer=databuf)
+
             if read_data:
                 print>>log,"using %d/%d elements of existing visibility buffer"%(visdata.size,databuf.size)
                 table_all.getcolslicenp(self.ColName,visdata,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
@@ -608,7 +612,7 @@ class ClassMS():
             visdata[np.isnan(visdata)] = 0.
         # print "visMS",vis_all.min(),vis_all.max()
 
-        if self.ToRADEC!=None:
+        if self.ToRADEC is not None:
             self.Rotate(DATA)
 
         # if self.AverageSteps is not None:
@@ -890,8 +894,8 @@ class ClassMS():
         ta=table(table_all.getkeyword('FIELD'),ack=False)
         rarad,decrad=ta.getcol('PHASE_DIR')[self.Field][0]
         if rarad<0.: rarad+=2.*np.pi
-
-        if self.ToRADEC!=None:
+        self.OldRadec=rarad,decrad
+        if self.ToRADEC is not None:
             SRa,SDec=self.ToRADEC
             srah,sram,sras=SRa.split(":")
             sdecd,sdecm,sdecs=SDec.split(":")
@@ -900,6 +904,8 @@ class ClassMS():
             self.OldRadec=rarad,decrad
             self.NewRadec=ranew,decnew
             rarad,decrad=ranew,decnew
+
+
 
         T.timeit()
 
@@ -956,6 +962,7 @@ class ClassMS():
         self.nbl=nbl
         self.StrRA  = rad2hmsdms(self.rarad,Type="ra").replace(" ",":")
         self.StrDEC = rad2hmsdms(self.decrad,Type="dec").replace(" ",".")
+        self.lm_PhaseCenter=self.radec2lm_scalar(self.OldRadec[0],self.OldRadec[1])
 
         table_all.close()
         T.timeit()
@@ -1070,8 +1077,8 @@ class ClassMS():
         m = np.sin(dec) * np.cos(self.decrad) - np.cos(dec) * np.sin(self.decrad) * np.cos(ra - self.rarad)
         return l,m
 
-    def PutVisColumn (self,colname,vis):
-        self.AddCol(colname,quiet=True)
+    def PutVisColumn (self,colname,vis,LikeCol="DATA"):
+        self.AddCol(colname,LikeCol=LikeCol,quiet=True)
         print>>log,"writing column %s rows %d:%d"%(colname,self.ROW0,self.ROW1-1)
         if self._reverse_channel_order:
             vis = vis[:,::-1,:]
@@ -1281,9 +1288,13 @@ class ClassMS():
         StrDECOld = rad2hmsdms(self.OldRadec[1],Type="dec").replace(" ",".")
         StrRA  = rad2hmsdms(self.NewRadec[0],Type="ra").replace(" ",":")
         StrDEC = rad2hmsdms(self.NewRadec[1],Type="dec").replace(" ",".")
-        print>>log, "  Rotate data from [%s, %s]"%(StrRAOld,StrDECOld)
-        print>>log, "                to [%s, %s]"%(StrRA,StrDEC)
-        DDFacet.ToolsDir.ModRotate.Rotate2(self.OldRadec,self.NewRadec,DATA["uvw"],DATA["data"],self.wavelength_chan)
+        print>>log, "Rotate %s"%(",".join(self.RotateType))
+        print>>log, "     from [%s, %s]"%(StrRAOld,StrDECOld)
+        print>>log, "       to [%s, %s]"%(StrRA,StrDEC)
+        DDFacet.ToolsDir.ModRotate.Rotate2(self.OldRadec,self.NewRadec,DATA["uvw"],DATA["data"],self.wavelength_chan,
+                                           RotateType=self.RotateType)
+
+
 
     # def RotateMS(self,radec):
     #     import ModRotate

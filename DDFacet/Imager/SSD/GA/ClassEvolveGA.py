@@ -134,13 +134,15 @@ class ClassEvolveGA():
                 SModelArrayMP,_=self.ArrayMethodsMachine.DeconvCLEAN()
                 AModelArrayMP=np.zeros_like(SModelArrayMP)
 
+            if NGen==0: 
+                self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
+                self.ArrayMethodsMachine.KillWorkers()
+                return self.pop[0]
+
+
             if np.max(np.abs(self.IslandBestIndiv))==0:
-                
                 #print "NEW"
                 self.ArrayMethodsMachine.PM.ReinitPop(self.pop,SModelArrayMP,AlphaModel=AModelArrayMP)
-                if NGen==0: 
-                    self.ArrayMethodsMachine.KillWorkers()
-                    return self.pop[0]
             else:
                 #print "MIX"
                 NIndiv=len(self.pop)/10

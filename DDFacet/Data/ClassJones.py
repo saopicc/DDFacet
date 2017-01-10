@@ -34,7 +34,8 @@ class ClassJones():
             self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache("JonesNorm_killMS.npz",
                                                                             dict(DDESolutions=GD["DDESolutions"],
                                                                                  DataSelection=self.GD["DataSelection"],
-                                                                                 ImagerMainFacet=self.GD["ImagerMainFacet"]),
+                                                                                 ImagerMainFacet=self.GD["ImagerMainFacet"],
+                                                                                 PhaseCenterRADEC=self.GD["ImagerGlobal"]["PhaseCenterRADEC"]),
                                                                             reset=self.GD["Caching"]["ResetJones"])
             if valid:
                 print>>log,"  using cached Jones matrices from %s"%self.JonesNormSolsFile_killMS
@@ -42,6 +43,8 @@ class ClassJones():
             else:
                 DicoSols,TimeMapping,DicoClusterDirs=self.MakeSols("killMS")
                 self.MS.cache.saveCache("JonesNorm_killMS.npz")
+
+            
             self.ToShared("killMS",DicoSols,TimeMapping,DicoClusterDirs)
             self.DicoClusterDirs_kMS=DicoClusterDirs
             self.HasKillMSSols=True
@@ -72,6 +75,8 @@ class ClassJones():
         NpShared.DelAll("%sDicoClusterDirs_%s" % (self.IdSharedMem, StrType))
         NpShared.DelAll("%sJonesFile_%s" % (self.IdSharedMem, StrType))
         NpShared.DelAll("%sMapJones_%s" % (self.IdSharedMem, StrType))
+        ra,dec=DicoClusterDirs["ra"],DicoClusterDirs["dec"]
+        DicoClusterDirs["l"],DicoClusterDirs["m"]=self.MS.radec2lm_scalar(ra,dec)
         NpShared.DicoToShared("%sDicoClusterDirs_%s" % (self.IdSharedMem, StrType), DicoClusterDirs)
         NpShared.DicoToShared("%sJonesFile_%s" % (self.IdSharedMem, StrType), DicoSols)
         NpShared.ToShared("%sMapJones_%s" % (self.IdSharedMem, StrType), TimeMapping)

@@ -477,6 +477,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             indx,indy=np.where(R==np.min(R))
             lmin,mmin=X[indx[0],indy[0]],Y[indx[0],indy[0]]
             self.DicoImager[iFacet]["lm_min"]=lmin,mmin
+            
 
 
         print>> log, "Saving DicoImager in %s" % DicoName

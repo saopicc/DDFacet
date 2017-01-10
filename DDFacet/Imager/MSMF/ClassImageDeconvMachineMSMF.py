@@ -201,7 +201,7 @@ class ClassImageDeconvMachine():
                 if self.CacheSharedMode:
                     for iFacet in facetcache_DicoArrays.keys():
                         facetcache_DicoArrays[iFacet]=NpShared.DicoToShared("%sDicoBasisMatrix_F%4.4i"%(self.IdSharedMem,iFacet),facetcache_DicoArrays[iFacet])
-
+                self.PSFHasChanged=False
                 # try:
                 #     MyPickle.DicoNPToFile(facetcache,cachepath)
                 #     #cPickle.dump(facetcache, file(cachepath, 'w'), 2)

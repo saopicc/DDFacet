@@ -510,7 +510,8 @@ class ClassFacetMachine():
                                            NFreqBands=self.VS.NFreqBands,
                                            DataShape=self.VS.datashape,
                                            DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-                                           ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
+                                           ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds(),
+                                           lm_PhaseCenter=self.VS.CurrentMS.lm_PhaseCenter)
                 workerlist.append(W)
                 if Parallel:
                     workerlist[ii].start()
@@ -1091,7 +1092,8 @@ class ClassFacetMachine():
                                          NFreqBands=self.VS.NFreqBands,
                                          PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
                                          DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-                                         ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
+                                         ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds(),
+                                         lm_PhaseCenter=self.VS.CurrentMS.lm_PhaseCenter)
             workerlist.append(W)
             if Parallel:
                 workerlist[ii].start()
@@ -1227,7 +1229,8 @@ class ClassFacetMachine():
                                          FlagPath=self.VS.flagpath,
                                          DataShape=self.VS.datashape,
                                          DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-                                         ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
+                                         ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds(),
+                                         lm_PhaseCenter=self.VS.CurrentMS.lm_PhaseCenter)
             workerlist.append(W)
             if Parallel:
                 workerlist[ii].start()
@@ -1336,7 +1339,8 @@ class ClassFacetMachine():
                                          PauseOnStart=self.GD["Debugging"]["PauseGridWorkers"],
                                          DataShape=self.VS.datashape,
                                          DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-                                         ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds())
+                                         ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds(),
+                                         lm_PhaseCenter=self.VS.CurrentMS.lm_PhaseCenter)
             workerlist.append(W)
             if Parallel:
                 workerlist[ii].start()
@@ -1446,7 +1450,8 @@ class ClassFacetMachine():
                                              DataShape=self.VS.datashape,
                                              DataCorrelationFormat = self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                                              ExpectedOutputStokes = self.VS.StokesConverter.RequiredStokesProductsIds(),
-                                             ListSemaphores=ListSemaphores)
+                                             ListSemaphores=ListSemaphores,
+                                             lm_PhaseCenter=self.VS.CurrentMS.lm_PhaseCenter)
 
                 workerlist.append(W)
                 if Parallel:
@@ -1546,7 +1551,8 @@ class WorkerImager(multiprocessing.Process):
                  FlagPath=None,
                  DataCorrelationFormat=[5,6,7,8],
                  ExpectedOutputStokes=[1],
-                 ListSemaphores=None):
+                 ListSemaphores=None,
+                 lm_PhaseCenter=None):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -1575,6 +1581,7 @@ class WorkerImager(multiprocessing.Process):
         self.ExpectedOutputStokes = ExpectedOutputStokes
         self.ListSemaphores = ListSemaphores
         self.Weights = Weights
+        self.lm_PhaseCenter=lm_PhaseCenter
 
     def shutdown(self):
         self.exit.set()
@@ -1612,7 +1619,10 @@ class WorkerImager(multiprocessing.Process):
             lm_min=None
             if self.GD["DDESolutions"]["DecorrLocation"]=="Edge":
                 lm_min=self.DicoImager[iFacet]["lm_min"]
-            GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode, lm_min=lm_min)
+            GridMachine.setDecorr(uvw_dt, DT, Dnu, 
+                                  SmearMode=DecorrMode, 
+                                  lm_min=lm_min,
+                                  lm_PhaseCenter=self.lm_PhaseCenter)
 
     def GiveDicoJonesMatrices(self):
         DicoJonesMatrices=None

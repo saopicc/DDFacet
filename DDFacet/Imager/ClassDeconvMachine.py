@@ -764,7 +764,9 @@ class ClassImagerDeconv():
 
             PredictColName=self.GD["VisData"]["PredictColName"]
 
-            self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
+            self.VS.CurrentMS.PutVisColumn(PredictColName, 
+                                           vis,
+                                           LikeCol=self.GD["VisData"]["ColName"])
 
         # if from_fits:
         #     print "Predicting from fits and saving in %s",(PredictColName)
@@ -818,8 +820,13 @@ class ClassImagerDeconv():
             self.DeconvMachine.Update(DicoImage)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
-            self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,
-                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            try:
+                self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,
+                                              ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            except:
+                pass
+
             # stop
             self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName) 
 
@@ -874,6 +881,7 @@ class ClassImagerDeconv():
                 if predict_colname:
                     print>>log,"last major cycle: model visibilities will be stored to %s"%predict_colname
 
+                
                 if self.PredictMode == "DeGridder":
                     self.FacetMachine.getChunk(ModelImage)
                 elif self.PredictMode == "Montblanc":

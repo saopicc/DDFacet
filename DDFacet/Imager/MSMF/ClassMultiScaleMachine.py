@@ -382,7 +382,7 @@ class ClassMultiScaleMachine():
         self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
 
 
-        self.WeightWidth=6.
+        self.WeightWidth=np.max([6.,np.max(Scales)])
         self.SupWeightWidth=np.max([3.*self.WeightWidth,15])
 
         T.timeit("init2")
@@ -780,7 +780,7 @@ class ClassMultiScaleMachine():
             OrigDirty=dirtyVec.copy().reshape((nchan,1,nxp,nyp))[:,0]
             dirtyVec=dirtyVec.copy()
             Mask=np.zeros(WVecPSF.shape,np.bool8)
-            for iIter in range(10):
+            for iIter in [0]:#range(10):
                 #print "iter=",iIter
                 A=W*BM
                 y=W*dirtyVec
@@ -945,6 +945,9 @@ class ClassMultiScaleMachine():
 
                 nch,nx,ny=LocalSM.shape
                 #print Peak
+
+                #Sol=(Sol.reshape((-1,self.NScales))/(self.SumFluxScales.reshape((1,-1)))).flatten()
+
 
                 #print "Sol1",Sol
                 LocalSM*=(MeanFluxTrue/Peak)
