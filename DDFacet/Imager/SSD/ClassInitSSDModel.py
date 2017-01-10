@@ -142,7 +142,7 @@ class ClassInitSSDModel():
         self.GD["ImagerDeconv"]["MaxMinorIter"]=10000
         
 
-        self.GD["MultiScale"]["Scales"]=[0,1,2,4,8]
+        self.GD["MultiScale"]["Scales"]=[0,1,2,4,6,8]
         self.GD["MultiScale"]["SolverMode"]="NNLS"
         #self.GD["MultiScale"]["SolverMode"]="PI"
 

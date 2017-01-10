@@ -215,6 +215,7 @@ def read_options():
     OP.add_option("ConvFFTSwitch")
     OP.add_option("RestoreMetroSwitch")
     OP.add_option("MinSizeInitHMP")
+    OP.add_option("MinMaxGroupDistance")
 
     OP.OptionGroup("* GA Options","GAClean")
     OP.add_option("NSourceKin")

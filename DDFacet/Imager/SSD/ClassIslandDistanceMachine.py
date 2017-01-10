@@ -121,10 +121,10 @@ class ClassIslandDistanceMachine():
 
     def GiveNearbyIsland(self,iIsland,SetThisIsland):
         Th=0.05
-        print "======================="
-        print SetThisIsland
+        # print "======================="
+        # print SetThisIsland
         if iIsland in self.setCheckedIslands:
-            print "  Island #%3.3i already associated"%iIsland
+            #print "  Island #%3.3i already associated"%iIsland
             return SetThisIsland
         self.setCheckedIslands.add(iIsland)
         #indNearbyIsland=np.where((self.PSFCross[iIsland])>Th)[0]
@@ -136,7 +136,7 @@ class ClassIslandDistanceMachine():
         C1=(self.DistCross[iIsland]<D1)
         setNearbyIsland=set(np.where( (CTh | C0) & (C1) )[0].tolist())
         setNearbyIsland=setNearbyIsland.difference(SetThisIsland)
-        print "  #%3.3i <- %i islands"%(iIsland,len(setNearbyIsland))
+        #print "  #%3.3i <- %i islands"%(iIsland,len(setNearbyIsland))
         if len(setNearbyIsland)>0:
             SetThisIsland=SetThisIsland.union(setNearbyIsland)
             for iIsland in SetThisIsland:
@@ -180,7 +180,7 @@ class ClassIslandDistanceMachine():
         ListIslandMerged=[]
         self.setCheckedIslands=set([])
         for iIsland in range(NIslands):
-            print "Main %i"%iIsland
+            #print "Main %i"%iIsland
             NDone+=1
             intPercent=int(100*  NDone / float(NJobs))
             pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
@@ -188,7 +188,6 @@ class ClassIslandDistanceMachine():
             ListIslandMerged.append(list(self.GiveNearbyIsland(iIsland,set([]))))
 
         
-        print>>log,"    have grouped %i --> %i islands"%(NIslands, len(ListIslandMerged))
         ListIslands=[]
         for indIsland in ListIslandMerged:
             if len(indIsland)==0: continue
@@ -196,6 +195,8 @@ class ClassIslandDistanceMachine():
             for iIsland in indIsland[1::]:
                 ThisIsland+=DicoIsland[iIsland]
             ListIslands.append(ThisIsland)
+
+        print>>log,"    have grouped %i --> %i islands"%(NIslands, len(ListIslands))
 
         return ListIslands
 
