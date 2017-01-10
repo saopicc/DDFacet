@@ -824,10 +824,12 @@ class ClassImagerDeconv():
                 self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,
                                               ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                ModelImage = self.DeconvMachine.GiveModelImage(np.array([100e6]))
+                self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
+                                              Fits=True)#,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             except:
                 pass
-
-            # stop
+            stop
             self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName) 
 
             ## returned with nothing done in minor cycle? Break out

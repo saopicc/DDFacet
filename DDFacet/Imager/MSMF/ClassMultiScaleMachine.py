@@ -778,18 +778,23 @@ class ClassMultiScaleMachine():
             # print ":::::::::"
             # W.fill(1.)
             OrigDirty=dirtyVec.copy().reshape((nchan,1,nxp,nyp))[:,0]
+            MeanOrigDirty=np.mean(OrigDirty,axis=0)
+            xc0,yc0=np.where(np.abs(MeanOrigDirty) == np.max(np.abs(MeanOrigDirty)))
+            PeakMeanOrigDirty=MeanOrigDirty[xc0,yc0]
             dirtyVec=dirtyVec.copy()
             Mask=np.zeros(WVecPSF.shape,np.bool8)
-            for iIter in [0]:#range(10):
+            for iIter in range(10):
                 #print "iter=",iIter
                 A=W*BM
                 y=W*dirtyVec
-
+                d=dirtyVec.reshape((nchan,1,nxp,nyp))[:,0]
+                PeakMeanOrigResid=np.mean(d,axis=0)[xc0,yc0]
+                y*=PeakMeanOrigDirty/PeakMeanOrigResid
+                #print "  ",PeakMeanOrigDirty,PeakMeanOrigResid,PeakMeanOrigDirty/PeakMeanOrigResid
                 x,_=scipy.optimize.nnls(A, y.ravel())
                 #x0=x.copy()
                 # Compute "dirty" solution and residuals
                 ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
-                d=dirtyVec.reshape((nchan,1,nxp,nyp))[:,0]
 
                 # # ### debug
                 # print "x",x
@@ -838,7 +843,8 @@ class ClassMultiScaleMachine():
 
 
                 # If source is contaminating, substract it with the delta (with alpha=0)
-                if xc1.size>0 and MaxResid>Peak/100.:
+                CentralPixel=(xc1==xc0 and yc1==yc0)
+                if xc1.size>0 and MaxResid>Peak/100. and not CentralPixel:
                     F=Resid[:,xc1[0],yc1[0]]
                     dx,dy=nxp/2-xc1[0],nyp/2-yc1[0]
                     _,_,nxPSF,nyPSF=self.SubPSF.shape
@@ -865,6 +871,9 @@ class ClassMultiScaleMachine():
                     ThisDirty=ThisPSF*F.reshape((-1,1,1))
                     dirtyVecSub=d-ThisDirty
                     dirtyVec=dirtyVecSub.reshape((-1,1))
+                    
+
+
 
 
                     DoBreak=False
@@ -874,23 +883,28 @@ class ClassMultiScaleMachine():
                 # ####### debug
                 # import pylab
                 # pylab.clf()
-                # pylab.subplot(2,2,1)
+                # pylab.subplot(2,3,1)
+                # pylab.imshow(OrigDirty[0],interpolation="nearest")
+                # pylab.title("Dirty")
+                # pylab.subplot(2,3,2)
                 # pylab.imshow(d[0],interpolation="nearest")
-                # pylab.title("iter=%i"%iIter)
+                # pylab.title("Dirty iter=%i"%iIter)
                 # pylab.colorbar()
-                # pylab.subplot(2,2,2)
+                # pylab.subplot(2,3,3)
                 # pylab.imshow(ConvSM[0],interpolation="nearest")
+                # pylab.title("Model")
                 # pylab.colorbar()
-                # pylab.subplot(2,2,3)
+                # pylab.subplot(2,3,4)
                 # pylab.imshow((Resid)[0],interpolation="nearest")
+                # pylab.title("Residual")
                 # pylab.colorbar()
-                # pylab.subplot(2,2,4)
+                # pylab.subplot(2,3,5)
                 # pylab.imshow(dirtyVecSub[0],interpolation="nearest")
+                # pylab.title("NewResid")
                 # pylab.colorbar()
                 # pylab.draw()
                 # pylab.show(False)
                 # pylab.pause(0.1)
-                # stop
                 # #####################
 
                 if DoBreak: break
@@ -948,11 +962,11 @@ class ClassMultiScaleMachine():
 
                 #Sol=(Sol.reshape((-1,self.NScales))/(self.SumFluxScales.reshape((1,-1)))).flatten()
 
-
+                
                 #print "Sol1",Sol
                 LocalSM*=(MeanFluxTrue/Peak)
                 Sol*=(MeanFluxTrue/Peak)
-            
+                #print coef#,MeanFluxTrue,Peak,Sol
             #print "Sol2",Sol
 
 

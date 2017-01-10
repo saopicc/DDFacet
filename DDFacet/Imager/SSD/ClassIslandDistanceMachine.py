@@ -139,12 +139,12 @@ class ClassIslandDistanceMachine():
 
         ii=0
         #print DicoIsland.keys()
-        #print>>log,"Looking around island #%i"%(iIsland)
+        print>>log,"Looking around island #%i"%(iIsland)
         for jIsland in indNearbyIsland:
             #if jIsland in DicoIsland.keys():
             try:
                 Island=DicoIsland[jIsland]
-                #print>>log,"  merging island #%i -> #%i"%(jIsland,iIsland)
+                print>>log,"  merging island #%i -> #%i"%(jIsland,iIsland)
                 del(DicoIsland[jIsland])
                 SubIslands=self.GiveNearbyIsland(DicoIsland,jIsland)
                 if SubIslands is not None:

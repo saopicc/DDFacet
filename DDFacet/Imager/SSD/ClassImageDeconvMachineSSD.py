@@ -261,16 +261,16 @@ class ClassImageDeconvMachine():
 
         ListDoMSMFIslandsInit=[True if self.ListSizeIslands[iIsland]>=self.GD["SSDClean"]["MinSizeInitHMP"] else False for iIsland in range(len(self.ListIslands))]
         print>>log,"  selected %i islands larger that %i pixels for HMP initialisation"%(np.count_nonzero(ListDoMSMFIslandsInit),self.GD["SSDClean"]["MinSizeInitHMP"])
-        if np.count_nonzero(ListDoMSMFIslandsInit)>0:
-            InitMachine=ClassInitSSDModel.ClassInitSSDModelParallel(self.GD,
-                                                                    self.DicoVariablePSF,
-                                                                    self.DicoDirty,
-                                                                    self.ModelMachine.RefFreq,
-                                                                    MainCache=self.maincache,
-                                                                    NCPU=self.NCPU,
-                                                                    IdSharedMem=self.IdSharedMem)
-            InitMachine.setSSDModelImage(ModelImage)
-            self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(self.ListIslands,ListDoIsland=ListDoMSMFIslandsInit)
+        # if np.count_nonzero(ListDoMSMFIslandsInit)>0:
+        #     InitMachine=ClassInitSSDModel.ClassInitSSDModelParallel(self.GD,
+        #                                                             self.DicoVariablePSF,
+        #                                                             self.DicoDirty,
+        #                                                             self.ModelMachine.RefFreq,
+        #                                                             MainCache=self.maincache,
+        #                                                             NCPU=self.NCPU,
+        #                                                             IdSharedMem=self.IdSharedMem)
+        #     InitMachine.setSSDModelImage(ModelImage)
+        #     self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(self.ListIslands,ListDoIsland=ListDoMSMFIslandsInit)
 
 
     def setChannel(self,ch=0):
@@ -299,7 +299,8 @@ class ClassImageDeconvMachine():
         print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
 
         NPixStats=1000
-        RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
+        #RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
+        RandomInd=np.int64(np.linspace(0,self.Dirty.size-1,NPixStats))
         RMS=np.std(np.real(self.Dirty.ravel()[RandomInd]))
         #print "::::::::::::::::::::::"
         self.RMS=RMS
