@@ -677,7 +677,7 @@ class ClassImagerDeconv():
             if not continue_deconv:
                 break
 
-            print>>log, ModColor.Str("========================== Running major cycle %i ========================="%iMajor)
+            print>>log, ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1))
 
             self.DeconvMachine.Update(DicoImage)
 

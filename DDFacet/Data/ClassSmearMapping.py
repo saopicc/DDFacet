@@ -324,13 +324,19 @@ def GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
         # accumulate delta-phase, and divide by dPhi. Take the floor of that -- that gives us an integer, the time block number
         # for each row
         if Duv:
-            rowblock = np.int32(delta_phase.cumsum() / dPhi)
-            # find row numbers at which the time blocks are cut (adding nrows at end)
+            rowblock = np.zeros(nrows+1)
+            rowblock[:nrows] = np.int32(delta_phase.cumsum() / dPhi)
+            rowblock[nrows] = -1
+            # rowblock is now an nrows+1 vector of block numbers per each row, with an -1 at the end, e.g. [ 1 1 1 2 2 2 3 3 -1]
+            # np.roll(rowblock,1) "rolls" this vector to the right, resulting in:                          [-1 1 1 1 2 2 2 3 3 ]
+            # now, every position in the array where roll!=rowblock is a starting position for a block.
+            # conveniently (and by construction, thanks to the -1 at the end), this always includes the 0 and the nrows position.
             blockcut = np.where(np.roll(rowblock,1) != rowblock)[0]
             nblocks = len(blockcut)
-            blockcut = list(blockcut) + [nrows]
-            # make list of rows slices for each time block
-            block_slices = [ slice(blockcut[i],blockcut[i+1]) for i in xrange(nblocks) ]
+            # make list of rows slices for each time block. The where() statement above gives us a list of rows at
+            # which the block index has changed, i.e. [0 N1 N2 Nrows]. COnvert this into slice objects representing
+            # [0,N1), [N1,N2), ..., [Nx,Nrows)
+            block_slices = [ slice(blockcut[i],blockcut[i+1]) for i in xrange(nblocks-1) ]
         else:
             block_slices = [ slice(i,i+1) for i in xrange(nrows) ]
     else:   # slow-style, more like Cyril used to do it

@@ -128,7 +128,7 @@ class ClassCompareFITSImage(unittest.TestCase):
         """
         Relative tolerance on minor cycle count
         """
-        return 0  # +/- 0 major cycles
+        return 1  # +/- 0 major cycles
 
     @classmethod
     def setParsetOption(cls, section, option, value):
