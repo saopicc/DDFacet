@@ -119,9 +119,14 @@ class ClassIslandDistanceMachine():
         
         self.PSFCross=PSFCross
 
-    def GiveNearbyIsland(self,DicoIsland,iIsland):
+    def GiveNearbyIsland(self,iIsland,SetThisIsland):
         Th=0.05
-
+        print "======================="
+        print SetThisIsland
+        if iIsland in self.setCheckedIslands:
+            print "  Island #%3.3i already associated"%iIsland
+            return SetThisIsland
+        self.setCheckedIslands.add(iIsland)
         #indNearbyIsland=np.where((self.PSFCross[iIsland])>Th)[0]
 
         D0,D1=self.GD["SSDClean"]["MinMaxGroupDistance"]
@@ -129,34 +134,16 @@ class ClassIslandDistanceMachine():
         CTh=(self.PSFCross[iIsland]>Th)
         C0=(self.DistCross[iIsland]<D0)
         C1=(self.DistCross[iIsland]<D1)
-        indNearbyIsland=np.where( (CTh | C0) & (C1) )[0]
-        
+        setNearbyIsland=set(np.where( (CTh | C0) & (C1) )[0].tolist())
+        setNearbyIsland=setNearbyIsland.difference(SetThisIsland)
+        print "  #%3.3i <- %i islands"%(iIsland,len(setNearbyIsland))
+        if len(setNearbyIsland)>0:
+            SetThisIsland=SetThisIsland.union(setNearbyIsland)
+            for iIsland in SetThisIsland:
+                SetThisIsland=self.GiveNearbyIsland(iIsland,SetThisIsland)
+        return SetThisIsland
+            
 
-        #Th=0.3
-        #Flux=self.CrossFluxContrib[iIsland,iIsland]
-        #C0=(self.CrossFluxContrib[iIsland] > Flux*Th)
-        #indNearbyIsland=np.where(C0)[0]
-
-        ii=0
-        #print DicoIsland.keys()
-        print>>log,"Looking around island #%i"%(iIsland)
-        for jIsland in indNearbyIsland:
-            #if jIsland in DicoIsland.keys():
-            try:
-                Island=DicoIsland[jIsland]
-                print>>log,"  merging island #%i -> #%i"%(jIsland,iIsland)
-                del(DicoIsland[jIsland])
-                SubIslands=self.GiveNearbyIsland(DicoIsland,jIsland)
-                if SubIslands is not None:
-                    Island+=SubIslands
-                return Island
-            except:
-                continue
-
-
-        #print>>log,"  could not find island #%i"%(iIsland)
-                
-        return None
 
 
 
@@ -180,7 +167,7 @@ class ClassIslandDistanceMachine():
             DicoIsland[iIsland]=ListIslands[iIsland]
 
         self.CrossFluxContrib=self.PSFCross*MaxIslandFlux.reshape((1,NIslands))
-        
+        self.DicoIsland=DicoIsland
 
         NDone=0
         NJobs=NIslands
@@ -189,33 +176,28 @@ class ClassIslandDistanceMachine():
         pBAR.render(0, '%4i/%i' % (0,NJobs))
 
         Th=0.05
+        
         ListIslandMerged=[]
+        self.setCheckedIslands=set([])
         for iIsland in range(NIslands):
+            print "Main %i"%iIsland
             NDone+=1
             intPercent=int(100*  NDone / float(NJobs))
             pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
-
-            ThisIsland=self.GiveNearbyIsland(DicoIsland,iIsland)
             
-            # indiIsland=np.where((self.PSFCross[iIsland])>Th)[0]
-            # ThisIsland=[]
-            # #print "Island #%i: %s"%(iIsland,str(np.abs(self.PSFCross[iIsland])))
-            # for jIsland in indiIsland:
-            #     if not(jIsland in DicoIsland.keys()): 
-            #         #print>>log,"    island #%i not there "%(jIsland)
-            #         continue
-            #     #print>>log,"  Putting island #%i in #%i"%(jIsland,iIsland)
-            #     for iPix in range(len(DicoIsland[jIsland])):
-            #         ThisIsland.append(DicoIsland[jIsland][iPix])
-            #     del(DicoIsland[jIsland])
+            ListIslandMerged.append(list(self.GiveNearbyIsland(iIsland,set([]))))
 
-
-            if ThisIsland is not None:
-                ListIslandMerged.append(ThisIsland)
-
+        
         print>>log,"    have grouped %i --> %i islands"%(NIslands, len(ListIslandMerged))
+        ListIslands=[]
+        for indIsland in ListIslandMerged:
+            if len(indIsland)==0: continue
+            ThisIsland=DicoIsland[indIsland[0]]
+            for iIsland in indIsland[1::]:
+                ThisIsland+=DicoIsland[iIsland]
+            ListIslands.append(ThisIsland)
 
-        return ListIslandMerged
+        return ListIslands
 
     def calcDistanceMatrixMean(self,ListIslands):
         NIslands=len(ListIslands)
