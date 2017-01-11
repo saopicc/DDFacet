@@ -1,4 +1,24 @@
 #!/usr/bin/env python
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
+
 import collections
 import optparse as OptParse
 import sys
@@ -39,9 +59,9 @@ class MyOptParse():
     def add_option(self,name,default):
         if name == "_Help":
             return
-        if name == "_Local":
-            self._local_scope = default
-            return
+        # if name == "_Local":
+        #     self._local_scope = default
+        #     return
         # get optional attributes of this item
         attrs = self.AttrDict.get(self.CurrentGroupKey,{}).get(name,{})
         # items that are aliases of other items do not get their own option
@@ -68,12 +88,12 @@ class MyOptParse():
             help = "(default: %default)"
 
         option_names = [ '--%s-%s' % (self.CurrentGroupKey, name) ]
-        ## if option has an alias, enable --section-name and --alias. Else enable --section-name and --name.
-        if not attrs.get('local') or not self._local_scope:
-            if 'alias' in attrs:
-                option_names.append( "--%s" % attrs['alias'])
-            elif not attrs.get('local'):
-                option_names.append("--%s" % name)
+        # ## if option has an alias, enable --section-name and --alias. Else enable --section-name and --name.
+        # if not attrs.get('local') or not self._local_scope:
+        #     if 'alias' in attrs:
+        #         option_names.append( "--%s" % attrs['alias'])
+        #     elif not attrs.get('local'):
+        #         option_names.append("--%s" % name)
 
         self.CurrentGroup.add_option(*option_names,
             help=help, type=opttype, default=default, metavar=metavar, action=action,
@@ -163,7 +183,7 @@ class MyOptParse():
 def test():
     OP=MyOptParse()
     
-    OP.OptionGroup("* Data","VisData")
+    OP.OptionGroup("* Data","Data")
     OP.add_option('MSName',help='Input MS')
     OP.add_option('ColName')
     OP.Finalise()

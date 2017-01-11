@@ -1,3 +1,23 @@
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
+
 """
 This minimal implementation of standard Hogbom CLEAN algorithm should serve
 as a minimal reference interface of how to incorporate new deconvolution
@@ -13,7 +33,6 @@ from DDFacet.Array import NpParallel
 from DDFacet.Other import ClassTimeIt
 from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
-from DDFacet.Imager import ClassModelMachine
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Imager import ClassGainMachine # Currently required by model machine but fixed to static mode
 
@@ -53,17 +72,19 @@ class ClassImageDeconvMachine():
         self.NCPU=NCPU
         self.MaskArray = None
         self.GD=GD
-        self.MultiFreqMode = (self.GD["MultiFreqs"]["NFreqBands"] > 1)
-        self.NFreqBand = self.GD["MultiFreqs"]["NFreqBands"]
+        self.MultiFreqMode = (self.GD["Freq"]["NBand"] > 1)
+        self.NFreqBand = self.GD["Freq"]["NBand"]
         self.FluxThreshold = FluxThreshold 
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
         self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=Gain)
         if ModelMachine is None:
+            from DDFacet.Imager import ClassModelMachineHogbom as ClassModelMachine
             self.ModelMachine=ClassModelMachine.ClassModelMachine(self.GD,GainMachine=self.GainMachine)
         else:
             self.ModelMachine = ModelMachine
+        self.GainMachine = self.ModelMachine.GainMachine
         self.PolarizationDescriptor = ImagePolDescriptor
         self.PolarizationCleanTasks = []
         if "I" in self.PolarizationDescriptor:
@@ -99,12 +120,15 @@ class ClassImageDeconvMachine():
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.SetModelRefFreq()
-        tmp = [{'Alpha': 0.0, 'Scale': 0, 'ModelType': 'Delta'}]
-        AlphaMin, AlphaMax, NAlpha = self.GD["MultiFreqs"]["Alpha"]
-        if NAlpha > 1:
-            print>>log, "Multi-frequency synthesis not supported in Hogbom CLEAN. Setting alpha to zero"
+        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"],self.GD["Freq"]["PolyFitOrder"])
+        # tmp = [{'Alpha': 0.0, 'Scale': 0, 'ModelType': 'Delta'}]
+        # AlphaMin, AlphaMax, NAlpha = self.GD["HMP"]["Alpha"]
+        # if NAlpha > 1:
+        #     print>>log, "Multi-frequency synthesis not supported in Hogbom CLEAN. Setting alpha to zero"
+        #
+        # self.ModelMachine.setListComponants(tmp)
 
-        self.ModelMachine.setListComponants(tmp)
+        # Set gridding Freqs
 
 
     def SetModelRefFreq(self):
@@ -282,12 +306,12 @@ class ClassImageDeconvMachine():
             m0,m1=PeakMap.min(),PeakMap.max()
 
             #These options should probably be moved into MinorCycleConfig in parset
-            DoAbs=int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
+            DoAbs=int(self.GD["Deconv"]["AllowNegative"])
             print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter[pol_task_id],self.MaxMinorIter,DoAbs)
 
             ## Determine which stopping criterion to use for flux limit
             #Get RMS stopping criterion
-            NPixStats = self.GD["ImagerDeconv"]["NumRMSSamples"]
+            NPixStats = self.GD["Deconv"]["NumRMSSamples"]
             if NPixStats:
                 RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
                 if pol_task == "Q+iU":
@@ -412,24 +436,35 @@ class ClassImageDeconvMachine():
                     nch,npol,_,_=self._Dirty.shape
                     #Fpol contains the intensities at (x,y) per freq and polarisation
                     Fpol = np.zeros([nch, npol, 1, 1], dtype=np.float32)
+                    PolyCoeffs = np.zeros([npol, self.ModelMachine.FreqMachine.order])
                     if pol_task == "I":
                         indexI = self.PolarizationDescriptor.index("I")
+                        # Get the solution
                         Fpol[:, indexI, 0, 0] = self._Dirty[:, indexI, x, y]
+                        # Fit a polynomial to get coeffs
+                        PolyCoeffs[indexI, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexI, 0, 0])
+                        # Overwrite with polynoimial fit
+                        Fpol[:, indexI, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexI, :])
                     elif pol_task == "Q+iU":
                         indexQ = self.PolarizationDescriptor.index("Q")
                         indexU = self.PolarizationDescriptor.index("U")
                         Fpol[:, indexQ, 0, 0] = self._Dirty[:, indexQ, x, y]
+                        PolyCoeffs[indexQ, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexQ, 0, 0])
+                        Fpol[:, indexQ, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexQ, :])
                         Fpol[:, indexU, 0, 0] = self._Dirty[:, indexU, x, y]
+                        PolyCoeffs[indexU, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexU, 0, 0])
+                        Fpol[:, indexU, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexU, :])
                     elif pol_task == "V":
                         indexV = self.PolarizationDescriptor.index("V")
                         Fpol[:, indexV, 0, 0] = self._Dirty[:, indexV, x, y]
+                        PolyCoeffs[indexV, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexV, 0, 0])
+                        Fpol[:, indexV, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexV, :])
                     else:
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
                     nchan, npol, _, _ = Fpol.shape
                     JonesNorm = (self.DicoDirty["NormData"][:, :, x, y]).reshape((nchan, npol, 1, 1))
                     # dx=x-xc
                     # dy=y-xc
-
                     T.timeit("stuff")
 
                     #Find PSF corresponding to location (x,y)
@@ -442,27 +477,15 @@ class ClassImageDeconvMachine():
                     #Update model
                     if pol_task == "I":
                         indexI = self.PolarizationDescriptor.index("I")
-                        self.ModelMachine.AppendComponentToDictStacked((x, y),
-                                                                       1.0,
-                                                                       np.mean(Fpol[:,indexI,0,0], axis=0),
-                                                                       indexI)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexI, :], indexI)
                     elif pol_task == "Q+iU":
                         indexQ = self.PolarizationDescriptor.index("Q")
                         indexU = self.PolarizationDescriptor.index("U")
-                        self.ModelMachine.AppendComponentToDictStacked((x, y),
-                                                                       1.0,
-                                                                       np.mean(Fpol[:,indexQ,0,0], axis=0),
-                                                                       indexQ)
-                        self.ModelMachine.AppendComponentToDictStacked((x, y),
-                                                                       1.0,
-                                                                       np.mean(Fpol[:,indexU,0,0], axis=0),
-                                                                       indexU)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexQ, :], indexQ)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexU, :], indexU)
                     elif pol_task == "V":
                         indexV = self.PolarizationDescriptor.index("V")
-                        self.ModelMachine.AppendComponentToDictStacked((x, y),
-                                                                       1.0,
-                                                                       np.mean(Fpol[:,indexV,0,0], axis=0),
-                                                                       indexV)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexV, :], indexV)
                     else:
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
 

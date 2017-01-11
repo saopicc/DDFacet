@@ -1,4 +1,24 @@
-import os
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
+
+import os, re, glob
 import pyrap.measures as pm
 import pyrap.quanta as qa
 from pyrap.tables import table
@@ -440,7 +460,7 @@ class ClassMS():
                 self.MSName + ".ddfcache/F%d:D%d:%d:%d" % (self.Field, self.DDID, row0, row1), self._reset_cache)
         return self._chunk_caches[row0, row1]
 
-    def GiveNextChunk(self,databuf=None,flagbuf=None,use_cache=None,read_data=True):
+    def GiveNextChunk(self,databuf=None,flagbuf=None,use_cache=None,read_data=True,sort_by_baseline=False):
         # release data/flag arrays, if holding them, and mark cache as valid
         if self._datapath:
             self.cache.saveCache("Data")
@@ -453,35 +473,31 @@ class ClassMS():
             row0, row1 = self._chunk_r0r1[self.current_chunk]
             if row1 > row0:
                 self.cache = self.getChunkCache(row0,row1)
-                return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf,use_cache=use_cache,read_data=read_data)
+                return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf,
+                                     use_cache=use_cache,read_data=read_data,sort_by_baseline=sort_by_baseline)
         return "EndMS"
 
     def getChunkRow0Row1 (self):
         return self._chunk_r0r1
         
-    def ReadData(self,row0,row1,DoPrint=False,ReadWeight=False,databuf=None,flagbuf=None,use_cache=False,read_data=True):
+    def ReadData(self,row0,row1,
+                 DoPrint=False, ReadWeight=False,
+                 databuf=None, flagbuf=None,
+                 use_cache=False, read_data=True,
+                 sort_by_baseline=True):
         """
-        We have two modes of reading data/flags:
-
-        * If use_cache is True, then ClassMS uses the cache manager to create shared arrays in the cache, and
-        reads the data and flag columns into them on first call. Subsequent calls then simply return the shared
-        arrays.
-
-        * Is use_cache is False, then ClassMS reads data and flags into the supplied buffers. It is up to the caller
-        to ensure the buffers are large enough for the incoming chunk of data.
-
         Args:
             row0:
             row1:
             DoPrint:
             ReadWeight:
-            use_cache: if True, reads data and flags into SharedArrays associated with the chunk cache
-            databuf: if not using cache, this must be a buffer to read data into
-            flagbuf: if not using cache, this must be a buffer to read flags into
+            use_cache: if True, reads data and flags from the chunk cache, if available
+            databuf: a buffer to read data into. If None, a new array is created.
+            flagbuf: a buffer to read flags into. If None, a new array is created.
             read_data: if False, visibilities will not be read, only flags and other data
-
+            sort_by_baseline: if True, sorts rows in baseline-time order
         Returns:
-
+            DATA dictionary containing all read elements
         """
 
         if row0>=self.F_nrows:
@@ -495,76 +511,125 @@ class ClassMS():
         # expected data column shape
         datashape = (nRowRead, len(self.ChanFreq), len(self.CorrelationNames))
 
-        strMS="%s"%(ModColor.Str(self.MSName, col="green"))
-        print>>log, "%s: Reading next data chunk in [%i, %i] rows"%(strMS,row0,row1)
+        strMS = "%s" % (ModColor.Str(self.MSName, col="green"))
+        print>>log, "%s: Reading next data chunk in [%i, %i] rows" % (
+            strMS, row0, row1)
+        table_all = None
 
-        table_all = self.GiveMainTable()
-        #SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead)
-        A0=table_all.getcol('ANTENNA1',row0,nRowRead)#[SPW==self.ListSPW[0]]
-        A1=table_all.getcol('ANTENNA2',row0,nRowRead)#[SPW==self.ListSPW[0]]
-        #print self.ListSPW[0]
-        time_all=table_all.getcol("TIME",row0,nRowRead)#[SPW==self.ListSPW[0]]
-        #print np.max(time_all)-np.min(time_all)
-        #time_slots_all=np.array(sorted(list(set(time_all))))
-        ntimes=time_all.shape[0]/self.nbl
-        uvw = table_all.getcol('UVW', row0, nRowRead)
-
-        # if shared cache is enabled, get data and flags from cache if possible, else create them in-cache
+        # check cache for A0,A1,time,uvw
         if use_cache:
-            # note that we use start_time for the cache key. This ensures that the cache is reset on first use
-            # (i.e. is not persistent across runs)
-            if read_data:
-                self._datapath, datavalid = self.cache.checkCache("Data", dict(time=self._start_time))
-                self._datapath = "file://"+self._datapath
-                visdata = datavalid and NpShared.GiveArray(self._datapath)
-                if not datavalid or visdata is None:
-                    print>> log, "reading MS visibilities into shared array %s" % self._datapath
-                    visdata = NpShared.CreateShared(self._datapath, datashape, np.complex64)
-                    table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
-                else:
-                    print>> log, "visibilities are already in shared array %s" % self._datapath
-            else:
-                visdata = np.zeros(datashape,dtype=np.complex64)
-            self._flagpath, flagvalid = self.cache.checkCache("Flags", dict(time=self._start_time))
-            self._flagpath = "file://"+self._flagpath
-            flags = flagvalid and NpShared.GiveArray(self._flagpath)
-            if not flagvalid or flags is None:
-                print>>log,"reading MS flags into shared array %s"%self._flagpath
-                flags = NpShared.CreateShared(self._flagpath, datashape, np.bool)
-                table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)  # [SPW==self.ListSPW[0]]
-                self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
-            else:
-                print>> log, "flags are already in shared array %s" % self._flagpath
+            path, valid = self.cache.checkCache("A0A1UVWT.npz", dict(time=self._start_time))
         else:
-            if flagbuf is None or databuf is None:
-                raise RuntimeError,"flagbuf/databuf not supplied. This is a bug."
-            # use supplied buffers for data and flag arrays
-            flags = np.ndarray(shape=datashape,dtype=np.bool,buffer=flagbuf)
-            print>>log,"using %d/%d elements of existing flag buffer"%(flags.size,flagbuf.size)
-            table_all.getcolslicenp("FLAG",flags,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
-            visdata = np.ndarray(shape=datashape,dtype=np.complex64,buffer=databuf)
-            if read_data:
-                print>>log,"using %d/%d elements of existing visibility buffer"%(visdata.size,databuf.size)
-                table_all.getcolslicenp(self.ColName,visdata,self.cs_tlc,self.cs_brc,self.cs_inc,row0,nRowRead)#[SPW==self.ListSPW[0]]
-                # this needs to be carried along to reform arrays properly down the line
+            valid = False
+        # if cache is valid, we're all good
+        if valid:
+            npz = np.load(path)
+            A0, A1, uvw, time_all, time_uniq, sort_index = (npz["A0"], npz["A1"], npz["UVW"],
+                                                            npz["TIME"], npz["TIME_UNIQ"], npz["SORT_INDEX"])
+            if not sort_index.size:
+                sort_index = None
+        else:
+            table_all = table_all or self.GiveMainTable()
+            # SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead)
+            A0 = table_all.getcol('ANTENNA1', row0, nRowRead) # [SPW==self.ListSPW[0]]
+            A1 = table_all.getcol('ANTENNA2', row0, nRowRead) # [SPW==self.ListSPW[0]]
+            # print self.ListSPW[0]
+            time_all = table_all.getcol('TIME', row0, nRowRead)  # [SPW==self.ListSPW[0]]
+            # print np.max(time_all)-np.min(time_all)
+            # time_slots_all=np.array(sorted(list(set(time_all))))
+            uvw = table_all.getcol('UVW', row0, nRowRead)
+            if sort_by_baseline:
+                # make sort index
+                print>>log,"sorting by baseline-time"
+                sortby = sorted(zip(A0, A1, time_all, range(nRowRead)))
+                sort_index = np.array([ s[3] for s in sortby ])
+                print>>log,"applying sort index to metadata rows"
+                A0 = A0[sort_index]
+                A1 = A1[sort_index]
+                uvw = uvw[sort_index]
+                time_all = time_all[sort_index]
             else:
-                visdata.fill(0)
+                sort_index = None
+            time_uniq = np.array(sorted(set(time_all)))
+            # save cache
+            if use_cache:
+                np.savez(path,A0=A0,A1=A1,UVW=uvw,TIME=time_all,TIME_UNIQ=time_uniq,
+                         SORT_INDEX=sort_index if sort_index is not None else np.array([]))
+                self.cache.saveCache("A0A1UVWT.npz")
+
+        if ReadWeight:
+            table_all = table_all or self.GiveMainTable()
+            self.Weights = table_all.getcol("WEIGHT", row0, nRowRead)
+            if sort_index is not None:
+                self.Weights = self.Weights[sort_index]
+
+        # create data array (if databuf is not None, array uses memory of buffer)
+        visdata = np.ndarray(shape=datashape, dtype=np.complex64, buffer=databuf)
+        if read_data:
+            # check cache for visibilities
+            if use_cache:
+                datapath, datavalid = self.cache.checkCache("Data.npy", dict(time=self._start_time))
+            else:
+                datavalid = False
+            # read from cache if available, else from MS
+            if datavalid:
+                print>> log, "reading cached visibilities from %s" % datapath
+                visdata[...] = np.load(datapath)
+            else:
+                print>> log, "reading MS visibilities from column %s" % self.ColName
+                table_all = table_all or self.GiveMainTable()
+                if sort_index is not None:
+                    visdata1 = np.ndarray(shape=datashape, dtype=np.complex64)
+                    table_all.getcolslicenp(self.ColName, visdata1, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                    print>>log,"sorting visibilities"
+                    visdata[...] = visdata1[sort_index]
+                    del visdata1
+                else:
+                    table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                if use_cache:
+                    print>> log, "caching visibilities to %s" % datapath
+                    np.save(datapath, visdata)
+                    self.cache.saveCache("Data.npy")
+        else:
+            visdata.fill(0)
+        # create flag array (if flagbuf is not None, array uses memory of buffer)
+        flags = np.ndarray(shape=datashape, dtype=np.bool, buffer=flagbuf)
+        # check cache for flags
+        if use_cache:
+            flagpath, flagvalid = self.cache.checkCache("Flags.npy", dict(time=self._start_time))
+        else:
+            flagvalid = False
+        # read from cache if available, else from MS
+        if flagvalid:
+            print>> log, "reading cached flags from %s" % flagpath
+            flags[...] = np.load(flagpath)
+        else:
+            print>> log, "reading MS flags from column FLAG"
+            table_all = table_all or self.GiveMainTable()
+            if sort_index is not None:
+                flags1 = table_all.getcolslice("FLAG", self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                print>> log, "sorting flags"
+                flags[...] = flags1[sort_index]
+                del flags1
+            else:
+                table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+            self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
+            if use_cache:
+                print>> log, "caching flags to %s" % flagpath
+                np.save(flagpath, flags)
+                self.cache.saveCache("Flags.npy")
+        if table_all:
+            table_all.close()
 
         DATA={}
 
         DATA["data"] = visdata
         DATA["flags"] = flags
-        # store paths to shared arrays (if any) in DATA dict
-        DATA["flagpath"] = self._flagpath
-        DATA["datapath"] = self._datapath
-
-        if ReadWeight==True:
-            self.Weights=table_all.getcol("WEIGHT",row0,nRowRead)
-
-        table_all.close()
+        DATA["sort_index"] = self._sort_index = sort_index
 
         DATA["uvw"]=uvw
         DATA["times"]=time_all
+        DATA["uniq_times"] = time_uniq   # vector of unique timestamps
         DATA["nrows"]=time_all.shape[0]
         DATA["A0"]=A0
         DATA["A1"]=A1
@@ -782,9 +847,9 @@ class ClassMS():
             chunk_row0 = [ np.argmax(all_times>=ch_t0) for ch_t0 in chunk_t0 ]
             # chunk_row0 gives the starting row of each chunk
             if len(chunk_row0) == 1:
-                print>>log,"MS %s (%d rows) will be processed as a single chunk"%(self.MSName, self.F_nrows)
+                print>>log,"MS %s DDID %d FIELD %d (%d rows) will be processed as a single chunk"%(self.MSName, self.DDID, self.Field, self.F_nrows)
             else:
-                print>>log,"MS %s (%d rows) will be split into %d chunks, at rows %s"%(self.MSName, self.F_nrows,
+                print>>log,"MS %s DDID %d FIELD %d (%d rows) will be split into %d chunks, at rows %s"%(self.MSName, self.DDID, self.Field,  self.F_nrows,
                                                                                        len(chunk_row0), " ".join(map(str,chunk_row0)))
         self.Nchunk = len(chunk_row0)
         chunk_row0.append(self.F_nrows)
@@ -837,8 +902,8 @@ class ClassMS():
         self.Freq_Mean=np.mean(chan_freq)
         wavelength_chan=299792458./chan_freq
 
-        if NSPW>1:
-            print "Don't deal with multiple SPW yet"
+        #if NSPW>1:
+        #    print "Don't deal with multiple SPW yet"
 
         self.Nchan = Nchan = len(wavelength_chan)
         NSPWChan=NSPW*Nchan
@@ -897,7 +962,8 @@ class ClassMS():
         self.na=na
         self.Nchan=Nchan
         self.NSPW=NSPW
-        self.NSPWChan=NSPWChan
+        # self.NSPWChan=NSPWChan: removed this: each SPW is iterated over independently
+        self.NSPWChan = Nchan
         self.F_tstart=T0
         #self.F_times_all=T1
         #self.F_times=F_time_slots_all
@@ -931,46 +997,36 @@ class ClassMS():
         print>> log, "Updating flags"
 
         ThresholdFlag = 0.9 # flag antennas with % of flags over threshold
-        FlagAntNumber = []  # accumulates list of flagged antennas
 
-        for A in range(self.na):
-            ind = np.where((A0 == A) | (A1 == A))[0]
-            fA = flags[ind].ravel()
-            if ind.size == 0: continue
-            nf = np.count_nonzero(fA)
-            Frac = nf / float(fA.size)
-            if Frac > ThresholdFlag:
-                print>> log, "  Flagging antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
-                             (A, Frac * 100, "%", ThresholdFlag * 100, "%")
-                FlagAntNumber.append(A)
+        # flag autocorrelations
+        # print>>log,"  flagging autocorrelations"
+        flags[A0==A1] = True
+        # flag NaNs
+        # print>>log,"  flagging NaNs"
+        if data is not None:
+            ind = np.isnan(data)
+            flags[ind] = True
+            data[flags] = 1e9
+        # if one of 4 correlations is flagged, flag all 4. Make smaller array of flags per row/channel
+        # print>>log,"  flagging incomplete coherency matrices"
+        flags1 = flags.any(axis=2)
+        flags[flags1] = True
 
-        if self.DicoSelectOptions["UVRangeKm"] != None:
+        if self.DicoSelectOptions["UVRangeKm"] is not None:
             d0, d1 = self.DicoSelectOptions["UVRangeKm"]
-            print>> log, "  Flagging uv data outside uv distance of [%5.1f~%5.1f] km" % (d0, d1)
-            d0 *= 1e3
-            d1 *= 1e3
-            u, v, w = uvw.T
-            duv = np.sqrt(u ** 2 + v ** 2)
-            ind = np.where(((duv > d0) & (duv < d1)) != True)[0]
-            flags[ind, :, :] = True
+            print>> log, "  flagging uv data outside uv distance of [%5.1f~%5.1f] km" % (d0, d1)
+            d0 = d0**2*1e6
+            d1 = d1**2*1e6
+            duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
+            flags[(duv < d0) | (duv > d1),:,:] = True
 
         if self.DicoSelectOptions["TimeRange"] != None:
             t0 = times[0]
             tt = (times - t0) / 3600.
             st0, st1 = self.DicoSelectOptions["TimeRange"]
-            print>> log, "  Selecting uv data in time range [%.4f~%5.4f] hours" % (st0, st1)
+            print>> log, "  selecting uv data in time range [%.4f~%5.4f] hours" % (st0, st1)
             ind = np.where((tt >= st0) & (tt < st1))[0]
             flags[ind, :, :] = True
-
-        if self.DicoSelectOptions["FlagAnts"] != None:
-            FlagAnts = self.DicoSelectOptions["FlagAnts"]
-            if not ((FlagAnts == None) | (FlagAnts == "") | (FlagAnts == [])):
-                if type(FlagAnts) == str: FlagAnts = [FlagAnts]
-                for Name in FlagAnts:
-                    for iAnt in range(self.na):
-                        if Name in self.StationNames[iAnt]:
-                            print>> log, "  Flagging antenna #%2.2i[%s]" % (iAnt, self.StationNames[iAnt])
-                            FlagAntNumber.append(iAnt)
 
         if self.DicoSelectOptions["DistMaxToCore"] != None:
             DMax = self.DicoSelectOptions["DistMaxToCore"] * 1e3
@@ -979,24 +1035,38 @@ class ClassMS():
             Dist = np.sqrt((X - Xm) ** 2 + (Y - Ym) ** 2 + (Z - Zm) ** 2)
             ind = np.where(Dist > DMax)[0]
             for iAnt in ind.tolist():
-                print>> log, "  Flagging antenna #%2.2i[%s] (distance to core: %.1f km)" % (
+                print>> log, "  flagging antenna #%2.2i[%s] (distance to core: %.1f km)" % (
                 iAnt, self.StationNames[iAnt], Dist[iAnt] / 1e3)
                 FlagAntNumber.append(iAnt)
 
+        # print>>log,"  forming per-antenna index"
+        # per each antenna, form up boolean mask indicating its rows
+        antenna_rows = [(A0 == A) | (A1 == A) for A in xrange(self.na)]
+        # print>>log,"  row index formed"
+
+        antenna_flagfrac = [flags1[rows].sum() / float(flags1[rows].size or 1) for rows in antenna_rows]
+        print>> log, "  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac])
+
+        FlagAntNumber = [ant for ant, frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag]
+
         for A in FlagAntNumber:
-            ind = np.where((A0 == A) | (A1 == A))[0]
-            flags[ind, :, :] = True
-        # flag autocorrelations
-        ind = np.where(A0 == A1)[0]
-        flags[ind, :, :] = True
-        # if one of 4 correlations is flagged, flag all 4
-        ind = np.any(flags, axis=2)
-        flags[ind] = True
-        # flag NaNs
-        if data is not None:
-            ind = np.where(np.isnan(data))
-            flags[ind] = 1
-            data[flags] = 1e9
+            print>> log, "    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
+                         (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%")
+
+        if self.DicoSelectOptions["FlagAnts"] != None:
+            FlagAnts = self.DicoSelectOptions["FlagAnts"]
+            if not ((FlagAnts == None) | (FlagAnts == "") | (FlagAnts == [])):
+                if type(FlagAnts) == str: FlagAnts = [FlagAnts]
+                for Name in FlagAnts:
+                    for iAnt in range(self.na):
+                        if Name in self.StationNames[iAnt]:
+                            print>> log, "  explicitly flagging antenna #%2.2i[%s]" % (
+                            iAnt, self.StationNames[iAnt])
+                            FlagAntNumber.append(iAnt)
+
+        for A in FlagAntNumber:
+            flags[antenna_rows[A], :, :] = True
+        print>>log, "Flags updated"
 
     def __str__(self):
         ll=[]
@@ -1012,7 +1082,7 @@ class ClassMS():
         ll.append("   - Total Integration time = %6.2f hours"%self.DTh)
         ll.append("   - Number of antenna  = %i"%self.na)
         ll.append("   - Number of baseline = %i"%self.nbl)
-        ll.append("   - Number of SPW = %i"%self.NSPW)
+        ll.append("   - Number of SPW = %i/%i"%(self._spwid, self.NSPW))
         ll.append("   - Number of channels = %i"%self.Nchan)
         ll.append("   - Number of time chunks = %i"%self.Nchunk)
 
@@ -1021,24 +1091,32 @@ class ClassMS():
 
     def radec2lm_scalar(self,ra,dec):
         l = np.cos(dec) * np.sin(ra - self.rarad)
-        m = np.sin(dec) * np.cos(self.decrad) - np.cos(dec) * np.sin(self.decrad) * np.cos(ra - self.rarad)
-        return l,m
+        m = np.sin(dec) * np.cos(self.decrad) - np.cos(dec) * \
+            np.sin(self.decrad) * np.cos(ra - self.rarad)
+        return l, m
 
-    def PutVisColumn (self,colname,vis):
-        self.AddCol(colname,quiet=True)
-        print>>log,"writing column %s rows %d:%d"%(colname,self.ROW0,self.ROW1-1)
-        t = self.GiveMainTable(readonly=False,ack=False)
+    def PutVisColumn(self, colname, vis):
+        self.AddCol(colname, quiet=True)
+        print>>log, "writing column %s rows %d:%d"%(colname,self.ROW0,self.ROW1-1)
+        t = self.GiveMainTable(readonly=False, ack=False)
+        # if sorting rows, rearrange vis array back into MS order
+        # if not sorting, then using slice(None) for row has no effect
+        if self._sort_index is not None:
+            reverse_index = np.empty(self.nRowRead,dtype=int)
+            reverse_index[self._sort_index] = np.arange(0,self.nRowRead,dtype=int)
+        else:
+            reverse_index = slice(None)
         if self.ChanSlice and self.ChanSlice != slice(None):
             # if getcol fails, maybe because this is a new col which hasn't been filled
             # in this case read DATA instead
             try:
                 vis0 = t.getcol(colname,self.ROW0,self.nRowRead)
             except RuntimeError:
-                vis0 = t.getcol("DATA",self.ROW0,self.nRowRead)
-            vis0[:,self.ChanSlice,:] = vis
-            t.putcol(colname,vis0,self.ROW0,self.nRowRead)
+                vis0 = t.getcol("DATA", self.ROW0, self.nRowRead)
+            vis0[reverse_index, self.ChanSlice, :] = vis
+            t.putcol(colname, vis0, self.ROW0,self.nRowRead)
         else:
-            t.putcol(colname,vis,self.ROW0,self.nRowRead)
+            t.putcol(colname, vis[reverse_index,:,:], self.ROW0,self.nRowRead)
         t.close()
 
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
@@ -1170,12 +1248,12 @@ class ClassMS():
 
     def AddCol(self,ColName,LikeCol="DATA",quiet=False):
         t=table(self.MSName,readonly=False,ack=False)
-        if (ColName in t.colnames() and not self.GD["Images"]["AllowColumnOverwrite"]):
+        if (ColName in t.colnames() and not self.GD["Data"]["Overwrite"]):
             if not quiet:
                 print>>log, "  Column %s already in %s"%(ColName,self.MSName)
             t.close()
             return
-        elif (ColName in t.colnames() and self.GD["Images"]["AllowColumnOverwrite"]):
+        elif (ColName in t.colnames() and self.GD["Data"]["Overwrite"]):
             t.removecols(ColName)
         print>>log, "  Putting column %s in %s"%(ColName,self.MSName)
         desc=t.getcoldesc(LikeCol)
@@ -1242,3 +1320,90 @@ class ClassMS():
         pyrap.tables.addImagingColumns(self.MSName,ack=False)
         #self.PutNewCol("CORRECTED_DATA")
         #self.PutNewCol("MODEL_DATA")
+
+
+def expandMSList(MSName,defaultField=0,defaultDDID=0):
+    """Given an MSName argument, converts it into a list of measurement sets.
+
+    MSName can be a single filename, or a list of filenames, or a *.txt file (in which case a list
+    of filenames will be read from the text file).
+
+    Furthermore, each filename in the list can contain wildcards (*?) to select multiple MSs, and
+    con be suffixed with //Dx and/or //Fy to select specific DATA_DESC_ID and FIELD_IDs in the MS. "x" and "y"
+    can take the form of a single number, a Pythonic range (e.g. "0:16"), an inclusive range ("0~15");
+    or "*" to select all. E.g. foo.MS//D*//F0:2 selects all DDIDs, and fields 0 and 1 from foo.MS.
+
+    The defaultField and defaultDDID arguments will be used for those MSs where //D or //F is not specified.
+
+    Ultimately, returns a list of (MSName, ddid, field) tuples, where MSName is a proper MS path, and ddid
+    and field are indices.
+    """
+    if type(MSName) is list:
+        print>> log, "multi-MS mode"
+    elif type(MSName) is not str:
+        raise TypeError, "MSName parameter must be a list or a filename"
+    elif MSName.endswith(".txt"):
+        MSName0 = MSName
+        MSName = [ l.strip() for l in open(MSName).readlines() ]
+        print>> log, "list file %s contains %d MSs" % (MSName0, len(MSName))
+    else:
+        MSName = [MSName]
+    # now, at this point each entry in the list can still contain wildcards, and ":Fx:Dx" groups. Process it
+    mslist = []
+    for msspec in MSName:
+        regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N-M or *
+        # match :F and :D suffixes, if present. Don't regexes make your brain melt
+        match = re.match("^(?P<ms>.*)//D(?P<d>" + regrp + ")(//F(?P<f>" + regrp + "))?$", msspec) or \
+                re.match("^(?P<ms>.*)//F(?P<f>" + regrp + ")(//D(?P<d>" + regrp + "))?$", msspec)
+        if match:
+            msname, dgroup, fgroup = match.group('ms'), match.group('d'), match.group('f')
+        else:
+            msname, dgroup, fgroup = msspec, None, None
+        # now convert dgroup and fgroup into slice objects
+        def groupToSlice (group):
+            """Converts a group specification into a slice object"""
+            match = re.match("^" + regrp +"$", group)
+            if not match:
+                raise ValueError,"invalid group '%s' in MS specification %s" % (group, msspec)
+            _, single, rng1, sep, rng2, wild = match.groups()
+            if single:
+                return int(single)
+            elif rng1:
+                return slice(int(rng1), int(rng2) + (1 if sep==":" else 2))
+            elif wild:
+                return slice(0,None)
+            else:
+                raise ValueError, "invalid group '%s' in MS specification %s" % (group, msspec)
+        # now, fgroup/dgroup will become a slice, or a single number
+        fg = groupToSlice(fgroup) if fgroup else defaultField
+        dg = groupToSlice(dgroup) if dgroup else defaultDDID
+        # now, go over MSs specified by the name
+        paths = sorted(glob.glob(msname))
+        print>> log, "found %d MSs matching %s" % (len(paths), msname)
+        for mspath in paths:
+            # if F/D was specified as a slice or wildcard, look into MS to determine numbers
+            if type(dg) is slice:
+                nddid = table(table(mspath, ack=False).getkeyword('DATA_DESCRIPTION'), ack=False).nrows()
+                ddids = range(nddid)[dg]
+                if ddids:
+                    print>>log,"%s: selecting DDIDs %s" % (mspath, " ".join(map(str,ddids)))
+                else:
+                    print>>log,ModColor.Str("%s: no DDIDs in range %s" % (mspath, dgroup))
+                    continue
+            else:
+                ddids = [ dg ]
+                print>> log, "%s: selecting DDID %d" % (mspath, dg)
+            if type(fg) is slice:
+                nf = table(table(mspath, ack=False).getkeyword('FIELD'), ack=False).nrows()
+                fields = range(nf)[fg]
+                if fields:
+                    print>>log,"%s: selecting fields %s" % (mspath, " ".join(map(str,fields)))
+                else:
+                    print>> log, ModColor.Str("%s: no fields in range %s" % (mspath, fgroup))
+            else:
+                fields = [ fg ]
+                print>> log, "%s: selecting field %d" % (mspath, fg)
+            # make output list
+            mslist += [ (mspath,d,f) for d in ddids for f in fields ]
+    print>>log, "%d MS section(s) selected" % len(mslist)
+    return mslist

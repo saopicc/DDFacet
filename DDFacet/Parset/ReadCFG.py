@@ -1,3 +1,23 @@
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
+
 import ConfigParser
 from collections import OrderedDict
 import re
@@ -64,7 +84,11 @@ def parse_config_string(string, name='config', extended=True, type=None):
                 if not match:
                     break
                 # extract attribute
-                attrs[match.group(2)] = parse_as_python(match.group(3))
+                name, value = match.group(2), match.group(3)
+                # #options:value, value is always treated as a string. Otherwise, treat as Python expression
+                if name not in ("options",):
+                    value = parse_as_python(value)
+                attrs[name] = value
                 # remove it from docstring
                 docstring = match.group(1) + match.group(4)
         else:
@@ -86,6 +110,10 @@ def parse_config_string(string, name='config', extended=True, type=None):
         if string not in opts:
             raise ValueError("%s: value %s not in options list"%(name, string))
 
+    # make sure _Help is interpreted as a string
+    if name == "_Help":
+        return string, attrs
+
     if type:
         # make sure False/True etc. are interpreted as booleans
         if type is bool:
@@ -100,7 +128,7 @@ def parse_config_string(string, name='config', extended=True, type=None):
     if as_list or "," in string:
         return [ parse_as_python(x) for x in string.split(",") ], attrs
 
-    # Ohterwise just interpret the value as a Python object if possible
+    # Otherwise just interpret the value as a Python object if possible
     return parse_as_python(string), attrs
 
 
@@ -157,6 +185,78 @@ class Parset():
                 dict_attrs[alias] = { 'alias_of': option }
         return dict_values, dict_attrs
 
+    def _migrate_from_pre255 (self):
+        """
+        Migrates contents from "old-style" parset prior to issue #255 being resolved.
+        """
+        section = "Parallel"
+        delete(section, "Enable")  # deprecated. Use NCPU=1 instead
 
-        
+        section = renameSection("Caching", "Cache")
+        rename(section, "ResetCache", "Reset")
+        rename(section, "CachePSF", "PSF")
+        rename(section, "CacheDirty", "Dirty")
+        rename(section, "CacheVisData", "VisData")
+
+        section = renameSection("VisData", "Data")
+        rename(section, "MSName", "MS")
+        delete(section, "MSListFile")  # deprecated. Use MS=list.txt instead
+        # PredictFrom # migrated from --Images-PredictModelName
+
+        section = renameSection("DataSelection", "Selection")
+
+        section = renameSection("Images", "Output")
+        move(section, "AllowColumnOverwrite", "Data", "Overwrite")
+        move(section, "PredictModelName", "Data", "PredictFrom")
+        rename(section, "ImageName", "Name")
+        delete(section, "SaveIms")  # deprecated
+        rename(section, "SaveOnly", "Images")
+        rename(section, "SaveImages", "Also")
+        rename(section, "SaveCubes", "Cubes")
+        delete(section, "OpenImages")   # deprecated, do we really need this? Or make consistent with --Images-Save notation at least
+        delete(section, "DefaultImageViewer") # deprecated, do we really need this?
+        delete(section, "MultiFreqMap")  # deprecated
+
+        section = renameSection("ImagerGlobal", "Image")
+        rename(section, "Super", "SuperUniform")
+
+        section = renameSection("ImagerMainFacet", "Image")
+        rename(section, "Npix", "NPix")
+
+        section = renameSection("Compression", "Comp")
+        delete(section, "CompGridMode")  # deprecate for now, since only the BDA gridder works
+        delete(section, "CompDegridMode")  # deprecate for now, since only the BDA degridder works
+        rename(section, "CompGridDecorr", "GridDecorr")
+        rename(section, "CompGridFOV", "GridFov")
+        rename(section, "CompDeGridDecorr", "DegridDecorr")
+        rename(section, "CompDeGridFOV", "DegridFOV")
+
+        section = renameSection("MultiFreqs", "Freq")  # options related to basic multifrequency imaging
+        rename(section, "GridBandMHz", "BandMHz")
+        rename(section, "NFreqBands", "NBand")
+        rename(section, "NChanDegridPerMS", "NDegridBand")
+        move(section, "Alpha", "HMP", "Alpha")
+        move(section, "PolyFitOrder", "Hogbom", "PolyFitOrder")
+
+        section = "Beam"
+        rename(section, "BeamModel", "Model")
+        rename(section, "NChanBeamPerMS", "NBand")
+
+        section = renameSection("ImagerDeconv", "Deconv")
+        rename(section, "MinorCycleMode", "Mode")
+        rename(section, "SearchMaxAbs", "AllowNegative")
+        move(section, "SidelobeSearchWindow", "Image", "SidelobeSearchWindow")
+
+        section = renameSection("MultiScale", "HMP")
+        delete(section, "MSEnable")  # deprecated. --Deconvolution-MinorCycle selects algorithm instead.
+        move(section, "PSFBox", "Deconv", "PSFBox")
+        # Alpha added
+
+        section = "Hogbom"
+        # PolyFitOrder added
+
+        section = "Logging"
+        rename(section, "MemoryLogging", "Memory")
+        rename(section, "AppendLogFile", "Append")
+
 

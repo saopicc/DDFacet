@@ -1,7 +1,24 @@
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
+
 import ClassModelMachine
-
-
-
 import ClassGainMachine
 from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger
@@ -22,6 +39,7 @@ class ClassModModelMachine():
         self.GAMM = None
         self.MSMFMM = None
         self.MORSANEMM = None
+        self.HOGBOMMM = None
 
     def GiveMMFromFile(self,FileName=None):
         """
@@ -53,25 +71,39 @@ class ClassModModelMachine():
                 print>> log, "Initialising GA model machine"
                 from DDFacet.Imager.GA import ClassModelMachineGA
                 from DDFacet.Imager.GA import ClassModelMachineGA
-                self.GAMM = ClassModelMachineGA.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+                self.GAMM = ClassModelMachineGA.ClassModelMachine(
+                    self.GD,
+                    GainMachine= ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"]))
             else:
                 print>> log, "GA model machine already initialised"
             return self.GAMM
-        elif Mode == "MSMF":
+        elif Mode == "HMP":
             if self.MSMFMM is None:
                 print>> log, "Initialising MSMF model machine"
                 from DDFacet.Imager.MSMF import ClassModelMachineMSMF
-                self.MSMFMM = ClassModelMachineMSMF.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+                self.MSMFMM = ClassModelMachineMSMF.ClassModelMachine(
+                    self.GD,
+                    GainMachine= ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"]))
             else:
                 print>> log, "MSMF model machine already initialised"
             return self.MSMFMM
         elif Mode == "MORESANE":
             if self.MORSANEMM is None:
-                print>> log, "Initialising MSMF model machine"
+                print>> log, "Initialising MORESANE model machine"
                 from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
-                self.MORESANEMM = ClassModelMachineMORESANE.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+                self.MORESANEMM = ClassModelMachineMORESANE.ClassModelMachine(
+                    self.GD,
+                    GainMachine= ClassGainMachine.ClassGainMachine(GainMin=self.GD["MORESANE"]["loopgain"]))
             else:
                 print>> log, "MORSANE model machine already initialised"
             return self.MORESANEMM
+        elif Mode == "Hogbom":
+            if self.HOGBOMMM is None:
+                print>> log, "Initialising HOGBOM model machine"
+                from DDFacet.Imager.HOGBOM import ClassModelMachineHogbom
+                self.HOGBOMMM = ClassModelMachineHogbom.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+            else:
+                print>> log, "HOGBOM model machine already initialised"
+            return self.HOGBOMMM
         else:
-            raise NotImplementedError("The %s minor cycle is not currently supported"%self.GD["ImagerDeconv"]["MinorCycleMode"])
+            raise NotImplementedError("The %s minor cycle is not currently supported"%self.GD["Deconv"]["Mode"])

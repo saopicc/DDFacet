@@ -18,3 +18,5 @@ astro-kittens
 meqtrees-cattery
 owlcat
 astLib
+psutil
+astro-tigger
