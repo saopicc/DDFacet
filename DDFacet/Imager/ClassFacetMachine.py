@@ -1155,7 +1155,7 @@ class ClassFacetMachine():
                     NFreqBands=self.VS.NFreqBands,
                     DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
                     ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds()),
-            pause_on_start=self.GD["Debugging"]["PauseGridWorkers"])
+            pause_on_start=self.GD["Debug"]["PauseGridWorkers"])
 
 
         for DicoResult in results:
@@ -1333,7 +1333,7 @@ class ClassFacetMachine():
 
             procpool.runjobs(joblist, title="Degridding",
                              target=self._degrid_worker,
-                             pause_on_start=self.GD["Debugging"]["PauseGridWorkers"],
+                             pause_on_start=self.GD["Debug"]["PauseGridWorkers"],
                              kwargs=dict(
                                     GD=self.GD,
                                     DATA=self.VS.DATA,

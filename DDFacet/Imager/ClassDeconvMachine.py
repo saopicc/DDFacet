@@ -138,7 +138,7 @@ class ClassImagerDeconv():
         #     self._saveims.update("o")
         # if "Residual_i" in old_interface_saveims:
         #     self._saveims.update("e")
-        self._save_intermediate_grids = self.GD["Debugging"]["SaveIntermediateDirtyImages"]
+        self._save_intermediate_grids = self.GD["Debug"]["SaveIntermediateDirtyImages"]
 
         # init process pool for parallelization
         Multiprocessing.initDefaultPool(GD=self.GD)

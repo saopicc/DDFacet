@@ -84,11 +84,11 @@ def parse_config_string(string, name='config', extended=True, type=None):
                 if not match:
                     break
                 # extract attribute
-                name, value = match.group(2), match.group(3)
+                attrname, value = match.group(2), match.group(3)
                 # #options:value, value is always treated as a string. Otherwise, treat as Python expression
-                if name not in ("options",):
+                if attrname not in ("options",):
                     value = parse_as_python(value)
-                attrs[name] = value
+                attrs[attrname] = value
                 # remove it from docstring
                 docstring = match.group(1) + match.group(4)
         else:
@@ -189,6 +189,9 @@ class Parset():
         """
         Migrates contents from "old-style" parset prior to issue #255 being resolved.
         """
+
+        makeSection("Misc")
+
         section = "Parallel"
         delete(section, "Enable")  # deprecated. Use NCPU=1 instead
 
@@ -219,6 +222,7 @@ class Parset():
 
         section = renameSection("ImagerGlobal", "Image")
         rename(section, "Super", "SuperUniform")
+        move(section, "RandomSeed", "Misc", "RandomSeed")
 
         section = renameSection("ImagerMainFacet", "Image")
         rename(section, "Npix", "NPix")
@@ -255,8 +259,10 @@ class Parset():
         section = "Hogbom"
         # PolyFitOrder added
 
-        section = "Logging"
+        section = renameSection("Logging", "Log")
         rename(section, "MemoryLogging", "Memory")
         rename(section, "AppendLogFile", "Append")
 
+
+        section = renameSection("Debugging", "Debug")
 

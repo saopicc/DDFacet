@@ -508,7 +508,7 @@ class ClassImageDeconvMachine():
                                                 else 1000 ))
                 # min(int(10**math.floor(math.log10(i))), 10000)
                 if i >= 10 and i % rounded_iter_step == 0:
-                    # if self.GD["Debugging"]["PrintMinorCycleRMS"]:
+                    # if self.GD["Debug"]["PrintMinorCycleRMS"]:
                     rms = self._CubeDirty.std()
                     print>>log, "    [iter=%i] peak residual %.3g, rms %g, PNR %.3g" % (i, ThisFlux, rms, ThisFlux/rms)
                     # else:

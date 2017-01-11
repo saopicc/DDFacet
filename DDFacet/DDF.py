@@ -79,7 +79,8 @@ def read_options():
         # "_Help" value in each section is its documentation string
         OP.OptionGroup(values.get("_Help", section), section)
         for name, value in default_values[section].iteritems():
-            OP.add_option(name, value)
+            if not attrs[section][name].get("no_cmdline"):
+                OP.add_option(name, value)
 
     OP.Finalise()
     OP.ReadInput()
@@ -111,17 +112,17 @@ def main(OP=None, messages=[]):
         os.mkdir(dirname)
 
     # setup logging
-    MyLogger.logToFile(ImageName + ".log", append=DicoConfig["Logging"]["Append"])
+    MyLogger.logToFile(ImageName + ".log", append=DicoConfig["Log"]["Append"])
     global log
     log = MyLogger.getLogger("DDFacet")
 
     # disable colors and progressbars if requested
     ModColor.silent = SkyModel.Other.ModColor.silent = \
                       progressbar.ProgressBar.silent = \
-                      DicoConfig["Logging"]["Boring"]
+                      DicoConfig["Log"]["Boring"]
 
     if messages:
-        if not DicoConfig["Logging"]["Boring"]:
+        if not DicoConfig["Log"]["Boring"]:
             os.system('clear')
             logo.print_logo()
         for msg in messages:
@@ -131,18 +132,18 @@ def main(OP=None, messages=[]):
     OP.Print(dest=log)
 
     # enable memory logging
-    MyLogger.enableMemoryLogging(DicoConfig["Logging"]["Memory"])
+    MyLogger.enableMemoryLogging(DicoConfig["Log"]["Memory"])
 
     # get rid of old shm arrays from previous runs
     Multiprocessing.cleanupStaleShm()
 
     # initialize random seed from config if set, or else from system time
-    if DicoConfig["Image"]["RandomSeed"] is not None:
-        print>>log, "random seed=%d (explicit)" % DicoConfig["Image"]["RandomSeed"]
+    if DicoConfig["Misc"]["RandomSeed"] is not None:
+        print>>log, "random seed=%d (explicit)" % DicoConfig["Misc"]["RandomSeed"]
     else:
-        DicoConfig["Image"]["RandomSeed"] = int(time.time())
-        print>> log, "random seed=%d (automatic)" % DicoConfig["Image"]["RandomSeed"]
-    np.random.seed(DicoConfig["Image"]["RandomSeed"])
+        DicoConfig["Misc"]["RandomSeed"] = int(time.time())
+        print>> log, "random seed=%d (automatic)" % DicoConfig["Misc"]["RandomSeed"]
+    np.random.seed(DicoConfig["Misc"]["RandomSeed"])
 
     # If we're using Montblanc for the Predict, we need to use a remote
     # tensorflow server as tensorflow is not fork safe

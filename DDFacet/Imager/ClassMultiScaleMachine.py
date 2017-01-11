@@ -58,7 +58,7 @@ class ClassMultiScaleMachine():
         self.NFreqBands = NFreqBands
         self.MultiFreqMode = NFreqBands>1
         self.SolveMode = self.GD["HMP"]["SolverMode"]
-        self._stall_threshold = self.GD["Debugging"]["CleanStallThreshold"]
+        self._stall_threshold = self.GD["Debug"]["CleanStallThreshold"]
 
 
     def setModelMachine(self,ModelMachine):
@@ -473,7 +473,7 @@ class ClassMultiScaleMachine():
                          "CubePSFScales":self.CubePSFScales}
 
 
-        if self.GD["Debugging"]["DumpCleanSolutions"]:
+        if self.GD["Debug"]["DumpCleanSolutions"]:
             BaseName = self.GD["Output"]["Name"]
             pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
         return DicoBasisMatrix
@@ -661,7 +661,7 @@ class ClassMultiScaleMachine():
                 print>>log,(self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal)
                 raise RuntimeError("CLEAN has stalled. This is a bug!")
 
-            if self.GD["Debugging"]["DumpCleanSolutions"]:
+            if self.GD["Debug"]["DumpCleanSolutions"]:
                 global debug_dump_file
                 if not debug_dump_file:
                     debug_dump_file = file(self.GD["Output"]["Name"] + ".clean.solutions", "w")
@@ -699,7 +699,7 @@ class ClassMultiScaleMachine():
 
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
 
-            if self.GD["Debugging"]["DumpCleanSolutions"]:
+            if self.GD["Debug"]["DumpCleanSolutions"]:
                 global debug_dump_file
                 if not debug_dump_file:
                     debug_dump_file = file(self.GD["Output"]["Name"]+".clean.solutions", "w")

@@ -583,7 +583,7 @@ class ClassVisServer():
         # in RAM-greedy mode, we keep all weight arrays around in RAM while computing weights
         # Otherwise we leave them in mmap()ed files and etach, and let the
         # kernel take care of caching etc.
-        greedy = self.GD["Debugging"]["MemoryGreedy"]
+        greedy = self.GD["Debug"]["MemoryGreedy"]
 
         # check if every MS+chunk weight is available in cache
         self.VisWeights = []
