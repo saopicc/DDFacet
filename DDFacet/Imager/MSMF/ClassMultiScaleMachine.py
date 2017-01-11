@@ -260,18 +260,45 @@ class ClassMultiScaleMachine():
                                         "ModelParams":(0,0,0)})
                 iSlice+=1
 
-                for iScales in range(ScaleStart,NScales):
+                Theta=np.arange(0.,np.pi-1e-3,np.pi/NTheta)
 
-                    Minor=Scales[iScales]/(2.*np.sqrt(2.*np.log(2.)))
-                    Major=Minor
-                    PSFGaussPars=(Major,Minor,0.)
+                ListParam=[]
+                for iScales in range(ScaleStart,NScales):
+                    ListParam.append((iScales,1,0))
+
+                if 1 in Ratios:
+                    L=Ratios.tolist()
+                    L.remove(1)
+                    Ratios=np.array(L)
+
+                for iScales in range(ScaleStart,NScales):
+                    for ratio in Ratios:
+                        for th in Theta:
+                            ListParam.append((iScales,ratio,th))
+                
+                #print ListParam
+                for iScales,MinMajRatio,th in ListParam:
+                    Major=Scales[iScales]/(2.*np.sqrt(2.*np.log(2.)))
+                    Minor=Major/float(MinMajRatio)
+                    PSFGaussPars=(Major,Minor,th)
                     ThisSupport=int(np.max([Support,15*Major]))
                     if ThisSupport%2==0: ThisSupport+=1
                     Gauss=ModFFTW.GiveGauss(ThisSupport,CellSizeRad=1.,GaussPars=PSFGaussPars)
                     ratio=np.sum(ModFFTW.GiveGauss(101,CellSizeRad=1.,GaussPars=PSFGaussPars))/np.sum(Gauss)
                     #Gauss*=ratio
                     #ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBands)[:,0,:,:]#[0,0]
-                    ThisPSF,Gauss=ModFFTW.ConvolveGaussianScipy(ThisMFPSF.reshape((nch,1,nx,ny)),Sig=Major)#[0,0]
+                    ThisPSF,Gauss=ModFFTW.ConvolveGaussianScipy(ThisMFPSF.reshape((nch,1,nx,ny)),Sig=Major,GaussPar=PSFGaussPars)#[0,0]
+
+                    # import pylab
+                    # pylab.clf()
+                    # pylab.imshow(Gauss,interpolation="nearest")
+                    # pylab.title("%s"%str(PSFGaussPars))
+                    # pylab.draw()
+                    # pylab.show(False)
+                    # pylab.pause(0.1)
+                    # import time
+                    # time.sleep(1.)
+
                     ThisPSF=ThisPSF[:,0,:,:]
                     Max=np.max(ThisPSF)
                     #ThisPSF/=Max
@@ -296,37 +323,37 @@ class ClassMultiScaleMachine():
 
                 iSlice+=1
 
-                Theta=np.arange(0.,np.pi-1e-3,np.pi/NTheta)
 
-                for iScale in range(ScaleStart,NScales):
+                # for iScale in range(ScaleStart,NScales):
 
-                    for ratio in Ratios:
-                        for th in Theta:
-                            Minor=Scales[iScale]/(2.*np.sqrt(2.*np.log(2.)))
-                            Major=Minor*ratio
-                            PSFGaussPars=(Major,Minor,th)
-                            ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBands)[:,0,:,:]
-                            Max=np.max(ThisPSF)
-                            ThisPSF/=Max
-                            ListPSFScales.append(ThisPSF)
-                            # pylab.clf()
-                            # pylab.subplot(1,2,1)
-                            # pylab.imshow(CubePSFScales[0,:,:],interpolation="nearest")
-                            # pylab.subplot(1,2,2)
-                            # pylab.imshow(CubePSFScales[iSlice,:,:],interpolation="nearest")
-                            # pylab.title("Scale = %s"%str(PSFGaussPars))
-                            # pylab.draw()
-                            # pylab.show(False)
-                            # pylab.pause(0.1)
-                            iSlice+=1
-                            Gauss=ModFFTW.GiveGauss(ThisSupport,CellSizeRad=1.,GaussPars=PSFGaussPars)/Max
-                            #fact=np.max(Gauss)/np.sum(Gauss)
-                            #Gauss*=fact
-                            self.ListScales.append({"ModelType":"Gaussian",
-                                                    "Model":Gauss, 
-                                                    "ModelParams": PSFGaussPars,
-                                                    "Scale":iScale,
-                                                    "Alpha":ThisAlpha})
+                #     for ratio in Ratios:
+                #         for th in Theta:
+                #             Minor=Scales[iScale]/(2.*np.sqrt(2.*np.log(2.)))
+                #             Major=Minor*ratio
+                #             PSFGaussPars=(Major,Minor,th)
+                #             ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBands)[:,0,:,:]
+                #             Max=np.max(ThisPSF)
+                #             ThisPSF/=Max
+                #             ListPSFScales.append(ThisPSF)
+                #             # pylab.clf()
+                #             # pylab.subplot(1,2,1)
+                #             # pylab.imshow(CubePSFScales[0,:,:],interpolation="nearest")
+                #             # pylab.subplot(1,2,2)
+                #             # pylab.imshow(CubePSFScales[iSlice,:,:],interpolation="nearest")
+                #             # pylab.title("Scale = %s"%str(PSFGaussPars))
+                #             # pylab.draw()
+                #             # pylab.show(False)
+                #             # pylab.pause(0.1)
+                #             iSlice+=1
+                #             Gauss=ModFFTW.GiveGauss(ThisSupport,CellSizeRad=1.,GaussPars=PSFGaussPars)/Max
+                #             #fact=np.max(Gauss)/np.sum(Gauss)
+                #             #Gauss*=fact
+
+                #             self.ListScales.append({"ModelType":"Gaussian",
+                #                                     "Model":Gauss, 
+                #                                     "ModelParams": PSFGaussPars,
+                #                                     "Scale":iScale,
+                #                                     "Alpha":ThisAlpha})
 
             self.CubePSFScales=np.array(ListPSFScales)
         T.timeit("1")
@@ -370,7 +397,7 @@ class ClassMultiScaleMachine():
         self.IndexScales=np.array(self.IndexScales)
         self.SumFluxScales=np.array(self.SumFluxScales)
         self.ListSizeScales=np.array(self.ListSizeScales)
-        self.NScales=self.ListTypeScales.size/NAlpha
+        #self.NScales=self.ListTypeScales.size/NAlpha
         #print self.IndexScales
         T.timeit("init")
         #self.SumFuncScales=np.array(self.ListSumFluxes)
@@ -790,7 +817,7 @@ class ClassMultiScaleMachine():
                 d=dirtyVec.reshape((nchan,1,nxp,nyp))[:,0]
                 PeakMeanOrigResid=np.mean(d,axis=0)[xc0,yc0]
 
-                FactNorm=PeakMeanOrigDirty/PeakMeanOrigResid
+                FactNorm=np.abs(PeakMeanOrigDirty/PeakMeanOrigResid)
                 if 1.<FactNorm<10.:
                     y*=FactNorm
                 #print "  ",PeakMeanOrigDirty,PeakMeanOrigResid,PeakMeanOrigDirty/PeakMeanOrigResid
@@ -972,7 +999,7 @@ class ClassMultiScaleMachine():
                 #print "Sol1",Sol
                 LocalSM*=(MeanFluxTrue/Peak)
                 Sol*=(MeanFluxTrue/Peak)
-                #print coef#,MeanFluxTrue,Peak,Sol
+                #print coef,MeanFluxTrue,Peak,Sol
             #print "Sol2",Sol
 
 

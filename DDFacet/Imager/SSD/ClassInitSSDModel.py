@@ -14,7 +14,7 @@ from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassInitSSDModel")
 import traceback
 from DDFacet.Other import ModColor
-
+from ClassConvMachine import ClassConvMachineImages
 
 
 class ClassInitSSDModelParallel():
@@ -135,14 +135,18 @@ class ClassInitSSDModel():
         self.GD["ImagerDeconv"]["MinorCycleMode"]="MSMF"
         self.GD["ImagerDeconv"]["CycleFactor"]=0
         self.GD["ImagerDeconv"]["PeakFactor"]=0.01
-        self.GD["ImagerDeconv"]["RMSFactor"]=0.5
+        self.GD["ImagerDeconv"]["RMSFactor"]=3.
         self.GD["ImagerDeconv"]["Gain"]=.1
 
 
         self.GD["ImagerDeconv"]["MaxMinorIter"]=10000
         
 
-        self.GD["MultiScale"]["Scales"]=[0,1,2,4,6,8]
+        self.GD["MultiScale"]["Scales"]=[0,1,2,4,8,16]
+        self.GD["MultiScale"]["Ratios"]=[1,2]
+        #self.GD["MultiScale"]["Ratios"]=[]
+        self.GD["MultiScale"]["NTheta"]=4
+        
         self.GD["MultiScale"]["SolverMode"]="NNLS"
         #self.GD["MultiScale"]["SolverMode"]="PI"
 
@@ -257,21 +261,26 @@ class ClassInitSSDModel():
         self.SSDModelImage=ModelImage
 
     def giveConvModel(self,SubModelImage):
-        ConvModel=np.zeros_like(SubModelImage)
-        nch,_,N0x,N0y=ConvModel.shape
-        indx,indy=np.where(SubModelImage[0,0]!=0)
-        xc,yc=N0x/2,N0y/2
+
         PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
-        N1=PSF.shape[-1]
-        #T.timeit("0")
-        for i,j in zip(indx.tolist(),indy.tolist()):
-            ThisPSF=np.roll(np.roll(PSF,i-xc,axis=-2),j-yc,axis=-1)
-            Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
-            x0d,x1d,y0d,y1d=Aedge
-            x0p,x1p,y0p,y1p=Bedge
-            ConvModel[...,x0d:x1d,y0d:y1d]+=ThisPSF[...,x0p:x1p,y0p:y1p]*SubModelImage[...,i,j].reshape((-1,1,1,1))
-        #T.timeit("1 %s"%(str(ConvModel.shape)))
+        ConvModel=ClassConvMachineImages(PSF).giveConvModel(SubModelImage)
+
+        # ConvModel=np.zeros_like(SubModelImage)
+        # nch,_,N0x,N0y=ConvModel.shape
+        # indx,indy=np.where(SubModelImage[0,0]!=0)
+        # xc,yc=N0x/2,N0y/2
+        # N1=PSF.shape[-1]
+        # #T.timeit("0")
+        # for i,j in zip(indx.tolist(),indy.tolist()):
+        #     ThisPSF=np.roll(np.roll(PSF,i-xc,axis=-2),j-yc,axis=-1)
+        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
+        #     x0d,x1d,y0d,y1d=Aedge
+        #     x0p,x1p,y0p,y1p=Bedge
+        #     ConvModel[...,x0d:x1d,y0d:y1d]+=ThisPSF[...,x0p:x1p,y0p:y1p]*SubModelImage[...,i,j].reshape((-1,1,1,1))
+        # #T.timeit("1 %s"%(str(ConvModel.shape)))
+
         return ConvModel
+    
     
 
     def addSubModelToSubDirty(self):
@@ -329,6 +338,7 @@ class ClassInitSSDModel():
         #time.sleep(30)
 
         ModelImage=self.ModelMachine.GiveModelImage()
+        T.timeit("getmodel")
 
         # import pylab
         # pylab.clf()
@@ -350,20 +360,43 @@ class ClassInitSSDModel():
 
 
         x,y=self.ArrayPixParms.T
-        ConvModel=self.giveConvModel(ModelImage*np.ones((self.NFreqBands,1,1,1)))
-        SumConvModel=np.sum(ConvModel[:,:,x,y])
-        SumResid=np.sum(self.DeconvMachine._CubeDirty[:,:,x,y])
+        #PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
+        #ConvModel=ClassConvMachineImages(PSF).giveConvModel(ModelImage*np.ones((self.NFreqBands,1,1,1)))
+        #T.timeit("Conv1")
+        #print "done1"
+        #ConvModel=self.giveConvModel(ModelImage*np.ones((self.NFreqBands,1,1,1)))
+        # print "done2"
+        # T.timeit("Conv2")
+        # import pylab
+        # pylab.clf()
+        # pylab.subplot(1,3,1)
+        # pylab.imshow(ConvModel[0,0],interpolation="nearest")
+        # pylab.subplot(1,3,2)
+        # pylab.imshow(ConvModel1[0,0],interpolation="nearest")
+        # pylab.subplot(1,3,3)
+        # pylab.imshow((ConvModel-ConvModel1)[0,0],interpolation="nearest")
+        # pylab.colorbar()
+        # pylab.draw()
+        # pylab.show(False)
+        # stop
 
-        SumConvModel=np.max([SumConvModel,1e-6])
-        factor=(SumResid+SumConvModel)/SumConvModel
 
-        fMult=1.
-        if 1.<factor<2.:
-            fMult=factor
-        #print "fMult",fMult
+        # SumConvModel=np.sum(ConvModel[:,:,x,y])
+        # SumResid=np.sum(self.DeconvMachine._CubeDirty[:,:,x,y])
+
+        # SumConvModel=np.max([SumConvModel,1e-6])
+        # factor=(SumResid+SumConvModel)/SumConvModel
+
+        # fMult=1.
+        # if 1.<factor<2.:
+        #     fMult=factor
+        # #print "fMult",fMult
+
         SModel=ModelImage[0,0,x,y]#*fMult
 
         AModel=self.ModelMachine.GiveSpectralIndexMap(DoConv=False,MaxDR=1e3)[0,0,x,y]
+        T.timeit("spec index")
+
         return SModel,AModel
 
 

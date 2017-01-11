@@ -162,6 +162,64 @@ def test():
     
     stop
 
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
+
+class ClassConvMachineImages():
+    def __init__(self,PSF):
+        self.PSF=PSF
+        
+        
+
+    def giveConvModel(self,SubModelImageIn):
+        nch,npol,N0x_in,N0y_in=SubModelImageIn.shape
+        Nin=np.max([N0y_in,N0x_in])*2
+        if Nin%2==0: Nin+=1
+        
+        SubModelImage=np.zeros((nch,1,Nin,Nin),dtype=SubModelImageIn.dtype)
+        Aedge,Bedge=GiveEdgesDissymetric((N0x_in/2,N0y_in/2),(N0x_in,N0y_in),(Nin/2,Nin/2),(Nin,Nin))
+        x0d,x1d,y0d,y1d=Aedge
+        x0f,x1f,y0f,y1f=Bedge
+        SubModelImage[...,x0f:x1f,y0f:y1f]=SubModelImageIn[...,x0d:x1d,y0d:y1d]
+
+        PSF=self.PSF
+        nPSF=PSF.shape[-1]
+        AedgeP,BedgeP=GiveEdgesDissymetric((Nin/2,Nin/2),(Nin,Nin),(nPSF/2,nPSF/2),(nPSF,nPSF))
+        x0dP,x1dP,y0dP,y1dP=AedgeP
+        x0fP,x1fP,y0fP,y1fP=BedgeP
+        SubPSF=PSF[...,x0fP:x1fP,y0fP:y1fP]
+
+        # import pylab
+        # pylab.clf()
+        # pylab.subplot(1,2,1)
+        # pylab.imshow(PSF[0,0],interpolation="nearest")
+        # pylab.subplot(1,2,2)
+        # pylab.imshow(SubPSF[0,0],interpolation="nearest")
+        # #pylab.colorbar()
+        # pylab.draw()
+        # pylab.show(False)
+        # stop
+        
+        ConvModel=np.zeros_like(SubModelImage)
+        for ich in range(nch):
+            for ipol in range(npol):
+                ConvModel[ich,ipol]=scipy.signal.fftconvolve(SubModelImage[ich,ipol], SubPSF[ich,ipol], mode='same')
+
+                # import pylab
+                # pylab.clf()
+                # ax=pylab.subplot(1,3,1)
+                # pylab.imshow(SubModelImage[ich,ipol],interpolation="nearest")
+                # pylab.subplot(1,3,2)
+                # pylab.imshow(SubPSF[ich,ipol],interpolation="nearest")
+                # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+                # pylab.imshow(ConvModel[ich,ipol],interpolation="nearest")
+                # #pylab.colorbar()
+                # pylab.draw()
+                # pylab.show(False)
+                # stop
+
+        return ConvModel[...,x0f:x1f,y0f:y1f]
+
+
 class ClassConvMachine():
     def __init__(self,PSF,ListPixParms,ListPixData,ConvMode):
 
