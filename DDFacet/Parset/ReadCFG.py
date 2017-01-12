@@ -200,9 +200,8 @@ class Parset():
     def set (self, section, option, value):
         self.value_dict.setdefault(section,{})[option] = value
 
-    def write (self, filename):
-        """Writes the Parset out to a file"""
-        f = open(filename, "w")
+    def write (self, f):
+        """Writes the Parset out to a file object"""
         for section, content in self.value_dict.iteritems():
             f.write('[%s]\n'%section)
             for option, value in content.iteritems():
@@ -210,8 +209,6 @@ class Parset():
                 if option[0] != "_" and not attrs.get('cmdline_only') and not attrs.get('alias_of'):
                     f.write('%s = %s \n'%(option, str(value)))
             f.write('\n')
-        f.close()
-
 
     def _makeSection (self, section):
         """
