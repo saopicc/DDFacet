@@ -139,7 +139,7 @@ def parse_config_string(string, name='config', extended=True, type=None):
 class Parset():
     def __init__(self, filename=None):
         """Creates parset, reads from file if specified"""
-        self.value_dict = OrderedDict()
+        self.value_dict = self.DicoPars = OrderedDict()   # call it DicoPars for compatibility with old testing code
         self.attr_dict = OrderedDict()
         if filename:
             self.read(filename)
@@ -174,6 +174,10 @@ class Parset():
             self._migrate_ancient_0_1()
             self.migrated = self.version
             self.version = 0.1
+            # and repopulate the config parser with the updated content (the testing classes in particular need this)
+            self.Config = ConfigParser.ConfigParser(dict_type=OrderedDict)
+            for section, content in self.value_dict.iteritems():
+                self.Config[section] = content
         else:
             self.migrated = None
 
