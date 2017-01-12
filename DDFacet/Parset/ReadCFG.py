@@ -177,7 +177,9 @@ class Parset():
             # and repopulate the config parser with the updated content (the testing classes in particular need this)
             self.Config = ConfigParser.ConfigParser(dict_type=OrderedDict)
             for section, content in self.value_dict.iteritems():
-                self.Config[section] = content
+                self.Config.add_section(section)
+                for option, value in content.iteritems():
+                    self.Config.set(section, option, value)
         else:
             self.migrated = None
 
