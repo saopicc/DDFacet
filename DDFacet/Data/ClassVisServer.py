@@ -269,7 +269,7 @@ class ClassVisServer():
                     MS.ChanFreq.size)
             else:
                 NChanDegrid = min(
-                    self.GD["Freq"]["NBandDegrid"]
+                    self.GD["Freq"]["NDegridBand"]
                     or MS.ChanFreq.size, MS.ChanFreq.size)
                 degrid_bw = bw/NChanDegrid
 

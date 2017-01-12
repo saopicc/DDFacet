@@ -235,9 +235,10 @@ class Parset():
         """
         Helper method for migration: remaps the values of an option
         """
-        value = self.value_dict[section][option]
-        if value in remap:
-            self.value_dict[section][option] = remap[value]
+        if option in self.value_dict[section]:
+            value = self.value_dict[section][option]
+            if value in remap:
+                self.value_dict[section][option] = remap[value]
 
     def _move (self, oldsection, oldname, newsection, newname):
         """

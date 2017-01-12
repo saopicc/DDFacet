@@ -79,7 +79,7 @@ def testGrid():
     DC["Image"]["Weighting"] = "Briggs"
     #DC["Comp"]["CompDeGridMode"] = False
     #DC["Comp"]["CompGridMode"] = False
-    DC["Comp"]["CompDeGridMode"] = True
+    #DC["Comp"]["DegridMode"] = True
 
     VS = ClassVisServer.ClassVisServer(DC["Data"]["MS"],
                                        ColName=DC["Data"]["ColName"],
@@ -711,7 +711,7 @@ class ClassDDEGridMachine():
         # T2.disable()
         T.timeit("prep %d"%self.IDFacet)
 
-        if self.GD["Comp"]["CompGridMode"] == 0:
+        if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
             raise RuntimeError("Deprecated flag. Please use BDA gridder")
         else:
             OptimisationInfos = [
@@ -909,7 +909,7 @@ class ClassDDEGridMachine():
         T.timeit("3")
         #print vis
         #print "DEGRID:",Grid.shape,ChanMapping
-        if self.GD["Comp"]["CompDeGridMode"]==0:
+        if False:  ## deprecated, since only BDA degridder is used ## self.GD["Comp"]["DegridMode"]==0:
             _ = _pyGridder.pyDeGridderWPol(Grid,
                                            vis,
                                            uvw,
