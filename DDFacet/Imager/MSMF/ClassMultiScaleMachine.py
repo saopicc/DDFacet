@@ -811,7 +811,6 @@ class ClassMultiScaleMachine():
             dirtyVec=dirtyVec.copy()
             Mask=np.zeros(WVecPSF.shape,np.bool8)
             for iIter in range(10):
-                #print "iter=",iIter
                 A=W*BM
                 y=W*dirtyVec
                 d=dirtyVec.reshape((nchan,1,nxp,nyp))[:,0]
@@ -821,7 +820,7 @@ class ClassMultiScaleMachine():
                 if np.isnan(FactNorm) or np.isinf(FactNorm):
                     Sol=np.zeros((A.shape[1],),dtype=np.float32)
                     break
-                stop
+
                 if 1.<FactNorm<10.:
                     y*=FactNorm
                 #print "  ",PeakMeanOrigDirty,PeakMeanOrigResid,PeakMeanOrigDirty/PeakMeanOrigResid

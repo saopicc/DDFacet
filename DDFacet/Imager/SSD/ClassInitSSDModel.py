@@ -53,7 +53,7 @@ class ClassInitSSDModelParallel():
         workerlist=[]
 
         MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","GiveModelMachine","ClassModelMachineMSMF"])
-        #MyLogger.setLoud("ClassImageDeconvMachineMSMF")
+        # MyLogger.setLoud("ClassImageDeconvMachineMSMF")
 
         print>>log,"Launch HMP workers"
         for ii in range(NCPU):
@@ -477,12 +477,12 @@ class WorkerInitMSMF(multiprocessing.Process):
             try:
                 self.initIsland(DicoJob)
             except:
-                iIsland=DicoJob["iIsland"]
-                print ModColor.Str("On island %i"%iIsland)
                 print traceback.format_exc()
-                print self.ListIsland[iIsland]
+                iIsland=DicoJob["iIsland"]
+                FileOut="errIsland_%6.6i.npy"%iIsland
+                print ModColor.Str("...... on island %i, saving to file %s"%(iIsland,FileOut))
+                np.save(FileOut,np.array(self.ListIsland[iIsland]))
                 print
-                np.save("errIsland_%6.6i"%iIsland,np.array(self.ListIsland[iIsland]))
 
 
 
