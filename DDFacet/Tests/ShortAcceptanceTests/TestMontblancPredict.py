@@ -108,7 +108,7 @@ class TestMontblancPredict(unittest.TestCase):
         if not os.path.isfile(self._input_parset_filename):
             raise RuntimeError("Parset file %s does not exist" % self._input_parset_filename)
 
-        self._parset = Parset(File=self._input_parset_filename)
+        self._parset = Parset(self._input_parset_filename)
 
     def tearDown(self):
         pass

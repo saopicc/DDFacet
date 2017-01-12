@@ -156,7 +156,7 @@ class ClassCompareFITSImage(unittest.TestCase):
         cls._outputLog = cls._outputDir + cls.__name__ + ".run.log"
         if not path.isfile(cls._inputParsetFilename):
             raise RuntimeError("Default parset file %s does not exist" % cls._inputParsetFilename)
-        p = Parset(File=cls._inputParsetFilename)
+        p = Parset(cls._inputParsetFilename)
         cls._defaultParsetConfig = p.Config
         cls._imagePrefix = cls._outputDir+cls.__name__+".run"
         cls.setParsetOption("Output",

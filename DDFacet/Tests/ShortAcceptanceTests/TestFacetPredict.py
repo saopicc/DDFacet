@@ -79,7 +79,7 @@ class TestFacetPredict(unittest.TestCase):
         cls._outputParsetFilename = cls._outputDir + cls.__name__ + ".run.parset.cfg"
         if not path.isfile(cls._inputParsetFilename):
             raise RuntimeError("Default parset file %s does not exist" % cls._inputParsetFilename)
-        p = Parset(File=cls._inputParsetFilename)
+        p = Parset(cls._inputParsetFilename)
         cls._defaultParsetConfig = p.Config
         cls._imagePrefix = cls._outputDir + cls.__name__ + ".run"
 
