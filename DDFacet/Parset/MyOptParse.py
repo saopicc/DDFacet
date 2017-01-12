@@ -78,7 +78,7 @@ class MyOptParse():
                 opttype = None
             else:
                 opttype = str
-                metavar = "BOOL"
+                metavar = "0|1"
         # handle doc string
         if 'doc' in attrs:
             help = attrs['doc']

@@ -35,9 +35,13 @@ def test():
 
 def parse_as_python(string, words_are_strings=False):
     """Tries to interpret string as a Python object. Returns value, or string itself if unsuccessful.
+    Names of built-in functions are _not_ interpreted as functions!
     """
     try:
-        return eval(string, {}, {})
+        value = eval(string, {}, {})
+        if type(value) is type(all):  # do not interpret built-in function names
+            return string
+        return value
     except:
         return string
 
@@ -164,6 +168,14 @@ class Parset():
             self.sections = config.sections()
             for section in self.sections:
                 self.value_dict[section], self.attr_dict[section] = self.read_section(config, section)
+        # now migrate from previous versions
+        self.version = self.value_dict.get('Misc', {}).get('ParsetVersion', 0.0)
+        if self.version != 0.1:
+            self._migrate_ancient_0_1()
+            self.migrated = self.version
+            self.version = 0.1
+        else:
+            self.migrated = None
 
     def read_section(self, config, section):
         """Returns two dicts corresponding to the given section: a dict of option:value,
@@ -185,84 +197,137 @@ class Parset():
                 dict_attrs[alias] = { 'alias_of': option }
         return dict_values, dict_attrs
 
-    def _migrate_from_pre255 (self):
+    def _makeSection (self, section):
         """
-        Migrates contents from "old-style" parset prior to issue #255 being resolved.
+        Helper method for migration: makes a new section
+        """
+        for dd in self.value_dict, self.attr_dict:
+            dd.setdefault(section, OrderedDict())
+        return section
+
+    def _renameSection (self, oldname, newname):
+        """
+        Helper method for migration: renames a section. If the new section already exists, merges options into
+        it.
+        """
+        for dd in self.value_dict, self.attr_dict:
+            dd.setdefault(newname, OrderedDict()).update(dd.pop(oldname))
+        return newname
+
+    def _del (self, section, option):
+        """
+        Helper method for migration: removes an option
+        """
+        for dd in self.value_dict, self.attr_dict:
+            if option in dd[section]:
+                dd[section].pop(option)
+
+    def _rename (self, section, oldname, newname):
+        """
+        Helper method for migration: renames an option within a section. Optionally remaps option values using
+        the supplied dict.
+        """
+        for dd in self.value_dict, self.attr_dict:
+            if oldname in dd[section]:
+                dd[section][newname] = dd[section].pop(oldname)
+
+    def _remap (self, section, option, remap):
+        """
+        Helper method for migration: remaps the values of an option
+        """
+        value = self.value_dict[section][option]
+        if value in remap:
+            self.value_dict[section][option] = remap[value]
+
+    def _move (self, oldsection, oldname, newsection, newname):
+        """
+        Helper method for migration: moves an option to a different section
+        """
+        for dd in self.value_dict, self.attr_dict:
+            if oldname in dd[oldsection]:
+                dd[newsection][newname] = dd[oldsection].pop(oldname)
+
+    def _migrate_ancient_0_1 (self):
+        """
+        Migrates contents from "old-style" (pre-issue255) parset to 0.1 parset
         """
 
-        makeSection("Misc")
+        self._makeSection("Misc")
 
         section = "Parallel"
-        delete(section, "Enable")  # deprecated. Use NCPU=1 instead
+        self._del(section, "Enable")  # deprecated. Use NCPU=1 instead
 
-        section = renameSection("Caching", "Cache")
-        rename(section, "ResetCache", "Reset")
-        rename(section, "CachePSF", "PSF")
-        rename(section, "CacheDirty", "Dirty")
-        rename(section, "CacheVisData", "VisData")
+        section = self._renameSection("Caching", "Cache")
+        self._rename(section, "ResetCache", "Reset")
+        self._rename(section, "CachePSF", "PSF")
+        self._rename(section, "CacheDirty", "Dirty")
+        self._rename(section, "CacheVisData", "VisData")
 
-        section = renameSection("VisData", "Data")
-        rename(section, "MSName", "MS")
-        delete(section, "MSListFile")  # deprecated. Use MS=list.txt instead
+        section = self._renameSection("VisData", "Data")
+        self._rename(section, "MSName", "MS")
+        self._del(section, "MSListFile")  # deprecated. Use MS=list.txt instead
         # PredictFrom # migrated from --Images-PredictModelName
 
-        section = renameSection("DataSelection", "Selection")
+        section = self._renameSection("DataSelection", "Selection")
 
-        section = renameSection("Images", "Output")
-        move(section, "AllowColumnOverwrite", "Data", "Overwrite")
-        move(section, "PredictModelName", "Data", "PredictFrom")
-        rename(section, "ImageName", "Name")
-        delete(section, "SaveIms")  # deprecated
-        rename(section, "SaveOnly", "Images")
-        rename(section, "SaveImages", "Also")
-        rename(section, "SaveCubes", "Cubes")
-        delete(section, "OpenImages")   # deprecated, do we really need this? Or make consistent with --Images-Save notation at least
-        delete(section, "DefaultImageViewer") # deprecated, do we really need this?
-        delete(section, "MultiFreqMap")  # deprecated
+        section = self._renameSection("Images", "Output")
+        self._move(section, "AllowColumnOverwrite", "Data", "Overwrite")
+        self._move(section, "PredictModelName", "Data", "PredictFrom")
+        self._rename(section, "ImageName", "Name")
+        self._del(section, "SaveIms")  # deprecated
+        self._rename(section, "SaveOnly", "Images")
+        self._rename(section, "SaveImages", "Also")
+        self._rename(section, "SaveCubes", "Cubes")
+        self._del(section, "OpenImages")   # deprecated, do we really need this? Or make consistent with --Images-Save notation at least
+        self._del(section, "DefaultImageViewer") # deprecated, do we really need this?
+        self._del(section, "MultiFreqMap")  # deprecated
 
-        section = renameSection("ImagerGlobal", "Image")
-        rename(section, "Super", "SuperUniform")
-        move(section, "RandomSeed", "Misc", "RandomSeed")
+        section = self._renameSection("ImagerGlobal", "Image")
+        self._rename(section, "Super", "SuperUniform")
+        self._move(section, "RandomSeed", "Misc", "RandomSeed")
+        self._remap(section, "PredictMode", {'DeGridder': 'BDA-degrid'})
 
-        section = renameSection("ImagerMainFacet", "Image")
-        rename(section, "Npix", "NPix")
+        section = self._renameSection("ImagerMainFacet", "Image")
+        self._rename(section, "Npix", "NPix")
 
-        section = renameSection("Compression", "Comp")
-        delete(section, "CompGridMode")  # deprecate for now, since only the BDA gridder works
-        delete(section, "CompDegridMode")  # deprecate for now, since only the BDA degridder works
-        rename(section, "CompGridDecorr", "GridDecorr")
-        rename(section, "CompGridFOV", "GridFov")
-        rename(section, "CompDeGridDecorr", "DegridDecorr")
-        rename(section, "CompDeGridFOV", "DegridFOV")
+        section = self._renameSection("ImagerDeconv", "Deconv")
+        self._rename(section, "MinorCycleMode", "Mode")
+        self._remap(section, "Mode", {'MSMF': 'HMP'})
+        self._rename(section, "SearchMaxAbs", "AllowNegative")
+        self._move(section, "SidelobeSearchWindow", "Image", "SidelobeSearchWindow")
 
-        section = renameSection("MultiFreqs", "Freq")  # options related to basic multifrequency imaging
-        rename(section, "GridBandMHz", "BandMHz")
-        rename(section, "NFreqBands", "NBand")
-        rename(section, "NChanDegridPerMS", "NDegridBand")
-        move(section, "Alpha", "HMP", "Alpha")
-        move(section, "PolyFitOrder", "Hogbom", "PolyFitOrder")
+        section = self._renameSection("Compression", "Comp")
+        self._del(section, "CompGridMode")  # deprecate for now, since only the BDA gridder works
+        self._del(section, "CompDeGridMode")  # deprecate for now, since only the BDA degridder works
+        self._rename(section, "CompGridDecorr", "GridDecorr")
+        self._rename(section, "CompGridFOV", "GridFov")
+        self._rename(section, "CompDeGridDecorr", "DegridDecorr")
+        self._rename(section, "CompDeGridFOV", "DegridFOV")
+
+        section = self._renameSection("MultiScale", "HMP")
+        self._del(section, "MSEnable")  # deprecated. --Deconvolution-MinorCycle selects algorithm instead.
+        self._move(section, "PSFBox", "Deconv", "PSFBox")
+        # Alpha added
+
+        section = self._renameSection("MultiFreqs", "Freq")  # options related to basic multifrequency imaging
+        self._rename(section, "GridBandMHz", "BandMHz")
+        self._rename(section, "NFreqBands", "NBand")
+        self._rename(section, "NChanDegridPerMS", "NDegridBand")
+        self._move(section, "Alpha", "HMP", "Alpha")
+        self._move(section, "PolyFitOrder", "Hogbom", "PolyFitOrder")
 
         section = "Beam"
-        rename(section, "BeamModel", "Model")
-        rename(section, "NChanBeamPerMS", "NBand")
+        self._rename(section, "BeamModel", "Model")
+        self._rename(section, "NChanBeamPerMS", "NBand")
 
-        section = renameSection("ImagerDeconv", "Deconv")
-        rename(section, "MinorCycleMode", "Mode")
-        rename(section, "SearchMaxAbs", "AllowNegative")
-        move(section, "SidelobeSearchWindow", "Image", "SidelobeSearchWindow")
 
-        section = renameSection("MultiScale", "HMP")
-        delete(section, "MSEnable")  # deprecated. --Deconvolution-MinorCycle selects algorithm instead.
-        move(section, "PSFBox", "Deconv", "PSFBox")
-        # Alpha added
 
         section = "Hogbom"
         # PolyFitOrder added
 
-        section = renameSection("Logging", "Log")
-        rename(section, "MemoryLogging", "Memory")
-        rename(section, "AppendLogFile", "Append")
+        section = self._renameSection("Logging", "Log")
+        self._rename(section, "MemoryLogging", "Memory")
+        self._rename(section, "AppendLogFile", "Append")
 
-
-        section = renameSection("Debugging", "Debug")
+        section = self._renameSection("Debugging", "Debug")
 

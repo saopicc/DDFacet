@@ -287,7 +287,12 @@ if __name__ == "__main__":
         TestParset = ReadCFG.Parset(ParsetFile)
         if TestParset.success:
             Parset.update_values(TestParset, newval=False)
-            messages.append("Successfully read parset %s"%ParsetFile)
+            if TestParset.migrated is not None:
+                messages.append(ModColor.Str("WARNING: parset %s is of a deprecated version %.1f"%(ParsetFile, TestParset.migrated)))
+                messages.append(ModColor.Str("We have migrated the parset to the current version (%.1f) automatically,"%(TestParset.version)))
+                messages.append(ModColor.Str("but please check the settings below to make sure they're correct."))
+            else:
+                messages.append("Successfully read parset %s, version %.1f"%(ParsetFile, TestParset.version))
         else:
             OP.ExitWithError(
                 "Argument must be a valid parset file. Use -h for help.")
@@ -296,13 +301,14 @@ if __name__ == "__main__":
         OP = read_options()
         # refuse to clobber existing parsets, unless forced from command line
         new_parset = OP.DicoConfig["Output"]["Name"] + ".parset"
-        if os.path.samefile(ParsetFile, new_parset):
+        if os.path.exists(new_parset) and os.path.samefile(ParsetFile, new_parset):
             if OP.DicoConfig["Output"]["Clobber"]:
                 print>> log, ModColor.Str("WARNING: will overwrite existing parset, since --Clobber is specified.")
             else:
-                print>> log, ModColor.Str("Your ImageName setting is such that the specified parset would be "
-                                          "overwritten. Please re-run with the --Clobber option if you're sure "
-                                          "this is what you want to do, or set a different --ImageName.")
+                print>> log, ModColor.Str("Your --Output-Name setting is the same as the base name of the parset, which would\n"
+                                          "mean overwriting the parset. I'm sorry, Dave, I'm afraid I can't do that.\n"
+                                          "Please re-run with the --Output-Clobber option if you're sure this is what\n"
+                                          "you want to do, or set a different --Output-Name.")
                 sys.exit(1)
     elif len(args):
         OP.ExitWithError("Incorrect number of arguments. Use -h for help.")

@@ -79,13 +79,13 @@ class ClassModModelMachine():
             return self.GAMM
         elif Mode == "HMP":
             if self.MSMFMM is None:
-                print>> log, "Initialising MSMF model machine"
+                print>> log, "Initialising HMP model machine"
                 from DDFacet.Imager.MSMF import ClassModelMachineMSMF
                 self.MSMFMM = ClassModelMachineMSMF.ClassModelMachine(
                     self.GD,
                     GainMachine= ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"]))
             else:
-                print>> log, "MSMF model machine already initialised"
+                print>> log, "HMP model machine already initialised"
             return self.MSMFMM
         elif Mode == "MORESANE":
             if self.MORSANEMM is None:
@@ -106,4 +106,4 @@ class ClassModModelMachine():
                 print>> log, "HOGBOM model machine already initialised"
             return self.HOGBOMMM
         else:
-            raise NotImplementedError("The %s minor cycle is not currently supported"%self.GD["Deconv"]["Mode"])
+            raise NotImplementedError("Unknown --Deconv-Mode=%s"%self.GD["Deconv"]["Mode"])

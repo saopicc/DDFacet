@@ -76,7 +76,7 @@ class ClassVisServer():
         self.LofarBeam = LofarBeam
         self.ApplyBeam = False
         self.datashape = None
-        self._use_data_cache = self.GD["Cache"]["Data"]
+        self._use_data_cache = self.GD["Cache"]["VisData"]
         self.Init()
 
         # buffers to hold current chunk
@@ -131,6 +131,10 @@ class ClassVisServer():
         size = reduce(lambda x, y: x * y, self._chunk_shape)
         print >>log, "shape of data/flag buffer will be %s (%.2f Gel)" % (
             self._chunk_shape, size / float(2 ** 30))
+
+        if not self.ListMS:
+            print>>log, ModColor.Str("--Data-MS does not specify any valid Measurement Set(s)")
+            raise RuntimeError,"--Data-MS does not specify any valid Measurement Set(s)"
 
         # main cache is initialized from main cache of first MS
         self.maincache = self.cache = self.ListMS[0].maincache
