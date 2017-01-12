@@ -160,7 +160,7 @@ class Parset():
 
     def read (self, filename):
         self.filename = filename
-        config = ConfigParser.ConfigParser(dict_type=OrderedDict)
+        self.Config = config = ConfigParser.ConfigParser(dict_type=OrderedDict)
         config.optionxform = str
         success = config.read(self.filename)
         self.success = bool(len(success))
@@ -211,7 +211,8 @@ class Parset():
         it.
         """
         for dd in self.value_dict, self.attr_dict:
-            dd.setdefault(newname, OrderedDict()).update(dd.pop(oldname))
+            if oldname in dd:
+                dd.setdefault(newname, OrderedDict()).update(dd.pop(oldname))
         return newname
 
     def _del (self, section, option):
@@ -219,7 +220,7 @@ class Parset():
         Helper method for migration: removes an option
         """
         for dd in self.value_dict, self.attr_dict:
-            if option in dd[section]:
+            if section in dd and option in dd[section]:
                 dd[section].pop(option)
 
     def _rename (self, section, oldname, newname):
@@ -228,14 +229,14 @@ class Parset():
         the supplied dict.
         """
         for dd in self.value_dict, self.attr_dict:
-            if oldname in dd[section]:
+            if section in dd and oldname in dd[section]:
                 dd[section][newname] = dd[section].pop(oldname)
 
     def _remap (self, section, option, remap):
         """
         Helper method for migration: remaps the values of an option
         """
-        if option in self.value_dict[section]:
+        if section in self.value_dict and option in self.value_dict[section]:
             value = self.value_dict[section][option]
             if value in remap:
                 self.value_dict[section][option] = remap[value]
@@ -245,7 +246,7 @@ class Parset():
         Helper method for migration: moves an option to a different section
         """
         for dd in self.value_dict, self.attr_dict:
-            if oldname in dd[oldsection]:
+            if oldsection in dd and oldname in dd[oldsection]:
                 dd[newsection][newname] = dd[oldsection].pop(oldname)
 
     def _migrate_ancient_0_1 (self):
