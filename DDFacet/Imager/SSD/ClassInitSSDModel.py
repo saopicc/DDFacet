@@ -135,7 +135,7 @@ class ClassInitSSDModel():
         self.GD["ImagerDeconv"]["MinorCycleMode"]="MSMF"
         self.GD["ImagerDeconv"]["CycleFactor"]=0
         self.GD["ImagerDeconv"]["PeakFactor"]=0.01
-        self.GD["ImagerDeconv"]["RMSFactor"]=3.
+        self.GD["ImagerDeconv"]["RMSFactor"]=.5
         self.GD["ImagerDeconv"]["Gain"]=.1
 
 
@@ -143,7 +143,7 @@ class ClassInitSSDModel():
         
 
         self.GD["MultiScale"]["Scales"]=[0,1,2,4,8,16]
-        self.GD["MultiScale"]["Ratios"]=[1,2]
+        self.GD["MultiScale"]["Ratios"]=[]
         #self.GD["MultiScale"]["Ratios"]=[]
         self.GD["MultiScale"]["NTheta"]=4
         
@@ -360,8 +360,8 @@ class ClassInitSSDModel():
 
 
         x,y=self.ArrayPixParms.T
-        #PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
-        #ConvModel=ClassConvMachineImages(PSF).giveConvModel(ModelImage*np.ones((self.NFreqBands,1,1,1)))
+        PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
+        ConvModel=ClassConvMachineImages(PSF).giveConvModel(ModelImage*np.ones((self.NFreqBands,1,1,1)))
         #T.timeit("Conv1")
         #print "done1"
         #ConvModel=self.giveConvModel(ModelImage*np.ones((self.NFreqBands,1,1,1)))
@@ -381,18 +381,18 @@ class ClassInitSSDModel():
         # stop
 
 
-        # SumConvModel=np.sum(ConvModel[:,:,x,y])
-        # SumResid=np.sum(self.DeconvMachine._CubeDirty[:,:,x,y])
+        SumConvModel=np.sum(ConvModel[:,:,x,y])
+        SumResid=np.sum(self.DeconvMachine._CubeDirty[:,:,x,y])
 
-        # SumConvModel=np.max([SumConvModel,1e-6])
-        # factor=(SumResid+SumConvModel)/SumConvModel
+        SumConvModel=np.max([SumConvModel,1e-6])
+        factor=(SumResid+SumConvModel)/SumConvModel
 
-        # fMult=1.
-        # if 1.<factor<2.:
-        #     fMult=factor
-        # #print "fMult",fMult
+        fMult=1.
+        if 1.<factor<2.:
+            fMult=factor
+        #print "fMult",fMult
 
-        SModel=ModelImage[0,0,x,y]#*fMult
+        SModel=ModelImage[0,0,x,y]*fMult
 
         AModel=self.ModelMachine.GiveSpectralIndexMap(DoConv=False,MaxDR=1e3)[0,0,x,y]
         T.timeit("spec index")
