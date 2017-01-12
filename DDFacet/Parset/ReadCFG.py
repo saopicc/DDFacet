@@ -197,6 +197,9 @@ class Parset():
                 dict_attrs[alias] = { 'alias_of': option }
         return dict_values, dict_attrs
 
+    def set (self, section, option, value):
+        self.value_dict.setdefault(section,{})[option] = value
+
     def write (self, filename):
         """Writes the Parset out to a file"""
         f = open(filename, "w")
