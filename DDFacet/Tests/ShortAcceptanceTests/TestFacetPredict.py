@@ -30,8 +30,8 @@ import numpy as np
 def run_ddf(parset, image_prefix, stdout_filename, stderr_filename, beam_model="FITS"):
     """ Execute DDFacet """
     args = ['DDF.py', parset,
-            '--ImageName=%s' % image_prefix,
-            '--BeamModel=%s' % beam_model]
+            '--Output-Name=%s' % image_prefix,
+            '--Beam-Model=%s' % beam_model]
     stdout_file = open(stdout_filename, 'w')
     stderr_file = open(stderr_filename, 'w')
 

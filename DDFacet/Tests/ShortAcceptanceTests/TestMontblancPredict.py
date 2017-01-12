@@ -30,7 +30,7 @@ from DDFacet.Parset.ReadCFG import Parset
 def run_ddf(parset, image_prefix, stdout_filename, stderr_filename):
     """ Execute DDFacet """
     args = ['DDF.py', parset,
-        '--ImageName=%s' % image_prefix]
+        '--Output-Name=%s' % image_prefix]
 
     stdout_file = open(stdout_filename, 'w')
     stderr_file = open(stderr_filename, 'w')
