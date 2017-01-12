@@ -894,7 +894,7 @@ class ClassMS():
         ta=table(table_all.getkeyword('FIELD'),ack=False)
         rarad,decrad=ta.getcol('PHASE_DIR')[self.Field][0]
         if rarad<0.: rarad+=2.*np.pi
-        self.OldRadec=rarad,decrad
+        self.OriginalRadec=self.OldRadec=rarad,decrad
         if self.ToRADEC is not None:
             SRa,SDec=self.ToRADEC
             srah,sram,sras=SRa.split(":")

@@ -506,7 +506,7 @@ class ClassJones():
         DicoBeam["tm"]=np.zeros((Tm.size,),np.float64)
         
         
-        rac,decc=self.MS.radec
+        rac,decc=self.MS.OriginalRadec
         pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="  Init E-Jones ", HeaderSize=10,TitleSize=13)
         pBAR.render(0, "%d/%d"%(0, Tm.size))
         for itime in range(Tm.size):
