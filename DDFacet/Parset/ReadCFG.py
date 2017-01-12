@@ -174,12 +174,6 @@ class Parset():
             self._migrate_ancient_0_1()
             self.migrated = self.version
             self.version = 0.1
-            # and repopulate the config parser with the updated content (the testing classes in particular need this)
-            self.Config = ConfigParser.ConfigParser(dict_type=OrderedDict)
-            for section, content in self.value_dict.iteritems():
-                self.Config.add_section(section)
-                for option, value in content.iteritems():
-                    self.Config.set(section, option, value)
         else:
             self.migrated = None
 
@@ -202,6 +196,19 @@ class Parset():
                 dict_values[alias] = dict_values[option]
                 dict_attrs[alias] = { 'alias_of': option }
         return dict_values, dict_attrs
+
+    def write (self, filename):
+        """Writes the Parset out to a file"""
+        f = open(filename, "w")
+        for section, content in self.value_dict.iteritems():
+            f.write('[%s]\n'%section)
+            for option, value in content.iteritems():
+                attrs = self.attr_dict.get(section, {}).get(option, {})
+                if option[0] != "_" and not attrs.get('cmdline_only') and not attrs.get('alias_of'):
+                    f.write('%s = %s \n'%(option, str(value)))
+            f.write('\n')
+        f.close()
+
 
     def _makeSection (self, section):
         """

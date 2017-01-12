@@ -139,7 +139,7 @@ class ClassCompareFITSImage(unittest.TestCase):
                 option: Section option name
                 value: Value for option (refer to default parset for documentation)
         """
-        cls._defaultParsetConfig.set(section, option, value)
+        cls._defaultParset.set(section, option, value)
 
     @classmethod
     def setUpClass(cls):
@@ -157,7 +157,7 @@ class ClassCompareFITSImage(unittest.TestCase):
         if not path.isfile(cls._inputParsetFilename):
             raise RuntimeError("Default parset file %s does not exist" % cls._inputParsetFilename)
         p = Parset(cls._inputParsetFilename)
-        cls._defaultParsetConfig = p.Config
+        cls._defaultParset = p
         cls._imagePrefix = cls._outputDir+cls.__name__+".run"
         cls.setParsetOption("Output",
                             "Name",
@@ -180,7 +180,7 @@ class ClassCompareFITSImage(unittest.TestCase):
             cls.setParsetOption("Data", "MS", abs_ms)
 
         fOutputParset = open(cls._outputParsetFilename,mode='w')
-        cls._defaultParsetConfig.write(fOutputParset)
+        cls._defaultParset.write(fOutputParset)
         fOutputParset.close()
 
         #Build dictionary of HDUs
