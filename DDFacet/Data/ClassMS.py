@@ -835,8 +835,8 @@ class ClassMS():
         if not self.TimeChunkSize:
             T0=table_all.getcol('TIME',0,1)[0]
             T1=table_all.getcol('TIME',self.F_nrows-1,1)[0]
-            print>>log,"ChunkHours is not set; MS %s (%d rows) will be processed as a single chunk"%(self.MSName, self.F_nrows)
-            chunk_rows = [0]
+            print>>log,"--Data-ChunkHours is null: MS %s (%d rows) will be processed as a single chunk"%(self.MSName, self.F_nrows)
+            chunk_row0 = [0]
         else:
             all_times = table_all.getcol("TIME")
             if (all_times[1:] - all_times[:-1]).min() < 0:
