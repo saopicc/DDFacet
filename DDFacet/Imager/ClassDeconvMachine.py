@@ -660,7 +660,6 @@ class ClassImagerDeconv():
             self.FacetMachinePSF = None
 
         #Pass minor cycle specific options into Init as kwargs
-        print>> log,"sparsify=%d approx=%d"%(sparsify, sparsify > approximate_psf_above)
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF, PSFAve=self.PSFSidelobesAvg,
                                 approx=(sparsify > approximate_psf_above), cache=not sparsify,
                                 GridFreqs=self.VS.FreqBandCenters)

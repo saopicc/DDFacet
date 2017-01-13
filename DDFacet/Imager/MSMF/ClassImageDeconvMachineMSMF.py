@@ -114,7 +114,6 @@ class ClassImageDeconvMachine():
         self.SetPSF(PSFVar)
         self.setSideLobeLevel(PSFAve[0], PSFAve[1])
         self.InitMSMF(approx=approx, cache=cache)
-        print>>log,"init HMP approx %d"%approx
 
     def InitMSMF(self, approx=False, cache=True):
         """Initializes MSMF basis functions. If approx is True, then uses the central facet's PSF for
@@ -127,21 +126,22 @@ class ClassImageDeconvMachine():
         cachehash = dict( [(section, self.GD[section]) for section in (
                                  "Data", "Beam", "Selection", "Freq",
                                  "Image", "Comp", "CF",
-                                 "Image", "HMP")])
-        cachepath, valid = self.maincache.checkCache("MSMFMachine", cachehash)
+                                 "HMP")])
+        cachepath, valid = self.maincache.checkCache("HMPMachine", cachehash)
         # do not use cache in approx mode
         if approx or not cache:
             valid = False
         if valid:
-            print>>log, "Initialising MSMF Machine from cache %s" % cachepath
+            print>>log, "Initialising HMP Machine from cache %s" % cachepath
             facetcache = cPickle.load(file(cachepath))
         else:
-            print>>log, "Initialising MSMF Machine"
+            print>>log, "Initialising HMP Machine"
             facetcache = {}
+        print>>log,"%d frequency bands"%self.NFreqBands
 
         centralFacet = self.PSFServer.DicoVariablePSF["CentralFacet"]
         if approx:
-            print>>log, "MSMF approximation mode: using PSF of central facet (%d)" % centralFacet
+            print>>log, "HMP approximation mode: using PSF of central facet (%d)" % centralFacet
             self.PSFServer.setFacet(centralFacet)
             MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
             MSMachine.setModelMachine(self.ModelMachine)
@@ -157,8 +157,7 @@ class ClassImageDeconvMachine():
             #        t = ClassTimeIt.ClassTimeIt()
             for iFacet in xrange(self.PSFServer.NFacets):
                 self.PSFServer.setFacet(iFacet)
-                MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(
-                    self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
+                MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
                 MSMachine.setModelMachine(self.ModelMachine)
                 MSMachine.setSideLobeLevel(self.SideLobeLevel, self.OffsetSideLobe)
                 MSMachine.SetFacet(iFacet)
@@ -172,11 +171,11 @@ class ClassImageDeconvMachine():
             if not valid and cache and not approx:
                 try:
                     cPickle.dump(facetcache, file(cachepath, 'w'), 2)
-                    self.maincache.saveCache("MSMFMachine")
+                    self.maincache.saveCache("HMPMachine")
                 except:
                     print>>log, traceback.format_exc()
                     print >>log, ModColor.Str(
-                        "WARNING: MSMF cache could not be written, see error report above. Proceeding anyway.")
+                        "WARNING: HMP cache could not be written, see error report above. Proceeding anyway.")
 
     def SetDirty(self, DicoDirty):
         # if len(PSF.shape)==4:
