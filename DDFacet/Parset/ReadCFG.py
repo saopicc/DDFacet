@@ -309,6 +309,8 @@ class Parset():
         section = self._renameSection("ImagerMainFacet", "Image")
         self._rename(section, "Npix", "NPix")
 
+        section = self._renameSection("ImagerCF", "CF")
+
         section = self._renameSection("ImagerDeconv", "Deconv")
         self._rename(section, "MinorCycleMode", "Mode")
         self._remap(section, "Mode", {'MSMF': 'HMP'})

@@ -476,7 +476,7 @@ class ClassFacetMachine():
         cachename = "FFTW_Wisdom_PSF" if self.DoPSF and self.Oversize != 1 else "FFTW_Wisdom"
         path, valid = self.VS.maincache.checkCache(cachename, dict(shape=self.PaddedGridShape))
         if not valid:
-            print>>log, "Computing fftw widsdom for shape = %s" % str(self.PaddedGridShape)
+            print>>log, "Computing fftw wisdom for shape = %s" % str(self.PaddedGridShape)
             a = np.random.randn(*(self.PaddedGridShape)) \
                 + 1j*np.random.randn(*(self.PaddedGridShape))
             FM = ModFFTW.FFTW_2Donly(self.PaddedGridShape, np.complex64)
