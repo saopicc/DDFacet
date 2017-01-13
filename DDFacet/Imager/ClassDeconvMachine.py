@@ -644,19 +644,23 @@ class ClassImagerDeconv():
 
         # use an approximate PSF when sparsification is above this value. 0 means never
         approximate_psf_above = self.GD["Deconv"]["ApproximatePSF"] or 999999
+        print>>log,"allowing PSF approximations for sparsification > %.1f" % approximate_psf_above
 
         # previous_sparsify keeps track of the sparsity factor at which the dirty/PSF was computed
         # in the previous cycle. We use this to decide when to recompute the PSF.
-        sparsify = previous_sparsify = sparsify_list and sparsify_list[0]
+        sparsify = previous_sparsify = sparsify_list[0] if sparsify_list else 0
+        if sparsify <= 1:
+            sparsify = 0
         if sparsify:
             print>> log, "applying a sparsification factor of %f to data for dirty image" % sparsify
         self.GiveDirty(psf=True, sparsify=sparsify)
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
-        if sparsify <= 1:
+        if not sparsify:
             self.FacetMachinePSF = None
 
         #Pass minor cycle specific options into Init as kwargs
+        print>> log,"sparsify=%d approx=%d"%(sparsify, sparsify > approximate_psf_above)
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF, PSFAve=self.PSFSidelobesAvg,
                                 approx=(sparsify > approximate_psf_above), cache=not sparsify,
                                 GridFreqs=self.VS.FreqBandCenters)
@@ -693,6 +697,8 @@ class ClassImagerDeconv():
                 sparsify = 0
             else:
                 sparsify = sparsify_list[iMajor]
+                if sparsify <= 1:
+                    sparsify = 0
 
             # recompute PSF in sparsification mode, or the first time we go from sparsified to full precision,
             # unless this is the last major cycle, in which case we never recompute the PSF
@@ -762,7 +768,7 @@ class ClassImagerDeconv():
                 self._finalizeComputedPSF(self.FacetMachinePSF, sparsify)
                 self._fitAndSavePSF(self.FacetMachinePSF, cycle=iMajor)
                 self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF, PSFAve=self.PSFSidelobesAvg,
-                                        approx=(sparsify >= approximate_psf_above),
+                                        approx=(sparsify > approximate_psf_above),
                                         cache=not sparsify)
 
             # if we reached a sparsification of 1, we shan't be re-making the PSF

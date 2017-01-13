@@ -114,6 +114,7 @@ class ClassImageDeconvMachine():
         self.SetPSF(PSFVar)
         self.setSideLobeLevel(PSFAve[0], PSFAve[1])
         self.InitMSMF(approx=approx, cache=cache)
+        print>>log,"init HMP approx %d"%approx
 
     def InitMSMF(self, approx=False, cache=True):
         """Initializes MSMF basis functions. If approx is True, then uses the central facet's PSF for
