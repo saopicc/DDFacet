@@ -1,3 +1,23 @@
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
+
 import numpy as np
 
 import montblanc
@@ -26,7 +46,7 @@ class ClassMontblancMachine(object):
         self._mgr = DataDictionaryManager()
 
         # Configure the Beam upfront
-        if GD["Beam"]["BeamModel"] == "FITS":
+        if GD["Beam"]["Model"] == "FITS":
             fits_file_spec = GD["Beam"]["FITSFile"]
             l_axis = GD["Beam"]["FITSLAxis"]
             m_axis = GD["Beam"]["FITSMAxis"]
@@ -40,11 +60,10 @@ class ClassMontblancMachine(object):
         self._mgr.cfg_from_data_dict(data, model, residuals, MS, self._npix, self._cell_size_rad)
 
         # Configure source providers
-        if self._beam_prov is None:
-            source_provs = [DDFacetSourceProvider(self._mgr)]
-        else:
-            source_provs = [self._beam_prov, DDFacetSourceProvider(self._mgr)]
+        source_provs = []  if self._beam_prov is None else [self._beam_prov]
+        source_provs.append(DDFacetSourceProvider(self._mgr))
 
+        # Configure sink providers
         sink_provs = [DDFacetSinkProvider(self._mgr)]
 
         self._solver.solve(source_providers=source_provs, sink_providers=sink_provs)
@@ -241,9 +260,17 @@ class DDFacetSourceProvider(SourceProvider):
         (lg, ug) = context.dim_extents('ngsrc')
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         g_slice = self._manager._gaussian_sources[lg:ug]
-        # Assign shape parameters
-        gauss_shape = np.zeros(context.shape, context.dtype)
-        gauss_shape[:,:] = np.array([g[5] for g in g_slice]).T
+
+        # Extract major, minor and theta parameters
+        major, minor, theta = np.array([g[5] for g in g_slice]).T
+
+        # Convert to lproj, mproj, ratio system
+        gauss_shape = np.empty(context.shape, context.dtype)
+        gauss_shape[0,:] = major * np.sin(theta)
+        gauss_shape[1,:] = minor * np.cos(theta)
+        major[major == 0.0] = 1.0
+        gauss_shape[2,:] = minor / major
+
         return gauss_shape
 
     def frequency(self, context):
@@ -257,7 +284,6 @@ class DDFacetSourceProvider(SourceProvider):
             dtype=context.dtype)
 
     def parallactic_angles(self, context):
-        return np.zeros(context.shape, context.dtype)
         # Time extents
         (lt, ut) = context.dim_extents('ntime')
         mgr = self._manager

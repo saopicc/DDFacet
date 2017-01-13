@@ -1,3 +1,23 @@
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
+
 import os
 import os.path
 from pyrap.images import image
@@ -125,7 +145,7 @@ class ClassCasaimage():
             if self.sorted_stokes[si+1] - self.sorted_stokes[si] != self.delta_stokes:
                 raise RuntimeError("Your selection of Stokes parameters cannot "
                                    "be stored in a FITS file. The selection must be linearly spaced."
-                                   "See FITS standard 3.0 (A&A 524 A42) Table 28 for the indicies of the stokes "
+                                   "See FITS standard 3.0 (A&A 524 A42) Table 28 for the indices of the stokes "
                                    "parameters you want to image.")
         self.ImShape=ImShape
         self.nch,self.npol,self.Npix,_ = ImShape
@@ -138,30 +158,30 @@ class ClassCasaimage():
     def createScratch(self):
         ImageName=self.ImageName
         #print>>log, "  ----> Create casa image %s"%ImageName
-        #HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
-        tmpIm=image(imagename=ImageName,shape=self.ImShape)
-        c=tmpIm.coordinates()
+        # HYPERCAL_DIR=os.environ["HYPERCAL_DIR"]
+        tmpIm = image(imagename="", shape=self.ImShape)
+        c = tmpIm.coordinates()
         del(tmpIm)
-        os.system("rm -Rf %s"%ImageName)
+        # os.system("rm -Rf %s" % ImageName)
 
-        incr=c.get_increment()
-        incrRad=(self.Cell/60.)#*np.pi/180
-        incr[-1][0]=incrRad
-        incr[-1][1]=-incrRad
-        incr[-2][0]=self.delta_stokes
-        #RefPix=c.get_referencepixel()
-        Npix=self.Npix
-        #RefPix[0][0]=Npix/2
-        #RefPix[0][1]=Npix/2
+        incr = c.get_increment()
+        incrRad = (self.Cell/60.)  # *np.pi/180
+        incr[-1][0] = incrRad
+        incr[-1][1] = -incrRad
+        incr[-2][0] = self.delta_stokes
+        # RefPix=c.get_referencepixel()
+        Npix = self.Npix
+        # RefPix[0][0]=Npix/2
+        # RefPix[0][1]=Npix/2
 
-        #RefPix[0][0]=Npix/2-1
-        #RefPix[0][1]=Npix/2-1
+        # RefPix[0][0]=Npix/2-1
+        # RefPix[0][1]=Npix/2-1
 
-        #RefPix=c.set_referencepixel(RefPix)
-        RefVal=c.get_referencevalue()
-        RaDecRad=self.radec
-        RefVal[-1][1]=RaDecRad[0]*180./np.pi*60
-        RefVal[-1][0]=RaDecRad[1]*180./np.pi*60
+        # RefPix=c.set_referencepixel(RefPix)
+        RefVal = c.get_referencevalue()
+        RaDecRad = self.radec
+        RefVal[-1][1] = RaDecRad[0]*180./np.pi*60
+        RefVal[-1][0] = RaDecRad[1]*180./np.pi*60
         RefVal[-2][0] = self.sorted_stokes[0]
 
         D = c.__dict__["_csys"]
@@ -224,14 +244,13 @@ class ClassCasaimage():
         
         # import pprint
         # pprint.pprint(c.dict())
-        
-        #self.im=image(imagename=ImageName,shape=(1,1,Npix,Npix),coordsys=c)
-        #self.im=image(imagename=ImageName,shape=(Npix,Npix),coordsys=c)
-        self.im=image(imagename=ImageName,shape=self.ImShape,coordsys=c)
-        #data=np.random.randn(*self.ImShape)
-        #self.setdata(data)
-        
-    def setdata(self,dataIn,CorrT=False):
+        # self.im=image(imagename=ImageName,shape=(1,1,Npix,Npix),coordsys=c)
+        # self.im=image(imagename=ImageName,shape=(Npix,Npix),coordsys=c)
+        self.im = image(imagename=imagename if self.KeepCasa else "", shape=self.ImShape, coordsys=c)
+        # data=np.random.randn(*self.ImShape)
+        # self.setdata(data)
+
+    def setdata(self, dataIn, CorrT=False):
         #print>>log, "  ----> put data in casa image %s"%self.ImageName
 
         data=dataIn.copy()
@@ -254,7 +273,7 @@ class ClassCasaimage():
 
     def setBeam(self,beam,beamcube=None):
         """
-        Add Fitted beam info to FITS header, expects tripple for beam:
+        Add Fitted beam info to FITS header, expects triple for beam:
         maj: Length of major axis in degrees
         min: Length of minor axis in degrees
         pa: Beam paralactic angle in degrees (counter clockwise, starting from declination-axis)
@@ -285,11 +304,6 @@ class ClassCasaimage():
         #print>>log, "  ----> Closing %s"%self.ImageName
         del(self.im)
         #print>>log, "  ----> Closed %s"%self.ImageName
-        if self.KeepCasa==False:
-            #print>>log, "  ----> Delete %s"%self.ImageName
-            os.system("rm -rf %s"%self.ImageName)
-
-
 
 
 # def test():

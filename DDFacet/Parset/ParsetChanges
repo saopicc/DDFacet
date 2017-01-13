@@ -1,0 +1,68 @@
+section = "Parallel"
+deprecate("Enable", section)  # deprecated. Use NCPU=1 instead
+
+section = renameSection("Caching", "Cache")
+rename(section, "ResetCache", "Reset")
+rename(section, "CachePSF", "PSF")
+rename(section, "CacheDirty", "Dirty")
+rename(section, "CacheVisData", "VisData")
+
+section = renameSection("VisData", "Data")
+rename(section, "MSName", "MS")
+deprecate("MSListFile", section)  # deprecated. Use MS=list.txt instead
+# PredictFrom # migrated from --Images-PredictModelName
+
+section = renameSection("DataSelection", "Selection")
+
+section = renameSection("Images", "Output")
+move(section, "AllowColumnOverwrite", "Data", "Overwrite")
+move(section, "PredictModelName", "Data", "PredictFrom")
+rename(section, "ImageName", "Name")
+deprecate("SaveIms", section)	# deprecated
+rename(section, "SaveOnly", "Images")
+rename(section, "SaveImages", "Also")
+rename(section, "SaveCubes", "Cubes")
+deprecate("OpenImages", section) -> Open    # deprecated, do we really need this? Or make consistent with --Images-Save notation at least
+deprecate("DefaultImageViewer", section) = xdg-open  # deprecated, do we really need this?
+deprecate("MultiFreqMap", section) # deprecated
+
+section = renameSection("ImagerGlobal", "Image")
+rename(section, "Super", "SuperUniform")
+
+section = renameSection("ImagerMainFacet", "Image")
+rename(section, "Npix", "NPix")
+
+section = renameSection("Compression", "Comp")
+deprecate("CompGridMode", section)    # deprecate for now, since only the BDA gridder works
+deprecate("CompDegridMode", section)  # deprecate for now, since only the BDA degridder works
+rename(section, "CompGridDecorr", "GridDecorr")
+rename(section, "CompGridFOV", "GridFov")
+rename(section, "CompDeGridDecorr", "DegridDecorr")
+rename(section, "CompDeGridFOV", "DegridFOV")
+
+section = renameSection("MultiFreqs", "Freq")  # options related to basic multifrequency imaging
+rename(section, "GridBandMHz", "BandMHz")
+rename(section, "NFreqBands", "NBand")
+rename(section, "NChanDegridPerMS", "NDegridBand")
+move(section, "Alpha", "MSMF", "Alpha")
+move(section, "PolyFitOrder", "Hogbom", "PolyFitOrder")
+
+section = "Beam"
+rename(section, "BeamModel", "Model")
+rename(section, "NChanBeamPerMS", "NBand")
+
+section = renameSection("ImagerDeconv", "Deconv")
+rename(section, "MinorCycleMode", "Mode")
+rename(section, "SearchMaxAbs", "AllowNegative")
+move(section, "SidelobeSearchWindow", "Image", "SidelobeSearchWindow")
+
+section = renameSection("MultiScale", "MSMF")
+deprecate("MSEnable", section) # deprecated. --Deconvolution-MinorCycle selects algorithm instead.
+# Alpha added
+
+section = "Hogbom"
+# PolyFitOrder added
+
+section = "Logging"
+rename(section, "MemoryLogging", "Memory")
+rename(section, "AppendLogFile", "Append")

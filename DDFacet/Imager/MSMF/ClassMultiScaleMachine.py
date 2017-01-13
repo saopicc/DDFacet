@@ -1,3 +1,23 @@
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
+
 import numpy as np
 from DDFacet.Other import MyLogger
 
@@ -12,6 +32,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 import pickle
 import cPickle
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
+import numexpr
 
 global debug_dump_file
 debug_dump_file = None
@@ -38,12 +59,13 @@ class ClassMultiScaleMachine():
         self.Alpha=np.array([0.],float)
         self.NFreqBands = NFreqBands
         self.MultiFreqMode = NFreqBands>1
-        self.SolveMode = self.GD["MultiScale"]["SolverMode"]
-        self._stall_threshold = self.GD["Debugging"]["CleanStallThreshold"]
+        self.SolveMode = self.GD["HMP"]["SolverMode"]
+        self._stall_threshold = self.GD["Debug"]["CleanStallThreshold"]
         self.GlobalWeightFunction=None
         self.ListScales=None
         self.CubePSFScales=None
         self.IsInit_MultiScaleCube=False
+
     def setModelMachine(self,ModelMachine):
         self.ModelMachine=ModelMachine
 
@@ -101,60 +123,59 @@ class ClassMultiScaleMachine():
 
 
 
-    def FindPSFExtent(self,Method="FromBox"):
+    def FindPSFExtent(self, verbose=False):
         if self.SubPSF is not None: return
         PSF=self._MeanPSF
         _,_,NPSF,_=PSF.shape
-        xtest=np.int64(np.linspace(NPSF/2,NPSF,100))
-        box=100
-        itest=0
 
-        if Method=="FromBox":
-            while True:
-                X=xtest[itest]
-                psf=PSF[0,0,X-box:X+box,NPSF/2-box:NPSF/2+box]
-                std0=np.abs(psf.min()-psf.max())#np.std(psf)
-                psf=PSF[0,0,NPSF/2-box:NPSF/2+box,X-box:X+box]
-                std1=np.abs(psf.min()-psf.max())#np.std(psf)
-                std=np.max([std0,std1])
-                if std<1e-2:
-                    break
-                else:
-                    itest+=1
-            x0=xtest[itest]
-            dx0=(x0-NPSF/2)
-            #print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
-        elif Method=="FromSideLobe":
-            dx0=2*self.OffsetSideLobe
-            dx0=np.max([dx0,100])
-            #print>>log, "PSF extends to [%i] from center"%(dx0)
-        
-        dx0=np.max([dx0,200])
-        dx0=np.min([dx0,NPSF/2])
-        npix=2*dx0+1
-        npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
+        # for backwards compatibility -- if PSFBox is 0 or unset, use the "auto" method below
+        method = self.GD["Deconv"]["PSFBox"] or "auto"
 
-
-        #npix=1
-        self.PSFMargin=(NPSF-npix)/2
-
-        dx=npix/2
-
-        dx=np.min([NPSF/2,dx])
-        box = self.GD["MultiScale"]["PSFBox"]
-        if box:
-            dx = box
-#            print>> log, "explicitly set PSFBox=%d" % dx
+        if isinstance(method, int):
+            dx = method
+            method = "explicit"
         else:
-            pass
-#            print>> log, "PSF box extent computed as %d" % dx
-        self.PSFExtent=(NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
+            if method == "frombox":
+                xtest = np.int64(np.linspace(NPSF / 2, NPSF, 100))
+                box = 100
+                itest = 0
+                while True:
+                    X=xtest[itest]
+                    psf=PSF[0,0,X-box:X+box,NPSF/2-box:NPSF/2+box]
+                    std0=np.abs(psf.min()-psf.max())#np.std(psf)
+                    psf=PSF[0,0,NPSF/2-box:NPSF/2+box,X-box:X+box]
+                    std1=np.abs(psf.min()-psf.max())#np.std(psf)
+                    std=np.max([std0,std1])
+                    if std<1e-2:
+                        break
+                    else:
+                        itest+=1
+                x0=xtest[itest]
+                dx0=(x0-NPSF/2)
+                #print>>log, "PSF extends to [%i] from center, with rms=%.5f"%(dx0,std)
+            elif method == "auto" or method == "sidelobe":
+                dx0=2*self.OffsetSideLobe
+                dx0=np.max([dx0,50])
+                #print>>log, "PSF extends to [%i] from center"%(dx0)
+            elif method == "full":
+                dx0 = NPSF/2
+            else:
+                raise ValueError,"unknown PSFBox setting %s" % method
 
-        #self.PSFExtent=(0,NPSF,0,NPSF)
+            dx0=np.max([dx0,200])
+            dx0=np.min([dx0,NPSF/2])
+            npix=2*dx0+1
+            npix=ModToolBox.GiveClosestFastSize(npix,Odd=True)
 
+            self.PSFMargin=(NPSF-npix)/2
 
-        x0,x1,y0,y1=self.PSFExtent
-        self.SubPSF=self._PSF[:,:,x0:x1,y0:y1]
+            dx=np.min([NPSF/2, npix/2])
+
+        self.PSFExtent = (NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
+        x0,x1,y0,y1 = self.PSFExtent
+        self.SubPSF = self._PSF[:,:,x0:x1,y0:y1]
+        if verbose:
+            print>>log,"using %s PSF box of size %dx%d in minor cycle subtraction" % (method, dx*2+1, dx*2+1)
 
     def setListDicoScales(self,ListScales):
         self.ListScales=ListScales
@@ -170,17 +191,17 @@ class ClassMultiScaleMachine():
         T=ClassTimeIt.ClassTimeIt("MakeMultiScaleCube")
         T.disable()
         #print>>log, "Making MultiScale PSFs..."
-        LScales=self.GD["MultiScale"]["Scales"]
+        LScales=self.GD["HMP"]["Scales"]
         ScaleStart=0
         if 0 in LScales: 
             ScaleStart=1
             #LScales.remove(0)
-        LRatios=self.GD["MultiScale"]["Ratios"]
-        NTheta=self.GD["MultiScale"]["NTheta"]
+        LRatios=self.GD["HMP"]["Ratios"]
+        NTheta=self.GD["HMP"]["NTheta"]
         
         NAlpha=1
         if self.MultiFreqMode:
-            AlphaMin,AlphaMax,NAlpha=self.GD["MultiFreqs"]["Alpha"]
+            AlphaMin,AlphaMax,NAlpha=self.GD["HMP"]["Alpha"]
             NAlpha=int(NAlpha)
             AlphaL=np.linspace(AlphaMin,AlphaMax,NAlpha)
             Alpha=np.array([0.]+[al for al in AlphaL if not(al==0.)])
@@ -556,8 +577,8 @@ class ClassMultiScaleMachine():
                          "GlobalWeightFunction":self.GlobalWeightFunction}
 
 
-        if self.GD["Debugging"]["DumpCleanSolutions"]:
-            BaseName = self.GD["Images"]["ImageName"]
+        if self.GD["Debug"]["DumpCleanSolutions"]:
+            BaseName = self.GD["Output"]["Name"]
             pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
 
         return DicoBasisMatrix
@@ -576,6 +597,7 @@ class ClassMultiScaleMachine():
             y.append(b)
         return np.array(y)
 
+    #@profile
     def GiveLocalSM(self,(x,y),Fpol):
         T= ClassTimeIt.ClassTimeIt("   GiveLocalSM")
         T.disable()
@@ -782,10 +804,10 @@ class ClassMultiScaleMachine():
                 print>>log,(self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal)
                 raise RuntimeError("CLEAN has stalled. This is a bug!")
 
-            if self.GD["Debugging"]["DumpCleanSolutions"]:
-                #global debug_dump_file
+            if self.GD["Debug"]["DumpCleanSolutions"]:
+                global debug_dump_file
                 if not debug_dump_file:
-                    debug_dump_file = file(self.GD["Images"]["ImageName"] + ".clean.solutions", "w")
+                    debug_dump_file = file(self.GD["Output"]["Name"] + ".clean.solutions", "w")
                 cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal), debug_dump_file, 2)
 
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
@@ -793,6 +815,11 @@ class ClassMultiScaleMachine():
 
             LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)/Fact
 
+            # # multiply basis functions by solutions (first axis is basis index)
+            # a, b = self.CubePSFScales, np.float32(Sol.reshape((Sol.size, 1, 1, 1)))
+            # scales = numexpr.evaluate('a*b')
+            # # model is sum of basis functions
+            # LocalSM = scales.sum(axis=0) if Sol.size>1 else scales[0,...]
 
 
             #print "Max abs model",np.max(np.abs(LocalSM))
@@ -1006,11 +1033,11 @@ class ClassMultiScaleMachine():
             #print "Sol2",Sol
 
 
-            if self.GD["Debugging"]["DumpCleanSolutions"]:
 
-                # global debug_dump_file
+            if self.GD["Debug"]["DumpCleanSolutions"]:
+                global debug_dump_file
                 if not debug_dump_file:
-                    debug_dump_file = file(self.GD["Images"]["ImageName"]+".clean.solutions", "w")
+                    debug_dump_file = file(self.GD["Output"]["Name"]+".clean.solutions", "w")
                 cPickle.dump((self.iFacet, xc, yc, Fpol, FpolTrue, Sol), debug_dump_file, 2)
 
 
@@ -1066,9 +1093,10 @@ class ClassMultiScaleMachine():
             
 
 
-        nch,nx,ny=LocalSM.shape
-        LocalSM=LocalSM.reshape((nch,1,nx,ny))
-        LocalSM=LocalSM*np.sqrt(JonesNorm)
+        nch,nx,ny = LocalSM.shape
+        LocalSM = LocalSM.reshape((nch,1,nx,ny))
+#        LocalSM *= np.sqrt(JonesNorm)
+        numexpr.evaluate('LocalSM*sqrt(JonesNorm)',out=LocalSM)
 
         # print self.AlphaVec,Sol
         # print "alpha",np.sum(self.AlphaVec.ravel()*Sol.ravel())/np.sum(Sol)

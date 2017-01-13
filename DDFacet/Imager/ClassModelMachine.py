@@ -1,3 +1,23 @@
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
+
 import numpy as np
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassModelMachine")
@@ -32,6 +52,12 @@ class ClassModelMachine():
         # else:
         #     self.Gain=Gain
         self.RefFreq=None
+# =======
+#         if Gain is None:
+#             self.Gain=self.GD["Deconv"]["Gain"]
+#         else:
+#             self.Gain=Gain
+# >>>>>>> issue-255
         self.GainMachine=GainMachine
         self.DicoSMStacked={}
         self.DicoSMStacked["Comp"]={}
@@ -289,17 +315,17 @@ class ClassModelMachine():
 #
 #
 #     def PutBackSubsComps(self):
-#         #if self.GD["VisData"]["RestoreDico"] is None: return
+#         #if self.GD["Data"]["RestoreDico"] is None: return
 #
 #         SolsFile=self.GD["DDESolutions"]["DDSols"]
 #         if not(".npz" in SolsFile):
 #             Method=SolsFile
-#             ThisMSName=reformat.reformat(os.path.abspath(self.GD["VisData"]["MSName"]),LastSlash=False)
+#             ThisMSName=reformat.reformat(os.path.abspath(self.GD["Data"]["MS"]),LastSlash=False)
 #             SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
 #         DicoSolsFile=np.load(SolsFile)
 #         SourceCat=DicoSolsFile["SourceCatSub"]
 #         SourceCat=SourceCat.view(np.recarray)
-#         #RestoreDico=self.GD["VisData"]["RestoreDico"]
+#         #RestoreDico=self.GD["Data"]["RestoreDico"]
 #         RestoreDico=DicoSolsFile["ModelName"][()][0:-4]+".DicoModel"
 #
 #         print>>log, "Adding previously substracted components"

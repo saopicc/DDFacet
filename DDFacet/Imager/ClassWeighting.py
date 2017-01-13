@@ -1,3 +1,23 @@
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
+
 import math
 
 import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
@@ -82,8 +102,11 @@ class ClassWeighting():
             print>> log, "Weighting in natural mode"
             if force_unity_weight:
                 for uv, weights, flags, freqs in uvw_weights_flags_freqs:
-                    if type(weights) is str:
-                        NpShared.GiveArray(weights).fill(1)
+                    if flags is not None:
+                        if type(weights) is str:
+                            NpShared.GiveArray(weights).fill(1)
+                        else:
+                            weights.fill(1)
             return [x[1] for x in uvw_weights_flags_freqs]
 
         nch, npol, npixIm, _ = self.ImShape
@@ -106,9 +129,13 @@ class ClassWeighting():
                 continue
             uvmax = uvsel.max() * freqs.max() / _cc
             xymax = max(xymax, int(math.floor(uvmax / cell)))
+            if flags is not None:
+                # max |u|,|v| in lambda
+                uvmax = abs(uv)[~flags, :].max() * freqs.max() / _cc
+                xymax = max(xymax, int(math.floor(uvmax / cell)))
         if xymax == 0:
             raise Exception('All datasets are fully flagged')
-        
+
         xymax += 1
         # grid will be from [-xymax,xymax] in U and [0,xymax] in V
         npixx = xymax * 2 + 1
@@ -123,10 +150,13 @@ class ClassWeighting():
         weights_index = [None] * len(uvw_weights_flags_freqs)
 
         for iMS, (uv, weights_or_path, flags, freqs) in enumerate(uvw_weights_flags_freqs):
+            if flags is None:  # entire chunk flagged
+                continue
             weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
             if force_unity_weight:
                 weights.fill(1)
                 weights[flags,...]=0
+
             elif weightnorm != 1:
                 weights *= weightnorm
             # flip sign of negative v values -- we'll only grid the top half of the plane
@@ -181,7 +211,6 @@ class ClassWeighting():
             raise ValueError("unknown weighting \"%s\"" % Weighting)
 
         print>> log, "weights computed"
-        return [weights for weights_or_path, index in weights_index]
 
 
     def CalcWeightsOld(self,uvw,VisWeights,flags,freqs,Robust=0,Weighting="Briggs",Super=1):

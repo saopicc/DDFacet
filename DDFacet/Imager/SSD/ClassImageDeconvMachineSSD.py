@@ -1,3 +1,22 @@
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
 import numpy as np
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
@@ -49,7 +68,7 @@ class ClassImageDeconvMachine():
         self.GD=GD
         self.IdSharedMem=IdSharedMem
         self.SubPSF=None
-        self.MultiFreqMode=(self.GD["MultiFreqs"]["NFreqBands"]>1)
+        self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         self.FluxThreshold = FluxThreshold 
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
@@ -229,6 +248,8 @@ class ClassImageDeconvMachine():
         self.DicoInitIndiv={}
         if self.GD["SSDClean"]["MinSizeInitHMP"]==-1: return
 
+        DoAbs=int(self.GD["Deconv"]["AllowNegative"])
+        print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
 
         # ##########################################################################
         # # Init SSD model using MSMF
@@ -305,7 +326,7 @@ class ClassImageDeconvMachine():
 
         m0,m1=self.Dirty[0].min(),self.Dirty[0].max()
 
-        DoAbs=int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
+        DoAbs=int(self.GD["Deconv"]["AllowNegative"])
         print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
 
         NPixStats=1000

@@ -1,4 +1,22 @@
 # DDFacet
+A facet-based radio imaging package
+
+[![Build Status](https://jenkins.meqtrees.net/job/DDFacet_master_cron/badge/icon)](https://jenkins.meqtrees.net/job/DDFacet_master_cron)
+[![AUR](https://img.shields.io/aur/license/yaourt.svg)]()
+
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
 ## (Users/Recommended) Docker-based installation
 Simply pull the latest DDFacet and build the Docker image:
 ```
@@ -40,41 +58,46 @@ Important: ensure that ```$HOME/.local``` folder is in your ```PATH``` and ```$H
 
 Navigate to the directory below your checked out copy of DDFacet and run:
 
-    ```bash
-    pip install DDFacet/ --user
-    ```
+```bash
+pip install DDFacet/ --user
+```
 
 This will install the DDF.py driver files to your .local/bin under Debian
 
 ### Virtual Environment installation
 
-Alternatively, create a virtual environment, activate it and run the install:
+Alternatively, create a virtual environment, activate it and run the install. Under 14.04 the bootstrap virtual environment is helpful for upgrading the pip, setuptools and virtualenv packages to more recent (and correct) versions.
 
-    ```bash
-    virtualenv --system-site-packages $HOME/ddfvenv
-    source $HOME/ddfvenv/bin/activate
-    pip install DDFacet/
-    ```
+```bash
+$ virtualenv $HOME/bootstrap
+$ source $HOME/bootstrap/bin/activate
+(bootstrap) $ pip install -U pip setuptools virtualenv
+(bootstrap) $ virtualenv --system-site-packages $HOME/ddfvenv
+$ deactive
+$ source $HOME/ddfvenv/bin/activate
+(ddfvenv) $ pip install DDFacet/
+```
 Adding the `--system-site-packages` directive ensures that the virtualenv has access to system packages (such as meqtrees).
 
 ### Montblanc installation
 
-[Montblanc](https://github.com/ska-sa/montblanc) requires DDFacet to be installed in a virtual environment . This section requires the DDFacet virtual environment to be activated:
+[Montblanc](https://github.com/ska-sa/montblanc) requires DDFacet to be installed in a virtual environment. **This section requires the DDFacet virtual environment to be activated**:
 
 1. Clone montblanc and checkout the commit to build
 
     ```bash
     git clone https://github.com/ska-sa/montblanc.git
     cd montblanc
-    git checkout ffb4b7573d049dddcd948e79e080bbb3acaa10ec
+    git checkout 3c94bfa261354825c584ad1e62314b91f6bf583b
     ```
 
-2. Install tensorflow CPU [nightly][tf_nightly_install] build (This can be replaced by the 0.11 version once it is released):
+2. Install the tensorflow CPU [0.12.0rc1][tf_pip_install] release:
 
     ```bash
-    pip install https://ci.tensorflow.org/view/Nightly/job/nightly-matrix-cpu/TF_BUILD_IS_OPT=OPT,TF_BUILD_IS_PIP=PIP,TF_BUILD_PYTHON_VERSION=PYTHON2,label=cpu-slave/lastSuccessfulBuild/artifact/pip_test/whl/tensorflow-0.11.0rc0-cp27-none-linux_x86_64.whl
+    pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.12.0rc1-cp27-none-linux_x86_64.whl
     ```
-    If you want GPU acceleration and you have CUDA installed, you can alternatively try installing the tensorflow [GPU version][tf_nightly_install].
+
+    If you want GPU acceleration and you have CUDA installed, you can alternatively try installing the tensorflow [GPU version][tf_pip_install].
 
 3. Build montblanc's tensorflow operations:
 
@@ -103,9 +126,16 @@ A restart will be required for this change to reflect. If you would prefer a onc
 sudo mount -o remount,size=100% /run/shm
 ```
 
+It may also be necessary to run the following to remove the kernel security limit on mlock pinning. Without this things may
+be slower than usual.
+
+```
+echo "*        -   memlock     unlimited" > /etc/security/limits.conf
+```
+
 ## (Developers): setting up your dev environment
 
-###(easy) Build using setup.py
+### (easy) Build using setup.py
 To setup your local development environment navigate to the DDFacet directory and run
 ```
 git submodule update --init --recursive
@@ -114,7 +144,7 @@ python setup.py build
 
 IMPORTANT NOTE: You may need to remove the development version before running PIP when installing
 ```
-###(debugging) Build a few libraries (by hand with custom flags):
+### (debugging) Build a few libraries (by hand with custom flags):
 
 ```
 (cd DDFacet/ ; mkdir cbuild ; cd cbuild ; cmake -DCMAKE_BUILD_TYPE=Release .. ; make)
@@ -131,13 +161,13 @@ export DDFACET_TEST_DATA_DIR=[folder where you keep the acceptance test data and
 export DDFACET_TEST_OUTPUT_DIR=[folder where you want the acceptance test output to be dumped]
 ```
 
-###To test your branch against the master branch using Jenkins
+### To test your branch against the master branch using Jenkins
 Most of the core use cases will in the nearby future have reference images and an automated acceptance test.
 
 Please **do not** commit against cyriltasse/master. The correct strategy is to branch/fork and do a pull request on Github
 to merge changes into master. Once you opened a pull request add the following comment: "ok to test". This will let the Jenkins server know to start testing. You should see that the pull request and commit statusses shows "Pending". If the test succeeds you should see "All checks have passed" above the green merge button. Once the code is reviewed it will be merged into the master branch.
 
-###To run the tests on your local machine:
+### To run the tests on your local machine:
 You can run the automated tests by grabbing the latest set of measurements and reference images from the web and
 extracting them to the directory you set up in your **DDFACET_TEST_DATA_DIR** environment variable. You can run
 the automated tests by navigating to your DDFacet directory and running nosetests.
@@ -148,11 +178,11 @@ filename conventions.
 
 Acceptance test data can be found on the Jenkins server in the **/data/test-data** directory.
 
-###Adding more tests and creating new reference images.
+### Adding more tests and creating new reference images.
 
 To resimulate images and add more tests:
 In the Jenkins server data directory run **make** to resimulate and set up new reference images. This should only be done with the **origin/master** branch - not your branch or fork! You should manually verify that all the reference images are correct when you regenerate them. Each time you add a new option to DDFacet also add an option to the makefile in this directory. Once the option is set up in the makefile you can build the reference images on Jenkins.
 
-[tf_nightly_install]: https://github.com/tensorflow/tensorflow#installation
+[tf_pip_install]: https://www.tensorflow.org/get_started/os_setup#pip_installation
 
 

@@ -1,11 +1,29 @@
-import cPickle
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
+
 import os
 import os.path
 import cPickle
 import collections
 
 from DDFacet.Other import MyLogger
-
 log = MyLogger.getLogger("CacheManager")
 
 
@@ -84,8 +102,9 @@ class CacheManager (object):
         """
         self.dirname = dirname
         self.hashes = {}
+        self.pid = os.getpid()
         if not os.path.exists(dirname):
-            print>>log,("cache directory %s does not exist, creating"%dirname)
+            print>>log, ("cache directory %s does not exist, creating" % dirname)
             os.mkdir(dirname)
         else:
             if reset:
@@ -93,12 +112,40 @@ class CacheManager (object):
                 os.system("rm -fr "+dirname)
                 os.mkdir(dirname)
 
-    def checkCache (self, name, hashkeys, directory=False, reset=False):
-        """
-        Checks if cached object named "name" is valid.
+    @staticmethod
+    def getElementName (name, **kw):
+        """Helper function. Forms up a cache element filename as "NAME:KEY1_VALUE1:KEY2_VALUE2..."
+        For example: getElementName("WTerm",facet=1)
 
         Args:
-            name: name of cached object
+            name: name of cache element
+            **kw: optional keywords, will be added to name as ":key_value"
+
+        Returns:
+            Concatenated Filename
+        """
+        return ":".join([name] + [ "%s_%s"%(key, value) for key, value in sorted(kw.items()) ])
+
+    def getElementPath(self, name, **kw):
+        """
+        Forms up a full path for cache element 'name', with extra keywords. This is the element name plus
+        the cache path. See getElementName() for usage.
+        """
+        return os.path.join(self.dirname, self.getElementName(name, **kw))
+
+    def getCacheURL (self, name, **kw):
+        """
+        Forms up a URL for a disk-backed shared element. This takes the form of "file://PATH", where path is
+        the cache element path as formed by getElementPath(). See the latter for usage.
+        """
+        return "file://" + self.getElementPath(name, **kw)
+
+    def checkCache(self, name, hashkeys, directory=False, reset=False):
+        """
+        Checks if cached element named "name" is valid.
+
+        Args:
+            name: name of cache element
             hashkeys: dictionary of keys upon which the cached object depends. If a hash of the keys does not
                 match the stored hash value, the cache is invalid and will be reset.
             directory: if True, cache is a directory and not a file. The directory will be created if it
@@ -110,10 +157,11 @@ class CacheManager (object):
             where path is a path to cache object (or cache directory)
             and valid is True if a valid cache exists
         """
-        cachepath = os.path.join(self.dirname, name)
+        cachepath = self.getElementPath(name)
         hashpath = cachepath + ".hash"
         # convert hash keys into a single list
         hash = hashkeys
+        self.hashes[name] = hashpath, hash
         # delete cache if explicitly asked to
         if reset:
             print>>log, "cache element %s will be explicitly reset" % cachepath
@@ -156,20 +204,19 @@ class CacheManager (object):
         if reset:
             if os.path.exists(hashpath):
                 os.unlink(hashpath)
-            if directory:
-                if os.path.exists(cachepath):
-                    os.system("rm -fr %s"%cachepath)
-                os.mkdir(cachepath)
-
-        hashpath=os.path.realpath(hashpath) # deals with symbolic links
-        cachepath=os.path.realpath(cachepath) # deals with symbolic links
+            if os.path.exists(cachepath):
+                if directory:
+                    if os.system("rm -fr %s" % cachepath):
+                        raise OSError,"Failed to remove cache directory %s. Check permissions/ownership." % cachepath
+                    os.mkdir(cachepath)
+                else:
+                    os.unlink(cachepath)
 
         # store hash
         self.hashes[name] = hashpath, hash, reset
         return cachepath, not reset
 
-
-    def saveCache (self, name=None):
+    def saveCache(self, name=None):
         """
         Saves cache hash to disk. Meant to be called after a cache object has been successfully written to.
 
@@ -183,6 +230,6 @@ class CacheManager (object):
         for name in names:
             hashpath, hash, reset = self.hashes[name]
             if reset:
-                cPickle.dump(hash, file(hashpath,"w"))
-                print>>log,"writing cache hash %s" % hashpath
+                cPickle.dump(hash, file(hashpath, "w"))
+                print>>log, "writing cache hash %s" % hashpath
                 del self.hashes[name]
