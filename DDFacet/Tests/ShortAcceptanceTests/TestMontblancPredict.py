@@ -42,7 +42,7 @@ def run_ddf(parset, image_prefix, stdout_filename, stderr_filename):
 class TestMontblancPredict(unittest.TestCase):
 
     def testMontblancPredict(self):
-        pc = self._parset.Config
+        pc = self._parset
 
         # Set the image name prefix
         pc.set("Output", "Name", self._image_prefix)
@@ -69,7 +69,7 @@ class TestMontblancPredict(unittest.TestCase):
             self._stdout_filename, self._stderr_filename)
 
     def testDDFacetPredict(self):
-        pc = self._parset.Config
+        pc = self._parset
 
         # Set the image name prefix
         pc.set("Output", "Name", self._image_prefix)

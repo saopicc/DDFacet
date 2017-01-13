@@ -1012,7 +1012,7 @@ class ClassMS():
         flags1 = flags.any(axis=2)
         flags[flags1] = True
 
-        if self.DicoSelectOptions["UVRangeKm"] is not None:
+        if self.DicoSelectOptions["UVRangeKm"]:
             d0, d1 = self.DicoSelectOptions["UVRangeKm"]
             print>> log, "  flagging uv data outside uv distance of [%5.1f~%5.1f] km" % (d0, d1)
             d0 = d0**2*1e6
@@ -1020,7 +1020,7 @@ class ClassMS():
             duv = (uvw[:,:2]**2).sum(1)  # u^2+v^2... and we already squared d0 and d1
             flags[(duv < d0) | (duv > d1),:,:] = True
 
-        if self.DicoSelectOptions["TimeRange"] != None:
+        if self.DicoSelectOptions["TimeRange"]:
             t0 = times[0]
             tt = (times - t0) / 3600.
             st0, st1 = self.DicoSelectOptions["TimeRange"]
@@ -1028,7 +1028,7 @@ class ClassMS():
             ind = np.where((tt >= st0) & (tt < st1))[0]
             flags[ind, :, :] = True
 
-        if self.DicoSelectOptions["DistMaxToCore"] != None:
+        if self.DicoSelectOptions["DistMaxToCore"]:
             DMax = self.DicoSelectOptions["DistMaxToCore"] * 1e3
             X, Y, Z = self.StationPos.T
             Xm, Ym, Zm = np.median(self.StationPos, axis=0).flatten().tolist()
@@ -1053,7 +1053,7 @@ class ClassMS():
             print>> log, "    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
                          (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%")
 
-        if self.DicoSelectOptions["FlagAnts"] != None:
+        if self.DicoSelectOptions["FlagAnts"]:
             FlagAnts = self.DicoSelectOptions["FlagAnts"]
             if not ((FlagAnts == None) | (FlagAnts == "") | (FlagAnts == [])):
                 if type(FlagAnts) == str: FlagAnts = [FlagAnts]
