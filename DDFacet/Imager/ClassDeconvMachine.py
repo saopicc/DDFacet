@@ -162,7 +162,7 @@ class ClassImagerDeconv():
             ModMachine = self.ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
             MinorCycleConfig=dict(self.GD["Deconv"])
             MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
-            MinorCycleConfig["NBand"]=self.VS.NFreqBands
+            MinorCycleConfig["NBand"]=MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
             MinorCycleConfig["GD"] = self.GD
             MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
             MinorCycleConfig["ModelMachine"] = ModMachine

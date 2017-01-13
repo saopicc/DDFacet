@@ -661,7 +661,7 @@ class ClassVisServer():
                 weightpath = "file://"+cachepath
 
                 # if everything is flagged, skip this entry, and mark it with a zero-length weights file
-                if flags.all():
+                if flags.all() or not nrows:
                     # Nones tell CalcWeights to skip this chunk entirely
                     output_list.append((uvs, None, None, ms.ChanFreq))
                     # make an empty weights file in the cache
