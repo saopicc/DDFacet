@@ -264,7 +264,7 @@ class Parset():
         """
         for dd in self.value_dict, self.attr_dict:
             if oldsection in dd and oldname in dd[oldsection]:
-                dd[newsection][newname] = dd[oldsection].pop(oldname)
+                dd.setdefault(newsection, OrderedDict())[newname] = dd[oldsection].pop(oldname)
 
     def _migrate_ancient_0_1 (self):
         """
@@ -325,6 +325,8 @@ class Parset():
         self._rename(section, "CompDeGridDecorr", "DegridDecorr")
         self._rename(section, "CompDeGridFOV", "DegridFOV")
 
+        section = self._makeSection("Hogbom")
+
         section = self._renameSection("MultiScale", "HMP")
         self._del(section, "MSEnable")  # deprecated. --Deconvolution-MinorCycle selects algorithm instead.
         self._move(section, "PSFBox", "Deconv", "PSFBox")
@@ -340,11 +342,6 @@ class Parset():
         section = "Beam"
         self._rename(section, "BeamModel", "Model")
         self._rename(section, "NChanBeamPerMS", "NBand")
-
-
-
-        section = "Hogbom"
-        # PolyFitOrder added
 
         section = self._renameSection("Logging", "Log")
         self._rename(section, "MemoryLogging", "Memory")
