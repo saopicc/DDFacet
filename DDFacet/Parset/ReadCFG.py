@@ -177,7 +177,7 @@ class Parset():
         if self.version != 0.1:
             self._migrate_ancient_0_1()
             self.migrated = self.version
-            self.version = 0.1
+            self.version = self.value_dict['Misc']['ParsetVersion'] = 0.1
         else:
             self.migrated = None
 
