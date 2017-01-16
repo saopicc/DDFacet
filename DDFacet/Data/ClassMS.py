@@ -119,7 +119,7 @@ class ClassMS():
         # once.
         self._reset_cache = ResetCache
         self._chunk_caches = {}
-        self.maincache = CacheManager(MSname+".ddfcache", reset=ResetCache)
+        self.maincache = CacheManager(MSname+".ddfcache", reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
 
     def GiveMainTable (self,**kw):
         """Returns main MS table, applying TaQL selection if any"""
@@ -457,7 +457,8 @@ class ClassMS():
     def getChunkCache (self, row0, row1):
         if (row0, row1) not in self._chunk_caches:
             self._chunk_caches[row0, row1] = CacheManager(
-                self.MSName + ".ddfcache/F%d:D%d:%d:%d" % (self.Field, self.DDID, row0, row1), self._reset_cache)
+                self.MSName + ".ddfcache/F%d:D%d:%d:%d" % (self.Field, self.DDID, row0, row1), self._reset_cache,
+                cachedir=self.GD["Cache"]["Dir"])
         return self._chunk_caches[row0, row1]
 
     def GiveNextChunk(self,databuf=None,flagbuf=None,use_cache=None,read_data=True,sort_by_baseline=False):

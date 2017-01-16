@@ -18,11 +18,10 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-import os
-import os.path
+import os, os.path, subprocess
 import cPickle
 
-from DDFacet.Other import MyLogger
+from DDFacet.Other import MyLogger, ModColor
 log = MyLogger.getLogger("CacheManager")
 
 
@@ -91,14 +90,31 @@ class CacheManager (object):
     Running with DeleteDDFProducts=1 causes all caches to be reset.
     """
 
-    def __init__(self, dirname, reset=False):
+    def __init__(self, dirname, reset=False, cachedir=None, nfswarn=False):
         """
         Initializes cache manager.
 
         Args:
             dirname: directory in which caches are kept
             reset: if True, cache is reset upon first access
+            cachedir: if set, caches things under cachedir/dirname. Useful for fast local storage.
+            nfswarn: if True and directory is NFS mounted, prints a warning
         """
+        if cachedir:
+            while dirname[-1] == "/":
+                dirname = dirname[:-1]
+            dirname = os.path.join(cachedir, os.path.basename(dirname))
+        # print warning if dirname is on NFS
+        try:
+            fstype = subprocess.check_output(("stat --file-system --format=%T " + dirname).split()).strip()
+        except:
+            print>>log, ModColor.Str("WARNING: unable to determine filesystem type for %s"%dirname, col="red", Bold=True)
+            fstype = "unknown"
+        if fstype == "nfs" and nfswarn:
+            print>> log, ModColor.Str("WARNING: cache directory %s is mounted via NFS." % dirname, col="red",
+                                      Bold=True)
+            print>> log, ModColor.Str("This may cause performance issues. Consider using the --Cache-Dir option.", col="red",
+                                      Bold=True)
         self.dirname = dirname
         self.hashes = {}
         self.pid = os.getpid()
