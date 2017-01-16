@@ -108,10 +108,11 @@ class CacheManager (object):
         # print warning if dirname is on NFS
         try:
             fstype = subprocess.check_output(("stat --file-system --format=%T " +
-                                              (os.path.basename(dirname) or ".")).split()).strip()
+                                              (os.path.dirname(dirname) or ".")).split()).strip()
         except:
             print>>log, ModColor.Str("WARNING: unable to determine filesystem type for %s"%dirname, col="red", Bold=True)
             fstype = "unknown"
+        # print fstype,(os.path.dirname(dirname) or ".")
         if fstype == "nfs" and nfswarn:
             print>> log, ModColor.Str("WARNING: cache directory %s is mounted via NFS." % dirname, col="red",
                                       Bold=True)
