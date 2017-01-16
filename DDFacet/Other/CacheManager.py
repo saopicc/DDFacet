@@ -100,13 +100,15 @@ class CacheManager (object):
             cachedir: if set, caches things under cachedir/dirname. Useful for fast local storage.
             nfswarn: if True and directory is NFS mounted, prints a warning
         """
+        # strip trailing slashes
+        while dirname[-1] == "/":
+            dirname = dirname[:-1]
         if cachedir:
-            while dirname[-1] == "/":
-                dirname = dirname[:-1]
             dirname = os.path.join(cachedir, os.path.basename(dirname))
         # print warning if dirname is on NFS
         try:
-            fstype = subprocess.check_output(("stat --file-system --format=%T " + dirname).split()).strip()
+            fstype = subprocess.check_output(("stat --file-system --format=%T " +
+                                              (os.path.basename(dirname) or ".")).split()).strip()
         except:
             print>>log, ModColor.Str("WARNING: unable to determine filesystem type for %s"%dirname, col="red", Bold=True)
             fstype = "unknown"
