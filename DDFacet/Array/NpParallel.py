@@ -23,6 +23,7 @@ from DDFacet.Other import ClassTimeIt
 import numpy as np
 import psutil
 
+NCPU_global = psutil.cpu_count()
 
 def A_add_B_prod_factor(
     A,
@@ -30,7 +31,9 @@ def A_add_B_prod_factor(
     Aedge=None,
     Bedge=None,
     factor=1.,
-     NCPU=psutil.cpu_count()):
+     NCPU=0):
+
+    NCPU = NCPU or NCPU_global
 
     NDimsA = len(A.shape)
     NDimsB = len(B.shape)
@@ -61,7 +64,6 @@ def A_add_B_prod_factor(
     A = A.reshape(ShapeOrig)
     return A
 
-
 def A_whereMax(A, NCPU=0, DoAbs=1, Mask=None):
     """
     Args:
@@ -73,7 +75,7 @@ def A_whereMax(A, NCPU=0, DoAbs=1, Mask=None):
     Returns:
 
     """
-    NCPU = NCPU or psutil.cpu_count()
+    NCPU = NCPU or NCPU_global
     NDimsA = len(A.shape)
     ShapeOrig = A.shape
 

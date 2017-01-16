@@ -49,78 +49,41 @@ def test():
 
 class ClassVisServer():
 
-    def __init__(self, MSName, GD=None,
+    def __init__(self, MSList, GD=None,
                  ColName="DATA",
                  TChunkSize=1,                # chunk size, in hours
-                 TVisSizeMin=1,
-                 DicoSelectOptions={},
                  LofarBeam=None,
-                 AddNoiseJy=None, 
-                 IdSharedMem="",
-                 Robust=2, 
-                 Weighting="Briggs", 
-                 MFSWeighting=True, 
-                 Super=1,
-                 NCPU=psutil.cpu_count()):
+                 AddNoiseJy=None):
+        self.GD = GD
 
-        self.ReadOnce = False
-        self.ReadOnce_AlreadyRead = False
-        if TChunkSize <= TVisSizeMin*60:
-            self.ReadOnce = True
-
-        if isinstance(MSName, list):
-            self.MultiMSMode = True
-            self.ListMSName = MSName
-            self.ReadOnce = False
-        else:
-            self.MultiMSMode = False
-            self.ListMSName = [MSName]
-        self.ListMSName = [MSName for MSName in self.ListMSName if MSName != ""]
+        self.MSList = [ MSList ] if isinstance(MSList, str) else MSList
         self.FacetMachine = None
-        self.IdSharedMem = IdSharedMem
-        self.Robust = Robust
-        PrefixShared = "%sSharedVis" % self.IdSharedMem
         self.AddNoiseJy = AddNoiseJy
         self.TMemChunkSize = TChunkSize
-        self.TVisSizeMin = TVisSizeMin
 
-        self.Weighting = Weighting.lower()
+        self.Weighting = GD["Image"]["Weighting"].lower()
         if self.Weighting not in ("natural", "uniform", "briggs", "robust"):
             raise ValueError("unknown Weighting=%s" % Weighting)
-        self.MFSWeighting = MFSWeighting
-
-        self.Super = Super
-        self.NCPU = NCPU
+        self.MFSWeighting = GD["Image"]["MFSWeighting"]
+        self.Robust = GD["Image"]["Robust"]
+        self.Super = GD["Image"]["SuperUniform"]
         self.VisWeights = None
+
         self.CountPickle = 0
         self.ColName = ColName
-        self.Field = DicoSelectOptions.get("Field", 0)
-        self.DDID = DicoSelectOptions.get("DDID", 0)
-        self.TaQL = DicoSelectOptions.get("TaQL", None)
-        self.DicoSelectOptions = DicoSelectOptions
-        self.SharedNames = []
-        self.PrefixShared = PrefixShared
-        self.VisInSharedMem = (PrefixShared is not None)
+        self.DicoSelectOptions = GD["Selection"]
+        self.TaQL = self.DicoSelectOptions.get("TaQL", None)
         self.LofarBeam = LofarBeam
         self.ApplyBeam = False
-        self.GD = GD
         self.datashape = None
-        self._use_data_cache = self.GD["Caching"]["CacheVisData"]
+        self._use_data_cache = self.GD["Cache"]["VisData"]
         self.Init()
 
         # buffers to hold current chunk
         self._databuf = None
         self._flagbuf = None
 
-        # self.LoadNextVisChunk()
-
-        # self.TEST_TLIST=[]
-
     def Init(self, PointingID=0):
-        # MSName=self.MDC.giveMS(PointingID).MSName
-        if self.MultiMSMode:
-            print>>log, "Multiple MS mode"
-
         self.ListMS = []
         global_freqs = set()
         NChanMax = 0
@@ -142,13 +105,17 @@ class ClassVisServer():
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
 
-        for MSName in self.ListMSName:
+        for msspec in self.MSList:
+            if type(msspec) is not str:
+                msname, ddid, field = msspec
+            else:
+                msname, ddid, field = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"]
             MS = ClassMS.ClassMS(
-                MSName, Col=self.ColName, DoReadData=False,
+                msname, Col=self.ColName, DoReadData=False,
                 AverageTimeFreq=(1, 3),
-                Field=self.Field, DDID=self.DDID, TaQL=self.TaQL,
+                Field=field, DDID=ddid, TaQL=self.TaQL,
                 TimeChunkSize=self.TMemChunkSize, ChanSlice=chanslice,
-                GD=self.GD, ResetCache=self.GD["Caching"]["ResetCache"],
+                GD=self.GD, ResetCache=self.GD["Cache"]["Reset"],
                 DicoSelectOptions = self.DicoSelectOptions)
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
@@ -165,6 +132,10 @@ class ClassVisServer():
         print >>log, "shape of data/flag buffer will be %s (%.2f Gel)" % (
             self._chunk_shape, size / float(2 ** 30))
 
+        if not self.ListMS:
+            print>>log, ModColor.Str("--Data-MS does not specify any valid Measurement Set(s)")
+            raise RuntimeError,"--Data-MS does not specify any valid Measurement Set(s)"
+
         # main cache is initialized from main cache of first MS
         self.maincache = self.cache = self.ListMS[0].maincache
 
@@ -172,7 +143,7 @@ class ClassVisServer():
         self.VisCorrelationLayout = self.ListMS[0].CorrelationIds
         self.StokesConverter = ClassStokes(
             self.VisCorrelationLayout,
-            self.GD["ImagerGlobal"]["PolMode"])
+            self.GD["Image"]["PolMode"])
         for MS in self.ListMS:
             if not np.all(MS.CorrelationIds == self.VisCorrelationLayout):
                 raise RuntimeError(
@@ -193,15 +164,15 @@ class ClassVisServer():
 
         # OMS: ok couldn't resist adding a bandwidth option since I need it for 3C147
         # if this is 0, then looks at NFreqBands parameter
-        grid_bw = self.GD["MultiFreqs"]["GridBandMHz"]*1e+6
+        grid_bw = self.GD["Freq"]["BandMHz"]*1e+6
 
         if grid_bw:
             grid_bw = min(grid_bw, bandwidth)
-            NFreqBands = self.GD["MultiFreqs"][
-                "NFreqBands"] = int(math.ceil(bandwidth/grid_bw))
+            NFreqBands = self.GD["Freq"][
+                "NBand"] = int(math.ceil(bandwidth/grid_bw))
         else:
             NFreqBands = np.min(
-                [self.GD["MultiFreqs"]["NFreqBands"],
+                [self.GD["Freq"]["NBand"],
                  len(self.GlobalFreqs)])  # self.nMS])
             grid_bw = bandwidth/NFreqBands
 
@@ -216,8 +187,8 @@ class ClassVisServer():
                 self.GD["GAClean"]["GASolvePars"].append("Alpha")
 
         else:
-            self.GD["MultiFreqs"]["NFreqBands"] = 1
-            self.GD["MultiFreqs"]["Alpha"] = [0., 0., 1.]
+            self.GD["Freq"]["NBand"] = 1
+            self.GD["HMP"]["Alpha"] = [0., 0., 1.]
             if "Alpha" in self.GD["GAClean"]["GASolvePars"]:
                 self.GD["GAClean"]["GASolvePars"].remove("Alpha")
             print>>log, ModColor.Str("MultiFrequency Mode: OFF")
@@ -289,7 +260,7 @@ class ClassVisServer():
 
             # OMS: new option, DegridBandMHz specifies degridding band step. If
             # 0, fall back to NChanDegridPerMS
-            degrid_bw = self.GD["MultiFreqs"]["DegridBandMHz"]*1e+6
+            degrid_bw = self.GD["Freq"]["DegridBandMHz"]*1e+6
             if degrid_bw:
                 degrid_bw = min(degrid_bw, bw)
                 degrid_bw = max(degrid_bw, MS.ChanWidth[0])
@@ -298,7 +269,7 @@ class ClassVisServer():
                     MS.ChanFreq.size)
             else:
                 NChanDegrid = min(
-                    self.GD["MultiFreqs"]["NChanDegridPerMS"]
+                    self.GD["Freq"]["NDegridBand"]
                     or MS.ChanFreq.size, MS.ChanFreq.size)
                 degrid_bw = bw/NChanDegrid
 
@@ -333,8 +304,6 @@ class ClassVisServer():
 
 #        self.RefFreq=np.mean(self.ListFreqs)
         self.RefFreq = np.mean(self.GlobalFreqs)
-
-        MS = self.ListMS[0]
 
         self.ReInitChunkCount()
 
@@ -439,7 +408,7 @@ class ClassVisServer():
 
         """
         self.residual_data = self.orig_data = self.orig_datapath = None
-        self.datapath = Multiprocessing.getShmURL("VisData")
+        self.datapath = Multiprocessing.getShmURL("Data")
         if self._databuf is None:
             self._databuf = NpShared.CreateShared(self.datapath, self._chunk_shape, np.complex64)
         if self._flagbuf is None:
@@ -451,7 +420,8 @@ class ClassVisServer():
                 databuf=self._databuf, 
                 flagbuf=self._flagbuf,
                 use_cache=self._use_data_cache,
-                read_data=not null_data)
+                read_data=not null_data,
+                sort_by_baseline=self.GD["Data"]["Sort"])
             self.cache = MS.cache
             if repLoadChunk == "EndMS":
                 repNextMS = self.setNextMS()
@@ -462,9 +432,19 @@ class ClassVisServer():
                 elif repNextMS == "OK":
                     continue
             DATA = repLoadChunk
+            ## now load weights. Note that an all-flagged chunk of data is markjed by a null weights file.
+            ## so we check it here to go on to the next chunk as needed
+            weightspath = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
+            if not os.path.getsize(weightspath):
+                print>> log, ModColor.Str("This chunk is all flagged or has zero weight, skipping it")
+                continue
+            # mmap() arrays caused mysterious performance hits, so load and copy
+            DATA["Weights"] = NpShared.GiveArray("file://" + weightspath).copy()
+            if DATA["sort_index"] is not None:
+                DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
             break
-        print>> log, "processing ms %d of %d, chunk %d of %d" % (
-            self.iCurrentMS + 1, self.nMS, self.CurrentMS.current_chunk+1, self.CurrentMS.Nchunk)
+        print>> log, ModColor.Str("processing ms %d of %d, chunk %d of %d" % (
+            self.iCurrentMS + 1, self.nMS, self.CurrentMS.current_chunk+1, self.CurrentMS.Nchunk), col="green")
 
         times = DATA["times"]
         data = DATA["data"]
@@ -489,13 +469,6 @@ class ClassVisServer():
         # times=times[ind]
         # ##
 
-        # load weights
-        self._visweights = NpShared.GiveArray("file://"+self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk])
-        NpShared.Lock(self._visweights)
-        # DATA["Weights"] = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
-        # as a proof of concept, pass weights in directly
-        DATA["Weights"] = self._visweights.copy()
-
         DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
 
         if 'F' in DecorrMode or "T" in DecorrMode:
@@ -518,15 +491,11 @@ class ClassVisServer():
         DATA["ChanMapping"] = self.CurrentChanMapping
         DATA["ChanMappingDegrid"] = self.DicoMSChanMappingDegridding[self.iCurrentMS]
 
-        print>>log, "  channel Mapping Gridding  : %s" % (
-            str(self.CurrentChanMapping))
-        print>>log, "  channel Mapping DeGridding: %s" % (
-            str(DATA["ChanMappingDegrid"]))
+        print>>log, "  channel Mapping Gridding  : %s" % str(self.CurrentChanMapping)
+        print>>log, "  channel Mapping DeGridding: %s" % str(DATA["ChanMappingDegrid"])
 
-        self.UpdateCompression(
-            DATA, ChanMappingGridding=DATA["ChanMapping"],
-            ChanMappingDeGridding=self.DicoMSChanMappingDegridding
-            [self.iCurrentMS])
+        self.UpdateCompression(DATA, ChanMappingGridding=DATA["ChanMapping"],
+            ChanMappingDeGridding=self.DicoMSChanMappingDegridding[self.iCurrentMS])
 
         JonesMachine = ClassJones.ClassJones(self.GD, self.CurrentMS, self.FacetMachine)
         JonesMachine.InitDDESols(DATA)
@@ -562,65 +531,51 @@ class ClassVisServer():
         self.FacetShape = sh2
         self.CellSizeRad = cell
 
-    def UpdateCompression(
-        self,
-        DATA,
-        ChanMappingGridding=None,
-        ChanMappingDeGridding=None):
-        if self.GD["Compression"]["CompGridMode"]:
-            mapname, valid = self.cache.checkCache(
-                "BDA.Grid",
-                dict(
-                    Compression=self.GD["Compression"],
-                    DataSelection=self.GD["DataSelection"],
-                    ImagerMainFacet=self.GD["ImagerMainFacet"]))
+    def UpdateCompression(self, DATA, ChanMappingGridding=None, ChanMappingDeGridding=None):
+        if True: # always True for now, non-BDA gridder is not maintained # if self.GD["Comp"]["CompGridMode"]:
+            mapname, valid = self.cache.checkCache("BDA.Grid",
+                                                   dict(Compression=self.GD["Comp"],
+                                                        DataSelection=self.GD["Selection"],
+                                                        Sorting=self.GD["Data"]["Sort"]))
             if valid:
                 print>> log, "  using cached BDA mapping %s" % mapname
                 DATA["BDAGrid"] = np.load(mapname)
             else:
-                if self.GD["Compression"]["CompGridFOV"] == "Facet":
+                if self.GD["Comp"]["GridFoV"] == "Facet":
                     _, _, nx, ny = self.FacetShape
-                elif self.GD["Compression"]["CompGridFOV"] == "Full":
+                elif self.GD["Comp"]["GridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
                 SmearMapMachine = ClassSmearMapping.ClassSmearMapping(
                     self.CurrentMS, radiusDeg=FOV,
-                    Decorr=(1. - self.GD["Compression"]["CompGridDecorr"]))
+                    Decorr=(1. - self.GD["Comp"]["GridDecorr"]))
                 FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingGridding)
 
-                print>> log, ModColor.Str(
-                    "  Effective compression [Grid]  :   %.2f%%" %
-                    fact, col="green")
+                print>> log, ModColor.Str("  Effective compression [grid]  :   %.2f%%" % fact, col="green")
 
                 DATA["BDAGrid"] = FinalMapping
                 np.save(file(mapname, 'w'), FinalMapping)
                 self.cache.saveCache("BDA.Grid")
 
-        if self.GD["Compression"]["CompDeGridMode"]:
-            mapname, valid = self.cache.checkCache(
-                "BDA.DeGrid",
-                dict(
-                    Compression=self.GD["Compression"],
-                    DataSelection=self.GD["DataSelection"],
-                    ImagerMainFacet=self.GD["ImagerMainFacet"]))
+        if True: # always True for now, non-BDA gridder is not maintained # if self.GD["Comp"]["CompDeGridMode"]:
+            mapname, valid = self.cache.checkCache("BDA.DeGrid",
+                                                   dict(Compression=self.GD["Comp"],
+                                                        DataSelection=self.GD["Selection"],
+                                                        Sorting=self.GD["Data"]["Sort"]))
             if valid:
                 print>> log, "  using cached BDA mapping %s" % mapname
                 DATA["BDADegrid"] = np.load(mapname)
             else:
-                if self.GD["Compression"]["CompDeGridFOV"] == "Facet":
+                if self.GD["Comp"]["DegridFoV"] == "Facet":
                     _, _, nx, ny = self.FacetShape
-                elif self.GD["Compression"]["CompDeGridFOV"] == "Full":
+                elif self.GD["Comp"]["DegridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
                 SmearMapMachine = ClassSmearMapping.ClassSmearMapping(
                     self.CurrentMS, radiusDeg=FOV,
-                    Decorr=(1. - self.GD["Compression"]["CompDeGridDecorr"]))
-                FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(
-                                                                               DATA,
-                                                                               ChanMappingDeGridding)
-                print>> log, ModColor.Str(
-                    "  Effective compression [DeGrid]:   %.2f%%" %
-                    fact, col="green")
+                    Decorr=(1. - self.GD["Comp"]["DegridDecorr"]))
+                FinalMapping, fact = SmearMapMachine.BuildSmearMappingParallel(DATA, ChanMappingDeGridding)
+                print>> log, ModColor.Str("  Effective compression [degrid]:   %.2f%%" %fact, col="green")
                 DATA["BDADegrid"] = FinalMapping
                 np.save(file(mapname, 'w'), FinalMapping)
                 self.cache.saveCache("BDA.DeGrid")
@@ -632,7 +587,7 @@ class ClassVisServer():
         # in RAM-greedy mode, we keep all weight arrays around in RAM while computing weights
         # Otherwise we leave them in mmap()ed files and etach, and let the
         # kernel take care of caching etc.
-        greedy = self.GD["Debugging"]["MemoryGreedy"]
+        greedy = self.GD["Debug"]["MemoryGreedy"]
 
         # check if every MS+chunk weight is available in cache
         self.VisWeights = []
@@ -647,8 +602,8 @@ class ClassVisServer():
                         [(section, self.GD[section])
                          for section
                          in (
-                             "VisData", "DataSelection", "MultiFreqs",
-                             "ImagerGlobal", "ImagerMainFacet")]))
+                             "Data", "Selection", "Freq",
+                             "Image", "Image")]))
                 have_all_weights = have_all_weights and valid
                 msweights.append(cachepath)
             self.VisWeights.append(msweights)
@@ -668,7 +623,7 @@ class ClassVisServer():
         # Per-channel flagging is taken care of in here, by setting that
         # channel's weight to 0.
 
-        WeightCol = self.GD["VisData"]["WeightCol"]
+        WeightCol = self.GD["Data"]["WeightCol"]
         # now loop over MSs and read data
         weightsum = nweights = 0
         weights_are_null = True
@@ -700,11 +655,20 @@ class ClassVisServer():
                 # if all channels are flagged, flag whole row. Shape of flags
                 # becomes nrow
                 flags = flags.min(axis=1)
+
                 # each weight is kept in an mmap()ed file in the cache, shape
                 # (nrows,nchan)
                 weightpath = "file://"+cachepath
-                WEIGHT = NpShared.CreateShared(
-                    weightpath, (nrows, ms.Nchan), np.float64)
+
+                # if everything is flagged, skip this entry, and mark it with a zero-length weights file
+                if flags.all() or not nrows:
+                    # Nones tell CalcWeights to skip this chunk entirely
+                    output_list.append((uvs, None, None, ms.ChanFreq))
+                    # make an empty weights file in the cache
+                    file(cachepath,'w').truncate(0)
+                    continue
+
+                WEIGHT = NpShared.CreateShared(weightpath, (nrows, ms.Nchan), np.float64)
 
                 if WeightCol == "WEIGHT_SPECTRUM":
                     w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
@@ -712,7 +676,6 @@ class ClassVisServer():
                         WeightCol, w.shape)
                     # take mean weight across correlations and apply this to all
                     WEIGHT[...] = w.mean(axis=2) * valid
-
                 elif WeightCol == "WEIGHT":
                     w = tab.getcol(WeightCol, row0, nrows)
                     print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (
@@ -736,8 +699,7 @@ class ClassVisServer():
                 nweights += valid.sum()
                 weights_are_null = weights_are_null and (WEIGHT == 0).all()
 
-                output_list.append(
-                    (uvs, WEIGHT if greedy else weightpath, flags, ms.ChanFreq))
+                output_list.append((uvs, WEIGHT if greedy else weightpath, flags, ms.ChanFreq))
                 if greedy:
                     del WEIGHT
             tab.close()

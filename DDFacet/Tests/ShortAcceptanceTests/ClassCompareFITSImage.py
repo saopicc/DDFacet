@@ -128,7 +128,7 @@ class ClassCompareFITSImage(unittest.TestCase):
         """
         Relative tolerance on minor cycle count
         """
-        return 0  # +/- 0 major cycles
+        return 1  # +/- 0 major cycles
 
     @classmethod
     def setParsetOption(cls, section, option, value):
@@ -139,7 +139,7 @@ class ClassCompareFITSImage(unittest.TestCase):
                 option: Section option name
                 value: Value for option (refer to default parset for documentation)
         """
-        cls._defaultParsetConfig.set(section, option, value)
+        cls._defaultParset.set(section, option, value)
 
     @classmethod
     def setUpClass(cls):
@@ -156,31 +156,31 @@ class ClassCompareFITSImage(unittest.TestCase):
         cls._outputLog = cls._outputDir + cls.__name__ + ".run.log"
         if not path.isfile(cls._inputParsetFilename):
             raise RuntimeError("Default parset file %s does not exist" % cls._inputParsetFilename)
-        p = Parset(File=cls._inputParsetFilename)
-        cls._defaultParsetConfig = p.Config
+        p = Parset(cls._inputParsetFilename)
+        cls._defaultParset = p
         cls._imagePrefix = cls._outputDir+cls.__name__+".run"
-        cls.setParsetOption("Images",
-                            "ImageName",
+        cls.setParsetOption("Output",
+                            "Name",
                             cls._imagePrefix)
         # set up path to each ms relative to environment variable
-        if type(p.DicoPars["VisData"]["MSName"]) is list:
-            for ms in p.DicoPars["VisData"]["MSName"]:
+        if type(p.DicoPars["Data"]["MS"]) is list:
+            for ms in p.DicoPars["Data"]["MS"]:
                 if path.dirname(ms) != "":
                     raise RuntimeError("Expected only measurement set name, "
                                        "not relative or absolute path in %s" % ms)
-            abs_ms = [cls._inputDir+ms for ms in p.DicoPars["VisData"]["MSName"]]
+            abs_ms = [cls._inputDir+ms for ms in p.DicoPars["Data"]["MS"]]
 
-            cls.setParsetOption("VisData", "MSName", "["+(",".join(abs_ms))+"]")
+            cls.setParsetOption("Data", "MS", "["+(",".join(abs_ms))+"]")
         else:
-            ms = p.DicoPars["VisData"]["MSName"]
+            ms = p.DicoPars["Data"]["MS"]
             if path.dirname(ms) != "":
                 raise RuntimeError("Expected only measurement set name, "
                                     "not relative or absolute path in %s" % ms)
             abs_ms = cls._inputDir+ms
-            cls.setParsetOption("VisData", "MSName", abs_ms)
+            cls.setParsetOption("Data", "MS", abs_ms)
 
         fOutputParset = open(cls._outputParsetFilename,mode='w')
-        cls._defaultParsetConfig.write(fOutputParset)
+        cls._defaultParset.write(fOutputParset)
         fOutputParset.close()
 
         #Build dictionary of HDUs
@@ -202,7 +202,7 @@ class ClassCompareFITSImage(unittest.TestCase):
 
         args = ['DDF.py',
             cls._outputParsetFilename,
-            '--ImageName=%s' % cls._imagePrefix]
+            '--Output-Name=%s' % cls._imagePrefix]
 
         stdout_file = open(cls._stdoutLogFile, 'w')
         stderr_file = open(cls._stderrLogFile, 'w')
@@ -323,8 +323,8 @@ class ClassCompareFITSImage(unittest.TestCase):
             vals = None
             logtext = f.readline()
             while logtext:
-                vals = re.match(r".*=== Running major Cycle (?P<majors>[0-9]+)? ====.*",
-                                logtext)
+                vals = re.match(r".*=== Running major cycle (?P<majors>[0-9]+)? ====.*",
+                                logtext, re.IGNORECASE)
                 if vals is not None:
                     input_major = max(input_major, int(vals.group("majors")))
 
@@ -339,8 +339,8 @@ class ClassCompareFITSImage(unittest.TestCase):
             vals = None
             logtext = f.readline()
             while logtext:
-                vals = re.match(r".*=== Running major Cycle (?P<majors>[0-9]+)? ====.*",
-                                logtext)
+                vals = re.match(r".*=== Running major cycle (?P<majors>[0-9]+)? ====.*",
+                                logtext, re.IGNORECASE)
                 if vals is not None:
                     output_major = max(output_major, int(vals.group("majors")))
 
@@ -350,12 +350,11 @@ class ClassCompareFITSImage(unittest.TestCase):
                 if vals is not None:
                     output_minor = max(output_minor, int(vals.group("minors")))
                 logtext = f.readline()
-        assert abs(input_major -
-                   output_major) <= cls.defMajorCycleTolerance(), "Number of major cycles used to reach termination " \
+        # OMS: check for output-input rather than abs(): fewer cycles is OK
+        assert output_major - input_major <= cls.defMajorCycleTolerance(), "Number of major cycles used to reach termination " \
                                                                   "differs: Known good: %d, current %d" % (
                                                                   input_major, output_major)
-        assert abs(input_minor -
-                   output_minor) <= cls.defMinorCycleTolerance(), "Number of minor cycles used to reach termination " \
+        assert output_minor - input_minor <= cls.defMinorCycleTolerance(), "Number of minor cycles used to reach termination " \
                                                                   "differs: Known good: %d, current %d" % (
                                                                   input_minor, output_minor)
 

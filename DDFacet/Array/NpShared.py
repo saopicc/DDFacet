@@ -23,6 +23,7 @@ import SharedArray
 from DDFacet.Other import ModColor
 import numpy as np
 from DDFacet.Other import MyLogger
+import traceback
 log = MyLogger.getLogger("NpShared")
 import os.path
 
@@ -48,7 +49,7 @@ def SizeShm():
 def CreateShared(Name, shape, dtype):
     try:
         a = SharedArray.create(Name, shape, dtype=dtype)
-    except:
+    except OSError:
         print>> log, ModColor.Str("File %s exists, deleting" % Name)
         DelArray(Name)
         a = SharedArray.create(Name, shape, dtype=dtype)
@@ -69,18 +70,23 @@ def DelArray(Name):
 _locking = True
 
 def Lock (array):
+    global _locking
     if _locking:
-	try:
-	        SharedArray.mlock(array)
-	except:
-		print>> log, "Warning: Cannot lock memory. Try updating your kernel security settings."
+        try:
+                SharedArray.mlock(array)
+        except:
+            print>> log, "Warning: Cannot lock memory. Try updating your kernel security settings."
+            _locking = False
 
 def Unlock (array):
+    global _locking
     if _locking:
-	try:
-	        SharedArray.munlock(array)
-	except:
-		print>> log, "Warning Cannot unlock memory. Try updating your kernel security settings."
+        try:
+                SharedArray.munlock(array)
+        except:
+            print>> log, "Warning Cannot unlock memory. Try updating your kernel security settings."
+            _locking = False
+
 
 def ListNames():
     ll = list(SharedArray.list())

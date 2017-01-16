@@ -44,7 +44,7 @@ class ClassSmoothJones():
             DicoClusterDirs_killMS= NpShared.SharedToDico("%sDicoClusterDirs_killMS" % self.IdSharedMem)
             DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"]=DicoClusterDirs_killMS
 
-        ApplyBeam=(GD["Beam"]["BeamModel"] is not None)
+        ApplyBeam=(GD["Beam"]["Model"] is not None)
         if ApplyBeam:
             DicoJones_Beam= NpShared.SharedToDico("%sJonesFile_Beam" % self.IdSharedMem)
             DicoJonesMatrices["DicoJones_Beam"]=DicoJones_Beam

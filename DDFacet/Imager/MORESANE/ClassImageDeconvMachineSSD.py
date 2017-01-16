@@ -65,7 +65,7 @@ class ClassImageDeconvMachine():
         self.GD=GD
         self.IdSharedMem=IdSharedMem
         self.SubPSF=None
-        self.MultiFreqMode=(self.GD["MultiFreqs"]["NFreqBands"]>1)
+        self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         self.FluxThreshold = FluxThreshold 
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
@@ -501,7 +501,7 @@ class ClassImageDeconvMachine():
         # pylab.show(False)
         # pylab.pause(0.1)
 
-        DoAbs=int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
+        DoAbs=int(self.GD["Deconv"]["AllowNegative"])
         print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
 
         NPixStats=1000
@@ -702,7 +702,7 @@ class ClassImageDeconvMachine():
 
         m0,m1=self.Dirty[0].min(),self.Dirty[0].max()
 
-        DoAbs=int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
+        DoAbs=int(self.GD["Deconv"]["AllowNegative"])
         print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
 
         NPixStats=1000

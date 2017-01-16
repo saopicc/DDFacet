@@ -30,7 +30,7 @@ from DDFacet.Parset.ReadCFG import Parset
 def run_ddf(parset, image_prefix, stdout_filename, stderr_filename):
     """ Execute DDFacet """
     args = ['DDF.py', parset,
-        '--ImageName=%s' % image_prefix]
+        '--Output-Name=%s' % image_prefix]
 
     stdout_file = open(stdout_filename, 'w')
     stderr_file = open(stderr_filename, 'w')
@@ -42,23 +42,23 @@ def run_ddf(parset, image_prefix, stdout_filename, stderr_filename):
 class TestMontblancPredict(unittest.TestCase):
 
     def testMontblancPredict(self):
-        pc = self._parset.Config
+        pc = self._parset
 
         # Set the image name prefix
-        pc.set("Images", "ImageName", self._image_prefix)
+        pc.set("Output", "Name", self._image_prefix)
 
         # Configure DDFacet to predict using Montblanc
-        pc.set("ImagerGlobal", "Mode", "Predict")
-        pc.set("ImagerGlobal", "PredictMode", "Montblanc")
+        pc.set("Image", "Mode", "Predict")
+        pc.set("Image", "PredictMode", "Montblanc")
 
         # Predict from Predict.DicoModel
-        pc.set("Images", "PredictModelName", os.path.join(self._input_dir,
+        pc.set("Data", "PredictFrom", os.path.join(self._input_dir,
             "sky_models", "Predict.DicoModel"))
 
         # Predict into MONTBLANC_DATA
-        pc.set("VisData", "MSName", os.path.join(self._input_dir,
+        pc.set("Data", "MS", os.path.join(self._input_dir,
             "basicSSMFClean.MS_p0"))
-        pc.set("VisData", "PredictColName", "MONTBLANC_DATA")
+        pc.set("Data", "PredictColName", "MONTBLANC_DATA")
 
         # Write the parset config to the output file name
         with open(self._output_parset_filename, 'w') as op:
@@ -69,23 +69,23 @@ class TestMontblancPredict(unittest.TestCase):
             self._stdout_filename, self._stderr_filename)
 
     def testDDFacetPredict(self):
-        pc = self._parset.Config
+        pc = self._parset
 
         # Set the image name prefix
-        pc.set("Images", "ImageName", self._image_prefix)
+        pc.set("Output", "Name", self._image_prefix)
 
         # Configure DDFacet to predict using DDFacet's DeGridder
-        pc.set("ImagerGlobal", "Mode", "Predict")
-        pc.set("ImagerGlobal", "PredictMode", "DeGridder")
+        pc.set("Image", "Mode", "Predict")
+        pc.set("Image", "PredictMode", "BDA-degrid")
 
         # Predict from Predict.DicoModel
-        pc.set("Images", "PredictModelName", os.path.join(self._input_dir,
+        pc.set("Data", "PredictFrom", os.path.join(self._input_dir,
             "sky_models", "Predict.DicoModel"))
 
         # Predict into DDFACET_DATA
-        pc.set("VisData", "MSName", os.path.join(self._input_dir,
+        pc.set("Data", "MS", os.path.join(self._input_dir,
             "basicSSMFClean.MS_p0"))
-        pc.set("VisData", "PredictColName", "DDFACET_DATA")
+        pc.set("Data", "PredictColName", "DDFACET_DATA")
 
         # Write the parset config to the output file name
         with open(self._output_parset_filename, 'w') as op:
@@ -108,7 +108,7 @@ class TestMontblancPredict(unittest.TestCase):
         if not os.path.isfile(self._input_parset_filename):
             raise RuntimeError("Parset file %s does not exist" % self._input_parset_filename)
 
-        self._parset = Parset(File=self._input_parset_filename)
+        self._parset = Parset(self._input_parset_filename)
 
     def tearDown(self):
         pass

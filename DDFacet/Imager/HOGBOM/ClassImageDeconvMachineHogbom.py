@@ -72,8 +72,8 @@ class ClassImageDeconvMachine():
         self.NCPU=NCPU
         self.MaskArray = None
         self.GD=GD
-        self.MultiFreqMode = (self.GD["MultiFreqs"]["NFreqBands"] > 1)
-        self.NFreqBand = self.GD["MultiFreqs"]["NFreqBands"]
+        self.MultiFreqMode = (self.GD["Freq"]["NBand"] > 1)
+        self.NFreqBand = self.GD["Freq"]["NBand"]
         self.FluxThreshold = FluxThreshold 
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
@@ -120,9 +120,9 @@ class ClassImageDeconvMachine():
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.SetModelRefFreq()
-        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"],self.GD["MultiFreqs"]["PolyFitOrder"])
+        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"],self.GD["Hogbom"]["PolyFitOrder"])
         # tmp = [{'Alpha': 0.0, 'Scale': 0, 'ModelType': 'Delta'}]
-        # AlphaMin, AlphaMax, NAlpha = self.GD["MultiFreqs"]["Alpha"]
+        # AlphaMin, AlphaMax, NAlpha = self.GD["HMP"]["Alpha"]
         # if NAlpha > 1:
         #     print>>log, "Multi-frequency synthesis not supported in Hogbom CLEAN. Setting alpha to zero"
         #
@@ -306,12 +306,12 @@ class ClassImageDeconvMachine():
             m0,m1=PeakMap.min(),PeakMap.max()
 
             #These options should probably be moved into MinorCycleConfig in parset
-            DoAbs=int(self.GD["ImagerDeconv"]["SearchMaxAbs"])
+            DoAbs=int(self.GD["Deconv"]["AllowNegative"])
             print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter[pol_task_id],self.MaxMinorIter,DoAbs)
 
             ## Determine which stopping criterion to use for flux limit
             #Get RMS stopping criterion
-            NPixStats = self.GD["ImagerDeconv"]["NumRMSSamples"]
+            NPixStats = self.GD["Deconv"]["NumRMSSamples"]
             if NPixStats:
                 RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
                 if pol_task == "Q+iU":

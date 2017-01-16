@@ -30,8 +30,8 @@ import numpy as np
 def run_ddf(parset, image_prefix, stdout_filename, stderr_filename, beam_model="FITS"):
     """ Execute DDFacet """
     args = ['DDF.py', parset,
-            '--ImageName=%s' % image_prefix,
-            '--BeamModel=%s' % beam_model]
+            '--Output-Name=%s' % image_prefix,
+            '--Beam-Model=%s' % beam_model]
     stdout_file = open(stdout_filename, 'w')
     stderr_file = open(stderr_filename, 'w')
 
@@ -68,7 +68,7 @@ class TestFacetPredict(unittest.TestCase):
                 option: Section option name
                 value: Value for option (refer to default parset for documentation)
         """
-        cls._defaultParsetConfig.set(section, option, value)
+        cls._defaultParset.set(section, option, value)
 
     @classmethod
     def setUpClass(cls):
@@ -79,31 +79,31 @@ class TestFacetPredict(unittest.TestCase):
         cls._outputParsetFilename = cls._outputDir + cls.__name__ + ".run.parset.cfg"
         if not path.isfile(cls._inputParsetFilename):
             raise RuntimeError("Default parset file %s does not exist" % cls._inputParsetFilename)
-        p = Parset(File=cls._inputParsetFilename)
-        cls._defaultParsetConfig = p.Config
+        p = Parset(cls._inputParsetFilename)
+        cls._defaultParset = p
         cls._imagePrefix = cls._outputDir + cls.__name__ + ".run"
 
         # set up path to each ms relative to environment variable
-        if type(p.DicoPars["VisData"]["MSName"]) is list:
-            for ms in p.DicoPars["VisData"]["MSName"]:
+        if type(p.DicoPars["Data"]["MS"]) is list:
+            for ms in p.DicoPars["Data"]["MS"]:
                 if path.dirname(ms) != "":
                     raise RuntimeError("Expected only measurement set name, "
                                        "not relative or absolute path in %s" % ms)
-            abs_ms = [cls._inputDir + ms for ms in p.DicoPars["VisData"]["MSName"]]
+            abs_ms = [cls._inputDir + ms for ms in p.DicoPars["Data"]["MS"]]
             cls._ms_list = abs_ms
-            cls.setParsetOption("VisData", "MSName", "[" + (",".join(abs_ms)) + "]")
+            cls.setParsetOption("Data", "MS", "[" + (",".join(abs_ms)) + "]")
         else:
-            ms = p.DicoPars["VisData"]["MSName"]
+            ms = p.DicoPars["Data"]["MS"]
             if path.dirname(ms) != "":
                 raise RuntimeError("Expected only measurement set name, "
                                    "not relative or absolute path in %s" % ms)
             abs_ms = cls._inputDir + ms
             cls._ms_list = [abs_ms]
-            cls.setParsetOption("VisData", "MSName", abs_ms)
+            cls.setParsetOption("Data", "MS", abs_ms)
 
-        ms = p.DicoPars["Images"]["PredictModelName"]
+        ms = p.DicoPars["Data"]["PredictFrom"]
         abs_skymodel = cls._inputDir + ms
-        cls.setParsetOption("Images", "PredictModelName", abs_skymodel)
+        cls.setParsetOption("Data", "PredictFrom", abs_skymodel)
 
         ms = p.DicoPars["Beam"]["FITSFile"]
         abs_beam = cls._inputDir + ms
@@ -111,7 +111,7 @@ class TestFacetPredict(unittest.TestCase):
 
         # write out parset file to output directory
         fOutputParset = open(cls._outputParsetFilename, mode='w')
-        cls._defaultParsetConfig.write(fOutputParset)
+        cls._defaultParset.write(fOutputParset)
         fOutputParset.close()
 
     @classmethod

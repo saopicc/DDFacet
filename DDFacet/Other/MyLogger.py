@@ -115,8 +115,9 @@ class LoggerMemoryFilter (logging.Filter):
 
 class MyLogger():
     def __init__(self):
-#fmt="%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s"
+#       fmt="%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s"
         fmt = " - %(asctime)s - %(name)-25.25s | %(message)s"
+#        fmt = "%(asctime)s %(name)-25.25s | %(message)s"
         datefmt = '%H:%M:%S'#'%H:%M:%S.%f'
         logging.basicConfig(level=logging.DEBUG,format=fmt,datefmt=datefmt)
         self.Dico={}

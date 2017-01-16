@@ -53,9 +53,7 @@ class ClassJones():
             self.ApplyCal = True
             self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache(
                 "JonesNorm_killMS.npz",
-                dict(
-                    DDESolutions=GD["DDESolutions"],
-                    DataSelection=self.GD["DataSelection"]))
+                dict(VisData=GD["Data"], DDESolutions=GD["DDESolutions"], DataSelection=self.GD["Selection"]))
             if valid:
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_killMS
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(
@@ -66,12 +64,11 @@ class ClassJones():
             DATA["killMS"] =  DicoSols, TimeMapping, DicoClusterDirs
             self.HasKillMSSols = True
 
-        ApplyBeam=(GD["Beam"]["BeamModel"] is not None)
+        ApplyBeam=(GD["Beam"]["Model"] is not None)
         if ApplyBeam:
             self.ApplyCal = True
             self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache(
-                "JonesNorm_Beam.npz", dict(
-                    Beam=GD["Beam"], DataSelection=self.GD["DataSelection"]))
+                "JonesNorm_Beam.npz", dict(VisData=GD["Data"], Beam=GD["Beam"], DataSelection=self.GD["Selection"]))
             if valid:
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_Beam
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(
@@ -248,6 +245,14 @@ class ClassJones():
         return DicoSols, TimeMapping, DicoClusterDirs
 
     def GiveTimeMapping(self, DicoSols):
+        """Builds mapping from MS rows to Jones solutions.
+        Args:
+            DicoSols: dictionary of Jones matrices, which includes t0 and t1 entries
+
+        Returns:
+            Vector of indices, one per each row in DATA, giving the time index of the Jones matrix
+            corresponding to that row.
+        """
         print>>log, "  Build Time Mapping"
         DicoJonesMatrices = DicoSols
         times = self.DATA["times"]
@@ -257,12 +262,14 @@ class ClassJones():
         for it in xrange(nt):
             t0 = DicoJonesMatrices["t0"][it]
             t1 = DicoJonesMatrices["t1"][it]
-            indMStime = np.where((times >= t0) & (times < t1))[0]
-            indMStime = np.ones((indMStime.size,), np.int32)*it
-            ind[ii:ii+indMStime.size] = indMStime[:]
-            ii += indMStime.size
-        TimeMapping = ind
-        return TimeMapping
+            ## new code: no assumption of sortedness
+            ind[(times >= t0) & (times < t1)] = it
+            ## old code: assumed times was sorted
+            # indMStime = np.where((times >= t0) & (times < t1))[0]
+            # indMStime = np.ones((indMStime.size,), np.int32)*it
+            # ind[ii:ii+indMStime.size] = indMStime[:]
+            # ii += indMStime.size
+        return ind
 
     def GiveKillMSSols(self):
         GD = self.GD
@@ -435,7 +442,7 @@ class ClassJones():
 
     def InitBeamMachine(self):
         GD = self.GD
-        if GD["Beam"]["BeamModel"] == "LOFAR":
+        if GD["Beam"]["Model"] == "LOFAR":
             self.ApplyBeam = True
             self.BeamMachine = ClassLOFARBeam.ClassLOFARBeam(self.MS, self.GD)
             self.GiveInstrumentBeam = self.BeamMachine.GiveInstrumentBeam
@@ -443,7 +450,7 @@ class ClassJones():
             # self.GiveInstrumentBeam=self.MS.GiveBeam
             # estimate beam sample times using DtBeamMin
 
-        elif GD["Beam"]["BeamModel"] == "FITS":
+        elif GD["Beam"]["Model"] == "FITS":
             self.BeamMachine = ClassFITSBeam.ClassFITSBeam(self.MS, GD["Beam"])
             self.GiveInstrumentBeam = self.BeamMachine.evaluateBeam
 
@@ -452,11 +459,11 @@ class ClassJones():
 
     def GiveBeam(self):
         GD = self.GD
-        if (GD["Beam"]["BeamModel"] is None) | (GD["Beam"]["BeamModel"] == ""):
+        if (GD["Beam"]["Model"] is None) | (GD["Beam"]["Model"] == ""):
             print>>log, "  Not applying any beam"
             return
 
-        times = self.DATA["times"]
+        times = self.DATA["uniq_times"]
         self.InitBeamMachine()
 
         if self.BeamTimes_kMS.size != 0:

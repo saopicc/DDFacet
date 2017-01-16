@@ -90,12 +90,12 @@ class ClassGlobalData():
                       "ImagerParam":{"FOV":3.,"OverS":1,
                                      "SupportSel":0.,
                                      "resolution":0.},
-                      "nbands": self.DicoConfig["Representation"]["NBands"]}]}
+                      "nbands": self.DicoConfig["Representation"]["NBand"]}]}
             ]
 
         self.DefaultImagParam={"Support":5,
                              "wmax":50000,
-                             "Npix":10,
+                             "NPix":10,
                              "Cell":5.,
                              "incr":1.,
                              "padding":3}

@@ -22,8 +22,7 @@ from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Other.progressbar import ProgressBar
 import multiprocessing
 import numpy as np
-import pylab
-from DDFacet.ToolsDir import ModCoord
+from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Other import MyPickle
 from DDFacet.Array import NpShared
 from DDFacet.ToolsDir import ModFFTW
@@ -56,8 +55,8 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
     def setFacetsLocs(self):
         NFacets = self.NFacets
-        Npix = self.GD["ImagerMainFacet"]["Npix"]
-        Padding = self.GD["ImagerMainFacet"]["Padding"]
+        Npix = self.GD["Image"]["NPix"]
+        Padding = self.GD["Image"]["Padding"]
         self.Padding = Padding
         Npix, _ = EstimateNpix(float(Npix), Padding=1)
         self.Npix = Npix
@@ -74,7 +73,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
              [lMainCenter + RadiusTot, mMainCenter + RadiusTot],
              [lMainCenter - RadiusTot, mMainCenter + RadiusTot]])
 
-        MSName = self.GD["VisData"]["MSName"]
+        MSName = self.GD["Data"]["MS"]
         if ".txt" in MSName:
             f = open(MSName)
             Ls = f.readlines()
@@ -112,7 +111,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
         else:
             print>> log, "Taking facet directions from regular grid"
-            CellSizeRad = (self.GD["ImagerMainFacet"][
+            CellSizeRad = (self.GD["Image"][
                            "Cell"] / 3600.) * np.pi / 180
             lrad = Npix * CellSizeRad * 0.5
 
@@ -143,7 +142,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         NodesCat.dec = decSols
         NodesCat.l = lFacet
         NodesCat.m = mFacet
-        NodeFile = "%s.NodesCat.npy" % self.GD["Images"]["ImageName"]
+        NodeFile = "%s.NodesCat.%snpy" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
         print>> log, "Saving Nodes catalog in %s" % NodeFile
         np.save(NodeFile, NodesCat)
 
@@ -194,9 +193,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             diam = np.max([dl, dm])
             return diam, (l0, l1, m0, m1)
 
-        DiamMax = self.GD["ImagerMainFacet"]["DiamMaxFacet"] * np.pi / 180
+        DiamMax = self.GD["Image"]["DiamMaxFacet"] * np.pi / 180
         # DiamMax=4.5*np.pi/180
-        DiamMin = self.GD["ImagerMainFacet"]["DiamMinFacet"] * np.pi / 180
+        DiamMin = self.GD["Image"]["DiamMinFacet"] * np.pi / 180
 
         def ClosePolygon(polygon):
             P = polygon.tolist()
@@ -368,7 +367,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         #     LPolygonNew+=SubReg
         #     print
 
-        regFile = "%s.tessel.reg" % self.GD["Images"]["ImageName"]
+        regFile = "%s.tessel.%sreg" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
         # labels=["[F%i.C%i]"%(i,DicoPolygon[i]["iSol"]) for i in range(len(LPolygonNew))]
         # VM.PolygonToReg(regFile,LPolygonNew,radius=0.1,Col="green",labels=labels)
 
@@ -489,9 +488,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             if d < dmin:
                 dmin = d
                 iCentralFacet = iFacet
-        self.iCentralFacet = iCentralFacet
+        self.CentralFacet = iCentralFacet
 
-        # regFile="%s.tessel.reg"%self.GD["Images"]["ImageName"]
+        # regFile="%s.tessel.reg"%self.GD["Output"]["Name"]
         labels = [
             (self.DicoImager[i]["lmShift"][0],
              self.DicoImager[i]["lmShift"][1],
@@ -506,12 +505,12 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         self.WriteCoordFacetFile()
 
-        DicoName = "%s.DicoFacet" % self.GD["Images"]["ImageName"]
+        DicoName = "%s.%sDicoFacet" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
         print>> log, "Saving DicoImager in %s" % DicoName
         MyPickle.Save(self.DicoImager, DicoName)
 
     def WriteCoordFacetFile(self):
-        FacetCoordFile = "%s.facetCoord.txt" % self.GD["Images"]["ImageName"]
+        FacetCoordFile = "%s.facetCoord.%stxt" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
         print>>log, "Writing facet coordinates in %s" % FacetCoordFile
         f = open(FacetCoordFile, 'w')
         ss = "# (Name, Type, Ra, Dec, I, Q, U, V, ReferenceFrequency='7.38000e+07', SpectralIndex='[]', MajorAxis, MinorAxis, Orientation) = format"

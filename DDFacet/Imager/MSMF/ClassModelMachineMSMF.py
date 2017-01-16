@@ -48,7 +48,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.Test = True
         # self.GD=GD
         # if Gain is None:
-        #     self.Gain=self.GD["ImagerDeconv"]["Gain"]
+        #     self.Gain=self.GD["Deconv"]["Gain"]
         # else:
         #     self.Gain=Gain
         # self.GainMachine=GainMachine
@@ -67,7 +67,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             D=DicoIn
 
-        D["Type"]="MSMF"
+        D["Type"]="HMP"
         D["ListScales"]=self.ListScales
         D["ModelShape"]=self.ModelShape
         MyPickle.Save(D,FileName)
@@ -109,20 +109,19 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if not (pol_array_index >= 0 and pol_array_index < npol):
             raise ValueError("Pol_array_index must specify the index of the slice in the "
                              "model cube the solution should be stored at. Please report this bug.")
-        DicoComp=self.DicoSMStacked["Comp"]
-        if not(key in DicoComp.keys()):
-            DicoComp[key]={}
-            for p in range(npol):
-                DicoComp[key]["SolsArray"]=np.zeros((Sols.size,npol),np.float32)
-                DicoComp[key]["SumWeights"]=np.zeros((npol),np.float32)
+        DicoComp = self.DicoSMStacked["Comp"]
+        entry = DicoComp.setdefault(key, {})
+        if not entry:
+            entry["SolsArray"]  = np.zeros((Sols.size, npol),np.float32)
+            entry["SumWeights"] = np.zeros((npol),np.float32)
 
         Weight=1.
         Gain=self.GainMachine.GiveGain()
 
         SolNorm=Sols.ravel()*Gain*np.mean(Fpol)
 
-        DicoComp[key]["SumWeights"][pol_array_index] += Weight
-        DicoComp[key]["SolsArray"][:,pol_array_index] += Weight*SolNorm
+        entry["SumWeights"][pol_array_index] += Weight
+        entry["SolsArray"][:,pol_array_index] += Weight*SolNorm
         
     def setListComponants(self,ListScales):
         self.ListScales=ListScales
@@ -376,17 +375,17 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def PutBackSubsComps(self):
-        #if self.GD["VisData"]["RestoreDico"] is None: return
+        #if self.GD["Data"]["RestoreDico"] is None: return
 
         SolsFile=self.GD["DDESolutions"]["DDSols"]
         if not(".npz" in SolsFile):
             Method=SolsFile
-            ThisMSName=reformat.reformat(os.path.abspath(self.GD["VisData"]["MSName"]),LastSlash=False)
+            ThisMSName=reformat.reformat(os.path.abspath(self.GD["Data"]["MS"]),LastSlash=False)
             SolsFile="%s/killMS.%s.sols.npz"%(ThisMSName,Method)
         DicoSolsFile=np.load(SolsFile)
         SourceCat=DicoSolsFile["SourceCatSub"]
         SourceCat=SourceCat.view(np.recarray)
-        #RestoreDico=self.GD["VisData"]["RestoreDico"]
+        #RestoreDico=self.GD["Data"]["RestoreDico"]
         RestoreDico=DicoSolsFile["ModelName"][()][0:-4]+".DicoModel"
         
         print>>log, "Adding previously substracted components"

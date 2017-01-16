@@ -19,18 +19,24 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import psutil
-import os
+import os, re, errno
 import Queue
 import multiprocessing
 import numpy as np
 
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import ModColor
 from DDFacet.Other.progressbar import ProgressBar
+from DDFacet.Array import NpShared
 
 log = MyLogger.getLogger("Multiprocessing")
 #MyLogger.setSilent("Multiprocessing")
 
+
+def getShmPrefix():
+    """Returns prefix used for shared memory arrays. ddf.PID is the convention"""
+    return "ddf.%d" % os.getpid()
 
 def getShmName(name, **kw):
     """
@@ -41,8 +47,40 @@ def getShmName(name, **kw):
     """
     # join keyword args into "key=value:key=value:..."
     kws = ":".join([name] + ["%s_%s" % (key, value) for key, value in sorted(kw.items())])
-    return "ddf.%d.%s" % (os.getpid(), kws)
+    return "%s.%s" % (getShmPrefix(), kws)
 
+def cleanupShm ():
+    """
+    Deletes all shared arrays for this process
+    """
+    NpShared.DelAll(getShmPrefix())
+
+def cleanupStaleShm ():
+    """
+    Cleans up "stale" shared memory from previous runs of DDF
+    """
+    # check for stale shared memory
+    uid = os.getuid()
+    # list of all files in /dev/shm/ matching ddf.PID.* and belonging to us
+    shmlist = [ (filename, re.match('ddf\.([0-9]+)\..*',filename)) for filename in os.listdir("/dev/shm/")
+                if os.stat("/dev/shm/"+filename).st_uid == uid ]
+    # convert to list of filename,pid tuples
+    shmlist = [ (filename, int(match.group(1))) for filename, match in shmlist if match ]
+    # now check all PIDs to find dead ones
+    # if we get ESRC error from sending signal 0 to the process, it's not running, so we mark it as dead
+    dead_pids = set()
+    for pid in set([x[1] for x in shmlist]):
+        try:
+            os.kill(pid, 0)
+        except OSError, err:
+            if err.errno == errno.ESRCH:
+                dead_pids.add(pid)
+    # ok, make list of candidates for deletion
+    victims = [ filename for filename,pid in shmlist if pid in dead_pids ]
+    if victims:
+        print>>log, "reaping %d shared memory objects associated with %d dead DDFacet processes"%(len(victims), len(dead_pids))
+        for filename in victims:
+            os.unlink("/dev/shm/"+filename)
 
 def getShmURL(name, **kw):
     """
@@ -61,9 +99,15 @@ class ProcessPool (object):
         self.affinity = self.GD["Parallel"]["Affinity"] if affinity is None else affinity
         self.cpustep = abs(self.affinity) or 1
         self.ncpu = self.GD["Parallel"]["NCPU"] if ncpu is None else ncpu
+        maxcpu = psutil.cpu_count() / self.cpustep
         # if NCPU is 0, set to number of CPUs on system
         if not self.ncpu:
-            self.ncpu = psutil.cpu_count() / self.cpustep
+            self.ncpu = maxcpu
+        elif self.ncpu > maxcpu:
+            print>>log,ModColor.Str("NCPU=%d is too high for this setup (%d cores, affinity %d)" %
+                                    (self.ncpu, psutil.cpu_count(), self.affinity))
+            print>>log,ModColor.Str("Falling back to NCPU=%d" % (maxcpu))
+            self.ncpu = maxcpu
         self.procinfo = psutil.Process()  # this will be used to control CPU affinity
         # not convinced by the work producer pattern so this flag can enable/disable it
         self._create_work_producer = False
@@ -92,38 +136,31 @@ class ProcessPool (object):
             for item in joblist:
                 m_work_queue.put(item)  # possible issue if no space for 60 seconds
 
+        # generate list of CPU cores for workers to run on
+        if not self.affinity or self.affinity == 1:
+            cores = range(self.ncpu)
+        elif self.affinity == 2:
+            cores = range(0, self.ncpu*2, 2)
+        elif self.affinity == -2:
+            cores = range(0, self.ncpu*2, 4) + range(1, self.ncpu*2, 4)
+        else:
+            raise ValueError,"unknown affinity setting %d" % self.affinity
+        # if fewer jobs than workers, reduce number of cores
+        cores = cores[:len(joblist)]
         # create worker processes
-        for cpu in xrange(self.ncpu):
-            p = multiprocessing.Process(target=self._work_consumer, args=(m_work_queue, m_result_queue, cpu, target, args, kwargs))
+        for cpu in cores:
+            p = multiprocessing.Process(target=self._work_consumer,
+                    kwargs=dict(m_work_queue=m_work_queue, m_result_queue=m_result_queue,
+                                cpu=cpu, affinity=[cpu] if self.affinity else None,
+                                target=target, args=args, kwargs=kwargs))
             procs.append(p)
 
-        # generate list of CPU cores for workers to run on
-        if self.affinity:
-            if self.affinity == 1:
-                cores = range(self.ncpu)
-            elif self.affinity == 2:
-                cores = range(0, self.ncpu*2, 2)
-            elif self.affinity == -2:
-                cores = range(0, self.ncpu*2, 4) + range(1, self.ncpu*2, 4)
-            else:
-                raise ValueError,"unknown affinity setting %d" % self.affinity
-
+        print>> log, "%s: starting %d workers for %d jobs%s" % (title or "", len(cores), len(joblist),
+                        (", CPU cores " + " ".join(map(str,cores)) if self.affinity else ""))
         # fork off child processes
         if parallel:
-            parent_affinity = self.procinfo.cpu_affinity()
-            try:
-                # work producer process does nothing much, so I won't pin it
-                work_p and work_p.start()
-                main_core = 0  # CPU affinity placement
-                # start all processes and pin them each to a core
-                for i, p in enumerate(procs):
-                    if self.affinity:
-                        self.procinfo.cpu_affinity([cores[i]])
-                    p.start()
-            finally:
-                self.procinfo.cpu_affinity(parent_affinity)
-        print>> log, "%s: starting %d workers for %d jobs%s" % (title or "", self.ncpu, len(joblist), 
-            ", CPU cores " + " ".join(map(str,cores)) if self.affinity else "")
+            for p in procs:
+                p.start()
 
         njobs = len(joblist)
         iResult = 0
@@ -203,7 +240,7 @@ class ProcessPool (object):
         # compute average processing time
         average_time = np.array([ r["Time"] for r in results ]).mean()
 
-        print>> log, "%s finished in %s, average time %.2fs per job" % (title or "", timer.timehms(), average_time)
+        print>> log, "%s finished in %s, average (single core) time %.2fs per job" % (title or "", timer.timehms(), average_time)
 
         # extract list of result objects
         return [ r["Result"] for r in results ]
@@ -227,9 +264,11 @@ class ProcessPool (object):
         return ProcessPool.cpu_id
 
     @staticmethod
-    def _work_consumer(m_work_queue, m_result_queue, cpu, target, args=(), kwargs={}):
+    def _work_consumer(m_work_queue, m_result_queue, cpu, affinity, target, args=(), kwargs={}):
         """Consumer worker for ProcessPool"""
         ProcessPool.cpu_id = cpu
+        if affinity:
+            psutil.Process().cpu_affinity(affinity)
         timer = ClassTimeIt.ClassTimeIt()
         pill = True
         # While no poisoned pill has been given grab items from the queue.

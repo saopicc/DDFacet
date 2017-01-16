@@ -161,17 +161,17 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         return alpha
 
     def PutBackSubsComps(self):
-        # if self.GD["VisData"]["RestoreDico"] is None: return
+        # if self.GD["Data"]["RestoreDico"] is None: return
 
         SolsFile = self.GD["DDESolutions"]["DDSols"]
         if not (".npz" in SolsFile):
             Method = SolsFile
-            ThisMSName = reformat.reformat(os.path.abspath(self.GD["VisData"]["MSName"]), LastSlash=False)
+            ThisMSName = reformat.reformat(os.path.abspath(self.GD["Data"]["MS"]), LastSlash=False)
             SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
         DicoSolsFile = np.load(SolsFile)
         SourceCat = DicoSolsFile["SourceCatSub"]
         SourceCat = SourceCat.view(np.recarray)
-        # RestoreDico=self.GD["VisData"]["RestoreDico"]
+        # RestoreDico=self.GD["Data"]["RestoreDico"]
         RestoreDico = DicoSolsFile["ModelName"][()][0:-4] + ".DicoModel"
 
         print>> log, "Adding previously substracted components"

@@ -46,7 +46,7 @@ class ClassMontblancMachine(object):
         self._mgr = DataDictionaryManager()
 
         # Configure the Beam upfront
-        if GD["Beam"]["BeamModel"] == "FITS":
+        if GD["Beam"]["Model"] == "FITS":
             fits_file_spec = GD["Beam"]["FITSFile"]
             l_axis = GD["Beam"]["FITSLAxis"]
             m_axis = GD["Beam"]["FITSMAxis"]

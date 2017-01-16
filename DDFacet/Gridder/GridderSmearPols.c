@@ -92,14 +92,15 @@ void init_pyGridderSmearPols()  {
 static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 {
   PyObject *ObjGridIn;
-  PyArrayObject *np_grid, *vis, *uvw, *cfs, *flags, *weights, *sumwt, *increment, *freqs,*WInfos,*SmearMapping,*np_ChanMapping;
+  PyArrayObject *np_grid, *vis, *uvw, *cfs, *flags, *weights, *sumwt, *increment, *freqs,*WInfos,
+    *SmearMapping,*Sparsification,*np_ChanMapping;
 
   PyObject *Lcfs,*LOptimisation,*LSmearing;
   PyObject *LJones,*Lmaps;
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!O!O!O!O!O!iO!O!O!O!O!O!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "O!O!O!O!O!O!iO!O!O!O!O!O!O!O!O!O!O!O!",
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid, 
 			&PyArray_Type,  &vis, 
@@ -116,6 +117,7 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 			&PyList_Type, &Lmaps,
 			&PyList_Type, &LJones,
 			&PyArray_Type,  &SmearMapping,
+			&PyArray_Type,  &Sparsification,
 			&PyList_Type, &LOptimisation,
 			&PyList_Type, &LSmearing,
 			&PyArray_Type,  &np_ChanMapping
@@ -123,7 +125,8 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
   int nx,ny,nz,nzz;
   //np_grid = (PyArrayObject *) PyArray_ContiguousFromObject(ObjGridIn, PyArray_COMPLEX64, 0, 4);
 
-  gridderWPol(np_grid, vis, uvw, flags, weights, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping,LOptimisation,LSmearing,np_ChanMapping);
+  gridderWPol(np_grid, vis, uvw, flags, weights, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping,
+               Sparsification, LOptimisation,LSmearing,np_ChanMapping);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -157,6 +160,7 @@ void gridderWPol(PyArrayObject *grid,
 		 PyObject *Lmaps, 
 		 PyObject *LJones,
 		 PyArrayObject *SmearMapping,
+         PyArrayObject *Sparsification,
 		 PyObject *LOptimisation,
 		 PyObject *LSmearing,
 		 PyArrayObject *np_ChanMapping
@@ -174,7 +178,7 @@ void gridderWPol(PyArrayObject *grid,
 
     /////////////////////////////////////////
     int LengthSmearingList=PyList_Size(LSmearing);
-    float DT,Dnu;
+    float DT,Dnu,lmin_decorr,mmin_decorr;
     double* uvw_dt_Ptr;
     int DoSmearTime,DoSmearFreq;
     int DoDecorr=(LengthSmearingList>0);
@@ -194,6 +198,12 @@ void gridderWPol(PyArrayObject *grid,
 
       PyObject *_DoSmearFreq= PyList_GetItem(LSmearing, 4);
       DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));
+
+      PyObject *_Flmin_decorr= PyList_GetItem(LSmearing, 5);
+      lmin_decorr=(float) (PyFloat_AsDouble(_Flmin_decorr));
+      PyObject *_Fmmin_decorr= PyList_GetItem(LSmearing, 6);
+      mmin_decorr=(float) (PyFloat_AsDouble(_Fmmin_decorr));
+
 
     }
 
@@ -316,16 +326,33 @@ void gridderWPol(PyArrayObject *grid,
     int *StartRow=MappingBlock+1+NTotBlocks;
     int iBlock;
 
+    // in sparsification mode, the Sparsification argument is an array of length NTotBlocks flags.
+    // Only blocks with a True flag will be gridded.
+    const bool *sparsificationFlag = 0;
+    if( PyArray_Size((PyObject*)Sparsification) ){
+        if( PyArray_Size((PyObject*)Sparsification) != NTotBlocks ) {
+            PyErr_SetString(PyExc_TypeError, "sparsification argument must be an array of length NTotBlocks");
+            return;
+         }
+        sparsificationFlag = p_bool(Sparsification);
+    }
+
     int NMaxRow=0;
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
+      if( sparsificationFlag && !sparsificationFlag[iBlock] )
+            continue;
       int NRowThisBlock=NRowBlocks[iBlock]-2;
       if(NRowThisBlock>NMaxRow){
 	NMaxRow=NRowThisBlock;
       }
     }
-    float complex *CurrentCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
-    float complex *dCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
-
+    // these are used for equidistant channels: one holds the phase term in channel 0,
+    // the other one holds the delta-phase across channels
+    float complex *CurrentCorrTerm = calloc(1,(NMaxRow)*sizeof(float complex));
+    float complex *dCorrTerm = calloc(1,(NMaxRow)*sizeof(float complex));
+    // and this indicates for which channel the CurrentCorrTerm is currently computed
+    int * CurrentCorrChan = calloc(1,(NMaxRow)*sizeof(int));
+    int CurrentCorrRow0 = -1;
     // ########################################################
 
 
@@ -381,6 +408,8 @@ void gridderWPol(PyArrayObject *grid,
 
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
+      if( sparsificationFlag && !sparsificationFlag[iBlock] )
+        continue;
       
       int NRowThisBlock=NRowBlocks[iBlock]-2;
       int indexMap=StartRow[iBlock];
@@ -408,7 +437,14 @@ void gridderWPol(PyArrayObject *grid,
 	ThisSumSqWeightsChan[visChan]=0;
       }
 
-
+    // when moving to a new block of rows, init this to -1 so the code below knows to initialize
+    // CurrentCorrTer when the first channel of each row comes in
+    if( Row[0] != CurrentCorrRow0 )
+    {
+      for (inx=0; inx<NRowThisBlock; inx++)
+           CurrentCorrChan[inx] = -1;
+      CurrentCorrRow0 = Row[0];
+    }
 
       //int ThisBlockAllFlagged=1;
       float visChanMean=0.;
@@ -435,7 +471,7 @@ void gridderWPol(PyArrayObject *grid,
 	  double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
 	  
 	  DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
-					       (float)l0, (float)m0,
+					       (float)lmin_decorr, (float)mmin_decorr,
 					       uvwPtrMidRow,
 					       uvw_dt_PtrMidRow,
 					       (float)FreqMean0,
@@ -449,10 +485,13 @@ void gridderWPol(PyArrayObject *grid,
 
 	//AddTimeit(PreviousTime,TimeGetJones);
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
-	  int doff = (irow * nVisChan + visChan) * nVisPol;
+	  size_t doff = (irow * nVisChan + visChan) * nVisPol;
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
 	  double*   imgWtPtr = p_float64(weights) + irow  * nVisChan + visChan;
-	  
+
+	  // We can do that since all flags in 4-pols are equalised in ClassVisServer
+	  if(flagPtr[0]==1){continue;}
+
 	  //###################### Facetting #######################
 	  // Change coordinate and shift visibility to facet center
 	  float U=(float)uvwPtr[0];
@@ -462,21 +501,48 @@ void gridderWPol(PyArrayObject *grid,
 	  //#######################################################
 
 	  float complex corr;
-	  if(ChanEquidistant){
-	    if(visChan==0){
-	      float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-	      CurrentCorrTerm[inx]=cexp(-UVNorm*(U*l0+V*m0+W*n0));
-	      float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
-	      dCorrTerm[inx]=cexp(-dUVNorm*(U*l0+V*m0+W*n0));
-	    }else{
-	      CurrentCorrTerm[inx]*=dCorrTerm[inx];
-	    }
-	    corr=CurrentCorrTerm[inx];
-	  }
-	  else{
-	    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-	    corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
-	  }
+//	  if(ChanEquidistant){
+//	    if(visChan==0){
+//	      float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+//	      CurrentCorrTerm[inx]=cexp(-UVNorm*(U*l0+V*m0+W*n0));
+//	      float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
+//	      dCorrTerm[inx]=cexp(-dUVNorm*(U*l0+V*m0+W*n0));
+//	    }else{
+//	      CurrentCorrTerm[inx]*=dCorrTerm[inx];
+//	    }
+//	    corr=CurrentCorrTerm[inx];
+//	  }
+//	  else{
+//	    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+//	    corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
+//	  }
+      if(ChanEquidistant)
+      {
+        // init correlation term for first channel that it's not initialized in
+        if( CurrentCorrChan[inx] == -1 )
+        {
+          float complex dotprod = -2.*I*PI*(U*l0+V*m0+W*n0)/C;
+          CurrentCorrTerm[inx] = cexp(Pfreqs[visChan]*dotprod);
+          dCorrTerm[inx]       = cexp((Pfreqs[1]-Pfreqs[0])*dotprod);
+          CurrentCorrChan[inx] = visChan;
+        }
+        // else, wind the correlation term forward by as many channels as necessary
+        // this modification allows us to support blocks that skip across channels
+        else
+        {
+          while( CurrentCorrChan[inx] < visChan )
+          {
+            CurrentCorrTerm[inx] *= dCorrTerm[inx];
+            CurrentCorrChan[inx]++;
+          }
+        }
+        corr = CurrentCorrTerm[inx];
+      }
+      else
+      {
+        float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
+        corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));
+      }
 
 	  
 	  /* float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
@@ -485,8 +551,6 @@ void gridderWPol(PyArrayObject *grid,
 	  
 	  int OneFlagged=0;
 	  int cond;
-	  // We can do that since all flags in 4-pols are equalised in ClassVisServer
-	  if(flagPtr[0]==1){continue;}
 
 	  if(DoApplyJones){
 	    updateJones(irow, visChan, uvwPtr, 1, 1);
@@ -504,13 +568,13 @@ void gridderWPol(PyArrayObject *grid,
 	    VisMeas[3]= 1.;
 	    corr=1.;
 	    if(DoApplyJones){
+	       // first product seems superfluous, why multiply by identity?
 	      MatDot(J0,JonesType,VisMeas,SkyType,VisMeas);
 	      MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);
 	    }
 	    if(DoDecorr){
 	      for(ThisPol =0; ThisPol<4;ThisPol++){
 		VisMeas[ThisPol]*=DeCorrFactor;
-
 	      }
 	    }	      
 	  }else{
@@ -586,6 +650,7 @@ void gridderWPol(PyArrayObject *grid,
 	  NVisThisblock+=1.;//(*imgWtPtr);
 	  //AddTimeit(PreviousTime,TimeAverage);
 	  //printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);
+	  //printf("      [%i,%i]\n",visChan,p_ChanMapping[visChan]);
 	  
 	}//endfor vischan
       }//endfor RowThisBlock
@@ -595,10 +660,13 @@ void gridderWPol(PyArrayObject *grid,
       Wmean/=NVisThisblock;
       FreqMean/=NVisThisblock;
 
+      //printf("visChanMean, NVisThisblock: %f %f\n",(float)visChanMean, (float)NVisThisblock);
       visChanMean/=NVisThisblock;
       int ThisGridChan=p_ChanMapping[chStart];
-      float diffChan=visChanMean-visChanMean;
-      if(diffChan!=0.){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);}
+      float diffChan=visChanMean-ThisGridChan;
+      if(fabs(diffChan)>1e-6){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);}
+      //if(diffChan!=0.){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %20.18f)\n",visChanMean,ThisGridChan,diffChan);}
+      //printf("!!!!!!!!!!!!!!!!!!!\n");
       //printf("%i %i %f\n",i_ant0,i_ant1,visChanMean);
       visChanMean=0.;
       if(PolMode==0){
@@ -697,7 +765,7 @@ void gridderWPol(PyArrayObject *grid,
       	    // Map to grid polarization. Only use pol if needed.
       	    int gridPol = PolMap[ipol];
       	    if (gridPol >= 0  &&  gridPol < nGridPol) {
-      	      int goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
+      	      size_t goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
       	      int sy;
       	      float complex* __restrict__ gridPtr;
       	      const float complex* __restrict__ cf0;
@@ -766,14 +834,15 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 {
   PyObject *ObjGridIn;
   PyObject *ObjVis;
-  PyArrayObject *np_grid, *np_vis, *uvw, *cfs, *flags, *sumwt, *increment, *freqs,*WInfos,*SmearMapping,*np_ChanMapping;
+  PyArrayObject *np_grid, *np_vis, *uvw, *cfs, *flags, *sumwt, *increment, *freqs,*WInfos,
+                *SmearMapping, *Sparsification, *np_ChanMapping;
 
   PyObject *Lcfs, *LOptimisation, *LSmear;
   PyObject *Lmaps,*LJones;
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!O!",
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid,
 			&ObjVis,//&PyArray_Type,  &vis, 
@@ -789,6 +858,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 			&PyArray_Type,  &freqs,
 			&PyList_Type, &Lmaps, &PyList_Type, &LJones,
 			&PyArray_Type, &SmearMapping,
+			&PyArray_Type, &Sparsification,
 			&PyList_Type, &LOptimisation,
 			&PyList_Type, &LSmear,
 			&PyArray_Type, &np_ChanMapping
@@ -800,7 +870,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 
   
 
-  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, LOptimisation, LSmear,np_ChanMapping);
+  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, Sparsification, LOptimisation, LSmear,np_ChanMapping);
   
   return PyArray_Return(np_vis);
 
@@ -824,7 +894,10 @@ void DeGridderWPol(PyArrayObject *grid,
 		   PyArrayObject *Winfos,
 		   PyArrayObject *increment,
 		   PyArrayObject *freqs,
-		   PyObject *Lmaps, PyObject *LJones, PyArrayObject *SmearMapping, PyObject *LOptimisation, PyObject *LSmearing,
+		   PyObject *Lmaps, PyObject *LJones,
+		   PyArrayObject *SmearMapping,
+           PyArrayObject *Sparsification,
+		   PyObject *LOptimisation, PyObject *LSmearing,
 		 PyArrayObject *np_ChanMapping)
   {
     // Get size of convolution functions.
@@ -855,7 +928,7 @@ void DeGridderWPol(PyArrayObject *grid,
     /* } */
     /////////////////////////////////////////
     int LengthSmearingList=PyList_Size(LSmearing);
-    float DT,Dnu;
+    float DT,Dnu,lmin_decorr,mmin_decorr;
     double* uvw_dt_Ptr;
     int DoSmearTime,DoSmearFreq;
     int DoDecorr=(LengthSmearingList>0);
@@ -874,6 +947,11 @@ void DeGridderWPol(PyArrayObject *grid,
       PyObject *_DoSmearFreq= PyList_GetItem(LSmearing, 4);
       DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));
 
+      PyObject *_Flmin_decorr= PyList_GetItem(LSmearing, 5);
+      lmin_decorr=(float) (PyFloat_AsDouble(_Flmin_decorr));
+      PyObject *_Fmmin_decorr= PyList_GetItem(LSmearing, 6);
+      mmin_decorr=(float) (PyFloat_AsDouble(_Fmmin_decorr));
+
     }
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -891,7 +969,7 @@ void DeGridderWPol(PyArrayObject *grid,
     double l0=ptrFacetInfos[2];
     double m0=ptrFacetInfos[3];
     double n0=sqrt(1-l0*l0-m0*m0)-1;
-
+    //printf("%f %f\n",l0,m0);
 
     //printf("npols=%i %i\n",npolsMap,PolMap[3]);
 
@@ -1056,6 +1134,7 @@ void DeGridderWPol(PyArrayObject *grid,
 	  //char ch="a";
 	  //if(flagPtr[0]==1){OneFlagged=1;}
 	  //if(OneFlagged){continue;}
+	  //if(flagPtr[0]==1){continue;}
 	  
 	  float U=(float)uvwPtr[0];
 	  float V=(float)uvwPtr[1];
@@ -1086,7 +1165,8 @@ void DeGridderWPol(PyArrayObject *grid,
       
 
       //if(diffChan!=0.){printf("degridder: probably there is a problem in the BDA mapping\n");}
-      if(diffChan!=0.){printf("degridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);}
+      if(fabs(diffChan)>1e-6){printf("degridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %10f)\n",visChanMean,ThisGridChan,diffChan);}
+      //if(diffChan!=0.){printf("degridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %10f)\n",visChanMean,ThisGridChan,diffChan);}
       visChanMean=0.;
       //printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6));
       /* int ThisPol; */
@@ -1240,13 +1320,14 @@ void DeGridderWPol(PyArrayObject *grid,
 	    double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
 	    
 	    DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
-						 (float)l0, (float)m0,
+						 (float)lmin_decorr,
+						 (float)mmin_decorr,
 						 uvwPtrMidRow,
 						 uvw_dt_PtrMidRow,
 						 (float)FreqMean,
 						 (float)Dnu, 
 						 (float)DT);
-	    
+
 	    //printf("DeCorrFactor %f %f: %f\n",l0,m0,DeCorrFactor);
 	    
 	  }

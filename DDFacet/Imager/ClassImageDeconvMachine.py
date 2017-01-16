@@ -109,10 +109,10 @@ class ClassImageDeconvMachine():
     def MakeMultiScaleCube(self):
         if self.CubePSFScales is not None: return
         print>>log, "Making MultiScale PSFs..."
-        LScales=self.GD["MultiScale"]["Scales"]
+        LScales=self.GD["HMP"]["Scales"]
         if 0 in LScales: LScales.remove(0)
-        LRatios=self.GD["MultiScale"]["Ratios"]
-        NTheta=self.GD["MultiScale"]["NTheta"]
+        LRatios=self.GD["HMP"]["Ratios"]
+        NTheta=self.GD["HMP"]["NTheta"]
 
         
         _,_,nx,ny=self.SubPSF.shape

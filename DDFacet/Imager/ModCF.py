@@ -262,18 +262,8 @@ def Give_dn(l0, m0, rad=1., order=4):
 
 
 class ClassWTermModified():
-
-    def __init__(self, 
-                 Cell=10, 
-                 Sup=15, 
-                 Nw=11, 
-                 wmax=30000, 
-                 Npix=101, 
-                 Freqs=np.array([100.e6]), 
-                 OverS=11, 
-                 lmShift=None,
-                 Sphe=None, 
-                 WTerm=None,
+    def __init__(self, Cell=10, Sup=15, Nw=11, wmax=30000, Npix=101, Freqs=np.array([100.e6]), OverS=11, lmShift=None,
+                 Sphe=None, WTerm=None,
                  compute=False,
                  IDFacet=None):
         """
@@ -335,10 +325,7 @@ class ClassWTermModified():
 
         NpShared.ToShared(Sphe, dS(self.ifzfCF))
         LArrays = []
-        CuCv = np.array(
-            [self.Cu, self.Cv, self.Cu, self.Cv],
-            dtype=dS).reshape(
-            2, 2)
+        CuCv = np.array([self.Cu, self.Cv, self.Cu, self.Cv], dtype=dS).reshape(2, 2)
         LArrays.append(CuCv)
         LArrays = LArrays + self.Wplanes
         LArrays = LArrays + self.WplanesConj

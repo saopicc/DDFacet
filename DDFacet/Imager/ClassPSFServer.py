@@ -35,7 +35,7 @@ class ClassPSFServer():
         #     _,npol,n,n=DicoVariablePSF[iFacet]["PSF"][0].shape
         #     if n<NPixMin: NPixMin=n
 
-        # nch=self.GD["MultiFreqs"]["NFreqBands"]
+        # nch=self.GD["Freq"]["NBand"]
         # CubeVariablePSF=np.zeros((NFacets,nch,npol,NPixMin,NPixMin),np.float32)
         # CubeMeanVariablePSF=np.zeros((NFacets,1,npol,NPixMin,NPixMin),np.float32)
         # for iFacet in sorted(DicoVariablePSF.keys()):

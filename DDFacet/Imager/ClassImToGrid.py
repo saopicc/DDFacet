@@ -224,7 +224,7 @@ class ClassImToGrid():
         # #print iFacet,np.max(ModelIm)
 
         # #return ModelIm, None
-        # #Padding=self.GD["ImagerMainFacet"]["Padding"]
+        # #Padding=self.GD["Image"]["Padding"]
 
         T.timeit("9")
         SumFlux/=nch

@@ -61,41 +61,41 @@ def testGrid():
     L += l0
     M += m0
 
-    DC["ImagerMainFacet"]["Cell"] = Cell
-    DC["ImagerMainFacet"]["Npix"] = npix
-    # DC["ImagerMainFacet"]["Padding"]=1
-    DC["VisData"]["MSName"] = "Simul.MS.W0.tsel"
+    DC["Image"]["Cell"] = Cell
+    DC["Image"]["NPix"] = npix
+    # DC["Image"]["Padding"]=1
+    DC["Data"]["MS"] = "Simul.MS.W0.tsel"
     #/media/6B5E-87D0/DDFacet/Test/TestDegridOleg/TestOlegVLA.MS_p0
 
-    DC["ImagerCF"]["OverS"] = 81
-    DC["ImagerCF"]["Support"] = 9
-    DC["ImagerCF"]["Nw"] = 2
-    DC["ImagerCF"]["wmax"] = 100000.
+    DC["CF"]["OverS"] = 81
+    DC["CF"]["Support"] = 9
+    DC["CF"]["Nw"] = 2
+    DC["CF"]["wmax"] = 100000.
     DC["Stores"]["DeleteDDFProducts"] = False  # True
     IdSharedMem = "123."
-    # DC["DataSelection"]["UVRangeKm"]=[0.2,2000.e6]
-    DC["Compression"]["CompDeGridDecorr"] = 0.0
-    DC["ImagerGlobal"]["Robust"] = -1
-    DC["ImagerGlobal"]["Weighting"] = "Briggs"
-    #DC["Compression"]["CompDeGridMode"] = False
-    #DC["Compression"]["CompGridMode"] = False
-    DC["Compression"]["CompDeGridMode"] = True
+    # DC["Selection"]["UVRangeKm"]=[0.2,2000.e6]
+    DC["Comp"]["CompDeGridDecorr"] = 0.0
+    DC["Image"]["Robust"] = -1
+    DC["Image"]["Weighting"] = "Briggs"
+    #DC["Comp"]["CompDeGridMode"] = False
+    #DC["Comp"]["CompGridMode"] = False
+    #DC["Comp"]["DegridMode"] = True
 
-    VS = ClassVisServer.ClassVisServer(DC["VisData"]["MSName"],
-                                       ColName=DC["VisData"]["ColName"],
-                                       TVisSizeMin=DC["VisData"][
+    VS = ClassVisServer.ClassVisServer(DC["Data"]["MS"],
+                                       ColName=DC["Data"]["ColName"],
+                                       TVisSizeMin=DC["Data"][
                                            "ChunkHours"] * 60 * 1.1,
                                        # DicoSelectOptions=DicoSelectOptions,
-                                       TChunkSize=DC["VisData"]["ChunkHours"],
-                                       Robust=DC["ImagerGlobal"]["Robust"],
-                                       Weighting=DC["ImagerGlobal"][
+                                       TChunkSize=DC["Data"]["ChunkHours"],
+                                       Robust=DC["Image"]["Robust"],
+                                       Weighting=DC["Image"][
                                            "Weighting"],
-                                       Super=DC["ImagerGlobal"]["Super"],
+                                       Super=DC["Image"]["SuperUniform"],
                                        DicoSelectOptions=dict(
-                                           DC["DataSelection"]),
+                                           DC["Selection"]),
                                        NCPU=DC["Parallel"]["NCPU"], GD=DC)
 
-    Padding = DC["ImagerMainFacet"]["Padding"]
+    Padding = DC["Image"]["Padding"]
     #_,npix=EstimateNpix(npix,Padding)
     sh = [1, 1, npix, npix]
     VS.setFOV(sh, sh, sh, CellRad)
@@ -104,7 +104,7 @@ def testGrid():
     Load = VS.LoadNextVisChunk()
     DATA = VS.VisChunkToShared()
 
-    # DicoConfigGM={"Npix":NpixFacet,
+    # DicoConfigGM={"NPix":NpixFacet,
     #               "Cell":Cell,
     #               "ChanFreq":ChanFreq,
     #               "DoPSF":False,
@@ -216,12 +216,12 @@ def testGrid():
 
     data.fill(0)
 
-    #GM.GD["Compression"]["CompDeGridMode"] = True
+    #GM.GD["Comp"]["CompDeGridMode"] = True
     data = GM.get(times, uvw, data, flag, (A0, A1), Grid, freqs=ChanFreq)# , DicoJonesMatrices=DicoJonesMatrices)
     data0 = -data.copy()
 
     # data.fill(0)
-    # GM.GD["Compression"]["CompDeGridMode"] = False
+    # GM.GD["Comp"]["CompDeGridMode"] = False
     # data1=-GM.get(times,uvw,data,flag,(A0,A1),Grid,freqs=ChanFreq)#,
     # DicoJonesMatrices=DicoJonesMatrices)
 
@@ -296,11 +296,8 @@ class ClassDDEGridMachine():
                  DataCorrelationFormat=[5, 6, 7, 8],
                  ExpectedOutputStokes=[1],
                  ListSemaphores=None,
-                 wterm=None,
-                 sphe=None,
-                 compute_cf=False,
-                 bda_grid=None, 
-                 bda_degrid=None,
+                 wterm=None, sphe=None, compute_cf=False,
+                 bda_grid=None, bda_degrid=None,
                  ):
         """
 
@@ -340,8 +337,8 @@ class ClassDDEGridMachine():
         #     self.DoPSF=True
         #     Npix=Npix*2
 
-        Precision = GD["ImagerGlobal"]["Precision"]
-        PolMode = GD["ImagerGlobal"]["PolMode"]
+        Precision = GD["Image"]["Precision"]
+        PolMode = GD["Image"]["PolMode"]
 
         if Precision == "S":
             self.dtype = np.complex64
@@ -350,7 +347,7 @@ class ClassDDEGridMachine():
 
         self.dtype = np.complex64
         T.timeit("0")
-        Padding = GD["ImagerMainFacet"]["Padding"]
+        Padding = GD["Image"]["Padding"]
         self.NonPaddedNpix, Npix = EstimateNpix(Npix, Padding)
         self.Padding = Npix/float(self.NonPaddedNpix)
         # self.Padding=Padding
@@ -388,11 +385,11 @@ class ClassDDEGridMachine():
 
         T.timeit("1")
 
-        OverS = GD["ImagerCF"]["OverS"]
-        Support = GD["ImagerCF"]["Support"]
-        Nw = GD["ImagerCF"]["Nw"]
-        wmax = GD["ImagerCF"]["wmax"]
-        Cell = GD["ImagerMainFacet"]["Cell"]
+        OverS = GD["CF"]["OverS"]
+        Support = GD["CF"]["Support"]
+        Nw = GD["CF"]["Nw"]
+        wmax = GD["CF"]["wmax"]
+        Cell = GD["Image"]["Cell"]
 
         # T=ClassTimeIt.ClassTimeIt("ClassImager")
         # T.disable()
@@ -444,8 +441,7 @@ class ClassDDEGridMachine():
                                               Nw=self.Nw,
                                               OverS=self.OverS,
                                               lmShift=self.lmShift,
-                                              WTerm=wterm, 
-                                              Sphe=sphe,
+                                              WTerm=wterm, Sphe=sphe,
                                               compute=compute_cf,
                                               IDFacet=self.IDFacet)
         self.ifzfCF = self.WTerm.ifzfCF
@@ -613,7 +609,7 @@ class ClassDDEGridMachine():
 
     def put(self, times, uvw, visIn, flag, A0A1, W=None,
             PointingID=0, DoNormWeights=True, DicoJonesMatrices=None,
-            freqs=None, DoPSF=0, ChanMapping=None, ResidueGrid=None):
+            freqs=None, DoPSF=0, ChanMapping=None, ResidueGrid=None, sparsification=None):
         """
         Gridding routine, wraps external python extension C gridder
         Args:
@@ -715,7 +711,7 @@ class ClassDDEGridMachine():
         # T2.disable()
         T.timeit("prep %d"%self.IDFacet)
 
-        if self.GD["Compression"]["CompGridMode"] == 0:
+        if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
             raise RuntimeError("Deprecated flag. Please use BDA gridder")
         else:
             OptimisationInfos = [
@@ -744,6 +740,7 @@ class ClassDDEGridMachine():
                                               FacetInfos],
                                           ParamJonesList,
                                           self._bda_grid,
+                                          sparsification if sparsification is not None else np.array([]),
                                           OptimisationInfos,
                                           self.LSmear,
                                           np.int32(ChanMapping))
@@ -818,11 +815,8 @@ class ClassDDEGridMachine():
             ModelImage, 
             PointingID=0,
             Row0Row1=(0, -1),
-            DicoJonesMatrices=None, 
-            freqs=None, 
-            ImToGrid=True,
-            TranformModelInput="", 
-            ChanMapping=None):
+            DicoJonesMatrices=None, freqs=None, ImToGrid=True,
+            TranformModelInput="", ChanMapping=None, sparsification=None):
         T = ClassTimeIt.ClassTimeIt("get")
         T.disable()
         vis = visIn.view()
@@ -915,7 +909,7 @@ class ClassDDEGridMachine():
         T.timeit("3")
         #print vis
         #print "DEGRID:",Grid.shape,ChanMapping
-        if self.GD["Compression"]["CompDeGridMode"]==0:
+        if False:  ## deprecated, since only BDA degridder is used ## self.GD["Comp"]["DegridMode"]==0:
             _ = _pyGridder.pyDeGridderWPol(Grid,
                                            vis,
                                            uvw,
@@ -960,7 +954,8 @@ class ClassDDEGridMachine():
                 [self.PolMap, FacetInfos, RowInfos],
                 ParamJonesList, 
                 self._bda_degrid,
-                OptimisationInfos, 
+                sparsification if sparsification is not None else np.array([]),
+                OptimisationInfos,
                 self.LSmear, np.int32(ChanMapping))
 
         T.timeit("4 (degrid)")
