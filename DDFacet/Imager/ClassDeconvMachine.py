@@ -220,7 +220,6 @@ class ClassImagerDeconv():
                 print>> log, "the PSFFacets version is currently not supported, using 0 (i.e. same facets as image)"
                 self.PSFFacets = 0
             oversize = self.GD["Image"]["PSFOversize"] or 1
-            MainFacetOptions = self.GiveMainFacetOptions()
             if self.PSFFacets:
                 MainFacetOptions["NFacets"] = self.PSFFacets
                 print>> log, "using %d facets to compute the PSF" % self.PSFFacets
@@ -230,8 +229,10 @@ class ClassImagerDeconv():
             print>> log, "using PSFOversize=%.2f" % oversize
             self.FacetMachinePSF = ClassFacetMachine(self.VS, self.GD,
                                                 Precision=self.Precision, PolMode=self.PolMode,
-                                                DoPSF=True,
-                                                Oversize=oversize)
+                                                DoPSF=True, Oversize=oversize,
+                                                APP=self.APP, APP_id="FMPSF")
+            self.FacetMachinePSF.appendMainField(ImageName="%s.psf" % self.BaseName, **MainFacetOptions)
+            self.FacetMachinePSF.Init()
 
         self.CellArcSec = (self.FacetMachine or self.FaceMachinePSF).Cell
         self.CellSizeRad = (self.CellArcSec/3600.)*np.pi/180
