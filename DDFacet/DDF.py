@@ -163,11 +163,15 @@ def main(OP=None, messages=[]):
     # write parset
     OP.ToParset("%s.parset"%ImageName)
 
-    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, IdSharedMem=Multiprocessing.getShmPrefix(), BaseName=ImageName)
+    Mode = DicoConfig["Image"]["Mode"]
+
+    # data machine initialized for all cases except PSF-only mode
+    # psf machine initialized for all cases except Predict-only mode
+    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, IdSharedMem=Multiprocessing.getShmPrefix(), BaseName=ImageName,
+                                                  data=(Mode != "PSF"), psf=(Mode != "Predict"),
+                                                  deconvolve=("Clean" in Mode))
 
     Imager.Init()
-
-    Mode = DicoConfig["Image"]["Mode"]
 
     # Imager.testDegrid()
     # stop

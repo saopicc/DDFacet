@@ -1,5 +1,4 @@
 import os, os.path, cPickle, re
-
 import NpShared
 import numpy as np
 
@@ -15,6 +14,12 @@ def _to_shm (path):
     return "file://" + path
 
 _allowed_key_types = dict(int=int, str=str, bool=bool)
+
+def attach(name):
+    return SharedDict(name, reset=False)
+
+def create(name):
+    return SharedDict(name, reset=True)
 
 class SharedDict (dict):
     basepath = SHM_PREFIX
@@ -78,8 +83,15 @@ class SharedDict (dict):
     def __setitem__ (self, item, value):
         if type(item).__name__ not in _allowed_key_types:
             raise KeyError,"unsupported key of type "+type(item).__name__
-        dict.__setitem__ (self, item, value)
         name = self._key_to_name(item)
+        # remove previous item from SHM
+        if dict.__contains__(self,item):
+            for suffix in "ap":
+                if os.path.exists(name+suffix):
+                    os.unlink(name+suffix)
+            if os.path.exists(name+"d"):
+                os.system("rm -fr "+name+"d")
+        dict.__setitem__ (self, item, value)
         # for arrays, copy to a shared array
         if isinstance(value, np.ndarray):
             NpShared.ToShared(_to_shm(os.path.join(self.path, name)+'a'), value)

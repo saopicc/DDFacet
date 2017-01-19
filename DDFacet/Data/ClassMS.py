@@ -459,7 +459,12 @@ class ClassMS():
     def getChunkCache (self, row0, row1):
         return self._chunk_caches[row0, row1]
 
-    def GiveNextChunk(self,databuf=None,flagbuf=None,use_cache=None,read_data=True,sort_by_baseline=False):
+    def GiveChunk (self, DATA, chunk, use_cache=None, read_data=True, sort_by_baseline=False):
+        row0, row1 = self._chunk_r0r1[chunk]
+        self.cache = self.getChunkCache(row0, row1)
+        return self.ReadData(DATA, row0, row1, use_cache=use_cache, read_data=read_data, sort_by_baseline=sort_by_baseline)
+
+    def GiveNextChunk(self, use_cache=None, read_data=True, sort_by_baseline=False):
         # release data/flag arrays, if holding them, and mark cache as valid
         if self._datapath:
             self.cache.saveCache("Data")
@@ -469,26 +474,25 @@ class ClassMS():
         # get row0:row1 of next chunk. If row1==row0, chunk is empty and we must skip it
         while self.current_chunk < self.Nchunk-1:
             self.current_chunk += 1
-            row0, row1 = self._chunk_r0r1[self.current_chunk]
-            if row1 > row0:
-                self.cache = self.getChunkCache(row0,row1)
-                return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf,
-                                     use_cache=use_cache,read_data=read_data,sort_by_baseline=sort_by_baseline)
+            return self.GiveChunk(self.current_chunk,
+                                  use_cache=use_cache,read_data=read_data,sort_by_baseline=sort_by_baseline)
         return "EndMS"
+
+
+    def numChunks (self):
+        return len(self._chunk_r0r1)
 
     def getChunkRow0Row1 (self):
         return self._chunk_r0r1
         
-    def ReadData(self,row0,row1,
-                 DoPrint=False, ReadWeight=False,
-                 databuf=None, flagbuf=None,
+    def ReadData(self,DATA,row0,row1,
+                 ReadWeight=False,
                  use_cache=False, read_data=True,
                  sort_by_baseline=True):
         """
         Args:
             row0:
             row1:
-            DoPrint:
             ReadWeight:
             use_cache: if True, reads data and flags from the chunk cache, if available
             databuf: a buffer to read data into. If None, a new array is created.
@@ -558,12 +562,13 @@ class ClassMS():
 
         if ReadWeight:
             table_all = table_all or self.GiveMainTable()
-            self.Weights = table_all.getcol("WEIGHT", row0, nRowRead)
+            weights = table_all.getcol("WEIGHT", row0, nRowRead)
             if sort_index is not None:
-                self.Weights = self.Weights[sort_index]
+                weights = weights[sort_index]
+            DATA["weights"] = weights
 
         # create data array (if databuf is not None, array uses memory of buffer)
-        visdata = np.ndarray(shape=datashape, dtype=np.complex64, buffer=databuf)
+        visdata = DATA.addSharedArray("data", shape=datashape, dtype=np.complex64)
         if read_data:
             # check cache for visibilities
             if use_cache:
@@ -592,7 +597,7 @@ class ClassMS():
         else:
             visdata.fill(0)
         # create flag array (if flagbuf is not None, array uses memory of buffer)
-        flags = np.ndarray(shape=datashape, dtype=np.bool, buffer=flagbuf)
+        flags = DATA.addSharedArray("flags", shape=datashape, dtype=np.bool)
         # check cache for flags
         if use_cache:
             flagpath, flagvalid = self.cache.checkCache("Flags.npy", dict(time=self._start_time))
@@ -620,24 +625,19 @@ class ClassMS():
         if table_all:
             table_all.close()
 
-        DATA={}
-
-        DATA["data"] = visdata
-        DATA["flags"] = flags
         DATA["sort_index"] = self._sort_index = sort_index
 
-        DATA["uvw"]=uvw
-        DATA["times"]=time_all
+        DATA["uvw"]   = uvw
+        DATA["times"] = time_all
         DATA["uniq_times"] = time_uniq   # vector of unique timestamps
-        DATA["nrows"]=time_all.shape[0]
-        DATA["A0"]=A0
-        DATA["A1"]=A1
-        DATA["dt"]=self.dt
-        DATA["dnu"]=self.ChanWidth
+        DATA["nrows"] = time_all.shape[0]
+        DATA["A0"]  = A0
+        DATA["A1"]  = A1
+        DATA["dt"]  = self.dt
+        DATA["dnu"] = self.ChanWidth
 
-        if visdata is not None:
-            if self.zero_flag: 
-                visdata[flags] = 1e10
+        if self.zero_flag:
+            visdata[flags] = 1e10
         # print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
             visdata[np.isnan(visdata)] = 0.
         # print "visMS",vis_all.min(),vis_all.max()

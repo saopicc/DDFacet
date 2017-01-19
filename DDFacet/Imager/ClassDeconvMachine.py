@@ -78,8 +78,9 @@ import pyfits
 
 
 class ClassImagerDeconv():
-    def __init__(self,ParsetFile=None,GD=None,
-                 PointingID=0,BaseName="ImageTest2",ReplaceDico=None,IdSharedMem="CACA.",DoDeconvolve=True):
+    def __init__(self, GD=None,
+                 PointingID=0,BaseName="ImageTest2",ReplaceDico=None,IdSharedMem="CACA.",
+                 data=True, psf=True, deconvolve=True):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD
@@ -90,7 +91,7 @@ class ClassImagerDeconv():
         self.BaseName=BaseName
         self.DicoModelName="%s.DicoModel"%self.BaseName
         self.PointingID=PointingID
-        self.DoDeconvolve=DoDeconvolve
+        self.do_data, self.do_psf, self.do_deconvolve = data, psf, deconvolve
         self.FacetMachine=None
         self.PSF=None
         self.FWHMBeam = None
@@ -149,7 +150,8 @@ class ClassImagerDeconv():
         mslist = ClassMS.expandMSList(DC["Data"]["MS"],
                                       defaultDDID=DC["Selection"]["DDID"],
                                       defaultField=DC["Selection"]["Field"])
-        self.APP = AsyncProcessPool(ncpu=self.GD["Parallel"]["NCPU"], affinity=self.GD["Parallel"]["Affinity"])
+        self.APP = AsyncProcessPool(ncpu=self.GD["Parallel"]["NCPU"], affinity=self.GD["Parallel"]["Affinity"],
+                                    verbose=self.GD["Debug"]["APPVerbose"])
 
         self.VS=ClassVisServer.ClassVisServer(mslist,
                                               ColName=DC["Data"]["ColName"],
@@ -157,7 +159,7 @@ class ClassImagerDeconv():
                                               GD=self.GD,
                                               APP=self.APP)
 
-        if self.DoDeconvolve:
+        if self.do_deconvolve:
             self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
             del(self.GD["Deconv"]["MaxMajorIter"])
 
@@ -196,26 +198,27 @@ class ClassImagerDeconv():
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
 
-            self.CreateFacetMachine()
-            self.FacetMachine.Init()
-            self.VS.setFacetMachine(self.FacetMachine)
+        self.CreateFacetMachines()
+        self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
 
         # all internal state initialized -- start the worker threads
         self.APP.startWorkers()
         # and proceed with background tasks
         self.VS.CalcWeightsBackground()
-        self.FacetMachine.InitBackground()
+        self.FacetMachine and self.FacetMachine.InitBackground()
+        self.FacetMachinePSF and self.FacetMachinePSF.InitBackground()
 
-    def CreateFacetMachines (self, data=True, psf=True):
+    def CreateFacetMachines (self):
         """Creates FacetMachines for data and/or PSF"""
         self.FacetMachine = self.FacetMachinePSF = None
         MainFacetOptions = self.GiveMainFacetOptions()
-        if data:
+        if self.do_data:
             self.FacetMachine = ClassFacetMachine(self.VS, self.GD,
                                                 Precision=self.Precision, PolMode=self.PolMode,
                                                 APP=self.APP, APP_id="FM")
             self.FacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
-        if psf:
+            self.FacetMachine.Init()
+        if self.do_psf:
             if self.PSFFacets:
                 print>> log, "the PSFFacets version is currently not supported, using 0 (i.e. same facets as image)"
                 self.PSFFacets = 0
@@ -238,16 +241,6 @@ class ClassImagerDeconv():
         self.CellSizeRad = (self.CellArcSec/3600.)*np.pi/180
 
     def setNextData (self, keep_data=False, null_data=False):
-        try:
-            del(self.DATA)
-        except:
-            pass
-
-        try:
-            NpShared.DelAll("%s%s"%(self.IdSharedMem,"DicoData"))
-        except:
-            pass
-
         data = self.VS.LoadNextVisChunk(keep_data=keep_data, null_data=null_data)
 
         if type(data) is str:
@@ -267,29 +260,6 @@ class ClassImagerDeconv():
             MainFacetOptions['Weighting'])
         return MainFacetOptions
 
-
-    def _initPSFFacetMachine (self):
-        """Creates a FacetMachine for PSF computation. Used by both MakePSF() and GiveDirty()"""
-        if self.PSFFacets:
-            print>> log, "the PSFFacets version is currently not supported, using 0 (i.e. same facets as image)"
-            self.PSFFacets = 0
-        oversize = self.GD["Image"]["PSFOversize"] or 1
-        MainFacetOptions = self.GiveMainFacetOptions()
-        if self.PSFFacets:
-            MainFacetOptions["NFacets"] = self.PSFFacets
-            print>> log, "using %d facets to compute the PSF" % self.PSFFacets
-            if self.PSFFacets == 1:
-                oversize = 1
-                print>> log, "PSFFacets=1 implies PSFOversize=1"
-        print>> log, "using PSFOversize=%.2f" % oversize
-        FacetMachinePSF = ClassFacetMachine(self.VS, self.GD,
-                                            Precision=self.Precision, PolMode=self.PolMode,
-                                            DoPSF=True,
-                                            Oversize=oversize)
-        FacetMachinePSF.appendMainField(ImageName="%s.psf" % self.BaseName, **MainFacetOptions)
-        FacetMachinePSF.Init()
-        FacetMachinePSF.ReinitDirty()
-        return FacetMachinePSF
 
     def _createDirtyPSFCacheKey(self):
         """Creates cache key used for Dirty and PSF caches"""
@@ -382,10 +352,6 @@ class ClassImagerDeconv():
             psf: if True, PSF is also generated
             sparsify: sparsification factor applied to data. 0 means calculate the most precise dirty possible.
         """
-
-        # keep separate facet machine for the PSF, if necessary
-        self.FacetMachinePSF = None
-
         # cache only used in "precise" mode. In approximative mode, things are super-quick anyway
         if not sparsify:
             cache_key = self._createDirtyPSFCacheKey()
@@ -426,9 +392,14 @@ class ClassImagerDeconv():
                 print>>log, ModColor.Str("============================== Making Dirty Image & PSF ========================")
             else:
                 print>>log, ModColor.Str("============================== Making Dirty Image ==============================")
+            # tell the I/O thread to go load the first chunk
+            self.VS.ReInitChunkCount()
+            self.VS.startChunkLoadInBackground()
+
+
             self.FacetMachine.ReinitDirty()
-            if psf:
-                self.FacetMachinePSF = self._initPSFFacetMachine()
+            self.FacetMachinePSF and self.FacetMachinePSF.ReinitDirty()
+
 
             SubstractModel = self.GD["Data"]["InitDicoModel"]
             DoSub = bool(SubstractModel)
@@ -456,24 +427,19 @@ class ClassImagerDeconv():
 
             iloop = 0
             while True:
-                Res=self.setNextData()
-                print>>log,"setNextData returns"
-                # if not(isPlotted):
-                #     isPlotted=True
-                #     self.FacetMachine.PlotFacetSols()
-                #     stop
-                #if Res=="EndChunk": break
-                if Res=="EndOfObservation": break
+                # get chunk from I/O thread, schedule next chunk
+                DATA = self.VS.collectLoadedChunk(start_next=True, rewind=False)
+                if type(DATA) is str:
+                    print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
+                    break
 
                 if DoSub:
-                    ThisMeanFreq=self.VS.CurrentChanMappingDegrid#np.mean(DATA["freqs"])
-                    ModelImage=ModelMachine.GiveModelImage(ThisMeanFreq)
+                    ThisMeanFreq = self.VS.CurrentChanMappingDegrid
+                    ModelImage = ModelMachine.GiveModelImage(ThisMeanFreq)
                     print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
+                    self.FacetMachine.getChunk(ModelImage)
 
-
-                    _=self.FacetMachine.getChunk(ModelImage)
-
-                self.FacetMachine.applySparsification(self.DATA, sparsify)
+                self.FacetMachine.applySparsification(DATA, sparsify)
                 self.FacetMachine.putChunk()
                 if psf:
                     self.FacetMachinePSF.putChunk()

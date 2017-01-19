@@ -29,7 +29,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Array import NpShared
-from DDFacet.Array.SharedDict import SharedDict
+from DDFacet.Array import SharedDict
 
 log = MyLogger.getLogger("Multiprocessing")
 #MyLogger.setSilent("Multiprocessing")
@@ -42,7 +42,7 @@ def getShmPrefix():
     return "ddf.%d" % _pid
 
 # init SharedDict with the same base name
-SharedDict.setBaseName(getShmPrefix())
+SharedDict.SharedDict.setBaseName(getShmPrefix())
 
 def getShmName(name, **kw):
     """

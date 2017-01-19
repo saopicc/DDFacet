@@ -28,7 +28,7 @@ import pylab
 import numpy.random
 from DDFacet.ToolsDir import ModCoord
 from DDFacet.Array import NpShared
-from DDFacet.Array.SharedDict import SharedDict
+from DDFacet.Array import SharedDict
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import Multiprocessing
@@ -465,7 +465,7 @@ class ClassFacetMachine():
 
         self.setWisdom()
         # subprocesses will place W-terms etc. here. Reset this first.
-        self._CF = SharedDict("CF", reset=True)
+        self._CF = SharedDict.create("CFPSF" if self.DoPSF else "CF")
 
         self.IsDDEGridMachineInit = False
         self.SetLogModeSubModules("Loud")
@@ -497,24 +497,26 @@ class ClassFacetMachine():
     def InitBackground (self):
         # check if w-kernels, spacial weights, etc. are cached
         cachekey = dict(ImagerCF=self.GD["CF"], ImagerMainFacet=self.GD["Image"])
-        cachename = "CF"
+        cachename = self._cf_cachename = "CF"
         # in oversize-PSF mode, make separate cache for PSFs
         if self.DoPSF and self.Oversize != 1:
-            cachename = "CFPSF"
+            cachename = self._cf_cachename = "CFPSF"
             cachekey["Oversize"] = self.Oversize
         # check cache
         cachepath, cachevalid = self.VS.maincache.checkCache(cachename, cachekey, directory=True)
         # up to workers to load/save cache
         for facet in self.DicoImager.iterkeys():
-            self.APP.runJob("InitW.%s"%facet, "%s.%s" % (self.APP_id, "initFacetCF"), args=(facet, cachepath, cachevalid))
+            self.APP.runJob("%s.InitW.%s"%(self.APP_id, facet), "%s.%s" % (self.APP_id, "_worker_initFacetCF"), args=(facet, cachepath, cachevalid))
 
     def awaitInitCompletion (self):
         if not self.IsDDEGridMachineInit:
-            self.APP.awaitJobs("InitW.*")
+            self.APP.awaitJobResults("%s.InitW.*"%self.APP_id)
             self._CF.reload()
+            # mark cache as safe
+            self.VS.maincache.saveCache(self._cf_cachename)
             self.IsDDEGridMachineInit = True
 
-    def initFacetCF (self, facet, cachepath, cachevalid):
+    def _worker_initFacetCF (self, facet, cachepath, cachevalid):
         """Worker method of InitParal"""
         path = "%s/%s.npz" % (cachepath, facet)
         facet_dict = self._CF.addSubDict(facet)
@@ -1101,6 +1103,7 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["SumJones"]
             self.DicoImager[iFacet]["SumJonesChan"][self.VS.iCurrentMS]
         """
+        self.awaitInitCompletion()
         NFacets = len(self.DicoImager.keys())
         # our job list is just a list of facet numbers
         joblist = range(NFacets)

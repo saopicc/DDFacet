@@ -26,38 +26,99 @@ from DDFacet.Array import NpShared
 log = MyLogger.getLogger("ClassSmearMapping")
 
 from DDFacet.Other import Multiprocessing
+from DDFacet.Array import SharedDict
+
+bda_dicts = {}
+
+class SmearMappingMachine (object):
+    def __init__ (self, APP):
+        self.outdict = SharedDict.create("BDAtmp")
+        self.APP = APP
+        self.APP.registerJobHandlers(ComputeSmearMapping=SmearMappingMachine._smearmapping_worker)
+        self.APP.registerJobCounters("BDA.Grid", "BDA.Degrid")
+
+    @staticmethod
+    def _smearmapping_worker(data_dict_name, out_dict_name, a0, a1, dPhi, l, channel_mapping):
+        DATA = SharedDict.attach(data_dict_name)
+        OUT = SharedDict.attach(out_dict_name)
+        BlocksRowsListBL, BlocksSizesBL, _ = GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l, channel_mapping)
+        if BlocksRowsListBL is not None:
+            key = "%d:%d" % (a0,a1)
+            OUT["sizes"][key]  = np.array(BlocksSizesBL)
+            OUT["blocks"][key] = np.array(BlocksRowsListBL)
+
+    def computeSmearMappingInBackground (self, base_job_id, MS, DATA, entry, radiusDeg, Decorr, channel_mapping):
+        l = radiusDeg * np.pi / 180
+        dPhi = np.sqrt(6. * (1. - Decorr))
+        outdict = SharedDict.attach("BDAtmp").addSubDict(entry)
+        outdict.addSubDict("blocks")
+        outdict.addSubDict("sizes")
+        for a0 in xrange(MS.na):
+            for a1 in xrange(MS.na):
+                if a0 != a1:
+                    self.APP.runJob("%s:%s:%d:%d" % (base_job_id, entry, a0, a1),"ComputeSmearMapping",
+                                   counter=entry, collect_result=False,
+                                   args=(DATA.path, outdict.path, a0, a1, dPhi, l, channel_mapping))
+
+    def collectSmearMapping (self, DATA, entry):
+        self.APP.awaitJobCompletion(entry)
+        resdict = SharedDict.attach("BDAtmp")[entry]
+        size_dict = resdict["sizes"]
+        blocks_dict = resdict["blocks"]
+        # process worker results
+        # for each map (each array returned from worker), BlockSizes[MapName] will
+        # contain a list of BlocksSizesBL entries returned from that worker
+        NTotBlocks = 0
+        NTotRows = 0
+
+        for bsz in size_dict.itervalues():
+            NTotBlocks += len(bsz)
+            NTotRows += bsz.sum()
+
+        mapping = DATA.addSharedArray(entry, (1 + 2 * NTotBlocks + NTotRows,), np.int32)
+
+        FinalMappingHeader = mapping[:2*NTotBlocks+1]
+        FinalMapping = mapping[2*NTotBlocks+1:]
+
+        FinalMappingHeader[0] = NTotBlocks
+
+        MM = np.zeros((NTotBlocks, ), np.int32)
+
+        iii = 0
+        jjj = 0
+
+        # now go through each per-baseline mapping, sorted by baseline
+        for key, BlocksSizesBL in size_dict.iteritems():
+            BlocksRowsListBL = blocks_dict[key]
+
+            FinalMapping[iii:iii+BlocksRowsListBL.size] = BlocksRowsListBL[:]
+            iii += BlocksRowsListBL.size
+
+            # print "IdWorker,AppendId",IdWorker,AppendId,BlocksSizesBL
+            # MM=np.concatenate((MM,BlocksSizesBL))
+            MM[jjj:jjj+BlocksSizesBL.size] = BlocksSizesBL[:]
+            jjj += BlocksSizesBL.size
+
+        cumul = np.cumsum(MM)
+        FinalMappingHeader[1:1+NTotBlocks] = MM
+        FinalMappingHeader[NTotBlocks+1+1::] = (cumul)[0:-1]
+        FinalMappingHeader[NTotBlocks+1::] += 2*NTotBlocks+1
+
+        NVis = np.where(DATA["A0"] != DATA["A1"])[0].size * DATA["freqs"].size
+        #print>>log, "  Number of blocks:         %i"%NTotBlocks
+        #print>>log, "  Number of 4-Visibilities: %i"%NVis
+        fact = (100.*(NVis-NTotBlocks)/float(NVis))
+
+        # clear temp shared arrays/dicts
+        del size_dict
+        del blocks_dict
+        resdict.delete()
+
+        return mapping, fact
 
 
-def _smearmapping_worker(jobitem, DATA, InfoSmearMapping, WorkerMapName, GridChanMapping):
-    a0, a1 = jobitem
-    rep = GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping)
-
-    if rep is not None:
-        # form up map name based on CPU ID
-        ThisWorkerMapName = WorkerMapName % Multiprocessing.ProcessPool.getCPUId()
-
-        BlocksRowsListBLWorker = NpShared.GiveArray(ThisWorkerMapName)
-        if BlocksRowsListBLWorker is None:
-            BlocksRowsListBLWorker = np.array([], np.int32)
-        block0 = BlocksRowsListBLWorker.size
-
-        BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL = rep
-        BlocksRowsListBLWorker = np.concatenate((BlocksRowsListBLWorker, BlocksRowsListBL))
-        NpShared.ToShared(ThisWorkerMapName, BlocksRowsListBLWorker)
-        block1 = BlocksRowsListBLWorker.size
 
 
-        return {"bl": (a0, a1),
-                    "MapName": ThisWorkerMapName,
-                    "Slice": slice(block0, block1),
-                    "IdWorker": Multiprocessing.ProcessPool.getCPUId(),
-                    "Empty": False,
-                    "BlocksSizesBL": BlocksSizesBL,
-                    "NBlocksTotBL": NBlocksTotBL}
-    else:
-        return {"bl": (a0, a1),
-                    "IdWorker": Multiprocessing.ProcessPool.getCPUId(),
-                    "Empty": True}
 
 
 class ClassSmearMapping():
@@ -267,21 +328,19 @@ class ClassSmearMapping():
         return FinalMapping, fact
 
 
-def GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
+def GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l, GridChanMapping):
 
     A0 = DATA["A0"]
     A1 = DATA["A1"]
     row_index = np.where((A0 == a0) & (A1 == a1))[0]
     nrows = row_index.size
     if not nrows:
-        return
+        return None, None, None
     C = 3e8
 
     uvw = DATA["uvw"][row_index]
-    dFreq = InfoSmearMapping["dfreqs"]   # channel width
-    dPhi = InfoSmearMapping["dPhi"]      # delta-phi: max phase change allowed between rows
-    l = InfoSmearMapping["l"]
-    freqs = InfoSmearMapping["freqs"]
+    dFreq = DATA["dfreqs"]   # channel width
+    freqs = DATA["freqs"]
     NChan = freqs.size
     nu0 = np.max(freqs)
 
