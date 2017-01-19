@@ -20,6 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import logging
 import os
+import ModColor
 
 class LoggerWriter:
     def __init__(self, logger, level):
@@ -81,6 +82,9 @@ def _stacksize(since=0.0):
 log_memory = False
 file_handler = None
 
+# if set, ID will be included in log messages
+subprocess_id = None
+
 def enableMemoryLogging (enable=True):
     global log_memory
     log_memory = enable
@@ -110,6 +114,8 @@ class LoggerMemoryFilter (logging.Filter):
         setattr(event,"shared_memory_gb",shm)
         if log_memory and hasattr(event,"msg"):
             event.msg = "[%.1f/%.1f %.1f/%.1f %.1fGb] "%(rss,rss_peak,vss,vss_peak,shm) + event.msg
+        if subprocess_id:
+            event.msg = ModColor.Str("[%s] "%subprocess_id, col="blue") + event.msg
         return True
 
 
@@ -123,7 +129,7 @@ class MyLogger():
         self.Dico={}
         self.Silent=False
         self._myfilter = LoggerMemoryFilter()
-        self._formatter = logging.Formatter(fmt,datefmt)
+        self._formatter = logging.Formatter(fmt, datefmt)
 
 
     def getLogger(self,name,disable=False):

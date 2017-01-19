@@ -37,6 +37,7 @@ import psutil
 import ClassJones
 import ClassBeamMean
 from DDFacet.Other import Multiprocessing
+from DDFacet.Array.SharedDict import SharedDict
 log = MyLogger.getLogger("ClassVisServer")
 
 
@@ -53,8 +54,13 @@ class ClassVisServer():
                  ColName="DATA",
                  TChunkSize=1,                # chunk size, in hours
                  LofarBeam=None,
-                 AddNoiseJy=None):
+                 AddNoiseJy=None,
+                 APP=None, APP_id="VS"):   # AsyncProcessPool to use, if any
         self.GD = GD
+        self.APP = APP
+        if APP is not None:
+            APP.registerEvents("VisWeights")
+            APP.registerJobHandlers(**{APP_id:self})
 
         self.MSList = [ MSList ] if isinstance(MSList, str) else MSList
         self.FacetMachine = None
@@ -434,12 +440,18 @@ class ClassVisServer():
             DATA = repLoadChunk
             ## now load weights. Note that an all-flagged chunk of data is markjed by a null weights file.
             ## so we check it here to go on to the next chunk as needed
-            weightspath = self.VisWeights[self.iCurrentMS][self.CurrentMS.current_chunk]
-            if not os.path.getsize(weightspath):
+            # weightspath = self.GetVisWeightsPath(self.iCurrentMS, self.CurrentMS.current_chunk)
+            # if not os.path.getsize(weightspath):
+            #     print>> log, ModColor.Str("This chunk is all flagged or has zero weight, skipping it")
+            #     continue
+            # # mmap() arrays caused mysterious performance hits, so load and copy
+            # DATA["Weights"] = NpShared.GiveArray("file://" + weightspath).copy()
+            weights = self.GetVisWeights(self.iCurrentMS, self.CurrentMS.current_chunk)
+            if weights is None:
                 print>> log, ModColor.Str("This chunk is all flagged or has zero weight, skipping it")
                 continue
             # mmap() arrays caused mysterious performance hits, so load and copy
-            DATA["Weights"] = NpShared.GiveArray("file://" + weightspath).copy()
+            DATA["Weights"] = weights
             if DATA["sort_index"] is not None:
                 DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
             break
@@ -580,7 +592,29 @@ class ClassVisServer():
                 np.save(file(mapname, 'w'), FinalMapping)
                 self.cache.saveCache("BDA.DeGrid")
 
+    def GetVisWeights(self, iMS, iChunk):
+        """
+        Returns path to weights array for the given MS and chunk number.
+
+        Waits for CalcWeights to complete (if running in background).
+        """
+        if self.VisWeights is None:
+            # ensure the background calculation is complete
+            self.APP.awaitEvents("VisWeights")
+            # load shared dict prepared in background thread
+            self.VisWeights = SharedDict("VisWeights",  reset=False)
+        path = self.VisWeights[iMS][iChunk]
+        if not os.path.getsize(path):
+            return None
+        return np.load(file(path))
+
+    def CalcWeightsBackground (self):
+        self.APP.runJob("VisWeights", "VS.CalcWeights", io=0, event="VisWeights")
+
     def CalcWeights(self):
+        """
+        Calculates visibility weights. This can be run in a main or background process.
+        """
         if self.VisWeights is not None:
             return
 
@@ -590,28 +624,23 @@ class ClassVisServer():
         greedy = self.GD["Debug"]["MemoryGreedy"]
 
         # check if every MS+chunk weight is available in cache
-        self.VisWeights = []
+        self.VisWeights = SharedDict("VisWeights", reset=True)
         have_all_weights = True
-        for MS in self.ListMS:
+        for iMS,MS in enumerate(self.ListMS):
             msweights = []
             for row0, row1 in MS.getChunkRow0Row1():
-                cachepath, valid = MS.getChunkCache(
-                    row0, row1).checkCache(
-                    "ImagingWeights",
-                    dict(
-                        [(section, self.GD[section])
-                         for section
-                         in (
-                             "Data", "Selection", "Freq",
-                             "Image", "Image")]))
+                cachepath, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy",
+                    dict([(section, self.GD[section]) for section in ("Data", "Selection", "Freq", "Image")]))
                 have_all_weights = have_all_weights and valid
                 msweights.append(cachepath)
-            self.VisWeights.append(msweights)
+            self.VisWeights[iMS] = msweights
         # if every weight is in cache, then VisWeights has been constructed properly -- return, else
         # carry on to compute it
         if have_all_weights:
             print>> log, "all imaging weights are available in cache"
             return
+
+        weight_arrays = {}
 
         # VisWeights is a list of per-MS lists, each list containing a per-chunk
         # cache filename
@@ -628,7 +657,8 @@ class ClassVisServer():
         weightsum = nweights = 0
         weights_are_null = True
         output_list = []
-        for ms, ms_weight_list in zip(self.ListMS, self.VisWeights):
+        for ims, ms in enumerate(self.ListMS):
+            ms_weight_list = self.VisWeights[iMS]
             tab = ms.GiveMainTable()
             for (row0, row1), cachepath in zip(ms.getChunkRow0Row1(), ms_weight_list):
                 nrows = row1 - row0
@@ -656,9 +686,9 @@ class ClassVisServer():
                 # becomes nrow
                 flags = flags.min(axis=1)
 
-                # each weight is kept in an mmap()ed file in the cache, shape
-                # (nrows,nchan)
-                weightpath = "file://"+cachepath
+                # # each weight is kept in an mmap()ed file in the cache, shape
+                # # (nrows,nchan)
+                # weightpath = "file://"+cachepath
 
                 # if everything is flagged, skip this entry, and mark it with a zero-length weights file
                 if flags.all() or not nrows:
@@ -668,7 +698,8 @@ class ClassVisServer():
                     file(cachepath,'w').truncate(0)
                     continue
 
-                WEIGHT = NpShared.CreateShared(weightpath, (nrows, ms.Nchan), np.float64)
+                # WEIGHT = NpShared.CreateShared(weightpath, (nrows, ms.Nchan), np.float64)
+                weight_arrays[cachepath] = WEIGHT = np.zeros((nrows, ms.Nchan), np.float64)
 
                 if WeightCol == "WEIGHT_SPECTRUM":
                     w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
@@ -699,7 +730,7 @@ class ClassVisServer():
                 nweights += valid.sum()
                 weights_are_null = weights_are_null and (WEIGHT == 0).all()
 
-                output_list.append((uvs, WEIGHT if greedy else weightpath, flags, ms.ChanFreq))
+                output_list.append((uvs, WEIGHT if greedy else cachepath, flags, ms.ChanFreq))
                 if greedy:
                     del WEIGHT
             tab.close()
@@ -734,11 +765,14 @@ class ClassVisServer():
             weightnorm=weightnorm, 
             force_unity_weight=weights_are_null)
 
-        # done, every weight array in output_list has been normalized to proper imaging weights
-        # we now release the arrays, which will flush the buffers to disk
-        # (eventually)
-        del output_list
-        # so we can mark the cache as safe
+        # # done, every weight array in output_list has been normalized to proper imaging weights
+        # # we now release the arrays, which will flush the buffers to disk
+        # # (eventually)
+        # del output_list
+        for path, array in weight_arrays.iteritems():
+            print>>log,"saving %s"%path
+            np.save(path, array)
+        # so now we can mark the cache as safe
         for MS in self.ListMS:
             for row0, row1 in MS.getChunkRow0Row1():
-                MS.getChunkCache(row0, row1).saveCache("ImagingWeights")
+                MS.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")

@@ -30,7 +30,7 @@ from DDFacet.Other import MyLogger
 from DDFacet.Other import reformat
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 
-log= MyLogger.getLogger("ClassMS")
+log = MyLogger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.CacheManager import CacheManager
 from DDFacet.Array import NpShared
@@ -72,6 +72,7 @@ class ClassMS():
         """
 
         if MSname=="": exit()
+        self.GD = GD
         self.AverageSteps=AverageTimeFreq
         MSname= reformat.reformat(os.path.abspath(MSname), LastSlash=False)
         self.MSName=MSname
@@ -90,9 +91,17 @@ class ClassMS():
         self.TaQL = "FIELD_ID==%d && DATA_DESC_ID==%d" % (Field, DDID)
         if TaQL:
             self.TaQL += " && (%s)"%TaQL
+
+        # the MS has two caches associated with it. self.maincache stores DDF-related data that is not related to
+        # iterating through the MS. self.cache is created in GiveNextChunk, and is thus different from chunk
+        # to chunk. It is stored in self._chunk_caches, so that the per-chunk cache manager is initialized only
+        # once.
+        self._reset_cache = ResetCache
+        self._chunk_caches = {}
+        self.maincache = CacheManager(MSname+".ddfcache", reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
+
         self.ReadMSInfo(DoPrint=DoPrint)
         self.LFlaggedStations=[]
-        self.GD = GD
         self.DicoSelectOptions = DicoSelectOptions
         self._datapath = self._flagpath = None
         self._start_time = time.time()
@@ -113,13 +122,6 @@ class ClassMS():
         if GetBeam:
             self.LoadSR()
 
-        # the MS has two caches associated with it. self.maincache stores DDF-related data that is not related to
-        # iterating through the MS. self.cache is created in GiveNextChunk, and is thus different from chunk
-        # to chunk. It is stored in self._chunk_caches, so that the per-chunk cache manager is initialized only
-        # once.
-        self._reset_cache = ResetCache
-        self._chunk_caches = {}
-        self.maincache = CacheManager(MSname+".ddfcache", reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
 
     def GiveMainTable (self,**kw):
         """Returns main MS table, applying TaQL selection if any"""
@@ -455,10 +457,6 @@ class ClassMS():
         self.current_chunk = -1
 
     def getChunkCache (self, row0, row1):
-        if (row0, row1) not in self._chunk_caches:
-            self._chunk_caches[row0, row1] = CacheManager(
-                self.MSName + ".ddfcache/F%d:D%d:%d:%d" % (self.Field, self.DDID, row0, row1), self._reset_cache,
-                cachedir=self.GD["Cache"]["Dir"])
         return self._chunk_caches[row0, row1]
 
     def GiveNextChunk(self,databuf=None,flagbuf=None,use_cache=None,read_data=True,sort_by_baseline=False):
@@ -855,6 +853,14 @@ class ClassMS():
         self.Nchunk = len(chunk_row0)
         chunk_row0.append(self.F_nrows)
         self._chunk_r0r1 = [ chunk_row0[i:i+2] for i in range(self.Nchunk) ]
+
+        # init the per-chunk caches
+        for row0, row1 in self._chunk_r0r1:
+            # note that we don't need to reset the chunk cache -- the top-level MS cache would already have been reset,
+            # being the parent directory
+            self._chunk_caches[row0, row1] = CacheManager(
+                os.path.join(self.maincache.dirname, "F%d:D%d:%d:%d" % (self.Field, self.DDID, row0, row1)),
+                reset=False)
 
         #SPW=table_all.getcol('DATA_DESC_ID')
         # if self.SelectSPW is not None:

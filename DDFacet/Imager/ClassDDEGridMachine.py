@@ -296,7 +296,7 @@ class ClassDDEGridMachine():
                  DataCorrelationFormat=[5, 6, 7, 8],
                  ExpectedOutputStokes=[1],
                  ListSemaphores=None,
-                 wterm=None, sphe=None, compute_cf=False,
+                 cf_dict=None, compute_cf=True,
                  bda_grid=None, bda_degrid=None,
                  ):
         """
@@ -316,9 +316,8 @@ class ClassDDEGridMachine():
             DataCorrelationFormat:
             ExpectedOutputStokes:
             ListSemaphores:
-            wterm:      numpy array or shared array name for w-term
-            sphe:       numpy array or shared array name for spheroidal
-            compute_cf: if True, wterm/sphe is recomputed and saved to shared arrays given by wterm/sphe
+            cf_dict: SharedDict from/to which WTerms and Sphes are saved
+            compute_cf: if True, wterm/sphe is recomputed and saved to store_dict
         """
         T = ClassTimeIt.ClassTimeIt("Init_ClassDDEGridMachine")
         T.disable()
@@ -326,8 +325,6 @@ class ClassDDEGridMachine():
         self.IDFacet = IDFacet
         self.SpheNorm = SpheNorm
         self.ListSemaphores = ListSemaphores
-        if wterm is None or sphe is None:
-            raise RuntimeError
         self._bda_grid = bda_grid
         self._bda_degrid = bda_degrid
 
@@ -421,7 +418,7 @@ class ClassDDEGridMachine():
         self.lmShift = lmShift
 
         T.timeit("4")
-        self.InitCF(wterm, sphe, compute_cf)
+        self.InitCF(cf_dict, compute_cf)
 
         self.reinitGrid()
         self.CasaImage = None
@@ -430,7 +427,7 @@ class ClassDDEGridMachine():
         self.DataCorrelationFormat = DataCorrelationFormat
         self.ExpectedOutputStokes = ExpectedOutputStokes
 
-    def InitCF(self, wterm, sphe, compute_cf):
+    def InitCF(self, cf_dict, compute_cf):
         self.FFTWMachine = ModFFTW.FFTW_2Donly(
             self.GridShape, self.dtype, ncores=1)
         self.WTerm = ModCF.ClassWTermModified(Cell=self.Cell,
@@ -441,8 +438,8 @@ class ClassDDEGridMachine():
                                               Nw=self.Nw,
                                               OverS=self.OverS,
                                               lmShift=self.lmShift,
-                                              WTerm=wterm, Sphe=sphe,
-                                              compute=compute_cf,
+                                              cf_dict=cf_dict,
+                                              compute_cf=compute_cf,
                                               IDFacet=self.IDFacet)
         self.ifzfCF = self.WTerm.ifzfCF
 

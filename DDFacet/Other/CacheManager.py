@@ -105,18 +105,19 @@ class CacheManager (object):
             dirname = dirname[:-1]
         if cachedir:
             dirname = os.path.join(cachedir, os.path.basename(dirname))
-        # print warning if dirname is on NFS
-        try:
-            fstype = subprocess.check_output(("stat --file-system --format=%T " +
-                                              (os.path.basename(dirname) or ".")).split()).strip()
-        except:
-            print>>log, ModColor.Str("WARNING: unable to determine filesystem type for %s"%dirname, col="red", Bold=True)
-            fstype = "unknown"
-        if fstype == "nfs" and nfswarn:
-            print>> log, ModColor.Str("WARNING: cache directory %s is mounted via NFS." % dirname, col="red",
-                                      Bold=True)
-            print>> log, ModColor.Str("This may cause performance issues. Consider using the --Cache-Dir option.", col="red",
-                                      Bold=True)
+        if nfswarn:
+            # print warning if dirname is on NFS
+            try:
+                fstype = subprocess.check_output(("stat --file-system --format=%T " +
+                                                  (os.path.basename(dirname) or ".")).split()).strip()
+            except:
+                print>>log, ModColor.Str("WARNING: unable to determine filesystem type for %s"%dirname, col="red", Bold=True)
+                fstype = "unknown"
+            if fstype == "nfs":
+                print>> log, ModColor.Str("WARNING: cache directory %s is mounted via NFS." % dirname, col="red",
+                                          Bold=True)
+                print>> log, ModColor.Str("This may cause performance issues. Consider using the --Cache-Dir option.", col="red",
+                                          Bold=True)
         self.dirname = dirname
         self.hashes = {}
         self.pid = os.getpid()

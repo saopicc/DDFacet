@@ -240,8 +240,7 @@ def UnPackListArray(Name):
 ####################################################
 
 
-def PackListSquareMatrix(Name, LArray):
-    DelArray(Name)
+def PackListSquareMatrix(shared_dict, Name, LArray):
 
     NArray = len(LArray)
     dtype = LArray[0].dtype
@@ -250,7 +249,7 @@ def PackListSquareMatrix(Name, LArray):
         TotSize += LArray[i].size
 
     # [N,shape0...shapeN,Arr0...ArrN]
-    S = SharedArray.create(Name, (TotSize+NArray+1,), dtype=dtype)
+    S = shared_dict.addSharedArray(Name, (TotSize+NArray+1,), dtype=dtype)
     S[0] = NArray
     idx = 1
     for i in xrange(NArray):

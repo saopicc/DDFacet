@@ -1,4 +1,4 @@
-import os, os.path, cPickle
+import os, os.path, cPickle, re
 
 import NpShared
 import numpy as np
@@ -14,19 +14,35 @@ def _to_shm (path):
     # the same effect though (even if it is Linux-specific), so use that instead
     return "file://" + path
 
+_allowed_key_types = dict(int=int, str=str, bool=bool)
+
 class SharedDict (dict):
+    basepath = SHM_PREFIX
+
+    @staticmethod
+    def setBaseName(name):
+        SharedDict.basepath = os.path.join(SHM_PREFIX, name)
+        if not os.path.exists(SharedDict.basepath):
+            os.mkdir(SharedDict.basepath)
+
     def __init__ (self, path, reset=True):
         dict.__init__(self)
-        if path.startswith(SHM_PREFIX):
+        if path.startswith(SharedDict.basepath):
             self.path = path
         else:
-            self.path = SHM_PREFIX + path
+            self.path = os.path.join(SharedDict.basepath, path)
         if reset or not os.path.exists(self.path):
             self.clear()
         else:
             self.reload()
 
+    def delete(self):
+        self.clear()
+        if os.path.exists(self.path):
+            os.system("rm -fr " + self.path)
+
     def clear(self):
+        dict.clear(self)
         if os.path.exists(self.path):
             os.system("rm -fr " + self.path)
         os.mkdir(self.path)
@@ -37,48 +53,56 @@ class SharedDict (dict):
         # scan our subdirectory for items
         for name in os.listdir(self.path):
             filepath = os.path.join(self.path, name)
-            # directory item -- is a nested SharedDict
-            if os.path.isdir(filepath):
-                dict.__setitem__(self, name, SharedDict(path=filepath, reset=False))
+            match = re.match("^(\w+):(.*):(p|a|d)$", name)
+            if not match:
+                print "Can't parse shared dict entry " + filepath
+            keytype, key, valuetype = match.groups()
+            typefunc = _allowed_key_types.get(keytype)
+            if typefunc is None:
+                print "Unknown shared dict key type "+keytype
+            key = typefunc(key)
+            # 'd' item -- is a nested SharedDict
+            if valuetype == 'd':
+                dict.__setitem__(self, key, SharedDict(path=filepath, reset=False))
             # pickle item -- load directly
-            elif name.endswith("._p"):
-                dict.__setitem__(self, name[:-3], cPickle.load(file(filepath)))
+            elif valuetype == 'p':
+                dict.__setitem__(self, key, cPickle.load(file(filepath)))
             # array item -- attach as shared
-            elif name.endswith("._a"):
+            elif valuetype == 'a':
                 # strip off /dev/shm/ at beginning of path
-                dict.__setitem__(self, name[:-3], NpShared.GiveArray(_to_shm(filepath)))
-            else:
-                print "Unknown shared dict entry "+filepath
+                dict.__setitem__(self, key, NpShared.GiveArray(_to_shm(filepath)))
+
+    def _key_to_name (self, item):
+        return "%s:%s:" % (type(item).__name__, str(item))
 
     def __setitem__ (self, item, value):
-        if type(item) is not str:
-            raise TypeError,"SharedDict only supports string keys"
+        if type(item).__name__ not in _allowed_key_types:
+            raise KeyError,"unsupported key of type "+type(item).__name__
         dict.__setitem__ (self, item, value)
-        filepath = os.path.join(self.path, item)
+        name = self._key_to_name(item)
         # for arrays, copy to a shared array
         if isinstance(value, np.ndarray):
-            NpShared.ToShared(_to_shm(filepath+"._a"), value)
+            NpShared.ToShared(_to_shm(os.path.join(self.path, name)+'a'), value)
         # for shared dicts, force use of addSubDict
         elif isinstance(value, SharedDict):
             raise TypeError,"shared sub-dicts must be initialized with addSubDict"
         # all other types, just use pickle
         else:
-            cPickle.dump(value, file(filepath+"._p", "w"), 2)
+            cPickle.dump(value, file(os.path.join(self.path, name+'p'), "w"), 2)
 
-    def addSubDict (self, name):
-        if type(name) is not str:
-            raise TypeError,"SharedDict only supports string keys"
+    def addSubDict (self, item):
+        name = self._key_to_name(item) + 'd'
         filepath = os.path.join(self.path, name)
         subdict = SharedDict(filepath, reset=True)
-        dict.__setitem__(self, name, subdict)
+        dict.__setitem__(self, item, subdict)
         return subdict
 
-    def addSharedArray (self, name, shape, dtype):
-        if type(name) is not str:
-            raise TypeError, "SharedDict only supports string keys"
+    def addSharedArray (self, item, shape, dtype):
+        """adds a SharedArray entry of the specified shape and dtype"""
+        name = self._key_to_name(item) + 'a'
         filepath = os.path.join(self.path, name)
-        array = NpShared.CreateShared(_to_shm(filepath+"._a"), shape, dtype)
-        dict.__setitem__(self, name, array)
+        array = NpShared.CreateShared(_to_shm(filepath), shape, dtype)
+        dict.__setitem__(self, item, array)
         return array
 
 

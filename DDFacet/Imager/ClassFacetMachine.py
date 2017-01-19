@@ -28,6 +28,7 @@ import pylab
 import numpy.random
 from DDFacet.ToolsDir import ModCoord
 from DDFacet.Array import NpShared
+from DDFacet.Array.SharedDict import SharedDict
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import Multiprocessing
@@ -59,9 +60,9 @@ class ClassFacetMachine():
                  PolMode="I",
                  Sols=None,
                  PointingID=0,
-                 Parallel=False,  # True,
                  DoPSF=False,
                  Oversize=1,   # factor by which image is oversized
+                 APP=None, APP_id="FM",
                  ):
 
         self.HasFourierTransformed = False
@@ -86,7 +87,12 @@ class ClassFacetMachine():
         self.PointingID = PointingID
         self.VS, self.GD = VS, GD
         self.npol = self.VS.StokesConverter.NStokesInImage()
-        self.Parallel = Parallel
+        self.Parallel = True
+        self.APP, self.APP_id = APP, APP_id
+        if APP is not None:
+            APP.registerJobHandlers(**{APP_id:self})
+            APP.registerEvents("InitW")
+
         DicoConfigGM = {}
         self.DicoConfigGM = DicoConfigGM
         self.DoPSF = DoPSF
@@ -452,22 +458,18 @@ class ClassFacetMachine():
         """
         Initialize either in parallel or serial
         """
-        if self.IsDDEGridMachineInit:
-            return
         self.DicoGridMachine = {}
 
         for iFacet in self.DicoImager.keys():
             self.DicoGridMachine[iFacet] = {}
 
         self.setWisdom()
+        # subprocesses will place W-terms etc. here. Reset this first.
+        self._CF = SharedDict("CF", reset=True)
 
-        if self.Parallel:
-            self.InitParallel(Parallel=True)
-        else:
-            self.InitParallel(Parallel=False)
-
-        self.IsDDEGridMachineInit = True
+        self.IsDDEGridMachineInit = False
         self.SetLogModeSubModules("Loud")
+
 
     def setWisdom(self):
         """
@@ -492,118 +494,82 @@ class ClassFacetMachine():
         #     A = ModFFTW.GiveFFTW_aligned(self.PaddedGridShape, np.complex64)
         #     NpShared.ToShared("%sFFTW.%i" % (self.IdSharedMem, iFacet), A)
 
-    @staticmethod
-    def _init_w_worker_tessel(jobitem, GD, DicoImager,
-                             SpheNorm, NFreqBands, DataCorrelationFormat, ExpectedOutputStokes, CornersImageTot):
-        """Worker method of InitParallel"""
-        iFacet, NameSpacialWeight, NameWTerm, NameSphe = jobitem
+    def InitBackground (self):
+        # check if w-kernels, spacial weights, etc. are cached
+        cachekey = dict(ImagerCF=self.GD["CF"], ImagerMainFacet=self.GD["Image"])
+        cachename = "CF"
+        # in oversize-PSF mode, make separate cache for PSFs
+        if self.DoPSF and self.Oversize != 1:
+            cachename = "CFPSF"
+            cachekey["Oversize"] = self.Oversize
+        # check cache
+        cachepath, cachevalid = self.VS.maincache.checkCache(cachename, cachekey, directory=True)
+        # up to workers to load/save cache
+        for facet in self.DicoImager.iterkeys():
+            self.APP.runJob("InitW.%s"%facet, "%s.%s" % (self.APP_id, "initFacetCF"), args=(facet, cachepath, cachevalid))
 
+    def awaitInitCompletion (self):
+        if not self.IsDDEGridMachineInit:
+            self.APP.awaitJobs("InitW.*")
+            self._CF.reload()
+            self.IsDDEGridMachineInit = True
+
+    def initFacetCF (self, facet, cachepath, cachevalid):
+        """Worker method of InitParal"""
+        path = "%s/%s.npz" % (cachepath, facet)
+        facet_dict = self._CF.addSubDict(facet)
+        # try to load the cache, and copy it to the shared facet dict
+        if cachevalid:
+            try:
+                npzfile = np.load(file(path))
+                for key, value in npzfile.iteritems():
+                    facet_dict[key] = value
+                return "cache"
+            except:
+                print>>log, "  error loading %s, will re-generate"%path
+        # ok, regenerate the terms at this point
+        FacetInfo = self.DicoImager[facet]
         # Create smoothned facet tessel mask:
-        Npix = DicoImager[iFacet]["NpixFacetPadded"]
-        l0, l1, m0, m1 = DicoImager[iFacet]["lmExtentPadded"]
+        Npix = FacetInfo["NpixFacetPadded"]
+        l0, l1, m0, m1 = FacetInfo["lmExtentPadded"]
         X, Y = np.mgrid[l0:l1:Npix * 1j, m0:m1:Npix * 1j]
         XY = np.dstack((X, Y))
         XY_flat = XY.reshape((-1, 2))
-        vertices = DicoImager[iFacet]["Polygon"]
+        vertices = FacetInfo["Polygon"]
         mpath = Path(vertices)  # the vertices of the polygon
         mask_flat = mpath.contains_points(XY_flat)
         mask = mask_flat.reshape(X.shape)
-        mpath = Path(CornersImageTot)
+        mpath = Path(self.CornersImageTot)
         mask_flat2 = mpath.contains_points(XY_flat)
         mask2 = mask_flat2.reshape(X.shape)
         mask[mask2 == 0] = 0
 
         GaussPars = (10, 10, 0)
 
-        SpacialWeigth = np.float32(mask.reshape((1, 1, Npix, Npix)))
-        SpacialWeigth = ModFFTW.ConvolveGaussian(SpacialWeigth,
-                                                 CellSizeRad=1,
-                                                 GaussPars=[GaussPars])
-        SpacialWeigth = SpacialWeigth.reshape((Npix, Npix))
-        SpacialWeigth /= np.max(SpacialWeigth)
-        NpShared.ToShared(NameSpacialWeight, SpacialWeigth)
+        # compute spatial weight term
+        sw = np.float32(mask.reshape((1, 1, Npix, Npix)))
+        sw = ModFFTW.ConvolveGaussian(sw, CellSizeRad=1, GaussPars=[GaussPars])
+        sw = sw.reshape((Npix, Npix))
+        sw /= np.max(sw)
+        facet_dict["SW"] = sw
 
-        # Initialize a grid machine per facet:
+        # Initialize a grid machine per facet, this will implicitly compute wterm and Sphe
         ClassDDEGridMachine.ClassDDEGridMachine(
-            GD, DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
-            DicoImager[iFacet]["DicoConfigGM"]["NPix"],
-            DicoImager[iFacet]["lmShift"],
-            iFacet, SpheNorm, NFreqBands,
-            DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores=None,
-            wterm=NameWTerm, sphe=NameSphe,
+            self.GD, FacetInfo["DicoConfigGM"]["ChanFreq"],
+            FacetInfo["DicoConfigGM"]["NPix"],
+            FacetInfo["lmShift"],
+            facet,
+            SpheNorm=self.SpheNorm,
+            NFreqBands=self.VS.NFreqBands,
+            DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+            ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds(),
+            ListSemaphores=None,
+            cf_dict=facet_dict,
             compute_cf=True)
 
-        return {"iFacet": iFacet}
-
-    def InitParallel(self, Parallel=True):
-        """
-        Does initialization routines (e.g. gridding machine initialization)
-        in parallel.
-        Args:
-            Parallel: Can force the initialization to serial if this
-            is set to false.
-        Post-conditions:
-            self.SpacialWeigth, the tesselation area weights are set to
-            those computed by the workers.
-
-        """
-        NFacets = len(self.DicoImager.keys())
-        # check if w-kernels, spacial weights, etc. are cached
-        cachekey = dict(ImagerCF=self.GD["CF"], ImagerMainFacet=self.GD["Image"])
-        cachename = "FacetData"
-        # in oversize-PSF mode, make separate cache for PSFs
-        if self.DoPSF and self.Oversize != 1:
-            cachename = "FacetPSF"
-            cachekey["Oversize"] = self.Oversize
-        cachepath, cachevalid = self.VS.maincache.checkCache(cachename, cachekey, directory=True)
-        loaded = False
-        while not loaded:
-            if not cachevalid:
-                joblist = [ (iFacet,
-                                self.VS.maincache.getCacheURL(cachename+"/SW", facet=iFacet),
-                                self.VS.maincache.getCacheURL(cachename+"/WTerm", facet=iFacet),
-                                self.VS.maincache.getCacheURL(cachename+"/Sphe", facet=iFacet)) for iFacet in xrange(NFacets) ]
-
-                procpool = Multiprocessing.ProcessPool(self.GD)
-                procpool.runjobs(joblist, title="Init W", target=self._init_w_worker_tessel,
-                                    kwargs=dict(GD=self.GD,
-                                                DicoImager=self.DicoImager,
-                                                SpheNorm=self.SpheNorm,
-                                                NFreqBands=self.VS.NFreqBands,
-                                                DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-                                                ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds(),
-                                                CornersImageTot=self.CornersImageTot))
-                self.VS.maincache.saveCache(cachename)
-            else:
-                print>>log,"loading W kernels from cache %s"%cachepath
-            # now load cached spatial weights, wterms and spheroidals from cache and lock them into memory
-            self._wterms = {}
-            self._sphes = {}
-            for iFacet in sorted(self.DicoImager.keys()):
-                sw = NpShared.GiveArray(self.VS.maincache.getCacheURL(cachename+"/SW", facet=iFacet))
-                wterm = NpShared.GiveArray(self.VS.maincache.getCacheURL(cachename+"/WTerm", facet=iFacet))
-                sphe = NpShared.GiveArray(self.VS.maincache.getCacheURL(cachename+"/Sphe", facet=iFacet))
-                # if loading from cache, failure is permitted -- go back and regenerate
-                # if loading from just-generated files, failure means something is truly wrong
-                if sw is None or wterm is None or sphe is None:
-                    if cachevalid:
-                        print>>log, ModColor.Str("  Failed to load from cache. Cache invalid? Will re-generate")
-                        # re-check cache with reset=True: this means cache will be deleted
-                        # this is in case it got corrupted (due e.g. to previous run being interrupted)
-                        self.VS.maincache.checkCache(cachename, cachekey, directory=True, reset=True)
-                        cachevalid = False  # go back up to regenerate w-terms
-                        break
-                    else:
-                        raise RuntimeError,"failed to load W terms into main process."
-                self.SpacialWeigth[iFacet] = sw.copy()
-                self._wterms[iFacet] = wterm.copy()
-                self._sphes[iFacet] = sphe.copy()
-            # loaded all? We're ok then
-            else:
-                loaded = True
-        print>> log, "loaded W kernels into memory"
-
-        return True
+        # save cache
+        np.savez(file(path, "w"), **facet_dict)
+        return "compute"
 
     def setCasaImage(self, ImageName=None, Shape=None, Freqs=None, Stokes=["I"]):
         if ImageName is None:

@@ -37,6 +37,7 @@ from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
 import traceback
 from DDFacet.Other import Multiprocessing
+from DDFacet.Other.AsyncProcessPool import AsyncProcessPool
 import cPickle
 
 log=MyLogger.getLogger("ClassImagerDeconv")
@@ -148,11 +149,13 @@ class ClassImagerDeconv():
         mslist = ClassMS.expandMSList(DC["Data"]["MS"],
                                       defaultDDID=DC["Selection"]["DDID"],
                                       defaultField=DC["Selection"]["Field"])
+        self.APP = AsyncProcessPool(ncpu=self.GD["Parallel"]["NCPU"], affinity=self.GD["Parallel"]["Affinity"])
 
         self.VS=ClassVisServer.ClassVisServer(mslist,
                                               ColName=DC["Data"]["ColName"],
                                               TChunkSize=DC["Data"]["ChunkHours"],
-                                              GD=self.GD)
+                                              GD=self.GD,
+                                              APP=self.APP)
 
         if self.DoDeconvolve:
             self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
@@ -193,28 +196,45 @@ class ClassImagerDeconv():
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
 
-            self.InitFacetMachine()
+            self.CreateFacetMachine()
+            self.FacetMachine.Init()
             self.VS.setFacetMachine(self.FacetMachine)
-            self.VS.CalcWeights()
 
+        # all internal state initialized -- start the worker threads
+        self.APP.startWorkers()
+        # and proceed with background tasks
+        self.VS.CalcWeightsBackground()
+        self.FacetMachine.InitBackground()
 
-    def InitFacetMachine(self):
-        if self.FacetMachine is not None:
-            return
+    def CreateFacetMachines (self, data=True, psf=True):
+        """Creates FacetMachines for data and/or PSF"""
+        self.FacetMachine = self.FacetMachinePSF = None
+        MainFacetOptions = self.GiveMainFacetOptions()
+        if data:
+            self.FacetMachine = ClassFacetMachine(self.VS, self.GD,
+                                                Precision=self.Precision, PolMode=self.PolMode,
+                                                APP=self.APP, APP_id="FM")
+            self.FacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
+        if psf:
+            if self.PSFFacets:
+                print>> log, "the PSFFacets version is currently not supported, using 0 (i.e. same facets as image)"
+                self.PSFFacets = 0
+            oversize = self.GD["Image"]["PSFOversize"] or 1
+            MainFacetOptions = self.GiveMainFacetOptions()
+            if self.PSFFacets:
+                MainFacetOptions["NFacets"] = self.PSFFacets
+                print>> log, "using %d facets to compute the PSF" % self.PSFFacets
+                if self.PSFFacets == 1:
+                    oversize = 1
+                    print>> log, "PSFFacets=1 implies PSFOversize=1"
+            print>> log, "using PSFOversize=%.2f" % oversize
+            self.FacetMachinePSF = ClassFacetMachine(self.VS, self.GD,
+                                                Precision=self.Precision, PolMode=self.PolMode,
+                                                DoPSF=True,
+                                                Oversize=oversize)
 
-        self.FacetMachine=ClassFacetMachine(self.VS,
-                                            self.GD,
-                                            Precision=self.Precision,
-                                            PolMode=self.PolMode,
-                                            Parallel=self.Parallel)
-
-        MainFacetOptions=self.GiveMainFacetOptions()
-
-        self.FacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
-        self.FacetMachine.Init()
-
-        self.CellSizeRad=(self.FacetMachine.Cell/3600.)*np.pi/180
-        self.CellArcSec=self.FacetMachine.Cell
+        self.CellArcSec = (self.FacetMachine or self.FaceMachinePSF).Cell
+        self.CellSizeRad = (self.CellArcSec/3600.)*np.pi/180
 
     def setNextData (self, keep_data=False, null_data=False):
         try:
@@ -262,7 +282,7 @@ class ClassImagerDeconv():
                 print>> log, "PSFFacets=1 implies PSFOversize=1"
         print>> log, "using PSFOversize=%.2f" % oversize
         FacetMachinePSF = ClassFacetMachine(self.VS, self.GD,
-                                            Precision=self.Precision, PolMode=self.PolMode, Parallel=self.Parallel,
+                                            Precision=self.Precision, PolMode=self.PolMode,
                                             DoPSF=True,
                                             Oversize=oversize)
         FacetMachinePSF.appendMainField(ImageName="%s.psf" % self.BaseName, **MainFacetOptions)
@@ -362,7 +382,6 @@ class ClassImagerDeconv():
             sparsify: sparsification factor applied to data. 0 means calculate the most precise dirty possible.
         """
 
-        self.InitFacetMachine()
         # keep separate facet machine for the PSF, if necessary
         self.FacetMachinePSF = None
 
