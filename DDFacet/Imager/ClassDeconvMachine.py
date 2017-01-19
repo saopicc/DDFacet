@@ -206,7 +206,8 @@ class ClassImagerDeconv():
         # and proceed with background tasks
         self.VS.CalcWeightsBackground()
         self.FacetMachine and self.FacetMachine.InitBackground()
-        self.FacetMachinePSF and self.FacetMachinePSF.InitBackground()
+        # FacetMachinePSF will skip CF init if they match those of FacetMachine
+        self.FacetMachinePSF and self.FacetMachinePSF.InitBackground(other_fm=self.FacetMachine)
 
     def CreateFacetMachines (self):
         """Creates FacetMachines for data and/or PSF"""

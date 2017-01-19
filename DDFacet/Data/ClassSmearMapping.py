@@ -25,53 +25,67 @@ from DDFacet.Other import MyLogger
 from DDFacet.Array import NpShared
 log = MyLogger.getLogger("ClassSmearMapping")
 
-from DDFacet.Other import Multiprocessing
+from DDFacet.Other import Multiprocessing, ClassTimeIt
 from DDFacet.Array import SharedDict
 
 bda_dicts = {}
 
 class SmearMappingMachine (object):
-    def __init__ (self, APP):
+    def __init__ (self, APP, APP_id="SmearMappingMachine"):
         self.outdict = SharedDict.create("BDAtmp")
         self.APP = APP
-        self.APP.registerJobHandlers(ComputeSmearMapping=SmearMappingMachine._smearmapping_worker)
+        self.APP_id = APP_id
+        self.APP.registerJobHandlers(**{APP_id:self})
         self.APP.registerJobCounters("BDA.Grid", "BDA.Degrid")
+        self._data = self._blockdict = self._sizedict = None
 
-    @staticmethod
-    def _smearmapping_worker(data_dict_name, out_dict_name, a0, a1, dPhi, l, channel_mapping):
-        DATA = SharedDict.attach(data_dict_name)
-        OUT = SharedDict.attach(out_dict_name)
-        BlocksRowsListBL, BlocksSizesBL, _ = GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l, channel_mapping)
+    def _smearmapping_worker(self, data_dict_path, blockdict_path, sizedict_path, a0, a1, dPhi, l, channel_mapping):
+        t = ClassTimeIt.ClassTimeIt()
+        t.disable()
+        # if data dict has changed, then reload data dict (if this process is looking at a different one)
+        if self._data is None or self._data.path != data_dict_path:
+            self._data = SharedDict.attach(data_dict_path)
+            t.timeit(data_dict_path)
+        if self._blockdict is None or self._blockdict.path != blockdict_path:
+            self._blockdict = SharedDict.attach(blockdict_path, load=False)
+            t.timeit(blockdict_path)
+        if self._sizedict is None or self._sizedict.path != sizedict_path:
+            self._sizedict = SharedDict.attach(sizedict_path, load=False)
+            t.timeit(sizedict_path)
+        BlocksRowsListBL, BlocksSizesBL, _ = GiveBlocksRowsListBL(a0, a1, self._data, dPhi, l, channel_mapping)
+        t.timeit('compute')
         if BlocksRowsListBL is not None:
             key = "%d:%d" % (a0,a1)
-            OUT["sizes"][key]  = np.array(BlocksSizesBL)
-            OUT["blocks"][key] = np.array(BlocksRowsListBL)
+            self._sizedict[key]  = np.array(BlocksSizesBL)
+            self._blockdict[key] = np.array(BlocksRowsListBL)
+            t.timeit('store')
 
     def computeSmearMappingInBackground (self, base_job_id, MS, DATA, entry, radiusDeg, Decorr, channel_mapping):
         l = radiusDeg * np.pi / 180
         dPhi = np.sqrt(6. * (1. - Decorr))
-        outdict = SharedDict.attach("BDAtmp").addSubDict(entry)
-        outdict.addSubDict("blocks")
-        outdict.addSubDict("sizes")
+        # create new empty shared dicts for results
+        outdict = SharedDict.create("%s:%s:tmp" %(DATA.path, entry))
+        blockdict = outdict.addSubDict("blocks")
+        sizedict  = outdict.addSubDict("sizes")
         for a0 in xrange(MS.na):
             for a1 in xrange(MS.na):
                 if a0 != a1:
-                    self.APP.runJob("%s:%s:%d:%d" % (base_job_id, entry, a0, a1),"ComputeSmearMapping",
+                    self.APP.runJob("%s:%s:%d:%d" % (base_job_id, entry, a0, a1),"%s._smearmapping_worker"%self.APP_id,
                                    counter=entry, collect_result=False,
-                                   args=(DATA.path, outdict.path, a0, a1, dPhi, l, channel_mapping))
+                                   args=(DATA.path, blockdict.path, sizedict.path, a0, a1, dPhi, l, channel_mapping))
 
     def collectSmearMapping (self, DATA, entry):
         self.APP.awaitJobCompletion(entry)
-        resdict = SharedDict.attach("BDAtmp")[entry]
-        size_dict = resdict["sizes"]
-        blocks_dict = resdict["blocks"]
+        outdict = SharedDict.attach("%s:%s:tmp" % (DATA.path, entry))
+        blockdict = outdict["blocks"]
+        sizedict  = outdict["sizes"]
         # process worker results
         # for each map (each array returned from worker), BlockSizes[MapName] will
         # contain a list of BlocksSizesBL entries returned from that worker
         NTotBlocks = 0
         NTotRows = 0
 
-        for bsz in size_dict.itervalues():
+        for bsz in sizedict.itervalues():
             NTotBlocks += len(bsz)
             NTotRows += bsz.sum()
 
@@ -88,8 +102,8 @@ class SmearMappingMachine (object):
         jjj = 0
 
         # now go through each per-baseline mapping, sorted by baseline
-        for key, BlocksSizesBL in size_dict.iteritems():
-            BlocksRowsListBL = blocks_dict[key]
+        for key, BlocksSizesBL in sizedict.iteritems():
+            BlocksRowsListBL = blockdict[key]
 
             FinalMapping[iii:iii+BlocksRowsListBL.size] = BlocksRowsListBL[:]
             iii += BlocksRowsListBL.size
@@ -110,9 +124,9 @@ class SmearMappingMachine (object):
         fact = (100.*(NVis-NTotBlocks)/float(NVis))
 
         # clear temp shared arrays/dicts
-        del size_dict
-        del blocks_dict
-        resdict.delete()
+        del sizedict
+        del blockdict
+        outdict.delete()
 
         return mapping, fact
 

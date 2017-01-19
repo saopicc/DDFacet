@@ -438,6 +438,17 @@ class ClassVisServer():
         print>>log, "  channel Mapping Gridding  : %s" % str(DATA["ChanMapping"])
         print>>log, "  channel Mapping DeGridding: %s" % str(DATA["ChanMappingDegrid"])
 
+        if freqs.size > 1:
+            DATA["freqs"] = np.float64(freqs)
+        else:
+            DATA["freqs"] = np.array([freqs[0]], dtype=np.float64)
+        DATA["dfreqs"] = ms.dFreq
+
+        DATA["nbl"] = nbl
+        DATA["na"] = ms.na
+        DATA["ROW0"] = ms.ROW0
+        DATA["ROW1"] = ms.ROW1
+
         self.computeBDAInBackground(dictname, ms, DATA,
             ChanMappingGridding=DATA["ChanMapping"],
             ChanMappingDeGridding=DATA["ChanMappingDegrid"])
@@ -448,16 +459,6 @@ class ClassVisServer():
         if self.AddNoiseJy is not None:
             data += (self.AddNoiseJy/np.sqrt(2.))*(np.random.randn(*data.shape)+1j*np.random.randn(*data.shape))
 
-        if freqs.size > 1:
-            DATA["freqs"] = np.float64(freqs)
-        else:
-            DATA["freqs"] = np.array([freqs[0]], dtype=np.float64)
-        DATA["dfreqs"] = ms.dFreq
-
-        DATA["nbl"]   = nbl
-        DATA["na"]    = ms.na
-        DATA["ROW0"]  = ms.ROW0
-        DATA["ROW1"]  = ms.ROW1
 
         ## load weights. Note that an all-flagged chunk of data is marked by a null weights file.
         ## so we check it here to go on to the next chunk as needed

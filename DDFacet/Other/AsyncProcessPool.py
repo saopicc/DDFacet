@@ -392,7 +392,7 @@ class AsyncProcessPool (object):
                             raise KeyError("Unknown jobitem object '%s'"%objname)
                         event = self._events[eventname] if eventname else None
                         if self.verbose > 1:
-                            print>> log, "calling %s.%s" % (objname, method)
+                            print>> log, "job %s: calling %s.%s" % (job_id, objname, method)
                         if method is None:
                             # call object directly
                             result = obj(*args, **kwargs)

@@ -494,7 +494,15 @@ class ClassFacetMachine():
         #     A = ModFFTW.GiveFFTW_aligned(self.PaddedGridShape, np.complex64)
         #     NpShared.ToShared("%sFFTW.%i" % (self.IdSharedMem, iFacet), A)
 
-    def InitBackground (self):
+    def InitFromOther (self, other_fm):
+        self._CF = other_fm._CF
+
+    def InitBackground (self, other_fm=None):
+        # if we have another FacetMachine supplied, check if the same CFs apply
+        if other_fm and self.Oversize == other_fm.Oversize:
+            self._CF = other_fm._CF
+            self.IsDDEGridMachineInit = True
+            return
         # check if w-kernels, spacial weights, etc. are cached
         cachekey = dict(ImagerCF=self.GD["CF"], ImagerMainFacet=self.GD["Image"])
         cachename = self._cf_cachename = "CF"

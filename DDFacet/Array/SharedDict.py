@@ -15,8 +15,8 @@ def _to_shm (path):
 
 _allowed_key_types = dict(int=int, str=str, bool=bool)
 
-def attach(name):
-    return SharedDict(name, reset=False)
+def attach(name, load=True):
+    return SharedDict(name, reset=False, load=load)
 
 def create(name):
     return SharedDict(name, reset=True)
@@ -30,7 +30,7 @@ class SharedDict (dict):
         if not os.path.exists(SharedDict.basepath):
             os.mkdir(SharedDict.basepath)
 
-    def __init__ (self, path, reset=True):
+    def __init__ (self, path, reset=True, load=True):
         dict.__init__(self)
         if path.startswith(SharedDict.basepath):
             self.path = path
@@ -38,7 +38,7 @@ class SharedDict (dict):
             self.path = os.path.join(SharedDict.basepath, path)
         if reset or not os.path.exists(self.path):
             self.clear()
-        else:
+        elif load:
             self.reload()
 
     def delete(self):
