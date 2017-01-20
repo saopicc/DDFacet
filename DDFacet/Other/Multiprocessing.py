@@ -23,6 +23,8 @@ import os, re, errno
 import Queue
 import multiprocessing
 import numpy as np
+import glob
+import re
 
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
@@ -97,15 +99,64 @@ class ProcessPool (object):
     def __init__ (self, GD=None, ncpu=None, affinity=None):
         self.GD = GD
         self.affinity = self.GD["Parallel"]["Affinity"] if affinity is None else affinity
-        self.cpustep = abs(self.affinity) or 1
-        self.ncpu = self.GD["Parallel"]["NCPU"] if ncpu is None else ncpu
-        maxcpu = psutil.cpu_count() / self.cpustep
-        # if NCPU is 0, set to number of CPUs on system
+        if isinstance(self.affinity, int):
+            self.cpustep = abs(self.affinity) or 1
+            self.ncpu = self.GD["Parallel"]["NCPU"] if ncpu is None else ncpu
+            maxcpu = psutil.cpu_count() / self.cpustep
+        elif isinstance(self.affinity, list):
+            if any(map(lambda x: x < 0, self.affinity)):
+                raise RuntimeError("Affinities must be list of positive numbers")
+            if psutil.cpu_count() < max(self.affinity):
+                raise RuntimeError("There are %d virtual threads on this system. Some elements of the affinity map are "
+                                   "higher than this. Check parset." % psutil.cpu_count())
+            self.ncpu = self.GD["Parallel"]["NCPU"] if ncpu is None else ncpu
+            if self.ncpu != len(self.affinity):
+                print>> log, ModColor.Str("Warning: NCPU does not match affinity list length. Falling back to "
+                                          "NCPU=%d" % len(self.affinity))
+            self.ncpu = self.ncpu if self.ncpu == len(self.affinity) else len(self.affinity)
+            maxcpu = max(self.affinity) + 1 # zero indexed list
+
+        elif isinstance(self.affinity, str) and str(self.affinity) == "autodetect":
+            # this works on Ubuntu so possibly Debian-like systems, no guarantees for the rest
+            # the mapping on hyperthread-enabled NUMA machines with multiple processors can get very tricky
+            # /sys/devices/system/cpu/cpu*/topology/thread_siblings_list should give us a list of siblings
+            # whereas core_siblings_list will give the list of sibling threads on the same physical processor
+            # for now lets not worry about assigning different jobs to physical cpus but for now keep things
+            # simple
+            hyperthread_sibling_lists = map(lambda x: x + "/topology/thread_siblings_list",
+                                            filter(lambda x: re.match(r"cpu[0-9]+", os.path.basename(x)),
+                                                   glob.glob("/sys/devices/system/cpu/cpu*")))
+            left_set = set([])
+            right_set = set([])
+            for siblings in hyperthread_sibling_lists:
+                with open(siblings) as f:
+                    l, r = map(int, f.readline().split(","))
+                    # cannot be sure the indices don't swap around at some point
+                    # since there are two copies of the siblings we need to
+                    # check that the items are not in the other sets before adding
+                    # them to the left and right sets respectively
+                    if l not in right_set:
+                        left_set.add(l)
+                    if r not in left_set:
+                        right_set.add(r)
+            self.affinity = list(left_set) # only consider 1 thread per core
+            self.ncpu = self.GD["Parallel"]["NCPU"] if ncpu is None else ncpu
+            if self.ncpu >= len(self.affinity):
+                print>> log, ModColor.Str("Warning: NCPU is more than the number of physical cores on "
+                                          "the system. I will only use %d cores." % len(self.affinity))
+            self.ncpu = self.ncpu if self.ncpu <= len(self.affinity) else len(self.affinity)
+            maxcpu = max(self.affinity) + 1 # zero indexed list
+        else:
+            raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list or "
+                               "'autodetect'")
+        # if NCPU is 0, use the maximum number of CPUs
         if not self.ncpu:
             self.ncpu = maxcpu
         elif self.ncpu > maxcpu:
-            print>>log,ModColor.Str("NCPU=%d is too high for this setup (%d cores, affinity %d)" %
-                                    (self.ncpu, psutil.cpu_count(), self.affinity))
+            print>>log,ModColor.Str("NCPU=%d is too high for this setup (%d cores, affinity %s)" %
+                                    (self.ncpu, psutil.cpu_count(),
+                                     self.affinity if isinstance(self.affinity, int)
+                                        else ",".join(map(str,self.affinity))))
             print>>log,ModColor.Str("Falling back to NCPU=%d" % (maxcpu))
             self.ncpu = maxcpu
         self.procinfo = psutil.Process()  # this will be used to control CPU affinity
@@ -137,22 +188,25 @@ class ProcessPool (object):
                 m_work_queue.put(item)  # possible issue if no space for 60 seconds
 
         # generate list of CPU cores for workers to run on
-        if not self.affinity or self.affinity == 1:
+        if isinstance(self.affinity, int) and (not self.affinity or self.affinity == 1):
             cores = range(self.ncpu)
-        elif self.affinity == 2:
+        elif isinstance(self.affinity, int) and self.affinity == 2:
             cores = range(0, self.ncpu*2, 2)
-        elif self.affinity == -2:
+        elif isinstance(self.affinity, int) and self.affinity == -2:
             cores = range(0, self.ncpu*2, 4) + range(1, self.ncpu*2, 4)
+        elif isinstance(self.affinity, list):
+            cores = self.affinity[:self.ncpu]
         else:
-            raise ValueError,"unknown affinity setting %d" % self.affinity
+            raise ValueError, "unknown affinity setting %d" % self.affinity
+
         # if fewer jobs than workers, reduce number of cores
         cores = cores[:len(joblist)]
         # create worker processes
         for cpu in cores:
             p = multiprocessing.Process(target=self._work_consumer,
-                    kwargs=dict(m_work_queue=m_work_queue, m_result_queue=m_result_queue,
-                                cpu=cpu, affinity=[cpu] if self.affinity else None,
-                                target=target, args=args, kwargs=kwargs))
+                kwargs=dict(m_work_queue=m_work_queue, m_result_queue=m_result_queue,
+                cpu=cpu, affinity=[cpu] if self.affinity else None,
+                target=target, args=args, kwargs=kwargs))
             procs.append(p)
 
         print>> log, "%s: starting %d workers for %d jobs%s" % (title or "", len(cores), len(joblist),
