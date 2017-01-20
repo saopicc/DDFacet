@@ -408,8 +408,7 @@ class ClassVisServer():
         DATA["iChunk"] = iChunk
         ms = self.ListMS[iMS]
 
-        print>> log, ModColor.Str("loading ms %d of %d, chunk %d of %d" % (
-            self.iCurrentMS + 1, self.nMS, self.iCurrentChunk + 1, ms.numChunks()), col="green")
+        print>> log, ModColor.Str("loading ms %d of %d, chunk %d of %d" % (iMS+1, self.nMS, iChunk+1, ms.numChunks()), col="green")
 
         ms.GiveChunk(DATA, iChunk, use_cache=self._use_data_cache,
                      read_data=not null_data, sort_by_baseline=self.GD["Data"]["Sort"])

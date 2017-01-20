@@ -433,6 +433,8 @@ class AsyncProcessPool (object):
             Runs worker loop on given queue. Waits on queue, picks off job items, looks them up in context table,
             calls them, and returns results in the work queue.
         """
+        if self.verbose > 0:
+            print>>log,ModColor.Str("started worker pid %d"%os.getpid())
         try:
             pill = True
             # While no poisoned pill has been given grab items from the queue.
