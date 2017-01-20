@@ -31,12 +31,11 @@ from DDFacet.Array import SharedDict
 bda_dicts = {}
 
 class SmearMappingMachine (object):
-    def __init__ (self, APP, APP_id="SmearMappingMachine"):
-        self.outdict = SharedDict.create("BDAtmp")
+    def __init__ (self, APP, name=None):
+        self.name = name or "SMM.%x"%id(self)
         self.APP = APP
-        self.APP_id = APP_id
         self.APP.registerJobHandlers(self)
-        self.APP.registerJobCounters("BDA.Grid", "BDA.Degrid")
+        self._job_counter = self.APP.createJobCounter(self.name)
         self._data = self._blockdict = self._sizedict = None
 
     def _smearmapping_worker(self, data_dict_path, blockdict_path, sizedict_path, a0, a1, dPhi, l, channel_mapping):
@@ -60,25 +59,27 @@ class SmearMappingMachine (object):
             self._blockdict[key] = np.array(BlocksRowsListBL)
             t.timeit('store')
 
-    def computeSmearMappingInBackground (self, base_job_id, MS, DATA, entry, radiusDeg, Decorr, channel_mapping):
+    def computeSmearMappingInBackground (self, base_job_id, MS, DATA, radiusDeg, Decorr, channel_mapping):
         l = radiusDeg * np.pi / 180
         dPhi = np.sqrt(6. * (1. - Decorr))
         # create new empty shared dicts for results
-        outdict = SharedDict.create("%s:%s:tmp" %(DATA.path, entry))
-        blockdict = outdict.addSubDict("blocks")
-        sizedict  = outdict.addSubDict("sizes")
+        self._outdict = SharedDict.create("%s:%s:tmp" %(DATA.path, self.name))
+        blockdict = self._outdict.addSubDict("blocks")
+        sizedict  = self._outdict.addSubDict("sizes")
+        self._nbl = 0
         for a0 in xrange(MS.na):
             for a1 in xrange(MS.na):
                 if a0 != a1:
-                    self.APP.runJob("%s:%s:%d:%d" % (base_job_id, entry, a0, a1), self._smearmapping_worker,
-                                   counter=entry, collect_result=False,
+                    self._nbl += 1
+                    self.APP.runJob("%s:%s:%d:%d" % (base_job_id, self.name, a0, a1), self._smearmapping_worker,
+                                   counter=self._job_counter, collect_result=False,
                                    args=(DATA.path, blockdict.path, sizedict.path, a0, a1, dPhi, l, channel_mapping))
 
-    def collectSmearMapping (self, DATA, entry):
-        self.APP.awaitJobCompletion(entry)
-        outdict = SharedDict.attach("%s:%s:tmp" % (DATA.path, entry))
-        blockdict = outdict["blocks"]
-        sizedict  = outdict["sizes"]
+    def collectSmearMapping (self, DATA, field):
+        self.APP.awaitJobCounter(self._job_counter, progress="Mapping %s"%self.name, total=self._nbl, timeout=1)
+        self._outdict.reload()
+        blockdict = self._outdict["blocks"]
+        sizedict  = self._outdict["sizes"]
         # process worker results
         # for each map (each array returned from worker), BlockSizes[MapName] will
         # contain a list of BlocksSizesBL entries returned from that worker
@@ -89,7 +90,7 @@ class SmearMappingMachine (object):
             NTotBlocks += len(bsz)
             NTotRows += bsz.sum()
 
-        mapping = DATA.addSharedArray(entry, (1 + 2 * NTotBlocks + NTotRows,), np.int32)
+        mapping = DATA.addSharedArray(field, (1 + 2 * NTotBlocks + NTotRows,), np.int32)
 
         FinalMappingHeader = mapping[:2*NTotBlocks+1]
         FinalMapping = mapping[2*NTotBlocks+1:]
@@ -126,7 +127,7 @@ class SmearMappingMachine (object):
         # clear temp shared arrays/dicts
         del sizedict
         del blockdict
-        outdict.delete()
+        self._outdict.delete()
 
         return mapping, fact
 

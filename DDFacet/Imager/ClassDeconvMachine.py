@@ -102,7 +102,6 @@ class ClassImagerDeconv():
         self.PSFSidelobesAvg = None
 
         self.VisWeights=None
-        self.DATA=None
         self.Precision=self.GD["Image"]["Precision"]#"S"
         self.PolMode=self.GD["Image"]["PolMode"]
         self.PSFFacets = self.GD["Image"]["PSFFacets"]
@@ -131,16 +130,8 @@ class ClassImagerDeconv():
             self._saveims = set(saveimages) | set(saveonly)
         self._savecubes = allchars if savecubes.lower() == "all" else set(savecubes)
 
-        # old_interface_saveims = self.GD["Output"]["SaveIms"]
-        # if "Model" in old_interface_saveims:
-        #     self._saveims.update("M")
-        # if "Alpha" in old_interface_saveims:
-        #     self._saveims.update("A")
-        # if "Model_i" in old_interface_saveims:
-        #     self._saveims.update("o")
-        # if "Residual_i" in old_interface_saveims:
-        #     self._saveims.update("e")
-        self._save_intermediate_grids = self.GD["Debug"]["SaveIntermediateDirtyImages"]
+        ## disabling this, as it doesn't play nice with in-place FFTs
+        # self._save_intermediate_grids = self.GD["Debug"]["SaveIntermediateDirtyImages"]
 
         # init process pool for parallelization
         Multiprocessing.initDefaultPool(GD=self.GD)
@@ -240,17 +231,6 @@ class ClassImagerDeconv():
 
         self.CellArcSec = (self.FacetMachine or self.FaceMachinePSF).Cell
         self.CellSizeRad = (self.CellArcSec/3600.)*np.pi/180
-
-    def setNextData (self, keep_data=False, null_data=False):
-        data = self.VS.LoadNextVisChunk(keep_data=keep_data, null_data=null_data)
-
-        if type(data) is str:
-            print>>log, ModColor.Str("Reached end condition (%s)" % data)
-            return data
-
-        self.DATA = data
-
-        return True
 
     def GiveMainFacetOptions(self):
         MainFacetOptions=self.GD["Image"].copy()
@@ -428,8 +408,12 @@ class ClassImagerDeconv():
 
             iloop = 0
             while True:
-                # get chunk from I/O thread, schedule next chunk
-                DATA = self.VS.collectLoadedChunk(start_next=True, rewind=False)
+                # note that collectLoadedChunk() will destroy the current DATA dict, so we must make sure
+                # the gridding jobs of the previous chunk are finished
+                self.FacetMachine.collectGriddingResults()
+                self.FacetMachinePSF and self.FacetMachinePSF.collectGriddingResults()
+                # get loaded chunk from I/O thread, schedule next chunk
+                DATA = self.VS.collectLoadedChunk(start_next=True)
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break
@@ -443,16 +427,17 @@ class ClassImagerDeconv():
                 self.FacetMachine.applySparsification(DATA, sparsify)
                 self.FacetMachine.putChunkInBackground(DATA)
                 self.FacetMachinePSF and self.FacetMachinePSF.putChunkInBackground(DATA)
-                # collect intermediate grids, if asked to
-                if self._save_intermediate_grids:
-                    self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
-                    self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty.%d."%(self.BaseName,iloop),
-                                                  Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                    if 'g' in self._savecubes:
-                        self.FacetMachine.ToCasaImage(self.DicoDirty["ImagData"],ImageName="%s.cube.dirty.%d"%(self.BaseName,iloop),
-                            Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                    self.FacetMachine.NormData = None
-                    self.FacetMachine.NormImage = None
+                ## disabled this, doesn't like in-place FFTs
+                # # collect intermediate grids, if asked to
+                # if self._save_intermediate_grids:
+                #     self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
+                #     self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty.%d."%(self.BaseName,iloop),
+                #                                   Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                #     if 'g' in self._savecubes:
+                #         self.FacetMachine.ToCasaImage(self.DicoDirty["ImagData"],ImageName="%s.cube.dirty.%d"%(self.BaseName,iloop),
+                #             Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                #     self.FacetMachine.NormData = None
+                #     self.FacetMachine.NormImage = None
 
                 iloop += 1
 
@@ -574,7 +559,7 @@ class ClassImagerDeconv():
                 from ClassMontblancMachine import ClassMontblancMachine
                 model = self.DeconvMachine.ModelMachine.GiveModelList()
                 mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                mb_machine.getChunk(self.DATA, self.VS.getVisibilityResiduals(), model, self.VS.CurrentMS)
+                mb_machine.getChunk(DATA, self.VS.getVisibilityResiduals(), model, self.VS.CurrentMS)
                 mb_machine.close()
             else:
                 raise ValueError("Invalid PredictMode '%s'" % PredictMode)
@@ -639,7 +624,7 @@ class ClassImagerDeconv():
             sparsify = 0
         if sparsify:
             print>> log, "applying a sparsification factor of %f to data for dirty image" % sparsify
-        self.GiveDirty(psf=True, sparsify=sparsify)
+        self.GiveDirty(psf=True, sparsify=sparsify)  # auto-rewind to first chunk to accelerate clean
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
@@ -659,6 +644,10 @@ class ClassImagerDeconv():
                 break
 
             print>>log, ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1))
+
+            # in the meantime, tell the I/O thread to go reload the first data chunk
+            self.VS.ReInitChunkCount()
+            self.VS.startChunkLoadInBackground()
 
             self.DeconvMachine.Update(DicoImage)
 
@@ -702,18 +691,22 @@ class ClassImagerDeconv():
             current_model_freqs = np.array([])
 
             while True:
-                # if writing predicted visibilities, tell VisServer to keep the original data
-                Res = self.setNextData(keep_data=predict_colname)
-
-                #if Res=="EndChunk": break
-                if Res=="EndOfObservation":
+                # note that collectLoadedChunk() will destroy the current DATA dict, so we must make sure
+                # the gridding jobs of the previous chunk are finished
+                self.FacetMachine.collectGriddingResults()
+                self.FacetMachinePSF and self.FacetMachinePSF.collectGriddingResults()
+                # get loaded chunk from I/O thread, schedule next chunk
+                DATA = self.VS.collectLoadedChunk(keep_data=True, start_next=True)
+                if type(DATA) is str:
+                    print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break
                 # sparsify the data according to current levels
-                self.FacetMachine.applySparsification(self.DATA, sparsify)
-                model_freqs = self.VS.CurrentChanMappingDegrid
+                self.FacetMachine.applySparsification(DATA, sparsify)
+                model_freqs = DATA["FreqMappingDegrid"]
                 ## redo model image if needed
                 if not np.array_equal(model_freqs, current_model_freqs):
                     ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)
+                    self.FacetMachine.setModelImage(ModelImage)
                     current_model_freqs = model_freqs
                     print>>log,"model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
                 else:
@@ -723,17 +716,18 @@ class ClassImagerDeconv():
                     print>>log,"last major cycle: model visibilities will be stored to %s"%predict_colname
 
                 if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder":
-                    self.FacetMachine.getChunk(ModelImage)
+                    self.FacetMachine.getChunkInBackground(DATA)
                 elif self.PredictMode == "Montblanc":
                     from ClassMontblancMachine import ClassMontblancMachine
                     model = self.DeconvMachine.ModelMachine.GiveModelList()
                     mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                    mb_machine.getChunk(self.DATA, self.VS.getVisibilityResiduals(), model, self.VS.CurrentMS)
+                    mb_machine.getChunk(DATA, self.VS.getVisibilityResiduals(), model, self.VS.CurrentMS)
                     mb_machine.close()
                 else:
                     raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
 
                 if predict_colname:
+                    self.FacetMachine.collectDegriddingResults()
                     data = self.VS.getVisibilityData()
                     resid = self.VS.getVisibilityResiduals()
                     # model is data minus residuals
@@ -741,9 +735,9 @@ class ClassImagerDeconv():
                     self.VS.CurrentMS.PutVisColumn(predict_colname, model)
                     data = resid = None
 
-                self.FacetMachine.putChunk()
+                self.FacetMachine.putChunkInBackground(DATA)
                 if do_psf:
-                    self.FacetMachinePSF.putChunk()
+                    self.FacetMachinePSF.putChunkInBackground(DATA)
 
             DicoImage = self.FacetMachine.FacetsToIm(NormJones=True)
             self.ResidCube  = DicoImage["ImagData"] #get residuals cube

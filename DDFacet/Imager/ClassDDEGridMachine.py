@@ -296,7 +296,7 @@ class ClassDDEGridMachine():
                  DataCorrelationFormat=[5, 6, 7, 8],
                  ExpectedOutputStokes=[1],
                  ListSemaphores=None,
-                 cf_dict=None, compute_cf=True,
+                 cf_dict=None, compute_cf=False,
                  bda_grid=None, bda_degrid=None,
                  ):
         """
@@ -418,18 +418,40 @@ class ClassDDEGridMachine():
         self.lmShift = lmShift
 
         T.timeit("4")
-        self.InitCF(cf_dict, compute_cf)
+        # if neither is set, then machine is being constructed for ffts only
+        if cf_dict or compute_cf:
+            self.InitCF(cf_dict, compute_cf)
+        T.timeit("5")
 
         self.reinitGrid()
         self.CasaImage = None
         self.DicoATerm = None
-        T.timeit("5")
+        T.timeit("6")
         self.DataCorrelationFormat = DataCorrelationFormat
         self.ExpectedOutputStokes = ExpectedOutputStokes
+        self._fftw_machine = None
+
+    # make sure an FFTW machine is initialized only once per process, and only as needed
+    _global_fftw_machines = {}
+
+    @staticmethod
+    def _getGlobalFFTWMachine (*args):
+        """Returns an FFTWMachine matching the arguments.
+        Makes sure an FFTW machine is initialized only once per process, and only as needed.
+        """
+        machine = ClassDDEGridMachine._global_fftw_machines.get(args)
+        if machine is None:
+            ClassDDEGridMachine._global_fftw_machines[args] = machine = ModFFTW.FFTW_2Donly(*args)
+        return machine
+
+    def getFFTWMachine (self):
+        if self._fftw_machine is None:
+            self._fftw_machine = self._getGlobalFFTWMachine(self.GridShape, self.dtype)
+        return self._fftw_machine
 
     def InitCF(self, cf_dict, compute_cf):
-        self.FFTWMachine = ModFFTW.FFTW_2Donly(
-            self.GridShape, self.dtype, ncores=1)
+        T = ClassTimeIt.ClassTimeIt("InitCF_ClassDDEGridMachine")
+        T.disable()
         self.WTerm = ModCF.ClassWTermModified(Cell=self.Cell,
                                               Sup=self.Sup,
                                               Npix=self.Npix,
@@ -441,6 +463,7 @@ class ClassDDEGridMachine():
                                               cf_dict=cf_dict,
                                               compute_cf=compute_cf,
                                               IDFacet=self.IDFacet)
+        T.timeit("2")
         self.ifzfCF = self.WTerm.ifzfCF
 
     def setSols(self, times, xi):
@@ -836,7 +859,7 @@ class ClassDDEGridMachine():
         if TranformModelInput == "FT":
             if np.max(np.abs(ModelImage)) == 0:
                 return vis
-            Grid = np.complex64(self.FFTWMachine.fft(np.complex128(ModelImage)))
+            Grid = np.complex64(self.getFFTWMachine().fft(np.complex128(ModelImage)))
 
         if freqs.size > 1:
             df = freqs[1::] - freqs[0:-1]
@@ -997,6 +1020,6 @@ class ClassDDEGridMachine():
 
     def GridToIm(self, Grid):
         Grid *= (self.WTerm.OverS)**2
-        Dirty = self.FFTWMachine.ifft(Grid)
+        Dirty = self.getFFTWMachine().ifft(Grid)
 
         return Dirty

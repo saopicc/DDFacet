@@ -55,12 +55,56 @@ class JobCounterPool(object):
     """Implements a condition variable that is a counter. Typically used to keep track of the number of pending jobs
     of a particular type, and to block until all are complete"""
 
+    class JobCounter(object):
+        def __init__ (self, pool, name=None):
+            self.name = name or "%x"%id(self)
+            self._cond = multiprocessing.Condition()
+            self._pool = pool
+            pool._register(self)
+
+        def increment(self):
+            """Increments the counter"""
+            with self._cond:  # acquire lock
+                self._pool._counters_array[self.index_in_pool] += 1
+
+        def decrement(self):
+            """Decrements the named counter. When it gets to zero, notifies any waiting processes."""
+            with self._cond:  # acquire lock
+                self._pool._counters_array[self.index_in_pool] -= 1
+                # if decremented to 0, notify callers
+                if self._pool._counters_array[self.index_in_pool] <= 0:
+                    self._cond.notify_all()
+
+        def getValue(self):
+            with self._cond:
+                return self._pool._counters_array[self.index_in_pool]
+
+        def awaitZero(self):
+            with self._cond:  # acquire lock
+                while self._pool._counters_array[self.index_in_pool] != 0:
+                    self._cond.wait()
+            return 0
+
+        def awaitZeroWithTimeout(self, timeout):
+            with self._cond:  # acquire lock
+                if not self._pool._counters_array[self.index_in_pool]:
+                    return 0
+                self._cond.wait(timeout)
+                return self._pool._counters_array[self.index_in_pool]
+
     def __init__(self):
-        """Creates a named counter, stores it in global map"""
         self._counters = OrderedDict()
         self._counters_array = None
 
-    def start(self, shared_dict):
+    def new(self, name=None):
+        """Creates a new counter and registers this in this pool"""
+        return JobCounterPool.JobCounter(self, name)
+
+    def get(self, counter_id):
+        """Returns counter object corresponding to ID"""
+        return self._counters[counter_id]
+
+    def finalize(self, shared_dict):
         """Called in parent process to complete initialization of all counters"""
         if os.getpid() != parent_pid:
             raise RuntimeError("This method can only be called in the parent process. This is a bug.")
@@ -68,37 +112,16 @@ class JobCounterPool(object):
             raise RuntimeError("Workers already started. This is a bug.")
         self._counters_array = shared_dict.addSharedArray("Counters", (len(self._counters),), np.int32)
 
-    def add(self, name):
-        """Adds a named counter to the pool"""
-        if name in self._counters:
-            raise RuntimeError,"job counter %s already exists. This is a bug."%name
+    def _register(self, counter):
+        cid = id(counter)
+        if cid in self._counters:
+            raise RuntimeError,"job counter %s already exists. This is a bug."%cid
         if os.getpid() != parent_pid:
             raise RuntimeError("This method can only be called in the parent process. This is a bug.")
         if self._counters_array is not None:
             raise RuntimeError("Workers already started. This is a bug.")
-        index = len(self._counters)
-        self._counters[name] = multiprocessing.Condition(), index
-
-    def increment(self, name):
-        """Increments the named counter"""
-        condition, index = self._counters[name]
-        with condition:  # acquire lock
-            self._counters_array[index] += 1
-
-    def decrement(self, name):
-        """Decrements the named counter. When it gets to zero, notifies any waiting processes."""
-        condition, index = self._counters[name]
-        with condition:  # acquire lock
-            self._counters_array[index] -= 1
-            # if decremented to 0, notify callers
-            if self._counters_array[index] <= 0:
-                condition.notify_all()
-
-    def await(self, name):
-        condition, index = self._counters[name]
-        with condition:  # acquire lock
-            while self._counters_array[index] > 0:
-                condition.wait()
+        counter.index_in_pool = len(self._counters)
+        self._counters[cid] = counter
 
 
 class AsyncProcessPool (object):
@@ -168,17 +191,16 @@ class AsyncProcessPool (object):
             raise RuntimeError("Workers already started. This is a bug.")
         self._events.update(dict([(name,multiprocessing.Event()) for name in args]))
 
-    def registerJobCounters (self, *args):
+    def createJobCounter (self, name=None):
         if os.getpid() != parent_pid:
             raise RuntimeError("This method can only be called in the parent process. This is a bug.")
         if self._started:
             raise RuntimeError("Workers already started. This is a bug.")
-        for name in args:
-            self._job_counters.add(name)
+        return self._job_counters.new(name)
 
     def startWorkers(self):
         """Starts worker threads. All job handlers and events must be registered *BEFORE*"""
-        self._job_counters.start(self._shared_state)
+        self._job_counters.finalize(self._shared_state)
         for proc in self._compute_workers + self._io_workers:
             proc.start()
         self._started = True
@@ -195,7 +217,7 @@ class AsyncProcessPool (object):
             io:     if None, job is placed on compute queues. If 0/1/..., job is placed on an I/O queue of the given level
             event:  if not None, then the named event will be raised when the job is complete.
                     Otherwise, the job is a singleton, handled via the events directory.
-            counter: if not None, the job will be associated with a job counter, which will be incremented upon runJob(),
+            counter: if set to a JobCounter object, the job will be associated with a job counter, which will be incremented upon runJob(),
                     and decremented when the job is complete.
             collect_result: if True, job's result will be collected and returned via awaitJobResults().
                     This mode is only available in the parent process.
@@ -231,8 +253,9 @@ class AsyncProcessPool (object):
             eventobj = None
         # increment counter object
         if counter:
-            self._job_counters.increment(counter)
-        jobitem = dict(job_id=job_id, handler=(handler_id, method, handler_desc), event=event, counter=counter,
+            counter.increment()
+        jobitem = dict(job_id=job_id, handler=(handler_id, method, handler_desc), event=event,
+                       counter=counter and id(counter),
                        collect_result=collect_result,
                        args=args, kwargs=kwargs)
         if self.verbose > 2:
@@ -247,13 +270,21 @@ class AsyncProcessPool (object):
         if collect_result:
             self._results_map[job_id] = Job(job_id, jobitem, singleton=singleton)
 
-    def awaitJobCompletion (self, *counters):
+    def awaitJobCounter (self, counter, progress=None, total=None, timeout=10):
         if self.verbose > 2:
-            print>>log, "checking for job completion counters %s" % ", ".join(counters)
-        for name in counters:
-            self._job_counters.await(name)
+            print>> log, "  %s is complete" % counter.name
+        if progress:
+            current = counter.getValue()
+            total = total or current or 1
+            pBAR = ProgressBar('white', width=50, block='=', empty=' ',Title="  "+progress, HeaderSize=10, TitleSize=13)
+            pBAR.render(int(100.*(total-current)/total), '%4i/%i' % (total-current, total))
+            while current:
+                current = counter.awaitZeroWithTimeout(timeout)
+                pBAR.render(int(100. * (total - current) / total), '%4i/%i' % (total - current, total))
+        else:
+            counter.awaitZero()
             if self.verbose > 2:
-                print>> log, "  %s is complete" % name
+                print>> log, "  %s is complete" % counter.name
 
     def awaitEvents (self, *events):
         """
@@ -273,14 +304,15 @@ class AsyncProcessPool (object):
             if self.verbose > 2:
                 print>> log, "  %s is complete" % name
 
-    def awaitJobResults (self, *jobspecs):
+    def awaitJobResults (self, jobspecs, progress=None):
         """
         Waits for job(s) given by arguments to complete, and returns their results.
         Note that this only works for jobs scheduled by the same process, since each process has its own results map.
         A process will block indefinitely is asked to await on jobs scheduled by another process.
 
         Args:
-            *jobs: list of job IDs. Each ID can contain a wildcard e.g. "job*", to wait for multiple jobs.
+            jobspec: a job spec, or a list of job specs. Each spec can contain a wildcard e.g. "job*", to wait for
+            multiple jobs.
 
         Returns:
             a list of results. Each entry is the result returned by the job (if no wildcard), or a list
@@ -288,13 +320,17 @@ class AsyncProcessPool (object):
         """
         if os.getpid() != parent_pid:
             raise RuntimeError("This method can only be called in the parent process. This is a bug.")
+        if type(jobspecs) is str:
+            jobspecs = [ jobspecs ]
         # make a dict of all jobs still outstanding
         awaiting_jobs = {}  # this maps job_id to a set of jobspecs (if multiple) that it matches
         job_results = OrderedDict()   # this maps jobspec to a list of results
+        total_jobs = complete_jobs = 0
         for jobspec in jobspecs:
             matching_jobs = [job_id for job_id in self._results_map.iterkeys() if fnmatch.fnmatch(job_id, jobspec)]
             for job_id in matching_jobs:
                 awaiting_jobs.setdefault(job_id, set()).add(jobspec)
+            total_jobs += len(matching_jobs)
             job_results[jobspec] = len(matching_jobs), []
         # check dict of already returned results (perhaps from previous calls to awaitJobs). Remove
         # matching results, and assign them to appropriate jobspec lists
@@ -302,9 +338,13 @@ class AsyncProcessPool (object):
             if job_id in awaiting_jobs and job.complete:
                 for jobspec in awaiting_jobs[job_id]:
                     job_results[jobspec][1].append(job.result)
+                    complete_jobs += 1
                 if not job.singleton:
                     del self._results_map[job_id]
                 del awaiting_jobs[job_id]
+        if progress:
+            pBAR = ProgressBar('white', width=50, block='=', empty=' ',Title="  "+progress, HeaderSize=10, TitleSize=13)
+            pBAR.render(int(100.*complete_jobs/total_jobs), '%4i/%i' % (complete_jobs, total_jobs))
         if self.verbose > 1:
             print>>log, "checking job results: %s (%d still pending)"%(
                 ", ".join(["%s %d/%d"%(jobspec, len(results), njobs) for jobspec, (njobs, results) in job_results.iteritems()]),
@@ -324,6 +364,7 @@ class AsyncProcessPool (object):
                         pids_to_restart.append(w)
                         raise RuntimeError("a worker process has died on us \
                             with exit code %d. This is probably a bug." % w.exitcode)
+                continue
             # ok, dispatch the result
             job_id = result["job_id"]
             job = self._results_map.get(job_id)
@@ -334,13 +375,19 @@ class AsyncProcessPool (object):
             if job_id in awaiting_jobs:
                 for jobspec in awaiting_jobs[job_id]:
                     job_results[jobspec][1].append(result)
+                    complete_jobs += 1
                 if not job.singleton:
                     del self._results_map[job_id]
                 del awaiting_jobs[job_id]
+                if progress:
+                    pBAR.render(int(100.*complete_jobs/total_jobs), '%4i/%i' % (complete_jobs, total_jobs))
             # print status update
             if self.verbose > 1:
                 print>>log,"received job results %s" % " ".join(["%s:%d"%(jobspec, len(results)) for jobspec, (_, results)
                                                              in job_results.iteritems()])
+        # render complete
+        if progress:
+            pBAR.render(int(100. * complete_jobs / total_jobs), '%4i/%i' % (complete_jobs, total_jobs))
         # process list of results for each jobspec to check for errors
         for jobspec, (njobs, results) in job_results.iteritems():
             times = np.array([ res['time'] for res in results ])
@@ -401,15 +448,21 @@ class AsyncProcessPool (object):
                 if jobitem == "POISON-E":
                     break
                 elif jobitem is not None:
-                    event = None
+                    event = counter = None
                     try:
-                        job_id, eventname, counter, args, kwargs = [jobitem.get(attr) for attr in
+                        job_id, eventname, counter_id, args, kwargs = [jobitem.get(attr) for attr in
                                                                     "job_id", "event", "counter", "args", "kwargs"]
                         handler_id, method, handler_desc = jobitem["handler"]
                         handler = self._job_handlers.get(handler_id)
                         if handler is None:
                             raise RuntimeError("Job %s: unknown handler %s. This is a bug." % (job_id, handler_desc))
                         event = self._events[eventname] if eventname else None
+                        # find counter object, if specified
+                        if counter_id:
+                            counter = self._job_counters.get(counter_id)
+                            if counter is None:
+                                raise RuntimeError("Job %s: unknown counter %s. This is a bug." % (job_id, counter_id))
+                        # call the job
                         if self.verbose > 1:
                             print>> log, "job %s: calling %s" % (job_id, handler_desc)
                         if method is None:
@@ -437,7 +490,7 @@ class AsyncProcessPool (object):
                         if event is not None:
                             event.set()
                         if counter is not None:
-                            self._job_counters.decrement(counter)
+                            counter.decrement()
 
         except KeyboardInterrupt:
             print>>log, ModColor.Str("Ctrl+C caught, exiting", col="red")

@@ -86,8 +86,9 @@ class ClassVisServer():
         self._use_data_cache = self.GD["Cache"]["VisData"]
         self.Init()
 
-        # smear mapping machine
-        self._smm = ClassSmearMapping.SmearMappingMachine(self.APP)
+        # smear mapping machines
+        self._smm_grid = ClassSmearMapping.SmearMappingMachine(self.APP, "BDA.Grid")
+        self._smm_degrid = ClassSmearMapping.SmearMappingMachine(self.APP, "BDA.Degrid")
 
     def Init(self, PointingID=0):
         self.ListMS = []
@@ -309,6 +310,7 @@ class ClassVisServer():
 #        self.RefFreq=np.mean(self.ListFreqs)
         self.RefFreq = np.mean(self.GlobalFreqs)
 
+        self.nTotalChunks = sum([ms.numChunks() for ms in self.ListMS])
         self.ReInitChunkCount()
 
         # TimesVisMin=np.arange(0,MS.DTh*60.,self.TVisSizeMin).tolist()
@@ -325,73 +327,67 @@ class ClassVisServer():
         AverageBeamMachine.CalcMeanBeam()
 
     def ReInitChunkCount(self):
-        if self.DATA is not None:
+        if self.nTotalChunks > 1 and self.DATA is not None:
             self.DATA.delete()
             self.DATA = None
         self.iCurrentMS = 0
         self.iCurrentChunk = 0
-        # for MS in self.ListMS:
-        #     MS.ReinitChunkIter()
         self.CurrentMS = self.ListMS[0]
-        # self.CurrentChanMapping = self.DicoMSChanMapping[0]
-        # self.CurrentChanMappingDegrid = self.FreqBandChannelsDegrid[0]
-        # #print>>log, (ModColor.Str("NextMS %s"%(self.CurrentMS.MSName),col="green") + (" --> freq. band %i"%self.CurrentFreqBand))
-
-    # def setNextMS(self):
-    #     if (self.iCurrentMS+1) == self.nMS:
-    #         print>>log, ModColor.Str("Reached end of MSList")
-    #         return "EndListMS"
-    #     else:
-    #         self.iCurrentMS += 1
-    #         self.CurrentMS = self.ListMS[self.iCurrentMS]
-    #         # self.CurrentChanMapping = self.DicoMSChanMapping[self.iCurrentMS]
-    #         # self.CurrentChanMappingDegrid = self.FreqBandChannelsDegrid[self.iCurrentMS]
-    #         return "OK"
 
     def startChunkLoadInBackground(self, keep_data=False, null_data=False):
-        """Called in main process. Initiates chunk load in background thread.
-        Returns None if we're at the last chunk, else True"""
+        """
+        Called in main process. Initiates chunk load in background thread.
+        Returns None if we're at the last chunk, else True.
+
+        Args:
+            keep_data: keep a copy of the visibilities in DATA["orig_data"]. DATA["data"] can be
+                       modified in-place.
+            null_data: do not read visibilities: allocate a null array for them instead
+        """
+        # if we only have one chunk to deal with, force keep_data to True. This means we can avoid
+        # re-reading the MS, and simply re-copy data from orig_data
+        if self.nTotalChunks == 1:
+            keep_data = True
         while self.iCurrentMS < len(self.ListMS):
             ms = self.ListMS[self.iCurrentMS]
             if self.iCurrentChunk < ms.numChunks():
-                print>> log, ModColor.Str("loading ms %d of %d, chunk %d of %d" % (
-                                self.iCurrentMS+1, self.nMS, self.iCurrentChunk+1, ms.numChunks()), col = "green")
                 self._next_chunk_name = "DATA:%d:%d" % (self.iCurrentMS, self.iCurrentChunk)
-                # create/empty a SharedDict for the data chunk
-                self._next_data_dict = SharedDict.create(self._next_chunk_name)
-                # tell the IO thread to start loading the chunk
-                self.APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
-                                args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk),
-                                kwargs=dict(keep_data=keep_data, null_data=null_data), io=0)
+                # in single-chunk mode, DATA may already be loaded, in which case we do nothing
+                if self.nTotalChunks > 1 or self.DATA is None:
+                    # tell the IO thread to start loading the chunk
+                    self.APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
+                                    args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk),
+                                    kwargs=dict(keep_data=keep_data, null_data=null_data), io=0)
                 self.iCurrentChunk += 1
                 return True
             else:
                 self.iCurrentMS += 1
                 self.iCurrentChunk = 0
         # got here? got past last MS then
-        self._next_chunk_name = self._next_data = None
+        self._next_chunk_name = None
         return None
 
-    def collectLoadedChunk(self, keep_data=False, null_data=False, start_next=True, rewind=True):
+    def collectLoadedChunk(self, keep_data=False, null_data=False, start_next=True):
         # previous data dict can now be discarded from shm
-        if self.DATA is not None:
+        if self.nTotalChunks > 1 and self.DATA is not None:
             self.DATA.delete()
             self.DATA = None
         # if no next chunk scheduled, we're at end
         if not self._next_chunk_name:
             return "EndOfObservation"
-        # await completion of data loading jobs (which, presumably, includes smear mapping)
-        self.APP.awaitJobResults(self._next_chunk_name)
-        # reload the data dict -- background thread will now have populated it
-        self.DATA = self._next_data_dict
-        self.DATA.reload()
-        self.CurrentMS = self.ListMS[self.iCurrentMS]
+        # in single-chunk mode, only read the MS once, then keep it forever,
+        # but re-copy visibility data from original data
+        if self.nTotalChunks == 1 and self.DATA is not None:
+            np.copyto(self.DATA["data"], self.DATA["orig_data"])
+        else:
+            # await completion of data loading jobs (which, presumably, includes smear mapping)
+            self.APP.awaitJobResults(self._next_chunk_name, progress="Reading data")
+            # reload the data dict -- background thread will now have populated it
+            self.DATA = SharedDict.attach(self._next_chunk_name)
+            self.CurrentMS = self.ListMS[self.iCurrentMS]
         # schedule next event
         if start_next:
-            # if out of chunks and rewind is enable, go back and load first chunk
-            if not self.startChunkLoadInBackground(keep_data=keep_data, null_data=null_data) and rewind:
-                self.ReInitChunkCount()
-                self.startChunkLoadInBackground(keep_data=keep_data, null_data=null_data)
+            self.startChunkLoadInBackground(keep_data=keep_data, null_data=null_data)
         # return the data dict
         return self.DATA
 
@@ -410,8 +406,11 @@ class ClassVisServer():
         DATA = SharedDict.create(dictname)
         DATA["iMS"]    = iMS
         DATA["iChunk"] = iChunk
-
         ms = self.ListMS[iMS]
+
+        print>> log, ModColor.Str("loading ms %d of %d, chunk %d of %d" % (
+            self.iCurrentMS + 1, self.nMS, self.iCurrentChunk + 1, ms.numChunks()), col="green")
+
         ms.GiveChunk(DATA, iChunk, use_cache=self._use_data_cache,
                      read_data=not null_data, sort_by_baseline=self.GD["Data"]["Sort"])
 
@@ -436,6 +435,7 @@ class ClassVisServer():
 
         DATA["ChanMapping"] = self.DicoMSChanMapping[iMS]
         DATA["ChanMappingDegrid"] = self.DicoMSChanMappingDegridding[iMS]
+        DATA["FreqMappingDegrid"] = self.FreqBandChannelsDegrid[iMS]
 
         print>>log, "  channel Mapping Gridding  : %s" % str(DATA["ChanMapping"])
         print>>log, "  channel Mapping DeGridding: %s" % str(DATA["ChanMappingDegrid"])
@@ -508,12 +508,12 @@ class ClassVisServer():
     def collectBDA(self, base_job_id, DATA):
         """Called in I/O thread. Waits for BDA computation to complete (if any), then populates dict"""
         if "BDA.Grid" not in DATA:
-            FinalMapping, fact = self._smm.collectSmearMapping(DATA, "BDA.Grid")
+            FinalMapping, fact = self._smm_grid.collectSmearMapping(DATA, "BDA.Grid")
             print>> log, ModColor.Str("  Effective compression [grid]  :   %.2f%%" % fact, col="green")
             np.save(file(self._bda_grid_cachename, 'w'), FinalMapping)
             self.cache.saveCache("BDA.Grid")
         if "BDA.Degrid" not in DATA:
-            FinalMapping, fact = self._smm.collectSmearMapping(DATA, "BDA.Degrid")
+            FinalMapping, fact = self._smm_degrid.collectSmearMapping(DATA, "BDA.Degrid")
             print>> log, ModColor.Str("  Effective compression [degrid]:   %.2f%%" % fact, col="green")
             DATA["BDA.Degrid"] = FinalMapping
             np.save(file(self._bda_degrid_cachename, 'w'), FinalMapping)
@@ -534,7 +534,7 @@ class ClassVisServer():
                 elif self.GD["Comp"]["GridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
-                self._smm.computeSmearMappingInBackground(base_job_id, ms, DATA, "BDA.Grid", FOV,
+                self._smm_grid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["GridDecorr"]),
                                                           ChanMappingGridding)
 
@@ -552,7 +552,7 @@ class ClassVisServer():
                 elif self.GD["Comp"]["DegridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
-                self._smm.computeSmearMappingInBackground(base_job_id, ms, DATA, "BDA.Degrid", FOV,
+                self._smm_degrid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["DegridDecorr"]),
                                                           ChanMappingDeGridding)
 
