@@ -42,7 +42,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from DDFacet.Other import MyLogger
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
-
+from DDFacet.Array import NpParallel
 log=MyLogger.getLogger("ClassFacetMachine")
 
 MyLogger.setSilent("MyLogger")
@@ -75,7 +75,7 @@ class ClassFacetMachine():
 
         self.HasFourierTransformed = False
 
-        self.NCPU = int(GD["Parallel"]["NCPU"])
+        self.NCPU = NpParallel.NCPU_global
 
         if Precision == "S":
             self.dtype = np.complex64

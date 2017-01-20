@@ -41,7 +41,7 @@ from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
 #except:
 #    print>> log, ModColor.Str("Failed to import the Genetic Algorithm Class (ClassEvolveGA)")
 #    #sys.exit(1)
-
+from DDFacet.Array import NpParallel
 import ClassIslandDistanceMachine
 
 MyLogger.setSilent("ClassArrayMethodSSD")
