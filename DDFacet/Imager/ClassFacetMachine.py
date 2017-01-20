@@ -90,7 +90,7 @@ class ClassFacetMachine():
         self.Parallel = True
         self.APP, self.APP_id = APP, APP_id
         if APP is not None:
-            APP.registerJobHandlers(**{APP_id:self})
+            APP.registerJobHandlers(self)
             APP.registerEvents("InitW")
 
         DicoConfigGM = {}
@@ -113,15 +113,14 @@ class ClassFacetMachine():
 
         self.NormData = None
         self.NormImage = None
-        self._facet_grids = self._facet_grid_names = None
+        self._facet_grids = self.DATA = None
+        self._grid_job_id = None
 
     def __del__(self):
         # print>>log,"Deleting shared memory"
         if self._facet_grids:
-            self._facet_grids = None
+            self._facet_grids.delete()
             del self.DicoGridMachine
-            for name in self._facet_grid_names.itervalues():
-                NpShared.DelArray(name)
 
     def SetLogModeSubModules(self, Mode="Silent"):
         SubMods = ["ModelBeamSVD", "ClassParam", "ModToolBox",
@@ -459,14 +458,10 @@ class ClassFacetMachine():
         Initialize either in parallel or serial
         """
         self.DicoGridMachine = {}
-
         for iFacet in self.DicoImager.keys():
             self.DicoGridMachine[iFacet] = {}
-
         self.setWisdom()
-        # subprocesses will place W-terms etc. here. Reset this first.
-        self._CF = SharedDict.create("CFPSF" if self.DoPSF else "CF")
-
+        self._CF = None
         self.IsDDEGridMachineInit = False
         self.SetLogModeSubModules("Loud")
 
@@ -494,15 +489,14 @@ class ClassFacetMachine():
         #     A = ModFFTW.GiveFFTW_aligned(self.PaddedGridShape, np.complex64)
         #     NpShared.ToShared("%sFFTW.%i" % (self.IdSharedMem, iFacet), A)
 
-    def InitFromOther (self, other_fm):
-        self._CF = other_fm._CF
-
     def InitBackground (self, other_fm=None):
         # if we have another FacetMachine supplied, check if the same CFs apply
         if other_fm and self.Oversize == other_fm.Oversize:
             self._CF = other_fm._CF
             self.IsDDEGridMachineInit = True
             return
+        # subprocesses will place W-terms etc. here. Reset this first.
+        self._CF = SharedDict.create("CFPSF" if self.DoPSF else "CF")
         # check if w-kernels, spacial weights, etc. are cached
         cachekey = dict(ImagerCF=self.GD["CF"], ImagerMainFacet=self.GD["Image"])
         cachename = self._cf_cachename = "CF"
@@ -513,8 +507,9 @@ class ClassFacetMachine():
         # check cache
         cachepath, cachevalid = self.VS.maincache.checkCache(cachename, cachekey, directory=True)
         # up to workers to load/save cache
-        for facet in self.DicoImager.iterkeys():
-            self.APP.runJob("%s.InitW.%s"%(self.APP_id, facet), "%s.%s" % (self.APP_id, "_worker_initFacetCF"), args=(facet, cachepath, cachevalid))
+        for iFacet in self.DicoImager.iterkeys():
+            self.APP.runJob("%s.InitW.f%s"%(self.APP_id, iFacet), self._worker_initFacetCF,
+                            args=(iFacet, self._CF.path, cachepath, cachevalid))
 
     def awaitInitCompletion (self):
         if not self.IsDDEGridMachineInit:
@@ -524,10 +519,12 @@ class ClassFacetMachine():
             self.VS.maincache.saveCache(self._cf_cachename)
             self.IsDDEGridMachineInit = True
 
-    def _worker_initFacetCF (self, facet, cachepath, cachevalid):
+    def _worker_initFacetCF (self, iFacet, cfdict_path, cachepath, cachevalid):
         """Worker method of InitParal"""
-        path = "%s/%s.npz" % (cachepath, facet)
-        facet_dict = self._CF.addSubDict(facet)
+        path = "%s/%s.npz" % (cachepath, iFacet)
+        if self._CF is None or self._CF.path != cfdict_path:
+            self._CF = SharedDict.attach(cfdict_path, load=False)
+        facet_dict = self._CF.addSubDict(iFacet)
         # try to load the cache, and copy it to the shared facet dict
         if cachevalid:
             try:
@@ -538,7 +535,7 @@ class ClassFacetMachine():
             except:
                 print>>log, "  error loading %s, will re-generate"%path
         # ok, regenerate the terms at this point
-        FacetInfo = self.DicoImager[facet]
+        FacetInfo = self.DicoImager[iFacet]
         # Create smoothned facet tessel mask:
         Npix = FacetInfo["NpixFacetPadded"]
         l0, l1, m0, m1 = FacetInfo["lmExtentPadded"]
@@ -563,12 +560,12 @@ class ClassFacetMachine():
         sw /= np.max(sw)
         facet_dict["SW"] = sw
 
-        # Initialize a grid machine per facet, this will implicitly compute wterm and Sphe
+        # Initialize a grid machine per iFacet, this will implicitly compute wterm and Sphe
         ClassDDEGridMachine.ClassDDEGridMachine(
             self.GD, FacetInfo["DicoConfigGM"]["ChanFreq"],
             FacetInfo["DicoConfigGM"]["NPix"],
             FacetInfo["lmShift"],
-            facet,
+            iFacet,
             SpheNorm=self.SpheNorm,
             NFreqBands=self.VS.NFreqBands,
             DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
@@ -612,27 +609,14 @@ class ClassFacetMachine():
         """
         return np.zeros(self.OutImShape, dtype=self.stitchedType)
 
-    def putChunk(self, *args, **kwargs):
+    def putChunkInBackground(self, DATA):
         """
-        Args:
-            *args: should consist of the following:
-                time nparray
-                uvw nparray
-                vis nparray
-                flags nparray
-                A0A1 tuple of antenna1 and antenna2 nparrays
-            **kwargs:
-                keyword args must include the following:
-                doStack
         """
         self.SetLogModeSubModules("Silent")
-        if not(self.IsDDEGridMachineInit):
-            self.Init()
-
-        if not(self.IsDirtyInit):
+        if not self.IsDirtyInit:
             self.ReinitDirty()
-
-        self.CalcDirtyImagesParallel(*args, **kwargs)
+        self.DATA = DATA
+        self.gridChunkInBackground()
         self.SetLogModeSubModules("Loud")
 
     def getChunk(self, *args, **kwargs):
@@ -673,6 +657,9 @@ class ClassFacetMachine():
             "SumWeights" = sum of visibility weights used in normalizing the gridded correlations
             "WeightChansImages" = normalized weights
         """
+        # wait for any outstanding grid jobs to finish
+        self.collectGriddingResults()
+
         if not self.HasFourierTransformed:
             self.FourierTransform()
             self.HasFourierTransformed = True
@@ -982,25 +969,24 @@ class ClassFacetMachine():
         self.SumWeights.fill(0)
         self.IsDirtyInit = True
         self.HasFourierTransformed = False
-        self._facet_grids = {}
-        self._facet_grid_names = {}
+        # are we creating a new grids dict?
+        if self._facet_grids is None:
+            self._facet_grids = SharedDict.create("PSFGrid" if self.DoPSF else "Grid")
 
         for iFacet in self.DicoGridMachine.keys():
             NX = self.DicoImager[iFacet]["NpixFacetPadded"]
-            if "Dirty" in self.DicoGridMachine[iFacet]:
-                self._facet_grids[iFacet] = self.DicoGridMachine[iFacet]["Dirty"]
-                self.DicoGridMachine[iFacet]["Dirty"][...] = 0
+            # init or zero grid array
+            grid = self._facet_grids.get(iFacet)
+            if grid is None:
+                grid = self._facet_grids.addSharedArray(iFacet, (self.VS.NFreqBands, self.npol, NX, NX), self.CType)
             else:
-                GridName = Multiprocessing.getShmURL("PSFGrid" if self.DoPSF else "Grid" , facet=iFacet)
-                ResidueGrid = NpShared.CreateShared(GridName,(self.VS.NFreqBands, self.npol, NX, NX), self.CType)
-                self._facet_grids[iFacet] = self.DicoGridMachine[iFacet]["Dirty"] = ResidueGrid
-                self._facet_grid_names[iFacet] = GridName
+                grid.fill(0)
+            self.DicoGridMachine[iFacet]["Dirty"] = grid
             self.DicoImager[iFacet]["SumWeights"] = np.zeros((self.VS.NFreqBands, self.npol), np.float64)
             self.DicoImager[iFacet]["SumJones"] = np.zeros((2, self.VS.NFreqBands), np.float64)
             self.DicoImager[iFacet]["SumJonesChan"] = []
             for iMS in xrange(self.VS.nMS):
-                MS = self.VS.ListMS[iMS]
-                nVisChan = MS.ChanFreq.size
+                nVisChan = self.VS.ListMS[iMS].ChanFreq.size
                 self.DicoImager[iFacet]["SumJonesChan"].append(np.zeros((2, nVisChan), np.float64))
 
     def applySparsification(self, DATA, factor):
@@ -1018,79 +1004,87 @@ class ClassFacetMachine():
             #DATA["Sparsification.Degrid"] = numpy.random.sample(num_blocks) < 1.0 / factor
             #print>> log, "applying sparsification factor of %f to %d BDA degrid blocks, left with %d" % (factor, num_blocks, DATA["Sparsification.Degrid"].sum())
 
-    # Gridding worker that is called by Multiprocessing.Process
-    @staticmethod
-    def _grid_worker(iFacet,
-                    GD, DATA, Grids, WTerms, Sphes, FFTW_Wisdom, DicoImager,
-                    DoPSF, SpheNorm, NFreqBands,
-                    DataCorrelationFormat, ExpectedOutputStokes):
+    def _grid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path):
         T = ClassTimeIt.ClassTimeIt()
         T.disable()
-        if FFTW_Wisdom is not None:
-            pyfftw.import_wisdom(FFTW_Wisdom)
-        # T.timeit("init %d" % iFacet)
-        ListSemaphores = None
+        ## FFTW wisdom already loaded by main process
+        # if FFTW_Wisdom is not None:
+        #     pyfftw.import_wisdom(FFTW_Wisdom)
+        # T.timeit("%s: import wisdom" % iFacet)
+        FacetInfo = self.DicoImager[iFacet]
+        # reload data dict, if this process has an old one
+        if self.DATA is None or datadict_path != self.DATA.path:
+            self.DATA = SharedDict.attach(datadict_path)
+            T.timeit("%s: reload data" % iFacet)
+        # reload CF dict, if this process has a different one
+        if self._CF is None or self._CF.path != cfdict_path or iFacet not in self._CF:
+            self._CF = SharedDict.attach(cfdict_path)
+        cf_dict = self._CF[iFacet]
+        # reload facet grids, if this process has an old one
+        if self._facet_grids is None or griddict_path != self._facet_grids.path:
+            self._facet_grids = SharedDict.attach(griddict_path)
         # Create a new GridMachine
         GridMachine = ClassDDEGridMachine.ClassDDEGridMachine(
-            GD, DicoImager[iFacet]["DicoConfigGM"]["ChanFreq"],
-            DicoImager[iFacet]["DicoConfigGM"]["NPix"],
-            DicoImager[iFacet]["lmShift"],
-            iFacet, SpheNorm, NFreqBands,
-            DataCorrelationFormat, ExpectedOutputStokes, ListSemaphores,
-            wterm=WTerms[iFacet], sphe=Sphes[iFacet],
-            bda_grid=DATA["BDAGrid"], bda_degrid=DATA["BDADegrid"])
-        T.timeit("create %d" % iFacet)
-        uvwThis = DATA["uvw"]
-        visThis = DATA["data"]
-        flagsThis = DATA["flags"]
-        times = DATA["times"]
-        A0 = DATA["A0"]
-        A1 = DATA["A1"]
-        A0A1 = A0, A1
-        W = DATA["Weights"]  ## proof of concept for now
-        freqs = DATA["freqs"]
-        ChanMapping = DATA["ChanMapping"]
+            self.GD,
+            FacetInfo["DicoConfigGM"]["ChanFreq"],
+            FacetInfo["DicoConfigGM"]["NPix"],
+            FacetInfo["lmShift"],
+            iFacet, self.SpheNorm, self.VS.NFreqBands,
+            self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+            self.VS.StokesConverter.RequiredStokesProductsIds(),
+            ListSemaphores=None,
+            cf_dict=cf_dict,
+            bda_grid=self.DATA["BDA.Grid"], bda_degrid=self.DATA["BDA.Degrid"])
+        T.timeit("%s: create GM" % iFacet)
 
-        DecorrMode = GD["DDESolutions"]["DecorrMode"]
+        uvwThis = self.DATA["uvw"]
+        visThis = self.DATA["data"]
+        flagsThis = self.DATA["flags"]
+        times = self.DATA["times"]
+        A0 = self.DATA["A0"]
+        A1 = self.DATA["A1"]
+        A0A1 = A0, A1
+        W = self.DATA["Weights"]  ## proof of concept for now
+        freqs = self.DATA["freqs"]
+        ChanMapping = self.DATA["ChanMapping"]
+
+        DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
         if ('F' in DecorrMode) or ("T" in DecorrMode):
-            uvw_dt = DATA["uvw_dt"]
-            DT, Dnu = DATA["MSInfos"]
+            uvw_dt = self.DATA["uvw_dt"]
+            DT, Dnu = self.DATA["MSInfos"]
             GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
 
         # Create Jones Matrices Dictionary
         DicoJonesMatrices = None
-        Apply_killMS = GD["DDESolutions"]["DDSols"]
-        Apply_Beam = GD["Beam"]["Model"] is not None
+        Apply_killMS = self.GD["DDESolutions"]["DDSols"]
+        Apply_Beam = self.GD["Beam"]["Model"] is not None
 
         if Apply_killMS or Apply_Beam:
             DicoJonesMatrices = {}
 
         if Apply_killMS:
-            DicoSols, TimeMapping, DicoClusterDirs = DATA["killMS"]
+            DicoSols, TimeMapping, DicoClusterDirs = self.DATA["killMS"]
             DicoJonesMatrices["DicoJones_killMS"] = DicoSols
             DicoJonesMatrices["DicoJones_killMS"]["MapJones"] = TimeMapping
             DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"] = DicoClusterDirs
             DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"] = None
 
         if Apply_Beam:
-            DicoSols, TimeMapping, DicoClusterDirs = DATA["Beam"]
+            DicoSols, TimeMapping, DicoClusterDirs = self.DATA["Beam"]
             DicoJonesMatrices["DicoJones_Beam"] = DicoSols
             DicoJonesMatrices["DicoJones_Beam"]["MapJones"] = TimeMapping
             DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"] = DicoClusterDirs
             DicoJonesMatrices["DicoJones_Beam"]["AlphaReg"] = None
 
-        # T.timeit("prepare %d"%iFacet)
-        # NpShared.Lock(W)
-        T.timeit("lock %d" % iFacet)
         GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                         DoNormWeights=False,
                         DicoJonesMatrices=DicoJonesMatrices,
-                        freqs=freqs, DoPSF=DoPSF,
+                        freqs=freqs, DoPSF=self.DoPSF,
                         ChanMapping=ChanMapping,
-                        ResidueGrid=Grids[iFacet],
-                        sparsification=DATA.get("Sparsification.Grid")
+                        ResidueGrid=self._facet_grids[iFacet],
+                        sparsification=self.DATA.get("Sparsification.Grid")
                         )
-        T.timeit("put %d" % iFacet)
+        T.timeit("put %s" % iFacet)
 
         Sw = GridMachine.SumWeigths.copy()
         SumJones = GridMachine.SumJones.copy()
@@ -1098,49 +1092,48 @@ class ClassFacetMachine():
 
         return {"iFacet": iFacet, "Weights": Sw, "SumJones": SumJones, "SumJonesChan": SumJonesChan}
 
-    def CalcDirtyImagesParallel(self):
+    def gridChunkInBackground(self):
         """
-        Grids a chunk of input visibilities onto many facets
-        Visibility data is already in shared memory (packed there by
-        VisServer.VisChunkToShared(), only the weights are passed as a string,
-        since they refer to an mmap()d file.
+        Grids a chunk of input visibilities onto many facets. Issues jobs to the compute threads.
+        Visibility data is already in the data shared dict.
+
+        """
+        # waiti for any init to finish
+        self.awaitInitCompletion()
+        # wait for any previous gridding jobs to finish, if still active
+        self.collectGriddingResults()
+        # run new set of jobs
+        self._grid_job_id = "%s.Grid.ms%d.ch%d:" % (self.APP_id, self.DATA["iMS"], self.DATA["iChunk"])
+        for iFacet in self.DicoImager.keys():
+            self.APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
+                            args=(iFacet, self.DATA.path, self._CF.path, self._facet_grids.path)
+                            )
+
+    def collectGriddingResults(self):
+        """
+        If any grid workers are still at work, waits for them to finish and collects the results.
+        Otherwise does nothing.
 
         Post conditions:
-        Sets the following normalization weights, as produced by the gridding process:
-            self.DicoImager[iFacet]["SumWeights"]
-            self.DicoImager[iFacet]["SumJones"]
-            self.DicoImager[iFacet]["SumJonesChan"][self.VS.iCurrentMS]
+            Updates the following normalization weights, as produced by the gridding process:
+                self.DicoImager[iFacet]["SumWeights"]
+                self.DicoImager[iFacet]["SumJones"]
+                self.DicoImager[iFacet]["SumJonesChan"][DATA["iMS"]]
         """
-        self.awaitInitCompletion()
-        NFacets = len(self.DicoImager.keys())
-        # our job list is just a list of facet numbers
-        joblist = range(NFacets)
-
-        procpool = Multiprocessing.ProcessPool(self.GD)
-
-        results = procpool.runjobs(joblist,
-            title="Gridding PSF" if self.DoPSF else "Gridding", target=self._grid_worker,
-            kwargs=dict(GD=self.GD,
-                    DATA=self.VS.DATA,
-                    Grids=self._facet_grids,
-                    WTerms=self._wterms,
-                    Sphes=self._sphes,
-                    FFTW_Wisdom=self.FFTW_Wisdom,
-                    DicoImager=self.DicoImager,
-                    DoPSF=self.DoPSF,
-                    SpheNorm=self.SpheNorm,
-                    NFreqBands=self.VS.NFreqBands,
-                    DataCorrelationFormat=self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-                    ExpectedOutputStokes=self.VS.StokesConverter.RequiredStokesProductsIds()),
-            pause_on_start=self.GD["Debug"]["PauseGridWorkers"])
-
-
+        # if this is set to None, then results already collected
+        if self._grid_job_id is None:
+            return
+        # collect results of grid workers
+        results = self.APP.awaitJobResults(self._grid_job_id+"*")
         for DicoResult in results:
+            # if we hit a returned exception, raise it again
+            if isinstance(DicoResult, Exception):
+                raise DicoResult
             iFacet = DicoResult["iFacet"]
             self.DicoImager[iFacet]["SumWeights"] += DicoResult["Weights"]
             self.DicoImager[iFacet]["SumJones"] += DicoResult["SumJones"]
-            self.DicoImager[iFacet]["SumJonesChan"][self.VS.iCurrentMS] += DicoResult["SumJonesChan"]
-
+            self.DicoImager[iFacet]["SumJonesChan"][self.DATA["iMS"]] += DicoResult["SumJonesChan"]
+        self._grid_job_id = None
         return True
 
     @staticmethod
@@ -1298,7 +1291,7 @@ class ClassFacetMachine():
         joblist = sorted(self.DicoImager.keys())
 
         Im2Grid = ClassImToGrid(OverS=self.GD["CF"]["OverS"], GD=self.GD)
-        ChanSel = sorted(list(set(self.VS.DicoMSChanMappingDegridding[self.VS.iCurrentMS].tolist())))
+        ChanSel = sorted(set(DATA["ChanMappingDegrid"]))  # unique channel numbers for degrid
 
         NSemaphores = 3373
         ListSemaphores = [ Multiprocessing.getShmName("Semaphore", sem=i) for i in xrange(NSemaphores) ]

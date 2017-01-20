@@ -25,6 +25,7 @@ import Queue
 import multiprocessing
 import numpy as np
 import traceback
+import inspect
 from collections import OrderedDict
 
 from DDFacet.Other import MyLogger
@@ -103,7 +104,7 @@ class JobCounterPool(object):
 class AsyncProcessPool (object):
     """
     """
-    def __init__ (self, ncpu=None, affinity=None, num_io_processes=1, verbose=0, job_handlers={}, event_list={}):
+    def __init__ (self, ncpu=None, affinity=None, num_io_processes=1, verbose=0):
         self._shared_state = SharedDict.create("APP")
         self.affinity = affinity
         self.cpustep = abs(self.affinity) or 1
@@ -135,26 +136,30 @@ class AsyncProcessPool (object):
         self._compute_queue   = multiprocessing.Queue()
         self._io_queues       = [ multiprocessing.Queue() for x in xrange(num_io_processes) ]
         self._result_queue    = multiprocessing.Queue()
-        self._job_handlers   = job_handlers
+        self._job_handlers = {}
+        self._events = {}
+        self._results_map = {}
+        self._job_counters = JobCounterPool()
 
-        # start the workers
+        # create the workers
         for i, core in enumerate(cores):
-            proc_id = "compute%02d"%i
+            proc_id = "comp%02d"%i
             self._compute_workers.append( multiprocessing.Process(target=self._start_worker, args=(self, proc_id, [core], self._compute_queue)) )
         for i, queue in enumerate(self._io_queues):
             proc_id = "io%02d"%i
             self._io_workers.append( multiprocessing.Process(target=self._start_worker, args=(self, proc_id, None, queue)) )
-        self._results_map = {}
-        self._events = dict([(name,multiprocessing.Event()) for name in event_list])
-        self._job_counters = JobCounterPool()
         self._started = False
 
-    def registerJobHandlers (self, **kw):
+    def registerJobHandlers (self, *handlers):
+        """Adds recognized job handlers. Job handlers may be functions or objects."""
         if os.getpid() != parent_pid:
             raise RuntimeError("This method can only be called in the parent process. This is a bug.")
         if self._started:
             raise RuntimeError("Workers already started. This is a bug.")
-        self._job_handlers.update(kw)
+        for handler in handlers:
+            if not inspect.isfunction(handler) and not isinstance(handler, object):
+                raise RuntimeError("Job handler must be a function or object. This is a bug.")
+            self._job_handlers[id(handler)] = handler
 
     def registerEvents (self, *args):
         if os.getpid() != parent_pid:
@@ -178,7 +183,7 @@ class AsyncProcessPool (object):
             proc.start()
         self._started = True
 
-    def runJob (self, job_id, function=None, io=None, args=(), kwargs={},
+    def runJob (self, job_id, handler=None, io=None, args=(), kwargs={},
                 event=None, counter=None,
                 singleton=False, collect_result=True):
         """
@@ -186,7 +191,7 @@ class AsyncProcessPool (object):
 
         Args:
             job_id:  string job identifier
-            function: object.method or function to call. Must be an entry in the job handlers dict.
+            handler: function previously registered with registerJobHandler, or bound method of object that was registered.
             io:     if None, job is placed on compute queues. If 0/1/..., job is placed on an I/O queue of the given level
             event:  if not None, then the named event will be raised when the job is complete.
                     Otherwise, the job is a singleton, handled via the events directory.
@@ -199,19 +204,25 @@ class AsyncProcessPool (object):
                     A singleton job can't be run again.
                     If False, job result will be collected by awaitJobResults() and removed from the map: the job can be
                     run again.
-            when_complete: called in parent thread when the job is complete
         """
         if collect_result and os.getpid() != parent_pid:
             raise RuntimeError("runJob() with collect_result can only be called in the parent process. This is a bug.")
         if collect_result and job_id in self._results_map:
-            raise KeyError("Job '%s' has an uncollected result, or is a singleton. This is a bug."%job_id)
-        # form up job item
-        if '.' in function:
-            object, method = function.split('.',1)
-        else:
-            object, method = function, None
-        if object not in self._job_handlers:
-            raise KeyError("Unknown job handler '%s'" % objname)
+            raise RuntimeError("Job '%s' has an uncollected result, or is a singleton. This is a bug."%job_id)
+        # figure out the handler, and how to pass it to the queue
+        # If this is a function, then describe is by function id, None
+        if inspect.isfunction(handler):
+            handler_id, method = id(handler), None
+            handler_desc  = "%s()" % handler.__name__
+        # If this is a bound method, describe it by instance id, method_name
+        elif inspect.ismethod(handler):
+            instance = handler.im_self
+            if instance is None:
+                raise RuntimeError("Job '%s': handler %s is not a bound method. This is a bug." % (job_id, handler))
+            handler_id, method = id(instance), handler.__name__
+            handler_desc = "%s.%s()" % (handler.im_class.__name__, method)
+        if handler_id not in self._job_handlers:
+            raise RuntimeError("Job '%s': unregistered handler %s. This is a bug." % (job_id, handler))
         # resolve event object
         if event:
             eventobj = self._events[event]
@@ -221,7 +232,7 @@ class AsyncProcessPool (object):
         # increment counter object
         if counter:
             self._job_counters.increment(counter)
-        jobitem = dict(job_id=job_id, object=object, method=method, event=event, counter=counter,
+        jobitem = dict(job_id=job_id, handler=(handler_id, method, handler_desc), event=event, counter=counter,
                        collect_result=collect_result,
                        args=args, kwargs=kwargs)
         if self.verbose > 2:
@@ -333,14 +344,21 @@ class AsyncProcessPool (object):
         # process list of results for each jobspec to check for errors
         for jobspec, (njobs, results) in job_results.iteritems():
             times = np.array([ res['time'] for res in results ])
-            num_errors = len([result for res in results if not res['success']])
+            num_errors = len([res for res in results if not res['success']])
             if self.verbose > 0:
                 print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (jobspec, len(results), times.mean())
             if num_errors:
                 print>>log, ModColor.Str("%s: %d jobs returned an error. Aborting."%(jobspec, num_errors), col="red")
                 raise RuntimeError("some distributed jobs have failed")
         # return list of results
-        return [ [results if '*' in jobspec else results[0]] for jobspec, results in job_results.iteritems() ]
+        result_values = []
+        for jobspec, (_, results) in job_results.iteritems():
+            resvals = [resitem["result"] if resitem["success"] else resitem["error"] for resitem in results]
+            if '*' not in jobspec:
+                resvals = resvals[0]
+            result_values.append(resvals)
+        return result_values[0] if len(result_values) == 1 else result_values
+
 
     @staticmethod
     def _start_worker (object, proc_id, affinity, worker_queue):
@@ -384,25 +402,26 @@ class AsyncProcessPool (object):
                     break
                 elif jobitem is not None:
                     event = None
-                    job_id, objname, method, eventname, counter, args, kwargs = [ jobitem.get(attr)
-                                            for attr in "job_id", "object", "method", "event", "counter", "args", "kwargs" ]
-                    obj = self._job_handlers.get(objname)
                     try:
-                        if obj is None:
-                            raise KeyError("Unknown jobitem object '%s'"%objname)
+                        job_id, eventname, counter, args, kwargs = [jobitem.get(attr) for attr in
+                                                                    "job_id", "event", "counter", "args", "kwargs"]
+                        handler_id, method, handler_desc = jobitem["handler"]
+                        handler = self._job_handlers.get(handler_id)
+                        if handler is None:
+                            raise RuntimeError("Job %s: unknown handler %s. This is a bug." % (job_id, handler_desc))
                         event = self._events[eventname] if eventname else None
                         if self.verbose > 1:
-                            print>> log, "job %s: calling %s.%s" % (job_id, objname, method)
+                            print>> log, "job %s: calling %s" % (job_id, handler_desc)
                         if method is None:
                             # call object directly
-                            result = obj(*args, **kwargs)
+                            result = handler(*args, **kwargs)
                         else:
-                            call = getattr(obj, method, None)
-                            if call is None:
-                                raise KeyError("Unknown method '%s' of object '%s'"%(method, objname))
+                            call = getattr(handler, method, None)
+                            if not callable(call):
+                                raise KeyError("Job %s: unknown method '%s' for handler %s"%(job_id, method, handler_desc))
                             result = call(*args, **kwargs)
                         if self.verbose > 3:
-                            print>> log, "%s.%s result is %s" % (objname, method, result)
+                            print>> log, "job %s: %s returns %s" % (job_id, handler_desc, result)
                         # Send result back
                         if jobitem['collect_result']:
                             self._result_queue.put(dict(job_id=job_id, proc_id=self.proc_id, success=True, result=result, time=timer.seconds()))

@@ -61,7 +61,7 @@ class ClassVisServer():
         self.APP_id = APP_id
         if APP is not None:
             APP.registerEvents("VisWeights")
-            APP.registerJobHandlers(**{APP_id:self})
+            APP.registerJobHandlers(self)
 
         self.MSList = [ MSList ] if isinstance(MSList, str) else MSList
         self.FacetMachine = None
@@ -360,7 +360,7 @@ class ClassVisServer():
                 # create/empty a SharedDict for the data chunk
                 self._next_data_dict = SharedDict.create(self._next_chunk_name)
                 # tell the IO thread to start loading the chunk
-                self.APP.runJob(self._next_chunk_name, self.APP_id + "._handler_LoadVisChunk",
+                self.APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
                                 args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk),
                                 kwargs=dict(keep_data=keep_data, null_data=null_data), io=0)
                 self.iCurrentChunk += 1
@@ -408,6 +408,8 @@ class ClassVisServer():
                 a null buffer of the same shape as the visibility data.
         """
         DATA = SharedDict.create(dictname)
+        DATA["iMS"]    = iMS
+        DATA["iChunk"] = iChunk
 
         ms = self.ListMS[iMS]
         ms.GiveChunk(DATA, iChunk, use_cache=self._use_data_cache,
@@ -571,7 +573,7 @@ class ClassVisServer():
         return np.load(file(path))
 
     def CalcWeightsBackground (self):
-        self.APP.runJob("VisWeights", "VS.CalcWeights", io=0, event="VisWeights", singleton=True)
+        self.APP.runJob("VisWeights", self.CalcWeights, io=0, event="VisWeights", singleton=True)
 
     def CalcWeights(self):
         """

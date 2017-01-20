@@ -441,10 +441,9 @@ class ClassImagerDeconv():
                     self.FacetMachine.getChunk(ModelImage)
 
                 self.FacetMachine.applySparsification(DATA, sparsify)
-                self.FacetMachine.putChunk()
-                if psf:
-                    self.FacetMachinePSF.putChunk()
-
+                self.FacetMachine.putChunkInBackground(DATA)
+                self.FacetMachinePSF and self.FacetMachinePSF.putChunkInBackground(DATA)
+                # collect intermediate grids, if asked to
                 if self._save_intermediate_grids:
                     self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
                     self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty.%d."%(self.BaseName,iloop),

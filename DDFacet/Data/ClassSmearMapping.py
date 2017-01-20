@@ -35,7 +35,7 @@ class SmearMappingMachine (object):
         self.outdict = SharedDict.create("BDAtmp")
         self.APP = APP
         self.APP_id = APP_id
-        self.APP.registerJobHandlers(**{APP_id:self})
+        self.APP.registerJobHandlers(self)
         self.APP.registerJobCounters("BDA.Grid", "BDA.Degrid")
         self._data = self._blockdict = self._sizedict = None
 
@@ -70,7 +70,7 @@ class SmearMappingMachine (object):
         for a0 in xrange(MS.na):
             for a1 in xrange(MS.na):
                 if a0 != a1:
-                    self.APP.runJob("%s:%s:%d:%d" % (base_job_id, entry, a0, a1),"%s._smearmapping_worker"%self.APP_id,
+                    self.APP.runJob("%s:%s:%d:%d" % (base_job_id, entry, a0, a1), self._smearmapping_worker,
                                    counter=entry, collect_result=False,
                                    args=(DATA.path, blockdict.path, sizedict.path, a0, a1, dPhi, l, channel_mapping))
 
