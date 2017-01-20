@@ -19,7 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import numpy as np
-from DDFacet.ToolsDir import ClassGP
+from DDFacet.ToolsDir import ClassRRGP
 
 class ClassFrequencyMachine(object):
     """
@@ -27,7 +27,8 @@ class ClassFrequencyMachine(object):
     For the alpha map the fit happens in log space.
         Initialisation:
                 ModelCube   = A cube containing the model image with shape [NChannel,NPol,Npix,Npix]
-                Freqs       = The Frequencies corresponding to the model image
+                Freqs       = The gridding frequencies
+                Freqsp      = The degridding frequencies
                 ref_freq    = The reference frequency
         Methods:
                 getFitMask  : Creates a mask to fit models to
@@ -39,8 +40,9 @@ class ClassFrequencyMachine(object):
                 FitGP       : Fits a Gaussian process to the spectral axis of the model image to pixels above a user specified threshold
 
     """
-    def __init__(self, Freqs, ref_freq, order=None):
+    def __init__(self, Freqs, Freqsp, ref_freq, GD=None):
         self.Freqs = np.asarray(Freqs)
+        self.Freqsp = np.asarray(Freqsp)
         self.nchan = self.Freqs.size
         #print "nchan =", self.nchan
         # # Get Stokes parameters
@@ -53,12 +55,23 @@ class ClassFrequencyMachine(object):
         #     self.VStokes = ModelCube[:, 3, :, :]
         # self.ModelCube = ModelCube
         self.ref_freq = ref_freq
-        if order is not None:
-            self.order = order
-        else:
-            self.order = 3
-        self.Xdes = self.setDesMat(self.Freqs, order=self.order)
-        self.AATinvAT = np.dot(np.linalg.inv(self.Xdes.T.dot(self.Xdes)), self.Xdes.T) # This is required to perform the sudo inverse
+        self.GD = GD
+        self.set_Method(mode=self.GD["Hogbom"]["FreqMode"])
+
+    def set_Method(self, mode="Poly"):
+        if mode == "Poly":
+            self.order = self.GD["Hogbom"]["PolyFitOrder"]
+            self.Xdes = self.setDesMat(self.Freqs, order=self.order)
+            self.AATinvAT = np.dot(np.linalg.inv(self.Xdes.T.dot(self.Xdes)),self.Xdes.T)  # Required for sudo inverse
+            # Set the fit and eval methods
+            self.Fit = lambda vals: self.FitPoly(vals)
+            self.Eval = lambda coeffs, Freqs: self.EvalPoly(coeffs, Freqs)
+        elif mode == "GPR":
+            # Instantiate the GP
+            self.GP = ClassRRGP.RR_GP(self.Freqs/self.ref_freq,self.Freqsp/self.ref_freq,self.GD["Hogbom"]["MaxLengthScale"],self.GD["Hogbom"]["NumBasisFuncs"])
+            # Set the fit and eval methods
+            self.Fit = lambda vals: self.FitGP(vals)
+            self.Eval = lambda coeffs, Freqs: self.EvalGP(coeffs, Freqs)
 
     def getFitMask(self, Threshold=0.0, SetNegZero=False, PolMode='I'):
         """
@@ -188,7 +201,7 @@ class ClassFrequencyMachine(object):
         """
         return np.dot(self.AATinvAT, Vals)
 
-    def EvalPoly(self,coeffs,Freqs=None):
+    def EvalPoly(self, coeffs, Freqsp=None):
         """
         Evaluates a polynomial at Freqs with coefficients coeffs
         Args:
@@ -197,64 +210,19 @@ class ClassFrequencyMachine(object):
         Returns:
             The polynomial evaluated at Freqs
         """
-        if Freqs is None:
-            Freqs = self.Freqs
-        order = coeffs.size
-        Xdes = self.setDesMat(Freqs, order=order)
-        # evaluate poly and return result
-        return np.dot(Xdes, coeffs)
+        if Freqsp is None or Freqsp == self.Freqsp:
+            # Here we don't need to reset the design matrix
+            return np.dot(self.Xdes, coeffs)
+        else:
+            # Here we do
+            order = coeffs.size
+            Xdes = self.setDesMat(Freqsp, order=order)
+            # evaluate poly and return result
+            return np.dot(Xdes, coeffs)
 
-    def FitPolyCube(self, deg=4, threshold = 0.0, PolMode = "I", weights="Default"):
+    def FitGP(self,Vals):
         """
-        Fits polynomial of degree=deg with weights=weights to each pixel in the model image above threshold
-        """
-        # Set weights to identity if default
-        if weights == "Default":
-            weights = np.ones(deg)
-
-        if deg > self.nchan:
-            print "Warning: The degree of the polynomial should not be greater than the number of bands/channels. The system is ill conditioned"
-            deg = self.nchan
-
-        # Initialise array to store coefficients
-        self.coeffs = np.zeros([deg, self.Nx, self.Ny])
-
-        #Get the fit mask
-        IMask, MaskInd = self.getFitMask(Threshold=0.0, SetNegZero=False, PolMode="I")
-        ix = MaskInd[:, 0]
-        iy = MaskInd[:, 1]
-
-        # Get array to fit model to
-        nsource = ix.size
-        IFlat = IMask.reshape([self.nchan,nsource])
-
-        # Create the design matrix
-        XDes = self.setDesMat(order=deg, mode="Normal")
-
-        # Solve the system
-        Sol = np.dot(np.linalg.inv(XDes.T.dot(XDes)), np.dot(XDes.T, IFlat))
-
-        print Sol
-
-        self.coeffs[:, ix, iy] = Sol
-        return
-
-
-    def EvalPolyCube(self, Freqs):  # ,Ix,Iy
-        """
-        Evaluates the polynomial at locations (Ix,Iy) and frequencies Freqs
-        """
-        # Get the degree of the polynomial
-        deg, _, _, _ = self.coeffs.shape
-        w = Freqs / self.ref_freq
-        tmp = self.coeffs[0, :, :]
-        for i in xrange(1, deg):
-            tmp += self.coeffs[i, :, :] * w[:, np.newaxis, np.newaxis] ** deg
-        return tmp
-
-    def FitGP(self,Freqs):
-        """
-        Here we fit a GP to the frequency axis of the model cube to pixels above a certain threshold
+        Here we fit a reduced rank GP to the frequency axis
         Args:
             Freqs       = The frequencies at which to evulaute the GP
 
@@ -262,30 +230,24 @@ class ClassFrequencyMachine(object):
             IM          = The model image at Freqs
 
         """
-        # Initialise GP
-        GP = ClassGP.ClassGP(self.Freqs,Freqs)
+        # Set initial guess for hypers
+        sigmaf0 = (Vals.max() - Vals.min())
+        l0 = (self.GP.x.max() - self.GP.x.min()) / 2
+        sigman0 = np.var(Vals)
+        theta = np.array([sigmaf0, l0, sigman0])
 
-        # Get the mask
-        IMask,MaskInd = self.getFitMask(Threshold=0.0, SetNegZero=False, PolMode="I")
-        ix = MaskInd[:, 0]
-        iy = MaskInd[:, 1]
+        # Fit and evaluate GP
+        self.fbar, coeffs, thetaf = self.GP.RR_EvalGP(theta, Vals)
 
-        # Get array to fit model to
-        nsource = ix.size
-        Iflat = IMask.reshape([self.nchan,nsource])
+        return coeffs
 
-        # Set initial guess for theta
-        theta = np.ones(3)
-
-        # Create storage arrays
-        IMFlat = np.zeros([Freqs.size, nsource])
-        IM = np.zeros([Freqs.size, self.Nx, self.Ny])
-        for i in xrange(nsource):
-            IMFlat[:, i] = GP.EvalGP(Iflat[:, i], theta)
-        # Get model in 2D shape
-        IM[:, ix, iy] = IMFlat
-        return IM
-
+    def EvalGP(self, coeffs, Freqsp=None):
+        if Freqsp is None or Freqsp == self.Freqsp:
+            # Here we don't need to re-evaluate the basis functions
+            return self.fbar
+        else:
+            # Here we do
+            raise NotImplementedError("Not yet supported, predict frequencies must be set at instantiation")
 
 def testFM():
     #Create array to hold model image

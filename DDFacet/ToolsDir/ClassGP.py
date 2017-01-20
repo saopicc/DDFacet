@@ -24,9 +24,17 @@ from scipy.linalg import solve_triangular as soltri
 from scipy import optimize as opt
 
 class ClassGP(object):
-    def __int__(self,x,xp):
+    """
+    Why the
+    """
+    def __init__(self, x, xp, covariance_function = 'sqexp'):
         self.x = x
         self.xp = xp
+        self.N = self.x.size
+        self.Np = self.xp.size
+        self.set_covariance(covariance_function=covariance_function)
+
+    def set_abs_diff(self):
         self.XX = self.abs_diff(self.x,self.x)
         self.XXp = self.abs_diff(self.x, self.xp)
         self.XXpp = self.abs_diff(self.xp, self.xp)
@@ -40,31 +48,50 @@ class ClassGP(object):
         return np.tile(x, (Np, 1)).T - np.tile(xp, (N, 1))
 
     def diag_dot(self,A,B):
+        """
+        Computes the diagonal of C = AB where A and B are square matrices
+        """
         D = np.zeros(A.shape[0])
         for i in xrange(A.shape[0]):
             D[i] = np.dot(A[i,:],B[:,i])
         return D
 
-    def logp_and_gradlogp(self,theta,y,N):
+    def set_covariance(self,covariance_function='sqexp'):
+        if covariance_function == "sqexp":
+            self.cov_func = lambda theta, x, mode : self.cov_func_sqexp(theta, x, mode=mode)
+            self.dcov_func = lambda theta, x, mode : self.dcov_func_sqexp(theta, x, mode= mode)
+        elif covariance_function == 'mat52':
+            self.cov_func = lambda theta, x, mode : self.cov_func_mat52(theta, x, mode=mode)
+            self.dcov_func = lambda theta, x, mode : self.dcov_func_mat52(theta, x, mode= mode)
+        elif covariance_function == 'mat72':
+            self.cov_func = lambda theta, x, mode: self.cov_func_mat72(theta, x, mode=mode)
+            self.dcov_func = lambda theta, x, mode: self.dcov_func_mat72(theta, x, mode=mode)
+
+    def logp_and_gradlogp(self, theta, y):
         """
         Returns the negative log (marginal) likelihood (the function to be optimised) and its gradient
         """
         #tmp is Ky
-        tmp = self.cov_func(theta,self.XX)
+        tmp = self.cov_func(theta, self.XX, mode="Noise")
         #tmp is L
-        tmp = scp.linalg.cholesky(tmp)
+        try:
+            tmp = np.linalg.cholesky(tmp)
+        except:
+            logp = 1.0e8
+            dlogp = np.ones(theta.size)*1.0e8
+            return logp, dlogp
         detK = 2.0*np.sum(np.log(np.diag(tmp)))
         #tmp is Linv
-        tmp = soltri(tmp.T,np.eye(N).T)
+        tmp = np.linalg.inv(tmp)
         #tmp2 is Linvy
         tmp2 = np.dot(tmp,y)
-        logp = np.dot(tmp2.T,tmp2)/2.0 + detK/2.0 + N*np.log(2*np.pi)/2.0
+        logp = np.dot(tmp2.T,tmp2)/2.0 + detK/2.0 + self.N*np.log(2*np.pi)/2.0
         nhypers = theta.size
         dlogp = np.zeros(nhypers)
         #tmp is Kinv
         tmp = np.dot(tmp.T,tmp)
         #tmp2 becomes Kinvy
-        tmp2 = np.reshape(np.dot(tmp,y),(N,1))
+        tmp2 = np.reshape(np.dot(tmp,y),(self.N,1))
         #tmp2 becomes aaT
         tmp2 = np.dot(tmp2,tmp2.T)
         #tmp2 becomes Kinv - aaT
@@ -75,9 +102,50 @@ class ClassGP(object):
         dlogp[1] = np.sum(self.diag_dot(tmp2,dKdtheta))/2.0
         dKdtheta = self.dcov_func(theta,self.XX,mode=2)
         dlogp[2] = np.sum(self.diag_dot(tmp2,dKdtheta))/2.0
-        return logp,dlogp
+        return logp, dlogp
 
-    def cov_func(self,theta,x,mode="Noise"):
+    def cov_func_mat52(self, theta, x, mode="Noise"):
+        if mode != "Noise":
+            return theta[0] ** 2 * np.exp(-np.sqrt(5) * np.abs(x) / theta[1]) * (1 + np.sqrt(5) * np.abs(x) / theta[1] + 5 * np.abs(x) ** 2 / (3 * theta[1] ** 2))
+        else:
+            return theta[0] ** 2 * np.exp(-np.sqrt(5) * np.abs(x) / theta[1]) * (
+            1 + np.sqrt(5) * np.abs(x) / theta[1] + 5 * np.abs(x) ** 2 / (3 * theta[1] ** 2)) + theta[2]**2.0*np.eye(x.shape[0])
+
+    def dcov_func_mat52(self, theta, x, mode=0):
+        """
+        Derivates of the covariance function w.r.t. the hyperparameters
+        """
+        if mode == 0:
+            return 2*self.cov_func_mat52(theta, x, mode='nn')/theta[0]
+        elif mode == 1:
+            return np.sqrt(5)*np.abs(x)*self.cov_func_mat52(theta, x, mode='nn')/theta[1]**2 + theta[0] ** 2 * \
+                        np.exp(-np.sqrt(5) * np.abs(x) / theta[1])*(-np.sqrt(5) * np.abs(x) / theta[1]**2 - 10 * np.abs(x) ** 2 / (3 * theta[1] ** 3))
+        elif mode == 2:
+            return 2*theta[2]*np.eye(x.shape[0])
+
+    def cov_func_mat72(self, theta, x, mode="Noise"):
+        if mode != "Noise":
+            return theta[0]**2 * np.exp(-np.sqrt(7) * np.abs(x) / theta[1]) * (1 + np.sqrt(7) * np.abs(x) / theta[1] +
+                                14 * np.abs(x)**2/(5 * theta[1]**2) + 7*np.sqrt(7)*np.abs(x)**3/(15*theta[1]**3))
+        else:
+            return theta[0]**2 * np.exp(-np.sqrt(7) * np.abs(x) / theta[1]) * (1 + np.sqrt(7) * np.abs(x) / theta[1]
+                            + 14 * np.abs(x) ** 2 / (5 * theta[1] ** 2) + 7*np.sqrt(7)*np.abs(x)**3/(15*theta[1]**3)) +\
+                            theta[2]**2.0*np.eye(x.shape[0])
+
+    def dcov_func_mat72(self, theta, x, mode=0):
+        """
+        Derivates of the covariance function w.r.t. the hyperparameters
+        """
+        if mode == 0:
+            return 2*self.cov_func_mat72(theta, x, mode='nn')/theta[0]
+        elif mode == 1:
+            return np.sqrt(7)*np.abs(x)*self.cov_func_mat72(theta, x, mode='nn')/theta[1]**2 + theta[0] ** 2 * \
+                        np.exp(-np.sqrt(7) * np.abs(x) / theta[1])*(-np.sqrt(7) * np.abs(x) / theta[1]**2 - 28 *
+                        np.abs(x) ** 2 / theta[1] ** 3 - 21*np.sqrt(7)*np.abs(x)**3 / theta[1]**4)
+        elif mode == 2:
+            return 2*theta[2]*np.eye(x.shape[0])
+
+    def cov_func_sqexp(self, theta, x, mode="Noise"):
         """
         Covariance function including noise variance
         """
@@ -88,7 +156,10 @@ class ClassGP(object):
             #Squared exponential
             return theta[0]**2*np.exp(-x**2.0/(2.0*theta[1]**2.0)) + theta[2]**2.0*np.eye(x.shape[0])
 
-    def dcov_func(self,theta,x,mode=0):
+    def dcov_func_sqexp(self, theta, x, mode=0):
+        """
+        Derivates of the covariance function w.r.t. the hyperparameters
+        """
         if mode == 0:
             return 2*theta[0]*np.exp(-x**2/(2*theta[1]**2))
         elif mode == 1:
@@ -96,12 +167,12 @@ class ClassGP(object):
         elif mode == 2:
             return 2*theta[2]*np.eye(x.shape[0])
 
-    def meanf(self,theta,XX,XXp,y):
+    def meanf(self, theta, y):
         """
         Posterior mean function
         """
-        Kp = self.cov_func(theta,self.XXp,mode="nn")
-        Ky = self.cov_func(theta,self.XX)
+        Kp = self.cov_func(theta,self.XXp, mode="nn")
+        Ky = self.cov_func(theta,self.XX, mode="Noise")
         L = np.linalg.cholesky(Ky)
         Linv = soltri(L.T,np.eye(y.size)).T
         LinvKp = np.dot(Linv,Kp)
@@ -119,12 +190,12 @@ class ClassGP(object):
         LinvKp = np.dot(Linv,Kp)
         return Kpp - np.dot(LinvKp.T,LinvKp)
 
-    def trainGP(self,y,theta0):
+    def trainGP(self, theta0, y):
         # Set bounds for hypers (they must be strictly positive)
-        bnds = ((1e-5, None), (1e-5, None), (1e-5, None))
+        bnds = ((1e-5, None), (1e-5, None), (1e-3, None))
 
         # Do optimisation
-        thetap = opt.fmin_l_bfgs_b(self.logp_and_gradlogp, theta0, fprime=None, args=(y, n), bounds=bnds)
+        thetap = opt.fmin_l_bfgs_b(self.logp_and_gradlogp, theta0, fprime=None, args=(y,), bounds=bnds) #, factr=1e10, pgtol=0.1)
 
         #Check for convergence
         if thetap[2]["warnflag"]:
@@ -132,7 +203,7 @@ class ClassGP(object):
         # Return optimised value of theta
         return thetap[0]
 
-    def EvalGP(self,theta0,y):
-        theta = self.trainGP(theta0,y)
+    def EvalGP(self, theta0, y):
+        theta = self.trainGP(theta0, y)
 
-        return self.meanf(theta,self.XX,self.XXp,y), theta
+        return self.meanf(theta, y), theta

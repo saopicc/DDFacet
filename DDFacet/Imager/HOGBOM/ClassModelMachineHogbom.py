@@ -33,9 +33,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.DicoSMStacked["AllFreqs"] = np.array(AllFreqs)
 
 
-    def setFreqMachine(self,GridFreqs, order):
+    def setFreqMachine(self,GridFreqs, DegridFreqs):
         # Initiaise the Frequency Machine
-        self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, self.DicoSMStacked["RefFreq"], order=order)
+        self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoSMStacked["RefFreq"], self.GD)
 
 
     def ToFile(self, FileName, DicoIn=None):
@@ -127,7 +127,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 Sol = DicoComp[key]["SolsArray"][:, pol]  # /self.DicoSMStacked[key]["SumWeights"]
                 x, y = key
 
-                ModelImage[:, pol, x, y] += self.FreqMachine.EvalPoly(Sol, FreqIn)
+                ModelImage[:, pol, x, y] += self.FreqMachine.Eval(Sol, FreqIn)
 
         return ModelImage
 

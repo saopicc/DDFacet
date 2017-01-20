@@ -120,7 +120,7 @@ class ClassImageDeconvMachine():
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.SetModelRefFreq()
-        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"],self.GD["Hogbom"]["PolyFitOrder"])
+        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
         # tmp = [{'Alpha': 0.0, 'Scale': 0, 'ModelType': 'Delta'}]
         # AlphaMin, AlphaMax, NAlpha = self.GD["HMP"]["Alpha"]
         # if NAlpha > 1:
@@ -442,23 +442,23 @@ class ClassImageDeconvMachine():
                         # Get the solution
                         Fpol[:, indexI, 0, 0] = self._Dirty[:, indexI, x, y]
                         # Fit a polynomial to get coeffs
-                        PolyCoeffs[indexI, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexI, 0, 0])
+                        PolyCoeffs[indexI, :] = self.ModelMachine.FreqMachine.Fit(Fpol[:, indexI, 0, 0])
                         # Overwrite with polynoimial fit
-                        Fpol[:, indexI, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexI, :])
+                        Fpol[:, indexI, 0, 0] = self.ModelMachine.FreqMachine.Eval(PolyCoeffs[indexI, :])
                     elif pol_task == "Q+iU":
                         indexQ = self.PolarizationDescriptor.index("Q")
                         indexU = self.PolarizationDescriptor.index("U")
                         Fpol[:, indexQ, 0, 0] = self._Dirty[:, indexQ, x, y]
-                        PolyCoeffs[indexQ, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexQ, 0, 0])
-                        Fpol[:, indexQ, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexQ, :])
+                        PolyCoeffs[indexQ, :] = self.ModelMachine.FreqMachine.Fit(Fpol[:, indexQ, 0, 0])
+                        Fpol[:, indexQ, 0, 0] = self.ModelMachine.FreqMachine.Eval(PolyCoeffs[indexQ, :])
                         Fpol[:, indexU, 0, 0] = self._Dirty[:, indexU, x, y]
-                        PolyCoeffs[indexU, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexU, 0, 0])
-                        Fpol[:, indexU, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexU, :])
+                        PolyCoeffs[indexU, :] = self.ModelMachine.FreqMachine.Fit(Fpol[:, indexU, 0, 0])
+                        Fpol[:, indexU, 0, 0] = self.ModelMachine.FreqMachine.Eval(PolyCoeffs[indexU, :])
                     elif pol_task == "V":
                         indexV = self.PolarizationDescriptor.index("V")
                         Fpol[:, indexV, 0, 0] = self._Dirty[:, indexV, x, y]
-                        PolyCoeffs[indexV, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexV, 0, 0])
-                        Fpol[:, indexV, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexV, :])
+                        PolyCoeffs[indexV, :] = self.ModelMachine.FreqMachine.Fit(Fpol[:, indexV, 0, 0])
+                        Fpol[:, indexV, 0, 0] = self.ModelMachine.FreqMachine.Eval(PolyCoeffs[indexV, :])
                     else:
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
                     nchan, npol, _, _ = Fpol.shape
