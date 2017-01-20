@@ -631,7 +631,6 @@ class ClassMS():
         if table_all:
             table_all.close()
 
-
         # visdata[flags]=1e6
 
         DATA={}
@@ -639,9 +638,9 @@ class ClassMS():
         DATA["data"] = visdata
         DATA["flags"] = flags
 
-        ColNames=table_all.colnames()
-        table_all.close()
-        del(table_all)
+        ColNames=self.ColNames
+        #table_all.close()
+        #del(table_all)
         DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
         if ('F' in DecorrMode)|("T" in DecorrMode):
             if 'UVWDT' not in ColNames:
@@ -1024,7 +1023,7 @@ class ClassMS():
         self.StrRA  = rad2hmsdms(self.rarad,Type="ra").replace(" ",":")
         self.StrDEC = rad2hmsdms(self.decrad,Type="dec").replace(" ",".")
         self.lm_PhaseCenter=self.radec2lm_scalar(self.OldRadec[0],self.OldRadec[1])
-
+        self.ColNames=table_all.colnames()
         table_all.close()
         T.timeit()
         # self.StrRADEC=(rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\

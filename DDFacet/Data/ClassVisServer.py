@@ -144,10 +144,10 @@ class ClassVisServer():
             raise RuntimeError,"--Data-MS does not specify any valid Measurement Set(s)"
 
         # main cache is initialized from main cache of first MS
-        if ".txt" in self.GD["VisData"]["MSName"]:
+        if ".txt" in self.GD["Data"]["MS"]:
             # main cache is initialized from main cache of the MSList
             from DDFacet.Other.CacheManager import CacheManager
-            self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["VisData"]["MSName"], reset=self.GD["Caching"]["ResetCache"])
+            self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], reset=self.GD["Caching"]["ResetCache"])
         else:
             # main cache is initialized from main cache of first MS
             self.maincache = self.cache = self.ListMS[0].maincache
@@ -624,7 +624,7 @@ class ClassVisServer():
                          for section
                          in (
                              "Data", "Selection", "Freq",
-                             "Image", "Image")]))
+                             "Image")]))
                 have_all_weights = have_all_weights and valid
                 msweights.append(cachepath)
             self.VisWeights.append(msweights)
@@ -700,7 +700,7 @@ class ClassVisServer():
                         WeightCol, w.shape)
                     # take mean weight across correlations and apply this to all
                     WEIGHT[...] = w.mean(axis=2) * valid
-                elif WeightCol == None:
+                elif WeightCol == "None" or WeightCol == None:
                     print>> log, "  Selected weights columns is None, filling weights with ones"
                     WEIGHT.fill(1)
                     WEIGHT *= valid

@@ -100,9 +100,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
 
 #        if "CatNodes" in self.GD.keys():
-        if self.GD["ImagerMainFacet"]["CatNodes"] is not None:
-            print>> log, "Taking facet directions from Nodes catalog: %s" % self.GD["ImagerMainFacet"]["CatNodes"]
-            ClusterNodes = np.load(self.GD["ImagerMainFacet"]["CatNodes"])
+        if self.GD["Image"]["CatNodes"] is not None:
+            print>> log, "Taking facet directions from Nodes catalog: %s" % self.GD["Image"]["CatNodes"]
+            ClusterNodes = np.load(self.GD["Image"]["CatNodes"])
             ClusterNodes = ClusterNodes.view(np.recarray)
             raNode = ClusterNodes.ra
             decNode = ClusterNodes.dec
@@ -189,7 +189,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             LPolygon = [self.CornersImageTot]
         # VM.ToReg(regFile,lFacet,mFacet,radius=.1)
 
-        NodeFile = "%s.NodesCat.npy" % self.GD["Images"]["ImageName"]
+        NodeFile = "%s.NodesCat.npy" % self.GD["Output"]["Name"]
         print>> log, "Saving Nodes catalog in %s" % NodeFile
         np.save(NodeFile, NodesCat)
 
@@ -509,7 +509,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             if d < dmin:
                 dmin = d
                 iCentralFacet = iFacet
-        self.CentralFacet = iCentralFacet
+        self.iCentralFacet = iCentralFacet
 
         # regFile="%s.tessel.reg"%self.GD["Output"]["Name"]
         labels = [
@@ -527,7 +527,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.WriteCoordFacetFile()
 
         self.FacetDirections=set([self.DicoImager[iFacet]["RaDec"] for iFacet in range(len(self.DicoImager))])
-        DicoName = "%s.DicoFacet" % self.GD["Images"]["ImageName"]
+        #DicoName = "%s.DicoFacet" % self.GD["Images"]["ImageName"]
         DicoName = "%s.%sDicoFacet" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
 
 

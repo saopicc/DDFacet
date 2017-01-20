@@ -341,17 +341,10 @@ class ClassWTermModified():
         # if self.IDFacet==0:
         #    NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
 
-<<<<<<< HEAD
-        NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
-        #stop
-
-        LArrays=[]
-        CuCv=np.array([self.Cu,self.Cv,self.Cu,self.Cv],dtype=dS).reshape(2,2)
-=======
         NpShared.ToShared(Sphe, dS(self.ifzfCF))
         LArrays = []
         CuCv = np.array([self.Cu, self.Cv, self.Cu, self.Cv], dtype=dS).reshape(2, 2)
->>>>>>> issue-255
+
         LArrays.append(CuCv)
         LArrays = LArrays + self.Wplanes
         LArrays = LArrays + self.WplanesConj

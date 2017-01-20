@@ -120,12 +120,12 @@ class ClassFacetMachine():
 
         self.NormData=None
         self.NormImage=None
-        self.FacetParallelEngine=WorkerImager
+        #self.FacetParallelEngine=WorkerImager
         self.AverageBeamMachine=None
         self.DoComputeSmoothBeam=False
         self.SmoothMeanNormImage=None
-        NSemaphores = 3373
-        self.ListSemaphores = ["%sSemaphore%4.4i" % (self.IdSharedMem, i) for i in range(NSemaphores)]
+        #NSemaphores = 3373
+        #self.ListSemaphores = ["%sSemaphore%4.4i" % (self.IdSharedMem, i) for i in range(NSemaphores)]
         self._facet_grids = self._facet_grid_names = None
 
     def __del__(self):
@@ -380,7 +380,7 @@ class ClassFacetMachine():
 
 
         
-        self.iCentralFacet = self.DicoImager[lFacet.size / 2]
+        #self.iCentralFacet = self.DicoImager[lFacet.size / 2]
 
         self.SetLogModeSubModules("Silent")
         self.MakeREG()
@@ -850,7 +850,7 @@ class ClassFacetMachine():
                     CubeVariablePSF[iFacet, ch, :, :, :] = DicoVariablePSF[iFacet]["PSF"][ch][:, i:j, i:j]
                 CubeMeanVariablePSF[iFacet, 0, :, :, :] = DicoVariablePSF[iFacet]["MeanPSF"][0, :, i:j, i:j]
 
-            self.DicoPSF["CentralFacet"] = self.CentralFacet
+            self.DicoPSF["CentralFacet"] = self.iCentralFacet
             self.DicoPSF["CubeVariablePSF"] = CubeVariablePSF
             self.DicoPSF["CubeMeanVariablePSF"] = CubeMeanVariablePSF
             self.DicoPSF["MeanFacetPSF"] = np.mean(CubeMeanVariablePSF, axis=0).reshape((1, npol, NPixMin, NPixMin))
@@ -952,7 +952,7 @@ class ClassFacetMachine():
             NormImage[x0d:x1d, y0d:y1d] += np.real(SW)
 
         self.NormImage = NormImage
-        self.NormImage = NpShared.ToShared("%sNormImage"%self.IdSharedMem,self.NormImage)
+        #self.NormImage = NpShared.ToShared("%sNormImage"%self.IdSharedMem,self.NormImage)
         self.NormImageReShape = self.NormImage.reshape([1,1,
                                                         self.NormImage.shape[0],
                                                         self.NormImage.shape[1]])
@@ -1022,6 +1022,7 @@ class ClassFacetMachine():
                         Im *= SpacialWeigth[::-1, :].T
                         Im = Im[x0facet:x1facet, y0facet:y1facet]
                     Image[Channel, pol, x0main:x1main, y0main:y1main] += Im.real
+            pBAR.render(int((iFacet+1)*100/float(NFacets)), '%4i/%i' % (iFacet+1, NFacets))
 
         for Channel in xrange(self.VS.NFreqBands):
             for pol in xrange(npol):

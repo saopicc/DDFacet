@@ -56,8 +56,8 @@ class ClassJones():
                 dict(VisData=GD["Data"], 
                      DDESolutions=GD["DDESolutions"], 
                      DataSelection=self.GD["Selection"],
-                     ImagerMainFacet=self.GD["ImagerMainFacet"],
-                     PhaseCenterRADEC=self.GD["ImagerGlobal"]["PhaseCenterRADEC"]))
+                     ImagerMainFacet=self.GD["Image"],
+                     PhaseCenterRADEC=self.GD["Image"]["PhaseCenterRADEC"]))
             if valid:
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_killMS
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(
@@ -77,7 +77,7 @@ class ClassJones():
                                                                                Beam=GD["Beam"], 
                                                                                DataSelection=self.GD["Selection"],
                                                                                DDESolutions=GD["DDESolutions"],
-                                                                               ImagerMainFacet=self.GD["ImagerMainFacet"]))
+                                                                               ImagerMainFacet=self.GD["Image"]))
             if valid:
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_Beam
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(

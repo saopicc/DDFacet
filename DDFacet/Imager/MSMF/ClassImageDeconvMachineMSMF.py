@@ -152,15 +152,15 @@ class ClassImageDeconvMachine():
         self.DicoMSMachine={}
         if self.maincache is not None:
             cachepath_DicoFuntions, valid = self.maincache.checkCache("MSMFMachine_DicoFuntions",
-                                                         dict([(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
-                                                               "MultiFreqs", "ImagerGlobal", "Compression",
-                                                               "ImagerCF", "ImagerMainFacet", "MultiScale" ]),
-                                                         reset=(self.GD["Caching"]["ResetPSF"]==1 or self.PSFHasChanged or self.GD["Caching"]["ResetMSMF"]))
+                                                         dict([(section, self.GD[section]) for section in "Data", "Beam", "Selection",
+                                                               "Freq", "Image", "Comp",
+                                                               "CF", "HMP" ]),
+                                                         reset=(self.GD["Cache"]["ResetPSF"]==1 or self.PSFHasChanged))
             cachepath_DicoArrays, _ = self.maincache.checkCache("MSMFMachine_DicoArrays",
-                                                         dict([(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
-                                                               "MultiFreqs", "ImagerGlobal", "Compression",
-                                                               "ImagerCF", "ImagerMainFacet", "MultiScale" ]),
-                                                         reset=(self.GD["Caching"]["ResetPSF"]==1 or self.PSFHasChanged or self.GD["Caching"]["ResetMSMF"]))
+                                                         dict([(section, self.GD[section]) for section in "Data", "Beam", "Selection",
+                                                               "Freq", "Image", "Comp",
+                                                               "CF", "HMP" ]),
+                                                         reset=(self.GD["Cache"]["ResetPSF"]==1 or self.PSFHasChanged))
 
         else:
             valid=False
@@ -209,7 +209,7 @@ class ClassImageDeconvMachine():
             MSMachine.SetFacet(iFacet)
             MSMachine.SetPSF(self.PSFServer)#ThisPSF,ThisMeanPSF)
             T.timeit("set")
-            MSMachine.FindPSFExtent(Method="FromSideLobe")
+            MSMachine.FindPSFExtent()#Method="FromSideLobe")
             T.timeit("find")
 
             ListDicoScales=facetcache_DicoFuntions.get(iFacet,None)
@@ -302,7 +302,7 @@ class ClassImageDeconvMachine():
                     self._MaskArray[0,0,sx1,sy1] = ma0[0,0,sx2,sy2]
                     print>>log,ModColor.Str("WARNING: reshaping mask image from %dx%d to %dx%d"%(nx, ny, NDirty, NDirty))
                     print>>log,ModColor.Str("Are you sure you supplied the correct cleaning mask?")
-
+        
 
     def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):
         M_xc=xc0
@@ -404,7 +404,8 @@ class ClassImageDeconvMachine():
 # =======
         # self._CubeDirty[:,:,x0d:x1d,y0d:y1d] -= LocalSM[:,:,x0p:x1p,y0p:y1p]
         a, b = self._CubeDirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
-        numexpr.evaluate('a-b',out=a)
+        numexpr.evaluate('a-b',out=a,casting="unsafe")
+        #a-=b
 
         if self._MeanDirty is not self._CubeDirty:
             ### old code, got MeanDirty out of alignment with CubeDirty somehow
@@ -426,7 +427,7 @@ class ClassImageDeconvMachine():
 
     def updateRMS(self):
         _,npol,npix,_ = self._MeanDirty.shape
-        NPixStats = self.GD["ImagerDeconv"]["NumRMSSamples"]
+        NPixStats = self.GD["Deconv"]["NumRMSSamples"]
         if NPixStats:
             RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
             RMS=np.std(np.real(self._MeanDirty.ravel()[RandomInd]))
@@ -654,7 +655,7 @@ class ClassImageDeconvMachine():
                 # #pylab.colorbar()
 
                 # CurrentGain=self.GainMachine.GiveGain()
-                CurrentGain=self.GD["ImagerDeconv"]["Gain"]
+                CurrentGain=self.GD["Deconv"]["Gain"]
 
                 self.SubStep((x,y),LocalSM*CurrentGain)
                 T.timeit("SubStep")

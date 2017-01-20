@@ -99,6 +99,7 @@ class ClassImagerDeconv():
         self.FWHMBeamAvg = None
         self.PSFGaussParsAvg = None
         self.PSFSidelobesAvg = None
+        self.HasFittedPSFBeam=False
 
 
         self.VisWeights=None
@@ -158,35 +159,35 @@ class ClassImagerDeconv():
         
 
 
-        self.NMajor=self.GD["ImagerDeconv"]["MaxMajorIter"]
-        del(self.GD["ImagerDeconv"]["MaxMajorIter"])
+        self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
+        del(self.GD["Deconv"]["MaxMajorIter"])
 
         # Construct a model according to what is in MinorCycleConfig
-        MinorCycleConfig=dict(self.GD["ImagerDeconv"])
+        MinorCycleConfig=dict(self.GD["Deconv"])
         MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
         MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
         MinorCycleConfig["GD"] = self.GD
         MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
         MinorCycleConfig["IdSharedMem"] = self.IdSharedMem
 
-        SubstractModel=self.GD["VisData"]["InitDicoModel"]
+        SubstractModel=self.GD["Data"]["InitDicoModel"]
         DoSub=(SubstractModel!="")&(SubstractModel is not None)
         if DoSub:
             print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
             ModelMachine = self.ModConstructor.GiveInitialisedMMFromFile(SubstractModel)
-            if self.GD["ImagerDeconv"]["MinorCycleMode"] != ModelMachine.DicoSMStacked["Type"]:
+            if self.GD["Deconv"]["Mode"] != ModelMachine.DicoSMStacked["Type"]:
                 raise NotImplementedError("You want to use different minor cycle and IniDicoModel types [%s vs %s]"\
-                                          %(self.GD["ImagerDeconv"]["MinorCycleMode"],ModelMachine.DicoSMStacked["Type"]))
+                                          %(self.GD["Deconv"]["Mode"],ModelMachine.DicoSMStacked["Type"]))
             
             print>>log, ModColor.Str("Taking reference frequency from the model machine %f MHz (instead of %f MHz from the data)"%(ModelMachine.RefFreq/1e6,self.VS.RefFreq/1e6))
             self.RefFreq=self.VS.RefFreq=ModelMachine.RefFreq
 
-            if self.BaseName==self.GD["VisData"]["InitDicoModel"][0:-10]:
+            if self.BaseName==self.GD["Data"]["InitDicoModel"][0:-10]:
                 self.BaseName+=".continue"
                 self.DicoModelName="%s.DicoModel"%self.BaseName
                 self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
         else:
-            ModelMachine = self.ModConstructor.GiveMM(Mode=self.GD["ImagerDeconv"]["MinorCycleMode"])
+            ModelMachine = self.ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
             ModelMachine.setRefFreq(self.VS.RefFreq)
             self.RefFreq=self.VS.RefFreq
             
@@ -195,24 +196,24 @@ class ClassImagerDeconv():
         MinorCycleConfig["ModelMachine"] = ModelMachine
 
         # Specify which deconvolution algorithm to use
-        if self.GD["ImagerDeconv"]["MinorCycleMode"] == "HMP":
+        if self.GD["Deconv"]["Mode"] == "HMP":
             if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                 raise NotImplementedError("Multi-polarization CLEAN is not supported in HMP")
             from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
             self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
             print>>log,"Using MSMF algorithm"
-        elif self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD":
+        elif self.GD["Deconv"]["Mode"]=="SSD":
             if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                 raise NotImplementedError("Multi-polarization CLEAN is not supported in SSD")
             from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
             self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
             print>>log,"Using SSD algorithm"
-        elif self.GD["ImagerDeconv"]["MinorCycleMode"] == "Hogbom":
+        elif self.GD["Deconv"]["Mode"] == "Hogbom":
             from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
             self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
             print>>log,"Using Hogbom algorithm"
         else:
-            raise NotImplementedError("Mode %s is not valid"%self.GD["ImagerDeconv"]["MinorCycleMode"])
+            raise NotImplementedError("Mode %s is not valid"%self.GD["Deconv"]["Mode"])
 
 
         self.InitFacetMachine()
@@ -311,27 +312,40 @@ class ClassImagerDeconv():
 
     def _loadCachedPSF (self, cachepath):
         import cPickle
-        self.DicoVariablePSF = cPickle.load(file(cachepath))
+        #self.DicoVariablePSF = cPickle.load(file(cachepath))
+        self.DicoVariablePSF = MyPickle.FileToDicoNP(cachepath)
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
         self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["MeanFacetPSF"]
+        self.FWHMBeam=self.DicoVariablePSF["FWHMBeam"]
+        self.PSFGaussPars=self.DicoVariablePSF["PSFGaussPars"]
+        self.PSFSidelobes=self.DicoVariablePSF["PSFSidelobes"]
+        (self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)=self.DicoVariablePSF["EstimatesAvgPSF"]
+        self.HasFittedPSFBeam=True
 
     def _finalizeComputedPSF (self, FacetMachinePSF, sparsify):
         psfdict = FacetMachinePSF.FacetsToIm(NormJones=False)
         self._psfmean, self._psfcube = psfdict["MeanImage"], psfdict["ImagData"]  # this is only for the casa image saving
         self.DicoVariablePSF = FacetMachinePSF.DicoPSF
+        self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["MeanFacetPSF"]
         if self.GD["Cache"]["PSF"] and not sparsify:
             try:
-                cPickle.dump(self.DicoVariablePSF, file(self._psf_cachepath, 'w'), 2)
+                self.FitPSF()
+                self.DicoVariablePSF["FWHMBeam"]=self.FWHMBeam
+                self.DicoVariablePSF["PSFGaussPars"]=self.PSFGaussPars
+                self.DicoVariablePSF["PSFSidelobes"]=self.PSFSidelobes
+                self.DicoVariablePSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
+                #cPickle.dump(self.DicoVariablePSF, file(self._psf_cachepath, 'w'), 2)
+                MyPickle.DicoNPToFile(self.DicoVariablePSF, self._psf_cachepath)
                 self.VS.maincache.saveCache("PSF")
             except:
                 print>> log, traceback.format_exc()
                 print>> log, ModColor.Str(
                     "WARNING: PSF cache could not be written, see error report above. Proceeding anyway.")
-        self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["MeanFacetPSF"]
 
     def _fitAndSavePSF (self, FacetMachinePSF, save=True, cycle=None):
-        self.FitPSF()
+        if not self.HasFittedPSFBeam:
+            self.FitPSF()
         if save and self._psfmean is not None:
             cycle_label = ".%02d"%cycle if cycle else ""
             if "P" in self._saveims or "p" in self._saveims:
@@ -415,7 +429,8 @@ class ClassImagerDeconv():
             print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
             print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --ResetDirty 1.")
 
-            self.DicoDirty = cPickle.load(file(dirty_cachepath))
+            #self.DicoDirty = cPickle.load(file(dirty_cachepath))
+            self.DicoDirty = MyPickle.FileToDicoNP(dirty_cachepath)
 
             if self.DicoDirty["NormData"] is not None:
                 nch, npol, nx, ny = self.DicoDirty["ImagData"].shape
@@ -564,7 +579,7 @@ class ClassImagerDeconv():
             if self.GD["Cache"]["Dirty"] and not sparsify:
                 try:
                     #cPickle.dump(self.DicoDirty, file(cachepath, 'w'), 2)
-                    MyPickle.DicoNPToFile(self.DicoDirty, cachepath_cachepath)
+                    MyPickle.DicoNPToFile(self.DicoDirty, dirty_cachepath)
                     self.VS.maincache.saveCache("Dirty")
                 except:
                     print>> log, traceback.format_exc()
@@ -652,7 +667,7 @@ class ClassImagerDeconv():
         # self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
         CleanMaskImage=None
-        CleanMaskImageName=self.GD["ImagerDeconv"]["CleanMaskImage"]
+        CleanMaskImageName=self.GD["Deconv"]["CleanMaskImage"]
         if CleanMaskImageName is not None and CleanMaskImageName is not "":
             print>>log,ModColor.Str("Will use mask image %s for the predict"%CleanMaskImageName)
             CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
@@ -671,7 +686,7 @@ class ClassImagerDeconv():
         current_model_freqs = np.array([])
 
         while True:
-            null_data=(self.GD["ImagerGlobal"]["Mode"] != "Substract")
+            null_data=(self.GD["Image"]["Mode"] != "Substract")
             Res=self.setNextData(null_data=null_data)
             if Res=="EndOfObservation": break
 
@@ -968,13 +983,13 @@ class ClassImagerDeconv():
             self.HasDeconvolved=True
 
         # dump dirty to cache
-        if self.GD["Caching"]["CacheLastResid"] and self.CurrentDicoResidImage is not None:
+        if self.GD["Cache"]["CacheLastResid"] and self.CurrentDicoResidImage is not None:
             cachepath, valid = self.VS.maincache.checkCache("LastResidual", 
                                                             dict(
                                                                 [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
-                                                                [(section, self.GD[section]) for section in "VisData", "Beam", "DataSelection",
-                                                                 "MultiFreqs", "ImagerGlobal", "Compression",
-                                                                 "ImagerCF", "ImagerMainFacet","DDESolutions"]
+                                                                [(section, self.GD[section]) for section in "Data", "Beam", "Selection",
+                                                                 "Freq", "Image", "Comp",
+                                                                 "Image","DDESolutions"]
                                                             ), 
                                                             reset=False)
             try:
@@ -1036,10 +1051,10 @@ class ClassImagerDeconv():
                 self.PSFSidelobes: Position of the highest sidelobes (px)
         """
         # If set, use the parameter RestoringBeam to fix the clean beam parameters
-        forced_beam=self.GD["ImagerDeconv"]["RestoringBeam"]
+        forced_beam=self.GD["Image"]["RestoringBeam"]
         if forced_beam is not None:
             FWHMFact = 2. * np.sqrt(2. * np.log(2.))
-            
+
             if isinstance(forced_beam,float):
                 forced_beam=[forced_beam,forced_beam,0]
             elif len(forced_beam)==1:
@@ -1048,7 +1063,7 @@ class ClassImagerDeconv():
             f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
         PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
 
-        off=self.GD["ImagerDeconv"]["SidelobeSearchWindow"] // 2
+        off=self.GD["Image"]["SidelobeSearchWindow"] // 2
 
         beam, gausspars, sidelobes = self.fitSinglePSF(self.MeanFacetPSF[0,...], off, "mean")
         if forced_beam is not None:
@@ -1074,7 +1089,9 @@ class ClassImagerDeconv():
             self.FWHMBeam = [self.FWHMBeamAvg]
             self.PSFGaussPars = [self.PSFGaussParsAvg]
             self.PSFSidelobes = [self.PSFSidelobesAvg]
-
+        self.HasFittedPSFBeam=True
+        
+        
         ## LB - Remove his chunk ?
         #theta=np.pi/2-theta
         #
@@ -1127,7 +1144,7 @@ class ClassImagerDeconv():
         del(DicoErrModel["Comp"])
         DicoErrModel["Comp"]={}
         ModConstructor = ClassModModelMachine(self.GD)
-        ErrorModelMachine = ModConstructor.GiveMM(Mode=GD["ImagerDeconv"]["MinorCycleMode"])
+        ErrorModelMachine = ModConstructor.GiveMM(Mode=GD["Deconv"]["Mode"])
         ErrorModelMachine.FromDico(DicoErrModel)
         
         DeconvMachine.ErrorModelMachine=ErrorModelMachine
@@ -1167,7 +1184,7 @@ class ClassImagerDeconv():
 
         RefFreq = self.VS.RefFreq
 
-        if self.GD["ImagerDeconv"]["MinorCycleMode"]=="SSD" and self.GD["SSDClean"]["RestoreMetroSwitch"]>0:
+        if self.GD["Deconv"]["Mode"]=="SSD" and self.GD["SSDClean"]["RestoreMetroSwitch"]>0:
             ModelMachine=self.GiveMetroModel()
         else:
             ModelMachine = self.DeconvMachine.ModelMachine
@@ -1178,7 +1195,6 @@ class ClassImagerDeconv():
                 ModelMachine.PutBackSubsComps()
             except:
                 print>>log, ModColor.Str("Failed Putting back substracted components")
-
 
         # do we have a non-trivial norm (i.e. DDE solutions or beam)?
         # @cyriltasse: maybe there's a quicker way to check?
@@ -1319,6 +1335,7 @@ class ClassImagerDeconv():
 
         # apparent-flux restored image
         if "i" in self._saveims:
+            print np.max(appres()),np.max(appconvmodel())
             self.FacetMachine.ToCasaImage(appres()+appconvmodel(),ImageName="%s.app.restored"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # intrinsic-flux restored image

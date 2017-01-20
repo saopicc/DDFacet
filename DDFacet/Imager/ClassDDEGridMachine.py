@@ -443,7 +443,7 @@ class ClassDDEGridMachine():
         self.ExpectedOutputStokes = ExpectedOutputStokes
 
     def InitCF(self, wterm, sphe, compute_cf):
-        if self.GD["ImagerGlobal"]["FFTMachine"]=="FFTW":
+        if self.GD["Image"]["FFTMachine"]=="FFTW":
             self.FFTWMachine=ModFFTW.FFTW_2Donly(self.GridShape,self.dtype, ncores = 1)
         else:
             self.FFTWMachine=ModFFTW.FFTW_2Donly_np(self.GridShape,self.dtype, ncores = 1)
@@ -579,13 +579,13 @@ class ClassDDEGridMachine():
             d=np.sqrt((l0-lc)**2+(m0-mc)**2)
             idir_Beam=np.argmin(d)
 
-            w = sI/(1.+d/d0)**gamma
-            w /= np.sum(w)
-            w[w < (0.2*w.max())] = 0
-            ind = np.argsort(w)[::-1]
-            w[ind[3::]] = 0
-            w /= np.sum(w)
-            w_kMS = w
+            # w = sI/(1.+d/d0)**gamma
+            # w /= np.sum(w)
+            # w[w < (0.2*w.max())] = 0
+            # ind = np.argsort(w)[::-1]
+            # w[ind[3::]] = 0
+            # w /= np.sum(w)
+            # w_kMS = w
 
         idir_Beam = 0
         if Apply_Beam:
@@ -989,7 +989,7 @@ class ClassDDEGridMachine():
         T.timeit("3")
         #print vis
         #print "DEGRID:",Grid.shape,ChanMapping
-        if self.GD["ImagerGlobal"]["DeGriderType"]=="Classic":
+        if self.GD["Image"]["DeGriderType"]=="Classic":
             _ = _pyGridder.pyDeGridderWPol(Grid,
                                            vis,
                                            uvw,
