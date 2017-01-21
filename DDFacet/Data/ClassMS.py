@@ -98,7 +98,7 @@ class ClassMS():
         # once.
         self._reset_cache = ResetCache
         self._chunk_caches = {}
-        self.maincache = CacheManager(MSname+".ddfcache", reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
+        self.maincache = CacheManager(MSname+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
 
         self.ReadMSInfo(DoPrint=DoPrint)
         self.LFlaggedStations=[]
@@ -859,7 +859,7 @@ class ClassMS():
             # note that we don't need to reset the chunk cache -- the top-level MS cache would already have been reset,
             # being the parent directory
             self._chunk_caches[row0, row1] = CacheManager(
-                os.path.join(self.maincache.dirname, "F%d:D%d:%d:%d" % (self.Field, self.DDID, row0, row1)),
+                os.path.join(self.maincache.dirname, "R%d:%d" % (row0, row1)),
                 reset=False)
 
         #SPW=table_all.getcol('DATA_DESC_ID')
@@ -1376,7 +1376,7 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0):
             if single:
                 return int(single)
             elif rng1:
-                return slice(int(rng1), int(rng2) + (1 if sep==":" else 2))
+                return slice(int(rng1), int(rng2) + (0 if sep==":" else 1))
             elif wild:
                 return slice(0,None)
             else:

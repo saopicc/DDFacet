@@ -566,7 +566,7 @@ class ClassVisServer():
         """
         if self.VisWeights is None:
             # ensure the background calculation is complete
-            APP.awaitJobResults("VisWeights")
+            # APP.awaitJobResults("VisWeights")
             # load shared dict prepared in background thread
             self.VisWeights = SharedDict.attach("VisWeights")
         path = self.VisWeights[iMS][iChunk]
@@ -575,7 +575,8 @@ class ClassVisServer():
         return np.load(file(path))
 
     def CalcWeightsBackground (self):
-        APP.runJob("VisWeights", self.CalcWeights, io=0, singleton=True)
+        # APP.runJob("VisWeights", self.CalcWeights, io=0, singleton=True)
+        self.CalcWeights()
 
     def CalcWeights(self):
         """
@@ -623,7 +624,7 @@ class ClassVisServer():
         weightsum = nweights = 0
         weights_are_null = True
         output_list = []
-        for ims, ms in enumerate(self.ListMS):
+        for iMS, ms in enumerate(self.ListMS):
             ms_weight_list = self.VisWeights[iMS]
             tab = ms.GiveMainTable()
             for (row0, row1), cachepath in zip(ms.getChunkRow0Row1(), ms_weight_list):
@@ -689,9 +690,7 @@ class ClassVisServer():
                 nweights += valid.sum()
                 weights_are_null = weights_are_null and (WEIGHT == 0).all()
 
-                output_list.append((uvs, WEIGHT if greedy else cachepath, flags, ms.ChanFreq))
-                if greedy:
-                    del WEIGHT
+                output_list.append((uvs, WEIGHT, flags, ms.ChanFreq))
             tab.close()
 
         # compute normalization factor

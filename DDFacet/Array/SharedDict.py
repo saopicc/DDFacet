@@ -58,15 +58,17 @@ class SharedDict (dict):
         # scan our subdirectory for items
         for name in os.listdir(self.path):
             filepath = os.path.join(self.path, name)
+            match = re.match("^(\w+):(.*):(p|a|d)$", name)
+            if not match:
+                print "Can't parse shared dict entry " + filepath
+                continue
+            keytype, key, valuetype = match.groups()
+            typefunc = _allowed_key_types.get(keytype)
+            if typefunc is None:
+                print "Unknown shared dict key type "+keytype
+                continue
+            key = typefunc(key)
             try:
-                match = re.match("^(\w+):(.*):(p|a|d)$", name)
-                if not match:
-                    print "Can't parse shared dict entry " + filepath
-                keytype, key, valuetype = match.groups()
-                typefunc = _allowed_key_types.get(keytype)
-                if typefunc is None:
-                    print "Unknown shared dict key type "+keytype
-                key = typefunc(key)
                 # 'd' item -- is a nested SharedDict
                 if valuetype == 'd':
                     dict.__setitem__(self, key, SharedDict(path=filepath, reset=False))
@@ -77,9 +79,8 @@ class SharedDict (dict):
                 elif valuetype == 'a':
                     # strip off /dev/shm/ at beginning of path
                     dict.__setitem__(self, key, NpShared.GiveArray(_to_shm(filepath)))
-            except Exception, exc:
-                traceback.print_exc()
-                raise RuntimeError("Error loading SharedDict item %s" % filepath)
+            except:
+                pass
 
     def _key_to_name (self, item):
         return "%s:%s:" % (type(item).__name__, str(item))
