@@ -1037,11 +1037,11 @@ class ClassFacetMachine():
         """Computes a sparsification vector for use in the BDA gridder. This is a vector of bools,
         same size as the number of BDA blocks, with a True for every block that will be gridded.
         Blocks ae chosen at random with a probability of 1/factor"""
-        if not factor or "BDAGrid" not in DATA:
+        if not factor or "BDA.Grid" not in DATA:
             DATA["Sparsification"] = np.array([])
         else:
             # randomly select blocks with 1/sparsification probability
-            num_blocks = DATA["BDAGrid"][0]
+            num_blocks = DATA["BDA.Grid"][0]
             DATA["Sparsification.Grid"] = numpy.random.sample(num_blocks) < 1.0 / factor
             print>> log, "applying sparsification factor of %f to %d BDA grid blocks, left with %d" % (factor, num_blocks, DATA["Sparsification.Grid"].sum())
             #num_blocks = DATA["BDADegrid"][0]

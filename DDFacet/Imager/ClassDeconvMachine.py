@@ -425,6 +425,7 @@ class ClassImagerDeconv():
                     print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
                     self.FacetMachine.getChunk(ModelImage)
 
+                print>>log,"sparsify %f"%sparsify
                 self.FacetMachine.applySparsification(DATA, sparsify)
                 self.FacetMachine.putChunkInBackground(DATA)
                 self.FacetMachinePSF and self.FacetMachinePSF.putChunkInBackground(DATA)
@@ -625,7 +626,7 @@ class ClassImagerDeconv():
             sparsify = 0
         if sparsify:
             print>> log, "applying a sparsification factor of %f to data for dirty image" % sparsify
-        self.GiveDirty(psf=True, sparsify=sparsify)  # auto-rewind to first chunk to accelerate clean
+        self.GiveDirty(psf=True, sparsify=sparsify)
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
