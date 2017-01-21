@@ -726,8 +726,9 @@ class ClassVisServer():
         # # we now release the arrays, which will flush the buffers to disk
         # # (eventually)
         # del output_list
-        for ims, ms in enumerate(self.ListMS):
-            for path in self.VisWeights[iMS]:
+        # save, and mark the cache as safe
+        for iMS,MS in enumerate(self.ListMS):
+            for (row0, row1), path in zip(MS.getChunkRow0Row1(), self.VisWeights[iMS])
                 array = weight_arrays.get(path)
                 if array is not None:
                     print>>log,"saving %s"%path
@@ -736,8 +737,5 @@ class ClassVisServer():
                     print>>log,"saving empty %s (all flagged or null)"%path
                     # make an empty weights file in the cache
                     file(path, 'w').truncate(0)
-
-        # so now we can mark the cache as safe
-        for MS in self.ListMS:
-            for row0, row1 in MS.getChunkRow0Row1():
                 MS.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
+
