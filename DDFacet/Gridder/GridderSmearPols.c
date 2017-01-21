@@ -398,8 +398,8 @@ void gridderWPol(PyArrayObject *grid,
     long int TimeStuff[1]={0};
     struct timespec PreviousTime;
 
-    float complex *Vis=calloc(1,(4)*sizeof(float complex));
-    float complex *VisMeas=calloc(1,(4)*sizeof(float complex));
+    float complex Vis[4];
+    float complex VisMeas[4];
     int ThisPol;
 
     float *ThisSumJonesChan=calloc(1,(nVisChan)*sizeof(float));
@@ -438,7 +438,7 @@ void gridderWPol(PyArrayObject *grid,
       }
 
     // when moving to a new block of rows, init this to -1 so the code below knows to initialize
-    // CurrentCorrTer when the first channel of each row comes in
+    // CurrentCorrTerm when the first channel of each row comes in
     if( Row[0] != CurrentCorrRow0 )
     {
       for (inx=0; inx<NRowThisBlock; inx++)
@@ -822,6 +822,11 @@ void gridderWPol(PyArrayObject *grid,
     /* printf("TimeGetJones:   %5.2f\n",tGetJones); */
     /* printf("TimeStuff:      %5.2f\n",tStuff); */
 
+    free(CurrentCorrTerm);
+    free(dCorrTerm);
+    free(CurrentCorrChan);
+    free(ThisSumJonesChan);
+    free(ThisSumSqWeightsChan);
   } // end 
 
 
@@ -1442,4 +1447,8 @@ void DeGridderWPol(PyArrayObject *grid,
       
     } //end for Block
     //sem_close(Sem_mutex);
+
+    free(CurrentCorrTerm);
+    free(dCorrTerm);
+
  } // end

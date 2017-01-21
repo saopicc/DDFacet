@@ -38,6 +38,7 @@ import ClassJones
 import ClassBeamMean
 from DDFacet.Other import Multiprocessing
 from DDFacet.Array import SharedDict
+from DDFacet.Other.AsyncProcessPool import APP
 log = MyLogger.getLogger("ClassVisServer")
 
 
@@ -54,14 +55,11 @@ class ClassVisServer():
                  ColName="DATA",
                  TChunkSize=1,             # chunk size, in hours
                  LofarBeam=None,
-                 AddNoiseJy=None,
-                 APP=None, APP_id="VS"):   # AsyncProcessPool to use, if any
+                 AddNoiseJy=None):
         self.GD = GD
-        self.APP = APP
-        self.APP_id = APP_id
         if APP is not None:
-            APP.registerEvents("VisWeights")
             APP.registerJobHandlers(self)
+            self._app_id = "VS"
 
         self.MSList = [ MSList ] if isinstance(MSList, str) else MSList
         self.FacetMachine = None
@@ -87,8 +85,8 @@ class ClassVisServer():
         self.Init()
 
         # smear mapping machines
-        self._smm_grid = ClassSmearMapping.SmearMappingMachine(self.APP, "BDA.Grid")
-        self._smm_degrid = ClassSmearMapping.SmearMappingMachine(self.APP, "BDA.Degrid")
+        self._smm_grid = ClassSmearMapping.SmearMappingMachine("BDA.Grid")
+        self._smm_degrid = ClassSmearMapping.SmearMappingMachine("BDA.Degrid")
 
     def Init(self, PointingID=0):
         self.ListMS = []
@@ -352,10 +350,12 @@ class ClassVisServer():
             ms = self.ListMS[self.iCurrentMS]
             if self.iCurrentChunk < ms.numChunks():
                 self._next_chunk_name = "DATA:%d:%d" % (self.iCurrentMS, self.iCurrentChunk)
+                # create chunk label
+                self._next_chunk_label = "%d.%d" % (self.iCurrentMS+1, self.iCurrentChunk+1)
                 # in single-chunk mode, DATA may already be loaded, in which case we do nothing
                 if self.nTotalChunks > 1 or self.DATA is None:
                     # tell the IO thread to start loading the chunk
-                    self.APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
+                    APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
                                     args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk),
                                     kwargs=dict(keep_data=keep_data, null_data=null_data), io=0)
                 self.iCurrentChunk += 1
@@ -381,9 +381,10 @@ class ClassVisServer():
             np.copyto(self.DATA["data"], self.DATA["orig_data"])
         else:
             # await completion of data loading jobs (which, presumably, includes smear mapping)
-            self.APP.awaitJobResults(self._next_chunk_name, progress="Reading data")
+            APP.awaitJobResults(self._next_chunk_name, progress="Reading %s"%self._next_chunk_label )
             # reload the data dict -- background thread will now have populated it
             self.DATA = SharedDict.attach(self._next_chunk_name)
+            self.DATA["label"] = self._next_chunk_label
             self.CurrentMS = self.ListMS[self.iCurrentMS]
         # schedule next event
         if start_next:
@@ -563,7 +564,7 @@ class ClassVisServer():
         """
         if self.VisWeights is None:
             # ensure the background calculation is complete
-            self.APP.awaitEvents("VisWeights")
+            APP.awaitJobResults("VisWeights")
             # load shared dict prepared in background thread
             self.VisWeights = SharedDict.attach("VisWeights")
         path = self.VisWeights[iMS][iChunk]
@@ -572,7 +573,7 @@ class ClassVisServer():
         return np.load(file(path))
 
     def CalcWeightsBackground (self):
-        self.APP.runJob("VisWeights", self.CalcWeights, io=0, event="VisWeights", singleton=True)
+        APP.runJob("VisWeights", self.CalcWeights, io=0, singleton=True)
 
     def CalcWeights(self):
         """

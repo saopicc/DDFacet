@@ -444,10 +444,18 @@ class ClassDDEGridMachine():
             ClassDDEGridMachine._global_fftw_machines[args] = machine = ModFFTW.FFTW_2Donly(*args)
         return machine
 
-    def getFFTWMachine (self):
+    def getFFTWMachine(self):
+        """Returns an fftw_machine for the grid. Makes sure it is initialized once per process."""
         if self._fftw_machine is None:
             self._fftw_machine = self._getGlobalFFTWMachine(self.GridShape, self.dtype)
         return self._fftw_machine
+
+    @staticmethod
+    def verifyCFDict(cf_dict, nw):
+        """Checks that cf_dict has all the correct entries"""
+        for key in ["SW", "Sphe"] + ["W%d"%w for w in xrange(nw)] + ["Wc%d"%w for w in xrange(nw)]:
+            if key not in cf_dict:
+                raise KeyError(key)
 
     def InitCF(self, cf_dict, compute_cf):
         T = ClassTimeIt.ClassTimeIt("InitCF_ClassDDEGridMachine")

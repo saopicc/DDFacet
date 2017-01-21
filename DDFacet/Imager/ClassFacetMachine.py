@@ -23,6 +23,8 @@ import numpy as np
 import ClassCasaImage
 import pyfftw
 import cPickle
+import atexit
+import traceback
 from matplotlib.path import Path
 import pylab
 import numpy.random
@@ -38,6 +40,8 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from DDFacet.Other import MyLogger
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
+from DDFacet.Other.AsyncProcessPool import APP
+
 
 log = MyLogger.getLogger("ClassFacetImager")
 MyLogger.setSilent("MyLogger")
@@ -62,12 +66,9 @@ class ClassFacetMachine():
                  PointingID=0,
                  DoPSF=False,
                  Oversize=1,   # factor by which image is oversized
-                 APP=None, APP_id="FM",
                  ):
 
         self.HasFourierTransformed = False
-
-        self.NCPU = int(GD["Parallel"]["NCPU"])
 
         if Precision == "S":
             self.dtype = np.complex64
@@ -88,11 +89,10 @@ class ClassFacetMachine():
         self.VS, self.GD = VS, GD
         self.npol = self.VS.StokesConverter.NStokesInImage()
         self.Parallel = True
-        self.APP, self.APP_id = APP, APP_id
         if APP is not None:
             APP.registerJobHandlers(self)
-            APP.registerEvents("InitW")
             self._fft_job_counter = APP.createJobCounter("fft")
+            self._app_id = "FMPSF" if DoPSF else "FM"
 
         DicoConfigGM = {}
         self.DicoConfigGM = DicoConfigGM
@@ -116,11 +116,27 @@ class ClassFacetMachine():
         self.NormImage = None
         self._facet_grids = self.DATA = None
         self._grid_job_id = self._fft_job_id = self._degrid_job_id = None
-        self._degridding_semaphores = None
+
+        # create semaphores if not already created
+        if not ClassFacetMachine._degridding_semaphores:
+            NSemaphores = 3373
+            ClassFacetMachine._degridding_semaphores = [Multiprocessing.getShmName("Semaphore", sem=i) for i in xrange(NSemaphores)]
+            _pyGridderSmearPols.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
+            atexit.register(ClassFacetMachine._delete_degridding_semaphores)
 
         # this is used to store NormImage and model images in shared memory, for the degridder
         if not self.DoPSF:
             self._model_dict = SharedDict.create("Model")
+
+    # static attribute initialized below, once
+    _degridding_semaphores = None
+
+    @staticmethod
+    def _delete_degridding_semaphores():
+        if ClassFacetMachine._degridding_semaphores:
+            _pyGridderSmearPols.pyDeleteSemaphore(ClassFacetMachine._degridding_semaphores)
+            for sem in ClassFacetMachine._degridding_semaphores:
+                NpShared.DelArray(sem)
 
     def __del__(self):
         # print>>log,"Deleting shared memory"
@@ -498,7 +514,7 @@ class ClassFacetMachine():
         #     A = ModFFTW.GiveFFTW_aligned(self.PaddedGridShape, np.complex64)
         #     NpShared.ToShared("%sFFTW.%i" % (self.IdSharedMem, iFacet), A)
 
-    def InitBackground (self, other_fm=None):
+    def initCFInBackground (self, other_fm=None):
         # if we have another FacetMachine supplied, check if the same CFs apply
         if other_fm and self.Oversize == other_fm.Oversize:
             self._CF = other_fm._CF
@@ -517,12 +533,12 @@ class ClassFacetMachine():
         cachepath, cachevalid = self.VS.maincache.checkCache(cachename, cachekey, directory=True)
         # up to workers to load/save cache
         for iFacet in self.DicoImager.iterkeys():
-            self.APP.runJob("%s.InitW.f%s"%(self.APP_id, iFacet), self._initcf_worker,
+            APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
                             args=(iFacet, self._CF.path, cachepath, cachevalid))
 
     def awaitInitCompletion (self):
         if not self.IsDDEGridMachineInit:
-            self.APP.awaitJobResults("%s.InitW.*"%self.APP_id, progress="Init CFs")
+            APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
             self._CF.reload()
             # mark cache as safe
             self.VS.maincache.saveCache(self._cf_cachename)
@@ -553,9 +569,11 @@ class ClassFacetMachine():
                 npzfile = np.load(file(path))
                 for key, value in npzfile.iteritems():
                     facet_dict[key] = value
-                return "cache"
+                # validate dict
+                ClassDDEGridMachine.ClassDDEGridMachine.verifyCFDict(facet_dict, self.GD["CF"]["Nw"])
             except:
-                print>>log, "  error loading %s, will re-generate"%path
+                print>>log,traceback.format_exc()
+                print>>log, "Error loading %s, will re-generate"%path
         # ok, regenerate the terms at this point
         FacetInfo = self.DicoImager[iFacet]
         # Create smoothned facet tessel mask:
@@ -1128,10 +1146,11 @@ class ClassFacetMachine():
         self.collectGriddingResults()
         self.collectDegriddingResults()
         # run new set of jobs
-        self._grid_iMS = DATA["iMS"]
-        self._grid_job_id = "%s.Grid.ms%d.ch%d:" % (self.APP_id, DATA["iMS"], DATA["iChunk"])
+        self._grid_iMS, self._grid_iChunk = DATA["iMS"], DATA["iChunk"]
+        self._grid_job_label = DATA["label"]
+        self._grid_job_id = "%s.Grid.%s:" % (self._app_id, self._grid_job_label)
         for iFacet in self.DicoImager.keys():
-            self.APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
+            APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
                             args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path)
                             )
 
@@ -1150,7 +1169,8 @@ class ClassFacetMachine():
         if self._grid_job_id is None:
             return
         # collect results of grid workers
-        results = self.APP.awaitJobResults(self._grid_job_id+"*",progress="Gridding (PSF)" if self.DoPSF else "Gridding")
+        results = APP.awaitJobResults(self._grid_job_id+"*",progress=
+                            ("Grid (PSF) %s" if self.DoPSF else "Grid %s") % self._grid_job_label)
         for DicoResult in results:
             # if we hit a returned exception, raise it again
             if isinstance(DicoResult, Exception):
@@ -1186,9 +1206,9 @@ class ClassFacetMachine():
         # wait for any previous gridding jobs to finish, if still active
         self.collectGriddingResults()
         # run FFT jobs
-        self._fft_job_id = "%s.FFT:" % self.APP_id
+        self._fft_job_id = "%s.FFT:" % self._app_id
         for iFacet in self.DicoImager.keys():
-            self.APP.runJob("%sF%d" % (self._fft_job_id, iFacet), self._fft_worker,
+            APP.runJob("%sF%d" % (self._fft_job_id, iFacet), self._fft_worker,
                             args=(iFacet, self._CF.path, self._facet_grids.path),
                             )
 
@@ -1196,7 +1216,8 @@ class ClassFacetMachine():
         if self._fft_job_id is None:
             return
         # collect results of FFT workers
-        self.APP.awaitJobResults(self._fft_job_id+"*", progress="FFT (PSF)" if self.DoPSF else "FFT")
+        # (use label of previous gridding job for the progress bar)
+        APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT (PSF) %s" if self.DoPSF else "FFT %s")%(self._grid_job_label))
         self._fft_job_id = None
 
     # DeGrid worker that is called by Multiprocessing.Process
@@ -1211,15 +1232,9 @@ class ClassFacetMachine():
             self.DicoImager, iFacet, None,
             cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel)
 
-        # create semaphores if not already created
-        if not self._degridding_semaphores:
-            NSemaphores = 3373
-            self._degridding_semaphores = [ Multiprocessing.getShmName("Semaphore", sem=i) for i in xrange(NSemaphores) ]
-            _pyGridderSmearPols.pySetSemaphores(self._degridding_semaphores)
-
         # Create a new GridMachine
         GridMachine = self._createGridMachine(iFacet, cf_dict=cf_dict,
-            ListSemaphores=self._degridding_semaphores,
+            ListSemaphores=ClassFacetMachine._degridding_semaphores,
             bda_grid=self.DATA["BDA.Grid"], bda_degrid=self.DATA["BDA.Degrid"])
 
         uvwThis = self.DATA["uvw"]
@@ -1289,12 +1304,14 @@ class ClassFacetMachine():
         """
         # wait for any init to finish
         self.awaitInitCompletion()
+
         # run new set of jobs
         ChanSel = sorted(set(DATA["ChanMappingDegrid"]))  # unique channel numbers for degrid
 
-        self._degrid_job_id = "%s.Degrid.ms%d.ch%d:" % (self.APP_id, DATA["iMS"], DATA["iChunk"])
+        self._degrid_job_label = DATA["label"]
+        self._degrid_job_id = "%s.Degrid.%s:" % (self._app_id, self._degrid_job_label)
         for iFacet in self.DicoImager.keys():
-            self.APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
+            APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path,
                             self._model_dict["Model.Id"], ChanSel))
 
@@ -1308,6 +1325,6 @@ class ClassFacetMachine():
         if self._degrid_job_id is None:
             return
         # collect results of degrid workers
-        results = self.APP.awaitJobResults(self._degrid_job_id + "*", progress="Degridding")
+        APP.awaitJobResults(self._degrid_job_id + "*", progress="Degrid %s" % self._degrid_job_label)
         self._degrid_job_id = None
         return True

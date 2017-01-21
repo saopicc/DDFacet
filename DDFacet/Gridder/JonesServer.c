@@ -193,7 +193,7 @@ float CalibError,CalibError2,ReWeightSNR;
 double *ptrSumJones;
 double *ptrSumJonesChan;
 
-float complex *J0;
+float complex *J0 = 0;  // this value is used as a flag, to only initialize once
 float complex *J1;
 float complex *J0kMS;
 float complex *J1kMS;
@@ -217,6 +217,9 @@ float complex *IMatrix;
 
 
 void initJonesMatrices(){
+  if( J0 )
+    return;
+
   J0=calloc(1,(4)*sizeof(float complex));
   J1=calloc(1,(4)*sizeof(float complex));
   J0kMS=calloc(1,(4)*sizeof(float complex));

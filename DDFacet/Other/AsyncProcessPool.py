@@ -127,7 +127,25 @@ class JobCounterPool(object):
 class AsyncProcessPool (object):
     """
     """
-    def __init__ (self, ncpu=None, affinity=None, num_io_processes=1, verbose=0):
+    def __init__ (self):
+        self._started = False
+
+    def __del__(self):
+        self.shutdown()
+
+    def init(self, ncpu=None, affinity=None, num_io_processes=1, verbose=0):
+        """
+        Initializes an APP.
+
+        Args:
+            ncpu:
+            affinity:
+            num_io_processes:
+            verbose:
+
+        Returns:
+
+        """
         self._shared_state = SharedDict.create("APP")
         self.affinity = affinity
         self.cpustep = abs(self.affinity) or 1
@@ -406,6 +424,38 @@ class AsyncProcessPool (object):
             result_values.append(resvals)
         return result_values[0] if len(result_values) == 1 else result_values
 
+    def terminate(self):
+        if self._started:
+            if self.verbose > 1:
+                print>> log, "terminating workers"
+            for p in self._compute_workers + self._io_workers:
+                p.terminate()
+
+    def shutdown(self):
+        """Terminate worker threads"""
+        if not self._started:
+            return
+        if self.verbose > 1:
+            print>>log,"shutdown: handing poison pills to workers"
+        self._started = False
+        for _ in self._compute_workers:
+            self._compute_queue.put("POISON-E")
+        for queue in self._io_queues:
+            queue.put("POISON-E")
+        if self.verbose > 1:
+            print>> log, "shutdown: reaping workers"
+        # join processes
+        for p in self._compute_workers + self._io_workers:
+            p.join()
+        if self.verbose > 1:
+            print>> log, "shutdown: closing queues"
+        # join and close queues
+        self._result_queue.close()
+        self._compute_queue.close()
+        for queue in self._io_queues:
+            queue.close()
+        if self.verbose > 1:
+            print>> log, "shutdown complete"
 
     @staticmethod
     def _start_worker (object, proc_id, affinity, worker_queue):
@@ -499,3 +549,11 @@ class AsyncProcessPool (object):
             return
     # CPU id. This will be None in the parent process, and a unique number in each worker process
     proc_id = None
+
+APP = AsyncProcessPool()
+
+def init(ncpu=None, affinity=None, num_io_processes=1, verbose=0):
+    global APP
+    APP.init(ncpu, affinity, num_io_processes, verbose)
+
+

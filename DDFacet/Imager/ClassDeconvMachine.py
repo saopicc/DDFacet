@@ -37,7 +37,8 @@ from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
 import traceback
 from DDFacet.Other import Multiprocessing
-from DDFacet.Other.AsyncProcessPool import AsyncProcessPool
+from DDFacet.Other import AsyncProcessPool
+from DDFacet.Other.AsyncProcessPool import APP
 import cPickle
 
 log=MyLogger.getLogger("ClassImagerDeconv")
@@ -141,14 +142,12 @@ class ClassImagerDeconv():
         mslist = ClassMS.expandMSList(DC["Data"]["MS"],
                                       defaultDDID=DC["Selection"]["DDID"],
                                       defaultField=DC["Selection"]["Field"])
-        self.APP = AsyncProcessPool(ncpu=self.GD["Parallel"]["NCPU"], affinity=self.GD["Parallel"]["Affinity"],
-                                    verbose=self.GD["Debug"]["APPVerbose"])
+        AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"], affinity=self.GD["Parallel"]["Affinity"],
+                              verbose=self.GD["Debug"]["APPVerbose"])
 
-        self.VS=ClassVisServer.ClassVisServer(mslist,
-                                              ColName=DC["Data"]["ColName"],
-                                              TChunkSize=DC["Data"]["ChunkHours"],
-                                              GD=self.GD,
-                                              APP=self.APP)
+        self.VS = ClassVisServer.ClassVisServer(mslist,ColName=DC["Data"]["ColName"],
+                                                TChunkSize=DC["Data"]["ChunkHours"],
+                                                GD=self.GD)
 
         if self.do_deconvolve:
             self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
@@ -193,12 +192,12 @@ class ClassImagerDeconv():
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
 
         # all internal state initialized -- start the worker threads
-        self.APP.startWorkers()
+        APP.startWorkers()
         # and proceed with background tasks
         self.VS.CalcWeightsBackground()
-        self.FacetMachine and self.FacetMachine.InitBackground()
+        self.FacetMachine and self.FacetMachine.initCFInBackground()
         # FacetMachinePSF will skip CF init if they match those of FacetMachine
-        self.FacetMachinePSF and self.FacetMachinePSF.InitBackground(other_fm=self.FacetMachine)
+        self.FacetMachinePSF and self.FacetMachinePSF.initCFInBackground(other_fm=self.FacetMachine)
 
     def CreateFacetMachines (self):
         """Creates FacetMachines for data and/or PSF"""
@@ -206,8 +205,7 @@ class ClassImagerDeconv():
         MainFacetOptions = self.GiveMainFacetOptions()
         if self.do_data:
             self.FacetMachine = ClassFacetMachine(self.VS, self.GD,
-                                                Precision=self.Precision, PolMode=self.PolMode,
-                                                APP=self.APP, APP_id="FM")
+                                                Precision=self.Precision, PolMode=self.PolMode)
             self.FacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
             self.FacetMachine.Init()
         if self.do_psf:
@@ -224,8 +222,7 @@ class ClassImagerDeconv():
             print>> log, "using PSFOversize=%.2f" % oversize
             self.FacetMachinePSF = ClassFacetMachine(self.VS, self.GD,
                                                 Precision=self.Precision, PolMode=self.PolMode,
-                                                DoPSF=True, Oversize=oversize,
-                                                APP=self.APP, APP_id="FMPSF")
+                                                DoPSF=True, Oversize=oversize)
             self.FacetMachinePSF.appendMainField(ImageName="%s.psf" % self.BaseName, **MainFacetOptions)
             self.FacetMachinePSF.Init()
 

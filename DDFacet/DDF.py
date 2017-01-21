@@ -37,8 +37,8 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
+from DDFacet.Other.AsyncProcessPool import APP
 log = None
-
 
 # # ##############################
 # # Catch numpy warning
@@ -327,6 +327,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print>>log, traceback.format_exc()
         print>>log, ModColor.Str("DDFacet interrupted by Ctrl+C", col="red")
+        APP.terminate()
         retcode = 1 #Should at least give the command line an indication of failure
     except:
         print>>log, traceback.format_exc()
@@ -357,5 +358,6 @@ if __name__ == "__main__":
         # Should at least give the command line an indication of failure
         retcode = 1 # Should at least give the command line an indication of failure
 
+    APP.shutdown()
     Multiprocessing.cleanupShm()
     sys.exit(retcode)
