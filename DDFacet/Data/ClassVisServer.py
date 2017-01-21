@@ -728,7 +728,7 @@ class ClassVisServer():
         # del output_list
         # save, and mark the cache as safe
         for iMS,MS in enumerate(self.ListMS):
-            for (row0, row1), path in zip(MS.getChunkRow0Row1(), self.VisWeights[iMS])
+            for (row0, row1), path in zip(MS.getChunkRow0Row1(), self.VisWeights[iMS]):
                 array = weight_arrays.get(path)
                 if array is not None:
                     print>>log,"saving %s"%path
