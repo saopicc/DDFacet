@@ -453,7 +453,7 @@ class ClassDDEGridMachine():
     @staticmethod
     def verifyCFDict(cf_dict, nw):
         """Checks that cf_dict has all the correct entries"""
-        for key in ["SW", "Sphe"] + ["W%d"%w for w in xrange(nw)] + ["Wc%d"%w for w in xrange(nw)]:
+        for key in "SW", "Sphe", "W", "CuCv":
             if key not in cf_dict:
                 raise KeyError(key)
 

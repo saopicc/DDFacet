@@ -270,12 +270,6 @@ class ClassWTermModified():
         """
         Class for computing/loading/saving w-kernels and spheroidals.
 
-        @cyriltasse this is new, I don't want to confuse, so: I've removed the shared memory ID (because I want
-        DDEGridMachine or FacetMachine to decide where to store the CFs). Instead, the Sphe and WTerm arguments
-        are either:
-            * numpy arrays, in which case they're just treated as is
-            * strings, in which case they're interpreted as shared array names for GiveArray() or CreateShared()
-
         Args:
             Cell:
             Sup:
@@ -313,14 +307,15 @@ class ClassWTermModified():
             dS = np.complex64
             cf_dict["Sphe"] = dS(self.ifzfCF)
             cf_dict["CuCv"] = np.array([self.Cu, self.Cv])
-            for i in xrange(self.Nw):
-                cf_dict["W%d"%i] = self.Wplanes[i]
-                cf_dict["Wc%d"%i] = self.WplanesConj[i]
+            NpShared.PackListSquareMatrix(cf_dict, "W", self.Wplanes + self.WplanesConj)
         else:
             self.ifzfCF = cf_dict["Sphe"]
             self.Cu, self.Cv = cf_dict["CuCv"]
-            self.Wplanes = [cf_dict["W%d"%i] for i in xrange(self.Nw)]
-            self.WplanesConj = [cf_dict["Wc%d"%i] for i in xrange(self.Nw)]
+            ww = NpShared.UnPackListSquareMatrix(cf_dict["W"])
+            if len(ww) != self.Nw*2:
+                raise RuntimeError("mismatch in number of cached w-planes")
+            self.Wplanes = ww[:self.Nw]
+            self.WplanesConj = ww[self.Nw:]
 
     def InitSphe(self):
         T = ClassTimeIt.ClassTimeIt("Wterm")
