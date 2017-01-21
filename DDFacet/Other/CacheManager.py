@@ -119,8 +119,7 @@ class CacheManager (object):
         # check for NFS system and print warning
         if nfswarn:
             try:
-                fstype = subprocess.check_output(("stat --file-system --format=%T " +
-                                                  (os.path.basename(dirname) or ".")).split()).strip()
+                fstype = subprocess.check_output(("stat --file-system --format=%T " + dirname).split()).strip()
             except:
                 print>> log, ModColor.Str("WARNING: unable to determine filesystem type for %s" % dirname, col="red",
                                           Bold=True)
