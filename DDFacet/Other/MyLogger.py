@@ -32,14 +32,13 @@ class LoggerWriter:
             self.logger.log(self.level, message)
 
 
-_proc_status = '/proc/%d/status' % os.getpid()
-
 _scale = {'kB': 1024.0, 'mB': 1024.0*1024.0,
           'KB': 1024.0, 'MB': 1024.0*1024.0}
 
 def _VmB(VmKey,statusfile=None):
-    global _proc_status, _scale
-     # get pseudo file  /proc/<pid>/status
+    global _scale
+    _proc_status = '/proc/%d/status' % os.getpid()
+    # get pseudo file  /proc/<pid>/status
     try:
         t = open(statusfile or _proc_status)
         v = t.read()

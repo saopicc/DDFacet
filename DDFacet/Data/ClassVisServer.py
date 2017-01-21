@@ -630,11 +630,6 @@ class ClassVisServer():
                 nrows = row1 - row0
                 chanslice = ms.ChanSlice
                 if not nrows:
-                    # if no data in this chunk, make single, flagged entry
-                    output_list.append( (np.zeros((1, 2)),
-						 np.zeros((1, len(ms.ChanFreq))),
-                         np.array([True]), 
-                         ms.ChanFreq))
                     continue
                 print>>log,"  reading %s UVW" % ms.MSName
                 uvs = tab.getcol("UVW", row0, nrows)[:, :2]
@@ -657,11 +652,7 @@ class ClassVisServer():
                 # weightpath = "file://"+cachepath
 
                 # if everything is flagged, skip this entry, and mark it with a zero-length weights file
-                if flags.all() or not nrows:
-                    # Nones tell CalcWeights to skip this chunk entirely
-                    output_list.append((uvs, None, None, ms.ChanFreq))
-                    # make an empty weights file in the cache
-                    file(cachepath,'w').truncate(0)
+                if flags.all():
                     continue
 
                 # WEIGHT = NpShared.CreateShared(weightpath, (nrows, ms.Nchan), np.float64)
@@ -735,9 +726,17 @@ class ClassVisServer():
         # # we now release the arrays, which will flush the buffers to disk
         # # (eventually)
         # del output_list
-        for path, array in weight_arrays.iteritems():
-            print>>log,"saving %s"%path
-            np.save(path, array)
+        for ims, ms in enumerate(self.ListMS):
+            for path in self.VisWeights[iMS]:
+                array = weight_arrays.get(path)
+                if array is not None:
+                    print>>log,"saving %s"%path
+                    np.save(path, array)
+                else:
+                    print>>log,"saving empty %s (all flagged or null)"%path
+                    # make an empty weights file in the cache
+                    file(path, 'w').truncate(0)
+
         # so now we can mark the cache as safe
         for MS in self.ListMS:
             for row0, row1 in MS.getChunkRow0Row1():
