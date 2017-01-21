@@ -24,6 +24,13 @@ def create(name):
 class SharedDict (dict):
     basepath = SHM_PREFIX
 
+    class SharedArrayProxy (object):
+        """Helper class used to defer attachment of SharedArray items until they are actually requested"""
+        def __init__(self, path):
+            self.path = path
+        def array(self):
+            return NpShared.GiveArray(self.path)
+
     @staticmethod
     def setBaseName(name):
         SharedDict.basepath = os.path.join(SHM_PREFIX, name)
@@ -78,14 +85,41 @@ class SharedDict (dict):
                 # array item -- attach as shared
                 elif valuetype == 'a':
                     # strip off /dev/shm/ at beginning of path
-                    dict.__setitem__(self, key, NpShared.GiveArray(_to_shm(filepath)))
+#                    dict.__setitem__(self, key, NpShared.GiveArray(_to_shm(filepath)))
+                    dict.__setitem__(self, key, SharedDict.SharedArrayProxy(_to_shm(filepath)))
             except:
                 pass
 
     def _key_to_name (self, item):
         return "%s:%s:" % (type(item).__name__, str(item))
 
-    def __setitem__ (self, item, value):
+    def get(self, item, default_value=None):
+        value = dict.get(self, item, default_value)
+        if isinstance(value, SharedDict.SharedArrayProxy):
+            value = value.array()
+            dict.__setitem__(self, item, value)
+        return value
+
+    def iteritems(self):
+        raise RuntimeError("not implemented")
+
+    def itervalues(self):
+        raise RuntimeError("not implemented")
+
+    def items(self):
+        raise RuntimeError("not implemented")
+
+    def values(self):
+        raise RuntimeError("not implemented")
+
+    def __getitem__(self, item):
+        value = dict.__getitem__(self, item)
+        if isinstance(value, SharedDict.SharedArrayProxy):
+            value = value.array()
+            dict.__setitem__(self, item, value)
+        return value
+
+    def __setitem__(self, item, value):
         if type(item).__name__ not in _allowed_key_types:
             raise KeyError,"unsupported key of type "+type(item).__name__
         name = self._key_to_name(item)

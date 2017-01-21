@@ -86,7 +86,8 @@ class SmearMappingMachine (object):
         NTotBlocks = 0
         NTotRows = 0
 
-        for bsz in sizedict.itervalues():
+        for key in sizedict.iterkeys():
+            bsz = sizedict[key]
             NTotBlocks += len(bsz)
             NTotRows += bsz.sum()
 
@@ -103,7 +104,8 @@ class SmearMappingMachine (object):
         jjj = 0
 
         # now go through each per-baseline mapping, sorted by baseline
-        for key, BlocksSizesBL in sizedict.iteritems():
+        for key in sizedict.iterkeys():
+            BlocksSizesBL = sizedict[key]
             BlocksRowsListBL = blockdict[key]
 
             FinalMapping[iii:iii+BlocksRowsListBL.size] = BlocksRowsListBL[:]
