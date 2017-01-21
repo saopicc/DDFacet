@@ -85,9 +85,11 @@ class SharedDict (dict):
                 # array item -- attach as shared
                 elif valuetype == 'a':
                     # strip off /dev/shm/ at beginning of path
-#                    dict.__setitem__(self, key, NpShared.GiveArray(_to_shm(filepath)))
+                    # dict.__setitem__(self, key, NpShared.GiveArray(_to_shm(filepath)))
                     dict.__setitem__(self, key, SharedDict.SharedArrayProxy(_to_shm(filepath)))
             except:
+                print "Error loading item %s"%name
+                traceback.print_exc()
                 pass
 
     def _key_to_name (self, item):
