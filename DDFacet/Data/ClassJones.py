@@ -47,7 +47,6 @@ class ClassJones():
         GD = self.GD
         SolsFile = GD["DDESolutions"]["DDSols"]
         self.ApplyCal = False
-        DicoClusterDirs = DicoSols = TimeMapping = None
         if SolsFile != "":
             self.ApplyCal = True
             self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache(
@@ -59,7 +58,7 @@ class ClassJones():
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS", DATA)
                 self.MS.cache.saveCache("JonesNorm_killMS.npz")
-            DATA["killMS"] =  DicoSols, TimeMapping, DicoClusterDirs
+            DATA["killMS"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
             self.HasKillMSSols = True
 
         ApplyBeam=(GD["Beam"]["Model"] is not None)
@@ -73,7 +72,7 @@ class ClassJones():
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("Beam", DATA)
                 self.MS.cache.saveCache("JonesNorm_Beam.npz")
-            DATA["Beam"] = DicoSols, TimeMapping, DicoClusterDirs
+            DATA["Beam"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
 
     # def ToShared(self, StrType, DicoSols, TimeMapping, DicoClusterDirs):
     #     print>>log, "  Putting %s Jones in shm" % StrType
@@ -233,7 +232,6 @@ class ClassJones():
 
         # ThisMSName=reformat.reformat(os.path.abspath(self.CurrentMS.MSName),LastSlash=False)
         # TimeMapName="%s/Mapping.DDESolsTime.npy"%ThisMSName
-
         return DicoSols, TimeMapping, DicoClusterDirs
 
     def GiveTimeMapping(self, DicoSols, times):

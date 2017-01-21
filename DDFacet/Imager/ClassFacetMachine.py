@@ -1107,21 +1107,10 @@ class ClassFacetMachine():
 
         if Apply_killMS or Apply_Beam:
             DicoJonesMatrices = {}
-
         if Apply_killMS:
-            DicoSols, TimeMapping, DicoClusterDirs = self.DATA["killMS"]
-            DicoJonesMatrices["DicoJones_killMS"] = DicoSols
-            DicoJonesMatrices["DicoJones_killMS"]["MapJones"] = TimeMapping
-            DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"] = DicoClusterDirs
-            DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"] = None
-
+            DicoJonesMatrices["DicoJones_killMS"] = self.DATA["killMS"]
         if Apply_Beam:
-            DicoSols, TimeMapping, DicoClusterDirs = self.DATA["Beam"]
-            DicoJonesMatrices["DicoJones_Beam"] = DicoSols
-            DicoJonesMatrices["DicoJones_Beam"]["MapJones"] = TimeMapping
-            DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"] = DicoClusterDirs
-            DicoJonesMatrices["DicoJones_Beam"]["AlphaReg"] = None
-            # print>>log,"TimeMapping: %d %s"%(iFacet, TimeMapping)
+            DicoJonesMatrices["DicoJones_Beam"] = self.DATA["Beam"]
 
         GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                         DoNormWeights=False,
@@ -1259,20 +1248,10 @@ class ClassFacetMachine():
 
         if Apply_killMS or Apply_Beam:
             DicoJonesMatrices = {}
-
         if Apply_killMS:
-            DicoSols, TimeMapping, DicoClusterDirs = self.DATA["killMS"]
-            DicoJonesMatrices["DicoJones_killMS"] = DicoSols
-            DicoJonesMatrices["DicoJones_killMS"]["MapJones"] = TimeMapping
-            DicoJonesMatrices["DicoJones_killMS"]["DicoClusterDirs"] = DicoClusterDirs
-            DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"] = None
-
+            DicoJonesMatrices["DicoJones_killMS"] = self.DATA["killMS"]
         if Apply_Beam:
-            DicoSols, TimeMapping, DicoClusterDirs = self.DATA["Beam"]
-            DicoJonesMatrices["DicoJones_Beam"] = DicoSols
-            DicoJonesMatrices["DicoJones_Beam"]["MapJones"] = TimeMapping
-            DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"] = DicoClusterDirs
-            DicoJonesMatrices["DicoJones_Beam"]["AlphaReg"] = None
+            DicoJonesMatrices["DicoJones_Beam"] = self.DATA["Beam"]
 
         DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
 

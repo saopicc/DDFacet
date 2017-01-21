@@ -100,9 +100,11 @@ class SharedDict (dict):
         # for arrays, copy to a shared array
         if isinstance(value, np.ndarray):
             NpShared.ToShared(_to_shm(os.path.join(self.path, name)+'a'), value)
-        # for shared dicts, force use of addSubDict
-        elif isinstance(value, SharedDict):
-            raise TypeError,"shared sub-dicts must be initialized with addSubDict"
+        # for regular dicts, copy across
+        elif isinstance(value, dict):
+            dict1 = self.addSubDict(item)
+            for key1, value1 in value.iteritems():
+                dict1[key1] = value1
         # all other types, just use pickle
         else:
             cPickle.dump(value, file(os.path.join(self.path, name+'p'), "w"), 2)

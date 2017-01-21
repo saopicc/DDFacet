@@ -527,8 +527,8 @@ class ClassDDEGridMachine():
 
     def GiveParamJonesList(self, DicoJonesMatrices, times, A0, A1, uvw):
 
-        Apply_killMS = ("DicoJones_killMS" in DicoJonesMatrices.keys())
-        Apply_Beam = ("DicoJones_Beam" in DicoJonesMatrices.keys())
+        Apply_killMS = ("DicoJones_killMS" in DicoJonesMatrices)
+        Apply_Beam = ("DicoJones_Beam" in DicoJonesMatrices)
 
         l0, m0 = self.lmShift
         idir_kMS = 0
@@ -537,8 +537,7 @@ class ClassDDEGridMachine():
         d0 = self.GD["DDESolutions"]["Scale"]*np.pi/180
         gamma = self.GD["DDESolutions"]["gamma"]
         if Apply_killMS:
-            DicoClusterDirs = DicoJonesMatrices[
-                "DicoJones_killMS"]["DicoClusterDirs"]
+            DicoClusterDirs = DicoJonesMatrices["DicoJones_killMS"]["Dirs"]
             lc = DicoClusterDirs["l"]
             mc = DicoClusterDirs["m"]
 
@@ -564,8 +563,7 @@ class ClassDDEGridMachine():
 
         idir_Beam = 0
         if Apply_Beam:
-            DicoClusterDirs = DicoJonesMatrices[
-                "DicoJones_Beam"]["DicoClusterDirs"]
+            DicoClusterDirs = DicoJonesMatrices["DicoJones_Beam"]["Dirs"]
             lc = DicoClusterDirs["l"]
             mc = DicoClusterDirs["m"]
             d = np.sqrt((l0-lc)**2+(m0-mc)**2)
@@ -597,24 +595,16 @@ class ClassDDEGridMachine():
         VisToJonesChanMapping_killMS = np.array([], np.int32).reshape((0,))
 
         if Apply_Beam:
-            JonesMatrices_Beam = DicoJonesMatrices["DicoJones_Beam"]["Jones"]
-            MapJones_Beam = DicoJonesMatrices["DicoJones_Beam"]["MapJones"]
-            VisToJonesChanMapping_Beam = np.int32(
-                DicoJonesMatrices["DicoJones_Beam"]["VisToJonesChanMapping"])
+            JonesMatrices_Beam = DicoJonesMatrices["DicoJones_Beam"]["Jones"]["Jones"]
+            MapJones_Beam = DicoJonesMatrices["DicoJones_Beam"]["TimeMapping"]
+            VisToJonesChanMapping_Beam = np.int32(DicoJonesMatrices["DicoJones_Beam"]["Jones"]["VisToJonesChanMapping"])
             self.CheckTypes(A0=A0, A1=A1, Jones=JonesMatrices_Beam)
 
         if Apply_killMS:
-            JonesMatrices_killMS = DicoJonesMatrices[
-                "DicoJones_killMS"]["Jones"]
-            MapJones_killMS = DicoJonesMatrices["DicoJones_killMS"]["MapJones"]
-            AlphaReg = DicoJonesMatrices["DicoJones_killMS"]["AlphaReg"]
-            if AlphaReg is not None:
-                AlphaReg_killMS = DicoJonesMatrices[
-                    "DicoJones_killMS"]["AlphaReg"]
-
-            VisToJonesChanMapping_killMS = np.int32(
-                DicoJonesMatrices["DicoJones_killMS"]
-                ["VisToJonesChanMapping"])
+            JonesMatrices_killMS = DicoJonesMatrices["DicoJones_killMS"]["Jones"]["Jones"]
+            MapJones_killMS = DicoJonesMatrices["DicoJones_killMS"]["TimeMapping"]
+            AlphaReg_killMS = DicoJonesMatrices["DicoJones_killMS"].get("AlphaReg")
+            VisToJonesChanMapping_killMS = np.int32(DicoJonesMatrices["DicoJones_killMS"]["Jones"]["VisToJonesChanMapping"])
             self.CheckTypes(A0=A0, A1=A1, Jones=JonesMatrices_killMS)
 
         # print JonesMatrices_Beam.shape,VisToJonesChanMapping_Beam

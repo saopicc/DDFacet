@@ -40,7 +40,7 @@ class SmearMappingMachine (object):
 
     def _smearmapping_worker(self, data_dict_path, blockdict_path, sizedict_path, a0, a1, dPhi, l, channel_mapping):
         t = ClassTimeIt.ClassTimeIt()
-        #t.disable()
+        t.disable()
         # if data dict has changed, then reload data dict (if this process is looking at a different one)
         if self._data is None or self._data.path != data_dict_path:
             self._data = SharedDict.attach(data_dict_path)
