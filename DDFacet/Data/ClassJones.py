@@ -45,7 +45,6 @@ class ClassJones():
 
     def InitDDESols(self, DATA):
         GD = self.GD
-        self.DATA = DATA
         SolsFile = GD["DDESolutions"]["DDSols"]
         self.ApplyCal = False
         DicoClusterDirs = DicoSols = TimeMapping = None
@@ -56,10 +55,9 @@ class ClassJones():
                 dict(VisData=GD["Data"], DDESolutions=GD["DDESolutions"], DataSelection=self.GD["Selection"]))
             if valid:
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_killMS
-                DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(
-                    self.JonesNormSolsFile_killMS)
+                DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_killMS)
             else:
-                DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS")
+                DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS", DATA)
                 self.MS.cache.saveCache("JonesNorm_killMS.npz")
             DATA["killMS"] =  DicoSols, TimeMapping, DicoClusterDirs
             self.HasKillMSSols = True
@@ -71,10 +69,9 @@ class ClassJones():
                 "JonesNorm_Beam.npz", dict(VisData=GD["Data"], Beam=GD["Beam"], DataSelection=self.GD["Selection"]))
             if valid:
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_Beam
-                DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(
-                    self.JonesNormSolsFile_Beam)
+                DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_Beam)
             else:
-                DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("Beam")
+                DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("Beam", DATA)
                 self.MS.cache.saveCache("JonesNorm_Beam.npz")
             DATA["Beam"] = DicoSols, TimeMapping, DicoClusterDirs
 
@@ -137,12 +134,7 @@ class ClassJones():
         TimeMapping = SolsFile["TimeMapping"]
         return DicoSols, TimeMapping, DicoClusterDirs
 
-    def MakeSols(self, StrType):
-        GD = self.GD
-        DicoSols_killMS = None
-        TimeMapping_killMS = None
-        DicoSols_Beam = None
-        TimeMapping_Beam = None
+    def MakeSols(self, StrType, DATA):
 
         print>>log, "Build solution Dico for %s" % StrType
 
@@ -150,7 +142,7 @@ class ClassJones():
             DicoClusterDirs_killMS, DicoSols = self.GiveKillMSSols()
             DicoClusterDirs = DicoClusterDirs_killMS
             print>>log, "  Build VisTime-to-Solution mapping"
-            TimeMapping = self.GiveTimeMapping(DicoSols)
+            TimeMapping = self.GiveTimeMapping(DicoSols, DATA["times"])
             self.SolsToDisk(
                 self.JonesNormSolsFile_killMS,
                 DicoSols,
@@ -217,9 +209,9 @@ class ClassJones():
                 DicoClusterDirs["Cluster"] = np.array([0], np.int32)
 
             DicoClusterDirs_Beam = DicoClusterDirs
-            DicoSols = self.GiveBeam()
+            DicoSols = self.GiveBeam(DATA["uniq_times"])
             print>>log, "  Build VisTime-to-Beam mapping"
-            TimeMapping = self.GiveTimeMapping(DicoSols)
+            TimeMapping = self.GiveTimeMapping(DicoSols, DATA["times"])
             self.SolsToDisk(
                 self.JonesNormSolsFile_Beam,
                 DicoSols,
@@ -244,7 +236,7 @@ class ClassJones():
 
         return DicoSols, TimeMapping, DicoClusterDirs
 
-    def GiveTimeMapping(self, DicoSols):
+    def GiveTimeMapping(self, DicoSols, times):
         """Builds mapping from MS rows to Jones solutions.
         Args:
             DicoSols: dictionary of Jones matrices, which includes t0 and t1 entries
@@ -255,7 +247,6 @@ class ClassJones():
         """
         print>>log, "  Build Time Mapping"
         DicoJonesMatrices = DicoSols
-        times = self.DATA["times"]
         ind = np.zeros((times.size,), np.int32)
         nt, na, nd, _, _, _ = DicoJonesMatrices["Jones"].shape
         ii = 0
@@ -457,13 +448,12 @@ class ClassJones():
             # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
             # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
 
-    def GiveBeam(self):
+    def GiveBeam(self, times):
         GD = self.GD
         if (GD["Beam"]["Model"] is None) | (GD["Beam"]["Model"] == ""):
             print>>log, "  Not applying any beam"
             return
 
-        times = self.DATA["uniq_times"]
         self.InitBeamMachine()
 
         if self.BeamTimes_kMS.size != 0:

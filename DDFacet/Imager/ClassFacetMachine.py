@@ -1098,7 +1098,7 @@ class ClassFacetMachine():
             DicoJonesMatrices["DicoJones_Beam"]["MapJones"] = TimeMapping
             DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"] = DicoClusterDirs
             DicoJonesMatrices["DicoJones_Beam"]["AlphaReg"] = None
-            print>>log,"TimeMapping: %d %s"%(iFacet, TimeMapping)
+            # print>>log,"TimeMapping: %d %s"%(iFacet, TimeMapping)
 
         GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                         DoNormWeights=False,
@@ -1215,7 +1215,6 @@ class ClassFacetMachine():
         if not self._degridding_semaphores:
             NSemaphores = 3373
             self._degridding_semaphores = [ Multiprocessing.getShmName("Semaphore", sem=i) for i in xrange(NSemaphores) ]
-            print>>log, self._degridding_semaphores
             _pyGridderSmearPols.pySetSemaphores(self._degridding_semaphores)
 
         # Create a new GridMachine

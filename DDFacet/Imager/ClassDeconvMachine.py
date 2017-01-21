@@ -413,6 +413,7 @@ class ClassImagerDeconv():
                 self.FacetMachine.collectGriddingResults()
                 self.FacetMachinePSF and self.FacetMachinePSF.collectGriddingResults()
                 # get loaded chunk from I/O thread, schedule next chunk
+                # self.VS.startChunkLoadInBackground()
                 DATA = self.VS.collectLoadedChunk(start_next=True)
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
