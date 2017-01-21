@@ -1175,7 +1175,7 @@ class ClassFacetMachine():
             return
         # collect results of grid workers
         results = APP.awaitJobResults(self._grid_job_id+"*",progress=
-                            ("Grid (PSF) %s" if self.DoPSF else "Grid %s") % self._grid_job_label)
+                            ("Grid PSF %s" if self.DoPSF else "Grid %s") % self._grid_job_label)
         for DicoResult in results:
             # if we hit a returned exception, raise it again
             if isinstance(DicoResult, Exception):
@@ -1222,7 +1222,7 @@ class ClassFacetMachine():
             return
         # collect results of FFT workers
         # (use label of previous gridding job for the progress bar)
-        APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT (PSF) %s" if self.DoPSF else "FFT %s")%(self._grid_job_label))
+        APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
         self._fft_job_id = None
 
     # DeGrid worker that is called by Multiprocessing.Process

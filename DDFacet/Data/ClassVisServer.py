@@ -451,6 +451,15 @@ class ClassVisServer():
         DATA["ROW0"] = ms.ROW0
         DATA["ROW1"] = ms.ROW1
 
+        # get weights
+        weights = self.GetVisWeights(iMS, iChunk)
+        DATA["Weights"] = weights
+        if weights is None:
+            print>> log, ModColor.Str("This chunk is all flagged or has zero weight.")
+            return
+        if DATA["sort_index"] is not None:
+            DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
+
         self.computeBDAInBackground(dictname, ms, DATA,
             ChanMappingGridding=DATA["ChanMapping"],
             ChanMappingDeGridding=DATA["ChanMappingDegrid"])
@@ -470,13 +479,6 @@ class ClassVisServer():
         #     continue
         # # mmap() arrays caused mysterious performance hits, so load and copy
         # DATA["Weights"] = NpShared.GiveArray("file://" + weightspath).copy()
-        weights = self.GetVisWeights(iMS, iChunk)
-        if weights is None:
-            print>> log, ModColor.Str("This chunk is all flagged or has zero weight, skipping it")
-            return
-        DATA["Weights"] = weights
-        if DATA["sort_index"] is not None:
-            DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
 
         # load results of smear mapping computation
         self.collectBDA(dictname, DATA)

@@ -415,6 +415,9 @@ class ClassImagerDeconv():
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break
+                # None weights indicates an all-flagged chunk: go on to the next chunk
+                if DATA["Weights"] is None:
+                    continue
 
                 if DoSub:
                     ThisMeanFreq = self.VS.CurrentChanMappingDegrid
@@ -698,6 +701,9 @@ class ClassImagerDeconv():
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break
+                # None weights indicates an all-flagged chunk: go on to the next chunk
+                if DATA["Weights"] is None:
+                    continue
                 # sparsify the data according to current levels
                 self.FacetMachine.applySparsification(DATA, sparsify)
                 model_freqs = DATA["FreqMappingDegrid"]
