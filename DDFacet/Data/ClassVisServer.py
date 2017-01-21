@@ -630,6 +630,7 @@ class ClassVisServer():
                 nrows = row1 - row0
                 chanslice = ms.ChanSlice
                 if not nrows:
+                    print>> log, "  0 rows: marking as empty"
                     continue
                 print>>log,"  reading %s UVW" % ms.MSName
                 uvs = tab.getcol("UVW", row0, nrows)[:, :2]
@@ -653,6 +654,7 @@ class ClassVisServer():
 
                 # if everything is flagged, skip this entry, and mark it with a zero-length weights file
                 if flags.all():
+                    print>> log, "  all flagged: marking as null"
                     continue
 
                 # WEIGHT = NpShared.CreateShared(weightpath, (nrows, ms.Nchan), np.float64)
