@@ -113,6 +113,8 @@ def GiveArray(Name):
         # print "Exception for key [%s]:"%Name
         # print "   %s"%(str(e))
         # print
+        print "Error loading",Name
+        traceback.print_exc()
         return None
 
 

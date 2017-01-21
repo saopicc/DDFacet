@@ -566,7 +566,7 @@ class ClassVisServer():
         """
         if self.VisWeights is None:
             # ensure the background calculation is complete
-            # APP.awaitJobResults("VisWeights")
+            APP.awaitJobResults("VisWeights")
             # load shared dict prepared in background thread
             self.VisWeights = SharedDict.attach("VisWeights")
         path = self.VisWeights[iMS][iChunk]
@@ -575,8 +575,8 @@ class ClassVisServer():
         return np.load(file(path))
 
     def CalcWeightsBackground (self):
-        # APP.runJob("VisWeights", self.CalcWeights, io=0, singleton=True)
-        self.CalcWeights()
+        APP.runJob("VisWeights", self.CalcWeights, io=0, singleton=True)
+        # self.CalcWeights()
 
     def CalcWeights(self):
         """

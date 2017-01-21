@@ -77,9 +77,13 @@ class SharedDict (dict):
                     dict.__setitem__(self, key, cPickle.load(file(filepath)))
                 # array item -- attach as shared
                 elif valuetype == 'a':
-                    # strip off /dev/shm/ at beginning of path
-                    dict.__setitem__(self, key, NpShared.GiveArray(_to_shm(filepath)))
+                    arr = NpShared.GiveArray(_to_shm(filepath))
+                    if arr is None:
+                        raise RuntimeError("error loading shared array %s"%filepath)
+                    dict.__setitem__(self, key, arr)
             except:
+                print "Error loading item %s"%name
+                traceback.print_exc()
                 pass
 
     def _key_to_name (self, item):

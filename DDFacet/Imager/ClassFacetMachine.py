@@ -1053,10 +1053,12 @@ class ClassFacetMachine():
         # reload data dict, if this process has an old one
         if datadict_path:
             if self.DATA is None or datadict_path != self.DATA.path:
+                del self.DATA
                 self.DATA = SharedDict.attach(datadict_path)
         # reload CF dict, if this process has a different one
         if cfdict_path:
             if self._CF is None or self._CF.path != cfdict_path or iFacet not in self._CF:
+                del self._CF
                 self._CF = SharedDict.attach(cfdict_path)
             cf_dict = self._CF[iFacet]
         else:
@@ -1064,6 +1066,7 @@ class ClassFacetMachine():
         # reload facet grids, if this process has an old one
         if griddict_path:
             if self._facet_grids is None or griddict_path != self._facet_grids.path:
+                del self._facet_grids
                 self._facet_grids = SharedDict.attach(griddict_path)
         # return facet's CF dict
         return cf_dict
