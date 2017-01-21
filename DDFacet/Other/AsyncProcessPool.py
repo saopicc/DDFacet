@@ -410,7 +410,9 @@ class AsyncProcessPool (object):
         for jobspec, (njobs, results) in job_results.iteritems():
             times = np.array([ res['time'] for res in results ])
             num_errors = len([res for res in results if not res['success']])
-            if self.verbose > 0:
+            if progress:
+                print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (progress, len(results), times.mean())
+            elif self.verbose > 0:
                 print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (jobspec, len(results), times.mean())
             if num_errors:
                 print>>log, ModColor.Str("%s: %d jobs returned an error. Aborting."%(jobspec, num_errors), col="red")

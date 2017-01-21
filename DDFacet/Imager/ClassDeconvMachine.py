@@ -703,8 +703,7 @@ class ClassImagerDeconv():
                 model_freqs = DATA["FreqMappingDegrid"]
                 ## redo model image if needed
                 if not np.array_equal(model_freqs, current_model_freqs):
-                    ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)
-                    self.FacetMachine.setModelImage(ModelImage)
+                    ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
                     current_model_freqs = model_freqs
                     print>>log,"model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
                 else:
@@ -736,8 +735,19 @@ class ClassImagerDeconv():
                 self.FacetMachine.putChunkInBackground(DATA)
                 if do_psf:
                     self.FacetMachinePSF.putChunkInBackground(DATA)
-
+            # write out model image, if asked to
+            if "o" in self._saveims:
+                self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
+                                              Fits=True, Freqs=current_model_freqs,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            # wait for gridding to finish
+            self.FacetMachine.collectGriddingResults()
+            # release model image from memory
+            ModelImage = None
+            self.FacetMachine.releaseModelImage()
+            # create new residual image
             DicoImage = self.FacetMachine.FacetsToIm(NormJones=True)
+
             self.ResidCube  = DicoImage["ImagData"] #get residuals cube
             self.ResidImage = DicoImage["MeanImage"]
             # was PSF re-generated?
@@ -755,10 +765,6 @@ class ClassImagerDeconv():
             if "e" in self._saveims:
                 self.FacetMachine.ToCasaImage(self.ResidImage,ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),
                                               Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-
-            if "o" in self._saveims:
-                self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
-                    Fits=True,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             # write out current model, using final or intermediate name
             if continue_deconv:

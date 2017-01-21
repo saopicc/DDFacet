@@ -125,8 +125,7 @@ class ClassFacetMachine():
             atexit.register(ClassFacetMachine._delete_degridding_semaphores)
 
         # this is used to store NormImage and model images in shared memory, for the degridder
-        if not self.DoPSF:
-            self._model_dict = SharedDict.create("Model")
+        self._model_dict = None
 
     # static attribute initialized below, once
     _degridding_semaphores = None
@@ -656,13 +655,19 @@ class ClassFacetMachine():
         self.SetLogModeSubModules("Loud")
 
     def setModelImage(self, ModelImage):
-        """Sets current model image"""
+        """Sets current model image. Copies it to a shared dict and returns shared array version of image."""
         if self.DoPSF:
             raise RuntimeError("Can't call getChunk on a PSF mode FacetMachine. This is a bug!")
-        if self._model_dict.get("Model.Id") != id(ModelImage):
-            self._model_dict["Model.Id"] = id(ModelImage)
-            self._model_dict["Model"] = ModelImage
+        self._model_dict = SharedDict.create("Model")
+        self._model_dict["Id"] = id(ModelImage), id(self._model_dict)
+        self._model_dict["Image"] = ModelImage
+        return self._model_dict["Image"]
 
+    def releaseModelImage(self):
+        """Deletes current model image from SHM. USe to save RAM."""
+        if self._model_dict is not None:
+            self._model_dict.delete()
+            self._model_dict = None
 
     def FacetsToIm(self, NormJones=False):
         """
@@ -1221,14 +1226,14 @@ class ClassFacetMachine():
         self._fft_job_id = None
 
     # DeGrid worker that is called by Multiprocessing.Process
-    def _degrid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path, model_id, ChanSel):
+    def _degrid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path, modeldict_path, model_id, ChanSel):
         # reload shared dicts
         cf_dict = self._reload_worker_dicts(iFacet, datadict_path, cfdict_path, griddict_path)
         # reload model image dict, if serial number has changed
-        if self._model_dict.get("Model.Id") != model_id:
-            self._model_dict.reload()
+        if self._model_dict is None or self._model_dict.get("Id") != model_id:
+            self._model_dict = SharedDict.attach(modeldict_path)
         # extract facet model from model image
-        ModelGrid, _ = self._Im2Grid.GiveModelTessel(self._model_dict["Model"],
+        ModelGrid, _ = self._Im2Grid.GiveModelTessel(self._model_dict["Image"],
             self.DicoImager, iFacet, None,
             cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel)
 
@@ -1313,7 +1318,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path,
-                            self._model_dict["Model.Id"], ChanSel))
+                            self._model_dict.path, self._model_dict["Id"], ChanSel))
 
 
     def collectDegriddingResults(self):
