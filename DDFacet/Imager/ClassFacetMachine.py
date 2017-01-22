@@ -561,7 +561,7 @@ class ClassFacetMachine():
         path = "%s/%s.npz" % (cachepath, iFacet)
         if self._CF is None or self._CF.path != cfdict_path:
             self._CF = SharedDict.attach(cfdict_path, load=False)
-        facet_dict = self._CF.addSubDict(iFacet)
+        facet_dict = self._CF.addSubdict(iFacet)
         # try to load the cache, and copy it to the shared facet dict
         if cachevalid:
             try:

@@ -64,8 +64,8 @@ class SmearMappingMachine (object):
         dPhi = np.sqrt(6. * (1. - Decorr))
         # create new empty shared dicts for results
         self._outdict = SharedDict.create("%s:%s:tmp" %(DATA.path, self.name))
-        blockdict = self._outdict.addSubDict("blocks")
-        sizedict  = self._outdict.addSubDict("sizes")
+        blockdict = self._outdict.addSubdict("blocks")
+        sizedict  = self._outdict.addSubdict("sizes")
         self._nbl = 0
         for a0 in xrange(MS.na):
             for a1 in xrange(MS.na):
