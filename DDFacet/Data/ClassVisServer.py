@@ -413,6 +413,8 @@ class ClassVisServer():
 
         ms.GiveChunk(DATA, iChunk, use_cache=self._use_data_cache,
                      read_data=not null_data, sort_by_baseline=self.GD["Data"]["Sort"])
+        # update cache to match MSs current chunk cache
+        self.cache = ms.cache
 
         times = DATA["times"]
         data = DATA["data"]
