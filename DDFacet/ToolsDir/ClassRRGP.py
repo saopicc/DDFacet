@@ -157,8 +157,24 @@ class RR_GP(ClassGP.ClassGP):
         L = np.linalg.cholesky(Z)
         Linv = np.linalg.inv(L)
         fcoeffs = np.dot(Linv.T, np.dot(Linv, np.dot(self.Phi.T, y)))
-        fbar = np.dot(self.Phip, np.dot(Linv.T, np.dot(Linv, np.dot(self.Phi.T, y))))
+        fbar = np.dot(self.Phip, fcoeffs)
         return fbar, fcoeffs
+
+    def RR_Give_Coeffs(self,theta, y):
+        S = self.spectral_density(theta)
+        Z = self.PhiTPhi + theta[2] ** 2 * np.diag(1.0 / S)
+        L = np.linalg.cholesky(Z)
+        Linv = np.linalg.inv(L)
+        fcoeffs = np.dot(Linv.T, np.dot(Linv, np.dot(self.Phi.T, y)))
+        return fcoeffs
+
+    def RR_Reset_Targets(self,xp):
+        self.Phip = np.zeros([xp.size, self.m])
+        for j in xrange(self.m):
+            self.Phip[:, j] = self.eigenfuncs(j, xp)
+
+    def RR_From_Coeffs(self, coeffs):
+        return np.dot(self.Phip, coeffs)
 
     def RR_covf(self, theta):
         S = self.dspectral_density(theta)
@@ -184,8 +200,8 @@ class RR_GP(ClassGP.ClassGP):
 
     def RR_EvalGP(self, theta0, y):
         theta = self.RR_trainGP(theta0,y)
-        fbar, coeffs = self.RR_meanf(theta,y)
-        return fbar, coeffs, theta
+        coeffs = self.RR_Give_Coeffs(theta,y)
+        return coeffs, theta
 
     def mean_and_cov(self, theta):
         Z = self.PhiTPhi + theta[2] ** 2 * np.diag(1.0 / self.S)
@@ -226,7 +242,8 @@ if __name__ == "__main__":
     t1 = time.time()
     fbar, thetaf = GP.EvalGP(theta, y)
     t2 = time.time()
-    RR_fbar, RR_thetaf = GP.RR_EvalGP(theta, y)
+    fcoeffs, RR_thetaf = GP.RR_EvalGP(theta, y)
+    RR_fbar = GP.RR_From_Coeffs(fcoeffs)
     t3 = time.time()
 
     print t3-t2, t2-t1
@@ -241,7 +258,7 @@ if __name__ == "__main__":
     # RR_fbar, coeffs = GP.RR_meanf(theta,y)
     # fbar = GP.meanf(theta, y)
 
-    plt.plot(xp,RR_fbar[0], 'b')
+    plt.plot(xp,RR_fbar, 'b')
     plt.plot(xp, fbar, 'g')
     plt.plot(xp, yp, 'k')
     plt.show()

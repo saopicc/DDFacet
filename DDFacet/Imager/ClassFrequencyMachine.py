@@ -237,17 +237,18 @@ class ClassFrequencyMachine(object):
         theta = np.array([sigmaf0, l0, sigman0])
 
         # Fit and evaluate GP
-        self.fbar, coeffs, thetaf = self.GP.RR_EvalGP(theta, Vals)
+        coeffs, thetaf = self.GP.RR_EvalGP(theta, Vals)
 
         return coeffs
 
     def EvalGP(self, coeffs, Freqsp=None):
         if Freqsp is None or Freqsp == self.Freqsp:
             # Here we don't need to re-evaluate the basis functions
-            return self.fbar
+            return self.GP.RR_From_Coeffs(coeffs)
         else:
             # Here we do
-            raise NotImplementedError("Not yet supported, predict frequencies must be set at instantiation")
+            self.GP.RR_Reset_Targets(Freqsp/self.ref_freq)
+            raise self.GP.RR_From_Coeffs(coeffs)
 
 def testFM():
     #Create array to hold model image
