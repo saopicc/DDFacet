@@ -128,17 +128,26 @@ class ProcessPool (object):
                                                    glob.glob("/sys/devices/system/cpu/cpu*")))
             left_set = set([])
             right_set = set([])
-            for siblings in hyperthread_sibling_lists:
-                with open(siblings) as f:
-                    l, r = map(int, f.readline().split(","))
-                    # cannot be sure the indices don't swap around at some point
-                    # since there are two copies of the siblings we need to
-                    # check that the items are not in the other sets before adding
-                    # them to the left and right sets respectively
-                    if l not in right_set:
-                        left_set.add(l)
-                    if r not in left_set:
-                        right_set.add(r)
+            for siblings_file in hyperthread_sibling_lists:
+                with open(siblings_file) as f:
+                    siblings = map(int, f.readline().split(","))
+                    if len(siblings) == 2:
+                        l, r = siblings
+                        # cannot be sure the indices don't swap around at some point
+                        # since there are two copies of the siblings we need to
+                        # check that the items are not in the other sets before adding
+                        # them to the left and right sets respectively
+                        if l not in right_set:
+                            left_set.add(l)
+                        if r not in left_set:
+                            right_set.add(r)
+                    elif len(siblings) == 1:
+                        left_set.add(siblings[0])
+                    else:
+                        raise RuntimeError("Don't know how to handle this architecture. It seems there are more than "
+                                           "two threads per core? Try setting things manually by specifying a list "
+                                           "to the affinity option")
+
             self.affinity = list(left_set) # only consider 1 thread per core
             self.ncpu = self.GD["Parallel"]["NCPU"] if ncpu is None else ncpu
             if self.ncpu >= len(self.affinity):
@@ -197,7 +206,7 @@ class ProcessPool (object):
         elif isinstance(self.affinity, list):
             cores = self.affinity[:self.ncpu]
         else:
-            raise ValueError, "unknown affinity setting %d" % self.affinity
+            raise ValueError, "unknown affinity setting"
 
         # if fewer jobs than workers, reduce number of cores
         cores = cores[:len(joblist)]
