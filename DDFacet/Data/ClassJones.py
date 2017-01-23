@@ -66,6 +66,8 @@ class ClassJones():
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS")
                 self.MS.cache.saveCache("JonesNorm_killMS.npz")
             DATA["killMS"] =  DicoSols, TimeMapping, DicoClusterDirs
+            self.DicoClusterDirs_kMS=DicoClusterDirs
+
             self.HasKillMSSols = True
 
 
