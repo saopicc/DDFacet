@@ -151,7 +151,7 @@ def main(OP=None, messages=[]):
     # tensorflow server as tensorflow is not fork safe
     # http://stackoverflow.com/questions/37874838/forking-a-python-process-after-loading-tensorflow
     # If a TensorFlowServerTarget is not specified, fork a child process containing one.
-    if DicoConfig["Image"]["PredictMode"] == "Montblanc":
+    if DicoConfig["ImToVis"]["ForwardMode"] == "Montblanc":
         if not DicoConfig["Montblanc"]["TensorflowServerTarget"]:
             from DDFacet.TensorFlowServerFork import fork_tensorflow_server
             DicoConfig["Montblanc"]["TensorflowServerTarget"] = fork_tensorflow_server()

@@ -104,15 +104,15 @@ class ClassImagerDeconv():
 
         self.VisWeights=None
         self.DATA=None
-        self.Precision=self.GD["Image"]["Precision"]#"S"
-        self.PolMode=self.GD["Image"]["PolMode"]
-        self.PSFFacets = self.GD["Image"]["PSFFacets"]
+        self.Precision=self.GD["ImToVis"]["Precision"]#"S"
+        self.PolMode=self.GD["ImToVis"]["PolMode"]
+        self.PSFFacets = self.GD["ImToVis"]["PSFFacets"]
         self.HasDeconvolved=False
         self.Parallel = self.GD["Parallel"]["NCPU"] != 1
         self.IdSharedMem=IdSharedMem
         self.ModConstructor = ClassModModelMachine(self.GD)
 
-        self.PredictMode = self.GD["Image"]["PredictMode"]
+        self.PredictMode = self.GD["ImToVis"]["ForwardMode"]
 
         #self.PNGDir="%s.png"%self.BaseName
         #os.system("mkdir -p %s"%self.PNGDir)
@@ -267,9 +267,12 @@ class ClassImagerDeconv():
         MainFacetOptions=self.GD["Image"].copy()
         MainFacetOptions.update(self.GD["CF"].copy())
         MainFacetOptions.update(self.GD["Image"].copy())
+        MainFacetOptions.update(self.GD["Facets"].copy())
+        MainFacetOptions.update(self.GD["ImToVis"].copy())
+        MainFacetOptions.update(self.GD["Weight"].copy())
         del(MainFacetOptions['ConstructMode'],MainFacetOptions['Precision'],
             MainFacetOptions['PolMode'],MainFacetOptions['Mode'],MainFacetOptions['Robust'],
-            MainFacetOptions['Weighting'])
+            MainFacetOptions['Type'])
         return MainFacetOptions
 
 
@@ -278,7 +281,7 @@ class ClassImagerDeconv():
         if self.PSFFacets:
             print>> log, "the PSFFacets version is currently not supported, using 0 (i.e. same facets as image)"
             self.PSFFacets = 0
-        oversize = self.GD["Image"]["PSFOversize"] or 1
+        oversize = self.GD["ImToVis"]["PSFOversize"] or 1
         MainFacetOptions = self.GiveMainFacetOptions()
         if self.PSFFacets:
             MainFacetOptions["NFacets"] = self.PSFFacets
@@ -299,9 +302,10 @@ class ClassImagerDeconv():
     def _createDirtyPSFCacheKey(self):
         """Creates cache key used for Dirty and PSF caches"""
         return dict([("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
-                    [(section, self.GD[section]) for section in "Data", "Beam", "Selection",
-                                                    "Freq", "Image", "Comp",
-                                                    "CF", "Image","DDESolutions"]
+                    [(section, self.GD[section]) for section in 
+                     "Data", "Beam", "Selection",
+                     "Freq", "Image", "Comp",
+                     "CF", "ImToVis","Facets","Weight","DDESolutions"]
                 )
 
 
@@ -371,7 +375,7 @@ class ClassImagerDeconv():
         cachepath, valid = self._checkForCachedPSF(sparsify)
 
 
-        if valid or self.GD["Caching"]["ResetPSF"]==-1:
+        if valid or self.GD["Cache"]["ResetPSF"]==-1:
             print>>log, ModColor.Str("============================ Loading cached PSF ==========================")
             print>>log, "found valid cached PSF in %s"%cachepath
             print>>log, ModColor.Str("As near as we can tell, we can reuse this cached PSF because it was produced")
@@ -989,7 +993,8 @@ class ClassImagerDeconv():
                                                                 [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
                                                                 [(section, self.GD[section]) for section in "Data", "Beam", "Selection",
                                                                  "Freq", "Image", "Comp",
-                                                                 "Image","DDESolutions"]
+                                                                 "ImToVis","Weight","Facets",
+                                                                 "DDESolutions"]
                                                             ), 
                                                             reset=False)
             try:

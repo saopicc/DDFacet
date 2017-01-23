@@ -170,12 +170,14 @@ class Parset():
                 self.value_dict[section], self.attr_dict[section] = self.read_section(config, section)
         # now migrate from previous versions
         self.version = self.value_dict.get('Misc', {}).get('ParsetVersion', 0.0)
-        if self.version != 0.1:
-            self._migrate_ancient_0_1()
-            self.migrated = self.version
-            self.version = 0.1
-        else:
-            self.migrated = None
+        # if self.version != 0.1:
+        #     self._migrate_ancient_0_1()
+        #     self.migrated = self.version
+        #     self.version = 0.1
+        # else:
+        #     self.migrated = None
+        self.migrated = None
+
 
     def read_section(self, config, section):
         """Returns two dicts corresponding to the given section: a dict of option:value,

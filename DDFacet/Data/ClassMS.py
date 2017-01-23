@@ -641,7 +641,7 @@ class ClassMS():
         ColNames=self.ColNames
         #table_all.close()
         #del(table_all)
-        DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
+        DecorrMode=self.GD["ImToVis"]["DecorrMode"]
         if ('F' in DecorrMode)|("T" in DecorrMode):
             if 'UVWDT' not in ColNames:
                 print>>log,"Adding uvw speed info to main table: %s"%self.MSName

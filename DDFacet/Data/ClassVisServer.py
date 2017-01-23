@@ -65,13 +65,13 @@ class ClassVisServer():
         self.AddNoiseJy = AddNoiseJy
         self.TMemChunkSize = TChunkSize
 
-        self.Weighting = GD["Image"]["Weighting"].lower()
+        self.Weighting = GD["Weight"]["Type"].lower()
 
         if self.Weighting not in ("natural", "uniform", "briggs", "robust"):
             raise ValueError("unknown Weighting=%s" % Weighting)
-        self.MFSWeighting = GD["Image"]["MFSWeighting"]
-        self.Robust = GD["Image"]["Robust"]
-        self.Super = GD["Image"]["SuperUniform"]
+        self.MFSWeighting = GD["Weight"]["MFSWeighting"]
+        self.Robust = GD["Weight"]["Robust"]
+        self.Super = GD["Weight"]["SuperUniform"]
         self.VisWeights = None
 
         self.CountPickle = 0
@@ -160,7 +160,7 @@ class ClassVisServer():
         self.VisCorrelationLayout = self.ListMS[0].CorrelationIds
         self.StokesConverter = ClassStokes(
             self.VisCorrelationLayout,
-            self.GD["Image"]["PolMode"])
+            self.GD["ImToVis"]["PolMode"])
         for MS in self.ListMS:
             if not np.all(MS.CorrelationIds == self.VisCorrelationLayout):
                 raise RuntimeError(
@@ -492,10 +492,11 @@ class ClassVisServer():
         # times=times[ind]
         # ##
 
-        DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
+        DecorrMode=self.GD["ImToVis"]["DecorrMode"]
         if ('F' in DecorrMode)|("T" in DecorrMode):
-            DicoDataOut["uvw_dt"]=DATA["uvw_dt"]
-            DicoDataOut["MSInfos"]=DATA["MSInfos"]
+            DATA["uvw_dt"]=DATA["uvw_dt"]
+            DATA["MSInfos"]=DATA["MSInfos"]
+            DATA["lm_PhaseCenter"]=self.CurrentMS.lm_PhaseCenter
 
         # # flagging cache depends on DicoSelectOptions
         # flagpath, valid = self.cache.checkCache(
@@ -624,7 +625,8 @@ class ClassVisServer():
                          for section
                          in (
                              "Data", "Selection", "Freq",
-                             "Image")]))
+                             "Image",
+                             "ImToVis","Weight","Facets")]))
                 have_all_weights = have_all_weights and valid
                 msweights.append(cachepath)
             self.VisWeights.append(msweights)
@@ -644,7 +646,7 @@ class ClassVisServer():
         # Per-channel flagging is taken care of in here, by setting that
         # channel's weight to 0.
 
-        WeightCol = self.GD["Data"]["WeightCol"]
+        WeightCol = self.GD["Weight"]["ColName"]
         # now loop over MSs and read data
         weightsum = nweights = 0
         weights_are_null = True

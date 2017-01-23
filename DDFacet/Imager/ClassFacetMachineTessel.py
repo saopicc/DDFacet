@@ -61,7 +61,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
     def setFacetsLocs(self):
         NFacets = self.NFacets
         Npix = self.GD["Image"]["NPix"]
-        Padding = self.GD["Image"]["Padding"]
+        Padding = self.GD["ImToVis"]["Padding"]
         self.Padding = Padding
         Npix, _ = EstimateNpix(float(Npix), Padding=1)
         self.Npix = Npix
@@ -100,9 +100,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
 
 #        if "CatNodes" in self.GD.keys():
-        if self.GD["Image"]["CatNodes"] is not None:
-            print>> log, "Taking facet directions from Nodes catalog: %s" % self.GD["Image"]["CatNodes"]
-            ClusterNodes = np.load(self.GD["Image"]["CatNodes"])
+        if self.GD["Facets"]["CatNodes"] is not None:
+            print>> log, "Taking facet directions from Nodes catalog: %s" % self.GD["Facets"]["CatNodes"]
+            ClusterNodes = np.load(self.GD["Facets"]["CatNodes"])
             ClusterNodes = ClusterNodes.view(np.recarray)
             raNode = ClusterNodes.ra
             decNode = ClusterNodes.dec
@@ -214,9 +214,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             diam = np.max([dl, dm])
             return diam, (l0, l1, m0, m1)
 
-        DiamMax = self.GD["Image"]["DiamMaxFacet"] * np.pi / 180
+        DiamMax = self.GD["Facets"]["DiamMaxFacet"] * np.pi / 180
         # DiamMax=4.5*np.pi/180
-        DiamMin = self.GD["Image"]["DiamMinFacet"] * np.pi / 180
+        DiamMin = self.GD["Facets"]["DiamMinFacet"] * np.pi / 180
 
         def ClosePolygon(polygon):
             P = polygon.tolist()

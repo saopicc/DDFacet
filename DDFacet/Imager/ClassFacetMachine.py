@@ -104,7 +104,7 @@ class ClassFacetMachine():
         self.IsDirtyInit = False
         self.IsDDEGridMachineInit = False
         self.SharedNames = []
-        self.ConstructMode = GD["Image"]["ConstructMode"]
+        self.ConstructMode = GD["ImToVis"]["ConstructMode"]
         self.SpheNorm = True
 
         if self.ConstructMode == "Fader":
@@ -114,7 +114,7 @@ class ClassFacetMachine():
                 "Deprecated Facet construct mode. Only supports 'Fader'")
         self.Oversize = Oversize
 
-        DecorrMode=self.GD["DDESolutions"]["DecorrMode"]
+        DecorrMode=self.GD["ImToVis"]["DecorrMode"]
         if DecorrMode is not None and DecorrMode is not "":
             print>>log,ModColor.Str("Using decorrelation mode %s"%DecorrMode)
 
@@ -191,7 +191,7 @@ class ClassFacetMachine():
         self.CoordMachine = ModCoord.ClassCoordConv(rac, decc)
         # get the closest fast fft size:
         Npix = self.GD["Image"]["NPix"]
-        Padding = self.GD["Image"]["Padding"]
+        Padding = self.GD["ImToVis"]["Padding"]
         self.Padding = Padding
         Npix, _ = EstimateNpix(float(Npix), Padding=1)
         self.Npix = Npix
@@ -261,7 +261,7 @@ class ClassFacetMachine():
                         "Nw": self.GD["CF"]["Nw"],
                         "WProj": True,
                         "DoDDE": self.DoDDE,
-                        "Padding": self.GD["Image"]["Padding"]}
+                        "Padding": self.GD["ImToVis"]["Padding"]}
 
         _, _, NpixOutIm, NpixOutIm = self.OutImShape
 
@@ -297,8 +297,8 @@ class ClassFacetMachine():
         This can be overridden to perform more complex tesselations
         """
         Npix = self.GD["Image"]["NPix"]
-        NFacets = self.GD["Image"]["NFacets"]
-        Padding = self.GD["Image"]["Padding"]
+        NFacets = self.GD["Facets"]["NFacets"]
+        Padding = self.GD["ImToVis"]["Padding"]
         self.Padding = Padding
         NpixFacet, _ = EstimateNpix(float(Npix) / NFacets, Padding=1)
         Npix = NpixFacet * NFacets
@@ -572,7 +572,7 @@ class ClassFacetMachine():
         """
         NFacets = len(self.DicoImager.keys())
         # check if w-kernels, spacial weights, etc. are cached
-        cachekey = dict(ImagerCF=self.GD["CF"], ImagerMainFacet=self.GD["Image"])
+        cachekey = dict(ImagerCF=self.GD["CF"], ImagerMainFacet=self.GD["Image"],ImToVis=self.GD["ImToVis"],Weight=self.GD["Weight"],Facets=self.GD["Facets"])
         cachename = "FacetData"
         # in oversize-PSF mode, make separate cache for PSFs
         if self.DoPSF and self.Oversize != 1:
@@ -822,8 +822,8 @@ class ClassFacetMachine():
             DicoVariablePSF = self.DicoPSF
             NFacets = len(DicoVariablePSF.keys())
 
-            if self.GD["Image"]["Circumcision"]:
-                NPixMin = self.GD["Image"]["Circumcision"]
+            if self.GD["ImToVis"]["Circumcision"]:
+                NPixMin = self.GD["ImToVis"]["Circumcision"]
                 # print>>log,"using explicit Circumcision=%d"%NPixMin
             else:
                 NPixMin = 1e6
@@ -832,7 +832,7 @@ class ClassFacetMachine():
                     if n < NPixMin:
                         NPixMin = n
 
-                NPixMin = int(NPixMin/self.GD["Image"]["Padding"])
+                NPixMin = int(NPixMin/self.GD["ImToVis"]["Padding"])
                 if not NPixMin % 2:
                     NPixMin += 1
                     # print>>log,"using computed Circumcision=%d"%NPixMin
@@ -1145,11 +1145,23 @@ class ClassFacetMachine():
         freqs = DATA["freqs"]
         ChanMapping = DATA["ChanMapping"]
 
-        DecorrMode = GD["DDESolutions"]["DecorrMode"]
-        if ('F' in DecorrMode) or ("T" in DecorrMode):
+        DecorrMode = GD["ImToVis"]["DecorrMode"]
+        if ('F' in DecorrMode) | ("T" in DecorrMode):
             uvw_dt = DATA["uvw_dt"]
             DT, Dnu = DATA["MSInfos"]
-            GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
+            lm_min=None
+            if GD["ImToVis"]["DecorrLocation"]=="Edge":
+                lm_min=DicoImager[iFacet]["lm_min"]
+            GridMachine.setDecorr(uvw_dt, DT, Dnu, 
+                                  SmearMode=DecorrMode, 
+                                  lm_min=lm_min,
+                                  lm_PhaseCenter=DATA["lm_PhaseCenter"])
+
+        # DecorrMode = GD["DDESolutions"]["DecorrMode"]
+        # if ('F' in DecorrMode) or ("T" in DecorrMode):
+        #     uvw_dt = DATA["uvw_dt"]
+        #     DT, Dnu = DATA["MSInfos"]
+        #     GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
 
         # Create Jones Matrices Dictionary
         DicoJonesMatrices = None
@@ -1357,12 +1369,23 @@ class ClassFacetMachine():
             DicoJonesMatrices["DicoJones_Beam"]["DicoClusterDirs"] = DicoClusterDirs
             DicoJonesMatrices["DicoJones_Beam"]["AlphaReg"] = None
 
-        DecorrMode = GD["DDESolutions"]["DecorrMode"]
+        # DecorrMode = GD["DDESolutions"]["DecorrMode"]
+        # if ('F' in DecorrMode) or ("T" in DecorrMode):
+        #     uvw_dt = DATA["uvw_dt"]
+        #     DT, Dnu = DATA["MSInfos"]
+        #     GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
 
-        if ('F' in DecorrMode) or ("T" in DecorrMode):
+        DecorrMode = GD["ImToVis"]["DecorrMode"]
+        if ('F' in DecorrMode) | ("T" in DecorrMode):
             uvw_dt = DATA["uvw_dt"]
             DT, Dnu = DATA["MSInfos"]
-            GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
+            lm_min=None
+            if GD["ImToVis"]["DecorrLocation"]=="Edge":
+                lm_min=DicoImager[iFacet]["lm_min"]
+            GridMachine.setDecorr(uvw_dt, DT, Dnu, 
+                                  SmearMode=DecorrMode, 
+                                  lm_min=lm_min,
+                                  lm_PhaseCenter=DATA["lm_PhaseCenter"])
 
         GridMachine.get(times, uvwThis, visThis, flagsThis, A0A1,
                           ModelGrid, ImToGrid=False,
