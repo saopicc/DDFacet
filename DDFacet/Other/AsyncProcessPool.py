@@ -182,13 +182,14 @@ class AsyncProcessPool (object):
         self._results_map = {}
         self._job_counters = JobCounterPool()
 
-        # create the workers
-        for i, core in enumerate(cores):
-            proc_id = "comp%02d"%i
-            self._compute_workers.append( multiprocessing.Process(target=self._start_worker, args=(self, proc_id, [core], self._compute_queue)) )
-        for i, queue in enumerate(self._io_queues):
-            proc_id = "io%02d"%i
-            self._io_workers.append( multiprocessing.Process(target=self._start_worker, args=(self, proc_id, None, queue)) )
+        if self.ncpu > 1:
+            # create the workers
+            for i, core in enumerate(cores):
+                proc_id = "comp%02d"%i
+                self._compute_workers.append( multiprocessing.Process(target=self._start_worker, args=(self, proc_id, [core], self._compute_queue)) )
+            for i, queue in enumerate(self._io_queues):
+                proc_id = "io%02d"%i
+                self._io_workers.append( multiprocessing.Process(target=self._start_worker, args=(self, proc_id, None, queue)) )
         self._started = False
 
     def registerJobHandlers (self, *handlers):
@@ -280,17 +281,21 @@ class AsyncProcessPool (object):
                        counter=counter and id(counter),
                        collect_result=collect_result,
                        args=args, kwargs=kwargs)
-        if self.verbose > 2:
-            print>>log, "enqueueing job %s: %s"%(job_id, function)
-        # place it on appropriate queue
-        if io is None:
-            self._compute_queue.put(jobitem)
-        else:
-            io = max(len(self._io_queues)-1, io)
-            self._io_queues[io].put(jobitem)
         # insert entry into dict of pending jobs
         if collect_result:
-            self._results_map[job_id] = Job(job_id, jobitem, singleton=singleton)
+            job = self._results_map[job_id] = Job(job_id, jobitem, singleton=singleton)
+        ## normal paralell mode, stick job on queue
+        if self.ncpu > 1 and not serial:
+            if self.verbose > 2:
+                print>>log, "enqueueing job %s: %s"%(job_id, function)
+            # place it on appropriate queue
+            if io is None:
+                self._compute_queue.put(jobitem)
+            else:
+                io = max(len(self._io_queues)-1, io)
+                self._io_queues[io].put(jobitem)
+        else:
+            self._dispatch_job(jobitem)
 
     def awaitJobCounter (self, counter, progress=None, total=None, timeout=10):
         if self.verbose > 2:
@@ -484,6 +489,54 @@ class AsyncProcessPool (object):
             psutil.Process().cpu_affinity(affinity)
         object._run_worker(worker_queue)
 
+    def _dispatch_job(self, jobitem):
+        timer = ClassTimeIt.ClassTimeIt()
+        event = counter = None
+        try:
+            job_id, eventname, counter_id, args, kwargs = [jobitem.get(attr) for attr in
+                                                           "job_id", "event", "counter", "args", "kwargs"]
+            handler_id, method, handler_desc = jobitem["handler"]
+            handler = self._job_handlers.get(handler_id)
+            if handler is None:
+                raise RuntimeError("Job %s: unknown handler %s. This is a bug." % (job_id, handler_desc))
+            event = self._events[eventname] if eventname else None
+            # find counter object, if specified
+            if counter_id:
+                counter = self._job_counters.get(counter_id)
+                if counter is None:
+                    raise RuntimeError("Job %s: unknown counter %s. This is a bug." % (job_id, counter_id))
+            # call the job
+            if self.verbose > 1:
+                print>> log, "job %s: calling %s" % (job_id, handler_desc)
+            if method is None:
+                # call object directly
+                result = handler(*args, **kwargs)
+            else:
+                call = getattr(handler, method, None)
+                if not callable(call):
+                    raise KeyError("Job %s: unknown method '%s' for handler %s" % (job_id, method, handler_desc))
+                result = call(*args, **kwargs)
+            if self.verbose > 3:
+                print>> log, "job %s: %s returns %s" % (job_id, handler_desc, result)
+            # Send result back
+            if jobitem['collect_result']:
+                self._result_queue.put(
+                    dict(job_id=job_id, proc_id=self.proc_id, success=True, result=result, time=timer.seconds()))
+        except KeyboardInterrupt:
+            raise
+        except Exception, exc:
+            print>> log, ModColor.Str("process %s: exception raised processing job %s: %s" % (
+                AsyncProcessPool.proc_id, job_id, traceback.format_exc()))
+            if jobitem['collect_result']:
+                self._result_queue.put(
+                    dict(job_id=job_id, proc_id=self.proc_id, success=False, error=exc, time=timer.seconds()))
+        finally:
+            # Raise event
+            if event is not None:
+                event.set()
+            if counter is not None:
+                counter.decrement()
+
     def _run_worker (self, queue):
         """
             Runs worker loop on given queue. Waits on queue, picks off job items, looks them up in context table,
@@ -502,53 +555,10 @@ class AsyncProcessPool (object):
                     # print>>log,"%s: queue.get() returns %s"%(AsyncProcessPool.proc_id, jobitem)
                 except Queue.Empty:
                     continue
-                timer = ClassTimeIt.ClassTimeIt()
                 if jobitem == "POISON-E":
                     break
                 elif jobitem is not None:
-                    event = counter = None
-                    try:
-                        job_id, eventname, counter_id, args, kwargs = [jobitem.get(attr) for attr in
-                                                                    "job_id", "event", "counter", "args", "kwargs"]
-                        handler_id, method, handler_desc = jobitem["handler"]
-                        handler = self._job_handlers.get(handler_id)
-                        if handler is None:
-                            raise RuntimeError("Job %s: unknown handler %s. This is a bug." % (job_id, handler_desc))
-                        event = self._events[eventname] if eventname else None
-                        # find counter object, if specified
-                        if counter_id:
-                            counter = self._job_counters.get(counter_id)
-                            if counter is None:
-                                raise RuntimeError("Job %s: unknown counter %s. This is a bug." % (job_id, counter_id))
-                        # call the job
-                        if self.verbose > 1:
-                            print>> log, "job %s: calling %s" % (job_id, handler_desc)
-                        if method is None:
-                            # call object directly
-                            result = handler(*args, **kwargs)
-                        else:
-                            call = getattr(handler, method, None)
-                            if not callable(call):
-                                raise KeyError("Job %s: unknown method '%s' for handler %s"%(job_id, method, handler_desc))
-                            result = call(*args, **kwargs)
-                        if self.verbose > 3:
-                            print>> log, "job %s: %s returns %s" % (job_id, handler_desc, result)
-                        # Send result back
-                        if jobitem['collect_result']:
-                            self._result_queue.put(dict(job_id=job_id, proc_id=self.proc_id, success=True, result=result, time=timer.seconds()))
-                    except KeyboardInterrupt:
-                        raise
-                    except Exception, exc:
-                        print>> log, ModColor.Str("process %s: exception raised processing job %s: %s" % (
-                            AsyncProcessPool.proc_id, job_id, traceback.format_exc()))
-                        if jobitem['collect_result']:
-                            self._result_queue.put(dict(job_id=job_id, proc_id=self.proc_id, success=False, error=exc, time=timer.seconds()))
-                    finally:
-                        # Raise event
-                        if event is not None:
-                            event.set()
-                        if counter is not None:
-                            counter.decrement()
+                    self._dispatch_job(jobitem)
 
         except KeyboardInterrupt:
             print>>log, ModColor.Str("Ctrl+C caught, exiting", col="red")
