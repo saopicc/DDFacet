@@ -54,18 +54,22 @@ class RR_GP(ClassGP.ClassGP):
         # Calculate basis functions and eigenvals
         self.Eigvals = np.zeros(self.m)
         self.Phi = np.zeros([self.N, self.m])
-        self.Phip = np.zeros([self.Np, self.m])
+        self.Phip_Degrid = np.zeros([self.Np, self.m])
         for j in xrange(m):
             self.Eigvals[j] = self.eigenvals(j)
             self.Phi[:, j] = self.eigenfuncs(j, x)
-            self.Phip[:, j] = self.eigenfuncs(j, xp)
-
+            self.Phip_Degrid[:, j] = self.eigenfuncs(j, xp)
+        self.Phip = self.Phi
         # Compute dot(Phi.T,Phi) # This doesn't change, doesn't depend on theta
         self.PhiTPhi = np.dot(self.Phi.T, self.Phi)
         self.s = np.sqrt(self.Eigvals)
 
         # Set the covariance function on spectral density
         self.set_spectral_density(covariance_function=covariance_function)
+
+        # Set bounds for hypers (they must be strictly positive)
+        lmin = self.L/(2*self.m)
+        self.bnds = ((1e-5, 1.0e2), (lmin, self.L), (1.0e-4, None))
 
     def set_spectral_density(self, covariance_function='sqexp'):
         if covariance_function == "sqexp":
@@ -85,9 +89,12 @@ class RR_GP(ClassGP.ClassGP):
         try:
             L = np.linalg.cholesky(Z)
         except:
-            logp = 1.0e8
-            dlogp = np.ones(theta.size)*1.0e8
-            return logp, dlogp
+            print "Had to add jitter, theta = ", theta
+            L = np.linalg.cholesky(Z + 1.0e-6)
+            #
+            # logp = 1.0e2
+            # dlogp = np.ones(theta.size)*1.0e8
+            # return logp, dlogp
         Linv = np.linalg.inv(L)
         Zinv = np.dot(Linv.T,Linv)
         logdetZ = 2.0 * np.sum(np.log(np.diag(L)))
@@ -163,18 +170,32 @@ class RR_GP(ClassGP.ClassGP):
     def RR_Give_Coeffs(self,theta, y):
         S = self.spectral_density(theta)
         Z = self.PhiTPhi + theta[2] ** 2 * np.diag(1.0 / S)
-        L = np.linalg.cholesky(Z)
+        try:
+            L = np.linalg.cholesky(Z)
+        except:
+            print "Had to add jitter. Theta = ", theta
+            L = np.linalg.cholesky(Z + 1.0e-6*np.eye(Z.shape[0]))
         Linv = np.linalg.inv(L)
         fcoeffs = np.dot(Linv.T, np.dot(Linv, np.dot(self.Phi.T, y)))
         return fcoeffs
 
-    def RR_Reset_Targets(self,xp):
+    def RR_Reset_Targets(self, xp):
+        self.xp = xp
         self.Phip = np.zeros([xp.size, self.m])
         for j in xrange(self.m):
             self.Phip[:, j] = self.eigenfuncs(j, xp)
 
     def RR_From_Coeffs(self, coeffs):
         return np.dot(self.Phip, coeffs)
+
+    def RR_From_Coeffs_Degrid(self, coeffs):
+        return np.dot(self.Phip_Degrid, coeffs)
+
+    def RR_From_Coeffs_Degrid_ref(self, coeffs):
+        Phip = np.zeros(self.m)
+        for j in xrange(self.m):
+            Phip[j] = self.eigenfuncs(j, 1.0)
+        return np.sum(Phip*coeffs)
 
     def RR_covf(self, theta):
         S = self.dspectral_density(theta)
@@ -186,21 +207,24 @@ class RR_GP(ClassGP.ClassGP):
         return covf, fcovcoeffs
 
     def RR_trainGP(self, theta0, y):
-        # Set bounds for hypers (they must be strictly positive)
-        bnds = ((1e-5, None), (1e-5, None), (1e-3, None))
-
         # Do optimisation
-        thetap = opt.fmin_l_bfgs_b(self.RR_logp_and_gradlogp, theta0, fprime=None, args=(y,), bounds=bnds) #, factr=1e10, pgtol=0.1)
+        self.SolverFlag = 0
+        thetap = opt.fmin_l_bfgs_b(self.RR_logp_and_gradlogp, theta0, fprime=None, args=(y,), bounds=self.bnds) #, factr=1e10, pgtol=0.1)
+
+        if np.any(np.isnan(thetap[0])):
+            raise Exception('Solver crashed error. Are you trying a noise free simulation? Use FreqMode = Poly instead.')
 
         #Check for convergence
         if thetap[2]["warnflag"]:
-            print "Warning flag raised"
+            self.SolverFlag = 1
+            #print "Warning flag raised", thetap[2]
+            #print thetap[0]
         # Return optimised value of theta
         return thetap[0]
 
     def RR_EvalGP(self, theta0, y):
-        theta = self.RR_trainGP(theta0,y)
-        coeffs = self.RR_Give_Coeffs(theta,y)
+        theta = self.RR_trainGP(theta0, y)
+        coeffs = self.RR_Give_Coeffs(theta, y)
         return coeffs, theta
 
     def mean_and_cov(self, theta):
