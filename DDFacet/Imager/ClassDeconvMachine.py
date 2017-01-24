@@ -662,7 +662,7 @@ class ClassImagerDeconv():
         #Pass minor cycle specific options into Init as kwargs
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF, PSFAve=self.PSFSidelobesAvg,
                                 approx=(sparsify > approximate_psf_above), cache=not sparsify,
-                                GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.CurrentChanMappingDegrid)
+                                GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.CurrentChanMappingDegrid, RefFreq=self.VS.RefFreq)
 
         DicoImage=self.DicoDirty
         continue_deconv = True
