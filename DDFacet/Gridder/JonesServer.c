@@ -98,7 +98,7 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
   int ipol;
   
   if(Mode==0){
-    size_t offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
+    size_t offJ0=((size_t)i_t)*nd_Jones*na_Jones*nch_Jones*4
       +i_dir*na_Jones*nch_Jones*4
       +i_ant0*nch_Jones*4
       +iChJones*4;
@@ -193,7 +193,7 @@ float CalibError,CalibError2,ReWeightSNR;
 double *ptrSumJones;
 double *ptrSumJonesChan;
 
-float complex *J0;
+float complex *J0 = 0;  // this value is used as a flag, to only initialize once
 float complex *J1;
 float complex *J0kMS;
 float complex *J1kMS;
@@ -217,6 +217,9 @@ float complex *IMatrix;
 
 
 void initJonesMatrices(){
+  if( J0 )
+    return;
+
   J0=calloc(1,(4)*sizeof(float complex));
   J1=calloc(1,(4)*sizeof(float complex));
   J0kMS=calloc(1,(4)*sizeof(float complex));

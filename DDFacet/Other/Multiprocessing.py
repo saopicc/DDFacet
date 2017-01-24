@@ -31,14 +31,20 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Array import NpShared
+from DDFacet.Array import SharedDict
 
 log = MyLogger.getLogger("Multiprocessing")
 #MyLogger.setSilent("Multiprocessing")
 
+# store PID here, so that it corresponds to the PID of the parent thread (when we fork off child processes)
+_pid = os.getpid()
 
 def getShmPrefix():
     """Returns prefix used for shared memory arrays. ddf.PID is the convention"""
-    return "ddf.%d" % os.getpid()
+    return "ddf.%d" % _pid
+
+# init SharedDict with the same base name
+SharedDict.SharedDict.setBaseName(getShmPrefix())
 
 def getShmName(name, **kw):
     """
@@ -64,7 +70,7 @@ def cleanupStaleShm ():
     # check for stale shared memory
     uid = os.getuid()
     # list of all files in /dev/shm/ matching ddf.PID.* and belonging to us
-    shmlist = [ (filename, re.match('ddf\.([0-9]+)\..*',filename)) for filename in os.listdir("/dev/shm/")
+    shmlist = [ ("/dev/shm/"+filename, re.match('ddf\.([0-9]+)(\..*)?$',filename)) for filename in os.listdir("/dev/shm/")
                 if os.stat("/dev/shm/"+filename).st_uid == uid ]
     # convert to list of filename,pid tuples
     shmlist = [ (filename, int(match.group(1))) for filename, match in shmlist if match ]
@@ -81,8 +87,9 @@ def cleanupStaleShm ():
     victims = [ filename for filename,pid in shmlist if pid in dead_pids ]
     if victims:
         print>>log, "reaping %d shared memory objects associated with %d dead DDFacet processes"%(len(victims), len(dead_pids))
-        for filename in victims:
-            os.unlink("/dev/shm/"+filename)
+        os.system("rm -fr " + " ".join(victims))
+        print "rm -fr " + " ".join(victims)
+
 
 def getShmURL(name, **kw):
     """
