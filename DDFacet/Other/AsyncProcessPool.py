@@ -225,7 +225,8 @@ class AsyncProcessPool (object):
 
     def runJob (self, job_id, handler=None, io=None, args=(), kwargs={},
                 event=None, counter=None,
-                singleton=False, collect_result=True):
+                singleton=False, collect_result=True,
+                serial=False):
         """
         Puts a job on a processing queue.
 
@@ -244,6 +245,7 @@ class AsyncProcessPool (object):
                     A singleton job can't be run again.
                     If False, job result will be collected by awaitJobResults() and removed from the map: the job can be
                     run again.
+            serial: if True, job is run serially in the main process. Useful for debugging.
         """
         if collect_result and os.getpid() != parent_pid:
             raise RuntimeError("runJob() with collect_result can only be called in the parent process. This is a bug.")
@@ -261,6 +263,8 @@ class AsyncProcessPool (object):
                 raise RuntimeError("Job '%s': handler %s is not a bound method. This is a bug." % (job_id, handler))
             handler_id, method = id(instance), handler.__name__
             handler_desc = "%s.%s()" % (handler.im_class.__name__, method)
+        else:
+            raise TypeError("'handler' argument must be a function or a bound method")
         if handler_id not in self._job_handlers:
             raise RuntimeError("Job '%s': unregistered handler %s. This is a bug." % (job_id, handler))
         # resolve event object

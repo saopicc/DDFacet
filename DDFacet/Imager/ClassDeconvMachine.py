@@ -226,7 +226,7 @@ class ClassImagerDeconv():
             self.FacetMachinePSF.appendMainField(ImageName="%s.psf" % self.BaseName, **MainFacetOptions)
             self.FacetMachinePSF.Init()
 
-        self.CellArcSec = (self.FacetMachine or self.FaceMachinePSF).Cell
+        self.CellArcSec = (self.FacetMachine or self.FacetMachinePSF).Cell
         self.CellSizeRad = (self.CellArcSec/3600.)*np.pi/180
 
     def GiveMainFacetOptions(self):
@@ -310,16 +310,30 @@ class ClassImagerDeconv():
             self._loadCachedPSF(cachepath)
         else:
             print>>log, ModColor.Str("=============================== Making PSF ===============================")
-            FacetMachinePSF = self._initPSFFacetMachine()
+
+            # tell the I/O thread to go load the first chunk
+            self.VS.ReInitChunkCount()
+            self.VS.startChunkLoadInBackground()
 
             while True:
-                Res=self.setNextData()
-                if Res=="EndOfObservation": break
-                FacetMachinePSF.putChunk()
+                # note that collectLoadedChunk() will destroy the current DATA dict, so we must make sure
+                # the gridding jobs of the previous chunk are finished
+                self.FacetMachinePSF.collectGriddingResults()
+                # get loaded chunk from I/O thread, schedule next chunk
+                # self.VS.startChunkLoadInBackground()
+                DATA = self.VS.collectLoadedChunk(start_next=True)
+                if type(DATA) is str:
+                    print>> log, ModColor.Str("no more data: %s" % DATA, col="red")
+                    break
+                # None weights indicates an all-flagged chunk: go on to the next chunk
+                if DATA["Weights"] is None:
+                    continue
 
-            self._finalizeComputedPSF(FacetMachinePSF, sparsify)
+                self.FacetMachinePSF.putChunkInBackground(DATA)
 
-        self._fitAndSavePSF(FacetMachinePSF)
+            self._finalizeComputedPSF(self.FacetMachinePSF,1)
+
+        self._fitAndSavePSF(self.FacetMachinePSF)
 
 
     def GiveDirty(self, psf=False, sparsify=0):
@@ -379,19 +393,15 @@ class ClassImagerDeconv():
             self.FacetMachinePSF and self.FacetMachinePSF.ReinitDirty()
 
 
-            SubstractModel = self.GD["Data"]["InitDicoModel"]
-            DoSub = bool(SubstractModel)
-            if DoSub:
-                print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
+            SubtractModel = self.GD["Data"]["InitDicoModel"]
+            if SubtractModel:
+                print>>log, ModColor.Str("Initialise sky model using %s"%SubtractModel,col="blue")
                 # Load model dict
-            	DicoSMStacked = MyPickle.Load(SubstractModel)
+            	DicoSMStacked = MyPickle.Load(SubtractModel)
                 # Get the correct model machine from SubtractModel file
             	ModelMachine = self.ModConstructor.GiveMMFromDico(DicoSMStacked)
                 ModelMachine.FromDico(DicoSMStacked)
-                self.FacetMachine.BuildFacetNormImage()
-
-                InitBaseName=".".join(SubstractModel.split(".")[0:-1])
-                self.FacetMachine.BuildFacetNormImage()
+                #self.FacetMachine.BuildFacetNormImage()
                 # NormFacetsFile="%s.NormFacets.fits"%InitBaseName
                 # if InitBaseName!=BaseName:
                 #     print>>log, ModColor.Str("You are substracting a model build from a different facetting mode")
@@ -399,9 +409,10 @@ class ClassImagerDeconv():
                 # self.FacetMachine.NormImage=ClassCasaImage.FileToArray(NormFacetsFile,True)
                 # _,_,nx,nx=self.FacetMachine.NormImage.shape
                 # self.FacetMachine.NormImage=self.FacetMachine.NormImage.reshape((nx,nx))
-
                 if self.BaseName==self.GD["Data"]["InitDicoModel"][0:-10]:
                     self.BaseName+=".continue"
+                current_model_freqs = np.array([])
+                ModelImage = None
 
             iloop = 0
             while True:
@@ -418,15 +429,22 @@ class ClassImagerDeconv():
                 # None weights indicates an all-flagged chunk: go on to the next chunk
                 if DATA["Weights"] is None:
                     continue
-
-                if DoSub:
-                    ThisMeanFreq = self.VS.CurrentChanMappingDegrid
-                    ModelImage = ModelMachine.GiveModelImage(ThisMeanFreq)
-                    print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(ThisMeanFreq/1e6),ModelImage.min(),ModelImage.max())
-                    self.FacetMachine.getChunk(ModelImage)
-
                 print>>log,"sparsify %f"%sparsify
                 self.FacetMachine.applySparsification(DATA, sparsify)
+
+                if SubtractModel:
+                    ## redo model image if needed
+                    model_freqs = DATA["FreqMappingDegrid"]
+                    if not np.array_equal(model_freqs, current_model_freqs):
+                        ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
+                        current_model_freqs = model_freqs
+                        print>> log, "model image @%s MHz (min,max) = (%f, %f)" % (
+                        str(model_freqs / 1e6), ModelImage.min(), ModelImage.max())
+                    else:
+                        print>> log, "reusing model image from previous chunk"
+                    self.FacetMachine.getChunkInBackground(DATA)
+                    self.FacetMachine.collectDegriddingResults()
+
                 self.FacetMachine.putChunkInBackground(DATA)
                 self.FacetMachinePSF and self.FacetMachinePSF.putChunkInBackground(DATA)
                 ## disabled this, doesn't like in-place FFTs
@@ -500,7 +518,10 @@ class ClassImagerDeconv():
 
     def GivePredict(self,from_fits=True):
         print>>log, ModColor.Str("============================== Making Predict ==============================")
-        self.InitFacetMachine()
+
+        # tell the I/O thread to go load the first chunk
+        self.VS.ReInitChunkCount()
+        self.VS.startChunkLoadInBackground(null_data=True)
 
         self.FacetMachine.ReinitDirty()
         BaseName=self.GD["Output"]["Name"]
@@ -538,25 +559,35 @@ class ClassImagerDeconv():
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
 
         current_model_freqs = np.array([])
+        ModelImage = None
 
         while True:
-            Res=self.setNextData(null_data=True)
-            if Res=="EndOfObservation": break
+            # get loaded chunk from I/O thread, schedule next chunk
+            # self.VS.startChunkLoadInBackground()
+            DATA = self.VS.collectLoadedChunk(start_next=True, null_data=True)
+            if type(DATA) is str:
+                print>> log, ModColor.Str("no more data: %s" % DATA, col="red")
+                break
+            # None weights indicates an all-flagged chunk: go on to the next chunk
+            if DATA["Weights"] is None:
+                continue
 
-            model_freqs = self.VS.CurrentChanMappingDegrid
-            ## redo model image if needed
+            model_freqs = DATA["FreqMappingDegrid"]
             if FixedModelImage is None:
-                if np.array(model_freqs != current_model_freqs).any():
-                    ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)
+                ## redo model image if needed
+                if not np.array_equal(model_freqs, current_model_freqs):
+                    ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
                     current_model_freqs = model_freqs
-                    print>>log, "Model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
+                    print>> log, "model image @%s MHz (min,max) = (%f, %f)" % (
+                    str(model_freqs / 1e6), ModelImage.min(), ModelImage.max())
                 else:
-                    print>>log,"reusing model image from previous chunk"
+                    print>> log, "reusing model image from previous chunk"
             else:
-                ModelImage = FixedModelImage
+                if ModelImage is None:
+                    ModelImage = self.FacetMachine.setModelImage(FixedModelImage)
 
             if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder":  # latter for backwards compatibility
-                self.FacetMachine.getChunk(ModelImage)
+                self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
                 from ClassMontblancMachine import ClassMontblancMachine
                 model = self.DeconvMachine.ModelMachine.GiveModelList()
@@ -566,6 +597,7 @@ class ClassImagerDeconv():
             else:
                 raise ValueError("Invalid PredictMode '%s'" % PredictMode)
 
+            self.FacetMachine.collectDegriddingResults()
             vis = self.VS.getVisibilityResiduals()
             vis *= -1 # model was subtracted from null data, so need to invert
             PredictColName=self.GD["Data"]["PredictColName"]
@@ -691,6 +723,7 @@ class ClassImagerDeconv():
             previous_sparsify = sparsify
 
             current_model_freqs = np.array([])
+            ModelImage = None
 
             while True:
                 # note that collectLoadedChunk() will destroy the current DATA dict, so we must make sure
@@ -707,8 +740,8 @@ class ClassImagerDeconv():
                     continue
                 # sparsify the data according to current levels
                 self.FacetMachine.applySparsification(DATA, sparsify)
-                model_freqs = DATA["FreqMappingDegrid"]
                 ## redo model image if needed
+                model_freqs = DATA["FreqMappingDegrid"]
                 if not np.array_equal(model_freqs, current_model_freqs):
                     ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
                     current_model_freqs = model_freqs
@@ -730,6 +763,10 @@ class ClassImagerDeconv():
                 else:
                     raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
 
+                self.FacetMachine.putChunkInBackground(DATA)
+                if do_psf:
+                    self.FacetMachinePSF.putChunkInBackground(DATA)
+
                 if predict_colname:
                     self.FacetMachine.collectDegriddingResults()
                     data = self.VS.getVisibilityData()
@@ -739,9 +776,6 @@ class ClassImagerDeconv():
                     self.VS.CurrentMS.PutVisColumn(predict_colname, model)
                     data = resid = None
 
-                self.FacetMachine.putChunkInBackground(DATA)
-                if do_psf:
-                    self.FacetMachinePSF.putChunkInBackground(DATA)
             # write out model image, if asked to
             if "o" in self._saveims:
                 self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
@@ -825,7 +859,7 @@ class ClassImagerDeconv():
                 self.PSFGaussPars: The maj (rad), min (rad), theta (rad) parameters for the fit of the gaussian
                 self.PSFSidelobes: Position of the highest sidelobes (px)
         """
-        PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.CentralFacet]
+        PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachinePSF.CentralFacet]
 
         self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = \
             self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
