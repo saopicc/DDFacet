@@ -64,50 +64,120 @@ def A_add_B_prod_factor(
     A = A.reshape(ShapeOrig)
     return A
 
-def A_whereMax(A, NCPU=0, DoAbs=1, Mask=None):
-    """
-    Args:
-        A:
-        NCPU: if 0, use all CPUs
-        DoAbs:
-        Mask:
+def A_whereMax(A,NCPU=6,DoAbs=1,Mask=None):
+    if NCPU==1:
+        NX,NY=A.shape[-2],A.shape[-1]
+        nz=A.size/(NX*NY)
+        A=A.reshape((nz,NX,NY))
+        if Mask is not None:
+            Mask=Mask.reshape((nz,NX,NY))
 
-    Returns:
+        if DoAbs:
+            AbsA=np.abs(A)
+            if Mask is not None:
+                M=np.max(AbsA[Mask==0])
+                _,x,y=np.where((AbsA == M)&(Mask==0))
+                return x[0],y[0],M
+            else:
+                M=np.max(AbsA)
+                _,x,y=np.where((AbsA == M))
+                return x[0],y[0],M
+        else:
+            AbsA=A
+            if Mask is not None:
+                M=np.max(AbsA[Mask==0])
+                _,x,y=np.where((AbsA == M)&(Mask==0))
+                return x[0],y[0],M
+            else:
+                M=np.max(AbsA)
+                _,x,y=np.where((AbsA == M))
+                return x[0],y[0],M
+                
+    else:
+        return A_whereMaxParallel(A,NCPU=NCPU,DoAbs=DoAbs,Mask=Mask)
 
-    """
-    NCPU = NCPU or NCPU_global
-    NDimsA = len(A.shape)
-    ShapeOrig = A.shape
 
-    NX, NY = A.shape[-2], A.shape[-1]
-    Blocks = np.int32(np.linspace(0, NX, NCPU+1))
+def A_whereMaxParallel(A,NCPU=6,DoAbs=1,Mask=None):
+
+    NDimsA=len(A.shape)
+    ShapeOrig=A.shape
+    
+    NX,NY=A.shape[-2],A.shape[-1]
+    Blocks = np.int32(np.linspace(0,NX,NCPU+1))
 
     if not (A.flags.c_contiguous):
         raise TypeError("Expected contiguous array as input")
-    if A.dtype != np.float32:
+    if A.dtype!=np.float32:
         raise TypeError("Expected input array dtype: float32")
+    
+    nz=A.size/(NX*NY)
+    A=A.reshape((nz,NX,NY))
 
-    nz = A.size/(NX*NY)
-    A = A.reshape((nz, NX, NY))
-
-    Ans = np.zeros((nz, 3), np.float32)
-
-    for iz in xrange(nz):
-        ThisA = A[iz]
-
+    Ans=np.zeros((nz,3),np.float32)
+    
+    for iz in range(nz):
+        ThisA=A[iz]
         if Mask is None:
-            _pyArrays.pyWhereMax(ThisA, Blocks, Ans[iz], DoAbs)
+            _pyArrays.pyWhereMax(ThisA,Blocks,Ans[iz],DoAbs)
         else:
-            _pyArrays.pyWhereMaxMask(ThisA, Mask, Blocks, Ans[iz], DoAbs)
+            _pyArrays.pyWhereMaxMask(ThisA,Mask,Blocks,Ans[iz],DoAbs)
+            
 
-    chMaxAns = np.argmax(Ans[:, 2])
-    Ans = Ans[chMaxAns]
-    i, j, V = Ans
-    i = int(i)
-    j = int(j)
+    chMaxAns=np.argmax(Ans[:,2])
+    Ans=Ans[chMaxAns]
+    i,j,V=Ans
+    i=int(i)
+    j=int(j)
+    
+        
 
-    A = A.reshape(ShapeOrig)
-    return i, j, V
+    A=A.reshape(ShapeOrig)
+    return i,j,V
+
+# def A_whereMax(A, NCPU=0, DoAbs=1, Mask=None):
+#     """
+#     Args:
+#         A:
+#         NCPU: if 0, use all CPUs
+#         DoAbs:
+#         Mask:
+
+#     Returns:
+
+#     """
+#     NCPU = NCPU or NCPU_global
+#     NDimsA = len(A.shape)
+#     ShapeOrig = A.shape
+
+#     NX, NY = A.shape[-2], A.shape[-1]
+#     Blocks = np.int32(np.linspace(0, NX, NCPU+1))
+
+#     if not (A.flags.c_contiguous):
+#         raise TypeError("Expected contiguous array as input")
+#     if A.dtype != np.float32:
+#         raise TypeError("Expected input array dtype: float32")
+
+#     nz = A.size/(NX*NY)
+#     A = A.reshape((nz, NX, NY))
+
+#     Ans = np.zeros((nz, 3), np.float32)
+
+#     for iz in xrange(nz):
+#         ThisA = A[iz]
+
+#         if Mask is None:
+#             _pyArrays.pyWhereMax(ThisA, Blocks, Ans[iz], DoAbs)
+#         else:
+#             _pyArrays.pyWhereMaxMask(ThisA, Mask, Blocks, Ans[iz], DoAbs)
+
+#     chMaxAns = np.argmax(Ans[:, 2])
+#     Ans = Ans[chMaxAns]
+#     i, j, V = Ans
+#     i = int(i)
+#     j = int(j)
+
+#     A = A.reshape(ShapeOrig)
+#     return i, j, V
 
 
 def testWhereMax():

@@ -1056,7 +1056,7 @@ class ClassImagerDeconv():
                 self.PSFSidelobes: Position of the highest sidelobes (px)
         """
         # If set, use the parameter RestoringBeam to fix the clean beam parameters
-        forced_beam=self.GD["Image"]["RestoringBeam"]
+        forced_beam=self.GD["Output"]["RestoringBeam"]
         if forced_beam is not None:
             FWHMFact = 2. * np.sqrt(2. * np.log(2.))
 

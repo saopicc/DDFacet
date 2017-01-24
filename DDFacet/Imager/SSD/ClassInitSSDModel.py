@@ -53,7 +53,7 @@ class ClassInitSSDModelParallel():
         workerlist=[]
 
         MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","GiveModelMachine","ClassModelMachineMSMF"])
-        # MyLogger.setLoud("ClassImageDeconvMachineMSMF")
+        #MyLogger.setLoud("ClassImageDeconvMachineMSMF")
 
         print>>log,"Launch HMP workers"
         for ii in range(NCPU):
@@ -129,36 +129,35 @@ class ClassInitSSDModel():
         self.RefFreq=RefFreq
         self.GD=GD
         self.GD["Parallel"]["NCPU"]=1
-        self.GD["MultiFreqs"]["Alpha"]=[0,0,1]#-1.,1.,5]
-        self.GD["MultiFreqs"]["Alpha"]=[-1.,1.,5]
-        self.GD["ImagerDeconv"]["MinorCycleMode"]="MSMF"
-        self.GD["ImagerDeconv"]["MinorCycleMode"]="MSMF"
-        self.GD["ImagerDeconv"]["CycleFactor"]=0
-        self.GD["ImagerDeconv"]["PeakFactor"]=0.01
-        self.GD["ImagerDeconv"]["RMSFactor"]=3.
-        self.GD["ImagerDeconv"]["Gain"]=.1
+        #self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
+        self.GD["HMP"]["Alpha"]=[-1.,1.,5]
+        self.GD["Deconv"]["Mode"]="HMP"
+        self.GD["Deconv"]["CycleFactor"]=0
+        self.GD["Deconv"]["PeakFactor"]=0.01
+        self.GD["Deconv"]["RMSFactor"]=3.
+        self.GD["Deconv"]["Gain"]=.1
 
 
-        self.GD["ImagerDeconv"]["MaxMinorIter"]=10000
+        self.GD["Deconv"]["MaxMinorIter"]=10000
         
 
-        self.GD["MultiScale"]["Scales"]=[0,1,2,4,8,16]
-        self.GD["MultiScale"]["Ratios"]=[]
+        self.GD["HMP"]["Scales"]=[0,1,2,4,8,16]
+        self.GD["HMP"]["Ratios"]=[]
         #self.GD["MultiScale"]["Ratios"]=[]
-        self.GD["MultiScale"]["NTheta"]=4
+        self.GD["HMP"]["NTheta"]=4
         
-        self.GD["MultiScale"]["SolverMode"]="NNLS"
+        self.GD["HMP"]["SolverMode"]="NNLS"
         #self.GD["MultiScale"]["SolverMode"]="PI"
 
         self.NFreqBands=len(DicoVariablePSF["freqs"])
-        MinorCycleConfig=dict(self.GD["ImagerDeconv"])
+        MinorCycleConfig=dict(self.GD["Deconv"])
         MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
         MinorCycleConfig["NFreqBands"]=self.NFreqBands
         MinorCycleConfig["GD"] = self.GD
         #MinorCycleConfig["RefFreq"] = self.RefFreq
 
         ModConstructor = ClassModModelMachine(self.GD)
-        ModelMachine = ModConstructor.GiveMM(Mode=self.GD["ImagerDeconv"]["MinorCycleMode"])
+        ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
         ModelMachine.setRefFreq(self.RefFreq)
         MinorCycleConfig["ModelMachine"]=ModelMachine
         MinorCycleConfig["CleanMaskImage"]=None
@@ -313,7 +312,7 @@ class ClassInitSSDModel():
         self.setSubDirty(ListPixParms)
         T.timeit("setsub")
         ModConstructor = ClassModModelMachine(self.GD)
-        ModelMachine = ModConstructor.GiveMM(Mode=self.GD["ImagerDeconv"]["MinorCycleMode"])
+        ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
         #print "ModelMachine"
         #time.sleep(30)
         T.timeit("giveMM")
