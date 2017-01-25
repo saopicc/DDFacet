@@ -524,24 +524,23 @@ class ClassImagerDeconv():
         self.VS.startChunkLoadInBackground(null_data=True)
 
         self.FacetMachine.ReinitDirty()
-        BaseName=self.GD["Output"]["Name"]
-
-        #ModelMachine=ClassModelMachine(self.GD)
-        try:
-            NormImageName="%s.NormFacets.fits"%BaseName
-            CasaNormImage = image(NormImageName)
-            NormImage = CasaNormImage.getdata()
-            print NormImage.shape
-        except:
-            NormImage = self.FacetMachine.BuildFacetNormImage()
-            NormImage = NormImage.reshape([1,1,NormImage.shape[0],NormImage.shape[1]])
-
-        nch,npol,nx,_=NormImage.shape
-        for ch in range(nch):
-            for pol in range(npol):
-                NormImage[ch,pol]=NormImage[ch,pol].T[::-1]
-
-        self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
+        # BaseName=self.GD["Output"]["Name"]
+        # #ModelMachine=ClassModelMachine(self.GD)
+        # try:
+        #     NormImageName="%s.NormFacets.fits"%BaseName
+        #     CasaNormImage = image(NormImageName)
+        #     NormImage = CasaNormImage.getdata()
+        #     print NormImage.shape
+        # except:
+        #     NormImage = self.FacetMachine.BuildFacetNormImage()
+        #     NormImage = NormImage.reshape([1,1,NormImage.shape[0],NormImage.shape[1]])
+        #
+        # nch,npol,nx,_=NormImage.shape
+        # for ch in range(nch):
+        #     for pol in range(npol):
+        #         NormImage[ch,pol]=NormImage[ch,pol].T[::-1]
+        #
+        # self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
         modelfile = self.GD["Data"]["PredictFrom"]
 
@@ -679,10 +678,6 @@ class ClassImagerDeconv():
 
             print>>log, ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1))
 
-            # in the meantime, tell the I/O thread to go reload the first data chunk
-            self.VS.ReInitChunkCount()
-            self.VS.startChunkLoadInBackground()
-
             self.DeconvMachine.Update(DicoImage)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
@@ -695,6 +690,10 @@ class ClassImagerDeconv():
             else:
                 print>> log, "Finished Deconvolving for this major cycle... Going back to visibility space."
             predict_colname = not continue_deconv and self.GD["Data"]["PredictColName"]
+
+            # in the meantime, tell the I/O thread to go reload the first data chunk
+            self.VS.ReInitChunkCount()
+            self.VS.startChunkLoadInBackground(keep_data=predict_colname is not None)
 
             #self.ResidImage=DicoImage["MeanImage"]
             #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
@@ -731,7 +730,7 @@ class ClassImagerDeconv():
                 self.FacetMachine.collectGriddingResults()
                 self.FacetMachinePSF and self.FacetMachinePSF.collectGriddingResults()
                 # get loaded chunk from I/O thread, schedule next chunk
-                DATA = self.VS.collectLoadedChunk(keep_data=True, start_next=True)
+                DATA = self.VS.collectLoadedChunk(keep_data=predict_colname is not None, start_next=True)
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break

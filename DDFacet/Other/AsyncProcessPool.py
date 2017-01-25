@@ -181,6 +181,7 @@ class AsyncProcessPool (object):
         self._events = {}
         self._results_map = {}
         self._job_counters = JobCounterPool()
+        self._termination_event = multiprocessing.Event()
 
         if self.ncpu > 1:
             # create the workers
@@ -325,11 +326,15 @@ class AsyncProcessPool (object):
             if event is None:
                 raise KeyError("Unknown event '%s'" % name)
             while not event.is_set():
+                if self._termination_event.is_set():
+                    if self.verbose > 1:
+                        print>> log, "  termination event spotted, exiting"
                 if self.verbose > 2:
                     print>> log, "  %s not yet complete, waiting" % name
-                event.wait()
-            if self.verbose > 2:
-                print>> log, "  %s is complete" % name
+                if event.wait(1):
+                    if self.verbose > 2:
+                        print>> log, "  %s is complete" % name
+                    break
 
     def awaitJobResults (self, jobspecs, progress=None):
         """

@@ -356,6 +356,7 @@ if __name__ == "__main__":
             logfileName, col="red")
         print>>log, traceback_msg
         # Should at least give the command line an indication of failure
+        APP.terminate()
         retcode = 1 # Should at least give the command line an indication of failure
 
     APP.shutdown()
