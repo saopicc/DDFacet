@@ -27,6 +27,8 @@ import numpy as np
 import traceback
 import inspect
 from collections import OrderedDict
+import glob
+import re
 
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
@@ -133,13 +135,14 @@ class AsyncProcessPool (object):
     def __del__(self):
         self.shutdown()
 
-    def init(self, ncpu=None, affinity=None, num_io_processes=1, verbose=0):
+    def init(self, ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0):
         """
         Initializes an APP.
 
         Args:
             ncpu:
             affinity:
+            parent_affinity:
             num_io_processes:
             verbose:
 
@@ -147,31 +150,105 @@ class AsyncProcessPool (object):
 
         """
         self._shared_state = SharedDict.create("APP")
+
         self.affinity = affinity
-        self.cpustep = abs(self.affinity) or 1
-        self.ncpu = ncpu
         self.verbose = verbose
-        maxcpu = psutil.cpu_count() / self.cpustep
+        if isinstance(self.affinity, int):
+            self.cpustep = abs(self.affinity) or 1
+            self.ncpu = ncpu
+            maxcpu = psutil.cpu_count() / self.cpustep
+            self.parent_affinity = parent_affinity
+            psutil.Process().cpu_affinity([self.parent_affinity])
+        elif isinstance(self.affinity, list):
+            if any(map(lambda x: x < 0, self.affinity)):
+                raise RuntimeError("Affinities must be list of positive numbers")
+            if psutil.cpu_count() < max(self.affinity):
+                raise RuntimeError("There are %d virtual threads on this system. Some elements of the affinity map are "
+                                   "higher than this. Check parset." % psutil.cpu_count())
+            self.ncpu = ncpu
+            if self.ncpu != len(self.affinity):
+                print>> log, ModColor.Str("Warning: NCPU does not match affinity list length. Falling back to "
+                                          "NCPU=%d" % len(self.affinity))
+            self.ncpu = self.ncpu if self.ncpu == len(self.affinity) else len(self.affinity)
+            maxcpu = max(self.affinity) + 1  # zero indexed list
+            self.parent_affinity = parent_affinity
+            psutil.Process().cpu_affinity([self.parent_affinity])
+        elif isinstance(self.affinity, str) and str(self.affinity) == "autodetect":
+            # this works on Ubuntu so possibly Debian-like systems, no guarantees for the rest
+            # the mapping on hyperthread-enabled NUMA machines with multiple processors can get very tricky
+            # /sys/devices/system/cpu/cpu*/topology/thread_siblings_list should give us a list of siblings
+            # whereas core_siblings_list will give the list of sibling threads on the same physical processor
+            # for now lets not worry about assigning different jobs to physical cpus but for now keep things
+            # simple
+            hyperthread_sibling_lists = map(lambda x: x + "/topology/thread_siblings_list",
+                                            filter(lambda x: re.match(r"cpu[0-9]+", os.path.basename(x)),
+                                                   glob.glob("/sys/devices/system/cpu/cpu*")))
+            left_set = set([])
+            right_set = set([])
+            for siblings_file in hyperthread_sibling_lists:
+                with open(siblings_file) as f:
+                    siblings = map(int, f.readline().split(","))
+                    if len(siblings) == 2:
+                        l, r = siblings
+                        # cannot be sure the indices don't swap around at some point
+                        # since there are two copies of the siblings we need to
+                        # check that the items are not in the other sets before adding
+                        # them to the left and right sets respectively
+                        if l not in right_set:
+                            left_set.add(l)
+                        if r not in left_set:
+                            right_set.add(r)
+                    elif len(siblings) == 1:
+                        left_set.add(siblings[0])
+                    else:
+                        raise RuntimeError("Don't know how to handle this architecture. It seems there are more than "
+                                           "two threads per core? Try setting things manually by specifying a list "
+                                           "to the affinity option")
+
+            self.affinity = list(left_set)  # only consider 1 thread per core
+            self.ncpu = ncpu
+            if self.ncpu >= len(self.affinity):
+                print>> log, ModColor.Str("Warning: NCPU is more than the number of physical cores on "
+                                          "the system. I will only use %d cores." % len(self.affinity))
+            self.ncpu = self.ncpu if self.ncpu <= len(self.affinity) else len(self.affinity)
+            maxcpu = max(self.affinity) + 1  # zero indexed list
+
+            unused = [x for x in range(0, max(self.affinity) + 1) if x not in self.affinity]
+            if len(unused) == 0:
+                self.parent_affinity = 0 # none unused (HT is probably disabled BIOS level)
+            else:
+                self.parent_affinity = unused[0] # grab the first unused vthread
+            psutil.Process().cpu_affinity([self.parent_affinity])
+        else:
+            raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list or "
+                               "'autodetect'")
+        print>> log, ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity)
+
         # if NCPU is 0, set to number of CPUs on system
         if not self.ncpu:
             self.ncpu = maxcpu
         elif self.ncpu > maxcpu:
             print>>log,ModColor.Str("NCPU=%d is too high for this setup (%d cores, affinity %d)" %
-                                    (self.ncpu, psutil.cpu_count(), self.affinity))
+                                    (self.ncpu, psutil.cpu_count(),
+                                     self.affinity if isinstance(self.affinity, int)
+                                     else ",".join(map(str, self.affinity))))
             print>>log,ModColor.Str("Falling back to NCPU=%d" % (maxcpu))
             self.ncpu = maxcpu
         self.procinfo = psutil.Process()  # this will be used to control CPU affinity
 
         # create a queue for compute-bound tasks
         # generate list of CPU cores for workers to run on
-        if not self.affinity or self.affinity == 1:
+        if isinstance(self.affinity, int) and (not self.affinity or self.affinity == 1):
             cores = range(self.ncpu)
-        elif self.affinity == 2:
-            cores = range(0, self.ncpu*2, 2)
-        elif self.affinity == -2:
-            cores = range(0, self.ncpu*2, 4) + range(1, self.ncpu*2, 4)
+        elif isinstance(self.affinity, int) and self.affinity == 2:
+            cores = range(0, self.ncpu * 2, 2)
+        elif isinstance(self.affinity, int) and self.affinity == -2:
+            cores = range(0, self.ncpu * 2, 4) + range(1, self.ncpu * 2, 4)
+        elif isinstance(self.affinity, list):
+            cores = self.affinity[:self.ncpu]
         else:
-            raise ValueError,"unknown affinity setting %d" % self.affinity
+            raise ValueError, "unknown affinity setting"
+
         self._compute_workers = []
         self._io_workers = []
         self._compute_queue   = multiprocessing.Queue()
@@ -568,8 +645,8 @@ class AsyncProcessPool (object):
 
 APP = AsyncProcessPool()
 
-def init(ncpu=None, affinity=None, num_io_processes=1, verbose=0):
+def init(ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0):
     global APP
-    APP.init(ncpu, affinity, num_io_processes, verbose)
+    APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose)
 
 
