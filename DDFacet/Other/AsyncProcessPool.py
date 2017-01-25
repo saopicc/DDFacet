@@ -413,7 +413,7 @@ class AsyncProcessPool (object):
                     del self._results_map[job_id]
                 del awaiting_jobs[job_id]
                 if progress:
-                    pBAR.render(int(100.*complete_jobs/total_jobs), '%4i/%i' % (complete_jobs, total_jobs))
+                    pBAR.render(int(100.*complete_jobs/(total_jobs or 1)), '%4i/%i' % (complete_jobs, total_jobs))
             # print status update
             if self.verbose > 1:
                 print>>log,"received job results %s" % " ".join(["%s:%d"%(jobspec, len(results)) for jobspec, (_, results)
