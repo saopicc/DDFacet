@@ -732,7 +732,7 @@ class ClassImagerDeconv():
                 self.VS.collectPutColumnResults()  # if these were going on
                 # get loaded chunk from I/O thread, schedule next chunk
                 # note that if we're writing predict data out, DON'T schedule until we're done writing this one
-                DATA = self.VS.collectLoadedChunk(start_next=predict_colname is None)
+                DATA = self.VS.collectLoadedChunk(start_next=not predict_colname)
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break

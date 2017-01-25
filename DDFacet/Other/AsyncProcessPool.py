@@ -363,6 +363,8 @@ class AsyncProcessPool (object):
             matching_jobs = [job_id for job_id in self._results_map.iterkeys() if fnmatch.fnmatch(job_id, jobspec)]
             for job_id in matching_jobs:
                 awaiting_jobs.setdefault(job_id, set()).add(jobspec)
+            if not matching_jobs:
+                raise RuntimeError("no pending jobs matching '%s'. This is probably a bug." % jobspec)
             total_jobs += len(matching_jobs)
             job_results[jobspec] = len(matching_jobs), []
         # check dict of already returned results (perhaps from previous calls to awaitJobs). Remove
