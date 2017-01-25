@@ -420,7 +420,7 @@ class AsyncProcessPool (object):
                                                              in job_results.iteritems()])
         # render complete
         if progress:
-            pBAR.render(int(100. * complete_jobs / total_jobs), '%4i/%i' % (complete_jobs, total_jobs))
+            pBAR.render(int(100. * complete_jobs / (total_jobs or 1)), '%4i/%i' % (complete_jobs, total_jobs))
         # process list of results for each jobspec to check for errors
         for jobspec, (njobs, results) in job_results.iteritems():
             times = np.array([ res['time'] for res in results ])
