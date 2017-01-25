@@ -16,7 +16,6 @@ class ClassIslandDistanceMachine():
         self.PSFCross=None
         self.DicoDirty=DicoDirty
         self.NCPU=self.GD["Parallel"]["NCPU"]
-        print self.NCPU
         self.IdSharedMem=IdSharedMem
 
     def SearchIslands(self,Threshold):
