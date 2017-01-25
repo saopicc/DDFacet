@@ -503,16 +503,17 @@ class ClassMS():
             DATA dictionary containing all read elements
         """
 
-        if row0>=self.F_nrows:
+        if row0 >= self.F_nrows:
             return "EndMS"
-        if row1>(self.F_nrows):
-            row1=self.F_nrows
+        if row1 > self.F_nrows:
+            row1 = self.F_nrows
         
         self.ROW0 = row0
         self.ROW1 = row1
         self.nRowRead = nRowRead = row1-row0
         # expected data column shape
-        datashape = (nRowRead, len(self.ChanFreq), len(self.CorrelationNames))
+        DATA["datashape"] = datashape = (nRowRead, len(self.ChanFreq), len(self.CorrelationNames))
+        DATA["datatype"]  = np.complex64
 
         strMS = "%s" % (ModColor.Str(self.MSName, col="green"))
         print>>log, "%s: Reading next data chunk in [%i, %i] rows" % (
@@ -567,9 +568,9 @@ class ClassMS():
                 weights = weights[sort_index]
             DATA["weights"] = weights
 
-        # create data array (if databuf is not None, array uses memory of buffer)
-        visdata = DATA.addSharedArray("data", shape=datashape, dtype=np.complex64)
         if read_data:
+            # create data array
+            visdata = DATA.addSharedArray("data", shape=datashape, dtype=np.complex64)
             # check cache for visibilities
             if use_cache:
                 datapath, datavalid = self.cache.checkCache("Data.npy", dict(time=self._start_time))
@@ -595,7 +596,7 @@ class ClassMS():
                     np.save(datapath, visdata)
                     self.cache.saveCache("Data.npy")
         else:
-            visdata.fill(0)
+            visdata = None
         # create flag array (if flagbuf is not None, array uses memory of buffer)
         flags = DATA.addSharedArray("flags", shape=datashape, dtype=np.bool)
         # check cache for flags
@@ -636,7 +637,7 @@ class ClassMS():
         DATA["dt"]  = self.dt
         DATA["dnu"] = self.ChanWidth
 
-        if self.zero_flag:
+        if self.zero_flag and visdata is not None:
             visdata[flags] = 1e10
         # print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
             visdata[np.isnan(visdata)] = 0.
@@ -1102,28 +1103,29 @@ class ClassMS():
             np.sin(self.decrad) * np.cos(ra - self.rarad)
         return l, m
 
-    def PutVisColumn(self, colname, vis):
+    def PutVisColumn(self, colname, vis, row0, row1):
         self.AddCol(colname, quiet=True)
-        print>>log, "writing column %s rows %d:%d"%(colname,self.ROW0,self.ROW1-1)
+        nrow = row1 - row0
+        print>>log, "writing column %s rows %d:%d"%(colname,row0,row1)
         t = self.GiveMainTable(readonly=False, ack=False)
         # if sorting rows, rearrange vis array back into MS order
         # if not sorting, then using slice(None) for row has no effect
         if self._sort_index is not None:
             reverse_index = np.empty(self.nRowRead,dtype=int)
-            reverse_index[self._sort_index] = np.arange(0,self.nRowRead,dtype=int)
+            reverse_index[self._sort_index] = np.arange(0,nrow,dtype=int)
         else:
             reverse_index = slice(None)
         if self.ChanSlice and self.ChanSlice != slice(None):
             # if getcol fails, maybe because this is a new col which hasn't been filled
             # in this case read DATA instead
             try:
-                vis0 = t.getcol(colname,self.ROW0,self.nRowRead)
+                vis0 = t.getcol(colname, row0, nrow)
             except RuntimeError:
-                vis0 = t.getcol("DATA", self.ROW0, self.nRowRead)
+                vis0 = t.getcol("DATA", row0, snrow)
             vis0[reverse_index, self.ChanSlice, :] = vis
-            t.putcol(colname, vis0, self.ROW0,self.nRowRead)
+            t.putcol(colname, vis0, row0, now)
         else:
-            t.putcol(colname, vis[reverse_index,:,:], self.ROW0,self.nRowRead)
+            t.putcol(colname, vis[reverse_index,:,:], row0, nrow)
         t.close()
 
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):

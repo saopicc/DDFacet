@@ -81,7 +81,7 @@ import pyfits
 class ClassImagerDeconv():
     def __init__(self, GD=None,
                  PointingID=0,BaseName="ImageTest2",ReplaceDico=None,IdSharedMem="CACA.",
-                 data=True, psf=True, deconvolve=True):
+                 data=True, psf=True, readcol=True, deconvolve=True):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD
@@ -92,7 +92,7 @@ class ClassImagerDeconv():
         self.BaseName=BaseName
         self.DicoModelName="%s.DicoModel"%self.BaseName
         self.PointingID=PointingID
-        self.do_data, self.do_psf, self.do_deconvolve = data, psf, deconvolve
+        self.do_data, self.do_psf, self.do_readcol, self.do_deconvolve = data, psf, readcol, deconvolve
         self.FacetMachine=None
         self.PSF=None
         self.FWHMBeam = None
@@ -145,7 +145,7 @@ class ClassImagerDeconv():
         AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"], affinity=self.GD["Parallel"]["Affinity"],
                               verbose=self.GD["Debug"]["APPVerbose"])
 
-        self.VS = ClassVisServer.ClassVisServer(mslist,ColName=DC["Data"]["ColName"],
+        self.VS = ClassVisServer.ClassVisServer(mslist,ColName=self.do_readcol and DC["Data"]["ColName"],
                                                 TChunkSize=DC["Data"]["ChunkHours"],
                                                 GD=self.GD)
 
@@ -521,7 +521,7 @@ class ClassImagerDeconv():
 
         # tell the I/O thread to go load the first chunk
         self.VS.ReInitChunkCount()
-        self.VS.startChunkLoadInBackground(null_data=True)
+        self.VS.startChunkLoadInBackground()
 
         self.FacetMachine.ReinitDirty()
         # BaseName=self.GD["Output"]["Name"]
@@ -563,13 +563,15 @@ class ClassImagerDeconv():
         while True:
             # get loaded chunk from I/O thread, schedule next chunk
             # self.VS.startChunkLoadInBackground()
-            DATA = self.VS.collectLoadedChunk(start_next=True, null_data=True)
+            DATA = self.VS.collectLoadedChunk(start_next=True)
             if type(DATA) is str:
                 print>> log, ModColor.Str("no more data: %s" % DATA, col="red")
                 break
             # None weights indicates an all-flagged chunk: go on to the next chunk
             if DATA["Weights"] is None:
                 continue
+            # insert null array for predict
+            predict = DATA.addSharedArray("data", DATA["datashape"], DATA["datatype"])
 
             model_freqs = DATA["FreqMappingDegrid"]
             if FixedModelImage is None:
@@ -591,18 +593,16 @@ class ClassImagerDeconv():
                 from ClassMontblancMachine import ClassMontblancMachine
                 model = self.DeconvMachine.ModelMachine.GiveModelList()
                 mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                mb_machine.getChunk(DATA, self.VS.getVisibilityResiduals(), model, self.VS.CurrentMS)
+                mb_machine.getChunk(DATA, predict, model, self.VS.CurrentMS)
                 mb_machine.close()
             else:
                 raise ValueError("Invalid PredictMode '%s'" % PredictMode)
-
             self.FacetMachine.collectDegriddingResults()
-            vis = self.VS.getVisibilityResiduals()
-            vis *= -1 # model was subtracted from null data, so need to invert
-            PredictColName=self.GD["Data"]["PredictColName"]
-
-            self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
-
+            predict *= -1   # model was subtracted from (zero) predict, so need to invert sign
+            # run job in I/O thread
+            self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Data"]["PredictColName"])
+            # and wait for it to finish (we don't want DATA destroyed, which collectLoadedChunk() above will)
+            self.VS.collectPutColumnResults()
         # if from_fits:
         #     print "Predicting from fits and saving in %s",(PredictColName)
         #     #Read in the LSM
@@ -693,7 +693,7 @@ class ClassImagerDeconv():
 
             # in the meantime, tell the I/O thread to go reload the first data chunk
             self.VS.ReInitChunkCount()
-            self.VS.startChunkLoadInBackground(keep_data=predict_colname is not None)
+            self.VS.startChunkLoadInBackground()
 
             #self.ResidImage=DicoImage["MeanImage"]
             #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
@@ -729,14 +729,20 @@ class ClassImagerDeconv():
                 # the gridding jobs of the previous chunk are finished
                 self.FacetMachine.collectGriddingResults()
                 self.FacetMachinePSF and self.FacetMachinePSF.collectGriddingResults()
+                self.VS.collectPutColumnResults()  # if these were going on
                 # get loaded chunk from I/O thread, schedule next chunk
-                DATA = self.VS.collectLoadedChunk(keep_data=predict_colname is not None, start_next=True)
+                # note that if we're writing predict data out, DON'T schedule until we're done writing this one
+                DATA = self.VS.collectLoadedChunk(start_next=predict_colname is None)
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break
                 # None weights indicates an all-flagged chunk: go on to the next chunk
                 if DATA["Weights"] is None:
                     continue
+                visdata = DATA["data"]
+                if predict_colname:
+                    predict = DATA.addSharedArray("predict", DATA["datashape"], DATA["datatype"])
+                    np.copyto(predict, visdata)
                 # sparsify the data according to current levels
                 self.FacetMachine.applySparsification(DATA, sparsify)
                 ## redo model image if needed
@@ -757,23 +763,22 @@ class ClassImagerDeconv():
                     from ClassMontblancMachine import ClassMontblancMachine
                     model = self.DeconvMachine.ModelMachine.GiveModelList()
                     mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                    mb_machine.getChunk(DATA, self.VS.getVisibilityResiduals(), model, self.VS.CurrentMS)
+                    mb_machine.getChunk(DATA, DATA["data"], model, self.VS.CurrentMS)
                     mb_machine.close()
                 else:
                     raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
 
+                if predict_colname:
+                    self.FacetMachine.collectDegriddingResults()
+                    # predict had original data -- subtract residuals to arrive at model
+                    predict -= visdata
+                    # schedule jobs for saving visibilities, then start reading next chunk (both are on io queue)
+                    self.VS.startVisPutColumnInBackground(DATA, "predict", predict_colname)
+                    self.VS.startChunkLoadInBackground()
+
                 self.FacetMachine.putChunkInBackground(DATA)
                 if do_psf:
                     self.FacetMachinePSF.putChunkInBackground(DATA)
-
-                if predict_colname:
-                    self.FacetMachine.collectDegriddingResults()
-                    data = self.VS.getVisibilityData()
-                    resid = self.VS.getVisibilityResiduals()
-                    # model is data minus residuals
-                    model = data-resid
-                    self.VS.CurrentMS.PutVisColumn(predict_colname, model)
-                    data = resid = None
 
             # write out model image, if asked to
             if "o" in self._saveims:
@@ -782,6 +787,7 @@ class ClassImagerDeconv():
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             # wait for gridding to finish
             self.FacetMachine.collectGriddingResults()
+            self.VS.collectPutColumnResults()  # if these were going on
             # release model image from memory
             ModelImage = None
             self.FacetMachine.releaseModelImage()

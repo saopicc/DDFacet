@@ -288,15 +288,16 @@ class AsyncProcessPool (object):
         ## normal paralell mode, stick job on queue
         if self.ncpu > 1 and not serial:
             if self.verbose > 2:
-                print>>log, "enqueueing job %s: %s"%(job_id, function)
+                print>>log, "enqueueing job %s: %s"%(job_id, handler_desc)
             # place it on appropriate queue
             if io is None:
                 self._compute_queue.put(jobitem)
             else:
                 io = max(len(self._io_queues)-1, io)
                 self._io_queues[io].put(jobitem)
+        # serial mode: process job in this process, and raise any exceptions up
         else:
-            self._dispatch_job(jobitem)
+            self._dispatch_job(jobitem, reraise=True)
 
     def awaitJobCounter (self, counter, progress=None, total=None, timeout=10):
         if self.verbose > 2:
@@ -376,7 +377,7 @@ class AsyncProcessPool (object):
                 del awaiting_jobs[job_id]
         if progress:
             pBAR = ProgressBar('white', width=50, block='=', empty=' ',Title="  "+progress, HeaderSize=10, TitleSize=13)
-            pBAR.render(int(100.*complete_jobs/total_jobs), '%4i/%i' % (complete_jobs, total_jobs))
+            pBAR.render(int(100.*complete_jobs/(total_jobs or 1)), '%4i/%i' % (complete_jobs, total_jobs))
         if self.verbose > 1:
             print>>log, "checking job results: %s (%d still pending)"%(
                 ", ".join(["%s %d/%d"%(jobspec, len(results), njobs) for jobspec, (njobs, results) in job_results.iteritems()]),
@@ -494,7 +495,10 @@ class AsyncProcessPool (object):
             psutil.Process().cpu_affinity(affinity)
         object._run_worker(worker_queue)
 
-    def _dispatch_job(self, jobitem):
+    def _dispatch_job(self, jobitem, reraise=False):
+        """Handles job described by jobitem dict.
+
+        If reraise is True, any eceptions are re-raised. This is useful for debugging."""
         timer = ClassTimeIt.ClassTimeIt()
         event = counter = None
         try:
@@ -530,6 +534,8 @@ class AsyncProcessPool (object):
         except KeyboardInterrupt:
             raise
         except Exception, exc:
+            if reraise:
+                raise
             print>> log, ModColor.Str("process %s: exception raised processing job %s: %s" % (
                 AsyncProcessPool.proc_id, job_id, traceback.format_exc()))
             if jobitem['collect_result']:

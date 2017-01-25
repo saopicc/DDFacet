@@ -169,6 +169,7 @@ def main(OP=None, messages=[]):
     # psf machine initialized for all cases except Predict-only mode
     Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, IdSharedMem=Multiprocessing.getShmPrefix(), BaseName=ImageName,
                                                   data=(Mode != "PSF"), psf=(Mode != "Predict"),
+                                                  readcol=(Mode != "Predict" and Mode != "PSF"),
                                                   deconvolve=("Clean" in Mode))
 
     Imager.Init()

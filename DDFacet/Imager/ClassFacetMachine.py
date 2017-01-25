@@ -1148,7 +1148,7 @@ class ClassFacetMachine():
         self._grid_job_id = "%s.Grid.%s:" % (self._app_id, self._grid_job_label)
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
-                            args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path)
+                            args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path), serial=True
                             )
 
     def collectGriddingResults(self):
@@ -1219,6 +1219,18 @@ class ClassFacetMachine():
 
     # DeGrid worker that is called by Multiprocessing.Process
     def _degrid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path, modeldict_path, model_id, ChanSel):
+        """
+        Args:
+            iFacet:         facet number
+            datadict_path:  path to DATA shared dict
+            cfdict_path:    path to CF shared dict
+            griddict_path:  path to Grids shared dict
+            modeldict_path: path to Model shared dict
+            model_id:       id of model object (used to determine when to reload the Model dict)
+            ChanSel:        channel selection
+            predict:        if True, DATA["predict"] will be populated with degridded visibilities
+            subtract:       if True, DATA["data"] will have degridded visibilities subtracted in place
+        """
         # reload shared dicts
         cf_dict = self._reload_worker_dicts(iFacet, datadict_path, cfdict_path, griddict_path)
         # reload model image dict, if serial number has changed

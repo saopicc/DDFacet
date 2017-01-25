@@ -950,7 +950,7 @@ void DeGridderWPol(PyArrayObject *grid,
       DoSmearTime=(int) (PyFloat_AsDouble(_DoSmearTime));
 
       PyObject *_DoSmearFreq= PyList_GetItem(LSmearing, 4);
-      DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));
+      DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));h
 
       PyObject *_Flmin_decorr= PyList_GetItem(LSmearing, 5);
       lmin_decorr=(float) (PyFloat_AsDouble(_Flmin_decorr));
