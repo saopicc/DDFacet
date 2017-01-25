@@ -147,7 +147,8 @@ class ClassWeighting():
         grid0 = np.zeros((nbands, npix), np.float64)
         grid = grid0.reshape((nbands*npix,))
 
-        weights_index = [None] * len(uvw_weights_flags_freqs)
+        # this will ve a per-MS list of weights and an index array, or None if an MS is all flagged
+        weights_index = [(None, None)] * len(uvw_weights_flags_freqs)
 
         for iMS, (uv, weights_or_path, flags, freqs) in enumerate(uvw_weights_flags_freqs):
             if flags is None:  # entire chunk flagged
@@ -192,8 +193,9 @@ class ClassWeighting():
             #           grid[grid!=0] = 1/grid[grid!=0]
             print>> log, ("applying uniform weighting (super=%.2f)" % Super)
             for weights_or_path, index in weights_index:
-                weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
-                weights /= grid[index]
+                if index is not None:
+                    weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
+                    weights /= grid[index]
 
         elif Weighting == "briggs" or Weighting == "robust":
             numeratorSqrt = 5.0 * 10 ** (-Robust)
@@ -204,8 +206,9 @@ class ClassWeighting():
                 sSq = numeratorSqrt ** 2 / avgW
                 grid1[...] = 1 / (1 + grid1 * sSq)
             for weights_or_path, index in weights_index:
-                weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
-                weights *= grid[index]
+                if index is not None:
+                    weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
+                    weights *= grid[index]
 
         else:
             raise ValueError("unknown weighting \"%s\"" % Weighting)

@@ -119,7 +119,7 @@ class ClassImageDeconvMachine():
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.SetModelRefFreq()
-        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"],self.GD["Freq"]["PolyFitOrder"])
+        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"],self.GD["Hogbom"]["PolyFitOrder"])
         # tmp = [{'Alpha': 0.0, 'Scale': 0, 'ModelType': 'Delta'}]
         # AlphaMin, AlphaMax, NAlpha = self.GD["HMP"]["Alpha"]
         # if NAlpha > 1:

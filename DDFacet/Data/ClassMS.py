@@ -30,7 +30,7 @@ from DDFacet.Other import MyLogger
 from DDFacet.Other import reformat
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 
-log= MyLogger.getLogger("ClassMS")
+log = MyLogger.getLogger("ClassMS")
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.CacheManager import CacheManager
 from DDFacet.Array import NpShared
@@ -81,6 +81,8 @@ class ClassMS():
 
         if MSname=="": exit()
         self.ToRADEC=ToRADEC
+        self.GD = GD
+
         self.AverageSteps=AverageTimeFreq
         MSname= reformat.reformat(os.path.abspath(MSname), LastSlash=False)
         self.MSName=MSname
@@ -99,9 +101,17 @@ class ClassMS():
         self.TaQL = "FIELD_ID==%d && DATA_DESC_ID==%d" % (Field, DDID)
         if TaQL:
             self.TaQL += " && (%s)"%TaQL
+
+        # the MS has two caches associated with it. self.maincache stores DDF-related data that is not related to
+        # iterating through the MS. self.cache is created in GiveNextChunk, and is thus different from chunk
+        # to chunk. It is stored in self._chunk_caches, so that the per-chunk cache manager is initialized only
+        # once.
+        self._reset_cache = ResetCache
+        self._chunk_caches = {}
+        self.maincache = CacheManager(MSname+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
+
         self.ReadMSInfo(DoPrint=DoPrint)
         self.LFlaggedStations=[]
-        self.GD = GD
         self.DicoSelectOptions = DicoSelectOptions
         self._datapath = self._flagpath = None
         self._start_time = time.time()
@@ -122,13 +132,6 @@ class ClassMS():
         if GetBeam:
             self.LoadSR()
 
-        # the MS has two caches associated with it. self.maincache stores DDF-related data that is not related to
-        # iterating through the MS. self.cache is created in GiveNextChunk, and is thus different from chunk
-        # to chunk. It is stored in self._chunk_caches, so that the per-chunk cache manager is initialized only
-        # once.
-        self._reset_cache = ResetCache
-        self._chunk_caches = {}
-        self.maincache = CacheManager(MSname+".ddfcache", reset=ResetCache)
 
     def GiveMainTable (self,**kw):
         """Returns main MS table, applying TaQL selection if any"""
@@ -463,12 +466,14 @@ class ClassMS():
         self.current_chunk = -1
 
     def getChunkCache (self, row0, row1):
-        if (row0, row1) not in self._chunk_caches:
-            self._chunk_caches[row0, row1] = CacheManager(
-                self.MSName + ".ddfcache/F%d:D%d:%d:%d" % (self.Field, self.DDID, row0, row1), self._reset_cache)
         return self._chunk_caches[row0, row1]
 
-    def GiveNextChunk(self,databuf=None,flagbuf=None,use_cache=None,read_data=True,sort_by_baseline=False):
+    def GiveChunk (self, DATA, chunk, use_cache=None, read_data=True, sort_by_baseline=False):
+        row0, row1 = self._chunk_r0r1[chunk]
+        self.cache = self.getChunkCache(row0, row1)
+        return self.ReadData(DATA, row0, row1, use_cache=use_cache, read_data=read_data, sort_by_baseline=sort_by_baseline)
+
+    def GiveNextChunk(self, use_cache=None, read_data=True, sort_by_baseline=False):
         # release data/flag arrays, if holding them, and mark cache as valid
         if self._datapath:
             self.cache.saveCache("Data")
@@ -478,26 +483,25 @@ class ClassMS():
         # get row0:row1 of next chunk. If row1==row0, chunk is empty and we must skip it
         while self.current_chunk < self.Nchunk-1:
             self.current_chunk += 1
-            row0, row1 = self._chunk_r0r1[self.current_chunk]
-            if row1 > row0:
-                self.cache = self.getChunkCache(row0,row1)
-                return self.ReadData(row0,row1,databuf=databuf,flagbuf=flagbuf,
-                                     use_cache=use_cache,read_data=read_data,sort_by_baseline=sort_by_baseline)
+            return self.GiveChunk(self.current_chunk,
+                                  use_cache=use_cache,read_data=read_data,sort_by_baseline=sort_by_baseline)
         return "EndMS"
+
+
+    def numChunks (self):
+        return len(self._chunk_r0r1)
 
     def getChunkRow0Row1 (self):
         return self._chunk_r0r1
         
-    def ReadData(self,row0,row1,
-                 DoPrint=False, ReadWeight=False,
-                 databuf=None, flagbuf=None,
+    def ReadData(self,DATA,row0,row1,
+                 ReadWeight=False,
                  use_cache=False, read_data=True,
                  sort_by_baseline=True):
         """
         Args:
             row0:
             row1:
-            DoPrint:
             ReadWeight:
             use_cache: if True, reads data and flags from the chunk cache, if available
             databuf: a buffer to read data into. If None, a new array is created.
@@ -568,12 +572,13 @@ class ClassMS():
 
         if ReadWeight:
             table_all = table_all or self.GiveMainTable()
-            self.Weights = table_all.getcol("WEIGHT", row0, nRowRead)
+            weights = table_all.getcol("WEIGHT", row0, nRowRead)
             if sort_index is not None:
-                self.Weights = self.Weights[sort_index]
+                weights = weights[sort_index]
+            DATA["weights"] = weights
 
         # create data array (if databuf is not None, array uses memory of buffer)
-        visdata = np.ndarray(shape=datashape, dtype=np.complex64, buffer=databuf)
+        visdata = DATA.addSharedArray("data", shape=datashape, dtype=np.complex64)
         if read_data:
             # check cache for visibilities
             if use_cache:
@@ -602,7 +607,7 @@ class ClassMS():
         else:
             visdata.fill(0)
         # create flag array (if flagbuf is not None, array uses memory of buffer)
-        flags = np.ndarray(shape=datashape, dtype=np.bool, buffer=flagbuf)
+        flags = DATA.addSharedArray("flags", shape=datashape, dtype=np.bool)
         # check cache for flags
         if use_cache:
             flagpath, flagvalid = self.cache.checkCache("Flags.npy", dict(time=self._start_time))
@@ -631,13 +636,6 @@ class ClassMS():
         if table_all:
             table_all.close()
 
-        # visdata[flags]=1e6
-
-        DATA={}
-
-        DATA["data"] = visdata
-        DATA["flags"] = flags
-
         ColNames=self.ColNames
         #table_all.close()
         #del(table_all)
@@ -656,17 +654,18 @@ class ClassMS():
 
         DATA["sort_index"] = self._sort_index = sort_index
 
-        DATA["uvw"]=uvw
-        DATA["times"]=time_all
+        DATA["uvw"]   = uvw
+        DATA["times"] = time_all
         DATA["uniq_times"] = time_uniq   # vector of unique timestamps
-        DATA["nrows"]=time_all.shape[0]
-        DATA["A0"]=A0
-        DATA["A1"]=A1
-        DATA["dt"]=self.dt
-        DATA["dnu"]=self.ChanWidth
-        if visdata is not None:
-            if self.zero_flag: 
-                visdata[flags] = 1e10
+        DATA["nrows"] = time_all.shape[0]
+        DATA["A0"]  = A0
+        DATA["A1"]  = A1
+        DATA["dt"]  = self.dt
+        DATA["dnu"] = self.ChanWidth
+
+        if self.zero_flag:
+            visdata[flags] = 1e10
+
         # print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
             visdata[np.isnan(visdata)] = 0.
         # print "visMS",vis_all.min(),vis_all.max()
@@ -866,8 +865,8 @@ class ClassMS():
         if not self.TimeChunkSize:
             T0=table_all.getcol('TIME',0,1)[0]
             T1=table_all.getcol('TIME',self.F_nrows-1,1)[0]
-            print>>log,"ChunkHours is not set; MS %s (%d rows) will be processed as a single chunk"%(self.MSName, self.F_nrows)
-            chunk_rows = [0]
+            print>>log,"--Data-ChunkHours is null: MS %s (%d rows) will be processed as a single chunk"%(self.MSName, self.F_nrows)
+            chunk_row0 = [0]
         else:
             all_times = table_all.getcol("TIME")
             if (all_times[1:] - all_times[:-1]).min() < 0:
@@ -885,6 +884,14 @@ class ClassMS():
         self.Nchunk = len(chunk_row0)
         chunk_row0.append(self.F_nrows)
         self._chunk_r0r1 = [ chunk_row0[i:i+2] for i in range(self.Nchunk) ]
+
+        # init the per-chunk caches
+        for row0, row1 in self._chunk_r0r1:
+            # note that we don't need to reset the chunk cache -- the top-level MS cache would already have been reset,
+            # being the parent directory
+            self._chunk_caches[row0, row1] = CacheManager(
+                os.path.join(self.maincache.dirname, "R%d:%d" % (row0, row1)),
+                reset=False)
 
         #SPW=table_all.getcol('DATA_DESC_ID')
         # if self.SelectSPW is not None:
@@ -1496,7 +1503,7 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0):
             if single:
                 return int(single)
             elif rng1:
-                return slice(int(rng1), int(rng2) + (1 if sep==":" else 2))
+                return slice(int(rng1), int(rng2) + (0 if sep==":" else 1))
             elif wild:
                 return slice(0,None)
             else:

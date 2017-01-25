@@ -97,7 +97,7 @@ class ClassImageDeconvMachine():
         # reset overall iteration counter
         self._niter = 0
         self.CacheSharedMode=CacheSharedMode
-        self.facetcache_DicoFuntions=None
+        self.facetcache=None
 
         if CleanMaskImage is not None:
             MaskArray = image(CleanMaskImage).getdata()
@@ -148,88 +148,91 @@ class ClassImageDeconvMachine():
         self.InitMSMF()
 
 
-    def set_DicoHMPFunctions(self,facetcache_DicoFuntions):
-        self.facetcache_DicoFuntions=facetcache_DicoFuntions
+    def set_DicoHMPFunctions(self,facetcache):
+        self.facetcache=facetcache
 
-    def InitMSMF(self):
+    def InitMSMF(self, approx=False, cache=True):
+        """Initializes MSMF basis functions. If approx is True, then uses the central facet's PSF for
+        all facets.
 
-        self.DicoMSMachine={}
-        if self.maincache is not None:
-            cachepath_DicoFuntions, valid = self.maincache.checkCache("MSMFMachine_DicoFuntions",
-                                                         dict([(section, self.GD[section]) for section in "Data", "Beam", "Selection",
-                                                               "Freq", "Image", "Comp",
-                                                               "CF", "HMP" ]),
-                                                         reset=(self.GD["Cache"]["ResetPSF"]==1 or self.PSFHasChanged))
-
-        else:
-            valid=False
-
+        The cachekey dict is added to the cache key. If PSF is sparsified, for example, this needs to
+        be indicated in the cache key so that a different version is not picked up.
+        """
+        self.DicoMSMachine = {}
+        cachehash = dict( [(section, self.GD[section]) for section in (
+                                 "Data", "Beam", "Selection", "Freq",
+                                 "Image", "Comp", "CF",
+                                 "HMP")])
+        cachepath, valid = self.maincache.checkCache("HMPMachine", cachehash,
+                                                     reset=(self.GD["Cache"]["ResetPSF"]==1 or self.PSFHasChanged))
+        # do not use cache in approx mode
+        if approx or not cache:
+            valid = False
         if valid:
-            if self.facetcache_DicoFuntions is None:
-                print>>log,"Initialising MSMF Machine from cache %s"%cachepath_DicoFuntions
+            if self.facetcache is None:
+                print>>log,"Initialising HMP Machine from cache %s"%cachepath
                 #facetcache = cPickle.load(file(cachepath))
-                facetcache_DicoFuntions = MyPickle.FileToDicoNP(cachepath_DicoFuntions)
+                facetcache = MyPickle.FileToDicoNP(cachepath)
             else:
                 print>>log,"Has a valid DicoHMPFuntion"
-                facetcache_DicoFuntions = self.facetcache_DicoFuntions
+                facetcache = self.facetcache
         else:
-            print>>log,"Initialising MSMF Machine"
-            facetcache_DicoFuntions = {"Functions":{},
+            print>>log,"Initialising HMP Machine"
+            facetcache = {"Functions":{},
                                        "Arrays":{}}
 
-        T = ClassTimeIt.ClassTimeIt()
-        T.disable() 
-        for iFacet in range(self.PSFServer.NFacets):
-            self.PSFServer.setFacet(iFacet)
-            T.timeit("PSFServer")
-            MSMachine=ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD,self.GainMachine,NFreqBands=self.NFreqBands)
-            T.timeit("__init__")
+        self.facetcache=facetcache
+        print>>log,"%d frequency bands"%self.NFreqBands
+
+        centralFacet = self.PSFServer.DicoVariablePSF["CentralFacet"]
+        if approx:
+            print>>log, "HMP approximation mode: using PSF of central facet (%d)" % centralFacet
+            self.PSFServer.setFacet(centralFacet)
+            MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
             MSMachine.setModelMachine(self.ModelMachine)
-            MSMachine.setSideLobeLevel(self.SideLobeLevel,self.OffsetSideLobe)
-            MSMachine.SetFacet(iFacet)
-            MSMachine.SetPSF(self.PSFServer)#ThisPSF,ThisMeanPSF)
-            T.timeit("set")
-            MSMachine.FindPSFExtent()#Method="FromSideLobe")
-            T.timeit("find")
-
-            ListDicoScales=facetcache_DicoFuntions["Functions"].get(iFacet,None)
-            DicoBasisMatrix=facetcache_DicoFuntions["Arrays"].get(iFacet,None)
-
-            MSMachine.setListDicoScales(ListDicoScales)
-            MSMachine.setDicoBasisMatrix(DicoBasisMatrix)
-
-            T.timeit("get")
+            MSMachine.setSideLobeLevel(self.SideLobeLevel, self.OffsetSideLobe)
+            MSMachine.SetFacet(centralFacet)
+            MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
+            MSMachine.FindPSFExtent(verbose=True)
             MSMachine.MakeMultiScaleCube()
-            T.timeit("make")
-
             MSMachine.MakeBasisMatrix()
-            T.timeit("make2")
-            facetcache_DicoFuntions["Functions"][iFacet] = MSMachine.ListScales
-            facetcache_DicoFuntions["Arrays"][iFacet] = MSMachine.DicoBasisMatrix
-            self.DicoMSMachine[iFacet]=MSMachine
+            for iFacet in xrange(self.PSFServer.NFacets):
+                self.DicoMSMachine[iFacet] = MSMachine
 
-        self.facetcache_DicoFuntions=facetcache_DicoFuntions
+        else:
+            #        t = ClassTimeIt.ClassTimeIt()
+            for iFacet in xrange(self.PSFServer.NFacets):
+                self.PSFServer.setFacet(iFacet)
+                MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
+                MSMachine.setModelMachine(self.ModelMachine)
+                MSMachine.setSideLobeLevel(self.SideLobeLevel, self.OffsetSideLobe)
+                MSMachine.SetFacet(iFacet)
+                MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
+                MSMachine.FindPSFExtent(verbose=(iFacet==centralFacet))  # only print to log for central facet
 
-        if self.maincache is not None:
-            if not valid:
-                MyPickle.DicoNPToFile(facetcache_DicoFuntions,cachepath_DicoFuntions)
-                #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
-                self.maincache.saveCache("MSMFMachine_DicoFuntions")
+                ListDicoScales=facetcache["Functions"].get(iFacet,None)
+                DicoBasisMatrix=facetcache["Arrays"].get(iFacet,None)
+                MSMachine.setListDicoScales(ListDicoScales)
+                MSMachine.setDicoBasisMatrix(DicoBasisMatrix)
+                MSMachine.MakeMultiScaleCube()
+                MSMachine.MakeBasisMatrix()
+                facetcache["Functions"][iFacet] = MSMachine.ListScales
+                facetcache["Arrays"][iFacet] = MSMachine.DicoBasisMatrix
+                self.DicoMSMachine[iFacet] = MSMachine
 
-                self.PSFHasChanged=False
-                # try:
-                #     MyPickle.DicoNPToFile(facetcache,cachepath)
-                #     #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
-                #     self.maincache.saveCache("MSMFMachine")
-                #     if self.CacheSharedMode and not DicoAlreadyInShared:
-                #         for iFacet in facetcache.keys():
-                #             facetcache[iFacet]["DicoBasisMatrix"]=NpShared.DicoToShared("%sDicoBasisMatrix_F%4.4i"%(self.IdSharedMem,iFacet),facetcache[iFacet]["DicoBasisMatrix"])
-                            
-                # except:
-                #     print>>log, traceback.format_exc()
-                #     print>>log, ModColor.Str("WARNING: MSMF cache could not be written, see error report above. Proceeding anyway.")
 
-    def SetDirty(self,DicoDirty,DoSetMask=True):
+            if not valid and cache and not approx:
+                try:
+                    MyPickle.DicoNPToFile(facetcache,cachepath)
+                    #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
+                    self.maincache.saveCache("HMPMachine")
+                    self.PSFHasChanged=False
+                except:
+                    print>>log, traceback.format_exc()
+                    print >>log, ModColor.Str(
+                        "WARNING: HMP cache could not be written, see error report above. Proceeding anyway.")
+
+    def SetDirty(self, DicoDirty,DoSetMask=True):
         # if len(PSF.shape)==4:
         #     self.PSF=PSF[0,0]
         # else:

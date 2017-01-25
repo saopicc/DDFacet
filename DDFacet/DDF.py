@@ -37,10 +37,11 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
+from DDFacet.Other.AsyncProcessPool import APP
 log = None
 
-
 import numpy as np
+
 # # ##############################
 # # Catch numpy warning
 # np.seterr(all='raise')
@@ -166,11 +167,15 @@ def main(OP=None, messages=[]):
     # write parset
     OP.ToParset("%s.parset"%ImageName)
 
-    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, IdSharedMem=Multiprocessing.getShmPrefix(), BaseName=ImageName)
+    Mode = DicoConfig["Image"]["Mode"]
+
+    # data machine initialized for all cases except PSF-only mode
+    # psf machine initialized for all cases except Predict-only mode
+    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, IdSharedMem=Multiprocessing.getShmPrefix(), BaseName=ImageName,
+                                                  data=(Mode != "PSF"), psf=(Mode != "Predict"),
+                                                  deconvolve=("Clean" in Mode))
 
     Imager.Init()
-
-    Mode = DicoConfig["Image"]["Mode"]
 
     # Imager.testDegrid()
     # stop
@@ -327,6 +332,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print>>log, traceback.format_exc()
         print>>log, ModColor.Str("DDFacet interrupted by Ctrl+C", col="red")
+        APP.terminate()
         retcode = 1 #Should at least give the command line an indication of failure
     except:
         print>>log, traceback.format_exc()
@@ -355,7 +361,9 @@ if __name__ == "__main__":
             logfileName, col="red")
         print>>log, traceback_msg
         # Should at least give the command line an indication of failure
+        APP.terminate()
         retcode = 1 # Should at least give the command line an indication of failure
 
+    APP.shutdown()
     Multiprocessing.cleanupShm()
     sys.exit(retcode)

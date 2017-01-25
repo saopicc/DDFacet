@@ -83,32 +83,9 @@ Adding the `--system-site-packages` directive ensures that the virtualenv has ac
 
 [Montblanc](https://github.com/ska-sa/montblanc) requires DDFacet to be installed in a virtual environment. **This section requires the DDFacet virtual environment to be activated**:
 
-1. Clone montblanc and checkout the commit to build
 
     ```bash
-    git clone https://github.com/ska-sa/montblanc.git
-    cd montblanc
-    git checkout 3c94bfa261354825c584ad1e62314b91f6bf583b
-    ```
-
-2. Install the tensorflow CPU [0.12.0rc1][tf_pip_install] release:
-
-    ```bash
-    pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.12.0rc1-cp27-none-linux_x86_64.whl
-    ```
-
-    If you want GPU acceleration and you have CUDA installed, you can alternatively try installing the tensorflow [GPU version][tf_pip_install].
-
-3. Build montblanc's tensorflow operations:
-
-    ```bash
-    cd montblanc/montblanc/impl/rime/tensorflow/rime_ops
-    make -j 8
-    ```
-4. Install montblanc in development mode:
-
-    ```bash
-    python setup.py develop
+    (ddfvenv) $ pip install git+git://github.com/ska-sa/montblanc.git@65ffb611f5376380cbed0e76624b25581e9f4e4d
     ```
 
 

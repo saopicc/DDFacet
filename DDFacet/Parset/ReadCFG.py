@@ -118,7 +118,11 @@ def parse_config_string(string, name='config', extended=True, type=None):
     if name == "_Help":
         return string, attrs
 
+    # interpret explicit types
     if type:
+        # make sure None string is still None
+        if type is str and string == "None" or string == "none":
+            return None, attrs
         # make sure False/True etc. are interpreted as booleans
         if type is bool:
             return bool(parse_as_python(string)), attrs
@@ -170,13 +174,12 @@ class Parset():
                 self.value_dict[section], self.attr_dict[section] = self.read_section(config, section)
         # now migrate from previous versions
         self.version = self.value_dict.get('Misc', {}).get('ParsetVersion', 0.0)
-        # if self.version != 0.1:
-        #     self._migrate_ancient_0_1()
-        #     self.migrated = self.version
-        #     self.version = 0.1
-        # else:
-        #     self.migrated = None
-        self.migrated = None
+        if self.version != 0.1:
+            self._migrate_ancient_0_1()
+            self.migrated = self.version
+            self.version = self.value_dict['Misc']['ParsetVersion'] = 0.1
+        else:
+            self.migrated = None
 
 
     def read_section(self, config, section):
@@ -262,7 +265,7 @@ class Parset():
         """
         for dd in self.value_dict, self.attr_dict:
             if oldsection in dd and oldname in dd[oldsection]:
-                dd[newsection][newname] = dd[oldsection].pop(oldname)
+                dd.setdefault(newsection, OrderedDict())[newname] = dd[oldsection].pop(oldname)
 
     def _migrate_ancient_0_1 (self):
         """
@@ -307,6 +310,8 @@ class Parset():
         section = self._renameSection("ImagerMainFacet", "Image")
         self._rename(section, "Npix", "NPix")
 
+        section = self._renameSection("ImagerCF", "CF")
+
         section = self._renameSection("ImagerDeconv", "Deconv")
         self._rename(section, "MinorCycleMode", "Mode")
         self._remap(section, "Mode", {'MSMF': 'HMP'})
@@ -320,6 +325,8 @@ class Parset():
         self._rename(section, "CompGridFOV", "GridFov")
         self._rename(section, "CompDeGridDecorr", "DegridDecorr")
         self._rename(section, "CompDeGridFOV", "DegridFOV")
+
+        section = self._makeSection("Hogbom")
 
         section = self._renameSection("MultiScale", "HMP")
         self._del(section, "MSEnable")  # deprecated. --Deconvolution-MinorCycle selects algorithm instead.
@@ -336,11 +343,6 @@ class Parset():
         section = "Beam"
         self._rename(section, "BeamModel", "Model")
         self._rename(section, "NChanBeamPerMS", "NBand")
-
-
-
-        section = "Hogbom"
-        # PolyFitOrder added
 
         section = self._renameSection("Logging", "Log")
         self._rename(section, "MemoryLogging", "Memory")
