@@ -9,3 +9,7 @@
 	path = sharedarray
 	url = git@github.com:o-smirnov/shared-array.git
 	branch = issue-1-mlock
+[submodule "montblanc"]
+	path = montblanc
+	url = git://github.com/ska-sa/montblanc.git
+	branch = 65ffb611f5376380cbed0e76624b25581e9f4e4d
