@@ -200,18 +200,12 @@ class ClassImagerDeconv():
                 from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
                 self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
                 print>>log,"Using MSMF algorithm"
-            elif self.GD["Deconv"]["Mode"]=="GA":
-                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                    raise NotImplementedError("Multi-polarization CLEAN is not supported in GA")
-                from DDFacet.Imager.GA import ClassImageDeconvMachineGA
-                self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
-                print>>log,"Using GA algorithm"
             elif self.GD["Deconv"]["Mode"]=="SSD":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in SSD")
-                from DDFacet.Imager.MORESANE import ClassImageDeconvMachineSSD
-                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
-                print>>log,"Using SSD with %s Minor Cycle algorithm"%self.GD["SSD"]["IslandDeconvMode"]
+                from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
+                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                print>>log,"Using SSD with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"]
             elif self.GD["Deconv"]["Mode"] == "Hogbom":
                 from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
                 self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
@@ -294,13 +288,12 @@ class ClassImagerDeconv():
         import cPickle
         #self.DicoVariablePSF = cPickle.load(file(cachepath))
         self.DicoVariablePSF = MyPickle.FileToDicoNP(cachepath)
-
         #self.DicoVariablePSF = SharedDict.dict_to_shm("dictPSF",self.DicoVariablePSF)
         D=self.DicoVariablePSF
         Ds=SharedDict.create("dictPSF")
         for key in D.keys():
             Ds[key]=D[key]
-        stop
+        
 
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
@@ -920,6 +913,8 @@ class ClassImagerDeconv():
                     self.FacetMachinePSF.collectGriddingResults()
                 # get loaded chunk from I/O thread, schedule next chunk
                 DATA = self.VS.collectLoadedChunk(keep_data=predict_colname is not None, start_next=True)
+
+
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break
@@ -1100,7 +1095,11 @@ class ClassImagerDeconv():
         PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
 
         off=self.GD["Image"]["SidelobeSearchWindow"] // 2
-        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
+        beam, gausspars, sidelobes = self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
+        if forced_beam is not None:
+            print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
+            beam, gausspars = f_beam, f_gau
+        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = beam, gausspars, sidelobes
 
         # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
         if self.VS.MultiFreqMode:

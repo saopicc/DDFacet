@@ -1168,15 +1168,15 @@ class ClassFacetMachine():
 
         DecorrMode = self.GD["ImToVis"]["DecorrMode"]
         if ('F' in DecorrMode) | ("T" in DecorrMode):
-            uvw_dt = DATA["uvw_dt"]
-            DT, Dnu = DATA["MSInfos"]
+            uvw_dt = self.DATA["uvw_dt"]
+            DT, Dnu = self.DATA["MSInfos"]
             lm_min=None
-            if GD["ImToVis"]["DecorrLocation"]=="Edge":
-                lm_min=DicoImager[iFacet]["lm_min"]
+            if self.GD["ImToVis"]["DecorrLocation"]=="Edge":
+                lm_min=self.DicoImager[iFacet]["lm_min"]
             GridMachine.setDecorr(uvw_dt, DT, Dnu, 
                                   SmearMode=DecorrMode, 
                                   lm_min=lm_min,
-                                  lm_PhaseCenter=DATA["lm_PhaseCenter"])
+                                  lm_PhaseCenter=self.DATA["lm_PhaseCenter"])
 
         # DecorrMode = GD["DDESolutions"]["DecorrMode"]
         # if ('F' in DecorrMode) or ("T" in DecorrMode):
@@ -1310,9 +1310,14 @@ class ClassFacetMachine():
         if self._model_dict is None or self._model_dict.get("Id") != model_id:
             self._model_dict = SharedDict.attach(modeldict_path)
 
+        print>>log, ModColor.Str("PROBLEM for OLEG")
+        self._model_dict = SharedDict.attach(modeldict_path)
+        # print "================================",model_id,np.max(self._model_dict["Image"])
+
+        # We get the psf dict directly from the shared dict name (not from the .path of a SharedDict)
+        # because this facet machine is not necessarilly the one where we have computed the PSF
         self._psf_dict  = SharedDict.attach("dictPSF")
         # extract facet model from model image
-        print self._psf_dict["NormImage"]
         ModelGrid, _ = self._Im2Grid.GiveModelTessel(self._model_dict["Image"],
                                                      self.DicoImager, iFacet, self._psf_dict["NormImage"],
                                                      cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel)
@@ -1347,15 +1352,15 @@ class ClassFacetMachine():
 
         DecorrMode = self.GD["ImToVis"]["DecorrMode"]
         if ('F' in DecorrMode) | ("T" in DecorrMode):
-            uvw_dt = DATA["uvw_dt"]
-            DT, Dnu = DATA["MSInfos"]
+            uvw_dt = self.DATA["uvw_dt"]
+            DT, Dnu = self.DATA["MSInfos"]
             lm_min=None
-            if GD["ImToVis"]["DecorrLocation"]=="Edge":
-                lm_min=DicoImager[iFacet]["lm_min"]
+            if self.GD["ImToVis"]["DecorrLocation"]=="Edge":
+                lm_min=self.DicoImager[iFacet]["lm_min"]
             GridMachine.setDecorr(uvw_dt, DT, Dnu, 
                                   SmearMode=DecorrMode, 
                                   lm_min=lm_min,
-                                  lm_PhaseCenter=DATA["lm_PhaseCenter"])
+                                  lm_PhaseCenter=self.DATA["lm_PhaseCenter"])
 
         GridMachine.get(times, uvwThis, visThis, flagsThis, A0A1,
                           ModelGrid, ImToGrid=False,
@@ -1391,7 +1396,7 @@ class ClassFacetMachine():
 
         self._degrid_job_label = DATA["label"]
         self._degrid_job_id = "%s.Degrid.%s:" % (self._app_id, self._degrid_job_label)
-        print self.NormImage
+
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path,

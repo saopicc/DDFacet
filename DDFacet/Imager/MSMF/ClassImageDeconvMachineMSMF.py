@@ -179,7 +179,7 @@ class ClassImageDeconvMachine():
         else:
             print>>log,"Initialising HMP Machine"
             facetcache = {"Functions":{},
-                                       "Arrays":{}}
+                          "Arrays":{}}
 
         self.facetcache=facetcache
         print>>log,"%d frequency bands"%self.NFreqBands

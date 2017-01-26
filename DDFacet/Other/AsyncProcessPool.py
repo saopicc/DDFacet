@@ -305,7 +305,7 @@ class AsyncProcessPool (object):
             current = counter.getValue()
             total = total or current or 1
             pBAR = ProgressBar('white', width=50, block='=', empty=' ',Title="  "+progress, HeaderSize=10, TitleSize=13)
-            pBAR.disable()
+            #pBAR.disable()
             pBAR.render(int(100.*(total-current)/total), '%4i/%i' % (total-current, total))
             while current:
                 current = counter.awaitZeroWithTimeout(timeout)
@@ -377,7 +377,7 @@ class AsyncProcessPool (object):
                 del awaiting_jobs[job_id]
         if progress:
             pBAR = ProgressBar('white', width=50, block='=', empty=' ',Title="  "+progress, HeaderSize=10, TitleSize=13)
-            pBAR.disable()
+            #pBAR.disable()
             pBAR.render(int(100.*complete_jobs/total_jobs), '%4i/%i' % (complete_jobs, total_jobs))
         if self.verbose > 1:
             print>>log, "checking job results: %s (%d still pending)"%(

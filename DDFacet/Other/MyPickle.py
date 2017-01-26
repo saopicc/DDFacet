@@ -61,7 +61,7 @@ def DicoNPToFile(Dico,FileOut):
 
         # ============================================
         # Need to be recursive for dictionnaries containinung nparrays 
-        elif type(Obj)==dict:
+        elif type(Obj)==dict or Obj.__class__.__name__=='SharedDict':
             #print "  key=%s is a dico"%key
             if not(os.path.isdir(DirDico)):
                 #print "Create directory %s"%DirDico

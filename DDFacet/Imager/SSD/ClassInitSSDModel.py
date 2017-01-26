@@ -52,10 +52,10 @@ class ClassInitSSDModelParallel():
         NJobs=work_queue.qsize()
         workerlist=[]
 
-        MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","GiveModelMachine","ClassModelMachineMSMF"])
+        MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"])
         #MyLogger.setLoud("ClassImageDeconvMachineMSMF")
 
-        DicoHMPFunctions=self.InitMachine.DeconvMachine.facetcache_DicoFuntions
+        DicoHMPFunctions=self.InitMachine.DeconvMachine.facetcache
 
         print>>log,"Launch HMP workers"
         for ii in range(NCPU):
@@ -116,7 +116,7 @@ class ClassInitSSDModelParallel():
                 workerlist[ii].terminate()
                 workerlist[ii].join()
         
-        MyLogger.setLoud(["ClassImageDeconvMachineMSMF","ClassPSFServer","GiveModelMachine","ClassModelMachineMSMF"])
+        MyLogger.setLoud(["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"])
         return self.DicoInitIndiv
 
 ######################################################################################################
@@ -140,7 +140,7 @@ class ClassInitSSDModel():
         self.GD["Deconv"]["PeakFactor"]=0.01
         self.GD["Deconv"]["RMSFactor"]=3.
         self.GD["Deconv"]["Gain"]=.1
-
+        self.GD["Deconv"]["AllowNegative"]=False
 
         self.GD["Deconv"]["MaxMinorIter"]=10000
         

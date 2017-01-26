@@ -291,7 +291,7 @@ class ClassImageDeconvMachine():
         print>>log,"  selected %i islands larger that %i pixels for HMP initialisation"%(np.count_nonzero(ListDoMSMFIslandsInit),self.GD["SSDClean"]["MinSizeInitHMP"])
 
 
-
+        
         if np.count_nonzero(ListDoMSMFIslandsInit)>0:
             InitMachine=ClassInitSSDModel.ClassInitSSDModelParallel(self.GD,
                                                                     self.DicoVariablePSF,
