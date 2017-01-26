@@ -1302,25 +1302,49 @@ class ClassFacetMachine():
         APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
         self._fft_job_id = None
 
-    # DeGrid worker that is called by Multiprocessing.Process
-    def _degrid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path, modeldict_path, model_id, ChanSel):
+    def _set_model_grid_worker(self, iFacet, modeldict_path, cfdict_path, ChanSel, ToSHMDict=False):
         # reload shared dicts
-        cf_dict = self._reload_worker_dicts(iFacet, datadict_path, cfdict_path, griddict_path)
-        # reload model image dict, if serial number has changed
-        if self._model_dict is None or self._model_dict.get("Id") != model_id:
-            self._model_dict = SharedDict.attach(modeldict_path)
-
-        print>>log, ModColor.Str("PROBLEM for OLEG")
-        self._model_dict = SharedDict.attach(modeldict_path)
-        # print "================================",model_id,np.max(self._model_dict["Image"])
-
+        cf_dict = self._reload_worker_dicts(iFacet, None, cfdict_path, griddict_path)
         # We get the psf dict directly from the shared dict name (not from the .path of a SharedDict)
         # because this facet machine is not necessarilly the one where we have computed the PSF
         self._psf_dict  = SharedDict.attach("dictPSF")
+        # reload model image dict
+        self._model_dict = SharedDict.attach(modeldict_path)
         # extract facet model from model image
         ModelGrid, _ = self._Im2Grid.GiveModelTessel(self._model_dict["Image"],
                                                      self.DicoImager, iFacet, self._psf_dict["NormImage"],
                                                      cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel)
+        if ToSHMDict:
+            self._model_dict["FacetGrid_%4.4i"%iFacet]=ModelGrid
+        return ModelGrid
+
+    def set_model_grid (self, ChanSel=None):
+        # wait for any init to finish
+        self.awaitInitCompletion()
+
+        # run new set of jobs
+        ChanSel = sorted(set(DATA["ChanMappingDegrid"]))  # unique channel numbers for degrid
+
+        self._degrid_job_label = DATA["label"]
+        self._degrid_job_id = "%s.Degrid.%s:" % (self._app_id, self._degrid_job_label)
+        ToSHMDict=True
+        for iFacet in self.DicoImager.keys():
+            APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._set_model_grid_worker,
+                            args=(iFacet, modeldict_path, cfdict_path, ChanSel,ToSHMDict))
+
+
+
+
+    # DeGrid worker that is called by Multiprocessing.Process
+    def _degrid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path, ChanSel, modeldict_path=None):
+        # reload shared dicts
+        cf_dict = self._reload_worker_dicts(iFacet, datadict_path, cfdict_path, griddict_path)
+
+
+        if modeldict_path is not None:
+            ModelGrid=self._set_model_grid_worker(iFacet, modeldict_path, cfdict_path, ChanSel)
+        else:
+            ModelGrid=self._model_dict["Grid_Facet_%4.4i"%iFacet]
 
         # Create a new GridMachine
         GridMachine = self._createGridMachine(iFacet, cf_dict=cf_dict,
@@ -1400,7 +1424,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path,
-                                  self._model_dict.path, self._model_dict["Id"], ChanSel))
+                                  ChanSel, self._model_dict.path))
             # APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
             #                 args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path,
             #                       self._model_dict.path, self._model_dict["Id"], ChanSel),
