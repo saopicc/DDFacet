@@ -530,16 +530,18 @@ class ClassMS():
 
         # check cache for A0,A1,time,uvw
         if use_cache:
-            path, valid = self.cache.checkCache("A0A1UVWT.npz", dict(time=self._start_time))
+            metadata_path, metadata_valid = self.cache.checkCache("A0A1UVWT.npz", dict(time=self._start_time))
         else:
-            valid = False
+            metadata_valid = False
         # if cache is valid, we're all good
-        if valid:
-            npz = np.load(path)
-            A0, A1, uvw, time_all, time_uniq, sort_index = (npz["A0"], npz["A1"], npz["UVW"],
-                                                            npz["TIME"], npz["TIME_UNIQ"], npz["SORT_INDEX"])
+        if metadata_valid:
+            npz = np.load(metadata_path)
+            A0, A1, uvw, time_all, time_uniq, sort_index, dot_uvw = \
+                (npz["A0"], npz["A1"], npz["UVW"], npz["TIME"], npz["TIME_UNIQ"], npz["SORT_INDEX"], npz["DOT_UVW"])
             if not sort_index.size:
                 sort_index = None
+            if not dot_uvw.size:
+                dot_uvw = None
         else:
             table_all = table_all or self.GiveMainTable()
             # SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead)
@@ -563,11 +565,7 @@ class ClassMS():
             else:
                 sort_index = None
             time_uniq = np.array(sorted(set(time_all)))
-            # save cache
-            if use_cache:
-                np.savez(path,A0=A0,A1=A1,UVW=uvw,TIME=time_all,TIME_UNIQ=time_uniq,
-                         SORT_INDEX=sort_index if sort_index is not None else np.array([]))
-                self.cache.saveCache("A0A1UVWT.npz")
+            dot_uvw = None
 
         if ReadWeight:
             table_all = table_all or self.GiveMainTable()
@@ -643,15 +641,18 @@ class ClassMS():
         #del(table_all)
         DecorrMode=self.GD["RIME"]["DecorrMode"]
         if 'F' in DecorrMode or "T" in DecorrMode:
-            if 'UVWDT' not in ColNames:
-                print>>log,"Adding dot-uvw info to main table: %s"%self.MSName
-                self.AddUVW_dt()
-            print>>log,"Reading UVWDT column"
-            tu=table(self.MSName, ack=False)
-            uvw_dt=tu.getcol('UVWDT', row0, nRowRead)
-            tu.close()
-            print>>log,"  ok"
-            DATA["uvw_dt"]  = np.float64(uvw_dt)
+            if dot_uvw is None:
+                dot_uvw = self.ComputeDotUVW(A0, A1, time_all, uvw)
+            DATA["uvw_dt"] = dot_uvw
+            # if 'UVWDT' not in ColNames:
+            #     print>>log,"Adding dot-uvw info to main table: %s"%self.MSName
+            #     self.AddUVW_dt()
+            # print>>log,"Reading UVWDT column"
+            # tu=table(self.MSName, ack=False)
+            # uvw_dt=tu.getcol('UVWDT', row0, nRowRead)
+            # tu.close()
+            # print>>log,"  ok"
+            # DATA["uvw_dt"]  = np.float64(uvw_dt)
 
         DATA["lm_PhaseCenter"] = self.lm_PhaseCenter
 
@@ -675,6 +676,14 @@ class ClassMS():
 
         if self.ToRADEC is not None:
             self.Rotate(DATA)
+
+        # save cache
+        if use_cache and not metadata_valid:
+            np.savez(metadata_path,A0=A0,A1=A1,UVW=uvw,TIME=time_all,TIME_UNIQ=time_uniq,
+                     SORT_INDEX=sort_index if sort_index is not None else np.array([]),
+                     DOT_UVW=dot_uvw if dot_uvw is not None else np.array([]))
+            self.cache.saveCache("A0A1UVWT.npz")
+
 
         # if self.AverageSteps is not None:
         #     StepTime,StepFreq=self.AverageSteps
@@ -1398,6 +1407,25 @@ class ClassMS():
         #self.PutNewCol("CORRECTED_DATA")
         #self.PutNewCol("MODEL_DATA")
 
+    def ComputeDotUVW (self, A0, A1, times, UVW):
+        na = self.na
+        UVW_dt = np.zeros(UVW.shape, np.float64)
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title=" Calc dUVW/dt ", HeaderSize=10, TitleSize=13)
+        pBAR.render(0, '%4i/%i' % (0, na))
+        for ant0 in range(na):
+            for ant1 in range(ant0+1, na):
+                C0 = ((A0 == ant0) & (A1 == ant1))
+                C1 = ((A1 == ant0) & (A0 == ant1))
+                ind = np.where(C0 | C1)[0]
+                UVWs = UVW[ind]
+                timess = times[ind]
+                dtimess = timess[1::] - timess[0:-1]
+                UVWs_dt0 = (UVWs[1::] - UVWs[0:-1]) / dtimess.reshape((-1, 1))
+                UVW_dt[ind[0:-1]] = UVWs_dt0
+                UVW_dt[ind[-1]] = UVWs_dt0[-1]
+            intPercent = int(100 * (ant0 + 1) / float(na))
+            pBAR.render(intPercent, '%4i/%i' % (ant0 + 1, na))
+        return UVW_dt
 
     def AddUVW_dt(self):
         print>>log,"Compute UVW speed column"
