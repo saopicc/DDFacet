@@ -30,7 +30,8 @@ ENV DEB_SETUP_DEPENDENCIES \
     libc-dev \
     cmake \
     gfortran \
-    git
+    git \
+    wget
 
 ENV DEB_DEPENCENDIES \
     python-pip \
@@ -46,12 +47,12 @@ ENV DEB_DEPENCENDIES \
     python2.7-dev \
     libboost-all-dev \
     libcfitsio3-dev \
+    wcslib-dev \
     libatlas-dev \
     liblapack-dev \
     python-tk \
-    meqtrees-timba \
+    meqtrees* \
     # Reference image generation dependencies
-    meqtrees \
     makems \
     make
 
@@ -62,14 +63,14 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y $DEB_SETUP_DEPENDENCIES && \
     apt-get install -y $DEB_DEPENCENDIES && \
-    apt-get install -y git && \
+    #Setup a virtual environment for the python packages
     pip install -U pip virtualenv setuptools wheel && \
     virtualenv --system-site-packages /ddfvenv && \
-    # Install DDFacet
     cd /src/DDFacet/ && git submodule update --init --recursive && cd / && \
+    # Install DDFacet
     . /ddfvenv/bin/activate ; pip install -I --force-reinstall --no-binary :all: /src/DDFacet/ && \
-    # Install montblanc
-    . /ddfvenv/bin/activate ; pip install montblanc/ && \
+    # Install Montblanc
+    . /ddfvenv/bin/activate ; pip install /src/DDFacet/montblanc/ && \
     # Nuke the unused & cached binaries needed for compilation, etc.
     apt-get remove -y $DEB_SETUP_DEPENDENCIES && \
     apt-get autoclean -y && \
