@@ -347,8 +347,8 @@ class ClassDDEGridMachine():
         #     self.DoPSF=True
         #     Npix=Npix*2
 
-        Precision = GD["ImToVis"]["Precision"]
-        PolMode = GD["ImToVis"]["PolMode"]
+        Precision = GD["RIME"]["Precision"]
+        PolMode = GD["RIME"]["PolMode"]
 
         if Precision == "S":
             self.dtype = np.complex64
@@ -357,7 +357,7 @@ class ClassDDEGridMachine():
 
         self.dtype = np.complex64
         T.timeit("0")
-        Padding = GD["ImToVis"]["Padding"]
+        Padding = GD["Facets"]["Padding"]
         self.NonPaddedNpix, Npix = EstimateNpix(Npix, Padding)
         self.Padding = Npix/float(self.NonPaddedNpix)
         # self.Padding=Padding
@@ -971,7 +971,7 @@ class ClassDDEGridMachine():
         T.timeit("3")
         #print vis
         #print "DEGRID:",Grid.shape,ChanMapping
-        if self.GD["ImToVis"]["ForwardMode"]=="Classic":
+        if self.GD["RIME"]["ForwardMode"]=="Classic":
             _ = _pyGridder.pyDeGridderWPol(Grid,
                                            vis,
                                            uvw,
@@ -986,7 +986,7 @@ class ClassDDEGridMachine():
                                            [self.PolMap,FacetInfos,RowInfos,ChanMapping],
                                            ParamJonesList,
                                            self.LSmear)
-        elif self.GD["ImToVis"]["ForwardMode"]=="BDA-degrid":
+        elif self.GD["RIME"]["ForwardMode"]=="BDA-degrid":
             # OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos = [
                 self.JonesType,

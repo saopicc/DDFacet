@@ -110,17 +110,11 @@ class ClassFacetMachine():
         self.IsDirtyInit = False
         self.IsDDEGridMachineInit = False
         self.SharedNames = []
-        self.ConstructMode = GD["ImToVis"]["ConstructMode"]
-        self.SpheNorm = True
-
-        if self.ConstructMode == "Fader":
-            self.SpheNorm = False
-        else:
-            raise RuntimeError(
-                "Deprecated Facet construct mode. Only supports 'Fader'")
+        self.ConstructMode = "Fader"
+        self.SpheNorm = False
         self.Oversize = Oversize
 
-        DecorrMode=self.GD["ImToVis"]["DecorrMode"]
+        DecorrMode=self.GD["RIME"]["DecorrMode"]
         if DecorrMode is not None and DecorrMode is not "":
             print>>log,ModColor.Str("Using decorrelation mode %s"%DecorrMode)
         self.AverageBeamMachine=None
@@ -138,8 +132,10 @@ class ClassFacetMachine():
             _pyGridderSmearPols.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
             atexit.register(ClassFacetMachine._delete_degridding_semaphores)
 
-        # this is used to store NormImage and model images in shared memory, for the degridder
+        # this is used to store model images in shared memory, for the degridder
         self._model_dict = None
+        # this is used to store NormImage in shared memory, for the degridder
+        self._norm_dict = None
 
     # static attribute initialized below, once
     _degridding_semaphores = None
@@ -212,7 +208,7 @@ class ClassFacetMachine():
         self.CoordMachine = ModCoord.ClassCoordConv(rac, decc)
         # get the closest fast fft size:
         Npix = self.GD["Image"]["NPix"]
-        Padding = self.GD["ImToVis"]["Padding"]
+        Padding = self.GD["Facets"]["Padding"]
         self.Padding = Padding
         Npix, _ = EstimateNpix(float(Npix), Padding=1)
         self.Npix = Npix
@@ -282,7 +278,7 @@ class ClassFacetMachine():
                         "Nw": self.GD["CF"]["Nw"],
                         "WProj": True,
                         "DoDDE": self.DoDDE,
-                        "Padding": self.GD["ImToVis"]["Padding"]}
+                        "Padding": self.GD["Facets"]["Padding"]}
 
         _, _, NpixOutIm, NpixOutIm = self.OutImShape
 
@@ -319,7 +315,7 @@ class ClassFacetMachine():
         """
         Npix = self.GD["Image"]["NPix"]
         NFacets = self.GD["Facets"]["NFacets"]
-        Padding = self.GD["ImToVis"]["Padding"]
+        Padding = self.GD["Facets"]["Padding"]
         self.Padding = Padding
         NpixFacet, _ = EstimateNpix(float(Npix) / NFacets, Padding=1)
         Npix = NpixFacet * NFacets
@@ -687,7 +683,6 @@ class ClassFacetMachine():
         if self.DoPSF:
             raise RuntimeError("Can't call getChunk on a PSF mode FacetMachine. This is a bug!")
         self._model_dict = SharedDict.create("Model")
-        self._model_dict["Id"] = id(ModelImage), id(self._model_dict)
         self._model_dict["Image"] = ModelImage
         return self._model_dict["Image"]
 
@@ -761,7 +756,6 @@ class ClassFacetMachine():
         if self.NormImage is None:
             self.NormImage = self.BuildFacetNormImage()
             self.NormImageReShape = self.NormImage.reshape([1, 1, self.NormImage.shape[0], self.NormImage.shape[1]])
-
         self.stitchedResidual = self.FacetsToIm_Channel()
 
         # build Jones amplitude image
@@ -821,8 +815,8 @@ class ClassFacetMachine():
             DicoVariablePSF = self.DicoPSF
             NFacets = len(DicoVariablePSF.keys())
 
-            if self.GD["ImToVis"]["Circumcision"]:
-                NPixMin = self.GD["ImToVis"]["Circumcision"]
+            if self.GD["Facets"]["Circumcision"]:
+                NPixMin = self.GD["Facets"]["Circumcision"]
                 # print>>log,"using explicit Circumcision=%d"%NPixMin
             else:
                 NPixMin = 1e6
@@ -831,7 +825,7 @@ class ClassFacetMachine():
                     if n < NPixMin:
                         NPixMin = n
 
-                NPixMin = int(NPixMin/self.GD["ImToVis"]["Padding"])
+                NPixMin = int(NPixMin/self.GD["Facets"]["Padding"])
                 if not NPixMin % 2:
                     NPixMin += 1
                     # print>>log,"using computed Circumcision=%d"%NPixMin
@@ -908,6 +902,7 @@ class ClassFacetMachine():
                 self.DicoPSF["MeanImage"] = self.DicoPSF["ImagData"]
 
             self.DicoPSF["NormImage"] = self.NormImage
+
             self._psf_dict = self.DicoPSF = SharedDict.dict_to_shm("dictPSF",self.DicoPSF)
 
             return self.DicoPSF
@@ -938,30 +933,33 @@ class ClassFacetMachine():
         Returns
             ndarray with norm image
         """
-        print>>log, "  Building Facet-normalisation image"
-        nch, npol = self.nch, self.npol
-        _, _, NPixOut, NPixOut = self.OutImShape
-        # in PSF mode, make the norm image in memory. In normal mode, make it in the shared dict,
-        # since the degridding workers require it
-        NormImage = np.zeros((NPixOut, NPixOut), dtype=self.stitchedType)
-        for iFacet in self.DicoImager.keys():
-            xc, yc = self.DicoImager[iFacet]["pixCentral"]
-            NpixFacet = self.DicoImager[iFacet]["NpixFacetPadded"]
+        self._norm_dict=SharedDict.SharedDict("normDict")
+        if len(self._norm_dict)==0:
+            print>>log, "  Building Facet-normalisation image"
+            nch, npol = self.nch, self.npol
+            _, _, NPixOut, NPixOut = self.OutImShape
+            # in PSF mode, make the norm image in memory. In normal mode, make it in the shared dict,
+            # since the degridding workers require it
+            NormImage = np.zeros((NPixOut, NPixOut), dtype=self.stitchedType)
+            for iFacet in self.DicoImager.keys():
+                xc, yc = self.DicoImager[iFacet]["pixCentral"]
+                NpixFacet = self.DicoImager[iFacet]["NpixFacetPadded"]
+                
+                Aedge, Bedge = GiveEdges((xc, yc), NPixOut,
+                                         (NpixFacet/2, NpixFacet/2), NpixFacet)
+                x0d, x1d, y0d, y1d = Aedge
+                x0p, x1p, y0p, y1p = Bedge
+                
+                SpacialWeigth = self._CF[iFacet]["SW"].T[::-1, :]
+                SW = SpacialWeigth[::-1, :].T[x0p:x1p, y0p:y1p]
+                NormImage[x0d:x1d, y0d:y1d] += np.real(SW)
 
-            Aedge, Bedge = GiveEdges((xc, yc), NPixOut,
-                                     (NpixFacet/2, NpixFacet/2), NpixFacet)
-            x0d, x1d, y0d, y1d = Aedge
-            x0p, x1p, y0p, y1p = Bedge
-
-            SpacialWeigth = self._CF[iFacet]["SW"].T[::-1, :]
-            SW = SpacialWeigth[::-1, :].T[x0p:x1p, y0p:y1p]
-            NormImage[x0d:x1d, y0d:y1d] += np.real(SW)
-
-        self.NormImage = NormImage
-        #self.NormImage = NpShared.ToShared("%sNormImage"%self.IdSharedMem,self.NormImage)
+            self._norm_dict["NormImage"] = NormImage
+            self.NormImage=self._norm_dict["NormImage"]
         self.NormImageReShape = self.NormImage.reshape([1,1,
                                                         self.NormImage.shape[0],
                                                         self.NormImage.shape[1]])
+
         return NormImage
 
     def FacetsToIm_Channel(self, kind="Dirty"):
@@ -1166,12 +1164,12 @@ class ClassFacetMachine():
         freqs = self.DATA["freqs"]
         ChanMapping = self.DATA["ChanMapping"]
 
-        DecorrMode = self.GD["ImToVis"]["DecorrMode"]
-        if ('F' in DecorrMode) | ("T" in DecorrMode):
+        DecorrMode = self.GD["RIME"]["DecorrMode"]
+        if 'F' in DecorrMode or "T" in DecorrMode:
             uvw_dt = self.DATA["uvw_dt"]
-            DT, Dnu = self.DATA["MSInfos"]
+            DT, Dnu = self.DATA["dt"], self.DATA["dnu"][0]
             lm_min=None
-            if self.GD["ImToVis"]["DecorrLocation"]=="Edge":
+            if self.GD["RIME"]["DecorrLocation"]=="Edge":
                 lm_min=self.DicoImager[iFacet]["lm_min"]
             GridMachine.setDecorr(uvw_dt, DT, Dnu, 
                                   SmearMode=DecorrMode, 
@@ -1181,7 +1179,7 @@ class ClassFacetMachine():
         # DecorrMode = GD["DDESolutions"]["DecorrMode"]
         # if ('F' in DecorrMode) or ("T" in DecorrMode):
         #     uvw_dt = DATA["uvw_dt"]
-        #     DT, Dnu = DATA["MSInfos"]
+        #     DT, Dnu = DATA["dt_dnu"]
         #     GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
 
         # Create Jones Matrices Dictionary
@@ -1231,10 +1229,7 @@ class ClassFacetMachine():
         self._grid_job_id = "%s.Grid.%s:" % (self._app_id, self._grid_job_label)
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
-                       args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path))
-            # APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
-            #            args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path),
-            #            serial=True)
+                            args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path))
 
     def collectGriddingResults(self):
         """
@@ -1304,34 +1299,35 @@ class ClassFacetMachine():
 
     def _set_model_grid_worker(self, iFacet, modeldict_path, cfdict_path, ChanSel, ToSHMDict=False):
         # reload shared dicts
-        cf_dict = self._reload_worker_dicts(iFacet, None, cfdict_path, griddict_path)
+        cf_dict = self._reload_worker_dicts(iFacet, None, cfdict_path, None)
         # We get the psf dict directly from the shared dict name (not from the .path of a SharedDict)
         # because this facet machine is not necessarilly the one where we have computed the PSF
-        self._psf_dict  = SharedDict.attach("dictPSF")
+        self._norm_dict = SharedDict.attach("normDict")
         # reload model image dict
         self._model_dict = SharedDict.attach(modeldict_path)
         # extract facet model from model image
         ModelGrid, _ = self._Im2Grid.GiveModelTessel(self._model_dict["Image"],
-                                                     self.DicoImager, iFacet, self._psf_dict["NormImage"],
+                                                     self.DicoImager, iFacet, self._norm_dict["NormImage"],
                                                      cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel)
         if ToSHMDict:
             self._model_dict["FacetGrid_%4.4i"%iFacet]=ModelGrid
         return ModelGrid
 
-    def set_model_grid (self, ChanSel=None):
-        # wait for any init to finish
+    def set_model_grid (self):
         self.awaitInitCompletion()
-
-        # run new set of jobs
-        ChanSel = sorted(set(DATA["ChanMappingDegrid"]))  # unique channel numbers for degrid
-
-        self._degrid_job_label = DATA["label"]
-        self._degrid_job_id = "%s.Degrid.%s:" % (self._app_id, self._degrid_job_label)
+        modeldict_path=self._model_dict.path
+        cfdict_path=self._CF.path
+        self._model_dict = SharedDict.attach(modeldict_path)
+        nch,_,_,_=self._model_dict["Image"].shape
+        ChanSel=range(nch)
         ToSHMDict=True
+        self._set_model_grid_job_id = "%s.MakeGridModel:" % (self._app_id)
         for iFacet in self.DicoImager.keys():
-            APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._set_model_grid_worker,
-                            args=(iFacet, modeldict_path, cfdict_path, ChanSel,ToSHMDict))
+            APP.runJob("%sF%d" % (self._set_model_grid_job_id, iFacet), 
+                       self._set_model_grid_worker,
+                       args=(iFacet, modeldict_path, cfdict_path, ChanSel,ToSHMDict))
 
+        APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="MakeGrids")
 
 
 
@@ -1374,12 +1370,12 @@ class ClassFacetMachine():
         if Apply_Beam:
             DicoJonesMatrices["DicoJones_Beam"] = self.DATA["Beam"]
 
-        DecorrMode = self.GD["ImToVis"]["DecorrMode"]
-        if ('F' in DecorrMode) | ("T" in DecorrMode):
+        DecorrMode = self.GD["RIME"]["DecorrMode"]
+        if 'F' in DecorrMode or "T" in DecorrMode:
             uvw_dt = self.DATA["uvw_dt"]
-            DT, Dnu = self.DATA["MSInfos"]
+            DT, Dnu = self.DATA["dt"], self.DATA["dnu"][0]
             lm_min=None
-            if self.GD["ImToVis"]["DecorrLocation"]=="Edge":
+            if self.GD["RIME"]["DecorrLocation"]=="Edge":
                 lm_min=self.DicoImager[iFacet]["lm_min"]
             GridMachine.setDecorr(uvw_dt, DT, Dnu, 
                                   SmearMode=DecorrMode, 
@@ -1425,10 +1421,6 @@ class ClassFacetMachine():
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path,
                                   ChanSel, self._model_dict.path))
-            # APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
-            #                 args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path,
-            #                       self._model_dict.path, self._model_dict["Id"], ChanSel),
-            #            serial=True)
 
 
     def collectDegriddingResults(self):

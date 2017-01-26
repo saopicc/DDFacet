@@ -82,8 +82,7 @@ from DDFacet.Array import SharedDict
 class ClassImagerDeconv():
     def __init__(self, GD=None,
                  PointingID=0,BaseName="ImageTest2",ReplaceDico=None,IdSharedMem="CACA.",
-                 data=True, psf=True, deconvolve=True):
-
+                 data=True, psf=True, readcol=True, deconvolve=True):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD
@@ -95,9 +94,8 @@ class ClassImagerDeconv():
         self.DicoModelName="%s.DicoModel"%self.BaseName
         self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
         self.PointingID=PointingID
+        self.do_data, self.do_psf, self.do_readcol, self.do_deconvolve = data, psf, readcol, deconvolve
         self.CurrentDicoResidImage=None
-        self.do_data, self.do_psf, self.do_deconvolve = data, psf, deconvolve
-
         self.FacetMachine=None
         self.PSF=None
         self.FWHMBeam = None
@@ -111,15 +109,15 @@ class ClassImagerDeconv():
 
         self.VisWeights=None
         self.DATA=None
-        self.Precision=self.GD["ImToVis"]["Precision"]#"S"
-        self.PolMode=self.GD["ImToVis"]["PolMode"]
-        self.PSFFacets = self.GD["ImToVis"]["PSFFacets"]
+        self.Precision=self.GD["RIME"]["Precision"]#"S"
+        self.PolMode=self.GD["RIME"]["PolMode"]
+        self.PSFFacets = self.GD["Facets"]["PSFFacets"]
         self.HasDeconvolved=False
         self.Parallel = self.GD["Parallel"]["NCPU"] != 1
         self.IdSharedMem=IdSharedMem
         self.ModConstructor = ClassModModelMachine(self.GD)
 
-        self.PredictMode = self.GD["ImToVis"]["ForwardMode"]
+        self.PredictMode = self.GD["RIME"]["ForwardMode"]
 
         #self.PNGDir="%s.png"%self.BaseName
         #os.system("mkdir -p %s"%self.PNGDir)
@@ -153,7 +151,7 @@ class ClassImagerDeconv():
         AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"], affinity=self.GD["Parallel"]["Affinity"],
                               verbose=self.GD["Debug"]["APPVerbose"])
 
-        self.VS = ClassVisServer.ClassVisServer(mslist,ColName=DC["Data"]["ColName"],
+        self.VS = ClassVisServer.ClassVisServer(mslist,ColName=self.do_readcol and DC["Data"]["ColName"],
                                                 TChunkSize=DC["Data"]["ChunkHours"],
                                                 GD=self.GD)
 
@@ -239,7 +237,7 @@ class ClassImagerDeconv():
             if self.PSFFacets:
                 print>> log, "the PSFFacets version is currently not supported, using 0 (i.e. same facets as image)"
                 self.PSFFacets = 0
-            oversize = self.GD["ImToVis"]["PSFOversize"] or 1
+            oversize = self.GD["Facets"]["PSFOversize"] or 1
             if self.PSFFacets:
                 MainFacetOptions["NFacets"] = self.PSFFacets
                 print>> log, "using %d facets to compute the PSF" % self.PSFFacets
@@ -261,11 +259,10 @@ class ClassImagerDeconv():
         MainFacetOptions.update(self.GD["CF"].copy())
         MainFacetOptions.update(self.GD["Image"].copy())
         MainFacetOptions.update(self.GD["Facets"].copy())
-        MainFacetOptions.update(self.GD["ImToVis"].copy())
+        MainFacetOptions.update(self.GD["RIME"].copy())
         MainFacetOptions.update(self.GD["Weight"].copy())
-        del(MainFacetOptions['ConstructMode'],MainFacetOptions['Precision'],
-            MainFacetOptions['PolMode'],MainFacetOptions['Mode'],MainFacetOptions['Robust'],
-            MainFacetOptions['Type'])
+        del(MainFacetOptions['Precision'],
+            MainFacetOptions['PolMode'],MainFacetOptions['Mode'],MainFacetOptions['Robust'])
         return MainFacetOptions
 
 
@@ -275,7 +272,7 @@ class ClassImagerDeconv():
                     [(section, self.GD[section]) for section in 
                      "Data", "Beam", "Selection",
                      "Freq", "Image", "Comp",
-                     "CF", "ImToVis","Facets","Weight","DDESolutions"]
+                     "CF", "RIME","Facets","Weight","DDESolutions"]
                 )
 
 
@@ -288,11 +285,9 @@ class ClassImagerDeconv():
         import cPickle
         #self.DicoVariablePSF = cPickle.load(file(cachepath))
         self.DicoVariablePSF = MyPickle.FileToDicoNP(cachepath)
-        #self.DicoVariablePSF = SharedDict.dict_to_shm("dictPSF",self.DicoVariablePSF)
-        D=self.DicoVariablePSF
-        Ds=SharedDict.create("dictPSF")
-        for key in D.keys():
-            Ds[key]=D[key]
+        self.DicoVariablePSF = SharedDict.dict_to_shm("dictPSF",self.DicoVariablePSF)
+        self.FacetMachine.set_psf_dict(self.DicoVariablePSF)
+        self.FacetMachine.set_norm_dict(self.DicoVariablePSF)
         
 
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
@@ -649,7 +644,7 @@ class ClassImagerDeconv():
 
         # tell the I/O thread to go load the first chunk
         self.VS.ReInitChunkCount()
-        self.VS.startChunkLoadInBackground(null_data=True)
+        self.VS.startChunkLoadInBackground()
 
         self.FacetMachine.ReinitDirty()
         # BaseName=self.GD["Output"]["Name"]
@@ -691,13 +686,15 @@ class ClassImagerDeconv():
         while True:
             # get loaded chunk from I/O thread, schedule next chunk
             # self.VS.startChunkLoadInBackground()
-            DATA = self.VS.collectLoadedChunk(start_next=True, null_data=True)
+            DATA = self.VS.collectLoadedChunk(start_next=True)
             if type(DATA) is str:
                 print>> log, ModColor.Str("no more data: %s" % DATA, col="red")
                 break
             # None weights indicates an all-flagged chunk: go on to the next chunk
             if DATA["Weights"] is None:
                 continue
+            # insert null array for predict
+            predict = DATA.addSharedArray("data", DATA["datashape"], DATA["datatype"])
 
 
             model_freqs = DATA["FreqMappingDegrid"]
@@ -757,22 +754,16 @@ class ClassImagerDeconv():
                 from ClassMontblancMachine import ClassMontblancMachine
                 model = self.DeconvMachine.ModelMachine.GiveModelList()
                 mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                mb_machine.getChunk(DATA, self.VS.getVisibilityResiduals(), model, self.VS.CurrentMS)
+                mb_machine.getChunk(DATA, predict, model, self.VS.CurrentMS)
                 mb_machine.close()
             else:
-                raise ValueError("Invalid PredictMode '%s'" % PredictMode)
-
+                raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
             self.FacetMachine.collectDegriddingResults()
-
-            vis = self.VS.getVisibilityResiduals()
-            vis *= -1 # model was subtracted from null data, so need to invert
-            PredictColName=self.GD["Data"]["PredictColName"]
-
-
-            self.VS.CurrentMS.PutVisColumn(PredictColName, 
-                                           vis,
-                                           LikeCol=self.GD["VisData"]["ColName"])
-
+            predict *= -1   # model was subtracted from (zero) predict, so need to invert sign
+            # run job in I/O thread
+            self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Data"]["PredictColName"], likecol=self.GD["Data"]["ColName"])
+            # and wait for it to finish (we don't want DATA destroyed, which collectLoadedChunk() above will)
+            self.VS.collectPutColumnResults()
         # if from_fits:
         #     print "Predicting from fits and saving in %s",(PredictColName)
         #     #Read in the LSM
@@ -873,7 +864,7 @@ class ClassImagerDeconv():
 
             # in the meantime, tell the I/O thread to go reload the first data chunk
             self.VS.ReInitChunkCount()
-            self.VS.startChunkLoadInBackground(keep_data=predict_colname is not None)
+            self.VS.startChunkLoadInBackground()
 
 
             #self.ResidImage=DicoImage["MeanImage"]
@@ -911,16 +902,20 @@ class ClassImagerDeconv():
                 self.FacetMachine.collectGriddingResults()
                 if self.FacetMachinePSF is not None:
                     self.FacetMachinePSF.collectGriddingResults()
+                self.VS.collectPutColumnResults()  # if these were going on
                 # get loaded chunk from I/O thread, schedule next chunk
-                DATA = self.VS.collectLoadedChunk(keep_data=predict_colname is not None, start_next=True)
-
-
+                # note that if we're writing predict data out, DON'T schedule until we're done writing this one
+                DATA = self.VS.collectLoadedChunk(start_next=not predict_colname)
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break
                 # None weights indicates an all-flagged chunk: go on to the next chunk
                 if DATA["Weights"] is None:
                     continue
+                visdata = DATA["data"]
+                if predict_colname:
+                    predict = DATA.addSharedArray("predict", DATA["datashape"], DATA["datatype"])
+                    np.copyto(predict, visdata)
                 # sparsify the data according to current levels
                 self.FacetMachine.applySparsification(DATA, sparsify)
                 ## redo model image if needed
@@ -951,23 +946,22 @@ class ClassImagerDeconv():
                     from ClassMontblancMachine import ClassMontblancMachine
                     model = self.DeconvMachine.ModelMachine.GiveModelList()
                     mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                    mb_machine.getChunk(DATA, self.VS.getVisibilityResiduals(), model, self.VS.CurrentMS)
+                    mb_machine.getChunk(DATA, DATA["data"], model, self.VS.CurrentMS)
                     mb_machine.close()
                 else:
                     raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
 
+                if predict_colname:
+                    self.FacetMachine.collectDegriddingResults()
+                    # predict had original data -- subtract residuals to arrive at model
+                    predict -= visdata
+                    # schedule jobs for saving visibilities, then start reading next chunk (both are on io queue)
+                    self.VS.startVisPutColumnInBackground(DATA, "predict", predict_colname, likecol=self.GD["Data"]["ColName"])
+                    self.VS.startChunkLoadInBackground()
+
                 self.FacetMachine.putChunkInBackground(DATA)
                 if do_psf:
                     self.FacetMachinePSF.putChunkInBackground(DATA)
-
-                if predict_colname:
-                    self.FacetMachine.collectDegriddingResults()
-                    data = self.VS.getVisibilityData()
-                    resid = self.VS.getVisibilityResiduals()
-                    # model is data minus residuals
-                    model = data-resid
-                    self.VS.CurrentMS.PutVisColumn(predict_colname, model)
-                    data = resid = None
 
             # write out model image, if asked to
             if "o" in self._saveims:
@@ -976,6 +970,7 @@ class ClassImagerDeconv():
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             # wait for gridding to finish
             self.FacetMachine.collectGriddingResults()
+            self.VS.collectPutColumnResults()  # if these were going on
             # release model image from memory
             ModelImage = None
             self.FacetMachine.releaseModelImage()
@@ -1013,13 +1008,13 @@ class ClassImagerDeconv():
             self.HasDeconvolved=True
 
         # dump dirty to cache
-        if self.GD["Cache"]["CacheLastResid"] and self.CurrentDicoResidImage is not None:
+        if self.GD["Cache"]["LastResidual"] and self.CurrentDicoResidImage is not None:
             cachepath, valid = self.VS.maincache.checkCache("LastResidual", 
                                                             dict(
                                                                 [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
                                                                 [(section, self.GD[section]) for section in "Data", "Beam", "Selection",
                                                                  "Freq", "Image", "Comp",
-                                                                 "ImToVis","Weight","Facets",
+                                                                 "RIME","Weight","Facets",
                                                                  "DDESolutions"]
                                                             ), 
                                                             reset=False)

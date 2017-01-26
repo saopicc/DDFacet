@@ -152,7 +152,7 @@ def main(OP=None, messages=[]):
     # tensorflow server as tensorflow is not fork safe
     # http://stackoverflow.com/questions/37874838/forking-a-python-process-after-loading-tensorflow
     # If a TensorFlowServerTarget is not specified, fork a child process containing one.
-    if DicoConfig["ImToVis"]["ForwardMode"] == "Montblanc":
+    if DicoConfig["RIME"]["ForwardMode"] == "Montblanc":
         if not DicoConfig["Montblanc"]["TensorflowServerTarget"]:
             from DDFacet.TensorFlowServerFork import fork_tensorflow_server
             DicoConfig["Montblanc"]["TensorflowServerTarget"] = fork_tensorflow_server()
@@ -173,6 +173,7 @@ def main(OP=None, messages=[]):
     # psf machine initialized for all cases except Predict-only mode
     Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, IdSharedMem=Multiprocessing.getShmPrefix(), BaseName=ImageName,
                                                   data=(Mode != "PSF"), psf=(Mode != "Predict"),
+                                                  readcol=(Mode != "Predict" and Mode != "PSF"),
                                                   deconvolve=("Clean" in Mode))
 
     Imager.Init()
