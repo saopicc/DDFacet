@@ -110,14 +110,8 @@ class ClassFacetMachine():
         self.IsDirtyInit = False
         self.IsDDEGridMachineInit = False
         self.SharedNames = []
-        self.ConstructMode = GD["RIME"]["ConstructMode"]
-        self.SpheNorm = True
-
-        if self.ConstructMode == "Fader":
-            self.SpheNorm = False
-        else:
-            raise RuntimeError(
-                "Deprecated Facet construct mode. Only supports 'Fader'")
+        self.ConstructMode = "Fader"
+        self.SpheNorm = False
         self.Oversize = Oversize
 
         DecorrMode=self.GD["RIME"]["DecorrMode"]
@@ -212,7 +206,7 @@ class ClassFacetMachine():
         self.CoordMachine = ModCoord.ClassCoordConv(rac, decc)
         # get the closest fast fft size:
         Npix = self.GD["Image"]["NPix"]
-        Padding = self.GD["RIME"]["Padding"]
+        Padding = self.GD["Facets"]["Padding"]
         self.Padding = Padding
         Npix, _ = EstimateNpix(float(Npix), Padding=1)
         self.Npix = Npix
@@ -282,7 +276,7 @@ class ClassFacetMachine():
                         "Nw": self.GD["CF"]["Nw"],
                         "WProj": True,
                         "DoDDE": self.DoDDE,
-                        "Padding": self.GD["RIME"]["Padding"]}
+                        "Padding": self.GD["Facets"]["Padding"]}
 
         _, _, NpixOutIm, NpixOutIm = self.OutImShape
 
@@ -319,7 +313,7 @@ class ClassFacetMachine():
         """
         Npix = self.GD["Image"]["NPix"]
         NFacets = self.GD["Facets"]["NFacets"]
-        Padding = self.GD["RIME"]["Padding"]
+        Padding = self.GD["Facets"]["Padding"]
         self.Padding = Padding
         NpixFacet, _ = EstimateNpix(float(Npix) / NFacets, Padding=1)
         Npix = NpixFacet * NFacets
@@ -687,7 +681,6 @@ class ClassFacetMachine():
         if self.DoPSF:
             raise RuntimeError("Can't call getChunk on a PSF mode FacetMachine. This is a bug!")
         self._model_dict = SharedDict.create("Model")
-        self._model_dict["Id"] = id(ModelImage), id(self._model_dict)
         self._model_dict["Image"] = ModelImage
         return self._model_dict["Image"]
 
@@ -821,8 +814,8 @@ class ClassFacetMachine():
             DicoVariablePSF = self.DicoPSF
             NFacets = len(DicoVariablePSF.keys())
 
-            if self.GD["RIME"]["Circumcision"]:
-                NPixMin = self.GD["RIME"]["Circumcision"]
+            if self.GD["Facets"]["Circumcision"]:
+                NPixMin = self.GD["Facets"]["Circumcision"]
                 # print>>log,"using explicit Circumcision=%d"%NPixMin
             else:
                 NPixMin = 1e6
@@ -831,7 +824,7 @@ class ClassFacetMachine():
                     if n < NPixMin:
                         NPixMin = n
 
-                NPixMin = int(NPixMin/self.GD["RIME"]["Padding"])
+                NPixMin = int(NPixMin/self.GD["Facets"]["Padding"])
                 if not NPixMin % 2:
                     NPixMin += 1
                     # print>>log,"using computed Circumcision=%d"%NPixMin
@@ -1167,9 +1160,9 @@ class ClassFacetMachine():
         ChanMapping = self.DATA["ChanMapping"]
 
         DecorrMode = self.GD["RIME"]["DecorrMode"]
-        if ('F' in DecorrMode) | ("T" in DecorrMode):
+        if 'F' in DecorrMode or "T" in DecorrMode:
             uvw_dt = self.DATA["uvw_dt"]
-            DT, Dnu = self.DATA["MSInfos"]
+            DT, Dnu = self.DATA["dt"], self.DATA["dnu"][0]
             lm_min=None
             if self.GD["RIME"]["DecorrLocation"]=="Edge":
                 lm_min=self.DicoImager[iFacet]["lm_min"]
@@ -1181,7 +1174,7 @@ class ClassFacetMachine():
         # DecorrMode = GD["DDESolutions"]["DecorrMode"]
         # if ('F' in DecorrMode) or ("T" in DecorrMode):
         #     uvw_dt = DATA["uvw_dt"]
-        #     DT, Dnu = DATA["MSInfos"]
+        #     DT, Dnu = DATA["dt_dnu"]
         #     GridMachine.setDecorr(uvw_dt, DT, Dnu, SmearMode=DecorrMode)
 
         # Create Jones Matrices Dictionary
@@ -1300,7 +1293,7 @@ class ClassFacetMachine():
         self._fft_job_id = None
 
     # DeGrid worker that is called by Multiprocessing.Process
-    def _degrid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path, modeldict_path, model_id, ChanSel):
+    def _degrid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path, modeldict_path, ChanSel):
         """
         Args:
             iFacet:         facet number
@@ -1315,18 +1308,14 @@ class ClassFacetMachine():
         """
         # reload shared dicts
         cf_dict = self._reload_worker_dicts(iFacet, datadict_path, cfdict_path, griddict_path)
-        # reload model image dict, if serial number has changed
-        if self._model_dict is None or self._model_dict.get("Id") != model_id:
-            self._model_dict = SharedDict.attach(modeldict_path)
 
-        print>>log, ModColor.Str("PROBLEM for OLEG")
-        self._model_dict = SharedDict.attach(modeldict_path)
+        model_dict = SharedDict.attach(modeldict_path)
 
         # We get the psf dict directly from the shared dict name (not from the .path of a SharedDict)
         # because this facet machine is not necessarilly the one where we have computed the PSF
         self._psf_dict  = SharedDict.attach("dictPSF")
         # extract facet model from model image
-        ModelGrid, _ = self._Im2Grid.GiveModelTessel(self._model_dict["Image"],
+        ModelGrid, _ = self._Im2Grid.GiveModelTessel(model_dict["Image"],
                                                      self.DicoImager, iFacet, self._psf_dict["NormImage"],
                                                      cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel)
 
@@ -1359,9 +1348,9 @@ class ClassFacetMachine():
             DicoJonesMatrices["DicoJones_Beam"] = self.DATA["Beam"]
 
         DecorrMode = self.GD["RIME"]["DecorrMode"]
-        if ('F' in DecorrMode) | ("T" in DecorrMode):
+        if 'F' in DecorrMode or "T" in DecorrMode:
             uvw_dt = self.DATA["uvw_dt"]
-            DT, Dnu = self.DATA["MSInfos"]
+            DT, Dnu = self.DATA["dt"], self.DATA["dnu"][0]
             lm_min=None
             if self.GD["RIME"]["DecorrLocation"]=="Edge":
                 lm_min=self.DicoImager[iFacet]["lm_min"]
@@ -1408,11 +1397,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path,
-                                  self._model_dict.path, self._model_dict["Id"], ChanSel))
-            # APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
-            #                 args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path,
-            #                       self._model_dict.path, self._model_dict["Id"], ChanSel),
-            #            serial=True)
+                                  self._model_dict.path, ChanSel))
 
 
     def collectDegriddingResults(self):

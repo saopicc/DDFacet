@@ -81,6 +81,7 @@ class ClassMS():
         if MSname=="": exit()
         self.GD = GD
         self.ToRADEC=self.GD["Image"]["PhaseCenterRADEC"]
+        if self.ToRADEC is "": self.ToRADEC=None
 
         self.AverageSteps=AverageTimeFreq
         MSname= reformat.reformat(os.path.abspath(MSname), LastSlash=False)
@@ -641,17 +642,18 @@ class ClassMS():
         #table_all.close()
         #del(table_all)
         DecorrMode=self.GD["RIME"]["DecorrMode"]
-        if ('F' in DecorrMode)|("T" in DecorrMode):
+        if 'F' in DecorrMode or "T" in DecorrMode:
             if 'UVWDT' not in ColNames:
-                print>>log,"Adding uvw speed info to main table: %s"%self.MSName
+                print>>log,"Adding dot-uvw info to main table: %s"%self.MSName
                 self.AddUVW_dt()
             print>>log,"Reading UVWDT column"
-            tu=table(self.MSName,ack=False)
+            tu=table(self.MSName, ack=False)
             uvw_dt=tu.getcol('UVWDT', row0, nRowRead)
             tu.close()
             print>>log,"  ok"
-            DATA["uvw_dt"]=np.float64(uvw_dt)
-            DATA["MSInfos"]=np.array([self.dt,self.ChanWidth.ravel()[0]],np.float32)
+            DATA["uvw_dt"]  = np.float64(uvw_dt)
+
+        DATA["lm_PhaseCenter"] = self.lm_PhaseCenter
 
         DATA["sort_index"] = self._sort_index = sort_index
 

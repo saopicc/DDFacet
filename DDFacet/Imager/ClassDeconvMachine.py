@@ -111,7 +111,7 @@ class ClassImagerDeconv():
         self.DATA=None
         self.Precision=self.GD["RIME"]["Precision"]#"S"
         self.PolMode=self.GD["RIME"]["PolMode"]
-        self.PSFFacets = self.GD["RIME"]["PSFFacets"]
+        self.PSFFacets = self.GD["Facets"]["PSFFacets"]
         self.HasDeconvolved=False
         self.Parallel = self.GD["Parallel"]["NCPU"] != 1
         self.IdSharedMem=IdSharedMem
@@ -237,7 +237,7 @@ class ClassImagerDeconv():
             if self.PSFFacets:
                 print>> log, "the PSFFacets version is currently not supported, using 0 (i.e. same facets as image)"
                 self.PSFFacets = 0
-            oversize = self.GD["RIME"]["PSFOversize"] or 1
+            oversize = self.GD["Facets"]["PSFOversize"] or 1
             if self.PSFFacets:
                 MainFacetOptions["NFacets"] = self.PSFFacets
                 print>> log, "using %d facets to compute the PSF" % self.PSFFacets
@@ -261,9 +261,8 @@ class ClassImagerDeconv():
         MainFacetOptions.update(self.GD["Facets"].copy())
         MainFacetOptions.update(self.GD["RIME"].copy())
         MainFacetOptions.update(self.GD["Weight"].copy())
-        del(MainFacetOptions['ConstructMode'],MainFacetOptions['Precision'],
-            MainFacetOptions['PolMode'],MainFacetOptions['Mode'],MainFacetOptions['Robust'],
-            MainFacetOptions['Type'])
+        del(MainFacetOptions['Precision'],
+            MainFacetOptions['PolMode'],MainFacetOptions['Mode'],MainFacetOptions['Robust'])
         return MainFacetOptions
 
 
@@ -273,7 +272,7 @@ class ClassImagerDeconv():
                     [(section, self.GD[section]) for section in 
                      "Data", "Beam", "Selection",
                      "Freq", "Image", "Comp",
-                     "CF", "ImToVis","Facets","Weight","DDESolutions"]
+                     "CF", "RIME","Facets","Weight","DDESolutions"]
                 )
 
 
@@ -1011,13 +1010,13 @@ class ClassImagerDeconv():
             self.HasDeconvolved=True
 
         # dump dirty to cache
-        if self.GD["Cache"]["CacheLastResid"] and self.CurrentDicoResidImage is not None:
+        if self.GD["Cache"]["LastResidual"] and self.CurrentDicoResidImage is not None:
             cachepath, valid = self.VS.maincache.checkCache("LastResidual", 
                                                             dict(
                                                                 [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
                                                                 [(section, self.GD[section]) for section in "Data", "Beam", "Selection",
                                                                  "Freq", "Image", "Comp",
-                                                                 "ImToVis","Weight","Facets",
+                                                                 "RIME","Weight","Facets",
                                                                  "DDESolutions"]
                                                             ), 
                                                             reset=False)

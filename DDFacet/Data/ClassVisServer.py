@@ -67,11 +67,11 @@ class ClassVisServer():
         self.AddNoiseJy = AddNoiseJy
         self.TMemChunkSize = TChunkSize
 
-        self.Weighting = GD["Weight"]["Type"].lower()
+        self.Weighting = GD["Weight"]["Mode"].lower()
 
         if self.Weighting not in ("natural", "uniform", "briggs", "robust"):
             raise ValueError("unknown Weighting=%s" % self.Weighting)
-        self.MFSWeighting = GD["Weight"]["MFSWeighting"]
+        self.MFSWeighting = GD["Weight"]["MFS"]
         self.Robust = GD["Weight"]["Robust"]
         self.Super = GD["Weight"]["SuperUniform"]
         self.VisWeights = None
@@ -462,8 +462,6 @@ class ClassVisServer():
         DecorrMode = self.GD["RIME"]["DecorrMode"]
 
         if 'F' in DecorrMode or "T" in DecorrMode:
-            DATA["uvw_dt"]  = np.float64(ms.Give_dUVW_dt(times,A0,A1))
-            DATA["MSInfos"] = np.array([DATA["dt"],DATA["dnu"].ravel()[0]],np.float32)
             DATA["lm_PhaseCenter"] = ms.lm_PhaseCenter
 
         DATA["ChanMapping"] = self.DicoMSChanMapping[iMS]

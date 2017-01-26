@@ -65,6 +65,7 @@ class ClassMultiScaleMachine():
         self.ListScales=None
         self.CubePSFScales=None
         self.IsInit_MultiScaleCube=False
+        self.DicoBasisMatrix=None
 
     def setModelMachine(self,ModelMachine):
         self.ModelMachine=ModelMachine
@@ -459,7 +460,7 @@ class ClassMultiScaleMachine():
         return self.ListScales, self.CubePSFScales
         #print>>log, "   ... Done"
 
-    def MakeBasisMatrix(self, cachedmatrix=None):
+    def MakeBasisMatrix(self):
         # self.OPFT=np.real
         self.OPFT=np.abs
         nxPSF=self.CubePSFScales.shape[-1]
@@ -474,9 +475,7 @@ class ClassMultiScaleMachine():
         WeightMueller=self.WeightMeanJonesBand.ravel()
         self.WeightMuellerSignal = WeightMueller*self.DicoVariablePSF["WeightChansImages"].ravel()
 
-        if cachedmatrix is not None:
-            self.DicoBasisMatrix = cachedmatrix
-        else:
+        if self.DicoBasisMatrix is None:
             self.DicoBasisMatrix = self.GiveBasisMatrix()
         return self.DicoBasisMatrix
 

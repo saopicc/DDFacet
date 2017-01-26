@@ -61,7 +61,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
     def setFacetsLocs(self):
         NFacets = self.NFacets
         Npix = self.GD["Image"]["NPix"]
-        Padding = self.GD["RIME"]["Padding"]
+        Padding = self.GD["Facets"]["Padding"]
         self.Padding = Padding
         Npix, _ = EstimateNpix(float(Npix), Padding=1)
         self.Npix = Npix
@@ -214,9 +214,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             diam = np.max([dl, dm])
             return diam, (l0, l1, m0, m1)
 
-        DiamMax = self.GD["Facets"]["DiamMaxFacet"] * np.pi / 180
+        DiamMax = self.GD["Facets"]["DiamMax"] * np.pi / 180
         # DiamMax=4.5*np.pi/180
-        DiamMin = self.GD["Facets"]["DiamMinFacet"] * np.pi / 180
+        DiamMin = self.GD["Facets"]["DiamMin"] * np.pi / 180
 
         def ClosePolygon(polygon):
             P = polygon.tolist()
