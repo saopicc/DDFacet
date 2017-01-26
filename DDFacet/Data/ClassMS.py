@@ -53,7 +53,6 @@ class ClassMS():
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
                  AverageTimeFreq=None,
                  Field=0,DDID=0,TaQL=None,ChanSlice=None,GD=None,
-                 ToRADEC=None,
                  DicoSelectOptions={},
                  ResetCache=False):
 
@@ -80,8 +79,8 @@ class ClassMS():
         """
 
         if MSname=="": exit()
-        self.ToRADEC=ToRADEC
         self.GD = GD
+        self.ToRADEC=self.GD["Image"]["PhaseCenterRADEC"]
 
         self.AverageSteps=AverageTimeFreq
         MSname= reformat.reformat(os.path.abspath(MSname), LastSlash=False)
@@ -579,6 +578,7 @@ class ClassMS():
 
         # create data array (if databuf is not None, array uses memory of buffer)
         visdata = DATA.addSharedArray("data", shape=datashape, dtype=np.complex64)
+        self.RotateType=["uvw","vis"]
         if read_data:
             # check cache for visibilities
             if use_cache:
@@ -589,6 +589,7 @@ class ClassMS():
             if datavalid:
                 print>> log, "reading cached visibilities from %s" % datapath
                 visdata[...] = np.load(datapath)
+                self.RotateType=["uvw"]
             else:
                 print>> log, "reading MS visibilities from column %s" % self.ColName
                 table_all = table_all or self.GiveMainTable()
