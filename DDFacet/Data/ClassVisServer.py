@@ -453,7 +453,7 @@ class ClassVisServer():
         if ('F' in DecorrMode)|("T" in DecorrMode):
             DATA["uvw_dt"]=DATA["uvw_dt"]
             DATA["MSInfos"]=DATA["MSInfos"]
-            DATA["lm_PhaseCenter"]=self.CurrentMS.lm_PhaseCenter
+            DATA["lm_PhaseCenter"]=ms.lm_PhaseCenter
 
         DATA["ChanMapping"] = self.DicoMSChanMapping[iMS]
         DATA["ChanMappingDegrid"] = self.DicoMSChanMappingDegridding[iMS]

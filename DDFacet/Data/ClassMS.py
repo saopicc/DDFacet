@@ -81,6 +81,7 @@ class ClassMS():
         if MSname=="": exit()
         self.GD = GD
         self.ToRADEC=self.GD["Image"]["PhaseCenterRADEC"]
+        if self.ToRADEC is "": self.ToRADEC=None
 
         self.AverageSteps=AverageTimeFreq
         MSname= reformat.reformat(os.path.abspath(MSname), LastSlash=False)
