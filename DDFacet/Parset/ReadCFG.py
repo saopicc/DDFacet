@@ -305,7 +305,11 @@ class Parset():
         self._del(section, "DefaultImageViewer") # deprecated, do we really need this?
         self._del(section, "MultiFreqMap")  # deprecated
 
+        section = self._renameSection("ImagerMainFacet", "Image")
+        self._rename(section, "Npix", "NPix")
+
         section = self._renameSection("ImagerGlobal", "Image")
+        self._move(section, "NFacets", "Facets", "NFacets")
         self._move(section, "Weighting", "Weight", "Mode")
         self._move(section, "Robust", "Weight", "Robust")
         self._move(section, "Super", "Weight", "SuperUniform")
@@ -322,9 +326,6 @@ class Parset():
         self._move(section, "DiamMinFacet", "Facets", "DiamMin" )
 
         self._move("DDESolutions", "DecorrMode", "RIME", "DecorrMode")
-
-        section = self._renameSection("ImagerMainFacet", "Image")
-        self._rename(section, "Npix", "NPix")
 
         section = self._renameSection("ImagerCF", "CF")
 
