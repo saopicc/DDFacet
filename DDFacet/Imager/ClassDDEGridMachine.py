@@ -36,6 +36,7 @@ import ModCF
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir import ModFFTW
 import pylab
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 
 from DDFacet.Array import NpShared
 from DDFacet.Parset import ReadCFG
@@ -565,7 +566,8 @@ class ClassDDEGridMachine():
             sI=DicoClusterDirs["I"]
             d=np.sqrt((l0-lc)**2+(m0-mc)**2)
             idir_kMS=np.argmin(d)
-
+            # print rad2hmsdms(DicoClusterDirs["ra"][idir_kMS],Type="ra"), rad2hmsdms(DicoClusterDirs["dec"][idir_kMS])
+            
             w=sI/(1.+d/d0)**gamma
             w/=np.sum(w)
             w[w<(0.2*w.max())]=0

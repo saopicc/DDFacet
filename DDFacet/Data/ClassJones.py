@@ -154,6 +154,7 @@ class ClassJones():
             DicoClusterDirs = DicoClusterDirs_killMS
             print>>log, "  Build VisTime-to-Solution mapping"
             TimeMapping = self.GiveTimeMapping(DicoSols, DATA["times"])
+            DicoClusterDirs["l"],DicoClusterDirs["m"]=self.MS.radec2lm_scalar(DicoClusterDirs["ra"],DicoClusterDirs["dec"])
             self.SolsToDisk(
                 self.JonesNormSolsFile_killMS,
                 DicoSols,
@@ -223,6 +224,8 @@ class ClassJones():
             DicoSols = self.GiveBeam(DATA["uniq_times"])
             print>>log, "  Build VisTime-to-Beam mapping"
             TimeMapping = self.GiveTimeMapping(DicoSols, DATA["times"])
+            DicoClusterDirs["l"],DicoClusterDirs["m"]=self.MS.radec2lm_scalar(DicoClusterDirs["ra"],DicoClusterDirs["dec"])
+
             self.SolsToDisk(
                 self.JonesNormSolsFile_Beam,
                 DicoSols,
