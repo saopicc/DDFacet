@@ -20,6 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import os, os.path, subprocess
 import cPickle
+import collections
 
 from DDFacet.Other import MyLogger, ModColor
 log = MyLogger.getLogger("CacheManager")
@@ -199,7 +200,24 @@ class CacheManager (object):
                     reset = True
             # check for hash match
             if not reset and hash != storedhash:
+                ListDiffer=[]
+                for MainField in storedhash.keys(): 
+                    D0=hash[MainField]
+                    D1=storedhash[MainField]
+                    if (type(D0)==dict)|(type(D0)==type(collections.OrderedDict())):
+                        for key in D0.keys():
+                            if key not in D1:
+                                ListDiffer.append(
+                                    "(%s.%s: %s vs missing)" % (str(MainField), str(key), str(D0[key])))
+                            elif D0[key] != D1[key]:
+                                ListDiffer.append("(%s.%s: %s vs %s)"%(str(MainField),str(key),str(D0[key]),str(D1[key])))
+                    else:
+                        if D0!=D1:
+                            ListDiffer.append("(%s: %s vs %s)"%(str(MainField),str(D0),str(D1)))
+
                 print>>log, "cache hash %s does not match, will re-make" % hashpath
+                print>>log, "  differences in parameters (Param: this vs cached): %s"%" & ".join(ListDiffer)
+                
                 reset = True
             # if resetting cache, then mark new hash value for saving (will be saved in flushCache),
             # and remove any existing cache/hash
@@ -213,6 +231,7 @@ class CacheManager (object):
                     os.mkdir(cachepath)
                 else:
                     os.unlink(cachepath)
+
         # store hash
         self.hashes[name] = hashpath, hash, reset
         return cachepath, not reset

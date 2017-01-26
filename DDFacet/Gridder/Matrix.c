@@ -32,7 +32,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <time.h>
 
 void printMat(float complex *A){
-  printf("================================================================================================");
+  printf("================================================================================================\n");
   printf("%20f + (1j)%20f | %20f + (1j)%20f\n",creal(A[0]),cimag(A[0]),creal(A[1]),cimag(A[1]));
   printf("%20f + (1j)%20f | %20f + (1j)%20f\n",creal(A[2]),cimag(A[2]),creal(A[3]),cimag(A[3]));
 }
@@ -42,6 +42,13 @@ void Unity(float complex *A){
   A[1]=0.;
   A[2]=0.;
   A[3]=1.;
+}
+
+void Zero(float complex *A){
+  A[0]=0.;
+  A[1]=0.;
+  A[2]=0.;
+  A[3]=0.;
 }
 
 

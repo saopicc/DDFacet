@@ -22,8 +22,13 @@ from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Other.progressbar import ProgressBar
 import multiprocessing
 import numpy as np
+from DDFacet.Array import NpShared
 from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Other import MyPickle
+from DDFacet.ToolsDir import ModFFTW
+from scipy.spatial import Voronoi, ConvexHull
+from SkyModel.Sky import ModVoronoi
+from DDFacet.Other import reformat
 from DDFacet.Array import NpShared
 from DDFacet.ToolsDir import ModFFTW
 from scipy.spatial import Voronoi
@@ -56,7 +61,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
     def setFacetsLocs(self):
         NFacets = self.NFacets
         Npix = self.GD["Image"]["NPix"]
-        Padding = self.GD["Image"]["Padding"]
+        Padding = self.GD["RIME"]["Padding"]
         self.Padding = Padding
         Npix, _ = EstimateNpix(float(Npix), Padding=1)
         self.Npix = Npix
@@ -94,10 +99,10 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 os.path.abspath(MSName), LastSlash=False)
             SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
 
-        if "CatNodes" in self.GD.keys():
-            print>> log, "Taking facet directions from Nodes catalog: %s" % self.GD[
-                "CatNodes"]
-            ClusterNodes = np.load(self.GD["CatNodes"])
+#        if "CatNodes" in self.GD.keys():
+        if self.GD["Facets"]["CatNodes"] is not None:
+            print>> log, "Taking facet directions from Nodes catalog: %s" % self.GD["Facets"]["CatNodes"]
+            ClusterNodes = np.load(self.GD["Facets"]["CatNodes"])
             ClusterNodes = ClusterNodes.view(np.recarray)
             raNode = ClusterNodes.ra
             decNode = ClusterNodes.dec
@@ -156,21 +161,37 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         NFacets = self.NFacets = lFacet.size
         rac, decc = self.MainRaDec
         VM = ModVoronoiToReg.VoronoiToReg(rac, decc)
+        
         if NFacets > 2:
+            
             vor = Voronoi(xy, furthest_site=False)
             regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(
                 vor, radius=1.)
 
             PP = Polygon.Polygon(self.CornersImageTot)
 
-            LPolygon = [
-                np.array(PP & Polygon.Polygon(np.array(vertices[region])))[0]
-                for region in regions]
+            LPolygon=[]
+            ListNode=[]
+            for region,iNode in zip(regions,range(NodesCat.shape[0])):
+                ThisP = np.array(PP & Polygon.Polygon(np.array(vertices[region])))
+                if ThisP.size>0:
+                    LPolygon.append(ThisP[0])
+                    ListNode.append(iNode)
+            NodesCat=NodesCat[np.array(ListNode)].copy()
+# =======
+#             LPolygon = [
+#                 np.array(PP & Polygon.Polygon(np.array(vertices[region])))[0]
+#                 for region in regions]
+# >>>>>>> issue-255
 
         elif NFacets == 1:
             l0, m0 = lFacet[0], mFacet[0]
             LPolygon = [self.CornersImageTot]
         # VM.ToReg(regFile,lFacet,mFacet,radius=.1)
+
+        NodeFile = "%s.NodesCat.npy" % self.GD["Output"]["Name"]
+        print>> log, "Saving Nodes catalog in %s" % NodeFile
+        np.save(NodeFile, NodesCat)
 
         for iFacet, polygon0 in zip(range(len(LPolygon)), LPolygon):
             # polygon0 = vertices[region]
@@ -193,9 +214,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             diam = np.max([dl, dm])
             return diam, (l0, l1, m0, m1)
 
-        DiamMax = self.GD["Image"]["DiamMaxFacet"] * np.pi / 180
+        DiamMax = self.GD["Facets"]["DiamMaxFacet"] * np.pi / 180
         # DiamMax=4.5*np.pi/180
-        DiamMin = self.GD["Image"]["DiamMinFacet"] * np.pi / 180
+        DiamMin = self.GD["Facets"]["DiamMinFacet"] * np.pi / 180
 
         def ClosePolygon(polygon):
             P = polygon.tolist()
@@ -488,7 +509,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             if d < dmin:
                 dmin = d
                 iCentralFacet = iFacet
-        self.CentralFacet = iCentralFacet
+        self.iCentralFacet = iCentralFacet
 
         # regFile="%s.tessel.reg"%self.GD["Output"]["Name"]
         labels = [
@@ -505,7 +526,36 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         self.WriteCoordFacetFile()
 
+        self.FacetDirections=set([self.DicoImager[iFacet]["RaDec"] for iFacet in range(len(self.DicoImager))])
+        #DicoName = "%s.DicoFacet" % self.GD["Images"]["ImageName"]
         DicoName = "%s.%sDicoFacet" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
+
+
+        # Find the minimum l,m in the facet (for decorrelation calculation)
+        for iFacet in self.DicoImager.keys():
+            #Create smoothned facet tessel mask:
+            Npix = self.DicoImager[iFacet]["NpixFacetPadded"]
+            l0, l1, m0, m1 = self.DicoImager[iFacet]["lmExtentPadded"]
+            X, Y = np.mgrid[l0:l1:Npix/10 * 1j, m0:m1:Npix/10 * 1j]
+            XY = np.dstack((X, Y))
+            XY_flat = XY.reshape((-1, 2))
+            vertices = self.DicoImager[iFacet]["Polygon"]
+            mpath = Path(vertices)  # the vertices of the polygon
+            mask_flat = mpath.contains_points(XY_flat)
+            mask = mask_flat.reshape(X.shape)
+            mpath = Path(self.CornersImageTot)
+            mask_flat2 = mpath.contains_points(XY_flat)
+            mask2 = mask_flat2.reshape(X.shape)
+            mask[mask2 == 0] = 0
+            R=np.sqrt(X**2+Y**2)
+            R[mask==0]=1e6
+            indx,indy=np.where(R==np.min(R))
+            lmin,mmin=X[indx[0],indy[0]],Y[indx[0],indy[0]]
+            self.DicoImager[iFacet]["lm_min"]=lmin,mmin
+            
+
+
+
         print>> log, "Saving DicoImager in %s" % DicoName
         MyPickle.Save(self.DicoImager, DicoName)
 
@@ -522,4 +572,52 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             f.write(ss+'\n')
         f.close()
 
+# <<<<<<< HEAD
+# #===============================================
+# #===============================================
+# #===============================================
+# #===============================================
+
+
+# class WorkerImager(ClassFacetMachine.WorkerImager):
+#     def init(self, DicoJob):
+#         iFacet=DicoJob["iFacet"]
+#         #Create smoothned facet tessel mask:
+#         Npix = self.DicoImager[iFacet]["NpixFacetPadded"]
+#         l0, l1, m0, m1 = self.DicoImager[iFacet]["lmExtentPadded"]
+#         X, Y = np.mgrid[l0:l1:Npix * 1j, m0:m1:Npix * 1j]
+#         XY = np.dstack((X, Y))
+#         XY_flat = XY.reshape((-1, 2))
+#         vertices = self.DicoImager[iFacet]["Polygon"]
+#         mpath = Path(vertices)  # the vertices of the polygon
+#         mask_flat = mpath.contains_points(XY_flat)
+
+
+
+#         mask = mask_flat.reshape(X.shape)
+
+#         mpath = Path(self.CornersImageTot)
+#         mask_flat2 = mpath.contains_points(XY_flat)
+#         mask2 = mask_flat2.reshape(X.shape)
+#         mask[mask2 == 0] = 0
+
+
+#         GaussPars = (10, 10, 0)
+
+#         SpacialWeigth = np.float32(mask.reshape((1, 1, Npix, Npix)))
+#         SpacialWeigth = ModFFTW.ConvolveGaussian(SpacialWeigth, CellSizeRad=1, GaussPars=[GaussPars])
+#         SpacialWeigth = SpacialWeigth.reshape((Npix, Npix))
+#         SpacialWeigth /= np.max(SpacialWeigth)
+#         NameSpacialWeigth = "%sSpacialWeight.Facet_%3.3i" % (self.FacetDataCache, iFacet)
+#         NpShared.ToShared(NameSpacialWeigth, SpacialWeigth)
+#         #Initialize a grid machine per facet:
+#         self.GiveGM(iFacet)
+#         self.result_queue.put({"Success": True, "iFacet": iFacet})
+
+
+
+
+
+# =======
+# >>>>>>> issue-255
 

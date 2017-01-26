@@ -181,6 +181,7 @@ class Parset():
         else:
             self.migrated = None
 
+
     def read_section(self, config, section):
         """Returns two dicts corresponding to the given section: a dict of option:value,
         and a dict of option:attribute_dict"""

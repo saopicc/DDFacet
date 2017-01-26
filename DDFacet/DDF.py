@@ -40,6 +40,8 @@ from DDFacet.Other import progressbar
 from DDFacet.Other.AsyncProcessPool import APP
 log = None
 
+import numpy as np
+
 # # ##############################
 # # Catch numpy warning
 # np.seterr(all='raise')
@@ -81,6 +83,7 @@ def read_options():
         for name, value in default_values[section].iteritems():
             if not attrs[section][name].get("no_cmdline"):
                 OP.add_option(name, value)
+
 
     OP.Finalise()
     OP.ReadInput()
@@ -149,13 +152,14 @@ def main(OP=None, messages=[]):
     # tensorflow server as tensorflow is not fork safe
     # http://stackoverflow.com/questions/37874838/forking-a-python-process-after-loading-tensorflow
     # If a TensorFlowServerTarget is not specified, fork a child process containing one.
-    if DicoConfig["Image"]["PredictMode"] == "Montblanc":
+    if DicoConfig["RIME"]["ForwardMode"] == "Montblanc":
         if not DicoConfig["Montblanc"]["TensorflowServerTarget"]:
             from DDFacet.TensorFlowServerFork import fork_tensorflow_server
             DicoConfig["Montblanc"]["TensorflowServerTarget"] = fork_tensorflow_server()
 
     # init NCPU for different bits of parallelism
     ncpu = DicoConfig["Parallel"]["NCPU"] or psutil.cpu_count()
+    DicoConfig["Parallel"]["NCPU"]=ncpu
     NpParallel.NCPU_global = ncpu
     numexpr.set_num_threads(ncpu)
     print>>log,"using up to %d CPUs for parallelism" % ncpu
@@ -176,7 +180,7 @@ def main(OP=None, messages=[]):
 
     # Imager.testDegrid()
     # stop
-    if "Predict" in Mode:
+    if "Predict" in Mode or "Substract" in Mode:
         Imager.GivePredict()
     if "Clean" in Mode:
         Imager.main()
@@ -275,6 +279,7 @@ def main(OP=None, messages=[]):
 if __name__ == "__main__":
     #os.system('clear')
     logo.print_logo()
+
     T = ClassTimeIt.ClassTimeIt()
 
     # parset should have been read in by now

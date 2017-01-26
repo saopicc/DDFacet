@@ -24,6 +24,7 @@ import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
 import DDFacet.cbuild.Gridder._pyWeightingCore as WeightingCore
 import numpy as np
 from DDFacet.Other import MyLogger
+from DDFacet.Other import ModColor
 
 log= MyLogger.getLogger("ClassWeighting")
 
@@ -121,10 +122,20 @@ class ClassWeighting():
         # find max grid extent by considering _unflagged_ UVs
         xymax = 0
         for uv, weights, flags, freqs in uvw_weights_flags_freqs:
+            # max |u|,|v| in lambda
+            uvsel=abs(uv)[~flags, :]
+            if uvsel.size==0:
+                print>> log, ModColor.Str("  A dataset is fully flagged")
+                continue
+            uvmax = uvsel.max() * freqs.max() / _cc
+            xymax = max(xymax, int(math.floor(uvmax / cell)))
             if flags is not None:
                 # max |u|,|v| in lambda
                 uvmax = abs(uv)[~flags, :].max() * freqs.max() / _cc
                 xymax = max(xymax, int(math.floor(uvmax / cell)))
+        if xymax == 0:
+            raise Exception('All datasets are fully flagged')
+
         xymax += 1
         # grid will be from [-xymax,xymax] in U and [0,xymax] in V
         npixx = xymax * 2 + 1
@@ -145,7 +156,8 @@ class ClassWeighting():
             weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
             if force_unity_weight:
                 weights.fill(1)
-                weights[flags,...] = 0
+                weights[flags,...]=0
+
             elif weightnorm != 1:
                 weights *= weightnorm
             # flip sign of negative v values -- we'll only grid the top half of the plane

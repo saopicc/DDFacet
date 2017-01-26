@@ -407,6 +407,7 @@ void gridderWPol(PyArrayObject *grid,
     int *ptrModeInterpolation;
     int ApplyAmp,ApplyPhase,DoScaleJones;
     float CalibError,CalibError2;
+
     if(LengthJonesList>0){
       DoApplyJones=1;
 
@@ -555,7 +556,7 @@ void gridderWPol(PyArrayObject *grid,
     WaveLengthMean/=nVisChan;
 
     for (inx=0; inx<nrows; inx++) {
-      int irow = inx;//rows[inx];
+      size_t irow = inx;//rows[inx];
       //printf("\n");
       //printf("irow=%i/%i\n",irow,nrows);
       //const double*  __restrict__ uvwPtr   = GetDp(uvw) + irow*3;
@@ -867,11 +868,11 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
   PyArrayObject *np_grid, *np_vis, *uvw, *cfs, *flags, *sumwt, *increment, *freqs,*WInfos;
 
   PyObject *Lcfs;
-  PyObject *Lmaps,*LJones;
+  PyObject *Lmaps,*LJones,*LSmear;
   PyObject *LcfsConj;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!O!O!O!O!iO!O!O!O!O!O!O!", 
+  if (!PyArg_ParseTuple(args, "O!O!O!O!O!iO!O!O!O!O!O!O!O!", 
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid,
 			//&ObjVis,//&PyArray_Type,  &vis, 
@@ -886,7 +887,9 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 			&PyArray_Type,  &WInfos,
 			&PyArray_Type,  &increment,
 			&PyArray_Type,  &freqs,
-			&PyList_Type, &Lmaps, &PyList_Type, &LJones
+			&PyList_Type, &Lmaps, 
+			&PyList_Type, &LJones, 
+			&PyList_Type, &LSmear
 			))  return NULL;
   int nx,ny,nz,nzz;
 
@@ -911,7 +914,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
   /* }  */
 
 
-  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones);
+  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, LSmear);
   
   //return PyArray_Return(np_vis);
   
@@ -937,7 +940,7 @@ void DeGridderWPol(PyArrayObject *grid,
 		   PyArrayObject *Winfos,
 		   PyArrayObject *increment,
 		   PyArrayObject *freqs,
-		   PyObject *Lmaps, PyObject *LJones)
+		   PyObject *Lmaps, PyObject *LJones, PyObject *LSmearing)
   {
     // Get size of convolution functions.
     PyArrayObject *cfs;
@@ -1114,6 +1117,34 @@ void DeGridderWPol(PyArrayObject *grid,
     ////////////////////////////////////////////////////////////////////////////
 
 
+    int LengthSmearingList=PyList_Size(LSmearing);
+    float DT,Dnu,lmin_decorr,mmin_decorr;
+    double* uvw_dt_Ptr;
+    int DoSmearTime,DoSmearFreq;
+    int DoDecorr=(LengthSmearingList>0);
+
+    if(DoDecorr){
+      uvw_dt_Ptr = p_float64((PyArrayObject *) PyList_GetItem(LSmearing, 0));
+
+      PyObject *_FDT= PyList_GetItem(LSmearing, 1);
+      DT=(float) (PyFloat_AsDouble(_FDT));
+      PyObject *_FDnu= PyList_GetItem(LSmearing, 2);
+      Dnu=(float) (PyFloat_AsDouble(_FDnu));
+      
+      PyObject *_DoSmearTime= PyList_GetItem(LSmearing, 3);
+      DoSmearTime=(int) (PyFloat_AsDouble(_DoSmearTime));
+
+      PyObject *_DoSmearFreq= PyList_GetItem(LSmearing, 4);
+      DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));
+
+      PyObject *_Flmin_decorr= PyList_GetItem(LSmearing, 5);
+      lmin_decorr=(float) (PyFloat_AsDouble(_Flmin_decorr));
+      PyObject *_Fmmin_decorr= PyList_GetItem(LSmearing, 6);
+      mmin_decorr=(float) (PyFloat_AsDouble(_Fmmin_decorr));
+    }
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
 
     
     double VarTimeDeGrid=0;
@@ -1200,7 +1231,7 @@ void DeGridderWPol(PyArrayObject *grid,
 
     // Loop over all visibility rows to process.
     for (inx=row0; inx<row1; ++inx) {
-      int irow = inx;
+      size_t irow = inx;
 
       //printf("row=%i/%i \n",irow,nrows);
 
@@ -1298,7 +1329,7 @@ void DeGridderWPol(PyArrayObject *grid,
               locy-supy >= 0  &&  locy+supy < nGridY) {
             ///            cout << "in grid"<<endl;
             // Get pointer to data and flags for this channel.
-            int doff = (irow * nVisChan + visChan) * nVisPol;
+            size_t doff = (irow * nVisChan + visChan) * nVisPol;
             float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
             bool* __restrict__ flagPtr = p_bool(flags) + doff;
 	    float complex ThisVis[4]={0};
@@ -1316,14 +1347,14 @@ void DeGridderWPol(PyArrayObject *grid,
 	    //  Double weight_interp(Weights_Lin_Interp[w]);
 	    //            for (ipol=0; ipol<nVisPol; ++ipol) {
             for (ipol=0; ipol<1; ++ipol) {
-              if (((int)flagPtr[ipol])==0) {
+              //if (((int)flagPtr[ipol])==0) {
                 // Map to grid polarization. Only use pol if needed.
                 int gridPol = PolMap[ipol];
                 if (gridPol >= 0  &&  gridPol < nGridPol) {
                   /// Complex norm(0,0);
                   // Get the offset in the grid data array.
 
-                  int goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
+                  size_t goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
                   // Loop over the scaled support.
 		  int sy;
 		  //initTime();
@@ -1394,7 +1425,7 @@ void DeGridderWPol(PyArrayObject *grid,
 
 
 
-              } // end if !flagPtr
+		//} // end if !flagPtr
 	      //visPtr[ipol]*=corr;
             } // end for ipol
 	    ThisVis[3]=ThisVis[0];
@@ -1482,6 +1513,28 @@ void DeGridderWPol(PyArrayObject *grid,
 	/* ThisVis[3]=1; */
 	/* corr=1.; */
 	
+	  ///////////////////////////////////////////////////////
+	  float DeCorrFactor=1.;
+	  if(DoDecorr){
+	    int iRowMeanThisBlock=irow;//Row[NRowThisBlock/2];
+	    
+	    double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;
+	    double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
+
+	    DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
+						 (float)lmin_decorr,
+						 (float)mmin_decorr,
+						 uvwPtrMidRow,
+						 uvw_dt_PtrMidRow,
+						 (float)Pfreqs[visChan],//FreqMean,
+						 (float)Dnu, 
+						 (float)DT);
+
+	    //printf("DeCorrFactor %f %f: %f\n",lmin_decorr,mmin_decorr,DeCorrFactor);
+	    corr*=DeCorrFactor;
+	    
+	  }
+	  //////////////////////////////////////////////////////
 	    for(ipol=0; ipol<4; ipol++){
 	      visPtr[ipol]+=ThisVis[ipol] *corr*(-1.);
 	    }

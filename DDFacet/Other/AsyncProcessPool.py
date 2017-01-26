@@ -306,6 +306,7 @@ class AsyncProcessPool (object):
             current = counter.getValue()
             total = total or current or 1
             pBAR = ProgressBar('white', width=50, block='=', empty=' ',Title="  "+progress, HeaderSize=10, TitleSize=13)
+            #pBAR.disable()
             pBAR.render(int(100.*(total-current)/total), '%4i/%i' % (total-current, total))
             while current:
                 current = counter.awaitZeroWithTimeout(timeout)

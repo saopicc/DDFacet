@@ -21,11 +21,23 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import numpy as np
 import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmear
+
+# import DDFacet.cbuild.Gridder._pyGridderSmearPolsFaster as _pyGridderSmearFaster
+
+##########################################################"
+# Please do not remove this import again - Needed for killMS
+import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
+##########################################################"
+
+import ModCF
+import numpy as np
 import os
 import ModCF
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir import ModFFTW
 import pylab
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+
 from DDFacet.Array import NpShared
 from DDFacet.Parset import ReadCFG
 from DDFacet.Other import ClassTimeIt
@@ -41,6 +53,7 @@ def testGrid():
      os.environ["DDFACET_DIR"])
     DC = Parset.DicoPars
     # 19 (-0.01442078294460315, 0.014406238534169863) 2025 3465 -10.0
+
     #(array([0]), array([0]), array([1015]), array([1201]))
     #(array([0]), array([0]), array([1050]), array([1398]))
     # 17 (-0.014391694123736577, 0.01437714971330329) 2025 3465 -10.0
@@ -334,8 +347,8 @@ class ClassDDEGridMachine():
         #     self.DoPSF=True
         #     Npix=Npix*2
 
-        Precision = GD["Image"]["Precision"]
-        PolMode = GD["Image"]["PolMode"]
+        Precision = GD["RIME"]["Precision"]
+        PolMode = GD["RIME"]["PolMode"]
 
         if Precision == "S":
             self.dtype = np.complex64
@@ -344,7 +357,7 @@ class ClassDDEGridMachine():
 
         self.dtype = np.complex64
         T.timeit("0")
-        Padding = GD["Image"]["Padding"]
+        Padding = GD["RIME"]["Padding"]
         self.NonPaddedNpix, Npix = EstimateNpix(Npix, Padding)
         self.Padding = Npix/float(self.NonPaddedNpix)
         # self.Padding=Padding
@@ -508,13 +521,22 @@ class ClassDDEGridMachine():
         self.SumWeigths = np.zeros((self.NChan, self.npol), np.float64)
         self.SumJones = np.zeros((2, self.NChan), np.float64)
 
-    def setDecorr(self, uvw_dt, DT, Dnu, SmearMode="FT"):
-        DoSmearFreq = 0
+    def setDecorr(self,uvw_dt,DT,Dnu,SmearMode="FT",
+                  lm_min=None,
+                  lm_PhaseCenter=None):
+        DoSmearFreq=0
         if "F" in SmearMode:
             DoSmearFreq = 1
         DoSmearTime = 0
         if "T" in SmearMode:
-            DoSmearTime = 1
+            DoSmearTime=1
+            
+        lmin,mmin=self.lmShift
+        if lm_min is not None:
+            lmin,mmin=lm_min
+        if lm_PhaseCenter is not None:
+            lmin-=lm_PhaseCenter[0]
+            mmin-=lm_PhaseCenter[1]
 
         if not(uvw_dt.dtype == np.float64):
             raise NameError(
@@ -523,43 +545,36 @@ class ClassDDEGridMachine():
                     uvw_dt.dtype), str(
                     np.float64)))
 
-        self.LSmear = [uvw_dt, DT, Dnu, DoSmearTime, DoSmearFreq]
+        self.LSmear=[uvw_dt,DT,Dnu,DoSmearTime,DoSmearFreq,lmin,mmin]
 
     def GiveParamJonesList(self, DicoJonesMatrices, times, A0, A1, uvw):
 
         Apply_killMS = ("DicoJones_killMS" in DicoJonesMatrices)
         Apply_Beam = ("DicoJones_Beam" in DicoJonesMatrices)
 
-        l0, m0 = self.lmShift
-        idir_kMS = 0
-        w_kMS = np.array([], np.float32)
-        InterpMode = self.GD["DDESolutions"]["Type"]
-        d0 = self.GD["DDESolutions"]["Scale"]*np.pi/180
-        gamma = self.GD["DDESolutions"]["gamma"]
+
+        l0,m0=self.lmShift
+        idir_kMS=0
+        w_kMS=np.array([],np.float32)
+        InterpMode=self.GD["DDESolutions"]["Type"]
+        d0=self.GD["DDESolutions"]["Scale"]*np.pi/180
+        gamma=self.GD["DDESolutions"]["gamma"]
         if Apply_killMS:
-            DicoClusterDirs = DicoJonesMatrices["DicoJones_killMS"]["Dirs"]
-            lc = DicoClusterDirs["l"]
-            mc = DicoClusterDirs["m"]
-
-            sI = DicoClusterDirs["I"]
-
-            # lc,mc=np.random.randn(100)*np.pi/180,np.random.randn(100)*np.pi/180
-
-            # d=np.sqrt((l0-lc)**2+(m0-mc)**2)
-            # idir=np.argmin(d)
-            # w=sI/(1.+d/d0)**gamma
-            # w/=np.sum(w)
-
-            d = np.sqrt((l0-lc)**2+(m0-mc)**2)
-            idir_kMS = np.argmin(d)
-
-            w = sI/(1.+d/d0)**gamma
-            w /= np.sum(w)
-            w[w < (0.2*w.max())] = 0
-            ind = np.argsort(w)[::-1]
-            w[ind[3::]] = 0
-            w /= np.sum(w)
-            w_kMS = w
+            DicoClusterDirs=DicoJonesMatrices["DicoJones_killMS"]["Dirs"]
+            lc=DicoClusterDirs["l"]
+            mc=DicoClusterDirs["m"]
+            sI=DicoClusterDirs["I"]
+            d=np.sqrt((l0-lc)**2+(m0-mc)**2)
+            idir_kMS=np.argmin(d)
+            # print rad2hmsdms(DicoClusterDirs["ra"][idir_kMS],Type="ra"), rad2hmsdms(DicoClusterDirs["dec"][idir_kMS])
+            
+            w=sI/(1.+d/d0)**gamma
+            w/=np.sum(w)
+            w[w<(0.2*w.max())]=0
+            ind=np.argsort(w)[::-1]
+            w[ind[3::]]=0
+            w/=np.sum(w)
+            w_kMS=w
 
         idir_Beam = 0
         if Apply_Beam:
@@ -574,6 +589,16 @@ class ClassDDEGridMachine():
         # pylab.scatter([l0],[m0],marker="+")
         # pylab.draw()
         # pylab.show(False)
+        
+        if InterpMode=="Nearest":
+            InterpMode=0
+        elif InterpMode=="Krigging":
+            InterpMode=1
+                
+        #ParamJonesList=[MapJones,A0.astype(np.int32),A1.astype(np.int32),JonesMatrices.astype(np.complex64),idir]
+        if A0.size!=uvw.shape[0]:
+            raise RuntimeError("Antenna array is expected to have the same number of rows as the uvw array")
+        
 
         if InterpMode == "Nearest":
             InterpMode = 0
@@ -603,7 +628,9 @@ class ClassDDEGridMachine():
         if Apply_killMS:
             JonesMatrices_killMS = DicoJonesMatrices["DicoJones_killMS"]["Jones"]["Jones"]
             MapJones_killMS = DicoJonesMatrices["DicoJones_killMS"]["TimeMapping"]
-            AlphaReg_killMS = DicoJonesMatrices["DicoJones_killMS"].get("AlphaReg")
+            AlphaReg = DicoJonesMatrices["DicoJones_killMS"].get("AlphaReg")
+            if AlphaReg is not None:
+                AlphaReg_killMS=AlphaReg
             VisToJonesChanMapping_killMS = np.int32(DicoJonesMatrices["DicoJones_killMS"]["Jones"]["VisToJonesChanMapping"])
             self.CheckTypes(A0=A0, A1=A1, Jones=JonesMatrices_killMS)
 
@@ -714,20 +741,17 @@ class ClassDDEGridMachine():
             if "P" in self.GD["DDESolutions"]["DDModeGrid"]:
                 ApplyPhase = 1
             if self.GD["DDESolutions"]["ScaleAmpGrid"]:
-                ScaleAmplitude = 1
-                CalibError = (self.GD["DDESolutions"][
-                              "CalibErr"]/3600.)*np.pi/180
-            LApplySol = [ApplyAmp, ApplyPhase, ScaleAmplitude, CalibError]
-            LSumJones = [self.SumJones]
-            LSumJonesChan = [self.SumJonesChan]
-            ParamJonesList = self.GiveParamJonesList(
-                DicoJonesMatrices, times, A0, A1, uvw)
-            ParamJonesList = ParamJonesList + LApplySol + LSumJones + LSumJonesChan + \
-                [np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
+                ScaleAmplitude=1
+                CalibError=(self.GD["DDESolutions"]["CalibErr"]/3600.)*np.pi/180
+            LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
+            LSumJones=[self.SumJones]
+            LSumJonesChan=[self.SumJonesChan]
+            ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
+            ParamJonesList=ParamJonesList+LApplySol+LSumJones+LSumJonesChan+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
-        # T2 = ClassTimeIt.ClassTimeIt("Gridder")
-        # T2.disable()
-        T.timeit("prep %d"%self.IDFacet)
+        #T2= ClassTimeIt.ClassTimeIt("Gridder")
+        #T2.disable()
+        T.timeit("stuff")
 
         if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
             raise RuntimeError("Deprecated flag. Please use BDA gridder")
@@ -737,7 +761,6 @@ class ClassDDEGridMachine():
                 ChanEquidistant,
                 self.SkyType,
                 self.PolModeID]
-#            MapSmear = NpShared.GiveArray("%sBDA.Grid" % (self.ChunkDataCache))
             _pyGridderSmear.pyGridderWPol(Grid,
                                           vis,
                                           uvw,
@@ -762,6 +785,27 @@ class ClassDDEGridMachine():
                                           OptimisationInfos,
                                           self.LSmear,
                                           np.int32(ChanMapping))
+
+            T.timeit("gridder")
+# <<<<<<< HEAD
+
+
+#         T2.timeit("gridder")
+#         NCH,_,_,_=Grid.shape
+#         Dirty= self.GridToIm(Grid)
+
+#         del(Grid)
+
+#         if self.SpheNorm:
+#             Dirty = self.cutImPadded(Dirty)
+
+#         import gc
+#         gc.enable()
+#         gc.collect()
+#         return Dirty
+
+# =======
+# >>>>>>> landman/RefactoringModelMachine
 
             T.timeit("grid %d" % self.IDFacet)
 
@@ -927,7 +971,7 @@ class ClassDDEGridMachine():
         T.timeit("3")
         #print vis
         #print "DEGRID:",Grid.shape,ChanMapping
-        if False:  ## deprecated, since only BDA degridder is used ## self.GD["Comp"]["DegridMode"]==0:
+        if self.GD["RIME"]["ForwardMode"]=="Classic":
             _ = _pyGridder.pyDeGridderWPol(Grid,
                                            vis,
                                            uvw,
@@ -940,8 +984,9 @@ class ClassDDEGridMachine():
                                            self.incr.astype(np.float64),
                                            freqs,
                                            [self.PolMap,FacetInfos,RowInfos,ChanMapping],
-                                           ParamJonesList)
-        else:
+                                           ParamJonesList,
+                                           self.LSmear)
+        elif self.GD["RIME"]["ForwardMode"]=="BDA-degrid":
             # OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos = [
                 self.JonesType,
@@ -975,6 +1020,7 @@ class ClassDDEGridMachine():
                 sparsification if sparsification is not None else np.array([]),
                 OptimisationInfos,
                 self.LSmear, np.int32(ChanMapping))
+
 
         T.timeit("4 (degrid)")
         # print vis

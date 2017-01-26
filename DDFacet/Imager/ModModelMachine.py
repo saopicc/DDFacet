@@ -22,6 +22,7 @@ import ClassModelMachine
 import ClassGainMachine
 from DDFacet.Other import MyPickle
 from DDFacet.Other import MyLogger
+from DDFacet.Other import ModColor
 log=MyLogger.getLogger("GiveModelMachine")
 
 class ClassModModelMachine():
@@ -36,10 +37,23 @@ class ClassModModelMachine():
             GD          = Global dictionary
         """
         self.GD = GD
-        self.GAMM = None
+        self.SSDMM = None
         self.MSMFMM = None
         self.MORSANEMM = None
         self.HOGBOMMM = None
+
+    def GiveInitialisedMMFromFile(self,FileName):
+        """
+        Initialise a model machine from a file
+        Input:
+            FileName    = The file to read
+        """
+
+
+        DicoSMStacked = MyPickle.Load(FileName)
+        MM=self.GiveMMFromDico(DicoSMStacked)
+        MM.FromDico(DicoSMStacked)
+        return MM
 
     def GiveMMFromFile(self,FileName=None):
         """
@@ -60,23 +74,26 @@ class ClassModModelMachine():
         Input:
             DicoSMStacked   = Dictionary to instantiate ModelMachine with
         """
+        if DicoSMStacked["Type"]=="GA": 
+            print>>log,ModColor.Str("Model is of deprecated type GA, overwritting with type SSD")
+            DicoSMStacked["Type"]="SSD"
+
         if DicoSMStacked is not None: # If the Dict is provided use it to initialise a model machine
+            if DicoSMStacked["Type"]=="GA":
+                DicoSMStacked["Type"]="SSD"
             return self.GiveMM(Mode=DicoSMStacked["Type"])
         else: # If the dict is not provided use the MinorCycleMode to figure out which model machine to initialise
             return self.GiveMM()
 
     def GiveMM(self,Mode=None):
-        if Mode == "GA":
-            if self.GAMM is None:
-                print>> log, "Initialising GA model machine"
-                from DDFacet.Imager.GA import ClassModelMachineGA
-                from DDFacet.Imager.GA import ClassModelMachineGA
-                self.GAMM = ClassModelMachineGA.ClassModelMachine(
-                    self.GD,
-                    GainMachine= ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"]))
+        if Mode == "SSD":
+            if self.SSDMM is None:
+                print>> log, "Initialising SSD model machine"
+                from DDFacet.Imager.SSD import ClassModelMachineSSD
+                self.SSDMM = ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
             else:
-                print>> log, "GA model machine already initialised"
-            return self.GAMM
+                print>> log, "SSD model machine already initialised"
+            return self.SSDMM
         elif Mode == "HMP":
             if self.MSMFMM is None:
                 print>> log, "Initialising HMP model machine"

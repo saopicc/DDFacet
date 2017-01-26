@@ -259,6 +259,24 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.)):
     #Gauss/=np.sum(Gauss)
     return Gauss
 
+from DDFacet.ToolsDir import Gaussian
+def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
+    Npix=int(2*8*Sig)
+    if Npix%2==0: Npix+=1
+    x0=Npix/2
+    x,y=np.mgrid[-x0:x0:Npix*1j,-x0:x0:Npix*1j]
+    #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
+    if GaussPar is None:
+        GaussPar=(Sig,Sig,0)
+    in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
+    
+    nch,npol,_,_=Ain0.shape
+    Out=np.zeros_like(Ain0)
+    for ch in range(nch):
+        in1=Ain0[ch,0]
+        Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
+    return Out,in2
+
 def ConvolveGaussian(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False):
 
     nch,npol,_,_=Ain0.shape

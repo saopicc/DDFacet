@@ -21,6 +21,12 @@ def attach(name, load=True):
 def create(name):
     return SharedDict(name, reset=True)
 
+def dict_to_shm(name, D):
+    Ds=create(name)
+    for key in D.keys():
+        Ds[key]=D[key]
+    return Ds
+
 class SharedDict (dict):
     basepath = SHM_PREFIX
 
