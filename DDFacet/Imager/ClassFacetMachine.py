@@ -981,7 +981,7 @@ class ClassFacetMachine():
                 print>>log,ModColor.Str("The sum of the weights are zero for FreqBand #%i, data is all flagged?"%Channel)
                 print>>log,ModColor.Str("  (... will skip normalisation for this FreqBand)")
                 
-        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="Gluing facets", HeaderSize=10, TitleSize=13)
+        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="Glue facets", HeaderSize=10, TitleSize=13)
         NFacets=len(self.DicoImager.keys())
         pBAR.render(0, '%4i/%i' % (0, NFacets))
 
