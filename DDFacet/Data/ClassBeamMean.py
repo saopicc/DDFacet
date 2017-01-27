@@ -241,11 +241,12 @@ class ClassBeamMean():
         self.CachePath, self.CacheValid = self.VS.maincache.checkCache("SmoothBeam.npy", 
                                                                   dict([("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
                                                                        [(section, self.GD[section]) 
-                                                                        for section in "VisData", 
-                                                                        "Beam", "DataSelection",
-                                                                        "MultiFreqs", "ImagerGlobal", "Compression",
-                                                                        "ImagerCF", "ImagerMainFacet"]), 
-                                                                  reset=self.GD["Caching"]["ResetSmoothBeam"])
+                                                                        for section in "Data", 
+                                                                        "Beam", "Selection",
+                                                                        "Freq", "Image", 
+                                                                        "Comp", "Facets", 
+                                                                        "Weight", "RIME"]), 
+                                                                  reset=self.GD["Cache"]["ResetSmoothBeam"])
 
 
         if self.CacheValid:

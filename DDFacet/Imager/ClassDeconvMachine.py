@@ -515,44 +515,10 @@ class ClassImagerDeconv():
 
             self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
             
-            self.FacetMachine.ComputeSmoothBeam()
+            if "H" in self._saveims: 
+                self.FacetMachine.ComputeSmoothBeam()
             self.SaveDirtyProducts()
 
-
-            if "d" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-            if "d" in self._savecubes:
-                self.FacetMachine.ToCasaImage(self.DicoDirty["ImagData"],ImageName="%s.cube.dirty"%self.BaseName,
-                        Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-
-            if "n" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.FacetMachine.FacetNormReShape,ImageName="%s.NormFacets"%self.BaseName,
-                                              Fits=True)
-
-            if self.DicoDirty["JonesNorm"] is not None:
-                DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["JonesNorm"])
-                nch,npol,nx,ny = DirtyCorr.shape
-                if "D" in self._saveims:
-                    MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
-                    self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                if "D" in self._savecubes:
-                    self.FacetMachine.ToCasaImage(DirtyCorr,ImageName="%s.cube.dirty.corr"%self.BaseName,
-                                                  Fits=True,Freqs=self.VS.FreqBandCenters,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-
-                self.JonesNorm = self.DicoDirty["JonesNorm"]
-                self.MeanJonesNorm = np.mean(self.JonesNorm,axis=0).reshape((1,npol,nx,ny))
-                if "N" in self._saveims:
-                    self.FacetMachine.ToCasaImage(self.MeanJonesNorm,ImageName="%s.Norm"%self.BaseName,Fits=True,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                if "N" in self._savecubes:
-                    self.FacetMachine.ToCasaImage(self.JonesNorm, ImageName="%s.cube.Norm" % self.BaseName,
-                                                  Fits=True, Freqs=self.VS.FreqBandCenters,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-            else:
-                self.MeanJonesNorm = None
 
             # dump dirty to cache
             if self.GD["Cache"]["Dirty"] and not sparsify:
@@ -576,6 +542,7 @@ class ClassImagerDeconv():
         return self.DicoDirty["MeanImage"]
 
     def SaveDirtyProducts(self):
+
         if "d" in self._saveims:
             self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
                                           Stokes=self.VS.StokesConverter.RequiredStokesProducts())
