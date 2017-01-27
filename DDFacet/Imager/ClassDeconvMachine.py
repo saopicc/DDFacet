@@ -295,7 +295,7 @@ class ClassImagerDeconv():
 
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
-        self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["MeanFacetPSF"]
+        self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["CubeMeanVariablePSF"][self.DicoVariablePSF["CentralFacet"]]
         self.FWHMBeam=self.DicoVariablePSF["FWHMBeam"]
         self.PSFGaussPars=self.DicoVariablePSF["PSFGaussPars"]
         self.PSFSidelobes=self.DicoVariablePSF["PSFSidelobes"]
@@ -1052,10 +1052,12 @@ class ClassImagerDeconv():
 
         off = min(off, x[0], nx-x[0], y[0], ny-y[0])
         print>> log, "Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2)
-        P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off]
+        P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off].copy()
         
 
         sidelobes = ModFitPSF.FindSidelobe(P)
+        print>>log, "PSF max is %f"%P.max()
+        P[P<0] = 0
         bmaj, bmin, theta = ModFitPSF.FitCleanBeam(P)
 
         FWHMFact = 2. * np.sqrt(2. * np.log(2.))
