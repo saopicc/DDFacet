@@ -290,7 +290,7 @@ class ClassImagerDeconv():
 
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
-        self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["MeanFacetPSF"]
+        self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["CubeMeanVariablePSF"][self.DicoVariablePSF["CentralFacet"]]
         self.FWHMBeam=self.DicoVariablePSF["FWHMBeam"]
         self.PSFGaussPars=self.DicoVariablePSF["PSFGaussPars"]
         self.PSFSidelobes=self.DicoVariablePSF["PSFSidelobes"]
@@ -304,9 +304,9 @@ class ClassImagerDeconv():
         self._psfmean, self._psfcube = psfdict["MeanImage"], psfdict["ImagData"]  # this is only for the casa image saving
         self.DicoVariablePSF = FacetMachinePSF.DicoPSF
         self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["MeanFacetPSF"]
+        self.FitPSF()
         if self.GD["Cache"]["PSF"] and not sparsify:
             try:
-                self.FitPSF()
                 self.DicoVariablePSF["FWHMBeam"]=self.FWHMBeam
                 self.DicoVariablePSF["PSFGaussPars"]=self.PSFGaussPars
                 self.DicoVariablePSF["PSFSidelobes"]=self.PSFSidelobes
@@ -515,44 +515,10 @@ class ClassImagerDeconv():
 
             self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
             
-            self.FacetMachine.ComputeSmoothBeam()
+            if "H" in self._saveims: 
+                self.FacetMachine.ComputeSmoothBeam()
             self.SaveDirtyProducts()
 
-
-            if "d" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-            if "d" in self._savecubes:
-                self.FacetMachine.ToCasaImage(self.DicoDirty["ImagData"],ImageName="%s.cube.dirty"%self.BaseName,
-                        Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-
-            if "n" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.FacetMachine.FacetNormReShape,ImageName="%s.NormFacets"%self.BaseName,
-                                              Fits=True)
-
-            if self.DicoDirty["JonesNorm"] is not None:
-                DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["JonesNorm"])
-                nch,npol,nx,ny = DirtyCorr.shape
-                if "D" in self._saveims:
-                    MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
-                    self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                if "D" in self._savecubes:
-                    self.FacetMachine.ToCasaImage(DirtyCorr,ImageName="%s.cube.dirty.corr"%self.BaseName,
-                                                  Fits=True,Freqs=self.VS.FreqBandCenters,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-
-                self.JonesNorm = self.DicoDirty["JonesNorm"]
-                self.MeanJonesNorm = np.mean(self.JonesNorm,axis=0).reshape((1,npol,nx,ny))
-                if "N" in self._saveims:
-                    self.FacetMachine.ToCasaImage(self.MeanJonesNorm,ImageName="%s.Norm"%self.BaseName,Fits=True,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                if "N" in self._savecubes:
-                    self.FacetMachine.ToCasaImage(self.JonesNorm, ImageName="%s.cube.Norm" % self.BaseName,
-                                                  Fits=True, Freqs=self.VS.FreqBandCenters,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-            else:
-                self.MeanJonesNorm = None
 
             # dump dirty to cache
             if self.GD["Cache"]["Dirty"] and not sparsify:
@@ -576,6 +542,7 @@ class ClassImagerDeconv():
         return self.DicoDirty["MeanImage"]
 
     def SaveDirtyProducts(self):
+
         if "d" in self._saveims:
             self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
                                           Stokes=self.VS.StokesConverter.RequiredStokesProducts())
@@ -1027,10 +994,12 @@ class ClassImagerDeconv():
 
         off = min(off, x[0], nx-x[0], y[0], ny-y[0])
         print>> log, "Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2)
-        P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off]
+        P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off].copy()
         
 
         sidelobes = ModFitPSF.FindSidelobe(P)
+        print>>log, "PSF max is %f"%P.max()
+        P[P<0] = 0
         bmaj, bmin, theta = ModFitPSF.FitCleanBeam(P)
 
         FWHMFact = 2. * np.sqrt(2. * np.log(2.))
@@ -1062,48 +1031,47 @@ class ClassImagerDeconv():
         self.HasFittedPSFBeam=True
         self._psf_fit_error = False
 
-        try:
-            # If set, use the parameter RestoringBeam to fix the clean beam parameters
-            forced_beam=self.GD["Output"]["RestoringBeam"]
-            if forced_beam is not None:
-                FWHMFact = 2. * np.sqrt(2. * np.log(2.))
+        # If set, use the parameter RestoringBeam to fix the clean beam parameters
+        forced_beam=self.GD["Output"]["RestoringBeam"]
+        if forced_beam is not None:
+            FWHMFact = 2. * np.sqrt(2. * np.log(2.))
 
-                if isinstance(forced_beam,float):
-                    forced_beam=[forced_beam,forced_beam,0]
-                elif len(forced_beam)==1:
-                    forced_beam=[forced_beam[0],forced_beam[0],0]
-                f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
-                f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
-            PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
+            if isinstance(forced_beam,float):
+                forced_beam=[forced_beam,forced_beam,0]
+            elif len(forced_beam)==1:
+                forced_beam=[forced_beam[0],forced_beam[0],0]
+            f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
+            f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
+        PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
 
-            off=self.GD["Image"]["SidelobeSearchWindow"] // 2
-            beam, gausspars, sidelobes = self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
-            if forced_beam is not None:
-                print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
-                beam, gausspars = f_beam, f_gau
-            self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = beam, gausspars, sidelobes
-            # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
-            if self.VS.MultiFreqMode:
-                self.FWHMBeam = []
-                self.PSFGaussPars = []
-                self.PSFSidelobes = []
-                for band in range(self.VS.NFreqBands):
-                    beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],off,"band %d"%band)
-                    if forced_beam is not None:
-                        beam = f_beam
-                        gausspars = f_gau
+        off=self.GD["Image"]["SidelobeSearchWindow"] // 2
+        beam, gausspars, sidelobes = self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
+        if forced_beam is not None:
+            print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
+            beam, gausspars = f_beam, f_gau
+        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = beam, gausspars, sidelobes
+        # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
+        if self.VS.MultiFreqMode:
+            self.FWHMBeam = []
+            self.PSFGaussPars = []
+            self.PSFSidelobes = []
+            for band in range(self.VS.NFreqBands):
+                beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],off,"band %d"%band)
+                if forced_beam is not None:
+                    beam = f_beam
+                    gausspars = f_gau
 
-                    self.FWHMBeam.append(beam)
-                    self.PSFGaussPars.append(gausspars)
-                    self.PSFSidelobes.append(sidelobes)
-            else:
-                self.FWHMBeam = [self.FWHMBeamAvg]
-                self.PSFGaussPars = [self.PSFGaussParsAvg]
-                self.PSFSidelobes = [self.PSFSidelobesAvg]
-        except:
-            print>>log,"Error fitting the PSF: %s"%traceback.format_exc()
-            self.FWHMBeamAvg = 0,0,0
-            self._psf_fit_error = True
+                self.FWHMBeam.append(beam)
+                self.PSFGaussPars.append(gausspars)
+                self.PSFSidelobes.append(sidelobes)
+        else:
+            self.FWHMBeam = [self.FWHMBeamAvg]
+            self.PSFGaussPars = [self.PSFGaussParsAvg]
+            self.PSFSidelobes = [self.PSFSidelobesAvg]
+        # except:
+        #     print>>log,"Error fitting the PSF: %s"%traceback.format_exc()
+        #     self.FWHMBeamAvg = 0,0,0
+        #     self._psf_fit_error = True
 
 
         

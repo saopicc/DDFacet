@@ -93,11 +93,14 @@ def FindSidelobe(PSF):
     else:
         dx=PSF.shape[-1]/2
         #raise RuntimeError("Cannot find PSF sidelobes. Is your fit search window big enough?")
-  
+
+    #print>>log,"dx %d"%dx
     #Cut the window at the location of the first null and then fit to that:
-    PSFsmall=PSF[x0-dx:x0+dx,y0-dx:y0+dx]
+    PSFsmall=PSF[x0-dx:x0+dx,y0-dx:y0+dx].copy()
+    PSFsmall[PSFsmall<.1] = 0
     popt = FitCleanBeam(PSF)
     
+    #print>>log,"popt %s"%(popt,)
     #Create a clean beam:
     npix=int(np.sqrt(PSFsmall.ravel().shape[0]))-1
     x = np.linspace(0, npix, npix+1)
@@ -110,8 +113,11 @@ def FindSidelobe(PSF):
     PSFnew=PSF.copy()
     PSFnew[x0-dx:x0+dx,y0-dx:y0+dx] = PSFnew[x0-dx:x0+dx,y0-dx:y0+dx] - dataFitted[:,:]
     profile0=PSFnew[x0,:]
+    #print>>log,"profile %s"%(profile0,)
     x0=PSFnew.shape[0]/2
     ii=np.argmax(profile0[x0::])
+    #print>> log, "ii %d" % ii
+#    stop
     return np.max(PSFnew),ii
 
 if __name__ == "__main__":

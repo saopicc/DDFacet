@@ -62,7 +62,7 @@ class ProgressBar(object):
         self.TitleSize=TitleSize
         Title= ModColor.Str(Title, col="blue", Bold=False)
         self.TitleIn=Title
-        self.Title=self.format(Title,self.TitleSize)
+        self.Title=Title#self.format(Title,self.TitleSize)
         
         self.HasRendered=False
         self.t0=None
