@@ -48,7 +48,7 @@ from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 #from DDFacet.Array import NpParallel
 log=MyLogger.getLogger("ClassFacetMachine")
 from DDFacet.Other.AsyncProcessPool import APP
-
+import numexpr
 MyLogger.setSilent("MyLogger")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 import DDFacet.Data.ClassBeamMean as ClassBeamMean
@@ -575,6 +575,7 @@ class ClassFacetMachine():
         if self._CF is None or self._CF.path != cfdict_path:
             self._CF = SharedDict.attach(cfdict_path, load=False)
         facet_dict = self._CF.addSubdict(iFacet)
+        T=ClassTimeIt.ClassTimeIt("_initcf_worker")
         # try to load the cache, and copy it to the shared facet dict
         if cachevalid:
             try:
@@ -583,9 +584,11 @@ class ClassFacetMachine():
                     facet_dict[key] = value
                 # validate dict
                 ClassDDEGridMachine.ClassDDEGridMachine.verifyCFDict(facet_dict, self.GD["CF"]["Nw"])
+                return
             except:
                 print>>log,traceback.format_exc()
                 print>>log, "Error loading %s, will re-generate"%path
+            
         # ok, regenerate the terms at this point
         FacetInfo = self.DicoImager[iFacet]
         # Create smoothned facet tessel mask:
@@ -1017,6 +1020,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
 
             SPhe = self._CF[iFacet]["Sphe"]
+            InvSPhe = self._CF[iFacet]["InvSphe"]
             SpacialWeigth = self._CF[iFacet]["SW"].T[::-1, :]
 
             xc, yc = self.DicoImager[iFacet]["pixCentral"]
@@ -1043,13 +1047,18 @@ class ClassFacetMachine():
                             raise RuntimeError,"unknown kind=%s argument -- this is a silly bug"%kind
                         # normalize by facet weight
                         sumweight = ThisSumWeights[pol]
-                        Im /= SPhe.real
+                        #Im /= SPhe
+                        numexpr.evaluate('Im*InvSPhe',out=Im,casting="unsafe")
                         Im[SPhe < 1e-3] = 0
                         Im = (Im[::-1, :].T / sumweight)
                         Im /= np.sqrt(ThisSumJones)
                         Im *= SpacialWeigth[::-1, :].T
                         Im = Im[x0facet:x1facet, y0facet:y1facet]
-                    Image[Channel, pol, x0main:x1main, y0main:y1main] += Im.real
+                    a,b=Image[Channel, pol, x0main:x1main, y0main:y1main], Im.real
+                    numexpr.evaluate('a+b',out=a,casting="unsafe")
+                    #Image[Channel, pol, x0main:x1main, y0main:y1main] += Im.real
+
+
             pBAR.render(int((iFacet+1)*100/float(NFacets)), '%4i/%i' % (iFacet+1, NFacets))
 
         for Channel in xrange(self.VS.NFreqBands):
@@ -1321,7 +1330,7 @@ class ClassFacetMachine():
         APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
         self._fft_job_id = None
 
-    def _set_model_grid_worker(self, iFacet, modeldict_path, cfdict_path, ChanSel, ToSHMDict=False):
+    def _set_model_grid_worker(self, iFacet, modeldict_path, cfdict_path, ChanSel, ToSHMDict=False,ToGrid=False):
         # reload shared dicts
         cf_dict = self._reload_worker_dicts(iFacet, None, cfdict_path, None)
         # We get the psf dict directly from the shared dict name (not from the .path of a SharedDict)
@@ -1330,9 +1339,11 @@ class ClassFacetMachine():
         # reload model image dict
         self._model_dict = SharedDict.attach(modeldict_path)
         # extract facet model from model image
-        ModelGrid, _ = self._Im2Grid.GiveModelTessel(self._model_dict["Image"],
-                                                     self.DicoImager, iFacet, self._norm_dict["FacetNorm"],
-                                                     cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel)
+        ModelGrid, SumFlux = self._Im2Grid.GiveModelTessel(self._model_dict["Image"],
+                                                           self.DicoImager, iFacet, self._norm_dict["FacetNorm"],
+                                                           cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel,ToGrid=ToGrid)
+
+        self._model_dict["SumFlux_%4.4i"%iFacet]=SumFlux
         if ToSHMDict:
             self._model_dict["FacetGrid_%4.4i"%iFacet]=ModelGrid
         return ModelGrid
@@ -1345,11 +1356,12 @@ class ClassFacetMachine():
         nch,_,_,_=self._model_dict["Image"].shape
         ChanSel=range(nch)
         ToSHMDict=True
+        ToGrid=True
         self._set_model_grid_job_id = "%s.MakeGridModel:" % (self._app_id)
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._set_model_grid_job_id, iFacet), 
                        self._set_model_grid_worker,
-                       args=(iFacet, modeldict_path, cfdict_path, ChanSel,ToSHMDict))
+                       args=(iFacet, modeldict_path, cfdict_path, ChanSel,ToSHMDict,ToGrid))
 
         APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="MakeGrids")
 

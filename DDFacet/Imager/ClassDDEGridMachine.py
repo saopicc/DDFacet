@@ -896,7 +896,6 @@ class ClassDDEGridMachine():
         if ChanMapping is None:
             ChanMapping = np.zeros((visIn.shape[1],), np.int32)
 
-        self.ChanMappingDegrid = np.int32(ChanMapping)
 
         if TranformModelInput == "FT":
             if np.max(np.abs(ModelImage)) == 0:
@@ -912,6 +911,7 @@ class ClassDDEGridMachine():
 
         # np.save("Grid",Grid)
         NVisChan = visIn.shape[1]
+        self.ChanMappingDegrid = np.int32(ChanMapping)
         self.SumJonesChan = np.zeros((2, NVisChan), np.float64)
 
         T.timeit("1")

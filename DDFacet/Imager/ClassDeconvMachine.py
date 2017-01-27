@@ -515,6 +515,7 @@ class ClassImagerDeconv():
             self.FacetMachine.ComputeSmoothBeam()
             self.SaveDirtyProducts()
 
+
             if "d" in self._saveims:
                 self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
