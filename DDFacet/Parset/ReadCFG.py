@@ -273,6 +273,10 @@ class Parset():
         """
 
         self._makeSection("Misc")
+        self._makeSection("Hogbom")
+        self._makeSection("Facets")
+        self._makeSection("Weight")
+        self._makeSection("RIME")
 
         section = "Parallel"
         self._del(section, "Enable")  # deprecated. Use NCPU=1 instead
@@ -286,7 +290,6 @@ class Parset():
         section = self._renameSection("VisData", "Data")
         self._rename(section, "MSName", "MS")
         self._del(section, "MSListFile")  # deprecated. Use MS=list.txt instead
-        # PredictFrom # migrated from --Images-PredictModelName
 
         section = self._renameSection("DataSelection", "Selection")
 
@@ -302,13 +305,27 @@ class Parset():
         self._del(section, "DefaultImageViewer") # deprecated, do we really need this?
         self._del(section, "MultiFreqMap")  # deprecated
 
-        section = self._renameSection("ImagerGlobal", "Image")
-        self._rename(section, "Super", "SuperUniform")
-        self._move(section, "RandomSeed", "Misc", "RandomSeed")
-        self._remap(section, "PredictMode", {'DeGridder': 'BDA-degrid'})
-
         section = self._renameSection("ImagerMainFacet", "Image")
         self._rename(section, "Npix", "NPix")
+
+        section = self._renameSection("ImagerGlobal", "Image")
+        self._move(section, "NFacets", "Facets", "NFacets")
+        self._move(section, "Weighting", "Weight", "Mode")
+        self._move(section, "Robust", "Weight", "Robust")
+        self._move(section, "Super", "Weight", "SuperUniform")
+        self._move(section, "MFSWeighting", "Weight", "MFS")
+        self._move(section, "RandomSeed", "Misc", "RandomSeed")
+        for x in "Precision", "PolMode":
+            self._move(section, x, "RIME", x)
+        self._move(section, "PredictMode", "RIME", "ForwardMode" )
+        self._remap("RIME", "ForwardMode", {'DeGridder': 'BDA-degrid'})
+
+        for x in "PSFOversize", "PSFFacets", "Padding", "Circumcision":
+            self._move(section, x, "Facets", x)
+        self._move(section, "DiamMaxFacet", "Facets", "DiamMax" )
+        self._move(section, "DiamMinFacet", "Facets", "DiamMin" )
+
+        self._move("DDESolutions", "DecorrMode", "RIME", "DecorrMode")
 
         section = self._renameSection("ImagerCF", "CF")
 
@@ -325,8 +342,6 @@ class Parset():
         self._rename(section, "CompGridFOV", "GridFov")
         self._rename(section, "CompDeGridDecorr", "DegridDecorr")
         self._rename(section, "CompDeGridFOV", "DegridFOV")
-
-        section = self._makeSection("Hogbom")
 
         section = self._renameSection("MultiScale", "HMP")
         self._del(section, "MSEnable")  # deprecated. --Deconvolution-MinorCycle selects algorithm instead.
