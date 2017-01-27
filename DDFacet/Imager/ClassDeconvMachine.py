@@ -286,9 +286,6 @@ class ClassImagerDeconv():
         #self.DicoVariablePSF = cPickle.load(file(cachepath))
         self.DicoVariablePSF = MyPickle.FileToDicoNP(cachepath)
         self.DicoVariablePSF = SharedDict.dict_to_shm("dictPSF",self.DicoVariablePSF)
-        self.FacetMachine.set_psf_dict(self.DicoVariablePSF)
-        self.FacetMachine.set_norm_dict(self.DicoVariablePSF)
-        
 
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
@@ -419,30 +416,9 @@ class ClassImagerDeconv():
             #self.DicoDirty = cPickle.load(file(dirty_cachepath))
             self.DicoDirty = MyPickle.FileToDicoNP(dirty_cachepath)
 
-            if self.DicoDirty["NormData"] is not None:
-                nch, npol, nx, ny = self.DicoDirty["ImagData"].shape
-                self.NormImage = self.DicoDirty["NormData"]
-                self.MeanNormImage = np.mean(self.NormImage, axis=0).reshape((1, npol, nx, ny))
-
-                self.FacetMachine.NormImage = self.DicoDirty["NormImage"]
-                NpShared.ToShared("%sNormImage"%self.IdSharedMem,self.DicoDirty["NormImage"])
-                self.FacetMachine.NormImageReShape = self.DicoDirty["NormImage"].reshape([1,1,
-                                                                                          self.FacetMachine.NormImage.shape[0],
-                                                                                          self.FacetMachine.NormImage.shape[1]])
-                self.FacetMachine.NormData = self.DicoDirty["NormData"] 
-                self.FacetMachine.MeanResidual = self.DicoDirty["MeanImage"]
-                self.FacetMachine.DoCalcNormData = False
-
-                #if "SmoothMeanNormImage" in self.DicoDirty.keys():
-                #    #print>>log,"A smooth beam is used for the averaged Muller "
-                #    self.SmoothMeanNormImage=self.DicoDirty["SmoothMeanNormImage"]
-                #    self.FacetMachine.SmoothMeanNormImage = self.DicoDirty["SmoothMeanNormImage"]
-                #    self.FacetMachine.DoComputeSmoothBeam = False
-
-                self.FacetMachine.ComputeSmoothBeam()
-                #self.SaveDirtyProducts()
-                DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
-                nch,npol,nx,ny = DirtyCorr.shape
+            if self.DicoDirty["JonesNorm"] is not None:
+                self.FacetMachine.setNormImages(self.DicoDirty)
+                self.FacetMachinePSF.setNormImages(self.DicoDirty)
             else:
                 self.MeanNormImage = None
             if psf:
@@ -529,7 +505,7 @@ class ClassImagerDeconv():
                 #     if 'g' in self._savecubes:
                 #         self.FacetMachine.ToCasaImage(self.DicoDirty["ImagData"],ImageName="%s.cube.dirty.%d"%(self.BaseName,iloop),
                 #             Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                #     self.FacetMachine.NormData = None
+                #     self.FacetMachine.JonesNorm = None
                 #     self.FacetMachine.NormImage = None
 
                 iloop += 1
@@ -547,11 +523,11 @@ class ClassImagerDeconv():
                         Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             if "n" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.FacetMachine.NormImageReShape,ImageName="%s.NormFacets"%self.BaseName,
+                self.FacetMachine.ToCasaImage(self.FacetMachine.FacetNormReShape,ImageName="%s.NormFacets"%self.BaseName,
                                               Fits=True)
 
-            if self.DicoDirty["NormData"] is not None:
-                DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
+            if self.DicoDirty["JonesNorm"] is not None:
+                DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["JonesNorm"])
                 nch,npol,nx,ny = DirtyCorr.shape
                 if "D" in self._saveims:
                     MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
@@ -562,17 +538,17 @@ class ClassImagerDeconv():
                                                   Fits=True,Freqs=self.VS.FreqBandCenters,
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
-                self.NormImage = self.DicoDirty["NormData"]
-                self.MeanNormImage = np.mean(self.NormImage,axis=0).reshape((1,npol,nx,ny))
+                self.JonesNorm = self.DicoDirty["JonesNorm"]
+                self.MeanJonesNorm = np.mean(self.JonesNorm,axis=0).reshape((1,npol,nx,ny))
                 if "N" in self._saveims:
-                    self.FacetMachine.ToCasaImage(self.MeanNormImage,ImageName="%s.Norm"%self.BaseName,Fits=True,
+                    self.FacetMachine.ToCasaImage(self.MeanJonesNorm,ImageName="%s.Norm"%self.BaseName,Fits=True,
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
                 if "N" in self._savecubes:
-                    self.FacetMachine.ToCasaImage(self.NormImage, ImageName="%s.cube.Norm" % self.BaseName,
+                    self.FacetMachine.ToCasaImage(self.JonesNorm, ImageName="%s.cube.Norm" % self.BaseName,
                                                   Fits=True, Freqs=self.VS.FreqBandCenters,
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             else:
-                self.MeanNormImage = None
+                self.MeanJonesNorm = None
 
             # dump dirty to cache
             if self.GD["Cache"]["Dirty"] and not sparsify:
@@ -605,11 +581,11 @@ class ClassImagerDeconv():
 
 
         if "n" in self._saveims:
-            self.FacetMachine.ToCasaImage(self.FacetMachine.NormImageReShape,ImageName="%s.NormFacets"%self.BaseName,
+            self.FacetMachine.ToCasaImage(self.FacetMachine.FacetNormReShape,ImageName="%s.NormFacets"%self.BaseName,
                                           Fits=True)
                 
-        if self.DicoDirty["NormData"] is not None:
-            DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
+        if self.DicoDirty["JonesNorm"] is not None:
+            DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["JonesNorm"])
             nch,npol,nx,ny = DirtyCorr.shape
             if "D" in self._saveims:
                 MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
@@ -620,23 +596,23 @@ class ClassImagerDeconv():
                                               Fits=True,Freqs=self.VS.FreqBandCenters,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
-            self.NormImage = self.DicoDirty["NormData"]
-            self.MeanNormImage = np.mean(self.NormImage,axis=0).reshape((1,npol,nx,ny))
+            self.JonesNorm = self.DicoDirty["JonesNorm"]
+            self.MeanJonesNorm = np.mean(self.JonesNorm,axis=0).reshape((1,npol,nx,ny))
 
-            if "H" in self._saveims and self.FacetMachine.SmoothMeanNormImage is not None:
-                self.FacetMachine.ToCasaImage(self.FacetMachine.SmoothMeanNormImage,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
+            if "H" in self._saveims and self.FacetMachine.SmoothMeanJonesNorm is not None:
+                self.FacetMachine.ToCasaImage(self.FacetMachine.SmoothMeanJonesNorm,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
 
             if "N" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.MeanNormImage,ImageName="%s.Norm"%self.BaseName,Fits=True,
+                self.FacetMachine.ToCasaImage(self.MeanJonesNorm,ImageName="%s.Norm"%self.BaseName,Fits=True,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             if "N" in self._savecubes:
-                self.FacetMachine.ToCasaImage(self.NormImage, ImageName="%s.cube.Norm" % self.BaseName,
+                self.FacetMachine.ToCasaImage(self.JonesNorm, ImageName="%s.cube.Norm" % self.BaseName,
                                               Fits=True, Freqs=self.VS.FreqBandCenters,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         else:
-            self.MeanNormImage = None
+            self.MeanJonesNorm = None
 
 
     def GivePredict(self,from_fits=True):
@@ -1223,19 +1199,19 @@ class ClassImagerDeconv():
 
         # do we have a non-trivial norm (i.e. DDE solutions or beam)?
         # @cyriltasse: maybe there's a quicker way to check?
-        havenorm = self.MeanNormImage is not None and (self.MeanNormImage != 1).any()
+        havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm != 1).any()
 
         # make a dict of _images to save the intermediate images for when we need them
         _images = {}
         def sqrtnorm():
             label = 'sqrtnorm'
             if label not in _images:
-                _images[label] = np.sqrt(self.MeanNormImage) if havenorm else 1
+                _images[label] = np.sqrt(self.MeanJonesNorm) if havenorm else 1
             return _images[label]
         def sqrtnormcube():
             label = 'sqrtnormcube'
             if label not in _images:
-                _images[label] = np.sqrt(self.NormImage) if havenorm else 1
+                _images[label] = np.sqrt(self.JonesNorm) if havenorm else 1
             return _images[label]
         def appres():
             return self.ResidImage
@@ -1370,12 +1346,12 @@ class ClassImagerDeconv():
 
         # intrinsic-flux restored image
         if havenorm and ("H" in self._saveims):
-            if self.FacetMachine.SmoothMeanNormImage is None:
+            if self.FacetMachine.SmoothMeanJonesNorm is None:
                 print>>log, ModColor.Str("You requested a restored imaged but the smooth beam is not in there")
                 print>>log, ModColor.Str("  so just not doing it")
 
             else:
-                SmoothRestored=(appres()+appconvmodel())/np.sqrt(self.FacetMachine.SmoothMeanNormImage)
+                SmoothRestored=(appres()+appconvmodel())/np.sqrt(self.FacetMachine.SmoothMeanJonesNorm)
                 self.FacetMachine.ToCasaImage(SmoothRestored,ImageName="%s.smooth.int.restored"%self.BaseName,Fits=True,
                                               beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 

@@ -120,8 +120,8 @@ class ClassFacetMachine():
         self.AverageBeamMachine=None
         self.DoComputeSmoothBeam=False
         self.SmoothMeanNormImage=None
-        self.NormData = None
-        self.NormImage = None
+        self.JonesNorm = None
+        self.FacetNorm = None
         self._facet_grids = self.DATA = None
         self._grid_job_id = self._fft_job_id = self._degrid_job_id = None
 
@@ -674,7 +674,7 @@ class ClassFacetMachine():
             self.AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
             self.AverageBeamMachine.CalcMeanBeam()
             self.SmoothMeanNormImage = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
-            #self.AverageBeamMachine.GiveMergedWithDiscrete( np.mean(self.NormData, axis=0).reshape((Npix,Npix) ))
+            #self.AverageBeamMachine.GiveMergedWithDiscrete( np.mean(self.JonesNorm, axis=0).reshape((Npix,Npix) ))
             #self.SmoothMeanNormImage = self.SmoothMeanNormImage.reshape((1,1,Npix,Npix))
             #DicoImages["SmoothMeanNormImage"] = self.SmoothMeanNormImage 
 
@@ -697,7 +697,7 @@ class ClassFacetMachine():
         Fourier transforms the individual facet grids and then
         Stitches the gridded facets and builds the following maps:
             self.stitchedResidual (initial residual is the dirty map)
-            self.NormImage (grid-correcting map, see also: BuildFacetNormImage() method)
+            self.FacetNorm (grid-correcting map, see also: BuildFacetNormImage() method)
             self.MeanResidual ("average" residual map taken over all continuum bands of the residual cube,
                                this will be the same as stitchedResidual if there is only one continuum band in the residual
                                cube)
@@ -705,7 +705,7 @@ class ClassFacetMachine():
             Note that only the stitched residuals are currently normalized and converted to stokes images for cleaning.
             This is because the coplanar facets should be jointly cleaned on a single map.
         Args:
-            NormJones: if True (and there is Jones Norm data available) also computes self.NormData (ndarray) of jones
+            NormJones: if True (and there is Jones Norm data available) also computes self.JonesNorm (ndarray) of jones
             averages.
             psf: if True (and PSF grids are available), also computes PSF terms
 
@@ -713,8 +713,8 @@ class ClassFacetMachine():
         Returns:
             Dictionary containing:
             "ImagData" = self.stitchedResidual
-            "NormImage" = self.NormImage (grid-correcting map)
-            "NormData" = self.NormData (if computed, see above)
+            "FacetNorm" = self.FacetImage (grid-correcting map)
+            "JonesNorm" = self.JonesNorm (if computed, see above)
             "MeanImage" = self.MeanResidual
             "freqs" = channel information on the bands being averaged into each of the continuum slices of the residual
             "SumWeights" = sum of visibility weights used in normalizing the gridded correlations
@@ -730,7 +730,7 @@ class ClassFacetMachine():
         DicoImages = {}
         DicoImages["freqs"] = {}
 
-        DoCalcNormData = NormJones and self.NormData is None
+        DoCalcJonesNorm = NormJones and self.JonesNorm is None
 
         # Assume all facets have the same weight sums.
         # Store the normalization weights for reference
@@ -753,14 +753,13 @@ class ClassFacetMachine():
                 self.DicoImager[iFacet]["SumJonesNorm"][Channel] = ThisSumJones
 
         # build facet-normalization image
-        if self.NormImage is None:
-            self.NormImage = self.BuildFacetNormImage()
-            self.NormImageReShape = self.NormImage.reshape([1, 1, self.NormImage.shape[0], self.NormImage.shape[1]])
+        if self.FacetNorm is None:
+            self.BuildFacetNormImage()
         self.stitchedResidual = self.FacetsToIm_Channel()
 
         # build Jones amplitude image
-        if DoCalcNormData:
-            self.NormData = self.FacetsToIm_Channel("Jones-amplitude")
+        if DoCalcJonesNorm:
+            self.JonesNorm = self.FacetsToIm_Channel("Jones-amplitude")
 
         # compute normalized per-band weights (WBAND)
         if self.VS.MultiFreqMode:
@@ -901,7 +900,7 @@ class ClassFacetMachine():
             else:
                 self.DicoPSF["MeanImage"] = self.DicoPSF["ImagData"]
 
-            self.DicoPSF["NormImage"] = self.NormImage
+            self.DicoPSF["FacetNorm"] = self.FacetNorm
 
             self._psf_dict = self.DicoPSF = SharedDict.dict_to_shm("dictPSF",self.DicoPSF)
 
@@ -920,10 +919,36 @@ class ClassFacetMachine():
                 ### which the .copy() operation here defeats, so I remove it
                 self.MeanResidual = self.stitchedResidual  #.copy()
             DicoImages["ImagData"] = self.stitchedResidual
-            DicoImages["NormImage"] = self.NormImage  # grid-correcting map
-            DicoImages["NormData"] = self.NormData
+            DicoImages["FacetNorm"] = self.FacetNorm  # grid-correcting map
+            DicoImages["JonesNorm"] = self.JonesNorm
             DicoImages["MeanImage"] = self.MeanResidual
             return DicoImages
+
+    def setNormImages(self,DicoImages):
+
+        self._norm_dict=SharedDict.SharedDict("normDict")
+        if len(self._norm_dict)==0:
+            JonesNorm = DicoImages["JonesNorm"]
+            nch, npol, nx, ny = DicoImages["ImagData"].shape
+            MeanJonesNorm = np.mean(JonesNorm, axis=0).reshape((1, npol, nx, ny))
+            self._norm_dict["JonesNorm"] = JonesNorm
+            self._norm_dict["MeanJonesNorm"] = MeanJonesNorm
+            self.JonesNorm=self._norm_dict["JonesNorm"]
+            self.MeanJonesNorm=self._norm_dict["MeanJonesNorm"]
+            
+            FacetNorm = DicoImages["FacetNorm"]
+            FacetNormReShape = DicoImages["FacetNorm"].reshape([1,1,
+                                                                FacetNorm.shape[0],
+                                                                FacetNorm.shape[1]])
+            # put arrays into shared
+            self._norm_dict["FacetNorm"]=FacetNorm
+            self._norm_dict["FacetNormReShape"]=FacetNormReShape
+            self.FacetNorm=self._norm_dict["FacetNorm"]
+            self.FacetNormReShape=self._norm_dict["FacetNormReShape"]
+            
+            self.DoCalcJonesNorm = False
+        self.ComputeSmoothBeam()
+
 
     def BuildFacetNormImage(self):
         """
@@ -940,7 +965,7 @@ class ClassFacetMachine():
             _, _, NPixOut, NPixOut = self.OutImShape
             # in PSF mode, make the norm image in memory. In normal mode, make it in the shared dict,
             # since the degridding workers require it
-            NormImage = np.zeros((NPixOut, NPixOut), dtype=self.stitchedType)
+            FacetNorm = np.zeros((NPixOut, NPixOut), dtype=self.stitchedType)
             for iFacet in self.DicoImager.keys():
                 xc, yc = self.DicoImager[iFacet]["pixCentral"]
                 NpixFacet = self.DicoImager[iFacet]["NpixFacetPadded"]
@@ -952,15 +977,14 @@ class ClassFacetMachine():
                 
                 SpacialWeigth = self._CF[iFacet]["SW"].T[::-1, :]
                 SW = SpacialWeigth[::-1, :].T[x0p:x1p, y0p:y1p]
-                NormImage[x0d:x1d, y0d:y1d] += np.real(SW)
+                FacetNorm[x0d:x1d, y0d:y1d] += np.real(SW)
 
-            self._norm_dict["NormImage"] = NormImage
-            self.NormImage=self._norm_dict["NormImage"]
-        self.NormImageReShape = self.NormImage.reshape([1,1,
-                                                        self.NormImage.shape[0],
-                                                        self.NormImage.shape[1]])
-
-        return NormImage
+            self._norm_dict["FacetNorm"]=FacetNorm
+            self._norm_dict["FacetNormReShape"]=FacetNorm.reshape([1,1,
+                                                                   FacetNorm.shape[0],
+                                                                   FacetNorm.shape[1]])
+            self.FacetNorm=self._norm_dict["FacetNorm"]
+            self.FacetNormReShape=self._norm_dict["FacetNormReShape"]
 
     def FacetsToIm_Channel(self, kind="Dirty"):
         """
@@ -1030,7 +1054,7 @@ class ClassFacetMachine():
 
         for Channel in xrange(self.VS.NFreqBands):
             for pol in xrange(npol):
-                Image[Channel, pol] /= self.NormImage
+                Image[Channel, pol] /= self.FacetNorm
 
         return Image
 
@@ -1307,7 +1331,7 @@ class ClassFacetMachine():
         self._model_dict = SharedDict.attach(modeldict_path)
         # extract facet model from model image
         ModelGrid, _ = self._Im2Grid.GiveModelTessel(self._model_dict["Image"],
-                                                     self.DicoImager, iFacet, self._norm_dict["NormImage"],
+                                                     self.DicoImager, iFacet, self._norm_dict["FacetNorm"],
                                                      cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel)
         if ToSHMDict:
             self._model_dict["FacetGrid_%4.4i"%iFacet]=ModelGrid

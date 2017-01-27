@@ -461,7 +461,7 @@ class ClassImageDeconvMachine():
                     else:
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
                     nchan, npol, _, _ = Fpol.shape
-                    JonesNorm = (self.DicoDirty["NormData"][:, :, x, y]).reshape((nchan, npol, 1, 1))
+                    JonesNorm = (self.DicoDirty["JonesNorm"][:, :, x, y]).reshape((nchan, npol, 1, 1))
                     # dx=x-xc
                     # dy=y-xc
                     T.timeit("stuff")

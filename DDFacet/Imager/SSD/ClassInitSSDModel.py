@@ -231,7 +231,7 @@ class ClassInitSSDModel():
         self.ArrayPixParms=ArrayPixParms
         self.DicoSubDirty={}
         for key in self.DicoDirty.keys():
-            if key in ['ImagData', "MeanImage",'NormImage',"NormData"]:
+            if key in ['ImagData', "MeanImage",'FacetNorm',"JonesNorm"]:
                 self.DicoSubDirty[key]=self.DicoDirty[key][...,x0d:x1d,y0d:y1d].copy()
             else:
                 self.DicoSubDirty[key]=self.DicoDirty[key]
