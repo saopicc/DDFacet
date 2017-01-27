@@ -105,6 +105,7 @@ class ClassImagerDeconv():
         self.PSFGaussParsAvg = None
         self.PSFSidelobesAvg = None
         self.HasFittedPSFBeam=False
+        self._psf_fit_error = False
 
 
         self.VisWeights=None
@@ -337,6 +338,8 @@ class ClassImagerDeconv():
                                               ImageName="%s%s.cube.psf" % (self.BaseName, cycle_label),
                                               Fits=True, beam=self.FWHMBeamAvg, Freqs=self.VS.FreqBandCenters,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+        if self._psf_fit_error:
+            raise RuntimeError("there was an error fitting the PSF. Something is really wrong with the data?")
 
     def MakePSF(self, sparsify=0):
         """
@@ -1078,46 +1081,56 @@ class ClassImagerDeconv():
                 self.PSFGaussPars: The maj (rad), min (rad), theta (rad) parameters for the fit of the gaussian
                 self.PSFSidelobes: Position of the highest sidelobes (px)
         """
-        # If set, use the parameter RestoringBeam to fix the clean beam parameters
-        forced_beam=self.GD["Output"]["RestoringBeam"]
-        if forced_beam is not None:
-            FWHMFact = 2. * np.sqrt(2. * np.log(2.))
+        if self.HasFittedPSFBeam:
+            return
 
-            if isinstance(forced_beam,float):
-                forced_beam=[forced_beam,forced_beam,0]
-            elif len(forced_beam)==1:
-                forced_beam=[forced_beam[0],forced_beam[0],0]
-            f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
-            f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
-        PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
-
-        off=self.GD["Image"]["SidelobeSearchWindow"] // 2
-        beam, gausspars, sidelobes = self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
-        if forced_beam is not None:
-            print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
-            beam, gausspars = f_beam, f_gau
-        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = beam, gausspars, sidelobes
-
-        # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
-        if self.VS.MultiFreqMode:
-            self.FWHMBeam = []
-            self.PSFGaussPars = []
-            self.PSFSidelobes = []
-            for band in range(self.VS.NFreqBands):
-                beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],off,"band %d"%band)
-                if forced_beam is not None:
-                    beam = f_beam
-                    gausspars = f_gau
-                    
-                self.FWHMBeam.append(beam)
-                self.PSFGaussPars.append(gausspars)
-                self.PSFSidelobes.append(sidelobes)
-        else:
-            self.FWHMBeam = [self.FWHMBeamAvg]
-            self.PSFGaussPars = [self.PSFGaussParsAvg]
-            self.PSFSidelobes = [self.PSFSidelobesAvg]
         self.HasFittedPSFBeam=True
-        
+        self._psf_fit_error = False
+
+        try:
+            # If set, use the parameter RestoringBeam to fix the clean beam parameters
+            forced_beam=self.GD["Output"]["RestoringBeam"]
+            if forced_beam is not None:
+                FWHMFact = 2. * np.sqrt(2. * np.log(2.))
+
+                if isinstance(forced_beam,float):
+                    forced_beam=[forced_beam,forced_beam,0]
+                elif len(forced_beam)==1:
+                    forced_beam=[forced_beam[0],forced_beam[0],0]
+                f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
+                f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
+            PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachine.iCentralFacet]
+
+            off=self.GD["Image"]["SidelobeSearchWindow"] // 2
+            beam, gausspars, sidelobes = self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
+            if forced_beam is not None:
+                print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
+                beam, gausspars = f_beam, f_gau
+            self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = beam, gausspars, sidelobes
+            # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
+            if self.VS.MultiFreqMode:
+                self.FWHMBeam = []
+                self.PSFGaussPars = []
+                self.PSFSidelobes = []
+                for band in range(self.VS.NFreqBands):
+                    beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],off,"band %d"%band)
+                    if forced_beam is not None:
+                        beam = f_beam
+                        gausspars = f_gau
+
+                    self.FWHMBeam.append(beam)
+                    self.PSFGaussPars.append(gausspars)
+                    self.PSFSidelobes.append(sidelobes)
+            else:
+                self.FWHMBeam = [self.FWHMBeamAvg]
+                self.PSFGaussPars = [self.PSFGaussParsAvg]
+                self.PSFSidelobes = [self.PSFSidelobesAvg]
+        except:
+            print>>log,"Error fitting the PSF: %s"%traceback.format_exc()
+            self.FWHMBeamAvg = 0,0,0
+            self._psf_fit_error = True
+
+
         
         ## LB - Remove his chunk ?
         #theta=np.pi/2-theta
