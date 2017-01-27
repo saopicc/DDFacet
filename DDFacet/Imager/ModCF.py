@@ -323,8 +323,8 @@ class ClassWTermModified():
             self.InitSphe()
             self.InitW()
             dS = np.float32
-            cf_dict["Sphe"] = dS(self.ifzfCF)
-            cf_dict["InvSphe"] = dS(1./np.float64(self.ifzfCF))
+            cf_dict["Sphe"] = dS(self.ifzfCF.real)
+            cf_dict["InvSphe"] = dS(1./np.float64(self.ifzfCF.real))
             cf_dict["CuCv"] = np.array([self.Cu, self.Cv])
             NpShared.PackListSquareMatrix(cf_dict, "W", self.Wplanes + self.WplanesConj)
         else:
