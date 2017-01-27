@@ -416,6 +416,8 @@ class ClassImageDeconvMachine():
             RMS=np.std(self._MeanDirty)
         self.RMS=RMS
 
+
+
     def Deconvolve(self, ch=0,UpdateRMS=True):
         """
         Runs minor cycle over image channel 'ch'.
@@ -530,7 +532,6 @@ class ClassImageDeconvMachine():
         # pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=20,TitleSize=30)
         # pBAR.disable()
 
-        NPixStats = self.GD["Deconv"]["NumRMSSamples"]
         self.GainMachine.SetFluxMax(ThisFlux)
         # pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
 
@@ -589,7 +590,7 @@ class ClassImageDeconvMachine():
                 # min(int(10**math.floor(math.log10(i))), 10000)
                 if i >= 10 and i % rounded_iter_step == 0:
                     # if self.GD["Debug"]["PrintMinorCycleRMS"]:
-                    rms = self._CubeDirty.std()
+                    rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
                     print>>log, "    [iter=%i] peak residual %.3g, rms %g, PNR %.3g" % (i, ThisFlux, rms, ThisFlux/rms)
                     # else:
                     #     print >>log, "    [iter=%i] peak residual %.3g" % (
@@ -683,7 +684,7 @@ class ClassImageDeconvMachine():
 
                 T.timeit("End")
         except KeyboardInterrupt:
-            rms = self._CubeDirty.std()
+            rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
             print>>log, ModColor.Str(
                 "    [iter=%i] minor cycle interrupted with Ctrl+C, peak flux %.3g, PNR %.3g" %
                 (self._niter, ThisFlux, ThisFlux/rms))
@@ -692,7 +693,7 @@ class ClassImageDeconvMachine():
             #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
             return "MaxIter", False, True   # stop deconvolution but do update model
 
-        rms = self._CubeDirty.std()
+        rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
         print>>log, ModColor.Str(
             "    [iter=%i] Reached maximum number of iterations, peak flux %.3g, PNR %.3g" %
             (self._niter, ThisFlux, ThisFlux/rms))
