@@ -851,7 +851,6 @@ class ClassFacetMachine():
             self.DicoPSF["CentralFacet"] = self.iCentralFacet
             self.DicoPSF["CubeVariablePSF"] = CubeVariablePSF
             self.DicoPSF["CubeMeanVariablePSF"] = CubeMeanVariablePSF
-            self.DicoPSF["MeanFacetPSF"] = np.mean(CubeMeanVariablePSF, axis=0).reshape((1, npol, NPixMin, NPixMin))
             self.DicoPSF["MeanJonesBand"] = []
 
             print>>log,"  Building Facets-PSF normalised by their maximum"

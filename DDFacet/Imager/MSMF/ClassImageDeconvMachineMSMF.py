@@ -409,8 +409,9 @@ class ClassImageDeconvMachine():
         _,npol,npix,_ = self._MeanDirty.shape
         NPixStats = self.GD["Deconv"]["NumRMSSamples"]
         if NPixStats:
-            RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
-            RMS=np.std(np.real(self._MeanDirty.ravel()[RandomInd]))
+            #self.IndStats=np.int64(np.random.rand(NPixStats)*npix**2)
+            self.IndStats=np.int64(np.linspace(0,self._CubeDirty.size-1,NPixStats))
+            RMS=np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
         else:
             RMS=np.std(self._MeanDirty)
         self.RMS=RMS
@@ -529,6 +530,7 @@ class ClassImageDeconvMachine():
         # pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning   ", HeaderSize=20,TitleSize=30)
         # pBAR.disable()
 
+        NPixStats = self.GD["Deconv"]["NumRMSSamples"]
         self.GainMachine.SetFluxMax(ThisFlux)
         # pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
 
@@ -556,8 +558,9 @@ class ClassImageDeconvMachine():
 
                 T.timeit("max0")
 
+
                 if ThisFlux <= StopFlux:
-                    rms = self._CubeDirty.std()
+                    rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
                     # pBAR.render(100,"peak %.3g"%(ThisFlux,))
                     print>>log, ModColor.Str(
                         "    [iter=%i] peak of %.3g Jy lower than stopping flux, PNR %.3g" %
