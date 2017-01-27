@@ -256,7 +256,7 @@ class ClassImageDeconvMachine():
 
         FreqsModel=np.array([np.mean(self.DicoVariablePSF["freqs"][iBand]) for iBand in range(len(self.DicoVariablePSF["freqs"]))])
         ModelImage=self.ModelMachine.GiveModelImage(FreqsModel)
-        ModelImage*=np.sqrt(self.DicoDirty["NormData"])
+        ModelImage*=np.sqrt(self.DicoDirty["JonesNorm"])
         # ######################
         # SERIAL
         # InitMachine=ClassInitSSDModel.ClassInitSSDModel(self.GD,
@@ -479,7 +479,7 @@ class ClassImageDeconvMachine():
             xm,ym=np.mean(np.float32(XY),axis=0).astype(int)
             T.timeit("xm,ym")
             nchan,npol,_,_=self._Dirty.shape
-            JonesNorm=(self.DicoDirty["NormData"][:,:,xm,ym]).reshape((nchan,npol,1,1))
+            JonesNorm=(self.DicoDirty["JonesNorm"][:,:,xm,ym]).reshape((nchan,npol,1,1))
             W=self.DicoDirty["WeightChansImages"]
             JonesNorm=np.sum(JonesNorm*W.reshape((nchan,1,1,1)),axis=0).reshape((1,npol,1,1))
             T.timeit("JonesNorm")

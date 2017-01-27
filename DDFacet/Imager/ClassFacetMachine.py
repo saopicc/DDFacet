@@ -48,7 +48,7 @@ from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 #from DDFacet.Array import NpParallel
 log=MyLogger.getLogger("ClassFacetMachine")
 from DDFacet.Other.AsyncProcessPool import APP
-
+import numexpr
 MyLogger.setSilent("MyLogger")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 import DDFacet.Data.ClassBeamMean as ClassBeamMean
@@ -120,8 +120,8 @@ class ClassFacetMachine():
         self.AverageBeamMachine=None
         self.DoComputeSmoothBeam=False
         self.SmoothMeanNormImage=None
-        self.NormData = None
-        self.NormImage = None
+        self.JonesNorm = None
+        self.FacetNorm = None
         self._facet_grids = self.DATA = None
         self._grid_job_id = self._fft_job_id = self._degrid_job_id = None
 
@@ -132,8 +132,10 @@ class ClassFacetMachine():
             _pyGridderSmearPols.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
             atexit.register(ClassFacetMachine._delete_degridding_semaphores)
 
-        # this is used to store NormImage and model images in shared memory, for the degridder
+        # this is used to store model images in shared memory, for the degridder
         self._model_dict = None
+        # this is used to store NormImage in shared memory, for the degridder
+        self._norm_dict = None
 
     # static attribute initialized below, once
     _degridding_semaphores = None
@@ -573,6 +575,7 @@ class ClassFacetMachine():
         if self._CF is None or self._CF.path != cfdict_path:
             self._CF = SharedDict.attach(cfdict_path, load=False)
         facet_dict = self._CF.addSubdict(iFacet)
+        T=ClassTimeIt.ClassTimeIt("_initcf_worker")
         # try to load the cache, and copy it to the shared facet dict
         if cachevalid:
             try:
@@ -582,9 +585,11 @@ class ClassFacetMachine():
                 # validate dict
                 ClassDDEGridMachine.ClassDDEGridMachine.verifyCFDict(facet_dict, self.GD["CF"]["Nw"])
                 return "cached"
+
             except:
                 print>>log,traceback.format_exc()
                 print>>log, "Error loading %s, will re-generate"%path
+            
         # ok, regenerate the terms at this point
         FacetInfo = self.DicoImager[iFacet]
         # Create smoothned facet tessel mask:
@@ -673,7 +678,7 @@ class ClassFacetMachine():
             self.AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
             self.AverageBeamMachine.CalcMeanBeam()
             self.SmoothMeanNormImage = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
-            #self.AverageBeamMachine.GiveMergedWithDiscrete( np.mean(self.NormData, axis=0).reshape((Npix,Npix) ))
+            #self.AverageBeamMachine.GiveMergedWithDiscrete( np.mean(self.JonesNorm, axis=0).reshape((Npix,Npix) ))
             #self.SmoothMeanNormImage = self.SmoothMeanNormImage.reshape((1,1,Npix,Npix))
             #DicoImages["SmoothMeanNormImage"] = self.SmoothMeanNormImage 
 
@@ -683,6 +688,8 @@ class ClassFacetMachine():
             raise RuntimeError("Can't call getChunk on a PSF mode FacetMachine. This is a bug!")
         self._model_dict = SharedDict.create("Model")
         self._model_dict["Image"] = ModelImage
+        for iFacet in range(self.NFacets):
+            self._model_dict.addSubdict(iFacet)
         return self._model_dict["Image"]
 
     def releaseModelImage(self):
@@ -696,7 +703,7 @@ class ClassFacetMachine():
         Fourier transforms the individual facet grids and then
         Stitches the gridded facets and builds the following maps:
             self.stitchedResidual (initial residual is the dirty map)
-            self.NormImage (grid-correcting map, see also: BuildFacetNormImage() method)
+            self.FacetNorm (grid-correcting map, see also: BuildFacetNormImage() method)
             self.MeanResidual ("average" residual map taken over all continuum bands of the residual cube,
                                this will be the same as stitchedResidual if there is only one continuum band in the residual
                                cube)
@@ -704,7 +711,7 @@ class ClassFacetMachine():
             Note that only the stitched residuals are currently normalized and converted to stokes images for cleaning.
             This is because the coplanar facets should be jointly cleaned on a single map.
         Args:
-            NormJones: if True (and there is Jones Norm data available) also computes self.NormData (ndarray) of jones
+            NormJones: if True (and there is Jones Norm data available) also computes self.JonesNorm (ndarray) of jones
             averages.
             psf: if True (and PSF grids are available), also computes PSF terms
 
@@ -712,8 +719,8 @@ class ClassFacetMachine():
         Returns:
             Dictionary containing:
             "ImagData" = self.stitchedResidual
-            "NormImage" = self.NormImage (grid-correcting map)
-            "NormData" = self.NormData (if computed, see above)
+            "FacetNorm" = self.FacetImage (grid-correcting map)
+            "JonesNorm" = self.JonesNorm (if computed, see above)
             "MeanImage" = self.MeanResidual
             "freqs" = channel information on the bands being averaged into each of the continuum slices of the residual
             "SumWeights" = sum of visibility weights used in normalizing the gridded correlations
@@ -729,7 +736,7 @@ class ClassFacetMachine():
         DicoImages = {}
         DicoImages["freqs"] = {}
 
-        DoCalcNormData = NormJones and self.NormData is None
+        DoCalcJonesNorm = NormJones and self.JonesNorm is None
 
         # Assume all facets have the same weight sums.
         # Store the normalization weights for reference
@@ -752,15 +759,13 @@ class ClassFacetMachine():
                 self.DicoImager[iFacet]["SumJonesNorm"][Channel] = ThisSumJones
 
         # build facet-normalization image
-        if self.NormImage is None:
-            self.NormImage = self.BuildFacetNormImage()
-            self.NormImageReShape = self.NormImage.reshape([1, 1, self.NormImage.shape[0], self.NormImage.shape[1]])
-
+        if self.FacetNorm is None:
+            self.BuildFacetNormImage()
         self.stitchedResidual = self.FacetsToIm_Channel()
 
         # build Jones amplitude image
-        if DoCalcNormData:
-            self.NormData = self.FacetsToIm_Channel("Jones-amplitude")
+        if DoCalcJonesNorm:
+            self.JonesNorm = self.FacetsToIm_Channel("Jones-amplitude")
 
         # compute normalized per-band weights (WBAND)
         if self.VS.MultiFreqMode:
@@ -846,7 +851,6 @@ class ClassFacetMachine():
             self.DicoPSF["CentralFacet"] = self.iCentralFacet
             self.DicoPSF["CubeVariablePSF"] = CubeVariablePSF
             self.DicoPSF["CubeMeanVariablePSF"] = CubeMeanVariablePSF
-            self.DicoPSF["MeanFacetPSF"] = np.mean(CubeMeanVariablePSF, axis=0).reshape((1, npol, NPixMin, NPixMin))
             self.DicoPSF["MeanJonesBand"] = []
 
             print>>log,"  Building Facets-PSF normalised by their maximum"
@@ -901,7 +905,8 @@ class ClassFacetMachine():
             else:
                 self.DicoPSF["MeanImage"] = self.DicoPSF["ImagData"]
 
-            self.DicoPSF["NormImage"] = self.NormImage
+            self.DicoPSF["FacetNorm"] = self.FacetNorm
+
             self._psf_dict = self.DicoPSF = SharedDict.dict_to_shm("dictPSF",self.DicoPSF)
 
             return self.DicoPSF
@@ -919,10 +924,36 @@ class ClassFacetMachine():
                 ### which the .copy() operation here defeats, so I remove it
                 self.MeanResidual = self.stitchedResidual  #.copy()
             DicoImages["ImagData"] = self.stitchedResidual
-            DicoImages["NormImage"] = self.NormImage  # grid-correcting map
-            DicoImages["NormData"] = self.NormData
+            DicoImages["FacetNorm"] = self.FacetNorm  # grid-correcting map
+            DicoImages["JonesNorm"] = self.JonesNorm
             DicoImages["MeanImage"] = self.MeanResidual
             return DicoImages
+
+    def setNormImages(self,DicoImages):
+
+        self._norm_dict=SharedDict.SharedDict("normDict")
+        if len(self._norm_dict)==0:
+            JonesNorm = DicoImages["JonesNorm"]
+            nch, npol, nx, ny = DicoImages["ImagData"].shape
+            MeanJonesNorm = np.mean(JonesNorm, axis=0).reshape((1, npol, nx, ny))
+            self._norm_dict["JonesNorm"] = JonesNorm
+            self._norm_dict["MeanJonesNorm"] = MeanJonesNorm
+            self.JonesNorm=self._norm_dict["JonesNorm"]
+            self.MeanJonesNorm=self._norm_dict["MeanJonesNorm"]
+            
+            FacetNorm = DicoImages["FacetNorm"]
+            FacetNormReShape = DicoImages["FacetNorm"].reshape([1,1,
+                                                                FacetNorm.shape[0],
+                                                                FacetNorm.shape[1]])
+            # put arrays into shared
+            self._norm_dict["FacetNorm"]=FacetNorm
+            self._norm_dict["FacetNormReShape"]=FacetNormReShape
+            self.FacetNorm=self._norm_dict["FacetNorm"]
+            self.FacetNormReShape=self._norm_dict["FacetNormReShape"]
+            
+            self.DoCalcJonesNorm = False
+        self.ComputeSmoothBeam()
+
 
     def BuildFacetNormImage(self):
         """
@@ -932,31 +963,33 @@ class ClassFacetMachine():
         Returns
             ndarray with norm image
         """
-        print>>log, "  Building Facet-normalisation image"
-        nch, npol = self.nch, self.npol
-        _, _, NPixOut, NPixOut = self.OutImShape
-        # in PSF mode, make the norm image in memory. In normal mode, make it in the shared dict,
-        # since the degridding workers require it
-        NormImage = np.zeros((NPixOut, NPixOut), dtype=self.stitchedType)
-        for iFacet in self.DicoImager.keys():
-            xc, yc = self.DicoImager[iFacet]["pixCentral"]
-            NpixFacet = self.DicoImager[iFacet]["NpixFacetPadded"]
+        self._norm_dict=SharedDict.SharedDict("normDict")
+        if len(self._norm_dict)==0:
+            print>>log, "  Building Facet-normalisation image"
+            nch, npol = self.nch, self.npol
+            _, _, NPixOut, NPixOut = self.OutImShape
+            # in PSF mode, make the norm image in memory. In normal mode, make it in the shared dict,
+            # since the degridding workers require it
+            FacetNorm = np.zeros((NPixOut, NPixOut), dtype=self.stitchedType)
+            for iFacet in self.DicoImager.keys():
+                xc, yc = self.DicoImager[iFacet]["pixCentral"]
+                NpixFacet = self.DicoImager[iFacet]["NpixFacetPadded"]
+                
+                Aedge, Bedge = GiveEdges((xc, yc), NPixOut,
+                                         (NpixFacet/2, NpixFacet/2), NpixFacet)
+                x0d, x1d, y0d, y1d = Aedge
+                x0p, x1p, y0p, y1p = Bedge
+                
+                SpacialWeigth = self._CF[iFacet]["SW"].T[::-1, :]
+                SW = SpacialWeigth[::-1, :].T[x0p:x1p, y0p:y1p]
+                FacetNorm[x0d:x1d, y0d:y1d] += np.real(SW)
 
-            Aedge, Bedge = GiveEdges((xc, yc), NPixOut,
-                                     (NpixFacet/2, NpixFacet/2), NpixFacet)
-            x0d, x1d, y0d, y1d = Aedge
-            x0p, x1p, y0p, y1p = Bedge
-
-            SpacialWeigth = self._CF[iFacet]["SW"].T[::-1, :]
-            SW = SpacialWeigth[::-1, :].T[x0p:x1p, y0p:y1p]
-            NormImage[x0d:x1d, y0d:y1d] += np.real(SW)
-
-        self.NormImage = NormImage
-        #self.NormImage = NpShared.ToShared("%sNormImage"%self.IdSharedMem,self.NormImage)
-        self.NormImageReShape = self.NormImage.reshape([1,1,
-                                                        self.NormImage.shape[0],
-                                                        self.NormImage.shape[1]])
-        return NormImage
+            self._norm_dict["FacetNorm"]=FacetNorm
+            self._norm_dict["FacetNormReShape"]=FacetNorm.reshape([1,1,
+                                                                   FacetNorm.shape[0],
+                                                                   FacetNorm.shape[1]])
+            self.FacetNorm=self._norm_dict["FacetNorm"]
+            self.FacetNormReShape=self._norm_dict["FacetNormReShape"]
 
     def FacetsToIm_Channel(self, kind="Dirty"):
         """
@@ -989,6 +1022,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
 
             SPhe = self._CF[iFacet]["Sphe"]
+            InvSPhe = self._CF[iFacet]["InvSphe"]
             SpacialWeigth = self._CF[iFacet]["SW"].T[::-1, :]
 
             xc, yc = self.DicoImager[iFacet]["pixCentral"]
@@ -1015,18 +1049,23 @@ class ClassFacetMachine():
                             raise RuntimeError,"unknown kind=%s argument -- this is a silly bug"%kind
                         # normalize by facet weight
                         sumweight = ThisSumWeights[pol]
-                        Im /= SPhe.real
+                        #Im /= SPhe
+                        numexpr.evaluate('Im*InvSPhe',out=Im,casting="unsafe")
                         Im[SPhe < 1e-3] = 0
                         Im = (Im[::-1, :].T / sumweight)
                         Im /= np.sqrt(ThisSumJones)
                         Im *= SpacialWeigth[::-1, :].T
                         Im = Im[x0facet:x1facet, y0facet:y1facet]
-                    Image[Channel, pol, x0main:x1main, y0main:y1main] += Im.real
+                    a,b=Image[Channel, pol, x0main:x1main, y0main:y1main], Im.real
+                    numexpr.evaluate('a+b',out=a,casting="unsafe")
+                    #Image[Channel, pol, x0main:x1main, y0main:y1main] += Im.real
+
+
             pBAR.render(int((iFacet+1)*100/float(NFacets)), '%4i/%i' % (iFacet+1, NFacets))
 
         for Channel in xrange(self.VS.NFreqBands):
             for pol in xrange(npol):
-                Image[Channel, pol] /= self.NormImage
+                Image[Channel, pol] /= self.FacetNorm
 
         return Image
 
@@ -1293,32 +1332,50 @@ class ClassFacetMachine():
         APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
         self._fft_job_id = None
 
+    def _set_model_grid_worker(self, iFacet, modeldict_path, cfdict_path, ChanSel, ToSHMDict=False,ToGrid=False):
+        # reload shared dicts
+        cf_dict = self._reload_worker_dicts(iFacet, None, cfdict_path, None)
+        # We get the psf dict directly from the shared dict name (not from the .path of a SharedDict)
+        # because this facet machine is not necessarilly the one where we have computed the PSF
+        self._norm_dict = SharedDict.attach("normDict")
+        # reload model image dict
+        self._model_dict = SharedDict.attach(modeldict_path)
+        # extract facet model from model image
+        ModelGrid, SumFlux = self._Im2Grid.GiveModelTessel(self._model_dict["Image"],
+                                                           self.DicoImager, iFacet, self._norm_dict["FacetNorm"],
+                                                           cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel,ToGrid=ToGrid)
+
+        self._model_dict[iFacet]["SumFlux"]=SumFlux
+        if ToSHMDict:
+            self._model_dict[iFacet]["FacetGrid"]=ModelGrid
+        return ModelGrid
+
+    def set_model_grid (self):
+        self.awaitInitCompletion()
+        modeldict_path=self._model_dict.path
+        cfdict_path=self._CF.path
+        self._model_dict = SharedDict.attach(modeldict_path)
+        nch,_,_,_=self._model_dict["Image"].shape
+        ChanSel=range(nch)
+        ToSHMDict=True
+        ToGrid=True
+        self._set_model_grid_job_id = "%s.MakeGridModel:" % (self._app_id)
+        for iFacet in self.DicoImager.keys():
+            APP.runJob("%sF%d" % (self._set_model_grid_job_id, iFacet), 
+                       self._set_model_grid_worker,
+                       args=(iFacet, modeldict_path, cfdict_path, ChanSel,ToSHMDict,ToGrid))
+
+        APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="MakeGrids")
+
+
+
     # DeGrid worker that is called by Multiprocessing.Process
-    def _degrid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path, modeldict_path, ChanSel):
-        """
-        Args:
-            iFacet:         facet number
-            datadict_path:  path to DATA shared dict
-            cfdict_path:    path to CF shared dict
-            griddict_path:  path to Grids shared dict
-            modeldict_path: path to Model shared dict
-            model_id:       id of model object (used to determine when to reload the Model dict)
-            ChanSel:        channel selection
-            predict:        if True, DATA["predict"] will be populated with degridded visibilities
-            subtract:       if True, DATA["data"] will have degridded visibilities subtracted in place
-        """
+    def _degrid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path, ChanSel, modeldict_path):
         # reload shared dicts
         cf_dict = self._reload_worker_dicts(iFacet, datadict_path, cfdict_path, griddict_path)
 
-        model_dict = SharedDict.attach(modeldict_path)
 
-        # We get the psf dict directly from the shared dict name (not from the .path of a SharedDict)
-        # because this facet machine is not necessarilly the one where we have computed the PSF
-        self._psf_dict  = SharedDict.attach("dictPSF")
-        # extract facet model from model image
-        ModelGrid, _ = self._Im2Grid.GiveModelTessel(model_dict["Image"],
-                                                     self.DicoImager, iFacet, self._psf_dict["NormImage"],
-                                                     cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel)
+        ModelGrid=self._set_model_grid_worker(iFacet, modeldict_path, cfdict_path, ChanSel)
 
         # Create a new GridMachine
         GridMachine = self._createGridMachine(iFacet, cf_dict=cf_dict,
@@ -1398,7 +1455,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path,
-                                  self._model_dict.path, ChanSel))
+                                  ChanSel, self._model_dict.path))
 
 
     def collectDegriddingResults(self):

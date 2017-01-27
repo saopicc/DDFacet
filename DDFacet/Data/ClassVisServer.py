@@ -417,7 +417,7 @@ class ClassVisServer():
             np.copyto(self.DATA["data"], self._saved_data)
         else:
             # await completion of data loading jobs (which, presumably, includes smear mapping)
-            APP.awaitJobResults(self._next_chunk_name, progress="Reading %s"%self._next_chunk_label )
+            APP.awaitJobResults(self._next_chunk_name, TimeTitle="Reading %s"%self._next_chunk_label )
             # reload the data dict -- background thread will now have populated it
             self.DATA = SharedDict.attach(self._next_chunk_name)
             self.DATA["label"] = self._next_chunk_label
@@ -544,7 +544,8 @@ class ClassVisServer():
     def computeBDAInBackground(self, base_job_id, ms, DATA, ChanMappingGridding=None, ChanMappingDeGridding=None):
         if True: # always True for now, non-BDA gridder is not maintained # if self.GD["Comp"]["CompGridMode"]:
             self._bda_grid_cachename, valid = self.cache.checkCache("BDA.Grid",
-                                                       dict(Compression=self.GD["Comp"],
+                                                       dict(Data=self.GD["Data"],
+                                                            Compression=self.GD["Comp"],
                                                             Freq=self.GD["Freq"],
                                                             DataSelection=self.GD["Selection"],
                                                             Sorting=self.GD["Data"]["Sort"]))
@@ -563,7 +564,8 @@ class ClassVisServer():
 
         if True: # always True for now, non-BDA gridder is not maintained # if self.GD["Comp"]["CompDeGridMode"]:
             self._bda_degrid_cachename, valid = self.cache.checkCache("BDA.Degrid",
-                                                       dict(Compression=self.GD["Comp"],
+                                                       dict(Data=self.GD["Data"],
+                                                            Compression=self.GD["Comp"],
                                                             Freq=self.GD["Freq"],
                                                             DataSelection=self.GD["Selection"],
                                                             Sorting=self.GD["Data"]["Sort"]))

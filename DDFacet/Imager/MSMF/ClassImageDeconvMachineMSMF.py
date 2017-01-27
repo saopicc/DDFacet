@@ -409,11 +409,14 @@ class ClassImageDeconvMachine():
         _,npol,npix,_ = self._MeanDirty.shape
         NPixStats = self.GD["Deconv"]["NumRMSSamples"]
         if NPixStats:
-            RandomInd=np.int64(np.random.rand(NPixStats)*npix**2)
-            RMS=np.std(np.real(self._MeanDirty.ravel()[RandomInd]))
+            #self.IndStats=np.int64(np.random.rand(NPixStats)*npix**2)
+            self.IndStats=np.int64(np.linspace(0,self._CubeDirty.size-1,NPixStats))
+            RMS=np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
         else:
             RMS=np.std(self._MeanDirty)
         self.RMS=RMS
+
+
 
     def Deconvolve(self, ch=0,UpdateRMS=True):
         """
@@ -556,8 +559,9 @@ class ClassImageDeconvMachine():
 
                 T.timeit("max0")
 
+
                 if ThisFlux <= StopFlux:
-                    rms = self._CubeDirty.std()
+                    rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
                     # pBAR.render(100,"peak %.3g"%(ThisFlux,))
                     print>>log, ModColor.Str(
                         "    [iter=%i] peak of %.3g Jy lower than stopping flux, PNR %.3g" %
@@ -586,7 +590,7 @@ class ClassImageDeconvMachine():
                 # min(int(10**math.floor(math.log10(i))), 10000)
                 if i >= 10 and i % rounded_iter_step == 0:
                     # if self.GD["Debug"]["PrintMinorCycleRMS"]:
-                    rms = self._CubeDirty.std()
+                    rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
                     print>>log, "    [iter=%i] peak residual %.3g, rms %g, PNR %.3g" % (i, ThisFlux, rms, ThisFlux/rms)
                     # else:
                     #     print >>log, "    [iter=%i] peak residual %.3g" % (
@@ -680,7 +684,7 @@ class ClassImageDeconvMachine():
 
                 T.timeit("End")
         except KeyboardInterrupt:
-            rms = self._CubeDirty.std()
+            rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
             print>>log, ModColor.Str(
                 "    [iter=%i] minor cycle interrupted with Ctrl+C, peak flux %.3g, PNR %.3g" %
                 (self._niter, ThisFlux, ThisFlux/rms))
@@ -689,7 +693,7 @@ class ClassImageDeconvMachine():
             #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
             return "MaxIter", False, True   # stop deconvolution but do update model
 
-        rms = self._CubeDirty.std()
+        rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
         print>>log, ModColor.Str(
             "    [iter=%i] Reached maximum number of iterations, peak flux %.3g, PNR %.3g" %
             (self._niter, ThisFlux, ThisFlux/rms))
