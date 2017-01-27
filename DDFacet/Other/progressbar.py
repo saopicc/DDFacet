@@ -35,7 +35,7 @@ class ProgressBar(object):
     PADDING = 7
     silent=0
     
-    def __init__(self, color=None, width=30, block='█', empty=' ',Title=None,HeaderSize=40,TitleSize=30):
+    def __init__(self, color=None, width=30, block='█', empty=' ',Title=None,HeaderSize=40,TitleSize=50):
         """
         color -- color name (BLUE GREEN CYAN RED MAGENTA YELLOW WHITE BLACK)
         width -- bar width (optinal)
@@ -62,7 +62,7 @@ class ProgressBar(object):
         self.TitleSize=TitleSize
         Title= ModColor.Str(Title, col="blue", Bold=False)
         self.TitleIn=Title
-        self.Title=Title#self.format(Title,self.TitleSize)
+        self.Title=self.format(Title,self.TitleSize)
         
         self.HasRendered=False
         self.t0=None
