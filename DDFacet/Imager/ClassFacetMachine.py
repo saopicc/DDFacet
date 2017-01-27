@@ -688,6 +688,8 @@ class ClassFacetMachine():
             raise RuntimeError("Can't call getChunk on a PSF mode FacetMachine. This is a bug!")
         self._model_dict = SharedDict.create("Model")
         self._model_dict["Image"] = ModelImage
+        for iFacet in range(self.NFacets):
+            self._model_dict.addSubdict(iFacet)
         return self._model_dict["Image"]
 
     def releaseModelImage(self):
@@ -1344,9 +1346,9 @@ class ClassFacetMachine():
                                                            self.DicoImager, iFacet, self._norm_dict["FacetNorm"],
                                                            cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel,ToGrid=ToGrid)
 
-        self._model_dict["SumFlux_%4.4i"%iFacet]=SumFlux
+        self._model_dict[iFacet]["SumFlux"]=SumFlux
         if ToSHMDict:
-            self._model_dict["FacetGrid_%4.4i"%iFacet]=ModelGrid
+            self._model_dict[iFacet]["FacetGrid"]=ModelGrid
         return ModelGrid
 
     def set_model_grid (self):
@@ -1369,15 +1371,12 @@ class ClassFacetMachine():
 
 
     # DeGrid worker that is called by Multiprocessing.Process
-    def _degrid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path, ChanSel, modeldict_path=None):
+    def _degrid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path, ChanSel, modeldict_path):
         # reload shared dicts
         cf_dict = self._reload_worker_dicts(iFacet, datadict_path, cfdict_path, griddict_path)
 
 
-        if modeldict_path is not None:
-            ModelGrid=self._set_model_grid_worker(iFacet, modeldict_path, cfdict_path, ChanSel)
-        else:
-            ModelGrid=self._model_dict["Grid_Facet_%4.4i"%iFacet]
+        ModelGrid=self._set_model_grid_worker(iFacet, modeldict_path, cfdict_path, ChanSel)
 
         # Create a new GridMachine
         GridMachine = self._createGridMachine(iFacet, cf_dict=cf_dict,

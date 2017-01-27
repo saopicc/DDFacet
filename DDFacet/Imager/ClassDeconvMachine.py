@@ -1350,7 +1350,6 @@ class ClassImagerDeconv():
 
         # apparent-flux restored image
         if "i" in self._saveims:
-            print np.max(appres()),np.max(appconvmodel())
             self.FacetMachine.ToCasaImage(appres()+appconvmodel(),ImageName="%s.app.restored"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # intrinsic-flux restored image
