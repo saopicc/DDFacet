@@ -422,8 +422,11 @@ class ClassImagerDeconv():
             if self.DicoDirty["JonesNorm"] is not None:
                 self.FacetMachine.setNormImages(self.DicoDirty)
                 self.FacetMachinePSF.setNormImages(self.DicoDirty)
+                self.MeanJonesNorm = self.FacetMachinePSF.MeanJonesNorm
+                self.JonesNorm = self.FacetMachinePSF.JonesNorm
             else:
-                self.MeanNormImage = None
+                self.MeanJonesNorm = None
+                self.JonesNorm = None
             if psf:
                 self._loadCachedPSF(psf_cachepath)
         else:
