@@ -1410,8 +1410,8 @@ class ClassMS():
     def ComputeDotUVW (self, A0, A1, times, UVW):
         na = self.na
         UVW_dt = np.zeros(UVW.shape, np.float64)
-        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title=" Calc dUVW/dt ", HeaderSize=10, TitleSize=13)
-        pBAR.render(0, '%4i/%i' % (0, na))
+        pBAR = ProgressBar(Title=" Calc dUVW/dt ")
+        pBAR.render(0, na)
         for ant0 in range(na):
             for ant1 in range(ant0+1, na):
                 C0 = ((A0 == ant0) & (A1 == ant1))
@@ -1424,7 +1424,7 @@ class ClassMS():
                 UVW_dt[ind[0:-1]] = UVWs_dt0
                 UVW_dt[ind[-1]] = UVWs_dt0[-1]
             intPercent = int(100 * (ant0 + 1) / float(na))
-            pBAR.render(intPercent, '%4i/%i' % (ant0 + 1, na))
+            pBAR.render(ant0 + 1, na)
         return UVW_dt
 
     def AddUVW_dt(self):
@@ -1453,8 +1453,8 @@ class ClassMS():
         # # #######################
         
         na=MS.na
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Calc dUVW/dt ", HeaderSize=10,TitleSize=13)
-        pBAR.render(0, '%4i/%i' % (0,na))
+        pBAR= ProgressBar(Title=" Calc dUVW/dt ")
+        pBAR.render(0,na)
         for ant0 in range(na):
             for ant1 in range(ant0,MS.na):
                 if ant0==ant1: continue
@@ -1468,7 +1468,7 @@ class ClassMS():
                 UVW_dt[ind[0:-1]]=UVWs_dt0
                 UVW_dt[ind[-1]]=UVWs_dt0[-1]
             intPercent = int(100 * (ant0+1) / float(na))
-            pBAR.render(intPercent, '%4i/%i' % (ant0+1, na))
+            pBAR.render(ant0+1, na)
                     
     
         print>>log,"Writting in column UVWDT"

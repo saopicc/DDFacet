@@ -305,12 +305,12 @@ class AsyncProcessPool (object):
         if progress:
             current = counter.getValue()
             total = total or current or 1
-            pBAR = ProgressBar('white', width=50, block='=', empty=' ',Title="  "+progress, HeaderSize=10, TitleSize=13)
+            pBAR = ProgressBar(Title="  "+progress)
             #pBAR.disable()
-            pBAR.render(int(100.*(total-current)/total), '%4i/%i' % (total-current, total))
+            pBAR.render(total-current,total)
             while current:
                 current = counter.awaitZeroWithTimeout(timeout)
-                pBAR.render(int(100. * (total - current) / total), '%4i/%i' % (total - current, total))
+                pBAR.render(total - current, total)
         else:
             counter.awaitZero()
             if self.verbose > 2:
@@ -379,8 +379,8 @@ class AsyncProcessPool (object):
                     del self._results_map[job_id]
                 del awaiting_jobs[job_id]
         if progress:
-            pBAR = ProgressBar('white', width=50, block='=', empty=' ',Title="  "+progress, HeaderSize=10, TitleSize=13)
-            pBAR.render(int(100.*complete_jobs/(total_jobs or 1)), '%4i/%i' % (complete_jobs, total_jobs))
+            pBAR = ProgressBar(Title="  "+progress)
+            pBAR.render(complete_jobs,(total_jobs or 1))
         if self.verbose > 1:
             print>>log, "checking job results: %s (%d still pending)"%(
                 ", ".join(["%s %d/%d"%(jobspec, len(results), njobs) for jobspec, (njobs, results) in job_results.iteritems()]),
@@ -416,14 +416,14 @@ class AsyncProcessPool (object):
                     del self._results_map[job_id]
                 del awaiting_jobs[job_id]
                 if progress:
-                    pBAR.render(int(100.*complete_jobs/(total_jobs or 1)), '%4i/%i' % (complete_jobs, total_jobs))
+                    pBAR.render(complete_jobs,(total_jobs or 1))
             # print status update
             if self.verbose > 1:
                 print>>log,"received job results %s" % " ".join(["%s:%d"%(jobspec, len(results)) for jobspec, (_, results)
                                                              in job_results.iteritems()])
         # render complete
         if progress:
-            pBAR.render(int(100. * complete_jobs / (total_jobs or 1)), '%4i/%i' % (complete_jobs, total_jobs))
+            pBAR.render(complete_jobs,(total_jobs or 1))
         # process list of results for each jobspec to check for errors
         for jobspec, (njobs, results) in job_results.iteritems():
             times = np.array([ res['time'] for res in results ])

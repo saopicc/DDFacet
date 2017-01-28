@@ -521,9 +521,9 @@ class ClassImageDeconvMachine():
         if self.DeconvMode=="MetroClean":
             Title=" Running chain"
             
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=Title, HeaderSize=10,TitleSize=18)
+        pBAR= ProgressBar(Title=Title)
         #pBAR.disable()
-        pBAR.render(0, '%4i/%i' % (0,NJobs))
+        pBAR.render(0, NJobs)
         for ii in range(NCPU):
             W=WorkerDeconvIsland(work_queue, 
                                  result_queue,
@@ -581,7 +581,7 @@ class ClassImageDeconvMachine():
             iResult+=1
             NDone=iResult
             intPercent=int(100*  NDone / float(NJobs))
-            pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+            pBAR.render(NDone,NJobs)
 
             if DicoResult["Success"]:
                 iIsland=DicoResult["iIsland"]
