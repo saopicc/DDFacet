@@ -180,7 +180,7 @@ def main(OP=None, messages=[]):
 
     # Imager.testDegrid()
     # stop
-    if "Predict" in Mode or "Substract" in Mode:
+    if "Predict" in Mode or "Subtract" in Mode:
         Imager.GivePredict()
     if "Clean" in Mode:
         Imager.main()

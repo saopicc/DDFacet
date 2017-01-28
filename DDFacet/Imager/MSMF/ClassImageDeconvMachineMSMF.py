@@ -154,9 +154,6 @@ class ClassImageDeconvMachine():
     def InitMSMF(self, approx=False, cache=True):
         """Initializes MSMF basis functions. If approx is True, then uses the central facet's PSF for
         all facets.
-
-        The cachekey dict is added to the cache key. If PSF is sparsified, for example, this needs to
-        be indicated in the cache key so that a different version is not picked up.
         """
         self.DicoMSMachine = {}
         cachehash = dict( 
@@ -165,8 +162,7 @@ class ClassImageDeconvMachine():
                 "Image", "Facets", "Weight", "RIME",
                 "Comp", "CF",
                 "HMP")])
-        cachepath, valid = self.maincache.checkCache("HMPMachine", cachehash,
-                                                     reset=(self.GD["Cache"]["ResetPSF"]==1 or self.PSFHasChanged))
+        cachepath, valid = self.maincache.checkCache("HMPMachine", cachehash, reset=not cache or self.PSFHasChanged)
         # do not use cache in approx mode
         if approx or not cache:
             valid = False

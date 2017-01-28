@@ -812,13 +812,13 @@ class ClassMultiScaleMachine():
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
 
-            LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)/Fact
+            # LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)/Fact
 
             # # multiply basis functions by solutions (first axis is basis index)
-            # a, b = self.CubePSFScales, np.float32(Sol.reshape((Sol.size, 1, 1, 1)))
-            # scales = numexpr.evaluate('a*b')
+            a, b = self.CubePSFScales, np.float32(Sol.reshape((Sol.size, 1, 1, 1)))
+            scales = numexpr.evaluate('a*b')
             # # model is sum of basis functions
-            # LocalSM = scales.sum(axis=0) if Sol.size>1 else scales[0,...]
+            LocalSM = scales.sum(axis=0)/Fact if Sol.size>1 else scales[0,...]/Fact
 
 
             #print "Max abs model",np.max(np.abs(LocalSM))

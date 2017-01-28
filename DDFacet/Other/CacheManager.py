@@ -160,7 +160,7 @@ class CacheManager (object):
         """
         return "file://" + self.getElementPath(name, **kw)
 
-    def checkCache(self, name, hashkeys, directory=False, reset=False):
+    def checkCache(self, name, hashkeys, directory=False, reset=False, ignore_key=False):
         """
         Checks if cached element named "name" is valid.
 
@@ -171,6 +171,7 @@ class CacheManager (object):
             directory: if True, cache is a directory and not a file. The directory will be created if it
                 doesn't exist. If the cache is invalid, the contents of the directory will be deleted.
             reset: if True, cache item is deleted
+            ignore_key: if True, keys are not compared, and cache is considered valid regardless.
 
         Returns:
             tuple of (path, valid)
@@ -199,21 +200,30 @@ class CacheManager (object):
                     print>>log, "cache hash %s invalid, will re-make" % hashpath
                     reset = True
             # check for hash match
-            if not reset and hash != storedhash:
+            if not reset and not ignore_key and hash != storedhash:
                 ListDiffer=[]
-                for MainField in storedhash.keys(): 
-                    D0=hash[MainField]
-                    D1=storedhash[MainField]
-                    if (type(D0)==dict)|(type(D0)==type(collections.OrderedDict())):
-                        for key in D0.keys():
+                for MainField, D1 in storedhash.iteritems():
+                    if MainField not in hash:
+                        ListDiffer.append("(%s: missing in hash)" % (str(MainField)))
+                    D0 = hash[MainField]
+                    if type(D0) != type(D1):
+                        ListDiffer.append("(%s: %s vs %s)" % (str(MainField), type(D0), type(D1)))
+                    elif type(D0) is dict or type(D0) is collections.OrderedDict():
+                        for key, value0 in D0.iteritems():
                             if key not in D1:
                                 ListDiffer.append(
                                     "(%s.%s: %s vs missing)" % (str(MainField), str(key), str(D0[key])))
-                            elif D0[key] != D1[key]:
-                                ListDiffer.append("(%s.%s: %s vs %s)"%(str(MainField),str(key),str(D0[key]),str(D1[key])))
+                            elif value0 != D1[key]:
+                                ListDiffer.append("(%s.%s: %s vs %s)"%(str(MainField),str(key),str(value0),str(D1[key])))
+                        for key in set(D1.keys()) - set(D0.keys()):
+                            ListDiffer.append(
+                                "(%s.%s: missing vs %s)" % (str(MainField), str(key), str(D1[key])))
                     else:
-                        if D0!=D1:
+                        if D0 != D1:
                             ListDiffer.append("(%s: %s vs %s)"%(str(MainField),str(D0),str(D1)))
+                for MainField in set(hash.keys()) - set(storedhash.keys()):
+                    ListDiffer.append(
+                        "(%s: missing in stored hash)" % (str(MainField)))
 
                 print>>log, "cache hash %s does not match, will re-make" % hashpath
                 print>>log, "  differences in parameters (Param: this vs cached): %s"%" & ".join(ListDiffer)

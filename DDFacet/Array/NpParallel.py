@@ -65,6 +65,7 @@ def A_add_B_prod_factor(
     return A
 
 def A_whereMax(A,NCPU=6,DoAbs=1,Mask=None):
+    NCPU = NCPU or NCPU_global
     if NCPU==1:
         NX,NY=A.shape[-2],A.shape[-1]
         nz=A.size/(NX*NY)
@@ -98,6 +99,7 @@ def A_whereMax(A,NCPU=6,DoAbs=1,Mask=None):
 
 
 def A_whereMaxParallel(A,NCPU=6,DoAbs=1,Mask=None):
+    NCPU = NCPU or NCPU_global
 
     NDimsA=len(A.shape)
     ShapeOrig=A.shape

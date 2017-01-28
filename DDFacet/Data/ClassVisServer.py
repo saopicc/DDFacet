@@ -84,7 +84,9 @@ class ClassVisServer():
         self.ApplyBeam = False
         self.datashape = None
         self._use_data_cache = self.GD["Cache"]["VisData"]
-        self.DATA=None
+        if self._use_data_cache == "off":
+            self._use_data_cache = None
+        self.DATA = None
         self.Init()
 
         # smear mapping machines

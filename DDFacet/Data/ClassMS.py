@@ -530,7 +530,12 @@ class ClassMS():
 
         # check cache for A0,A1,time,uvw
         if use_cache:
-            metadata_path, metadata_valid = self.cache.checkCache("A0A1UVWT.npz", dict(time=self._start_time))
+            # In force-cache mode, cache has no keys, so use it if it exists (i.e. if we have visibilities
+            # cached from previous run)
+            # In auto cache mode, cache key is the start time of the process. The cache is thus reset when first
+            # touched, so we read the MS on the first major cycle, and cache subsequently.
+            cache_key = dict(time=self._start_time)
+            metadata_path, metadata_valid = self.cache.checkCache("A0A1UVWT.npz", cache_key, ignore_key=(use_cache=="force"))
         else:
             metadata_valid = False
         # if cache is valid, we're all good
@@ -581,7 +586,7 @@ class ClassMS():
             visdata = DATA.addSharedArray("data", shape=datashape, dtype=np.complex64)
             # check cache for visibilities
             if use_cache:
-                datapath, datavalid = self.cache.checkCache("Data.npy", dict(time=self._start_time))
+                datapath, datavalid = self.cache.checkCache("Data.npy", dict(time=self._start_time), ignore_key=(use_cache=="force"))
             else:
                 datavalid = False
             # read from cache if available, else from MS
@@ -610,7 +615,7 @@ class ClassMS():
         flags = DATA.addSharedArray("flags", shape=datashape, dtype=np.bool)
         # check cache for flags
         if use_cache:
-            flagpath, flagvalid = self.cache.checkCache("Flags.npy", dict(time=self._start_time))
+            flagpath, flagvalid = self.cache.checkCache("Flags.npy", dict(time=self._start_time), ignore_key=(use_cache=="force"))
         else:
             flagvalid = False
         # read from cache if available, else from MS
