@@ -290,6 +290,7 @@ class Parset():
         section = self._renameSection("VisData", "Data")
         self._rename(section, "MSName", "MS")
         self._del(section, "MSListFile")  # deprecated. Use MS=list.txt instead
+        self._move(section, "WeightCol", "Weight", "ColName")
 
         section = self._renameSection("DataSelection", "Selection")
 
