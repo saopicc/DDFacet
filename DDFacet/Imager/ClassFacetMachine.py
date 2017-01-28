@@ -118,8 +118,7 @@ class ClassFacetMachine():
         if DecorrMode is not None and DecorrMode is not "":
             print>>log,ModColor.Str("Using decorrelation mode %s"%DecorrMode)
         self.AverageBeamMachine=None
-        self.DoComputeSmoothBeam=False
-        self.SmoothMeanNormImage=None
+        self.SmoothMeanJonesNorm=None
         self.JonesNorm = None
         self.FacetNorm = None
         self.SmoothMeanJonesNorm = None ### is this not the same thing?
@@ -673,15 +672,6 @@ class ClassFacetMachine():
         self.degridChunkInBackground(DATA)
         self.SetLogModeSubModules("Loud")
 
-    def ComputeSmoothBeam(self):
-        if self.DoComputeSmoothBeam and self.GD["Beam"]["BeamModel"]!=None and self.SmoothMeanNormImage is None:
-            _,npol,Npix,Npix=self.OutImShape
-            self.AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
-            self.AverageBeamMachine.CalcMeanBeam()
-            self.SmoothMeanNormImage = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
-            #self.AverageBeamMachine.GiveMergedWithDiscrete( np.mean(self.JonesNorm, axis=0).reshape((Npix,Npix) ))
-            #self.SmoothMeanNormImage = self.SmoothMeanNormImage.reshape((1,1,Npix,Npix))
-            #DicoImages["SmoothMeanNormImage"] = self.SmoothMeanNormImage 
 
     def setModelImage(self, ModelImage):
         """Sets current model image. Copies it to a shared dict and returns shared array version of image."""
@@ -942,6 +932,9 @@ class ClassFacetMachine():
             self.JonesNorm=self._norm_dict["JonesNorm"]
             self.MeanJonesNorm=self._norm_dict["MeanJonesNorm"]
             
+            if "SmoothMeanJonesNorm" in DicoImages.keys():
+                self.SmoothMeanJonesNorm=DicoImages["SmoothMeanJonesNorm"]
+
             FacetNorm = DicoImages["FacetNorm"]
             FacetNormReShape = DicoImages["FacetNorm"].reshape([1,1,
                                                                 FacetNorm.shape[0],
@@ -953,8 +946,17 @@ class ClassFacetMachine():
             self.FacetNormReShape=self._norm_dict["FacetNormReShape"]
             
             self.DoCalcJonesNorm = False
-        self.ComputeSmoothBeam()
 
+    def ComputeSmoothBeam(self):
+        if self.GD["Beam"]["Model"] is None or self.SmoothMeanJonesNorm is not None: return
+        _,npol,Npix,Npix=self.OutImShape
+        self.AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
+        self.AverageBeamMachine.CalcMeanBeam()
+        self.SmoothMeanJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
+        #self.AverageBeamMachine.GiveMergedWithDiscrete( np.mean(self.JonesNorm, axis=0).reshape((Npix,Npix) ))
+        #self.SmoothMeanNormImage = self.SmoothMeanNormImage.reshape((1,1,Npix,Npix))
+        #DicoImages["SmoothMeanNormImage"] = self.SmoothMeanNormImage 
+        return self.SmoothMeanJonesNorm
 
     def BuildFacetNormImage(self):
         """
@@ -1016,9 +1018,9 @@ class ClassFacetMachine():
                 print>>log,ModColor.Str("The sum of the weights are zero for FreqBand #%i, data is all flagged?"%Channel)
                 print>>log,ModColor.Str("  (... will skip normalisation for this FreqBand)")
                 
-        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="Glue facets", HeaderSize=10, TitleSize=13)
+        pBAR = ProgressBar(Title="Glue facets")
         NFacets=len(self.DicoImager.keys())
-        pBAR.render(0, '%4i/%i' % (0, NFacets))
+        pBAR.render(0, NFacets)
 
         for iFacet in self.DicoImager.keys():
 
@@ -1062,7 +1064,7 @@ class ClassFacetMachine():
                     #Image[Channel, pol, x0main:x1main, y0main:y1main] += Im.real
 
 
-            pBAR.render(int((iFacet+1)*100/float(NFacets)), '%4i/%i' % (iFacet+1, NFacets))
+            pBAR.render(iFacet+1, NFacets)
 
         for Channel in xrange(self.VS.NFreqBands):
             for pol in xrange(npol):

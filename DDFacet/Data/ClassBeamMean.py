@@ -134,7 +134,7 @@ class ClassBeamMean():
             T=ClassTimeIt.ClassTimeIt()
             T.disable()
             NTRange=DicoBeam["t0"].size
-            pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="      Mean Beam", HeaderSize=10,TitleSize=13)
+            pBAR= ProgressBar(Title="      Mean Beam")
             pBAR.render(0, '%4i/%i' % (0,NTRange))
             for iTRange in range(DicoBeam["t0"].size):
 
@@ -241,11 +241,12 @@ class ClassBeamMean():
         self.CachePath, self.CacheValid = self.VS.maincache.checkCache("SmoothBeam.npy", 
                                                                   dict([("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
                                                                        [(section, self.GD[section]) 
-                                                                        for section in "VisData", 
-                                                                        "Beam", "DataSelection",
-                                                                        "MultiFreqs", "ImagerGlobal", "Compression",
-                                                                        "ImagerCF", "ImagerMainFacet"]), 
-                                                                  reset=self.GD["Caching"]["ResetSmoothBeam"])
+                                                                        for section in "Data", 
+                                                                        "Beam", "Selection",
+                                                                        "Freq", "Image", 
+                                                                        "Comp", "Facets", 
+                                                                        "Weight", "RIME"]), 
+                                                                  reset=self.GD["Cache"]["ResetSmoothBeam"])
 
 
         if self.CacheValid:

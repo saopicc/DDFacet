@@ -159,10 +159,12 @@ class ClassImageDeconvMachine():
         be indicated in the cache key so that a different version is not picked up.
         """
         self.DicoMSMachine = {}
-        cachehash = dict( [(section, self.GD[section]) for section in (
-                                 "Data", "Beam", "Selection", "Freq",
-                                 "Image", "Comp", "CF",
-                                 "HMP")])
+        cachehash = dict( 
+            [(section, self.GD[section]) for section in (
+                "Data", "Beam", "Selection", "Freq",
+                "Image", "Facets", "Weight", "RIME",
+                "Comp", "CF",
+                "HMP")])
         cachepath, valid = self.maincache.checkCache("HMPMachine", cachehash,
                                                      reset=(self.GD["Cache"]["ResetPSF"]==1 or self.PSFHasChanged))
         # do not use cache in approx mode
@@ -248,6 +250,9 @@ class ClassImageDeconvMachine():
 
         # self._PSF=self.MSMachine._PSF
         self._CubeDirty = MSMachine._Dirty
+        NPixStats = self.GD["Deconv"]["NumRMSSamples"]
+        if NPixStats>0:
+            self.IndStats=np.int64(np.linspace(0,self._CubeDirty.size-1,NPixStats))
         # self._MeanPSF=self.MSMachine._MeanPSF
         self._MeanDirty = MSMachine._MeanDirty
         NPSF = self.PSFServer.NPSF

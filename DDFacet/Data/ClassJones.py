@@ -524,8 +524,8 @@ class ClassJones():
         
         
         rac,decc=self.MS.OriginalRadec
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="  Init E-Jones ", HeaderSize=10,TitleSize=13)
-        pBAR.render(0, "%d/%d"%(0, Tm.size))
+        pBAR= ProgressBar(Title="  Init E-Jones ")#, HeaderSize=10,TitleSize=13)
+        pBAR.render(0, Tm.size)
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]
             DicoBeam["t1"][itime]=T1s[itime]
@@ -544,7 +544,7 @@ class ClassJones():
  
             DicoBeam["Jones"][itime]=Beam
             NDone=itime+1
-            pBAR.render(int(NDone*100/float(Tm.size)), "%d/%d"%(NDone, Tm.size))
+            pBAR.render(NDone,Tm.size)
 
             DicoBeam["Jones"][itime] = Beam
 

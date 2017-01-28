@@ -171,9 +171,9 @@ class ClassIslandDistanceMachine():
 
         NDone=0
         NJobs=NIslands
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Group islands", HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar(Title=" Group islands")
         pBAR.disable()
-        pBAR.render(0, '%4i/%i' % (0,NJobs))
+        pBAR.render(0, NJobs)
 
         Th=0.05
         
@@ -183,7 +183,7 @@ class ClassIslandDistanceMachine():
             #print "Main %i"%iIsland
             NDone+=1
             intPercent=int(100*  NDone / float(NJobs))
-            pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+            pBAR.render(NDone,NJobs)
             
             ListIslandMerged.append(list(self.GiveNearbyIsland(iIsland,set([]))))
 
@@ -222,10 +222,10 @@ class ClassIslandDistanceMachine():
         self.dx=np.zeros((NIslands,NIslands),np.int32)
         self.dy=np.zeros((NIslands,NIslands),np.int32)
 
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Calc Dist", HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar(Title=" Calc Dist")
         #pBAR.disable()
         NDone=0; NJobs=NIslands
-        pBAR.render(0, '%4i/%i' % (0,NJobs))
+        pBAR.render(0,NJobs)
         for iIsland in range(NIslands):
             x0,y0=np.array(ListIslands[iIsland]).T
             for jIsland in range(iIsland+1,NIslands):
@@ -241,8 +241,8 @@ class ClassIslandDistanceMachine():
                 self.dx[jIsland,iIsland]=self.dx[iIsland,jIsland]=dx[indx[0],indy[0]]
                 self.dy[jIsland,iIsland]=self.dy[iIsland,jIsland]=dy[indx[0],indy[0]]
             NDone+=1
-            intPercent=int(100*  NDone / float(NJobs))
-            pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+
+            pBAR.render(NDone,NJobs)
 
     def calcDistanceMatrixMinParallel(self,ListIslands,Parallel=True):
         NIslands=len(ListIslands)
@@ -269,8 +269,8 @@ class ClassIslandDistanceMachine():
             if Parallel:
                 workerlist[ii].start()
 
-        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  Calc. Dist. ", HeaderSize=10, TitleSize=13)
-        pBAR.render(0, '%4i/%i' % (0, NJobs))
+        pBAR = ProgressBar(Title="  Calc. Dist. ")
+        pBAR.render(0, NJobs)
         iResult = 0
         if not Parallel:
             for ii in range(NCPU):
@@ -291,8 +291,7 @@ class ClassIslandDistanceMachine():
             if DicoResult["Success"]:
                 iResult+=1
                 NDone=iResult
-                intPercent=int(100*  NDone / float(NJobs))
-                pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+                pBAR.render(NDone,NJobs)
 
                 iIsland=DicoResult["iIsland"]
                 Result=NpShared.GiveArray("%sDistances_%6.6i"%(self.IdSharedMem,iIsland))

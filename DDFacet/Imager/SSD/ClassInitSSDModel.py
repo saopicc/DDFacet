@@ -75,9 +75,9 @@ class ClassInitSSDModelParallel():
                 workerlist[ii].start()
 
         timer = ClassTimeIt.ClassTimeIt()
-        pBAR = ProgressBar('white', width=50, block='=', empty=' ', Title="  HMPing islands ", HeaderSize=10, TitleSize=13)
+        pBAR = ProgressBar(Title="  HMPing islands ")
         #pBAR.disable()
-        pBAR.render(0, '%4i/%i' % (0, NJobs))
+        pBAR.render(0, NJobs)
         iResult = 0
         if not Parallel:
             for ii in range(NCPU):
@@ -99,8 +99,8 @@ class ClassInitSSDModelParallel():
             if DicoResult["Success"]:
                 iResult+=1
                 NDone=iResult
-                intPercent=int(100*  NDone / float(NJobs))
-                pBAR.render(intPercent, '%4i/%i' % (NDone,NJobs))
+
+                pBAR.render(NDone,NJobs)
 
                 iIsland=DicoResult["iIsland"]
                 NameDico="%sDicoInitIsland_%5.5i"%(self.IdSharedMem,iIsland)
