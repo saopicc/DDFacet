@@ -122,6 +122,7 @@ class ClassFacetMachine():
         self.SmoothMeanNormImage=None
         self.JonesNorm = None
         self.FacetNorm = None
+        self.SmoothMeanJonesNorm = None ### is this not the same thing?
         self._facet_grids = self.DATA = None
         self._grid_job_id = self._fft_job_id = self._degrid_job_id = None
 
