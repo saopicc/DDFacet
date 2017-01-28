@@ -250,6 +250,9 @@ class ClassImageDeconvMachine():
 
         # self._PSF=self.MSMachine._PSF
         self._CubeDirty = MSMachine._Dirty
+        NPixStats = self.GD["Deconv"]["NumRMSSamples"]
+        if NPixStats>0:
+            self.IndStats=np.int64(np.linspace(0,self._CubeDirty.size-1,NPixStats))
         # self._MeanPSF=self.MSMachine._MeanPSF
         self._MeanDirty = MSMachine._MeanDirty
         NPSF = self.PSFServer.NPSF
