@@ -27,7 +27,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
 
 
-    def setRefFreq(self, RefFreq, AllFreqs):
+    def setRefFreq(self, RefFreq):
         self.RefFreq = RefFreq
         self.DicoSMStacked["RefFreq"] = RefFreq
         self.DicoSMStacked["AllFreqs"] = np.array(AllFreqs)
@@ -133,8 +133,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def GiveSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6):
         dFreq = 1e6
-        f0 = self.DicoSMStacked["AllFreqs"].min()
-        f1 = self.DicoSMStacked["AllFreqs"].max()
+        # f0 = self.DicoSMStacked["AllFreqs"].min()
+        # f1 = self.DicoSMStacked["AllFreqs"].max()
+        RefFreq=self.DicoSMStacked["RefFreq"]
+        f0=RefFreq/1.5
+        f1=RefFreq*1.5
         M0 = self.GiveModelImage(f0)
         M1 = self.GiveModelImage(f1)
         if DoConv:

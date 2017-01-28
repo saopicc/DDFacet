@@ -33,22 +33,21 @@ def Sphe2D(Npix,factor=1.):
     y=np.zeros((Npix,),float)
     x,y=np.mgrid[-1:1:1j*Npix,-1:1:1j*Npix]
 
+    R=np.sqrt(x**2+y**2)
+    z=np.zeros_like(R)
+    zf=z.ravel()
+    for (i,r) in zip(range(Npix**2),R.ravel()):
+        zf[i]=EvalSphe(np.abs(r)*factor)
+    return z
 
-    # R=np.sqrt(x**2+y**2)
-    # z=np.zeros_like(R)
-    # zf=z.ravel()
-    # for (i,r) in zip(range(Npix**2),R.ravel()):
-    #     zf[i]=EvalSphe(np.abs(r)*factor)
-    # return z
-
-
-
-    x=np.abs(np.mgrid[-1:1:1j*Npix])
-    zf1D=np.zeros((Npix,),np.float64)
-    for i in range(Npix):
-        zf1D[i]=EvalSphe(np.abs(x[i])*factor)
-
-    zf=zf1D.reshape((Npix,1))*zf1D.reshape((1,Npix))
+    #
+    #
+    # x=np.abs(np.mgrid[-1:1:1j*Npix])
+    # zf1D=np.zeros((Npix,),np.float64)
+    # for i in range(Npix):
+    #     zf1D[i]=EvalSphe(np.abs(x[i])*factor)
+    #
+    # zf=zf1D.reshape((Npix,1))*zf1D.reshape((1,Npix))
     return zf
 
 def Sphe1D(Npix,factor=1.):

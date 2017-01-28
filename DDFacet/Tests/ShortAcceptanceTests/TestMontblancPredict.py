@@ -79,7 +79,7 @@ class TestMontblancPredict(unittest.TestCase):
         pc.set("Image", "PredictMode", "BDA-degrid")
 
         # Predict from Predict.DicoModel
-        pc.set("Data", "PredictFrom", os.path.join(self._input_dir,
+        pc.set("Data", "InitDicoModel", os.path.join(self._input_dir,
             "sky_models", "Predict.DicoModel"))
 
         # Predict into DDFACET_DATA

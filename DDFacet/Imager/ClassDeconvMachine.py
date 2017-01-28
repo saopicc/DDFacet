@@ -156,42 +156,42 @@ class ClassImagerDeconv():
                                                 TChunkSize=DC["Data"]["ChunkHours"],
                                                 GD=self.GD)
 
+        self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
+        del(self.GD["Deconv"]["MaxMajorIter"])
+        # If we do the deconvolution construct a model according to what is in MinorCycleConfig
+        MinorCycleConfig=dict(self.GD["Deconv"])
+        MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
+        MinorCycleConfig["NBand"]=MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
+        MinorCycleConfig["GD"] = self.GD
+        MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
+
+
+        SubstractModel=self.GD["Data"]["InitDicoModel"]
+        DoSub=(SubstractModel!="")&(SubstractModel is not None)
+        if DoSub:
+            print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
+            ModelMachine = self.ModConstructor.GiveInitialisedMMFromFile(SubstractModel)
+            if self.GD["Deconv"]["Mode"] != ModelMachine.DicoSMStacked["Type"]:
+                raise NotImplementedError("You want to use different minor cycle and IniDicoModel types [%s vs %s]"\
+                                          %(self.GD["Deconv"]["Mode"],ModelMachine.DicoSMStacked["Type"]))
+
+            print>>log, ModColor.Str("Taking reference frequency from the model machine %f MHz (instead of %f MHz from the data)"%(ModelMachine.RefFreq/1e6,self.VS.RefFreq/1e6))
+            self.RefFreq=self.VS.RefFreq=ModelMachine.RefFreq
+
+            if self.BaseName==self.GD["Data"]["InitDicoModel"][0:-10]:
+                self.BaseName+=".continue"
+                self.DicoModelName="%s.DicoModel"%self.BaseName
+                self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
+        else:
+            ModelMachine = self.ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
+            ModelMachine.setRefFreq(self.VS.RefFreq)
+            self.RefFreq=self.VS.RefFreq
+
+        self.ModelMachine=ModelMachine
+
+        MinorCycleConfig["ModelMachine"] = ModelMachine
+
         if self.do_deconvolve:
-            self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
-            del(self.GD["Deconv"]["MaxMajorIter"])
-            # If we do the deconvolution construct a model according to what is in MinorCycleConfig
-            MinorCycleConfig=dict(self.GD["Deconv"])
-            MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
-            MinorCycleConfig["NBand"]=MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
-            MinorCycleConfig["GD"] = self.GD
-            MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
-
-
-            SubstractModel=self.GD["Data"]["InitDicoModel"]
-            DoSub=(SubstractModel!="")&(SubstractModel is not None)
-            if DoSub:
-                print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
-                ModelMachine = self.ModConstructor.GiveInitialisedMMFromFile(SubstractModel)
-                if self.GD["Deconv"]["Mode"] != ModelMachine.DicoSMStacked["Type"]:
-                    raise NotImplementedError("You want to use different minor cycle and IniDicoModel types [%s vs %s]"\
-                                              %(self.GD["Deconv"]["Mode"],ModelMachine.DicoSMStacked["Type"]))
-            
-                print>>log, ModColor.Str("Taking reference frequency from the model machine %f MHz (instead of %f MHz from the data)"%(ModelMachine.RefFreq/1e6,self.VS.RefFreq/1e6))
-                self.RefFreq=self.VS.RefFreq=ModelMachine.RefFreq
-                
-                if self.BaseName==self.GD["Data"]["InitDicoModel"][0:-10]:
-                    self.BaseName+=".continue"
-                    self.DicoModelName="%s.DicoModel"%self.BaseName
-                    self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
-            else:
-                ModelMachine = self.ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
-                ModelMachine.setRefFreq(self.VS.RefFreq)
-                self.RefFreq=self.VS.RefFreq
-            
-            self.ModelMachine=ModelMachine
-
-            MinorCycleConfig["ModelMachine"] = ModelMachine
-
             # Specify which deconvolution algorithm to use
             if self.GD["Deconv"]["Mode"] == "HMP":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
@@ -567,9 +567,10 @@ class ClassImagerDeconv():
 
             if not dirty_valid:
                 self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
-            
-                if "H" in self._saveims:
-                    self.FacetMachine.ComputeSmoothBeam()
+
+                ## commented out. @cyriltasse to uncomment when fixed
+                # if "H" in self._saveims:
+                #     self.FacetMachine.ComputeSmoothBeam()
                 self.SaveDirtyProducts()
 
                 # dump dirty to cache
@@ -648,6 +649,7 @@ class ClassImagerDeconv():
         self.VS.startChunkLoadInBackground()
 
         self.FacetMachine.ReinitDirty()
+
         # BaseName=self.GD["Output"]["Name"]
         # #ModelMachine=ClassModelMachine(self.GD)
         # try:
@@ -671,19 +673,19 @@ class ClassImagerDeconv():
             CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
 
 
-        modelfile = self.GD["Data"]["PredictFrom"]
-
-
-        # if model is a dict, init model machine with that
-        # else we use a model image and hope for the best (need to fix frequency axis...)
-        # 
+        modelfile = self.GD["Data"]["PredictFromImage"]
+        # if model image is specified, we'll use that, rather than the ModelMachine
         if modelfile is not None and modelfile is not "":
             print>>log,ModColor.Str("Reading image file for the predict: %s"%modelfile)
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
+        else:
+            FixedModelImage = None
 
         current_model_freqs = np.array([])
         ModelImage = None
 
+        self.FacetMachine.awaitInitCompletion()
+        self.FacetMachine.BuildFacetNormImage()
         while True:
             # get loaded chunk from I/O thread, schedule next chunk
             # self.VS.startChunkLoadInBackground()
@@ -702,7 +704,7 @@ class ClassImagerDeconv():
             if FixedModelImage is None:
                 ## redo model image if needed
                 if not np.array_equal(model_freqs, current_model_freqs):
-                    ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
+                    ModelImage = self.FacetMachine.setModelImage(self.ModelMachine.GiveModelImage(model_freqs))
                     current_model_freqs = model_freqs
                     print>> log, "model image @%s MHz (min,max) = (%f, %f)" % (
                     str(model_freqs / 1e6), ModelImage.min(), ModelImage.max())
@@ -712,10 +714,10 @@ class ClassImagerDeconv():
                 if ModelImage is None:
                     ModelImage = self.FacetMachine.setModelImage(FixedModelImage)
 
-            if self.GD["Images"]["MaskSquare"] is not None:
+            if self.GD["Data"]["MaskSquare"]:
                 # MaskInside: choose mask inside (0) or outside (1) 
                 # NpixInside: Size of the masking region
-                MaskOutSide,NpixInside = self.GD["Images"]["MaskSquare"]
+                MaskOutSide,NpixInside = self.GD["Data"]["MaskSquare"]
                 if MaskOutSide==0:
                     SquareMaskMode="Inside"
                 elif MaskOutSide==1:
@@ -731,11 +733,11 @@ class ClassImagerDeconv():
                 elif SquareMaskMode=="Outside":
                     ModelImage[np.logical_not(InSquare)]=0
 
-            if ModelImage.shape[0]!=self.VS.CurrentChanMappingDegrid.size:
+            if ModelImage.shape[0]!=DATA["ChanMappingDegrid"].size:
                 print>>log, "The image model channels and targetted degridded visibilities channels have different sizes (%i vs %i respectively)"%(ModelImage.shape[0],self.VS.CurrentChanMappingDegrid.size)
                 if ModelImage.shape[0]==1:
                     print>>log, " Matching freq size of model image to visibilities"
-                    ModelImage=ModelImage*np.ones((self.VS.CurrentChanMappingDegrid.size,1,1,1))
+                    ModelImage=ModelImage*np.ones((DATA["ChanMappingDegrid"].size,1,1,1))
 
 
             if CleanMaskImage is not None:
@@ -745,15 +747,15 @@ class ClassImagerDeconv():
                     for ipol in range(npol):
                         ModelImage[ich,ipol][indZero]=0
 
-            self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelPredict"%self.BaseName,Fits=True,
-                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelPredict"%self.BaseName,Fits=True,
+            #                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
 
             if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder":  # latter for backwards compatibility
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
                 from ClassMontblancMachine import ClassMontblancMachine
-                model = self.DeconvMachine.ModelMachine.GiveModelList()
+                model = self.ModelMachine.GiveModelList()
                 mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
                 mb_machine.getChunk(DATA, predict, model, self.VS.CurrentMS)
                 mb_machine.close()
@@ -853,7 +855,7 @@ class ClassImagerDeconv():
             except:
                 pass
 
-            self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName) 
+            self.ModelMachine.ToFile(self.DicoModelName)
 
             ## returned with nothing done in minor cycle? Break out
             if not update_model or iMajor == NMajor:
@@ -943,7 +945,7 @@ class ClassImagerDeconv():
                     self.FacetMachine.getChunkInBackground(DATA)
                 elif self.PredictMode == "Montblanc":
                     from ClassMontblancMachine import ClassMontblancMachine
-                    model = self.DeconvMachine.ModelMachine.GiveModelList()
+                    model = self.ModelMachine.GiveModelList()
                     mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
                     mb_machine.getChunk(DATA, DATA["data"], model, self.VS.CurrentMS)
                     mb_machine.close()

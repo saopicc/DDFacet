@@ -581,9 +581,8 @@ class ClassMS():
 
         self.RotateType=["uvw","vis"]
 
+        visdata = DATA.addSharedArray("data", shape=datashape, dtype=np.complex64)
         if read_data:
-            # create data array
-            visdata = DATA.addSharedArray("data", shape=datashape, dtype=np.complex64)
             # check cache for visibilities
             if use_cache:
                 datapath, datavalid = self.cache.checkCache("Data.npy", dict(time=self._start_time), ignore_key=(use_cache=="force"))
@@ -609,8 +608,6 @@ class ClassMS():
                     print>> log, "caching visibilities to %s" % datapath
                     np.save(datapath, visdata)
                     self.cache.saveCache("Data.npy")
-        else:
-            visdata = None
         # create flag array (if flagbuf is not None, array uses memory of buffer)
         flags = DATA.addSharedArray("flags", shape=datashape, dtype=np.bool)
         # check cache for flags
