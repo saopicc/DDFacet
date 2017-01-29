@@ -898,6 +898,7 @@ class ClassFacetMachine():
 
             self.DicoPSF["FacetNorm"] = self.FacetNorm
 
+            # print>>log,"copying dictPSF"
             self._psf_dict = self.DicoPSF = SharedDict.dict_to_shm("dictPSF",self.DicoPSF)
 
             return self.DicoPSF

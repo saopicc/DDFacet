@@ -30,7 +30,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setRefFreq(self, RefFreq):
         self.RefFreq = RefFreq
         self.DicoSMStacked["RefFreq"] = RefFreq
-        self.DicoSMStacked["AllFreqs"] = np.array(AllFreqs)
+        # self.DicoSMStacked["AllFreqs"] = np.array(AllFreqs)
 
 
     def setFreqMachine(self,GridFreqs, order):
