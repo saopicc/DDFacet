@@ -1419,6 +1419,8 @@ class ClassMS():
                 C0 = ((A0 == ant0) & (A1 == ant1))
                 C1 = ((A1 == ant0) & (A0 == ant1))
                 ind = np.where(C0 | C1)[0]
+                if not ind.size:
+                    continue
                 UVWs = UVW[ind]
                 timess = times[ind]
                 dtimess = timess[1::] - timess[0:-1]

@@ -208,7 +208,7 @@ class CacheManager (object):
                     D0 = hash[MainField]
                     if type(D0) != type(D1):
                         ListDiffer.append("(%s: %s vs %s)" % (str(MainField), type(D0), type(D1)))
-                    elif type(D0) is dict or type(D0) is collections.OrderedDict():
+                    elif hasattr(D0,'iteritems'):
                         for key, value0 in D0.iteritems():
                             if key not in D1:
                                 ListDiffer.append(

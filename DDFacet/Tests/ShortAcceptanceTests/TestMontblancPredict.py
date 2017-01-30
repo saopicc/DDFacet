@@ -52,7 +52,7 @@ class TestMontblancPredict(unittest.TestCase):
         pc.set("Image", "PredictMode", "Montblanc")
 
         # Predict from Predict.DicoModel
-        pc.set("Data", "PredictFrom", os.path.join(self._input_dir,
+        pc.set("Data", "InitDicoModel", os.path.join(self._input_dir,
             "sky_models", "Predict.DicoModel"))
 
         # Predict into MONTBLANC_DATA
