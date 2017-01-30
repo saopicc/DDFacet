@@ -508,11 +508,14 @@ class ClassFacetMachine():
         cachename = "FFTW_Wisdom_PSF" if self.DoPSF and self.Oversize != 1 else "FFTW_Wisdom"
         path, valid = self.VS.maincache.checkCache(cachename, dict(shape=self.PaddedGridShape))
         if not valid:
-            print>>log, "Computing fftw wisdom for shape = %s" % str(self.PaddedGridShape)
+            print>>log, "Computing fftw wisdom complex FFTs, shape = %s" % str(self.PaddedGridShape[-2:])
             a = np.random.randn(*(self.PaddedGridShape)) \
                 + 1j*np.random.randn(*(self.PaddedGridShape))
             FM = ModFFTW.FFTW_2Donly(self.PaddedGridShape, np.complex64)
             FM.fft(a)  # this is never used -- only to compute the wisdom
+            # now learn wisdom for dealing with images
+            ModFFTW.learnFFTWWisdom(self.OutImShape[-1])
+            print>>log, "Computing fftw wisdom for real FFTS, shape = %s" % str(self.OutImShape[-2:])
             self.FFTW_Wisdom = pyfftw.export_wisdom()
             cPickle.dump(self.FFTW_Wisdom, file(path, "w"))
             self.VS.maincache.saveCache(cachename)
@@ -611,7 +614,7 @@ class ClassFacetMachine():
 
         # compute spatial weight term
         sw = np.float32(mask.reshape((1, 1, Npix, Npix)))
-        sw = ModFFTW.ConvolveGaussian(sw, CellSizeRad=1, GaussPars=[GaussPars])
+        sw = ModFFTW.ConvolveGaussianFFTW(sw, CellSizeRad=1, GaussPars=[GaussPars])
         sw = sw.reshape((Npix, Npix))
         sw /= np.max(sw)
         facet_dict["SW"] = sw
