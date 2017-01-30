@@ -142,7 +142,7 @@ class ClassImageDeconvMachine():
         #assume that the frequency variance is somewhat the same in all the stokes images:
         RefFreq = np.sum(AllFreqsMean.ravel() * np.mean(self.DicoVariablePSF["WeightChansImages"],axis=1).ravel())
 
-        self.ModelMachine.setRefFreq(RefFreq, AllFreqs)
+        self.ModelMachine.setRefFreq(RefFreq) #, AllFreqs)
 
     def SetModelShape(self):
         """

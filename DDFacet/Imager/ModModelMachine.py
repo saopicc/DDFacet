@@ -79,11 +79,15 @@ class ClassModModelMachine():
             DicoSMStacked["Type"]="SSD"
 
         if DicoSMStacked is not None: # If the Dict is provided use it to initialise a model machine
-            if DicoSMStacked["Type"]=="GA":
-                DicoSMStacked["Type"]="SSD"
-            return self.GiveMM(Mode=DicoSMStacked["Type"])
+            Type = DicoSMStacked["Type"]
+            # backwards compatibility
+            if Type == "GA":
+                Type = "SSD"
+            elif Type == "MSMF":
+                Type = "HMP"
+            return self.GiveMM(Type)
         else: # If the dict is not provided use the MinorCycleMode to figure out which model machine to initialise
-            return self.GiveMM()
+            return self.GiveMM(self.GD["Deconv"]["Mode"])
 
     def GiveMM(self,Mode=None):
         if Mode == "SSD":
@@ -123,4 +127,4 @@ class ClassModModelMachine():
                 print>> log, "HOGBOM model machine already initialised"
             return self.HOGBOMMM
         else:
-            raise NotImplementedError("Unknown --Deconv-Mode=%s"%self.GD["Deconv"]["Mode"])
+            raise NotImplementedError("Unknown model type '%s'"%Mode)
