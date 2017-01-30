@@ -454,7 +454,8 @@ class ClassDDEGridMachine():
         """
         machine = ClassDDEGridMachine._global_fftw_machines.get(args)
         if machine is None:
-            ClassDDEGridMachine._global_fftw_machines[args] = machine = ModFFTW.FFTW_2Donly(*args)
+            # use single-core FFT because we parallelize by facet instead
+            ClassDDEGridMachine._global_fftw_machines[args] = machine = ModFFTW.FFTW_2Donly(ncores=1, *args)
         return machine
 
     def getFFTWMachine(self):

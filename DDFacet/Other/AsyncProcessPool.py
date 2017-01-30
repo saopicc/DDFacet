@@ -129,6 +129,11 @@ class AsyncProcessPool (object):
     """
     def __init__ (self):
         self._started = False
+        # init these here so that jobs can be registered
+        self._job_handlers = {}
+        self._events = {}
+        self._results_map = {}
+        self._job_counters = JobCounterPool()
 
     def __del__(self):
         self.shutdown()
@@ -136,6 +141,7 @@ class AsyncProcessPool (object):
     def init(self, ncpu=None, affinity=None, num_io_processes=1, verbose=0):
         """
         Initializes an APP.
+        Can be called multiple times at program tartup
 
         Args:
             ncpu:
@@ -177,10 +183,6 @@ class AsyncProcessPool (object):
         self._compute_queue   = multiprocessing.Queue()
         self._io_queues       = [ multiprocessing.Queue() for x in xrange(num_io_processes) ]
         self._result_queue    = multiprocessing.Queue()
-        self._job_handlers = {}
-        self._events = {}
-        self._results_map = {}
-        self._job_counters = JobCounterPool()
         self._termination_event = multiprocessing.Event()
 
         if self.ncpu > 1:
@@ -580,7 +582,15 @@ class AsyncProcessPool (object):
     # CPU id. This will be None in the parent process, and a unique number in each worker process
     proc_id = None
 
-APP = AsyncProcessPool()
+APP = None
+
+def _init_default():
+    global APP
+    if APP is None:
+        APP = AsyncProcessPool()
+        APP.init(psutil.cpu_count(), affinity=0, num_io_processes=1, verbose=0)
+
+_init_default()
 
 def init(ncpu=None, affinity=None, num_io_processes=1, verbose=0):
     global APP

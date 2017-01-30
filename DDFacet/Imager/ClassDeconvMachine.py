@@ -44,6 +44,9 @@ import cPickle
 log=MyLogger.getLogger("ClassImagerDeconv")
 import pyfits
 from DDFacet.Array import SharedDict
+from DDFacet.Other import ClassTimeIt
+import numexpr
+
 
 # from astropy import wcs
 # from astropy.io import fits
@@ -1027,7 +1030,8 @@ class ClassImagerDeconv():
                 print>> log, traceback.format_exc()
                 print>> log, ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway.")
 
-
+        # delete data
+        self.VS.releaseLoadedChunk()
         self.Restore()
 
         # if self.HasDeconvolved:
@@ -1237,38 +1241,61 @@ class ClassImagerDeconv():
         # @cyriltasse: maybe there's a quicker way to check?
         havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm != 1).any()
 
+        T = ClassTimeIt.ClassTimeIt()
+        #T.disable()
+
         # make a dict of _images to save the intermediate images for when we need them
-        _images = {}
+        _images = SharedDict.create("OutputImages")
+
         def sqrtnorm():
             label = 'sqrtnorm'
             if label not in _images:
-                _images[label] = np.sqrt(self.MeanJonesNorm) if havenorm else 1
+                a = self.MeanJonesNorm if self.FacetMachine.SmoothMeanJonesNorm is None else self.FacetMachine.SmoothMeanJonesNorm
+                out = _images.addSharedArray(label, a.shape, a.dtype)
+                numexpr.evaluate('sqrt(a)', out=out)
             return _images[label]
         def sqrtnormcube():
             label = 'sqrtnormcube'
             if label not in _images:
-                _images[label] = np.sqrt(self.JonesNorm) if havenorm else 1
+                a = self.JonesNorm if havenorm else np.array([1])
+                out = _images.addSharedArray(label, a.shape, a.dtype)
+                numexpr.evaluate('sqrt(a)', out=out)
             return _images[label]
         def appres():
             return self.ResidImage
         def intres():
             label = 'intres'
             if label not in _images:
-                _images[label] = x = appres()/sqrtnorm() if havenorm else appres()
-                x[~np.isfinite(x)] = 0
+                if havenorm:
+                    a, b = appres(), sqrtnorm()
+                    out = _images.addSharedArray(label, a.shape, a.dtype)
+                    numexpr.evaluate('a/b', out=out)
+                    out[~np.isfinite(out)] = 0
+                else:
+                    _images[label] = appres()
             return _images[label]
         def apprescube():
             return self.ResidCube
         def intrescube():
             label = 'intrescube'
             if label not in _images:
-                _images[label] = x = apprescube()/sqrtnormcube() if havenorm else apprescube()
-                x[~np.isfinite(x)] = 0
+                if havenorm:
+                    a, b = apprescube(), sqrtnormcube()
+                    out = _images.addSharedArray(label, a.shape, a.dtype)
+                    numexpr.evaluate('a/b', out=out)
+                    out[~np.isfinite(out)] = 0
+                else:
+                    _images[label] = apprescube()
             return _images[label]
         def appmodel():
             label = 'appmodel'
             if label not in _images:
-                _images[label] = intmodel()*sqrtnorm() if havenorm else intmodel()
+                if havenorm:
+                    a, b = intmodel(), sqrtnorm()
+                    out = _images.addSharedArray(label, a.shape, a.dtype)
+                    numexpr.evaluate('a*b', out=out)
+                else:
+                    _images[label] = intmodel()
             return _images[label]
         def intmodel():
             label = 'intmodel'
@@ -1278,34 +1305,58 @@ class ClassImagerDeconv():
         def appmodelcube():
             label = 'appmodelcube'
             if label not in _images:
-                _images[label] = intmodelcube()*sqrtnormcube() if havenorm else intmodel()
+                if havenorm:
+                    a, b = intmodelcube(), sqrtnormcube()
+                    out = _images.addSharedArray(label, a.shape, a.dtype)
+                    numexpr.evaluate('a*b', out=out)
+                else:
+                    _images[label] = intmodelcube()
             return _images[label]
         def intmodelcube():
             label = 'intmodelcube'
             if label not in _images:
-                _images[label] = ModelMachine.GiveModelImage(self.VS.FreqBandCenters)
+                shape = list(ModelMachine.ModelShape)
+                shape[0] = len(self.VS.FreqBandCenters)
+                out = _images.addSharedArray(label, shape, np.float32)
+                ModelMachine.GiveModelImage(self.VS.FreqBandCenters, out=out)
             return _images[label]
         def appconvmodel():
             label = 'appconvmodel'
             if label not in _images:
-                _images[label] = ModFFTW.ConvolveGaussian(appmodel(),CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg]) \
-                                    if havenorm else intconvmodel()
+                if havenorm:
+                    out = _images.addSharedArray(label, appmodel().shape, np.float32)
+                    ModFFTW.ConvolveGaussian(appmodel(), CellSizeRad=self.CellSizeRad,
+                                                              GaussPars=[self.PSFGaussParsAvg], out=out)
+                    T.timeit(label)
+                else:
+                    _images[label] = intconvmodel()
             return _images[label]
         def intconvmodel():
             label = 'intconvmodel'
             if label not in _images:
-                _images[label] = ModFFTW.ConvolveGaussian(intmodel(),CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg])
+                out = _images.addSharedArray(label, intmodel().shape, np.float32)
+                ModFFTW.ConvolveGaussian(intmodel(), CellSizeRad=self.CellSizeRad,
+                                                          GaussPars=[self.PSFGaussParsAvg], out=out)
+                T.timeit(label)
             return _images[label]
         def appconvmodelcube():
             label = 'appconvmodelcube'
             if label not in _images:
-                _images[label] = ModFFTW.ConvolveGaussian(appmodelcube(),CellSizeRad=self.CellSizeRad,GaussPars=self.PSFGaussPars) \
-                                    if havenorm else intconvmodelcube()
+                if havenorm:
+                    out = _images.addSharedArray(label, appmodelcube().shape, np.float32)
+                    ModFFTW.ConvolveGaussianParallel(_images, 'appmodelcube', label,
+                                             CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
+                    T.timeit(label)
+                else:
+                    _images[label] = intconvmodelcube()
             return _images[label]
         def intconvmodelcube():
             label = 'intconvmodelcube'
             if label not in _images:
-                _images[label] = ModFFTW.ConvolveGaussian(intmodelcube(),CellSizeRad=self.CellSizeRad,GaussPars=self.PSFGaussPars)
+                out = _images.addSharedArray(label, intmodelcube().shape, np.float32)
+                ModFFTW.ConvolveGaussianParallel(_images, 'intmodelcube', label,
+                                                 CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
+                T.timeit(label)
             return _images[label]
 
         # norm
@@ -1386,31 +1437,46 @@ class ClassImagerDeconv():
                 print>>log, ModColor.Str("  so just not doing it")
 
             else:
-                SmoothRestored=(appres()+appconvmodel())/np.sqrt(self.FacetMachine.SmoothMeanJonesNorm)
-                self.FacetMachine.ToCasaImage(SmoothRestored,ImageName="%s.smooth.int.restored"%self.BaseName,Fits=True,
+                a, b, c = appres(), appconvmodel(), self.FacetMachine.SmoothMeanJonesNorm
+                out = _images.addSharedArray('smoothrestored', a.shape, a.type)
+                numexpr.evaluate('(a+b)/sqrt(c)', out=out)
+                self.FacetMachine.ToCasaImage(out,ImageName="%s.smooth.int.restored"%self.BaseName,Fits=True,
                                               beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
         # apparent-flux restored image cube
         if "i" in self._savecubes:
-            self.FacetMachine.ToCasaImage(apprescube()+appconvmodelcube(),ImageName="%s.cube.app.restored"%self.BaseName,Fits=True,
+            a, b = apprescube(), appconvmodelcube()
+            out = _images.addSharedArray('apprestoredcube', a.shape, a.dtype)
+            numexpr.evaluate('a+b', out=out)
+            self.FacetMachine.ToCasaImage(out,ImageName="%s.cube.app.restored"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # intrinsic-flux restored image cube
         if havenorm and "I" in self._savecubes:
-            self.FacetMachine.ToCasaImage(intrescube()+intconvmodelcube(),ImageName="%s.cube.int.restored"%self.BaseName,Fits=True,
+            a, b = intrescube(), intconvmodelcube()
+            out = _images.addSharedArray('intrestoredcube', a.shape, a.dtype)
+            numexpr.evaluate('a+b', out=out)
+            self.FacetMachine.ToCasaImage(out, ImageName="%s.cube.int.restored"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         # mixed-flux restored image
         if havenorm and "x" in self._saveims:
-            self.FacetMachine.ToCasaImage(appres()+intconvmodel(),ImageName="%s.restored"%self.BaseName,Fits=True,
+            a, b = appres(), intconvmodel()
+            out = _images.addSharedArray('mixrestored', a.shape, a.dtype)
+            numexpr.evaluate('a+b', out=out)
+            self.FacetMachine.ToCasaImage(out,ImageName="%s.restored"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
         # Alpha image
         if "A" in self._saveims and self.VS.MultiFreqMode:
             IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg])
+            _images["alpha"] = IndexMap
             # IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
-            self.FacetMachine.ToCasaImage(IndexMap,ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg,
+            self.FacetMachine.ToCasaImage(_images["alpha"],ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg,
                                           Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
+        self.FacetMachinePSF = None
+        self.FacetMachine = None
 
     def testDegrid(self):
         import pylab
