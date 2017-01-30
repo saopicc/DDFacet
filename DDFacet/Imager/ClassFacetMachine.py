@@ -136,7 +136,7 @@ class ClassFacetMachine():
         self._model_dict = None
         # this is used to store NormImage in shared memory, for the degridder
         self._norm_dict = None
-        self.AverageBeamMachine=None
+
 
     # static attribute initialized below, once
     _degridding_semaphores = None
@@ -1254,6 +1254,7 @@ class ClassFacetMachine():
         Sw = GridMachine.SumWeigths.copy()
         SumJones = GridMachine.SumJones.copy()
         SumJonesChan = GridMachine.SumJonesChan.copy()
+        
 
         return {"iFacet": iFacet, "Weights": Sw, "SumJones": SumJones, "SumJonesChan": SumJonesChan}
 
@@ -1276,23 +1277,38 @@ class ClassFacetMachine():
             APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
                             args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path))
 
-    def _SmoothBeam_worker(self, data_path):
-        DATA=SharedDict.attach(data_path)
-        self.AverageBeamMachine.StackBeam(DATA)
-        return True
+    # ##############################################
+    # ##### Smooth beam ############################
+    def _SmoothAverageBeam_worker(self, datadict_path,iDir):
+        DATA=SharedDict.attach(datadict_path)
+        self.AverageBeamMachine.StackBeam(DATA,iDir)
 
-    def stackSmoothBeamChunkInBackground(self,DATA):
-        #if self.GD["Beam"]["Model"] is None or self.SmoothMeanJonesNorm is not None: return
-        print DATA.path
-        APP.runJob("StackSmoothBeam", self._SmoothBeam_worker,
-                            args=(DATA.path,))
-        return self.SmoothMeanJonesNorm
+    def SmoothAverageBeam(self, DATA):
+        if not self.AverageBeamMachine: return
+        # wait for any init to finish
+        self.awaitInitCompletion()
+        # wait for any previous gridding/degridding jobs to finish, if still active
+        self.collectGriddingResults()
+        self.collectDegriddingResults()
+        # run new set of jobs
+        self._smooth_job_label=DATA["label"]
+        JobName="StackBeam%sF"%self._smooth_job_label
+        for iDir in range(self.AverageBeamMachine.NDir):
+            APP.runJob("%s%d" % (JobName,iDir), 
+                       self._SmoothAverageBeam_worker,
+                       args=(DATA.path, iDir))
+
+        APP.awaitJobResults(JobName+"*",
+                            progress=("Stack Beam %s" % self._smooth_job_label))
 
     def finaliseSmoothBeam(self):
-        _,npol,Npix,Npix=self.OutImShape
-        APP.awaitJobResults("StackSmoothBeam")
-        self.AverageBeamMachine.Smooth()
-        self.SmoothMeanJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
+        if self.AverageBeamMachine: 
+            _,npol,Npix,Npix=self.OutImShape
+            self.AverageBeamMachine.Smooth()
+            self.SmoothMeanJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
+
+    # ##############################################
+    # ##############################################
 
     def collectGriddingResults(self):
         """
@@ -1322,7 +1338,6 @@ class ClassFacetMachine():
         self._grid_job_id = None
         return True
 
-        APP.awaitJobResults("StackSmoothBeam")
 
 
 

@@ -501,7 +501,7 @@ class ClassJones():
             (self.MS.NSPWChan, 1))-MeanFreqJonesChan.reshape((1, NChanJones)))
         return np.argmin(DFreq, axis=1)
 
-    def EstimateBeam(self, TimesBeam, RA, DEC):
+    def EstimateBeam(self, TimesBeam, RA, DEC,progressBar=True):
         TimesBeam = np.float64(np.array(TimesBeam))
         T0s = TimesBeam[:-1].copy()
         T1s = TimesBeam[1:].copy()
@@ -525,6 +525,7 @@ class ClassJones():
         
         rac,decc=self.MS.OriginalRadec
         pBAR= ProgressBar(Title="  Init E-Jones ")#, HeaderSize=10,TitleSize=13)
+        if not progressBar: pBAR.disable()
         pBAR.render(0, Tm.size)
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]

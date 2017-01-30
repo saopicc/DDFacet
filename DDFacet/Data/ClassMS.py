@@ -41,7 +41,6 @@ import DDFacet.ToolsDir.ModRotate
 
 import time
 from DDFacet.Other.progressbar import ProgressBar
-from DDFacet.Other.AsyncProcessPool import APP
 
 
 try:
@@ -290,10 +289,6 @@ class ClassMS():
         self.LOFAR_ANTENNA_FIELD=Dico
         
 
-    def _giveBeam_worker(time,ra,dec):
-        
-
-        
     def GiveBeam(self,time,ra,dec):
         self.LoadSR()
         Beam=np.zeros((ra.shape[0],self.na,self.NSPWChan,2,2),dtype=np.complex)

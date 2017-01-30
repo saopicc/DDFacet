@@ -29,7 +29,9 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Other import ModColor
 from DDFacet.Array import NpShared
+from DDFacet.Array import SharedDict
 
+from DDFacet.Other.AsyncProcessPool import APP
 
 class ClassBeamMean():
     def __init__(self,VS):
@@ -46,14 +48,19 @@ class ClassBeamMean():
         self.CalcGrid()
         #self.Padding=Padding
 
-        self.SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
-        self.SumWsq=np.zeros((self.MS.Nchan,),np.float64)
+        #self.SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
+        #self.SumWsq=np.zeros((1,self.MS.Nchan),np.float64)
+
+        self.StackedBeamDict=SharedDict.SharedDict("StackedBeamDict")
+        for iDir in range(self.NDir):
+            self.StackedBeamDict[iDir]={"SumJJsq":np.zeros((self.MS.Nchan,),np.float64),
+                                        "SumWsq":np.zeros((self.MS.Nchan,),np.float64)}
+
 
         self.DicoJonesMachine={}
         for iMS,MS in enumerate(self.ListMS):
             JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine)
             JonesMachine.InitBeamMachine()
-            print iMS
             self.DicoJonesMachine[iMS]=JonesMachine
 
     def CalcGrid(self):
@@ -66,6 +73,9 @@ class ClassBeamMean():
         lmin=ll.min()
         lmax=ll.max()
         lc,mc=np.mgrid[lmin:lmax:1j*npix,lmin:lmax:1j*npix]
+        iPix,jPix=np.mgrid[0:npix,0:npix]
+        self.iPix=iPix.ravel()
+        self.jPix=jPix.ravel()
         lc=lc.flatten()
         mc=mc.flatten()
         ra=np.zeros_like(lc)
@@ -75,11 +85,12 @@ class ClassBeamMean():
                                                     np.array([mc[i]]))
         self.radec=ra,dec
         self.npix=npix
+        self.NDir=ra.size
+        
 
 
-
-
-    def StackBeam(self,ThisMSData):
+    def StackBeam(self,ThisMSData,iDir):
+        print iDir
         Dt=self.GD["Beam"]["DtBeamMin"]*60.
         JonesMachine=self.DicoJonesMachine[ThisMSData["iMS"]]
         RAs,DECs = self.radec
@@ -94,9 +105,10 @@ class ClassBeamMean():
         
         CurrentBeamITime=-1
         #print "  Estimate beam in %i directions"%(RAs.size)
-        DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs, DECs)
+        DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[iDir:iDir+1], DECs[iDir:iDir+1],progressBar=False)
+        print DicoBeam["Jones"].shape
         T=ClassTimeIt.ClassTimeIt()
-        #T.disable()
+        T.disable()
         NTRange=DicoBeam["t0"].size
         #pBAR= ProgressBar(Title="      Mean Beam")
         #pBAR.render(0, '%4i/%i' % (0,NTRange))
@@ -142,9 +154,17 @@ class ClassBeamMean():
             
             SumWsqThisRange=np.sum(JJsq,axis=1)
             T.timeit("7")
-            self.SumJJsq+=SumWsqThisRange.reshape((self.npix,self.npix,self.MS.Nchan))
-            T.timeit("8")
-            self.SumWsq+=np.sum(WW,axis=1)
+
+            #self.SumJJsq+=SumWsqThisRange.reshape((self.npix,self.npix,self.MS.Nchan))
+            #T.timeit("8")
+            SumWsq=np.sum(WW,axis=1)
+            #self.SumWsq+=SumWsq
+
+            self.StackedBeamDict[iDir]["SumJJsq"]+=SumWsqThisRange.reshape((self.MS.Nchan,))
+            self.StackedBeamDict[iDir]["SumWsq"]+=SumWsq.reshape((self.MS.Nchan,))
+            
+
+            #print SumWsq,self.SumWsq,self.SumJJsq.shape,J0.shape
             T.timeit("9")
             
             #NDone = iTRange+1
@@ -154,6 +174,14 @@ class ClassBeamMean():
     
         
     def Smooth(self):
+        #print self.SumWsq
+        self.StackedBeamDict.reload()
+        self.SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
+        self.SumWsq=np.zeros((1,self.MS.Nchan),np.float64)
+        self.SumWsq[0,:]=self.StackedBeamDict[0]["SumWsq"]
+        for iDir in range(self.NDir):
+            i,j=self.iPix[iDir],self.jPix[iDir]
+            self.SumJJsq[i,j,:]=self.StackedBeamDict[iDir]["SumJJsq"]
 
         self.SumJJsq/=self.SumWsq.reshape(1,1,self.MS.Nchan)
         #self.SumJJsq=np.rollaxis(SumJJsq,2)#np.mean(SumJJsq,axis=2)
