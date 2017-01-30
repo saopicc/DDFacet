@@ -147,6 +147,8 @@ class ClassImagerDeconv():
         # init process pool for parallelization
         Multiprocessing.initDefaultPool(GD=self.GD)
 
+        APP.registerJobHandlers(self)
+
     def Init(self):
         DC = self.GD
         mslist = ClassMS.expandMSList(DC["Data"]["MS"],
@@ -1216,6 +1218,12 @@ class ClassImagerDeconv():
                                       Fits=True)
         return ModelMachine
 
+    def _saveImage_worker (self, dict_path, field, ImageName, Fits=True, beam=None, beamcube=None, Freqs=None, Stokes=None):
+        """Worker funtion to save an image to disk"""
+        sd = SharedDict.attach(dict_path)
+        image = sd[field]
+        self.FacetMachine.ToCasaImage(image, ImageName=ImageName, Fits=Fits, beam=beam, beamcube=beamcube,
+                                      Freqs=Freqs, Stokes=Stokes)
 
     def Restore(self):
         print>>log, "Create restored image"
@@ -1242,7 +1250,7 @@ class ClassImagerDeconv():
         havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm != 1).any()
 
         T = ClassTimeIt.ClassTimeIt()
-        #T.disable()
+        T.disable()
 
         # make a dict of _images to save the intermediate images for when we need them
         _images = SharedDict.create("OutputImages")
@@ -1262,7 +1270,9 @@ class ClassImagerDeconv():
                 numexpr.evaluate('sqrt(a)', out=out)
             return _images[label]
         def appres():
-            return self.ResidImage
+            label = 'appres'
+            _images[label] = self.ResidImage
+            return _images[label]
         def intres():
             label = 'intres'
             if label not in _images:
@@ -1275,7 +1285,9 @@ class ClassImagerDeconv():
                     _images[label] = appres()
             return _images[label]
         def apprescube():
-            return self.ResidCube
+            label = 'apprescube'
+            _images[label] = self.ResidCube
+            return _images[label]
         def intrescube():
             label = 'intrescube'
             if label not in _images:
@@ -1361,74 +1373,92 @@ class ClassImagerDeconv():
 
         # norm
         if havenorm and ("S" in self._saveims or "s" in self._saveims):
-            self.FacetMachine.ToCasaImage(sqrtnorm(),ImageName="%s.fluxscale"%(self.BaseName),
-                                          Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            sqrtnorm()
+            APP.runJob("save:sqrtnorm", self._saveImage_worker, io=0, args=( _images.path, "sqrtnorm",), kwargs=dict( ImageName="%s.fluxscale"%(self.BaseName),
+                                          Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         if havenorm and ("S" in self._savecubes or "s" in self._savecubes):
-            self.FacetMachine.ToCasaImage(sqrtnormcube(), ImageName="%s.cube.fluxscale" % (self.BaseName), Fits=True,
-                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            sqrtnormcube()
+            APP.runJob("save:sqrtnormcube", self._saveImage_worker, io=0, args=( _images.path, "sqrtnormcube",), kwargs=dict( ImageName="%s.cube.fluxscale" % (self.BaseName), Fits=True,
+                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
-            # apparent-flux residuals
+        # apparent-flux residuals
         if "r" in self._saveims:
-            self.FacetMachine.ToCasaImage(appres(),ImageName="%s.app.residual"%(self.BaseName),
-                                          Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            appres()
+            APP.runJob("save:appres", self._saveImage_worker, io=0, args=( _images.path, "appres",), kwargs=dict( ImageName="%s.app.residual"%(self.BaseName),
+                                          Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # intrinsic-flux residuals
         if havenorm and "R" in self._saveims:
-            self.FacetMachine.ToCasaImage(intres(),ImageName="%s.int.residual"%(self.BaseName),Fits=True,
-                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            intres()
+            APP.runJob("save:intres", self._saveImage_worker, io=0, args=( _images.path, "intres",), kwargs=dict(ImageName="%s.int.residual"%(self.BaseName),Fits=True,
+                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         
         # apparent-flux residual cube
         if "r" in self._savecubes:
-            self.FacetMachine.ToCasaImage(apprescube(),ImageName="%s.cube.app.residual"%(self.BaseName),Fits=True,
-                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            apprescube()
+            APP.runJob("save:apprescube", self._saveImage_worker, io=0, args=( _images.path, "apprescube",), kwargs=dict(ImageName="%s.cube.app.residual"%(self.BaseName),Fits=True,
+                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # intrinsic-flux residual cube
         if havenorm and "R" in self._savecubes:
-            self.FacetMachine.ToCasaImage(intrescube(),ImageName="%s.cube.int.residual"%(self.BaseName),Fits=True,
-                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            intrescube()
+            APP.runJob("save:intrescube", self._saveImage_worker, io=0, args=( _images.path, "intrescube",), kwargs=dict(ImageName="%s.cube.int.residual"%(self.BaseName),Fits=True,
+                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         # apparent-flux model
         if "m" in self._saveims:
-            self.FacetMachine.ToCasaImage(appmodel(),ImageName="%s.app.model"%self.BaseName,Fits=True,
-                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            appmodel()
+            APP.runJob("save:appmodel", self._saveImage_worker, io=0, args=( _images.path, "appmodel",), kwargs=dict(ImageName="%s.app.model"%self.BaseName,Fits=True,
+                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # intrinsic-flux model
         if havenorm and "M" in self._saveims:
-            self.FacetMachine.ToCasaImage(intmodel(),ImageName="%s.int.model"%self.BaseName,Fits=True,
-                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            intmodel()
+            APP.runJob("save:intmodel", self._saveImage_worker, io=0, args=( _images.path, "intmodel",), kwargs=dict(ImageName="%s.int.model"%self.BaseName,Fits=True,
+                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # apparent-flux model cube
         if "m" in self._savecubes:
-            self.FacetMachine.ToCasaImage(appmodelcube(),ImageName="%s.cube.app.model"%self.BaseName,Fits=True,
-                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            appmodelcube()
+            APP.runJob("save:appmodelcube", self._saveImage_worker, io=0, args=( _images.path, "appmodelcube",), kwargs=dict(ImageName="%s.cube.app.model"%self.BaseName,Fits=True,
+                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # intrinsic-flux model cube
         if havenorm and "M" in self._savecubes:
-            self.FacetMachine.ToCasaImage(intmodelcube(),ImageName="%s.cube.int.model"%self.BaseName,Fits=True,
-                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            intmodelcube()
+            APP.runJob("save:intmodelcube", self._saveImage_worker, io=0, args=( _images.path, "intmodelcube",), kwargs=dict(ImageName="%s.cube.int.model"%self.BaseName,Fits=True,
+                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         # convolved-model image in apparent flux
         if "c" in self._saveims:
-            self.FacetMachine.ToCasaImage(appconvmodel(),ImageName="%s.app.convmodel"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            appconvmodel()
+            APP.runJob("save:appconvmodel", self._saveImage_worker, io=0, args=( _images.path, "appconvmodel",), kwargs=dict(ImageName="%s.app.convmodel"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # convolved-model image in intrinsic flux
         if havenorm and "C" in self._saveims:
-            self.FacetMachine.ToCasaImage(intconvmodel(),ImageName="%s.int.convmodel"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            intconvmodel()
+            APP.runJob("save:intconvmodel", self._saveImage_worker, io=0, args=( _images.path, "intconvmodel",), kwargs=dict(ImageName="%s.int.convmodel"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # convolved-model cube in apparent flux
         if "c" in self._savecubes:
-            self.FacetMachine.ToCasaImage(appconvmodelcube(),ImageName="%s.cube.app.convmodel"%self.BaseName,Fits=True,
+            appconvmodelcube()
+            APP.runJob("save:appconvmodelcube", self._saveImage_worker, io=0, args=( _images.path, "appconvmodelcube",), kwargs=dict(ImageName="%s.cube.app.convmodel"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
-                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # convolved-model cube in intrinsic flux
         if havenorm and "C" in self._savecubes:
-            self.FacetMachine.ToCasaImage(intconvmodelcube(),ImageName="%s.cube.int.convmodel"%self.BaseName,Fits=True,
+            intconvmodelcube()
+            APP.runJob("save:intconvmodelcube", self._saveImage_worker, io=0, args=( _images.path, "intconvmodelcube",), kwargs=dict(ImageName="%s.cube.int.convmodel"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
-                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         # apparent-flux restored image
         if "i" in self._saveims:
-            self.FacetMachine.ToCasaImage(appres()+appconvmodel(),ImageName="%s.app.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            _images["apprestored"] = appres()
+            _images["apprestored"] += appconvmodel()
+            APP.runJob("save:apprestored", self._saveImage_worker, io=0, args=( _images.path, "apprestored",), kwargs=dict( ImageName="%s.app.restored"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # intrinsic-flux restored image
         if havenorm and "I" in self._saveims:
-            self.FacetMachine.ToCasaImage(intres()+intconvmodel(),ImageName="%s.int.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            _images["intrestored"] = intres()
+            _images["intrestored"] += intconvmodel()
+            APP.runJob("save:intrestored", self._saveImage_worker, io=0, args=( _images.path, "intrestored",), kwargs=dict( ImageName="%s.int.restored"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         # intrinsic-flux restored image
         if havenorm and ("H" in self._saveims):
@@ -1440,41 +1470,47 @@ class ClassImagerDeconv():
                 a, b, c = appres(), appconvmodel(), self.FacetMachine.SmoothMeanJonesNorm
                 out = _images.addSharedArray('smoothrestored', a.shape, a.type)
                 numexpr.evaluate('(a+b)/sqrt(c)', out=out)
-                self.FacetMachine.ToCasaImage(out,ImageName="%s.smooth.int.restored"%self.BaseName,Fits=True,
-                                              beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                APP.runJob("save:smoothrestored", self._saveImage_worker, io=0, args=( _images.path, "smoothrestored",), kwargs=dict(
+                                            ImageName="%s.smooth.int.restored"%self.BaseName,Fits=True,
+                                            beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         # apparent-flux restored image cube
         if "i" in self._savecubes:
             a, b = apprescube(), appconvmodelcube()
             out = _images.addSharedArray('apprestoredcube', a.shape, a.dtype)
             numexpr.evaluate('a+b', out=out)
-            self.FacetMachine.ToCasaImage(out,ImageName="%s.cube.app.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
-                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            APP.runJob("save:apprestoredcube", self._saveImage_worker, io=0, args=( _images.path, "apprestoredcube",), kwargs=dict(
+                        ImageName="%s.cube.app.restored"%self.BaseName,Fits=True,
+                        beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
+                        Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # intrinsic-flux restored image cube
         if havenorm and "I" in self._savecubes:
             a, b = intrescube(), intconvmodelcube()
             out = _images.addSharedArray('intrestoredcube', a.shape, a.dtype)
             numexpr.evaluate('a+b', out=out)
-            self.FacetMachine.ToCasaImage(out, ImageName="%s.cube.int.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
-                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            APP.runJob("save:intrestoredcube", self._saveImage_worker, io=0, args=( _images.path, "intrestoredcube",), kwargs=dict(
+                        ImageName="%s.cube.int.restored"%self.BaseName,Fits=True,
+                        beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
+                        Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # mixed-flux restored image
         if havenorm and "x" in self._saveims:
             a, b = appres(), intconvmodel()
             out = _images.addSharedArray('mixrestored', a.shape, a.dtype)
             numexpr.evaluate('a+b', out=out)
-            self.FacetMachine.ToCasaImage(out,ImageName="%s.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            APP.runJob("save:mixrestored", self._saveImage_worker, io=0, args=( _images.path, "mixrestored",), kwargs=dict(
+                        ImageName="%s.restored"%self.BaseName,Fits=True,
+                        beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         # Alpha image
         if "A" in self._saveims and self.VS.MultiFreqMode:
             IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg])
             _images["alpha"] = IndexMap
             # IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
-            self.FacetMachine.ToCasaImage(_images["alpha"],ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg,
-                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            APP.runJob("save:alpha", self._saveImage_worker, io=0, args=( _images.path, "alpha",), kwargs=dict(
+                      ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg,
+                      Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
+        APP.awaitJobResults("save:*")
         self.FacetMachinePSF = None
         self.FacetMachine = None
 

@@ -152,7 +152,7 @@ class AsyncProcessPool (object):
         Returns:
 
         """
-        self._shared_state = SharedDict.create("APP")
+        self._shared_state = SharedDict.create("APP", delete_items=False)
         self.affinity = affinity
         self.cpustep = abs(self.affinity) or 1
         self.ncpu = ncpu
