@@ -78,12 +78,14 @@ class SharedDict (dict):
             self.path = path
         else:
             self.path = os.path.join(SharedDict.basepath, path)
+#        self._path_fd = os.open(self.path, os.O_RDONLY)  # for sync purposes
         if reset or not os.path.exists(self.path):
             self.delete()
         elif load:
             self.reload()
 
     def __del__(self):
+ #       os.close(self._path_fd)
         if self._delete_items:
             self.delete()
 
@@ -155,19 +157,19 @@ class SharedDict (dict):
         raise RuntimeError("not implemented")
 
     def __delitem__(self, item):
-        # remove the item from dict
-        contained = dict.__contains__(self,item)
-        result = dict.__delitem__(self, item)
-        # remove shm representation, if reaping items
         if self._delete_items:
-            name = self._key_to_name(item)
-            if contained:
-                for suffix in "ap":
-                    if os.path.exists(name+suffix):
-                        os.unlink(name+suffix)
-                if os.path.exists(name+"d"):
-                    os.system("rm -fr "+name+"d")
-        return result
+            return self.delete_item(item)
+        else:
+            return dict.__delitem__(self, item)
+
+    def delete_item (self, item):
+        dict.__delitem__(self, item)
+        name = self._key_to_name(item)
+        for suffix in "ap":
+            if os.path.exists(name+suffix):
+                os.unlink(name+suffix)
+        if os.path.exists(name+"d"):
+            os.system("rm -fr "+name+"d")
 
     def __setitem__(self, item, value):
         if type(item).__name__ not in _allowed_key_types:
@@ -180,18 +182,19 @@ class SharedDict (dict):
                     os.unlink(name+suffix)
             if os.path.exists(name+"d"):
                 os.system("rm -fr "+name+"d")
-        dict.__setitem__ (self, item, value)
         # for arrays, copy to a shared array
         if isinstance(value, np.ndarray):
-            NpShared.ToShared(_to_shm(os.path.join(self.path, name)+'a'), value)
+            value = NpShared.ToShared(_to_shm(os.path.join(self.path, name)+'a'), value)
         # for regular dicts, copy across
         elif isinstance(value, (dict, SharedDict, collections.OrderedDict)):
             dict1 = self.addSubdict(item)
             for key1, value1 in value.iteritems():
                 dict1[key1] = value1
+            value = dict1
         # all other types, just use pickle
         else:
             cPickle.dump(value, file(os.path.join(self.path, name+'p'), "w"), 2)
+        dict.__setitem__(self, item, value)
 
     def addSubdict (self, item):
         name = self._key_to_name(item) + 'd'
