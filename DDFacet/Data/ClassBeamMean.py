@@ -87,14 +87,18 @@ class ClassBeamMean():
             A1 = tab.getcol("ANTENNA2")
             tab.close()
 
-            weights = self.VS.VisWeights[iMS][:]
-            ThisMSData={}
-            ThisMSData["A0"]=A0
-            ThisMSData["A1"]=A1
-            ThisMSData["times"]=times
-            ThisMSData["flags"]=flags
-            LW=[NpShared.GiveArray("file://"+NameWeights) for NameWeights in weights]
-            ThisMSData["W"]=np.concatenate(LW)
+
+
+            for iChunk in range(ms.numChunks()):
+                weights = self.VS.GetVisWeights(iMS, iChunk)
+
+
+                ThisMSData={}
+                ThisMSData["A0"]=A0
+                ThisMSData["A1"]=A1
+                ThisMSData["times"]=times
+                ThisMSData["flags"]=flags
+                ThisMSData["W"]=weights
             
     
             self.Data[iMS]=ThisMSData
