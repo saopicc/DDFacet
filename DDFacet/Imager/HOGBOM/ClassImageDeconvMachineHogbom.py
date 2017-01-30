@@ -373,7 +373,7 @@ class ClassImageDeconvMachine():
                 update_model = False or update_model
                 continue #onto the next polarization
 
-            pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning  %s " %  pol_task, HeaderSize=20,TitleSize=30)
+            pBAR= ProgressBar(Title="Cleaning  %s " %  pol_task)
             # pBAR.disable()
 
             self.GainMachine.SetFluxMax(ThisFlux)

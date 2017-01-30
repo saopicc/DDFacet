@@ -171,9 +171,14 @@ class ClassImagerDeconv():
         if DoSub:
             print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
             ModelMachine = self.ModConstructor.GiveInitialisedMMFromFile(SubstractModel)
-            if self.GD["Deconv"]["Mode"] != ModelMachine.DicoSMStacked["Type"]:
+            modeltype = ModelMachine.DicoSMStacked["Type"]
+            if modeltype == "GA":
+                modeltype = "SSD"
+            elif modeltype = "MSMF":
+                modeltype = "HMP"
+            if self.GD["Deconv"]["Mode"] != modeltype:
                 raise NotImplementedError("You want to use different minor cycle and IniDicoModel types [%s vs %s]"\
-                                          %(self.GD["Deconv"]["Mode"],ModelMachine.DicoSMStacked["Type"]))
+                                          %(self.GD["Deconv"]["Mode"], modeltype))
 
             print>>log, ModColor.Str("Taking reference frequency from the model machine %f MHz (instead of %f MHz from the data)"%(ModelMachine.RefFreq/1e6,self.VS.RefFreq/1e6))
             self.RefFreq=self.VS.RefFreq=ModelMachine.RefFreq
