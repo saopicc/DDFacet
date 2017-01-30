@@ -329,9 +329,10 @@ class ClassImagerDeconv():
     def _loadCachedPSF (self, cachepath):
         import cPickle
         #self.DicoVariablePSF = cPickle.load(file(cachepath))
-        self.DicoVariablePSF = MyPickle.FileToDicoNP(cachepath)
-        self.DicoVariablePSF = SharedDict.dict_to_shm("dictPSF",self.DicoVariablePSF)
 
+        DicoVariablePSF = MyPickle.FileToDicoNP(cachepath)
+        self.DicoVariablePSF = SharedDict.dict_to_shm("dictPSF",DicoVariablePSF)
+        del(DicoVariablePSF)
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
         self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["CubeMeanVariablePSF"][self.DicoVariablePSF["CentralFacet"]]
