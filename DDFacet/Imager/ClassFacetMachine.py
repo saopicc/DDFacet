@@ -1060,16 +1060,16 @@ class ClassFacetMachine():
 
                         #Im = (Im[::-1, :].T / sumweight)
                         a,b=Im[::-1, :].T.copy(), 1./sumweight
-                        numexpr.evaluate('a*b',out=a,casting="unsafe")
+                        numexpr.evaluate('a*b',out=Im,casting="unsafe")
 
                         # Im /= np.sqrt(ThisSumJones)
                         a,b=Im, 1./np.sqrt(ThisSumJones)
-                        numexpr.evaluate('a*b',out=a,casting="unsafe")
+                        numexpr.evaluate('a*b',out=Im,casting="unsafe")
 
 
                         #Im *= SpacialWeigth[::-1, :].T
                         a,b=Im,SpacialWeigth[::-1, :].T.copy()
-                        numexpr.evaluate('a*b',out=a,casting="unsafe")
+                        numexpr.evaluate('a*b',out=Im,casting="unsafe")
                         
 
                         Im = Im[x0facet:x1facet, y0facet:y1facet]
