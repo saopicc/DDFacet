@@ -548,11 +548,11 @@ class ClassImagerDeconv():
                 # so even if we're not using FM to make a dirty, we still need this call to make sure the CFs come in.
                 self.FacetMachine.awaitInitCompletion()
                 if not dirty_valid:
-                    self.FacetMachine.putChunkInBackground(DATA)
-
                     # # commented out. @cyriltasse to uncomment when fixed
                     # if "H" in self._saveims:
-                    #     self.FacetMachine.ComputeSmoothBeam()
+                    #     self.FacetMachine.putChunkInBackground_SmoothBeam(DATA)
+                    self.FacetMachine.putChunkInBackground(DATA)
+
 
                 if not psf_valid and self.FacetMachinePSF is not None:
                     self.FacetMachinePSF.putChunkInBackground(DATA)

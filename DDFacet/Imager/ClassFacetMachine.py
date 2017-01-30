@@ -1057,10 +1057,23 @@ class ClassFacetMachine():
                         #Im /= SPhe
                         numexpr.evaluate('Im*InvSPhe',out=Im,casting="unsafe")
                         Im[SPhe < 1e-3] = 0
-                        Im = (Im[::-1, :].T / sumweight)
-                        Im /= np.sqrt(ThisSumJones)
-                        Im *= SpacialWeigth[::-1, :].T
+
+                        #Im = (Im[::-1, :].T / sumweight)
+                        a,b=Im[::-1, :].T.copy(), 1./sumweight
+                        numexpr.evaluate('a*b',out=a,casting="unsafe")
+
+                        # Im /= np.sqrt(ThisSumJones)
+                        a,b=Im, 1./np.sqrt(ThisSumJones)
+                        numexpr.evaluate('a*b',out=a,casting="unsafe")
+
+
+                        #Im *= SpacialWeigth[::-1, :].T
+                        a,b=Im,SpacialWeigth[::-1, :].T.copy()
+                        numexpr.evaluate('a*b',out=a,casting="unsafe")
+                        
+
                         Im = Im[x0facet:x1facet, y0facet:y1facet]
+
                     a,b=Image[Channel, pol, x0main:x1main, y0main:y1main], Im.real
                     numexpr.evaluate('a+b',out=a,casting="unsafe")
                     #Image[Channel, pol, x0main:x1main, y0main:y1main] += Im.real
