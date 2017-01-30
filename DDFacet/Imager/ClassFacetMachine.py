@@ -1363,6 +1363,7 @@ class ClassFacetMachine():
         ToSHMDict=True
         ToGrid=True
         self._set_model_grid_job_id = "%s.MakeGridModel:" % (self._app_id)
+        
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._set_model_grid_job_id, iFacet), 
                        self._set_model_grid_worker,
