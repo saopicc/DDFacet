@@ -455,9 +455,9 @@ class ClassDDEGridMachine():
         machine = ClassDDEGridMachine._global_fftw_machines.get((GridShape, dtype))
         if machine is None:
             if FFTMachineType=="FFTW":
-                ClassDDEGridMachine._global_fftw_machines[args] = machine = ModFFTW.FFTW_2Donly(GridShape, dtype)
+                ClassDDEGridMachine._global_fftw_machines[(GridShape, dtype)] = machine = ModFFTW.FFTW_2Donly(GridShape, dtype)
             elif FFTMachineType=="LAPACK":
-                ClassDDEGridMachine._global_fftw_machines[args] = machine = ModFFTW.FFTW_2Donly_np(GridShape, dtype)
+                ClassDDEGridMachine._global_fftw_machines[(GridShape, dtype)] = machine = ModFFTW.FFTW_2Donly_np(GridShape, dtype)
 
         return machine
 

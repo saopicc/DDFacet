@@ -549,6 +549,11 @@ class ClassImagerDeconv():
                 self.FacetMachine.awaitInitCompletion()
                 if not dirty_valid:
                     self.FacetMachine.putChunkInBackground(DATA)
+
+                    # # commented out. @cyriltasse to uncomment when fixed
+                    # if "H" in self._saveims:
+                    #     self.FacetMachine.ComputeSmoothBeam()
+
                 if not psf_valid and self.FacetMachinePSF is not None:
                     self.FacetMachinePSF.putChunkInBackground(DATA)
                 ## disabled this, doesn't like in-place FFTs
@@ -568,9 +573,6 @@ class ClassImagerDeconv():
             if not dirty_valid:
                 self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
 
-                # commented out. @cyriltasse to uncomment when fixed
-                if "H" in self._saveims:
-                    self.FacetMachine.ComputeSmoothBeam()
 
                 self.SaveDirtyProducts()
 
