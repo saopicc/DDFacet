@@ -505,6 +505,7 @@ class ClassFacetMachine():
         """
         Set fft wisdom
         """
+        if self.GD["RIME"]["FFTMachine"] is not "FFTW": return
         cachename = "FFTW_Wisdom_PSF" if self.DoPSF and self.Oversize != 1 else "FFTW_Wisdom"
         path, valid = self.VS.maincache.checkCache(cachename, dict(shape=self.PaddedGridShape))
         if not valid:
@@ -767,7 +768,7 @@ class ClassFacetMachine():
         else:
             WBAND = 1
         #  ok, make sure the FTs have been computed
-        self.collectFourierTransformResults()
+        # self.collectFourierTransformResults()
         # PSF mode: construct PSFs
         if self.DoPSF:
             self.DicoPSF = {}
@@ -1326,6 +1327,7 @@ class ClassFacetMachine():
             APP.runJob("%sF%d" % (self._fft_job_id, iFacet), self._fft_worker,
                             args=(iFacet, self._CF.path, self._facet_grids.path),
                             )
+        APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
 
     def collectFourierTransformResults (self):
         if self._fft_job_id is None:
