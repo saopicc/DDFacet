@@ -44,6 +44,7 @@ import cPickle
 log=MyLogger.getLogger("ClassImagerDeconv")
 import pyfits
 from DDFacet.Array import SharedDict
+import DDFacet.Data.ClassBeamMean as ClassBeamMean
 
 # from astropy import wcs
 # from astropy.io import fits
@@ -214,7 +215,8 @@ class ClassImagerDeconv():
 
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
-
+        AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
+        self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
 
         # all internal state initialized -- start the worker threads
         APP.startWorkers()
@@ -547,10 +549,11 @@ class ClassImagerDeconv():
                 # crude but we need it here, since FacetMachine computes/loads CFs, which FacetMachinePSF uses.
                 # so even if we're not using FM to make a dirty, we still need this call to make sure the CFs come in.
                 self.FacetMachine.awaitInitCompletion()
+                if "H" in self._saveims:
+                    self.FacetMachine.stackSmoothBeamChunkInBackground(DATA)
+
                 if not dirty_valid:
-                    # # commented out. @cyriltasse to uncomment when fixed
-                    # if "H" in self._saveims:
-                    #     self.FacetMachine.putChunkInBackground_SmoothBeam(DATA)
+                    # commented out. @cyriltasse to uncomment when fixed
                     self.FacetMachine.putChunkInBackground(DATA)
 
 
@@ -569,6 +572,8 @@ class ClassImagerDeconv():
                 #     self.FacetMachine.NormImage = None
 
                 iloop += 1
+
+            self.FacetMachine.finaliseSmoothBeam()
 
             if not dirty_valid:
                 self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)

@@ -51,7 +51,6 @@ from DDFacet.Other.AsyncProcessPool import APP
 import numexpr
 MyLogger.setSilent("MyLogger")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
-import DDFacet.Data.ClassBeamMean as ClassBeamMean
 from DDFacet.Other import ModColor
 MyLogger.setSilent("MyLogger")
 
@@ -121,9 +120,10 @@ class ClassFacetMachine():
         self.SmoothMeanJonesNorm=None
         self.JonesNorm = None
         self.FacetNorm = None
-        self.SmoothMeanJonesNorm = None ### is this not the same thing?
+
         self._facet_grids = self.DATA = None
         self._grid_job_id = self._fft_job_id = self._degrid_job_id = None
+
 
         # create semaphores if not already created
         if not ClassFacetMachine._degridding_semaphores:
@@ -136,6 +136,7 @@ class ClassFacetMachine():
         self._model_dict = None
         # this is used to store NormImage in shared memory, for the degridder
         self._norm_dict = None
+        self.AverageBeamMachine=None
 
     # static attribute initialized below, once
     _degridding_semaphores = None
@@ -153,6 +154,8 @@ class ClassFacetMachine():
             self._facet_grids.delete()
             del self.DicoGridMachine
 
+    def setAverageBeamMachine(self,AverageBeamMachine):
+        self.AverageBeamMachine=AverageBeamMachine
 
 
     def SetLogModeSubModules(self,Mode="Silent"):
@@ -949,17 +952,6 @@ class ClassFacetMachine():
             
             self.DoCalcJonesNorm = False
 
-    def ComputeSmoothBeam(self):
-        if self.GD["Beam"]["Model"] is None or self.SmoothMeanJonesNorm is not None: return
-        _,npol,Npix,Npix=self.OutImShape
-        self.AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
-        self.AverageBeamMachine.CalcMeanBeam()
-        self.SmoothMeanJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
-        #self.AverageBeamMachine.GiveMergedWithDiscrete( np.mean(self.JonesNorm, axis=0).reshape((Npix,Npix) ))
-        #self.SmoothMeanNormImage = self.SmoothMeanNormImage.reshape((1,1,Npix,Npix))
-        #DicoImages["SmoothMeanNormImage"] = self.SmoothMeanNormImage 
-        return self.SmoothMeanJonesNorm
-
     def BuildFacetNormImage(self):
         """
         Creates a stitched tesselation weighting map. This can be useful
@@ -1284,6 +1276,24 @@ class ClassFacetMachine():
             APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
                             args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path))
 
+    def _SmoothBeam_worker(self, data_path):
+        DATA=SharedDict.attach(data_path)
+        self.AverageBeamMachine.StackBeam(DATA)
+        return True
+
+    def stackSmoothBeamChunkInBackground(self,DATA):
+        #if self.GD["Beam"]["Model"] is None or self.SmoothMeanJonesNorm is not None: return
+        print DATA.path
+        APP.runJob("StackSmoothBeam", self._SmoothBeam_worker,
+                            args=(DATA.path,))
+        return self.SmoothMeanJonesNorm
+
+    def finaliseSmoothBeam(self):
+        _,npol,Npix,Npix=self.OutImShape
+        APP.awaitJobResults("StackSmoothBeam")
+        self.AverageBeamMachine.Smooth()
+        self.SmoothMeanJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
+
     def collectGriddingResults(self):
         """
         If any grid workers are still at work, waits for them to finish and collects the results.
@@ -1311,6 +1321,10 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["SumJonesChan"][self._grid_iMS] += DicoResult["SumJonesChan"]
         self._grid_job_id = None
         return True
+
+        APP.awaitJobResults("StackSmoothBeam")
+
+
 
     def _fft_worker(self, iFacet, cfdict_path, griddict_path):
         """

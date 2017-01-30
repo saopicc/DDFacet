@@ -47,8 +47,14 @@ class ClassBeamMean():
         #self.Padding=Padding
 
         self.SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
-        self.SumWsq=0.
+        self.SumWsq=np.zeros((self.MS.Nchan,),np.float64)
 
+        self.DicoJonesMachine={}
+        for iMS,MS in enumerate(self.ListMS):
+            JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine)
+            JonesMachine.InitBeamMachine()
+            print iMS
+            self.DicoJonesMachine[iMS]=JonesMachine
 
     def CalcGrid(self):
         _,_,nx,_=self.VS.FullImShape
@@ -72,19 +78,17 @@ class ClassBeamMean():
 
 
 
-    def StackBeam(self,MS,ThisMSData):
+
+    def StackBeam(self,ThisMSData):
         Dt=self.GD["Beam"]["DtBeamMin"]*60.
-
+        JonesMachine=self.DicoJonesMachine[ThisMSData["iMS"]]
         RAs,DECs = self.radec
-
-        JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine,IdSharedMem=self.VS.IdSharedMem)
-        JonesMachine.InitBeamMachine()
 
         times=ThisMSData["times"]
         A0=ThisMSData["A0"]
         A1=ThisMSData["A1"]
         flags=ThisMSData["flags"]
-        W=ThisMSData["W"]
+        W=ThisMSData["Weights"]
         
         beam_times = np.array(JonesMachine.BeamMachine.getBeamSampleTimes(times))
         
@@ -92,10 +96,10 @@ class ClassBeamMean():
         #print "  Estimate beam in %i directions"%(RAs.size)
         DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs, DECs)
         T=ClassTimeIt.ClassTimeIt()
-        T.disable()
+        #T.disable()
         NTRange=DicoBeam["t0"].size
-        pBAR= ProgressBar(Title="      Mean Beam")
-        pBAR.render(0, '%4i/%i' % (0,NTRange))
+        #pBAR= ProgressBar(Title="      Mean Beam")
+        #pBAR.render(0, '%4i/%i' % (0,NTRange))
         for iTRange in range(DicoBeam["t0"].size):
         
             t0=DicoBeam["t0"][iTRange]
@@ -143,9 +147,9 @@ class ClassBeamMean():
             self.SumWsq+=np.sum(WW,axis=1)
             T.timeit("9")
             
-            NDone = iTRange+1
-            intPercent = int(100 * NDone / float(NTRange))
-            pBAR.render(intPercent, '%4i/%i' % (NDone, NTRange))
+            #NDone = iTRange+1
+            #intPercent = int(100 * NDone / float(NTRange))
+            #pBAR.render(intPercent, '%4i/%i' % (NDone, NTRange))
 
     
         
