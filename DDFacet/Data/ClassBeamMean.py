@@ -46,6 +46,10 @@ class ClassBeamMean():
         self.CalcGrid()
         #self.Padding=Padding
 
+        self.SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
+        self.SumWsq=0.
+
+
     def CalcGrid(self):
         _,_,nx,_=self.VS.FullImShape
         CellSizeRad=self.VS.CellSizeRad
@@ -66,140 +70,91 @@ class ClassBeamMean():
         self.radec=ra,dec
         self.npix=npix
 
-    def LoadData(self):
-        print>>log, "Loading some data for all MS..."
-        # make lists of tables and row counts (one per MS)
-        tabs = [ ms.GiveMainTable() for ms in self.ListMS ]
-        nrows = [ tab.nrows() for tab in tabs ]
-        nr = sum(nrows)
-        # preallocate arrays
-        # NB: this assumes nchan and ncorr is the same across all MSs in self.ListMS. Tough luck if it isn't!
 
 
-        self.Data={}
-        
-        for iMS,MS in zip(range(self.VS.nMS),self.ListMS):
-
-            tab = MS.GiveMainTable()
-            times = tab.getcol("TIME")
-            flags = tab.getcol("FLAG")
-            A0 = tab.getcol("ANTENNA1")
-            A1 = tab.getcol("ANTENNA2")
-            tab.close()
-
-
-
-            for iChunk in range(ms.numChunks()):
-                weights = self.VS.GetVisWeights(iMS, iChunk)
-
-
-                ThisMSData={}
-                ThisMSData["A0"]=A0
-                ThisMSData["A1"]=A1
-                ThisMSData["times"]=times
-                ThisMSData["flags"]=flags
-                ThisMSData["W"]=weights
-            
-    
-            self.Data[iMS]=ThisMSData
-
-    def CalcMeanBeam(self):
-        if self.CacheValid:
-            return 
-
-        print>>log, ModColor.Str("========================= Calculating smooth beams =======================")
-        self.LoadData()
+    def StackBeam(self,MS,ThisMSData):
         Dt=self.GD["Beam"]["DtBeamMin"]*60.
 
         RAs,DECs = self.radec
 
-        SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
-        SumWsq=0.
+        JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine,IdSharedMem=self.VS.IdSharedMem)
+        JonesMachine.InitBeamMachine()
 
-
-        for iMS,MS in zip(range(self.VS.nMS),self.ListMS):
-            print>>log,"Compute beam for %s"%MS.MSName
-            print>>log,"  in %i directions"%RAs.size
-            JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine,IdSharedMem=self.VS.IdSharedMem)
-            JonesMachine.InitBeamMachine()
-
-            ThisMSData=self.Data[iMS]
-            times=ThisMSData["times"]
-            A0=ThisMSData["A0"]
-            A1=ThisMSData["A1"]
-            flags=ThisMSData["flags"]
-            W=ThisMSData["W"]
+        times=ThisMSData["times"]
+        A0=ThisMSData["A0"]
+        A1=ThisMSData["A1"]
+        flags=ThisMSData["flags"]
+        W=ThisMSData["W"]
+        
+        beam_times = np.array(JonesMachine.BeamMachine.getBeamSampleTimes(times))
+        
+        CurrentBeamITime=-1
+        #print "  Estimate beam in %i directions"%(RAs.size)
+        DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs, DECs)
+        T=ClassTimeIt.ClassTimeIt()
+        T.disable()
+        NTRange=DicoBeam["t0"].size
+        pBAR= ProgressBar(Title="      Mean Beam")
+        pBAR.render(0, '%4i/%i' % (0,NTRange))
+        for iTRange in range(DicoBeam["t0"].size):
+        
+            t0=DicoBeam["t0"][iTRange]
+            t1=DicoBeam["t1"][iTRange]
+            J=np.abs(DicoBeam["Jones"][iTRange])
+            ind=np.where((times>=t0)&(times<t1))[0]
+            T.timeit("0")
+            A0s=A0[ind]
+            A1s=A1[ind]
+            fs=flags[ind]
+            Ws=W[ind]
+            T.timeit("1")
             
-            beam_times = np.array(JonesMachine.BeamMachine.getBeamSampleTimes(times))
+            nt,na,nch,_,_=J.shape
             
-            CurrentBeamITime=-1
-            #print "  Estimate beam in %i directions"%(RAs.size)
-            DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs, DECs)
-            T=ClassTimeIt.ClassTimeIt()
-            T.disable()
-            NTRange=DicoBeam["t0"].size
-            pBAR= ProgressBar(Title="      Mean Beam")
-            pBAR.render(0, '%4i/%i' % (0,NTRange))
-            for iTRange in range(DicoBeam["t0"].size):
+            # # ######################
+            # # This call is slow
+            # J0=J[:,A0s,:,:,:]
+            # J1=J[:,A1s,:,:,:]
+            # T.timeit("2")
+            # # ######################
+            J0=np.zeros((nt,A0s.size,nch,2,2),dtype=J.dtype)
+            J0List=[J[:,A0s[i],:,:,:] for i in range(A0s.size)]
+            J1=np.zeros((nt,A0s.size,nch,2,2),dtype=J.dtype)
+            J1List=[J[:,A1s[i],:,:,:] for i in range(A0s.size)]
+            for i in range(A0s.size):
+                J0[:,i,:,:,:]=J0List[i]
+                J1[:,i,:,:,:]=J1List[i]
+            T.timeit("2b")
+        
+            JJ=(J0[:,:,:,0,0]*J1[:,:,:,0,0]+J0[:,:,:,1,1]*J1[:,:,:,1,1])/2.
+            T.timeit("3")
+            
+            WW=Ws**2
+            T.timeit("4")
+            WW=WW.reshape((1,ind.size,self.MS.Nchan))
+            T.timeit("5")
+            JJsq=WW*JJ**2
+            T.timeit("6")
+            
+            SumWsqThisRange=np.sum(JJsq,axis=1)
+            T.timeit("7")
+            self.SumJJsq+=SumWsqThisRange.reshape((self.npix,self.npix,self.MS.Nchan))
+            T.timeit("8")
+            self.SumWsq+=np.sum(WW,axis=1)
+            T.timeit("9")
+            
+            NDone = iTRange+1
+            intPercent = int(100 * NDone / float(NTRange))
+            pBAR.render(intPercent, '%4i/%i' % (NDone, NTRange))
 
-                t0=DicoBeam["t0"][iTRange]
-                t1=DicoBeam["t1"][iTRange]
-                J=np.abs(DicoBeam["Jones"][iTRange])
-                ind=np.where((times>=t0)&(times<t1))[0]
-                T.timeit("0")
-                A0s=A0[ind]
-                A1s=A1[ind]
-                fs=flags[ind]
-                Ws=W[ind]
-                T.timeit("1")
-                
-                nt,na,nch,_,_=J.shape
-
-                # # ######################
-                # # This call is slow
-                # J0=J[:,A0s,:,:,:]
-                # J1=J[:,A1s,:,:,:]
-                # T.timeit("2")
-                # # ######################
-                J0=np.zeros((nt,A0s.size,nch,2,2),dtype=J.dtype)
-                J0List=[J[:,A0s[i],:,:,:] for i in range(A0s.size)]
-                J1=np.zeros((nt,A0s.size,nch,2,2),dtype=J.dtype)
-                J1List=[J[:,A1s[i],:,:,:] for i in range(A0s.size)]
-                for i in range(A0s.size):
-                    J0[:,i,:,:,:]=J0List[i]
-                    J1[:,i,:,:,:]=J1List[i]
-                T.timeit("2b")
-
-
-
-                JJ=(J0[:,:,:,0,0]*J1[:,:,:,0,0]+J0[:,:,:,1,1]*J1[:,:,:,1,1])/2.
-                T.timeit("3")
-
-                WW=Ws**2
-                T.timeit("4")
-                WW=WW.reshape((1,ind.size,self.MS.Nchan))
-                T.timeit("5")
-                JJsq=WW*JJ**2
-                T.timeit("6")
-
-                SumWsqThisRange=np.sum(JJsq,axis=1)
-                T.timeit("7")
-                SumJJsq+=SumWsqThisRange.reshape((self.npix,self.npix,self.MS.Nchan))
-                T.timeit("8")
-                SumWsq+=np.sum(WW,axis=1)
-                T.timeit("9")
-
-                NDone = iTRange+1
-                intPercent = int(100 * NDone / float(NTRange))
-                pBAR.render(intPercent, '%4i/%i' % (NDone, NTRange))
-
-        SumJJsq/=SumWsq.reshape(1,1,self.MS.Nchan)
-        #self.SumJJsq=np.rollaxis(SumJJsq,2)#np.mean(SumJJsq,axis=2)
-        self.SumJJsq=np.mean(SumJJsq,axis=2)
-
-        self.Smooth()
+    
         
     def Smooth(self):
+
+        self.SumJJsq/=self.SumWsq.reshape(1,1,self.MS.Nchan)
+        #self.SumJJsq=np.rollaxis(SumJJsq,2)#np.mean(SumJJsq,axis=2)
+        self.SumJJsq=np.mean(self.SumJJsq,axis=2)
+
         _,_,nx,_=self.VS.FullImShape
         
         SpheM=ModCF.SpheMachine(Support=self.npix,SupportSpheCalc=111)
