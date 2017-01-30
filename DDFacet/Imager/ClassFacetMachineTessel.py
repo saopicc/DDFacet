@@ -510,7 +510,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 dmin = d
                 iCentralFacet = iFacet
         self.iCentralFacet = iCentralFacet
-
+        self.NFacets = len(self.DicoImager)
         # regFile="%s.tessel.reg"%self.GD["Output"]["Name"]
         labels = [
             (self.DicoImager[i]["lmShift"][0],
