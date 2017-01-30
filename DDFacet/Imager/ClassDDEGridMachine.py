@@ -448,19 +448,23 @@ class ClassDDEGridMachine():
     _global_fftw_machines = {}
 
     @staticmethod
-    def _getGlobalFFTWMachine (*args):
+    def _getGlobalFFTWMachine (FFTMachineType, GridShape, dtype):
         """Returns an FFTWMachine matching the arguments.
         Makes sure an FFTW machine is initialized only once per process, and only as needed.
         """
-        machine = ClassDDEGridMachine._global_fftw_machines.get(args)
+        machine = ClassDDEGridMachine._global_fftw_machines.get((GridShape, dtype))
         if machine is None:
-            ClassDDEGridMachine._global_fftw_machines[args] = machine = ModFFTW.FFTW_2Donly(*args)
+            if FFTMachineType=="FFTW":
+                ClassDDEGridMachine._global_fftw_machines[args] = machine = ModFFTW.FFTW_2Donly(GridShape, dtype)
+            elif FFTMachineType=="LAPACK":
+                ClassDDEGridMachine._global_fftw_machines[args] = machine = ModFFTW.FFTW_2Donly_np(GridShape, dtype)
+
         return machine
 
     def getFFTWMachine(self):
         """Returns an fftw_machine for the grid. Makes sure it is initialized once per process."""
         if self._fftw_machine is None:
-            self._fftw_machine = self._getGlobalFFTWMachine(self.GridShape, self.dtype)
+            self._fftw_machine = self._getGlobalFFTWMachine(self.GD["RIME"]["FFTMachine"], self.GridShape, self.dtype)
         return self._fftw_machine
 
     @staticmethod
@@ -900,7 +904,11 @@ class ClassDDEGridMachine():
         if TranformModelInput == "FT":
             if np.max(np.abs(ModelImage)) == 0:
                 return vis
-            Grid = np.complex64(self.getFFTWMachine().fft(np.complex128(ModelImage)))
+            if self.GD["RIME"]["Precision"]=="S": 
+                Cast=np.complex64
+            elif self.GD["RIME"]["Precision"]=="D": 
+                Cast=np.complex128
+            Grid = np.complex64(self.getFFTWMachine().fft(Cast(ModelImage)))
 
         if freqs.size > 1:
             df = freqs[1::] - freqs[0:-1]
