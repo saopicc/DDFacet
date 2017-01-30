@@ -43,6 +43,7 @@ from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
 #    #sys.exit(1)
 from DDFacet.Array import NpParallel
 import ClassIslandDistanceMachine
+from DDFacet.Array import SharedDict
 
 MyLogger.setSilent("ClassArrayMethodSSD")
 MyLogger.setSilent("ClassIsland")
@@ -118,7 +119,8 @@ class ClassImageDeconvMachine():
 
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
-        DicoVariablePSF["CubeVariablePSF"]=NpShared.ToShared("%s.CubeVariablePSF"%self.IdSharedMem,DicoVariablePSF["CubeVariablePSF"])
+        #DicoVariablePSF["CubeVariablePSF"]=NpShared.ToShared("%s.CubeVariablePSF"%self.IdSharedMem,DicoVariablePSF["CubeVariablePSF"])
+        DicoVariablePSF=SharedDict.attach("dictPSF")#["CubeVariablePSF"]
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
         self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
         #self.DicoPSF=DicoPSF
@@ -150,8 +152,10 @@ class ClassImageDeconvMachine():
             return None
 
     def SetDirty(self,DicoDirty):
-        DicoDirty["ImagData"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImagData"])
-        DicoDirty["MeanImage"]=NpShared.ToShared("%s.Dirty.MeanImage"%self.IdSharedMem,DicoDirty["MeanImage"])
+        #DicoDirty["ImagData"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImagData"])
+        #DicoDirty["MeanImage"]=NpShared.ToShared("%s.Dirty.MeanImage"%self.IdSharedMem,DicoDirty["MeanImage"])
+        
+
         self.DicoDirty=DicoDirty
         self._Dirty=self.DicoDirty["ImagData"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
@@ -719,8 +723,13 @@ class WorkerDeconvIsland(multiprocessing.Process):
         self.GD=GD
         self.IdSharedMem=IdSharedMem
         self.FreqsInfo=FreqsInfo
-        self.CubeVariablePSF=NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
-        self._Dirty=NpShared.GiveArray("%s.Dirty.ImagData"%self.IdSharedMem)
+
+        #self.CubeVariablePSF=NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
+        #self._Dirty=NpShared.GiveArray("%s.Dirty.ImagData"%self.IdSharedMem)
+
+        self.CubeVariablePSF=SharedDict.attach("dictPSF")["CubeVariablePSF"]
+        self._Dirty=SharedDict.attach("dictPSF")["ImagData"]
+
         #self.WeightFreqBands=WeightFreqBands
         self.ParallelPerIsland=ParallelPerIsland
         self.StopWhenQueueEmpty=StopWhenQueueEmpty

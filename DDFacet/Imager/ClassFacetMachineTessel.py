@@ -93,7 +93,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         if isinstance(SolsFile, list):
             SolsFile = self.GD["DDESolutions"]["DDSols"][0]
 
-        if (SolsFile != "") & (not (".npz" in SolsFile)):
+        if SolsFile and (not (".npz" in SolsFile)):
             Method = SolsFile
             ThisMSName = reformat.reformat(
                 os.path.abspath(MSName), LastSlash=False)
