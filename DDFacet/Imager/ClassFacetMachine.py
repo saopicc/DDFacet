@@ -731,7 +731,7 @@ class ClassFacetMachine():
             self.fourierTransformInBackground()
             self.HasFourierTransformed = True
         _, npol, Npix, Npix = self.OutImShape
-        DicoImages = {}
+        DicoImages = SharedDict.SharedDict("%s_AllImages"%self._app_id)
         DicoImages["freqs"] = {}
 
         DoCalcJonesNorm = NormJones and self.JonesNorm is None
@@ -907,7 +907,7 @@ class ClassFacetMachine():
             self.DicoPSF["FacetNorm"] = self.FacetNorm
 
             # print>>log,"copying dictPSF"
-            self._psf_dict = self.DicoPSF = SharedDict.dict_to_shm("dictPSF",self.DicoPSF)
+            self._psf_dict = self.DicoPSF
 
             return self.DicoPSF
 
