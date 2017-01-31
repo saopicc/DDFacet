@@ -120,7 +120,7 @@ class ClassImageDeconvMachine():
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
         #DicoVariablePSF["CubeVariablePSF"]=NpShared.ToShared("%s.CubeVariablePSF"%self.IdSharedMem,DicoVariablePSF["CubeVariablePSF"])
-        DicoVariablePSF=SharedDict.attach("dictPSF")#["CubeVariablePSF"]
+        DicoVariablePSF=SharedDict.attach(DicoVariablePSF.path)#["CubeVariablePSF"]
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
         self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
         #self.DicoPSF=DicoPSF
@@ -463,11 +463,11 @@ class ClassImageDeconvMachine():
 
         StopWhenQueueEmpty=True
 
-        # ######### Debug
-        # ParallelPerIsland=False
-        # Parallel=False
-        # StopWhenQueueEmpty=True
-        # ##################
+        ######### Debug
+        ParallelPerIsland=False
+        Parallel=False
+        StopWhenQueueEmpty=True
+        ##################
 
 
         work_queue = multiprocessing.Queue()
@@ -729,7 +729,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
         #self.CubeVariablePSF=NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
         self._Dirty=NpShared.GiveArray("%s.Dirty.ImagData"%self.IdSharedMem)
 
-        self.CubeVariablePSF=SharedDict.attach("dictPSF")["CubeVariablePSF"]
+        self.CubeVariablePSF=SharedDict.attach("FMPSF_AllImages")["CubeVariablePSF"]
         #self._Dirty=SharedDict.attach("dictDirty")["ImagData"]
 
         #self.WeightFreqBands=WeightFreqBands

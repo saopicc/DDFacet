@@ -340,37 +340,36 @@ class ClassImagerDeconv():
 
     def _loadCachedPSF (self, cachepath):
         import cPickle
-        #self.DicoVariablePSF = cPickle.load(file(cachepath))
+        #self.DicoImagesPSF = cPickle.load(file(cachepath))
 
-        DicoVariablePSF = MyPickle.FileToDicoNP(cachepath)
-        self.DicoVariablePSF = SharedDict.dict_to_shm("dictPSF",DicoVariablePSF)
-        del(DicoVariablePSF)
-        stop
+        DicoImagesPSF = MyPickle.FileToDicoNP(cachepath)
+        self.DicoImagesPSF = SharedDict.dict_to_shm("FMPSF_AllImages",DicoImagesPSF)
+        del(DicoImagesPSF)
+
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
-        self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["CubeMeanVariablePSF"][self.DicoVariablePSF["CentralFacet"]]
-        self.FWHMBeam=self.DicoVariablePSF["FWHMBeam"]
-        self.PSFGaussPars=self.DicoVariablePSF["PSFGaussPars"]
-        self.PSFSidelobes=self.DicoVariablePSF["PSFSidelobes"]
-        (self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)=self.DicoVariablePSF["EstimatesAvgPSF"]
+        self.PSF = self.MeanFacetPSF = self.DicoImagesPSF["CubeMeanVariablePSF"][self.DicoImagesPSF["CentralFacet"]]
+        self.FWHMBeam=self.DicoImagesPSF["FWHMBeam"]
+        self.PSFGaussPars=self.DicoImagesPSF["PSFGaussPars"]
+        self.PSFSidelobes=self.DicoImagesPSF["PSFSidelobes"]
+        (self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)=self.DicoImagesPSF["EstimatesAvgPSF"]
         self.HasFittedPSFBeam=True
 
 
 
     def _finalizeComputedPSF (self, FacetMachinePSF, cachepath=None):
-        psfdict = FacetMachinePSF.FacetsToIm(NormJones=False)
-        self._psfmean, self._psfcube = psfdict["MeanImage"], psfdict["ImagData"]  # this is only for the casa image saving
-        self.DicoVariablePSF = FacetMachinePSF.DicoPSF
-        self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["MeanFacetPSF"]
+        self.DicoImagesPSF = FacetMachinePSF.FacetsToIm(NormJones=False)
+        self._psfmean, self._psfcube = self.DicoImagesPSF["MeanImage"], self.DicoImagesPSF["ImagData"]  # this is only for the casa image saving
+        self.PSF = self.MeanFacetPSF = self.DicoImagesPSF["MeanFacetPSF"]
         self.FitPSF()
         if cachepath:
             try:
-                self.DicoVariablePSF["FWHMBeam"]=self.FWHMBeam
-                self.DicoVariablePSF["PSFGaussPars"]=self.PSFGaussPars
-                self.DicoVariablePSF["PSFSidelobes"]=self.PSFSidelobes
-                self.DicoVariablePSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
-                #cPickle.dump(self.DicoVariablePSF, file(self._psf_cachepath, 'w'), 2)
-                MyPickle.DicoNPToFile(self.DicoVariablePSF, cachepath)
+                self.DicoImagesPSF["FWHMBeam"]=self.FWHMBeam
+                self.DicoImagesPSF["PSFGaussPars"]=self.PSFGaussPars
+                self.DicoImagesPSF["PSFSidelobes"]=self.PSFSidelobes
+                self.DicoImagesPSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
+                #cPickle.dump(self.DicoImagesPSF, file(self._psf_cachepath, 'w'), 2)
+                MyPickle.DicoNPToFile(self.DicoImagesPSF, cachepath)
                 self.VS.maincache.saveCache("PSF")
             except:
                 print>> log, traceback.format_exc()
@@ -481,7 +480,7 @@ class ClassImagerDeconv():
             else:
                 self.MeanJonesNorm = None
                 self.JonesNorm = None
-
+            
         if psf_valid:
             print>>log, ModColor.Str("============================ Loading cached PSF =================================")
             print>> log, "found valid cached PSF in %s" % psf_cachepath
@@ -849,10 +848,11 @@ class ClassImagerDeconv():
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
+            del(self.FacetMachinePSF)
             self.FacetMachinePSF = None
 
         #Pass minor cycle specific options into Init as kwargs
-        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF, PSFAve=self.PSFSidelobesAvg,
+        self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
                                 approx=(sparsify > approximate_psf_above), cache=not sparsify,
                                 GridFreqs=self.VS.FreqBandCenters)
 
@@ -1008,7 +1008,7 @@ class ClassImagerDeconv():
             if do_psf:
                 self._finalizeComputedPSF(self.FacetMachinePSF, cachepath=None)
                 self._fitAndSavePSF(self.FacetMachinePSF, cycle=iMajor)
-                self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF, PSFAve=self.PSFSidelobesAvg,
+                self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
                                         approx=(sparsify > approximate_psf_above),
                                         cache=not sparsify)
 
@@ -1121,7 +1121,7 @@ class ClassImagerDeconv():
                 forced_beam=[forced_beam[0],forced_beam[0],0]
             f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
             f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
-        PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachinePSF.iCentralFacet]
+        PSF = self.DicoImagesPSF["CubeVariablePSF"][self.FacetMachinePSF.iCentralFacet]
 
         off=self.GD["Image"]["SidelobeSearchWindow"] // 2
         beam, gausspars, sidelobes = self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
@@ -1196,7 +1196,7 @@ class ClassImagerDeconv():
         # # Initialise Image deconv machine for MetroClean
         # from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
         # DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
-        # DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.PSFSidelobesAvg)
+        # DeconvMachine.Init(PSFVar=self.DicoImagesPSF,PSFAve=self.PSFSidelobesAvg)
         
         DeconvMachine=self.DeconvMachine
         ModelMachine=self.ModelMachine

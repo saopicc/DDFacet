@@ -778,7 +778,7 @@ class ClassFacetMachine():
         # self.collectFourierTransformResults()
         # PSF mode: construct PSFs
         if self.DoPSF:
-            self.DicoPSF = {}
+            DicoImages.addSubdict("Facets")
             print>>log, "building PSF facet-slices"
             for iFacet in self.DicoGridMachine.keys():
                 # first normalize by spheroidals - these
@@ -786,37 +786,37 @@ class ClassFacetMachine():
                 SPhe = self._CF[iFacet]["Sphe"]
                 nx = SPhe.shape[0]
                 SPhe = SPhe.reshape((1, 1, nx, nx)).real
-                self.DicoPSF[iFacet] = {}
-                self.DicoPSF[iFacet]["PSF"] = self._facet_grids[iFacet].real.copy()
-                self.DicoPSF[iFacet]["PSF"] /= SPhe
-                #self.DicoPSF[iFacet]["PSF"][SPhe < 1e-2] = 0
-                self.DicoPSF[iFacet]["l0m0"] = self.DicoImager[iFacet]["l0m0"]
-                self.DicoPSF[iFacet]["pixCentral"] = self.DicoImager[iFacet]["pixCentral"]
-                self.DicoPSF[iFacet]["lmSol"] = self.DicoImager[iFacet]["lmSol"]
+                DicoImages["Facets"][iFacet] = {}
+                DicoImages["Facets"][iFacet]["PSF"] = self._facet_grids[iFacet].real.copy()
+                DicoImages["Facets"][iFacet]["PSF"] /= SPhe
+                #DicoImages[iFacet]["PSF"][SPhe < 1e-2] = 0
+                DicoImages["Facets"][iFacet]["l0m0"] = self.DicoImager[iFacet]["l0m0"]
+                DicoImages["Facets"][iFacet]["pixCentral"] = self.DicoImager[iFacet]["pixCentral"]
+                DicoImages["Facets"][iFacet]["lmSol"] = self.DicoImager[iFacet]["lmSol"]
 
-                nch, npol, n, n = self.DicoPSF[iFacet]["PSF"].shape
+                nch, npol, n, n = DicoImages["Facets"][iFacet]["PSF"].shape
                 PSFChannel = np.zeros((nch, npol, n, n), self.stitchedType)
                 for ch in xrange(nch):
-                    self.DicoPSF[iFacet]["PSF"][ch][SPhe[0] < 1e-2] = 0
-                    self.DicoPSF[iFacet]["PSF"][ch][0] = self.DicoPSF[iFacet]["PSF"][ch][0].T[::-1, :]
+                    DicoImages["Facets"][iFacet]["PSF"][ch][SPhe[0] < 1e-2] = 0
+                    DicoImages["Facets"][iFacet]["PSF"][ch][0] = DicoImages["Facets"][iFacet]["PSF"][ch][0].T[::-1, :]
                     SumJonesNorm = self.DicoImager[iFacet]["SumJonesNorm"][ch]
                     # normalize to bring back transfer
                     # functions to approximate convolution
-                    self.DicoPSF[iFacet]["PSF"][ch] /= np.sqrt(SumJonesNorm)
+                    DicoImages["Facets"][iFacet]["PSF"][ch] /= np.sqrt(SumJonesNorm)
                     for pol in xrange(npol):
                         ThisSumWeights = self.DicoImager[iFacet]["SumWeights"][ch][pol]
                         # normalize the response per facet
                         # channel if jones corrections are enabled
-                        self.DicoPSF[iFacet]["PSF"][ch][pol] /= ThisSumWeights
-                    PSFChannel[ch, :, :, :] = self.DicoPSF[iFacet]["PSF"][ch][:, :, :]
+                        DicoImages["Facets"][iFacet]["PSF"][ch][pol] /= ThisSumWeights
+                    PSFChannel[ch, :, :, :] = DicoImages["Facets"][iFacet]["PSF"][ch][:, :, :]
 
                 W = DicoImages["WeightChansImages"]
                 W = np.float32(W.reshape((self.VS.NFreqBands, npol, 1, 1)))
                 # weight each of the cube slices and average
                 MeanPSF = np.sum(PSFChannel * W, axis=0).reshape((1, npol, n, n))
-                self.DicoPSF[iFacet]["MeanPSF"] = MeanPSF
+                DicoImages["Facets"][iFacet]["MeanPSF"] = MeanPSF
 
-            DicoVariablePSF = self.DicoPSF
+            DicoVariablePSF=DicoImages["Facets"]
             NFacets = len(DicoVariablePSF.keys())
 
             if self.GD["Facets"]["Circumcision"]:
@@ -847,37 +847,37 @@ class ClassFacetMachine():
                     CubeVariablePSF[iFacet, ch, :, :, :] = DicoVariablePSF[iFacet]["PSF"][ch][:, i:j, i:j]
                 CubeMeanVariablePSF[iFacet, 0, :, :, :] = DicoVariablePSF[iFacet]["MeanPSF"][0, :, i:j, i:j]
 
-            self.DicoPSF["CentralFacet"] = self.iCentralFacet
-            self.DicoPSF["CubeVariablePSF"] = CubeVariablePSF
-            self.DicoPSF["CubeMeanVariablePSF"] = CubeMeanVariablePSF
-            self.DicoPSF["MeanJonesBand"] = []
+            DicoImages["CentralFacet"] = self.iCentralFacet
+            DicoImages["CubeVariablePSF"] = CubeVariablePSF
+            DicoImages["CubeMeanVariablePSF"] = CubeMeanVariablePSF
+            DicoImages["MeanJonesBand"] = []
 
             print>>log,"  Building Facets-PSF normalised by their maximum"
-            self.DicoPSF["PeakNormed_CubeMeanVariablePSF"]=np.zeros_like(self.DicoPSF["CubeMeanVariablePSF"])
-            self.DicoPSF["PeakNormed_CubeVariablePSF"]=np.zeros_like(self.DicoPSF["CubeVariablePSF"])
+            DicoImages["PeakNormed_CubeMeanVariablePSF"]=np.zeros_like(DicoImages["CubeMeanVariablePSF"])
+            DicoImages["PeakNormed_CubeVariablePSF"]=np.zeros_like(DicoImages["CubeVariablePSF"])
             for iFacet in sorted(self.DicoImager.keys()):
-                self.DicoPSF["PeakNormed_CubeMeanVariablePSF"][iFacet]=CubeMeanVariablePSF[iFacet]/np.max(CubeMeanVariablePSF[iFacet])
+                DicoImages["PeakNormed_CubeMeanVariablePSF"][iFacet]=CubeMeanVariablePSF[iFacet]/np.max(CubeMeanVariablePSF[iFacet])
                 for iChan in range(nch):
-                    self.DicoPSF["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]/np.max(CubeVariablePSF[iFacet,iChan])
+                    DicoImages["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]/np.max(CubeVariablePSF[iFacet,iChan])
 
             PeakFacet=np.max(np.max(np.max(CubeMeanVariablePSF,axis=-1),axis=-1),axis=-1).reshape((NFacets,1,1,1,1))
             PeakNormed_CubeMeanVariablePSF=CubeMeanVariablePSF/PeakFacet
-            #self.DicoPSF["MeanFacetPSF"]=np.mean(CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
-            self.DicoPSF["MeanFacetPSF"]=np.mean(PeakNormed_CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
-            self.DicoPSF["MeanJonesBand"]=[]
-
-            self.DicoPSF["OutImShape"] = self.OutImShape
-            self.DicoPSF["CellSizeRad"] = self.CellSizeRad
+            #DicoImages["MeanFacetPSF"]=np.mean(CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
+            DicoImages["MeanFacetPSF"]=np.mean(PeakNormed_CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
+            ListMeanJonesBand=[]
+            DicoImages["OutImShape"] = self.OutImShape
+            DicoImages["CellSizeRad"] = self.CellSizeRad
             for iFacet in sorted(self.DicoImager.keys()):
                 MeanJonesBand = np.zeros((self.VS.NFreqBands,), np.float64)
                 for Channel in xrange(self.VS.NFreqBands):
                     ThisSumSqWeights = self.DicoImager[iFacet]["SumJones"][1][Channel] or 1
                     ThisSumJones = (self.DicoImager[iFacet]["SumJones"][0][Channel] / ThisSumSqWeights) or 1
                     MeanJonesBand[Channel] = ThisSumJones
-                self.DicoPSF["MeanJonesBand"].append(MeanJonesBand)
+                ListMeanJonesBand.append(MeanJonesBand)
+            DicoImages["MeanJonesBand"]=ListMeanJonesBand
 
-            self.DicoPSF["SumJonesChan"] = []
-            self.DicoPSF["SumJonesChanWeightSq"] = []
+            ListSumJonesChan = []
+            ListSumJonesChanWeightSq = []
             for iFacet in sorted(self.DicoImager.keys()):
                 ThisFacetSumJonesChan = []
                 ThisFacetSumJonesChanWeightSq = []
@@ -891,40 +891,46 @@ class ClassFacetMachine():
                     ThisFacetSumJonesChan.append(SumJonesChan)
                     ThisFacetSumJonesChanWeightSq.append(SumJonesChanWeightSq)
 
-                self.DicoPSF["SumJonesChan"].append(ThisFacetSumJonesChan)
-                self.DicoPSF["SumJonesChanWeightSq"].append(ThisFacetSumJonesChanWeightSq)
-            self.DicoPSF["ChanMappingGrid"] = self.VS.DicoMSChanMapping
-            self.DicoPSF["ChanMappingGridChan"] = self.VS.DicoMSChanMappingChan
-            self.DicoPSF["freqs"] = DicoImages["freqs"]
-            self.DicoPSF["WeightChansImages"] = DicoImages["WeightChansImages"]
+                ListSumJonesChan.append(ThisFacetSumJonesChan)
+                ListSumJonesChanWeightSq.append(ThisFacetSumJonesChanWeightSq)
 
-            self.DicoPSF["ImagData"] = self.FacetsToIm_Channel("PSF")
+            DicoImages["SumJonesChan"]=ListSumJonesChan
+            DicoImages["SumJonesChanWeightSq"]=ListSumJonesChanWeightSq
+
+
+
+
+            DicoImages["ChanMappingGrid"] = self.VS.DicoMSChanMapping
+            DicoImages["ChanMappingGridChan"] = self.VS.DicoMSChanMappingChan
+
+            DicoImages["ImagData"] = self.FacetsToIm_Channel("PSF")
             if self.VS.MultiFreqMode:
-                self.DicoPSF["MeanImage"] = np.sum(self.DicoPSF["ImagData"] * WBAND, axis=0).reshape((1, npol, Npix, Npix))
+                DicoImages["MeanImage"] = np.sum(DicoImages["ImagData"] * WBAND, axis=0).reshape((1, npol, Npix, Npix))
             else:
-                self.DicoPSF["MeanImage"] = self.DicoPSF["ImagData"]
+                DicoImages["MeanImage"] = DicoImages["ImagData"]
 
-            self.DicoPSF["FacetNorm"] = self.FacetNorm
-
+            DicoImages["FacetNorm"] = self.FacetNorm
+            
             # print>>log,"copying dictPSF"
-            self._psf_dict = self.DicoPSF
+            DicoImages.reload()
+            self._psf_dict = DicoImages
 
-            return self.DicoPSF
+            return DicoImages
 
         # else build Dirty (residual) image
         else:
             # Build a residual image consisting of multiple continuum bands
-            self.stitchedResidual = self.FacetsToIm_Channel("Dirty")
+            stitchedResidual = self.FacetsToIm_Channel("Dirty")
             if self.VS.MultiFreqMode:
-                self.MeanResidual = np.sum(self.stitchedResidual * WBAND, axis=0).reshape((1, npol, Npix, Npix))
+                MeanResidual = np.sum(stitchedResidual * WBAND, axis=0).reshape((1, npol, Npix, Npix))
             else:
                 ### (Oleg 24/12/2016: removed the .copy(), why was this needed? Note that in e.g.
                 ### ClassImageDeconvMachineMSMF.SubStep(), there is an if-clause such as
                 ###    "if self._MeanDirty is not self._CubeDirty: do_expensive_operation"
                 ### which the .copy() operation here defeats, so I remove it
-                self.MeanResidual = self.stitchedResidual  #.copy()
-            DicoImages["ImagData"] = self.stitchedResidual
-            DicoImages["MeanImage"] = self.MeanResidual
+                MeanResidual = stitchedResidual  #.copy()
+            DicoImages["ImagData"] = stitchedResidual
+            DicoImages["MeanImage"] = MeanResidual
             DicoImages["FacetNorm"] = self.FacetNorm  # grid-correcting map
             DicoImages["JonesNorm"] = self.JonesNorm
             return DicoImages
