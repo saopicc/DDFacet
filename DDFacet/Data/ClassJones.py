@@ -134,6 +134,8 @@ class ClassJones():
         DicoClusterDirs = {}
         DicoClusterDirs["l"] = SolsFile["l"]
         DicoClusterDirs["m"] = SolsFile["m"]
+        DicoClusterDirs["ra"] = SolsFile["ra"]
+        DicoClusterDirs["dec"] = SolsFile["dec"]
         DicoClusterDirs["I"] = SolsFile["I"]
         DicoClusterDirs["Cluster"] = SolsFile["Cluster"]
         DicoSols = {}

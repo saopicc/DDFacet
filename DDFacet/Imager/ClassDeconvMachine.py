@@ -224,8 +224,8 @@ class ClassImagerDeconv():
 
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
-        AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
         if "H" in self._saveims:
+            AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
 
         # all internal state initialized -- start the worker threads
@@ -345,7 +345,7 @@ class ClassImagerDeconv():
         DicoImagesPSF = MyPickle.FileToDicoNP(cachepath)
         self.DicoImagesPSF = SharedDict.dict_to_shm("FMPSF_AllImages",DicoImagesPSF)
         del(DicoImagesPSF)
-
+        
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
         self.PSF = self.MeanFacetPSF = self.DicoImagesPSF["CubeMeanVariablePSF"][self.DicoImagesPSF["CentralFacet"]]
@@ -848,7 +848,7 @@ class ClassImagerDeconv():
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
-            del(self.FacetMachinePSF)
+            self.FacetMachinePSF.__del__()
             self.FacetMachinePSF = None
 
         #Pass minor cycle specific options into Init as kwargs

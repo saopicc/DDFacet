@@ -154,6 +154,7 @@ class ClassFacetMachine():
             self._facet_grids.delete()
             del self.DicoGridMachine
 
+
     def setAverageBeamMachine(self,AverageBeamMachine):
         self.AverageBeamMachine=AverageBeamMachine
 
