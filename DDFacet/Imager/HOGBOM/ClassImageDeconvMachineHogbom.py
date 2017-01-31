@@ -377,7 +377,7 @@ class ClassImageDeconvMachine():
             # pBAR.disable()
 
             self.GainMachine.SetFluxMax(ThisFlux)
-            pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
+            pBAR.render(0,100) # "g=%3.3f"%self.GainMachine.GiveGain())
 
             def GivePercentDone(ThisMaxFlux):
                 fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
@@ -417,7 +417,7 @@ class ClassImageDeconvMachine():
                     T.timeit("max0")
 
                     if ThisFlux <= StopFlux:
-                        pBAR.render(100,"peak %.3g"%(ThisFlux,))
+                        pBAR.render(100,100) #"peak %.3g"%(ThisFlux,))
                         print>>log, ModColor.Str("    CLEANing %s [iter=%i] peak of %.3g Jy lower than stopping flux" % (pol_task,i,ThisFlux),col="green")
                         cont = ThisFlux > self.FluxThreshold
                         if not cont:
@@ -430,7 +430,7 @@ class ClassImageDeconvMachine():
 
                     if (i>0)&((i%100)==0):
                         PercentDone=GivePercentDone(ThisFlux)
-                        pBAR.render(PercentDone,"peak %.3g i%d"%(ThisFlux,self._niter[pol_task_id]))
+                        pBAR.render(PercentDone,100)# "peak %.3g i%d"%(ThisFlux,self._niter[pol_task_id]))
 
                     nch,npol,_,_=self._Dirty.shape
                     #Fpol contains the intensities at (x,y) per freq and polarisation
