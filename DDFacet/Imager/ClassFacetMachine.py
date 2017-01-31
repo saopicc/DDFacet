@@ -123,7 +123,7 @@ class ClassFacetMachine():
 
         self._facet_grids = self.DATA = None
         self._grid_job_id = self._fft_job_id = self._degrid_job_id = None
-
+        self._smooth_job_label=None
 
         # create semaphores if not already created
         if not ClassFacetMachine._degridding_semaphores:
@@ -759,7 +759,8 @@ class ClassFacetMachine():
         # build facet-normalization image
         if self.FacetNorm is None:
             self.BuildFacetNormImage()
-        self.stitchedResidual = self.FacetsToIm_Channel()
+
+        # self.stitchedResidual = self.FacetsToIm_Channel()
 
         # build Jones amplitude image
         if DoCalcJonesNorm:
@@ -923,9 +924,9 @@ class ClassFacetMachine():
                 ### which the .copy() operation here defeats, so I remove it
                 self.MeanResidual = self.stitchedResidual  #.copy()
             DicoImages["ImagData"] = self.stitchedResidual
+            DicoImages["MeanImage"] = self.MeanResidual
             DicoImages["FacetNorm"] = self.FacetNorm  # grid-correcting map
             DicoImages["JonesNorm"] = self.JonesNorm
-            DicoImages["MeanImage"] = self.MeanResidual
             return DicoImages
 
     def setNormImages(self,DicoImages):
@@ -1304,8 +1305,6 @@ class ClassFacetMachine():
                        self._SmoothAverageBeam_worker,
                        args=(DATA.path, iDir))
 
-        APP.awaitJobResults(JobName+"*",
-                            progress=("Stack Beam %s" % self._smooth_job_label))
 
     def finaliseSmoothBeam(self):
         # the FacetMachinePSF does not have an AverageBeamMachine
@@ -1336,6 +1335,7 @@ class ClassFacetMachine():
         # collect results of grid workers
         results = APP.awaitJobResults(self._grid_job_id+"*",progress=
                             ("Grid PSF %s" if self.DoPSF else "Grid %s") % self._grid_job_label)
+
         for DicoResult in results:
             # if we hit a returned exception, raise it again
             if isinstance(DicoResult, Exception):
@@ -1345,6 +1345,14 @@ class ClassFacetMachine():
             self.DicoImager[iFacet]["SumJones"] += DicoResult["SumJones"]
             self.DicoImager[iFacet]["SumJonesChan"][self._grid_iMS] += DicoResult["SumJonesChan"]
         self._grid_job_id = None
+
+        if self.AverageBeamMachine is not None and \
+           self.AverageBeamMachine.SmoothBeam is not None\
+           and self._smooth_job_label is not None:
+            JobName="StackBeam%sF"%self._smooth_job_label
+            APP.awaitJobResults(JobName+"*",
+                                progress=("Stack Beam %s" % self._smooth_job_label))
+
         return True
 
 
