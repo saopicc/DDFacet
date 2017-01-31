@@ -32,14 +32,20 @@ from DDFacet.Array import NpShared
 from DDFacet.Array import SharedDict
 
 from DDFacet.Other.AsyncProcessPool import APP
+import copy
+
 
 class ClassBeamMean():
     def __init__(self,VS):
         self.VS=VS
-        self.GD=self.VS.GD
+        
+        self.GD=copy.deepcopy(self.VS.GD)
+        self.DoCentralNorm=self.GD["Beam"]["CenterNorm"]
+        self.SmoothBeam=None
         self.CheckCache()
         if self.CacheValid: return
 
+        #self.GD["Beam"]["CenterNorm"]=0
 
         self.ListMS=self.VS.ListMS
         self.MS=self.ListMS[0]
@@ -67,7 +73,7 @@ class ClassBeamMean():
         _,_,nx,_=self.VS.FullImShape
         CellSizeRad=self.VS.CellSizeRad
         FOV=nx*CellSizeRad
-        npix=11
+        npix=self.GD["Beam"]["SmoothBeamNPix"]
         lm=np.linspace(-FOV/2.,FOV/2.,npix+1)
         ll=(lm[0:-1]+lm[1::])/2.
         lmin=ll.min()
@@ -90,7 +96,7 @@ class ClassBeamMean():
 
 
     def StackBeam(self,ThisMSData,iDir):
-        print iDir
+        MyLogger.setSilent("ClassJones")
         Dt=self.GD["Beam"]["DtBeamMin"]*60.
         JonesMachine=self.DicoJonesMachine[ThisMSData["iMS"]]
         RAs,DECs = self.radec
@@ -102,16 +108,25 @@ class ClassBeamMean():
         W=ThisMSData["Weights"]
         
         beam_times = np.array(JonesMachine.BeamMachine.getBeamSampleTimes(times))
-        
+
+        T2=ClassTimeIt.ClassTimeIt()
+        T2.disable()
         CurrentBeamITime=-1
         #print "  Estimate beam in %i directions"%(RAs.size)
+        
         DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[iDir:iDir+1], DECs[iDir:iDir+1],progressBar=False)
-        print DicoBeam["Jones"].shape
-        T=ClassTimeIt.ClassTimeIt()
-        T.disable()
+        T2.timeit("GetBeam 1")
+        #DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[0:10], DECs[0:10],progressBar=False)
+        #T2.timeit("GetBeam 10")
+        #print DicoBeam["Jones"].shape
         NTRange=DicoBeam["t0"].size
         #pBAR= ProgressBar(Title="      Mean Beam")
         #pBAR.render(0, '%4i/%i' % (0,NTRange))
+        T=ClassTimeIt.ClassTimeIt("Stacking")
+        T.disable()
+
+        # DicoBeam["Jones"].shape = nt, nd, na, nch, _, _
+
         for iTRange in range(DicoBeam["t0"].size):
         
             t0=DicoBeam["t0"][iTRange]
@@ -125,22 +140,28 @@ class ClassBeamMean():
             Ws=W[ind]
             T.timeit("1")
             
-            nt,na,nch,_,_=J.shape
+            nd,na,nch,_,_=J.shape
             
-            # # ######################
-            # # This call is slow
-            # J0=J[:,A0s,:,:,:]
-            # J1=J[:,A1s,:,:,:]
-            # T.timeit("2")
-            # # ######################
-            J0=np.zeros((nt,A0s.size,nch,2,2),dtype=J.dtype)
-            J0List=[J[:,A0s[i],:,:,:] for i in range(A0s.size)]
-            J1=np.zeros((nt,A0s.size,nch,2,2),dtype=J.dtype)
-            J1List=[J[:,A1s[i],:,:,:] for i in range(A0s.size)]
-            for i in range(A0s.size):
-                J0[:,i,:,:,:]=J0List[i]
-                J1[:,i,:,:,:]=J1List[i]
-            T.timeit("2b")
+            # ######################
+            # This call is slow
+            J0=J[:,A0s,:,:,:]
+            J1=J[:,A1s,:,:,:]
+            T.timeit("2")
+            # ######################
+
+            # J0=np.zeros((nd,A0s.size,nch,2,2),dtype=J.dtype)
+            # #T.timeit("1a")
+            # J0List=[J[:,A0s[i],:,:,:] for i in range(A0s.size)]
+            # #T.timeit("1b")
+            # J1=np.zeros((nd,A0s.size,nch,2,2),dtype=J.dtype)
+            # #T.timeit("1c")
+            # J1List=[J[:,A1s[i],:,:,:] for i in range(A0s.size)]
+            # #T.timeit("1d")
+            # for i in range(A0s.size):
+            #     J0[:,i,:,:,:]=J0List[i]
+            #     J1[:,i,:,:,:]=J1List[i]
+            # T.timeit("2b")
+
         
             JJ=(J0[:,:,:,0,0]*J1[:,:,:,0,0]+J0[:,:,:,1,1]*J1[:,:,:,1,1])/2.
             T.timeit("3")
@@ -171,7 +192,9 @@ class ClassBeamMean():
             #intPercent = int(100 * NDone / float(NTRange))
             #pBAR.render(intPercent, '%4i/%i' % (NDone, NTRange))
 
-    
+        T2.timeit("Stack")
+        MyLogger.setLoud("ClassJones")
+  
         
     def Smooth(self):
         #print self.SumWsq
@@ -225,7 +248,7 @@ class ClassBeamMean():
         self.SmoothBeam=np.real(if_z_f_SumJJsq)
         np.save(self.CachePath,self.SmoothBeam)
         self.VS.maincache.saveCache("SmoothBeam.npy")
-        print>>log, ModColor.Str("======================= Done calculating smooth beams ====================")
+        # print>>log, ModColor.Str("======================= Done calculating smooth beams ====================")
 
        
     def CheckCache(self):

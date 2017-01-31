@@ -1286,8 +1286,11 @@ class ClassFacetMachine():
         DATA=SharedDict.attach(datadict_path)
         self.AverageBeamMachine.StackBeam(DATA,iDir)
 
-    def SmoothAverageBeam(self, DATA):
+    def StackAverageBeam(self, DATA):
+        # the FacetMachinePSF does not have an AverageBeamMachine
         if not self.AverageBeamMachine: return
+        # if AverageBeamMachine has loaded a cached SmoothBeam
+        if self.AverageBeamMachine.SmoothBeam is not None: return
         # wait for any init to finish
         self.awaitInitCompletion()
         # wait for any previous gridding/degridding jobs to finish, if still active
@@ -1305,10 +1308,13 @@ class ClassFacetMachine():
                             progress=("Stack Beam %s" % self._smooth_job_label))
 
     def finaliseSmoothBeam(self):
-        if self.AverageBeamMachine: 
-            _,npol,Npix,Npix=self.OutImShape
+        # the FacetMachinePSF does not have an AverageBeamMachine
+        if not self.AverageBeamMachine: return
+        # if AverageBeamMachine has loaded a cached SmoothBeam
+        if self.AverageBeamMachine.SmoothBeam is None: 
             self.AverageBeamMachine.Smooth()
-            self.SmoothMeanJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
+        Npix=self.OutImShape[-1]
+        self.SmoothMeanJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
 
     # ##############################################
     # ##############################################

@@ -44,7 +44,7 @@ import cPickle
 log=MyLogger.getLogger("ClassImagerDeconv")
 import pyfits
 from DDFacet.Array import SharedDict
-#import DDFacet.Data.ClassBeamMean as ClassBeamMean
+import DDFacet.Data.ClassBeamMean as ClassBeamMean
 from DDFacet.Other import ClassTimeIt
 import numexpr
 
@@ -561,7 +561,7 @@ class ClassImagerDeconv():
                 # so even if we're not using FM to make a dirty, we still need this call to make sure the CFs come in.
                 self.FacetMachine.awaitInitCompletion()
 
-                self.FacetMachine.SmoothAverageBeam(DATA)
+                self.FacetMachine.StackAverageBeam(DATA)
 
                 if not dirty_valid:
                     # commented out. @cyriltasse to uncomment when fixed
@@ -1475,7 +1475,7 @@ class ClassImagerDeconv():
                 print>> log, ModColor.Str("  so just not doing it")
             else:
                 a, b, c = appres(), appconvmodel(), self.FacetMachine.SmoothMeanJonesNorm
-                out = _images.addSharedArray('smoothrestored', a.shape, a.type)
+                out = _images.addSharedArray('smoothrestored', a.shape, a.dtype)
                 numexpr.evaluate('(a+b)/sqrt(c)', out=out)
                 APP.runJob("save:smoothrestored", self._saveImage_worker, io=0,
                            args=(_images.path, "smoothrestored",), kwargs=dict(
