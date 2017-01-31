@@ -37,6 +37,7 @@ import copy
 
 class ClassBeamMean():
     def __init__(self,VS):
+        MyLogger.setSilent(["ClassJones","ClassLOFARBeam"])
         self.VS=VS
         
         self.GD=copy.deepcopy(self.VS.GD)
@@ -68,6 +69,7 @@ class ClassBeamMean():
             JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine)
             JonesMachine.InitBeamMachine()
             self.DicoJonesMachine[iMS]=JonesMachine
+        MyLogger.setLoud(["ClassJones","ClassLOFARBeam"])
 
     def CalcGrid(self):
         _,_,nx,_=self.VS.FullImShape
@@ -96,6 +98,7 @@ class ClassBeamMean():
 
 
     def StackBeam(self,ThisMSData,iDir):
+        self.StackedBeamDict.reload()
         MyLogger.setSilent("ClassJones")
         Dt=self.GD["Beam"]["DtBeamMin"]*60.
         JonesMachine=self.DicoJonesMachine[ThisMSData["iMS"]]
@@ -112,8 +115,10 @@ class ClassBeamMean():
         T2=ClassTimeIt.ClassTimeIt()
         T2.disable()
         CurrentBeamITime=-1
-        #print "  Estimate beam in %i directions"%(RAs.size)
-        
+        # #print "  Estimate beam in %i directions"%(RAs.size)
+        # MS=self.ListMS[ThisMSData["iMS"]]
+        # JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine)
+        # JonesMachine.InitBeamMachine()
         DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[iDir:iDir+1], DECs[iDir:iDir+1],progressBar=False)
         T2.timeit("GetBeam 1")
         #DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[0:10], DECs[0:10],progressBar=False)
@@ -183,7 +188,6 @@ class ClassBeamMean():
 
             self.StackedBeamDict[iDir]["SumJJsq"]+=SumWsqThisRange.reshape((self.MS.Nchan,))
             self.StackedBeamDict[iDir]["SumWsq"]+=SumWsq.reshape((self.MS.Nchan,))
-            
 
             #print SumWsq,self.SumWsq,self.SumJJsq.shape,J0.shape
             T.timeit("9")
@@ -209,6 +213,7 @@ class ClassBeamMean():
         self.SumJJsq/=self.SumWsq.reshape(1,1,self.MS.Nchan)
         #self.SumJJsq=np.rollaxis(SumJJsq,2)#np.mean(SumJJsq,axis=2)
         self.SumJJsq=np.mean(self.SumJJsq,axis=2)
+
 
         _,_,nx,_=self.VS.FullImShape
         
@@ -237,10 +242,13 @@ class ClassBeamMean():
         # pylab.clf()
         # ax=pylab.subplot(1,3,1)
         # pylab.imshow(self.SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # pylab.colorbar()
         # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
         # pylab.imshow(ifzfCF.real,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # pylab.colorbar()
         # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
         # pylab.imshow(if_z_f_SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # pylab.colorbar()
         # pylab.show(False)
         # stop
 

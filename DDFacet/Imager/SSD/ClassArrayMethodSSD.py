@@ -42,6 +42,7 @@ class ClassArrayMethodSSD():
         NpShared.DelArray("%sPSF_Island_%4.4i"%(IdSharedMem,iIsland))
         self.PSF=NpShared.ToShared("%sPSF_Island_%4.4i"%(IdSharedMem,iIsland),PSF)
 
+
         self.IslandBestIndiv=IslandBestIndiv
         self.GD=GD
         self.NCPU=NCPU

@@ -585,7 +585,6 @@ class ClassImagerDeconv():
 
                 iloop += 1
 
-            self.FacetMachine.finaliseSmoothBeam()
 
             if not dirty_valid:
                 self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
@@ -608,10 +607,13 @@ class ClassImagerDeconv():
             if not psf_valid:
                 self._finalizeComputedPSF(self.FacetMachinePSF, psf_writecache and psf_cachepath)
 
+        self.FacetMachine.finaliseSmoothBeam()
         ## we get here whether we recomputed dirty/psf or not
         # finalize other PSF initialization
         if psf:
             self._fitAndSavePSF(self.FacetMachinePSF)
+
+            
 
         self.CurrentDicoResidImage = self.DicoDirty
         self.ResidCube  = self.CurrentDicoResidImage["ImagData"] #get residuals cube
