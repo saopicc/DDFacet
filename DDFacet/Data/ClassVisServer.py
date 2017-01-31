@@ -433,6 +433,14 @@ class ClassVisServer():
         # return the data dict
         return self.DATA
 
+    def releaseLoadedChunk(self):
+        """Releases memory associated with any saved data"""
+        self._saved_data = None
+        if self.DATA is not None:
+            self.DATA.delete()
+            self.DATA = None
+
+
     def _handler_LoadVisChunk(self, dictname, iMS, iChunk):
         """
         Called in IO thread to load a data chunk

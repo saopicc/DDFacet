@@ -65,7 +65,7 @@ class ClassSmearSM():
         
         print>>log, "Declare convolution machines"
         NJobs=self.PSFServer.NFacets
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Declare      ", HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar(Title=" Declare      ")
         #pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NJobs))
         for iFacet in range(self.PSFServer.NFacets):
@@ -185,7 +185,7 @@ class ClassSmearSM():
 
         workerlist=[]
 
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Find gaussian", HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar(Title=" Find gaussian")
         #pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NJobs))
         for ii in range(NCPU):

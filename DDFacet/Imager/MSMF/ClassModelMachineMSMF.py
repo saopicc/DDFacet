@@ -250,7 +250,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # Create list with iterator results
         return [s for s in source_iter]
 
-    def GiveModelImage(self,FreqIn=None):
+    def GiveModelImage(self,FreqIn=None,out=None):
+        """
+        Renders a model image at the specified frequency(ies)
+        Args:
+            FreqIn: scalar or vector of frequencies
+            out: if not None, image to be rendered into. Must have correct shape.
+
+        Returns:
+            Model image
+        """
 
         RefFreq=self.DicoSMStacked["RefFreq"]
         if FreqIn is None:
@@ -267,7 +276,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         N0y=ny
 
         nchan=FreqIn.size
-        ModelImage=np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+        if out is not None:
+            if out.shape != (nchan,npol,nx,ny) or out.dtype != np.float32:
+                raise RuntimeError("supplied image has incorrect type (%s) or shape (%s)" % (out.dtype, out.shape))
+            ModelImage = out
+        else:
+            ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+
         if "Comp" not in  self.DicoSMStacked.keys():
             return ModelImage
 

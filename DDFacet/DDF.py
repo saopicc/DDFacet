@@ -33,6 +33,7 @@ from DDFacet.Other import MyPickle
 from DDFacet.Parset import MyOptParse
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
+from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
@@ -160,7 +161,7 @@ def main(OP=None, messages=[]):
     # init NCPU for different bits of parallelism
     ncpu = DicoConfig["Parallel"]["NCPU"] or psutil.cpu_count()
     DicoConfig["Parallel"]["NCPU"]=ncpu
-    NpParallel.NCPU_global = ncpu
+    NpParallel.NCPU_global = ModFFTW.NCPU_global = ncpu
     numexpr.set_num_threads(ncpu)
     print>>log,"using up to %d CPUs for parallelism" % ncpu
 

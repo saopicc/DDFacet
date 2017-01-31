@@ -343,7 +343,7 @@ class ClassImageDeconvMachine():
 
         NDone=0
         NJobs=NIslands
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Group islands", HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar(Title=" Group islands")
         pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NJobs))
 
@@ -825,7 +825,7 @@ class ClassImageDeconvMachine():
 
 
         print>>log, "Evolving %i generations of %i sourcekin"%(self.GD["GAClean"]["NMaxGen"],self.GD["GAClean"]["NSourceKin"])
-        pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title=" Evolve pop.", HeaderSize=10,TitleSize=13)
+        pBAR= ProgressBar(Title=" Evolve pop.")
         #pBAR.disable()
         pBAR.render(0, '%4i/%i' % (0,NJobs))
 
