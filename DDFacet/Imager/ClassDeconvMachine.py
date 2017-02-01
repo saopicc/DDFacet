@@ -586,10 +586,12 @@ class ClassImagerDeconv():
 
 
             if not dirty_valid:
+                # if Smooth beam enabled, either compute it from the stack, or get it from cache
+                # else do nothing
+                self.FacetMachine.finaliseSmoothBeam()
+
+                # stitch facets
                 self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
-                # # commented out. @cyriltasse to uncomment when fixed
-                # if "H" in self._saveims:
-                #     self.FacetMachine.ComputeSmoothBeam()
 
                 self.SaveDirtyProducts()
 
@@ -606,7 +608,10 @@ class ClassImagerDeconv():
             if not psf_valid:
                 self._finalizeComputedPSF(self.FacetMachinePSF, psf_writecache and psf_cachepath)
 
+        # This call needs to be here to attach the cached smooth beam to FacetMachine if it exists 
+        # and if dirty has been initialised from cache
         self.FacetMachine.finaliseSmoothBeam()
+
         ## we get here whether we recomputed dirty/psf or not
         # finalize other PSF initialization
         if psf:
@@ -1296,7 +1301,7 @@ class ClassImagerDeconv():
         def sqrtnorm():
             label = 'sqrtnorm'
             if label not in _images:
-                a = self.MeanJonesNorm if self.FacetMachine.SmoothMeanJonesNorm is None else self.FacetMachine.SmoothMeanJonesNorm
+                a = self.MeanJonesNorm #if self.FacetMachine.SmoothMeanJonesNorm is None else self.FacetMachine.SmoothMeanJonesNorm
                 out = _images.addSharedArray(label, a.shape, a.dtype)
                 numexpr.evaluate('sqrt(a)', out=out)
             return _images[label]

@@ -107,6 +107,8 @@ class ClassJones():
         l = DicoClusterDirs["l"]
         m = DicoClusterDirs["m"]
         I = DicoClusterDirs["I"]
+        ra = DicoClusterDirs["ra"]
+        dec = DicoClusterDirs["dec"]
         Cluster = DicoClusterDirs["Cluster"]
         t0 = DicoSols["t0"]
         t1 = DicoSols["t1"]
@@ -120,14 +122,15 @@ class ClassJones():
         np.savez(file(OutName, "w"),
                  l=l, m=m, I=I, Cluster=Cluster,
                  t0=t0, t1=t1, tm=tm,
+                 ra=ra,dec=dec,
                  Jones=Jones,
                  TimeMapping=TimeMapping,
                  VisToJonesChanMapping=VisToJonesChanMapping)
 
     def DiskToSols(self, InName):
         # SolsFile_killMS=np.load(self.JonesNorm_killMS)
-        #print>>log, "  Loading %s"%InName
-
+        # print>>log, "  Loading %s"%InName
+        # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",InName
         SolsFile = np.load(InName)
         print>>log, "  %s loaded" % InName
 

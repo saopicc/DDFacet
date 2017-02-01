@@ -28,6 +28,8 @@ import psutil
 import numexpr
 from DDFacet.Other.AsyncProcessPool import APP
 from DDFacet.Array import SharedDict
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("ModFFTW")
 
 #Fs=pyfftw.interfaces.numpy_fft.fftshift
 #iFs=pyfftw.interfaces.numpy_fft.ifftshift
@@ -298,12 +300,17 @@ def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
         Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
     return Out,in2
 
-def learnFFTWWisdom(npix):
-    """Learns FFTW wisdom for real 2D FFT of npix x npix images"""
-    test = np.zeros((npix, npix), np.float32)
-    a = pyfftw.interfaces.numpy_fft.rfft2(test, overwrite_input=True, threads=1)
-    b = pyfftw.interfaces.numpy_fft.irfft2(a, overwrite_input=True, threads=1)
 
+def learnFFTWWisdom(npix,dtype=np.float32):
+    """Learns FFTW wisdom for real 2D FFT of npix x npix images"""
+    print>>log, "  Computing fftw wisdom FFTs for shape [%i x %i] and dtype %s" % (npix,npix,dtype.__name__)
+    test = np.zeros((npix, npix), dtype)
+    if "float" in dtype.__name__:
+        a = pyfftw.interfaces.numpy_fft.rfft2(test, overwrite_input=True, threads=1)
+        b = pyfftw.interfaces.numpy_fft.irfft2(a, overwrite_input=True, threads=1)
+    elif "complex" in dtype.__name__:
+        a = pyfftw.interfaces.numpy_fft.fft2(test, overwrite_input=True, threads=1)
+        b = pyfftw.interfaces.numpy_fft.ifft2(a, overwrite_input=True, threads=1)
 
 def _convolveSingleGaussianFFTW(shareddict_path, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
     T = ClassTimeIt.ClassTimeIt()

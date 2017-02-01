@@ -43,9 +43,9 @@ from DDFacet.Other import ModColor
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
-from DDFacet.Other import MyLogger
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 #from DDFacet.Array import NpParallel
+from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassFacetMachine")
 from DDFacet.Other.AsyncProcessPool import APP
 import numexpr
@@ -509,30 +509,56 @@ class ClassFacetMachine():
         """
         Set fft wisdom
         """
-        if self.GD["RIME"]["FFTMachine"] is not "FFTW": return
-        cachename = "FFTW_Wisdom_PSF" if self.DoPSF and self.Oversize != 1 else "FFTW_Wisdom"
-        path, valid = self.VS.maincache.checkCache(cachename, dict(shape=self.PaddedGridShape))
-        if not valid:
-            print>>log, "Computing fftw wisdom complex FFTs, shape = %s" % str(self.PaddedGridShape[-2:])
-            a = np.random.randn(*(self.PaddedGridShape)) \
-                + 1j*np.random.randn(*(self.PaddedGridShape))
-            FM = ModFFTW.FFTW_2Donly(self.PaddedGridShape, np.complex64)
-            FM.fft(a)  # this is never used -- only to compute the wisdom
-            # now learn wisdom for dealing with images
-            ModFFTW.learnFFTWWisdom(self.OutImShape[-1])
-            print>>log, "Computing fftw wisdom for real FFTS, shape = %s" % str(self.OutImShape[-2:])
-            self.FFTW_Wisdom = pyfftw.export_wisdom()
-            cPickle.dump(self.FFTW_Wisdom, file(path, "w"))
-            self.VS.maincache.saveCache(cachename)
-        else:
-            print>>log, "Loading cached fftw wisdom from %s" % path
-            self.FFTW_Wisdom = cPickle.load(file(path))
-            # this is inherited by forked processes, presumably
-            pyfftw.import_wisdom(self.FFTW_Wisdom)
+        import socket, os
+        from os.path import expanduser
+        if self.GD["RIME"]["FFTMachine"]!="FFTW": return
+        self.wisdom_cache_path = self.GD["Cache"]["DirWisdomFFTW"]
+        hostname=socket.gethostname()
+        if "~" in self.wisdom_cache_path:
+            home = expanduser("~")        
+            self.wisdom_cache_path=self.wisdom_cache_path.replace("~",home)
+        self.wisdom_cache_path_host = "/".join([self.wisdom_cache_path,hostname])
+        self.wisdom_cache_file = "/".join([self.wisdom_cache_path_host,"Wisdom.pickle"])
 
-            # for iFacet in sorted(self.DicoImager.keys()):
-        #     A = ModFFTW.GiveFFTW_aligned(self.PaddedGridShape, np.complex64)
-        #     NpShared.ToShared("%sFFTW.%i" % (self.IdSharedMem, iFacet), A)
+        if not os.path.isdir(self.wisdom_cache_path_host):
+            print>>log, "Wisdom file %s does not exist, create it" % (self.wisdom_cache_path_host)
+            os.makedirs(self.wisdom_cache_path_host)
+
+        if os.path.isfile(self.wisdom_cache_file):
+            print>>log, "Loading wisdom file %s" % (self.wisdom_cache_file)
+            DictWisdom = cPickle.load(file(self.wisdom_cache_file))
+            pyfftw.import_wisdom(DictWisdom["Wisdom"])
+            WisdomTypes=DictWisdom["WisdomTypes"]
+        else:
+            WisdomTypes=[]
+
+        HasTouchedWisdomFile = False
+        T=ClassTimeIt.ClassTimeIt("setWisdom")
+        T.disable()
+        for iFacet in sorted(self.DicoImager.keys()):
+            NPixPadded=self.DicoImager[0]["NpixFacetPadded"]
+            ListTypeKey=[(NPixPadded,np.complex64),
+                         (NPixPadded,np.complex128)]
+            for TypeKey in ListTypeKey:
+                if TypeKey not in WisdomTypes:
+                    HasTouchedWisdomFile = True
+                    ModFFTW.learnFFTWWisdom(*TypeKey)
+                    WisdomTypes.append(TypeKey)
+
+        NOut = self.OutImShape[-1]
+        TypeKey=(NOut,np.float32)
+        if TypeKey not in WisdomTypes:
+            HasTouchedWisdomFile = True
+            ModFFTW.learnFFTWWisdom(*TypeKey)
+            WisdomTypes.append(TypeKey)
+        self.FFTW_Wisdom = pyfftw.export_wisdom()
+        DictWisdom={"Wisdom":self.FFTW_Wisdom,
+                    "WisdomTypes":WisdomTypes}
+
+        if HasTouchedWisdomFile:
+            print>>log, "Saving wisdom file to %s"%self.wisdom_cache_file
+            cPickle.dump(DictWisdom, file(self.wisdom_cache_file, "w"))
+
 
     def initCFInBackground (self, other_fm=None):
         # if we have another FacetMachine supplied, check if the same CFs apply
@@ -1354,8 +1380,8 @@ class ClassFacetMachine():
         self._grid_job_id = None
 
         if self.AverageBeamMachine is not None and \
-           self.AverageBeamMachine.SmoothBeam is not None\
-           and self._smooth_job_label is not None:
+           self.AverageBeamMachine.SmoothBeam is None and\
+           self._smooth_job_label is not None:
             JobName="StackBeam%sF"%self._smooth_job_label
             APP.awaitJobResults(JobName+"*",
                                 progress=("Stack Beam %s" % self._smooth_job_label))
