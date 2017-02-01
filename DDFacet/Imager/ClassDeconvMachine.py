@@ -483,7 +483,10 @@ class ClassImagerDeconv():
                 print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
                 print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-Dirty reset.")
 
-            self.DicoDirty = MyPickle.FileToDicoNP(dirty_cachepath)
+            DicoDirty = MyPickle.FileToDicoNP(dirty_cachepath)
+            self.DicoDirty = SharedDict.dict_to_shm("FM_AllImages",DicoDirty)
+            del(DicoDirty)
+
 
             if self.DicoDirty["JonesNorm"] is not None:
                 self.FacetMachine.setNormImages(self.DicoDirty)
@@ -620,7 +623,6 @@ class ClassImagerDeconv():
             self._fitAndSavePSF(self.FacetMachinePSF)
 
             
-
         self.CurrentDicoResidImage = self.DicoDirty
         self.ResidCube  = self.CurrentDicoResidImage["ImagData"] #get residuals cube
         self.ResidImage = self.CurrentDicoResidImage["MeanImage"]
@@ -997,6 +999,7 @@ class ClassImagerDeconv():
             # create new residual image
             DicoImage = self.FacetMachine.FacetsToIm(NormJones=True)
 
+            self.CurrentDicoResidImage = DicoImage
             self.ResidCube  = DicoImage["ImagData"] #get residuals cube
             self.ResidImage = DicoImage["MeanImage"]
             # was PSF re-generated?
