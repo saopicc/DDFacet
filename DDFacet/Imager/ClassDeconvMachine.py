@@ -562,6 +562,7 @@ class ClassImagerDeconv():
                 # so even if we're not using FM to make a dirty, we still need this call to make sure the CFs come in.
                 self.FacetMachine.awaitInitCompletion()
 
+                # Stacks average beam if not computed
                 self.FacetMachine.StackAverageBeam(DATA)
 
                 if not dirty_valid:
@@ -981,6 +982,9 @@ class ClassImagerDeconv():
                     self.VS.startVisPutColumnInBackground(DATA, "predict", predict_colname, likecol=self.GD["Data"]["ColName"])
                     self.VS.startChunkLoadInBackground()
 
+                # Stacks average beam if not computed
+                self.FacetMachine.StackAverageBeam(DATA)
+
                 self.FacetMachine.putChunkInBackground(DATA)
                 if do_psf:
                     self.FacetMachinePSF.putChunkInBackground(DATA)
@@ -1029,6 +1033,8 @@ class ClassImagerDeconv():
 
 
             self.HasDeconvolved=True
+
+        self.FacetMachine.finaliseSmoothBeam()
 
         # dump dirty to cache
         if self.GD["Cache"]["LastResidual"] and self.CurrentDicoResidImage is not None:

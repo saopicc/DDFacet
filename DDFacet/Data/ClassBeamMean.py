@@ -206,6 +206,8 @@ class ClassBeamMean():
         self.SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
         self.SumWsq=np.zeros((1,self.MS.Nchan),np.float64)
         self.SumWsq[0,:]=self.StackedBeamDict[0]["SumWsq"]
+        if np.max(self.StackedBeamDict[0]["SumWsq"])==0:
+            return "NoStackedData"
         for iDir in range(self.NDir):
             i,j=self.iPix[iDir],self.jPix[iDir]
             self.SumJJsq[i,j,:]=self.StackedBeamDict[iDir]["SumJJsq"]
@@ -257,6 +259,7 @@ class ClassBeamMean():
         np.save(self.CachePath,self.SmoothBeam)
         self.VS.maincache.saveCache("SmoothBeam.npy")
         # print>>log, ModColor.Str("======================= Done calculating smooth beams ====================")
+        return "HasBeenComputed"
 
        
     def CheckCache(self):
@@ -272,7 +275,7 @@ class ClassBeamMean():
 
 
         if self.CacheValid:
-            print>>log,"found valid cached dirty image in %s"%self.CachePath
+            print>>log,"Found valid smooth beam in %s"%self.CachePath
             self.SmoothBeam=np.load(self.CachePath)
 
     def GiveMergedWithDiscrete(self,DiscreteMeanBeam):

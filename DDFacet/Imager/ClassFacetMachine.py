@@ -569,7 +569,10 @@ class ClassFacetMachine():
         # subprocesses will place W-terms etc. here. Reset this first.
         self._CF = SharedDict.create("CFPSF" if self.DoPSF else "CF")
         # check if w-kernels, spacial weights, etc. are cached
-        cachekey = dict(ImagerCF=self.GD["CF"], ImagerMainFacet=self.GD["Image"])
+        cachekey = dict(ImagerCF=self.GD["CF"], 
+                        ImagerMainFacet=self.GD["Image"], 
+                        Facets=self.GD["Facets"], 
+                        RIME=self.GD["RIME"])
         cachename = self._cf_cachename = "CF"
         # in oversize-PSF mode, make separate cache for PSFs
         if self.DoPSF and self.Oversize != 1:
@@ -1332,9 +1335,11 @@ class ClassFacetMachine():
 
     def StackAverageBeam(self, DATA):
         # the FacetMachinePSF does not have an AverageBeamMachine
-        if not self.AverageBeamMachine: return
+        if not self.AverageBeamMachine: 
+            return
         # if AverageBeamMachine has loaded a cached SmoothBeam
-        if self.AverageBeamMachine.SmoothBeam is not None: return
+        if self.AverageBeamMachine.SmoothBeam is not None: 
+            return
         # wait for any init to finish
         self.awaitInitCompletion()
         # wait for any previous gridding/degridding jobs to finish, if still active
@@ -1354,7 +1359,12 @@ class ClassFacetMachine():
         if not self.AverageBeamMachine: return
         # if AverageBeamMachine has loaded a cached SmoothBeam
         if self.AverageBeamMachine.SmoothBeam is None: 
-            self.AverageBeamMachine.Smooth()
+            if self.AverageBeamMachine.Smooth()=="NoStackedData":
+                print>>log,"Has tried to compute the smoothed beam, but there was no stacked beam"
+                return
+            else:
+                print>>log,"Successfully computed the smooth beam"
+                
         Npix=self.OutImShape[-1]
         self.SmoothMeanJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
 

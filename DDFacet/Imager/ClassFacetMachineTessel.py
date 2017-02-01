@@ -78,16 +78,19 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
              [lMainCenter + RadiusTot, mMainCenter + RadiusTot],
              [lMainCenter - RadiusTot, mMainCenter + RadiusTot]])
 
-        MSName = self.GD["Data"]["MS"]
-        if ".txt" in MSName:
-            f = open(MSName)
-            Ls = f.readlines()
-            f.close()
-            MSName = []
-            for l in Ls:
-                ll = l.replace("\n", "")
-                MSName.append(ll)
-            MSName = MSName[0]
+        # MSName = self.GD["Data"]["MS"]
+        # if ".txt" in MSName:
+        #     f = open(MSName)
+        #     Ls = f.readlines()
+        #     f.close()
+        #     MSName = []
+        #     for l in Ls:
+        #         ll = l.replace("\n", "")
+        #         MSName.append(ll)
+        #     MSName = MSName[0]
+
+
+        MSName = self.VS.ListMS[0].MSName
 
         SolsFile = self.GD["DDESolutions"]["DDSols"]
         if isinstance(SolsFile, list):
