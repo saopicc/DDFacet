@@ -171,7 +171,7 @@ class ClassImagerDeconv():
         MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
 
 
-        SubstractModel=self.GD["Data"]["InitDicoModel"]
+        SubstractModel=self.GD["Predict"]["InitDicoModel"]
         DoSub=(SubstractModel!="")&(SubstractModel is not None)
         if DoSub:
             print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
@@ -188,14 +188,16 @@ class ClassImagerDeconv():
             print>>log, ModColor.Str("Taking reference frequency from the model machine %f MHz (instead of %f MHz from the data)"%(ModelMachine.RefFreq/1e6,self.VS.RefFreq/1e6))
             self.RefFreq=self.VS.RefFreq=ModelMachine.RefFreq
 
-            if self.BaseName==self.GD["Data"]["InitDicoModel"][0:-10]:
+            if self.BaseName==self.GD["Predict"]["InitDicoModel"][0:-10]:
                 self.BaseName+=".continue"
                 self.DicoModelName="%s.DicoModel"%self.BaseName
                 self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
+            self.DoDirtySub=1
         else:
             ModelMachine = self.ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
             ModelMachine.setRefFreq(self.VS.RefFreq)
             self.RefFreq=self.VS.RefFreq
+            self.DoDirtySub=0
 
         self.ModelMachine=ModelMachine
 
@@ -284,8 +286,10 @@ class ClassImagerDeconv():
                     [(section, self.GD[section]) for section in 
                      "Data", "Beam", "Selection",
                      "Freq", "Image", "Comp",
-                     "CF", "RIME","Facets","Weight","DDESolutions"]
-                )
+                     "CF", "RIME","Facets","Weight","DDESolutions"]+
+                   [("InitDicoModel",self.GD["Predict"]["InitDicoModel"])]
+               )
+        
         key["Comp"]["Sparsification"] = sparsify
         return key
 
@@ -294,6 +298,7 @@ class ClassImagerDeconv():
         if mode in (0, False, None, 'off'):
             return None, False, False
         elif mode == 'reset':
+            print>> log, ModColor.Str("Forcing to reset the cached PSF image", col="red")
             cachepath, valid = self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(sparsify),
                                                                       reset=True)
             writecache = True
@@ -303,6 +308,7 @@ class ClassImagerDeconv():
         elif mode == 'force':
             cachepath = self.VS.maincache.getElementPath("PSF")
             valid = os.path.exists(cachepath)
+            print>> log, ModColor.Str("Forcing to read the cached PSF", col="red")
             writecache = False
         else:
             raise ValueError("unknown --Cache-PSF setting %s"%self.GD["Cache"]["PSF"])
@@ -314,6 +320,7 @@ class ClassImagerDeconv():
             cachepath, valid = None, False
             writecache = False
         elif mode == 'reset':
+            print>> log, ModColor.Str("Forcing to reset the cached dirty image", col="red")
             cachepath, valid = self.VS.maincache.checkCache("Dirty", key or self._createDirtyDirtyCacheKey(sparsify),
                                                                       reset=True)
             writecache = True
@@ -326,13 +333,17 @@ class ClassImagerDeconv():
             if not valid:
                 print>> log, ModColor.Str("Can't force-read cached dirty %s: does not exist", col="red")
                 raise RuntimeError("--Cache-Dirty forcedirty in effect, but no cached dirty image found")
+            print>> log, ModColor.Str("Forcing reading the cached dirty image", col="red")
             writecache = False
         elif mode == 'forceresidual':
             cachepath = self.VS.maincache.getElementPath("LastResidual")
             valid = os.path.exists(cachepath)
+
             if not valid:
                 print>> log, ModColor.Str("Can't force-read cached last residual %s: does not exist", col="red")
-                print>>log,"Mod"
+                raise RuntimeError("--Cache-Dirty forceresidual in effect, but no cached residual image found")
+            print>> log, ModColor.Str("Forcing reading the cached last residual image", col="red")
+
             writecache = False
         else:
             raise ValueError("unknown --Cache-Dirty setting %s"%mode)
@@ -457,6 +468,8 @@ class ClassImagerDeconv():
         else:
             psf_valid = psf_writecache = False
 
+        current_model_freqs = np.array([])
+        ModelImage = None
         # load from cache
         if dirty_valid:
             if self.GD["Cache"]["Dirty"] == "forceresidual":
@@ -475,6 +488,11 @@ class ClassImagerDeconv():
             if self.DicoDirty["JonesNorm"] is not None:
                 self.FacetMachine.setNormImages(self.DicoDirty)
                 self.FacetMachinePSF.setNormImages(self.DicoDirty)
+                self.MeanJonesNorm = self.FacetMachinePSF.MeanJonesNorm
+                self.JonesNorm = self.FacetMachinePSF.JonesNorm
+            elif self.DicoImagesPSF["JonesNorm"] is not None:
+                self.FacetMachine.setNormImages(self.DicoImagesPSF)
+                self.FacetMachinePSF.setNormImages(self.DicoImagesPSF)
                 self.MeanJonesNorm = self.FacetMachinePSF.MeanJonesNorm
                 self.JonesNorm = self.FacetMachinePSF.JonesNorm
             else:
@@ -501,26 +519,6 @@ class ClassImagerDeconv():
             if not psf_valid and self.FacetMachinePSF is not None:
                 self.FacetMachinePSF.ReinitDirty()
 
-            SubtractModel = self.GD["Data"]["InitDicoModel"]
-            if SubtractModel:
-                print>>log, ModColor.Str("Initialise sky model using %s"%SubtractModel,col="blue")
-                # Load model dict
-            	#DicoSMStacked = MyPickle.Load(SubtractModel)
-                # Get the correct model machine from SubtractModel file
-            	ModelMachine = self.ModelMachine#self.ModConstructor.GiveMMFromDico(DicoSMStacked)
-                #ModelMachine.FromDico(DicoSMStacked)
-                #self.FacetMachine.BuildFacetNormImage()
-                # NormFacetsFile="%s.NormFacets.fits"%InitBaseName
-                # if InitBaseName!=BaseName:
-                #     print>>log, ModColor.Str("You are substracting a model build from a different facetting mode")
-                #     print>>log, ModColor.Str("  This is rather dodgy because of the ")
-                # self.FacetMachine.NormImage=ClassCasaImage.FileToArray(NormFacetsFile,True)
-                # _,_,nx,nx=self.FacetMachine.NormImage.shape
-                # self.FacetMachine.NormImage=self.FacetMachine.NormImage.reshape((nx,nx))
-                if self.BaseName==self.GD["Data"]["InitDicoModel"][0:-10]:
-                    self.BaseName+=".continue"
-                current_model_freqs = np.array([])
-                ModelImage = None
 
             iloop = 0
             while True:
@@ -543,11 +541,11 @@ class ClassImagerDeconv():
                 print>>log,"sparsify %f"%sparsify
                 self.FacetMachine.applySparsification(DATA, sparsify)
 
-                if SubtractModel:
+                if self.DoDirtySub:
                     ## redo model image if needed
                     model_freqs = DATA["FreqMappingDegrid"]
                     if not np.array_equal(model_freqs, current_model_freqs):
-                        ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
+                        ModelImage = self.FacetMachine.setModelImage(self.ModelMachine.GiveModelImage(model_freqs))
                         current_model_freqs = model_freqs
                         print>> log, "model image @%s MHz (min,max) = (%f, %f)" % (
                         str(model_freqs / 1e6), ModelImage.min(), ModelImage.max())
@@ -611,6 +609,10 @@ class ClassImagerDeconv():
         # This call needs to be here to attach the cached smooth beam to FacetMachine if it exists 
         # and if dirty has been initialised from cache
         self.FacetMachine.finaliseSmoothBeam()
+
+        # If we have used InitDicoModel to substracted to the original dirty, 
+        # no need to anymore in the subsequent call to GiveDirty 
+        self.DoDirtySub=0
 
         ## we get here whether we recomputed dirty/psf or not
         # finalize other PSF initialization
@@ -701,7 +703,7 @@ class ClassImagerDeconv():
             CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
 
 
-        modelfile = self.GD["Data"]["PredictFromImage"]
+        modelfile = self.GD["Predict"]["PredictFromImage"]
         # if model image is specified, we'll use that, rather than the ModelMachine
         if modelfile is not None and modelfile is not "":
             print>>log,ModColor.Str("Reading image file for the predict: %s"%modelfile)
@@ -742,10 +744,10 @@ class ClassImagerDeconv():
                 if ModelImage is None:
                     ModelImage = self.FacetMachine.setModelImage(FixedModelImage)
 
-            if self.GD["Data"]["MaskSquare"]:
+            if self.GD["Predict"]["MaskSquare"]:
                 # MaskInside: choose mask inside (0) or outside (1) 
                 # NpixInside: Size of the masking region
-                MaskOutSide,NpixInside = self.GD["Data"]["MaskSquare"]
+                MaskOutSide,NpixInside = self.GD["Predict"]["MaskSquare"]
                 if MaskOutSide==0:
                     SquareMaskMode="Inside"
                 elif MaskOutSide==1:
@@ -792,21 +794,9 @@ class ClassImagerDeconv():
             self.FacetMachine.collectDegriddingResults()
             predict *= -1   # model was subtracted from (zero) predict, so need to invert sign
             # run job in I/O thread
-            self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Data"]["PredictColName"], likecol=self.GD["Data"]["ColName"])
+            self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Predict"]["PredictColName"], likecol=self.GD["Data"]["ColName"])
             # and wait for it to finish (we don't want DATA destroyed, which collectLoadedChunk() above will)
             self.VS.collectPutColumnResults()
-        # if from_fits:
-        #     print "Predicting from fits and saving in %s",(PredictColName)
-        #     #Read in the LSM
-        #     Imtodegrid = pyfits.open("/home/landman/Projects/Processed_Images/ddfacet_out/Test-D147-HI-NOIFS-NOPOL-4M5Sa/model-true.fits")[0].data
-        #     print ModelImage.shape, Imtodegrid.shape
-        #     self.FacetMachine.getChunk(DATA["times"],DATA["uvw"],DATA["data"],DATA["flags"],(DATA["A0"],DATA["A1"]),Imtodegrid)
-        #     vis = - DATA["data"]
-        #     PredictColName = self.GD["Data"]["PredictColName"]
-        #
-        #     MSName = self.VS.CurrentMS.MSName
-        #     print>>log, "Writing data predicted from Tigger LSM to column %s of %s"%(PredictColName,MSName)
-        #     self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
 
 
 
@@ -892,7 +882,7 @@ class ClassImagerDeconv():
                 print>> log, "This is the last major cycle"
             else:
                 print>> log, "Finished Deconvolving for this major cycle... Going back to visibility space."
-            predict_colname = not continue_deconv and self.GD["Data"]["PredictColName"]
+            predict_colname = not continue_deconv and self.GD["Predict"]["PredictColName"]
 
             # in the meantime, tell the I/O thread to go reload the first data chunk
             self.VS.ReInitChunkCount()

@@ -1321,12 +1321,12 @@ class ClassMS():
 
     def AddCol(self,ColName,LikeCol="DATA",quiet=False):
         t=table(self.MSName,readonly=False,ack=False)
-        if (ColName in t.colnames() and not self.GD["Data"]["Overwrite"]):
+        if (ColName in t.colnames() and not self.GD["Predict"]["Overwrite"]):
             if not quiet:
                 print>>log, "  Column %s already in %s"%(ColName,self.MSName)
             t.close()
             return
-        elif (ColName in t.colnames() and self.GD["Data"]["Overwrite"]):
+        elif (ColName in t.colnames() and self.GD["Predict"]["Overwrite"]):
             t.removecols(ColName)
         print>>log, "  Putting column %s in %s"%(ColName,self.MSName)
         desc=t.getcoldesc(LikeCol)

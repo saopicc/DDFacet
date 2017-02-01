@@ -761,7 +761,7 @@ class ClassFacetMachine():
         DicoImages = SharedDict.SharedDict("%s_AllImages"%self._app_id)
         DicoImages["freqs"] = {}
 
-        DoCalcJonesNorm = NormJones and self.JonesNorm is None
+        
 
         # Assume all facets have the same weight sums.
         # Store the normalization weights for reference
@@ -784,14 +784,17 @@ class ClassFacetMachine():
                 self.DicoImager[iFacet]["SumJonesNorm"][Channel] = ThisSumJones
 
         # build facet-normalization image
-        if self.FacetNorm is None:
-            self.BuildFacetNormImage()
-
+        self.BuildFacetNormImage()
+        self._norm_dict=SharedDict.attach("normDict")
+        FacetNorm=self._norm_dict["FacetNorm"]
         # self.stitchedResidual = self.FacetsToIm_Channel()
 
         # build Jones amplitude image
+        DoCalcJonesNorm = NormJones and not "JonesNorm" in self._norm_dict.keys()
         if DoCalcJonesNorm:
-            self.JonesNorm = self.FacetsToIm_Channel("Jones-amplitude")
+            JonesNorm = self.FacetsToIm_Channel("Jones-amplitude")
+            self._norm_dict["JonesNorm"]=JonesNorm
+        JonesNorm=self._norm_dict["JonesNorm"]
 
         # compute normalized per-band weights (WBAND)
         if self.VS.MultiFreqMode:
@@ -936,8 +939,9 @@ class ClassFacetMachine():
             else:
                 DicoImages["MeanImage"] = DicoImages["ImagData"]
 
-            DicoImages["FacetNorm"] = self.FacetNorm
-            
+            DicoImages["FacetNorm"] = FacetNorm
+            DicoImages["JonesNorm"] = JonesNorm
+           
             # print>>log,"copying dictPSF"
             DicoImages.reload()
             self._psf_dict = DicoImages
@@ -958,24 +962,25 @@ class ClassFacetMachine():
                 MeanResidual = stitchedResidual  #.copy()
             DicoImages["ImagData"] = stitchedResidual
             DicoImages["MeanImage"] = MeanResidual
-            DicoImages["FacetNorm"] = self.FacetNorm  # grid-correcting map
-            DicoImages["JonesNorm"] = self.JonesNorm
+            DicoImages["FacetNorm"] = FacetNorm  # grid-correcting map
+            DicoImages["JonesNorm"] = JonesNorm
             return DicoImages
 
     def setNormImages(self,DicoImages):
 
-        self._norm_dict=SharedDict.SharedDict("normDict")
+        self._norm_dict=SharedDict.attach("normDict")
         if len(self._norm_dict)==0:
             JonesNorm = DicoImages["JonesNorm"]
             nch, npol, nx, ny = DicoImages["ImagData"].shape
             MeanJonesNorm = np.mean(JonesNorm, axis=0).reshape((1, npol, nx, ny))
             self._norm_dict["JonesNorm"] = JonesNorm
             self._norm_dict["MeanJonesNorm"] = MeanJonesNorm
-            self.JonesNorm=self._norm_dict["JonesNorm"]
-            self.MeanJonesNorm=self._norm_dict["MeanJonesNorm"]
             
             if "SmoothMeanJonesNorm" in DicoImages.keys():
                 self.SmoothMeanJonesNorm=DicoImages["SmoothMeanJonesNorm"]
+                if self.AverageBeamMachine is not None:
+                    Npix=self.OutImShape[-1]
+                    self.AverageBeamMachine.SmoothBeam=self.SmoothMeanJonesNorm.reshape((Npix,Npix))
 
             FacetNorm = DicoImages["FacetNorm"]
             FacetNormReShape = DicoImages["FacetNorm"].reshape([1,1,
@@ -984,10 +989,14 @@ class ClassFacetMachine():
             # put arrays into shared
             self._norm_dict["FacetNorm"]=FacetNorm
             self._norm_dict["FacetNormReShape"]=FacetNormReShape
-            self.FacetNorm=self._norm_dict["FacetNorm"]
-            self.FacetNormReShape=self._norm_dict["FacetNormReShape"]
             
             self.DoCalcJonesNorm = False
+
+        self.JonesNorm=self._norm_dict["JonesNorm"]
+        self.MeanJonesNorm=self._norm_dict["MeanJonesNorm"]
+        self.FacetNorm=self._norm_dict["FacetNorm"]
+        self.FacetNormReShape=self._norm_dict["FacetNormReShape"]
+
 
     def BuildFacetNormImage(self):
         """
@@ -997,8 +1006,8 @@ class ClassFacetMachine():
         Returns
             ndarray with norm image
         """
-        self._norm_dict=SharedDict.SharedDict("normDict")
-        if len(self._norm_dict)==0:
+        self._norm_dict=SharedDict.attach("normDict")
+        if not "FacetNorm" in self._norm_dict.keys():
             print>>log, "  Building Facet-normalisation image"
             nch, npol = self.nch, self.npol
             _, _, NPixOut, NPixOut = self.OutImShape
@@ -1022,8 +1031,8 @@ class ClassFacetMachine():
             self._norm_dict["FacetNormReShape"]=FacetNorm.reshape([1,1,
                                                                    FacetNorm.shape[0],
                                                                    FacetNorm.shape[1]])
-            self.FacetNorm=self._norm_dict["FacetNorm"]
-            self.FacetNormReShape=self._norm_dict["FacetNormReShape"]
+
+
 
     def FacetsToIm_Channel(self, kind="Dirty"):
         """
@@ -1110,9 +1119,10 @@ class ClassFacetMachine():
 
             pBAR.render(iFacet+1, NFacets)
 
+        self._norm_dict=SharedDict.attach("normDict")
         for Channel in xrange(self.VS.NFreqBands):
             for pol in xrange(npol):
-                Image[Channel, pol] /= self.FacetNorm
+                Image[Channel, pol] /= self._norm_dict["FacetNorm"]
 
         return Image
 
@@ -1453,6 +1463,9 @@ class ClassFacetMachine():
         modeldict_path=self._model_dict.path
         cfdict_path=self._CF.path
         self._model_dict = SharedDict.attach(modeldict_path)
+
+        # create FacetNorm in shared dict if not exist
+        self.BuildFacetNormImage()
         nch,_,_,_=self._model_dict["Image"].shape
         ChanSel=range(nch)
         ToSHMDict=True
@@ -1472,10 +1485,7 @@ class ClassFacetMachine():
     def _degrid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path, ChanSel, modeldict_path):
         # reload shared dicts
         cf_dict = self._reload_worker_dicts(iFacet, datadict_path, cfdict_path, griddict_path)
-
-
         ModelGrid=self._set_model_grid_worker(iFacet, modeldict_path, cfdict_path, ChanSel)
-
         # Create a new GridMachine
         GridMachine = self._createGridMachine(iFacet, cf_dict=cf_dict,
             ListSemaphores=ClassFacetMachine._degridding_semaphores,
@@ -1547,6 +1557,9 @@ class ClassFacetMachine():
 
         # run new set of jobs
         ChanSel = sorted(set(DATA["ChanMappingDegrid"]))  # unique channel numbers for degrid
+
+        # create FacetNorm in shared dict if not exist
+        self.BuildFacetNormImage()
 
         self._degrid_job_label = DATA["label"]
         self._degrid_job_id = "%s.Degrid.%s:" % (self._app_id, self._degrid_job_label)

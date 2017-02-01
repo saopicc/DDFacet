@@ -52,13 +52,13 @@ class TestMontblancPredict(unittest.TestCase):
         pc.set("Image", "PredictMode", "Montblanc")
 
         # Predict from Predict.DicoModel
-        pc.set("Data", "InitDicoModel", os.path.join(self._input_dir,
+        pc.set("Predict", "InitDicoModel", os.path.join(self._input_dir,
             "sky_models", "Predict.DicoModel"))
 
         # Predict into MONTBLANC_DATA
         pc.set("Data", "MS", os.path.join(self._input_dir,
             "basicSSMFClean.MS_p0"))
-        pc.set("Data", "PredictColName", "MONTBLANC_DATA")
+        pc.set("Predict", "PredictColName", "MONTBLANC_DATA")
 
         # Write the parset config to the output file name
         with open(self._output_parset_filename, 'w') as op:
@@ -79,13 +79,13 @@ class TestMontblancPredict(unittest.TestCase):
         pc.set("Image", "PredictMode", "BDA-degrid")
 
         # Predict from Predict.DicoModel
-        pc.set("Data", "InitDicoModel", os.path.join(self._input_dir,
+        pc.set("Predict", "InitDicoModel", os.path.join(self._input_dir,
             "sky_models", "Predict.DicoModel"))
 
         # Predict into DDFACET_DATA
         pc.set("Data", "MS", os.path.join(self._input_dir,
             "basicSSMFClean.MS_p0"))
-        pc.set("Data", "PredictColName", "DDFACET_DATA")
+        pc.set("Predict", "PredictColName", "DDFACET_DATA")
 
         # Write the parset config to the output file name
         with open(self._output_parset_filename, 'w') as op:
