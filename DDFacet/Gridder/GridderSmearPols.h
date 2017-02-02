@@ -111,7 +111,7 @@ static PyObject *pyAddArray(PyObject *self, PyObject *args);
 static PyObject *pyWhereMax(PyObject *self, PyObject *args);
 
 //double PI=3.14159265359;
-float C=299792456.;
+float C=299792458.;
 float PI=3.141592;
 
 
@@ -135,6 +135,7 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
 
   if(FSmear==1){
     phi=PI*(Dnu/C)*phase;
+    //printf("%f %f %f %f = %f\n",PI,Dnu,C,phase,phi);
     if(phi!=0.){
       DecorrFactor*=(float)(sin((double)phi)/((double)phi));
     };

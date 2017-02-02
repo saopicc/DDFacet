@@ -21,20 +21,19 @@ from DDFacet.ToolsDir import ModFFTW
 import numpy as np
 import random
 from deap import tools
-import pylab
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from DDFacet.Other import ClassTimeIt
 from itertools import repeat
 from DDFacet.ToolsDir import ClassSpectralFunctions
 
 
 class ClassParamMachine():
-    def __init__(self,ListPixParms,ListPixData,FreqsInfo,SolveParam=["S","Alpha"]):
+    def __init__(self,ListPixParms,ListPixData,FreqsInfo,iFacet=0,SolveParam=["S","Alpha"]):
 
         self.ListPixParms=ListPixParms
         self.ListPixData=ListPixData
         self.NPixListParms=len(self.ListPixParms)
         self.NPixListData=len(self.ListPixData)
+        self.iFacet=iFacet
 
         self.SolveParam=SolveParam
 
@@ -54,6 +53,11 @@ class ClassParamMachine():
                                 "Sigma":{
                                     "Type":"Abs",
                                     "Value":0.1}
+                                },
+                       "GSig":{"Mean":0.,
+                                "Sigma":{
+                                    "Type":"Abs",
+                                    "Value":1}
                                 }
                    }
 
@@ -71,8 +75,11 @@ class ClassParamMachine():
     def setFreqs(self,DicoMappingDesc):
         self.DicoMappingDesc=DicoMappingDesc
         if self.DicoMappingDesc is None: return
-        self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.DicoMappingDesc)#,BeamEnable=False)
+        self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(self.DicoMappingDesc,RefFreq=self.DicoMappingDesc["RefFreq"])#,BeamEnable=False)
         
+    def GiveIndivZero(self):
+        return np.zeros((self.NParam,self.NPixListParms),np.float32)
+
 
     def GiveInitList(self,toolbox):
         ListPars=[]
@@ -85,9 +92,12 @@ class ClassParamMachine():
             if Type=="Alpha":
                 toolbox.register("attr_float_normal_Alpha", random.gauss, MeanVal, 0)#DicoSigma["Value"])
                 ListPars+=[toolbox.attr_float_normal_Alpha]*self.NPixListParms
+            if Type=="GSig":
+                toolbox.register("attr_float_normal_GSig", random.uniform, 0, 1)#DicoSigma["Value"])
+                ListPars+=[toolbox.attr_float_normal_GSig]*self.NPixListParms
         return ListPars
 
-    def ReinitPop(self,pop,SModelArray,AlphaModel=None):
+    def ReinitPop(self,pop,SModelArray,AlphaModel=None,GSigModel=None,PutNoise=True):
 
         for Type in self.SolveParam:
             DicoSigma=self.DicoIParm[Type]["Default"]["Sigma"]
@@ -100,24 +110,49 @@ class ClassParamMachine():
 
             for i_indiv,indiv in zip(range(len(pop)),pop):
                 SubArray=self.ArrayToSubArray(indiv,Type=Type)
+
                 if Type=="S":
                     SubArray[:]=SModelArray[:]
-                    if i_indiv!=0: 
+                    if (i_indiv!=0) and PutNoise:
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+
+
                 if Type=="Alpha":
                     if AlphaModel is None:
                         AlphaModel=MeanVal*np.ones((SModelArray.size,),np.float32)
                     SubArray[:]=AlphaModel[:]
-                    if i_indiv!=0: 
+                    if (i_indiv!=0) and PutNoise: 
                         SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+
+                if Type=="GSig":
+                    if GSigModel==None:
+                        GSigModel=MeanVal*np.ones((SModelArray.size,),np.float32)
+                    SubArray[:]=GSigModel[:]
+                    #SubArray[:]=0
+
+                    #SubArray[49]=1.
+                    #SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+                    #SubArray[SubArray<0]=0
+                    #if i_indiv!=0: 
+                    #   SubArray[:]+=np.random.randn(SModelArray.size)*SigVal
+                    SubArray[SubArray<0]=0
+                    #SubArray.fill(0)
 
                     # SubArray[:]=np.zeros_like(AlphaModel)[:]#+np.random.randn(SModelArray.size)*SigVal
                     # print SubArray[:]
 
+                # SubArray=self.ArrayToSubArray(indiv,Type="S")
+                # SubArray.fill(0)
+                # SubArray[49]=1.
+                # SubArray=self.ArrayToSubArray(indiv,Type="GSig")
+                # SubArray.fill(0)
+                # SubArray[49]=1.
+
+                
+    def giveIndexParm(self,Type):
+        return self.DicoIParm[Type]["iSlice"]
 
 
-
-            
     def ArrayToSubArray(self,A,Type):
         iSlice=self.DicoIParm[Type]["iSlice"]
         if iSlice is not None:
@@ -137,7 +172,6 @@ class ClassParamMachine():
     #     else:
     #         ParmsArray=np.zeros((self.AM.NPixListParm,),np.float32)
     #         ParmsArray.fill(self.DicoIParm[Type]["Default"])
-
     #     return ParmsArray
 
     def SetSquareGrid(self,Type):
@@ -150,6 +184,7 @@ class ClassParamMachine():
         nx=x.max()-x.min()+1
         ny=y.max()-y.min()+1
         NPixSquare=np.max((nx,ny))
+        if NPixSquare%2==0: NPixSquare+=1
         xx,yy=np.mgrid[0:NPixSquare,0:NPixSquare]
 
         MappingIndexToXYPix=(xx[x-x.min(),y-y.min()],yy[x-x.min(),y-y.min()])
@@ -232,6 +267,15 @@ class ClassParamMachine():
 
         return ArrayModel
         
+    def PrintIndiv(self,indiv):
+        S=self.ArrayToSubArray(indiv,"S")
+        for iPix in range(self.NPixListParms):
+            if S[iPix]==0: continue
+            print "iPix = %i"%iPix
+            for ParamType in self.SolveParam:
+                Q=self.ArrayToSubArray(indiv,ParamType)
+                print "  %s = %f"%(ParamType,Q[iPix])
+
 
     def GiveModelArray(self,A):
         
@@ -239,14 +283,47 @@ class ClassParamMachine():
 
         S=self.ArrayToSubArray(A,"S")
         Alpha=self.ArrayToSubArray(A,"Alpha")
+        
 
         self.MultiFreqMode=True
         for iBand in range(self.NFreqBands):
             if self.MultiFreqMode:
-                MA[iBand]=self.SpectralFunctionsMachine.IntExpFunc(S0=S,Alpha=Alpha,iChannel=iBand,iFacet=0)
+                MA[iBand]=self.SpectralFunctionsMachine.IntExpFunc(S0=S,Alpha=Alpha,iChannel=iBand,iFacet=self.iFacet)
             else:
                 MA[iBand]=S[:]
             #Alpha=self.ParmToArray(A,"Alpha")
+
+
+
+        if "GSig" in self.SolveParam:
+            GSig=self.ArrayToSubArray(A,"GSig")
+            #GSig[49]=1.
+            ArrayPix=np.array(self.ListPixParms)
+            x,y=ArrayPix.T
+            MAOut=np.zeros_like(MA)
+            
+            for iPix in range(self.NPixListParms):
+                if S[iPix]==0: continue
+
+                sig=GSig[iPix]
+                if sig==0: 
+                    for iBand in range(self.NFreqBands):
+                        MAOut[iBand,iPix]+=MA[iBand,iPix]
+                    continue#np.abs(sig)<=0.5: continue
+
+
+                d=np.sqrt((x[iPix]-x)**2+(y[iPix]-y)**2)
+                v=np.exp(-d**2/(2.*sig**2))
+                Sv=np.sum(v)
+                #v[v<0.05*SMax]=0
+                for iBand in range(self.NFreqBands):
+                    SMax=MA[iBand,iPix]#S[iPix]
+                    a=SMax/Sv#(2.*np.pi*sig**2)
+                    MAOut[iBand]+=np.ones_like(MA[iBand])*a*v
+            MA=MAOut
+
+            #print MA.sum(axis=1)
+
 
 
         return MA

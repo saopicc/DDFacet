@@ -25,7 +25,6 @@ algorithms into DDFacet.
 """
 
 import numpy as np
-import pylab
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassImageDeconvMachine")
@@ -143,7 +142,7 @@ class ClassImageDeconvMachine():
         #assume that the frequency variance is somewhat the same in all the stokes images:
         RefFreq = np.sum(AllFreqsMean.ravel() * np.mean(self.DicoVariablePSF["WeightChansImages"],axis=1).ravel())
 
-        self.ModelMachine.setRefFreq(RefFreq, AllFreqs)
+        self.ModelMachine.setRefFreq(RefFreq) #, AllFreqs)
 
     def SetModelShape(self):
         """
@@ -374,11 +373,11 @@ class ClassImageDeconvMachine():
                 update_model = False or update_model
                 continue #onto the next polarization
 
-            pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Cleaning  %s " %  pol_task, HeaderSize=20,TitleSize=30)
+            pBAR= ProgressBar(Title="Cleaning  %s " %  pol_task)
             # pBAR.disable()
 
             self.GainMachine.SetFluxMax(ThisFlux)
-            pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
+            pBAR.render(0,100) # "g=%3.3f"%self.GainMachine.GiveGain())
 
             def GivePercentDone(ThisMaxFlux):
                 fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
@@ -418,7 +417,7 @@ class ClassImageDeconvMachine():
                     T.timeit("max0")
 
                     if ThisFlux <= StopFlux:
-                        pBAR.render(100,"peak %.3g"%(ThisFlux,))
+                        pBAR.render(100,100) #"peak %.3g"%(ThisFlux,))
                         print>>log, ModColor.Str("    CLEANing %s [iter=%i] peak of %.3g Jy lower than stopping flux" % (pol_task,i,ThisFlux),col="green")
                         cont = ThisFlux > self.FluxThreshold
                         if not cont:
@@ -431,7 +430,7 @@ class ClassImageDeconvMachine():
 
                     if (i>0)&((i%100)==0):
                         PercentDone=GivePercentDone(ThisFlux)
-                        pBAR.render(PercentDone,"peak %.3g i%d"%(ThisFlux,self._niter[pol_task_id]))
+                        pBAR.render(PercentDone,100)# "peak %.3g i%d"%(ThisFlux,self._niter[pol_task_id]))
 
                     nch,npol,_,_=self._Dirty.shape
                     #Fpol contains the intensities at (x,y) per freq and polarisation
@@ -462,7 +461,7 @@ class ClassImageDeconvMachine():
                     else:
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
                     nchan, npol, _, _ = Fpol.shape
-                    JonesNorm = (self.DicoDirty["NormData"][:, :, x, y]).reshape((nchan, npol, 1, 1))
+                    JonesNorm = (self.DicoDirty["JonesNorm"][:, :, x, y]).reshape((nchan, npol, 1, 1))
                     # dx=x-xc
                     # dy=y-xc
                     T.timeit("stuff")

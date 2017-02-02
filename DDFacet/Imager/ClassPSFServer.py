@@ -25,10 +25,11 @@ from DDFacet.ToolsDir import ClassSpectralFunctions
 log= MyLogger.getLogger("ClassPSFServer")
 
 class ClassPSFServer():
-    def __init__(self,GD):
+    def __init__(self,GD=None):
         self.GD=GD
+        self.blc=None
 
-    def setDicoVariablePSF(self,DicoVariablePSF,NormalisePSF=False):
+    def setDicoVariablePSF(self,DicoVariablePSF,RefFreq=None,NormalisePSF=False):
         # NFacets=len(DicoVariablePSF.keys())
         # NPixMin=1e6
         # for iFacet in sorted(DicoVariablePSF.keys()):
@@ -54,29 +55,44 @@ class ClassPSFServer():
         self.NPSF=NPixMin
 
         if NormalisePSF:
-            print>>log,"Normalising Facets-PSF by their maximum"
-            for iFacet in range(self.NFacets):
-                self.CubeMeanVariablePSF[iFacet]/=np.max(self.CubeMeanVariablePSF[iFacet])
-                for iChan in range(nch):
-                    self.CubeVariablePSF[iFacet,iChan]/=np.max(self.CubeVariablePSF[iFacet,iChan])
+            print>>log,"Using peak-normalised PSFs"
+            # for iFacet in range(self.NFacets):
+            #     self.CubeMeanVariablePSF[iFacet]/=np.max(self.CubeMeanVariablePSF[iFacet])
+            #     for iChan in range(nch):
+            #         self.CubeVariablePSF[iFacet,iChan]/=np.max(self.CubeVariablePSF[iFacet,iChan])
+            self.CubeMeanVariablePSF=DicoVariablePSF["PeakNormed_CubeMeanVariablePSF"]
+            self.CubeVariablePSF=DicoVariablePSF["PeakNormed_CubeVariablePSF"]
 
         DicoMappingDesc={"freqs":DicoVariablePSF["freqs"],
                          "WeightChansImages":DicoVariablePSF["WeightChansImages"],
                          "SumJonesChan":DicoVariablePSF["SumJonesChan"],
                          "SumJonesChanWeightSq":DicoVariablePSF["SumJonesChanWeightSq"],
                          "ChanMappingGrid":DicoVariablePSF["ChanMappingGrid"],
+                         "ChanMappingGridChan":DicoVariablePSF["ChanMappingGridChan"],
                          "MeanJonesBand":DicoVariablePSF["MeanJonesBand"]}
 
         self.DicoMappingDesc=DicoMappingDesc
-
+        
         self.SpectralFunctionsMachine=ClassSpectralFunctions.ClassSpectralFunctions(DicoMappingDesc)
-        self.RefFreq=self.SpectralFunctionsMachine.RefFreq
-        self.AllFreqs=self.SpectralFunctionsMachine.AllFreqs
+        #self.RefFreq=self.SpectralFunctionsMachine.RefFreq=RefFreq
+        #self.AllFreqs=self.SpectralFunctionsMachine.AllFreqs
         #print "PSFServer:",self.RefFreq, self.AllFreqs
         #self.CalcJacobian()
 
+    def setRefFreq(self,RefFreq):
+        if RefFreq is None:
+            raise ValueError("Reference frequency should be set")
+        self.RefFreq=RefFreq
+        self.SpectralFunctionsMachine.RefFreq=RefFreq
+        self.DicoMappingDesc["RefFreq"]=RefFreq
+
+    def setBLC(self,blc):
+        self.blc=blc
+
+
     def setLocation(self,xp,yp):
         self.iFacet=self.giveFacetID2(xp,yp)
+        #print "ifacet:",self.iFacet
 
     def giveFacetID(self,xp,yp):
         dmin=1e6
@@ -88,6 +104,10 @@ class ClassPSFServer():
         return ClosestFacet
                 
     def giveFacetID2(self,xp,yp):
+        if self.blc is not None:
+            x0,y0=self.blc
+            xp,yp=x0+xp,y0+yp
+
         dmin=1e6
         CellSizeRad=self.DicoVariablePSF["CellSizeRad"]
         _,_,nx,_=self.DicoVariablePSF["OutImShape"]
@@ -146,7 +166,7 @@ class ClassPSFServer():
     def SolveOffsetLM(self,Dirty,xc0,yc0):
         iFacet=self.iFacet
         Lambda=1.
-        nIter=30
+        nIter=5
         beta=np.zeros((2,1),np.float32)
         J=self.CubeJacobianMeanVariablePSF[iFacet]["J"]
         s,_=J.shape
@@ -171,9 +191,12 @@ class ClassPSFServer():
             delta_y=int(round(delta[1,0]))
             if (delta_x==0)&(delta_y==0):
                 break
+            delta_x=np.min([1,np.abs(delta_x)])*np.sign(delta_x)
+            delta_y=np.min([1,np.abs(delta_y)])*np.sign(delta_y)
+
             xc+=delta_x
             yc+=delta_y
-            print delta_x,delta_y
+            #print delta_x,delta_y
         return xc,yc
 
     def GivePSF(self):
