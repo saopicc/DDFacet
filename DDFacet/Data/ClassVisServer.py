@@ -630,10 +630,13 @@ class ClassVisServer():
             msweights = self._weight_dict.addSubdict(iMS)
             for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
                 msw = msweights.addSubdict(ichunk)
-                msw["cachepath"], valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy",
-                        dict([(section, self.GD[section]) for section
-                              in ("Data", "Selection", "Freq", "Image", "Weight")]))
+                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy",
+                                dict([(section, self.GD[section]) for section
+                                      in ("Data", "Selection", "Freq", "Image", "Weight")]))
                 have_all_weights = have_all_weights and valid
+                msw["cachepath"] = path
+                if valid:
+                    msw["null"] = not os.path.getsize(path)
         # if every weight is in cache, then we're done here
         if have_all_weights:
             print>> log, "all imaging weights are available in cache"

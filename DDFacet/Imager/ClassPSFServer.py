@@ -29,7 +29,7 @@ class ClassPSFServer():
         self.GD=GD
         self.blc=None
 
-    def setDicoVariablePSF(self,DicoVariablePSF,RefFreq=None,NormalisePSF=False):
+    def setDicoVariablePSF(self,DicoVariablePSF,RefFreq=None,NormalisePSF=False,quiet=False):
         # NFacets=len(DicoVariablePSF.keys())
         # NPixMin=1e6
         # for iFacet in sorted(DicoVariablePSF.keys()):
@@ -55,7 +55,8 @@ class ClassPSFServer():
         self.NPSF=NPixMin
 
         if NormalisePSF:
-            print>>log,"Using peak-normalised PSFs"
+            if not quiet:
+                print>>log,"Using peak-normalised PSFs"
             # for iFacet in range(self.NFacets):
             #     self.CubeMeanVariablePSF[iFacet]/=np.max(self.CubeMeanVariablePSF[iFacet])
             #     for iChan in range(nch):
