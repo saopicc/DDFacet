@@ -103,10 +103,14 @@ static PyObject *pyAccumulateWeightsOntoGrid(PyObject *self, PyObject *args)
     for( i=0; i<n; i++)
     {
         size_t igrid = pindex[i];
-        sem_t * psem = GiveSemaphoreFromCell(igrid);
-    	sem_wait(psem);
-        pgrid[igrid] += pweights[i];
-  	    sem_post(psem);
+        float w = pweights[i];
+        if( w!=0 )
+        {
+            sem_t * psem = GiveSemaphoreFromCell(igrid);
+            sem_wait(psem);
+            pgrid[igrid] += w;
+            sem_post(psem);
+        }
     }
 
     Py_INCREF(Py_None);

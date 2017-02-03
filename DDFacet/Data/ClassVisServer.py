@@ -731,19 +731,19 @@ class ClassVisServer():
         nrows = row1 - row0
         chanslice = ms.ChanSlice
         if not nrows:
-            print>> log, "  0 rows: empty chunk"
+#            print>> log, "  0 rows: empty chunk"
             return
         tab = ms.GiveMainTable()
-        print>>log,"  %d.%d reading %s UVW" % (ims+1, ichunk+1, ms.MSName)
+#        print>>log,"  %d.%d reading %s UVW" % (ims+1, ichunk+1, ms.MSName)
         uvw = tab.getcol("UVW", row0, nrows)
         flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), np.bool)
         # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
-        print>>log,"  reading FLAG"
+#        print>>log,"  reading FLAG"
         tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
         if ms._reverse_channel_order:
             flags = flags[:,::-1,:]
         # if any polarization is flagged, flag all 4 correlations. Shape of flags becomes nrow,nchan
-        print>>log,"  adjusting flags"
+#        print>>log,"  adjusting flags"
         # if any polarization is flagged, flag all 4 correlations. Shape
         # of flags becomes nrow,nchan
         flags = flags.max(axis=2)
@@ -752,7 +752,7 @@ class ClassVisServer():
         rowflags = flags.min(axis=1)
         # if everything is flagged, skip this entry
         if rowflags.all():
-            print>> log, "  all flagged: marking as null"
+#            print>> log, "  all flagged: marking as null"
             return
         # if all channels are flagged, flag whole row. Shape of flags becomes nrow
         msw["flags"] = rowflags
@@ -767,30 +767,26 @@ class ClassVisServer():
         weight_col = self.GD["Weight"]["ColName"]
         if weight_col == "WEIGHT_SPECTRUM":
             w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
-            print>> log, "  reading column %s for the weights, shape is %s" % (
-                weight_col, w.shape)
+#            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
             if ms._reverse_channel_order:
                 w = w[:, ::-1, :]
             # take mean weight across correlations and apply this to all
             weight[...] = w.mean(axis=2)
         elif weight_col == "None" or weight_col == None:
-            print>> log, "  Selected weights columns is None, filling weights with ones"
+#            print>> log, "  Selected weights columns is None, filling weights with ones"
             weight.fill(1)
         elif weight_col == "WEIGHT":
             w = tab.getcol(weight_col, row0, nrows)
-            print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (
-                weight_col, w.shape)
+#            print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (weight_col, w.shape)
             # take mean weight across correlations, and expand to have frequency axis
             weight[...] = w.mean(axis=1)[:, np.newaxis]
         else:
             # in all other cases (i.e. IMAGING_WEIGHT) assume a column
             # of shape NRow,NFreq to begin with, check for this:
             w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
-            print>> log, "  reading column %s for the weights, shape is %s" % (
-                weight_col, w.shape)
+#            print>> log, "  reading column %s for the weights, shape is %s" % (weight_col, w.shape)
             if w.shape != valid.shape:
-                raise TypeError(
-                    "weights column expected to have shape of %s" %
+                raise TypeError("weights column expected to have shape of %s" %
                     (valid.shape,))
             weight[...] = w
         # flagged points get zero weight
