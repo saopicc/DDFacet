@@ -21,6 +21,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 from DDFacet.Other import MyLogger
 log= MyLogger.getLogger("ClassLOFARBeam")
 from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import ModColor
+
 
 import numpy as np
 try:
