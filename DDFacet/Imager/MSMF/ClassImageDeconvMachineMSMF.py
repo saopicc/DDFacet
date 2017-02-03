@@ -145,10 +145,9 @@ class ClassImageDeconvMachine():
     def set_DicoHMPFunctions(self,facetcache):
         self.facetcache=facetcache
 
-    def _initMSM_handler(self, fcdict_path, psf_path, iFacet, SideLobeLevel, OffsetSideLobe, centralFacet):
+    def _initMSM_handler(self, fcdict, psfdict, iFacet, SideLobeLevel, OffsetSideLobe, centralFacet):
         # init PSF server from PSF shared dict
-        self.SetPSF(shared_dict.attach(psf_path), quiet=True)
-        fcdict = shared_dict.attach(fcdict_path, load=False)
+        self.SetPSF(psfdict, quiet=True)
         self.PSFServer.setFacet(iFacet)
         MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
         MSMachine.setModelMachine(self.ModelMachine)
@@ -209,8 +208,8 @@ class ClassImageDeconvMachine():
                 for iFacet in xrange(self.PSFServer.NFacets):
                     fcdict = self.facetcache.addSubdict(iFacet)
                     APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
-                               args=(fcdict.path, self.DicoVariablePSF.path, iFacet,
-                                     self.SideLobeLevel, self.OffsetSideLobe, centralFacet))
+                               args=(fcdict.writeonly(), self.DicoVariablePSF.readonly(),
+                                     iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet))
                 APP.awaitJobResults("InitHMP:*", progress="Init HMP")
                 self.facetcache.reload()
             #        t = ClassTimeIt.ClassTimeIt()

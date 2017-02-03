@@ -366,10 +366,9 @@ class ClassVisServer():
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         self._put_vis_column_label = "%d.%d" % (iMS+1, iChunk+1)
         self._put_vis_column_job_id = "PutData:%d:%d" % (iMS, iChunk)
-        APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.path, field, column, likecol), io=0)
+        APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.readonly(), field, column, likecol), io=0)
 
-    def visPutColumnHandler (self, datapath, field, column, likecol):
-        DATA = shared_dict.attach(datapath)
+    def visPutColumnHandler (self, DATA, field, column, likecol):
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         ms = self.ListMS[iMS]
         row0, row1 = ms.getChunkRow0Row1()[iChunk]
@@ -647,7 +646,7 @@ class ClassVisServer():
             for ichunk in xrange(len(ms.getChunkRow0Row1())):
                 msw = msweights[ichunk]
                 APP.runJob("LoadWeights:%d:%d"%(ims,ichunk), self._loadWeights_handler,
-                           args=(msw.path, ims, ichunk),
+                           args=(msw.writeonly(), ims, ichunk),
                            counter=self._weightjob_counter, collect_result=False)
         # wait for results
         APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
@@ -689,8 +688,8 @@ class ClassVisServer():
                 for ichunk in xrange(len(ms.getChunkRow0Row1())):
                     if "weight" in self._weight_dict[ims][ichunk]:
                         APP.runJob("AccumWeights:%d:%d" % (ims, ichunk), self._accumulateWeights_handler,
-                                   args=(self._weight_grid.path,
-                                         self._weight_dict[ims][ichunk].path,
+                                   args=(self._weight_grid.readonly(),
+                                         self._weight_dict[ims][ichunk].readwrite(),
                                          ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax),
                                    counter=self._weightjob_counter, collect_result=False)
             # wait for results
@@ -707,8 +706,8 @@ class ClassVisServer():
         for ims, ms in enumerate(self.ListMS):
             for ichunk in xrange(len(ms.getChunkRow0Row1())):
                 APP.runJob("FinalizeWeights:%d:%d" % (ims, ichunk), self._finalizeWeights_handler,
-                           args=(self._weight_grid.path,
-                                 self._weight_dict[ims][ichunk].path, ims, ichunk),
+                           args=(self._weight_grid.readonly(),
+                                 self._weight_dict[ims][ichunk].readwrite()),
                            counter=self._weightjob_counter, collect_result=False)
         APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
         # delete stuff
@@ -725,8 +724,8 @@ class ClassVisServer():
             for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
                 ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
 
-    def _loadWeights_handler(self, msw_path, ims, ichunk):
-        msw = shared_dict.attach(msw_path)
+    def _loadWeights_handler(self, msw, ims, ichunk):
+        print msw, ims, ichunk
         ms = self.ListMS[ims]
         row0, row1 = ms.getChunkRow0Row1()[ichunk]
         msfreqs = ms.ChanFreq
@@ -803,9 +802,7 @@ class ClassVisServer():
             msw["uvmax_wavelengths"] = uvmax_wavelengths
             msw["wmax"] = wmax
 
-    def _accumulateWeights_handler (self, wg_path, msw_path, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax):
-        wg = shared_dict.attach(wg_path)
-        msw = shared_dict.attach(msw_path)
+    def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax):
         weights = msw["weight"]
         uv = msw["uv"]
         # flip sign of negative v values -- we'll only grid the top half of the plane
@@ -833,12 +830,10 @@ class ClassVisServer():
         # print>>log,weights,index
         _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
 
-    def _finalizeWeights_handler(self, wg_path, msw_path, ims, ichunk):
-        msw = shared_dict.attach(msw_path)
+    def _finalizeWeights_handler(self, wg, msw):
         if "weight" in msw:
             weight = msw["weight"]
             if self.Weighting != "natural":
-                wg = shared_dict.attach(wg_path)
                 grid = wg["grid"].reshape((wg["grid"].size,))
                 weight /= grid[msw["index"]]
             np.save(msw["cachepath"], weight)

@@ -305,10 +305,9 @@ def learnFFTWWisdom(npix):
     b = pyfftw.interfaces.numpy_fft.irfft2(a, overwrite_input=True, threads=1)
 
 
-def _convolveSingleGaussianFFTW(shareddict_path, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
+def _convolveSingleGaussianFFTW(shareddict, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
     T = ClassTimeIt.ClassTimeIt()
     T.disable()
-    shareddict = shared_dict.attach(shareddict_path)
     Ain = shareddict[field_in][ch]
     Aout = shareddict[field_out][ch]
     T.timeit("init %d"%ch)
@@ -327,9 +326,8 @@ def _convolveSingleGaussianFFTW(shareddict_path, field_in, field_out, ch, CellSi
         Aout[pol, :, :] = Fs(pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=1))
     T.timeit("convolve %d" % ch)
 
-def _convolveSingleGaussianNP(shareddict_path, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
+def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
     T = ClassTimeIt.ClassTimeIt()
-    shareddict = shared_dict.attach(shareddict_path)
     Ain = shareddict[field_in][ch]
     Aout = shareddict[field_out][ch]
     T.timeit("init %d"%ch)
@@ -361,7 +359,7 @@ def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,G
 
     jobid = "convolve:%s:%s:" % (field_in, field_out)
     for ch in range(nch):
-        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW, args=(shareddict.path, field_in, field_out, ch, CellSizeRad, GaussPars[ch], Normalise))
+        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW, args=(shareddict.readonly(), field_in, field_out, ch, CellSizeRad, GaussPars[ch], Normalise))
     APP.awaitJobResults(jobid+"*") #, progress="Convolving")
 
     return Aout

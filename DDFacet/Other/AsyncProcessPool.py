@@ -152,7 +152,7 @@ class AsyncProcessPool (object):
         Returns:
 
         """
-        self._shared_state = shared_dict.create("APP", delete_items=False)
+        self._shared_state = shared_dict.create("APP")
         self.affinity = affinity
         self.cpustep = abs(self.affinity) or 1
         self.ncpu = ncpu
@@ -528,10 +528,9 @@ class AsyncProcessPool (object):
                 if counter is None:
                     raise RuntimeError("Job %s: unknown counter %s. This is a bug." % (job_id, counter_id))
             # instantiate SharedDict arguments
-            args = [ arg.instantiate() if type(arg) is shared_dict.SharedDict.Representation else args
-                     for arg in args ]
+            args = [ arg.instantiate() if type(arg) is shared_dict.SharedDictRepresentation else arg for arg in args ]
             for key in kwargs.keys():
-                if type(kwargs[key]) is shared_dict.SharedDict.Representation:
+                if type(kwargs[key]) is shared_dict.SharedDictRepresentation:
                     kwargs[key] = kwargs[key].instantiate()
             # call the job
             if self.verbose > 1:

@@ -28,6 +28,17 @@ def dict_to_shm(name, D):
         Ds[key]=D[key]
     return Ds
 
+
+class SharedDictRepresentation(object):
+    def __init__(self, path, readwrite, load):
+        self.path = path
+        self.readwrite = readwrite
+        self.load = load
+
+    def instantiate(self):
+        return SharedDict(self.path, reset=False, readwrite=self.readwrite, load=self.load)
+
+
 class SharedDict (dict):
     basepath = SHM_PREFIX
 
@@ -61,15 +72,6 @@ class SharedDict (dict):
     class PickleProxy(ItemProxy):
         def load_impl(self):
             return cPickle.load(file(self.path))
-
-    class Representation(object):
-        def __init__ (self, path, readwrite, load):
-            self.path = path
-            self.readwrite = readwrite
-            self.load = load
-
-        def instantiate(self):
-            return SharedDict(self.path, reset=False, readwrite=self.readwrite, load=self.load)
 
     # this maps "class codes" parsed out of item filenames to appropriate item proxies. See reload() below
     _proxy_class_map = dict(a=SharedArrayProxy, d=SubdictProxy, p=PickleProxy)
@@ -105,17 +107,17 @@ class SharedDict (dict):
             raise RuntimeError("SharedDict %s attached without load permissions" % self.path)
         if not self._readwrite:
             raise RuntimeError("SharedDict %s attached as read-only" % self.path)
-        return SharedDict.Representation(self.path, readwrite=True, load=True)
+        return SharedDictRepresentation(self.path, readwrite=True, load=True)
 
     def readonly(self):
         if not self._load:
             raise RuntimeError("SharedDict %s attached without load permissions" % self.path)
-        return SharedDict.Representation(self.path, readwrite=False, load=True)
+        return SharedDictRepresentation(self.path, readwrite=False, load=True)
 
     def writeonly(self):
         if not self._readwrite:
             raise RuntimeError("SharedDict %s attached as read-only" % self.path)
-        return SharedDict.Representation(self.path, readwrite=True, load=False)
+        return SharedDictRepresentation(self.path, readwrite=True, load=False)
 
     def delete(self):
         if not self._readwrite:

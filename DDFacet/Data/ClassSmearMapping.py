@@ -38,25 +38,15 @@ class SmearMappingMachine (object):
         self._job_counter = APP.createJobCounter(self.name)
         self._data = self._blockdict = self._sizedict = None
 
-    def _smearmapping_worker(self, data_dict_path, blockdict_path, sizedict_path, a0, a1, dPhi, l, channel_mapping):
+    def _smearmapping_worker(self, DATA, blockdict, sizedict, a0, a1, dPhi, l, channel_mapping):
         t = ClassTimeIt.ClassTimeIt()
         t.disable()
-        # if data dict has changed, then reload data dict (if this process is looking at a different one)
-        if self._data is None or self._data.path != data_dict_path:
-            self._data = shared_dict.attach(data_dict_path)
-            t.timeit(data_dict_path)
-        if self._blockdict is None or self._blockdict.path != blockdict_path:
-            self._blockdict = shared_dict.attach(blockdict_path, load=False)
-            t.timeit(blockdict_path)
-        if self._sizedict is None or self._sizedict.path != sizedict_path:
-            self._sizedict = shared_dict.attach(sizedict_path, load=False)
-            t.timeit(sizedict_path)
-        BlocksRowsListBL, BlocksSizesBL, _ = GiveBlocksRowsListBL(a0, a1, self._data, dPhi, l, channel_mapping)
+        BlocksRowsListBL, BlocksSizesBL, _ = GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l, channel_mapping)
         t.timeit('compute')
         if BlocksRowsListBL is not None:
             key = "%d:%d" % (a0,a1)
-            self._sizedict[key]  = np.array(BlocksSizesBL)
-            self._blockdict[key] = np.array(BlocksRowsListBL)
+            sizedict[key]  = np.array(BlocksSizesBL)
+            blockdict[key] = np.array(BlocksRowsListBL)
             t.timeit('store')
 
     def computeSmearMappingInBackground (self, base_job_id, MS, DATA, radiusDeg, Decorr, channel_mapping):
@@ -73,7 +63,7 @@ class SmearMappingMachine (object):
                     self._nbl += 1
                     APP.runJob("%s:%s:%d:%d" % (base_job_id, self.name, a0, a1), self._smearmapping_worker,
                                    counter=self._job_counter, collect_result=False,
-                                   args=(DATA.path, blockdict.path, sizedict.path, a0, a1, dPhi, l, channel_mapping))
+                                   args=(DATA.readonly(), blockdict.writeonly(), sizedict.writeonly(), a0, a1, dPhi, l, channel_mapping))
 
     def collectSmearMapping (self, DATA, field):
         APP.awaitJobCounter(self._job_counter, progress="Mapping %s"%self.name, total=self._nbl, timeout=1)

@@ -1272,7 +1272,7 @@ class ClassFacetMachine():
         self._grid_job_id = None
         return True
 
-    def _fft_worker(self, iFacet, cfdict, griddict):
+    def _fft_worker(self, iFacet, cf_dict, griddict):
         """
         Fourier transforms the grids currently housed in shared memory
         Precondition:
@@ -1298,7 +1298,7 @@ class ClassFacetMachine():
         self._fft_job_id = "%s.FFT:" % self._app_id
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._fft_job_id, iFacet), self._fft_worker,
-                            args=(iFacet, self._CF.readonly(), self._facet_grids.readonly()))
+                            args=(iFacet, self._CF[iFacet].readonly(), self._facet_grids.readonly()))
 
     def collectFourierTransformResults (self):
         if self._fft_job_id is None:
@@ -1339,7 +1339,7 @@ class ClassFacetMachine():
 
 
     # DeGrid worker that is called by Multiprocessing.Process
-    def _degrid_worker(self, iFacet, DATA, cf_dict, griddict, ChanSel, modeldict):
+    def _degrid_worker(self, iFacet, DATA, cf_dict, ChanSel, modeldict):
 
         ModelGrid=self._set_model_grid_worker(iFacet, modeldict, cf_dict, ChanSel)
 
@@ -1421,7 +1421,6 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
-                                  self._facet_grids.readonly(),
                                   ChanSel, self._model_dict.readonly()))
 
 
