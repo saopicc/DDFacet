@@ -24,6 +24,7 @@ import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
 import DDFacet.cbuild.Gridder._pyWeightingCore as WeightingCore
 import numpy as np
 from DDFacet.Other import MyLogger
+from DDFacet.Other import ModColor
 
 log= MyLogger.getLogger("ClassWeighting")
 
@@ -121,10 +122,20 @@ class ClassWeighting():
         # find max grid extent by considering _unflagged_ UVs
         xymax = 0
         for uv, weights, flags, freqs in uvw_weights_flags_freqs:
+            # max |u|,|v| in lambda
+            uvsel=abs(uv)[~flags, :]
+            if uvsel.size==0:
+                print>> log, ModColor.Str("  A dataset is fully flagged")
+                continue
+            uvmax = uvsel.max() * freqs.max() / _cc
+            xymax = max(xymax, int(math.floor(uvmax / cell)))
             if flags is not None:
                 # max |u|,|v| in lambda
                 uvmax = abs(uv)[~flags, :].max() * freqs.max() / _cc
                 xymax = max(xymax, int(math.floor(uvmax / cell)))
+        if xymax == 0:
+            raise Exception('All datasets are fully flagged')
+
         xymax += 1
         # grid will be from [-xymax,xymax] in U and [0,xymax] in V
         npixx = xymax * 2 + 1
@@ -136,7 +147,8 @@ class ClassWeighting():
         grid0 = np.zeros((nbands, npix), np.float64)
         grid = grid0.reshape((nbands*npix,))
 
-        weights_index = [None] * len(uvw_weights_flags_freqs)
+        # this will ve a per-MS list of weights and an index array, or None if an MS is all flagged
+        weights_index = [(None, None)] * len(uvw_weights_flags_freqs)
 
         for iMS, (uv, weights_or_path, flags, freqs) in enumerate(uvw_weights_flags_freqs):
             if flags is None:  # entire chunk flagged
@@ -144,7 +156,8 @@ class ClassWeighting():
             weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
             if force_unity_weight:
                 weights.fill(1)
-                weights[flags,...] = 0
+                weights[flags,...]=0
+
             elif weightnorm != 1:
                 weights *= weightnorm
             # flip sign of negative v values -- we'll only grid the top half of the plane
@@ -180,8 +193,9 @@ class ClassWeighting():
             #           grid[grid!=0] = 1/grid[grid!=0]
             print>> log, ("applying uniform weighting (super=%.2f)" % Super)
             for weights_or_path, index in weights_index:
-                weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
-                weights /= grid[index]
+                if index is not None:
+                    weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
+                    weights /= grid[index]
 
         elif Weighting == "briggs" or Weighting == "robust":
             numeratorSqrt = 5.0 * 10 ** (-Robust)
@@ -192,8 +206,9 @@ class ClassWeighting():
                 sSq = numeratorSqrt ** 2 / avgW
                 grid1[...] = 1 / (1 + grid1 * sSq)
             for weights_or_path, index in weights_index:
-                weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
-                weights *= grid[index]
+                if index is not None:
+                    weights = NpShared.GiveArray(weights_or_path) if type(weights_or_path) is str else weights_or_path
+                    weights *= grid[index]
 
         else:
             raise ValueError("unknown weighting \"%s\"" % Weighting)

@@ -47,18 +47,28 @@ class ClassModelMachine():
     """
     def __init__(self,GD=None,Gain=None,GainMachine=None):
         self.GD=GD
-        if Gain is None:
-            self.Gain=self.GD["Deconv"]["Gain"]
-        else:
-            self.Gain=Gain
+        # if Gain is None:
+        #     self.Gain=self.GD["ImagerDeconv"]["Gain"]
+        # else:
+        #     self.Gain=Gain
+        self.RefFreq=None
+# =======
+#         if Gain is None:
+#             self.Gain=self.GD["Deconv"]["Gain"]
+#         else:
+#             self.Gain=Gain
+# >>>>>>> issue-255
         self.GainMachine=GainMachine
         self.DicoSMStacked={}
         self.DicoSMStacked["Comp"]={}
 
-    def setRefFreq(self,RefFreq,AllFreqs):
+    def setRefFreq(self,RefFreq):
+        if self.RefFreq is not None:
+            print>>log,ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6))
+            return
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
-        self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
+        #self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
 
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName

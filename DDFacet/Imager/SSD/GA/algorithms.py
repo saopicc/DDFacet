@@ -29,9 +29,9 @@ import random
 
 from DDFacet.Other import ClassTimeIt
 from deap import tools
+import copy
 
-
-def varAnd(population, toolbox, cxpb, mutpb):
+def varAnd(population, toolbox, cxpb, mutpb, ArrayMethodsMachine,MutConfig):
     """Part of an evolutionary algorithm applying only the variation part
     (crossover **and** mutation). The modified individuals have their
     fitness invalidated. The individuals are cloned so returned population is
@@ -78,11 +78,17 @@ def varAnd(population, toolbox, cxpb, mutpb):
             del offspring[i-1].fitness.values, offspring[i].fitness.values
     T.timeit("   crossover")
     
-    for i in range(len(offspring)):
-        if random.random() < mutpb:
-            #print "Mutate %i"%i
-            offspring[i], = toolbox.mutate(offspring[i])
-            del offspring[i].fitness.values
+    #P0=copy.deepcopy(offspring)
+    
+    offspring=ArrayMethodsMachine.mutatePop(offspring,mutpb,MutConfig)
+    #P1=offspring
+    #stop
+    # for i in range(len(offspring)):
+    #     if random.random() < mutpb:
+    #         #print "Mutate %i"%i
+    #         ArrayMethodsMachine
+    #         offspring[i], = toolbox.mutate(offspring[i])
+    #         del offspring[i].fitness.values
 
 
     # offspring2 = toolbox.map(toolbox.mutate, offspring)
@@ -95,7 +101,9 @@ def varAnd(population, toolbox, cxpb, mutpb):
 
 
 def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
-             halloffame=None, verbose=__debug__,ArrayMethodsMachine=None,DoPlot=True,StopFitness=1e-2):
+             halloffame=None, verbose=__debug__,ArrayMethodsMachine=None,DoPlot=True,
+             StopFitness=1e-2,
+             MutConfig=None):
     """This algorithm reproduce the simplest evolutionary algorithm as
     presented in chapter 7 of [Back2000]_.
     
@@ -159,8 +167,10 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
 
     # Evaluate the individuals with an invalid fitness
     
-    invalid_ind = [ind for ind in population if not ind.fitness.valid]
-    fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+    invalid_ind = [ind for ind in population]# if not ind.fitness.valid]
+    #fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+    fitnesses = ArrayMethodsMachine.GiveFitnessPop(population)[0]
+
     #print fitnesses[0]
     #stop
     for ind, fit in zip(invalid_ind, fitnesses):
@@ -179,6 +189,10 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     T.disable()
     best_ind0 = tools.selBest(population, 1)[0]
 
+    #print best_ind0
+    #print "Best indiv 0",best_ind0
+    #print "Best indiv 0 fitness",best_ind0.fitness
+    best_ind=best_ind0
     # from operator import attrgetter
     # k=1
     # popsorted=sorted(population, key=attrgetter("fitness"), reverse=True)#[:k]
@@ -193,26 +207,35 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     
     # Begin the generational process
     for gen in range(1, ngen+1):
+        #print gen
         # Select the next generation individuals
 
         offspring = toolbox.select(population, len(population))
         T.timeit("select")
 
         # Vary the pool of individuals
-        offspring = varAnd(offspring, toolbox, cxpb, mutpb)
+        offspring = varAnd(offspring, toolbox, cxpb, mutpb, ArrayMethodsMachine, MutConfig)
+        offspring[0]=best_ind
         T.timeit("vary")
         
         # Evaluate the individuals with an invalid fitness
-        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
-        fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+        invalid_ind = [ind for ind in offspring]# if not ind.fitness.valid]
+        #fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+        fitnesses = ArrayMethodsMachine.GiveFitnessPop(invalid_ind)[0]
+
         T.timeit("fitness")
         for ind, fit in zip(invalid_ind, fitnesses):
+            #print fit
             ind.fitness.values = fit
+#        best_ind0 = tools.selBest(population, 1)[0]
+#        print "Best indiv 0b fitness",best_ind0.fitness
         T.timeit("export")
         
         # Update the hall of fame with the generated individuals
         if halloffame is not None:
             halloffame.update(offspring)
+#        best_ind0 = tools.selBest(population, 1)[0]
+#        print "Best indiv 0c fitness",best_ind0.fitness
         T.timeit("hof")
             
         # Replace the current population by the offspring
@@ -234,6 +257,15 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
             if gen%50==0:
                 ArrayMethodsMachine.Plot(population,gen)
 
+        # if gen%10==0:
+        #     ArrayMethodsMachine.Plot(population,gen)
+        #     stop
+        # ArrayMethodsMachine.Plot(population,gen)
+        # stop
+        
+        #print best_ind
+        #print "Best indiv fitness",best_ind.fitness
+
         
         #BestFitNess=best_ind.fitness.values[0]
         #if BestFitNess<StopFitness:
@@ -250,6 +282,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         if verbose:
             print logbook.stream        
 
+    #print "Best indiv1 fitness",best_ind.fitness
     return population, logbook
 
 #from ModArrayOps_np import *

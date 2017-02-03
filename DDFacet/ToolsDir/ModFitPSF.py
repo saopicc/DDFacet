@@ -55,6 +55,9 @@ def FitCleanBeam(PSF):
     theta = theta - (int(theta / (2 * np.pi)) * 2 * np.pi)
     theta = theta if theta > 0 else 2*np.pi + theta
     theta = theta if theta <= np.pi else theta - np.pi
+
+    #print gmaj, gmin, theta
+
     return gmaj, gmin, theta
 
 def FindSidelobe(PSF):
@@ -72,7 +75,9 @@ def FindSidelobe(PSF):
         level: PSF sidelobe level (searched up to the first null)
         null_px: position of the first null from the the centre of the PSF window in pixels
     """
-    x,y=np.where(PSF==np.max(PSF))
+
+    MaxPSF=np.max(PSF)
+    x,y=np.where(PSF==MaxPSF)
     x0=x[0]
     y0=y[0]
     profile=PSF[x0,:]
@@ -82,16 +87,20 @@ def FindSidelobe(PSF):
     PSFhalf=profile[y0::]
 
     #find first null (this may fail if the window is not big enough):
-    inddx=np.where(PSFhalf<0)[0]
+    inddx=np.where(PSFhalf<0.1*MaxPSF)[0]
     if len(inddx)!=0:
         dx=inddx[0]
     else:
-        raise RuntimeError("Cannot find PSF sidelobes. Is your fit search window big enough?")
-  
+        dx=PSF.shape[-1]/2
+        #raise RuntimeError("Cannot find PSF sidelobes. Is your fit search window big enough?")
+
+    #print>>log,"dx %d"%dx
     #Cut the window at the location of the first null and then fit to that:
-    PSFsmall=PSF[x0-dx:x0+dx,y0-dx:y0+dx]
+    PSFsmall=PSF[x0-dx:x0+dx,y0-dx:y0+dx].copy()
+    PSFsmall[PSFsmall<.1] = 0
     popt = FitCleanBeam(PSF)
     
+    #print>>log,"popt %s"%(popt,)
     #Create a clean beam:
     npix=int(np.sqrt(PSFsmall.ravel().shape[0]))-1
     x = np.linspace(0, npix, npix+1)
@@ -104,8 +113,11 @@ def FindSidelobe(PSF):
     PSFnew=PSF.copy()
     PSFnew[x0-dx:x0+dx,y0-dx:y0+dx] = PSFnew[x0-dx:x0+dx,y0-dx:y0+dx] - dataFitted[:,:]
     profile0=PSFnew[x0,:]
+    #print>>log,"profile %s"%(profile0,)
     x0=PSFnew.shape[0]/2
     ii=np.argmax(profile0[x0::])
+    #print>> log, "ii %d" % ii
+#    stop
     return np.max(PSFnew),ii
 
 if __name__ == "__main__":

@@ -34,6 +34,7 @@ from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.ToolsDir import ModFFTW
 import scipy.ndimage
@@ -54,11 +55,17 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # self.GainMachine=GainMachine
         # self.DicoSMStacked={}
         # self.DicoSMStacked["Comp"]={}
+        self.DicoSMStacked={}
+        self.DicoSMStacked["Type"]="MSMF"
 
-    def setRefFreq(self,RefFreq,AllFreqs):
+    def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
+        if self.RefFreq is not None and not Force:
+            print>>log,ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6))
+            return
+        
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
-        self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
+        #self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
         
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName
@@ -67,6 +74,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             D=DicoIn
 
+        D["GD"]=self.GD
         D["Type"]="HMP"
         D["ListScales"]=self.ListScales
         D["ModelShape"]=self.ModelShape
@@ -109,19 +117,39 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if not (pol_array_index >= 0 and pol_array_index < npol):
             raise ValueError("Pol_array_index must specify the index of the slice in the "
                              "model cube the solution should be stored at. Please report this bug.")
-        DicoComp = self.DicoSMStacked["Comp"]
-        entry = DicoComp.setdefault(key, {})
-        if not entry:
-            entry["SolsArray"]  = np.zeros((Sols.size, npol),np.float32)
-            entry["SumWeights"] = np.zeros((npol),np.float32)
+        try:
+            DicoComp=self.DicoSMStacked["Comp"]
+        except:
+            self.DicoSMStacked["Comp"]={}
+            DicoComp=self.DicoSMStacked["Comp"]
+            
+
+        if not(key in DicoComp.keys()):
+            DicoComp[key]={}
+            for p in range(npol):
+                DicoComp[key]["SolsArray"]=np.zeros((Sols.size,npol),np.float32)
+                DicoComp[key]["SumWeights"]=np.zeros((npol),np.float32)
+# =======
+#         DicoComp = self.DicoSMStacked["Comp"]
+#         entry = DicoComp.setdefault(key, {})
+#         if not entry:
+#             entry["SolsArray"]  = np.zeros((Sols.size, npol),np.float32)
+#             entry["SumWeights"] = np.zeros((npol),np.float32)
+# >>>>>>> issue-255
 
         Weight=1.
-        Gain=self.GainMachine.GiveGain()
-
+        #Gain=self.GainMachine.GiveGain()
+        Gain=self.GD["Deconv"]["Gain"]
+    
         SolNorm=Sols.ravel()*Gain*np.mean(Fpol)
+        
+        DicoComp[key]["SumWeights"][pol_array_index] += Weight
+        DicoComp[key]["SolsArray"][:,pol_array_index] += Weight*SolNorm
+# =======
 
-        entry["SumWeights"][pol_array_index] += Weight
-        entry["SolsArray"][:,pol_array_index] += Weight*SolNorm
+#         entry["SumWeights"][pol_array_index] += Weight
+#         entry["SolsArray"][:,pol_array_index] += Weight*SolNorm
+# >>>>>>> issue-255
         
     def setListComponants(self,ListScales):
         self.ListScales=ListScales
@@ -129,8 +157,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True,MaxSpi=100,MaxDR=1e+6):
         dFreq=1e6
-        f0=self.DicoSMStacked["AllFreqs"].min()
-        f1=self.DicoSMStacked["AllFreqs"].max()
+        #f0=self.DicoSMStacked["AllFreqs"].min()
+        #f1=self.DicoSMStacked["AllFreqs"].max()
+        RefFreq=self.DicoSMStacked["RefFreq"]
+        f0=RefFreq/1.5
+        f1=RefFreq*1.5
+
         M0=self.GiveModelImage(f0)
         M1=self.GiveModelImage(f1)
         if DoConv:
@@ -138,13 +170,24 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
         
         # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
-        minmod = float("%.1e"%(abs(M0.max())/MaxDR))
+        if not np.all(M0==0):
+            minmod = float("%.1e"%(np.max(np.abs(M0))/MaxDR))
+        else:
+            minmod=1e-6
+
         # mask out pixels above threshold
         mask=(M1<minmod)|(M0<minmod)
         print>>log,"computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR)
-        with np.errstate(invalid='ignore'):
-            alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
+        M0[mask]=minmod
+        M1[mask]=minmod
+        #with np.errstate(invalid='ignore'):
+        #    alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
+        # print 
+        # print np.min(M0),np.min(M1),minmod
+        # print 
+        alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
         alpha[mask] = 0
+
         # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
         mask = alpha>MaxSpi
         alpha[mask]  = MaxSpi
@@ -207,7 +250,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # Create list with iterator results
         return [s for s in source_iter]
 
-    def GiveModelImage(self,FreqIn=None):
+    def GiveModelImage(self,FreqIn=None,out=None):
+        """
+        Renders a model image at the specified frequency(ies)
+        Args:
+            FreqIn: scalar or vector of frequencies
+            out: if not None, image to be rendered into. Must have correct shape.
+
+        Returns:
+            Model image
+        """
 
         RefFreq=self.DicoSMStacked["RefFreq"]
         if FreqIn is None:
@@ -219,12 +271,23 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         FreqIn=np.array([FreqIn.ravel()]).flatten()
 
-        DicoComp=self.DicoSMStacked["Comp"]
         _,npol,nx,ny=self.ModelShape
-        N0=nx
+        N0x=nx
+        N0y=ny
 
         nchan=FreqIn.size
-        ModelImage=np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+        if out is not None:
+            if out.shape != (nchan,npol,nx,ny) or out.dtype != np.float32:
+                raise RuntimeError("supplied image has incorrect type (%s) or shape (%s)" % (out.dtype, out.shape))
+            ModelImage = out
+        else:
+            ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+
+        if "Comp" not in  self.DicoSMStacked.keys():
+            return ModelImage
+
+        DicoComp=self.DicoSMStacked["Comp"]
+
         DicoSM={}
         for key in DicoComp.keys():
             for pol in range(npol):
@@ -248,10 +311,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                             y0,y1=y-Sup/2,y+Sup/2+1
 
 
-                            Aedge,Bedge=GiveEdges((x,y),N0,(Sup/2,Sup/2),Sup)
+                            Aedge,Bedge=GiveEdgesDissymetric((x,y),(N0x,N0y),(Sup/2,Sup/2),(Sup,Sup))
                             x0d,x1d,y0d,y1d=Aedge
                             x0p,x1p,y0p,y1p=Bedge
-
+                            
                             ModelImage[ch,pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Flux
         
         # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
@@ -302,8 +365,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         for (x,y) in self.DicoSMStacked["Comp"].keys():
             if MaskArray[x,y]==0:
                 del(self.DicoSMStacked["Comp"][(x,y)])
-    """
-    Broken code: Marked for removal.
 
     def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):
         #R=ModRegFile.RegToNp(PreCluster)
@@ -368,7 +429,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         SourceCat=(SourceCat[SourceCat.ra!=0]).copy()
         np.save(SkyModel,SourceCat)
         self.AnalyticSourceCat=ClassSM.ClassSM(SkyModel)
-    """
+
     def DelAllComp(self):
         for key in self.DicoSMStacked["Comp"].keys():
             del(self.DicoSMStacked["Comp"][key])

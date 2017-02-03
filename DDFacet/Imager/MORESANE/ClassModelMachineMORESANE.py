@@ -58,10 +58,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             self.NParam=len(self.SolveParam)
         
 
-    def setRefFreq(self,RefFreq,AllFreqs):
+    def setRefFreq(self,RefFreq): # ,AllFreqs):
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
-        self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
+#        self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
         # print "ModelMachine:",self.RefFreq, self.DicoSMStacked["RefFreq"], self.DicoSMStacked["AllFreqs"]
 
 

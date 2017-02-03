@@ -383,6 +383,7 @@ void gridderWPol(PyArrayObject *grid,
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
+    
     initJonesServer(LJones,JonesType,WaveLengthMean);
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -398,14 +399,15 @@ void gridderWPol(PyArrayObject *grid,
     long int TimeStuff[1]={0};
     struct timespec PreviousTime;
 
-    float complex *Vis=calloc(1,(4)*sizeof(float complex));
-    float complex *VisMeas=calloc(1,(4)*sizeof(float complex));
+    float complex Vis[4];
+    float complex VisMeas[4];
     int ThisPol;
 
     float *ThisSumJonesChan=calloc(1,(nVisChan)*sizeof(float));
     float *ThisSumSqWeightsChan=calloc(1,(nVisChan)*sizeof(float));
 
-
+    
+    //    for(iBlock=0; iBlock<-1; iBlock++){
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
       if( sparsificationFlag && !sparsificationFlag[iBlock] )
@@ -437,8 +439,11 @@ void gridderWPol(PyArrayObject *grid,
 	ThisSumSqWeightsChan[visChan]=0;
       }
 
+
     // when moving to a new block of rows, init this to -1 so the code below knows to initialize
-    // CurrentCorrTer when the first channel of each row comes in
+    // CurrentCorrTerm when the first channel of each row comes in
+
+
     if( Row[0] != CurrentCorrRow0 )
     {
       for (inx=0; inx<NRowThisBlock; inx++)
@@ -595,11 +600,9 @@ void gridderWPol(PyArrayObject *grid,
 
 	    MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);
 	    MatDot(visPtr,SkyType,J1,JonesType,visPtr);
+	    /* printMat(J0H); */
+	    /* printMat(J1); */
 
-	    /* int ThisPol; */
-	    /* for(ThisPol =0; ThisPol<1;ThisPol++){ */
-	    /*   printf("   vis: %i (%f, %f)\n",ThisPol,creal(visPtr[ThisPol]),cimag(visPtr[ThisPol])); */
-	    /* } */
 	    
 	    // Vis+=visPtr*Weight
 	    Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);
@@ -822,6 +825,11 @@ void gridderWPol(PyArrayObject *grid,
     /* printf("TimeGetJones:   %5.2f\n",tGetJones); */
     /* printf("TimeStuff:      %5.2f\n",tStuff); */
 
+    free(CurrentCorrTerm);
+    free(dCorrTerm);
+    free(CurrentCorrChan);
+    free(ThisSumJonesChan);
+    free(ThisSumSqWeightsChan);
   } // end 
 
 
@@ -1442,4 +1450,8 @@ void DeGridderWPol(PyArrayObject *grid,
       
     } //end for Block
     //sem_close(Sem_mutex);
+
+    free(CurrentCorrTerm);
+    free(dCorrTerm);
+
  } // end

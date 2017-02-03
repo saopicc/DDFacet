@@ -20,6 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import os, os.path, subprocess
 import cPickle
+import collections
 
 from DDFacet.Other import MyLogger, ModColor
 log = MyLogger.getLogger("CacheManager")
@@ -105,19 +106,6 @@ class CacheManager (object):
             dirname = dirname[:-1]
         if cachedir:
             dirname = os.path.join(cachedir, os.path.basename(dirname))
-        # print warning if dirname is on NFS
-        try:
-            fstype = subprocess.check_output(("stat --file-system --format=%T " +
-                                              (os.path.dirname(dirname) or ".")).split()).strip()
-        except:
-            print>>log, ModColor.Str("WARNING: unable to determine filesystem type for %s"%dirname, col="red", Bold=True)
-            fstype = "unknown"
-        # print fstype,(os.path.dirname(dirname) or ".")
-        if fstype == "nfs" and nfswarn:
-            print>> log, ModColor.Str("WARNING: cache directory %s is mounted via NFS." % dirname, col="red",
-                                      Bold=True)
-            print>> log, ModColor.Str("This may cause performance issues. Consider using the --Cache-Dir option.", col="red",
-                                      Bold=True)
         self.dirname = dirname
         self.hashes = {}
         self.pid = os.getpid()
@@ -129,6 +117,20 @@ class CacheManager (object):
                 print>> log, ("clearing cache %s, since we were asked to reset the cache" % dirname)
                 os.system("rm -fr "+dirname)
                 os.mkdir(dirname)
+        # check for NFS system and print warning
+        if nfswarn:
+            try:
+                fstype = subprocess.check_output(("stat --file-system --format=%T " + dirname).split()).strip()
+            except:
+                print>> log, ModColor.Str("WARNING: unable to determine filesystem type for %s" % dirname, col="red",
+                                          Bold=True)
+                fstype = "unknown"
+            if fstype == "nfs":
+                print>> log, ModColor.Str("WARNING: cache directory %s is mounted via NFS." % dirname, col="red",
+                                          Bold=True)
+                print>> log, ModColor.Str("This may cause performance issues. Consider using the --Cache-Dir option.",
+                                          col="red",
+                                          Bold=True)
 
     @staticmethod
     def getElementName (name, **kw):
@@ -158,7 +160,7 @@ class CacheManager (object):
         """
         return "file://" + self.getElementPath(name, **kw)
 
-    def checkCache(self, name, hashkeys, directory=False, reset=False):
+    def checkCache(self, name, hashkeys, directory=False, reset=False, ignore_key=False):
         """
         Checks if cached element named "name" is valid.
 
@@ -169,6 +171,7 @@ class CacheManager (object):
             directory: if True, cache is a directory and not a file. The directory will be created if it
                 doesn't exist. If the cache is invalid, the contents of the directory will be deleted.
             reset: if True, cache item is deleted
+            ignore_key: if True, keys are not compared, and cache is considered valid regardless.
 
         Returns:
             tuple of (path, valid)
@@ -197,8 +200,34 @@ class CacheManager (object):
                     print>>log, "cache hash %s invalid, will re-make" % hashpath
                     reset = True
             # check for hash match
-            if not reset and hash != storedhash:
+            if not reset and not ignore_key and hash != storedhash:
+                ListDiffer=[]
+                for MainField, D1 in storedhash.iteritems():
+                    if MainField not in hash:
+                        ListDiffer.append("(%s: missing in hash)" % (str(MainField)))
+                    D0 = hash[MainField]
+                    if type(D0) != type(D1):
+                        ListDiffer.append("(%s: %s vs %s)" % (str(MainField), type(D0), type(D1)))
+                    elif hasattr(D0,'iteritems'):
+                        for key, value0 in D0.iteritems():
+                            if key not in D1:
+                                ListDiffer.append(
+                                    "(%s.%s: %s vs missing)" % (str(MainField), str(key), str(D0[key])))
+                            elif value0 != D1[key]:
+                                ListDiffer.append("(%s.%s: %s vs %s)"%(str(MainField),str(key),str(value0),str(D1[key])))
+                        for key in set(D1.keys()) - set(D0.keys()):
+                            ListDiffer.append(
+                                "(%s.%s: missing vs %s)" % (str(MainField), str(key), str(D1[key])))
+                    else:
+                        if D0 != D1:
+                            ListDiffer.append("(%s: %s vs %s)"%(str(MainField),str(D0),str(D1)))
+                for MainField in set(hash.keys()) - set(storedhash.keys()):
+                    ListDiffer.append(
+                        "(%s: missing in stored hash)" % (str(MainField)))
+
                 print>>log, "cache hash %s does not match, will re-make" % hashpath
+                print>>log, "  differences in parameters (Param: this vs cached): %s"%" & ".join(ListDiffer)
+                
                 reset = True
             # if resetting cache, then mark new hash value for saving (will be saved in flushCache),
             # and remove any existing cache/hash
@@ -212,6 +241,7 @@ class CacheManager (object):
                     os.mkdir(cachepath)
                 else:
                     os.unlink(cachepath)
+
         # store hash
         self.hashes[name] = hashpath, hash, reset
         return cachepath, not reset

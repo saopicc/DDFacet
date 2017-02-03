@@ -18,11 +18,10 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 import numpy as np
-import pylab
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-log=MyLogger.getLogger("ClassModelMachineGA")
+log=MyLogger.getLogger("ClassModelMachineSSD")
 from DDFacet.Array import NpParallel
 from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
@@ -39,6 +38,7 @@ from SkyModel.Sky import ModRegFile
 from pyrap.images import image
 from SkyModel.Sky import ClassSM
 import os
+import copy
 
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def __init__(self,*args,**kwargs):
@@ -49,21 +49,25 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # else:
         #     self.Gain=Gain
         # self.GainMachine=GainMachine
-        # self.DicoSMStacked={}
         # self.DicoSMStacked["Comp"]={}
         if self.GD is not None:
-            self.SolveParam = self.GD["GAClean"]["GASolvePars"]
+            self.SolveParam = self.GD["SSDClean"]["SSDSolvePars"]
             print>>log,"Solved parameters: %s"%(str(self.SolveParam))
             self.NParam=len(self.SolveParam)
-        
+        self.RefFreq=None
+        self.DicoSMStacked={}
+        self.DicoSMStacked["Type"]="SSD"
 
-    def setRefFreq(self,RefFreq,AllFreqs):
+    def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
+        if self.RefFreq is not None and not Force:
+            print>>log,ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6))
+            return
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
-        self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
+        #self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
         # print "ModelMachine:",self.RefFreq, self.DicoSMStacked["RefFreq"], self.DicoSMStacked["AllFreqs"]
         
-
+        
 
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName
@@ -73,33 +77,69 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             D=DicoIn
 
         #D["PM"]=self.PM
+        D["GD"]=self.GD
         D["ModelShape"]=self.ModelShape
-        D["Type"]="GA"
+        D["Type"]="SSD"
         D["SolveParam"]=self.SolveParam
 
         MyPickle.Save(D,FileName)
 
+    def giveDico(self):
+        D=self.DicoSMStacked
+        D["GD"]=self.GD
+        D["ModelShape"]=self.ModelShape
+        D["Type"]="SSD"
+        D["SolveParam"]=self.SolveParam
+        return D
 
     def FromFile(self,FileName):
-        print>>log, "Reading dico model from %s"%FileName
+        print>>log, "Reading dico model from file %s"%FileName
         self.DicoSMStacked=MyPickle.Load(FileName)
         self.FromDico(self.DicoSMStacked)
 
 
     def FromDico(self,DicoSMStacked):
+        print>>log, "Reading dico model from dico with %i componants"%len(DicoSMStacked["Comp"])
         #self.PM=self.DicoSMStacked["PM"]
         self.DicoSMStacked=DicoSMStacked
         self.RefFreq=self.DicoSMStacked["RefFreq"]
         self.ModelShape=self.DicoSMStacked["ModelShape"]
-        try:
-            self.SolveParam=self.DicoSMStacked["SolveParam"]
-        except:
-            print>>log, "SolveParam is not in the keyword lists of DicoSMStacked"
-            print>>log, "  setting SolveParam to [S, Alpha]"
-            self.SolveParam=["S","Alpha"]
+        self.SolveParam=self.DicoSMStacked["SolveParam"]
+        # try:
+        #     self.SolveParam=self.DicoSMStacked["SolveParam"]
+        # except:
+        #     print>>log, "SolveParam is not in the keyword lists of DicoSMStacked"
+        #     print>>log, "  setting SolveParam to [S, Alpha]"
+        #     self.SolveParam=["S","Alpha"]
             
         self.NParam=len(self.SolveParam)
 
+    def GiveConvertedSolveParamDico(self,SolveParam1):
+        SolveParam0=self.DicoSMStacked["SolveParam"]
+        print>>log,"Converting SSD model %s into %s..."%(str(SolveParam0),str(SolveParam1))
+        DicoOut=copy.deepcopy(self.DicoSMStacked)
+        DicoOut["SolveParam"]=SolveParam1
+        del(DicoOut["Comp"])
+        DicoOut["Comp"]={}
+        NParam0=len(SolveParam0)
+        NParam1=len(SolveParam1)
+        indexParm=[]
+        for TypeParm in SolveParam1:
+            indexParm.append(np.where(np.array(SolveParam0)==TypeParm)[0])
+
+        for xy in self.DicoSMStacked["Comp"].keys():
+            Coefs=np.zeros((NParam1,),np.float32)
+            Comp=self.DicoSMStacked["Comp"][xy]
+            for iTypeParm,iIndex in enumerate(indexParm):
+                if iIndex.size==0: continue
+                Coefs[iTypeParm]=Comp["Vals"][0][iIndex[0]]
+            DicoOut["Comp"][xy]={"Vals":[Coefs]}
+
+        return DicoOut
+            
+        
+
+        
     def setModelShape(self,ModelShape):
         self.ModelShape=ModelShape
 
@@ -110,7 +150,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def GiveIndividual(self,ListPixParms):
         NParms=self.NParam
         OutArr=np.zeros((NParms,len(ListPixParms)),np.float32)
-        DicoComp=self.DicoSMStacked["Comp"]
+        try:
+            DicoComp=self.DicoSMStacked["Comp"]
+        except:
+            self.DicoSMStacked["Comp"]={}
+            DicoComp=self.DicoSMStacked["Comp"]
 
         for iPix in range(len(ListPixParms)):
             x,y=ListPixParms[iPix]
@@ -144,8 +188,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if JonesNorm is not None:
             Vr[iS,:]/=np.sqrt(JonesNorm).flat[0]
 
+            print "NORM!!!!!!!!!!!!!!!!!!!!!!!!!!!",np.sqrt(JonesNorm)
+
         for (x,y),iComp in zip(ListPix,range(NPixListParms)):
-            if S[iComp]==0: continue
+            #if S[iComp]==0: continue
             Vals=np.array(Vr[:,iComp]).copy()
             self.AppendComponentToDictStacked((x,y),Vals)
 
@@ -154,15 +200,17 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         DicoComp=self.DicoSMStacked["Comp"]
 
         try:
-            DicoComp[key]["Vals"].append(Vals)
+            del(DicoComp[key]["Vals"])
         except:
-            DicoComp[key]={}
-            DicoComp[key]["Vals"]=[]
-            DicoComp[key]["Vals"].append(Vals)
+            pass
+        DicoComp[key]={}
+        DicoComp[key]["Vals"]=[]
+        DicoComp[key]["Vals"].append(Vals)
 
 
     def GiveModelImage(self,FreqIn=None):
-
+        
+        
         RefFreq=self.DicoSMStacked["RefFreq"]
         if FreqIn is None:
             FreqIn=np.array([RefFreq])
@@ -176,19 +224,20 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         # print "ModelMachine GiveModelImage:",FreqIn, RefFreq
 
-
-
-        DicoComp=self.DicoSMStacked["Comp"]
         _,npol,nx,ny=self.ModelShape
-        N0=nx
-
         nchan=FreqIn.size
         ModelImage=np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+        if "Comp" not in  self.DicoSMStacked.keys():
+            return ModelImage
+
+        DicoComp=self.DicoSMStacked["Comp"]
+        N0=nx
+
         DicoSM={}
         SolveParam=np.array(self.SolveParam)
         for x,y in DicoComp.keys():
             ListSols=DicoComp[(x,y)]["Vals"]#/self.DicoSMStacked[key]["SumWeights"]
-
+#            print "pixel %i,%i len(listsol):"%(x,y),len(ListSols)
             for iSol in range(len(ListSols)):
                 ThisSol=ListSols[iSol]
 
@@ -196,18 +245,54 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
                 iS=np.where(SolveParam=="S")[0]
                 S=ThisSol[iS]
-                
+                if S==0: continue
+
                 ThisAlpha=0
                 iAlpha=np.where(SolveParam=="Alpha")[0]
                 if iAlpha.size!=0:
                     ThisAlpha=ThisSol[iAlpha]
 
+                iGSig=np.where(SolveParam=="GSig")[0]
+                ThisGSig=0.
+                if iGSig.size!=0:
+                    ThisGSig=ThisSol[iGSig]
+
                 for ch in range(nchan):
                     Flux=S*(FreqIn[ch]/RefFreq)**(ThisAlpha)
-
-                    for pol in range(npol):
-                        ModelImage[ch,pol,x,y]+=Flux
                     
+                    sig=np.abs(ThisGSig)
+                    Sum=0
+                    #print "Flux,Sig",Flux,sig
+                    if sig!=0:#>0.5:
+                        marg=round(5*sig)
+                        if marg%2==0: marg+=1
+                        xx,yy=np.mgrid[-marg:marg:(2*marg+1)*1j,-marg:marg:(2*marg+1)*1j]
+                        d=np.sqrt(xx**2+yy**2)
+                        a=Flux/(2.*np.pi*sig**2)
+                        v=a*np.exp(-d**2/(2.*sig**2))
+                        for pol in range(npol):
+                            indx=x+xx.flatten()
+                            indy=y+yy.flatten()
+                            #ModelImage[ch,pol,np.int32(indx),np.int32(indy)]+=v.ravel()
+
+                            for iPix in range(indx.size):
+                                try:
+                                    _=DicoComp[(indx[iPix],indy[iPix])]["Vals"]
+                                    ModelImage[ch,pol,np.int32(indx[iPix]),np.int32(indy[iPix])]+=v.ravel()[iPix]
+
+                                    Sum+=v.ravel()[iPix]
+#                                    print "Added pix ",np.int32(indx[iPix]),np.int32(indy[iPix]),v.ravel()[iPix]
+                                except:
+                                    pass
+#                        print "ThisSum",Sum
+                                    #print "SUM MM:",np.sum(v)/Flux
+                    else:
+                        for pol in range(npol):
+                            ModelImage[ch,pol,x,y]+=Flux
+
+        
+        #print "np.sum(ModelImage)",np.sum(ModelImage[0])
+#        stop
         # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
         # vmin,vmax=-1,1
         # #vmin,vmax=np.min(ModelImage),np.max(ModelImage)
@@ -240,8 +325,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         
         dFreq=1e6
-        f0=self.DicoSMStacked["AllFreqs"].min()
-        f1=self.DicoSMStacked["AllFreqs"].max()
+        RefFreq=self.DicoSMStacked["RefFreq"]
+        f0=RefFreq/1.5#self.DicoSMStacked["AllFreqs"].min()
+        f1=RefFreq*1.5#self.DicoSMStacked["AllFreqs"].max()
         M0=self.GiveModelImage(f0)
         M1=self.GiveModelImage(f1)
         if DoConv:

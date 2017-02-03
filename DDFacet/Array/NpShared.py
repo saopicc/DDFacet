@@ -55,8 +55,8 @@ def CreateShared(Name, shape, dtype):
         a = SharedArray.create(Name, shape, dtype=dtype)
     return a
 
-
 def ToShared(Name, A):
+
     a = CreateShared(Name, A.shape, A.dtype)
     a[:] = A[:]
     return a
@@ -113,6 +113,8 @@ def GiveArray(Name):
         # print "Exception for key [%s]:"%Name
         # print "   %s"%(str(e))
         # print
+        print "Error loading",Name
+        traceback.print_exc()
         return None
 
 
@@ -143,6 +145,7 @@ def DicoToShared(Prefix, Dico, DelInput=False):
         del(Dico)
 
     print>>log, ModColor.Str("DicoToShared: done")
+    #print ModColor.Str("DicoToShared: done")
 
     return DicoOut
 
@@ -240,8 +243,7 @@ def UnPackListArray(Name):
 ####################################################
 
 
-def PackListSquareMatrix(Name, LArray):
-    DelArray(Name)
+def PackListSquareMatrix(shared_dict, Name, LArray):
 
     NArray = len(LArray)
     dtype = LArray[0].dtype
@@ -250,7 +252,7 @@ def PackListSquareMatrix(Name, LArray):
         TotSize += LArray[i].size
 
     # [N,shape0...shapeN,Arr0...ArrN]
-    S = SharedArray.create(Name, (TotSize+NArray+1,), dtype=dtype)
+    S = shared_dict.addSharedArray(Name, (TotSize+NArray+1,), dtype=dtype)
     S[0] = NArray
     idx = 1
     for i in xrange(NArray):

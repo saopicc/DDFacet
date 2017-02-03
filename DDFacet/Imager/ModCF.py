@@ -22,6 +22,7 @@ import scipy.fftpack
 from DDFacet.ToolsDir import Gaussian
 import numpy as np
 from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import ModColor
 from scipy.interpolate import interp1d as interp
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Array import NpShared
@@ -112,11 +113,13 @@ class SpheMachine():
 
         # ############"
         # import pylab
-        # pylab.clf()
-        # pylab.subplot(3,2,1)
         # lpar=list(pylab.imshow.__defaults__)
         # lpar[3]="nearest"
         # pylab.imshow.__defaults__=tuple(lpar)
+
+        # pylab.figure(0)
+        # pylab.clf()
+        # pylab.subplot(3,2,1)
         # pylab.imshow(CF.real)
         # pylab.colorbar()
         # pylab.subplot(3,2,2)
@@ -137,9 +140,25 @@ class SpheMachine():
         # pylab.draw()
         # pylab.show(False)
         # pylab.pause(0.1)
-        # # stop
 
+        # f_inv_ifzfCF=ifft2(1./ifzfCF.real)
+
+        # pylab.figure(1)
+        # pylab.clf()
+        # pylab.subplot(3,2,1)
+        # pylab.imshow(f_inv_ifzfCF.real)
+        # pylab.colorbar()
+        # pylab.subplot(3,2,2)
+        # pylab.imshow(f_inv_ifzfCF.imag)
+        # pylab.colorbar()
+        # pylab.draw()
+        # pylab.show(False)
+        # pylab.pause(0.1)
+
+
+        # stop
         ifzfCF[ifzfCF < 0] = 1e-10
+
         return CF, fCF, ifzfCF
 
 
@@ -263,17 +282,11 @@ def Give_dn(l0, m0, rad=1., order=4):
 
 class ClassWTermModified():
     def __init__(self, Cell=10, Sup=15, Nw=11, wmax=30000, Npix=101, Freqs=np.array([100.e6]), OverS=11, lmShift=None,
-                 Sphe=None, WTerm=None,
-                 compute=False,
+                 mode="compute",
+                 cf_dict=None, compute_cf=True,
                  IDFacet=None):
         """
         Class for computing/loading/saving w-kernels and spheroidals.
-
-        @cyriltasse this is new, I don't want to confuse, so: I've removed the shared memory ID (because I want
-        DDEGridMachine or FacetMachine to decide where to store the CFs). Instead, the Sphe and WTerm arguments
-        are either:
-            * numpy arrays, in which case they're just treated as is
-            * strings, in which case they're interpreted as shared array names for GiveArray() or CreateShared()
 
         Args:
             Cell:
@@ -284,9 +297,9 @@ class ClassWTermModified():
             Freqs:
             OverS:
             lmShift:
-            Sphe:       array or string (shared array name)
-            WTerm:      array or string (shared array name)
-            compute:    if True, recompute CFs, and save them to shared arrays given by Sphe and WTerm
+            mode:       "compute" to compute CFs, save them to store_dict, and write to store_file
+                        "load" to load CFs from store_file, and save them to store_dict
+                        "dict" to load CFs from store_dict
             IDFacet:
         """
 
@@ -300,62 +313,29 @@ class ClassWTermModified():
         self.OverS = OverS
         self.lmShift = lmShift
         self.IDFacet = IDFacet
-
-        if type(Sphe) is np.ndarray and type(WTerm) is np.ndarray:
-            self.FromArrays(Sphe, WTerm)
-        elif compute:
-            self.InitSphe()
-            self.InitW()
-            self.ToShared(Sphe, WTerm)
-        else:
-            print Sphe,WTerm
-            self.FromShared(Sphe, WTerm)
-
         Freqs = self.Freqs
         C = 299792458.
         waveMin = C/Freqs[-1]
         self.RefWave = waveMin
 
-    def ToShared(self, Sphe, WTerm):
-        """Saves W-terms and spheroidals to shared memory"""
-        #print>>log, "Saving WTerm in shared memory (%s)"%self.SharedMemName
-        dS = np.complex64
-        # if self.IDFacet==0:
-        #    NpShared.ToShared(self.SharedMemNameSphe,dS(self.ifzfCF))
+        # recompute?
+        if compute_cf:
+            self.InitSphe()
+            self.InitW()
+            dS = np.float32
+            cf_dict["Sphe"] = dS(self.ifzfCF.real)
+            cf_dict["InvSphe"] = dS(1./np.float64(self.ifzfCF.real))
+            cf_dict["CuCv"] = np.array([self.Cu, self.Cv])
+            NpShared.PackListSquareMatrix(cf_dict, "W", self.Wplanes + self.WplanesConj)
+        else:
+            self.ifzfCF = cf_dict["Sphe"]
+            self.Cu, self.Cv = cf_dict["CuCv"]
+            ww = NpShared.UnPackListSquareMatrix(cf_dict["W"])
+            if len(ww) != self.Nw*2:
+                raise RuntimeError("mismatch in number of cached w-planes")
+            self.Wplanes = ww[:self.Nw]
+            self.WplanesConj = ww[self.Nw:]
 
-        NpShared.ToShared(Sphe, dS(self.ifzfCF))
-        LArrays = []
-        CuCv = np.array([self.Cu, self.Cv, self.Cu, self.Cv], dtype=dS).reshape(2, 2)
-        LArrays.append(CuCv)
-        LArrays = LArrays + self.Wplanes
-        LArrays = LArrays + self.WplanesConj
-        NpShared.PackListSquareMatrix(WTerm, LArrays)
-
-    def FromArrays (self, Sphe, WTerm):
-        """Initializes W-term and spheroidals from two numpy arrays."""
-        self.ifzfCF = Sphe
-        LArrays = NpShared.UnPackListSquareMatrix(WTerm)
-        CuCv = LArrays[0]
-        self.Cu, self.Cv = np.float64(CuCv[0, 0].real), np.float64(CuCv[0, 1].real)
-        self.Wplanes = LArrays[1:1+self.Nw]
-        self.WplanesConj = LArrays[1+self.Nw::]
-
-    def FromShared(self, Sphe, WTerm):
-        """Initializes W-term and spheroidals from shared arrays."""
-        #print>>log, "Loading WTerm from shared memory (%s)"%self.SharedMemName
-        self.FromArrays( NpShared.GiveArray(Sphe), NpShared.GiveArray(WTerm) )
-        # CuCv = LArrays[0]
-        # self.Cu, self.Cv = np.float64(
-        #     CuCv[0, 0].real), np.float64(
-        #     CuCv[0, 1].real)
-        # self.Wplanes = LArrays[1:1+self.Nw]
-        # self.WplanesConj = LArrays[1+self.Nw::]
-
-        # self.ifzfCF=LArrays[0]
-        # CuCv=LArrays[1]
-        # self.Cu,self.Cv=np.float64(CuCv[0,0].real),np.float64(CuCv[0,1].real)
-        # self.Wplanes=LArrays[2:2+self.Nw]
-        # self.WplanesConj=LArrays[2+self.Nw::]
 
     def InitSphe(self):
         T = ClassTimeIt.ClassTimeIt("Wterm")
