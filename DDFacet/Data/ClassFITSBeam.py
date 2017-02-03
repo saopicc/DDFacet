@@ -127,14 +127,21 @@ class ClassFITSBeam (object):
 
         # load beam interpolator
         self.vbs = []
-        for reFits, imFits in zip(filename_real,filename_imag):        
-            print>>log,"Loading beam patterns %s %s"%(reFits, imFits)
-            vb = InterpolatedBeams.LMVoltageBeam(
-                verbose=opts["FITSVerbosity"],
-                l_axis=opts["FITSLAxis"], m_axis=opts["FITSMAxis"]
-            )  # verbose, XY must come from options
-            vb.read(reFits,imFits)
+        for filename_pair in zip(filename_real,filename_imag):
+            if filename_pair in ClassFITSBeam._vb_cache:
+                vb = ClassFITSBeam._vb_cache[filename_pair]
+                print>>log,"beam patterns %s %s already in memory"%filename_pair
+            else:
+                print>>log,"loading beam patterns %s %s"%filename_pair
+                vb = InterpolatedBeams.LMVoltageBeam(
+                    verbose=opts["FITSVerbosity"],
+                    l_axis=opts["FITSLAxis"], m_axis=opts["FITSMAxis"]
+                )  # verbose, XY must come from options
+                vb.read(*filename_pair)
+                ClassFITSBeam._vb_cache[filename_pair] = vb
             self.vbs.append(vb)
+
+    _vb_cache = {}
 
     def getBeamSampleTimes (self, times):
         """For a given list of timeslots, returns times at which the beam must be sampled"""

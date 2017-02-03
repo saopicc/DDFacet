@@ -94,6 +94,7 @@ class ClassVisServer():
         if self._use_data_cache == "off":
             self._use_data_cache = None
         self.DATA = None
+        self._saved_data = None  # vis data saved here for single-chunk mode
         self.Init()
 
         # smear mapping machines
@@ -358,8 +359,8 @@ class ClassVisServer():
             self.DATA.delete()
             self.DATA = None
         self.iCurrentMS = 0
-        self.iCurrentChunk = 0
-        self.CurrentMS = self.ListMS[0]
+        self.iCurrentChunk = -1
+
 
     def startVisPutColumnInBackground(self, DATA, field, column, likecol="DATA"):
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
@@ -381,36 +382,40 @@ class ClassVisServer():
 
     def startChunkLoadInBackground(self):
         """
-        Called in main process. Initiates chunk load in background thread.
-        Returns None if we're at the last chunk, else True.
-
-        Args:
-            keep_data: keep a copy of the visibilities in DATA["orig_data"]. DATA["data"] can be
-                       modified in-place.
-            null_data: do not read visibilities: allocate a null array for them instead
+        Called in main process. Increments chunk counter, initiates chunk load in background thread.
+        Returns None if we get past the last chunk, else returns the chunk label.
         """
-        # if we only have one chunk to deal with, force keep_data to True. This means we can avoid
-        # re-reading the MS, and simply re-copy data from orig_data
-        while self.iCurrentMS < len(self.ListMS):
+        while True:
+            # advance chunk pointer
+            self.iCurrentChunk += 1
             ms = self.ListMS[self.iCurrentMS]
-            if self.iCurrentChunk < ms.numChunks():
-                self._next_chunk_name = "DATA:%d:%d" % (self.iCurrentMS, self.iCurrentChunk)
-                # create chunk label
-                self._next_chunk_label = "%d.%d" % (self.iCurrentMS+1, self.iCurrentChunk+1)
-                print>>log, "scheduling loading of chunk %s" % self._next_chunk_label
-                # in single-chunk mode, DATA may already be loaded, in which case we do nothing
-                if self.nTotalChunks > 1 or self.DATA is None:
-                    # tell the IO thread to start loading the chunk
-                    APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
-                                args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk), io=0)
-                self.iCurrentChunk += 1
-                return True
-            else:
+            # go to next MS?
+            if self.iCurrentChunk >= ms.numChunks():
                 self.iCurrentMS += 1
-                self.iCurrentChunk = 0
-        # got here? got past last MS then
-        self._next_chunk_name = None
-        return None
+                # no more MSs -- return None
+                if self.iCurrentMS >= len(self.ListMS):
+                    self._next_chunk_name = None
+                    self.iCurrentMS = 0
+                    self.iCurrentChunk = -1
+                    return None
+                # go back up to first chunk of next MS
+                self.iCurrentChunk = -1
+                continue
+            self._next_chunk_name = "DATA:%d:%d" % (self.iCurrentMS, self.iCurrentChunk)
+            self._next_chunk_label = "%d.%d" % (self.iCurrentMS + 1, self.iCurrentChunk + 1)
+            # null chunk? skip to next chunk
+            self.awaitWeights()
+            if self.VisWeights[self.iCurrentMS][self.iCurrentChunk]["null"]:
+                print>>log, ModColor.Str("chunk %s is null, skipping"%self._next_chunk_label)
+                continue
+            # ok, now we're good to load
+            print>>log, "scheduling loading of chunk %s" % self._next_chunk_label
+            # in single-chunk mode, DATA may already be loaded, in which case we do nothing
+            if self.nTotalChunks > 1 or self.DATA is None:
+                # tell the IO thread to start loading the chunk
+                APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
+                            args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk), io=0)
+            return self._next_chunk_label
 
     def collectLoadedChunk(self, start_next=True):
         # previous data dict can now be discarded from shm
@@ -430,9 +435,8 @@ class ClassVisServer():
             # reload the data dict -- background thread will now have populated it
             self.DATA = SharedDict.attach(self._next_chunk_name)
             self.DATA["label"] = self._next_chunk_label
-            self.CurrentMS = self.ListMS[self.iCurrentMS]
             # in single-chunk mode, keep a copy of the data array
-            if self.nTotalChunks == 1 and "data" in self.DATA:
+            if self.nTotalChunks == 1 and "data" in self.DATA and self._saved_data is None:
                 self._saved_data = self.DATA["data"].copy()
         # schedule next event
         if start_next:
@@ -518,16 +522,6 @@ class ClassVisServer():
         if data is not None and self.AddNoiseJy is not None:
             data += (self.AddNoiseJy/np.sqrt(2.))*(np.random.randn(*data.shape)+1j*np.random.randn(*data.shape))
 
-
-        ## load weights. Note that an all-flagged chunk of data is marked by a null weights file.
-        ## so we check it here to go on to the next chunk as needed
-        # weightspath = self.GetVisWeightsPath(self.iCurrentMS, self.CurrentMS.current_chunk)
-        # if not os.path.getsize(weightspath):
-        #     print>> log, ModColor.Str("This chunk is all flagged or has zero weight, skipping it")
-        #     continue
-        # # mmap() arrays caused mysterious performance hits, so load and copy
-        # DATA["Weights"] = NpShared.GiveArray("file://" + weightspath).copy()
-
         # load results of smear mapping computation
         self.collectBDA(dictname, DATA)
 
@@ -606,15 +600,20 @@ class ClassVisServer():
 
         Waits for CalcWeights to complete (if running in background).
         """
+        self.awaitWeights()
+        if self.VisWeights[iMS][iChunk]["null"]:
+            return None
+        path = self.VisWeights[iMS][iChunk]["cachepath"]
+        if not os.path.getsize(path):
+            return None
+        return np.load(file(path))
+
+    def awaitWeights(self):
         if self.VisWeights is None:
             # ensure the background calculation is complete
             APP.awaitEvents(self._calcweights_event)
             # load shared dict prepared in background thread
             self.VisWeights = SharedDict.attach("VisWeights")
-        path = self.VisWeights[iMS][iChunk]["cachepath"]
-        if not os.path.getsize(path):
-            return None
-        return np.load(file(path))
 
     def CalcWeightsBackground(self):
         """Starts parallel jobs to load weights in the background"""
@@ -843,6 +842,8 @@ class ClassVisServer():
             msw.delete_item("weight")
             if "index" in msw:
                 msw.delete_item("index")
+            msw["null"] = False
         else:
+            msw["null"] = True
             file(msw["cachepath"], 'w').truncate(0)
         msw["success"] = True

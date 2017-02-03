@@ -768,7 +768,7 @@ class ClassImagerDeconv():
                 from ClassMontblancMachine import ClassMontblancMachine
                 model = self.ModelMachine.GiveModelList()
                 mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                mb_machine.getChunk(DATA, predict, model, self.VS.CurrentMS)
+                mb_machine.getChunk(DATA, predict, model, self.VS.ListMS[DATA["iMS"]])
                 mb_machine.close()
             else:
                 raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
@@ -958,7 +958,7 @@ class ClassImagerDeconv():
                     from ClassMontblancMachine import ClassMontblancMachine
                     model = self.ModelMachine.GiveModelList()
                     mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                    mb_machine.getChunk(DATA, DATA["data"], model, self.VS.CurrentMS)
+                    mb_machine.getChunk(DATA, DATA["data"], model, self.VS.ListMS[DATA["iMS"]])
                     mb_machine.close()
                 else:
                     raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
