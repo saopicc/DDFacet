@@ -133,7 +133,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def GiveSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6):
         # Get the model image
-        IM = self.GiveModelImage(self.DicoSMStacked["AllFreqs"])
+        IM = self.GiveModelImage(self.FreqMachine.Freqsp)
         nchan, npol, Nx, Ny = IM.shape
 
         # Fit the alpha map
