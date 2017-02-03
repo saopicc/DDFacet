@@ -71,6 +71,7 @@ static PyMethodDef _pyGridderSmearPols_testMethods[] = {
 	{"pyTestMatrix", pyTestMatrix, METH_VARARGS},
 	{"pySetSemaphores", pySetSemaphores, METH_VARARGS},
 	{"pyDeleteSemaphore", pyDeleteSemaphore, METH_VARARGS},
+	{"pyAccumulateWeightsOntoGrid", pyAccumulateWeightsOntoGrid, METH_VARARGS},
 	{NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
 
@@ -82,6 +83,36 @@ void init_pyGridderSmearPols()  {
 }
 
 
+static PyObject *pyAccumulateWeightsOntoGrid(PyObject *self, PyObject *args)
+{
+    PyArrayObject *grid, *weights, *index;
+
+    if (!PyArg_ParseTuple(args, "O!O!O!",
+            &PyArray_Type,  &grid,
+            &PyArray_Type,  &weights,
+            &PyArray_Type,  &index
+            ))
+        return NULL;
+
+    double * pgrid      = p_float64(grid);
+    double * pweights   = p_float64(weights);
+    long int * pindex   = p_int64(index);
+    size_t n = weights->dimensions[0];
+    size_t i;
+
+    for( i=0; i<n; i++)
+    {
+        size_t igrid = pindex[i];
+        sem_t * psem = GiveSemaphoreFromCell(igrid);
+    	sem_wait(psem);
+        pgrid[pindex[i]] += pweights[i];
+  	    sem_post(psem);
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+
+}
 
 
 

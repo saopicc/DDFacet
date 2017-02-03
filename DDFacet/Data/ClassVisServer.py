@@ -613,6 +613,190 @@ class ClassVisServer():
         APP.runJob("VisWeights", self.CalcWeights, io=0, singleton=True)
         # self.CalcWeights()
 
+    def CalcWeightsBackground (self):
+        APP.runJob("VisWeights", self.CalcWeights, io=0, singleton=True)
+        # self.CalcWeights()
+        self._weight_dict = SharedDict.create("VisWeights")
+        for ims,ms in enumerate(self.ListMS):
+            msweights = self._weight_dict.addSubdict(ims)
+            for ichunk in xrange(len(ms.getChunkRow0Row1())):
+                msw = msweights.addSubdict(ichunk)
+                APP.runJob("LoadWeights:%d:%d"%(ims,ichunk), self._loadWeights_handler,
+                           args=(msw.path, ims, ichunk))
+
+
+    def _loadWeights_handler(self, msw_path, ims, ichunk):
+        msw = SharedDict.attach(wdict_path)
+        ms = self.ListMS[ims]
+        row0, row1 = ms.getChunkRow0Row1()[ichunk]
+        msfreqs = ms.ChanFreq
+        nrows = row1 - row0
+        chanslice = ms.ChanSlice
+        if not nrows:
+            print>> log, "  0 rows: empty chunk"
+            continue
+        print>>log,"  %d.%d reading %s UVW" % (iMS+1, iChunk+1, ms.MSName)
+        uvw = tab.getcol("UVW", row0, nrows)
+        flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), np.bool)
+        # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
+        print>>log,"  reading FLAG" % ms.MSName
+        tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
+        if ms._reverse_channel_order:
+            flags = flags[:,::-1,:]
+        # if any polarization is flagged, flag all 4 correlations. Shape of flags becomes nrow,nchan
+        print>>log,"  adjusting flags"
+        # if any polarization is flagged, flag all 4 correlations. Shape
+        # of flags becomes nrow,nchan
+        flags = flags.max(axis=2)
+        # if all channels are flagged, flag whole row. Shape of flags becomes nrow
+        rowflags = flags.min(axis=1)
+        # if everything is flagged, skip this entry
+        if rowflags.all():
+            print>> log, "  all flagged: marking as null"
+            continue
+        # if all channels are flagged, flag whole row. Shape of flags becomes nrow
+        msw["flags"] = rowflags
+        # adjust max uv (in wavelengths) and max w
+        wmax = abs(uvw[~rowflags,3]).max()
+        msw["uv"] = uvw[:2]
+        del uvw
+        # max of |u|, |v| in wavelengths
+        uvmax_wavelengths = abs(msw["uv"][~rowflags,:]).max() * msfreqs.max() / _cc
+        # now read the weights
+        weight = msw.addSharedArray("weight", (nrows, ms.Nchan), np.float32)
+        weight_col = self.GD["Weight"]["ColName"]
+        if weight_col == "WEIGHT_SPECTRUM":
+            w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
+            print>> log, "  reading column %s for the weights, shape is %s" % (
+                weight_col, w.shape)
+            if ms._reverse_channel_order:
+                w = w[:, ::-1, :]
+            # take mean weight across correlations and apply this to all
+            weight[...] = w.mean(axis=2)
+        elif weight_col == "None" or weight_col == None:
+            print>> log, "  Selected weights columns is None, filling weights with ones"
+            weight.fill(1)
+        elif weight_col == "WEIGHT":
+            w = tab.getcol(weight_col, row0, nrows)
+            print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (
+                weight_col, w.shape)
+            # take mean weight across correlations, and expand to have frequency axis
+            weight[...] = w.mean(axis=1)[:, np.newaxis]
+        else:
+            # in all other cases (i.e. IMAGING_WEIGHT) assume a column
+            # of shape NRow,NFreq to begin with, check for this:
+            w = tab.getcol(weight_col, row0, nrows)[:, chanslice]
+            print>> log, "  reading column %s for the weights, shape is %s" % (
+                weight_col, w.shape)
+            if w.shape != valid.shape:
+                raise TypeError(
+                    "weights column expected to have shape of %s" %
+                    (valid.shape,))
+            weight[...] = w
+        # flagged points get zero weight
+        weight *= valid
+        nullweight = (weight==0).all()
+        if nullweight:
+            msw.delete_item("weight")
+            msw.delete_item("uv")
+            msw.delete_item("flags")
+        else:
+            msw["bandmap"] = self.DicoMSChanMapping[ims]
+            msw["uvmax_wavelengths"] = uvmax_wavelengths
+            msw["wmax"] = wmax
+
+    def collectLoadedWeights(self):
+        APP.awaitJobResults("LoadWeights:*", progress="Loading weights")
+        self._weight_dict.reload()
+        self._wmax = self._uvmax = 0
+        # now work out weight grid sizes, etc.
+        for ims, ms in enumerate(self.ListMS):
+            msweights = self._weight_dict[ims]
+            for ichunk in xrange(len(ms.getChunkRow0Row1())):
+                msw = msweights[ichunk]
+                if "weight" not in msw:
+                    continue  # null chunk, skip
+                self._wmax = max(self._wmax, msw["wmax"])
+                self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
+        if not self._uvmax:
+            raise RuntimeError("data appears to be fully flagged, nothing to do")
+        # in natural mode, leave the weights as is. In other modes, setup grid for calculations
+        if self.Weighting != "natural":
+            nch, npol, npixIm, _ = self.FullImShape
+            FOV = self.CellSizeRad * npixIm
+            nbands = self.NFreqBands
+            cell = 1. / (self.Super * FOV)
+            if self.MFSWeighting or self.NFreqBands < 2:
+                nbands = 1
+                print>> log, "initializing weighting grid for single band (or MFS weighting)"
+            else:
+                print>> log, "initializing weighting grids for %d bands" % nbands
+            # find max grid extent by considering _unflagged_ UVs
+            xymax = int(math.floor(self._uvmax / cell)) + 1
+            # grid will be from [-xymax,xymax] in U and [0,xymax] in V
+            npixx = xymax * 2 + 1
+            npixy = xymax + 1
+            npix = npixx * npixy
+            print>> log, "Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell)
+            self._weight_grid = SharedDict("VisWeights.Grid")
+            grid0 = self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
+            # now run parallel jobs to accumulate weights
+            for ims, ms in enumerate(self.ListMS):
+                for ichunk in xrange(len(ms.getChunkRow0Row1())):
+                    if "weight" in self._weight_dict[ims][ichunk]:
+                        APP.runJob("AccumWeights:%d:%d" % (ims, ichunk), self._accumulateWeights_handler,
+                                   args=(self._weight_grid.path,
+                                         self._weight_dict[ima][ichunk].path,
+                                         ims, ichunk, ms.ChanFreq, cell, npix, nbands))
+
+    def _accumulateWeights_handler (self, wg_path, msw_path, ims, ichunk, freqs, cell, npix, nbands):
+        wg = SharedDict.attach(wg_path)
+        msw = SharedDict.attach(msw_path)
+        weights = msw["weight"]
+        uv = msw["uv"]
+        # flip sign of negative v values -- we'll only grid the top half of the plane
+        uv[uv[:, 1] < 0] *= -1
+        # convert u/v to lambda, and then to pixel offset
+        uv = uv[..., np.newaxis] * freqs[np.newaxis, np.newaxis, :] / _cc
+        uv = np.floor(uv / cell).astype(int)
+        # u is offset, v isn't since it's the top half
+        x = uv[:, 0, :]
+        y = uv[:, 1, :]
+        x += xymax  # offset, since X grid starts at -xymax
+        # convert to index array -- this gives the number of the uv-bin on the grid
+        index = msw.addSharedArray("uvbin_index", (uv.shape[0], len(freqs), np.int64))
+        index[...] = y * npixx + x
+        # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
+        if nbands > 1:
+            index += self.DicoMSChanMapping[ims][np.newaxis, :] * npix
+        # zero weight refers to zero cell (otherwise it may end up outside the grid, since grid is
+        # only big enough to accommodate the *unflagged* uv-points)
+        index[weights == 0] = 0
+        # uv no longer needed
+        uv = None
+        msw.delete_item("uv")
+        # print>>log,weights,index
+        _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
+
+    def finalizeWeights(self):
+
+    def _finalizeUniformWeights_handler(self, wg_path, msw_path):
+        wg = SharedDict.attach(wg_path)
+        msw = SharedDict.attach(msw_path)
+        msw["weight"] /= wg["grid"][msw["index"]]
+
+    def _finalizeRobustWeights_handler(self, wg_path, msw_path, nbands):
+        wg = SharedDict.attach(wg_path)
+        grid0 = wg["grid"]
+        msw = SharedDict.attach(msw_path)
+        numeratorSqrt = 5.0 * 10 ** (-self.Robust)
+        for band in range(nbands):
+            grid1 = grid0[band, :]
+            avgW = (grid1 ** 2).sum() / grid1.sum()
+            sSq = numeratorSqrt ** 2 / avgW
+            grid1[...] = 1 / (1 + grid1 * sSq)
+        weights *= grid[index]
+
     def CalcWeights(self):
         """
         Calculates visibility weights. This can be run in a main or background process.
@@ -629,24 +813,18 @@ class ClassVisServer():
         self.VisWeights = SharedDict.create("VisWeights")
         have_all_weights = True
         for iMS,MS in enumerate(self.ListMS):
-            msweights = []
-            for row0, row1 in MS.getChunkRow0Row1():
+            msweights = self.VisWeights.addSubdict(iMS)
+            for iChunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
                 cachepath, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy",
                     dict([(section, self.GD[section]) for section in ("Data", "Selection", "Freq", "Image")]))
-
                 have_all_weights = have_all_weights and valid
-                msweights.append(cachepath)
-            self.VisWeights[iMS] = msweights
+                w = msweights.addSubdict(iChunk)
+                w['path'] = cachepath
         # if every weight is in cache, then VisWeights has been constructed properly -- return, else
         # carry on to compute it
         if have_all_weights:
             print>> log, "all imaging weights are available in cache"
             return
-
-        weight_arrays = {}
-
-        # VisWeights is a list of per-MS lists, each list containing a per-chunk
-        # cache filename
 
         # Read UVs, weights, flags, freqs from all MSs in the list.
         # Form up output_list of (uv,weights,flags,freqs) tuples, one per each MS in self.ListMS, where shapes are
@@ -659,21 +837,24 @@ class ClassVisServer():
         # now loop over MSs and read data
         weightsum = nweights = 0
         weights_are_null = True
-        output_list = []
+        wmax = 0
+        uvmax_wavelengths = 0
         for iMS, ms in enumerate(self.ListMS):
-            ms_weight_list = self.VisWeights[iMS]
+            msweights = self.VisWeights[iMS]
+            msfreqs = ms.ChanFreq
             tab = ms.GiveMainTable()
-            for (row0, row1), cachepath in zip(ms.getChunkRow0Row1(), ms_weight_list):
+            for iChunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
+                msw = msweights[iChunk]
                 nrows = row1 - row0
                 chanslice = ms.ChanSlice
                 if not nrows:
-                    print>> log, "  0 rows: marking as empty"
+                    print>> log, "  0 rows: empty chunk"
                     continue
-                print>>log,"  reading %s UVW" % ms.MSName
-                uvs = tab.getcol("UVW", row0, nrows)[:, :2]
+                print>>log,"  %d.%d reading %s UVW" % (iMS+1, iChunk+1, ms.MSName)
+                uvw = tab.getcol("UVW", row0, nrows)
                 flags = np.empty((nrows, len(ms.ChanFreq), len(ms.CorrelationIds)), np.bool)
                 # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
-                print>>log,"  reading %s FLAG" % ms.MSName
+                print>>log,"  reading FLAG" % ms.MSName
                 tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
                 if ms._reverse_channel_order:
                     flags = flags[:,::-1,:]
@@ -682,41 +863,40 @@ class ClassVisServer():
                 # if any polarization is flagged, flag all 4 correlations. Shape
                 # of flags becomes nrow,nchan
                 flags = flags.max(axis=2)
-                # valid: array of Nrow,Nchan, with meaning inverse to flags
-                valid = ~flags
-                # if all channels are flagged, flag whole row. Shape of flags
-                # becomes nrow
-                flags = flags.min(axis=1)
-
-                # # each weight is kept in an mmap()ed file in the cache, shape
-                # # (nrows,nchan)
-                # weightpath = "file://"+cachepath
-
-                # if everything is flagged, skip this entry, and mark it with a zero-length weights file
-                if flags.all():
+                # if all channels are flagged, flag whole row. Shape of flags becomes nrow
+                rowflags = flags.min(axis=1)
+                # if everything is flagged, skip this entry
+                if rowflags.all():
                     print>> log, "  all flagged: marking as null"
                     continue
-
-                # WEIGHT = NpShared.CreateShared(weightpath, (nrows, ms.Nchan), np.float64)
-                weight_arrays[cachepath] = WEIGHT = np.zeros((nrows, ms.Nchan), np.float64)
-
+                # if all channels are flagged, flag whole row. Shape of flags becomes nrow
+                msw["flags"] = rowflags
+                # adjust max uv (in wavelengths) and max w
+                wmax = max(uvw[:,3].max(), wmax)
+                msw["uv"] = uvw[:2]
+                del uvw
+                # max of |u|, |v| in wavelengths
+                uvm = abs(msw["uv"][~rowflags,:]).max() * msfreqs.max() / _cc
+                uvmax_wavelengths = max(uvmax_wavelengths, uvm)
+                # now read the weights
+                weight = msw.addSharedArray("weight", (nrows, ms.Nchan), np.float32)
                 if WeightCol == "WEIGHT_SPECTRUM":
                     w = tab.getcol(WeightCol, row0, nrows)[:, chanslice]
                     print>> log, "  reading column %s for the weights, shape is %s" % (
                         WeightCol, w.shape)
+                    if ms._reverse_channel_order:
+                        w = w[:, ::-1, :]
                     # take mean weight across correlations and apply this to all
-                    WEIGHT[...] = w.mean(axis=2) * valid
+                    weight[...] = w.mean(axis=2)
                 elif WeightCol == "None" or WeightCol == None:
                     print>> log, "  Selected weights columns is None, filling weights with ones"
-                    WEIGHT.fill(1)
-                    WEIGHT *= valid
+                    weight.fill(1)
                 elif WeightCol == "WEIGHT":
                     w = tab.getcol(WeightCol, row0, nrows)
                     print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (
                         WeightCol, w.shape)
-                    # take mean weight and apply this to all correlations, and
-                    # expand to have frequency axis
-                    WEIGHT[...] = w.mean(axis=1)[:, np.newaxis] * valid
+                    # take mean weight across correlations, and expand to have frequency axis
+                    weight[...] = w.mean(axis=1)[:, np.newaxis]
                 else:
                     # in all other cases (i.e. IMAGING_WEIGHT) assume a column
                     # of shape NRow,NFreq to begin with, check for this:
@@ -727,14 +907,27 @@ class ClassVisServer():
                         raise TypeError(
                             "weights column expected to have shape of %s" %
                             (valid.shape,))
-                    WEIGHT[...] = w*valid
-
-                weightsum = weightsum + WEIGHT.sum(dtype=np.float64)
-                nweights += valid.sum()
-                weights_are_null = weights_are_null and (WEIGHT == 0).all()
-
-                output_list.append((uvs, WEIGHT, flags, ms.ChanFreq))
+                    weight[...] = w
+                # flagged points get zero weight
+                weight *= valid
+                nullweight = (WEIGHT==0).all()
+                if nullweight:
+                    msw.delete_item("weight")
+                    msw.delete_item("uv")
+                    msw.delete_item("flags")
+                else:
+                    msw["band_mapping"] = self.DicoMSChanMapping[i]
+                    weights_are_null = False
             tab.close()
+
+        if weights_are_null:
+            print>>log, ModColor.Str("All weights are null. Resetting to 1")
+                msweights[iMS][iChunk]
+            for iMS, _ in enumerate(self.ListMS):
+                for iChunk, _ in enumerate(ms.getChunkRow0Row1()):
+                    msweights[iMS][iChunk].delete_item["uv"]
+                    msweights[iMS][iChunk].delete_item["flags"]
+
 
         # compute normalization factor
         weightnorm = nweights / weightsum if weightsum else 1
@@ -746,15 +939,6 @@ class ClassVisServer():
         CellSizeRad = self.CellSizeRad
         WeightMachine = ClassWeighting.ClassWeighting(ImShape, CellSizeRad)
         Robust = self.Robust
-
-        if self.MFSWeighting or self.NFreqBands < 2:
-            band_mapping = None
-        else:
-            # we need provide a band mapping for every chunk of weights, so construct a list
-            # where each MS's mapping is repeated Nchunk times
-            band_mapping = []
-            for i, ms in enumerate(self.ListMS):
-                band_mapping += [self.DicoMSChanMapping[i]] * ms.Nchunk
 
         WeightMachine.CalcWeights(
             output_list, 
