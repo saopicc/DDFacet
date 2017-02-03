@@ -833,8 +833,8 @@ class ClassVisServer():
 
     def _finalizeWeights_handler(self, wg_path, msw_path, ims, ichunk):
         msw = SharedDict.attach(msw_path)
-        weight = msw["weight"]
-        if weight is not None:
+        if "weight" in msw:
+            weight = msw["weight"]
             if self.Weighting != "natural":
                 wg = SharedDict.attach(wg_path)
                 grid = wg["grid"].reshape((wg["grid"].size,))
