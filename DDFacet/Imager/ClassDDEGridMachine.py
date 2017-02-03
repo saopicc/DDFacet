@@ -849,7 +849,7 @@ class ClassDDEGridMachine():
             if not(ListWTerm[0].dtype == np.complex64):
                 raise NameError('ListWTerm.dtype %s' % (str(ListWTerm.dtype)))
         if not isinstance(W, type(None)):
-            if not(W.dtype == np.float64):
+            if not(W.dtype == np.float32):
                 raise NameError('W.dtype %s' % (str(W.dtype)))
             if not(W.flags.c_contiguous):
                 raise NameError("W has to be contiguous")

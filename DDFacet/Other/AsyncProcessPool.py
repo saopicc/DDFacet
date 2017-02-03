@@ -206,12 +206,14 @@ class AsyncProcessPool (object):
                 raise RuntimeError("Job handler must be a function or object. This is a bug.")
             self._job_handlers[id(handler)] = handler
 
-    def registerEvents (self, *args):
+    def createEvent (self, name=None):
         if os.getpid() != parent_pid:
             raise RuntimeError("This method can only be called in the parent process. This is a bug.")
         if self._started:
             raise RuntimeError("Workers already started. This is a bug.")
-        self._events.update(dict([(name,multiprocessing.Event()) for name in args]))
+        event = multiprocessing.Event()
+        self._events[id(event)] = event, name
+        return event
 
     def createJobCounter (self, name=None):
         if os.getpid() != parent_pid:
@@ -273,14 +275,14 @@ class AsyncProcessPool (object):
             raise RuntimeError("Job '%s': unregistered handler %s. This is a bug." % (job_id, handler))
         # resolve event object
         if event:
-            eventobj = self._events[event]
-            eventobj.clear()
-        else:
-            eventobj = None
+            if id(event) not in self._events:
+                raise ValueError("unregistered event object")
+            event.clear()
         # increment counter object
         if counter:
             counter.increment()
-        jobitem = dict(job_id=job_id, handler=(handler_id, method, handler_desc), event=event,
+        jobitem = dict(job_id=job_id, handler=(handler_id, method, handler_desc),
+                       event=event and id(event),
                        counter=counter and id(counter),
                        collect_result=collect_result,
                        args=args, kwargs=kwargs)
@@ -325,10 +327,8 @@ class AsyncProcessPool (object):
         """
         if self.verbose > 2:
             print>>log, "checking for completion events on %s" % " ".join(events)
-        for name in events:
-            event = self._events.get(name)
-            if event is None:
-                raise KeyError("Unknown event '%s'" % name)
+        for event in events:
+            name = self._events.get(id(event))
             while not event.is_set():
                 if self._termination_event.is_set():
                     if self.verbose > 1:
@@ -507,13 +507,13 @@ class AsyncProcessPool (object):
         timer = ClassTimeIt.ClassTimeIt()
         event = counter = None
         try:
-            job_id, eventname, counter_id, args, kwargs = [jobitem.get(attr) for attr in
-                                                           "job_id", "event", "counter", "args", "kwargs"]
+            job_id, event_id, counter_id, args, kwargs = [jobitem.get(attr) for attr in
+                                                        "job_id", "event", "counter", "args", "kwargs"]
             handler_id, method, handler_desc = jobitem["handler"]
             handler = self._job_handlers.get(handler_id)
             if handler is None:
                 raise RuntimeError("Job %s: unknown handler %s. This is a bug." % (job_id, handler_desc))
-            event = self._events[eventname] if eventname else None
+            event, eventname = self._events[event_id] if event_id is not None else (None, None)
             # find counter object, if specified
             if counter_id:
                 counter = self._job_counters.get(counter_id)

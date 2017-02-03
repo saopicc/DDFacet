@@ -95,7 +95,7 @@ static PyObject *pyAccumulateWeightsOntoGrid(PyObject *self, PyObject *args)
         return NULL;
 
     double * pgrid      = p_float64(grid);
-    double * pweights   = p_float64(weights);
+    float * pweights    = p_float32(weights);
     long int * pindex   = p_int64(index);
     size_t n = weights->dimensions[0];
     size_t i;
@@ -523,7 +523,7 @@ void gridderWPol(PyArrayObject *grid,
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
 	  size_t doff = (irow * nVisChan + visChan) * nVisPol;
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
-	  double*   imgWtPtr = p_float64(weights) + irow  * nVisChan + visChan;
+	  float*   imgWtPtr = p_float32(weights) + irow  * nVisChan + visChan;
 
 	  // We can do that since all flags in 4-pols are equalised in ClassVisServer
 	  if(flagPtr[0]==1){continue;}
