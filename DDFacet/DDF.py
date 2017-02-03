@@ -127,7 +127,7 @@ def main(OP=None, messages=[]):
 
     if messages:
         if not DicoConfig["Log"]["Boring"]:
-            os.system('clear')
+            #os.system('clear')
             logo.print_logo()
         for msg in messages:
             print>> log, msg
@@ -282,7 +282,7 @@ def main(OP=None, messages=[]):
 
 if __name__ == "__main__":
     #os.system('clear')
-    logo.print_logo()
+    #logo.print_logo()
 
     T = ClassTimeIt.ClassTimeIt()
 

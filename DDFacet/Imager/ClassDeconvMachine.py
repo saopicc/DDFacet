@@ -640,7 +640,10 @@ class ClassImagerDeconv():
 
 
         if "n" in self._saveims:
-            self.FacetMachine.ToCasaImage(self.FacetMachine.FacetNormReShape,ImageName="%s.NormFacets"%self.BaseName,
+            self._norm_dict=SharedDict.attach("normDict")
+            FacetNormReShape=self._norm_dict["FacetNormReShape"]
+            self.FacetMachine.ToCasaImage(FacetNormReShape,
+                                          ImageName="%s.NormFacets"%self.BaseName,
                                           Fits=True)
                 
         if self.DicoDirty["JonesNorm"] is not None:
