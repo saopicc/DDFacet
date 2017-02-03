@@ -127,7 +127,7 @@ class ClassFacetMachine():
 
         # create semaphores if not already created
         if not ClassFacetMachine._degridding_semaphores:
-            NSemaphores = 3373
+            NSemaphores = 13373 #3373
             ClassFacetMachine._degridding_semaphores = [Multiprocessing.getShmName("Semaphore", sem=i) for i in xrange(NSemaphores)]
             _pyGridderSmearPols.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
             atexit.register(ClassFacetMachine._delete_degridding_semaphores)

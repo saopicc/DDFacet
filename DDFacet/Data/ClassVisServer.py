@@ -704,11 +704,10 @@ class ClassVisServer():
         # launch jobs to finalize weights and save them to the cache
         for ims, ms in enumerate(self.ListMS):
             for ichunk in xrange(len(ms.getChunkRow0Row1())):
-                if "weight" in self._weight_dict[ims][ichunk]:
-                    APP.runJob("FinalizeWeights:%d:%d" % (ims, ichunk), self._finalizeWeights_handler,
-                               args=(self._weight_grid.path,
-                                     self._weight_dict[ims][ichunk].path, ims, ichunk),
-                               counter=self._weightjob_counter, collect_result=False)
+                APP.runJob("FinalizeWeights:%d:%d" % (ims, ichunk), self._finalizeWeights_handler,
+                           args=(self._weight_grid.path,
+                                 self._weight_dict[ims][ichunk].path, ims, ichunk),
+                           counter=self._weightjob_counter, collect_result=False)
         APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
         # delete stuff
         if self._weight_grid is not None:
