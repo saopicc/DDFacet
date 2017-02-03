@@ -36,7 +36,7 @@ import os
 import psutil
 import ClassJones
 from DDFacet.Other import Multiprocessing
-from DDFacet.Array import SharedDict
+from DDFacet.Array import shared_dict
 from DDFacet.Other.AsyncProcessPool import APP
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmearPols
 
@@ -369,7 +369,7 @@ class ClassVisServer():
         APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.path, field, column, likecol), io=0)
 
     def visPutColumnHandler (self, datapath, field, column, likecol):
-        DATA = SharedDict.attach(datapath)
+        DATA = shared_dict.attach(datapath)
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         ms = self.ListMS[iMS]
         row0, row1 = ms.getChunkRow0Row1()[iChunk]
@@ -433,7 +433,7 @@ class ClassVisServer():
             # await completion of data loading jobs (which, presumably, includes smear mapping)
             APP.awaitJobResults(self._next_chunk_name, TimeTitle="Reading %s"%self._next_chunk_label )
             # reload the data dict -- background thread will now have populated it
-            self.DATA = SharedDict.attach(self._next_chunk_name)
+            self.DATA = shared_dict.attach(self._next_chunk_name)
             self.DATA["label"] = self._next_chunk_label
             # in single-chunk mode, keep a copy of the data array
             if self.nTotalChunks == 1 and "data" in self.DATA and self._saved_data is None:
@@ -459,7 +459,7 @@ class ClassVisServer():
             null_data: if True, then we don't want to read the visibility data at all, but rather just want to make
                 a null buffer of the same shape as the visibility data.
         """
-        DATA = SharedDict.create(dictname)
+        DATA = shared_dict.create(dictname)
         DATA["iMS"]    = iMS
         DATA["iChunk"] = iChunk
         ms = self.ListMS[iMS]
@@ -613,7 +613,7 @@ class ClassVisServer():
             # ensure the background calculation is complete
             APP.awaitEvents(self._calcweights_event)
             # load shared dict prepared in background thread
-            self.VisWeights = SharedDict.attach("VisWeights")
+            self.VisWeights = shared_dict.attach("VisWeights")
 
     def CalcWeightsBackground(self):
         """Starts parallel jobs to load weights in the background"""
@@ -623,7 +623,7 @@ class ClassVisServer():
         APP.awaitEvents(self._calcweights_event)
 
     def _CalcWeights_handler(self):
-        self._weight_dict = SharedDict.create("VisWeights")
+        self._weight_dict = shared_dict.create("VisWeights")
         # check cache first
         have_all_weights = True
         for iMS, MS in enumerate(self.ListMS):
@@ -665,7 +665,7 @@ class ClassVisServer():
         if not self._uvmax:
             raise RuntimeError("data appears to be fully flagged, nothing to do")
         # in natural mode, leave the weights as is. In other modes, setup grid for calculations
-        self._weight_grid = SharedDict.create("VisWeights.Grid")
+        self._weight_grid = shared_dict.create("VisWeights.Grid")
         if self.Weighting != "natural":
             nch, npol, npixIm, _ = self.FullImShape
             FOV = self.CellSizeRad * npixIm
@@ -726,7 +726,7 @@ class ClassVisServer():
                 ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
 
     def _loadWeights_handler(self, msw_path, ims, ichunk):
-        msw = SharedDict.attach(msw_path)
+        msw = shared_dict.attach(msw_path)
         ms = self.ListMS[ims]
         row0, row1 = ms.getChunkRow0Row1()[ichunk]
         msfreqs = ms.ChanFreq
@@ -804,8 +804,8 @@ class ClassVisServer():
             msw["wmax"] = wmax
 
     def _accumulateWeights_handler (self, wg_path, msw_path, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax):
-        wg = SharedDict.attach(wg_path)
-        msw = SharedDict.attach(msw_path)
+        wg = shared_dict.attach(wg_path)
+        msw = shared_dict.attach(msw_path)
         weights = msw["weight"]
         uv = msw["uv"]
         # flip sign of negative v values -- we'll only grid the top half of the plane
@@ -834,11 +834,11 @@ class ClassVisServer():
         _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
 
     def _finalizeWeights_handler(self, wg_path, msw_path, ims, ichunk):
-        msw = SharedDict.attach(msw_path)
+        msw = shared_dict.attach(msw_path)
         if "weight" in msw:
             weight = msw["weight"]
             if self.Weighting != "natural":
-                wg = SharedDict.attach(wg_path)
+                wg = shared_dict.attach(wg_path)
                 grid = wg["grid"].reshape((wg["grid"].size,))
                 weight /= grid[msw["index"]]
             np.save(msw["cachepath"], weight)

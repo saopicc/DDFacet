@@ -35,7 +35,7 @@ import pylab
 import numpy.random
 from DDFacet.ToolsDir import ModCoord
 from DDFacet.Array import NpShared
-from DDFacet.Array import SharedDict
+from DDFacet.Array import shared_dict
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import Multiprocessing
@@ -536,7 +536,7 @@ class ClassFacetMachine():
             self.IsDDEGridMachineInit = True
             return
         # subprocesses will place W-terms etc. here. Reset this first.
-        self._CF = SharedDict.create("CFPSF" if self.DoPSF else "CF")
+        self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
         # check if w-kernels, spacial weights, etc. are cached
         cachekey = dict(ImagerCF=self.GD["CF"], ImagerMainFacet=self.GD["Image"])
         cachename = self._cf_cachename = "CF"
@@ -548,8 +548,9 @@ class ClassFacetMachine():
         cachepath, cachevalid = self.VS.maincache.checkCache(cachename, cachekey, directory=True)
         # up to workers to load/save cache
         for iFacet in self.DicoImager.iterkeys():
+            facet_dict = self._CF.addSubdict(iFacet)
             APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
-                            args=(iFacet, self._CF.path, cachepath, cachevalid))
+                            args=(iFacet, facet_dict.writeonly(), cachepath, cachevalid))
 
     def awaitInitCompletion (self):
         if not self.IsDDEGridMachineInit:
@@ -572,12 +573,9 @@ class ClassFacetMachine():
             self.VS.StokesConverter.RequiredStokesProductsIds(),
             **kw)
 
-    def _initcf_worker (self, iFacet, cfdict_path, cachepath, cachevalid):
+    def _initcf_worker (self, iFacet, facet_dict, cachepath, cachevalid):
         """Worker method of InitParal"""
         path = "%s/%s.npz" % (cachepath, iFacet)
-        if self._CF is None or self._CF.path != cfdict_path:
-            self._CF = SharedDict.attach(cfdict_path, load=False)
-        facet_dict = self._CF.addSubdict(iFacet)
         T=ClassTimeIt.ClassTimeIt("_initcf_worker")
         # try to load the cache, and copy it to the shared facet dict
         if cachevalid:
@@ -588,11 +586,9 @@ class ClassFacetMachine():
                 # validate dict
                 ClassDDEGridMachine.ClassDDEGridMachine.verifyCFDict(facet_dict, self.GD["CF"]["Nw"])
                 return "cached"
-
             except:
                 print>>log,traceback.format_exc()
                 print>>log, "Error loading %s, will re-generate"%path
-            
         # ok, regenerate the terms at this point
         FacetInfo = self.DicoImager[iFacet]
         # Create smoothned facet tessel mask:
@@ -680,7 +676,7 @@ class ClassFacetMachine():
         """Sets current model image. Copies it to a shared dict and returns shared array version of image."""
         if self.DoPSF:
             raise RuntimeError("Can't call getChunk on a PSF mode FacetMachine. This is a bug!")
-        self._model_dict = SharedDict.create("Model")
+        self._model_dict = shared_dict.create("Model")
         self._model_dict["Image"] = ModelImage
         for iFacet in range(self.NFacets):
             self._model_dict.addSubdict(iFacet)
@@ -902,7 +898,7 @@ class ClassFacetMachine():
             self.DicoPSF["FacetNorm"] = self.FacetNorm
 
             # print>>log,"copying dictPSF"
-            self._psf_dict = self.DicoPSF = SharedDict.dict_to_shm("dictPSF",self.DicoPSF)
+            self._psf_dict = self.DicoPSF = shared_dict.dict_to_shm("dictPSF",self.DicoPSF)
 
             return self.DicoPSF
 
@@ -926,7 +922,7 @@ class ClassFacetMachine():
 
     def setNormImages(self,DicoImages):
 
-        self._norm_dict=SharedDict.SharedDict("normDict")
+        self._norm_dict=shared_dict.SharedDict("normDict")
         if len(self._norm_dict)==0:
             JonesNorm = DicoImages["JonesNorm"]
             nch, npol, nx, ny = DicoImages["ImagData"].shape
@@ -970,7 +966,7 @@ class ClassFacetMachine():
         Returns
             ndarray with norm image
         """
-        self._norm_dict=SharedDict.SharedDict("normDict")
+        self._norm_dict=shared_dict.SharedDict("normDict")
         if len(self._norm_dict)==0:
             print>>log, "  Building Facet-normalisation image"
             nch, npol = self.nch, self.npol
@@ -1124,7 +1120,7 @@ class ClassFacetMachine():
         self.HasFourierTransformed = False
         # are we creating a new grids dict?
         if self._facet_grids is None:
-            self._facet_grids = SharedDict.create("PSFGrid" if self.DoPSF else "Grid")
+            self._facet_grids = shared_dict.create("PSFGrid" if self.DoPSF else "Grid")
 
         for iFacet in self.DicoGridMachine.keys():
             NX = self.DicoImager[iFacet]["NpixFacetPadded"]
@@ -1157,30 +1153,7 @@ class ClassFacetMachine():
             #DATA["Sparsification.Degrid"] = numpy.random.sample(num_blocks) < 1.0 / factor
             #print>> log, "applying sparsification factor of %f to %d BDA degrid blocks, left with %d" % (factor, num_blocks, DATA["Sparsification.Degrid"].sum())
 
-    def _reload_worker_dicts (self, iFacet, datadict_path, cfdict_path, griddict_path):
-        """Helper method for worker methods. Reloads various shared dicts, if needed"""
-        # reload data dict, if this process has an old one
-        if datadict_path:
-            if self.DATA is None or datadict_path != self.DATA.path:
-                del self.DATA
-                self.DATA = SharedDict.attach(datadict_path)
-        # reload CF dict, if this process has a different one
-        if cfdict_path:
-            if self._CF is None or self._CF.path != cfdict_path or iFacet not in self._CF:
-                del self._CF
-                self._CF = SharedDict.attach(cfdict_path)
-            cf_dict = self._CF[iFacet]
-        else:
-            cf_dict = None
-        # reload facet grids, if this process has an old one
-        if griddict_path:
-            if self._facet_grids is None or griddict_path != self._facet_grids.path:
-                del self._facet_grids
-                self._facet_grids = SharedDict.attach(griddict_path)
-        # return facet's CF dict
-        return cf_dict
-
-    def _grid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path):
+    def _grid_worker(self, iFacet, DATA, cf_dict, griddict):
         T = ClassTimeIt.ClassTimeIt()
         T.disable()
         ## FFTW wisdom already loaded by main process
@@ -1188,35 +1161,33 @@ class ClassFacetMachine():
         #     pyfftw.import_wisdom(FFTW_Wisdom)
         # T.timeit("%s: import wisdom" % iFacet)
 
-        # reload shared dicts
-        cf_dict = self._reload_worker_dicts(iFacet, datadict_path, cfdict_path, griddict_path)
         # Create a new GridMachine
         GridMachine = self._createGridMachine(iFacet, cf_dict=cf_dict,
-            bda_grid=self.DATA["BDA.Grid"], bda_degrid=self.DATA["BDA.Degrid"])
+            bda_grid=DATA["BDA.Grid"], bda_degrid=DATA["BDA.Degrid"])
         T.timeit("%s: create GM" % iFacet)
 
-        uvwThis = self.DATA["uvw"]
-        visThis = self.DATA["data"]
-        flagsThis = self.DATA["flags"]
-        times = self.DATA["times"]
-        A0 = self.DATA["A0"]
-        A1 = self.DATA["A1"]
+        uvwThis = DATA["uvw"]
+        visThis = DATA["data"]
+        flagsThis = DATA["flags"]
+        times = DATA["times"]
+        A0 = DATA["A0"]
+        A1 = DATA["A1"]
         A0A1 = A0, A1
-        W = self.DATA["Weights"]  ## proof of concept for now
-        freqs = self.DATA["freqs"]
-        ChanMapping = self.DATA["ChanMapping"]
+        W = DATA["Weights"]  ## proof of concept for now
+        freqs = DATA["freqs"]
+        ChanMapping = DATA["ChanMapping"]
 
         DecorrMode = self.GD["RIME"]["DecorrMode"]
         if 'F' in DecorrMode or "T" in DecorrMode:
-            uvw_dt = self.DATA["uvw_dt"]
-            DT, Dnu = self.DATA["dt"], self.DATA["dnu"][0]
+            uvw_dt = DATA["uvw_dt"]
+            DT, Dnu = DATA["dt"], DATA["dnu"][0]
             lm_min=None
             if self.GD["RIME"]["DecorrLocation"]=="Edge":
                 lm_min=self.DicoImager[iFacet]["lm_min"]
             GridMachine.setDecorr(uvw_dt, DT, Dnu, 
                                   SmearMode=DecorrMode, 
                                   lm_min=lm_min,
-                                  lm_PhaseCenter=self.DATA["lm_PhaseCenter"])
+                                  lm_PhaseCenter=DATA["lm_PhaseCenter"])
 
         # DecorrMode = GD["DDESolutions"]["DecorrMode"]
         # if ('F' in DecorrMode) or ("T" in DecorrMode):
@@ -1232,18 +1203,17 @@ class ClassFacetMachine():
         if Apply_killMS or Apply_Beam:
             DicoJonesMatrices = {}
         if Apply_killMS:
-            DicoJonesMatrices["DicoJones_killMS"] = self.DATA["killMS"]
+            DicoJonesMatrices["DicoJones_killMS"] = DATA["killMS"]
         if Apply_Beam:
-            DicoJonesMatrices["DicoJones_Beam"] = self.DATA["Beam"]
-
+            DicoJonesMatrices["DicoJones_Beam"] = DATA["Beam"]
 
         GridMachine.put(times, uvwThis, visThis, flagsThis, A0A1, W,
                         DoNormWeights=False,
                         DicoJonesMatrices=DicoJonesMatrices,
                         freqs=freqs, DoPSF=self.DoPSF,
                         ChanMapping=ChanMapping,
-                        ResidueGrid=self._facet_grids[iFacet],
-                        sparsification=self.DATA.get("Sparsification.Grid")
+                        ResidueGrid=griddict[iFacet],
+                        sparsification=DATA.get("Sparsification.Grid")
                         )
         T.timeit("put %s" % iFacet)
 
@@ -1271,7 +1241,8 @@ class ClassFacetMachine():
         self._grid_job_id = "%s.Grid.%s:" % (self._app_id, self._grid_job_label)
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._grid_job_id, iFacet), self._grid_worker,
-                            args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path))
+                            args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
+                                  self._facet_grids.readonly()))
 
     def collectGriddingResults(self):
         """
@@ -1301,7 +1272,7 @@ class ClassFacetMachine():
         self._grid_job_id = None
         return True
 
-    def _fft_worker(self, iFacet, cfdict_path, griddict_path):
+    def _fft_worker(self, iFacet, cfdict, griddict):
         """
         Fourier transforms the grids currently housed in shared memory
         Precondition:
@@ -1310,9 +1281,8 @@ class ClassFacetMachine():
             Dictionary of success and facet identifier
         """
         # reload shared dicts
-        cf_dict = self._reload_worker_dicts(iFacet, None, cfdict_path, griddict_path)
         GridMachine = self._createGridMachine(iFacet, cf_dict=cf_dict)
-        Grid = self._facet_grids[iFacet]
+        Grid = griddict[iFacet]
         # note that this FFTs in-place
         GridMachine.GridToIm(Grid)
         return {"iFacet": iFacet}
@@ -1328,8 +1298,7 @@ class ClassFacetMachine():
         self._fft_job_id = "%s.FFT:" % self._app_id
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._fft_job_id, iFacet), self._fft_worker,
-                            args=(iFacet, self._CF.path, self._facet_grids.path),
-                            )
+                            args=(iFacet, self._CF.readonly(), self._facet_grids.readonly()))
 
     def collectFourierTransformResults (self):
         if self._fft_job_id is None:
@@ -1339,29 +1308,23 @@ class ClassFacetMachine():
         APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
         self._fft_job_id = None
 
-    def _set_model_grid_worker(self, iFacet, modeldict_path, cfdict_path, ChanSel, ToSHMDict=False,ToGrid=False):
-        # reload shared dicts
-        cf_dict = self._reload_worker_dicts(iFacet, None, cfdict_path, None)
+    def _set_model_grid_worker(self, iFacet, model_dict, cf_dict, ChanSel, ToSHMDict=False,ToGrid=False):
         # We get the psf dict directly from the shared dict name (not from the .path of a SharedDict)
         # because this facet machine is not necessarilly the one where we have computed the PSF
-        self._norm_dict = SharedDict.attach("normDict")
-        # reload model image dict
-        self._model_dict = SharedDict.attach(modeldict_path)
+        norm_dict = shared_dict.attach("normDict")
         # extract facet model from model image
-        ModelGrid, SumFlux = self._Im2Grid.GiveModelTessel(self._model_dict["Image"],
-                                                           self.DicoImager, iFacet, self._norm_dict["FacetNorm"],
+        ModelGrid, SumFlux = self._Im2Grid.GiveModelTessel(model_dict["Image"],
+                                                           self.DicoImager, iFacet, norm_dict["FacetNorm"],
                                                            cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel,ToGrid=ToGrid)
 
-        self._model_dict[iFacet]["SumFlux"]=SumFlux
+        model_dict[iFacet]["SumFlux"] = SumFlux
         if ToSHMDict:
-            self._model_dict[iFacet]["FacetGrid"]=ModelGrid
+            model_dict[iFacet]["FacetGrid"] = ModelGrid
         return ModelGrid
 
     def set_model_grid (self):
         self.awaitInitCompletion()
-        modeldict_path=self._model_dict.path
-        cfdict_path=self._CF.path
-        self._model_dict = SharedDict.attach(modeldict_path)
+        self._model_dict.reload()
         nch,_,_,_=self._model_dict["Image"].shape
         ChanSel=range(nch)
         ToSHMDict=True
@@ -1370,35 +1333,31 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._set_model_grid_job_id, iFacet), 
                        self._set_model_grid_worker,
-                       args=(iFacet, modeldict_path, cfdict_path, ChanSel,ToSHMDict,ToGrid))
-
-        APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="MakeGrids")
+                       args=(iFacet, self._model_dict.readwrite(), self._CF[iFacet].readonly(), ChanSel,ToSHMDict,ToGrid))
+        APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="Make model grids")
 
 
 
     # DeGrid worker that is called by Multiprocessing.Process
-    def _degrid_worker(self, iFacet, datadict_path, cfdict_path, griddict_path, ChanSel, modeldict_path):
-        # reload shared dicts
-        cf_dict = self._reload_worker_dicts(iFacet, datadict_path, cfdict_path, griddict_path)
+    def _degrid_worker(self, iFacet, DATA, cf_dict, griddict, ChanSel, modeldict):
 
-
-        ModelGrid=self._set_model_grid_worker(iFacet, modeldict_path, cfdict_path, ChanSel)
+        ModelGrid=self._set_model_grid_worker(iFacet, modeldict, cf_dict, ChanSel)
 
         # Create a new GridMachine
         GridMachine = self._createGridMachine(iFacet, cf_dict=cf_dict,
             ListSemaphores=ClassFacetMachine._degridding_semaphores,
-            bda_grid=self.DATA["BDA.Grid"], bda_degrid=self.DATA["BDA.Degrid"])
+            bda_grid=DATA["BDA.Grid"], bda_degrid=DATA["BDA.Degrid"])
 
-        uvwThis = self.DATA["uvw"]
-        visThis = self.DATA["data"]
-        flagsThis = self.DATA["flags"]
-        times = self.DATA["times"]
-        A0 = self.DATA["A0"]
-        A1 = self.DATA["A1"]
+        uvwThis = DATA["uvw"]
+        visThis = DATA["data"]
+        flagsThis = DATA["flags"]
+        times = DATA["times"]
+        A0 = DATA["A0"]
+        A1 = DATA["A1"]
 
         A0A1 = A0, A1
-        freqs = self.DATA["freqs"]
-        ChanMapping = self.DATA["ChanMappingDegrid"]
+        freqs = DATA["freqs"]
+        ChanMapping = DATA["ChanMappingDegrid"]
 
         # Create Jones Matrices Dictionary
         DicoJonesMatrices = None
@@ -1408,28 +1367,28 @@ class ClassFacetMachine():
         if Apply_killMS or Apply_Beam:
             DicoJonesMatrices = {}
         if Apply_killMS:
-            DicoJonesMatrices["DicoJones_killMS"] = self.DATA["killMS"]
+            DicoJonesMatrices["DicoJones_killMS"] = DATA["killMS"]
         if Apply_Beam:
-            DicoJonesMatrices["DicoJones_Beam"] = self.DATA["Beam"]
+            DicoJonesMatrices["DicoJones_Beam"] = DATA["Beam"]
 
         DecorrMode = self.GD["RIME"]["DecorrMode"]
         if 'F' in DecorrMode or "T" in DecorrMode:
-            uvw_dt = self.DATA["uvw_dt"]
-            DT, Dnu = self.DATA["dt"], self.DATA["dnu"][0]
+            uvw_dt = DATA["uvw_dt"]
+            DT, Dnu = DATA["dt"], DATA["dnu"][0]
             lm_min=None
             if self.GD["RIME"]["DecorrLocation"]=="Edge":
                 lm_min=self.DicoImager[iFacet]["lm_min"]
             GridMachine.setDecorr(uvw_dt, DT, Dnu, 
                                   SmearMode=DecorrMode, 
                                   lm_min=lm_min,
-                                  lm_PhaseCenter=self.DATA["lm_PhaseCenter"])
+                                  lm_PhaseCenter=DATA["lm_PhaseCenter"])
 
         GridMachine.get(times, uvwThis, visThis, flagsThis, A0A1,
                           ModelGrid, ImToGrid=False,
                           DicoJonesMatrices=DicoJonesMatrices,
                           freqs=freqs, TranformModelInput="FT",
                           ChanMapping=ChanMapping,
-                          sparsification=self.DATA.get("Sparsification.Degrid")
+                          sparsification=DATA.get("Sparsification.Degrid")
                         )
 
         return {"iFacet": iFacet}
@@ -1461,8 +1420,9 @@ class ClassFacetMachine():
 
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
-                            args=(iFacet, DATA.path, self._CF.path, self._facet_grids.path,
-                                  ChanSel, self._model_dict.path))
+                            args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
+                                  self._facet_grids.readonly(),
+                                  ChanSel, self._model_dict.readonly()))
 
 
     def collectDegriddingResults(self):

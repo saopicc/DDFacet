@@ -89,7 +89,7 @@ class ClassWeighting():
         greedy = self.GD["Debug"]["MemoryGreedy"]
 
         # check if every MS+chunk weight is available in cache
-        self.VisWeights = SharedDict.create("VisWeights")
+        self.VisWeights = shared_dict.create("VisWeights")
         have_all_weights = True
         for iMS, MS in enumerate(self.ListMS):
             msweights = self.VisWeights.addSubdict(iMS)

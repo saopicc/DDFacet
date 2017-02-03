@@ -26,7 +26,7 @@ from DDFacet.Array import NpShared
 log = MyLogger.getLogger("ClassSmearMapping")
 
 from DDFacet.Other import Multiprocessing, ClassTimeIt
-from DDFacet.Array import SharedDict
+from DDFacet.Array import shared_dict
 from DDFacet.Other.AsyncProcessPool import APP
 
 bda_dicts = {}
@@ -43,13 +43,13 @@ class SmearMappingMachine (object):
         t.disable()
         # if data dict has changed, then reload data dict (if this process is looking at a different one)
         if self._data is None or self._data.path != data_dict_path:
-            self._data = SharedDict.attach(data_dict_path)
+            self._data = shared_dict.attach(data_dict_path)
             t.timeit(data_dict_path)
         if self._blockdict is None or self._blockdict.path != blockdict_path:
-            self._blockdict = SharedDict.attach(blockdict_path, load=False)
+            self._blockdict = shared_dict.attach(blockdict_path, load=False)
             t.timeit(blockdict_path)
         if self._sizedict is None or self._sizedict.path != sizedict_path:
-            self._sizedict = SharedDict.attach(sizedict_path, load=False)
+            self._sizedict = shared_dict.attach(sizedict_path, load=False)
             t.timeit(sizedict_path)
         BlocksRowsListBL, BlocksSizesBL, _ = GiveBlocksRowsListBL(a0, a1, self._data, dPhi, l, channel_mapping)
         t.timeit('compute')
@@ -63,7 +63,7 @@ class SmearMappingMachine (object):
         l = radiusDeg * np.pi / 180
         dPhi = np.sqrt(6. * (1. - Decorr))
         # create new empty shared dicts for results
-        self._outdict = SharedDict.create("%s:%s:tmp" %(DATA.path, self.name))
+        self._outdict = shared_dict.create("%s:%s:tmp" %(DATA.path, self.name))
         blockdict = self._outdict.addSubdict("blocks")
         sizedict  = self._outdict.addSubdict("sizes")
         self._nbl = 0

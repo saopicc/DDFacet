@@ -32,7 +32,7 @@ from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 from DDFacet.Other.progressbar import ProgressBar
-from DDFacet.Array import SharedDict
+from DDFacet.Array import shared_dict
 
 log = MyLogger.getLogger("AsyncProcessPool")
 
@@ -152,7 +152,7 @@ class AsyncProcessPool (object):
         Returns:
 
         """
-        self._shared_state = SharedDict.create("APP", delete_items=False)
+        self._shared_state = shared_dict.create("APP", delete_items=False)
         self.affinity = affinity
         self.cpustep = abs(self.affinity) or 1
         self.ncpu = ncpu
@@ -281,6 +281,14 @@ class AsyncProcessPool (object):
         # increment counter object
         if counter:
             counter.increment()
+        # check for SharedDict arguments and print errors
+        for iarg, arg in enumerate(args):
+            if type(arg) is shared_dict.SharedDict:
+                raise TypeError("positional argument %d is a SharedDict. This is a bug! Use readonly()/readwrite()/writeonly()"%iarg)
+        for key, arg in kwargs.iteritems():
+            if type(arg) is shared_dict.SharedDict:
+                raise TypeError("keyword %s is a SharedDict. This is a bug! Use readonly()/readwrite()/writeonly()"%key)
+        # create the job item
         jobitem = dict(job_id=job_id, handler=(handler_id, method, handler_desc),
                        event=event and id(event),
                        counter=counter and id(counter),
@@ -519,6 +527,12 @@ class AsyncProcessPool (object):
                 counter = self._job_counters.get(counter_id)
                 if counter is None:
                     raise RuntimeError("Job %s: unknown counter %s. This is a bug." % (job_id, counter_id))
+            # instantiate SharedDict arguments
+            args = [ arg.instantiate() if type(arg) is shared_dict.SharedDict.Representation else args
+                     for arg in args ]
+            for key in kwargs.keys():
+                if type(kwargs[key]) is shared_dict.SharedDict.Representation:
+                    kwargs[key] = kwargs[key].instantiate()
             # call the job
             if self.verbose > 1:
                 print>> log, "job %s: calling %s" % (job_id, handler_desc)

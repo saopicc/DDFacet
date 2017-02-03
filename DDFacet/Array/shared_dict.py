@@ -16,11 +16,11 @@ def _to_shm (path):
 
 _allowed_key_types = dict(int=int, str=str, bool=bool)
 
-def attach(name, load=True):
-    return SharedDict(name, reset=False, load=load)
+def attach(name, load=True, readwrite=True):
+    return SharedDict(name, reset=False, load=load, readwrite=readwrite)
 
-def create(name, delete_items=True):
-    return SharedDict(name, reset=True, delete_items=delete_items)
+def create(name):
+    return SharedDict(name, reset=True)
 
 def dict_to_shm(name, D):
     Ds=create(name)
@@ -62,6 +62,15 @@ class SharedDict (dict):
         def load_impl(self):
             return cPickle.load(file(self.path))
 
+    class Representation(object):
+        def __init__ (self, path, readwrite, load):
+            self.path = path
+            self.readwrite = readwrite
+            self.load = load
+
+        def instantiate(self):
+            return SharedDict(self.path, reset=False, readwrite=self.readwrite, load=self.load)
+
     # this maps "class codes" parsed out of item filenames to appropriate item proxies. See reload() below
     _proxy_class_map = dict(a=SharedArrayProxy, d=SubdictProxy, p=PickleProxy)
 
@@ -71,9 +80,11 @@ class SharedDict (dict):
         if not os.path.exists(SharedDict.basepath):
             os.mkdir(SharedDict.basepath)
 
-    def __init__ (self, path, reset=True, load=True, delete_items=False):
+    def __init__ (self, path, reset=True, load=True, readwrite=True):
         dict.__init__(self)
         self._delete_items = False
+        self._readwrite = readwrite
+        self._load = load
         if path.startswith(SharedDict.basepath):
             self.path = path
         else:
@@ -89,7 +100,26 @@ class SharedDict (dict):
         if self._delete_items:
             self.delete()
 
+    def readwrite(self):
+        if not self._load:
+            raise RuntimeError("SharedDict %s attached without load permissions" % self.path)
+        if not self._readwrite:
+            raise RuntimeError("SharedDict %s attached as read-only" % self.path)
+        return SharedDict.Representation(self.path, readwrite=True, load=True)
+
+    def readonly(self):
+        if not self._load:
+            raise RuntimeError("SharedDict %s attached without load permissions" % self.path)
+        return SharedDict.Representation(self.path, readwrite=False, load=True)
+
+    def writeonly(self):
+        if not self._readwrite:
+            raise RuntimeError("SharedDict %s attached as read-only" % self.path)
+        return SharedDict.Representation(self.path, readwrite=True, load=False)
+
     def delete(self):
+        if not self._readwrite:
+            raise RuntimeError("SharedDict %s attached as read-only" % self.path)
         dict.clear(self)
         if os.path.exists(self.path):
             os.system("rm -fr %s" % self.path)
@@ -97,12 +127,16 @@ class SharedDict (dict):
 
     def clear(self):
         if self._delete_items:
+            if not self._readwrite:
+                raise RuntimeError("SharedDict %s attached as read-only" % self.path)
             self.delete()
         else:
             dict.clear(self)
 
     def reload(self):
         """(Re)initializes dict with items from path"""
+        if not self._load:
+            raise RuntimeError("SharedDict %s attached without load permissions" % self.path)
         dict.clear(self)
         # scan our subdirectory for items
         for name in os.listdir(self.path):
@@ -157,12 +191,16 @@ class SharedDict (dict):
         raise RuntimeError("not implemented")
 
     def __delitem__(self, item):
+        if not self._readwrite:
+            raise RuntimeError("SharedDict %s attached as read-only" % self.path)
         if self._delete_items:
             return self.delete_item(item)
         else:
             return dict.__delitem__(self, item)
 
     def delete_item (self, item):
+        if not self._readwrite:
+            raise RuntimeError("SharedDict %s attached as read-only" % self.path)
         dict.__delitem__(self, item)
         name = self._key_to_name(item)
         for suffix in "ap":
@@ -172,16 +210,23 @@ class SharedDict (dict):
             os.system("rm -fr "+name+"d")
 
     def __setitem__(self, item, value):
+        if not self._readwrite:
+            raise RuntimeError("SharedDict %s attached as read-only" % self.path)
         if type(item).__name__ not in _allowed_key_types:
             raise KeyError,"unsupported key of type "+type(item).__name__
         name = self._key_to_name(item)
-        # remove previous item from SHM
+        # remove previous item from SHM, if it's in the local dict
         if dict.__contains__(self,item):
             for suffix in "ap":
                 if os.path.exists(name+suffix):
                     os.unlink(name+suffix)
             if os.path.exists(name+"d"):
                 os.system("rm -fr "+name+"d")
+        # if item is not in local dict but is on disk, this is a multiprocessing logic error
+        else:
+            for suffix in "apd":
+                if os.path.exists(name+suffix):
+                    raise RuntimeError("SharedDict entry %s exists, possibly added by another process. This is most likely a bug!" % (name+suffix))
         # for arrays, copy to a shared array
         if isinstance(value, np.ndarray):
             value = NpShared.ToShared(_to_shm(os.path.join(self.path, name)+'a'), value)
@@ -197,6 +242,8 @@ class SharedDict (dict):
         dict.__setitem__(self, item, value)
 
     def addSubdict (self, item):
+        if not self._readwrite:
+            raise RuntimeError("SharedDict %s attached as read-only" % self.path)
         name = self._key_to_name(item) + 'd'
         filepath = os.path.join(self.path, name)
         subdict = SharedDict(filepath, reset=True)
@@ -205,6 +252,8 @@ class SharedDict (dict):
 
     def addSharedArray (self, item, shape, dtype):
         """adds a SharedArray entry of the specified shape and dtype"""
+        if not self._readwrite:
+            raise RuntimeError("SharedDict %s attached as read-only" % self.path)
         name = self._key_to_name(item) + 'a'
         filepath = os.path.join(self.path, name)
         array = NpShared.CreateShared(_to_shm(filepath), shape, dtype)

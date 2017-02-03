@@ -27,7 +27,7 @@ from DDFacet.Other import ClassTimeIt
 import psutil
 import numexpr
 from DDFacet.Other.AsyncProcessPool import APP
-from DDFacet.Array import SharedDict
+from DDFacet.Array import shared_dict
 
 #Fs=pyfftw.interfaces.numpy_fft.fftshift
 #iFs=pyfftw.interfaces.numpy_fft.ifftshift
@@ -308,7 +308,7 @@ def learnFFTWWisdom(npix):
 def _convolveSingleGaussianFFTW(shareddict_path, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
     T = ClassTimeIt.ClassTimeIt()
     T.disable()
-    shareddict = SharedDict.attach(shareddict_path)
+    shareddict = shared_dict.attach(shareddict_path)
     Ain = shareddict[field_in][ch]
     Aout = shareddict[field_out][ch]
     T.timeit("init %d"%ch)
@@ -329,7 +329,7 @@ def _convolveSingleGaussianFFTW(shareddict_path, field_in, field_out, ch, CellSi
 
 def _convolveSingleGaussianNP(shareddict_path, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
     T = ClassTimeIt.ClassTimeIt()
-    shareddict = SharedDict.attach(shareddict_path)
+    shareddict = shared_dict.attach(shareddict_path)
     Ain = shareddict[field_in][ch]
     Aout = shareddict[field_out][ch]
     T.timeit("init %d"%ch)
@@ -528,7 +528,7 @@ def testConvolveGaussian(parallel=False):
         T.timeit("learn")
         APP.registerJobHandlers(_convolveSingleGaussian)
         APP.startWorkers()
-    sd = SharedDict.attach("test")
+    sd = shared_dict.attach("test")
     A = sd.addSharedArray("A", (nchan,1,npix,npix),np.float32)
     A[0,0,10,10]=1
     SigMaj=2#(20/3600.)*np.pi/180

@@ -36,7 +36,7 @@ from DDFacet.Imager import ClassGainMachine
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from DDFacet.Other import MyPickle
 from DDFacet.Other.AsyncProcessPool import APP
-from DDFacet.Array import SharedDict
+from DDFacet.Array import shared_dict
 
 # # if not running under a profiler, declare a do-nothing @profile decorator
 # if "profile" not in globals():
@@ -104,7 +104,7 @@ class ClassImageDeconvMachine():
             self._MaskArray[0,0,:,:] = np.bool8(1-MaskArray[0,0].T[::-1])
 
     def __del__ (self):
-        if type(self.facetcache) is SharedDict.SharedDict:
+        if type(self.facetcache) is shared_dict.SharedDict:
             self.facetcache.delete()
 
     def updateMask(self,Mask):
@@ -147,8 +147,8 @@ class ClassImageDeconvMachine():
 
     def _initMSM_handler(self, fcdict_path, psf_path, iFacet, SideLobeLevel, OffsetSideLobe, centralFacet):
         # init PSF server from PSF shared dict
-        self.SetPSF(SharedDict.attach(psf_path), quiet=True)
-        fcdict = SharedDict.attach(fcdict_path, load=False)
+        self.SetPSF(shared_dict.attach(psf_path), quiet=True)
+        fcdict = shared_dict.attach(fcdict_path, load=False)
         self.PSFServer.setFacet(iFacet)
         MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
         MSMachine.setModelMachine(self.ModelMachine)
@@ -205,7 +205,7 @@ class ClassImageDeconvMachine():
         else:
             # if no facet cache, init in parallel
             if not self.facetcache:
-                self.facetcache = SharedDict.create("HMPBasis")
+                self.facetcache = shared_dict.create("HMPBasis")
                 for iFacet in xrange(self.PSFServer.NFacets):
                     fcdict = self.facetcache.addSubdict(iFacet)
                     APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
