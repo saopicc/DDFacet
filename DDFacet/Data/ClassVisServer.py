@@ -725,7 +725,6 @@ class ClassVisServer():
                 ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
 
     def _loadWeights_handler(self, msw, ims, ichunk):
-        print msw, ims, ichunk
         ms = self.ListMS[ims]
         row0, row1 = ms.getChunkRow0Row1()[ichunk]
         msfreqs = ms.ChanFreq
@@ -831,6 +830,7 @@ class ClassVisServer():
         _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
 
     def _finalizeWeights_handler(self, wg, msw):
+        print msw.keys()
         if "weight" in msw:
             weight = msw["weight"]
             if self.Weighting != "natural":
@@ -839,6 +839,7 @@ class ClassVisServer():
             np.save(msw["cachepath"], weight)
             msw.delete_item("weight")
             if "index" in msw:
+                print "deleting index"
                 msw.delete_item("index")
             msw["null"] = False
         else:

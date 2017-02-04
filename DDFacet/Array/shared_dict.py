@@ -205,11 +205,12 @@ class SharedDict (dict):
             raise RuntimeError("SharedDict %s attached as read-only" % self.path)
         dict.__delitem__(self, item)
         name = self._key_to_name(item)
+        path = os.path.join(self.path, name)
         for suffix in "ap":
-            if os.path.exists(name+suffix):
-                os.unlink(name+suffix)
-        if os.path.exists(name+"d"):
-            os.system("rm -fr "+name+"d")
+            if os.path.exists(path+suffix):
+                os.unlink(path+suffix)
+        if os.path.exists(path+"d"):
+            os.system("rm -fr "+path+"d")
 
     def __setitem__(self, item, value):
         if not self._readwrite:
@@ -217,21 +218,22 @@ class SharedDict (dict):
         if type(item).__name__ not in _allowed_key_types:
             raise KeyError,"unsupported key of type "+type(item).__name__
         name = self._key_to_name(item)
+        path = os.path.join(self.path, name)
         # remove previous item from SHM, if it's in the local dict
         if dict.__contains__(self,item):
             for suffix in "ap":
-                if os.path.exists(name+suffix):
-                    os.unlink(name+suffix)
-            if os.path.exists(name+"d"):
-                os.system("rm -fr "+name+"d")
+                if os.path.exists(path+suffix):
+                    os.unlink(path+suffix)
+            if os.path.exists(path+"d"):
+                os.system("rm -fr "+path+"d")
         # if item is not in local dict but is on disk, this is a multiprocessing logic error
         else:
             for suffix in "apd":
-                if os.path.exists(name+suffix):
-                    raise RuntimeError("SharedDict entry %s exists, possibly added by another process. This is most likely a bug!" % (name+suffix))
+                if os.path.exists(path+suffix):
+                    raise RuntimeError("SharedDict entry %s exists, possibly added by another process. This is most likely a bug!" % (path+suffix))
         # for arrays, copy to a shared array
         if isinstance(value, np.ndarray):
-            value = NpShared.ToShared(_to_shm(os.path.join(self.path, name)+'a'), value)
+            value = NpShared.ToShared(_to_shm(path+'a'), value)
         # for regular dicts, copy across
         elif isinstance(value, (dict, SharedDict, collections.OrderedDict)):
             dict1 = self.addSubdict(item)
@@ -240,7 +242,7 @@ class SharedDict (dict):
             value = dict1
         # all other types, just use pickle
         else:
-            cPickle.dump(value, file(os.path.join(self.path, name+'p'), "w"), 2)
+            cPickle.dump(value, file(path+'p', "w"), 2)
         dict.__setitem__(self, item, value)
 
     def addSubdict (self, item):
