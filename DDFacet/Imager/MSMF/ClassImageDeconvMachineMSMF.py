@@ -142,6 +142,14 @@ class ClassImageDeconvMachine():
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.InitMSMF()
 
+    def Reset(self):
+        print>>log, "resetting HMP machine"
+        self.DicoMSMachine = {}
+        if type(self.facetcache) is shared_dict.SharedDict:
+            print>> log, "deleting HMP facet cache"
+            self.facetcache.delete()
+        self.facetcache = None
+
     def set_DicoHMPFunctions(self,facetcache):
         self.facetcache=facetcache
 

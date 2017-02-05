@@ -260,6 +260,7 @@ class ClassMultiScaleMachine():
         nch,_,nx,ny=self.SubPSF.shape
 
         if self.CubePSFScales is None or self.ListScales is None:
+            # print>>log,"computing scales"
             #self.ListSumFluxes = []
 
             self.ListScales = []
@@ -378,6 +379,8 @@ class ClassMultiScaleMachine():
                 #                                     "Alpha":ThisAlpha})
 
             self.CubePSFScales=np.array(ListPSFScales)
+        # else:
+        #     print>>log,"scales already loaded"
         T.timeit("1")
         # Max=np.max(np.max(CubePSFScales,axis=1),axis=1)
         # Max=Max.reshape((Max.size,1,1))

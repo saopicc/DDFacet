@@ -902,6 +902,10 @@ class ClassImagerDeconv():
             if do_psf:
                 print>>log, "the PSF will be recomputed"
                 self.FacetMachinePSF.ReinitDirty()
+            # release memory in DeconvMachine, if it's going to be reinitialized with a new PSF anyway, or if
+            # we're not going to use it again
+            if do_psf or not continue_deconv:
+                self.DeconvMachine.Reset()
             previous_sparsify = sparsify
 
             current_model_freqs = np.array([])
