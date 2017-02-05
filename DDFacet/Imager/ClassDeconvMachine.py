@@ -462,7 +462,7 @@ class ClassImagerDeconv():
             else:
                 print>>log, ModColor.Str("============================ Loading cached dirty image =========================")
                 print>> log, "found valid cached residual image in %s" % dirty_cachepath
-            if not self.GD["Cache"]["Dirty"].startswith("force"):
+            if type(self.GD["Cache"]["Dirty"]) is not str or not self.GD["Cache"]["Dirty"].startswith("force"):
                 print>>log, ModColor.Str("As near as we can tell, we can reuse this cache because it was produced")
                 print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
                 print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-Dirty reset.")
@@ -481,7 +481,7 @@ class ClassImagerDeconv():
         if psf_valid:
             print>>log, ModColor.Str("============================ Loading cached PSF =================================")
             print>> log, "found valid cached PSF in %s" % psf_cachepath
-            if not self.GD["Cache"]["PSF"].startswith("force"):
+            if type(self.GD["Cache"]["PSF"]) is not str or not self.GD["Cache"]["PSF"].startswith("force"):
                 print>>log, ModColor.Str("As near as we can tell, we can reuse this cache because it was produced")
                 print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
                 print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-PSF reset.")
