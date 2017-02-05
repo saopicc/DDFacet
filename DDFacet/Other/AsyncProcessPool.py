@@ -26,7 +26,9 @@ import multiprocessing
 import numpy as np
 import traceback
 import inspect
+import signal
 from collections import OrderedDict
+import numexpr
 
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
@@ -488,7 +490,7 @@ class AsyncProcessPool (object):
             print>> log, "shutdown complete"
 
     @staticmethod
-    def _start_worker (object, proc_id, affinity, worker_queue):
+    def _start_worker (object, proc_id, affinity, worker_queue, pause_on_start=False):
         """
             Helper method for worker process startup. ets up affinity, and calls _run_worker method on
             object with the specified work queue.
@@ -502,6 +504,9 @@ class AsyncProcessPool (object):
         Returns:
 
         """
+        if pause_on_start:
+            os.kill(os.getpid(), signal.SIGSTOP)
+        numexpr.set_num_threads(1)   # avoid too many sub-threads
         AsyncProcessPool.proc_id = proc_id
         MyLogger.subprocess_id = proc_id
         if affinity:
