@@ -47,6 +47,7 @@ from DDFacet.Array import SharedDict
 import DDFacet.Data.ClassBeamMean as ClassBeamMean
 from DDFacet.Other import ClassTimeIt
 import numexpr
+from DDFacet.Imager import ClassMaskMachine
 
 # from astropy import wcs
 # from astropy.io import fits
@@ -224,12 +225,11 @@ class ClassImagerDeconv():
                 print>>log,"Using Hogbom algorithm"
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
-           self.DeconvMachine.setMaskMachine(self.MaskMachine)
+            self.DeconvMachine.setMaskMachine(self.MaskMachine)
 
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
         self.DoSmoothBeam=("H" in self._saveims) and self.GD["Beam"]["Model"]
-        stop
         if self.DoSmoothBeam:
             AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
@@ -870,7 +870,7 @@ class ClassImagerDeconv():
                 break
 
             print>>log, ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1))
-            self.MaskMachine.
+            self.MaskMachine.updateResidual(DicoImage)
             self.DeconvMachine.Update(DicoImage)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
