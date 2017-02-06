@@ -494,6 +494,8 @@ class AsyncProcessPool (object):
         Returns:
 
         """
+        import numexpr
+        numexpr.set_num_threads(1)
         AsyncProcessPool.proc_id = proc_id
         MyLogger.subprocess_id = proc_id
         if affinity:

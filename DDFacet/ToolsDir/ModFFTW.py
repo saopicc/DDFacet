@@ -325,6 +325,7 @@ def _convolveSingleGaussianFFTW(shareddict_path, field_in, field_out, ch, CellSi
         PSF /= np.sum(PSF)
     T.timeit("givegauss %d"%ch)
     fPSF = pyfftw.interfaces.numpy_fft.rfft2(iFs(PSF), overwrite_input=True, threads=1)
+    fPSF = np.abs(fPSF)
     npol = Ain.shape[0]
     for pol in range(npol):
         A = iFs(Ain[pol])
@@ -345,6 +346,7 @@ def _convolveSingleGaussianNP(shareddict_path, field_in, field_out, ch, CellSize
         PSF /= np.sum(PSF)
     T.timeit("givegauss %d"%ch)
     fPSF = np.fft.rfft2(PSF)
+    fPSF = np.abs(fPSF)
     npol = Ain.shape[0]
     for pol in range(npol):
         A = Ain[pol]
@@ -391,12 +393,12 @@ def ConvolveGaussianFFTW(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=
         if Normalise:
             PSF/=np.sum(PSF)
         PSF = np.fft.ifftshift(PSF)
-        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=NCPU_global)
+        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=1)#NCPU_global)
         for pol in range(npol):
             A = np.fft.ifftshift(Ain[pol])
-            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=NCPU_global)
+            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=1)#NCPU_global)
             nfA = fA*fPSF
-            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=NCPU_global)
+            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=1)#NCPU_global)
             Aout[ch, pol, :, :] = np.fft.fftshift(ifA)
         T.timeit("conv")
 
@@ -452,15 +454,16 @@ def ConvolveGaussianC(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=Fal
         # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
         if Normalise:
             PSF/=np.sum(PSF)
+        PSF = np.fft.ifftshift(PSF)
         fPSF = np.fft.fft2(PSF)
-        fPSF = fPSF.real
+        fPSF = np.abs(fPSF)
         for pol in range(npol):
             A = Ain[pol]
             fA = np.fft.fft2(A)
             nfA = fA*fPSF#Gauss
             if_fA = np.fft.ifft2(nfA)
             # if_fA=(nfA)
-            Aout[ch,pol,:,:] = if_fA.real
+            Aout[ch,pol,:,:] = np.fft.fftshift(if_fA.real)
         T.timeit("conv")
 
     return Aout
@@ -484,6 +487,7 @@ def ConvolveGaussianR (Ain0, CellSizeRad=None, GaussPars=[(0., 0., 0.)], Normali
             PSF /= np.sum(PSF)
         PSF = np.fft.ifftshift(PSF)
         fPSF = np.fft.rfft2(PSF)
+        fPSF = np.abs(fPSF)
         for pol in range(npol):
             fA = np.fft.rfft2(np.fft.ifftshift(Ain[pol]))
             nfA = fA * fPSF

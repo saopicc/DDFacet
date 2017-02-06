@@ -1,4 +1,5 @@
-FROM radioastro/base
+#From Ubuntu 16.04
+FROM kernsuite/base:1
 MAINTAINER Ben Hugo "bhugo@ska.ac.za"
 
 #Package dependencies
@@ -11,6 +12,7 @@ ENV DDFACET_TEST_OUTPUT_DIR /test_output
 #Copy DDFacet and SkyModel into the image
 ADD DDFacet /src/DDFacet/DDFacet
 ADD SkyModel /src/DDFacet/SkyModel
+ADD montblanc /src/DDFacet/montblanc
 ADD MANIFEST.in /src/DDFacet/MANIFEST.in
 ADD requirements.txt /src/DDFacet/requirements.txt
 ADD setup.py /src/DDFacet/setup.py
@@ -28,15 +30,14 @@ ENV DEB_SETUP_DEPENDENCIES \
     libc-dev \
     cmake \
     gfortran \
-    git
+    git \
+    wget
 
 ENV DEB_DEPENCENDIES \
     python-pip \
     libfftw3-dev \
     casacore-data \
-    libcasacore2-dev \
-    libcasacore2-dev \
-    libcasacore2 \
+    casacore-dev \
     python-numpy \
     libfreetype6 \
     libfreetype6-dev \
@@ -46,30 +47,30 @@ ENV DEB_DEPENCENDIES \
     python2.7-dev \
     libboost-all-dev \
     libcfitsio3-dev \
-    libatlas-dev \
+    wcslib-dev \
     libatlas-dev \
     liblapack-dev \
     python-tk \
-    meqtrees-timba \
+    meqtrees* \
     # Reference image generation dependencies
-    meqtrees \
     makems \
     make
 
 RUN apt-get update && \
     apt-get install -y software-properties-common && \
-    add-apt-repository -y -s ppa:radio-astro/main && \
+    add-apt-repository -y -s ppa:kernsuite/kern-1 && \
+    apt-add-repository -y multiverse && \
     apt-get update && \
     apt-get install -y $DEB_SETUP_DEPENDENCIES && \
     apt-get install -y $DEB_DEPENCENDIES && \
-    apt-get install -y git && \
+    #Setup a virtual environment for the python packages
     pip install -U pip virtualenv setuptools wheel && \
     virtualenv --system-site-packages /ddfvenv && \
-    # Install DDFacet
     cd /src/DDFacet/ && git submodule update --init --recursive && cd / && \
+    # Install DDFacet
     . /ddfvenv/bin/activate ; pip install -I --force-reinstall --no-binary :all: /src/DDFacet/ && \
-    # Install montblanc
-    . /ddfvenv/bin/activate ; pip install git+git://github.com/ska-sa/montblanc.git@65ffb611f5376380cbed0e76624b25581e9f4e4d && \
+    # Install Montblanc
+    . /ddfvenv/bin/activate ; pip install /src/DDFacet/montblanc/ && \
     # Nuke the unused & cached binaries needed for compilation, etc.
     apt-get remove -y $DEB_SETUP_DEPENDENCIES && \
     apt-get autoclean -y && \
