@@ -78,22 +78,25 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
              [lMainCenter + RadiusTot, mMainCenter + RadiusTot],
              [lMainCenter - RadiusTot, mMainCenter + RadiusTot]])
 
-        MSName = self.GD["Data"]["MS"]
-        if ".txt" in MSName:
-            f = open(MSName)
-            Ls = f.readlines()
-            f.close()
-            MSName = []
-            for l in Ls:
-                ll = l.replace("\n", "")
-                MSName.append(ll)
-            MSName = MSName[0]
+        # MSName = self.GD["Data"]["MS"]
+        # if ".txt" in MSName:
+        #     f = open(MSName)
+        #     Ls = f.readlines()
+        #     f.close()
+        #     MSName = []
+        #     for l in Ls:
+        #         ll = l.replace("\n", "")
+        #         MSName.append(ll)
+        #     MSName = MSName[0]
+
+
+        MSName = self.VS.ListMS[0].MSName
 
         SolsFile = self.GD["DDESolutions"]["DDSols"]
         if isinstance(SolsFile, list):
             SolsFile = self.GD["DDESolutions"]["DDSols"][0]
 
-        if (SolsFile != "") & (not (".npz" in SolsFile)):
+        if SolsFile and (not (".npz" in SolsFile)):
             Method = SolsFile
             ThisMSName = reformat.reformat(
                 os.path.abspath(MSName), LastSlash=False)
@@ -510,7 +513,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 dmin = d
                 iCentralFacet = iFacet
         self.iCentralFacet = iCentralFacet
-
+        self.NFacets = len(self.DicoImager)
         # regFile="%s.tessel.reg"%self.GD["Output"]["Name"]
         labels = [
             (self.DicoImager[i]["lmShift"][0],

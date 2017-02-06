@@ -60,6 +60,8 @@ def cleanupShm ():
     Deletes all shared arrays for this process
     """
     NpShared.DelAll(getShmPrefix())
+    # above statement don't work for directories and subdirectories
+    os.system("rm -rf /dev/shm/%s"%getShmPrefix())
 
 def cleanupStaleShm ():
     """

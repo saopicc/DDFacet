@@ -20,27 +20,37 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from DDFacet.Other import MyLogger
 log= MyLogger.getLogger("ClassLOFARBeam")
+from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import ModColor
+
 
 import numpy as np
+try:
+    import lofar.stationresponse as lsr
+except:
+    print>>log, ModColor.Str("Could not import lofar.stationresponse")
 
 class ClassLOFARBeam():
     def __init__(self,MS,GD):
         self.GD=GD
         self.MS=MS
+        self.SR=None
         self.InitLOFARBeam()
         self.CalcFreqDomains()
-
-
-        
 
     def InitLOFARBeam(self):
         GD=self.GD
         LOFARBeamMode=GD["Beam"]["LOFARBeamMode"]
         print>>log, "  LOFAR beam model in %s mode"%(LOFARBeamMode)
-        #self.BeamMode,self.DtBeamMin,self.BeamRAs,self.BeamDECs = LofarBeam
         useArrayFactor=("A" in LOFARBeamMode)
         useElementBeam=("E" in LOFARBeamMode)
-        self.MS.LoadSR(useElementBeam=useElementBeam,useArrayFactor=useArrayFactor)
+        if self.SR is not None: return
+        self.SR = lsr.stationresponse(self.MS.MSName,
+                                      useElementResponse=useElementBeam,
+                                      #useElementBeam=useElementBeam,
+                                      useArrayFactor=useArrayFactor)#,useChanFreq=True)
+        self.SR.setDirection(self.MS.rarad,self.MS.decrad)
+
 
     def getBeamSampleTimes(self,times):
         DtBeamMin = self.GD["Beam"]["DtBeamMin"]
@@ -72,15 +82,28 @@ class ClassLOFARBeam():
         DFreq=np.abs(self.MS.ChanFreq.reshape((self.MS.NSPWChan,1))-MeanFreqJonesChan.reshape((1,NChanJones)))
         self.VisToJonesChanMapping=np.argmin(DFreq,axis=1)
 
-    def GiveInstrumentBeam(self,*args,**kwargs):
+    def GiveRawBeam(self,time,ra,dec):
+        #self.LoadSR()
+        Beam=np.zeros((ra.shape[0],self.MS.na,self.MS.NSPWChan,2,2),dtype=np.complex)
+        for i in range(ra.shape[0]):
+            self.SR.setDirection(ra[i],dec[i])
+            Beam[i]=self.SR.evaluate(time)
+        #Beam=np.swapaxes(Beam,1,2)
+        return Beam
 
-        Beam=self.MS.GiveBeam(*args,**kwargs)
-        nd,na,nch,_,_=Beam.shape
+    def GiveInstrumentBeam(self,*args,**kwargs):
         
+        T=ClassTimeIt.ClassTimeIt("GiveInstrumentBeam")
+        T.disable()
+        Beam=self.GiveRawBeam(*args,**kwargs)
+        nd,na,nch,_,_=Beam.shape
+        T.timeit("0")
         MeanBeam=np.zeros((nd,na,self.NChanJones,2,2),dtype=Beam.dtype)
         for ich in range(self.NChanJones):
             indCh=np.where(self.VisToJonesChanMapping==ich)[0]
             MeanBeam[:,:,ich,:,:]=np.mean(Beam[:,:,indCh,:,:],axis=2)
+        T.timeit("1")
 
         return MeanBeam
+
 

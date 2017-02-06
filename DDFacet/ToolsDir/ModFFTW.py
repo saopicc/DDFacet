@@ -28,6 +28,8 @@ import psutil
 import numexpr
 from DDFacet.Other.AsyncProcessPool import APP
 from DDFacet.Array import shared_dict
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("ModFFTW")
 
 #Fs=pyfftw.interfaces.numpy_fft.fftshift
 #iFs=pyfftw.interfaces.numpy_fft.ifftshift
@@ -124,7 +126,7 @@ class FFTW():
         self.A[:,:] = iFs(A.astype(self.ThisType),axes=axes)
 
         #print "do fft"
-        self.A = pyfftw.interfaces.numpy_fft.ifft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
+        self.A = out = pyfftw.interfaces.numpy_fft.ifft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
         if norm:
             out=Fs(self.A,axes=axes)*(A.shape[-1]*A.shape[-2])
         return out
@@ -298,12 +300,17 @@ def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
         Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
     return Out,in2
 
-def learnFFTWWisdom(npix):
-    """Learns FFTW wisdom for real 2D FFT of npix x npix images"""
-    test = np.zeros((npix, npix), np.float32)
-    a = pyfftw.interfaces.numpy_fft.rfft2(test, overwrite_input=True, threads=1)
-    b = pyfftw.interfaces.numpy_fft.irfft2(a, overwrite_input=True, threads=1)
 
+def learnFFTWWisdom(npix,dtype=np.float32):
+    """Learns FFTW wisdom for real 2D FFT of npix x npix images"""
+    print>>log, "  Computing fftw wisdom FFTs for shape [%i x %i] and dtype %s" % (npix,npix,dtype.__name__)
+    test = np.zeros((npix, npix), dtype)
+    if "float" in dtype.__name__:
+        a = pyfftw.interfaces.numpy_fft.rfft2(test, overwrite_input=True, threads=1)
+        b = pyfftw.interfaces.numpy_fft.irfft2(a, overwrite_input=True, threads=1)
+    elif "complex" in dtype.__name__:
+        a = pyfftw.interfaces.numpy_fft.fft2(test, overwrite_input=True, threads=1)
+        b = pyfftw.interfaces.numpy_fft.ifft2(a, overwrite_input=True, threads=1)
 
 def _convolveSingleGaussianFFTW(shareddict, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
     T = ClassTimeIt.ClassTimeIt()
@@ -384,12 +391,12 @@ def ConvolveGaussianFFTW(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=
         if Normalise:
             PSF/=np.sum(PSF)
         PSF = np.fft.ifftshift(PSF)
-        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=1)
+        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=1)#NCPU_global)
         for pol in range(npol):
             A = np.fft.ifftshift(Ain[pol])
-            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=1)
+            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=1)#NCPU_global)
             nfA = fA*fPSF
-            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=1)
+            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=1)#NCPU_global)
             Aout[ch, pol, :, :] = np.fft.fftshift(ifA)
         T.timeit("conv")
 

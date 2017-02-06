@@ -127,7 +127,7 @@ def main(OP=None, messages=[]):
 
     if messages:
         if not DicoConfig["Log"]["Boring"]:
-            os.system('clear')
+            #os.system('clear')
             logo.print_logo()
         for msg in messages:
             print>> log, msg
@@ -172,8 +172,11 @@ def main(OP=None, messages=[]):
 
     # data machine initialized for all cases except PSF-only mode
     # psf machine initialized for all cases except Predict-only mode
-    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, IdSharedMem=Multiprocessing.getShmPrefix(), BaseName=ImageName,
-                                                  data=(Mode != "PSF"), psf=(Mode != "Predict"),
+    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, 
+                                                  IdSharedMem=Multiprocessing.getShmPrefix(), 
+                                                  BaseName=ImageName,
+                                                  data=(Mode != "PSF"), 
+                                                  psf=(Mode != "Predict"),
                                                   readcol=(Mode != "Predict" and Mode != "PSF"),
                                                   deconvolve=("Clean" in Mode))
 
@@ -279,7 +282,7 @@ def main(OP=None, messages=[]):
 
 if __name__ == "__main__":
     #os.system('clear')
-    logo.print_logo()
+    #logo.print_logo()
 
     T = ClassTimeIt.ClassTimeIt()
 

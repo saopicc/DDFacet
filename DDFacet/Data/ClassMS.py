@@ -213,33 +213,33 @@ class ClassMS():
             pass
 
 
-    def LoadSR(self,useElementBeam=True,useArrayFactor=True):
-        if self.SR is not None: return
-        # t=table(self.MSName,ack=False,readonly=False)
-        # if not("LOFAR_ANTENNA_FIELD" in t.getkeywords().keys()):
-        #     self.PutLOFARKeys()
-        # t.close()
+    # def LoadSR(self,useElementBeam=True,useArrayFactor=True):
+    #     if self.SR is not None: return
+    #     # t=table(self.MSName,ack=False,readonly=False)
+    #     # if not("LOFAR_ANTENNA_FIELD" in t.getkeywords().keys()):
+    #     #     self.PutLOFARKeys()
+    #     # t.close()
         
-        #print>>log, "Import"
-        #print>>log, "  Done"
+    #     #print>>log, "Import"
+    #     #print>>log, "  Done"
         
-        # f=self.ChanFreq.flatten()
-        # if f.shape[0]>1:
-        #     t=table(self.MSName+"/SPECTRAL_WINDOW/",ack=False)
-        #     c=t.getcol("CHAN_WIDTH")
-        #     c.fill(np.abs((f[0:-1]-f[1::])[0]))
-        #     t.putcol("CHAN_WIDTH",c)
-        #     t.close()
+    #     # f=self.ChanFreq.flatten()
+    #     # if f.shape[0]>1:
+    #     #     t=table(self.MSName+"/SPECTRAL_WINDOW/",ack=False)
+    #     #     c=t.getcol("CHAN_WIDTH")
+    #     #     c.fill(np.abs((f[0:-1]-f[1::])[0]))
+    #     #     t.putcol("CHAN_WIDTH",c)
+    #     #     t.close()
 
-        #print>>log, "Declare %s"%self.MSName
-        self.SR = lsr.stationresponse(self.MSName,
-                                      useElementResponse=useElementBeam,
-                                      #useElementBeam=useElementBeam,
-                                      useArrayFactor=useArrayFactor)#,useChanFreq=True)
-        #print>>log, "  Done"
-        #print>>log, "Set direction %f, %f"%(self.rarad,self.decrad)
-        self.SR.setDirection(self.rarad,self.decrad)
-        #print>>log, "  Done"
+    #     #print>>log, "Declare %s"%self.MSName
+    #     self.SR = lsr.stationresponse(self.MSName,
+    #                                   useElementResponse=useElementBeam,
+    #                                   #useElementBeam=useElementBeam,
+    #                                   useArrayFactor=useArrayFactor)#,useChanFreq=True)
+    #     #print>>log, "  Done"
+    #     #print>>log, "Set direction %f, %f"%(self.rarad,self.decrad)
+    #     self.SR.setDirection(self.rarad,self.decrad)
+    #     #print>>log, "  Done"
 
         
     def CopyNonSPWDependent(self,MSnodata):
@@ -288,15 +288,15 @@ class ClassMS():
         t.close()
         self.LOFAR_ANTENNA_FIELD=Dico
         
-        
-    def GiveBeam(self,time,ra,dec):
-        self.LoadSR()
-        Beam=np.zeros((ra.shape[0],self.na,self.NSPWChan,2,2),dtype=np.complex)
-        for i in range(ra.shape[0]):
-            self.SR.setDirection(ra[i],dec[i])
-            Beam[i]=self.SR.evaluate(time)
-        #Beam=np.swapaxes(Beam,1,2)
-        return Beam
+
+    # def GiveBeam(self,time,ra,dec):
+    #     self.LoadSR()
+    #     Beam=np.zeros((ra.shape[0],self.na,self.NSPWChan,2,2),dtype=np.complex)
+    #     for i in range(ra.shape[0]):
+    #         self.SR.setDirection(ra[i],dec[i])
+    #         Beam[i]=self.SR.evaluate(time)
+    #     #Beam=np.swapaxes(Beam,1,2)
+    #     return Beam
 
 
     def GiveMappingAnt(self,ListStrSel,(row0,row1)=(None,None),FlagAutoCorr=True,WriteAttribute=True):
@@ -1327,12 +1327,12 @@ class ClassMS():
 
     def AddCol(self,ColName,LikeCol="DATA",quiet=False):
         t=table(self.MSName,readonly=False,ack=False)
-        if (ColName in t.colnames() and not self.GD["Data"]["Overwrite"]):
+        if (ColName in t.colnames() and not self.GD["Predict"]["Overwrite"]):
             if not quiet:
                 print>>log, "  Column %s already in %s"%(ColName,self.MSName)
             t.close()
             return
-        elif (ColName in t.colnames() and self.GD["Data"]["Overwrite"]):
+        elif (ColName in t.colnames() and self.GD["Predict"]["Overwrite"]):
             t.removecols(ColName)
         print>>log, "  Putting column %s in %s"%(ColName,self.MSName)
         desc=t.getcoldesc(LikeCol)

@@ -29,15 +29,24 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Other import ModColor
 from DDFacet.Array import NpShared
+from DDFacet.Array import SharedDict
+
+from DDFacet.Other.AsyncProcessPool import APP
+import copy
 
 
 class ClassBeamMean():
     def __init__(self,VS):
+        MyLogger.setSilent(["ClassJones","ClassLOFARBeam"])
         self.VS=VS
-        self.GD=self.VS.GD
+        
+        self.GD=copy.deepcopy(self.VS.GD)
+        self.DoCentralNorm=self.GD["Beam"]["CenterNorm"]
+        self.SmoothBeam=None
         self.CheckCache()
         if self.CacheValid: return
 
+        #self.GD["Beam"]["CenterNorm"]=0
 
         self.ListMS=self.VS.ListMS
         self.MS=self.ListMS[0]
@@ -46,16 +55,35 @@ class ClassBeamMean():
         self.CalcGrid()
         #self.Padding=Padding
 
+        #self.SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
+        #self.SumWsq=np.zeros((1,self.MS.Nchan),np.float64)
+
+        self.StackedBeamDict=SharedDict.SharedDict("StackedBeamDict")
+        for iDir in range(self.NDir):
+            self.StackedBeamDict[iDir]={"SumJJsq":np.zeros((self.MS.Nchan,),np.float64),
+                                        "SumWsq":np.zeros((self.MS.Nchan,),np.float64)}
+
+
+        self.DicoJonesMachine={}
+        for iMS,MS in enumerate(self.ListMS):
+            JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine)
+            JonesMachine.InitBeamMachine()
+            self.DicoJonesMachine[iMS]=JonesMachine
+        MyLogger.setLoud(["ClassJones","ClassLOFARBeam"])
+
     def CalcGrid(self):
         _,_,nx,_=self.VS.FullImShape
         CellSizeRad=self.VS.CellSizeRad
         FOV=nx*CellSizeRad
-        npix=11
+        npix=self.GD["Beam"]["SmoothBeamNPix"]
         lm=np.linspace(-FOV/2.,FOV/2.,npix+1)
         ll=(lm[0:-1]+lm[1::])/2.
         lmin=ll.min()
         lmax=ll.max()
         lc,mc=np.mgrid[lmin:lmax:1j*npix,lmin:lmax:1j*npix]
+        iPix,jPix=np.mgrid[0:npix,0:npix]
+        self.iPix=iPix.ravel()
+        self.jPix=jPix.ravel()
         lc=lc.flatten()
         mc=mc.flatten()
         ra=np.zeros_like(lc)
@@ -65,137 +93,130 @@ class ClassBeamMean():
                                                     np.array([mc[i]]))
         self.radec=ra,dec
         self.npix=npix
-
-    def LoadData(self):
-        print>>log, "Loading some data for all MS..."
-        # make lists of tables and row counts (one per MS)
-        tabs = [ ms.GiveMainTable() for ms in self.ListMS ]
-        nrows = [ tab.nrows() for tab in tabs ]
-        nr = sum(nrows)
-        # preallocate arrays
-        # NB: this assumes nchan and ncorr is the same across all MSs in self.ListMS. Tough luck if it isn't!
-
-
-        self.Data={}
+        self.NDir=ra.size
         
-        for iMS,MS in zip(range(self.VS.nMS),self.ListMS):
 
-            tab = MS.GiveMainTable()
-            times = tab.getcol("TIME")
-            flags = tab.getcol("FLAG")
-            A0 = tab.getcol("ANTENNA1")
-            A1 = tab.getcol("ANTENNA2")
-            tab.close()
 
-            weights = self.VS.VisWeights[iMS][:]
-            ThisMSData={}
-            ThisMSData["A0"]=A0
-            ThisMSData["A1"]=A1
-            ThisMSData["times"]=times
-            ThisMSData["flags"]=flags
-            LW=[NpShared.GiveArray("file://"+NameWeights) for NameWeights in weights]
-            ThisMSData["W"]=np.concatenate(LW)
-            
-    
-            self.Data[iMS]=ThisMSData
-
-    def CalcMeanBeam(self):
-        if self.CacheValid:
-            return 
-
-        print>>log, ModColor.Str("========================= Calculating smooth beams =======================")
-        self.LoadData()
+    def StackBeam(self,ThisMSData,iDir):
+        self.StackedBeamDict.reload()
+        MyLogger.setSilent("ClassJones")
         Dt=self.GD["Beam"]["DtBeamMin"]*60.
-
+        JonesMachine=self.DicoJonesMachine[ThisMSData["iMS"]]
         RAs,DECs = self.radec
 
-        SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
-        SumWsq=0.
+        times=ThisMSData["times"]
+        A0=ThisMSData["A0"]
+        A1=ThisMSData["A1"]
+        flags=ThisMSData["flags"]
+        W=ThisMSData["Weights"]
+        
+        beam_times = np.array(JonesMachine.BeamMachine.getBeamSampleTimes(times))
 
+        T2=ClassTimeIt.ClassTimeIt()
+        T2.disable()
+        CurrentBeamITime=-1
+        # #print "  Estimate beam in %i directions"%(RAs.size)
+        # MS=self.ListMS[ThisMSData["iMS"]]
+        # JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine)
+        # JonesMachine.InitBeamMachine()
+        DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[iDir:iDir+1], DECs[iDir:iDir+1],progressBar=False)
+        T2.timeit("GetBeam 1")
+        #DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[0:10], DECs[0:10],progressBar=False)
+        #T2.timeit("GetBeam 10")
+        #print DicoBeam["Jones"].shape
+        NTRange=DicoBeam["t0"].size
+        #pBAR= ProgressBar(Title="      Mean Beam")
+        #pBAR.render(0, '%4i/%i' % (0,NTRange))
+        T=ClassTimeIt.ClassTimeIt("Stacking")
+        T.disable()
 
-        for iMS,MS in zip(range(self.VS.nMS),self.ListMS):
-            print>>log,"Compute beam for %s"%MS.MSName
-            print>>log,"  in %i directions"%RAs.size
-            JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine,IdSharedMem=self.VS.IdSharedMem)
-            JonesMachine.InitBeamMachine()
+        # DicoBeam["Jones"].shape = nt, nd, na, nch, _, _
 
-            ThisMSData=self.Data[iMS]
-            times=ThisMSData["times"]
-            A0=ThisMSData["A0"]
-            A1=ThisMSData["A1"]
-            flags=ThisMSData["flags"]
-            W=ThisMSData["W"]
+        for iTRange in range(DicoBeam["t0"].size):
+        
+            t0=DicoBeam["t0"][iTRange]
+            t1=DicoBeam["t1"][iTRange]
+            J=np.abs(DicoBeam["Jones"][iTRange])
+            ind=np.where((times>=t0)&(times<t1))[0]
+            T.timeit("0")
+            A0s=A0[ind]
+            A1s=A1[ind]
+            fs=flags[ind]
+            Ws=W[ind]
+            T.timeit("1")
             
-            beam_times = np.array(JonesMachine.BeamMachine.getBeamSampleTimes(times))
+            nd,na,nch,_,_=J.shape
             
-            CurrentBeamITime=-1
-            #print "  Estimate beam in %i directions"%(RAs.size)
-            DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs, DECs)
-            T=ClassTimeIt.ClassTimeIt()
-            T.disable()
-            NTRange=DicoBeam["t0"].size
-            pBAR= ProgressBar(Title="      Mean Beam")
-            pBAR.render(0, '%4i/%i' % (0,NTRange))
-            for iTRange in range(DicoBeam["t0"].size):
+            # ######################
+            # This call is slow
+            J0=J[:,A0s,:,:,:]
+            J1=J[:,A1s,:,:,:]
+            T.timeit("2")
+            # ######################
 
-                t0=DicoBeam["t0"][iTRange]
-                t1=DicoBeam["t1"][iTRange]
-                J=np.abs(DicoBeam["Jones"][iTRange])
-                ind=np.where((times>=t0)&(times<t1))[0]
-                T.timeit("0")
-                A0s=A0[ind]
-                A1s=A1[ind]
-                fs=flags[ind]
-                Ws=W[ind]
-                T.timeit("1")
-                
-                nt,na,nch,_,_=J.shape
+            # J0=np.zeros((nd,A0s.size,nch,2,2),dtype=J.dtype)
+            # #T.timeit("1a")
+            # J0List=[J[:,A0s[i],:,:,:] for i in range(A0s.size)]
+            # #T.timeit("1b")
+            # J1=np.zeros((nd,A0s.size,nch,2,2),dtype=J.dtype)
+            # #T.timeit("1c")
+            # J1List=[J[:,A1s[i],:,:,:] for i in range(A0s.size)]
+            # #T.timeit("1d")
+            # for i in range(A0s.size):
+            #     J0[:,i,:,:,:]=J0List[i]
+            #     J1[:,i,:,:,:]=J1List[i]
+            # T.timeit("2b")
 
-                # # ######################
-                # # This call is slow
-                # J0=J[:,A0s,:,:,:]
-                # J1=J[:,A1s,:,:,:]
-                # T.timeit("2")
-                # # ######################
-                J0=np.zeros((nt,A0s.size,nch,2,2),dtype=J.dtype)
-                J0List=[J[:,A0s[i],:,:,:] for i in range(A0s.size)]
-                J1=np.zeros((nt,A0s.size,nch,2,2),dtype=J.dtype)
-                J1List=[J[:,A1s[i],:,:,:] for i in range(A0s.size)]
-                for i in range(A0s.size):
-                    J0[:,i,:,:,:]=J0List[i]
-                    J1[:,i,:,:,:]=J1List[i]
-                T.timeit("2b")
+        
+            JJ=(J0[:,:,:,0,0]*J1[:,:,:,0,0]+J0[:,:,:,1,1]*J1[:,:,:,1,1])/2.
+            T.timeit("3")
+            
+            WW=Ws**2
+            T.timeit("4")
+            WW=WW.reshape((1,ind.size,self.MS.Nchan))
+            T.timeit("5")
+            JJsq=WW*JJ**2
+            T.timeit("6")
+            
+            SumWsqThisRange=np.sum(JJsq,axis=1)
+            T.timeit("7")
 
+            #self.SumJJsq+=SumWsqThisRange.reshape((self.npix,self.npix,self.MS.Nchan))
+            #T.timeit("8")
+            SumWsq=np.sum(WW,axis=1)
+            #self.SumWsq+=SumWsq
 
+            self.StackedBeamDict[iDir]["SumJJsq"]+=SumWsqThisRange.reshape((self.MS.Nchan,))
+            self.StackedBeamDict[iDir]["SumWsq"]+=SumWsq.reshape((self.MS.Nchan,))
 
-                JJ=(J0[:,:,:,0,0]*J1[:,:,:,0,0]+J0[:,:,:,1,1]*J1[:,:,:,1,1])/2.
-                T.timeit("3")
+            #print SumWsq,self.SumWsq,self.SumJJsq.shape,J0.shape
+            T.timeit("9")
+            
+            #NDone = iTRange+1
+            #intPercent = int(100 * NDone / float(NTRange))
+            #pBAR.render(intPercent, '%4i/%i' % (NDone, NTRange))
 
-                WW=Ws**2
-                T.timeit("4")
-                WW=WW.reshape((1,ind.size,self.MS.Nchan))
-                T.timeit("5")
-                JJsq=WW*JJ**2
-                T.timeit("6")
-
-                SumWsqThisRange=np.sum(JJsq,axis=1)
-                T.timeit("7")
-                SumJJsq+=SumWsqThisRange.reshape((self.npix,self.npix,self.MS.Nchan))
-                T.timeit("8")
-                SumWsq+=np.sum(WW,axis=1)
-                T.timeit("9")
-
-                NDone = iTRange+1
-                intPercent = int(100 * NDone / float(NTRange))
-                pBAR.render(intPercent, '%4i/%i' % (NDone, NTRange))
-
-        SumJJsq/=SumWsq.reshape(1,1,self.MS.Nchan)
-        #self.SumJJsq=np.rollaxis(SumJJsq,2)#np.mean(SumJJsq,axis=2)
-        self.SumJJsq=np.mean(SumJJsq,axis=2)
-
-        self.Smooth()
+        T2.timeit("Stack")
+        MyLogger.setLoud("ClassJones")
+  
         
     def Smooth(self):
+        #print self.SumWsq
+        self.StackedBeamDict.reload()
+        self.SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
+        self.SumWsq=np.zeros((1,self.MS.Nchan),np.float64)
+        self.SumWsq[0,:]=self.StackedBeamDict[0]["SumWsq"]
+        if np.max(self.StackedBeamDict[0]["SumWsq"])==0:
+            return "NoStackedData"
+        for iDir in range(self.NDir):
+            i,j=self.iPix[iDir],self.jPix[iDir]
+            self.SumJJsq[i,j,:]=self.StackedBeamDict[iDir]["SumJJsq"]
+
+        self.SumJJsq/=self.SumWsq.reshape(1,1,self.MS.Nchan)
+        #self.SumJJsq=np.rollaxis(SumJJsq,2)#np.mean(SumJJsq,axis=2)
+        self.SumJJsq=np.mean(self.SumJJsq,axis=2)
+
+
         _,_,nx,_=self.VS.FullImShape
         
         SpheM=ModCF.SpheMachine(Support=self.npix,SupportSpheCalc=111)
@@ -223,10 +244,13 @@ class ClassBeamMean():
         # pylab.clf()
         # ax=pylab.subplot(1,3,1)
         # pylab.imshow(self.SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # pylab.colorbar()
         # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
         # pylab.imshow(ifzfCF.real,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # pylab.colorbar()
         # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
         # pylab.imshow(if_z_f_SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # pylab.colorbar()
         # pylab.show(False)
         # stop
 
@@ -234,7 +258,8 @@ class ClassBeamMean():
         self.SmoothBeam=np.real(if_z_f_SumJJsq)
         np.save(self.CachePath,self.SmoothBeam)
         self.VS.maincache.saveCache("SmoothBeam.npy")
-        print>>log, ModColor.Str("======================= Done calculating smooth beams ====================")
+        # print>>log, ModColor.Str("======================= Done calculating smooth beams ====================")
+        return "HasBeenComputed"
 
        
     def CheckCache(self):
@@ -250,7 +275,7 @@ class ClassBeamMean():
 
 
         if self.CacheValid:
-            print>>log,"found valid cached dirty image in %s"%self.CachePath
+            print>>log,"Found valid smooth beam in %s"%self.CachePath
             self.SmoothBeam=np.load(self.CachePath)
 
     def GiveMergedWithDiscrete(self,DiscreteMeanBeam):

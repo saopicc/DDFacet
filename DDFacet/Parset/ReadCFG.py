@@ -295,8 +295,8 @@ class Parset():
         section = self._renameSection("DataSelection", "Selection")
 
         section = self._renameSection("Images", "Output")
-        self._move(section, "AllowColumnOverwrite", "Data", "Overwrite")
-        self._move(section, "PredictModelName", "Data", "PredictFromImage")
+        self._move(section, "AllowColumnOverwrite", "Predict", "Overwrite")
+        self._move(section, "PredictModelName", "Predict", "PredictFromImage")
         self._rename(section, "ImageName", "Name")
         self._del(section, "SaveIms")  # deprecated
         self._rename(section, "SaveOnly", "Images")

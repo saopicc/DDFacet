@@ -43,6 +43,7 @@ from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
 #    #sys.exit(1)
 from DDFacet.Array import NpParallel
 import ClassIslandDistanceMachine
+from DDFacet.Array import SharedDict
 
 MyLogger.setSilent("ClassArrayMethodSSD")
 MyLogger.setSilent("ClassIsland")
@@ -118,7 +119,8 @@ class ClassImageDeconvMachine():
 
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
-        DicoVariablePSF["CubeVariablePSF"]=NpShared.ToShared("%s.CubeVariablePSF"%self.IdSharedMem,DicoVariablePSF["CubeVariablePSF"])
+        #DicoVariablePSF["CubeVariablePSF"]=NpShared.ToShared("%s.CubeVariablePSF"%self.IdSharedMem,DicoVariablePSF["CubeVariablePSF"])
+        DicoVariablePSF=SharedDict.attach(DicoVariablePSF.path)#["CubeVariablePSF"]
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
         self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
         #self.DicoPSF=DicoPSF
@@ -151,10 +153,13 @@ class ClassImageDeconvMachine():
 
     def SetDirty(self,DicoDirty):
         DicoDirty["ImagData"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImagData"])
-        DicoDirty["MeanImage"]=NpShared.ToShared("%s.Dirty.MeanImage"%self.IdSharedMem,DicoDirty["MeanImage"])
+        #DicoDirty["MeanImage"]=NpShared.ToShared("%s.Dirty.MeanImage"%self.IdSharedMem,DicoDirty["MeanImage"])
+        
+
         self.DicoDirty=DicoDirty
         self._Dirty=self.DicoDirty["ImagData"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
+
         NPSF=self.PSFServer.NPSF
         _,_,NDirty,_=self._Dirty.shape
 
@@ -177,6 +182,7 @@ class ClassImageDeconvMachine():
             self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
             self.IslandArray=np.zeros_like(self._MaskArray)
             self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
+
 
 
 
@@ -457,11 +463,11 @@ class ClassImageDeconvMachine():
 
         StopWhenQueueEmpty=True
 
-        # ######### Debug
-        # ParallelPerIsland=False
-        # Parallel=False
-        # StopWhenQueueEmpty=True
-        # ##################
+        ######### Debug
+        ParallelPerIsland=False
+        Parallel=False
+        StopWhenQueueEmpty=True
+        ##################
 
 
         work_queue = multiprocessing.Queue()
@@ -719,8 +725,13 @@ class WorkerDeconvIsland(multiprocessing.Process):
         self.GD=GD
         self.IdSharedMem=IdSharedMem
         self.FreqsInfo=FreqsInfo
-        self.CubeVariablePSF=NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
+
+        #self.CubeVariablePSF=NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
         self._Dirty=NpShared.GiveArray("%s.Dirty.ImagData"%self.IdSharedMem)
+
+        self.CubeVariablePSF=SharedDict.attach("FMPSF_AllImages")["CubeVariablePSF"]
+        #self._Dirty=SharedDict.attach("dictDirty")["ImagData"]
+
         #self.WeightFreqBands=WeightFreqBands
         self.ParallelPerIsland=ParallelPerIsland
         self.StopWhenQueueEmpty=StopWhenQueueEmpty

@@ -107,6 +107,8 @@ class ClassJones():
         l = DicoClusterDirs["l"]
         m = DicoClusterDirs["m"]
         I = DicoClusterDirs["I"]
+        ra = DicoClusterDirs["ra"]
+        dec = DicoClusterDirs["dec"]
         Cluster = DicoClusterDirs["Cluster"]
         t0 = DicoSols["t0"]
         t1 = DicoSols["t1"]
@@ -120,20 +122,23 @@ class ClassJones():
         np.savez(file(OutName, "w"),
                  l=l, m=m, I=I, Cluster=Cluster,
                  t0=t0, t1=t1, tm=tm,
+                 ra=ra,dec=dec,
                  Jones=Jones,
                  TimeMapping=TimeMapping,
                  VisToJonesChanMapping=VisToJonesChanMapping)
 
     def DiskToSols(self, InName):
         # SolsFile_killMS=np.load(self.JonesNorm_killMS)
-        #print>>log, "  Loading %s"%InName
-
+        # print>>log, "  Loading %s"%InName
+        # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",InName
         SolsFile = np.load(InName)
         print>>log, "  %s loaded" % InName
 
         DicoClusterDirs = {}
         DicoClusterDirs["l"] = SolsFile["l"]
         DicoClusterDirs["m"] = SolsFile["m"]
+        DicoClusterDirs["ra"] = SolsFile["ra"]
+        DicoClusterDirs["dec"] = SolsFile["dec"]
         DicoClusterDirs["I"] = SolsFile["I"]
         DicoClusterDirs["Cluster"] = SolsFile["Cluster"]
         DicoSols = {}
@@ -501,7 +506,7 @@ class ClassJones():
             (self.MS.NSPWChan, 1))-MeanFreqJonesChan.reshape((1, NChanJones)))
         return np.argmin(DFreq, axis=1)
 
-    def EstimateBeam(self, TimesBeam, RA, DEC):
+    def EstimateBeam(self, TimesBeam, RA, DEC,progressBar=True):
         TimesBeam = np.float64(np.array(TimesBeam))
         T0s = TimesBeam[:-1].copy()
         T1s = TimesBeam[1:].copy()
@@ -525,6 +530,7 @@ class ClassJones():
         
         rac,decc=self.MS.OriginalRadec
         pBAR= ProgressBar(Title="  Init E-Jones ")#, HeaderSize=10,TitleSize=13)
+        if not progressBar: pBAR.disable()
         pBAR.render(0, Tm.size)
         for itime in range(Tm.size):
             DicoBeam["t0"][itime]=T0s[itime]
