@@ -703,7 +703,7 @@ class ClassImagerDeconv():
         # self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
         CleanMaskImage=None
-        CleanMaskImageName=self.GD["Deconv"]["CleanMaskImage"]
+        CleanMaskImageName=self.GD["Mask"]["ExternalMask"]
         if CleanMaskImageName is not None and CleanMaskImageName is not "":
             print>>log,ModColor.Str("Will use mask image %s for the predict"%CleanMaskImageName)
             CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))

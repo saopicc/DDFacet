@@ -164,7 +164,7 @@ class ClassInitSSDModel():
         ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
         ModelMachine.setRefFreq(self.RefFreq)
         MinorCycleConfig["ModelMachine"]=ModelMachine
-        MinorCycleConfig["CleanMaskImage"]=None
+        #MinorCycleConfig["CleanMaskImage"]=None
 
         self.MinorCycleConfig=MinorCycleConfig
         self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,
