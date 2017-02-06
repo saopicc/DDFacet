@@ -62,7 +62,6 @@ class ClassImageDeconvMachine():
                  PeakFactor=0,
                  GD=None, 
                  SearchMaxAbs=1, 
-                 CleanMaskImage=None,
                  ModelMachine=None,
                  NFreqBands=1,
                  MainCache=None,
@@ -98,11 +97,14 @@ class ClassImageDeconvMachine():
         self._niter = 0
         self.CacheSharedMode=CacheSharedMode
         self.facetcache=None
+        self._MaskArray=None
 
     def updateMask(self,Mask):
         nx,ny=Mask.shape
         self._MaskArray = np.zeros((1,1,nx,ny),np.bool8)
         self._MaskArray[0,0,:,:]=Mask[:,:]
+
+
 
     def setMaskMachine(self,MaskMachine):
         self.MaskMachine=MaskMachine
@@ -223,7 +225,7 @@ class ClassImageDeconvMachine():
                     print >>log, ModColor.Str(
                         "WARNING: HMP cache could not be written, see error report above. Proceeding anyway.")
 
-    def SetDirty(self, DicoDirty,DoSetMask=True):
+    def SetDirty(self, DicoDirty):#,DoSetMask=True):
         # if len(PSF.shape)==4:
         #     self.PSF=PSF[0,0]
         # else:
@@ -254,28 +256,28 @@ class ClassImageDeconvMachine():
 #        if self._ModelImage is None:
 #            self._ModelImage=np.zeros_like(self._CubeDirty)
 
-        if DoSetMask:
-            if self._MaskArray is None:
-                self._MaskArray=np.zeros(self._MeanDirty.shape,dtype=np.bool8)
-            else:
-                maskshape = (1,1,NDirty,NDirty)
-                # check for mask shape
-                if maskshape != self._MaskArray.shape:
-                    ma0 = self._MaskArray
-                    _,_,nx,ny = ma0.shape
-                    def match_shapes (n1,n2):
-                        if n1<n2:
-                            return slice(None), slice((n2-n1)/2,(n2-n1)/2+n1)
-                        elif n1>n2:
-                            return slice((n1-n2)/2,(n1-n2)/2+n2), slice(None)
-                        else:
-                            return slice(None), slice(None)
-                    sx1, sx2 = match_shapes(NDirty, nx) 
-                    sy1, sy2 = match_shapes(NDirty, ny) 
-                    self._MaskArray = np.zeros(maskshape, dtype=np.bool8)
-                    self._MaskArray[0,0,sx1,sy1] = ma0[0,0,sx2,sy2]
-                    print>>log,ModColor.Str("WARNING: reshaping mask image from %dx%d to %dx%d"%(nx, ny, NDirty, NDirty))
-                    print>>log,ModColor.Str("Are you sure you supplied the correct cleaning mask?")
+        # if DoSetMask:
+        #     if self._MaskArray is None:
+        #         self._MaskArray=np.zeros(self._MeanDirty.shape,dtype=np.bool8)
+        #     else:
+        #         maskshape = (1,1,NDirty,NDirty)
+        #         # check for mask shape
+        #         if maskshape != self._MaskArray.shape:
+        #             ma0 = self._MaskArray
+        #             _,_,nx,ny = ma0.shape
+        #             def match_shapes (n1,n2):
+        #                 if n1<n2:
+        #                     return slice(None), slice((n2-n1)/2,(n2-n1)/2+n1)
+        #                 elif n1>n2:
+        #                     return slice((n1-n2)/2,(n1-n2)/2+n2), slice(None)
+        #                 else:
+        #                     return slice(None), slice(None)
+        #             sx1, sx2 = match_shapes(NDirty, nx) 
+        #             sy1, sy2 = match_shapes(NDirty, ny) 
+        #             self._MaskArray = np.zeros(maskshape, dtype=np.bool8)
+        #             self._MaskArray[0,0,sx1,sy1] = ma0[0,0,sx2,sy2]
+        #             print>>log,ModColor.Str("WARNING: reshaping mask image from %dx%d to %dx%d"%(nx, ny, NDirty, NDirty))
+        #             print>>log,ModColor.Str("Are you sure you supplied the correct cleaning mask?")
         
 
     def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):
@@ -446,7 +448,11 @@ class ClassImageDeconvMachine():
 
         Fluxlimit_RMS = self.RMSFactor*RMS
         #print "startmax",self._MeanDirty.shape,self._MaskArray.shape
-        x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self._MaskArray)
+
+        CurrentNegMask=self.MaskMachine.CurrentNegMask
+        if self._MaskArray is not None:
+            CurrentNegMask=self._MaskArray
+        x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=CurrentNegMask)
 
         #x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty.copy(),NCPU=1,DoAbs=DoAbs,Mask=self._MaskArray.copy())
         #A=self._MeanDirty.copy()
@@ -500,7 +506,7 @@ class ClassImageDeconvMachine():
         T.disable()
 
         x, y, ThisFlux = NpParallel.A_whereMax(
-            self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=self._MaskArray)
+            self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
         # #print x,y
         # print>>log, "npp: %d %d %g"%(x,y,ThisFlux)
         # xy = ma.argmax(ma.masked_array(abs(self._MeanDirty), self._MaskArray))
@@ -538,7 +544,7 @@ class ClassImageDeconvMachine():
 
                 # x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
                 x, y, ThisFlux = NpParallel.A_whereMax(
-                    self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=self._MaskArray)
+                    self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
 
                 #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y); ThisFlux=self._MeanDirty[0,0,x,y]
                 self.GainMachine.SetFluxMax(ThisFlux)

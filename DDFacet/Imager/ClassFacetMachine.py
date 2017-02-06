@@ -868,8 +868,11 @@ class ClassFacetMachine():
                     # print>>log,"using computed Circumcision=%d"%NPixMin
 
             nch = self.VS.NFreqBands
-            CubeVariablePSF = np.zeros((NFacets, nch, npol, NPixMin, NPixMin), np.float32)
-            CubeMeanVariablePSF = np.zeros((NFacets, 1, npol, NPixMin, NPixMin), np.float32)
+            DicoVariablePSF.addSharedArray("CubeVariablePSF",(NFacets, nch, npol, NPixMin, NPixMin), np.float32)
+            DicoVariablePSF.addSharedArray("CubeMeanVariablePSF",(NFacets, 1, npol, NPixMin, NPixMin), np.float32)
+
+            #CubeVariablePSF = np.zeros((NFacets, nch, npol, NPixMin, NPixMin), np.float32)
+            #CubeMeanVariablePSF = np.zeros((NFacets, 1, npol, NPixMin, NPixMin), np.float32)
 
             print>>log, "cutting PSF facet-slices of shape %dx%d" % (NPixMin, NPixMin)
             for iFacet in sorted(DicoVariablePSF.keys()):
@@ -877,17 +880,19 @@ class ClassFacetMachine():
                 for ch in xrange(nch):
                     i = n/2 - NPixMin/2
                     j = n/2 + NPixMin/2 + 1
-                    CubeVariablePSF[iFacet, ch, :, :, :] = DicoVariablePSF[iFacet]["PSF"][ch][:, i:j, i:j]
-                CubeMeanVariablePSF[iFacet, 0, :, :, :] = DicoVariablePSF[iFacet]["MeanPSF"][0, :, i:j, i:j]
+                    DicoImages["CubeVariablePSF"][iFacet, ch, :, :, :] = DicoVariablePSF[iFacet]["PSF"][ch][:, i:j, i:j]
+                DicoImages["CubeMeanVariablePSF"][iFacet, 0, :, :, :] = DicoVariablePSF[iFacet]["MeanPSF"][0, :, i:j, i:j]
 
             DicoImages["CentralFacet"] = self.iCentralFacet
-            DicoImages["CubeVariablePSF"] = CubeVariablePSF
-            DicoImages["CubeMeanVariablePSF"] = CubeMeanVariablePSF
+            #DicoImages["CubeVariablePSF"] = CubeVariablePSF
+            #DicoImages["CubeMeanVariablePSF"] = CubeMeanVariablePSF
             DicoImages["MeanJonesBand"] = []
 
             print>>log,"  Building Facets-PSF normalised by their maximum"
-            DicoImages["PeakNormed_CubeMeanVariablePSF"]=np.zeros_like(DicoImages["CubeMeanVariablePSF"])
-            DicoImages["PeakNormed_CubeVariablePSF"]=np.zeros_like(DicoImages["CubeVariablePSF"])
+            #DicoImages["PeakNormed_CubeVariablePSF"]=np.zeros_like(DicoImages["CubeVariablePSF"])
+            #DicoImages["PeakNormed_CubeMeanVariablePSF"]=np.zeros_like(DicoImages["CubeMeanVariablePSF"])
+            DicoVariablePSF.addSharedArray("PeakNormed_CubeVariablePSF",(NFacets, nch, npol, NPixMin, NPixMin), np.float32)
+            DicoVariablePSF.addSharedArray("PeakNormed_CubeMeanVariablePSF",(NFacets, 1, npol, NPixMin, NPixMin), np.float32)
             for iFacet in sorted(self.DicoImager.keys()):
                 DicoImages["PeakNormed_CubeMeanVariablePSF"][iFacet]=CubeMeanVariablePSF[iFacet]/np.max(CubeMeanVariablePSF[iFacet])
                 for iChan in range(nch):

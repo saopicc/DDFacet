@@ -171,6 +171,7 @@ class ClassImagerDeconv():
         MinorCycleConfig["GD"] = self.GD
         MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
 
+        self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
 
         SubstractModel=self.GD["Predict"]["InitDicoModel"]
         DoSub=(SubstractModel!="")&(SubstractModel is not None)
@@ -194,6 +195,7 @@ class ClassImagerDeconv():
                 self.DicoModelName="%s.DicoModel"%self.BaseName
                 self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
             self.DoDirtySub=1
+
         else:
             ModelMachine = self.ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
             ModelMachine.setRefFreq(self.VS.RefFreq)
@@ -203,8 +205,8 @@ class ClassImagerDeconv():
         self.ModelMachine=ModelMachine
 
         MinorCycleConfig["ModelMachine"] = ModelMachine
-        self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
- 
+        
+
         if self.do_deconvolve:
             # Specify which deconvolution algorithm to use
             if self.GD["Deconv"]["Mode"] == "HMP":
@@ -506,6 +508,9 @@ class ClassImagerDeconv():
                 self.MeanJonesNorm = None
                 self.JonesNorm = None
             
+            if self.DicoDirty.get("LastMask") is not None:
+                self.MaskMachine.joinExternalMask(self.DicoDirty["LastMask"])
+
         if psf_valid:
             print>>log, ModColor.Str("============================ Loading cached PSF =================================")
             print>> log, "found valid cached PSF in %s" % psf_cachepath
@@ -631,6 +636,7 @@ class ClassImagerDeconv():
         self.CurrentDicoResidImage = self.DicoDirty
         self.ResidCube  = self.CurrentDicoResidImage["ImagData"] #get residuals cube
         self.ResidImage = self.CurrentDicoResidImage["MeanImage"]
+        
         return self.DicoDirty["MeanImage"]
 
     def SaveDirtyProducts(self):
@@ -871,6 +877,16 @@ class ClassImagerDeconv():
 
             print>>log, ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1))
             self.MaskMachine.updateResidual(DicoImage)
+
+            if self.MaskMachine.CurrentMask is not None:
+                if "k" in self._saveims:
+                    self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.CurrentMask),
+                                                  ImageName="%s.mask%2.2i"%(self.BaseName,iMajor),Fits=True,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                if "z" in self._saveims and self.MaskMachine.NoiseMap is not None:
+                    self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.NoiseMapReShape),
+                                                  ImageName="%s.noise%2.2i"%(self.BaseName,iMajor),Fits=True,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             self.DeconvMachine.Update(DicoImage)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
@@ -1011,6 +1027,7 @@ class ClassImagerDeconv():
             DicoImage = self.FacetMachine.FacetsToIm(NormJones=True)
 
             self.CurrentDicoResidImage = DicoImage
+            self.CurrentDicoResidImage["LastMask"]=self.MaskMachine.CurrentMask
             self.ResidCube  = DicoImage["ImagData"] #get residuals cube
             self.ResidImage = DicoImage["MeanImage"]
             # was PSF re-generated?

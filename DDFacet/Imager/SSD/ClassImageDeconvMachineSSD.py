@@ -164,8 +164,11 @@ class ClassImageDeconvMachine():
 
     def SearchIslands(self,Threshold):
 
+        if self.MaskMachine.CurrentNegMask is None:
+            raise RuntimeError("A mask image should be constructible with SSD")
+
         IslandDistanceMachine=ClassIslandDistanceMachine.ClassIslandDistanceMachine(self.GD,
-                                                                                    self.MaskMachine.CurrentMask,
+                                                                                    self.MaskMachine.CurrentNegMask,
                                                                                     self.PSFServer,
                                                                                     self.DicoDirty,
                                                                                     IdSharedMem=self.IdSharedMem)
@@ -322,7 +325,7 @@ class ClassImageDeconvMachine():
         
         Fluxlimit_RMS = self.RMSFactor*RMS
 
-        x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskMachine.CurrentMask)
+        x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskMachine.CurrentNegMask)
         #MaxDirty=np.max(np.abs(self.Dirty))
         #Fluxlimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
         #Fluxlimit_Sidelobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
@@ -354,7 +357,7 @@ class ClassImageDeconvMachine():
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
 
-        x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskMachine.CurrentMask)
+        x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskMachine.CurrentNegMask)
 
         if ThisFlux < StopFlux:
             print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" )
