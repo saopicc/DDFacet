@@ -104,7 +104,8 @@ class ClassMaskMachine():
         if self.NoiseMask is not None: 
             self.CurrentMask = OR(self.CurrentMask,self.NoiseMask)
 
-        self.CurrentNegMask=self.giveOpposite(self.CurrentMask)
+        if self.CurrentMask is not None:
+            self.CurrentNegMask=self.giveOpposite(self.CurrentMask)
 
     def AdaptMaskShape(self):
         _,_,NMask,_=self._MaskArray.shape
