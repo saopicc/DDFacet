@@ -536,7 +536,7 @@ class ClassFacetMachine():
         T=ClassTimeIt.ClassTimeIt("setWisdom")
         T.disable()
         for iFacet in sorted(self.DicoImager.keys()):
-            NPixPadded=self.DicoImager[0]["NpixFacetPadded"]
+            NPixPadded=self.DicoImager[iFacet]["NpixFacetPadded"]
             if self.GD["RIME"]["Precision"]=="S":
                 TypeKey=(NPixPadded,np.complex64)
             elif self.GD["RIME"]["Precision"]=="D":
