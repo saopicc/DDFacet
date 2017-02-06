@@ -53,6 +53,7 @@ MyLogger.setSilent("MyLogger")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 from DDFacet.Other import ModColor
 MyLogger.setSilent("MyLogger")
+import cpuinfo
 
 class ClassFacetMachine():
     """
@@ -513,12 +514,17 @@ class ClassFacetMachine():
         from os.path import expanduser
         if self.GD["RIME"]["FFTMachine"]!="FFTW": return
         self.wisdom_cache_path = self.GD["Cache"]["DirWisdomFFTW"]
-        hostname=socket.gethostname()
+        #hostname=socket.gethostname()
+        cpuname=cpuinfo.get_cpu_info()["brand"].replace(" ","")
         if "~" in self.wisdom_cache_path:
             home = expanduser("~")        
             self.wisdom_cache_path=self.wisdom_cache_path.replace("~",home)
-        self.wisdom_cache_path_host = "/".join([self.wisdom_cache_path,hostname])
-        self.wisdom_cache_file = "/".join([self.wisdom_cache_path_host,"Wisdom.pickle"])
+        self.wisdom_cache_path_host = "/".join([self.wisdom_cache_path,cpuname])
+        self.wisdom_cache_file =  "/".join([self.wisdom_cache_path_host,"Wisdom.pickle"])
+        #self.wisdom_cache_path_host="'%s'"%self.wisdom_cache_path_host
+        #self.wisdom_cache_file="'%s'"%self.wisdom_cache_file
+        
+
 
         if not os.path.isdir(self.wisdom_cache_path_host):
             print>>log, "Wisdom file %s does not exist, create it" % (self.wisdom_cache_path_host)
