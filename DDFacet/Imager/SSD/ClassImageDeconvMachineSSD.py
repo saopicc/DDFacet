@@ -91,20 +91,11 @@ class ClassImageDeconvMachine():
         self._niter = 0
         self.NChains=self.NCPU
 
-        if CleanMaskImage is not None:
-            print>>log, "Reading mask image: %s"%CleanMaskImage
-            MaskArray=image(CleanMaskImage).getdata()
-            nch,npol,_,_=MaskArray.shape
-            self._MaskArray=np.zeros(MaskArray.shape,np.bool8)
-            for ch in range(nch):
-                for pol in range(npol):
-                    self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
-            self.MaskArray=self._MaskArray[0]
-            self.IslandArray=np.zeros_like(self._MaskArray)
-            self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
-        else:
-            raise NotImplementedError("You have to provide a mask image for SSDClean")
         self.DeconvMode="GAClean"
+
+    def setMaskMachine(self,MaskMachine):
+        self.MaskMachine=MaskMachine
+
 
     def setDeconvMode(self,Mode="MetroClean"):
         self.DeconvMode=Mode

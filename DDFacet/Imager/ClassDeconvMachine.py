@@ -202,7 +202,8 @@ class ClassImagerDeconv():
         self.ModelMachine=ModelMachine
 
         MinorCycleConfig["ModelMachine"] = ModelMachine
-
+        self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
+ 
         if self.do_deconvolve:
             # Specify which deconvolution algorithm to use
             if self.GD["Deconv"]["Mode"] == "HMP":
@@ -223,10 +224,12 @@ class ClassImagerDeconv():
                 print>>log,"Using Hogbom algorithm"
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
+           self.DeconvMachine.setMaskMachine(self.MaskMachine)
 
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
         self.DoSmoothBeam=("H" in self._saveims) and self.GD["Beam"]["Model"]
+        stop
         if self.DoSmoothBeam:
             AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
@@ -867,7 +870,7 @@ class ClassImagerDeconv():
                 break
 
             print>>log, ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1))
-
+            self.MaskMachine.
             self.DeconvMachine.Update(DicoImage)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()

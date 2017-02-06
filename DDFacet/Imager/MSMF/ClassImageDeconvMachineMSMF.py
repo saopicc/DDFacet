@@ -99,20 +99,13 @@ class ClassImageDeconvMachine():
         self.CacheSharedMode=CacheSharedMode
         self.facetcache=None
 
-        if CleanMaskImage is not None:
-            MaskArray = image(CleanMaskImage).getdata()
-            nch, npol, nx, ny = MaskArray.shape
-            print>>log, "Using mask image %s of shape %dx%d" % (
-                CleanMaskImage, nx, ny)
-            # mask array has only one channel, one pol, so take the first plane from the image
-            # (and transpose the axes to X,Y from the FITS Y,X)
-            self._MaskArray = np.zeros((1,1,ny,nx),np.bool8)
-            self._MaskArray[0,0,:,:] = np.bool8(1-MaskArray[0,0].T[::-1])
-
     def updateMask(self,Mask):
         nx,ny=Mask.shape
         self._MaskArray = np.zeros((1,1,nx,ny),np.bool8)
         self._MaskArray[0,0,:,:]=Mask[:,:]
+
+    def setMaskMachine(self,MaskMachine):
+        self.MaskMachine=MaskMachine
 
     def resetCounter(self):
         self._niter = 0
