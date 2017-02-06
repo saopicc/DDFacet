@@ -226,8 +226,8 @@ class ClassImagerDeconv():
 
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
-        
-        if "H" in self._saveims:
+        self.DoSmoothBeam=("H" in self._saveims) and self.GD["Beam"]["Model"]
+        if self.DoSmoothBeam:
             AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
 
@@ -662,7 +662,7 @@ class ClassImagerDeconv():
             self.JonesNorm = self.DicoDirty["JonesNorm"]
             self.MeanJonesNorm = np.mean(self.JonesNorm,axis=0).reshape((1,npol,nx,ny))
 
-            if "H" in self._saveims and self.FacetMachine.SmoothMeanJonesNorm is not None:
+            if self.DoSmoothBeam and self.FacetMachine.SmoothMeanJonesNorm is not None:
                 self.FacetMachine.ToCasaImage(self.FacetMachine.SmoothMeanJonesNorm,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
@@ -1480,7 +1480,7 @@ class ClassImagerDeconv():
                                    beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         # intrinsic-flux restored image
-        if havenorm and ("H" in self._saveims):
+        if havenorm and self.DoSmoothBeam:
             if self.FacetMachine.SmoothMeanJonesNorm is None:
                 print>> log, ModColor.Str("You requested a restored imaged but the smooth beam is not in there")
                 print>> log, ModColor.Str("  so just not doing it")

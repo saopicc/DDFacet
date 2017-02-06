@@ -23,7 +23,6 @@ log= MyLogger.getLogger("ClassLOFARBeam")
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 
-
 import numpy as np
 try:
     import lofar.stationresponse as lsr
