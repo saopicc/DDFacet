@@ -966,7 +966,8 @@ class ClassFacetMachine():
 
             for iFacet in sorted(self.DicoImager.keys()):
                 DicoImages["Facets"][iFacet].delete_item("PSF")
-           
+                DicoImages["Facets"][iFacet].delete_item("MeanPSF")
+                
             # print>>log,"copying dictPSF"
             DicoImages.reload()
             self._psf_dict = DicoImages

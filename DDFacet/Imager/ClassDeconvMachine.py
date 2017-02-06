@@ -859,9 +859,10 @@ class ClassImagerDeconv():
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
+            print>>log, "Deleting FacetMachinePSF..."
             self.FacetMachinePSF.__del__()
             self.FacetMachinePSF = None
-
+        
         #Pass minor cycle specific options into Init as kwargs
         self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
                                 approx=(sparsify > approximate_psf_above), cache=not sparsify,

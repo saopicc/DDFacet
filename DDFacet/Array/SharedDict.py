@@ -164,12 +164,17 @@ class SharedDict (dict):
 
     def delete_item (self, item):
         dict.__delitem__(self, item)
-        name = self._key_to_name(item)
+        #name = self._key_to_name(item)
+        name = os.path.join(self.path, self._key_to_name(item))
+
         for suffix in "ap":
             if os.path.exists(name+suffix):
+                #print name+suffix
                 os.unlink(name+suffix)
         if os.path.exists(name+"d"):
+            #print "rm -fr "+name+"d"
             os.system("rm -fr "+name+"d")
+
 
     def __setitem__(self, item, value):
         if type(item).__name__ not in _allowed_key_types:
