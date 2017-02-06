@@ -173,11 +173,11 @@ class FFTW_2Donly():
         nch,npol,_,_=A.shape
         for ich in range(nch):
             for ipol in range(npol):
-                A[:,:] = iFs(A[ich,ipol].astype(self.ThisType),axes=axes)
+                A_2D = iFs(A[ich,ipol].astype(self.ThisType),axes=axes)
                 T.timeit("shift and copy")
-                A = pyfftw.interfaces.numpy_fft.fft2(A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
+                A_2D[...] = pyfftw.interfaces.numpy_fft.fft2(A_2D, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
                 T.timeit("fft")
-                A[ich,ipol]=Fs(A,axes=axes)
+                A[ich,ipol]=Fs(A_2D,axes=axes)
                 T.timeit("shift")
         if self.norm:
             A /= (A.shape[-1] * A.shape[-2])
@@ -195,9 +195,9 @@ class FFTW_2Donly():
         nch,npol,_, _ = A.shape
         for ich in range(nch):
             for ipol in range(npol):
-                A[:,:] = iFs(A[ich,ipol].astype(self.ThisType),axes=axes)
-                A = pyfftw.interfaces.numpy_fft.ifft2(A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
-                A[ich,ipol]=Fs(A,axes=axes)
+                A_2D = iFs(A[ich,ipol].astype(self.ThisType),axes=axes)
+                A_2D[...] = pyfftw.interfaces.numpy_fft.ifft2(A_2D, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
+                A[ich,ipol]=Fs(A_2D,axes=axes)
         if self.norm:
             A *= (A.shape[-1] * A.shape[-2])
         return A.reshape(sin)
