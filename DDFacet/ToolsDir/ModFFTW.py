@@ -141,9 +141,9 @@ class FFTW_2Donly():
         #     self.A = pyfftw.n_byte_align_empty( shape[-2::], 16, dtype=dtype)
         # else:
         #     self.A = NpShared.GiveArray(FromSharedId)
- 
-        pyfftw.interfaces.cache.enable()
-        pyfftw.interfaces.cache.set_keepalive_time(3000)
+        
+        #pyfftw.interfaces.cache.enable()
+        #pyfftw.interfaces.cache.set_keepalive_time(3000)
         self.ncores=ncores or NCPU_global
         #print "plan"
         T= ClassTimeIt.ClassTimeIt("ModFFTW")
