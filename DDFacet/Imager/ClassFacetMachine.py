@@ -887,7 +887,8 @@ class ClassFacetMachine():
             #DicoImages["CubeVariablePSF"] = CubeVariablePSF
             #DicoImages["CubeMeanVariablePSF"] = CubeMeanVariablePSF
             DicoImages["MeanJonesBand"] = []
-
+            CubeVariablePSF=DicoImages["CubeVariablePSF"]
+            CubeMeanVariablePSF=DicoImages["CubeMeanVariablePSF"]
             print>>log,"  Building Facets-PSF normalised by their maximum"
             #DicoImages["PeakNormed_CubeVariablePSF"]=np.zeros_like(DicoImages["CubeVariablePSF"])
             #DicoImages["PeakNormed_CubeMeanVariablePSF"]=np.zeros_like(DicoImages["CubeMeanVariablePSF"])
@@ -898,6 +899,8 @@ class ClassFacetMachine():
                 for iChan in range(nch):
                     DicoImages["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]/np.max(CubeVariablePSF[iFacet,iChan])
 
+            PeakNormed_CubeMeanVariablePSF=DicoImages["PeakNormed_CubeMeanVariablePSF"]
+            CubeMeanVariablePSF=DicoImages["CubeMeanVariablePSF"]
             PeakFacet=np.max(np.max(np.max(CubeMeanVariablePSF,axis=-1),axis=-1),axis=-1).reshape((NFacets,1,1,1,1))
             PeakNormed_CubeMeanVariablePSF=CubeMeanVariablePSF/PeakFacet
             #DicoImages["MeanFacetPSF"]=np.mean(CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
