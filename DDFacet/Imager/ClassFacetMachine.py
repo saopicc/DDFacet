@@ -963,6 +963,9 @@ class ClassFacetMachine():
 
             DicoImages["FacetNorm"] = FacetNorm
             DicoImages["JonesNorm"] = JonesNorm
+
+            for iFacet in sorted(self.DicoImager.keys()):
+                DicoImages["Facets"][iFacet].delete_item("PSF")
            
             # print>>log,"copying dictPSF"
             DicoImages.reload()
