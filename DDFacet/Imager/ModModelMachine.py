@@ -51,6 +51,8 @@ class ClassModModelMachine():
 
 
         DicoSMStacked = MyPickle.Load(FileName)
+        if self.GD is None:
+            self.GD=DicoSMStacked["GD"]
         MM=self.GiveMMFromDico(DicoSMStacked)
         MM.FromDico(DicoSMStacked)
         return MM
