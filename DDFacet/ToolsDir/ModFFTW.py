@@ -393,12 +393,12 @@ def ConvolveGaussianFFTW(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=
         if Normalise:
             PSF/=np.sum(PSF)
         PSF = np.fft.ifftshift(PSF)
-        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=NCPU_global)
+        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=1)#NCPU_global)
         for pol in range(npol):
             A = np.fft.ifftshift(Ain[pol])
-            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=NCPU_global)
+            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=1)#NCPU_global)
             nfA = fA*fPSF
-            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=NCPU_global)
+            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=1)#NCPU_global)
             Aout[ch, pol, :, :] = np.fft.fftshift(ifA)
         T.timeit("conv")
 
