@@ -216,7 +216,24 @@ class ClassMaskMachine():
 
         _,_,G=Gaussian.Gaussian(Sig_pix,Extent_pix,1)
 
-        ModelConv=scipy.signal.convolve2d(ModelImage,G,mode="same")
+
+        from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
+
+        N1=G.shape[0]
+        N0x,N0y=ModelImage.shape
+        indx,indy=np.where(ModelImage!=0)
+        ModelConv=np.zeros_like(ModelImage)
+        for iComp in range(indx.size):
+            xc,yc=indx[iComp],indy[iComp]
+            Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
+            x0d,x1d,y0d,y1d=Aedge
+            x0p,x1p,y0p,y1p=Bedge
+            ModelConv[x0d:x1d,y0d:y1d]+=G[x0p:x1p,y0p:y1p]*ModelImage[xc,yc]
+
+#        ModelConv=scipy.signal.convolve2d(ModelImage,G,mode="same")
+
+
+
         self.Restored=ModelConv.reshape(self.DicoDirty["MeanImage"].shape)+self.DicoDirty["MeanImage"]
 
         self.DicoDirty["MeanImage"][...]=self.Orig_MeanDirty[...]
