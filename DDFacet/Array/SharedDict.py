@@ -179,7 +179,8 @@ class SharedDict (dict):
     def __setitem__(self, item, value):
         if type(item).__name__ not in _allowed_key_types:
             raise KeyError,"unsupported key of type "+type(item).__name__
-        name = self._key_to_name(item)
+        #name = self._key_to_name(item)
+        name = os.path.join(self.path, self._key_to_name(item))
         # remove previous item from SHM
         if dict.__contains__(self,item):
             for suffix in "ap":
@@ -187,6 +188,7 @@ class SharedDict (dict):
                     os.unlink(name+suffix)
             if os.path.exists(name+"d"):
                 os.system("rm -fr "+name+"d")
+        name = self._key_to_name(item)
         # for arrays, copy to a shared array
         if isinstance(value, np.ndarray):
             value = NpShared.ToShared(_to_shm(os.path.join(self.path, name)+'a'), value)
