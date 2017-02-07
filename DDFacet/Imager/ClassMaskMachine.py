@@ -140,7 +140,7 @@ class ClassMaskMachine():
     def doBrutalClean(self):
         print>>log,"  Running Brutal HMP..."
         ListSilentModules=["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"]
-        MyLogger.setSilent(ListSilentModules)
+        #MyLogger.setSilent(ListSilentModules)
         self.DicoDirty=self.DicoResidual
         self.Orig_MeanDirty=self.DicoDirty["MeanImage"].copy()
         self.Orig_Dirty=self.DicoDirty["ImagData"].copy()
@@ -150,7 +150,7 @@ class ClassMaskMachine():
         self.GD=GD
         #self.GD["Parallel"]["NCPU"]=1
         #self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
-        self.GD["HMP"]["Alpha"]=[-1.,1.,5]
+        self.GD["HMP"]["Alpha"]=[0,0,1]
         self.GD["Deconv"]["Mode"]="HMP"
         self.GD["Deconv"]["CycleFactor"]=0
         self.GD["Deconv"]["PeakFactor"]=0.01
@@ -159,13 +159,13 @@ class ClassMaskMachine():
         self.GD["Deconv"]["AllowNegative"]=False
         self.GD["Deconv"]["PSFBox"]="full"
         self.GD["Deconv"]["MaxMinorIter"]=1000
-        self.GD["HMP"]["Scales"]=[0]
+        self.GD["HMP"]["Scales"]=[0,1,2,4,8]
         self.GD["HMP"]["Ratios"]=[]
         #self.GD["MultiScale"]["Ratios"]=[]
         self.GD["HMP"]["NTheta"]=4
         
         #self.GD["HMP"]["AllowResidIncrease"]=False
-        self.GD["HMP"]["SolverMode"]="PI"
+        self.GD["HMP"]["SolverMode"]="NNLS"
 
         DicoVariablePSF=self.DicoVariablePSF
         self.NFreqBands=len(DicoVariablePSF["freqs"])
