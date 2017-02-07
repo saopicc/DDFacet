@@ -737,9 +737,9 @@ class ClassMultiScaleMachine():
             #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
 
             coef=np.min([np.abs(np.sum(Sol)/MeanFluxTrue),1.])
-            # # ############## debug
-            # Sol.fill(0)
-            # Sol[3]=1.
+            # # # ############## debug
+            # #Sol.fill(0)
+            # #Sol[0]=1.
             # ConvSM=np.dot(BM,Sol.reshape((-1,1))).reshape((nchan,1,nxp,nyp))
             # print
             # print "=====",self.iFacet,x,y
@@ -761,21 +761,21 @@ class ClassMultiScaleMachine():
             # print "coef",coef
             # import pylab
             # pylab.clf()
-            # iFunc=3
-            # #BM*=0.947
-            # pylab.plot(dirtyVec.ravel())
-            # pylab.plot(BM[:,iFunc].ravel())
-            # #pylab.plot(BM)
-            # pylab.plot(dirtyVec.ravel()-BM[:,iFunc].ravel())
-            # # pylab.subplot(1,3,1)
-            # # pylab.imshow(dirtyNormIm[0,0,:,:],interpolation="nearest")
-            # # pylab.colorbar()
-            # # pylab.subplot(1,3,2)
-            # # pylab.imshow(ConvSM[0,0,:,:],interpolation="nearest")
-            # # pylab.colorbar()
-            # # pylab.subplot(1,3,3)
-            # # pylab.imshow((dirtyNormIm-ConvSM)[0,0,:,:],interpolation="nearest")
-            # # pylab.colorbar()
+            # # iFunc=0
+            # # #BM*=0.947
+            # # pylab.plot(dirtyVec.ravel())
+            # # pylab.plot(BM[:,iFunc].ravel())
+            # # #pylab.plot(BM)
+            # # pylab.plot(dirtyVec.ravel()-BM[:,iFunc].ravel())
+            # pylab.subplot(1,3,1)
+            # pylab.imshow(dirtyNormIm[0,0,:,:],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.subplot(1,3,2)
+            # pylab.imshow(ConvSM[0,0,:,:],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.subplot(1,3,3)
+            # pylab.imshow((dirtyNormIm-ConvSM)[0,0,:,:],interpolation="nearest")
+            # pylab.colorbar()
             # pylab.draw()
             # pylab.show(False)
             # # ##########################

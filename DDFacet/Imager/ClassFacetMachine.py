@@ -769,9 +769,12 @@ class ClassFacetMachine():
             self.fourierTransformInBackground()
             self.HasFourierTransformed = True
         _, npol, Npix, Npix = self.OutImShape
-        DicoImages = SharedDict.SharedDict("%s_AllImages"%self._app_id)
-        DicoImages["freqs"] = {}
-
+        DicoImages = SharedDict.create("%s_AllImages"%self._app_id)
+        DicoImages.addSubdict("freqs")
+        DicoImages.addSubdict("ImageInfo")
+        DicoImages["ImageInfo"]["CellSizeRad"]=self.CellSizeRad
+        DicoImages["ImageInfo"]["OutImShape"]=self.OutImShape
+        
         
 
         # Assume all facets have the same weight sums.
@@ -906,8 +909,8 @@ class ClassFacetMachine():
             for iFacet in sorted(self.DicoImager.keys()):
                 DicoImages["PeakNormed_CubeMeanVariablePSF"][iFacet]=CubeMeanVariablePSF[iFacet]/np.max(CubeMeanVariablePSF[iFacet])
                 for iChan in range(nch):
-                    #DicoImages["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]/np.max(CubeVariablePSF[iFacet,iChan])
-                    DicoImages["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]/np.max(CubeMeanVariablePSF[iFacet])
+                    DicoImages["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]/np.max(CubeVariablePSF[iFacet,iChan])
+                    #DicoImages["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]/np.max(CubeMeanVariablePSF[iFacet])
 
             PeakNormed_CubeMeanVariablePSF=DicoImages["PeakNormed_CubeMeanVariablePSF"]
             #CubeMeanVariablePSF=DicoImages["CubeMeanVariablePSF"]

@@ -218,7 +218,12 @@ def invSVD(A,Cut=1e-6):
     #print "rand"
     Ar=A  # +np.random.randn(*A.shape)*(1e-6*A.max())
     #print "stard",Ar.shape
-    u,s,v=np.linalg.svd(Ar)
+
+    try:
+        u,s,v=np.linalg.svd(Ar)
+    except:
+        u,s,v=np.linalg.svd(Ar+np.random.randn(*A.shape)*(1e-6*np.abs(A).max()))
+
     #print "ok"
     
     s[s<0.]=Cut

@@ -67,6 +67,7 @@ class ClassImageDeconvMachine():
                  MainCache=None,
                  CacheSharedMode=False,
                  IdSharedMem="",
+                 CacheFileName="HMPMachine",
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         self.IdSharedMem=IdSharedMem
@@ -84,7 +85,7 @@ class ClassImageDeconvMachine():
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
-
+        self.CacheFileName=CacheFileName
         self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
         self.ModelMachine = ModelMachine
         self.RefFreq=self.ModelMachine.RefFreq
@@ -98,6 +99,7 @@ class ClassImageDeconvMachine():
         self.CacheSharedMode=CacheSharedMode
         self.facetcache=None
         self._MaskArray=None
+        self.MaskMachine=None
 
     def updateMask(self,Mask):
         nx,ny=Mask.shape
@@ -157,7 +159,7 @@ class ClassImageDeconvMachine():
                 "Image", "Facets", "Weight", "RIME",
                 "Comp", "CF",
                 "HMP")])
-        cachepath, valid = self.maincache.checkCache("HMPMachine", cachehash, reset=not cache or self.PSFHasChanged)
+        cachepath, valid = self.maincache.checkCache(self.CacheFileName, cachehash, reset=not cache or self.PSFHasChanged)
         # do not use cache in approx mode
         if approx or not cache:
             valid = False
@@ -218,7 +220,7 @@ class ClassImageDeconvMachine():
                 try:
                     MyPickle.DicoNPToFile(facetcache,cachepath)
                     #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
-                    self.maincache.saveCache("HMPMachine")
+                    self.maincache.saveCache(self.CacheFileName)
                     self.PSFHasChanged=False
                 except:
                     print>>log, traceback.format_exc()
@@ -449,7 +451,9 @@ class ClassImageDeconvMachine():
         Fluxlimit_RMS = self.RMSFactor*RMS
         #print "startmax",self._MeanDirty.shape,self._MaskArray.shape
 
-        CurrentNegMask=self.MaskMachine.CurrentNegMask
+        CurrentNegMask=None
+        if self.MaskMachine:
+            CurrentNegMask=self.MaskMachine.CurrentNegMask
         if self._MaskArray is not None:
             CurrentNegMask=self._MaskArray
         x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=CurrentNegMask)
@@ -533,6 +537,7 @@ class ClassImageDeconvMachine():
 
         self.GainMachine.SetFluxMax(ThisFlux)
         # pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
+        PreviousFlux=ThisFlux
 
         def GivePercentDone(ThisMaxFlux):
             fracDone = 1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
@@ -557,6 +562,14 @@ class ClassImageDeconvMachine():
                 # stop
 
                 T.timeit("max0")
+                if not self.GD["HMP"]["AllowResidIncrease"]:
+                    if np.abs(ThisFlux)>np.abs(PreviousFlux):
+                        print>>log, ModColor.Str(
+                            "    [iter=%i] peak of %.3g Jy higher than previous one of %.3g Jy " %
+                            (i, ThisFlux, PreviousFlux), col="red")
+                        return "Diverging", True, True
+                    else:
+                        PreviousFlux=ThisFlux
 
 
                 if ThisFlux <= StopFlux:
