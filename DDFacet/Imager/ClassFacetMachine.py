@@ -1092,33 +1092,20 @@ class ClassFacetMachine():
                         Im = SpacialWeigth[::-1, :].T[x0facet:x1facet, y0facet:y1facet] * ThisSumJones
                     else:
                         if kind == "Dirty" or kind == "PSF":
+                            # make copy since subsequent operations are in-place
                             Im = self.DicoGridMachine[iFacet]["Dirty"][Channel][pol].real.copy()
                         else:
                             raise RuntimeError,"unknown kind=%s argument -- this is a silly bug"%kind
-                        # normalize by facet weight
-                        sumweight = ThisSumWeights[pol]
-                        #Im /= SPhe
-                        numexpr.evaluate('Im*InvSPhe',out=Im,casting="unsafe")
+                        # normalize by sum of weights, and Jones weight
+                        weights = ThisSumWeights[pol]*np.sqrt(ThisSumJones)
+                        # ...and the spatial weights
+                        numexpr.evaluate('Im*InvSPhe*SpacialWeigth/weights',out=Im,casting="unsafe")
                         Im[SPhe < 1e-3] = 0
-
-                        #Im = (Im[::-1, :].T / sumweight)
-                        a = Im[::-1, :].T.copy() # , 1./sumweight
-                        numexpr.evaluate('a/sumweight',out=Im,casting="unsafe")
-
-                        # Im /= np.sqrt(ThisSumJones)
-                        # a,b=Im, 1./np.sqrt(ThisSumJones)
-                        numexpr.evaluate('Im/sqrt(ThisSumJones)',out=Im,casting="unsafe")
-
-
-                        #Im *= SpacialWeigth[::-1, :].T
-                        a,b=Im,SpacialWeigth[::-1, :].T.copy()
-                        numexpr.evaluate('a*b',out=Im,casting="unsafe")
-                        
-
-                        Im = Im[x0facet:x1facet, y0facet:y1facet]
-
-                    a,b=Image[Channel, pol, x0main:x1main, y0main:y1main], Im.real
-                    numexpr.evaluate('a+b',out=a,casting="unsafe")
+                        # flip axis and extract facet
+                        Im = Im[::-1, :].T[x0facet:x1facet, y0facet:y1facet]
+                    # add into main image
+                    a = Image[Channel, pol, x0main:x1main, y0main:y1main]
+                    numexpr.evaluate('a+Im',out=a,casting="unsafe")
                     #Image[Channel, pol, x0main:x1main, y0main:y1main] += Im.real
 
 

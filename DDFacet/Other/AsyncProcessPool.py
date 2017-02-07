@@ -535,10 +535,12 @@ class AsyncProcessPool (object):
                 if counter is None:
                     raise RuntimeError("Job %s: unknown counter %s. This is a bug." % (job_id, counter_id))
             # instantiate SharedDict arguments
+#            timer.timeit('init '+job_id)
             args = [ arg.instantiate() if type(arg) is shared_dict.SharedDictRepresentation else arg for arg in args ]
             for key in kwargs.keys():
                 if type(kwargs[key]) is shared_dict.SharedDictRepresentation:
                     kwargs[key] = kwargs[key].instantiate()
+#            timer.timeit('instantiated '+job_id)
             # call the job
             if self.verbose > 1:
                 print>> log, "job %s: calling %s" % (job_id, handler_desc)
