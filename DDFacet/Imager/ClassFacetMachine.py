@@ -149,11 +149,13 @@ class ClassFacetMachine():
                 NpShared.DelArray(sem)
 
     def __del__(self):
-        # print>>log,"Deleting shared memory"
-        if self._facet_grids:
+        self.releaseGrids()
+
+    def releaseGrids(self):
+        if self._facet_grids is not None:
             self._facet_grids.delete()
             del self.DicoGridMachine
-
+            self.DicoGridMachine = self._facet_grids = None
 
     def setAverageBeamMachine(self,AverageBeamMachine):
         self.AverageBeamMachine=AverageBeamMachine
@@ -941,8 +943,6 @@ class ClassFacetMachine():
             DicoImages["FacetNorm"] = FacetNorm
             DicoImages["JonesNorm"] = JonesNorm
            
-            self._psf_dict = DicoImages
-
             return DicoImages
 
         # else build Dirty (residual) image

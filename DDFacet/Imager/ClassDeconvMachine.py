@@ -1060,8 +1060,15 @@ class ClassImagerDeconv():
                 print>> log, traceback.format_exc()
                 print>> log, ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway.")
 
-        # delete data
+        # delete shared dicts that are no longer needed, since Restore() will need memory
         self.VS.releaseLoadedChunk()
+        self.FacetMachine.releaseGrids()
+        if self.FacetMachinePSF is not None:
+            self.FacetMachinePSF.releaseGrids()
+        if self.DicoImagesPSF is not None:
+            self.DicoImagesPSF.delete()
+            self.DicoImagesPSF = None
+        # we still need the normdict, and DicoImages (for the residuals), so keep those around
         self.Restore()
 
         # if self.HasDeconvolved:

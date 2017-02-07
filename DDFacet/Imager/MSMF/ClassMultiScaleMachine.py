@@ -433,9 +433,14 @@ class ClassMultiScaleMachine():
         self.nFunc=self.CubePSFScales.shape[0]
         self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
 
+        self.WeightWidth = self.GD["HMP"].get("Taper",0)
+        self.SupWeightWidth = self.GD["HMP"].get("Support",0)
 
-        self.WeightWidth=np.max([6.,np.max(Scales)])
-        self.SupWeightWidth=np.max([3.*self.WeightWidth,15])
+        if not self.WeightWidth:
+            self.WeightWidth = np.max([6.,np.max(Scales)])
+        if not self.SupWeightWidth:
+            self.SupWeightWidth = np.max([3.*self.WeightWidth,15])
+        print>>log,"  using HMP taper width %d, support size %d"%(self.WeightWidth, self.SupWeightWidth)
 
         T.timeit("init2")
         if self.GlobalWeightFunction is None:
