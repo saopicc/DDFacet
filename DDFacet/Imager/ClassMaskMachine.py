@@ -23,6 +23,9 @@ from DDFacet.Other import ModColor
 log=MyLogger.getLogger("MaskMachine")
 from pyrap.images import image
 import scipy.special
+import copy
+from DDFacet.Imager.ModModelMachine import ClassModModelMachine
+from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
 
 OR=np.logical_or
 
@@ -39,6 +42,8 @@ class ClassMaskMachine():
         self.NoiseMap=None
         self.readExternalMaskFromFits()
 
+    def setMainCache(self,MainCache):
+        self.MainCache=MainCache
 
     def giveNoiseMap(self,Image):
         print>>log, "Computing noise map..."
@@ -70,13 +75,21 @@ class ClassMaskMachine():
 
     def updateResidual(self,DicoResidual):
         self.DicoResidual=DicoResidual
+
+        if self.GD["Mask"]["BrutalHMP"]:
+            self.doBrutalClean()
+            Image=self.Restored
+        else:
+            Image=DicoResidual["MeanImage"]
+
         if self.GD["Mask"]["Residual"]:
             self.Box,self.Step,Th=self.GD["Mask"]["Residual"]
             self.box=(self.Box,self.Box)
-            _,_,nx,ny=DicoResidual["MeanImage"].shape
-            self.NoiseMap=self.giveNoiseMap(DicoResidual["MeanImage"])
+            _,_,nx,ny=Image.shape
+            #self.NoiseMap=self.giveNoiseMap(self.DicoResidual["MeanImage"])
+            self.NoiseMap=self.giveNoiseMap(Image)
             self.NoiseMapReShape=self.NoiseMap.reshape((1,1,nx,ny))
-            self.NoiseMask=(DicoResidual["MeanImage"][0,0]>Th*self.NoiseMapReShape)
+            self.NoiseMask=(Image[0,0]>Th*self.NoiseMapReShape)
         self.updateMask()
 
     def readExternalMaskFromFits(self):
@@ -98,7 +111,6 @@ class ClassMaskMachine():
         return np.bool8(1-Mask)
 
     def updateMask(self):
-
         if self.NoiseMask is not None: 
             print>>log,"Merging Current mask with Noise-based mask"
             self.CurrentMask = OR(self.CurrentMask,self.NoiseMask)
@@ -118,3 +130,95 @@ class ClassMaskMachine():
             self.IslandArray=np.zeros_like(self._MaskArray)
             self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
 
+
+    def setPSF(self,DicoVariablePSF):
+        self.DicoVariablePSF=DicoVariablePSF
+
+    def doBrutalClean(self):
+        print>>log,"  Running Brutal HMP..."
+        self.DicoDirty=self.DicoResidual
+        self.Orig_MeanDirty=self.DicoDirty["MeanImage"].copy()
+        self.Orig_Dirty=self.DicoDirty["ImagData"].copy()
+        GD=copy.deepcopy(self.GD)
+        # take any reference frequency - doesn't matter
+        self.RefFreq=np.mean(self.DicoVariablePSF["freqs"][0])
+        self.GD=GD
+        #self.GD["Parallel"]["NCPU"]=1
+        #self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
+        self.GD["HMP"]["Alpha"]=[-1.,1.,5]
+        self.GD["Deconv"]["Mode"]="HMP"
+        self.GD["Deconv"]["CycleFactor"]=0
+        self.GD["Deconv"]["PeakFactor"]=0.01
+        self.GD["Deconv"]["RMSFactor"]=3.
+        self.GD["Deconv"]["Gain"]=1.
+        self.GD["Deconv"]["AllowNegative"]=False
+        self.GD["Deconv"]["PSFBox"]="full"
+        self.GD["Deconv"]["MaxMinorIter"]=1000
+        self.GD["HMP"]["Scales"]=[0]
+        self.GD["HMP"]["Ratios"]=[]
+        #self.GD["MultiScale"]["Ratios"]=[]
+        self.GD["HMP"]["NTheta"]=4
+        
+        self.GD["HMP"]["SolverMode"]="PI"
+
+        DicoVariablePSF=self.DicoVariablePSF
+        self.NFreqBands=len(DicoVariablePSF["freqs"])
+        MinorCycleConfig=dict(self.GD["Deconv"])
+        MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
+        MinorCycleConfig["NFreqBands"]=self.NFreqBands
+        MinorCycleConfig["GD"] = self.GD
+        #MinorCycleConfig["RefFreq"] = self.RefFreq
+
+        ModConstructor = ClassModModelMachine(self.GD)
+        ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
+        ModelMachine.setRefFreq(self.RefFreq)
+        MinorCycleConfig["ModelMachine"]=ModelMachine
+        #MinorCycleConfig["CleanMaskImage"]=None
+        self.MinorCycleConfig=MinorCycleConfig
+        self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.MainCache,
+                                                                               CacheSharedMode=True,
+                                                                               CacheFileName="HMP_Masking",
+                                                                               **self.MinorCycleConfig)
+        
+
+        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1])
+        self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
+        self.DeconvMachine.updateRMS()
+        # ModConstructor = ClassModModelMachine(self.GD)
+        # ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
+        # #print "ModelMachine"
+        # #time.sleep(30)
+        # self.ModelMachine=ModelMachine
+        # #self.ModelMachine.DicoSMStacked=self.DicoBasicModelMachine
+        # self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
+        # self.MinorCycleConfig["ModelMachine"] = ModelMachine
+        # #self.ModelMachine.setModelShape(self.SubDirty.shape)
+        # #self.ModelMachine.setListComponants(self.DeconvMachine.ModelMachine.ListScales)
+        # #self.DeconvMachine.Update(self.DicoSubDirty,DoSetMask=False)
+        # #self.DeconvMachine.updateMask(np.logical_not(self.SubMask))
+        # self.DeconvMachine.updateModelMachine(ModelMachine)
+        self.DeconvMachine.resetCounter()
+        self.DeconvMachine.Deconvolve(UpdateRMS=False)
+
+        print>>log,"  Getting model image..."
+        ModelImage=ModelMachine.GiveModelImage()[0,0]
+
+        print>>log,"  Convolving..."
+        from DDFacet.ToolsDir import Gaussian
+        
+
+        Sig_rad=np.max(self.DicoVariablePSF["EstimatesAvgPSF"][1][0:2])
+        Sig_pix=Sig_rad/self.DicoDirty["ImageInfo"]["CellSizeRad"]
+        Sig_pix=int(np.max([1,Sig_pix]))
+        if Sig_pix%2==0: Sig_pix+=1
+        Extent_pix=Sig_pix*5
+        if Extent_pix%2==0: Extent_pix+=1
+
+        _,_,G=Gaussian.Gaussian(Sig_pix,Extent_pix,1)
+
+        ModelConv=scipy.signal.convolve2d(ModelImage,G,mode="same")
+        self.Restored=ModelConv.reshape(self.DicoDirty["MeanImage"].shape)+self.DicoDirty["MeanImage"]
+
+        self.DicoDirty["MeanImage"][...]=self.Orig_MeanDirty[...]
+        self.DicoDirty["ImagData"][...]=self.Orig_Dirty[...]
+        

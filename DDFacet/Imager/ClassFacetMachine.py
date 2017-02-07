@@ -769,9 +769,12 @@ class ClassFacetMachine():
             self.fourierTransformInBackground()
             self.HasFourierTransformed = True
         _, npol, Npix, Npix = self.OutImShape
-        DicoImages = SharedDict.SharedDict("%s_AllImages"%self._app_id)
-        DicoImages["freqs"] = {}
-
+        DicoImages = SharedDict.create("%s_AllImages"%self._app_id)
+        DicoImages.addSubdict("freqs")
+        DicoImages.addSubdict("ImageInfo")
+        DicoImages["ImageInfo"]["CellSizeRad"]=self.CellSizeRad
+        DicoImages["ImageInfo"]["OutImShape"]=self.OutImShape
+        
         
 
         # Assume all facets have the same weight sums.

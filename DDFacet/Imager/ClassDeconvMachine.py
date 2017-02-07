@@ -227,8 +227,8 @@ class ClassImagerDeconv():
                 print>>log,"Using Hogbom algorithm"
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
+            self.MaskMachine.setMainCache(self.VS.maincache)
             self.DeconvMachine.setMaskMachine(self.MaskMachine)
-
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
         self.DoSmoothBeam=("H" in self._saveims) and self.GD["Beam"]["Model"]
@@ -877,6 +877,7 @@ class ClassImagerDeconv():
                 break
 
             print>>log, ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1))
+            self.MaskMachine.setPSF(self.DicoImagesPSF)
             self.MaskMachine.updateResidual(DicoImage)
 
             if self.MaskMachine.CurrentMask is not None:
@@ -1176,6 +1177,10 @@ class ClassImagerDeconv():
             self.FWHMBeam = [self.FWHMBeamAvg]
             self.PSFGaussPars = [self.PSFGaussParsAvg]
             self.PSFSidelobes = [self.PSFSidelobesAvg]
+
+        self.DicoImagesPSF["PSFGaussPars"]=self.PSFGaussPars
+        self.DicoImagesPSF["PSFSidelobes"]=self.PSFSidelobes
+        self.DicoImagesPSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
         # except:
         #     print>>log,"Error fitting the PSF: %s"%traceback.format_exc()
         #     self.FWHMBeamAvg = 0,0,0
