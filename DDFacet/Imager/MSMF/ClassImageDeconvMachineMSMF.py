@@ -93,6 +93,7 @@ class ClassImageDeconvMachine():
         self.facetcache=None
         self._MaskArray=None
         self.MaskMachine=None
+
         APP.registerJobHandlers(self)
 
 
