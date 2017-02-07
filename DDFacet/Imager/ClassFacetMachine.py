@@ -1140,7 +1140,6 @@ class ClassFacetMachine():
 
             pBAR.render(iFacet+1, NFacets)
 
-        self._norm_dict=SharedDict.attach("normDict")
         for Channel in xrange(self.VS.NFreqBands):
             for pol in xrange(npol):
                 Image[Channel, pol] /= self._norm_dict["FacetNorm"]
@@ -1367,7 +1366,7 @@ class ClassFacetMachine():
     # ##############################################
     # ##### Smooth beam ############################
     def _SmoothAverageBeam_worker(self, datadict_path,iDir):
-        DATA=SharedDict.attach(datadict_path)
+        DATA=shared_dict.attach(datadict_path)
         self.AverageBeamMachine.StackBeam(DATA,iDir)
 
     def StackAverageBeam(self, DATA):

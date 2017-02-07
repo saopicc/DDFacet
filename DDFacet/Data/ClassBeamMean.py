@@ -30,7 +30,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Other import ModColor
 from DDFacet.Array import NpShared
-from DDFacet.Array import SharedDict
+from DDFacet.Array import shared_dict
 
 from DDFacet.Other.AsyncProcessPool import APP
 import copy
@@ -59,7 +59,7 @@ class ClassBeamMean():
         #self.SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
         #self.SumWsq=np.zeros((1,self.MS.Nchan),np.float64)
 
-        self.StackedBeamDict=SharedDict.SharedDict("StackedBeamDict")
+        self.StackedBeamDict=shared_dict.SharedDict("StackedBeamDict")
         for iDir in range(self.NDir):
             self.StackedBeamDict[iDir]={"SumJJsq":np.zeros((self.MS.Nchan,),np.float64),
                                         "SumWsq":np.zeros((self.MS.Nchan,),np.float64)}
