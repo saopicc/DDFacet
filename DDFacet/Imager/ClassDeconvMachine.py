@@ -43,11 +43,11 @@ from DDFacet.Other.AsyncProcessPool import APP
 import cPickle
 log=MyLogger.getLogger("ClassImagerDeconv")
 import pyfits
-from DDFacet.Array import SharedDict
 import DDFacet.Data.ClassBeamMean as ClassBeamMean
+from DDFacet.Imager import ClassMaskMachine
+from DDFacet.Array import shared_dict
 from DDFacet.Other import ClassTimeIt
 import numexpr
-from DDFacet.Imager import ClassMaskMachine
 
 # from astropy import wcs
 # from astropy.io import fits
@@ -231,6 +231,7 @@ class ClassImagerDeconv():
             self.DeconvMachine.setMaskMachine(self.MaskMachine)
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
+
         self.DoSmoothBeam=("H" in self._saveims) and self.GD["Beam"]["Model"]
         if self.DoSmoothBeam:
             AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
@@ -356,12 +357,12 @@ class ClassImagerDeconv():
         return cachepath, valid, writecache
 
     def _loadCachedPSF (self, cachepath):
-        import cPickle
-        #self.DicoImagesPSF = cPickle.load(file(cachepath))
+        self.DicoImagesPSF = shared_dict.create("FMPSF_AllImages")
+        self.DicoImagesPSF.restore(cachepath)
 
-        DicoImagesPSF = MyPickle.FileToDicoNP(cachepath)
-        self.DicoImagesPSF = SharedDict.dict_to_shm("FMPSF_AllImages",DicoImagesPSF)
-        del(DicoImagesPSF)
+        #DicoImagesPSF = MyPickle.FileToDicoNP(cachepath)
+        #self.DicoImagesPSF = SharedDict.dict_to_shm("FMPSF_AllImages",DicoImagesPSF)
+        #del(DicoImagesPSF)
         
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
@@ -386,7 +387,7 @@ class ClassImagerDeconv():
                 self.DicoImagesPSF["PSFSidelobes"]=self.PSFSidelobes
                 self.DicoImagesPSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
                 #cPickle.dump(self.DicoImagesPSF, file(self._psf_cachepath, 'w'), 2)
-                MyPickle.DicoNPToFile(self.DicoImagesPSF, cachepath)
+                self.DicoImagesPSF.save(cachepath)
                 self.VS.maincache.saveCache("PSF")
             except:
                 print>> log, traceback.format_exc()
@@ -467,6 +468,8 @@ class ClassImagerDeconv():
             psf: if True, PSF is also generated
             sparsify: sparsification factor applied to data. 0 means calculate the most precise dirty possible.
         """
+        if sparsify <= 1:
+            sparsify = 0
         cache_key = self._createDirtyPSFCacheKey()
         dirty_cachepath, dirty_valid, dirty_writecache = self._checkForCachedDirty(sparsify, key=cache_key)
         if psf:
@@ -484,14 +487,13 @@ class ClassImagerDeconv():
             else:
                 print>>log, ModColor.Str("============================ Loading cached dirty image =========================")
                 print>> log, "found valid cached residual image in %s" % dirty_cachepath
-            if not self.GD["Cache"]["Dirty"].startswith("force"):
+            if type(self.GD["Cache"]["Dirty"]) is not str or not self.GD["Cache"]["Dirty"].startswith("force"):
                 print>>log, ModColor.Str("As near as we can tell, we can reuse this cache because it was produced")
                 print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
                 print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-Dirty reset.")
 
-            DicoDirty = MyPickle.FileToDicoNP(dirty_cachepath)
-            self.DicoDirty = SharedDict.dict_to_shm("FM_AllImages",DicoDirty)
-            del(DicoDirty)
+            self.DicoDirty = shared_dict.create("FM_AllImages")
+            self.DicoDirty.restore(dirty_cachepath)
 
 
             if self.DicoDirty["JonesNorm"] is not None:
@@ -514,7 +516,7 @@ class ClassImagerDeconv():
         if psf_valid:
             print>>log, ModColor.Str("============================ Loading cached PSF =================================")
             print>> log, "found valid cached PSF in %s" % psf_cachepath
-            if not self.GD["Cache"]["PSF"].startswith("force"):
+            if type(self.GD["Cache"]["PSF"]) is not str or not self.GD["Cache"]["PSF"].startswith("force"):
                 print>>log, ModColor.Str("As near as we can tell, we can reuse this cache because it was produced")
                 print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
                 print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-PSF reset.")
@@ -610,7 +612,7 @@ class ClassImagerDeconv():
                 if dirty_writecache:
                     try:
                         #cPickle.dump(self.DicoDirty, file(cachepath, 'w'), 2)
-                        MyPickle.DicoNPToFile(self.DicoDirty, dirty_cachepath)
+                        self.DicoDirty.save(dirty_cachepath)
                         self.VS.maincache.saveCache("Dirty")
                     except:
                         print>> log, traceback.format_exc()
@@ -650,8 +652,7 @@ class ClassImagerDeconv():
 
 
         if "n" in self._saveims:
-            self._norm_dict=SharedDict.attach("normDict")
-            FacetNormReShape=self._norm_dict["FacetNormReShape"]
+            FacetNormReShape = self.FacetMachine.getNormDict()["FacetNormReShape"]
             self.FacetMachine.ToCasaImage(FacetNormReShape,
                                           ImageName="%s.NormFacets"%self.BaseName,
                                           Fits=True)
@@ -803,7 +804,7 @@ class ClassImagerDeconv():
                 from ClassMontblancMachine import ClassMontblancMachine
                 model = self.ModelMachine.GiveModelList()
                 mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                mb_machine.getChunk(DATA, predict, model, self.VS.CurrentMS)
+                mb_machine.getChunk(DATA, predict, model, self.VS.ListMS[DATA["iMS"]])
                 mb_machine.close()
             else:
                 raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
@@ -852,7 +853,7 @@ class ClassImagerDeconv():
         # in the previous cycle. We use this to decide when to recompute the PSF.
         sparsify = previous_sparsify = sparsify_list[0] if sparsify_list else 0
         if sparsify <= 1:
-            sparsify = 0
+            sparsify = previous_sparsify = 0
         if sparsify:
             print>> log, "applying a sparsification factor of %f to data for dirty image" % sparsify
         self.GiveDirty(psf=True, sparsify=sparsify)
@@ -941,6 +942,10 @@ class ClassImagerDeconv():
             if do_psf:
                 print>>log, "the PSF will be recomputed"
                 self.FacetMachinePSF.ReinitDirty()
+            # release memory in DeconvMachine, if it's going to be reinitialized with a new PSF anyway, or if
+            # we're not going to use it again
+            if do_psf or not continue_deconv:
+                self.DeconvMachine.Reset()
             previous_sparsify = sparsify
 
             current_model_freqs = np.array([])
@@ -997,7 +1002,7 @@ class ClassImagerDeconv():
                     from ClassMontblancMachine import ClassMontblancMachine
                     model = self.ModelMachine.GiveModelList()
                     mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                    mb_machine.getChunk(DATA, DATA["data"], model, self.VS.CurrentMS)
+                    mb_machine.getChunk(DATA, DATA["data"], model, self.VS.ListMS[DATA["iMS"]])
                     mb_machine.close()
                 else:
                     raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
@@ -1078,14 +1083,21 @@ class ClassImagerDeconv():
                                                             reset=False)
             try:
                 print>>log,"Saving last residual image to %s"%cachepath
-                MyPickle.DicoNPToFile(self.CurrentDicoResidImage, cachepath)
+                self.CurrentDicoResidImage.save(cachepath)
                 self.VS.maincache.saveCache("LastResidual")
             except:
                 print>> log, traceback.format_exc()
                 print>> log, ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway.")
 
-        # delete data
+        # delete shared dicts that are no longer needed, since Restore() will need memory
         self.VS.releaseLoadedChunk()
+        self.FacetMachine.releaseGrids()
+        if self.FacetMachinePSF is not None:
+            self.FacetMachinePSF.releaseGrids()
+        if self.DicoImagesPSF is not None:
+            self.DicoImagesPSF.delete()
+            self.DicoImagesPSF = None
+        # we still need the normdict, and DicoImages (for the residuals), so keep those around
         self.Restore()
 
         # if self.HasDeconvolved:
@@ -1274,12 +1286,10 @@ class ClassImagerDeconv():
                                       Fits=True)
         return ModelMachine
 
-    def _saveImage_worker (self, dict_path, field, ImageName, delete=False,
+    def _saveImage_worker (self, sd, field, ImageName, delete=False,
                            Fits=True, beam=None, beamcube=None, Freqs=None,
                            Stokes=None):
         """Worker function to save an image to disk, and optionally to delete it"""
-        sd = SharedDict.attach(dict_path)
-#        print>>log,sd.keys()
         image = sd[field]
         self.FacetMachine.ToCasaImage(image, ImageName=ImageName, Fits=Fits, beam=beam, beamcube=beamcube,
                                       Freqs=Freqs, Stokes=Stokes)
@@ -1287,9 +1297,8 @@ class ClassImagerDeconv():
 #            print>> log, "releasing %s image" % field
             sd.delete_item(field)
 
-    def _delSharedImage_worker(self, dict_path, *args):
+    def _delSharedImage_worker(self, sd, *args):
         """Worker function to delete an imaged from the shared dict. Enqueued after that image is no longer useful."""
-        sd = SharedDict.attach(dict_path)
         for field in args:
             if field in sd:
  #               print>>log, "releasing %s image" % field
@@ -1328,7 +1337,7 @@ class ClassImagerDeconv():
         # Since these images and cubes can take a lot of SHM, we will also schedule I/O jobs to delete them
         # after we don't need them anymore.
 
-        _images = SharedDict.create("OutputImages")
+        _images = shared_dict.create("OutputImages")
 
         def sqrtnorm():
             label = 'sqrtnorm'
@@ -1449,47 +1458,47 @@ class ClassImagerDeconv():
         # norm
         if havenorm and ("S" in self._saveims or "s" in self._saveims):
             sqrtnorm()
-            APP.runJob("save:sqrtnorm", self._saveImage_worker, io=0, args=( _images.path, "sqrtnorm",), kwargs=dict( ImageName="%s.fluxscale"%(self.BaseName),
+            APP.runJob("save:sqrtnorm", self._saveImage_worker, io=0, args=( _images.readwrite(), "sqrtnorm",), kwargs=dict( ImageName="%s.fluxscale"%(self.BaseName),
                                           Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # apparent-flux residuals
         if "r" in self._saveims:
             appres()
-            APP.runJob("save:appres", self._saveImage_worker, io=0, args=( _images.path, "appres",), kwargs=dict( ImageName="%s.app.residual"%(self.BaseName),
+            APP.runJob("save:appres", self._saveImage_worker, io=0, args=( _images.readwrite(), "appres",), kwargs=dict( ImageName="%s.app.residual"%(self.BaseName),
                                           Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # intrinsic-flux residuals
         if havenorm and "R" in self._saveims:
             intres()
-            APP.runJob("save:intres", self._saveImage_worker, io=0, args=( _images.path, "intres",), kwargs=dict(ImageName="%s.int.residual"%(self.BaseName),Fits=True,
+            APP.runJob("save:intres", self._saveImage_worker, io=0, args=( _images.readwrite(), "intres",), kwargs=dict(ImageName="%s.int.residual"%(self.BaseName),Fits=True,
                                           Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # apparent-flux model
         if "m" in self._saveims:
             appmodel()
-            APP.runJob("save:appmodel", self._saveImage_worker, io=0, args=(_images.path, "appmodel",),
+            APP.runJob("save:appmodel", self._saveImage_worker, io=0, args=(_images.readwrite(), "appmodel",),
                        kwargs=dict(ImageName="%s.app.model" % self.BaseName, Fits=True,
                                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # intrinsic-flux model
         if havenorm and "M" in self._saveims:
             intmodel()
-            APP.runJob("save:intmodel", self._saveImage_worker, io=0, args=(_images.path, "intmodel",),
+            APP.runJob("save:intmodel", self._saveImage_worker, io=0, args=(_images.readwrite(), "intmodel",),
                        kwargs=dict(ImageName="%s.int.model" % self.BaseName, Fits=True,
                                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # convolved-model image in apparent flux
         if "c" in self._saveims:
             appconvmodel()
-            APP.runJob("save:appconvmodel", self._saveImage_worker, io=0, args=(_images.path, "appconvmodel",),
+            APP.runJob("save:appconvmodel", self._saveImage_worker, io=0, args=(_images.readwrite(), "appconvmodel",),
                        kwargs=dict(ImageName="%s.app.convmodel" % self.BaseName, Fits=True,
                                    beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # convolved-model image in intrinsic flux
         if havenorm and "C" in self._saveims:
             intconvmodel()
-            APP.runJob("save:intconvmodel", self._saveImage_worker, io=0, args=(_images.path, "intconvmodel",),
+            APP.runJob("save:intconvmodel", self._saveImage_worker, io=0, args=(_images.readwrite(), "intconvmodel",),
                        kwargs=dict(ImageName="%s.int.convmodel" % self.BaseName, Fits=True,
                                    beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         # norm cube
         if havenorm and ("S" in self._savecubes or "s" in self._savecubes):
             sqrtnormcube()
-            APP.runJob("save:sqrtnormcube", self._saveImage_worker, io=0, args=(_images.path, "sqrtnormcube",),
+            APP.runJob("save:sqrtnormcube", self._saveImage_worker, io=0, args=(_images.readwrite(), "sqrtnormcube",),
                        kwargs=dict(ImageName="%s.cube.fluxscale" % (self.BaseName), Fits=True,
                                    Freqs=self.VS.FreqBandCenters,
                                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
@@ -1497,14 +1506,14 @@ class ClassImagerDeconv():
         if "i" in self._saveims:
             _images["apprestored"] = appres()
             _images["apprestored"] += appconvmodel()
-            APP.runJob("save:apprestored", self._saveImage_worker, io=0, args=(_images.path, "apprestored",),
+            APP.runJob("save:apprestored", self._saveImage_worker, io=0, args=(_images.readwrite(), "apprestored",),
                        kwargs=dict(ImageName="%s.app.restored" % self.BaseName, Fits=True,
                                    beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # intrinsic-flux restored image
         if havenorm and "I" in self._saveims:
             _images["intrestored"] = intres()
             _images["intrestored"] += intconvmodel()
-            APP.runJob("save:intrestored", self._saveImage_worker, io=0, args=(_images.path, "intrestored",),
+            APP.runJob("save:intrestored", self._saveImage_worker, io=0, args=(_images.readwrite(), "intrestored",),
                        kwargs=dict(ImageName="%s.int.restored" % self.BaseName, Fits=True,
                                    beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
@@ -1518,7 +1527,7 @@ class ClassImagerDeconv():
                 out = _images.addSharedArray('smoothrestored', a.shape, a.dtype)
                 numexpr.evaluate('(a+b)/sqrt(c)', out=out)
                 APP.runJob("save:smoothrestored", self._saveImage_worker, io=0,
-                           args=(_images.path, "smoothrestored",), kwargs=dict(
+                           args=(_images.readwrite(), "smoothrestored",), kwargs=dict(
                         ImageName="%s.smooth.int.restored" % self.BaseName, Fits=True, delete=True,
                         beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
@@ -1527,7 +1536,7 @@ class ClassImagerDeconv():
             a, b = appres(), intconvmodel()
             out = _images.addSharedArray('mixrestored', a.shape, a.dtype)
             numexpr.evaluate('a+b', out=out)
-            APP.runJob("save:mixrestored", self._saveImage_worker, io=0, args=(_images.path, "mixrestored",),
+            APP.runJob("save:mixrestored", self._saveImage_worker, io=0, args=(_images.readwrite(), "mixrestored",),
                        kwargs=dict(
                            ImageName="%s.restored" % self.BaseName, Fits=True,
                            beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
@@ -1538,25 +1547,25 @@ class ClassImagerDeconv():
                                                          GaussPars=[self.PSFGaussParsAvg])
             _images["alpha"] = IndexMap
             # IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
-            APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.path, "alpha",), kwargs=dict(
+            APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), "alpha",), kwargs=dict(
                 ImageName="%s.alpha" % self.BaseName, Fits=True, beam=self.FWHMBeamAvg,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         #  done saving images -- schedule a job to delete them all from the dict to save RAM
-        APP.runJob("del:images", self._delSharedImage_worker, io=0, args=[_images.path] + list(_images.keys()))
+        APP.runJob("del:images", self._delSharedImage_worker, io=0, args=[_images.readwrite()] + list(_images.keys()))
 
         # now form up cubes
         # apparent-flux model cube
         if "m" in self._savecubes:
             appmodelcube()
-            APP.runJob("save:appmodelcube", self._saveImage_worker, io=0, args=(_images.path, "appmodelcube",),
+            APP.runJob("save:appmodelcube", self._saveImage_worker, io=0, args=(_images.readwrite(), "appmodelcube",),
                        kwargs=dict(ImageName="%s.cube.app.model" % self.BaseName, Fits=True,
                                    Freqs=self.VS.FreqBandCenters,
                                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # intrinsic-flux model cube
         if havenorm and "M" in self._savecubes:
             intmodelcube()
-            APP.runJob("save:intmodelcube", self._saveImage_worker, io=0, args=(_images.path, "intmodelcube",),
+            APP.runJob("save:intmodelcube", self._saveImage_worker, io=0, args=(_images.readwrite(), "intmodelcube",),
                        kwargs=dict(ImageName="%s.cube.int.model" % self.BaseName, Fits=True,
                                    Freqs=self.VS.FreqBandCenters,
                                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
@@ -1564,24 +1573,24 @@ class ClassImagerDeconv():
         if "c" in self._savecubes:
             appconvmodelcube()
             APP.runJob("save:appconvmodelcube", self._saveImage_worker, io=0,
-                       args=(_images.path, "appconvmodelcube",),
+                       args=(_images.readwrite(), "appconvmodelcube",),
                        kwargs=dict(ImageName="%s.cube.app.convmodel" % self.BaseName, Fits=True,
                                    beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
                                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         #  can delete this one now
-        APP.runJob("del:appmodelcube", self._delSharedImage_worker, io=0, args=[_images.path, "appmodelcube"])
+        APP.runJob("del:appmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appmodelcube"])
         # convolved-model cube in intrinsic flux
         if havenorm and "C" in self._savecubes:
             intconvmodelcube()
-            APP.runJob("save:intconvmodelcube", self._saveImage_worker, io=0, args=( _images.path, "intconvmodelcube",), kwargs=dict(ImageName="%s.cube.int.convmodel"%self.BaseName,Fits=True,
+            APP.runJob("save:intconvmodelcube", self._saveImage_worker, io=0, args=( _images.readwrite(), "intconvmodelcube",), kwargs=dict(ImageName="%s.cube.int.convmodel"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         #  can delete this one now
-        APP.runJob("del:intmodelcube", self._delSharedImage_worker, io=0, args=[_images.path, "intmodelcube"])
+        APP.runJob("del:intmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "intmodelcube"])
         # apparent-flux residual cube
         if "r" in self._savecubes:
             apprescube()
-            APP.runJob("save:apprescube", self._saveImage_worker, io=0, args=( _images.path, "apprescube",), kwargs=dict(ImageName="%s.cube.app.residual"%(self.BaseName),Fits=True,
+            APP.runJob("save:apprescube", self._saveImage_worker, io=0, args=( _images.readwrite(), "apprescube",), kwargs=dict(ImageName="%s.cube.app.residual"%(self.BaseName),Fits=True,
                 Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # apparent-flux restored image cube
         if "i" in self._savecubes:
@@ -1589,30 +1598,30 @@ class ClassImagerDeconv():
             out = _images.addSharedArray('apprestoredcube', a.shape, a.dtype)
             numexpr.evaluate('a+b', out=out)
             APP.runJob("save:apprestoredcube", self._saveImage_worker, io=0,
-                       args=(_images.path, "apprestoredcube",), kwargs=dict(
+                       args=(_images.readwrite(), "apprestoredcube",), kwargs=dict(
                     ImageName="%s.cube.app.restored" % self.BaseName, Fits=True, delete=True,
                     beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
                     Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         #  can delete this one now
-        APP.runJob("del:appcubes", self._delSharedImage_worker, io=0, args=[_images.path, "appconvmodelcube", "apprescube"])
+        APP.runJob("del:appcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "appconvmodelcube", "apprescube"])
         # intrinsic-flux residual cube
         if havenorm and "R" in self._savecubes:
             intrescube()
-            APP.runJob("save:intrescube", self._saveImage_worker, io=0, args=( _images.path, "intrescube",), kwargs=dict(ImageName="%s.cube.int.residual"%(self.BaseName),Fits=True,
+            APP.runJob("save:intrescube", self._saveImage_worker, io=0, args=( _images.readwrite(), "intrescube",), kwargs=dict(ImageName="%s.cube.int.residual"%(self.BaseName),Fits=True,
                 Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         #  can delete this one now
-        APP.runJob("del:sqrtnormcube", self._delSharedImage_worker, io=0, args=[_images.path, "sqrtnormcube"])
+        APP.runJob("del:sqrtnormcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "sqrtnormcube"])
         # intrinsic-flux restored image cube
         if havenorm and "I" in self._savecubes:
             a, b = intrescube(), intconvmodelcube()
             out = _images.addSharedArray('intrestoredcube', a.shape, a.dtype)
             numexpr.evaluate('a+b', out=out)
             APP.runJob("save:intrestoredcube", self._saveImage_worker, io=0,
-                       args=(_images.path, "intrestoredcube",), kwargs=dict(
+                       args=(_images.readwrite(), "intrestoredcube",), kwargs=dict(
                     ImageName="%s.cube.int.restored" % self.BaseName, Fits=True, delete=True,
                     beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
                     Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        APP.runJob("del:intcubes", self._delSharedImage_worker, io=0, args=[_images.path, "intconvmodelcube", "intrescube"])
+        APP.runJob("del:intcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "intconvmodelcube", "intrescube"])
 
         APP.awaitJobResults(["save:*", "del:*"])
         self.FacetMachinePSF = None

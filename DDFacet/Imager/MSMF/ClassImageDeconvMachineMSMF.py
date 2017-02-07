@@ -23,27 +23,20 @@ import math
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassImageDeconvMachineMSMF")
-import numpy.ma as ma
 #import pylab
-import math
-from DDFacet.Array import NpParallel
-from DDFacet.ToolsDir import ModFFTW
-from DDFacet.ToolsDir import ModToolBox
-from DDFacet.Other import ClassTimeIt
-from DDFacet.Imager.MSMF import ClassMultiScaleMachine
-from pyrap.images import image
-from DDFacet.Imager.ClassPSFServer import ClassPSFServer
-import DDFacet.Imager.MSMF.ClassModelMachineMSMF as ClassModelMachineMSMF
-from DDFacet.Other.progressbar import ProgressBar
-from DDFacet.Imager import ClassGainMachine
-import cPickle
-from DDFacet.ToolsDir.GiveEdges import GiveEdges
-from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 import traceback
-from DDFacet.Other import MyPickle
-from DDFacet.Array import NpShared
 import psutil
 import numexpr
+from pyrap.images import image
+from DDFacet.Array import NpParallel
+from DDFacet.Other import ClassTimeIt
+from DDFacet.Imager.MSMF import ClassMultiScaleMachine
+from DDFacet.Imager.ClassPSFServer import ClassPSFServer
+from DDFacet.Imager import ClassGainMachine
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
+from DDFacet.Other import MyPickle
+from DDFacet.Other.AsyncProcessPool import APP
+from DDFacet.Array import shared_dict
 
 # # if not running under a profiler, declare a do-nothing @profile decorator
 # if "profile" not in globals():
@@ -100,6 +93,12 @@ class ClassImageDeconvMachine():
         self.facetcache=None
         self._MaskArray=None
         self.MaskMachine=None
+        APP.registerJobHandlers(self)
+
+
+    def __del__ (self):
+        if type(self.facetcache) is shared_dict.SharedDict:
+            self.facetcache.delete()
 
     def updateMask(self,Mask):
         nx,ny=Mask.shape
@@ -129,13 +128,10 @@ class ClassImageDeconvMachine():
         self.OffsetSideLobe=OffsetSideLobe
         
 
-    def SetPSF(self,DicoVariablePSF):
+    def SetPSF(self, DicoVariablePSF, quiet=False):
         self.PSFServer=ClassPSFServer(self.GD)
-        self.PSFServer.setDicoVariablePSF(DicoVariablePSF,NormalisePSF=True)
+        self.PSFServer.setDicoVariablePSF(DicoVariablePSF,NormalisePSF=True, quiet=quiet)
         self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
-
-
-        #self.DicoPSF=DicoPSF
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
 
@@ -144,9 +140,31 @@ class ClassImageDeconvMachine():
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.InitMSMF()
 
+    def Reset(self):
+        print>>log, "resetting HMP machine"
+        self.DicoMSMachine = {}
+        if type(self.facetcache) is shared_dict.SharedDict:
+            print>> log, "deleting HMP facet cache"
+            self.facetcache.delete()
+        self.facetcache = None
 
     def set_DicoHMPFunctions(self,facetcache):
         self.facetcache=facetcache
+
+    def _initMSM_handler(self, fcdict, psfdict, iFacet, SideLobeLevel, OffsetSideLobe, centralFacet):
+        # init PSF server from PSF shared dict
+        self.SetPSF(psfdict, quiet=True)
+        self.PSFServer.setFacet(iFacet)
+        MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
+        MSMachine.setModelMachine(self.ModelMachine)
+        MSMachine.setSideLobeLevel(SideLobeLevel, OffsetSideLobe)
+        MSMachine.SetFacet(iFacet)
+        MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
+        MSMachine.FindPSFExtent(verbose=(iFacet == centralFacet))  # only print to log for central facet
+        MSMachine.MakeMultiScaleCube()
+        MSMachine.MakeBasisMatrix()
+        fcdict["Functions"] = MSMachine.ListScales
+        fcdict["Arrays"] = MSMachine.DicoBasisMatrix
 
     def InitMSMF(self, approx=False, cache=True):
         """Initializes MSMF basis functions. If approx is True, then uses the central facet's PSF for
@@ -166,17 +184,14 @@ class ClassImageDeconvMachine():
         if valid:
             if self.facetcache is None:
                 print>>log,"Initialising HMP Machine from cache %s"%cachepath
-                #facetcache = cPickle.load(file(cachepath))
-                facetcache = MyPickle.FileToDicoNP(cachepath)
+                self.facetcache = shared_dict.create("HMPBasis")
+                self.facetcache.restore(cachepath)
             else:
-                print>>log,"Has a valid DicoHMPFuntion"
-                facetcache = self.facetcache
+                print>>log,"HMP Machine already initialized"
         else:
             print>>log,"Initialising HMP Machine"
-            facetcache = {"Functions":{},
-                          "Arrays":{}}
+            self.facetcache = None
 
-        self.facetcache=facetcache
         print>>log,"%d frequency bands"%self.NFreqBands
 
         centralFacet = self.PSFServer.DicoVariablePSF["CentralFacet"]
@@ -189,12 +204,21 @@ class ClassImageDeconvMachine():
             MSMachine.SetFacet(centralFacet)
             MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
             MSMachine.FindPSFExtent(verbose=True)
-            MSMachine.MakeMultiScaleCube()
+            MSMachine.MakeMultiScaleCube(verbose=True)
             MSMachine.MakeBasisMatrix()
             for iFacet in xrange(self.PSFServer.NFacets):
                 self.DicoMSMachine[iFacet] = MSMachine
-
         else:
+            # if no facet cache, init in parallel
+            if self.facetcache is None:
+                self.facetcache = shared_dict.create("HMPBasis")
+                for iFacet in xrange(self.PSFServer.NFacets):
+                    fcdict = self.facetcache.addSubdict(iFacet)
+                    APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
+                               args=(fcdict.writeonly(), self.DicoVariablePSF.readonly(),
+                                     iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet))
+                APP.awaitJobResults("InitHMP:*", progress="Init HMP")
+                self.facetcache.reload()
             #        t = ClassTimeIt.ClassTimeIt()
             for iFacet in xrange(self.PSFServer.NFacets):
                 self.PSFServer.setFacet(iFacet)
@@ -204,22 +228,20 @@ class ClassImageDeconvMachine():
                 MSMachine.SetFacet(iFacet)
                 MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
                 MSMachine.FindPSFExtent(verbose=(iFacet==centralFacet))  # only print to log for central facet
-
-                ListDicoScales=facetcache["Functions"].get(iFacet,None)
-                DicoBasisMatrix=facetcache["Arrays"].get(iFacet,None)
+                ListDicoScales = self.facetcache.get(iFacet, {}).get("Functions")
+                DicoBasisMatrix = self.facetcache.get(iFacet, {}).get("Arrays")
                 MSMachine.setListDicoScales(ListDicoScales)
                 MSMachine.setDicoBasisMatrix(DicoBasisMatrix)
-                MSMachine.MakeMultiScaleCube()
+                MSMachine.MakeMultiScaleCube(verbose=(iFacet==centralFacet))
                 MSMachine.MakeBasisMatrix()
-                facetcache["Functions"][iFacet] = MSMachine.ListScales
-                facetcache["Arrays"][iFacet] = MSMachine.DicoBasisMatrix
                 self.DicoMSMachine[iFacet] = MSMachine
-
 
             if not valid and cache and not approx:
                 try:
-                    MyPickle.DicoNPToFile(facetcache,cachepath)
+                    #MyPickle.DicoNPToFile(facetcache,cachepath)
                     #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
+                    self.facetcache.save(cachepath)
+                    #self.maincache.saveCache("HMPMachine")
                     self.maincache.saveCache(self.CacheFileName)
                     self.PSFHasChanged=False
                 except:

@@ -956,6 +956,12 @@ class ClassMS():
         self.Freq_Mean=np.mean(chan_freq)
         wavelength_chan=299792458./chan_freq
 
+        # # read UVW column to get max |W| and max uv (useful for weighting later)
+        # uvw = table_all.getcol("UVW")
+        # self.uv = uvw[:2]
+        # self.maxW = abs(uvw[:3]).max()
+        # self.maxUV_wavelengths = abs(uvw).max() / min(wavelength_chan)
+
         #if NSPW>1:
         #    print "Don't deal with multiple SPW yet"
 

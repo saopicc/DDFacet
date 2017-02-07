@@ -162,6 +162,7 @@ class ClassImageDeconvMachine():
         self.ModelMachine.setModelShape(self._Dirty.shape)
 
 
+
     def SearchIslands(self,Threshold):
 
         if self.MaskMachine.CurrentNegMask is None:
@@ -442,11 +443,11 @@ class ClassImageDeconvMachine():
 
         StopWhenQueueEmpty=True
 
-        # ######### Debug
-        # ParallelPerIsland=False
-        # Parallel=False
-        # StopWhenQueueEmpty=True
-        # ##################
+        ######### Debug
+        ParallelPerIsland=False
+        Parallel=False
+        StopWhenQueueEmpty=True
+        ##################
 
 
         work_queue = multiprocessing.Queue()
