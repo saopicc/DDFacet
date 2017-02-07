@@ -70,7 +70,7 @@ def cleanupStaleShm ():
     # check for stale shared memory
     uid = os.getuid()
     # list of all files in /dev/shm/ matching ddf.PID.* and belonging to us
-    shmlist = [ ("/dev/shm/"+filename, re.match('ddf\.([0-9]+)(\..*)?$',filename)) for filename in os.listdir("/dev/shm/")
+    shmlist = [ ("/dev/shm/"+filename, re.match('(sem\.)?ddf\.([0-9]+)(\..*)?$',filename)) for filename in os.listdir("/dev/shm/")
                 if os.stat("/dev/shm/"+filename).st_uid == uid ]
     # convert to list of filename,pid tuples
     shmlist = [ (filename, int(match.group(1))) for filename, match in shmlist if match ]
