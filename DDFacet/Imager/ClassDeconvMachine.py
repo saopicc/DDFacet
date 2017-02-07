@@ -458,6 +458,8 @@ class ClassImagerDeconv():
             psf: if True, PSF is also generated
             sparsify: sparsification factor applied to data. 0 means calculate the most precise dirty possible.
         """
+        if sparsify <= 1:
+            sparsify = 0
         cache_key = self._createDirtyPSFCacheKey()
         dirty_cachepath, dirty_valid, dirty_writecache = self._checkForCachedDirty(sparsify, key=cache_key)
         if psf:
@@ -838,7 +840,7 @@ class ClassImagerDeconv():
         # in the previous cycle. We use this to decide when to recompute the PSF.
         sparsify = previous_sparsify = sparsify_list[0] if sparsify_list else 0
         if sparsify <= 1:
-            sparsify = 0
+            sparsify = previous_sparsify = 0
         if sparsify:
             print>> log, "applying a sparsification factor of %f to data for dirty image" % sparsify
         self.GiveDirty(psf=True, sparsify=sparsify)
