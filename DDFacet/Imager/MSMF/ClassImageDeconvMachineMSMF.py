@@ -186,7 +186,8 @@ class ClassImageDeconvMachine():
         if valid:
             if self.facetcache is None:
                 print>>log,"Initialising HMP Machine from cache %s"%cachepath
-                self.facetcache = MyPickle.FileToDicoNP(cachepath)
+                self.facetcache = shared_dict.create("HMPBasis")
+                self.facetcache.restore(cachepath)
             else:
                 print>>log,"HMP Machine already initialized"
         else:
@@ -205,13 +206,13 @@ class ClassImageDeconvMachine():
             MSMachine.SetFacet(centralFacet)
             MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
             MSMachine.FindPSFExtent(verbose=True)
-            MSMachine.MakeMultiScaleCube()
+            MSMachine.MakeMultiScaleCube(verbose=True)
             MSMachine.MakeBasisMatrix()
             for iFacet in xrange(self.PSFServer.NFacets):
                 self.DicoMSMachine[iFacet] = MSMachine
         else:
             # if no facet cache, init in parallel
-            if not self.facetcache:
+            if self.facetcache is None:
                 self.facetcache = shared_dict.create("HMPBasis")
                 for iFacet in xrange(self.PSFServer.NFacets):
                     fcdict = self.facetcache.addSubdict(iFacet)
@@ -233,14 +234,13 @@ class ClassImageDeconvMachine():
                 DicoBasisMatrix = self.facetcache.get(iFacet, {}).get("Arrays")
                 MSMachine.setListDicoScales(ListDicoScales)
                 MSMachine.setDicoBasisMatrix(DicoBasisMatrix)
-                MSMachine.MakeMultiScaleCube()
+                MSMachine.MakeMultiScaleCube(verbose=(iFacet==centralFacet))
                 MSMachine.MakeBasisMatrix()
                 self.DicoMSMachine[iFacet] = MSMachine
 
             if not valid and cache and not approx:
                 try:
-                    MyPickle.DicoNPToFile(self.facetcache, cachepath)
-                    #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
+                    self.facetcache.save(cachepath)
                     self.maincache.saveCache("HMPMachine")
                     self.PSFHasChanged=False
                 except:

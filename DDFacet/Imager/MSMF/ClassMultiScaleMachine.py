@@ -187,7 +187,7 @@ class ClassMultiScaleMachine():
         self.CubePSFScales=DicoBasisMatrix["CubePSFScales"]
         self.GlobalWeightFunction=DicoBasisMatrix["GlobalWeightFunction"]
 
-    def MakeMultiScaleCube(self):
+    def MakeMultiScaleCube(self, verbose=False):
         if self.IsInit_MultiScaleCube: return
         T=ClassTimeIt.ClassTimeIt("MakeMultiScaleCube")
         T.disable()
@@ -440,7 +440,8 @@ class ClassMultiScaleMachine():
             self.WeightWidth = np.max([6.,np.max(Scales)])
         if not self.SupWeightWidth:
             self.SupWeightWidth = np.max([3.*self.WeightWidth,15])
-        print>>log,"  using HMP taper width %d, support size %d"%(self.WeightWidth, self.SupWeightWidth)
+        if verbose:
+            print>>log,"  using HMP taper width %d, support size %d"%(self.WeightWidth, self.SupWeightWidth)
 
         T.timeit("init2")
         if self.GlobalWeightFunction is None:

@@ -135,6 +135,14 @@ class SharedDict (dict):
         else:
             dict.clear(self)
 
+    def save(self, filename):
+        os.system("tar cf %s -C %s ." % (filename, self.path))
+
+    def restore(self, filename):
+        self.delete()
+        os.system("tar xf %s -C %s" % (filename, self.path))
+        self.reload()
+
     def reload(self):
         """(Re)initializes dict with items from path"""
         if not self._load:

@@ -350,10 +350,9 @@ class ClassImagerDeconv():
         return cachepath, valid, writecache
 
     def _loadCachedPSF (self, cachepath):
-        DicoImagesPSF = MyPickle.FileToDicoNP(cachepath)
-        self.DicoImagesPSF = SharedDict.dict_to_shm("FMPSF_AllImages",DicoImagesPSF)
-        del(DicoImagesPSF)
-        
+        self.DicoImagesPSF = shared_dict.create("FMPSF_AllImages")
+        self.DicoImagesPSF.restore(cachepath)
+
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
         self.PSF = self.MeanFacetPSF = self.DicoImagesPSF["CubeMeanVariablePSF"][self.DicoImagesPSF["CentralFacet"]]
@@ -377,7 +376,7 @@ class ClassImagerDeconv():
                 self.DicoImagesPSF["PSFSidelobes"]=self.PSFSidelobes
                 self.DicoImagesPSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
                 #cPickle.dump(self.DicoImagesPSF, file(self._psf_cachepath, 'w'), 2)
-                MyPickle.DicoNPToFile(self.DicoImagesPSF, cachepath)
+                self.DicoImagesPSF.save(cachepath)
                 self.VS.maincache.saveCache("PSF")
             except:
                 print>> log, traceback.format_exc()
@@ -482,9 +481,8 @@ class ClassImagerDeconv():
                 print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
                 print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-Dirty reset.")
 
-            DicoDirty = MyPickle.FileToDicoNP(dirty_cachepath)
-            self.DicoDirty = shared_dict.dict_to_shm("FM_AllImages",DicoDirty)
-            del(DicoDirty)
+            self.DicoDirty = shared_dict.create("FM_AllImages")
+            self.DicoDirty.restore(dirty_cachepath)
 
 
             if self.DicoDirty["JonesNorm"] is not None:
@@ -600,7 +598,7 @@ class ClassImagerDeconv():
                 if dirty_writecache:
                     try:
                         #cPickle.dump(self.DicoDirty, file(cachepath, 'w'), 2)
-                        MyPickle.DicoNPToFile(self.DicoDirty, dirty_cachepath)
+                        self.DicoDirty.save(dirty_cachepath)
                         self.VS.maincache.saveCache("Dirty")
                     except:
                         print>> log, traceback.format_exc()
@@ -1054,7 +1052,7 @@ class ClassImagerDeconv():
                                                             reset=False)
             try:
                 print>>log,"Saving last residual image to %s"%cachepath
-                MyPickle.DicoNPToFile(self.CurrentDicoResidImage, cachepath)
+                self.CurrentDicoResidImage.save(cachepath)
                 self.VS.maincache.saveCache("LastResidual")
             except:
                 print>> log, traceback.format_exc()
