@@ -306,12 +306,12 @@ class ClassFacetMachine():
         self.DicoImager[iFacet]["IDFacet"] = iFacet
         # print self.DicoImager[iFacet]
 
-        self.FacetCat.ra[iFacet] = raFacet[0]
-        self.FacetCat.dec[iFacet] = decFacet[0]
-        l, m = self.DicoImager[iFacet]["l0m0"]
-        self.FacetCat.l[iFacet] = l
-        self.FacetCat.m[iFacet] = m
-        self.FacetCat.Cluster[iFacet] = iFacet
+        # self.JonesDirCat.ra[iFacet] = raFacet[0]
+        # self.JonesDirCat.dec[iFacet] = decFacet[0]
+        # l, m = self.DicoImager[iFacet]["l0m0"]
+        # self.JonesDirCat.l[iFacet] = l
+        # self.JonesDirCat.m[iFacet] = m
+        # self.JonesDirCat.Cluster[iFacet] = iFacet
 
     def setFacetsLocs(self):
         """
@@ -376,7 +376,7 @@ class ClassFacetMachine():
 
         # print "Append2"; self.IM.CI.E.clear()
 
-        self.FacetCat = np.zeros(
+        self.JonesDirCat = np.zeros(
             (lFacet.size,),
             dtype=[('Name', '|S200'),
                    ('ra', np.float),
@@ -387,9 +387,9 @@ class ClassFacetMachine():
                    ("m", np.float),
                    ("I", np.float)])
 
-        self.FacetCat = self.FacetCat.view(np.recarray)
-        self.FacetCat.I = 1
-        self.FacetCat.SumI = 1
+        self.JonesDirCat = self.JonesDirCat.view(np.recarray)
+        self.JonesDirCat.I = 1
+        self.JonesDirCat.SumI = 1
 
         for iFacet in xrange(lFacet.size):
             l0 = x0facet[iFacet] * self.CellSizeRad

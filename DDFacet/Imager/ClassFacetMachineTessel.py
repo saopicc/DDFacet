@@ -407,8 +407,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         NFacets = len(LPolygonNew)
 
-        self.FacetCat = np.zeros(
-            (NFacets,),
+        NJonesDir=NodesCat.shape[0]
+        self.JonesDirCat = np.zeros(
+            (NodesCat.shape[0],),
             dtype=[('Name', '|S200'),
                    ('ra', np.float),
                    ('dec', np.float),
@@ -417,12 +418,19 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                    ("l", np.float),
                    ("m", np.float),
                    ("I", np.float)])
-        self.FacetCat = self.FacetCat.view(np.recarray)
-        self.FacetCat.I = 1
-        self.FacetCat.SumI = 1
-        print>> log, "Sizes (%i facets):" % (self.FacetCat.shape[0])
+        self.JonesDirCat = self.JonesDirCat.view(np.recarray)
+        self.JonesDirCat.I = 1
+        self.JonesDirCat.SumI = 1
+        print>> log, "Sizes (%i facets):" % (self.JonesDirCat.shape[0])
         print >>log, "   - Main field :   [%i x %i] pix" % (
             self.Npix, self.Npix)
+
+        self.JonesDirCat.ra=NodesCat.ra
+        self.JonesDirCat.dec=NodesCat.dec
+        self.JonesDirCat.l=NodesCat.l
+        self.JonesDirCat.m=NodesCat.m
+        self.JonesDirCat.Cluster = range(NJonesDir)
+
 
         l_m_Diam = np.zeros((NFacets, 4), np.float32)
         l_m_Diam[:, 3] = np.arange(NFacets)

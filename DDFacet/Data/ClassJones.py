@@ -170,10 +170,10 @@ class ClassJones():
 
             if self.FacetMachine is not None:
                 if not(self.HasKillMSSols):
-                    print>>log, "  Getting Jones directions from Facets"
+                    print>>log, "  Getting Jones directions from Nones"
                     DicoImager = self.FacetMachine.DicoImager
                     NFacets = len(DicoImager)
-                    self.ClusterCatBeam = self.FacetMachine.FacetCat
+                    self.ClusterCatBeam = self.FacetMachine.JonesDirCat
                     DicoClusterDirs = {}
                     DicoClusterDirs["l"] = self.ClusterCatBeam.l
                     DicoClusterDirs["m"] = self.ClusterCatBeam.m

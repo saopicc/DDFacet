@@ -41,7 +41,7 @@ class ClassMaskMachine():
 
 
     def giveNoiseMap(self,Image):
-        print>>log, "Computing noise map"
+        print>>log, "Computing noise map..."
         Boost=self.Step
         Acopy=Image[0,0,0::Boost,0::Boost].copy()
         SBox=(self.box[0]/Boost,self.box[1]/Boost)
@@ -99,10 +99,12 @@ class ClassMaskMachine():
 
     def updateMask(self):
 
-        if self.ExternalMask is not None: 
-            self.CurrentMask = OR(self.CurrentMask,self.ExternalMask)
         if self.NoiseMask is not None: 
+            print>>log,"Merging Current mask with Noise-based mask"
             self.CurrentMask = OR(self.CurrentMask,self.NoiseMask)
+        if self.ExternalMask is not None: 
+            print>>log,"Merging Current mask with external mask"
+            self.CurrentMask = OR(self.CurrentMask,self.ExternalMask)
 
         if self.CurrentMask is not None:
             self.CurrentNegMask=self.giveOpposite(self.CurrentMask)
