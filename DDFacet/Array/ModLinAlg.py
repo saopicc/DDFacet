@@ -218,11 +218,20 @@ def invSVD(A,Cut=1e-6):
     #print "rand"
     Ar=A  # +np.random.randn(*A.shape)*(1e-6*A.max())
     #print "stard",Ar.shape
-
+    
     try:
         u,s,v=np.linalg.svd(Ar)
     except:
-        u,s,v=np.linalg.svd(Ar+np.random.randn(*A.shape)*(1e-6*np.abs(A).max()))
+        # weird - I found a matrix I cannot do svd on... - that works
+        Cut=1e-20
+        u,s,v=np.linalg.svd(np.complex128(Ar))
+        u=np.real(u)
+        s=np.real(s)
+        v=np.real(v)
+        
+        # u,s,v=np.linalg.svd(Ar+np.random.randn(*A.shape)*(1e-6*np.abs(A).max()))
+
+    #u,s,v=np.linalg.svd(np.complex128(Ar))
 
     #print "ok"
     
