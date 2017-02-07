@@ -140,7 +140,7 @@ class ClassMaskMachine():
     def doBrutalClean(self):
         print>>log,"  Running Brutal HMP..."
         ListSilentModules=["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"]
-        #MyLogger.setSilent(ListSilentModules)
+        MyLogger.setSilent(ListSilentModules)
         self.DicoDirty=self.DicoResidual
         self.Orig_MeanDirty=self.DicoDirty["MeanImage"].copy()
         self.Orig_Dirty=self.DicoDirty["ImagData"].copy()
