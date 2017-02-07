@@ -243,6 +243,7 @@ class ClassMultiScaleMachine():
         # #############################
         T.timeit("0")
         FreqBandsFluxRatio=self.PSFServer.GiveFreqBandsFluxRatio(self.iFacet,Alpha)
+        print FreqBandsFluxRatio
         T.timeit("1")
         # if self.iFacet==96: 
         #     print 96
