@@ -154,7 +154,6 @@ class AsyncProcessPool (object):
         Returns:
 
         """
-        self._shared_state = shared_dict.create("APP")
         self.affinity = affinity
         self.cpustep = abs(self.affinity) or 1
         self.ncpu = ncpu
@@ -226,6 +225,7 @@ class AsyncProcessPool (object):
 
     def startWorkers(self):
         """Starts worker threads. All job handlers and events must be registered *BEFORE*"""
+        self._shared_state = shared_dict.create("APP")
         self._job_counters.finalize(self._shared_state)
         for proc in self._compute_workers + self._io_workers:
             proc.start()
