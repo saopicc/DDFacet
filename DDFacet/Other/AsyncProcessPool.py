@@ -350,7 +350,7 @@ class AsyncProcessPool (object):
                         print>> log, "  %s is complete" % name
                     break
 
-    def awaitJobResults (self, jobspecs, progress=None, TimeTitle=None):
+    def awaitJobResults (self, jobspecs, progress=None, timing=None):
         """
         Waits for job(s) given by arguments to complete, and returns their results.
         Note that this only works for jobs scheduled by the same process, since each process has its own results map.
@@ -358,7 +358,9 @@ class AsyncProcessPool (object):
 
         Args:
             jobspec: a job spec, or a list of job specs. Each spec can contain a wildcard e.g. "job*", to wait for
-            multiple jobs.
+                multiple jobs.
+            progress: if True, a progress bar with that title will be rendered
+            timing: if True, a timing report with that title will be printed (note that progress implies timing)
 
         Returns:
             a list of results. Each entry is the result returned by the job (if no wildcard), or a list
@@ -440,8 +442,8 @@ class AsyncProcessPool (object):
         for jobspec, (njobs, results) in job_results.iteritems():
             times = np.array([ res['time'] for res in results ])
             num_errors = len([res for res in results if not res['success']])
-            if TimeTitle:
-                print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (TimeTitle, len(results), times.mean())
+            if timing or progress:
+                print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (timing or progress, len(results), times.mean())
             elif self.verbose > 0:
                 print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (jobspec, len(results), times.mean())
             if num_errors:

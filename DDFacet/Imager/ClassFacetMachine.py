@@ -1102,12 +1102,12 @@ class ClassFacetMachine():
                         Im[SPhe < 1e-3] = 0
 
                         #Im = (Im[::-1, :].T / sumweight)
-                        a,b=Im[::-1, :].T.copy(), 1./sumweight
-                        numexpr.evaluate('a*b',out=Im,casting="unsafe")
+                        a = Im[::-1, :].T.copy() # , 1./sumweight
+                        numexpr.evaluate('a/sumweight',out=Im,casting="unsafe")
 
                         # Im /= np.sqrt(ThisSumJones)
-                        a,b=Im, 1./np.sqrt(ThisSumJones)
-                        numexpr.evaluate('a*b',out=Im,casting="unsafe")
+                        # a,b=Im, 1./np.sqrt(ThisSumJones)
+                        numexpr.evaluate('Im/sqrt(ThisSumJones)',out=Im,casting="unsafe")
 
 
                         #Im *= SpacialWeigth[::-1, :].T

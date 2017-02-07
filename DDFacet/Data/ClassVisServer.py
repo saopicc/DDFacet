@@ -430,7 +430,7 @@ class ClassVisServer():
             np.copyto(self.DATA["data"], self._saved_data)
         else:
             # await completion of data loading jobs (which, presumably, includes smear mapping)
-            APP.awaitJobResults(self._next_chunk_name, TimeTitle="Reading %s"%self._next_chunk_label )
+            APP.awaitJobResults(self._next_chunk_name, timing="Reading %s"%self._next_chunk_label )
             # reload the data dict -- background thread will now have populated it
             self.DATA = shared_dict.attach(self._next_chunk_name)
             self.DATA["label"] = self._next_chunk_label

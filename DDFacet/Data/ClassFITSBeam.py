@@ -143,15 +143,17 @@ class ClassFITSBeam (object):
 
     _vb_cache = {}
 
-    def getBeamSampleTimes (self, times):
+    def getBeamSampleTimes (self, times, quiet=False):
         """For a given list of timeslots, returns times at which the beam must be sampled"""
-        print>>log,"computing beam sample times for %d timeslots"%len(times)
+        if not quiet:
+            print>>log,"computing beam sample times for %d timeslots"%len(times)
         dt = self.time_inc*60
         beam_times = [ times[0] ]
         for t in times[1:]:
             if t - beam_times[-1] >= dt:
                 beam_times.append(t)
-        print>>log,"  DtBeamMin=%.2f min results in %d samples"%(self.time_inc, len(beam_times))
+        if not quiet:
+            print>>log,"  DtBeamMin=%.2f min results in %d samples"%(self.time_inc, len(beam_times))
         if self.pa_inc:
             pas = [ 
                 # put antenna0 position as reference frame. NB: in the future may want to do it per antenna
@@ -166,7 +168,8 @@ class ClassFITSBeam (object):
                 if abs(pa-pa0) >= self.pa_inc:
                     beam_times1.append(t)
                     pa0 = pa
-            print>>log,"  FITSParAngleIncrement=%.2f deg results in %d samples"%(self.pa_inc, len(beam_times1))
+            if not quiet:
+                print>>log,"  FITSParAngleIncrement=%.2f deg results in %d samples"%(self.pa_inc, len(beam_times1))
             beam_times = beam_times1
         beam_times.append(times[-1]+1)
         return beam_times

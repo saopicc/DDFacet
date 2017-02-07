@@ -110,7 +110,7 @@ class ClassBeamMean():
         flags=ThisMSData["flags"]
         W=ThisMSData["Weights"]
         
-        beam_times = np.array(JonesMachine.BeamMachine.getBeamSampleTimes(times))
+        beam_times = np.array(JonesMachine.BeamMachine.getBeamSampleTimes(times, quiet=True))
 
         T2=ClassTimeIt.ClassTimeIt()
         T2.disable()
@@ -119,7 +119,7 @@ class ClassBeamMean():
         # MS=self.ListMS[ThisMSData["iMS"]]
         # JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine)
         # JonesMachine.InitBeamMachine()
-        DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[iDir:iDir+1], DECs[iDir:iDir+1],progressBar=False)
+        DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[iDir:iDir+1], DECs[iDir:iDir+1], progressBar=False, quiet=True)
         T2.timeit("GetBeam 1")
         #DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[0:10], DECs[0:10],progressBar=False)
         #T2.timeit("GetBeam 10")
