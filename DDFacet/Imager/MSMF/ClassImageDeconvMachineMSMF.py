@@ -537,6 +537,7 @@ class ClassImageDeconvMachine():
 
         self.GainMachine.SetFluxMax(ThisFlux)
         # pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
+        PreviousFlux=ThisFlux
 
         def GivePercentDone(ThisMaxFlux):
             fracDone = 1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
@@ -561,6 +562,14 @@ class ClassImageDeconvMachine():
                 # stop
 
                 T.timeit("max0")
+                if not self.GD["HMP"]["AllowResidIncrease"]:
+                    if np.abs(ThisFlux)>np.abs(PreviousFlux):
+                        print>>log, ModColor.Str(
+                            "    [iter=%i] peak of %.3g Jy higher than previous one of %.3g Jy " %
+                            (i, ThisFlux, PreviousFlux), col="red")
+                        return "Diverging", True, True
+                    else:
+                        PreviousFlux=ThisFlux
 
 
                 if ThisFlux <= StopFlux:

@@ -239,3 +239,7 @@ def testSharedDict ():
     other_view = SharedDict("foo", reset=False)
     print other_view
 
+
+SharedDict.setBaseName("ddf."+str(os.getpid()))
+
+
