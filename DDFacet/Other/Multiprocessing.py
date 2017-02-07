@@ -73,7 +73,7 @@ def cleanupStaleShm ():
     shmlist = [ ("/dev/shm/"+filename, re.match('(sem\.)?ddf\.([0-9]+)(\..*)?$',filename)) for filename in os.listdir("/dev/shm/")
                 if os.stat("/dev/shm/"+filename).st_uid == uid ]
     # convert to list of filename,pid tuples
-    shmlist = [ (filename, int(match.group(1))) for filename, match in shmlist if match ]
+    shmlist = [ (filename, int(match.group(2))) for filename, match in shmlist if match ]
     # now check all PIDs to find dead ones
     # if we get ESRC error from sending signal 0 to the process, it's not running, so we mark it as dead
     dead_pids = set()
@@ -88,7 +88,7 @@ def cleanupStaleShm ():
     if victims:
         print>>log, "reaping %d shared memory objects associated with %d dead DDFacet processes"%(len(victims), len(dead_pids))
         os.system("rm -fr " + " ".join(victims))
-        print "rm -fr " + " ".join(victims)
+        # print "rm -fr " + " ".join(victims)
 
 
 def getShmURL(name, **kw):
