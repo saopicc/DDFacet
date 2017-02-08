@@ -55,6 +55,7 @@ class ClassJones():
                      DDESolutions=GD["DDESolutions"], 
                      DataSelection=self.GD["Selection"],
                      ImagerMainFacet=self.GD["Image"],
+                     Facets=self.GD["Facets"],
                      PhaseCenterRADEC=self.GD["Image"]["PhaseCenterRADEC"]))
             if valid:
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_killMS
@@ -75,6 +76,7 @@ class ClassJones():
             self.JonesNormSolsFile_Beam, valid = self.MS.cache.checkCache("JonesNorm_Beam.npz", 
                                                                           dict(VisData=GD["Data"], 
                                                                                Beam=GD["Beam"], 
+                                                                               Facets=self.GD["Facets"],
                                                                                DataSelection=self.GD["Selection"],
                                                                                DDESolutions=GD["DDESolutions"],
                                                                                ImagerMainFacet=self.GD["Image"]))
