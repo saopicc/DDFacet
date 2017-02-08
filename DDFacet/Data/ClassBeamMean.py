@@ -27,10 +27,7 @@ import ClassJones
 from DDFacet.Imager import ModCF
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ClassTimeIt
-from DDFacet.Other.progressbar import ProgressBar
-from DDFacet.Other import ModColor
-from DDFacet.Array import NpShared
-from DDFacet.Array import SharedDict
+from DDFacet.Array import shared_dict
 
 from DDFacet.Other.AsyncProcessPool import APP
 import copy
@@ -59,11 +56,11 @@ class ClassBeamMean():
         #self.SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
         #self.SumWsq=np.zeros((1,self.MS.Nchan),np.float64)
 
-        self.StackedBeamDict=SharedDict.SharedDict("StackedBeamDict")
+        self.StackedBeamDict = shared_dict.create("StackedBeamDict")
         for iDir in range(self.NDir):
-            self.StackedBeamDict[iDir]={"SumJJsq":np.zeros((self.MS.Nchan,),np.float64),
-                                        "SumWsq":np.zeros((self.MS.Nchan,),np.float64)}
-
+            sd = self.StackedBeamDict.addSubdict(iDir)
+            sd.addSharedArray("SumJJsq", (self.MS.Nchan,), np.float64)
+            sd.addSharedArray("SumWsq", (self.MS.Nchan,), np.float64)
 
         self.DicoJonesMachine={}
         for iMS,MS in enumerate(self.ListMS):
