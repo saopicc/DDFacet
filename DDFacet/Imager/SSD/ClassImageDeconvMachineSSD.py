@@ -43,7 +43,7 @@ from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
 #    #sys.exit(1)
 from DDFacet.Array import NpParallel
 import ClassIslandDistanceMachine
-from DDFacet.Array import SharedDict
+from DDFacet.Array import shared_dict
 
 MyLogger.setSilent("ClassArrayMethodSSD")
 MyLogger.setSilent("ClassIsland")
@@ -111,7 +111,7 @@ class ClassImageDeconvMachine():
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
         #DicoVariablePSF["CubeVariablePSF"]=NpShared.ToShared("%s.CubeVariablePSF"%self.IdSharedMem,DicoVariablePSF["CubeVariablePSF"])
-        DicoVariablePSF=SharedDict.attach(DicoVariablePSF.path)#["CubeVariablePSF"]
+        DicoVariablePSF=shared_dict.attach(DicoVariablePSF.path)#["CubeVariablePSF"]
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
         self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
         #self.DicoPSF=DicoPSF
@@ -710,7 +710,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
         #self.CubeVariablePSF=NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
         self._Dirty=NpShared.GiveArray("%s.Dirty.ImagData"%self.IdSharedMem)
 
-        self.CubeVariablePSF=SharedDict.attach("FMPSF_AllImages")["CubeVariablePSF"]
+        self.CubeVariablePSF=shared_dict.attach("FMPSF_AllImages")["CubeVariablePSF"]
         #self._Dirty=SharedDict.attach("dictDirty")["ImagData"]
 
         #self.WeightFreqBands=WeightFreqBands
