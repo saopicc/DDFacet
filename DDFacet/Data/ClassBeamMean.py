@@ -215,6 +215,23 @@ class ClassBeamMean():
         self.SumJJsq=np.mean(self.SumJJsq,axis=2)
 
 
+        # # to implement - spline interpolation
+        # grid_x, grid_y = np.mgrid[0:1:20000j, 0:1:20000j]
+        # points = np.random.rand(1000, 2)
+        # x,y=np.mgrid[0:1:11j,0:1:11j]
+        # x=x.ravel()
+        # y=y.ravel()
+        # points = np.zeros((x.size,2),np.float32)
+        # points[:,0]=x
+        # points[:,1]=y
+        # values = func(points[:,0], points[:,1])
+        # #grid_z0 = griddata(points, values, (grid_x, grid_y), method='nearest')
+        # #grid_z1 = griddata(points, values, (grid_x, grid_y), method='linear')
+        # t=time.time()
+        # print "start"
+        # grid_z2 = griddata(points, values, (grid_x, grid_y), method='cubic')
+        # print "ok",time.time()-t
+
         _,_,nx,_=self.VS.FullImShape
         
         SpheM=ModCF.SpheMachine(Support=self.npix,SupportSpheCalc=111)

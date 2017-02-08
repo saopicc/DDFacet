@@ -38,7 +38,7 @@ def zeros(Name, *args, **kwargs):
 
 def SizeShm():
     from subprocess import check_output
-    return float(check_output(["du", "-sc","/dev/shm/"]).split("\t")[0])/1024**2
+    return float(check_output(["du", "-sc","/dev/shm/"]).split("\t")[0])/1024
     # L = ListNames()
     # S = 0
     # for l in L:
