@@ -827,8 +827,6 @@ class ClassMultiScaleMachine():
             a, b = self.CubePSFScales, np.float32(Sol.reshape((Sol.size, 1, 1, 1)))
             scales = numexpr.evaluate('a*b')
             # # model is sum of basis functions
-
-            #LocalSM = scales.sum(axis=0)/Fact if Sol.size>1 else scales[0,...]/Fact
             LocalSM = scales.sum(axis=0) if Sol.size>1 else scales[0,...]
 
 

@@ -87,7 +87,13 @@ def cleanupStaleShm ():
     victims = [ filename for filename,pid in shmlist if pid in dead_pids ]
     if victims:
         print>>log, "reaping %d shared memory objects associated with %d dead DDFacet processes"%(len(victims), len(dead_pids))
-        os.system("rm -fr " + " ".join(victims))
+        dirs = [ v for v in victims if os.path.isdir(v) ]
+        files = [ v for v in victims if not os.path.isdir(v) ]
+        # rm -fr only works for a limited number of arguments (which the semaphore list can easily exceed)
+        # so use os.unlink() to remove files, and rm -fr for directories
+        for path in files:
+            os.unlink(path)
+        os.system("rm -fr " + " ".join(dirs))
         # print "rm -fr " + " ".join(victims)
 
 

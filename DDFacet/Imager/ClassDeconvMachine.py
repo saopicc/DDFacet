@@ -85,7 +85,7 @@ import numexpr
 
 class ClassImagerDeconv():
     def __init__(self, GD=None,
-                 PointingID=0,BaseName="ImageTest2",ReplaceDico=None,IdSharedMem="CACA.",
+                 PointingID=0,BaseName="ImageTest2",ReplaceDico=None,
                  data=True, psf=True, readcol=True, deconvolve=True):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
@@ -99,9 +99,7 @@ class ClassImagerDeconv():
         self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
         self.PointingID=PointingID
         self.do_data, self.do_psf, self.do_readcol, self.do_deconvolve = data, psf, readcol, deconvolve
-        self.CurrentDicoResidImage=None
         self.FacetMachine=None
-        self.PSF=None
         self.FWHMBeam = None
         self.PSFGaussPars = None
         self.PSFSidelobes = None
@@ -111,15 +109,15 @@ class ClassImagerDeconv():
         self.HasFittedPSFBeam=False
         self._psf_fit_error = False
 
+        self.DicoDirty = None         # shared dict with current dirty/residual image
+        self.DicoImagesPSF = None     # shared dict with current PSF images
+        self.DATA = None              # shared dict with current data chunk
 
-        self.VisWeights=None
-        self.DATA=None
         self.Precision=self.GD["RIME"]["Precision"]#"S"
         self.PolMode=self.GD["RIME"]["PolMode"]
         self.PSFFacets = self.GD["Facets"]["PSFFacets"]
         self.HasDeconvolved=False
         self.Parallel = self.GD["Parallel"]["NCPU"] != 1
-        self.IdSharedMem=IdSharedMem
         self.ModConstructor = ClassModModelMachine(self.GD)
 
         self.PredictMode = self.GD["RIME"]["ForwardMode"]
@@ -232,7 +230,7 @@ class ClassImagerDeconv():
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
 
-        self.DoSmoothBeam=(self.GD["Beam"]["SmoothBeam"] and self.GD["Beam"]["Model"])
+        self.DoSmoothBeam=(self.GD["Beam"]["Smooth"] and self.GD["Beam"]["Model"])
         if self.DoSmoothBeam:
             AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
@@ -366,7 +364,6 @@ class ClassImagerDeconv():
         
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
-        self.PSF = self.MeanFacetPSF = self.DicoImagesPSF["CubeMeanVariablePSF"][self.DicoImagesPSF["CentralFacet"]]
         self.FWHMBeam=self.DicoImagesPSF["FWHMBeam"]
         self.PSFGaussPars=self.DicoImagesPSF["PSFGaussPars"]
         self.PSFSidelobes=self.DicoImagesPSF["PSFSidelobes"]
@@ -377,8 +374,8 @@ class ClassImagerDeconv():
 
     def _finalizeComputedPSF (self, FacetMachinePSF, cachepath=None):
         self.DicoImagesPSF = FacetMachinePSF.FacetsToIm(NormJones=False)
+        FacetMachinePSF.releaseGrids()
         self._psfmean, self._psfcube = self.DicoImagesPSF["MeanImage"], self.DicoImagesPSF["ImagData"]  # this is only for the casa image saving
-        self.PSF = self.MeanFacetPSF = self.DicoImagesPSF["MeanFacetPSF"]
         self.FitPSF()
         if cachepath:
             try:
@@ -418,7 +415,7 @@ class ClassImagerDeconv():
         Args:
             sparsify: sparsification factor applied to data. 0 means calculate the most precise dirty possible.
         """
-        if self.PSF is not None:
+        if self.DicoImagesPSF is not None:
             return
 
         cachepath, valid, writecache = self._checkForCachedPSF(sparsify)
@@ -603,8 +600,9 @@ class ClassImagerDeconv():
                 # else do nothing
                 self.FacetMachine.finaliseSmoothBeam()
 
-                # stitch facets
+                # stitch facets and release grids
                 self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
+                self.FacetMachine.releaseGrids()
 
                 self.SaveDirtyProducts()
 
@@ -634,11 +632,6 @@ class ClassImagerDeconv():
         if psf:
             self._fitAndSavePSF(self.FacetMachinePSF)
 
-            
-        self.CurrentDicoResidImage = self.DicoDirty
-        self.ResidCube  = self.CurrentDicoResidImage["ImagData"] #get residuals cube
-        self.ResidImage = self.CurrentDicoResidImage["MeanImage"]
-        
         return self.DicoDirty["MeanImage"]
 
     def SaveDirtyProducts(self):
@@ -860,8 +853,7 @@ class ClassImagerDeconv():
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
-            print>>log, "Deleting FacetMachinePSF..."
-            self.FacetMachinePSF.__del__()
+            self.FacetMachinePSF.releaseGrids()
             self.FacetMachinePSF = None
         
         #Pass minor cycle specific options into Init as kwargs
@@ -869,7 +861,6 @@ class ClassImagerDeconv():
                                 approx=(sparsify > approximate_psf_above), cache=not sparsify,
                                 GridFreqs=self.VS.FreqBandCenters)
 
-        DicoImage=self.DicoDirty
         continue_deconv = True
 
         for iMajor in range(1, NMajor+1):
@@ -879,7 +870,7 @@ class ClassImagerDeconv():
 
             print>>log, ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1))
             self.MaskMachine.setPSF(self.DicoImagesPSF)
-            self.MaskMachine.updateResidual(DicoImage)
+            self.MaskMachine.updateResidual(self.DicoDirty)
 
             if self.MaskMachine.CurrentMask is not None:
                 if "k" in self._saveims:
@@ -893,7 +884,7 @@ class ClassImagerDeconv():
                     self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.Restored),
                                                   ImageName="%s.brutalRestored%2.2i"%(self.BaseName,iMajor),Fits=True,
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-            self.DeconvMachine.Update(DicoImage)
+            self.DeconvMachine.Update(self.DicoDirty)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
             try:
@@ -920,10 +911,6 @@ class ClassImagerDeconv():
             self.VS.ReInitChunkCount()
             self.VS.startChunkLoadInBackground()
 
-
-            #self.ResidImage=DicoImage["MeanImage"]
-            #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
-
             # determine whether data still needs to be sparsified
             # last major cycle is always done at full precision, but also if the sparsification_list ends we go to full precision
             if not continue_deconv or iMajor >= len(sparsify_list):
@@ -936,16 +923,25 @@ class ClassImagerDeconv():
             # recompute PSF in sparsification mode, or the first time we go from sparsified to full precision,
             # unless this is the last major cycle, in which case we never recompute the PSF
             do_psf = (sparsify or previous_sparsify) and continue_deconv
+
+            if self.DicoDirty is not None:
+                self.DicoDirty.delete()
+                self.DicoDirty = None
             self.FacetMachine.ReinitDirty()
             if sparsify or previous_sparsify:
                 print>>log, "applying a sparsification factor of %f (was %f in previous cycle)" % (sparsify, previous_sparsify)
             if do_psf:
                 print>>log, "the PSF will be recomputed"
                 self.FacetMachinePSF.ReinitDirty()
-            # release memory in DeconvMachine, if it's going to be reinitialized with a new PSF anyway, or if
+            # release PSFs and memory in DeconvMachine, if it's going to be reinitialized with a new PSF anyway, or if
             # we're not going to use it again
             if do_psf or not continue_deconv:
-                self.DeconvMachine.Reset()
+                if self.DicoImagesPSF is not None:
+                    self.DicoImagesPSF.delete()
+                    self.DicoImagesPSF = None
+                # if DeconvMachine has a reset method, use it
+                if hasattr(self.DeconvMachine, 'Reset'):
+                    self.DeconvMachine.Reset()
             previous_sparsify = sparsify
 
             current_model_freqs = np.array([])
@@ -1034,12 +1030,10 @@ class ClassImagerDeconv():
             ModelImage = None
             self.FacetMachine.releaseModelImage()
             # create new residual image
-            DicoImage = self.FacetMachine.FacetsToIm(NormJones=True)
+            self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
 
-            self.CurrentDicoResidImage = DicoImage
-            self.CurrentDicoResidImage["LastMask"]=self.MaskMachine.CurrentMask
-            self.ResidCube  = DicoImage["ImagData"] #get residuals cube
-            self.ResidImage = DicoImage["MeanImage"]
+            self.DicoDirty["LastMask"] = self.MaskMachine.CurrentMask
+
             # was PSF re-generated?
             if do_psf:
                 self._finalizeComputedPSF(self.FacetMachinePSF, cachepath=None)
@@ -1052,11 +1046,11 @@ class ClassImagerDeconv():
             if sparsify <= 1:
                 self.FacetMachinePSF = None
 
-            # if "SmoothMeanNormImage" in DicoImage.keys():
-            #     self.SmoothMeanNormImage=DicoImage["SmoothMeanNormImage"]
+            # if "SmoothMeanNormImage" in self.DicoDirty.keys():
+            #     self.SmoothMeanNormImage=self.DicoDirty["SmoothMeanNormImage"]
 
             if "e" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.ResidImage,ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),
+                self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),
                                               Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
             # write out current model, using final or intermediate name
@@ -1071,7 +1065,7 @@ class ClassImagerDeconv():
         self.FacetMachine.finaliseSmoothBeam()
 
         # dump dirty to cache
-        if self.GD["Cache"]["LastResidual"] and self.CurrentDicoResidImage is not None:
+        if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None:
             cachepath, valid = self.VS.maincache.checkCache("LastResidual", 
                                                             dict(
                                                                 [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
@@ -1083,7 +1077,7 @@ class ClassImagerDeconv():
                                                             reset=False)
             try:
                 print>>log,"Saving last residual image to %s"%cachepath
-                self.CurrentDicoResidImage.save(cachepath)
+                self.DicoDirty.save(cachepath)
                 self.VS.maincache.saveCache("LastResidual")
             except:
                 print>> log, traceback.format_exc()
@@ -1097,7 +1091,7 @@ class ClassImagerDeconv():
         if self.DicoImagesPSF is not None:
             self.DicoImagesPSF.delete()
             self.DicoImagesPSF = None
-        # we still need the normdict, and DicoImages (for the residuals), so keep those around
+        # we still need the normdict, and DicoDirty (for the residuals), so keep those around
         self.Restore()
 
         # if self.HasDeconvolved:
@@ -1167,9 +1161,10 @@ class ClassImagerDeconv():
             f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
             f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
         PSF = self.DicoImagesPSF["CubeVariablePSF"][self.FacetMachinePSF.iCentralFacet]
+        meanPSF = self.DicoImagesPSF["CubeMeanVariablePSF"][self.FacetMachinePSF.iCentralFacet]
 
         off=self.GD["Image"]["SidelobeSearchWindow"] // 2
-        beam, gausspars, sidelobes = self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
+        beam, gausspars, sidelobes = self.fitSinglePSF(meanPSF[0,...], "mean")
         if forced_beam is not None:
             print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
             beam, gausspars = f_beam, f_gau
@@ -1264,7 +1259,7 @@ class ClassImagerDeconv():
         # Run MetroClean
         print>>log,"Runing a Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
         DeconvMachine.setDeconvMode(Mode="MetroClean")
-        DeconvMachine.Update(self.CurrentDicoResidImage)
+        DeconvMachine.Update(self.DicoDirty)
         repMinor, continue_deconv, update_model = DeconvMachine.Deconvolve()
         DeconvMachine.ToFile(self.DicoMetroModelName)
         
@@ -1355,7 +1350,7 @@ class ClassImagerDeconv():
             return _images[label]
         def appres():
             label = 'appres'
-            _images[label] = self.ResidImage
+            _images[label] = self.DicoDirty["MeanImage"]
             return _images[label]
         def intres():
             label = 'intres'
@@ -1370,7 +1365,7 @@ class ClassImagerDeconv():
             return _images[label]
         def apprescube():
             label = 'apprescube'
-            _images[label] = self.ResidCube
+            _images[label] = self.DicoDirty["ImagData"]
             return _images[label]
         def intrescube():
             label = 'intrescube'
@@ -1719,7 +1714,7 @@ class ClassImagerDeconv():
         Image=self.FacetMachine.FacetsToIm()
         self.ResidImage=Image
         #self.FacetMachine.ToCasaImage(ImageName="test.residual",Fits=True)
-        self.FacetMachine.ToCasaImage(self.ResidImage,ImageName="test.residual",Fits=True)
+        self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="test.residual",Fits=True)
 
 
         m0=-0.02
