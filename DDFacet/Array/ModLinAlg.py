@@ -221,7 +221,6 @@ def invSVD(A,Cut=1e-6):
     #print "stard",Ar.shape
     
     try:
-        stop
         u,s,v=np.linalg.svd(Ar)
     except:
         Name="errSVDArray_%i"%int(np.random.rand(1)[0]*10000)
