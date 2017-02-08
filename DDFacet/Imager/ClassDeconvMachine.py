@@ -232,7 +232,7 @@ class ClassImagerDeconv():
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
 
-        self.DoSmoothBeam=("H" in self._saveims) and self.GD["Beam"]["Model"]
+        self.DoSmoothBeam=(self.GD["Beam"]["SmoothBeam"] and self.GD["Beam"]["Model"])
         if self.DoSmoothBeam:
             AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)

@@ -99,7 +99,8 @@ class ClassImageDeconvMachine():
     def setDeconvMode(self,Mode="MetroClean"):
         self.DeconvMode=Mode
 
-
+    def Reset(self): pass
+        
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):

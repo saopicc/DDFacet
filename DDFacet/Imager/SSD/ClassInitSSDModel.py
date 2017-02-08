@@ -169,6 +169,7 @@ class ClassInitSSDModel():
         self.MinorCycleConfig=MinorCycleConfig
         self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,
                                                                                CacheSharedMode=True,
+                                                                               ParallelMode=False,
                                                                                IdSharedMem=IdSharedMem,
                                                                                **self.MinorCycleConfig)
         self.GD["Mask"]["External"]=None

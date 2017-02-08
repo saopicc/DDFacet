@@ -60,7 +60,8 @@ class ClassImageDeconvMachine():
                  MainCache=None,
                  CacheSharedMode=False,
                  IdSharedMem="",
-                 CacheFileName="HMPMachine",
+                 ParallelMode=True,
+                 CacheFileName="HMPBasis",
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         self.IdSharedMem=IdSharedMem
@@ -93,8 +94,11 @@ class ClassImageDeconvMachine():
         self.facetcache=None
         self._MaskArray=None
         self.MaskMachine=None
+        self.ParallelMode=ParallelMode
+        if self.ParallelMode:
+            APP.registerJobHandlers(self)
 
-        APP.registerJobHandlers(self)
+        numexpr.set_num_threads(NCPU)
 
 
     def __del__ (self):
@@ -185,7 +189,7 @@ class ClassImageDeconvMachine():
         if valid:
             if self.facetcache is None:
                 print>>log,"Initialising HMP Machine from cache %s"%cachepath
-                self.facetcache = shared_dict.create("HMPBasis")
+                self.facetcache = shared_dict.create(self.CacheFileName)
                 self.facetcache.restore(cachepath)
             else:
                 print>>log,"HMP Machine already initialized"
@@ -212,13 +216,22 @@ class ClassImageDeconvMachine():
         else:
             # if no facet cache, init in parallel
             if self.facetcache is None:
-                self.facetcache = shared_dict.create("HMPBasis")
+                self.facetcache = shared_dict.create(self.CacheFileName)
                 for iFacet in xrange(self.PSFServer.NFacets):
                     fcdict = self.facetcache.addSubdict(iFacet)
-                    APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
-                               args=(fcdict.writeonly(), self.DicoVariablePSF.readonly(),
-                                     iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet))
-                APP.awaitJobResults("InitHMP:*", progress="Init HMP")
+                    if self.ParallelMode:
+                        args=(fcdict.writeonly(), self.DicoVariablePSF.readonly(),
+                              iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet)
+                        APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
+                                   args=args)
+                    else:
+                        args=(fcdict, self.DicoVariablePSF,
+                              iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet)
+                        self._initMSM_handler(*args)
+
+                if self.ParallelMode:
+                    APP.awaitJobResults("InitHMP:*", progress="Init HMP")
+
                 self.facetcache.reload()
             #        t = ClassTimeIt.ClassTimeIt()
             for iFacet in xrange(self.PSFServer.NFacets):
