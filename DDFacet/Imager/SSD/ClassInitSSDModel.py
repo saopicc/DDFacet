@@ -170,10 +170,11 @@ class ClassInitSSDModel():
         self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,
                                                                                CacheSharedMode=True,
                                                                                ParallelMode=False,
+                                                                               CacheFileName="HMP_Init",
                                                                                IdSharedMem=IdSharedMem,
                                                                                **self.MinorCycleConfig)
+        self.GD["Mask"]["Auto"]=False
         self.GD["Mask"]["External"]=None
-        self.GD["Mask"]["Residual"]=None
         self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
         self.DeconvMachine.setMaskMachine(self.MaskMachine)
 
