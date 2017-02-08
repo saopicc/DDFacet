@@ -444,11 +444,11 @@ class ClassImageDeconvMachine():
 
         StopWhenQueueEmpty=True
 
-        ######### Debug
-        ParallelPerIsland=False
-        Parallel=False
-        StopWhenQueueEmpty=True
-        ##################
+        # ######### Debug
+        # ParallelPerIsland=False
+        # Parallel=False
+        # StopWhenQueueEmpty=True
+        # ##################
 
 
         work_queue = multiprocessing.Queue()
