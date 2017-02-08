@@ -827,7 +827,10 @@ class ClassMultiScaleMachine():
             a, b = self.CubePSFScales, np.float32(Sol.reshape((Sol.size, 1, 1, 1)))
             scales = numexpr.evaluate('a*b')
             # # model is sum of basis functions
+            ## /Fact below added by @cyriltasse as a bugfix, but is it really a bugfix?
             LocalSM = scales.sum(axis=0)/Fact if Sol.size>1 else scales[0,...]/Fact
+            ## Try it like this instead:
+            LocalSM = scales.sum(axis=0) if Sol.size>1 else scales[0,...]
 
 
             #print "Max abs model",np.max(np.abs(LocalSM))

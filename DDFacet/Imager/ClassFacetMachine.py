@@ -154,8 +154,7 @@ class ClassFacetMachine():
     def releaseGrids(self):
         if self._facet_grids is not None:
             self._facet_grids.delete()
-            del self.DicoGridMachine
-            self.DicoGridMachine = self._facet_grids = None
+            self._facet_grids = None
 
     def setAverageBeamMachine(self,AverageBeamMachine):
         self.AverageBeamMachine=AverageBeamMachine
