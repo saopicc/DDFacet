@@ -51,7 +51,7 @@ class ClassLOFARBeam():
         self.SR.setDirection(self.MS.rarad,self.MS.decrad)
 
 
-    def getBeamSampleTimes(self,times):
+    def getBeamSampleTimes(self,times, **kwargs):
         DtBeamMin = self.GD["Beam"]["DtBeamMin"]
         DtBeamSec = DtBeamMin*60
         tmin=times[0]

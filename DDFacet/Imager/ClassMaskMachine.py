@@ -182,6 +182,7 @@ class ClassMaskMachine():
         self.MinorCycleConfig=MinorCycleConfig
         self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.MainCache,
                                                                                CacheSharedMode=True,
+                                                                               ParallelMode=False,
                                                                                CacheFileName="HMP_Masking",
                                                                                **self.MinorCycleConfig)
         

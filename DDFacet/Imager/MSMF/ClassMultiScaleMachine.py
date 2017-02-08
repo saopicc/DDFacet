@@ -187,7 +187,7 @@ class ClassMultiScaleMachine():
         self.CubePSFScales=DicoBasisMatrix["CubePSFScales"]
         self.GlobalWeightFunction=DicoBasisMatrix["GlobalWeightFunction"]
 
-    def MakeMultiScaleCube(self):
+    def MakeMultiScaleCube(self, verbose=False):
         if self.IsInit_MultiScaleCube: return
         T=ClassTimeIt.ClassTimeIt("MakeMultiScaleCube")
         T.disable()
@@ -260,6 +260,7 @@ class ClassMultiScaleMachine():
         nch,_,nx,ny=self.SubPSF.shape
 
         if self.CubePSFScales is None or self.ListScales is None:
+            # print>>log,"computing scales"
             #self.ListSumFluxes = []
 
             self.ListScales = []
@@ -378,6 +379,8 @@ class ClassMultiScaleMachine():
                 #                                     "Alpha":ThisAlpha})
 
             self.CubePSFScales=np.array(ListPSFScales)
+        # else:
+        #     print>>log,"scales already loaded"
         T.timeit("1")
         # Max=np.max(np.max(CubePSFScales,axis=1),axis=1)
         # Max=Max.reshape((Max.size,1,1))
@@ -430,9 +433,15 @@ class ClassMultiScaleMachine():
         self.nFunc=self.CubePSFScales.shape[0]
         self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
 
+        self.WeightWidth = self.GD["HMP"].get("Taper",0)
+        self.SupWeightWidth = self.GD["HMP"].get("Support",0)
 
-        self.WeightWidth=np.max([6.,np.max(Scales)])
-        self.SupWeightWidth=np.max([3.*self.WeightWidth,15])
+        if not self.WeightWidth:
+            self.WeightWidth = np.max([6.,np.max(Scales)])
+        if not self.SupWeightWidth:
+            self.SupWeightWidth = np.max([3.*self.WeightWidth,15])
+        if verbose:
+            print>>log,"  using HMP taper width %d, support size %d"%(self.WeightWidth, self.SupWeightWidth)
 
         T.timeit("init2")
         if self.GlobalWeightFunction is None:
@@ -818,7 +827,9 @@ class ClassMultiScaleMachine():
             a, b = self.CubePSFScales, np.float32(Sol.reshape((Sol.size, 1, 1, 1)))
             scales = numexpr.evaluate('a*b')
             # # model is sum of basis functions
-            LocalSM = scales.sum(axis=0)/Fact if Sol.size>1 else scales[0,...]/Fact
+
+            #LocalSM = scales.sum(axis=0)/Fact if Sol.size>1 else scales[0,...]/Fact
+            LocalSM = scales.sum(axis=0) if Sol.size>1 else scales[0,...]
 
 
             #print "Max abs model",np.max(np.abs(LocalSM))

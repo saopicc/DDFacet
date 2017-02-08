@@ -43,7 +43,7 @@ class ClassJones():
         # self.JonesNormSolsFile_killMS="%s/JonesNorm_killMS.npz"%ThisMSName
         # self.JonesNormSolsFile_Beam="%s/JonesNorm_Beam.npz"%ThisMSName
 
-    def InitDDESols(self, DATA):
+    def InitDDESols(self, DATA, quiet=False):
         GD = self.GD
         SolsFile = GD["DDESolutions"]["DDSols"]
         self.ApplyCal = False
@@ -61,7 +61,7 @@ class ClassJones():
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_killMS
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_killMS)
             else:
-                DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS", DATA)
+                DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS", DATA, quiet=quiet)
                 self.MS.cache.saveCache("JonesNorm_killMS.npz")
 
             DATA["killMS"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
@@ -84,7 +84,7 @@ class ClassJones():
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_Beam
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_Beam)
             else:
-                DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("Beam", DATA)
+                DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("Beam", DATA, quiet=quiet)
                 self.MS.cache.saveCache("JonesNorm_Beam.npz")
             DATA["Beam"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
 
@@ -152,7 +152,7 @@ class ClassJones():
         TimeMapping = SolsFile["TimeMapping"]
         return DicoSols, TimeMapping, DicoClusterDirs
 
-    def MakeSols(self, StrType, DATA):
+    def MakeSols(self, StrType, DATA, quiet=False):
 
         print>>log, "Build solution Dico for %s" % StrType
 
@@ -228,7 +228,7 @@ class ClassJones():
                 DicoClusterDirs["Cluster"] = np.array([0], np.int32)
 
             DicoClusterDirs_Beam = DicoClusterDirs
-            DicoSols = self.GiveBeam(DATA["uniq_times"])
+            DicoSols = self.GiveBeam(DATA["uniq_times"], quiet=quiet)
             print>>log, "  Build VisTime-to-Beam mapping"
             TimeMapping = self.GiveTimeMapping(DicoSols, DATA["times"])
             DicoClusterDirs["l"],DicoClusterDirs["m"]=self.MS.radec2lm_scalar(DicoClusterDirs["ra"],DicoClusterDirs["dec"])
@@ -474,7 +474,7 @@ class ClassJones():
             # self.DtBeamDeg = GD["Beam"]["FITSParAngleIncrement"]
             # print>>log, "  Estimating FITS beam model every %5.1f min."%DtBeamMin
 
-    def GiveBeam(self, times):
+    def GiveBeam(self, times, quiet=False):
         GD = self.GD
         if (GD["Beam"]["Model"] is None) | (GD["Beam"]["Model"] == ""):
             print>>log, "  Not applying any beam"
@@ -486,7 +486,7 @@ class ClassJones():
             print>>log, "  Taking beam-times from DDE-solutions"
             beam_times = self.BeamTimes_kMS
         else:
-            beam_times = self.BeamMachine.getBeamSampleTimes(times)
+            beam_times = self.BeamMachine.getBeamSampleTimes(times, quiet=quiet)
 
         RAs = self.ClusterCatBeam.ra
         DECs = self.ClusterCatBeam.dec
@@ -508,7 +508,7 @@ class ClassJones():
             (self.MS.NSPWChan, 1))-MeanFreqJonesChan.reshape((1, NChanJones)))
         return np.argmin(DFreq, axis=1)
 
-    def EstimateBeam(self, TimesBeam, RA, DEC,progressBar=True):
+    def EstimateBeam(self, TimesBeam, RA, DEC,progressBar=True, quiet=False):
         TimesBeam = np.float64(np.array(TimesBeam))
         T0s = TimesBeam[:-1].copy()
         T1s = TimesBeam[1:].copy()
@@ -521,7 +521,8 @@ class ClassJones():
         FreqDomains=self.BeamMachine.getFreqDomains()
 
         DicoBeam["VisToJonesChanMapping"]=self.GiveVisToJonesChanMapping(FreqDomains)
-        print>>log,"VisToJonesChanMapping: %s"%DicoBeam["VisToJonesChanMapping"]
+        if not quiet:
+            print>>log,"VisToJonesChanMapping: %s"%DicoBeam["VisToJonesChanMapping"]
 
 
         DicoBeam["Jones"]=np.zeros((Tm.size,NDir,self.MS.na,FreqDomains.shape[0],2,2),dtype=np.complex64)

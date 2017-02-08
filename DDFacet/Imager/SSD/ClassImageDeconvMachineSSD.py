@@ -99,7 +99,8 @@ class ClassImageDeconvMachine():
     def setDeconvMode(self,Mode="MetroClean"):
         self.DeconvMode=Mode
 
-
+    def Reset(self): pass
+        
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
@@ -160,6 +161,7 @@ class ClassImageDeconvMachine():
         if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)
         self.ModelMachine.setModelShape(self._Dirty.shape)
+
 
 
     def SearchIslands(self,Threshold):
@@ -442,11 +444,11 @@ class ClassImageDeconvMachine():
 
         StopWhenQueueEmpty=True
 
-        # ######### Debug
-        # ParallelPerIsland=False
-        # Parallel=False
-        # StopWhenQueueEmpty=True
-        # ##################
+        ######### Debug
+        ParallelPerIsland=False
+        Parallel=False
+        StopWhenQueueEmpty=True
+        ##################
 
 
         work_queue = multiprocessing.Queue()

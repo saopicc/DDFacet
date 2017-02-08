@@ -19,6 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import numpy as np
+import numexpr
 from DDFacet.Other import MyLogger
 log= MyLogger.getLogger("ClassBeamMean")
 from DDFacet.ToolsDir import ModCoord
@@ -29,7 +30,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Other import ModColor
 from DDFacet.Array import NpShared
-from DDFacet.Array import SharedDict
+from DDFacet.Array import shared_dict
 
 from DDFacet.Other.AsyncProcessPool import APP
 import copy
@@ -58,7 +59,7 @@ class ClassBeamMean():
         #self.SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
         #self.SumWsq=np.zeros((1,self.MS.Nchan),np.float64)
 
-        self.StackedBeamDict=SharedDict.SharedDict("StackedBeamDict")
+        self.StackedBeamDict=shared_dict.SharedDict("StackedBeamDict")
         for iDir in range(self.NDir):
             self.StackedBeamDict[iDir]={"SumJJsq":np.zeros((self.MS.Nchan,),np.float64),
                                         "SumWsq":np.zeros((self.MS.Nchan,),np.float64)}
@@ -110,7 +111,7 @@ class ClassBeamMean():
         flags=ThisMSData["flags"]
         W=ThisMSData["Weights"]
         
-        beam_times = np.array(JonesMachine.BeamMachine.getBeamSampleTimes(times))
+        beam_times = np.array(JonesMachine.BeamMachine.getBeamSampleTimes(times, quiet=True))
 
         T2=ClassTimeIt.ClassTimeIt()
         T2.disable()
@@ -119,7 +120,7 @@ class ClassBeamMean():
         # MS=self.ListMS[ThisMSData["iMS"]]
         # JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine)
         # JonesMachine.InitBeamMachine()
-        DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[iDir:iDir+1], DECs[iDir:iDir+1],progressBar=False)
+        DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[iDir:iDir+1], DECs[iDir:iDir+1], progressBar=False, quiet=True)
         T2.timeit("GetBeam 1")
         #DicoBeam=JonesMachine.EstimateBeam(beam_times, RAs[0:10], DECs[0:10],progressBar=False)
         #T2.timeit("GetBeam 10")

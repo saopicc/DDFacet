@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 # matplotlib.use('agg')
 import optparse
 import traceback
+import atexit
 SaveFile = "last_DDFacet.obj"
 import os, errno, re, sys, time, subprocess, psutil, numexpr
 import numpy as np
@@ -283,6 +284,7 @@ def main(OP=None, messages=[]):
 if __name__ == "__main__":
     #os.system('clear')
     #logo.print_logo()
+    atexit.register(Multiprocessing.cleanupShm)
 
     T = ClassTimeIt.ClassTimeIt()
 
@@ -370,5 +372,4 @@ if __name__ == "__main__":
         retcode = 1 # Should at least give the command line an indication of failure
 
     APP.shutdown()
-    Multiprocessing.cleanupShm()
     sys.exit(retcode)
