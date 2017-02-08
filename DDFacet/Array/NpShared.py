@@ -45,9 +45,15 @@ def SizeShm():
         s=ps.communicate()[0]
         
         ss=s.split(" ")
-        #print ss
-        S=float([i for i in ss if i!=""][2].replace("G",""))*1024
-        #print S
+
+        ss=[i for i in ss if i!=""][2]
+        if "G" in ss:
+            S=float(ss.replace("G",""))*1024
+        elif "M" in ss:
+            S=float(ss.replace("M",""))
+        elif "K" in ss:
+            S=float(ss.replace("K",""))/1024
+
         #S=float(check_output(["du", "-sc","/dev/shm/"]).split("\t")[0])/1024
     except:
         S=None
