@@ -509,6 +509,7 @@ class AsyncProcessPool (object):
         if pause_on_start:
             os.kill(os.getpid(), signal.SIGSTOP)
         numexpr.set_num_threads(1)   # avoid too many sub-threads
+
         AsyncProcessPool.proc_id = proc_id
         MyLogger.subprocess_id = proc_id
         if affinity:

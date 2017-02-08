@@ -23,7 +23,6 @@ log= MyLogger.getLogger("ClassLOFARBeam")
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 
-
 import numpy as np
 try:
     import lofar.stationresponse as lsr
@@ -52,7 +51,7 @@ class ClassLOFARBeam():
         self.SR.setDirection(self.MS.rarad,self.MS.decrad)
 
 
-    def getBeamSampleTimes(self,times):
+    def getBeamSampleTimes(self,times, **kwargs):
         DtBeamMin = self.GD["Beam"]["DtBeamMin"]
         DtBeamSec = DtBeamMin*60
         tmin=times[0]

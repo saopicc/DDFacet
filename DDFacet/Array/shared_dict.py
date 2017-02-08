@@ -220,6 +220,7 @@ class SharedDict (dict):
         if os.path.exists(path+"d"):
             os.system("rm -fr "+path+"d")
 
+
     def __setitem__(self, item, value):
         if not self._readwrite:
             raise RuntimeError("SharedDict %s attached as read-only" % self.path)
@@ -239,6 +240,7 @@ class SharedDict (dict):
             for suffix in "apd":
                 if os.path.exists(path+suffix):
                     raise RuntimeError("SharedDict entry %s exists, possibly added by another process. This is most likely a bug!" % (path+suffix))
+
         # for arrays, copy to a shared array
         if isinstance(value, np.ndarray):
             value = NpShared.ToShared(_to_shm(path+'a'), value)
@@ -293,4 +295,8 @@ def testSharedDict ():
 
     other_view = SharedDict("foo", reset=False)
     print other_view
+
+
+SharedDict.setBaseName("ddf."+str(os.getpid()))
+
 

@@ -55,12 +55,13 @@ class ClassImageDeconvMachine():
                  PeakFactor=0,
                  GD=None, 
                  SearchMaxAbs=1, 
-                 CleanMaskImage=None,
                  ModelMachine=None,
                  NFreqBands=1,
                  MainCache=None,
                  CacheSharedMode=False,
                  IdSharedMem="",
+                 ParallelMode=True,
+                 CacheFileName="HMPBasis",
                  **kw    # absorb any unknown keywords arguments into this
                  ):
         self.IdSharedMem=IdSharedMem
@@ -78,7 +79,7 @@ class ClassImageDeconvMachine():
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
-
+        self.CacheFileName=CacheFileName
         self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
         self.ModelMachine = ModelMachine
         self.RefFreq=self.ModelMachine.RefFreq
@@ -91,17 +92,14 @@ class ClassImageDeconvMachine():
         self._niter = 0
         self.CacheSharedMode=CacheSharedMode
         self.facetcache=None
-        APP.registerJobHandlers(self)
+        self._MaskArray=None
+        self.MaskMachine=None
+        self.ParallelMode=ParallelMode
+        if self.ParallelMode:
+            APP.registerJobHandlers(self)
 
-        if CleanMaskImage is not None:
-            MaskArray = image(CleanMaskImage).getdata()
-            nch, npol, nx, ny = MaskArray.shape
-            print>>log, "Using mask image %s of shape %dx%d" % (
-                CleanMaskImage, nx, ny)
-            # mask array has only one channel, one pol, so take the first plane from the image
-            # (and transpose the axes to X,Y from the FITS Y,X)
-            self._MaskArray = np.zeros((1,1,ny,nx),np.bool8)
-            self._MaskArray[0,0,:,:] = np.bool8(1-MaskArray[0,0].T[::-1])
+        numexpr.set_num_threads(NCPU)
+
 
     def __del__ (self):
         if type(self.facetcache) is shared_dict.SharedDict:
@@ -111,6 +109,11 @@ class ClassImageDeconvMachine():
         nx,ny=Mask.shape
         self._MaskArray = np.zeros((1,1,nx,ny),np.bool8)
         self._MaskArray[0,0,:,:]=Mask[:,:]
+
+
+
+    def setMaskMachine(self,MaskMachine):
+        self.MaskMachine=MaskMachine
 
     def resetCounter(self):
         self._niter = 0
@@ -179,14 +182,14 @@ class ClassImageDeconvMachine():
                 "Image", "Facets", "Weight", "RIME",
                 "Comp", "CF",
                 "HMP")])
-        cachepath, valid = self.maincache.checkCache("HMPMachine", cachehash, reset=not cache or self.PSFHasChanged)
+        cachepath, valid = self.maincache.checkCache(self.CacheFileName, cachehash, reset=not cache or self.PSFHasChanged)
         # do not use cache in approx mode
         if approx or not cache:
             valid = False
         if valid:
             if self.facetcache is None:
                 print>>log,"Initialising HMP Machine from cache %s"%cachepath
-                self.facetcache = shared_dict.create("HMPBasis")
+                self.facetcache = shared_dict.create(self.CacheFileName)
                 self.facetcache.restore(cachepath)
             else:
                 print>>log,"HMP Machine already initialized"
@@ -213,13 +216,22 @@ class ClassImageDeconvMachine():
         else:
             # if no facet cache, init in parallel
             if self.facetcache is None:
-                self.facetcache = shared_dict.create("HMPBasis")
+                self.facetcache = shared_dict.create(self.CacheFileName)
                 for iFacet in xrange(self.PSFServer.NFacets):
                     fcdict = self.facetcache.addSubdict(iFacet)
-                    APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
-                               args=(fcdict.writeonly(), self.DicoVariablePSF.readonly(),
-                                     iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet))
-                APP.awaitJobResults("InitHMP:*", progress="Init HMP")
+                    if self.ParallelMode:
+                        args=(fcdict.writeonly(), self.DicoVariablePSF.readonly(),
+                              iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet)
+                        APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
+                                   args=args)
+                    else:
+                        args=(fcdict, self.DicoVariablePSF,
+                              iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet)
+                        self._initMSM_handler(*args)
+
+                if self.ParallelMode:
+                    APP.awaitJobResults("InitHMP:*", progress="Init HMP")
+
                 self.facetcache.reload()
             #        t = ClassTimeIt.ClassTimeIt()
             for iFacet in xrange(self.PSFServer.NFacets):
@@ -240,15 +252,18 @@ class ClassImageDeconvMachine():
 
             if not valid and cache and not approx:
                 try:
+                    #MyPickle.DicoNPToFile(facetcache,cachepath)
+                    #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
                     self.facetcache.save(cachepath)
-                    self.maincache.saveCache("HMPMachine")
+                    #self.maincache.saveCache("HMPMachine")
+                    self.maincache.saveCache(self.CacheFileName)
                     self.PSFHasChanged=False
                 except:
                     print>>log, traceback.format_exc()
                     print >>log, ModColor.Str(
                         "WARNING: HMP cache could not be written, see error report above. Proceeding anyway.")
 
-    def SetDirty(self, DicoDirty,DoSetMask=True):
+    def SetDirty(self, DicoDirty):#,DoSetMask=True):
         # if len(PSF.shape)==4:
         #     self.PSF=PSF[0,0]
         # else:
@@ -279,28 +294,28 @@ class ClassImageDeconvMachine():
 #        if self._ModelImage is None:
 #            self._ModelImage=np.zeros_like(self._CubeDirty)
 
-        if DoSetMask:
-            if self._MaskArray is None:
-                self._MaskArray=np.zeros(self._MeanDirty.shape,dtype=np.bool8)
-            else:
-                maskshape = (1,1,NDirty,NDirty)
-                # check for mask shape
-                if maskshape != self._MaskArray.shape:
-                    ma0 = self._MaskArray
-                    _,_,nx,ny = ma0.shape
-                    def match_shapes (n1,n2):
-                        if n1<n2:
-                            return slice(None), slice((n2-n1)/2,(n2-n1)/2+n1)
-                        elif n1>n2:
-                            return slice((n1-n2)/2,(n1-n2)/2+n2), slice(None)
-                        else:
-                            return slice(None), slice(None)
-                    sx1, sx2 = match_shapes(NDirty, nx) 
-                    sy1, sy2 = match_shapes(NDirty, ny) 
-                    self._MaskArray = np.zeros(maskshape, dtype=np.bool8)
-                    self._MaskArray[0,0,sx1,sy1] = ma0[0,0,sx2,sy2]
-                    print>>log,ModColor.Str("WARNING: reshaping mask image from %dx%d to %dx%d"%(nx, ny, NDirty, NDirty))
-                    print>>log,ModColor.Str("Are you sure you supplied the correct cleaning mask?")
+        # if DoSetMask:
+        #     if self._MaskArray is None:
+        #         self._MaskArray=np.zeros(self._MeanDirty.shape,dtype=np.bool8)
+        #     else:
+        #         maskshape = (1,1,NDirty,NDirty)
+        #         # check for mask shape
+        #         if maskshape != self._MaskArray.shape:
+        #             ma0 = self._MaskArray
+        #             _,_,nx,ny = ma0.shape
+        #             def match_shapes (n1,n2):
+        #                 if n1<n2:
+        #                     return slice(None), slice((n2-n1)/2,(n2-n1)/2+n1)
+        #                 elif n1>n2:
+        #                     return slice((n1-n2)/2,(n1-n2)/2+n2), slice(None)
+        #                 else:
+        #                     return slice(None), slice(None)
+        #             sx1, sx2 = match_shapes(NDirty, nx) 
+        #             sy1, sy2 = match_shapes(NDirty, ny) 
+        #             self._MaskArray = np.zeros(maskshape, dtype=np.bool8)
+        #             self._MaskArray[0,0,sx1,sy1] = ma0[0,0,sx2,sy2]
+        #             print>>log,ModColor.Str("WARNING: reshaping mask image from %dx%d to %dx%d"%(nx, ny, NDirty, NDirty))
+        #             print>>log,ModColor.Str("Are you sure you supplied the correct cleaning mask?")
         
 
     def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):
@@ -471,7 +486,13 @@ class ClassImageDeconvMachine():
 
         Fluxlimit_RMS = self.RMSFactor*RMS
         #print "startmax",self._MeanDirty.shape,self._MaskArray.shape
-        x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self._MaskArray)
+
+        CurrentNegMask=None
+        if self.MaskMachine:
+            CurrentNegMask=self.MaskMachine.CurrentNegMask
+        if self._MaskArray is not None:
+            CurrentNegMask=self._MaskArray
+        x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=CurrentNegMask)
 
         #x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty.copy(),NCPU=1,DoAbs=DoAbs,Mask=self._MaskArray.copy())
         #A=self._MeanDirty.copy()
@@ -525,7 +546,7 @@ class ClassImageDeconvMachine():
         T.disable()
 
         x, y, ThisFlux = NpParallel.A_whereMax(
-            self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=self._MaskArray)
+            self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
         # #print x,y
         # print>>log, "npp: %d %d %g"%(x,y,ThisFlux)
         # xy = ma.argmax(ma.masked_array(abs(self._MeanDirty), self._MaskArray))
@@ -552,6 +573,7 @@ class ClassImageDeconvMachine():
 
         self.GainMachine.SetFluxMax(ThisFlux)
         # pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
+        PreviousFlux=ThisFlux
 
         def GivePercentDone(ThisMaxFlux):
             fracDone = 1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
@@ -563,7 +585,7 @@ class ClassImageDeconvMachine():
 
                 # x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
                 x, y, ThisFlux = NpParallel.A_whereMax(
-                    self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=self._MaskArray)
+                    self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
 
                 #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y); ThisFlux=self._MeanDirty[0,0,x,y]
                 self.GainMachine.SetFluxMax(ThisFlux)
@@ -576,6 +598,14 @@ class ClassImageDeconvMachine():
                 # stop
 
                 T.timeit("max0")
+                if not self.GD["HMP"]["AllowResidIncrease"]:
+                    if np.abs(ThisFlux)>np.abs(PreviousFlux):
+                        print>>log, ModColor.Str(
+                            "    [iter=%i] peak of %.3g Jy higher than previous one of %.3g Jy " %
+                            (i, ThisFlux, PreviousFlux), col="red")
+                        return "Diverging", True, True
+                    else:
+                        PreviousFlux=ThisFlux
 
 
                 if ThisFlux <= StopFlux:

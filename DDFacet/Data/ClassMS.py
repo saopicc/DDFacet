@@ -535,6 +535,9 @@ class ClassMS():
             # In auto cache mode, cache key is the start time of the process. The cache is thus reset when first
             # touched, so we read the MS on the first major cycle, and cache subsequently.
             cache_key = dict(time=self._start_time)
+
+            # @o-smirnov: why not that?
+            # cache_key = dict(data=self.GD["Data"])
             metadata_path, metadata_valid = self.cache.checkCache("A0A1UVWT.npz", cache_key, ignore_key=(use_cache=="force"))
         else:
             metadata_valid = False

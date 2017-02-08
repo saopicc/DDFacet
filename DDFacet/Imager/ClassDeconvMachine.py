@@ -43,8 +43,9 @@ from DDFacet.Other.AsyncProcessPool import APP
 import cPickle
 log=MyLogger.getLogger("ClassImagerDeconv")
 import pyfits
-from DDFacet.Array import shared_dict
 import DDFacet.Data.ClassBeamMean as ClassBeamMean
+from DDFacet.Imager import ClassMaskMachine
+from DDFacet.Array import shared_dict
 from DDFacet.Other import ClassTimeIt
 import numexpr
 
@@ -168,6 +169,7 @@ class ClassImagerDeconv():
         MinorCycleConfig["GD"] = self.GD
         MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
 
+        self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
 
         SubstractModel=self.GD["Predict"]["InitDicoModel"]
         DoSub=(SubstractModel!="")&(SubstractModel is not None)
@@ -191,6 +193,7 @@ class ClassImagerDeconv():
                 self.DicoModelName="%s.DicoModel"%self.BaseName
                 self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
             self.DoDirtySub=1
+
         else:
             ModelMachine = self.ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
             ModelMachine.setRefFreq(self.VS.RefFreq)
@@ -200,6 +203,7 @@ class ClassImagerDeconv():
         self.ModelMachine=ModelMachine
 
         MinorCycleConfig["ModelMachine"] = ModelMachine
+        
 
         if self.do_deconvolve:
             # Specify which deconvolution algorithm to use
@@ -221,10 +225,13 @@ class ClassImagerDeconv():
                 print>>log,"Using Hogbom algorithm"
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
-
+            self.MaskMachine.setMainCache(self.VS.maincache)
+            self.DeconvMachine.setMaskMachine(self.MaskMachine)
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
-        if "H" in self._saveims:
+
+        self.DoSmoothBeam=(self.GD["Beam"]["Smooth"] and self.GD["Beam"]["Model"])
+        if self.DoSmoothBeam:
             AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
 
@@ -351,6 +358,10 @@ class ClassImagerDeconv():
         self.DicoImagesPSF = shared_dict.create("FMPSF_AllImages")
         self.DicoImagesPSF.restore(cachepath)
 
+        #DicoImagesPSF = MyPickle.FileToDicoNP(cachepath)
+        #self.DicoImagesPSF = SharedDict.dict_to_shm("FMPSF_AllImages",DicoImagesPSF)
+        #del(DicoImagesPSF)
+        
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
         self.FWHMBeam=self.DicoImagesPSF["FWHMBeam"]
@@ -496,6 +507,9 @@ class ClassImagerDeconv():
                 self.MeanJonesNorm = None
                 self.JonesNorm = None
             
+            if self.DicoDirty.get("LastMask") is not None:
+                self.MaskMachine.joinExternalMask(self.DicoDirty["LastMask"])
+
         if psf_valid:
             print>>log, ModColor.Str("============================ Loading cached PSF =================================")
             print>> log, "found valid cached PSF in %s" % psf_cachepath
@@ -651,7 +665,7 @@ class ClassImagerDeconv():
             self.JonesNorm = self.DicoDirty["JonesNorm"]
             self.MeanJonesNorm = np.mean(self.JonesNorm,axis=0).reshape((1,npol,nx,ny))
 
-            if "H" in self._saveims and self.FacetMachine.SmoothMeanJonesNorm is not None:
+            if self.DoSmoothBeam and self.FacetMachine.SmoothMeanJonesNorm is not None:
                 self.FacetMachine.ToCasaImage(self.FacetMachine.SmoothMeanJonesNorm,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
@@ -693,7 +707,7 @@ class ClassImagerDeconv():
         # self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
         CleanMaskImage=None
-        CleanMaskImageName=self.GD["Deconv"]["CleanMaskImage"]
+        CleanMaskImageName=self.GD["Mask"]["ExternalMask"]
         if CleanMaskImageName is not None and CleanMaskImageName is not "":
             print>>log,ModColor.Str("Will use mask image %s for the predict"%CleanMaskImageName)
             CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
@@ -841,7 +855,7 @@ class ClassImagerDeconv():
         if not sparsify:
             self.FacetMachinePSF.releaseGrids()
             self.FacetMachinePSF = None
-
+        
         #Pass minor cycle specific options into Init as kwargs
         self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
                                 approx=(sparsify > approximate_psf_above), cache=not sparsify,
@@ -855,7 +869,21 @@ class ClassImagerDeconv():
                 break
 
             print>>log, ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1))
+            self.MaskMachine.setPSF(self.DicoImagesPSF)
+            self.MaskMachine.updateResidual(self.DicoDirty)
 
+            if self.MaskMachine.CurrentMask is not None:
+                if "k" in self._saveims:
+                    self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.CurrentMask),
+                                                  ImageName="%s.mask%2.2i"%(self.BaseName,iMajor),Fits=True,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                if "z" in self._saveims and self.MaskMachine.NoiseMap is not None:
+                    self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.NoiseMapReShape),
+                                                  ImageName="%s.noise%2.2i"%(self.BaseName,iMajor),Fits=True,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                    self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.Restored),
+                                                  ImageName="%s.brutalRestored%2.2i"%(self.BaseName,iMajor),Fits=True,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             self.DeconvMachine.Update(self.DicoDirty)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
@@ -1003,6 +1031,8 @@ class ClassImagerDeconv():
             self.FacetMachine.releaseModelImage()
             # create new residual image
             self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
+
+            self.DicoDirty["LastMask"] = self.MaskMachine.CurrentMask
 
             # was PSF re-generated?
             if do_psf:
@@ -1157,6 +1187,10 @@ class ClassImagerDeconv():
             self.FWHMBeam = [self.FWHMBeamAvg]
             self.PSFGaussPars = [self.PSFGaussParsAvg]
             self.PSFSidelobes = [self.PSFSidelobesAvg]
+
+        self.DicoImagesPSF["PSFGaussPars"]=self.PSFGaussPars
+        self.DicoImagesPSF["PSFSidelobes"]=self.PSFSidelobes
+        self.DicoImagesPSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
         # except:
         #     print>>log,"Error fitting the PSF: %s"%traceback.format_exc()
         #     self.FWHMBeamAvg = 0,0,0
@@ -1479,7 +1513,7 @@ class ClassImagerDeconv():
                                    beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         # intrinsic-flux restored image
-        if havenorm and ("H" in self._saveims):
+        if havenorm and self.DoSmoothBeam:
             if self.FacetMachine.SmoothMeanJonesNorm is None:
                 print>> log, ModColor.Str("You requested a restored imaged but the smooth beam is not in there")
                 print>> log, ModColor.Str("  so just not doing it")

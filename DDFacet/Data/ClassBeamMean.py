@@ -73,7 +73,7 @@ class ClassBeamMean():
         _,_,nx,_=self.VS.FullImShape
         CellSizeRad=self.VS.CellSizeRad
         FOV=nx*CellSizeRad
-        npix=self.GD["Beam"]["SmoothBeamNPix"]
+        npix=self.GD["Beam"]["SmoothNPix"]
         lm=np.linspace(-FOV/2.,FOV/2.,npix+1)
         ll=(lm[0:-1]+lm[1::])/2.
         lmin=ll.min()

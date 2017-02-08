@@ -45,6 +45,9 @@ class ClassImageDeconvMachine():
         self.CubePSFScales=None
         self.SubPSF=None
 
+    def setMaskMachine(self,MaskMachine):
+        self.MaskMachine=MaskMachine
+
     def SetDirtyPSF(self,Dirty,PSF):
         # if len(PSF.shape)==4:
         #     self.PSF=PSF[0,0]
