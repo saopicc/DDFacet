@@ -37,13 +37,15 @@ def zeros(Name, *args, **kwargs):
 
 
 def SizeShm():
-    L = ListNames()
-    S = 0
-    for l in L:
-        A = GiveArray(l)
-        if A is not None:
-            S += A.nbytes
-    return float(S)/(1024**2)
+    from subprocess import check_output
+    return float(check_output(["du", "-sc","/dev/shm/"]).split("\t")[0])/1024**2
+    # L = ListNames()
+    # S = 0
+    # for l in L:
+    #     A = GiveArray(l)
+    #     if A is not None:
+    #         S += A.nbytes
+    # return float(S)/(1024**2)
 
 
 def CreateShared(Name, shape, dtype):
