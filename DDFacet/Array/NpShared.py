@@ -38,8 +38,17 @@ def zeros(Name, *args, **kwargs):
 
 def SizeShm():
     from subprocess import check_output
+    import subprocess
     try:
-        S=float(check_output(["du", "-sc","/dev/shm/"]).split("\t")[0])/1024
+        cmd = "df -h | grep shm"
+        ps = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        s=ps.communicate()[0]
+        
+        ss=s.split(" ")
+        #print ss
+        S=float([i for i in ss if i!=""][2].replace("G",""))*1024
+        #print S
+        #S=float(check_output(["du", "-sc","/dev/shm/"]).split("\t")[0])/1024
     except:
         S=None
     return S

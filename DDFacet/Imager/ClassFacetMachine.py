@@ -896,6 +896,8 @@ class ClassFacetMachine():
                     DicoImages["CubeVariablePSF"][iFacet, ch, :, :, :] = DicoImagesFacets[iFacet]["PSF"][ch][:, i:j, i:j]
                 DicoImages["CubeMeanVariablePSF"][iFacet, 0, :, :, :] = DicoImagesFacets[iFacet]["MeanPSF"][0, :, i:j, i:j]
 
+            del(DicoImagesFacets)
+
             DicoImages["CentralFacet"] = self.iCentralFacet
             #DicoImages["CubeVariablePSF"] = CubeVariablePSF
             #DicoImages["CubeMeanVariablePSF"] = CubeMeanVariablePSF
@@ -964,11 +966,10 @@ class ClassFacetMachine():
 
             DicoImages["FacetNorm"] = FacetNorm
             DicoImages["JonesNorm"] = JonesNorm
-
+            
             #for iFacet in sorted(self.DicoImager.keys()):
                 #DicoImages["Facets"][iFacet].delete_item("PSF")
                 #DicoImages["Facets"][iFacet].delete_item("MeanPSF")
-            del(DicoImagesFacets)
 
             # print>>log,"copying dictPSF"
             DicoImages.reload()
