@@ -203,6 +203,9 @@ class ClassImageDeconvMachine():
 #            if (MaxIsland>(3.*self.RMS))|(MaxIsland>Threshold):
             if (MaxIsland>Threshold):
                 ListIslandsFiltered.append(ListIslands[iIsland])
+            else:
+                self.MaskMachine.CurrentNegMask[:,:,x,y]=1
+                self.MaskMachine.CurrentMask[:,:,x,y]=0
             # ###############################
             # if np.max(np.abs(PixVals))>Threshold:
             #     DoThisOne=True

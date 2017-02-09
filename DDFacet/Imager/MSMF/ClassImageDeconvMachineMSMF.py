@@ -647,17 +647,19 @@ class ClassImageDeconvMachine():
                     else:
                         PreviousFlux=ThisFlux
 
-                if ThisFlux <= StopFlux or ThisFlux/rms<PNRStop:
+                ThisPNR=ThisFlux/rms
+
+                if ThisFlux <= StopFlux or ThisPNR<PNRStop:
                     rms = np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
                     # pBAR.render(100,"peak %.3g"%(ThisFlux,))
                     if ThisFlux <= StopFlux:
                         print>>log, ModColor.Str(
                             "    [iter=%i] peak of %.3g Jy lower than stopping flux, PNR %.3g" %
                             (i, ThisFlux, ThisFlux/rms), col="green")
-                    elif ThisFlux/rms<PNRStop:
+                    elif ThisPNR<PNRStop:
                         print>>log, ModColor.Str(
-                            "    [iter=%i] PNR of %.3g Jy lower than stopping flux, peak of %.3g" %
-                            (i, ThisFlux/rms, ThisFlux), col="green")
+                            "    [iter=%i] PNR of %.3g lower than stopping flux, peak of %.3g Jy" %
+                            (i, ThisPNR, ThisFlux), col="green")
                         
 
                     cont = ThisFlux > self.FluxThreshold

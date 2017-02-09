@@ -63,7 +63,7 @@ class ClassMaskMachine():
         
         if self.GD["Mask"]["Auto"]:
             self.ImageNoiseMachine.calcNoiseMap(DicoResidual)
-            self.NoiseMask=(self.ImageNoiseMachine.StatImage[0,0]>self.GD["Mask"]["SigTh"]*self.ImageNoiseMachine.NoiseMapReShape)
+            self.NoiseMask=(self.ImageNoiseMachine.StatImage>self.GD["Mask"]["SigTh"]*self.ImageNoiseMachine.NoiseMapReShape)
 
         if self.NoiseMask is not None: 
             print>>log,"  Merging Current mask with Noise-based mask"

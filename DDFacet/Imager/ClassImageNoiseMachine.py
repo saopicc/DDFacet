@@ -114,10 +114,10 @@ class ClassImageNoiseMachine():
         self.GD["HMP"]["Alpha"]=[0,0,1]
         self.GD["Deconv"]["Mode"]="HMP"
         self.GD["Deconv"]["CycleFactor"]=0
-        self.GD["Deconv"]["PeakFactor"]=0.01
+        self.GD["Deconv"]["PeakFactor"]=0.0
         self.GD["Deconv"]["RMSFactor"]=0.
         self.GD["Deconv"]["Gain"]=.5
-        self.GD["Deconv"]["PNRStop"]=2.
+        self.GD["Deconv"]["PNRStop"]=10.
         self.GD["Deconv"]["AllowNegative"]=True
         self.GD["Deconv"]["PSFBox"]="full"
         self.GD["Deconv"]["MaxMinorIter"]=10000
@@ -181,7 +181,7 @@ class ClassImageNoiseMachine():
 
         Sig_rad=np.max(self.DicoVariablePSF["EstimatesAvgPSF"][1][0:2])
         Sig_pix=Sig_rad/self.DicoDirty["ImageInfo"]["CellSizeRad"]
-        Sig_pix=np.max([1,Sig_pix])#*2
+        Sig_pix=np.max([1,Sig_pix])*2
         n_pix=int(Sig_pix*4)
         if n_pix%2==0: n_pix+=1
 
