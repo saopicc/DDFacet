@@ -98,8 +98,11 @@ class ClassImageDeconvMachine():
         if self.ParallelMode:
             APP.registerJobHandlers(self)
 
-        numexpr.set_num_threads(NCPU)
+        # we are in a worker
+        if not self.ParallelMode:
+            numexpr.set_num_threads(NCPU)
 
+        self._NoiseMap=None
 
     def __del__ (self):
         if type(self.facetcache) is shared_dict.SharedDict:
@@ -155,6 +158,9 @@ class ClassImageDeconvMachine():
 
     def set_DicoHMPFunctions(self,facetcache):
         self.facetcache=facetcache
+
+    def setNoiseMap(self,NoiseMap):
+        self._NoiseMap=NoiseMap
 
     def _initMSM_handler(self, fcdict, psfdict, iFacet, SideLobeLevel, OffsetSideLobe, centralFacet):
         # init PSF server from PSF shared dict
@@ -284,6 +290,14 @@ class ClassImageDeconvMachine():
             self.IndStats=np.int64(np.linspace(0,self._CubeDirty.size-1,NPixStats))
         # self._MeanPSF=self.MSMachine._MeanPSF
         self._MeanDirty = MSMachine._MeanDirty
+
+
+        if self._NoiseMap:
+            print>>log,"Will search for the peak in the SNR map"
+            self._PeakSearchImage=self._MeanDirty/self._NoiseMap.reshape(self._MeanDirty.shape)
+        else:
+            self._PeakSearchImage=self._MeanDirty
+
         NPSF = self.PSFServer.NPSF
         #_,_,NPSF,_=self._PSF.shape
         _, _, NDirty, _ = self._CubeDirty.shape
@@ -430,6 +444,10 @@ class ClassImageDeconvMachine():
             ## this is slower:
             # self._MeanDirty[0,:,x0d:x1d,y0d:y1d] = self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0)
 
+        if self._PeakSearchImage is not self._MeanDirty:
+            sh=self._MeanDirty.shape
+            self._PeakSearchImage[:,:,x0d:x1d,y0d:y1d]=self._MeanDirty[:,:,x0d:x1d,y0d:y1d]/self._NoiseImage[:,:,x0d:x1d,y0d:y1d]
+
         # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
         # pylab.imshow(self._MeanDirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest")#,vmin=vmin,vmax=vmax)
         # pylab.colorbar()
@@ -492,7 +510,7 @@ class ClassImageDeconvMachine():
             CurrentNegMask=self.MaskMachine.CurrentNegMask
         if self._MaskArray is not None:
             CurrentNegMask=self._MaskArray
-        x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=CurrentNegMask)
+        x,y,MaxDirty=NpParallel.A_whereMax(self._PeakSearchImage,NCPU=self.NCPU,DoAbs=DoAbs,Mask=CurrentNegMask)
 
         #x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty.copy(),NCPU=1,DoAbs=DoAbs,Mask=self._MaskArray.copy())
         #A=self._MeanDirty.copy()
@@ -511,7 +529,7 @@ class ClassImageDeconvMachine():
         Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(
             1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
 
-        mm0, mm1 = self._MeanDirty.min(), self._MeanDirty.max()
+        mm0, mm1 = self._PeakSearchImage.min(), self._PeakSearchImage.max()
 
         # work out upper threshold
         StopFlux = max(
@@ -546,7 +564,7 @@ class ClassImageDeconvMachine():
         T.disable()
 
         x, y, ThisFlux = NpParallel.A_whereMax(
-            self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
+            self._PeakSearchImage, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
         # #print x,y
         # print>>log, "npp: %d %d %g"%(x,y,ThisFlux)
         # xy = ma.argmax(ma.masked_array(abs(self._MeanDirty), self._MaskArray))
@@ -585,7 +603,7 @@ class ClassImageDeconvMachine():
 
                 # x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
                 x, y, ThisFlux = NpParallel.A_whereMax(
-                    self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
+                    self._PeakSearchImage, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
 
                 #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y); ThisFlux=self._MeanDirty[0,0,x,y]
                 self.GainMachine.SetFluxMax(ThisFlux)

@@ -42,6 +42,7 @@ class ClassMaskMachine():
         self.NoiseMap=None
         self.readExternalMaskFromFits()
         self.DoMask=(self.GD["Mask"]["Auto"] or self.GD["Mask"]["External"])
+        self.NoiseMapRestored=None
 
     def setMainCache(self,MainCache):
         self.MainCache=MainCache
@@ -73,6 +74,13 @@ class ClassMaskMachine():
         ind=np.where(LargeNoise==0.)
         LargeNoise[ind]=1e-10
         return LargeNoise
+
+    def updateNoiseMap(self):
+        if self.Restored:
+            print>>log,"Computing HMP"
+            self.NoiseMapRestored=self.giveNoiseMap(self.Restored)
+            nx,ny=self.NoiseMapRestored.shape
+            self.NoiseMapRestoredReShape=self.NoiseMapRestored.reshape((1,1,nx,ny))
 
     def updateResidual(self,DicoResidual):
         if not self.DoMask: return
@@ -140,7 +148,7 @@ class ClassMaskMachine():
     def doBrutalClean(self):
         print>>log,"  Running Brutal HMP..."
         ListSilentModules=["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"]
-        MyLogger.setSilent(ListSilentModules)
+        # MyLogger.setSilent(ListSilentModules)
         self.DicoDirty=self.DicoResidual
         self.Orig_MeanDirty=self.DicoDirty["MeanImage"].copy()
         self.Orig_Dirty=self.DicoDirty["ImagData"].copy()
