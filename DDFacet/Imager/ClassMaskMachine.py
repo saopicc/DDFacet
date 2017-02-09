@@ -41,9 +41,8 @@ class ClassMaskMachine():
         self.ExternalMask=None
         self.readExternalMaskFromFits()
         self.DoMask=(self.GD["Mask"]["Auto"] or self.GD["Mask"]["External"])
+        self.ImageNoiseMachine=None
 
-    def setMainCache(self,MainCache):
-        self.MainCache=MainCache
 
 
     def updateNoiseMap(self):
@@ -54,17 +53,27 @@ class ClassMaskMachine():
             self.NoiseMapReShape=self.NoiseMap.reshape((1,1,nx,ny))
         else:
              print>>log,"Computing noise map based on residual image"
-            
+        
+    def setImageNoiseMachine(self,ImageNoiseMachine):
+        self.ImageNoiseMachine=ImageNoiseMachine
 
-    def updateResidual(self,DicoResidual):
+    def updateMask(self,DicoResidual):
         if not self.DoMask: return
         print>>log, "Computing Mask"
-        self.DicoResidual=DicoResidual
+        
         if self.GD["Mask"]["Auto"]:
-            self.ImageNoiseMachine.updateResidual(DicoResidual)
-            
-            self.NoiseMask=(Image[0,0]>Th*self.NoiseMapReShape)
-        self.updateMask()
+            self.ImageNoiseMachine.calcNoiseMap(DicoResidual)
+            self.NoiseMask=(self.ImageNoiseMachine.StatImage[0,0]>self.GD["Mask"]["SigTh"]*self.ImageNoiseMachine.NoiseMapReShape)
+
+        if self.NoiseMask is not None: 
+            print>>log,"  Merging Current mask with Noise-based mask"
+            self.CurrentMask = OR(self.CurrentMask,self.NoiseMask)
+        if self.ExternalMask is not None: 
+            print>>log,"  Merging Current mask with external mask"
+            self.CurrentMask = OR(self.CurrentMask,self.ExternalMask)
+
+        if self.CurrentMask is not None:
+            self.CurrentNegMask=self.giveOpposite(self.CurrentMask)
 
     def readExternalMaskFromFits(self):
         CleanMaskImage=self.GD["Mask"]["External"]
@@ -84,16 +93,6 @@ class ClassMaskMachine():
     def giveOpposite(self,Mask):
         return np.bool8(1-Mask)
 
-    def updateMask(self):
-        if self.NoiseMask is not None: 
-            print>>log,"  Merging Current mask with Noise-based mask"
-            self.CurrentMask = OR(self.CurrentMask,self.NoiseMask)
-        if self.ExternalMask is not None: 
-            print>>log,"  Merging Current mask with external mask"
-            self.CurrentMask = OR(self.CurrentMask,self.ExternalMask)
-
-        if self.CurrentMask is not None:
-            self.CurrentNegMask=self.giveOpposite(self.CurrentMask)
 
     def AdaptMaskShape(self):
         _,_,NMask,_=self._MaskArray.shape

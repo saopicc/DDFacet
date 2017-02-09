@@ -462,10 +462,10 @@ class ClassImageDeconvMachine():
         NPixStats = self.GD["Deconv"]["NumRMSSamples"]
         if NPixStats:
             #self.IndStats=np.int64(np.random.rand(NPixStats)*npix**2)
-            self.IndStats=np.int64(np.linspace(0,self._CubeDirty.size-1,NPixStats))
+            self.IndStats=np.int64(np.linspace(0,self._PeakSearchImage.size-1,NPixStats))
         else:
             self.IndStats = slice(None)
-        self.RMS=np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
+        self.RMS=np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
 
 
 

@@ -48,6 +48,7 @@ from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Array import shared_dict
 from DDFacet.Other import ClassTimeIt
 import numexpr
+from DDFacet.Imager import ClassImageNoiseMachine
 
 # from astropy import wcs
 # from astropy.io import fits
@@ -170,7 +171,9 @@ class ClassImagerDeconv():
         MinorCycleConfig["GD"] = self.GD
         MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
 
+        self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD)
         self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
+        self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
 
         SubstractModel=self.GD["Predict"]["InitDicoModel"]
         DoSub=(SubstractModel!="")&(SubstractModel is not None)
@@ -226,7 +229,7 @@ class ClassImagerDeconv():
                 print>>log,"Using Hogbom algorithm"
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
-            self.MaskMachine.setMainCache(self.VS.maincache)
+            self.ImageNoiseMachine.setMainCache(self.VS.maincache)
             self.DeconvMachine.setMaskMachine(self.MaskMachine)
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
@@ -878,19 +881,22 @@ class ClassImagerDeconv():
                 break
 
             print>>log, ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1))
-            self.MaskMachine.setPSF(self.DicoImagesPSF)
-            self.MaskMachine.updateResidual(self.DicoDirty)
+            # we have to give the PSF to the image-noise machine since it may have to run an HMP deconvolution
+            self.ImageNoiseMachine.setPSF(self.DicoImagesPSF)
+            # now update the mask - it will eventually call for ImageNoiseMachine to compute a noise image
+            self.MaskMachine.updateMask(self.DicoDirty)
+
 
             if self.MaskMachine.CurrentMask is not None:
                 if "k" in self._saveims:
                     self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.CurrentMask),
                                                   ImageName="%s.mask%2.2i"%(self.BaseName,iMajor),Fits=True,
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                if "z" in self._saveims and self.MaskMachine.NoiseMap is not None:
-                    self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.NoiseMapReShape),
+                if "z" in self._saveims and self.ImageNoiseMachine.NoiseMap is not None:
+                    self.FacetMachine.ToCasaImage(np.float32(self.ImageNoiseMachine.NoiseMapReShape),
                                                   ImageName="%s.noise%2.2i"%(self.BaseName,iMajor),Fits=True,
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                    self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.Restored),
+                    self.FacetMachine.ToCasaImage(np.float32(self.ImageNoiseMachine.Restored),
                                                   ImageName="%s.brutalRestored%2.2i"%(self.BaseName,iMajor),Fits=True,
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             self.DeconvMachine.Update(self.DicoDirty)
