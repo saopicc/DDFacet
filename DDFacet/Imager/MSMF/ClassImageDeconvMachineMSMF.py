@@ -537,6 +537,9 @@ class ClassImageDeconvMachine():
 
         mm0, mm1 = self._PeakSearchImage.min(), self._PeakSearchImage.max()
 
+        PNRStop = self.GD["Deconv"]["PNRStop"]
+
+
         # work out upper threshold
         StopFlux = max(
             Fluxlimit_Peak,
@@ -571,7 +574,7 @@ class ClassImageDeconvMachine():
                 self.FluxThreshold)
             print>>log, "    Stopping flux              = %10.6g [%.3f of peak ]" % (
                 StopFlux, StopFlux/MaxDirty)
-
+        rms=RMS
         # MaxModelInit=np.max(np.abs(self.ModelImage))
         # Fact=4
         # self.BookKeepShape=(npix/Fact,npix/Fact)
@@ -644,13 +647,19 @@ class ClassImageDeconvMachine():
                     else:
                         PreviousFlux=ThisFlux
 
-
-                if ThisFlux <= StopFlux:
+                if ThisFlux <= StopFlux or ThisFlux/rms<PNRStop:
                     rms = np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
                     # pBAR.render(100,"peak %.3g"%(ThisFlux,))
-                    print>>log, ModColor.Str(
-                        "    [iter=%i] peak of %.3g Jy lower than stopping flux, PNR %.3g" %
-                        (i, ThisFlux, ThisFlux/rms), col="green")
+                    if ThisFlux <= StopFlux:
+                        print>>log, ModColor.Str(
+                            "    [iter=%i] peak of %.3g Jy lower than stopping flux, PNR %.3g" %
+                            (i, ThisFlux, ThisFlux/rms), col="green")
+                    elif ThisFlux/rms<PNRStop:
+                        print>>log, ModColor.Str(
+                            "    [iter=%i] PNR of %.3g Jy lower than stopping flux, peak of %.3g" %
+                            (i, ThisFlux/rms, ThisFlux), col="green")
+                        
+
                     cont = ThisFlux > self.FluxThreshold
                     if not cont:
                         print>>log, ModColor.Str(

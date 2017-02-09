@@ -115,19 +115,21 @@ class ClassImageNoiseMachine():
         self.GD["Deconv"]["Mode"]="HMP"
         self.GD["Deconv"]["CycleFactor"]=0
         self.GD["Deconv"]["PeakFactor"]=0.01
-        self.GD["Deconv"]["RMSFactor"]=3.
+        self.GD["Deconv"]["RMSFactor"]=.5
         self.GD["Deconv"]["Gain"]=.5
+        self.GD["Deconv"]["PNRStop"]=2.
         self.GD["Deconv"]["AllowNegative"]=True
         self.GD["Deconv"]["PSFBox"]="full"
-        self.GD["Deconv"]["MaxMinorIter"]=1000
+        self.GD["Deconv"]["MaxMinorIter"]=10000
         self.GD["HMP"]["Scales"]=[0,1,2,4,8]
+        self.GD["HMP"]["Scales"]=[0]
         self.GD["HMP"]["Ratios"]=[]
         #self.GD["MultiScale"]["Ratios"]=[]
         self.GD["HMP"]["NTheta"]=4
         
         #self.GD["HMP"]["AllowResidIncrease"]=False
-        self.GD["HMP"]["SolverMode"]="NNLS"
-
+        #self.GD["HMP"]["SolverMode"]="NNLS"
+        self.GD["HMP"]["SolverMode"]="PI"
         DicoVariablePSF=self.DicoVariablePSF
         self.NFreqBands=len(DicoVariablePSF["freqs"])
         MinorCycleConfig=dict(self.GD["Deconv"])
