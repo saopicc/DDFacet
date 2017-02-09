@@ -472,7 +472,7 @@ class ClassImageDeconvMachine():
         else:
             self.IndStats = slice(None)
         self.RMS=np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
-
+        
 
 
     def Deconvolve(self, ch=0,UpdateRMS=True):
