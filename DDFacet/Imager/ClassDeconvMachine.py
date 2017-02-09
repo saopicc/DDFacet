@@ -86,7 +86,7 @@ import numexpr
 class ClassImagerDeconv():
     def __init__(self, GD=None,
                  PointingID=0,BaseName="ImageTest2",ReplaceDico=None,
-                 data=True, psf=True, readcol=True, deconvolve=True):
+                 predict_only=False, data=True, psf=True, readcol=True, deconvolve=True):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD
@@ -98,6 +98,7 @@ class ClassImagerDeconv():
         self.DicoModelName="%s.DicoModel"%self.BaseName
         self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
         self.PointingID=PointingID
+        self.do_predict_only = predict_only
         self.do_data, self.do_psf, self.do_readcol, self.do_deconvolve = data, psf, readcol, deconvolve
         self.FacetMachine=None
         self.FWHMBeam = None
@@ -234,11 +235,15 @@ class ClassImagerDeconv():
         if self.DoSmoothBeam:
             AverageBeamMachine=ClassBeamMean.ClassBeamMean(self.VS)
             self.FacetMachine.setAverageBeamMachine(AverageBeamMachine)
+        # tell VisServer to not load weights
+        if self.do_predict_only:
+            self.VS.IgnoreWeights()
 
         # all internal state initialized -- start the worker threads
         APP.startWorkers()
         # and proceed with background tasks
-        self.VS.CalcWeightsBackground()
+        if not self.do_predict_only:
+            self.VS.CalcWeightsBackground()
         self.FacetMachine and self.FacetMachine.initCFInBackground()
         # FacetMachinePSF will skip CF init if they match those of FacetMachine
         if self.FacetMachinePSF is not None:
@@ -373,7 +378,7 @@ class ClassImagerDeconv():
 
 
     def _finalizeComputedPSF (self, FacetMachinePSF, cachepath=None):
-        self.DicoImagesPSF = FacetMachinePSF.FacetsToIm(NormJones=False)
+        self.DicoImagesPSF = FacetMachinePSF.FacetsToIm(NormJones=True)
         FacetMachinePSF.releaseGrids()
         self._psfmean, self._psfcube = self.DicoImagesPSF["MeanImage"], self.DicoImagesPSF["ImagData"]  # this is only for the casa image saving
         self.FitPSF()
@@ -683,6 +688,10 @@ class ClassImagerDeconv():
 
     def GivePredict(self,from_fits=True):
         print>>log, ModColor.Str("============================== Making Predict ==============================")
+        if not self.GD["Predict"]["ColName"]:
+            raise ValueError("--Predict-ColName must be set")
+        if not self.GD["Predict"]["FromImage"] and not self.GD["Predict"]["InitDicoModel"]:
+            raise ValueError("--Predict-FromImage or --Predict-InitDicoModel must be set")
 
         # tell the I/O thread to go load the first chunk
         self.VS.ReInitChunkCount()
@@ -707,13 +716,13 @@ class ClassImagerDeconv():
         # self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
         CleanMaskImage=None
-        CleanMaskImageName=self.GD["Mask"]["ExternalMask"]
+        CleanMaskImageName=self.GD["Mask"]["External"]
         if CleanMaskImageName is not None and CleanMaskImageName is not "":
             print>>log,ModColor.Str("Will use mask image %s for the predict"%CleanMaskImageName)
             CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
 
 
-        modelfile = self.GD["Predict"]["PredictFromImage"]
+        modelfile = self.GD["Predict"]["FromImage"]
         # if model image is specified, we'll use that, rather than the ModelMachine
         if modelfile is not None and modelfile is not "":
             print>>log,ModColor.Str("Reading image file for the predict: %s"%modelfile)
@@ -804,7 +813,7 @@ class ClassImagerDeconv():
             self.FacetMachine.collectDegriddingResults()
             predict *= -1   # model was subtracted from (zero) predict, so need to invert sign
             # run job in I/O thread
-            self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Predict"]["PredictColName"], likecol=self.GD["Data"]["ColName"])
+            self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Predict"]["ColName"], likecol=self.GD["Data"]["ColName"])
             # and wait for it to finish (we don't want DATA destroyed, which collectLoadedChunk() above will)
             self.VS.collectPutColumnResults()
 
@@ -905,7 +914,7 @@ class ClassImagerDeconv():
                 print>> log, "This is the last major cycle"
             else:
                 print>> log, "Finished Deconvolving for this major cycle... Going back to visibility space."
-            predict_colname = not continue_deconv and self.GD["Predict"]["PredictColName"]
+            predict_colname = not continue_deconv and self.GD["Predict"]["ColName"]
 
             # in the meantime, tell the I/O thread to go reload the first data chunk
             self.VS.ReInitChunkCount()

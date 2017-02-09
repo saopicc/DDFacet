@@ -403,10 +403,11 @@ class ClassVisServer():
             self._next_chunk_name = "DATA:%d:%d" % (self.iCurrentMS, self.iCurrentChunk)
             self._next_chunk_label = "%d.%d" % (self.iCurrentMS + 1, self.iCurrentChunk + 1)
             # null chunk? skip to next chunk
-            self.awaitWeights()
-            if self.VisWeights[self.iCurrentMS][self.iCurrentChunk]["null"]:
-                print>>log, ModColor.Str("chunk %s is null, skipping"%self._next_chunk_label)
-                continue
+            if self.VisWeights is not 1:
+                self.awaitWeights()
+                if self.VisWeights[self.iCurrentMS][self.iCurrentChunk]["null"]:
+                    print>>log, ModColor.Str("chunk %s is null, skipping"%self._next_chunk_label)
+                    continue
             # ok, now we're good to load
             print>>log, "scheduling loading of chunk %s" % self._next_chunk_label
             # in single-chunk mode, DATA may already be loaded, in which case we do nothing
@@ -508,7 +509,7 @@ class ClassVisServer():
         if weights is None:
             print>> log, ModColor.Str("This chunk is all flagged or has zero weight.")
             return
-        if DATA["sort_index"] is not None:
+        if DATA["sort_index"] is not None and DATA["Weights"] is not 1:
             DATA["Weights"] = DATA["Weights"][DATA["sort_index"]]
 
         self.computeBDAInBackground(dictname, ms, DATA,
@@ -599,6 +600,11 @@ class ClassVisServer():
 
         Waits for CalcWeights to complete (if running in background).
         """
+        # weight 1 means weights not computed (i.e. predict-only mode)
+        print>>log, self.VisWeights
+        if self.VisWeights is 1:
+            return 1
+        # otherwise make sure we get them
         self.awaitWeights()
         if self.VisWeights[iMS][iChunk]["null"]:
             return None
@@ -613,6 +619,10 @@ class ClassVisServer():
             APP.awaitEvents(self._calcweights_event)
             # load shared dict prepared in background thread
             self.VisWeights = shared_dict.attach("VisWeights")
+
+    def IgnoreWeights(self):
+        print>>log,"weights will be ignored"
+        self.VisWeights = 1
 
     def CalcWeightsBackground(self):
         """Starts parallel jobs to load weights in the background"""

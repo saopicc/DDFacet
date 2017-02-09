@@ -277,6 +277,7 @@ class Parset():
         self._makeSection("Facets")
         self._makeSection("Weight")
         self._makeSection("RIME")
+        self._makeSection("Predict")
 
         section = "Parallel"
         self._del(section, "Enable")  # deprecated. Use NCPU=1 instead
@@ -296,7 +297,8 @@ class Parset():
 
         section = self._renameSection("Images", "Output")
         self._move(section, "AllowColumnOverwrite", "Predict", "Overwrite")
-        self._move(section, "PredictModelName", "Predict", "PredictFromImage")
+        self._move(section, "PredictModelName", "Predict", "FromImage")
+        self._move(section, "PredictColName", "Predict", "ColName")
         self._rename(section, "ImageName", "Name")
         self._del(section, "SaveIms")  # deprecated
         self._rename(section, "SaveOnly", "Images")
