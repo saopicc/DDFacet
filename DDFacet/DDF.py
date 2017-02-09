@@ -175,6 +175,7 @@ def main(OP=None, messages=[]):
     # psf machine initialized for all cases except Predict-only mode
     Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, 
                                                   BaseName=ImageName,
+                                                  predict_only=(Mode == "Predict"),
                                                   data=(Mode != "PSF"), 
                                                   psf=(Mode != "Predict"),
                                                   readcol=(Mode != "Predict" and Mode != "PSF"),

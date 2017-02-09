@@ -156,6 +156,9 @@ class ClassFacetMachine():
         if self._facet_grids is not None:
             self._facet_grids.delete()
             self._facet_grids = None
+        for GM in self.DicoGridMachine.itervalues():
+            if "Dirty" in GM:
+                del GM["Dirty"]
 
     def setAverageBeamMachine(self,AverageBeamMachine):
         self.AverageBeamMachine=AverageBeamMachine
@@ -804,11 +807,11 @@ class ClassFacetMachine():
         # self.stitchedResidual = self.FacetsToIm_Channel()
 
         # build Jones amplitude image
-        DoCalcJonesNorm = NormJones and not "JonesNorm" in self._norm_dict.keys()
+        DoCalcJonesNorm = NormJones and not "JonesNorm" in self._norm_dict
         if DoCalcJonesNorm:
-            JonesNorm = self.FacetsToIm_Channel("Jones-amplitude")
-            self._norm_dict["JonesNorm"]=JonesNorm
-        JonesNorm=self._norm_dict["JonesNorm"]
+            self._norm_dict["JonesNorm"] = JonesNorm = self.FacetsToIm_Channel("Jones-amplitude")
+        else:
+            JonesNorm = self._norm_dict["JonesNorm"]
 
         # compute normalized per-band weights (WBAND)
         if self.VS.MultiFreqMode:

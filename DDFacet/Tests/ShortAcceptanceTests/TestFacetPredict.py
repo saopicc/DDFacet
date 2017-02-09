@@ -101,9 +101,9 @@ class TestFacetPredict(unittest.TestCase):
             cls._ms_list = [abs_ms]
             cls.setParsetOption("Data", "MS", abs_ms)
 
-        ms = p.DicoPars["Predict"]["PredictFromImage"]
+        ms = p.DicoPars["Predict"]["FromImage"]
         abs_skymodel = cls._inputDir + ms
-        cls.setParsetOption("Predict", "PredictFromImage", abs_skymodel)
+        cls.setParsetOption("Predict", "FromImage", abs_skymodel)
 
         ms = p.DicoPars["Beam"]["FITSFile"]
         abs_beam = cls._inputDir + ms

@@ -129,6 +129,12 @@ class ClassImageDeconvMachine():
 
         # Set gridding Freqs
 
+    def Reset(self):
+        pass
+
+    def setMaskMachine(self,MaskMachine):
+        self.MaskMachine=MaskMachine
+
 
     def SetModelRefFreq(self):
         """

@@ -58,7 +58,7 @@ class TestMontblancPredict(unittest.TestCase):
         # Predict into MONTBLANC_DATA
         pc.set("Data", "MS", os.path.join(self._input_dir,
             "basicSSMFClean.MS_p0"))
-        pc.set("Predict", "PredictColName", "MONTBLANC_DATA")
+        pc.set("Predict", "ColName", "MONTBLANC_DATA")
 
         # Write the parset config to the output file name
         with open(self._output_parset_filename, 'w') as op:
@@ -85,7 +85,7 @@ class TestMontblancPredict(unittest.TestCase):
         # Predict into DDFACET_DATA
         pc.set("Data", "MS", os.path.join(self._input_dir,
             "basicSSMFClean.MS_p0"))
-        pc.set("Predict", "PredictColName", "DDFACET_DATA")
+        pc.set("Predict", "ColName", "DDFACET_DATA")
 
         # Write the parset config to the output file name
         with open(self._output_parset_filename, 'w') as op:
