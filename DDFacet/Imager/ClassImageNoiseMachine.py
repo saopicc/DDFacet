@@ -55,7 +55,10 @@ class ClassImageNoiseMachine():
 
         Noise=-scipy.ndimage.filters.minimum_filter(Acopy,SBox)/ratio
 
-        NoiseMed=np.median(Noise)
+        NPixStats=10000
+        IndStats=np.int64(np.linspace(0,Noise.size-1,NPixStats))
+        NoiseMed=np.std(Noise.ravel()[IndStats])
+        #NoiseMed=np.median(Noise)
         Noise[Noise<NoiseMed]=NoiseMed
 
         LargeNoise=np.zeros_like(Image[0,0])
@@ -66,7 +69,7 @@ class ClassImageNoiseMachine():
                 s0,s1=min(s00,s10),min(s10,s11)
                 LargeNoise[i::Boost,j::Boost][0:s0,0:s1]=Noise[:,:][0:s0,0:s1]
         ind=np.where(LargeNoise==0.)
-        LargeNoise[ind]=1e-10
+        LargeNoise[ind]=NoiseMed
 
 
         _,_,nx,ny=Image.shape
@@ -81,6 +84,8 @@ class ClassImageNoiseMachine():
         else:
             print>>log,"(re-)Computing noise map"
             self._id_InputMap=id(DicoResidual["MeanImage"])
+
+        # self.NoiseMapReShape=self.giveMinStatNoiseMap(DicoResidual["MeanImage"])
 
         if self.GD["Noise"]["BrutalHMP"]:
             self.StatImage=self.giveBrutalRestored(DicoResidual)
@@ -112,7 +117,7 @@ class ClassImageNoiseMachine():
         self.GD["Deconv"]["PeakFactor"]=0.01
         self.GD["Deconv"]["RMSFactor"]=3.
         self.GD["Deconv"]["Gain"]=.5
-        self.GD["Deconv"]["AllowNegative"]=False
+        self.GD["Deconv"]["AllowNegative"]=True
         self.GD["Deconv"]["PSFBox"]="full"
         self.GD["Deconv"]["MaxMinorIter"]=1000
         self.GD["HMP"]["Scales"]=[0,1,2,4,8]
@@ -144,11 +149,10 @@ class ClassImageNoiseMachine():
         
 
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1])
-        self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
         if self.NoiseMapReShape is not None:
             print>>log,"Deconvolving on SNR map"
             self.DeconvMachine.setNoiseMap(self.NoiseMapReShape)
-
+        self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
         self.DeconvMachine.updateRMS()
         # ModConstructor = ClassModModelMachine(self.GD)
         # ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
@@ -173,14 +177,13 @@ class ClassImageNoiseMachine():
         from DDFacet.ToolsDir import Gaussian
         
 
-        Sig_rad=np.max(self.DicoVariablePSF["EstimatesAvgPSF"][1][0:2])*2
+        Sig_rad=np.max(self.DicoVariablePSF["EstimatesAvgPSF"][1][0:2])
         Sig_pix=Sig_rad/self.DicoDirty["ImageInfo"]["CellSizeRad"]
-        Sig_pix=int(np.max([1,Sig_pix]))
-        if Sig_pix%2==0: Sig_pix+=1
-        Extent_pix=Sig_pix*3
-        if Extent_pix%2==0: Extent_pix+=1
+        Sig_pix=np.max([1,Sig_pix])*2
+        n_pix=int(Sig_pix*4)
+        if n_pix%2==0: n_pix+=1
 
-        _,_,G=Gaussian.Gaussian(Sig_pix,Extent_pix,1)
+        _,_,G=Gaussian.GaussianSymetric(Sig_pix,n_pix)
 
 
         from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric

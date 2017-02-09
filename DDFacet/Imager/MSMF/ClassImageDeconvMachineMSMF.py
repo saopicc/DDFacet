@@ -103,6 +103,7 @@ class ClassImageDeconvMachine():
             numexpr.set_num_threads(NCPU)
 
         self._NoiseMap=None
+        self._strUnit = "Jy"
 
     def __del__ (self):
         if type(self.facetcache) is shared_dict.SharedDict:
@@ -161,6 +162,7 @@ class ClassImageDeconvMachine():
 
     def setNoiseMap(self,NoiseMap):
         self._NoiseMap=NoiseMap
+
 
     def _initMSM_handler(self, fcdict, psfdict, iFacet, SideLobeLevel, OffsetSideLobe, centralFacet):
         # init PSF server from PSF shared dict
@@ -285,18 +287,22 @@ class ClassImageDeconvMachine():
 
         # self._PSF=self.MSMachine._PSF
         self._CubeDirty = MSMachine._Dirty
-        NPixStats = self.GD["Deconv"]["NumRMSSamples"]
-        if NPixStats>0:
-            self.IndStats=np.int64(np.linspace(0,self._CubeDirty.size-1,NPixStats))
-        # self._MeanPSF=self.MSMachine._MeanPSF
         self._MeanDirty = MSMachine._MeanDirty
 
 
-        if self._NoiseMap:
+        if self._NoiseMap is not None:
             print>>log,"Will search for the peak in the SNR map"
             self._PeakSearchImage=self._MeanDirty/self._NoiseMap.reshape(self._MeanDirty.shape)
+            self._strUnit = "Sigma"
         else:
             self._PeakSearchImage=self._MeanDirty
+
+
+        NPixStats = self.GD["Deconv"]["NumRMSSamples"]
+        if NPixStats>0:
+            self.IndStats=np.int64(np.linspace(0,self._PeakSearchImage.size-1,NPixStats))
+        # self._MeanPSF=self.MSMachine._MeanPSF
+
 
         NPSF = self.PSFServer.NPSF
         #_,_,NPSF,_=self._PSF.shape
@@ -446,7 +452,7 @@ class ClassImageDeconvMachine():
 
         if self._PeakSearchImage is not self._MeanDirty:
             sh=self._MeanDirty.shape
-            self._PeakSearchImage[:,:,x0d:x1d,y0d:y1d]=self._MeanDirty[:,:,x0d:x1d,y0d:y1d]/self._NoiseImage[:,:,x0d:x1d,y0d:y1d]
+            self._PeakSearchImage[:,:,x0d:x1d,y0d:y1d]=self._MeanDirty[:,:,x0d:x1d,y0d:y1d]/self._NoiseMap[:,:,x0d:x1d,y0d:y1d]
 
         # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
         # pylab.imshow(self._MeanDirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest")#,vmin=vmin,vmax=vmax)
@@ -539,19 +545,32 @@ class ClassImageDeconvMachine():
             Fluxlimit_Peak,
             self.FluxThreshold)
 
-        print>>log, "    Dirty image peak flux      = %10.6g Jy [(min, max) = (%.3g, %.3g) Jy]" % (
-            MaxDirty, mm0, mm1)
-        print>>log, "      RMS-based threshold      = %10.6g Jy [rms = %.3g Jy; RMS factor %.1f]" % (
-            Fluxlimit_RMS, RMS, self.RMSFactor)
-        print>>log, "      Sidelobe-based threshold = %10.6g Jy [sidelobe  = %.3f of peak; cycle factor %.1f]" % (
-            Fluxlimit_Sidelobe, self.SideLobeLevel, self.CycleFactor)
-        print>>log, "      Peak-based threshold     = %10.6g Jy [%.3f of peak]" % (
-            Fluxlimit_Peak, self.PeakFactor)
-        print>>log, "      Absolute threshold       = %10.6g Jy" % (
-            self.FluxThreshold)
-        print>>log, "    Stopping flux              = %10.6g Jy [%.3f of peak ]" % (
-            StopFlux, StopFlux/MaxDirty)
-
+        if self._strUnit=="Jy":
+            print>>log, "    Dirty image peak flux      = %10.6g Jy [(min, max) = (%.3g, %.3g) Jy]" % (
+                MaxDirty, mm0, mm1)
+            print>>log, "      RMS-based threshold      = %10.6g Jy [rms = %.3g Jy; RMS factor %.1f]" % (
+                Fluxlimit_RMS, RMS, self.RMSFactor)
+            print>>log, "      Sidelobe-based threshold = %10.6g Jy [sidelobe  = %.3f of peak; cycle factor %.1f]" % (
+                Fluxlimit_Sidelobe, self.SideLobeLevel, self.CycleFactor)
+            print>>log, "      Peak-based threshold     = %10.6g Jy [%.3f of peak]" % (
+                Fluxlimit_Peak, self.PeakFactor)
+            print>>log, "      Absolute threshold       = %10.6g Jy" % (
+                self.FluxThreshold)
+            print>>log, "    Stopping flux              = %10.6g Jy [%.3f of peak ]" % (
+                StopFlux, StopFlux/MaxDirty)
+        elif self._strUnit=="Sigma":
+            print>>log, "    Dirty image peak sigma      = %10.6g [(min, max) = (%.3g, %.3g)]" % (
+                MaxDirty, mm0, mm1)
+            print>>log, "      RMS-based threshold      = %10.6g [rms = %.3g; RMS factor %.1f]" % (
+                Fluxlimit_RMS, RMS, self.RMSFactor)
+            print>>log, "      Sidelobe-based threshold = %10.6g [sidelobe  = %.3f of peak; cycle factor %.1f]" % (
+                Fluxlimit_Sidelobe, self.SideLobeLevel, self.CycleFactor)
+            print>>log, "      Peak-based threshold     = %10.6g [%.3f of peak]" % (
+                Fluxlimit_Peak, self.PeakFactor)
+            print>>log, "      Absolute threshold       = %10.6g " % (
+                self.FluxThreshold)
+            print>>log, "    Stopping flux              = %10.6g [%.3f of peak ]" % (
+                StopFlux, StopFlux/MaxDirty)
 
         # MaxModelInit=np.max(np.abs(self.ModelImage))
         # Fact=4
@@ -627,7 +646,7 @@ class ClassImageDeconvMachine():
 
 
                 if ThisFlux <= StopFlux:
-                    rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
+                    rms = np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
                     # pBAR.render(100,"peak %.3g"%(ThisFlux,))
                     print>>log, ModColor.Str(
                         "    [iter=%i] peak of %.3g Jy lower than stopping flux, PNR %.3g" %
@@ -656,7 +675,7 @@ class ClassImageDeconvMachine():
                 # min(int(10**math.floor(math.log10(i))), 10000)
                 if i >= 10 and i % rounded_iter_step == 0:
                     # if self.GD["Debug"]["PrintMinorCycleRMS"]:
-                    rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
+                    rms = np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
                     print>>log, "    [iter=%i] peak residual %.3g, rms %g, PNR %.3g" % (i, ThisFlux, rms, ThisFlux/rms)
                     # else:
                     #     print >>log, "    [iter=%i] peak residual %.3g" % (
@@ -750,7 +769,7 @@ class ClassImageDeconvMachine():
 
                 T.timeit("End")
         except KeyboardInterrupt:
-            rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
+            rms = np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
             print>>log, ModColor.Str(
                 "    [iter=%i] minor cycle interrupted with Ctrl+C, peak flux %.3g, PNR %.3g" %
                 (self._niter, ThisFlux, ThisFlux/rms))
@@ -759,7 +778,7 @@ class ClassImageDeconvMachine():
             #     print>>log,"       [Scale %i] %.1f%%"%(iScale,DoneScale[iScale])
             return "MaxIter", False, True   # stop deconvolution but do update model
 
-        rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
+        rms = np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
         print>>log, ModColor.Str(
             "    [iter=%i] Reached maximum number of iterations, peak flux %.3g, PNR %.3g" %
             (self._niter, ThisFlux, ThisFlux/rms))
