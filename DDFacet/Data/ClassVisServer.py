@@ -601,7 +601,6 @@ class ClassVisServer():
         Waits for CalcWeights to complete (if running in background).
         """
         # weight 1 means weights not computed (i.e. predict-only mode)
-        print>>log, self.VisWeights
         if self.VisWeights is 1:
             return 1
         # otherwise make sure we get them
