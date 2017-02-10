@@ -621,7 +621,7 @@ class ClassImagerDeconv():
                         print>> log, traceback.format_exc()
                         print>> log, ModColor.Str("WARNING: Dirty image cache could not be written, see error report above. Proceeding anyway.")
 
-            if not psf_valid:
+            if psf and not psf_valid:
                 self._finalizeComputedPSF(self.FacetMachinePSF, psf_writecache and psf_cachepath)
 
         # This call needs to be here to attach the cached smooth beam to FacetMachine if it exists 

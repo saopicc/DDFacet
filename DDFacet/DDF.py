@@ -177,7 +177,7 @@ def main(OP=None, messages=[]):
                                                   BaseName=ImageName,
                                                   predict_only=(Mode == "Predict"),
                                                   data=(Mode != "PSF"), 
-                                                  psf=(Mode != "Predict"),
+                                                  psf=(Mode != "Predict" and Mode != "Dirty"),
                                                   readcol=(Mode != "Predict" and Mode != "PSF"),
                                                   deconvolve=("Clean" in Mode))
 
