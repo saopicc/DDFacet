@@ -143,12 +143,12 @@ class ClassImageDeconvMachine():
             return None
 
     def SetDirty(self,DicoDirty):
-        DicoDirty["ImagData"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImagData"])
+        DicoDirty["ImageCube"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImageCube"])
         #DicoDirty["MeanImage"]=NpShared.ToShared("%s.Dirty.MeanImage"%self.IdSharedMem,DicoDirty["MeanImage"])
         
 
         self.DicoDirty=DicoDirty
-        self._Dirty=self.DicoDirty["ImagData"]
+        self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
 
         NPSF=self.PSFServer.NPSF
@@ -711,7 +711,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
         self._Dirty=NpShared.GiveArray("%s.Dirty.ImagData"%self.IdSharedMem)
 
         self.CubeVariablePSF=SharedDict.attach("FMPSF_AllImages")["CubeVariablePSF"]
-        #self._Dirty=SharedDict.attach("dictDirty")["ImagData"]
+        #self._Dirty=SharedDict.attach("dictDirty")["ImageCube"]
 
         #self.WeightFreqBands=WeightFreqBands
         self.ParallelPerIsland=ParallelPerIsland

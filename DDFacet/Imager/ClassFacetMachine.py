@@ -757,7 +757,7 @@ class ClassFacetMachine():
 
         Returns:
             Dictionary containing:
-            "ImagData" = self.stitchedResidual
+            "ImageCube" = self.stitchedResidual
             "FacetNorm" = self.FacetImage (grid-correcting map)
             "JonesNorm" = self.JonesNorm (if computed, see above)
             "MeanImage" = self.MeanResidual
@@ -958,11 +958,11 @@ class ClassFacetMachine():
             DicoImages["ChanMappingGrid"] = self.VS.DicoMSChanMapping
             DicoImages["ChanMappingGridChan"] = self.VS.DicoMSChanMappingChan
 
-            DicoImages["ImagData"] = self.FacetsToIm_Channel("PSF")
+            DicoImages["ImageCube"] = self.FacetsToIm_Channel("PSF")
             if self.VS.MultiFreqMode:
-                DicoImages["MeanImage"] = np.sum(DicoImages["ImagData"] * WBAND, axis=0).reshape((1, npol, Npix, Npix))
+                DicoImages["MeanImage"] = np.sum(DicoImages["ImageCube"] * WBAND, axis=0).reshape((1, npol, Npix, Npix))
             else:
-                DicoImages["MeanImage"] = DicoImages["ImagData"]
+                DicoImages["MeanImage"] = DicoImages["ImageCube"]
 
             DicoImages["FacetNorm"] = FacetNorm
             DicoImages["JonesNorm"] = JonesNorm
@@ -988,7 +988,7 @@ class ClassFacetMachine():
                 ###    "if self._MeanDirty is not self._CubeDirty: do_expensive_operation"
                 ### which the .copy() operation here defeats, so I remove it
                 MeanResidual = stitchedResidual  #.copy()
-            DicoImages["ImagData"] = stitchedResidual
+            DicoImages["ImageCube"] = stitchedResidual
             DicoImages["MeanImage"] = MeanResidual
             DicoImages["FacetNorm"] = FacetNorm  # grid-correcting map
             DicoImages["JonesNorm"] = JonesNorm
@@ -1004,7 +1004,7 @@ class ClassFacetMachine():
             self._norm_dict = shared_dict.attach("normDict")
         if "FacetNorm" not in self._norm_dict:
             JonesNorm = DicoImages["JonesNorm"]
-            nch, npol, nx, ny = DicoImages["ImagData"].shape
+            nch, npol, nx, ny = DicoImages["ImageCube"].shape
             MeanJonesNorm = np.mean(JonesNorm, axis=0).reshape((1, npol, nx, ny))
             self._norm_dict["JonesNorm"] = JonesNorm
             self._norm_dict["MeanJonesNorm"] = MeanJonesNorm

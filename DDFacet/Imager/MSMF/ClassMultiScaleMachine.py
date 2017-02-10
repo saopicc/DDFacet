@@ -85,7 +85,7 @@ class ClassMultiScaleMachine():
         self.PSFServer=PSFServer
         self.DicoVariablePSF=self.PSFServer.DicoVariablePSF
         PSF,MeanPSF=self.PSFServer.GivePSF()
-        self._PSF=PSF#self.DicoPSF["ImagData"]
+        self._PSF=PSF#self.DicoPSF["ImageCube"]
         self._MeanPSF=MeanPSF
         
         _,_,NPSF,_=self._PSF.shape
@@ -98,7 +98,7 @@ class ClassMultiScaleMachine():
         #self.NChannels=self.DicoDirty["NChannels"]
 
 
-        self._Dirty=self.DicoDirty["ImagData"]
+        self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
         _,_,NDirty,_=self._Dirty.shape
         NPSF=self.NPSF

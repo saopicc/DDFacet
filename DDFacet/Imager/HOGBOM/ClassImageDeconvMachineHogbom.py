@@ -170,7 +170,7 @@ class ClassImageDeconvMachine():
 
     def SetDirty(self,DicoDirty):
         self.DicoDirty=DicoDirty
-        self._Dirty = self.DicoDirty["ImagData"]
+        self._Dirty = self.DicoDirty["ImageCube"]
         self._MeanDirty = self.DicoDirty["MeanImage"]
 
         NPSF=self.PSFServer.NPSF

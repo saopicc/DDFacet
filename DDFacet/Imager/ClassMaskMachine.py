@@ -143,7 +143,7 @@ class ClassMaskMachine():
         MyLogger.setSilent(ListSilentModules)
         self.DicoDirty=self.DicoResidual
         self.Orig_MeanDirty=self.DicoDirty["MeanImage"].copy()
-        self.Orig_Dirty=self.DicoDirty["ImagData"].copy()
+        self.Orig_Dirty=self.DicoDirty["ImageCube"].copy()
         GD=copy.deepcopy(self.GD)
         # take any reference frequency - doesn't matter
         self.RefFreq=np.mean(self.DicoVariablePSF["freqs"][0])
@@ -243,6 +243,6 @@ class ClassMaskMachine():
         self.Restored=ModelConv.reshape(self.DicoDirty["MeanImage"].shape)+self.DicoDirty["MeanImage"]
 
         self.DicoDirty["MeanImage"][...]=self.Orig_MeanDirty[...]
-        self.DicoDirty["ImagData"][...]=self.Orig_Dirty[...]
+        self.DicoDirty["ImageCube"][...]=self.Orig_Dirty[...]
         
         MyLogger.setLoud(ListSilentModules)
