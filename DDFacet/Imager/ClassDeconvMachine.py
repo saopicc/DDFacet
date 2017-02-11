@@ -1106,11 +1106,12 @@ class ClassImagerDeconv():
         if self.DicoImagesPSF is not None:
             self.DicoImagesPSF.delete()
             self.DicoImagesPSF = None
-        # we still need the normdict, and DicoDirty (for the residuals), so keep those around
-        self.Restore()
 
-        # if self.HasDeconvolved:
-        #     self.Restore()
+        # we still need the normdict, and DicoDirty (for the residuals), so keep those around
+        # self.Restore()
+
+        if self.HasDeconvolved:
+            self.Restore()
 
     def fitSinglePSF(self, PSF, off, label="mean"):
         """

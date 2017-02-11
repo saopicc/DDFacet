@@ -115,18 +115,22 @@ class ClassImageNoiseMachine():
         self.GD["Deconv"]["Mode"]="HMP"
         self.GD["Deconv"]["CycleFactor"]=0
         self.GD["Deconv"]["PeakFactor"]=0.0
-        self.GD["Deconv"]["RMSFactor"]=0.
         self.GD["Deconv"]["Gain"]=.5
-        self.GD["Deconv"]["PNRStop"]=10.
         self.GD["Deconv"]["AllowNegative"]=True
         self.GD["Deconv"]["PSFBox"]="full"
         self.GD["Deconv"]["MaxMinorIter"]=10000
-        self.GD["HMP"]["Scales"]=[0,1,2,4,8]
+        self.GD["Deconv"]["RMSFactor"]=3.
+        #self.GD["HMP"]["Scales"]=[0,1,2,4,8]
         self.GD["HMP"]["Scales"]=[0]
         self.GD["HMP"]["Ratios"]=[]
         #self.GD["MultiScale"]["Ratios"]=[]
         self.GD["HMP"]["NTheta"]=4
         
+        if self.NoiseMapReShape is not None:
+            print>>log,"Deconvolving on SNR map"
+            self.GD["Deconv"]["RMSFactor"]=0.
+            self.GD["Deconv"]["PNRStop"]=10.
+            
         #self.GD["HMP"]["AllowResidIncrease"]=False
         #self.GD["HMP"]["SolverMode"]="NNLS"
         self.GD["HMP"]["SolverMode"]="PI"
@@ -152,7 +156,6 @@ class ClassImageNoiseMachine():
 
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1])
         if self.NoiseMapReShape is not None:
-            print>>log,"Deconvolving on SNR map"
             self.DeconvMachine.setNoiseMap(self.NoiseMapReShape)
         self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
         self.DeconvMachine.updateRMS()
