@@ -184,7 +184,7 @@ class ClassImageNoiseMachine():
 
         Sig_rad=np.max(self.DicoVariablePSF["EstimatesAvgPSF"][1][0:2])
         Sig_pix=Sig_rad/self.DicoDirty["ImageInfo"]["CellSizeRad"]
-        Sig_pix=np.max([1,Sig_pix])*2
+        Sig_pix=np.max([1,Sig_pix])#*2
         n_pix=int(Sig_pix*4)
         if n_pix%2==0: n_pix+=1
 
