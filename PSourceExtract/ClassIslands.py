@@ -213,7 +213,7 @@ class ClassIslands():
         print>>log,"  Found %i islands"%NIslands
         
 
-        NMaxPix=300**2
+        NMaxPix=500**2
         
         Island=np.zeros((NIslands,NMaxPix,2),np.int32)
         NIslandNonZero=np.zeros((NIslands,),np.int32)
