@@ -670,6 +670,7 @@ class ClassFacetMachine():
             for res in workers_res:
                 Type,path,iFacet=res
                 if Type=="compute":
+                    print iFacet
                     facet_dict=self._CF[iFacet]
                     d={}
                     for key in facet_dict.keys():
