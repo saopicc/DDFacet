@@ -670,9 +670,11 @@ class ClassFacetMachine():
             for res in workers_res:
                 Type,path,iFacet=res
                 if Type=="compute":
-                    print iFacet
                     facet_dict=self._CF[iFacet]
-                    np.savez(file(path, "w"), **facet_dict)
+                    d={}
+                    for key in facet_dict.keys():
+                        d[key]=facet_dict[key]
+                    np.savez(file(path, "w"), **d)
             self.VS.maincache.saveCache(self._cf_cachename)
             self.IsDDEGridMachineInit = True
 
