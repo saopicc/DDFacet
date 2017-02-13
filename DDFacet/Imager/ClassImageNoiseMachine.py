@@ -26,6 +26,7 @@ import scipy.special
 import copy
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
+from DDFacet.ToolsDir import ModFFTW
 
 class ClassImageNoiseMachine():
     def __init__(self,GD):
@@ -187,29 +188,33 @@ class ClassImageNoiseMachine():
         from DDFacet.ToolsDir import Gaussian
         
 
-        Sig_rad=np.max(self.DicoVariablePSF["EstimatesAvgPSF"][1][0:2])
-        Sig_pix=Sig_rad/self.DicoDirty["ImageInfo"]["CellSizeRad"]
-        Sig_pix=np.max([1,Sig_pix])#*2
-        n_pix=int(Sig_pix*4)
-        if n_pix%2==0: n_pix+=1
+        # Sig_rad=np.max(self.DicoVariablePSF["EstimatesAvgPSF"][1][0:2])
+        # Sig_pix=Sig_rad/self.DicoDirty["ImageInfo"]["CellSizeRad"]
+        # Sig_pix=np.max([1,Sig_pix])#*2
+        # n_pix=int(Sig_pix*4)
+        # if n_pix%2==0: n_pix+=1
 
-        _,_,G=Gaussian.GaussianSymetric(Sig_pix,n_pix)
+        # _,_,G=Gaussian.GaussianSymetric(Sig_pix,n_pix)
 
 
-        from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
+        # from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 
-        N1=G.shape[0]
-        N0x,N0y=ModelImage.shape
-        indx,indy=np.where(ModelImage!=0)
-        ModelConv=np.zeros_like(ModelImage)
-        for iComp in range(indx.size):
-            xc,yc=indx[iComp],indy[iComp]
-            Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
-            x0d,x1d,y0d,y1d=Aedge
-            x0p,x1p,y0p,y1p=Bedge
-            ModelConv[x0d:x1d,y0d:y1d]+=G[x0p:x1p,y0p:y1p]*ModelImage[xc,yc]
+        # N1=G.shape[0]
+        # N0x,N0y=ModelImage.shape
+        # indx,indy=np.where(ModelImage!=0)
+        # ModelConv=np.zeros_like(ModelImage)
+        # for iComp in range(indx.size):
+        #     xc,yc=indx[iComp],indy[iComp]
+        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
+        #     x0d,x1d,y0d,y1d=Aedge
+        #     x0p,x1p,y0p,y1p=Bedge
+        #     ModelConv[x0d:x1d,y0d:y1d]+=G[x0p:x1p,y0p:y1p]*ModelImage[xc,yc]
             
-        # ModelConv=scipy.signal.convolve2d(ModelImage,G,mode="same")
+        # # ModelConv=scipy.signal.convolve2d(ModelImage,G,mode="same")
+
+        self.ModelConv=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.DicoDirty["ImageInfo"]["CellSizeRad"],
+                                                GaussPars=[self.DicoVariablePSF["EstimatesAvgPSF"]])
+
         self.ModelConv=ModelConv.reshape(self.DicoDirty["MeanImage"].shape)
 
 
