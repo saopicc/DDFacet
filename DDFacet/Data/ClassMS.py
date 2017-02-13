@@ -35,7 +35,13 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.CacheManager import CacheManager
 from DDFacet.Array import NpShared
 import sidereal
+
+import datetime
+import DDFacet.ToolsDir.ModRotate
+
 import time
+from DDFacet.Other.progressbar import ProgressBar
+
 
 try:
     import lofar.stationresponse as lsr
@@ -49,6 +55,7 @@ class ClassMS():
                  Field=0,DDID=0,TaQL=None,ChanSlice=None,GD=None,
                  DicoSelectOptions={},
                  ResetCache=False):
+
         """
         Args:
             MSname:
@@ -73,6 +80,9 @@ class ClassMS():
 
         if MSname=="": exit()
         self.GD = GD
+        self.ToRADEC=self.GD["Image"]["PhaseCenterRADEC"]
+        if self.ToRADEC is "": self.ToRADEC=None
+
         self.AverageSteps=AverageTimeFreq
         MSname= reformat.reformat(os.path.abspath(MSname), LastSlash=False)
         self.MSName=MSname
@@ -407,8 +417,8 @@ class ClassMS():
     #         self.flag_all=self.flag_all[:,ind,:]
     #         shape=self.ChanFreq.shape
     #         self.ChanFreq=self.ChanFreq[ind]
-                
-    def Give_dUVW_dt(self,ttVec,A0,A1,LongitudeDeg=6.8689,R="UVW_dt"):
+    
+    def Give_dUVW_dt(self,ttVec,A0,A1,R="UVW_dt"):
 
         # tt=self.times_all[0]
         # A0=self.A0[self.times_all==tt]
@@ -420,7 +430,6 @@ class ClassMS():
         ra,d=self.radec
         D=self.GiveDate(tt)
         
-        #Lon=LongitudeDeg*np.pi/180
         Lon=np.arctan2(self.StationPos[:,1],self.StationPos[:,0]).mean()
         h= sidereal.raToHourAngle(ra, D, Lon)
         
@@ -503,16 +512,16 @@ class ClassMS():
             DATA dictionary containing all read elements
         """
 
-        if row0>=self.F_nrows:
+        if row0 >= self.F_nrows:
             return "EndMS"
-        if row1>(self.F_nrows):
-            row1=self.F_nrows
-        
+        if row1 > self.F_nrows:
+            row1 = self.F_nrows
         self.ROW0 = row0
         self.ROW1 = row1
         self.nRowRead = nRowRead = row1-row0
         # expected data column shape
-        datashape = (nRowRead, len(self.ChanFreq), len(self.CorrelationNames))
+        DATA["datashape"] = datashape = (nRowRead, len(self.ChanFreq), len(self.CorrelationNames))
+        DATA["datatype"]  = np.complex64
 
         strMS = "%s" % (ModColor.Str(self.MSName, col="green"))
         print>>log, "%s: Reading next data chunk in [%i, %i] rows" % (
@@ -521,16 +530,23 @@ class ClassMS():
 
         # check cache for A0,A1,time,uvw
         if use_cache:
-            path, valid = self.cache.checkCache("A0A1UVWT.npz", dict(time=self._start_time))
+            # In force-cache mode, cache has no keys, so use it if it exists (i.e. if we have visibilities
+            # cached from previous run)
+            # In auto cache mode, cache key is the start time of the process. The cache is thus reset when first
+            # touched, so we read the MS on the first major cycle, and cache subsequently.
+            cache_key = dict(time=self._start_time)
+            metadata_path, metadata_valid = self.cache.checkCache("A0A1UVWT.npz", cache_key, ignore_key=(use_cache=="force"))
         else:
-            valid = False
+            metadata_valid = False
         # if cache is valid, we're all good
-        if valid:
-            npz = np.load(path)
-            A0, A1, uvw, time_all, time_uniq, sort_index = (npz["A0"], npz["A1"], npz["UVW"],
-                                                            npz["TIME"], npz["TIME_UNIQ"], npz["SORT_INDEX"])
+        if metadata_valid:
+            npz = np.load(metadata_path)
+            A0, A1, uvw, time_all, time_uniq, sort_index, dot_uvw = \
+                (npz["A0"], npz["A1"], npz["UVW"], npz["TIME"], npz["TIME_UNIQ"], npz["SORT_INDEX"], npz["DOT_UVW"])
             if not sort_index.size:
                 sort_index = None
+            if not dot_uvw.size:
+                dot_uvw = None
         else:
             table_all = table_all or self.GiveMainTable()
             # SPW=table_all.getcol('DATA_DESC_ID',row0,nRowRead)
@@ -554,11 +570,7 @@ class ClassMS():
             else:
                 sort_index = None
             time_uniq = np.array(sorted(set(time_all)))
-            # save cache
-            if use_cache:
-                np.savez(path,A0=A0,A1=A1,UVW=uvw,TIME=time_all,TIME_UNIQ=time_uniq,
-                         SORT_INDEX=sort_index if sort_index is not None else np.array([]))
-                self.cache.saveCache("A0A1UVWT.npz")
+            dot_uvw = None
 
         if ReadWeight:
             table_all = table_all or self.GiveMainTable()
@@ -567,18 +579,20 @@ class ClassMS():
                 weights = weights[sort_index]
             DATA["weights"] = weights
 
-        # create data array (if databuf is not None, array uses memory of buffer)
+        self.RotateType=["uvw","vis"]
+
         visdata = DATA.addSharedArray("data", shape=datashape, dtype=np.complex64)
         if read_data:
             # check cache for visibilities
             if use_cache:
-                datapath, datavalid = self.cache.checkCache("Data.npy", dict(time=self._start_time))
+                datapath, datavalid = self.cache.checkCache("Data.npy", dict(time=self._start_time), ignore_key=(use_cache=="force"))
             else:
                 datavalid = False
             # read from cache if available, else from MS
             if datavalid:
                 print>> log, "reading cached visibilities from %s" % datapath
                 visdata[...] = np.load(datapath)
+                self.RotateType=["uvw"]
             else:
                 print>> log, "reading MS visibilities from column %s" % self.ColName
                 table_all = table_all or self.GiveMainTable()
@@ -594,13 +608,11 @@ class ClassMS():
                     print>> log, "caching visibilities to %s" % datapath
                     np.save(datapath, visdata)
                     self.cache.saveCache("Data.npy")
-        else:
-            visdata.fill(0)
         # create flag array (if flagbuf is not None, array uses memory of buffer)
         flags = DATA.addSharedArray("flags", shape=datashape, dtype=np.bool)
         # check cache for flags
         if use_cache:
-            flagpath, flagvalid = self.cache.checkCache("Flags.npy", dict(time=self._start_time))
+            flagpath, flagvalid = self.cache.checkCache("Flags.npy", dict(time=self._start_time), ignore_key=(use_cache=="force"))
         else:
             flagvalid = False
         # read from cache if available, else from MS
@@ -615,6 +627,7 @@ class ClassMS():
                 print>> log, "sorting flags"
                 flags[...] = flags1[sort_index]
                 del flags1
+
             else:
                 table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
             self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
@@ -624,6 +637,26 @@ class ClassMS():
                 self.cache.saveCache("Flags.npy")
         if table_all:
             table_all.close()
+
+        ColNames=self.ColNames
+        #table_all.close()
+        #del(table_all)
+        DecorrMode=self.GD["RIME"]["DecorrMode"]
+        if 'F' in DecorrMode or "T" in DecorrMode:
+            if dot_uvw is None:
+                dot_uvw = self.ComputeDotUVW(A0, A1, time_all, uvw)
+            DATA["uvw_dt"] = dot_uvw
+            # if 'UVWDT' not in ColNames:
+            #     print>>log,"Adding dot-uvw info to main table: %s"%self.MSName
+            #     self.AddUVW_dt()
+            # print>>log,"Reading UVWDT column"
+            # tu=table(self.MSName, ack=False)
+            # uvw_dt=tu.getcol('UVWDT', row0, nRowRead)
+            # tu.close()
+            # print>>log,"  ok"
+            # DATA["uvw_dt"]  = np.float64(uvw_dt)
+
+        DATA["lm_PhaseCenter"] = self.lm_PhaseCenter
 
         DATA["sort_index"] = self._sort_index = sort_index
 
@@ -636,11 +669,23 @@ class ClassMS():
         DATA["dt"]  = self.dt
         DATA["dnu"] = self.ChanWidth
 
-        if self.zero_flag:
+        if self.zero_flag and visdata is not None:
             visdata[flags] = 1e10
+
         # print "count",np.count_nonzero(flag_all),np.count_nonzero(np.isnan(vis_all))
             visdata[np.isnan(visdata)] = 0.
         # print "visMS",vis_all.min(),vis_all.max()
+
+        if self.ToRADEC is not None:
+            self.Rotate(DATA)
+
+        # save cache
+        if use_cache and not metadata_valid:
+            np.savez(metadata_path,A0=A0,A1=A1,UVW=uvw,TIME=time_all,TIME_UNIQ=time_uniq,
+                     SORT_INDEX=sort_index if sort_index is not None else np.array([]),
+                     DOT_UVW=dot_uvw if dot_uvw is not None else np.array([]))
+            self.cache.saveCache("A0A1UVWT.npz")
+
 
         # if self.AverageSteps is not None:
         #     StepTime,StepFreq=self.AverageSteps
@@ -892,8 +937,8 @@ class ClassMS():
         chan_freq = orig_freq[self.ChanSlice]
 
 
-        self.dFreq=ta_spectral.getcol("CHAN_WIDTH")[self._spwid,self.ChanSlice].flatten()[0]
-        self.ChanWidth=ta_spectral.getcol('CHAN_WIDTH')[self._spwid,self.ChanSlice]
+        self.dFreq = ta_spectral.getcol("CHAN_WIDTH")[self._spwid,self.ChanSlice].flatten()[0]
+        self.ChanWidth = np.abs(ta_spectral.getcol('CHAN_WIDTH')[self._spwid,self.ChanSlice])
 
         # if chan_freq.shape[0]>len(self.ListSPW):
         #     print ModColor.Str("  ====================== >> More SPW in headers, modifying that error....")
@@ -903,7 +948,6 @@ class ClassMS():
 
         T.timeit()
 
-        wavelength=299792458./reffreq
         self.ChanFreq=chan_freq
         self.ChanFreqOrig=self.ChanFreq.copy()
         self.Freq_Mean=np.mean(chan_freq)
@@ -930,6 +974,18 @@ class ClassMS():
         ta=table(table_all.getkeyword('FIELD'),ack=False)
         rarad,decrad=ta.getcol('PHASE_DIR')[self.Field][0]
         if rarad<0.: rarad+=2.*np.pi
+        self.OriginalRadec=self.OldRadec=rarad,decrad
+        if self.ToRADEC is not None:
+            SRa,SDec=self.ToRADEC
+            srah,sram,sras=SRa.split(":")
+            sdecd,sdecm,sdecs=SDec.split(":")
+            ranew=(np.pi/180)*15.*(float(srah)+float(sram)/60.+float(sras)/3600.)
+            decnew=(np.pi/180)*(float(sdecd)+float(sdecm)/60.+float(sdecs)/3600.)
+            self.OldRadec=rarad,decrad
+            self.NewRadec=ranew,decnew
+            rarad,decrad=ranew,decnew
+
+
 
         T.timeit()
 
@@ -937,14 +993,12 @@ class ClassMS():
         self.decdeg=decrad*180./np.pi
         ta.close()
          
-        self.DoRevertChans=False
-        if Nchan>1:
-            self.DoRevertChans=(self.ChanFreq.flatten()[0]>self.ChanFreq.flatten()[-1])
-        if self.DoRevertChans:
-            print ModColor.Str("  ====================== >> Revert Channel order!")
-            wavelength_chan=wavelength_chan[0,::-1]
-            self.ChanFreq=self.ChanFreq[0,::-1]
-            self.dFreq=np.abs(self.dFreq)
+        self._reverse_channel_order = Nchan>1 and self.ChanFreq[0] > self.ChanFreq[-1]
+        if self._reverse_channel_order:
+            print>>log, ModColor.Str("(NB: this MS has reverse channel order)",col="blue")
+            wavelength_chan = wavelength_chan[::-1]
+            self.ChanFreq = self.ChanFreq[::-1]
+            self.dFreq = np.abs(self.dFreq)
 
         # if self.AverageSteps is not None:
         #     _,StepFreq=self.AverageSteps
@@ -989,7 +1043,8 @@ class ClassMS():
         self.nbl=nbl
         self.StrRA  = rad2hmsdms(self.rarad,Type="ra").replace(" ",":")
         self.StrDEC = rad2hmsdms(self.decrad,Type="dec").replace(" ",".")
-
+        self.lm_PhaseCenter=self.radec2lm_scalar(self.OldRadec[0],self.OldRadec[1])
+        self.ColNames=table_all.colnames()
         table_all.close()
         T.timeit()
         # self.StrRADEC=(rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
@@ -1019,6 +1074,8 @@ class ClassMS():
         flags1 = flags.any(axis=2)
         flags[flags1] = True
 
+        FlagAntNumber = set()
+
         if self.DicoSelectOptions["UVRangeKm"]:
             d0, d1 = self.DicoSelectOptions["UVRangeKm"]
             print>> log, "  flagging uv data outside uv distance of [%5.1f~%5.1f] km" % (d0, d1)
@@ -1044,7 +1101,12 @@ class ClassMS():
             for iAnt in ind.tolist():
                 print>> log, "  flagging antenna #%2.2i[%s] (distance to core: %.1f km)" % (
                 iAnt, self.StationNames[iAnt], Dist[iAnt] / 1e3)
-                FlagAntNumber.append(iAnt)
+                FlagAntNumber.add(iAnt)
+
+        # C0=(A0 == 7) & (A1 == 17)
+        # C1=(A1 == 7) & (A0 == 17)
+        # ind = np.where(np.logical_not(C0|C1))[0]
+        # flags[ind, :, :] = True
 
         # print>>log,"  forming per-antenna index"
         # per each antenna, form up boolean mask indicating its rows
@@ -1054,9 +1116,10 @@ class ClassMS():
         antenna_flagfrac = [flags1[rows].sum() / float(flags1[rows].size or 1) for rows in antenna_rows]
         print>> log, "  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac])
 
-        FlagAntNumber = [ant for ant, frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag]
+        FlagAntFrac = [ant for ant, frac in enumerate(antenna_flagfrac) if frac > ThresholdFlag]
+        FlagAntNumber.update(FlagAntFrac)
 
-        for A in FlagAntNumber:
+        for A in FlagAntFrac:
             print>> log, "    antenna %i has ~%4.1f%s of flagged data (more than %4.1f%s)" % \
                          (A, antenna_flagfrac[A] * 100, "%", ThresholdFlag * 100, "%")
 
@@ -1069,7 +1132,7 @@ class ClassMS():
                         if Name in self.StationNames[iAnt]:
                             print>> log, "  explicitly flagging antenna #%2.2i[%s]" % (
                             iAnt, self.StationNames[iAnt])
-                            FlagAntNumber.append(iAnt)
+                            FlagAntNumber.add(iAnt)
 
         for A in FlagAntNumber:
             flags[antenna_rows[A], :, :] = True
@@ -1098,32 +1161,35 @@ class ClassMS():
 
     def radec2lm_scalar(self,ra,dec):
         l = np.cos(dec) * np.sin(ra - self.rarad)
-        m = np.sin(dec) * np.cos(self.decrad) - np.cos(dec) * \
-            np.sin(self.decrad) * np.cos(ra - self.rarad)
-        return l, m
+        m = np.sin(dec) * np.cos(self.decrad) - np.cos(dec) * np.sin(self.decrad) * np.cos(ra - self.rarad)
+        return l,m
 
-    def PutVisColumn(self, colname, vis):
-        self.AddCol(colname, quiet=True)
-        print>>log, "writing column %s rows %d:%d"%(colname,self.ROW0,self.ROW1-1)
+
+    def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA"):
+        self.AddCol(colname, LikeCol=likecol, quiet=True)
+        nrow = row1 - row0
+        if self._reverse_channel_order:
+            vis = vis[:,::-1,:]
+        print>>log, "writing column %s rows %d:%d"%(colname,row0,row1)
         t = self.GiveMainTable(readonly=False, ack=False)
         # if sorting rows, rearrange vis array back into MS order
         # if not sorting, then using slice(None) for row has no effect
         if self._sort_index is not None:
             reverse_index = np.empty(self.nRowRead,dtype=int)
-            reverse_index[self._sort_index] = np.arange(0,self.nRowRead,dtype=int)
+            reverse_index[self._sort_index] = np.arange(0,nrow,dtype=int)
         else:
             reverse_index = slice(None)
         if self.ChanSlice and self.ChanSlice != slice(None):
             # if getcol fails, maybe because this is a new col which hasn't been filled
             # in this case read DATA instead
             try:
-                vis0 = t.getcol(colname,self.ROW0,self.nRowRead)
+                vis0 = t.getcol(colname, row0, nrow)
             except RuntimeError:
-                vis0 = t.getcol("DATA", self.ROW0, self.nRowRead)
+                vis0 = t.getcol("DATA", row0, snrow)
             vis0[reverse_index, self.ChanSlice, :] = vis
-            t.putcol(colname, vis0, self.ROW0,self.nRowRead)
+            t.putcol(colname, vis0, row0, now)
         else:
-            t.putcol(colname, vis[reverse_index,:,:], self.ROW0,self.nRowRead)
+            t.putcol(colname, vis[reverse_index,:,:], row0, nrow)
         t.close()
 
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
@@ -1307,20 +1373,35 @@ class ClassMS():
             t.addcols(desc) 
             t.close()
     
-    def RotateMS(self,radec):
-        import ModRotate
-        ModRotate.Rotate(self,radec)
-        ta=table(self.MSName+'/FIELD/',ack=False,readonly=False)
-        ra,dec=radec
-        radec=np.array([[[ra,dec]]])
-        ta.putcol("DELAY_DIR",radec)
-        ta.putcol("PHASE_DIR",radec)
-        ta.putcol("REFERENCE_DIR",radec)
-        ta.close()
-        t=self.GiveMainTable(readonly=False)
-        t.putcol(self.ColName,self.data)
-        # t.putcol("UVW",self.uvw) ??? self.uvw not defined
-        t.close()
+
+    def Rotate(self,DATA):
+        #DDFacet.ToolsDir.ModRotate.Rotate(self,radec)
+        StrRAOld  = rad2hmsdms(self.OldRadec[0],Type="ra").replace(" ",":")
+        StrDECOld = rad2hmsdms(self.OldRadec[1],Type="dec").replace(" ",".")
+        StrRA  = rad2hmsdms(self.NewRadec[0],Type="ra").replace(" ",":")
+        StrDEC = rad2hmsdms(self.NewRadec[1],Type="dec").replace(" ",".")
+        print>>log, "Rotate %s"%(",".join(self.RotateType))
+        print>>log, "     from [%s, %s]"%(StrRAOld,StrDECOld)
+        print>>log, "       to [%s, %s]"%(StrRA,StrDEC)
+        DDFacet.ToolsDir.ModRotate.Rotate2(self.OldRadec,self.NewRadec,DATA["uvw"],DATA["data"],self.wavelength_chan,
+                                           RotateType=self.RotateType)
+
+
+
+    # def RotateMS(self,radec):
+    #     import ModRotate
+    #     ModRotate.Rotate(self,radec)
+    #     ta=table(self.MSName+'/FIELD/',ack=False,readonly=False)
+    #     ra,dec=radec
+    #     radec=np.array([[[ra,dec]]])
+    #     ta.putcol("DELAY_DIR",radec)
+    #     ta.putcol("PHASE_DIR",radec)
+    #     ta.putcol("REFERENCE_DIR",radec)
+    #     ta.close()
+    #     t=self.GiveMainTable(readonly=False)
+    #     t.putcol(self.ColName,self.data)
+    #     t.putcol("UVW",self.uvw)
+    #     t.close()
     
     def PutCasaCols(self):
         import pyrap.tables
@@ -1328,7 +1409,91 @@ class ClassMS():
         #self.PutNewCol("CORRECTED_DATA")
         #self.PutNewCol("MODEL_DATA")
 
+    def ComputeDotUVW (self, A0, A1, times, UVW):
+        na = self.na
+        UVW_dt = np.zeros(UVW.shape, np.float64)
+        pBAR = ProgressBar(Title=" Calc dUVW/dt ")
+        pBAR.render(0, na)
+        for ant0 in range(na):
+            for ant1 in range(ant0+1, na):
+                C0 = ((A0 == ant0) & (A1 == ant1))
+                C1 = ((A1 == ant0) & (A0 == ant1))
+                ind = np.where(C0 | C1)[0]
+                if not ind.size:
+                    continue
+                UVWs = UVW[ind]
+                timess = times[ind]
+                dtimess = timess[1::] - timess[0:-1]
+                UVWs_dt0 = (UVWs[1::] - UVWs[0:-1]) / dtimess.reshape((-1, 1))
+                UVW_dt[ind[0:-1]] = UVWs_dt0
+                UVW_dt[ind[-1]] = UVWs_dt0[-1]
+            intPercent = int(100 * (ant0 + 1) / float(na))
+            pBAR.render(ant0 + 1, na)
+        return UVW_dt
 
+    def AddUVW_dt(self):
+        print>>log,"Compute UVW speed column"
+        MSName=self.MSName
+        MS=self
+        t=table(MSName,readonly=False,ack=False)
+        times=t.getcol("TIME")
+        A0=t.getcol("ANTENNA1")
+        A1=t.getcol("ANTENNA2")
+        UVW=t.getcol("UVW")
+        UVW_dt=np.zeros_like(UVW)
+        if "UVWDT" not in t.colnames():
+            print>>log,"Adding column UVWDT in %s"%self.MSName
+            desc=t.getcoldesc("UVW")
+            desc["name"]="UVWDT"
+            desc['comment']=desc['comment'].replace(" ","_")
+            t.addcols(desc)
+        
+        # # #######################
+        # LTimes=np.sort(np.unique(times))
+        # for iTime,ThisTime in enumerate(LTimes):
+        #     print iTime,LTimes.size
+        #     ind=np.where(times==ThisTime)[0]
+        #     UVW_dt[ind]=MS.Give_dUVW_dt(times[ind],A0[ind],A1[ind])
+        # # #######################
+        
+        na=MS.na
+        pBAR= ProgressBar(Title=" Calc dUVW/dt ")
+        pBAR.render(0,na)
+        for ant0 in range(na):
+            for ant1 in range(ant0,MS.na):
+                if ant0==ant1: continue
+                C0=((A0==ant0)&(A1==ant1))
+                C1=((A1==ant0)&(A0==ant1))
+                ind=np.where(C0|C1)[0]
+                UVWs=UVW[ind]
+                timess=times[ind]
+                dtimess=timess[1::]-timess[0:-1]
+                UVWs_dt0=(UVWs[1::]-UVWs[0:-1])/dtimess.reshape((-1,1))
+                UVW_dt[ind[0:-1]]=UVWs_dt0
+                UVW_dt[ind[-1]]=UVWs_dt0[-1]
+            intPercent = int(100 * (ant0+1) / float(na))
+            pBAR.render(ant0+1, na)
+                    
+    
+        print>>log,"Writting in column UVWDT"
+        t.putcol("UVWDT",UVW_dt)
+        t.close()
+    
+        # import pylab
+        # u,v,w=t.getcol("UVW").T
+        # A0=t.getcol("ANTENNA1")
+        # A1=t.getcol("ANTENNA2")
+        # ind=np.where((A0==0)&(A1==10))[0]
+        # us=u[ind]
+        # du,dv,dw=t.getcol("UVWDT").T
+        # dus1=du[ind]
+        # dus0=us[1::]-us[0:-1]
+        # pylab.show()
+        # DT=t.getcol("INTERVAL")[0]
+        # pylab.plot(dus0/DT)
+        # pylab.plot(dus1)
+        # pylab.show()
+    
 def expandMSList(MSName,defaultField=0,defaultDDID=0):
     """Given an MSName argument, converts it into a list of measurement sets.
 

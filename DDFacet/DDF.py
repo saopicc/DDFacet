@@ -33,12 +33,15 @@ from DDFacet.Other import MyPickle
 from DDFacet.Parset import MyOptParse
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
+from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
 from DDFacet.Other.AsyncProcessPool import APP
 log = None
+
+import numpy as np
 
 # # ##############################
 # # Catch numpy warning
@@ -81,6 +84,7 @@ def read_options():
         for name, value in default_values[section].iteritems():
             if not attrs[section][name].get("no_cmdline"):
                 OP.add_option(name, value)
+
 
     OP.Finalise()
     OP.ReadInput()
@@ -149,14 +153,15 @@ def main(OP=None, messages=[]):
     # tensorflow server as tensorflow is not fork safe
     # http://stackoverflow.com/questions/37874838/forking-a-python-process-after-loading-tensorflow
     # If a TensorFlowServerTarget is not specified, fork a child process containing one.
-    if DicoConfig["Image"]["PredictMode"] == "Montblanc":
+    if DicoConfig["RIME"]["ForwardMode"] == "Montblanc":
         if not DicoConfig["Montblanc"]["TensorflowServerTarget"]:
             from DDFacet.TensorFlowServerFork import fork_tensorflow_server
             DicoConfig["Montblanc"]["TensorflowServerTarget"] = fork_tensorflow_server()
 
     # init NCPU for different bits of parallelism
     ncpu = DicoConfig["Parallel"]["NCPU"] or psutil.cpu_count()
-    NpParallel.NCPU_global = ncpu
+    DicoConfig["Parallel"]["NCPU"]=ncpu
+    NpParallel.NCPU_global = ModFFTW.NCPU_global = ncpu
     numexpr.set_num_threads(ncpu)
     print>>log,"using up to %d CPUs for parallelism" % ncpu
 
@@ -169,13 +174,14 @@ def main(OP=None, messages=[]):
     # psf machine initialized for all cases except Predict-only mode
     Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, IdSharedMem=Multiprocessing.getShmPrefix(), BaseName=ImageName,
                                                   data=(Mode != "PSF"), psf=(Mode != "Predict"),
+                                                  readcol=(Mode != "Predict" and Mode != "PSF"),
                                                   deconvolve=("Clean" in Mode))
 
     Imager.Init()
 
     # Imager.testDegrid()
     # stop
-    if "Predict" in Mode:
+    if "Predict" in Mode or "Subtract" in Mode:
         Imager.GivePredict()
     if "Clean" in Mode:
         Imager.main()
@@ -274,6 +280,7 @@ def main(OP=None, messages=[]):
 if __name__ == "__main__":
     #os.system('clear')
     logo.print_logo()
+
     T = ClassTimeIt.ClassTimeIt()
 
     # parset should have been read in by now
@@ -356,6 +363,7 @@ if __name__ == "__main__":
             logfileName, col="red")
         print>>log, traceback_msg
         # Should at least give the command line an indication of failure
+        APP.terminate()
         retcode = 1 # Should at least give the command line an indication of failure
 
     APP.shutdown()

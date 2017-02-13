@@ -21,26 +21,25 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import numpy as np
 
 class ClassSpectralFunctions():
-    def __init__(self,DicoMappingDesc,BeamEnable=True):
+    def __init__(self,DicoMappingDesc,BeamEnable=True,RefFreq=None):
 
         self.DicoMappingDesc=DicoMappingDesc
         self.NFreqBand=len(self.DicoMappingDesc["freqs"])
         self.BeamEnable=BeamEnable
-        self.setFreqs()
+        self.RefFreq=RefFreq
+        #self.setFreqs()
         if self.BeamEnable:
             self.setBeamFactors()
     
-    def setFreqs(self):
-        AllFreqs=[]
-        AllFreqsMean=np.zeros((self.NFreqBand,),np.float32)
-        for iChannel in range(self.NFreqBand):
-            AllFreqs+=self.DicoMappingDesc["freqs"][iChannel]
-            AllFreqsMean[iChannel]=np.mean(self.DicoMappingDesc["freqs"][iChannel])
-
-        RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoMappingDesc["WeightChansImages"].ravel())
-
-        self.AllFreqs=AllFreqs
-        self.RefFreq=RefFreq
+    # def setFreqs(self):
+    #     AllFreqs=[]
+    #     AllFreqsMean=np.zeros((self.NFreqBand,),np.float32)
+    #     for iChannel in range(self.NFreqBand):
+    #         AllFreqs+=self.DicoMappingDesc["freqs"][iChannel]
+    #         AllFreqsMean[iChannel]=np.mean(self.DicoMappingDesc["freqs"][iChannel])
+    #     RefFreq=np.sum(AllFreqsMean.ravel()*self.DicoMappingDesc["WeightChansImages"].ravel())
+    #     self.AllFreqs=AllFreqs
+    #     self.RefFreq=RefFreq
 
     def setBeamFactors(self):
         self.DicoBeamFactors={}
@@ -52,6 +51,9 @@ class ClassSpectralFunctions():
             self.DicoBeamFactors[iFacet]["ListBeamFactorWeightSq"]=ListBeamFactorWeightSq
 
 
+
+
+
     def GiveBeamFactorsFacet(self,iFacet):
         
 
@@ -59,21 +61,36 @@ class ClassSpectralFunctions():
         SumJonesChanWeightSq=self.DicoMappingDesc["SumJonesChanWeightSq"][iFacet]
         ChanMappingGrid=self.DicoMappingDesc["ChanMappingGrid"]
         
+        # ListBeamFactor=[]
+        # ListBeamFactorWeightSq=[]
+
+        # for iChannel in range(self.NFreqBand):
+        #     ThisSumJonesChan=[]
+        #     ThisSumJonesChanWeightSq=[]
+        #     for iMS in range(len(SumJonesChan)):
+        #         ind=np.where(ChanMappingGrid[iMS]==iChannel)[0]
+        #         ThisSumJonesChan+=SumJonesChan[iMS][ind].tolist()
+        #         ThisSumJonesChanWeightSq+=SumJonesChanWeightSq[iMS][ind].tolist()
+        #     ListBeamFactor.append(np.array(ThisSumJonesChan))
+        #     ListBeamFactorWeightSq.append(np.array(ThisSumJonesChanWeightSq))
+
+        
+        ChanMappingGridChan=self.DicoMappingDesc["ChanMappingGridChan"]
         ListBeamFactor=[]
         ListBeamFactorWeightSq=[]
-
         for iChannel in range(self.NFreqBand):
-            ThisSumJonesChan=[]
-            ThisSumJonesChanWeightSq=[]
+            nfreq = len(self.DicoMappingDesc["freqs"][iChannel])
+            ThisSumJonesChan = np.zeros(nfreq,np.float64)
+            ThisSumJonesChanWeightSq = np.zeros(nfreq,np.float64)
             for iMS in range(len(SumJonesChan)):
-                ind=np.where(ChanMappingGrid[iMS]==iChannel)[0]
-                ThisSumJonesChan+=SumJonesChan[iMS][ind].tolist()
-                ThisSumJonesChanWeightSq+=SumJonesChanWeightSq[iMS][ind].tolist()
-            ListBeamFactor.append(np.array(ThisSumJonesChan))
-            ListBeamFactorWeightSq.append(np.array(ThisSumJonesChanWeightSq))
+                ind = np.where(ChanMappingGrid[iMS]==iChannel)[0]
+                channels = ChanMappingGridChan[iMS][ind]
+                ThisSumJonesChan[channels] += SumJonesChan[iMS][ind]
+                ThisSumJonesChanWeightSq[channels] += SumJonesChanWeightSq[iMS][ind]
+            ListBeamFactor.append(ThisSumJonesChan)
+            ListBeamFactorWeightSq.append(ThisSumJonesChanWeightSq)
 
         return ListBeamFactor,ListBeamFactorWeightSq
-        
 
 
     def GiveFreqBandsFluxRatio(self,iFacet,Alpha):
@@ -100,6 +117,8 @@ class ClassSpectralFunctions():
         
         S0=np.array(S0)
         Npix=S0.size
+
+
 
         if self.BeamEnable:
             ListBeamFactor,ListBeamFactorWeightSq=self.DicoBeamFactors[iFacet]["ListBeamFactor"],self.DicoBeamFactors[iFacet]["ListBeamFactorWeightSq"]

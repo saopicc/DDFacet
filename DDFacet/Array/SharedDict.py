@@ -2,6 +2,7 @@ import sys, os, os.path, cPickle, re
 import NpShared
 import numpy as np
 import traceback
+import collections
 
 SHM_PREFIX = "/dev/shm/"
 SHM_PREFIX_LEN = len(SHM_PREFIX)
@@ -18,8 +19,14 @@ _allowed_key_types = dict(int=int, str=str, bool=bool)
 def attach(name, load=True):
     return SharedDict(name, reset=False, load=load)
 
-def create(name):
-    return SharedDict(name, reset=True)
+def create(name, delete_items=True):
+    return SharedDict(name, reset=True, delete_items=delete_items)
+
+def dict_to_shm(name, D):
+    Ds=create(name)
+    for key in D.keys():
+        Ds[key]=D[key]
+    return Ds
 
 class SharedDict (dict):
     basepath = SHM_PREFIX
@@ -64,27 +71,35 @@ class SharedDict (dict):
         if not os.path.exists(SharedDict.basepath):
             os.mkdir(SharedDict.basepath)
 
-    def __init__ (self, path, reset=True, load=True):
+    def __init__ (self, path, reset=True, load=True, delete_items=False):
         dict.__init__(self)
+        self._delete_items = False
         if path.startswith(SharedDict.basepath):
             self.path = path
         else:
             self.path = os.path.join(SharedDict.basepath, path)
+#        self._path_fd = os.open(self.path, os.O_RDONLY)  # for sync purposes
         if reset or not os.path.exists(self.path):
-            self.clear()
+            self.delete()
         elif load:
             self.reload()
 
-    def delete(self):
-        self.clear()
-        if os.path.exists(self.path):
-            os.system("rm -fr " + self.path)
+    def __del__(self):
+ #       os.close(self._path_fd)
+        if self._delete_items:
+            self.delete()
 
-    def clear(self):
+    def delete(self):
         dict.clear(self)
         if os.path.exists(self.path):
-            os.system("rm -fr " + self.path)
+            os.system("rm -fr %s" % self.path)
         os.mkdir(self.path)
+
+    def clear(self):
+        if self._delete_items:
+            self.delete()
+        else:
+            dict.clear(self)
 
     def reload(self):
         """(Re)initializes dict with items from path"""
@@ -141,6 +156,20 @@ class SharedDict (dict):
     def values(self):
         raise RuntimeError("not implemented")
 
+    def __delitem__(self, item):
+        if self._delete_items:
+            return self.delete_item(item)
+        else:
+            return dict.__delitem__(self, item)
+
+    def delete_item (self, item):
+        dict.__delitem__(self, item)
+        name = self._key_to_name(item)
+        for suffix in "ap":
+            if os.path.exists(name+suffix):
+                os.unlink(name+suffix)
+        if os.path.exists(name+"d"):
+            os.system("rm -fr "+name+"d")
 
     def __setitem__(self, item, value):
         if type(item).__name__ not in _allowed_key_types:
@@ -153,18 +182,19 @@ class SharedDict (dict):
                     os.unlink(name+suffix)
             if os.path.exists(name+"d"):
                 os.system("rm -fr "+name+"d")
-        dict.__setitem__ (self, item, value)
         # for arrays, copy to a shared array
         if isinstance(value, np.ndarray):
-            NpShared.ToShared(_to_shm(os.path.join(self.path, name)+'a'), value)
+            value = NpShared.ToShared(_to_shm(os.path.join(self.path, name)+'a'), value)
         # for regular dicts, copy across
-        elif isinstance(value, dict):
+        elif isinstance(value, (dict, SharedDict, collections.OrderedDict)):
             dict1 = self.addSubdict(item)
             for key1, value1 in value.iteritems():
                 dict1[key1] = value1
+            value = dict1
         # all other types, just use pickle
         else:
             cPickle.dump(value, file(os.path.join(self.path, name+'p'), "w"), 2)
+        dict.__setitem__(self, item, value)
 
     def addSubdict (self, item):
         name = self._key_to_name(item) + 'd'

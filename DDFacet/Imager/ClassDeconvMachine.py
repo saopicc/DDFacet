@@ -20,7 +20,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from ClassFacetMachineTessel import ClassFacetMachineTessel as ClassFacetMachine
 import numpy as np
-import pylab
 from pyrap.images import image
 from DDFacet.Other import MyPickle
 from DDFacet.ToolsDir import ModFFTW
@@ -36,13 +35,18 @@ import glob
 from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
 import traceback
+from DDFacet.ToolsDir.ModToolBox import EstimateNpix
+import copy
 from DDFacet.Other import Multiprocessing
 from DDFacet.Other import AsyncProcessPool
 from DDFacet.Other.AsyncProcessPool import APP
 import cPickle
-
 log=MyLogger.getLogger("ClassImagerDeconv")
 import pyfits
+from DDFacet.Array import SharedDict
+from DDFacet.Other import ClassTimeIt
+import numexpr
+
 
 # from astropy import wcs
 # from astropy.io import fits
@@ -81,7 +85,7 @@ import pyfits
 class ClassImagerDeconv():
     def __init__(self, GD=None,
                  PointingID=0,BaseName="ImageTest2",ReplaceDico=None,IdSharedMem="CACA.",
-                 data=True, psf=True, deconvolve=True):
+                 data=True, psf=True, readcol=True, deconvolve=True):
         # if ParsetFile is not None:
         #     GD=ClassGlobalData(ParsetFile)
         #     self.GD=GD
@@ -91,8 +95,10 @@ class ClassImagerDeconv():
 
         self.BaseName=BaseName
         self.DicoModelName="%s.DicoModel"%self.BaseName
+        self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
         self.PointingID=PointingID
-        self.do_data, self.do_psf, self.do_deconvolve = data, psf, deconvolve
+        self.do_data, self.do_psf, self.do_readcol, self.do_deconvolve = data, psf, readcol, deconvolve
+        self.CurrentDicoResidImage=None
         self.FacetMachine=None
         self.PSF=None
         self.FWHMBeam = None
@@ -101,17 +107,21 @@ class ClassImagerDeconv():
         self.FWHMBeamAvg = None
         self.PSFGaussParsAvg = None
         self.PSFSidelobesAvg = None
+        self.HasFittedPSFBeam=False
+        self._psf_fit_error = False
+
 
         self.VisWeights=None
-        self.Precision=self.GD["Image"]["Precision"]#"S"
-        self.PolMode=self.GD["Image"]["PolMode"]
-        self.PSFFacets = self.GD["Image"]["PSFFacets"]
+        self.DATA=None
+        self.Precision=self.GD["RIME"]["Precision"]#"S"
+        self.PolMode=self.GD["RIME"]["PolMode"]
+        self.PSFFacets = self.GD["Facets"]["PSFFacets"]
         self.HasDeconvolved=False
         self.Parallel = self.GD["Parallel"]["NCPU"] != 1
         self.IdSharedMem=IdSharedMem
         self.ModConstructor = ClassModModelMachine(self.GD)
 
-        self.PredictMode = self.GD["Image"]["PredictMode"]
+        self.PredictMode = self.GD["RIME"]["ForwardMode"]
 
         #self.PNGDir="%s.png"%self.BaseName
         #os.system("mkdir -p %s"%self.PNGDir)
@@ -137,6 +147,8 @@ class ClassImagerDeconv():
         # init process pool for parallelization
         Multiprocessing.initDefaultPool(GD=self.GD)
 
+        APP.registerJobHandlers(self)
+
     def Init(self):
         DC = self.GD
         mslist = ClassMS.expandMSList(DC["Data"]["MS"],
@@ -147,23 +159,51 @@ class ClassImagerDeconv():
                               parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
                               verbose=self.GD["Debug"]["APPVerbose"])
 
-        self.VS = ClassVisServer.ClassVisServer(mslist,ColName=DC["Data"]["ColName"],
+        self.VS = ClassVisServer.ClassVisServer(mslist,ColName=self.do_readcol and DC["Data"]["ColName"],
                                                 TChunkSize=DC["Data"]["ChunkHours"],
                                                 GD=self.GD)
 
+        self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
+        del(self.GD["Deconv"]["MaxMajorIter"])
+        # If we do the deconvolution construct a model according to what is in MinorCycleConfig
+        MinorCycleConfig=dict(self.GD["Deconv"])
+        MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
+        MinorCycleConfig["NBand"]=MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
+        MinorCycleConfig["GD"] = self.GD
+        MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
+
+
+        SubstractModel=self.GD["Data"]["InitDicoModel"]
+        DoSub=(SubstractModel!="")&(SubstractModel is not None)
+        if DoSub:
+            print>>log, ModColor.Str("Initialise sky model using %s"%SubstractModel,col="blue")
+            ModelMachine = self.ModConstructor.GiveInitialisedMMFromFile(SubstractModel)
+            modeltype = ModelMachine.DicoSMStacked["Type"]
+            if modeltype == "GA":
+                modeltype = "SSD"
+            elif modeltype == "MSMF":
+                modeltype = "HMP"
+            if self.GD["Deconv"]["Mode"] != modeltype:
+                raise NotImplementedError("You want to use different minor cycle and IniDicoModel types [%s vs %s]"\
+                                          %(self.GD["Deconv"]["Mode"], modeltype))
+
+            print>>log, ModColor.Str("Taking reference frequency from the model machine %f MHz (instead of %f MHz from the data)"%(ModelMachine.RefFreq/1e6,self.VS.RefFreq/1e6))
+            self.RefFreq=self.VS.RefFreq=ModelMachine.RefFreq
+
+            if self.BaseName==self.GD["Data"]["InitDicoModel"][0:-10]:
+                self.BaseName+=".continue"
+                self.DicoModelName="%s.DicoModel"%self.BaseName
+                self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
+        else:
+            ModelMachine = self.ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
+            ModelMachine.setRefFreq(self.VS.RefFreq)
+            self.RefFreq=self.VS.RefFreq
+
+        self.ModelMachine=ModelMachine
+
+        MinorCycleConfig["ModelMachine"] = ModelMachine
+
         if self.do_deconvolve:
-            self.NMajor=self.GD["Deconv"]["MaxMajorIter"]
-            del(self.GD["Deconv"]["MaxMajorIter"])
-
-            # If we do the deconvolution construct a model according to what is in MinorCycleConfig
-            ModMachine = self.ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
-            MinorCycleConfig=dict(self.GD["Deconv"])
-            MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
-            MinorCycleConfig["NBand"]=MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
-            MinorCycleConfig["GD"] = self.GD
-            MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
-            MinorCycleConfig["ModelMachine"] = ModMachine
-
             # Specify which deconvolution algorithm to use
             if self.GD["Deconv"]["Mode"] == "HMP":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
@@ -171,18 +211,12 @@ class ClassImagerDeconv():
                 from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
                 self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
                 print>>log,"Using MSMF algorithm"
-            elif self.GD["Deconv"]["Mode"]=="GA":
-                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
-                    raise NotImplementedError("Multi-polarization CLEAN is not supported in GA")
-                from DDFacet.Imager.GA import ClassImageDeconvMachineGA
-                self.DeconvMachine=ClassImageDeconvMachineGA.ClassImageDeconvMachine(**MinorCycleConfig)
-                print>>log,"Using GA algorithm"
             elif self.GD["Deconv"]["Mode"]=="SSD":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in SSD")
-                from DDFacet.Imager.MORESANE import ClassImageDeconvMachineSSD
-                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
-                print>>log,"Using SSD with %s Minor Cycle algorithm"%self.GD["SSD"]["IslandDeconvMode"]
+                from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
+                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                print>>log,"Using SSD with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"]
             elif self.GD["Deconv"]["Mode"] == "Hogbom":
                 from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
                 self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
@@ -193,13 +227,15 @@ class ClassImagerDeconv():
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
 
+
         # all internal state initialized -- start the worker threads
         APP.startWorkers()
         # and proceed with background tasks
         self.VS.CalcWeightsBackground()
         self.FacetMachine and self.FacetMachine.initCFInBackground()
         # FacetMachinePSF will skip CF init if they match those of FacetMachine
-        self.FacetMachinePSF and self.FacetMachinePSF.initCFInBackground(other_fm=self.FacetMachine)
+        if self.FacetMachinePSF is not None:
+            self.FacetMachinePSF.initCFInBackground(other_fm=self.FacetMachine)
 
     def CreateFacetMachines (self):
         """Creates FacetMachines for data and/or PSF"""
@@ -214,7 +250,7 @@ class ClassImagerDeconv():
             if self.PSFFacets:
                 print>> log, "the PSFFacets version is currently not supported, using 0 (i.e. same facets as image)"
                 self.PSFFacets = 0
-            oversize = self.GD["Image"]["PSFOversize"] or 1
+            oversize = self.GD["Facets"]["PSFOversize"] or 1
             if self.PSFFacets:
                 MainFacetOptions["NFacets"] = self.PSFFacets
                 print>> log, "using %d facets to compute the PSF" % self.PSFFacets
@@ -235,49 +271,113 @@ class ClassImagerDeconv():
         MainFacetOptions=self.GD["Image"].copy()
         MainFacetOptions.update(self.GD["CF"].copy())
         MainFacetOptions.update(self.GD["Image"].copy())
-        del(MainFacetOptions['ConstructMode'],MainFacetOptions['Precision'],
-            MainFacetOptions['PolMode'],MainFacetOptions['Mode'],MainFacetOptions['Robust'],
-            MainFacetOptions['Weighting'])
+        MainFacetOptions.update(self.GD["Facets"].copy())
+        MainFacetOptions.update(self.GD["RIME"].copy())
+        MainFacetOptions.update(self.GD["Weight"].copy())
+        del(MainFacetOptions['Precision'],
+            MainFacetOptions['PolMode'],MainFacetOptions['Mode'],MainFacetOptions['Robust'])
         return MainFacetOptions
 
-
-    def _createDirtyPSFCacheKey(self):
+    def _createDirtyPSFCacheKey(self, sparsify=0):
         """Creates cache key used for Dirty and PSF caches"""
-        return dict([("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
-                    [(section, self.GD[section]) for section in "Data", "Beam", "Selection",
-                                                    "Freq", "Image", "Comp",
-                                                    "CF", "Image"]
+        key = dict([("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
+                    [(section, self.GD[section]) for section in 
+                     "Data", "Beam", "Selection",
+                     "Freq", "Image", "Comp",
+                     "CF", "RIME","Facets","Weight","DDESolutions"]
                 )
-
+        key["Comp"]["Sparsification"] = sparsify
+        return key
 
     def _checkForCachedPSF (self, sparsify, key=None):
-        self._psf_cachepath, valid = self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(),
-                                            reset=self.GD["Cache"]["ResetPSF"] or sparsify)
-        return self._psf_cachepath, valid
+        mode = self.GD["Cache"]["PSF"]
+        if mode in (0, False, None, 'off'):
+            return None, False, False
+        elif mode == 'reset':
+            cachepath, valid = self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(sparsify),
+                                                                      reset=True)
+            writecache = True
+        elif mode in (1, True, 'auto'):
+            cachepath, valid = self.VS.maincache.checkCache("PSF", key or self._createDirtyPSFCacheKey(sparsify))
+            writecache = not valid
+        elif mode == 'force':
+            cachepath = self.VS.maincache.getElementPath("PSF")
+            valid = os.path.exists(cachepath)
+            writecache = False
+        else:
+            raise ValueError("unknown --Cache-PSF setting %s"%self.GD["Cache"]["PSF"])
+        return cachepath, valid, writecache
+
+    def _checkForCachedDirty (self, sparsify, key=None):
+        mode = self.GD["Cache"]["Dirty"]
+        if mode in (0, False, None, 'off'):
+            cachepath, valid = None, False
+            writecache = False
+        elif mode == 'reset':
+            cachepath, valid = self.VS.maincache.checkCache("Dirty", key or self._createDirtyDirtyCacheKey(sparsify),
+                                                                      reset=True)
+            writecache = True
+        elif mode in (1, True, 'auto'):
+            cachepath, valid = self.VS.maincache.checkCache("Dirty", key or self._createDirtyDirtyCacheKey(sparsify))
+            writecache = not valid
+        elif mode == 'forcedirty':
+            cachepath = self.VS.maincache.getElementPath("Dirty")
+            valid = os.path.exists(cachepath)
+            if not valid:
+                print>> log, ModColor.Str("Can't force-read cached dirty %s: does not exist", col="red")
+                raise RuntimeError("--Cache-Dirty forcedirty in effect, but no cached dirty image found")
+            writecache = False
+        elif mode == 'forceresidual':
+            cachepath = self.VS.maincache.getElementPath("LastResidual")
+            valid = os.path.exists(cachepath)
+            if not valid:
+                print>> log, ModColor.Str("Can't force-read cached last residual %s: does not exist", col="red")
+                print>>log,"Mod"
+            writecache = False
+        else:
+            raise ValueError("unknown --Cache-Dirty setting %s"%mode)
+        return cachepath, valid, writecache
 
     def _loadCachedPSF (self, cachepath):
         import cPickle
-        self.DicoVariablePSF = cPickle.load(file(cachepath))
+        #self.DicoVariablePSF = cPickle.load(file(cachepath))
+        self.DicoVariablePSF = MyPickle.FileToDicoNP(cachepath)
+        self.DicoVariablePSF = SharedDict.dict_to_shm("dictPSF",self.DicoVariablePSF)
+
         # if we load a cached PSF, mark these as None so that we don't re-save a PSF image in _fitAndSavePSF()
         self._psfmean = self._psfcube = None
-        self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["MeanFacetPSF"]
+        self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["CubeMeanVariablePSF"][self.DicoVariablePSF["CentralFacet"]]
+        self.FWHMBeam=self.DicoVariablePSF["FWHMBeam"]
+        self.PSFGaussPars=self.DicoVariablePSF["PSFGaussPars"]
+        self.PSFSidelobes=self.DicoVariablePSF["PSFSidelobes"]
+        (self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)=self.DicoVariablePSF["EstimatesAvgPSF"]
+        self.HasFittedPSFBeam=True
 
-    def _finalizeComputedPSF (self, FacetMachinePSF, sparsify):
+
+
+    def _finalizeComputedPSF (self, FacetMachinePSF, cachepath=None):
         psfdict = FacetMachinePSF.FacetsToIm(NormJones=False)
         self._psfmean, self._psfcube = psfdict["MeanImage"], psfdict["ImagData"]  # this is only for the casa image saving
         self.DicoVariablePSF = FacetMachinePSF.DicoPSF
-        if self.GD["Cache"]["PSF"] and not sparsify:
+        self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["MeanFacetPSF"]
+        self.FitPSF()
+        if cachepath:
             try:
-                cPickle.dump(self.DicoVariablePSF, file(self._psf_cachepath, 'w'), 2)
+                self.DicoVariablePSF["FWHMBeam"]=self.FWHMBeam
+                self.DicoVariablePSF["PSFGaussPars"]=self.PSFGaussPars
+                self.DicoVariablePSF["PSFSidelobes"]=self.PSFSidelobes
+                self.DicoVariablePSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
+                #cPickle.dump(self.DicoVariablePSF, file(self._psf_cachepath, 'w'), 2)
+                MyPickle.DicoNPToFile(self.DicoVariablePSF, cachepath)
                 self.VS.maincache.saveCache("PSF")
             except:
                 print>> log, traceback.format_exc()
                 print>> log, ModColor.Str(
                     "WARNING: PSF cache could not be written, see error report above. Proceeding anyway.")
-        self.PSF = self.MeanFacetPSF = self.DicoVariablePSF["MeanFacetPSF"]
 
     def _fitAndSavePSF (self, FacetMachinePSF, save=True, cycle=None):
-        self.FitPSF()
+        if not self.HasFittedPSFBeam:
+            self.FitPSF()
         if save and self._psfmean is not None:
             cycle_label = ".%02d"%cycle if cycle else ""
             if "P" in self._saveims or "p" in self._saveims:
@@ -289,6 +389,8 @@ class ClassImagerDeconv():
                                               ImageName="%s%s.cube.psf" % (self.BaseName, cycle_label),
                                               Fits=True, beam=self.FWHMBeamAvg, Freqs=self.VS.FreqBandCenters,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+        if self._psf_fit_error:
+            raise RuntimeError("there was an error fitting the PSF. Something is really wrong with the data?")
 
     def MakePSF(self, sparsify=0):
         """
@@ -300,15 +402,16 @@ class ClassImagerDeconv():
         if self.PSF is not None:
             return
 
-        cachepath, valid = self._checkForCachedPSF(sparsify)
+        cachepath, valid, writecache = self._checkForCachedPSF(sparsify)
+
 
         if valid:
             print>>log, ModColor.Str("============================ Loading cached PSF ==========================")
-            print>>log, "found valid cached PSF in %s"%cachepath
-            print>>log, ModColor.Str("As near as we can tell, we can reuse this cached PSF because it was produced")
-            print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
-            print>>log, ModColor.Str("or if your MS has been substantially flagged or otherwise had its uv-coverage")
-            print>>log, ModColor.Str("affected, please remove the cache, or else run with --ResetPSF 1.")
+            print>> log, "found valid cached PSF in %s" % cachepath
+            if not self.GD["Cache"]["PSF"].startswith("force"):
+                print>>log, ModColor.Str("As near as we can tell, we can reuse this cache because it was produced")
+                print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
+                print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-PSF reset.")
             self._loadCachedPSF(cachepath)
         else:
             print>>log, ModColor.Str("=============================== Making PSF ===============================")
@@ -333,7 +436,7 @@ class ClassImagerDeconv():
 
                 self.FacetMachinePSF.putChunkInBackground(DATA)
 
-            self._finalizeComputedPSF(self.FacetMachinePSF,1)
+            self._finalizeComputedPSF(self.FacetMachinePSF,cachepath=writecache and cachepath)
 
         self._fitAndSavePSF(self.FacetMachinePSF)
 
@@ -346,63 +449,65 @@ class ClassImagerDeconv():
             psf: if True, PSF is also generated
             sparsify: sparsification factor applied to data. 0 means calculate the most precise dirty possible.
         """
-        # cache only used in "precise" mode. In approximative mode, things are super-quick anyway
-        if not sparsify:
-            cache_key = self._createDirtyPSFCacheKey()
-            dirty_cachepath, dirty_valid = self.VS.maincache.checkCache("Dirty", cache_key,
-                                                                        reset=self.GD["Cache"]["ResetDirty"])
-            if psf:
-                psf_cachepath, psf_valid = self._checkForCachedPSF(sparsify, key=cache_key)
+        cache_key = self._createDirtyPSFCacheKey()
+        dirty_cachepath, dirty_valid, dirty_writecache = self._checkForCachedDirty(sparsify, key=cache_key)
+        if psf:
+            psf_cachepath, psf_valid, psf_writecache = self._checkForCachedPSF(sparsify, key=cache_key)
         else:
-            dirty_valid = psf_valid = False
+            psf_valid = psf_writecache = False
 
-
-        if dirty_valid and (not psf or psf_valid):
-            if psf:
-                print>>log, ModColor.Str("============================ Loading cached dirty image & PSF ===================")
-                print>>log, "found valid cached dirty image in %s"%dirty_cachepath
-                print>>log, "found valid cached PSF in %s"%psf_cachepath
+        # load from cache
+        if dirty_valid:
+            if self.GD["Cache"]["Dirty"] == "forceresidual":
+                print>>log, ModColor.Str("============================ Loading last residual image ========================")
+                print>>log, "found valid cached residual image in %s"%dirty_cachepath
             else:
                 print>>log, ModColor.Str("============================ Loading cached dirty image =========================")
-                print>>log, "found valid cached dirty image in %s"%dirty_cachepath
-            print>>log, ModColor.Str("As near as we can tell, we can reuse this cache because it was produced")
-            print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
-            print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --ResetDirty 1.")
+                print>> log, "found valid cached residual image in %s" % dirty_cachepath
+            if not self.GD["Cache"]["Dirty"].startswith("force"):
+                print>>log, ModColor.Str("As near as we can tell, we can reuse this cache because it was produced")
+                print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
+                print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-Dirty reset.")
 
-            self.DicoDirty = cPickle.load(file(dirty_cachepath))
+            self.DicoDirty = MyPickle.FileToDicoNP(dirty_cachepath)
 
-            if self.DicoDirty["NormData"] is not None:
-                nch, npol, nx, ny = self.DicoDirty["ImagData"].shape
-                self.NormImage = self.DicoDirty["NormData"]
-                self.MeanNormImage = np.mean(self.NormImage, axis=0).reshape((1, npol, nx, ny))
-                DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
-                nch,npol,nx,ny = DirtyCorr.shape
+            if self.DicoDirty["JonesNorm"] is not None:
+                self.FacetMachine.setNormImages(self.DicoDirty)
+                self.FacetMachinePSF.setNormImages(self.DicoDirty)
+                self.MeanJonesNorm = self.FacetMachinePSF.MeanJonesNorm
+                self.JonesNorm = self.FacetMachinePSF.JonesNorm
             else:
-                self.MeanNormImage = None
-            if psf:
-                self._loadCachedPSF(psf_cachepath)
-        else:
-            if psf:
-                print>>log, ModColor.Str("============================== Making Dirty Image & PSF ========================")
-            else:
-                print>>log, ModColor.Str("============================== Making Dirty Image ==============================")
+                self.MeanJonesNorm = None
+                self.JonesNorm = None
+
+        if psf_valid:
+            print>>log, ModColor.Str("============================ Loading cached PSF =================================")
+            print>> log, "found valid cached PSF in %s" % psf_cachepath
+            if not self.GD["Cache"]["PSF"].startswith("force"):
+                print>>log, ModColor.Str("As near as we can tell, we can reuse this cache because it was produced")
+                print>>log, ModColor.Str("with the same set of relevant DDFacet settings. If you think this is in error,")
+                print>>log, ModColor.Str("or if your MS has changed, please remove the cache, or run with --Cache-PSF reset.")
+            self._loadCachedPSF(psf_cachepath)
+
+        # run FM loop if need to generate either
+        if not (dirty_valid and psf_valid):
+            print>>log, ModColor.Str("============================== Making Dirty Image and/or PSF ====================")
             # tell the I/O thread to go load the first chunk
             self.VS.ReInitChunkCount()
             self.VS.startChunkLoadInBackground()
-
-
-            self.FacetMachine.ReinitDirty()
-            self.FacetMachinePSF and self.FacetMachinePSF.ReinitDirty()
-
+            if not dirty_valid:
+                self.FacetMachine.ReinitDirty()
+            if not psf_valid and self.FacetMachinePSF is not None:
+                self.FacetMachinePSF.ReinitDirty()
 
             SubtractModel = self.GD["Data"]["InitDicoModel"]
             if SubtractModel:
                 print>>log, ModColor.Str("Initialise sky model using %s"%SubtractModel,col="blue")
                 # Load model dict
-            	DicoSMStacked = MyPickle.Load(SubtractModel)
+            	#DicoSMStacked = MyPickle.Load(SubtractModel)
                 # Get the correct model machine from SubtractModel file
-            	ModelMachine = self.ModConstructor.GiveMMFromDico(DicoSMStacked)
-                ModelMachine.FromDico(DicoSMStacked)
+            	ModelMachine = self.ModelMachine#self.ModConstructor.GiveMMFromDico(DicoSMStacked)
+                #ModelMachine.FromDico(DicoSMStacked)
                 #self.FacetMachine.BuildFacetNormImage()
                 # NormFacetsFile="%s.NormFacets.fits"%InitBaseName
                 # if InitBaseName!=BaseName:
@@ -420,8 +525,11 @@ class ClassImagerDeconv():
             while True:
                 # note that collectLoadedChunk() will destroy the current DATA dict, so we must make sure
                 # the gridding jobs of the previous chunk are finished
-                self.FacetMachine.collectGriddingResults()
-                self.FacetMachinePSF and self.FacetMachinePSF.collectGriddingResults()
+                if not dirty_valid:
+                    self.FacetMachine.collectGriddingResults()
+                if not psf_valid and self.FacetMachinePSF is not None:
+                    self.FacetMachinePSF.collectGriddingResults()
+
                 # get loaded chunk from I/O thread, schedule next chunk
                 # self.VS.startChunkLoadInBackground()
                 DATA = self.VS.collectLoadedChunk(start_next=True)
@@ -444,11 +552,17 @@ class ClassImagerDeconv():
                         str(model_freqs / 1e6), ModelImage.min(), ModelImage.max())
                     else:
                         print>> log, "reusing model image from previous chunk"
-                    self.FacetMachine.getChunkInBackground(DATA)
-                    self.FacetMachine.collectDegriddingResults()
+                    if not dirty_valid:
+                        self.FacetMachine.getChunkInBackground(DATA)
+                        self.FacetMachine.collectDegriddingResults()
 
-                self.FacetMachine.putChunkInBackground(DATA)
-                self.FacetMachinePSF and self.FacetMachinePSF.putChunkInBackground(DATA)
+                # crude but we need it here, since FacetMachine computes/loads CFs, which FacetMachinePSF uses.
+                # so even if we're not using FM to make a dirty, we still need this call to make sure the CFs come in.
+                self.FacetMachine.awaitInitCompletion()
+                if not dirty_valid:
+                    self.FacetMachine.putChunkInBackground(DATA)
+                if not psf_valid and self.FacetMachinePSF is not None:
+                    self.FacetMachinePSF.putChunkInBackground(DATA)
                 ## disabled this, doesn't like in-place FFTs
                 # # collect intermediate grids, if asked to
                 # if self._save_intermediate_grids:
@@ -458,64 +572,86 @@ class ClassImagerDeconv():
                 #     if 'g' in self._savecubes:
                 #         self.FacetMachine.ToCasaImage(self.DicoDirty["ImagData"],ImageName="%s.cube.dirty.%d"%(self.BaseName,iloop),
                 #             Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                #     self.FacetMachine.NormData = None
+                #     self.FacetMachine.JonesNorm = None
                 #     self.FacetMachine.NormImage = None
 
                 iloop += 1
 
-            self.DicoDirty=self.FacetMachine.FacetsToIm(NormJones=True)
+            if not dirty_valid:
+                self.DicoDirty = self.FacetMachine.FacetsToIm(NormJones=True)
 
-            if "d" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-            if "d" in self._savecubes:
-                self.FacetMachine.ToCasaImage(self.DicoDirty["ImagData"],ImageName="%s.cube.dirty"%self.BaseName,
-                        Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                # # commented out. @cyriltasse to uncomment when fixed
+                # if "H" in self._saveims:
+                #     self.FacetMachine.ComputeSmoothBeam()
 
-            if "n" in self._saveims:
-                self.FacetMachine.ToCasaImage(self.FacetMachine.NormImageReShape,ImageName="%s.NormFacets"%self.BaseName,
-                                              Fits=True)
+                self.SaveDirtyProducts()
 
-            if self.DicoDirty["NormData"] is not None:
-                DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["NormData"])
-                nch,npol,nx,ny = DirtyCorr.shape
-                if "D" in self._saveims:
-                    MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
-                    self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                if "D" in self._savecubes:
-                    self.FacetMachine.ToCasaImage(DirtyCorr,ImageName="%s.cube.dirty.corr"%self.BaseName,
-                                                  Fits=True,Freqs=self.VS.FreqBandCenters,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                # dump dirty to cache
+                if dirty_writecache:
+                    try:
+                        #cPickle.dump(self.DicoDirty, file(cachepath, 'w'), 2)
+                        MyPickle.DicoNPToFile(self.DicoDirty, dirty_cachepath)
+                        self.VS.maincache.saveCache("Dirty")
+                    except:
+                        print>> log, traceback.format_exc()
+                        print>> log, ModColor.Str("WARNING: Dirty image cache could not be written, see error report above. Proceeding anyway.")
 
-                self.NormImage = self.DicoDirty["NormData"]
-                self.MeanNormImage = np.mean(self.NormImage,axis=0).reshape((1,npol,nx,ny))
-                if "N" in self._saveims:
-                    self.FacetMachine.ToCasaImage(self.MeanNormImage,ImageName="%s.Norm"%self.BaseName,Fits=True,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                if "N" in self._savecubes:
-                    self.FacetMachine.ToCasaImage(self.NormImage, ImageName="%s.cube.Norm" % self.BaseName,
-                                                  Fits=True, Freqs=self.VS.FreqBandCenters,
-                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-            else:
-                self.MeanNormImage = None
+            if not psf_valid:
+                self._finalizeComputedPSF(self.FacetMachinePSF, psf_writecache and psf_cachepath)
 
-            # dump dirty to cache
-            if self.GD["Cache"]["Dirty"] and not sparsify:
-                try:
-                    cPickle.dump(self.DicoDirty, file(dirty_cachepath, 'w'), 2)
-                    self.VS.maincache.saveCache("Dirty")
-                except:
-                    print>> log, traceback.format_exc()
-                    print>> log, ModColor.Str("WARNING: Dirty image cache could not be written, see error report above. Proceeding anyway.")
-            if psf:
-                self._finalizeComputedPSF(self.FacetMachinePSF, sparsify)
-
+        ## we get here whether we recomputed dirty/psf or not
         # finalize other PSF initialization
         if psf:
             self._fitAndSavePSF(self.FacetMachinePSF)
 
+        self.CurrentDicoResidImage = self.DicoDirty
+        self.ResidCube  = self.CurrentDicoResidImage["ImagData"] #get residuals cube
+        self.ResidImage = self.CurrentDicoResidImage["MeanImage"]
         return self.DicoDirty["MeanImage"]
+
+    def SaveDirtyProducts(self):
+
+        if "d" in self._saveims:
+            self.FacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],ImageName="%s.dirty"%self.BaseName,Fits=True,
+                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+        if "d" in self._savecubes:
+            self.FacetMachine.ToCasaImage(self.DicoDirty["ImagData"],ImageName="%s.cube.dirty"%self.BaseName,
+                                          Fits=True,Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
+
+        if "n" in self._saveims:
+            self.FacetMachine.ToCasaImage(self.FacetMachine.FacetNormReShape,ImageName="%s.NormFacets"%self.BaseName,
+                                          Fits=True)
+                
+        if self.DicoDirty["JonesNorm"] is not None:
+            DirtyCorr = self.DicoDirty["ImagData"]/np.sqrt(self.DicoDirty["JonesNorm"])
+            nch,npol,nx,ny = DirtyCorr.shape
+            if "D" in self._saveims:
+                MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
+                self.FacetMachine.ToCasaImage(MeanCorr,ImageName="%s.dirty.corr"%self.BaseName,Fits=True,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            if "D" in self._savecubes:
+                self.FacetMachine.ToCasaImage(DirtyCorr,ImageName="%s.cube.dirty.corr"%self.BaseName,
+                                              Fits=True,Freqs=self.VS.FreqBandCenters,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
+            self.JonesNorm = self.DicoDirty["JonesNorm"]
+            self.MeanJonesNorm = np.mean(self.JonesNorm,axis=0).reshape((1,npol,nx,ny))
+
+            if "H" in self._saveims and self.FacetMachine.SmoothMeanJonesNorm is not None:
+                self.FacetMachine.ToCasaImage(self.FacetMachine.SmoothMeanJonesNorm,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
+
+            if "N" in self._saveims:
+                self.FacetMachine.ToCasaImage(self.MeanJonesNorm,ImageName="%s.Norm"%self.BaseName,Fits=True,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            if "N" in self._savecubes:
+                self.FacetMachine.ToCasaImage(self.JonesNorm, ImageName="%s.cube.Norm" % self.BaseName,
+                                              Fits=True, Freqs=self.VS.FreqBandCenters,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+        else:
+            self.MeanJonesNorm = None
 
 
     def GivePredict(self,from_fits=True):
@@ -523,62 +659,65 @@ class ClassImagerDeconv():
 
         # tell the I/O thread to go load the first chunk
         self.VS.ReInitChunkCount()
-        self.VS.startChunkLoadInBackground(null_data=True)
+        self.VS.startChunkLoadInBackground()
 
         self.FacetMachine.ReinitDirty()
-        BaseName=self.GD["Output"]["Name"]
 
-        #ModelMachine=ClassModelMachine(self.GD)
-        try:
-            NormImageName="%s.NormFacets.fits"%BaseName
-            CasaNormImage = image(NormImageName)
-            NormImage = CasaNormImage.getdata()
-            print NormImage.shape
-        except:
-            NormImage = self.FacetMachine.BuildFacetNormImage()
-            NormImage = NormImage.reshape([1,1,NormImage.shape[0],NormImage.shape[1]])
+        # BaseName=self.GD["Output"]["Name"]
+        # #ModelMachine=ClassModelMachine(self.GD)
+        # try:
+        #     NormImageName="%s.NormFacets.fits"%BaseName
+        #     CasaNormImage = image(NormImageName)
+        #     NormImage = CasaNormImage.getdata()
+        #     print NormImage.shape
+        # except:
+        #     NormImage = self.FacetMachine.BuildFacetNormImage()
+        #     NormImage = NormImage.reshape([1,1,NormImage.shape[0],NormImage.shape[1]])
+        # nch,npol,nx,_=NormImage.shape
+        # for ch in range(nch):
+        #     for pol in range(npol):
+        #         NormImage[ch,pol]=NormImage[ch,pol].T[::-1]
+        # self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
-        nch,npol,nx,_=NormImage.shape
-        for ch in range(nch):
-            for pol in range(npol):
-                NormImage[ch,pol]=NormImage[ch,pol].T[::-1]
+        CleanMaskImage=None
+        CleanMaskImageName=self.GD["Deconv"]["CleanMaskImage"]
+        if CleanMaskImageName is not None and CleanMaskImageName is not "":
+            print>>log,ModColor.Str("Will use mask image %s for the predict"%CleanMaskImageName)
+            CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
 
-        self.FacetMachine.NormImage=NormImage.reshape((nx,nx))
 
-        modelfile = self.GD["Data"]["PredictFrom"]
-
-        # if model is a dict, init model machine with that
-        # else we use a model image and hope for the best (need to fix frequency axis...)
-        print>>log,modelfile
-        if modelfile.endswith(".DicoModel"):
-            try:
-                self.DeconvMachine.FromDico(modelfile)
-                print>>log, "Current instance of DeconvMachine does not have FromDico method. Using FromFile instead."
-            except:
-                self.DeconvMachine.FromFile(modelfile)
-            FixedModelImage = None
-        else:
+        modelfile = self.GD["Data"]["PredictFromImage"]
+        # if model image is specified, we'll use that, rather than the ModelMachine
+        if modelfile is not None and modelfile is not "":
+            print>>log,ModColor.Str("Reading image file for the predict: %s"%modelfile)
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
+        else:
+            FixedModelImage = None
 
         current_model_freqs = np.array([])
         ModelImage = None
 
+        self.FacetMachine.awaitInitCompletion()
+        self.FacetMachine.BuildFacetNormImage()
         while True:
             # get loaded chunk from I/O thread, schedule next chunk
             # self.VS.startChunkLoadInBackground()
-            DATA = self.VS.collectLoadedChunk(start_next=True, null_data=True)
+            DATA = self.VS.collectLoadedChunk(start_next=True)
             if type(DATA) is str:
                 print>> log, ModColor.Str("no more data: %s" % DATA, col="red")
                 break
             # None weights indicates an all-flagged chunk: go on to the next chunk
             if DATA["Weights"] is None:
                 continue
+            # insert null array for predict
+            predict = DATA.addSharedArray("data", DATA["datashape"], DATA["datatype"])
+
 
             model_freqs = DATA["FreqMappingDegrid"]
             if FixedModelImage is None:
                 ## redo model image if needed
                 if not np.array_equal(model_freqs, current_model_freqs):
-                    ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
+                    ModelImage = self.FacetMachine.setModelImage(self.ModelMachine.GiveModelImage(model_freqs))
                     current_model_freqs = model_freqs
                     print>> log, "model image @%s MHz (min,max) = (%f, %f)" % (
                     str(model_freqs / 1e6), ModelImage.min(), ModelImage.max())
@@ -588,24 +727,59 @@ class ClassImagerDeconv():
                 if ModelImage is None:
                     ModelImage = self.FacetMachine.setModelImage(FixedModelImage)
 
+            if self.GD["Data"]["MaskSquare"]:
+                # MaskInside: choose mask inside (0) or outside (1) 
+                # NpixInside: Size of the masking region
+                MaskOutSide,NpixInside = self.GD["Data"]["MaskSquare"]
+                if MaskOutSide==0:
+                    SquareMaskMode="Inside"
+                elif MaskOutSide==1:
+                    SquareMaskMode="Outside"
+                NpixInside, _ = EstimateNpix(float(NpixInside), Padding=1)
+                print>>log,"  Zeroing model %s square [%i pixels]"%(SquareMaskMode,NpixInside)
+                dn=NpixInside/2
+                n=self.FacetMachine.Npix
+                InSquare=np.zeros(ModelImage.shape,bool)
+                InSquare[:,:,n/2-dn:n/2+dn+1,n/2-dn:n/2+dn+1]=1
+                if SquareMaskMode=="Inside":
+                    ModelImage[InSquare]=0
+                elif SquareMaskMode=="Outside":
+                    ModelImage[np.logical_not(InSquare)]=0
+
+            if ModelImage.shape[0]!=DATA["ChanMappingDegrid"].size:
+                print>>log, "The image model channels and targetted degridded visibilities channels have different sizes (%i vs %i respectively)"%(ModelImage.shape[0],self.VS.CurrentChanMappingDegrid.size)
+                if ModelImage.shape[0]==1:
+                    print>>log, " Matching freq size of model image to visibilities"
+                    ModelImage=ModelImage*np.ones((DATA["ChanMappingDegrid"].size,1,1,1))
+
+
+            if CleanMaskImage is not None:
+                nch,npol,_,_=ModelImage.shape
+                indZero=(CleanMaskImage[0,0]!=0)
+                for ich in range(nch):
+                    for ipol in range(npol):
+                        ModelImage[ich,ipol][indZero]=0
+
+            # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelPredict"%self.BaseName,Fits=True,
+            #                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
+
             if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder":  # latter for backwards compatibility
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
                 from ClassMontblancMachine import ClassMontblancMachine
-                model = self.DeconvMachine.ModelMachine.GiveModelList()
+                model = self.ModelMachine.GiveModelList()
                 mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                mb_machine.getChunk(DATA, self.VS.getVisibilityResiduals(), model, self.VS.CurrentMS)
+                mb_machine.getChunk(DATA, predict, model, self.VS.CurrentMS)
                 mb_machine.close()
             else:
-                raise ValueError("Invalid PredictMode '%s'" % PredictMode)
-
+                raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
             self.FacetMachine.collectDegriddingResults()
-            vis = self.VS.getVisibilityResiduals()
-            vis *= -1 # model was subtracted from null data, so need to invert
-            PredictColName=self.GD["Data"]["PredictColName"]
-
-            self.VS.CurrentMS.PutVisColumn(PredictColName, vis)
-
+            predict *= -1   # model was subtracted from (zero) predict, so need to invert sign
+            # run job in I/O thread
+            self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Data"]["PredictColName"], likecol=self.GD["Data"]["ColName"])
+            # and wait for it to finish (we don't want DATA destroyed, which collectLoadedChunk() above will)
+            self.VS.collectPutColumnResults()
         # if from_fits:
         #     print "Predicting from fits and saving in %s",(PredictColName)
         #     #Read in the LSM
@@ -681,14 +855,20 @@ class ClassImagerDeconv():
 
             print>>log, ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1))
 
-            # in the meantime, tell the I/O thread to go reload the first data chunk
-            self.VS.ReInitChunkCount()
-            self.VS.startChunkLoadInBackground()
-
             self.DeconvMachine.Update(DicoImage)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
-            #self.DeconvMachine.ModelMachine.ToFile(self.DicoModelName) LB - Not sure this is necessary anymore
+            try:
+                self.FacetMachine.ToCasaImage(self.DeconvMachine.LabelIslandsImage,
+                                              ImageName="%s.labelIslands%2.2i"%(self.BaseName,iMajor),Fits=True,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                # ModelImage = self.DeconvMachine.GiveModelImage(np.array([100e6]))
+                # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
+                #                               Fits=True)#,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            except:
+                pass
+
+            self.ModelMachine.ToFile(self.DicoModelName)
 
             ## returned with nothing done in minor cycle? Break out
             if not update_model or iMajor == NMajor:
@@ -697,6 +877,11 @@ class ClassImagerDeconv():
             else:
                 print>> log, "Finished Deconvolving for this major cycle... Going back to visibility space."
             predict_colname = not continue_deconv and self.GD["Data"]["PredictColName"]
+
+            # in the meantime, tell the I/O thread to go reload the first data chunk
+            self.VS.ReInitChunkCount()
+            self.VS.startChunkLoadInBackground()
+
 
             #self.ResidImage=DicoImage["MeanImage"]
             #self.FacetMachine.ToCasaImage(DicoImage["MeanImage"],ImageName="%s.residual_sub%i"%(self.BaseName,iMajor),Fits=True)
@@ -718,9 +903,6 @@ class ClassImagerDeconv():
                 print>>log, "applying a sparsification factor of %f (was %f in previous cycle)" % (sparsify, previous_sparsify)
             if do_psf:
                 print>>log, "the PSF will be recomputed"
-                # check PSF cache to make sure paths are set up
-                if not sparsify:
-                    self._checkForCachedPSF(self, sparsify)
                 self.FacetMachinePSF.ReinitDirty()
             previous_sparsify = sparsify
 
@@ -731,15 +913,22 @@ class ClassImagerDeconv():
                 # note that collectLoadedChunk() will destroy the current DATA dict, so we must make sure
                 # the gridding jobs of the previous chunk are finished
                 self.FacetMachine.collectGriddingResults()
-                self.FacetMachinePSF and self.FacetMachinePSF.collectGriddingResults()
+                if self.FacetMachinePSF is not None:
+                    self.FacetMachinePSF.collectGriddingResults()
+                self.VS.collectPutColumnResults()  # if these were going on
                 # get loaded chunk from I/O thread, schedule next chunk
-                DATA = self.VS.collectLoadedChunk(keep_data=True, start_next=True)
+                # note that if we're writing predict data out, DON'T schedule until we're done writing this one
+                DATA = self.VS.collectLoadedChunk(start_next=not predict_colname)
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break
                 # None weights indicates an all-flagged chunk: go on to the next chunk
                 if DATA["Weights"] is None:
                     continue
+                visdata = DATA["data"]
+                if predict_colname:
+                    predict = DATA.addSharedArray("predict", DATA["datashape"], DATA["datatype"])
+                    np.copyto(predict, visdata)
                 # sparsify the data according to current levels
                 self.FacetMachine.applySparsification(DATA, sparsify)
                 ## redo model image if needed
@@ -751,6 +940,17 @@ class ClassImagerDeconv():
                 else:
                     print>>log,"reusing model image from previous chunk"
 
+                ## @cyriltasse added this but it seems unnecessary
+                # if "o" in self._saveims:
+                #     # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
+                #     #     Fits=True,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                #     nf,npol,nx,nx=ModelImage.shape
+                #     ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
+                #
+                #     self.FacetMachine.ToCasaImage(ModelImageAvg,ImageName="%s.model%2.2i"%(self.BaseName,iMajor),
+                #                                   Fits=True)#,Freqs=current_model_freqs,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
+
                 if predict_colname:
                     print>>log,"last major cycle: model visibilities will be stored to %s"%predict_colname
 
@@ -758,25 +958,24 @@ class ClassImagerDeconv():
                     self.FacetMachine.getChunkInBackground(DATA)
                 elif self.PredictMode == "Montblanc":
                     from ClassMontblancMachine import ClassMontblancMachine
-                    model = self.DeconvMachine.ModelMachine.GiveModelList()
+                    model = self.ModelMachine.GiveModelList()
                     mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                    mb_machine.getChunk(DATA, self.VS.getVisibilityResiduals(), model, self.VS.CurrentMS)
+                    mb_machine.getChunk(DATA, DATA["data"], model, self.VS.CurrentMS)
                     mb_machine.close()
                 else:
                     raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
 
+                if predict_colname:
+                    self.FacetMachine.collectDegriddingResults()
+                    # predict had original data -- subtract residuals to arrive at model
+                    predict -= visdata
+                    # schedule jobs for saving visibilities, then start reading next chunk (both are on io queue)
+                    self.VS.startVisPutColumnInBackground(DATA, "predict", predict_colname, likecol=self.GD["Data"]["ColName"])
+                    self.VS.startChunkLoadInBackground()
+
                 self.FacetMachine.putChunkInBackground(DATA)
                 if do_psf:
                     self.FacetMachinePSF.putChunkInBackground(DATA)
-
-                if predict_colname:
-                    self.FacetMachine.collectDegriddingResults()
-                    data = self.VS.getVisibilityData()
-                    resid = self.VS.getVisibilityResiduals()
-                    # model is data minus residuals
-                    model = data-resid
-                    self.VS.CurrentMS.PutVisColumn(predict_colname, model)
-                    data = resid = None
 
             # write out model image, if asked to
             if "o" in self._saveims:
@@ -785,6 +984,7 @@ class ClassImagerDeconv():
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             # wait for gridding to finish
             self.FacetMachine.collectGriddingResults()
+            self.VS.collectPutColumnResults()  # if these were going on
             # release model image from memory
             ModelImage = None
             self.FacetMachine.releaseModelImage()
@@ -795,7 +995,7 @@ class ClassImagerDeconv():
             self.ResidImage = DicoImage["MeanImage"]
             # was PSF re-generated?
             if do_psf:
-                self._finalizeComputedPSF(self.FacetMachinePSF, sparsify)
+                self._finalizeComputedPSF(self.FacetMachinePSF, cachepath=None)
                 self._fitAndSavePSF(self.FacetMachinePSF, cycle=iMajor)
                 self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF, PSFAve=self.PSFSidelobesAvg,
                                         approx=(sparsify > approximate_psf_above),
@@ -804,6 +1004,9 @@ class ClassImagerDeconv():
             # if we reached a sparsification of 1, we shan't be re-making the PSF
             if sparsify <= 1:
                 self.FacetMachinePSF = None
+
+            # if "SmoothMeanNormImage" in DicoImage.keys():
+            #     self.SmoothMeanNormImage=DicoImage["SmoothMeanNormImage"]
 
             if "e" in self._saveims:
                 self.FacetMachine.ToCasaImage(self.ResidImage,ImageName="%s.residual%2.2i"%(self.BaseName,iMajor),
@@ -815,12 +1018,36 @@ class ClassImagerDeconv():
             else:
                 self.DeconvMachine.ToFile(self.DicoModelName)
 
+
             self.HasDeconvolved=True
 
-        if self.HasDeconvolved:
-            self.Restore()
+        # dump dirty to cache
+        if self.GD["Cache"]["LastResidual"] and self.CurrentDicoResidImage is not None:
+            cachepath, valid = self.VS.maincache.checkCache("LastResidual", 
+                                                            dict(
+                                                                [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
+                                                                [(section, self.GD[section]) for section in "Data", "Beam", "Selection",
+                                                                 "Freq", "Image", "Comp",
+                                                                 "RIME","Weight","Facets",
+                                                                 "DDESolutions"]
+                                                            ), 
+                                                            reset=False)
+            try:
+                print>>log,"Saving last residual image to %s"%cachepath
+                MyPickle.DicoNPToFile(self.CurrentDicoResidImage, cachepath)
+                self.VS.maincache.saveCache("LastResidual")
+            except:
+                print>> log, traceback.format_exc()
+                print>> log, ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway.")
 
-    def fitSinglePSF(self, PSF, label="mean"):
+        # delete data
+        self.VS.releaseLoadedChunk()
+        self.Restore()
+
+        # if self.HasDeconvolved:
+        #     self.Restore()
+
+    def fitSinglePSF(self, PSF, off, label="mean"):
         """
             Fits a PSF given by argument
         Args:
@@ -832,10 +1059,15 @@ class ClassImagerDeconv():
         x, y = np.where(PSF == np.max(PSF))[-2:]
         nx, ny = PSF.shape[-2:]
         off = self.GD["Image"]["SidelobeSearchWindow"] // 2
+
         off = min(off, x[0], nx-x[0], y[0], ny-y[0])
         print>> log, "Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2)
-        P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off]
+        P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off].copy()
+        
+
         sidelobes = ModFitPSF.FindSidelobe(P)
+        print>>log, "PSF max is %f"%P.max()
+        P[P<0] = 0
         bmaj, bmin, theta = ModFitPSF.FitCleanBeam(P)
 
         FWHMFact = 2. * np.sqrt(2. * np.log(2.))
@@ -861,18 +1093,42 @@ class ClassImagerDeconv():
                 self.PSFGaussPars: The maj (rad), min (rad), theta (rad) parameters for the fit of the gaussian
                 self.PSFSidelobes: Position of the highest sidelobes (px)
         """
-        PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachinePSF.CentralFacet]
+        if self.HasFittedPSFBeam:
+            return
 
-        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = \
-            self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
+        self.HasFittedPSFBeam=True
+        self._psf_fit_error = False
+
+        # If set, use the parameter RestoringBeam to fix the clean beam parameters
+        forced_beam=self.GD["Output"]["RestoringBeam"]
+        if forced_beam is not None:
+            FWHMFact = 2. * np.sqrt(2. * np.log(2.))
+
+            if isinstance(forced_beam,float):
+                forced_beam=[forced_beam,forced_beam,0]
+            elif len(forced_beam)==1:
+                forced_beam=[forced_beam[0],forced_beam[0],0]
+            f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
+            f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
+        PSF = self.DicoVariablePSF["CubeVariablePSF"][self.FacetMachinePSF.iCentralFacet]
+
+        off=self.GD["Image"]["SidelobeSearchWindow"] // 2
+        beam, gausspars, sidelobes = self.fitSinglePSF(self.MeanFacetPSF[0,...], "mean")
+        if forced_beam is not None:
+            print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
+            beam, gausspars = f_beam, f_gau
+        self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = beam, gausspars, sidelobes
         # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
-
         if self.VS.MultiFreqMode:
             self.FWHMBeam = []
             self.PSFGaussPars = []
             self.PSFSidelobes = []
             for band in range(self.VS.NFreqBands):
-                beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],"band %d"%band)
+                beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],off,"band %d"%band)
+                if forced_beam is not None:
+                    beam = f_beam
+                    gausspars = f_gau
+
                 self.FWHMBeam.append(beam)
                 self.PSFGaussPars.append(gausspars)
                 self.PSFSidelobes.append(sidelobes)
@@ -880,7 +1136,13 @@ class ClassImagerDeconv():
             self.FWHMBeam = [self.FWHMBeamAvg]
             self.PSFGaussPars = [self.PSFGaussParsAvg]
             self.PSFSidelobes = [self.PSFSidelobesAvg]
+        # except:
+        #     print>>log,"Error fitting the PSF: %s"%traceback.format_exc()
+        #     self.FWHMBeamAvg = 0,0,0
+        #     self._psf_fit_error = True
 
+
+        
         ## LB - Remove his chunk ?
         #theta=np.pi/2-theta
         #
@@ -893,14 +1155,111 @@ class ClassImagerDeconv():
         #print>>log, "Fitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec*FWHMFact, sigma_y*self.CellArcSec*FWHMFact, theta)
         #print>>log, "Secondary sidelobe at the level of %5.1f at a position of %i from the center"%(self.SideLobeLevel,self.OffsetSideLobe)
 
+    def GiveMetroModel(self):
+        model_freqs=self.VS.CurrentChanMappingDegrid
+        ModelImage = self.DeconvMachine.GiveModelImage(model_freqs)                    
+        nf,npol,nx,nx=ModelImage.shape
+        ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
+        
+        self.FacetMachine.ToCasaImage(ModelImageAvg,
+                                      ImageName="%s.model.pre_metro"%(self.BaseName),
+                                      Fits=True)
+
+        GD=copy.deepcopy(self.GD)
+        # # ####################
+        # # Initialise Model machine for MetroClean
+        # ThisMode=["S","Alpha","GSig"]
+        # GD["SSDClean"]["SSDSolvePars"]=ThisMode
+        # DicoAugmentedModel=self.DeconvMachine.ModelMachine.GiveConvertedSolveParamDico(ThisMode)
+        # MinorCycleConfig=dict(GD["ImagerDeconv"])
+        # MinorCycleConfig["NCPU"]=GD["Parallel"]["NCPU"]
+        # MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
+        # MinorCycleConfig["GD"] = GD
+        # MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
+        # MinorCycleConfig["IdSharedMem"] = self.IdSharedMem
+        # ModelMachine = self.ModConstructor.GiveMM(Mode=GD["ImagerDeconv"]["MinorCycleMode"])
+        # ModelMachine.FromDico(DicoAugmentedModel)
+        # MinorCycleConfig["ModelMachine"] = ModelMachine
+
+        # # ####################
+        # # Initialise Image deconv machine for MetroClean
+        # from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
+        # DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(**MinorCycleConfig)
+        # DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.PSFSidelobesAvg)
+        
+        DeconvMachine=self.DeconvMachine
+        ModelMachine=self.ModelMachine
+
+        # Create a ModelMachine to sture the sigma values
+        DicoErrModel=copy.deepcopy(ModelMachine.giveDico())
+        del(DicoErrModel["Comp"])
+        DicoErrModel["Comp"]={}
+        ModConstructor = ClassModModelMachine(self.GD)
+        ErrorModelMachine = ModConstructor.GiveMM(Mode=GD["Deconv"]["Mode"])
+        ErrorModelMachine.FromDico(DicoErrModel)
+        
+        DeconvMachine.ErrorModelMachine=ErrorModelMachine
+        
+        # ####################
+        # Run MetroClean
+        print>>log,"Runing a Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
+        DeconvMachine.setDeconvMode(Mode="MetroClean")
+        DeconvMachine.Update(self.CurrentDicoResidImage)
+        repMinor, continue_deconv, update_model = DeconvMachine.Deconvolve()
+        DeconvMachine.ToFile(self.DicoMetroModelName)
+        
+        ErrModelImage = DeconvMachine.ErrorModelMachine.GiveModelImage(model_freqs)                    
+        nf,npol,nx,nx=ErrModelImage.shape
+        ErrModelImageAvg=np.mean(ErrModelImage,axis=0).reshape((1,npol,nx,nx))
+        self.FacetMachine.ToCasaImage(ErrModelImageAvg,
+                                      ImageName="%s.metro.model.sigma"%(self.BaseName),
+                                      Fits=True)
+
+        ModelImage = DeconvMachine.GiveModelImage(model_freqs)                    
+        nf,npol,nx,nx=ModelImage.shape
+        ModelImageAvg=np.mean(ModelImage,axis=0).reshape((1,npol,nx,nx))
+        self.FacetMachine.ToCasaImage(ModelImageAvg,
+                                      ImageName="%s.metro.model"%(self.BaseName),
+                                      Fits=True)
+        self.FacetMachine.ToCasaImage(DeconvMachine.SelectedIslandsMask,
+                                      ImageName="%s.metro.mask"%(self.BaseName),
+                                      Fits=True)
+        return ModelMachine
+
+    def _saveImage_worker (self, dict_path, field, ImageName, delete=False,
+                           Fits=True, beam=None, beamcube=None, Freqs=None,
+                           Stokes=None):
+        """Worker function to save an image to disk, and optionally to delete it"""
+        sd = SharedDict.attach(dict_path)
+#        print>>log,sd.keys()
+        image = sd[field]
+        self.FacetMachine.ToCasaImage(image, ImageName=ImageName, Fits=Fits, beam=beam, beamcube=beamcube,
+                                      Freqs=Freqs, Stokes=Stokes)
+        if delete:
+#            print>> log, "releasing %s image" % field
+            sd.delete_item(field)
+
+    def _delSharedImage_worker(self, dict_path, *args):
+        """Worker function to delete an imaged from the shared dict. Enqueued after that image is no longer useful."""
+        sd = SharedDict.attach(dict_path)
+        for field in args:
+            if field in sd:
+ #               print>>log, "releasing %s image" % field
+                sd.delete_item(field)
+
+
     def Restore(self):
         print>>log, "Create restored image"
         if self.PSFGaussPars is None:
             self.FitPSF()
-        self.DeconvMachine.ToFile(self.DicoModelName)
+        #self.DeconvMachine.ToFile(self.DicoModelName)
 
         RefFreq = self.VS.RefFreq
-        ModelMachine = self.DeconvMachine.ModelMachine
+
+        if self.GD["Deconv"]["Mode"]=="SSD" and self.GD["SSDClean"]["RestoreMetroSwitch"]>0:
+            ModelMachine=self.GiveMetroModel()
+        else:
+            ModelMachine = self.DeconvMachine.ModelMachine
 
         # Putting back substracted componants
         if self.GD["DDESolutions"]["RestoreSub"]:
@@ -909,43 +1268,73 @@ class ClassImagerDeconv():
             except:
                 print>>log, ModColor.Str("Failed Putting back substracted components")
 
-
         # do we have a non-trivial norm (i.e. DDE solutions or beam)?
         # @cyriltasse: maybe there's a quicker way to check?
-        havenorm = self.MeanNormImage is not None and (self.MeanNormImage != 1).any()
+        havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm != 1).any()
 
-        # make a dict of _images to save the intermediate images for when we need them
-        _images = {}
+        T = ClassTimeIt.ClassTimeIt()
+        T.disable()
+
+        # Make a SharedDict of images to save the intermediate images for when we need them.
+        # SharedDict because we'll have a job on the I/O queue doing the actual saving.
+        # Since these images and cubes can take a lot of SHM, we will also schedule I/O jobs to delete them
+        # after we don't need them anymore.
+
+        _images = SharedDict.create("OutputImages")
+
         def sqrtnorm():
             label = 'sqrtnorm'
             if label not in _images:
-                _images[label] = np.sqrt(self.MeanNormImage) if havenorm else 1
+                a = self.MeanJonesNorm if self.FacetMachine.SmoothMeanJonesNorm is None else self.FacetMachine.SmoothMeanJonesNorm
+                out = _images.addSharedArray(label, a.shape, a.dtype)
+                numexpr.evaluate('sqrt(a)', out=out)
             return _images[label]
         def sqrtnormcube():
             label = 'sqrtnormcube'
             if label not in _images:
-                _images[label] = np.sqrt(self.NormImage) if havenorm else 1
+                a = self.JonesNorm if havenorm else np.array([1])
+                out = _images.addSharedArray(label, a.shape, a.dtype)
+                numexpr.evaluate('sqrt(a)', out=out)
             return _images[label]
         def appres():
-            return self.ResidImage
+            label = 'appres'
+            _images[label] = self.ResidImage
+            return _images[label]
         def intres():
             label = 'intres'
             if label not in _images:
-                _images[label] = x = appres()/sqrtnorm() if havenorm else appres()
-                x[~np.isfinite(x)] = 0
+                if havenorm:
+                    a, b = appres(), sqrtnorm()
+                    out = _images.addSharedArray(label, a.shape, a.dtype)
+                    numexpr.evaluate('a/b', out=out)
+                    out[~np.isfinite(out)] = 0
+                else:
+                    _images[label] = appres()
             return _images[label]
         def apprescube():
-            return self.ResidCube
+            label = 'apprescube'
+            _images[label] = self.ResidCube
+            return _images[label]
         def intrescube():
             label = 'intrescube'
             if label not in _images:
-                _images[label] = x = apprescube()/sqrtnormcube() if havenorm else apprescube()
-                x[~np.isfinite(x)] = 0
+                if havenorm:
+                    a, b = apprescube(), sqrtnormcube()
+                    out = _images.addSharedArray(label, a.shape, a.dtype)
+                    numexpr.evaluate('a/b', out=out)
+                    out[~np.isfinite(out)] = 0
+                else:
+                    _images[label] = apprescube()
             return _images[label]
         def appmodel():
             label = 'appmodel'
             if label not in _images:
-                _images[label] = intmodel()*sqrtnorm() if havenorm else intmodel()
+                if havenorm:
+                    a, b = intmodel(), sqrtnorm()
+                    out = _images.addSharedArray(label, a.shape, a.dtype)
+                    numexpr.evaluate('a*b', out=out)
+                else:
+                    _images[label] = intmodel()
             return _images[label]
         def intmodel():
             label = 'intmodel'
@@ -955,128 +1344,234 @@ class ClassImagerDeconv():
         def appmodelcube():
             label = 'appmodelcube'
             if label not in _images:
-                _images[label] = intmodelcube()*sqrtnormcube() if havenorm else intmodel()
+                if havenorm:
+                    a, b = intmodelcube(), sqrtnormcube()
+                    out = _images.addSharedArray(label, a.shape, a.dtype)
+                    numexpr.evaluate('a*b', out=out)
+                else:
+                    _images[label] = intmodelcube()
             return _images[label]
         def intmodelcube():
             label = 'intmodelcube'
             if label not in _images:
-                _images[label] = ModelMachine.GiveModelImage(self.VS.FreqBandCenters)
+                shape = list(ModelMachine.ModelShape)
+                shape[0] = len(self.VS.FreqBandCenters)
+                out = _images.addSharedArray(label, shape, np.float32)
+                ModelMachine.GiveModelImage(self.VS.FreqBandCenters, out=out)
             return _images[label]
         def appconvmodel():
             label = 'appconvmodel'
             if label not in _images:
-                _images[label] = ModFFTW.ConvolveGaussian(appmodel(),CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg]) \
-                                    if havenorm else intconvmodel()
+                if havenorm:
+                    out = _images.addSharedArray(label, appmodel().shape, np.float32)
+                    ModFFTW.ConvolveGaussian(appmodel(), CellSizeRad=self.CellSizeRad,
+                                                              GaussPars=[self.PSFGaussParsAvg], out=out)
+                    T.timeit(label)
+                else:
+                    _images[label] = intconvmodel()
             return _images[label]
         def intconvmodel():
             label = 'intconvmodel'
             if label not in _images:
-                _images[label] = ModFFTW.ConvolveGaussian(intmodel(),CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg])
+                out = _images.addSharedArray(label, intmodel().shape, np.float32)
+                ModFFTW.ConvolveGaussian(intmodel(), CellSizeRad=self.CellSizeRad,
+                                                          GaussPars=[self.PSFGaussParsAvg], out=out)
+                T.timeit(label)
             return _images[label]
         def appconvmodelcube():
             label = 'appconvmodelcube'
             if label not in _images:
-                _images[label] = ModFFTW.ConvolveGaussian(appmodelcube(),CellSizeRad=self.CellSizeRad,GaussPars=self.PSFGaussPars) \
-                                    if havenorm else intconvmodelcube()
+                if havenorm:
+                    _images.addSharedArray(label, appmodelcube().shape, np.float32)
+                    ModFFTW.ConvolveGaussianParallel(_images, 'appmodelcube', label,
+                                             CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
+                    T.timeit(label)
+                else:
+                    _images[label] = intconvmodelcube()
             return _images[label]
         def intconvmodelcube():
             label = 'intconvmodelcube'
             if label not in _images:
-                _images[label] = ModFFTW.ConvolveGaussian(intmodelcube(),CellSizeRad=self.CellSizeRad,GaussPars=self.PSFGaussPars)
+                _images.addSharedArray(label, intmodelcube().shape, np.float32)
+                ModFFTW.ConvolveGaussianParallel(_images, 'intmodelcube', label,
+                                                 CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
+                T.timeit(label)
             return _images[label]
 
         # norm
         if havenorm and ("S" in self._saveims or "s" in self._saveims):
-            self.FacetMachine.ToCasaImage(sqrtnorm(),ImageName="%s.fluxscale"%(self.BaseName),
-                                          Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        if havenorm and ("S" in self._savecubes or "s" in self._savecubes):
-            self.FacetMachine.ToCasaImage(sqrtnormcube(), ImageName="%s.cube.fluxscale" % (self.BaseName), Fits=True,
-                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-
-            # apparent-flux residuals
+            sqrtnorm()
+            APP.runJob("save:sqrtnorm", self._saveImage_worker, io=0, args=( _images.path, "sqrtnorm",), kwargs=dict( ImageName="%s.fluxscale"%(self.BaseName),
+                                          Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # apparent-flux residuals
         if "r" in self._saveims:
-            self.FacetMachine.ToCasaImage(appres(),ImageName="%s.app.residual"%(self.BaseName),
-                                          Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            appres()
+            APP.runJob("save:appres", self._saveImage_worker, io=0, args=( _images.path, "appres",), kwargs=dict( ImageName="%s.app.residual"%(self.BaseName),
+                                          Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # intrinsic-flux residuals
         if havenorm and "R" in self._saveims:
-            self.FacetMachine.ToCasaImage(intres(),ImageName="%s.int.residual"%(self.BaseName),Fits=True,
-                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        # apparent-flux residual cube
-        if "r" in self._savecubes:
-            self.FacetMachine.ToCasaImage(apprescube(),ImageName="%s.cube.app.residual"%(self.BaseName),Fits=True,
-                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        # intrinsic-flux residual cube
-        if havenorm and "R" in self._savecubes:
-            self.FacetMachine.ToCasaImage(intrescube(),ImageName="%s.cube.int.residual"%(self.BaseName),Fits=True,
-                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-
+            intres()
+            APP.runJob("save:intres", self._saveImage_worker, io=0, args=( _images.path, "intres",), kwargs=dict(ImageName="%s.int.residual"%(self.BaseName),Fits=True,
+                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # apparent-flux model
         if "m" in self._saveims:
-            self.FacetMachine.ToCasaImage(appmodel(),ImageName="%s.app.model"%self.BaseName,Fits=True,
-                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            appmodel()
+            APP.runJob("save:appmodel", self._saveImage_worker, io=0, args=(_images.path, "appmodel",),
+                       kwargs=dict(ImageName="%s.app.model" % self.BaseName, Fits=True,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # intrinsic-flux model
         if havenorm and "M" in self._saveims:
-            self.FacetMachine.ToCasaImage(intmodel(),ImageName="%s.int.model"%self.BaseName,Fits=True,
-                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        # apparent-flux model cube
-        if "m" in self._savecubes:
-            self.FacetMachine.ToCasaImage(appmodelcube(),ImageName="%s.cube.app.model"%self.BaseName,Fits=True,
-                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        # intrinsic-flux model cube
-        if havenorm and "M" in self._savecubes:
-            self.FacetMachine.ToCasaImage(intmodelcube(),ImageName="%s.cube.int.model"%self.BaseName,Fits=True,
-                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-
+            intmodel()
+            APP.runJob("save:intmodel", self._saveImage_worker, io=0, args=(_images.path, "intmodel",),
+                       kwargs=dict(ImageName="%s.int.model" % self.BaseName, Fits=True,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # convolved-model image in apparent flux
         if "c" in self._saveims:
-            self.FacetMachine.ToCasaImage(appconvmodel(),ImageName="%s.app.convmodel"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            appconvmodel()
+            APP.runJob("save:appconvmodel", self._saveImage_worker, io=0, args=(_images.path, "appconvmodel",),
+                       kwargs=dict(ImageName="%s.app.convmodel" % self.BaseName, Fits=True,
+                                   beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # convolved-model image in intrinsic flux
         if havenorm and "C" in self._saveims:
-            self.FacetMachine.ToCasaImage(intconvmodel(),ImageName="%s.int.convmodel"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        # convolved-model cube in apparent flux
-        if "c" in self._savecubes:
-            self.FacetMachine.ToCasaImage(appconvmodelcube(),ImageName="%s.cube.app.convmodel"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
-                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        # convolved-model cube in intrinsic flux
-        if havenorm and "C" in self._savecubes:
-            self.FacetMachine.ToCasaImage(intconvmodelcube(),ImageName="%s.cube.int.convmodel"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
-                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            intconvmodel()
+            APP.runJob("save:intconvmodel", self._saveImage_worker, io=0, args=(_images.path, "intconvmodel",),
+                       kwargs=dict(ImageName="%s.int.convmodel" % self.BaseName, Fits=True,
+                                   beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
+        # norm cube
+        if havenorm and ("S" in self._savecubes or "s" in self._savecubes):
+            sqrtnormcube()
+            APP.runJob("save:sqrtnormcube", self._saveImage_worker, io=0, args=(_images.path, "sqrtnormcube",),
+                       kwargs=dict(ImageName="%s.cube.fluxscale" % (self.BaseName), Fits=True,
+                                   Freqs=self.VS.FreqBandCenters,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # apparent-flux restored image
         if "i" in self._saveims:
-            self.FacetMachine.ToCasaImage(appres()+appconvmodel(),ImageName="%s.app.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            _images["apprestored"] = appres()
+            _images["apprestored"] += appconvmodel()
+            APP.runJob("save:apprestored", self._saveImage_worker, io=0, args=(_images.path, "apprestored",),
+                       kwargs=dict(ImageName="%s.app.restored" % self.BaseName, Fits=True,
+                                   beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         # intrinsic-flux restored image
         if havenorm and "I" in self._saveims:
-            self.FacetMachine.ToCasaImage(intres()+intconvmodel(),ImageName="%s.int.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        # apparent-flux restored image cube
-        if "i" in self._savecubes:
-            self.FacetMachine.ToCasaImage(apprescube()+appconvmodelcube(),ImageName="%s.cube.app.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
-                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        # intrinsic-flux restored image cube
-        if havenorm and "I" in self._savecubes:
-            self.FacetMachine.ToCasaImage(intrescube()+intconvmodelcube(),ImageName="%s.cube.int.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
-                Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            _images["intrestored"] = intres()
+            _images["intrestored"] += intconvmodel()
+            APP.runJob("save:intrestored", self._saveImage_worker, io=0, args=(_images.path, "intrestored",),
+                       kwargs=dict(ImageName="%s.int.restored" % self.BaseName, Fits=True,
+                                   beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+
+        # intrinsic-flux restored image
+        if havenorm and ("H" in self._saveims):
+            if self.FacetMachine.SmoothMeanJonesNorm is None:
+                print>> log, ModColor.Str("You requested a restored imaged but the smooth beam is not in there")
+                print>> log, ModColor.Str("  so just not doing it")
+            else:
+                a, b, c = appres(), appconvmodel(), self.FacetMachine.SmoothMeanJonesNorm
+                out = _images.addSharedArray('smoothrestored', a.shape, a.type)
+                numexpr.evaluate('(a+b)/sqrt(c)', out=out)
+                APP.runJob("save:smoothrestored", self._saveImage_worker, io=0,
+                           args=(_images.path, "smoothrestored",), kwargs=dict(
+                        ImageName="%s.smooth.int.restored" % self.BaseName, Fits=True, delete=True,
+                        beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+
         # mixed-flux restored image
         if havenorm and "x" in self._saveims:
-            self.FacetMachine.ToCasaImage(appres()+intconvmodel(),ImageName="%s.restored"%self.BaseName,Fits=True,
-                beam=self.FWHMBeamAvg,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            a, b = appres(), intconvmodel()
+            out = _images.addSharedArray('mixrestored', a.shape, a.dtype)
+            numexpr.evaluate('a+b', out=out)
+            APP.runJob("save:mixrestored", self._saveImage_worker, io=0, args=(_images.path, "mixrestored",),
+                       kwargs=dict(
+                           ImageName="%s.restored" % self.BaseName, Fits=True,
+                           beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         # Alpha image
         if "A" in self._saveims and self.VS.MultiFreqMode:
-            IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussParsAvg])
+            IndexMap = ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,
+                                                         GaussPars=[self.PSFGaussParsAvg])
+            _images["alpha"] = IndexMap
             # IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
-            self.FacetMachine.ToCasaImage(IndexMap,ImageName="%s.alpha"%self.BaseName,Fits=True,beam=self.FWHMBeamAvg,
-                                          Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.path, "alpha",), kwargs=dict(
+                ImageName="%s.alpha" % self.BaseName, Fits=True, beam=self.FWHMBeamAvg,
+                Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+
+        #  done saving images -- schedule a job to delete them all from the dict to save RAM
+        APP.runJob("del:images", self._delSharedImage_worker, io=0, args=[_images.path] + list(_images.keys()))
+
+        # now form up cubes
+        # apparent-flux model cube
+        if "m" in self._savecubes:
+            appmodelcube()
+            APP.runJob("save:appmodelcube", self._saveImage_worker, io=0, args=(_images.path, "appmodelcube",),
+                       kwargs=dict(ImageName="%s.cube.app.model" % self.BaseName, Fits=True,
+                                   Freqs=self.VS.FreqBandCenters,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # intrinsic-flux model cube
+        if havenorm and "M" in self._savecubes:
+            intmodelcube()
+            APP.runJob("save:intmodelcube", self._saveImage_worker, io=0, args=(_images.path, "intmodelcube",),
+                       kwargs=dict(ImageName="%s.cube.int.model" % self.BaseName, Fits=True,
+                                   Freqs=self.VS.FreqBandCenters,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # convolved-model cube in apparent flux
+        if "c" in self._savecubes:
+            appconvmodelcube()
+            APP.runJob("save:appconvmodelcube", self._saveImage_worker, io=0,
+                       args=(_images.path, "appconvmodelcube",),
+                       kwargs=dict(ImageName="%s.cube.app.convmodel" % self.BaseName, Fits=True,
+                                   beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
+                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        #  can delete this one now
+        APP.runJob("del:appmodelcube", self._delSharedImage_worker, io=0, args=[_images.path, "appmodelcube"])
+        # convolved-model cube in intrinsic flux
+        if havenorm and "C" in self._savecubes:
+            intconvmodelcube()
+            APP.runJob("save:intconvmodelcube", self._saveImage_worker, io=0, args=( _images.path, "intconvmodelcube",), kwargs=dict(ImageName="%s.cube.int.convmodel"%self.BaseName,Fits=True,
+                beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
+                Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        #  can delete this one now
+        APP.runJob("del:intmodelcube", self._delSharedImage_worker, io=0, args=[_images.path, "intmodelcube"])
+        # apparent-flux residual cube
+        if "r" in self._savecubes:
+            apprescube()
+            APP.runJob("save:apprescube", self._saveImage_worker, io=0, args=( _images.path, "apprescube",), kwargs=dict(ImageName="%s.cube.app.residual"%(self.BaseName),Fits=True,
+                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # apparent-flux restored image cube
+        if "i" in self._savecubes:
+            a, b = apprescube(), appconvmodelcube()
+            out = _images.addSharedArray('apprestoredcube', a.shape, a.dtype)
+            numexpr.evaluate('a+b', out=out)
+            APP.runJob("save:apprestoredcube", self._saveImage_worker, io=0,
+                       args=(_images.path, "apprestoredcube",), kwargs=dict(
+                    ImageName="%s.cube.app.restored" % self.BaseName, Fits=True, delete=True,
+                    beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
+                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        #  can delete this one now
+        APP.runJob("del:appcubes", self._delSharedImage_worker, io=0, args=[_images.path, "appconvmodelcube", "apprescube"])
+        # intrinsic-flux residual cube
+        if havenorm and "R" in self._savecubes:
+            intrescube()
+            APP.runJob("save:intrescube", self._saveImage_worker, io=0, args=( _images.path, "intrescube",), kwargs=dict(ImageName="%s.cube.int.residual"%(self.BaseName),Fits=True,
+                Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        #  can delete this one now
+        APP.runJob("del:sqrtnormcube", self._delSharedImage_worker, io=0, args=[_images.path, "sqrtnormcube"])
+        # intrinsic-flux restored image cube
+        if havenorm and "I" in self._savecubes:
+            a, b = intrescube(), intconvmodelcube()
+            out = _images.addSharedArray('intrestoredcube', a.shape, a.dtype)
+            numexpr.evaluate('a+b', out=out)
+            APP.runJob("save:intrestoredcube", self._saveImage_worker, io=0,
+                       args=(_images.path, "intrestoredcube",), kwargs=dict(
+                    ImageName="%s.cube.int.restored" % self.BaseName, Fits=True, delete=True,
+                    beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
+                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        APP.runJob("del:intcubes", self._delSharedImage_worker, io=0, args=[_images.path, "intconvmodelcube", "intrescube"])
+
+        APP.awaitJobResults(["save:*", "del:*"])
+        self.FacetMachinePSF = None
+        self.FacetMachine = None
 
     def testDegrid(self):
+        import pylab
         self.InitFacetMachine()
 
         self.FacetMachine.ReinitDirty()

@@ -113,11 +113,13 @@ class SpheMachine():
 
         # ############"
         # import pylab
-        # pylab.clf()
-        # pylab.subplot(3,2,1)
         # lpar=list(pylab.imshow.__defaults__)
         # lpar[3]="nearest"
         # pylab.imshow.__defaults__=tuple(lpar)
+
+        # pylab.figure(0)
+        # pylab.clf()
+        # pylab.subplot(3,2,1)
         # pylab.imshow(CF.real)
         # pylab.colorbar()
         # pylab.subplot(3,2,2)
@@ -138,9 +140,25 @@ class SpheMachine():
         # pylab.draw()
         # pylab.show(False)
         # pylab.pause(0.1)
-        # # stop
 
+        # f_inv_ifzfCF=ifft2(1./ifzfCF.real)
+
+        # pylab.figure(1)
+        # pylab.clf()
+        # pylab.subplot(3,2,1)
+        # pylab.imshow(f_inv_ifzfCF.real)
+        # pylab.colorbar()
+        # pylab.subplot(3,2,2)
+        # pylab.imshow(f_inv_ifzfCF.imag)
+        # pylab.colorbar()
+        # pylab.draw()
+        # pylab.show(False)
+        # pylab.pause(0.1)
+
+
+        # stop
         ifzfCF[ifzfCF < 0] = 1e-10
+
         return CF, fCF, ifzfCF
 
 
@@ -304,8 +322,9 @@ class ClassWTermModified():
         if compute_cf:
             self.InitSphe()
             self.InitW()
-            dS = np.complex64
-            cf_dict["Sphe"] = dS(self.ifzfCF)
+            dS = np.float32
+            cf_dict["Sphe"] = dS(self.ifzfCF.real)
+            cf_dict["InvSphe"] = dS(1./np.float64(self.ifzfCF.real))
             cf_dict["CuCv"] = np.array([self.Cu, self.Cv])
             NpShared.PackListSquareMatrix(cf_dict, "W", self.Wplanes + self.WplanesConj)
         else:
@@ -316,6 +335,7 @@ class ClassWTermModified():
                 raise RuntimeError("mismatch in number of cached w-planes")
             self.Wplanes = ww[:self.Nw]
             self.WplanesConj = ww[self.Nw:]
+
 
     def InitSphe(self):
         T = ClassTimeIt.ClassTimeIt("Wterm")

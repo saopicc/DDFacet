@@ -131,6 +131,11 @@ class AsyncProcessPool (object):
     """
     def __init__ (self):
         self._started = False
+        # init these here so that jobs can be registered
+        self._job_handlers = {}
+        self._events = {}
+        self._results_map = {}
+        self._job_counters = JobCounterPool()
 
     def __del__(self):
         self.shutdown()
@@ -138,6 +143,7 @@ class AsyncProcessPool (object):
     def init(self, ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0):
         """
         Initializes an APP.
+        Can be called multiple times at program tartup
 
         Args:
             ncpu:
@@ -149,8 +155,7 @@ class AsyncProcessPool (object):
         Returns:
 
         """
-        self._shared_state = SharedDict.create("APP")
-
+        self._shared_state = SharedDict.create("APP", delete_items=False)
         self.affinity = affinity
         self.verbose = verbose
         if isinstance(self.affinity, int):
@@ -254,10 +259,7 @@ class AsyncProcessPool (object):
         self._compute_queue   = multiprocessing.Queue()
         self._io_queues       = [ multiprocessing.Queue() for x in xrange(num_io_processes) ]
         self._result_queue    = multiprocessing.Queue()
-        self._job_handlers = {}
-        self._events = {}
-        self._results_map = {}
-        self._job_counters = JobCounterPool()
+        self._termination_event = multiprocessing.Event()
 
         if self.ncpu > 1:
             # create the workers
@@ -364,15 +366,16 @@ class AsyncProcessPool (object):
         ## normal paralell mode, stick job on queue
         if self.ncpu > 1 and not serial:
             if self.verbose > 2:
-                print>>log, "enqueueing job %s: %s"%(job_id, function)
+                print>>log, "enqueueing job %s: %s"%(job_id, handler_desc)
             # place it on appropriate queue
             if io is None:
                 self._compute_queue.put(jobitem)
             else:
                 io = max(len(self._io_queues)-1, io)
                 self._io_queues[io].put(jobitem)
+        # serial mode: process job in this process, and raise any exceptions up
         else:
-            self._dispatch_job(jobitem)
+            self._dispatch_job(jobitem, reraise=True)
 
     def awaitJobCounter (self, counter, progress=None, total=None, timeout=10):
         if self.verbose > 2:
@@ -380,11 +383,12 @@ class AsyncProcessPool (object):
         if progress:
             current = counter.getValue()
             total = total or current or 1
-            pBAR = ProgressBar('white', width=50, block='=', empty=' ',Title="  "+progress, HeaderSize=10, TitleSize=13)
-            pBAR.render(int(100.*(total-current)/total), '%4i/%i' % (total-current, total))
+            pBAR = ProgressBar(Title="  "+progress)
+            #pBAR.disable()
+            pBAR.render(total-current,total)
             while current:
                 current = counter.awaitZeroWithTimeout(timeout)
-                pBAR.render(int(100. * (total - current) / total), '%4i/%i' % (total - current, total))
+                pBAR.render(total - current, total)
         else:
             counter.awaitZero()
             if self.verbose > 2:
@@ -402,13 +406,17 @@ class AsyncProcessPool (object):
             if event is None:
                 raise KeyError("Unknown event '%s'" % name)
             while not event.is_set():
+                if self._termination_event.is_set():
+                    if self.verbose > 1:
+                        print>> log, "  termination event spotted, exiting"
                 if self.verbose > 2:
                     print>> log, "  %s not yet complete, waiting" % name
-                event.wait()
-            if self.verbose > 2:
-                print>> log, "  %s is complete" % name
+                if event.wait(1):
+                    if self.verbose > 2:
+                        print>> log, "  %s is complete" % name
+                    break
 
-    def awaitJobResults (self, jobspecs, progress=None):
+    def awaitJobResults (self, jobspecs, progress=None, TimeTitle=None):
         """
         Waits for job(s) given by arguments to complete, and returns their results.
         Note that this only works for jobs scheduled by the same process, since each process has its own results map.
@@ -434,6 +442,8 @@ class AsyncProcessPool (object):
             matching_jobs = [job_id for job_id in self._results_map.iterkeys() if fnmatch.fnmatch(job_id, jobspec)]
             for job_id in matching_jobs:
                 awaiting_jobs.setdefault(job_id, set()).add(jobspec)
+            if not matching_jobs:
+                raise RuntimeError("no pending jobs matching '%s'. This is probably a bug." % jobspec)
             total_jobs += len(matching_jobs)
             job_results[jobspec] = len(matching_jobs), []
         # check dict of already returned results (perhaps from previous calls to awaitJobs). Remove
@@ -447,8 +457,8 @@ class AsyncProcessPool (object):
                     del self._results_map[job_id]
                 del awaiting_jobs[job_id]
         if progress:
-            pBAR = ProgressBar('white', width=50, block='=', empty=' ',Title="  "+progress, HeaderSize=10, TitleSize=13)
-            pBAR.render(int(100.*complete_jobs/total_jobs), '%4i/%i' % (complete_jobs, total_jobs))
+            pBAR = ProgressBar(Title="  "+progress)
+            pBAR.render(complete_jobs,(total_jobs or 1))
         if self.verbose > 1:
             print>>log, "checking job results: %s (%d still pending)"%(
                 ", ".join(["%s %d/%d"%(jobspec, len(results), njobs) for jobspec, (njobs, results) in job_results.iteritems()]),
@@ -484,20 +494,20 @@ class AsyncProcessPool (object):
                     del self._results_map[job_id]
                 del awaiting_jobs[job_id]
                 if progress:
-                    pBAR.render(int(100.*complete_jobs/total_jobs), '%4i/%i' % (complete_jobs, total_jobs))
+                    pBAR.render(complete_jobs,(total_jobs or 1))
             # print status update
             if self.verbose > 1:
                 print>>log,"received job results %s" % " ".join(["%s:%d"%(jobspec, len(results)) for jobspec, (_, results)
                                                              in job_results.iteritems()])
         # render complete
         if progress:
-            pBAR.render(int(100. * complete_jobs / total_jobs), '%4i/%i' % (complete_jobs, total_jobs))
+            pBAR.render(complete_jobs,(total_jobs or 1))
         # process list of results for each jobspec to check for errors
         for jobspec, (njobs, results) in job_results.iteritems():
             times = np.array([ res['time'] for res in results ])
             num_errors = len([res for res in results if not res['success']])
-            if progress:
-                print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (progress, len(results), times.mean())
+            if TimeTitle:
+                print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (TimeTitle, len(results), times.mean())
             elif self.verbose > 0:
                 print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (jobspec, len(results), times.mean())
             if num_errors:
@@ -566,7 +576,10 @@ class AsyncProcessPool (object):
             psutil.Process().cpu_affinity(affinity)
         object._run_worker(worker_queue)
 
-    def _dispatch_job(self, jobitem):
+    def _dispatch_job(self, jobitem, reraise=False):
+        """Handles job described by jobitem dict.
+
+        If reraise is True, any eceptions are re-raised. This is useful for debugging."""
         timer = ClassTimeIt.ClassTimeIt()
         event = counter = None
         try:
@@ -602,6 +615,8 @@ class AsyncProcessPool (object):
         except KeyboardInterrupt:
             raise
         except Exception, exc:
+            if reraise:
+                raise
             print>> log, ModColor.Str("process %s: exception raised processing job %s: %s" % (
                 AsyncProcessPool.proc_id, job_id, traceback.format_exc()))
             if jobitem['collect_result']:
@@ -643,7 +658,15 @@ class AsyncProcessPool (object):
     # CPU id. This will be None in the parent process, and a unique number in each worker process
     proc_id = None
 
-APP = AsyncProcessPool()
+APP = None
+
+def _init_default():
+    global APP
+    if APP is None:
+        APP = AsyncProcessPool()
+        APP.init(psutil.cpu_count(), affinity="autodetect", num_io_processes=1, verbose=0)
+
+_init_default()
 
 def init(ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0):
     global APP

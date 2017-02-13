@@ -24,6 +24,10 @@ import numpy as np
 import pyfftw
 from DDFacet.Array import NpShared
 from DDFacet.Other import ClassTimeIt
+import psutil
+import numexpr
+from DDFacet.Other.AsyncProcessPool import APP
+from DDFacet.Array import SharedDict
 
 #Fs=pyfftw.interfaces.numpy_fft.fftshift
 #iFs=pyfftw.interfaces.numpy_fft.ifftshift
@@ -31,7 +35,9 @@ from DDFacet.Other import ClassTimeIt
 
 Fs=scipy.fftpack.fftshift
 iFs=scipy.fftpack.ifftshift
- 
+
+NCPU_global = psutil.cpu_count()
+
 def test():
     size=20
     dtype=np.complex128
@@ -95,7 +101,7 @@ class FFTW():
         #print "done"
         self.ThisType=dtype
 
-    def fft(self,A):
+    def fft(self, A, norm=True):
         axes=(-1,-2)
 
         T= ClassTimeIt.ClassTimeIt("ModFFTW")
@@ -106,7 +112,8 @@ class FFTW():
         self.A = pyfftw.interfaces.numpy_fft.fft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
         T.timeit("fft")
         #print "done"
-        out=Fs(self.A,axes=axes)/(A.shape[-1]*A.shape[-2])
+        if norm:
+            out=Fs(self.A,axes=axes)/(A.shape[-1]*A.shape[-2])
         T.timeit("shift")
         return out
  
@@ -118,7 +125,8 @@ class FFTW():
 
         #print "do fft"
         self.A = pyfftw.interfaces.numpy_fft.ifft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
-        out=Fs(self.A,axes=axes)*(A.shape[-1]*A.shape[-2])
+        if norm:
+            out=Fs(self.A,axes=axes)*(A.shape[-1]*A.shape[-2])
         return out
 
 def GiveFFTW_aligned(shape, dtype):
@@ -126,7 +134,7 @@ def GiveFFTW_aligned(shape, dtype):
 
 
 class FFTW_2Donly():
-    def __init__(self, shape, dtype, ncores = 1, FromSharedId=None):
+    def __init__(self, shape, dtype, norm=True, ncores=1, FromSharedId=None):
         if FromSharedId is None:
             self.A = pyfftw.n_byte_align_empty( shape[-2::], 16, dtype=dtype)
         else:
@@ -134,7 +142,7 @@ class FFTW_2Donly():
  
         pyfftw.interfaces.cache.enable()
         pyfftw.interfaces.cache.set_keepalive_time(3000)
-        self.ncores=ncores
+        self.ncores=ncores or NCPU_global
         #print "plan"
         T= ClassTimeIt.ClassTimeIt("ModFFTW")
         T.disable()
@@ -145,8 +153,9 @@ class FFTW_2Donly():
         T.timeit("planB")
         #print "done"
         self.ThisType=dtype
+        self.norm = norm
 
-    def fft(self,Ain):
+    def fft(self, Ain):
         axes=(-1,-2)
 
         T= ClassTimeIt.ClassTimeIt("ModFFTW")
@@ -166,23 +175,32 @@ class FFTW_2Donly():
                 T.timeit("shift and copy")
                 self.A = pyfftw.interfaces.numpy_fft.fft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
                 T.timeit("fft")
-                A[ich,ipol]=Fs(self.A,axes=axes)/(A.shape[-1]*A.shape[-2])
+                A[ich,ipol]=Fs(self.A,axes=axes)
                 T.timeit("shift")
+        if self.norm:
+            A /= (A.shape[-1] * A.shape[-2])
 
         return A.reshape(sin)
  
 
-    def ifft(self,A):
+    def ifft(self, A, norm=True):
         axes=(-1,-2)
+        sin=A.shape
+        if len(A.shape)==2:
+            s=(1,1,A.shape[0],A.shape[1])
+            A=A.reshape(s)
         #log=MyLogger.getLogger("ModToolBox.FFTM2.ifft")
-        nch,npol,_,_=A.shape
+        nch,npol,_, _ = A.shape
         for ich in range(nch):
             for ipol in range(npol):
                 self.A[:,:] = iFs(A[ich,ipol].astype(self.ThisType),axes=axes)
                 self.A = pyfftw.interfaces.numpy_fft.ifft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
-                A[ich,ipol]=Fs(self.A,axes=axes)*(A.shape[-1]*A.shape[-2])
+                A[ich,ipol]=Fs(self.A,axes=axes)
+        if self.norm:
+            A *= (A.shape[-1] * A.shape[-2])
+        return A.reshape(sin)
 
-        return A
+
 
 class FFTW_2Donly_np():
     def __init__(self, shape=None, dtype=None, ncores = 1):
@@ -233,7 +251,7 @@ class FFTW_2Donly_np():
 
         return A
 
-def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.)):
+def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parallel=True):
     uvscale=Npix*CellSizeRad/2
     SigMaj,SigMin,ang=GaussPars
     ang = 2*np.pi - ang #need counter-clockwise rotation
@@ -252,40 +270,230 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.)):
     # print U,V
     # print U.shape,V.shape
 
-    x,y=U,V
-    k=a*x**2+2.*b*x*y+c*y**2
-    Gauss=np.exp(-k)
+    x, y = U, V
+    if parallel:
+        Gauss = np.zeros((Npix,Npix), dtype)
+        numexpr.evaluate("exp(-(a*x**2+2*b*x*y+c*y**2))", out=Gauss, casting="unsafe")
+    else:
+        Gauss = np.exp(-(a*x**2+2.*b*x*y+c*y**2))
     #print "okx"
     #Gauss/=np.sum(Gauss)
     return Gauss
 
-def ConvolveGaussian(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False):
-
+from DDFacet.ToolsDir import Gaussian
+def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
+    Npix=int(2*8*Sig)
+    if Npix%2==0: Npix+=1
+    x0=Npix/2
+    x,y=np.mgrid[-x0:x0:Npix*1j,-x0:x0:Npix*1j]
+    #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
+    if GaussPar is None:
+        GaussPar=(Sig,Sig,0)
+    in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
+    
     nch,npol,_,_=Ain0.shape
-    Aout=np.zeros_like(Ain0)
+    Out=np.zeros_like(Ain0)
+    for ch in range(nch):
+        in1=Ain0[ch,0]
+        Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
+    return Out,in2
+
+def learnFFTWWisdom(npix):
+    """Learns FFTW wisdom for real 2D FFT of npix x npix images"""
+    test = np.zeros((npix, npix), np.float32)
+    a = pyfftw.interfaces.numpy_fft.rfft2(test, overwrite_input=True, threads=1)
+    b = pyfftw.interfaces.numpy_fft.irfft2(a, overwrite_input=True, threads=1)
+
+
+def _convolveSingleGaussianFFTW(shareddict_path, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
+    T = ClassTimeIt.ClassTimeIt()
+    T.disable()
+    shareddict = SharedDict.attach(shareddict_path)
+    Ain = shareddict[field_in][ch]
+    Aout = shareddict[field_out][ch]
+    T.timeit("init %d"%ch)
+    PSF = GiveGauss(Ain.shape[-1], CellSizeRad, GaussPars_ch, parallel=True)
+    # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
+    if Normalise:
+        PSF /= np.sum(PSF)
+    T.timeit("givegauss %d"%ch)
+    fPSF = pyfftw.interfaces.numpy_fft.rfft2(iFs(PSF), overwrite_input=True, threads=1)
+    fPSF = np.abs(fPSF)
+    npol = Ain.shape[0]
+    for pol in range(npol):
+        A = iFs(Ain[pol])
+        fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=1)
+        nfA = fA*fPSF
+        Aout[pol, :, :] = Fs(pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=1))
+    T.timeit("convolve %d" % ch)
+
+def _convolveSingleGaussianNP(shareddict_path, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
+    T = ClassTimeIt.ClassTimeIt()
+    shareddict = SharedDict.attach(shareddict_path)
+    Ain = shareddict[field_in][ch]
+    Aout = shareddict[field_out][ch]
+    T.timeit("init %d"%ch)
+    PSF = GiveGauss(Ain.shape[-1], CellSizeRad, GaussPars_ch, parallel=True)
+    # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
+    if Normalise:
+        PSF /= np.sum(PSF)
+    T.timeit("givegauss %d"%ch)
+    fPSF = np.fft.rfft2(PSF)
+    fPSF = np.abs(fPSF)
+    npol = Ain.shape[0]
+    for pol in range(npol):
+        A = Ain[pol]
+        fA = np.fft.rfft2(A)
+        nfA = fA*fPSF
+        Aout[pol, :, :] = np.fft.irfft2(nfA, s=A.shape)
+    T.timeit("convolve %d" % ch)
+
+
+def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False):
+    """Convolves images held in a dict, using APP.
+    """
+    Ain0 = shareddict[field_in]
+    nch,npol,_,_=Ain0.shape
+    Aout = shareddict[field_out]
+    # single channel? Handle serially
+    if nch == 1:
+        return ConvolveGaussian(Ain0, CellSizeRad, GaussPars, Normalise=Normalise)
+
+    jobid = "convolve:%s:%s:" % (field_in, field_out)
+    for ch in range(nch):
+        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW, args=(shareddict.path, field_in, field_out, ch, CellSizeRad, GaussPars[ch], Normalise))
+    APP.awaitJobResults(jobid+"*") #, progress="Convolving")
+
+    return Aout
+
+APP.registerJobHandlers(_convolveSingleGaussianFFTW, _convolveSingleGaussianNP)
+
+# FFTW version
+def ConvolveGaussianFFTW(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,out=None):
+    nch,npol,_,_=Ain0.shape
+    Aout = np.zeros_like(Ain0) if out is None else out
+
+    T = ClassTimeIt.ClassTimeIt()
+    T.disable()
+#    FFTM = FFTW_2Donly(Ain0[0,...].shape, Ain0.dtype, norm=False, ncores=0)  # full-parellel if available
+    T.timeit("init")
 
     for ch in range(nch):
         Ain=Ain0[ch]
         ThisGaussPars=GaussPars[ch]
         PSF=GiveGauss(Ain.shape[-1],CellSizeRad,ThisGaussPars)
-        # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
+        T.timeit("givegauss")
         if Normalise:
             PSF/=np.sum(PSF)
-        FFTM=FFTWnpNonorm(PSF)
-        fPSF=FFTM.fft(PSF)
-        fPSF=np.abs(fPSF)
+        PSF = np.fft.ifftshift(PSF)
+        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=NCPU_global)
         for pol in range(npol):
-            A=Ain[pol]
-            FFTM=FFTWnpNonorm(A)
-            fA=FFTM.fft(A)
-            nfA=fA*fPSF#Gauss
-            if_fA=FFTM.ifft(nfA)
-            # if_fA=(nfA)
-            Aout[ch,pol,:,:]=if_fA.real
+            A = np.fft.ifftshift(Ain[pol])
+            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=NCPU_global)
+            nfA = fA*fPSF
+            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=NCPU_global)
+            Aout[ch, pol, :, :] = np.fft.fftshift(ifA)
+        T.timeit("conv")
 
     return Aout
 
-    # import pylab
+## numpy.fft version
+def ConvolveGaussianNPclassic(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,out=None):
+
+    nch,npol,_,_=Ain0.shape
+    Aout = np.zeros_like(Ain0) if out is None else out
+
+    T = ClassTimeIt.ClassTimeIt()
+    T.disable()
+    T.timeit("init %s"%(Ain0.shape,))
+
+    for ch in range(nch):
+        Ain=Ain0[ch]
+        ThisGaussPars=GaussPars[ch]
+        PSF=GiveGauss(Ain.shape[-1],CellSizeRad,ThisGaussPars)
+        print PSF
+        T.timeit("givegauss")
+        # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
+        if Normalise:
+            PSF/=np.sum(PSF)
+        FFTM = FFTWnpNonorm(PSF)
+        fPSF = FFTM.fft(PSF)
+        fPSF = np.abs(fPSF)
+        for pol in range(npol):
+            A = Ain[pol]
+            FFTM = FFTWnpNonorm(A)
+            fA = FFTM.fft(A)
+            nfA = fA*fPSF#Gauss
+            if_fA = FFTM.ifft(nfA)
+            # if_fA=(nfA)
+            Aout[ch,pol,:,:] = if_fA.real
+        T.timeit("conv")
+
+    return Aout
+
+def ConvolveGaussianC(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,out=None):
+
+    nch,npol,_,_=Ain0.shape
+    Aout = np.zeros_like(Ain0) if out is None else out
+
+    T = ClassTimeIt.ClassTimeIt()
+    T.timeit("init")
+
+    for ch in range(nch):
+        Ain=Ain0[ch]
+        ThisGaussPars=GaussPars[ch]
+        PSF=GiveGauss(Ain.shape[-1],CellSizeRad,ThisGaussPars)
+        T.timeit("givegauss")
+        # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
+        if Normalise:
+            PSF/=np.sum(PSF)
+        PSF = np.fft.ifftshift(PSF)
+        fPSF = np.fft.fft2(PSF)
+        fPSF = np.abs(fPSF)
+        for pol in range(npol):
+            A = Ain[pol]
+            fA = np.fft.fft2(A)
+            nfA = fA*fPSF#Gauss
+            if_fA = np.fft.ifft2(nfA)
+            # if_fA=(nfA)
+            Aout[ch,pol,:,:] = np.fft.fftshift(if_fA.real)
+        T.timeit("conv")
+
+    return Aout
+
+
+def ConvolveGaussianR (Ain0, CellSizeRad=None, GaussPars=[(0., 0., 0.)], Normalise=False, out=None):
+    nch, npol, _, _ = Ain0.shape
+    Aout = np.zeros_like(Ain0) if out is None else out
+
+    T = ClassTimeIt.ClassTimeIt()
+    T.disable()
+    T.timeit("init")
+
+    for ch in range(nch):
+        Ain = Ain0[ch]
+        ThisGaussPars = GaussPars[ch]
+        PSF = GiveGauss(Ain.shape[-1], CellSizeRad, ThisGaussPars)
+        T.timeit("givegauss")
+        # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
+        if Normalise:
+            PSF /= np.sum(PSF)
+        PSF = np.fft.ifftshift(PSF)
+        fPSF = np.fft.rfft2(PSF)
+        fPSF = np.abs(fPSF)
+        for pol in range(npol):
+            fA = np.fft.rfft2(np.fft.ifftshift(Ain[pol]))
+            nfA = fA * fPSF
+            if_fA = np.fft.irfft2(nfA, s=Ain[pol].shape)
+            Aout[ch, pol, :, :] = np.fft.fftshift(if_fA)
+        T.timeit("conv")
+
+    return Aout
+
+ConvolveGaussian = ConvolveGaussianR
+
+
+        # import pylab
     # pylab.clf()
     # pylab.subplot(2,2,1)
     # pylab.imshow(np.real(A),interpolation="nearest")
@@ -311,15 +519,39 @@ def ConvolveGaussian(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=Fals
 
     # return if_fA
 
-def testConvolveGaussian():
-    A=np.zeros((20,20),np.complex64)
-    A[10,10]=1
+def testConvolveGaussian(parallel=False):
+    nchan = 10
+    npix = 2000
+    T = ClassTimeIt.ClassTimeIt()
+    if parallel:
+        learnFFTWWisdom(npix)
+        T.timeit("learn")
+        APP.registerJobHandlers(_convolveSingleGaussian)
+        APP.startWorkers()
+    sd = SharedDict.attach("test")
+    A = sd.addSharedArray("A", (nchan,1,npix,npix),np.float32)
+    A[0,0,10,10]=1
     SigMaj=2#(20/3600.)*np.pi/180
     SigMin=1#(5/3600.)*np.pi/180
     ang=30.*np.pi/180
-    GaussPars=SigMaj,SigMin,ang
+    GaussPars= [(SigMaj,SigMin,ang)]*nchan
     CellSizeRad=1#(5./3600)*np.pi/180
-    CA=ConvolveGaussian(A,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+    if parallel:
+        sd.addSharedArray("B", (nchan, 1, 2000, 2000), np.float32)
+        ConvolveGaussianInParallel(sd, "A", "B", CellSizeRad=CellSizeRad, GaussPars=GaussPars)
+        T.timeit("********* parallel")
+    ConvolveGaussianFFTW(A,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+    T.timeit("********* serial-fftw")
+    ConvolveGaussian(A,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+    T.timeit("********* serial-np")
+    ConvolveGaussianC(A,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+    T.timeit("********* serial-npc")
+    ConvolveGaussianR(A,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+    T.timeit("********* serial-npr")
+
+    sd.delete()
+    if parallel:
+        APP.shutdown()
     
 
 

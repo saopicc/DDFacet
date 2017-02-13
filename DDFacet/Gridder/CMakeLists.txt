@@ -8,6 +8,7 @@ if (${ENABLE_NATIVE_TUNING})
   set(TUNING_FLAGS "-march=native -mtune=native")
   message(WARNING "Instructing gcc to use your native supported instruction set. This will break .so portability and may raise the ILLEGAL_INSTRUCTION signal on incompatible chipsets")
 else (${ENABLE_NATIVE_TUNING})
+
   set(TUNING_FLAGS "")
 endif (${ENABLE_NATIVE_TUNING})
 if (${ENABLE_FAST_MATH})
@@ -75,6 +76,11 @@ target_link_libraries(_pyGridderSmear ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 add_library(_pyGridderSmearPols GridderSmearPols.c GridderSmearPols.h Semaphores.h)
 set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
 target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
+
+# #compile and link _pyGridderSmearPols2.so
+# add_library(_pyGridderSmearPolsFaster GridderSmearPolsFaster.c GridderSmearPols.h Semaphores.h)
+# set_target_properties(_pyGridderSmearPolsFaster PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
+# target_link_libraries(_pyGridderSmearPolsFaster ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
 #compile and link _pyWeightingCore.so
 add_custom_command(OUTPUT _pyWeightingCore.c

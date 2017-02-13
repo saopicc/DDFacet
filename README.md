@@ -30,12 +30,12 @@ docker run --shm-size 6g -v /scratch/TEST_DATA:/mnt ddf /mnt/test-master1.parset
 ```
 Important: if you ran ```git submodule update --init --recursive``` before you may need to remove the cached SkyModel before building the docker image with ```git rm --cached SkyModel```
 
-## (Users): building and installing DDFacet from an Ubuntu 14.04 base
+## (Users): building and installing DDFacet from an Ubuntu 16.04 base
 
-1. You need to add in the radio-astro ppa if you don't already have it:
+1. You need to add in the KERN 1 ppa if you don't already have it:
 
     ```bash
-    sudo add-apt-repository ppa:radio-astro/main
+    add-apt-repository -y -s ppa:kernsuite/kern-1
     ```
 
 2. Install each of the dependencies. The latest full list of apt dependencies can be be found in the [Dockerfile](https://github.com/cyriltasse/DDFacet/blob/master/Dockerfile)
@@ -81,11 +81,13 @@ Adding the `--system-site-packages` directive ensures that the virtualenv has ac
 
 ### Montblanc installation
 
-[Montblanc](https://github.com/ska-sa/montblanc) requires DDFacet to be installed in a virtual environment. **This section requires the DDFacet virtual environment to be activated**:
+[Montblanc](https://github.com/ska-sa/montblanc) requires DDFacet to be installed in a virtual environment. A compatible
+version of montblanc is submoduled which can be installed using pip. **This section requires the DDFacet virtual
+environment to be activated and that you are in the DDFacet directory. Mind the '/'.**:
 
 
     ```bash
-    (ddfvenv) $ pip install git+git://github.com/ska-sa/montblanc.git@65ffb611f5376380cbed0e76624b25581e9f4e4d
+    (ddfvenv) $ pip install montblanc/
     ```
 
 

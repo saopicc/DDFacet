@@ -238,8 +238,7 @@ class ProcessPool (object):
         timer = ClassTimeIt.ClassTimeIt()
         # create progress bar
         if title:
-            pBAR = ProgressBar('white', width=50, block='=', empty=' ',
-                               Title="  %s "%title, HeaderSize=10, TitleSize=13)
+            pBAR = ProgressBar(Title="  %s "%title)
             # pBAR.disable()
             pBAR.render(0, '%4i/%i' % (0, njobs))
         else:

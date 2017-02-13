@@ -194,6 +194,7 @@ class ClassSmearMapping():
         NTotRows = 0
 
         for (a0, a1) in joblist:
+            if a0==a1: continue
             rep = GiveBlocksRowsListBL(a0, a1, DATA, InfoSmearMapping, GridChanMapping)
             if rep:
                 BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL = rep
@@ -269,6 +270,7 @@ class ClassSmearMapping():
         BlocksRowsList = []
 
         joblist = [ (a0, a1) for a0 in xrange(na) for a1 in xrange(na) if a0 != a1 ]
+
 
         WorkerMapName = Multiprocessing.getShmURL("SmearWorker.%d")
 

@@ -35,12 +35,13 @@ import ClassSmearMapping
 import os
 import psutil
 import ClassJones
-import ClassBeamMean
 from DDFacet.Other import Multiprocessing
 from DDFacet.Array import SharedDict
 from DDFacet.Other.AsyncProcessPool import APP
 log = MyLogger.getLogger("ClassVisServer")
 
+
+# >>>>>>> issue-255
 
 def test():
     MSName = "/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
@@ -52,7 +53,7 @@ def test():
 class ClassVisServer():
 
     def __init__(self, MSList, GD=None,
-                 ColName="DATA",
+                 ColName="DATA",           # if None, no data column is read
                  TChunkSize=1,             # chunk size, in hours
                  LofarBeam=None,
                  AddNoiseJy=None):
@@ -66,13 +67,14 @@ class ClassVisServer():
         self.AddNoiseJy = AddNoiseJy
         self.TMemChunkSize = TChunkSize
 
-        self.Weighting = GD["Image"]["Weighting"].lower()
+        self.Weighting = GD["Weight"]["Mode"].lower()
+
         if self.Weighting not in ("natural", "uniform", "briggs", "robust"):
-            raise ValueError("unknown Weighting=%s" % Weighting)
-        self.MFSWeighting = GD["Image"]["MFSWeighting"]
-        self.Robust = GD["Image"]["Robust"]
-        self.Super = GD["Image"]["SuperUniform"]
-        self.VisWeights = self.DATA = None
+            raise ValueError("unknown Weighting=%s" % self.Weighting)
+        self.MFSWeighting = GD["Weight"]["MFS"]
+        self.Robust = GD["Weight"]["Robust"]
+        self.Super = GD["Weight"]["SuperUniform"]
+        self.VisWeights = None
 
         self.CountPickle = 0
         self.ColName = ColName
@@ -82,11 +84,15 @@ class ClassVisServer():
         self.ApplyBeam = False
         self.datashape = None
         self._use_data_cache = self.GD["Cache"]["VisData"]
+        if self._use_data_cache == "off":
+            self._use_data_cache = None
+        self.DATA = None
         self.Init()
 
         # smear mapping machines
         self._smm_grid = ClassSmearMapping.SmearMappingMachine("BDA.Grid")
         self._smm_degrid = ClassSmearMapping.SmearMappingMachine("BDA.Degrid")
+        self._put_vis_column_job_id = self._put_vis_column_label = None
 
     def Init(self, PointingID=0):
         self.ListMS = []
@@ -127,6 +133,7 @@ class ClassVisServer():
             global_freqs.update(MS.ChanFreq)
             min_freq = min(min_freq, (MS.ChanFreq-MS.ChanWidth/2).min())
             max_freq = max(max_freq, (MS.ChanFreq+MS.ChanWidth/2).max())
+
             # accumulate largest chunk shape
             for row0, row1 in MS.getChunkRow0Row1():
                 shape = (row1-row0, len(MS.ChanFreq), MS.Ncorr)
@@ -142,13 +149,23 @@ class ClassVisServer():
             raise RuntimeError,"--Data-MS does not specify any valid Measurement Set(s)"
 
         # main cache is initialized from main cache of first MS
-        self.maincache = self.cache = self.ListMS[0].maincache
+        if ".txt" in self.GD["Data"]["MS"]:
+            # main cache is initialized from main cache of the MSList
+            from DDFacet.Other.CacheManager import CacheManager
+            self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], reset=self.GD["Cache"]["Reset"])
+        else:
+            # main cache is initialized from main cache of first MS
+            self.maincache = self.cache = self.ListMS[0].maincache
+
+        print>>log,"Main caching directory is %s"%self.maincache.dirname
+
+
 
         # Assume the correlation layout of the first measurement set for now
         self.VisCorrelationLayout = self.ListMS[0].CorrelationIds
         self.StokesConverter = ClassStokes(
             self.VisCorrelationLayout,
-            self.GD["Image"]["PolMode"])
+            self.GD["RIME"]["PolMode"])
         for MS in self.ListMS:
             if not np.all(MS.CorrelationIds == self.VisCorrelationLayout):
                 raise RuntimeError(
@@ -158,6 +175,10 @@ class ClassVisServer():
         self.nMS = len(self.ListMS)
         # make list of unique frequencies
         self.GlobalFreqs = np.array(sorted(global_freqs))
+
+
+        self.RefFreq=np.mean(self.GlobalFreqs)
+
 
         bandwidth = max_freq - min_freq
         print>>log, "Total bandwidth is %g MHz (%g to %g MHz), with %d channels" % (
@@ -186,14 +207,15 @@ class ClassVisServer():
                 "MultiFrequency Mode: ON, %dx%g MHz bands" %
                 (NFreqBands, grid_bw*1e-6))
 
-            if not ("Alpha" in self.GD["GAClean"]["GASolvePars"]):
-                self.GD["GAClean"]["GASolvePars"].append("Alpha")
+            if not ("Alpha" in self.GD["SSDClean"]["SSDSolvePars"]):
+                self.GD["SSDClean"]["SSDSolvePars"].append("Alpha")
 
         else:
             self.GD["Freq"]["NBand"] = 1
             self.GD["HMP"]["Alpha"] = [0., 0., 1.]
-            if "Alpha" in self.GD["GAClean"]["GASolvePars"]:
-                self.GD["GAClean"]["GASolvePars"].remove("Alpha")
+            if "Alpha" in self.GD["SSDClean"]["SSDSolvePars"]:
+                self.GD["SSDClean"]["SSDSolvePars"].remove("Alpha")
+
             print>>log, ModColor.Str("MultiFrequency Mode: OFF")
 
         # Divide the global frequencies into frequency bands.
@@ -332,7 +354,25 @@ class ClassVisServer():
         self.iCurrentChunk = 0
         self.CurrentMS = self.ListMS[0]
 
-    def startChunkLoadInBackground(self, keep_data=False, null_data=False):
+    def startVisPutColumnInBackground(self, DATA, field, column, likecol="DATA"):
+        iMS, iChunk = DATA["iMS"], DATA["iChunk"]
+        self._put_vis_column_label = "%d.%d" % (iMS+1, iChunk+1)
+        self._put_vis_column_job_id = "PutData:%d:%d" % (iMS, iChunk)
+        APP.runJob(self._put_vis_column_job_id, self. visPutColumnHandler, args=(DATA.path, field, column, likecol), io=0)
+
+    def visPutColumnHandler (self, datapath, field, column, likecol):
+        DATA = SharedDict.attach(datapath)
+        iMS, iChunk = DATA["iMS"], DATA["iChunk"]
+        ms = self.ListMS[iMS]
+        row0, row1 = ms.getChunkRow0Row1()[iChunk]
+        ms.PutVisColumn(column, DATA[field], row0, row1, likecol=likecol)
+
+    def collectPutColumnResults(self):
+        if self._put_vis_column_job_id:
+            APP.awaitJobResults(self._put_vis_column_job_id, progress="Writing %s" % self._put_vis_column_label)
+            self._put_vis_column_job_id = None
+
+    def startChunkLoadInBackground(self):
         """
         Called in main process. Initiates chunk load in background thread.
         Returns None if we're at the last chunk, else True.
@@ -344,20 +384,18 @@ class ClassVisServer():
         """
         # if we only have one chunk to deal with, force keep_data to True. This means we can avoid
         # re-reading the MS, and simply re-copy data from orig_data
-        if self.nTotalChunks == 1:
-            keep_data = True
         while self.iCurrentMS < len(self.ListMS):
             ms = self.ListMS[self.iCurrentMS]
             if self.iCurrentChunk < ms.numChunks():
                 self._next_chunk_name = "DATA:%d:%d" % (self.iCurrentMS, self.iCurrentChunk)
                 # create chunk label
                 self._next_chunk_label = "%d.%d" % (self.iCurrentMS+1, self.iCurrentChunk+1)
+                print>>log, "scheduling loading of chunk %s" % self._next_chunk_label
                 # in single-chunk mode, DATA may already be loaded, in which case we do nothing
                 if self.nTotalChunks > 1 or self.DATA is None:
                     # tell the IO thread to start loading the chunk
                     APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
-                                    args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk),
-                                    kwargs=dict(keep_data=keep_data, null_data=null_data), io=0)
+                                args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk), io=0)
                 self.iCurrentChunk += 1
                 return True
             else:
@@ -367,7 +405,7 @@ class ClassVisServer():
         self._next_chunk_name = None
         return None
 
-    def collectLoadedChunk(self, keep_data=False, null_data=False, start_next=True):
+    def collectLoadedChunk(self, start_next=True):
         # previous data dict can now be discarded from shm
         if self.nTotalChunks > 1 and self.DATA is not None:
             self.DATA.delete()
@@ -377,30 +415,36 @@ class ClassVisServer():
             return "EndOfObservation"
         # in single-chunk mode, only read the MS once, then keep it forever,
         # but re-copy visibility data from original data
-        if self.nTotalChunks == 1 and self.DATA is not None:
-            np.copyto(self.DATA["data"], self.DATA["orig_data"])
+        if self.nTotalChunks == 1 and self.DATA is not None and "data" in self.DATA:
+            np.copyto(self.DATA["data"], self._saved_data)
         else:
             # await completion of data loading jobs (which, presumably, includes smear mapping)
-            APP.awaitJobResults(self._next_chunk_name, progress="Reading %s"%self._next_chunk_label )
+            APP.awaitJobResults(self._next_chunk_name, TimeTitle="Reading %s"%self._next_chunk_label )
             # reload the data dict -- background thread will now have populated it
             self.DATA = SharedDict.attach(self._next_chunk_name)
             self.DATA["label"] = self._next_chunk_label
             self.CurrentMS = self.ListMS[self.iCurrentMS]
+            # in single-chunk mode, keep a copy of the data array
+            if self.nTotalChunks == 1 and "data" in self.DATA:
+                self._saved_data = self.DATA["data"].copy()
         # schedule next event
         if start_next:
-            self.startChunkLoadInBackground(keep_data=keep_data, null_data=null_data)
+            self.startChunkLoadInBackground()
         # return the data dict
         return self.DATA
 
-    def _handler_LoadVisChunk(self, dictname, iMS, iChunk, keep_data=False, null_data=False):
+    def releaseLoadedChunk(self):
+        """Releases memory associated with any saved data"""
+        self._saved_data = None
+        if self.DATA is not None:
+            self.DATA.delete()
+            self.DATA = None
+
+
+    def _handler_LoadVisChunk(self, dictname, iMS, iChunk):
         """
         Called in IO thread to load a data chunk
         Args:
-            keep_data: if True, then we want to keep a separate copy of the visibilities (retrieved
-                by getOriginalData()) above. Normally the visibility buffer is modified during degridding
-                (overwritten by residuals). If we want to retain the original data (e.g. for computing the
-                predict), we set keep_data=True.
-
             null_data: if True, then we don't want to read the visibility data at all, but rather just want to make
                 a null buffer of the same shape as the visibility data.
         """
@@ -412,28 +456,23 @@ class ClassVisServer():
         print>> log, ModColor.Str("loading ms %d of %d, chunk %d of %d" % (iMS+1, self.nMS, iChunk+1, ms.numChunks()), col="green")
 
         ms.GiveChunk(DATA, iChunk, use_cache=self._use_data_cache,
-                     read_data=not null_data, sort_by_baseline=self.GD["Data"]["Sort"])
+                     read_data=bool(self.ColName), sort_by_baseline=self.GD["Data"]["Sort"])
         # update cache to match MSs current chunk cache
         self.cache = ms.cache
 
+
         times = DATA["times"]
-        data = DATA["data"]
+        data = DATA.get("data")
         A0 = DATA["A0"]
         A1 = DATA["A1"]
 
         freqs = ms.ChanFreq.flatten()
         nbl = ms.nbl
 
-        # if requested to keep a copy of original data, make one now
-        if keep_data:
-            DATA.addSharedArray("orig_data", data.shape, data.dtype)
-            DATA["orig_data"][...] = data
-
-        DecorrMode = self.GD["DDESolutions"]["DecorrMode"]
+        DecorrMode = self.GD["RIME"]["DecorrMode"]
 
         if 'F' in DecorrMode or "T" in DecorrMode:
-            DATA["uvw_dt"]  = np.float64(ms.Give_dUVW_dt(times,A0,A1))
-            DATA["MSInfos"] = np.array([repLoadChunk["dt"],repLoadChunk["dnu"].ravel()[0]],np.float32)
+            DATA["lm_PhaseCenter"] = ms.lm_PhaseCenter
 
         DATA["ChanMapping"] = self.DicoMSChanMapping[iMS]
         DATA["ChanMappingDegrid"] = self.DicoMSChanMappingDegridding[iMS]
@@ -469,7 +508,7 @@ class ClassVisServer():
         JonesMachine = ClassJones.ClassJones(self.GD, ms, self.FacetMachine)
         JonesMachine.InitDDESols(DATA)
 
-        if self.AddNoiseJy is not None:
+        if data is not None and self.AddNoiseJy is not None:
             data += (self.AddNoiseJy/np.sqrt(2.))*(np.random.randn(*data.shape)+1j*np.random.randn(*data.shape))
 
 
@@ -484,17 +523,6 @@ class ClassVisServer():
 
         # load results of smear mapping computation
         self.collectBDA(dictname, DATA)
-
-    def getVisibilityData(self):
-        """Returns array of visibility data for current chunk. Note that this can only be called if
-        LoadNextVisChunk() was called with keep_data=True."""
-        if "orig_data" not in self.DATA:
-            raise RuntimeError("original data requested but keep_data was not specified. This is a bug.")
-        return self.DATA["orig_data"]
-
-    def getVisibilityResiduals(self):
-        """Returns array of visibility residuals for current chunk."""
-        return self.DATA["data"]
 
     def setFacetMachine(self, FacetMachine):
         self.FacetMachine = FacetMachine
@@ -526,9 +554,11 @@ class ClassVisServer():
     def computeBDAInBackground(self, base_job_id, ms, DATA, ChanMappingGridding=None, ChanMappingDeGridding=None):
         if True: # always True for now, non-BDA gridder is not maintained # if self.GD["Comp"]["CompGridMode"]:
             self._bda_grid_cachename, valid = self.cache.checkCache("BDA.Grid",
-                                                       dict(Compression=self.GD["Comp"],
-                                                        DataSelection=self.GD["Selection"],
-                                                        Sorting=self.GD["Data"]["Sort"]))
+                                                       dict(Data=self.GD["Data"],
+                                                            Compression=self.GD["Comp"],
+                                                            Freq=self.GD["Freq"],
+                                                            DataSelection=self.GD["Selection"],
+                                                            Sorting=self.GD["Data"]["Sort"]))
             if valid:
                 print>> log, "  using cached BDA mapping %s" % self._bda_grid_cachename
                 DATA["BDA.Grid"] = np.load(self._bda_grid_cachename)
@@ -544,9 +574,12 @@ class ClassVisServer():
 
         if True: # always True for now, non-BDA gridder is not maintained # if self.GD["Comp"]["CompDeGridMode"]:
             self._bda_degrid_cachename, valid = self.cache.checkCache("BDA.Degrid",
-                                                       dict(Compression=self.GD["Comp"],
+                                                       dict(Data=self.GD["Data"],
+                                                            Compression=self.GD["Comp"],
+                                                            Freq=self.GD["Freq"],
                                                             DataSelection=self.GD["Selection"],
                                                             Sorting=self.GD["Data"]["Sort"]))
+
             if valid:
                 print>> log, "  using cached BDA mapping %s" % self._bda_degrid_cachename
                 DATA["BDA.Degrid"] = np.load(self._bda_degrid_cachename)
@@ -600,6 +633,7 @@ class ClassVisServer():
             for row0, row1 in MS.getChunkRow0Row1():
                 cachepath, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy",
                     dict([(section, self.GD[section]) for section in ("Data", "Selection", "Freq", "Image")]))
+
                 have_all_weights = have_all_weights and valid
                 msweights.append(cachepath)
             self.VisWeights[iMS] = msweights
@@ -621,7 +655,7 @@ class ClassVisServer():
         # Per-channel flagging is taken care of in here, by setting that
         # channel's weight to 0.
 
-        WeightCol = self.GD["Data"]["WeightCol"]
+        WeightCol = self.GD["Weight"]["ColName"]
         # now loop over MSs and read data
         weightsum = nweights = 0
         weights_are_null = True
@@ -641,6 +675,9 @@ class ClassVisServer():
                 # print>>log,(ms.cs_tlc,ms.cs_brc,ms.cs_inc,flags.shape)
                 print>>log,"  reading %s FLAG" % ms.MSName
                 tab.getcolslicenp("FLAG", flags, ms.cs_tlc, ms.cs_brc, ms.cs_inc, row0, nrows)
+                if ms._reverse_channel_order:
+                    flags = flags[:,::-1,:]
+                # if any polarization is flagged, flag all 4 correlations. Shape of flags becomes nrow,nchan
                 print>>log,"  adjusting flags"
                 # if any polarization is flagged, flag all 4 correlations. Shape
                 # of flags becomes nrow,nchan
@@ -669,6 +706,10 @@ class ClassVisServer():
                         WeightCol, w.shape)
                     # take mean weight across correlations and apply this to all
                     WEIGHT[...] = w.mean(axis=2) * valid
+                elif WeightCol == "None" or WeightCol == None:
+                    print>> log, "  Selected weights columns is None, filling weights with ones"
+                    WEIGHT.fill(1)
+                    WEIGHT *= valid
                 elif WeightCol == "WEIGHT":
                     w = tab.getcol(WeightCol, row0, nrows)
                     print>> log, "  reading column %s for the weights, shape is %s, will expand frequency axis" % (

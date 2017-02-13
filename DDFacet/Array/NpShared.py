@@ -55,8 +55,8 @@ def CreateShared(Name, shape, dtype):
         a = SharedArray.create(Name, shape, dtype=dtype)
     return a
 
-
 def ToShared(Name, A):
+
     a = CreateShared(Name, A.shape, A.dtype)
     a[:] = A[:]
     return a
@@ -145,6 +145,7 @@ def DicoToShared(Prefix, Dico, DelInput=False):
         del(Dico)
 
     print>>log, ModColor.Str("DicoToShared: done")
+    #print ModColor.Str("DicoToShared: done")
 
     return DicoOut
 
