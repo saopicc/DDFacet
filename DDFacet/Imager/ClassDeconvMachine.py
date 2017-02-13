@@ -899,6 +899,9 @@ class ClassImagerDeconv():
                     self.FacetMachine.ToCasaImage(np.float32(self.ImageNoiseMachine.Restored),
                                                   ImageName="%s.brutalRestored%2.2i"%(self.BaseName,iMajor),Fits=True,
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                    # self.FacetMachine.ToCasaImage(np.float32(self.ImageNoiseMachine.Model),
+                    #                               ImageName="%s.brutalModel%2.2i"%(self.BaseName,iMajor),Fits=True,
+                    #                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             self.DeconvMachine.Update(self.DicoDirty)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()

@@ -88,9 +88,12 @@ class ClassImageNoiseMachine():
         # self.NoiseMapReShape=self.giveMinStatNoiseMap(DicoResidual["MeanImage"])
 
         if self.GD["Noise"]["BrutalHMP"]:
-            self.StatImage=self.giveBrutalRestored(DicoResidual)
+            self.giveBrutalRestored(DicoResidual)
+            self.FluxImage=self.ModelConv
+            self.StatImage=self.Restored
         else:
             self.StatImage=DicoResidual["MeanImage"]
+            self.FluxImage=DicoResidual["MeanImage"]
         self.NoiseMapReShape=self.giveMinStatNoiseMap(self.StatImage)
         return self.NoiseMapReShape
 
@@ -116,15 +119,18 @@ class ClassImageNoiseMachine():
         self.GD["Deconv"]["CycleFactor"]=0
         self.GD["Deconv"]["PeakFactor"]=0.0
         self.GD["Deconv"]["Gain"]=.5
-        self.GD["Deconv"]["AllowNegative"]=True
         self.GD["Deconv"]["PSFBox"]="full"
         self.GD["Deconv"]["MaxMinorIter"]=10000
         self.GD["Deconv"]["RMSFactor"]=3.
-        #self.GD["HMP"]["Scales"]=[0,1,2,4,8]
-        self.GD["HMP"]["Scales"]=[0]
+        #self.GD["HMP"]["Scales"]=[0]
         self.GD["HMP"]["Ratios"]=[]
         #self.GD["MultiScale"]["Ratios"]=[]
         self.GD["HMP"]["NTheta"]=4
+
+        self.GD["Deconv"]["AllowNegative"]=True
+        self.GD["HMP"]["Scales"]=[0,1,2,4,8,16,32]
+        self.GD["HMP"]["SolverMode"]="NNLS"
+        self.GD["HMP"]["SolverMode"]="PI"
         
         if self.NoiseMapReShape is not None:
             print>>log,"Deconvolving on SNR map"
@@ -132,8 +138,7 @@ class ClassImageNoiseMachine():
             self.GD["Deconv"]["PNRStop"]=10.
             
         #self.GD["HMP"]["AllowResidIncrease"]=False
-        #self.GD["HMP"]["SolverMode"]="NNLS"
-        self.GD["HMP"]["SolverMode"]="PI"
+        #self.GD["HMP"]["SolverMode"]="PI"
         DicoVariablePSF=self.DicoVariablePSF
         self.NFreqBands=len(DicoVariablePSF["freqs"])
         MinorCycleConfig=dict(self.GD["Deconv"])
@@ -176,8 +181,8 @@ class ClassImageNoiseMachine():
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
 
         print>>log,"  Getting model image..."
-        ModelImage=ModelMachine.GiveModelImage()[0,0]
-
+        Model=ModelMachine.GiveModelImage()
+        ModelImage=Model[0,0]
         print>>log,"  Convolving..."
         from DDFacet.ToolsDir import Gaussian
         
@@ -203,12 +208,13 @@ class ClassImageNoiseMachine():
             x0d,x1d,y0d,y1d=Aedge
             x0p,x1p,y0p,y1p=Bedge
             ModelConv[x0d:x1d,y0d:y1d]+=G[x0p:x1p,y0p:y1p]*ModelImage[xc,yc]
+            
+        # ModelConv=scipy.signal.convolve2d(ModelImage,G,mode="same")
+        self.ModelConv=ModelConv.reshape(self.DicoDirty["MeanImage"].shape)
 
-#        ModelConv=scipy.signal.convolve2d(ModelImage,G,mode="same")
 
 
-
-        self.Restored=ModelConv.reshape(self.DicoDirty["MeanImage"].shape)+self.DicoDirty["MeanImage"]
+        self.Restored=self.ModelConv+self.DicoDirty["MeanImage"]
 
         self.DicoDirty["MeanImage"][...]=self.Orig_MeanDirty[...]
         self.DicoDirty["ImagData"][...]=self.Orig_Dirty[...]

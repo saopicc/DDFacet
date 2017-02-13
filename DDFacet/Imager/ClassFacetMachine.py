@@ -614,7 +614,7 @@ class ClassFacetMachine():
                     facet_dict[key] = value
                 # validate dict
                 ClassDDEGridMachine.ClassDDEGridMachine.verifyCFDict(facet_dict, self.GD["CF"]["Nw"])
-                return "cached"
+                return "cached",path,iFacet
             except:
                 print>>log,traceback.format_exc()
                 print>>log, "Error loading %s, will re-generate"%path
@@ -670,7 +670,7 @@ class ClassFacetMachine():
             for res in workers_res:
                 Type,path,iFacet=res
                 if Type=="compute":
-                    print iFacet
+                    #print iFacet
                     facet_dict=self._CF[iFacet]
                     d={}
                     for key in facet_dict.keys():
