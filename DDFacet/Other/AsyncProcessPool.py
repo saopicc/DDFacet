@@ -29,6 +29,7 @@ import inspect
 from collections import OrderedDict
 import glob
 import re
+import numexpr as ne
 
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
@@ -163,7 +164,6 @@ class AsyncProcessPool (object):
             self.ncpu = ncpu
             maxcpu = psutil.cpu_count() / self.cpustep
             self.parent_affinity = parent_affinity
-            psutil.Process().cpu_affinity([self.parent_affinity])
         elif isinstance(self.affinity, list):
             if any(map(lambda x: x < 0, self.affinity)):
                 raise RuntimeError("Affinities must be list of positive numbers")
@@ -177,7 +177,6 @@ class AsyncProcessPool (object):
             self.ncpu = self.ncpu if self.ncpu == len(self.affinity) else len(self.affinity)
             maxcpu = max(self.affinity) + 1  # zero indexed list
             self.parent_affinity = parent_affinity
-            psutil.Process().cpu_affinity([self.parent_affinity])
         elif isinstance(self.affinity, str) and str(self.affinity) == "autodetect":
             # this works on Ubuntu so possibly Debian-like systems, no guarantees for the rest
             # the mapping on hyperthread-enabled NUMA machines with multiple processors can get very tricky
@@ -218,17 +217,19 @@ class AsyncProcessPool (object):
             self.ncpu = self.ncpu if self.ncpu <= len(self.affinity) else len(self.affinity)
             maxcpu = max(self.affinity) + 1  # zero indexed list
 
-            unused = [x for x in range(0, max(self.affinity) + 1) if x not in self.affinity]
+            unused = [x for x in xrange(psutil.cpu_count()) if x not in self.affinity]
             if len(unused) == 0:
+                print>> log, ModColor.Str("No unassigned vthreads to use as parent IO thread, I will use thread 0")
                 self.parent_affinity = 0 # none unused (HT is probably disabled BIOS level)
             else:
                 self.parent_affinity = unused[0] # grab the first unused vthread
-            psutil.Process().cpu_affinity([self.parent_affinity])
         else:
             raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list or "
                                "'autodetect'")
         print>> log, ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity)
-
+        psutil.Process().cpu_affinity([self.parent_affinity])
+        print>> log, ModColor.Str("Worker processes fixed to vthreads %s" % (str(self.affinity)
+                                  if isinstance(self.affinity, int) else [str(x) for x in self.affinity]))
         # if NCPU is 0, set to number of CPUs on system
         if not self.ncpu:
             self.ncpu = maxcpu
@@ -268,7 +269,7 @@ class AsyncProcessPool (object):
                 self._compute_workers.append( multiprocessing.Process(target=self._start_worker, args=(self, proc_id, [core], self._compute_queue)) )
             for i, queue in enumerate(self._io_queues):
                 proc_id = "io%02d"%i
-                self._io_workers.append( multiprocessing.Process(target=self._start_worker, args=(self, proc_id, None, queue)) )
+                self._io_workers.append( multiprocessing.Process(target=self._start_worker, args=(self, proc_id, [self.parent_affinity], queue)) )
         self._started = False
 
     def registerJobHandlers (self, *handlers):
@@ -570,6 +571,7 @@ class AsyncProcessPool (object):
         Returns:
 
         """
+        ne.set_num_threads(1)
         AsyncProcessPool.proc_id = proc_id
         MyLogger.subprocess_id = proc_id
         if affinity:
