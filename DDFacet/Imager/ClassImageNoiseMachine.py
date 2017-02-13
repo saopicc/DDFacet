@@ -212,8 +212,8 @@ class ClassImageNoiseMachine():
             
         # # ModelConv=scipy.signal.convolve2d(ModelImage,G,mode="same")
 
-        self.ModelConv=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.DicoDirty["ImageInfo"]["CellSizeRad"],
-                                                GaussPars=[self.DicoVariablePSF["EstimatesAvgPSF"]])
+        ModelConv=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.DicoDirty["ImageInfo"]["CellSizeRad"],
+                                                GaussPars=[self.DicoVariablePSF["EstimatesAvgPSF"][1]])
 
         self.ModelConv=ModelConv.reshape(self.DicoDirty["MeanImage"].shape)
 
