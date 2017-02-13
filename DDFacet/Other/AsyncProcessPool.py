@@ -35,6 +35,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Array import shared_dict
+import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
 
 log = MyLogger.getLogger("AsyncProcessPool")
 
@@ -508,7 +509,8 @@ class AsyncProcessPool (object):
         """
         if pause_on_start:
             os.kill(os.getpid(), signal.SIGSTOP)
-        numexpr.set_num_threads(1)   # avoid too many sub-threads
+        numexpr.set_num_threads(1)      # no sub-threads in workers, as it messes with everything
+        _pyArrays.pySetOMPNumThreads(1)
 
         AsyncProcessPool.proc_id = proc_id
         MyLogger.subprocess_id = proc_id
