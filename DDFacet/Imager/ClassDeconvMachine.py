@@ -37,7 +37,6 @@ from DDFacet.Other import MyLogger
 import traceback
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 import copy
-from DDFacet.Other import Multiprocessing
 from DDFacet.Other import AsyncProcessPool
 from DDFacet.Other.AsyncProcessPool import APP
 import cPickle
@@ -143,9 +142,6 @@ class ClassImagerDeconv():
 
         ## disabling this, as it doesn't play nice with in-place FFTs
         # self._save_intermediate_grids = self.GD["Debug"]["SaveIntermediateDirtyImages"]
-
-        # init process pool for parallelization
-        Multiprocessing.initDefaultPool(GD=self.GD)
 
         APP.registerJobHandlers(self)
 

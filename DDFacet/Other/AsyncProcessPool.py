@@ -178,7 +178,13 @@ class AsyncProcessPool (object):
             self.ncpu = self.ncpu if self.ncpu == len(self.affinity) else len(self.affinity)
             maxcpu = max(self.affinity) + 1  # zero indexed list
             self.parent_affinity = parent_affinity
-        elif isinstance(self.affinity, str) and str(self.affinity) == "autodetect":
+        elif isinstance(self.affinity, str) and str(self.affinity) == "enable_ht":
+            self.affinity = 1
+            self.cpustep = 1
+            self.ncpu = ncpu
+            maxcpu = psutil.cpu_count() / self.cpustep
+            self.parent_affinity = parent_affinity
+        elif isinstance(self.affinity, str) and str(self.affinity) == "disable_ht":
             # this works on Ubuntu so possibly Debian-like systems, no guarantees for the rest
             # the mapping on hyperthread-enabled NUMA machines with multiple processors can get very tricky
             # /sys/devices/system/cpu/cpu*/topology/thread_siblings_list should give us a list of siblings
@@ -224,11 +230,20 @@ class AsyncProcessPool (object):
                 self.parent_affinity = 0 # none unused (HT is probably disabled BIOS level)
             else:
                 self.parent_affinity = unused[0] # grab the first unused vthread
+        elif isinstance(self.affinity, str) and str(self.affinity) == "disable":
+            self.affinity = None
+            self.parent_affinity = None
+            self.ncpu = ncpu
+            self.cpustep = 1
+            maxcpu = psutil.cpu_count()
         else:
             raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list or "
                                "'autodetect'")
-        print>> log, ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity)
-        psutil.Process().cpu_affinity([self.parent_affinity])
+        if self.parent_affinity is None:
+            print>> log, ModColor.Str("Not fixing parent and IO affinity as per user request")
+        else:
+            print>> log, ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green")
+        psutil.Process().cpu_affinity(range(self.ncpu) if not self.parent_affinity else [self.parent_affinity])
         # if NCPU is 0, set to number of CPUs on system
         if not self.ncpu:
             self.ncpu = maxcpu
@@ -251,9 +266,15 @@ class AsyncProcessPool (object):
             cores = range(0, self.ncpu * 2, 4) + range(1, self.ncpu * 2, 4)
         elif isinstance(self.affinity, list):
             cores = self.affinity[:self.ncpu]
+        elif not self.affinity:
+            cores = range(self.ncpu)
         else:
             raise ValueError, "unknown affinity setting"
-        print>> log, ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])))
+        if not self.affinity:
+            print>> log, ModColor.Str("Worker affinities not set per user request")
+        else:
+            print>> log, ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])),
+                                      col="green")
         self._compute_workers = []
         self._io_workers = []
         self._compute_queue   = multiprocessing.Queue()
@@ -265,10 +286,20 @@ class AsyncProcessPool (object):
             # create the workers
             for i, core in enumerate(cores):
                 proc_id = "comp%02d"%i
-                self._compute_workers.append( multiprocessing.Process(target=self._start_worker, args=(self, proc_id, [core], self._compute_queue)) )
+                self._compute_workers.append( multiprocessing.Process(target=self._start_worker,
+                                                                      args=(self,
+                                                                            proc_id,
+                                                                            range(self.ncpu) if not self.affinity else
+                                                                            [core],
+                                                                            self._compute_queue)))
             for i, queue in enumerate(self._io_queues):
                 proc_id = "io%02d"%i
-                self._io_workers.append( multiprocessing.Process(target=self._start_worker, args=(self, proc_id, [self.parent_affinity], queue)) )
+                self._io_workers.append( multiprocessing.Process(target=self._start_worker,
+                                                                 args=(self,
+                                                                       proc_id,
+                                                                       range(self.ncpu) if not self.affinity else
+                                                                       [self.parent_affinity],
+                                                                       queue)))
         self._started = False
 
     def registerJobHandlers (self, *handlers):
@@ -687,7 +718,7 @@ def _init_default():
     global APP
     if APP is None:
         APP = AsyncProcessPool()
-        APP.init(psutil.cpu_count(), affinity="autodetect", num_io_processes=1, verbose=0)
+        APP.init(psutil.cpu_count(), affinity=1, num_io_processes=1, verbose=0)
 
 _init_default()
 
