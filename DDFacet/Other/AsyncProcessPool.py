@@ -228,8 +228,6 @@ class AsyncProcessPool (object):
                                "'autodetect'")
         print>> log, ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity)
         psutil.Process().cpu_affinity([self.parent_affinity])
-        print>> log, ModColor.Str("Worker processes fixed to vthreads %s" % (str(self.affinity)
-                                  if isinstance(self.affinity, int) else [str(x) for x in self.affinity]))
         # if NCPU is 0, set to number of CPUs on system
         if not self.ncpu:
             self.ncpu = maxcpu
@@ -254,7 +252,7 @@ class AsyncProcessPool (object):
             cores = self.affinity[:self.ncpu]
         else:
             raise ValueError, "unknown affinity setting"
-
+        print>> log, ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])))
         self._compute_workers = []
         self._io_workers = []
         self._compute_queue   = multiprocessing.Queue()
