@@ -104,6 +104,7 @@ class ClassImageDeconvMachine():
 
         self._NoiseMap=None
         self._strUnit = "Jy"
+        self.PNRStop=None
 
     def __del__ (self):
         if type(self.facetcache) is shared_dict.SharedDict:
@@ -160,9 +161,9 @@ class ClassImageDeconvMachine():
     def set_DicoHMPFunctions(self,facetcache):
         self.facetcache=facetcache
 
-    def setNoiseMap(self,NoiseMap):
+    def setNoiseMap(self,NoiseMap,PNRStop=10):
         self._NoiseMap=NoiseMap
-
+        self.PNRStop=PNRStop
 
     def _initMSM_handler(self, fcdict, psfdict, iFacet, SideLobeLevel, OffsetSideLobe, centralFacet):
         # init PSF server from PSF shared dict
@@ -537,7 +538,8 @@ class ClassImageDeconvMachine():
 
         mm0, mm1 = self._PeakSearchImage.min(), self._PeakSearchImage.max()
 
-        PNRStop = self.GD["Deconv"]["PNRStop"]
+        
+        PNRStop = self.PNRStop
 
 
         # work out upper threshold

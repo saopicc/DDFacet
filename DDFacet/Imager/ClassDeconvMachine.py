@@ -899,9 +899,9 @@ class ClassImagerDeconv():
                     self.FacetMachine.ToCasaImage(np.float32(self.ImageNoiseMachine.Restored),
                                                   ImageName="%s.brutalRestored%2.2i"%(self.BaseName,iMajor),Fits=True,
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-                    # self.FacetMachine.ToCasaImage(np.float32(self.ImageNoiseMachine.Model),
-                    #                               ImageName="%s.brutalModel%2.2i"%(self.BaseName,iMajor),Fits=True,
-                    #                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                    self.FacetMachine.ToCasaImage(np.float32(self.ImageNoiseMachine.ModelConv),
+                                                  ImageName="%s.brutalModelConv%2.2i"%(self.BaseName,iMajor),Fits=True,
+                                                  Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             self.DeconvMachine.Update(self.DicoDirty)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
@@ -964,7 +964,7 @@ class ClassImagerDeconv():
 
             current_model_freqs = np.array([])
             ModelImage = None
-
+            HasWrittenModel=False
             while True:
                 # note that collectLoadedChunk() will destroy the current DATA dict, so we must make sure
                 # the gridding jobs of the previous chunk are finished
@@ -991,8 +991,14 @@ class ClassImagerDeconv():
                 model_freqs = DATA["FreqMappingDegrid"]
                 if not np.array_equal(model_freqs, current_model_freqs):
                     ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
+                    # write out model image, if asked to
                     current_model_freqs = model_freqs
                     print>>log,"model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
+                    if "o" in self._saveims and not HasWrittenModel:
+                        self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
+                                                      Fits=True, Freqs=current_model_freqs,
+                                                      Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                        HasWrittenModel=True
                 else:
                     print>>log,"reusing model image from previous chunk"
 
@@ -1036,11 +1042,6 @@ class ClassImagerDeconv():
                 if do_psf:
                     self.FacetMachinePSF.putChunkInBackground(DATA)
 
-            # write out model image, if asked to
-            if "o" in self._saveims:
-                self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
-                                              Fits=True, Freqs=current_model_freqs,
-                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
             # wait for gridding to finish
             self.FacetMachine.collectGriddingResults()
             self.VS.collectPutColumnResults()  # if these were going on
@@ -1079,27 +1080,27 @@ class ClassImagerDeconv():
 
 
             self.HasDeconvolved=True
+            # dump dirty to cache
+            if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None:
+                cachepath, valid = self.VS.maincache.checkCache("LastResidual", 
+                                                                dict(
+                                                                    [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
+                                                                    [(section, self.GD[section]) for section in "Data", "Beam", "Selection",
+                                                                     "Freq", "Image", "Comp",
+                                                                     "RIME","Weight","Facets",
+                                                                     "DDESolutions"]
+                                                                ), 
+                                                                reset=False)
+                try:
+                    print>>log,"Saving last residual image to %s"%cachepath
+                    self.DicoDirty.save(cachepath)
+                    self.VS.maincache.saveCache("LastResidual")
+                except:
+                    print>> log, traceback.format_exc()
+                    print>> log, ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway.")
 
         self.FacetMachine.finaliseSmoothBeam()
 
-        # dump dirty to cache
-        if self.GD["Cache"]["LastResidual"] and self.DicoDirty is not None:
-            cachepath, valid = self.VS.maincache.checkCache("LastResidual", 
-                                                            dict(
-                                                                [("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
-                                                                [(section, self.GD[section]) for section in "Data", "Beam", "Selection",
-                                                                 "Freq", "Image", "Comp",
-                                                                 "RIME","Weight","Facets",
-                                                                 "DDESolutions"]
-                                                            ), 
-                                                            reset=False)
-            try:
-                print>>log,"Saving last residual image to %s"%cachepath
-                self.DicoDirty.save(cachepath)
-                self.VS.maincache.saveCache("LastResidual")
-            except:
-                print>> log, traceback.format_exc()
-                print>> log, ModColor.Str("WARNING: Residual image cache could not be written, see error report above. Proceeding anyway.")
 
         # delete shared dicts that are no longer needed, since Restore() will need memory
         self.VS.releaseLoadedChunk()

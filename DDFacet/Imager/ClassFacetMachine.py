@@ -642,6 +642,8 @@ class ClassFacetMachine():
         sw = ModFFTW.ConvolveGaussianFFTW(sw, CellSizeRad=1, GaussPars=[GaussPars])
         sw = sw.reshape((Npix, Npix))
         sw /= np.max(sw)
+        # Will speedup degridding
+        sw[sw<1e-3]=0.
         facet_dict["SW"] = sw
 
         # Initialize a grid machine per iFacet, this will implicitly compute wterm and Sphe
@@ -1120,6 +1122,8 @@ class ClassFacetMachine():
         pBAR = ProgressBar(Title="Glue facets")
         NFacets=len(self.DicoImager.keys())
         pBAR.render(0, NFacets)
+
+        numexpr.set_num_threads(self.GD["Parallel"]["NCPU"])
 
         for iFacet in self.DicoImager.keys():
 

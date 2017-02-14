@@ -117,8 +117,8 @@ class ClassImageNoiseMachine():
         #self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
         self.GD["HMP"]["Alpha"]=[0,0,1]
         self.GD["Deconv"]["Mode"]="HMP"
-        self.GD["Deconv"]["CycleFactor"]=0
-        self.GD["Deconv"]["PeakFactor"]=0.0
+        #self.GD["Deconv"]["CycleFactor"]=0
+        #self.GD["Deconv"]["PeakFactor"]=0.0
         self.GD["Deconv"]["Gain"]=.5
         self.GD["Deconv"]["PSFBox"]="full"
         self.GD["Deconv"]["MaxMinorIter"]=10000
@@ -130,13 +130,12 @@ class ClassImageNoiseMachine():
 
         self.GD["Deconv"]["AllowNegative"]=True
         self.GD["HMP"]["Scales"]=[0,1,2,4,8,16,32]
-        self.GD["HMP"]["SolverMode"]="NNLS"
+        #self.GD["HMP"]["SolverMode"]="NNLS"
         self.GD["HMP"]["SolverMode"]="PI"
         
         if self.NoiseMapReShape is not None:
             print>>log,"Deconvolving on SNR map"
             self.GD["Deconv"]["RMSFactor"]=0.
-            self.GD["Deconv"]["PNRStop"]=10.
             
         #self.GD["HMP"]["AllowResidIncrease"]=False
         #self.GD["HMP"]["SolverMode"]="PI"
@@ -165,6 +164,7 @@ class ClassImageNoiseMachine():
             self.DeconvMachine.setNoiseMap(self.NoiseMapReShape)
         self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
         self.DeconvMachine.updateRMS()
+
         # ModConstructor = ClassModModelMachine(self.GD)
         # ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
         # #print "ModelMachine"
@@ -182,7 +182,7 @@ class ClassImageNoiseMachine():
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
 
         print>>log,"  Getting model image..."
-        Model=ModelMachine.GiveModelImage()
+        Model=ModelMachine.GiveModelImage(DoAbs=True)
         ModelImage=Model[0,0]
         print>>log,"  Convolving..."
         from DDFacet.ToolsDir import Gaussian

@@ -250,7 +250,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # Create list with iterator results
         return [s for s in source_iter]
 
-    def GiveModelImage(self,FreqIn=None,out=None):
+    def GiveModelImage(self,FreqIn=None,out=None,DoAbs=False):
         """
         Renders a model image at the specified frequency(ies)
         Args:
@@ -260,7 +260,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         Returns:
             Model image
         """
-
+        if DoAbs:
+            f_apply=np.abs
+        else:
+            f_apply=lambda x:x
         RefFreq=self.DicoSMStacked["RefFreq"]
         if FreqIn is None:
             FreqIn=np.array([RefFreq])
@@ -301,6 +304,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                     ThisAlpha=ThisComp["Alpha"]
                     for ch in range(nchan):
                         Flux=Sol[iFunc]*(FreqIn[ch]/RefFreq)**(ThisAlpha)
+                        Flux=f_apply(Flux)
                         if ThisComp["ModelType"]=="Delta":
                             ModelImage[ch,pol,x,y]+=Flux
 
