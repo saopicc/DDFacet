@@ -18,13 +18,22 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
-#import matplotlib
-# matplotlib.use('agg')
+import os
+# somewhere some library is trying to be too clever for its own good
+# we will set our own settings up later on
+os.environ["OMP_NUM_THREADS"] = "1"
+
 import optparse
 import traceback
 import atexit
 SaveFile = "last_DDFacet.obj"
-import os, errno, re, sys, time, subprocess, psutil, numexpr
+import errno
+import re
+import sys
+import time
+import subprocess
+import psutil
+import numexpr
 import numpy as np
 from DDFacet.Other import logo
 from DDFacet.Array import NpParallel
@@ -40,6 +49,8 @@ from DDFacet.Other import Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
 from DDFacet.Other.AsyncProcessPool import APP
+import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
+
 log = None
 
 import numpy as np
@@ -162,8 +173,8 @@ def main(OP=None, messages=[]):
     # init NCPU for different bits of parallelism
     ncpu = DicoConfig["Parallel"]["NCPU"] or psutil.cpu_count()
     DicoConfig["Parallel"]["NCPU"]=ncpu
-    NpParallel.NCPU_global = ncpu
-    ModFFTW.NCPU_global = ncpu
+    _pyArrays.pySetOMPNumThreads(ncpu)
+    NpParallel.NCPU_global = ModFFTW.NCPU_global = ncpu
     numexpr.set_num_threads(ncpu)
     print>>log,"using up to %d CPUs for parallelism" % ncpu
 

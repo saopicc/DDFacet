@@ -48,7 +48,7 @@ class ClassImageDeconvMachine():
 
     def __init__(self, Gain=0.3,
                  MaxMinorIter=100, 
-                 NCPU=psutil.cpu_count(),
+                 NCPU=1, #psutil.cpu_count()
                  CycleFactor=2.5, 
                  FluxThreshold=None, 
                  RMSFactor=3, 

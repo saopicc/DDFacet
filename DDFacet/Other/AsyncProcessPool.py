@@ -616,7 +616,7 @@ class AsyncProcessPool (object):
             os.kill(os.getpid(), signal.SIGSTOP)
         numexpr.set_num_threads(1)      # no sub-threads in workers, as it messes with everything
         _pyArrays.pySetOMPNumThreads(1)
-
+        _pyArrays.pySetOMPDynamicNumThreads(1)
         AsyncProcessPool.proc_id = proc_id
         MyLogger.subprocess_id = proc_id
         if affinity:
