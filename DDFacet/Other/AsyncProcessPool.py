@@ -30,7 +30,7 @@ import signal
 from collections import OrderedDict
 import glob
 import re
-import numexpr as ne
+import numexpr
 
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
