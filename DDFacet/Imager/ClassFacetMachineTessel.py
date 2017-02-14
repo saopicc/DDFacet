@@ -103,6 +103,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
 
 #        if "CatNodes" in self.GD.keys():
+        regular_grid = False
         if self.GD["Facets"]["CatNodes"] is not None:
             print>> log, "Taking facet directions from Nodes catalog: %s" % self.GD["Facets"]["CatNodes"]
             ClusterNodes = np.load(self.GD["Facets"]["CatNodes"])
@@ -119,6 +120,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
         else:
             print>> log, "Taking facet directions from regular grid"
+            regular_grid = True
             CellSizeRad = (self.GD["Image"][
                            "Cell"] / 3600.) * np.pi / 180
             lrad = Npix * CellSizeRad * 0.5
@@ -148,11 +150,14 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         NodesCat = NodesCat.view(np.recarray)
         NodesCat.ra = raSols
         NodesCat.dec = decSols
+        # print>>log,"Facet RA %s"%raSols
+        # print>>log,"Facet Dec %s"%decSols
         NodesCat.l = lFacet
         NodesCat.m = mFacet
-        NodeFile = "%s.NodesCat.%snpy" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
-        print>> log, "Saving Nodes catalog in %s" % NodeFile
-        np.save(NodeFile, NodesCat)
+        ## saving below
+        # NodeFile = "%s.NodesCat.%snpy" % (self.GD["Output"]["Name"], "psf." if self.DoPSF else "")
+        # print>> log, "Saving Nodes catalog in %s" % NodeFile
+        # np.save(NodeFile, NodesCat)
 
         self.DicoImager = {}
 
@@ -481,8 +486,11 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         self.SpacialWeigth = {}
         self.DicoImager = {}
-        indDiam = np.argsort(l_m_Diam[:, 2])[::-1]
-        l_m_Diam = l_m_Diam[indDiam]
+
+        # sort facets by size, unless we're in regular grid mode
+        if not regular_grid:
+            indDiam = np.argsort(l_m_Diam[:, 2])[::-1]
+            l_m_Diam = l_m_Diam[indDiam]
 
         for iFacet in xrange(l_m_Diam.shape[0]):
             self.DicoImager[iFacet] = {}

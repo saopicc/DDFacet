@@ -252,6 +252,7 @@ class ClassFacetMachine():
 
         raFacet, decFacet = self.CoordMachine.lm2radec(
                             np.array([lmShift[0]]), np.array([lmShift[1]]))
+        # print>>log,"Facet %d l %f m %f RA %f Dec %f"%(iFacet, l0, m0, raFacet, decFacet)
 
         NpixFacet, _ = EstimateNpix(diam / self.CellSizeRad, Padding=1)
         _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=self.Padding)
