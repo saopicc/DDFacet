@@ -82,5 +82,7 @@ static PyObject *pyProdArray(PyObject *self, PyObject *args);
 static PyObject *pyDivArray(PyObject *self, PyObject *args);
 static PyObject *pyWhereMax(PyObject *self, PyObject *args);
 static PyObject *pyWhereMaxMask(PyObject *self, PyObject *args);
+static PyObject *pySetOMPNumThreads(PyObject *self, PyObject *args);
+
 
 

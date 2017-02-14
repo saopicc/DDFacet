@@ -15,6 +15,7 @@ log=MyLogger.getLogger("ClassInitSSDModel")
 import traceback
 from DDFacet.Other import ModColor
 from ClassConvMachine import ClassConvMachineImages
+from DDFacet.Imager import ClassMaskMachine
 
 
 class ClassInitSSDModelParallel():
@@ -164,13 +165,18 @@ class ClassInitSSDModel():
         ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
         ModelMachine.setRefFreq(self.RefFreq)
         MinorCycleConfig["ModelMachine"]=ModelMachine
-        MinorCycleConfig["CleanMaskImage"]=None
-
+        #MinorCycleConfig["CleanMaskImage"]=None
         self.MinorCycleConfig=MinorCycleConfig
         self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,
                                                                                CacheSharedMode=True,
+                                                                               ParallelMode=False,
+                                                                               CacheFileName="HMP_Init",
                                                                                IdSharedMem=IdSharedMem,
                                                                                **self.MinorCycleConfig)
+        self.GD["Mask"]["Auto"]=False
+        self.GD["Mask"]["External"]=None
+        self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
+        self.DeconvMachine.setMaskMachine(self.MaskMachine)
 
         self.DicoHMPFunctions=DicoHMPFunctions
         if self.DicoHMPFunctions is not None:
@@ -178,7 +184,7 @@ class ClassInitSSDModel():
 
         self.Margin=20
         self.DicoDirty=DicoDirty
-        self.Dirty=DicoDirty["ImagData"]
+        self.Dirty=DicoDirty["ImageCube"]
         self.MeanDirty=DicoDirty["MeanImage"]
         
         #print "Start 3"

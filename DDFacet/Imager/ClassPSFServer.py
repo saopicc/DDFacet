@@ -29,7 +29,7 @@ class ClassPSFServer():
         self.GD=GD
         self.blc=None
 
-    def setDicoVariablePSF(self,DicoVariablePSF,RefFreq=None,NormalisePSF=False):
+    def setDicoVariablePSF(self,DicoVariablePSF,RefFreq=None,NormalisePSF=False,quiet=False):
         # NFacets=len(DicoVariablePSF.keys())
         # NPixMin=1e6
         # for iFacet in sorted(DicoVariablePSF.keys()):
@@ -55,7 +55,8 @@ class ClassPSFServer():
         self.NPSF=NPixMin
 
         if NormalisePSF:
-            print>>log,"Using peak-normalised PSFs"
+            if not quiet:
+                print>>log,"Using peak-normalised PSFs"
             # for iFacet in range(self.NFacets):
             #     self.CubeMeanVariablePSF[iFacet]/=np.max(self.CubeMeanVariablePSF[iFacet])
             #     for iChan in range(nch):
@@ -97,7 +98,7 @@ class ClassPSFServer():
     def giveFacetID(self,xp,yp):
         dmin=1e6
         for iFacet in range(self.NFacets):
-            d=np.sqrt((xp-self.DicoVariablePSF[iFacet]["pixCentral"][0])**2+(yp-self.DicoVariablePSF[iFacet]["pixCentral"][1])**2)
+            d=np.sqrt((xp-self.DicoVariablePSF["Facets"][iFacet]["pixCentral"][0])**2+(yp-self.DicoVariablePSF["Facets"][iFacet]["pixCentral"][1])**2)
             if d<dmin:
                 dmin=d
                 ClosestFacet=iFacet
@@ -114,7 +115,7 @@ class ClassPSFServer():
         for iFacet in range(self.NFacets):
             l=CellSizeRad*(xp-nx/2)
             m=CellSizeRad*(yp-nx/2)
-            lSol,mSol=self.DicoVariablePSF[iFacet]["lmSol"]
+            lSol,mSol=self.DicoVariablePSF["Facets"][iFacet]["lmSol"]
             #print "lsol, msol = ",lSol,mSol #,self.DicoVariablePSF[iFacet]["pixCentral"][0],self.DicoVariablePSF[iFacet]["pixCentral"][1]
 
             d=np.sqrt((l-lSol)**2+(m-mSol)**2)

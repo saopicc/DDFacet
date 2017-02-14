@@ -78,22 +78,25 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
              [lMainCenter + RadiusTot, mMainCenter + RadiusTot],
              [lMainCenter - RadiusTot, mMainCenter + RadiusTot]])
 
-        MSName = self.GD["Data"]["MS"]
-        if ".txt" in MSName:
-            f = open(MSName)
-            Ls = f.readlines()
-            f.close()
-            MSName = []
-            for l in Ls:
-                ll = l.replace("\n", "")
-                MSName.append(ll)
-            MSName = MSName[0]
+        # MSName = self.GD["Data"]["MS"]
+        # if ".txt" in MSName:
+        #     f = open(MSName)
+        #     Ls = f.readlines()
+        #     f.close()
+        #     MSName = []
+        #     for l in Ls:
+        #         ll = l.replace("\n", "")
+        #         MSName.append(ll)
+        #     MSName = MSName[0]
+
+
+        MSName = self.VS.ListMS[0].MSName
 
         SolsFile = self.GD["DDESolutions"]["DDSols"]
         if isinstance(SolsFile, list):
             SolsFile = self.GD["DDESolutions"]["DDSols"][0]
 
-        if (SolsFile != "") & (not (".npz" in SolsFile)):
+        if SolsFile and (not (".npz" in SolsFile)):
             Method = SolsFile
             ThisMSName = reformat.reformat(
                 os.path.abspath(MSName), LastSlash=False)
@@ -404,8 +407,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
 
         NFacets = len(LPolygonNew)
 
-        self.FacetCat = np.zeros(
-            (NFacets,),
+        NJonesDir=NodesCat.shape[0]
+        self.JonesDirCat = np.zeros(
+            (NodesCat.shape[0],),
             dtype=[('Name', '|S200'),
                    ('ra', np.float),
                    ('dec', np.float),
@@ -414,12 +418,19 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                    ("l", np.float),
                    ("m", np.float),
                    ("I", np.float)])
-        self.FacetCat = self.FacetCat.view(np.recarray)
-        self.FacetCat.I = 1
-        self.FacetCat.SumI = 1
-        print>> log, "Sizes (%i facets):" % (self.FacetCat.shape[0])
+        self.JonesDirCat = self.JonesDirCat.view(np.recarray)
+        self.JonesDirCat.I = 1
+        self.JonesDirCat.SumI = 1
+        print>> log, "Sizes (%i facets):" % (self.JonesDirCat.shape[0])
         print >>log, "   - Main field :   [%i x %i] pix" % (
             self.Npix, self.Npix)
+
+        self.JonesDirCat.ra=NodesCat.ra
+        self.JonesDirCat.dec=NodesCat.dec
+        self.JonesDirCat.l=NodesCat.l
+        self.JonesDirCat.m=NodesCat.m
+        self.JonesDirCat.Cluster = range(NJonesDir)
+
 
         l_m_Diam = np.zeros((NFacets, 4), np.float32)
         l_m_Diam[:, 3] = np.arange(NFacets)
@@ -510,7 +521,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
                 dmin = d
                 iCentralFacet = iFacet
         self.iCentralFacet = iCentralFacet
-
+        self.NFacets = len(self.DicoImager)
         # regFile="%s.tessel.reg"%self.GD["Output"]["Name"]
         labels = [
             (self.DicoImager[i]["lmShift"][0],
