@@ -237,8 +237,8 @@ class AsyncProcessPool (object):
             self.cpustep = 1
             maxcpu = psutil.cpu_count()
         else:
-            raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list or "
-                               "'autodetect'")
+            raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list, "
+                               "'enable_ht', 'disable_ht', 'disable'")
         if self.parent_affinity is None:
             print>> log, ModColor.Str("Not fixing parent and IO affinity as per user request")
         else:
@@ -248,10 +248,11 @@ class AsyncProcessPool (object):
         if not self.ncpu:
             self.ncpu = maxcpu
         elif self.ncpu > maxcpu:
-            print>>log,ModColor.Str("NCPU=%d is too high for this setup (%d cores, affinity %d)" %
+            print>>log,ModColor.Str("NCPU=%d is too high for this setup (%d cores, affinity %s)" %
                                     (self.ncpu, psutil.cpu_count(),
-                                     self.affinity if isinstance(self.affinity, int)
-                                     else ",".join(map(str, self.affinity))))
+                                     str(self.affinity) if isinstance(self.affinity, int)
+                                     else ",".join(map(str, self.affinity)) if isinstance(self.affinity, list)
+                                     else "disabled"))
             print>>log,ModColor.Str("Falling back to NCPU=%d" % (maxcpu))
             self.ncpu = maxcpu
         self.procinfo = psutil.Process()  # this will be used to control CPU affinity
