@@ -805,7 +805,7 @@ class ClassMultiScaleMachine():
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
 
             Fact=(MeanFluxTrue/np.sum(Sol))
-            Sol*=Fact
+            #Sol*=Fact
             
             if abs(Sol).max() < self._stall_threshold:
                 print>>log,"Stalled CLEAN!"
@@ -816,7 +816,7 @@ class ClassMultiScaleMachine():
                 global debug_dump_file
                 if not debug_dump_file:
                     debug_dump_file = file(self.GD["Output"]["Name"] + ".clean.solutions", "w")
-                cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal), debug_dump_file, 2)
+                cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, Fact, MeanFluxTrue, self.WeightMuellerSignal), debug_dump_file, 2)
 
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
