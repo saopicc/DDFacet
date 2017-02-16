@@ -739,12 +739,12 @@ class ClassMultiScaleMachine():
             
             Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
             #Sol.fill(1)
-
+            
             #LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)*FpolMean.ravel()[0]
-
-
+            
+            
             #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
-
+            
             coef=np.min([np.abs(np.sum(Sol)/MeanFluxTrue),1.])
             # # # ############## debug
             # #Sol.fill(0)
@@ -803,7 +803,7 @@ class ClassMultiScaleMachine():
                 #     Sol=SolReg
 
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
-
+            
             Fact=(MeanFluxTrue/np.sum(Sol))
             Sol*=Fact
             
@@ -817,7 +817,7 @@ class ClassMultiScaleMachine():
                 if not debug_dump_file:
                     debug_dump_file = file(self.GD["Output"]["Name"] + ".clean.solutions", "w")
                 cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal), debug_dump_file, 2)
-
+            
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
 

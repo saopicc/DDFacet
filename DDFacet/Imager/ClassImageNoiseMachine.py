@@ -119,7 +119,6 @@ class ClassImageNoiseMachine():
         self.GD["Deconv"]["Mode"]="HMP"
         #self.GD["Deconv"]["CycleFactor"]=0
         #self.GD["Deconv"]["PeakFactor"]=0.0
-        self.GD["Deconv"]["Gain"]=.5
         self.GD["Deconv"]["PSFBox"]="full"
         self.GD["Deconv"]["MaxMinorIter"]=10000
         self.GD["Deconv"]["RMSFactor"]=3.
@@ -128,10 +127,18 @@ class ClassImageNoiseMachine():
         #self.GD["MultiScale"]["Ratios"]=[]
         self.GD["HMP"]["NTheta"]=4
 
-        self.GD["Deconv"]["AllowNegative"]=True
-        self.GD["HMP"]["Scales"]=[0,1,2,4,8,16,32]
-        #self.GD["HMP"]["SolverMode"]="NNLS"
+        
+        # self.GD["Deconv"]["AllowNegative"]=False
+        # self.GD["HMP"]["Scales"]=[0,1,2,4,8,16,32,48,64,96,128]
+        # self.GD["HMP"]["SolverMode"]="NNLS"
+        # self.GD["HMP"]["Support"]=91
+        # self.GD["HMP"]["Taper"]=31
+        # self.GD["Deconv"]["Gain"]=.3
+
         self.GD["HMP"]["SolverMode"]="PI"
+        self.GD["HMP"]["Scales"]=[0]
+        self.GD["Deconv"]["Gain"]=.1
+        
         
         if self.NoiseMapReShape is not None:
             print>>log,"Deconvolving on SNR map"
@@ -158,10 +165,21 @@ class ClassImageNoiseMachine():
                                                                                CacheFileName="HMP_Masking",
                                                                                **self.MinorCycleConfig)
         
-
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1])
         if self.NoiseMapReShape is not None:
             self.DeconvMachine.setNoiseMap(self.NoiseMapReShape)
+
+        # # #########################
+        # # debug
+        # MaskImage=image("image_dirin_SSD_test.dirty.fits.mask.fits").getdata()
+        # nch,npol,_,_=MaskImage.shape
+        # MaskArray=np.zeros(MaskImage.shape,np.bool8)
+        # for ch in range(nch):
+        #     for pol in range(npol):
+        #         MaskArray[ch,pol,:,:]=np.bool8(MaskImage[ch,pol].T[::-1].copy())[:,:]
+        # self.DeconvMachine.setMask(np.bool8(1-MaskArray))
+        # # #########################
+
         self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
         self.DeconvMachine.updateRMS()
 
@@ -212,8 +230,14 @@ class ClassImageNoiseMachine():
             
         # # ModelConv=scipy.signal.convolve2d(ModelImage,G,mode="same")
 
+
         ModelConv=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.DicoDirty["ImageInfo"]["CellSizeRad"],
-                                                GaussPars=[self.DicoVariablePSF["EstimatesAvgPSF"][1]])
+                                           GaussPars=[self.DicoVariablePSF["EstimatesAvgPSF"][1]])
+
+        #GaussPar=[i*5 for i in self.DicoVariablePSF["EstimatesAvgPSF"][1]]
+        #ModelConv+=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.DicoDirty["ImageInfo"]["CellSizeRad"],
+        #                                    GaussPars=[GaussPar])
+
 
         self.ModelConv=ModelConv.reshape(self.DicoDirty["MeanImage"].shape)
 
