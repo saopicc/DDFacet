@@ -171,10 +171,6 @@ class ClassImagerDeconv():
         MinorCycleConfig["GD"] = self.GD
         MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
 
-        self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD)
-        self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
-        self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
-
         SubstractModel=self.GD["Predict"]["InitDicoModel"]
         DoSub=(SubstractModel!="")&(SubstractModel is not None)
         if DoSub:
@@ -205,6 +201,13 @@ class ClassImagerDeconv():
             self.DoDirtySub=0
 
         self.ModelMachine=ModelMachine
+
+
+
+        self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD,self.ModelMachine)
+        self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
+        self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
+
 
         MinorCycleConfig["ModelMachine"] = ModelMachine
         

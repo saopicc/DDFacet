@@ -29,13 +29,15 @@ from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
 from DDFacet.ToolsDir import ModFFTW
 
 class ClassImageNoiseMachine():
-    def __init__(self,GD):
+    def __init__(self,GD,ExternalModelMachine=None):
         self.GD=GD
         
         self.NoiseMap=None
         self.NoiseMapRestored=None
         self.NoiseMapReShape=None
         self._id_InputMap=None
+        self.ExternalModelMachine=ExternalModelMachine
+
 
     def setMainCache(self,MainCache):
         self.MainCache=MainCache
@@ -111,7 +113,8 @@ class ClassImageNoiseMachine():
         self.Orig_Dirty=self.DicoDirty["ImagData"].copy()
         GD=copy.deepcopy(self.GD)
         # take any reference frequency - doesn't matter
-        self.RefFreq=np.mean(self.DicoVariablePSF["freqs"][0])
+        #self.RefFreq=np.mean(self.DicoVariablePSF["freqs"][0])
+        self.RefFreq=self.ExternalModelMachine.RefFreq
         self.GD=GD
         #self.GD["Parallel"]["NCPU"]=1
         #self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
@@ -166,6 +169,7 @@ class ClassImageNoiseMachine():
                                                                                **self.MinorCycleConfig)
         
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1])
+
         if self.NoiseMapReShape is not None:
             self.DeconvMachine.setNoiseMap(self.NoiseMapReShape)
 
@@ -201,7 +205,10 @@ class ClassImageNoiseMachine():
 
         print>>log,"  Getting model image..."
         Model=ModelMachine.GiveModelImage(DoAbs=True)
+        if "Comp" in self.ExternalModelMachine.DicoSMStacked.keys():
+            Model+=np.abs(self.ExternalModelMachine.GiveModelImage())
         ModelImage=Model[0,0]
+
         print>>log,"  Convolving..."
         from DDFacet.ToolsDir import Gaussian
         
