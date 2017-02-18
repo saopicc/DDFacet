@@ -585,7 +585,7 @@ class ClassMultiScaleMachine():
                          "GlobalWeightFunction":self.GlobalWeightFunction}
 
 
-        if self.GD["Debug"]["DumpCleanSolutions"]:
+        if self.GD["Debug"]["DumpCleanSolutions"] and not SubSubSubCoord:
             BaseName = self.GD["Output"]["Name"]
             pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
 

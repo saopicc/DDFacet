@@ -702,7 +702,13 @@ void gridderWPol(PyArrayObject *grid,
       visChanMean/=NVisThisblock;
       int ThisGridChan=p_ChanMapping[chStart];
       float diffChan=visChanMean-ThisGridChan;
-      if(fabs(diffChan)>1e-6){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);}
+      if(fabs(diffChan)>1e-6)
+      {
+        printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);
+        for (visChan=chStart; visChan<chEnd; ++visChan)
+            printf("%d ", p_ChanMapping[visChan]);
+        printf("\n");
+      }
       //if(diffChan!=0.){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %20.18f)\n",visChanMean,ThisGridChan,diffChan);}
       //printf("!!!!!!!!!!!!!!!!!!!\n");
       //printf("%i %i %f\n",i_ant0,i_ant1,visChanMean);

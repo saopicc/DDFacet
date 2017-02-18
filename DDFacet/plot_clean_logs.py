@@ -21,15 +21,18 @@ class DDFLog(object):
         self.minor_peaks = []
         self.minor_pnrs = []
         for line in fobj.readlines():
+            line = line.strip()
             m = re.search('Running minor cycle \[MinorIter = (\d+)/', line)
             if m:
                 miter = int(m.group(1))+1
             m = re.search('\[iter=(\d+)\] (peak of|Reached.*peak flux)\s+(\d[^\s,]+)\s+', line)
             if m:
+                print line
                 self.major_end_iter.append(int(m.group(1))+1)
                 self.major_end_flux.append(float(m.group(3)))
             m = re.search('Dirty image peak flux\s+=\s+(\d[^\s]+)\s', line)
             if m:
+                print line
                 self.major_start_flux.append(float(m.group(1)))
                 self.major_start_iter.append(miter)
             m = re.search('\[iter=(\d+)\] peak residual\s+(\d[^\s]+),\s+.*PNR\s+(\d.*)$', line)
