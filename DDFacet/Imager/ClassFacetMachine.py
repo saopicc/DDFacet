@@ -738,6 +738,48 @@ class ClassFacetMachine():
             self._model_dict.delete()
             self._model_dict = None
 
+    def _buildFacetSlice_worker(self, iFacet, facet_grids, facetdict, cfdict, sumjonesnorm, sumweights, W):
+        # first normalize by spheroidals - these
+        # facet psfs will be used in deconvolution per facet
+        SPhe = cfdict["Sphe"]
+        nx = SPhe.shape[0]
+        SPhe = SPhe.reshape((1, 1, nx, nx)).real
+        fd = facetdict.addSubdict(iFacet)
+        fd["PSF"] = facet_grids[iFacet].real
+        fd["PSF"] /= SPhe
+        # DicoImages[iFacet]["PSF"][SPhe < 1e-2] = 0
+        fd["l0m0"] = self.DicoImager[iFacet]["l0m0"]
+        fd["pixCentral"] = self.DicoImager[iFacet]["pixCentral"]
+        fd["lmSol"] = self.DicoImager[iFacet]["lmSol"]
+
+        nch, npol, n, n = fd["PSF"].shape
+        PSFChannel = np.zeros((nch, npol, n, n), self.stitchedType)
+        for ch in xrange(nch):
+            fd["PSF"][ch][SPhe[0] < 1e-2] = 0
+            fd["PSF"][ch][0] = fd["PSF"][ch][0].T[::-1, :]
+            SumJonesNorm = sumjonesnorm[ch]
+            # normalize to bring back transfer
+            # functions to approximate convolution
+            fd["PSF"][ch] /= np.sqrt(SumJonesNorm)
+            for pol in xrange(npol):
+                ThisSumWeights = sumweights[ch][pol]
+                # normalize the response per facet
+                # channel if jones corrections are enabled
+                fd["PSF"][ch][pol] /= ThisSumWeights
+            PSFChannel[ch, :, :, :] = fd["PSF"][ch][:, :, :]
+
+        # weight each of the cube slices and average
+        fd["MeanPSF"]  = np.sum(PSFChannel * W, axis=0).reshape((1, npol, n, n))
+
+    def _cutFacetSlice_worker(self, iFacet, DicoImages, nch, NPixMin):
+        psf = DicoImages["Facets"][iFacet]["PSF"]
+        _, npol, n, n = psf.shape
+        for ch in xrange(nch):
+            i = n / 2 - NPixMin / 2
+            j = n / 2 + NPixMin / 2 + 1
+            DicoImages["CubeVariablePSF"][iFacet, ch, :, :, :] = psf[ch][:, i:j, i:j]
+        DicoImages["CubeMeanVariablePSF"][iFacet, 0, :, :, :] = DicoImages["Facets"][iFacet]["MeanPSF"][0, :, i:j, i:j]
+
     def FacetsToIm(self, NormJones=False):
         """
         Fourier transforms the individual facet grids and then
@@ -826,54 +868,26 @@ class ClassFacetMachine():
         # self.collectFourierTransformResults()
         # PSF mode: construct PSFs
         if self.DoPSF:
-            DicoImages.addSubdict("Facets")
-            print>>log, "building PSF facet-slices"
-            for iFacet in self.DicoGridMachine.keys():
-                # first normalize by spheroidals - these
-                # facet psfs will be used in deconvolution per facet
-                SPhe = self._CF[iFacet]["Sphe"]
-                nx = SPhe.shape[0]
-                SPhe = SPhe.reshape((1, 1, nx, nx)).real
-                DicoImages["Facets"].addSubdict(iFacet)
-                #DicoImages["Facets"][iFacet] = {}
-                DicoImages["Facets"][iFacet]["PSF"] = self._facet_grids[iFacet].real
-                DicoImages["Facets"][iFacet]["PSF"] /= SPhe
-                #DicoImages[iFacet]["PSF"][SPhe < 1e-2] = 0
-                DicoImages["Facets"][iFacet]["l0m0"] = self.DicoImager[iFacet]["l0m0"]
-                DicoImages["Facets"][iFacet]["pixCentral"] = self.DicoImager[iFacet]["pixCentral"]
-                DicoImages["Facets"][iFacet]["lmSol"] = self.DicoImager[iFacet]["lmSol"]
+            DicoVariablePSF = DicoImages.addSubdict("Facets")
+            facets = sorted(self.DicoGridMachine.keys())
+            W = DicoImages["WeightChansImages"]
+            W = np.float32(W.reshape((self.VS.NFreqBands, npol, 1, 1)))
 
-                nch, npol, n, n = DicoImages["Facets"][iFacet]["PSF"].shape
-                PSFChannel = np.zeros((nch, npol, n, n), self.stitchedType)
-                for ch in xrange(nch):
-                    DicoImages["Facets"][iFacet]["PSF"][ch][SPhe[0] < 1e-2] = 0
-                    DicoImages["Facets"][iFacet]["PSF"][ch][0] = DicoImages["Facets"][iFacet]["PSF"][ch][0].T[::-1, :]
-                    SumJonesNorm = self.DicoImager[iFacet]["SumJonesNorm"][ch]
-                    # normalize to bring back transfer
-                    # functions to approximate convolution
-                    DicoImages["Facets"][iFacet]["PSF"][ch] /= np.sqrt(SumJonesNorm)
-                    for pol in xrange(npol):
-                        ThisSumWeights = self.DicoImager[iFacet]["SumWeights"][ch][pol]
-                        # normalize the response per facet
-                        # channel if jones corrections are enabled
-                        DicoImages["Facets"][iFacet]["PSF"][ch][pol] /= ThisSumWeights
-                    PSFChannel[ch, :, :, :] = DicoImages["Facets"][iFacet]["PSF"][ch][:, :, :]
+            for iFacet in facets:
+                APP.runJob("buildpsf:%s"%iFacet, self._buildFacetSlice_worker,
+                           args=(iFacet, self._facet_grids.readonly(), DicoVariablePSF.writeonly(), self._CF[iFacet].readonly(),
+                                 self.DicoImager[iFacet]["SumJonesNorm"], self.DicoImager[iFacet]["SumWeights"], W))
+            APP.awaitJobResults("buildpsf:*", progress="Build PSF facet slices")
+            DicoVariablePSF.reload()
 
-                W = DicoImages["WeightChansImages"]
-                W = np.float32(W.reshape((self.VS.NFreqBands, npol, 1, 1)))
-                # weight each of the cube slices and average
-                MeanPSF = np.sum(PSFChannel * W, axis=0).reshape((1, npol, n, n))
-                DicoImages["Facets"][iFacet]["MeanPSF"] = MeanPSF
-
-            DicoVariablePSF=DicoImages["Facets"]
-            NFacets = len(DicoVariablePSF.keys())
+            NFacets = len(DicoVariablePSF)
 
             if self.GD["Facets"]["Circumcision"]:
                 NPixMin = self.GD["Facets"]["Circumcision"]
                 # print>>log,"using explicit Circumcision=%d"%NPixMin
             else:
                 NPixMin = 1e6
-                for iFacet in sorted(DicoVariablePSF.keys()):
+                for iFacet in facets:
                     _, npol, n, n = DicoVariablePSF[iFacet]["PSF"].shape
                     if n < NPixMin:
                         NPixMin = n
@@ -891,38 +905,26 @@ class ClassFacetMachine():
             #CubeMeanVariablePSF = np.zeros((NFacets, 1, npol, NPixMin, NPixMin), np.float32)
 
             print>>log, "cutting PSF facet-slices of shape %dx%d" % (NPixMin, NPixMin)
-            for iFacet in sorted(DicoVariablePSF.keys()):
-                _, npol, n, n = DicoVariablePSF[iFacet]["PSF"].shape
-                for ch in xrange(nch):
-                    i = n/2 - NPixMin/2
-                    j = n/2 + NPixMin/2 + 1
-                    DicoImages["CubeVariablePSF"][iFacet, ch, :, :, :] = DicoVariablePSF[iFacet]["PSF"][ch][:, i:j, i:j]
-                DicoImages["CubeMeanVariablePSF"][iFacet, 0, :, :, :] = DicoVariablePSF[iFacet]["MeanPSF"][0, :, i:j, i:j]
+            for iFacet in facets:
+                APP.runJob("cutpsf:%s" % iFacet, self._cutFacetSlice_worker, args=(iFacet, DicoImages.readonly(), nch, NPixMin))
+            APP.awaitJobResults("cutpsf:*", progress="Cut PSF facet slices")
 
             DicoImages["CentralFacet"] = self.iCentralFacet
-            #DicoImages["CubeVariablePSF"] = CubeVariablePSF
-            #DicoImages["CubeMeanVariablePSF"] = CubeMeanVariablePSF
             DicoImages["MeanJonesBand"] = []
             CubeVariablePSF=DicoImages["CubeVariablePSF"]
             CubeMeanVariablePSF=DicoImages["CubeMeanVariablePSF"]
             print>>log,"  Building Facets-PSF normalised by their maximum"
-            #DicoImages["PeakNormed_CubeVariablePSF"]=np.zeros_like(DicoImages["CubeVariablePSF"])
-            #DicoImages["PeakNormed_CubeMeanVariablePSF"]=np.zeros_like(DicoImages["CubeMeanVariablePSF"])
             DicoImages.addSharedArray("PeakNormed_CubeVariablePSF",(NFacets, nch, npol, NPixMin, NPixMin), np.float32)
             DicoImages.addSharedArray("PeakNormed_CubeMeanVariablePSF",(NFacets, 1, npol, NPixMin, NPixMin), np.float32)
 
-            for iFacet in sorted(self.DicoImager.keys()):
+            for iFacet in facets:
                 DicoImages["PeakNormed_CubeMeanVariablePSF"][iFacet]=CubeMeanVariablePSF[iFacet]/np.max(CubeMeanVariablePSF[iFacet])
                 for iChan in range(nch):
                     DicoImages["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]/np.max(CubeVariablePSF[iFacet,iChan])
                     #DicoImages["PeakNormed_CubeVariablePSF"][iFacet,iChan]=CubeVariablePSF[iFacet,iChan]/np.max(CubeMeanVariablePSF[iFacet])
 
             PeakNormed_CubeMeanVariablePSF=DicoImages["PeakNormed_CubeMeanVariablePSF"]
-            #CubeMeanVariablePSF=DicoImages["CubeMeanVariablePSF"]
-            #PeakFacet=np.max(np.max(np.max(CubeMeanVariablePSF,axis=-1),axis=-1),axis=-1).reshape((NFacets,1,1,1,1))
-            #PeakNormed_CubeMeanVariablePSF[...]=CubeMeanVariablePSF[...]/PeakFacet[...]
 
-            #DicoImages["MeanFacetPSF"]=np.mean(CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
             DicoImages["MeanFacetPSF"]=np.mean(PeakNormed_CubeMeanVariablePSF,axis=0).reshape((1,npol,NPixMin,NPixMin))
             ListMeanJonesBand=[]
             DicoImages["OutImShape"] = self.OutImShape
@@ -938,24 +940,22 @@ class ClassFacetMachine():
 
             ListSumJonesChan = []
             ListSumJonesChanWeightSq = []
-            for iFacet in sorted(self.DicoImager.keys()):
+            for iFacet in facets:
                 ThisFacetSumJonesChan = []
                 ThisFacetSumJonesChanWeightSq = []
                 for iMS in xrange(self.VS.nMS):
-                    A = self.DicoImager[iFacet]["SumJonesChan"][iMS][1, :]
-                    A[A == 0] = 1.
-                    A = self.DicoImager[iFacet]["SumJonesChan"][iMS][0, :]
-                    A[A == 0] = 1.
-                    SumJonesChan = self.DicoImager[iFacet]["SumJonesChan"][iMS][0, :]
-                    SumJonesChanWeightSq = self.DicoImager[iFacet]["SumJonesChan"][iMS][1, :]
+                    sumjones = self.DicoImager[iFacet]["SumJonesChan"][iMS]
+                    sumjones[sumjones == 0] = 1.
+                    SumJonesChan = sumjones[0, :]
+                    SumJonesChanWeightSq = sumjones[1, :]
                     ThisFacetSumJonesChan.append(SumJonesChan)
                     ThisFacetSumJonesChanWeightSq.append(SumJonesChanWeightSq)
 
                 ListSumJonesChan.append(ThisFacetSumJonesChan)
                 ListSumJonesChanWeightSq.append(ThisFacetSumJonesChanWeightSq)
 
-            DicoImages["SumJonesChan"]=ListSumJonesChan
-            DicoImages["SumJonesChanWeightSq"]=ListSumJonesChanWeightSq
+            DicoImages["SumJonesChan"]  = ListSumJonesChan
+            DicoImages["SumJonesChanWeightSq"] = ListSumJonesChanWeightSq
             DicoImages["ChanMappingGrid"] = self.VS.DicoMSChanMapping
             DicoImages["ChanMappingGridChan"] = self.VS.DicoMSChanMappingChan
 
@@ -968,12 +968,12 @@ class ClassFacetMachine():
             DicoImages["FacetNorm"] = FacetNorm
             DicoImages["JonesNorm"] = JonesNorm
 
-            for iFacet in sorted(self.DicoImager.keys()):
+            for iFacet in facets:
                 DicoImages["Facets"][iFacet].delete_item("PSF")
                 DicoImages["Facets"][iFacet].delete_item("MeanPSF")
-                
+
             # print>>log,"copying dictPSF"
-            DicoImages.reload()
+            # DicoImages.reload()
             self._psf_dict = DicoImages
             return DicoImages
 
