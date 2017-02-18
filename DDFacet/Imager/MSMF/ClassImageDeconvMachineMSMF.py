@@ -429,8 +429,8 @@ class ClassImageDeconvMachine():
             nfreq = self._CubeDirty.shape[0]
             meanimage = self._MeanDirty[0, :, x0d:x1d, y0d:y1d]
             if nfreq > 1:
-                numexpr.evaluate('sum(cube,axis=0)/nfreq', out=meanimage)
-                # cube.mean(axis=0, out=self._MeanDirty[0,:,x0d:x1d,y0d:y1d])
+                # numexpr.evaluate('sum(cube,axis=0)/nfreq', out=meanimage)
+                cube.mean(axis=0, out=meanimage)
             else:
                 meanimage[...] = cube[0,...]
             ## this is slower:
