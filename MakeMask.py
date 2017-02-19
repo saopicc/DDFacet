@@ -144,7 +144,6 @@ class ClassMakeMask():
         Acopy=self.Restored[0,0,0::Boost,0::Boost].copy()
         SBox=(self.box[0]/Boost,self.box[1]/Boost)
 
-
         # MeanAbs=scipy.ndimage.filters.mean_filter(np.abs(Acopy),SBox)
         # Acopy[Acopy>0]=MeanAbs[Acopy>0]
         # Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))

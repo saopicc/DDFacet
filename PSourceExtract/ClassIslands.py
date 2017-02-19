@@ -215,7 +215,7 @@ class ClassIslands():
 
         NMaxPix=300**2
         
-        Island=np.zeros((NIslands,NMaxPix,2),np.int32)
+        #Island=np.zeros((NIslands,NMaxPix,2),np.int32)
         NIslandNonZero=np.zeros((NIslands,),np.int32)
 
         print>>log,"  Extractinng pixels in islands"
@@ -235,27 +235,35 @@ class ClassIslands():
         #             NIslandNonZero[iIsland-1]+=1
 
         indx,indy=np.where(self.ImIsland)
+        Label=self.ImIsland[indx,indy]
         nx=indx.size
-        for iPix in range(nx):
-            #pBAR.render(int(100*iPix / (nx-1)), comment)
-            x,y=indx[iPix],indy[iPix]
-            iIsland=self.ImIsland[x,y]
-            if iIsland:
-                NThis=NIslandNonZero[iIsland-1]
-                Island[iIsland-1,NThis,0]=x
-                Island[iIsland-1,NThis,1]=y
-                NIslandNonZero[iIsland-1]+=1
 
         print>>log,"  Listing pixels in islands"
         LIslands=[]
-        for iIsland in range(NIslands):
-            ind=np.where(Island[iIsland,:,0]!=0)[0]
-            ThisIsland=[]
-            Npix=ind.size
-            for ipix in range(Npix):
-                ThisIsland.append([Island[iIsland,ipix,0].tolist(),Island[iIsland,ipix,1].tolist()])
-            LIslands.append(ThisIsland)
+        for iIsland in range(1,NIslands+1):
+            ind,=np.where(Label==iIsland)
+            LIslands.append(np.array([indx[ind],indy[ind]]).T.tolist())
 
+        # ##############################
+        # for iPix in range(nx):
+        #     #pBAR.render(int(100*iPix / (nx-1)), comment)
+        #     x,y=indx[iPix],indy[iPix]
+        #     iIsland=self.ImIsland[x,y]
+        #     if iIsland:
+        #         NThis=NIslandNonZero[iIsland-1]
+        #         Island[iIsland-1,NThis,0]=x
+        #         Island[iIsland-1,NThis,1]=y
+        #         NIslandNonZero[iIsland-1]+=1
+        # print>>log,"  Listing pixels in islands"
+        # LIslands=[]
+        # for iIsland in range(NIslands):
+        #     ind=np.where(Island[iIsland,:,0]!=0)[0]
+        #     ThisIsland=[]
+        #     Npix=ind.size
+        #     for ipix in range(Npix):
+        #         ThisIsland.append([Island[iIsland,ipix,0].tolist(),Island[iIsland,ipix,1].tolist()])
+        #     LIslands.append(ThisIsland)
+        # ##############################
 
         
         print>>log,"  Selecting pixels in islands"
