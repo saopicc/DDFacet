@@ -46,7 +46,7 @@ import ClassIslandDistanceMachine
 from DDFacet.Array import shared_dict
 
 MyLogger.setSilent("ClassArrayMethodSSD")
-#MyLogger.setSilent("ClassIsland")
+MyLogger.setSilent("ClassIsland")
 
 
 class ClassImageDeconvMachine():
