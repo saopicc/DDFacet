@@ -102,8 +102,10 @@ class ClassImageDeconvMachine():
         if not self.ParallelMode:
             numexpr.set_num_threads(NCPU)
 
+        self.CurrentNegMask=None
         self._NoiseMap=None
         self._strUnit = "Jy"
+        self.PNRStop=None
 
     def __del__ (self):
         if type(self.facetcache) is shared_dict.SharedDict:
@@ -160,9 +162,9 @@ class ClassImageDeconvMachine():
     def set_DicoHMPFunctions(self,facetcache):
         self.facetcache=facetcache
 
-    def setNoiseMap(self,NoiseMap):
+    def setNoiseMap(self,NoiseMap,PNRStop=10):
         self._NoiseMap=NoiseMap
-
+        self.PNRStop=PNRStop
 
     def _initMSM_handler(self, fcdict, psfdict, iFacet, SideLobeLevel, OffsetSideLobe, centralFacet):
         # init PSF server from PSF shared dict
@@ -474,6 +476,9 @@ class ClassImageDeconvMachine():
         self.RMS=np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
         
 
+    def setMask(self,Mask):
+        self.CurrentNegMask=Mask
+
 
     def Deconvolve(self, ch=0,UpdateRMS=True):
         """
@@ -511,11 +516,20 @@ class ClassImageDeconvMachine():
         Fluxlimit_RMS = self.RMSFactor*RMS
         #print "startmax",self._MeanDirty.shape,self._MaskArray.shape
 
-        CurrentNegMask=None
-        if self.MaskMachine:
+        
+        if self.CurrentNegMask is not None:
+            print>>log,"Using externally defined Mask (self.CurrentNegMask)"
+            CurrentNegMask=self.CurrentNegMask
+        elif self.MaskMachine:
+            print>>log,"Using MaskMachine Mask"
             CurrentNegMask=self.MaskMachine.CurrentNegMask
-        if self._MaskArray is not None:
+        elif self._MaskArray is not None:
+            print>>log,"Using externally defined Mask (self._MaskArray)"
             CurrentNegMask=self._MaskArray
+        else:
+            print>>log,"Not using a mask"
+            CurrentNegMask=None
+        
         x,y,MaxDirty=NpParallel.A_whereMax(self._PeakSearchImage,NCPU=self.NCPU,DoAbs=DoAbs,Mask=CurrentNegMask)
 
         #x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty.copy(),NCPU=1,DoAbs=DoAbs,Mask=self._MaskArray.copy())
@@ -537,7 +551,8 @@ class ClassImageDeconvMachine():
 
         mm0, mm1 = self._PeakSearchImage.min(), self._PeakSearchImage.max()
 
-        PNRStop = self.GD["Deconv"]["PNRStop"]
+        
+        PNRStop = self.PNRStop
 
 
         # work out upper threshold

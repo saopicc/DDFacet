@@ -601,26 +601,6 @@ class ClassFacetMachine():
             APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
                             args=(iFacet, facet_dict.writeonly(), cachepath, cachevalid))
 
-    def awaitInitCompletion (self):
-        if not self.IsDDEGridMachineInit:
-            APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
-            self._CF.reload()
-            # mark cache as safe
-            self.VS.maincache.saveCache(self._cf_cachename)
-            self.IsDDEGridMachineInit = True
-
-    def _createGridMachine(self, iFacet, **kw):
-        """Helper method for workers: creates a GridMachine with the given extra keyword arguments"""
-        FacetInfo = self.DicoImager[iFacet]
-        return ClassDDEGridMachine.ClassDDEGridMachine(
-            self.GD,
-            FacetInfo["DicoConfigGM"]["ChanFreq"],
-            FacetInfo["DicoConfigGM"]["NPix"],
-            FacetInfo["lmShift"],
-            iFacet, self.SpheNorm, self.VS.NFreqBands,
-            self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-            self.VS.StokesConverter.RequiredStokesProductsIds(),
-            **kw)
 
     def _initcf_worker (self, iFacet, facet_dict, cachepath, cachevalid):
         """Worker method of InitParal"""
@@ -634,7 +614,7 @@ class ClassFacetMachine():
                     facet_dict[key] = value
                 # validate dict
                 ClassDDEGridMachine.ClassDDEGridMachine.verifyCFDict(facet_dict, self.GD["CF"]["Nw"])
-                return "cached"
+                return "cached",path,iFacet
             except:
                 print>>log,traceback.format_exc()
                 print>>log, "Error loading %s, will re-generate"%path
@@ -662,15 +642,44 @@ class ClassFacetMachine():
         sw = ModFFTW.ConvolveGaussianFFTW(sw, CellSizeRad=1, GaussPars=[GaussPars])
         sw = sw.reshape((Npix, Npix))
         sw /= np.max(sw)
+        # Will speedup degridding
+        sw[sw<1e-3]=0.
         facet_dict["SW"] = sw
 
         # Initialize a grid machine per iFacet, this will implicitly compute wterm and Sphe
         self._createGridMachine(iFacet, cf_dict=facet_dict, compute_cf=True)
 
-        # save cache
-        np.savez(file(path, "w"), **facet_dict)
-        return "compute"
+        # # save cache
+        # DoPrintErr=False
+        # while True:
+        #     try:
+        #         np.savez(file(path, "w"), **facet_dict)
+        #         if DoPrintErr:
+        #             print>>log,ModColor.Str("  ok could save %s"%path,col="green")
+        #         break
+        #     except:
+        #         import time
+        #         DoPrintErr=True
+        #         print>>log,ModColor.Str("Failed to save %s"%path)
+        #         time.sleep(1.)
+        return "compute",path, iFacet
 
+    def awaitInitCompletion (self):
+        if not self.IsDDEGridMachineInit:
+            workers_res=APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
+            self._CF.reload()
+            # mark cache as safe
+            for res in workers_res:
+                Type,path,iFacet=res
+                if Type=="compute":
+                    #print iFacet
+                    facet_dict=self._CF[iFacet]
+                    d={}
+                    for key in facet_dict.keys():
+                        d[key]=facet_dict[key]
+                    np.savez(file(path, "w"), **d)
+            self.VS.maincache.saveCache(self._cf_cachename)
+            self.IsDDEGridMachineInit = True
 
     def setCasaImage(self, ImageName=None, Shape=None, Freqs=None, Stokes=["I"]):
         if ImageName is None:
@@ -680,6 +689,19 @@ class ClassFacetMachine():
             Shape = self.OutImShape
         self.CasaImage = ClassCasaImage.ClassCasaimage(
             ImageName, Shape, self.Cell, self.MainRaDec, Freqs=Freqs, Stokes=Stokes)
+
+    def _createGridMachine(self, iFacet, **kw):
+        """Helper method for workers: creates a GridMachine with the given extra keyword arguments"""
+        FacetInfo = self.DicoImager[iFacet]
+        return ClassDDEGridMachine.ClassDDEGridMachine(
+            self.GD,
+            FacetInfo["DicoConfigGM"]["ChanFreq"],
+            FacetInfo["DicoConfigGM"]["NPix"],
+            FacetInfo["lmShift"],
+            iFacet, self.SpheNorm, self.VS.NFreqBands,
+            self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+            self.VS.StokesConverter.RequiredStokesProductsIds(),
+            **kw)
 
     def ToCasaImage(self, ImageIn, Fits=True, ImageName=None,
                     beam=None, beamcube=None, Freqs=None, Stokes=["I"]):
@@ -1100,6 +1122,8 @@ class ClassFacetMachine():
         pBAR = ProgressBar(Title="Glue facets")
         NFacets=len(self.DicoImager.keys())
         pBAR.render(0, NFacets)
+
+        numexpr.set_num_threads(self.GD["Parallel"]["NCPU"])
 
         for iFacet in self.DicoImager.keys():
 

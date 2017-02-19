@@ -26,15 +26,18 @@ import scipy.special
 import copy
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
+from DDFacet.ToolsDir import ModFFTW
 
 class ClassImageNoiseMachine():
-    def __init__(self,GD):
+    def __init__(self,GD,ExternalModelMachine=None):
         self.GD=GD
         
         self.NoiseMap=None
         self.NoiseMapRestored=None
         self.NoiseMapReShape=None
         self._id_InputMap=None
+        self.ExternalModelMachine=ExternalModelMachine
+
 
     def setMainCache(self,MainCache):
         self.MainCache=MainCache
@@ -88,9 +91,12 @@ class ClassImageNoiseMachine():
         # self.NoiseMapReShape=self.giveMinStatNoiseMap(DicoResidual["MeanImage"])
 
         if self.GD["Noise"]["BrutalHMP"]:
-            self.StatImage=self.giveBrutalRestored(DicoResidual)
+            self.giveBrutalRestored(DicoResidual)
+            self.FluxImage=self.ModelConv
+            self.StatImage=self.Restored
         else:
             self.StatImage=DicoResidual["MeanImage"]
+            self.FluxImage=DicoResidual["MeanImage"]
         self.NoiseMapReShape=self.giveMinStatNoiseMap(self.StatImage)
         return self.NoiseMapReShape
 
@@ -107,33 +113,42 @@ class ClassImageNoiseMachine():
         self.Orig_Dirty=self.DicoDirty["ImagData"].copy()
         GD=copy.deepcopy(self.GD)
         # take any reference frequency - doesn't matter
-        self.RefFreq=np.mean(self.DicoVariablePSF["freqs"][0])
+        #self.RefFreq=np.mean(self.DicoVariablePSF["freqs"][0])
+        self.RefFreq=self.ExternalModelMachine.RefFreq
         self.GD=GD
         #self.GD["Parallel"]["NCPU"]=1
         #self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
         self.GD["HMP"]["Alpha"]=[0,0,1]
         self.GD["Deconv"]["Mode"]="HMP"
-        self.GD["Deconv"]["CycleFactor"]=0
-        self.GD["Deconv"]["PeakFactor"]=0.0
-        self.GD["Deconv"]["Gain"]=.5
-        self.GD["Deconv"]["AllowNegative"]=True
+        #self.GD["Deconv"]["CycleFactor"]=0
+        #self.GD["Deconv"]["PeakFactor"]=0.0
         self.GD["Deconv"]["PSFBox"]="full"
         self.GD["Deconv"]["MaxMinorIter"]=10000
         self.GD["Deconv"]["RMSFactor"]=3.
-        #self.GD["HMP"]["Scales"]=[0,1,2,4,8]
-        self.GD["HMP"]["Scales"]=[0]
+        #self.GD["HMP"]["Scales"]=[0]
         self.GD["HMP"]["Ratios"]=[]
         #self.GD["MultiScale"]["Ratios"]=[]
         self.GD["HMP"]["NTheta"]=4
+
+        
+        # self.GD["Deconv"]["AllowNegative"]=False
+        # self.GD["HMP"]["Scales"]=[0,1,2,4,8,16,32,48,64,96,128]
+        # self.GD["HMP"]["SolverMode"]="NNLS"
+        # self.GD["HMP"]["Support"]=91
+        # self.GD["HMP"]["Taper"]=31
+        # self.GD["Deconv"]["Gain"]=.3
+
+        self.GD["HMP"]["SolverMode"]="PI"
+        self.GD["HMP"]["Scales"]=[0]
+        self.GD["Deconv"]["Gain"]=.1
+        
         
         if self.NoiseMapReShape is not None:
             print>>log,"Deconvolving on SNR map"
             self.GD["Deconv"]["RMSFactor"]=0.
-            self.GD["Deconv"]["PNRStop"]=10.
             
         #self.GD["HMP"]["AllowResidIncrease"]=False
-        #self.GD["HMP"]["SolverMode"]="NNLS"
-        self.GD["HMP"]["SolverMode"]="PI"
+        #self.GD["HMP"]["SolverMode"]="PI"
         DicoVariablePSF=self.DicoVariablePSF
         self.NFreqBands=len(DicoVariablePSF["freqs"])
         MinorCycleConfig=dict(self.GD["Deconv"])
@@ -153,12 +168,25 @@ class ClassImageNoiseMachine():
                                                                                CacheFileName="HMP_Masking",
                                                                                **self.MinorCycleConfig)
         
-
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1])
+
         if self.NoiseMapReShape is not None:
             self.DeconvMachine.setNoiseMap(self.NoiseMapReShape)
+
+        # # #########################
+        # # debug
+        # MaskImage=image("image_dirin_SSD_test.dirty.fits.mask.fits").getdata()
+        # nch,npol,_,_=MaskImage.shape
+        # MaskArray=np.zeros(MaskImage.shape,np.bool8)
+        # for ch in range(nch):
+        #     for pol in range(npol):
+        #         MaskArray[ch,pol,:,:]=np.bool8(MaskImage[ch,pol].T[::-1].copy())[:,:]
+        # self.DeconvMachine.setMask(np.bool8(1-MaskArray))
+        # # #########################
+
         self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
         self.DeconvMachine.updateRMS()
+
         # ModConstructor = ClassModModelMachine(self.GD)
         # ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
         # #print "ModelMachine"
@@ -176,39 +204,53 @@ class ClassImageNoiseMachine():
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
 
         print>>log,"  Getting model image..."
-        ModelImage=ModelMachine.GiveModelImage()[0,0]
+        Model=ModelMachine.GiveModelImage(DoAbs=True)
+        if "Comp" in self.ExternalModelMachine.DicoSMStacked.keys():
+            Model+=np.abs(self.ExternalModelMachine.GiveModelImage())
+        ModelImage=Model[0,0]
 
         print>>log,"  Convolving..."
         from DDFacet.ToolsDir import Gaussian
         
 
-        Sig_rad=np.max(self.DicoVariablePSF["EstimatesAvgPSF"][1][0:2])
-        Sig_pix=Sig_rad/self.DicoDirty["ImageInfo"]["CellSizeRad"]
-        Sig_pix=np.max([1,Sig_pix])#*2
-        n_pix=int(Sig_pix*4)
-        if n_pix%2==0: n_pix+=1
+        # Sig_rad=np.max(self.DicoVariablePSF["EstimatesAvgPSF"][1][0:2])
+        # Sig_pix=Sig_rad/self.DicoDirty["ImageInfo"]["CellSizeRad"]
+        # Sig_pix=np.max([1,Sig_pix])#*2
+        # n_pix=int(Sig_pix*4)
+        # if n_pix%2==0: n_pix+=1
 
-        _,_,G=Gaussian.GaussianSymetric(Sig_pix,n_pix)
-
-
-        from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
-
-        N1=G.shape[0]
-        N0x,N0y=ModelImage.shape
-        indx,indy=np.where(ModelImage!=0)
-        ModelConv=np.zeros_like(ModelImage)
-        for iComp in range(indx.size):
-            xc,yc=indx[iComp],indy[iComp]
-            Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
-            x0d,x1d,y0d,y1d=Aedge
-            x0p,x1p,y0p,y1p=Bedge
-            ModelConv[x0d:x1d,y0d:y1d]+=G[x0p:x1p,y0p:y1p]*ModelImage[xc,yc]
-
-#        ModelConv=scipy.signal.convolve2d(ModelImage,G,mode="same")
+        # _,_,G=Gaussian.GaussianSymetric(Sig_pix,n_pix)
 
 
+        # from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 
-        self.Restored=ModelConv.reshape(self.DicoDirty["MeanImage"].shape)+self.DicoDirty["MeanImage"]
+        # N1=G.shape[0]
+        # N0x,N0y=ModelImage.shape
+        # indx,indy=np.where(ModelImage!=0)
+        # ModelConv=np.zeros_like(ModelImage)
+        # for iComp in range(indx.size):
+        #     xc,yc=indx[iComp],indy[iComp]
+        #     Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(N0x,N0y),(N1/2,N1/2),(N1,N1))
+        #     x0d,x1d,y0d,y1d=Aedge
+        #     x0p,x1p,y0p,y1p=Bedge
+        #     ModelConv[x0d:x1d,y0d:y1d]+=G[x0p:x1p,y0p:y1p]*ModelImage[xc,yc]
+            
+        # # ModelConv=scipy.signal.convolve2d(ModelImage,G,mode="same")
+
+
+        ModelConv=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.DicoDirty["ImageInfo"]["CellSizeRad"],
+                                           GaussPars=[self.DicoVariablePSF["EstimatesAvgPSF"][1]])
+
+        #GaussPar=[i*5 for i in self.DicoVariablePSF["EstimatesAvgPSF"][1]]
+        #ModelConv+=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.DicoDirty["ImageInfo"]["CellSizeRad"],
+        #                                    GaussPars=[GaussPar])
+
+
+        self.ModelConv=ModelConv.reshape(self.DicoDirty["MeanImage"].shape)
+
+
+
+        self.Restored=self.ModelConv+self.DicoDirty["MeanImage"]
 
         self.DicoDirty["MeanImage"][...]=self.Orig_MeanDirty[...]
         self.DicoDirty["ImagData"][...]=self.Orig_Dirty[...]
