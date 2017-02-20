@@ -248,6 +248,7 @@ class ClassIslandDistanceMachine():
             pBAR.render(NDone,NJobs)
 
     def giveEdgesIslands(self,ListIslands):
+        print>>log,"  extracting Island edges"
         ListEdgesIslands=[]
         _,_,nx,_=self._MaskArray.shape
         #Ed=np.zeros_like(self._MaskArray)
@@ -278,43 +279,46 @@ class ClassIslandDistanceMachine():
         print>>log,"  Convexify islands"
         ListConvexIslands=[]
         for Island in ListIslands:
-            points=np.array(Island)
-            hull = ConvexHull(points)
-            Contour = np.array(
-                [hull.points[hull.vertices, 0],
-                 hull.points[hull.vertices, 1]])
-            poly2 = Contour.T
+            if len(Island)<10:
+                ListConvexIslands.append(Island)
+            else:
+                points=np.array(Island)
+                hull = ConvexHull(points)
+                Contour = np.array(
+                    [hull.points[hull.vertices, 0],
+                     hull.points[hull.vertices, 1]])
+                poly2 = Contour.T
+                
+                x,y=points.T
+                x0,x1=x.min(),x.max()
+                y0,y1=y.min(),y.max()
+                
+                xx,yy=np.mgrid[x0:x1:(x1-x0+1)*1j,y0:y1:(y1-y0+1)*1j]
+                xx=np.int16(xx)
+                yy=np.int16(yy)
+                
+                pp=np.zeros((poly2.shape[0]+1,2),dtype=poly2.dtype)
+                pp[0:-1,:]=poly2[:,:]
+                pp[-1,:]=poly2[0,:]
+                mpath = Path(pp)
+                
+                p_grid=np.zeros((xx.size,2),np.int16)
+                p_grid[:,0]=xx.ravel()
+                p_grid[:,1]=yy.ravel()
+                mask_flat = mpath.contains_points(p_grid)
             
-            x,y=points.T
-            x0,x1=x.min(),x.max()
-            y0,y1=y.min(),y.max()
-            
-            xx,yy=np.mgrid[x0:x1:(x1-x0+1)*1j,y0:y1:(y1-y0+1)*1j]
-            xx=np.int16(xx)
-            yy=np.int16(yy)
-            
-            pp=np.zeros((poly2.shape[0]+1,2),dtype=poly2.dtype)
-            pp[0:-1,:]=poly2[:,:]
-            pp[-1,:]=poly2[0,:]
-            mpath = Path(pp)
-            
-            p_grid=np.zeros((xx.size,2),np.int16)
-            p_grid[:,0]=xx.ravel()
-            p_grid[:,1]=yy.ravel()
-            mask_flat = mpath.contains_points(p_grid)
-            
-            #x,y=np.array(Island).T
-            #xedge,yedge=Contour
-            IslandOut=np.array([xx.ravel()[mask_flat],yy.ravel()[mask_flat]]).T.tolist()
-            ListConvexIslands.append(IslandOut)
-            # import pylab
-            # pylab.clf()
-            # pylab.scatter(xx.ravel(),yy.ravel(),marker="+",c="red")
-            # pylab.scatter(xx.ravel()[mask_flat],yy.ravel()[mask_flat],marker="o",c="green")
-            # pylab.scatter(x,y)
-            # pylab.plot(xedge,yedge)
-            # pylab.draw()
-            # pylab.show(False)
+                IslandOut=np.array([xx.ravel()[mask_flat],yy.ravel()[mask_flat]]).T.tolist()
+                ListConvexIslands.append(IslandOut)
+                #x,y=np.array(Island).T
+                #xedge,yedge=Contour
+                # import pylab
+                # pylab.clf()
+                # pylab.scatter(xx.ravel(),yy.ravel(),marker="+",c="red")
+                # pylab.scatter(xx.ravel()[mask_flat],yy.ravel()[mask_flat],marker="o",c="green")
+                # pylab.scatter(x,y)
+                # pylab.plot(xedge,yedge)
+                # pylab.draw()
+                # pylab.show(False)
         return ListConvexIslands
 
     def calcDistanceMatrixMinParallel(self,ListIslands,Parallel=True):
