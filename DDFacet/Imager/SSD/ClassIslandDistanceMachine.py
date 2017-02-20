@@ -7,6 +7,9 @@ from DDFacet.Other.progressbar import ProgressBar
 from SkyModel.PSourceExtract import ClassIslands
 from SkyModel.PSourceExtract import ClassIncreaseIsland
 from DDFacet.Array import NpShared
+from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
+from scipy.spatial import ConvexHull
+from matplotlib.path import Path
 
 class ClassIslandDistanceMachine():
     def __init__(self,GD,MaskArray,PSFServer,DicoDirty,IdSharedMem=""):
@@ -244,6 +247,76 @@ class ClassIslandDistanceMachine():
 
             pBAR.render(NDone,NJobs)
 
+    def giveEdgesIslands(self,ListIslands):
+        ListEdgesIslands=[]
+        _,_,nx,_=self._MaskArray.shape
+        #Ed=np.zeros_like(self._MaskArray)
+        for Island in ListIslands:
+            x,y=np.array(Island).T
+            EdgesIsland=[]
+            for iPix in range(x.size):
+                xc,yc=x[iPix],y[iPix]
+                Aedge,Bedge=GiveEdgesDissymetric((xc,yc),(nx,nx),(1,1),(3,3))
+                x0d,x1d,y0d,y1d=Aedge
+                m=self._MaskArray[0,0][x0d:x1d,y0d:y1d]
+                if 1 in m:
+                    EdgesIsland.append((xc,yc))
+                    #Ed[0,0,xc,yc]=1
+            ListEdgesIslands.append(EdgesIsland)
+            
+        # import pylab
+        # ax=pylab.subplot(1,2,1)
+        # pylab.imshow(self._MaskArray[0,0],interpolation="nearest")
+        # pylab.subplot(1,2,2,sharex=ax,sharey=ax)
+        # pylab.imshow(Ed[0,0],interpolation="nearest")
+        # pylab.draw()
+        # pylab.show(False)
+
+        return ListEdgesIslands
+
+    def ConvexifyIsland(self,ListIslands):
+        print>>log,"  Convexify islands"
+        ListConvexIslands=[]
+        for Island in ListIslands:
+            points=np.array(Island)
+            hull = ConvexHull(points)
+            Contour = np.array(
+                [hull.points[hull.vertices, 0],
+                 hull.points[hull.vertices, 1]])
+            poly2 = Contour.T
+            
+            x,y=points.T
+            x0,x1=x.min(),x.max()
+            y0,y1=y.min(),y.max()
+            
+            xx,yy=np.mgrid[x0:x1:(x1-x0+1)*1j,y0:y1:(y1-y0+1)*1j]
+            xx=np.int16(xx)
+            yy=np.int16(yy)
+            
+            pp=np.zeros((poly2.shape[0]+1,2),dtype=poly2.dtype)
+            pp[0:-1,:]=poly2[:,:]
+            pp[-1,:]=poly2[0,:]
+            mpath = Path(pp)
+            
+            p_grid=np.zeros((xx.size,2),np.int16)
+            p_grid[:,0]=xx.ravel()
+            p_grid[:,1]=yy.ravel()
+            mask_flat = mpath.contains_points(p_grid)
+            
+            #x,y=np.array(Island).T
+            #xedge,yedge=Contour
+            IslandOut=np.array([xx.ravel()[mask_flat],yy.ravel()[mask_flat]]).T.tolist()
+            ListConvexIslands.append(IslandOut)
+            # import pylab
+            # pylab.clf()
+            # pylab.scatter(xx.ravel(),yy.ravel(),marker="+",c="red")
+            # pylab.scatter(xx.ravel()[mask_flat],yy.ravel()[mask_flat],marker="o",c="green")
+            # pylab.scatter(x,y)
+            # pylab.plot(xedge,yedge)
+            # pylab.draw()
+            # pylab.show(False)
+        return ListConvexIslands
+
     def calcDistanceMatrixMinParallel(self,ListIslands,Parallel=True):
         NIslands=len(ListIslands)
         self.D=np.zeros((NIslands,NIslands),np.float32)
@@ -259,11 +332,12 @@ class ClassIslandDistanceMachine():
         workerlist=[]
         NCPU=self.NCPU
 
+        ListEdgeIslands=self.giveEdgesIslands(ListIslands)
 
         for ii in range(NCPU):
             W = WorkerDistance(work_queue,
                                result_queue,
-                               ListIslands,
+                               ListEdgeIslands,
                                self.IdSharedMem)
             workerlist.append(W)
             if Parallel:

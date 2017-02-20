@@ -175,7 +175,6 @@ class ClassImageDeconvMachine():
                                                                                     self.DicoDirty,
                                                                                     IdSharedMem=self.IdSharedMem)
         ListIslands=IslandDistanceMachine.SearchIslands(Threshold)
-
         # FluxIslands=[]
         # for iIsland in range(len(ListIslands)):
         #     x,y=np.array(ListIslands[iIsland]).T
@@ -218,6 +217,7 @@ class ClassImageDeconvMachine():
         ListIslands=ListIslandsFiltered
 
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
+        ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
         self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
         
         self.ListIslands=ListIslands
