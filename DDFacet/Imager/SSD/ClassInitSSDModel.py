@@ -488,6 +488,7 @@ class WorkerInitMSMF(multiprocessing.Process):
         while not self.kill_received and not self.work_queue.empty():
             
             DicoJob = self.work_queue.get()
+            #self.initIsland(DicoJob)
             try:
                 self.initIsland(DicoJob)
             except:

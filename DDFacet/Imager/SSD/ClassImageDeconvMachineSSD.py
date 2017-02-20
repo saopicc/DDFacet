@@ -215,11 +215,14 @@ class ClassImageDeconvMachine():
         # #############################
         print>>log,"  selected %i islands [out of %i] with peak flux > %.3g Jy"%(len(ListIslandsFiltered),len(ListIslands),Threshold)
         ListIslands=ListIslandsFiltered
+        ListIslands=[np.load("errIsland_000000.keep.npy").tolist()]
 
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
         ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
-        self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
         
+
+        self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
+
         self.ListIslands=ListIslands
         self.NIslands=len(self.ListIslands)
 
@@ -277,8 +280,9 @@ class ClassImageDeconvMachine():
 
 
 
-
         print>>log,"  selected %i islands larger that %i pixels for HMP initialisation"%(np.count_nonzero(ListDoMSMFIslandsInit),self.GD["SSDClean"]["MinSizeInitHMP"])
+
+        
 
 
         

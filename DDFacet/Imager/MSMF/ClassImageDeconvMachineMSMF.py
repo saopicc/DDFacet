@@ -425,12 +425,12 @@ class ClassImageDeconvMachine():
         # vmin,vmax=self._CubeDirty.min(),self._CubeDirty.max()
         # pylab.imshow(self._MeanDirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)
         # pylab.colorbar()
-        # pylab.subplot(1,3,2)
+        # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
         # pylab.imshow(np.mean(LocalSM,axis=0)[0,x0p:x1p,y0p:y1p],interpolation="nearest",vmin=vmin,vmax=vmax)
         # pylab.colorbar()
         # pylab.draw()
-        # #print "Fpol02",Fpol
-        # # NpParallel.A_add_B_prod_factor((self.Dirty),LocalSM,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
+        # # #print "Fpol02",Fpol
+        # # # NpParallel.A_add_B_prod_factor((self.Dirty),LocalSM,Aedge,Bedge,factor=float(factor),NCPU=self.NCPU)
 
 # <<<<<<< HEAD
 
@@ -448,21 +448,51 @@ class ClassImageDeconvMachine():
             ## W=np.float32(self.DicoDirty["WeightChansImages"])
             ## self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
             # this is faster, a little, as it avoids making an intermediate array
-            self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0, out=self._MeanDirty[0,:,x0d:x1d,y0d:y1d])
+            # self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0, out=self._MeanDirty[0,:,x0d:x1d,y0d:y1d])
             ## this is slower:
+            self._MeanDirty[0,:,x0d:x1d,y0d:y1d] = self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0)
+
+
+            # np.save("_MeanDirty",self._MeanDirty)
+            # np.save("_CubeDirty",self._CubeDirty)
+            # stop
+            # AA=self._MeanDirty[0,:,x0d:x1d,y0d:y1d].copy()
+
+            # self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0, out=self._MeanDirty[0,:,x0d:x1d,y0d:y1d])
+            # AA0=self._MeanDirty[0,:,x0d:x1d,y0d:y1d].copy()
+
+            # self._MeanDirty[0,:,x0d:x1d,y0d:y1d]=AA[:,:,:]
+
             # self._MeanDirty[0,:,x0d:x1d,y0d:y1d] = self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0)
+            # AA1=self._MeanDirty[0,:,x0d:x1d,y0d:y1d].copy()
+            # pylab.clf()
+            # pylab.subplot(1,3,1)
+            # pylab.imshow(AA0[0],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.subplot(1,3,2)
+            # pylab.imshow(AA1[0],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.subplot(1,3,3)
+            # pylab.imshow((AA0-AA1)[0],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.draw()
+            # pylab.show(False)
+            # stop
+            
+
 
         if self._PeakSearchImage is not self._MeanDirty:
             sh=self._MeanDirty.shape
             self._PeakSearchImage[:,:,x0d:x1d,y0d:y1d]=self._MeanDirty[:,:,x0d:x1d,y0d:y1d]/self._NoiseMap[:,:,x0d:x1d,y0d:y1d]
 
         # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-        # pylab.imshow(self._MeanDirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest")#,vmin=vmin,vmax=vmax)
+        # pylab.imshow(self._MeanDirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)#,vmin=vmin,vmax=vmax)
         # pylab.colorbar()
         # pylab.draw()
         # pylab.show(False)
+        # pylab.pause(0.1)
         # # print Aedge
-        # # print Bedge
+        # #unc print Bedge
         # # print self.Dirty[0,x0d:x1d,y0d:y1d]
 
     def updateRMS(self):
@@ -531,6 +561,7 @@ class ClassImageDeconvMachine():
             CurrentNegMask=None
         
         x,y,MaxDirty=NpParallel.A_whereMax(self._PeakSearchImage,NCPU=self.NCPU,DoAbs=DoAbs,Mask=CurrentNegMask)
+        
 
         #x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty.copy(),NCPU=1,DoAbs=DoAbs,Mask=self._MaskArray.copy())
         #A=self._MeanDirty.copy()
@@ -602,6 +633,7 @@ class ClassImageDeconvMachine():
 
         x, y, ThisFlux = NpParallel.A_whereMax(
             self._PeakSearchImage, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
+        
         # #print x,y
         # print>>log, "npp: %d %d %g"%(x,y,ThisFlux)
         # xy = ma.argmax(ma.masked_array(abs(self._MeanDirty), self._MaskArray))
@@ -641,6 +673,7 @@ class ClassImageDeconvMachine():
                 # x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
                 x, y, ThisFlux = NpParallel.A_whereMax(
                     self._PeakSearchImage, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
+
 
                 #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y); ThisFlux=self._MeanDirty[0,0,x,y]
                 self.GainMachine.SetFluxMax(ThisFlux)

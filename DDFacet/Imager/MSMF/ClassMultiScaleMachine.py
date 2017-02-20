@@ -440,6 +440,10 @@ class ClassMultiScaleMachine():
             self.WeightWidth = np.max([6.,np.max(Scales)])
         if not self.SupWeightWidth:
             self.SupWeightWidth = np.max([3.*self.WeightWidth,15])
+
+        if self.WeightWidth%2==0: self.WeightWidth+=1
+        if self.SupWeightWidth%2==0: self.SupWeightWidth+=1
+
         if verbose:
             print>>log,"  using HMP taper width %d, support size %d"%(self.WeightWidth, self.SupWeightWidth)
 
@@ -641,6 +645,7 @@ class ClassMultiScaleMachine():
         x0d,x1d,y0d,y1d=Aedge
         x0s,x1s,y0s,y1s=Bedge
         nxs,nys=x1s-x0s,y1s-y0s
+        dirtyNormIm=self._Dirty[:,:,x0d:x1d,y0d:y1d]
         
         if (nxs!=self.DicoBasisMatrix["CubePSF"].shape[-2])|(nys!=self.DicoBasisMatrix["CubePSF"].shape[-1]):
             DicoBasisMatrix=self.GiveBasisMatrix((x0s,x1s,y0s,y1s))
@@ -651,7 +656,6 @@ class ClassMultiScaleMachine():
 
         nxp,nyp=x1s-x0s,y1s-y0s
         T.timeit("0")
-        dirtyNormIm=self._Dirty[:,:,x0d:x1d,y0d:y1d]
         #MeanData=np.sum(np.sum(dirtyNorm*WCubePSF,axis=-1),axis=-1)
         #MeanData=MeanData.reshape(nchan,1,1)
         #dirtyNorm=dirtyNorm-MeanData.reshape((nchan,1,1,1))
@@ -940,7 +944,7 @@ class ClassMultiScaleMachine():
                     #     F=(S0e-ali*S1e)/(al-ali)
                     
                     ThisDirty=ThisPSF*F.reshape((-1,1,1))
-                    dirtyVecSub=d-ThisDirty
+                    dirtyVecSub[:,x0d:x1d,y0d:y1d]=d[:,x0d:x1d,y0d:y1d]-ThisDirty
                     dirtyVec=dirtyVecSub.reshape((-1,1))
                     
 
