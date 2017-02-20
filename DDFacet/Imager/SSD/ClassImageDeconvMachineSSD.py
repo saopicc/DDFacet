@@ -215,7 +215,7 @@ class ClassImageDeconvMachine():
         # #############################
         print>>log,"  selected %i islands [out of %i] with peak flux > %.3g Jy"%(len(ListIslandsFiltered),len(ListIslands),Threshold)
         ListIslands=ListIslandsFiltered
-        ListIslands=[np.load("errIsland_000000.keep.npy").tolist()]
+        #ListIslands=[np.load("errIsland_000000.keep.npy").tolist()]
 
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
         ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
