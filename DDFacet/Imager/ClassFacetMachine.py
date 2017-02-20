@@ -858,7 +858,7 @@ class ClassFacetMachine():
                 SPhe = SPhe.reshape((1, 1, nx, nx)).real
                 DicoImages["Facets"].addSubdict(iFacet)
                 DicoImagesFacets[iFacet] = {}
-                DicoImagesFacets[iFacet]["PSF"] = self._facet_grids[iFacet].real
+                DicoImagesFacets[iFacet]["PSF"] = self._facet_grids[iFacet].real.copy()
                 DicoImagesFacets[iFacet]["PSF"] /= SPhe
                 #DicoImages[iFacet]["PSF"][SPhe < 1e-2] = 0
                 DicoImages["Facets"][iFacet]["l0m0"] = self.DicoImager[iFacet]["l0m0"]

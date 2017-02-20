@@ -750,7 +750,8 @@ void gridderWPol(PyArrayObject *grid,
       // ################################################
 
 
-	
+      //uvwScale_p[0]=0;
+      //uvwScale_p[1]=0;
 	
 
       if (gridChan >= 0  &&  gridChan < nGridChan) {
