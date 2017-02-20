@@ -147,7 +147,7 @@ class ClassImageNoiseMachine():
             print>>log,"Deconvolving on SNR map"
             self.GD["Deconv"]["RMSFactor"]=0.
             
-        #self.GD["HMP"]["AllowResidIncrease"]=False
+        self.GD["HMP"]["AllowResidIncrease"]=False
         #self.GD["HMP"]["SolverMode"]="PI"
         DicoVariablePSF=self.DicoVariablePSF
         self.NFreqBands=len(DicoVariablePSF["freqs"])

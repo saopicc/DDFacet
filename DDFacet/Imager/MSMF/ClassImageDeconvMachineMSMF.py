@@ -654,7 +654,7 @@ class ClassImageDeconvMachine():
 
                 T.timeit("max0")
                 if not self.GD["HMP"]["AllowResidIncrease"]:
-                    if np.abs(ThisFlux)>np.abs(PreviousFlux):
+                    if np.abs(ThisFlux)>1.1*np.abs(PreviousFlux):
                         print>>log, ModColor.Str(
                             "    [iter=%i] peak of %.3g Jy higher than previous one of %.3g Jy " %
                             (i, ThisFlux, PreviousFlux), col="red")
