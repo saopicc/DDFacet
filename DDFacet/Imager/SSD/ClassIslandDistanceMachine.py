@@ -279,9 +279,7 @@ class ClassIslandDistanceMachine():
         print>>log,"  Convexify islands"
         ListConvexIslands=[]
         for Island in ListIslands:
-            if len(Island)<10:
-                ListConvexIslands.append(Island)
-            else:
+            try:
                 points=np.array(Island)
                 hull = ConvexHull(points)
                 Contour = np.array(
@@ -319,6 +317,9 @@ class ClassIslandDistanceMachine():
                 # pylab.plot(xedge,yedge)
                 # pylab.draw()
                 # pylab.show(False)
+            except:
+                ListConvexIslands.append(Island)
+
         return ListConvexIslands
 
     def calcDistanceMatrixMinParallel(self,ListIslands,Parallel=True):
