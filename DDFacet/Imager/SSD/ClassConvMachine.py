@@ -309,8 +309,8 @@ class ClassConvMachine():
         T.timeit("2")
         for ich in range(NFreqBand):
             for ipol in range(npol):
-                #Conv[ich,ipol]=scipy.signal.fftconvolve(zAsq[ich,ipol], SubPSF[ich,ipol], mode='same')
-                Conv[ich,ipol]=ModFFTW.ConvolveFFTW2D(zAsq[ich,ipol], SubPSF[ich,ipol])
+                Conv[ich,ipol]=scipy.signal.fftconvolve(zAsq[ich,ipol], SubPSF[ich,ipol], mode='same')
+                #Conv[ich,ipol]=ModFFTW.ConvolveFFTW2D(zAsq[ich,ipol], SubPSF[ich,ipol])
                 
                 # import pylab
                 # pylab.subplot(1,3,1)
