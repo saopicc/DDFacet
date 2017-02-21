@@ -745,28 +745,32 @@ class ClassFacetMachine():
         nx = SPhe.shape[0]
         SPhe = SPhe.reshape((1, 1, nx, nx)).real
         fd = facetdict.addSubdict(iFacet)
-        fd["PSF"] = facet_grids[iFacet].real
-        fd["PSF"] /= SPhe
+        ## @cyriltasse reported a problem with this:
+        # fd["PSF"] = facet_grids[iFacet].real
+        ## so do this instead
+        psf = fd.addSharedArray("PSF", facet_grids[iFacet].shape, np.float32)
+        psf[...] = facet_grids[iFacet].real
+        psf /= SPhe
         # DicoImages[iFacet]["PSF"][SPhe < 1e-2] = 0
         fd["l0m0"] = self.DicoImager[iFacet]["l0m0"]
         fd["pixCentral"] = self.DicoImager[iFacet]["pixCentral"]
         fd["lmSol"] = self.DicoImager[iFacet]["lmSol"]
 
-        nch, npol, n, n = fd["PSF"].shape
+        nch, npol, n, n = psf.shape
         PSFChannel = np.zeros((nch, npol, n, n), self.stitchedType)
         for ch in xrange(nch):
-            fd["PSF"][ch][SPhe[0] < 1e-2] = 0
-            fd["PSF"][ch][0] = fd["PSF"][ch][0].T[::-1, :]
+            psf[ch][SPhe[0] < 1e-2] = 0
+            psf[ch][0] = psf[ch][0].T[::-1, :]
             SumJonesNorm = sumjonesnorm[ch]
             # normalize to bring back transfer
             # functions to approximate convolution
-            fd["PSF"][ch] /= np.sqrt(SumJonesNorm)
+            psf[ch] /= np.sqrt(SumJonesNorm)
             for pol in xrange(npol):
                 ThisSumWeights = sumweights[ch][pol]
                 # normalize the response per facet
                 # channel if jones corrections are enabled
-                fd["PSF"][ch][pol] /= ThisSumWeights
-            PSFChannel[ch, :, :, :] = fd["PSF"][ch][:, :, :]
+                psf[ch][pol] /= ThisSumWeights
+            PSFChannel[ch, :, :, :] = psf[ch][:, :, :]
 
         # weight each of the cube slices and average
         fd["MeanPSF"]  = np.sum(PSFChannel * W, axis=0).reshape((1, npol, n, n))
