@@ -837,8 +837,11 @@ class ClassMS():
 
         # open main table
         table_all = self.GiveMainTable()
-        if not table_all.nrows():
-            raise RuntimeError,"no rows in MS %s, check your Field/DDID/TaQL settings"%(self.MSName)
+        self.empty = not table_all.nrows()
+        if self.empty:
+            return
+            print>>log, ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping"%(self.MSName, self.Field, self.DDID))
+#            raise RuntimeError,"no rows in MS %s, check your Field/DDID/TaQL settings"%(self.MSName)
 
         #print MSname+'/ANTENNA'
         ta=table(table_all.getkeyword('ANTENNA'),ack=False)

@@ -136,6 +136,8 @@ class ClassVisServer():
                 TimeChunkSize=self.TMemChunkSize, ChanSlice=chanslice,
                 GD=self.GD, ResetCache=self.GD["Cache"]["Reset"],
                 DicoSelectOptions = self.DicoSelectOptions)
+            if MS.empty:
+                continue
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
             global_freqs.update(MS.ChanFreq)
