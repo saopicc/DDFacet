@@ -372,6 +372,19 @@ class ClassArrayMethodSSD():
                 workerlist[ii].terminate()
                 workerlist[ii].join()
 
+    def giveDistanceIndiv(self,pop):
+        N=len(pop)
+        D=np.zeros((N,N),np.float32)
+        for i,iIndiv in enumerate(pop):
+            for j,jIndiv in enumerate(pop):
+                D[i,j]=D[j,i]=np.count_nonzero(iIndiv-jIndiv)
+                
+        print D
+        from tsp_solver.greedy import solve_tsp
+        path = solve_tsp( D )
+        for i in path[1::]:
+            print D[i,path[i-1]]/float(len(iIndiv))
+
 
     def GiveFitnessPop(self,pop):
 
@@ -383,7 +396,8 @@ class ClassArrayMethodSSD():
         DicoChi2={}
         NJobs = len(pop)
         NCPU=self.NCPU
-
+        self.giveDistanceIndiv(pop)
+        print "OK"
         for iIndividual,individual in enumerate(pop):
             NpShared.ToShared("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual),individual)
             work_queue.put({"iIndividual":iIndividual,
