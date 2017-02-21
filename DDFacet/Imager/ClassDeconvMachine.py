@@ -873,6 +873,8 @@ class ClassImagerDeconv():
         continue_deconv = True
 
         for iMajor in range(1, NMajor+1):
+            # good to recreate the workers now, to drop their RAM
+            APP.restartWorkers()
             # previous minor loop indicated it has reached bottom? Break out
             if not continue_deconv:
                 break
