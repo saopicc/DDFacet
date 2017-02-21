@@ -487,7 +487,7 @@ void gridderWPol(PyArrayObject *grid,
     }
 
       //int ThisBlockAllFlagged=1;
-      float visChanMean=0.;
+      double visChanMean=0.;
       resetJonesServerCounter();
 
       for (inx=0; inx<NRowThisBlock; inx++) {
@@ -701,12 +701,12 @@ void gridderWPol(PyArrayObject *grid,
       //printf("visChanMean, NVisThisblock: %f %f\n",(float)visChanMean, (float)NVisThisblock);
       visChanMean/=NVisThisblock;
       int ThisGridChan=p_ChanMapping[chStart];
-      float diffChan=visChanMean-ThisGridChan;
+      double diffChan=visChanMean-ThisGridChan;
       if(fabs(diffChan)>1e-6)
       {
-        printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);
+        printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%lf, %i, %lf)\n",visChanMean,ThisGridChan,diffChan);
         for (visChan=chStart; visChan<chEnd; ++visChan)
-            printf("%d ", p_ChanMapping[visChan]);
+            printf("%d ", ThisGridChan-p_ChanMapping[visChan]);
         printf("\n");
       }
       //if(diffChan!=0.){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %20.18f)\n",visChanMean,ThisGridChan,diffChan);}
