@@ -423,9 +423,9 @@ class ZMachine():
             
         import pylab
         pylab.subplot(1,2,1)
-        pylab.imshow(A.real,interpolation="nearest")
+        pylab.imshow(A,interpolation="nearest")
         pylab.subplot(1,2,2)
-        pylab.imshow(zA.real,interpolation="nearest")
+        pylab.imshow(zA,interpolation="nearest")
         pylab.draw()
         pylab.show(False)
         stop
