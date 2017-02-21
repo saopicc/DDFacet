@@ -402,6 +402,22 @@ def ConvolveGaussianFFTW(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=
 
     return Aout
 
+# FFTW version
+def ConvolveFFTW2D(Ain0,Bin0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,out=None):
+    Aout = np.zeros_like(Ain0) if out is None else out
+    Ain=Ain0
+    PSF=Bin0
+    if Normalise:
+        PSF/=np.sum(PSF)
+    PSF = np.fft.ifftshift(PSF)
+    fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=1)#NCPU_global)
+    A = np.fft.ifftshift(Ain)
+    fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=1)#NCPU_global)
+    nfA = fA*fPSF
+    ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=1)#NCPU_global)
+    Aout[:, :] = np.fft.fftshift(ifA)
+    return Aout
+
 ## numpy.fft version
 def ConvolveGaussianNPclassic(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,out=None):
 

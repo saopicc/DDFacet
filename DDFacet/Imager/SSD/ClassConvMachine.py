@@ -5,6 +5,8 @@ log=MyLogger.getLogger("ClassConvMatrix")
 import scipy.signal
 from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
+from DDFacet.ToolsDir import ModFFTW
+from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 
 def test():
     import DDFacet.ToolsDir.Gaussian
@@ -283,6 +285,7 @@ class ClassConvMachine():
         T.timeit("0")
         NFreqBand,npol,N,_=Asq.shape
         zN=2*N+1
+        zN,_=EstimateNpix(float(zN))
         zAsq=np.zeros((NFreqBand,npol,zN,zN),dtype=Asq.dtype)
         zAsq[:,:,zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1]=Asq[:,:,:,:]
         T.timeit("1")
@@ -306,11 +309,27 @@ class ClassConvMachine():
         T.timeit("2")
         for ich in range(NFreqBand):
             for ipol in range(npol):
-                Conv[ich,ipol]=scipy.signal.fftconvolve(zAsq[ich,ipol], SubPSF[ich,ipol], mode='same')
+                #Conv[ich,ipol]=scipy.signal.fftconvolve(zAsq[ich,ipol], SubPSF[ich,ipol], mode='same')
+                Conv[ich,ipol]=ModFFTW.ConvolveFFTW2D(zAsq[ich,ipol], SubPSF[ich,ipol])
+                
+                # import pylab
+                # pylab.subplot(1,3,1)
+                # pylab.imshow(Conv[ich,ipol][zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1],interpolation="nearest")
+                # pylab.subplot(1,3,2)
+                # pylab.imshow(Conv1[ich,ipol][zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1],interpolation="nearest")
+                # pylab.subplot(1,3,3)
+                # pylab.imshow((Conv-Conv1)[ich,ipol][zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1],interpolation="nearest")
+                # pylab.colorbar()
+                # pylab.draw()
+                # pylab.show()
 
         T.timeit("3 [%s]"%str(zAsq.shape))
         A=self.PM.SquareArrayToModel(Conv[:,:,zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1],TypeInOut=(OutMode,OutMode))
         T.timeit("4")
+
+
+
+
 
         if OutMode=="Data":
             NPixOut=self.NPixListData

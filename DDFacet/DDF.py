@@ -48,8 +48,9 @@ import numpy as np
 # # Catch numpy warning
 # np.seterr(all='raise')
 # import warnings
-# with warnings.catch_warnings():
-#     warnings.filterwarnings('error')
+# warnings.filterwarnings('error')
+# #with warnings.catch_warnings():
+# #    warnings.filterwarnings('error')
 # # ##############################
 
 '''
