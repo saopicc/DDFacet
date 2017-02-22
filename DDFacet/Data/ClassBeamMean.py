@@ -28,7 +28,7 @@ from DDFacet.Imager import ModCF
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Array import shared_dict
-
+from scipy.interpolate import griddata
 from DDFacet.Other.AsyncProcessPool import APP
 import copy
 
@@ -59,9 +59,9 @@ class ClassBeamMean():
         self.StackedBeamDict = shared_dict.create("StackedBeamDict")
         for iDir in range(self.NDir):
             sd = self.StackedBeamDict.addSubdict(iDir)
-            sd.addSharedArray("SumJJsq", (self.MS.Nchan,), np.float64)
-            sd.addSharedArray("SumWsq", (self.MS.Nchan,), np.float64)
-
+            sd.addSharedArray("SumJJsq", (self.VS.NFreqBands,), np.float64)
+            sd.addSharedArray("SumWsq", (self.VS.NFreqBands,), np.float64)
+        
         self.DicoJonesMachine={}
         for iMS,MS in enumerate(self.ListMS):
             JonesMachine=ClassJones.ClassJones(self.GD,MS,self.VS.FacetMachine)
@@ -74,11 +74,12 @@ class ClassBeamMean():
         CellSizeRad=self.VS.CellSizeRad
         FOV=nx*CellSizeRad
         npix=self.GD["Beam"]["SmoothNPix"]
-        lm=np.linspace(-FOV/2.,FOV/2.,npix+1)
-        ll=(lm[0:-1]+lm[1::])/2.
-        lmin=ll.min()
-        lmax=ll.max()
+        #lm=np.linspace(-FOV/2.,FOV/2.,npix)
+        #ll=(lm[0:-1]+lm[1::])/2.
+        lmin=-FOV/2.
+        lmax=FOV/2.
         lc,mc=np.mgrid[lmin:lmax:1j*npix,lmin:lmax:1j*npix]
+        self.lBeam,self.mBeam=lc,mc
         iPix,jPix=np.mgrid[0:npix,0:npix]
         self.iPix=iPix.ravel()
         self.jPix=jPix.ravel()
@@ -107,7 +108,7 @@ class ClassBeamMean():
         A1=ThisMSData["A1"]
         flags=ThisMSData["flags"]
         W=ThisMSData["Weights"]
-        
+        ChanToFreqBand=ThisMSData["ChanMapping"]
         beam_times = np.array(JonesMachine.BeamMachine.getBeamSampleTimes(times, quiet=True))
 
         T2=ClassTimeIt.ClassTimeIt()
@@ -184,8 +185,11 @@ class ClassBeamMean():
             SumWsq=np.sum(WW,axis=1)
             #self.SumWsq+=SumWsq
 
-            self.StackedBeamDict[iDir]["SumJJsq"]+=SumWsqThisRange.reshape((self.MS.Nchan,))
-            self.StackedBeamDict[iDir]["SumWsq"]+=SumWsq.reshape((self.MS.Nchan,))
+            for iBand in range(self.VS.NFreqBands):
+                indFreqBand,=np.where(ChanToFreqBand==iBand)
+                if indFreqBand.size==0: continue
+                self.StackedBeamDict[iDir]["SumJJsq"][iBand]+=np.sum(SumWsqThisRange.reshape((self.MS.Nchan,))[indFreqBand])
+                self.StackedBeamDict[iDir]["SumWsq"][iBand]+=np.sum(SumWsq.reshape((self.MS.Nchan,))[indFreqBand])
 
             #print SumWsq,self.SumWsq,self.SumJJsq.shape,J0.shape
             T.timeit("9")
@@ -201,8 +205,8 @@ class ClassBeamMean():
     def Smooth(self):
         #print self.SumWsq
         self.StackedBeamDict.reload()
-        self.SumJJsq=np.zeros((self.npix,self.npix,self.MS.Nchan),np.float64)
-        self.SumWsq=np.zeros((1,self.MS.Nchan),np.float64)
+        self.SumJJsq=np.zeros((self.npix,self.npix,self.VS.NFreqBands),np.float64)
+        self.SumWsq=np.zeros((1,self.VS.NFreqBands),np.float64)
         self.SumWsq[0,:]=self.StackedBeamDict[0]["SumWsq"]
         if np.max(self.StackedBeamDict[0]["SumWsq"])==0:
             return "NoStackedData"
@@ -210,67 +214,92 @@ class ClassBeamMean():
             i,j=self.iPix[iDir],self.jPix[iDir]
             self.SumJJsq[i,j,:]=self.StackedBeamDict[iDir]["SumJJsq"]
 
-        self.SumJJsq/=self.SumWsq.reshape(1,1,self.MS.Nchan)
+        
+
+        self.SumJJsq/=self.SumWsq.reshape(1,1,self.VS.NFreqBands)
         #self.SumJJsq=np.rollaxis(SumJJsq,2)#np.mean(SumJJsq,axis=2)
-        self.SumJJsq=np.mean(self.SumJJsq,axis=2)
 
-
-        # # to implement - spline interpolation
-        # grid_x, grid_y = np.mgrid[0:1:20000j, 0:1:20000j]
-        # points = np.random.rand(1000, 2)
-        # x,y=np.mgrid[0:1:11j,0:1:11j]
-        # x=x.ravel()
-        # y=y.ravel()
-        # points = np.zeros((x.size,2),np.float32)
-        # points[:,0]=x
-        # points[:,1]=y
-        # values = func(points[:,0], points[:,1])
-        # #grid_z0 = griddata(points, values, (grid_x, grid_y), method='nearest')
-        # #grid_z1 = griddata(points, values, (grid_x, grid_y), method='linear')
-        # t=time.time()
-        # print "start"
-        # grid_z2 = griddata(points, values, (grid_x, grid_y), method='cubic')
-        # print "ok",time.time()-t
 
         _,_,nx,_=self.VS.FullImShape
-        
-        SpheM=ModCF.SpheMachine(Support=self.npix,SupportSpheCalc=111)
-        CF, fCF, ifzfCF=SpheM.MakeSphe(nx)
-        
-        
-        ifzfCF.fill(1)
-        SpheM.if_cut_fCF.fill(1)
-        
-        FT=ModFFTW.FFTW_2Donly_np()
-        
-        SumJJsq_Sphe=self.SumJJsq.copy()*SpheM.if_cut_fCF
+        CellSizeRad=self.VS.CellSizeRad
+        FOV=nx*CellSizeRad
+        npix=nx
+        lm=np.linspace(-FOV/2.,FOV/2.,npix+1)
+        ll=(lm[0:-1]+lm[1::])/2.
+        lmin=ll.min()
+        lmax=ll.max()
+        grid_x, grid_y = np.mgrid[lmin:lmax:1j*npix,lmin:lmax:1j*npix]
+        NPixOut=self.VS.FacetMachine.OutImShape[-1]
 
-        A=np.complex64(SumJJsq_Sphe.reshape((1,1,self.npix,self.npix)))
-        f_SumJJsq=FT.fft(A).reshape((self.npix,self.npix))
-        z_f_SumJJsq=np.complex64(ModCF.ZeroPad(f_SumJJsq,outshape=nx))
+        points = np.zeros((self.lBeam.size,2),np.float32)
+        points[:,0]=self.lBeam.ravel()
+        points[:,1]=self.mBeam.ravel()
+        SmoothBeam=np.zeros((self.VS.NFreqBands,nx,nx),np.float32)
+        for iBand in range(self.VS.NFreqBands):
+            values=self.SumJJsq[:,:,iBand].flatten()
+            SmoothBeam[iBand] = griddata(points, values, (grid_x, grid_y), method='cubic')
+            
+        # # # to implement - spline interpolation
+        # # grid_x, grid_y = np.mgrid[0:1:NPixOut*1j, 0:1:NPixOut*1j]
+        # # points = np.random.rand(1000, 2)
+        # # x,y=np.mgrid[0:1:11j,0:1:11j]
+        # # x=x.ravel()
+        # # y=y.ravel()
+        # # points = np.zeros((x.size,2),np.float32)
+        # # points[:,0]=x
+        # # points[:,1]=y
+        # # values = func(points[:,0], points[:,1])
+        # # #grid_z0 = griddata(points, values, (grid_x, grid_y), method='nearest')
+        # # #grid_z1 = griddata(points, values, (grid_x, grid_y), method='linear')
+        # # t=time.time()
+        # # print "start"
+        # # grid_z2 = griddata(points, values, (grid_x, grid_y), method='cubic')
+        # # print "ok",time.time()-t
+
+        #self.SumJJsq=np.mean(self.SumJJsq,axis=2)
+        # _,_,nx,_=self.VS.FullImShape
         
-        if_z_f_SumJJsq=FT.ifft(z_f_SumJJsq.reshape((1,1,nx,nx))).real.reshape((nx,nx))
-        if_z_f_SumJJsq/=np.real(ifzfCF)#.reshape((1,1,nx,nx)))
-        #if_z_f_SumJJsq[ifzfCF.real<1e-2]=-1.
+        # SpheM=ModCF.SpheMachine(Support=self.npix,SupportSpheCalc=111)
+        # CF, fCF, ifzfCF=SpheM.MakeSphe(nx)
+        
+        
+        # ifzfCF.fill(1)
+        # SpheM.if_cut_fCF.fill(1)
+        
+        # FT=ModFFTW.FFTW_2Donly_np()
+        
+        # SumJJsq_Sphe=self.SumJJsq.copy()*SpheM.if_cut_fCF
 
-        # vmin=0#self.SumJJsq.min()
-        # vmax=self.SumJJsq.max()
-        # import pylab
-        # pylab.clf()
-        # ax=pylab.subplot(1,3,1)
-        # pylab.imshow(self.SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
-        # pylab.colorbar()
-        # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
-        # pylab.imshow(ifzfCF.real,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
-        # pylab.colorbar()
-        # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
-        # pylab.imshow(if_z_f_SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
-        # pylab.colorbar()
-        # pylab.show(False)
-        # stop
+        # A=np.complex64(SumJJsq_Sphe.reshape((1,1,self.npix,self.npix)))
+        # f_SumJJsq=FT.fft(A).reshape((self.npix,self.npix))
+        # z_f_SumJJsq=np.complex64(ModCF.ZeroPad(f_SumJJsq,outshape=nx))
+        
+        # if_z_f_SumJJsq=FT.ifft(z_f_SumJJsq.reshape((1,1,nx,nx))).real.reshape((nx,nx))
+        # if_z_f_SumJJsq/=np.real(ifzfCF)#.reshape((1,1,nx,nx)))
+        # #if_z_f_SumJJsq[ifzfCF.real<1e-2]=-1.
 
-        self.ifzfCF=np.real(ifzfCF)
-        self.SmoothBeam=np.real(if_z_f_SumJJsq)
+        # # vmin=0#self.SumJJsq.min()
+        # # vmax=self.SumJJsq.max()
+        # # import pylab
+        # # pylab.clf()
+        # # ax=pylab.subplot(1,3,1)
+        # # pylab.imshow(self.SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # # pylab.colorbar()
+        # # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
+        # # pylab.imshow(ifzfCF.real,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # # pylab.colorbar()
+        # # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+        # # pylab.imshow(if_z_f_SumJJsq,interpolation="nearest",vmin=vmin,vmax=vmax,extent=(0,1,0,1))
+        # # pylab.colorbar()
+        # # pylab.show(False)
+        # # stop
+
+        # self.ifzfCF=np.real(ifzfCF)
+        # self.SmoothBeam=np.real(if_z_f_SumJJsq)
+
+        self.MeanSmoothBeam=np.mean(SmoothBeam,axis=0)
+        self.SmoothBeam=SmoothBeam
+
         np.save(self.CachePath,self.SmoothBeam)
         self.VS.maincache.saveCache("SmoothBeam.npy")
         # print>>log, ModColor.Str("======================= Done calculating smooth beams ====================")
@@ -292,6 +321,7 @@ class ClassBeamMean():
         if self.CacheValid:
             print>>log,"Found valid smooth beam in %s"%self.CachePath
             self.SmoothBeam=np.load(self.CachePath)
+            self.MeanSmoothBeam=np.mean(self.SmoothBeam,axis=0)
 
     def GiveMergedWithDiscrete(self,DiscreteMeanBeam):
         Mask=(self.ifzfCF<1e-2)

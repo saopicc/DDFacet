@@ -280,7 +280,6 @@ def main(OP=None, messages=[]):
     #         print>>log, ModColor.Str(
     #             "\nDon't understand %s, not opening that image\n" %
     #             img, col="yellow")
-    Multiprocessing.cleanupShm()
 
 if __name__ == "__main__":
     #os.system('clear')
@@ -373,4 +372,5 @@ if __name__ == "__main__":
         retcode = 1 # Should at least give the command line an indication of failure
 
     APP.shutdown()
+    Multiprocessing.cleanupShm()
     sys.exit(retcode)

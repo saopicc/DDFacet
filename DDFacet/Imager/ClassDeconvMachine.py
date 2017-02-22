@@ -676,9 +676,12 @@ class ClassImagerDeconv():
             self.JonesNorm = self.DicoDirty["JonesNorm"]
             self.MeanJonesNorm = np.mean(self.JonesNorm,axis=0).reshape((1,npol,nx,ny))
 
-            if self.DoSmoothBeam and self.FacetMachine.SmoothMeanJonesNorm is not None:
-                self.FacetMachine.ToCasaImage(self.FacetMachine.SmoothMeanJonesNorm,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
+            if self.DoSmoothBeam and self.FacetMachine.SmoothJonesNorm is not None:
+                self.FacetMachine.ToCasaImage(self.FacetMachine.MeanSmoothJonesNorm,ImageName="%s.MeanSmoothNorm"%self.BaseName,Fits=True,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                self.FacetMachine.ToCasaImage(self.FacetMachine.SmoothJonesNorm,ImageName="%s.SmoothNorm"%self.BaseName,Fits=True,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts(),
+                                              Freqs=self.VS.FreqBandCenters)
 
 
             if "N" in self._saveims:
@@ -1360,14 +1363,29 @@ class ClassImagerDeconv():
         def sqrtnorm():
             label = 'sqrtnorm'
             if label not in _images:
-                a = self.MeanJonesNorm #if self.FacetMachine.SmoothMeanJonesNorm is None else self.FacetMachine.SmoothMeanJonesNorm
+                if havenorm:
+                    if self.FacetMachine.MeanSmoothJonesNorm is None:
+                        a = self.FacetMachine.MeanJonesNorm 
+                    else:
+                        print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparant images",col="blue")
+                        a=self.FacetMachine.MeanSmoothJonesNorm
+                else:
+                    a=np.array([1])
                 out = _images.addSharedArray(label, a.shape, a.dtype)
                 numexpr.evaluate('sqrt(a)', out=out)
             return _images[label]
         def sqrtnormcube():
             label = 'sqrtnormcube'
             if label not in _images:
-                a = self.JonesNorm if havenorm else np.array([1])
+                if havenorm:
+                    if self.FacetMachine.MeanSmoothJonesNorm is None:
+                        a = self.FacetMachine.JonesNorm 
+                    else:
+                        print>>log,ModColor.Str("Using the smooth beam to normalise the apparant images",col="blue")
+                        a=self.FacetMachine.SmoothJonesNorm
+                else:
+                    a=np.array([1])
+#                a = self.JonesNorm if havenorm else np.array([1])
                 out = _images.addSharedArray(label, a.shape, a.dtype)
                 numexpr.evaluate('sqrt(a)', out=out)
             return _images[label]
@@ -1535,19 +1553,19 @@ class ClassImagerDeconv():
                        kwargs=dict(ImageName="%s.int.restored" % self.BaseName, Fits=True,
                                    beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
-        # intrinsic-flux restored image
-        if havenorm and self.DoSmoothBeam:
-            if self.FacetMachine.SmoothMeanJonesNorm is None:
-                print>> log, ModColor.Str("You requested a restored imaged but the smooth beam is not in there")
-                print>> log, ModColor.Str("  so just not doing it")
-            else:
-                a, b, c = appres(), appconvmodel(), self.FacetMachine.SmoothMeanJonesNorm
-                out = _images.addSharedArray('smoothrestored', a.shape, a.dtype)
-                numexpr.evaluate('(a+b)/sqrt(c)', out=out)
-                APP.runJob("save:smoothrestored", self._saveImage_worker, io=0,
-                           args=(_images.readwrite(), "smoothrestored",), kwargs=dict(
-                        ImageName="%s.smooth.int.restored" % self.BaseName, Fits=True, delete=True,
-                        beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        # # intrinsic-flux restored image
+        # if havenorm and self.DoSmoothBeam:
+        #     if self.FacetMachine.SmoothJonesNorm is None:
+        #         print>> log, ModColor.Str("You requested a restored imaged but the smooth beam is not in there")
+        #         print>> log, ModColor.Str("  so just not doing it")
+        #     else:
+        #         a, b, c = appres(), appconvmodel(), self.FacetMachine.MeanSmoothJonesNorm
+        #         out = _images.addSharedArray('smoothrestored', a.shape, a.dtype)
+        #         numexpr.evaluate('(a+b)/sqrt(c)', out=out)
+        #         APP.runJob("save:smoothrestored", self._saveImage_worker, io=0,
+        #                    args=(_images.readwrite(), "smoothrestored",), kwargs=dict(
+        #                 ImageName="%s.smooth.int.restored" % self.BaseName, Fits=True, delete=True,
+        #                 beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         # mixed-flux restored image
         if havenorm and "x" in self._saveims:
@@ -1603,6 +1621,20 @@ class ClassImagerDeconv():
             APP.runJob("save:intconvmodelcube", self._saveImage_worker, io=0, args=( _images.readwrite(), "intconvmodelcube",), kwargs=dict(ImageName="%s.cube.int.convmodel"%self.BaseName,Fits=True,
                 beam=self.FWHMBeamAvg,beamcube=self.FWHMBeam,Freqs=self.VS.FreqBandCenters,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+
+
+        # intrinsic-flux restored image cube
+        if havenorm and "I" in self._savecubes:
+            a, b = intrescube(), intconvmodelcube()
+            out = _images.addSharedArray('intrestoredcube', a.shape, a.dtype)
+            numexpr.evaluate('a+b', out=out)
+            APP.runJob("save:intrestoredcube", self._saveImage_worker, io=0,
+                       args=(_images.readwrite(), "intrestoredcube",), kwargs=dict(
+                    ImageName="%s.cube.int.restored" % self.BaseName, Fits=True, delete=True,
+                    beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
+                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+        APP.runJob("del:intcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "intconvmodelcube", "intrescube"])
+
         #  can delete this one now
         APP.runJob("del:intmodelcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "intmodelcube"])
         # apparent-flux residual cube
@@ -1629,17 +1661,6 @@ class ClassImagerDeconv():
                 Freqs=self.VS.FreqBandCenters,Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
         #  can delete this one now
         APP.runJob("del:sqrtnormcube", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "sqrtnormcube"])
-        # intrinsic-flux restored image cube
-        if havenorm and "I" in self._savecubes:
-            a, b = intrescube(), intconvmodelcube()
-            out = _images.addSharedArray('intrestoredcube', a.shape, a.dtype)
-            numexpr.evaluate('a+b', out=out)
-            APP.runJob("save:intrestoredcube", self._saveImage_worker, io=0,
-                       args=(_images.readwrite(), "intrestoredcube",), kwargs=dict(
-                    ImageName="%s.cube.int.restored" % self.BaseName, Fits=True, delete=True,
-                    beam=self.FWHMBeamAvg, beamcube=self.FWHMBeam, Freqs=self.VS.FreqBandCenters,
-                    Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-        APP.runJob("del:intcubes", self._delSharedImage_worker, io=0, args=[_images.readwrite(), "intconvmodelcube", "intrescube"])
 
         APP.awaitJobResults(["save:*", "del:*"])
         self.FacetMachinePSF = None

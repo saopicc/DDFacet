@@ -208,7 +208,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         DicoComp[key]["Vals"].append(Vals)
 
 
-    def GiveModelImage(self,FreqIn=None):
+    def GiveModelImage(self,FreqIn=None,out=None):
         
         
         RefFreq=self.DicoSMStacked["RefFreq"]
@@ -226,7 +226,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         _,npol,nx,ny=self.ModelShape
         nchan=FreqIn.size
-        ModelImage=np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+        if out is not None:
+            if out.shape != (nchan,npol,nx,ny) or out.dtype != np.float32:
+                raise RuntimeError("supplied image has incorrect type (%s) or shape (%s)" % (out.dtype, out.shape))
+            ModelImage = out
+        else:
+            ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+
         if "Comp" not in  self.DicoSMStacked.keys():
             return ModelImage
 

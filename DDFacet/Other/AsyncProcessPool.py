@@ -562,8 +562,11 @@ class AsyncProcessPool (object):
         except KeyboardInterrupt:
             raise
         except Exception, exc:
+            
             if reraise:
                 raise
+
+
             print>> log, ModColor.Str("process %s: exception raised processing job %s: %s" % (
                 AsyncProcessPool.proc_id, job_id, traceback.format_exc()))
             if jobitem['collect_result']:

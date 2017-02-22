@@ -118,7 +118,7 @@ class ClassFacetMachine():
         if DecorrMode is not None and DecorrMode is not "":
             print>>log,ModColor.Str("Using decorrelation mode %s"%DecorrMode)
         self.AverageBeamMachine=None
-        self.SmoothMeanJonesNorm=None
+        self.SmoothJonesNorm=None
         self.JonesNorm = None
         self.FacetNorm = None
 
@@ -600,6 +600,7 @@ class ClassFacetMachine():
             facet_dict = self._CF.addSubdict(iFacet)
             APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
                             args=(iFacet, facet_dict.writeonly(), cachepath, cachevalid))
+        #workers_res=APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
 
 
     def _initcf_worker (self, iFacet, facet_dict, cachepath, cachevalid):
@@ -1034,11 +1035,12 @@ class ClassFacetMachine():
             self._norm_dict["JonesNorm"] = JonesNorm
             self._norm_dict["MeanJonesNorm"] = MeanJonesNorm
             
-            if "SmoothMeanJonesNorm" in DicoImages.keys():
-                self.SmoothMeanJonesNorm=DicoImages["SmoothMeanJonesNorm"]
+            if "SmoothJonesNorm" in DicoImages.keys():
+                self.SmoothJonesNorm=DicoImages["SmoothJonesNorm"]
                 if self.AverageBeamMachine is not None:
                     Npix=self.OutImShape[-1]
-                    self.AverageBeamMachine.SmoothBeam=self.SmoothMeanJonesNorm.reshape((Npix,Npix))
+                    self.AverageBeamMachine.SmoothBeam=self.SmoothJonesNorm.reshape((self.VS.NFreqBands,1,Npix,Npix))
+                    self.AverageBeamMachine.MeanSmoothBeam=np.mean(self.AverageBeamMachine.SmoothBeam,axis=0).reshape((1,1,Npix,Npix))
 
             FacetNorm = DicoImages["FacetNorm"]
             FacetNormReShape = DicoImages["FacetNorm"].reshape([1,1,
@@ -1387,51 +1389,33 @@ class ClassFacetMachine():
                 print>>log,"Successfully computed the smooth beam"
                 
         Npix=self.OutImShape[-1]
-        self.SmoothMeanJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
+        self.SmoothJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((self.VS.NFreqBands,1,Npix,Npix))
+        self.MeanSmoothJonesNorm = self.AverageBeamMachine.MeanSmoothBeam.reshape((1,1,Npix,Npix))
 
     # ##############################################
     # ##############################################
 
     # ##############################################
     # ##### Smooth beam ############################
-    def _SmoothAverageBeam_worker(self, datadict_path,iDir):
-        DATA=shared_dict.attach(datadict_path)
-        self.AverageBeamMachine.StackBeam(DATA,iDir)
-
-    def StackAverageBeam(self, DATA):
-        # the FacetMachinePSF does not have an AverageBeamMachine
-        if not self.AverageBeamMachine: 
-            return
-        # if AverageBeamMachine has loaded a cached SmoothBeam
-        if self.AverageBeamMachine.SmoothBeam is not None: 
-            return
-        # wait for any init to finish
-        self.awaitInitCompletion()
-        # wait for any previous gridding/degridding jobs to finish, if still active
-        self.collectGriddingResults()
-        self.collectDegriddingResults()
-        # run new set of jobs
-        self._smooth_job_label=DATA["label"]
-        JobName="StackBeam%sF"%self._smooth_job_label
-        for iDir in range(self.AverageBeamMachine.NDir):
-            APP.runJob("%s%d" % (JobName,iDir), 
-                       self._SmoothAverageBeam_worker,
-                       args=(DATA.path, iDir))
+    # def _SmoothAverageBeam_worker(self, datadict_path,iDir):
+    #     DATA=shared_dict.attach(datadict_path)
+    #     self.AverageBeamMachine.StackBeam(DATA,iDir)
 
 
-    def finaliseSmoothBeam(self):
-        # the FacetMachinePSF does not have an AverageBeamMachine
-        if not self.AverageBeamMachine: return
-        # if AverageBeamMachine has loaded a cached SmoothBeam
-        if self.AverageBeamMachine.SmoothBeam is None: 
-            if self.AverageBeamMachine.Smooth()=="NoStackedData":
-                print>>log,"Has tried to compute the smoothed beam, but there was no stacked beam"
-                return
-            else:
-                print>>log,"Successfully computed the smooth beam"
+
+    # def finaliseSmoothBeam(self):
+    #     # the FacetMachinePSF does not have an AverageBeamMachine
+    #     if not self.AverageBeamMachine: return
+    #     # if AverageBeamMachine has loaded a cached SmoothBeam
+    #     if self.AverageBeamMachine.SmoothBeam is None: 
+    #         if self.AverageBeamMachine.Smooth()=="NoStackedData":
+    #             print>>log,"Has tried to compute the smoothed beam, but there was no stacked beam"
+    #             return
+    #         else:
+    #             print>>log,"Successfully computed the smooth beam"
                 
-        Npix=self.OutImShape[-1]
-        self.SmoothMeanJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((1,1,Npix,Npix))
+    #     Npix=self.OutImShape[-1]
+    #     self.SmoothJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((self.VS.NFreqBands,1,Npix,Npix))
 
     # ##############################################
     # ##############################################
