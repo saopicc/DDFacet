@@ -49,6 +49,7 @@ if __name__=="__main__":
         NpShared.DelAll()
 
     Multiprocessing.cleanupStaleShm()
+    Multiprocessing.cleanupShm()
     ll=glob.glob("/dev/shm/sem.*")
         
     print>>log, "Clear Semaphores"

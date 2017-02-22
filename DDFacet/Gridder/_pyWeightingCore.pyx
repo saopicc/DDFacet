@@ -33,6 +33,15 @@ def accumulate_weights_onto_grid_1d (np.ndarray[double,ndim=1] grid, np.ndarray[
     for i in xrange(len(weights)):
       grid[<unsigned int>index[i]] += weights[i]
 
+@cython.boundscheck(False)
+def accumulate_weights_onto_grid_1d_withlocks (np.ndarray[double,ndim=1] grid, np.ndarray[double,ndim=1] weights, np.ndarray[long,ndim=1] index):
+    """Given 1D arrays of weights and indices (of the same size), and a 1D array called 'grid',
+    accumulates the sum of weights corresponding to each grid element.
+    """
+    cdef unsigned int i
+    for i in xrange(len(weights)):
+      grid[<unsigned int>index[i]] += weights[i]
+
 
 
 

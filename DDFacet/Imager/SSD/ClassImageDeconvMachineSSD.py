@@ -43,6 +43,7 @@ from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
 #    #sys.exit(1)
 from DDFacet.Array import NpParallel
 import ClassIslandDistanceMachine
+from DDFacet.Array import SharedDict
 
 MyLogger.setSilent("ClassArrayMethodSSD")
 MyLogger.setSilent("ClassIsland")
@@ -52,7 +53,7 @@ class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
-                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,IdSharedMem="",
+                 GD=None,SearchMaxAbs=1,IdSharedMem="",
                  ModelMachine=None,
                  MainCache=None,
                  **kw    # absorb any unknown keywords arguments into this
@@ -64,7 +65,6 @@ class ClassImageDeconvMachine():
         self.MaxMinorIter=MaxMinorIter
         self.NCPU=NCPU
         self.Chi2Thr=10000
-        self.MaskArray=None
         self.GD=GD
         self.IdSharedMem=IdSharedMem
         self.SubPSF=None
@@ -90,25 +90,17 @@ class ClassImageDeconvMachine():
         self._niter = 0
         self.NChains=self.NCPU
 
-        if CleanMaskImage is not None:
-            print>>log, "Reading mask image: %s"%CleanMaskImage
-            MaskArray=image(CleanMaskImage).getdata()
-            nch,npol,_,_=MaskArray.shape
-            self._MaskArray=np.zeros(MaskArray.shape,np.bool8)
-            for ch in range(nch):
-                for pol in range(npol):
-                    self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
-            self.MaskArray=self._MaskArray[0]
-            self.IslandArray=np.zeros_like(self._MaskArray)
-            self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
-        else:
-            raise NotImplementedError("You have to provide a mask image for SSDClean")
         self.DeconvMode="GAClean"
+
+    def setMaskMachine(self,MaskMachine):
+        self.MaskMachine=MaskMachine
+
 
     def setDeconvMode(self,Mode="MetroClean"):
         self.DeconvMode=Mode
 
-
+    def Reset(self): pass
+        
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
@@ -118,7 +110,8 @@ class ClassImageDeconvMachine():
 
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
-        DicoVariablePSF["CubeVariablePSF"]=NpShared.ToShared("%s.CubeVariablePSF"%self.IdSharedMem,DicoVariablePSF["CubeVariablePSF"])
+        #DicoVariablePSF["CubeVariablePSF"]=NpShared.ToShared("%s.CubeVariablePSF"%self.IdSharedMem,DicoVariablePSF["CubeVariablePSF"])
+        DicoVariablePSF=SharedDict.attach(DicoVariablePSF.path)#["CubeVariablePSF"]
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
         self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
         #self.DicoPSF=DicoPSF
@@ -150,40 +143,34 @@ class ClassImageDeconvMachine():
             return None
 
     def SetDirty(self,DicoDirty):
-        DicoDirty["ImagData"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImagData"])
-        DicoDirty["MeanImage"]=NpShared.ToShared("%s.Dirty.MeanImage"%self.IdSharedMem,DicoDirty["MeanImage"])
+        DicoDirty["ImageCube"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImageCube"])
+        #DicoDirty["MeanImage"]=NpShared.ToShared("%s.Dirty.MeanImage"%self.IdSharedMem,DicoDirty["MeanImage"])
+        
+
         self.DicoDirty=DicoDirty
-        self._Dirty=self.DicoDirty["ImagData"]
+        self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
+
         NPSF=self.PSFServer.NPSF
         _,_,NDirty,_=self._Dirty.shape
 
         off=(NPSF-NDirty)/2
-
-        _,_,NMask,_=self._MaskArray.shape
-        if NMask!=NDirty:
-            print>>log,"Mask do not have the same shape as the residual image"
-            self._MaskArray=self.AdaptArrayShape(self._MaskArray,NDirty)
-            self.MaskArray=self._MaskArray[0]
-            self.IslandArray=np.zeros_like(self._MaskArray)
-            self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
 
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
 
         if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)
         self.ModelMachine.setModelShape(self._Dirty.shape)
-        if self.MaskArray is None:
-            self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
-            self.IslandArray=np.zeros_like(self._MaskArray)
-            self.IslandHasBeenDone=np.zeros_like(self._MaskArray)
 
 
 
     def SearchIslands(self,Threshold):
 
+        if self.MaskMachine.CurrentNegMask is None:
+            raise RuntimeError("A mask image should be constructible with SSD")
+
         IslandDistanceMachine=ClassIslandDistanceMachine.ClassIslandDistanceMachine(self.GD,
-                                                                                    self._MaskArray,
+                                                                                    self.MaskMachine.CurrentNegMask,
                                                                                     self.PSFServer,
                                                                                     self.DicoDirty,
                                                                                     IdSharedMem=self.IdSharedMem)
@@ -307,7 +294,7 @@ class ClassImageDeconvMachine():
     def setChannel(self,ch=0):
         self.Dirty=self._MeanDirty[ch]
         self.ModelImage=self._ModelImage[ch]
-        self.MaskArray=self._MaskArray[ch]
+
 
 
     def GiveThreshold(self,Max):
@@ -340,7 +327,7 @@ class ClassImageDeconvMachine():
         
         Fluxlimit_RMS = self.RMSFactor*RMS
 
-        x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
+        x,y,MaxDirty=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskMachine.CurrentNegMask)
         #MaxDirty=np.max(np.abs(self.Dirty))
         #Fluxlimit_SideLobe=MaxDirty*(1.-self.SideLobeLevel)
         #Fluxlimit_Sidelobe=self.CycleFactor*MaxDirty*(self.SideLobeLevel)
@@ -372,7 +359,7 @@ class ClassImageDeconvMachine():
         T=ClassTimeIt.ClassTimeIt()
         T.disable()
 
-        x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskArray)
+        x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=DoAbs,Mask=self.MaskMachine.CurrentNegMask)
 
         if ThisFlux < StopFlux:
             print>>log, ModColor.Str("    Initial maximum peak %g Jy below threshold, we're done here" % (ThisFlux),col="green" )
@@ -457,11 +444,11 @@ class ClassImageDeconvMachine():
 
         StopWhenQueueEmpty=True
 
-        # ######### Debug
-        # ParallelPerIsland=False
-        # Parallel=False
-        # StopWhenQueueEmpty=True
-        # ##################
+        ######### Debug
+        ParallelPerIsland=False
+        Parallel=False
+        StopWhenQueueEmpty=True
+        ##################
 
 
         work_queue = multiprocessing.Queue()
@@ -719,8 +706,13 @@ class WorkerDeconvIsland(multiprocessing.Process):
         self.GD=GD
         self.IdSharedMem=IdSharedMem
         self.FreqsInfo=FreqsInfo
-        self.CubeVariablePSF=NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
+
+        #self.CubeVariablePSF=NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
         self._Dirty=NpShared.GiveArray("%s.Dirty.ImagData"%self.IdSharedMem)
+
+        self.CubeVariablePSF=SharedDict.attach("FMPSF_AllImages")["CubeVariablePSF"]
+        #self._Dirty=SharedDict.attach("dictDirty")["ImageCube"]
+
         #self.WeightFreqBands=WeightFreqBands
         self.ParallelPerIsland=ParallelPerIsland
         self.StopWhenQueueEmpty=StopWhenQueueEmpty

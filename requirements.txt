@@ -20,3 +20,4 @@ owlcat
 astLib
 psutil
 astro-tigger
+py-cpuinfo

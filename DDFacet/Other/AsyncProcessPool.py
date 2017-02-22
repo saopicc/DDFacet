@@ -26,13 +26,16 @@ import multiprocessing
 import numpy as np
 import traceback
 import inspect
+import signal
 from collections import OrderedDict
+import numexpr
 
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 from DDFacet.Other.progressbar import ProgressBar
-from DDFacet.Array import SharedDict
+from DDFacet.Array import shared_dict
+import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
 
 log = MyLogger.getLogger("AsyncProcessPool")
 
@@ -152,7 +155,6 @@ class AsyncProcessPool (object):
         Returns:
 
         """
-        self._shared_state = SharedDict.create("APP", delete_items=False)
         self.affinity = affinity
         self.cpustep = abs(self.affinity) or 1
         self.ncpu = ncpu
@@ -206,12 +208,14 @@ class AsyncProcessPool (object):
                 raise RuntimeError("Job handler must be a function or object. This is a bug.")
             self._job_handlers[id(handler)] = handler
 
-    def registerEvents (self, *args):
+    def createEvent (self, name=None):
         if os.getpid() != parent_pid:
             raise RuntimeError("This method can only be called in the parent process. This is a bug.")
         if self._started:
             raise RuntimeError("Workers already started. This is a bug.")
-        self._events.update(dict([(name,multiprocessing.Event()) for name in args]))
+        event = multiprocessing.Event()
+        self._events[id(event)] = event, name
+        return event
 
     def createJobCounter (self, name=None):
         if os.getpid() != parent_pid:
@@ -222,6 +226,7 @@ class AsyncProcessPool (object):
 
     def startWorkers(self):
         """Starts worker threads. All job handlers and events must be registered *BEFORE*"""
+        self._shared_state = shared_dict.create("APP")
         self._job_counters.finalize(self._shared_state)
         for proc in self._compute_workers + self._io_workers:
             proc.start()
@@ -273,14 +278,22 @@ class AsyncProcessPool (object):
             raise RuntimeError("Job '%s': unregistered handler %s. This is a bug." % (job_id, handler))
         # resolve event object
         if event:
-            eventobj = self._events[event]
-            eventobj.clear()
-        else:
-            eventobj = None
+            if id(event) not in self._events:
+                raise ValueError("unregistered event object")
+            event.clear()
         # increment counter object
         if counter:
             counter.increment()
-        jobitem = dict(job_id=job_id, handler=(handler_id, method, handler_desc), event=event,
+        # check for SharedDict arguments and print errors
+        for iarg, arg in enumerate(args):
+            if type(arg) is shared_dict.SharedDict:
+                raise TypeError("positional argument %d is a SharedDict. This is a bug! Use readonly()/readwrite()/writeonly()"%iarg)
+        for key, arg in kwargs.iteritems():
+            if type(arg) is shared_dict.SharedDict:
+                raise TypeError("keyword %s is a SharedDict. This is a bug! Use readonly()/readwrite()/writeonly()"%key)
+        # create the job item
+        jobitem = dict(job_id=job_id, handler=(handler_id, method, handler_desc),
+                       event=event and id(event),
                        counter=counter and id(counter),
                        collect_result=collect_result,
                        args=args, kwargs=kwargs)
@@ -325,10 +338,8 @@ class AsyncProcessPool (object):
         """
         if self.verbose > 2:
             print>>log, "checking for completion events on %s" % " ".join(events)
-        for name in events:
-            event = self._events.get(name)
-            if event is None:
-                raise KeyError("Unknown event '%s'" % name)
+        for event in events:
+            name = self._events.get(id(event))
             while not event.is_set():
                 if self._termination_event.is_set():
                     if self.verbose > 1:
@@ -340,7 +351,7 @@ class AsyncProcessPool (object):
                         print>> log, "  %s is complete" % name
                     break
 
-    def awaitJobResults (self, jobspecs, progress=None, TimeTitle=None):
+    def awaitJobResults (self, jobspecs, progress=None, timing=None):
         """
         Waits for job(s) given by arguments to complete, and returns their results.
         Note that this only works for jobs scheduled by the same process, since each process has its own results map.
@@ -348,7 +359,9 @@ class AsyncProcessPool (object):
 
         Args:
             jobspec: a job spec, or a list of job specs. Each spec can contain a wildcard e.g. "job*", to wait for
-            multiple jobs.
+                multiple jobs.
+            progress: if True, a progress bar with that title will be rendered
+            timing: if True, a timing report with that title will be printed (note that progress implies timing)
 
         Returns:
             a list of results. Each entry is the result returned by the job (if no wildcard), or a list
@@ -430,8 +443,8 @@ class AsyncProcessPool (object):
         for jobspec, (njobs, results) in job_results.iteritems():
             times = np.array([ res['time'] for res in results ])
             num_errors = len([res for res in results if not res['success']])
-            if TimeTitle:
-                print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (TimeTitle, len(results), times.mean())
+            if timing or progress:
+                print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (timing or progress, len(results), times.mean())
             elif self.verbose > 0:
                 print>> log, "%s: %d jobs complete, average single-core time %.2fs per job" % (jobspec, len(results), times.mean())
             if num_errors:
@@ -480,7 +493,7 @@ class AsyncProcessPool (object):
             print>> log, "shutdown complete"
 
     @staticmethod
-    def _start_worker (object, proc_id, affinity, worker_queue):
+    def _start_worker (object, proc_id, affinity, worker_queue, pause_on_start=False):
         """
             Helper method for worker process startup. ets up affinity, and calls _run_worker method on
             object with the specified work queue.
@@ -494,6 +507,11 @@ class AsyncProcessPool (object):
         Returns:
 
         """
+        if pause_on_start:
+            os.kill(os.getpid(), signal.SIGSTOP)
+        numexpr.set_num_threads(1)      # no sub-threads in workers, as it messes with everything
+        _pyArrays.pySetOMPNumThreads(1)
+
         AsyncProcessPool.proc_id = proc_id
         MyLogger.subprocess_id = proc_id
         if affinity:
@@ -507,18 +525,25 @@ class AsyncProcessPool (object):
         timer = ClassTimeIt.ClassTimeIt()
         event = counter = None
         try:
-            job_id, eventname, counter_id, args, kwargs = [jobitem.get(attr) for attr in
-                                                           "job_id", "event", "counter", "args", "kwargs"]
+            job_id, event_id, counter_id, args, kwargs = [jobitem.get(attr) for attr in
+                                                        "job_id", "event", "counter", "args", "kwargs"]
             handler_id, method, handler_desc = jobitem["handler"]
             handler = self._job_handlers.get(handler_id)
             if handler is None:
                 raise RuntimeError("Job %s: unknown handler %s. This is a bug." % (job_id, handler_desc))
-            event = self._events[eventname] if eventname else None
+            event, eventname = self._events[event_id] if event_id is not None else (None, None)
             # find counter object, if specified
             if counter_id:
                 counter = self._job_counters.get(counter_id)
                 if counter is None:
                     raise RuntimeError("Job %s: unknown counter %s. This is a bug." % (job_id, counter_id))
+            # instantiate SharedDict arguments
+#            timer.timeit('init '+job_id)
+            args = [ arg.instantiate() if type(arg) is shared_dict.SharedDictRepresentation else arg for arg in args ]
+            for key in kwargs.keys():
+                if type(kwargs[key]) is shared_dict.SharedDictRepresentation:
+                    kwargs[key] = kwargs[key].instantiate()
+#            timer.timeit('instantiated '+job_id)
             # call the job
             if self.verbose > 1:
                 print>> log, "job %s: calling %s" % (job_id, handler_desc)

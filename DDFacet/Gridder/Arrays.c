@@ -56,6 +56,7 @@ static PyMethodDef _pyArrays_testMethods[] = {
 	{"pyDivArray", pyDivArray, METH_VARARGS},
 	{"pyWhereMax", pyWhereMax, METH_VARARGS},
 	{"pyWhereMaxMask", pyWhereMaxMask, METH_VARARGS},
+	{"pySetOMPNumThreads", pySetOMPNumThreads, METH_VARARGS},
 	{NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
 
@@ -66,6 +67,18 @@ void init_pyArrays()  {
   import_array();  // Must be present for NumPy.  Called first after above line.
 }
 
+static PyObject *pySetOMPNumThreads(PyObject *self, PyObject *args)
+{
+  int nthr;
+
+  if (!PyArg_ParseTuple(args, "i", &nthr))  return NULL;
+
+  omp_set_num_threads(nthr);
+
+  //  A = (PyArrayObject *) PyArray_ContiguousFromObject(ObjA, PyArray_FLOAT32, 0, 4);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
 
 
 static PyObject *pyWhereMaxMask(PyObject *self, PyObject *args)

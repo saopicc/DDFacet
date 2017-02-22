@@ -129,6 +129,12 @@ class ClassImageDeconvMachine():
 
         # Set gridding Freqs
 
+    def Reset(self):
+        pass
+
+    def setMaskMachine(self,MaskMachine):
+        self.MaskMachine=MaskMachine
+
 
     def SetModelRefFreq(self):
         """
@@ -164,7 +170,7 @@ class ClassImageDeconvMachine():
 
     def SetDirty(self,DicoDirty):
         self.DicoDirty=DicoDirty
-        self._Dirty = self.DicoDirty["ImagData"]
+        self._Dirty = self.DicoDirty["ImageCube"]
         self._MeanDirty = self.DicoDirty["MeanImage"]
 
         NPSF=self.PSFServer.NPSF

@@ -65,6 +65,10 @@ int *p_int32(PyArrayObject *arrayin)  {
   return (int *) arrayin->data;  /* pointer to arrayin data as double */
 }
 
+long int *p_int64(PyArrayObject *arrayin)  {
+  return (long int *) arrayin->data;  /* pointer to arrayin data as double */
+}
+
 
 double *p_float64(PyArrayObject *arrayin)  {
   return (double *) arrayin->data;  /* pointer to arrayin data as double */
@@ -103,7 +107,7 @@ void MatInv(float complex *A, float complex* B, int H );
 
 static PyObject *pyGridderPoints(PyObject *self, PyObject *args);
 
-
+static PyObject *pyAccumulateWeightsOntoGrid(PyObject *self, PyObject *args);
 
 
 static PyObject *pyGridderWPol(PyObject *self, PyObject *args);

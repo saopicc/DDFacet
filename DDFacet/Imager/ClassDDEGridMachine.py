@@ -448,20 +448,24 @@ class ClassDDEGridMachine():
     _global_fftw_machines = {}
 
     @staticmethod
-    def _getGlobalFFTWMachine (*args):
+    def _getGlobalFFTWMachine (FFTMachineType, GridShape, dtype):
         """Returns an FFTWMachine matching the arguments.
         Makes sure an FFTW machine is initialized only once per process, and only as needed.
         """
-        machine = ClassDDEGridMachine._global_fftw_machines.get(args)
+        machine = ClassDDEGridMachine._global_fftw_machines.get((GridShape, dtype))
         if machine is None:
-            # use single-core FFT because we parallelize by facet instead
-            ClassDDEGridMachine._global_fftw_machines[args] = machine = ModFFTW.FFTW_2Donly(ncores=1, *args)
+            if FFTMachineType=="FFTW":
+                # use single-core FFT because we parallelize by facet instead
+                ClassDDEGridMachine._global_fftw_machines[(GridShape, dtype)] = machine = ModFFTW.FFTW_2Donly(GridShape, dtype,ncores=1)
+            elif FFTMachineType=="LAPACK":
+                ClassDDEGridMachine._global_fftw_machines[(GridShape, dtype)] = machine = ModFFTW.FFTW_2Donly_np(GridShape, dtype)
+
         return machine
 
     def getFFTWMachine(self):
         """Returns an fftw_machine for the grid. Makes sure it is initialized once per process."""
         if self._fftw_machine is None:
-            self._fftw_machine = self._getGlobalFFTWMachine(self.GridShape, self.dtype)
+            self._fftw_machine = self._getGlobalFFTWMachine(self.GD["RIME"]["FFTMachine"], self.GridShape, self.dtype)
         return self._fftw_machine
 
     @staticmethod
@@ -849,7 +853,7 @@ class ClassDDEGridMachine():
             if not(ListWTerm[0].dtype == np.complex64):
                 raise NameError('ListWTerm.dtype %s' % (str(ListWTerm.dtype)))
         if not isinstance(W, type(None)):
-            if not(W.dtype == np.float64):
+            if not(W.dtype == np.float32):
                 raise NameError('W.dtype %s' % (str(W.dtype)))
             if not(W.flags.c_contiguous):
                 raise NameError("W has to be contiguous")
@@ -901,7 +905,11 @@ class ClassDDEGridMachine():
         if TranformModelInput == "FT":
             if np.max(np.abs(ModelImage)) == 0:
                 return vis
-            Grid = np.complex64(self.getFFTWMachine().fft(np.complex128(ModelImage)))
+            if self.GD["RIME"]["Precision"]=="S": 
+                Cast=np.complex64
+            elif self.GD["RIME"]["Precision"]=="D": 
+                Cast=np.complex128
+            Grid = np.complex64(self.getFFTWMachine().fft(Cast(ModelImage)))
 
         if freqs.size > 1:
             df = freqs[1::] - freqs[0:-1]
