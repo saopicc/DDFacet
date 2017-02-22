@@ -692,7 +692,7 @@ class ClassImageDeconvMachine():
                             "    [iter=%i] peak of %.3g Jy higher than previous one of %.3g Jy " %
                             (i, ThisFlux, PreviousFlux), col="red")
                         return "Diverging", True, True
-                    else:
+                    elif np.abs(ThisFlux)<np.abs(PreviousFlux):
                         PreviousFlux=ThisFlux
 
                 ThisPNR=ThisFlux/rms
