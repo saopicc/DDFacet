@@ -27,7 +27,9 @@ from DDFacet.Other import ClassTimeIt
 import psutil
 import numexpr
 from DDFacet.Other.AsyncProcessPool import APP
-from DDFacet.Array import SharedDict
+from DDFacet.Array import shared_dict
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("ModFFTW")
 
 #Fs=pyfftw.interfaces.numpy_fft.fftshift
 #iFs=pyfftw.interfaces.numpy_fft.ifftshift
@@ -124,7 +126,7 @@ class FFTW():
         self.A[:,:] = iFs(A.astype(self.ThisType),axes=axes)
 
         #print "do fft"
-        self.A = pyfftw.interfaces.numpy_fft.ifft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
+        self.A = out = pyfftw.interfaces.numpy_fft.ifft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
         if norm:
             out=Fs(self.A,axes=axes)*(A.shape[-1]*A.shape[-2])
         return out
@@ -135,21 +137,21 @@ def GiveFFTW_aligned(shape, dtype):
 
 class FFTW_2Donly():
     def __init__(self, shape, dtype, norm=True, ncores=1, FromSharedId=None):
-        if FromSharedId is None:
-            self.A = pyfftw.n_byte_align_empty( shape[-2::], 16, dtype=dtype)
-        else:
-            self.A = NpShared.GiveArray(FromSharedId)
- 
-        pyfftw.interfaces.cache.enable()
-        pyfftw.interfaces.cache.set_keepalive_time(3000)
+        # if FromSharedId is None:
+        #     self.A = pyfftw.n_byte_align_empty( shape[-2::], 16, dtype=dtype)
+        # else:
+        #     self.A = NpShared.GiveArray(FromSharedId)
+        
+        #pyfftw.interfaces.cache.enable()
+        #pyfftw.interfaces.cache.set_keepalive_time(3000)
         self.ncores=ncores or NCPU_global
         #print "plan"
         T= ClassTimeIt.ClassTimeIt("ModFFTW")
         T.disable()
 
-        self.A = pyfftw.interfaces.numpy_fft.fft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE',  threads=self.ncores)
+        #self.A = pyfftw.interfaces.numpy_fft.fft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE',  threads=self.ncores)
         T.timeit("planF")
-        self.A = pyfftw.interfaces.numpy_fft.ifft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE',  threads=self.ncores)
+        #self.A = pyfftw.interfaces.numpy_fft.ifft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE',  threads=self.ncores)
         T.timeit("planB")
         #print "done"
         self.ThisType=dtype
@@ -171,11 +173,11 @@ class FFTW_2Donly():
         nch,npol,_,_=A.shape
         for ich in range(nch):
             for ipol in range(npol):
-                self.A[:,:] = iFs(A[ich,ipol].astype(self.ThisType),axes=axes)
+                A_2D = iFs(A[ich,ipol].astype(self.ThisType),axes=axes)
                 T.timeit("shift and copy")
-                self.A = pyfftw.interfaces.numpy_fft.fft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
+                A_2D[...] = pyfftw.interfaces.numpy_fft.fft2(A_2D, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
                 T.timeit("fft")
-                A[ich,ipol]=Fs(self.A,axes=axes)
+                A[ich,ipol]=Fs(A_2D,axes=axes)
                 T.timeit("shift")
         if self.norm:
             A /= (A.shape[-1] * A.shape[-2])
@@ -193,9 +195,9 @@ class FFTW_2Donly():
         nch,npol,_, _ = A.shape
         for ich in range(nch):
             for ipol in range(npol):
-                self.A[:,:] = iFs(A[ich,ipol].astype(self.ThisType),axes=axes)
-                self.A = pyfftw.interfaces.numpy_fft.ifft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
-                A[ich,ipol]=Fs(self.A,axes=axes)
+                A_2D = iFs(A[ich,ipol].astype(self.ThisType),axes=axes)
+                A_2D[...] = pyfftw.interfaces.numpy_fft.ifft2(A_2D, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
+                A[ich,ipol]=Fs(A_2D,axes=axes)
         if self.norm:
             A *= (A.shape[-1] * A.shape[-2])
         return A.reshape(sin)
@@ -298,17 +300,21 @@ def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
         Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
     return Out,in2
 
-def learnFFTWWisdom(npix):
+
+def learnFFTWWisdom(npix,dtype=np.float32):
     """Learns FFTW wisdom for real 2D FFT of npix x npix images"""
-    test = np.zeros((npix, npix), np.float32)
-    a = pyfftw.interfaces.numpy_fft.rfft2(test, overwrite_input=True, threads=1)
-    b = pyfftw.interfaces.numpy_fft.irfft2(a, overwrite_input=True, threads=1)
+    print>>log, "  Computing fftw wisdom FFTs for shape [%i x %i] and dtype %s" % (npix,npix,dtype.__name__)
+    test = np.zeros((npix, npix), dtype)
+    if "float" in dtype.__name__:
+        a = pyfftw.interfaces.numpy_fft.rfft2(test, overwrite_input=True, threads=1)
+        b = pyfftw.interfaces.numpy_fft.irfft2(a, overwrite_input=True, threads=1)
+    elif "complex" in dtype.__name__:
+        a = pyfftw.interfaces.numpy_fft.fft2(test, overwrite_input=True, threads=1)
+        b = pyfftw.interfaces.numpy_fft.ifft2(a, overwrite_input=True, threads=1)
 
-
-def _convolveSingleGaussianFFTW(shareddict_path, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
+def _convolveSingleGaussianFFTW(shareddict, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
     T = ClassTimeIt.ClassTimeIt()
     T.disable()
-    shareddict = SharedDict.attach(shareddict_path)
     Ain = shareddict[field_in][ch]
     Aout = shareddict[field_out][ch]
     T.timeit("init %d"%ch)
@@ -327,9 +333,8 @@ def _convolveSingleGaussianFFTW(shareddict_path, field_in, field_out, ch, CellSi
         Aout[pol, :, :] = Fs(pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=1))
     T.timeit("convolve %d" % ch)
 
-def _convolveSingleGaussianNP(shareddict_path, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
+def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
     T = ClassTimeIt.ClassTimeIt()
-    shareddict = SharedDict.attach(shareddict_path)
     Ain = shareddict[field_in][ch]
     Aout = shareddict[field_out][ch]
     T.timeit("init %d"%ch)
@@ -361,7 +366,7 @@ def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,G
 
     jobid = "convolve:%s:%s:" % (field_in, field_out)
     for ch in range(nch):
-        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW, args=(shareddict.path, field_in, field_out, ch, CellSizeRad, GaussPars[ch], Normalise))
+        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW, args=(shareddict.readonly(), field_in, field_out, ch, CellSizeRad, GaussPars[ch], Normalise))
     APP.awaitJobResults(jobid+"*") #, progress="Convolving")
 
     return Aout
@@ -386,12 +391,12 @@ def ConvolveGaussianFFTW(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=
         if Normalise:
             PSF/=np.sum(PSF)
         PSF = np.fft.ifftshift(PSF)
-        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=NCPU_global)
+        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=1)#NCPU_global)
         for pol in range(npol):
             A = np.fft.ifftshift(Ain[pol])
-            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=NCPU_global)
+            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=1)#NCPU_global)
             nfA = fA*fPSF
-            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=NCPU_global)
+            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=1)#NCPU_global)
             Aout[ch, pol, :, :] = np.fft.fftshift(ifA)
         T.timeit("conv")
 
@@ -528,7 +533,7 @@ def testConvolveGaussian(parallel=False):
         T.timeit("learn")
         APP.registerJobHandlers(_convolveSingleGaussian)
         APP.startWorkers()
-    sd = SharedDict.attach("test")
+    sd = shared_dict.attach("test")
     A = sd.addSharedArray("A", (nchan,1,npix,npix),np.float32)
     A[0,0,10,10]=1
     SigMaj=2#(20/3600.)*np.pi/180

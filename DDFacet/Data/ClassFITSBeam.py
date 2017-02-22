@@ -127,24 +127,33 @@ class ClassFITSBeam (object):
 
         # load beam interpolator
         self.vbs = []
-        for reFits, imFits in zip(filename_real,filename_imag):        
-            print>>log,"Loading beam patterns %s %s"%(reFits, imFits)
-            vb = InterpolatedBeams.LMVoltageBeam(
-                verbose=opts["FITSVerbosity"],
-                l_axis=opts["FITSLAxis"], m_axis=opts["FITSMAxis"]
-            )  # verbose, XY must come from options
-            vb.read(reFits,imFits)
+        for filename_pair in zip(filename_real,filename_imag):
+            if filename_pair in ClassFITSBeam._vb_cache:
+                vb = ClassFITSBeam._vb_cache[filename_pair]
+                print>>log,"beam patterns %s %s already in memory"%filename_pair
+            else:
+                print>>log,"loading beam patterns %s %s"%filename_pair
+                vb = InterpolatedBeams.LMVoltageBeam(
+                    verbose=opts["FITSVerbosity"],
+                    l_axis=opts["FITSLAxis"], m_axis=opts["FITSMAxis"]
+                )  # verbose, XY must come from options
+                vb.read(*filename_pair)
+                ClassFITSBeam._vb_cache[filename_pair] = vb
             self.vbs.append(vb)
 
-    def getBeamSampleTimes (self, times):
+    _vb_cache = {}
+
+    def getBeamSampleTimes (self, times, quiet=False):
         """For a given list of timeslots, returns times at which the beam must be sampled"""
-        print>>log,"computing beam sample times for %d timeslots"%len(times)
+        if not quiet:
+            print>>log,"computing beam sample times for %d timeslots"%len(times)
         dt = self.time_inc*60
         beam_times = [ times[0] ]
         for t in times[1:]:
             if t - beam_times[-1] >= dt:
                 beam_times.append(t)
-        print>>log,"  DtBeamMin=%.2f min results in %d samples"%(self.time_inc, len(beam_times))
+        if not quiet:
+            print>>log,"  DtBeamMin=%.2f min results in %d samples"%(self.time_inc, len(beam_times))
         if self.pa_inc:
             pas = [ 
                 # put antenna0 position as reference frame. NB: in the future may want to do it per antenna
@@ -159,7 +168,8 @@ class ClassFITSBeam (object):
                 if abs(pa-pa0) >= self.pa_inc:
                     beam_times1.append(t)
                     pa0 = pa
-            print>>log,"  FITSParAngleIncrement=%.2f deg results in %d samples"%(self.pa_inc, len(beam_times1))
+            if not quiet:
+                print>>log,"  FITSParAngleIncrement=%.2f deg results in %d samples"%(self.pa_inc, len(beam_times1))
             beam_times = beam_times1
         beam_times.append(times[-1]+1)
         return beam_times
@@ -198,6 +208,10 @@ class ClassFITSBeam (object):
         angle = numpy.arctan2(m0,l0)
         l = r*numpy.cos(angle+parad)
         m = r*numpy.sin(angle+parad)  
+
+        # print>>log,"Beam evaluated for l,m"
+        # print>>log,l
+        # print>>log,m
 
         # get interpolated values. Output shape will be [ndir,nfreq]
         beamjones = [ self.vbs[i].interpolate(l,m,freq=self.freqs,freqaxis=1) for i in range(4) ]

@@ -71,6 +71,7 @@ static PyMethodDef _pyGridderSmearPols_testMethods[] = {
 	{"pyTestMatrix", pyTestMatrix, METH_VARARGS},
 	{"pySetSemaphores", pySetSemaphores, METH_VARARGS},
 	{"pyDeleteSemaphore", pyDeleteSemaphore, METH_VARARGS},
+	{"pyAccumulateWeightsOntoGrid", pyAccumulateWeightsOntoGrid, METH_VARARGS},
 	{NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
 
@@ -82,6 +83,40 @@ void init_pyGridderSmearPols()  {
 }
 
 
+static PyObject *pyAccumulateWeightsOntoGrid(PyObject *self, PyObject *args)
+{
+    PyArrayObject *grid, *weights, *index;
+
+    if (!PyArg_ParseTuple(args, "O!O!O!",
+            &PyArray_Type,  &grid,
+            &PyArray_Type,  &weights,
+            &PyArray_Type,  &index
+            ))
+        return NULL;
+
+    double * pgrid      = p_float64(grid);
+    float * pweights    = p_float32(weights);
+    long int * pindex   = p_int64(index);
+    size_t n = weights->dimensions[0];
+    size_t i;
+
+    for( i=0; i<n; i++)
+    {
+        size_t igrid = pindex[i];
+        float w = pweights[i];
+        if( w!=0 )
+        {
+            sem_t * psem = GiveSemaphoreFromCell(igrid);
+            sem_wait(psem);
+            pgrid[igrid] += w;
+            sem_post(psem);
+        }
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+
+}
 
 
 
@@ -452,7 +487,7 @@ void gridderWPol(PyArrayObject *grid,
     }
 
       //int ThisBlockAllFlagged=1;
-      float visChanMean=0.;
+      double visChanMean=0.;
       resetJonesServerCounter();
 
       for (inx=0; inx<NRowThisBlock; inx++) {
@@ -492,7 +527,7 @@ void gridderWPol(PyArrayObject *grid,
 	for (visChan=chStart; visChan<chEnd; ++visChan) {
 	  size_t doff = (irow * nVisChan + visChan) * nVisPol;
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
-	  double*   imgWtPtr = p_float64(weights) + irow  * nVisChan + visChan;
+	  float*   imgWtPtr = p_float32(weights) + irow  * nVisChan + visChan;
 
 	  // We can do that since all flags in 4-pols are equalised in ClassVisServer
 	  if(flagPtr[0]==1){continue;}
@@ -666,8 +701,14 @@ void gridderWPol(PyArrayObject *grid,
       //printf("visChanMean, NVisThisblock: %f %f\n",(float)visChanMean, (float)NVisThisblock);
       visChanMean/=NVisThisblock;
       int ThisGridChan=p_ChanMapping[chStart];
-      float diffChan=visChanMean-ThisGridChan;
-      if(fabs(diffChan)>1e-6){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);}
+      double diffChan=visChanMean-ThisGridChan;
+      if(fabs(diffChan)>1e-6)
+      {
+        printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%lf, %i, %lf)\n",visChanMean,ThisGridChan,diffChan);
+        for (visChan=chStart; visChan<chEnd; ++visChan)
+            printf("%d ", ThisGridChan-p_ChanMapping[visChan]);
+        printf("\n");
+      }
       //if(diffChan!=0.){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %20.18f)\n",visChanMean,ThisGridChan,diffChan);}
       //printf("!!!!!!!!!!!!!!!!!!!\n");
       //printf("%i %i %f\n",i_ant0,i_ant1,visChanMean);

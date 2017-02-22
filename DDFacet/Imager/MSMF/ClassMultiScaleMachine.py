@@ -85,7 +85,7 @@ class ClassMultiScaleMachine():
         self.PSFServer=PSFServer
         self.DicoVariablePSF=self.PSFServer.DicoVariablePSF
         PSF,MeanPSF=self.PSFServer.GivePSF()
-        self._PSF=PSF#self.DicoPSF["ImagData"]
+        self._PSF=PSF#self.DicoPSF["ImageCube"]
         self._MeanPSF=MeanPSF
         
         _,_,NPSF,_=self._PSF.shape
@@ -98,7 +98,7 @@ class ClassMultiScaleMachine():
         #self.NChannels=self.DicoDirty["NChannels"]
 
 
-        self._Dirty=self.DicoDirty["ImagData"]
+        self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
         _,_,NDirty,_=self._Dirty.shape
         NPSF=self.NPSF
@@ -187,7 +187,7 @@ class ClassMultiScaleMachine():
         self.CubePSFScales=DicoBasisMatrix["CubePSFScales"]
         self.GlobalWeightFunction=DicoBasisMatrix["GlobalWeightFunction"]
 
-    def MakeMultiScaleCube(self):
+    def MakeMultiScaleCube(self, verbose=False):
         if self.IsInit_MultiScaleCube: return
         T=ClassTimeIt.ClassTimeIt("MakeMultiScaleCube")
         T.disable()
@@ -260,6 +260,7 @@ class ClassMultiScaleMachine():
         nch,_,nx,ny=self.SubPSF.shape
 
         if self.CubePSFScales is None or self.ListScales is None:
+            # print>>log,"computing scales"
             #self.ListSumFluxes = []
 
             self.ListScales = []
@@ -378,6 +379,8 @@ class ClassMultiScaleMachine():
                 #                                     "Alpha":ThisAlpha})
 
             self.CubePSFScales=np.array(ListPSFScales)
+        # else:
+        #     print>>log,"scales already loaded"
         T.timeit("1")
         # Max=np.max(np.max(CubePSFScales,axis=1),axis=1)
         # Max=Max.reshape((Max.size,1,1))
@@ -430,9 +433,15 @@ class ClassMultiScaleMachine():
         self.nFunc=self.CubePSFScales.shape[0]
         self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
 
+        self.WeightWidth = self.GD["HMP"].get("Taper",0)
+        self.SupWeightWidth = self.GD["HMP"].get("Support",0)
 
-        self.WeightWidth=np.max([6.,np.max(Scales)])
-        self.SupWeightWidth=np.max([3.*self.WeightWidth,15])
+        if not self.WeightWidth:
+            self.WeightWidth = np.max([6.,np.max(Scales)])
+        if not self.SupWeightWidth:
+            self.SupWeightWidth = np.max([3.*self.WeightWidth,15])
+        if verbose:
+            print>>log,"  using HMP taper width %d, support size %d"%(self.WeightWidth, self.SupWeightWidth)
 
         T.timeit("init2")
         if self.GlobalWeightFunction is None:
@@ -576,7 +585,7 @@ class ClassMultiScaleMachine():
                          "GlobalWeightFunction":self.GlobalWeightFunction}
 
 
-        if self.GD["Debug"]["DumpCleanSolutions"]:
+        if self.GD["Debug"]["DumpCleanSolutions"] and not SubSubSubCoord:
             BaseName = self.GD["Output"]["Name"]
             pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
 
@@ -737,9 +746,9 @@ class ClassMultiScaleMachine():
             #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
 
             coef=np.min([np.abs(np.sum(Sol)/MeanFluxTrue),1.])
-            # # ############## debug
-            # Sol.fill(0)
-            # Sol[3]=1.
+            # # # ############## debug
+            # #Sol.fill(0)
+            # #Sol[0]=1.
             # ConvSM=np.dot(BM,Sol.reshape((-1,1))).reshape((nchan,1,nxp,nyp))
             # print
             # print "=====",self.iFacet,x,y
@@ -761,21 +770,21 @@ class ClassMultiScaleMachine():
             # print "coef",coef
             # import pylab
             # pylab.clf()
-            # iFunc=3
-            # #BM*=0.947
-            # pylab.plot(dirtyVec.ravel())
-            # pylab.plot(BM[:,iFunc].ravel())
-            # #pylab.plot(BM)
-            # pylab.plot(dirtyVec.ravel()-BM[:,iFunc].ravel())
-            # # pylab.subplot(1,3,1)
-            # # pylab.imshow(dirtyNormIm[0,0,:,:],interpolation="nearest")
-            # # pylab.colorbar()
-            # # pylab.subplot(1,3,2)
-            # # pylab.imshow(ConvSM[0,0,:,:],interpolation="nearest")
-            # # pylab.colorbar()
-            # # pylab.subplot(1,3,3)
-            # # pylab.imshow((dirtyNormIm-ConvSM)[0,0,:,:],interpolation="nearest")
-            # # pylab.colorbar()
+            # # iFunc=0
+            # # #BM*=0.947
+            # # pylab.plot(dirtyVec.ravel())
+            # # pylab.plot(BM[:,iFunc].ravel())
+            # # #pylab.plot(BM)
+            # # pylab.plot(dirtyVec.ravel()-BM[:,iFunc].ravel())
+            # pylab.subplot(1,3,1)
+            # pylab.imshow(dirtyNormIm[0,0,:,:],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.subplot(1,3,2)
+            # pylab.imshow(ConvSM[0,0,:,:],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.subplot(1,3,3)
+            # pylab.imshow((dirtyNormIm-ConvSM)[0,0,:,:],interpolation="nearest")
+            # pylab.colorbar()
             # pylab.draw()
             # pylab.show(False)
             # # ##########################
@@ -796,7 +805,7 @@ class ClassMultiScaleMachine():
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
 
             Fact=(MeanFluxTrue/np.sum(Sol))
-            Sol*=Fact
+            #Sol*=Fact
             
             if abs(Sol).max() < self._stall_threshold:
                 print>>log,"Stalled CLEAN!"
@@ -807,7 +816,7 @@ class ClassMultiScaleMachine():
                 global debug_dump_file
                 if not debug_dump_file:
                     debug_dump_file = file(self.GD["Output"]["Name"] + ".clean.solutions", "w")
-                cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal), debug_dump_file, 2)
+                cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, Fact, MeanFluxTrue, self.WeightMuellerSignal), debug_dump_file, 2)
 
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
@@ -818,7 +827,7 @@ class ClassMultiScaleMachine():
             a, b = self.CubePSFScales, np.float32(Sol.reshape((Sol.size, 1, 1, 1)))
             scales = numexpr.evaluate('a*b')
             # # model is sum of basis functions
-            LocalSM = scales.sum(axis=0)/Fact if Sol.size>1 else scales[0,...]/Fact
+            LocalSM = scales.sum(axis=0) if Sol.size>1 else scales[0,...]
 
 
             #print "Max abs model",np.max(np.abs(LocalSM))

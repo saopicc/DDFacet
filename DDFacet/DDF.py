@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 # matplotlib.use('agg')
 import optparse
 import traceback
+import atexit
 SaveFile = "last_DDFacet.obj"
 import os, errno, re, sys, time, subprocess, psutil, numexpr
 import numpy as np
@@ -127,7 +128,7 @@ def main(OP=None, messages=[]):
 
     if messages:
         if not DicoConfig["Log"]["Boring"]:
-            os.system('clear')
+            #os.system('clear')
             logo.print_logo()
         for msg in messages:
             print>> log, msg
@@ -172,8 +173,11 @@ def main(OP=None, messages=[]):
 
     # data machine initialized for all cases except PSF-only mode
     # psf machine initialized for all cases except Predict-only mode
-    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, IdSharedMem=Multiprocessing.getShmPrefix(), BaseName=ImageName,
-                                                  data=(Mode != "PSF"), psf=(Mode != "Predict"),
+    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, 
+                                                  BaseName=ImageName,
+                                                  predict_only=(Mode == "Predict"),
+                                                  data=(Mode != "PSF"), 
+                                                  psf=(Mode != "Predict" and Mode != "Dirty"),
                                                   readcol=(Mode != "Predict" and Mode != "PSF"),
                                                   deconvolve=("Clean" in Mode))
 
@@ -279,7 +283,8 @@ def main(OP=None, messages=[]):
 
 if __name__ == "__main__":
     #os.system('clear')
-    logo.print_logo()
+    #logo.print_logo()
+    atexit.register(Multiprocessing.cleanupShm)
 
     T = ClassTimeIt.ClassTimeIt()
 
@@ -314,7 +319,7 @@ if __name__ == "__main__":
         new_parset = OP.DicoConfig["Output"]["Name"] + ".parset"
         if os.path.exists(new_parset) and os.path.samefile(ParsetFile, new_parset):
             if OP.DicoConfig["Output"]["Clobber"]:
-                print>> log, ModColor.Str("WARNING: will overwrite existing parset, since --Clobber is specified.")
+                print>> log, ModColor.Str("WARNING: will overwrite existing parset, since --Output-Clobber is specified.")
             else:
                 print>> log, ModColor.Str("Your --Output-Name setting is the same as the base name of the parset, which would\n"
                                           "mean overwriting the parset. I'm sorry, Dave, I'm afraid I can't do that.\n"
@@ -322,6 +327,7 @@ if __name__ == "__main__":
                                           "you want to do, or set a different --Output-Name.")
                 sys.exit(1)
     elif len(args):
+        print args
         OP.ExitWithError("Incorrect number of arguments. Use -h for help.")
         sys.exit(1)
 
@@ -367,5 +373,4 @@ if __name__ == "__main__":
         retcode = 1 # Should at least give the command line an indication of failure
 
     APP.shutdown()
-    Multiprocessing.cleanupShm()
     sys.exit(retcode)

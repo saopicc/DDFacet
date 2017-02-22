@@ -124,11 +124,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             DicoComp=self.DicoSMStacked["Comp"]
             
 
-        if not(key in DicoComp.keys()):
-            DicoComp[key]={}
-            for p in range(npol):
-                DicoComp[key]["SolsArray"]=np.zeros((Sols.size,npol),np.float32)
-                DicoComp[key]["SumWeights"]=np.zeros((npol),np.float32)
+        comp = DicoComp.get(key)
+        if comp is None:
+            DicoComp[key] = comp = dict(
+                                    SolsArray = np.zeros((Sols.size,npol),np.float32),
+                                    SumWeights = np.zeros((npol),np.float32))
 # =======
 #         DicoComp = self.DicoSMStacked["Comp"]
 #         entry = DicoComp.setdefault(key, {})
@@ -143,8 +143,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     
         SolNorm=Sols.ravel()*Gain*np.mean(Fpol)
         
-        DicoComp[key]["SumWeights"][pol_array_index] += Weight
-        DicoComp[key]["SolsArray"][:,pol_array_index] += Weight*SolNorm
+        comp["SumWeights"][pol_array_index] += Weight
+        comp["SolsArray"][:,pol_array_index] += Weight*SolNorm
 # =======
 
 #         entry["SumWeights"][pol_array_index] += Weight
