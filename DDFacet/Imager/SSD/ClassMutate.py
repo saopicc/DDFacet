@@ -146,6 +146,7 @@ class ClassMutate():
         # move a pixel
         else:
             NMax=int(np.max([3.,self.PM.NPixListParms/10]))
+            NMax=np.min([NMax,10])
             N=int(random.uniform(1, NMax))
             #N=int(random.uniform(1, individual.shape[1]/100))
             
@@ -221,7 +222,7 @@ class ClassMutate():
             # #     if random.random() < indpb/100.:
             # #         individual[i] += random.gauss(m, s)
     
-        T.timeit("for")
+        T.timeit("for Type=%i"%Type)
     
         # if Type==2:
         #     A1=IndToArray(individual).copy()

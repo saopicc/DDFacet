@@ -415,20 +415,22 @@ class ZMachine():
         N=self.N
         zA=np.zeros((zN,zN),dtype=A.dtype)
         if N%2:
-            #zA[zN/2-N/2:zN/2+N/2+1,zN/2:zN/2+N/2+1]=A[:,:]
-            nx,ny=A.shape
-            zA[zN/2-N/2:zN/2+N/2+1,zN/2-ny:zN/2]=A[:,:]
+            zA[zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1]=A[:,:]
+            #nx,ny=A.shape
+            #zA[:nx/2+1,0:ny]=A[:nx/2+1,:]
+            #zA[-nx/2+1:,0:ny]=A[-nx/2+1:,:]
         else:
             zA[zN/2-N/2:zN/2+N/2,zN/2-N/2:zN/2+N/2]=A[:,:]
             
-        import pylab
-        pylab.subplot(1,2,1)
-        pylab.imshow(A,interpolation="nearest")
-        pylab.subplot(1,2,2)
-        pylab.imshow(zA,interpolation="nearest")
-        pylab.draw()
-        pylab.show(False)
-        stop
+        # import pylab
+        # pylab.subplot(1,2,1)
+        # pylab.imshow(A.real,interpolation="nearest")
+        # pylab.subplot(1,2,2)
+        # pylab.imshow(zA.real,interpolation="nearest")
+        # pylab.draw()
+        # pylab.show(False)
+        # stop
+
         return zA
 
     def fromZeroPad(self,zA):
@@ -449,8 +451,8 @@ def ConvolveFFTW2D(Ain0,Bin0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=F
 
     if ZeroPad:
         ZM=ZMachine(Ain0)
-        Ain=Ain0#ZM.toZeroPad(Ain0)
-        PSF=Bin0#ZM.toZeroPad(Bin0)
+        Ain=ZM.toZeroPad(Ain0)
+        PSF=ZM.toZeroPad(Bin0)
     else:
         Ain=Ain0
         PSF=Bin0
@@ -459,6 +461,8 @@ def ConvolveFFTW2D(Ain0,Bin0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=F
 
     fft_forward=pyfftw.interfaces.numpy_fft.rfft2
     fft_bakward=pyfftw.interfaces.numpy_fft.irfft2
+    fft_forward=pyfftw.interfaces.numpy_fft.fft2
+    fft_bakward=pyfftw.interfaces.numpy_fft.ifft2
 
 
     if Normalise:
@@ -467,30 +471,39 @@ def ConvolveFFTW2D(Ain0,Bin0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=F
     T.disable()
     T.timeit("init")
 
+    #print PSF.shape
+
     PSF = np.fft.fftshift(PSF)
     T.timeit("shoft")
+    #print PSF.shape
 
     fPSF = fft_forward(PSF, overwrite_input=True, threads=1)#NCPU_global)
     T.timeit("fft1")
+    #print fPSF.shape
 
+    #print Ain.shape
     A = np.fft.fftshift(Ain)
+    #print A.shape
     T.timeit("shoft")
 
     fA = fft_forward(A, overwrite_input=True, threads=1)#NCPU_global), planner_effort='FFTW_MEASURE'
     T.timeit("fft2")
+    #print fA.shape
 
     nfA = fA*fPSF
     T.timeit("mult")
 
-    if ZeroPad:
-        nfA=ZM.toZeroPad(nfA)
+#    if ZeroPad:
+#        nfA=ZM.toZeroPad(nfA)
     ifA= fft_bakward(nfA, overwrite_input=True, threads=1)#NCPU_global)
     T.timeit("ifft")
 
     Aout = np.fft.ifftshift(ifA)
     T.timeit("shift")
+    #print Aout.shape
     if ZeroPad:
         Aout=ZM.fromZeroPad(Aout)
+    #print Aout.shape
     return Aout
 
 ## numpy.fft version

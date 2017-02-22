@@ -451,12 +451,12 @@ class ClassImageDeconvMachine():
 
         StopWhenQueueEmpty=True
 
-        ######### Debug
-        ParallelPerIsland=False
-        Parallel=False
-        NCPU=1
-        StopWhenQueueEmpty=True
-        ##################
+        # ######### Debug
+        # ParallelPerIsland=False
+        # Parallel=False
+        # NCPU=1
+        # StopWhenQueueEmpty=True
+        # ##################
         
 
         work_queue = multiprocessing.Queue()
@@ -531,8 +531,8 @@ class ClassImageDeconvMachine():
                                  NChains=self.NChains,
                                  ListInitIslands=ListInitIslands)
             workerlist.append(W)
-            # workerlist[ii].start()
-            workerlist[ii].run()
+            workerlist[ii].start()
+            # workerlist[ii].run()
 
             # if Parallel: 
             #     workerlist[ii].start()

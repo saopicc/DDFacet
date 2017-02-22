@@ -396,8 +396,8 @@ class ClassArrayMethodSSD():
         DicoChi2={}
         NJobs = len(pop)
         NCPU=self.NCPU
-        self.giveDistanceIndiv(pop)
-        print "OK"
+        #self.giveDistanceIndiv(pop)
+        #print "OK"
         for iIndividual,individual in enumerate(pop):
             NpShared.ToShared("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual),individual)
             work_queue.put({"iIndividual":iIndividual,
@@ -860,10 +860,12 @@ class WorkerFitness(multiprocessing.Process):
             
 
             if DicoJob["OperationType"]=="Fitness":
+                #print "FitNess"
                 self.GiveFitnessWorker(DicoJob)
             elif DicoJob["OperationType"]=="Metropolis":
                 self.runMetroSingleChainWorker(DicoJob)
             elif DicoJob["OperationType"]=="Mutate":
+                #print "Mutate"
                 self.runSingleMutation(DicoJob)
 
     def runSingleMutation(self,DicoJob):

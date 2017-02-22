@@ -66,7 +66,7 @@ def varAnd(population, toolbox, cxpb, mutpb, ArrayMethodsMachine,MutConfig):
     according to the given probabilities. Both probabilities should be in
     :math:`[0, 1]`.
     """
-    T= ClassTimeIt.ClassTimeIt()
+    T= ClassTimeIt.ClassTimeIt("VarAnd")
     T.disable()
     offspring = [toolbox.clone(ind) for ind in population]
     T.timeit("   clone")
