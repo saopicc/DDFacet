@@ -834,11 +834,8 @@ class ClassFacetMachine():
         DoCalcJonesNorm = NormJones and not "JonesNorm" in self._norm_dict
         if DoCalcJonesNorm:
             self._norm_dict["JonesNorm"] = self.FacetsToIm_Channel("Jones-amplitude")
-            _,npol,nx,ny=self._norm_dict["JonesNorm"].shape
-            self._norm_dict["MeanJonesNorm"] = np.mean(self._norm_dict["JonesNorm"],axis=0).reshape((1,npol,nx,ny))
 
-        self.JonesNorm = JonesNorm = self._norm_dict["JonesNorm"]
-        self.MeanJonesNorm = MeanJonesNorm = self._norm_dict["MeanJonesNorm"]
+        JonesNorm = self._norm_dict["JonesNorm"]
 
         # compute normalized per-band weights (WBAND)
         if self.VS.MultiFreqMode:

@@ -1365,7 +1365,7 @@ class ClassImagerDeconv():
             if label not in _images:
                 if havenorm:
                     if self.FacetMachine.MeanSmoothJonesNorm is None:
-                        a = self.FacetMachine.MeanJonesNorm 
+                        a = self.MeanJonesNorm 
                     else:
                         print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparant images",col="blue")
                         a=self.FacetMachine.MeanSmoothJonesNorm
