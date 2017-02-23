@@ -39,7 +39,7 @@ from DDFacet.Other import Multiprocessing
 from DDFacet.Array import shared_dict
 from DDFacet.Other.AsyncProcessPool import APP
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmearPols
-
+import copy
 
 log = MyLogger.getLogger("ClassVisServer")
 
@@ -553,13 +553,18 @@ class ClassVisServer():
             self.cache.saveCache("BDA.Degrid")
 
     def computeBDAInBackground(self, base_job_id, ms, DATA, ChanMappingGridding=None, ChanMappingDeGridding=None):
+
+        GD=copy.deepcopy(self.GD)
+        CriticalCacheParms=dict(Data=GD["Data"],
+                                Compression=GD["Comp"],
+                                Freq=GD["Freq"],
+                                DataSelection=GD["Selection"],
+                                Sorting=GD["Data"]["Sort"])
+        del CriticalCacheParms["Data"]["ColName"],CriticalCacheParms["DataSelection"]["FlagAnts"]
+        
+
         if True: # always True for now, non-BDA gridder is not maintained # if self.GD["Comp"]["CompGridMode"]:
-            self._bda_grid_cachename, valid = self.cache.checkCache("BDA.Grid",
-                                                       dict(Data=self.GD["Data"],
-                                                            Compression=self.GD["Comp"],
-                                                            Freq=self.GD["Freq"],
-                                                            DataSelection=self.GD["Selection"],
-                                                            Sorting=self.GD["Data"]["Sort"]))
+            self._bda_grid_cachename, valid = self.cache.checkCache("BDA.Grid",CriticalCacheParms)
             if valid:
                 print>> log, "  using cached BDA mapping %s" % self._bda_grid_cachename
                 DATA["BDA.Grid"] = np.load(self._bda_grid_cachename)
@@ -574,12 +579,7 @@ class ClassVisServer():
                                                           ChanMappingGridding)
 
         if True: # always True for now, non-BDA gridder is not maintained # if self.GD["Comp"]["CompDeGridMode"]:
-            self._bda_degrid_cachename, valid = self.cache.checkCache("BDA.Degrid",
-                                                       dict(Data=self.GD["Data"],
-                                                            Compression=self.GD["Comp"],
-                                                            Freq=self.GD["Freq"],
-                                                            DataSelection=self.GD["Selection"],
-                                                            Sorting=self.GD["Data"]["Sort"]))
+            self._bda_degrid_cachename, valid = self.cache.checkCache("BDA.Degrid",CriticalCacheParms)
 
             if valid:
                 print>> log, "  using cached BDA mapping %s" % self._bda_degrid_cachename
