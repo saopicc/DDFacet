@@ -119,6 +119,7 @@ class ClassFacetMachine():
             print>>log,ModColor.Str("Using decorrelation mode %s"%DecorrMode)
         self.AverageBeamMachine=None
         self.SmoothJonesNorm=None
+        self.MeanSmoothJonesNorm=None
         self.JonesNorm = None
         self.FacetNorm = None
 
