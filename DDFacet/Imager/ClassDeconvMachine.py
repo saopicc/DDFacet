@@ -792,11 +792,11 @@ class ClassImagerDeconv():
                     ModelImage[np.logical_not(InSquare)]=0
 
             if ModelImage.shape[0]!=DATA["ChanMappingDegrid"].size:
-                print>>log, "The image model channels and targetted degridded visibilities channels have different sizes (%i vs %i respectively)"%(ModelImage.shape[0],self.VS.CurrentChanMappingDegrid.size)
+                print>>log, "The image model channels and targetted degridded visibilities channels have different sizes (%i vs %i respectively)"%(ModelImage.shape[0],DATA["ChanMappingDegrid"].size)
                 if ModelImage.shape[0]==1:
                     print>>log, " Matching freq size of model image to visibilities"
                     ModelImage=ModelImage*np.ones((DATA["ChanMappingDegrid"].size,1,1,1))
-
+                    ModelImage = self.FacetMachine.setModelImage(ModelImage)
 
             if CleanMaskImage is not None:
                 nch,npol,_,_=ModelImage.shape

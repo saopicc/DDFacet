@@ -1621,7 +1621,8 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
-                                  ChanSel, self._model_dict.readonly()))
+                                  ChanSel, self._model_dict.readonly()))#,serial=True)
+        #APP.awaitJobResults(self._degrid_job_id + "*", progress="Degrid %s" % self._degrid_job_label)
 
 
     def collectDegriddingResults(self):
