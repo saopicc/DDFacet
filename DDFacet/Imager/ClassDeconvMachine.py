@@ -185,7 +185,8 @@ class ClassImagerDeconv():
                 raise NotImplementedError("You want to use different minor cycle and IniDicoModel types [%s vs %s]"\
                                           %(self.GD["Deconv"]["Mode"], modeltype))
 
-            print>>log, ModColor.Str("Taking reference frequency from the model machine %f MHz (instead of %f MHz from the data)"%(ModelMachine.RefFreq/1e6,self.VS.RefFreq/1e6))
+            if ModelMachine.RefFreq!=self.VS.RefFreq:
+                print>>log, ModColor.Str("Taking reference frequency from the model machine %f MHz (instead of %f MHz from the data)"%(ModelMachine.RefFreq/1e6,self.VS.RefFreq/1e6))
             self.RefFreq=self.VS.RefFreq=ModelMachine.RefFreq
 
             if self.BaseName==self.GD["Predict"]["InitDicoModel"][0:-10]:

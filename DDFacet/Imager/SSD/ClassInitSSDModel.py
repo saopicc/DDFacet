@@ -44,6 +44,9 @@ class ClassInitSSDModelParallel():
         work_queue = multiprocessing.JoinableQueue()
         ListIslands=ListIslands#[300:308]
         DoIsland=True
+        
+        
+        
         for iIsland in range(len(ListIslands)):
             if ListDoIsland is not None:
                 DoIsland=ListDoIsland[iIsland]
