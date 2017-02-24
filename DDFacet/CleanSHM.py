@@ -27,12 +27,13 @@ log= MyLogger.getLogger("ClearSHM")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols as _pyGridderSmear
 import glob
 import os
+import shutil
 
 from DDFacet.Other import Multiprocessing
 def read_options():
     desc="""CohJones Questions and suggestions: cyril.tasse@obspm.fr"""
     
-    opt = optparse.OptionParser(usage='Usage: %prog --ms=somename.MS <options>',version='%prog version 1.0',description=desc)
+    opt = optparse.OptionParser(usage='Usage: %prog <options>',version='%prog version 1.0',description=desc)
 
     group = optparse.OptionGroup(opt, "* SHM")
     group.add_option('--ID',help='ID of ssared memory to be deleted, default is %default',default=None)
@@ -62,3 +63,9 @@ if __name__=="__main__":
 
     _pyGridderSmear.pySetSemaphores(ListSemaphores)
     _pyGridderSmear.pyDeleteSemaphore(ListSemaphores)
+
+    print>>log, "Clear shared dictionaries"
+    ll=glob.glob("/dev/shm/shared_dict:*")
+    ll = filter(lambda x: os.access(x, os.W_OK),ll)
+    for f in ll:
+        shutil.rmtree(f)
