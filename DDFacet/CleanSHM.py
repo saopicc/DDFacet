@@ -26,6 +26,8 @@ from DDFacet.Other import MyLogger
 log= MyLogger.getLogger("ClearSHM")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols as _pyGridderSmear
 import glob
+import os
+
 from DDFacet.Other import Multiprocessing
 def read_options():
     desc="""CohJones Questions and suggestions: cyril.tasse@obspm.fr"""
@@ -53,7 +55,9 @@ if __name__=="__main__":
     ll=glob.glob("/dev/shm/sem.*")
         
     print>>log, "Clear Semaphores"
-    
+    # remove semaphores we don't have access to
+    ll = filter(lambda x: os.access(x, os.W_OK),ll)
+
     ListSemaphores=[".".join(l.split(".")[1::]) for l in ll]
 
     _pyGridderSmear.pySetSemaphores(ListSemaphores)

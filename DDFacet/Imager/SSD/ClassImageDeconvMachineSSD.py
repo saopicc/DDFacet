@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+import os
 import numpy as np
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
@@ -53,7 +54,7 @@ class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
-                 GD=None,SearchMaxAbs=1,IdSharedMem="",
+                 GD=None,SearchMaxAbs=1,IdSharedMem=None,
                  ModelMachine=None,
                  MainCache=None,
                  **kw    # absorb any unknown keywords arguments into this
@@ -66,7 +67,10 @@ class ClassImageDeconvMachine():
         self.NCPU=NCPU
         self.Chi2Thr=10000
         self.GD=GD
-        self.IdSharedMem=IdSharedMem
+        if IdSharedMem is None:
+            self.IdSharedMem=str(os.getpid())
+        else:
+            self.IdSharedMem=IdSharedMem
         self.SubPSF=None
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         self.FluxThreshold = FluxThreshold 
