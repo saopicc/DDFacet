@@ -833,9 +833,9 @@ class ClassFacetMachine():
         # build Jones amplitude image
         DoCalcJonesNorm = NormJones and not "JonesNorm" in self._norm_dict
         if DoCalcJonesNorm:
-            self._norm_dict["JonesNorm"] = JonesNorm = self.FacetsToIm_Channel("Jones-amplitude")
-        else:
-            JonesNorm = self._norm_dict["JonesNorm"]
+            self._norm_dict["JonesNorm"] = self.FacetsToIm_Channel("Jones-amplitude")
+
+        JonesNorm = self._norm_dict["JonesNorm"]
 
         # compute normalized per-band weights (WBAND)
         if self.VS.MultiFreqMode:
@@ -1618,7 +1618,8 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._degrid_job_id, iFacet), self._degrid_worker,
                             args=(iFacet, DATA.readonly(), self._CF[iFacet].readonly(),
-                                  ChanSel, self._model_dict.readonly()))
+                                  ChanSel, self._model_dict.readonly()))#,serial=True)
+        #APP.awaitJobResults(self._degrid_job_id + "*", progress="Degrid %s" % self._degrid_job_label)
 
 
     def collectDegriddingResults(self):
