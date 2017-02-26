@@ -42,7 +42,6 @@ from DDFacet.Other import AsyncProcessPool
 from DDFacet.Other.AsyncProcessPool import APP
 import cPickle
 log=MyLogger.getLogger("ClassImagerDeconv")
-import pyfits
 import DDFacet.Data.ClassBeamMean as ClassBeamMean
 from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Array import shared_dict

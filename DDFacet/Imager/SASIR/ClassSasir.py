@@ -23,7 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import numpy as np
 import logging
 import time
-
+from astropy.io import fits
 from scipy.signal import fftconvolve
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class ClassSasir: # inherits from FitsImage but overriding __init__ to get rid o
         self.mask_name = mask_name
 
         if self.mask_name is not None:
-            self.mask = pyfits.open("{}".format(mask_name))[0].data
+            self.mask = fits.open("{}".format(mask_name))[0].data
             self.mask = self.mask.reshape(self.mask.shape[-2], self.mask.shape[-1])
             self.mask = self.mask / np.max(self.mask)
             self.mask = fftconvolve(self.mask, np.ones([5, 5]), mode="same")
