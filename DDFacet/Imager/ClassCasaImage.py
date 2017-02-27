@@ -86,7 +86,7 @@ class ClassCasaimage():
             for k in header_dict:
                 self.header[k]=header_dict[k]
         if history is not None:
-            if isinst(history,str):
+            if isinstance(history,str):
                 history=[history]
             for h in history:
                 self.header['HISTORY']=h
@@ -156,13 +156,13 @@ class ClassCasaimage():
         FileOut=self.ImageName+".fits"
         #print>>log, "  ----> Save beam info in FITS file %s"%FileOut
         
-        self.header["BMAJ"] = bmaj/3600.0
-        self.header["BMIN"] = bmin/3600.0
+        self.header["BMAJ"] = bmaj
+        self.header["BMIN"] = bmin
         self.header["BPA"] = PA
         if beamcube is not None:
             for band,(bmaj, bmin, bpa) in enumerate(beamcube):
-                self.header["BMAJ%d"%band] = bmaj/3600.0
-                self.header["BMIN%d"%band] = bmin/3600.0
+                self.header["BMAJ%d"%band] = bmaj
+                self.header["BMIN%d"%band] = bmin
                 self.header["BPA%d"%band] = PA
 
     def close(self):
@@ -175,7 +175,7 @@ class ClassCasaimage():
 def test():
     np.random.seed(0)
     name,imShape,Cell,radec="lala3.psf", (10, 1, 1029, 1029), 20, (3.7146787856873478, 0.91111035090915093)
-    im=ClassCasaimage(name,imShape,Cell,radec, Freqs=np.linspace(1400e6,1500e6,20))
+    im=ClassCasaimage(name,imShape,Cell,radec, Freqs=np.linspace(1400e6,1500e6,20),header_dict={'comment':'A test'},history=['Here is a history line.','Here is another'])
     im.setdata(np.random.randn(*(imShape)).astype(np.float32),CorrT=True)
     im.setBeam((10.,10.,0.))
     im.ToFits()
