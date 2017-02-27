@@ -138,7 +138,7 @@ class ClassCasaimage():
         hdu = fits.PrimaryHDU(header=self.header,data=self.data)
         if os.path.exists(FileOut):
             os.unlink(FileOut)
-        print>>log, "  ----> Save data in casa image as FITS file %s"%FileOut
+        print>>log, "  ----> Save image data as FITS file %s"%FileOut
         hdu.writeto(FileOut)
 
     def setBeam(self,beam,beamcube=None):
