@@ -194,7 +194,8 @@ class ClassImagerDeconv():
                 self.DicoModelName="%s.DicoModel"%self.BaseName
                 self.DicoMetroModelName="%s.Metro.DicoModel"%self.BaseName
             self.DoDirtySub=1
-
+            # enable that to be able to restore even if we don't deconvolve
+            self.HasDeconvolved=True
         else:
             ModelMachine = self.ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
             ModelMachine.setRefFreq(self.VS.RefFreq)
