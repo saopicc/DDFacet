@@ -49,40 +49,59 @@ try:
 except:
     print>>log, ModColor.Str("Could not import lofar.stationresponse")
 
-def obs_detail(filename):
+def obs_detail(filename,field=0):
 
     results={}
+    object=""
 
-    to = table(filename+ '/OBSERVATION', readonly=True, ack=False)
-    tf = table(filename+ '/FIELD', readonly=True, ack=False)
+    try:
+        to = table(filename+ '/OBSERVATION', readonly=True, ack=False)
+    except RuntimeError:
+        to = None
+    try:
+        tf = table(filename+ '/FIELD', readonly=True, ack=False)
+    except RuntimeError:
+        tf = None
+    if tf is not None and to is not None:
+        print >>log, 'Read observing details successfully'
+    else:
+        print >>log, 'Some observing details missing'
 
-    # Time
-    tm = Time(to[0]['TIME_RANGE']/86400.0,format='mjd')
-    results['DATE-OBS'] = tm[0].iso.split()[0]
+    # Stuff relying on an OBSERVATION table:
+    if to is not None:
+        # Time
+        tm = Time(to[0]['TIME_RANGE']/86400.0,format='mjd')
+        results['DATE-OBS'] = tm[0].iso.split()[0]
+
+        # Object
+        try:
+            object = to[0]['LOFAR_TARGET'][0]
+        except:
+            pass
+
+        # Telescope
+        telescope=to[0]['TELESCOPE_NAME']
+        results['TELESCOP'] = telescope
+
+        # observer
+        observer = to[0]['OBSERVER']
+        results['OBSERVER'] = observer
+
+    if not object and tf is not None:
+        object = tf[field]['NAME'] 
+
+    if object:
+        results['OBJECT'] = object
 
     # Time now
     tn = Time(time.time(),format='unix')
     results['DATE-MAP'] = tn.iso.split()[0]
 
-    # Object
-    object=""
-    try:
-        object = to[0]['LOFAR_TARGET'][0]
-    except:
-        pass
-    if not object:
-        object = tf[0]['NAME'] # NB in a multi-object dataset this might be wrong
-    if object:
-        results['OBJECT'] = object
+    if to is not None:
+        to.close()
+    if tf is not None:
+        tf.close()
 
-    # Telescope
-    telescope=to[0]['TELESCOPE_NAME']
-    results['TELESCOP'] = telescope
-
-    # observer
-    observer = to[0]['OBSERVER']
-    results['OBSERVER'] = observer
-    print >>log, 'Read observing details successfully'
     return results
 
 class ClassMS():
@@ -171,7 +190,7 @@ class ClassMS():
             self.LoadSR()
 
         if get_obs_detail:
-            self.obs_detail=obs_detail(self.MSName)
+            self.obs_detail=obs_detail(self.MSName, field=self.Field)
 
     def GiveMainTable (self,**kw):
         """Returns main MS table, applying TaQL selection if any"""
