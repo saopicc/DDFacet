@@ -237,7 +237,14 @@ class ClassBeamMean():
         SmoothBeam=np.zeros((self.VS.NFreqBands,nx,nx),np.float32)
         for iBand in range(self.VS.NFreqBands):
             values=self.SumJJsq[:,:,iBand].flatten()
-            SmoothBeam[iBand] = griddata(points, values, (grid_x, grid_y), method='cubic')
+            S = griddata(points, values, (grid_x, grid_y), method='cubic')
+
+            # To avoid negative values in the interpolation
+            Sm=S.max()
+            SCut=1e-6*Sm
+            S[S<SCut]=SCut
+            SmoothBeam[iBand] = S
+
             
         # # # to implement - spline interpolation
         # # grid_x, grid_y = np.mgrid[0:1:NPixOut*1j, 0:1:NPixOut*1j]
