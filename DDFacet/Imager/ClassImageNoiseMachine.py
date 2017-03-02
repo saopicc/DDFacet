@@ -171,7 +171,7 @@ class ClassImageNoiseMachine():
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1])
 
         if self.NoiseMapReShape is not None:
-            self.DeconvMachine.setNoiseMap(self.NoiseMapReShape)
+            self.DeconvMachine.setNoiseMap(self.NoiseMapReShape,PNRStop=self.GD["Mask"]["SigTh"])
 
         # # #########################
         # # debug
