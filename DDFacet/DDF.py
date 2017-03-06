@@ -284,6 +284,19 @@ def main(OP=None, messages=[]):
 if __name__ == "__main__":
     #os.system('clear')
     #logo.print_logo()
+
+    # work out DDFacet version
+    ddfacetPath = "." if os.path.dirname(
+        __file__) == "" else os.path.dirname(__file__)
+    traceback_msg = traceback.format_exc()
+    try:
+        commitSha = subprocess.check_output(
+            "git -C %s rev-parse HEAD" %
+            ddfacetPath, shell=True)
+    except subprocess.CalledProcessError:
+        import DDFacet.version as version
+        commitSha = version.__version__
+
     atexit.register(Multiprocessing.cleanupShm)
 
     T = ClassTimeIt.ClassTimeIt()
@@ -295,7 +308,8 @@ if __name__ == "__main__":
     # collect messages in a list here because I don't want to log them until the logging system
     # is set up in main()
     messages = ["starting DDFacet (%s)" % " ".join(sys.argv),
-                "working directory is %s" % os.getcwd()]
+                "   version is %s"%commitSha,
+                "   working directory is %s" % os.getcwd()]
 
     # single argument is a parset to read
     if len(args) == 1:
@@ -344,16 +358,6 @@ if __name__ == "__main__":
         retcode = 1 #Should at least give the command line an indication of failure
     except:
         print>>log, traceback.format_exc()
-        ddfacetPath = "." if os.path.dirname(
-            __file__) == "" else os.path.dirname(__file__)
-        traceback_msg = traceback.format_exc()
-        try:
-            commitSha = subprocess.check_output(
-                "git -C %s rev-parse HEAD" %
-                ddfacetPath, shell=True)
-        except subprocess.CalledProcessError:
-            import DDFacet.version as version
-            commitSha = version.__version__
 
         logfileName = MyLogger.getLogFilename()
         logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
