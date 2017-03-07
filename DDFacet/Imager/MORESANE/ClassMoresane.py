@@ -33,6 +33,7 @@ from pymoresane.main import FitsImage as FI # importing the class
 
 from scipy.signal import fftconvolve
 import pylab as plt
+from astropy.io import fits
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ class ClassMoresane(FI): # inherits from FitsImage but overriding __init__ to ge
         self.mask_name = mask_name
 
         if self.mask_name is not None:
-            self.mask = pyfits.open("{}".format(mask_name))[0].data
+            self.mask = fits.open("{}".format(mask_name))[0].data
             self.mask = self.mask.reshape(self.mask.shape[-2], self.mask.shape[-1])
             self.mask = self.mask / np.max(self.mask)
             self.mask = fftconvolve(self.mask, np.ones([5, 5]), mode="same")

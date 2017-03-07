@@ -40,6 +40,7 @@ import datetime
 import DDFacet.ToolsDir.ModRotate
 
 import time
+from astropy.time import Time
 from DDFacet.Other.progressbar import ProgressBar
 
 
@@ -48,13 +49,68 @@ try:
 except:
     print>>log, ModColor.Str("Could not import lofar.stationresponse")
 
+def obs_detail(filename,field=0):
+
+    results={}
+    object=""
+
+    try:
+        to = table(filename+ '/OBSERVATION', readonly=True, ack=False)
+    except RuntimeError:
+        to = None
+    try:
+        tf = table(filename+ '/FIELD', readonly=True, ack=False)
+    except RuntimeError:
+        tf = None
+    if tf is not None and to is not None:
+        print >>log, 'Read observing details successfully'
+    else:
+        print >>log, 'Some observing details missing'
+
+    # Stuff relying on an OBSERVATION table:
+    if to is not None:
+        # Time
+        tm = Time(to[0]['TIME_RANGE']/86400.0,format='mjd')
+        results['DATE-OBS'] = tm[0].iso.split()[0]
+
+        # Object
+        try:
+            object = to[0]['LOFAR_TARGET'][0]
+        except:
+            pass
+
+        # Telescope
+        telescope=to[0]['TELESCOPE_NAME']
+        results['TELESCOP'] = telescope
+
+        # observer
+        observer = to[0]['OBSERVER']
+        results['OBSERVER'] = observer
+
+    if not object and tf is not None:
+        object = tf[field]['NAME'] 
+
+    if object:
+        results['OBJECT'] = object
+
+    # Time now
+    tn = Time(time.time(),format='unix')
+    results['DATE-MAP'] = tn.iso.split()[0]
+
+    if to is not None:
+        to.close()
+    if tf is not None:
+        tf.close()
+
+    return results
+
 class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
                  AverageTimeFreq=None,
                  Field=0,DDID=0,TaQL=None,ChanSlice=None,GD=None,
                  DicoSelectOptions={},
-                 ResetCache=False):
+                 ResetCache=False,get_obs_detail=False):
 
         """
         Args:
@@ -76,6 +132,7 @@ class ClassMS():
             ChanSlice:
             DicoSelectOptions: dict of data selection options applied to this MS
             ResetCache: if True, cached products will be reset
+            get_obs_detail: if True, find some observational details for output FITS headers
         """
 
         if MSname=="": exit()
@@ -132,6 +189,8 @@ class ClassMS():
         if GetBeam:
             self.LoadSR()
 
+        if get_obs_detail:
+            self.obs_detail=obs_detail(self.MSName, field=self.Field)
 
     def GiveMainTable (self,**kw):
         """Returns main MS table, applying TaQL selection if any"""
