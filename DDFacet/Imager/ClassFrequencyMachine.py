@@ -21,6 +21,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import numpy as np
 from DDFacet.ToolsDir import ClassRRGP
 import matplotlib.pyplot as plt
+from DDFacet.Other import MyPickle
 
 class ClassFrequencyMachine(object):
     """
@@ -254,67 +255,71 @@ class ClassFrequencyMachine(object):
             raise NotImplementedError('GPR mode only predicts to GridFreqs, DegridFreqs and ref_freq')
 
 if __name__=="__main__":
-    #Create array to hold model image
-    N = 100
-    Nch = 10
-    NchDegrid = 32
-    IM = np.zeros([Nch,N,N])
+    DicoPoly = MyPickle.Load("/home/landman/Projects/Processed_Images/ddfacet_out/test_SimpleSimSpI/SimpleSimSpI.run.Poly.DicoModel")
+    DicoGPR = MyPickle.Load("/home/landman/Projects/Processed_Images/ddfacet_out/test_SimpleSimSpI/SimpleSimSpI.run.GPR.DicoModel")
 
-    # Choose some random indices to populate
-    nsource = 25
-    ix = np.random.randint(0, N, nsource)
-    iy = np.random.randint(0, N, nsource)
-
-    #Set frequencies
-    Freqs = np.linspace(1.0,3.0,Nch)
-    Freqsp = np.linspace(1.0,3.0,NchDegrid)
-    ref_freq = 2.0
-
-    #Populate model
-    alpha = np.zeros(nsource)
-    for i in xrange(nsource):
-        alpha[i] = np.random.randn()
-        IM[:, ix[i], iy[i]] = 1.0*(Freqs/ref_freq)**alpha[i]
-
-    IalphaTrue = np.zeros([N,N])
-    IalphaTrue[ix, iy] = alpha
-
-    GD = {}
-    GD["Hogbom"] = {}
-    GD["Hogbom"]["FreqMode"] = "Poly"
-    GD["Hogbom"]["PolyFitOrder"] = 5
-
-    #Create frequency machine
-    fmachine = ClassFrequencyMachine(Freqs, Freqsp, ref_freq, GD=GD)
-
-    fmachine.FitAlphaMap(IM, threshold=0.1)
-
-    IM0 = fmachine.Iref
-    Ialpha = fmachine.alpha_map
-
-    IMCube = fmachine.EvalAlphamap(Freqsp)
-
-    plt.figure('I0')
-    plt.imshow(IM0, interpolation="nearest", cmap="cubehelix")
-    plt.colorbar()
-
-    plt.figure('Ialpha')
-    plt.imshow(Ialpha, interpolation="nearest", cmap="cubehelix")
-    plt.colorbar()
-
-    plt.figure('IalphaT')
-    plt.imshow(IalphaTrue, interpolation="nearest", cmap="cubehelix")
-    plt.colorbar()
-
-    plt.figure('alphadiff')
-    plt.imshow(Ialpha - IalphaTrue, interpolation="nearest", cmap="cubehelix")
-    plt.colorbar()
-    plt.show()
-
-    # plt.figure('Icube')
-    # for i in xrange(NchDegrid):
-    #     plt.imshow(IMCube[i,:,:], interpolation="nearest", cmap="cubehelix")
-    #     plt.pause(0.1)
-    #     plt.colorbar()
-    #     plt.show()
-
+    print "Hello"
+    # #Create array to hold model image
+    # N = 100
+    # Nch = 10
+    # NchDegrid = 32
+    # IM = np.zeros([Nch,N,N])
+    #
+    # # Choose some random indices to populate
+    # nsource = 25
+    # ix = np.random.randint(0, N, nsource)
+    # iy = np.random.randint(0, N, nsource)
+    #
+    # #Set frequencies
+    # Freqs = np.linspace(1.0,3.0,Nch)
+    # Freqsp = np.linspace(1.0,3.0,NchDegrid)
+    # ref_freq = 2.0
+    #
+    # #Populate model
+    # alpha = np.zeros(nsource)
+    # for i in xrange(nsource):
+    #     alpha[i] = np.random.randn()
+    #     IM[:, ix[i], iy[i]] = 1.0*(Freqs/ref_freq)**alpha[i]
+    #
+    # IalphaTrue = np.zeros([N,N])
+    # IalphaTrue[ix, iy] = alpha
+    #
+    # GD = {}
+    # GD["Hogbom"] = {}
+    # GD["Hogbom"]["FreqMode"] = "Poly"
+    # GD["Hogbom"]["PolyFitOrder"] = 5
+    #
+    # #Create frequency machine
+    # fmachine = ClassFrequencyMachine(Freqs, Freqsp, ref_freq, GD=GD)
+    #
+    # fmachine.FitAlphaMap(IM, threshold=0.1)
+    #
+    # IM0 = fmachine.Iref
+    # Ialpha = fmachine.alpha_map
+    #
+    # IMCube = fmachine.EvalAlphamap(Freqsp)
+    #
+    # plt.figure('I0')
+    # plt.imshow(IM0, interpolation="nearest", cmap="cubehelix")
+    # plt.colorbar()
+    #
+    # plt.figure('Ialpha')
+    # plt.imshow(Ialpha, interpolation="nearest", cmap="cubehelix")
+    # plt.colorbar()
+    #
+    # plt.figure('IalphaT')
+    # plt.imshow(IalphaTrue, interpolation="nearest", cmap="cubehelix")
+    # plt.colorbar()
+    #
+    # plt.figure('alphadiff')
+    # plt.imshow(Ialpha - IalphaTrue, interpolation="nearest", cmap="cubehelix")
+    # plt.colorbar()
+    # plt.show()
+    #
+    # # plt.figure('Icube')
+    # # for i in xrange(NchDegrid):
+    # #     plt.imshow(IMCube[i,:,:], interpolation="nearest", cmap="cubehelix")
+    # #     plt.pause(0.1)
+    # #     plt.colorbar()
+    # #     plt.show()
+    #
