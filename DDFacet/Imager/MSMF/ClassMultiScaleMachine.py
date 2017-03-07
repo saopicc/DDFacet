@@ -60,6 +60,7 @@ class ClassMultiScaleMachine():
         self.NFreqBands = NFreqBands
         self.MultiFreqMode = NFreqBands>1
         self.SolveMode = self.GD["HMP"]["SolverMode"]
+        self._kappa = self.GD["HMP"]["Kappa"]
         self._stall_threshold = self.GD["Debug"]["CleanStallThreshold"]
         self.GlobalWeightFunction=None
         self.ListScales=None
@@ -745,7 +746,6 @@ class ClassMultiScaleMachine():
 
             #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
 
-            coef=np.min([np.abs(np.sum(Sol)/MeanFluxTrue),1.])
             # # # ############## debug
             # #Sol.fill(0)
             # #Sol[0]=1.
@@ -790,10 +790,26 @@ class ClassMultiScaleMachine():
             # # ##########################
             # stop
 
+            # regularized solution is just MeanFluxTrue with spi=0, and nulls for the other components
+            # regularizatuion coefficient goes to 0 to use regularized solution, to 1 to use the "proper" solution
+
+
+            # First coefficient: take care of cases where solution is too small
+            #   if solution sum tends to be much less than mean flux, then coef1 -> 0 (use regularized solution)
+            #   if it is larger than  mean flux, then coef1 -> 1
+            coef1 = min(abs(Sol.sum()/MeanFluxTrue),1.)
+
+            # Second coefficient: take care of cases where solution has components of alternating signs
+            # this is characterized by a high std of the solution coefficients
+            # 1/self._kappa determines the "maximum" stddev (relative to maximum solution amplitude) beyond
+            # which coef2->0 to force a fully-regular solution
+            coef2 = max(1 - Sol.std()/abs(MeanFluxTrue) * self._kappa,0)
+
+            coef = coef1*coef2
+
             Sol0 = Sol
-            SolReg=np.zeros_like(Sol)
-            SolReg[0]=MeanFluxTrue
-            #print "SolReg",SolReg.ravel()
+            SolReg = np.zeros_like(Sol)
+            SolReg[0] = MeanFluxTrue
 
             if np.sign(SolReg[0])!=np.sign(np.sum(Sol)):
                 Sol=SolReg
@@ -809,7 +825,7 @@ class ClassMultiScaleMachine():
             
             if abs(Sol).max() < self._stall_threshold:
                 print>>log,"Stalled CLEAN!"
-                print>>log,(self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal)
+                print>>log,(self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, coef1, coef2, MeanFluxTrue, self.WeightMuellerSignal)
                 raise RuntimeError("CLEAN has stalled. This is a bug!")
 
             if self.GD["Debug"]["DumpCleanSolutions"]:
