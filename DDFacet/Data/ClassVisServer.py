@@ -94,6 +94,7 @@ class ClassVisServer():
             self._use_data_cache = None
         self.DATA = None
         self._saved_data = None  # vis data saved here for single-chunk mode
+        self.obs_detail = None
         self.Init()
 
         # smear mapping machines
@@ -123,6 +124,7 @@ class ClassVisServer():
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
 
+        get_detail=True
         for msspec in self.MSList:
             if type(msspec) is not str:
                 msname, ddid, field = msspec
@@ -134,7 +136,10 @@ class ClassVisServer():
                 Field=field, DDID=ddid, TaQL=self.TaQL,
                 TimeChunkSize=self.TMemChunkSize, ChanSlice=chanslice,
                 GD=self.GD, ResetCache=self.GD["Cache"]["Reset"],
-                DicoSelectOptions = self.DicoSelectOptions)
+                DicoSelectOptions = self.DicoSelectOptions,
+                get_obs_detail=get_detail)
+            if MS.empty:
+                continue
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
             global_freqs.update(MS.ChanFreq)
@@ -146,6 +151,12 @@ class ClassVisServer():
                 shape = (row1-row0, len(MS.ChanFreq), MS.Ncorr)
                 self._chunk_shape = [max(a, b)
                                      for a, b in zip(self._chunk_shape, shape)]
+
+            # If we got some observing details, store them for the
+            # first successful MS only
+            if get_detail:
+                self.obs_detail = MS.obs_detail
+                get_detail = False
 
         size = reduce(lambda x, y: x * y, self._chunk_shape)
         print >>log, "shape of data/flag buffer will be %s (%.2f Gel)" % (

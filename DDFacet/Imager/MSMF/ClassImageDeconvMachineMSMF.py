@@ -417,16 +417,25 @@ class ClassImageDeconvMachine():
         
 # =======
         # self._CubeDirty[:,:,x0d:x1d,y0d:y1d] -= LocalSM[:,:,x0p:x1p,y0p:y1p]
-        a, b = self._CubeDirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
-        numexpr.evaluate('a-b',out=a,casting="unsafe")
+        cube, sm = self._CubeDirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
+        numexpr.evaluate('cube-sm',out=cube,casting="unsafe")
         #a-=b
 
         if self._MeanDirty is not self._CubeDirty:
             ### old code, got MeanDirty out of alignment with CubeDirty somehow
             ## W=np.float32(self.DicoDirty["WeightChansImages"])
             ## self._MeanDirty[0,:,x0d:x1d,y0d:y1d]-=np.sum(LocalSM[:,:,x0p:x1p,y0p:y1p]*W.reshape((W.size,1,1,1)),axis=0)
-            # this is faster, a little, as it avoids making an intermediate array
-            self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0, out=self._MeanDirty[0,:,x0d:x1d,y0d:y1d])
+            meanimage = self._MeanDirty[0, :, x0d:x1d, y0d:y1d]
+
+            # cube.mean(axis=0, out=meanimage) should be a bit faster, but we experienced problems with some numpy versions,
+            # see https://github.com/cyriltasse/DDFacet/issues/325
+            # So use array copy instead (which makes an intermediate array)
+            if cube.shape[0] > 1:
+                meanimage[...] = cube.mean(axis=0)
+                # cube.mean(axis=0, out=meanimage)
+            else:
+                meanimage[...] = cube[0,...]
+
             ## this is slower:
             # self._MeanDirty[0,:,x0d:x1d,y0d:y1d] = self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0)
 
@@ -448,7 +457,6 @@ class ClassImageDeconvMachine():
         else:
             self.IndStats = slice(None)
         self.RMS=np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
-
 
 
     def Deconvolve(self, ch=0,UpdateRMS=True):
@@ -687,9 +695,10 @@ class ClassImageDeconvMachine():
                 # #pylab.colorbar()
 
                 # CurrentGain=self.GainMachine.GiveGain()
-                CurrentGain=self.GD["Deconv"]["Gain"]
+                CurrentGain=np.float32(self.GD["Deconv"]["Gain"])
 
-                self.SubStep((x,y),LocalSM*CurrentGain)
+                numexpr.evaluate('LocalSM*CurrentGain', out=LocalSM)
+                self.SubStep((x,y),LocalSM)
                 T.timeit("SubStep")
 
                 # pylab.subplot(1,2,2)

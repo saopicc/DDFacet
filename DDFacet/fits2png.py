@@ -24,11 +24,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import time
 import os
 import numpy as np
-import pyfits
+from astropy.io import fits
 import pylab
 #import regrid
 
-#from pyrap.images import image
 import matplotlib.pyplot as mpl
 
 import aplpy
@@ -119,7 +118,7 @@ class ConvertMachine():
     def convert(self,name,nameout,radecbox=None):
         
         
-        a=pyfits.open(name)[0]
+        a=fits.open(name)[0]
         #rac,decc,npix,dpix=a.header["CRVAL1"],a.header["CRVAL2"],a.header["NAXIS1"],a.header["CDELT1"]
         
         

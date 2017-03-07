@@ -35,7 +35,6 @@ import os
 import ModCF
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir import ModFFTW
-import pylab
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 
 from DDFacet.Array import NpShared
@@ -47,6 +46,8 @@ log = MyLogger.getLogger("ClassDDEGridMachine")
 
 
 def testGrid():
+
+    import pylab
     # Parset=ReadCFG.Parset("%s/Parset/DefaultParset.cfg"%os.environ["DDFACET_DIR"])
     Parset = ReadCFG.Parset(
         "%s/DDFacet/Parset/DefaultParset.cfg" %

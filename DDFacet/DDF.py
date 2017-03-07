@@ -331,7 +331,7 @@ if __name__ == "__main__":
         new_parset = OP.DicoConfig["Output"]["Name"] + ".parset"
         if os.path.exists(new_parset) and os.path.samefile(ParsetFile, new_parset):
             if OP.DicoConfig["Output"]["Clobber"]:
-                print>> log, ModColor.Str("WARNING: will overwrite existing parset, since --Clobber is specified.")
+                print>> log, ModColor.Str("WARNING: will overwrite existing parset, since --Output-Clobber is specified.")
             else:
                 print>> log, ModColor.Str("Your --Output-Name setting is the same as the base name of the parset, which would\n"
                                           "mean overwriting the parset. I'm sorry, Dave, I'm afraid I can't do that.\n"
@@ -339,6 +339,7 @@ if __name__ == "__main__":
                                           "you want to do, or set a different --Output-Name.")
                 sys.exit(1)
     elif len(args):
+        print args
         OP.ExitWithError("Incorrect number of arguments. Use -h for help.")
         sys.exit(1)
 
