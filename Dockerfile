@@ -67,11 +67,14 @@ RUN apt-get update && \
     pip install -U pip virtualenv setuptools wheel && \
     virtualenv --system-site-packages /ddfvenv && \
     cd /src/DDFacet/ && git submodule update --init --recursive && cd / && \
+    # Activate virtual environment
+    . /ddfvenv/bin/activate && \
     # Install DDFacet
-    . /ddfvenv/bin/activate ; pip install -I --force-reinstall --no-binary :all: /src/DDFacet/ && \
+    pip install -I --force-reinstall --no-binary :all: /src/DDFacet/ && \
     # Install Montblanc
-    . /ddfvenv/bin/activate ; pip install /src/DDFacet/montblanc/ && \
+    pip install /src/DDFacet/montblanc/ && \
     # Nuke the unused & cached binaries needed for compilation, etc.
+    rm /src/DDFacet && \
     apt-get remove -y $DEB_SETUP_DEPENDENCIES && \
     apt-get autoclean -y && \
     apt-get clean -y && \
@@ -82,7 +85,8 @@ RUN apt-get update && \
 
 # Set MeqTrees Cattery path to virtualenv installation directory
 ENV MEQTREES_CATTERY_PATH /ddfvenv/lib/python2.7/site-packages/Cattery/
-
+ENV PATH /ddfvenv/bin:$PATH
+ENV LD_LIBRARY_PATH /ddfvenv/lib:$LD_LIBRARY_PATH
 # Execute virtual environment version of DDFacet
-ENTRYPOINT ["/ddfvenv/bin/DDF.py"]
+ENTRYPOINT ["DDF.py"]
 CMD ["--help"]
