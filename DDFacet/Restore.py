@@ -213,8 +213,8 @@ class ClassRestoreMachine():
             CasaImage=ClassCasaImage.ClassCasaimage(ModelSmearImage,SmearedModel.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
             CasaImage.setdata(SmearedModel+self.Residual,CorrT=True)
             #CasaImage.setdata(SmearedModel,CorrT=True)
-            CasaImage.ToFits()
             CasaImage.setBeam((SmoothFWHM,SmoothFWHM,0))
+            CasaImage.ToFits()
             CasaImage.close()
             SmearMachine.CleanUpSHM()
             stop
@@ -275,21 +275,21 @@ class ClassRestoreMachine():
 
         CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModel,RestoredImageRes.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(ModelImage,CorrT=True)
-        CasaImage.ToFits()
         CasaImage.setBeam(self.FWHMBeam)
+        CasaImage.ToFits()
         CasaImage.close()
 
         CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec)#,Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(RestoredImageRes,CorrT=True)
-        CasaImage.ToFits()
         CasaImage.setBeam(self.FWHMBeam)
+        CasaImage.ToFits()
         CasaImage.close()
 
         if self.MakeCorrected:
             CasaImage=ClassCasaImage.ClassCasaimage(ImageNameCorr,RestoredImageResCorr.shape,self.Cell,self.radec)#,Lambda=(Lambda0,dLambda,self.NBands))
             CasaImage.setdata(RestoredImageResCorr,CorrT=True)
-            CasaImage.ToFits()
             CasaImage.setBeam(self.FWHMBeam)
+            CasaImage.ToFits()
             CasaImage.close()
         
 

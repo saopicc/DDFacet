@@ -42,7 +42,6 @@ from DDFacet.Other import AsyncProcessPool
 from DDFacet.Other.AsyncProcessPool import APP
 import cPickle
 log=MyLogger.getLogger("ClassImagerDeconv")
-import pyfits
 import DDFacet.Data.ClassBeamMean as ClassBeamMean
 from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Array import shared_dict
@@ -873,6 +872,8 @@ class ClassImagerDeconv():
         continue_deconv = True
 
         for iMajor in range(1, NMajor+1):
+            # good to recreate the workers now, to drop their RAM
+            APP.restartWorkers()
             # previous minor loop indicated it has reached bottom? Break out
             if not continue_deconv:
                 break
