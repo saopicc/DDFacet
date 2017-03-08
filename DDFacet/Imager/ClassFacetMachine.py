@@ -31,7 +31,6 @@ import cPickle
 import atexit
 import traceback
 from matplotlib.path import Path
-import pylab
 import numpy.random
 from DDFacet.ToolsDir import ModCoord
 from DDFacet.Array import NpShared
@@ -138,6 +137,8 @@ class ClassFacetMachine():
         # this is used to store NormImage in shared memory, for the degridder
         self._norm_dict = None
 
+        # build the 'history' list used for writing FITS files
+        self.make_history()
 
     # static attribute initialized below, once
     _degridding_semaphores = None
@@ -174,6 +175,19 @@ class ClassFacetMachine():
             MyLogger.setSilent(SubMods)
         if Mode == "Loud":
             MyLogger.setLoud(SubMods)
+
+    def make_history(self):
+        history=[]
+        for k in self.GD:
+            if isinstance(self.GD[k],dict):
+                history.append('=== '+k+' ===')
+                for dk in self.GD[k]:
+                    if dk[0]!='_':
+                        history.append(k+'-'+dk+' = '+str(self.GD[k][dk]))
+            else:
+                # catchall
+                history.append(k+' = '+str(self.GD[k]))
+        self.history=history
 
     def setSols(self, SolsClass):
         self.DoDDE = True
@@ -680,19 +694,29 @@ class ClassFacetMachine():
         if Shape is None:
             Shape = self.OutImShape
         self.CasaImage = ClassCasaImage.ClassCasaimage(
-            ImageName, Shape, self.Cell, self.MainRaDec, Freqs=Freqs, Stokes=Stokes)
+            ImageName, Shape, self.Cell, self.MainRaDec, Freqs=Freqs,
+            Stokes=Stokes, history=self.history, header_dict=self.VS.obs_detail)
 
     def ToCasaImage(self, ImageIn, Fits=True, ImageName=None,
                     beam=None, beamcube=None, Freqs=None, Stokes=["I"]):
+
+        if Freqs is None:
+            # if we have a reference frequency, use it
+            try:
+                Freqs=np.array([self.VS.RefFreq])
+            except:
+                pass
         self.setCasaImage(ImageName=ImageName, Shape=ImageIn.shape,
                           Freqs=Freqs, Stokes=Stokes)
 
         self.CasaImage.setdata(ImageIn, CorrT=True)
 
         if Fits:
-            self.CasaImage.ToFits()
             if beam is not None:
                 self.CasaImage.setBeam(beam, beamcube=beamcube)
+            self.CasaImage.ToFits()
+        else:
+            raise RunTimeError('Fits = False not supported')
         self.CasaImage.close()
         self.CasaImage = None
 
