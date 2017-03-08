@@ -383,7 +383,7 @@ class ClassVisServer():
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         ms = self.ListMS[iMS]
         row0, row1 = ms.getChunkRow0Row1()[iChunk]
-        ms.PutVisColumn(column, DATA[field], row0, row1, likecol=likecol)
+        ms.PutVisColumn(column, DATA[field], row0, row1, likecol=likecol, sort_index=DATA["sort_index"])
 
     def collectPutColumnResults(self):
         if self._put_vis_column_job_id:

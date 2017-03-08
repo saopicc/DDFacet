@@ -720,7 +720,7 @@ class ClassMS():
 
         DATA["lm_PhaseCenter"] = self.lm_PhaseCenter
 
-        DATA["sort_index"] = self._sort_index = sort_index
+        DATA["sort_index"] = sort_index
 
         DATA["uvw"]   = uvw
         DATA["times"] = time_all
@@ -1236,7 +1236,7 @@ class ClassMS():
         return l,m
 
 
-    def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA"):
+    def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA", sort_index=None):
         self.AddCol(colname, LikeCol=likecol, quiet=True)
         nrow = row1 - row0
         if self._reverse_channel_order:
@@ -1245,9 +1245,9 @@ class ClassMS():
         t = self.GiveMainTable(readonly=False, ack=False)
         # if sorting rows, rearrange vis array back into MS order
         # if not sorting, then using slice(None) for row has no effect
-        if self._sort_index is not None:
+        if sort_index is not None:
             reverse_index = np.empty(self.nRowRead,dtype=int)
-            reverse_index[self._sort_index] = np.arange(0,nrow,dtype=int)
+            reverse_index[sort_index] = np.arange(0,nrow,dtype=int)
         else:
             reverse_index = slice(None)
         if self.ChanSlice and self.ChanSlice != slice(None):
