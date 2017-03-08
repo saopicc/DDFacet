@@ -34,9 +34,6 @@ import cPickle
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 import numexpr
 
-global debug_dump_file
-debug_dump_file = None
-
 def writetofile(fname,val):
     file1 = open(fname,'a+')
     file1.write('%s\n' % (val))
@@ -47,6 +44,111 @@ def pickleadic(dname,dict):
     with open(dname, 'wb') as handle:
         pickle.dump(dict, handle)
     return
+
+class CleanSolutionsDump(object):
+    """
+    This is a helper class to dump and load clean solutions from a pickle file. For writing, it maintains a singleton
+    version of itself. For reading, it will bootstrap itself from a dump file (so it's entirely self-contained, and
+    does not need importing DDFacet or anything)
+
+    Usage, for writing:
+        # repeat at every minor cycle
+        CleanSolutionsDump.init(filename, "a", "b", "c")    # only inits the first time, if necessary
+        CleanSolutionsDump.write(a, b, c)
+
+    Usage, for reading (in e.g. ipython _without_ needing to import anything)
+        import cPickle
+        fobj = open(filename)
+        dump = cPickle.load(fobj)
+        dump.read(fobj)
+
+        pylab.plot(dump.a, dump.b)
+
+
+    Note that after reading, dump.a and dump.b and dump.c will be arrays of shape (NMinorCycle,...), where ...
+    is the shape of the a, b, c components passed to write()
+    """
+    _dump = None
+
+    @staticmethod
+    def init(filename, *columns):
+        """
+        Initializes a singleton solutions dump object for writing, if one hasn't been initialized yet
+        """
+        if CleanSolutionsDump._dump is None:
+            CleanSolutionsDump._dump = CleanSolutionsDump(columns)
+            CleanSolutionsDump._dump._init_for_writing(filename)
+
+    @staticmethod
+    def flush():
+        """
+        Initializes a solutions dump object for writing, if one hasn't been initialized yet
+        """
+        if CleanSolutionsDump._dump is not None:
+            CleanSolutionsDump._dump._flush()
+
+    @staticmethod
+    def write(*components):
+        """
+        Writes set of components to dump object
+        """
+        CleanSolutionsDump._dump._write(*components)
+
+    @staticmethod
+    def load(filename):
+        """
+        Loads dump object from file
+        """
+        fobj = open(filename)
+        dump = cPickle.load(fobj)
+        dump.read(fobj)
+        return dump
+
+    def __init__(self, columns):
+        """
+        Creates a dump object with a list of columns.
+        """
+        self._columns = columns
+        self._fobj = None
+
+    def _init_for_writing(self, filename):
+        """
+        Initializes dump object for writing to the given filename
+        """
+        fobj = open(filename, "w")
+        cPickle.dump(self, fobj)  # dump self as first entry of file object
+        self._fobj = fobj
+
+    def _flush(self):
+        if self._fobj:
+            self._fobj.flush()
+
+    def _write(self, *components):
+        if len(components) != len(self._columns):
+            raise TypeError,"%d components given, but dump initialized with %d columns"%(len(components), len(self._columns))
+        cPickle.dump(components, self._fobj, 2)
+
+    def read(self, fobj):
+        """
+        Reads a dump from a file
+        """
+        complist=[]
+        while True:
+            try:
+                complist.append(cPickle.load(fobj))
+            except EOFError:
+                break
+        print "Loaded %dx%d component dump"%(len(complist), len(complist[0]))
+        for ent in self._columns:
+            setattr(self, ent, [])
+        for comp in complist:
+            for e,c in zip(self._columns, comp):
+                getattr(self, e).append(c)
+        for ent in self._columns:
+            col = np.array(getattr(self, ent))
+            setattr(self, ent, col)
+            print "%s: shape %s" % (ent, col.shape)
+
 
 class ClassMultiScaleMachine():
 
@@ -67,6 +169,15 @@ class ClassMultiScaleMachine():
         self.CubePSFScales=None
         self.IsInit_MultiScaleCube=False
         self.DicoBasisMatrix=None
+        # setup dumping
+        dump = self.GD["Debug"]["DumpCleanSolutions"]
+        # dump parameter is 0 to disable, 1 to enable with default column list, else col1,col2,... etc.
+        if isinstance(dump, str):
+            self._dump = bool(dump)
+            self._dump_cols = dump.split(',')
+        else:
+            self._dump = dump
+            self._dump_cols = None
 
     def setModelMachine(self,ModelMachine):
         self.ModelMachine=ModelMachine
@@ -828,12 +939,6 @@ class ClassMultiScaleMachine():
                 print>>log,(self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, coef1, coef2, MeanFluxTrue, self.WeightMuellerSignal)
                 raise RuntimeError("CLEAN has stalled. This is a bug!")
 
-            if self.GD["Debug"]["DumpCleanSolutions"]:
-                global debug_dump_file
-                if not debug_dump_file:
-                    debug_dump_file = file(self.GD["Output"]["Name"] + ".clean.solutions", "w")
-                cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, Fact, MeanFluxTrue, self.WeightMuellerSignal), debug_dump_file, 2)
-
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
 
@@ -845,8 +950,15 @@ class ClassMultiScaleMachine():
             # # model is sum of basis functions
             LocalSM = scales.sum(axis=0) if Sol.size>1 else scales[0,...]
 
+            if self._dump:
+                columns = [ "iFacet", "x", "y", "Fpol", "FpolTrue", "Sol", "Sol0", "SolReg", "coef", "coef1", "coef2", "Fact", "MeanFluxTrue", "WeightMuellerSignal" ]
+                iFacet, WeightMuellerSignal = self.iFacet, self.WeightMuellerSignal
+                if self._dump_cols:
+                    columns += self._dump_cols
+                CleanSolutionsDump.init(self.GD["Output"]["Name"] + ".clean.solutions", *columns)
+                CleanSolutionsDump.write(*[ locals()[col] for col in columns ])
 
-            #print "Max abs model",np.max(np.abs(LocalSM))
+                #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()
         elif self.SolveMode=="NNLS":
             import scipy.optimize
@@ -1057,12 +1169,13 @@ class ClassMultiScaleMachine():
             #print "Sol2",Sol
 
 
-
-            if self.GD["Debug"]["DumpCleanSolutions"]:
-                global debug_dump_file
-                if not debug_dump_file:
-                    debug_dump_file = file(self.GD["Output"]["Name"]+".clean.solutions", "w")
-                cPickle.dump((self.iFacet, xc, yc, Fpol, FpolTrue, Sol), debug_dump_file, 2)
+            if self._dump:
+                columns = ["iFacet", "xc", "yc", "Fpol", "FpolTrue", "Sol", "WeightMuellerSignal"]
+                iFacet, WeightMuellerSignal = self.iFacet, self.WeightMuellerSignal
+                if self._dump_cols:
+                    columns += self._dump_cols
+                CleanSolutionsDump.init(self.GD["Output"]["Name"] + ".clean.solutions", *columns)
+                CleanSolutionsDump.write(*[locals()[col] for col in columns])
 
 
             # P=set()
