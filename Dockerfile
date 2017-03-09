@@ -74,7 +74,7 @@ RUN apt-get update && \
     # Install Montblanc
     pip install /src/DDFacet/montblanc/ && \
     # Nuke the unused & cached binaries needed for compilation, etc.
-    rm /src/DDFacet && \
+    rm -r /src/DDFacet && \
     apt-get remove -y $DEB_SETUP_DEPENDENCIES && \
     apt-get autoclean -y && \
     apt-get clean -y && \
