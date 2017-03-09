@@ -168,7 +168,10 @@ class ClassMultiScaleMachine():
         self.ListScales=None
         self.CubePSFScales=None
         self.IsInit_MultiScaleCube=False
-        self.DicoBasisMatrix=None
+        self.DicoBasisMatrix=None\
+        # image or FT basis matrix representation? Use Image for now
+        # self.Repr = "FT"
+        self.Repr = "IM"
         # setup dumping
         dump = self.GD["Debug"]["DumpCleanSolutions"]
         # dump parameter is 0 to disable, 1 to enable with default column list, else col1,col2,... etc.
@@ -620,86 +623,80 @@ class ClassMultiScaleMachine():
         # self.Bias=Bias
         # stop
         #BM=(CubePSFNorm.reshape((nFunc,nch*nx*ny)).T.copy())
+        DicoBasisMatrix = {"CubePSF": CubePSF,
+                            "CubePSFScales": self.CubePSFScales,
+                            "WeightFunction": WeightFunction,
+                            "GlobalWeightFunction": self.GlobalWeightFunction}
+
+        if self.Repr == "IM":
+            BM = np.float64(CubePSF.reshape((nFunc,nch*nx*ny)).T)
+            WVecPSF = np.float64(WeightFunction.reshape((WeightFunction.size,1)))
+            BMT_BM = np.dot(BM.T,WVecPSF*BM)
+            DicoBasisMatrix["BM"] = np.float32(BM)
+            DicoBasisMatrix["BMT_BM_inv"] = np.float32(ModLinAlg.invSVD(BMT_BM))
+            BMnorm = np.sum(BM ** 2, axis=0)
+            DicoBasisMatrix["BMnorm"] = np.float32(1. / BMnorm.reshape((nFunc, 1)))
+
+        if self.Repr == "FT":
+            #fCubePSF=np.float32(self.FFTMachine.fft(np.complex64(CubePSF)).real)
+            W=WeightFunction.reshape((1,nch,nx,ny))
+            fCubePSF=np.float32(self.OPFT(self.FFTMachine.fft(np.complex64(CubePSF*W))))
+            nch,npol,_,_=self._PSF.shape
+            u,v=np.mgrid[-nx/2+1:nx/2:1j*nx,-ny/2+1:ny/2:1j*ny]
+
+            r=np.sqrt(u**2+v**2)
+            r0=1.
+            UVTaper=1.-np.exp(-(r/r0)**2)
+
+            UVTaper=UVTaper.reshape((1,1,nx,ny))*np.ones((nch,npol,1,1),np.float32)
+
+
+            UVTaper.fill(1)
+
+            UVTaper*=self.WeightMuellerSignal.reshape((nch,1,1,1))
+
+            # fCubePSF[:,:,nx/2,ny/2]=0
+            # import pylab
+            # for iFunc in range(self.nFunc):
+            #     Basis=fCubePSF[iFunc]
+            #     pylab.clf()
+            #     pylab.subplot(1,3,1)
+            #     pylab.imshow(Basis[0]*UVTaper[0,0],interpolation="nearest")
+            #     pylab.title(iFunc)
+            #     pylab.subplot(1,3,2)
+            #     pylab.imshow(Basis[1]*UVTaper[0,0],interpolation="nearest")
+            #     pylab.subplot(1,3,3)
+            #     pylab.imshow(Basis[2]*UVTaper[0,0],interpolation="nearest")
+            #     pylab.draw()
+            #     pylab.show(False)
+            #     pylab.pause(0.1)
 
 
 
-        BM=(CubePSF.reshape((nFunc,nch*nx*ny)).T.copy())
-        WVecPSF=WeightFunction.reshape((WeightFunction.size,1))
-        BMT_BM=np.dot(BM.T,WVecPSF*BM)
-        BMT_BM_inv= ModLinAlg.invSVD(BMT_BM)
+            fBM = np.float64((fCubePSF.reshape((nFunc,nch*nx*ny)).T))
+            fBMT_fBM = np.dot(fBM.T,UVTaper.reshape((UVTaper.size,1))*fBM)
+            DicoBasisMatrix["fBMT_fBM_inv"] = np.float32(ModLinAlg.invSVD(fBMT_fBM))
+            DicoBasisMatrix["fBM"] = np.float32(fBM)
+            DicoBasisMatrix["fWeightFunction"] = UVTaper
 
-        #fCubePSF=np.float32(self.FFTMachine.fft(np.complex64(CubePSF)).real)
-        W=WeightFunction.reshape((1,nch,nx,ny))
-        fCubePSF=np.float32(self.OPFT(self.FFTMachine.fft(np.complex64(CubePSF*W))))
-        nch,npol,_,_=self._PSF.shape
-        u,v=np.mgrid[-nx/2+1:nx/2:1j*nx,-ny/2+1:ny/2:1j*ny]
+            # DeltaMatrix=np.zeros((nFunc,),np.float32)
+            # #BM_BMT=np.dot(BM,BM.T)
+            # #BM_BMT_inv=ModLinAlg.invSVD(BM_BMT)
 
-        r=np.sqrt(u**2+v**2)
-        r0=1.
-        UVTaper=1.-np.exp(-(r/r0)**2)
-        
-        UVTaper=UVTaper.reshape((1,1,nx,ny))*np.ones((nch,npol,1,1),np.float32)
+            # BM_BMT_inv=np.diag(1./np.sum(BM*BM,axis=1))
+            # nData,_=BM.shape
+            # for iFunc in range(nFunc):
+            #     ai=BM[:,iFunc].reshape((nData,1))
+            #     DeltaMatrix[iFunc]=1./np.sqrt(np.dot(np.dot(ai.T,BM_BMT_inv),ai))
+            # DeltaMatrix=DeltaMatrix.reshape((nFunc,1))
+            # print>>log, "Delta Matrix: %s"%str(DeltaMatrix)
 
-
-        UVTaper.fill(1)
-
-        UVTaper*=self.WeightMuellerSignal.reshape((nch,1,1,1))
-
-        # fCubePSF[:,:,nx/2,ny/2]=0
-        # import pylab
-        # for iFunc in range(self.nFunc):
-        #     Basis=fCubePSF[iFunc]
-        #     pylab.clf()
-        #     pylab.subplot(1,3,1)
-        #     pylab.imshow(Basis[0]*UVTaper[0,0],interpolation="nearest")
-        #     pylab.title(iFunc)
-        #     pylab.subplot(1,3,2)
-        #     pylab.imshow(Basis[1]*UVTaper[0,0],interpolation="nearest")
-        #     pylab.subplot(1,3,3)
-        #     pylab.imshow(Basis[2]*UVTaper[0,0],interpolation="nearest")
-        #     pylab.draw()
-        #     pylab.show(False)
-        #     pylab.pause(0.1)
-
-
-
-        fBM=(fCubePSF.reshape((nFunc,nch*nx*ny)).T.copy())
-        fBMT_fBM=np.dot(fBM.T,UVTaper.reshape((UVTaper.size,1))*fBM)
-        fBMT_fBM_inv= ModLinAlg.invSVD(fBMT_fBM)
-        
-        # DeltaMatrix=np.zeros((nFunc,),np.float32)
-        # #BM_BMT=np.dot(BM,BM.T)
-        # #BM_BMT_inv=ModLinAlg.invSVD(BM_BMT)
-
-        # BM_BMT_inv=np.diag(1./np.sum(BM*BM,axis=1))
-        # nData,_=BM.shape
-        # for iFunc in range(nFunc):
-        #     ai=BM[:,iFunc].reshape((nData,1))
-        #     DeltaMatrix[iFunc]=1./np.sqrt(np.dot(np.dot(ai.T,BM_BMT_inv),ai))
-        # DeltaMatrix=DeltaMatrix.reshape((nFunc,1))
-        # print>>log, "Delta Matrix: %s"%str(DeltaMatrix)
-
-        BMnorm=np.sum(BM**2,axis=0)
-        BMnorm=1./BMnorm.reshape((nFunc,1))
-        #WeightFunction.fill(1.)
-        DicoBasisMatrix={"BMCube":CubePSF,
-                         "BMnorm":BMnorm,
-                         #"DeltaMatrix":DeltaMatrix,
-                         #"Bias":Bias,
-                         "BM":BM,
-                         "fBM":fBM,
-                         "BMT_BM_inv":BMT_BM_inv,
-                         "fBMT_fBM_inv":fBMT_fBM_inv,
-                         "CubePSF":CubePSF,
-                         "WeightFunction":(WeightFunction),
-                         "fWeightFunction":UVTaper,
-                         "CubePSFScales":self.CubePSFScales,
-                         "GlobalWeightFunction":self.GlobalWeightFunction}
+            #WeightFunction.fill(1.)
 
 
         if self.GD["Debug"]["DumpCleanSolutions"] and not SubSubSubCoord:
             BaseName = self.GD["Output"]["Name"]
-            pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
+            pickleadic(BaseName+".DicoBasisMatrix.pickle",DicoBasisMatrix)
 
         return DicoBasisMatrix
         
@@ -772,12 +769,9 @@ class ClassMultiScaleMachine():
 
 
         #print "0",np.max(dirtyNormIm)
-        dirtyNormIm=dirtyNormIm/np.sqrt(JonesNorm)
+        dirtyNormIm = np.float64(dirtyNormIm)
+        dirtyNormIm /= np.sqrt(JonesNorm)
         #print "1",np.max(dirtyNormIm)
-
-        self.Repr="FT"
-        self.Repr="IM"
-        
 
 
         if self.Repr=="FT":
@@ -785,7 +779,7 @@ class ClassMultiScaleMachine():
             WCubePSF=DicoBasisMatrix["fWeightFunction"]#*(JonesNorm)
             WCubePSFIm=DicoBasisMatrix["WeightFunction"]#*(JonesNorm)
             WVecPSF=WCubePSF.reshape((WCubePSF.size,1))
-            dirtyNorm=np.float32(self.OPFT(self.FFTMachine.fft(np.complex64(dirtyNormIm*WCubePSFIm))))#.real)
+            dirtyNorm=np.float64(self.OPFT(self.FFTMachine.fft(np.complex64(dirtyNormIm*WCubePSFIm))))#.real)
             BMT_BM_inv=DicoBasisMatrix["fBMT_fBM_inv"]
         else:
             #print "0:",DicoBasisMatrix["WeightFunction"].shape,JonesNorm.shape
@@ -849,7 +843,7 @@ class ClassMultiScaleMachine():
 
         elif self.SolveMode=="PI":
             
-            Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
+            Sol=np.float32(np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec)))
             #Sol.fill(1)
 
             #LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)*FpolMean.ravel()[0]
