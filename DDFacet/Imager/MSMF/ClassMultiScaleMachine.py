@@ -26,6 +26,7 @@ from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import ModColor
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
@@ -145,7 +146,7 @@ class CleanSolutionsDump(object):
             for e,c in zip(self._columns, comp):
                 getattr(self, e).append(c)
         for ent in self._columns:
-            col = np.array(getattr(self, ent))
+            col = np.array([x for x in getattr(self, ent) if x is not None])
             setattr(self, ent, col)
             print "%s: shape %s" % (ent, col.shape)
 
@@ -173,7 +174,8 @@ class ClassMultiScaleMachine():
         # self.Repr = "FT"
         self.Repr = "IM"
         # setup dumping
-        dump = self.GD["Debug"]["DumpCleanSolutions"]
+        dump_stamps = self.GD["Debug"]["DumpCleanPostageStamps"]
+        dump = self.GD["Debug"]["DumpCleanSolutions"] or (dump_stamps and True)
         # dump parameter is 0 to disable, 1 to enable with default column list, else col1,col2,... etc.
         if isinstance(dump, str):
             self._dump = bool(dump)
@@ -181,6 +183,16 @@ class ClassMultiScaleMachine():
         else:
             self._dump = dump
             self._dump_cols = None
+        dump_stamps = self.GD["Debug"]["DumpCleanPostageStamps"]
+        if dump_stamps:
+            if isinstance(dump_stamps, (list, tuple)) and len(dump_stamps) == 3:
+                self._dump_xyr = tuple(dump_stamps)
+            else:
+                self._dump_xyr = 0,0,0
+            print>>log,ModColor.Str("Dumping minor cycle postage stamps at %d,%d r=%dpix"%self._dump_xyr)
+        else:
+            self._dump_xyr = None
+
 
     def setModelMachine(self,ModelMachine):
         self.ModelMachine=ModelMachine
@@ -718,15 +730,12 @@ class ClassMultiScaleMachine():
     def GiveLocalSM(self,(x,y),Fpol):
         T= ClassTimeIt.ClassTimeIt("   GiveLocalSM")
         T.disable()
-        x0,y0=x,y
-        x,y=x0,y0
 
         N0=self._Dirty.shape[-1]
         N1=self.DicoBasisMatrix["CubePSF"].shape[-1]
         xc,yc=x,y
 
         #N1=CubePSF.shape[-1]
-        
 
         nchan,npol,_,_=Fpol.shape
 
@@ -828,7 +837,6 @@ class ClassMultiScaleMachine():
             #Sol=DicoBasisMatrix["BMnorm"]*np.dot(BM.T,WVecPSF*dirtyVec)
             Sol=DicoBasisMatrix["BMnorm"]*np.dot(BM.T,WVecPSF*(dirtyVec/MeanFluxTrue-BM))
             #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
-            print x0,y0,Sol
             indMaxSol1=np.where(np.abs(Sol)==np.max(np.abs(Sol)))[0]
             indMaxSol0=np.where(np.abs(Sol)!=np.max(np.abs(Sol)))[0]
 
@@ -945,14 +953,21 @@ class ClassMultiScaleMachine():
             LocalSM = scales.sum(axis=0) if Sol.size>1 else scales[0,...]
 
             if self._dump:
-                columns = [ "iFacet", "x", "y", "Fpol", "FpolTrue", "Sol", "Sol0", "SolReg", "coef", "coef1", "coef2", "Fact", "MeanFluxTrue", "WeightMuellerSignal" ]
+                postage_stamp = None
+                # dump sub-images, if we come within a certain distance of x,y
+                if self._dump_xyr:
+                    xd, yd, radius = self._dump_xyr
+                    if abs(x - xd) < radius and abs(y - yd) < radius:
+                        postage_stamp = self._Dirty[:, :, x-radius*2:x+radius*2, y-radius*2:y+radius*2]
+                columns = [ "iFacet", "x", "y", "Fpol", "FpolTrue", "Sol", "Sol0", "SolReg", "coef", "coef1", "coef2", "Fact", "MeanFluxTrue",
+                            "WeightMuellerSignal", "postage_stamp" ]
                 iFacet, WeightMuellerSignal = self.iFacet, self.WeightMuellerSignal
                 if self._dump_cols:
                     columns += self._dump_cols
                 CleanSolutionsDump.init(self.GD["Output"]["Name"] + ".clean.solutions", *columns)
                 CleanSolutionsDump.write(*[ locals()[col] for col in columns ])
 
-                #print "Max abs model",np.max(np.abs(LocalSM))
+                    #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()
         elif self.SolveMode=="NNLS":
             import scipy.optimize
