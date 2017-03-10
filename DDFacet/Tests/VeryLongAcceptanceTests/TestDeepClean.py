@@ -76,15 +76,15 @@ class TestDeepCleanWithBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSI
 
         dirty_ref = cls._refHDUList[cls.defineImageList().index("dirty")][0].data[...]
         appresidue_ref = cls._refHDUList[cls.defineImageList().index("app.residual")][0].data[...]
-        DR_ref = max(np.max(dirty_ref), abs(np.min(dirty_ref))) / \
-                 max(np.max(appresidue_ref), abs(np.min(appresidue_ref)))
+        DR_ref = np.max(np.abs(dirty_ref)) / np.sqrt(np.sum(appresidue_ref ** 2))
         dirty_out = cls._outHDUList[cls.defineImageList().index("dirty")][0].data[...]
         appresidue_out = cls._outHDUList[cls.defineImageList().index("app.residual")][0].data[...]
-        DR_out = max(np.max(dirty_out), abs(np.min(dirty_out))) / \
-                 max(np.max(appresidue_out), abs(np.min(appresidue_out)))
+        DR_out = np.max(abs(dirty_out)) / np.sqrt(np.sum(appresidue_out ** 2))
         # DR_out > DR_ref is OK!
-        assert 1.0 - DR_out / DR_ref <= cls.defDRTolerance(), "DR value has regressed. " \
-                                                                   "Known good: %f, current %f" % (DR_ref, DR_out)
+        assert 1.0 - DR_out / DR_ref <= cls.defDRTolerance(), "%s DR value has regressed. " \
+                                                              "Known good: %f, current %f" % (cls.__name__,
+                                                                                              DR_ref,
+                                                                                              DR_out)
 
 class TestDeepCleanWithoutBeam(TestDeepCleanWithBeam):
     pass # also do a DR check for the deep clean without the beam (same as above)
