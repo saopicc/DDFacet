@@ -36,6 +36,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setFreqMachine(self,GridFreqs, DegridFreqs):
         # Initiaise the Frequency Machine
         self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoSMStacked["RefFreq"], self.GD)
+        #print "Grid freqs size = ", GridFreqs.size
+        #print "Degrid freqs size =", DegridFreqs.size
 
 
     def ToFile(self, FileName, DicoIn=None):
@@ -99,6 +101,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         Weight = 1.
         Gain = self.GainMachine.GiveGain()
 
+        #tmp = Sols.ravel()
         SolNorm = Sols.ravel() * Gain * np.mean(Fpol)
 
         DicoComp[key]["SumWeights"][pol_array_index] += Weight
@@ -126,7 +129,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             for pol in range(npol):
                 Sol = DicoComp[key]["SolsArray"][:, pol]  # /self.DicoSMStacked[key]["SumWeights"]
                 x, y = key
-
+                #tmp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
                 ModelImage[:, pol, x, y] += self.FreqMachine.Eval_Degrid(Sol, FreqIn)
 
         return ModelImage

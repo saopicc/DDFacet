@@ -449,10 +449,13 @@ class ClassImageDeconvMachine():
                     else:
                         raise NotImplementedError("FreqMode %s not supported" % self.GD["Hogbom"]["FreqMode"])
                     Coeffs = np.zeros([npol, Ncoeffs])
+
+                    # Get the JonesNorm
+                    JonesNorm = (self.DicoDirty["JonesNorm"][:, :, x, y]).reshape((nch, npol, 1, 1))
                     if pol_task == "I":
                         indexI = self.PolarizationDescriptor.index("I")
                         # Get the solution
-                        Fpol[:, indexI, 0, 0] = self._Dirty[:, indexI, x, y]
+                        Fpol[:, indexI, 0, 0] = self._Dirty[:, indexI, x, y]/np.sqrt(JonesNorm[:, indexI, 0, 0])
                         # Fit a polynomial to get coeffs
                         Coeffs[indexI, :] = self.ModelMachine.FreqMachine.Fit(Fpol[:, indexI, 0, 0])
                         # Overwrite with polynoimial fit
@@ -476,15 +479,15 @@ class ClassImageDeconvMachine():
 
                     # if self.ModelMachine.FreqMachine.GP.SolverFlag:
                     #     print " Flag set at location ", x, y
-                    nchan, npol, _, _ = Fpol.shape
-                    JonesNorm = (self.DicoDirty["JonesNorm"][:, :, x, y]).reshape((nchan, npol, 1, 1))
+                    #nchan, npol, _, _ = Fpol.shape
+                    #JonesNorm = (self.DicoDirty["JonesNorm"][:, :, x, y]).reshape((nchan, npol, 1, 1))
                     # dx=x-xc
                     # dy=y-xc
                     T.timeit("stuff")
 
                     #Find PSF corresponding to location (x,y)
                     self.PSFServer.setLocation(x,y) #Selects the facet closest to (x,y)
-                    PSF,meanPSF = self.PSFServer.GivePSF()  #Gives associated PSF
+                    PSF, meanPSF = self.PSFServer.GivePSF()  #Gives associated PSF
 
                     T.timeit("FindScale")
 
@@ -505,6 +508,9 @@ class ClassImageDeconvMachine():
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
 
                     # Subtract LocalSM*CurrentGain from dirty image
+                    _,_,PSFnx,PSFny = PSF.shape
+                    PSF /= np.amax(PSF.reshape(nch,npol,PSFnx*PSFny), axis=2, keepdims=True).reshape(nch,npol,1,1) #Normalise PSF in each channel
+                    #tmp = PSF*Fpol*np.sqrt(JonesNorm)
                     self.SubStep((x,y),PSF*Fpol*CurrentGain*np.sqrt(JonesNorm))
                     T.timeit("SubStep")
 

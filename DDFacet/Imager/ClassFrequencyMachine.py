@@ -46,7 +46,7 @@ class ClassFrequencyMachine(object):
         self.Freqs = np.asarray(Freqs)
         self.Freqsp = np.asarray(Freqsp)
         self.nchan = self.Freqs.size
-        #print "nchan =", self.nchan
+        #print "Nchan =", self.nchan
         # # Get Stokes parameters
         # self.IStokes = ModelCube[:, 0, :, :]
         # if self.npol > 1:
@@ -65,6 +65,7 @@ class ClassFrequencyMachine(object):
             self.order = self.GD["Hogbom"]["PolyFitOrder"]
             self.Xdes = self.setDesMat(self.Freqs, order=self.order)
             self.AATinvAT = np.dot(np.linalg.inv(self.Xdes.T.dot(self.Xdes)),self.Xdes.T)  # Required for sudo inverse
+            #print "PI shape = ", self.AATinvAT.shape
             # Set the fit and eval methods
             self.Fit = lambda vals: self.FitPoly(vals)
             self.Eval = lambda coeffs : self.EvalPoly(coeffs, Freqsp=self.Freqs)
