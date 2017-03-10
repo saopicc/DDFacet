@@ -209,7 +209,7 @@ class ClassImageNoiseMachine():
             Model+=np.abs(self.ExternalModelMachine.GiveModelImage())
         ModelImage=Model[0,0]
 
-        print>>log,"  Convolving..."
+        print>>log,"  Convolving image with beam %s..."%str(self.DicoVariablePSF["EstimatesAvgPSF"][1])
         from DDFacet.ToolsDir import Gaussian
         
 

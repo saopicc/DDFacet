@@ -398,6 +398,7 @@ class ClassImagerDeconv():
                 self.DicoImagesPSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
                 #cPickle.dump(self.DicoImagesPSF, file(self._psf_cachepath, 'w'), 2)
                 self.DicoImagesPSF.save(cachepath)
+                MyPickle.DicoNPToFile(self.DicoImagesPSF,"%s.DicoPickle"%cachepath)
                 self.VS.maincache.saveCache("PSF")
             except:
                 print>> log, traceback.format_exc()
@@ -486,7 +487,7 @@ class ClassImagerDeconv():
             psf_cachepath, psf_valid, psf_writecache = self._checkForCachedPSF(sparsify, key=cache_key)
         else:
             psf_valid = psf_writecache = False
-
+            
         current_model_freqs = np.array([])
         ModelImage = None
         # load from cache
@@ -540,7 +541,7 @@ class ClassImagerDeconv():
             self.VS.startChunkLoadInBackground()
             if not dirty_valid:
                 self.FacetMachine.ReinitDirty()
-            if not psf_valid and self.FacetMachinePSF is not None:
+            if psf and not psf_valid and self.FacetMachinePSF is not None:
                 self.FacetMachinePSF.ReinitDirty()
 
 
@@ -550,7 +551,7 @@ class ClassImagerDeconv():
                 # the gridding jobs of the previous chunk are finished
                 if not dirty_valid:
                     self.FacetMachine.collectGriddingResults()
-                if not psf_valid and self.FacetMachinePSF is not None:
+                if psf and not psf_valid and self.FacetMachinePSF is not None:
                     self.FacetMachinePSF.collectGriddingResults()
 
                 # get loaded chunk from I/O thread, schedule next chunk
@@ -591,7 +592,7 @@ class ClassImagerDeconv():
                     self.FacetMachine.putChunkInBackground(DATA)
 
 
-                if not psf_valid and self.FacetMachinePSF is not None:
+                if psf and not psf_valid and self.FacetMachinePSF is not None:
                     self.FacetMachinePSF.putChunkInBackground(DATA)
                 ## disabled this, doesn't like in-place FFTs
                 # # collect intermediate grids, if asked to
@@ -629,7 +630,7 @@ class ClassImagerDeconv():
                         print>> log, traceback.format_exc()
                         print>> log, ModColor.Str("WARNING: Dirty image cache could not be written, see error report above. Proceeding anyway.")
 
-            if not psf_valid:
+            if psf and not psf_valid:
                 self._finalizeComputedPSF(self.FacetMachinePSF, psf_writecache and psf_cachepath)
 
         # This call needs to be here to attach the cached smooth beam to FacetMachine if it exists 
@@ -1102,6 +1103,7 @@ class ClassImagerDeconv():
                 try:
                     print>>log,"Saving last residual image to %s"%cachepath
                     self.DicoDirty.save(cachepath)
+                    MyPickle.DicoNPToFile(self.DicoDirty,"%s.DicoPickle"%cachepath)
                     self.VS.maincache.saveCache("LastResidual")
                 except:
                     print>> log, traceback.format_exc()
