@@ -133,16 +133,16 @@ class CleanSolutionsDump(object):
         """
         Reads a dump from a file
         """
-        complist=[]
+        self._complist=[]
         while True:
             try:
-                complist.append(cPickle.load(fobj))
+                self._complist.append(cPickle.load(fobj))
             except EOFError:
                 break
         print "Loaded %dx%d component dump"%(len(complist), len(complist[0]))
         for ent in self._columns:
             setattr(self, ent, [])
-        for comp in complist:
+        for comp in self._complist:
             for e,c in zip(self._columns, comp):
                 getattr(self, e).append(c)
         for ent in self._columns:
