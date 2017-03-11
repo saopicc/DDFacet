@@ -958,7 +958,7 @@ class ClassMultiScaleMachine():
                 if self._dump_xyr:
                     xd, yd, radius = self._dump_xyr
                     if abs(x - xd) < radius and abs(y - yd) < radius:
-                        postage_stamp = self._Dirty[:, :, x-radius*2:x+radius*2, y-radius*2:y+radius*2]
+                        postage_stamp = self._Dirty[:, :, xd-radius*2:xd+radius*2, yd-radius*2:yd+radius*2]
                 columns = [ "iFacet", "x", "y", "Fpol", "FpolTrue", "Sol", "Sol0", "SolReg", "coef", "coef1", "coef2", "Fact", "MeanFluxTrue",
                             "WeightMuellerSignal", "postage_stamp" ]
                 iFacet, WeightMuellerSignal = self.iFacet, self.WeightMuellerSignal
