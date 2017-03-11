@@ -164,7 +164,7 @@ class ClassFrequencyMachine(object):
         # Create the alpha map
         self.alpha_map = np.zeros([Nx, Ny])
         print Sol.shape, alpha.size, ix.size
-        self.alpha_map[ix, iy] = alpha
+        self.alpha_map[ix, iy] = alpha.reshape(ix.size,iy.size)
 
         # Get I0 map
         self.Iref = np.zeros([Nx, Ny])
