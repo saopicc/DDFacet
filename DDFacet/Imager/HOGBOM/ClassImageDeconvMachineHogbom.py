@@ -380,11 +380,11 @@ class ClassImageDeconvMachine():
                 update_model = False or update_model
                 continue #onto the next polarization
 
-            pBAR= ProgressBar(Title="Cleaning  %s " %  pol_task)
+            #pBAR= ProgressBar(Title="Cleaning  %s " %  pol_task)
             # pBAR.disable()
 
             self.GainMachine.SetFluxMax(ThisFlux)
-            pBAR.render(0,100) # "g=%3.3f"%self.GainMachine.GiveGain())
+            #pBAR.render(0,100) # "g=%3.3f"%self.GainMachine.GiveGain())
 
             def GivePercentDone(ThisMaxFlux):
                 fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
@@ -424,7 +424,7 @@ class ClassImageDeconvMachine():
                     T.timeit("max0")
 
                     if ThisFlux <= StopFlux:
-                        pBAR.render(100,100) #"peak %.3g"%(ThisFlux,))
+                        #pBAR.render(100,100) #"peak %.3g"%(ThisFlux,))
                         print>>log, ModColor.Str("    CLEANing %s [iter=%i] peak of %.3g Jy lower than stopping flux" % (pol_task,i,ThisFlux),col="green")
                         cont = ThisFlux > self.FluxThreshold
                         if not cont:
@@ -435,9 +435,15 @@ class ClassImageDeconvMachine():
 
                         break # stop cleaning this polariztion and move on to the next polarization job
 
-                    if (i>0)&((i%100)==0):
-                        PercentDone=GivePercentDone(ThisFlux)
-                        pBAR.render(PercentDone,100)# "peak %.3g i%d"%(ThisFlux,self._niter[pol_task_id]))
+                    rounded_iter_step = 1 if i < 10 else (
+                        10 if i < 200 else (
+                            100 if i < 2000
+                            else 1000))
+                    # min(int(10**math.floor(math.log10(i))), 10000)
+                    if i >= 10 and i % rounded_iter_step == 0:
+                        # if self.GD["Debug"]["PrintMinorCycleRMS"]:
+                        #rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
+                        print>> log, "    [iter=%i] peak residual %.3g" % (i, ThisFlux)
 
                     nch,npol,_,_=self._Dirty.shape
                     #Fpol contains the intensities at (x,y) per freq and polarisation

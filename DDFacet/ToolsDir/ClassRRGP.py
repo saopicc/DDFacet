@@ -56,9 +56,9 @@ class RR_GP(ClassGP.ClassGP):
         self.Phi = np.zeros([self.N, self.m])
         self.Phip_Degrid = np.zeros([self.Np, self.m])
         for j in xrange(m):
-            self.Eigvals[j] = self.eigenvals(j)
-            self.Phi[:, j] = self.eigenfuncs(j, x)
-            self.Phip_Degrid[:, j] = self.eigenfuncs(j, xp)
+            self.Eigvals[j] = self.eigenvals(j+1)
+            self.Phi[:, j] = self.eigenfuncs(j+1, x)
+            self.Phip_Degrid[:, j] = self.eigenfuncs(j+1, xp)
         self.Phip = self.Phi
         # Compute dot(Phi.T,Phi) # This doesn't change, doesn't depend on theta
         self.PhiTPhi = np.dot(self.Phi.T, self.Phi)
@@ -183,7 +183,7 @@ class RR_GP(ClassGP.ClassGP):
         self.xp = xp
         self.Phip = np.zeros([xp.size, self.m])
         for j in xrange(self.m):
-            self.Phip[:, j] = self.eigenfuncs(j, xp)
+            self.Phip[:, j] = self.eigenfuncs(j+1, xp)
 
     def RR_From_Coeffs(self, coeffs):
         return np.dot(self.Phip, coeffs)
@@ -194,7 +194,7 @@ class RR_GP(ClassGP.ClassGP):
     def RR_From_Coeffs_Degrid_ref(self, coeffs):
         Phip = np.zeros(self.m)
         for j in xrange(self.m):
-            Phip[j] = self.eigenfuncs(j, 1.0)
+            Phip[j] = self.eigenfuncs(j+1, 1.0)
         return np.sum(Phip*coeffs)
 
     def RR_covf(self, theta):
@@ -236,96 +236,3 @@ class RR_GP(ClassGP.ClassGP):
         self.fcovcoeffs = theta[2] ** 2 * np.dot(Linv.T, Linv)
         covf = theta[2] ** 2 * np.dot(self.Phip, np.dot(Linv.T, np.dot(Linv, self.Phip.T)))
         return fbar, covf
-
-
-if __name__ == "__main__":
-    L = 10.0
-    m = 12
-    N = 3
-    Np = 100
-    xmax = 2.0
-    x = np.linspace(0.1, xmax, N)
-    sigman = 0.15
-    alpha = 1.5
-    y = x**alpha + sigman * np.random.randn(N)
-    xp = np.linspace(0.1, xmax, Np)
-    yp = xp ** alpha
-    sigmaf0 = (y.max() - y.min())
-    l0 =xmax/2
-    sigman0 = np.var(y)
-    theta = np.array([sigmaf0, l0, sigman0])
-    print theta
-
-    # Instantiate object
-    GP = RR_GP(x, xp, L, m, covariance_function='sqexp')
-
-    # Set the normal GP parameters for comparison
-    GP.set_abs_diff()
-
-    # Train both RR and normal case
-    t1 = time.time()
-    fbar, thetaf = GP.EvalGP(theta, y)
-    t2 = time.time()
-    fcoeffs, RR_thetaf = GP.RR_EvalGP(theta, y)
-    RR_fbar = GP.RR_From_Coeffs(fcoeffs)
-    t3 = time.time()
-
-    print t3-t2, t2-t1
-
-    # compare marginals
-    #RR_logp, RR_dlogp = GP.RR_logp_and_gradlogp(RR_thetaf, y)
-    #logp, dlogp = GP.logp_and_gradlogp(thetaf, y)
-
-    #print RR_logp, logp
-    #print RR_dlogp, dlogp
-    #print RR_thetaf, thetaf
-    # RR_fbar, coeffs = GP.RR_meanf(theta,y)
-    # fbar = GP.meanf(theta, y)
-
-    plt.plot(xp,RR_fbar, 'b')
-    plt.plot(xp, fbar, 'g')
-    plt.plot(xp, yp, 'k')
-    plt.show()
-
-    # fbar = GP.fbar
-    # covf = GP.covf
-    # fcoeffs = GP.fcoeffs
-    # fcovcoeffs = GP.fcovcoeffs
-    # fcovcoeffs2 = np.diag(GP.S)
-    #
-    # logpt = GP.negloglik(theta)
-
-    # # Draw some samples
-    # samps = np.random.multivariate_normal(fbar, covf, 100).squeeze().T
-    #
-    # # Samples some random coeffs
-    # fcoeffssamps = np.random.multivariate_normal(fcoeffs, fcovcoeffs, 100).squeeze().T
-    # # fcoeffssamps2 = np.random.multivariate_normal(fcoeffs,fcovcoeffs2)
-    # samps2 = np.dot(GP.Phip, fcoeffssamps)
-    #
-    # # Plot results
-    # plt.plot(xp, samps, 'g', alpha=0.5)
-    # plt.plot(xp, samps2, 'r', alpha=0.5)
-    # plt.plot(xp, fbar, 'k')
-    #
-    # plt.show()
-
-
-    #    XX = np.tile(x,(N,1)).T - np.tile(x,(N,1))
-    #
-    #    Ntest = 500
-    #    lvals = np.linspace(0.1,10,Ntest)
-    #    sigmafvals = np.linspace(5.0,20.0,Ntest)
-    #    sigmanvals = np.linspace(0.01,0.5,Ntest)
-    #    logpt = np.zeros(Ntest)
-    #    logpt2 = np.zeros(Ntest)
-    #    for i in xrange(Ntest):
-    #        theta = np. array([12.5,lvals[i],0.15])
-    #        #theta = np. array([sigmafvals[i],3.4,0.15])
-    #        #theta = np. array([13.0,3.4,sigmanvals[i]])
-    #        logpt[i] = GP.negloglik(theta)
-    #        logpt2[i] = logp(theta,XX,y,N)
-    #
-    #    plt.figure('x')
-    #    plt.plot(lvals,logpt,'b')
-    #    plt.plot(lvals,logpt2,'g')

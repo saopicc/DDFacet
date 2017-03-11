@@ -163,12 +163,15 @@ class ClassFrequencyMachine(object):
         #self.alpha = alpha
         # Create the alpha map
         self.alpha_map = np.zeros([Nx, Ny])
-        print Sol.shape, alpha.size, ix.size
-        self.alpha_map[ix, iy] = alpha.reshape(ix.size,iy.size)
+        if int(np.version.version.split('.')[1]) > 9: #check numpy version > 9 (broadcasting fails for
+            self.alpha_map[ix, iy] = alpha
+        else:
+            for j in xrange(ix.size):
+                self.alpha_map[ix[j],iy[j]] = alpha[j]
 
-        # Get I0 map
-        self.Iref = np.zeros([Nx, Ny])
-        self.Iref[ix, iy] = np.exp(logIref)
+        # # Get I0 map
+        # self.Iref = np.zeros([Nx, Ny])
+        # self.Iref[ix, iy] = np.exp(logIref)
         return
 
     def EvalAlphamap(self, Freqs):
@@ -255,73 +258,3 @@ class ClassFrequencyMachine(object):
             return self.GP.RR_From_Coeffs_Degrid_ref(coeffs)
         else:
             raise NotImplementedError('GPR mode only predicts to GridFreqs, DegridFreqs and ref_freq')
-
-if __name__=="__main__":
-    DicoPoly = MyPickle.Load("/home/landman/Projects/Processed_Images/ddfacet_out/test_SimpleSimSpI/SimpleSimSpI.run.Poly.DicoModel")
-    DicoGPR = MyPickle.Load("/home/landman/Projects/Processed_Images/ddfacet_out/test_SimpleSimSpI/SimpleSimSpI.run.GPR.DicoModel")
-
-    print "Hello"
-    # #Create array to hold model image
-    # N = 100
-    # Nch = 10
-    # NchDegrid = 32
-    # IM = np.zeros([Nch,N,N])
-    #
-    # # Choose some random indices to populate
-    # nsource = 25
-    # ix = np.random.randint(0, N, nsource)
-    # iy = np.random.randint(0, N, nsource)
-    #
-    # #Set frequencies
-    # Freqs = np.linspace(1.0,3.0,Nch)
-    # Freqsp = np.linspace(1.0,3.0,NchDegrid)
-    # ref_freq = 2.0
-    #
-    # #Populate model
-    # alpha = np.zeros(nsource)
-    # for i in xrange(nsource):
-    #     alpha[i] = np.random.randn()
-    #     IM[:, ix[i], iy[i]] = 1.0*(Freqs/ref_freq)**alpha[i]
-    #
-    # IalphaTrue = np.zeros([N,N])
-    # IalphaTrue[ix, iy] = alpha
-    #
-    # GD = {}
-    # GD["Hogbom"] = {}
-    # GD["Hogbom"]["FreqMode"] = "Poly"
-    # GD["Hogbom"]["PolyFitOrder"] = 5
-    #
-    # #Create frequency machine
-    # fmachine = ClassFrequencyMachine(Freqs, Freqsp, ref_freq, GD=GD)
-    #
-    # fmachine.FitAlphaMap(IM, threshold=0.1)
-    #
-    # IM0 = fmachine.Iref
-    # Ialpha = fmachine.alpha_map
-    #
-    # IMCube = fmachine.EvalAlphamap(Freqsp)
-    #
-    # plt.figure('I0')
-    # plt.imshow(IM0, interpolation="nearest", cmap="cubehelix")
-    # plt.colorbar()
-    #
-    # plt.figure('Ialpha')
-    # plt.imshow(Ialpha, interpolation="nearest", cmap="cubehelix")
-    # plt.colorbar()
-    #
-    # plt.figure('IalphaT')
-    # plt.imshow(IalphaTrue, interpolation="nearest", cmap="cubehelix")
-    # plt.colorbar()
-    #
-    # plt.figure('alphadiff')
-    # plt.imshow(Ialpha - IalphaTrue, interpolation="nearest", cmap="cubehelix")
-    # plt.colorbar()
-    # plt.show()
-    #
-    # # plt.figure('Icube')
-    # # for i in xrange(NchDegrid):
-    # #     plt.imshow(IMCube[i,:,:], interpolation="nearest", cmap="cubehelix")
-    # #     plt.pause(0.1)
-    # #     plt.colorbar()
-    # #     plt.show()
-    #
