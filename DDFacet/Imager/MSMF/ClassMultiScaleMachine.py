@@ -139,7 +139,7 @@ class CleanSolutionsDump(object):
                 self._complist.append(cPickle.load(fobj))
             except EOFError:
                 break
-        print "Loaded %dx%d component dump"%(len(complist), len(complist[0]))
+        print "Loaded %dx%d component dump"%(len(self._complist), len(self._complist[0]))
         for ent in self._columns:
             setattr(self, ent, [])
         for comp in self._complist:
