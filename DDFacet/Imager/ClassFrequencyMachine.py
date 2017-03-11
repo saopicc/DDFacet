@@ -163,6 +163,7 @@ class ClassFrequencyMachine(object):
         #self.alpha = alpha
         # Create the alpha map
         self.alpha_map = np.zeros([Nx, Ny])
+        print Sol.shape, alpha.size, ix.size
         self.alpha_map[ix, iy] = alpha
 
         # Get I0 map
