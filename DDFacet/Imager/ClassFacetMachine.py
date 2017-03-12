@@ -31,7 +31,7 @@ import cPickle
 import atexit
 import traceback
 from matplotlib.path import Path
-import pylab
+#import pylab
 import numpy.random
 from DDFacet.ToolsDir import ModCoord
 from DDFacet.Array import NpShared
