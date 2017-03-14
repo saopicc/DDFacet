@@ -408,6 +408,36 @@ class ClassJones():
             G[:, :, :, :, 0, 0] /= gmean_abs
             G[:, :, :, :, 1, 1] /= gmean_abs
 
+        if GlobalMode == "BLBased":
+            print>>log, "  Normalising by the mean of the amplitude (against time, freq, antenna)"
+            gmean_abs = np.mean(np.mean(
+                                    np.mean(
+                                        np.abs(G[:, :, :, :, 0, 0]),
+                                        axis=0),
+                                    axis=1),
+                                axis=1)
+            gmean_abs = gmean_abs.reshape((1, nd, 1, 1))
+            G[:, :, :, :, 0, 0] /= gmean_abs
+            G[:, :, :, :, 1, 1] /= gmean_abs
+
+
+            print>>log, "  Extracting correction factor per-baseline"
+            #(nt, nd, na, nf, 2, 2)
+            for iDir in range(nd):
+                g=G[:,iDir,:,:,0,0]
+                M=np.zeros((na,na),np.float32)
+                for iAnt in range(na):
+                    for jAnt in range(na):
+                        M[iAnt,jAnt]=np.mean(np.abs(g[:,iAnt]*g[:,jAnt].conj()))
+                
+                u,s,v=np.linalg.svd(M)
+                gu=u[:,0].reshape((-1,1))
+                M2=gu*gu.conj().T*s[0]
+                gu=np.abs(gu).reshape((1,na,1,1,1))
+                G[:,iDir,:,:,0,0]/=gu
+                
+
+
         if not("A" in JonesMode):
             print>>log, "  Normalising by the amplitude"
             G[G != 0.] /= np.abs(G[G != 0.])
