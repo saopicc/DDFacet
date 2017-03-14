@@ -431,12 +431,12 @@ class ClassJones():
                         M[iAnt,jAnt]=np.mean(np.abs(g[:,iAnt]*g[:,jAnt].conj()))
                 
                 u,s,v=np.linalg.svd(M)
-                gu=u[:,0].reshape((-1,1))
-                M2=gu*gu.conj().T*s[0]
+                gu=u[:,0].reshape((-1,1))*np.sqrt(s[0])
+                #M2=gu*gu.conj().T*s[0]
                 gu=np.abs(gu).reshape((1,na,1))
-                G[:,iDir,:,:,0,0]/=gu
-                G[:,iDir,:,:,1,1]/=gu
-                
+                G[:,iDir,:,:,0,0]=G[:,iDir,:,:,0,0]/gu
+                G[:,iDir,:,:,1,1]=G[:,iDir,:,:,1,1]/gu
+
 
 
         if not("A" in JonesMode):

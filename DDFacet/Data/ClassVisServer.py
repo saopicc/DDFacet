@@ -414,7 +414,9 @@ class ClassVisServer():
             if self.nTotalChunks > 1 or self.DATA is None:
                 # tell the IO thread to start loading the chunk
                 APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
-                            args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk), io=0)
+                           args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk), 
+                           io=0, 
+                           serial=True)
             return self._next_chunk_label
 
     def collectLoadedChunk(self, start_next=True):
