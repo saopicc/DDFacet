@@ -433,7 +433,7 @@ class ClassJones():
                 u,s,v=np.linalg.svd(M)
                 gu=u[:,0].reshape((-1,1))
                 M2=gu*gu.conj().T*s[0]
-                gu=np.abs(gu).reshape((1,na,1,1))
+                gu=np.abs(gu).reshape((1,na,1))
                 G[:,iDir,:,:,0,0]/=gu
                 
 
