@@ -435,6 +435,7 @@ class ClassJones():
                 M2=gu*gu.conj().T*s[0]
                 gu=np.abs(gu).reshape((1,na,1))
                 G[:,iDir,:,:,0,0]/=gu
+                G[:,iDir,:,:,1,1]/=gu
                 
 
 
