@@ -24,14 +24,16 @@ def test():
     CM.Cluster()
 
 class ClassClusterKMean():
-    def __init__(self,x,y,s,NCluster=10,DoPlot=True,PreCluster=None):
+    def __init__(self,x,y,s,NCluster=10,DoPlot=True,
+                 PreCluster=None,
+                 InitLM=None):
         self.X=x.copy()
         self.Y=y.copy()
         self.S=s.copy()
         self.NCluster=NCluster
         self.DoPlot=DoPlot
         self.PreCluster=PreCluster
-
+        self.InitLM=InitLM
         
 
 
@@ -43,9 +45,12 @@ class ClassClusterKMean():
         s=self.S
 
         nk=Nk=self.NCluster
-        
-        indC=np.int32(np.random.rand(Nk)*x.size)
-        xc,yc=x[indC].copy(),y[indC].copy()
+        if self.InitLM is None:
+            indC=np.int32(np.random.rand(Nk)*x.size)
+            xc,yc=x[indC].copy(),y[indC].copy()
+        else:
+            xc,yc=self.InitLM
+
 
         if self.PreCluster!=None:
             xc1,yc1=self.PreCluster
