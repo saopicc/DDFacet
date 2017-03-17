@@ -389,6 +389,7 @@ class ClassImagerDeconv():
         self.DicoImagesPSF = FacetMachinePSF.FacetsToIm(NormJones=True)
         FacetMachinePSF.releaseGrids()
         self._psfmean, self._psfcube = self.DicoImagesPSF["MeanImage"], self.DicoImagesPSF["ImagData"]  # this is only for the casa image saving
+        self.HasFittedPSFBeam = False
         self.FitPSF()
         if cachepath:
             try:
