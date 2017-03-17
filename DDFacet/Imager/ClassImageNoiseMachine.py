@@ -92,7 +92,10 @@ class ClassImageNoiseMachine():
 
         if self.GD["Noise"]["BrutalHMP"]:
             self.giveBrutalRestored(DicoResidual)
-            self.FluxImage=self.ModelConv
+            if self.GD["Mask"]["FluxImageType"]=="ModelConv":
+                self.FluxImage=self.ModelConv
+            elif self.GD["Mask"]["FluxImageType"]=="Restored":
+                self.FluxImage=self.Restored
             self.StatImage=self.Restored
         else:
             self.StatImage=DicoResidual["MeanImage"]
