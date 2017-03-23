@@ -46,27 +46,26 @@ from version import __version__
 import numpy as np
 
 def report_version():
-    if '-' in __version__:
-        # version has been correctly set up, we are probably installed
-        return __version__
+    # perhaps we are in a github with tags; in that case return describe
+    path = os.path.dirname(os.path.abspath(__file__))
+    try:
+        # work round possible unavailability of git -C
+        result = subprocess.check_output('cd %s; git describe --tags' % path, shell=True,stderr=subprocess.STDOUT).rstrip()
+    except subprocess.CalledProcessError:
+        result = None
+    if result is not None:
+        # will succeed if tags exist
+        return result
     else:
-        # perhaps we are in a github with tags; in that case return describe
-        path = os.path.dirname(os.path.abspath(__file__))
+        # cook up a version string
         try:
-            # work round possible unavailability of git -C
-            result=subprocess.check_output('cd %s; git describe --tags' % path, shell=True).rstrip()
+            result = subprocess.check_output('cd %s; git rev-parse --short HEAD' % path, shell=True,stderr=subprocess.STDOUT).rstrip()
         except subprocess.CalledProcessError:
-            result=None
+            result = None
         if result is not None:
-            # will succeed if tags exist
-            return result
-        else:
-            # cook up a version string
-            try:
-                result=subprocess.check_output('cd %s; git rev-parse --short HEAD' % path, shell=True).rstrip()
-            except subprocess.CalledProcessError:
-                result='unknown'
             return __version__+'-'+result
+        else:
+            return __version__
 
 
 # # ##############################
