@@ -374,7 +374,7 @@ if __name__ == "__main__":
         logfileName = MyLogger.getLogFilename()
         logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
         print>> log, ModColor.Str(
-            "There was a problem after %s, if you think this is a bug please open an "
+            "There was a problem after %s; if you think this is a bug please open an "
             "issue, quote your version of DDFacet and attach your logfile" %
             T.timehms(), col="red")
         print>> log, ModColor.Str(
