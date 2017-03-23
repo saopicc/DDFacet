@@ -40,7 +40,7 @@ from DDFacet.Other import Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
 from DDFacet.Other.AsyncProcessPool import APP
-from version import __version__
+from DDFacet.version import __version__
 log = None
 
 import numpy as np
