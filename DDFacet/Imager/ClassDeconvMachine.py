@@ -794,6 +794,7 @@ class ClassImagerDeconv():
                     ModelImage[InSquare]=0
                 elif SquareMaskMode=="Outside":
                     ModelImage[np.logical_not(InSquare)]=0
+                # ModelImage = self.FacetMachine.setModelImage(ModelImage)
 
             if ModelImage.shape[0]!=DATA["ChanMappingDegrid"].size:
                 print>>log, "The image model channels and targetted degridded visibilities channels have different sizes (%i vs %i respectively)"%(ModelImage.shape[0],DATA["ChanMappingDegrid"].size)

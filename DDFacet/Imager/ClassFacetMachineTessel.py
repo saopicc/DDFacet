@@ -36,6 +36,7 @@ from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
 import os
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
+from DDFacet.Other import ModColor
 
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from matplotlib.path import Path
@@ -375,6 +376,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         # stop
         LPolygonNew = []
         for iFacet in sorted(DicoPolygon.keys()):
+            if DicoPolygon[iFacet]["diam"]<DiamMin:
+                print>>log, ModColor.Str("  Facet #%i associated to direction #%i is too small, removing it"%(iFacet,DicoPolygon[iFacet]["iSol"]))
+                continue
             LPolygonNew.append(DicoPolygon[iFacet]["poly"])
 
         # for iFacet in range(len(regions)):
