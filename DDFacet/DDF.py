@@ -23,6 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import optparse
 import traceback
 import atexit
+import better_exceptions
 SaveFile = "last_DDFacet.obj"
 import os, errno, re, sys, time, subprocess, psutil, numexpr
 import numpy as np

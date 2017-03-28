@@ -102,10 +102,24 @@ class ClassImageDeconvMachine():
         if not self.ParallelMode:
             numexpr.set_num_threads(NCPU)
 
+        # peak finding mode.
+        # "normal" searches for peak in mean dirty image
+        # "sigma" searches for peak in mean_dirty/noise_map (setNoiseMap will have been called)
+        # "weighted" searched for peak in mean_dirty*weight
+        self._peakMode = "normal"
+
         self.CurrentNegMask=None
         self._NoiseMap=None
-        self._strUnit = "Jy"
-        self.PNRStop=None
+        self._PNRStop=None      # in _peakMode "sigma", provides addiitonal stopping criterion
+
+        if self.GD["HMP"]["PeakWeightImage"]:
+            print>> log, "  Reading peak weighting image %s" % self.GD["HMP"]["PeakWeightImage"]
+            img = image(self.GD["HMP"]["PeakWeightImage"]).getdata()
+            _, _, nx, ny = img.shape
+            # collapse freq and pol axes
+            img = img.sum(axis=1).sum(axis=0).T[::-1].copy()
+            self._peakWeightImage = img.reshape((1,1,ny,nx))
+            self._peakMode = "weighted"
 
     def __del__ (self):
         if type(self.facetcache) is shared_dict.SharedDict:
@@ -162,9 +176,16 @@ class ClassImageDeconvMachine():
     def set_DicoHMPFunctions(self,facetcache):
         self.facetcache=facetcache
 
-    def setNoiseMap(self,NoiseMap,PNRStop=10):
-        self._NoiseMap=NoiseMap
-        self.PNRStop=PNRStop
+    def setNoiseMap(self, NoiseMap, PNRStop=10):
+        """Sets the noise map. The mean dirty will be divided by the noise map before peak finding.
+        If PNRStop is set, an additional stopping criterion (peak-to-noisemap) will be applied.
+            Peaks are reported in units of sigmas.
+        If PNRStop is not set, NoiseMap is treated as simply an (inverse) weighting that will bias
+            peak selection in the minor cycle. In this mode, peaks are reported in units of flux.
+        """
+        self._NoiseMap = NoiseMap
+        self._PNRStop = PNRStop
+        self._peakMode = "sigma"
 
     def _initMSM_handler(self, fcdict, psfdict, iFacet, SideLobeLevel, OffsetSideLobe, centralFacet):
         # init PSF server from PSF shared dict
@@ -292,12 +313,17 @@ class ClassImageDeconvMachine():
         self._MeanDirty = MSMachine._MeanDirty
 
 
-        if self._NoiseMap is not None:
-            print>>log,"Will search for the peak in the SNR map"
-            self._PeakSearchImage=self._MeanDirty/self._NoiseMap.reshape(self._MeanDirty.shape)
-            self._strUnit = "Sigma"
+        if self._peakMode is "sigma":
+            print>>log,"Will search for the peak in the SNR-weighted dirty map"
+            a, b = self._MeanDirty, self._NoiseMap.reshape(self._MeanDirty.shape)
+            self._PeakSearchImage = numexpr.evaluate("a/b")
+        elif self._peakMode is "weighted":
+            print>>log,"Will search for the peak in the weighted dirty map"
+            a, b = self._MeanDirty, self._peakWeightImage
+            self._PeakSearchImage = numexpr.evaluate("a*b")
         else:
-            self._PeakSearchImage=self._MeanDirty
+            print>>log,"Will search for the peak in the unweighted dirty map"
+            self._PeakSearchImage = self._MeanDirty
 
 
         NPixStats = self.GD["Deconv"]["NumRMSSamples"]
@@ -479,13 +505,14 @@ class ClassImageDeconvMachine():
             # pylab.show(False)
             # stop
             
+        if self._peakMode is "sigma":
+            a, b = self._MeanDirty[:, :, x0d:x1d, y0d:y1d], self._NoiseMap[:, :, x0d:x1d, y0d:y1d]
+            numexpr.evaluate("a/b", out=self._PeakSearchImage[:,:,x0d:x1d,y0d:y1d])
+        elif self._peakMode is "weighted":
+            a, b = self._MeanDirty[:, :, x0d:x1d, y0d:y1d], self._peakWeightImage[:, :, x0d:x1d, y0d:y1d]
+            numexpr.evaluate("a*b", out=self._PeakSearchImage[:, :, x0d:x1d, y0d:y1d])
 
-
-        if self._PeakSearchImage is not self._MeanDirty:
-            sh=self._MeanDirty.shape
-            self._PeakSearchImage[:,:,x0d:x1d,y0d:y1d]=self._MeanDirty[:,:,x0d:x1d,y0d:y1d]/self._NoiseMap[:,:,x0d:x1d,y0d:y1d]
-
-        # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+                # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
         # pylab.imshow(self._MeanDirty[0,0,x0d:x1d,y0d:y1d],interpolation="nearest",vmin=vmin,vmax=vmax)#,vmin=vmin,vmax=vmax)
         # pylab.colorbar()
         # pylab.draw()
@@ -560,8 +587,14 @@ class ClassImageDeconvMachine():
             print>>log,"Not using a mask"
             CurrentNegMask=None
         
-        x,y,MaxDirty=NpParallel.A_whereMax(self._PeakSearchImage,NCPU=self.NCPU,DoAbs=DoAbs,Mask=CurrentNegMask)
-        
+        x,y,MaxDirty = NpParallel.A_whereMax(self._PeakSearchImage,NCPU=self.NCPU,DoAbs=DoAbs,Mask=CurrentNegMask)
+
+        # ThisFlux is evaluated against stopping criteria. In weighted mode, use the true flux. Else use sigma value.
+        ThisFlux = self._MeanDirty[0,0,x,y] if self._peakMode is "weighted" else MaxDirty
+        if DoAbs:
+            ThisFlux = abs(ThisFlux)
+        # in weighted or noisemap mode, look up the true max as well
+        trueMaxDirty = MaxDirty if self._peakMode is "normal" else ThisFlux
 
         #x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty.copy(),NCPU=1,DoAbs=DoAbs,Mask=self._MaskArray.copy())
         #A=self._MeanDirty.copy()
@@ -576,17 +609,13 @@ class ClassImageDeconvMachine():
         # MaxDirty1 = abs(self._MeanDirty[0,0,x1,y1])
         # print>>log,"argmax: %d %d %g"%(x1,y1,MaxDirty1)
 
-        Fluxlimit_Peak = MaxDirty*self.PeakFactor
+        Fluxlimit_Peak = ThisFlux*self.PeakFactor
         Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(
-            1.-self.SideLobeLevel)+self.SideLobeLevel)*MaxDirty if self.CycleFactor else 0
+            1.-self.SideLobeLevel)+self.SideLobeLevel)*ThisFlux if self.CycleFactor else 0
 
         mm0, mm1 = self._PeakSearchImage.min(), self._PeakSearchImage.max()
 
-        
-        PNRStop = self.PNRStop
-
-
-        # work out upper threshold
+        # work out upper peak threshold
         StopFlux = max(
             Fluxlimit_Peak,
             Fluxlimit_RMS,
@@ -594,32 +623,22 @@ class ClassImageDeconvMachine():
             Fluxlimit_Peak,
             self.FluxThreshold)
 
-        if self._strUnit=="Jy":
-            print>>log, "    Dirty image peak flux      = %10.6g Jy [(min, max) = (%.3g, %.3g) Jy]" % (
-                MaxDirty, mm0, mm1)
-            print>>log, "      RMS-based threshold      = %10.6g Jy [rms = %.3g Jy; RMS factor %.1f]" % (
-                Fluxlimit_RMS, RMS, self.RMSFactor)
-            print>>log, "      Sidelobe-based threshold = %10.6g Jy [sidelobe  = %.3f of peak; cycle factor %.1f]" % (
-                Fluxlimit_Sidelobe, self.SideLobeLevel, self.CycleFactor)
-            print>>log, "      Peak-based threshold     = %10.6g Jy [%.3f of peak]" % (
-                Fluxlimit_Peak, self.PeakFactor)
-            print>>log, "      Absolute threshold       = %10.6g Jy" % (
-                self.FluxThreshold)
-            print>>log, "    Stopping flux              = %10.6g Jy [%.3f of peak ]" % (
-                StopFlux, StopFlux/MaxDirty)
-        elif self._strUnit=="Sigma":
-            print>>log, "    Dirty image peak sigma      = %10.6g [(min, max) = (%.3g, %.3g)]" % (
-                MaxDirty, mm0, mm1)
-            print>>log, "      RMS-based threshold      = %10.6g [rms = %.3g; RMS factor %.1f]" % (
-                Fluxlimit_RMS, RMS, self.RMSFactor)
-            print>>log, "      Sidelobe-based threshold = %10.6g [sidelobe  = %.3f of peak; cycle factor %.1f]" % (
-                Fluxlimit_Sidelobe, self.SideLobeLevel, self.CycleFactor)
-            print>>log, "      Peak-based threshold     = %10.6g [%.3f of peak]" % (
-                Fluxlimit_Peak, self.PeakFactor)
-            print>>log, "      Absolute threshold       = %10.6g " % (
-                self.FluxThreshold)
-            print>>log, "    Stopping flux              = %10.6g [%.3f of peak ]" % (
-                StopFlux, StopFlux/MaxDirty)
+        print>>log, "    Dirty image peak           = %10.6g Jy [(min, max) = (%.3g, %.3g) Jy]" % (
+            trueMaxDirty, mm0, mm1)
+        if self._peakMode is "sigma":
+            print>>log, "      in sigma units           = %10.6g" % MaxDirty
+        elif self._peakMode is "weighted":
+            print>>log, "      weighted peak flux is    = %10.6g Jy" % MaxDirty
+        print>>log, "      RMS-based threshold      = %10.6g Jy [rms = %.3g Jy; RMS factor %.1f]" % (
+            Fluxlimit_RMS, RMS, self.RMSFactor)
+        print>>log, "      Sidelobe-based threshold = %10.6g Jy [sidelobe  = %.3f of peak; cycle factor %.1f]" % (
+            Fluxlimit_Sidelobe, self.SideLobeLevel, self.CycleFactor)
+        print>>log, "      Peak-based threshold     = %10.6g Jy [%.3f of peak]" % (
+            Fluxlimit_Peak, self.PeakFactor)
+        print>>log, "      Absolute threshold       = %10.6g Jy" % (
+            self.FluxThreshold)
+        print>>log, "    Stopping flux              = %10.6g Jy [%.3f of peak ]" % (
+            StopFlux, StopFlux/MaxDirty)
         rms=RMS
         # MaxModelInit=np.max(np.abs(self.ModelImage))
         # Fact=4
@@ -631,9 +650,6 @@ class ClassImageDeconvMachine():
         T = ClassTimeIt.ClassTimeIt()
         T.disable()
 
-        x, y, ThisFlux = NpParallel.A_whereMax(
-            self._PeakSearchImage, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
-        
         # #print x,y
         # print>>log, "npp: %d %d %g"%(x,y,ThisFlux)
         # xy = ma.argmax(ma.masked_array(abs(self._MeanDirty), self._MaskArray))
@@ -644,7 +660,7 @@ class ClassImageDeconvMachine():
         if ThisFlux < StopFlux:
             print>>log, ModColor.Str(
                 "    Initial maximum peak %10.6g Jy below threshold, we're done here" %
-                (ThisFlux), col="green")
+                ThisFlux, col="green")
             return "FluxThreshold", False, False
 
         # self._MaskArray.fill(1)
@@ -671,9 +687,12 @@ class ClassImageDeconvMachine():
                 self._niter = i
 
                 # x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
-                x, y, ThisFlux = NpParallel.A_whereMax(
+                x, y, peak = NpParallel.A_whereMax(
                     self._PeakSearchImage, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
 
+                ThisFlux = self._MeanDirty[0,0,x,y] if self._peakMode is "weighted" else peak
+                if DoAbs:
+                    ThisFlux = abs(ThisFlux)
 
                 #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y); ThisFlux=self._MeanDirty[0,0,x,y]
                 self.GainMachine.SetFluxMax(ThisFlux)
@@ -697,16 +716,16 @@ class ClassImageDeconvMachine():
 
                 ThisPNR=ThisFlux/rms
 
-                if ThisFlux <= StopFlux or ThisPNR<PNRStop:
+                if ThisFlux <= StopFlux or ThisPNR <= self._PNRStop:
                     rms = np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
                     # pBAR.render(100,"peak %.3g"%(ThisFlux,))
                     if ThisFlux <= StopFlux:
                         print>>log, ModColor.Str(
                             "    [iter=%i] peak of %.3g Jy lower than stopping flux, PNR %.3g" %
                             (i, ThisFlux, ThisFlux/rms), col="green")
-                    elif ThisPNR<PNRStop:
+                    elif ThisPNR <= self._PNRStop:
                         print>>log, ModColor.Str(
-                            "    [iter=%i] PNR of %.3g lower than stopping flux, peak of %.3g Jy" %
+                            "    [iter=%i] PNR of %.3g lower than stopping PNR, peak of %.3g Jy" %
                             (i, ThisPNR, ThisFlux), col="green")
                         
 
@@ -735,7 +754,10 @@ class ClassImageDeconvMachine():
                 if i >= 10 and i % rounded_iter_step == 0:
                     # if self.GD["Debug"]["PrintMinorCycleRMS"]:
                     rms = np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
-                    print>>log, "    [iter=%i] peak residual %.3g, rms %g, PNR %.3g" % (i, ThisFlux, rms, ThisFlux/rms)
+                    if self._peakMode is "weighted":
+                        print>>log, "    [iter=%i] peak residual %.3g, rms %g, PNR %.3g (weighted peak %.3g at x=%d y=%d)" % (i, ThisFlux, rms, ThisFlux/rms, peak, x, y)
+                    else:
+                        print>>log, "    [iter=%i] peak residual %.3g, rms %g, PNR %.3g (at x=%d y=%d)" % (i, ThisFlux, rms, ThisFlux/rms, x, y)
                     # else:
                     #     print >>log, "    [iter=%i] peak residual %.3g" % (
                     #         i, ThisFlux)
