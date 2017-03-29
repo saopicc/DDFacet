@@ -647,7 +647,7 @@ class ClassImageDeconvMachine():
         print>>log, "      Absolute threshold       = %10.6g Jy" % (
             self.FluxThreshold)
         print>>log, "    Stopping flux              = %10.6g Jy [%.3f of peak ]" % (
-            StopFlux, StopFlux/MaxDirty)
+            StopFlux, StopFlux/ThisFlux)
         rms=RMS
         # MaxModelInit=np.max(np.abs(self.ModelImage))
         # Fact=4
