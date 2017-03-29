@@ -918,7 +918,7 @@ class ClassMultiScaleMachine():
             # which coef2->0 to force a fully-regular solution
             coef2 = max(1 - Sol.std()/abs(MeanFluxTrue) * self._kappa,0)
 
-            coef = coef1*coef2
+            coef = coef1 #*coef2
 
             Sol0 = Sol
             SolReg = np.zeros_like(Sol)
