@@ -53,6 +53,7 @@ class ClassImageDeconvMachine():
                  FluxThreshold=None, 
                  RMSFactor=3, 
                  PeakFactor=0,
+                 PrevPeakFactor=0,
                  GD=None, 
                  SearchMaxAbs=1, 
                  ModelMachine=None,
@@ -79,6 +80,7 @@ class ClassImageDeconvMachine():
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
+        self.PrevPeakFactor = PrevPeakFactor
         self.CacheFileName=CacheFileName
         self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
         self.ModelMachine = ModelMachine
@@ -120,6 +122,8 @@ class ClassImageDeconvMachine():
             img = img.sum(axis=1).sum(axis=0).T[::-1].copy()
             self._peakWeightImage = img.reshape((1,1,ny,nx))
             self._peakMode = "weighted"
+
+        self._prevPeak = None
 
     def __del__ (self):
         if type(self.facetcache) is shared_dict.SharedDict:
@@ -610,6 +614,8 @@ class ClassImageDeconvMachine():
         # print>>log,"argmax: %d %d %g"%(x1,y1,MaxDirty1)
 
         Fluxlimit_Peak = ThisFlux*self.PeakFactor
+        # if previous peak is not set (i.e. first major cycle), use current dirty image peak instead
+        Fluxlimit_PrevPeak = (self._prevPeak if self._prevPeak is not None else ThisFlux)*self.PrevPeakFactor
         Fluxlimit_Sidelobe = ((self.CycleFactor-1.)/4.*(
             1.-self.SideLobeLevel)+self.SideLobeLevel)*ThisFlux if self.CycleFactor else 0
 
@@ -621,6 +627,7 @@ class ClassImageDeconvMachine():
             Fluxlimit_RMS,
             Fluxlimit_Sidelobe,
             Fluxlimit_Peak,
+            Fluxlimit_PrevPeak,
             self.FluxThreshold)
 
         print>>log, "    Dirty image peak           = %10.6g Jy [(min, max) = (%.3g, %.3g) Jy]" % (
@@ -635,6 +642,8 @@ class ClassImageDeconvMachine():
             Fluxlimit_Sidelobe, self.SideLobeLevel, self.CycleFactor)
         print>>log, "      Peak-based threshold     = %10.6g Jy [%.3f of peak]" % (
             Fluxlimit_Peak, self.PeakFactor)
+        print>>log, "      Previous peak-based thr  = %10.6g Jy [%.3f of previous minor cycle peak]" % (
+            Fluxlimit_PrevPeak, self.PrevPeakFactor)
         print>>log, "      Absolute threshold       = %10.6g Jy" % (
             self.FluxThreshold)
         print>>log, "    Stopping flux              = %10.6g Jy [%.3f of peak ]" % (
@@ -693,6 +702,7 @@ class ClassImageDeconvMachine():
                 ThisFlux = self._MeanDirty[0,0,x,y] if self._peakMode is "weighted" else peak
                 if DoAbs:
                     ThisFlux = abs(ThisFlux)
+                self._prevPeak = ThisFlux
 
                 #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y); ThisFlux=self._MeanDirty[0,0,x,y]
                 self.GainMachine.SetFluxMax(ThisFlux)
