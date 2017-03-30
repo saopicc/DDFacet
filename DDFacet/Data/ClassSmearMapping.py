@@ -81,14 +81,14 @@ class SmearMappingMachine (object):
             NTotBlocks += len(bsz)
             NTotRows += bsz.sum()
 
-        mapping = DATA.addSharedArray(field, (1 + 2 * NTotBlocks + NTotRows,), np.int32)
+        mapping = DATA.addSharedArray(field, (2 + NTotBlocks + NTotRows,), np.int32)
 
-        FinalMappingHeader = mapping[:2*NTotBlocks+1]
-        FinalMapping = mapping[2*NTotBlocks+1:]
+        mapping[0] = NTotBlocks
+        mapping[1] = NTotBlocks>>32
 
-        FinalMappingHeader[0] = NTotBlocks
+        FinalMappingSizes = mapping[2:2+NTotBlocks]
+        FinalMapping = mapping[2+NTotBlocks:]
 
-        MM = np.zeros((NTotBlocks, ), np.int32)
 
         iii = 0
         jjj = 0
@@ -103,13 +103,8 @@ class SmearMappingMachine (object):
 
             # print "IdWorker,AppendId",IdWorker,AppendId,BlocksSizesBL
             # MM=np.concatenate((MM,BlocksSizesBL))
-            MM[jjj:jjj+BlocksSizesBL.size] = BlocksSizesBL[:]
+            FinalMappingSizes[jjj:jjj+BlocksSizesBL.size] = BlocksSizesBL[:]
             jjj += BlocksSizesBL.size
-
-        cumul = np.cumsum(MM)
-        FinalMappingHeader[1:1+NTotBlocks] = MM
-        FinalMappingHeader[NTotBlocks+1+1::] = (cumul)[0:-1]
-        FinalMappingHeader[NTotBlocks+1::] += 2*NTotBlocks+1
 
         NVis = np.where(DATA["A0"] != DATA["A1"])[0].size * DATA["freqs"].size
         #print>>log, "  Number of blocks:         %i"%NTotBlocks
@@ -291,14 +286,18 @@ class ClassSmearMapping():
                 NTotBlocks += DicoResult["NBlocksTotBL"]
                 NTotRows += bsz.sum()
 
-        FinalMappingHeader = np.zeros((2*NTotBlocks+1, ), np.int32)
-        FinalMappingHeader[0] = NTotBlocks
+        # output mapping has 2 words for the total size, plus 2*NTotBlocks header, plus NTotRows blocklists
+        OutputMapping = np.zeros((2 + 2*NTotBlocks + NTotRows, ), np.int32)
 
-        iStart = 1
-        # MM=np.array([],np.int32)
-        MM = np.zeros((NTotBlocks, ), np.int32)
+        # just in case NTotBlocks is over 2^31...
+        # (don't want to use np.int32 for the whole mapping as that just wastes space, we may assume
+        # that we have substantially fewer rows, so int32 is perfectly good as a row index etc.)
+        OutputMapping[0] = NTotBlocks
+        OutputMapping[1] = NTotBlocks >> 32
 
-        FinalMapping = np.zeros((NTotRows, ), np.int32)
+        BlockListSizes = OutputMapping[2:2+NTotBlocks]
+
+        BlockLists = OutputMapping[2+NTotBlocks:]
         iii = 0
         jjj = 0
 
@@ -306,21 +305,14 @@ class ClassSmearMapping():
         for _, (BlocksRowsListBL, BlocksSizesBL) in sorted(RowsBlockSizes.items()):
             #print>>log, "  Worker: %i"%(IdWorker)
 
-            FinalMapping[iii:iii+BlocksRowsListBL.size] = BlocksRowsListBL[:]
+            BlockLists[iii:iii+BlocksRowsListBL.size] = BlocksRowsListBL[:]
             iii += BlocksRowsListBL.size
 
             # print "IdWorker,AppendId",IdWorker,AppendId,BlocksSizesBL
             # MM=np.concatenate((MM,BlocksSizesBL))
-            MM[jjj:jjj+BlocksSizesBL.size] = BlocksSizesBL[:]
+            BlockListSizes[jjj:jjj+BlocksSizesBL.size] = BlocksSizesBL[:]
             jjj += BlocksSizesBL.size
 
-        cumul = np.cumsum(MM)
-        FinalMappingHeader[1:1+NTotBlocks] = MM
-        FinalMappingHeader[NTotBlocks+1+1::] = (cumul)[0:-1]
-        FinalMappingHeader[NTotBlocks+1::] += 2*NTotBlocks+1
-
-        #print>>log, "  Concat header"
-        FinalMapping = np.concatenate((FinalMappingHeader, FinalMapping))
         for MapName in worker_maps.iterkeys():
             NpShared.DelArray(MapName)
 
@@ -334,7 +326,7 @@ class ClassSmearMapping():
         # self.UnPackMapping()
         # print FinalMapping
 
-        return FinalMapping, fact
+        return OutputMapping, fact
 
 
 def GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l, GridChanMapping):
