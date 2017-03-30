@@ -651,8 +651,7 @@ class ClassImageDeconvMachine():
                     # else:
                     #     print >>log, "    [iter=%i] peak residual %.3g" % (
                     #         i, ThisFlux)
-                    if ClassMultiScaleMachine.debug_dump_file:
-                        ClassMultiScaleMachine.debug_dump_file.flush()
+                    ClassMultiScaleMachine.CleanSolutionsDump.flush()
 
                 nch, npol, _, _ = self._CubeDirty.shape
                 Fpol = np.float32(
