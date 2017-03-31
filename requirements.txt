@@ -21,3 +21,4 @@ astLib
 psutil
 astro-tigger
 py-cpuinfo
+better_exceptions
