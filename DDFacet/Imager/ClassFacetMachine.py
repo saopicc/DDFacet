@@ -1591,6 +1591,7 @@ class ClassFacetMachine():
             #ModelConv[0,0,indx,indy]=ModelConv[0,0,indx,indy]/self._CF[iFacet]["SW"][indx,indy]
             Restored=Residual+ModelConv#/self._CF[iFacet]["SW"]
 
+
             indx,indy=np.where(self._CF[iFacet]["Sphe"]<1e-3)
             Restored[0,0,indx,indy]=0
             # import pylab
