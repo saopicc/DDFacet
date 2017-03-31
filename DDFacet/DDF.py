@@ -195,7 +195,7 @@ def main(OP=None, messages=[]):
     # write parset
     OP.ToParset("%s.parset"%ImageName)
 
-    Mode = DicoConfig["Image"]["Mode"]
+    Mode = DicoConfig["Output"]["Mode"]
 
     # data machine initialized for all cases except PSF-only mode
     # psf machine initialized for all cases except Predict-only mode
