@@ -43,7 +43,7 @@ from DDFacet.Other import progressbar
 from DDFacet.Other.AsyncProcessPool import APP
 from DDFacet.version import __version__
 log = None
-from version import __version__
+# from version import __version__
 
 import numpy as np
 
