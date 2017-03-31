@@ -255,8 +255,8 @@ class ClassVisServer():
         freq_to_grid_band = dict(zip(self.GlobalFreqs, grid_band))
         # print>>log,sorted(freq_to_grid_band.items())
 
-        self.FreqBandCenters = np.arange(
-            min_freq+grid_bw/2, max_freq+grid_bw/2, grid_bw)
+        self.FreqBandCenters = min_freq+grid_bw/2 + np.arange(0, self.NFreqBands)*grid_bw
+
         self.FreqBandChannels = []
         # freq_to_grid_band_chan: mapping from frequency to channel number
         # within its grid band
