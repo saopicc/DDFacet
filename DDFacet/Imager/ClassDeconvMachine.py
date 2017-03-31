@@ -1337,7 +1337,7 @@ class ClassImagerDeconv():
     
     def RestoreAndShift(self):
         dirty_cachepath = self.VS.maincache.getElementPath("LastResidual")
-        dirty_cachepath = self.VS.maincache.getElementPath("Dirty")
+        #dirty_cachepath = self.VS.maincache.getElementPath("Dirty")
         valid = os.path.exists(dirty_cachepath)
         
         if not valid:

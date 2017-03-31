@@ -1007,8 +1007,7 @@ class ClassFacetMachine():
 
         # else build Dirty (residual) image
         else:
-            # Build a residual image consisting of multiple continuum bands
-            stitchedResidual = self.FacetsToIm_Channel("Dirty")
+
             DicoImages.addSubdict("FacetMeanResidual")
             for iFacet in sorted(self.DicoImager.keys()):
                 DicoImages["FacetMeanResidual"].addSubdict(iFacet)
@@ -1018,8 +1017,11 @@ class ClassFacetMachine():
                 if np.max(SumJonesNorm)>0.:
                     ThisW=ThisW*SumJonesNorm.reshape((self.VS.NFreqBands,1,1,1))
                 ThisDirty=self.DicoGridMachine[iFacet]["Dirty"].real/ThisW
-                DicoImages["FacetMeanResidual"][iFacet]=np.mean(ThisDirty,axis=0).reshape((1,npol,npix_x,npix_y))
-
+                DicoImages["FacetMeanResidual"][iFacet]=np.sum(ThisDirty*WBAND,axis=0).reshape((1,npol,npix_x,npix_y))
+                DicoImages["FacetMeanResidual"][iFacet]=DicoImages["FacetMeanResidual"][iFacet]/self._CF[iFacet]["Sphe"]
+                
+            # Build a residual image consisting of multiple continuum bands
+            stitchedResidual = self.FacetsToIm_Channel("Dirty")
 
             if self.VS.MultiFreqMode:
                 MeanResidual = np.sum(stitchedResidual * WBAND, axis=0).reshape((1, npol, Npix, Npix))
@@ -1558,27 +1560,54 @@ class ClassFacetMachine():
     def giveRestoredFacets(self,DicoImages,PSFGaussParsAvg,ShiftFile=None):
         self.set_model_grid (ToGrid=False,ApplyNorm=False)
         if ShiftFile is not None:
-            dl,dm=np.genfromtxt(ShiftFile).T
+            ra_rad,dec_rad,dl,dm=np.genfromtxt(ShiftFile).T
+            a1,d1=ra_rad.reshape(-1,1),dec_rad.reshape(-1,1)
+            a0=np.array([self.DicoImager[iFacet]["RaDec"][0] for iFacet in sorted(self.DicoImager.keys())]).reshape(-1,1)
+            d0=np.array([self.DicoImager[iFacet]["RaDec"][1] for iFacet in sorted(self.DicoImager.keys())]).reshape(-1,1)
+
+            c=np.cos
+            s=np.sin
+            d_mat=np.arccos(s(d0)*s(d1.T)+c(d0)*c(d1.T)*c(a0-a1.T))
+            d_mat[d_mat==0]=1e10
 
         pBAR = ProgressBar(Title="Build restored facets")
         NFacets=len(self.DicoImager.keys())
         pBAR.render(0, NFacets)
 
-        for iFacet in self.DicoImager.keys():
+        for iFacet in sorted(self.DicoImager.keys()):
             self._model_dict.reload()
             Model=self._model_dict[iFacet]["FacetGrid"]
             _,npol,nx,ny=Model.shape
-            Model=np.mean(Model,axis=0).reshape((1,npol,nx,ny))*self._CF[iFacet]["Sphe"]
+            Model=np.mean(Model,axis=0).reshape((1,npol,nx,ny))
             Residual=DicoImages["FacetMeanResidual"][iFacet]
-            ModelConv=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.CellSizeRad,
-                                               GaussPars=[PSFGaussParsAvg])
-            Restored=Residual#+ModelConv#/self._CF[iFacet]["SW"]
+
+            majax,minax,PA=PSFGaussParsAvg
+            PA+=np.pi/2
             
-            #if ShiftFile is not None:
-            #    Restored=scipy.ndimage.interpolation.shift(Restored, (0,0,dl[iFacet],dm[iFacet]))
+            ModelConv=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.CellSizeRad,
+                                               GaussPars=[(majax,minax,PA)])
+            
+            #indx,indy=np.where(self._CF[iFacet]["SW"]!=0)
+            #ModelConv[0,0,indx,indy]=ModelConv[0,0,indx,indy]/self._CF[iFacet]["SW"][indx,indy]
+            Restored=Residual+ModelConv#/self._CF[iFacet]["SW"]
+
+            indx,indy=np.where(self._CF[iFacet]["Sphe"]<1e-3)
+            Restored[0,0,indx,indy]=0
+            # import pylab
+            # pylab.clf()
+            # pylab.imshow(Restored[0,0])
+            # pylab.draw()
+            # pylab.show()
+            
+            if ShiftFile is not None:
+                d=d_mat[iFacet]
+                iDir=np.argmin(d)
+                Restored=scipy.ndimage.interpolation.shift(Restored, (0,0,dl[iDir],dm[iDir]))
             #Restored.fill(1.)
-            if iFacet!=0: Restored.fill(0)
-            self.DicoGridMachine[iFacet]["Dirty"]=Restored#*self._CF[iFacet]["Sphe"]
+
+                
+
+            self.DicoGridMachine[iFacet]["Dirty"]=Restored*self._CF[iFacet]["Sphe"]#/self._CF[iFacet]["SW"]#*self._CF[iFacet]["Sphe"]
             #self.DicoGridMachine[iFacet]["Dirty"]=self.DicoGridMachine[iFacet]["Dirty"]*self._CF[iFacet]["SW"]
             self.DicoImager[iFacet]["SumWeights"]=self.SumWeights.copy()
             self.DicoImager[iFacet]["SumWeights"].fill(1.)
