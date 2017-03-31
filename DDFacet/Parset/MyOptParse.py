@@ -73,12 +73,8 @@ class MyOptParse():
         metavar = attrs.get('options') or attrs.get('metavar', None)
         action = None
         if opttype is bool:
-            if attrs.get('cmdline_only') and not default:
-                action = 'store_true'
-                opttype = None
-            else:
-                opttype = str
-                metavar = "0|1"
+            opttype = str
+            metavar = "0|1"
         # handle doc string
         if 'doc' in attrs:
             help = attrs['doc']

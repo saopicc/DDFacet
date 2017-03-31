@@ -26,6 +26,7 @@ from DDFacet.Array import ModLinAlg
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import ModColor
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
@@ -33,9 +34,6 @@ import pickle
 import cPickle
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 import numexpr
-
-global debug_dump_file
-debug_dump_file = None
 
 def writetofile(fname,val):
     file1 = open(fname,'a+')
@@ -47,6 +45,111 @@ def pickleadic(dname,dict):
     with open(dname, 'wb') as handle:
         pickle.dump(dict, handle)
     return
+
+class CleanSolutionsDump(object):
+    """
+    This is a helper class to dump and load clean solutions from a pickle file. For writing, it maintains a singleton
+    version of itself. For reading, it will bootstrap itself from a dump file (so it's entirely self-contained, and
+    does not need importing DDFacet or anything)
+
+    Usage, for writing:
+        # repeat at every minor cycle
+        CleanSolutionsDump.init(filename, "a", "b", "c")    # only inits the first time, if necessary
+        CleanSolutionsDump.write(a, b, c)
+
+    Usage, for reading (in e.g. ipython _without_ needing to import anything)
+        import cPickle
+        fobj = open(filename)
+        dump = cPickle.load(fobj)
+        dump.read(fobj)
+
+        pylab.plot(dump.a, dump.b)
+
+
+    Note that after reading, dump.a and dump.b and dump.c will be arrays of shape (NMinorCycle,...), where ...
+    is the shape of the a, b, c components passed to write()
+    """
+    _dump = None
+
+    @staticmethod
+    def init(filename, *columns):
+        """
+        Initializes a singleton solutions dump object for writing, if one hasn't been initialized yet
+        """
+        if CleanSolutionsDump._dump is None:
+            CleanSolutionsDump._dump = CleanSolutionsDump(columns)
+            CleanSolutionsDump._dump._init_for_writing(filename)
+
+    @staticmethod
+    def flush():
+        """
+        Initializes a solutions dump object for writing, if one hasn't been initialized yet
+        """
+        if CleanSolutionsDump._dump is not None:
+            CleanSolutionsDump._dump._flush()
+
+    @staticmethod
+    def write(*components):
+        """
+        Writes set of components to dump object
+        """
+        CleanSolutionsDump._dump._write(*components)
+
+    @staticmethod
+    def load(filename):
+        """
+        Loads dump object from file
+        """
+        fobj = open(filename)
+        dump = cPickle.load(fobj)
+        dump.read(fobj)
+        return dump
+
+    def __init__(self, columns):
+        """
+        Creates a dump object with a list of columns.
+        """
+        self._columns = columns
+        self._fobj = None
+
+    def _init_for_writing(self, filename):
+        """
+        Initializes dump object for writing to the given filename
+        """
+        fobj = open(filename, "w")
+        cPickle.dump(self, fobj)  # dump self as first entry of file object
+        self._fobj = fobj
+
+    def _flush(self):
+        if self._fobj:
+            self._fobj.flush()
+
+    def _write(self, *components):
+        if len(components) != len(self._columns):
+            raise TypeError,"%d components given, but dump initialized with %d columns"%(len(components), len(self._columns))
+        cPickle.dump(components, self._fobj, 2)
+
+    def read(self, fobj):
+        """
+        Reads a dump from a file
+        """
+        self._complist=[]
+        while True:
+            try:
+                self._complist.append(cPickle.load(fobj))
+            except EOFError:
+                break
+        print "Loaded %dx%d component dump"%(len(self._complist), len(self._complist[0]))
+        for ent in self._columns:
+            setattr(self, ent, [])
+        for comp in self._complist:
+            for e,c in zip(self._columns, comp):
+                getattr(self, e).append(c)
+        for ent in self._columns:
+            col = np.array([x for x in getattr(self, ent) if x is not None])
+            setattr(self, ent, col)
+            print "%s: shape %s" % (ent, col.shape)
+
 
 class ClassMultiScaleMachine():
 
@@ -60,12 +163,36 @@ class ClassMultiScaleMachine():
         self.NFreqBands = NFreqBands
         self.MultiFreqMode = NFreqBands>1
         self.SolveMode = self.GD["HMP"]["SolverMode"]
+        self._kappa = self.GD["HMP"]["Kappa"]
         self._stall_threshold = self.GD["Debug"]["CleanStallThreshold"]
         self.GlobalWeightFunction=None
         self.ListScales=None
         self.CubePSFScales=None
         self.IsInit_MultiScaleCube=False
-        self.DicoBasisMatrix=None
+        self.DicoBasisMatrix=None\
+        # image or FT basis matrix representation? Use Image for now
+        # self.Repr = "FT"
+        self.Repr = "IM"
+        # setup dumping
+        dump_stamps = self.GD["Debug"]["DumpCleanPostageStamps"]
+        dump = self.GD["Debug"]["DumpCleanSolutions"] or (dump_stamps and True)
+        # dump parameter is 0 to disable, 1 to enable with default column list, else col1,col2,... etc.
+        if isinstance(dump, str):
+            self._dump = bool(dump)
+            self._dump_cols = dump.split(',')
+        else:
+            self._dump = dump
+            self._dump_cols = None
+        dump_stamps = self.GD["Debug"]["DumpCleanPostageStamps"]
+        if dump_stamps:
+            if isinstance(dump_stamps, (list, tuple)) and len(dump_stamps) == 3:
+                self._dump_xyr = tuple(dump_stamps)
+            else:
+                self._dump_xyr = 0,0,0
+            print>>log,ModColor.Str("Dumping minor cycle postage stamps at %d,%d r=%dpix"%self._dump_xyr)
+        else:
+            self._dump_xyr = None
+
 
     def setModelMachine(self,ModelMachine):
         self.ModelMachine=ModelMachine
@@ -85,7 +212,7 @@ class ClassMultiScaleMachine():
         self.PSFServer=PSFServer
         self.DicoVariablePSF=self.PSFServer.DicoVariablePSF
         PSF,MeanPSF=self.PSFServer.GivePSF()
-        self._PSF=PSF#self.DicoPSF["ImagData"]
+        self._PSF=PSF#self.DicoPSF["ImageCube"]
         self._MeanPSF=MeanPSF
         
         _,_,NPSF,_=self._PSF.shape
@@ -98,7 +225,7 @@ class ClassMultiScaleMachine():
         #self.NChannels=self.DicoDirty["NChannels"]
 
 
-        self._Dirty=self.DicoDirty["ImagData"]
+        self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
         _,_,NDirty,_=self._Dirty.shape
         NPSF=self.NPSF
@@ -512,86 +639,80 @@ class ClassMultiScaleMachine():
         # self.Bias=Bias
         # stop
         #BM=(CubePSFNorm.reshape((nFunc,nch*nx*ny)).T.copy())
+        DicoBasisMatrix = {"CubePSF": CubePSF,
+                            "CubePSFScales": self.CubePSFScales,
+                            "WeightFunction": WeightFunction,
+                            "GlobalWeightFunction": self.GlobalWeightFunction}
+
+        if self.Repr == "IM":
+            BM = np.float64(CubePSF.reshape((nFunc,nch*nx*ny)).T)
+            WVecPSF = np.float64(WeightFunction.reshape((WeightFunction.size,1)))
+            BMT_BM = np.dot(BM.T,WVecPSF*BM)
+            DicoBasisMatrix["BM"] = np.float32(BM)
+            DicoBasisMatrix["BMT_BM_inv"] = np.float32(ModLinAlg.invSVD(BMT_BM))
+            BMnorm = np.sum(BM ** 2, axis=0)
+            DicoBasisMatrix["BMnorm"] = np.float32(1. / BMnorm.reshape((nFunc, 1)))
+
+        if self.Repr == "FT":
+            #fCubePSF=np.float32(self.FFTMachine.fft(np.complex64(CubePSF)).real)
+            W=WeightFunction.reshape((1,nch,nx,ny))
+            fCubePSF=np.float32(self.OPFT(self.FFTMachine.fft(np.complex64(CubePSF*W))))
+            nch,npol,_,_=self._PSF.shape
+            u,v=np.mgrid[-nx/2+1:nx/2:1j*nx,-ny/2+1:ny/2:1j*ny]
+
+            r=np.sqrt(u**2+v**2)
+            r0=1.
+            UVTaper=1.-np.exp(-(r/r0)**2)
+
+            UVTaper=UVTaper.reshape((1,1,nx,ny))*np.ones((nch,npol,1,1),np.float32)
+
+
+            UVTaper.fill(1)
+
+            UVTaper*=self.WeightMuellerSignal.reshape((nch,1,1,1))
+
+            # fCubePSF[:,:,nx/2,ny/2]=0
+            # import pylab
+            # for iFunc in range(self.nFunc):
+            #     Basis=fCubePSF[iFunc]
+            #     pylab.clf()
+            #     pylab.subplot(1,3,1)
+            #     pylab.imshow(Basis[0]*UVTaper[0,0],interpolation="nearest")
+            #     pylab.title(iFunc)
+            #     pylab.subplot(1,3,2)
+            #     pylab.imshow(Basis[1]*UVTaper[0,0],interpolation="nearest")
+            #     pylab.subplot(1,3,3)
+            #     pylab.imshow(Basis[2]*UVTaper[0,0],interpolation="nearest")
+            #     pylab.draw()
+            #     pylab.show(False)
+            #     pylab.pause(0.1)
 
 
 
-        BM=(CubePSF.reshape((nFunc,nch*nx*ny)).T.copy())
-        WVecPSF=WeightFunction.reshape((WeightFunction.size,1))
-        BMT_BM=np.dot(BM.T,WVecPSF*BM)
-        BMT_BM_inv= ModLinAlg.invSVD(BMT_BM)
+            fBM = np.float64((fCubePSF.reshape((nFunc,nch*nx*ny)).T))
+            fBMT_fBM = np.dot(fBM.T,UVTaper.reshape((UVTaper.size,1))*fBM)
+            DicoBasisMatrix["fBMT_fBM_inv"] = np.float32(ModLinAlg.invSVD(fBMT_fBM))
+            DicoBasisMatrix["fBM"] = np.float32(fBM)
+            DicoBasisMatrix["fWeightFunction"] = UVTaper
 
-        #fCubePSF=np.float32(self.FFTMachine.fft(np.complex64(CubePSF)).real)
-        W=WeightFunction.reshape((1,nch,nx,ny))
-        fCubePSF=np.float32(self.OPFT(self.FFTMachine.fft(np.complex64(CubePSF*W))))
-        nch,npol,_,_=self._PSF.shape
-        u,v=np.mgrid[-nx/2+1:nx/2:1j*nx,-ny/2+1:ny/2:1j*ny]
+            # DeltaMatrix=np.zeros((nFunc,),np.float32)
+            # #BM_BMT=np.dot(BM,BM.T)
+            # #BM_BMT_inv=ModLinAlg.invSVD(BM_BMT)
 
-        r=np.sqrt(u**2+v**2)
-        r0=1.
-        UVTaper=1.-np.exp(-(r/r0)**2)
-        
-        UVTaper=UVTaper.reshape((1,1,nx,ny))*np.ones((nch,npol,1,1),np.float32)
+            # BM_BMT_inv=np.diag(1./np.sum(BM*BM,axis=1))
+            # nData,_=BM.shape
+            # for iFunc in range(nFunc):
+            #     ai=BM[:,iFunc].reshape((nData,1))
+            #     DeltaMatrix[iFunc]=1./np.sqrt(np.dot(np.dot(ai.T,BM_BMT_inv),ai))
+            # DeltaMatrix=DeltaMatrix.reshape((nFunc,1))
+            # print>>log, "Delta Matrix: %s"%str(DeltaMatrix)
 
-
-        UVTaper.fill(1)
-
-        UVTaper*=self.WeightMuellerSignal.reshape((nch,1,1,1))
-
-        # fCubePSF[:,:,nx/2,ny/2]=0
-        # import pylab
-        # for iFunc in range(self.nFunc):
-        #     Basis=fCubePSF[iFunc]
-        #     pylab.clf()
-        #     pylab.subplot(1,3,1)
-        #     pylab.imshow(Basis[0]*UVTaper[0,0],interpolation="nearest")
-        #     pylab.title(iFunc)
-        #     pylab.subplot(1,3,2)
-        #     pylab.imshow(Basis[1]*UVTaper[0,0],interpolation="nearest")
-        #     pylab.subplot(1,3,3)
-        #     pylab.imshow(Basis[2]*UVTaper[0,0],interpolation="nearest")
-        #     pylab.draw()
-        #     pylab.show(False)
-        #     pylab.pause(0.1)
+            #WeightFunction.fill(1.)
 
 
-
-        fBM=(fCubePSF.reshape((nFunc,nch*nx*ny)).T.copy())
-        fBMT_fBM=np.dot(fBM.T,UVTaper.reshape((UVTaper.size,1))*fBM)
-        fBMT_fBM_inv= ModLinAlg.invSVD(fBMT_fBM)
-        
-        # DeltaMatrix=np.zeros((nFunc,),np.float32)
-        # #BM_BMT=np.dot(BM,BM.T)
-        # #BM_BMT_inv=ModLinAlg.invSVD(BM_BMT)
-
-        # BM_BMT_inv=np.diag(1./np.sum(BM*BM,axis=1))
-        # nData,_=BM.shape
-        # for iFunc in range(nFunc):
-        #     ai=BM[:,iFunc].reshape((nData,1))
-        #     DeltaMatrix[iFunc]=1./np.sqrt(np.dot(np.dot(ai.T,BM_BMT_inv),ai))
-        # DeltaMatrix=DeltaMatrix.reshape((nFunc,1))
-        # print>>log, "Delta Matrix: %s"%str(DeltaMatrix)
-
-        BMnorm=np.sum(BM**2,axis=0)
-        BMnorm=1./BMnorm.reshape((nFunc,1))
-        #WeightFunction.fill(1.)
-        DicoBasisMatrix={"BMCube":CubePSF,
-                         "BMnorm":BMnorm,
-                         #"DeltaMatrix":DeltaMatrix,
-                         #"Bias":Bias,
-                         "BM":BM,
-                         "fBM":fBM,
-                         "BMT_BM_inv":BMT_BM_inv,
-                         "fBMT_fBM_inv":fBMT_fBM_inv,
-                         "CubePSF":CubePSF,
-                         "WeightFunction":(WeightFunction),
-                         "fWeightFunction":UVTaper,
-                         "CubePSFScales":self.CubePSFScales,
-                         "GlobalWeightFunction":self.GlobalWeightFunction}
-
-
-        if self.GD["Debug"]["DumpCleanSolutions"]:
+        if self.GD["Debug"]["DumpCleanSolutions"] and not SubSubSubCoord:
             BaseName = self.GD["Output"]["Name"]
-            pickleadic(BaseName+"DicoBasisMatrix.pickle",DicoBasisMatrix)
+            pickleadic(BaseName+".DicoBasisMatrix.pickle",DicoBasisMatrix)
 
         return DicoBasisMatrix
         
@@ -613,15 +734,12 @@ class ClassMultiScaleMachine():
     def GiveLocalSM(self,(x,y),Fpol):
         T= ClassTimeIt.ClassTimeIt("   GiveLocalSM")
         T.disable()
-        x0,y0=x,y
-        x,y=x0,y0
 
         N0=self._Dirty.shape[-1]
         N1=self.DicoBasisMatrix["CubePSF"].shape[-1]
         xc,yc=x,y
 
         #N1=CubePSF.shape[-1]
-        
 
         nchan,npol,_,_=Fpol.shape
 
@@ -664,12 +782,9 @@ class ClassMultiScaleMachine():
 
 
         #print "0",np.max(dirtyNormIm)
-        dirtyNormIm=dirtyNormIm/np.sqrt(JonesNorm)
+        dirtyNormIm = np.float64(dirtyNormIm)
+        dirtyNormIm /= np.sqrt(JonesNorm)
         #print "1",np.max(dirtyNormIm)
-
-        self.Repr="FT"
-        self.Repr="IM"
-        
 
 
         if self.Repr=="FT":
@@ -677,7 +792,7 @@ class ClassMultiScaleMachine():
             WCubePSF=DicoBasisMatrix["fWeightFunction"]#*(JonesNorm)
             WCubePSFIm=DicoBasisMatrix["WeightFunction"]#*(JonesNorm)
             WVecPSF=WCubePSF.reshape((WCubePSF.size,1))
-            dirtyNorm=np.float32(self.OPFT(self.FFTMachine.fft(np.complex64(dirtyNormIm*WCubePSFIm))))#.real)
+            dirtyNorm=np.float64(self.OPFT(self.FFTMachine.fft(np.complex64(dirtyNormIm*WCubePSFIm))))#.real)
             BMT_BM_inv=DicoBasisMatrix["fBMT_fBM_inv"]
         else:
             #print "0:",DicoBasisMatrix["WeightFunction"].shape,JonesNorm.shape
@@ -726,7 +841,6 @@ class ClassMultiScaleMachine():
             #Sol=DicoBasisMatrix["BMnorm"]*np.dot(BM.T,WVecPSF*dirtyVec)
             Sol=DicoBasisMatrix["BMnorm"]*np.dot(BM.T,WVecPSF*(dirtyVec/MeanFluxTrue-BM))
             #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
-            print x0,y0,Sol
             indMaxSol1=np.where(np.abs(Sol)==np.max(np.abs(Sol)))[0]
             indMaxSol0=np.where(np.abs(Sol)!=np.max(np.abs(Sol)))[0]
 
@@ -741,15 +855,12 @@ class ClassMultiScaleMachine():
 
         elif self.SolveMode=="PI":
             
-            Sol=np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec))
+            Sol=np.float32(np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec)))
             #Sol.fill(1)
             
             #LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)*FpolMean.ravel()[0]
             
             
-            #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
-            
-            coef=np.min([np.abs(np.sum(Sol)/MeanFluxTrue),1.])
             # # # ############## debug
             # #Sol.fill(0)
             # #Sol[0]=1.
@@ -794,10 +905,27 @@ class ClassMultiScaleMachine():
             # # ##########################
             # stop
 
+            # regularized solution is just MeanFluxTrue with spi=0, and nulls for the other components
+            # regularizatuion coefficient goes to 0 to use regularized solution, to 1 to use the "proper" solution
+
+
+            # First coefficient: take care of cases where solution is too small
+            #   if solution sum tends to be much less than mean flux, then coef1 -> 0 (use regularized solution)
+            #   if it is larger than  mean flux, then coef1 -> 1
+            coef1 = min(abs(Sol.sum()/MeanFluxTrue),1.)
+
+            # Second coefficient: take care of cases where solution has components of alternating signs
+            # this is characterized by a high std of the solution coefficients
+            # 1/self._kappa determines the "maximum" stddev (relative to maximum solution amplitude) beyond
+            # which coef2->0 to force a fully-regular solution
+            # NB: this caused standard tests to fail, so I've set default Kappa=0 for now
+            coef2 = max(1 - Sol.std()/abs(MeanFluxTrue) * self._kappa,0)
+
+            coef = coef1*coef2
+
             Sol0 = Sol
-            SolReg=np.zeros_like(Sol)
-            SolReg[0]=MeanFluxTrue
-            #print "SolReg",SolReg.ravel()
+            SolReg = np.zeros_like(Sol)
+            SolReg[0] = MeanFluxTrue
 
             if np.sign(SolReg[0])!=np.sign(np.sum(Sol)):
                 Sol=SolReg
@@ -809,19 +937,13 @@ class ClassMultiScaleMachine():
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
             Fact=(MeanFluxTrue/np.sum(Sol))
-            Sol*=Fact
+            #Sol*=Fact
             
             if abs(Sol).max() < self._stall_threshold:
                 print>>log,"Stalled CLEAN!"
-                print>>log,(self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal)
+                print>>log,(self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, coef1, coef2, MeanFluxTrue, self.WeightMuellerSignal)
                 raise RuntimeError("CLEAN has stalled. This is a bug!")
 
-            if self.GD["Debug"]["DumpCleanSolutions"]:
-                global debug_dump_file
-                if not debug_dump_file:
-                    debug_dump_file = file(self.GD["Output"]["Name"] + ".clean.solutions", "w")
-                cPickle.dump((self.iFacet, x, y, Fpol, FpolTrue, Sol, Sol0, SolReg, coef, MeanFluxTrue, self.WeightMuellerSignal), debug_dump_file, 2)
-            
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
             
 
@@ -833,8 +955,22 @@ class ClassMultiScaleMachine():
             # # model is sum of basis functions
             LocalSM = scales.sum(axis=0) if Sol.size>1 else scales[0,...]
 
+            if self._dump:
+                postage_stamp = None
+                # dump sub-images, if we come within a certain distance of x,y
+                if self._dump_xyr:
+                    xd, yd, radius = self._dump_xyr
+                    if abs(x - xd) < radius and abs(y - yd) < radius:
+                        postage_stamp = self._Dirty[:, :, xd-radius*2:xd+radius*2, yd-radius*2:yd+radius*2]
+                columns = [ "iFacet", "x", "y", "Fpol", "FpolTrue", "Sol", "Sol0", "SolReg", "coef", "coef1", "coef2", "Fact", "MeanFluxTrue",
+                            "WeightMuellerSignal", "postage_stamp" ]
+                iFacet, WeightMuellerSignal = self.iFacet, self.WeightMuellerSignal
+                if self._dump_cols:
+                    columns += self._dump_cols
+                CleanSolutionsDump.init(self.GD["Output"]["Name"] + ".clean.solutions", *columns)
+                CleanSolutionsDump.write(*[ locals()[col] for col in columns ])
 
-            #print "Max abs model",np.max(np.abs(LocalSM))
+                    #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()
         elif self.SolveMode=="NNLS":
             import scipy.optimize
@@ -1045,12 +1181,13 @@ class ClassMultiScaleMachine():
             #print "Sol2",Sol
 
 
-
-            if self.GD["Debug"]["DumpCleanSolutions"]:
-                global debug_dump_file
-                if not debug_dump_file:
-                    debug_dump_file = file(self.GD["Output"]["Name"]+".clean.solutions", "w")
-                cPickle.dump((self.iFacet, xc, yc, Fpol, FpolTrue, Sol), debug_dump_file, 2)
+            if self._dump:
+                columns = ["iFacet", "xc", "yc", "Fpol", "FpolTrue", "Sol", "WeightMuellerSignal"]
+                iFacet, WeightMuellerSignal = self.iFacet, self.WeightMuellerSignal
+                if self._dump_cols:
+                    columns += self._dump_cols
+                CleanSolutionsDump.init(self.GD["Output"]["Name"] + ".clean.solutions", *columns)
+                CleanSolutionsDump.write(*[locals()[col] for col in columns])
 
 
             # P=set()

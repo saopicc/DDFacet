@@ -18,27 +18,18 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-import numpy as np
-import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmear
-
 # import DDFacet.cbuild.Gridder._pyGridderSmearPolsFaster as _pyGridderSmearFaster
-
 ##########################################################"
 # Please do not remove this import again - Needed for killMS
 import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
 ##########################################################"
 
-import ModCF
 import numpy as np
 import os
 import ModCF
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir import ModFFTW
-#import pylab
-from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
-
-from DDFacet.Array import NpShared
 from DDFacet.Parset import ReadCFG
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Data import ClassVisServer

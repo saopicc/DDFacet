@@ -355,11 +355,14 @@ void gridderWPol(PyArrayObject *grid,
     /* float complex *JJ=calloc(1,(nPolJones)*sizeof(float complex)); */
 
 
-    int *MappingBlock = p_int32(SmearMapping);
-    int NTotBlocks=MappingBlock[0];
-    int *NRowBlocks=MappingBlock+1;
-    int *StartRow=MappingBlock+1+NTotBlocks;
-    int iBlock;
+    int * MappingBlock = p_int32(SmearMapping);
+    // total size is in two words
+    size_t NTotBlocks = MappingBlock[1];
+    NTotBlocks <<= 32;
+    NTotBlocks += MappingBlock[0];
+    int * NRowBlocks = MappingBlock+2;
+    int * StartRow = MappingBlock+2+NTotBlocks;
+    size_t iBlock;
 
     // in sparsification mode, the Sparsification argument is an array of length NTotBlocks flags.
     // Only blocks with a True flag will be gridded.
@@ -447,12 +450,17 @@ void gridderWPol(PyArrayObject *grid,
     //for(iBlock=3507; iBlock<3508; iBlock++){
       if( sparsificationFlag && !sparsificationFlag[iBlock] )
         continue;
-      
+
       int NRowThisBlock=NRowBlocks[iBlock]-2;
-      int indexMap=StartRow[iBlock];
-      int chStart=MappingBlock[indexMap];
-      int chEnd=MappingBlock[indexMap+1];
-      int *Row=MappingBlock+StartRow[iBlock]+2;
+//      int indexMap=StartRow[iBlock];
+//      int chStart=MappingBlock[indexMap];
+//      int chEnd=MappingBlock[indexMap+1];
+//      int *Row=MappingBlock+StartRow[iBlock]+2;
+      int chStart = StartRow[0];
+      int chEnd = StartRow[1];
+      int *Row = StartRow+2;
+      // advance pointer to next blocklist
+      StartRow += NRowBlocks[iBlock];
 
       float Umean=0;
       float Vmean=0;
@@ -487,7 +495,7 @@ void gridderWPol(PyArrayObject *grid,
     }
 
       //int ThisBlockAllFlagged=1;
-      float visChanMean=0.;
+      double visChanMean=0.;
       resetJonesServerCounter();
 
       for (inx=0; inx<NRowThisBlock; inx++) {
@@ -701,8 +709,14 @@ void gridderWPol(PyArrayObject *grid,
       //printf("visChanMean, NVisThisblock: %f %f\n",(float)visChanMean, (float)NVisThisblock);
       visChanMean/=NVisThisblock;
       int ThisGridChan=p_ChanMapping[chStart];
-      float diffChan=visChanMean-ThisGridChan;
-      if(fabs(diffChan)>1e-6){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %f)\n",visChanMean,ThisGridChan,diffChan);}
+      double diffChan=visChanMean-ThisGridChan;
+      if(fabs(diffChan)>1e-6)
+      {
+        printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%lf, %i, %lf)\n",visChanMean,ThisGridChan,diffChan);
+        for (visChan=chStart; visChan<chEnd; ++visChan)
+            printf("%d ", ThisGridChan-p_ChanMapping[visChan]);
+        printf("\n");
+      }
       //if(diffChan!=0.){printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %20.18f)\n",visChanMean,ThisGridChan,diffChan);}
       //printf("!!!!!!!!!!!!!!!!!!!\n");
       //printf("%i %i %f\n",i_ant0,i_ant1,visChanMean);
@@ -1108,10 +1122,13 @@ void DeGridderWPol(PyArrayObject *grid,
 
 
     int *MappingBlock = p_int32(SmearMapping);
-    int NTotBlocks=MappingBlock[0];
-    int *NRowBlocks=MappingBlock+1;
-    int *StartRow=MappingBlock+1+NTotBlocks;
-    int iBlock;
+    // total size is in two words
+    size_t NTotBlocks = MappingBlock[1];
+    NTotBlocks <<= 32;
+    NTotBlocks += MappingBlock[0];
+    int * NRowBlocks = MappingBlock+2;
+    int * StartRow = MappingBlock+2+NTotBlocks;
+    size_t iBlock;
 
     int NMaxRow=0;
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
@@ -1146,10 +1163,11 @@ void DeGridderWPol(PyArrayObject *grid,
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
       int NRowThisBlock=NRowBlocks[iBlock]-2;
-      int indexMap=StartRow[iBlock];
-      int chStart=MappingBlock[indexMap];
-      int chEnd=MappingBlock[indexMap+1];
-      int *Row=MappingBlock+StartRow[iBlock]+2;
+      int chStart = StartRow[0];
+      int chEnd = StartRow[1];
+      int *Row = StartRow+2;
+      // advance pointer to next blocklist
+      StartRow += NRowBlocks[iBlock];
 
       float complex Vis[4]={0};
       float Umean=0;

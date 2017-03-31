@@ -187,7 +187,7 @@ class ClassInitSSDModel():
 
         self.Margin=20
         self.DicoDirty=DicoDirty
-        self.Dirty=DicoDirty["ImagData"]
+        self.Dirty=DicoDirty["ImageCube"]
         self.MeanDirty=DicoDirty["MeanImage"]
         
         #print "Start 3"

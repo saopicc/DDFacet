@@ -292,13 +292,13 @@ class Parset():
         self._rename(section, "MSName", "MS")
         self._del(section, "MSListFile")  # deprecated. Use MS=list.txt instead
         self._move(section, "WeightCol", "Weight", "ColName")
+        self._move(section, "PredictColName", "Predict", "ColName")
 
         section = self._renameSection("DataSelection", "Selection")
 
         section = self._renameSection("Images", "Output")
         self._move(section, "AllowColumnOverwrite", "Predict", "Overwrite")
         self._move(section, "PredictModelName", "Predict", "FromImage")
-        self._move(section, "PredictColName", "Predict", "ColName")
         self._rename(section, "ImageName", "Name")
         self._del(section, "SaveIms")  # deprecated
         self._rename(section, "SaveOnly", "Images")

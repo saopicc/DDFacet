@@ -40,6 +40,7 @@ import datetime
 import DDFacet.ToolsDir.ModRotate
 
 import time
+from astropy.time import Time
 from DDFacet.Other.progressbar import ProgressBar
 
 
@@ -48,13 +49,68 @@ try:
 except:
     print>>log, ModColor.Str("Could not import lofar.stationresponse")
 
+def obs_detail(filename,field=0):
+
+    results={}
+    object=""
+
+    try:
+        to = table(filename+ '/OBSERVATION', readonly=True, ack=False)
+    except RuntimeError:
+        to = None
+    try:
+        tf = table(filename+ '/FIELD', readonly=True, ack=False)
+    except RuntimeError:
+        tf = None
+    if tf is not None and to is not None:
+        print >>log, 'Read observing details successfully'
+    else:
+        print >>log, 'Some observing details missing'
+
+    # Stuff relying on an OBSERVATION table:
+    if to is not None:
+        # Time
+        tm = Time(to[0]['TIME_RANGE']/86400.0,format='mjd')
+        results['DATE-OBS'] = tm[0].iso.split()[0]
+
+        # Object
+        try:
+            object = to[0]['LOFAR_TARGET'][0]
+        except:
+            pass
+
+        # Telescope
+        telescope=to[0]['TELESCOPE_NAME']
+        results['TELESCOP'] = telescope
+
+        # observer
+        observer = to[0]['OBSERVER']
+        results['OBSERVER'] = observer
+
+    if not object and tf is not None:
+        object = tf[field]['NAME'] 
+
+    if object:
+        results['OBJECT'] = object
+
+    # Time now
+    tn = Time(time.time(),format='unix')
+    results['DATE-MAP'] = tn.iso.split()[0]
+
+    if to is not None:
+        to.close()
+    if tf is not None:
+        tf.close()
+
+    return results
+
 class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
                  TimeChunkSize=None,GetBeam=False,RejectAutoCorr=False,SelectSPW=None,DelStationList=None,
                  AverageTimeFreq=None,
                  Field=0,DDID=0,TaQL=None,ChanSlice=None,GD=None,
                  DicoSelectOptions={},
-                 ResetCache=False):
+                 ResetCache=False,get_obs_detail=False):
 
         """
         Args:
@@ -76,6 +132,7 @@ class ClassMS():
             ChanSlice:
             DicoSelectOptions: dict of data selection options applied to this MS
             ResetCache: if True, cached products will be reset
+            get_obs_detail: if True, find some observational details for output FITS headers
         """
 
         if MSname=="": exit()
@@ -132,6 +189,8 @@ class ClassMS():
         if GetBeam:
             self.LoadSR()
 
+        if get_obs_detail:
+            self.obs_detail=obs_detail(self.MSName, field=self.Field)
 
     def GiveMainTable (self,**kw):
         """Returns main MS table, applying TaQL selection if any"""
@@ -661,7 +720,7 @@ class ClassMS():
 
         DATA["lm_PhaseCenter"] = self.lm_PhaseCenter
 
-        DATA["sort_index"] = self._sort_index = sort_index
+        DATA["sort_index"] = sort_index
 
         DATA["uvw"]   = uvw
         DATA["times"] = time_all
@@ -837,8 +896,11 @@ class ClassMS():
 
         # open main table
         table_all = self.GiveMainTable()
-        if not table_all.nrows():
-            raise RuntimeError,"no rows in MS %s, check your Field/DDID/TaQL settings"%(self.MSName)
+        self.empty = not table_all.nrows()
+        if self.empty:
+            return
+            print>>log, ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping"%(self.MSName, self.Field, self.DDID))
+#            raise RuntimeError,"no rows in MS %s, check your Field/DDID/TaQL settings"%(self.MSName)
 
         #print MSname+'/ANTENNA'
         ta=table(table_all.getkeyword('ANTENNA'),ack=False)
@@ -1174,7 +1236,7 @@ class ClassMS():
         return l,m
 
 
-    def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA"):
+    def PutVisColumn(self, colname, vis, row0, row1, likecol="DATA", sort_index=None):
         self.AddCol(colname, LikeCol=likecol, quiet=True)
         nrow = row1 - row0
         if self._reverse_channel_order:
@@ -1183,9 +1245,9 @@ class ClassMS():
         t = self.GiveMainTable(readonly=False, ack=False)
         # if sorting rows, rearrange vis array back into MS order
         # if not sorting, then using slice(None) for row has no effect
-        if self._sort_index is not None:
+        if sort_index is not None:
             reverse_index = np.empty(self.nRowRead,dtype=int)
-            reverse_index[self._sort_index] = np.arange(0,nrow,dtype=int)
+            reverse_index[sort_index] = np.arange(0,nrow,dtype=int)
         else:
             reverse_index = slice(None)
         if self.ChanSlice and self.ChanSlice != slice(None):
