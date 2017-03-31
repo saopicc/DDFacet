@@ -43,6 +43,7 @@ from DDFacet.Other import progressbar
 from DDFacet.Other.AsyncProcessPool import APP
 from DDFacet.version import __version__
 log = None
+from version import __version__
 
 import numpy as np
 
@@ -226,6 +227,8 @@ def main(OP=None, messages=[]):
         if sparsify and isinstance(sparsify, list):
             sparsify = sparsify[0]
         Imager.MakePSF(sparsify=sparsify)
+    elif "RestoreAndShift" == Mode:
+        Imager.RestoreAndShift()
 
     # # open default viewer, these options should match those in
     # # ClassDeconvMachine if changed:
@@ -375,11 +378,12 @@ if __name__ == "__main__":
         retcode = 1 #Should at least give the command line an indication of failure
     except:
         print>>log, traceback.format_exc()
+        traceback_msg = traceback.format_exc()
 
         logfileName = MyLogger.getLogFilename()
         logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
         print>> log, ModColor.Str(
-            "There was a problem after %s, if you think this is a bug please open an "
+            "There was a problem after %s; if you think this is a bug please open an "
             "issue, quote your version of DDFacet and attach your logfile" %
             T.timehms(), col="red")
         print>> log, ModColor.Str(

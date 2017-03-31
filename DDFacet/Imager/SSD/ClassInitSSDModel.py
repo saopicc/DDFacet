@@ -240,7 +240,7 @@ class ClassInitSSDModel():
         self.ArrayPixParms=ArrayPixParms
         self.DicoSubDirty={}
         for key in self.DicoDirty.keys():
-            if key in ['ImagData', "MeanImage",'FacetNorm',"JonesNorm"]:
+            if key in ["ImageCube", "MeanImage",'FacetNorm',"JonesNorm"]:
                 self.DicoSubDirty[key]=self.DicoDirty[key][...,x0d:x1d,y0d:y1d].copy()
             else:
                 self.DicoSubDirty[key]=self.DicoDirty[key]
@@ -258,7 +258,7 @@ class ClassInitSSDModel():
 
 
         x,y=ArrayPixParms.T
-        Mask=np.zeros(self.DicoSubDirty['ImagData'].shape[-2::],np.bool8)
+        Mask=np.zeros(self.DicoSubDirty["ImageCube"].shape[-2::],np.bool8)
         Mask[x,y]=1
         self.SubMask=Mask
 
@@ -303,7 +303,7 @@ class ClassInitSSDModel():
         ConvModel=self.giveConvModel(self.SubSSDModelImage)
         _,_,N0x,N0y=ConvModel.shape
         MeanConvModel=np.mean(ConvModel,axis=0).reshape((1,1,N0x,N0y))
-        self.DicoSubDirty['ImagData']+=ConvModel
+        self.DicoSubDirty["ImageCube"]+=ConvModel
         self.DicoSubDirty['MeanImage']+=MeanConvModel
         #print "MAX=",np.max(self.DicoSubDirty['MeanImage'])
         T.timeit("2")
@@ -347,7 +347,7 @@ class ClassInitSSDModel():
         #print "update"
         #time.sleep(30)
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
-        T.timeit("deconv %s"%str(self.DicoSubDirty['ImagData'].shape))
+        T.timeit("deconv %s"%str(self.DicoSubDirty["ImageCube"].shape))
         #print "deconv"
         #time.sleep(30)
 

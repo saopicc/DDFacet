@@ -92,7 +92,10 @@ class ClassImageNoiseMachine():
 
         if self.GD["Noise"]["BrutalHMP"]:
             self.giveBrutalRestored(DicoResidual)
-            self.FluxImage=self.ModelConv
+            if self.GD["Mask"]["FluxImageType"]=="ModelConv":
+                self.FluxImage=self.ModelConv
+            elif self.GD["Mask"]["FluxImageType"]=="Restored":
+                self.FluxImage=self.Restored
             self.StatImage=self.Restored
         else:
             self.StatImage=DicoResidual["MeanImage"]
@@ -110,7 +113,7 @@ class ClassImageNoiseMachine():
         # MyLogger.setSilent(ListSilentModules)
         self.DicoDirty=DicoResidual
         self.Orig_MeanDirty=self.DicoDirty["MeanImage"].copy()
-        self.Orig_Dirty=self.DicoDirty["ImagData"].copy()
+        self.Orig_Dirty=self.DicoDirty["ImageCube"].copy()
         GD=copy.deepcopy(self.GD)
         # take any reference frequency - doesn't matter
         #self.RefFreq=np.mean(self.DicoVariablePSF["freqs"][0])
@@ -253,7 +256,7 @@ class ClassImageNoiseMachine():
         self.Restored=self.ModelConv+self.DicoDirty["MeanImage"]
 
         self.DicoDirty["MeanImage"][...]=self.Orig_MeanDirty[...]
-        self.DicoDirty["ImagData"][...]=self.Orig_Dirty[...]
+        self.DicoDirty["ImageCube"][...]=self.Orig_Dirty[...]
         
         MyLogger.setLoud(ListSilentModules)
         return self.Restored

@@ -129,7 +129,7 @@ class ClassImToGrid():
 
         return Grid,SumFlux
 
-    def GiveModelTessel(self,Image,DicoImager,iFacet,NormIm,Sphe,SpacialWeight,ToGrid=False,ChanSel=None):
+    def GiveModelTessel(self,Image,DicoImager,iFacet,NormIm,Sphe,SpacialWeight,ToGrid=False,ChanSel=None,ApplyNorm=True):
         
         nch,npol,NPixOut,_=Image.shape
 
@@ -186,12 +186,14 @@ class ClassImToGrid():
 
 
                 ##print "!!!!!!!!!!!!!!!!!!!!!!"
-                ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
+                if ApplyNorm:
+                    ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=NormIm[x0d:x1d,y0d:y1d].real
 
                 #ModelCutOrig_GNorm=NormIm[x0d:x1d,y0d:y1d].real.copy()
 
                 T.timeit("4")
-                ModelIm[ch,pol][x0p:x1p,y0p:y1p]*=SpacialWeight[x0p:x1p,y0p:y1p]
+                if ApplyNorm:
+                    ModelIm[ch,pol][x0p:x1p,y0p:y1p]*=SpacialWeight[x0p:x1p,y0p:y1p]
                 indPos=np.where(ModelIm[ch,pol]>0)
                 SumFlux+=np.sum(ModelIm[ch,pol][indPos])
 
@@ -201,8 +203,8 @@ class ClassImToGrid():
                 T.timeit("5")
                 #SumFlux=np.sum(ModelIm)
 
-                ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=Sphe[x0p:x1p,y0p:y1p].real
-
+                if ApplyNorm:
+                    ModelIm[ch,pol][x0p:x1p,y0p:y1p]/=Sphe[x0p:x1p,y0p:y1p].real
 
                 #ModelCutOrig_Sphe=Sphe[x0p:x1p,y0p:y1p].real.copy()
 
@@ -238,9 +240,10 @@ class ClassImToGrid():
                 Grid=np.complex64(ModelIm)
             
             return Grid,SumFlux
-        else:
+        elif ApplyNorm:
             ModelIm*=(self.OverS*N1)**2
 
             return ModelIm,SumFlux
-
+        else:
+            return ModelIm,SumFlux
 

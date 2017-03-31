@@ -434,8 +434,11 @@ class ClassJones():
                 gu=u[:,0].reshape((-1,1))*np.sqrt(s[0])
                 #M2=gu*gu.conj().T*s[0]
                 gu=np.abs(gu).reshape((1,na,1))
+                gu/=np.median(gu)
                 G[:,iDir,:,:,0,0]=G[:,iDir,:,:,0,0]/gu
                 G[:,iDir,:,:,1,1]=G[:,iDir,:,:,1,1]/gu
+
+
 
 
 

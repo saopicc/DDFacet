@@ -44,10 +44,6 @@ from astropy.time import Time
 from DDFacet.Other.progressbar import ProgressBar
 
 
-try:
-    import lofar.stationresponse as lsr
-except:
-    print>>log, ModColor.Str("Could not import lofar.stationresponse")
 
 def obs_detail(filename,field=0):
 
