@@ -225,6 +225,8 @@ def main(OP=None, messages=[]):
         if sparsify and isinstance(sparsify, list):
             sparsify = sparsify[0]
         Imager.MakePSF(sparsify=sparsify)
+    elif "RestoreAndShift" == Mode:
+        Imager.RestoreAndShift()
 
     # # open default viewer, these options should match those in
     # # ClassDeconvMachine if changed:

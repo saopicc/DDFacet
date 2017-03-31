@@ -1333,8 +1333,87 @@ class ClassImagerDeconv():
                 sd.delete_item(field)
 
 
+
+    
+    def RestoreAndShift(self):
+        dirty_cachepath = self.VS.maincache.getElementPath("LastResidual")
+        #dirty_cachepath = self.VS.maincache.getElementPath("Dirty")
+        valid = os.path.exists(dirty_cachepath)
+        
+        if not valid:
+            print>> log, ModColor.Str("Can't force-read cached last residual %s: does not exist", col="red")
+            raise RuntimeError("--Cache-Dirty forceresidual in effect, but no cached residual image found")
+        print>> log, ModColor.Str("Forcing reading the cached last residual image", col="red")
+        
+        self.DicoDirty = shared_dict.create("FM_AllImages")
+        self.DicoDirty.restore(dirty_cachepath)
+        
+        
+        cachepath = self.VS.maincache.getElementPath("PSF")
+        valid = os.path.exists(cachepath)
+        if not valid:
+            print>> log, ModColor.Str("Can't force-read cached last residual %s: does not exist", col="red")
+            raise RuntimeError("--Cache-Dirty forceresidual in effect, but no cached residual image found")
+        print>> log, ModColor.Str("Forcing to read the cached PSF", col="red")
+        self.DicoImagesPSF = shared_dict.create("FMPSF_AllImages")
+        self.DicoImagesPSF.restore(cachepath)
+        self.FWHMBeam=self.DicoImagesPSF["FWHMBeam"]
+        self.PSFGaussPars=self.DicoImagesPSF["PSFGaussPars"]
+        self.PSFSidelobes=self.DicoImagesPSF["PSFSidelobes"]
+        (self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)=self.DicoImagesPSF["EstimatesAvgPSF"]
+        
+        if self.DicoDirty["JonesNorm"] is not None:
+            self.FacetMachine.setNormImages(self.DicoDirty)
+            self.FacetMachinePSF.setNormImages(self.DicoDirty)
+            self.MeanJonesNorm = self.FacetMachinePSF.MeanJonesNorm
+            self.JonesNorm = self.FacetMachinePSF.JonesNorm
+        elif self.DicoImagesPSF["JonesNorm"] is not None:
+            self.FacetMachine.setNormImages(self.DicoImagesPSF)
+            self.FacetMachinePSF.setNormImages(self.DicoImagesPSF)
+            self.MeanJonesNorm = self.FacetMachinePSF.MeanJonesNorm
+            self.JonesNorm = self.FacetMachinePSF.JonesNorm
+        else:
+            self.MeanJonesNorm = None
+            self.JonesNorm = None
+
+        Norm=None
+        havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm != 1).any()
+        ModelImage=self.ModelMachine.GiveModelImage()
+        if havenorm:
+            if self.FacetMachine.MeanSmoothJonesNorm is None:
+                Norm = self.MeanJonesNorm 
+            else:
+                print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparant images",col="blue")
+                Norm=self.FacetMachine.MeanSmoothJonesNorm
+            sqrtNorm=np.sqrt(Norm)
+            ModelImage=ModelImage*sqrtNorm
+
+
+        ModelImage = self.FacetMachine.setModelImage(ModelImage)
+        
+        Restored=self.FacetMachine.giveRestoredFacets(self.DicoDirty,
+                                                      self.PSFGaussParsAvg,
+                                                      ShiftFile=self.GD["Output"]["ShiftFacetsFile"])
+        self.FacetMachine.ToCasaImage(Restored, ImageName="%s.app.facetRestored" % self.BaseName, 
+                                      Fits=True,
+                                      beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
+        if havenorm:
+            IntRestored=Restored/sqrtNorm
+            self.FacetMachine.ToCasaImage(Restored, ImageName="%s.int.facetRestored" % self.BaseName, 
+                                          Fits=True,
+                                          beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
+
+
+
+
     def Restore(self):
+
+
         print>>log, "Create restored image"
+            
+
         if self.PSFGaussPars is None:
             self.FitPSF()
         #self.DeconvMachine.ToFile(self.DicoModelName)

@@ -583,7 +583,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             ra, dec = self.DicoImager[iFacet]["RaDec"]
             sra = rad2hmsdms.rad2hmsdms(ra, Type="ra").replace(" ", ":")
             sdec = rad2hmsdms.rad2hmsdms(dec).replace(" ", ".")
-            ss = "%s, %s" % (sra, sdec)
+            ss = "%s, %s, %f, %f" % (sra, sdec,ra,dec)
             f.write(ss+'\n')
         f.close()
 
