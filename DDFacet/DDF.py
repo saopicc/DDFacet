@@ -207,15 +207,15 @@ def main(OP=None, messages=[]):
     # write parset
     OP.ToParset("%s.parset"%ImageName)
 
-    Mode = DicoConfig["Image"]["Mode"]
+    Mode = DicoConfig["Output"]["Mode"]
 
     # data machine initialized for all cases except PSF-only mode
     # psf machine initialized for all cases except Predict-only mode
     Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, 
                                                   BaseName=ImageName,
-                                                  predict_only=(Mode == "Predict"),
+                                                  predict_only=(Mode == "Predict" or Mode == "Subtract"),
                                                   data=(Mode != "PSF"), 
-                                                  psf=(Mode != "Predict" and Mode != "Dirty"),
+                                                  psf=(Mode != "Predict" and Mode != "Dirty" and Mode != "Subtract"),
                                                   readcol=(Mode != "Predict" and Mode != "PSF"),
                                                   deconvolve=("Clean" in Mode))
 

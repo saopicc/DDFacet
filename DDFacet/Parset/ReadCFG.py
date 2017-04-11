@@ -180,7 +180,9 @@ class Parset():
             self.version = self.value_dict['Misc']['ParsetVersion'] = 0.1
         else:
             self.migrated = None
-
+        # if "Mode" not in self.value_dict["Output"] and "Mode" in self.value_dict["Image"]:
+        #     self.value_dict["Output"]["Mode"] = self.value_dict["Image"]["Mode"]
+        #     del self.value_dict["Image"]["Mode"]
 
     def read_section(self, config, section):
         """Returns two dicts corresponding to the given section: a dict of option:value,

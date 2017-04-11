@@ -685,8 +685,11 @@ class ClassImagerDeconv():
             self.MeanJonesNorm = None
 
 
-    def GivePredict(self,from_fits=True):
-        print>>log, ModColor.Str("============================== Making Predict ==============================")
+    def GivePredict(self, subtract=False, from_fits=True):
+        if subtract:
+            print>>log, ModColor.Str("============================== Making Predict/Subtract =====================")
+        else:
+            print>>log, ModColor.Str("============================== Making Predict ==============================")
         if not self.GD["Predict"]["ColName"]:
             raise ValueError("--Predict-ColName must be set")
         if not self.GD["Predict"]["FromImage"] and not self.GD["Predict"]["InitDicoModel"]:
@@ -810,7 +813,8 @@ class ClassImagerDeconv():
             else:
                 raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
             self.FacetMachine.collectDegriddingResults()
-            predict *= -1   # model was subtracted from (zero) predict, so need to invert sign
+            if not subtract:
+                predict *= -1   # model was subtracted from (zero) predict, so need to invert sign
             # run job in I/O thread
             self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Predict"]["ColName"], likecol=self.GD["Data"]["ColName"])
             # and wait for it to finish (we don't want DATA destroyed, which collectLoadedChunk() above will)

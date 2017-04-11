@@ -33,6 +33,7 @@ import numexpr
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
+from DDFacet.Other import Exceptions
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Array import shared_dict
 import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
@@ -243,6 +244,7 @@ class AsyncProcessPool (object):
         The reason for killing workers is to work around potential memory leaks. Since a Bulba is forked
         from the main process early on, it has a very low RAM footprint, so re-forking the workers off
         a Bulba every so often makes sure their RAM usage is reset."""
+        Exceptions.disable_pdb_on_error()
         MyLogger.subprocess_id = "TB"
         # loop until the completion event is raised
         # at this stage the workers are dead (or not started)
