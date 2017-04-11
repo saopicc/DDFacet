@@ -34,6 +34,7 @@ from DDFacet.Other import MyPickle
 from DDFacet.Parset import MyOptParse
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
+from DDFacet.Other import Exceptions
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import Multiprocessing
@@ -129,12 +130,15 @@ def test():
 def main(OP=None, messages=[]):
     if OP is None:
         OP = MyPickle.Load(SaveFile)
+        print "Using settings from %s, then command line."%SaveFile
 
     DicoConfig = OP.DicoConfig
 
     ImageName = DicoConfig["Output"]["Name"]
     if not ImageName:
-        raise ValueError("--Output-Name not specified")
+        raise Exceptions.UserInputError("--Output-Name not specified, can't continue.")
+    if not DicoConfig["Data"]["MS"]:
+        raise Exceptions.UserInputError("--Data-MS not specified, can't continue.")
 
     # create directory if it exists
     dirname = os.path.dirname(ImageName)
@@ -157,6 +161,15 @@ def main(OP=None, messages=[]):
             logo.print_logo()
         for msg in messages:
             print>> log, msg
+
+    if DicoConfig["Debug"]["Pdb"] == "always":
+        print>>log, "--Debug-Pdb=always: unexpected errors will be dropped into pdb"
+        Exceptions.enable_pdb_on_error("DDFacet has encountered an unexpected error. Dropping you into pdb for a post-mortem.\n" +
+                                           "(This is because you're running with --Debug-Pdb set to 'always'.)")
+    elif DicoConfig["Debug"]["Pdb"] == "auto" and not DicoConfig["Log"]["Boring"]:
+        print>>log, "--Debug-Pdb=auto and not --Log-Boring: unexpected errors will be dropped into pdb"
+        Exceptions.enable_pdb_on_error("DDFacet has encountered an unexpected error. Dropping you into pdb for a post-mortem.\n" +
+            "(This is because you're running with --Debug-Pdb set to 'auto' and --Log-Boring is off.)")
 
     # print current options
     OP.Print(dest=log)
@@ -372,8 +385,14 @@ if __name__ == "__main__":
         print>>log, ModColor.Str("DDFacet interrupted by Ctrl+C", col="red")
         APP.terminate()
         retcode = 1 #Should at least give the command line an indication of failure
+    except Exceptions.UserInputError:
+        print>> log, ModColor.Str(sys.exc_info()[1], col="red")
+        APP.terminate()
+        retcode = 1  # Should at least give the command line an indication of failure
     except:
         print>>log, traceback.format_exc()
+        if Exceptions.is_pdb_enabled():
+            raise
 
         logfileName = MyLogger.getLogFilename()
         logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
@@ -387,7 +406,7 @@ if __name__ == "__main__":
         print>> log, ModColor.Str(
             "Your logfile is available here: %s" %
             logfileName, col="red")
-        print>>log, traceback_msg
+        # print>>log, traceback_msg
         # Should at least give the command line an indication of failure
         APP.terminate()
         retcode = 1 # Should at least give the command line an indication of failure
