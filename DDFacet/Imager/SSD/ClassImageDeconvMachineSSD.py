@@ -537,20 +537,11 @@ class ClassImageDeconvMachine():
                                  NChains=self.NChains,
                                  ListInitIslands=ListInitIslands)
             workerlist.append(W)
-            workerlist[ii].start()
-            # workerlist[ii].run()
 
-            # if Parallel: 
-            #     workerlist[ii].start()
-            # else:
-            #     workerlist[ii].run()
-
-        # if Parallel:
-        #     for ii in range(NCPU):
-        #         workerlist[ii].start()
-        # else:
-        #     for ii in range(NCPU):
-        #         workerlist[ii].run()
+            if Parallel: 
+                workerlist[ii].start()
+            else:
+                workerlist[ii].run()
 
         iResult=0
         #print "!!!!!!!!!!!!!!!!!!!!!!!!",iResult,NJobs
