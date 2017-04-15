@@ -103,7 +103,9 @@ class ClassImageDeconvMachine():
     def setDeconvMode(self,Mode="MetroClean"):
         self.DeconvMode=Mode
 
-    def Reset(self): pass
+    def Reset(self):
+        # clear anything we have left lying around in shared memory
+        NpShared.DelAll()
         
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
