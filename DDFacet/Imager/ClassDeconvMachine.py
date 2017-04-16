@@ -784,11 +784,16 @@ class ClassImagerDeconv():
                 elif SquareMaskMode=="Outside":
                     ModelImage[np.logical_not(InSquare)]=0
 
-            if ModelImage.shape[0]!=DATA["ChanMappingDegrid"].size:
-                print>>log, "The image model channels and targetted degridded visibilities channels have different sizes (%i vs %i respectively)"%(ModelImage.shape[0],self.VS.CurrentChanMappingDegrid.size)
-                if ModelImage.shape[0]==1:
-                    print>>log, " Matching freq size of model image to visibilities"
-                    ModelImage=ModelImage*np.ones((DATA["ChanMappingDegrid"].size,1,1,1))
+            ## OMS 16/04/17: @cyriltasse this code looks all wrong and was giving me errors. ChanMappingDegrid has size equal to the
+            ## number of channels. I guess this is meant for the case where we predict from a FixedModelImage
+            ## rather than a DicoModel, but in this case we probably need to recalculate ChanMappingDegrid specifically
+            ## based on the FixedModelImage freq axis? Disabling for now.
+            # if ModelImage.shape[0]!=DATA["ChanMappingDegrid"].size:
+            #     print>>log, "The image model channels and targetted degridded visibilities channels have different sizes (%i vs %i respectively)"%(
+            #         ModelImage.shape[0], DATA["ChanMappingDegrid"].size)
+            #     if ModelImage.shape[0]==1:
+            #         print>>log, " Matching freq size of model image to visibilities"
+            #         ModelImage=ModelImage*np.ones((DATA["ChanMappingDegrid"].size,1,1,1))
 
 
             if CleanMaskImage is not None:
@@ -814,7 +819,7 @@ class ClassImagerDeconv():
                 raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
             self.FacetMachine.collectDegriddingResults()
             if not subtract:
-                predict *= -1   # model was subtracted from (zero) predict, so need to invert sign
+                predict *= -1   # model was subtracted from (zero) data, so need to invert sign
             # run job in I/O thread
             self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Predict"]["ColName"], likecol=self.GD["Data"]["ColName"])
             # and wait for it to finish (we don't want DATA destroyed, which collectLoadedChunk() above will)
