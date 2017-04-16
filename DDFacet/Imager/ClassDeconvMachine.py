@@ -861,7 +861,8 @@ class ClassImagerDeconv():
             sparsify = previous_sparsify = 0
         if sparsify:
             print>> log, "applying a sparsification factor of %f to data for dirty image" % sparsify
-        self.GiveDirty(psf=True, sparsify=sparsify)
+        # if running in NMajor=0 mode, then we simply want to subtract/predict the model probably
+        self.GiveDirty(psf=True, sparsify=sparsify, last_cycle=(NMajor==0))
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
