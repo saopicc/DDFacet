@@ -461,7 +461,7 @@ class ClassImagerDeconv():
         self._fitAndSavePSF(self.FacetMachinePSF)
 
 
-    def GiveDirty(self, psf=False, sparsify=0):
+    def GiveDirty(self, psf=False, sparsify=0, last_cycle=False):
         """
         Generates dirty image (& PSF)
 
