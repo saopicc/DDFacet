@@ -154,7 +154,7 @@ class ClassImagerDeconv():
                                       defaultDDID=DC["Selection"]["DDID"],
                                       defaultField=DC["Selection"]["Field"])
         AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"], affinity=self.GD["Parallel"]["Affinity"],
-                              verbose=self.GD["Debug"]["APPVerbose"])
+                              verbose=self.GD["Debug"]["APPVerbose"], pause_on_start=self.GD["Debug"]["PauseWorkers"])
 
         self.VS = ClassVisServer.ClassVisServer(mslist,ColName=self.do_readcol and DC["Data"]["ColName"],
                                                 TChunkSize=DC["Data"]["ChunkHours"],

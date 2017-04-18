@@ -146,7 +146,7 @@ class AsyncProcessPool (object):
     def __del__(self):
         self.shutdown()
 
-    def init(self, ncpu=None, affinity=None, num_io_processes=1, verbose=0):
+    def init(self, ncpu=None, affinity=None, num_io_processes=1, verbose=0, pause_on_start=False):
         """
         Initializes an APP.
         Can be called multiple times at program tartup
@@ -164,6 +164,7 @@ class AsyncProcessPool (object):
         self.cpustep = abs(self.affinity) or 1
         self.ncpu = ncpu
         self.verbose = verbose
+        self.pause_on_start = pause_on_start
         maxcpu = psutil.cpu_count() / self.cpustep
         # if NCPU is 0, set to number of CPUs on system
         if not self.ncpu:
@@ -258,11 +259,13 @@ class AsyncProcessPool (object):
                 proc_id = "comp%02d" % i
                 self._compute_workers.append(
                     multiprocessing.Process(target=self._start_worker,
-                                            args=(self, proc_id, [core], self._compute_queue)))
+                                            args=(self, proc_id, [core], self._compute_queue,
+                                                  self.pause_on_start)))
             for i, queue in enumerate(self._io_queues):
                 proc_id = "io%02d" % i
                 self._io_workers.append(
-                    multiprocessing.Process(target=self._start_worker, args=(self, proc_id, None, queue)))
+                    multiprocessing.Process(target=self._start_worker,
+                                            args=(self, proc_id, None, queue, self.pause_on_start)))
             # start the workers
             if self.verbose:
                 print>>log, "starting  worker processes"
@@ -689,8 +692,8 @@ def _init_default():
 
 _init_default()
 
-def init(ncpu=None, affinity=None, num_io_processes=1, verbose=0):
+def init(ncpu=None, affinity=None, num_io_processes=1, verbose=0, pause_on_start=False):
     global APP
-    APP.init(ncpu, affinity, num_io_processes, verbose)
+    APP.init(ncpu, affinity, num_io_processes, verbose, pause_on_start=pause_on_start)
 
 
