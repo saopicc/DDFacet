@@ -448,9 +448,6 @@ void gridderWPol(PyArrayObject *grid,
     //    for(iBlock=0; iBlock<-1; iBlock++){
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){
     //for(iBlock=3507; iBlock<3508; iBlock++){
-      if( sparsificationFlag && !sparsificationFlag[iBlock] )
-        continue;
-
       int NRowThisBlock=NRowBlocks[iBlock]-2;
 //      int indexMap=StartRow[iBlock];
 //      int chStart=MappingBlock[indexMap];
@@ -461,6 +458,10 @@ void gridderWPol(PyArrayObject *grid,
       int *Row = StartRow+2;
       // advance pointer to next blocklist
       StartRow += NRowBlocks[iBlock];
+
+      if( sparsificationFlag && !sparsificationFlag[iBlock] )
+        continue;
+
 
       float Umean=0;
       float Vmean=0;
