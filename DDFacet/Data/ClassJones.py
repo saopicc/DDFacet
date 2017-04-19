@@ -420,7 +420,6 @@ class ClassJones():
             G[:, :, :, :, 0, 0] /= gmean_abs
             G[:, :, :, :, 1, 1] /= gmean_abs
 
-
             print>>log, "  Extracting correction factor per-baseline"
             #(nt, nd, na, nf, 2, 2)
             for iDir in range(nd):
@@ -435,6 +434,32 @@ class ClassJones():
                 #M2=gu*gu.conj().T*s[0]
                 gu=np.abs(gu).reshape((1,na,1))
                 gu/=np.median(gu)
+                G[:,iDir,:,:,0,0]=G[:,iDir,:,:,0,0]/gu
+                G[:,iDir,:,:,1,1]=G[:,iDir,:,:,1,1]/gu
+
+
+        if GlobalMode == "SumAllBLBased":
+            print>>log, "  Normalising by the mean of the amplitude (against time, freq, antenna)"
+            gmean_abs = np.mean(np.mean(
+                                    np.mean(
+                                        np.abs(G[:, :, :, :, 0, 0]),
+                                        axis=0),
+                                    axis=1),
+                                axis=1)
+            gmean_abs = gmean_abs.reshape((1, nd, 1, 1))
+            G[:, :, :, :, 0, 0] /= gmean_abs
+            G[:, :, :, :, 1, 1] /= gmean_abs
+
+            print>>log, "  Extracting normalisation factor (sum of all baselines, time, freq)"
+            #(nt, nd, na, nf, 2, 2)
+            for iDir in range(nd):
+                g=G[:,iDir,:,:,0,0]
+                M=np.zeros((na,na),np.float32)
+                for iAnt in range(na):
+                    for jAnt in range(na):
+                        M[iAnt,jAnt]=np.mean(np.abs(g[:,iAnt]*g[:,jAnt].conj()))
+                
+                gu=np.sqrt(np.mean(M))
                 G[:,iDir,:,:,0,0]=G[:,iDir,:,:,0,0]/gu
                 G[:,iDir,:,:,1,1]=G[:,iDir,:,:,1,1]/gu
 
