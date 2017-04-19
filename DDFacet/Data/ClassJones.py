@@ -438,7 +438,7 @@ class ClassJones():
                 G[:,iDir,:,:,1,1]=G[:,iDir,:,:,1,1]/gu
 
 
-        if GlobalMode == "SumAllBLBased":
+        if GlobalMode == "SumBLBased":
             print>>log, "  Normalising by the mean of the amplitude (against time, freq, antenna)"
             gmean_abs = np.mean(np.mean(
                                     np.mean(
