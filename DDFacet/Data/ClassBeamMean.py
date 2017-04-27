@@ -31,7 +31,7 @@ from DDFacet.Array import shared_dict
 from scipy.interpolate import griddata
 from DDFacet.Other.AsyncProcessPool import APP
 import copy
-
+import os
 
 class ClassBeamMean():
     def __init__(self,VS):
