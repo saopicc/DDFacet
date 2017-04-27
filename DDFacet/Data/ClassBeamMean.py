@@ -324,19 +324,14 @@ class ClassBeamMean():
                    "Weight", "RIME"])
 
         if self.GD["Cache"]["SmoothBeam"]=="auto": 
-            self.CachePath, self.CacheValid = self.VS.maincache.checkCache("SmoothBeam.npy", 
-                                                                           Dict, 
-                                                                           reset=0)
+            self.CachePath, self.CacheValid = self.VS.maincache.checkCache("SmoothBeam.npy", Dict, reset=0)
         elif self.GD["Cache"]["SmoothBeam"]=="reset": 
-            self.CachePath, self.CacheValid = self.VS.maincache.checkCache("SmoothBeam.npy", 
-                                                                           Dict, 
-                                                                           reset=1)
+            self.CachePath, self.CacheValid = self.VS.maincache.checkCache("SmoothBeam.npy", Dict, reset=1)
         elif self.GD["Cache"]["SmoothBeam"]=="force": 
             self.CachePath = self.VS.maincache.getElementPath("SmoothBeam.npy")
             self.CacheValid = os.path.exists(self.CachePath)
         else:
             raise ValueError("unknown --Cache-SmoothBeam setting %s"%self.GD["Cache"]["SmoothBeam"])
-
 
         if self.CacheValid:
             print>>log,"Found valid smooth beam in %s"%self.CachePath
