@@ -314,6 +314,10 @@ class ClassBeamMean():
 
        
     def CheckCache(self):
+        reset=0
+        if self.GD["Cache"]["SmoothBeam"]=="reset": 
+            reset=1
+
         self.CachePath, self.CacheValid = self.VS.maincache.checkCache("SmoothBeam.npy", 
                                                                   dict([("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
                                                                        [(section, self.GD[section]) 
@@ -322,8 +326,10 @@ class ClassBeamMean():
                                                                         "Freq", "Image", 
                                                                         "Comp", "Facets", 
                                                                         "Weight", "RIME"]), 
-                                                                  reset=self.GD["Cache"]["ResetSmoothBeam"])
-
+                                                                       reset=reset)
+        if self.GD["Cache"]["SmoothBeam"]=="force": 
+            print>>log,ModColor.Str("  Forcing using the cached smooth beam - overwriding CacheManager automatic value")
+            self.CacheValid = True
 
         if self.CacheValid:
             print>>log,"Found valid smooth beam in %s"%self.CachePath
