@@ -1380,12 +1380,16 @@ class ClassImagerDeconv():
         havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm != 1).any()
         ModelImage=self.ModelMachine.GiveModelImage()
         if havenorm:
+            Norm = self.MeanJonesNorm 
+            sqrtNorm=np.sqrt(Norm)
             if self.FacetMachine.MeanSmoothJonesNorm is None:
-                Norm = self.MeanJonesNorm 
+                SmoothNorm=Norm
+                sqrtSmoothNorm=sqrtNorm
             else:
                 print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparant images",col="blue")
-                Norm=self.FacetMachine.MeanSmoothJonesNorm
-            sqrtNorm=np.sqrt(Norm)
+                SmoothNorm=self.FacetMachine.MeanSmoothJonesNorm
+                sqrtSmoothNorm=np.sqrt(SmoothNorm)
+
             ModelImage=ModelImage*sqrtNorm
 
 
@@ -1399,7 +1403,7 @@ class ClassImagerDeconv():
                                       beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
         if havenorm:
-            IntRestored=Restored/sqrtNorm
+            IntRestored=Restored/sqrtSmoothNorm
             self.FacetMachine.ToCasaImage(IntRestored, ImageName="%s.int.facetRestored" % self.BaseName, 
                                           Fits=True,
                                           beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts())
