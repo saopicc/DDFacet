@@ -1400,7 +1400,7 @@ class ClassImagerDeconv():
 
         if havenorm:
             IntRestored=Restored/sqrtNorm
-            self.FacetMachine.ToCasaImage(Restored, ImageName="%s.int.facetRestored" % self.BaseName, 
+            self.FacetMachine.ToCasaImage(IntRestored, ImageName="%s.int.facetRestored" % self.BaseName, 
                                           Fits=True,
                                           beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
