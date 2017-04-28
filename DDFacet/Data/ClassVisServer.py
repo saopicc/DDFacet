@@ -160,7 +160,7 @@ class ClassVisServer():
         if ".txt" in self.GD["Data"]["MS"]:
             # main cache is initialized from main cache of the MSList
             from DDFacet.Other.CacheManager import CacheManager
-            self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], reset=self.GD["Cache"]["Reset"])
+            self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], cachedir=cachedir=self.GD["Cache"]["Dir"], reset=self.GD["Cache"]["Reset"])
         else:
             # main cache is initialized from main cache of first MS
             self.maincache = self.cache = self.ListMS[0].maincache
