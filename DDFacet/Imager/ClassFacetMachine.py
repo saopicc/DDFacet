@@ -165,9 +165,11 @@ class ClassFacetMachine():
 
     def setAverageBeamMachine(self,AverageBeamMachine):
         self.AverageBeamMachine=AverageBeamMachine
-
-    def setAverageBeamMachine(self,AverageBeamMachine):
-        self.AverageBeamMachine=AverageBeamMachine
+        if self.AverageBeamMachine.SmoothBeam is not None:
+            print>>log,"  Smooth beam machine already has a smooth beam"
+            Npix=self.OutImShape[-1]
+            self.SmoothJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((self.VS.NFreqBands,1,Npix,Npix))
+            self.MeanSmoothJonesNorm = self.AverageBeamMachine.MeanSmoothBeam.reshape((1,1,Npix,Npix))
 
 
     def SetLogModeSubModules(self,Mode="Silent"):

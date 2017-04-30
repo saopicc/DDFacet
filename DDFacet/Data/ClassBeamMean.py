@@ -338,6 +338,7 @@ class ClassBeamMean():
             self.SmoothBeam=np.load(self.CachePath)
             self.MeanSmoothBeam=np.mean(self.SmoothBeam,axis=0)
 
+
     def GiveMergedWithDiscrete(self,DiscreteMeanBeam):
         Mask=(self.ifzfCF<1e-2)
         self.SmoothBeam[Mask]=DiscreteMeanBeam[Mask]
