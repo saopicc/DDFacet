@@ -1570,7 +1570,7 @@ class ClassFacetMachine():
             c=np.cos
             s=np.sin
             d_mat=np.arccos(s(d0)*s(d1.T)+c(d0)*c(d1.T)*c(a0-a1.T))
-            d_mat[d_mat==0]=1e10
+            #d_mat[d_mat==0]=1e10
 
         pBAR = ProgressBar(Title="Build restored facets")
         NFacets=len(self.DicoImager.keys())
@@ -1606,7 +1606,7 @@ class ClassFacetMachine():
                 d=d_mat[iFacet]
                 iDir=np.argmin(d)
                 if not(dl[iDir]==0. and dm[iDir]==0.):
-                    Restored=scipy.ndimage.interpolation.shift(Restored, (0,0,dl[iDir],dm[iDir]))
+                    Restored=scipy.ndimage.interpolation.shift(Restored, (0,0,dm[iDir],dl[iDir]))
             #Restored.fill(1.)
 
                 
