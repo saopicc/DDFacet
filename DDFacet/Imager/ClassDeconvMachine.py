@@ -1454,6 +1454,27 @@ class ClassImagerDeconv():
             label = 'sqrtnorm'
             if label not in _images:
                 if havenorm:
+                    a = self.MeanJonesNorm 
+                else:
+                    a=np.array([1])
+                out = _images.addSharedArray(label, a.shape, a.dtype)
+                numexpr.evaluate('sqrt(a)', out=out)
+            return _images[label]
+        def sqrtnormcube():
+            label = 'sqrtnormcube'
+            if label not in _images:
+                if havenorm:
+                    a = self.FacetMachine.JonesNorm 
+                else:
+                    a=np.array([1])
+#                a = self.JonesNorm if havenorm else np.array([1])
+                out = _images.addSharedArray(label, a.shape, a.dtype)
+                numexpr.evaluate('sqrt(a)', out=out)
+            return _images[label]
+        def smooth_sqrtnorm():
+            label = 'smooth_sqrtnorm'
+            if label not in _images:
+                if havenorm:
                     if self.FacetMachine.MeanSmoothJonesNorm is None:
                         a = self.MeanJonesNorm 
                     else:
@@ -1464,8 +1485,8 @@ class ClassImagerDeconv():
                 out = _images.addSharedArray(label, a.shape, a.dtype)
                 numexpr.evaluate('sqrt(a)', out=out)
             return _images[label]
-        def sqrtnormcube():
-            label = 'sqrtnormcube'
+        def smooth_sqrtnormcube():
+            label = 'smooth_sqrtnormcube'
             if label not in _images:
                 if havenorm:
                     if self.FacetMachine.MeanSmoothJonesNorm is None:
@@ -1487,7 +1508,7 @@ class ClassImagerDeconv():
             label = 'intres'
             if label not in _images:
                 if havenorm:
-                    a, b = appres(), sqrtnorm()
+                    a, b = appres(), smooth_sqrtnorm()
                     out = _images.addSharedArray(label, a.shape, a.dtype)
                     numexpr.evaluate('a/b', out=out)
                     out[~np.isfinite(out)] = 0
@@ -1502,7 +1523,7 @@ class ClassImagerDeconv():
             label = 'intrescube'
             if label not in _images:
                 if havenorm:
-                    a, b = apprescube(), sqrtnormcube()
+                    a, b = apprescube(), smooth_sqrtnormcube()
                     out = _images.addSharedArray(label, a.shape, a.dtype)
                     numexpr.evaluate('a/b', out=out)
                     out[~np.isfinite(out)] = 0
@@ -1513,7 +1534,7 @@ class ClassImagerDeconv():
             label = 'appmodel'
             if label not in _images:
                 if havenorm:
-                    a, b = intmodel(), sqrtnorm()
+                    a, b = intmodel(), smooth_sqrtnorm()
                     out = _images.addSharedArray(label, a.shape, a.dtype)
                     numexpr.evaluate('a*b', out=out)
                 else:
@@ -1522,13 +1543,17 @@ class ClassImagerDeconv():
         def intmodel():
             label = 'intmodel'
             if label not in _images:
-                _images[label] = ModelMachine.GiveModelImage(RefFreq)
+                out=ModelMachine.GiveModelImage(RefFreq)
+                if havenorm:
+                    a, b, c = out, sqrtnorm(), smooth_sqrtnorm()
+                    numexpr.evaluate('a*b/c', out=out)
+                _images[label] = out
             return _images[label]
         def appmodelcube():
             label = 'appmodelcube'
             if label not in _images:
                 if havenorm:
-                    a, b = intmodelcube(), sqrtnormcube()
+                    a, b = intmodelcube(), smooth_sqrtnormcube()
                     out = _images.addSharedArray(label, a.shape, a.dtype)
                     numexpr.evaluate('a*b', out=out)
                 else:
@@ -1541,6 +1566,11 @@ class ClassImagerDeconv():
                 shape[0] = len(self.VS.FreqBandCenters)
                 out = _images.addSharedArray(label, shape, np.float32)
                 ModelMachine.GiveModelImage(self.VS.FreqBandCenters, out=out)
+                if havenorm:
+                    a, b, c = out, sqrtnormcube(), smooth_sqrtnormcube()
+                    numexpr.evaluate('a*b/c', out=out)
+                
+
             return _images[label]
         def appconvmodel():
             label = 'appconvmodel'
