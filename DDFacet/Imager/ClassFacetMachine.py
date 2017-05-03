@@ -1605,7 +1605,8 @@ class ClassFacetMachine():
             if ShiftFile is not None:
                 d=d_mat[iFacet]
                 iDir=np.argmin(d)
-                Restored=scipy.ndimage.interpolation.shift(Restored, (0,0,dl[iDir],dm[iDir]))
+                if not(dl[iDir]==0. and dm[iDir]==0.):
+                    Restored=scipy.ndimage.interpolation.shift(Restored, (0,0,dl[iDir],dm[iDir]))
             #Restored.fill(1.)
 
                 
