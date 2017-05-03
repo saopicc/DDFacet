@@ -1464,7 +1464,7 @@ class ClassImagerDeconv():
             label = 'sqrtnormcube'
             if label not in _images:
                 if havenorm:
-                    a = self.FacetMachine.JonesNorm 
+                    a = self.JonesNorm
                 else:
                     a=np.array([1])
 #                a = self.JonesNorm if havenorm else np.array([1])
@@ -1490,7 +1490,7 @@ class ClassImagerDeconv():
             if label not in _images:
                 if havenorm:
                     if self.FacetMachine.MeanSmoothJonesNorm is None:
-                        a = self.FacetMachine.JonesNorm 
+                        a = self.JonesNorm 
                     else:
                         print>>log,ModColor.Str("Using the smooth beam to normalise the apparant images",col="blue")
                         a=self.FacetMachine.SmoothJonesNorm
