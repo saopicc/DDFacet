@@ -603,6 +603,9 @@ class ClassMS():
                     del visdata1
                 else:
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                if self._reverse_channel_order:
+                    visdata[:,:,:]= visdata[:,::-1,:]
+  
                 if use_cache:
                     print>> log, "caching visibilities to %s" % datapath
                     np.save(datapath, visdata)
