@@ -288,9 +288,11 @@ class DDFacetSourceProvider(SourceProvider):
         (lt, ut) = context.dim_extents('ntime')
         mgr = self._manager
 
-        return mbu.parallactic_angles(mgr._phase_dir,
-            mgr._antenna_positions,
-            mgr._tstep_times[lt:ut]).astype(context.dtype)
+        return (mbu.parallactic_angles(mgr._tstep_times[lt:ut],
+                                        mgr._antenna_positions,
+                                        mgr._phase_dir)
+                                            .reshape(context.shape)
+                                            .astype(context.dtype))
 
     def model_vis(self, context):
         return np.zeros(shape=context.shape, dtype=context.dtype)
