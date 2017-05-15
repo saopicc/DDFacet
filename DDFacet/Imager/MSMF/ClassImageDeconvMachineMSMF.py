@@ -144,6 +144,7 @@ class ClassImageDeconvMachine():
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.InitMSMF(approx=kwargs.get("approx",False), cache=kwargs.get("cache", True))
+        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
 
     def Reset(self):
         print>>log, "resetting HMP machine"

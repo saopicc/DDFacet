@@ -1456,6 +1456,19 @@ class ClassImagerDeconv():
                                                  CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
                 T.timeit(label)
             return _images[label]
+        def alphamap():
+            label = 'alphamap'
+            if label not in _images:
+                _images[label] = ModelMachine.GiveSpectralIndexMap()
+            return _images[label]
+        def alphaconvmap():
+            label = 'alphaconvmap'
+            if label not in _images:
+                _images.addSharedArray(label, alphamap().shape, np.float32)
+                ModFFTW.ConvolveGaussianParallel(_images, 'alphamap', label,
+                                                 CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
+                T.timeit(label)
+            return _images[label]
 
         # norm
         if havenorm and ("S" in self._saveims or "s" in self._saveims):
@@ -1548,11 +1561,9 @@ class ClassImagerDeconv():
 
         # Alpha image
         if "A" in self._saveims and self.VS.MultiFreqMode:
-            IndexMap = ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,
-                                                         GaussPars=[self.PSFGaussParsAvg])
-            _images["alpha"] = IndexMap
+            _images["alphaconvmap"] = alphaconvmap()
             # IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
-            APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), "alpha",), kwargs=dict(
+            APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), "alphaconvmap",), kwargs=dict(
                 ImageName="%s.alpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
