@@ -167,8 +167,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # Fit the alpha map
         self.FreqMachine.FitAlphaMap(IM[:, 0, :, :], threshold=0.1) # should set threshold based on SNR (level of final residual?)
 
+        #print self.FreqMachine.alpha_map.max(), self.FreqMachine.alpha_map.min()
+
         # Get the alpha map (we could convolve with a Gaussian here maybe?)
-        return self.FreqMachine.alpha_map.reshape((1, 1, Nx, Ny))
+        return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
 
     # def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True,MaxSpi=100,MaxDR=1e+6):
     #     dFreq=1e6

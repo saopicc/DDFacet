@@ -29,7 +29,7 @@ from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
-
+from DDFacet.Imager import ClassFrequencyMachine
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.ToolsDir import ModFFTW
@@ -67,7 +67,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
         # print "ModelMachine:",self.RefFreq, self.DicoSMStacked["RefFreq"], self.DicoSMStacked["AllFreqs"]
         
-        
+    def setFreqMachine(self,GridFreqs, DegridFreqs):
+        # Initiaise the Frequency Machine
+        self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoSMStacked["RefFreq"], self.GD)
 
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName

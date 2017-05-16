@@ -127,6 +127,8 @@ class ClassImageDeconvMachine():
         self.SetPSF(kwargs["PSFVar"])
         self.DicoVariablePSF["PSFSideLobes"]=kwargs["PSFAve"]
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
+        self.ModelMachine.setRefFreq(kwargs["RefFreq"])
+        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
 
     def AdaptArrayShape(self,A,Nout):
         nch,npol,Nin,_=A.shape

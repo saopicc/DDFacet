@@ -142,8 +142,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # Fit the alpha map
         self.FreqMachine.FitAlphaMap(IM[:, 0, :, :], threshold=0.1) # should set threshold based on SNR (level of final residual?)
 
+        #print self.FreqMachine.alpha_map.max(), self.FreqMachine.alpha_map.min()
+
         # Get the alpha map (we could convolve with a Gaussian here maybe?)
-        return self.FreqMachine.alpha_map.reshape((1, 1, Nx, Ny))
+        return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
 
         # f0 = self.DicoSMStacked["AllFreqs"].min()
         # f1 = self.DicoSMStacked["AllFreqs"].max()
