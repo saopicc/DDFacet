@@ -838,6 +838,8 @@ gridder_factory(gridderWPol_U_FROM_XYYX, GMODE_STOKES_U_FROM_XYYX)
 gridder_factory(gridderWPol_Q_FROM_RLLR, GMODE_STOKES_Q_FROM_RLLR)
 gridder_factory(gridderWPol_QU_FROM_RLLR, GMODE_STOKES_QU_FROM_RLLR)
 gridder_factory(gridderWPol_UQ_FROM_RLLR, GMODE_STOKES_UQ_FROM_RLLR)
+gridder_factory(gridderWPol_UV_FROM_XYYX, GMODE_STOKES_UV_FROM_XYYX)
+gridder_factory(gridderWPol_VU_FROM_XYYX, GMODE_STOKES_VU_FROM_XYYX)
 gridder_factory(gridderWPol_U_FROM_RLLR, GMODE_STOKES_U_FROM_RLLR)
 gridder_factory(gridderWPol_V_FROM_RRLL, GMODE_STOKES_V_FROM_RRLL)
 gridder_factory(gridderWPol_V_FROM_RRRLLRLL, GMODE_STOKES_V_FROM_RRRLLRLL)
@@ -1148,24 +1150,322 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
     } else if (npol == 3 &&
 	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "V")){
 	callgridder(gridderWPol_UQV_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "U") && !strcmp(expstokes[3], "V")){
+	callgridder(gridderWPol_IQUV_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "Q") && !strcmp(expstokes[3], "V")){
+	callgridder(gridderWPol_IUQV_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "V") && !strcmp(expstokes[3], "Q")){
+	callgridder(gridderWPol_IUVQ_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "Q") && !strcmp(expstokes[3], "U")){
+	callgridder(gridderWPol_IVQU_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "U") && !strcmp(expstokes[3], "V")){
+	callgridder(gridderWPol_QIUV_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "V") && !strcmp(expstokes[3], "U")){
+	callgridder(gridderWPol_QIVU_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "U") && !strcmp(expstokes[3], "Q")){
+	callgridder(gridderWPol_VIUQ_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "V") && !strcmp(expstokes[3], "Q")){
+	callgridder(gridderWPol_UIVQ_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "Q") && !strcmp(expstokes[3], "V")){
+	callgridder(gridderWPol_UIQV_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "I") && !strcmp(expstokes[3], "V")){
+	callgridder(gridderWPol_QUIV_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "I") && !strcmp(expstokes[3], "V")){
+	callgridder(gridderWPol_UQIV_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "I") && !strcmp(expstokes[3], "Q")){
+	callgridder(gridderWPol_UVIQ_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "I") && !strcmp(expstokes[3], "Q")){
+	callgridder(gridderWPol_VUIQ_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "I") && !strcmp(expstokes[3], "U")){
+	callgridder(gridderWPol_VQIU_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "I") && !strcmp(expstokes[3], "U")){
+	callgridder(gridderWPol_QVIU_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "V") && !strcmp(expstokes[3], "I")){
+	callgridder(gridderWPol_QUVI_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "V") && !strcmp(expstokes[3], "I")){
+	callgridder(gridderWPol_UQVI_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "Q") && !strcmp(expstokes[3], "I")){
+	callgridder(gridderWPol_UVQI_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "Q") && !strcmp(expstokes[3], "I")){
+	callgridder(gridderWPol_VUQI_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "U") && !strcmp(expstokes[3], "I")){
+	callgridder(gridderWPol_VQUI_FROM_XXXYYXYY);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "U") && !strcmp(expstokes[3], "I")){
+	callgridder(gridderWPol_QVUI_FROM_XXXYYXYY);
     } else {
       FATAL("Cannot convert input correlations to desired output correlations.");
     }
   } else if (ncorr == 4 && 
     !strcmp(inputcorr[0], "RR") && !strcmp(inputcorr[1], "RL") && !strcmp(inputcorr[2], "LR") && !strcmp(inputcorr[3], "LL")) {
-    FATAL("Cannot convert input correlations to desired output correlations.");
+    if (npol == 1 &&
+	!strcmp(expstokes[0], "I")){
+	callgridder(gridderWPol_I_FROM_RRRLLRLL);
+    } else if (npol == 1 &&
+	!strcmp(expstokes[0], "Q")){
+	callgridder(gridderWPol_Q_FROM_RRRLLRLL);
+    } else if (npol == 1 &&
+	!strcmp(expstokes[0], "U")){
+	callgridder(gridderWPol_U_FROM_RRRLLRLL);
+    } else if (npol == 1 &&
+	!strcmp(expstokes[0], "V")){
+	callgridder(gridderWPol_V_FROM_RRRLLRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "Q")){
+	callgridder(gridderWPol_IQ_FROM_RRRLLRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "I")){
+	callgridder(gridderWPol_QI_FROM_RRRLLRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "V")){
+	callgridder(gridderWPol_IV_FROM_RRRLLRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "I")){
+	callgridder(gridderWPol_VI_FROM_RRRLLRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "V")){
+	callgridder(gridderWPol_UV_FROM_RRRLLRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "U")){
+	callgridder(gridderWPol_VU_FROM_RRRLLRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "Q")){
+	callgridder(gridderWPol_UQ_FROM_RRRLLRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "U")){
+	callgridder(gridderWPol_QU_FROM_RRRLLRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "I")){
+	callgridder(gridderWPol_UI_FROM_RRRLLRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "U")){
+	callgridder(gridderWPol_IU_FROM_RRRLLRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "V")){
+	callgridder(gridderWPol_QV_FROM_RRRLLRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "Q")){
+	callgridder(gridderWPol_VQ_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "U")){
+	callgridder(gridderWPol_IQU_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "Q")){
+	callgridder(gridderWPol_IUQ_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "I")){
+	callgridder(gridderWPol_UQI_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "I")){
+	callgridder(gridderWPol_QUI_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "U")){
+	callgridder(gridderWPol_QIU_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "V")){
+	callgridder(gridderWPol_IQV_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "Q")){
+	callgridder(gridderWPol_IVQ_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "Q")){
+	callgridder(gridderWPol_VIQ_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "I")){
+	callgridder(gridderWPol_VQI_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "I")){
+	callgridder(gridderWPol_QVI_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "V")){
+	callgridder(gridderWPol_IQU_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "V")){
+	callgridder(gridderWPol_IQV_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "U")){
+	callgridder(gridderWPol_VIU_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "I")){
+	callgridder(gridderWPol_VUI_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "I")){
+	callgridder(gridderWPol_UVI_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "V")){
+	callgridder(gridderWPol_UIV_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "V")){
+	callgridder(gridderWPol_QUV_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "U")){
+	callgridder(gridderWPol_QVU_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "U")){
+	callgridder(gridderWPol_VQU_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "Q")){
+	callgridder(gridderWPol_VUQ_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "Q")){
+	callgridder(gridderWPol_UVQ_FROM_RRRLLRLL);
+    } else if (npol == 3 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "V")){
+	callgridder(gridderWPol_UQV_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "U") && !strcmp(expstokes[3], "V")){
+	callgridder(gridderWPol_IQUV_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "Q") && !strcmp(expstokes[3], "V")){
+	callgridder(gridderWPol_IUQV_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "V") && !strcmp(expstokes[3], "Q")){
+	callgridder(gridderWPol_IUVQ_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "Q") && !strcmp(expstokes[3], "U")){
+	callgridder(gridderWPol_IVQU_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "U") && !strcmp(expstokes[3], "V")){
+	callgridder(gridderWPol_QIUV_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "V") && !strcmp(expstokes[3], "U")){
+	callgridder(gridderWPol_QIVU_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "U") && !strcmp(expstokes[3], "Q")){
+	callgridder(gridderWPol_VIUQ_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "V") && !strcmp(expstokes[3], "Q")){
+	callgridder(gridderWPol_UIVQ_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "I") && !strcmp(expstokes[2], "Q") && !strcmp(expstokes[3], "V")){
+	callgridder(gridderWPol_UIQV_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "I") && !strcmp(expstokes[3], "V")){
+	callgridder(gridderWPol_QUIV_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "I") && !strcmp(expstokes[3], "V")){
+	callgridder(gridderWPol_UQIV_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "I") && !strcmp(expstokes[3], "Q")){
+	callgridder(gridderWPol_UVIQ_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "I") && !strcmp(expstokes[3], "Q")){
+	callgridder(gridderWPol_VUIQ_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "I") && !strcmp(expstokes[3], "U")){
+	callgridder(gridderWPol_VQIU_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "I") && !strcmp(expstokes[3], "U")){
+	callgridder(gridderWPol_QVIU_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "V") && !strcmp(expstokes[3], "I")){
+	callgridder(gridderWPol_QUVI_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "V") && !strcmp(expstokes[3], "I")){
+	callgridder(gridderWPol_UQVI_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "Q") && !strcmp(expstokes[3], "I")){
+	callgridder(gridderWPol_UVQI_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "U") && !strcmp(expstokes[2], "Q") && !strcmp(expstokes[3], "I")){
+	callgridder(gridderWPol_VUQI_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "Q") && !strcmp(expstokes[2], "U") && !strcmp(expstokes[3], "I")){
+	callgridder(gridderWPol_VQUI_FROM_RRRLLRLL);
+    } else if (npol == 4 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "V") && !strcmp(expstokes[2], "U") && !strcmp(expstokes[3], "I")){
+	callgridder(gridderWPol_QVUI_FROM_RRRLLRLL);
+    } else {
+      FATAL("Cannot convert input correlations to desired output correlations.");
+    }
   } else if (ncorr == 2 && 
     !strcmp(inputcorr[0], "XX") && !strcmp(inputcorr[1], "YY")) {
-    FATAL("Cannot convert input correlations to desired output correlations.");
+    if (npol == 1 &&
+	!strcmp(expstokes[0], "I")){
+	callgridder(gridderWPol_I_FROM_XXYY);
+    } else if (npol == 1 &&
+	!strcmp(expstokes[0], "Q")){
+	callgridder(gridderWPol_Q_FROM_XXYY);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "Q")){
+	callgridder(gridderWPol_IQ_FROM_XXYY);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "I")){
+	callgridder(gridderWPol_QI_FROM_XXYY);
+    } else {
+      FATAL("Cannot convert input correlations to desired output correlations.");
+    }
   } else if (ncorr == 2 && 
     !strcmp(inputcorr[0], "XY") && !strcmp(inputcorr[1], "YX")) {
-    FATAL("Cannot convert input correlations to desired output correlations.");
+    if (npol == 1 &&
+	!strcmp(expstokes[0], "U")){
+	callgridder(gridderWPol_U_FROM_XYYX);
+    } else if (npol == 1 &&
+	!strcmp(expstokes[0], "V")){
+	callgridder(gridderWPol_V_FROM_XYYX);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "V")){
+	callgridder(gridderWPol_UV_FROM_XYYX);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "U")){
+	callgridder(gridderWPol_VU_FROM_XYYX);
+    } else {
+      FATAL("Cannot convert input correlations to desired output correlations.");
+    }
   } else if (ncorr == 2 && 
     !strcmp(inputcorr[0], "RR") && !strcmp(inputcorr[1], "LL")) {
-    FATAL("Cannot convert input correlations to desired output correlations.");
+    if (npol == 1 &&
+	!strcmp(expstokes[0], "I")){
+	callgridder(gridderWPol_I_FROM_RRLL);
+    } else if (npol == 1 &&
+	!strcmp(expstokes[0], "V")){
+	callgridder(gridderWPol_V_FROM_RRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "I") && !strcmp(expstokes[1], "V")){
+	callgridder(gridderWPol_IV_FROM_RRLL);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "I")){
+	callgridder(gridderWPol_VI_FROM_RRLL);
+    } else {
+      FATAL("Cannot convert input correlations to desired output correlations.");
+    }
   } else if (ncorr == 2 && 
     !strcmp(inputcorr[0], "RL") && !strcmp(inputcorr[1], "LR")) {
-    FATAL("Cannot convert input correlations to desired output correlations.");
+    if (npol == 1 &&
+	!strcmp(expstokes[0], "Q")){
+	callgridder(gridderWPol_Q_FROM_RLLR);
+    } else if (npol == 1 &&
+	!strcmp(expstokes[0], "U")){
+	callgridder(gridderWPol_U_FROM_RLLR);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "U")){
+	callgridder(gridderWPol_QU_FROM_RLLR);
+    } else if (npol == 2 &&
+	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "Q")){
+	callgridder(gridderWPol_UQ_FROM_RLLR);
+    } else {
+      FATAL("Cannot convert input correlations to desired output correlations.");
+    }
   } else {
     FATAL("Cannot convert input correlations to desired output correlations.");
   }

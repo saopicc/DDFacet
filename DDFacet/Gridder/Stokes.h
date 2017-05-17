@@ -94,6 +94,18 @@
 	stokes_vis[1]=(-(Vis[0]-Vis[1])*_Complex_I)/2.; \
 	int nVisPol = 2; \
 	int PolMap[] = {1,0}; 
+#define GMODE_STOKES_UV_FROM_XYYX \
+	float _Complex stokes_vis[] = {0+0*_Complex_I,0+0*_Complex_I}; \
+	stokes_vis[0]=(Vis[0]+Vis[1])/2.; \
+	stokes_vis[1]=(-(Vis[0]-Vis[1])*_Complex_I)/2.; \
+	int nVisPol = 2; \
+	int PolMap[] = {0,1};
+#define GMODE_STOKES_VU_FROM_XYYX \
+	float _Complex stokes_vis[] = {0+0*_Complex_I,0+0*_Complex_I}; \
+	stokes_vis[0]=(Vis[0]+Vis[1])/2.; \
+	stokes_vis[1]=(-(Vis[0]-Vis[1])*_Complex_I)/2.; \
+	int nVisPol = 2; \
+	int PolMap[] = {1,0}; 
 #define GMODE_STOKES_U_FROM_RLLR \
 	float _Complex stokes_vis[] = {0+0*_Complex_I}; \
 	stokes_vis[0]=(-(Vis[0]-Vis[1])*_Complex_I)/2.; \
