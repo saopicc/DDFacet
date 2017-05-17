@@ -97,8 +97,12 @@ class ClassFrequencyMachine(object):
 				FitCube[ineg[:, 0], ineg[:, 1], ineg[:, 2]] = 0.0
 
 		# Find where I is above threshold (in any frequency band)
-		FitMax = np.amax(FitCube,axis=0)
-		MaskIndices = np.argwhere(FitMax > Threshold)
+		# FitMax = np.amax(FitCube, axis=0)
+		# Ip = FitMax > Threshold
+		FitMin = np.amin(FitCube, axis=0)
+		In = FitMin > Threshold
+		#mind = Ip & In
+		MaskIndices = np.argwhere(In)
 		FitMask = FitCube[:, MaskIndices[:, 0], MaskIndices[:, 1]]
 		return FitMask, MaskIndices
 
@@ -160,7 +164,7 @@ class ClassFrequencyMachine(object):
 		Sol = np.dot(np.linalg.inv(XDes.T.dot(XDes)), np.dot(XDes.T, logI))
 		logIref = Sol[0, :]
 		#self.logIref = logIref
-		alpha = Sol[1::,:]
+		alpha = Sol[1::,:].reshape(logIref.size)
 		#self.alpha = alpha
 		# Create the alpha map
 		self.alpha_map = np.zeros([Nx, Ny])
@@ -181,28 +185,35 @@ class ClassFrequencyMachine(object):
 		# Re-weight the alphas according to flux of model component
 		self.weighted_alpha_map = self.alpha_map*self.Iref
 
-		# Get the variance estimate of residuals
-		epshat = IFlat - np.dot(XDes, Sol)
-		epsvar = np.diag(np.dot(epshat.T, epshat))/(nchan - p)
-		#print epsvar.min(), epsvar.max()
-		self.var_map = np.zeros([Nx, Ny])
-		if int(np.version.version.split('.')[1]) > 9: #check numpy version > 9 (broadcasting fails for older versions)
-			self.var_map[ix, iy] = epsvar
-		else:
-			for j in xrange(ix.size):
-				self.var_map[ix[j],iy[j]] = epsvar[j]
+		# Create a dict to store model components spi's
+		self.alpha_dict = {}
+		for j, key in enumerate(zip(ix,iy)):
+			self.alpha_dict[key] = {}
+			self.alpha_dict[key]['alpha'] = alpha[j]
+			self.alpha_dict[key]['Iref'] = np.exp(logIref[j])
 
-		# Get the variance estimate of the alphas (assuming normally distributed errors, might want to compute confidence intervals)
-		w = self.Freqs/self.ref_freq
-		wbar = np.mean(w)
-		alphavar = np.sqrt(epsvar/np.sum((w-wbar)**2))
-		self.alpha_var_map = np.zeros([Nx, Ny])
-		if int(np.version.version.split('.')[1]) > 9:  # check numpy version > 9 (broadcasting fails for older versions)
-			self.alpha_var_map[ix, iy] = alphavar
-		else:
-			for j in xrange(ix.size):
-				self.alpha_var_map[ix[j], iy[j]] = alphavar[j]
-		self.weighted_alpha_var_map = self.alpha_var_map*self.Iref
+		# # Get the variance estimate of residuals
+		# epshat = IFlat - np.dot(XDes, Sol)
+		# epsvar = np.diag(np.dot(epshat.T, epshat))/(nchan - p)
+		# #print epsvar.min(), epsvar.max()
+		# self.var_map = np.zeros([Nx, Ny])
+		# if int(np.version.version.split('.')[1]) > 9: #check numpy version > 9 (broadcasting fails for older versions)
+		# 	self.var_map[ix, iy] = epsvar
+		# else:
+		# 	for j in xrange(ix.size):
+		# 		self.var_map[ix[j],iy[j]] = epsvar[j]
+		#
+		# # Get the variance estimate of the alphas (assuming normally distributed errors, might want to compute confidence intervals)
+		# w = self.Freqs/self.ref_freq
+		# wbar = np.mean(w)
+		# alphavar = np.sqrt(epsvar/np.sum((w-wbar)**2))
+		# self.alpha_var_map = np.zeros([Nx, Ny])
+		# if int(np.version.version.split('.')[1]) > 9:  # check numpy version > 9 (broadcasting fails for older versions)
+		# 	self.alpha_var_map[ix, iy] = alphavar
+		# else:
+		# 	for j in xrange(ix.size):
+		# 		self.alpha_var_map[ix[j], iy[j]] = alphavar[j]
+		# self.weighted_alpha_var_map = self.alpha_var_map*self.Iref
 		return
 
 	def EvalAlphamap(self, Freqs):

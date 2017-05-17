@@ -1456,19 +1456,20 @@ class ClassImagerDeconv():
 												 CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
 				T.timeit(label)
 			return _images[label]
-		def posintmod():
-			label = 'posintmod'
-			if label not in _images:
-				_images.addSharedArray(label, intmodel().shape, np.float32)
-				_images[label] = ModelMachine.FreqMachine.Iref
-			return _images[label]
+		# def posintmod():
+		# 	label = 'posintmod'
+		# 	if label not in _images:
+		# 		_images.addSharedArray(label, intmodel().shape, np.float32)
+		# 		_images[label] = ModelMachine.FreqMachine.Iref
+		# 	return _images[label]
 		def alphamap():
 			label = 'alphamap'
 			if label not in _images:
 				_images.addSharedArray(label, intmodel().shape, np.float32)
-				_images[label] = ModelMachine.GiveSpectralIndexMap()
-				_images.addSharedArray('posintmod', intmodel().shape, np.float32)
-				_images["posintmod"] = ModelMachine.FreqMachine.Iref.reshape(intmodel().shape)
+				RMSthreshold = self.GD["Freq"]["alphathreshold"]
+				_images[label] = ModelMachine.GiveSpectralIndexMap(threshold=self.DeconvMachine.RMS*RMSthreshold)
+				# _images.addSharedArray('posintmod', intmodel().shape, np.float32)
+				# _images["posintmod"] = ModelMachine.FreqMachine.Iref.reshape(intmodel().shape)
 			return _images[label]
 		def alphaconvmap():
 			label = 'alphaconvmap'
@@ -1483,7 +1484,8 @@ class ClassImagerDeconv():
 				# ModFFTW.ConvolveGaussian(posintmod(), CellSizeRad=self.CellSizeRad,
 				# 						 GaussPars=[self.PSFGaussParsAvg], out=b)
 				b = intconvmodel()
-				I = np.argwhere(b[0, 0, :, :] > 20.0e-2)
+				RMSthreshold = self.GD["Freq"]["alphathreshold"]
+				I = np.argwhere(b[0, 0, :, :] > 2*self.DeconvMachine.RMS*RMSthreshold)
 				ix = I[:,0]
 				iy = I[:,1]
 				c = np.zeros_like(a)
@@ -1492,29 +1494,27 @@ class ClassImagerDeconv():
 				_images[label] = c #a/(b + 1.0e-4)
 				T.timeit(label)
 			return _images[label]
-		def varalphamap():
-			label = 'varalphamap'
-			if label not in _images:
-				_images.addSharedArray(label, intmodel().shape, np.float32)
-				_images[label] = ModelMachine.FreqMachine.weighted_alpha_var_map.reshape(intmodel().shape)
-			return _images[label]
-		def varalphaconvmap():
-			label = 'varalphaconvmap'
-			if label not in _images:
-				a = _images.addSharedArray("weightedvaralpha", alphamap().shape, np.float32)
-				ModFFTW.ConvolveGaussian(varalphamap(), CellSizeRad=self.CellSizeRad,
-										 GaussPars=[self.PSFGaussParsAvg], out=a)
-				b = intconvmodel()
-				I = np.argwhere(b[0, 0, :, :] > 20.0e-2)
-				ix = I[:,0]
-				iy = I[:,1]
-				c = np.zeros_like(a)
-				c[0, 0, ix, iy] = a[0, 0, ix, iy]/b[0, 0, ix, iy]
-				_images.addSharedArray(label, intmodel().shape, np.float32)
-				_images[label] = c
-			return _images[label]
-
-
+		# def varalphamap():
+		# 	label = 'varalphamap'
+		# 	if label not in _images:
+		# 		_images.addSharedArray(label, intmodel().shape, np.float32)
+		# 		_images[label] = ModelMachine.FreqMachine.weighted_alpha_var_map.reshape(intmodel().shape)
+		# 	return _images[label]
+		# def varalphaconvmap():
+		# 	label = 'varalphaconvmap'
+		# 	if label not in _images:
+		# 		a = _images.addSharedArray("weightedvaralpha", alphamap().shape, np.float32)
+		# 		ModFFTW.ConvolveGaussian(varalphamap(), CellSizeRad=self.CellSizeRad,
+		# 								 GaussPars=[self.PSFGaussParsAvg], out=a)
+		# 		b = intconvmodel()
+		# 		I = np.argwhere(b[0, 0, :, :] > 20.0e-2)
+		# 		ix = I[:,0]
+		# 		iy = I[:,1]
+		# 		c = np.zeros_like(a)
+		# 		c[0, 0, ix, iy] = a[0, 0, ix, iy]/b[0, 0, ix, iy]
+		# 		_images.addSharedArray(label, intmodel().shape, np.float32)
+		# 		_images[label] = c
+		# 	return _images[label]
 
 		# norm
 		if havenorm and ("S" in self._saveims or "s" in self._saveims):
@@ -1614,10 +1614,10 @@ class ClassImagerDeconv():
 			APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), "alphaconvmap",), kwargs=dict(
 				ImageName="%s.alpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
 				Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-			_images['varalphaconvmap'] = varalphaconvmap()
-			APP.runJob("save:varalpha", self._saveImage_worker, io=0, args=(_images.readwrite(), "varalphaconvmap",), kwargs=dict(
-				ImageName="%s.varalpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
-				Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+			# _images['varalphaconvmap'] = varalphaconvmap()
+			# APP.runJob("save:varalpha", self._saveImage_worker, io=0, args=(_images.readwrite(), "varalphaconvmap",), kwargs=dict(
+			# 	ImageName="%s.varalpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
+			# 	Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
 		#  done saving images -- schedule a job to delete them all from the dict to save RAM
 		APP.runJob("del:images", self._delSharedImage_worker, io=0, args=[_images.readwrite()] + list(_images.keys()))

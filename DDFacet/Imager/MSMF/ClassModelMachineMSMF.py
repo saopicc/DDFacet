@@ -62,7 +62,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if self.RefFreq is not None and not Force:
             print>>log,ModColor.Str("Reference frequency already set to %f MHz"%(self.RefFreq/1e6))
             return
-        
+
         self.RefFreq=RefFreq
         self.DicoSMStacked["RefFreq"]=RefFreq
         #self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
@@ -95,7 +95,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.RefFreq=self.DicoSMStacked["RefFreq"]
         self.ListScales=self.DicoSMStacked["ListScales"]
         self.ModelShape=self.DicoSMStacked["ModelShape"]
-        
+
 
 
     def setModelShape(self,ModelShape):
@@ -126,7 +126,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         except:
             self.DicoSMStacked["Comp"]={}
             DicoComp=self.DicoSMStacked["Comp"]
-            
+
 
         comp = DicoComp.get(key)
         if comp is None:
@@ -144,9 +144,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         Weight=1.
         #Gain=self.GainMachine.GiveGain()
         Gain=self.GD["Deconv"]["Gain"]
-    
+
         SolNorm=Sols.ravel()*Gain*np.mean(Fpol)
-        
+
         comp["SumWeights"][pol_array_index] += Weight
         comp["SolsArray"][:,pol_array_index] += Weight*SolNorm
 # =======
@@ -154,25 +154,28 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 #         entry["SumWeights"][pol_array_index] += Weight
 #         entry["SolsArray"][:,pol_array_index] += Weight*SolNorm
 # >>>>>>> issue-255
-        
+
     def setListComponants(self,ListScales):
         self.ListScales=ListScales
 
+	def GiveSpectralIndexMap(self, threshold=0.1, save_dict=True):
+		# Get the model image
+		IM = self.GiveModelImage(self.FreqMachine.Freqsp)
+		nchan, npol, Nx, Ny = IM.shape
 
-    def GiveSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6):
-        # Get the model image
-        IM = self.GiveModelImage(self.FreqMachine.Freqsp)
-        nchan, npol, Nx, Ny = IM.shape
+		# Fit the alpha map
+		self.FreqMachine.FitAlphaMap(IM[:, 0, :, :],
+									 threshold=threshold)  # should set threshold based on SNR of final residual
 
-        # Fit the alpha map
-        self.FreqMachine.FitAlphaMap(IM[:, 0, :, :], threshold=0.1) # should set threshold based on SNR (level of final residual?)
+		if save_dict:
+			FileName = self.GD['Output']['Name'] + ".Dicoalpha"
+			print>> log, "Saving componentwise SPI map to %s" % FileName
 
-        #print self.FreqMachine.alpha_map.max(), self.FreqMachine.alpha_map.min()
+			MyPickle.Save(self.FreqMachine.alpha_dict, FileName)
 
-        # Get the alpha map (we could convolve with a Gaussian here maybe?)
-        return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
+		return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
 
-    # def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True,MaxSpi=100,MaxDR=1e+6):
+	# def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True,MaxSpi=100,MaxDR=1e+6):
     #     dFreq=1e6
     #     #f0=self.DicoSMStacked["AllFreqs"].min()
     #     #f1=self.DicoSMStacked["AllFreqs"].max()
@@ -331,9 +334,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                             Aedge,Bedge=GiveEdgesDissymetric((x,y),(N0x,N0y),(Sup/2,Sup/2),(Sup,Sup))
                             x0d,x1d,y0d,y1d=Aedge
                             x0p,x1p,y0p,y1p=Bedge
-                            
+
                             ModelImage[ch,pol,x0d:x1d,y0d:y1d]+=Gauss[x0p:x1p,y0p:y1p]*Flux
-        
+
         # vmin,vmax=np.min(self._MeanDirtyOrig[0,0]),np.max(self._MeanDirtyOrig[0,0])
         # vmin,vmax=-1,1
         # #vmin,vmax=np.min(ModelImage),np.max(ModelImage)
@@ -353,11 +356,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
  
         return ModelImage
-        
+
     def CleanNegComponants(self,box=20,sig=3,RemoveNeg=True):
         print>>log, "Cleaning model dictionary from negative componants with (box, sig) = (%i, %i)"%(box,sig)
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
-        
+
         Min=scipy.ndimage.filters.minimum_filter(ModelImage,(box,box))
         Min[Min>0]=0
         Min=-Min
@@ -407,7 +410,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         pol,freq,decc,rac=im.toworld((0,0,0,0))
 
         Lx,Ly=np.where(ModelMap[0,0]!=0)
-        
+
         X=np.array(Lx)
         Y=np.array(Ly)
 
@@ -425,7 +428,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         SourceCat.RefFreq[:]=self.DicoSMStacked["RefFreq"]
         _,_,nx,ny=ModelMap.shape
-        
+
         for iSource in range(X.shape[0]):
             x_iSource,y_iSource=X[iSource],Y[iSource]
             _,_,dec_iSource,ra_iSource=im.toworld((0,0,y_iSource,x_iSource))
@@ -433,7 +436,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             SourceCat.dec[iSource]=dec_iSource
             SourceCat.X[iSource]=(nx-1)-X[iSource]
             SourceCat.Y[iSource]=Y[iSource]
-            
+
             #print self.DicoSMStacked["Comp"][(SourceCat.X[iSource],SourceCat.Y[iSource])]
             # SourceCat.Cluster[IndSource]=iCluster
             Flux=ModelMap[0,0,x_iSource,y_iSource]
@@ -465,31 +468,31 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         SourceCat=SourceCat.view(np.recarray)
         #RestoreDico=self.GD["Data"]["RestoreDico"]
         RestoreDico=DicoSolsFile["ModelName"][()][0:-4]+".DicoModel"
-        
+
         print>>log, "Adding previously substracted components"
         ModelMachine0=ClassModelMachine(self.GD)
 
-        
+
         ModelMachine0.FromFile(RestoreDico)
 
-        
+
 
         _,_,nx0,ny0=ModelMachine0.DicoSMStacked["ModelShape"]
-        
+
         _,_,nx1,ny1=self.ModelShape
         dx=nx1-nx0
 
-        
+
 
         for iSource in range(SourceCat.shape[0]):
             x0=SourceCat.X[iSource]
             y0=SourceCat.Y[iSource]
-            
+
             x1=x0+dx
             y1=y0+dx
-            
+
             if not((x1,y1) in self.DicoSMStacked["Comp"].keys()):
                 self.DicoSMStacked["Comp"][(x1,y1)]=ModelMachine0.DicoSMStacked["Comp"][(x0,y0)]
             else:
                 self.DicoSMStacked["Comp"][(x1,y1)]+=ModelMachine0.DicoSMStacked["Comp"][(x0,y0)]
-                
+

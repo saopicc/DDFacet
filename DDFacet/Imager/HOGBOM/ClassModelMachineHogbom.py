@@ -134,17 +134,21 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         return ModelImage
 
-    def GiveSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6):
+    def GiveSpectralIndexMap(self, threshold=0.1, save_dict=True):
         # Get the model image
         IM = self.GiveModelImage(self.FreqMachine.Freqsp)
         nchan, npol, Nx, Ny = IM.shape
 
         # Fit the alpha map
-        self.FreqMachine.FitAlphaMap(IM[:, 0, :, :], threshold=0.1) # should set threshold based on SNR (level of final residual?)
+        self.FreqMachine.FitAlphaMap(IM[:, 0, :, :],
+                                     threshold=threshold)  # should set threshold based on SNR of final residual
 
-        #print self.FreqMachine.alpha_map.max(), self.FreqMachine.alpha_map.min()
+        if save_dict:
+            FileName = self.GD['Output']['Name'] + ".Dicoalpha"
+            print>> log, "Saving componentwise SPI map to %s" % FileName
 
-        # Get the alpha map (we could convolve with a Gaussian here maybe?)
+            MyPickle.Save(self.FreqMachine.alpha_dict, FileName)
+
         return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
 
         # f0 = self.DicoSMStacked["AllFreqs"].min()
