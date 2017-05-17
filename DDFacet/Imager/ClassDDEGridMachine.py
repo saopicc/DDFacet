@@ -369,17 +369,21 @@ class ClassDDEGridMachine():
         # 0: scalar
         # 1: diag
         # 2: full
-        if PolMode == "I":
-            self.npol = 1
-            self.PolMap = np.array([0, 5, 5, 0], np.int32)
-            self.SkyType = 1
-            self.PolModeID = 0
-        elif PolMode == "IQUV":
-            self.SkyType = 2
-            self.npol = 4
-            self.PolMap = np.array([0, 1, 2, 3], np.int32)
-            self.PolModeID = 1
-
+        # DEPRICATED SWITCHES
+        #if PolMode == "I":
+        #    self.npol = 1
+        #    self.PolMap = np.array([0, 5, 5, 0], np.int32)
+        #    self.SkyType = 1
+        #    self.PolModeID = 0
+        #elif PolMode == "IQUV":
+        #    self.SkyType = 2
+        #    self.npol = 4
+        #    self.PolMap = np.array([0, 1, 2, 3], np.int32)
+        #    self.PolModeID = 1
+	self.npol = len(ExpectedOutputStokes)
+	self.SkyType=99999
+	self.PolMap=np.zeros(0)
+	self.PolModeID=99999
         self.Npix = Npix
 
         self.NFreqBands = NFreqBands
@@ -790,7 +794,9 @@ class ClassDDEGridMachine():
                                           sparsification if sparsification is not None else np.array([]),
                                           OptimisationInfos,
                                           self.LSmear,
-                                          np.int32(ChanMapping))
+                                          np.int32(ChanMapping),
+                                          np.array(self.DataCorrelationFormat).astype(np.uint16),
+                                          np.array(self.ExpectedOutputStokes).astype(np.uint16))
 
             T.timeit("gridder")
 # <<<<<<< HEAD
