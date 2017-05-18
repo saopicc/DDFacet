@@ -421,11 +421,7 @@ class ClassImagerDeconv():
         """
         if self.DicoImagesPSF is not None:
             return
-	  
-	# Polarization psfs is not going to be supported. We can only make dirty maps
-	if self.VS.StokesConverter.RequiredStokesProducts() != [1]:
-	  raise RuntimeError("Unsupported: Polarization PSF creation is not defined")
-	
+ 
         cachepath, valid, writecache = self._checkForCachedPSF(sparsify)
 
 
@@ -448,6 +444,9 @@ class ClassImagerDeconv():
                 # note that collectLoadedChunk() will destroy the current DATA dict, so we must make sure
                 # the gridding jobs of the previous chunk are finished
                 self.FacetMachinePSF.collectGriddingResults()
+                # Polarization psfs is not going to be supported. We can only make dirty maps
+                if self.VS.StokesConverter.RequiredStokesProducts() != [1]:
+                    raise RuntimeError("Unsupported: Polarization PSF creation is not defined")
                 # get loaded chunk from I/O thread, schedule next chunk
                 # self.VS.startChunkLoadInBackground()
                 DATA = self.VS.collectLoadedChunk(start_next=True)
@@ -696,8 +695,7 @@ class ClassImagerDeconv():
             raise ValueError("--Predict-ColName must be set")
         if not self.GD["Predict"]["FromImage"] and not self.GD["Predict"]["InitDicoModel"]:
             raise ValueError("--Predict-FromImage or --Predict-InitDicoModel must be set")
-	if self.VS.StokesConverter.RequiredStokesProducts() != [1]:
-	  raise RuntimeError("Unsupported: Polarization prediction is not defined")
+	
         # tell the I/O thread to go load the first chunk
         self.VS.ReInitChunkCount()
         self.VS.startChunkLoadInBackground()
@@ -744,6 +742,8 @@ class ClassImagerDeconv():
             # get loaded chunk from I/O thread, schedule next chunk
             # self.VS.startChunkLoadInBackground()
             DATA = self.VS.collectLoadedChunk(start_next=True)
+            if self.VS.StokesConverter.RequiredStokesProducts() != [1]:
+                raise RuntimeError("Unsupported: Polarization prediction is not defined")
             if type(DATA) is str:
                 print>> log, ModColor.Str("no more data: %s" % DATA, col="red")
                 break
@@ -841,9 +841,7 @@ class ClassImagerDeconv():
     def main(self,NMajor=None):
         if NMajor is None:
             NMajor=self.NMajor
-	# Polarization clean is not going to be supported. We can only make dirty maps
-	if self.VS.StokesConverter.RequiredStokesProducts() != [1]:
-	  raise RuntimeError("Unsupported: Polarization cleaning is not defined")
+
         # see if we're working in "sparsification" mode
         # 'sparsify' is a list of factors. E.g. [100,10] means data in first major cycle is sparsified
         # by a factor of 100, second cycle by 10, from third cyrcle onwards is precise
@@ -866,6 +864,10 @@ class ClassImagerDeconv():
         if sparsify:
             print>> log, "applying a sparsification factor of %f to data for dirty image" % sparsify
         self.GiveDirty(psf=True, sparsify=sparsify)
+
+        # Polarization clean is not going to be supported. We can only make dirty maps
+        if self.VS.StokesConverter.RequiredStokesProducts() != [1]:
+            raise RuntimeError("Unsupported: Polarization cleaning is not defined")
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
