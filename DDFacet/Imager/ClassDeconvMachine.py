@@ -445,7 +445,7 @@ class ClassImagerDeconv():
                 # the gridding jobs of the previous chunk are finished
                 self.FacetMachinePSF.collectGriddingResults()
                 # Polarization psfs is not going to be supported. We can only make dirty maps
-                if self.VS.StokesConverter.RequiredStokesProducts() != [1]:
+                if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
                     raise RuntimeError("Unsupported: Polarization PSF creation is not defined")
                 # get loaded chunk from I/O thread, schedule next chunk
                 # self.VS.startChunkLoadInBackground()
@@ -742,7 +742,7 @@ class ClassImagerDeconv():
             # get loaded chunk from I/O thread, schedule next chunk
             # self.VS.startChunkLoadInBackground()
             DATA = self.VS.collectLoadedChunk(start_next=True)
-            if self.VS.StokesConverter.RequiredStokesProducts() != [1]:
+            if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
                 raise RuntimeError("Unsupported: Polarization prediction is not defined")
             if type(DATA) is str:
                 print>> log, ModColor.Str("no more data: %s" % DATA, col="red")
@@ -866,7 +866,7 @@ class ClassImagerDeconv():
         self.GiveDirty(psf=True, sparsify=sparsify)
 
         # Polarization clean is not going to be supported. We can only make dirty maps
-        if self.VS.StokesConverter.RequiredStokesProducts() != [1]:
+        if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
             raise RuntimeError("Unsupported: Polarization cleaning is not defined")
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
