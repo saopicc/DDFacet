@@ -22,8 +22,9 @@ def read_options():
 
     group = optparse.OptionGroup(opt, "* Data-related options", "Won't work if not specified.")
     group.add_option('--InDicoModel',help='Input DicoModel name [no default]',default='')
-    group.add_option('--OutDicoModel',help='Output DicoModel name [no default]',default='')
+    group.add_option('--OutDicoModel',help='Output DicoModel name [no default]',default=None)
     group.add_option('--MaskName',help='Name of the fits mask [no default]',default='')
+    group.add_option('--FilterNegComp',help='Name of the fits mask [no default]',type="int",default=0)
     opt.add_option_group(group)
 
     options, arguments = opt.parse_args()
@@ -35,9 +36,14 @@ def main(options=None):
         f = open(SaveName,'rb')
         options = pickle.load(f)
 
+
+    if options.OutDicoModel is None:
+        raise ValueError("--OutDicoModel should be specified")
     ModConstructor = ClassModModelMachine()
     MM=ModConstructor.GiveInitialisedMMFromFile(options.InDicoModel)
     MM.CleanMaskedComponants(options.MaskName)
+    if options.FilterNegComp:
+        MM.CleanNegComponants()
     MM.ToFile(options.OutDicoModel)
 
 if __name__=="__main__":
