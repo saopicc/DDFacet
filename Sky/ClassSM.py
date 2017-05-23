@@ -225,9 +225,21 @@ class ClassSM():
                 l0,m0=self.radec2lm_scalar(PreClusterCat.ra,PreClusterCat.dec)
                 CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot,PreCluster=(l0,m0))
             else:
-                CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot)
+                CM=ClassClusterClean(x,y,s,nk,DoPlot=0)#DoPlot)
+                DictNode=CM.Cluster()
+                ra,dec=[],[]
+                for idDir in DictNode.keys():
+                    
+                    ra0,dec0=np.mean(self.SourceCat.ra[DictNode[idDir]["ListCluster"]]),np.mean(self.SourceCat.dec[DictNode[idDir]["ListCluster"]])
+                    if not np.isnan(ra0):
+                        ra.append(ra0)
+                        dec.append(dec0)
+                l0,m0=self.radec2lm_scalar(np.array(ra),np.array(dec))
+                nk=l0.size
 
-            REGFile="%s.tessel.reg"%self.TargetList
+                CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot,InitLM=(l0,m0))
+
+        REGFile="%s.tessel.reg"%self.TargetList
 
         print FromClusterCat
         if FromClusterCat=="":
@@ -274,7 +286,9 @@ class ClassSM():
 
         iK=NPreCluster
         self.NDir=len(DictNode.keys())
-        #print self.SourceCat.Cluster.min(),self.SourceCat.Cluster.max()
+        
+        # print self.SourceCat.Cluster.min(),self.SourceCat.Cluster.max()
+        
         for key in DictNode.keys():
             ind=np.array(DictNode[key]["ListCluster"])
             if ind.size==0: 

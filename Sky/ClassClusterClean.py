@@ -1,5 +1,8 @@
 import numpy as np
 from SkyModel.Other import ModColor
+from scipy.spatial import Voronoi
+import ModVoronoi
+from SkyModel.Other import ModCoord
 
 class ClassClusterClean():
     def __init__(self,x,y,s,NCluster=10,DoPlot=True):
@@ -57,8 +60,9 @@ class ClassClusterClean():
         # ss0/=xr.shape[0]
         # ssn=ss/ss0#(ss-ss0)/ss0
     
-        ss/=np.sqrt(ss0)
-        ss+=np.random.randn(*ss.shape)*1e-6
+        #ss/=np.sqrt(ss0)
+        #ss+=np.random.randn(*ss.shape)*1e-6
+
         #ssn=ss
         # pylab.scatter(xx,yy,marker="s",c=ss,s=50)
         # pylab.scatter(x,y,c=s,s=np.sqrt(s)*50)
@@ -83,7 +87,7 @@ class ClassClusterClean():
             ind=np.where(ss==np.max(ss))
             xnode.append(xx[ind])
             ynode.append(yy[ind])
-            ss-=ss[ind]*np.exp(-((xx-xnode[-1])**2/sigx**2+(yy-ynode[-1])**2/sigy**2))
+            ss-=ss[ind]*np.exp(-((xx-xnode[-1])**2/(sigx)**2+(yy-ynode[-1])**2/(sigy)**2))
 
 
             if DoPlot:
@@ -100,7 +104,8 @@ class ClassClusterClean():
                 pylab.show()
                 pylab.pause(0.1)
 
-        pylab.ioff()
+        if DoPlot:
+            pylab.ioff()
 
         xnode=np.array(xnode)
         ynode=np.array(ynode)
@@ -154,6 +159,58 @@ class ClassClusterClean():
         # #f.close()
         # #import os
         # #os.system("cat %s"%self.infile_cluster)
+
+    def ToReg(self,regFile,rac,decc):
+
+        f=open(regFile,"w")
+        self.REGName=True
+        f.write("# Region file format: DS9 version 4.1\n")
+        ss0='global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=1 highlite=1 dash=0'
+        ss1=' fixed=0 edit=1 move=1 delete=1 include=1 source=1\n'
+        
+        f.write(ss0+ss1)
+        f.write("fk5\n")
+ 
+        xc=self.xnode
+        yc=self.ynode
+
+        xy=np.zeros((xc.size,2),np.float32)
+        xy[:,0]=xc.ravel()
+        xy[:,1]=yc.ravel()
+        vor = Voronoi(xy)
+        regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
+
+        self.CoordMachine=ModCoord.ClassCoordConv(rac,decc)
+
+        for region in regions:
+            polygon0 = vertices[region]
+            P=polygon0.tolist()
+            polygon=np.array(P+[P[0]])
+            ThisText=""
+
+            # lmean=np.mean(polygon[:,0])
+            # mmean=np.mean(polygon[:,1])
+            # xm,ym=self.CoordMachine.lm2radec(np.array([lmean]),np.array([mmean]))
+            # xm*=180./np.pi
+            # ym*=180./np.pi
+            # ThisText=str(labels[iFacet])
+            # f.write("point(%f,%f) # text={%s} point=circle 5 color=red width=2\n"%(xm,ym,ThisText))
+
+            for iline in range(polygon.shape[0]-1):
+                
+                x0,y0=self.CoordMachine.lm2radec(np.array([polygon[iline][0]]),np.array([polygon[iline][1]]))
+                x1,y1=self.CoordMachine.lm2radec(np.array([polygon[iline+1][0]]),np.array([polygon[iline+1][1]]))
+
+                x0*=180./np.pi
+                y0*=180./np.pi
+                x1*=180./np.pi
+                y1*=180./np.pi
+
+                f.write("line(%f,%f,%f,%f) # line=0 0 color=red dash=1\n"%(x0,y0,x1,y1))
+                #f.write("line(%f,%f,%f,%f) # line=0 0 color=red dash=1\n"%(x1,y0,x0,y1))
+            
+        f.close()
+
 
     def PlotTessel(self,extent=None):
         import pylab
