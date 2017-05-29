@@ -369,7 +369,6 @@ class ClassDDEGridMachine():
         # 0: scalar
         # 1: diag
         # 2: full
-        # DEPRICATED SWITCHES
         #if PolMode == "I":
         #    self.npol = 1
         #    self.PolMap = np.array([0, 5, 5, 0], np.int32)
@@ -380,6 +379,8 @@ class ClassDDEGridMachine():
         #    self.npol = 4
         #    self.PolMap = np.array([0, 1, 2, 3], np.int32)
         #    self.PolModeID = 1
+        #DEPRICATION:
+        #These are only to be used in the degridder, they are depricated for the gridder
 	self.npol = len(ExpectedOutputStokes)
 	self.SkyType=1
 	self.PolMap=np.array([0, 5, 5, 0], np.int32)
