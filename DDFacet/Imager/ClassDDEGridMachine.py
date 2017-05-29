@@ -381,9 +381,9 @@ class ClassDDEGridMachine():
         #    self.PolMap = np.array([0, 1, 2, 3], np.int32)
         #    self.PolModeID = 1
 	self.npol = len(ExpectedOutputStokes)
-	self.SkyType=99999
-	self.PolMap=np.zeros(0)
-	self.PolModeID=99999
+	self.SkyType=1
+	self.PolMap=np.array([0, 5, 5, 0], np.int32)
+	self.PolModeID=0
         self.Npix = Npix
 
         self.NFreqBands = NFreqBands
