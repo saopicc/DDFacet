@@ -12,4 +12,4 @@
 [submodule "montblanc"]
 	path = montblanc
 	url = git://github.com/ska-sa/montblanc.git
-	branch = dc3d501a84de4dcb5bc600e202dbdd08546d68a1
+	branch = 65ffb611f5376380cbed0e76624b25581e9f4e4d
