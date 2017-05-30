@@ -30,68 +30,48 @@ docker run --shm-size 6g -v /scratch/TEST_DATA:/mnt ddf /mnt/test-master1.parset
 ```
 Important: if you ran ```git submodule update --init --recursive``` before you may need to remove the cached SkyModel before building the docker image with ```git rm --cached SkyModel```
 
-## (Users): building and installing DDFacet from an Ubuntu 16.04 base
+## (Users) Virtual environment and pip:
+We prefer that endusers use DDFacet though the Docker. However, if this is not available (e.g. cluster
+environments) we recommend you use a virtual environment. If you install it directly into your system packages you're
+on your own -- be warned!!
 
-1. You need to add in the KERN 1 ppa if you don't already have it:
-
-    ```bash
-    add-apt-repository -y -s ppa:kernsuite/kern-1
-    ```
-
-2. Install each of the dependencies. The latest full list of apt dependencies can be be found in the [Dockerfile](https://github.com/cyriltasse/DDFacet/blob/master/Dockerfile)
-
-3. Then, clone the repository:
+1. You need to add in the KERN 2 ppa if you don't already have it:
 
     ```bash
-    git clone git@github.com:cyriltasse/DDFacet.git
+    add-apt-repository -y -s ppa:kernsuite/kern-2
     ```
 
-4. Once checked out you can run the following to pull module dependencies
+2. Install each of the debian dependencies. The latest full list of apt dependencies can be be found in the [Dockerfile](https://github.com/cyriltasse/DDFacet/blob/master/Dockerfile)
+
+3. Create a virtual environment somewhere on your system and activate:
+   ```bash
+   virtualenv --system-site-packages ddfacet
+   source ddfacet/bin/activate
+   ```
+   Adding the `--system-site-packages` directive ensures that the virtualenv has access to system packages (such as meqtrees).
+
+3. Then, install directly from the Python Package Index (PyPI) using pip - ensure your venv is activated:
 
     ```bash
-    git submodule update --init --recursive
+    pip install -U pip setuptools
+    pip install DDFacet --force-reinstall -U
     ```
 
-### Installation in user directory
-
-Important: ensure that ```$HOME/.local``` folder is in your ```PATH``` and ```$HOME/.local/lib/python2.7/site-packages``` is in ```PYTHONPATH``` if you want to install using ```--user```.
-
-Navigate to the directory below your checked out copy of DDFacet and run:
-
-```bash
-pip install DDFacet/ --user
-```
-
-This will install the DDF.py driver files to your .local/bin under Debian
-
-### Virtual Environment installation
-
-Alternatively, create a virtual environment, activate it and run the install. Under 14.04 the bootstrap virtual environment is helpful for upgrading the pip, setuptools and virtualenv packages to more recent (and correct) versions.
-
-```bash
-$ virtualenv $HOME/bootstrap
-$ source $HOME/bootstrap/bin/activate
-(bootstrap) $ pip install -U pip setuptools virtualenv
-(bootstrap) $ virtualenv --system-site-packages $HOME/ddfvenv
-$ deactive
-$ source $HOME/ddfvenv/bin/activate
-(ddfvenv) $ pip install DDFacet/
-```
-Adding the `--system-site-packages` directive ensures that the virtualenv has access to system packages (such as meqtrees).
-
-### Montblanc installation
-
-[Montblanc](https://github.com/ska-sa/montblanc) requires DDFacet to be installed in a virtual environment. A compatible
-version of montblanc is submoduled which can be installed using pip. **This section requires the DDFacet virtual
-environment to be activated and that you are in the DDFacet directory. Mind the '/'.**:
-
+4. When you're done with your imaging business
 
     ```bash
-    (ddfvenv) $ pip install montblanc/
+    deactivate
     ```
 
+### (Users/Optional) Montblanc and pyMORESANE installation
 
-## Configure max shared memory
+[Montblanc](https://github.com/ska-sa/montblanc) requires DDFacet to be installed in a virtual environment. **This section requires the DDFacet virtual environment to be activated and that you are in the DDFacet directory.**:
+
+    ```bash
+    (ddfvenv) $ pip install -r requirements.txt
+    ```
+
+## (Users/Troubleshooting) Configure max shared memory
 
 Running DDFacet on large images requires a lot of shared memory. Most systems limit the amount of shared memory to about 10%. To increase this limit add the following line to your ``/etc/default/tmpfs`` file:
 
@@ -112,32 +92,44 @@ be slower than usual.
 echo "*        -   memlock     unlimited" > /etc/security/limits.conf
 ```
 
-## (Developers): setting up your dev environment
+## (Developers/Recommended): setting up your dev environment
+**NOTE:Setup your virtual environment just as specified in the user section above. Ensure you activate!**
 
-### (easy) Build using setup.py
-To setup your local development environment navigate to the DDFacet directory and run
-```
+To setup your local development environment navigate clone DDFacet and run:
+
+```bash
+git clone https://github.com/cyriltasse/DDFacet
+cd DDFacet
 git submodule update --init --recursive
-python setup.py develop --user (to remove add a --uninstall option with this)
+cd ..
+pip install -e DDFacet/
+#To (re-)build the backend in your checked out folder:
+cd DDFacet
 python setup.py build
 
-IMPORTANT NOTE: You may need to remove the development version before running PIP when installing
 ```
-### (debugging) Build a few libraries (by hand with custom flags):
+**IMPORTANT NOTE: You may need to remove the development version before running PIP when installing**
+
+## (Developers/Debugging) Build a few libraries (by hand with custom flags):
+
+You can build against custom versions of libraries such is libPython and custom numpy versions.
+To do this modify setup.cfg. Find and modify the following lines:
 
 ```
-(cd DDFacet/ ; mkdir cbuild ; cd cbuild ; cmake -DCMAKE_BUILD_TYPE=Release .. ; make)
+compopts=-DENABLE_NATIVE_TUNING=ON -ENABLE_FAST_MATH=ON -DCMAKE_BUILD_TYPE=Release
 # or -DCMAKE_BUILD_TYPE=RelWithDebInfo for developers: this includes debugging symbols
-# or -DCMAKE_BUILD_TYPE=Debug to inspect the stacks using kdevelop
+# or -DCMAKE_BUILD_TYPE=Debug to inspect the stacks using kdevelop or something similar
+
 ```
 
-## Acceptance tests
+## (Developers/Acceptance tests)
 ### Paths
 Add this to your ``.bashrc``
 
 ```
 export DDFACET_TEST_DATA_DIR=[folder where you keep the acceptance test data and images]
 export DDFACET_TEST_OUTPUT_DIR=[folder where you want the acceptance test output to be dumped]
+
 ```
 
 ### To test your branch against the master branch using Jenkins
