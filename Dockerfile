@@ -12,7 +12,6 @@ ENV DDFACET_TEST_OUTPUT_DIR /test_output
 #Copy DDFacet and SkyModel into the image
 ADD DDFacet /src/DDFacet/DDFacet
 ADD SkyModel /src/DDFacet/SkyModel
-ADD montblanc /src/DDFacet/montblanc
 ADD MANIFEST.in /src/DDFacet/MANIFEST.in
 ADD requirements.txt /src/DDFacet/requirements.txt
 ADD setup.py /src/DDFacet/setup.py
