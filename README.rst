@@ -23,19 +23,15 @@ GNU General Public License for more details.
 
 (Users/Recommended) Docker-based installation
 ==========================================================
-    1. Simply pull the latest DDFacet and build the Docker image:
+1. Simply pull the latest DDFacet and build the Docker image::
 
-        
-        git clone git@github.com:cyriltasse/DDFacet.git
-        cd DDFacet
-        docker build -t ddf .
-        
+    git clone git@github.com:cyriltasse/DDFacet.git
+    cd DDFacet
+    docker build -t ddf .
 
-    2. You should now be able to run DDFacet in a container. Note that your parsets must have filenames relative to the mounted volume inside the container, for instance:
+2. You should now be able to run DDFacet in a container. Note that your parsets must have filenames relative to the mounted volume inside the container, for instance::
 
-        
-        docker run --shm-size 6g -v /scratch/TEST_DATA:/mnt ddf /mnt/test-master1.parset
-        
+    docker run --shm-size 6g -v /scratch/TEST_DATA:/mnt ddf /mnt/test-master1.parset
 
 **Important: if you ran ``git submodule update --init --recursive`` before you may need to remove the cached SkyModel before building the docker image with ``git rm --cached SkyModel``**
 
@@ -45,46 +41,47 @@ We prefer that users use DDFacet though the Docker. However, if this is not avai
 environments) we recommend you use a virtual environment. If you install it directly into your system packages you're
 on your own -- be warned!!
 
-    1. You need to add in the KERN 2 ppa if you don't already have it:
+1. You need to add in the KERN 2 ppa if you don't already have it::
 
-            add-apt-repository -y -s ppa:kernsuite/kern-2
+        add-apt-repository -y -s ppa:kernsuite/kern-2
 
-    2. Install each of the debian dependencies. The latest full list of apt dependencies can be be found in the Dockerfile <https://github.com/cyriltasse/DDFacet/blob/master/Dockerfile>
+2. Install each of the debian dependencies. The latest full list of apt dependencies can be be found in the Dockerfile <https://github.com/cyriltasse/DDFacet/blob/master/Dockerfile>
 
-    3. Create a virtual environment somewhere on your system and activate:
+3. Create a virtual environment somewhere on your system and activate::
 
-            virtualenv --system-site-packages ddfacet
-            source ddfacet/bin/activate
-   
-        Adding the `--system-site-packages` directive ensures that the virtualenv has access to system packages (such as meqtrees).
+        virtualenv --system-site-packages ddfacet
+        source ddfacet/bin/activate
+        
 
-    4. Then, install directly from the Python Package Index (PyPI) using pip - ensure your venv is activated:
+   Adding the `--system-site-packages` directive ensures that the virtualenv has access to system packages (such as meqtrees).
 
-            pip install -U pip setuptools
-            pip install DDFacet --force-reinstall -U
+4. Then, install directly from the Python Package Index (PyPI) using pip - ensure your venv is activated::
 
-    5. When you're done with your imaging business
-    
-            deactivate
+        pip install -U pip setuptools
+        pip install DDFacet --force-reinstall -U
+
+5. When you're done with your imaging business::
+
+        deactivate
         
 (Users/Optional) Montblanc and pyMORESANE installation
 ==========================================================
-Montblanc <https://github.com/ska-sa/montblanc> requires DDFacet to be installed in a virtual environment. **This section requires the DDFacet virtual environment to be activated and that you are in the DDFacet directory.**:
+Montblanc <https://github.com/ska-sa/montblanc> requires DDFacet to be installed in a virtual environment. **This section requires the DDFacet virtual environment to be activated and that you are in the DDFacet directory.**::
     
         (ddfvenv) $ pip install -r requirements.txt
 
 (Users/Troubleshooting) Configure max shared memory
 ==========================================================
-Running DDFacet on large images requires a lot of shared memory. Most systems limit the amount of shared memory to about 10%. To increase this limit add the following line to your ``/etc/default/tmpfs`` file:
+Running DDFacet on large images requires a lot of shared memory. Most systems limit the amount of shared memory to about 10%. To increase this limit add the following line to your ``/etc/default/tmpfs`` file::
 
         SHM_SIZE=100%
 
-A restart will be required for this change to reflect. If you would prefer a once off solution execute the following line
+A restart will be required for this change to reflect. If you would prefer a once off solution execute the following line::
 
         sudo mount -o remount,size=100% /run/shm
 
 It may also be necessary to run the following to remove the kernel security limit on mlock pinning. Without this things may
-be slower than usual.
+be slower than usual::
 
         echo "*        -   memlock     unlimited" > /etc/security/limits.conf
 
@@ -92,7 +89,7 @@ be slower than usual.
 ==========================================================
 **NOTE:Setup your virtual environment just as specified in the user section above. Ensure you activate!**
 
-To setup your local development environment navigate clone DDFacet and run:
+To setup your local development environment navigate clone DDFacet and run::
 
         (ddfvenv) $ git clone https://github.com/cyriltasse/DDFacet
         (ddfvenv) $ cd DDFacet
@@ -105,10 +102,10 @@ To setup your local development environment navigate clone DDFacet and run:
 
 **IMPORTANT NOTE: You may need to remove the development version before running PIP when installing**
 
-(Developers/Debugging) Build a few libraries (by hand with custom flags):
+(Developers/Debugging) Build a few libraries (by hand with custom flags)
 ==========================================================
 You can build against custom versions of libraries such is libPython and custom numpy versions.
-To do this modify setup.cfg. Find and modify the following lines:
+To do this modify setup.cfg. Find and modify the following lines::
 
     compopts=-DENABLE_NATIVE_TUNING=ON -ENABLE_FAST_MATH=ON -DCMAKE_BUILD_TYPE=Release
     # or -DCMAKE_BUILD_TYPE=RelWithDebInfo for developers: this includes debugging symbols
@@ -118,7 +115,7 @@ To do this modify setup.cfg. Find and modify the following lines:
 ==========================================================
 Paths
 ---------------------------------------------------------
-Add this to your ``.bashrc``
+Add this to your ``.bashrc``::
 
         export DDFACET_TEST_DATA_DIR=[folder where you keep the acceptance test data and images]
         export DDFACET_TEST_OUTPUT_DIR=[folder where you want the acceptance test output to be dumped]
