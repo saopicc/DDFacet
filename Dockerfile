@@ -1,5 +1,5 @@
 #From Ubuntu 16.04
-FROM kernsuite/base:1
+FROM kernsuite/base:2
 MAINTAINER Ben Hugo "bhugo@ska.ac.za"
 
 #Package dependencies
@@ -16,7 +16,8 @@ ADD montblanc /src/DDFacet/montblanc
 ADD MANIFEST.in /src/DDFacet/MANIFEST.in
 ADD requirements.txt /src/DDFacet/requirements.txt
 ADD setup.py /src/DDFacet/setup.py
-ADD README.md /src/DDFacet/README.md
+ADD setup.cfg /src/DDFacet/setup.cfg
+ADD README.rst /src/DDFacet/README.rst
 ADD .git /src/DDFacet/.git
 ADD .gitignore /src/DDFacet/.gitignore
 ADD .gitmodules /src/DDFacet/.gitmodules
@@ -58,7 +59,7 @@ ENV DEB_DEPENCENDIES \
 
 RUN apt-get update && \
     apt-get install -y software-properties-common && \
-    add-apt-repository -y -s ppa:kernsuite/kern-1 && \
+    add-apt-repository -y -s ppa:kernsuite/kern-2 && \
     apt-add-repository -y multiverse && \
     apt-get update && \
     apt-get install -y $DEB_SETUP_DEPENDENCIES && \
@@ -71,8 +72,8 @@ RUN apt-get update && \
     . /ddfvenv/bin/activate && \
     # Install DDFacet
     pip install -I --force-reinstall --no-binary :all: /src/DDFacet/ && \
-    # Install Montblanc
-    pip install /src/DDFacet/montblanc/ && \
+    # Install Montblanc and all other optional dependencies
+    pip install -r /src/DDFacet/requirements.txt && \
     # Nuke the unused & cached binaries needed for compilation, etc.
     rm -r /src/DDFacet && \
     apt-get remove -y $DEB_SETUP_DEPENDENCIES && \
