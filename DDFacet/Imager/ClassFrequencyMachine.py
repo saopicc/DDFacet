@@ -184,6 +184,7 @@ class ClassFrequencyMachine(object):
 
         # Re-weight the alphas according to flux of model component
         self.weighted_alpha_map = self.alpha_map*self.Iref
+        #print self.weighted_alpha_map.min(), self.weighted_alpha_map.max()
 
         # Create a dict to store model components spi's
         self.alpha_dict = {}
@@ -289,6 +290,11 @@ class ClassFrequencyMachine(object):
 
         # Fit and evaluate GP
         coeffs, thetaf = self.GP.RR_EvalGP(theta, Vals)
+
+        # if (coeffs <= 1.0e-8).all():
+        #     print "Something went wrong with GPR"
+        #     print self.GP.SolverFlag
+        #     print thetaf
 
         return coeffs
 

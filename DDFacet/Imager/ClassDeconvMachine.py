@@ -1354,7 +1354,7 @@ class ClassImagerDeconv():
         # after we don't need them anymore.
 
         _images = shared_dict.create("OutputImages")
-
+        _final_RMS = {}
         def sqrtnorm():
             label = 'sqrtnorm'
             if label not in _images:
@@ -1472,13 +1472,22 @@ class ClassImagerDeconv():
                 _images.addSharedArray(label, intmodel().shape, np.float32)
                 _images[label] = ModelMachine.FreqMachine.Iref.reshape(intmodel().shape)
             return _images[label]
+        def give_final_RMS():
+            try:
+                return _final_RMS["RMS"]
+            except:
+                _final_RMS["RMS"] = np.std(intres().ravel())
+                return _final_RMS["RMS"]
         def weighted_alphamap():
             label = 'weighted_alphamap'
             if label not in _images:
                 _images.addSharedArray(label, intmodel().shape, np.float32)
-                RMSthreshold = self.GD["Freq"]["alphathreshold"]
-                _images[label] = ModelMachine.GiveSpectralIndexMap(threshold=self.DeconvMachine.RMS*RMSthreshold)
-                #_images["posintmod"] = ModelMachine.FreqMachine.Iref.reshape(intmodel().shape)
+                # compute the RMS of the final residual
+                RMS = give_final_RMS()
+                # get the RMS threshold
+                RMSthreshold = self.GD["Output"]["alphathreshold"]
+                _images[label] = ModelMachine.GiveSpectralIndexMap(threshold=RMS*RMSthreshold)
+                _images['posintmod'] = ModelMachine.FreqMachine.Iref.reshape(intmodel().shape)
             return _images[label]
         def alphamap():
             label = 'alphamap'
@@ -1490,24 +1499,28 @@ class ClassImagerDeconv():
             label = 'alphaconvmap'
             if label not in _images:
                 # Get weighted alpha map
-                a = _images.addSharedArray("weighted_alphamap", weighted_alphamap().shape, np.float32)
+                a = _images.addSharedArray('alphaconvmap', weighted_alphamap().shape, np.float32)
                 # Convolve with Gaussian
                 ModFFTW.ConvolveGaussian(weighted_alphamap(), CellSizeRad=self.CellSizeRad,
                                          GaussPars=[self.PSFGaussParsAvg], out=a)
                 # Get positive part of restored image
-                b = _images.addSharedArray("posconvmod", alphamap().shape, np.float32)
+                b = _images.addSharedArray('posconvmod', alphamap().shape, np.float32)
                 ModFFTW.ConvolveGaussian(posintmod(), CellSizeRad=self.CellSizeRad,
                                          GaussPars=[self.PSFGaussParsAvg], out=b)
                 c = intconvmodel()
                 # Get mask based on restored image and positive restored image
-                I1 = c[0, 0, :, :] > 20*self.DeconvMachine.RMS
-                I2 = b[0, 0, :, :] > 20*self.DeconvMachine.RMS
+                RMS = give_final_RMS()
+                RMSmaskfact = self.GD["Output"]["alphamaskthreshold"]
+                I1 = c[0, 0, :, :] > RMSmaskfact*RMS
+                I2 = b[0, 0, :, :] > RMSmaskfact*RMS
                 IC = I1 & I2
                 I = np.argwhere(IC)
+                #print I.size
                 ix = I[:,0]
                 iy = I[:,1]
                 d = np.zeros_like(a)
                 d[0, 0, ix, iy] = a[0, 0, ix, iy]/b[0, 0, ix, iy]
+                #print a.min(), a.max()
                 _images.addSharedArray(label, alphamap().shape, np.float32)
                 _images[label] = d
                 T.timeit(label)
@@ -1604,12 +1617,12 @@ class ClassImagerDeconv():
 
         # Alpha image
         if "A" in self._saveims and self.VS.MultiFreqMode:
-            _images["alphaconvmap"] = alphaconvmap()
-            APP.runJob("save:alphaconv", self._saveImage_worker, io=0, args=(_images.readwrite(), "alphaconvmap",), kwargs=dict(
+            _images['alphaconvmap'] = alphaconvmap()
+            APP.runJob("save:alphaconv", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphaconvmap',), kwargs=dict(
                 ImageName="%s.alphaconv" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-            _images["alphamap"] = alphamap()
-            APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), "alphamap",), kwargs=dict(
+            _images['alphamap'] = alphamap()
+            APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphamap',), kwargs=dict(
                 ImageName="%s.alpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
