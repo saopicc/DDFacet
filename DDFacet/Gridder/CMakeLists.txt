@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 set(BUILD_SHARED_LIBS ON) #we always want shared libs out of this for python extensions
 
-option(ENABLE_NATIVE_TUNING "Enables support for optimized code generation (-march=native)" ON)
-option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" ON)
+option(ENABLE_NATIVE_TUNING "Enables support for optimized code generation (-march=native)" OFF)
+option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" OFF)
 
 if (${ENABLE_NATIVE_TUNING})
   set(TUNING_FLAGS "-march=native -mtune=native")

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 '''
 DDFacet, a facet-based radio imaging package
-Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+Copyright (C) 2013-2017  Cyril Tasse, l'Observatoire de Paris,
 SKA South Africa, Rhodes University
 
 This program is free software; you can redistribute it and/or
@@ -24,8 +24,10 @@ import os
 import warnings
 from setuptools import setup
 from setuptools.command.install import install
+from setuptools.command.sdist import sdist
 from distutils.command.build import build
 from os.path import join as pjoin
+import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
@@ -52,15 +54,9 @@ def get_version():
 
     return version_git
 
-def readme():
-    with open(os.path.join(build_root, 'README.md')) as f:
-        return f.read()
-
-def requirements():
-    with open(os.path.join(build_root, 'requirements.txt')) as f:
-        return [pname.strip() for pname in f.readlines()]
-
-def backend():
+def backend(compile_options):
+    if compile_options is not None:
+        print >> sys.stderr, "Compiling extension libraries with user defined options: '%s'"%compile_options
     path = pjoin(build_root, pkg, 'cbuild')
     try:
         subprocess.check_call(["mkdir", path])
@@ -68,35 +64,39 @@ def backend():
         warnings.warn("%s already exists in your source folder. We will not create a fresh build folder, but you "
                       "may want to remove this folder if the configuration has changed significantly since the "
                       "last time you run setup.py" % path)
-    subprocess.check_call(["cd %s && cmake .. && make" % path, ""], shell=True)
+    subprocess.check_call(["cd %s && cmake %s .. && make" %
+                           (path, compile_options if compile_options is not None else ""), ""], shell=True)
 
 class custom_install(install):
+    install.user_options = install.user_options + [
+        ('compopts=', None, 'Any additional compile options passed to CMake')
+    ]
+    def initialize_options(self):
+        install.initialize_options(self)
+        self.compopts = None
+
     def run(self):
-        backend()
+        backend(self.compopts)
         install.run(self)
 
 class custom_build(build):
+    build.user_options = build.user_options + [
+        ('compopts=', None, 'Any additional compile options passed to CMake')
+    ]
+    def initialize_options(self):
+        build.initialize_options(self)
+        self.compopts = None
+
     def run(self):
-        backend()
+        backend(self.compopts)
         build.run(self)
 
-def src_pkg_dirs(pkg_name):
-    mbdir = os.path.join(build_root, pkg_name)
-    # Ignore
-    pkg_dirs = []
-    l = len(mbdir) + len(os.sep)
-    exclude = ['docs', '.git', '.svn', 'CMakeFiles']
-    for root, dirs, files in os.walk(mbdir, topdown=True):
-        # Prune out everything we're not interested in
-        # from os.walk's next yield.
-        dirs[:] = [d for d in dirs if d not in exclude]
-
-        for d in dirs:
-            # OK, so everything starts with 'DDFacet/'
-            # Take everything after that ('src...') and
-            # append a '/*.*' to it
-            pkg_dirs.append(os.path.join(root[l:], d, '*.*'))
-    return pkg_dirs
+class custom_sdist(sdist):
+    def run(self):
+        bpath = pjoin(build_root, pkg, 'cbuild')
+        if os.path.isdir(bpath):
+            subprocess.check_call(["rm", "-rf", bpath])
+        sdist.run(self)
 
 def define_scripts():
     #these must be relative to setup.py according to setuputils
@@ -105,25 +105,46 @@ def define_scripts():
 setup(name=pkg,
       version=get_version(),
       description='Facet-based radio astronomy continuum imager',
-      long_description=readme(),
       url='http://github.com/cyriltasse/DDFacet',
       classifiers=[
         "Development Status :: 3 - Alpha",
-        "Intended Audience :: Developers",
-        "License :: Other/Proprietary License",
-        "Operating System :: OS Independent",
+        "Intended Audience :: Science/Research",
+        "License :: GNU General Public License v2 (GPLv2)",
+        "Operating System :: POSIX :: Linux",
         "Programming Language :: Python",
-        "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Scientific/Engineering :: Astronomy"],
       author='Cyril Tasse',
       author_email='cyril.tasse@obspm.fr',
-      license='Closed source',
+      license='GNU GPL v2',
       cmdclass={'install': custom_install,
-                'build': custom_build},
-      packages=[pkg,skymodel_pkg],
-      install_requires=requirements(),
-      package_data={pkg: src_pkg_dirs(pkg),
-                    skymodel_pkg: src_pkg_dirs(skymodel_pkg)},
+                'build': custom_build,
+                'sdist': custom_sdist,
+               },
+      packages=[pkg, skymodel_pkg],
+      install_requires=[
+            "Cython == 0.25.2",
+            "numpy == 1.13.0rc2",
+            "SharedArray == 2.0.2",
+            "Polygon2 == 2.0.8",
+            "pyFFTW == 0.10.4",
+            "nose == 1.3.7",
+            "astropy == 1.3.3",
+            "deap == 1.0.1", #invalid release tag on v1.0.2 refuse to use
+            "ipdb == 0.10.3",
+            "python-casacore == 2.1.2",
+            "pyephem == 3.7.6.0",
+            "numexpr == 2.6.2",
+            "pyfits == 3.4",
+            "matplotlib == 2.0.2",
+            "scipy == 0.19.0",
+            "astro-kittens == 0.3.3",
+            "meqtrees-cattery == 1.5.1",
+            "owlcat == 1.4.2",
+            "astLib == 0.8.0",
+            "psutil == 5.2.2",
+            "astro-tigger == 1.3.5",
+            "py-cpuinfo == 3.2.0",
+      ],
       include_package_data=True,
       zip_safe=False,
       scripts=define_scripts()
