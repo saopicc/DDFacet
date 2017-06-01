@@ -19,7 +19,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import numpy as np
-from DDFacet.ToolsDir import ClassGP
+from DDFacet.ToolsDir import ClassRRGP
+import matplotlib.pyplot as plt
+from DDFacet.Other import MyPickle
 
 class ClassFrequencyMachine(object):
     """
@@ -27,7 +29,8 @@ class ClassFrequencyMachine(object):
     For the alpha map the fit happens in log space.
         Initialisation:
                 ModelCube   = A cube containing the model image with shape [NChannel,NPol,Npix,Npix]
-                Freqs       = The Frequencies corresponding to the model image
+                Freqs       = The gridding frequencies
+                Freqsp      = The degridding frequencies
                 ref_freq    = The reference frequency
         Methods:
                 getFitMask  : Creates a mask to fit models to
@@ -39,10 +42,11 @@ class ClassFrequencyMachine(object):
                 FitGP       : Fits a Gaussian process to the spectral axis of the model image to pixels above a user specified threshold
 
     """
-    def __init__(self, Freqs, ref_freq, order=None):
+    def __init__(self, Freqs, Freqsp, ref_freq, GD=None):
         self.Freqs = np.asarray(Freqs)
+        self.Freqsp = np.asarray(Freqsp)
         self.nchan = self.Freqs.size
-        #print "nchan =", self.nchan
+        #print "Nchan =", self.nchan
         # # Get Stokes parameters
         # self.IStokes = ModelCube[:, 0, :, :]
         # if self.npol > 1:
@@ -53,37 +57,44 @@ class ClassFrequencyMachine(object):
         #     self.VStokes = ModelCube[:, 3, :, :]
         # self.ModelCube = ModelCube
         self.ref_freq = ref_freq
-        if order is not None:
-            self.order = order
-        else:
-            self.order = 3
-        self.Xdes = self.setDesMat(self.Freqs, order=self.order)
-        self.AATinvAT = np.dot(np.linalg.inv(self.Xdes.T.dot(self.Xdes)), self.Xdes.T) # This is required to perform the sudo inverse
+        self.GD = GD
+        self.set_Method(mode=self.GD["Hogbom"]["FreqMode"])
 
-    def getFitMask(self, Threshold=0.0, SetNegZero=False, PolMode='I'):
+    def set_Method(self, mode="Poly"):
+        if mode == "Poly":
+            self.order = self.GD["Hogbom"]["PolyFitOrder"]
+            self.Xdes = self.setDesMat(self.Freqs, order=self.order)
+            self.AATinvAT = np.dot(np.linalg.inv(self.Xdes.T.dot(self.Xdes)),self.Xdes.T)  # Required for sudo inverse
+            #print "PI shape = ", self.AATinvAT.shape
+            # Set the fit and eval methods
+            self.Fit = lambda vals: self.FitPoly(vals)
+            self.Eval = lambda coeffs : self.EvalPoly(coeffs, Freqsp=self.Freqs)
+            self.Eval_Degrid = lambda coeffs, Freqs : self.EvalPoly(coeffs, Freqsp=Freqs)
+        elif mode == "GPR":
+            # Instantiate the GP
+            self.GP = ClassRRGP.RR_GP(self.Freqs/self.ref_freq,self.Freqsp/self.ref_freq,self.GD["Hogbom"]["MaxLengthScale"],self.GD["Hogbom"]["NumBasisFuncs"])
+            # Set default initial length scale
+            self.l0 = (self.GP.x.max() - self.GP.x.min()) / 2
+            # Set the fit and eval methods
+            self.Fit = lambda vals: self.FitGP(vals)
+            self.Eval = lambda coeffs : self.EvalGP(coeffs, Freqsp=self.Freqs)
+            self.Eval_Degrid = lambda coeffs, Freqs : self.EvalGP(coeffs, Freqsp=Freqs)
+
+    def getFitMask(self, FitCube, Threshold=0.0, SetNegZero=False):
         """
         Args:
+            FitCube     = The cube to fit an alpha map to
             Threshold   = The threshold above which to fit. Defaults to zero.
             SetNegZero  = Whether to set negative pixels to zero. This is required if we want to fit the alhpa map for example. Defaults to False. Only use with PolMode = 'I'
-            PolMode     = Which Stokes parameter to mask. Defaults to I.
         Returns:
             FitMask     = A 0/1 mask image
             MaskIndices = The indices at which the mask is non-zero (i.e. the mask is extracted at the indices MaskIndices[:,0],MaskIndices[:,1])
         """
-        if PolMode == "I":
-            if SetNegZero:
+        # Remove redundant axis
+        if SetNegZero:
                 # Find negative indices (these are just set to zero for now)
-                ineg = np.argwhere(self.IStokes < 0.0)
-                FitCube = self.IStokes
+                ineg = np.argwhere(FitCube < 0.0)
                 FitCube[ineg[:, 0], ineg[:, 1], ineg[:, 2]] = 0.0
-            else:
-                FitCube = self.IStokes
-        elif PolMode == "Q":  # For anything but I we will have to figure out how to use the threshold. Maybe using abs value?
-            FitCube = self.QStokes
-        elif PolMode == "U":
-            FitCube = self.UStokes
-        elif PolMode == "V":
-            FitCube = self.VStokes
 
         # Find where I is above threshold (in any frequency band)
         FitMax = np.amax(FitCube,axis=0)
@@ -117,30 +128,32 @@ class ClassFrequencyMachine(object):
             raise NotImplementedError("mode %s not supported" % mode)
         return Xdesign
 
-    def FitAlphaMap(self,threshold=0.1,order=None):
+    def FitAlphaMap(self, FitCube, threshold=0.1):
         """
         Here we fit a spectral index model to each pixel in the model image above threshold. Note only positive pixels can be used.
         Args:
+            FitCube     = The cube to fit the alpha map to ; shape = [Nch, Nx,Ny]
             threshold   = The threshold above which to fit the model
-            order       = The order of the spectral model fit. The default is to fit I(v) = I(v_0) (v/v_0)**alpha but we can also
-                        allow for spectral curvature etc. by doing a higher order fit in log space (i.e. order = 3 gives spectral
-                        curvature).
         """
-        if order is None:
-            order = self.order        # Get the mask and mask indices
-        IMask,MaskInd = self.getFitMask(Threshold=threshold, SetNegZero=True, PolMode="I")
+        # Get size of image
+        nchan = FitCube.shape[0]
+        Nx = FitCube.shape[1]
+        Ny = FitCube.shape[2]
+
+        # Get the > 0 components
+        IMask,MaskInd = self.getFitMask(FitCube, Threshold=threshold, SetNegZero=True)
         ix = MaskInd[:, 0]
         iy = MaskInd[:, 1]
 
         # Get array to fit model to
         nsource = ix.size
-        IFlat = IMask.reshape([self.nchan, nsource])
+        IFlat = IMask.reshape([nchan, nsource])
 
         # Get the model Image as a function of frequency at all these locations
         logI = np.log(IFlat)
 
         # Create the design matrix
-        XDes = self.setDesMat(self.Freqs, order=order, mode="log")
+        XDes = self.setDesMat(self.Freqsp, order=2, mode="log")
 
         # Solve the system
         Sol = np.dot(np.linalg.inv(XDes.T.dot(XDes)), np.dot(XDes.T, logI))
@@ -149,15 +162,19 @@ class ClassFrequencyMachine(object):
         alpha = Sol[1::,:]
         #self.alpha = alpha
         # Create the alpha map
-        self.alpha_map = np.zeros([self.Nx, self.Ny])
-        self.alpha_map[ix, iy] = alpha[:, 0]
+        self.alpha_map = np.zeros([Nx, Ny])
+        if int(np.version.version.split('.')[1]) > 9: #check numpy version > 9 (broadcasting fails for
+            self.alpha_map[ix, iy] = alpha
+        else:
+            for j in xrange(ix.size):
+                self.alpha_map[ix[j],iy[j]] = alpha[j]
 
-        # Get I0 map
-        self.Iref = np.zeros([self.Nx, self.Ny])
-        self.Iref[ix, iy] = np.exp(logIref)
+        # # Get I0 map
+        # self.Iref = np.zeros([Nx, Ny])
+        # self.Iref[ix, iy] = np.exp(logIref)
         return
 
-    def EvalAlphamap(self,Freqs):
+    def EvalAlphamap(self, Freqs):
         """
 
         Args:
@@ -170,7 +187,8 @@ class ClassFrequencyMachine(object):
         w = Freqs/self.ref_freq
         nfreqs = Freqs.size
         # Reconstruct the model
-        IM = np.zeros([nfreqs, self.Nx, self.Ny])
+        Nx, Ny = self.alpha_map.shape
+        IM = np.zeros([nfreqs, Nx, Ny])
         for i in xrange(nfreqs):
             IM[i, :, :] = self.Iref*w[i]**self.alpha_map
         return IM
@@ -188,7 +206,7 @@ class ClassFrequencyMachine(object):
         """
         return np.dot(self.AATinvAT, Vals)
 
-    def EvalPoly(self,coeffs,Freqs=None):
+    def EvalPoly(self, coeffs, Freqsp=None):
         """
         Evaluates a polynomial at Freqs with coefficients coeffs
         Args:
@@ -197,64 +215,23 @@ class ClassFrequencyMachine(object):
         Returns:
             The polynomial evaluated at Freqs
         """
-        if Freqs is None:
-            Freqs = self.Freqs
-        order = coeffs.size
-        Xdes = self.setDesMat(Freqs, order=order)
-        # evaluate poly and return result
-        return np.dot(Xdes, coeffs)
+        if np.all(Freqsp == self.Freqs):
+            # Here we don't need to reset the design matrix
+            return np.dot(self.Xdes, coeffs)
+        elif np.all(Freqsp == self.Freqsp):
+            # Here we do
+            order = coeffs.size
+            Xdes = self.setDesMat(Freqsp, order=order)
+            # evaluate poly and return result
+            return np.dot(Xdes, coeffs)
+        elif np.all(Freqsp == self.ref_freq):
+            order = coeffs.size
+            Xdes = self.setDesMat(Freqsp, order=order)
+            return np.dot(Xdes, coeffs)
 
-    def FitPolyCube(self, deg=4, threshold = 0.0, PolMode = "I", weights="Default"):
+    def FitGP(self,Vals):
         """
-        Fits polynomial of degree=deg with weights=weights to each pixel in the model image above threshold
-        """
-        # Set weights to identity if default
-        if weights == "Default":
-            weights = np.ones(deg)
-
-        if deg > self.nchan:
-            print "Warning: The degree of the polynomial should not be greater than the number of bands/channels. The system is ill conditioned"
-            deg = self.nchan
-
-        # Initialise array to store coefficients
-        self.coeffs = np.zeros([deg, self.Nx, self.Ny])
-
-        #Get the fit mask
-        IMask, MaskInd = self.getFitMask(Threshold=0.0, SetNegZero=False, PolMode="I")
-        ix = MaskInd[:, 0]
-        iy = MaskInd[:, 1]
-
-        # Get array to fit model to
-        nsource = ix.size
-        IFlat = IMask.reshape([self.nchan,nsource])
-
-        # Create the design matrix
-        XDes = self.setDesMat(order=deg, mode="Normal")
-
-        # Solve the system
-        Sol = np.dot(np.linalg.inv(XDes.T.dot(XDes)), np.dot(XDes.T, IFlat))
-
-        print Sol
-
-        self.coeffs[:, ix, iy] = Sol
-        return
-
-
-    def EvalPolyCube(self, Freqs):  # ,Ix,Iy
-        """
-        Evaluates the polynomial at locations (Ix,Iy) and frequencies Freqs
-        """
-        # Get the degree of the polynomial
-        deg, _, _, _ = self.coeffs.shape
-        w = Freqs / self.ref_freq
-        tmp = self.coeffs[0, :, :]
-        for i in xrange(1, deg):
-            tmp += self.coeffs[i, :, :] * w[:, np.newaxis, np.newaxis] ** deg
-        return tmp
-
-    def FitGP(self,Freqs):
-        """
-        Here we fit a GP to the frequency axis of the model cube to pixels above a certain threshold
+        Here we fit a reduced rank GP to the frequency axis
         Args:
             Freqs       = The frequencies at which to evulaute the GP
 
@@ -262,60 +239,22 @@ class ClassFrequencyMachine(object):
             IM          = The model image at Freqs
 
         """
-        # Initialise GP
-        GP = ClassGP.ClassGP(self.Freqs,Freqs)
+        # Set initial guess for hypers
+        sigmaf0 = np.maximum(Vals.max() - Vals.min(), 1.1e-5)
+        sigman0 = np.maximum(np.var(Vals), 1.1e-4)
+        theta = np.array([sigmaf0, self.l0, sigman0])
 
-        # Get the mask
-        IMask,MaskInd = self.getFitMask(Threshold=0.0, SetNegZero=False, PolMode="I")
-        ix = MaskInd[:, 0]
-        iy = MaskInd[:, 1]
+        # Fit and evaluate GP
+        coeffs, thetaf = self.GP.RR_EvalGP(theta, Vals)
 
-        # Get array to fit model to
-        nsource = ix.size
-        Iflat = IMask.reshape([self.nchan,nsource])
+        return coeffs
 
-        # Set initial guess for theta
-        theta = np.ones(3)
-
-        # Create storage arrays
-        IMFlat = np.zeros([Freqs.size, nsource])
-        IM = np.zeros([Freqs.size, self.Nx, self.Ny])
-        for i in xrange(nsource):
-            IMFlat[:, i] = GP.EvalGP(Iflat[:, i], theta)
-        # Get model in 2D shape
-        IM[:, ix, iy] = IMFlat
-        return IM
-
-
-def testFM():
-    #Create array to hold model image
-    N = 100
-    Nch = 10
-    IM = np.zeros([Nch,1,N,N])
-
-    # Choose some random indices to populate
-    nsource = 25
-    ix = np.random.randint(0, N, nsource)
-    iy = np.random.randint(0, N, nsource)
-
-    #Populate model
-    IM[:,:,ix,iy] = 1.0
-
-    #Set frequencies
-    Freqs = np.linspace(1.0,3.0,Nch)
-    ref_freq = 2.0
-
-    #Create frequency machine
-    fmachine = ClassFrequencyMachine(IM,Freqs,ref_freq)
-
-    #Fit an alpha map (should be getting all zeros)
-    #fmachine.FitAlphaMap(threshold=0.1,order=2)
-
-    #print np.exp(fmachine.logIref), fmachine.alpha
-
-    # Fit the polynomial
-    fmachine.FitPolyCube(4,0.1)
-
-
-
-    return
+    def EvalGP(self, coeffs, Freqsp=None):
+        if np.all(Freqsp == self.Freqs):
+            return self.GP.RR_From_Coeffs(coeffs)
+        elif np.all(Freqsp == self.Freqsp):
+            return self.GP.RR_From_Coeffs_Degrid(coeffs)
+        elif np.all(Freqsp == self.ref_freq):
+            return self.GP.RR_From_Coeffs_Degrid_ref(coeffs)
+        else:
+            raise NotImplementedError('GPR mode only predicts to GridFreqs, DegridFreqs and ref_freq')

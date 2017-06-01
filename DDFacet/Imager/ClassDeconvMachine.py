@@ -419,7 +419,7 @@ class ClassImagerDeconv():
         """
         if self.DicoImagesPSF is not None:
             return
-
+ 
         cachepath, valid, writecache = self._checkForCachedPSF(sparsify)
 
 
@@ -442,6 +442,9 @@ class ClassImagerDeconv():
                 # note that collectLoadedChunk() will destroy the current DATA dict, so we must make sure
                 # the gridding jobs of the previous chunk are finished
                 self.FacetMachinePSF.collectGriddingResults()
+                # Polarization psfs is not going to be supported. We can only make dirty maps
+                if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
+                    raise RuntimeError("Unsupported: Polarization PSF creation is not defined")
                 # get loaded chunk from I/O thread, schedule next chunk
                 # self.VS.startChunkLoadInBackground()
                 DATA = self.VS.collectLoadedChunk(start_next=True)
@@ -685,11 +688,12 @@ class ClassImagerDeconv():
 
     def GivePredict(self,from_fits=True):
         print>>log, ModColor.Str("============================== Making Predict ==============================")
+        
         if not self.GD["Predict"]["ColName"]:
             raise ValueError("--Predict-ColName must be set")
         if not self.GD["Predict"]["FromImage"] and not self.GD["Predict"]["InitDicoModel"]:
             raise ValueError("--Predict-FromImage or --Predict-InitDicoModel must be set")
-
+	
         # tell the I/O thread to go load the first chunk
         self.VS.ReInitChunkCount()
         self.VS.startChunkLoadInBackground()
@@ -736,6 +740,8 @@ class ClassImagerDeconv():
             # get loaded chunk from I/O thread, schedule next chunk
             # self.VS.startChunkLoadInBackground()
             DATA = self.VS.collectLoadedChunk(start_next=True)
+            if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
+                raise RuntimeError("Unsupported: Polarization prediction is not defined")
             if type(DATA) is str:
                 print>> log, ModColor.Str("no more data: %s" % DATA, col="red")
                 break
@@ -857,6 +863,10 @@ class ClassImagerDeconv():
             print>> log, "applying a sparsification factor of %f to data for dirty image" % sparsify
         self.GiveDirty(psf=True, sparsify=sparsify)
 
+        # Polarization clean is not going to be supported. We can only make dirty maps
+        if self.VS.StokesConverter.RequiredStokesProducts() != ['I']:
+            raise RuntimeError("Unsupported: Polarization cleaning is not defined")
+
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
             self.FacetMachinePSF.releaseGrids()
@@ -865,11 +875,14 @@ class ClassImagerDeconv():
         #Pass minor cycle specific options into Init as kwargs
         self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
                                 approx=(sparsify > approximate_psf_above), cache=not sparsify,
-                                GridFreqs=self.VS.FreqBandCenters)
+                                GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
+                                RefFreq=self.VS.RefFreq)
 
         continue_deconv = True
 
         for iMajor in range(1, NMajor+1):
+            # good to recreate the workers now, to drop their RAM
+            APP.restartWorkers()
             # previous minor loop indicated it has reached bottom? Break out
             if not continue_deconv:
                 break

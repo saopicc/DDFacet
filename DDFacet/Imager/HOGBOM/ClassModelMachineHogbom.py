@@ -33,9 +33,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # self.DicoSMStacked["AllFreqs"] = np.array(AllFreqs)
 
 
-    def setFreqMachine(self,GridFreqs, order):
+    def setFreqMachine(self,GridFreqs, DegridFreqs):
         # Initiaise the Frequency Machine
-        self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, self.DicoSMStacked["RefFreq"], order=order)
+        self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoSMStacked["RefFreq"], self.GD)
+        #print "Grid freqs size = ", GridFreqs.size
+        #print "Degrid freqs size =", DegridFreqs.size
 
 
     def ToFile(self, FileName, DicoIn=None):
@@ -99,6 +101,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         Weight = 1.
         Gain = self.GainMachine.GiveGain()
 
+        #tmp = Sols.ravel()
         SolNorm = Sols.ravel() * Gain * np.mean(Fpol)
 
         DicoComp[key]["SumWeights"][pol_array_index] += Weight
@@ -126,42 +129,48 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             for pol in range(npol):
                 Sol = DicoComp[key]["SolsArray"][:, pol]  # /self.DicoSMStacked[key]["SumWeights"]
                 x, y = key
-
-                ModelImage[:, pol, x, y] += self.FreqMachine.EvalPoly(Sol, FreqIn)
+                #tmp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
+                ModelImage[:, pol, x, y] += self.FreqMachine.Eval_Degrid(Sol, FreqIn)
 
         return ModelImage
 
     def GiveSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6):
-        dFreq = 1e6
+        # Get the model image
+        IM = self.GiveModelImage(self.FreqMachine.Freqsp)
+        nchan, npol, Nx, Ny = IM.shape
+
+        # Fit the alpha map
+        self.FreqMachine.FitAlphaMap(IM[:, 0, :, :], threshold=0.1) # should set threshold based on SNR (level of final residual?)
+
+        # Get the alpha map (we could convolve with a Gaussian here maybe?)
+        return self.FreqMachine.alpha_map.reshape((1, 1, Nx, Ny))
+
         # f0 = self.DicoSMStacked["AllFreqs"].min()
         # f1 = self.DicoSMStacked["AllFreqs"].max()
-        RefFreq=self.DicoSMStacked["RefFreq"]
-        f0=RefFreq/1.5
-        f1=RefFreq*1.5
-        M0 = self.GiveModelImage(f0)
-        M1 = self.GiveModelImage(f1)
-        if DoConv:
-            M0 = ModFFTW.ConvolveGaussian(M0, CellSizeRad=CellSizeRad, GaussPars=GaussPars)
-            M1 = ModFFTW.ConvolveGaussian(M1, CellSizeRad=CellSizeRad, GaussPars=GaussPars)
-
-        # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
-        minmod = float("%.1e" % (abs(M0.max()) / MaxDR))
-        # mask out pixels above threshold
-        mask = (M1 < minmod) | (M0 < minmod)
-        print>> log, "computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)" % (
-        minmod, MaxDR)
-        with np.errstate(invalid='ignore'):
-            alpha = (np.log(M0) - np.log(M1)) / (np.log(f0 / f1))
-        alpha[mask] = 0
-        # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
-        mask = alpha > MaxSpi
-        alpha[mask] = MaxSpi
-        masked = mask.any()
-        mask = alpha < -MaxSpi
-        alpha[mask] = -MaxSpi
-        if masked or mask.any():
-            print>> log, ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them." % MaxSpi, col="red")
-        return alpha
+        # M0 = self.GiveModelImage(f0)
+        # M1 = self.GiveModelImage(f1)
+        # if DoConv:
+        #     M0 = ModFFTW.ConvolveGaussian(M0, CellSizeRad=CellSizeRad, GaussPars=GaussPars)
+        #     M1 = ModFFTW.ConvolveGaussian(M1, CellSizeRad=CellSizeRad, GaussPars=GaussPars)
+        #
+        # # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
+        # minmod = float("%.1e" % (abs(M0.max()) / MaxDR))
+        # # mask out pixels above threshold
+        # mask = (M1 < minmod) | (M0 < minmod)
+        # print>> log, "computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)" % (
+        # minmod, MaxDR)
+        # with np.errstate(invalid='ignore'):
+        #     alpha = (np.log(M0) - np.log(M1)) / (np.log(f0 / f1))
+        # alpha[mask] = 0
+        # # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
+        # mask = alpha > MaxSpi
+        # alpha[mask] = MaxSpi
+        # masked = mask.any()
+        # mask = alpha < -MaxSpi
+        # alpha[mask] = -MaxSpi
+        # if masked or mask.any():
+        #     print>> log, ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them." % MaxSpi, col="red")
+        # return alpha
 
     def PutBackSubsComps(self):
         # if self.GD["Data"]["RestoreDico"] is None: return

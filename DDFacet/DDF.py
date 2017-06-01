@@ -23,6 +23,8 @@ import os
 # we will set our own settings up later on
 os.environ["OMP_NUM_THREADS"] = "1"
 
+#import matplotlib
+# matplotlib.use('agg')
 import optparse
 import traceback
 import atexit
@@ -50,10 +52,33 @@ import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
 from DDFacet.Other.AsyncProcessPool import APP
 import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
-
+from DDFacet.version import __version__
 log = None
 
 import numpy as np
+
+def report_version():
+    # perhaps we are in a github with tags; in that case return describe
+    path = os.path.dirname(os.path.abspath(__file__))
+    try:
+        # work round possible unavailability of git -C
+        result = subprocess.check_output('cd %s; git describe --tags' % path, shell=True, stderr=subprocess.STDOUT).rstrip()
+    except subprocess.CalledProcessError:
+        result = None
+    if result is not None:
+        # will succeed if tags exist
+        return result
+    else:
+        # perhaps we are in a github without tags? Cook something up if so
+        try:
+            result = subprocess.check_output('cd %s; git rev-parse --short HEAD' % path, shell=True, stderr=subprocess.STDOUT).rstrip()
+        except subprocess.CalledProcessError:
+            result = None
+        if result is not None:
+            return __version__+'-'+result
+        else:
+            # we are probably in an installed version
+            return __version__
 
 # # ##############################
 # # Catch numpy warning
@@ -72,6 +97,7 @@ These options can be overridden by specifying a subset of the parset options in 
 passed as the first commandline argument. These options will override the corresponding defaults.
 '''
 import DDFacet
+print "DDFacet version is",report_version()
 print "Using python package located at: " + os.path.dirname(DDFacet.__file__)
 print "Using driver file located at: " + __file__
 global Parset
@@ -85,7 +111,7 @@ def read_options():
 
     desc = """Questions and suggestions: cyril.tasse@obspm.fr"""
 
-    OP = MyOptParse.MyOptParse(usage='Usage: %prog [parset file] <options>', version='%prog version 1.0',
+    OP = MyOptParse.MyOptParse(usage='Usage: %prog [parset file] <options>', version='%prog version '+report_version(),
                                description=desc, defaults=default_values, attributes=attrs)
 
     # create options based on contents of parset
@@ -296,6 +322,10 @@ def main(OP=None, messages=[]):
 if __name__ == "__main__":
     #os.system('clear')
     #logo.print_logo()
+
+    # work out DDFacet version
+    version=report_version()
+    traceback_msg = traceback.format_exc()
     atexit.register(Multiprocessing.cleanupShm)
 
     T = ClassTimeIt.ClassTimeIt()
@@ -307,7 +337,8 @@ if __name__ == "__main__":
     # collect messages in a list here because I don't want to log them until the logging system
     # is set up in main()
     messages = ["starting DDFacet (%s)" % " ".join(sys.argv),
-                "working directory is %s" % os.getcwd()]
+                "   version is %s"%version,
+                "   working directory is %s" % os.getcwd()]
 
     # single argument is a parset to read
     if len(args) == 1:
@@ -356,16 +387,6 @@ if __name__ == "__main__":
         retcode = 1 #Should at least give the command line an indication of failure
     except:
         print>>log, traceback.format_exc()
-        ddfacetPath = "." if os.path.dirname(
-            __file__) == "" else os.path.dirname(__file__)
-        traceback_msg = traceback.format_exc()
-        try:
-            commitSha = subprocess.check_output(
-                "git -C %s rev-parse HEAD" %
-                ddfacetPath, shell=True)
-        except subprocess.CalledProcessError:
-            import DDFacet.version as version
-            commitSha = version.__version__
 
         logfileName = MyLogger.getLogFilename()
         logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
@@ -375,7 +396,7 @@ if __name__ == "__main__":
             T.timehms(), col="red")
         print>> log, ModColor.Str(
             "You are using DDFacet revision: %s" %
-            commitSha, col="red")
+            version, col="red")
         print>> log, ModColor.Str(
             "Your logfile is available here: %s" %
             logfileName, col="red")

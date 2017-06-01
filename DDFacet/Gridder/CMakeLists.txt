@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 set(BUILD_SHARED_LIBS ON) #we always want shared libs out of this for python extensions
 
-option(ENABLE_NATIVE_TUNING "Enables support for optimized code generation (-march=native)" ON)
-option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" ON)
+option(ENABLE_NATIVE_TUNING "Enables support for optimized code generation (-march=native)" OFF)
+option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" OFF)
 
 if (${ENABLE_NATIVE_TUNING})
   set(TUNING_FLAGS "-march=native -mtune=native")
@@ -20,7 +20,7 @@ endif (${ENABLE_FAST_MATH})
 
 project(backend)
 #Find necessary modules
-find_package(PythonLibs REQUIRED)
+find_package(PythonLibs 2.7 REQUIRED)
 find_package(NumPy REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(RT REQUIRED)
@@ -90,7 +90,7 @@ add_custom_command(OUTPUT _pyWeightingCore.c
 		   COMMENT "Compiling cython module _pyWeightingCore.pyx"
 		   VERBATIM)
 add_library(_pyWeightingCore _pyWeightingCore.c)
-set_target_properties(_pyWeightingCore PROPERTIES 
+set_target_properties(_pyWeightingCore PROPERTIES
 		      PREFIX "" #remove "lib" prefix from library (PEP8 compliance)
 		      COMPILE_FLAGS "-fwrapv -fno-strict-aliasing")
 target_link_libraries(_pyWeightingCore)

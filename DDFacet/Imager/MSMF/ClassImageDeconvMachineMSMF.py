@@ -83,8 +83,8 @@ class ClassImageDeconvMachine():
         self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
         self.ModelMachine = ModelMachine
         self.RefFreq=self.ModelMachine.RefFreq
-        if self.ModelMachine.DicoSMStacked["Type"]!="MSMF":
-            raise ValueError("ModelMachine Type should be MSMF")
+        if self.ModelMachine.DicoSMStacked["Type"] not in ("MSMF", "HMP"):
+            raise ValueError("ModelMachine Type should be HMP")
         self.PSFHasChanged=False
         # reset overall iteration counter
         self.maincache = MainCache
@@ -651,8 +651,7 @@ class ClassImageDeconvMachine():
                     # else:
                     #     print >>log, "    [iter=%i] peak residual %.3g" % (
                     #         i, ThisFlux)
-                    if ClassMultiScaleMachine.debug_dump_file:
-                        ClassMultiScaleMachine.debug_dump_file.flush()
+                    ClassMultiScaleMachine.CleanSolutionsDump.flush()
 
                 nch, npol, _, _ = self._CubeDirty.shape
                 Fpol = np.float32(

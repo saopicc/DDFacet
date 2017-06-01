@@ -118,8 +118,9 @@ class ClassImageDeconvMachine():
     def Init(self, **kwargs):
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
-        self.SetModelRefFreq()
-        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"],self.GD["Hogbom"]["PolyFitOrder"])
+        self.SetModelRefFreq(kwargs["RefFreq"])
+        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
+        self.Freqs = kwargs["GridFreqs"]
         # tmp = [{'Alpha': 0.0, 'Scale': 0, 'ModelType': 'Delta'}]
         # AlphaMin, AlphaMax, NAlpha = self.GD["HMP"]["Alpha"]
         # if NAlpha > 1:
@@ -136,7 +137,7 @@ class ClassImageDeconvMachine():
         self.MaskMachine=MaskMachine
 
 
-    def SetModelRefFreq(self):
+    def SetModelRefFreq(self, RefFreq):
         """
         Sets ref freq in ModelMachine.
         """
@@ -146,9 +147,9 @@ class ClassImageDeconvMachine():
             AllFreqs += self.DicoVariablePSF["freqs"][iChannel]
             AllFreqsMean[iChannel] = np.mean(self.DicoVariablePSF["freqs"][iChannel])
         #assume that the frequency variance is somewhat the same in all the stokes images:
-        RefFreq = np.sum(AllFreqsMean.ravel() * np.mean(self.DicoVariablePSF["WeightChansImages"],axis=1).ravel())
+        #RefFreq = np.sum(AllFreqsMean.ravel() * np.mean(self.DicoVariablePSF["WeightChansImages"],axis=1).ravel())
+        self.ModelMachine.setRefFreq(RefFreq)
 
-        self.ModelMachine.setRefFreq(RefFreq) #, AllFreqs)
 
     def SetModelShape(self):
         """
@@ -379,11 +380,11 @@ class ClassImageDeconvMachine():
                 update_model = False or update_model
                 continue #onto the next polarization
 
-            pBAR= ProgressBar(Title="Cleaning  %s " %  pol_task)
+            #pBAR= ProgressBar(Title="Cleaning  %s " %  pol_task)
             # pBAR.disable()
 
             self.GainMachine.SetFluxMax(ThisFlux)
-            pBAR.render(0,100) # "g=%3.3f"%self.GainMachine.GiveGain())
+            #pBAR.render(0,100) # "g=%3.3f"%self.GainMachine.GiveGain())
 
             def GivePercentDone(ThisMaxFlux):
                 fracDone=1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
@@ -423,7 +424,7 @@ class ClassImageDeconvMachine():
                     T.timeit("max0")
 
                     if ThisFlux <= StopFlux:
-                        pBAR.render(100,100) #"peak %.3g"%(ThisFlux,))
+                        #pBAR.render(100,100) #"peak %.3g"%(ThisFlux,))
                         print>>log, ModColor.Str("    CLEANing %s [iter=%i] peak of %.3g Jy lower than stopping flux" % (pol_task,i,ThisFlux),col="green")
                         cont = ThisFlux > self.FluxThreshold
                         if not cont:
@@ -434,47 +435,65 @@ class ClassImageDeconvMachine():
 
                         break # stop cleaning this polariztion and move on to the next polarization job
 
-                    if (i>0)&((i%100)==0):
-                        PercentDone=GivePercentDone(ThisFlux)
-                        pBAR.render(PercentDone,100)# "peak %.3g i%d"%(ThisFlux,self._niter[pol_task_id]))
+                    rounded_iter_step = 1 if i < 10 else (
+                        10 if i < 200 else (
+                            100 if i < 2000
+                            else 1000))
+                    # min(int(10**math.floor(math.log10(i))), 10000)
+                    if i >= 10 and i % rounded_iter_step == 0:
+                        # if self.GD["Debug"]["PrintMinorCycleRMS"]:
+                        #rms = np.std(np.real(self._CubeDirty.ravel()[self.IndStats]))
+                        print>> log, "    [iter=%i] peak residual %.3g" % (i, ThisFlux)
 
                     nch,npol,_,_=self._Dirty.shape
                     #Fpol contains the intensities at (x,y) per freq and polarisation
                     Fpol = np.zeros([nch, npol, 1, 1], dtype=np.float32)
-                    PolyCoeffs = np.zeros([npol, self.ModelMachine.FreqMachine.order])
+                    if self.GD["Hogbom"]["FreqMode"] == "Poly":
+                        Ncoeffs = self.GD["Hogbom"]["PolyFitOrder"]
+                    elif self.GD["Hogbom"]["FreqMode"] == "GPR":
+                        Ncoeffs = self.GD["Hogbom"]["NumBasisFuncs"]
+                    else:
+                        raise NotImplementedError("FreqMode %s not supported" % self.GD["Hogbom"]["FreqMode"])
+                    Coeffs = np.zeros([npol, Ncoeffs])
+
+                    # Get the JonesNorm
+                    JonesNorm = (self.DicoDirty["JonesNorm"][:, :, x, y]).reshape((nch, npol, 1, 1))
                     if pol_task == "I":
                         indexI = self.PolarizationDescriptor.index("I")
                         # Get the solution
-                        Fpol[:, indexI, 0, 0] = self._Dirty[:, indexI, x, y]
+                        Fpol[:, indexI, 0, 0] = self._Dirty[:, indexI, x, y]/np.sqrt(JonesNorm[:, indexI, 0, 0])
                         # Fit a polynomial to get coeffs
-                        PolyCoeffs[indexI, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexI, 0, 0])
+                        Coeffs[indexI, :] = self.ModelMachine.FreqMachine.Fit(Fpol[:, indexI, 0, 0])
                         # Overwrite with polynoimial fit
-                        Fpol[:, indexI, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexI, :])
+                        Fpol[:, indexI, 0, 0] = self.ModelMachine.FreqMachine.Eval(Coeffs[indexI, :])
                     elif pol_task == "Q+iU":
                         indexQ = self.PolarizationDescriptor.index("Q")
                         indexU = self.PolarizationDescriptor.index("U")
                         Fpol[:, indexQ, 0, 0] = self._Dirty[:, indexQ, x, y]
-                        PolyCoeffs[indexQ, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexQ, 0, 0])
-                        Fpol[:, indexQ, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexQ, :])
+                        Coeffs[indexQ, :] = self.ModelMachine.FreqMachine.Fit(Fpol[:, indexQ, 0, 0])
+                        Fpol[:, indexQ, 0, 0] = self.ModelMachine.FreqMachine.Eval(Coeffs[indexQ, :])
                         Fpol[:, indexU, 0, 0] = self._Dirty[:, indexU, x, y]
-                        PolyCoeffs[indexU, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexU, 0, 0])
-                        Fpol[:, indexU, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexU, :])
+                        Coeffs[indexU, :] = self.ModelMachine.FreqMachine.Fit(Fpol[:, indexU, 0, 0])
+                        Fpol[:, indexU, 0, 0] = self.ModelMachine.FreqMachine.Eval(Coeffs[indexU, :])
                     elif pol_task == "V":
                         indexV = self.PolarizationDescriptor.index("V")
                         Fpol[:, indexV, 0, 0] = self._Dirty[:, indexV, x, y]
-                        PolyCoeffs[indexV, :] = self.ModelMachine.FreqMachine.FitPoly(Fpol[:, indexV, 0, 0])
-                        Fpol[:, indexV, 0, 0] = self.ModelMachine.FreqMachine.EvalPoly(PolyCoeffs[indexV, :])
+                        Coeffs[indexV, :] = self.ModelMachine.FreqMachine.Fit(Fpol[:, indexV, 0, 0])
+                        Fpol[:, indexV, 0, 0] = self.ModelMachine.FreqMachine.Eval(Coeffs[indexV, :])
                     else:
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
-                    nchan, npol, _, _ = Fpol.shape
-                    JonesNorm = (self.DicoDirty["JonesNorm"][:, :, x, y]).reshape((nchan, npol, 1, 1))
+
+                    # if self.ModelMachine.FreqMachine.GP.SolverFlag:
+                    #     print " Flag set at location ", x, y
+                    #nchan, npol, _, _ = Fpol.shape
+                    #JonesNorm = (self.DicoDirty["JonesNorm"][:, :, x, y]).reshape((nchan, npol, 1, 1))
                     # dx=x-xc
                     # dy=y-xc
                     T.timeit("stuff")
 
                     #Find PSF corresponding to location (x,y)
                     self.PSFServer.setLocation(x,y) #Selects the facet closest to (x,y)
-                    PSF,meanPSF = self.PSFServer.GivePSF()  #Gives associated PSF
+                    PSF, meanPSF = self.PSFServer.GivePSF()  #Gives associated PSF
 
                     T.timeit("FindScale")
 
@@ -482,19 +501,22 @@ class ClassImageDeconvMachine():
                     #Update model
                     if pol_task == "I":
                         indexI = self.PolarizationDescriptor.index("I")
-                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexI, :], indexI)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, Coeffs[indexI, :], indexI)
                     elif pol_task == "Q+iU":
                         indexQ = self.PolarizationDescriptor.index("Q")
                         indexU = self.PolarizationDescriptor.index("U")
-                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexQ, :], indexQ)
-                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexU, :], indexU)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, Coeffs[indexQ, :], indexQ)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, Coeffs[indexU, :], indexU)
                     elif pol_task == "V":
                         indexV = self.PolarizationDescriptor.index("V")
-                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, PolyCoeffs[indexV, :], indexV)
+                        self.ModelMachine.AppendComponentToDictStacked((x, y), 1.0, Coeffs[indexV, :], indexV)
                     else:
                         raise ValueError("Invalid polarization cleaning task: %s. This is a bug" % pol_task)
 
                     # Subtract LocalSM*CurrentGain from dirty image
+                    _,_,PSFnx,PSFny = PSF.shape
+                    PSF /= np.amax(PSF.reshape(nch,npol,PSFnx*PSFny), axis=2, keepdims=True).reshape(nch,npol,1,1) #Normalise PSF in each channel
+                    #tmp = PSF*Fpol*np.sqrt(JonesNorm)
                     self.SubStep((x,y),PSF*Fpol*CurrentGain*np.sqrt(JonesNorm))
                     T.timeit("SubStep")
 

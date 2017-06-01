@@ -84,6 +84,10 @@ class JobCounterPool(object):
             with self._cond:
                 return self._pool._counters_array[self.index_in_pool]
 
+        def setValue(self, value):
+            with self._cond:
+                self._pool._counters_array[self.index_in_pool] = value
+
         def awaitZero(self):
             with self._cond:  # acquire lock
                 while self._pool._counters_array[self.index_in_pool] != 0:
@@ -283,24 +287,14 @@ class AsyncProcessPool (object):
         self._result_queue    = multiprocessing.Queue()
         self._termination_event = multiprocessing.Event()
 
-        if self.ncpu > 1:
-            # create the workers
-            for i, core in enumerate(cores):
-                proc_id = "comp%02d"%i
-                self._compute_workers.append( multiprocessing.Process(target=self._start_worker,
-                                                                      args=(self,
-                                                                            proc_id,
-                                                                            range(self.ncpu) if not self.affinity else
-                                                                            [core],
-                                                                            self._compute_queue)))
-            for i, queue in enumerate(self._io_queues):
-                proc_id = "io%02d"%i
-                self._io_workers.append( multiprocessing.Process(target=self._start_worker,
-                                                                 args=(self,
-                                                                       proc_id,
-                                                                       range(self.ncpu) if not self.affinity else
-                                                                       [self.parent_affinity],
-                                                                       queue)))
+        self._cores = cores
+
+        # create a Taras Bulba process. http://www.imdb.com/title/tt0056556/quotes
+        # This is responsible for spawning, killing, and respawning workers
+        self._taras_restart_event = multiprocessing.Event()
+        self._taras_exit_event = multiprocessing.Event()
+        self._taras_bulba = multiprocessing.Process(target=AsyncProcessPool._startBulba, args=(self,))
+
         self._started = False
 
     def registerJobHandlers (self, *handlers):
@@ -334,9 +328,70 @@ class AsyncProcessPool (object):
         """Starts worker threads. All job handlers and events must be registered *BEFORE*"""
         self._shared_state = shared_dict.create("APP")
         self._job_counters.finalize(self._shared_state)
-        for proc in self._compute_workers + self._io_workers:
-            proc.start()
+        self._taras_bulba.start()
         self._started = True
+
+    def restartWorkers(self):
+        self._taras_restart_event.set()
+
+    def _startBulba (self):
+        """This runs the Taras Bulba process. A Taras Bulba spawns and kills worker processes on demand.
+        The reason for killing workers is to work around potential memory leaks. Since a Bulba is forked
+        from the main process early on, it has a very low RAM footprint, so re-forking the workers off
+        a Bulba every so often makes sure their RAM usage is reset."""
+        MyLogger.subprocess_id = "TB"
+        # loop until the completion event is raised
+        # at this stage the workers are dead (or not started)
+        while not self._taras_exit_event.is_set():
+            if self.verbose:
+                print>>log, "(re)creating worker processes"
+            # create the workers
+            self._compute_workers = []
+            self._io_workers = []
+            for i, core in enumerate(self._cores):
+                proc_id = "comp%02d" % i
+                self._compute_workers.append(
+                    multiprocessing.Process(target=self._start_worker,
+                                            args=(self, proc_id, [core], self._compute_queue)))
+            for i, queue in enumerate(self._io_queues):
+                proc_id = "io%02d" % i
+                self._io_workers.append(
+                    multiprocessing.Process(target=self._start_worker, args=(self, proc_id, None, queue)))
+            # start the workers
+            if self.verbose:
+                print>>log, "starting  worker processes"
+            for proc in self._compute_workers + self._io_workers:
+                proc.start()
+            # go to sleep until we're told to do the whole thing again
+            if self.verbose:
+                print>>log, "waiting for restart signal"
+            try:
+                self._taras_restart_event.wait()
+            except KeyboardInterrupt:
+                print>>log,ModColor.Str("Ctrl+C caught, exiting")
+            self._taras_restart_event.clear()
+            if self.verbose:
+                print>>log, "restart signal received, notifying workers"
+            if self._termination_event.is_set():
+                if self.verbose:
+                    print>> log, "terminating workers"
+                for p in self._compute_workers + self._io_workers:
+                    p.terminate()
+            # else let them all shut down in an orderly way, by giving them a poison pill
+            else:
+                for _ in self._compute_workers:
+                    self._compute_queue.put("POISON-E")
+                for queue in self._io_queues:
+                    queue.put("POISON-E")
+            if self.verbose:
+                print>> log, "reaping workers"
+            # join processes
+            for p in self._compute_workers + self._io_workers:
+                p.join()
+            if self.verbose:
+                print>> log, "all workers rejoined"
+        if self.verbose:
+            print>>log, "exiting"
 
     def runJob (self, job_id, handler=None, io=None, args=(), kwargs={},
                 event=None, counter=None,
@@ -432,8 +487,16 @@ class AsyncProcessPool (object):
             while current:
                 current = counter.awaitZeroWithTimeout(timeout)
                 pBAR.render(total - current, total)
+                if self._termination_event.is_set():
+                    if self.verbose > 1:
+                        print>> log, "  termination event spotted, exiting"
+                    raise RuntimeError("stopping on termination event")
         else:
             counter.awaitZero()
+            if self._termination_event.is_set():
+                if self.verbose > 1:
+                    print>> log, "  termination event spotted, exiting"
+                raise RuntimeError("stopping on termination event")
             if self.verbose > 2:
                 print>> log, "  %s is complete" % counter.name
 
@@ -450,6 +513,7 @@ class AsyncProcessPool (object):
                 if self._termination_event.is_set():
                     if self.verbose > 1:
                         print>> log, "  termination event spotted, exiting"
+                    raise RuntimeError("stopping on termination event")
                 if self.verbose > 2:
                     print>> log, "  %s not yet complete, waiting" % name
                 if event.wait(1):
@@ -567,27 +631,23 @@ class AsyncProcessPool (object):
 
     def terminate(self):
         if self._started:
-            if self.verbose > 1:
-                print>> log, "terminating workers"
-            for p in self._compute_workers + self._io_workers:
-                p.terminate()
+            self._termination_event.set()
+            # wake up Taras to kill workers
+            self._taras_exit_event.set()
+            self._taras_restart_event.set()
 
     def shutdown(self):
         """Terminate worker threads"""
         if not self._started:
             return
         if self.verbose > 1:
-            print>>log,"shutdown: handing poison pills to workers"
+            print>>log,"shutdown: asking TB to stop workers"
         self._started = False
-        for _ in self._compute_workers:
-            self._compute_queue.put("POISON-E")
-        for queue in self._io_queues:
-            queue.put("POISON-E")
+        self._taras_exit_event.set()
+        self._taras_restart_event.set()
         if self.verbose > 1:
-            print>> log, "shutdown: reaping workers"
-        # join processes
-        for p in self._compute_workers + self._io_workers:
-            p.join()
+            print>>log,"shutdown: waiting for TB to exit"
+        self._taras_bulba.join()
         if self.verbose > 1:
             print>> log, "shutdown: closing queues"
         # join and close queues
@@ -719,7 +779,7 @@ def _init_default():
     global APP
     if APP is None:
         APP = AsyncProcessPool()
-        APP.init(psutil.cpu_count(), affinity=1, num_io_processes=1, verbose=0)
+        APP.init(psutil.cpu_count(), affinity=0, num_io_processes=1, verbose=0)
 
 _init_default()
 

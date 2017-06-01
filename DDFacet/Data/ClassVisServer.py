@@ -254,8 +254,8 @@ class ClassVisServer():
         freq_to_grid_band = dict(zip(self.GlobalFreqs, grid_band))
         # print>>log,sorted(freq_to_grid_band.items())
 
-        self.FreqBandCenters = np.arange(
-            min_freq+grid_bw/2, max_freq+grid_bw/2, grid_bw)
+        self.FreqBandCenters = min_freq+grid_bw/2 + np.arange(0, self.NFreqBands)*grid_bw
+
         self.FreqBandChannels = []
         # freq_to_grid_band_chan: mapping from frequency to channel number
         # within its grid band
@@ -382,7 +382,7 @@ class ClassVisServer():
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         ms = self.ListMS[iMS]
         row0, row1 = ms.getChunkRow0Row1()[iChunk]
-        ms.PutVisColumn(column, DATA[field], row0, row1, likecol=likecol)
+        ms.PutVisColumn(column, DATA[field], row0, row1, likecol=likecol, sort_index=DATA["sort_index"])
 
     def collectPutColumnResults(self):
         if self._put_vis_column_job_id:

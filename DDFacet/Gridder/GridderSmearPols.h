@@ -133,6 +133,7 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
   float DecorrFactor=1.;
   float phase=0;
   float phi=0;
+  float df;
   phase=(uvwPtr[0])*l0;
   phase+=(uvwPtr[1])*m0;
   phase+=(uvwPtr[2])*n0;
@@ -141,7 +142,10 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
     phi=PI*(Dnu/C)*phase;
     //printf("%f %f %f %f = %f\n",PI,Dnu,C,phase,phi);
     if(phi!=0.){
-      DecorrFactor*=(float)(sin((double)phi)/((double)phi));
+      df=(float)(sin((double)phi)/((double)phi));
+      if( df<0 )
+        df=0;
+      DecorrFactor*=df;
     };
   };
 
@@ -156,33 +160,13 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
     phi=PI*(nu/C)*dphase;
     if(phi!=0.){
       DecorrFactor*=(sin(phi)/(phi));
+      if( df<0 )
+        df=0;
+      DecorrFactor*=df;
     };
   };
   return DecorrFactor;
 }
-
-
-
-    
-void gridderWPol(PyArrayObject *np_grid,
-		 PyArrayObject *vis,
-		 PyArrayObject *uvw,
-		 PyArrayObject *flags,
-		 PyArrayObject *weigths,
-		 PyArrayObject *sumwt,
-		 int dopsf,
-		 PyObject *Lcfs,
-		 PyObject *LcfsConj,
-		 PyArrayObject *Winfos,
-		 PyArrayObject *increment,
-		 PyArrayObject *freqs,
-		 PyObject *Lmaps, 
-		 PyObject *LJones,
-		 PyArrayObject *SmearMapping,
-		 PyArrayObject *Sparsification,
-		 PyObject *LOptimisation,
-		 PyObject *LSmear,
-		 PyArrayObject *np_ChanMapping);
 
 static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args);
 

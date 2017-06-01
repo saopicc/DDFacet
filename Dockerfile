@@ -1,5 +1,5 @@
 #From Ubuntu 16.04
-FROM kernsuite/base:1
+FROM kernsuite/base:2
 MAINTAINER Ben Hugo "bhugo@ska.ac.za"
 
 #Package dependencies
@@ -12,11 +12,11 @@ ENV DDFACET_TEST_OUTPUT_DIR /test_output
 #Copy DDFacet and SkyModel into the image
 ADD DDFacet /src/DDFacet/DDFacet
 ADD SkyModel /src/DDFacet/SkyModel
-ADD montblanc /src/DDFacet/montblanc
 ADD MANIFEST.in /src/DDFacet/MANIFEST.in
 ADD requirements.txt /src/DDFacet/requirements.txt
 ADD setup.py /src/DDFacet/setup.py
-ADD README.md /src/DDFacet/README.md
+ADD setup.cfg /src/DDFacet/setup.cfg
+ADD README.rst /src/DDFacet/README.rst
 ADD .git /src/DDFacet/.git
 ADD .gitignore /src/DDFacet/.gitignore
 ADD .gitmodules /src/DDFacet/.gitmodules
@@ -58,7 +58,7 @@ ENV DEB_DEPENCENDIES \
 
 RUN apt-get update && \
     apt-get install -y software-properties-common && \
-    add-apt-repository -y -s ppa:kernsuite/kern-1 && \
+    add-apt-repository -y -s ppa:kernsuite/kern-2 && \
     apt-add-repository -y multiverse && \
     apt-get update && \
     apt-get install -y $DEB_SETUP_DEPENDENCIES && \
@@ -67,11 +67,14 @@ RUN apt-get update && \
     pip install -U pip virtualenv setuptools wheel && \
     virtualenv --system-site-packages /ddfvenv && \
     cd /src/DDFacet/ && git submodule update --init --recursive && cd / && \
+    # Activate virtual environment
+    . /ddfvenv/bin/activate && \
     # Install DDFacet
-    . /ddfvenv/bin/activate ; pip install -I --force-reinstall --no-binary :all: /src/DDFacet/ && \
-    # Install Montblanc
-    . /ddfvenv/bin/activate ; pip install /src/DDFacet/montblanc/ && \
+    pip install -I --force-reinstall --no-binary :all: /src/DDFacet/ && \
+    # Install Montblanc and all other optional dependencies
+    pip install -r /src/DDFacet/requirements.txt && \
     # Nuke the unused & cached binaries needed for compilation, etc.
+    rm -r /src/DDFacet && \
     apt-get remove -y $DEB_SETUP_DEPENDENCIES && \
     apt-get autoclean -y && \
     apt-get clean -y && \
@@ -82,7 +85,8 @@ RUN apt-get update && \
 
 # Set MeqTrees Cattery path to virtualenv installation directory
 ENV MEQTREES_CATTERY_PATH /ddfvenv/lib/python2.7/site-packages/Cattery/
-
+ENV PATH /ddfvenv/bin:$PATH
+ENV LD_LIBRARY_PATH /ddfvenv/lib:$LD_LIBRARY_PATH
 # Execute virtual environment version of DDFacet
-ENTRYPOINT ["/ddfvenv/bin/DDF.py"]
+ENTRYPOINT ["DDF.py"]
 CMD ["--help"]
