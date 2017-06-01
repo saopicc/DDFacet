@@ -1472,17 +1472,16 @@ class ClassImagerDeconv():
                 _images.addSharedArray(label, intmodel().shape, np.float32)
                 _images[label] = ModelMachine.FreqMachine.Iref.reshape(intmodel().shape)
             return _images[label]
-        def alphamap():
-            label = 'alphamap'
+        def weighted_alphamap():
+            label = 'weighted_alphamap'
             if label not in _images:
                 _images.addSharedArray(label, intmodel().shape, np.float32)
                 RMSthreshold = self.GD["Freq"]["alphathreshold"]
                 _images[label] = ModelMachine.GiveSpectralIndexMap(threshold=self.DeconvMachine.RMS*RMSthreshold)
-                # _images.addSharedArray('posintmod', intmodel().shape, np.float32)
-                _images["posintmod"] = ModelMachine.FreqMachine.Iref.reshape(intmodel().shape)
+                #_images["posintmod"] = ModelMachine.FreqMachine.Iref.reshape(intmodel().shape)
             return _images[label]
-        def alphamap2():
-            label = 'alphamap2'
+        def alphamap():
+            label = 'alphamap'
             if label not in _images:
                 _images.addSharedArray(label, intmodel().shape, np.float32)
                 _images[label] = ModelMachine.FreqMachine.alpha_map.reshape(intmodel().shape)
@@ -1491,17 +1490,16 @@ class ClassImagerDeconv():
             label = 'alphaconvmap'
             if label not in _images:
                 # Get weighted alpha map
-                a = _images.addSharedArray("weightedalpha", alphamap().shape, np.float32)
+                a = _images.addSharedArray("weighted_alphamap", weighted_alphamap().shape, np.float32)
                 # Convolve with Gaussian
-                ModFFTW.ConvolveGaussian(alphamap(), CellSizeRad=self.CellSizeRad,
+                ModFFTW.ConvolveGaussian(weighted_alphamap(), CellSizeRad=self.CellSizeRad,
                                          GaussPars=[self.PSFGaussParsAvg], out=a)
                 # Get positive part of restored image
                 b = _images.addSharedArray("posconvmod", alphamap().shape, np.float32)
                 ModFFTW.ConvolveGaussian(posintmod(), CellSizeRad=self.CellSizeRad,
                                          GaussPars=[self.PSFGaussParsAvg], out=b)
                 c = intconvmodel()
-                RMSthreshold = self.GD["Freq"]["alphathreshold"]
-                print self.DeconvMachine.RMS
+                # Get mask based on restored image and positive restored image
                 I1 = c[0, 0, :, :] > 20*self.DeconvMachine.RMS
                 I2 = b[0, 0, :, :] > 20*self.DeconvMachine.RMS
                 IC = I1 & I2
@@ -1514,27 +1512,6 @@ class ClassImagerDeconv():
                 _images[label] = d
                 T.timeit(label)
             return _images[label]
-        # def varalphamap():
-        # 	label = 'varalphamap'
-        # 	if label not in _images:
-        # 		_images.addSharedArray(label, intmodel().shape, np.float32)
-        # 		_images[label] = ModelMachine.FreqMachine.weighted_alpha_var_map.reshape(intmodel().shape)
-        # 	return _images[label]
-        # def varalphaconvmap():
-        # 	label = 'varalphaconvmap'
-        # 	if label not in _images:
-        # 		a = _images.addSharedArray("weightedvaralpha", alphamap().shape, np.float32)
-        # 		ModFFTW.ConvolveGaussian(varalphamap(), CellSizeRad=self.CellSizeRad,
-        # 								 GaussPars=[self.PSFGaussParsAvg], out=a)
-        # 		b = intconvmodel()
-        # 		I = np.argwhere(b[0, 0, :, :] > 20.0e-2)
-        # 		ix = I[:,0]
-        # 		iy = I[:,1]
-        # 		c = np.zeros_like(a)
-        # 		c[0, 0, ix, iy] = a[0, 0, ix, iy]/b[0, 0, ix, iy]
-        # 		_images.addSharedArray(label, intmodel().shape, np.float32)
-        # 		_images[label] = c
-        # 	return _images[label]
 
         # norm
         if havenorm and ("S" in self._saveims or "s" in self._saveims):
@@ -1627,25 +1604,14 @@ class ClassImagerDeconv():
 
         # Alpha image
         if "A" in self._saveims and self.VS.MultiFreqMode:
-            #_images["alphamap"] = alphamap()
             _images["alphaconvmap"] = alphaconvmap()
-            #print _images["alphaconvmap"].min(), _images["alphaconvmap"].max()
-            # IndexMap=ModFFTW.ConvolveGaussian(IndexMap,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars],Normalise=True)
             APP.runJob("save:alphaconv", self._saveImage_worker, io=0, args=(_images.readwrite(), "alphaconvmap",), kwargs=dict(
                 ImageName="%s.alphaconv" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-            _images["alphamap2"] = alphamap2()
-            APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), "alphamap2",), kwargs=dict(
+            _images["alphamap"] = alphamap()
+            APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), "alphamap",), kwargs=dict(
                 ImageName="%s.alpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
                 Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-            _images["posintmodel"] = posintmod()
-            APP.runJob("save:posintmod", self._saveImage_worker, io=0, args=(_images.readwrite(), "posintmod",), kwargs=dict(
-                ImageName="%s.posintmod" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
-                Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
-            # _images['varalphaconvmap'] = varalphaconvmap()
-            # APP.runJob("save:varalpha", self._saveImage_worker, io=0, args=(_images.readwrite(), "varalphaconvmap",), kwargs=dict(
-            # 	ImageName="%s.varalpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
-            # 	Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         #  done saving images -- schedule a job to delete them all from the dict to save RAM
         APP.runJob("del:images", self._delSharedImage_worker, io=0, args=[_images.readwrite()] + list(_images.keys()))
