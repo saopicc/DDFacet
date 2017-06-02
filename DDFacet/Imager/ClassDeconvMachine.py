@@ -37,7 +37,6 @@ from DDFacet.Other import MyLogger
 import traceback
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 import copy
-from DDFacet.Other import Multiprocessing
 from DDFacet.Other import AsyncProcessPool
 from DDFacet.Other.AsyncProcessPool import APP
 import cPickle
@@ -143,9 +142,6 @@ class ClassImagerDeconv():
         ## disabling this, as it doesn't play nice with in-place FFTs
         # self._save_intermediate_grids = self.GD["Debug"]["SaveIntermediateDirtyImages"]
 
-        # init process pool for parallelization
-        Multiprocessing.initDefaultPool(GD=self.GD)
-
         APP.registerJobHandlers(self)
 
     def Init(self):
@@ -153,7 +149,9 @@ class ClassImagerDeconv():
         mslist = ClassMS.expandMSList(DC["Data"]["MS"],
                                       defaultDDID=DC["Selection"]["DDID"],
                                       defaultField=DC["Selection"]["Field"])
-        AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"], affinity=self.GD["Parallel"]["Affinity"],
+        AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
+                              affinity=self.GD["Parallel"]["Affinity"],
+                              parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
                               verbose=self.GD["Debug"]["APPVerbose"])
 
         self.VS = ClassVisServer.ClassVisServer(mslist,ColName=self.do_readcol and DC["Data"]["ColName"],
