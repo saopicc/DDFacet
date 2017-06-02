@@ -35,7 +35,6 @@ import ClassSmearMapping
 import os
 import psutil
 import ClassJones
-from DDFacet.Other import Multiprocessing
 from DDFacet.Array import shared_dict
 from DDFacet.Other.AsyncProcessPool import APP
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmearPols

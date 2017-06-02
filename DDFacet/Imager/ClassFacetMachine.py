@@ -674,7 +674,12 @@ class ClassFacetMachine():
 
         # compute spatial weight term
         sw = np.float32(mask.reshape((1, 1, Npix, Npix)))
-        sw = ModFFTW.ConvolveGaussianFFTW(sw, CellSizeRad=1, GaussPars=[GaussPars])
+
+        # already happening in parallel so make sure the FFT library doesn't spawn its own threads
+        sw = ModFFTW.ConvolveGaussianFFTW(sw,
+                                          CellSizeRad=1,
+                                          GaussPars=[GaussPars],
+                                          nthreads=1)
         sw = sw.reshape((Npix, Npix))
         sw /= np.max(sw)
         facet_dict["SW"] = sw

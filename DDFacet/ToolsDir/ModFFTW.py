@@ -38,7 +38,7 @@ log=MyLogger.getLogger("ModFFTW")
 Fs=scipy.fftpack.fftshift
 iFs=scipy.fftpack.ifftshift
 
-NCPU_global = psutil.cpu_count()
+NCPU_global = 0#psutil.cpu_count()
 
 def test():
     size=20
@@ -374,7 +374,12 @@ def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,G
 APP.registerJobHandlers(_convolveSingleGaussianFFTW, _convolveSingleGaussianNP)
 
 # FFTW version
-def ConvolveGaussianFFTW(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,out=None):
+def ConvolveGaussianFFTW(Ain0,
+                         CellSizeRad=None,
+                         GaussPars=[(0.,0.,0.)],
+                         Normalise=False,
+                         out=None,
+                         nthreads=1):
     nch,npol,_,_=Ain0.shape
     Aout = np.zeros_like(Ain0) if out is None else out
 
@@ -391,12 +396,12 @@ def ConvolveGaussianFFTW(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=
         if Normalise:
             PSF/=np.sum(PSF)
         PSF = np.fft.ifftshift(PSF)
-        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=1)#NCPU_global)
+        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=nthreads)
         for pol in range(npol):
             A = np.fft.ifftshift(Ain[pol])
-            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=1)#NCPU_global)
+            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=nthreads)
             nfA = fA*fPSF
-            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=1)#NCPU_global)
+            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=nthreads)
             Aout[ch, pol, :, :] = np.fft.fftshift(ifA)
         T.timeit("conv")
 
