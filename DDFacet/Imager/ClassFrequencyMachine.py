@@ -46,6 +46,7 @@ class ClassFrequencyMachine(object):
         self.Freqs = np.asarray(Freqs)
         self.Freqsp = np.asarray(Freqsp)
         self.nchan = self.Freqs.size
+        self.nchan_degrid = self.Freqsp.size
         #print "Nchan =", self.nchan
         # # Get Stokes parameters
         # self.IStokes = ModelCube[:, 0, :, :]
@@ -58,27 +59,34 @@ class ClassFrequencyMachine(object):
         # self.ModelCube = ModelCube
         self.ref_freq = ref_freq
         self.GD = GD
-        self.set_Method(mode=self.GD["Hogbom"]["FreqMode"])
 
     def set_Method(self, mode="Poly"):
-        if mode == "Poly":
-            self.order = self.GD["Hogbom"]["PolyFitOrder"]
-            self.Xdes = self.setDesMat(self.Freqs, order=self.order)
-            self.AATinvAT = np.dot(np.linalg.inv(self.Xdes.T.dot(self.Xdes)),self.Xdes.T)  # Required for sudo inverse
-            #print "PI shape = ", self.AATinvAT.shape
-            # Set the fit and eval methods
-            self.Fit = lambda vals: self.FitPoly(vals)
-            self.Eval = lambda coeffs : self.EvalPoly(coeffs, Freqsp=self.Freqs)
-            self.Eval_Degrid = lambda coeffs, Freqs : self.EvalPoly(coeffs, Freqsp=Freqs)
-        elif mode == "GPR":
-            # Instantiate the GP
-            self.GP = ClassRRGP.RR_GP(self.Freqs/self.ref_freq,self.Freqsp/self.ref_freq,self.GD["Hogbom"]["MaxLengthScale"],self.GD["Hogbom"]["NumBasisFuncs"])
-            # Set default initial length scale
-            self.l0 = (self.GP.x.max() - self.GP.x.min()) / 2
-            # Set the fit and eval methods
-            self.Fit = lambda vals: self.FitGP(vals)
-            self.Eval = lambda coeffs : self.EvalGP(coeffs, Freqsp=self.Freqs)
-            self.Eval_Degrid = lambda coeffs, Freqs : self.EvalGP(coeffs, Freqsp=Freqs)
+        if self.nchan==1: #hack to deal with a single channel
+            self.Fit = lambda vals: vals
+            self.Eval = lambda vals: vals # this will just be the value in that channel
+            self.Eval_Degrid = lambda vals: np.tile(vals, self.nchan_degrid)
+        else:
+            if mode == "Poly":
+                self.order = self.GD["Hogbom"]["PolyFitOrder"]
+                self.Xdes = self.setDesMat(self.Freqs, order=self.order)
+                if self.nchan >= self.order: # use left pseudo inverse
+                    self.AATinvAT = np.linalg.inv(self.Xdes.T.dot(self.Xdes)).dot(self.Xdes.T)
+                else: # use right pseudo inverse
+                    self.AATinvAT = self.Xdes.T.dot(np.linalg.inv(self.Xdes.dot(self.Xdes.T)))
+                #print "PI shape = ", self.AATinvAT.shape
+                # Set the fit and eval methods
+                self.Fit = lambda vals: self.FitPoly(vals)
+                self.Eval = lambda coeffs : self.EvalPoly(coeffs, Freqsp=self.Freqs)
+                self.Eval_Degrid = lambda coeffs, Freqs : self.EvalPoly(coeffs, Freqsp=Freqs)
+            elif mode == "GPR":
+                # Instantiate the GP
+                self.GP = ClassRRGP.RR_GP(self.Freqs/self.ref_freq,self.Freqsp/self.ref_freq,self.GD["Hogbom"]["MaxLengthScale"],self.GD["Hogbom"]["NumBasisFuncs"])
+                # Set default initial length scale
+                self.l0 = (self.GP.x.max() - self.GP.x.min()) / 2
+                # Set the fit and eval methods
+                self.Fit = lambda vals: self.FitGP(vals)
+                self.Eval = lambda coeffs : self.EvalGP(coeffs, Freqsp=self.Freqs)
+                self.Eval_Degrid = lambda coeffs, Freqs : self.EvalGP(coeffs, Freqsp=Freqs)
 
     def getFitMask(self, FitCube, Threshold=0.0, SetNegZero=False):
         """

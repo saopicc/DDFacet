@@ -36,6 +36,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setFreqMachine(self,GridFreqs, DegridFreqs):
         # Initiaise the Frequency Machine
         self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoSMStacked["RefFreq"], self.GD)
+        self.FreqMachine.set_Method(mode=self.GD["Hogbom"]["FreqMode"])
         #print "Grid freqs size = ", GridFreqs.size
         #print "Degrid freqs size =", DegridFreqs.size
 
