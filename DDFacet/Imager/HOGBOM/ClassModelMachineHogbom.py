@@ -36,6 +36,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setFreqMachine(self,GridFreqs, DegridFreqs):
         # Initiaise the Frequency Machine
         self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoSMStacked["RefFreq"], self.GD)
+        self.FreqMachine.set_Method(mode=self.GD["Hogbom"]["FreqMode"])
         #print "Grid freqs size = ", GridFreqs.size
         #print "Degrid freqs size =", DegridFreqs.size
 
@@ -134,16 +135,22 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         return ModelImage
 
-    def GiveSpectralIndexMap(self, CellSizeRad=1., GaussPars=[(1, 1, 0)], DoConv=True, MaxSpi=100, MaxDR=1e+6):
+    def GiveSpectralIndexMap(self, threshold=0.1, save_dict=True):
         # Get the model image
         IM = self.GiveModelImage(self.FreqMachine.Freqsp)
         nchan, npol, Nx, Ny = IM.shape
 
         # Fit the alpha map
-        self.FreqMachine.FitAlphaMap(IM[:, 0, :, :], threshold=0.1) # should set threshold based on SNR (level of final residual?)
+        self.FreqMachine.FitAlphaMap(IM[:, 0, :, :],
+                                     threshold=threshold)  # should set threshold based on SNR of final residual
 
-        # Get the alpha map (we could convolve with a Gaussian here maybe?)
-        return self.FreqMachine.alpha_map.reshape((1, 1, Nx, Ny))
+        if save_dict:
+            FileName = self.GD['Output']['Name'] + ".Dicoalpha"
+            print>> log, "Saving componentwise SPI map to %s" % FileName
+
+            MyPickle.Save(self.FreqMachine.alpha_dict, FileName)
+
+        return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
 
         # f0 = self.DicoSMStacked["AllFreqs"].min()
         # f1 = self.DicoSMStacked["AllFreqs"].max()

@@ -46,6 +46,7 @@ class ClassFrequencyMachine(object):
         self.Freqs = np.asarray(Freqs)
         self.Freqsp = np.asarray(Freqsp)
         self.nchan = self.Freqs.size
+        self.nchan_degrid = self.Freqsp.size
         #print "Nchan =", self.nchan
         # # Get Stokes parameters
         # self.IStokes = ModelCube[:, 0, :, :]
@@ -58,27 +59,34 @@ class ClassFrequencyMachine(object):
         # self.ModelCube = ModelCube
         self.ref_freq = ref_freq
         self.GD = GD
-        self.set_Method(mode=self.GD["Hogbom"]["FreqMode"])
 
     def set_Method(self, mode="Poly"):
-        if mode == "Poly":
-            self.order = self.GD["Hogbom"]["PolyFitOrder"]
-            self.Xdes = self.setDesMat(self.Freqs, order=self.order)
-            self.AATinvAT = np.dot(np.linalg.inv(self.Xdes.T.dot(self.Xdes)),self.Xdes.T)  # Required for sudo inverse
-            #print "PI shape = ", self.AATinvAT.shape
-            # Set the fit and eval methods
-            self.Fit = lambda vals: self.FitPoly(vals)
-            self.Eval = lambda coeffs : self.EvalPoly(coeffs, Freqsp=self.Freqs)
-            self.Eval_Degrid = lambda coeffs, Freqs : self.EvalPoly(coeffs, Freqsp=Freqs)
-        elif mode == "GPR":
-            # Instantiate the GP
-            self.GP = ClassRRGP.RR_GP(self.Freqs/self.ref_freq,self.Freqsp/self.ref_freq,self.GD["Hogbom"]["MaxLengthScale"],self.GD["Hogbom"]["NumBasisFuncs"])
-            # Set default initial length scale
-            self.l0 = (self.GP.x.max() - self.GP.x.min()) / 2
-            # Set the fit and eval methods
-            self.Fit = lambda vals: self.FitGP(vals)
-            self.Eval = lambda coeffs : self.EvalGP(coeffs, Freqsp=self.Freqs)
-            self.Eval_Degrid = lambda coeffs, Freqs : self.EvalGP(coeffs, Freqsp=Freqs)
+        if self.nchan==1: #hack to deal with a single channel
+            self.Fit = lambda vals: vals
+            self.Eval = lambda vals: vals # this will just be the value in that channel
+            self.Eval_Degrid = lambda vals: np.tile(vals, self.nchan_degrid)
+        else:
+            if mode == "Poly":
+                self.order = self.GD["Hogbom"]["PolyFitOrder"]
+                self.Xdes = self.setDesMat(self.Freqs, order=self.order)
+                if self.nchan >= self.order: # use left pseudo inverse
+                    self.AATinvAT = np.linalg.inv(self.Xdes.T.dot(self.Xdes)).dot(self.Xdes.T)
+                else: # use right pseudo inverse
+                    self.AATinvAT = self.Xdes.T.dot(np.linalg.inv(self.Xdes.dot(self.Xdes.T)))
+                #print "PI shape = ", self.AATinvAT.shape
+                # Set the fit and eval methods
+                self.Fit = lambda vals: self.FitPoly(vals)
+                self.Eval = lambda coeffs : self.EvalPoly(coeffs, Freqsp=self.Freqs)
+                self.Eval_Degrid = lambda coeffs, Freqs : self.EvalPoly(coeffs, Freqsp=Freqs)
+            elif mode == "GPR":
+                # Instantiate the GP
+                self.GP = ClassRRGP.RR_GP(self.Freqs/self.ref_freq,self.Freqsp/self.ref_freq,self.GD["Hogbom"]["MaxLengthScale"],self.GD["Hogbom"]["NumBasisFuncs"])
+                # Set default initial length scale
+                self.l0 = (self.GP.x.max() - self.GP.x.min()) / 2
+                # Set the fit and eval methods
+                self.Fit = lambda vals: self.FitGP(vals)
+                self.Eval = lambda coeffs : self.EvalGP(coeffs, Freqsp=self.Freqs)
+                self.Eval_Degrid = lambda coeffs, Freqs : self.EvalGP(coeffs, Freqsp=Freqs)
 
     def getFitMask(self, FitCube, Threshold=0.0, SetNegZero=False):
         """
@@ -97,8 +105,12 @@ class ClassFrequencyMachine(object):
                 FitCube[ineg[:, 0], ineg[:, 1], ineg[:, 2]] = 0.0
 
         # Find where I is above threshold (in any frequency band)
-        FitMax = np.amax(FitCube,axis=0)
-        MaskIndices = np.argwhere(FitMax > Threshold)
+        # FitMax = np.amax(FitCube, axis=0)
+        # Ip = FitMax > Threshold
+        FitMin = np.amin(FitCube, axis=0)
+        In = FitMin > Threshold
+        #mind = Ip & In
+        MaskIndices = np.argwhere(In)
         FitMask = FitCube[:, MaskIndices[:, 0], MaskIndices[:, 1]]
         return FitMask, MaskIndices
 
@@ -153,25 +165,64 @@ class ClassFrequencyMachine(object):
         logI = np.log(IFlat)
 
         # Create the design matrix
-        XDes = self.setDesMat(self.Freqsp, order=2, mode="log")
+        p = 2 #polynomial order
+        XDes = self.setDesMat(self.Freqsp, order=p, mode="log")
 
         # Solve the system
         Sol = np.dot(np.linalg.inv(XDes.T.dot(XDes)), np.dot(XDes.T, logI))
         logIref = Sol[0, :]
         #self.logIref = logIref
-        alpha = Sol[1::,:]
+        alpha = Sol[1::,:].reshape(logIref.size)
         #self.alpha = alpha
         # Create the alpha map
         self.alpha_map = np.zeros([Nx, Ny])
-        if int(np.version.version.split('.')[1]) > 9: #check numpy version > 9 (broadcasting fails for
+        if int(np.version.version.split('.')[1]) > 9: #check numpy version > 9 (broadcasting fails for older versions)
             self.alpha_map[ix, iy] = alpha
         else:
             for j in xrange(ix.size):
                 self.alpha_map[ix[j],iy[j]] = alpha[j]
 
-        # # Get I0 map
-        # self.Iref = np.zeros([Nx, Ny])
-        # self.Iref[ix, iy] = np.exp(logIref)
+        # Get I0 map
+        self.Iref = np.zeros([Nx, Ny])
+        if int(np.version.version.split('.')[1]) > 9: # check numpy version > 9 (broadcasting fails for older versions)
+            self.Iref[ix, iy] = np.exp(logIref)
+        else:
+            for j in xrange(ix.size):
+                self.Iref[ix[j], iy[j]] = np.exp(logIref[j])
+
+        # Re-weight the alphas according to flux of model component
+        self.weighted_alpha_map = self.alpha_map*self.Iref
+        #print self.weighted_alpha_map.min(), self.weighted_alpha_map.max()
+
+        # Create a dict to store model components spi's
+        self.alpha_dict = {}
+        for j, key in enumerate(zip(ix,iy)):
+            self.alpha_dict[key] = {}
+            self.alpha_dict[key]['alpha'] = alpha[j]
+            self.alpha_dict[key]['Iref'] = np.exp(logIref[j])
+
+        # # Get the variance estimate of residuals
+        # epshat = logI - np.dot(XDes, Sol)
+        # epsvar = np.diag(np.dot(epshat.T, epshat))/(nchan - p)
+        # #print epsvar.min(), epsvar.max()
+        # self.var_map = np.zeros([Nx, Ny])
+        # if int(np.version.version.split('.')[1]) > 9: #check numpy version > 9 (broadcasting fails for older versions)
+        # 	self.var_map[ix, iy] = epsvar
+        # else:
+        # 	for j in xrange(ix.size):
+        # 		self.var_map[ix[j],iy[j]] = epsvar[j]
+        #
+        # # Get the variance estimate of the alphas (assuming normally distributed errors, might want to compute confidence intervals)
+        # w = self.Freqs/self.ref_freq
+        # wbar = np.mean(w)
+        # alphavar = np.sqrt(epsvar/np.sum((w-wbar)**2))
+        # self.alpha_var_map = np.zeros([Nx, Ny])
+        # if int(np.version.version.split('.')[1]) > 9:  # check numpy version > 9 (broadcasting fails for older versions)
+        # 	self.alpha_var_map[ix, iy] = alphavar
+        # else:
+        # 	for j in xrange(ix.size):
+        # 		self.alpha_var_map[ix[j], iy[j]] = alphavar[j]
+        # self.weighted_alpha_var_map = self.alpha_var_map*self.Iref
         return
 
     def EvalAlphamap(self, Freqs):
@@ -185,6 +236,7 @@ class ClassFrequencyMachine(object):
         """
         # Compute basis functions
         w = Freqs/self.ref_freq
+
         nfreqs = Freqs.size
         # Reconstruct the model
         Nx, Ny = self.alpha_map.shape
@@ -246,6 +298,11 @@ class ClassFrequencyMachine(object):
 
         # Fit and evaluate GP
         coeffs, thetaf = self.GP.RR_EvalGP(theta, Vals)
+
+        # if (coeffs <= 1.0e-8).all():
+        #     print "Something went wrong with GPR"
+        #     print self.GP.SolverFlag
+        #     print thetaf
 
         return coeffs
 

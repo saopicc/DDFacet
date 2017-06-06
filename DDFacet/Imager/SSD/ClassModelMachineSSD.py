@@ -29,7 +29,7 @@ from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
-
+from DDFacet.Imager import ClassFrequencyMachine
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.ToolsDir import ModFFTW
@@ -67,7 +67,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #self.DicoSMStacked["AllFreqs"]=np.array(AllFreqs)
         # print "ModelMachine:",self.RefFreq, self.DicoSMStacked["RefFreq"], self.DicoSMStacked["AllFreqs"]
         
-        
+    def setFreqMachine(self,GridFreqs, DegridFreqs):
+        # Initiaise the Frequency Machine
+        self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoSMStacked["RefFreq"], self.GD)
 
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName
@@ -318,30 +320,44 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setListComponants(self,ListScales):
         self.ListScales=ListScales
 
+    def GiveSpectralIndexMap(self, threshold=0.1, save_dict=True):
+        # Get the model image
+        IM = self.GiveModelImage(self.FreqMachine.Freqsp)
+        nchan, npol, Nx, Ny = IM.shape
+
+        # Fit the alpha map
+        self.FreqMachine.FitAlphaMap(IM[:, 0, :, :], threshold=threshold) # should set threshold based on SNR of final residual
+
+        if save_dict:
+            FileName = self.GD['Output']['Name'] + ".Dicoalpha"
+            print>>log, "Saving componentwise SPI map to %s"%FileName
+
+            MyPickle.Save(self.FreqMachine.alpha_dict, FileName)
+
+        return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
 
 
-
-    def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True):
-
-        
-        dFreq=1e6
-        RefFreq=self.DicoSMStacked["RefFreq"]
-        f0=RefFreq/1.5#self.DicoSMStacked["AllFreqs"].min()
-        f1=RefFreq*1.5#self.DicoSMStacked["AllFreqs"].max()
-        M0=self.GiveModelImage(f0)
-        M1=self.GiveModelImage(f1)
-        if DoConv:
-            M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-            M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-        
-        Np=1000
-        indx,indy=np.int64(np.random.rand(Np)*M0.shape[0]),np.int64(np.random.rand(Np)*M0.shape[1])
-        med=np.median(np.abs(M0[:,:,indx,indy]))
-
-        Mask=((M1>100*med)&(M0>100*med))
-        alpha=np.zeros_like(M0)
-        alpha[Mask]=(np.log(M0[Mask])-np.log(M1[Mask]))/(np.log(f0/f1))
-        return alpha
+    # def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True):
+	#
+    #
+    #     dFreq=1e6
+    #     RefFreq=self.DicoSMStacked["RefFreq"]
+    #     f0=RefFreq/1.5#self.DicoSMStacked["AllFreqs"].min()
+    #     f1=RefFreq*1.5#self.DicoSMStacked["AllFreqs"].max()
+    #     M0=self.GiveModelImage(f0)
+    #     M1=self.GiveModelImage(f1)
+    #     if DoConv:
+    #         M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+    #         M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+    #
+    #     Np=1000
+    #     indx,indy=np.int64(np.random.rand(Np)*M0.shape[0]),np.int64(np.random.rand(Np)*M0.shape[1])
+    #     med=np.median(np.abs(M0[:,:,indx,indy]))
+	#
+    #     Mask=((M1>100*med)&(M0>100*med))
+    #     alpha=np.zeros_like(M0)
+    #     alpha[Mask]=(np.log(M0[Mask])-np.log(M1[Mask]))/(np.log(f0/f1))
+    #     return alpha
 
         
     def CleanNegComponants(self,box=20,sig=3,RemoveNeg=True):

@@ -44,13 +44,13 @@ def test():
     size=20
     dtype=np.complex128
     test_array = np.zeros( (size,size), dtype=dtype)
-    
+
     test_array[11,11]=1
     #test_array.fill(1)
     #test_array[size*3/8:size*5/8, size*3/8:size*5/8] = 1+1j # square aperture oversampling 2...
     A=test_array
     F=FFTWnp(A)
-    
+
     f_A=F.fft(A)
     if_f_A=F.ifft(f_A)
 
@@ -141,7 +141,7 @@ class FFTW_2Donly():
         #     self.A = pyfftw.n_byte_align_empty( shape[-2::], 16, dtype=dtype)
         # else:
         #     self.A = NpShared.GiveArray(FromSharedId)
-        
+
         #pyfftw.interfaces.cache.enable()
         #pyfftw.interfaces.cache.set_keepalive_time(3000)
         self.ncores=ncores or NCPU_global
@@ -214,7 +214,7 @@ class FFTW_2Donly_np():
 
         T= ClassTimeIt.ClassTimeIt("ModFFTW")
         T.disable()
-        
+
         nch,npol,n,n=A.shape
 
         if ChanList is not None:
@@ -258,7 +258,7 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parall
     SigMaj,SigMin,ang=GaussPars
     ang = 2*np.pi - ang #need counter-clockwise rotation
     U,V=np.mgrid[-uvscale:uvscale:Npix*1j,-uvscale:uvscale:Npix*1j]
-    
+
     CT=np.cos(ang)
     ST=np.sin(ang)
     C2T=np.cos(2*ang)
@@ -292,7 +292,7 @@ def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
     if GaussPar is None:
         GaussPar=(Sig,Sig,0)
     in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
-    
+
     nch,npol,_,_=Ain0.shape
     Out=np.zeros_like(Ain0)
     for ch in range(nch):
@@ -382,7 +382,6 @@ def ConvolveGaussianFFTW(Ain0,
                          nthreads=1):
     nch,npol,_,_=Ain0.shape
     Aout = np.zeros_like(Ain0) if out is None else out
-
     T = ClassTimeIt.ClassTimeIt()
     T.disable()
 #    FFTM = FFTW_2Donly(Ain0[0,...].shape, Ain0.dtype, norm=False, ncores=0)  # full-parellel if available
@@ -562,7 +561,7 @@ def testConvolveGaussian(parallel=False):
     sd.delete()
     if parallel:
         APP.shutdown()
-    
+
 
 
 class FFTWnp():
