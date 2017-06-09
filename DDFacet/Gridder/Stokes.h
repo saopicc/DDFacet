@@ -1000,3 +1000,45 @@
 	stokes_vis[3]=(Vis[0] - Vis[3])/2.; /*V*/ \
 	int nVisPol = 4; \
 	int PolMap[] = {3,0,1,2};
+//--------------------------------------------
+// Inverse operations: correlations from stokes
+//
+// WARNING:
+// Currently only Stokes I deconvolution is supported
+// So there will always be either the V fraction missing (expected to be minimal)
+// in the case of circular feeds and Q in the case of
+// linear feeds (may not be so negligiable on sensitive arrays). 
+// This section must be greatly expanded when full polarization
+// cleaning is supported in the future.
+//--------------------------------------------
+#define GMODE_CORR_RRLL_FROM_I \
+	float _Complex corr_vis[] = {0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I}; \
+	/* I missing V*/ \
+	corr_vis[0] = stokes_vis[0]; \
+	corr_vis[1] = stokes_vis[0]; \
+	int nVisCorr = 2; \
+	int PolMap[] = {0};
+	
+#define GMODE_CORR_RRRLLRLL_FROM_I \
+	float _Complex corr_vis[] = {0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I}; \
+	/* I missing V*/ \
+	corr_vis[0] = stokes_vis[0]; \
+	corr_vis[3] = stokes_vis[0]; \
+	int nVisCorr = 4; \
+	int PolMap[] = {0};
+	
+#define GMODE_CORR_XXYY_FROM_I \
+	float _Complex corr_vis[] = {0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I}; \
+	/* I missing V*/ \
+	corr_vis[0] = stokes_vis[0]; \
+	corr_vis[1] = stokes_vis[0]; \
+	int nVisCorr = 2; \
+	int PolMap[] = {0};
+	
+#define GMODE_CORR_XXXYYXYY_FROM_I \
+	float _Complex corr_vis[] = {0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I}; \
+	/* I missing V*/ \
+	corr_vis[0] = stokes_vis[0]; \
+	corr_vis[3] = stokes_vis[0]; \
+	int nVisCorr = 4; \
+	int PolMap[] = {0};

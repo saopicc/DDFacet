@@ -800,26 +800,6 @@ class ClassDDEGridMachine():
                                           np.array(self.ExpectedOutputStokes).astype(np.uint16))
 
             T.timeit("gridder")
-# <<<<<<< HEAD
-
-
-#         T2.timeit("gridder")
-#         NCH,_,_,_=Grid.shape
-#         Dirty= self.GridToIm(Grid)
-
-#         del(Grid)
-
-#         if self.SpheNorm:
-#             Dirty = self.cutImPadded(Dirty)
-
-#         import gc
-#         gc.enable()
-#         gc.collect()
-#         return Dirty
-
-# =======
-# >>>>>>> landman/RefactoringModelMachine
-
             T.timeit("grid %d" % self.IDFacet)
 
     def CheckTypes(
@@ -1036,7 +1016,9 @@ class ClassDDEGridMachine():
                 self._bda_degrid,
                 sparsification if sparsification is not None else np.array([]),
                 OptimisationInfos,
-                self.LSmear, np.int32(ChanMapping))
+                self.LSmear, np.int32(ChanMapping),
+                np.array(self.DataCorrelationFormat).astype(np.uint16),
+                np.array(self.ExpectedOutputStokes).astype(np.uint16))
 
 
         T.timeit("4 (degrid)")
