@@ -15,6 +15,7 @@ import scipy.linalg
 from ModBBS2np import ReadBBSModel
 import ModRegFile
 import time
+from DDFacet.ToolsDir import ModCoord
 
 class ClassSM():
     def __init__(self,infile,infile_cluster="",killdirs=[],invert=False,DoPrintCat=False,\
@@ -42,11 +43,23 @@ class ClassSM():
         self.Dirs=sorted(list(set(self.SourceCat.Cluster.tolist())))
         self.NDir=np.max(self.SourceCat.Cluster)+1
         self.NSources=Cat.shape[0]
+
+        try:
+            SourceCat=self.SourceCat
+            indIMax=np.argmax(SourceCat.I)
+            self.rarad=SourceCat.ra[indIMax]#np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
+            self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
+            self.CoordMachine = ModCoord.ClassCoordConv(self.rarad, self.decrad)
+        except:
+            pass
+
+
         self.BuildClusterCat()
         self.NDir=np.max(self.SourceCat.Cluster)+1
         self.NSources=Cat.shape[0]
         self.SetSelection()
         self.PrintBasics()
+
 
         #self.print_sm2()
 
@@ -207,8 +220,15 @@ class ClassSM():
         # #######################################
 
         SourceCat=self.SourceCat[indSubSel]
-        self.rarad=np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
+
+        indIMax=np.argmax(SourceCat.I)
+
+        self.rarad=SourceCat.ra[indIMax]#np.sum(SourceCat.I*SourceCat.ra)/np.sum(SourceCat.I)
         self.decrad=np.sum(SourceCat.I*SourceCat.dec)/np.sum(SourceCat.I)
+
+        self.CoordMachine = ModCoord.ClassCoordConv(self.rarad, self.decrad)
+
+
         x,y,s=SourceCat.ra,SourceCat.dec,SourceCat.I
         x,y=self.radec2lm_scalar(x,y)
         
@@ -228,20 +248,27 @@ class ClassSM():
                 CM=ClassClusterClean(x,y,s,nk,DoPlot=0)#DoPlot)
                 DictNode=CM.Cluster()
                 ra,dec=[],[]
+                ListL,ListM=[],[]
                 for idDir in DictNode.keys():
-                    
-                    ra0,dec0=np.mean(self.SourceCat.ra[DictNode[idDir]["ListCluster"]]),np.mean(self.SourceCat.dec[DictNode[idDir]["ListCluster"]])
-                    if not np.isnan(ra0):
-                        ra.append(ra0)
-                        dec.append(dec0)
-                l0,m0=self.radec2lm_scalar(np.array(ra),np.array(dec))
+                    LDir=DictNode[idDir]["ListCluster"]
+                    #ra0,dec0=np.mean(self.SourceCat.ra[LDir]),np.mean(self.SourceCat.dec[LDir])
+                    # print idDir,ra0,dec0,self.SourceCat.ra[LDir].min(),self.SourceCat.ra[LDir].max()
+                    # if not np.isnan(ra0):
+                    #     ra.append(ra0)
+                    #     dec.append(dec0)
+                    This_l,This_m=self.radec2lm_scalar(np.array(self.SourceCat.ra[LDir]),np.array(self.SourceCat.dec[LDir]))
+                    ListL.append(np.mean(This_l))
+                    ListM.append(np.mean(This_m))
+
+                # l0,m0=self.radec2lm_scalar(np.array(ra),np.array(dec))
+                l0,m0=np.array(ListL),np.array(ListM)
                 nk=l0.size
 
                 CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot,InitLM=(l0,m0))
 
         REGFile="%s.tessel.reg"%self.TargetList
 
-        print FromClusterCat
+        #print FromClusterCat
         if FromClusterCat=="":
             DictNode=CM.Cluster()
         else:
@@ -369,13 +396,18 @@ class ClassSM():
         icat=0
         for d in self.Dirs:
             cat=self.SourceCat[self.SourceCat.Cluster==d]
-            ClusterCat.ra[icat]=np.sum(cat.ra*cat.I)/np.sum(cat.I)
-            ClusterCat.dec[icat]=np.sum(cat.dec*cat.I)/np.sum(cat.I)
+            l,m=self.CoordMachine.radec2lm(cat.ra, cat.dec)
+            lmean,mmean=np.sum(l*cat.I)/np.sum(cat.I),np.sum(m*cat.I)/np.sum(cat.I)
+
+            ramean,decmean=self.CoordMachine.lm2radec(np.array([lmean]),np.array([mmean]))
+            ClusterCat.ra[icat]=ramean
+            ClusterCat.dec[icat]=decmean
             ClusterCat.SumI[icat]=np.sum(cat.I)
             ClusterCat.Cluster[icat]=d
             icat+=1
+        #print ClusterCat.ra
         self.ClusterCat=ClusterCat
-        
+
 
 
     def radec2lm_scalar(self,ra,dec,rarad0=None,decrad0=None):
@@ -385,6 +417,9 @@ class ClassSM():
         l = np.cos(dec) * np.sin(ra - rarad0)
         m = np.sin(dec) * np.cos(decrad0) - np.cos(dec) * np.sin(decrad0) * np.cos(ra - rarad0)
         return l,m
+
+
+
 
 
     def Calc_LM(self,rac,decc):
