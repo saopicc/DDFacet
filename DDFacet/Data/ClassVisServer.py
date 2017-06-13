@@ -589,10 +589,11 @@ class ClassVisServer():
                     _, _, nx, ny = self.FacetShape
                 elif self.GD["Comp"]["GridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
+                mode = self.GD["Comp"]["BDAMode"]
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
                 self._smm_grid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["GridDecorr"]),
-                                                          ChanMappingGridding)
+                                                          ChanMappingGridding, mode)
 
         if True: # always True for now, non-BDA gridder is not maintained # if self.GD["Comp"]["CompDeGridMode"]:
             self._bda_degrid_cachename, valid = self.cache.checkCache("BDA.Degrid",CriticalCacheParms)
@@ -605,10 +606,11 @@ class ClassVisServer():
                     _, _, nx, ny = self.FacetShape
                 elif self.GD["Comp"]["DegridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
+                mode = self.GD["Comp"]["BDAMode"]
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
                 self._smm_degrid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["DegridDecorr"]),
-                                                          ChanMappingDeGridding)
+                                                          ChanMappingDeGridding, mode)
 
     def GetVisWeights(self, iMS, iChunk):
         """
