@@ -23,7 +23,7 @@ from DDFacet.Other import ClassTimeIt
 import numpy as np
 import psutil
 
-NCPU_global = psutil.cpu_count()
+NCPU_global = 0 #psutil.cpu_count()
 
 def A_add_B_prod_factor(
     A,
@@ -64,7 +64,7 @@ def A_add_B_prod_factor(
     A = A.reshape(ShapeOrig)
     return A
 
-def A_whereMax(A,NCPU=6,DoAbs=1,Mask=None):
+def A_whereMax(A,NCPU=0,DoAbs=1,Mask=None):
     NCPU = NCPU or NCPU_global
     if NCPU==1:
         NX,NY=A.shape[-2],A.shape[-1]
@@ -98,7 +98,7 @@ def A_whereMax(A,NCPU=6,DoAbs=1,Mask=None):
         return A_whereMaxParallel(A,NCPU=NCPU,DoAbs=DoAbs,Mask=Mask)
 
 
-def A_whereMaxParallel(A,NCPU=6,DoAbs=1,Mask=None):
+def A_whereMaxParallel(A,NCPU=0,DoAbs=1,Mask=None):
     NCPU = NCPU or NCPU_global
 
     NDimsA=len(A.shape)

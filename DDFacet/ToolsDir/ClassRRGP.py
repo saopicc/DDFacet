@@ -69,7 +69,7 @@ class RR_GP(ClassGP.ClassGP):
 
         # Set bounds for hypers (they must be strictly positive)
         lmin = self.L/(2*self.m)
-        self.bnds = ((1e-5, 1.0e2), (lmin, self.L), (1.0e-4, None))
+        self.bnds = ((1e-5, 1.0e2), (lmin, 0.95*self.L), (1.0e-8, None))
 
     def set_spectral_density(self, covariance_function='sqexp'):
         if covariance_function == "sqexp":
@@ -82,22 +82,28 @@ class RR_GP(ClassGP.ClassGP):
             self.spectral_density = lambda theta: self.spectral_density_mat72(theta, self.s)
             self.dspectral_density = lambda theta, S, mode: self.dspectral_density_mat72(theta, S, self.s, mode=mode)
 
-    def RR_logp_and_gradlogp(self, theta, y):
+    def RR_logp_and_gradlogp(self, theta, y, grid_mode="regular"):
         S = self.spectral_density(theta)
         Lambdainv = np.diag(1.0 / S)
         Z = self.PhiTPhi + theta[2] ** 2 * Lambdainv
-        try:
-            L = np.linalg.cholesky(Z)
-        except:
-            print "Had to add jitter, theta = ", theta
-            L = np.linalg.cholesky(Z + 1.0e-6)
-            #
-            # logp = 1.0e2
-            # dlogp = np.ones(theta.size)*1.0e8
-            # return logp, dlogp
-        Linv = np.linalg.inv(L)
-        Zinv = np.dot(Linv.T,Linv)
-        logdetZ = 2.0 * np.sum(np.log(np.diag(L)))
+        if grid_mode=="regular":
+            Zdiag = 1/np.diag(Z)
+            L = np.sqrt(Zdiag)
+            logdetZ = 2.0 * np.sum(np.log(L))
+            Zinv = np.diag(1/Zdiag)
+        else:
+            try:
+                L = np.linalg.cholesky(Z)
+            except:
+                print "Had to add jitter, theta = ", theta
+                L = np.linalg.cholesky(Z + 1.0e-6)
+                #
+                # logp = 1.0e2
+                # dlogp = np.ones(theta.size)*1.0e8
+                # return logp, dlogp
+            Linv = np.linalg.inv(L)
+            Zinv = np.dot(Linv.T,Linv)
+            logdetZ = 2.0 * np.sum(np.log(np.diag(L)))
         # Get the log term
         logQ = (self.N - self.m) * np.log(theta[2] ** 2) + logdetZ + np.sum(np.log(S))
         # Get the quadratic term

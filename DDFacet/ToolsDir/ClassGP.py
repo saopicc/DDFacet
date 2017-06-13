@@ -22,17 +22,28 @@ import numpy as np
 import scipy as scp
 from scipy.linalg import solve_triangular as soltri
 from scipy import optimize as opt
-
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("ClassGP")
 class ClassGP(object):
     """
     Why the
     """
-    def __init__(self, x, xp, covariance_function = 'sqexp'):
+    def __init__(self, x, xp, covariance_function='sqexp', mean_func=None):
         self.x = x
         self.xp = xp
         self.N = self.x.size
         self.Np = self.xp.size
         self.set_covariance(covariance_function=covariance_function)
+        # if mean_func is None:
+        #     self.fm = np.zeros(self.N)
+        #     self.fmp = np.zeros(self.Np)
+        # else:
+        #     try:
+        #         self.fm = mean_func(self.x)
+        #         self.fmp = mean_func(self.xp)
+        #     except:
+        #         print>>log, "Please pass a callable mean function to ClassGP"
+
 
     def set_abs_diff(self):
         self.XX = self.abs_diff(self.x,self.x)

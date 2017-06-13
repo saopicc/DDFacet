@@ -38,19 +38,19 @@ log=MyLogger.getLogger("ModFFTW")
 Fs=scipy.fftpack.fftshift
 iFs=scipy.fftpack.ifftshift
 
-NCPU_global = psutil.cpu_count()
+NCPU_global = 0#psutil.cpu_count()
 
 def test():
     size=20
     dtype=np.complex128
     test_array = np.zeros( (size,size), dtype=dtype)
-    
+
     test_array[11,11]=1
     #test_array.fill(1)
     #test_array[size*3/8:size*5/8, size*3/8:size*5/8] = 1+1j # square aperture oversampling 2...
     A=test_array
     F=FFTWnp(A)
-    
+
     f_A=F.fft(A)
     if_f_A=F.ifft(f_A)
 
@@ -141,7 +141,7 @@ class FFTW_2Donly():
         #     self.A = pyfftw.n_byte_align_empty( shape[-2::], 16, dtype=dtype)
         # else:
         #     self.A = NpShared.GiveArray(FromSharedId)
-        
+
         #pyfftw.interfaces.cache.enable()
         #pyfftw.interfaces.cache.set_keepalive_time(3000)
         self.ncores=ncores or NCPU_global
@@ -214,7 +214,7 @@ class FFTW_2Donly_np():
 
         T= ClassTimeIt.ClassTimeIt("ModFFTW")
         T.disable()
-        
+
         nch,npol,n,n=A.shape
 
         if ChanList is not None:
@@ -258,7 +258,7 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parall
     SigMaj,SigMin,ang=GaussPars
     ang = 2*np.pi - ang #need counter-clockwise rotation
     U,V=np.mgrid[-uvscale:uvscale:Npix*1j,-uvscale:uvscale:Npix*1j]
-    
+
     CT=np.cos(ang)
     ST=np.sin(ang)
     C2T=np.cos(2*ang)
@@ -292,7 +292,7 @@ def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
     if GaussPar is None:
         GaussPar=(Sig,Sig,0)
     in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
-    
+
     nch,npol,_,_=Ain0.shape
     Out=np.zeros_like(Ain0)
     for ch in range(nch):
@@ -374,10 +374,14 @@ def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,G
 APP.registerJobHandlers(_convolveSingleGaussianFFTW, _convolveSingleGaussianNP)
 
 # FFTW version
-def ConvolveGaussianFFTW(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,out=None):
+def ConvolveGaussianFFTW(Ain0,
+                         CellSizeRad=None,
+                         GaussPars=[(0.,0.,0.)],
+                         Normalise=False,
+                         out=None,
+                         nthreads=1):
     nch,npol,_,_=Ain0.shape
     Aout = np.zeros_like(Ain0) if out is None else out
-
     T = ClassTimeIt.ClassTimeIt()
     T.disable()
 #    FFTM = FFTW_2Donly(Ain0[0,...].shape, Ain0.dtype, norm=False, ncores=0)  # full-parellel if available
@@ -391,12 +395,12 @@ def ConvolveGaussianFFTW(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=
         if Normalise:
             PSF/=np.sum(PSF)
         PSF = np.fft.ifftshift(PSF)
-        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=1)#NCPU_global)
+        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=nthreads)
         for pol in range(npol):
             A = np.fft.ifftshift(Ain[pol])
-            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=1)#NCPU_global)
+            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=nthreads)
             nfA = fA*fPSF
-            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=1)#NCPU_global)
+            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=nthreads)
             Aout[ch, pol, :, :] = np.fft.fftshift(ifA)
         T.timeit("conv")
 
@@ -661,7 +665,7 @@ def testConvolveGaussian(parallel=False):
     sd.delete()
     if parallel:
         APP.shutdown()
-    
+
 
 
 class FFTWnp():

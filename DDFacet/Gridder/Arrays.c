@@ -57,6 +57,7 @@ static PyMethodDef _pyArrays_testMethods[] = {
 	{"pyWhereMax", pyWhereMax, METH_VARARGS},
 	{"pyWhereMaxMask", pyWhereMaxMask, METH_VARARGS},
 	{"pySetOMPNumThreads", pySetOMPNumThreads, METH_VARARGS},
+	{"pySetOMPDynamicNumThreads", pySetOMPNumThreads, METH_VARARGS},
 	{NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
 
@@ -80,6 +81,18 @@ static PyObject *pySetOMPNumThreads(PyObject *self, PyObject *args)
   return Py_None;
 }
 
+static PyObject *pySetOMPDynamicNumThreads(PyObject *self, PyObject *args)
+{
+  int nthr;
+
+  if (!PyArg_ParseTuple(args, "i", &nthr))  return NULL;
+
+  omp_set_dynamic(nthr);
+
+  //  A = (PyArrayObject *) PyArray_ContiguousFromObject(ObjA, PyArray_FLOAT32, 0, 4);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
 
 static PyObject *pyWhereMaxMask(PyObject *self, PyObject *args)
 {
