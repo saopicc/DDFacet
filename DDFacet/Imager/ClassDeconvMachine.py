@@ -572,6 +572,8 @@ class ClassImagerDeconv():
                     model_freqs = DATA["FreqMappingDegrid"]
                     if not np.array_equal(model_freqs, current_model_freqs):
                         ModelImage = self.FacetMachine.setModelImage(self.ModelMachine.GiveModelImage(model_freqs))
+                        # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%(self.BaseName),
+                        #                               Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
                         current_model_freqs = model_freqs
                         print>> log, "model image @%s MHz (min,max) = (%f, %f)" % (
                         str(model_freqs / 1e6), ModelImage.min(), ModelImage.max())
@@ -804,12 +806,12 @@ class ClassImagerDeconv():
                     ModelImage=ModelImage*np.ones((NChanDegrid,1,1,1))
                     ModelImage = self.FacetMachine.setModelImage(ModelImage)
 
-            if CleanMaskImage is not None:
-                nch,npol,_,_=ModelImage.shape
-                indZero=(CleanMaskImage[0,0]!=0)
-                for ich in range(nch):
-                    for ipol in range(npol):
-                        ModelImage[ich,ipol][indZero]=0
+            # if CleanMaskImage is not None:
+            #     nch,npol,_,_=ModelImage.shape
+            #     indZero=(CleanMaskImage[0,0]!=0)
+            #     for ich in range(nch):
+            #         for ipol in range(npol):
+            #             ModelImage[ich,ipol][indZero]=0
 
             # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelPredict"%self.BaseName,Fits=True,
             #                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
@@ -828,6 +830,8 @@ class ClassImagerDeconv():
             self.FacetMachine.collectDegriddingResults()
             predict *= -1   # model was subtracted from (zero) predict, so need to invert sign
             # run job in I/O thread
+
+
             self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Predict"]["ColName"], likecol=self.GD["Data"]["ColName"])
             # and wait for it to finish (we don't want DATA destroyed, which collectLoadedChunk() above will)
             self.VS.collectPutColumnResults()

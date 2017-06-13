@@ -149,7 +149,11 @@ class ClassInitSSDModel():
         self.GD["Deconv"]["MaxMinorIter"]=10000
         
 
-        self.GD["HMP"]["Scales"]=[0,1,2,4,8,16,24,32]
+        if self.GD["SSDClean"]["ScalesInitHMP"] is not None:
+            self.GD["HMP"]["Scales"]=self.GD["SSDClean"]["ScalesInitHMP"]
+        else:
+            self.GD["HMP"]["Scales"]=[0,1,2,4,8,16,24,32]
+
         self.GD["HMP"]["Ratios"]=[]
         #self.GD["MultiScale"]["Ratios"]=[]
         self.GD["HMP"]["NTheta"]=4

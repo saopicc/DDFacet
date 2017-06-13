@@ -701,7 +701,7 @@ class ClassVisServer():
                                    args=(self._weight_grid.readonly(),
                                          self._weight_dict[ims][ichunk].readwrite(),
                                          ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax),
-                                   counter=self._weightjob_counter, collect_result=False)
+                                   counter=self._weightjob_counter, collect_result=False,serial=True)
             # wait for results
             APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
             if self.Weighting == "briggs" or self.Weighting == "robust":
@@ -825,6 +825,7 @@ class ClassVisServer():
         x += xymax  # offset, since X grid starts at -xymax
         # convert to index array -- this gives the number of the uv-bin on the grid
         index = msw.addSharedArray("index", (uv.shape[0], len(freqs)), np.int64)
+        #index = np.zeros((uv.shape[0], len(freqs)), np.int64)
         index[...] = y * npixx + x
         # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
         if nbands > 1:

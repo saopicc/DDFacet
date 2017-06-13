@@ -553,8 +553,7 @@ class ClassJones():
         # from killMS2.Other.rad2hmsdms import rad2hmsdms
         # for i in range(RAs.size):
         #     ra,dec=RAs[i],DECs[i]
-        # print rad2hmsdms(ra,Type="ra").replace("
-        # ",":"),rad2hmsdms(dec,Type="dec").replace(" ",".")
+        #     print rad2hmsdms(ra,Type="ra").replace(" ",":"),rad2hmsdms(dec,Type="dec").replace(" ",".")
 
         DicoBeam = self.EstimateBeam(beam_times, RAs, DECs)
 
