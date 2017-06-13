@@ -155,7 +155,7 @@ class ClassImagerDeconv():
                                       defaultDDID=DC["Selection"]["DDID"],
                                       defaultField=DC["Selection"]["Field"])
         AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"], affinity=self.GD["Parallel"]["Affinity"],
-                              verbose=self.GD["Debug"]["APPVerbose"])
+                              verbose=self.GD["Debug"]["APPVerbose"], pause_on_start=self.GD["Debug"]["PauseWorkers"])
 
         self.VS = ClassVisServer.ClassVisServer(mslist,ColName=self.do_readcol and DC["Data"]["ColName"],
                                                 TChunkSize=DC["Data"]["ChunkHours"],
@@ -471,7 +471,7 @@ class ClassImagerDeconv():
         self._fitAndSavePSF(self.FacetMachinePSF)
 
 
-    def GiveDirty(self, psf=False, sparsify=0):
+    def GiveDirty(self, psf=False, sparsify=0, last_cycle=False):
         """
         Generates dirty image (& PSF)
 
@@ -698,8 +698,11 @@ class ClassImagerDeconv():
             self.MeanJonesNorm = None
 
 
-    def GivePredict(self,from_fits=True):
-        print>>log, ModColor.Str("============================== Making Predict ==============================")
+    def GivePredict(self, subtract=False, from_fits=True):
+        if subtract:
+            print>>log, ModColor.Str("============================== Making Predict/Subtract =====================")
+        else:
+            print>>log, ModColor.Str("============================== Making Predict ==============================")
         if not self.GD["Predict"]["ColName"]:
             raise ValueError("--Predict-ColName must be set")
         if not self.GD["Predict"]["FromImage"] and not self.GD["Predict"]["InitDicoModel"]:
@@ -795,13 +798,16 @@ class ClassImagerDeconv():
                     ModelImage[np.logical_not(InSquare)]=0
                 #ModelImage = self.FacetMachine.setModelImage(ModelImage)
 
-            NChanDegrid=np.unique(DATA["ChanMappingDegrid"]).size
-            if ModelImage.shape[0]!=NChanDegrid:
-                print>>log, "The image model channels and targetted degridded visibilities channels have different sizes (%i vs %i respectively)"%(ModelImage.shape[0],NChanDegrid)
-                if ModelImage.shape[0]==1:
-                    print>>log, " Matching freq size of model image to visibilities"
-                    ModelImage=ModelImage*np.ones((NChanDegrid,1,1,1))
-                    ModelImage = self.FacetMachine.setModelImage(ModelImage)
+            ## OMS 16/04/17: @cyriltasse this code looks all wrong and was giving me errors. ChanMappingDegrid has size equal to the
+            ## number of channels. I guess this is meant for the case where we predict from a FixedModelImage
+            ## rather than a DicoModel, but in this case we probably need to recalculate ChanMappingDegrid specifically
+            ## based on the FixedModelImage freq axis? Disabling for now.
+            # if ModelImage.shape[0]!=DATA["ChanMappingDegrid"].size:
+            #     print>>log, "The image model channels and targetted degridded visibilities channels have different sizes (%i vs %i respectively)"%(
+            #         ModelImage.shape[0], DATA["ChanMappingDegrid"].size)
+            #     if ModelImage.shape[0]==1:
+            #         print>>log, " Matching freq size of model image to visibilities"
+            #         ModelImage=ModelImage*np.ones((DATA["ChanMappingDegrid"].size,1,1,1))
 
             if CleanMaskImage is not None:
                 nch,npol,_,_=ModelImage.shape
@@ -825,7 +831,8 @@ class ClassImagerDeconv():
             else:
                 raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
             self.FacetMachine.collectDegriddingResults()
-            predict *= -1   # model was subtracted from (zero) predict, so need to invert sign
+            if not subtract:
+                predict *= -1   # model was subtracted from (zero) data, so need to invert sign
             # run job in I/O thread
             self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Predict"]["ColName"], likecol=self.GD["Data"]["ColName"])
             # and wait for it to finish (we don't want DATA destroyed, which collectLoadedChunk() above will)
@@ -872,7 +879,8 @@ class ClassImagerDeconv():
             sparsify = previous_sparsify = 0
         if sparsify:
             print>> log, "applying a sparsification factor of %f to data for dirty image" % sparsify
-        self.GiveDirty(psf=True, sparsify=sparsify)
+        # if running in NMajor=0 mode, then we simply want to subtract/predict the model probably
+        self.GiveDirty(psf=True, sparsify=sparsify, last_cycle=(NMajor==0))
 
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
