@@ -43,10 +43,6 @@ import time
 from DDFacet.Other.progressbar import ProgressBar
 
 
-try:
-    import lofar.stationresponse as lsr
-except:
-    print>>log, ModColor.Str("Could not import lofar.stationresponse")
 
 class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
