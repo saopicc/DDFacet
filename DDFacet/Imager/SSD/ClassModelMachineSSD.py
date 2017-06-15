@@ -350,7 +350,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         return alpha
 
         
-    def CleanNegComponants(self,box=20,sig=3,RemoveNeg=True):
+
+    def CleanNegComponants(self,box=10,sig=2,RemoveNeg=True):
         print>>log, "Cleaning model dictionary from negative componants with (box, sig) = (%i, %i)"%(box,sig)
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
         
@@ -370,6 +371,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 del(self.DicoSMStacked["Comp"][key])
             except:
                 print>>log, "  Componant at (%i, %i) not in dict "%key
+
+
 
     def CleanMaskedComponants(self,MaskName):
         print>>log, "Cleaning model dictionary from masked componants using %s"%(MaskName)
