@@ -31,7 +31,7 @@ import cPickle
 import atexit
 import traceback
 from matplotlib.path import Path
-import pylab
+#import pylab
 import numpy.random
 from DDFacet.ToolsDir import ModCoord
 from DDFacet.Array import NpShared
@@ -54,6 +54,8 @@ from DDFacet.cbuild.Gridder import _pyGridderSmearPols
 from DDFacet.Other import ModColor
 MyLogger.setSilent("MyLogger")
 import cpuinfo
+from DDFacet.ToolsDir import ModFFTW
+import scipy.ndimage
 
 class ClassFacetMachine():
     """
@@ -163,9 +165,11 @@ class ClassFacetMachine():
 
     def setAverageBeamMachine(self,AverageBeamMachine):
         self.AverageBeamMachine=AverageBeamMachine
-
-    def setAverageBeamMachine(self,AverageBeamMachine):
-        self.AverageBeamMachine=AverageBeamMachine
+        if self.AverageBeamMachine.SmoothBeam is not None:
+            print>>log,"  Smooth beam machine already has a smooth beam"
+            Npix=self.OutImShape[-1]
+            self.SmoothJonesNorm = self.AverageBeamMachine.SmoothBeam.reshape((self.VS.NFreqBands,1,Npix,Npix))
+            self.MeanSmoothJonesNorm = self.AverageBeamMachine.MeanSmoothBeam.reshape((1,1,Npix,Npix))
 
 
     def SetLogModeSubModules(self,Mode="Silent"):
@@ -1005,8 +1009,22 @@ class ClassFacetMachine():
 
         # else build Dirty (residual) image
         else:
+
+            DicoImages.addSubdict("FacetMeanResidual")
+            for iFacet in sorted(self.DicoImager.keys()):
+                DicoImages["FacetMeanResidual"].addSubdict(iFacet)
+                nch,npol,npix_x,npix_y=self.DicoGridMachine[iFacet]["Dirty"].shape
+                ThisW=self.DicoImager[iFacet]["SumWeights"].reshape((self.VS.NFreqBands,npol,1,1))
+                SumJonesNorm=np.sqrt(self.DicoImager[iFacet]["SumJonesNorm"])
+                if np.max(SumJonesNorm)>0.:
+                    ThisW=ThisW*SumJonesNorm.reshape((self.VS.NFreqBands,1,1,1))
+                ThisDirty=self.DicoGridMachine[iFacet]["Dirty"].real/ThisW
+                DicoImages["FacetMeanResidual"][iFacet]=np.sum(ThisDirty*WBAND,axis=0).reshape((1,npol,npix_x,npix_y))
+                DicoImages["FacetMeanResidual"][iFacet]=DicoImages["FacetMeanResidual"][iFacet]/self._CF[iFacet]["Sphe"]
+                
             # Build a residual image consisting of multiple continuum bands
             stitchedResidual = self.FacetsToIm_Channel("Dirty")
+
             if self.VS.MultiFreqMode:
                 MeanResidual = np.sum(stitchedResidual * WBAND, axis=0).reshape((1, npol, Npix, Npix))
             else:
@@ -1099,7 +1117,9 @@ class ClassFacetMachine():
 
 
 
-    def FacetsToIm_Channel(self, kind="Dirty"):
+
+
+    def FacetsToIm_Channel(self, kind="Dirty",ChanSel=None):
         """
         Preconditions: assumes the stitched tesselation weighting map has been
         created previous
@@ -1114,9 +1134,12 @@ class ClassFacetMachine():
 
         nch, npol, NPixOut, NPixOut = self.OutImShape
 
+        if ChanSel is None:
+            ChanSel=range(self.VS.NFreqBands)
+        
         print>>log, "Combining facets to stitched %s image" % kind
 
-        for Channel in range(self.VS.NFreqBands):
+        for Channel in ChanSel:
             ThisSumWeights=self.DicoImager[0]["SumWeights"][Channel][0]
             if ThisSumWeights==0:
                 print>>log,ModColor.Str("The sum of the weights are zero for FreqBand #%i, data is all flagged?"%Channel)
@@ -1143,7 +1166,7 @@ class ClassFacetMachine():
             x0main, x1main, y0main, y1main = Aedge
             x0facet, x1facet, y0facet, y1facet = Bedge
 
-            for Channel in xrange(self.VS.NFreqBands):
+            for Channel in ChanSel:
                 ThisSumWeights = self.DicoImager[iFacet]["SumWeights"][Channel]
                 ThisSumJones = self.DicoImager[iFacet]["SumJonesNorm"][Channel]
                 T.timeit("3")
@@ -1168,11 +1191,14 @@ class ClassFacetMachine():
                     a = Image[Channel, pol, x0main:x1main, y0main:y1main]
                     numexpr.evaluate('a+Im',out=a,casting="unsafe")
                     #Image[Channel, pol, x0main:x1main, y0main:y1main] += Im.real
+                    
+                    
+
 
 
             pBAR.render(iFacet+1, NFacets)
 
-        for Channel in xrange(self.VS.NFreqBands):
+        for Channel in ChanSel:
             for pol in xrange(npol):
                 Image[Channel, pol] /= self._norm_dict["FacetNorm"]
 
@@ -1496,21 +1522,21 @@ class ClassFacetMachine():
         APP.awaitJobResults(self._fft_job_id+"*", progress=("FFT PSF" if self.DoPSF else "FFT"))
         self._fft_job_id = None
 
-    def _set_model_grid_worker(self, iFacet, model_dict, cf_dict, ChanSel, ToSHMDict=False,ToGrid=False):
+    def _set_model_grid_worker(self, iFacet, model_dict, cf_dict, ChanSel, ToSHMDict=False,ToGrid=False,ApplyNorm=True):
         # We get the psf dict directly from the shared dict name (not from the .path of a SharedDict)
         # because this facet machine is not necessarilly the one where we have computed the PSF
         norm_dict = shared_dict.attach("normDict")
         # extract facet model from model image
         ModelGrid, SumFlux = self._Im2Grid.GiveModelTessel(model_dict["Image"],
                                                            self.DicoImager, iFacet, norm_dict["FacetNorm"],
-                                                           cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel,ToGrid=ToGrid)
+                                                           cf_dict["Sphe"], cf_dict["SW"], ChanSel=ChanSel,ToGrid=ToGrid,ApplyNorm=ApplyNorm)
 
         model_dict[iFacet]["SumFlux"] = SumFlux
         if ToSHMDict:
             model_dict[iFacet]["FacetGrid"] = ModelGrid
         return ModelGrid
 
-    def set_model_grid (self):
+    def set_model_grid (self,ToGrid=True,ApplyNorm=True):
         self.awaitInitCompletion()
 
         #modeldict_path=self._model_dict.path
@@ -1522,16 +1548,98 @@ class ClassFacetMachine():
         nch,_,_,_=self._model_dict["Image"].shape
         ChanSel=range(nch)
         ToSHMDict=True
-        ToGrid=True
+        
         self._set_model_grid_job_id = "%s.MakeGridModel:" % (self._app_id)
         
         for iFacet in self.DicoImager.keys():
             APP.runJob("%sF%d" % (self._set_model_grid_job_id, iFacet), 
                        self._set_model_grid_worker,
-                       args=(iFacet, self._model_dict.readwrite(), self._CF[iFacet].readonly(), ChanSel,ToSHMDict,ToGrid))
+                       args=(iFacet, self._model_dict.readwrite(), self._CF[iFacet].readonly(),
+                             ChanSel,ToSHMDict,ToGrid,ApplyNorm))
         APP.awaitJobResults(self._set_model_grid_job_id + "*", progress="Make model grids")
 
 
+    # #####################################################"
+    def _convolveShift_worker(self, iFacet, d_mat, dl,dm,
+                              model_dict,DicoImages,cf_dict,
+                              RestoredFacetDict,PSFGaussParsAvg):
+        Model=model_dict[iFacet]["FacetGrid"]
+        _,npol,nx,ny=Model.shape
+        Model=np.mean(Model,axis=0).reshape((1,npol,nx,ny))
+        Residual=DicoImages["FacetMeanResidual"][iFacet]
+        
+        majax,minax,PA=PSFGaussParsAvg
+        PA+=np.pi/2
+        
+        ModelConv=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.CellSizeRad,
+                                           GaussPars=[(majax,minax,PA)])
+        
+        #indx,indy=np.where(self._CF[iFacet]["SW"]!=0)
+        #ModelConv[0,0,indx,indy]=ModelConv[0,0,indx,indy]/self._CF[iFacet]["SW"][indx,indy]
+        Restored=Residual+ModelConv#/self._CF[iFacet]["SW"]
+        
+        
+        indx,indy=np.where(cf_dict[iFacet]["Sphe"]<1e-3)
+        Restored[0,0,indx,indy]=0
+        
+        # import pylab
+        # pylab.clf()
+        # pylab.imshow(Restored[0,0])
+        # pylab.draw()
+        # pylab.show()
+        
+        if d_mat is not None:
+            d=d_mat[iFacet]
+            iDir=np.argmin(d)
+            if not(dl[iDir]==0. and dm[iDir]==0.):
+                Restored=scipy.ndimage.interpolation.shift(Restored, (0,0,dm[iDir],dl[iDir]))
+        RestoredFacetDict[iFacet]=Restored
+        #Restored.fill(1.)
+
+        
+
+    def giveRestoredFacets(self,DicoImages,PSFGaussParsAvg,ShiftFile=None):
+        self.set_model_grid (ToGrid=False,ApplyNorm=False)
+        d_mat=None
+        if ShiftFile is not None:
+            ra_rad,dec_rad,dl,dm=np.genfromtxt(ShiftFile).T
+            a1,d1=ra_rad.reshape(-1,1),dec_rad.reshape(-1,1)
+            a0=np.array([self.DicoImager[iFacet]["RaDec"][0] for iFacet in sorted(self.DicoImager.keys())]).reshape(-1,1)
+            d0=np.array([self.DicoImager[iFacet]["RaDec"][1] for iFacet in sorted(self.DicoImager.keys())]).reshape(-1,1)
+
+            c=np.cos
+            s=np.sin
+            d_mat=np.arccos(s(d0)*s(d1.T)+c(d0)*c(d1.T)*c(a0-a1.T))
+            #d_mat[d_mat==0]=1e10
+
+        RestoredFacetDict = shared_dict.create("RestoredFacetDict")
+
+
+        for iFacet in self.DicoImager.keys():
+            APP.runJob("convolveShiftF%d" % (iFacet), 
+                       self._convolveShift_worker,
+                       args=(iFacet, d_mat, dl,dm,
+                             self._model_dict.readonly(),DicoImages.readonly(),self._CF.readonly(),
+                             RestoredFacetDict.readwrite(),PSFGaussParsAvg))#,serial=True)
+        APP.awaitJobResults("convolveShiftF*", progress="Build restored facets")
+
+        RestoredFacetDict.reload()
+        for iFacet in sorted(self.DicoImager.keys()):
+            self._model_dict.reload()
+            Restored=RestoredFacetDict[iFacet]
+            self.DicoGridMachine[iFacet]["Dirty"]=Restored*self._CF[iFacet]["Sphe"]#/self._CF[iFacet]["SW"]#*self._CF[iFacet]["Sphe"]
+            #self.DicoGridMachine[iFacet]["Dirty"]=self.DicoGridMachine[iFacet]["Dirty"]*self._CF[iFacet]["SW"]
+            self.DicoImager[iFacet]["SumWeights"]=self.SumWeights.copy()
+            self.DicoImager[iFacet]["SumWeights"].fill(1.)
+            self.DicoImager[iFacet]["SumJonesNorm"]=np.ones(self.VS.NFreqBands, np.float64)
+
+
+        Restored=self.FacetsToIm_Channel(kind="Dirty",ChanSel=[0])
+        _,npol,nx,ny=Restored.shape
+        
+        return Restored[0].reshape((1,npol,nx,ny))
+
+    # #####################################################"
 
     # DeGrid worker that is called by Multiprocessing.Process
     def _degrid_worker(self, iFacet, DATA, cf_dict, ChanSel, modeldict):

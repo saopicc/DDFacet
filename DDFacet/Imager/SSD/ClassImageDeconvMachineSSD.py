@@ -103,7 +103,9 @@ class ClassImageDeconvMachine():
     def setDeconvMode(self,Mode="MetroClean"):
         self.DeconvMode=Mode
 
-    def Reset(self): pass
+    def Reset(self):
+        # clear anything we have left lying around in shared memory
+        NpShared.DelAll()
         
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
@@ -449,7 +451,7 @@ class ClassImageDeconvMachine():
             Parallel=True
             ParallelPerIsland=False
         elif ParallelMode=="PerIsland":
-            NCPU=1
+            NCPU=self.NCPU
             Parallel=False
             ParallelPerIsland=True
 
@@ -535,20 +537,11 @@ class ClassImageDeconvMachine():
                                  NChains=self.NChains,
                                  ListInitIslands=ListInitIslands)
             workerlist.append(W)
-            workerlist[ii].start()
-            # workerlist[ii].run()
 
-            # if Parallel: 
-            #     workerlist[ii].start()
-            # else:
-            #     workerlist[ii].run()
-
-        # if Parallel:
-        #     for ii in range(NCPU):
-        #         workerlist[ii].start()
-        # else:
-        #     for ii in range(NCPU):
-        #         workerlist[ii].run()
+            if Parallel: 
+                workerlist[ii].start()
+            else:
+                workerlist[ii].run()
 
         iResult=0
         #print "!!!!!!!!!!!!!!!!!!!!!!!!",iResult,NJobs

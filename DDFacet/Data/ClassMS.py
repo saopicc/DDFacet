@@ -603,6 +603,9 @@ class ClassMS():
                     del visdata1
                 else:
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                if self._reverse_channel_order:
+                    visdata[:,:,:]= visdata[:,::-1,:]
+  
                 if use_cache:
                     print>> log, "caching visibilities to %s" % datapath
                     np.save(datapath, visdata)
@@ -985,7 +988,7 @@ class ClassMS():
             srah,sram,sras=SRa.split(":")
             sdecd,sdecm,sdecs=SDec.split(":")
             ranew=(np.pi/180)*15.*(float(srah)+float(sram)/60.+float(sras)/3600.)
-            decnew=(np.pi/180)*(float(sdecd)+float(sdecm)/60.+float(sdecs)/3600.)
+            decnew=(np.pi/180)*np.sign(float(sdecd))*(abs(float(sdecd))+float(sdecm)/60.+float(sdecs)/3600.)
             self.OldRadec=rarad,decrad
             self.NewRadec=ranew,decnew
             rarad,decrad=ranew,decnew

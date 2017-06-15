@@ -196,7 +196,11 @@ def SharedToDico(Prefix):
 
 
 def PackListArray(Name, LArray):
-    DelArray(Name)
+    DimName = Name+'.dimensions'
+    DatName = Name+'.data'
+
+    DelArray(DimName)
+    DelArray(DatName)
 
     NArray = len(LArray)
     ListNDim = [len(LArray[i].shape) for i in xrange(len(LArray))]
@@ -208,54 +212,60 @@ def PackListArray(Name, LArray):
     for i in xrange(NArray):
         TotSize += LArray[i].size
 
-    S = SharedArray.create(Name, (1+NArray+NDimTot+TotSize,), dtype=dS)
-    S[0] = NArray
-    idx = 1
+    Dim = SharedArray.create(DimName, 1+NArray+NDimTot, dtype=np.int)
+    Dat = SharedArray.create(DatName, TotSize, dtype=dS)
+    Dim[0] = NArray
+    didx = 1
     # write ndims
     for i in xrange(NArray):
-        S[idx] = ListNDim[i]
-        idx += 1
+        Dim[didx] = ListNDim[i]
+        didx += 1
 
     # write shapes
     for i in xrange(NArray):
         ndim = ListNDim[i]
         A = LArray[i]
-        S[idx:idx+ndim] = A.shape
-        idx += ndim
+        Dim[didx:didx+ndim] = A.shape
+        didx += ndim
 
     # write arrays
+    idx = 0
     for i in xrange(NArray):
         A = LArray[i]
-        S[idx:idx+A.size] = A.ravel()
+        Dat[idx:idx+A.size] = A.ravel()
         idx += A.size
 
 
 def UnPackListArray(Name):
-    S = GiveArray(Name)
+    DimName = Name+'.dimensions'
+    DatName = Name+'.data'
+    Dim = GiveArray(DimName)
+    Dat = GiveArray(DatName)
 
-    NArray = np.int32(S[0].real)
+    NArray = Dim[0]
     idx = 1
 
     # read ndims
     ListNDim = []
     for i in xrange(NArray):
-        ListNDim.append(np.int32(S[idx].real))
+        ListNDim.append(Dim[idx])
         idx += 1
 
     # read shapes
     ListShapes = []
     for i in xrange(NArray):
         ndim = ListNDim[i]
-        shape = np.int32(S[idx:idx+ndim].real)
+        shape = Dim[idx:idx+ndim]
         ListShapes.append(shape)
         idx += ndim
 
+    idx = 0
     # read values
     ListArray = []
     for i in xrange(NArray):
         shape = ListShapes[i]
         size = np.prod(shape)
-        A = S[idx:idx+size].reshape(shape)
+        A = Dat[idx:idx+size].reshape(shape)
         ListArray.append(A)
         idx += size
     return ListArray

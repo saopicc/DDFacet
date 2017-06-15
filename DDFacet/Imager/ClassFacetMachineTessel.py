@@ -36,6 +36,7 @@ from SkyModel.Sky import ModVoronoi
 from DDFacet.Other import reformat
 import os
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
+from DDFacet.Other import ModColor
 
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from matplotlib.path import Path
@@ -375,6 +376,9 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         # stop
         LPolygonNew = []
         for iFacet in sorted(DicoPolygon.keys()):
+            # if DicoPolygon[iFacet]["diam"]<DiamMin:
+            #     print>>log, ModColor.Str("  Facet #%i associated to direction #%i is too small, removing it"%(iFacet,DicoPolygon[iFacet]["iSol"]))
+            #     continue
             LPolygonNew.append(DicoPolygon[iFacet]["poly"])
 
         # for iFacet in range(len(regions)):
@@ -421,17 +425,18 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         self.JonesDirCat = self.JonesDirCat.view(np.recarray)
         self.JonesDirCat.I = 1
         self.JonesDirCat.SumI = 1
-        print>> log, "Sizes (%i facets):" % (self.JonesDirCat.shape[0])
-        print >>log, "   - Main field :   [%i x %i] pix" % (
-            self.Npix, self.Npix)
-
+        
         self.JonesDirCat.ra=NodesCat.ra
         self.JonesDirCat.dec=NodesCat.dec
         self.JonesDirCat.l=NodesCat.l
         self.JonesDirCat.m=NodesCat.m
         self.JonesDirCat.Cluster = range(NJonesDir)
 
+        print>> log, "Sizes (%i facets):" % (self.JonesDirCat.shape[0])
+        print >>log, "   - Main field :   [%i x %i] pix" % (
+            self.Npix, self.Npix)
 
+        
         l_m_Diam = np.zeros((NFacets, 4), np.float32)
         l_m_Diam[:, 3] = np.arange(NFacets)
 
@@ -579,7 +584,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             ra, dec = self.DicoImager[iFacet]["RaDec"]
             sra = rad2hmsdms.rad2hmsdms(ra, Type="ra").replace(" ", ":")
             sdec = rad2hmsdms.rad2hmsdms(dec).replace(" ", ".")
-            ss = "%s, %s" % (sra, sdec)
+            ss = "%s, %s, %f, %f" % (sra, sdec,ra,dec)
             f.write(ss+'\n')
         f.close()
 

@@ -27,7 +27,15 @@ import copy
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
 
-OR=np.logical_or
+def OR(a,b):
+    if a is None and b is None:
+        raise RuntimeError('Trying to combine two null masks')
+    if a is None:
+        return b
+    elif b is None:
+        return a
+    else:
+        return np.logical_or(a,b)
 
 class ClassMaskMachine():
     def __init__(self,GD):
