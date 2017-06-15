@@ -701,7 +701,7 @@ class ClassVisServer():
                                    args=(self._weight_grid.readonly(),
                                          self._weight_dict[ims][ichunk].readwrite(),
                                          ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax),
-                                   counter=self._weightjob_counter, collect_result=False,serial=True)
+                                   counter=self._weightjob_counter, collect_result=False)
             # wait for results
             APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
             if self.Weighting == "briggs" or self.Weighting == "robust":
