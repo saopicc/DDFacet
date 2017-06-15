@@ -175,6 +175,7 @@ class ClassMultiScaleMachine():
         self.PSFExtent = (NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
         x0,x1,y0,y1 = self.PSFExtent
         self.SubPSF = self._PSF[:,:,x0:x1,y0:y1]
+        #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!",self.SubPSF.shape
         if verbose:
             print>>log,"using %s PSF box of size %dx%d in minor cycle subtraction" % (method, dx*2+1, dx*2+1)
 
@@ -479,6 +480,11 @@ class ClassMultiScaleMachine():
         nxPSF=self.CubePSFScales.shape[-1]
         x0,x1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
         y0,y1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
+
+        Aedge,Bedge=GiveEdgesDissymetric((nxPSF/2,nxPSF/2),(nxPSF,nxPSF),(nxPSF/2,nxPSF/2),(int(self.SupWeightWidth),int(self.SupWeightWidth)))
+        #x0d,x1d,y0d,y1d=Aedge
+        (x0,x1,y0,y1)=Bedge
+
         self.SubSubCoord=(x0,x1,y0,y1)
         self.SubCubePSF=self.CubePSFScales[:,:,x0:x1,y0:y1]
         self.SubWeightFunction=self.GlobalWeightFunction[:,:,x0:x1,y0:y1]
@@ -655,6 +661,7 @@ class ClassMultiScaleMachine():
         CubePSF=DicoBasisMatrix["CubePSF"]
 
         nxp,nyp=x1s-x0s,y1s-y0s
+
         T.timeit("0")
         #MeanData=np.sum(np.sum(dirtyNorm*WCubePSF,axis=-1),axis=-1)
         #MeanData=MeanData.reshape(nchan,1,1)
