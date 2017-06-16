@@ -627,7 +627,7 @@ class ClassVisServer():
     def CalcWeightsBackground(self):
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
-        APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event,serial=True)
+        APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)
         # for debugging only: wait here
         APP.awaitEvents(self._calcweights_event)
 
@@ -718,7 +718,7 @@ class ClassVisServer():
                 APP.runJob("FinalizeWeights:%d:%d" % (ims, ichunk), self._finalizeWeights_handler,
                            args=(self._weight_grid.readonly(),
                                  self._weight_dict.readwrite(),ims,ichunk),
-                           counter=self._weightjob_counter, collect_result=False,serial=True)
+                           counter=self._weightjob_counter, collect_result=False)
         APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
         # delete stuff
         if self._weight_grid is not None:
