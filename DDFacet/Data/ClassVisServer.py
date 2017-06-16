@@ -717,7 +717,7 @@ class ClassVisServer():
             for ichunk in xrange(len(ms.getChunkRow0Row1())):
                 APP.runJob("FinalizeWeights:%d:%d" % (ims, ichunk), self._finalizeWeights_handler,
                            args=(self._weight_grid.readonly(),
-                                 self._weight_dict.readwrite(),ims,ichunk),
+                                 self._weight_dict.readwrite(),ims,ichunk,self._uvmax),
                            counter=self._weightjob_counter, collect_result=False)
         APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
         # delete stuff
@@ -840,7 +840,7 @@ class ClassVisServer():
         # print>>log,weights,index
         _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
 
-    def _finalizeWeights_handler(self, wg, mswAll,ims,ichunk):
+    def _finalizeWeights_handler(self, wg, mswAll,ims,ichunk,uvmax):
         msw=mswAll[ims][ichunk]
         if "weight" in msw:
             ms = self.ListMS[ims]
@@ -858,7 +858,7 @@ class ClassVisServer():
             FOV = self.CellSizeRad * npixIm
             nbands = self.NFreqBands
             cell = 1. / (self.Super * FOV)
-            xymax = int(math.floor(self._uvmax / cell)) + 1
+            xymax = int(math.floor(uvmax / cell)) + 1
             # grid will be from [-xymax,xymax] in U and [0,xymax] in V
             npixx = xymax * 2 + 1
             npixy = xymax + 1
