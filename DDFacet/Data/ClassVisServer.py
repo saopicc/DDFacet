@@ -854,6 +854,7 @@ class ClassVisServer():
                 return
             tab = ms.GiveMainTable()
             uvw = tab.getcol("UVW", row0, nrows)
+            tab.close()
             nch, npol, npixIm, _ = self.FullImShape
             FOV = self.CellSizeRad * npixIm
             nbands = self.NFreqBands
