@@ -471,6 +471,7 @@ class ClassMultiScaleMachine():
             #self.SupWeightWidth=ScaleMax#3.*self.WeightWidth
         T.timeit("other")
         self.IsInit_MultiScaleCube=True
+
         return self.ListScales, self.CubePSFScales
         #print>>log, "   ... Done"
 
@@ -478,17 +479,37 @@ class ClassMultiScaleMachine():
         # self.OPFT=np.real
         self.OPFT=np.abs
         nxPSF=self.CubePSFScales.shape[-1]
-        x0,x1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
-        y0,y1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
+        # x0,x1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
+        # y0,y1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
 
-        Aedge,Bedge=GiveEdgesDissymetric((nxPSF/2,nxPSF/2),(nxPSF,nxPSF),(nxPSF/2,nxPSF/2),(int(self.SupWeightWidth),int(self.SupWeightWidth)))
-        #x0d,x1d,y0d,y1d=Aedge
+        # Aedge,Bedge=GiveEdgesDissymetric((nxPSF/2,nxPSF/2),(nxPSF,nxPSF),(nxPSF/2,nxPSF/2),(int(self.SupWeightWidth),int(self.SupWeightWidth)))
+        # #x0d,x1d,y0d,y1d=Aedge
+        # (x0,x1,y0,y1)=Bedge
+
+        nxGWF,nyGWF=self.GlobalWeightFunction.shape[-2],self.GlobalWeightFunction.shape[-1]
+        Aedge,Bedge=GiveEdgesDissymetric((nxPSF/2,nxPSF/2),(nxPSF,nxPSF),(nxGWF/2,nyGWF/2),(nxGWF,nyGWF),WidthMax=(int(self.SupWeightWidth),int(self.SupWeightWidth)))
+        x0d,x1d,y0d,y1d=Aedge
         (x0,x1,y0,y1)=Bedge
 
         self.SubSubCoord=(x0,x1,y0,y1)
         self.SubCubePSF=self.CubePSFScales[:,:,x0:x1,y0:y1]
         self.SubWeightFunction=self.GlobalWeightFunction[:,:,x0:x1,y0:y1]
         _,nch,_,_ = self.SubCubePSF.shape
+        
+        
+        # import pylab
+        # pylab.subplot(2,2,1)
+        # pylab.imshow(self.CubePSFScales[0,0,:,:],interpolation="nearest")
+        # pylab.subplot(2,2,2)
+        # pylab.imshow(self.GlobalWeightFunction[0,0,:,:],interpolation="nearest")
+        # pylab.subplot(2,2,3)
+        # pylab.imshow(self.SubCubePSF[0,0,:,:],interpolation="nearest")
+        # pylab.subplot(2,2,4)
+        # pylab.imshow(self.SubWeightFunction[0,0,:,:],interpolation="nearest")
+        # pylab.draw()
+        # pylab.show()
+        # stop
+
 
         self.WeightMeanJonesBand=self.DicoVariablePSF["MeanJonesBand"][self.iFacet].reshape((nch,1,1,1))
         WeightMueller=self.WeightMeanJonesBand.ravel()
@@ -817,6 +838,7 @@ class ClassMultiScaleMachine():
             
             Fact=(MeanFluxTrue/np.sum(Sol))
             Sol*=Fact
+            
             
             if abs(Sol).max() < self._stall_threshold:
                 print>>log,"Stalled CLEAN!"
