@@ -170,8 +170,8 @@ class AsyncProcessPool (object):
 
         if isinstance(self.affinity, int):
             self.cpustep = abs(self.affinity) or 1
-            self.ncpu = ncpu
             maxcpu = psutil.cpu_count() / self.cpustep
+            self.ncpu = ncpu or maxcpu
             self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, list):
             if any(map(lambda x: x < 0, self.affinity)):
@@ -179,7 +179,7 @@ class AsyncProcessPool (object):
             if psutil.cpu_count() < max(self.affinity):
                 raise RuntimeError("There are %d virtual threads on this system. Some elements of the affinity map are "
                                    "higher than this. Check parset." % psutil.cpu_count())
-            self.ncpu = ncpu
+            self.ncpu = ncpu or len(self.affinity)
             if self.ncpu != len(self.affinity):
                 print>> log, ModColor.Str("Warning: NCPU does not match affinity list length. Falling back to "
                                           "NCPU=%d" % len(self.affinity))
@@ -189,8 +189,8 @@ class AsyncProcessPool (object):
         elif isinstance(self.affinity, str) and str(self.affinity) == "enable_ht":
             self.affinity = 1
             self.cpustep = 1
-            self.ncpu = ncpu
             maxcpu = psutil.cpu_count() / self.cpustep
+            self.ncpu = ncpu or maxcpu
             self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, str) and str(self.affinity) == "disable_ht":
             # this works on Ubuntu so possibly Debian-like systems, no guarantees for the rest
@@ -225,8 +225,8 @@ class AsyncProcessPool (object):
                                            "to the affinity option")
 
             self.affinity = list(left_set)  # only consider 1 thread per core
-            self.ncpu = ncpu
-            if self.ncpu >= len(self.affinity):
+            self.ncpu = ncpu or len(self.affinity)
+            if self.ncpu > len(self.affinity):
                 print>> log, ModColor.Str("Warning: NCPU is more than the number of physical cores on "
                                           "the system. I will only use %d cores." % len(self.affinity))
             self.ncpu = self.ncpu if self.ncpu <= len(self.affinity) else len(self.affinity)
@@ -241,9 +241,9 @@ class AsyncProcessPool (object):
         elif isinstance(self.affinity, str) and str(self.affinity) == "disable":
             self.affinity = None
             self.parent_affinity = None
-            self.ncpu = ncpu
             self.cpustep = 1
             maxcpu = psutil.cpu_count()
+            self.ncpu = ncpu or maxcpu
         else:
             raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list, "
                                "'enable_ht', 'disable_ht', 'disable'")
@@ -251,6 +251,7 @@ class AsyncProcessPool (object):
             print>> log, ModColor.Str("Not fixing parent and IO affinity as per user request")
         else:
             print>> log, ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green")
+        print>>log,(range(self.ncpu) if not self.parent_affinity else [self.parent_affinity])
         psutil.Process().cpu_affinity(range(self.ncpu) if not self.parent_affinity else [self.parent_affinity])
 
         # if NCPU is 0, set to number of CPUs on system
