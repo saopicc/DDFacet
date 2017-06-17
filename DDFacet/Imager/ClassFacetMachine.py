@@ -599,12 +599,12 @@ class ClassFacetMachine():
             self.IsDDEGridMachineInit = True
             return
         # get wmax from MS (if needed)
-        self._wmax = self.GD["CF"]["wmax"]
-        if self._wmax:
+        wmax = self.GD["CF"]["wmax"]
+        if wmax:
             print>>log,"max w=%.6g as per --CF-wmax setting"%wmax
         else:
-            self._wmax = self.VS.getMaxW()
-            print>>log,"max w=%.6g from MS (--CF-wmax=0)"%self.VS.getMaxW()
+            wmax = self.VS.getMaxW()
+            print>>log,"max w=%.6g from MS (--CF-wmax=0)"%wmax
         # subprocesses will place W-terms etc. here. Reset this first.
         self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
         # check if w-kernels, spacial weights, etc. are cached
@@ -623,7 +623,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.iterkeys():
             facet_dict = self._CF.addSubdict(iFacet)
             APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
-                            args=(iFacet, facet_dict.writeonly(), cachepath, cachevalid, self._wmax))
+                            args=(iFacet, facet_dict.writeonly(), cachepath, cachevalid, wmax))
         #workers_res=APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
 
 
