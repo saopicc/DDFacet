@@ -248,8 +248,7 @@ class ClassImagerDeconv():
         # all internal state initialized -- start the worker threads
         APP.startWorkers()
         # and proceed with background tasks
-        if not self.do_predict_only:
-            self.VS.CalcWeightsBackground()
+        self.VS.CalcWeightsBackground()
         self.FacetMachine and self.FacetMachine.initCFInBackground()
         # FacetMachinePSF will skip CF init if they match those of FacetMachine
         if self.FacetMachinePSF is not None:

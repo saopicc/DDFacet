@@ -302,6 +302,7 @@ class ClassDDEGridMachine():
                  ExpectedOutputStokes=[1],
                  ListSemaphores=None,
                  cf_dict=None, compute_cf=False,
+                 wmax=None,   # must be supplied if compute_cf=True
                  bda_grid=None, bda_degrid=None,
                  ):
         """
@@ -395,7 +396,6 @@ class ClassDDEGridMachine():
         OverS = GD["CF"]["OverS"]
         Support = GD["CF"]["Support"]
         Nw = GD["CF"]["Nw"]
-        wmax = GD["CF"]["wmax"]
         Cell = GD["Image"]["Cell"]
 
         # T=ClassTimeIt.ClassTimeIt("ClassImager")
@@ -422,7 +422,6 @@ class ClassDDEGridMachine():
         self.ChanFreq = ChanFreq
         self.Sup = Support
         self.WProj = True
-        self.wmax = wmax
         self.Nw = Nw
         self.OverS = OverS
         self.lmShift = lmShift
@@ -430,7 +429,7 @@ class ClassDDEGridMachine():
         T.timeit("4")
         # if neither is set, then machine is being constructed for ffts only
         if cf_dict or compute_cf:
-            self.InitCF(cf_dict, compute_cf)
+            self.InitCF(cf_dict, compute_cf, wmax)
         T.timeit("5")
 
         self.reinitGrid()
@@ -468,18 +467,18 @@ class ClassDDEGridMachine():
     @staticmethod
     def verifyCFDict(cf_dict, nw):
         """Checks that cf_dict has all the correct entries"""
-        for key in "SW", "Sphe", "W", "CuCv":
+        for key in "SW", "Sphe", "W", "CuCv", "wmax":
             if key not in cf_dict:
                 raise KeyError(key)
 
-    def InitCF(self, cf_dict, compute_cf):
+    def InitCF(self, cf_dict, compute_cf, wmax):
         T = ClassTimeIt.ClassTimeIt("InitCF_ClassDDEGridMachine")
         T.disable()
         self.WTerm = ModCF.ClassWTermModified(Cell=self.Cell,
                                               Sup=self.Sup,
                                               Npix=self.Npix,
                                               Freqs=self.ChanFreq,
-                                              wmax=self.wmax,
+                                              wmax=wmax,
                                               Nw=self.Nw,
                                               OverS=self.OverS,
                                               lmShift=self.lmShift,
@@ -754,7 +753,6 @@ class ClassDDEGridMachine():
         #T2= ClassTimeIt.ClassTimeIt("Gridder")
         #T2.disable()
         T.timeit("stuff")
-
         if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
             raise RuntimeError("Deprecated flag. Please use BDA gridder")
         else:

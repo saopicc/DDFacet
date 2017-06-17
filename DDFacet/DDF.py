@@ -412,7 +412,7 @@ if __name__ == "__main__":
         report_error = True
     except:
         print>>log, traceback.format_exc()
-        if sys.exc_info()[0] is not WorkerProcessErrror and Exceptions.is_pdb_enabled():
+        if sys.exc_info()[0] is not WorkerProcessError and Exceptions.is_pdb_enabled():
             raise
         report_error = True
 

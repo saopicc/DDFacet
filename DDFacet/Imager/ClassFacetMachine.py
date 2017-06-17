@@ -304,7 +304,6 @@ class ClassFacetMachine():
                         "DoPSF": False,
                         "Support": self.GD["CF"]["Support"],
                         "OverS": self.GD["CF"]["OverS"],
-                        "wmax": self.GD["CF"]["wmax"],
                         "Nw": self.GD["CF"]["Nw"],
                         "WProj": True,
                         "DoDDE": self.DoDDE,
@@ -599,6 +598,13 @@ class ClassFacetMachine():
             self._CF = other_fm._CF
             self.IsDDEGridMachineInit = True
             return
+        # get wmax from MS (if needed)
+        self._wmax = self.GD["CF"]["wmax"]
+        if self._wmax:
+            print>>log,"max w=%.6g as per --CF-wmax setting"%wmax
+        else:
+            self._wmax = self.VS.getMaxW()
+            print>>log,"max w=%.6g from MS (--CF-wmax=0)"%self.VS.getMaxW()
         # subprocesses will place W-terms etc. here. Reset this first.
         self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
         # check if w-kernels, spacial weights, etc. are cached
@@ -617,11 +623,11 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.iterkeys():
             facet_dict = self._CF.addSubdict(iFacet)
             APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
-                            args=(iFacet, facet_dict.writeonly(), cachepath, cachevalid))
+                            args=(iFacet, facet_dict.writeonly(), cachepath, cachevalid, self._wmax))
         #workers_res=APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
 
 
-    def _initcf_worker (self, iFacet, facet_dict, cachepath, cachevalid):
+    def _initcf_worker (self, iFacet, facet_dict, cachepath, cachevalid, wmax):
         """Worker method of InitParal"""
         path = "%s/%s.npz" % (cachepath, iFacet)
         T=ClassTimeIt.ClassTimeIt("_initcf_worker")
@@ -671,7 +677,7 @@ class ClassFacetMachine():
         facet_dict["SW"] = sw
 
         # Initialize a grid machine per iFacet, this will implicitly compute wterm and Sphe
-        self._createGridMachine(iFacet, cf_dict=facet_dict, compute_cf=True)
+        self._createGridMachine(iFacet, cf_dict=facet_dict, compute_cf=True, wmax=wmax)
 
         # # save cache
         # DoPrintErr=False

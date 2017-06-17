@@ -258,7 +258,6 @@ class AsyncProcessPool (object):
             print>> log, ModColor.Str("Not fixing parent and IO affinity as per user request")
         else:
             print>> log, ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green")
-        print>>log,(range(self.ncpu) if not self.parent_affinity else [self.parent_affinity])
         psutil.Process().cpu_affinity(range(self.ncpu) if not self.parent_affinity else [self.parent_affinity])
 
         # if NCPU is 0, set to number of CPUs on system
@@ -306,7 +305,12 @@ class AsyncProcessPool (object):
         # This is responsible for spawning, killing, and respawning workers
         self._taras_restart_event = multiprocessing.Event()
         self._taras_exit_event = multiprocessing.Event()
-        self._taras_bulba = multiprocessing.Process(target=AsyncProcessPool._startBulba, args=(self,))
+        if self.ncpu > 1:
+            self._taras_bulba = multiprocessing.Process(target=AsyncProcessPool._startBulba, args=(self,))
+            if pause_on_start:
+                print>>log,ModColor.Str("Please note that due to your debug settings, worker processes will be paused on startup. Send SIGCONT to all processes to continue.", col="blue")
+        else:
+            self._taras_bulba = None
 
         self._started = False
 
@@ -341,7 +345,8 @@ class AsyncProcessPool (object):
         """Starts worker threads. All job handlers and events must be registered *BEFORE*"""
         self._shared_state = shared_dict.create("APP")
         self._job_counters.finalize(self._shared_state)
-        self._taras_bulba.start()
+        if self.ncpu > 1:
+            self._taras_bulba.start()
         self._started = True
 
     def restartWorkers(self):
@@ -401,7 +406,8 @@ class AsyncProcessPool (object):
                     print>>log, "waiting for restart signal"
                 try:
                     self._taras_restart_event.wait(5)
-                    print>>log, "wait done"
+                    if self.verbose:
+                        print>>log, "wait done"
                 except KeyboardInterrupt:
                     print>>log,ModColor.Str("Ctrl+C caught, exiting")
                     self._termination_event.set()
@@ -700,9 +706,10 @@ class AsyncProcessPool (object):
         self._started = False
         self._taras_exit_event.set()
         self._taras_restart_event.set()
-        if self.verbose > 1:
-            print>>log,"shutdown: waiting for TB to exit"
-        self._taras_bulba.join()
+        if self._taras_bulba:
+            if self.verbose > 1:
+                print>>log,"shutdown: waiting for TB to exit"
+            self._taras_bulba.join()
         if self.verbose > 1:
             print>> log, "shutdown: closing queues"
         # join and close queues

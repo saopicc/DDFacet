@@ -19,21 +19,16 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import numpy as np
-import math
+import math, os, cPickle
+
+
 import ClassMS
 from DDFacet.Data.ClassStokes import ClassStokes
-from DDFacet.Array import NpShared
-from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-from DDFacet.Array import ModLinAlg
 from DDFacet.Other import MyLogger
 from functools import reduce
 MyLogger.setSilent(["NpShared"])
-from DDFacet.Imager import ClassWeighting
-from DDFacet.Other import reformat
 import ClassSmearMapping
-import os
-import psutil
 import ClassJones
 from DDFacet.Array import shared_dict
 from DDFacet.Other.AsyncProcessPool import APP
@@ -97,10 +92,15 @@ class ClassVisServer():
         self.obs_detail = None
         self.Init()
 
+        # if True, then skip weights calculation (but do load max-w!)
+        self._compute_wmax_only = False
+
         # smear mapping machines
         self._smm_grid = ClassSmearMapping.SmearMappingMachine("BDA.Grid")
         self._smm_degrid = ClassSmearMapping.SmearMappingMachine("BDA.Degrid")
         self._put_vis_column_job_id = self._put_vis_column_label = None
+
+
 
     def Init(self, PointingID=0):
         self.ListMS = []
@@ -618,8 +618,8 @@ class ClassVisServer():
 
         Waits for CalcWeights to complete (if running in background).
         """
-        # weight 1 means weights not computed (i.e. predict-only mode)
-        if self.VisWeights is 1:
+        # wmax-only means weights not computed (i.e. predict-only mode)
+        if self._compute_wmax_only:
             return 1
         # otherwise make sure we get them
         self.awaitWeights()
@@ -630,6 +630,12 @@ class ClassVisServer():
             return None
         return np.load(file(path))
 
+    def getMaxW(self):
+        """Returns the max W value. Since this is estimated as part of weights computation, 
+        wait for that to finish firest"""
+        self.awaitWeights()
+        return self.VisWeights["wmax"]
+
     def awaitWeights(self):
         if self.VisWeights is None:
             # ensure the background calculation is complete
@@ -639,7 +645,7 @@ class ClassVisServer():
 
     def IgnoreWeights(self):
         print>>log,"weights will be ignored"
-        self.VisWeights = 1
+        self._compute_wmax_only = True
 
     def CalcWeightsBackground(self):
         """Starts parallel jobs to load weights in the background"""
@@ -650,22 +656,26 @@ class ClassVisServer():
 
     def _CalcWeights_handler(self):
         self._weight_dict = shared_dict.create("VisWeights")
+        # check for wmax in cache
+        cache_keys = dict([(section, self.GD[section]) for section
+              in ("Data", "Selection", "Freq", "Image", "Weight")])
+        wmax_path, wmax_valid = self.maincache.checkCache("wmax", cache_keys)
+        if wmax_valid:
+            self._weight_dict["wmax"] = cPickle.load(open(wmax_path))
         # check cache first
-        have_all_weights = True
+        have_all_weights = wmax_valid
         for iMS, MS in enumerate(self.ListMS):
             msweights = self._weight_dict.addSubdict(iMS)
             for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
                 msw = msweights.addSubdict(ichunk)
-                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy",
-                                dict([(section, self.GD[section]) for section
-                                      in ("Data", "Selection", "Freq", "Image", "Weight")]))
+                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy", cache_keys)
                 have_all_weights = have_all_weights and valid
                 msw["cachepath"] = path
                 if valid:
                     msw["null"] = not os.path.getsize(path)
         # if every weight is in cache, then we're done here
         if have_all_weights:
-            print>> log, "all imaging weights are available in cache"
+            print>> log, "all imaging weights, and wmax, are available in cache"
             return
         # spawn parallel jobs to load weights
         for ims,ms in enumerate(self.ListMS):
@@ -673,22 +683,25 @@ class ClassVisServer():
             for ichunk in xrange(len(ms.getChunkRow0Row1())):
                 msw = msweights[ichunk]
                 APP.runJob("LoadWeights:%d:%d"%(ims,ichunk), self._loadWeights_handler,
-                           args=(msw.writeonly(), ims, ichunk),
+                           args=(msw.writeonly(), ims, ichunk, self._compute_wmax_only),
                            counter=self._weightjob_counter, collect_result=False)
         # wait for results
         APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
         self._weight_dict.reload()
-        self._wmax = self._uvmax = 0
+        wmax = self._uvmax = 0
         # now work out weight grid sizes, etc.
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
             for ichunk in xrange(len(ms.getChunkRow0Row1())):
                 msw = msweights[ichunk]
-                if "weight" not in msw:
-                    msw["null"] = True
-                    continue  # null chunk, skip
-                self._wmax = max(self._wmax, msw["wmax"])
+                wmax = max(wmax, msw["wmax"])
                 self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
+        # save wmax to cache
+        cPickle.dump(wmax,open(wmax_path, "w"))
+        self.maincache.saveCache("wmax")
+        self._weight_dict["wmax"] = wmax
+        if self._compute_wmax_only:
+            return
         if not self._uvmax:
             raise RuntimeError("data appears to be fully flagged: can't compute imaging weights")
         # in natural mode, leave the weights as is. In other modes, setup grid for calculations
@@ -752,7 +765,9 @@ class ClassVisServer():
             for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
                 ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
 
-    def _loadWeights_handler(self, msw, ims, ichunk):
+    def _loadWeights_handler(self, msw, ims, ichunk, wmax_only=False):
+        """If wmax_only is True, then don't actually read or compute weighs -- only read UVWs
+        and FLAGs to get wmax"""
         ms = self.ListMS[ims]
         row0, row1 = ms.getChunkRow0Row1()[ichunk]
         msfreqs = ms.ChanFreq
@@ -781,15 +796,20 @@ class ClassVisServer():
         # if everything is flagged, skip this entry
         if rowflags.all():
 #            print>> log, "  all flagged: marking as null"
+            msw["wmax"] = 0
+            msw["uvmax_wavelengths"] = 0
             return
-        # if all channels are flagged, flag whole row. Shape of flags becomes nrow
-        msw["flags"] = rowflags
-        # adjust max uv (in wavelengths) and max w
-        wmax = abs(uvw[~rowflags,2]).max()
-        msw["uv"] = uvw[:,:2]
-        del uvw
         # max of |u|, |v| in wavelengths
-        uvmax_wavelengths = abs(msw["uv"][~rowflags,:]).max() * msfreqs.max() / _cc
+        uv = uvw[:, :2]
+        uvmax_wavelengths = abs(uv[~rowflags,:]).max() * msfreqs.max() / _cc
+        # adjust max uv (in wavelengths) and max w
+        msw["wmax"] = abs(uvw[~rowflags,2]).max()
+        msw["uvmax_wavelengths"] = uvmax_wavelengths
+        del uvw
+        if wmax_only:
+            return
+        msw["uv"] = uv
+        msw["flags"] = rowflags
         # now read the weights
         weight = msw.addSharedArray("weight", (nrows, ms.Nchan), np.float32)
         weight_col = self.GD["Weight"]["ColName"]
@@ -826,8 +846,6 @@ class ClassVisServer():
             msw.delete_item("flags")
         else:
             msw["bandmap"] = self.DicoMSChanMapping[ims]
-            msw["uvmax_wavelengths"] = uvmax_wavelengths
-            msw["wmax"] = wmax
 
     def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax):
         weights = msw["weight"]
