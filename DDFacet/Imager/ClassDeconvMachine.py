@@ -164,7 +164,7 @@ class ClassImagerDeconv():
         del(self.GD["Deconv"]["MaxMajorIter"])
         # If we do the deconvolution construct a model according to what is in MinorCycleConfig
         MinorCycleConfig=dict(self.GD["Deconv"])
-        MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
+        MinorCycleConfig["NCPU"] = self.GD["Parallel"]["NCPU"]
         MinorCycleConfig["NBand"]=MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
         MinorCycleConfig["GD"] = self.GD
         MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
