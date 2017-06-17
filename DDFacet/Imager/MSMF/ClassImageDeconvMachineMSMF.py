@@ -589,16 +589,16 @@ class ClassImageDeconvMachine():
 
         
         if self.CurrentNegMask is not None:
-            print>>log,"Using externally defined Mask (self.CurrentNegMask)"
+            print>>log,"  using externally defined Mask (self.CurrentNegMask)"
             CurrentNegMask=self.CurrentNegMask
         elif self.MaskMachine:
-            print>>log,"Using MaskMachine Mask"
+            print>>log,"  using MaskMachine Mask"
             CurrentNegMask=self.MaskMachine.CurrentNegMask
         elif self._MaskArray is not None:
-            print>>log,"Using externally defined Mask (self._MaskArray)"
+            print>>log,"  using externally defined Mask (self._MaskArray)"
             CurrentNegMask=self._MaskArray
         else:
-            print>>log,"Not using a mask"
+            print>>log,"  not using a mask"
             CurrentNegMask=None
         
         x,y,MaxDirty = NpParallel.A_whereMax(self._PeakSearchImage,NCPU=self.NCPU,DoAbs=DoAbs,Mask=CurrentNegMask)
@@ -610,13 +610,12 @@ class ClassImageDeconvMachine():
         # in weighted or noisemap mode, look up the true max as well
         trueMaxDirty = MaxDirty if self._peakMode is "normal" else ThisFlux
 
-        if self._previous_initial_peak is None:
-            self._previous_initial_peak = ThisFlux
-        elif ThisFlux > self.GD["HMP"]["MajorStallThreshold"]*self._previous_initial_peak:
+        if self._previous_initial_peak is not None and abs(ThisFlux) > self.GD["HMP"]["MajorStallThreshold"]*self._previous_initial_peak:
             print>>log,ModColor.Str("STALL! dirty image peak %10.6g Jy, was %10.6g at previous major cycle."
                         % (ThisFlux, self._previous_initial_peak), col="red")
             print>>log,ModColor.Str("  will stop cleaning now")
             return "Stall", False, False
+        self._previous_initial_peak = abs(ThisFlux)
         #x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty.copy(),NCPU=1,DoAbs=DoAbs,Mask=self._MaskArray.copy())
         #A=self._MeanDirty.copy()
         #A.flat[:]=np.arange(A.size)[:]
