@@ -174,10 +174,12 @@ class Parset():
                 self.value_dict[section], self.attr_dict[section] = self.read_section(config, section)
         # now migrate from previous versions
         self.version = self.value_dict.get('Misc', {}).get('ParsetVersion', 0.0)
-        if self.version != 0.1:
-            self._migrate_ancient_0_1()
+        if self.version != 0.2:
+            if self.version != 0.1:
+              self._migrate_ancient_0_1()
+            self._migrate_0_1_0_2()
             self.migrated = self.version
-            self.version = self.value_dict['Misc']['ParsetVersion'] = 0.1
+            self.version = self.value_dict['Misc']['ParsetVersion'] = 0.2
         else:
             self.migrated = None
         # if "Mode" not in self.value_dict["Output"] and "Mode" in self.value_dict["Image"]:
@@ -268,6 +270,9 @@ class Parset():
         for dd in self.value_dict, self.attr_dict:
             if oldsection in dd and oldname in dd[oldsection]:
                 dd.setdefault(newsection, OrderedDict())[newname] = dd[oldsection].pop(oldname)
+                
+    def _migrate_0_1_0_2 (self):
+        self._move("Image", "Mode", "Output", "Mode")
 
     def _migrate_ancient_0_1 (self):
         """
