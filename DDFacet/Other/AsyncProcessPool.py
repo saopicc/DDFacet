@@ -42,8 +42,15 @@ import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
 
 log = MyLogger.getLogger("AsyncProcessPool")
 
+SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n) \
+    for n in dir(signal) if n.startswith('SIG') and '_' not in n )
+
 # PID of parent process
 parent_pid = os.getpid()
+
+# Exception type for worker process errors
+class WorkerProcessError(Exception):
+    pass
 
 class Job(object):
     def __init__ (self, job_id, jobitem, singleton=False, event=None, when_complete=None):
@@ -347,6 +354,15 @@ class AsyncProcessPool (object):
         a Bulba every so often makes sure their RAM usage is reset."""
         Exceptions.disable_pdb_on_error()
         MyLogger.subprocess_id = "TB"
+        self._dead_child = None
+        self._oldhandler = None
+
+        def sighandler(signum, frame):
+            if self.verbose:
+                print>> log, "SIGCHLD caught: sincere lament"
+            self._dead_child = True
+            # self._taras_restart_event.set()
+
         # loop until the completion event is raised
         # at this stage the workers are dead (or not started)
         while not self._taras_exit_event.is_set():
@@ -358,40 +374,71 @@ class AsyncProcessPool (object):
             for i, core in enumerate(self._cores):
                 proc_id = "comp%02d" % i
                 self._compute_workers.append(
-                    multiprocessing.Process(target=self._start_worker,
+                    multiprocessing.Process(name=proc_id, target=self._start_worker,
                                             args=(self, proc_id, [core], self._compute_queue,
                                                   self.pause_on_start)))
             for i, queue in enumerate(self._io_queues):
                 proc_id = "io%02d" % i
                 self._io_workers.append(
-                    multiprocessing.Process(target=self._start_worker,
+                    multiprocessing.Process(name=proc_id, target=self._start_worker,
                                             args=(self, proc_id, None, queue, self.pause_on_start)))
+
+            # since the handler gets propagated to children, set it to ignore before starting a worker
+            signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+
             # start the workers
             if self.verbose:
                 print>>log, "starting  worker processes"
             for proc in self._compute_workers + self._io_workers:
                 proc.start()
+
+            # set the real signal handler
+            signal.signal(signal.SIGCHLD, sighandler)
+
             # go to sleep until we're told to do the whole thing again
-            if self.verbose:
-                print>>log, "waiting for restart signal"
-            try:
-                self._taras_restart_event.wait()
-            except KeyboardInterrupt:
-                print>>log,ModColor.Str("Ctrl+C caught, exiting")
+            while not self._taras_restart_event.is_set() and not self._dead_child:
+                if self.verbose:
+                    print>>log, "waiting for restart signal"
+                try:
+                    self._taras_restart_event.wait(5)
+                    print>>log, "wait done"
+                except KeyboardInterrupt:
+                    print>>log,ModColor.Str("Ctrl+C caught, exiting")
+                    self._termination_event.set()
+                    self._taras_exit_event.set()
+                # check for dead workers. This is probably a good time to bail out
+                if self._dead_child:
+                    self._dead_child = 0
+                    for p in self._compute_workers + self._io_workers:
+                        if not p.is_alive():
+                            if p.exitcode < 0:
+                                print>>log,ModColor.Str("worker '%s' killed by signal %s" % (p.name, SIGNALS_TO_NAMES_DICT[-p.exitcode]))
+                            else:
+                                print>>log,ModColor.Str("worker '%s' died with exit code %d"%(p.name, p.exitcode))
+                            self._dead_child += 1
+                    # if it was really our workers that died, initiate bailout
+                    if self._dead_child:
+                        print>>log,ModColor.Str("%d worker(s) have died. Initiating shutdown."%self._dead_child)
+                        self._taras_restart_event.set()
+                        self._termination_event.set()
+                        self._taras_exit_event.set()
             self._taras_restart_event.clear()
-            if self.verbose:
-                print>>log, "restart signal received, notifying workers"
             if self._termination_event.is_set():
                 if self.verbose:
                     print>> log, "terminating workers"
                 for p in self._compute_workers + self._io_workers:
-                    p.terminate()
+                    if p.is_alive():
+                        p.terminate()
             # else let them all shut down in an orderly way, by giving them a poison pill
             else:
-                for _ in self._compute_workers:
-                    self._compute_queue.put("POISON-E")
-                for queue in self._io_queues:
-                    queue.put("POISON-E")
+                if self.verbose:
+                    print>> log, "restart signal received, notifying workers"
+                for p in self._compute_workers:
+                    if p.is_alive():
+                        self._compute_queue.put("POISON-E")
+                for p, queue in zip(self._io_workers, self._io_queues):
+                    if p.is_alive():
+                        queue.put("POISON-E")
             if self.verbose:
                 print>> log, "reaping workers"
             # join processes
@@ -499,13 +546,13 @@ class AsyncProcessPool (object):
                 if self._termination_event.is_set():
                     if self.verbose > 1:
                         print>> log, "  termination event spotted, exiting"
-                    raise RuntimeError("stopping on termination event")
+                    raise WorkerProcessError()
         else:
             counter.awaitZero()
             if self._termination_event.is_set():
                 if self.verbose > 1:
                     print>> log, "  termination event spotted, exiting"
-                raise RuntimeError("stopping on termination event")
+                raise WorkerProcessError()
             if self.verbose > 2:
                 print>> log, "  %s is complete" % counter.name
 
@@ -522,7 +569,7 @@ class AsyncProcessPool (object):
                 if self._termination_event.is_set():
                     if self.verbose > 1:
                         print>> log, "  termination event spotted, exiting"
-                    raise RuntimeError("stopping on termination event")
+                    raise WorkerProcessError()
                 if self.verbose > 2:
                     print>> log, "  %s not yet complete, waiting" % name
                 if event.wait(1):
@@ -580,20 +627,13 @@ class AsyncProcessPool (object):
                 ", ".join(["%s %d/%d"%(jobspec, len(results), njobs) for jobspec, (njobs, results) in job_results.iteritems()]),
                 len(awaiting_jobs))
         # sit here while any pending jobs remain
-        while awaiting_jobs:
+        while awaiting_jobs and not self._termination_event.is_set():
             try:
                 result = self._result_queue.get(True, 10)
             except Queue.Empty:
                 # print>> log, "checking for dead workers"
                 # shoot the zombie process, if any
                 multiprocessing.active_children()
-                # check for dead workers
-                pids_to_restart = []
-                for w in self._compute_workers + self._io_workers:
-                    if not w.is_alive():
-                        pids_to_restart.append(w)
-                        raise RuntimeError("a worker process has died on us \
-                            with exit code %d. This is probably a bug." % w.exitcode)
                 continue
             # ok, dispatch the result
             job_id = result["job_id"]
@@ -618,6 +658,12 @@ class AsyncProcessPool (object):
         # render complete
         if progress:
             pBAR.render(complete_jobs,(total_jobs or 1))
+
+        if self._termination_event.is_set():
+            if self.verbose > 1:
+                print>> log, "  termination event spotted, exiting"
+            raise WorkerProcessError()
+
         # process list of results for each jobspec to check for errors
         for jobspec, (njobs, results) in job_results.iteritems():
             times = np.array([ res['time'] for res in results ])

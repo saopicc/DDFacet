@@ -1,6 +1,6 @@
 import sys
 
-_advice = "Unexpected error. Dropping you into pdb for a post-mortem."
+pdb_advise = "Unexpected error. Dropping you into pdb for a post-mortem."
 
 class UserInputError(Exception):
     pass
@@ -11,7 +11,7 @@ def _exc_handler(type, value, tb):
     # device, so we call the default hook
         sys.__excepthook__(type, value, tb)
     else:
-        print _advice
+        print pdb_advise
         import traceback, pdb
         # we are NOT in interactive mode, print the exception...
         traceback.print_exception(type, value, tb)
@@ -22,10 +22,10 @@ def _exc_handler(type, value, tb):
 
 
 def enable_pdb_on_error(advise=None):
-    sys.excepthook = _exc_handler
     if advise is not None:
-        global _advise
-        _advise = advise
+        global pdb_advise
+        pdb_advise = advise
+    sys.excepthook = _exc_handler
 
 def disable_pdb_on_error(advise=None):
     sys.excepthook = sys.__excepthook__

@@ -51,7 +51,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import Multiprocessing
 import SkyModel.Other.ModColor   # because it's duplicated there
 from DDFacet.Other import progressbar
-from DDFacet.Other.AsyncProcessPool import APP
+from DDFacet.Other.AsyncProcessPool import APP, WorkerProcessError
 import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
 from DDFacet.version import __version__
 log = None
@@ -178,12 +178,12 @@ def main(OP=None, messages=[]):
 
     if DicoConfig["Debug"]["Pdb"] == "always":
         print>>log, "--Debug-Pdb=always: unexpected errors will be dropped into pdb"
-        Exceptions.enable_pdb_on_error("DDFacet has encountered an unexpected error. Dropping you into pdb for a post-mortem.\n" +
-                                           "(This is because you're running with --Debug-Pdb set to 'always'.)")
+        Exceptions.enable_pdb_on_error(ModColor.Str("DDFacet has encountered an unexpected error. Dropping you into pdb for a post-mortem.\n" +
+                                           "(This is because you're running with --Debug-Pdb set to 'always'.)"))
     elif DicoConfig["Debug"]["Pdb"] == "auto" and not DicoConfig["Log"]["Boring"]:
         print>>log, "--Debug-Pdb=auto and not --Log-Boring: unexpected errors will be dropped into pdb"
-        Exceptions.enable_pdb_on_error("DDFacet has encountered an unexpected error. Dropping you into pdb for a post-mortem.\n" +
-            "(This is because you're running with --Debug-Pdb set to 'auto' and --Log-Boring is off.)")
+        Exceptions.enable_pdb_on_error(ModColor.Str("DDFacet has encountered an unexpected error. Dropping you into pdb for a post-mortem.\n" +
+            "(This is because you're running with --Debug-Pdb set to 'auto' and --Log-Boring is off.)"))
 
     # print current options
     OP.Print(dest=log)
@@ -390,7 +390,7 @@ if __name__ == "__main__":
         OP.ExitWithError("Incorrect number of arguments. Use -h for help.")
         sys.exit(1)
 
-    retcode = 0
+    retcode = report_error = 0
     try:
         main(OP, messages)
         print>>log, ModColor.Str(
@@ -403,19 +403,27 @@ if __name__ == "__main__":
         retcode = 1 #Should at least give the command line an indication of failure
     except Exceptions.UserInputError:
         print>> log, ModColor.Str(sys.exc_info()[1], col="red")
+        print>> log, ModColor.Str("There was a problem with some user input. See messages above for an indication.")
         APP.terminate()
         retcode = 1  # Should at least give the command line an indication of failure
+    except WorkerProcessError:
+        print>> log, ModColor.Str("A worker process has died on us unexpectedly. This probably indicates a bug:")
+        print>> log, ModColor.Str("  the original underlying error may be reported in the log [possibly far] above.")
+        report_error = True
     except:
         print>>log, traceback.format_exc()
-        if Exceptions.is_pdb_enabled():
+        if sys.exc_info()[0] is not WorkerProcessErrror and Exceptions.is_pdb_enabled():
             raise
+        report_error = True
 
+    if report_error:
         logfileName = MyLogger.getLogFilename()
         logfileName = logfileName if logfileName is not None else "[file logging is not enabled]"
+        print>> log, ""
         print>> log, ModColor.Str(
-            "There was a problem after %s; if you think this is a bug please open an "
-            "issue, quote your version of DDFacet and attach your logfile" %
-            T.timehms(), col="red")
+            "There was a problem after %s; if you think this is a bug please open an issue, "%
+            T.timehms(), col = "red")
+        print>> log, ModColor.Str("  quote your version of DDFacet and attach your logfile.", col="red")
         print>> log, ModColor.Str(
             "You are using DDFacet revision: %s" %
             version, col="red")

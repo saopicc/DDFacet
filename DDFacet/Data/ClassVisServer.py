@@ -646,7 +646,7 @@ class ClassVisServer():
         self.VisWeights = None
         APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)
         # for debugging only: wait here
-        APP.awaitEvents(self._calcweights_event)
+        # APP.awaitEvents(self._calcweights_event)
 
     def _CalcWeights_handler(self):
         self._weight_dict = shared_dict.create("VisWeights")
@@ -685,11 +685,12 @@ class ClassVisServer():
             for ichunk in xrange(len(ms.getChunkRow0Row1())):
                 msw = msweights[ichunk]
                 if "weight" not in msw:
+                    msw["null"] = True
                     continue  # null chunk, skip
                 self._wmax = max(self._wmax, msw["wmax"])
                 self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
         if not self._uvmax:
-            raise RuntimeError("data appears to be fully flagged, nothing to do")
+            raise RuntimeError("data appears to be fully flagged: can't compute imaging weights")
         # in natural mode, leave the weights as is. In other modes, setup grid for calculations
         self._weight_grid = shared_dict.create("VisWeights.Grid")
         if self.Weighting != "natural":
