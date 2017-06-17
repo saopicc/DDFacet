@@ -22,7 +22,6 @@ import collections
 import random
 
 import numpy as np
-import pylab
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyLogger
 from deap import tools
@@ -81,6 +80,7 @@ class ClassArrayMethodGA():
         self.SetConvMatrix()
         self.NParms=self.NPixListParms*self.PM.NParam
         self.DataTrue=None
+        #import pylab
         #pylab.figure(3,figsize=(5,3))
         #pylab.clf()
         # pylab.figure(4,figsize=(5,3))
@@ -602,6 +602,7 @@ class ClassArrayMethodGA():
         for iChannel in range(self.NFreqBands):
             self.PlotChannel(pop,iGen,iChannel=iChannel)
 
+        import pylab
         pylab.figure(30,figsize=(5,3))
         #pylab.clf()
         S=self.PM.ArrayToSubArray(V,"S")
@@ -651,7 +652,8 @@ class ClassArrayMethodGA():
 
 
         vmin,vmax=np.min([Dirty.min(),0]),Dirty.max()
-    
+
+        import pylab
         fig=pylab.figure(iChannel+1,figsize=(5,3))
         pylab.clf()
     

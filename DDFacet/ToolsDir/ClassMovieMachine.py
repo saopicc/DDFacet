@@ -20,7 +20,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import ClassFacetMachine
 import numpy as np
-import pylab
 import ToolsDir
 import os
 
@@ -41,6 +40,7 @@ class MovieMachine():
         self.pngBaseDir=pngBaseDir
         os.system("rm -rf %s"%self.pngBaseDir)
         os.system("mkdir -p %s"%self.pngBaseDir)
+        import pylab
         self.fig=pylab.figure(1)
         self.CurrentPNGNum=0
         self.HaveData=False
@@ -63,6 +63,7 @@ class MovieMachine():
         self.HaveData=True
     
     def ToPngImage(self,ImageIn=None,NamePNGOut=None):
+        import pylab
         pylab.clf()
         pylab.imshow(self.Image[0,0],interpolation="nearest",cmap="gray")
         pylab.draw()
