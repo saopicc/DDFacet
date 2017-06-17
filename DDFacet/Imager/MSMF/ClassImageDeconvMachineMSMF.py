@@ -88,7 +88,7 @@ class ClassImageDeconvMachine():
         if self.ModelMachine.DicoSMStacked["Type"] not in ("MSMF", "HMP"):
             raise ValueError("ModelMachine Type should be HMP")
         self.PSFHasChanged=False
-        # reset overall iteration counter
+        self._previous_initial_peak = None
         self.maincache = MainCache
         # reset overall iteration counter
         self._niter = 0
@@ -551,7 +551,7 @@ class ClassImageDeconvMachine():
     def setMask(self,Mask):
         self.CurrentNegMask=Mask
 
-    def Deconvolve(self, ch=0,UpdateRMS=True):
+    def Deconvolve(self, ch=0, UpdateRMS=True):
         """
         Runs minor cycle over image channel 'ch'.
         initMinor is number of minor iteration (keeps continuous count through major iterations)
@@ -560,7 +560,7 @@ class ClassImageDeconvMachine():
         Returns tuple of: return_code,continue,updated
         where return_code is a status string;
         continue is True if another cycle should be executed;
-        update is True if model has been updated (note that1-sparse1.model01.fitst update=False implies continue=False)
+        update is True if model has been updated (note update=False implies continue=False)
         """
         if self._niter >= self.MaxMinorIter:
             return "MaxIter", False, False
@@ -610,6 +610,13 @@ class ClassImageDeconvMachine():
         # in weighted or noisemap mode, look up the true max as well
         trueMaxDirty = MaxDirty if self._peakMode is "normal" else ThisFlux
 
+        if self._previous_initial_peak is None:
+            self._previous_initial_peak = ThisFlux
+        elif ThisFlux > self.GD["HMP"]["MajorStallThreshold"]*self._previous_initial_peak:
+            print>>log,ModColor.Str("STALL! dirty image peak %10.6g Jy, was %10.6g at previous major cycle."
+                        % (ThisFlux, self._previous_initial_peak), col="red")
+            print>>log,ModColor.Str("  will stop cleaning now")
+            return "Stall", False, False
         #x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty.copy(),NCPU=1,DoAbs=DoAbs,Mask=self._MaskArray.copy())
         #A=self._MeanDirty.copy()
         #A.flat[:]=np.arange(A.size)[:]
@@ -697,6 +704,8 @@ class ClassImageDeconvMachine():
         # pBAR.render(0,"g=%3.3f"%self.GainMachine.GiveGain())
         PreviousFlux=ThisFlux
 
+        divergence_factor = 1 + max(self.GD["HMP"]["AllowResidIncrease"],0)
+
         def GivePercentDone(ThisMaxFlux):
             fracDone = 1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
             return max(int(round(100*fracDone)), 100)
@@ -725,14 +734,13 @@ class ClassImageDeconvMachine():
                 # stop
 
                 T.timeit("max0")
-                if not self.GD["HMP"]["AllowResidIncrease"]:
-                    if np.abs(ThisFlux)>1.1*np.abs(PreviousFlux):
-                        print>>log, ModColor.Str(
-                            "    [iter=%i] peak of %.3g Jy higher than previous one of %.3g Jy " %
-                            (i, ThisFlux, PreviousFlux), col="red")
-                        return "Diverging", True, True
-                    elif np.abs(ThisFlux)<np.abs(PreviousFlux):
-                        PreviousFlux=ThisFlux
+                if np.abs(ThisFlux) > divergence_factor*np.abs(PreviousFlux):
+                    print>>log, ModColor.Str(
+                        "    [iter=%i] peak of %.3g Jy diverging w.r.t. floor of %.3g Jy " %
+                        (i, ThisFlux, PreviousFlux), col="red")
+                    return "Diverging", False, True
+                if np.abs(ThisFlux) < np.abs(PreviousFlux):
+                    PreviousFlux = ThisFlux
 
                 ThisPNR=ThisFlux/rms
 
