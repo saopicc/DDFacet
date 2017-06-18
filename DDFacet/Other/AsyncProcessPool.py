@@ -369,7 +369,7 @@ class AsyncProcessPool (object):
         Exceptions.disable_pdb_on_error()
         MyLogger.subprocess_id = "TB"
         self._oldhandler = None
-        self.verbose =1
+        #self.verbose = 1
 
         def sighandler(signum, frame):
             if self.verbose:
