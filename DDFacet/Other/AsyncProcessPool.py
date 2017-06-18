@@ -368,8 +368,8 @@ class AsyncProcessPool (object):
         a Bulba every so often makes sure their RAM usage is reset."""
         Exceptions.disable_pdb_on_error()
         MyLogger.subprocess_id = "TB"
-        self._dead_child = None
         self._oldhandler = None
+        self.verbose =1
 
         def sighandler(signum, frame):
             if self.verbose:
@@ -407,6 +407,7 @@ class AsyncProcessPool (object):
                 proc.start()
 
             # set the real signal handler
+            self._dead_child = None
             signal.signal(signal.SIGCHLD, sighandler)
 
             # set event to indicate workers are started
