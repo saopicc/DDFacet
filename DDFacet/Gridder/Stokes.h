@@ -1016,29 +1016,25 @@
 	/* I missing V*/ \
 	corr_vis[0] = stokes_vis[0]; \
 	corr_vis[1] = stokes_vis[0]; \
-	int nVisCorr = 2; \
-	int PolMap[] = {0};
+	int nVisCorr = 2; 
 	
 #define GMODE_CORR_RRRLLRLL_FROM_I \
 	float _Complex corr_vis[] = {0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I}; \
 	/* I missing V*/ \
 	corr_vis[0] = stokes_vis[0]; \
 	corr_vis[3] = stokes_vis[0]; \
-	int nVisCorr = 4; \
-	int PolMap[] = {0};
+	int nVisCorr = 4; 
 	
 #define GMODE_CORR_XXYY_FROM_I \
 	float _Complex corr_vis[] = {0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I}; \
-	/* I missing V*/ \
+	/* I missing Q*/ \
 	corr_vis[0] = stokes_vis[0]; \
 	corr_vis[1] = stokes_vis[0]; \
-	int nVisCorr = 2; \
-	int PolMap[] = {0};
+	int nVisCorr = 2; 
 	
 #define GMODE_CORR_XXXYYXYY_FROM_I \
 	float _Complex corr_vis[] = {0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I}; \
-	/* I missing V*/ \
+	/* I missing Q*/ \
 	corr_vis[0] = stokes_vis[0]; \
 	corr_vis[3] = stokes_vis[0]; \
-	int nVisCorr = 4; \
-	int PolMap[] = {0};
+	int nVisCorr = 4;

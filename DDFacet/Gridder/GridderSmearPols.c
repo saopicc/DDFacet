@@ -1308,8 +1308,8 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
 #define APPLYJONES_4_CORR \
   MatDot(J0,JonesType,corr_vis,SkyType,visBuff);\
   MatDot(visBuff,SkyType,J1H,JonesType,visBuff);\
-  Mat_A_l_SumProd(visBuff, SkyType, corr);
-
+  Mat_A_l_SumProd(visBuff, SkyType, corr);\
+  
 #define APPLYJONES_2_CORR \
   corr_vis[3] = corr_vis[1]; \
   corr_vis[1] = 0; \
@@ -1342,7 +1342,6 @@ void degriddername(PyArrayObject *grid, \
     PyArrayObject *NpPolMap; \
     NpPolMap = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 0), PyArray_INT32, 0, 4); \
     int npolsMap=NpPolMap->dimensions[0]; \
-    int* PolMap=I_ptr(NpPolMap); \
     \
     int *p_ChanMapping=p_int32(np_ChanMapping); \
     \
@@ -1501,7 +1500,7 @@ void degriddername(PyArrayObject *grid, \
 	\
 	int ThisPol;\
 	for (visChan=chStart; visChan<chEnd; ++visChan) {\
-	  size_t doff = (irow * nVisChan + visChan) * nVisPol;\
+	  size_t doff = (irow * nVisChan + visChan) * nVisCorr;\
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;\
 	  int OneFlagged=0;\
 	  int cond;\
@@ -1595,9 +1594,8 @@ void degriddername(PyArrayObject *grid, \
       	  int ipol;\
 	  \
       	  for (ipol=0; ipol<nVisPol; ++ipol) {\
-      	      int gridPol = PolMap[ipol];\
       	      \
-	      int goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;\
+	      int goff = (gridChan*nGridPol + ipol) * nGridX * nGridY;\
 	      int sy;\
 	      \
 	      const float complex* __restrict__ gridPtr;\
@@ -1693,7 +1691,7 @@ void degriddername(PyArrayObject *grid, \
 		if(DoApplyJones){\
 		  applyjones \
 		} else {\
-		  for(ThisPol =0; ThisPol<nVisCorr; ThisPol++){\
+		  for(ThisPol =0; ThisPol<nVisCorr; ++ThisPol){\
 		    visBuff[ThisPol]=corr_vis[ThisPol] * corr;\
 		  }\
 		}\
@@ -1701,8 +1699,8 @@ void degriddername(PyArrayObject *grid, \
 		Sem_mutex=GiveSemaphoreFromCell(doff_chan);\
 		/* Finally subtract visibilities from current residues*/\
 		sem_wait(Sem_mutex);\
-		for(ThisPol =0; ThisPol<nVisCorr; ThisPol++){\
-		    visPtr[ThisPol] += visBuff[ThisPol] * (float complex)(-1.);\
+		for(ThisPol =0; ThisPol<nVisCorr; ++ThisPol){\
+		    visPtr[ThisPol] -= visBuff[ThisPol];\
 		}\
 		sem_post(Sem_mutex);\
 		\
@@ -1720,7 +1718,7 @@ void degriddername(PyArrayObject *grid, \
 // Stamp out the various degridders needed for Stokes I deconvolution:
 // We will not support full polarization cleaning so just stokes I is needed
 degridder_factory(degridderWPol_RRLL_FROM_I, GMODE_CORR_RRLL_FROM_I, 1, 2, APPLYJONES_2_CORR)
-degridder_factory(degridderWPol_RRRLLRLL_FROM_I, GMODE_CORR_RRLL_FROM_I, 1, 4, APPLYJONES_4_CORR)
+degridder_factory(degridderWPol_RRRLLRLL_FROM_I, GMODE_CORR_RRRLLRLL_FROM_I, 1, 4, APPLYJONES_4_CORR)
 degridder_factory(degridderWPol_XXYY_FROM_I, GMODE_CORR_XXYY_FROM_I, 1, 2, APPLYJONES_2_CORR)
 degridder_factory(degridderWPol_XXXYYXYY_FROM_I, GMODE_CORR_XXXYYXYY_FROM_I, 1, 4, APPLYJONES_4_CORR)
  
