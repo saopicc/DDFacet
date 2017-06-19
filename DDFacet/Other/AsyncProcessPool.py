@@ -352,12 +352,13 @@ class AsyncProcessPool (object):
         self._started = True
 
     def restartWorkers(self):
-        print>> log, "asking worker processes to restart"
-        self._workers_started_event.clear()
-        self._taras_restart_event.set()
+        if self.ncpu > 1:
+            print>> log, "asking worker processes to restart"
+            self._workers_started_event.clear()
+            self._taras_restart_event.set()
 
     def awaitWorkerStart(self):
-        if not self._workers_started_event.is_set():
+        if self.ncpu > 1 and not self._workers_started_event.is_set():
             print>>log,"waiting for worker processes to start up"
             self._workers_started_event.wait()
 
@@ -369,11 +370,11 @@ class AsyncProcessPool (object):
         Exceptions.disable_pdb_on_error()
         MyLogger.subprocess_id = "TB"
         self._oldhandler = None
-        #self.verbose = 1
+        # self.verbose = 1
 
         def sighandler(signum, frame):
-            if self.verbose:
-                print>> log, "SIGCHLD caught: sincere lament"
+            #if self.verbose:
+            #    print>> log, "SIGCHLD caught: sincere lament"
             self._dead_child = True
             # self._taras_restart_event.set()
 
