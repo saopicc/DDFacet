@@ -31,7 +31,7 @@ from DDFacet.Array import shared_dict
 from scipy.interpolate import griddata
 from DDFacet.Other.AsyncProcessPool import APP
 import copy
-
+import os
 
 class ClassBeamMean():
     def __init__(self,VS):
@@ -314,21 +314,30 @@ class ClassBeamMean():
 
        
     def CheckCache(self):
-        self.CachePath, self.CacheValid = self.VS.maincache.checkCache("SmoothBeam.npy", 
-                                                                  dict([("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
-                                                                       [(section, self.GD[section]) 
-                                                                        for section in "Data", 
-                                                                        "Beam", "Selection",
-                                                                        "Freq", "Image", 
-                                                                        "Comp", "Facets", 
-                                                                        "Weight", "RIME"]), 
-                                                                  reset=self.GD["Cache"]["ResetSmoothBeam"])
+        reset=0
+        Dict=dict([("MSNames", [ms.MSName for ms in self.VS.ListMS])] +
+                  [(section, self.GD[section]) 
+                   for section in "Data", 
+                   "Beam", "Selection",
+                   "Freq", "Image", 
+                   "Comp", "Facets", 
+                   "Weight", "RIME"])
 
+        if self.GD["Cache"]["SmoothBeam"]=="auto": 
+            self.CachePath, self.CacheValid = self.VS.maincache.checkCache("SmoothBeam.npy", Dict, reset=0)
+        elif self.GD["Cache"]["SmoothBeam"]=="reset": 
+            self.CachePath, self.CacheValid = self.VS.maincache.checkCache("SmoothBeam.npy", Dict, reset=1)
+        elif self.GD["Cache"]["SmoothBeam"]=="force": 
+            self.CachePath = self.VS.maincache.getElementPath("SmoothBeam.npy")
+            self.CacheValid = os.path.exists(self.CachePath)
+        else:
+            raise ValueError("unknown --Cache-SmoothBeam setting %s"%self.GD["Cache"]["SmoothBeam"])
 
         if self.CacheValid:
             print>>log,"Found valid smooth beam in %s"%self.CachePath
             self.SmoothBeam=np.load(self.CachePath)
             self.MeanSmoothBeam=np.mean(self.SmoothBeam,axis=0)
+
 
     def GiveMergedWithDiscrete(self,DiscreteMeanBeam):
         Mask=(self.ifzfCF<1e-2)

@@ -56,7 +56,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # self.DicoSMStacked={}
         # self.DicoSMStacked["Comp"]={}
         self.DicoSMStacked={}
-        self.DicoSMStacked["Type"]="MSMF"
+        self.DicoSMStacked["Type"]="HMP"
 
     def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
         if self.RefFreq is not None and not Force:

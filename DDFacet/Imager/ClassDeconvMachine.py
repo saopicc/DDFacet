@@ -572,6 +572,8 @@ class ClassImagerDeconv():
                     model_freqs = DATA["FreqMappingDegrid"]
                     if not np.array_equal(model_freqs, current_model_freqs):
                         ModelImage = self.FacetMachine.setModelImage(self.ModelMachine.GiveModelImage(model_freqs))
+                        # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%(self.BaseName),
+                        #                               Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
                         current_model_freqs = model_freqs
                         print>> log, "model image @%s MHz (min,max) = (%f, %f)" % (
                         str(model_freqs / 1e6), ModelImage.min(), ModelImage.max())
@@ -813,12 +815,12 @@ class ClassImagerDeconv():
             #         print>>log, " Matching freq size of model image to visibilities"
             #         ModelImage=ModelImage*np.ones((DATA["ChanMappingDegrid"].size,1,1,1))
 
-            if CleanMaskImage is not None:
-                nch,npol,_,_=ModelImage.shape
-                indZero=(CleanMaskImage[0,0]!=0)
-                for ich in range(nch):
-                    for ipol in range(npol):
-                        ModelImage[ich,ipol][indZero]=0
+            # if CleanMaskImage is not None:
+            #     nch,npol,_,_=ModelImage.shape
+            #     indZero=(CleanMaskImage[0,0]!=0)
+            #     for ich in range(nch):
+            #         for ipol in range(npol):
+            #             ModelImage[ich,ipol][indZero]=0
 
             # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.modelPredict"%self.BaseName,Fits=True,
             #                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
@@ -838,6 +840,8 @@ class ClassImagerDeconv():
             if not subtract:
                 predict *= -1   # model was subtracted from (zero) data, so need to invert sign
             # run job in I/O thread
+
+
             self.VS.startVisPutColumnInBackground(DATA, "data", self.GD["Predict"]["ColName"], likecol=self.GD["Data"]["ColName"])
             # and wait for it to finish (we don't want DATA destroyed, which collectLoadedChunk() above will)
             self.VS.collectPutColumnResults()
@@ -1416,12 +1420,16 @@ class ClassImagerDeconv():
         havenorm = self.MeanJonesNorm is not None and (self.MeanJonesNorm != 1).any()
         ModelImage=self.ModelMachine.GiveModelImage()
         if havenorm:
+            Norm = self.MeanJonesNorm 
+            sqrtNorm=np.sqrt(Norm)
             if self.FacetMachine.MeanSmoothJonesNorm is None:
-                Norm = self.MeanJonesNorm 
+                SmoothNorm=Norm
+                sqrtSmoothNorm=sqrtNorm
             else:
                 print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparant images",col="blue")
-                Norm=self.FacetMachine.MeanSmoothJonesNorm
-            sqrtNorm=np.sqrt(Norm)
+                SmoothNorm=self.FacetMachine.MeanSmoothJonesNorm
+                sqrtSmoothNorm=np.sqrt(SmoothNorm)
+
             ModelImage=ModelImage*sqrtNorm
 
 
@@ -1435,8 +1443,8 @@ class ClassImagerDeconv():
                                       beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
         if havenorm:
-            IntRestored=Restored/sqrtNorm
-            self.FacetMachine.ToCasaImage(Restored, ImageName="%s.int.facetRestored" % self.BaseName, 
+            IntRestored=Restored/sqrtSmoothNorm
+            self.FacetMachine.ToCasaImage(IntRestored, ImageName="%s.int.facetRestored" % self.BaseName, 
                                           Fits=True,
                                           beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
@@ -1486,6 +1494,27 @@ class ClassImagerDeconv():
             label = 'sqrtnorm'
             if label not in _images:
                 if havenorm:
+                    a = self.MeanJonesNorm 
+                else:
+                    a=np.array([1])
+                out = _images.addSharedArray(label, a.shape, a.dtype)
+                numexpr.evaluate('sqrt(a)', out=out)
+            return _images[label]
+        def sqrtnormcube():
+            label = 'sqrtnormcube'
+            if label not in _images:
+                if havenorm:
+                    a = self.JonesNorm
+                else:
+                    a=np.array([1])
+#                a = self.JonesNorm if havenorm else np.array([1])
+                out = _images.addSharedArray(label, a.shape, a.dtype)
+                numexpr.evaluate('sqrt(a)', out=out)
+            return _images[label]
+        def smooth_sqrtnorm():
+            label = 'smooth_sqrtnorm'
+            if label not in _images:
+                if havenorm:
                     if self.FacetMachine.MeanSmoothJonesNorm is None:
                         a = self.MeanJonesNorm 
                     else:
@@ -1496,12 +1525,12 @@ class ClassImagerDeconv():
                 out = _images.addSharedArray(label, a.shape, a.dtype)
                 numexpr.evaluate('sqrt(a)', out=out)
             return _images[label]
-        def sqrtnormcube():
-            label = 'sqrtnormcube'
+        def smooth_sqrtnormcube():
+            label = 'smooth_sqrtnormcube'
             if label not in _images:
                 if havenorm:
                     if self.FacetMachine.MeanSmoothJonesNorm is None:
-                        a = self.FacetMachine.JonesNorm 
+                        a = self.JonesNorm 
                     else:
                         print>>log,ModColor.Str("Using the smooth beam to normalise the apparant images",col="blue")
                         a=self.FacetMachine.SmoothJonesNorm
@@ -1517,7 +1546,7 @@ class ClassImagerDeconv():
             label = 'intres'
             if label not in _images:
                 if havenorm:
-                    a, b = appres(), sqrtnorm()
+                    a, b = appres(), smooth_sqrtnorm()
                     out = _images.addSharedArray(label, a.shape, a.dtype)
                     numexpr.evaluate('a/b', out=out)
                     out[~np.isfinite(out)] = 0
@@ -1530,7 +1559,7 @@ class ClassImagerDeconv():
             label = 'intrescube'
             if label not in _images:
                 if havenorm:
-                    a, b = apprescube(), sqrtnormcube()
+                    a, b = apprescube(), smooth_sqrtnormcube()
                     out = _images.addSharedArray(label, a.shape, a.dtype)
                     numexpr.evaluate('a/b', out=out)
                     out[~np.isfinite(out)] = 0
@@ -1541,7 +1570,7 @@ class ClassImagerDeconv():
             label = 'appmodel'
             if label not in _images:
                 if havenorm:
-                    a, b = intmodel(), sqrtnorm()
+                    a, b = intmodel(), smooth_sqrtnorm()
                     out = _images.addSharedArray(label, a.shape, a.dtype)
                     numexpr.evaluate('a*b', out=out)
                 else:
@@ -1550,13 +1579,17 @@ class ClassImagerDeconv():
         def intmodel():
             label = 'intmodel'
             if label not in _images:
-                _images[label] = ModelMachine.GiveModelImage(RefFreq)
+                out=ModelMachine.GiveModelImage(RefFreq)
+                if havenorm:
+                    a, b, c = out, sqrtnorm(), smooth_sqrtnorm()
+                    numexpr.evaluate('a*b/c', out=out)
+                _images[label] = out
             return _images[label]
         def appmodelcube():
             label = 'appmodelcube'
             if label not in _images:
                 if havenorm:
-                    a, b = intmodelcube(), sqrtnormcube()
+                    a, b = intmodelcube(), smooth_sqrtnormcube()
                     out = _images.addSharedArray(label, a.shape, a.dtype)
                     numexpr.evaluate('a*b', out=out)
                 else:
@@ -1568,7 +1601,10 @@ class ClassImagerDeconv():
                 shape = list(ModelMachine.ModelShape)
                 shape[0] = len(self.VS.FreqBandCenters)
                 out = _images.addSharedArray(label, shape, np.float32)
-                ModelMachine.GiveModelImage(self.VS.FreqBandCenters)
+                ModelMachine.GiveModelImage(self.VS.FreqBandCenters, out=out)
+                if havenorm:
+                    a, b, c = out, sqrtnormcube(), smooth_sqrtnormcube()
+                    numexpr.evaluate('a*b/c', out=out)
             return _images[label]
         def appconvmodel():
             label = 'appconvmodel'
