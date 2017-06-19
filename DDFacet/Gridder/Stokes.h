@@ -41,7 +41,7 @@
 	int nVisPol = 1; \
 	int PolMap[] = {0}; 
 #define GMODE_STOKES_IV_FROM_RRLL \
-	float _Complex stokes_vis[] = {0+0*_Complex_I}; \
+	float _Complex stokes_vis[] = {0+0*_Complex_I,0+0*_Complex_I}; \
 	stokes_vis[0]=(Vis[0] + Vis[1])/2.; \
 	stokes_vis[1]=(Vis[0] - Vis[1])/2.; \
 	int nVisPol = 2; \
