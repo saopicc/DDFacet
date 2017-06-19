@@ -625,7 +625,7 @@ class ClassFacetMachine():
         for iFacet in self.DicoImager.iterkeys():
             facet_dict = self._CF.addSubdict(iFacet)
             APP.runJob("%s.InitCF.f%s"%(self._app_id, iFacet), self._initcf_worker,
-                            args=(iFacet, facet_dict.writeonly(), cachepath, cachevalid, wmax))
+                            args=(iFacet, facet_dict.readwrite(), cachepath, cachevalid, wmax))
         #workers_res=APP.awaitJobResults("%s.InitCF.*"%self._app_id, progress="Init CFs")
 
 
@@ -645,6 +645,7 @@ class ClassFacetMachine():
             except:
                 print>>log,traceback.format_exc()
                 print>>log, "Error loading %s, will re-generate"%path
+                facet_dict.delete()
         # ok, regenerate the terms at this point
         FacetInfo = self.DicoImager[iFacet]
         # Create smoothned facet tessel mask:

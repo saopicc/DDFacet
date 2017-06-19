@@ -255,7 +255,7 @@ class AsyncProcessPool (object):
             raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list, "
                                "'enable_ht', 'disable_ht', 'disable'")
         if self.parent_affinity is None:
-            print>> log, ModColor.Str("Not fixing parent and IO affinity as per user request")
+            print>> log, "Parent and I/O affinities not specified, leaving unset"
         else:
             print>> log, ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green")
         psutil.Process().cpu_affinity(range(self.ncpu) if not self.parent_affinity else [self.parent_affinity])
@@ -288,7 +288,7 @@ class AsyncProcessPool (object):
         else:
             raise ValueError, "unknown affinity setting"
         if not self.affinity:
-            print>> log, ModColor.Str("Worker affinities not set per user request")
+            print>> log, "Worker affinities not specified, leaving unset"
         else:
             print>> log, ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])),
                                       col="green")

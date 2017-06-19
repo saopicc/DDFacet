@@ -24,10 +24,6 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 
 import numpy as np
-try:
-    from lofar.stationresponse import stationresponse
-except:
-    print>>log, ModColor.Str("Could not import lofar.stationresponse")
 
 class ClassLOFARBeam():
     def __init__(self,MS,GD):
