@@ -19,26 +19,21 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import numpy as np
-import math
+import math, os, cPickle
+
+
 import ClassMS
 from DDFacet.Data.ClassStokes import ClassStokes
-from DDFacet.Array import NpShared
-from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
-from DDFacet.Array import ModLinAlg
 from DDFacet.Other import MyLogger
 from functools import reduce
 MyLogger.setSilent(["NpShared"])
-from DDFacet.Imager import ClassWeighting
-from DDFacet.Other import reformat
 import ClassSmearMapping
-import os
-import psutil
 import ClassJones
 from DDFacet.Array import shared_dict
 from DDFacet.Other.AsyncProcessPool import APP
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmearPols
-
+import copy
 
 log = MyLogger.getLogger("ClassVisServer")
 
@@ -97,10 +92,15 @@ class ClassVisServer():
         self.obs_detail = None
         self.Init()
 
+        # if True, then skip weights calculation (but do load max-w!)
+        self._ignore_vis_weights = False
+
         # smear mapping machines
         self._smm_grid = ClassSmearMapping.SmearMappingMachine("BDA.Grid")
         self._smm_degrid = ClassSmearMapping.SmearMappingMachine("BDA.Degrid")
         self._put_vis_column_job_id = self._put_vis_column_label = None
+
+
 
     def Init(self, PointingID=0):
         self.ListMS = []
@@ -170,7 +170,7 @@ class ClassVisServer():
         if ".txt" in self.GD["Data"]["MS"]:
             # main cache is initialized from main cache of the MSList
             from DDFacet.Other.CacheManager import CacheManager
-            self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], reset=self.GD["Cache"]["Reset"])
+            self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], cachedir=self.GD["Cache"]["Dir"], reset=self.GD["Cache"]["Reset"])
         else:
             # main cache is initialized from main cache of first MS
             self.maincache = self.cache = self.ListMS[0].maincache
@@ -254,7 +254,12 @@ class ClassVisServer():
         freq_to_grid_band = dict(zip(self.GlobalFreqs, grid_band))
         # print>>log,sorted(freq_to_grid_band.items())
 
-        self.FreqBandCenters = min_freq+grid_bw/2 + np.arange(0, self.NFreqBands)*grid_bw
+### not sure why linspace is here and not arange?
+# <<<<<<< HEAD
+        self.FreqBandCenters = np.linspace(min_freq+grid_bw/2, max_freq-grid_bw/2,self.NFreqBands)
+# =======
+#        self.FreqBandCenters = min_freq+grid_bw/2 + np.arange(0, self.NFreqBands)*grid_bw
+#>>>>>>> master
 
         self.FreqBandChannels = []
         # freq_to_grid_band_chan: mapping from frequency to channel number
@@ -413,7 +418,7 @@ class ClassVisServer():
             self._next_chunk_name = "DATA:%d:%d" % (self.iCurrentMS, self.iCurrentChunk)
             self._next_chunk_label = "%d.%d" % (self.iCurrentMS + 1, self.iCurrentChunk + 1)
             # null chunk? skip to next chunk
-            if self.VisWeights is not 1:
+            if not self._ignore_vis_weights:
                 self.awaitWeights()
                 if self.VisWeights[self.iCurrentMS][self.iCurrentChunk]["null"]:
                     print>>log, ModColor.Str("chunk %s is null, skipping"%self._next_chunk_label)
@@ -424,7 +429,8 @@ class ClassVisServer():
             if self.nTotalChunks > 1 or self.DATA is None:
                 # tell the IO thread to start loading the chunk
                 APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
-                            args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk), io=0)
+                           args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk), 
+                           io=0)
             return self._next_chunk_label
 
     def collectLoadedChunk(self, start_next=True):
@@ -563,13 +569,18 @@ class ClassVisServer():
             self.cache.saveCache("BDA.Degrid")
 
     def computeBDAInBackground(self, base_job_id, ms, DATA, ChanMappingGridding=None, ChanMappingDeGridding=None):
+
+        GD=copy.deepcopy(self.GD)
+        CriticalCacheParms=dict(Data=GD["Data"],
+                                Compression=GD["Comp"],
+                                Freq=GD["Freq"],
+                                DataSelection=GD["Selection"],
+                                Sorting=GD["Data"]["Sort"])
+        del CriticalCacheParms["Data"]["ColName"],CriticalCacheParms["DataSelection"]["FlagAnts"]
+        
+
         if True: # always True for now, non-BDA gridder is not maintained # if self.GD["Comp"]["CompGridMode"]:
-            self._bda_grid_cachename, valid = self.cache.checkCache("BDA.Grid",
-                                                       dict(Data=self.GD["Data"],
-                                                            Compression=self.GD["Comp"],
-                                                            Freq=self.GD["Freq"],
-                                                            DataSelection=self.GD["Selection"],
-                                                            Sorting=self.GD["Data"]["Sort"]))
+            self._bda_grid_cachename, valid = self.cache.checkCache("BDA.Grid",CriticalCacheParms)
             if valid:
                 print>> log, "  using cached BDA mapping %s" % self._bda_grid_cachename
                 DATA["BDA.Grid"] = np.load(self._bda_grid_cachename)
@@ -578,18 +589,14 @@ class ClassVisServer():
                     _, _, nx, ny = self.FacetShape
                 elif self.GD["Comp"]["GridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
+                mode = self.GD["Comp"]["BDAMode"]
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
                 self._smm_grid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["GridDecorr"]),
-                                                          ChanMappingGridding)
+                                                          ChanMappingGridding, mode)
 
         if True: # always True for now, non-BDA gridder is not maintained # if self.GD["Comp"]["CompDeGridMode"]:
-            self._bda_degrid_cachename, valid = self.cache.checkCache("BDA.Degrid",
-                                                       dict(Data=self.GD["Data"],
-                                                            Compression=self.GD["Comp"],
-                                                            Freq=self.GD["Freq"],
-                                                            DataSelection=self.GD["Selection"],
-                                                            Sorting=self.GD["Data"]["Sort"]))
+            self._bda_degrid_cachename, valid = self.cache.checkCache("BDA.Degrid",CriticalCacheParms)
 
             if valid:
                 print>> log, "  using cached BDA mapping %s" % self._bda_degrid_cachename
@@ -599,10 +606,11 @@ class ClassVisServer():
                     _, _, nx, ny = self.FacetShape
                 elif self.GD["Comp"]["DegridFoV"] == "Full":
                     _, _, nx, ny = self.FullImShape
+                mode = self.GD["Comp"]["BDAMode"]
                 FOV = self.CellSizeRad * nx * (np.sqrt(2.) / 2.) * 180. / np.pi
                 self._smm_degrid.computeSmearMappingInBackground(base_job_id, ms, DATA, FOV,
                                                           (1. - self.GD["Comp"]["DegridDecorr"]),
-                                                          ChanMappingDeGridding)
+                                                          ChanMappingDeGridding, mode)
 
     def GetVisWeights(self, iMS, iChunk):
         """
@@ -610,8 +618,8 @@ class ClassVisServer():
 
         Waits for CalcWeights to complete (if running in background).
         """
-        # weight 1 means weights not computed (i.e. predict-only mode)
-        if self.VisWeights is 1:
+        # wmax-only means weights not computed (i.e. predict-only mode)
+        if self._ignore_vis_weights:
             return 1
         # otherwise make sure we get them
         self.awaitWeights()
@@ -622,6 +630,12 @@ class ClassVisServer():
             return None
         return np.load(file(path))
 
+    def getMaxW(self):
+        """Returns the max W value. Since this is estimated as part of weights computation, 
+        wait for that to finish firest"""
+        self.awaitWeights()
+        return self.VisWeights["wmax"]
+
     def awaitWeights(self):
         if self.VisWeights is None:
             # ensure the background calculation is complete
@@ -630,34 +644,43 @@ class ClassVisServer():
             self.VisWeights = shared_dict.attach("VisWeights")
 
     def IgnoreWeights(self):
-        print>>log,"weights will be ignored"
-        self.VisWeights = 1
+        """
+        Tells VisServer that visibility weights will not be needed (e.g. as in predict-only mode).
+        Note that the background CalcWeights job is still run in this case, but just to get the wmax
+        value from the MSs
+        """
+        print>>log,"visibility weights will not be computed"
+        self._ignore_vis_weights = True
 
     def CalcWeightsBackground(self):
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
         APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)
         # for debugging only: wait here
-        APP.awaitEvents(self._calcweights_event)
+        # APP.awaitEvents(self._calcweights_event)
 
     def _CalcWeights_handler(self):
         self._weight_dict = shared_dict.create("VisWeights")
+        # check for wmax in cache
+        cache_keys = dict([(section, self.GD[section]) for section
+              in ("Data", "Selection", "Freq", "Image", "Weight")])
+        wmax_path, wmax_valid = self.maincache.checkCache("wmax", cache_keys)
+        if wmax_valid:
+            self._weight_dict["wmax"] = cPickle.load(open(wmax_path))
         # check cache first
-        have_all_weights = True
+        have_all_weights = wmax_valid
         for iMS, MS in enumerate(self.ListMS):
             msweights = self._weight_dict.addSubdict(iMS)
             for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
                 msw = msweights.addSubdict(ichunk)
-                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy",
-                                dict([(section, self.GD[section]) for section
-                                      in ("Data", "Selection", "Freq", "Image", "Weight")]))
+                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy", cache_keys)
                 have_all_weights = have_all_weights and valid
                 msw["cachepath"] = path
                 if valid:
                     msw["null"] = not os.path.getsize(path)
         # if every weight is in cache, then we're done here
         if have_all_weights:
-            print>> log, "all imaging weights are available in cache"
+            print>> log, "all imaging weights, and wmax, are available in cache"
             return
         # spawn parallel jobs to load weights
         for ims,ms in enumerate(self.ListMS):
@@ -665,23 +688,27 @@ class ClassVisServer():
             for ichunk in xrange(len(ms.getChunkRow0Row1())):
                 msw = msweights[ichunk]
                 APP.runJob("LoadWeights:%d:%d"%(ims,ichunk), self._loadWeights_handler,
-                           args=(msw.writeonly(), ims, ichunk),
+                           args=(msw.writeonly(), ims, ichunk, self._ignore_vis_weights),
                            counter=self._weightjob_counter, collect_result=False)
         # wait for results
         APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
         self._weight_dict.reload()
-        self._wmax = self._uvmax = 0
+        wmax = self._uvmax = 0
         # now work out weight grid sizes, etc.
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
             for ichunk in xrange(len(ms.getChunkRow0Row1())):
                 msw = msweights[ichunk]
-                if "weight" not in msw:
-                    continue  # null chunk, skip
-                self._wmax = max(self._wmax, msw["wmax"])
+                wmax = max(wmax, msw["wmax"])
                 self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
+        # save wmax to cache
+        cPickle.dump(wmax,open(wmax_path, "w"))
+        self.maincache.saveCache("wmax")
+        self._weight_dict["wmax"] = wmax
+        if self._ignore_vis_weights:
+            return
         if not self._uvmax:
-            raise RuntimeError("data appears to be fully flagged, nothing to do")
+            raise RuntimeError("data appears to be fully flagged: can't compute imaging weights")
         # in natural mode, leave the weights as is. In other modes, setup grid for calculations
         self._weight_grid = shared_dict.create("VisWeights.Grid")
         if self.Weighting != "natural":
@@ -743,7 +770,9 @@ class ClassVisServer():
             for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
                 ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
 
-    def _loadWeights_handler(self, msw, ims, ichunk):
+    def _loadWeights_handler(self, msw, ims, ichunk, wmax_only=False):
+        """If wmax_only is True, then don't actually read or compute weighs -- only read UVWs
+        and FLAGs to get wmax"""
         ms = self.ListMS[ims]
         row0, row1 = ms.getChunkRow0Row1()[ichunk]
         msfreqs = ms.ChanFreq
@@ -772,15 +801,20 @@ class ClassVisServer():
         # if everything is flagged, skip this entry
         if rowflags.all():
 #            print>> log, "  all flagged: marking as null"
+            msw["wmax"] = 0
+            msw["uvmax_wavelengths"] = 0
             return
-        # if all channels are flagged, flag whole row. Shape of flags becomes nrow
-        msw["flags"] = rowflags
-        # adjust max uv (in wavelengths) and max w
-        wmax = abs(uvw[~rowflags,2]).max()
-        msw["uv"] = uvw[:,:2]
-        del uvw
         # max of |u|, |v| in wavelengths
-        uvmax_wavelengths = abs(msw["uv"][~rowflags,:]).max() * msfreqs.max() / _cc
+        uv = uvw[:, :2]
+        uvmax_wavelengths = abs(uv[~rowflags,:]).max() * msfreqs.max() / _cc
+        # adjust max uv (in wavelengths) and max w
+        msw["wmax"] = abs(uvw[~rowflags,2]).max()
+        msw["uvmax_wavelengths"] = uvmax_wavelengths
+        del uvw
+        if wmax_only:
+            return
+        msw["uv"] = uv
+        msw["flags"] = rowflags
         # now read the weights
         weight = msw.addSharedArray("weight", (nrows, ms.Nchan), np.float32)
         weight_col = self.GD["Weight"]["ColName"]
@@ -817,8 +851,6 @@ class ClassVisServer():
             msw.delete_item("flags")
         else:
             msw["bandmap"] = self.DicoMSChanMapping[ims]
-            msw["uvmax_wavelengths"] = uvmax_wavelengths
-            msw["wmax"] = wmax
 
     def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax):
         weights = msw["weight"]
@@ -834,6 +866,7 @@ class ClassVisServer():
         x += xymax  # offset, since X grid starts at -xymax
         # convert to index array -- this gives the number of the uv-bin on the grid
         index = msw.addSharedArray("index", (uv.shape[0], len(freqs)), np.int64)
+        #index = np.zeros((uv.shape[0], len(freqs)), np.int64)
         index[...] = y * npixx + x
         # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
         if nbands > 1:

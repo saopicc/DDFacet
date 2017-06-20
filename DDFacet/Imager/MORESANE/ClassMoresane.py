@@ -32,7 +32,6 @@ from pymoresane.beam_fit import beam_fit
 from pymoresane.main import FitsImage as FI # importing the class
 
 from scipy.signal import fftconvolve
-import pylab as plt
 from astropy.io import fits
 
 logger = logging.getLogger(__name__)

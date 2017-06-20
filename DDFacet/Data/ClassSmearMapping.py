@@ -32,16 +32,22 @@ from DDFacet.Other.AsyncProcessPool import APP
 bda_dicts = {}
 
 class SmearMappingMachine (object):
-    def __init__ (self, name=None):
+    def __init__ (self, name=None, mode=2):
         self.name = name or "SMM.%x"%id(self)
         APP.registerJobHandlers(self)
         self._job_counter = APP.createJobCounter(self.name)
         self._data = self._blockdict = self._sizedict = None
 
-    def _smearmapping_worker(self, DATA, blockdict, sizedict, a0, a1, dPhi, l, channel_mapping):
+    def _smearmapping_worker(self, DATA, blockdict, sizedict, a0, a1, dPhi, l, channel_mapping, mode):
         t = ClassTimeIt.ClassTimeIt()
         t.disable()
-        BlocksRowsListBL, BlocksSizesBL, _ = GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l, channel_mapping)
+        if mode == 1:
+            BlocksRowsListBL, BlocksSizesBL, _ = GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping)
+        elif mode == 2:
+            BlocksRowsListBL, BlocksSizesBL, _ = GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l, channel_mapping)
+        else:
+            raise ValueError("unknown BDAMode setting %d"%mode)
+
         t.timeit('compute')
         if BlocksRowsListBL is not None:
             key = "%d:%d" % (a0,a1)
@@ -49,7 +55,7 @@ class SmearMappingMachine (object):
             blockdict[key] = np.array(BlocksRowsListBL)
             t.timeit('store')
 
-    def computeSmearMappingInBackground (self, base_job_id, MS, DATA, radiusDeg, Decorr, channel_mapping):
+    def computeSmearMappingInBackground (self, base_job_id, MS, DATA, radiusDeg, Decorr, channel_mapping, mode):
         l = radiusDeg * np.pi / 180
         dPhi = np.sqrt(6. * (1. - Decorr))
         # create new empty shared dicts for results
@@ -62,8 +68,11 @@ class SmearMappingMachine (object):
                 if a0 != a1:
                     self._nbl += 1
                     APP.runJob("%s:%s:%d:%d" % (base_job_id, self.name, a0, a1), self._smearmapping_worker,
-                                   counter=self._job_counter, collect_result=False,
-                                   args=(DATA.readonly(), blockdict.writeonly(), sizedict.writeonly(), a0, a1, dPhi, l, channel_mapping))
+                               counter=self._job_counter, collect_result=False,
+                               args=(DATA.readonly(), blockdict.writeonly(), sizedict.writeonly(), a0, a1, dPhi, l,
+                                     channel_mapping, mode))
+
+
 
     def collectSmearMapping (self, DATA, field):
         APP.awaitJobCounter(self._job_counter, progress="Mapping %s"%self.name, total=self._nbl, timeout=1)
@@ -466,22 +475,28 @@ def GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l, GridChanMapping):
 
     return BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL
 
+#BlocksRowsListBL, BlocksSizesBL, _ = GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l, channel_mapping)
 
-def GiveBlocksRowsListBL_old(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
+#def GiveBlocksRowsListBL_old(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
+def GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping):
     A0 = DATA["A0"]
     A1 = DATA["A1"]
     ind = np.where((A0 == a0) & (A1 == a1))[0]
-    if(ind.size <= 1):
-        return
+    #if(ind.size <= 1):
+    #    return
+    nrows = ind.size
+    if not nrows:
+        return None, None, None
     C = 3e8
 
+    GridChanMapping=channel_mapping
     uvw = DATA["uvw"]
-    dFreq = InfoSmearMapping["dfreqs"]   # channel width
-    dPhi = InfoSmearMapping["dPhi"]      # delta-phi: max phase change allowed between rows
-    dFreq = InfoSmearMapping["dfreqs"]
-    dPhi = InfoSmearMapping["dPhi"]
-    l = InfoSmearMapping["l"]
-    freqs = InfoSmearMapping["freqs"]
+    dFreq = DATA["dfreqs"]#InfoSmearMapping["dfreqs"]   # channel width
+    #dPhi = InfoSmearMapping["dPhi"]      # delta-phi: max phase change allowed between rows
+    #dFreq = InfoSmearMapping["dfreqs"]
+    #dPhi = InfoSmearMapping["dPhi"]
+    #l = InfoSmearMapping["l"]
+    freqs = DATA["freqs"]#InfoSmearMapping["freqs"]
     NChan = freqs.size
     nu0 = np.max(freqs)
 
@@ -572,9 +587,13 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, InfoSmearMapping, GridChanMapping):
             NChanBlockMax = 1e3
             CurrentRows = []
             duvtot = 0
+
+
+    #print BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL
+    return BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL
+
     # stop
 #    print>> log, "baseline %d:%d blocklists %s" % (a0, a1, " ".join([",".join(map(str,bl)) for bl in blocklist]))
 
 
-    return BlocksRowsListBL, BlocksSizesBL, NBlocksTotBL
 

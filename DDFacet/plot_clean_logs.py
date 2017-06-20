@@ -35,8 +35,9 @@ class DDFLog(object):
                 print line
                 self.major_start_flux.append(float(m.group(1)))
                 self.major_start_iter.append(miter)
-            m = re.search('\[iter=(\d+)\] peak residual\s+(\d[^\s]+),\s+.*PNR\s+(\d.*)$', line)
+            m = re.search('\[iter=(\d+)\] peak residual\s+(\d[^\s]+),\s+.*PNR\s+(\d[^\s]*)', line)
             if m:
+                print line
                 self.minor_iters.append(int(m.group(1))+1)
                 self.minor_peaks.append(float(m.group(2)))
                 self.minor_pnrs.append(float(m.group(3)))

@@ -82,7 +82,9 @@ def monitorMem():
         PureRAM=np.array(LMem)-Cache
         
         Shared= NpShared.SizeShm()
+        if not Shared: Shared=LShared[-1]
         LShared.append(Shared)
+
 
         cpu=psutil.cpu_percent()
         LCPU.append(cpu)

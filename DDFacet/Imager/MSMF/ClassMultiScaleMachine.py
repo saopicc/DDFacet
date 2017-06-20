@@ -302,6 +302,7 @@ class ClassMultiScaleMachine():
         self.PSFExtent = (NPSF/2-dx,NPSF/2+dx+1,NPSF/2-dx,NPSF/2+dx+1)
         x0,x1,y0,y1 = self.PSFExtent
         self.SubPSF = self._PSF[:,:,x0:x1,y0:y1]
+        #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!",self.SubPSF.shape
         if verbose:
             print>>log,"using %s PSF box of size %dx%d in minor cycle subtraction" % (method, dx*2+1, dx*2+1)
 
@@ -567,6 +568,10 @@ class ClassMultiScaleMachine():
             self.WeightWidth = np.max([6.,np.max(Scales)])
         if not self.SupWeightWidth:
             self.SupWeightWidth = np.max([3.*self.WeightWidth,15])
+
+        if self.WeightWidth%2==0: self.WeightWidth+=1
+        if self.SupWeightWidth%2==0: self.SupWeightWidth+=1
+
         if verbose:
             print>>log,"  using HMP taper width %d, support size %d"%(self.WeightWidth, self.SupWeightWidth)
 
@@ -593,6 +598,7 @@ class ClassMultiScaleMachine():
             #self.SupWeightWidth=ScaleMax#3.*self.WeightWidth
         T.timeit("other")
         self.IsInit_MultiScaleCube=True
+
         return self.ListScales, self.CubePSFScales
         #print>>log, "   ... Done"
 
@@ -600,12 +606,37 @@ class ClassMultiScaleMachine():
         # self.OPFT=np.real
         self.OPFT=np.abs
         nxPSF=self.CubePSFScales.shape[-1]
-        x0,x1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
-        y0,y1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
+        # x0,x1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
+        # y0,y1=nxPSF//2-int(self.SupWeightWidth),nxPSF//2+int(self.SupWeightWidth)+1
+
+        # Aedge,Bedge=GiveEdgesDissymetric((nxPSF/2,nxPSF/2),(nxPSF,nxPSF),(nxPSF/2,nxPSF/2),(int(self.SupWeightWidth),int(self.SupWeightWidth)))
+        # #x0d,x1d,y0d,y1d=Aedge
+        # (x0,x1,y0,y1)=Bedge
+
+        nxGWF,nyGWF=self.GlobalWeightFunction.shape[-2],self.GlobalWeightFunction.shape[-1]
+        Aedge,Bedge=GiveEdgesDissymetric((nxPSF/2,nxPSF/2),(nxPSF,nxPSF),(nxGWF/2,nyGWF/2),(nxGWF,nyGWF),WidthMax=(int(self.SupWeightWidth),int(self.SupWeightWidth)))
+        x0d,x1d,y0d,y1d=Aedge
+        (x0,x1,y0,y1)=Bedge
+
         self.SubSubCoord=(x0,x1,y0,y1)
         self.SubCubePSF=self.CubePSFScales[:,:,x0:x1,y0:y1]
         self.SubWeightFunction=self.GlobalWeightFunction[:,:,x0:x1,y0:y1]
         _,nch,_,_ = self.SubCubePSF.shape
+        
+        
+        # import pylab
+        # pylab.subplot(2,2,1)
+        # pylab.imshow(self.CubePSFScales[0,0,:,:],interpolation="nearest")
+        # pylab.subplot(2,2,2)
+        # pylab.imshow(self.GlobalWeightFunction[0,0,:,:],interpolation="nearest")
+        # pylab.subplot(2,2,3)
+        # pylab.imshow(self.SubCubePSF[0,0,:,:],interpolation="nearest")
+        # pylab.subplot(2,2,4)
+        # pylab.imshow(self.SubWeightFunction[0,0,:,:],interpolation="nearest")
+        # pylab.draw()
+        # pylab.show()
+        # stop
+
 
         self.WeightMeanJonesBand=self.DicoVariablePSF["MeanJonesBand"][self.iFacet].reshape((nch,1,1,1))
         WeightMueller=self.WeightMeanJonesBand.ravel()
@@ -759,6 +790,7 @@ class ClassMultiScaleMachine():
         x0d,x1d,y0d,y1d=Aedge
         x0s,x1s,y0s,y1s=Bedge
         nxs,nys=x1s-x0s,y1s-y0s
+        dirtyNormIm=self._Dirty[:,:,x0d:x1d,y0d:y1d]
         
         if (nxs!=self.DicoBasisMatrix["CubePSF"].shape[-2])|(nys!=self.DicoBasisMatrix["CubePSF"].shape[-1]):
             DicoBasisMatrix=self.GiveBasisMatrix((x0s,x1s,y0s,y1s))
@@ -768,8 +800,8 @@ class ClassMultiScaleMachine():
         CubePSF=DicoBasisMatrix["CubePSF"]
 
         nxp,nyp=x1s-x0s,y1s-y0s
+
         T.timeit("0")
-        dirtyNormIm=self._Dirty[:,:,x0d:x1d,y0d:y1d]
         #MeanData=np.sum(np.sum(dirtyNorm*WCubePSF,axis=-1),axis=-1)
         #MeanData=MeanData.reshape(nchan,1,1)
         #dirtyNorm=dirtyNorm-MeanData.reshape((nchan,1,1,1))
@@ -853,12 +885,10 @@ class ClassMultiScaleMachine():
             
             Sol=np.float32(np.dot(BMT_BM_inv,np.dot(BM.T,WVecPSF*dirtyVec)))
             #Sol.fill(1)
-
+            
             #LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)*FpolMean.ravel()[0]
-
-
-            #Sol*=np.sum(FpolTrue.ravel()*self.DicoDirty["WeightChansImages"].ravel())/np.sum(Sol)
-
+            
+            
             # # # ############## debug
             # #Sol.fill(0)
             # #Sol[0]=1.
@@ -916,9 +946,10 @@ class ClassMultiScaleMachine():
             # this is characterized by a high std of the solution coefficients
             # 1/self._kappa determines the "maximum" stddev (relative to maximum solution amplitude) beyond
             # which coef2->0 to force a fully-regular solution
+            # NB: this caused standard tests to fail, so I've set default Kappa=0 for now
             coef2 = max(1 - Sol.std()/abs(MeanFluxTrue) * self._kappa,0)
 
-            coef = coef1 #*coef2
+            coef = coef1*coef2
 
             Sol0 = Sol
             SolReg = np.zeros_like(Sol)
@@ -932,9 +963,10 @@ class ClassMultiScaleMachine():
                 #     Sol=SolReg
 
             # print "Sum, Sol",np.sum(Sol),Sol.ravel()
-
+            
             Fact=(MeanFluxTrue/np.sum(Sol))
             #Sol*=Fact
+            
             
             if abs(Sol).max() < self._stall_threshold:
                 print>>log,"Stalled CLEAN!"
@@ -1077,7 +1109,7 @@ class ClassMultiScaleMachine():
                     #     F=(S0e-ali*S1e)/(al-ali)
                     
                     ThisDirty=ThisPSF*F.reshape((-1,1,1))
-                    dirtyVecSub=d-ThisDirty
+                    dirtyVecSub[:,x0d:x1d,y0d:y1d]=d[:,x0d:x1d,y0d:y1d]-ThisDirty
                     dirtyVec=dirtyVecSub.reshape((-1,1))
                     
 

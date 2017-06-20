@@ -43,11 +43,11 @@ import time
 from astropy.time import Time
 from DDFacet.Other.progressbar import ProgressBar
 
-
-try:
-    import lofar.stationresponse as lsr
-except:
-    print>>log, ModColor.Str("Could not import lofar.stationresponse")
+#
+# try:
+#     import lofar.stationresponse as lsr
+# except:
+#     print>>log, ModColor.Str("Could not import lofar.stationresponse")
 
 def obs_detail(filename,field=0):
 
@@ -641,8 +641,9 @@ class ClassMS():
                 weights = weights[sort_index]
             DATA["weights"] = weights
 
-        self.RotateType=["uvw","vis"]
+        #self.RotateType=["uvw","vis"]
 
+        DATA["uvw"]   = uvw
         visdata = DATA.addSharedArray("data", shape=datashape, dtype=np.complex64)
         if read_data:
             # check cache for visibilities
@@ -654,7 +655,7 @@ class ClassMS():
             if datavalid:
                 print>> log, "reading cached visibilities from %s" % datapath
                 visdata[...] = np.load(datapath)
-                self.RotateType=["uvw"]
+                #self.RotateType=["uvw"]
             else:
                 print>> log, "reading MS visibilities from column %s" % self.ColName
                 table_all = table_all or self.GiveMainTable()
@@ -666,6 +667,12 @@ class ClassMS():
                     del visdata1
                 else:
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
+                if self._reverse_channel_order:
+                    visdata[:,:,:]= visdata[:,::-1,:]
+  
+                if self.ToRADEC is not None:
+                    self.Rotate(DATA,RotateType=["vis"])
+
                 if use_cache:
                     print>> log, "caching visibilities to %s" % datapath
                     np.save(datapath, visdata)
@@ -722,7 +729,6 @@ class ClassMS():
 
         DATA["sort_index"] = sort_index
 
-        DATA["uvw"]   = uvw
         DATA["times"] = time_all
         DATA["uniq_times"] = time_uniq   # vector of unique timestamps
         DATA["nrows"] = time_all.shape[0]
@@ -739,7 +745,7 @@ class ClassMS():
         # print "visMS",vis_all.min(),vis_all.max()
 
         if self.ToRADEC is not None:
-            self.Rotate(DATA)
+            self.Rotate(DATA,RotateType=["uvw"])
 
         # save cache
         if use_cache and not metadata_valid:
@@ -1051,7 +1057,7 @@ class ClassMS():
             srah,sram,sras=SRa.split(":")
             sdecd,sdecm,sdecs=SDec.split(":")
             ranew=(np.pi/180)*15.*(float(srah)+float(sram)/60.+float(sras)/3600.)
-            decnew=(np.pi/180)*(float(sdecd)+float(sdecm)/60.+float(sdecs)/3600.)
+            decnew=(np.pi/180)*np.sign(float(sdecd))*(abs(float(sdecd))+float(sdecm)/60.+float(sdecs)/3600.)
             self.OldRadec=rarad,decrad
             self.NewRadec=ranew,decnew
             rarad,decrad=ranew,decnew
@@ -1445,17 +1451,18 @@ class ClassMS():
             t.close()
     
 
-    def Rotate(self,DATA):
+    def Rotate(self,DATA,RotateType=["uvw","vis"]):
         #DDFacet.ToolsDir.ModRotate.Rotate(self,radec)
         StrRAOld  = rad2hmsdms(self.OldRadec[0],Type="ra").replace(" ",":")
         StrDECOld = rad2hmsdms(self.OldRadec[1],Type="dec").replace(" ",".")
         StrRA  = rad2hmsdms(self.NewRadec[0],Type="ra").replace(" ",":")
         StrDEC = rad2hmsdms(self.NewRadec[1],Type="dec").replace(" ",".")
-        print>>log, "Rotate %s"%(",".join(self.RotateType))
+        print>>log, "Rotate %s"%(",".join(RotateType))
         print>>log, "     from [%s, %s]"%(StrRAOld,StrDECOld)
         print>>log, "       to [%s, %s]"%(StrRA,StrDEC)
+        
         DDFacet.ToolsDir.ModRotate.Rotate2(self.OldRadec,self.NewRadec,DATA["uvw"],DATA["data"],self.wavelength_chan,
-                                           RotateType=self.RotateType)
+                                           RotateType=RotateType)
 
 
 

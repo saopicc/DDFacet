@@ -35,14 +35,22 @@ import numexpr
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
+from DDFacet.Other import Exceptions
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Array import shared_dict
 import DDFacet.cbuild.Gridder._pyArrays as _pyArrays
 
 log = MyLogger.getLogger("AsyncProcessPool")
 
+SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n) \
+    for n in dir(signal) if n.startswith('SIG') and '_' not in n )
+
 # PID of parent process
 parent_pid = os.getpid()
+
+# Exception type for worker process errors
+class WorkerProcessError(Exception):
+    pass
 
 class Job(object):
     def __init__ (self, job_id, jobitem, singleton=False, event=None, when_complete=None):
@@ -147,10 +155,10 @@ class AsyncProcessPool (object):
     def __del__(self):
         self.shutdown()
 
-    def init(self, ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0):
+    def init(self, ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False):
         """
         Initializes an APP.
-        Can be called multiple times at program tartup
+        Can be called multiple times at program startup
 
         Args:
             ncpu:
@@ -164,10 +172,13 @@ class AsyncProcessPool (object):
         """
         self.affinity = affinity
         self.verbose = verbose
+
+        self.pause_on_start = pause_on_start
+
         if isinstance(self.affinity, int):
             self.cpustep = abs(self.affinity) or 1
-            self.ncpu = ncpu
             maxcpu = psutil.cpu_count() / self.cpustep
+            self.ncpu = ncpu or maxcpu
             self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, list):
             if any(map(lambda x: x < 0, self.affinity)):
@@ -175,7 +186,7 @@ class AsyncProcessPool (object):
             if psutil.cpu_count() < max(self.affinity):
                 raise RuntimeError("There are %d virtual threads on this system. Some elements of the affinity map are "
                                    "higher than this. Check parset." % psutil.cpu_count())
-            self.ncpu = ncpu
+            self.ncpu = ncpu or len(self.affinity)
             if self.ncpu != len(self.affinity):
                 print>> log, ModColor.Str("Warning: NCPU does not match affinity list length. Falling back to "
                                           "NCPU=%d" % len(self.affinity))
@@ -185,8 +196,8 @@ class AsyncProcessPool (object):
         elif isinstance(self.affinity, str) and str(self.affinity) == "enable_ht":
             self.affinity = 1
             self.cpustep = 1
-            self.ncpu = ncpu
             maxcpu = psutil.cpu_count() / self.cpustep
+            self.ncpu = ncpu or maxcpu
             self.parent_affinity = parent_affinity
         elif isinstance(self.affinity, str) and str(self.affinity) == "disable_ht":
             # this works on Ubuntu so possibly Debian-like systems, no guarantees for the rest
@@ -221,8 +232,8 @@ class AsyncProcessPool (object):
                                            "to the affinity option")
 
             self.affinity = list(left_set)  # only consider 1 thread per core
-            self.ncpu = ncpu
-            if self.ncpu >= len(self.affinity):
+            self.ncpu = ncpu or len(self.affinity)
+            if self.ncpu > len(self.affinity):
                 print>> log, ModColor.Str("Warning: NCPU is more than the number of physical cores on "
                                           "the system. I will only use %d cores." % len(self.affinity))
             self.ncpu = self.ncpu if self.ncpu <= len(self.affinity) else len(self.affinity)
@@ -237,17 +248,18 @@ class AsyncProcessPool (object):
         elif isinstance(self.affinity, str) and str(self.affinity) == "disable":
             self.affinity = None
             self.parent_affinity = None
-            self.ncpu = ncpu
             self.cpustep = 1
             maxcpu = psutil.cpu_count()
+            self.ncpu = ncpu or maxcpu
         else:
             raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list, "
                                "'enable_ht', 'disable_ht', 'disable'")
         if self.parent_affinity is None:
-            print>> log, ModColor.Str("Not fixing parent and IO affinity as per user request")
+            print>> log, "Parent and I/O affinities not specified, leaving unset"
         else:
             print>> log, ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green")
         psutil.Process().cpu_affinity(range(self.ncpu) if not self.parent_affinity else [self.parent_affinity])
+
         # if NCPU is 0, set to number of CPUs on system
         if not self.ncpu:
             self.ncpu = maxcpu
@@ -276,7 +288,7 @@ class AsyncProcessPool (object):
         else:
             raise ValueError, "unknown affinity setting"
         if not self.affinity:
-            print>> log, ModColor.Str("Worker affinities not set per user request")
+            print>> log, "Worker affinities not specified, leaving unset"
         else:
             print>> log, ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])),
                                       col="green")
@@ -286,6 +298,8 @@ class AsyncProcessPool (object):
         self._io_queues       = [ multiprocessing.Queue() for x in xrange(num_io_processes) ]
         self._result_queue    = multiprocessing.Queue()
         self._termination_event = multiprocessing.Event()
+        # this event is set when all workers have been started, an cleared when a restart is requested
+        self._workers_started_event = multiprocessing.Event()
 
         self._cores = cores
 
@@ -293,7 +307,12 @@ class AsyncProcessPool (object):
         # This is responsible for spawning, killing, and respawning workers
         self._taras_restart_event = multiprocessing.Event()
         self._taras_exit_event = multiprocessing.Event()
-        self._taras_bulba = multiprocessing.Process(target=AsyncProcessPool._startBulba, args=(self,))
+        if self.ncpu > 1:
+            self._taras_bulba = multiprocessing.Process(target=AsyncProcessPool._startBulba, name="TB", args=(self,))
+            if pause_on_start:
+                print>>log,ModColor.Str("Please note that due to your debug settings, worker processes will be paused on startup. Send SIGCONT to all processes to continue.", col="blue")
+        else:
+            self._taras_bulba = None
 
         self._started = False
 
@@ -328,18 +347,37 @@ class AsyncProcessPool (object):
         """Starts worker threads. All job handlers and events must be registered *BEFORE*"""
         self._shared_state = shared_dict.create("APP")
         self._job_counters.finalize(self._shared_state)
-        self._taras_bulba.start()
+        if self.ncpu > 1:
+            self._taras_bulba.start()
         self._started = True
 
     def restartWorkers(self):
-        self._taras_restart_event.set()
+        if self.ncpu > 1:
+            print>> log, "asking worker processes to restart"
+            self._workers_started_event.clear()
+            self._taras_restart_event.set()
+
+    def awaitWorkerStart(self):
+        if self.ncpu > 1 and not self._workers_started_event.is_set():
+            print>>log,"waiting for worker processes to start up"
+            self._workers_started_event.wait()
 
     def _startBulba (self):
         """This runs the Taras Bulba process. A Taras Bulba spawns and kills worker processes on demand.
         The reason for killing workers is to work around potential memory leaks. Since a Bulba is forked
         from the main process early on, it has a very low RAM footprint, so re-forking the workers off
         a Bulba every so often makes sure their RAM usage is reset."""
+        Exceptions.disable_pdb_on_error()
         MyLogger.subprocess_id = "TB"
+        self._oldhandler = None
+        # self.verbose = 1
+
+        def sighandler(signum, frame):
+            #if self.verbose:
+            #    print>> log, "SIGCHLD caught: sincere lament"
+            self._dead_child = True
+            # self._taras_restart_event.set()
+
         # loop until the completion event is raised
         # at this stage the workers are dead (or not started)
         while not self._taras_exit_event.is_set():
@@ -351,38 +389,76 @@ class AsyncProcessPool (object):
             for i, core in enumerate(self._cores):
                 proc_id = "comp%02d" % i
                 self._compute_workers.append(
-                    multiprocessing.Process(target=self._start_worker,
-                                            args=(self, proc_id, [core], self._compute_queue)))
+                    multiprocessing.Process(name=proc_id, target=self._start_worker,
+                                            args=(self, proc_id, [core], self._compute_queue,
+                                                  self.pause_on_start)))
             for i, queue in enumerate(self._io_queues):
                 proc_id = "io%02d" % i
                 self._io_workers.append(
-                    multiprocessing.Process(target=self._start_worker, args=(self, proc_id, None, queue)))
+                    multiprocessing.Process(name=proc_id, target=self._start_worker,
+                                            args=(self, proc_id, None, queue, self.pause_on_start)))
+
+            # since the handler gets propagated to children, set it to ignore before starting a worker
+            signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+
             # start the workers
             if self.verbose:
                 print>>log, "starting  worker processes"
             for proc in self._compute_workers + self._io_workers:
                 proc.start()
+
+            # set the real signal handler
+            self._dead_child = None
+            signal.signal(signal.SIGCHLD, sighandler)
+
+            # set event to indicate workers are started
+            self._workers_started_event.set()
+
             # go to sleep until we're told to do the whole thing again
-            if self.verbose:
-                print>>log, "waiting for restart signal"
-            try:
-                self._taras_restart_event.wait()
-            except KeyboardInterrupt:
-                print>>log,ModColor.Str("Ctrl+C caught, exiting")
+            while not self._taras_restart_event.is_set() and not self._dead_child:
+                if self.verbose:
+                    print>>log, "waiting for restart signal"
+                try:
+                    self._taras_restart_event.wait(5)
+                    if self.verbose:
+                        print>>log, "wait done"
+                except KeyboardInterrupt:
+                    print>>log,ModColor.Str("Ctrl+C caught, exiting")
+                    self._termination_event.set()
+                    self._taras_exit_event.set()
+                # check for dead workers. This is probably a good time to bail out
+                if self._dead_child:
+                    self._dead_child = 0
+                    for p in self._compute_workers + self._io_workers:
+                        if not p.is_alive():
+                            if p.exitcode < 0:
+                                print>>log,ModColor.Str("worker '%s' killed by signal %s" % (p.name, SIGNALS_TO_NAMES_DICT[-p.exitcode]))
+                            else:
+                                print>>log,ModColor.Str("worker '%s' died with exit code %d"%(p.name, p.exitcode))
+                            self._dead_child += 1
+                    # if it was really our workers that died, initiate bailout
+                    if self._dead_child:
+                        print>>log,ModColor.Str("%d worker(s) have died. Initiating shutdown."%self._dead_child)
+                        self._taras_restart_event.set()
+                        self._termination_event.set()
+                        self._taras_exit_event.set()
             self._taras_restart_event.clear()
-            if self.verbose:
-                print>>log, "restart signal received, notifying workers"
             if self._termination_event.is_set():
                 if self.verbose:
                     print>> log, "terminating workers"
                 for p in self._compute_workers + self._io_workers:
-                    p.terminate()
+                    if p.is_alive():
+                        p.terminate()
             # else let them all shut down in an orderly way, by giving them a poison pill
             else:
-                for _ in self._compute_workers:
-                    self._compute_queue.put("POISON-E")
-                for queue in self._io_queues:
-                    queue.put("POISON-E")
+                if self.verbose:
+                    print>> log, "restart signal received, notifying workers"
+                for p in self._compute_workers:
+                    if p.is_alive():
+                        self._compute_queue.put("POISON-E")
+                for p, queue in zip(self._io_workers, self._io_queues):
+                    if p.is_alive():
+                        queue.put("POISON-E")
             if self.verbose:
                 print>> log, "reaping workers"
             # join processes
@@ -421,8 +497,10 @@ class AsyncProcessPool (object):
             raise RuntimeError("runJob() with collect_result can only be called in the parent process. This is a bug.")
         if collect_result and job_id in self._results_map:
             raise RuntimeError("Job '%s' has an uncollected result, or is a singleton. This is a bug."%job_id)
+        # make sure workers are started
+        self.awaitWorkerStart()
         # figure out the handler, and how to pass it to the queue
-        # If this is a function, then describe is by function id, None
+        # If this is a function, then describe it by function id, None
         if inspect.isfunction(handler):
             handler_id, method = id(handler), None
             handler_desc  = "%s()" % handler.__name__
@@ -490,13 +568,13 @@ class AsyncProcessPool (object):
                 if self._termination_event.is_set():
                     if self.verbose > 1:
                         print>> log, "  termination event spotted, exiting"
-                    raise RuntimeError("stopping on termination event")
+                    raise WorkerProcessError()
         else:
             counter.awaitZero()
             if self._termination_event.is_set():
                 if self.verbose > 1:
                     print>> log, "  termination event spotted, exiting"
-                raise RuntimeError("stopping on termination event")
+                raise WorkerProcessError()
             if self.verbose > 2:
                 print>> log, "  %s is complete" % counter.name
 
@@ -513,7 +591,7 @@ class AsyncProcessPool (object):
                 if self._termination_event.is_set():
                     if self.verbose > 1:
                         print>> log, "  termination event spotted, exiting"
-                    raise RuntimeError("stopping on termination event")
+                    raise WorkerProcessError()
                 if self.verbose > 2:
                     print>> log, "  %s not yet complete, waiting" % name
                 if event.wait(1):
@@ -571,20 +649,13 @@ class AsyncProcessPool (object):
                 ", ".join(["%s %d/%d"%(jobspec, len(results), njobs) for jobspec, (njobs, results) in job_results.iteritems()]),
                 len(awaiting_jobs))
         # sit here while any pending jobs remain
-        while awaiting_jobs:
+        while awaiting_jobs and not self._termination_event.is_set():
             try:
                 result = self._result_queue.get(True, 10)
             except Queue.Empty:
                 # print>> log, "checking for dead workers"
                 # shoot the zombie process, if any
                 multiprocessing.active_children()
-                # check for dead workers
-                pids_to_restart = []
-                for w in self._compute_workers + self._io_workers:
-                    if not w.is_alive():
-                        pids_to_restart.append(w)
-                        raise RuntimeError("a worker process has died on us \
-                            with exit code %d. This is probably a bug." % w.exitcode)
                 continue
             # ok, dispatch the result
             job_id = result["job_id"]
@@ -609,6 +680,12 @@ class AsyncProcessPool (object):
         # render complete
         if progress:
             pBAR.render(complete_jobs,(total_jobs or 1))
+
+        if self._termination_event.is_set():
+            if self.verbose > 1:
+                print>> log, "  termination event spotted, exiting"
+            raise WorkerProcessError()
+
         # process list of results for each jobspec to check for errors
         for jobspec, (njobs, results) in job_results.iteritems():
             times = np.array([ res['time'] for res in results ])
@@ -645,9 +722,10 @@ class AsyncProcessPool (object):
         self._started = False
         self._taras_exit_event.set()
         self._taras_restart_event.set()
-        if self.verbose > 1:
-            print>>log,"shutdown: waiting for TB to exit"
-        self._taras_bulba.join()
+        if self._taras_bulba:
+            if self.verbose > 1:
+                print>>log,"shutdown: waiting for TB to exit"
+            self._taras_bulba.join()
         if self.verbose > 1:
             print>> log, "shutdown: closing queues"
         # join and close queues
@@ -730,8 +808,11 @@ class AsyncProcessPool (object):
         except KeyboardInterrupt:
             raise
         except Exception, exc:
+            
             if reraise:
                 raise
+
+
             print>> log, ModColor.Str("process %s: exception raised processing job %s: %s" % (
                 AsyncProcessPool.proc_id, job_id, traceback.format_exc()))
             if jobitem['collect_result']:
@@ -783,8 +864,8 @@ def _init_default():
 
 _init_default()
 
-def init(ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0):
+def init(ncpu=None, affinity=None, parent_affinity=0, num_io_processes=1, verbose=0, pause_on_start=False):
     global APP
-    APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose)
+    APP.init(ncpu, affinity, parent_affinity, num_io_processes, verbose, pause_on_start=pause_on_start)
 
 

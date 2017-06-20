@@ -42,7 +42,7 @@ class ProgressBar(object):
     PADDING = 7
     silent=0
     
-    def __init__(self, color='white', width=50, block='=', empty=' ',Title=None,HeaderSize=30):
+    def __init__(self, color='white', width=50, block='=', empty=' ',Title=None,HeaderSize=37):
         """
         color -- color name (BLUE GREEN CYAN RED MAGENTA YELLOW WHITE BLACK)
         width -- bar width (optinal)

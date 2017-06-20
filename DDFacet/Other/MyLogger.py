@@ -166,7 +166,7 @@ getLogger=M.getLogger
 itsLog=getLogger("MyLogger")
 import ModColor
 def setSilent(Lname):
-    print>>itsLog, ModColor.Str("Set silent: %s" % Lname, col="red")
+    # print>>itsLog, ModColor.Str("Set silent: %s" % Lname, col="red")
     if type(Lname)==str:
         log=getLogger(Lname)
         log.logger.setLevel(logging.CRITICAL)
