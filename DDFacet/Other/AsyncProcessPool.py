@@ -255,7 +255,7 @@ class AsyncProcessPool (object):
             raise RuntimeError("Invalid option for Parallel.Affinity. Expected cpu step (int), list, "
                                "'enable_ht', 'disable_ht', 'disable'")
         if self.parent_affinity is None:
-            print>> log, ModColor.Str("Not fixing parent and IO affinity as per user request")
+            print>> log, "Parent and I/O affinities not specified, leaving unset"
         else:
             print>> log, ModColor.Str("Fixing parent process to vthread %d" % self.parent_affinity, col="green")
         psutil.Process().cpu_affinity(range(self.ncpu) if not self.parent_affinity else [self.parent_affinity])
@@ -288,7 +288,7 @@ class AsyncProcessPool (object):
         else:
             raise ValueError, "unknown affinity setting"
         if not self.affinity:
-            print>> log, ModColor.Str("Worker affinities not set per user request")
+            print>> log, "Worker affinities not specified, leaving unset"
         else:
             print>> log, ModColor.Str("Worker processes fixed to vthreads %s" % (','.join([str(x) for x in cores])),
                                       col="green")
@@ -298,6 +298,8 @@ class AsyncProcessPool (object):
         self._io_queues       = [ multiprocessing.Queue() for x in xrange(num_io_processes) ]
         self._result_queue    = multiprocessing.Queue()
         self._termination_event = multiprocessing.Event()
+        # this event is set when all workers have been started, an cleared when a restart is requested
+        self._workers_started_event = multiprocessing.Event()
 
         self._cores = cores
 
@@ -306,7 +308,7 @@ class AsyncProcessPool (object):
         self._taras_restart_event = multiprocessing.Event()
         self._taras_exit_event = multiprocessing.Event()
         if self.ncpu > 1:
-            self._taras_bulba = multiprocessing.Process(target=AsyncProcessPool._startBulba, args=(self,))
+            self._taras_bulba = multiprocessing.Process(target=AsyncProcessPool._startBulba, name="TB", args=(self,))
             if pause_on_start:
                 print>>log,ModColor.Str("Please note that due to your debug settings, worker processes will be paused on startup. Send SIGCONT to all processes to continue.", col="blue")
         else:
@@ -350,7 +352,15 @@ class AsyncProcessPool (object):
         self._started = True
 
     def restartWorkers(self):
-        self._taras_restart_event.set()
+        if self.ncpu > 1:
+            print>> log, "asking worker processes to restart"
+            self._workers_started_event.clear()
+            self._taras_restart_event.set()
+
+    def awaitWorkerStart(self):
+        if self.ncpu > 1 and not self._workers_started_event.is_set():
+            print>>log,"waiting for worker processes to start up"
+            self._workers_started_event.wait()
 
     def _startBulba (self):
         """This runs the Taras Bulba process. A Taras Bulba spawns and kills worker processes on demand.
@@ -359,12 +369,12 @@ class AsyncProcessPool (object):
         a Bulba every so often makes sure their RAM usage is reset."""
         Exceptions.disable_pdb_on_error()
         MyLogger.subprocess_id = "TB"
-        self._dead_child = None
         self._oldhandler = None
+        # self.verbose = 1
 
         def sighandler(signum, frame):
-            if self.verbose:
-                print>> log, "SIGCHLD caught: sincere lament"
+            #if self.verbose:
+            #    print>> log, "SIGCHLD caught: sincere lament"
             self._dead_child = True
             # self._taras_restart_event.set()
 
@@ -398,7 +408,11 @@ class AsyncProcessPool (object):
                 proc.start()
 
             # set the real signal handler
+            self._dead_child = None
             signal.signal(signal.SIGCHLD, sighandler)
+
+            # set event to indicate workers are started
+            self._workers_started_event.set()
 
             # go to sleep until we're told to do the whole thing again
             while not self._taras_restart_event.is_set() and not self._dead_child:
@@ -483,8 +497,10 @@ class AsyncProcessPool (object):
             raise RuntimeError("runJob() with collect_result can only be called in the parent process. This is a bug.")
         if collect_result and job_id in self._results_map:
             raise RuntimeError("Job '%s' has an uncollected result, or is a singleton. This is a bug."%job_id)
+        # make sure workers are started
+        self.awaitWorkerStart()
         # figure out the handler, and how to pass it to the queue
-        # If this is a function, then describe is by function id, None
+        # If this is a function, then describe it by function id, None
         if inspect.isfunction(handler):
             handler_id, method = id(handler), None
             handler_desc  = "%s()" % handler.__name__

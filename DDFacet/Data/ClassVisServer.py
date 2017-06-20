@@ -93,7 +93,7 @@ class ClassVisServer():
         self.Init()
 
         # if True, then skip weights calculation (but do load max-w!)
-        self._compute_wmax_only = False
+        self._ignore_vis_weights = False
 
         # smear mapping machines
         self._smm_grid = ClassSmearMapping.SmearMappingMachine("BDA.Grid")
@@ -170,7 +170,7 @@ class ClassVisServer():
         if ".txt" in self.GD["Data"]["MS"]:
             # main cache is initialized from main cache of the MSList
             from DDFacet.Other.CacheManager import CacheManager
-            self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], reset=self.GD["Cache"]["Reset"])
+            self.maincache = self.cache = CacheManager("%s.ddfcache"%self.GD["Data"]["MS"], cachedir=self.GD["Cache"]["Dir"], reset=self.GD["Cache"]["Reset"])
         else:
             # main cache is initialized from main cache of first MS
             self.maincache = self.cache = self.ListMS[0].maincache
@@ -418,7 +418,7 @@ class ClassVisServer():
             self._next_chunk_name = "DATA:%d:%d" % (self.iCurrentMS, self.iCurrentChunk)
             self._next_chunk_label = "%d.%d" % (self.iCurrentMS + 1, self.iCurrentChunk + 1)
             # null chunk? skip to next chunk
-            if self.VisWeights is not 1:
+            if not self._ignore_vis_weights:
                 self.awaitWeights()
                 if self.VisWeights[self.iCurrentMS][self.iCurrentChunk]["null"]:
                     print>>log, ModColor.Str("chunk %s is null, skipping"%self._next_chunk_label)
@@ -619,7 +619,7 @@ class ClassVisServer():
         Waits for CalcWeights to complete (if running in background).
         """
         # wmax-only means weights not computed (i.e. predict-only mode)
-        if self._compute_wmax_only:
+        if self._ignore_vis_weights:
             return 1
         # otherwise make sure we get them
         self.awaitWeights()
@@ -644,8 +644,13 @@ class ClassVisServer():
             self.VisWeights = shared_dict.attach("VisWeights")
 
     def IgnoreWeights(self):
-        print>>log,"weights will be ignored"
-        self._compute_wmax_only = True
+        """
+        Tells VisServer that visibility weights will not be needed (e.g. as in predict-only mode).
+        Note that the background CalcWeights job is still run in this case, but just to get the wmax
+        value from the MSs
+        """
+        print>>log,"visibility weights will not be computed"
+        self._ignore_vis_weights = True
 
     def CalcWeightsBackground(self):
         """Starts parallel jobs to load weights in the background"""
@@ -683,7 +688,7 @@ class ClassVisServer():
             for ichunk in xrange(len(ms.getChunkRow0Row1())):
                 msw = msweights[ichunk]
                 APP.runJob("LoadWeights:%d:%d"%(ims,ichunk), self._loadWeights_handler,
-                           args=(msw.writeonly(), ims, ichunk, self._compute_wmax_only),
+                           args=(msw.writeonly(), ims, ichunk, self._ignore_vis_weights),
                            counter=self._weightjob_counter, collect_result=False)
         # wait for results
         APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
@@ -700,7 +705,7 @@ class ClassVisServer():
         cPickle.dump(wmax,open(wmax_path, "w"))
         self.maincache.saveCache("wmax")
         self._weight_dict["wmax"] = wmax
-        if self._compute_wmax_only:
+        if self._ignore_vis_weights:
             return
         if not self._uvmax:
             raise RuntimeError("data appears to be fully flagged: can't compute imaging weights")
@@ -861,6 +866,7 @@ class ClassVisServer():
         x += xymax  # offset, since X grid starts at -xymax
         # convert to index array -- this gives the number of the uv-bin on the grid
         index = msw.addSharedArray("index", (uv.shape[0], len(freqs)), np.int64)
+        #index = np.zeros((uv.shape[0], len(freqs)), np.int64)
         index[...] = y * npixx + x
         # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
         if nbands > 1:
