@@ -675,8 +675,8 @@ class ClassFacetMachine():
                                           nthreads=1)
         sw = sw.reshape((Npix, Npix))
         sw /= np.max(sw)
-        # Will speedup degridding
-        sw[sw<1e-3]=0.
+        ## Will speedup degridding NB: will it?
+        # sw[sw<1e-3]=0.
         facet_dict["SW"] = sw
 
         # Initialize a grid machine per iFacet, this will implicitly compute wterm and Sphe
