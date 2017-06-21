@@ -1093,7 +1093,8 @@ class ClassImagerDeconv():
                 self._fitAndSavePSF(self.FacetMachinePSF, cycle=iMajor)
                 self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
                                         approx=(sparsify > approximate_psf_above),
-                                        cache=not sparsify)
+                                        cache=not sparsify, GridFreqs=self.VS.FreqBandCenters,
+                                        DegridFreqs=self.VS.FreqBandChannelsDegrid[0], RefFreq=self.VS.RefFreq)
 
             # if we reached a sparsification of 1, we shan't be re-making the PSF
             if sparsify <= 1:
