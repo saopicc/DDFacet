@@ -24,10 +24,6 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 
 import numpy as np
-try:
-    import lofar.stationresponse as lsr
-except:
-    print>>log, ModColor.Str("Could not import lofar.stationresponse")
 
 class ClassLOFARBeam():
     def __init__(self,MS,GD):
@@ -44,6 +40,9 @@ class ClassLOFARBeam():
         useArrayFactor=("A" in LOFARBeamMode)
         useElementBeam=("E" in LOFARBeamMode)
         if self.SR is not None: return
+
+        import lofar.stationresponse as lsr
+
         self.SR = lsr.stationresponse(self.MS.MSName,
                                       useElementResponse=useElementBeam,
                                       #useElementBeam=useElementBeam,

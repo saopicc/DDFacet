@@ -306,7 +306,6 @@ class ClassWTermModified():
         self.Nw = int(Nw)
         self.Cell = Cell
         self.Sup = Sup
-        self.wmax = wmax
         self.Nw = Nw
         self.Npix = Npix
         self.Freqs = Freqs
@@ -320,6 +319,7 @@ class ClassWTermModified():
 
         # recompute?
         if compute_cf:
+            cf_dict["wmax"] = self.wmax = wmax
             self.InitSphe()
             self.InitW()
             dS = np.float32
@@ -328,6 +328,7 @@ class ClassWTermModified():
             cf_dict["CuCv"] = np.array([self.Cu, self.Cv])
             NpShared.PackListSquareMatrix(cf_dict, "W", self.Wplanes + self.WplanesConj)
         else:
+            self.wmax = cf_dict["wmax"]
             self.ifzfCF = cf_dict["Sphe"]
             self.Cu, self.Cv = cf_dict["CuCv"]
             ww = NpShared.UnPackListSquareMatrix(cf_dict["W"])

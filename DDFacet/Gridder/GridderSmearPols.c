@@ -1432,7 +1432,7 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
     } else {
       FATAL("Cannot convert input correlations to desired output correlations.");
     }
-  } else if (ncorr == 2 && 
+  } else if (ncorr == 2 &&
     !strcmp(inputcorr[0], "RR") && !strcmp(inputcorr[1], "LL")) {
     if (npol == 1 &&
 	!strcmp(expstokes[0], "I")){

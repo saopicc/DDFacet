@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+import os
 import numpy as np
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
@@ -43,7 +44,7 @@ from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
 #    #sys.exit(1)
 from DDFacet.Array import NpParallel
 import ClassIslandDistanceMachine
-from DDFacet.Array import SharedDict
+from DDFacet.Array import shared_dict
 
 MyLogger.setSilent("ClassArrayMethodSSD")
 MyLogger.setSilent("ClassIsland")
@@ -53,7 +54,7 @@ class ClassImageDeconvMachine():
     def __init__(self,Gain=0.3,
                  MaxMinorIter=100,NCPU=6,
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
-                 GD=None,SearchMaxAbs=1,IdSharedMem="",
+                 GD=None,SearchMaxAbs=1,IdSharedMem=None,
                  ModelMachine=None,
                  MainCache=None,
                  **kw    # absorb any unknown keywords arguments into this
@@ -66,7 +67,10 @@ class ClassImageDeconvMachine():
         self.NCPU=NCPU
         self.Chi2Thr=10000
         self.GD=GD
-        self.IdSharedMem=IdSharedMem
+        if IdSharedMem is None:
+            self.IdSharedMem=str(os.getpid())
+        else:
+            self.IdSharedMem=IdSharedMem
         self.SubPSF=None
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
         self.FluxThreshold = FluxThreshold 
@@ -99,7 +103,9 @@ class ClassImageDeconvMachine():
     def setDeconvMode(self,Mode="MetroClean"):
         self.DeconvMode=Mode
 
-    def Reset(self): pass
+    def Reset(self):
+        # clear anything we have left lying around in shared memory
+        NpShared.DelAll()
         
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
@@ -111,7 +117,7 @@ class ClassImageDeconvMachine():
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
         #DicoVariablePSF["CubeVariablePSF"]=NpShared.ToShared("%s.CubeVariablePSF"%self.IdSharedMem,DicoVariablePSF["CubeVariablePSF"])
-        DicoVariablePSF=SharedDict.attach(DicoVariablePSF.path)#["CubeVariablePSF"]
+        DicoVariablePSF=shared_dict.attach(DicoVariablePSF.path)#["CubeVariablePSF"]
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
         self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
         #self.DicoPSF=DicoPSF
@@ -177,7 +183,6 @@ class ClassImageDeconvMachine():
                                                                                     self.DicoDirty,
                                                                                     IdSharedMem=self.IdSharedMem)
         ListIslands=IslandDistanceMachine.SearchIslands(Threshold)
-
         # FluxIslands=[]
         # for iIsland in range(len(ListIslands)):
         #     x,y=np.array(ListIslands[iIsland]).T
@@ -205,6 +210,9 @@ class ClassImageDeconvMachine():
 #            if (MaxIsland>(3.*self.RMS))|(MaxIsland>Threshold):
             if (MaxIsland>Threshold):
                 ListIslandsFiltered.append(ListIslands[iIsland])
+            # else:
+            #     self.MaskMachine.CurrentNegMask[:,:,x,y]=1
+            #     self.MaskMachine.CurrentMask[:,:,x,y]=0
             # ###############################
             # if np.max(np.abs(PixVals))>Threshold:
             #     DoThisOne=True
@@ -215,10 +223,14 @@ class ClassImageDeconvMachine():
         # #############################
         print>>log,"  selected %i islands [out of %i] with peak flux > %.3g Jy"%(len(ListIslandsFiltered),len(ListIslands),Threshold)
         ListIslands=ListIslandsFiltered
+        #ListIslands=[np.load("errIsland_000000.keep.npy").tolist()]
 
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
-        self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
+        ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
         
+
+        self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
+
         self.ListIslands=ListIslands
         self.NIslands=len(self.ListIslands)
 
@@ -276,8 +288,9 @@ class ClassImageDeconvMachine():
 
 
 
-
         print>>log,"  selected %i islands larger that %i pixels for HMP initialisation"%(np.count_nonzero(ListDoMSMFIslandsInit),self.GD["SSDClean"]["MinSizeInitHMP"])
+
+        
 
 
         
@@ -440,18 +453,19 @@ class ClassImageDeconvMachine():
             Parallel=True
             ParallelPerIsland=False
         elif ParallelMode=="PerIsland":
-            NCPU=1
+            NCPU=self.NCPU
             Parallel=False
             ParallelPerIsland=True
 
         StopWhenQueueEmpty=True
 
-        ######### Debug
-        ParallelPerIsland=False
-        Parallel=False
-        StopWhenQueueEmpty=True
-        ##################
-
+        # ######### Debug
+        # ParallelPerIsland=False
+        # Parallel=False
+        # NCPU=1
+        # StopWhenQueueEmpty=True
+        # ##################
+        
 
         work_queue = multiprocessing.Queue()
 
@@ -525,20 +539,11 @@ class ClassImageDeconvMachine():
                                  NChains=self.NChains,
                                  ListInitIslands=ListInitIslands)
             workerlist.append(W)
-            workerlist[ii].start()
-            # workerlist[ii].run()
 
-            # if Parallel: 
-            #     workerlist[ii].start()
-            # else:
-            #     workerlist[ii].run()
-
-        # if Parallel:
-        #     for ii in range(NCPU):
-        #         workerlist[ii].start()
-        # else:
-        #     for ii in range(NCPU):
-        #         workerlist[ii].run()
+            if Parallel: 
+                workerlist[ii].start()
+            else:
+                workerlist[ii].run()
 
         iResult=0
         #print "!!!!!!!!!!!!!!!!!!!!!!!!",iResult,NJobs
@@ -712,8 +717,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
         #self.CubeVariablePSF=NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
         self._Dirty=NpShared.GiveArray("%s.Dirty.ImagData"%self.IdSharedMem)
 
-        self.CubeVariablePSF=SharedDict.attach("FMPSF_AllImages")["CubeVariablePSF"]
-        #self._Dirty=SharedDict.attach("dictDirty")["ImageCube"]
+        self.CubeVariablePSF=shared_dict.attach("FMPSF_AllImages")["CubeVariablePSF"]
 
         #self.WeightFreqBands=WeightFreqBands
         self.ParallelPerIsland=ParallelPerIsland

@@ -56,7 +56,7 @@ def GiveEdges((xc0,yc0),N0,(xc1,yc1),N1):
     return Aedge,Bedge
 
 
-def GiveEdgesDissymetric((xc0,yc0),(N0x,N0y),(xc1,yc1),(N1x,N1y)):
+def GiveEdgesDissymetric((xc0,yc0),(N0x,N0y),(xc1,yc1),(N1x,N1y),WidthMax=None):
     M_xc=xc0
     M_yc=yc0
     NpixMain_x=N0x
@@ -91,6 +91,27 @@ def GiveEdgesDissymetric((xc0,yc0),(N0x,N0y),(xc1,yc1),(N1x,N1y)):
     
     Aedge=[x0main,x1main,y0main,y1main]
     Bedge=[x0facet,x1facet,y0facet,y1facet]
+    if WidthMax:
+        dx=x1main-x0main
+        dy=y1main-y0main
+        Wx,Wy=WidthMax
+        if dx>Wx:
+            ddx=int((dx-Wx)/2.)
+            #if ddx%2==1: ddx-=1
+            x0main+=ddx
+            x1main-=ddx
+            x0facet+=ddx
+            x1facet-=ddx
+        if dy>Wy:
+            ddy=int((dy-Wy)/2.)
+            #if ddy%2==1: ddy-=1
+            y0main+=ddy
+            y1main-=ddy
+            y0facet+=ddy
+            y1facet-=ddy
+    Aedge=[x0main,x1main,y0main,y1main]
+    Bedge=[x0facet,x1facet,y0facet,y1facet]
+
     return Aedge,Bedge
 
 

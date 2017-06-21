@@ -17,3 +17,33 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+import sys
+from DDFacet.Other import ModColor
+
+_advise = "Exception occurred, dropping you into pdb"
+
+def _handle_exception(type, value, tb):
+    if hasattr(sys, 'ps1') or not sys.stderr.isatty():
+    # we are in interactive mode or we don't have a tty-like
+    # device, so we call the default hook
+        sys.__excepthook__(type, value, tb)
+    else:
+        print ModColor.Str(_advise)
+        import traceback, pdb
+        # we are NOT in interactive mode, print the exception...
+        traceback.print_exception(type, value, tb)
+        print
+        # ...then start the debugger in post-mortem mode.
+        # pdb.pm() # deprecated
+        pdb.post_mortem(tb) # more "modern"
+
+def enable_pdb_on_exception(advise=None):
+    sys.excepthook = _handle_exception
+    if advise:
+        global _advise
+        _advise = advise
+
+def disable_pdb_on_exception():
+    sys.excepthook = sys.__excepthook__()
+

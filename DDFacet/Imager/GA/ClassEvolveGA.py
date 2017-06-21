@@ -25,12 +25,7 @@ from deap import creator
 from deap import tools
 import numpy
 import algorithms
-import multiprocessing
-
-from DDFacet.ToolsDir import ModFFTW
 import numpy as np
-import pylab
-import os
 
 
 import ClassArrayMethodGA

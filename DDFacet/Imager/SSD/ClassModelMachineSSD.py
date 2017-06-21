@@ -210,7 +210,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         DicoComp[key]["Vals"].append(Vals)
 
 
-    def GiveModelImage(self,FreqIn=None):
+    def GiveModelImage(self,FreqIn=None,out=None):
         
         
         RefFreq=self.DicoSMStacked["RefFreq"]
@@ -228,7 +228,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         _,npol,nx,ny=self.ModelShape
         nchan=FreqIn.size
-        ModelImage=np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+        if out is not None:
+            if out.shape != (nchan,npol,nx,ny) or out.dtype != np.float32:
+                raise RuntimeError("supplied image has incorrect type (%s) or shape (%s)" % (out.dtype, out.shape))
+            ModelImage = out
+        else:
+            ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+
         if "Comp" not in  self.DicoSMStacked.keys():
             return ModelImage
 
@@ -360,7 +366,20 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     #     return alpha
 
         
-    def CleanNegComponants(self,box=20,sig=3,RemoveNeg=True):
+    def RemoveNegComponants(self):
+        print>>log, "Cleaning model dictionary from negative componants"
+        ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
+        
+        Lx,Ly=np.where(ModelImage<0)
+
+        for icomp in range(Lx.size):
+            key=Lx[icomp],Ly[icomp]
+            try:
+                del(self.DicoSMStacked["Comp"][key])
+            except:
+                print>>log, "  Componant at (%i, %i) not in dict "%key
+
+    def FilterNegComponants(self,box=20,sig=3,RemoveNeg=True):
         print>>log, "Cleaning model dictionary from negative componants with (box, sig) = (%i, %i)"%(box,sig)
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
         

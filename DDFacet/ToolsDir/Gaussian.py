@@ -37,6 +37,12 @@ def Gaussian(extend,n,sig):
     z=np.exp(-rsq/(2.*sig**2))
     return x,y,z
 
+def GaussianSymetric(sig,n):
+    x,y=np.mgrid[-n:n:1j*(2*n+1),-n:n:1j*(2*n+1)]
+    rsq=x**2+y**2
+    z=np.exp(-rsq/(2.*sig**2))
+    return x,y,z
+
 def GaussianXY(xin,yin,sin,off=(0.,0.),sig=(1.,1.),pa=0.):
     SigMin,SigMaj=1./(np.sqrt(2.)*sig[0]),1./(np.sqrt(2.)*sig[1])
     ang=pa
