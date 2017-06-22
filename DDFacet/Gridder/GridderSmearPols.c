@@ -122,16 +122,29 @@ static PyObject *pyAccumulateWeightsOntoGrid(PyObject *self, PyObject *args)
 }
 
 //////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
+#define READ_4CORR \
+  VisMeas[0]=visPtrMeas[0];\
+  VisMeas[1]=visPtrMeas[1];\
+  VisMeas[2]=visPtrMeas[2];\
+  VisMeas[3]=visPtrMeas[3];
+  
+#define READ_2CORR_PAD \
+  VisMeas[0]=visPtrMeas[0];\
+  VisMeas[1]=0;\
+  VisMeas[2]=0;\
+  VisMeas[3]=visPtrMeas[1]; 
 
-
-
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-
-
-//TODO: would have been infinitely easier to do with C++ templates
-#define gridder_factory(griddername, stokesconversion) \
+#define MULACCUM_4CORR \
+  Vis[0] += VisMeas[0]*Weight;\
+  Vis[1] += VisMeas[1]*Weight;\
+  Vis[2] += VisMeas[2]*Weight;\
+  Vis[3] += VisMeas[3]*Weight;
+  
+#define MULACCUM_2CORR_UNPAD \
+  Vis[0] += VisMeas[0]*Weight;\
+  Vis[1] += VisMeas[3]*Weight;
+  
+#define gridder_factory(griddername, stokesconversion, readcorrs, savecorrs) \
 void griddername(PyArrayObject *grid, \
 		 PyArrayObject *vis, \
 		 PyArrayObject *uvw, \
@@ -194,7 +207,6 @@ void griddername(PyArrayObject *grid, \
       \
     }\
     \
-    \
     double* ptrFacetInfos=p_float64(NpFacetInfos);\
     double Cu=ptrFacetInfos[0];\
     double Cv=ptrFacetInfos[1];\
@@ -209,8 +221,6 @@ void griddername(PyArrayObject *grid, \
     int npolsMap=NpPolMap->dimensions[0];\
     /** PolMap=I_ptr(NpPolMap);*/\
     \
-    /*    printf("npols=%i %i\n",npolsMap,PolMap[3]);*/\
-    \
     /* Get size of grid. */\
     double* ptrWinfo = p_float64(Winfos);\
     double WaveRefWave = ptrWinfo[0];\
@@ -218,19 +228,14 @@ void griddername(PyArrayObject *grid, \
     double NwPlanes = ptrWinfo[2];\
     int OverS=floor(ptrWinfo[3]);\
     \
-    \
     int nGridX    = grid->dimensions[3];\
     int nGridY    = grid->dimensions[2];\
     int nGridPol  = grid->dimensions[1];\
     int nGridChan = grid->dimensions[0];\
-    /*printf("%i,%i,%i,%i\n",nGridX,nGridY,nGridPol,nGridChan);*/\
-    \
     \
     /* Get visibility data size. */\
     int nVisCorr   = flags->dimensions[2];\
     int nVisChan  = flags->dimensions[1];\
-    /*    printf("(nrows, nVisChan, nVisPol)=(%i, %i, %i)\n",nrows,nVisChan,nVisPol);*/\
-    \
     \
     /* Get oversampling and support size.*/\
     int sampx = OverS;/*int (cfs.sampling[0]);*/\
@@ -252,14 +257,11 @@ void griddername(PyArrayObject *grid, \
     double *Pfreqs=p_float64(freqs);\
     uvwScale_p[0]=fnGridX*incr[0];\
     uvwScale_p[1]=fnGridX*incr[1];\
-    /*printf("uvscale=(%f %f)\n",uvwScale_p[0],uvwScale_p[1]);*/\
     double C=2.99792456e8;\
     int inx;\
     /* Loop over all visibility rows to process. */\
     \
-    \
     /* ################### Prepare full scalar mode */\
-    \
     \
     PyObject *_JonesType  = PyList_GetItem(LOptimisation, 0);\
     int JonesType=(int) PyFloat_AsDouble(_JonesType);\
@@ -271,34 +273,7 @@ void griddername(PyArrayObject *grid, \
     \
     PyObject *_PolMode  = PyList_GetItem(LOptimisation, 3);\
     int PolMode=(int) PyFloat_AsDouble(_PolMode);\
-    \
-    /* ScalarJones=0; */\
-    /* ScalarVis=0; */\
-    /* int nPolJones=4; */\
-    /* int nPolVis=4; */\
-    \
-    /* if(FullScalarMode){ */\
-    /*   //printf("full scalar mode\n"); */\
-    /*   //printf("ChanEquidistant: %i\n",ChanEquidistant); */\
-    /*   ScalarJones=1; */\
-    /*   ScalarVis=1; */\
-    /*   nPolJones=1; */\
-    /*   nPolVis=1; */\
-    /*   int ipol; */\
-    /*   for (ipol=1; ipol<nVisPol; ++ipol) { */\
-    /* 	PolMap[ipol]=5; */\
-    /*   } */\
-    /* } */\
     int ipol;\
-    \
-    \
-    /* float complex *J0=calloc(1,(nPolJones)*sizeof(float complex));*/\
-    /* float complex *J1=calloc(1,(nPolJones)*sizeof(float complex)); */\
-    /* float complex *J0inv=calloc(1,(nPolJones)*sizeof(float complex)); */\
-    /* float complex *J1H=calloc(1,(nPolJones)*sizeof(float complex)); */\
-    /* float complex *J1Hinv=calloc(1,(nPolJones)*sizeof(float complex)); */\
-    /* float complex *JJ=calloc(1,(nPolJones)*sizeof(float complex)); */\
-    \
     \
     int * MappingBlock = p_int32(SmearMapping);\
     /* total size is in two words */\
@@ -338,8 +313,6 @@ void griddername(PyArrayObject *grid, \
     int CurrentCorrRow0 = -1;\
     /* ######################################################## */\
     \
-    \
-    \
     double WaveLengthMean=0.;\
     double FreqMean0=0.;\
     \
@@ -347,7 +320,6 @@ void griddername(PyArrayObject *grid, \
     \
     float factorFreq=1;/*GiveFreqStep();*/\
     /*printf("factorFreq %f\n",factorFreq);*/\
-    \
     \
     for (visChan=0; visChan<nVisChan; ++visChan){\
       WaveLengthMean+=C/Pfreqs[visChan];\
@@ -361,17 +333,9 @@ void griddername(PyArrayObject *grid, \
       FracFreqWidth=DeltaFreq/FreqMean0;\
     }\
     \
-    /*PyArrayObject *npMappingBlock=(PyArrayObject *) PyArray_ContiguousFromObject(SmearMapping, PyArray_INT32, 0, 4);*/\
-    \
     /*////////////////////////////////////////////////////////////////////////////*/\
-    /*////////////////////////////////////////////////////////////////////////////*/\
-    /*////////////////////////////////////////////////////////////////////////////*/\
-    \
     initJonesServer(LJones,JonesType,WaveLengthMean);\
     /*////////////////////////////////////////////////////////////////////////////*/\
-    /*////////////////////////////////////////////////////////////////////////////*/\
-    /*////////////////////////////////////////////////////////////////////////////*/\
-    \
     \
     long int TimeShift[1]={0};\
     long int TimeApplyJones[1]={0};\
@@ -389,18 +353,11 @@ void griddername(PyArrayObject *grid, \
     float *ThisSumJonesChan=calloc(1,(nVisChan)*sizeof(float));\
     float *ThisSumSqWeightsChan=calloc(1,(nVisChan)*sizeof(float));\
     \
-    \
-    /*    for(iBlock=0; iBlock<-1; iBlock++){*/\
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){\
-    /*for(iBlock=3507; iBlock<3508; iBlock++){*/\
       if( sparsificationFlag && !sparsificationFlag[iBlock] )\
-        continue;\
+	continue;\
       \
       int NRowThisBlock=NRowBlocks[iBlock]-2;\
-/*      int indexMap=StartRow[iBlock];*/\
-/*      int chStart=MappingBlock[indexMap];*/\
-/*      int chEnd=MappingBlock[indexMap+1];*/\
-/*      int *Row=MappingBlock+StartRow[iBlock]+2;*/\
       int chStart = StartRow[0];\
       int chEnd = StartRow[1];\
       int *Row = StartRow+2;\
@@ -412,8 +369,6 @@ void griddername(PyArrayObject *grid, \
       float Wmean=0;\
       float FreqMean=0;\
       int NVisThisblock=0;\
-      /*printf("\n");*/\
-      /*printf("Block[%i] Nrows=%i %i>%i\n",iBlock,NRowThisBlock,chStart,chEnd);*/\
       for(ThisPol =0; ThisPol<4;ThisPol++){\
 	Vis[ThisPol]=0;\
 	VisMeas[ThisPol]=0;\
@@ -427,34 +382,23 @@ void griddername(PyArrayObject *grid, \
 	ThisSumSqWeightsChan[visChan]=0;\
       }\
       \
+      /* when moving to a new block of rows, init this to -1 so the code below knows to initialize*/\
+      /* CurrentCorrTerm when the first channel of each row comes in*/\
       \
-    /* when moving to a new block of rows, init this to -1 so the code below knows to initialize*/\
-    /* CurrentCorrTerm when the first channel of each row comes in*/\
-    \
-    \
-    if( Row[0] != CurrentCorrRow0 )\
-    {\
-      for (inx=0; inx<NRowThisBlock; inx++)\
-           CurrentCorrChan[inx] = -1;\
-      CurrentCorrRow0 = Row[0];\
-    }\
-    \
-      /*int ThisBlockAllFlagged=1;*/\
+      if( Row[0] != CurrentCorrRow0 )\
+      {\
+	for (inx=0; inx<NRowThisBlock; inx++)\
+	    CurrentCorrChan[inx] = -1;\
+	CurrentCorrRow0 = Row[0];\
+      }\
       double visChanMean=0.;\
       resetJonesServerCounter();\
-    \
+      \
       for (inx=0; inx<NRowThisBlock; inx++) {\
 	size_t irow = Row[inx];\
 	if(irow>nrows){continue;}\
 	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;\
-	/*printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);*/\
-	/*printf("[%i] %i>%i\n",irow,chStart,chEnd);*/\
-	/*printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);*/\
-	\
-	/*clock_gettime(CLOCK_MONOTONIC_RAW, &PreviousTime);*/\
-	\
 	WeightVaryJJ=1.;\
-	\
 	\
 	float DeCorrFactor=1.;\
 	if(DoDecorr){\
@@ -470,13 +414,8 @@ void griddername(PyArrayObject *grid, \
 					       (float)FreqMean0,\
 					       (float)Dnu, \
 					       (float)DT);\
-	  \
-	  /*printf("DeCorrFactor %f %f: %f\n",l0,m0,DeCorrFactor);*/\
-	  \
 	}\
 	\
-	\
-	/*AddTimeit(PreviousTime,TimeGetJones);*/\
 	for (visChan=chStart; visChan<chEnd; ++visChan) {\
 	  size_t doff = (irow * nVisChan + visChan) * nVisCorr;\
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;\
@@ -494,64 +433,42 @@ void griddername(PyArrayObject *grid, \
 	  /*#######################################################*/\
 	  \
 	  float complex corr;\
-/*	  if(ChanEquidistant){*/\
-/*	    if(visChan==0){*/\
-/*	      float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;*/\
-/*	      CurrentCorrTerm[inx]=cexp(-UVNorm*(U*l0+V*m0+W*n0));*/\
-/*	      float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;*/\
-/*	      dCorrTerm[inx]=cexp(-dUVNorm*(U*l0+V*m0+W*n0));*/\
-/*	    }else{*/\
-/*	      CurrentCorrTerm[inx]*=dCorrTerm[inx];*/\
-/*	    }*/\
-/*	    corr=CurrentCorrTerm[inx];*/\
-/*	  }*/\
-/*	  else{*/\
-/*	    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;*/\
-/*	    corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));*/\
-/*	  }*/\
-      if(ChanEquidistant)\
-	{\
-	  /* init correlation term for first channel that it's not initialized in */\
-	  if( CurrentCorrChan[inx] == -1 )\
-	  {\
-	    float complex dotprod = -2.*I*PI*(U*l0+V*m0+W*n0)/C;\
-	    CurrentCorrTerm[inx] = cexp(Pfreqs[visChan]*dotprod);\
-	    dCorrTerm[inx]       = cexp((Pfreqs[1]-Pfreqs[0])*dotprod);\
-	    CurrentCorrChan[inx] = visChan;\
+	  if(ChanEquidistant){\
+	      /* init correlation term for first channel that it's not initialized in */\
+	      if( CurrentCorrChan[inx] == -1 )\
+	      {\
+		float complex dotprod = -2.*I*PI*(U*l0+V*m0+W*n0)/C;\
+		CurrentCorrTerm[inx] = cexp(Pfreqs[visChan]*dotprod);\
+		dCorrTerm[inx]       = cexp((Pfreqs[1]-Pfreqs[0])*dotprod);\
+		CurrentCorrChan[inx] = visChan;\
+	      }\
+	      /* else, wind the correlation term forward by as many channels as necessary */\
+	      /* this modification allows us to support blocks that skip across channels */\
+	      else\
+	      {\
+		while( CurrentCorrChan[inx] < visChan )\
+		{\
+		  CurrentCorrTerm[inx] *= dCorrTerm[inx];\
+		  CurrentCorrChan[inx]++;\
+		}\
+	      }\
+	      corr = CurrentCorrTerm[inx];\
 	  }\
-	  /* else, wind the correlation term forward by as many channels as necessary */\
-	  /* this modification allows us to support blocks that skip across channels */\
-	  else\
-	  {\
-	    while( CurrentCorrChan[inx] < visChan )\
-	    {\
-	      CurrentCorrTerm[inx] *= dCorrTerm[inx];\
-	      CurrentCorrChan[inx]++;\
-	    }\
-	  }\
-	  corr = CurrentCorrTerm[inx];\
-	}\
-	else\
-	{\
-	  float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;\
-	  corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));\
-	}\
-	\
-	\
-	  /* float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */\
-	  /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */\
-      \
-      \
+	  else{\
+	      float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;\
+	      corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));\
+	  }/* Not chan-equidistant*/\
+	  \
 	  int OneFlagged=0;\
 	  int cond;\
-      \
+	  \
 	  if(DoApplyJones){\
 	    updateJones(irow, visChan, uvwPtr, 1, 1);\
 	  } /*endif DoApplyJones*/\
-      \
+	  \
 	  /*ThisBlockAllFlagged=0;*/\
 	  /*AddTimeit(PreviousTime,TimeStuff);*/\
-      \
+	  \
 	  float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;\
 	  \
 	  if (dopsf==1) {\
@@ -561,7 +478,7 @@ void griddername(PyArrayObject *grid, \
 	    VisMeas[3]= 1.;\
 	    corr=1.;\
 	    if(DoApplyJones){\
-	       /* first product seems superfluous, why multiply by identity? */\
+	      /* first product seems superfluous, why multiply by identity? */\
 	      MatDot(J0,JonesType,VisMeas,SkyType,VisMeas);\
 	      MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);\
 	    }\
@@ -571,58 +488,27 @@ void griddername(PyArrayObject *grid, \
 	      }\
 	    }\
 	  }else{\
-	    for(ThisPol =0; ThisPol<4;ThisPol++){\
-	      VisMeas[ThisPol]=visPtrMeas[ThisPol];\
-	    }\
+	    readcorrs \
 	  }\
 	  \
 	  float FWeight=(*imgWtPtr)*WeightVaryJJ;/**WeightVaryJJ;*/\
 	  float complex Weight=(FWeight) * corr;\
 	  float complex visPtr[4];\
 	  if(DoApplyJones){\
-	    /* MatDot(J0inv,JonesType,VisMeas,SkyType,visPtr); */\
-	    /* MatDot(visPtr,SkyType,J1Hinv,JonesType,visPtr); */\
-	    \
-	    /* MatDot(J1T,JonesType,VisMeas,SkyType,visPtr); */\
-	    /* MatDot(visPtr,SkyType,J0Conj,JonesType,visPtr); */\
-	    \
 	    MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);\
-	    MatDot(visPtr,SkyType,J1,JonesType,visPtr);\
-	    /* printMat(J0H); */\
-	    /* printMat(J1); */\
+	    MatDot(visPtr,SkyType,J1,JonesType,VisMeas);\
+	    savecorrs \
 	    \
-	    \
-	    /* Vis+=visPtr*Weight*/\
-	    Mat_A_Bl_Sum(Vis,SkyType,visPtr,SkyType,Weight);\
-	    \
-	    float FWeightSq=(FWeight)*DeCorrFactor*DeCorrFactor;/**(FWeight);*/\
+	    /*Compute per channel and overall approximate matrix sqroot:*/\
+	    float FWeightSq=(FWeight)*DeCorrFactor*DeCorrFactor;\
 	    ThisSumJones+=BB*FWeightSq;\
 	    ThisSumSqWeights+=FWeightSq;\
 	    \
 	    ThisSumJonesChan[visChan]+=BB*FWeightSq;\
 	    ThisSumSqWeightsChan[visChan]+=FWeightSq;\
-	    \
-	    /*ptrSumJonesChan[visChan]+=BB*FWeightSq;*/\
-	    /*ptrSumJonesChan[nVisChan+visChan]+=FWeightSq;*/\
-	    \
-	    /*//====================================*/\
-	    /*int gridChan=p_ChanMapping[visChan];*/\
-	    /*ptrSumJones[gridChan]+=BB*FWeightSq;*/\
-	    /*ptrSumJones[gridChan+nGridChan]+=FWeightSq;*/\
-	    /*//====================================*/\
-	    \
 	  }else{\
-	    Mat_A_Bl_Sum(Vis,SkyType,VisMeas,SkyType,Weight);\
-	  };\
-	  \
-	  /* if(DoDecorr){ */\
-	  /*   for(ThisPol =0; ThisPol<4;ThisPol++){ */\
-	  /*     Vis[ThisPol]*=DeCorrFactor; */\
-	  /*   } */\
-	  /* } */\
-	  \
-	  \
-	  /*AddTimeit(PreviousTime,TimeApplyJones);*/\
+	    savecorrs \
+	  };/* Don't apply Jones*/\
 	  \
 	  U+=W*Cu;\
 	  V+=W*Cv;\
@@ -630,19 +516,12 @@ void griddername(PyArrayObject *grid, \
 	  Umean+=U;\
 	  Vmean+=V;\
 	  Wmean+=W;\
-	  /*printf("factorFreq %f\n",factorFreq);*/\
 	  FreqMean+=factorFreq*(float)Pfreqs[visChan];\
-	  /*FreqMean+=(float)Pfreqs[visChan];*/\
 	  ThisWeight+=(FWeight);\
-	  /*ThisSumJones+=(*imgWtPtr);*/\
 	  \
 	  visChanMean+=p_ChanMapping[visChan];\
 	  \
 	  NVisThisblock+=1.;/*(*imgWtPtr);*/\
-	  /*AddTimeit(PreviousTime,TimeAverage);*/\
-	  /*printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);*/\
-	  /*printf("      [%i,%i]\n",visChan,p_ChanMapping[visChan]);*/\
-	  \
 	}/*endfor vischan*/\
       }/*endfor RowThisBlock*/\
       if(NVisThisblock==0){continue;}\
@@ -664,13 +543,9 @@ void griddername(PyArrayObject *grid, \
       }\
       \
       visChanMean=0.;\
+      /* ################################################ */\
+      /* ######## Convert correlations to stokes ######## */\
       stokesconversion\
-      \
-      /* printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6)); */\
-      /* int ThisPol; */\
-      /* for(ThisPol =0; ThisPol<4;ThisPol++){ */\
-      /* 	printf("   vis: %i (%f, %f)\n",ThisPol,creal(stokes_vis[ThisPol]),cimag(stokes_vis[ThisPol])); */\
-      /* } */\
       \
       /* ################################################ */\
       /* ############## Start Gridding visibility ####### */\
@@ -701,10 +576,6 @@ void griddername(PyArrayObject *grid, \
       int supy = (nConvY/OverS-1)/2;\
       int SupportCF=nConvX/OverS;\
       /* ################################################ */\
-      \
-      \
-      \
-      \
       \
       if (gridChan >= 0  &&  gridChan < nGridChan) {\
       	double posx,posy;\
@@ -822,150 +693,142 @@ void griddername(PyArrayObject *grid, \
 
   
 // Stamp out the many many many combinations:
-gridder_factory(gridderWPol_I_FROM_XXXYYXYY, GMODE_STOKES_I_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_I_FROM_XXYY, GMODE_STOKES_I_FROM_XXYY)
-gridder_factory(gridderWPol_IQ_FROM_XXYY, GMODE_STOKES_IQ_FROM_XXYY)
-gridder_factory(gridderWPol_QI_FROM_XXYY, GMODE_STOKES_QI_FROM_XXYY)
-gridder_factory(gridderWPol_I_FROM_RRRLLRLL, GMODE_STOKES_I_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_I_FROM_RRLL, GMODE_STOKES_I_FROM_RRLL)
-gridder_factory(gridderWPol_IV_FROM_RRLL, GMODE_STOKES_IV_FROM_RRLL)
-gridder_factory(gridderWPol_VI_FROM_RRLL, GMODE_STOKES_VI_FROM_RRLL)
-gridder_factory(gridderWPol_Q_FROM_RRRLLRLL, GMODE_STOKES_Q_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_U_FROM_RRRLLRLL, GMODE_STOKES_U_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_V_FROM_XXXYYXYY, GMODE_STOKES_V_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_V_FROM_XYYX, GMODE_STOKES_V_FROM_XYYX)
-gridder_factory(gridderWPol_U_FROM_XYYX, GMODE_STOKES_U_FROM_XYYX)
-gridder_factory(gridderWPol_Q_FROM_RLLR, GMODE_STOKES_Q_FROM_RLLR)
-gridder_factory(gridderWPol_QU_FROM_RLLR, GMODE_STOKES_QU_FROM_RLLR)
-gridder_factory(gridderWPol_UQ_FROM_RLLR, GMODE_STOKES_UQ_FROM_RLLR)
-gridder_factory(gridderWPol_UV_FROM_XYYX, GMODE_STOKES_UV_FROM_XYYX)
-gridder_factory(gridderWPol_VU_FROM_XYYX, GMODE_STOKES_VU_FROM_XYYX)
-gridder_factory(gridderWPol_U_FROM_RLLR, GMODE_STOKES_U_FROM_RLLR)
-gridder_factory(gridderWPol_V_FROM_RRLL, GMODE_STOKES_V_FROM_RRLL)
-gridder_factory(gridderWPol_V_FROM_RRRLLRLL, GMODE_STOKES_V_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_Q_FROM_XXXYYXYY, GMODE_STOKES_Q_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_Q_FROM_XXYY, GMODE_STOKES_Q_FROM_XXYY)
-gridder_factory(gridderWPol_U_FROM_XXXYYXYY, GMODE_STOKES_U_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IQ_FROM_XXXYYXYY, GMODE_STOKES_IQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QI_FROM_XXXYYXYY, GMODE_STOKES_QI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IU_FROM_XXXYYXYY, GMODE_STOKES_IU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UI_FROM_XXXYYXYY, GMODE_STOKES_UI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IV_FROM_XXXYYXYY, GMODE_STOKES_IV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VI_FROM_XXXYYXYY, GMODE_STOKES_VI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UQ_FROM_XXXYYXYY, GMODE_STOKES_UQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QU_FROM_XXXYYXYY, GMODE_STOKES_QU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QV_FROM_XXXYYXYY, GMODE_STOKES_QV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VQ_FROM_XXXYYXYY, GMODE_STOKES_VQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UV_FROM_XXXYYXYY, GMODE_STOKES_UV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VU_FROM_XXXYYXYY, GMODE_STOKES_VU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IQ_FROM_RRRLLRLL, GMODE_STOKES_IQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QI_FROM_RRRLLRLL, GMODE_STOKES_QI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IU_FROM_RRRLLRLL, GMODE_STOKES_IU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UI_FROM_RRRLLRLL, GMODE_STOKES_UI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IV_FROM_RRRLLRLL, GMODE_STOKES_IV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VI_FROM_RRRLLRLL, GMODE_STOKES_VI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UQ_FROM_RRRLLRLL, GMODE_STOKES_UQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QU_FROM_RRRLLRLL, GMODE_STOKES_QU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QV_FROM_RRRLLRLL, GMODE_STOKES_QV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VQ_FROM_RRRLLRLL, GMODE_STOKES_VQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UV_FROM_RRRLLRLL, GMODE_STOKES_UV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VU_FROM_RRRLLRLL, GMODE_STOKES_VU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IQU_FROM_XXXYYXYY, GMODE_STOKES_IQU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IUQ_FROM_XXXYYXYY, GMODE_STOKES_IUQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UIQ_FROM_XXXYYXYY, GMODE_STOKES_UIQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UQI_FROM_XXXYYXYY, GMODE_STOKES_UQI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QUI_FROM_XXXYYXYY, GMODE_STOKES_QUI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QIU_FROM_XXXYYXYY, GMODE_STOKES_QIU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IQV_FROM_XXXYYXYY, GMODE_STOKES_IQV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IVQ_FROM_XXXYYXYY, GMODE_STOKES_IVQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VIQ_FROM_XXXYYXYY, GMODE_STOKES_VIQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VQI_FROM_XXXYYXYY, GMODE_STOKES_VQI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QVI_FROM_XXXYYXYY, GMODE_STOKES_QVI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QIV_FROM_XXXYYXYY, GMODE_STOKES_QIV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IUV_FROM_XXXYYXYY, GMODE_STOKES_IUV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IVU_FROM_XXXYYXYY, GMODE_STOKES_IVU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VIU_FROM_XXXYYXYY, GMODE_STOKES_VIU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VUI_FROM_XXXYYXYY, GMODE_STOKES_VUI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UVI_FROM_XXXYYXYY, GMODE_STOKES_UVI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UIV_FROM_XXXYYXYY, GMODE_STOKES_UIV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QUV_FROM_XXXYYXYY, GMODE_STOKES_QUV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QVU_FROM_XXXYYXYY, GMODE_STOKES_QVU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VQU_FROM_XXXYYXYY, GMODE_STOKES_VQU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VUQ_FROM_XXXYYXYY, GMODE_STOKES_VUQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UVQ_FROM_XXXYYXYY, GMODE_STOKES_UVQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UQV_FROM_XXXYYXYY, GMODE_STOKES_UQV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IQUV_FROM_XXXYYXYY, GMODE_STOKES_IQUV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IQVU_FROM_XXXYYXYY, GMODE_STOKES_IQVU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IUQV_FROM_XXXYYXYY, GMODE_STOKES_IUQV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IUVQ_FROM_XXXYYXYY, GMODE_STOKES_IUVQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IVQU_FROM_XXXYYXYY, GMODE_STOKES_IVQU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IVUQ_FROM_XXXYYXYY, GMODE_STOKES_IVUQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QIUV_FROM_XXXYYXYY, GMODE_STOKES_QIUV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QIVU_FROM_XXXYYXYY, GMODE_STOKES_QIVU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VIUQ_FROM_XXXYYXYY, GMODE_STOKES_VIUQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VIQU_FROM_XXXYYXYY, GMODE_STOKES_VIQU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UIVQ_FROM_XXXYYXYY, GMODE_STOKES_UIVQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UIQV_FROM_XXXYYXYY, GMODE_STOKES_UIQV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QUIV_FROM_XXXYYXYY, GMODE_STOKES_QUIV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UQIV_FROM_XXXYYXYY, GMODE_STOKES_UQIV_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UVIQ_FROM_XXXYYXYY, GMODE_STOKES_UVIQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VUIQ_FROM_XXXYYXYY, GMODE_STOKES_VUIQ_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VQIU_FROM_XXXYYXYY, GMODE_STOKES_VQIU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QVIU_FROM_XXXYYXYY, GMODE_STOKES_QVIU_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QUVI_FROM_XXXYYXYY, GMODE_STOKES_QUVI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UQVI_FROM_XXXYYXYY, GMODE_STOKES_UQVI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_UVQI_FROM_XXXYYXYY, GMODE_STOKES_UVQI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VUQI_FROM_XXXYYXYY, GMODE_STOKES_VUQI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_VQUI_FROM_XXXYYXYY, GMODE_STOKES_VQUI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_QVUI_FROM_XXXYYXYY, GMODE_STOKES_QVUI_FROM_XXXYYXYY)
-gridder_factory(gridderWPol_IQU_FROM_RRRLLRLL, GMODE_STOKES_IQU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IUQ_FROM_RRRLLRLL, GMODE_STOKES_IUQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UIQ_FROM_RRRLLRLL, GMODE_STOKES_UIQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UQI_FROM_RRRLLRLL, GMODE_STOKES_UQI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QUI_FROM_RRRLLRLL, GMODE_STOKES_QUI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QIU_FROM_RRRLLRLL, GMODE_STOKES_QIU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IQV_FROM_RRRLLRLL, GMODE_STOKES_IQV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IVQ_FROM_RRRLLRLL, GMODE_STOKES_IVQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VIQ_FROM_RRRLLRLL, GMODE_STOKES_VIQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VQI_FROM_RRRLLRLL, GMODE_STOKES_VQI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QVI_FROM_RRRLLRLL, GMODE_STOKES_QVI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QIV_FROM_RRRLLRLL, GMODE_STOKES_QIV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IUV_FROM_RRRLLRLL, GMODE_STOKES_IUV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IVU_FROM_RRRLLRLL, GMODE_STOKES_IVU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VIU_FROM_RRRLLRLL, GMODE_STOKES_VIU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VUI_FROM_RRRLLRLL, GMODE_STOKES_VUI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UVI_FROM_RRRLLRLL, GMODE_STOKES_UVI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UIV_FROM_RRRLLRLL, GMODE_STOKES_UIV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QUV_FROM_RRRLLRLL, GMODE_STOKES_QUV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QVU_FROM_RRRLLRLL, GMODE_STOKES_QVU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VQU_FROM_RRRLLRLL, GMODE_STOKES_VQU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VUQ_FROM_RRRLLRLL, GMODE_STOKES_VUQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UVQ_FROM_RRRLLRLL, GMODE_STOKES_UVQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UQV_FROM_RRRLLRLL, GMODE_STOKES_UQV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IQUV_FROM_RRRLLRLL, GMODE_STOKES_IQUV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IQVU_FROM_RRRLLRLL, GMODE_STOKES_IQVU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IUQV_FROM_RRRLLRLL, GMODE_STOKES_IUQV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IUVQ_FROM_RRRLLRLL, GMODE_STOKES_IUVQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IVQU_FROM_RRRLLRLL, GMODE_STOKES_IVQU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_IVUQ_FROM_RRRLLRLL, GMODE_STOKES_IVUQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QIUV_FROM_RRRLLRLL, GMODE_STOKES_QIUV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QIVU_FROM_RRRLLRLL, GMODE_STOKES_QIVU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VIUQ_FROM_RRRLLRLL, GMODE_STOKES_VIUQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VIQU_FROM_RRRLLRLL, GMODE_STOKES_VIQU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UIVQ_FROM_RRRLLRLL, GMODE_STOKES_UIVQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UIQV_FROM_RRRLLRLL, GMODE_STOKES_UIQV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QUIV_FROM_RRRLLRLL, GMODE_STOKES_QUIV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UQIV_FROM_RRRLLRLL, GMODE_STOKES_UQIV_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UVIQ_FROM_RRRLLRLL, GMODE_STOKES_UVIQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VUIQ_FROM_RRRLLRLL, GMODE_STOKES_VUIQ_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VQIU_FROM_RRRLLRLL, GMODE_STOKES_VQIU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QVIU_FROM_RRRLLRLL, GMODE_STOKES_QVIU_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QUVI_FROM_RRRLLRLL, GMODE_STOKES_QUVI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UQVI_FROM_RRRLLRLL, GMODE_STOKES_UQVI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_UVQI_FROM_RRRLLRLL, GMODE_STOKES_UVQI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VUQI_FROM_RRRLLRLL, GMODE_STOKES_VUQI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_VQUI_FROM_RRRLLRLL, GMODE_STOKES_VQUI_FROM_RRRLLRLL)
-gridder_factory(gridderWPol_QVUI_FROM_RRRLLRLL, GMODE_STOKES_QVUI_FROM_RRRLLRLL)
+gridder_factory(gridderWPol_I_FROM_XXXYYXYY, GMODE_STOKES_I_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_I_FROM_XXYY, GMODE_STOKES_I_FROM_XXYY, READ_2CORR_PAD, MULACCUM_2CORR_UNPAD)
+gridder_factory(gridderWPol_IQ_FROM_XXYY, GMODE_STOKES_IQ_FROM_XXYY, READ_2CORR_PAD, MULACCUM_2CORR_UNPAD)
+gridder_factory(gridderWPol_QI_FROM_XXYY, GMODE_STOKES_QI_FROM_XXYY, READ_2CORR_PAD, MULACCUM_2CORR_UNPAD)
+gridder_factory(gridderWPol_I_FROM_RRRLLRLL, GMODE_STOKES_I_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_I_FROM_RRLL, GMODE_STOKES_I_FROM_RRLL, READ_2CORR_PAD, MULACCUM_2CORR_UNPAD)
+gridder_factory(gridderWPol_IV_FROM_RRLL, GMODE_STOKES_IV_FROM_RRLL, READ_2CORR_PAD, MULACCUM_2CORR_UNPAD)
+gridder_factory(gridderWPol_VI_FROM_RRLL, GMODE_STOKES_VI_FROM_RRLL, READ_2CORR_PAD, MULACCUM_2CORR_UNPAD)
+gridder_factory(gridderWPol_Q_FROM_RRRLLRLL, GMODE_STOKES_Q_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_U_FROM_RRRLLRLL, GMODE_STOKES_U_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_V_FROM_XXXYYXYY, GMODE_STOKES_V_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_V_FROM_RRLL, GMODE_STOKES_V_FROM_RRLL, READ_2CORR_PAD, MULACCUM_2CORR_UNPAD)
+gridder_factory(gridderWPol_V_FROM_RRRLLRLL, GMODE_STOKES_V_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_Q_FROM_XXXYYXYY, GMODE_STOKES_Q_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_Q_FROM_XXYY, GMODE_STOKES_Q_FROM_XXYY, READ_2CORR_PAD, MULACCUM_2CORR_UNPAD)
+gridder_factory(gridderWPol_U_FROM_XXXYYXYY, GMODE_STOKES_U_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IQ_FROM_XXXYYXYY, GMODE_STOKES_IQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QI_FROM_XXXYYXYY, GMODE_STOKES_QI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IU_FROM_XXXYYXYY, GMODE_STOKES_IU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UI_FROM_XXXYYXYY, GMODE_STOKES_UI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IV_FROM_XXXYYXYY, GMODE_STOKES_IV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VI_FROM_XXXYYXYY, GMODE_STOKES_VI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UQ_FROM_XXXYYXYY, GMODE_STOKES_UQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QU_FROM_XXXYYXYY, GMODE_STOKES_QU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QV_FROM_XXXYYXYY, GMODE_STOKES_QV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VQ_FROM_XXXYYXYY, GMODE_STOKES_VQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UV_FROM_XXXYYXYY, GMODE_STOKES_UV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VU_FROM_XXXYYXYY, GMODE_STOKES_VU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IQ_FROM_RRRLLRLL, GMODE_STOKES_IQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QI_FROM_RRRLLRLL, GMODE_STOKES_QI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IU_FROM_RRRLLRLL, GMODE_STOKES_IU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UI_FROM_RRRLLRLL, GMODE_STOKES_UI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IV_FROM_RRRLLRLL, GMODE_STOKES_IV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VI_FROM_RRRLLRLL, GMODE_STOKES_VI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UQ_FROM_RRRLLRLL, GMODE_STOKES_UQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QU_FROM_RRRLLRLL, GMODE_STOKES_QU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QV_FROM_RRRLLRLL, GMODE_STOKES_QV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VQ_FROM_RRRLLRLL, GMODE_STOKES_VQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UV_FROM_RRRLLRLL, GMODE_STOKES_UV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VU_FROM_RRRLLRLL, GMODE_STOKES_VU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IQU_FROM_XXXYYXYY, GMODE_STOKES_IQU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IUQ_FROM_XXXYYXYY, GMODE_STOKES_IUQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UIQ_FROM_XXXYYXYY, GMODE_STOKES_UIQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UQI_FROM_XXXYYXYY, GMODE_STOKES_UQI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QUI_FROM_XXXYYXYY, GMODE_STOKES_QUI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QIU_FROM_XXXYYXYY, GMODE_STOKES_QIU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IQV_FROM_XXXYYXYY, GMODE_STOKES_IQV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IVQ_FROM_XXXYYXYY, GMODE_STOKES_IVQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VIQ_FROM_XXXYYXYY, GMODE_STOKES_VIQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VQI_FROM_XXXYYXYY, GMODE_STOKES_VQI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QVI_FROM_XXXYYXYY, GMODE_STOKES_QVI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QIV_FROM_XXXYYXYY, GMODE_STOKES_QIV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IUV_FROM_XXXYYXYY, GMODE_STOKES_IUV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IVU_FROM_XXXYYXYY, GMODE_STOKES_IVU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VIU_FROM_XXXYYXYY, GMODE_STOKES_VIU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VUI_FROM_XXXYYXYY, GMODE_STOKES_VUI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UVI_FROM_XXXYYXYY, GMODE_STOKES_UVI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UIV_FROM_XXXYYXYY, GMODE_STOKES_UIV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QUV_FROM_XXXYYXYY, GMODE_STOKES_QUV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QVU_FROM_XXXYYXYY, GMODE_STOKES_QVU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VQU_FROM_XXXYYXYY, GMODE_STOKES_VQU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VUQ_FROM_XXXYYXYY, GMODE_STOKES_VUQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UVQ_FROM_XXXYYXYY, GMODE_STOKES_UVQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UQV_FROM_XXXYYXYY, GMODE_STOKES_UQV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IQUV_FROM_XXXYYXYY, GMODE_STOKES_IQUV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IQVU_FROM_XXXYYXYY, GMODE_STOKES_IQVU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IUQV_FROM_XXXYYXYY, GMODE_STOKES_IUQV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IUVQ_FROM_XXXYYXYY, GMODE_STOKES_IUVQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IVQU_FROM_XXXYYXYY, GMODE_STOKES_IVQU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IVUQ_FROM_XXXYYXYY, GMODE_STOKES_IVUQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QIUV_FROM_XXXYYXYY, GMODE_STOKES_QIUV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QIVU_FROM_XXXYYXYY, GMODE_STOKES_QIVU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VIUQ_FROM_XXXYYXYY, GMODE_STOKES_VIUQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VIQU_FROM_XXXYYXYY, GMODE_STOKES_VIQU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UIVQ_FROM_XXXYYXYY, GMODE_STOKES_UIVQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UIQV_FROM_XXXYYXYY, GMODE_STOKES_UIQV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QUIV_FROM_XXXYYXYY, GMODE_STOKES_QUIV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UQIV_FROM_XXXYYXYY, GMODE_STOKES_UQIV_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UVIQ_FROM_XXXYYXYY, GMODE_STOKES_UVIQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VUIQ_FROM_XXXYYXYY, GMODE_STOKES_VUIQ_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VQIU_FROM_XXXYYXYY, GMODE_STOKES_VQIU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QVIU_FROM_XXXYYXYY, GMODE_STOKES_QVIU_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QUVI_FROM_XXXYYXYY, GMODE_STOKES_QUVI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UQVI_FROM_XXXYYXYY, GMODE_STOKES_UQVI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UVQI_FROM_XXXYYXYY, GMODE_STOKES_UVQI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VUQI_FROM_XXXYYXYY, GMODE_STOKES_VUQI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VQUI_FROM_XXXYYXYY, GMODE_STOKES_VQUI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QVUI_FROM_XXXYYXYY, GMODE_STOKES_QVUI_FROM_XXXYYXYY, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IQU_FROM_RRRLLRLL, GMODE_STOKES_IQU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IUQ_FROM_RRRLLRLL, GMODE_STOKES_IUQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UIQ_FROM_RRRLLRLL, GMODE_STOKES_UIQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UQI_FROM_RRRLLRLL, GMODE_STOKES_UQI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QUI_FROM_RRRLLRLL, GMODE_STOKES_QUI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QIU_FROM_RRRLLRLL, GMODE_STOKES_QIU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IQV_FROM_RRRLLRLL, GMODE_STOKES_IQV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IVQ_FROM_RRRLLRLL, GMODE_STOKES_IVQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VIQ_FROM_RRRLLRLL, GMODE_STOKES_VIQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VQI_FROM_RRRLLRLL, GMODE_STOKES_VQI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QVI_FROM_RRRLLRLL, GMODE_STOKES_QVI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QIV_FROM_RRRLLRLL, GMODE_STOKES_QIV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IUV_FROM_RRRLLRLL, GMODE_STOKES_IUV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IVU_FROM_RRRLLRLL, GMODE_STOKES_IVU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VIU_FROM_RRRLLRLL, GMODE_STOKES_VIU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VUI_FROM_RRRLLRLL, GMODE_STOKES_VUI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UVI_FROM_RRRLLRLL, GMODE_STOKES_UVI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UIV_FROM_RRRLLRLL, GMODE_STOKES_UIV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QUV_FROM_RRRLLRLL, GMODE_STOKES_QUV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QVU_FROM_RRRLLRLL, GMODE_STOKES_QVU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VQU_FROM_RRRLLRLL, GMODE_STOKES_VQU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VUQ_FROM_RRRLLRLL, GMODE_STOKES_VUQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UVQ_FROM_RRRLLRLL, GMODE_STOKES_UVQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UQV_FROM_RRRLLRLL, GMODE_STOKES_UQV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IQUV_FROM_RRRLLRLL, GMODE_STOKES_IQUV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IQVU_FROM_RRRLLRLL, GMODE_STOKES_IQVU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IUQV_FROM_RRRLLRLL, GMODE_STOKES_IUQV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IUVQ_FROM_RRRLLRLL, GMODE_STOKES_IUVQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IVQU_FROM_RRRLLRLL, GMODE_STOKES_IVQU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_IVUQ_FROM_RRRLLRLL, GMODE_STOKES_IVUQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QIUV_FROM_RRRLLRLL, GMODE_STOKES_QIUV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QIVU_FROM_RRRLLRLL, GMODE_STOKES_QIVU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VIUQ_FROM_RRRLLRLL, GMODE_STOKES_VIUQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VIQU_FROM_RRRLLRLL, GMODE_STOKES_VIQU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UIVQ_FROM_RRRLLRLL, GMODE_STOKES_UIVQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UIQV_FROM_RRRLLRLL, GMODE_STOKES_UIQV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QUIV_FROM_RRRLLRLL, GMODE_STOKES_QUIV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UQIV_FROM_RRRLLRLL, GMODE_STOKES_UQIV_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UVIQ_FROM_RRRLLRLL, GMODE_STOKES_UVIQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VUIQ_FROM_RRRLLRLL, GMODE_STOKES_VUIQ_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VQIU_FROM_RRRLLRLL, GMODE_STOKES_VQIU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QVIU_FROM_RRRLLRLL, GMODE_STOKES_QVIU_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QUVI_FROM_RRRLLRLL, GMODE_STOKES_QUVI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UQVI_FROM_RRRLLRLL, GMODE_STOKES_UQVI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_UVQI_FROM_RRRLLRLL, GMODE_STOKES_UVQI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VUQI_FROM_RRRLLRLL, GMODE_STOKES_VUQI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_VQUI_FROM_RRRLLRLL, GMODE_STOKES_VQUI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
+gridder_factory(gridderWPol_QVUI_FROM_RRRLLRLL, GMODE_STOKES_QVUI_FROM_RRRLLRLL, READ_4CORR, MULACCUM_4CORR)
 
 
 ////////////////////
@@ -1031,6 +894,7 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
     }
     expstokes[i] = stokeslookup[polid];
   }
+  int LengthJonesList=PyList_Size(LJones);
   #define callgridder(gname) \
     gname(np_grid, vis, uvw, flags, weights, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping,\
 	  Sparsification, LOptimisation,LSmearing,np_ChanMapping);
@@ -1416,23 +1280,6 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
       FATAL("Cannot convert input correlations to desired output correlations.");
     }
   } else if (ncorr == 2 && 
-    !strcmp(inputcorr[0], "XY") && !strcmp(inputcorr[1], "YX")) {
-    if (npol == 1 &&
-	!strcmp(expstokes[0], "U")){
-	callgridder(gridderWPol_U_FROM_XYYX);
-    } else if (npol == 1 &&
-	!strcmp(expstokes[0], "V")){
-	callgridder(gridderWPol_V_FROM_XYYX);
-    } else if (npol == 2 &&
-	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "V")){
-	callgridder(gridderWPol_UV_FROM_XYYX);
-    } else if (npol == 2 &&
-	!strcmp(expstokes[0], "V") && !strcmp(expstokes[1], "U")){
-	callgridder(gridderWPol_VU_FROM_XYYX);
-    } else {
-      FATAL("Cannot convert input correlations to desired output correlations.");
-    }
-  } else if (ncorr == 2 &&
     !strcmp(inputcorr[0], "RR") && !strcmp(inputcorr[1], "LL")) {
     if (npol == 1 &&
 	!strcmp(expstokes[0], "I")){
@@ -1449,23 +1296,6 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
     } else {
       FATAL("Cannot convert input correlations to desired output correlations.");
     }
-  } else if (ncorr == 2 && 
-    !strcmp(inputcorr[0], "RL") && !strcmp(inputcorr[1], "LR")) {
-    if (npol == 1 &&
-	!strcmp(expstokes[0], "Q")){
-	callgridder(gridderWPol_Q_FROM_RLLR);
-    } else if (npol == 1 &&
-	!strcmp(expstokes[0], "U")){
-	callgridder(gridderWPol_U_FROM_RLLR);
-    } else if (npol == 2 &&
-	!strcmp(expstokes[0], "Q") && !strcmp(expstokes[1], "U")){
-	callgridder(gridderWPol_QU_FROM_RLLR);
-    } else if (npol == 2 &&
-	!strcmp(expstokes[0], "U") && !strcmp(expstokes[1], "Q")){
-	callgridder(gridderWPol_UQ_FROM_RLLR);
-    } else {
-      FATAL("Cannot convert input correlations to desired output correlations.");
-    }
   } else {
     FATAL("Cannot convert input correlations to desired output correlations.");
   }
@@ -1475,8 +1305,423 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
   return Py_None;
 
 }
+#define APPLYJONES_4_CORR \
+  MatDot(J0,JonesType,corr_vis,SkyType,visBuff);\
+  MatDot(visBuff,SkyType,J1H,JonesType,visBuff);\
+  Mat_A_l_SumProd(visBuff, SkyType, corr);\
+  
+#define APPLYJONES_2_CORR \
+  corr_vis[3] = corr_vis[1]; \
+  corr_vis[1] = 0; \
+  corr_vis[2] = 0; \
+  MatDot(J0,JonesType,corr_vis,SkyType,visBuff);\
+  MatDot(visBuff,SkyType,J1H,JonesType,visBuff);\
+  Mat_A_l_SumProd(visBuff, SkyType, corr);\
+  visBuff[1] = visBuff[3];
 
+#define degridder_factory(degriddername, stokesconversion, nVisPol, nVisCorr, applyjones) \
+void degriddername(PyArrayObject *grid, \
+		   PyArrayObject *vis, \
+		   PyArrayObject *uvw, \
+		   PyArrayObject *flags, \
+		   PyArrayObject *sumwt, \
+		   int dopsf, \
+		   PyObject *Lcfs, \
+		   PyObject *LcfsConj, \
+		   PyArrayObject *Winfos, \
+		   PyArrayObject *increment, \
+		   PyArrayObject *freqs, \
+		   PyObject *Lmaps, PyObject *LJones, \
+		   PyArrayObject *SmearMapping, \
+		   PyArrayObject *Sparsification, \
+		   PyObject *LOptimisation, PyObject *LSmearing, \
+		   PyArrayObject *np_ChanMapping) \
+{ \
+    /* Get size of convolution functions. */ \
+    PyArrayObject *cfs; \
+    PyArrayObject *NpPolMap; \
+    NpPolMap = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 0), PyArray_INT32, 0, 4); \
+    int npolsMap=NpPolMap->dimensions[0]; \
+    \
+    int *p_ChanMapping=p_int32(np_ChanMapping); \
+    \
+    PyArrayObject *NpFacetInfos; \
+    NpFacetInfos = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 1), PyArray_FLOAT64, 0, 4); \
+    \
+    PyArrayObject *NpRows; \
+    NpRows = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 2), PyArray_INT32, 0, 4); \
+    int* ptrRows=I_ptr(NpRows); \
+    int row0=ptrRows[0]; \
+    int row1=ptrRows[1]; \
+    \
+    int LengthSmearingList=PyList_Size(LSmearing); \
+    float DT,Dnu,lmin_decorr,mmin_decorr; \
+    double* uvw_dt_Ptr; \
+    int DoSmearTime,DoSmearFreq; \
+    int DoDecorr=(LengthSmearingList>0); \
+    \
+    if(DoDecorr){ \
+      uvw_dt_Ptr = p_float64((PyArrayObject *) PyList_GetItem(LSmearing, 0));\
+      \
+      PyObject *_FDT= PyList_GetItem(LSmearing, 1);\
+      DT=(float) (PyFloat_AsDouble(_FDT));\
+      PyObject *_FDnu= PyList_GetItem(LSmearing, 2);\
+      Dnu=(float) (PyFloat_AsDouble(_FDnu));\
+      \
+      PyObject *_DoSmearTime= PyList_GetItem(LSmearing, 3);\
+      DoSmearTime=(int) (PyFloat_AsDouble(_DoSmearTime));\
+      \
+      PyObject *_DoSmearFreq= PyList_GetItem(LSmearing, 4);\
+      DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));\
+      \
+      PyObject *_Flmin_decorr= PyList_GetItem(LSmearing, 5);\
+      lmin_decorr=(float) (PyFloat_AsDouble(_Flmin_decorr));\
+      PyObject *_Fmmin_decorr= PyList_GetItem(LSmearing, 6);\
+      mmin_decorr=(float) (PyFloat_AsDouble(_Fmmin_decorr));\
+      \
+    }\
+    \
+    double VarTimeDeGrid=0;\
+    int Nop=0;\
+    \
+    double* ptrFacetInfos=p_float64(NpFacetInfos);\
+    double Cu=ptrFacetInfos[0];\
+    double Cv=ptrFacetInfos[1];\
+    double l0=ptrFacetInfos[2];\
+    double m0=ptrFacetInfos[3];\
+    double n0=sqrt(1-l0*l0-m0*m0)-1;\
+    \
+    /* Get size of grid. */\
+    double* ptrWinfo = p_float64(Winfos);\
+    double WaveRefWave = ptrWinfo[0];\
+    double wmax = ptrWinfo[1];\
+    double NwPlanes = ptrWinfo[2];\
+    int OverS=floor(ptrWinfo[3]);\
+    \
+    int nGridX    = grid->dimensions[3];\
+    int nGridY    = grid->dimensions[2];\
+    int nGridPol  = grid->dimensions[1];\
+    int nGridChan = grid->dimensions[0];\
+    \
+    /* Get visibility data size. */\
+    int nVisChan  = flags->dimensions[1];\
+    int nrows     = uvw->dimensions[0];\
+    \
+    /* Get oversampling and support size. */\
+    int sampx = OverS;\
+    int sampy = OverS;\
+    \
+    double* __restrict__ sumWtPtr = p_float64(sumwt);\
+    double complex psfValues[4];\
+    psfValues[0] = psfValues[1] = psfValues[2] = psfValues[3] = 1;\
+    \
+    /*uint inxRowWCorr(0);*/\
+    \
+    double offset_p[2],uvwScale_p[2];\
+    \
+    offset_p[0]=nGridX/2;\
+    offset_p[1]=nGridY/2;\
+    float fnGridX=nGridX;\
+    float fnGridY=nGridY;\
+    double *incr=p_float64(increment);\
+    double *Pfreqs=p_float64(freqs);\
+    uvwScale_p[0]=fnGridX*incr[0];\
+    uvwScale_p[1]=fnGridX*incr[1];\
+    double C=2.99792456e8;\
+    int inx;\
+    \
+    /* ################### Prepare full scalar mode */\
+    \
+    PyObject *_JonesType  = PyList_GetItem(LOptimisation, 0);\
+    int JonesType=(int) PyFloat_AsDouble(_JonesType);\
+    PyObject *_ChanEquidistant  = PyList_GetItem(LOptimisation, 1);\
+    int ChanEquidistant=(int) PyFloat_AsDouble(_ChanEquidistant);\
+    \
+    PyObject *_SkyType  = PyList_GetItem(LOptimisation, 2);\
+    int SkyType=(int) PyFloat_AsDouble(_SkyType);\
+    \
+    PyObject *_PolMode  = PyList_GetItem(LOptimisation, 3);\
+    int PolMode=(int) PyFloat_AsDouble(_PolMode);\
+    \
+    int ipol;\
+    \
+    int *MappingBlock = p_int32(SmearMapping);\
+    /* total size is in two words*/\
+    size_t NTotBlocks = MappingBlock[1];\
+    NTotBlocks <<= 32;\
+    NTotBlocks += MappingBlock[0];\
+    int * NRowBlocks = MappingBlock+2;\
+    int * StartRow = MappingBlock+2+NTotBlocks;\
+    size_t iBlock;\
+    \
+    int NMaxRow=0;\
+    for(iBlock=0; iBlock<NTotBlocks; iBlock++){\
+      int NRowThisBlock=NRowBlocks[iBlock]-2;\
+      if(NRowThisBlock>NMaxRow){\
+	NMaxRow=NRowThisBlock;\
+      }\
+    }\
+    float complex *CurrentCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));\
+    float complex *dCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));\
+    /* ######################################################## */\
+    double posx,posy;\
+    \
+    double WaveLengthMean=0.;\
+    size_t visChan;\
+    for (visChan=0; visChan<nVisChan; ++visChan){\
+      WaveLengthMean+=C/Pfreqs[visChan];\
+    }\
+    WaveLengthMean/=nVisChan;\
+    \
+    sem_t * Sem_mutex;\
+    initJonesServer(LJones,JonesType,WaveLengthMean);\
+    \
+    for(iBlock=0; iBlock<NTotBlocks; iBlock++){\
+      int NRowThisBlock=NRowBlocks[iBlock]-2;\
+      int chStart = StartRow[0];\
+      int chEnd = StartRow[1];\
+      int *Row = StartRow+2;\
+      /* advance pointer to next blocklist */\
+      StartRow += NRowBlocks[iBlock];\
+      \
+      float complex Vis[4]={0};\
+      float Umean=0;\
+      float Vmean=0;\
+      float Wmean=0;\
+      float FreqMean=0;\
+      int NVisThisblock=0;\
+      \
+      float visChanMean=0.;\
+      resetJonesServerCounter();\
+      for (inx=0; inx<NRowThisBlock; inx++) {\
+	size_t irow = Row[inx];\
+	if(irow>nrows){continue;}\
+	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;\
+	\
+	int ThisPol;\
+	for (visChan=chStart; visChan<chEnd; ++visChan) {\
+	  size_t doff = (irow * nVisChan + visChan) * nVisCorr;\
+	  bool* __restrict__ flagPtr = p_bool(flags) + doff;\
+	  int OneFlagged=0;\
+	  int cond;\
+	  \
+	  float U=(float)uvwPtr[0];\
+	  float V=(float)uvwPtr[1];\
+	  float W=(float)uvwPtr[2];\
+	  \
+	  U+=W*Cu;\
+	  V+=W*Cv;\
+	  \
+	  /*###################### Averaging #######################*/\
+	  Umean+=U;\
+	  Vmean+=V;\
+	  Wmean+=W;\
+	  FreqMean+=(float)Pfreqs[visChan];\
+	  visChanMean+=p_ChanMapping[visChan];\
+	  NVisThisblock+=1;\
+	}/* endfor vischan*/\
+      }/*endfor RowThisBlock*/\
+      \
+      if(NVisThisblock==0){continue;}\
+      Umean/=NVisThisblock;\
+      Vmean/=NVisThisblock;\
+      Wmean/=NVisThisblock;\
+      FreqMean/=NVisThisblock;\
+      \
+      visChanMean/=NVisThisblock;\
+      int ThisGridChan=p_ChanMapping[chStart];\
+      float diffChan=visChanMean-visChanMean;\
+      \
+      if(fabs(diffChan)>1e-6){printf("degridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %10f)\n",visChanMean,ThisGridChan,diffChan);}\
+      \
+      visChanMean=0.;\
+      \
+      /* ################################################\
+         ############## Start Gridding visibility ####### */\
+      int gridChan = p_ChanMapping[chStart];\
+      \
+      int CFChan = 0;\
+      double recipWvl = FreqMean / C;\
+      double ThisWaveLength=C/FreqMean;\
+      \
+      /* ############## W-projection #################### */\
+      double wcoord=Wmean;\
+      \
+      int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);\
+      int skipW=0;\
+      if(iwplane>NwPlanes-1){skipW=1;continue;};\
+      \
+      if(wcoord>0){\
+	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);\
+      } else{\
+	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);\
+      }\
+      int nConvX = cfs->dimensions[0];\
+      int nConvY = cfs->dimensions[1];\
+      int supx = (nConvX/OverS-1)/2;\
+      int supy = (nConvY/OverS-1)/2;\
+      int SupportCF=nConvX/OverS;\
+      \
+      if (gridChan >= 0  &&  gridChan < nGridChan) {\
+      	double posx,posy;\
+      	\
+      	posx = uvwScale_p[0] * Umean * recipWvl + offset_p[0];\
+      	posy = uvwScale_p[1] * Vmean * recipWvl + offset_p[1];\
+	\
+      	int locx = nint (posx);    /* location in grid */\
+      	int locy = nint (posy);\
+      	\
+      	double diffx = locx - posx;\
+      	double diffy = locy - posy;\
+      	\
+      	int offx = nint (diffx * sampx); /* location in*/\
+      	int offy = nint (diffy * sampy); /* oversampling*/\
+      	\
+      	offx += (nConvX-1)/2;\
+      	offy += (nConvY-1)/2;\
+      	/* Scaling with frequency is not necessary (according to Cyril). */\
+      	double freqFact = 1;\
+      	int fsampx = nint (sampx * freqFact);\
+      	int fsampy = nint (sampy * freqFact);\
+      	int fsupx  = nint (supx / freqFact);\
+      	int fsupy  = nint (supy / freqFact);\
+      \
+      	/* Only use visibility point if the full support is within grid. */\
+      	if (locx-supx >= 0  &&  locx+supx < nGridX  &&\
+      	    locy-supy >= 0  &&  locy+supy < nGridY) {\
+      	  float complex stokes_vis[nVisPol]={0 + 0*_Complex_I};\
+	  \
+      	  int ipol;\
+	  \
+      	  for (ipol=0; ipol<nVisPol; ++ipol) {\
+      	      \
+	      int goff = (gridChan*nGridPol + ipol) * nGridX * nGridY;\
+	      int sy;\
+	      \
+	      const float complex* __restrict__ gridPtr;\
+	      const float complex* __restrict__ cf0;\
+	      \
+	      int io=(offy - fsupy*fsampy);\
+	      int jo=(offx - fsupx*fsampx);\
+	      int cfoff = io * OverS * SupportCF*SupportCF + jo * SupportCF*SupportCF;\
+	      cf0 =  p_complex64(cfs) + cfoff;\
+	      \
+	      for (sy=-fsupy; sy<=fsupy; ++sy) {\
+		gridPtr =  p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx;\
+		int sx;\
+		for (sx=-fsupx; sx<=fsupx; ++sx) {\
+		  stokes_vis[ipol] += *gridPtr  * *cf0;\
+		  cf0 ++;\
+		  gridPtr++;\
+		} /* end for sup x*/\
+	      } /* end for sup y */\
+      	  } /* end for ipol */\
+	  \
+	  /*###########################################################\
+	   ######## Convert from degridded stokes to MS corrs #########*/\
+	  \
+	  stokesconversion\
+	  \
+	  /* ###########################################################\
+	     ################### Now do the correction #################*/\
+	  \
+	  float DeCorrFactor=1.;\
+	  if(DoDecorr){\
+	    int iRowMeanThisBlock=Row[NRowThisBlock/2];\
+	    \
+	    double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;\
+	    double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;\
+	    \
+	    DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,\
+						 (float)lmin_decorr,\
+						 (float)mmin_decorr,\
+						 uvwPtrMidRow,\
+						 uvw_dt_PtrMidRow,\
+						 (float)FreqMean,\
+						 (float)Dnu,\
+						 (float)DT);\
+	  }\
+	  \
+	  for (inx=0; inx<NRowThisBlock; inx++) {\
+	      size_t irow = Row[inx];\
+	      if(irow>nrows){continue;}\
+	      double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;\
+	      \
+	      int ThisPol;\
+	      for (visChan=chStart; visChan<chEnd; ++visChan) {\
+		size_t doff_chan = irow * nVisChan + visChan;\
+		size_t doff = (doff_chan) * nVisCorr;\
+		bool* __restrict__ flagPtr = p_bool(flags) + doff;\
+		int OneFlagged=0;\
+		int cond;\
+		\
+		if(DoApplyJones){\
+		  updateJones(irow, visChan, uvwPtr, 0,0);\
+		} /*endif DoApplyJones*/\
+		\
+		/*###################### Facetting #######################\
+		  Change coordinate and shift visibility to facet center */\
+		float U=(float)uvwPtr[0];\
+		float V=(float)uvwPtr[1];\
+		float W=(float)uvwPtr[2];\
+		/*#######################################################*/\
+		\
+		float complex corr;\
+		if(ChanEquidistant){\
+		  if(visChan==0){\
+		    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;\
+		    CurrentCorrTerm[inx]=cexp(UVNorm*(U*l0+V*m0+W*n0));\
+		    float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;\
+		    dCorrTerm[inx]=cexp(dUVNorm*(U*l0+V*m0+W*n0));\
+		  }else{\
+		    CurrentCorrTerm[inx]*=dCorrTerm[inx];\
+		  }\
+		  corr=CurrentCorrTerm[inx];\
+		}\
+		else{\
+		  float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;\
+		  corr=cexp(UVNorm*(U*l0+V*m0+W*n0));\
+		}\
+		\
+		corr*=DeCorrFactor;\
+		\
+		float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;\
+		\
+		float complex visBuff[4]={0};\
+		if(DoApplyJones){\
+		  applyjones \
+		} else {\
+		  for(ThisPol =0; ThisPol<nVisCorr; ++ThisPol){\
+		    visBuff[ThisPol]=corr_vis[ThisPol] * corr;\
+		  }\
+		}\
+		\
+		Sem_mutex=GiveSemaphoreFromCell(doff_chan);\
+		/* Finally subtract visibilities from current residues*/\
+		sem_wait(Sem_mutex);\
+		for(ThisPol =0; ThisPol<nVisCorr; ++ThisPol){\
+		    visPtr[ThisPol] -= visBuff[ThisPol];\
+		}\
+		sem_post(Sem_mutex);\
+		\
+	      }/*endfor vischan*/\
+	    }/*endfor RowThisBlock*/\
+      	} /* end if ongrid*/\
+      } /* end if gridChan*/\
+    } /*end for Block*/\
+    \
+    free(CurrentCorrTerm);\
+    free(dCorrTerm);\
+ } /* end */\
 
+ 
+// Stamp out the various degridders needed for Stokes I deconvolution:
+// We will not support full polarization cleaning so just stokes I is needed
+degridder_factory(degridderWPol_RRLL_FROM_I, GMODE_CORR_RRLL_FROM_I, 1, 2, APPLYJONES_2_CORR)
+degridder_factory(degridderWPol_RRRLLRLL_FROM_I, GMODE_CORR_RRRLLRLL_FROM_I, 1, 4, APPLYJONES_4_CORR)
+degridder_factory(degridderWPol_XXYY_FROM_I, GMODE_CORR_XXYY_FROM_I, 1, 2, APPLYJONES_2_CORR)
+degridder_factory(degridderWPol_XXXYYXYY_FROM_I, GMODE_CORR_XXXYYXYY_FROM_I, 1, 4, APPLYJONES_4_CORR)
+ 
 static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 {
   PyObject *ObjGridIn;
@@ -1487,9 +1732,11 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
   PyObject *Lcfs, *LOptimisation, *LSmear;
   PyObject *Lmaps,*LJones;
   PyObject *LcfsConj;
+  PyArrayObject *LDataCorrFormat;
+  PyArrayObject *LExpectedOutStokes;
   int dopsf;
 
-  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!O!",
+  if (!PyArg_ParseTuple(args, "O!OO!O!O!iO!O!O!O!O!O!O!O!O!O!O!O!O!O!",
 			//&ObjGridIn,
 			&PyArray_Type,  &np_grid,
 			&ObjVis,//&PyArray_Type,  &vis, 
@@ -1508,593 +1755,79 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
 			&PyArray_Type, &Sparsification,
 			&PyList_Type, &LOptimisation,
 			&PyList_Type, &LSmear,
-			&PyArray_Type, &np_ChanMapping
+			&PyArray_Type, &np_ChanMapping,
+			&PyArray_Type, &LDataCorrFormat,
+			&PyArray_Type, &LExpectedOutStokes
 			))  return NULL;
   int nx,ny,nz,nzz;
-
   
   np_vis = (PyArrayObject *) PyArray_ContiguousFromObject(ObjVis, PyArray_COMPLEX64, 0, 3);
 
   
-
-  DeGridderWPol(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, Sparsification, LOptimisation, LSmear,np_ChanMapping);
-  
+  char* stokeslookup[] = {"undef","I","Q","U","V","RR","RL","LR","LL","XX","XY","YX","YY"};
+  size_t ncorr = PyArray_Size((PyObject*)LDataCorrFormat);
+  size_t npol = PyArray_Size((PyObject*)LExpectedOutStokes);
+  char** inputcorr = (char**) malloc(ncorr * sizeof(char*));
+  char** expstokes = (char**) malloc(npol * sizeof(char*));
+  short i;
+  for (i=0; i < ncorr; ++i) {
+    uint16_t corrid = *((uint16_t*) LDataCorrFormat->data + i);
+    if (corrid < 5 && corrid > 12) {
+      FATAL("Only accepts RR,RL,LR,LL,XX,XY,YX,YY as correlation output types");
+    }
+    inputcorr[i] = stokeslookup[corrid];
+  }
+  for (i=0; i < npol; ++i) {
+    uint16_t polid = *((uint16_t*) LExpectedOutStokes->data + i);
+    if (polid != 1) {
+      FATAL("Only accepts I as polarization input type");
+    }
+    expstokes[i] = stokeslookup[polid];
+  }
+  int LengthJonesList=PyList_Size(LJones);
+  #define calldegridder(gname) \
+    gname(np_grid, np_vis, uvw, flags, sumwt, dopsf, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, \
+	  Sparsification, LOptimisation, LSmear,np_ChanMapping);
+  if (ncorr == 4 && 
+    !strcmp(inputcorr[0], "XX") && !strcmp(inputcorr[1], "XY") && !strcmp(inputcorr[2], "YX") && !strcmp(inputcorr[3], "YY")) {
+    if (npol == 1 &&
+	!strcmp(expstokes[0], "I")){
+	calldegridder(degridderWPol_XXXYYXYY_FROM_I);
+    }
+    else {
+      FATAL("Cannot convert input stokes parameter to desired output correlations.");
+    }
+  } else if (ncorr == 2 && 
+    !strcmp(inputcorr[0], "XX") && !strcmp(inputcorr[1], "YY")) {
+    if (npol == 1 &&
+	!strcmp(expstokes[0], "I")){
+	calldegridder(degridderWPol_XXYY_FROM_I);
+    }
+    else {
+      FATAL("Cannot convert input stokes parameter to desired output correlations.");
+    }
+  } else if (ncorr == 4 && 
+    !strcmp(inputcorr[0], "RR") && !strcmp(inputcorr[1], "RL") && !strcmp(inputcorr[2], "LR") && !strcmp(inputcorr[3], "LL")) {
+    if (npol == 1 &&
+	!strcmp(expstokes[0], "I")){
+	calldegridder(degridderWPol_RRRLLRLL_FROM_I);
+    }
+    else {
+      FATAL("Cannot convert input stokes parameter to desired output correlations.");
+    }
+  } else if (ncorr == 2 && 
+    !strcmp(inputcorr[0], "RR") && !strcmp(inputcorr[1], "LL")) {
+    if (npol == 1 &&
+	!strcmp(expstokes[0], "I")){
+	calldegridder(degridderWPol_RRLL_FROM_I);
+    }
+    else {
+      FATAL("Cannot convert input stokes parameter to desired output correlations.");
+    }
+  } else {
+    FATAL("Cannot convert input stokes parameter to desired output correlations.");
+  }
+  free(inputcorr);
+  free(expstokes);
   return PyArray_Return(np_vis);
-
-  //return Py_None;
-
 }
-
-
-
-
-
-void DeGridderWPol(PyArrayObject *grid,
-		   PyArrayObject *vis,
-		   PyArrayObject *uvw,
-		   PyArrayObject *flags,
-		   //PyArrayObject *rows,
-		   PyArrayObject *sumwt,
-		   int dopsf,
-		   PyObject *Lcfs,
-		   PyObject *LcfsConj,
-		   PyArrayObject *Winfos,
-		   PyArrayObject *increment,
-		   PyArrayObject *freqs,
-		   PyObject *Lmaps, PyObject *LJones,
-		   PyArrayObject *SmearMapping,
-           PyArrayObject *Sparsification,
-		   PyObject *LOptimisation, PyObject *LSmearing,
-		 PyArrayObject *np_ChanMapping)
-  {
-    // Get size of convolution functions.
-    PyArrayObject *cfs;
-    PyArrayObject *NpPolMap;
-    NpPolMap = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 0), PyArray_INT32, 0, 4);
-    int npolsMap=NpPolMap->dimensions[0];
-    int* PolMap=I_ptr(NpPolMap);
-    
-    int *p_ChanMapping=p_int32(np_ChanMapping);
-
-    PyArrayObject *NpFacetInfos;
-    NpFacetInfos = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 1), PyArray_FLOAT64, 0, 4);
-
-    PyArrayObject *NpRows;
-    NpRows = (PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 2), PyArray_INT32, 0, 4);
-    int* ptrRows=I_ptr(NpRows);
-    int row0=ptrRows[0];
-    int row1=ptrRows[1];
-
-
-    /////////////////////////////////////////
-
-    /* sem_t * Sem_mutex; */
-    /* if ((Sem_mutex = sem_open("/SemaphoreDDFacet", O_CREAT, 0644, 1)) == SEM_FAILED) { */
-    /*   perror("semaphore initilization"); */
-    /*   exit(1); */
-    /* } */
-    /////////////////////////////////////////
-    int LengthSmearingList=PyList_Size(LSmearing);
-    float DT,Dnu,lmin_decorr,mmin_decorr;
-    double* uvw_dt_Ptr;
-    int DoSmearTime,DoSmearFreq;
-    int DoDecorr=(LengthSmearingList>0);
-
-    if(DoDecorr){
-      uvw_dt_Ptr = p_float64((PyArrayObject *) PyList_GetItem(LSmearing, 0));
-
-      PyObject *_FDT= PyList_GetItem(LSmearing, 1);
-      DT=(float) (PyFloat_AsDouble(_FDT));
-      PyObject *_FDnu= PyList_GetItem(LSmearing, 2);
-      Dnu=(float) (PyFloat_AsDouble(_FDnu));
-      
-      PyObject *_DoSmearTime= PyList_GetItem(LSmearing, 3);
-      DoSmearTime=(int) (PyFloat_AsDouble(_DoSmearTime));
-
-      PyObject *_DoSmearFreq= PyList_GetItem(LSmearing, 4);
-      DoSmearFreq=(int) (PyFloat_AsDouble(_DoSmearFreq));
-
-      PyObject *_Flmin_decorr= PyList_GetItem(LSmearing, 5);
-      lmin_decorr=(float) (PyFloat_AsDouble(_Flmin_decorr));
-      PyObject *_Fmmin_decorr= PyList_GetItem(LSmearing, 6);
-      mmin_decorr=(float) (PyFloat_AsDouble(_Fmmin_decorr));
-
-    }
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-
-
-
-    
-    double VarTimeDeGrid=0;
-    int Nop=0;
-
-    double* ptrFacetInfos=p_float64(NpFacetInfos);
-    double Cu=ptrFacetInfos[0];
-    double Cv=ptrFacetInfos[1];
-    double l0=ptrFacetInfos[2];
-    double m0=ptrFacetInfos[3];
-    double n0=sqrt(1-l0*l0-m0*m0)-1;
-    //printf("%f %f\n",l0,m0);
-
-    //printf("npols=%i %i\n",npolsMap,PolMap[3]);
-
-    // Get size of grid.
-    double* ptrWinfo = p_float64(Winfos);
-    double WaveRefWave = ptrWinfo[0];
-    double wmax = ptrWinfo[1];
-    double NwPlanes = ptrWinfo[2];
-    int OverS=floor(ptrWinfo[3]);
-
-
-    //printf("WaveRef=%f, wmax=%f \n",WaveRefWave,wmax);
-    int nGridX    = grid->dimensions[3];
-    int nGridY    = grid->dimensions[2];
-    int nGridPol  = grid->dimensions[1];
-    int nGridChan = grid->dimensions[0];
-    
-    // Get visibility data size.
-    int nVisPol   = flags->dimensions[2];
-    int nVisChan  = flags->dimensions[1];
-    int nrows     = uvw->dimensions[0];
-    //printf("(nrows, nVisChan, nVisPol)=(%i, %i, %i)\n",nrows,nVisChan,nVisPol);
-    
-    
-    // Get oversampling and support size.
-    int sampx = OverS;//int (cfs.sampling[0]);
-    int sampy = OverS;//int (cfs.sampling[1]);
-    
-    double* __restrict__ sumWtPtr = p_float64(sumwt);//->data;
-    double complex psfValues[4];
-    psfValues[0] = psfValues[1] = psfValues[2] = psfValues[3] = 1;
-
-    //uint inxRowWCorr(0);
-
-    double offset_p[2],uvwScale_p[2];
-
-    offset_p[0]=nGridX/2;//(nGridX-1)/2.;
-    offset_p[1]=nGridY/2;
-    float fnGridX=nGridX;
-    float fnGridY=nGridY;
-    double *incr=p_float64(increment);
-    double *Pfreqs=p_float64(freqs);
-    uvwScale_p[0]=fnGridX*incr[0];
-    uvwScale_p[1]=fnGridX*incr[1];
-    //printf("uvscale=(%f %f)",uvwScale_p[0],uvwScale_p[1]);
-    double C=2.99792456e8;
-    int inx;
-
-
-    // ################### Prepare full scalar mode
-
-    PyObject *_JonesType  = PyList_GetItem(LOptimisation, 0);
-    int JonesType=(int) PyFloat_AsDouble(_JonesType);
-    PyObject *_ChanEquidistant  = PyList_GetItem(LOptimisation, 1);
-    int ChanEquidistant=(int) PyFloat_AsDouble(_ChanEquidistant);
-
-    PyObject *_SkyType  = PyList_GetItem(LOptimisation, 2);
-    int SkyType=(int) PyFloat_AsDouble(_SkyType);
-
-    PyObject *_PolMode  = PyList_GetItem(LOptimisation, 3);
-    int PolMode=(int) PyFloat_AsDouble(_PolMode);
-
-    int ipol;
-    if(PolMode==0){
-      for (ipol=1; ipol<4; ++ipol) {
-    	PolMap[ipol]=5;
-      }
-    }
-
-    /* PyObject *_FullScalarMode  = PyList_GetItem(LOptimisation, 0); */
-    /* FullScalarMode=(int) PyFloat_AsDouble(_FullScalarMode); */
-    /* PyObject *_ChanEquidistant  = PyList_GetItem(LOptimisation, 1); */
-    /* int ChanEquidistant=(int) PyFloat_AsDouble(_ChanEquidistant); */
-    /* ScalarJones=0; */
-    /* ScalarVis=0; */
-    /* int nPolJones = 4; */
-    /* int nPolVis   = 4; */
-    /* if(FullScalarMode){ */
-    /*   //printf("full scalar mode\n"); */
-    /*   //printf("ChanEquidistant: %i\n",ChanEquidistant); */
-    /*   ScalarJones=1; */
-    /*   ScalarVis=1; */
-    /*   nPolJones=1; */
-    /*   nPolVis=1; */
-    /*   int ipol; */
-    /*   for (ipol=1; ipol<nVisPol; ++ipol) { */
-    /* 	PolMap[ipol]=5; */
-    /*   } */
-    /* } */
-
-
-
-
-    int *MappingBlock = p_int32(SmearMapping);
-    // total size is in two words
-    size_t NTotBlocks = MappingBlock[1];
-    NTotBlocks <<= 32;
-    NTotBlocks += MappingBlock[0];
-    int * NRowBlocks = MappingBlock+2;
-    int * StartRow = MappingBlock+2+NTotBlocks;
-    size_t iBlock;
-
-    int NMaxRow=0;
-    for(iBlock=0; iBlock<NTotBlocks; iBlock++){
-      int NRowThisBlock=NRowBlocks[iBlock]-2;
-      if(NRowThisBlock>NMaxRow){
-	NMaxRow=NRowThisBlock;
-      }
-    }
-    float complex *CurrentCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
-    float complex *dCorrTerm=calloc(1,(NMaxRow)*sizeof(float complex));
-    // ########################################################
-
-
-    double posx,posy;
-
-    double WaveLengthMean=0.;
-    size_t visChan;
-    for (visChan=0; visChan<nVisChan; ++visChan){
-      WaveLengthMean+=C/Pfreqs[visChan];
-    }
-    WaveLengthMean/=nVisChan;
-
-    sem_t * Sem_mutex;
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    initJonesServer(LJones,JonesType,WaveLengthMean);
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-
-    for(iBlock=0; iBlock<NTotBlocks; iBlock++){
-    //for(iBlock=3507; iBlock<3508; iBlock++){
-      int NRowThisBlock=NRowBlocks[iBlock]-2;
-      int chStart = StartRow[0];
-      int chEnd = StartRow[1];
-      int *Row = StartRow+2;
-      // advance pointer to next blocklist
-      StartRow += NRowBlocks[iBlock];
-
-      float complex Vis[4]={0};
-      float Umean=0;
-      float Vmean=0;
-      float Wmean=0;
-      float FreqMean=0;
-      int NVisThisblock=0;
-      //printf("\n");
-      //printf("Block[%i] Nrows=%i %i>%i\n",iBlock,NRowThisBlock,chStart,chEnd);
-
-      float visChanMean=0.;
-      resetJonesServerCounter();
-      for (inx=0; inx<NRowThisBlock; inx++) {
-	size_t irow = Row[inx];
-	if(irow>nrows){continue;}
-	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
-	//printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
-	//printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
-	
-	int ThisPol;
-	for (visChan=chStart; visChan<chEnd; ++visChan) {
-	  size_t doff = (irow * nVisChan + visChan) * nVisPol;
-	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
-	  int OneFlagged=0;
-	  int cond;
-	  //char ch="a";
-	  //if(flagPtr[0]==1){OneFlagged=1;}
-	  //if(OneFlagged){continue;}
-	  //if(flagPtr[0]==1){continue;}
-	  
-	  float U=(float)uvwPtr[0];
-	  float V=(float)uvwPtr[1];
-	  float W=(float)uvwPtr[2];
-
-	  U+=W*Cu;
-	  V+=W*Cv;
-	  //###################### Averaging #######################
-	  Umean+=U;
-	  Vmean+=V;
-	  Wmean+=W;
-	  FreqMean+=(float)Pfreqs[visChan];
-	  visChanMean+=p_ChanMapping[visChan];
-	  NVisThisblock+=1;
-	  //printf("      [%i,%i], fmean=%f %f\n",inx,visChan,(FreqMean/1e6),Pfreqs[visChan]);
-	  
-	}//endfor vischan
-      }//endfor RowThisBlock
-      if(NVisThisblock==0){continue;}
-      Umean/=NVisThisblock;
-      Vmean/=NVisThisblock;
-      Wmean/=NVisThisblock;
-      FreqMean/=NVisThisblock;
-
-      visChanMean/=NVisThisblock;
-      int ThisGridChan=p_ChanMapping[chStart];
-      float diffChan=visChanMean-visChanMean;
-      
-
-      //if(diffChan!=0.){printf("degridder: probably there is a problem in the BDA mapping\n");}
-      if(fabs(diffChan)>1e-6){printf("degridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %10f)\n",visChanMean,ThisGridChan,diffChan);}
-      //if(diffChan!=0.){printf("degridder: probably there is a problem in the BDA mapping: (ChanMean, ThisGridChan, diff)=(%f, %i, %10f)\n",visChanMean,ThisGridChan,diffChan);}
-      visChanMean=0.;
-      //printf("  iblock: %i [%i], (uvw)=(%f, %f, %f) fmean=%f\n",iBlock,NVisThisblock,Umean,Vmean,Wmean,(FreqMean/1e6));
-      /* int ThisPol; */
-      /* for(ThisPol =0; ThisPol<4;ThisPol++){ */
-      /* 	printf("   vis: %i (%f, %f)\n",ThisPol,creal(Vis[ThisPol]),cimag(Vis[ThisPol])); */
-      /* } */
-      
-
-      // ################################################
-      // ############## Start Gridding visibility #######
-      int gridChan = p_ChanMapping[chStart];//0;//chanMap_p[visChan];
-
-      int CFChan = 0;//ChanCFMap[visChan];
-      double recipWvl = FreqMean / C;
-      double ThisWaveLength=C/FreqMean;
-
-      // ############## W-projection ####################
-      double wcoord=Wmean;
-      /* int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax); */
-      /* int skipW=0; */
-      /* if(iwplane>NwPlanes-1){skipW=1;continue;}; */
-      
-      /* if(wcoord>0){ */
-      /* 	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2); */
-      /* } else{ */
-      /* 	cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2); */
-      /* } */
-      /* int nConvX = cfs->dimensions[0]; */
-      /* int nConvY = cfs->dimensions[1]; */
-      /* int supx = (nConvX/OverS-1)/2; */
-      /* int supy = (nConvY/OverS-1)/2; */
-      /* int SupportCF=nConvX/OverS; */
-      /* // ################################################ */
-
-
-	int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);
-	int skipW=0;
-	if(iwplane>NwPlanes-1){skipW=1;continue;};
-
-	//int iwplane = floor((NwPlanes-1)*abs(wcoord)/wmax);
-
-	//printf("wcoord=%f, iw=%i \n",wcoord,iwplane);
-
-	if(wcoord>0){
-	  cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(Lcfs, iwplane), PyArray_COMPLEX64, 0, 2);
-	} else{
-	  cfs=(PyArrayObject *) PyArray_ContiguousFromObject(PyList_GetItem(LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);
-	}
-	int nConvX = cfs->dimensions[0];
-	int nConvY = cfs->dimensions[1];
-	int supx = (nConvX/OverS-1)/2;
-	int supy = (nConvY/OverS-1)/2;
-	int SupportCF=nConvX/OverS;
-	
-	
-
-      if (gridChan >= 0  &&  gridChan < nGridChan) {
-      	double posx,posy;
-      	//For Even/Odd take the -1 off
-      	posx = uvwScale_p[0] * Umean * recipWvl + offset_p[0];//#-1;
-      	posy = uvwScale_p[1] * Vmean * recipWvl + offset_p[1];//-1;
-	
-      	int locx = nint (posx);    // location in grid
-      	int locy = nint (posy);
-      	//printf("locx=%i, locy=%i\n",locx,locy);
-      	double diffx = locx - posx;
-      	double diffy = locy - posy;
-      	//printf("diffx=%f, diffy=%f\n",diffx,diffy);
-      	int offx = nint (diffx * sampx); // location in
-      	int offy = nint (diffy * sampy); // oversampling
-      	//printf("offx=%i, offy=%i\n",offx,offy);
-      	offx += (nConvX-1)/2;
-      	offy += (nConvY-1)/2;
-      	// Scaling with frequency is not necessary (according to Cyril).
-      	double freqFact = 1;
-      	int fsampx = nint (sampx * freqFact);
-      	int fsampy = nint (sampy * freqFact);
-      	int fsupx  = nint (supx / freqFact);
-      	int fsupy  = nint (supy / freqFact);
-
-	
-      	// Only use visibility point if the full support is within grid.
-      	if (locx-supx >= 0  &&  locx+supx < nGridX  &&
-      	    locy-supy >= 0  &&  locy+supy < nGridY) {
-      	  ///            cout << "in grid"<<endl;
-      	  // Get pointer to data and flags for this channel.
-      	  //int doff = (irow * nVisChan + visChan) * nVisPol;
-      	  //float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
-      	  //bool* __restrict__ flagPtr = p_bool(flags) + doff;
-      	  float complex ThisVis[4]={0};
-	  
-      	  int ipol;
-	  
-      	  // Handle a visibility if not flagged.
-      	  /* for (ipol=0; ipol<nVisPol; ++ipol) { */
-      	  /*   if (! flagPtr[ipol]) { */
-      	  /* 	visPtr[ipol] = Complex(0,0); */
-      	  /*   } */
-      	  /* } */
-	  
-      	  //for (Int w=0; w<4; ++w) {
-      	  //  Double weight_interp(Weights_Lin_Interp[w]);
-      	  for (ipol=0; ipol<nVisPol; ++ipol) {
-      	    //if (((int)flagPtr[ipol])==0) {
-      	      // Map to grid polarization. Only use pol if needed.
-      	      int gridPol = PolMap[ipol];
-      	      if (gridPol >= 0  &&  gridPol < nGridPol) {
-		
-      		int goff = (gridChan*nGridPol + gridPol) * nGridX * nGridY;
-      		int sy;
-		
-      		const float complex* __restrict__ gridPtr;
-      		const float complex* __restrict__ cf0;
-		
-      		int io=(offy - fsupy*fsampy);
-      		int jo=(offx - fsupx*fsampx);
-      		int cfoff = io * OverS * SupportCF*SupportCF + jo * SupportCF*SupportCF;
-      		cf0 =  p_complex64(cfs) + cfoff;
-		
-		
-		
-		
-      		for (sy=-fsupy; sy<=fsupy; ++sy) {
-      		  gridPtr =  p_complex64(grid) + goff + (locy+sy)*nGridX + locx-supx;
-      		  int sx;
-      		  for (sx=-fsupx; sx<=fsupx; ++sx) {
-      		    ThisVis[ipol] += *gridPtr  * *cf0;
-      		    cf0 ++;
-      		    gridPtr++;
-      		  }
-      		}
-      	      } // end if gridPol
-	      
-	      
-	      
-      	    //} // end if !flagPtr
-      	  } // end for ipol
-	  
-	  // ###########################################################
-	  // ################### Now do the correction #################
-
-	  if(PolMode==0){ThisVis[3]=ThisVis[0];}
-
-
-	  ///////////////////////////////////////////////////////
-	  float DeCorrFactor=1.;
-	  if(DoDecorr){
-	    int iRowMeanThisBlock=Row[NRowThisBlock/2];
-	    
-	    double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;
-	    double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;
-	    
-	    DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
-						 (float)lmin_decorr,
-						 (float)mmin_decorr,
-						 uvwPtrMidRow,
-						 uvw_dt_PtrMidRow,
-						 (float)FreqMean,
-						 (float)Dnu, 
-						 (float)DT);
-
-	    //printf("DeCorrFactor %f %f: %f\n",l0,m0,DeCorrFactor);
-	    
-	  }
-	  //////////////////////////////////////////////////////
-
-     for (inx=0; inx<NRowThisBlock; inx++) {
-	size_t irow = Row[inx];
-	if(irow>nrows){continue;}
-	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;
-	//printf("[%i] %i>%i bl=(%i-%i)\n",irow,chStart,chEnd,ptrA0[irow],ptrA1[irow]);
-	//printf("  row=[%i] %i>%i \n",irow,chStart,chEnd);
-	
-
-	int ThisPol;
-	for (visChan=chStart; visChan<chEnd; ++visChan) {
-	  size_t doff_chan = irow * nVisChan + visChan;
-	  size_t doff = (doff_chan) * nVisPol;
-	  bool* __restrict__ flagPtr = p_bool(flags) + doff;
-	  int OneFlagged=0;
-	  int cond;
-	  //if(flagPtr[0]==1){OneFlagged=1;}
-	  //if(OneFlagged){continue;}
-	  
-	  if(DoApplyJones){
-	    updateJones(irow, visChan, uvwPtr, 0,0);
-	  } //endif DoApplyJones
-
-	  //###################### Facetting #######################
-	  // Change coordinate and shift visibility to facet center
-	  float U=(float)uvwPtr[0];
-	  float V=(float)uvwPtr[1];
-	  float W=(float)uvwPtr[2];
-	  //AddTimeit(PreviousTime,TimeShift);
-	  //#######################################################
-
-	  float complex corr;
-	  if(ChanEquidistant){
-	    if(visChan==0){
-	      float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-	      CurrentCorrTerm[inx]=cexp(UVNorm*(U*l0+V*m0+W*n0));
-	      float complex dUVNorm=2.*I*PI*(Pfreqs[1]-Pfreqs[0])/C;
-	      dCorrTerm[inx]=cexp(dUVNorm*(U*l0+V*m0+W*n0));
-	    }else{
-	      CurrentCorrTerm[inx]*=dCorrTerm[inx];
-	    }
-	    corr=CurrentCorrTerm[inx];
-	  }
-	  else{
-	    float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;
-	    corr=cexp(UVNorm*(U*l0+V*m0+W*n0));
-	  }
-	  /* float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C; */
-	  /* corr=cexp(-UVNorm*(U*l0+V*m0+W*n0)); */
-
-
-	  corr*=DeCorrFactor;
-
-	  float complex* __restrict__ visPtr  = p_complex64(vis)  + doff;
-	  float complex visBuff[4]={0};
-
-
-	  /* ThisVis[0]=1; */
-	  /* ThisVis[1]=0; */
-	  /* ThisVis[2]=0; */
-	  /* ThisVis[3]=1; */
-	  /* corr=1.; */
-
-
-	  if(DoApplyJones){
-	    MatDot(J0,JonesType,ThisVis,SkyType,visBuff);
-	    MatDot(visBuff,SkyType,J1H,JonesType,visBuff);
-	  }else{
-	    for(ThisPol =0; ThisPol<4;ThisPol++){
-	      visBuff[ThisPol]=ThisVis[ThisPol];
-	    }
-	    
-	  }
-	  
-	  Mat_A_l_SumProd(visBuff, SkyType, corr);
-
-	  
-	  /* ////////////// debug */
-	  /* for(ThisPol =0; ThisPol<4;ThisPol++){ */
-	  /*   visBuff[ThisPol]=0.; */
-	  /* } */
-	  /* visBuff[0]=1.; */
-	  /* visBuff[3]=1.; */
-	  /* ////////////// end debug */
-	    
-
-
-	  Sem_mutex=GiveSemaphoreFromCell(doff_chan);
-
-	  sem_wait(Sem_mutex);
-	  
-	  Mat_A_Bl_Sum(visPtr, 2, visBuff, 2, (float complex)(-1.));
-
-	  sem_post(Sem_mutex);
-
-	  //sem_close(Sem_mutex);
- 
-
-
-	  
-	}//endfor vischan
-      }//endfor RowThisBlock
-
-
-	  
-      	} // end if ongrid
-      } // end if gridChan
-      
-    } //end for Block
-    //sem_close(Sem_mutex);
-
-    free(CurrentCorrTerm);
-    free(dCorrTerm);
-
- } // end

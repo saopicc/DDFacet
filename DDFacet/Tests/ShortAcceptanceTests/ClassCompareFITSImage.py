@@ -164,18 +164,20 @@ class ClassCompareFITSImage(unittest.TestCase):
                             cls._imagePrefix)
         # set up path to each ms relative to environment variable
         if type(p.DicoPars["Data"]["MS"]) is list:
-            for ms in p.DicoPars["Data"]["MS"]:
-                if path.dirname(ms) != "":
-                    raise RuntimeError("Expected only measurement set name, "
-                                       "not relative or absolute path in %s" % ms)
+            #MSdir can actually contain strange directives to select fields and DDIDs... so may appear invalid
+            #for ms in p.DicoPars["Data"]["MS"]:
+                #if path.dirname(ms) != "":
+                #    raise RuntimeError("Expected only measurement set name, "
+                #                       "not relative or absolute path in %s" % ms)
             abs_ms = [cls._inputDir+ms for ms in p.DicoPars["Data"]["MS"]]
 
             cls.setParsetOption("Data", "MS", "["+(",".join(abs_ms))+"]")
         else:
             ms = p.DicoPars["Data"]["MS"]
-            if path.dirname(ms) != "":
-                raise RuntimeError("Expected only measurement set name, "
-                                    "not relative or absolute path in %s" % ms)
+            #MSdir can actually contain strange directives to select fields and DDIDs... so may appear invalid
+            #if path.dirname(ms) != "":
+            #   raise RuntimeError("Expected only measurement set name, "
+            #                        "not relative or absolute path in %s" % ms)
             abs_ms = cls._inputDir+ms
             cls.setParsetOption("Data", "MS", abs_ms)
 
