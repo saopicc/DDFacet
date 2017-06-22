@@ -21,21 +21,70 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-(Users/Recommended) Docker-based installation
+(Users / Recommended - Docker based) Run via. Stimela >= 0.2.9 
 ==========================================================
-1. Simply pull the latest DDFacet and build the Docker image::
+We recommend running the imaging package through the Stimela framework <https://github.com/SpheMakh/Stimela>, built on a
+widely supported containerization framework called Docker. This package is on pip and and is purely python-based, requiring no dependencies other than Docker. It gives the user instant access to other common packages such as Meqtrees, CASA, etc.
 
-    git clone git@github.com:cyriltasse/DDFacet.git
-    cd DDFacet
-    docker build -t ddf .
 
-2. You should now be able to run DDFacet in a container. Note that your parsets must have filenames relative to the mounted volume inside the container, for instance::
+1. Install the latest docker from the Docker PPA: <https://docs.docker.com/engine/installation/linux/ubuntu/>. If you're not running Debian then select the suitable distribution. 
 
-    docker run --shm-size 6g -v /scratch/TEST_DATA:/mnt ddf /mnt/test-master1.parset
+2. Ensure to add your user to the '''docker''' group. On Debian-based systems this can be done as follows::
 
-**Important: if you ran ``git submodule update --init --recursive`` before you may need to remove the cached SkyModel before building the docker image with ``git rm --cached SkyModel``**
+        $ sudo usermod -aG docker $USER
 
-(Users) Virtual environment and pip:
+3. Set up a virtual environment, activate it and upgrade pip, setuptools and wheel to the latest PyPI versions::
+
+        $ virtualenv stimelavenv
+        $ source stimelavenv/bin/activate
+        (stimelavenv)$ pip install -U pip wheel setuptools
+
+4. Run '''stimela pull''' and '''stimela build''' to pull all the latest astronomy software from DockerHub (this will take a while and is several GiB in size, so ensure you're on a fast link)::
+
+        (stimelavenv)$ stimela pull
+        (stimelavenv)$ stimela build
+
+5. "stimela cabs -i ddfacet" lists all available options for the imager.
+
+6. You can then add DDFacet as part of a larger reduction script, for example::
+
+          1 import stimela
+          2 
+          3 INPUT="input"
+          4 OUTPUT="output"
+          5 MSDIR="msdir"
+          6 
+          7 recipe = stimela.Recipe("Test DDFacet imaging", ms_dir=MSDIR)
+          8 // ...any other calibration steps here...
+          9 recipe.add("cab/ddfacet", "ddfacet_test",
+         10            {
+         11                "Data-MS": ["3C147.MS/SUBMSS/D147-LO-NOIFS-NOPOL-4M5S.MS"],
+         12                "Output-Name": "testimg",
+         13                "Image-NPix": 2048,
+         14                "Image-Cell": 2,
+         15                "Cache-Reset": True,
+         16                "Freq-NBand": 3,
+         17                "Weight-ColName": "WEIGHT",
+         18                "Beam-Model": "FITS",
+         19                "Beam-FITSFile": "'beams/JVLA-L-centred_$(corr)_$(reim).fits'",
+         20                "Data-ChunkHours": 0.5,
+         21                "Data-Sort": True
+         22            },
+         23            input=INPUT, output=OUTPUT, shared_memory="14gb",
+         24            label="test_image:: Make a test image using ddfacet")
+         25 // ... any post imaging / additional calibration steps here ...
+         26 recipe.run()
+
+7. Run the script with::
+
+        (stimelavenv)$ stimela run myscriptname.py
+
+8. When you're done deactivate the virtual environment::
+
+        (stimelavenv)$ deactivate
+
+        
+(Users / PyPI alternative) Virtual environment and pip:
 ==========================================================
 We prefer that users use DDFacet though the Docker. However, if this is not available (e.g. cluster
 environments) we recommend you use a virtual environment. If you install it directly into your system packages you're
@@ -52,13 +101,12 @@ on your own -- be warned!!
         virtualenv --system-site-packages ddfacet
         source ddfacet/bin/activate
         
-
    Adding the `--system-site-packages` directive ensures that the virtualenv has access to system packages (such as meqtrees).
-
-4. Then, install directly from the Python Package Index (PyPI) using pip - ensure your venv is activated::
+        
+4. Then, install directly from the Python Package Index (PyPI) using pip - **ensure your venv is activated**::
 
         pip install -U pip setuptools
-        pip install DDFacet --force-reinstall -U
+        pip install -e DDFacet --force-reinstall -U
 
 5. When you're done with your imaging business::
 
@@ -101,6 +149,20 @@ To setup your local development environment navigate clone DDFacet and run::
         (ddfvenv) $ python setup.py build
 
 **IMPORTANT NOTE: You may need to remove the development version before running PIP when installing**
+
+(Developers/Testing) Docker-based build
+==========================================================
+1. Simply pull the latest DDFacet and build the Docker image::
+
+    git clone git@github.com:cyriltasse/DDFacet.git
+    cd DDFacet
+    docker build -t ddf .
+
+2. You should now be able to run DDFacet in a container. Note that your parsets must have filenames relative to the mounted volume inside the container, for instance::
+
+    docker run --shm-size 6g -v /scratch/TEST_DATA:/mnt ddf /mnt/test-master1.parset
+
+**Important: if you ran ``git submodule update --init --recursive`` before you may need to remove the cached SkyModel before building the docker image with ``git rm --cached SkyModel``**
 
 (Developers/Debugging) Build a few libraries (by hand with custom flags)
 ==========================================================
