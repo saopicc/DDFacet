@@ -24,7 +24,7 @@ GNU General Public License for more details.
 (Users / Recommended - Docker based) Run via. Stimela >= 0.2.9 
 ==========================================================
 We recommend running the imaging package through the Stimela framework <https://github.com/SpheMakh/Stimela>, built on a
-widely supported containerization framework called Docker. This package is on pip and and is purely python-based, requiring no dependencies other than Docker. It gives the user instant access to other common packages such as Meqtrees, CASA, etc.
+widely supported containerization framework, called Docker. This package is on PiPY and and is purely python-based, requiring no dependencies other than Docker. It gives the user instantanious access to other commonly used packages such as Meqtrees, CASA, etc.
 
 
 1. Install the latest docker from the Docker PPA: <https://docs.docker.com/engine/installation/linux/ubuntu/>. If you're not running Debian then select the suitable distribution. 
