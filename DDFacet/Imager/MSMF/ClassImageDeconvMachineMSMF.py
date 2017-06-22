@@ -609,12 +609,15 @@ class ClassImageDeconvMachine():
             ThisFlux = abs(ThisFlux)
         # in weighted or noisemap mode, look up the true max as well
         trueMaxDirty = MaxDirty if self._peakMode is "normal" else ThisFlux
+        # return condition indicating cleaning is to be continued
+        cont = True
 
         if self._previous_initial_peak is not None and abs(ThisFlux) > self.GD["HMP"]["MajorStallThreshold"]*self._previous_initial_peak:
             print>>log,ModColor.Str("STALL! dirty image peak %10.6g Jy, was %10.6g at previous major cycle."
                         % (ThisFlux, self._previous_initial_peak), col="red")
-            print>>log,ModColor.Str("  will stop cleaning now")
-            return "Stall", False, False
+            print>>log,ModColor.Str("This will be the last major cycle")
+            cont = False
+
         self._previous_initial_peak = abs(ThisFlux)
         #x,y,MaxDirty=NpParallel.A_whereMax(self._MeanDirty.copy(),NCPU=1,DoAbs=DoAbs,Mask=self._MaskArray.copy())
         #A=self._MeanDirty.copy()
@@ -756,7 +759,7 @@ class ClassImageDeconvMachine():
                             (i, ThisPNR, ThisFlux), col="green")
                         
 
-                    cont = ThisFlux > self.FluxThreshold
+                    cont = cont and ThisFlux > self.FluxThreshold
                     if not cont:
                         print>>log, ModColor.Str(
                             "    [iter=%i] absolute flux threshold of %.3g Jy has been reached, PNR %.3g" %
