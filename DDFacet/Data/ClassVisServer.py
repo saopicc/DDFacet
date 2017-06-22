@@ -865,7 +865,7 @@ class ClassVisServer():
             npixy = xymax + 1
             npix = npixx * npixy
 
-            uv =uvw
+            uv = uvw[:,:2]
             # flip sign of negative v values -- we'll only grid the top half of the plane
             uv[uv[:, 1] < 0] *= -1
             # convert u/v to lambda, and then to pixel offset
@@ -877,7 +877,7 @@ class ClassVisServer():
             x += xymax  # offset, since X grid starts at -xymax
             # convert to index array -- this gives the number of the uv-bin on the grid
             index = np.zeros((uv.shape[0], len(freqs)), np.int64)
-
+            print index
 
 
             weight = msw["weight"]
