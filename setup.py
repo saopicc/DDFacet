@@ -110,7 +110,7 @@ setup(name=pkg,
       classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
-        "License :: GNU General Public License v2 (GPLv2)",
+        "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Operating System :: POSIX :: Linux",
         "Programming Language :: Python",
         "Topic :: Scientific/Engineering :: Astronomy"],
