@@ -55,7 +55,7 @@ widely supported containerization framework, called Docker. This package is on P
           5 MSDIR="msdir"
           6 
           7 recipe = stimela.Recipe("Test DDFacet imaging", ms_dir=MSDIR)
-          8 // ...any other calibration steps here...
+          8 # ...any other calibration steps here...
           9 recipe.add("cab/ddfacet", "ddfacet_test",
          10            {
          11                "Data-MS": ["3C147.MS/SUBMSS/D147-LO-NOIFS-NOPOL-4M5S.MS"],
@@ -72,7 +72,7 @@ widely supported containerization framework, called Docker. This package is on P
          22            },
          23            input=INPUT, output=OUTPUT, shared_memory="14gb",
          24            label="test_image:: Make a test image using ddfacet")
-         25 // ... any post imaging / additional calibration steps here ...
+         25 # ... any post imaging / additional calibration steps here ...
          26 recipe.run()
 
 7. Run the script with::
