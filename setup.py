@@ -42,7 +42,8 @@ def get_version():
     version_py = os.path.join(build_root, pkg, 'version.py')
 
     try:
-        version_git = subprocess.check_output(['git', 'describe', '--tags']).rstrip()
+        version_git = subprocess.check_output(['git', 'describe', '--tags',
+                                               '--abbrev=0']).rstrip()
     except:
         with open(version_py, 'r') as fh:
             version_git = open(version_py).read().strip().split('=')[-1].replace('"','')
@@ -109,7 +110,7 @@ setup(name=pkg,
       classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
-        "License :: GNU General Public License v2 (GPLv2)",
+        "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Operating System :: POSIX :: Linux",
         "Programming Language :: Python",
         "Topic :: Scientific/Engineering :: Astronomy"],
