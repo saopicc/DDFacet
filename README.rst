@@ -29,7 +29,7 @@ widely supported containerization framework, called Docker. This package is on P
 
 1. Install the latest docker from the Docker PPA: <https://docs.docker.com/engine/installation/linux/ubuntu/>. If you're not running Debian then select the suitable distribution. 
 
-2. Ensure to add your user to the '''docker''' group. On Debian-based systems this can be done as follows::
+2. Ensure to add your user to the ``docker`` group. On Debian-based systems this can be done as follows::
 
         $ sudo usermod -aG docker $USER
 
@@ -39,12 +39,12 @@ widely supported containerization framework, called Docker. This package is on P
         $ source stimelavenv/bin/activate
         (stimelavenv)$ pip install -U pip wheel setuptools
 
-4. Run '''stimela pull''' and '''stimela build''' to pull all the latest astronomy software from DockerHub (this will take a while and is several GiB in size, so ensure you're on a fast link)::
+4. Run ``stimela pull`` and ``stimela build`` to pull all the latest astronomy software from DockerHub (this will take a while and is several GiB in size, so ensure you're on a fast link)::
 
         (stimelavenv)$ stimela pull
         (stimelavenv)$ stimela build
 
-5. "stimela cabs -i ddfacet" lists all available options for the imager.
+5. ``stimela cabs -i ddfacet`` lists all available options for the imager.
 
 6. You can then add DDFacet as part of a larger reduction script, for example::
 
