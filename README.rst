@@ -86,7 +86,7 @@ widely supported containerization framework called Docker. This package is on pi
         
 (Users / PyPI alternative) Virtual environment and pip:
 ==========================================================
-We prefer that users use DDFacet though the Docker. However, if this is not available (e.g. cluster
+We prefer that users use DDFacet though Docker. However, if this is not available (e.g. cluster
 environments) we recommend you use a virtual environment. If you install it directly into your system packages you're
 on your own -- be warned!!
 
