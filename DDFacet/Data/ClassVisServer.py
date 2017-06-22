@@ -877,7 +877,7 @@ class ClassVisServer():
             x += xymax  # offset, since X grid starts at -xymax
             # convert to index array -- this gives the number of the uv-bin on the grid
             index = np.zeros((uv.shape[0], len(freqs)), np.int64)
-            print index
+            index[...] = y * npixx + x
 
 
             weight = msw["weight"]
