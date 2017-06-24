@@ -77,7 +77,7 @@ class ClassModModelMachine():
             DicoSMStacked   = Dictionary to instantiate ModelMachine with
         """
         if DicoSMStacked["Type"]=="GA": 
-            print>>log,ModColor.Str("Model is of deprecated type GA, overwritting with type SSD")
+            print>>log,ModColor.Str("Model is of deprecated type GA, overwriting with type SSD")
             DicoSMStacked["Type"]="SSD"
 
         if DicoSMStacked is not None: # If the Dict is provided use it to initialise a model machine

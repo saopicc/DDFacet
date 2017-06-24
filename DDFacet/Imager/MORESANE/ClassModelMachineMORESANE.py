@@ -230,7 +230,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         
 
         
-    def setListComponants(self,ListScales):
+    def setListComponents(self,ListScales):
         self.ListScales=ListScales
 
 
@@ -258,8 +258,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         return alpha
 
         
-    def CleanNegComponants(self,box=20,sig=3,RemoveNeg=True):
-        print>>log, "Cleaning model dictionary from negative componants with (box, sig) = (%i, %i)"%(box,sig)
+    def CleanNegComponents(self,box=20,sig=3,RemoveNeg=True):
+        print>>log, "Cleaning model dictionary from negative components with (box, sig) = (%i, %i)"%(box,sig)
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
         
         Min=scipy.ndimage.filters.minimum_filter(ModelImage,(box,box))
@@ -269,7 +269,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if RemoveNeg==False:
             Lx,Ly=np.where((ModelImage<sig*Min)&(ModelImage!=0))
         else:
-            print>>log, "  Removing neg componants too"
+            print>>log, "  Removing neg components too"
             Lx,Ly=np.where( ((ModelImage<sig*Min)&(ModelImage!=0)) | (ModelImage<0))
 
         for icomp in range(Lx.size):
@@ -277,10 +277,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             try:
                 del(self.DicoSMStacked["Comp"][key])
             except:
-                print>>log, "  Componant at (%i, %i) not in dict "%key
+                print>>log, "  Component at (%i, %i) not in dict "%key
 
-    def CleanMaskedComponants(self,MaskName):
-        print>>log, "Cleaning model dictionary from masked componants using %s"%(MaskName)
+    def CleanMaskedComponents(self,MaskName):
+        print>>log, "Cleaning model dictionary from masked components using %s"%(MaskName)
         im=image(MaskName)
         MaskArray=im.getdata()[0,0].T[::-1]
         for (x,y) in self.DicoSMStacked["Comp"].keys():
@@ -371,7 +371,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #RestoreDico=self.GD["Data"]["RestoreDico"]
         RestoreDico=DicoSolsFile["ModelName"][()][0:-4]+".DicoModel"
         
-        print>>log, "Adding previously substracted components"
+        print>>log, "Adding previously subtracted components"
         ModelMachine0=ClassModelMachine(self.GD)
 
         
