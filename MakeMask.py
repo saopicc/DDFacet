@@ -27,16 +27,16 @@ from SkyModel.Sky import ModRegFile
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
     
-    opt = optparse.OptionParser(usage='Usage: %prog --ms=somename.MS <options>',version='%prog version 1.0',description=desc)
+    opt = optparse.OptionParser(usage='Task to build a boolean mask file from a restored fits image, Usage: %prog <options>',version='%prog version 1.0',description=desc)
     group = optparse.OptionGroup(opt, "* Data-related options")
-    group.add_option('--RestoredIm',type="str",help="default is %default",default=None)
-    group.add_option('--UseIslands',type="int",help="default is %default",default=0)
-    group.add_option('--Th',type="float",default=10,help="default is %default")
-    group.add_option("--Box",type="str",default="30,2",help="default is %default")
-    group.add_option("--OutName",type="str",help="default is %default",default="mask")
-    group.add_option("--OutNameNoiseMap",type="str",help="default is %default",default="")
-    group.add_option("--ExternalMask",type="str",help="default is %default",default="")
-    group.add_option("--ds9Mask",type="str",help="default is %default",default="")
+    group.add_option('--RestoredIm',type="str",help="Name of the restored image",default=None)
+    group.add_option('--Th',type="float",default=10,help="Threshold in sigma above which to draw an island, default is %default")
+    group.add_option("--Box",type="str",default="30,2",help="Box size to compute the noise (using the very classy min() statistics). Default is %default")
+    group.add_option("--OutName",type="str",help="Output name (optional). If not specified, will just add .mask.fits at the end if RestoredIm",default="mask")
+    group.add_option("--OutNameNoiseMap",type="str",help="If you want to save the noise image image. Default is %default",default="")
+    group.add_option("--ExternalMask",type="str",help="Use an external mask in addition. Default is %default",default="")
+    group.add_option("--ds9Mask",type="str",help="You can use a ds9 reg file too. Green circle to include, Red circles to explude. This goes in combination to the --Th threshold. Default is %default",default="")
+    group.add_option('--UseIslands',type="int",help="Deprecated - look at the code",default=0)
     
     #group.add_option("--MedFilter",type="str",default="50,10")
     opt.add_option_group(group)

@@ -18,23 +18,26 @@ SaveName="last_MakeModel.obj"
 def read_options():
     desc="""Questions and suggestions: cyril.tasse@obspm.fr"""
     global options
-    opt = optparse.OptionParser(usage='Usage: %prog --ms=somename.MS <options>',version='%prog version 1.0',description=desc)
+    opt = optparse.OptionParser(usage='This is mostly used cluster the skymodels (usage %prog <options>). Two skymodels can be used (i) bbs-type skymodels (ii) DDF <BaseImageName>.DicoModel.',version='%prog version 1.0',description=desc)
 
-    group = optparse.OptionGroup(opt, "* Data-related options", "Won't work if not specified.")
-    group.add_option('--SkyModel',help='List of targets [no default]',default='')
-    group.add_option('--OutSkyModel',help='List of targets [no default]',default='')
+    group = optparse.OptionGroup(opt, "* SM related options", "Won't work if not specified.")
+    group.add_option('--SkyModel',help='Name of the bbs type skymodel',default='')
     group.add_option('--BaseImageName',help='List of targets [no default]',default='')
-    group.add_option('--MaskName',help='List of targets [no default]',default='')
-    group.add_option('--CleanNegComp',help='List of targets [no default]',type="int",default=0)
-    group.add_option('--NCluster',help=' Default is %default',default="0")
-    group.add_option('--DoPlot',help=' Default is %default',default="1")
-    group.add_option('--DoSelect',help=' Default is %default',default="0")
-    group.add_option('--DoPrint',help=' Default is %default',default="0")
-    group.add_option('--CMethod',help=' Clustering method [1,2,3,4]. Default is %default',default="4")
-    group.add_option('--PreClusterFile',help=' PreClusterFile. Default is %default',default="")
-    group.add_option('--RemoveNegComp',help=' PreClusterFile. Default is %default',type=int,default=0)
-    group.add_option('--FromClusterCat',help=' PreClusterFile. Default is %default',type=str,default="")
-    group.add_option('--ApparantFlux',type="int",help=' PreClusterFile. Default is %default',default=1)
+    opt.add_option_group(group)
+
+    group = optparse.OptionGroup(opt, "* Options")
+    group.add_option('--OutSkyModel',help='Name of the output skymodel (optional)',default='')
+    group.add_option('--MaskName',help='If you want to use a mask to mask the DicoModel',default='')
+    group.add_option('--CleanNegComp',help='Remove some negative componants (experimental - not adviced without looking at the code)',type="int",default=0)
+    group.add_option('--RemoveNegComp',help='To remove all negative componants.',type=int,default=0)
+    group.add_option('--NCluster',help='Number of directions to cluster the sky model %default',default="0")
+    group.add_option('--DoPlot',help='To plot the tesselation and other, default is %default',default="1")
+    group.add_option('--DoSelect',help='Deprecated',default="0")
+    group.add_option('--DoPrint',help='Deprecated',default="0")
+    group.add_option('--CMethod',help='Clustering method [1,2,3,4] - look at the code for detail. Default is %default',default="4")
+    group.add_option('--ds9PreClusterFile',help='For manual clustering. Do a ds9 .reg file with green circles (should be default) - and these will ne the nodes of the clustering',default="")
+    group.add_option('--FromClusterCat',help='To use an external .ClusterCat.npy file.',type=str,default="")
+    group.add_option('--ApparantFlux',type="int",help='Cluster the sources optimising the apparant flux. Default is %default',default=1)
     opt.add_option_group(group)
 
 
@@ -181,7 +184,7 @@ def main(options=None):
         #np.save(SkyModel,Cat)
         print>>log, "  done"
 
-    PreCluster=options.PreClusterFile
+    PreCluster=options.ds9PreClusterFile
     SM.Cluster(NCluster=NCluster,DoPlot=DoPlot,PreCluster=PreCluster,FromClusterCat=options.FromClusterCat)
     SM.MakeREG()
     SM.Save()

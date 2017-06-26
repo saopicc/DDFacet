@@ -264,7 +264,8 @@ class ClassSM():
                 l0,m0=np.array(ListL),np.array(ListM)
                 nk=l0.size
 
-                CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot,InitLM=(l0,m0))
+                #CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot)#,InitLM=(l0,m0))
+                CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot)#,InitLM=(l0,m0))
 
         REGFile="%s.tessel.reg"%self.TargetList
 
