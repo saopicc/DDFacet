@@ -237,6 +237,7 @@ class ClassSM():
                 l0,m0=self.radec2lm_scalar(np.array(ra),np.array(dec))
                 nk=l0.size
 
+                #CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot)#,InitLM=(l0,m0))
                 CM=ClassClusterKMean(x,y,s,nk,DoPlot=DoPlot)#,InitLM=(l0,m0))
 
         REGFile="%s.tessel.reg"%self.TargetList
