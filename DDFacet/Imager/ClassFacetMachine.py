@@ -663,16 +663,21 @@ class ClassFacetMachine():
         mask2 = mask_flat2.reshape(X.shape)
         mask[mask2 == 0] = 0
 
+        #NB: this spatial weighting is a bit arbitrary.... 
+        #it may be better to do something like Montage's background
+        #normalization (http://montage.ipac.caltech.edu/docs/algorithms.html#background)
         GaussPars = (10, 10, 0)
 
         # compute spatial weight term
         sw = np.float32(mask.reshape((1, 1, Npix, Npix)))
 
         # already happening in parallel so make sure the FFT library doesn't spawn its own threads
-        sw = ModFFTW.ConvolveGaussianFFTW(sw,
-                                          CellSizeRad=1,
-                                          GaussPars=[GaussPars],
-                                          nthreads=1)
+        sw = ModFFTW.ConvolveGaussian(shareddict = {"in": sw, "out": sw},
+                                      field_in = "in",
+                                      field_out = "out",
+                                      ch = 0,
+                                      CellSizeRad=1,
+                                      GaussPars_ch=GaussPars)
         sw = sw.reshape((Npix, Npix))
         sw /= np.max(sw)
         ## Will speedup degridding NB: will it?

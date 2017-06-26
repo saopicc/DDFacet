@@ -29,6 +29,10 @@ import numexpr
 from DDFacet.Other.AsyncProcessPool import APP
 from DDFacet.Array import shared_dict
 from DDFacet.Other import MyLogger
+import ModToolBox
+from DDFacet.ToolsDir.ModToolBox import EstimateNpix
+from DDFacet.ToolsDir import Gaussian
+
 log=MyLogger.getLogger("ModFFTW")
 
 #Fs=pyfftw.interfaces.numpy_fft.fftshift
@@ -40,101 +44,99 @@ iFs=scipy.fftpack.ifftshift
 
 NCPU_global = 0#psutil.cpu_count()
 
-def test():
-    size=20
-    dtype=np.complex128
-    test_array = np.zeros( (size,size), dtype=dtype)
+#def test():
+#    size=20
+#    dtype=np.complex128
+#    test_array = np.zeros( (size,size), dtype=dtype)
+#
+#    test_array[11,11]=1
+#    #test_array.fill(1)
+#    #test_array[size*3/8:size*5/8, size*3/8:size*5/8] = 1+1j # square aperture oversampling 2...
+#    A=test_array
+#    F=FFTWnp(A)
+#
+#    f_A=F.fft(A)
+#    if_f_A=F.ifft(f_A)
+#
+#    import pylab
+#    pylab.clf()
+#    lA=[A,f_A,if_f_A]
+#    iplot=0
+#    for iA in lA:
+#        pylab.subplot(3,2,iplot+1)
+#        pylab.imshow(iA.real,interpolation="nearest")
+#        pylab.colorbar()
+#        pylab.subplot(3,2,iplot+2)
+#        pylab.imshow(iA.imag,interpolation="nearest")
+#        pylab.colorbar()
+#        iplot+=2
+#    pylab.draw()
+#    pylab.show(False)
 
-    test_array[11,11]=1
-    #test_array.fill(1)
-    #test_array[size*3/8:size*5/8, size*3/8:size*5/8] = 1+1j # square aperture oversampling 2...
-    A=test_array
-    F=FFTWnp(A)
+#def test2():
+#    l=[]
+#    size=2048
+#    dtype=np.complex128
+#    test_array = np.zeros( (size,size), dtype=dtype)
+#    test_array[size*3/8:size*5/8, size*3/8:size*5/8] = 1+1j # square aperture oversampling 2...
+#    A=test_array
+#    for i in range(5):
+#        print i
+#        l.append(FFTW(A))
 
-    f_A=F.fft(A)
-    if_f_A=F.ifft(f_A)
+#class FFTW():
+#   def __init__(self, A, ncores = 1):
+#       Raise("deprecated: this doesn't work for small ffts", DeprecationWarning)
 
-    import pylab
-    pylab.clf()
-    lA=[A,f_A,if_f_A]
-    iplot=0
-    for iA in lA:
-        pylab.subplot(3,2,iplot+1)
-        pylab.imshow(iA.real,interpolation="nearest")
-        pylab.colorbar()
-        pylab.subplot(3,2,iplot+2)
-        pylab.imshow(iA.imag,interpolation="nearest")
-        pylab.colorbar()
-        iplot+=2
-    pylab.draw()
-    pylab.show(False)
+#       dtype=A.dtype
+#       self.A = pyfftw.n_byte_align_empty( A.shape, 16, dtype=dtype)
 
-def test2():
-    l=[]
-    size=2048
-    dtype=np.complex128
-    test_array = np.zeros( (size,size), dtype=dtype)
-    test_array[size*3/8:size*5/8, size*3/8:size*5/8] = 1+1j # square aperture oversampling 2...
-    A=test_array
-    for i in range(5):
-        print i
-        l.append(FFTW(A))
+#       pyfftw.interfaces.cache.enable()
+#       pyfftw.interfaces.cache.set_keepalive_time(30)
+#       self.ncores=ncores
+#       #print "plan"
+#       T= ClassTimeIt.ClassTimeIt("ModFFTW")
+#       T.disable()
 
+#       self.A = pyfftw.interfaces.numpy_fft.fft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE',  threads=self.ncores)
+#       T.timeit("planF")
+#       self.A = pyfftw.interfaces.numpy_fft.ifft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE',  threads=self.ncores)
+#       T.timeit("planB")
+#       #print "done"
+#       self.ThisType=dtype
 
+#   def fft(self, A, norm=True):
+#       axes=(-1,-2)
 
+#       T= ClassTimeIt.ClassTimeIt("ModFFTW")
+#       T.disable()
+#       self.A[:,:] = iFs(A.astype(self.ThisType),axes=axes)
+#       T.timeit("shift and copy")
+#       #print "do fft"
+#       self.A = pyfftw.interfaces.numpy_fft.fft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
+#       T.timeit("fft")
+#       #print "done"
+#       if norm:
+#           out=Fs(self.A,axes=axes)/(A.shape[-1]*A.shape[-2])
+#       T.timeit("shift")
+#       return out
+#
 
+#   def ifft(self,A):
+#       axes=(-1,-2)
+#       #log=MyLogger.getLogger("ModToolBox.FFTM2.ifft")
+#       self.A[:,:] = iFs(A.astype(self.ThisType),axes=axes)
 
-class FFTW():
-    def __init__(self, A, ncores = 1):
-        dtype=A.dtype
-        self.A = pyfftw.n_byte_align_empty( A.shape, 16, dtype=dtype)
- 
-        pyfftw.interfaces.cache.enable()
-        pyfftw.interfaces.cache.set_keepalive_time(30)
-        self.ncores=ncores
-        #print "plan"
-        T= ClassTimeIt.ClassTimeIt("ModFFTW")
-        T.disable()
-
-        self.A = pyfftw.interfaces.numpy_fft.fft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE',  threads=self.ncores)
-        T.timeit("planF")
-        self.A = pyfftw.interfaces.numpy_fft.ifft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE',  threads=self.ncores)
-        T.timeit("planB")
-        #print "done"
-        self.ThisType=dtype
-
-    def fft(self, A, norm=True):
-        axes=(-1,-2)
-
-        T= ClassTimeIt.ClassTimeIt("ModFFTW")
-        T.disable()
-        self.A[:,:] = iFs(A.astype(self.ThisType),axes=axes)
-        T.timeit("shift and copy")
-        #print "do fft"
-        self.A = pyfftw.interfaces.numpy_fft.fft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
-        T.timeit("fft")
-        #print "done"
-        if norm:
-            out=Fs(self.A,axes=axes)/(A.shape[-1]*A.shape[-2])
-        T.timeit("shift")
-        return out
- 
-
-    def ifft(self,A):
-        axes=(-1,-2)
-        #log=MyLogger.getLogger("ModToolBox.FFTM2.ifft")
-        self.A[:,:] = iFs(A.astype(self.ThisType),axes=axes)
-
-        #print "do fft"
-        self.A = out = pyfftw.interfaces.numpy_fft.ifft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
-        if norm:
-            out=Fs(self.A,axes=axes)*(A.shape[-1]*A.shape[-2])
-        return out
+#       #print "do fft"
+#       self.A = out = pyfftw.interfaces.numpy_fft.ifft2(self.A, axes=(-1,-2),overwrite_input=True, planner_effort='FFTW_MEASURE', threads=self.ncores)
+#       if norm:
+#           out=Fs(self.A,axes=axes)*(A.shape[-1]*A.shape[-2])
+#       return out
 
 def GiveFFTW_aligned(shape, dtype):
     return pyfftw.n_byte_align_empty( shape[-2::], 16, dtype=dtype)
 
-
+# FFTW version of the FFT engine
 class FFTW_2Donly():
     def __init__(self, shape, dtype, norm=True, ncores=1, FromSharedId=None):
         # if FromSharedId is None:
@@ -183,7 +185,6 @@ class FFTW_2Donly():
             A /= (A.shape[-1] * A.shape[-2])
 
         return A.reshape(sin)
- 
 
     def ifft(self, A, norm=True):
         axes=(-1,-2)
@@ -202,8 +203,7 @@ class FFTW_2Donly():
             A *= (A.shape[-1] * A.shape[-2])
         return A.reshape(sin)
 
-
-
+# LAPACK (or ATLAS???) version of the FFT engine
 class FFTW_2Donly_np():
     def __init__(self, shape=None, dtype=None, ncores = 1):
 
@@ -233,7 +233,6 @@ class FFTW_2Donly_np():
                 T.timeit("shift")
 
         return A
- 
 
     def ifft(self,A,ChanList=None):
         axes=(-1,-2)
@@ -282,23 +281,24 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parall
     #Gauss/=np.sum(Gauss)
     return Gauss
 
-from DDFacet.ToolsDir import Gaussian
-def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
-    Npix=int(2*8*Sig)
-    if Npix%2==0: Npix+=1
-    x0=Npix/2
-    x,y=np.mgrid[-x0:x0:Npix*1j,-x0:x0:Npix*1j]
-    #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
-    if GaussPar is None:
-        GaussPar=(Sig,Sig,0)
-    in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
+#def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
+#   warnings.warn("deprecated: this wont work for small ffts...",
+#                 DeprecationWarning)
+#   Npix=int(2*8*Sig)
+#   if Npix%2==0: Npix+=1
+#   x0=Npix/2
+#   x,y=np.mgrid[-x0:x0:Npix*1j,-x0:x0:Npix*1j]
+#   #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
+#   if GaussPar is None:
+#       GaussPar=(Sig,Sig,0)
+#   in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
 
-    nch,npol,_,_=Ain0.shape
-    Out=np.zeros_like(Ain0)
-    for ch in range(nch):
-        in1=Ain0[ch,0]
-        Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
-    return Out,in2
+#   nch,npol,_,_=Ain0.shape
+#   Out=np.zeros_like(Ain0)
+#   for ch in range(nch):
+#       in1=Ain0[ch,0]
+#       Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
+#   return Out,in2
 
 
 def learnFFTWWisdom(npix,dtype=np.float32):
@@ -312,28 +312,101 @@ def learnFFTWWisdom(npix,dtype=np.float32):
         a = pyfftw.interfaces.numpy_fft.fft2(test, overwrite_input=True, threads=1)
         b = pyfftw.interfaces.numpy_fft.ifft2(a, overwrite_input=True, threads=1)
 
-def _convolveSingleGaussianFFTW(shareddict, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
+# FFTW-based convolution
+def _convolveSingleGaussianFFTW(shareddict,
+                                field_in,
+                                field_out,
+                                ch,
+                                CellSizeRad,
+                                GaussPars_ch,
+                                Normalise = False,
+                                nthreads = 1):
+    """Convolves a single channel in a cube of nchan, npol, Ny, Nx
+       @param shareddict: a dictionary containing an input and output array of size
+       [nchans, npols, Ny, Nx]
+       @param field_in: index of input field in shareddict
+       @param field_out: index of the output field in shareddict (can be the
+       same as field_in
+       @param ch: index of channel to convolve
+       @param CellSizeRad: pixel size in radians of the gaussian in image space
+       @param Normalize: Normalize the guassian amplitude
+    """
+    # The FFT needs to be big enough to avoid spectral leakage in the
+    # transforms, so we pad both sides of the stack of images with the same
+    # number of pixels. This preserves the baseband component correctly:
+    # Even - 4 pixels becomes 6 for instance:
+    #   |   |   |  x  |    | => |    |    |    |  x  |    |    |
+    # Odd - 3 pixels becomes 5 for instance:
+    #   |   |  x  |   | => |   |   |  x  |   |   |
+    # IFFTShift will shift the central location down to 0 (middle + 1 and
+    # middle for even and odd respectively). After FFT the baseband is at
+    # 0 as expected. FFTShift can then recentre the FFT. Going back the 
+    # IFF is again applied so baseband is at 0, ifft taken and FFTShift
+    # brings the central location back to middle + 1 and middle for even and
+    # odd respectively. The signal can then safely be unpadded
+
     T = ClassTimeIt.ClassTimeIt()
     T.disable()
     Ain = shareddict[field_in][ch]
     Aout = shareddict[field_out][ch]
     T.timeit("init %d"%ch)
-    PSF = GiveGauss(Ain.shape[-1], CellSizeRad, GaussPars_ch, parallel=True)
-    # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
+    npol, npix_y, npix_x = Ain.shape
+    pad_edge_x = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
+                               2.0) * 2),0)
+    pad_edge_y = max(int(np.ceil((ModToolBox.EstimateNpix(npix_y)[1] - npix_y) /
+                                   2.0) * 2),0)
+    PSF = GiveGauss(npix_x + pad_edge_x, CellSizeRad, GaussPars_ch, parallel=True)
+
     if Normalise:
         PSF /= np.sum(PSF)
     T.timeit("givegauss %d"%ch)
-    fPSF = pyfftw.interfaces.numpy_fft.rfft2(iFs(PSF), overwrite_input=True, threads=1)
+    fPSF = pyfftw.interfaces.numpy_fft.rfft2(iFs(PSF),
+                                             overwrite_input=True,
+                                             threads=nthreads)
     fPSF = np.abs(fPSF)
-    npol = Ain.shape[0]
     for pol in range(npol):
-        A = iFs(Ain[pol])
-        fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=1)
+        A = iFs(np.pad(Ain[pol],
+                       pad_width=((pad_edge_y//2, pad_edge_x//2),
+                                  (pad_edge_y//2, pad_edge_x//2)),
+                       mode="constant"))
+        fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True,
+                                               threads=nthreads)
         nfA = fA*fPSF
-        Aout[pol, :, :] = Fs(pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=1))
+        Aout[pol, :, :] = Fs(
+            pyfftw.interfaces.numpy_fft.irfft2(nfA,
+                                               s=A.shape,
+                                               overwrite_input=True,
+                                               threads=nthreads)[pad_edge_y//2:npix_y-pad_edge_y//2,
+                                                                 pad_edge_x//2:npix_x-pad_edge_x//2])
     T.timeit("convolve %d" % ch)
+    return Aout
 
-def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch, CellSizeRad, GaussPars_ch, Normalise):
+# LAPACK / ATLAS-based convolution
+def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch, CellSizeRad,
+                              GaussPars_ch, Normalise = False):
+    """Convolves a single channel in a cube of nchan, npol, Ny, Nx
+       @param shareddict: a dictionary containing an input and output array of size
+       [nchans, npols, Ny, Nx]
+       @param field_in: index of input field in shareddict
+       @param field_out: index of the output field in shareddict (can be the
+       same as field_in
+       @param ch: index of channel to convolve
+       @param CellSizeRad: pixel size in radians of the gaussian in image space
+       @param Normalize: Normalize the guassian amplitude
+    """
+    # The FFT needs to be big enough to avoid spectral leakage in the
+    # transforms, so we pad both sides of the stack of images with the same
+    # number of pixels. This preserves the baseband component correctly:
+    # Even - 4 pixels becomes 6 for instance:
+    #   |   |   |  x  |    | => |    |    |    |  x  |    |    |
+    # Odd - 3 pixels becomes 5 for instance:
+    #   |   |  x  |   | => |   |   |  x  |   |   |
+    # IFFTShift will shift the central location down to 0 (middle + 1 and
+    # middle for even and odd respectively). After FFT the baseband is at
+    # 0 as expected. FFTShift can then recentre the FFT. Going back the 
+    # IFF is again applied so baseband is at 0, ifft taken and FFTShift
+    # brings the central location back to middle + 1 and middle for even and
+    # odd respectively. The signal can then safely be unpadded
     T = ClassTimeIt.ClassTimeIt()
     Ain = shareddict[field_in][ch]
     Aout = shareddict[field_out][ch]
@@ -352,7 +425,9 @@ def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch, CellSizeRad, 
         nfA = fA*fPSF
         Aout[pol, :, :] = np.fft.irfft2(nfA, s=A.shape)
     T.timeit("convolve %d" % ch)
+    return Aout
 
+ConvolveGaussian = _convolveSingleGaussianFFTW
 
 def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False):
     """Convolves images held in a dict, using APP.
@@ -373,237 +448,245 @@ def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,G
 
 APP.registerJobHandlers(_convolveSingleGaussianFFTW, _convolveSingleGaussianNP)
 
-# FFTW version
-def ConvolveGaussianFFTW(Ain0,
-                         CellSizeRad=None,
-                         GaussPars=[(0.,0.,0.)],
-                         Normalise=False,
-                         out=None,
-                         nthreads=1):
-    nch,npol,_,_=Ain0.shape
-    Aout = np.zeros_like(Ain0) if out is None else out
-    T = ClassTimeIt.ClassTimeIt()
-    T.disable()
-#    FFTM = FFTW_2Donly(Ain0[0,...].shape, Ain0.dtype, norm=False, ncores=0)  # full-parellel if available
-    T.timeit("init")
+## FFTW version
+#def ConvolveGaussianFFTW(Ain0,
+#                        CellSizeRad=None,
+#                        GaussPars=[(0.,0.,0.)],
+#                        Normalise=False,
+#                        out=None,
+#                        nthreads=1,
+#                        min_size_fft=2048):
+#   warnings.warn("deprecated", DeprecationWarning)
 
-    for ch in range(nch):
-        Ain=Ain0[ch]
-        ThisGaussPars=GaussPars[ch]
-        PSF=GiveGauss(Ain.shape[-1],CellSizeRad,ThisGaussPars)
-        T.timeit("givegauss")
-        if Normalise:
-            PSF/=np.sum(PSF)
-        PSF = np.fft.ifftshift(PSF)
-        fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=nthreads)
-        for pol in range(npol):
-            A = np.fft.ifftshift(Ain[pol])
-            fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=nthreads)
-            nfA = fA*fPSF
-            ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=nthreads)
-            Aout[ch, pol, :, :] = np.fft.fftshift(ifA)
-        T.timeit("conv")
+#   assert Ain0.shape == 4, "Expected stack of images: nch, npol, Ny, Nx"
+#   nch,npol,Ny,Nx=Ain0.shape
+#   pady = max(Ny, min_size_fft)
+#   padx = max(Nx, min_size_fft)
+#   Aout = np.zeros_like(Ain0) if out is None else out
+#   T = ClassTimeIt.ClassTimeIt()
+#   T.disable()
+#   T.timeit("init")
 
-    return Aout
+#   for ch in range(nch):
+#       Ain=Ain0[ch]
+#       ThisGaussPars=GaussPars[ch]
+#       PSF=GiveGauss(Ain.shape[-1],CellSizeRad,ThisGaussPars)
+#       T.timeit("givegauss")
+#       if Normalise:
+#           PSF/=np.sum(PSF)
+#       PSF = np.fft.ifftshift(PSF)
+#       fPSF = pyfftw.interfaces.numpy_fft.rfft2(PSF, overwrite_input=True, threads=nthreads)
+#       for pol in range(npol):
+#           A = np.fft.ifftshift(Ain[pol])
+#           fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True, threads=nthreads)
+#           nfA = fA*fPSF
+#           ifA= pyfftw.interfaces.numpy_fft.irfft2(nfA, s=A.shape, overwrite_input=True, threads=nthreads)
+#           Aout[ch, pol, :, :] = np.fft.fftshift(ifA)
+#       T.timeit("conv")
 
-from DDFacet.ToolsDir.ModToolBox import EstimateNpix
-class ZMachine():
-    def __init__(self,A):
-        self.N=A.shape[-1]
-        zN=2*self.N+1
-        zN,_=EstimateNpix(float(zN))
-        self.zN=zN
+#   return Aout
 
-    def toZeroPad(self,A):
-        zN=self.zN
-        N=self.N
-        zA=np.zeros((zN,zN),dtype=A.dtype)
-        if N%2:
-            zA[zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1]=A[:,:]
-            #nx,ny=A.shape
-            #zA[:nx/2+1,0:ny]=A[:nx/2+1,:]
-            #zA[-nx/2+1:,0:ny]=A[-nx/2+1:,:]
-        else:
-            zA[zN/2-N/2:zN/2+N/2,zN/2-N/2:zN/2+N/2]=A[:,:]
-            
-        # import pylab
-        # pylab.subplot(1,2,1)
-        # pylab.imshow(A.real,interpolation="nearest")
-        # pylab.subplot(1,2,2)
-        # pylab.imshow(zA.real,interpolation="nearest")
-        # pylab.draw()
-        # pylab.show(False)
-        # stop
+#class ZMachine():
+#   #Why??: np.pad...
+#   def __init__(self,A):
+#       self.N=A.shape[-1]
+#       zN=2*self.N+1
+#       zN,_=EstimateNpix(float(zN))
+#       self.zN=zN
 
-        return zA
+#   def toZeroPad(self,A):
+#       zN=self.zN
+#       N=self.N
+#       zA=np.zeros((zN,zN),dtype=A.dtype)
+#       if N%2:
+#           zA[zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1]=A[:,:]
+#           #nx,ny=A.shape
+#           #zA[:nx/2+1,0:ny]=A[:nx/2+1,:]
+#           #zA[-nx/2+1:,0:ny]=A[-nx/2+1:,:]
+#       else:
+#           zA[zN/2-N/2:zN/2+N/2,zN/2-N/2:zN/2+N/2]=A[:,:]
+#           
+#       # import pylab
+#       # pylab.subplot(1,2,1)
+#       # pylab.imshow(A.real,interpolation="nearest")
+#       # pylab.subplot(1,2,2)
+#       # pylab.imshow(zA.real,interpolation="nearest")
+#       # pylab.draw()
+#       # pylab.show(False)
+#       # stop
 
-    def fromZeroPad(self,zA):
-        zN=self.zN
-        N=self.N
-        A=np.zeros((N,N),dtype=zA.dtype)
-        if N%2:
-            A[:,:]=zA[zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1]
-        else:
-            A[:,:]=zA[zN/2-N/2:zN/2+N/2,zN/2-N/2:zN/2+N/2]
+#       return zA
 
-        return A
+#   def fromZeroPad(self,zA):
+#       zN=self.zN
+#       N=self.N
+#       A=np.zeros((N,N),dtype=zA.dtype)
+#       if N%2:
+#           A[:,:]=zA[zN/2-N/2:zN/2+N/2+1,zN/2-N/2:zN/2+N/2+1]
+#       else:
+#           A[:,:]=zA[zN/2-N/2:zN/2+N/2,zN/2-N/2:zN/2+N/2]
 
-# FFTW version
-def ConvolveFFTW2D(Ain0,Bin0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,out=None,ZeroPad=False):
-    if Ain0.shape != Bin0.shape:
-        raise NotImplementedError("Arrays should have the same shapes")
+#       return A
 
-    if ZeroPad:
-        ZM=ZMachine(Ain0)
-        Ain=ZM.toZeroPad(Ain0)
-        PSF=ZM.toZeroPad(Bin0)
-    else:
-        Ain=Ain0
-        PSF=Bin0
+## FFTW-based convolution version
+#def ConvolveFFTW2D(Ain0,Bin0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,out=None,ZeroPad=False):
+#   warnings.warn("deprecated: this doesn't work for small ffts", DeprecationWarning)
 
-    #Aout = np.zeros_like(Ain) if out is None else out
+#   if Ain0.shape != Bin0.shape:
+#       raise NotImplementedError("Arrays should have the same shapes")
 
-    fft_forward=pyfftw.interfaces.numpy_fft.rfft2
-    fft_bakward=pyfftw.interfaces.numpy_fft.irfft2
-    fft_forward=pyfftw.interfaces.numpy_fft.fft2
-    fft_bakward=pyfftw.interfaces.numpy_fft.ifft2
+#   if ZeroPad:
+#       ZM=ZMachine(Ain0)
+#       Ain=ZM.toZeroPad(Ain0)
+#       PSF=ZM.toZeroPad(Bin0)
+#   else:
+#       Ain=Ain0
+#       PSF=Bin0
+
+#   #Aout = np.zeros_like(Ain) if out is None else out
+
+#   fft_forward=pyfftw.interfaces.numpy_fft.rfft2
+#   fft_bakward=pyfftw.interfaces.numpy_fft.irfft2
+#   fft_forward=pyfftw.interfaces.numpy_fft.fft2
+#   fft_bakward=pyfftw.interfaces.numpy_fft.ifft2
 
 
-    if Normalise:
-        PSF/=np.sum(PSF)
-    T = ClassTimeIt.ClassTimeIt()
-    T.disable()
-    T.timeit("init")
+#   if Normalise:
+#       PSF/=np.sum(PSF)
+#   T = ClassTimeIt.ClassTimeIt()
+#   T.disable()
+#   T.timeit("init")
 
-    #print PSF.shape
+#   #print PSF.shape
 
-    PSF = np.fft.fftshift(PSF)
-    T.timeit("shoft")
-    #print PSF.shape
+#   PSF = np.fft.fftshift(PSF)
+#   T.timeit("shoft")
+#   #print PSF.shape
 
-    fPSF = fft_forward(PSF, overwrite_input=True, threads=1)#NCPU_global)
-    T.timeit("fft1")
-    #print fPSF.shape
+#   fPSF = fft_forward(PSF, overwrite_input=True, threads=1)#NCPU_global)
+#   T.timeit("fft1")
+#   #print fPSF.shape
 
-    #print Ain.shape
-    A = np.fft.fftshift(Ain)
-    #print A.shape
-    T.timeit("shoft")
+#   #print Ain.shape
+#   A = np.fft.fftshift(Ain)
+#   #print A.shape
+#   T.timeit("shoft")
 
-    fA = fft_forward(A, overwrite_input=True, threads=1)#NCPU_global), planner_effort='FFTW_MEASURE'
-    T.timeit("fft2")
-    #print fA.shape
+#   fA = fft_forward(A, overwrite_input=True, threads=1)#NCPU_global), planner_effort='FFTW_MEASURE'
+#   T.timeit("fft2")
+#   #print fA.shape
 
-    nfA = fA*fPSF
-    T.timeit("mult")
+#   nfA = fA*fPSF
+#   T.timeit("mult")
 
 #    if ZeroPad:
 #        nfA=ZM.toZeroPad(nfA)
-    ifA= fft_bakward(nfA, overwrite_input=True, threads=1)#NCPU_global)
-    T.timeit("ifft")
+#   ifA= fft_bakward(nfA, overwrite_input=True, threads=1)#NCPU_global)
+#   T.timeit("ifft")
 
-    Aout = np.fft.ifftshift(ifA)
-    T.timeit("shift")
-    #print Aout.shape
-    if ZeroPad:
-        Aout=ZM.fromZeroPad(Aout)
-    #print Aout.shape
-    return Aout
+#   Aout = np.fft.ifftshift(ifA)
+#   T.timeit("shift")
+#   #print Aout.shape
+#   if ZeroPad:
+#       Aout=ZM.fromZeroPad(Aout)
+#   #print Aout.shape
+#   return Aout
 
 ## numpy.fft version
-def ConvolveGaussianNPclassic(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,out=None):
+#def ConvolveGaussianNPclassic(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,out=None):
+#   warnings.warn("deprecated: this doesn't work for small ffts", DeprecationWarning)
+#   nch,npol,_,_=Ain0.shape
+#   Aout = np.zeros_like(Ain0) if out is None else out
 
-    nch,npol,_,_=Ain0.shape
-    Aout = np.zeros_like(Ain0) if out is None else out
+#   T = ClassTimeIt.ClassTimeIt()
+#   T.disable()
+#   T.timeit("init %s"%(Ain0.shape,))
 
-    T = ClassTimeIt.ClassTimeIt()
-    T.disable()
-    T.timeit("init %s"%(Ain0.shape,))
+#   for ch in range(nch):
+#       Ain=Ain0[ch]
+#       ThisGaussPars=GaussPars[ch]
+#       PSF=GiveGauss(Ain.shape[-1],CellSizeRad,ThisGaussPars)
+#       print PSF
+#       T.timeit("givegauss")
+#       # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
+#       if Normalise:
+#           PSF/=np.sum(PSF)
+#       FFTM = FFTWnpNonorm(PSF)
+#       fPSF = FFTM.fft(PSF)
+#       fPSF = np.abs(fPSF)
+#       for pol in range(npol):
+#           A = Ain[pol]
+#           FFTM = FFTWnpNonorm(A)
+#           fA = FFTM.fft(A)
+#           nfA = fA*fPSF#Gauss
+#           if_fA = FFTM.ifft(nfA)
+#           # if_fA=(nfA)
+#           Aout[ch,pol,:,:] = if_fA.real
+#       T.timeit("conv")
 
-    for ch in range(nch):
-        Ain=Ain0[ch]
-        ThisGaussPars=GaussPars[ch]
-        PSF=GiveGauss(Ain.shape[-1],CellSizeRad,ThisGaussPars)
-        print PSF
-        T.timeit("givegauss")
-        # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
-        if Normalise:
-            PSF/=np.sum(PSF)
-        FFTM = FFTWnpNonorm(PSF)
-        fPSF = FFTM.fft(PSF)
-        fPSF = np.abs(fPSF)
-        for pol in range(npol):
-            A = Ain[pol]
-            FFTM = FFTWnpNonorm(A)
-            fA = FFTM.fft(A)
-            nfA = fA*fPSF#Gauss
-            if_fA = FFTM.ifft(nfA)
-            # if_fA=(nfA)
-            Aout[ch,pol,:,:] = if_fA.real
-        T.timeit("conv")
+#   return Aout
 
-    return Aout
+#def ConvolveGaussianC(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,out=None):
+#   warnings.warn("deprecated: this doesn't work for small ffts", DeprecationWarning)
+#   nch,npol,_,_=Ain0.shape
+#   Aout = np.zeros_like(Ain0) if out is None else out
 
-def ConvolveGaussianC(Ain0,CellSizeRad=None,GaussPars=[(0.,0.,0.)],Normalise=False,out=None):
+#   T = ClassTimeIt.ClassTimeIt()
+#   T.timeit("init")
 
-    nch,npol,_,_=Ain0.shape
-    Aout = np.zeros_like(Ain0) if out is None else out
+#   for ch in range(nch):
+#       Ain=Ain0[ch]
+#       ThisGaussPars=GaussPars[ch]
+#       PSF=GiveGauss(Ain.shape[-1],CellSizeRad,ThisGaussPars)
+#       T.timeit("givegauss")
+#       # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
+#       if Normalise:
+#           PSF/=np.sum(PSF)
+#       PSF = np.fft.ifftshift(PSF)
+#       fPSF = np.fft.fft2(PSF)
+#       fPSF = np.abs(fPSF)
+#       for pol in range(npol):
+#           A = Ain[pol]
+#           fA = np.fft.fft2(A)
+#           nfA = fA*fPSF#Gauss
+#           if_fA = np.fft.ifft2(nfA)
+#           # if_fA=(nfA)
+#           Aout[ch,pol,:,:] = np.fft.fftshift(if_fA.real)
+#       T.timeit("conv")
 
-    T = ClassTimeIt.ClassTimeIt()
-    T.timeit("init")
-
-    for ch in range(nch):
-        Ain=Ain0[ch]
-        ThisGaussPars=GaussPars[ch]
-        PSF=GiveGauss(Ain.shape[-1],CellSizeRad,ThisGaussPars)
-        T.timeit("givegauss")
-        # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
-        if Normalise:
-            PSF/=np.sum(PSF)
-        PSF = np.fft.ifftshift(PSF)
-        fPSF = np.fft.fft2(PSF)
-        fPSF = np.abs(fPSF)
-        for pol in range(npol):
-            A = Ain[pol]
-            fA = np.fft.fft2(A)
-            nfA = fA*fPSF#Gauss
-            if_fA = np.fft.ifft2(nfA)
-            # if_fA=(nfA)
-            Aout[ch,pol,:,:] = np.fft.fftshift(if_fA.real)
-        T.timeit("conv")
-
-    return Aout
+#   return Aout
 
 
-def ConvolveGaussianR (Ain0, CellSizeRad=None, GaussPars=[(0., 0., 0.)], Normalise=False, out=None):
-    nch, npol, _, _ = Ain0.shape
-    Aout = np.zeros_like(Ain0) if out is None else out
+#def ConvolveGaussianR (Ain0, CellSizeRad=None, GaussPars=[(0., 0., 0.)], Normalise=False, out=None):
+#   warnings.warn("deprecated: this doesn't work for small ffts", DeprecationWarning)
 
-    T = ClassTimeIt.ClassTimeIt()
-    T.disable()
-    T.timeit("init")
+#   nch, npol, _, _ = Ain0.shape
+#   Aout = np.zeros_like(Ain0) if out is None else out
 
-    for ch in range(nch):
-        Ain = Ain0[ch]
-        ThisGaussPars = GaussPars[ch]
-        PSF = GiveGauss(Ain.shape[-1], CellSizeRad, ThisGaussPars)
-        T.timeit("givegauss")
-        # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
-        if Normalise:
-            PSF /= np.sum(PSF)
-        PSF = np.fft.ifftshift(PSF)
-        fPSF = np.fft.rfft2(PSF)
-        fPSF = np.abs(fPSF)
-        for pol in range(npol):
-            fA = np.fft.rfft2(np.fft.ifftshift(Ain[pol]))
-            nfA = fA * fPSF
-            if_fA = np.fft.irfft2(nfA, s=Ain[pol].shape)
-            Aout[ch, pol, :, :] = np.fft.fftshift(if_fA)
-        T.timeit("conv")
+#   T = ClassTimeIt.ClassTimeIt()
+#   T.disable()
+#   T.timeit("init")
 
-    return Aout
+#   for ch in range(nch):
+#       Ain = Ain0[ch]
+#       ThisGaussPars = GaussPars[ch]
+#       PSF = GiveGauss(Ain.shape[-1], CellSizeRad, ThisGaussPars)
+#       T.timeit("givegauss")
+#       # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
+#       if Normalise:
+#           PSF /= np.sum(PSF)
+#       PSF = np.fft.ifftshift(PSF)
+#       fPSF = np.fft.rfft2(PSF)
+#       fPSF = np.abs(fPSF)
+#       for pol in range(npol):
+#           fA = np.fft.rfft2(np.fft.ifftshift(Ain[pol]))
+#           nfA = fA * fPSF
+#           if_fA = np.fft.irfft2(nfA, s=Ain[pol].shape)
+#           Aout[ch, pol, :, :] = np.fft.fftshift(if_fA)
+#       T.timeit("conv")
 
-ConvolveGaussian = ConvolveGaussianR
+#   return Aout
+
 
 
         # import pylab
@@ -632,110 +715,110 @@ ConvolveGaussian = ConvolveGaussianR
 
     # return if_fA
 
-def testConvolveGaussian(parallel=False):
-    nchan = 10
-    npix = 2000
-    T = ClassTimeIt.ClassTimeIt()
-    if parallel:
-        learnFFTWWisdom(npix)
-        T.timeit("learn")
-        APP.registerJobHandlers(_convolveSingleGaussian)
-        APP.startWorkers()
-    sd = shared_dict.attach("test")
-    A = sd.addSharedArray("A", (nchan,1,npix,npix),np.float32)
-    A[0,0,10,10]=1
-    SigMaj=2#(20/3600.)*np.pi/180
-    SigMin=1#(5/3600.)*np.pi/180
-    ang=30.*np.pi/180
-    GaussPars= [(SigMaj,SigMin,ang)]*nchan
-    CellSizeRad=1#(5./3600)*np.pi/180
-    if parallel:
-        sd.addSharedArray("B", (nchan, 1, 2000, 2000), np.float32)
-        ConvolveGaussianInParallel(sd, "A", "B", CellSizeRad=CellSizeRad, GaussPars=GaussPars)
-        T.timeit("********* parallel")
-    ConvolveGaussianFFTW(A,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-    T.timeit("********* serial-fftw")
-    ConvolveGaussian(A,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-    T.timeit("********* serial-np")
-    ConvolveGaussianC(A,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-    T.timeit("********* serial-npc")
-    ConvolveGaussianR(A,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-    T.timeit("********* serial-npr")
+#def testConvolveGaussian(parallel=False):
+#    nchan = 10
+#    npix = 2000
+#    T = ClassTimeIt.ClassTimeIt()
+#    if parallel:
+#        learnFFTWWisdom(npix)
+#        T.timeit("learn")
+#        APP.registerJobHandlers(_convolveSingleGaussian)
+#        APP.startWorkers()
+#    sd = shared_dict.attach("test")
+#    A = sd.addSharedArray("A", (nchan,1,npix,npix),np.float32)
+#    A[0,0,10,10]=1
+#    SigMaj=2#(20/3600.)*np.pi/180
+#    SigMin=1#(5/3600.)*np.pi/180
+#    ang=30.*np.pi/180
+#    GaussPars= [(SigMaj,SigMin,ang)]*nchan
+#    CellSizeRad=1#(5./3600)*np.pi/180
+#    if parallel:
+#        sd.addSharedArray("B", (nchan, 1, 2000, 2000), np.float32)
+#        ConvolveGaussianInParallel(sd, "A", "B", CellSizeRad=CellSizeRad, GaussPars=GaussPars)
+#        T.timeit("********* parallel")
+#    ConvolveGaussianFFTW(A,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+#    T.timeit("********* serial-fftw")
+#    ConvolveGaussian(A,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+#    T.timeit("********* serial-np")
+#    ConvolveGaussianC(A,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+#    T.timeit("********* serial-npc")
+#    ConvolveGaussianR(A,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+#    T.timeit("********* serial-npr")
+#
+#    sd.delete()
+#    if parallel:
+#        APP.shutdown()
 
-    sd.delete()
-    if parallel:
-        APP.shutdown()
+#class FFTWnp():
+#   def __init__(self, A, ncores = 1):
+#       warnings.warn("deprecated: this doesn't work for small ffts", DeprecationWarning)
 
-
-
-class FFTWnp():
-    def __init__(self, A, ncores = 1):
-        dtype=A.dtype
-        self.ThisType=dtype
-
-
-
-    def fft(self,A):
-        axes=(-2,-1)
-
-        T= ClassTimeIt.ClassTimeIt("ModFFTW")
-        T.disable()
-
-        A = iFs(A.astype(self.ThisType),axes=axes)
-        T.timeit("shift and copy")
-        #print "do fft"
-        A = np.fft.fft2(A,axes=axes)
-        T.timeit("fft")
-        #print "done"
-        A=Fs(A,axes=axes)/(A.shape[-1]*A.shape[-2])
-        T.timeit("shift")
-        return A
- 
-
-    def ifft(self,A):
-        axes=(-2,-1)
-        #log=MyLogger.getLogger("ModToolBox.FFTM2.ifft")
-        A = iFs(A.astype(self.ThisType),axes=axes)
-
-        #print "do fft"
-        A = np.fft.ifft2(A,axes=axes)
-        out=Fs(A,axes=axes)*(A.shape[-1]*A.shape[-2])
-        return out
-
- 
-class FFTWnpNonorm():
-    def __init__(self, A, ncores = 1):
-        #dtype=A.dtype
-        self.ThisType=np.complex64
+#       dtype=A.dtype
+#       self.ThisType=dtype
 
 
 
-    def fft(self,A):
-        axes=(-2,-1)
+#   def fft(self,A):
+#       axes=(-2,-1)
 
-        T= ClassTimeIt.ClassTimeIt("ModFFTW")
-        T.disable()
+#       T= ClassTimeIt.ClassTimeIt("ModFFTW")
+#       T.disable()
 
-        A = iFs(A.astype(self.ThisType),axes=axes)
-        T.timeit("shift and copy")
-        #print "do fft"
-        A = np.fft.fft2(A,axes=axes)
-        T.timeit("fft")
-        #print "done"
-        A=Fs(A,axes=axes)#/(A.shape[-1]*A.shape[-2])
-        T.timeit("shift")
-        return A
- 
+#       A = iFs(A.astype(self.ThisType),axes=axes)
+#       T.timeit("shift and copy")
+#       #print "do fft"
+#       A = np.fft.fft2(A,axes=axes)
+#       T.timeit("fft")
+#       #print "done"
+#       A=Fs(A,axes=axes)/(A.shape[-1]*A.shape[-2])
+#       T.timeit("shift")
+#       return A
+#
 
-    def ifft(self,A):
-        axes=(-2,-1)
-        #log=MyLogger.getLogger("ModToolBox.FFTM2.ifft")
-        A = iFs(A.astype(self.ThisType),axes=axes)
+#   def ifft(self,A):
+#       axes=(-2,-1)
+#       #log=MyLogger.getLogger("ModToolBox.FFTM2.ifft")
+#       A = iFs(A.astype(self.ThisType),axes=axes)
 
-        #print "do fft"
-        A = np.fft.ifft2(A,axes=axes)
-        out=Fs(A,axes=axes)#*(A.shape[-1]*A.shape[-2])
-        return out
+#       #print "do fft"
+#       A = np.fft.ifft2(A,axes=axes)
+#       out=Fs(A,axes=axes)*(A.shape[-1]*A.shape[-2])
+#       return out
 
- 
+#
+#class FFTWnpNonorm():
+#   def __init__(self, A, ncores = 1):
+#       warnings.warn("deprecated: this doesn't work for small ffts", DeprecationWarning)
+
+#       #dtype=A.dtype
+#       self.ThisType=np.complex64
+
+
+
+#   def fft(self,A):
+#       axes=(-2,-1)
+
+#       T= ClassTimeIt.ClassTimeIt("ModFFTW")
+#       T.disable()
+
+#       A = iFs(A.astype(self.ThisType),axes=axes)
+#       T.timeit("shift and copy")
+#       #print "do fft"
+#       A = np.fft.fft2(A,axes=axes)
+#       T.timeit("fft")
+#       #print "done"
+#       A=Fs(A,axes=axes)#/(A.shape[-1]*A.shape[-2])
+#       T.timeit("shift")
+#       return A
+#
+
+#   def ifft(self,A):
+#       axes=(-2,-1)
+#       #log=MyLogger.getLogger("ModToolBox.FFTM2.ifft")
+#       A = iFs(A.astype(self.ThisType),axes=axes)
+
+#       #print "do fft"
+#       A = np.fft.ifft2(A,axes=axes)
+#       out=Fs(A,axes=axes)#*(A.shape[-1]*A.shape[-2])
+#       return out
 
