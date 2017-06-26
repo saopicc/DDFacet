@@ -155,7 +155,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 #         entry["SolsArray"][:,pol_array_index] += Weight*SolNorm
 # >>>>>>> issue-255
 
-    def setListComponents(self,ListScales):
+    def setListComponants(self,ListScales):
         self.ListScales=ListScales
 
     def GiveSpectralIndexMap(self, threshold=0.1, save_dict=True):
@@ -361,7 +361,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
  
         return ModelImage
 
-    def CleanNegComponents(self,box=20,sig=3,RemoveNeg=True):
+    def CleanNegComponants(self,box=20,sig=3,RemoveNeg=True):
         print>>log, "Cleaning model dictionary from negative components with (box, sig) = (%i, %i)"%(box,sig)
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
 
@@ -382,7 +382,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             except:
                 print>>log, "  Component at (%i, %i) not in dict "%key
 
-    def CleanMaskedComponents(self,MaskName):
+    def CleanMaskedComponants(self,MaskName):
         print>>log, "Cleaning model dictionary from masked components using %s"%(MaskName)
         im=image(MaskName)
         MaskArray=im.getdata()[0,0].T[::-1]

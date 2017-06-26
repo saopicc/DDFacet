@@ -323,7 +323,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         
 
         
-    def setListComponents(self,ListScales):
+    def setListComponants(self,ListScales):
         self.ListScales=ListScales
 
     def GiveSpectralIndexMap(self, threshold=0.1, save_dict=True):
@@ -366,7 +366,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     #     return alpha
 
         
-    def RemoveNegComponents(self):
+    def RemoveNegComponants(self):
         print>>log, "Cleaning model dictionary from negative components"
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
         
@@ -379,7 +379,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             except:
                 print>>log, "  Component at (%i, %i) not in dict "%key
 
-    def FilterNegComponents(self,box=20,sig=3,RemoveNeg=True):
+    def FilterNegComponants(self,box=20,sig=3,RemoveNeg=True):
         print>>log, "Cleaning model dictionary from negative components with (box, sig) = (%i, %i)"%(box,sig)
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
         
@@ -400,7 +400,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             except:
                 print>>log, "  Component at (%i, %i) not in dict "%key
 
-    def CleanMaskedComponents(self,MaskName):
+    def CleanMaskedComponants(self,MaskName):
         print>>log, "Cleaning model dictionary from masked components using %s"%(MaskName)
         im=image(MaskName)
         MaskArray=im.getdata()[0,0].T[::-1]
