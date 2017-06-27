@@ -1272,7 +1272,7 @@ class ClassMS():
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
         if vis is None:
             vis=self.data
-        if DoPrint: print>>log, "Writting data in column %s" % ModColor.Str(Col, col="green")
+        if DoPrint: print>>log, "Writing data in column %s" % ModColor.Str(Col, col="green")
         table_all=self.GiveMainTable(readonly=False)
 
         if self.swapped:
@@ -1553,7 +1553,7 @@ class ClassMS():
             pBAR.render(ant0+1, na)
                     
     
-        print>>log,"Writting in column UVWDT"
+        print>>log,"Writing in column UVWDT"
         t.putcol("UVWDT",UVW_dt)
         t.close()
     

@@ -154,7 +154,7 @@ class ClassIslandDistanceMachine():
         if self.PSFCross is None:
             self.CalcCrossIslandPSF(ListIslands)
         NIslands=len(ListIslands)
-        print>>log,"  grouping cross contaninating islands..."
+        print>>log,"  grouping cross contaminating islands..."
 
         MaxIslandFlux=np.zeros((NIslands,),np.float32)
         DicoIsland={}

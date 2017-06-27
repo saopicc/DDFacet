@@ -193,7 +193,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # RestoreDico=self.GD["Data"]["RestoreDico"]
         RestoreDico = DicoSolsFile["ModelName"][()][0:-4] + ".DicoModel"
 
-        print>> log, "Adding previously substracted components"
+        print>> log, "Adding previously subtracted components"
         ModelMachine0 = ClassModelMachine(self.GD)
 
         ModelMachine0.FromFile(RestoreDico)

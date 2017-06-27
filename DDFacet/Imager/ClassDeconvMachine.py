@@ -1330,7 +1330,7 @@ class ClassImagerDeconv():
 
         # ####################
         # Run MetroClean
-        print>>log,"Runing a Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
+        print>>log,"Running a Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
         DeconvMachine.setDeconvMode(Mode="MetroClean")
         DeconvMachine.Update(self.DicoDirty)
         repMinor, continue_deconv, update_model = DeconvMachine.Deconvolve()
@@ -1426,7 +1426,7 @@ class ClassImagerDeconv():
                 SmoothNorm=Norm
                 sqrtSmoothNorm=sqrtNorm
             else:
-                print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparant images",col="blue")
+                print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparent images",col="blue")
                 SmoothNorm=self.FacetMachine.MeanSmoothJonesNorm
                 sqrtSmoothNorm=np.sqrt(SmoothNorm)
 
@@ -1474,7 +1474,7 @@ class ClassImagerDeconv():
             try:
                 ModelMachine.PutBackSubsComps()
             except:
-                print>>log, ModColor.Str("Failed Putting back substracted components")
+                print>>log, ModColor.Str("Failed putting back subtracted components")
 
         # do we have a non-trivial norm (i.e. DDE solutions or beam)?
         # @cyriltasse: maybe there's a quicker way to check?
@@ -1518,7 +1518,7 @@ class ClassImagerDeconv():
                     if self.FacetMachine.MeanSmoothJonesNorm is None:
                         a = self.MeanJonesNorm 
                     else:
-                        print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparant images",col="blue")
+                        print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparent images",col="blue")
                         a=self.FacetMachine.MeanSmoothJonesNorm
                 else:
                     a=np.array([1])
@@ -1532,7 +1532,7 @@ class ClassImagerDeconv():
                     if self.FacetMachine.MeanSmoothJonesNorm is None:
                         a = self.JonesNorm 
                     else:
-                        print>>log,ModColor.Str("Using the smooth beam to normalise the apparant images",col="blue")
+                        print>>log,ModColor.Str("Using the smooth beam to normalise the apparent images",col="blue")
                         a=self.FacetMachine.SmoothJonesNorm
                 else:
                     a=np.array([1])
