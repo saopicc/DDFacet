@@ -408,22 +408,33 @@ def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch, CellSizeRad,
     # brings the central location back to middle + 1 and middle for even and
     # odd respectively. The signal can then safely be unpadded
     T = ClassTimeIt.ClassTimeIt()
+    T.disable()
     Ain = shareddict[field_in][ch]
     Aout = shareddict[field_out][ch]
     T.timeit("init %d"%ch)
-    PSF = GiveGauss(Ain.shape[-1], CellSizeRad, GaussPars_ch, parallel=True)
+    npol, npix_y, npix_x = Ain.shape
+    pad_edge_x = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
+                               2.0) * 2),0)
+    pad_edge_y = max(int(np.ceil((ModToolBox.EstimateNpix(npix_y)[1] - npix_y) /
+                                   2.0) * 2),0)
+    PSF = GiveGauss(npix_x + pad_edge_x, CellSizeRad, GaussPars_ch, parallel=True)
+
     # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
     if Normalise:
         PSF /= np.sum(PSF)
     T.timeit("givegauss %d"%ch)
-    fPSF = np.fft.rfft2(PSF)
+    fPSF = np.fft.rfft2(iFs(PSF))
     fPSF = np.abs(fPSF)
-    npol = Ain.shape[0]
     for pol in range(npol):
-        A = Ain[pol]
+        A = iFs(np.pad(Ain[pol],
+                       pad_width=((pad_edge_y//2, pad_edge_x//2),
+                                  (pad_edge_y//2, pad_edge_x//2)),
+                       mode="constant"))
         fA = np.fft.rfft2(A)
         nfA = fA*fPSF
-        Aout[pol, :, :] = np.fft.irfft2(nfA, s=A.shape)
+        Aout[pol, :, :] = Fs(np.fft.irfft2(nfA, s=A.shape)[pad_edge_y//2:npix_y-pad_edge_y//2,
+                                                           pad_edge_x//2:npix_x-pad_edge_x//2])
+
     T.timeit("convolve %d" % ch)
     return Aout
 
