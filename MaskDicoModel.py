@@ -47,22 +47,8 @@ def main(options=None):
     if options.FilterNegComp:
         MM.RemoveNegComponants()
 
-
-    x,y=MM.DicoSMStacked["Comp"].keys()[0]
-    V=MM.DicoSMStacked["Comp"][(x,y)]
-    del(MM.DicoSMStacked["Comp"])
-    MM.DicoSMStacked["Comp"]={}
-    x=y=19845/2
-    MM.DicoSMStacked["Comp"][(x,y)]={'Vals': [np.array([ 10.,  0.])]}
     MM.ToFile(options.OutDicoModel)
 
-    # Model=MM.GiveModelImage()
-    # Cell=MM.GD["Image"]["Cell"]
-    # CasaImage=ClassCasaImage.ClassCasaimage(Model,Model.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
-    # CasaImage.setdata(SmearedModel+self.Residual,CorrT=True)
-    # CasaImage.ToFits()
-    # CasaImage.setBeam((SmoothFWHM,SmoothFWHM,0))
-    # CasaImage.close()
 
 if __name__=="__main__":
     read_options()
