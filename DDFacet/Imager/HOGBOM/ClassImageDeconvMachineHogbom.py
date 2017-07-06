@@ -25,6 +25,7 @@ algorithms into DDFacet.
 """
 
 import numpy as np
+import numexpr
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassImageDeconvMachine")
@@ -86,25 +87,6 @@ class ClassImageDeconvMachine():
             self.ModelMachine = ModelMachine
         self.GainMachine = self.ModelMachine.GainMachine
         self.GiveEdges = GiveEdges.GiveEdges
-        # self.PolarizationDescriptor = ImagePolDescriptor
-        # self.PolarizationCleanTasks = []
-        # if "I" in self.PolarizationDescriptor:
-        #     self.PolarizationCleanTasks.append("I")
-        #     print>>log,"Found Stokes I. I will be CLEANed independently"
-        # else:
-        #     print>>log, "Stokes I not available. Not performing intensity CLEANing."
-        # if "V" in self.PolarizationDescriptor:
-        #     self.PolarizationCleanTasks.append("V")
-        #     print>> log, "Found Stokes V. V will be CLEANed independently"
-        # else:
-        #     print>>log, "Did not find stokes V image. Will not clean Circular Polarization."
-        # if set(["Q","U"]) < set(self.PolarizationDescriptor):
-        #     self.PolarizationCleanTasks.append("Q+iU") #Luke Pratley's complex polarization CLEAN
-        #     print>> log, "Found Stokes Q and U. Will perform joint linear (Pratley-Johnston-Hollitt) CLEAN."
-        # else:
-        #     print>>log, "Stokes Images Q and U must both be synthesized to CLEAN linear polarization. " \
-        #                 "Will not CLEAN these."
-        # reset overall iteration counter
         self._niter = 0
         if CleanMaskImage is not None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
@@ -171,6 +153,17 @@ class ClassImageDeconvMachine():
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
         self.DicoVariablePSF=DicoVariablePSF
 
+    def setNoiseMap(self, NoiseMap, PNRStop=10):
+        """Sets the noise map. The mean dirty will be divided by the noise map before peak finding.
+        If PNRStop is set, an additional stopping criterion (peak-to-noisemap) will be applied.
+            Peaks are reported in units of sigmas.
+        If PNRStop is not set, NoiseMap is treated as simply an (inverse) weighting that will bias
+            peak selection in the minor cycle. In this mode, peaks are reported in units of flux.
+        """
+        self._NoiseMap = NoiseMap
+        self._PNRStop = PNRStop
+        self._peakMode = "sigma"
+
     def SetDirty(self,DicoDirty):
         self.DicoDirty=DicoDirty
         self._Dirty = self.DicoDirty["ImageCube"]
@@ -182,53 +175,23 @@ class ClassImageDeconvMachine():
         off=(NPSF-NDirty)/2
         self.DirtyExtent=(off,off+NDirty,off,off+NDirty)
 
+        if self._peakMode is "sigma":
+            print>> log, "Will search for the peak in the SNR-weighted dirty map"
+            a, b = self._MeanDirty, self._NoiseMap.reshape(self._MeanDirty.shape)
+            self._PeakSearchImage = numexpr.evaluate("a/b")
+        # elif self._peakMode is "weighted":   ######## will need to get a PeakWeightImage from somewhere for this option
+        #     print>> log, "Will search for the peak in the weighted dirty map"
+        #     a, b = self._MeanDirty, self._peakWeightImage
+        #     self._PeakSearchImage = numexpr.evaluate("a*b")
+        else:
+            print>> log, "Will search for the peak in the unweighted dirty map"
+            self._PeakSearchImage = self._MeanDirty
+
         if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)
         if self.MaskArray is None:
             self._MaskArray=np.zeros(self._Dirty.shape,dtype=np.bool8)
 
-    # this is now imported from ToolsDir
-    # def GiveEdges(self,(xc0,yc0),N0,(xc1,yc1),N1):
-    #     """
-    #     Each pixel in the image is associated with a different facet each with
-    #     a different PSF.
-    #     This finds the indices corresponding to the edges of a local psf centered
-    #     on a specific pixel, here xc0,yc0.
-    #     """
-    #     M_xc=xc0
-    #     M_yc=yc0
-    #     NpixMain=N0
-    #     F_xc=xc1
-    #     F_yc=yc1
-    #     NpixFacet=N1
-    #
-    #     ## X
-    #     M_x0=M_xc-NpixFacet/2
-    #     x0main=np.max([0,M_x0])
-    #     dx0=x0main-M_x0
-    #     x0facet=dx0
-    #
-    #     M_x1=M_xc+NpixFacet/2
-    #     x1main=np.min([NpixMain-1,M_x1])
-    #     dx1=M_x1-x1main
-    #     x1facet=NpixFacet-dx1
-    #     x1main+=1
-    #
-    #     ## Y
-    #     M_y0=M_yc-NpixFacet/2
-    #     y0main=np.max([0,M_y0])
-    #     dy0=y0main-M_y0
-    #     y0facet=dy0
-    #
-    #     M_y1=M_yc+NpixFacet/2
-    #     y1main=np.min([NpixMain-1,M_y1])
-    #     dy1=M_y1-y1main
-    #     y1facet=NpixFacet-dy1
-    #     y1main+=1
-    #
-    #     Aedge=[x0main,x1main,y0main,y1main]
-    #     Bedge=[x0facet,x1facet,y0facet,y1facet]
-    #     return Aedge,Bedge
 
     def SubStep(self,(dx,dy),LocalSM):
         """
@@ -475,3 +438,16 @@ class ClassImageDeconvMachine():
         Read model dict from file SubtractModel
         """
         self.ModelMachine.FromFile(fname)
+
+    def updateRMS(self):
+        _,npol,npix,_ = self._MeanDirty.shape
+        NPixStats = self.GD["Deconv"]["NumRMSSamples"]
+        if NPixStats:
+            #self.IndStats=np.int64(np.random.rand(NPixStats)*npix**2)
+            self.IndStats=np.int64(np.linspace(0,self._PeakSearchImage.size-1,NPixStats))
+        else:
+            self.IndStats = slice(None)
+        self.RMS=np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
+
+    def resetCounter(self):
+        self._niter = 0
