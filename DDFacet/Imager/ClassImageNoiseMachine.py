@@ -25,11 +25,11 @@ from pyrap.images import image
 import scipy.special
 import copy
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
-from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
+
 from DDFacet.ToolsDir import ModFFTW
 
 class ClassImageNoiseMachine():
-    def __init__(self,GD,ExternalModelMachine=None):
+    def __init__(self,GD,ExternalModelMachine=None, DegridFreqs=None):
         self.GD=GD
         
         self.NoiseMap=None
@@ -37,6 +37,7 @@ class ClassImageNoiseMachine():
         self.NoiseMapReShape=None
         self._id_InputMap=None
         self.ExternalModelMachine=ExternalModelMachine
+        self.DegridFreqs = DegridFreqs
 
 
     def setMainCache(self,MainCache):
@@ -109,7 +110,8 @@ class ClassImageNoiseMachine():
 
     def giveBrutalRestored(self,DicoResidual):
         print>>log,"  Running Brutal HMP..."
-        ListSilentModules=["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"]
+        ListSilentModules=["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine",
+                           "ClassModelMachineMSMF", "ClassImageDeconvMachineHogbom", "ClassModelMachineHogbom"]
         # MyLogger.setSilent(ListSilentModules)
         self.DicoDirty=DicoResidual
         self.Orig_MeanDirty=self.DicoDirty["MeanImage"].copy()
@@ -165,13 +167,23 @@ class ClassImageNoiseMachine():
         MinorCycleConfig["ModelMachine"]=ModelMachine
         #MinorCycleConfig["CleanMaskImage"]=None
         self.MinorCycleConfig=MinorCycleConfig
-        self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.MainCache,
-                                                                               CacheSharedMode=True,
-                                                                               ParallelMode=False,
-                                                                               CacheFileName="HMP_Masking",
-                                                                               **self.MinorCycleConfig)
+        if self.GD["Deconv"]["Mode"]=="HMP":
+            from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
+            self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.MainCache,
+                                                                                   CacheSharedMode=True,
+                                                                                   ParallelMode=False,
+                                                                                   CacheFileName="HMP_Masking",
+                                                                                   **self.MinorCycleConfig)
+        elif self.GD["Deconv"]["Mode"]=="Hogbom":
+            from DDFacet.Imager.MOGBOM import ClassImageDeconvMachineHogbom
+            self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(MainCache=self.MainCache,
+                                                                                   CacheSharedMode=True,
+                                                                                   ParallelMode=False,
+                                                                                   CacheFileName="HMP_Masking",
+                                                                                   **self.MinorCycleConfig)
         
-        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1])
+        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1],
+                                GridFreqs=DicoVariablePSF["freqs"], DegridFreqs=self.DegridFreqs, RefFreq=self.RefFreq)
 
         if self.NoiseMapReShape is not None:
             self.DeconvMachine.setNoiseMap(self.NoiseMapReShape,PNRStop=self.GD["Mask"]["SigTh"])
