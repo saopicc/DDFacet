@@ -40,7 +40,6 @@ class ClassImageNoiseMachine():
         self.DegridFreqs = DegridFreqs
         self.GridFreqs = GridFreqs
 
-
     def setMainCache(self,MainCache):
         self.MainCache=MainCache
 
