@@ -50,7 +50,7 @@ class SharedDict (dict):
             self.exc_info = exc_info
 
     class ItemProxy(object):
-        """Base class for helper class used to defer loading of ShareDict items until they are actually requested"""
+        """Base class for helper class used to defer loading of SharedDict items until they are actually requested"""
         def __init__(self, path):
             self.path = path
         def load(self):

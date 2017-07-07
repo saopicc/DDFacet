@@ -36,7 +36,7 @@ def read_options():
     opt = optparse.OptionParser(usage='Usage: %prog <options>',version='%prog version 1.0',description=desc)
 
     group = optparse.OptionGroup(opt, "* SHM")
-    group.add_option('--ID',help='ID of ssared memory to be deleted, default is %default',default=None)
+    group.add_option('--ID',help='ID of shared memory to be deleted, default is %default',default=None)
     opt.add_option_group(group)
     options, arguments = opt.parse_args()
     

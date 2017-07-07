@@ -1195,7 +1195,7 @@ class ClassFacetMachine():
         NFacets=len(self.DicoImager.keys())
         pBAR.render(0, NFacets)
 
-        numexpr.set_num_threads(self.GD["Parallel"]["NCPU"])
+        # numexpr.set_num_threads(self.GD["Parallel"]["NCPU"])  # done in DDF.py
 
         for iFacet in self.DicoImager.keys():
 

@@ -333,7 +333,7 @@ def test_Dot_ListBlockMat_Mat():
     T=ClassTimeIt.ClassTimeIt()
 
 
-    print "Dimentions A[%s], B[%s]"%(BlocksMat.shape,B.shape)
+    print "Dimensions A[%s], B[%s]"%(BlocksMat.shape,B.shape)
     R0=Dot_ListBlockMat_Mat(ListBlocks,B)
     T.timeit("ListProd")
     R1=np.dot(BlocksMat,B)
@@ -361,7 +361,7 @@ def test_Dot_ListBlockMat_Mat_Big():
     T=ClassTimeIt.ClassTimeIt()
 
 
-    print "Dimentions A[%ix%s -> %s], B[%s]"%(nblocks,ThisBlock.shape,(nblocks*n,nblocks*n),B.shape)
+    print "Dimensions A[%ix%s -> %s], B[%s]"%(nblocks,ThisBlock.shape,(nblocks*n,nblocks*n),B.shape)
     R0=Dot_ListBlockMat_Mat(ListBlocks,B)
     T.timeit("ListProd")
 

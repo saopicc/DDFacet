@@ -29,7 +29,7 @@ from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
 from DDFacet.ToolsDir import ModFFTW
 
 class ClassImageNoiseMachine():
-    def __init__(self,GD,ExternalModelMachine=None):
+    def __init__(self,GD,ExternalModelMachine=None, DegridFreqs=None):
         self.GD=GD
         
         self.NoiseMap=None
@@ -37,6 +37,7 @@ class ClassImageNoiseMachine():
         self.NoiseMapReShape=None
         self._id_InputMap=None
         self.ExternalModelMachine=ExternalModelMachine
+        self.DegridFreqs = DegridFreqs
 
 
     def setMainCache(self,MainCache):
@@ -170,8 +171,10 @@ class ClassImageNoiseMachine():
                                                                                ParallelMode=False,
                                                                                CacheFileName="HMP_Masking",
                                                                                **self.MinorCycleConfig)
-        
-        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1])
+        #print ModelMachine.FreqMachine.Freqs, ModelMachine.FreqMachine.Freqs
+        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1],
+                                GridFreqs=DicoVariablePSF["freqs"], DegridFreqs=self.DegridFreqs,
+                                RefFreq=self.RefFreq)
 
         if self.NoiseMapReShape is not None:
             self.DeconvMachine.setNoiseMap(self.NoiseMapReShape,PNRStop=self.GD["Mask"]["SigTh"])

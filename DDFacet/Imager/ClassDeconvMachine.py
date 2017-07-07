@@ -164,7 +164,7 @@ class ClassImagerDeconv():
         del(self.GD["Deconv"]["MaxMajorIter"])
         # If we do the deconvolution construct a model according to what is in MinorCycleConfig
         MinorCycleConfig=dict(self.GD["Deconv"])
-        MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
+        MinorCycleConfig["NCPU"] = self.GD["Parallel"]["NCPU"]
         MinorCycleConfig["NBand"]=MinorCycleConfig["NFreqBands"]=self.VS.NFreqBands
         MinorCycleConfig["GD"] = self.GD
         MinorCycleConfig["ImagePolDescriptor"] = self.VS.StokesConverter.RequiredStokesProducts()
@@ -204,7 +204,8 @@ class ClassImagerDeconv():
 
 
 
-        self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD,self.ModelMachine)
+        self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD,self.ModelMachine,
+                                                                        DegridFreqs=self.VS.FreqBandChannelsDegrid[0])
         self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
         self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
 
@@ -1093,7 +1094,8 @@ class ClassImagerDeconv():
                 self._fitAndSavePSF(self.FacetMachinePSF, cycle=iMajor)
                 self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
                                         approx=(sparsify > approximate_psf_above),
-                                        cache=not sparsify)
+                                        cache=not sparsify, GridFreqs=self.VS.FreqBandCenters,
+                                        DegridFreqs=self.VS.FreqBandChannelsDegrid[0], RefFreq=self.VS.RefFreq)
 
             # if we reached a sparsification of 1, we shan't be re-making the PSF
             if sparsify <= 1:
@@ -1330,7 +1332,7 @@ class ClassImagerDeconv():
 
         # ####################
         # Run MetroClean
-        print>>log,"Runing a Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
+        print>>log,"Running a Metropolis-Hastings MCMC on islands larger than %i pixels"%self.GD["SSDClean"]["RestoreMetroSwitch"]
         DeconvMachine.setDeconvMode(Mode="MetroClean")
         DeconvMachine.Update(self.DicoDirty)
         repMinor, continue_deconv, update_model = DeconvMachine.Deconvolve()
@@ -1426,7 +1428,7 @@ class ClassImagerDeconv():
                 SmoothNorm=Norm
                 sqrtSmoothNorm=sqrtNorm
             else:
-                print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparant images",col="blue")
+                print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparent images",col="blue")
                 SmoothNorm=self.FacetMachine.MeanSmoothJonesNorm
                 sqrtSmoothNorm=np.sqrt(SmoothNorm)
 
@@ -1474,7 +1476,7 @@ class ClassImagerDeconv():
             try:
                 ModelMachine.PutBackSubsComps()
             except:
-                print>>log, ModColor.Str("Failed Putting back substracted components")
+                print>>log, ModColor.Str("Failed putting back subtracted components")
 
         # do we have a non-trivial norm (i.e. DDE solutions or beam)?
         # @cyriltasse: maybe there's a quicker way to check?
@@ -1518,7 +1520,7 @@ class ClassImagerDeconv():
                     if self.FacetMachine.MeanSmoothJonesNorm is None:
                         a = self.MeanJonesNorm 
                     else:
-                        print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparant images",col="blue")
+                        print>>log,ModColor.Str("Using the freq-averaged smooth beam to normalise the apparent images",col="blue")
                         a=self.FacetMachine.MeanSmoothJonesNorm
                 else:
                     a=np.array([1])
@@ -1532,7 +1534,7 @@ class ClassImagerDeconv():
                     if self.FacetMachine.MeanSmoothJonesNorm is None:
                         a = self.JonesNorm 
                     else:
-                        print>>log,ModColor.Str("Using the smooth beam to normalise the apparant images",col="blue")
+                        print>>log,ModColor.Str("Using the smooth beam to normalise the apparent images",col="blue")
                         a=self.FacetMachine.SmoothJonesNorm
                 else:
                     a=np.array([1])

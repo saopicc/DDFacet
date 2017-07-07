@@ -402,7 +402,7 @@ class ClassImageDeconvMachine():
         mm0,mm1=self.Dirty.min(),self.Dirty.max()
         print>>log, "    Dirty image peak flux   = %7.3f Jy [(min, max) = (%7.3f, %7.3f) Jy]"%(MaxDirty,mm0,mm1)
         print>>log, "    RMS threshold flux      = %7.3f Jy [rms      = %7.3f Jy]"%(FluxLimit, RMS)
-        print>>log, "    Sidelobs threshold flux = %7.3f Jy [sidelobe = %7.3f of peak]"%(Threshold_SideLobe,self.SideLobeLevel)
+        print>>log, "    Sidelobe threshold flux = %7.3f Jy [sidelobe = %7.3f of peak]"%(Threshold_SideLobe,self.SideLobeLevel)
 
         MaxModelInit=np.max(np.abs(self.ModelImage))
 
