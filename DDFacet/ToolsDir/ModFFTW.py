@@ -351,11 +351,12 @@ def _convolveSingleGaussianFFTW(shareddict,
     Aout = shareddict[field_out][ch]
     T.timeit("init %d"%ch)
     npol, npix_y, npix_x = Ain.shape
-    pad_edge_x = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
+    assert npix_y == npix_x, "Only supports square grids at the moment"
+    pad_edge = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
                                2.0) * 2),0)
-    pad_edge_y = max(int(np.ceil((ModToolBox.EstimateNpix(npix_y)[1] - npix_y) /
-                                   2.0) * 2),0)
-    PSF = GiveGauss(npix_x + pad_edge_x, CellSizeRad, GaussPars_ch, parallel=True)
+    PSF = np.pad(GiveGauss(npix_x, CellSizeRad, GaussPars_ch, parallel=True),
+                 ((pad_edge//2,pad_edge//2),(pad_edge//2,pad_edge//2)),
+                 mode="constant")
 
     if Normalise:
         PSF /= np.sum(PSF)
@@ -366,8 +367,7 @@ def _convolveSingleGaussianFFTW(shareddict,
     fPSF = np.abs(fPSF)
     for pol in range(npol):
         A = iFs(np.pad(Ain[pol],
-                       pad_width=((pad_edge_y//2, pad_edge_x//2),
-                                  (pad_edge_y//2, pad_edge_x//2)),
+                       ((pad_edge//2,pad_edge//2),(pad_edge//2,pad_edge//2)),
                        mode="constant"))
         fA = pyfftw.interfaces.numpy_fft.rfft2(A, overwrite_input=True,
                                                threads=nthreads)
@@ -376,8 +376,8 @@ def _convolveSingleGaussianFFTW(shareddict,
             pyfftw.interfaces.numpy_fft.irfft2(nfA,
                                                s=A.shape,
                                                overwrite_input=True,
-                                               threads=nthreads)[pad_edge_y//2:npix_y-pad_edge_y//2,
-                                                                 pad_edge_x//2:npix_x-pad_edge_x//2])
+                                               threads=nthreads))[pad_edge//2:pad_edge//2+npix_y,
+                                                                  pad_edge//2:pad_edge//2+npix_x]
     T.timeit("convolve %d" % ch)
     return Aout
 
@@ -413,11 +413,12 @@ def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch, CellSizeRad,
     Aout = shareddict[field_out][ch]
     T.timeit("init %d"%ch)
     npol, npix_y, npix_x = Ain.shape
-    pad_edge_x = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
+    assert npix_y == npix_x, "Only supports square grids at the moment"
+    pad_edge = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
                                2.0) * 2),0)
-    pad_edge_y = max(int(np.ceil((ModToolBox.EstimateNpix(npix_y)[1] - npix_y) /
-                                   2.0) * 2),0)
-    PSF = GiveGauss(npix_x + pad_edge_x, CellSizeRad, GaussPars_ch, parallel=True)
+    PSF = np.pad(GiveGauss(npix_x, CellSizeRad, GaussPars_ch, parallel=True),
+                 ((pad_edge//2,pad_edge//2),(pad_edge//2,pad_edge//2)),
+                 mode="constant")
 
     # PSF=np.ones((Ain.shape[-1],Ain.shape[-1]),dtype=np.float32)
     if Normalise:
@@ -427,13 +428,13 @@ def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch, CellSizeRad,
     fPSF = np.abs(fPSF)
     for pol in range(npol):
         A = iFs(np.pad(Ain[pol],
-                       pad_width=((pad_edge_y//2, pad_edge_x//2),
-                                  (pad_edge_y//2, pad_edge_x//2)),
+                       ((pad_edge//2,pad_edge//2),(pad_edge//2,pad_edge//2)),
                        mode="constant"))
         fA = np.fft.rfft2(A)
         nfA = fA*fPSF
-        Aout[pol, :, :] = Fs(np.fft.irfft2(nfA, s=A.shape)[pad_edge_y//2:npix_y-pad_edge_y//2,
-                                                           pad_edge_x//2:npix_x-pad_edge_x//2])
+        Aout[pol, :, :] = Fs(np.fft.irfft2(nfA,
+                                           s=A.shape))[pad_edge//2:npix_y+pad_edge//2,
+                                                       pad_edge//2:npix_x+pad_edge//2]
 
     T.timeit("convolve %d" % ch)
     return Aout
