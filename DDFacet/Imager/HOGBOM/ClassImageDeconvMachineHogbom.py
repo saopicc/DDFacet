@@ -97,6 +97,11 @@ class ClassImageDeconvMachine():
                 for pol in range(npol):
                     self._MaskArray[ch,pol,:,:]=np.bool8(1-MaskArray[ch,pol].T[::-1].copy())[:,:]
             self.MaskArray=self._MaskArray[0]
+        self._peakMode = "normal"
+
+        self.CurrentNegMask = None
+        self._NoiseMap = None
+        self._PNRStop = None  # in _peakMode "sigma", provides addiitonal stopping criterion
 
 
     def Init(self, **kwargs):
@@ -105,14 +110,7 @@ class ClassImageDeconvMachine():
         self.SetModelRefFreq(kwargs["RefFreq"])
         self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
         self.Freqs = kwargs["GridFreqs"]
-        # tmp = [{'Alpha': 0.0, 'Scale': 0, 'ModelType': 'Delta'}]
-        # AlphaMin, AlphaMax, NAlpha = self.GD["HMP"]["Alpha"]
-        # if NAlpha > 1:
-        #     print>>log, "Multi-frequency synthesis not supported in Hogbom CLEAN. Setting alpha to zero"
-        #
-        # self.ModelMachine.setListComponants(tmp)
 
-        # Set gridding Freqs
 
     def Reset(self):
         pass
@@ -231,7 +229,7 @@ class ClassImageDeconvMachine():
         self.MaskArray = self._MaskArray.view()[ch]
 
 
-    def Deconvolve(self, ch=0):
+    def Deconvolve(self, ch=0, **kwargs):
         """
         Runs minor cycle over image channel 'ch'.
         initMinor is number of minor iteration (keeps continuous count through major iterations)
@@ -368,7 +366,7 @@ class ClassImageDeconvMachine():
                         raise NotImplementedError("FreqMode %s not supported" % self.GD["Hogbom"]["FreqMode"])
                     Coeffs = np.zeros([npol, Ncoeffs])
                 else:
-                    Coeffs = np.zeros([npol, Ncoeffs])  # to support per channel cleaning
+                    Coeffs = np.zeros([npol, nch])  # to support per channel cleaning
 
                 # Get the JonesNorm
                 JonesNorm = (self.DicoDirty["JonesNorm"][:, :, x, y]).reshape((nch, npol, 1, 1))
@@ -376,6 +374,8 @@ class ClassImageDeconvMachine():
                 # Get the solution
                 Fpol[:, 0, 0, 0] = self._Dirty[:, 0, x, y]/np.sqrt(JonesNorm[:, 0, 0, 0])
                 # Fit a polynomial to get coeffs
+                # tmp = self.ModelMachine.FreqMachine.Fit(Fpol[:, 0, 0, 0])
+                # print tmp.shape
                 Coeffs[0, :] = self.ModelMachine.FreqMachine.Fit(Fpol[:, 0, 0, 0])
                 # Overwrite with polynoimial fit
                 Fpol[:, 0, 0, 0] = self.ModelMachine.FreqMachine.Eval(Coeffs[0, :])
