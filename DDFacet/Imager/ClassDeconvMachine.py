@@ -1613,8 +1613,13 @@ class ClassImagerDeconv():
             if label not in _images:
                 if havenorm:
                     out = _images.addSharedArray(label, appmodel().shape, np.float32)
-                    ModFFTW.ConvolveGaussian(appmodel(), CellSizeRad=self.CellSizeRad,
-                                                              GaussPars=[self.PSFGaussParsAvg], out=out)
+                    ModFFTW.ConvolveGaussian(shareddict={"in": appmodel(),
+                                                         "out": out},
+                                             field_in = "in",
+                                             field_out = "out",
+                                             ch = 0,
+                                             CellSizeRad=self.CellSizeRad,
+                                             GaussPars_ch=self.PSFGaussParsAvg)
                     T.timeit(label)
                 else:
                     _images[label] = intconvmodel()
@@ -1622,9 +1627,15 @@ class ClassImagerDeconv():
         def intconvmodel():
             label = 'intconvmodel'
             if label not in _images:
-                out = _images.addSharedArray(label, intmodel().shape, np.float32)
-                ModFFTW.ConvolveGaussian(intmodel(), CellSizeRad=self.CellSizeRad,
-                                                          GaussPars=[self.PSFGaussParsAvg], out=out)
+                out = _images.addSharedArray(label, intmodel().shape,
+                                             np.float32)
+                ModFFTW.ConvolveGaussian(shareddict={"in": intmodel(),
+                                                     "out": out},
+                                         field_in = "in",
+                                         field_out = "out",
+                                         ch = 0,
+                                         CellSizeRad=self.CellSizeRad,
+                                         GaussPars_ch=self.PSFGaussParsAvg)
                 T.timeit(label)
             return _images[label]
         def appconvmodelcube():
@@ -1681,12 +1692,24 @@ class ClassImagerDeconv():
                 # Get weighted alpha map
                 a = _images.addSharedArray('alphaconvmap', weighted_alphamap().shape, np.float32)
                 # Convolve with Gaussian
-                ModFFTW.ConvolveGaussian(weighted_alphamap(), CellSizeRad=self.CellSizeRad,
-                                         GaussPars=[self.PSFGaussParsAvg], out=a)
+                ModFFTW.ConvolveGaussian(shareddict={"in": weighted_alphamap(),
+                                                     "out": a},
+                                         field_in = "in",
+                                         field_out = "out",
+                                         ch = 0,
+                                         CellSizeRad=self.CellSizeRad,
+                                         GaussPars_ch=self.PSFGaussParsAvg)
+
                 # Get positive part of restored image
                 b = _images.addSharedArray('posconvmod', alphamap().shape, np.float32)
-                ModFFTW.ConvolveGaussian(posintmod(), CellSizeRad=self.CellSizeRad,
-                                         GaussPars=[self.PSFGaussParsAvg], out=b)
+                ModFFTW.ConvolveGaussian(shareddict={"in": alphamap(),
+                                                     "out": b},
+                                         field_in = "in",
+                                         field_out = "out",
+                                         ch = 0,
+                                         CellSizeRad=self.CellSizeRad,
+                                         GaussPars_ch=self.PSFGaussParsAvg)
+
                 c = intconvmodel()
                 # Get mask based on restored image and positive restored image
                 RMS = give_final_RMS()
