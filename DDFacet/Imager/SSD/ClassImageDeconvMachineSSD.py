@@ -225,7 +225,7 @@ class ClassImageDeconvMachine():
 
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
         ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
-        
+        ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
 
         self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
 
