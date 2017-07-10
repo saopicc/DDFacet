@@ -341,7 +341,7 @@ class ClassDDEGridMachine():
         #     Npix=Npix*2
 
         Precision = GD["RIME"]["Precision"]
-        PolMode = GD["RIME"]["PolMode"]
+        PolMode = ExpectedOutputStokes
 
         if Precision == "S":
             self.dtype = np.complex64

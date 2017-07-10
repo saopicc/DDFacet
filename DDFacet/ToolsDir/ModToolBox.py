@@ -41,13 +41,13 @@ log= MyLogger.getLogger("ModToolBox", disable=True)
 
 # def EstimateNpix(Npix,Padding=1):
 #     Npix=int(round(Npix))
-    
+
 #     NpixOrig=Npix
 #     if Npix%2!=0: Npix+=1
 #     Npix=ModToolBox.GiveClosestFastSize(Npix)
 #     NpixOpt=Npix
-    
-    
+
+
 #     Npix*=Padding
 #     Npix=int(round(Npix))
 #     if Npix%2!=0: Npix+=1
@@ -55,7 +55,13 @@ log= MyLogger.getLogger("ModToolBox", disable=True)
 #     print ModColor.Str("(NpixOrig, NpixOpt, NpixOptPadded): %i --> %i --> %i"%(NpixOrig,NpixOpt,Npix))
 #     return NpixOpt,Npix
 
-def EstimateNpix(Npix,Padding=1):
+def EstimateNpix(Npix,
+                 Padding=1.0,
+                 min_size_fft=513):
+    """ Picks image size from the list of fast FFT sizes.
+        To avoid spectral leakage the number of taps in the FFT
+        must not be too small.
+    """
     Npix=int(round(Npix))
     Odd=True
 
@@ -64,14 +70,15 @@ def EstimateNpix(Npix,Padding=1):
     #if Npix%2==0: Npix+=1
     Npix=GiveClosestFastSize(Npix,Odd=Odd)
     NpixOpt=Npix
-    
-    
-    Npix*=Padding
+
+
+    Npix *= Padding
+    if Npix < min_size_fft:
+        Npix = min_size_fft
     Npix=int(round(Npix))
     #if Npix%2!=0: Npix+=1
     #if Npix%2==0: Npix+=1
     Npix=GiveClosestFastSize(Npix,Odd=Odd)
-    #print>>log, ModColor.Str("With padding=%f: (NpixOrig, NpixOpt, NpixOptPadded): %i --> %i --> %i"%(Padding,NpixOrig,NpixOpt,Npix))
     return NpixOpt,Npix
 
 class FFTW_Convolve():
@@ -115,7 +122,7 @@ class FFTM2():
         self.fft_FORWARD = pyfftw.FFTW(self.a, self.b,direction="FFTW_FORWARD",flags=('FFTW_ESTIMATE', ))#,threads=4)
         self.fft_BACKWARD = pyfftw.FFTW(self.a, self.b,direction="FFTW_BACKWARD",flags=('FFTW_ESTIMATE', ))#,threads=4)
         #print>>log, "done"
-        
+
     def fft(self,A):
         #log=MyLogger.getLogger("ModToolBox.FFTM2.fft")
         self.a[:] = iFs(A.astype(self.ThisType),axes=-1)

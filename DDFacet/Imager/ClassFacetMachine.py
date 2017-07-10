@@ -43,6 +43,7 @@ from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
+from DDFacet.Data.ClassStokes import ClassStokes
 #from DDFacet.Array import NpParallel
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassFacetMachine")
@@ -70,7 +71,7 @@ class ClassFacetMachine():
                  GD,
                  # ParsetFile="ParsetNew.txt",
                  Precision="S",
-                 PolMode="I",
+                 PolMode=["I"],
                  Sols=None,
                  PointingID=0,
                  DoPSF=False,
@@ -96,7 +97,9 @@ class ClassFacetMachine():
 
         self.PointingID = PointingID
         self.VS, self.GD = VS, GD
-        self.npol = self.VS.StokesConverter.NStokesInImage()
+        self.StokesConverter = ClassStokes(self.VS.StokesConverter.AvailableCorrelationProductsIds(),
+                                           PolMode)
+        self.npol = self.StokesConverter.NStokesInImage()
         self.Parallel = True
         if APP is not None:
             APP.registerJobHandlers(self)
@@ -276,6 +279,11 @@ class ClassFacetMachine():
         NpixFacet, _ = EstimateNpix(diam / self.CellSizeRad, Padding=1)
         _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=self.Padding)
 
+        if NpixPaddedGrid / NpixFacet > self.Padding:
+            print>> log, ModColor.Str("W.A.R.N.I.N.G: Your FFTs are too small. We will pad it %.2f x "\
+                                      "instead of %.2f x" % (float(NpixPaddedGrid)/NpixFacet, self.Padding),
+                                      col="yellow")
+
         diam = NpixFacet * self.CellSizeRad
         diamPadded = NpixPaddedGrid * self.CellSizeRad
         RadiusFacet = diam * 0.5
@@ -353,6 +361,7 @@ class ClassFacetMachine():
         self.Npix = Npix
         self.OutImShape = (self.nch, self.npol, self.Npix, self.Npix)
         _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=Padding)
+
         self.NpixPaddedFacet = NpixPaddedGrid
         self.NpixFacet = NpixFacet
         self.FacetShape = (self.nch, self.npol, NpixFacet, NpixFacet)
@@ -733,8 +742,8 @@ class ClassFacetMachine():
             FacetInfo["DicoConfigGM"]["NPix"],
             FacetInfo["lmShift"],
             iFacet, self.SpheNorm, self.VS.NFreqBands,
-            self.VS.StokesConverter.AvailableCorrelationProductsIds(),
-            self.VS.StokesConverter.RequiredStokesProductsIds(),
+            self.StokesConverter.AvailableCorrelationProductsIds(),
+            self.StokesConverter.RequiredStokesProductsIds(),
             **kw)
 
     def ToCasaImage(self, ImageIn, Fits=True, ImageName=None,
