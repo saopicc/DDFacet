@@ -76,6 +76,7 @@ class ClassFacetMachine():
                  PointingID=0,
                  DoPSF=False,
                  Oversize=1,   # factor by which image is oversized
+                 custom_id=None
                  ):
 
         self.HasFourierTransformed = False
@@ -104,7 +105,7 @@ class ClassFacetMachine():
         if APP is not None:
             APP.registerJobHandlers(self)
             self._fft_job_counter = APP.createJobCounter("fft")
-            self._app_id = "FMPSF" if DoPSF else "FM"
+            self._app_id = ("FMPSF" if DoPSF else "FM") if custom_id is None else custom_id
 
         DicoConfigGM = {}
         self.DicoConfigGM = DicoConfigGM
@@ -652,7 +653,7 @@ class ClassFacetMachine():
                 ClassDDEGridMachine.ClassDDEGridMachine.verifyCFDict(facet_dict, self.GD["CF"]["Nw"])
                 return "cached",path,iFacet
             except:
-                print>>log,traceback.format_exc()
+                #print>>log,traceback.format_exc() #confusing...
                 print>>log, "Error loading %s, will re-generate"%path
                 facet_dict.delete()
         # ok, regenerate the terms at this point

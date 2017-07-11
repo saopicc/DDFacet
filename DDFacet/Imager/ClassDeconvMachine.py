@@ -258,7 +258,6 @@ class ClassImagerDeconv():
         # and proceed with background tasks
         self.VS.CalcWeightsBackground()
         self.FacetMachine and self.FacetMachine.initCFInBackground()
-        self.StokesFacetMachine and self.StokesFacetMachine.initCFInBackground(other_fm=self.FacetMachine)
         # FacetMachinePSF will skip CF init if they match those of FacetMachine
         if self.FacetMachinePSF is not None:
             self.FacetMachinePSF.initCFInBackground(other_fm=self.FacetMachine)
@@ -271,7 +270,8 @@ class ClassImagerDeconv():
             self.StokesFacetMachine = ClassFacetMachine(self.VS,
                                                         self.GD,
                                                         Precision=self.Precision,
-                                                        PolMode=self.GD["Output"]["StokesResidues"])
+                                                        PolMode=self.GD["Output"]["StokesResidues"],
+                                                        custom_id="STOKESFM")
             self.StokesFacetMachine.appendMainField(ImageName="%s.image"%self.BaseName,**MainFacetOptions)
             self.StokesFacetMachine.Init()
 
@@ -1209,11 +1209,11 @@ class ClassImagerDeconv():
          self.VS.startChunkLoadInBackground()
 
          # init new grids for Stokes residues
-         self.FacetMachine.initCFInBackground()
-         self.StokesFacetMachine.initCFInBackground()
          self.StokesFacetMachine.Init()
+         self.FacetMachine.Init()
          self.StokesFacetMachine.ReinitDirty()
-
+         self.FacetMachine.initCFInBackground()
+         self.StokesFacetMachine.initCFInBackground(other_fm=self.FacetMachine) #same weighting map and CF support
          current_model_freqs = np.array([]) #invalidate
          while True:
             # note that collectLoadedChunk() will destroy the current DATA dict, so we must make sure
@@ -1238,6 +1238,7 @@ class ClassImagerDeconv():
             model_freqs = DATA["FreqMappingDegrid"]
 
             # switch subband if necessary
+            self.FacetMachine.awaitInitCompletion()
             if not np.array_equal(model_freqs, current_model_freqs):
                 ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
                 # write out model image, if asked to
@@ -1245,7 +1246,6 @@ class ClassImagerDeconv():
                 print>>log,"model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
             else:
                 print>>log,"reusing model image from previous chunk"
-
             if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder":
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
@@ -1262,6 +1262,7 @@ class ClassImagerDeconv():
             self.FacetMachine.collectDegriddingResults()
 
             # Grid residue vis
+            self.StokesFacetMachine.awaitInitCompletion()
             self.StokesFacetMachine.putChunkInBackground(DATA)
 
          # if Smooth beam enabled, either compute it from the stack, or get it from cache
@@ -1275,12 +1276,12 @@ class ClassImagerDeconv():
          # All done dump the stokes residues
          if "r" in self._saveims:
             self.StokesFacetMachine.ToCasaImage(self.DicoDirty["MeanImage"],
-                                                ImageName="%s.stokes.residual"%self.BaseName,
+                                                ImageName="%s.stokes.app.residual"%self.BaseName,
                                                 Fits=True,
                                                 Stokes=self.StokesFacetMachine.StokesConverter.RequiredStokesProducts())
          if "r" in self._savecubes:
             self.FacetMachine.ToCasaImage(self.DicoDirty["ImageCube"],
-                                          ImageName="%s.cube.stokes.residual"%self.BaseName,
+                                          ImageName="%s.cube.stokes.app.residual"%self.BaseName,
                                           Fits=True,
                                           Freqs=self.VS.FreqBandCenters,
                                           Stokes=self.StokesFacetMachine.StokesConverter.RequiredStokesProducts())
@@ -1293,12 +1294,12 @@ class ClassImagerDeconv():
             if "R" in self._saveims:
                 MeanCorr = np.mean(DirtyCorr, axis=0).reshape((1, npol, nx, ny))
                 self.FacetMachine.ToCasaImage(MeanCorr,
-                                              ImageName="%s.stokes.corr.residual"%self.BaseName,
+                                              ImageName="%s.stokes.int.residual"%self.BaseName,
                                               Fits=True,
                                               Stokes=self.StokesFacetMachine.StokesConverter.RequiredStokesProducts())
             if "R" in self._savecubes:
                 self.FacetMachine.ToCasaImage(DirtyCorr,
-                                              ImageName="%s.cube.stokes.corr.residual"%self.BaseName,
+                                              ImageName="%s.cube.stokes.int.residual"%self.BaseName,
                                               Fits=True,
                                               Freqs=self.VS.FreqBandCenters,
                                               Stokes=self.StokesFacetMachine.StokesConverter.RequiredStokesProducts())
