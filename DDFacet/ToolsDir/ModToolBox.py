@@ -75,7 +75,6 @@ def EstimateNpix(Npix,
     Npix *= Padding
     if Npix < min_size_fft:
         Npix = min_size_fft
-        print>> log, "Your FFTs are very small. We will pad it %2.f x" % (float(Npix)/NpixOpt)
     Npix=int(round(Npix))
     #if Npix%2!=0: Npix+=1
     #if Npix%2==0: Npix+=1
