@@ -211,7 +211,8 @@ class ClassImagerDeconv():
 
 
         self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD,self.ModelMachine,
-                                                                        DegridFreqs=self.VS.FreqBandChannelsDegrid[0])
+                                                                        DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
+                                                                        GridFreqs=self.VS.FreqBandCenters)
         self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
         self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
 
@@ -234,6 +235,8 @@ class ClassImagerDeconv():
                 self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
                 print>>log,"Using SSD with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"]
             elif self.GD["Deconv"]["Mode"] == "Hogbom":
+                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                    raise NotImplementedError("Multi-polarization CLEAN is not supported in Hogbom")
                 from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
                 self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
                 print>>log,"Using Hogbom algorithm"
