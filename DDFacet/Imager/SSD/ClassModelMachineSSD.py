@@ -68,7 +68,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # print "ModelMachine:",self.RefFreq, self.DicoSMStacked["RefFreq"], self.DicoSMStacked["AllFreqs"]
         
     def setFreqMachine(self,GridFreqs, DegridFreqs):
-        # Initiaise the Frequency Machine
+        # Initialise the Frequency Machine
         self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoSMStacked["RefFreq"], self.GD)
 
     def ToFile(self,FileName,DicoIn=None):
