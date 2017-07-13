@@ -416,7 +416,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         #ExcludeCat=R.CatExclude
 
 
-        AlphaMap=self.GiveSpectralIndexMap(DoConv=False)
+        AlphaMap=self.GiveSpectralIndexMap()
         ModelMap=self.GiveModelImage()
         nch,npol,_,_=ModelMap.shape
 
