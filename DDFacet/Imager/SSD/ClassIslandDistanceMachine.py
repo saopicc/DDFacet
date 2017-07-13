@@ -11,6 +11,48 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from scipy.spatial import ConvexHull
 from matplotlib.path import Path
 
+class Island(object):
+    '''
+    helper class for MergeIsland
+    '''
+    def __init__(self,island):
+        if isinstance(island,set):
+            self.ilist=[[j[0],j[1]] for j in island]
+            self.iset=island
+        else:
+            self.iset=None
+            self.ilist=island
+        self.npa=np.array(self.ilist)
+        self.minx=np.min(self.npa[:,0])
+        self.maxx=np.max(self.npa[:,0])
+        self.miny=np.min(self.npa[:,1])
+        self.maxy=np.max(self.npa[:,1])
+        self.merged=False
+        self.new=False
+    def overlap(self,other):
+        # check if the bounding box overlaps
+        if (other.maxx<self.minx or other.maxy<self.miny or
+            other.minx>self.maxx or other.miny>self.maxy):
+            return False
+        return True
+    def make_set(self):
+        if self.iset is None:
+            self.iset=set(((j[0],j[1]) for j in self.ilist))
+    def intersect(self,other):
+        self.make_set()
+        other.make_set()
+        inter=self.iset.intersection(other.iset)
+        return len(inter)>0
+    def merge(self,other):
+        self.make_set()
+        other.make_set()
+        merged=self.iset.union(other.iset)
+        other.merged=True
+        return Island(merged)
+    def plot(self,**kwargs):
+        plt.scatter(self.npa[:,0],self.npa[:,1],**kwargs)
+
+
 class ClassIslandDistanceMachine():
     def __init__(self,GD,MaskArray,PSFServer,DicoDirty,IdSharedMem=""):
         self.GD=GD
@@ -321,6 +363,27 @@ class ClassIslandDistanceMachine():
                 ListConvexIslands.append(Island)
 
         return ListConvexIslands
+
+    def MergeIslands(self,ListIslands):
+        print>>log,"  Merge intersecting islands"
+        Islands=[Island(i) for i in ListIslands]
+
+        i=0
+        while i<len(Islands)-1:
+            merged=False
+            for j in range(i+1,len(Islands)):
+                if Islands[j].merged:
+                    continue
+                if Islands[i].overlap(Islands[j]):
+                    if Islands[i].intersect(Islands[j]):
+                        merged=True
+                        Islands[i]=Islands[i].merge(Islands[j])
+                        Islands[i].new=True
+            if not(merged):
+                i+=1
+        result=[i.ilist for i in Islands if not i.merged]
+        print>>log,"  %i islands remaining after merge" % len(result)
+        return result
 
     def calcDistanceMatrixMinParallel(self,ListIslands,Parallel=True):
         NIslands=len(ListIslands)
