@@ -349,7 +349,7 @@ class ClassImagerDeconv():
             cachepath = self.VS.maincache.getElementPath("Dirty")
             valid = os.path.exists(cachepath)
             if not valid:
-                print>> log, ModColor.Str("Can't force-read cached dirty %s: does not exist", col="red")
+                print>> log, ModColor.Str("Can't force-read cached dirty %s: does not exist" % cachepath, col="red")
                 raise RuntimeError("--Cache-Dirty forcedirty in effect, but no cached dirty image found")
             print>> log, ModColor.Str("Forcing reading the cached dirty image", col="red")
             writecache = False
@@ -358,7 +358,7 @@ class ClassImagerDeconv():
             valid = os.path.exists(cachepath)
 
             if not valid:
-                print>> log, ModColor.Str("Can't force-read cached last residual %s: does not exist", col="red")
+                print>> log, ModColor.Str("Can't force-read cached last residual %s: does not exist" % cachepath, col="red")
                 raise RuntimeError("--Cache-Dirty forceresidual in effect, but no cached residual image found")
             print>> log, ModColor.Str("Forcing reading the cached last residual image", col="red")
 
@@ -1345,7 +1345,7 @@ class ClassImagerDeconv():
         valid = os.path.exists(dirty_cachepath)
         
         if not valid:
-            print>> log, ModColor.Str("Can't force-read cached last residual %s: does not exist", col="red")
+            print>> log, ModColor.Str("Can't force-read cached last residual %s: does not exist" % dirty_cachepath, col="red")
             raise RuntimeError("--Cache-Dirty forceresidual in effect, but no cached residual image found")
         print>> log, ModColor.Str("Forcing reading the cached last residual image", col="red")
         
@@ -1356,8 +1356,8 @@ class ClassImagerDeconv():
         cachepath = self.VS.maincache.getElementPath("PSF")
         valid = os.path.exists(cachepath)
         if not valid:
-            print>> log, ModColor.Str("Can't force-read cached last residual %s: does not exist", col="red")
-            raise RuntimeError("--Cache-Dirty forceresidual in effect, but no cached residual image found")
+            print>> log, ModColor.Str("Can't force-read cached PSF %s: does not exist" % cachepath, col="red")
+            raise RuntimeError("--Cache-PSF force in effect, but no cached PSF image found")
         print>> log, ModColor.Str("Forcing to read the cached PSF", col="red")
         self.DicoImagesPSF = shared_dict.create("FMPSF_AllImages")
         self.DicoImagesPSF.restore(cachepath)

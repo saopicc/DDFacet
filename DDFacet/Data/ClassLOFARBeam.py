@@ -25,7 +25,7 @@ from DDFacet.Other import ModColor
 
 import numpy as np
 try:
-    import lofar.stationresponse as lsr
+    from lofar.stationresponse import stationresponse
 except:
     print>>log, ModColor.Str("Could not import lofar.stationresponse")
 
@@ -44,10 +44,10 @@ class ClassLOFARBeam():
         useArrayFactor=("A" in LOFARBeamMode)
         useElementBeam=("E" in LOFARBeamMode)
         if self.SR is not None: return
-        self.SR = lsr.stationresponse(self.MS.MSName,
-                                      useElementResponse=useElementBeam,
-                                      #useElementBeam=useElementBeam,
-                                      useArrayFactor=useArrayFactor)#,useChanFreq=True)
+        self.SR = stationresponse(self.MS.MSName,
+                                  useElementResponse=useElementBeam,
+                                  #useElementBeam=useElementBeam,
+                                  useArrayFactor=useArrayFactor)#,useChanFreq=True)
         self.SR.setDirection(self.MS.rarad,self.MS.decrad)
 
 
