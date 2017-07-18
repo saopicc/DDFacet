@@ -48,7 +48,7 @@ class ClassFrequencyMachine(object):
         if len(Freqs)>len(Freqsp):
             self.Freqsp = np.asarray(Freqs)
         else:
-            self.Freqsp = np.asarray(Freqs)
+            self.Freqsp = np.asarray(Freqsp)
         self.nchan = self.Freqs.size
         self.nchan_degrid = self.Freqsp.size
         #print "Nchan =", self.nchan
