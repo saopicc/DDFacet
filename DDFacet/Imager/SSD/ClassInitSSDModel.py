@@ -143,7 +143,10 @@ class ClassInitSSDModel():
         self.GD["Deconv"]["CycleFactor"]=0
         self.GD["Deconv"]["PeakFactor"]=0.01
         self.GD["Deconv"]["RMSFactor"]=3.
-        self.GD["Deconv"]["Gain"]=.1
+        if self.GD["SSDClean"]["GainInitHMP"] is not None:
+            self.GD["Deconv"]["Gain"]=self.GD["SSDClean"]["GainInitHMP"]
+        else:
+            self.GD["Deconv"]["Gain"]=.1
         self.GD["Deconv"]["AllowNegative"]=False
 
         self.GD["Deconv"]["MaxMinorIter"]=10000
