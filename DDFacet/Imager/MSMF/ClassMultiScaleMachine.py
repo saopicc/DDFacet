@@ -432,13 +432,13 @@ class ClassMultiScaleMachine():
                     Major=Scales[iScales]/(2.*np.sqrt(2.*np.log(2.)))
                     Minor=Major/float(MinMajRatio)
                     PSFGaussPars=(Major,Minor,th)
-                    ThisSupport=int(np.max([Support,15*Major]))
-                    if ThisSupport%2==0: ThisSupport+=1
-                    Gauss=ModFFTW.GiveGauss(ThisSupport,CellSizeRad=1.,GaussPars=PSFGaussPars)
-                    ratio=np.sum(ModFFTW.GiveGauss(101,CellSizeRad=1.,GaussPars=PSFGaussPars))/np.sum(Gauss)
+                    #ThisSupport=int(np.max([Support,15*Major]))
+                    #if ThisSupport%2==0: ThisSupport+=1
+                    #Gauss=ModFFTW.GiveGauss(ThisSupport,CellSizeRad=1.,GaussPars=PSFGaussPars)
+                    #ratio=np.sum(ModFFTW.GiveGauss(101,CellSizeRad=1.,GaussPars=PSFGaussPars))/np.sum(Gauss)
                     #Gauss*=ratio
                     #ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBands)[:,0,:,:]#[0,0]
-                    ThisPSF,Gauss=ModFFTW.ConvolveGaussianScipy(ThisMFPSF.reshape((nch,1,nx,ny)),Sig=Major,GaussPar=PSFGaussPars)#[0,0]
+                    ThisPSF,Gauss=ModFFTW.ConvolveGaussianWrapper(ThisMFPSF.reshape((nch,1,nx,ny)),Sig=Major,GaussPar=PSFGaussPars)#[0,0]
 
                     # import pylab
                     # pylab.clf()
@@ -456,7 +456,7 @@ class ClassMultiScaleMachine():
                     #fact=np.max(Gauss)/np.sum(Gauss)
                     SumGauss=np.sum(Gauss)
                     fact=1./SumGauss
-                    fact=1./SumGauss#/(np.mean(np.max(np.max(ThisPSF,axis=-1),axis=-1)))
+                    #fact=1./SumGauss#/(np.mean(np.max(np.max(ThisPSF,axis=-1),axis=-1)))
                     #fact=1./Max
                     Gauss*=fact#*ratio
                     ThisPSF*=fact
