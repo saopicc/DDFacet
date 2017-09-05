@@ -931,7 +931,21 @@ class ClassImagerDeconv():
             except:
                 pass
 
+
+            ###
             self.ModelMachine.ToFile(self.DicoModelName)
+            # ###
+            model_freqs=np.array([150.e6],np.float64)
+            ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
+            # write out model image, if asked to
+            current_model_freqs = model_freqs
+            print>>log,"model image @%s MHz (min,max) = (%f, %f)"%(str(model_freqs/1e6),ModelImage.min(),ModelImage.max())
+            if "o" in self._saveims:
+                self.FacetMachine.ToCasaImage(ModelImage, ImageName="%s.model%2.2i" % (self.BaseName, iMajor),
+                                              Fits=True, Freqs=current_model_freqs,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+            # stop
+            # ###
 
             ## returned with nothing done in minor cycle? Break out
             if not update_model or iMajor == NMajor:

@@ -57,7 +57,7 @@ class ClassInitSSDModelParallel():
         workerlist=[]
 
         MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"])
-        #MyLogger.setLoud("ClassImageDeconvMachineMSMF")
+        MyLogger.setLoud("ClassImageDeconvMachineMSMF")
 
         DicoHMPFunctions=self.InitMachine.DeconvMachine.facetcache
 

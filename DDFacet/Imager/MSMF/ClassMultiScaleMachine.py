@@ -96,7 +96,10 @@ class ClassMultiScaleMachine():
 
         self.DicoDirty=DicoDirty
         #self.NChannels=self.DicoDirty["NChannels"]
-
+        PeakSearchImage=self.DicoDirty["MeanImage"]
+        NPixStats = 1000
+        IndStats=np.int64(np.linspace(0,PeakSearchImage.size-1,NPixStats))
+        self.RMS=np.std(np.real(PeakSearchImage.ravel()[IndStats]))
 
         self._Dirty=self.DicoDirty["ImagData"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
@@ -878,7 +881,7 @@ class ClassMultiScaleMachine():
             PeakMeanOrigDirty=MeanOrigDirty[xc0[0],yc0[0]]
             dirtyVec=dirtyVec.copy()
             Mask=np.zeros(WVecPSF.shape,np.bool8)
-            for iIter in range(10):
+            for iIter in range(1000):
                 A=W*BM
                 y=W*dirtyVec
                 d=dirtyVec.reshape((nchan,1,nxp,nyp))[:,0]
@@ -886,6 +889,7 @@ class ClassMultiScaleMachine():
 
                 FactNorm=np.abs(PeakMeanOrigDirty/PeakMeanOrigResid)
                 if np.isnan(FactNorm) or np.isinf(FactNorm):
+                    #print "Cond1 %i"%iIter 
                     Sol=np.zeros((A.shape[1],),dtype=np.float32)
                     break
 
@@ -923,16 +927,19 @@ class ClassMultiScaleMachine():
 
 
 
+                #x,_=scipy.optimize.nnls(A, y.ravel())
+                #ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
                 w=W.reshape((nchan,1,nxp,nyp))[:,0]
                 m=Mask.reshape((nchan,1,nxp,nyp))[:,0]
                 Resid=d-ConvSM
-                sig=np.std(Resid)
+
+                sig=self.RMS#np.std(Resid)
                 MaxResid=np.max(Resid)
                 #sig=np.sqrt(np.sum(w*Resid**2)/np.sum(w))
                 #MaxResid=np.max(w*Resid)
                 
                 # Check if there is contamining nearby sources
-                _,xc1,yc1=np.where((Resid>2*sig)&(Resid==MaxResid))
+                _,xc1,yc1=np.where((Resid>.5*sig)&(Resid==MaxResid))
 
                 dirtyVecSub=d
                 Sol=x
@@ -948,7 +955,9 @@ class ClassMultiScaleMachine():
                 # If source is contaminating, substract it with the delta (with alpha=0)
                 if xc1.size>0 and MaxResid>Peak/100.:
                     CentralPixel=(xc1[0]==xc0[0] and yc1[0]==yc0[0])
-                    if CentralPixel: break
+                    if CentralPixel: 
+                        #print "CondCentralPix %i"%iIter 
+                        break
                     F=Resid[:,xc1[0],yc1[0]]
                     dx,dy=nxp/2-xc1[0],nyp/2-yc1[0]
                     _,_,nxPSF,nyPSF=self.SubPSF.shape
@@ -962,6 +971,14 @@ class ClassMultiScaleMachine():
                     x0p,x1p,y0p,y1p=Bedge
                     ThisPSF=self.SubPSF[:,0,x0p:x1p,y0p:y1p]
                     _,nxThisPSF,nyThisPSF=ThisPSF.shape
+
+                    #x,_=scipy.optimize.nnls(A, y.ravel())
+                    #ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
+                    #w=W.reshape((nchan,1,nxp,nyp))[:,0]
+                    #m=Mask.reshape((nchan,1,nxp,nyp))[:,0]
+                    #Resid=d-ConvSM
+
+
 
                     # # find the optimal flux value for the two cross contaminating sources case 
                     # al=np.abs(ThisPSF[:,nxThisPSF/2,nyThisPSF/2])
@@ -982,6 +999,8 @@ class ClassMultiScaleMachine():
 
                     DoBreak=False
                 else:
+                    #print "NotContam %i"%iIter 
+                    #print "  xc1.size>0, MaxResid>Peak/100.: ",xc1.size>0, MaxResid>Peak/100.
                     DoBreak=True
 
                 # ####### debug
