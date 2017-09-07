@@ -939,7 +939,7 @@ class ClassMultiScaleMachine():
                 #MaxResid=np.max(w*Resid)
                 
                 # Check if there is contamining nearby sources
-                _,xc1,yc1=np.where((Resid>.5*sig)&(Resid==MaxResid))
+                _,xc1,yc1=np.where((Resid>self.GD["HMP"]["OuterSpaceTh"]*sig)&(Resid==MaxResid))
 
                 dirtyVecSub=d
                 Sol=x
