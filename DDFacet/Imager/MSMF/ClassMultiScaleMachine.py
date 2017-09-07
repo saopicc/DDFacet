@@ -1003,32 +1003,32 @@ class ClassMultiScaleMachine():
                     #print "  xc1.size>0, MaxResid>Peak/100.: ",xc1.size>0, MaxResid>Peak/100.
                     DoBreak=True
 
-                # ####### debug
-                # import pylab
-                # pylab.clf()
-                # pylab.subplot(2,3,1)
-                # pylab.imshow(OrigDirty[0],interpolation="nearest")
-                # pylab.title("Dirty")
-                # pylab.subplot(2,3,2)
-                # pylab.imshow(d[0],interpolation="nearest")
-                # pylab.title("Dirty iter=%i"%iIter)
-                # pylab.colorbar()
-                # pylab.subplot(2,3,3)
-                # pylab.imshow(ConvSM[0],interpolation="nearest")
-                # pylab.title("Model")
-                # pylab.colorbar()
-                # pylab.subplot(2,3,4)
-                # pylab.imshow((Resid)[0],interpolation="nearest")
-                # pylab.title("Residual")
-                # pylab.colorbar()
-                # pylab.subplot(2,3,5)
-                # pylab.imshow(dirtyVecSub[0],interpolation="nearest")
-                # pylab.title("NewResid")
-                # pylab.colorbar()
-                # pylab.draw()
-                # pylab.show(False)
-                # pylab.pause(0.1)
-                # #####################
+                ####### debug
+                import pylab
+                pylab.clf()
+                pylab.subplot(2,3,1)
+                pylab.imshow(OrigDirty[0],interpolation="nearest")
+                pylab.title("Dirty")
+                pylab.subplot(2,3,2)
+                pylab.imshow(d[0],interpolation="nearest")
+                pylab.title("Dirty iter=%i"%iIter)
+                pylab.colorbar()
+                pylab.subplot(2,3,3)
+                pylab.imshow(ConvSM[0],interpolation="nearest")
+                pylab.title("Model")
+                pylab.colorbar()
+                pylab.subplot(2,3,4)
+                pylab.imshow((Resid)[0],interpolation="nearest")
+                pylab.title("Residual")
+                pylab.colorbar()
+                pylab.subplot(2,3,5)
+                pylab.imshow(dirtyVecSub[0],interpolation="nearest")
+                pylab.title("NewResid")
+                pylab.colorbar()
+                pylab.draw()
+                pylab.show(False)
+                pylab.pause(0.1)
+                #####################
 
                 if DoBreak: break
 
