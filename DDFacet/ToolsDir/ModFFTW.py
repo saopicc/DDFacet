@@ -282,8 +282,8 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parall
     return Gauss
 
 #def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
-#   warnings.warn("deprecated: this wont work for small ffts...",
-#                 DeprecationWarning)
+#   #warnings.warn("deprecated: this wont work for small ffts...",
+#   #              DeprecationWarning)
 #   Npix=int(2*8*Sig)
 #   if Npix%2==0: Npix+=1
 #   x0=Npix/2
@@ -292,7 +292,7 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parall
 #   if GaussPar is None:
 #       GaussPar=(Sig,Sig,0)
 #   in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
-
+#
 #   nch,npol,_,_=Ain0.shape
 #   Out=np.zeros_like(Ain0)
 #   for ch in range(nch):
@@ -300,6 +300,21 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parall
 #       Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
 #   return Out,in2
 
+def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None):
+    # a drop-in replacement for ConvolveGaussianScipy which uses
+    # _convolveSingleGaussianNP . The factor sqrt(2) here in 'pixel
+    # size' is a fudge to make the two routines agree: the
+    # Gaussian/Gaussian2D code appears to be missing the factor 2 on
+    # the denominator of the Gaussian function it computes
+    nch,npol,_,_=Ain0.shape
+    Out=np.zeros_like(Ain0)
+    dict={'in':Ain0,'out':Out}
+    if GaussPar is None:
+        GaussPar=(Sig,Sig,0)
+    for ch in range(nch):
+        Aout,PSF=_convolveSingleGaussianNP(dict,'in','out',ch,np.sqrt(2),GaussPar,return_gaussian=True)
+        Out[ch,:,:,:]=Aout
+    return Out,PSF
 
 def learnFFTWWisdom(npix,dtype=np.float32):
     """Learns FFTW wisdom for real 2D FFT of npix x npix images"""
@@ -320,7 +335,8 @@ def _convolveSingleGaussianFFTW(shareddict,
                                 CellSizeRad,
                                 GaussPars_ch,
                                 Normalise = False,
-                                nthreads = 1):
+                                nthreads = 1,
+                                return_gaussian = False):
     """Convolves a single channel in a cube of nchan, npol, Ny, Nx
        @param shareddict: a dictionary containing an input and output array of size
        [nchans, npols, Ny, Nx]
@@ -329,7 +345,9 @@ def _convolveSingleGaussianFFTW(shareddict,
        same as field_in
        @param ch: index of channel to convolve
        @param CellSizeRad: pixel size in radians of the gaussian in image space
-       @param Normalize: Normalize the guassian amplitude
+       @param nthreads: number of threads to use in FFTW
+       @param Normalize: Normalize the gaussian amplitude
+       @param return_gaussian: return the convolving Gaussian as well
     """
     # The FFT needs to be big enough to avoid spectral leakage in the
     # transforms, so we pad both sides of the stack of images with the same
@@ -379,11 +397,17 @@ def _convolveSingleGaussianFFTW(shareddict,
                                                threads=nthreads))[pad_edge//2:pad_edge//2+npix_y,
                                                                   pad_edge//2:pad_edge//2+npix_x]
     T.timeit("convolve %d" % ch)
-    return Aout
+
+    if return_gaussian:
+        return Aout,PSF
+    else:
+        return Aout
 
 # LAPACK / ATLAS-based convolution
-def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch, CellSizeRad,
-                              GaussPars_ch, Normalise = False):
+def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch,
+                              CellSizeRad, GaussPars_ch,
+                              Normalise = False, return_gaussian = False):
+
     """Convolves a single channel in a cube of nchan, npol, Ny, Nx
        @param shareddict: a dictionary containing an input and output array of size
        [nchans, npols, Ny, Nx]
@@ -392,7 +416,8 @@ def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch, CellSizeRad,
        same as field_in
        @param ch: index of channel to convolve
        @param CellSizeRad: pixel size in radians of the gaussian in image space
-       @param Normalize: Normalize the guassian amplitude
+       @param Normalize: Normalize the Gaussian amplitude
+       @param return_gaussian: return the convolving Gaussian as well
     """
     # The FFT needs to be big enough to avoid spectral leakage in the
     # transforms, so we pad both sides of the stack of images with the same
@@ -437,7 +462,10 @@ def _convolveSingleGaussianNP(shareddict, field_in, field_out, ch, CellSizeRad,
                                                        pad_edge//2:npix_x+pad_edge//2]
 
     T.timeit("convolve %d" % ch)
-    return Aout
+    if return_gaussian:
+        return Aout,PSF
+    else:
+        return Aout
 
 ConvolveGaussian = _convolveSingleGaussianFFTW
 
@@ -834,3 +862,22 @@ APP.registerJobHandlers(_convolveSingleGaussianFFTW, _convolveSingleGaussianNP)
 #       out=Fs(A,axes=axes)#*(A.shape[-1]*A.shape[-2])
 #       return out
 
+#def test_gaussian():
+#    input = np.zeros((1,1,512,512))
+#    input[0,0,250:262,250:262]=1
+#    out,gaussian=ConvolveGaussianScipy(input,4.0)
+#    np.save('orig-out.npy',out)
+#    np.save('orig-gaussian.npy',gaussian)
+
+#def test_new_gaussian():
+#    input = np.zeros((1,1,512,512))
+#    input[0,0,250:262,250:262]=1
+#    out,gaussian=ConvolveGaussianWrapper(input,4.0)
+#    np.save('new-out.npy',out)
+#    np.save('new-gaussian.npy',gaussian)
+
+#if __name__=='__main__':
+#    print 'Running test_gaussian'
+#    test_gaussian()
+#    print 'Running test_new_gaussian'
+#    test_new_gaussian()
