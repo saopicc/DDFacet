@@ -40,7 +40,9 @@ class RegToNp():
                 ra*=np.pi/180
 
                 sdech,sdecm,sdecs=sdec.split(":")
-                sgndec=np.sign(float(sdech))
+                sgndec=1.
+                if ("-" in sdec):
+                    sgndec=-1.
                 dech=np.abs(float(sdech))
                 dec=sgndec*(dech+float(sdecm)/60+float(sdecs)/3600.)
                 dec*=np.pi/180
