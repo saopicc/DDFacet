@@ -652,8 +652,9 @@ class ClassFacetMachine():
                 # validate dict
                 ClassDDEGridMachine.ClassDDEGridMachine.verifyCFDict(facet_dict, self.GD["CF"]["Nw"])
                 return "cached",path,iFacet
-            except:
+            except Exception as e:
                 #print>>log,traceback.format_exc() #confusing...
+                print>>log, 'Exception on Cache loading and checking was',str(e)
                 print>>log, "Error loading %s, will re-generate"%path
                 facet_dict.delete()
         # ok, regenerate the terms at this point
