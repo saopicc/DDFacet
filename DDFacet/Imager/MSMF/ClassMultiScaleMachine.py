@@ -881,6 +881,10 @@ class ClassMultiScaleMachine():
             PeakMeanOrigDirty=MeanOrigDirty[xc0[0],yc0[0]]
             dirtyVec=dirtyVec.copy()
             Mask=np.zeros(WVecPSF.shape,np.bool8)
+
+            T=ClassTimeIt.ClassTimeIt()
+            T.disable()
+            NNLSStep=10
             for iIter in range(1000):
                 A=W*BM
                 y=W*dirtyVec
@@ -892,15 +896,20 @@ class ClassMultiScaleMachine():
                     #print "Cond1 %i"%iIter 
                     Sol=np.zeros((A.shape[1],),dtype=np.float32)
                     break
-
+                T.timeit("0")
                 if 1.<FactNorm<10.:
                     y*=FactNorm
                 #print "  ",PeakMeanOrigDirty,PeakMeanOrigResid,PeakMeanOrigDirty/PeakMeanOrigResid
-                x,_=scipy.optimize.nnls(A, y.ravel())
-                #x0=x.copy()
-                # Compute "dirty" solution and residuals
-                ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
 
+                if not(iIter%NNLSStep):
+                    x,_=scipy.optimize.nnls(A, y.ravel())
+                    T.timeit("1")
+                    #x0=x.copy()
+                    # Compute "dirty" solution and residuals
+                    ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
+                Resid=d-ConvSM
+
+                T.timeit("2")
                 # # ### debug
                 # print "x",x
                 # VecConvSM=np.dot(BM,x.reshape((-1,1))).ravel()
@@ -931,7 +940,6 @@ class ClassMultiScaleMachine():
                 #ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
                 w=W.reshape((nchan,1,nxp,nyp))[:,0]
                 m=Mask.reshape((nchan,1,nxp,nyp))[:,0]
-                Resid=d-ConvSM
 
                 sig=self.RMS#np.std(Resid)
                 MaxResid=np.max(Resid)
@@ -953,6 +961,7 @@ class ClassMultiScaleMachine():
 
 
                 # If source is contaminating, substract it with the delta (with alpha=0)
+                T.timeit("3")
                 if xc1.size>0 and MaxResid>Peak/100.:
                     CentralPixel=(xc1[0]==xc0[0] and yc1[0]==yc0[0])
                     if CentralPixel: 
@@ -972,64 +981,47 @@ class ClassMultiScaleMachine():
                     ThisPSF=self.SubPSF[:,0,x0p:x1p,y0p:y1p]
                     _,nxThisPSF,nyThisPSF=ThisPSF.shape
 
-                    #x,_=scipy.optimize.nnls(A, y.ravel())
-                    #ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
-                    #w=W.reshape((nchan,1,nxp,nyp))[:,0]
-                    #m=Mask.reshape((nchan,1,nxp,nyp))[:,0]
-                    #Resid=d-ConvSM
-
-
-
-                    # # find the optimal flux value for the two cross contaminating sources case 
-                    # al=np.abs(ThisPSF[:,nxThisPSF/2,nyThisPSF/2])
-                    # MeanAl=np.mean(al)
-                    # if 0.01<MeanAl<0.99:
-                    #     ali=1./al
-                    #     S0e=FpolTrue[:,0].ravel()
-                    #     S1e=OrigDirty[:,xc1[0],yc1[0]]
-                    #     F=(S0e-ali*S1e)/(al-ali)
-                    
+                    #############
                     ThisDirty=ThisPSF*F.reshape((-1,1,1))
                     dirtyVecSub[:,x0d:x1d,y0d:y1d]=d[:,x0d:x1d,y0d:y1d]-ThisDirty
                     dirtyVec=dirtyVecSub.reshape((-1,1))
-                    
-
-
-
-
                     DoBreak=False
+
                 else:
                     #print "NotContam %i"%iIter 
                     #print "  xc1.size>0, MaxResid>Peak/100.: ",xc1.size>0, MaxResid>Peak/100.
+
+                    x,_=scipy.optimize.nnls(A, y.ravel())
                     DoBreak=True
 
-                ####### debug
-                import pylab
-                pylab.clf()
-                pylab.subplot(2,3,1)
-                pylab.imshow(OrigDirty[0],interpolation="nearest")
-                pylab.title("Dirty")
-                pylab.subplot(2,3,2)
-                pylab.imshow(d[0],interpolation="nearest")
-                pylab.title("Dirty iter=%i"%iIter)
-                pylab.colorbar()
-                pylab.subplot(2,3,3)
-                pylab.imshow(ConvSM[0],interpolation="nearest")
-                pylab.title("Model")
-                pylab.colorbar()
-                pylab.subplot(2,3,4)
-                pylab.imshow((Resid)[0],interpolation="nearest")
-                pylab.title("Residual")
-                pylab.colorbar()
-                pylab.subplot(2,3,5)
-                pylab.imshow(dirtyVecSub[0],interpolation="nearest")
-                pylab.title("NewResid")
-                pylab.colorbar()
-                pylab.draw()
-                pylab.show(False)
-                pylab.pause(0.1)
-                #####################
+                # ####### debug
+                # import pylab
+                # pylab.clf()
+                # pylab.subplot(2,3,1)
+                # pylab.imshow(OrigDirty[0],interpolation="nearest")
+                # pylab.title("Dirty")
+                # pylab.subplot(2,3,2)
+                # pylab.imshow(d[0],interpolation="nearest")
+                # pylab.title("Dirty iter=%i"%iIter)
+                # pylab.colorbar()
+                # pylab.subplot(2,3,3)
+                # pylab.imshow(ConvSM[0],interpolation="nearest")
+                # pylab.title("Model")
+                # pylab.colorbar()
+                # pylab.subplot(2,3,4)
+                # pylab.imshow((Resid)[0],interpolation="nearest")
+                # pylab.title("Residual")
+                # pylab.colorbar()
+                # pylab.subplot(2,3,5)
+                # pylab.imshow(dirtyVecSub[0],interpolation="nearest")
+                # pylab.title("NewDirty")
+                # pylab.colorbar()
+                # pylab.draw()
+                # pylab.show(False)
+                # pylab.pause(0.1)
+                # #####################
 
+                T.timeit("4")
                 if DoBreak: break
 
 

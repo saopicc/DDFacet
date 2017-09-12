@@ -141,7 +141,7 @@ class ClassInitSSDModel():
         self.GD["HMP"]["Alpha"]=[-1.,1.,5]
         self.GD["Deconv"]["Mode"]="HMP"
         self.GD["Deconv"]["CycleFactor"]=0
-        self.GD["Deconv"]["PeakFactor"]=0.01
+        self.GD["Deconv"]["PeakFactor"]=0.0
         self.GD["Deconv"]["RMSFactor"]=self.GD["GAClean"]["RMSFactorInitHMP"]
 
         self.GD["Deconv"]["Gain"]=self.GD["GAClean"]["GainInitHMP"]
@@ -375,6 +375,7 @@ class ClassInitSSDModel():
 
 
         x,y=self.ArrayPixParms.T
+
         # PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
         # ConvModel=ClassConvMachineImages(PSF).giveConvModel(ModelImage*np.ones((self.NFreqBands,1,1,1)))
         # #T.timeit("Conv1")
@@ -394,21 +395,38 @@ class ClassInitSSDModel():
         # # pylab.draw()
         # # pylab.show(False)
         # # stop
-
+        
+        # ModelOnes=np.zeros_like(ModelImage)
+        # ModelOnes[:,:,x,y]=1
+        # ConvModelOnes=ClassConvMachineImages(PSF).giveConvModel(ModelOnes*np.ones((self.NFreqBands,1,1,1)))
 
         # SumConvModel=np.sum(ConvModel[:,:,x,y])
+        # SumConvModelOnes=np.sum(ConvModelOnes[:,:,x,y])
         # SumResid=np.sum(self.DeconvMachine._CubeDirty[:,:,x,y])
 
         # SumConvModel=np.max([SumConvModel,1e-6])
+
         # factor=(SumResid+SumConvModel)/SumConvModel
 
-        # fMult=1.
-        # if 1.<factor<2.:
-        #     fMult=factor
-        # #print "fMult",fMult
-
+        
+        # ###############
+        #fMult=1.
+        #if 1.<factor<2.:
+        #    fMult=factor
         fMult=1.
         SModel=ModelImage[0,0,x,y]*fMult
+        # ###########"
+        # fMult=(np.mean(SumResid))/(np.mean(SumConvModelOnes))
+        # SModel=ModelImage[0,0,x,y]+ModelOnes[0,0,x,y]*fMult
+        # print fMult
+        # print fMult
+        # print fMult
+        # print fMult
+        # print fMult
+        # print fMult
+        # print fMult
+        # ############
+
 
         AModel=self.ModelMachine.GiveSpectralIndexMap(DoConv=False,MaxDR=1e3)[0,0,x,y]
         T.timeit("spec index")
