@@ -117,6 +117,14 @@ def main(options=None):
             MM.CleanNegComponants(box=10,sig=2)
 
         SkyModel=options.BaseImageName+".npy"
+        # reproduce code from old ClassModelMachine
+        RefFreq=MM.DicoSMStacked["RefFreq"]
+        f0=RefFreq/1.5
+        f1=RefFreq*1.5
+        try:
+            MM.setFreqMachine([f0,f1],[MM.RefFreq])
+        except:
+            pass # this is an old version of DDF which doesn't need this
         MM.ToNPYModel(FitsFile,SkyModel,BeamImage=SqrtNormImage)
 
         # SkyModel="tmpSourceCat.npy"
