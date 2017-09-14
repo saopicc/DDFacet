@@ -134,6 +134,10 @@ class ClassImageDeconvMachine():
         self.DicoVariablePSF["PSFSideLobes"]=kwargs["PSFAve"]
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.ModelMachine.setRefFreq(kwargs["RefFreq"])
+        # store grid and degrid freqs for ease of passing to MSMF
+        print kwargs["GridFreqs"],kwargs["DegridFreqs"]
+        self.GridFreqs=kwargs["GridFreqs"]
+        self.DegridFreqs=kwargs["DegridFreqs"]
         self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
 
     def AdaptArrayShape(self,A,Nout):
@@ -227,7 +231,7 @@ class ClassImageDeconvMachine():
 
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
         ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
-        
+        ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
 
         self.LabelIslandsImage=IslandDistanceMachine.CalcLabelImage(ListIslands)
 
@@ -288,7 +292,7 @@ class ClassImageDeconvMachine():
 
 
 
-        print>>log,"  selected %i islands larger that %i pixels for HMP initialisation"%(np.count_nonzero(ListDoMSMFIslandsInit),self.GD["SSDClean"]["MinSizeInitHMP"])
+        print>>log,"  selected %i islands larger than %i pixels for HMP initialisation"%(np.count_nonzero(ListDoMSMFIslandsInit),self.GD["SSDClean"]["MinSizeInitHMP"])
 
         
 
@@ -299,6 +303,8 @@ class ClassImageDeconvMachine():
                                                                     self.DicoVariablePSF,
                                                                     self.DicoDirty,
                                                                     self.ModelMachine.RefFreq,
+                                                                    self.GridFreqs,
+                                                                    self.DegridFreqs,
                                                                     MainCache=self.maincache,
                                                                     NCPU=self.NCPU,
                                                                     IdSharedMem=self.IdSharedMem)

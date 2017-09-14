@@ -204,6 +204,7 @@ class ClassCompareFITSImage(unittest.TestCase):
 
         args = ['DDF.py',
             cls._outputParsetFilename,
+            '--Debug-APPVerbose=2',
             '--Output-Name=%s' % cls._imagePrefix]
 
         stdout_file = open(cls._stdoutLogFile, 'w')

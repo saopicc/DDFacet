@@ -25,11 +25,11 @@ from pyrap.images import image
 import scipy.special
 import copy
 from DDFacet.Imager.ModModelMachine import ClassModModelMachine
-from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
+
 from DDFacet.ToolsDir import ModFFTW
 
 class ClassImageNoiseMachine():
-    def __init__(self,GD,ExternalModelMachine=None):
+    def __init__(self,GD,ExternalModelMachine=None, DegridFreqs=None, GridFreqs=None):
         self.GD=GD
         
         self.NoiseMap=None
@@ -37,7 +37,8 @@ class ClassImageNoiseMachine():
         self.NoiseMapReShape=None
         self._id_InputMap=None
         self.ExternalModelMachine=ExternalModelMachine
-
+        self.DegridFreqs = DegridFreqs
+        self.GridFreqs = GridFreqs
 
     def setMainCache(self,MainCache):
         self.MainCache=MainCache
@@ -108,21 +109,20 @@ class ClassImageNoiseMachine():
         self.DicoVariablePSF=DicoVariablePSF
 
     def giveBrutalRestored(self,DicoResidual):
-        print>>log,"  Running Brutal HMP..."
-        ListSilentModules=["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"]
+        print>>log,"  Running Brutal deconvolution..."
+        ListSilentModules=["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine",
+                           "ClassModelMachineMSMF", "ClassImageDeconvMachineHogbom", "ClassModelMachineHogbom"]
         # MyLogger.setSilent(ListSilentModules)
         self.DicoDirty=DicoResidual
         self.Orig_MeanDirty=self.DicoDirty["MeanImage"].copy()
         self.Orig_Dirty=self.DicoDirty["ImageCube"].copy()
         GD=copy.deepcopy(self.GD)
-        # take any reference frequency - doesn't matter
-        #self.RefFreq=np.mean(self.DicoVariablePSF["freqs"][0])
         self.RefFreq=self.ExternalModelMachine.RefFreq
         self.GD=GD
         #self.GD["Parallel"]["NCPU"]=1
         #self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
         self.GD["HMP"]["Alpha"]=[0,0,1]
-        self.GD["Deconv"]["Mode"]="HMP"
+        #self.GD["Deconv"]["Mode"]="HMP"
         #self.GD["Deconv"]["CycleFactor"]=0
         #self.GD["Deconv"]["PeakFactor"]=0.0
         self.GD["Deconv"]["PSFBox"]="full"
@@ -159,19 +159,35 @@ class ClassImageNoiseMachine():
         MinorCycleConfig["NFreqBands"]=self.NFreqBands
         MinorCycleConfig["GD"] = self.GD
         #MinorCycleConfig["RefFreq"] = self.RefFreq
-        ModConstructor = ClassModModelMachine(self.GD)
-        ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
-        ModelMachine.setRefFreq(self.RefFreq)
-        MinorCycleConfig["ModelMachine"]=ModelMachine
         #MinorCycleConfig["CleanMaskImage"]=None
         self.MinorCycleConfig=MinorCycleConfig
-        self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.MainCache,
-                                                                               CacheSharedMode=True,
-                                                                               ParallelMode=False,
-                                                                               CacheFileName="HMP_Masking",
-                                                                               **self.MinorCycleConfig)
-        
-        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1])
+        if self.GD["Deconv"]["Mode"] in ["HMP","SSD"]:
+            # for SSD we need to set up the HMP ModelMachine.
+            self.GD["Deconv"]["Mode"]="HMP"
+            ModConstructor = ClassModModelMachine(self.GD)
+            ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
+            ModelMachine.setRefFreq(self.RefFreq)
+            MinorCycleConfig["ModelMachine"]=ModelMachine
+            self.MinorCycleConfig=MinorCycleConfig
+            from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
+            
+            self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.MainCache,
+                                                                                   CacheSharedMode=True,
+                                                                                   ParallelMode=False,
+                                                                                   CacheFileName="HMP_Masking",
+                                                                                   **self.MinorCycleConfig)
+        elif self.GD["Deconv"]["Mode"]=="Hogbom":
+            from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
+            self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(MainCache=self.MainCache,
+                                                                                   CacheSharedMode=True,
+                                                                                   ParallelMode=False,
+                                                                                   CacheFileName="HMP_Masking",
+                                                                                   **self.MinorCycleConfig)
+        else:
+            raise NotImplementedError("Mode %s not compatible with automasking" % self.GD["Deconv"]["Mode"])
+
+        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1],
+                                GridFreqs=self.GridFreqs, DegridFreqs=self.DegridFreqs, RefFreq=self.RefFreq)
 
         if self.NoiseMapReShape is not None:
             self.DeconvMachine.setNoiseMap(self.NoiseMapReShape,PNRStop=self.GD["Mask"]["SigTh"])
@@ -213,7 +229,7 @@ class ClassImageNoiseMachine():
         ModelImage=Model[0,0]
 
         print>>log,"  Convolving image with beam %s..."%str(self.DicoVariablePSF["EstimatesAvgPSF"][1])
-        from DDFacet.ToolsDir import Gaussian
+        #from DDFacet.ToolsDir import Gaussian
         
 
         # Sig_rad=np.max(self.DicoVariablePSF["EstimatesAvgPSF"][1][0:2])
@@ -240,9 +256,8 @@ class ClassImageNoiseMachine():
             
         # # ModelConv=scipy.signal.convolve2d(ModelImage,G,mode="same")
 
-
-        ModelConv=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.DicoDirty["ImageInfo"]["CellSizeRad"],
-                                           GaussPars=[self.DicoVariablePSF["EstimatesAvgPSF"][1]])
+        ModelConv=ModFFTW.ConvolveGaussian({0:Model},0,0,0, CellSizeRad=self.DicoDirty["ImageInfo"]["CellSizeRad"],
+                                           GaussPars_ch=self.DicoVariablePSF["EstimatesAvgPSF"][1])
 
         #GaussPar=[i*5 for i in self.DicoVariablePSF["EstimatesAvgPSF"][1]]
         #ModelConv+=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.DicoDirty["ImageInfo"]["CellSizeRad"],
@@ -258,5 +273,5 @@ class ClassImageNoiseMachine():
         self.DicoDirty["MeanImage"][...]=self.Orig_MeanDirty[...]
         self.DicoDirty["ImageCube"][...]=self.Orig_Dirty[...]
         
-        MyLogger.setLoud(ListSilentModules)
+        #MyLogger.setLoud(ListSilentModules)
         return self.Restored

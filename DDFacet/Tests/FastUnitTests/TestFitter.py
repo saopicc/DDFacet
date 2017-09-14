@@ -75,11 +75,19 @@ def testRestore():
         inp = gauss2d([1,imgSize/2,imgSize/2,params[1],params[0],params[2]],circle=0,rotate=1,vheight=0)(xx,yy)
         inp = inp.reshape(1,1,imgSize,imgSize)
         #fit
-        fittedParams = tuple((fitter.FitCleanBeam(inp[0, 0, :, :]) * np.array([cellSize, cellSize, 1])).tolist())
+        fittedParams = tuple((fitter.FitCleanBeam(inp[0, 0, :, :]) *
+                              np.array([cellSize, cellSize, 1])).tolist())
         #restore fitted clean beam with an FFT convolution:
         delta = np.zeros([1, 1, imgSize, imgSize])
         delta[0, 0, imgSize / 2, imgSize / 2] = 1
-        rest = fftconvolve.ConvolveGaussian(delta,cellSize,GaussPars=[fittedParams],Normalise=False)
+        rest = fftconvolve.ConvolveGaussian(shareddict={"in":delta,
+                                                        "out":delta},
+                                            field_in="in",
+                                            field_out="out",
+                                            ch=0,
+                                            CellSizeRad=cellSize,
+                                            GaussPars_ch=fittedParams,
+                                            Normalise=False)
         assert np.allclose(inp, rest, rtol=1e-2, atol=1e-2)
     for r in np.linspace(0,360,100):
         restoreFittedBeam(r)
