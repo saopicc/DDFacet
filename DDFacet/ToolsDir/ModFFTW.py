@@ -316,6 +316,18 @@ def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None):
         Out[ch,:,:,:]=Aout
     return Out,PSF
 
+def ConvolveGaussianSimpleWrapper(Ain0, CellSizeRad=1.0, Sig=1.0, GaussPars=None):
+    nch,npol,_,_=Ain0.shape
+    Out=np.zeros_like(Ain0)
+    dict={'in':Ain0,'out':Out}
+    if GaussPars is None:
+        GaussPars=(Sig,Sig,0)
+    for ch in range(nch):
+        Aout=_convolveSingleGaussianNP(dict,'in','out',ch,CellSizeRad,GaussPars)
+        Out[ch,:,:,:]=Aout
+    return Out
+    
+
 def learnFFTWWisdom(npix,dtype=np.float32):
     """Learns FFTW wisdom for real 2D FFT of npix x npix images"""
     print>>log, "  Computing fftw wisdom FFTs for shape [%i x %i] and dtype %s" % (npix,npix,dtype.__name__)

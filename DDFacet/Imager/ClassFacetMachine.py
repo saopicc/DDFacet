@@ -1628,8 +1628,8 @@ class ClassFacetMachine():
         majax,minax,PA=PSFGaussParsAvg
         PA+=np.pi/2
         
-        ModelConv=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.CellSizeRad,
-                                           GaussPars=[(majax,minax,PA)])
+        ModelConv=ModFFTW.ConvolveGaussianSimpleWrapper(Model, CellSizeRad=self.CellSizeRad,
+                                           GaussPars=(majax,minax,PA))
         
         #indx,indy=np.where(self._CF[iFacet]["SW"]!=0)
         #ModelConv[0,0,indx,indy]=ModelConv[0,0,indx,indy]/self._CF[iFacet]["SW"][indx,indy]
