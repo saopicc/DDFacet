@@ -158,6 +158,8 @@ class ClassRestoreMachine():
         bmin=np.min([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
         self.FWHMBeam=(bmaj/3600.,bmin/3600.,theta)
         self.PSFGaussPars = (sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta)
+        print "!!!!!!!!!!!!!!!!!!!!"
+        self.PSFGaussPars = (BeamPix,BeamPix,0)
 
         RefFreq=self.ModelMachine.RefFreq
         df=RefFreq*0.5
@@ -248,7 +250,9 @@ class ClassRestoreMachine():
             ModelImage=ModelImage*self.SqrtNormImage
             print>>log,"Convolve... "
             print>>log,"   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6)
-            RestoredImage=ModFFTW.ConvolveGaussian(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+            #RestoredImage=ModFFTW.ConvolveGaussianScipy(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+            RestoredImage,_=ModFFTW.ConvolveGaussianWrapper(ModelImage,Sig=BeamPix)
+
             RestoredImageRes=RestoredImage+self.Residual
             ListRestoredIm.append(RestoredImageRes)
             RestoredImageResCorr=RestoredImageRes/self.SqrtNormImage
