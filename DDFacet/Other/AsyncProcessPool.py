@@ -353,121 +353,124 @@ class AsyncProcessPool (object):
 
     def restartWorkers(self):
         if self.ncpu > 1:
+            if self._termination_event.is_set():
+                if self.verbose > 1:
+                    print>> log, "termination event spotted, exiting"
+                raise WorkerProcessError()
             print>> log, "asking worker processes to restart"
             self._workers_started_event.clear()
             self._taras_restart_event.set()
 
     def awaitWorkerStart(self):
-        if self.ncpu > 1 and not self._workers_started_event.is_set():
-            print>>log,"waiting for worker processes to start up"
-            self._workers_started_event.wait()
+        if self.ncpu > 1:
+            while not self._workers_started_event.is_set():
+                if self._termination_event.is_set():
+                    if self.verbose > 1:
+                        print>> log, "termination event spotted, exiting"
+                    raise WorkerProcessError()
+                print>> log, "waiting for worker processes to start up"
+                self._workers_started_event.wait(10)
 
     def _startBulba (self):
         """This runs the Taras Bulba process. A Taras Bulba spawns and kills worker processes on demand.
         The reason for killing workers is to work around potential memory leaks. Since a Bulba is forked
         from the main process early on, it has a very low RAM footprint, so re-forking the workers off
         a Bulba every so often makes sure their RAM usage is reset."""
-        Exceptions.disable_pdb_on_error()
-        MyLogger.subprocess_id = "TB"
-        self._oldhandler = None
-        # self.verbose = 1
+        try:
+            Exceptions.disable_pdb_on_error()
+            MyLogger.subprocess_id = "TB"
 
-        def sighandler(signum, frame):
-            #if self.verbose:
-            #    print>> log, "SIGCHLD caught: sincere lament"
-            self._dead_child = True
-            # self._taras_restart_event.set()
-
-        # loop until the completion event is raised
-        # at this stage the workers are dead (or not started)
-        while not self._taras_exit_event.is_set():
-            if self.verbose:
-                print>>log, "(re)creating worker processes"
-            # create the workers
-            self._compute_workers = []
-            self._io_workers = []
-            for i, core in enumerate(self._cores):
-                proc_id = "comp%02d" % i
-                self._compute_workers.append(
-                    multiprocessing.Process(name=proc_id, target=self._start_worker,
-                                            args=(self, proc_id, [core], self._compute_queue,
-                                                  self.pause_on_start)))
-            for i, queue in enumerate(self._io_queues):
-                proc_id = "io%02d" % i
-                self._io_workers.append(
-                    multiprocessing.Process(name=proc_id, target=self._start_worker,
-                                            args=(self, proc_id, None, queue, self.pause_on_start)))
-
-            # since the handler gets propagated to children, set it to ignore before starting a worker
-            signal.signal(signal.SIGCHLD, signal.SIG_IGN)
-
-            # start the workers
-            if self.verbose:
-                print>>log, "starting  worker processes"
-            for proc in self._compute_workers + self._io_workers:
-                proc.start()
-
-            # set the real signal handler
-            self._dead_child = None
-            signal.signal(signal.SIGCHLD, sighandler)
-
-            # set event to indicate workers are started
-            self._workers_started_event.set()
-
-            # go to sleep until we're told to do the whole thing again
-            while not self._taras_restart_event.is_set() and not self._dead_child:
+            # loop until the completion event is raised
+            # at this stage the workers are dead (or not started)
+            while not self._taras_exit_event.is_set():
                 if self.verbose:
-                    print>>log, "waiting for restart signal"
-                try:
-                    self._taras_restart_event.wait(5)
+                    print>>log, "(re)creating worker processes"
+                # create the workers
+                self._compute_workers = []
+                self._io_workers = []
+                for i, core in enumerate(self._cores):
+                    proc_id = "comp%02d" % i
+                    self._compute_workers.append(
+                        multiprocessing.Process(name=proc_id, target=self._start_worker,
+                                                args=(self, proc_id, [core], self._compute_queue,
+                                                      self.pause_on_start)))
+                for i, queue in enumerate(self._io_queues):
+                    proc_id = "io%02d" % i
+                    self._io_workers.append(
+                        multiprocessing.Process(name=proc_id, target=self._start_worker,
+                                                args=(self, proc_id, None, queue, self.pause_on_start)))
+
+                # start the workers
+                if self.verbose:
+                    print>>log, "starting  worker processes"
+                worker_map = {}
+                for proc in self._compute_workers + self._io_workers:
+                    proc.start()
+                    worker_map[proc.pid] = proc
+                dead_workers = {}
+
+                # set event to indicate workers are started
+                self._workers_started_event.set()
+
+                # go to sleep until we're told to do the whole thing again
+                while not self._taras_restart_event.is_set():
                     if self.verbose:
-                        print>>log, "wait done"
-                except KeyboardInterrupt:
-                    print>>log,ModColor.Str("Ctrl+C caught, exiting")
-                    self._termination_event.set()
-                    self._taras_exit_event.set()
-                # check for dead workers. This is probably a good time to bail out
-                if self._dead_child:
-                    self._dead_child = 0
-                    for p in self._compute_workers + self._io_workers:
-                        if not p.is_alive():
-                            if p.exitcode < 0:
-                                print>>log,ModColor.Str("worker '%s' killed by signal %s" % (p.name, SIGNALS_TO_NAMES_DICT[-p.exitcode]))
-                            else:
-                                print>>log,ModColor.Str("worker '%s' died with exit code %d"%(p.name, p.exitcode))
-                            self._dead_child += 1
-                    # if it was really our workers that died, initiate bailout
-                    if self._dead_child:
-                        print>>log,ModColor.Str("%d worker(s) have died. Initiating shutdown."%self._dead_child)
-                        self._taras_restart_event.set()
+                        print>>log, "waiting for restart signal"
+                    try:
+                        self._taras_restart_event.wait(5)
+                        if self.verbose:
+                            print>>log, "wait done"
+                    except KeyboardInterrupt:
+                        print>>log,ModColor.Str("Ctrl+C caught, exiting")
                         self._termination_event.set()
                         self._taras_exit_event.set()
-            self._taras_restart_event.clear()
-            if self._termination_event.is_set():
+                    # check for dead children
+                    for pid, proc in worker_map.iteritems():
+                        if not proc.is_alive():
+                            proc.join()
+                            dead_workers[proc.pid] = proc
+                            if proc.exitcode < 0:
+                                print>>log,ModColor.Str("worker '%s' killed by signal %s" % (proc.name, SIGNALS_TO_NAMES_DICT[-proc.exitcode]))
+                            else:
+                                print>>log,ModColor.Str("worker '%s' died with exit code %d"%(proc.name, proc.exitcode))
+                    # if workers have died, initiate bailout
+                    if dead_workers:
+                        print>>log,ModColor.Str("%d worker(s) have died. Initiating shutdown."%len(dead_workers))
+                        self._taras_restart_event.set()  # to break out of loop
+                        self._termination_event.set()
+                        self._taras_exit_event.set()
+                self._taras_restart_event.clear()
+                if self._termination_event.is_set():
+                    if self.verbose:
+                        print>> log, "terminating workers"
+                    for proc in worker_map.itervalues():
+                        if proc.is_alive():
+                            proc.terminate()
+                # else let them all shut down in an orderly way, by giving them a poison pill
+                else:
+                    if self.verbose:
+                        print>> log, "restart signal received, notifying workers"
+                    for proc in self._compute_workers:
+                        if proc.is_alive():
+                            self._compute_queue.put("POISON-E")
+                    for proc, queue in zip(self._io_workers, self._io_queues):
+                        if proc.is_alive():
+                            queue.put("POISON-E")
                 if self.verbose:
-                    print>> log, "terminating workers"
-                for p in self._compute_workers + self._io_workers:
-                    if p.is_alive():
-                        p.terminate()
-            # else let them all shut down in an orderly way, by giving them a poison pill
-            else:
+                    print>> log, "reaping workers"
+                # join processes
+                for proc in worker_map.itervalues():
+                    proc.join()
                 if self.verbose:
-                    print>> log, "restart signal received, notifying workers"
-                for p in self._compute_workers:
-                    if p.is_alive():
-                        self._compute_queue.put("POISON-E")
-                for p, queue in zip(self._io_workers, self._io_queues):
-                    if p.is_alive():
-                        queue.put("POISON-E")
+                    print>> log, "all workers rejoined"
             if self.verbose:
-                print>> log, "reaping workers"
-            # join processes
-            for p in self._compute_workers + self._io_workers:
-                p.join()
-            if self.verbose:
-                print>> log, "all workers rejoined"
-        if self.verbose:
-            print>>log, "exiting"
+                print>>log, "exiting"
+        except:
+            print>>log,ModColor.Str("exception raised in Taras Bulba process, see below. This is a bug!")
+            print>>log,traceback.format_exc()
+            self._workers_started_event.set()
+            self._termination_event.set()
+            self._taras_exit_event.set()
 
     def runJob (self, job_id, handler=None, io=None, args=(), kwargs={},
                 event=None, counter=None,
@@ -723,9 +726,12 @@ class AsyncProcessPool (object):
         self._taras_exit_event.set()
         self._taras_restart_event.set()
         if self._taras_bulba:
-            if self.verbose > 1:
-                print>>log,"shutdown: waiting for TB to exit"
-            self._taras_bulba.join()
+#            if self._taras_bulba.is_alive():
+                if self.verbose > 1:
+                    print>> log, "shutdown: waiting for TB to exit"
+                self._taras_bulba.join()
+#            else:
+#                print>> log, "shutdown: TB is already dead"
         if self.verbose > 1:
             print>> log, "shutdown: closing queues"
         # join and close queues
