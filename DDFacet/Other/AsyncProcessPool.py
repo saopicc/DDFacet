@@ -451,16 +451,20 @@ class AsyncProcessPool (object):
                     if self.verbose:
                         print>> log, "restart signal received, notifying workers"
                     for proc in self._compute_workers:
-                        if proc.is_alive():
-                            self._compute_queue.put("POISON-E")
+                        self._compute_queue.put("POISON-E")
                     for proc, queue in zip(self._io_workers, self._io_queues):
-                        if proc.is_alive():
-                            queue.put("POISON-E")
+                        queue.put("POISON-E")
                 if self.verbose:
                     print>> log, "reaping workers"
                 # join processes
-                for proc in worker_map.itervalues():
-                    proc.join()
+                for pid, proc in worker_map.iteritems():
+                    if self.verbose:
+                        print>> log, "joining worker '%s' (%d)"%(proc.name, pid)
+                    proc.join(5)
+                    if proc.is_alive():
+                        print>> log, ModColor.Str("worker '%s' clinging on to life after 5s, killing it"%proc.name)
+                        proc.terminate()
+                        proc.join(5)
                 if self.verbose:
                     print>> log, "all workers rejoined"
             if self.verbose:
