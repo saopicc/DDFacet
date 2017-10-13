@@ -35,7 +35,8 @@ from SkyModel.PSourceExtract import ClassIncreaseIsland
 from DDFacet.Other import MyPickle
 import multiprocessing
 import time
-import ClassInitSSDModel
+import ClassInitSSDModelHMP
+import ClassInitSSDModelMoresane
 from DDFacet.Imager.SSD.GA.ClassEvolveGA import ClassEvolveGA
 from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
 #try: # Genetic Algo
@@ -295,15 +296,24 @@ class ClassImageDeconvMachine():
         print>>log,"  selected %i islands larger that %i pixels for HMP initialisation"%(np.count_nonzero(ListDoMSMFIslandsInit),self.GD["GAClean"]["MinSizeInitHMP"])
         
         if np.count_nonzero(ListDoMSMFIslandsInit)>0:
-            InitMachine=ClassInitSSDModel.ClassInitSSDModelParallel(self.GD,
-                                                                    self.DicoVariablePSF,
-                                                                    self.DicoDirty,
-                                                                    self.ModelMachine.RefFreq,
-                                                                    self.GridFreqs,
-                                                                    self.DegridFreqs,
-                                                                    MainCache=self.maincache,
-                                                                    NCPU=self.NCPU,
-                                                                    IdSharedMem=self.IdSharedMem)
+            # InitMachine=ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
+            #                                                            self.DicoVariablePSF,
+            #                                                            self.DicoDirty,
+            #                                                            self.ModelMachine.RefFreq,
+            #                                                            self.GridFreqs,
+            #                                                            self.DegridFreqs,
+            #                                                            MainCache=self.maincache,
+            #                                                            NCPU=self.NCPU,
+            #                                                            IdSharedMem=self.IdSharedMem)
+            InitMachine=ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
+                                                                            self.DicoVariablePSF,
+                                                                            self.DicoDirty,
+                                                                            self.ModelMachine.RefFreq,
+                                                                            self.GridFreqs,
+                                                                            self.DegridFreqs,
+                                                                            MainCache=self.maincache,
+                                                                            NCPU=self.NCPU,
+                                                                            IdSharedMem=self.IdSharedMem)
             InitMachine.setSSDModelImage(ModelImage)
             self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(self.ListIslands,ListDoIsland=ListDoMSMFIslandsInit)
 

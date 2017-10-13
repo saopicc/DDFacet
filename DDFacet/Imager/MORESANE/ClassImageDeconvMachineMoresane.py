@@ -40,9 +40,10 @@ from DDFacet.Array import shared_dict
 
 
 class ClassImageDeconvMachine():
-    def __init__(self,GD=None,ModelMachine=None,*args,**kw):
+    def __init__(self,GD=None,ModelMachine=None,RefFreq=None,*args,**kw):
         self.GD=GD
         self.ModelMachine = ModelMachine
+        self.RefFreq=RefFreq
         if self.ModelMachine.DicoModel["Type"]!="MORESANE":
             raise ValueError("ModelMachine Type should be MORESANE")
 
@@ -123,6 +124,16 @@ class ClassImageDeconvMachine():
             stop
             return None
 
+    def updateModelMachine(self,ModelMachine):
+        self.ModelMachine=ModelMachine
+        if self.ModelMachine.RefFreq!=self.RefFreq:
+            raise ValueError("freqs should be equal")
+
+    def updateMask(self,Mask):
+        nx,ny=Mask.shape
+        self._MaskArray = np.zeros((1,1,nx,ny),np.bool8)
+        self._MaskArray[0,0,:,:]=Mask[:,:]
+
     def Deconvolve(self):
 
         nch,npol,_,_=self._MeanDirty.shape
@@ -158,6 +169,9 @@ class ClassImageDeconvMachine():
                                       minor_loop_miter=self.GD["MORESANE"]["NMinorIter"],
                                       loop_gain=self.GD["MORESANE"]["Gain"],
                                       enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
+
+        print "!!!!!!!!!!!!!!!!!!!!!!!!!!",np.max(resid)
+
         # model,resid=CM.giveModelResid(major_loop_miter=100,
         #                               minor_loop_miter=100,
         #                               loop_gain=0.1,

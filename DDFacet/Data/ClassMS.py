@@ -70,7 +70,9 @@ def obs_detail(filename,field=0):
     # Stuff relying on an OBSERVATION table:
     if to is not None:
         # Time
-        tm = Time(to[0]['TIME_RANGE']/86400.0,scale="utc",format='mjd')
+        tm = Time(to[0]['TIME_RANGE']/86400.0,
+                  scale="utc",
+                  format='mjd')
         results['DATE-OBS'] = tm[0].iso.split()[0]
 
         # Object

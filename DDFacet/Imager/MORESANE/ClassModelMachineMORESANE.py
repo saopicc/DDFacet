@@ -104,10 +104,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         
 
     def setModel(self,Image,Order):
-        if not Order in self.DicoModel.keys():
-            self.DicoModel[Order]=Image
-        else:
+        try:
             self.DicoModel[Order]+=Image
+            print "add"
+        except:
+            self.DicoModel[Order]=Image
+            print "set"
+            
             
 
 
