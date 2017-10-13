@@ -240,6 +240,12 @@ class ClassImagerDeconv():
                 from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
                 self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
                 print>>log,"Using Hogbom algorithm"
+            elif self.GD["Deconv"]["Mode"]=="MORESANE":
+                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                    raise NotImplementedError("Multi-polarization is not supported in MORESANE")
+                from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
+                self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                print>>log,"Using MORESANE algorithm"
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
             self.ImageNoiseMachine.setMainCache(self.VS.maincache)
