@@ -1944,11 +1944,11 @@ class ClassImagerDeconv():
         #                 beam=self.FWHMBeamAvg, Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
 
         # mixed-flux restored image
-	# (apparent noise + intrinsic model) if intrinsic model is available
-	# (apparent noise + apparent model) otherwise, (JonesNorm ~= 1)
+        # (apparent noise + intrinsic model) if intrinsic model is available
+        # (apparent noise + apparent model) otherwise, (JonesNorm ~= 1)
         if "x" in self._saveims:
-            a, b = appres(), intconvmodel() if havenorm else \
-	           appres(), appconvmodel()
+            a, b = (appres(), intconvmodel()) if havenorm else \
+                   (appres(), appconvmodel())
             out = _images.addSharedArray('mixrestored', a.shape, a.dtype)
             numexpr.evaluate('a+b', out=out)
             APP.runJob("save:mixrestored", self._saveImage_worker, io=0, args=(_images.readwrite(), "mixrestored",),
