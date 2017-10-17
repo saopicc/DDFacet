@@ -106,10 +106,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setModel(self,Image,Order):
         try:
             self.DicoModel[Order]+=Image
-            print "add"
         except:
             self.DicoModel[Order]=Image
-            print "set"
+
             
             
 

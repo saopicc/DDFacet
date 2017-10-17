@@ -53,7 +53,6 @@ class ClassSpectralFunctions():
 
 
 
-
     def GiveBeamFactorsFacet(self,iFacet):
         
 
@@ -107,6 +106,13 @@ class ClassSpectralFunctions():
 
 
         return FreqBandsFluxRatio
+
+    def CalcFluxBands(self,NAlpha=21):
+        Alphas=np.linspace(-1,1,NAlpha)
+        self.FluxBands=np.zeros((self.NFacets,NAlpha,self.NFreqBand),np.float32)
+        for iFacet in range(self.NFacets):
+            self.FluxBands[iFacet]=self.GiveFreqBandsFluxRatio(iFacet,Alphas)
+        
         
     def IntExpFunc(self,S0=1.,Alpha=0.,iChannel=0,iFacet=0):
         

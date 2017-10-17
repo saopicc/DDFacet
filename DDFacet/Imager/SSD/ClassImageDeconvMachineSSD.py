@@ -252,7 +252,7 @@ class ClassImageDeconvMachine():
 
     def InitMSMF(self):
         self.DicoInitIndiv={}
-        if self.GD["GAClean"]["MinSizeInitHMP"]==-1: return
+        if self.GD["GAClean"]["MinSizeInit"]==-1: return
 
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
         print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
@@ -287,35 +287,38 @@ class ClassImageDeconvMachine():
             self.ListSizeIslands.append(dd)
 
 
-        ListDoMSMFIslandsInit=[True if self.ListSizeIslands[iIsland]>=self.GD["GAClean"]["MinSizeInitHMP"] else False for iIsland in range(len(self.ListIslands))]
+        ListDoIslandsInit=[True if self.ListSizeIslands[iIsland]>=self.GD["GAClean"]["MinSizeInit"] else False for iIsland in range(len(self.ListIslands))]
 
         #ListDoMSMFIslandsInit=[True if iIsland==16 else False for iIsland in range(len(self.ListIslands))]
 
 
 
-        print>>log,"  selected %i islands larger that %i pixels for HMP initialisation"%(np.count_nonzero(ListDoMSMFIslandsInit),self.GD["GAClean"]["MinSizeInitHMP"])
+        print>>log,"  selected %i islands larger that %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"])
         
-        if np.count_nonzero(ListDoMSMFIslandsInit)>0:
-            # InitMachine=ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
-            #                                                            self.DicoVariablePSF,
-            #                                                            self.DicoDirty,
-            #                                                            self.ModelMachine.RefFreq,
-            #                                                            self.GridFreqs,
-            #                                                            self.DegridFreqs,
-            #                                                            MainCache=self.maincache,
-            #                                                            NCPU=self.NCPU,
-            #                                                            IdSharedMem=self.IdSharedMem)
-            InitMachine=ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
-                                                                            self.DicoVariablePSF,
-                                                                            self.DicoDirty,
-                                                                            self.ModelMachine.RefFreq,
-                                                                            self.GridFreqs,
-                                                                            self.DegridFreqs,
-                                                                            MainCache=self.maincache,
-                                                                            NCPU=self.NCPU,
-                                                                            IdSharedMem=self.IdSharedMem)
+        if np.count_nonzero(ListDoIslandsInit)>0:
+            if self.GD["GAClean"]["InitType"]=="HMP":
+                InitMachine=ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
+                                                                           self.DicoVariablePSF,
+                                                                           self.DicoDirty,
+                                                                           self.ModelMachine.RefFreq,
+                                                                           self.GridFreqs,
+                                                                           self.DegridFreqs,
+                                                                           MainCache=self.maincache,
+                                                                           NCPU=self.NCPU,
+                                                                           IdSharedMem=self.IdSharedMem)
+            elif self.GD["GAClean"]["InitType"]=="MORESANE":
+
+                InitMachine=ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
+                                                                                self.DicoVariablePSF,
+                                                                                self.DicoDirty,
+                                                                                self.ModelMachine.RefFreq,
+                                                                                self.GridFreqs,
+                                                                                self.DegridFreqs,
+                                                                                MainCache=self.maincache,
+                                                                                NCPU=self.NCPU,
+                                                                                IdSharedMem=self.IdSharedMem)
             InitMachine.setSSDModelImage(ModelImage)
-            self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(self.ListIslands,ListDoIsland=ListDoMSMFIslandsInit)
+            self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(self.ListIslands,ListDoIsland=ListDoIslandsInit)
 
 
     def setChannel(self,ch=0):
