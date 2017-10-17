@@ -18,12 +18,10 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-# DESCRIBE THE MORESANE CLASS
-
 import numpy as np
 import logging
 import time
-from pymoresane.main import FitsImage as FI # importing the class
+from pymoresane.main import FitsImage as FI
 
 class ClassMoresaneSingleSlice(FI):
     def __init__(self,dirty,psf,mask=None,GD=None):
