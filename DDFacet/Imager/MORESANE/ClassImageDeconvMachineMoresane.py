@@ -39,6 +39,7 @@ from DDFacet.Imager.MORESANE.ClassMoresaneSingleSlice import ClassMoresaneSingle
 from DDFacet.Array import shared_dict
 from DDFacet.ToolsDir import ClassSpectralFunctions
 from scipy.optimize import leastsq
+from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 
 class ClassImageDeconvMachine():
@@ -100,7 +101,8 @@ class ClassImageDeconvMachine():
 
     def Init(self,**kwargs):
         self.SetPSF(kwargs["PSFVar"])
-        self.DicoVariablePSF["PSFSideLobes"]=kwargs["PSFAve"]
+        if "PSFSideLobes" not in self.DicoVariablePSF.keys():
+            self.DicoVariablePSF["PSFSideLobes"]=kwargs["PSFAve"]
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.ModelMachine.setRefFreq(kwargs["RefFreq"])
         # store grid and degrid freqs for ease of passing to MSMF
@@ -124,10 +126,20 @@ class ClassImageDeconvMachine():
         if Nin==Nout: 
             return A
         elif Nin>Nout:
-            dx=Nout/2
-            B=np.zeros((nch,npol,Nout,Nout),A.dtype)
-            print>>log,"  Adapt shapes: %s -> %s"%(str(A.shape),str(B.shape))
-            B[:]=A[...,Nin/2-dx:Nin/2+dx+1,Nin/2-dx:Nin/2+dx+1]
+            # dx=Nout/2
+            # B=np.zeros((nch,npol,Nout,Nout),A.dtype)
+            # print>>log,"  Adapt shapes: %s -> %s"%(str(A.shape),str(B.shape))
+            # B[:]=A[...,Nin/2-dx:Nin/2+dx+1,Nin/2-dx:Nin/2+dx+1]
+
+            N0=A.shape[-1]
+            xc0=yc0=N0/2
+            N1=Nout
+            xc1=yc1=N1/2
+            Aedge,Bedge=GiveEdges((xc0,yc0),N0,(xc1,yc1),N1)
+            x0d,x1d,y0d,y1d=Aedge
+            x0p,x1p,y0p,y1p=Bedge
+            B=A[...,x0d:x1d,y0d:y1d]
+
             return B
         else:
             stop
@@ -147,6 +159,9 @@ class ClassImageDeconvMachine():
     def Deconvolve(self):
 
         
+        if self._Dirty.shape[-1]!=self._Dirty.shape[-2]:
+            return "MaxIter", True, True
+
 
         dirty=self._Dirty
         nch,npol,_,_=dirty.shape
@@ -159,21 +174,37 @@ class ClassImageDeconvMachine():
         psf,_=self.PSFServer.GivePSF()
         
         Nout=np.min([dirty.shape[-1],psf.shape[-1]])
-        psf=self.AdaptArrayShape(psf,Nout)
         dirty=self.AdaptArrayShape(dirty,Nout)
+        psf=self.AdaptArrayShape(psf,Nout*2)
         
-        Slice=slice(0,None)
+        
+
+        
+        SliceDirty=slice(0,None)
         if dirty.shape[-1]%2!=0:
-            Slice=slice(0,-1)
+            SliceDirty=slice(0,-1)
+
+        SlicePSF=slice(0,None)
+        if psf.shape[-1]%2!=0:
+            SlicePSF=slice(0,-1)
+
+        d=dirty[:,:,SliceDirty,SliceDirty]
+        p=psf[:,:,SlicePSF,SlicePSF]
+        if p.shape[-1]!=2*d.shape[-1]:
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!"
+            print "Could not adapt psf shape to 2*dirty shape!!!!!!!!!!!!!!!!!!!!!!!!!"
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!"
+            psf=self.AdaptArrayShape(psf,d.shape[-1])
+            SlicePSF=SliceDirty
 
         for ch in range(nch):
-            CM=ClassMoresaneSingleSlice(dirty[ch,0,Slice,Slice],psf[ch,0,Slice,Slice],mask=None,GD=None)
+            CM=ClassMoresaneSingleSlice(dirty[ch,0,SliceDirty,SliceDirty],psf[ch,0,SlicePSF,SlicePSF],mask=None,GD=None)
             model,resid=CM.giveModelResid(major_loop_miter=self.GD["MORESANE"]["NMajorIter"],
                                           minor_loop_miter=self.GD["MORESANE"]["NMinorIter"],
                                           loop_gain=self.GD["MORESANE"]["Gain"],
                                           # tolerance=1.,
                                           enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
-            Model[ch,0,Slice,Slice]=model[:,:]
+            Model[ch,0,SliceDirty,SliceDirty]=model[:,:]
         
 
 

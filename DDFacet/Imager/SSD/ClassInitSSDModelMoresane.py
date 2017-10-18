@@ -17,6 +17,7 @@ from DDFacet.Other import ModColor
 from ClassConvMachine import ClassConvMachineImages
 from DDFacet.Imager import ClassMaskMachine
 
+SilentModules=["ClassPSFServer","ClassImageDeconvMachine","GiveModelMachine","ClassModelMachineMoresane","ClassModelMachineSSD","pymoresane.main"]
 
 class ClassInitSSDModelParallel():
     def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,GridFreqs,DegridFreqs,MainCache=None,NCPU=1,IdSharedMem=""):
@@ -60,7 +61,8 @@ class ClassInitSSDModelParallel():
         NJobs=work_queue.qsize()
         workerlist=[]
 
-        #MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"])
+        MyLogger.setSilent(SilentModules)
+
         #MyLogger.setLoud("ClassImageDeconvMachineMSMF")
 
         DicoHMPFunctions=None
@@ -84,7 +86,6 @@ class ClassInitSSDModelParallel():
             if Parallel:
                 workerlist[ii].start()
 
-        MyLogger.setSilent(["pymoresane.main"])
         timer = ClassTimeIt.ClassTimeIt()
         pBAR = ProgressBar(Title="  MORESANing islands ")
         #pBAR.disable()
@@ -127,7 +128,7 @@ class ClassInitSSDModelParallel():
                 workerlist[ii].terminate()
                 workerlist[ii].join()
         
-        MyLogger.setLoud(["pymoresane.main"])
+        #MyLogger.setLoud(["pymoresane.main"])
         #MyLogger.setLoud(["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"])
         return self.DicoInitIndiv
 
@@ -158,6 +159,7 @@ class ClassInitSSDModel():
         self.GD["Deconv"]["AllowNegative"]=self.GD["GAClean"]["AllowNegativeInitHMP"]
         self.GD["Deconv"]["MaxMinorIter"]=self.GD["GAClean"]["MaxMinorIterInitHMP"]
         
+        MyLogger.setSilent(SilentModules)
 
         self.GD["HMP"]["Scales"]=self.GD["GAClean"]["ScalesInitHMP"]
 
@@ -532,7 +534,9 @@ class WorkerInitMSMF(multiprocessing.Process):
         while not self.kill_received and not self.work_queue.empty():
             
             DicoJob = self.work_queue.get()
+
             self.initIsland(DicoJob)
+
             # try:
             #     self.initIsland(DicoJob)
             # except:

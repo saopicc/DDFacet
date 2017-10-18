@@ -21,6 +21,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import numpy as np
 import logging
 import time
+
+from DDFacet.Other import MyLogger
 from pymoresane.main import FitsImage as FI
 
 class ClassMoresaneSingleSlice(FI):
@@ -28,6 +30,7 @@ class ClassMoresaneSingleSlice(FI):
         self.dirty_data = dirty
         self.psf_data = psf
 
+        MyLogger.setSilent(["pymoresane.main"])
         self.mask_name=None
         if mask is not None:
             self.mask_name="NumpyMask"
@@ -47,6 +50,7 @@ class ClassMoresaneSingleSlice(FI):
 
 
     def giveModelResid(self,*args,**kwargs):
-        self.moresane(*args,**kwargs)
+        with np.errstate(divide='ignore'): 
+            self.moresane(*args,**kwargs)
         return self.model,self.residual
 

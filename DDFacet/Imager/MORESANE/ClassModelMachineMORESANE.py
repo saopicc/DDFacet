@@ -134,7 +134,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
 
-        C0=self.DicoModel[0]
+        if 0 in self.DicoModel.keys():
+            C0=self.DicoModel[0]
+        else:
+            C0=0
+
         if 1 in self.DicoModel.keys():
             C1=self.DicoModel[1]
         else:
