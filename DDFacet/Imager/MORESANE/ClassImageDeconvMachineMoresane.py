@@ -54,7 +54,7 @@ class ClassImageDeconvMachine():
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
         DicoVariablePSF=shared_dict.attach(DicoVariablePSF.path)#["CubeVariablePSF"]
-        self.PSFServer.setDicoVariablePSF(DicoVariablePSF,NormalisePSF=True)
+        self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
         self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
         self.DicoVariablePSF=DicoVariablePSF
         self.setFreqs(self.PSFServer.DicoMappingDesc)
@@ -204,11 +204,35 @@ class ClassImageDeconvMachine():
                                           enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
             Model[ch,0,SliceDirty,SliceDirty]=model[:,:]
         
+            # import pylab
+            # pylab.clf()
+            # pylab.subplot(2,2,1)
+            # pylab.imshow(dirty[ch,0,SliceDirty,SliceDirty],interpolation="nearest")
+            # pylab.colorbar()
+
+            # pylab.subplot(2,2,2)
+            # pylab.imshow(psf[ch,0,SlicePSF,SlicePSF],interpolation="nearest")
+            # pylab.colorbar()
+
+            # pylab.subplot(2,2,3)
+            # pylab.imshow(model,interpolation="nearest")
+            # pylab.colorbar()
+
+            # pylab.subplot(2,2,4)
+            # pylab.imshow(resid,interpolation="nearest")
+            # pylab.colorbar()
+
+            # pylab.draw()
+            # pylab.show()
+
 
         print 
-        print np.max(np.max(model,axis=-1),axis=-1)
+        print np.max(np.max(Model,axis=-1),axis=-1)
         print 
         print 
+
+
+
 
         #_,_,nx,ny=Model.shape
         #Model=np.mean(Model,axis=0).reshape((1,1,nx,ny))
@@ -251,7 +275,7 @@ class ClassImageDeconvMachine():
                 #W=self.DicoDirty["WeightChansImages"]
                 #JonesNorm=np.sum(JonesNorm*W.reshape((-1,1,1,1)),axis=0).reshape((1,1,1,1))
                 
-                F=F/np.sqrt(JonesNorm).ravel()
+                #F=F/np.sqrt(JonesNorm).ravel()
                 F0=np.mean(F)
                 if F0==0:
                     continue
