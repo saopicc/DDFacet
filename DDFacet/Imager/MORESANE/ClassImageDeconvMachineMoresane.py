@@ -160,6 +160,9 @@ class ClassImageDeconvMachine():
 
         
         if self._Dirty.shape[-1]!=self._Dirty.shape[-2]:
+            # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            # print self._Dirty.shape
+            # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             return "MaxIter", True, True
 
 
@@ -204,32 +207,32 @@ class ClassImageDeconvMachine():
                                           enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
             Model[ch,0,SliceDirty,SliceDirty]=model[:,:]
         
-            # import pylab
-            # pylab.clf()
-            # pylab.subplot(2,2,1)
-            # pylab.imshow(dirty[ch,0,SliceDirty,SliceDirty],interpolation="nearest")
-            # pylab.colorbar()
+        #     import pylab
+        #     pylab.clf()
+        #     pylab.subplot(2,2,1)
+        #     pylab.imshow(dirty[ch,0,SliceDirty,SliceDirty],interpolation="nearest")
+        #     pylab.colorbar()
 
-            # pylab.subplot(2,2,2)
-            # pylab.imshow(psf[ch,0,SlicePSF,SlicePSF],interpolation="nearest")
-            # pylab.colorbar()
+        #     pylab.subplot(2,2,2)
+        #     pylab.imshow(psf[ch,0,SlicePSF,SlicePSF],interpolation="nearest")
+        #     pylab.colorbar()
 
-            # pylab.subplot(2,2,3)
-            # pylab.imshow(model,interpolation="nearest")
-            # pylab.colorbar()
+        #     pylab.subplot(2,2,3)
+        #     pylab.imshow(model,interpolation="nearest")
+        #     pylab.colorbar()
 
-            # pylab.subplot(2,2,4)
-            # pylab.imshow(resid,interpolation="nearest")
-            # pylab.colorbar()
+        #     pylab.subplot(2,2,4)
+        #     pylab.imshow(resid,interpolation="nearest")
+        #     pylab.colorbar()
 
-            # pylab.draw()
-            # pylab.show()
+        #     pylab.draw()
+        #     pylab.show()
 
 
-        print 
-        print np.max(np.max(Model,axis=-1),axis=-1)
-        print 
-        print 
+        # print 
+        # print np.max(np.max(Model,axis=-1),axis=-1)
+        # print 
+        # print 
 
 
 
@@ -247,7 +250,7 @@ class ClassImageDeconvMachine():
         else:
             self.ModelMachine.setModel(Model,0)
 
-
+        
         return "MaxIter", True, True   # stop deconvolution but do update model
 
     def DoSpectralFit(self,Model):
@@ -282,7 +285,7 @@ class ClassImageDeconvMachine():
 
                 x0=(F0,-0.8)
                 
-                print self.iFacet,iPix,jPix,F,F0
+                #print self.iFacet,iPix,jPix,F,F0
                 X=least_squares(GiveResid, x0, args=(F,self.iFacet),ftol=1e-3,gtol=1e-3,xtol=1e-3)
                 x=X['x']
                 S[0,0,iPix,jPix]=x[0]

@@ -30,7 +30,7 @@ class ClassMoresaneSingleSlice(FI):
         self.dirty_data = dirty
         self.psf_data = psf
 
-        MyLogger.setSilent(["pymoresane.main"])
+        #MyLogger.setSilent(["pymoresane.main"])
         self.mask_name=None
         if mask is not None:
             self.mask_name="NumpyMask"

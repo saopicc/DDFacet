@@ -62,6 +62,7 @@ class ClassInitSSDModelParallel():
         workerlist=[]
 
         MyLogger.setSilent(SilentModules)
+        #MyLogger.setLoud(SilentModules)
 
         #MyLogger.setLoud("ClassImageDeconvMachineMSMF")
 
