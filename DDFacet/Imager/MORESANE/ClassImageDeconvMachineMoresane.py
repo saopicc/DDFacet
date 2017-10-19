@@ -38,7 +38,7 @@ import time
 from DDFacet.Imager.MORESANE.ClassMoresaneSingleSlice import ClassMoresaneSingleSlice
 from DDFacet.Array import shared_dict
 from DDFacet.ToolsDir import ClassSpectralFunctions
-from scipy.optimize import leastsq
+from scipy.optimize import least_squares
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
 
@@ -54,7 +54,7 @@ class ClassImageDeconvMachine():
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
         DicoVariablePSF=shared_dict.attach(DicoVariablePSF.path)#["CubeVariablePSF"]
-        self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
+        self.PSFServer.setDicoVariablePSF(DicoVariablePSF,NormalisePSF=True)
         self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
         self.DicoVariablePSF=DicoVariablePSF
         self.setFreqs(self.PSFServer.DicoMappingDesc)
@@ -175,24 +175,22 @@ class ClassImageDeconvMachine():
         
         Nout=np.min([dirty.shape[-1],psf.shape[-1]])
         dirty=self.AdaptArrayShape(dirty,Nout)
-        psf=self.AdaptArrayShape(psf,Nout*2)
-        
-        
-
-        
         SliceDirty=slice(0,None)
         if dirty.shape[-1]%2!=0:
             SliceDirty=slice(0,-1)
+
+        d=dirty[:,:,SliceDirty,SliceDirty]
+        psf=self.AdaptArrayShape(psf,d.shape[-1]*2)
 
         SlicePSF=slice(0,None)
         if psf.shape[-1]%2!=0:
             SlicePSF=slice(0,-1)
 
-        d=dirty[:,:,SliceDirty,SliceDirty]
         p=psf[:,:,SlicePSF,SlicePSF]
         if p.shape[-1]!=2*d.shape[-1]:
             print "!!!!!!!!!!!!!!!!!!!!!!!!!"
             print "Could not adapt psf shape to 2*dirty shape!!!!!!!!!!!!!!!!!!!!!!!!!"
+            print p.shape[-1],d.shape[-1]
             print "!!!!!!!!!!!!!!!!!!!!!!!!!"
             psf=self.AdaptArrayShape(psf,d.shape[-1])
             SlicePSF=SliceDirty
@@ -207,6 +205,10 @@ class ClassImageDeconvMachine():
             Model[ch,0,SliceDirty,SliceDirty]=model[:,:]
         
 
+        print 
+        print np.max(np.max(model,axis=-1),axis=-1)
+        print 
+        print 
 
         #_,_,nx,ny=Model.shape
         #Model=np.mean(Model,axis=0).reshape((1,1,nx,ny))
@@ -256,7 +258,9 @@ class ClassImageDeconvMachine():
 
                 x0=(F0,-0.8)
                 
-                x,_=leastsq(GiveResid, x0, args=(F,self.iFacet),ftol=1e-3,gtol=1e-3,xtol=1e-3)
+                print self.iFacet,iPix,jPix,F,F0
+                X=least_squares(GiveResid, x0, args=(F,self.iFacet),ftol=1e-3,gtol=1e-3,xtol=1e-3)
+                x=X['x']
                 S[0,0,iPix,jPix]=x[0]
                 Al[0,0,iPix,jPix]=x[1]
 

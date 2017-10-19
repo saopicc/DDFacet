@@ -661,7 +661,7 @@ class ClassImagerDeconv():
 
             if psf and not psf_valid:
                 self._finalizeComputedPSF(self.FacetMachinePSF, psf_writecache and psf_cachepath)
-
+        self.SaveDirtyProducts()
         # This call needs to be here to attach the cached smooth beam to FacetMachine if it exists
         # and if dirty has been initialised from cache
         self.FacetMachine.finaliseSmoothBeam()
