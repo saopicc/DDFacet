@@ -203,7 +203,7 @@ class ClassImageDeconvMachine():
             model,resid=CM.giveModelResid(major_loop_miter=self.GD["MORESANE"]["NMajorIter"],
                                           minor_loop_miter=self.GD["MORESANE"]["NMinorIter"],
                                           loop_gain=self.GD["MORESANE"]["Gain"],
-                                          # tolerance=1.,
+                                          sigma_level=self.GD["MORESANE"]["SigmaCutLevel"],# tolerance=1.,
                                           enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
             Model[ch,0,SliceDirty,SliceDirty]=model[:,:]
         
