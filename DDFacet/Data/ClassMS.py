@@ -1252,7 +1252,7 @@ class ClassMS():
         # if sorting rows, rearrange vis array back into MS order
         # if not sorting, then using slice(None) for row has no effect
         if sort_index is not None:
-            reverse_index = np.empty(self.nRowRead,dtype=int)
+            reverse_index = np.empty(nrow,dtype=int)
             reverse_index[sort_index] = np.arange(0,nrow,dtype=int)
         else:
             reverse_index = slice(None)
@@ -1262,9 +1262,9 @@ class ClassMS():
             try:
                 vis0 = t.getcol(colname, row0, nrow)
             except RuntimeError:
-                vis0 = t.getcol("DATA", row0, snrow)
+                vis0 = t.getcol("DATA", row0, nrow)
             vis0[reverse_index, self.ChanSlice, :] = vis
-            t.putcol(colname, vis0, row0, now)
+            t.putcol(colname, vis0, row0, nrow)
         else:
             t.putcol(colname, vis[reverse_index,:,:], row0, nrow)
         t.close()
