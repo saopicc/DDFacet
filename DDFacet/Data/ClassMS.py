@@ -1263,7 +1263,7 @@ class ClassMS():
                 vis0 = t.getcol(colname, row0, nrow)
             except RuntimeError:
                 vis0 = t.getcol("DATA", row0, nrow)
-            vis0[reverse_index, self.ChanSlice, :] = vis
+            vis0[:, self.ChanSlice, :] = vis[reverse_index, :, :]
             t.putcol(colname, vis0, row0, nrow)
         else:
             t.putcol(colname, vis[reverse_index,:,:], row0, nrow)
