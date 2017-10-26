@@ -763,9 +763,9 @@ class ClassImagerDeconv():
 
         CleanMaskImage=None
         CleanMaskImageName=self.GD["Mask"]["External"]
-        if CleanMaskImageName is not None and CleanMaskImageName is not "":
-            print>>log,ModColor.Str("Will use mask image %s for the predict"%CleanMaskImageName)
-            CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
+        # if CleanMaskImageName is not None and CleanMaskImageName is not "":
+        #     print>>log,ModColor.Str("Will use mask image %s for the predict"%CleanMaskImageName)
+        #     CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
 
 
         modelfile = self.GD["Predict"]["FromImage"]
