@@ -652,8 +652,9 @@ class ClassFacetMachine():
                 # validate dict
                 ClassDDEGridMachine.ClassDDEGridMachine.verifyCFDict(facet_dict, self.GD["CF"]["Nw"])
                 return "cached",path,iFacet
-            except:
+            except Exception as e:
                 #print>>log,traceback.format_exc() #confusing...
+                print>>log, 'Exception on Cache loading and checking was',str(e)
                 print>>log, "Error loading %s, will re-generate"%path
                 facet_dict.delete()
         # ok, regenerate the terms at this point
@@ -1627,8 +1628,8 @@ class ClassFacetMachine():
         majax,minax,PA=PSFGaussParsAvg
         PA+=np.pi/2
         
-        ModelConv=ModFFTW.ConvolveGaussian(Model, CellSizeRad=self.CellSizeRad,
-                                           GaussPars=[(majax,minax,PA)])
+        ModelConv=ModFFTW.ConvolveGaussianSimpleWrapper(Model, CellSizeRad=self.CellSizeRad,
+                                           GaussPars=(majax,minax,PA))
         
         #indx,indy=np.where(self._CF[iFacet]["SW"]!=0)
         #ModelConv[0,0,indx,indy]=ModelConv[0,0,indx,indy]/self._CF[iFacet]["SW"][indx,indy]

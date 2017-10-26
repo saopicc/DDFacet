@@ -135,7 +135,7 @@ class ClassImageDeconvMachine():
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
         self.ModelMachine.setRefFreq(kwargs["RefFreq"])
         # store grid and degrid freqs for ease of passing to MSMF
-        print kwargs["GridFreqs"],kwargs["DegridFreqs"]
+        #print kwargs["GridFreqs"],kwargs["DegridFreqs"]
         self.GridFreqs=kwargs["GridFreqs"]
         self.DegridFreqs=kwargs["DegridFreqs"]
         self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
