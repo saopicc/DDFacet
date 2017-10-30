@@ -158,7 +158,7 @@ class ClassRestoreMachine():
         bmin=np.min([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
         self.FWHMBeam=(bmaj/3600.,bmin/3600.,theta)
         self.PSFGaussPars = (sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta)
-        print "!!!!!!!!!!!!!!!!!!!!"
+        #print "!!!!!!!!!!!!!!!!!!!!"
         self.PSFGaussPars = (BeamPix,BeamPix,0)
 
         RefFreq=self.ModelMachine.RefFreq

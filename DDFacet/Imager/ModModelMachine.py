@@ -114,9 +114,7 @@ class ClassModModelMachine():
             if self.MORSANEMM is None:
                 print>> log, "Initialising MORESANE model machine"
                 from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
-                self.MORESANEMM = ClassModelMachineMORESANE.ClassModelMachine(
-                    self.GD,
-                    GainMachine= ClassGainMachine.ClassGainMachine(GainMin=self.GD["MORESANE"]["loopgain"]))
+                self.MORESANEMM = ClassModelMachineMORESANE.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
             else:
                 print>> log, "MORSANE model machine already initialised"
             return self.MORESANEMM

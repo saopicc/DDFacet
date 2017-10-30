@@ -321,15 +321,18 @@ class ClassIslandDistanceMachine():
         print>>log,"  Convexify islands"
         ListConvexIslands=[]
         for Island in ListIslands:
+            points=np.array(Island)
+            x,y=points.T
+            if x.size<=3:
+                ListConvexIslands.append(Island)
+                continue
             try:
-                points=np.array(Island)
                 hull = ConvexHull(points)
                 Contour = np.array(
                     [hull.points[hull.vertices, 0],
                      hull.points[hull.vertices, 1]])
                 poly2 = Contour.T
                 
-                x,y=points.T
                 x0,x1=x.min(),x.max()
                 y0,y1=y.min(),y.max()
                 

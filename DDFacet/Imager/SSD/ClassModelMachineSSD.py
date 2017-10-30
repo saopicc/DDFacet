@@ -400,6 +400,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             except:
                 print>>log, "  Component at (%i, %i) not in dict "%key
 
+
+
     def CleanMaskedComponants(self,MaskName):
         print>>log, "Cleaning model dictionary from masked components using %s"%(MaskName)
         im=image(MaskName)

@@ -70,7 +70,9 @@ def obs_detail(filename,field=0):
     # Stuff relying on an OBSERVATION table:
     if to is not None:
         # Time
-        tm = Time(to[0]['TIME_RANGE']/86400.0,format='mjd')
+        tm = Time(to[0]['TIME_RANGE']/86400.0,
+                  scale="utc",
+                  format='mjd')
         results['DATE-OBS'] = tm[0].iso.split()[0]
 
         # Object
@@ -1225,6 +1227,8 @@ class ClassMS():
                                                                        ,rad2hmsdms(self.decrad,Type="dec").replace(" ",".")))
         ll.append("   - Frequency = %s MHz"%str(self.reffreq/1e6))
         ll.append("   - Wavelength = %5.2f meters"%(np.mean(self.wavelength_chan)))
+        Freqs=3.e8/self.wavelength_chan.ravel()/1e6
+        ll.append("   - Bandwidth = %5.2f MHz"%(np.max(Freqs)-np.min(Freqs)))
         ll.append("   - Time bin = %4.1f seconds"%(self.dt))
         ll.append("   - Total Integration time = %6.2f hours"%self.DTh)
         ll.append("   - Number of antenna  = %i"%self.na)

@@ -240,6 +240,12 @@ class ClassImagerDeconv():
                 from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
                 self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(**MinorCycleConfig)
                 print>>log,"Using Hogbom algorithm"
+            elif self.GD["Deconv"]["Mode"]=="MORESANE":
+                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                    raise NotImplementedError("Multi-polarization is not supported in MORESANE")
+                from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
+                self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                print>>log,"Using MORESANE algorithm"
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
             self.ImageNoiseMachine.setMainCache(self.VS.maincache)
@@ -592,8 +598,8 @@ class ClassImagerDeconv():
                     model_freqs = DATA["FreqMappingDegrid"]
                     if not np.array_equal(model_freqs, current_model_freqs):
                         ModelImage = self.FacetMachine.setModelImage(self.ModelMachine.GiveModelImage(model_freqs))
-                        # self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%(self.BaseName),
-                        #                               Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                        self.FacetMachine.ToCasaImage(ModelImage,ImageName="%s.model"%(self.BaseName),
+                                                      Fits=True,Stokes=self.VS.StokesConverter.RequiredStokesProducts())
                         current_model_freqs = model_freqs
                         print>> log, "model image @%s MHz (min,max) = (%f, %f)" % (
                         str(model_freqs / 1e6), ModelImage.min(), ModelImage.max())
@@ -655,6 +661,8 @@ class ClassImagerDeconv():
 
             if psf and not psf_valid:
                 self._finalizeComputedPSF(self.FacetMachinePSF, psf_writecache and psf_cachepath)
+
+        # self.SaveDirtyProducts()
 
         # This call needs to be here to attach the cached smooth beam to FacetMachine if it exists
         # and if dirty has been initialised from cache
@@ -755,9 +763,9 @@ class ClassImagerDeconv():
 
         CleanMaskImage=None
         CleanMaskImageName=self.GD["Mask"]["External"]
-        if CleanMaskImageName is not None and CleanMaskImageName is not "":
-            print>>log,ModColor.Str("Will use mask image %s for the predict"%CleanMaskImageName)
-            CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
+        # if CleanMaskImageName is not None and CleanMaskImageName is not "":
+        #     print>>log,ModColor.Str("Will use mask image %s for the predict"%CleanMaskImageName)
+        #     CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
 
 
         modelfile = self.GD["Predict"]["FromImage"]
@@ -845,7 +853,7 @@ class ClassImagerDeconv():
             #                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
 
-            if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder":  # latter for backwards compatibility
+            if self.PredictMode == "BDA-degrid" or self.PredictMode == "Classic":  # latter for backwards compatibility
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
                 from ClassMontblancMachine import ClassMontblancMachine

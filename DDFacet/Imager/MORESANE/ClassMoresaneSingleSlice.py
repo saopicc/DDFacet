@@ -18,30 +18,19 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
-# DESCRIBE THE MORESANE CLASS
-
 import numpy as np
 import logging
 import time
 
-import pymoresane.iuwt as iuwt
-import pymoresane.iuwt_convolution as conv
-import pymoresane.iuwt_toolbox as tools
-import pymoresane.parser as pparser
-from pymoresane.beam_fit import beam_fit
-from pymoresane.main import FitsImage as FI # importing the class
+from DDFacet.Other import MyLogger
+from pymoresane.main import FitsImage as FI
 
-from scipy.signal import fftconvolve
-from astropy.io import fits
-
-logger = logging.getLogger(__name__)
-
-
-class ClassMoresane(FI): # inherits from FitsImage but overriding __init__ to get rid of FITS file processing
+class ClassMoresaneSingleSlice(FI):
     def __init__(self,dirty,psf,mask=None,GD=None):
         self.dirty_data = dirty
         self.psf_data = psf
 
+        #MyLogger.setSilent(["pymoresane.main"])
         self.mask_name=None
         if mask is not None:
             self.mask_name="NumpyMask"
@@ -61,6 +50,7 @@ class ClassMoresane(FI): # inherits from FitsImage but overriding __init__ to ge
 
 
     def giveModelResid(self,*args,**kwargs):
-        self.moresane(*args,**kwargs)
+        with np.errstate(divide='ignore'): 
+            self.moresane(*args,**kwargs)
         return self.model,self.residual
 
