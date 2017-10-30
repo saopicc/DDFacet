@@ -204,7 +204,7 @@ class ClassInitSSDModel():
         if self.DicoHMPFunctions is not None:
             self.DeconvMachine.set_DicoHMPFunctions(self.DicoHMPFunctions)
 
-        self.Margin=20
+        self.Margin=50
         self.DicoDirty=DicoDirty
         self.Dirty=DicoDirty["ImageCube"]
         self.MeanDirty=DicoDirty["MeanImage"]
