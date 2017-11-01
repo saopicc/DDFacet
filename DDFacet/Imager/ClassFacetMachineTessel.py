@@ -112,12 +112,18 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             raNode = ClusterNodes.ra
             decNode = ClusterNodes.dec
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
-        elif SolsFile != "":
+        elif ".npz" in SolsFile:
             print>> log, "Taking facet directions from solutions file: %s" % SolsFile
             ClusterNodes = np.load(SolsFile)["ClusterCat"]
             ClusterNodes = ClusterNodes.view(np.recarray)
             raNode = ClusterNodes.ra
             decNode = ClusterNodes.dec
+            lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
+        elif ".h5" in  SolsFile:
+            import tables
+            print>> log, "Taking facet directions from HDF5 solutions file: %s" % SolsFile
+            H=tables.open_file(SolsFile)
+            raNode,decNode=H.root.sol000.source[:]["dir"].T
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
         else:
             print>> log, "Taking facet directions from regular grid"

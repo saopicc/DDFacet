@@ -317,6 +317,7 @@ class ClassJones():
         for File, ThisGlobalMode, ThisJonesMode in zip(
                 SolsFileList, GlobalNormList, JonesNormList):
 
+            
             DicoClusterDirs, DicoSols, VisToJonesChanMapping = self.GiveKillMSSols_SingleFile(
                 File, GlobalMode=ThisGlobalMode, JonesMode=ThisJonesMode)
             print>>log, "  VisToJonesChanMapping: %s" % str(VisToJonesChanMapping)
@@ -330,12 +331,7 @@ class ClassJones():
 
         return DicoClusterDirs, DicoJones
 
-    def GiveKillMSSols_SingleFile(
-        self,
-        SolsFile,
-        JonesMode="AP",
-        GlobalMode=""):
-
+    def ReadNPZ(self,SolsFile):
         print>>log, "  Loading solution file %s" % (SolsFile)
         if not(".npz" in SolsFile):
             Method = SolsFile
@@ -360,14 +356,6 @@ class ClassJones():
         DicoClusterDirs["I"] = ClusterCat.SumI
         DicoClusterDirs["Cluster"] = ClusterCat.Cluster
 
-        if "FreqDomains" in DicoSolsFile.keys():
-            FreqDomains = DicoSolsFile["FreqDomains"]
-            VisToJonesChanMapping = self.GiveVisToJonesChanMapping(FreqDomains)
-        else:
-            VisToJonesChanMapping = np.zeros((self.MS.NSPWChan,), np.int32)
-
-        self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
-
         Sols = DicoSolsFile["Sols"]
         Sols = Sols.view(np.recarray)
         DicoSols = {}
@@ -376,6 +364,24 @@ class ClassJones():
         DicoSols["tm"] = (Sols.t1+Sols.t0)/2.
         nt, nf, na, nd, _, _ = Sols.G.shape
         G = np.swapaxes(Sols.G, 1, 3).reshape((nt, nd, na, nf, 2, 2))
+        stop
+        return DicoClusterDirs,DicoSols,G
+
+
+    def GiveKillMSSols_SingleFile(
+        self,
+        SolsFile,
+        JonesMode="AP",
+        GlobalMode=""):
+
+        DicoClusterDirs,DicoSols,G=self.ReadNPZ(SolsFile)
+        if "FreqDomains" in DicoSolsFile.keys():
+            FreqDomains = DicoSolsFile["FreqDomains"]
+            VisToJonesChanMapping = self.GiveVisToJonesChanMapping(FreqDomains)
+        else:
+            VisToJonesChanMapping = np.zeros((self.MS.NSPWChan,), np.int32)
+
+        self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
 
         # G[:,:,:,:,0,0]=0.
         # G[:,:,:,:,1,1]=0.
