@@ -122,6 +122,7 @@ class ClassJones():
 
         # np.savez(self.JonesNorm_killMS,l=l,m=m,I=I,Cluster=Cluster,t0=t0,t1=t1,tm=tm,Jones=Jones,TimeMapping=TimeMapping)
 
+        os.system("touch %s"%OutName)
         np.savez(file("%s.npz"%OutName, "w"),
                  l=l, m=m, I=I, Cluster=Cluster,
                  t0=t0, t1=t1, tm=tm,
@@ -429,7 +430,8 @@ class ClassJones():
 
         nt, na, nd, _=tec.shape
         tecvals=tec.reshape((nt,na,nd,1))
-        freqs=self.FacetMachine.VS.GlobalFreqs.reshape((1,1,1,-1))
+        #freqs=self.FacetMachine.VS.GlobalFreqs.reshape((1,1,1,-1))
+        freqs=self.FacetMachine.VS.ListMS[self.FacetMachine.VS.iCurrentMS].ChanFreq.ravel()
         scphase=scphase.reshape((nt,na,nd,1))
         phase = (-8.4479745e9 * tecvals/freqs) + scphase
         # nt,na,nd,nf,1
