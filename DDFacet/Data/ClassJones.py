@@ -51,7 +51,7 @@ class ClassJones():
         if SolsFile != "":
             self.ApplyCal = True
             self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache(
-                "JonesNorm_killMS.npz",
+                "JonesNorm_killMS",
                 dict(VisData=GD["Data"], 
                      DDESolutions=GD["DDESolutions"], 
                      DataSelection=self.GD["Selection"],
@@ -63,7 +63,7 @@ class ClassJones():
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_killMS)
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS", DATA, quiet=quiet)
-                self.MS.cache.saveCache("JonesNorm_killMS.npz")
+                self.MS.cache.saveCache("JonesNorm_killMS")
 
             DATA["killMS"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
             self.DicoClusterDirs_kMS=DicoClusterDirs
@@ -122,20 +122,25 @@ class ClassJones():
 
         # np.savez(self.JonesNorm_killMS,l=l,m=m,I=I,Cluster=Cluster,t0=t0,t1=t1,tm=tm,Jones=Jones,TimeMapping=TimeMapping)
 
-        np.savez(file(OutName, "w"),
+        np.savez(file("%s.npz"%OutName, "w"),
                  l=l, m=m, I=I, Cluster=Cluster,
                  t0=t0, t1=t1, tm=tm,
                  ra=ra,dec=dec,
-                 Jones=Jones,
                  TimeMapping=TimeMapping,
                  VisToJonesChanMapping=VisToJonesChanMapping)
+        np.save(file("%s.npy"%OutName, "w"),
+                Jones)
+
 
     def DiskToSols(self, InName):
         # SolsFile_killMS=np.load(self.JonesNorm_killMS)
         # print>>log, "  Loading %s"%InName
         # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",InName
-        SolsFile = np.load(InName)
-        print>>log, "  %s loaded" % InName
+        SolsFile = np.load("%s.npz"%InName)
+        print>>log, "  %s.npz loaded" % InName
+        Jones=np.load("%s.npy"%InName)
+        print>>log, "  %s.npy loaded" % InName
+
 
         DicoClusterDirs = {}
         DicoClusterDirs["l"] = SolsFile["l"]
@@ -148,7 +153,9 @@ class ClassJones():
         DicoSols["t0"] = SolsFile["t0"]
         DicoSols["t1"] = SolsFile["t1"]
         DicoSols["tm"] = SolsFile["tm"]
-        DicoSols["Jones"] = SolsFile["Jones"]
+
+        DicoSols["Jones"] = Jones
+
         DicoSols["VisToJonesChanMapping"] = SolsFile["VisToJonesChanMapping"]
         TimeMapping = SolsFile["TimeMapping"]
         return DicoSols, TimeMapping, DicoClusterDirs
@@ -414,29 +421,28 @@ class ClassJones():
         dt=dts[0]
         t0=times-dt/2.
         t1=times+dt/2.
-
-
-        nt, na, nd, _=tec.shape
-        tecvals=tec.reshape((nt,na,nd,1,1))
-        freqs=self.FacetMachine.VS.GlobalFreqs.reshape((1,1,1,-1,1))
-        scphase=scphase.reshape()
-        stop
-        phase = (-8.4479745e9 * tecvals/freq) + scphase
-        
         DicoSols = {}
         DicoSols["t0"] = t0
         DicoSols["t1"] = t1
         DicoSols["tm"] = (t1+t0)/2.
-        nt, nf, na, nd, _, _ = Sols.G.shape
-        G = np.swapaxes(Sols.G, 1, 3).reshape((nt, nd, na, nf, 2, 2))
 
-        if "FreqDomains" in DicoSolsFile.keys():
-            FreqDomains = DicoSolsFile["FreqDomains"]
-            VisToJonesChanMapping = self.GiveVisToJonesChanMapping(FreqDomains)
-        else:
-            VisToJonesChanMapping = np.zeros((self.MS.NSPWChan,), np.int32)
 
-        self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
+        nt, na, nd, _=tec.shape
+        tecvals=tec.reshape((nt,na,nd,1))
+        freqs=self.FacetMachine.VS.GlobalFreqs.reshape((1,1,1,-1))
+        scphase=scphase.reshape((nt,na,nd,1))
+        phase = (-8.4479745e9 * tecvals/freqs) + scphase
+        # nt,na,nd,nf,1
+        phase=np.swapaxes(phase,1,2)
+        nf=freqs.size
+        G=np.zeros((nt, nd, na, nf, 2, 2),np.complex64)
+        z=np.exp(1j*phase)
+        G[:,:,:,:,0,0]=z
+        G[:,:,:,:,1,1]=z
+
+        VisToJonesChanMapping = np.zeros((self.MS.NSPWChan,), np.int32)
+
+        #self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
 
         return VisToJonesChanMapping,DicoClusterDirs,DicoSols,G
 
