@@ -442,7 +442,7 @@ class ClassJones():
         G[:,:,:,:,0,0]=z
         G[:,:,:,:,1,1]=z
 
-        VisToJonesChanMapping = np.zeros((self.MS.NSPWChan,), np.int32)
+        VisToJonesChanMapping = np.int32(np.arange(self.MS.NSPWChan,))
 
         #self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
 
