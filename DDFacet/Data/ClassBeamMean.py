@@ -142,6 +142,7 @@ class ClassBeamMean():
             A1s=A1[ind]
             fs=flags[ind]
             Ws=W[ind]
+            MSnchan=Ws.shape[1]
             T.timeit("1")
             
             nd,na,nch,_,_=J.shape
@@ -172,7 +173,7 @@ class ClassBeamMean():
             
             WW=Ws**2
             T.timeit("4")
-            WW=WW.reshape((1,ind.size,self.MS.Nchan))
+            WW=WW.reshape((1,ind.size,MSnchan))
             T.timeit("5")
             JJsq=WW*JJ**2
             T.timeit("6")
@@ -188,8 +189,8 @@ class ClassBeamMean():
             for iBand in range(self.VS.NFreqBands):
                 indFreqBand,=np.where(ChanToFreqBand==iBand)
                 if indFreqBand.size==0: continue
-                self.StackedBeamDict[iDir]["SumJJsq"][iBand]+=np.sum(SumWsqThisRange.reshape((self.MS.Nchan,))[indFreqBand])
-                self.StackedBeamDict[iDir]["SumWsq"][iBand]+=np.sum(SumWsq.reshape((self.MS.Nchan,))[indFreqBand])
+                self.StackedBeamDict[iDir]["SumJJsq"][iBand]+=np.sum(SumWsqThisRange.reshape((MSnchan,))[indFreqBand])
+                self.StackedBeamDict[iDir]["SumWsq"][iBand]+=np.sum(SumWsq.reshape((MSnchan,))[indFreqBand])
 
             #print SumWsq,self.SumWsq,self.SumJJsq.shape,J0.shape
             T.timeit("9")
