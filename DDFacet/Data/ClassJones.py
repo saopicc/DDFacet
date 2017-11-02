@@ -433,6 +433,7 @@ class ClassJones():
         #freqs=self.FacetMachine.VS.GlobalFreqs.reshape((1,1,1,-1))
         freqs=self.FacetMachine.VS.ListMS[self.FacetMachine.VS.iCurrentMS].ChanFreq.ravel()
         scphase=scphase.reshape((nt,na,nd,1))
+        freqs=freqs.reshape((1,1,1,-1))
         phase = (-8.4479745e9 * tecvals/freqs) + scphase
         # nt,na,nd,nf,1
         phase=np.swapaxes(phase,1,2)
