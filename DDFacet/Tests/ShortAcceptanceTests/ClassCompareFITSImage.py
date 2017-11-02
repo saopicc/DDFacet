@@ -26,6 +26,7 @@ import re
 import numpy as np
 from DDFacet.Parset.ReadCFG import Parset
 from astropy.io import fits
+from nose.tools import timed
 
 class ClassCompareFITSImage(unittest.TestCase):
     """ Automated assurance test: reference FITS file regression (abstract class)
@@ -142,6 +143,7 @@ class ClassCompareFITSImage(unittest.TestCase):
         cls._defaultParset.set(section, option, value)
 
     @classmethod
+    @timed(10800) # should really not take longer than 3 hours
     def setUpClass(cls):
         unittest.TestCase.setUpClass()
         cls._inputDir = getenv('DDFACET_TEST_DATA_DIR','./')+"/"
