@@ -143,7 +143,7 @@ class ClassCompareFITSImage(unittest.TestCase):
         cls._defaultParset.set(section, option, value)
 
     @classmethod
-    @timed(10800) # should really not take longer than 3 hours
+    @timed(18000) # should really not take longer than 5 hours
     def setUpClass(cls):
         unittest.TestCase.setUpClass()
         cls._inputDir = getenv('DDFACET_TEST_DATA_DIR','./')+"/"
