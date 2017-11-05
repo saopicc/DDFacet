@@ -469,6 +469,7 @@ class ClassJones():
         else:
             VisToJonesChanMapping,DicoClusterDirs,DicoSols,G=self.ReadH5(SolsFile)
             
+        nt, nd, na, nf, _, _ = G.shape
 
         # G[:,:,:,:,0,0]=0.
         # G[:,:,:,:,1,1]=0.
