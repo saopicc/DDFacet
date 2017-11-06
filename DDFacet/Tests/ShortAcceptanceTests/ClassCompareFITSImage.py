@@ -26,7 +26,7 @@ import re
 import numpy as np
 from DDFacet.Parset.ReadCFG import Parset
 from astropy.io import fits
-from nose.tools import timed
+from subprocess import Popen, TimeoutExpired
 
 class ClassCompareFITSImage(unittest.TestCase):
     """ Automated assurance test: reference FITS file regression (abstract class)
@@ -143,7 +143,6 @@ class ClassCompareFITSImage(unittest.TestCase):
         cls._defaultParset.set(section, option, value)
 
     @classmethod
-    @timed(18000) # should really not take longer than 5 hours
     def setUpClass(cls):
         unittest.TestCase.setUpClass()
         cls._inputDir = getenv('DDFACET_TEST_DATA_DIR','./')+"/"
@@ -213,8 +212,18 @@ class ClassCompareFITSImage(unittest.TestCase):
         stderr_file = open(cls._stderrLogFile, 'w')
 
         with stdout_file, stderr_file:
-            subprocess.check_call(args, env=os.environ.copy(),
-                stdout=stdout_file, stderr=stderr_file)
+            p = Popen(args, 
+                      env=os.environ.copy()
+                      stdout=stdout_file, 
+                      stderr=stderr_file)
+            try:
+                ret = p.wait(21600)
+            except TimeoutExpired:
+                p.kill()
+                raise
+            if ret != 0: 
+                raise RuntimeError("DDF exited with non-zero return code %d" % ret)
+            
 
         #Finally open up output FITS files for testing and build a dictionary of them
         for ref_id in cls.defineImageList():
