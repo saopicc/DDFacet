@@ -431,7 +431,8 @@ class ClassJones():
         nt, na, nd, _=tec.shape
         tecvals=tec.reshape((nt,na,nd,1))
         #freqs=self.FacetMachine.VS.GlobalFreqs.reshape((1,1,1,-1))
-        freqs=self.FacetMachine.VS.ListMS[self.FacetMachine.VS.iCurrentMS].ChanFreq.ravel()
+        freqs=self.MS.ChanFreq.ravel()
+
         scphase=scphase.reshape((nt,na,nd,1))
         freqs=freqs.reshape((1,1,1,-1))
         phase = (-8.4479745e9 * tecvals/freqs) + scphase
@@ -457,6 +458,7 @@ class ClassJones():
         SolsFile,
         JonesMode="AP",
         GlobalMode=""):
+
 
         if not ".h5" in SolsFile:
             if not(".npz" in SolsFile):
