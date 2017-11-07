@@ -213,7 +213,7 @@ class ClassCompareFITSImage(unittest.TestCase):
 
         with stdout_file, stderr_file:
             p = Popen(args, 
-                      env=os.environ.copy()
+                      env=os.environ.copy(),
                       stdout=stdout_file, 
                       stderr=stderr_file)
             try:
