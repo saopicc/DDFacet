@@ -381,6 +381,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def FilterNegComponants(self,box=20,sig=3,RemoveNeg=True):
         print>>log, "Cleaning model dictionary from negative components with (box, sig) = (%i, %i)"%(box,sig)
+        
+        print>>log,"  Number of componants before filtering: %i"%len(self.DicoSMStacked["Comp"])
         ModelImage=self.GiveModelImage(self.DicoSMStacked["RefFreq"])[0,0]
         
         Min=scipy.ndimage.filters.minimum_filter(ModelImage,(box,box))
@@ -399,6 +401,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 del(self.DicoSMStacked["Comp"][key])
             except:
                 print>>log, "  Component at (%i, %i) not in dict "%key
+        print>>log,"  Number of componants after filtering: %i"%len(self.DicoSMStacked["Comp"])
 
 
 
