@@ -31,7 +31,7 @@ import scipy as scp
 from scipy.linalg import solve_triangular as soltri
 from scipy import optimize as opt
 from DDFacet.ToolsDir import ClassGP
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import time
 
 
