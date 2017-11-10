@@ -204,7 +204,17 @@ Acceptance test data can be found on the Jenkins server in the **/data/test-data
 Adding more tests and creating new reference images.
 ---------------------------------------------------------
 To resimulate images and add more tests:
-In the Jenkins server data directory run **make** to resimulate and set up new reference images. This should only be done with the ``origin/master`` branch - not your branch or fork! You should manually verify that all the reference images are correct when you regenerate them. Each time you add a new option to DDFacet also add an option to the makefile in this directory. Once the option is set up in the makefile you can build the reference images on Jenkins.
+
+In the Jenkins server data directory add a recipe to the makefile simulate and/or set up new reference images. This should only be done with the ``origin/master`` branch - not your branch or fork! Use the ddfacet-generate-refims task
+to do this. You should manually verify that all the reference images are correct when you regenerate them. Each time you add a new option to DDFacet also add an option to the makefile in this directory. Once the option is set up in the makefile you can build the reference images on Jenkins.
+
+Important directories on the CI server: 
+---------------------------------------------------------
+ - Reference data stored here: /var/lib/jenkins/test-data
+ - /var/lib/jenkins/jobs/ddfacet-pr-build/workspace
+ - /var/lib/jenkins/jobs/DDFacet_master_cron/workspace
+ - /var/lib/jenkins/jobs/DDFacet_experimental/workspace
+
 
 [tf_pip_install]: <https://www.tensorflow.org/get_started/os_setup#pip_installation>
 
