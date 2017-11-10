@@ -220,11 +220,11 @@ class ClassCompareFITSImage(unittest.TestCase):
             x = 21600
             delay = 1.0
             timeout = int(x / delay)
-            while task.poll() is None and timeout > 0:
+            while p.poll() is None and timeout > 0:
                 time.sleep(delay)
                 timeout -= delay
             #timeout reached, kill process if it is still rolling
-            if task.poll() is None:
+            if p.poll() is None:
                 p.kill()
                 ret = 1
                 
