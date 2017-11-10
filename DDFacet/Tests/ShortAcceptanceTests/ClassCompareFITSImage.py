@@ -26,7 +26,8 @@ import re
 import numpy as np
 from DDFacet.Parset.ReadCFG import Parset
 from astropy.io import fits
-from subprocess import Popen, TimeoutExpired
+from subprocess import Popen
+import time
 
 class ClassCompareFITSImage(unittest.TestCase):
     """ Automated assurance test: reference FITS file regression (abstract class)
@@ -216,11 +217,17 @@ class ClassCompareFITSImage(unittest.TestCase):
                       env=os.environ.copy(),
                       stdout=stdout_file, 
                       stderr=stderr_file)
-            try:
-                ret = p.wait(21600)
-            except TimeoutExpired:
+            x = 21600
+            delay = 1.0
+            timeout = int(x / delay)
+            while task.poll() is None and timeout > 0:
+                time.sleep(delay)
+                timeout -= delay
+            #timeout reached, kill process if it is still rolling
+            if task.poll() is None:
                 p.kill()
-                raise
+                ret = 1
+                
             if ret != 0: 
                 raise RuntimeError("DDF exited with non-zero return code %d" % ret)
             
