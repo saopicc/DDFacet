@@ -224,7 +224,8 @@ class ClassCompareFITSImage(unittest.TestCase):
                 time.sleep(delay)
                 timeout -= delay
             #timeout reached, kill process if it is still rolling
-            if p.poll() is None:
+            ret = p.poll()
+            if ret is None:
                 p.kill()
                 ret = 1
                 
