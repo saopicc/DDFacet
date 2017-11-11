@@ -17,3 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
+
+import pkg_resources
+try:
+    __version__ = pkg_resources.require("kliko")[0].version
+except pkg_resources.DistributionNotFound:
+    __version__ = "dev"
