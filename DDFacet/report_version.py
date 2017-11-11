@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-from DDFacet.version import __version__
+from DDFacet import __version__
 
 
 def report_version():
