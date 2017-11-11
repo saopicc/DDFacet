@@ -31,15 +31,8 @@ import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
+__version__ = "0.2.dev3"
 build_root=os.path.dirname(__file__)
-
-def get_version():
-    # Get the version code from version.py
-    # version.py must be updated manually before releases 
-    # (git tag-based generation breaks Debian packaging process)
-    version_py = os.path.join(build_root, pkg, 'version.py')
-
-    return version_git
 
 def backend(compile_options):
     if compile_options is not None:
@@ -90,7 +83,7 @@ def define_scripts():
     return [os.path.join(pkg, script_name) for script_name in ['DDF.py', 'CleanSHM.py', 'MemMonitor.py', 'Restore.py', 'SelfCal.py']]
 
 setup(name=pkg,
-      version=get_version(),
+      version=__version__,
       description='Facet-based radio astronomy continuum imager',
       url='http://github.com/cyriltasse/DDFacet',
       classifiers=[
