@@ -90,11 +90,11 @@ We prefer that users use DDFacet though Docker. However, if this is not availabl
 environments) we recommend you use a virtual environment. If you install it directly into your system packages you're
 on your own -- be warned!!
 
-1. You need to add in the KERN 2 ppa if you don't already have it::
+1. You need to add in the KERN 3 ppa if you don't already have it::
 
-        add-apt-repository -y -s ppa:kernsuite/kern-2
+        add-apt-repository -y -s ppa:kernsuite/kern-3
 
-2. Install each of the debian dependencies. The latest full list of apt dependencies can be be found in the Dockerfile <https://github.com/cyriltasse/DDFacet/blob/master/Dockerfile>
+2. Install each of the debian dependencies. The latest full list of apt dependencies can be be found in the Dockerfile <https://github.com/saopicc/DDFacet/blob/master/Dockerfile>
 
 3. Create a virtual environment somewhere on your system and activate::
 
@@ -143,6 +143,7 @@ To setup your local development environment navigate clone DDFacet and run::
         (ddfvenv) $ cd DDFacet
         (ddfvenv) $ git submodule update --init --recursive
         (ddfvenv) $ cd ..
+        (ddfvenv) $ pip install -r requirements.txt
         (ddfvenv) $ pip install -e DDFacet/
         #To (re-)build the backend in your checked out folder:
         (ddfvenv) $ cd DDFacet
