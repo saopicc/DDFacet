@@ -49,7 +49,6 @@ class ClassJones():
         SolsFile = GD["DDESolutions"]["DDSols"]
         self.ApplyCal = False
         if SolsFile != "":
-            print 0
             self.ApplyCal = True
             self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache(
                 "JonesNorm_killMS",
@@ -63,7 +62,6 @@ class ClassJones():
                 print>>log, "  using cached Jones matrices from %s" % self.JonesNormSolsFile_killMS
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_killMS)
             else:
-                print 1
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS", DATA, quiet=quiet)
                 self.MS.cache.saveCache("JonesNorm_killMS")
 
