@@ -106,7 +106,7 @@ on your own -- be warned!!
 4. Then, install directly from the Python Package Index (PyPI) using pip - **ensure your venv is activated**::
 
         pip install -U pip setuptools
-        pip install -e DDFacet --force-reinstall -U
+        pip install DDFacet --force-reinstall -U
 
 5. When you're done with your imaging business::
 
