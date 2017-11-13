@@ -344,6 +344,11 @@ class ClassRestoreMachine():
             print>>log,"  Done. "
 
     def GiveRandomModelIm(self):
+
+        SModel,NModel=np.load("Modeled.npy").T
+        SModel/=1e3
+        NModel/=SModel**(5/2.)
+
         std=np.std(self.Residual.flat[np.int64(np.random.rand(1000)*self.Residual.size)])
         def GiveNPerOmega(s):
             alpha=-1.5
@@ -359,7 +364,8 @@ class ClassRestoreMachine():
         nx=Model.shape[-1]
         for iBin in range(nbin-1):
             ThisS=(10**LogS[iBin]+10**LogS[iBin+1])/2.
-            n=int(round(GiveNPerOmega(ThisS)*Omega))
+            dx=10**LogS[iBin+1]-10**LogS[iBin]
+            n=int(round(GiveNPerOmega(ThisS)*Omega*dx))
             indx=np.int64(np.random.rand(n)*nx)
             indy=np.int64(np.random.rand(n)*nx)
             Model[...,indx,indy]=ThisS
