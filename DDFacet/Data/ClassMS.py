@@ -1225,7 +1225,7 @@ class ClassMS():
         ll.append("   - Selection: %s, channels: %s" % (ModColor.Str(str(self.TaQL), col="green"), self.ChanSlice))
         ll.append("   - Phase centre (field %d): (ra, dec)=(%s, %s) "%(self.Field, rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
                                                                        ,rad2hmsdms(self.decrad,Type="dec").replace(" ",".")))
-        ll.append("   - Frequency = %s MHz"%str(self.reffreq/1e6))
+        ll.append("   - Frequency = %s MHz"%str(np.mean(self.ChanFreq)/1e6))
         ll.append("   - Wavelength = %5.2f meters"%(np.mean(self.wavelength_chan)))
         Freqs=3.e8/self.wavelength_chan.ravel()/1e6
         ll.append("   - Bandwidth = %5.2f MHz"%(np.max(Freqs)-np.min(Freqs)))

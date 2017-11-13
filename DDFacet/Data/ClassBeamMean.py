@@ -42,7 +42,9 @@ class ClassBeamMean():
         self.DoCentralNorm=self.GD["Beam"]["CenterNorm"]
         self.SmoothBeam=None
         self.CheckCache()
-        if self.CacheValid: return
+        if self.CacheValid:
+            MyLogger.setLoud(["ClassJones","ClassLOFARBeam"])
+            return
 
         #self.GD["Beam"]["CenterNorm"]=0
 
