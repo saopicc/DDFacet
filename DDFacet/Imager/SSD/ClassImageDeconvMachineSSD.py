@@ -36,7 +36,6 @@ from DDFacet.Other import MyPickle
 import multiprocessing
 import time
 import ClassInitSSDModelHMP
-import ClassInitSSDModelMoresane
 from DDFacet.Imager.SSD.GA.ClassEvolveGA import ClassEvolveGA
 from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
 #try: # Genetic Algo
@@ -308,6 +307,7 @@ class ClassImageDeconvMachine():
                                                                            IdSharedMem=self.IdSharedMem)
             elif self.GD["GAClean"]["InitType"]=="MORESANE":
 
+                import ClassInitSSDModelMoresane
                 InitMachine=ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
                                                                                 self.DicoVariablePSF,
                                                                                 self.DicoDirty,
