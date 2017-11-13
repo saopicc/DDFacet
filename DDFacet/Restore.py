@@ -261,7 +261,7 @@ class ClassRestoreMachine():
         for l in Lambda:
             freq=C/l
             
-            if options.RandomCat:
+            if self.options.RandomCat:
                 print>>log,"Create candom catalog... "
                 ModelImage=self.GiveRandomModelIm()
             else:
@@ -302,6 +302,7 @@ class ClassRestoreMachine():
         else:
             ImageName=self.OutName
             ImageNameCorr=self.OutName+".corr"
+            ImageNameModel="%s.model"%self.OutName
 
         CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModel,RestoredImageRes.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(ModelImage,CorrT=True)
@@ -354,7 +355,7 @@ class ClassRestoreMachine():
         smax=10.
         LogS=np.linspace(np.log10(smin),np.log10(smax),nbin)
 
-        Model=np.zeros_like(self.Residual.shape)
+        Model=np.zeros_like(self.Residual)
         Omega=self.Residual.size*self.CellSizeRad**2
         nx=Model.shape[-1]
         for iBin in range(nbin-1):
@@ -386,7 +387,6 @@ def main(options=None):
                             DoAlpha=options.DoAlpha,
                             NBands=options.NBands,
                             CleanNegComp=options.CleanNegComp,
-                            OutName=options.OutName,
                             SmoothMode=options.SmoothMode,
                             MakeCorrected=options.MakeCorrected,
                             options=options)
