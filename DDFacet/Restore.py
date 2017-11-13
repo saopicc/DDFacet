@@ -261,8 +261,8 @@ class ClassRestoreMachine():
         for l in Lambda:
             freq=C/l
             
-            if options.RandomCat:
-                print>>log,"Create candom catalog... "
+            if self.options.RandomCat:
+                print>>log,"Create random catalog... "
                 ModelImage=self.GiveRandomModelIm()
             else:
                 print>>log,"Get ModelImage... "
@@ -302,6 +302,7 @@ class ClassRestoreMachine():
         else:
             ImageName=self.OutName
             ImageNameCorr=self.OutName+".corr"
+            ImageNameModel="%s.model"%self.OutName
 
         CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModel,RestoredImageRes.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(ModelImage,CorrT=True)
@@ -344,26 +345,59 @@ class ClassRestoreMachine():
             print>>log,"  Done. "
 
     def GiveRandomModelIm(self):
-        std=np.std(self.Residual.flat[np.int64(np.random.rand(1000)*self.Residual.size)])
+
+        SModel,NModel=np.load("/home/cyril.tasse/PUBLI/PaperBootes/Modeled.npy").T
+        ind=np.argsort(SModel)
+        SModel=SModel[ind]
+        NModel=NModel[ind]
+        SModel/=1e3
+        NModel/=SModel**(5/2.)
         def GiveNPerOmega(s):
-            alpha=-1.5
-            n0=1e6/(4e-2)**alpha
-            return n0*(s**alpha)
+            xp=np.interp(np.log10(s), np.log10(SModel), np.log10(NModel), left=None, right=None)
+            # import pylab
+            # pylab.clf()
+            # pylab.plot(np.log10(SModel), np.log10(NModel))
+            # pylab.scatter(np.log10(s),xp)
+            # pylab.draw()
+            # pylab.show()
+            # pylab.pause(0.1)
+            return 10**xp
+
+        std=np.std(self.Residual.flat[np.int64(np.random.rand(1000)*self.Residual.size)])
         nbin=100
-        smin=3.*std
+        smin=2.*std
         smax=10.
         LogS=np.linspace(np.log10(smin),np.log10(smax),nbin)
 
-        Model=np.zeros_like(self.Residual.shape)
+        Model=np.zeros_like(self.Residual)
         Omega=self.Residual.size*self.CellSizeRad**2
         nx=Model.shape[-1]
+        im=image(self.FitsFile)
+        Lra=[]
+        Ldec=[]
+        LS=[]
+        f,p,_,_=im.toworld((0,0,0,0))
         for iBin in range(nbin-1):
             ThisS=(10**LogS[iBin]+10**LogS[iBin+1])/2.
-            n=int(round(GiveNPerOmega(ThisS)*Omega))
+            dx=10**LogS[iBin+1]-10**LogS[iBin]
+            n=int(round(GiveNPerOmega(ThisS)*Omega*dx))
             indx=np.int64(np.random.rand(n)*nx)
             indy=np.int64(np.random.rand(n)*nx)
             Model[...,indx,indy]=ThisS
-
+            for iS in range(indx.size):
+                _,_,dec,ra=im.toworld((0,0,indx[iS],indy[iS]))
+                Lra.append(ra)
+                Ldec.append(dec)
+                LS.append(ThisS)
+                
+        Cat=np.zeros((len(Lra),),dtype=[("ra",np.float32),("dec",np.float32),("S",np.float32)])
+        Cat=Cat.view(np.recarray)
+        Cat.ra=np.array(Lra)
+        Cat.dec=np.array(Ldec)
+        Cat.S=np.array(LS)
+        CatName="%s.cat.npy"%self.OutName
+        print>>log,"Saving simulated catalog as %s"%CatName
+        np.save(CatName,Cat)
 
         Model*=self.SqrtNormImage
         return Model
@@ -386,7 +420,6 @@ def main(options=None):
                             DoAlpha=options.DoAlpha,
                             NBands=options.NBands,
                             CleanNegComp=options.CleanNegComp,
-                            OutName=options.OutName,
                             SmoothMode=options.SmoothMode,
                             MakeCorrected=options.MakeCorrected,
                             options=options)
