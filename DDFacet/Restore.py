@@ -43,12 +43,15 @@ def read_options():
     group = optparse.OptionGroup(opt, "* Data selection options")
     group.add_option('--BaseImageName',help='')
     group.add_option('--ResidualImage',help='',type="str",default="")
-    group.add_option('--BeamPix',type='float',help='',default=5)
+    group.add_option('--BeamPix',type='float',help='',default=5.)
     group.add_option('--SmoothMode',type='int',help='0 = use default beam, 1 = use smooth beam, default 0',default=0)
     group.add_option('--MakeCorrected',type='int',help='0 = no normalization correction, 1 = make corrected image, default 1',default=1)
     group.add_option('--MaskName',type="str",help='',default=5)
     group.add_option('--NBands',type="int",help='',default=1)
     group.add_option('--CleanNegComp',type="int",help='',default=0)
+    group.add_option('--RandomCat',type="int",help='',default=0)
+    group.add_option('--RandomCat_TotalToPeak',type=float,help='',default=1)
+    group.add_option('--ZeroNegComp',type="int",help='',default=0)
     group.add_option('--DoAlpha',type="int",help='',default=0)
     group.add_option('--OutName',type="str",help='',default="")
     group.add_option('--PSFCache',type="str",help='',default="")
@@ -61,15 +64,20 @@ def read_options():
     return options
 
 
+
+
+
+
 class ClassRestoreMachine():
     def __init__(self,BaseImageName,BeamPix=5,ResidualImName="",DoAlpha=1,
-                 MaskName="",CleanNegComp=False,NBands=1,OutName="",
+                 MaskName="",CleanNegComp=False,
+                 NBands=1,
                  SmoothMode=0,MakeCorrected=1,options=None):
         self.DoAlpha=DoAlpha
         self.BaseImageName=BaseImageName
         self.BeamPix=BeamPix
         self.NBands=NBands
-        self.OutName=OutName
+        self.OutName=options.OutName
         self.options=options
         self.SmoothMode=SmoothMode
         self.MakeCorrected=MakeCorrected
@@ -151,15 +159,23 @@ class ClassRestoreMachine():
 
         
         FWHMFact=2.*np.sqrt(2.*np.log(2.))
+        FWHMFact=2.*np.sqrt(2.*np.log(2.))
+
         BeamPix=self.BeamPix/FWHMFact
         sigma_x, sigma_y=BeamPix,BeamPix
         theta=0.
         bmaj=np.max([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
         bmin=np.min([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
-        self.FWHMBeam=(bmaj/3600.,bmin/3600.,theta)
+
+        #bmaj=bmin=0.001666666666666667*3600
+        #sigma_x=
+        self.FWHMBeam=(bmaj/3600./np.sqrt(2.),bmin/3600./np.sqrt(2.),theta)
         self.PSFGaussPars = (sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta)
+
         #print "!!!!!!!!!!!!!!!!!!!!"
-        self.PSFGaussPars = (BeamPix,BeamPix,0)
+        #self.PSFGaussPars = (BeamPix,BeamPix,0)
+
+
 
         RefFreq=self.ModelMachine.RefFreq
         df=RefFreq*0.5
@@ -241,10 +257,20 @@ class ClassRestoreMachine():
         ListModelIm=[]
         #print C/np.array(Lambda)
         # restored image
+
         for l in Lambda:
             freq=C/l
-            print>>log,"Get ModelImage... "
-            ModelImage=ModelMachine.GiveModelImage(freq)
+            
+            if options.RandomCat:
+                print>>log,"Create candom catalog... "
+                ModelImage=self.GiveRandomModelIm()
+            else:
+                print>>log,"Get ModelImage... "
+                ModelImage=ModelMachine.GiveModelImage(freq)
+            
+            if self.options.ZeroNegComp:
+                print>>log,"Zeroing negative componants... "
+                ModelImage[ModelImage<0]=0
             ListModelIm.append(ModelImage)
             print>>log,"  ModelImage to apparent flux... "
             ModelImage=ModelImage*self.SqrtNormImage
@@ -283,14 +309,14 @@ class ClassRestoreMachine():
         CasaImage.ToFits()
         CasaImage.close()
 
-        CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec)#,Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec,Freqs=C/np.array(Lambda).ravel())#,Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(RestoredImageRes,CorrT=True)
         CasaImage.setBeam(self.FWHMBeam)
         CasaImage.ToFits()
         CasaImage.close()
 
         if self.MakeCorrected:
-            CasaImage=ClassCasaImage.ClassCasaimage(ImageNameCorr,RestoredImageResCorr.shape,self.Cell,self.radec)#,Lambda=(Lambda0,dLambda,self.NBands))
+            CasaImage=ClassCasaImage.ClassCasaimage(ImageNameCorr,RestoredImageResCorr.shape,self.Cell,self.radec,Freqs=C/np.array(Lambda).ravel())#,Lambda=(Lambda0,dLambda,self.NBands))
             CasaImage.setdata(RestoredImageResCorr,CorrT=True)
             CasaImage.setBeam(self.FWHMBeam)
             CasaImage.ToFits()
@@ -317,6 +343,30 @@ class ClassRestoreMachine():
             CasaImage.close()
             print>>log,"  Done. "
 
+    def GiveRandomModelIm(self):
+        std=np.std(self.Residual.flat[np.int64(np.random.rand(1000)*self.Residual.size)])
+        def GiveNPerOmega(s):
+            alpha=-1.5
+            n0=1e6/(4e-2)**alpha
+            return n0*(s**alpha)
+        nbin=100
+        smin=3.*std
+        smax=10.
+        LogS=np.linspace(np.log10(smin),np.log10(smax),nbin)
+
+        Model=np.zeros_like(self.Residual.shape)
+        Omega=self.Residual.size*self.CellSizeRad**2
+        nx=Model.shape[-1]
+        for iBin in range(nbin-1):
+            ThisS=(10**LogS[iBin]+10**LogS[iBin+1])/2.
+            n=int(round(GiveNPerOmega(ThisS)*Omega))
+            indx=np.int64(np.random.rand(n)*nx)
+            indy=np.int64(np.random.rand(n)*nx)
+            Model[...,indx,indy]=ThisS
+
+
+        Model*=self.SqrtNormImage
+        return Model
 
 
 def test():

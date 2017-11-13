@@ -323,7 +323,9 @@ class ClassIslandDistanceMachine():
         for Island in ListIslands:
             points=np.array(Island)
             x,y=points.T
-            if x.size<=3:
+            Cx=(np.abs(x.min()-x.max())==0)
+            Cy=(np.abs(y.min()-y.max())==0)
+            if (x.size<=3) or Cx or Cy:
                 ListConvexIslands.append(Island)
                 continue
             try:
