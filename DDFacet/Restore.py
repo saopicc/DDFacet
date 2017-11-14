@@ -32,6 +32,7 @@ from DDFacet.Other import MyLogger
 from DDFacet.Other import MyPickle
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 log=MyLogger.getLogger("ClassRestoreMachine")
+import scipy.signal
 
 import multiprocessing
 NCPU_default=str(int(0.75*multiprocessing.cpu_count()))
@@ -51,7 +52,7 @@ def read_options():
     group.add_option('--NBands',type="int",help='',default=1)
     group.add_option('--CleanNegComp',type="int",help='',default=0)
     group.add_option('--RandomCat',type="int",help='',default=0)
-    group.add_option('--RandomCat_TotalToPeak',type=float,help='',default=1)
+    group.add_option('--RandomCat_TotalToPeak',type=float,help='',default=-1.)
     group.add_option('--ZeroNegComp',type="int",help='',default=0)
     group.add_option('--DoAlpha',type="int",help='',default=0)
     group.add_option('--OutName',type="str",help='',default="")
@@ -412,6 +413,18 @@ class ClassRestoreMachine():
 
         ModelOut=np.zeros_like(Model)
         ModelOut[0,0]=Model[0,0].T[::-1]
+
+        
+        p=self.options.RandomCat_TotalToPeak
+        if p>0:
+            x,y=np.mgrid[-5:6,-5:6]
+            sig=np.sqrt(1./(2.*np.pi*p))
+            C0=1./(2.*np.pi*sig**2)
+            r2=x**2+y**2
+            C=C0*np.exp(-r2/(2.*sig**2))
+            print np.sum(C)
+            ModelOut[0,0]=scipy.signal.fftconvolve(ModelOut[0,0], C, mode='same')
+        
 
         return ModelOut
 
