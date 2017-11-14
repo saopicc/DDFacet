@@ -417,14 +417,20 @@ class ClassRestoreMachine():
         
         p=self.options.RandomCat_TotalToPeak
         if p>0:
-            x,y=np.mgrid[-5:6,-5:6]
-            sig=np.sqrt(1./(2.*np.pi*p))
-            C0=1./(2.*np.pi*sig**2)
+            nx=11
+            x,y=np.mgrid[-nx:nx+1,-nx:nx+1]
             r2=x**2+y**2
-            C=C0*np.exp(-r2/(2.*sig**2))
-            print np.sum(C)
-            ModelOut[0,0]=scipy.signal.fftconvolve(ModelOut[0,0], C, mode='same')
-        
+            def G(sig):
+                C0=1./(2.*np.pi*sig**2)
+                C=C0*np.exp(-r2/(2.*sig**2))
+                C/=np.sum(C)
+                return C
+            ListSig=np.linspace(0.001,1.,100)
+            TotToPeak=np.array([np.max(G(s)) for s in ListSig])
+            sig=np.interp(self.options.RandomCat_TotalToPeak,TotToPeak,ListSig)
+            print>>log,"Found a sig of %f"%sig
+            ModelOut[0,0]=scipy.signal.fftconvolve(ModelOut[0,0], G(sig), mode='same')
+            
 
         return ModelOut
 
