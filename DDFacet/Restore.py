@@ -30,6 +30,7 @@ from DDFacet.ToolsDir import ModFFTW
 
 from DDFacet.Other import MyLogger
 from DDFacet.Other import MyPickle
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 log=MyLogger.getLogger("ClassRestoreMachine")
 
 import multiprocessing
@@ -345,7 +346,7 @@ class ClassRestoreMachine():
             print>>log,"  Done. "
 
     def GiveRandomModelIm(self):
-
+        np.random.seed(0)
         SModel,NModel=np.load("/home/cyril.tasse/PUBLI/PaperBootes/Modeled.npy").T
         ind=np.argsort(SModel)
         SModel=SModel[ind]
@@ -376,31 +377,43 @@ class ClassRestoreMachine():
         Lra=[]
         Ldec=[]
         LS=[]
+        SRA=[]
+        SDEC=[]
+        
         f,p,_,_=im.toworld((0,0,0,0))
         for iBin in range(nbin-1):
             ThisS=(10**LogS[iBin]+10**LogS[iBin+1])/2.
             dx=10**LogS[iBin+1]-10**LogS[iBin]
             n=int(round(GiveNPerOmega(ThisS)*Omega*dx))
-            indx=np.int64(np.random.rand(n)*nx)
-            indy=np.int64(np.random.rand(n)*nx)
-            Model[...,indx,indy]=ThisS
+            indx=np.array([np.int64(np.random.rand(n)*nx)]).ravel()
+            indy=np.array([np.int64(np.random.rand(n)*nx)]).ravel()
+            s0,s1=10**LogS[iBin],10**LogS[iBin+1]
+            RandS=np.random.rand(n)*(s1-s0)+s0
+            Model[0,0,indy,indx]=RandS
             for iS in range(indx.size):
-                _,_,dec,ra=im.toworld((0,0,indx[iS],indy[iS]))
+                _,_,dec,ra=im.toworld((0,0,indy[iS],indx[iS]))
                 Lra.append(ra)
                 Ldec.append(dec)
-                LS.append(ThisS)
-                
-        Cat=np.zeros((len(Lra),),dtype=[("ra",np.float32),("dec",np.float32),("S",np.float32)])
+                LS.append(RandS[iS])
+                #SRA.append(rad2hmsdms(ra,Type="ra").replace(" ",":"))
+                #SDEC.append(rad2hmsdms(dec,Type="dec").replace(" ",":"))
+
+        #Cat=np.zeros((len(Lra),),dtype=[("ra",np.float64),("StrRA","S200"),("dec",np.float64),("StrDEC","S200"),("S",np.float64)])
+        Cat=np.zeros((len(Lra),),dtype=[("ra",np.float64),("dec",np.float64),("S",np.float64)])
         Cat=Cat.view(np.recarray)
         Cat.ra=np.array(Lra)
         Cat.dec=np.array(Ldec)
+        #Cat.StrRA=np.array(SRA)
+        #Cat.StrDEC=np.array(SDEC)
         Cat.S=np.array(LS)
         CatName="%s.cat.npy"%self.OutName
         print>>log,"Saving simulated catalog as %s"%CatName
         np.save(CatName,Cat)
 
-        Model*=self.SqrtNormImage
-        return Model
+        ModelOut=np.zeros_like(Model)
+        ModelOut[0,0]=Model[0,0].T[::-1]
+
+        return ModelOut
 
 
 def test():
