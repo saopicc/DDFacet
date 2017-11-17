@@ -38,6 +38,7 @@ widely supported containerization framework, called Docker. This package is on P
         $ virtualenv stimelavenv
         $ source stimelavenv/bin/activate
         (stimelavenv)$ pip install -U pip wheel setuptools
+        (stimelavenv)$ pip install stimela
 
 4. Run ``stimela pull`` and ``stimela build`` to pull all the latest astronomy software from DockerHub (this will take a while and is several GiB in size, so ensure you're on a fast link)::
 
