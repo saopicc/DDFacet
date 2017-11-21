@@ -51,6 +51,7 @@ def read_options():
     group.add_option('--MaskName',type="str",help='',default=5)
     group.add_option('--NBands',type="int",help='',default=1)
     group.add_option('--CleanNegComp',type="int",help='',default=0)
+    group.add_option('--Mode',type="str",help='',default="App")
     group.add_option('--RandomCat',type="int",help='',default=0)
     group.add_option('--RandomCat_TotalToPeak',type=float,help='',default=-1.)
     group.add_option('--ZeroNegComp',type="int",help='',default=0)
@@ -274,8 +275,11 @@ class ClassRestoreMachine():
                 print>>log,"Zeroing negative componants... "
                 ModelImage[ModelImage<0]=0
             ListModelIm.append(ModelImage)
-            print>>log,"  ModelImage to apparent flux... "
-            ModelImage=ModelImage*self.SqrtNormImage
+
+
+            if self.options.Mode=="App":
+                print>>log,"  ModelImage to apparent flux... "
+                ModelImage=ModelImage*self.SqrtNormImage
             print>>log,"Convolve... "
             print>>log,"   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6)
             #RestoredImage=ModFFTW.ConvolveGaussianScipy(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
@@ -425,8 +429,12 @@ class ClassRestoreMachine():
                 C=C0*np.exp(-r2/(2.*sig**2))
                 C/=np.sum(C)
                 return C
-            ListSig=np.linspace(0.001,1.,100)
-            TotToPeak=np.array([np.max(G(s)) for s in ListSig])
+            ListSig=np.linspace(0.001,3.,100)
+            TotToPeak=np.array([1./np.max(G(s)) for s in ListSig])
+            # import pylab
+            # pylab.plot(TotToPeak,ListSig)
+            # pylab.draw()
+            # pylab.show()
             sig=np.interp(self.options.RandomCat_TotalToPeak,TotToPeak,ListSig)
             print>>log,"Found a sig of %f"%sig
             ModelOut[0,0]=scipy.signal.fftconvolve(ModelOut[0,0], G(sig), mode='same')
