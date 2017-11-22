@@ -111,7 +111,7 @@ class ClassRestoreMachine():
             ResidualImName=FitsFile=ResidualImName
         if self.MakeCorrected:
             if self.SmoothMode:
-                NormImageName="%s.SmoothNorm.fits"%BaseImageName
+                NormImageName="%s.MeanSmoothNorm.fits"%BaseImageName
             else:
                 NormImageName="%s.Norm.fits"%BaseImageName
             
@@ -421,7 +421,7 @@ class ClassRestoreMachine():
         
         p=self.options.RandomCat_TotalToPeak
         if p>0:
-            nx=11
+            nx=21
             x,y=np.mgrid[-nx:nx+1,-nx:nx+1]
             r2=x**2+y**2
             def G(sig):
@@ -429,7 +429,7 @@ class ClassRestoreMachine():
                 C=C0*np.exp(-r2/(2.*sig**2))
                 C/=np.sum(C)
                 return C
-            ListSig=np.linspace(0.001,3.,100)
+            ListSig=np.linspace(0.001,10.,100)
             TotToPeak=np.array([1./np.max(G(s)) for s in ListSig])
             # import pylab
             # pylab.plot(TotToPeak,ListSig)
@@ -437,6 +437,9 @@ class ClassRestoreMachine():
             # pylab.show()
             sig=np.interp(self.options.RandomCat_TotalToPeak,TotToPeak,ListSig)
             print>>log,"Found a sig of %f"%sig
+            Gaussian=G(sig)
+            print>>log,"  Gaussian Peak: %f"%np.max(Gaussian)
+            print>>log,"  Gaussian Int : %f"%np.sum(Gaussian)
             ModelOut[0,0]=scipy.signal.fftconvolve(ModelOut[0,0], G(sig), mode='same')
             
 
