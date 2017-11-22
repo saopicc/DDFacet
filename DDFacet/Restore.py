@@ -54,6 +54,7 @@ def read_options():
     group.add_option('--Mode',type="str",help='',default="App")
     group.add_option('--RandomCat',type="int",help='',default=0)
     group.add_option('--RandomCat_TotalToPeak',type=float,help='',default=-1.)
+    group.add_option('--RandomCat_CountsFile',type=str,help='',default=None)
     group.add_option('--ZeroNegComp',type="int",help='',default=0)
     group.add_option('--DoAlpha',type="int",help='',default=0)
     group.add_option('--OutName',type="str",help='',default="")
@@ -352,7 +353,7 @@ class ClassRestoreMachine():
 
     def GiveRandomModelIm(self):
         np.random.seed(0)
-        SModel,NModel=np.load("/home/cyril.tasse/PUBLI/PaperBootes/Modeled.npy").T
+        SModel,NModel=np.load(self.options.RandomCat_CountsFile).T
         ind=np.argsort(SModel)
         SModel=SModel[ind]
         NModel=NModel[ind]
