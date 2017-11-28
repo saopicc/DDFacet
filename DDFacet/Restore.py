@@ -51,8 +51,10 @@ def read_options():
     group.add_option('--MaskName',type="str",help='',default=5)
     group.add_option('--NBands',type="int",help='',default=1)
     group.add_option('--CleanNegComp',type="int",help='',default=0)
+    group.add_option('--Mode',type="str",help='',default="App")
     group.add_option('--RandomCat',type="int",help='',default=0)
     group.add_option('--RandomCat_TotalToPeak',type=float,help='',default=-1.)
+    group.add_option('--RandomCat_CountsFile',type=str,help='',default=None)
     group.add_option('--ZeroNegComp',type="int",help='',default=0)
     group.add_option('--DoAlpha',type="int",help='',default=0)
     group.add_option('--OutName',type="str",help='',default="")
@@ -110,7 +112,7 @@ class ClassRestoreMachine():
             ResidualImName=FitsFile=ResidualImName
         if self.MakeCorrected:
             if self.SmoothMode:
-                NormImageName="%s.SmoothNorm.fits"%BaseImageName
+                NormImageName="%s.MeanSmoothNorm.fits"%BaseImageName
             else:
                 NormImageName="%s.Norm.fits"%BaseImageName
             
@@ -274,8 +276,11 @@ class ClassRestoreMachine():
                 print>>log,"Zeroing negative componants... "
                 ModelImage[ModelImage<0]=0
             ListModelIm.append(ModelImage)
-            print>>log,"  ModelImage to apparent flux... "
-            ModelImage=ModelImage*self.SqrtNormImage
+
+
+            if self.options.Mode=="App":
+                print>>log,"  ModelImage to apparent flux... "
+                ModelImage=ModelImage*self.SqrtNormImage
             print>>log,"Convolve... "
             print>>log,"   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6)
             #RestoredImage=ModFFTW.ConvolveGaussianScipy(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
@@ -348,7 +353,7 @@ class ClassRestoreMachine():
 
     def GiveRandomModelIm(self):
         np.random.seed(0)
-        SModel,NModel=np.load("/home/cyril.tasse/PUBLI/PaperBootes/Modeled.npy").T
+        SModel,NModel=np.load(self.options.RandomCat_CountsFile).T
         ind=np.argsort(SModel)
         SModel=SModel[ind]
         NModel=NModel[ind]
@@ -417,7 +422,7 @@ class ClassRestoreMachine():
         
         p=self.options.RandomCat_TotalToPeak
         if p>0:
-            nx=11
+            nx=21
             x,y=np.mgrid[-nx:nx+1,-nx:nx+1]
             r2=x**2+y**2
             def G(sig):
@@ -425,10 +430,13 @@ class ClassRestoreMachine():
                 C=C0*np.exp(-r2/(2.*sig**2))
                 C/=np.sum(C)
                 return C
-            ListSig=np.linspace(0.001,1.,100)
+            ListSig=np.linspace(0.001,10.,100)
             TotToPeak=np.array([1./np.max(G(s)) for s in ListSig])
             sig=np.interp(self.options.RandomCat_TotalToPeak,TotToPeak,ListSig)
             print>>log,"Found a sig of %f"%sig
+            Gaussian=G(sig)
+            print>>log,"  Gaussian Peak: %f"%np.max(Gaussian)
+            print>>log,"  Gaussian Int : %f"%np.sum(Gaussian)
             ModelOut[0,0]=scipy.signal.fftconvolve(ModelOut[0,0], G(sig), mode='same')
             
 
