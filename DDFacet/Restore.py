@@ -366,7 +366,7 @@ class ClassRestoreMachine():
             return 10**xp
 
         std=np.std(self.Residual.flat[np.int64(np.random.rand(1000)*self.Residual.size)])
-        nbin=100
+        nbin=10000
         smin=2.*std
         smax=10.
         LogS=np.linspace(np.log10(smin),np.log10(smax),nbin)
@@ -426,7 +426,7 @@ class ClassRestoreMachine():
                 C/=np.sum(C)
                 return C
             ListSig=np.linspace(0.001,1.,100)
-            TotToPeak=np.array([np.max(G(s)) for s in ListSig])
+            TotToPeak=np.array([1./np.max(G(s)) for s in ListSig])
             sig=np.interp(self.options.RandomCat_TotalToPeak,TotToPeak,ListSig)
             print>>log,"Found a sig of %f"%sig
             ModelOut[0,0]=scipy.signal.fftconvolve(ModelOut[0,0], G(sig), mode='same')
