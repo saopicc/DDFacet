@@ -33,7 +33,7 @@ from DDFacet.Other import MyPickle
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 log=MyLogger.getLogger("ClassRestoreMachine")
 import scipy.signal
-
+import scipy.stats
 import multiprocessing
 NCPU_default=str(int(0.75*multiprocessing.cpu_count()))
 
@@ -92,10 +92,9 @@ class ClassRestoreMachine():
         # self.ModelMachine=ClassModelMachine(Gain=0.1)
         # self.ModelMachine.FromDico(DicoModel)
 
+        print>>log,"Building model machine"
         ModConstructor = ClassModModelMachine()
         self.ModelMachine=ModConstructor.GiveInitialisedMMFromFile(FileDicoModel)
-
-
         if MaskName!="":
             self.ModelMachine.CleanMaskedComponants(MaskName)
         if CleanNegComp:
@@ -110,6 +109,7 @@ class ClassRestoreMachine():
             ResidualImName=FitsFile="%s.app.residual.fits"%BaseImageName
         else:
             ResidualImName=FitsFile=ResidualImName
+
         if self.MakeCorrected:
             if self.SmoothMode:
                 NormImageName="%s.MeanSmoothNorm.fits"%BaseImageName
@@ -117,6 +117,7 @@ class ClassRestoreMachine():
                 NormImageName="%s.Norm.fits"%BaseImageName
             
 
+        print>>log,"Reading residual image"
         self.FitsFile=FitsFile
         im=image(FitsFile)
 
@@ -131,6 +132,7 @@ class ClassRestoreMachine():
         nchan,npol,_,_=self.ResidualData.shape
         testImage=np.zeros_like(self.ResidualData)
 
+        print>>log,"Transposing residual..."
         if ResidualImName!="":
             for ch in range(nchan):
                 for pol in range(npol):
@@ -138,8 +140,10 @@ class ClassRestoreMachine():
 
             
         if self.MakeCorrected:
+            print>>log,"Reading beam..."
             SqrtNormImage=np.zeros_like(self.ResidualData)
             imNorm=image(NormImageName).getdata()
+            print>>log,"Transposing beam..."
             for ch in range(nchan):
                 for pol in range(npol):
                     SqrtNormImage[ch,pol,:,:]=np.sqrt(imNorm[ch,pol,:,:].T[::-1,:])
@@ -157,7 +161,6 @@ class ClassRestoreMachine():
         print>>log, "Create restored image"
 
 
-        ModelMachine=self.ModelMachine
 
 
 
@@ -191,7 +194,7 @@ class ClassRestoreMachine():
 
             import os
             IdSharedMem=str(int(os.getpid()))+"."
-            MeanModelImage=ModelMachine.GiveModelImage(RefFreq)
+            MeanModelImage=self.ModelMachine.GiveModelImage(RefFreq)
 
             # #imNorm=image("6SBc.KAFCA.restoredNew.fits.6SBc.KAFCA.restoredNew.fits.MaskLarge.fits").getdata()
             # imNorm=image("6SB.KAFCA.GA.BIC_00.AP.dirty.fits.mask.fits").getdata()
@@ -270,7 +273,7 @@ class ClassRestoreMachine():
                 ModelImage=self.GiveRandomModelIm()
             else:
                 print>>log,"Get ModelImage... "
-                ModelImage=ModelMachine.GiveModelImage(freq)
+                ModelImage=self.ModelMachine.GiveModelImage(freq)
             
             if self.options.ZeroNegComp:
                 print>>log,"Zeroing negative componants... "
@@ -342,7 +345,7 @@ class ClassRestoreMachine():
         # Alpha image
         if self.DoAlpha:
             print>>log,"Get Index Map... "
-            IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+            IndexMap=self.ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
             ImageName="%s.alphaNew"%self.BaseImageName
             print>>log,"  Save... "
             CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
@@ -352,12 +355,12 @@ class ClassRestoreMachine():
             print>>log,"  Done. "
 
     def GiveRandomModelIm(self):
-        np.random.seed(0)
+#        np.random.seed(0)
         SModel,NModel=np.load(self.options.RandomCat_CountsFile).T
         ind=np.argsort(SModel)
         SModel=SModel[ind]
         NModel=NModel[ind]
-        SModel/=1e3
+        #SModel/=1e3
         NModel/=SModel**(5/2.)
         def GiveNPerOmega(s):
             xp=np.interp(np.log10(s), np.log10(SModel), np.log10(NModel), left=None, right=None)
@@ -371,7 +374,7 @@ class ClassRestoreMachine():
             return 10**xp
 
         std=np.std(self.Residual.flat[np.int64(np.random.rand(1000)*self.Residual.size)])
-        nbin=100
+        nbin=10000
         smin=2.*std
         smax=10.
         LogS=np.linspace(np.log10(smin),np.log10(smax),nbin)
@@ -390,7 +393,7 @@ class ClassRestoreMachine():
         for iBin in range(nbin-1):
             ThisS=(10**LogS[iBin]+10**LogS[iBin+1])/2.
             dx=10**LogS[iBin+1]-10**LogS[iBin]
-            n=int(round(GiveNPerOmega(ThisS)*Omega*dx))
+            n=int(scipy.stats.poisson.rvs(GiveNPerOmega(ThisS)*Omega*dx))#int(round(GiveNPerOmega(ThisS)*Omega*dx))
             indx=np.array([np.int64(np.random.rand(n)*nx)]).ravel()
             indy=np.array([np.int64(np.random.rand(n)*nx)]).ravel()
             s0,s1=10**LogS[iBin],10**LogS[iBin+1]
@@ -421,7 +424,7 @@ class ClassRestoreMachine():
 
         
         p=self.options.RandomCat_TotalToPeak
-        if p>0:
+        if p>1.:
             nx=21
             x,y=np.mgrid[-nx:nx+1,-nx:nx+1]
             r2=x**2+y**2
