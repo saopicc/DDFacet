@@ -435,10 +435,6 @@ class ClassRestoreMachine():
                 return C
             ListSig=np.linspace(0.001,10.,100)
             TotToPeak=np.array([1./np.max(G(s)) for s in ListSig])
-            # import pylab
-            # pylab.plot(TotToPeak,ListSig)
-            # pylab.draw()
-            # pylab.show()
             sig=np.interp(self.options.RandomCat_TotalToPeak,TotToPeak,ListSig)
             print>>log,"Found a sig of %f"%sig
             Gaussian=G(sig)
