@@ -167,13 +167,15 @@ class ClassImageDeconvMachine():
             return "MaxIter", True, True
 
         dirty=self._Dirty
-        nch,npol,_,_=dirty.shape
+        nch,npol,nx,ny=dirty.shape
         Model=np.zeros_like(dirty)
 
         _,_,xp,yp=np.where(self._MeanDirty==np.max(self._MeanDirty))
         self.PSFServer.setLocation(xp,yp)
         self.iFacet=self.PSFServer.iFacet
         psf,_=self.PSFServer.GivePSF()
+        nxPSF=psf.shape[-1]
+        nxDirty=dirty.shape[-1]
 
         Nout=np.min([dirty.shape[-1],psf.shape[-1]])
         dirty=self.AdaptArrayShape(dirty,Nout)
@@ -190,16 +192,28 @@ class ClassImageDeconvMachine():
 
         p=psf[:,:,SlicePSF,SlicePSF]
 
-		dirty = np.squeeze(d[:,0,:,:])
-        dirty = dirty.transpose((2,1,0))
+        dirty_MUFFIN = np.squeeze(d[:,0,:,:])
+        dirty_MUFFIN = dirty_MUFFIN.transpose((2,1,0))
 
-        psf = np.squeeze(p[:,0,:,:])
-        psf = psf.transpose((2,1,0))
+        psf_MUFFIN = np.squeeze(p[:,0,:,:])
+        psf_MUFFIN = psf_MUFFIN.transpose((2,1,0))
 
-        EM = EasyMuffin(mu_s=self.GD['MUFFIN']['mu_s'],mu_l=self.GD['MUFFIN']['mu_l'],nb=self.GD['MUFFIN']['nb'],truesky=dirty,psf=psf,dirty=dirty)
-        EM.loop(nitermax=self.GD['Deconv']['MaxMinorIter'])
+        EM = EasyMuffin(mu_s=self.GD['MUFFIN']['mu_s'],
+                        mu_l=self.GD['MUFFIN']['mu_l'],
+                        nb=self.GD['MUFFIN']['nb'],
+                        truesky=dirty_MUFFIN,
+                        psf=psf_MUFFIN,
+                        dirty=dirty_MUFFIN)
+        EM.loop(nitermax=self.GD['MUFFIN']['NMinorIter'])
 
-        self.ModelMachine.setMUFFINmodel(EM.x)
+
+        nxModel=dirty_MUFFIN.shape[0]
+        Aedge,Bedge=GiveEdges((nxModel/2,nxModel/2),nxModel,(nxDirty/2,nxDirty/2),nxDirty)
+        x0,x1,y0,y1=Bedge
+
+        Model=np.zeros((nxDirty,nxDirty,nch))
+        Model[x0:x1,y0:y1,:]=EM.x
+        self.ModelMachine.setMUFFINModel(Model)
 
         # if self._Dirty.shape[-1]!=self._Dirty.shape[-2]:
         #     # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
