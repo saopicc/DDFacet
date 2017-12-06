@@ -142,8 +142,24 @@ class ClassImageDeconvMachine():
 
             return B
         else:
-            stop
+            return A
+
+    def giveSliceCut(self,A,Nout):
+        nch,npol,Nin,_=A.shape
+        if Nin==Nout: 
+            slice(None)
+        elif Nin>Nout:
+            N0=A.shape[-1]
+            xc0=yc0=N0/2
+            if Nout%2==0:
+                x0d,x1d=xc0-Nout/2,xc0+Nout/2
+            else:
+                x0d,x1d=xc0-Nout/2,xc0+Nout/2+1
+            return slice(x0d,x1d)
+        else:
             return None
+
+
 
     def updateModelMachine(self,ModelMachine):
         self.ModelMachine=ModelMachine
@@ -177,35 +193,30 @@ class ClassImageDeconvMachine():
         psf,_=self.PSFServer.GivePSF()
         
         Nout=np.min([dirty.shape[-1],psf.shape[-1]])
-        dirty=self.AdaptArrayShape(dirty,Nout)
-        SliceDirty=slice(0,None)
-        if dirty.shape[-1]%2!=0:
-            SliceDirty=slice(0,-1)
 
-        d=dirty[:,:,SliceDirty,SliceDirty]
-        psf=self.AdaptArrayShape(psf,d.shape[-1]*2)
+        if Nout%2!=0: Nout-=1
 
-        SlicePSF=slice(0,None)
-        if psf.shape[-1]%2!=0:
-            SlicePSF=slice(0,-1)
+        s_dirty_cut=self.giveSliceCut(dirty,Nout)
+        s_psf_cut=self.giveSliceCut(psf,2*Nout)
 
-        p=psf[:,:,SlicePSF,SlicePSF]
-        if p.shape[-1]!=2*d.shape[-1]:
-            print "!!!!!!!!!!!!!!!!!!!!!!!!!"
-            print "Could not adapt psf shape to 2*dirty shape!!!!!!!!!!!!!!!!!!!!!!!!!"
-            print p.shape[-1],d.shape[-1]
-            print "!!!!!!!!!!!!!!!!!!!!!!!!!"
-            psf=self.AdaptArrayShape(psf,d.shape[-1])
-            SlicePSF=SliceDirty
+        if s_psf_cut is None:
+            print>>log, ModColor.Str("Could not adapt psf shape to 2*dirty shape!")
+            print>>log, ModColor.Str("   shapes are (dirty, psf) = [%s, %s]"%(str(dirty.shape),str(psf.shape)))
+            s_psf_cut=self.giveSliceCut(psf,Nout)
+            
 
         for ch in range(nch):
-            CM=ClassMoresaneSingleSlice(dirty[ch,0,SliceDirty,SliceDirty],psf[ch,0,SlicePSF,SlicePSF],mask=None,GD=None)
+            #print dirty[ch,0,s_dirty_cut,s_dirty_cut].shape
+            #print psf[ch,0,s_psf_cut,s_psf_cut].shape
+            CM=ClassMoresaneSingleSlice(dirty[ch,0,s_dirty_cut,s_dirty_cut],
+                                        psf[ch,0,s_psf_cut,s_psf_cut],
+                                        mask=None,GD=None)
             model,resid=CM.giveModelResid(major_loop_miter=self.GD["MORESANE"]["NMajorIter"],
                                           minor_loop_miter=self.GD["MORESANE"]["NMinorIter"],
                                           loop_gain=self.GD["MORESANE"]["Gain"],
                                           sigma_level=self.GD["MORESANE"]["SigmaCutLevel"],# tolerance=1.,
                                           enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
-            Model[ch,0,SliceDirty,SliceDirty]=model[:,:]
+            Model[ch,0,s_dirty_cut,s_dirty_cut]=model[:,:]
         
         #     import pylab
         #     pylab.clf()
