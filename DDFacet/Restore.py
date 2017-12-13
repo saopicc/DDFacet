@@ -28,6 +28,10 @@ from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Other import MyLogger
 from DDFacet.ToolsDir import ModFFTW
 
+from DDFacet.Other import AsyncProcessPool
+from DDFacet.Other.AsyncProcessPool import APP, WorkerProcessError
+from DDFacet.Other import Multiprocessing
+
 from DDFacet.Other import MyLogger
 from DDFacet.Other import MyPickle
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
@@ -85,7 +89,7 @@ class ClassRestoreMachine():
         self.options=options
         self.SmoothMode=SmoothMode
         self.MakeCorrected=MakeCorrected
-
+        self.header_dict={}
         FileDicoModel="%s.DicoModel"%BaseImageName
 
         # ClassModelMachine,DicoModel=GiveModelMachine(FileDicoModel)
@@ -156,6 +160,12 @@ class ClassRestoreMachine():
         self.StdResidual=np.std(testImage[0,0,indx,indy])
         self.Residual=testImage
         self.SqrtNormImage=SqrtNormImage
+
+    def killWorkers(self):
+        print>>log, "Killing workers"
+        APP.terminate()
+        APP.shutdown()
+        Multiprocessing.cleanupShm()
 
     def Restore(self):
         print>>log, "Create restored image"
@@ -314,20 +324,20 @@ class ClassRestoreMachine():
             ImageNameCorr=self.OutName+".corr"
             ImageNameModel="%s.model"%self.OutName
 
-        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModel,RestoredImageRes.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModel,RestoredImageRes.shape,self.Cell,self.radec,header_dict=self.header_dict)#Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(ModelImage,CorrT=True)
         CasaImage.setBeam(self.FWHMBeam)
         CasaImage.ToFits()
         CasaImage.close()
 
-        CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec,Freqs=C/np.array(Lambda).ravel())#,Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec,Freqs=C/np.array(Lambda).ravel(),header_dict=self.header_dict)#,Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(RestoredImageRes,CorrT=True)
         CasaImage.setBeam(self.FWHMBeam)
         CasaImage.ToFits()
         CasaImage.close()
 
         if self.MakeCorrected:
-            CasaImage=ClassCasaImage.ClassCasaimage(ImageNameCorr,RestoredImageResCorr.shape,self.Cell,self.radec,Freqs=C/np.array(Lambda).ravel())#,Lambda=(Lambda0,dLambda,self.NBands))
+            CasaImage=ClassCasaImage.ClassCasaimage(ImageNameCorr,RestoredImageResCorr.shape,self.Cell,self.radec,Freqs=C/np.array(Lambda).ravel(),header_dict=self.header_dict)#,Lambda=(Lambda0,dLambda,self.NBands))
             CasaImage.setdata(RestoredImageResCorr,CorrT=True)
             CasaImage.setBeam(self.FWHMBeam)
             CasaImage.ToFits()
@@ -425,7 +435,7 @@ class ClassRestoreMachine():
         
         p=self.options.RandomCat_TotalToPeak
         if p>1.:
-            nx=21
+            nx=101
             x,y=np.mgrid[-nx:nx+1,-nx:nx+1]
             r2=x**2+y**2
             def G(sig):
@@ -438,11 +448,26 @@ class ClassRestoreMachine():
             sig=np.interp(self.options.RandomCat_TotalToPeak,TotToPeak,ListSig)
             print>>log,"Found a sig of %f"%sig
             Gaussian=G(sig)
+            ModelOut[0,0]=scipy.signal.fftconvolve(ModelOut[0,0], G(sig), mode='same')
+
+            FWHMFact=2.*np.sqrt(2.*np.log(2.))
+            BeamPix=self.BeamPix/FWHMFact
+            Model=G(sig).reshape((1,1,x.shape[0],x.shape[0]))
+            ConvModel,_=ModFFTW.ConvolveGaussianWrapper(Model,Sig=BeamPix)
+            self.SimulObsPeak=np.max(ConvModel)
             print>>log,"  Gaussian Peak: %f"%np.max(Gaussian)
             print>>log,"  Gaussian Int : %f"%np.sum(Gaussian)
-            ModelOut[0,0]=scipy.signal.fftconvolve(ModelOut[0,0], G(sig), mode='same')
-            
+            print>>log,"  Obs peak     : %f"%self.SimulObsPeak
+            self.header_dict["OPKRATIO"]=self.SimulObsPeak
+            self.header_dict["GSIGMA"]=sig
+            self.header_dict["RTOTPK"]=self.options.RandomCat_TotalToPeak
+        
 
+        else:
+            self.header_dict["OPKRATIO"]=1.
+            self.header_dict["GSIGMA"]=0.
+            self.header_dict["RTOTPK"]=1.
+        
         return ModelOut
 
 
@@ -466,7 +491,10 @@ def main(options=None):
                             SmoothMode=options.SmoothMode,
                             MakeCorrected=options.MakeCorrected,
                             options=options)
-    return CRM.Restore()
+    CRM.Restore()
+    CRM.killWorkers()
+
+
 
 
 
