@@ -85,7 +85,7 @@ def define_scripts():
 setup(name=pkg,
       version=__version__,
       description='Facet-based radio astronomy continuum imager',
-      url='http://github.com/cyriltasse/DDFacet',
+      url='http://github.com/saopicc/DDFacet',
       classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
