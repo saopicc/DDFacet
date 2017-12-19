@@ -446,6 +446,7 @@ class ClassInitSSDModel():
         else:
             AModel=np.zeros_like(SModel)
         T.timeit("spec index")
+        
 
         return SModel,AModel
 
