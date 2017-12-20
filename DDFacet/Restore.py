@@ -41,6 +41,8 @@ import scipy.stats
 import multiprocessing
 NCPU_default=str(int(0.75*multiprocessing.cpu_count()))
 
+            
+
 def read_options():
     desc="""DDFacet """
     
@@ -57,7 +59,7 @@ def read_options():
     group.add_option('--CleanNegComp',type="int",help='',default=0)
     group.add_option('--Mode',type="str",help='',default="App")
     group.add_option('--RandomCat',type="int",help='',default=0)
-    group.add_option('--RandomCat_TotalToPeak',type=float,help='',default=-1.)
+    group.add_option('--RandomCat_SigFactor',type=float,help='',default=1.)
     group.add_option('--RandomCat_CountsFile',type=str,help='',default=None)
     group.add_option('--ZeroNegComp',type="int",help='',default=0)
     group.add_option('--DoAlpha',type="int",help='',default=0)
@@ -297,7 +299,45 @@ class ClassRestoreMachine():
             print>>log,"Convolve... "
             print>>log,"   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6)
             #RestoredImage=ModFFTW.ConvolveGaussianScipy(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
-            RestoredImage,_=ModFFTW.ConvolveGaussianWrapper(ModelImage,Sig=BeamPix)
+            #RestoredImage,_=ModFFTW.ConvolveGaussianWrapper(ModelImage,Sig=BeamPix)
+
+            def GiveGauss(Sig0,Sig1):
+                npix=20*int(np.sqrt(Sig0**2+Sig1**2))
+                if not npix%2: npix+=1
+                dx=npix/2
+                x,y=np.mgrid[-dx:dx:npix*1j,-dx:dx:npix*1j]
+                dsq=x**2+y**2
+                return Sig0**2/(Sig0**2+Sig1**2)*np.exp(-dsq/(2.*(Sig0**2+Sig1**2)))
+            R2=np.zeros_like(ModelImage)
+
+            Sig0=BeamPix/np.sqrt(2.)
+            if self.options.RandomCat:
+                Sig1=(self.options.RandomCat_SigFactor-1.)*Sig0
+            else:
+                Sig1=0.
+            nch,npol,_,_=ModelImage.shape
+            for ch in range(nch):
+                in1=ModelImage[ch,0]
+                R2[ch,0,:,:]=scipy.signal.fftconvolve(in1,GiveGauss(Sig0,Sig1), mode='same').real
+            RestoredImage=R2
+
+            self.header_dict["GSIGMA"]=Sig0
+
+
+            # print np.max(np.abs(R2-RestoredImage))
+            # import pylab
+            # ax=pylab.subplot(1,3,1)
+            # pylab.imshow(RestoredImage[0,0],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
+            # pylab.imshow(R2[0,0],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+            # pylab.imshow((RestoredImage-R2)[0,0],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.show()
+            # stop
+
 
             RestoredImageRes=RestoredImage+self.Residual
             ListRestoredIm.append(RestoredImageRes)
@@ -433,40 +473,7 @@ class ClassRestoreMachine():
         ModelOut[0,0]=Model[0,0].T[::-1]
 
         
-        p=self.options.RandomCat_TotalToPeak
-        if p>1.:
-            nx=101
-            x,y=np.mgrid[-nx:nx+1,-nx:nx+1]
-            r2=x**2+y**2
-            def G(sig):
-                C0=1./(2.*np.pi*sig**2)
-                C=C0*np.exp(-r2/(2.*sig**2))
-                C/=np.sum(C)
-                return C
-            ListSig=np.linspace(0.001,10.,100)
-            TotToPeak=np.array([1./np.max(G(s)) for s in ListSig])
-            sig=np.interp(self.options.RandomCat_TotalToPeak,TotToPeak,ListSig)
-            print>>log,"Found a sig of %f"%sig
-            Gaussian=G(sig)
-            ModelOut[0,0]=scipy.signal.fftconvolve(ModelOut[0,0], G(sig), mode='same')
 
-            FWHMFact=2.*np.sqrt(2.*np.log(2.))
-            BeamPix=self.BeamPix/FWHMFact
-            Model=G(sig).reshape((1,1,x.shape[0],x.shape[0]))
-            ConvModel,_=ModFFTW.ConvolveGaussianWrapper(Model,Sig=BeamPix)
-            self.SimulObsPeak=np.max(ConvModel)
-            print>>log,"  Gaussian Peak: %f"%np.max(Gaussian)
-            print>>log,"  Gaussian Int : %f"%np.sum(Gaussian)
-            print>>log,"  Obs peak     : %f"%self.SimulObsPeak
-            self.header_dict["OPKRATIO"]=self.SimulObsPeak
-            self.header_dict["GSIGMA"]=sig
-            self.header_dict["RTOTPK"]=self.options.RandomCat_TotalToPeak
-        
-
-        else:
-            self.header_dict["OPKRATIO"]=1.
-            self.header_dict["GSIGMA"]=0.
-            self.header_dict["RTOTPK"]=1.
         
         return ModelOut
 
