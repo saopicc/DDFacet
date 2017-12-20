@@ -139,6 +139,7 @@ class ClassVisServer():
                 DicoSelectOptions = self.DicoSelectOptions,
                 get_obs_detail=get_detail)
             if MS.empty:
+                print>>log,""
                 continue
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
