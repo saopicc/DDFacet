@@ -59,7 +59,7 @@ class SharedDict (dict):
             except:
                 print "Error loading item %s" % self.path
                 traceback.print_exc()
-                return SharedDict.ItemLoadError(path, sys.exc_info())
+                return SharedDict.ItemLoadError(self.path, sys.exc_info())
 
     class SharedArrayProxy (ItemProxy):
         def load_impl(self):
