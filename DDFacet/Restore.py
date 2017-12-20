@@ -66,6 +66,7 @@ def read_options():
     group.add_option('--OutName',type="str",help='',default="")
     group.add_option('--PSFCache',type="str",help='',default="")
     group.add_option('--NCPU',type="int",help='',default=NCPU_default)
+    group.add_option('--AddNoise',type=float,help='',default=0)
     opt.add_option_group(group)
     
     options, arguments = opt.parse_args()
@@ -299,6 +300,12 @@ class ClassRestoreMachine():
             print>>log,"Convolve... "
             print>>log,"   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6)
             #RestoredImage=ModFFTW.ConvolveGaussianScipy(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+
+            
+            if self.options.AddNoise>0.:
+                print>>log,"Adding Noise... "
+                ModelImage+=np.random.randn(*ModelImage.shape)*self.options.AddNoise
+
             #RestoredImage,_=ModFFTW.ConvolveGaussianWrapper(ModelImage,Sig=BeamPix)
 
             def GiveGauss(Sig0,Sig1):
@@ -321,7 +328,9 @@ class ClassRestoreMachine():
                 R2[ch,0,:,:]=scipy.signal.fftconvolve(in1,GiveGauss(Sig0,Sig1), mode='same').real
             RestoredImage=R2
 
-            self.header_dict["GSIGMA"]=Sig0
+            self.header_dict["SIGREST"]=Sig0
+            self.header_dict["SIGSRC"]=Sig1
+            self.header_dict["SIGFACT"]=self.options.RandomCat_SigFactor
 
 
             # print np.max(np.abs(R2-RestoredImage))
@@ -337,7 +346,6 @@ class ClassRestoreMachine():
             # pylab.colorbar()
             # pylab.show()
             # stop
-
 
             RestoredImageRes=RestoredImage+self.Residual
             ListRestoredIm.append(RestoredImageRes)
@@ -359,10 +367,12 @@ class ClassRestoreMachine():
             ImageName="%s.restoredNew"%self.BaseImageName
             ImageNameCorr="%s.restoredNew.corr"%self.BaseImageName
             ImageNameModel="%s.model"%self.BaseImageName
+            ImageNameModelConv="%s.modelConv"%self.BaseImageName
         else:
             ImageName=self.OutName
             ImageNameCorr=self.OutName+".corr"
             ImageNameModel="%s.model"%self.OutName
+            ImageNameModelConv="%s.modelConv"%self.OutName
 
         CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModel,RestoredImageRes.shape,self.Cell,self.radec,header_dict=self.header_dict)#Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(ModelImage,CorrT=True)
@@ -372,6 +382,12 @@ class ClassRestoreMachine():
 
         CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec,Freqs=C/np.array(Lambda).ravel(),header_dict=self.header_dict)#,Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(RestoredImageRes,CorrT=True)
+        CasaImage.setBeam(self.FWHMBeam)
+        CasaImage.ToFits()
+        CasaImage.close()
+        
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModelConv,RestoredImage.shape,self.Cell,self.radec,Freqs=C/np.array(Lambda).ravel(),header_dict=self.header_dict)#,Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage.setdata(RestoredImage,CorrT=True)
         CasaImage.setBeam(self.FWHMBeam)
         CasaImage.ToFits()
         CasaImage.close()
