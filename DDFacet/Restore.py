@@ -328,7 +328,9 @@ class ClassRestoreMachine():
                 R2[ch,0,:,:]=scipy.signal.fftconvolve(in1,GiveGauss(Sig0,Sig1), mode='same').real
             RestoredImage=R2
 
-            self.header_dict["GSIGMA"]=Sig0
+            self.header_dict["SIGREST"]=Sig0
+            self.header_dict["SIGSRC"]=Sig1
+            self.header_dict["SIGFACT"]=self.options.RandomCat_SigFactor
 
 
             # print np.max(np.abs(R2-RestoredImage))
