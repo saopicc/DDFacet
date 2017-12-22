@@ -1311,10 +1311,11 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
   Mat_A_l_SumProd(visBuff, SkyType, corr);\
   
 #define APPLYJONES_2_CORR \
-  corr_vis[3] = corr_vis[1]; \
-  corr_vis[1] = 0; \
-  corr_vis[2] = 0; \
-  MatDot(J0,JonesType,corr_vis,SkyType,visBuff);\
+  /*Currently we only handle the diagonal case (I without Q or V in linear or circular feeds)*/ \
+  float _Complex padded_corr_vis[] = {0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I}; \
+  padded_corr_vis[0] = corr_vis[0]; \
+  padded_corr_vis[3] = corr_vis[1]; \
+  MatDot(J0,JonesType,padded_corr_vis,SkyType,visBuff);\
   MatDot(visBuff,SkyType,J1H,JonesType,visBuff);\
   Mat_A_l_SumProd(visBuff, SkyType, corr);\
   visBuff[1] = visBuff[3];
@@ -1502,6 +1503,8 @@ void degriddername(PyArrayObject *grid, \
 	for (visChan=chStart; visChan<chEnd; ++visChan) {\
 	  size_t doff = (irow * nVisChan + visChan) * nVisCorr;\
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;\
+	  /* We can do that since all flags in 4-pols are equalised in ClassVisServer */\
+	  if(flagPtr[0]==1){continue;}\
 	  int OneFlagged=0;\
 	  int cond;\
 	  \
