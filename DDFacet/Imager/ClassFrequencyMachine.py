@@ -44,7 +44,11 @@ class ClassFrequencyMachine(object):
     """
     def __init__(self, Freqs, Freqsp, ref_freq, GD=None):
         self.Freqs = np.asarray(Freqs)
-        self.Freqsp = np.asarray(Freqsp)
+        # Use the longer of the two frequency arrays
+        if len(Freqs)>len(Freqsp):
+            self.Freqsp = np.asarray(Freqs)
+        else:
+            self.Freqsp = np.asarray(Freqsp)
         self.nchan = self.Freqs.size
         self.nchan_degrid = self.Freqsp.size
         #print "Nchan =", self.nchan
@@ -167,7 +171,6 @@ class ClassFrequencyMachine(object):
         # Create the design matrix
         p = 2 #polynomial order
         XDes = self.setDesMat(self.Freqsp, order=p, mode="log")
-
         # Solve the system
         Sol = np.dot(np.linalg.inv(XDes.T.dot(XDes)), np.dot(XDes.T, logI))
         logIref = Sol[0, :]

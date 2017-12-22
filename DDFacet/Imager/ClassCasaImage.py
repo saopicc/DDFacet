@@ -29,6 +29,7 @@ from DDFacet.Other import MyLogger
 log= MyLogger.getLogger("ClassCasaImage")
 from astropy.io import fits
 from astropy.wcs import WCS
+from DDFacet.report_version import report_version
 
 def FileToArray(FileName,CorrT):
     """ Read a FITS FileName file to an array """
@@ -79,9 +80,10 @@ class ClassCasaimage():
         self.imageFlipped = False
         self.createScratch()
         # Fill in some standard keywords
-        self.header['ORIGIN'] = 'DDFacet'
+        self.header['ORIGIN'] = 'DDFacet '+report_version()
         self.header['BTYPE'] = 'Intensity'
         self.header['BUNIT'] = 'Jy/beam'
+        self.header['SPECSYS'] = 'TOPOCENT'
         if header_dict is not None:
             for k in header_dict:
                 self.header[k]=header_dict[k]

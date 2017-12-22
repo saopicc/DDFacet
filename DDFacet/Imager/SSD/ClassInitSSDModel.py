@@ -19,11 +19,13 @@ from DDFacet.Imager import ClassMaskMachine
 
 
 class ClassInitSSDModelParallel():
-    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,MainCache=None,NCPU=1,IdSharedMem=""):
+    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,GridFreqs,DegridFreqs,MainCache=None,NCPU=1,IdSharedMem=""):
         self.DicoVariablePSF=DicoVariablePSF
         self.DicoDirty=DicoDirty
         GD=copy.deepcopy(GD)
         self.RefFreq=RefFreq
+        self.GridFreqs=GridFreqs
+        self.DegridFreqs=DegridFreqs
         self.MainCache=MainCache
         self.GD=GD
         self.NCPU=NCPU
@@ -33,6 +35,8 @@ class ClassInitSSDModelParallel():
                                            self.DicoVariablePSF,
                                            self.DicoDirty,
                                            self.RefFreq,
+                                           self.GridFreqs,
+                                           self.DegridFreqs,
                                            MainCache=self.MainCache,
                                            IdSharedMem=self.IdSharedMem)
 
@@ -69,6 +73,8 @@ class ClassInitSSDModelParallel():
                                self.DicoVariablePSF,
                                self.DicoDirty,
                                self.RefFreq,
+                               self.GridFreqs,
+                               self.DegridFreqs,
                                self.MainCache,
                                self.ModelImage,
                                ListIslands,
@@ -126,7 +132,7 @@ class ClassInitSSDModelParallel():
 ######################################################################################################
 
 class ClassInitSSDModel():
-    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,
+    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,GridFreqs,DegridFreqs,
                  MainCache=None,
                  IdSharedMem="",
                  DoWait=False,
@@ -135,6 +141,8 @@ class ClassInitSSDModel():
         self.DicoDirty=DicoDirty
         GD=copy.deepcopy(GD)
         self.RefFreq=RefFreq
+        self.GridFreqs=GridFreqs
+        self.DegridFreqs=DegridFreqs
         self.GD=GD
         self.GD["Parallel"]["NCPU"]=1
         #self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
@@ -166,6 +174,9 @@ class ClassInitSSDModel():
         MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
         MinorCycleConfig["NFreqBands"]=self.NFreqBands
         MinorCycleConfig["GD"] = self.GD
+        MinorCycleConfig["GridFreqs"] = self.GridFreqs
+        MinorCycleConfig["DegridFreqs"] = self.DegridFreqs
+
         #MinorCycleConfig["RefFreq"] = self.RefFreq
 
         ModConstructor = ClassModModelMachine(self.GD)
@@ -195,7 +206,8 @@ class ClassInitSSDModel():
         self.MeanDirty=DicoDirty["MeanImage"]
         
         #print "Start 3"
-        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["PSFSideLobes"],DoWait=DoWait)
+        self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["PSFSideLobes"],
+                                GridFreqs=self.GridFreqs,DegridFreqs=self.DegridFreqs,DoWait=DoWait)
 
         if DoWait:
             print "IINit3"
@@ -338,6 +350,7 @@ class ClassInitSSDModel():
         self.ModelMachine=ModelMachine
         #self.ModelMachine.DicoSMStacked=self.DicoBasicModelMachine
         self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
+        self.ModelMachine.setFreqMachine(self.GridFreqs,self.DegridFreqs)
         self.MinorCycleConfig["ModelMachine"] = ModelMachine
         self.ModelMachine.setModelShape(self.SubDirty.shape)
         self.ModelMachine.setListComponants(self.DeconvMachine.ModelMachine.ListScales)
@@ -413,7 +426,7 @@ class ClassInitSSDModel():
         fMult=1.
         SModel=ModelImage[0,0,x,y]*fMult
 
-        AModel=self.ModelMachine.GiveSpectralIndexMap(DoConv=False,MaxDR=1e3)[0,0,x,y]
+        AModel=self.ModelMachine.GiveSpectralIndexMap()[0,0,x,y]
         T.timeit("spec index")
 
         return SModel,AModel
@@ -434,6 +447,8 @@ class WorkerInitMSMF(multiprocessing.Process):
                  DicoVariablePSF,
                  DicoDirty,
                  RefFreq,
+                 GridFreqs,
+                 DegridFreqs,
                  MainCache,
                  ModelImage,
                  ListIsland,
@@ -448,6 +463,8 @@ class WorkerInitMSMF(multiprocessing.Process):
         self.DicoVariablePSF=DicoVariablePSF
         self.DicoDirty=DicoDirty
         self.RefFreq=RefFreq
+        self.GridFreqs=GridFreqs
+        self.DegridFreqs=DegridFreqs
         self.MainCache=MainCache
         self.ModelImage=ModelImage
         self.ListIsland=ListIsland
@@ -464,6 +481,8 @@ class WorkerInitMSMF(multiprocessing.Process):
                                            self.DicoVariablePSF,
                                            self.DicoDirty,
                                            self.RefFreq,
+                                           self.GridFreqs,
+                                           self.DegridFreqs,
                                            MainCache=self.MainCache,
                                            IdSharedMem=self.IdSharedMem,
                                            DoWait=False,

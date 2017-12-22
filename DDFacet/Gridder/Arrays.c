@@ -57,7 +57,7 @@ static PyMethodDef _pyArrays_testMethods[] = {
 	{"pyWhereMax", pyWhereMax, METH_VARARGS},
 	{"pyWhereMaxMask", pyWhereMaxMask, METH_VARARGS},
 	{"pySetOMPNumThreads", pySetOMPNumThreads, METH_VARARGS},
-	{"pySetOMPDynamicNumThreads", pySetOMPNumThreads, METH_VARARGS},
+	{"pySetOMPDynamicNumThreads", pySetOMPDynamicNumThreads, METH_VARARGS},
 	{NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
 

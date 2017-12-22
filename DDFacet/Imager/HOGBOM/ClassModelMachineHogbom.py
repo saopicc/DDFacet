@@ -25,21 +25,21 @@ import os
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def __init__(self,*args,**kwargs):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
+        self.DicoSMStacked={}
+        self.DicoSMStacked["Type"]="Hogbom"
 
+    def setRefFreq(self, RefFreq, Force=False):
+        if self.RefFreq is not None and not Force:
+            print>>log, ModColor.Str("Reference frequency already set to %f MHz" % (self.RefFreq/1e6))
+            return
 
-    def setRefFreq(self, RefFreq):
         self.RefFreq = RefFreq
         self.DicoSMStacked["RefFreq"] = RefFreq
-        # self.DicoSMStacked["AllFreqs"] = np.array(AllFreqs)
-
 
     def setFreqMachine(self,GridFreqs, DegridFreqs):
         # Initiaise the Frequency Machine
         self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoSMStacked["RefFreq"], self.GD)
         self.FreqMachine.set_Method(mode=self.GD["Hogbom"]["FreqMode"])
-        #print "Grid freqs size = ", GridFreqs.size
-        #print "Degrid freqs size =", DegridFreqs.size
-
 
     def ToFile(self, FileName, DicoIn=None):
         print>> log, "Saving dico model to %s" % FileName
@@ -48,17 +48,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             D = DicoIn
 
+        D["GD"] = self.GD
         D["Type"] = "Hogbom"
         D["ListScales"] = "Delta"
         D["ModelShape"] = self.ModelShape
         MyPickle.Save(D, FileName)
 
-
     def FromFile(self, FileName):
         print>> log, "Reading dico model from %s" % FileName
         self.DicoSMStacked = MyPickle.Load(FileName)
         self.FromDico(self.DicoSMStacked)
-
 
     def FromDico(self, DicoSMStacked):
         self.DicoSMStacked = DicoSMStacked
@@ -66,11 +65,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.ListScales = self.DicoSMStacked["ListScales"]
         self.ModelShape = self.DicoSMStacked["ModelShape"]
 
-
-
     def setModelShape(self, ModelShape):
         self.ModelShape = ModelShape
-
 
     def AppendComponentToDictStacked(self, key, Fpol, Sols, pol_array_index=0):
         """
@@ -92,7 +88,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         if not (pol_array_index >= 0 and pol_array_index < npol):
             raise ValueError("Pol_array_index must specify the index of the slice in the "
                              "model cube the solution should be stored at. Please report this bug.")
-        DicoComp = self.DicoSMStacked["Comp"]
+
+        try:
+            DicoComp=self.DicoSMStacked["Comp"]
+        except:
+            self.DicoSMStacked["Comp"]={}
+            DicoComp=self.DicoSMStacked["Comp"]
+
         if not (key in DicoComp.keys()):
             DicoComp[key] = {}
             for p in range(npol):
@@ -109,31 +111,38 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         DicoComp[key]["SolsArray"][:, pol_array_index] += Weight * SolNorm
 
 
-    def GiveModelImage(self, FreqIn=None):
-        RefFreq = self.DicoSMStacked["RefFreq"]
-        if FreqIn is None:
-            FreqIn = np.array([RefFreq])
+    def GiveModelImage(self, FreqIn=None, DoAbs=False):
+        try:
+            if DoAbs:
+                f_apply = np.abs
+            else:
+                f_apply = lambda x: x
 
-        # if type(FreqIn)==float:
-        #    FreqIn=np.array([FreqIn]).flatten()
-        # if type(FreqIn)==np.ndarray:
+            RefFreq=self.DicoSMStacked["RefFreq"]
+            # Default to reference frequency if no input given
+            if FreqIn is None:
+                FreqIn=np.array([RefFreq])
 
-        FreqIn = np.array([FreqIn.ravel()]).flatten()
+            FreqIn = np.array([FreqIn.ravel()]).flatten()
 
-        DicoComp = self.DicoSMStacked["Comp"]
-        _, npol, nx, ny = self.ModelShape
+            DicoComp = self.DicoSMStacked["Comp"]
+            _, npol, nx, ny = self.ModelShape
 
-        nchan = FreqIn.size
-        ModelImage = np.zeros((nchan, npol, nx, ny), dtype=np.float32)
-        DicoSM = {}
-        for key in DicoComp.keys():
-            for pol in range(npol):
-                Sol = DicoComp[key]["SolsArray"][:, pol]  # /self.DicoSMStacked[key]["SumWeights"]
-                x, y = key
-                #tmp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
-                ModelImage[:, pol, x, y] += self.FreqMachine.Eval_Degrid(Sol, FreqIn)
+            # The model shape has nchan=len(GridFreqs)
+            nchan = FreqIn.size
 
-        return ModelImage
+            ModelImage = np.zeros((nchan, npol, nx, ny), dtype=np.float32)
+            DicoSM = {}
+            for key in DicoComp.keys():
+                for pol in range(npol):
+                    Sol = DicoComp[key]["SolsArray"][:, pol]  # /self.DicoSMStacked[key]["SumWeights"]
+                    x, y = key
+                    #tmp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
+                    ModelImage[:, pol, x, y] += f_apply(self.FreqMachine.Eval_Degrid(Sol, FreqIn))
+
+            return ModelImage
+        except:
+            return 0
 
     def GiveSpectralIndexMap(self, threshold=0.1, save_dict=True):
         # Get the model image

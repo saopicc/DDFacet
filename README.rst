@@ -38,6 +38,7 @@ widely supported containerization framework, called Docker. This package is on P
         $ virtualenv stimelavenv
         $ source stimelavenv/bin/activate
         (stimelavenv)$ pip install -U pip wheel setuptools
+        (stimelavenv)$ pip install stimela
 
 4. Run ``stimela pull`` and ``stimela build`` to pull all the latest astronomy software from DockerHub (this will take a while and is several GiB in size, so ensure you're on a fast link)::
 
@@ -90,11 +91,11 @@ We prefer that users use DDFacet though Docker. However, if this is not availabl
 environments) we recommend you use a virtual environment. If you install it directly into your system packages you're
 on your own -- be warned!!
 
-1. You need to add in the KERN 2 ppa if you don't already have it::
+1. You need to add in the KERN 3 ppa if you don't already have it::
 
-        add-apt-repository -y -s ppa:kernsuite/kern-2
+        add-apt-repository -y -s ppa:kernsuite/kern-3
 
-2. Install each of the debian dependencies. The latest full list of apt dependencies can be be found in the Dockerfile <https://github.com/cyriltasse/DDFacet/blob/master/Dockerfile>
+2. Install each of the debian dependencies. The latest full list of apt dependencies can be be found in the Dockerfile <https://github.com/saopicc/DDFacet/blob/master/Dockerfile>
 
 3. Create a virtual environment somewhere on your system and activate::
 
@@ -106,7 +107,7 @@ on your own -- be warned!!
 4. Then, install directly from the Python Package Index (PyPI) using pip - **ensure your venv is activated**::
 
         pip install -U pip setuptools
-        pip install -e DDFacet --force-reinstall -U
+        pip install DDFacet --force-reinstall -U
 
 5. When you're done with your imaging business::
 
@@ -143,6 +144,7 @@ To setup your local development environment navigate clone DDFacet and run::
         (ddfvenv) $ cd DDFacet
         (ddfvenv) $ git submodule update --init --recursive
         (ddfvenv) $ cd ..
+        (ddfvenv) $ pip install -r requirements.txt
         (ddfvenv) $ pip install -e DDFacet/
         #To (re-)build the backend in your checked out folder:
         (ddfvenv) $ cd DDFacet
@@ -204,7 +206,17 @@ Acceptance test data can be found on the Jenkins server in the **/data/test-data
 Adding more tests and creating new reference images.
 ---------------------------------------------------------
 To resimulate images and add more tests:
-In the Jenkins server data directory run **make** to resimulate and set up new reference images. This should only be done with the ``origin/master`` branch - not your branch or fork! You should manually verify that all the reference images are correct when you regenerate them. Each time you add a new option to DDFacet also add an option to the makefile in this directory. Once the option is set up in the makefile you can build the reference images on Jenkins.
+
+In the Jenkins server data directory add a recipe to the makefile simulate and/or set up new reference images. This should only be done with the ``origin/master`` branch - not your branch or fork! Use the ddfacet-generate-refims task
+to do this. You should manually verify that all the reference images are correct when you regenerate them. Each time you add a new option to DDFacet also add an option to the makefile in this directory. Once the option is set up in the makefile you can build the reference images on Jenkins.
+
+Important directories on the CI server: 
+---------------------------------------------------------
+ - Reference data stored here: /var/lib/jenkins/test-data
+ - /var/lib/jenkins/jobs/ddfacet-pr-build/workspace
+ - /var/lib/jenkins/jobs/DDFacet_master_cron/workspace
+ - /var/lib/jenkins/jobs/DDFacet_experimental/workspace
+
 
 [tf_pip_install]: <https://www.tensorflow.org/get_started/os_setup#pip_installation>
 
