@@ -134,6 +134,15 @@ be slower than usual::
 
         echo "*        -   memlock     unlimited" > /etc/security/limits.conf
 
+(Developers/Note): Architecture dependent binary
+==========================================================
+The default build system **DOES NOT** produce portable binaries at the cost of a slight improvement in runtime. You have to modify setup.cfg
+and set the following lines in both [install] and [build] **before** compiling packages:
+
+```
+compopts=""
+```
+
 (Developers/Recommended): setting up your dev environment
 ==========================================================
 **NOTE:Setup your virtual environment just as specified in the user section above. Ensure you activate!**
