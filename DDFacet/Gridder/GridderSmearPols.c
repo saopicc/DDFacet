@@ -1502,9 +1502,6 @@ void degriddername(PyArrayObject *grid, \
 	int ThisPol;\
 	for (visChan=chStart; visChan<chEnd; ++visChan) {\
 	  size_t doff = (irow * nVisChan + visChan) * nVisCorr;\
-	  bool* __restrict__ flagPtr = p_bool(flags) + doff;\
-	  /* We can do that since all flags in 4-pols are equalised in ClassVisServer */\
-	  if(flagPtr[0]==1){continue;}\
 	  int OneFlagged=0;\
 	  int cond;\
 	  \
