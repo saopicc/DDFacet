@@ -1030,8 +1030,8 @@
 	/* I missing Q*/ \
 	corr_vis[0] = stokes_vis[0]; \
 	corr_vis[1] = stokes_vis[0]; \
-	int nVisCorr = 2; 
-	
+	int nVisCorr = 2;
+
 #define GMODE_CORR_XXXYYXYY_FROM_I \
 	float _Complex corr_vis[] = {0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I}; \
 	/* I missing Q*/ \
