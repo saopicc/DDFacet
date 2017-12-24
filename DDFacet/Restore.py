@@ -28,12 +28,20 @@ from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.Other import MyLogger
 from DDFacet.ToolsDir import ModFFTW
 
+from DDFacet.Other import AsyncProcessPool
+from DDFacet.Other.AsyncProcessPool import APP, WorkerProcessError
+from DDFacet.Other import Multiprocessing
+
 from DDFacet.Other import MyLogger
 from DDFacet.Other import MyPickle
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 log=MyLogger.getLogger("ClassRestoreMachine")
-
+import scipy.signal
+import scipy.stats
 import multiprocessing
 NCPU_default=str(int(0.75*multiprocessing.cpu_count()))
+
+            
 
 def read_options():
     desc="""DDFacet """
@@ -49,13 +57,16 @@ def read_options():
     group.add_option('--MaskName',type="str",help='',default=5)
     group.add_option('--NBands',type="int",help='',default=1)
     group.add_option('--CleanNegComp',type="int",help='',default=0)
+    group.add_option('--Mode',type="str",help='',default="App")
     group.add_option('--RandomCat',type="int",help='',default=0)
-    group.add_option('--RandomCat_TotalToPeak',type=float,help='',default=1)
+    group.add_option('--RandomCat_SigFactor',type=float,help='',default=1.)
+    group.add_option('--RandomCat_CountsFile',type=str,help='',default=None)
     group.add_option('--ZeroNegComp',type="int",help='',default=0)
     group.add_option('--DoAlpha',type="int",help='',default=0)
     group.add_option('--OutName',type="str",help='',default="")
     group.add_option('--PSFCache',type="str",help='',default="")
     group.add_option('--NCPU',type="int",help='',default=NCPU_default)
+    group.add_option('--AddNoise',type=float,help='',default=0)
     opt.add_option_group(group)
     
     options, arguments = opt.parse_args()
@@ -81,17 +92,16 @@ class ClassRestoreMachine():
         self.options=options
         self.SmoothMode=SmoothMode
         self.MakeCorrected=MakeCorrected
-
+        self.header_dict={}
         FileDicoModel="%s.DicoModel"%BaseImageName
 
         # ClassModelMachine,DicoModel=GiveModelMachine(FileDicoModel)
         # self.ModelMachine=ClassModelMachine(Gain=0.1)
         # self.ModelMachine.FromDico(DicoModel)
 
+        print>>log,"Building model machine"
         ModConstructor = ClassModModelMachine()
         self.ModelMachine=ModConstructor.GiveInitialisedMMFromFile(FileDicoModel)
-
-
         if MaskName!="":
             self.ModelMachine.CleanMaskedComponants(MaskName)
         if CleanNegComp:
@@ -106,13 +116,15 @@ class ClassRestoreMachine():
             ResidualImName=FitsFile="%s.app.residual.fits"%BaseImageName
         else:
             ResidualImName=FitsFile=ResidualImName
+
         if self.MakeCorrected:
             if self.SmoothMode:
-                NormImageName="%s.SmoothNorm.fits"%BaseImageName
+                NormImageName="%s.MeanSmoothNorm.fits"%BaseImageName
             else:
                 NormImageName="%s.Norm.fits"%BaseImageName
             
 
+        print>>log,"Reading residual image"
         self.FitsFile=FitsFile
         im=image(FitsFile)
 
@@ -127,6 +139,7 @@ class ClassRestoreMachine():
         nchan,npol,_,_=self.ResidualData.shape
         testImage=np.zeros_like(self.ResidualData)
 
+        print>>log,"Transposing residual..."
         if ResidualImName!="":
             for ch in range(nchan):
                 for pol in range(npol):
@@ -134,8 +147,10 @@ class ClassRestoreMachine():
 
             
         if self.MakeCorrected:
+            print>>log,"Reading beam..."
             SqrtNormImage=np.zeros_like(self.ResidualData)
             imNorm=image(NormImageName).getdata()
+            print>>log,"Transposing beam..."
             for ch in range(nchan):
                 for pol in range(npol):
                     SqrtNormImage[ch,pol,:,:]=np.sqrt(imNorm[ch,pol,:,:].T[::-1,:])
@@ -149,11 +164,16 @@ class ClassRestoreMachine():
         self.Residual=testImage
         self.SqrtNormImage=SqrtNormImage
 
+    def killWorkers(self):
+        print>>log, "Killing workers"
+        APP.terminate()
+        APP.shutdown()
+        Multiprocessing.cleanupShm()
+
     def Restore(self):
         print>>log, "Create restored image"
 
 
-        ModelMachine=self.ModelMachine
 
 
 
@@ -187,7 +207,7 @@ class ClassRestoreMachine():
 
             import os
             IdSharedMem=str(int(os.getpid()))+"."
-            MeanModelImage=ModelMachine.GiveModelImage(RefFreq)
+            MeanModelImage=self.ModelMachine.GiveModelImage(RefFreq)
 
             # #imNorm=image("6SBc.KAFCA.restoredNew.fits.6SBc.KAFCA.restoredNew.fits.MaskLarge.fits").getdata()
             # imNorm=image("6SB.KAFCA.GA.BIC_00.AP.dirty.fits.mask.fits").getdata()
@@ -266,18 +286,66 @@ class ClassRestoreMachine():
                 ModelImage=self.GiveRandomModelIm()
             else:
                 print>>log,"Get ModelImage... "
-                ModelImage=ModelMachine.GiveModelImage(freq)
+                ModelImage=self.ModelMachine.GiveModelImage(freq)
             
             if self.options.ZeroNegComp:
                 print>>log,"Zeroing negative componants... "
                 ModelImage[ModelImage<0]=0
             ListModelIm.append(ModelImage)
-            print>>log,"  ModelImage to apparent flux... "
-            ModelImage=ModelImage*self.SqrtNormImage
+
+
+            if self.options.Mode=="App":
+                print>>log,"  ModelImage to apparent flux... "
+                ModelImage=ModelImage*self.SqrtNormImage
             print>>log,"Convolve... "
             print>>log,"   MinMax = [%f , %f] @ freq = %f MHz"%(ModelImage.min(),ModelImage.max(),freq/1e6)
             #RestoredImage=ModFFTW.ConvolveGaussianScipy(ModelImage,CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
-            RestoredImage,_=ModFFTW.ConvolveGaussianWrapper(ModelImage,Sig=BeamPix)
+
+            
+            if self.options.AddNoise>0.:
+                print>>log,"Adding Noise... "
+                ModelImage+=np.random.randn(*ModelImage.shape)*self.options.AddNoise
+
+            #RestoredImage,_=ModFFTW.ConvolveGaussianWrapper(ModelImage,Sig=BeamPix)
+
+            def GiveGauss(Sig0,Sig1):
+                npix=20*int(np.sqrt(Sig0**2+Sig1**2))
+                if not npix%2: npix+=1
+                dx=npix/2
+                x,y=np.mgrid[-dx:dx:npix*1j,-dx:dx:npix*1j]
+                dsq=x**2+y**2
+                return Sig0**2/(Sig0**2+Sig1**2)*np.exp(-dsq/(2.*(Sig0**2+Sig1**2)))
+            R2=np.zeros_like(ModelImage)
+
+            Sig0=BeamPix/np.sqrt(2.)
+            if self.options.RandomCat:
+                Sig1=(self.options.RandomCat_SigFactor-1.)*Sig0
+            else:
+                Sig1=0.
+            nch,npol,_,_=ModelImage.shape
+            for ch in range(nch):
+                in1=ModelImage[ch,0]
+                R2[ch,0,:,:]=scipy.signal.fftconvolve(in1,GiveGauss(Sig0,Sig1), mode='same').real
+            RestoredImage=R2
+
+            self.header_dict["SIGREST"]=Sig0
+            self.header_dict["SIGSRC"]=Sig1
+            self.header_dict["SIGFACT"]=self.options.RandomCat_SigFactor
+
+
+            # print np.max(np.abs(R2-RestoredImage))
+            # import pylab
+            # ax=pylab.subplot(1,3,1)
+            # pylab.imshow(RestoredImage[0,0],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.subplot(1,3,2,sharex=ax,sharey=ax)
+            # pylab.imshow(R2[0,0],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.subplot(1,3,3,sharex=ax,sharey=ax)
+            # pylab.imshow((RestoredImage-R2)[0,0],interpolation="nearest")
+            # pylab.colorbar()
+            # pylab.show()
+            # stop
 
             RestoredImageRes=RestoredImage+self.Residual
             ListRestoredIm.append(RestoredImageRes)
@@ -299,25 +367,33 @@ class ClassRestoreMachine():
             ImageName="%s.restoredNew"%self.BaseImageName
             ImageNameCorr="%s.restoredNew.corr"%self.BaseImageName
             ImageNameModel="%s.model"%self.BaseImageName
+            ImageNameModelConv="%s.modelConv"%self.BaseImageName
         else:
             ImageName=self.OutName
             ImageNameCorr=self.OutName+".corr"
             ImageNameModel="%s.model"%self.OutName
+            ImageNameModelConv="%s.modelConv"%self.OutName
 
-        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModel,RestoredImageRes.shape,self.Cell,self.radec)#Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModel,RestoredImageRes.shape,self.Cell,self.radec,header_dict=self.header_dict)#Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(ModelImage,CorrT=True)
         CasaImage.setBeam(self.FWHMBeam)
         CasaImage.ToFits()
         CasaImage.close()
 
-        CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec,Freqs=C/np.array(Lambda).ravel())#,Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageName,RestoredImageRes.shape,self.Cell,self.radec,Freqs=C/np.array(Lambda).ravel(),header_dict=self.header_dict)#,Lambda=(Lambda0,dLambda,self.NBands))
         CasaImage.setdata(RestoredImageRes,CorrT=True)
+        CasaImage.setBeam(self.FWHMBeam)
+        CasaImage.ToFits()
+        CasaImage.close()
+        
+        CasaImage=ClassCasaImage.ClassCasaimage(ImageNameModelConv,RestoredImage.shape,self.Cell,self.radec,Freqs=C/np.array(Lambda).ravel(),header_dict=self.header_dict)#,Lambda=(Lambda0,dLambda,self.NBands))
+        CasaImage.setdata(RestoredImage,CorrT=True)
         CasaImage.setBeam(self.FWHMBeam)
         CasaImage.ToFits()
         CasaImage.close()
 
         if self.MakeCorrected:
-            CasaImage=ClassCasaImage.ClassCasaimage(ImageNameCorr,RestoredImageResCorr.shape,self.Cell,self.radec,Freqs=C/np.array(Lambda).ravel())#,Lambda=(Lambda0,dLambda,self.NBands))
+            CasaImage=ClassCasaImage.ClassCasaimage(ImageNameCorr,RestoredImageResCorr.shape,self.Cell,self.radec,Freqs=C/np.array(Lambda).ravel(),header_dict=self.header_dict)#,Lambda=(Lambda0,dLambda,self.NBands))
             CasaImage.setdata(RestoredImageResCorr,CorrT=True)
             CasaImage.setBeam(self.FWHMBeam)
             CasaImage.ToFits()
@@ -335,7 +411,7 @@ class ClassRestoreMachine():
         # Alpha image
         if self.DoAlpha:
             print>>log,"Get Index Map... "
-            IndexMap=ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
+            IndexMap=self.ModelMachine.GiveSpectralIndexMap(CellSizeRad=self.CellSizeRad,GaussPars=[self.PSFGaussPars])
             ImageName="%s.alphaNew"%self.BaseImageName
             print>>log,"  Save... "
             CasaImage=ClassCasaImage.ClassCasaimage(ImageName,ModelImage.shape,self.Cell,self.radec)
@@ -345,12 +421,12 @@ class ClassRestoreMachine():
             print>>log,"  Done. "
 
     def GiveRandomModelIm(self):
-
-        SModel,NModel=np.load("/home/cyril.tasse/PUBLI/PaperBootes/Modeled.npy").T
+#        np.random.seed(0)
+        SModel,NModel=np.load(self.options.RandomCat_CountsFile).T
         ind=np.argsort(SModel)
         SModel=SModel[ind]
         NModel=NModel[ind]
-        SModel/=1e3
+        #SModel/=1e3
         NModel/=SModel**(5/2.)
         def GiveNPerOmega(s):
             xp=np.interp(np.log10(s), np.log10(SModel), np.log10(NModel), left=None, right=None)
@@ -364,7 +440,7 @@ class ClassRestoreMachine():
             return 10**xp
 
         std=np.std(self.Residual.flat[np.int64(np.random.rand(1000)*self.Residual.size)])
-        nbin=100
+        nbin=10000
         smin=2.*std
         smax=10.
         LogS=np.linspace(np.log10(smin),np.log10(smax),nbin)
@@ -376,31 +452,46 @@ class ClassRestoreMachine():
         Lra=[]
         Ldec=[]
         LS=[]
+        SRA=[]
+        SDEC=[]
+        
         f,p,_,_=im.toworld((0,0,0,0))
         for iBin in range(nbin-1):
             ThisS=(10**LogS[iBin]+10**LogS[iBin+1])/2.
             dx=10**LogS[iBin+1]-10**LogS[iBin]
-            n=int(round(GiveNPerOmega(ThisS)*Omega*dx))
-            indx=np.int64(np.random.rand(n)*nx)
-            indy=np.int64(np.random.rand(n)*nx)
-            Model[...,indx,indy]=ThisS
+            n=int(scipy.stats.poisson.rvs(GiveNPerOmega(ThisS)*Omega*dx))#int(round(GiveNPerOmega(ThisS)*Omega*dx))
+            indx=np.array([np.int64(np.random.rand(n)*nx)]).ravel()
+            indy=np.array([np.int64(np.random.rand(n)*nx)]).ravel()
+            s0,s1=10**LogS[iBin],10**LogS[iBin+1]
+            RandS=np.random.rand(n)*(s1-s0)+s0
+            Model[0,0,indy,indx]=RandS
             for iS in range(indx.size):
-                _,_,dec,ra=im.toworld((0,0,indx[iS],indy[iS]))
+                _,_,dec,ra=im.toworld((0,0,indy[iS],indx[iS]))
                 Lra.append(ra)
                 Ldec.append(dec)
-                LS.append(ThisS)
-                
-        Cat=np.zeros((len(Lra),),dtype=[("ra",np.float32),("dec",np.float32),("S",np.float32)])
+                LS.append(RandS[iS])
+                #SRA.append(rad2hmsdms(ra,Type="ra").replace(" ",":"))
+                #SDEC.append(rad2hmsdms(dec,Type="dec").replace(" ",":"))
+
+        #Cat=np.zeros((len(Lra),),dtype=[("ra",np.float64),("StrRA","S200"),("dec",np.float64),("StrDEC","S200"),("S",np.float64)])
+        Cat=np.zeros((len(Lra),),dtype=[("ra",np.float64),("dec",np.float64),("S",np.float64)])
         Cat=Cat.view(np.recarray)
         Cat.ra=np.array(Lra)
         Cat.dec=np.array(Ldec)
+        #Cat.StrRA=np.array(SRA)
+        #Cat.StrDEC=np.array(SDEC)
         Cat.S=np.array(LS)
         CatName="%s.cat.npy"%self.OutName
         print>>log,"Saving simulated catalog as %s"%CatName
         np.save(CatName,Cat)
 
-        Model*=self.SqrtNormImage
-        return Model
+        ModelOut=np.zeros_like(Model)
+        ModelOut[0,0]=Model[0,0].T[::-1]
+
+        
+
+        
+        return ModelOut
 
 
 def test():
@@ -423,7 +514,10 @@ def main(options=None):
                             SmoothMode=options.SmoothMode,
                             MakeCorrected=options.MakeCorrected,
                             options=options)
-    return CRM.Restore()
+    CRM.Restore()
+    CRM.killWorkers()
+
+
 
 
 

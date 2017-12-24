@@ -36,6 +36,7 @@ from DDFacet.Other import ModColor
 from DDFacet.Other import MyLogger
 import traceback
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
+from DDFacet.ToolsDir.ClassAdaptShape import ClassAdaptShape
 import copy
 from DDFacet.Other import AsyncProcessPool
 from DDFacet.Other.AsyncProcessPool import APP
@@ -246,6 +247,12 @@ class ClassImagerDeconv():
                 from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
                 self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
                 print>>log,"Using MORESANE algorithm"
+            elif self.GD["Deconv"]["Mode"]=="MUFFIN":
+                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                    raise NotImplementedError("Multi-polarization is not supported in MORESANE")
+                from DDFacet.Imager.MUFFIN import ClassImageDeconvMachineMUFFIN
+                self.DeconvMachine=ClassImageDeconvMachineMUFFIN.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                print>>log,"Using MUFFIN algorithm"
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
             self.ImageNoiseMachine.setMainCache(self.VS.maincache)
@@ -773,6 +780,12 @@ class ClassImagerDeconv():
         if modelfile is not None and modelfile is not "":
             print>>log,ModColor.Str("Reading image file for the predict: %s"%modelfile)
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
+            nch,npol,_,NPix=self.FacetMachine.OutImShape
+            nchModel,npolModel,_,NPixModel=FixedModelImage.shape
+            if NPixModel!=NPix:
+                print>>log,ModColor.Str("Model image spacial shape does not match DDFacet settings [%i vs %i]"%(FixedModelImage.shape[-1],NPix))
+                CA=ClassAdaptShape(FixedModelImage)
+                FixedModelImage=CA.giveOutIm(NPix)
         else:
             FixedModelImage = None
 
@@ -809,7 +822,23 @@ class ClassImagerDeconv():
                     print>> log, "reusing model image from previous chunk"
             else:
                 if ModelImage is None:
-                    ModelImage = self.FacetMachine.setModelImage(FixedModelImage)
+                    nch=model_freqs.size
+                    nchModel=FixedModelImage.shape[0]
+                    if nch!=nchModel:
+                        print>>log,ModColor.Str("Model image spectral shape does not match DDFacet settings [%i vs %i]"%(nchModel,nch))
+                        if nchModel>nch:
+                            print>>log,ModColor.Str("  taking the model's %i first channels only"%(nch))
+                            ThisChFixedModelImage=FixedModelImage[0:nch].copy()
+                        else:
+                            print>>log,ModColor.Str("  Replicating %i-times the 1st channel"%(nch))
+                            ThisChFixedModelImage=FixedModelImage[0].reshape((1,npol,NPix,NPix))*np.ones((DATA["ChanMappingDegrid"].size,1,1,1))
+                        self.FacetMachine.ToCasaImage(ThisChFixedModelImage,
+                                                      ImageName="%s.cube.model"%(self.BaseName),
+                                                      Fits=True,
+                                                      Freqs=model_freqs,
+                                                      Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+                    ModelImage = self.FacetMachine.setModelImage(ThisChFixedModelImage)
+
 
             if self.GD["Predict"]["MaskSquare"]:
                 # MaskInside: choose mask inside (0) or outside (1)

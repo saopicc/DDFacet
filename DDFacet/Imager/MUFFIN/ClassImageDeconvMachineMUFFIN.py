@@ -35,7 +35,9 @@ from DDFacet.Imager import ClassGainMachine
 from DDFacet.Other import MyPickle
 import multiprocessing
 import time
-from DDFacet.Imager.MORESANE.ClassMoresaneSingleSlice import ClassMoresaneSingleSlice
+#from DDFacet.Imager.MORESANE.ClassMoresaneSingleSlice import ClassMoresaneSingleSlice
+##from DDFacet.Imager.MUFFIN.easy_muffin.easy_muffin_py.deconv3d import EasyMuffin
+from easy_muffin_py.deconv3d import EasyMuffin
 from DDFacet.Array import shared_dict
 from DDFacet.ToolsDir import ClassSpectralFunctions
 from scipy.optimize import least_squares
@@ -47,8 +49,8 @@ class ClassImageDeconvMachine():
         self.GD=GD
         self.ModelMachine = ModelMachine
         self.RefFreq=RefFreq
-        if self.ModelMachine.DicoModel["Type"]!="MORESANE":
-            raise ValueError("ModelMachine Type should be MORESANE")
+        if self.ModelMachine.DicoModel["Type"]!="MUFFIN":
+            raise ValueError("ModelMachine Type should be MUFFIN")
         self.MultiFreqMode=(self.GD["Freq"]["NBand"]>1)
 
     def SetPSF(self,DicoVariablePSF):
@@ -142,24 +144,8 @@ class ClassImageDeconvMachine():
 
             return B
         else:
-            return A
-
-    def giveSliceCut(self,A,Nout):
-        nch,npol,Nin,_=A.shape
-        if Nin==Nout: 
-            slice(None)
-        elif Nin>Nout:
-            N0=A.shape[-1]
-            xc0=yc0=N0/2
-            if Nout%2==0:
-                x0d,x1d=xc0-Nout/2,xc0+Nout/2
-            else:
-                x0d,x1d=xc0-Nout/2,xc0+Nout/2+1
-            return slice(x0d,x1d)
-        else:
+            stop
             return None
-
-
 
     def updateModelMachine(self,ModelMachine):
         self.ModelMachine=ModelMachine
@@ -174,49 +160,108 @@ class ClassImageDeconvMachine():
 
     def Deconvolve(self):
 
-        
-        if self._Dirty.shape[-1]!=self._Dirty.shape[-2]:
+    	if self._Dirty.shape[-1]!=self._Dirty.shape[-2]:
             # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             # print self._Dirty.shape
             # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             return "MaxIter", True, True
 
-
         dirty=self._Dirty
-        nch,npol,_,_=dirty.shape
+        nch,npol,nx,ny=dirty.shape
         Model=np.zeros_like(dirty)
 
         _,_,xp,yp=np.where(self._MeanDirty==np.max(self._MeanDirty))
         self.PSFServer.setLocation(xp,yp)
         self.iFacet=self.PSFServer.iFacet
-
         psf,_=self.PSFServer.GivePSF()
-        
+        nxPSF=psf.shape[-1]
+        nxDirty=dirty.shape[-1]
+
         Nout=np.min([dirty.shape[-1],psf.shape[-1]])
+        dirty=self.AdaptArrayShape(dirty,Nout)
+        SliceDirty=slice(0,None)
+        if dirty.shape[-1]%2!=0:
+            SliceDirty=slice(0,-1)
 
-        if Nout%2!=0: Nout-=1
+        d=dirty[:,:,SliceDirty,SliceDirty]
+        psf=self.AdaptArrayShape(psf,d.shape[-1])
 
-        s_dirty_cut=self.giveSliceCut(dirty,Nout)
-        s_psf_cut=self.giveSliceCut(psf,2*Nout)
+        SlicePSF=slice(0,None)
+        if psf.shape[-1]%2!=0:
+            SlicePSF=slice(0,-1)
 
-        if s_psf_cut is None:
-            print>>log, ModColor.Str("Could not adapt psf shape to 2*dirty shape!")
-            print>>log, ModColor.Str("   shapes are (dirty, psf) = [%s, %s]"%(str(dirty.shape),str(psf.shape)))
-            s_psf_cut=self.giveSliceCut(psf,Nout)
-            
+        p=psf[:,:,SlicePSF,SlicePSF]
 
-        for ch in range(nch):
-            #print dirty[ch,0,s_dirty_cut,s_dirty_cut].shape
-            #print psf[ch,0,s_psf_cut,s_psf_cut].shape
-            CM=ClassMoresaneSingleSlice(dirty[ch,0,s_dirty_cut,s_dirty_cut],
-                                        psf[ch,0,s_psf_cut,s_psf_cut],
-                                        mask=None,GD=None)
-            model,resid=CM.giveModelResid(major_loop_miter=self.GD["MORESANE"]["NMajorIter"],
-                                          minor_loop_miter=self.GD["MORESANE"]["NMinorIter"],
-                                          loop_gain=self.GD["MORESANE"]["Gain"],
-                                          sigma_level=self.GD["MORESANE"]["SigmaCutLevel"],# tolerance=1.,
-                                          enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
-            Model[ch,0,s_dirty_cut,s_dirty_cut]=model[:,:]
+        dirty_MUFFIN = np.squeeze(d[:,0,:,:])
+        dirty_MUFFIN = dirty_MUFFIN.transpose((2,1,0))
+
+        psf_MUFFIN = np.squeeze(p[:,0,:,:])
+        psf_MUFFIN = psf_MUFFIN.transpose((2,1,0))
+
+        EM = EasyMuffin(mu_s=self.GD['MUFFIN']['mu_s'],
+                        mu_l=self.GD['MUFFIN']['mu_l'],
+                        nb=self.GD['MUFFIN']['nb'],
+                        truesky=dirty_MUFFIN,
+                        psf=psf_MUFFIN,
+                        dirty=dirty_MUFFIN)
+        EM.loop(nitermax=self.GD['MUFFIN']['NMinorIter'])
+
+
+        nxModel=dirty_MUFFIN.shape[0]
+        Aedge,Bedge=GiveEdges((nxModel/2,nxModel/2),nxModel,(nxDirty/2,nxDirty/2),nxDirty)
+        x0,x1,y0,y1=Bedge
+
+        Model=np.zeros((nxDirty,nxDirty,nch))
+        Model[x0:x1,y0:y1,:]=EM.x
+        self.ModelMachine.setMUFFINModel(Model)
+
+        # if self._Dirty.shape[-1]!=self._Dirty.shape[-2]:
+        #     # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        #     # print self._Dirty.shape
+        #     # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        #     return "MaxIter", True, True
+
+
+        # dirty=self._Dirty
+        # nch,npol,_,_=dirty.shape
+        # Model=np.zeros_like(dirty)
+
+        # _,_,xp,yp=np.where(self._MeanDirty==np.max(self._MeanDirty))
+        # self.PSFServer.setLocation(xp,yp)
+        # self.iFacet=self.PSFServer.iFacet
+
+        # psf,_=self.PSFServer.GivePSF()
+        
+        # Nout=np.min([dirty.shape[-1],psf.shape[-1]])
+        # dirty=self.AdaptArrayShape(dirty,Nout)
+        # SliceDirty=slice(0,None)
+        # if dirty.shape[-1]%2!=0:
+        #     SliceDirty=slice(0,-1)
+
+        # d=dirty[:,:,SliceDirty,SliceDirty]
+        # psf=self.AdaptArrayShape(psf,d.shape[-1]*2)
+
+        # SlicePSF=slice(0,None)
+        # if psf.shape[-1]%2!=0:
+        #     SlicePSF=slice(0,-1)
+
+        # p=psf[:,:,SlicePSF,SlicePSF]
+        # if p.shape[-1]!=2*d.shape[-1]:
+        #     print "!!!!!!!!!!!!!!!!!!!!!!!!!"
+        #     print "Could not adapt psf shape to 2*dirty shape!!!!!!!!!!!!!!!!!!!!!!!!!"
+        #     print p.shape[-1],d.shape[-1]
+        #     print "!!!!!!!!!!!!!!!!!!!!!!!!!"
+        #     psf=self.AdaptArrayShape(psf,d.shape[-1])
+        #     SlicePSF=SliceDirty
+
+        # for ch in range(nch):
+        #     CM=ClassMoresaneSingleSlice(dirty[ch,0,SliceDirty,SliceDirty],psf[ch,0,SlicePSF,SlicePSF],mask=None,GD=None)
+        #     model,resid=CM.giveModelResid(major_loop_miter=self.GD["MORESANE"]["NMajorIter"],
+        #                                   minor_loop_miter=self.GD["MORESANE"]["NMinorIter"],
+        #                                   loop_gain=self.GD["MORESANE"]["Gain"],
+        #                                   sigma_level=self.GD["MORESANE"]["SigmaCutLevel"],# tolerance=1.,
+        #                                   enforce_positivity=self.GD["MORESANE"]["ForcePositive"])
+        #     Model[ch,0,SliceDirty,SliceDirty]=model[:,:]
         
         #     import pylab
         #     pylab.clf()
@@ -254,52 +299,5 @@ class ClassImageDeconvMachine():
         #Model.fill(0)
         #Model[:,:,xp,yp]=self._Dirty[:,:,xp,yp]
 
-        if self.MultiFreqMode:
-            S,Al=self.DoSpectralFit(Model)
-            self.ModelMachine.setModel(S,0)
-            self.ModelMachine.setModel(Al,1)
-        else:
-            self.ModelMachine.setModel(Model,0)
-
         
         return "MaxIter", True, True   # stop deconvolution but do update model
-
-    def DoSpectralFit(self,Model):
-
-        def GiveResid(X,F,iFacet):
-            R=np.zeros_like(F)
-            S0,Alpha=X
-            for iBand in range(R.size):
-                #print iBand,self.SpectralFunctionsMachine.IntExpFunc(Alpha=np.array([0.]),iChannel=iBand,iFacet=iFacet)
-                R[iBand]=F[iBand]-S0*self.SpectralFunctionsMachine.IntExpFunc(Alpha=np.array([Alpha]).ravel(),iChannel=iBand,iFacet=iFacet)
-
-            #stop
-            return R
-
-        
-        nx,ny=Model.shape[-2],Model.shape[-1]
-        S=np.zeros((1,1,nx,ny),np.float32)
-        Al=np.zeros((1,1,nx,ny),np.float32)
-
-        for iPix in range(Model.shape[-2]):
-            for jPix in range(Model.shape[-1]):
-                F=Model[:,0,iPix,jPix]
-
-                JonesNorm=(self.DicoDirty["JonesNorm"][:,:,iPix,jPix]).reshape((-1,1,1,1))
-                #W=self.DicoDirty["WeightChansImages"]
-                #JonesNorm=np.sum(JonesNorm*W.reshape((-1,1,1,1)),axis=0).reshape((1,1,1,1))
-                
-                #F=F/np.sqrt(JonesNorm).ravel()
-                F0=np.mean(F)
-                if F0==0:
-                    continue
-
-                x0=(F0,-0.8)
-                
-                #print self.iFacet,iPix,jPix,F,F0
-                X=least_squares(GiveResid, x0, args=(F,self.iFacet),ftol=1e-3,gtol=1e-3,xtol=1e-3)
-                x=X['x']
-                S[0,0,iPix,jPix]=x[0]
-                Al[0,0,iPix,jPix]=x[1]
-
-        return S,Al

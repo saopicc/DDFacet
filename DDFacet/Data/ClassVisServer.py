@@ -139,6 +139,7 @@ class ClassVisServer():
                 DicoSelectOptions = self.DicoSelectOptions,
                 get_obs_detail=get_detail)
             if MS.empty:
+                print>>log,""
                 continue
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
@@ -922,9 +923,11 @@ class ClassVisServer():
 
 
             weight = msw["weight"]
+            #index[weight == 0] = 0
             if self.Weighting != "natural":
                 grid = wg["grid"].reshape((wg["grid"].size,))
                 #weight /= grid[msw["index"]]
+                index[index>=len(grid)]=0 
                 weight /= grid[index]
                 
             np.save(msw["cachepath"], weight)

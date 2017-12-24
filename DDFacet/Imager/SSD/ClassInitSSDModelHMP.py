@@ -441,8 +441,12 @@ class ClassInitSSDModel():
         # ############
 
 
-        AModel=self.ModelMachine.GiveSpectralIndexMap()[0,0,x,y]
+        if self.NFreqBands>1:
+            AModel=self.ModelMachine.GiveSpectralIndexMap()[0,0,x,y]
+        else:
+            AModel=np.zeros_like(SModel)
         T.timeit("spec index")
+        
 
         return SModel,AModel
 
