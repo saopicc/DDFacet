@@ -132,7 +132,7 @@ setup(name=pkg,
             "astropy == 1.3.3",
             "deap == 1.0.1", #invalid release tag on v1.0.2 refuse to use
             "ipdb == 0.10.3",
-            "python-casacore == 2.1.2",
+            "python-casacore == 2.2.0",
             "pyephem == 3.7.6.0",
             "numexpr == 2.6.2",
             "pyfits == 3.4",
