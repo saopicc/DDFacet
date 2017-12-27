@@ -111,7 +111,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         DicoComp[key]["SolsArray"][:, pol_array_index] += Weight * SolNorm
 
 
-    def GiveModelImage(self, FreqIn=None, DoAbs=False):
+    def GiveModelImage(self, FreqIn=None, DoAbs=False, out=None):
         try:
             if DoAbs:
                 f_apply = np.abs
@@ -130,8 +130,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
             # The model shape has nchan=len(GridFreqs)
             nchan = FreqIn.size
+            if out is None:
+                ModelImage = np.zeros((nchan, npol, nx, ny), dtype=np.float32)
+            else:
+                ModelImage = out.view()
 
-            ModelImage = np.zeros((nchan, npol, nx, ny), dtype=np.float32)
             DicoSM = {}
             for key in DicoComp.keys():
                 for pol in range(npol):
