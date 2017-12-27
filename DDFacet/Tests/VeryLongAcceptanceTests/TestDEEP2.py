@@ -35,7 +35,7 @@ class TestDEEP2(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCo
         return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm',
                 'int.residual', 'app.residual', 'int.model', 'app.model',
                 'int.convmodel', 'app.convmodel', 'int.restored', 'app.restored',
-                'restored', 'stokes.app.residual', 'stokes.int.residual']
+                'restored']
 
     @classmethod
     def defineMaxSquaredError(cls):
@@ -48,7 +48,7 @@ class TestDEEP2(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCo
         return [1e-6,1e-6,1e-6,1e-6,1e-6,
                 1e-3,1e-4,1e-3,1e-4,
                 1e-3,1e-4,1e-3,1e-4,
-                1e-1,1e-4,1e-3] #epsilons per image pair, as listed in defineImageList
+                1e-1] #epsilons per image pair, as listed in defineImageList
 
     @classmethod
     def defMeanSquaredErrorLevel(cls):
@@ -61,7 +61,7 @@ class TestDEEP2(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCo
         return [1e-7,1e-7,1e-7,1e-7,1e-7,
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5,1e-5,1e-5,1e-5,
-                1e-5,1e-5,1e-5] #epsilons per image pair, as listed in defineImageList
+                1e-5] #epsilons per image pair, as listed in defineImageList
 
     pass #check all images
 
