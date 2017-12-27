@@ -21,7 +21,7 @@
 #define GMODE_STOKES_IQ_FROM_XXYY \
 	float _Complex stokes_vis[] = {0+0*_Complex_I,0+0*_Complex_I}; \
 	stokes_vis[0]=(Vis[0]+Vis[1])/2.; \
-	stokes_vis[1]=(Vis[0]-Vis[3])/2.; \
+	stokes_vis[1]=(Vis[0]-Vis[1])/2.; \
 	int nVisPol = 2; \
 	int PolMap[] = {0,1}; 
 #define GMODE_STOKES_QI_FROM_XXYY \
