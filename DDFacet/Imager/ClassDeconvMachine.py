@@ -1777,9 +1777,12 @@ class ClassImagerDeconv():
             label = 'appconvmodelcube'
             if label not in _images:
                 if havenorm:
-                    _images.addSharedArray(label, appmodelcube().shape, np.float32)
-                    ModFFTW.ConvolveGaussianParallel(_images, 'appmodelcube', label,
-                                             CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
+                    out = _images.addSharedArray(label, appmodelcube().shape, np.float32)
+                    ModFFTW.ConvolveGaussianParallel(shareddict=_images,
+                                                     field_in = "appmodelcube",
+                                                     field_out = label,
+                                                     CellSizeRad=self.CellSizeRad,
+                                                     GaussPars=self.PSFGaussPars)
                     T.timeit(label)
                 else:
                     _images[label] = intconvmodelcube()
@@ -1787,7 +1790,13 @@ class ClassImagerDeconv():
         def intconvmodelcube():
             label = 'intconvmodelcube'
             if label not in _images:
-                _images.addSharedArray(label, intmodelcube().shape, np.float32)
+                out = _images.addSharedArray(label, intmodelcube().shape, np.float32)
+                ModFFTW.ConvolveGaussianParallel(shareddict=_images,
+                                                 field_in = "intmodelcube",
+                                                 field_out =label,
+                                                 CellSizeRad=self.CellSizeRad,
+                                                 GaussPars=self.PSFGaussPars)
+
                 ModFFTW.ConvolveGaussianParallel(_images, 'intmodelcube', label,
                                                  CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
                 T.timeit(label)
