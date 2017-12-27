@@ -756,15 +756,32 @@ class ClassImagerDeconv():
         CleanMaskImage=None
         CleanMaskImageName=self.GD["Mask"]["External"]
         if CleanMaskImageName is not None and CleanMaskImageName is not "":
-            print>>log,ModColor.Str("Will use mask image %s for the predict"%CleanMaskImageName)
+            print>>log,ModColor.Str("Will use mask image %s for the predict" % CleanMaskImageName)
             CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
 
 
         modelfile = self.GD["Predict"]["FromImage"]
         # if model image is specified, we'll use that, rather than the ModelMachine
         if modelfile is not None and modelfile is not "":
-            print>>log,ModColor.Str("Reading image file for the predict: %s"%modelfile)
+            print>>log,ModColor.Str("Reading image file for the predict: %s" % modelfile)
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
+            if len(FixedModelImage.shape) != 4:
+                raise RuntimeError("Expect FITS file with 4 axis: NX, NY, NPOL, NCH. Cannot continue.")
+            nch, npol, ny, nx = FixedModelImage.shape
+            if ny != nx:
+                raise RuntimeError("Currently non-square images are not supported")
+            npixest, _ = EstimateNpix(float(self.GD["Image"]["NPix"]), Padding=1)
+            if nx != npixest:
+                raise RuntimeError("Number of pixels in FITS file (%d) does not match "
+                                   "image size (%d). Cannot continue." % (nx, npixest))
+            if npol != 1:
+                raise RuntimeError("Unsupported: Polarization prediction is not defined")
+            for msi in self.VS.FreqBandChannelsDegrid:
+                nband = self.GD["Freq"]["NDegridBand"] if self.GD["Freq"]["NDegridBand"] != 0 \
+                                                       else len(self.VS.FreqBandChannelsDegrid[msi])
+                if nch != nband:
+                    raise RuntimeError("Number of predict frequency bands (%d) do not correspond to number of "
+                                       "frequency bands (%d) in input FITS file. Cannot continue." % (nband, nch))
         else:
             FixedModelImage = None
 
