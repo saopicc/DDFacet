@@ -882,14 +882,14 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
   short i;
   for (i=0; i < ncorr; ++i) {
     uint16_t corrid = *((uint16_t*) LDataCorrFormat->data + i);
-    if (corrid < 5 && corrid > 12) {
+    if (corrid < 5 || corrid > 12) {
       FATAL("Only accepts RR,RL,LR,LL,XX,XY,YX,YY as correlation input type");
     }
     inputcorr[i] = stokeslookup[corrid];
   }
   for (i=0; i < npol; ++i) {
     uint16_t polid = *((uint16_t*) LExpectedOutStokes->data + i);
-    if (polid < 1 && polid > 4) {
+    if (polid < 1 || polid > 4) {
       FATAL("Only accepts I,Q,U,V as polarization output type");
     }
     expstokes[i] = stokeslookup[polid];
@@ -1772,7 +1772,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
   short i;
   for (i=0; i < ncorr; ++i) {
     uint16_t corrid = *((uint16_t*) LDataCorrFormat->data + i);
-    if (corrid < 5 && corrid > 12) {
+    if (corrid < 5 || corrid > 12) {
       FATAL("Only accepts RR,RL,LR,LL,XX,XY,YX,YY as correlation output types");
     }
     inputcorr[i] = stokeslookup[corrid];
