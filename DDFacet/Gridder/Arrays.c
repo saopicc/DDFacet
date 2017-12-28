@@ -25,6 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "Arrays.h"
 #include "complex.h"
 #include <omp.h>
+#include <float.h>
 
 clock_t start;
 
@@ -143,7 +144,7 @@ static PyObject *pyWhereMaxMask(PyObject *self, PyObject *args)
       float* a = p_float32(A);
       int i_a;
       int j_a;
-      float ThisMax=0.;
+      float ThisMax=-FLT_MAX;
       int ThisxMax=0;
       int ThisyMax=0;
       int ThisIndex=0;
@@ -269,7 +270,7 @@ static PyObject *pyWhereMax(PyObject *self, PyObject *args)
       
       float* a = p_float32(A);
       int i_a,j_a;
-      float ThisMax=0.;
+      float ThisMax=-FLT_MAX;
       int ThisxMax=0;
       int ThisyMax=0;
       float ThisVal;

@@ -159,7 +159,7 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
     dphase=(du+dv+dw)*DT;
     phi=PI*(nu/C)*dphase;
     if(phi!=0.){
-      DecorrFactor*=(sin(phi)/(phi));
+      df=(sin(phi)/(phi));
       if( df<0 )
         df=0;
       DecorrFactor*=df;

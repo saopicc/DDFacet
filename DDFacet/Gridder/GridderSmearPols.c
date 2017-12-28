@@ -557,7 +557,7 @@ void griddername(PyArrayObject *grid, \
       \
       /* ############## W-projection #################### */\
       double wcoord=Wmean;\
-      int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);\
+      int iwplane = floor((NwPlanes-1)*fabs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);\
       int skipW=0;\
       if(iwplane>NwPlanes-1){\
 	skipW=1;\
@@ -1547,7 +1547,7 @@ void degriddername(PyArrayObject *grid, \
       /* ############## W-projection #################### */\
       double wcoord=Wmean;\
       \
-      int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);\
+      int iwplane = floor((NwPlanes-1)*fabs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);\
       int skipW=0;\
       if(iwplane>NwPlanes-1){skipW=1;continue;};\
       \
