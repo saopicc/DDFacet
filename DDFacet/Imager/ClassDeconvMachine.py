@@ -1342,7 +1342,8 @@ class ClassImagerDeconv():
         x, y = np.where(PSF == np.max(PSF))[-2:]
         nx, ny = PSF.shape[-2:]
         off = self.GD["Image"]["SidelobeSearchWindow"] // 2
-
+        if x.shape[0] == 0:
+            raise RuntimeError("Empty PSF slice detected while fitting. Check your data.")
         off = min(off, x[0], nx-x[0], y[0], ny-y[0])
         print>> log, "Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2)
         P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off].copy()
@@ -1397,7 +1398,7 @@ class ClassImagerDeconv():
         try:
             fit_err = None
             beam, gausspars, sidelobes = self.fitSinglePSF(meanPSF[0,...], "mean")
-        except e:
+        except Exception as e:
             beam = (0,0,0)
             gausspars = (0,0,0)
             sidelobes=(0,0)
@@ -1415,7 +1416,14 @@ class ClassImagerDeconv():
             self.PSFGaussPars = []
             self.PSFSidelobes = []
             for band in range(self.VS.NFreqBands):
-                beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],off,"band %d"%band)
+                try:
+                    beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],off,"band %d"%band)
+                except Exception as e:
+                    beam = (0,0,0)
+                    gausspars = (0,0,0)
+                    sidelobes=(0,0)
+                    fit_err = e # last error stored
+
                 if forced_beam is not None:
                     beam = f_beam
                     gausspars = f_gau
