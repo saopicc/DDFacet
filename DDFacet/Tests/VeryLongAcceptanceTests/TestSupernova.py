@@ -102,5 +102,47 @@ class TestSupernovaWOBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSIma
                 1e-5,1e-5,
                 1e-5,1e-5]
 
+class TestSupernovaHogbom(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
+    # without beam
+    @classmethod
+    def defineImageList(cls):
+        """ Method to define set of reference images to be tested.
+            Can be overridden to add additional output products to the test.
+            These must correspond to whatever is used in writing out the FITS files (eg. those in ClassDeconvMachine.py)
+            Returns:
+                List of image identifiers to reference and output products
+        """
+        return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm',
+                'app.residual', 'app.model',
+                'app.convmodel', 'app.restored',
+                'restored', 'stokes.app.residual']
+
+    @classmethod
+    def defineMaxSquaredError(cls):
+        """ Method defining maximum error tolerance between any pair of corresponding
+            pixels in the output and corresponding reference FITS images.
+            Should be overridden if another tolerance is desired
+            Returns:
+                constant for maximum tolerance used in test case setup
+        """
+        return [1e-6,1e-6,1e-6,1e-6,1e-6,
+                1e-4,1e-4,
+                1e-4,1e-4,
+                1e-1,1e-4]
+
+    @classmethod
+    def defMeanSquaredErrorLevel(cls):
+        """ Method defining maximum tolerance for the mean squared error between any
+            pair of FITS images. Should be overridden if another tolerance is
+            desired
+            Returns:
+            constant for tolerance on mean squared error
+        """
+        return [1e-7,1e-7,1e-7,1e-7,1e-7,
+                1e-5,1e-5,
+                1e-5,1e-5,
+                1e-5,1e-5]
+
+
 if __name__ == '__main__':
     unittest.main()
