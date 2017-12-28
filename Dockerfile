@@ -31,7 +31,8 @@ ENV DEB_SETUP_DEPENDENCIES \
     cmake \
     gfortran \
     git \
-    wget
+    wget \
+    subversion
 
 ENV DEB_DEPENCENDIES \
     python-pip \
@@ -52,8 +53,9 @@ ENV DEB_DEPENCENDIES \
     liblapack-dev \
     python-tk \
     meqtrees* \
+    # LOFAR Beam and including makems needed for ref image generation
+    lofar \
     # Reference image generation dependencies
-    makems \
     make
 
 RUN apt-get update && \
@@ -72,6 +74,7 @@ RUN apt-get update && \
     # Activate virtual environment
     . /ddfvenv/bin/activate && \
     # Finally install DDFacet
+    rm -rf /src/DDFacet/DDFacet/cbuild && \
     pip install -I --force-reinstall --no-binary :all: /src/DDFacet/ && \
     # Nuke the unused & cached binaries needed for compilation, etc.
     rm -r /src/DDFacet && \
@@ -81,7 +84,8 @@ RUN apt-get update && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /root/.cache/ && \
-    rm -rf /var/cache/
+    rm -rf /var/cache/ && \
+    rm -rf LOFAR-Release-2_21_9
 
 # Set MeqTrees Cattery path to virtualenv installation directory
 ENV MEQTREES_CATTERY_PATH /ddfvenv/lib/python2.7/site-packages/Cattery/
