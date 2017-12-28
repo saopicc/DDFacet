@@ -38,6 +38,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
     def setFreqMachine(self,GridFreqs, DegridFreqs):
         # Initiaise the Frequency Machine
+        self.DegridFreqs = DegridFreqs
+        self.GridFreqs = GridFreqs
         self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoSMStacked["RefFreq"], self.GD)
         self.FreqMachine.set_Method(mode=self.GD["Hogbom"]["FreqMode"])
 
@@ -112,42 +114,42 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
     def GiveModelImage(self, FreqIn=None, DoAbs=False, out=None):
-        try:
-            if DoAbs:
-                f_apply = np.abs
-            else:
-                f_apply = lambda x: x
+        if DoAbs:
+            f_apply = np.abs
+        else:
+            f_apply = lambda x: x
 
-            RefFreq=self.DicoSMStacked["RefFreq"]
-            # Default to reference frequency if no input given
-            if FreqIn is None:
-                FreqIn=np.array([RefFreq])
+        RefFreq=self.DicoSMStacked["RefFreq"]
+        # Default to reference frequency if no input given
+        if FreqIn is None:
+            FreqIn=np.array([RefFreq], dtype=np.float32)
 
-            FreqIn = np.array([FreqIn.ravel()]).flatten()
+        FreqIn = np.array([FreqIn.ravel()], dtype=np.float32).flatten()
 
-            DicoComp = self.DicoSMStacked["Comp"]
-            _, npol, nx, ny = self.ModelShape
+        DicoComp = self.DicoSMStacked["Comp"]
+        _, npol, nx, ny = self.ModelShape
 
-            # The model shape has nchan=len(GridFreqs)
-            nchan = FreqIn.size
-            if out is not None:
-                if out.shape != (nchan,npol,nx,ny) or out.dtype != np.float32:
-                    raise RuntimeError("supplied image has incorrect type (%s) or shape (%s)" % (out.dtype, out.shape))
-                ModelImage = out
-            else:
-                ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+        # The model shape has nchan=len(GridFreqs)
+        nchan = FreqIn.size
+        if out is not None:
+            if out.shape != (nchan,npol,nx,ny) or out.dtype != np.float32:
+                raise RuntimeError("supplied image has incorrect type (%s) or shape (%s)" % (out.dtype, out.shape))
+            ModelImage = out
+        else:
+            ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+        DicoSM = {}
+        for key in DicoComp.keys():
+            for pol in range(npol):
+                Sol = DicoComp[key]["SolsArray"][:, pol]  # /self.DicoSMStacked[key]["SumWeights"]
+                x, y = key
+                #tmp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
+                interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
+                if interp is None:
+                    raise RuntimeError("Could not interpolate model onto degridding bands. Inspect your data, check 'Hogbom-PolyFitOrder' or "
+                                       "if you think this is a bug report it.")
+                ModelImage[:, pol, x, y] += f_apply(interp)
 
-            DicoSM = {}
-            for key in DicoComp.keys():
-                for pol in range(npol):
-                    Sol = DicoComp[key]["SolsArray"][:, pol]  # /self.DicoSMStacked[key]["SumWeights"]
-                    x, y = key
-                    #tmp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
-                    ModelImage[:, pol, x, y] += f_apply(self.FreqMachine.Eval_Degrid(Sol, FreqIn))
-
-            return ModelImage
-        except:
-            return 0
+        return ModelImage
 
     def GiveSpectralIndexMap(self, threshold=0.1, save_dict=True):
         # Get the model image
