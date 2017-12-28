@@ -130,10 +130,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
             # The model shape has nchan=len(GridFreqs)
             nchan = FreqIn.size
-            if out is None:
-                ModelImage = np.zeros((nchan, npol, nx, ny), dtype=np.float32)
+            if out is not None:
+                if out.shape != (nchan,npol,nx,ny) or out.dtype != np.float32:
+                    raise RuntimeError("supplied image has incorrect type (%s) or shape (%s)" % (out.dtype, out.shape))
+                ModelImage = out
             else:
-                ModelImage = out.view()
+                ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
 
             DicoSM = {}
             for key in DicoComp.keys():
