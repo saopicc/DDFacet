@@ -150,7 +150,7 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
     
 
     
-  /* }//endif */
+  }
 
 
 }
