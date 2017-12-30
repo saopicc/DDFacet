@@ -115,38 +115,73 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
   float Jabs[4]={0};
   float A=0;
   
-  if(Mode==1){
-    int ndone=0;
-    for(ipol=0; ipol<nPol; ipol++){
-      Jout[ipol]=0;
-    }
+/* <<<<<<< HEAD */
+/*   /\* if(Mode==1){ *\/ */
+/*   /\*   int ndone=0; *\/ */
+/*   /\*   for(ipol=0; ipol<nPol; ipol++){ *\/ */
+/*   /\*     Jout[ipol]=0; *\/ */
+/*   /\*   } *\/ */
 
-    int idir;
-    for(idir=0; idir<nd_Jones; idir++){
-      if(ptrCoefs[idir]==0){continue;}
-      size_t offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
-	+i_dir*na_Jones*nch_Jones*4
-	+i_ant0*nch_Jones*4
-	+iChJones*4;
+/*   /\*   int idir; *\/ */
+/*   /\*   for(idir=0; idir<nd_Jones; idir++){ *\/ */
+/*   /\*     if(ptrCoefs[idir]==0){continue;} *\/ */
+/*   /\*     size_t offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4 *\/ */
+/*   /\* 	+i_dir*na_Jones*nch_Jones*4 *\/ */
+/*   /\* 	+i_ant0*nch_Jones*4; *\/ */
+/*   /\* 	+iChJones*4; *\/ */
 
-      float coef;
-      float complex val;
-      for(ipol=0; ipol<nPol; ipol++){
-	A=cabs(*(ptrJonesMatrices+offJ0+ipol));
-	//Jout[ipol]+=((float)(ptrCoefs[idir])/(float)(A))*(*(ptrJonesMatrices+offJ0+ipol));
-	Jout[ipol]+=(ptrCoefs[idir]/A)*(*(ptrJonesMatrices+offJ0+ipol));
-	Jabs[ipol]+=ptrCoefs[idir]*A;
-	//printf("[%i, %i] coef=%f val=(%f,%f) J=(%f,%f) A=(%f,%f) \n",ipol,ndone,coef,creal(val),cimag(val),creal(Jout[ipol]),cimag(Jout[ipol]),creal(Jabs[ipol]),cimag(Jabs[ipol]));
-      }
-      ndone+=1;
+/*   /\*     float coef; *\/ */
+/*   /\*     float complex val; *\/ */
+/*   /\*     for(ipol=0; ipol<nPol; ipol++){ *\/ */
+/*   /\* 	A=cabs(*(ptrJonesMatrices+offJ0+ipol)); *\/ */
+/*   /\* 	//Jout[ipol]+=((float)(ptrCoefs[idir])/(float)(A))*(*(ptrJonesMatrices+offJ0+ipol)); *\/ */
+/*   /\* 	Jout[ipol]+=(ptrCoefs[idir]/A)*(*(ptrJonesMatrices+offJ0+ipol)); *\/ */
+/*   /\* 	Jabs[ipol]+=ptrCoefs[idir]*A; *\/ */
+/*   /\* 	//printf("[%i, %i] coef=%f val=(%f,%f) J=(%f,%f) A=(%f,%f) \n",ipol,ndone,coef,creal(val),cimag(val),creal(Jout[ipol]),cimag(Jout[ipol]),creal(Jabs[ipol]),cimag(Jabs[ipol])); *\/ */
+/*   /\*     } *\/ */
+/*   /\*     ndone+=1; *\/ */
 
-      //printf("w=(%f) A=%f \n",ptrCoefs[idir],A);
-    }//end for idir
+/*   /\*     //printf("w=(%f) A=%f \n",ptrCoefs[idir],A); *\/ */
+/*   /\*   }//end for idir *\/ */
 
-    for(ipol=0; ipol<nPol; ipol++){
-      Jout[ipol]*=Jabs[ipol];
-      //printf("[%i, %i] J=(%f,%f) A=(%f,%f) \n",ipol,ndone,creal(Jout[ipol]),cimag(Jout[ipol]),creal(Jabs[ipol]),cimag(Jabs[ipol]));
-    }
+/*   /\*   for(ipol=0; ipol<nPol; ipol++){ *\/ */
+/*   /\*     Jout[ipol]*=Jabs[ipol]; *\/ */
+/*   /\*     //printf("[%i, %i] J=(%f,%f) A=(%f,%f) \n",ipol,ndone,creal(Jout[ipol]),cimag(Jout[ipol]),creal(Jabs[ipol]),cimag(Jabs[ipol])); *\/ */
+/*   /\*   } *\/ */
+/* ======= */
+/*   if(Mode==1){ */
+/*     int ndone=0; */
+/*     for(ipol=0; ipol<nPol; ipol++){ */
+/*       Jout[ipol]=0; */
+/*     } */
+
+/*     int idir; */
+/*     for(idir=0; idir<nd_Jones; idir++){ */
+/*       if(ptrCoefs[idir]==0){continue;} */
+/*       size_t offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4 */
+/* 	+i_dir*na_Jones*nch_Jones*4 */
+/* 	+i_ant0*nch_Jones*4 */
+/* 	+iChJones*4; */
+
+/*       float coef; */
+/*       float complex val; */
+/*       for(ipol=0; ipol<nPol; ipol++){ */
+/* 	A=cabs(*(ptrJonesMatrices+offJ0+ipol)); */
+/* 	//Jout[ipol]+=((float)(ptrCoefs[idir])/(float)(A))*(*(ptrJonesMatrices+offJ0+ipol)); */
+/* 	Jout[ipol]+=(ptrCoefs[idir]/A)*(*(ptrJonesMatrices+offJ0+ipol)); */
+/* 	Jabs[ipol]+=ptrCoefs[idir]*A; */
+/* 	//printf("[%i, %i] coef=%f val=(%f,%f) J=(%f,%f) A=(%f,%f) \n",ipol,ndone,coef,creal(val),cimag(val),creal(Jout[ipol]),cimag(Jout[ipol]),creal(Jabs[ipol]),cimag(Jabs[ipol])); */
+/*       } */
+/*       ndone+=1; */
+
+/*       //printf("w=(%f) A=%f \n",ptrCoefs[idir],A); */
+/*     }//end for idir */
+
+/*     for(ipol=0; ipol<nPol; ipol++){ */
+/*       Jout[ipol]*=Jabs[ipol]; */
+/*       //printf("[%i, %i] J=(%f,%f) A=(%f,%f) \n",ipol,ndone,creal(Jout[ipol]),cimag(Jout[ipol]),creal(Jabs[ipol]),cimag(Jabs[ipol])); */
+/*     } */
+/* >>>>>>> master */
     
 
     

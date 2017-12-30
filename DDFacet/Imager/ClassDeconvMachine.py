@@ -770,9 +770,9 @@ class ClassImagerDeconv():
 
         CleanMaskImage=None
         CleanMaskImageName=self.GD["Mask"]["External"]
-        if CleanMaskImageName is not None and CleanMaskImageName is not "":
-            print>>log,ModColor.Str("Will use mask image %s for the predict" % CleanMaskImageName)
-            CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
+        # if CleanMaskImageName is not None and CleanMaskImageName is not "":
+        #     print>>log,ModColor.Str("Will use mask image %s for the predict"%CleanMaskImageName)
+        #     CleanMaskImage = np.bool8(ClassCasaImage.FileToArray(CleanMaskImageName,True))
 
 
         modelfile = self.GD["Predict"]["FromImage"]
@@ -780,6 +780,13 @@ class ClassImagerDeconv():
         if modelfile is not None and modelfile is not "":
             print>>log,ModColor.Str("Reading image file for the predict: %s" % modelfile)
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
+            nch,npol,_,NPix=self.FacetMachine.OutImShape
+            nchModel,npolModel,_,NPixModel=FixedModelImage.shape
+            if NPixModel!=NPix:
+                print>>log,ModColor.Str("Model image spatial shape does not match DDFacet settings [%i vs %i]"%(FixedModelImage.shape[-1],NPix))
+                CA=ClassAdaptShape(FixedModelImage)
+                FixedModelImage=CA.giveOutIm(NPix)
+
             if len(FixedModelImage.shape) != 4:
                 raise RuntimeError("Expect FITS file with 4 axis: NX, NY, NPOL, NCH. Cannot continue.")
             nch, npol, ny, nx = FixedModelImage.shape
