@@ -778,7 +778,7 @@ class ClassImagerDeconv():
         modelfile = self.GD["Predict"]["FromImage"]
         # if model image is specified, we'll use that, rather than the ModelMachine
         if modelfile is not None and modelfile is not "":
-            print>>log,ModColor.Str("Reading image file for the predict: %s"%modelfile)
+            print>>log,ModColor.Str("Reading image file for the predict: %s" % modelfile)
             FixedModelImage = ClassCasaImage.FileToArray(modelfile,True)
             nch,npol,_,NPix=self.FacetMachine.OutImShape
             nchModel,npolModel,_,NPixModel=FixedModelImage.shape
@@ -786,6 +786,24 @@ class ClassImagerDeconv():
                 print>>log,ModColor.Str("Model image spacial shape does not match DDFacet settings [%i vs %i]"%(FixedModelImage.shape[-1],NPix))
                 CA=ClassAdaptShape(FixedModelImage)
                 FixedModelImage=CA.giveOutIm(NPix)
+
+            if len(FixedModelImage.shape) != 4:
+                raise RuntimeError("Expect FITS file with 4 axis: NX, NY, NPOL, NCH. Cannot continue.")
+            nch, npol, ny, nx = FixedModelImage.shape
+            if ny != nx:
+                raise RuntimeError("Currently non-square images are not supported")
+            npixest, _ = EstimateNpix(float(self.GD["Image"]["NPix"]), Padding=1)
+            if nx != npixest:
+                raise RuntimeError("Number of pixels in FITS file (%d) does not match "
+                                   "image size (%d). Cannot continue." % (nx, npixest))
+            if npol != 1:
+                raise RuntimeError("Unsupported: Polarization prediction is not defined")
+            for msi in self.VS.FreqBandChannelsDegrid:
+                nband = self.GD["Freq"]["NDegridBand"] if self.GD["Freq"]["NDegridBand"] != 0 \
+                                                       else len(self.VS.FreqBandChannelsDegrid[msi])
+                if nch != nband:
+                    raise RuntimeError("Number of predict frequency bands (%d) do not correspond to number of "
+                                       "frequency bands (%d) in input FITS file. Cannot continue." % (nband, nch))
         else:
             FixedModelImage = None
 
@@ -1829,9 +1847,12 @@ class ClassImagerDeconv():
             label = 'appconvmodelcube'
             if label not in _images:
                 if havenorm:
-                    _images.addSharedArray(label, appmodelcube().shape, np.float32)
-                    ModFFTW.ConvolveGaussianParallel(_images, 'appmodelcube', label,
-                                             CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
+                    out = _images.addSharedArray(label, appmodelcube().shape, np.float32)
+                    ModFFTW.ConvolveGaussianParallel(shareddict=_images,
+                                                     field_in = "appmodelcube",
+                                                     field_out = label,
+                                                     CellSizeRad=self.CellSizeRad,
+                                                     GaussPars=self.PSFGaussPars)
                     T.timeit(label)
                 else:
                     _images[label] = intconvmodelcube()
@@ -1839,7 +1860,13 @@ class ClassImagerDeconv():
         def intconvmodelcube():
             label = 'intconvmodelcube'
             if label not in _images:
-                _images.addSharedArray(label, intmodelcube().shape, np.float32)
+                out = _images.addSharedArray(label, intmodelcube().shape, np.float32)
+                ModFFTW.ConvolveGaussianParallel(shareddict=_images,
+                                                 field_in = "intmodelcube",
+                                                 field_out =label,
+                                                 CellSizeRad=self.CellSizeRad,
+                                                 GaussPars=self.PSFGaussPars)
+
                 ModFFTW.ConvolveGaussianParallel(_images, 'intmodelcube', label,
                                                  CellSizeRad=self.CellSizeRad, GaussPars=self.PSFGaussPars)
                 T.timeit(label)

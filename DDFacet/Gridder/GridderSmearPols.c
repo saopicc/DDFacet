@@ -882,14 +882,14 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
   short i;
   for (i=0; i < ncorr; ++i) {
     uint16_t corrid = *((uint16_t*) LDataCorrFormat->data + i);
-    if (corrid < 5 && corrid > 12) {
+    if (corrid < 5 || corrid > 12) {
       FATAL("Only accepts RR,RL,LR,LL,XX,XY,YX,YY as correlation input type");
     }
     inputcorr[i] = stokeslookup[corrid];
   }
   for (i=0; i < npol; ++i) {
     uint16_t polid = *((uint16_t*) LExpectedOutStokes->data + i);
-    if (polid < 1 && polid > 4) {
+    if (polid < 1 || polid > 4) {
       FATAL("Only accepts I,Q,U,V as polarization output type");
     }
     expstokes[i] = stokeslookup[polid];
@@ -1311,10 +1311,11 @@ static PyObject *pyGridderWPol(PyObject *self, PyObject *args)
   Mat_A_l_SumProd(visBuff, SkyType, corr);\
   
 #define APPLYJONES_2_CORR \
-  corr_vis[3] = corr_vis[1]; \
-  corr_vis[1] = 0; \
-  corr_vis[2] = 0; \
-  MatDot(J0,JonesType,corr_vis,SkyType,visBuff);\
+  /*Currently we only handle the diagonal case (I without Q or V in linear or circular feeds)*/ \
+  float _Complex padded_corr_vis[] = {0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I}; \
+  padded_corr_vis[0] = corr_vis[0]; \
+  padded_corr_vis[3] = corr_vis[1]; \
+  MatDot(J0,JonesType,padded_corr_vis,SkyType,visBuff);\
   MatDot(visBuff,SkyType,J1H,JonesType,visBuff);\
   Mat_A_l_SumProd(visBuff, SkyType, corr);\
   visBuff[1] = visBuff[3];
@@ -1501,7 +1502,6 @@ void degriddername(PyArrayObject *grid, \
 	int ThisPol;\
 	for (visChan=chStart; visChan<chEnd; ++visChan) {\
 	  size_t doff = (irow * nVisChan + visChan) * nVisCorr;\
-	  bool* __restrict__ flagPtr = p_bool(flags) + doff;\
 	  int OneFlagged=0;\
 	  int cond;\
 	  \
@@ -1772,7 +1772,7 @@ static PyObject *pyDeGridderWPol(PyObject *self, PyObject *args)
   short i;
   for (i=0; i < ncorr; ++i) {
     uint16_t corrid = *((uint16_t*) LDataCorrFormat->data + i);
-    if (corrid < 5 && corrid > 12) {
+    if (corrid < 5 || corrid > 12) {
       FATAL("Only accepts RR,RL,LR,LL,XX,XY,YX,YY as correlation output types");
     }
     inputcorr[i] = stokeslookup[corrid];
