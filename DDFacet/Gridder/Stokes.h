@@ -21,7 +21,7 @@
 #define GMODE_STOKES_IQ_FROM_XXYY \
 	float _Complex stokes_vis[] = {0+0*_Complex_I,0+0*_Complex_I}; \
 	stokes_vis[0]=(Vis[0]+Vis[1])/2.; \
-	stokes_vis[1]=(Vis[0]-Vis[3])/2.; \
+	stokes_vis[1]=(Vis[0]-Vis[1])/2.; \
 	int nVisPol = 2; \
 	int PolMap[] = {0,1}; 
 #define GMODE_STOKES_QI_FROM_XXYY \
@@ -1030,8 +1030,8 @@
 	/* I missing Q*/ \
 	corr_vis[0] = stokes_vis[0]; \
 	corr_vis[1] = stokes_vis[0]; \
-	int nVisCorr = 2; 
-	
+	int nVisCorr = 2;
+
 #define GMODE_CORR_XXXYYXYY_FROM_I \
 	float _Complex corr_vis[] = {0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I,0+0*_Complex_I}; \
 	/* I missing Q*/ \

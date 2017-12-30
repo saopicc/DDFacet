@@ -26,6 +26,8 @@ import re
 import numpy as np
 from DDFacet.Parset.ReadCFG import Parset
 from astropy.io import fits
+from subprocess import Popen
+import time
 
 class ClassCompareFITSImage(unittest.TestCase):
     """ Automated assurance test: reference FITS file regression (abstract class)
@@ -211,8 +213,25 @@ class ClassCompareFITSImage(unittest.TestCase):
         stderr_file = open(cls._stderrLogFile, 'w')
 
         with stdout_file, stderr_file:
-            subprocess.check_call(args, env=os.environ.copy(),
-                stdout=stdout_file, stderr=stderr_file)
+            p = Popen(args, 
+                      env=os.environ.copy(),
+                      stdout=stdout_file, 
+                      stderr=stderr_file)
+            x = 21600
+            delay = 1.0
+            timeout = int(x / delay)
+            while p.poll() is None and timeout > 0:
+                time.sleep(delay)
+                timeout -= delay
+            #timeout reached, kill process if it is still rolling
+            ret = p.poll()
+            if ret is None:
+                p.kill()
+                ret = 1
+                
+            if ret != 0: 
+                raise RuntimeError("DDF exited with non-zero return code %d" % ret)
+            
 
         #Finally open up output FITS files for testing and build a dictionary of them
         for ref_id in cls.defineImageList():

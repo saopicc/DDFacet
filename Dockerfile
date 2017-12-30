@@ -1,5 +1,5 @@
 #From Ubuntu 16.04
-FROM kernsuite/base:2
+FROM kernsuite/base:3
 MAINTAINER Ben Hugo "bhugo@ska.ac.za"
 
 #Package dependencies
@@ -58,7 +58,7 @@ ENV DEB_DEPENCENDIES \
 
 RUN apt-get update && \
     apt-get install -y software-properties-common && \
-    add-apt-repository -y -s ppa:kernsuite/kern-2 && \
+    add-apt-repository -y -s ppa:kernsuite/kern-3 && \
     apt-add-repository -y multiverse && \
     apt-get update && \
     apt-get install -y $DEB_SETUP_DEPENDENCIES && \
@@ -66,13 +66,13 @@ RUN apt-get update && \
     #Setup a virtual environment for the python packages
     pip install -U pip virtualenv setuptools wheel && \
     virtualenv --system-site-packages /ddfvenv && \
+    # Install Montblanc and all other optional dependencies
+    pip install -r /src/DDFacet/requirements.txt && \
     cd /src/DDFacet/ && git submodule update --init --recursive && cd / && \
     # Activate virtual environment
     . /ddfvenv/bin/activate && \
-    # Install DDFacet
+    # Finally install DDFacet
     pip install -I --force-reinstall --no-binary :all: /src/DDFacet/ && \
-    # Install Montblanc and all other optional dependencies
-    pip install -r /src/DDFacet/requirements.txt && \
     # Nuke the unused & cached binaries needed for compilation, etc.
     rm -r /src/DDFacet && \
     apt-get remove -y $DEB_SETUP_DEPENDENCIES && \
