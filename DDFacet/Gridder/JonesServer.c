@@ -111,9 +111,9 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
     }
   }
 
-
+  /*
   float Jabs[4]={0};
-  float A=0;
+  float A=0; */
   
 /* <<<<<<< HEAD */
 /*   /\* if(Mode==1){ *\/ */
@@ -185,10 +185,8 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
     
 
     
-  }
-
-
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////
