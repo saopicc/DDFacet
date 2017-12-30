@@ -20,5 +20,5 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #pragma once
 #include <math.h>
-double C=2.99792456e8;
-#define PI M_PI
+double C=2.99792458e8;
+#define PI 3.141592653589793238462643383279502884197

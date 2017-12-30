@@ -328,7 +328,7 @@ static PyObject *pyTestMatrix(PyObject *self, PyObject *args)
 
 }
 
-double PI=3.14159265359;
+double PI=3.141592653589793238462643383279502884197;
 
 
 void NormJones(float complex* J0, int ApplyAmp, int ApplyPhase, int DoScaleJones, double *uvwPtr, float WaveLengthMean, float CalibError){
