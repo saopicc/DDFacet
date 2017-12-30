@@ -292,7 +292,7 @@ class ClassImageDeconvMachine():
 
 
 
-        print>>log,"  selected %i islands larger that %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"])
+        print>>log,"  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"])
         
         if np.count_nonzero(ListDoIslandsInit)>0:
             if self.GD["GAClean"]["InitType"]=="HMP":
