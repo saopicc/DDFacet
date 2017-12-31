@@ -63,7 +63,9 @@ class TestSSDKillMS(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.Cla
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5]
 
-    pass #check all images
+    @classmethod
+    def timeoutsecs(cls):
+        return 21600 * 4
 
 if __name__ == '__main__':
     unittest.main()
