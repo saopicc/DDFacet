@@ -449,10 +449,10 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
   if((ApplyJones_Beam)&(ApplyJones_killMS)){
     int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
     int i_JonesChan=ptrVisToJonesChanMapping_Beam[visChan];
-    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&(CurrentJones_Beam_Chan=i_JonesChan);
+    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&&(CurrentJones_Beam_Chan==i_JonesChan);
     i_t=ptrTimeMappingJonesMatrices[irow];
     i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
-    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&(CurrentJones_kMS_Chan=i_JonesChan);
+    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&&(CurrentJones_kMS_Chan==i_JonesChan);
     if((SameAsBefore_Beam)&(SameAsBefore_kMS)){return;}
   }
 
