@@ -144,6 +144,10 @@ class ClassCompareFITSImage(unittest.TestCase):
         cls._defaultParset.set(section, option, value)
 
     @classmethod
+    def timeoutsecs(cls):
+        return 21600
+
+    @classmethod
     def setUpClass(cls):
         unittest.TestCase.setUpClass()
         cls._inputDir = getenv('DDFACET_TEST_DATA_DIR','./')+"/"
@@ -217,7 +221,7 @@ class ClassCompareFITSImage(unittest.TestCase):
                       env=os.environ.copy(),
                       stdout=stdout_file, 
                       stderr=stderr_file)
-            x = 21600
+            x = cls.timeoutsecs()
             delay = 1.0
             timeout = int(x / delay)
             while p.poll() is None and timeout > 0:
@@ -227,11 +231,13 @@ class ClassCompareFITSImage(unittest.TestCase):
             ret = p.poll()
             if ret is None:
                 p.kill()
-                ret = 1
-                
-            if ret != 0: 
+                ret = 99
+
+            if ret == 99:
+                raise RuntimeError("Test timeout reached. Killed process.")
+            elif ret != 0:
                 raise RuntimeError("DDF exited with non-zero return code %d" % ret)
-            
+
 
         #Finally open up output FITS files for testing and build a dictionary of them
         for ref_id in cls.defineImageList():

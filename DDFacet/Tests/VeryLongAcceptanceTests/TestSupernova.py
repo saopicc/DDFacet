@@ -62,6 +62,11 @@ class TestSupernova(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.Cla
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5,1e-5,1e-5]
 
+    @classmethod
+    def timeoutsecs(cls):
+        return 21600 * 4
+
+
 class TestSupernovaWOBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
     @classmethod
     def defineImageList(cls):
@@ -101,6 +106,11 @@ class TestSupernovaWOBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSIma
                 1e-5,1e-5,
                 1e-5,1e-5,
                 1e-5,1e-5]
+
+    @classmethod
+    def timeoutsecs(cls):
+        return 21600 * 2
+
 
 class TestSupernovaHogbom(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
     # without beam
@@ -143,6 +153,9 @@ class TestSupernovaHogbom(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSIma
                 1e-5,1e-5,
                 1e-5,1e-5]
 
+    @classmethod
+    def timeoutsecs(cls):
+        return 21600 * 2
 
 if __name__ == '__main__':
     unittest.main()
