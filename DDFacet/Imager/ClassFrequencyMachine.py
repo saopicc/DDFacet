@@ -283,6 +283,13 @@ class ClassFrequencyMachine(object):
             order = coeffs.size
             Xdes = self.setDesMat(Freqsp, order=order)
             return np.dot(Xdes, coeffs)
+        else:
+            #frequencies changed so we need a new design matrix
+            order = coeffs.size
+            Xdes = self.setDesMat(Freqsp, order=order)
+            # evaluate poly and return result
+            return np.dot(Xdes, coeffs)
+
 
     def FitGP(self,Vals):
         """

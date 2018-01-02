@@ -23,7 +23,7 @@ import unittest
 import DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage
 
 
-class Test3C147(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
+class TestDEEP2(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
     @classmethod
     def defineImageList(cls):
         """ Method to define set of reference images to be tested.
@@ -35,7 +35,7 @@ class Test3C147(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCo
         return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm',
                 'int.residual', 'app.residual', 'int.model', 'app.model',
                 'int.convmodel', 'app.convmodel', 'int.restored', 'app.restored',
-                'restored', 'stokes.app.residual', 'stokes.int.residual'] + \
+                'restored'] + \
                ['cube.dirty',
                 'cube.app.convmodel', 'cube.app.residual',
                 'cube.int.convmodel', 'cube.int.residual']
@@ -51,7 +51,7 @@ class Test3C147(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCo
         return [1e-6,1e-6,1e-6,1e-6,1e-6,
                 1e-3,1e-4,1e-3,1e-4,
                 1e-3,1e-4,1e-3,1e-4,
-                1e-1,1e-4,1e-3] + \
+                1e-1] + \
                [1e-6,
                 1e-4,1e-4,
                 1e-3,1e-3] #epsilons per image pair, as listed in defineImageList
@@ -67,52 +67,10 @@ class Test3C147(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCo
         return [1e-7,1e-7,1e-7,1e-7,1e-7,
                 1e-5,1e-5,1e-5,1e-5,
                 1e-5,1e-5,1e-5,1e-5,
-                1e-5,1e-5,1e-5] + \
+                1e-5] + \
                [1e-7,
                 1e-5, 1e-5,
                 1e-5, 1e-5] #epsilons per image pair, as listed in defineImageList
-
-    pass #check all images
-
-class Test3C147WOBeam(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.ClassCompareFITSImage):
-    @classmethod
-    def defineImageList(cls):
-        """ Method to define set of reference images to be tested.
-            Can be overridden to add additional output products to the test.
-            These must correspond to whatever is used in writing out the FITS files (eg. those in ClassDeconvMachine.py)
-            Returns:
-                List of image identifiers to reference and output products
-        """
-        return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm',
-                'app.residual', 'app.model',
-                'app.convmodel', 'app.restored',
-                'restored', 'stokes.app.residual']
-
-    @classmethod
-    def defineMaxSquaredError(cls):
-        """ Method defining maximum error tolerance between any pair of corresponding
-            pixels in the output and corresponding reference FITS images.
-            Should be overridden if another tolerance is desired
-            Returns:
-                constant for maximum tolerance used in test case setup
-        """
-        return [1e-6,1e-6,1e-6,1e-6,1e-6,
-                1e-4,1e-4,
-                1e-4,1e-4,
-                1e-1,1e-4] #epsilons per image pair, as listed in defineImageList
-
-    @classmethod
-    def defMeanSquaredErrorLevel(cls):
-        """ Method defining maximum tolerance for the mean squared error between any
-            pair of FITS images. Should be overridden if another tolerance is
-            desired
-            Returns:
-            constant for tolerance on mean squared error
-        """
-        return [1e-7,1e-7,1e-7,1e-7,1e-7,
-                1e-5,1e-5,
-                1e-5,1e-5,
-                1e-5,1e-5] #epsilons per image pair, as listed in defineImageList
 
     pass #check all images
 
