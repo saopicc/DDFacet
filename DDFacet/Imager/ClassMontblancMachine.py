@@ -28,6 +28,12 @@ from montblanc.config import RimeSolverConfig as Options
 from montblanc.impl.rime.tensorflow.sources import (SourceProvider,
     FitsBeamSourceProvider)
 from montblanc.impl.rime.tensorflow.sinks import SinkProvider
+from DDFacet.Data.ClassStokes import StokesTypes
+# montblanc only produces linear feed predicted visibilities
+MONTBLANC_FEED_LABELS = [StokesTypes["XX"],
+                         StokesTypes["XY"],
+                         StokesTypes["YX"],
+                         StokesTypes["YY"]]
 
 class ClassMontblancMachine(object):
     def __init__(self, GD, npix, cell_size_rad):
@@ -44,7 +50,6 @@ class ClassMontblancMachine(object):
         self._cell_size_rad = cell_size_rad
         self._npix = npix
         self._mgr = DataDictionaryManager()
-
         # Configure the Beam upfront
         if GD["Beam"]["Model"] == "FITS":
             fits_file_spec = GD["Beam"]["FITSFile"]
@@ -126,9 +131,16 @@ class DataDictionaryManager(object):
         # phase direction from the measurement set
         self._antenna_positions = MS.StationPos
         self._phase_dir = np.array((MS.rarad, MS.decrad))
+        self._data_feed_labels = MS.CorrelationIds
+
+        # Extract the required prediction feeds from the MS
+        if not set(self._data_feed_labels) <= set(MONTBLANC_FEED_LABELS):
+            raise RuntimeError("Montblanc only supports linear feed measurements."
+                               "Use degridding instead.")
+        self._predict_feed_map = [MONTBLANC_FEED_LABELS.index(x) for x in self._data_feed_labels]
+        montblanc.log.info("Montblanc to MS feed mapping: %s" % ",".join([str(x) for x in self._predict_feed_map]))
 
         montblanc.log.info("Phase centre of {pc}".format(pc=self._phase_dir))
-
         self._frequency = MS.ChanFreq
         self._ref_frequency = MS.reffreq
 
@@ -166,7 +178,6 @@ class DataDictionaryManager(object):
         # Index of most commonly occurring antenna
         max_ant_count_idx = np.argmax(ant_counts)
 
-        #print 'rle', rle
         montblanc.log.info('ants %s' % unique_ants)
         montblanc.log.info('ant_counts %s' % ant_counts)
         montblanc.log.info('ntime %s' % ntime)
@@ -319,12 +330,14 @@ class DDFacetSourceProvider(SourceProvider):
         # Allocate space for per-antenna UVW, zeroing antenna 0 at each timestep
         ant_uvw = np.empty(shape=context.shape, dtype=context.dtype)
         ant_uvw[:,0,:] = 0
-
         # Read in uvw[1:na] row at each timestep
         for ti, t in enumerate(xrange(lt, ut)):
             lrow = t*nbl
             urow = lrow + na - 1
-            ant_uvw[ti,1:na,:] = ddf_uvw[lrow:urow,:]
+            try:
+                ant_uvw[ti,1:na,:] = ddf_uvw[lrow:urow,:]
+            except:
+                raise RuntimeError(""+str(ddf_uvw.shape)+"::%d,%d:" % (lrow, urow))
 
         return ant_uvw
 
@@ -362,8 +375,17 @@ class DDFacetSinkProvider(SinkProvider):
             s=np.abs(view[:,:,0]).sum()))
 
         # Compute residuals
-        view[:,:,:] -= context.data.reshape(view.shape)
+        if self._manager._data_feed_labels == MONTBLANC_FEED_LABELS:
+            view[:,:,:] -= context.data.reshape(view.shape)
+        else:
+            prev = self._manager._residuals[lrow:urow,:,:]
+            nrow = urow - lrow
+            nch = view.shape[1]
+            ncorr = 4
+            mod = context.data.reshape((nrow, nch, ncorr))
 
+            for ci, c in enumerate(self._manager._data_feed_labels):
+                prev[:, :, ci] -= mod[:, :, self._manager._predict_feed_map[ci]]
         montblanc.log.debug("Residual vis mean {m} sum {s}".format(
             m=np.abs(view[:,:,0]).mean(),
             s=np.abs(view[:,:,0]).sum()))
