@@ -86,12 +86,14 @@ class DataDictionaryManager(object):
 
     ASSUMPTIONS:
         1. We're dealing with a single band
+        2. We're dealing with a single field
+        3. We're dealing with a single observation
     """
     def __init__(self):
         pass
 
     def cfg_from_data_dict(self, data, models, residuals, MS, npix, cell_size_rad):
-        time, uvw, antenna1, antenna2 = (data[i] for i in  ('times', 'uvw', 'A0', 'A1'))
+        time, uvw, antenna1, antenna2, flag = (data[i] for i in  ('times', 'uvw', 'A0', 'A1', 'flags'))
 
         # Transform pixel to lm coordinates
         l0m0 = np.floor((npix / 2.0, npix / 2.0))
@@ -116,17 +118,6 @@ class DataDictionaryManager(object):
         montblanc.log.info("{n} point sources".format(n=npsrc))
         montblanc.log.info("{n} gaussian sources".format(n=ngsrc))
 
-        # Store the data dictionary
-        self._data = data
-
-        self._residuals = residuals
-
-        # Get the indices that sort the time array
-        time_idx = np.argsort(time)
-        # Get baselines per timestep, the starting positions
-        # of each timestep and the times at this timestep
-        rle = (bls_per_tstep, tstep_starts, tstep_times) = _rle(time[time_idx])
-
         # Extract the antenna positions and
         # phase direction from the measurement set
         self._antenna_positions = MS.StationPos
@@ -143,20 +134,7 @@ class DataDictionaryManager(object):
         montblanc.log.info("Phase centre of {pc}".format(pc=self._phase_dir))
         self._frequency = MS.ChanFreq
         self._ref_frequency = MS.reffreq
-
         self._nchan = nchan = self._frequency.size
-
-        self._bls_per_tstep = bls_per_tstep
-        self._tstep_starts = tstep_starts
-        self._tstep_times = tstep_times
-
-        # Number of timesteps
-        self._ntime = ntime = bls_per_tstep.shape[0]
-
-        # Take the maximum baseline count per timestep as
-        # the number of baselines
-        max_bl_timestep_idx = np.argmax(bls_per_tstep)
-        self._nbl = nbl = bls_per_tstep[max_bl_timestep_idx]
 
         # for bls, tstart, time in np.array(rle).T:
         #     montblanc.log.info('ANT1\n{a}'.format(a=antenna1[tstart:tstart+bls]))
@@ -168,22 +146,103 @@ class DataDictionaryManager(object):
         ant_counts = np.bincount(ants)
         self._na = na = unique_ants.size
 
-        # Sanity check antenna dimensions
+        # can compute the time indexes using a scan operator
+        # assuming the dataset is ordered and the time column
+        # contains the integration centroid of the correlator dumps
+        self._sort_index = np.lexsort((time, antenna1, antenna2))
+        tfilter = np.zeros(time[self._sort_index].shape, dtype=np.bool)
+        tfilter[1:] = time[self._sort_index][1:] != time[self._sort_index][:-1]
+        self._tindx = np.cumsum(tfilter)
+        self._ntime = self._tindx[-1] + 1
+
+        # include the autocorrelations to safely pad the array to a maximum possible size
+        self._nbl = self._na * (self._na - 1) // 2 + self._na
+        self._blindx = self.baseline_index(antenna1[self._sort_index],
+                                           antenna2[self._sort_index],
+                                           self._na)
+        # Sanity check antenna and row dimensions
         if self._antenna_positions.shape[0] < na:
             raise ValueError("Number of antenna positions {aps} "
                 "is less than the number of antenna '{na}' "
                 "found in antenna1/antenna2".format(
                     aps=self._antenna_positions.shape, na=na))
+        self._nrow = self._nbl * self._ntime
+        if self._nrow < uvw.shape[0]:
+            raise ValueError("Number of rows in input chunk exceeds "
+                             "nbl * ntime. Please ensure that only one field, "
+                             "one observation and one data descriptor is present in the chunk you're "
+                             "trying to predict.")
 
-        # Index of most commonly occurring antenna
-        max_ant_count_idx = np.argmax(ant_counts)
+        # Pad the uvw array to contain nbl * ntime entries (including the autocorrs)
+        # with zeros where baselines may be missing
+        self._residuals = residuals
 
-        montblanc.log.info('ants %s' % unique_ants)
-        montblanc.log.info('ant_counts %s' % ant_counts)
-        montblanc.log.info('ntime %s' % ntime)
-        montblanc.log.info('nbl %s' % nbl)
-        montblanc.log.info('nchan %s' % nchan)
-        montblanc.log.info('na %s' % na)
+        self._padded_uvw = np.zeros((self._ntime, self._nbl, 3), dtype=uvw.dtype)
+        self._padded_uvw[self._tindx, self._blindx] = uvw[self._sort_index]
+        self._padded_uvw = self._padded_uvw.reshape((self._nrow, 3))
+
+        # pad the antenna array
+        self._padded_a1 = np.empty((self._nbl))
+        self._padded_a2 = np.empty((self._nbl))
+        lmat = np.triu((np.cumsum(np.arange(self._na)[None, :] >=
+                                  np.arange(self._na)[:, None]) - 1).reshape([self._na, self._na]))
+        for bl in xrange(self._nbl):
+            blants = np.argwhere(lmat == bl)[0]
+            self._padded_a1[bl] = blants[0]
+            self._padded_a2[bl] = blants[1]
+        self._padded_a1 = np.tile(self._padded_a1, self._ntime)
+        self._padded_a2 = np.tile(self._padded_a2, self._ntime)
+
+        # pad the time array
+        self._padded_time = np.unique(time).repeat(self._nbl)
+
+        # finally construct a mask to indicate sparse matrix
+        self._datamask = np.zeros((self._ntime, self._nbl), dtype=np.bool)
+        self._datamask[self._tindx, self._blindx] = True
+        self._datamask = self._datamask.reshape((self._nrow))
+
+        # padded row numbers of the sparce data matrix
+        self._sparceindx = np.cumsum(self._datamask) - 1
+
+        self._flag = flag
+
+        # Finally output some info
+        montblanc.log.info('Chunk contains:' % unique_ants)
+        montblanc.log.info('\tntime: %s' % self._ntime)
+        montblanc.log.info('\tnbl: %s' % self._nbl)
+        montblanc.log.info('\tnchan: %s' % self._nchan)
+        montblanc.log.info('\tna: %s' % self._na)
+
+    def baseline_index(self, a1, a2, no_antennae):
+        """
+         Computes unique index of a baseline given antenna 1 and antenna 2
+         (zero indexed) as input. The arrays may or may not contain
+         auto-correlations.
+
+         There is a quadratic series expression relating a1 and a2
+         to a unique baseline index(can be found by the double difference
+                                    method)
+
+         Let slow_varying_index be S = min(a1, a2). The goal is to find
+         the number of fast varying terms. As the slow
+         varying terms increase these get fewer and fewer, because
+         we only consider unique baselines and not the conjugate
+         baselines)
+         B = (-S ^ 2 + 2 * S *  # Ant + S) / 2 + diff between the
+         slowest and fastest varying antenna
+
+         :param a1: array of ANTENNA_1 ids
+         :param a2: array of ANTENNA_2 ids
+         :param no_antennae: number of antennae in the array
+         :return: array of baseline ids
+        """
+        if a1.shape != a2.shape:
+            raise ValueError("a1 and a2 must have the same shape!")
+
+        slow_index = np.min(np.array([a1, a2]), axis=0)
+
+        return (slow_index * (-slow_index + (2 * no_antennae + 1))) // 2 + \
+                np.abs(a1 - a2)
 
     def updated_dimensions(self):
         return [('ntime', self._ntime), ('nbl', self._nbl),
@@ -207,8 +266,8 @@ class DDFacetSourceProvider(SourceProvider):
         sky_coords_rad = np.array([mgr._transform(p[1]) for p in pt_slice],
             dtype=context.dtype)
 
-        montblanc.log.debug("Radian Coordinates '{c}'".format(
-            c=sky_coords_rad[:16,:]))
+        #montblanc.log.debug("Radian Coordinates '{c}'".format(
+        #    c=sky_coords_rad[:16,:]))
 
         return sky_coords_rad.reshape(context.shape)
 
@@ -219,8 +278,8 @@ class DDFacetSourceProvider(SourceProvider):
         # Assign I stokes, zero everything else
         stokes = np.zeros(context.shape, context.dtype)
         stokes[:,:,0] = np.array([p[2] for p in pt_slice])
-        montblanc.log.debug("Point stokes parameters {ps}".format(
-            ps=stokes[:16,0,0]))
+        #montblanc.log.debug("Point stokes parameters {ps}".format(
+        #    ps=stokes[:16,0,0]))
 
         return stokes
 
@@ -231,8 +290,8 @@ class DDFacetSourceProvider(SourceProvider):
         # Assign alpha, broadcasting into the time dimension
         alpha = np.zeros(context.shape, context.dtype)
         alpha[:,:] = np.array([p[4] for p in pt_slice])[:,np.newaxis]
-        montblanc.log.debug("Alpha parameters {ps}".format(
-            ps=alpha[:16,0]))
+        #montblanc.log.debug("Alpha parameters {ps}".format(
+        #    ps=alpha[:16,0]))
         return alpha
 
     def gaussian_lm(self, context):
@@ -244,8 +303,8 @@ class DDFacetSourceProvider(SourceProvider):
         sky_coords_rad = np.array([mgr._transform(g[1]) for g in g_slice],
             dtype=context.dtype)
 
-        montblanc.log.debug("Radian Coordinates '{c}'".format(
-            c=sky_coords_rad[:16,:]))
+        #montblanc.log.debug("Radian Coordinates '{c}'".format(
+        #    c=sky_coords_rad[:16,:]))
 
         return sky_coords_rad.reshape(context.shape)
 
@@ -301,7 +360,7 @@ class DDFacetSourceProvider(SourceProvider):
 
         return mbu.parallactic_angles(mgr._phase_dir,
             mgr._antenna_positions,
-            mgr._tstep_times[lt:ut]).astype(context.dtype)
+            mgr._padded_time[lt:ut]).astype(context.dtype)
 
     def model_vis(self, context):
         return np.zeros(shape=context.shape, dtype=context.dtype)
@@ -309,7 +368,7 @@ class DDFacetSourceProvider(SourceProvider):
     def uvw(self, context):
         (lt, ut) = context.dim_extents('ntime')
         na, nbl = context.dim_global_size('na', 'nbl')
-        ddf_uvw = self._manager._data['uvw']
+        ddf_uvw = self._manager._padded_uvw
 
         # Create per antenna UVW coordinates.
         # u_01 = u_1 - u_0
@@ -334,21 +393,18 @@ class DDFacetSourceProvider(SourceProvider):
         for ti, t in enumerate(xrange(lt, ut)):
             lrow = t*nbl
             urow = lrow + na - 1
-            try:
-                ant_uvw[ti,1:na,:] = ddf_uvw[lrow:urow,:]
-            except:
-                raise RuntimeError(""+str(ddf_uvw.shape)+"::%d,%d:" % (lrow, urow))
+            ant_uvw[ti,1:na,:] = ddf_uvw[lrow:urow,:]
 
         return ant_uvw
 
     def antenna1(self, context):
         lrow, urow = MS.row_extents(context)
-        view = self._manager._data['A0'][lrow:urow]
+        view = self._manager._padded_a1[lrow:urow]
         return view.reshape(context.shape).astype(context.dtype)
 
     def antenna2(self, context):
         lrow, urow = MS.row_extents(context)
-        view = self._manager._data['A1'][lrow:urow]
+        view = self._manager._padded_a2[lrow:urow]
         return view.reshape(context.shape).astype(context.dtype)
 
     def updated_dimensions(self):
@@ -363,32 +419,58 @@ class DDFacetSinkProvider(SinkProvider):
         return "DDFacet Sink Provider"
 
     def model_vis(self, context):
-        montblanc.log.debug("Model vis mean {m} sum {s}".format(
-            m=np.abs(context.data[:,:,:,0]).mean(),
-            s=np.abs(context.data[:,:,:,0]).sum()))
-
         lrow, urow = MS.row_extents(context)
-        view = self._manager._residuals[lrow:urow,:,:]
 
-        montblanc.log.debug("Observed vis mean {m} sum {s}".format(
-            m=np.abs(view[:,:,0]).mean(),
-            s=np.abs(view[:,:,0]).sum()))
+        # Get the sparce representation (sorted) selection for this chunk
+        datamask = self._manager._datamask[lrow:urow]
+        sparceindx = np.unique(self._manager._sparceindx[lrow:urow][datamask])
+        sort_indx = self._manager._sort_index[sparceindx]
+        nrow_sparce = sparceindx.size
+        nrow = urow - lrow
+        nchan = self._manager._nchan
+        ncorr_mb = len(MONTBLANC_FEED_LABELS)
+        sparce_flags = self._manager._flag[sort_indx, :, :]
+
+        # Get the sorted sparce residuals
+        prev = self._manager._residuals[sort_indx, :, :]
 
         # Compute residuals
-        if self._manager._data_feed_labels == MONTBLANC_FEED_LABELS:
-            view[:,:,:] -= context.data.reshape(view.shape)
-        else:
-            prev = self._manager._residuals[lrow:urow,:,:]
-            nrow = urow - lrow
-            nch = view.shape[1]
-            ncorr = 4
-            mod = context.data.reshape((nrow, nch, ncorr))
+        montblanc.log.info("Old residual stats:")
+        montblanc.log.info("\t MEAN: %s" % ",".join(["%.3f" % x for x in np.nanmean(np.nanmean(prev, axis=0),
+                                                                                    axis=0)]))
+        montblanc.log.info("\t STD: %s" % ",".join(["%.3f" % x for x in np.nanstd(np.nanstd(prev, axis=0),
+                                                                                            axis=0)]))
+        chunk_nbl, chunk_ntime, chunk_nchan, chunk_ncorr = context.data.shape
+        chunk_nrow = chunk_nbl * chunk_ntime
+        datamask_tile = datamask.repeat(chunk_nchan * chunk_ncorr).reshape((chunk_nrow, chunk_nchan, chunk_ncorr))
+        mod = context.data.reshape((chunk_nrow, chunk_nchan, chunk_ncorr))
+        mod_sel = mod[datamask_tile].reshape(np.count_nonzero(datamask), chunk_nchan, chunk_ncorr)
+        assert mod_sel.shape == (nrow_sparce, chunk_nchan, chunk_ncorr), \
+                "Number of rows %d does not match %d in selected model rows" % (mod_sel.shape[0], nrow_sparce)
 
+        def __print_residual_stats(prev, sparce_flags):
+            prev_fl = prev.copy()
+            prev_fl[sparce_flags] = np.nan
+            montblanc.log.info("\t MEAN: %s" % ",".join(
+                ["%.3f" % x for x in np.nanmean(np.nanmean(prev_fl,
+                                                           axis=0),
+                                                axis=0)]))
+            montblanc.log.info("\t STD: %s" % ",".join(
+                ["%.3f" % x for x in np.nanstd(np.nanstd(prev_fl,
+                                                         axis=0),
+                                               axis=0)]))
+
+        montblanc.log.info("Old residual stats:")
+        __print_residual_stats(prev, sparce_flags)
+
+        if self._manager._data_feed_labels == MONTBLANC_FEED_LABELS:
+            prev[:, :, :] -= mod_sel
+        else:
             for ci, c in enumerate(self._manager._data_feed_labels):
-                prev[:, :, ci] -= mod[:, :, self._manager._predict_feed_map[ci]]
-        montblanc.log.debug("Residual vis mean {m} sum {s}".format(
-            m=np.abs(view[:,:,0]).mean(),
-            s=np.abs(view[:,:,0]).sum()))
+                prev[:, :, ci] -= mod_sel[:, :, self._manager._predict_feed_map[ci]]
+
+        montblanc.log.info("New residual stats:")
+        __print_residual_stats(prev, sparce_flags)
 
 class DDFacetSinkPredict(SinkProvider):
     def __init__(self, manager):
