@@ -133,7 +133,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             f_apply = np.abs
         else:
             f_apply = lambda x: x
-
         DicoComp = self.DicoSMStacked["Comp"]
         ref_freq = self.DicoSMStacked["RefFreq"]
 

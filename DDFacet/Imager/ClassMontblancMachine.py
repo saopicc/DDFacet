@@ -29,21 +29,53 @@ from montblanc.impl.rime.tensorflow.sources import (SourceProvider,
     FitsBeamSourceProvider)
 from montblanc.impl.rime.tensorflow.sinks import SinkProvider
 from DDFacet.Data.ClassStokes import StokesTypes
+import logging
+
+from DDFacet.Other import MyLogger
+from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import ModColor
+from DDFacet.Other.progressbar import ProgressBar
+
+log=MyLogger.getLogger("ClassMontblancMachine")
+
 # montblanc only produces linear feed predicted visibilities
 MONTBLANC_FEED_LABELS = [StokesTypes["XX"],
                          StokesTypes["XY"],
                          StokesTypes["YX"],
                          StokesTypes["YY"]]
 
+DEBUG = True
+
 class ClassMontblancMachine(object):
     def __init__(self, GD, npix, cell_size_rad):
+        shndlrs = filter(lambda x: isinstance(x, logging.StreamHandler),
+                         montblanc.log.handlers)
+        montblanc.log.propagate = False
+        log_levels = {"NOTSET": logging.NOTSET,
+                      "DEBUG": logging.DEBUG,
+                      "INFO": logging.INFO,
+                      "WARNING": logging.WARNING,
+                      "ERROR": logging.ERROR,
+                      "CRITICAL": logging.CRITICAL}
+        for s in shndlrs:
+            s.level = log_levels.get(GD["Montblanc"]["LogLevel"], logging.WARNING)
+
+        apnd = "a" if GD["Log"]["Append"] else "w"
+        lgname = GD["Output"]["Name"] + ".montblanc.log" \
+                if GD["Montblanc"]["LogFile"] is None else GD["Montblanc"]["LogFile"]
+        fhndlr = logging.FileHandler(lgname, mode=apnd)
+        fhndlr.level = logging.DEBUG
+        montblanc.log.addHandler(fhndlr)
+
+        # configure solver
         self._slvr_cfg = slvr_cfg = montblanc.rime_solver_cfg(
             data_source=Options.DATA_SOURCE_DEFAULT,
             tf_server_target=GD["Montblanc"]["TensorflowServerTarget"],
-            mem_budget=2*1024*1024*1024,
-            dtype='double',
-            auto_correlations=False,
-            version='tf')
+            mem_budget=GD["Montblanc"]["MemoryBudget"]*1024*1024*1024,
+            dtype=GD["Montblanc"]["SolverDType"],
+            auto_correlations=True,
+            version=GD["Montblanc"]["DriverVersion"]
+        )
 
         self._solver = montblanc.rime_solver(slvr_cfg)
 
@@ -136,10 +168,6 @@ class DataDictionaryManager(object):
         self._ref_frequency = MS.reffreq
         self._nchan = nchan = self._frequency.size
 
-        # for bls, tstart, time in np.array(rle).T:
-        #     montblanc.log.info('ANT1\n{a}'.format(a=antenna1[tstart:tstart+bls]))
-        #     montblanc.log.info('ANT2\n{a}'.format(a=antenna2[tstart:tstart+bls]))
-
         # Merge antenna ID's and count their frequencies
         ants = np.concatenate((antenna1, antenna2))
         unique_ants = np.unique(ants)
@@ -206,6 +234,13 @@ class DataDictionaryManager(object):
 
         self._flag = flag
 
+        # progress...
+        self._numtotal = None
+        self._numcomplete = 0
+        self._pBAR = ProgressBar(Title="  montblanc predict")
+        self.render_progressbar()
+
+
         # Finally output some info
         montblanc.log.info('Chunk contains:' % unique_ants)
         montblanc.log.info('\tntime: %s' % self._ntime)
@@ -249,6 +284,11 @@ class DataDictionaryManager(object):
             ('na', self._na), ('nbands', 1), ('nchan', self._nchan),
             ('npsrc', self._npsrc), ('ngsrc', self._ngsrc)]
 
+    def render_progressbar(self):
+        if self._numtotal is not None:
+            self._pBAR.render(self._numcomplete, self._numtotal)
+
+
 class DDFacetSourceProvider(SourceProvider):
     def __init__(self, manager):
         self._manager = manager
@@ -256,9 +296,21 @@ class DDFacetSourceProvider(SourceProvider):
     def name(self):
         return "DDFacet Source Provider"
 
+    def update_nchunks(self, context):
+        # @sjperkins please expose the solver's iterdims
+        # https://github.com/ska-sa/montblanc/blob/master/montblanc/impl/rime/tensorflow/RimeSolver.py#L139
+        dim_names = ["nbl", "ntime"]
+        global_sizes = context.dim_global_size(*dim_names)
+        ext_sizes = context.dim_extent_size(*dim_names)
+        ntotal = reduce(lambda x, y: x * y if y != 0 else 1,
+                        global_sizes)
+        self._manager._numtotal = max(ntotal, self._manager._numtotal)
+        self._manager.render_progressbar()
 
     def point_lm(self, context):
+        self.update_nchunks(context)
         (lp, up) = context.dim_extents('npsrc')
+
         mgr = self._manager
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         pt_slice = mgr._point_sources[lp:up]
@@ -272,6 +324,7 @@ class DDFacetSourceProvider(SourceProvider):
         return sky_coords_rad.reshape(context.shape)
 
     def point_stokes(self, context):
+        self.update_nchunks(context)
         (lp, up) = context.dim_extents('npsrc')
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         pt_slice = self._manager._point_sources[lp:up]
@@ -284,6 +337,7 @@ class DDFacetSourceProvider(SourceProvider):
         return stokes
 
     def point_alpha(self, context):
+        self.update_nchunks(context)
         (lp, up) = context.dim_extents('npsrc')
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         pt_slice = self._manager._point_sources[lp:up]
@@ -295,7 +349,9 @@ class DDFacetSourceProvider(SourceProvider):
         return alpha
 
     def gaussian_lm(self, context):
+        self.update_nchunks(context)
         (lg, ug) = context.dim_extents('ngsrc')
+
         mgr = self._manager
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         g_slice = mgr._gaussian_sources[lg:ug]
@@ -309,6 +365,7 @@ class DDFacetSourceProvider(SourceProvider):
         return sky_coords_rad.reshape(context.shape)
 
     def gaussian_stokes(self, context):
+        self.update_nchunks(context)
         (lg, ug) = context.dim_extents('ngsrc')
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         g_slice = self._manager._gaussian_sources[lg:ug]
@@ -318,6 +375,7 @@ class DDFacetSourceProvider(SourceProvider):
         return stokes
 
     def gaussian_alpha(self, context):
+        self.update_nchunks(context)
         (lg, ug) = context.dim_extents('ngsrc')
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         g_slice = self._manager._gaussian_sources[lg:ug]
@@ -327,6 +385,7 @@ class DDFacetSourceProvider(SourceProvider):
         return alpha
 
     def gaussian_shape(self, context):
+        self.update_nchunks(context)
         (lg, ug) = context.dim_extents('ngsrc')
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         g_slice = self._manager._gaussian_sources[lg:ug]
@@ -344,16 +403,20 @@ class DDFacetSourceProvider(SourceProvider):
         return gauss_shape
 
     def frequency(self, context):
+        self.update_nchunks(context)
         lc, uc = context.dim_extents('nchan')
+
         return self._manager._frequency[lc:uc]
 
     def ref_frequency(self, context):
+        self.update_nchunks(context)
         # Assumes a single band
         return np.full(context.shape,
             self._manager._ref_frequency,
             dtype=context.dtype)
 
     def parallactic_angles(self, context):
+        self.update_nchunks(context)
         # Time extents
         (lt, ut) = context.dim_extents('ntime')
         mgr = self._manager
@@ -363,9 +426,13 @@ class DDFacetSourceProvider(SourceProvider):
             mgr._padded_time[lt:ut]).astype(context.dtype)
 
     def model_vis(self, context):
+        self.update_nchunks(context)
+
         return np.zeros(shape=context.shape, dtype=context.dtype)
 
     def uvw(self, context):
+        self.update_nchunks(context)
+
         (lt, ut) = context.dim_extents('ntime')
         na, nbl = context.dim_global_size('na', 'nbl')
         ddf_uvw = self._manager._padded_uvw
@@ -398,11 +465,15 @@ class DDFacetSourceProvider(SourceProvider):
         return ant_uvw
 
     def antenna1(self, context):
+        self.update_nchunks(context)
+
         lrow, urow = MS.row_extents(context)
         view = self._manager._padded_a1[lrow:urow]
         return view.reshape(context.shape).astype(context.dtype)
 
     def antenna2(self, context):
+        self.update_nchunks(context)
+
         lrow, urow = MS.row_extents(context)
         view = self._manager._padded_a2[lrow:urow]
         return view.reshape(context.shape).astype(context.dtype)
@@ -435,11 +506,6 @@ class DDFacetSinkProvider(SinkProvider):
         prev = self._manager._residuals[sort_indx, :, :]
 
         # Compute residuals
-        montblanc.log.info("Old residual stats:")
-        montblanc.log.info("\t MEAN: %s" % ",".join(["%.3f" % x for x in np.nanmean(np.nanmean(prev, axis=0),
-                                                                                    axis=0)]))
-        montblanc.log.info("\t STD: %s" % ",".join(["%.3f" % x for x in np.nanstd(np.nanstd(prev, axis=0),
-                                                                                            axis=0)]))
         chunk_nbl, chunk_ntime, chunk_nchan, chunk_ncorr = context.data.shape
         chunk_nrow = chunk_nbl * chunk_ntime
         datamask_tile = datamask.repeat(chunk_nchan * chunk_ncorr).reshape((chunk_nrow, chunk_nchan, chunk_ncorr))
@@ -451,17 +517,17 @@ class DDFacetSinkProvider(SinkProvider):
         def __print_residual_stats(prev, sparce_flags):
             prev_fl = prev.copy()
             prev_fl[sparce_flags] = np.nan
-            montblanc.log.info("\t MEAN: %s" % ",".join(
+            montblanc.log.debug("\t MEAN: %s" % ",".join(
                 ["%.3f" % x for x in np.nanmean(np.nanmean(prev_fl,
                                                            axis=0),
                                                 axis=0)]))
-            montblanc.log.info("\t STD: %s" % ",".join(
+            montblanc.log.debug("\t STD: %s" % ",".join(
                 ["%.3f" % x for x in np.nanstd(np.nanstd(prev_fl,
                                                          axis=0),
                                                axis=0)]))
-
-        montblanc.log.info("Old residual stats:")
-        __print_residual_stats(prev, sparce_flags)
+        if DEBUG:
+            montblanc.log.debug("Old residual stats:")
+            __print_residual_stats(prev, sparce_flags)
 
         if self._manager._data_feed_labels == MONTBLANC_FEED_LABELS:
             prev[:, :, :] -= mod_sel
@@ -469,8 +535,15 @@ class DDFacetSinkProvider(SinkProvider):
             for ci, c in enumerate(self._manager._data_feed_labels):
                 prev[:, :, ci] -= mod_sel[:, :, self._manager._predict_feed_map[ci]]
 
-        montblanc.log.info("New residual stats:")
-        __print_residual_stats(prev, sparce_flags)
+        if DEBUG:
+            montblanc.log.debug("New residual stats:")
+            __print_residual_stats(prev, sparce_flags)
+
+        # update progress
+        self._manager._numcomplete += nrow
+
+        self._manager.render_progressbar()
+
 
 class DDFacetSinkPredict(SinkProvider):
     def __init__(self, manager):
