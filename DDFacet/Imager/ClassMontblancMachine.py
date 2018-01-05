@@ -317,9 +317,9 @@ class DDFacetSourceProvider(SourceProvider):
         # Assign coordinate tuples
         sky_coords_rad = np.array([mgr._transform(p[1]) for p in pt_slice],
             dtype=context.dtype)
-
-        #montblanc.log.debug("Radian Coordinates '{c}'".format(
-        #    c=sky_coords_rad[:16,:]))
+        if DEBUG:
+            montblanc.log.debug("Radian Coordinates '{c}'".format(
+                c=sky_coords_rad[:16,:]))
 
         return sky_coords_rad.reshape(context.shape)
 
@@ -331,8 +331,9 @@ class DDFacetSourceProvider(SourceProvider):
         # Assign I stokes, zero everything else
         stokes = np.zeros(context.shape, context.dtype)
         stokes[:,:,0] = np.array([p[2] for p in pt_slice])
-        #montblanc.log.debug("Point stokes parameters {ps}".format(
-        #    ps=stokes[:16,0,0]))
+        if DEBUG:
+            montblanc.log.debug("Point stokes parameters {ps}".format(
+                ps=stokes[:16,0,0]))
 
         return stokes
 
@@ -344,8 +345,9 @@ class DDFacetSourceProvider(SourceProvider):
         # Assign alpha, broadcasting into the time dimension
         alpha = np.zeros(context.shape, context.dtype)
         alpha[:,:] = np.array([p[4] for p in pt_slice])[:,np.newaxis]
-        #montblanc.log.debug("Alpha parameters {ps}".format(
-        #    ps=alpha[:16,0]))
+        if DEBUG:
+            montblanc.log.debug("Alpha parameters {ps}".format(
+                ps=alpha[:16,0]))
         return alpha
 
     def gaussian_lm(self, context):
@@ -358,9 +360,9 @@ class DDFacetSourceProvider(SourceProvider):
         # Assign coordinate tuples
         sky_coords_rad = np.array([mgr._transform(g[1]) for g in g_slice],
             dtype=context.dtype)
-
-        #montblanc.log.debug("Radian Coordinates '{c}'".format(
-        #    c=sky_coords_rad[:16,:]))
+        if DEBUG:
+            montblanc.log.debug("Radian Coordinates '{c}'".format(
+                c=sky_coords_rad[:16,:]))
 
         return sky_coords_rad.reshape(context.shape)
 
@@ -510,17 +512,45 @@ class DDFacetSinkProvider(SinkProvider):
         chunk_nrow = chunk_nbl * chunk_ntime
         datamask_tile = datamask.repeat(chunk_nchan * chunk_ncorr).reshape((chunk_nrow, chunk_nchan, chunk_ncorr))
         mod = context.data.reshape((chunk_nrow, chunk_nchan, chunk_ncorr))
-        mod_sel = mod[datamask_tile].reshape(np.count_nonzero(datamask), chunk_nchan, chunk_ncorr)
-        assert mod_sel.shape == (nrow_sparce, chunk_nchan, chunk_ncorr), \
-                "Number of rows %d does not match %d in selected model rows" % (mod_sel.shape[0], nrow_sparce)
+        mod_sel = mod[datamask_tile].reshape(nrow_sparce, chunk_nchan, chunk_ncorr)
+
+        def __print_model_stats(mod_sel):
+            mod_sel_pow = np.abs(mod_sel)
+            montblanc.log.debug("\t MEAN: %s" % ",".join(
+                ["%.3f" % x for x in np.nanmean(np.nanmean(mod_sel_pow,
+                                                           axis=0),
+                                                axis=0)]))
+            montblanc.log.debug("\t MAX: %s" % ",".join(
+                ["%.3f" % x for x in np.nanmax(np.nanmax(mod_sel_pow,
+                                                         axis=0),
+                                               axis=0)]))
+            montblanc.log.debug("\t MIN: %s" % ",".join(
+                ["%.3f" % x for x in np.nanmin(np.nanmin(mod_sel_pow,
+                                                         axis=0),
+                                               axis=0)]))
+            montblanc.log.debug("\t STD: %s" % ",".join(
+                ["%.3f" % x for x in np.nanstd(np.nanstd(mod_sel_pow,
+                                                         axis=0),
+                                               axis=0)]))
+        if DEBUG:
+            montblanc.log.debug("Model stats:")
+            __print_model_stats(mod_sel)
 
         def __print_residual_stats(prev, sparce_flags):
-            prev_fl = prev.copy()
+            prev_fl = np.abs(prev)
             prev_fl[sparce_flags] = np.nan
             montblanc.log.debug("\t MEAN: %s" % ",".join(
                 ["%.3f" % x for x in np.nanmean(np.nanmean(prev_fl,
                                                            axis=0),
                                                 axis=0)]))
+            montblanc.log.debug("\t MAX: %s" % ",".join(
+                ["%.3f" % x for x in np.nanmax(np.nanmax(prev_fl,
+                                                         axis=0),
+                                               axis=0)]))
+            montblanc.log.debug("\t MIN: %s" % ",".join(
+                ["%.3f" % x for x in np.nanmin(np.nanmin(prev_fl,
+                                                         axis=0),
+                                               axis=0)]))
             montblanc.log.debug("\t STD: %s" % ",".join(
                 ["%.3f" % x for x in np.nanstd(np.nanstd(prev_fl,
                                                          axis=0),
