@@ -19,14 +19,33 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import numpy as np
+from DDFacet.Other import MyLogger
+from DDFacet.Other import ClassTimeIt
+from DDFacet.Other import ModColor
+from DDFacet.Other.progressbar import ProgressBar
+
+log=MyLogger.getLogger("ClassGainMachine")
+
+def get_instance():
+    return ClassGainMachine.get_instance()
 
 class ClassGainMachine():
+    __SINGLETON__ = None
+    @classmethod
+    def get_instance(cls):
+        return cls.__SINGLETON__
+
     def __init__(self,
                  GainMax=0.9,
                  GainMin=0.1,
                  SigmaScale=10.,
                  Sigma0=1.,
                  Mode="Constant"):
+        if ClassGainMachine.__SINGLETON__ is None:
+            ClassGainMachine.__SINGLETON__ = self
+        else:
+            raise RuntimeError("Singleton is already initialized. This is a bug.")
+
         self.SigmaScale=SigmaScale
         self.Sigma0=Sigma0
         self.Mode=Mode

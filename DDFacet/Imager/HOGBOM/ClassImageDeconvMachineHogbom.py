@@ -79,13 +79,12 @@ class ClassImageDeconvMachine():
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
-        self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=Gain)
+        self.GainMachine = ClassGainMachine.get_instance()
         if ModelMachine is None:
             from DDFacet.Imager import ClassModelMachineHogbom as ClassModelMachine
             self.ModelMachine = ClassModelMachine.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
         else:
             self.ModelMachine = ModelMachine
-        self.GainMachine = self.ModelMachine.GainMachine
         self.GiveEdges = GiveEdges.GiveEdges
         self._niter = 0
         if CleanMaskImage is not None:

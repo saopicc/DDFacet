@@ -82,7 +82,7 @@ class ClassImageDeconvMachine():
         self.PeakFactor = PeakFactor
         self.PrevPeakFactor = PrevPeakFactor
         self.CacheFileName=CacheFileName
-        self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
+        self.GainMachine=ClassGainMachine.get_instance()
         self.ModelMachine = ModelMachine
         self.RefFreq=self.ModelMachine.RefFreq
         if self.ModelMachine.DicoSMStacked["Type"] not in ("MSMF", "HMP"):

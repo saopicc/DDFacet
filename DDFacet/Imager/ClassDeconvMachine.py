@@ -48,7 +48,7 @@ from DDFacet.Other import ClassTimeIt
 import numexpr
 from DDFacet.Imager import ClassImageNoiseMachine
 from DDFacet.Data import ClassStokes
-
+from DDFacet.Imager import ClassGainMachine
 
 # from astropy import wcs
 # from astropy.io import fits
@@ -94,6 +94,8 @@ class ClassImagerDeconv():
 
         if GD is not None:
             self.GD=GD
+        # INIT: gain machine singleton once and for always
+        self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"])
 
         self.BaseName=BaseName
         self.DicoModelName="%s.DicoModel"%self.BaseName

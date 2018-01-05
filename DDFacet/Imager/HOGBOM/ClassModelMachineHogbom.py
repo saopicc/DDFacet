@@ -157,14 +157,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             (ModelType, coordinate, vector of STOKES solutions per basis function, alpha, shape data)
             """
             sa = component["SolsArray"]
-            return map(lambda (i, sol): ("Delta",                         # type
-                                         coord,                           # coordinate
-                                         f_apply(self.FreqMachine.Eval_Degrid(sol,
-                                                                              np.array([ref_freq]))), # vector of STOKES parameters
-                                         ref_freq,                        # reference frequency
-                                         alpha[0, 0, coord[0], coord[1]], # alpha
-                                         None),  # shape
-               map(lambda i: (i, sa[i]), range(sa.size)))
+            return [("Delta",                         # type
+                     coord,                           # coordinate
+                     f_apply(self.FreqMachine.Eval_Degrid(sa,
+                                                          np.array([ref_freq]))), # only a solution for I
+                     ref_freq,                        # reference frequency
+                     alpha[0, 0, coord[0], coord[1]], # alpha
+                     None)]                           # shape
 
         # Lazily iterate through DicoComp entries and associated ListScales and SolsArrays,
         # assigning values to arrays

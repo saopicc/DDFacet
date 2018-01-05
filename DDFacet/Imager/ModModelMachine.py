@@ -96,7 +96,7 @@ class ClassModModelMachine():
             if self.SSDMM is None:
                 print>> log, "Initialising SSD model machine"
                 from DDFacet.Imager.SSD import ClassModelMachineSSD
-                self.SSDMM = ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+                self.SSDMM = ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
             else:
                 print>> log, "SSD model machine already initialised"
             return self.SSDMM
@@ -116,7 +116,7 @@ class ClassModModelMachine():
                 from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
                 self.MORESANEMM = ClassModelMachineMORESANE.ClassModelMachine(
                     self.GD,
-                    GainMachine= ClassGainMachine.ClassGainMachine(GainMin=self.GD["MORESANE"]["loopgain"]))
+                    GainMachine= ClassGainMachine.ClassGainMachine.get_instance())
             else:
                 print>> log, "MORSANE model machine already initialised"
             return self.MORESANEMM
@@ -124,7 +124,7 @@ class ClassModModelMachine():
             if self.HOGBOMMM is None:
                 print>> log, "Initialising HOGBOM model machine"
                 from DDFacet.Imager.HOGBOM import ClassModelMachineHogbom
-                self.HOGBOMMM = ClassModelMachineHogbom.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+                self.HOGBOMMM = ClassModelMachineHogbom.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
             else:
                 print>> log, "HOGBOM model machine already initialised"
             return self.HOGBOMMM

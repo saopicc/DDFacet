@@ -69,7 +69,7 @@ class ClassImageDeconvMachine():
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
-        self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
+        self.GainMachine=ClassGainMachine.get_instance()
         # reset overall iteration counter
         self._niter = 0
         self.PSFCross=None
