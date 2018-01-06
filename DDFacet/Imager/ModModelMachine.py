@@ -106,7 +106,7 @@ class ClassModModelMachine():
                 from DDFacet.Imager.MSMF import ClassModelMachineMSMF
                 self.MSMFMM = ClassModelMachineMSMF.ClassModelMachine(
                     self.GD,
-                    GainMachine= ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"]))
+                    GainMachine= ClassGainMachine.get_instance())
             else:
                 print>> log, "HMP model machine already initialised"
             return self.MSMFMM
