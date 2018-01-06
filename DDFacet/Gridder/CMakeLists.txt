@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 set(BUILD_SHARED_LIBS ON) #we always want shared libs out of this for python extensions
 
-option(ENABLE_NATIVE_TUNING "Enables support for optimized code generation (-march=native)" OFF)
-option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" OFF)
+option(ENABLE_NATIVE_TUNING "Enables support for optimized code generation (-march=native)" ON)
+option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" ON)
 
 if (${ENABLE_NATIVE_TUNING})
   set(TUNING_FLAGS "-march=native -mtune=native")
@@ -48,8 +48,8 @@ execute_process(COMMAND touch __init__.py
 #Add more options for debug and release builds
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -ggdb ${OpenMP_C_FLAGS}")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -ggdb ${OpenMP_CXX_FLAGS}")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -ggdb ${OpenMP_C_FLAGS} ${VECTORIZATION_FLAGS} ${TUNING_FLAGS} ${FAST_MATH_FLAGS}")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -ggdb ${OpenMP_CXX_FLAGS} ${VECTORIZATION_FLAGS} ${TUNING_FLAGS} ${FAST_MATH_FLAGS}")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -ggdb3 -fmax-errors=1 -Wconversion -W -Wall -std=c99 ${OpenMP_C_FLAGS} ${VECTORIZATION_FLAGS} ${TUNING_FLAGS} ${FAST_MATH_FLAGS}")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -ggdb3 -fmax-errors=1 -std=c++14 -pedantic -W -Wall -Wconversion ${OpenMP_CXX_FLAGS} ${VECTORIZATION_FLAGS} ${TUNING_FLAGS} ${FAST_MATH_FLAGS}")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE}")
 set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_RELEASE}")
@@ -58,29 +58,19 @@ message("Debug CFLAGS are ${CMAKE_C_FLAGS_DEBUG}")
 message("Release CFLAGS are ${CMAKE_C_FLAGS_RELEASE}")
 
 #compile and link _pyArrays.so
-add_library(_pyArrays Arrays.c Arrays.h)
+add_library(_pyArrays Arrays.cc)
 set_target_properties(_pyArrays PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
 target_link_libraries(_pyArrays ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
 #compile and link _pyGridder.so
-add_library(_pyGridder Gridder.c Gridder.h)
+add_library(_pyGridder Gridder.c)
 set_target_properties(_pyGridder PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
 target_link_libraries(_pyGridder ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
-#compile and link _pyGridderSmear.so
-add_library(_pyGridderSmear GridderSmear.c GridderSmear.h)
-set_target_properties(_pyGridderSmear PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
-target_link_libraries(_pyGridderSmear ${RT_LIBRARIES} ${PYTHON_LIBRARY})
-
 #compile and link _pyGridderSmearPols.so
-add_library(_pyGridderSmearPols GridderSmearPols.c GridderSmearPols.h Semaphores.h)
+add_library(_pyGridderSmearPols GridderSmearPols.cc JonesServer.h Semaphores.h)
 set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
 target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
-
-# #compile and link _pyGridderSmearPols2.so
-# add_library(_pyGridderSmearPolsFaster GridderSmearPolsFaster.c GridderSmearPols.h Semaphores.h)
-# set_target_properties(_pyGridderSmearPolsFaster PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
-# target_link_libraries(_pyGridderSmearPolsFaster ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
 #compile and link _pyWeightingCore.so
 add_custom_command(OUTPUT _pyWeightingCore.c
