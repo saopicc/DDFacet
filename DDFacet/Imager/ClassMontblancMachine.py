@@ -36,6 +36,8 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 from DDFacet.Other.progressbar import ProgressBar
 
+from astropy import wcs as pywcs
+
 log=MyLogger.getLogger("ClassMontblancMachine")
 
 # montblanc only produces linear feed predicted visibilities
@@ -124,12 +126,42 @@ class DataDictionaryManager(object):
     def __init__(self):
         pass
 
+    def _transform(self, c):
+        """
+            Takes image plane pixel coordinates and output WCS world coordinates
+            in radians for use as l and m cosines
+
+            ASSUMPTIONS:
+                Image is in SIN projection
+        """
+        coord = np.deg2rad(self._wcs.wcs_pix2world(np.asarray([c]), 1))
+        delta_ang = coord[0] - self._phase_dir
+        if DEBUG:
+            montblanc.log.debug("SRC Coordinates [deg] '{c}', offset [deg]: '{d}'".format(c=np.rad2deg(coord),
+                                                                                          d=np.rad2deg(delta_ang)))
+        # SIN projection
+        sdA = np.sin(delta_ang[0])
+        cdA = np.cos(delta_ang[0])
+        cD = np.cos(coord[0, 1])
+        sD = np.sin(coord[0, 1])
+        cD0 = np.cos(self._phase_dir[1])
+        sD0 = np.sin(self._phase_dir[1])
+        l = cD*sdA
+        m = sD*cD0 - cD*sD0*cdA
+        return (l, m)
+
+    #def _transform(self, c):
+    #    # BAD BAD BAD
+    #    l0m0 = np.array([np.floor(self._npix / 2.0),
+    #                     np.floor(self._npix / 2.0)])
+    #    delta = (np.array(c) - l0m0) * self._cell_size_rad
+    #    return delta
+
     def cfg_from_data_dict(self, data, models, residuals, MS, npix, cell_size_rad):
         time, uvw, antenna1, antenna2, flag = (data[i] for i in  ('times', 'uvw', 'A0', 'A1', 'flags'))
 
-        # Transform pixel to lm coordinates
-        l0m0 = np.floor((npix / 2.0, npix / 2.0))
-        self._transform = lambda c: (np.asarray(c) - l0m0)*cell_size_rad
+        self._npix = npix
+        self._cell_size_rad = cell_size_rad
 
         # Get point and gaussian sources
         self._point_sources = []
@@ -163,7 +195,7 @@ class DataDictionaryManager(object):
         self._predict_feed_map = [MONTBLANC_FEED_LABELS.index(x) for x in self._data_feed_labels]
         montblanc.log.info("Montblanc to MS feed mapping: %s" % ",".join([str(x) for x in self._predict_feed_map]))
 
-        montblanc.log.info("Phase centre of {pc}".format(pc=self._phase_dir))
+        montblanc.log.info("Phase centre of {pc}".format(pc=np.rad2deg(self._phase_dir)))
         self._frequency = MS.ChanFreq
         self._ref_frequency = MS.reffreq
         self._nchan = nchan = self._frequency.size
@@ -177,7 +209,10 @@ class DataDictionaryManager(object):
         # can compute the time indexes using a scan operator
         # assuming the dataset is ordered and the time column
         # contains the integration centroid of the correlator dumps
-        self._sort_index = np.lexsort((time, antenna1, antenna2))
+        # note: time first, then antenna1 slow varying then antenna2
+        # fast varying
+        self._sort_index = np.lexsort(np.array((time, antenna1, antenna2))[::-1])
+
         tfilter = np.zeros(time[self._sort_index].shape, dtype=np.bool)
         tfilter[1:] = time[self._sort_index][1:] != time[self._sort_index][:-1]
         self._tindx = np.cumsum(tfilter)
@@ -188,6 +223,7 @@ class DataDictionaryManager(object):
         self._blindx = self.baseline_index(antenna1[self._sort_index],
                                            antenna2[self._sort_index],
                                            self._na)
+
         # Sanity check antenna and row dimensions
         if self._antenna_positions.shape[0] < na:
             raise ValueError("Number of antenna positions {aps} "
@@ -200,14 +236,6 @@ class DataDictionaryManager(object):
                              "nbl * ntime. Please ensure that only one field, "
                              "one observation and one data descriptor is present in the chunk you're "
                              "trying to predict.")
-
-        # Pad the uvw array to contain nbl * ntime entries (including the autocorrs)
-        # with zeros where baselines may be missing
-        self._residuals = residuals
-
-        self._padded_uvw = np.zeros((self._ntime, self._nbl, 3), dtype=uvw.dtype)
-        self._padded_uvw[self._tindx, self._blindx] = uvw[self._sort_index]
-        self._padded_uvw = self._padded_uvw.reshape((self._nrow, 3))
 
         # pad the antenna array
         self._padded_a1 = np.empty((self._nbl))
@@ -223,6 +251,14 @@ class DataDictionaryManager(object):
 
         # pad the time array
         self._padded_time = np.unique(time).repeat(self._nbl)
+
+        # Pad the uvw array to contain nbl * ntime entries (including the autocorrs)
+        # with zeros where baselines may be missing
+        self._residuals = residuals.view()
+
+        self._padded_uvw = np.zeros((self._ntime, self._nbl, 3), dtype=uvw.dtype)
+        self._padded_uvw[self._tindx, self._blindx, :] = uvw[self._sort_index]
+        self._padded_uvw = self._padded_uvw.reshape((self._nrow, 3))
 
         # finally construct a mask to indicate sparse matrix
         self._datamask = np.zeros((self._ntime, self._nbl), dtype=np.bool)
@@ -240,6 +276,21 @@ class DataDictionaryManager(object):
         self._pBAR = ProgressBar(Title="  montblanc predict")
         self.render_progressbar()
 
+        # Initialize WCS frame
+        wcs = pywcs.WCS(naxis=2)
+        # note half a pixel will correspond to even sized image projection poles
+        # remember that WCS is indexed in FORTRAN indexing
+        l0m0 = [self._npix / 2.0 + 1, self._npix / 2.0 + 1]
+        wcs.wcs.crpix = l0m0
+        # remember that the WCS frame uses degrees
+        wcs.wcs.cdelt = [-np.rad2deg(self._cell_size_rad),
+                         np.rad2deg(self._cell_size_rad)]
+        # assume SIN image projection
+        wcs.wcs.ctype = ["RA---SIN","DEC--SIN"]
+
+        wcs.wcs.crval = [np.rad2deg(self._phase_dir[0]),
+                         np.rad2deg(self._phase_dir[1])]
+        self._wcs = wcs
 
         # Finally output some info
         montblanc.log.info('Chunk contains:' % unique_ants)
@@ -317,9 +368,6 @@ class DDFacetSourceProvider(SourceProvider):
         # Assign coordinate tuples
         sky_coords_rad = np.array([mgr._transform(p[1]) for p in pt_slice],
             dtype=context.dtype)
-        if DEBUG:
-            montblanc.log.debug("Radian Coordinates '{c}'".format(
-                c=sky_coords_rad[:16,:]))
 
         return sky_coords_rad.reshape(context.shape)
 
@@ -360,9 +408,6 @@ class DDFacetSourceProvider(SourceProvider):
         # Assign coordinate tuples
         sky_coords_rad = np.array([mgr._transform(g[1]) for g in g_slice],
             dtype=context.dtype)
-        if DEBUG:
-            montblanc.log.debug("Radian Coordinates '{c}'".format(
-                c=sky_coords_rad[:16,:]))
 
         return sky_coords_rad.reshape(context.shape)
 
@@ -504,15 +549,34 @@ class DDFacetSinkProvider(SinkProvider):
         ncorr_mb = len(MONTBLANC_FEED_LABELS)
         sparce_flags = self._manager._flag[sort_indx, :, :]
 
-        # Get the sorted sparce residuals
-        prev = self._manager._residuals[sort_indx, :, :]
-
         # Compute residuals
         chunk_nbl, chunk_ntime, chunk_nchan, chunk_ncorr = context.data.shape
         chunk_nrow = chunk_nbl * chunk_ntime
         datamask_tile = datamask.repeat(chunk_nchan * chunk_ncorr).reshape((chunk_nrow, chunk_nchan, chunk_ncorr))
         mod = context.data.reshape((chunk_nrow, chunk_nchan, chunk_ncorr))
         mod_sel = mod[datamask_tile].reshape(nrow_sparce, chunk_nchan, chunk_ncorr)
+        if DEBUG == True:
+            from matplotlib import pyplot as plt
+            plt.figure()
+            f, axes = plt.subplots(5, int(np.ceil(self._manager._nbl / 5.0)),
+                                   sharex=True, sharey=True)
+            for bl in xrange(self._manager._nbl):
+                axes[bl % 5, bl // 5].plot(np.real(context.data[bl,:,0,0]))
+                axes[bl % 5, bl // 5].plot(np.imag(context.data[bl,:,0,0]))
+                axes[bl % 5, bl // 5].grid = True
+            f.text(0.5, 0, "Row")
+
+            plt.show()
+            plt.figure()
+            f, axes = plt.subplots(5, int(np.ceil(self._manager._nbl / 5.0)), sharex=True, sharey=False)
+            for bl in xrange(self._manager._nbl):
+                ft = 10*np.log10(np.abs(np.fft.fft(context.data[bl,:,0,0])))
+                axes[bl % 5, bl // 5].plot(ft)
+                axes[bl % 5, bl // 5].grid(True)
+            f.text(0.5, 0, "cycles")
+            f.text(0, 0.5, "Power [dB]", rotation=90)
+            plt.legend()
+            plt.show()
 
         def __print_model_stats(mod_sel):
             mod_sel_pow = np.abs(mod_sel)
@@ -557,23 +621,22 @@ class DDFacetSinkProvider(SinkProvider):
                                                axis=0)]))
         if DEBUG:
             montblanc.log.debug("Old residual stats:")
-            __print_residual_stats(prev, sparce_flags)
+            __print_residual_stats(self._manager._residuals[sort_indx, :, :], sparce_flags)
 
         if self._manager._data_feed_labels == MONTBLANC_FEED_LABELS:
-            prev[:, :, :] -= mod_sel
+            self._manager._residuals[sort_indx, :, :] -= mod_sel
         else:
             for ci, c in enumerate(self._manager._data_feed_labels):
-                prev[:, :, ci] -= mod_sel[:, :, self._manager._predict_feed_map[ci]]
+                self._manager._residuals[sort_indx, :, ci] = mod_sel[:, :, self._manager._predict_feed_map[ci]]
 
         if DEBUG:
             montblanc.log.debug("New residual stats:")
-            __print_residual_stats(prev, sparce_flags)
+            __print_residual_stats(self._manager._residuals[sort_indx, :, :], sparce_flags)
 
         # update progress
         self._manager._numcomplete += nrow
 
         self._manager.render_progressbar()
-
 
 class DDFacetSinkPredict(SinkProvider):
     def __init__(self, manager):
