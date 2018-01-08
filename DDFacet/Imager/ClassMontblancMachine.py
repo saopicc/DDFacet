@@ -371,7 +371,7 @@ class DDFacetSourceProvider(SourceProvider):
         pt_slice = self._manager._point_sources[lp:up]
         # Assign I stokes, zero everything else
         stokes = np.zeros(context.shape, context.dtype)
-        stokes[:,:,0] = np.array([p[2] for p in pt_slice])
+        stokes[:,:,0] = np.array([p[2].reshape((1)) for p in pt_slice])
         if DEBUG:
             montblanc.log.debug("Point stokes parameters {ps}".format(
                 ps=stokes[:16,0,0]))
