@@ -71,8 +71,7 @@ class ClassMontblancMachine(object):
 
         # configure solver
         self._slvr_cfg = slvr_cfg = montblanc.rime_solver_cfg(
-            data_source=Options.DATA_SOURCE_DEFAULT,
-            tf_server_target=GD["Montblanc"]["TensorflowServerTarget"],
+            data_source="default",
             mem_budget=GD["Montblanc"]["MemoryBudget"]*1024*1024*1024,
             dtype=GD["Montblanc"]["SolverDType"],
             auto_correlations=True,
@@ -84,6 +83,7 @@ class ClassMontblancMachine(object):
         self._cell_size_rad = cell_size_rad
         self._npix = npix
         self._mgr = DataDictionaryManager()
+
         # Configure the Beam upfront
         if GD["Beam"]["Model"] == "FITS":
             fits_file_spec = GD["Beam"]["FITSFile"]
@@ -468,9 +468,9 @@ class DDFacetSourceProvider(SourceProvider):
         (lt, ut) = context.dim_extents('ntime')
         mgr = self._manager
 
-        return mbu.parallactic_angles(mgr._phase_dir,
+        return mbu.parallactic_angles(mgr._padded_time[lt:ut],
             mgr._antenna_positions,
-            mgr._padded_time[lt:ut]).astype(context.dtype)
+            mgr._phase_dir).astype(context.dtype)
 
     def model_vis(self, context):
         self.update_nchunks(context)
