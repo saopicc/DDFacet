@@ -1,4 +1,4 @@
-git+https://github.com/ska-sa/montblanc.git@65ffb611f5
+git+https://github.com/ska-sa/montblanc.git@master
 pymoresane >= 0.3.0
 cython >= 0.25.2
 nose >= 1.3.7
