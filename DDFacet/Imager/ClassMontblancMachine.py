@@ -24,6 +24,7 @@ import montblanc
 import montblanc.util as mbu
 import montblanc.impl.rime.tensorflow.ms.ms_manager as MS
 
+from montblanc.config import RimeSolverConfig as Options
 from montblanc.impl.rime.tensorflow.sources import (SourceProvider,
     FitsBeamSourceProvider)
 from montblanc.impl.rime.tensorflow.sinks import SinkProvider
@@ -31,7 +32,8 @@ from montblanc.impl.rime.tensorflow.sinks import SinkProvider
 class ClassMontblancMachine(object):
     def __init__(self, GD, npix, cell_size_rad):
         self._slvr_cfg = slvr_cfg = montblanc.rime_solver_cfg(
-            data_source="default",
+            data_source=Options.DATA_SOURCE_DEFAULT,
+            tf_server_target=GD["Montblanc"]["TensorflowServerTarget"],
             mem_budget=2*1024*1024*1024,
             dtype='double',
             auto_correlations=False,
@@ -286,9 +288,9 @@ class DDFacetSourceProvider(SourceProvider):
         (lt, ut) = context.dim_extents('ntime')
         mgr = self._manager
 
-        return mbu.parallactic_angles(mgr._tstep_times[lt:ut],
+        return mbu.parallactic_angles(mgr._phase_dir,
             mgr._antenna_positions,
-            mgr._phase_dir).astype(context.dtype)
+            mgr._tstep_times[lt:ut]).astype(context.dtype)
 
     def model_vis(self, context):
         return np.zeros(shape=context.shape, dtype=context.dtype)
