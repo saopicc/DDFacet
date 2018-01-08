@@ -871,14 +871,11 @@ class ClassImagerDeconv():
             if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder":  # latter for backwards compatibility
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
-                def predict():
-                    from ClassMontblancMachine import ClassMontblancMachine
-                    model = self.ModelMachine.GiveModelList()
-                    mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                    mb_machine.getChunk(DATA, predict, model, self.VS.ListMS[DATA["iMS"]])
-                    mb_machine.close()
-
-                APP.runJob("montblanc:predict", predict, io=0, args=(), kwargs={})
+                from ClassMontblancMachine import ClassMontblancMachine
+                model = self.ModelMachine.GiveModelList()
+                mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
+                mb_machine.getChunk(DATA, predict, model, self.VS.ListMS[DATA["iMS"]])
+                mb_machine.close()
             else:
                 raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
             self.FacetMachine.collectDegriddingResults()
@@ -1100,14 +1097,11 @@ class ClassImagerDeconv():
                 if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder":
                     self.FacetMachine.getChunkInBackground(DATA)
                 elif self.PredictMode == "Montblanc":
-                    def predict():
-                        from ClassMontblancMachine import ClassMontblancMachine
-                        model = self.ModelMachine.GiveModelList()
-                        mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                        mb_machine.getChunk(DATA, predict, model, self.VS.ListMS[DATA["iMS"]])
-                        mb_machine.close()
-
-                    APP.runJob("montblanc:predict", predict, io=0, args=(), kwargs={})
+                    from ClassMontblancMachine import ClassMontblancMachine
+                    model = self.ModelMachine.GiveModelList()
+                    mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
+                    mb_machine.getChunk(DATA, DATA["data"], model, self.VS.ListMS[DATA["iMS"]])
+                    mb_machine.close()
                 else:
                     raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
 
