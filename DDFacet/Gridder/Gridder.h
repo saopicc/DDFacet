@@ -141,7 +141,7 @@ void ScaleJones(float complex* J0, float AlphaScaleJones){
 }
 
 
-double PI=3.14159265359;
+double PI=3.141592653589793238462643383279502884197;
 
 //////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////
@@ -312,8 +312,8 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
 			      float nu,
 			      float Dnu, 
 			      float DT){
-  //float PI=3.141592;
-  //float C=2.99792456e8;
+  //float PI=3.141592653589793238462643383279502884197;
+  //float C=2.99792458e8;
 
   float n0=sqrt(1.-l0*l0-m0*m0)-1.;
   float DecorrFactor=1.;
