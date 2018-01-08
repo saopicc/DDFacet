@@ -32,6 +32,8 @@ These are useful when working with visibility data (https://casa.nrao.edu/Memos/
 '''
 StokesTypes = {'I': 1, 'Q': 2, 'U': 3, 'V': 4, 'RR': 5, 'RL': 6, 'LR': 7, 'LL': 8, 'XX': 9, 'XY': 10, 'YX': 11,
                'YY': 12}
+ReverseStokesTypes = {1: 'I', 2: 'Q', 3: 'U', 4: 'V', 5: 'RR', 6: 'RL', 7: 'LR', 8: 'LL', 9: 'XX', 10: 'XY', 11: 'YX',
+                      12: 'YY'}
 
 '''
 The following definition can be found in Table 28,
@@ -329,3 +331,9 @@ class ClassStokes:
         Returns the stokes.h ids for the available MS correlation products
         """
         return self._MSDataDescriptor
+
+    def AvailableCorrelationProducts(self):
+        """
+        Returns the available MS correlation products
+        """
+        return [ReverseStokesTypes[s] for s in self._MSDataDescriptor]
