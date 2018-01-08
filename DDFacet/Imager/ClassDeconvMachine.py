@@ -874,8 +874,20 @@ class ClassImagerDeconv():
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
                 from ClassMontblancMachine import ClassMontblancMachine
+                if set(self.VS.StokesConverter.AvailableCorrelationProducts()) <= set(["XX", "XY", "YX", "YY"]):
+                    polarization_type = "linear"
+                    print>>log, "Setting Montblanc solver up for linear feeds"
+                elif set(self.VS.StokesConverter.AvailableCorrelationProducts()) <= set(["RR", "RL", "LR", "LL"]):
+                    polarization_type = "circular"
+                    print>>log, "Setting Montblanc solver up for circular feeds"
+                else:
+                    raise RuntimeError("Montblanc only supports linear or circular feed measurements.")
+
                 model = self.ModelMachine.GiveModelList()
-                mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
+                mb_machine = ClassMontblancMachine(self.GD,
+                                                   self.FacetMachine.Npix,
+                                                   self.FacetMachine.CellSizeRad,
+                                                   polarization_type)
                 mb_machine.getChunk(DATA, predict, model, self.VS.ListMS[DATA["iMS"]])
                 mb_machine.close()
             else:
@@ -1100,8 +1112,20 @@ class ClassImagerDeconv():
                     self.FacetMachine.getChunkInBackground(DATA)
                 elif self.PredictMode == "Montblanc":
                     from ClassMontblancMachine import ClassMontblancMachine
+                    if set(self.VS.StokesConverter.AvailableCorrelationProducts()) <= set(["XX", "XY", "YX", "YY"]):
+                        polarization_type = "linear"
+                        print>>log, "Setting Montblanc solver up for linear feeds"
+                    elif set(self.VS.StokesConverter.AvailableCorrelationProducts()) <= set(["RR", "RL", "LR", "LL"]):
+                        polarization_type = "circular"
+                        print>>log, "Setting Montblanc solver up for circular feeds"
+                    else:
+                        raise RuntimeError("Montblanc only supports linear or circular feed measurements.")
+
                     model = self.ModelMachine.GiveModelList()
-                    mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
+                    mb_machine = ClassMontblancMachine(self.GD,
+                                                       self.FacetMachine.Npix,
+                                                       self.FacetMachine.CellSizeRad,
+                                                       polarization_type)
                     mb_machine.getChunk(DATA, DATA["data"], model, self.VS.ListMS[DATA["iMS"]])
                     mb_machine.close()
                 else:
@@ -1278,8 +1302,20 @@ class ClassImagerDeconv():
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
                 from ClassMontblancMachine import ClassMontblancMachine
+                if set(self.VS.StokesConverter.AvailableCorrelationProducts()) <= set(["XX", "XY", "YX", "YY"]):
+                    polarization_type = "linear"
+                    print>>log, "Setting Montblanc solver up for linear feeds"
+                elif set(self.VS.StokesConverter.AvailableCorrelationProducts()) <= set(["RR", "RL", "LR", "LL"]):
+                    polarization_type = "circular"
+                    print>>log, "Setting Montblanc solver up for circular feeds"
+                else:
+                    raise RuntimeError("Montblanc only supports linear or circular feed measurements.")
+
                 model = self.ModelMachine.GiveModelList()
-                mb_machine = ClassMontblancMachine(self.GD, fm_predict.Npix, self.FacetMachine.CellSizeRad)
+                mb_machine = ClassMontblancMachine(self.GD,
+                                                   fm_predict.Npix,
+                                                   self.FacetMachine.CellSizeRad,
+                                                   polarization_type)
                 mb_machine.getChunk(DATA, DATA["data"], model, self.VS.ListMS[DATA["iMS"]])
                 mb_machine.close()
             else:
