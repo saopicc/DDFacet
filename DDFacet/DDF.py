@@ -179,6 +179,15 @@ def main(OP=None, messages=[]):
         print>> log, "random seed=%d (automatic)" % DicoConfig["Misc"]["RandomSeed"]
     np.random.seed(DicoConfig["Misc"]["RandomSeed"])
 
+    # If we're using Montblanc for the Predict, we need to use a remote
+    # tensorflow server as tensorflow is not fork safe
+    # http://stackoverflow.com/questions/37874838/forking-a-python-process-after-loading-tensorflow
+    # If a TensorFlowServerTarget is not specified, fork a child process containing one.
+    if DicoConfig["RIME"]["ForwardMode"] == "Montblanc":
+        if not DicoConfig["Montblanc"]["TensorflowServerTarget"]:
+            from DDFacet.TensorFlowServerFork import fork_tensorflow_server
+            DicoConfig["Montblanc"]["TensorflowServerTarget"] = fork_tensorflow_server()
+
     # init NCPU for different bits of parallelism
     ncpu = DicoConfig["Parallel"]["NCPU"] or psutil.cpu_count()
     DicoConfig["Parallel"]["NCPU"]=ncpu
@@ -190,14 +199,14 @@ def main(OP=None, messages=[]):
     # write parset
     OP.ToParset("%s.parset"%ImageName)
 
-    Mode = DicoConfig["Output"]["Mode"]
+    Mode = DicoConfig["Output"]["Mode"] 
 
     # data machine initialized for all cases except PSF-only mode
     # psf machine initialized for all cases except Predict-only mode
-    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig,
+    Imager = ClassDeconvMachine.ClassImagerDeconv(GD=DicoConfig, 
                                                   BaseName=ImageName,
                                                   predict_only=(Mode == "Predict" or Mode == "Subtract"),
-                                                  data=(Mode != "PSF"),
+                                                  data=(Mode != "PSF"), 
                                                   psf=(Mode != "Predict" and Mode != "Dirty" and Mode != "Subtract"),
                                                   readcol=(Mode != "Predict" and Mode != "PSF"),
                                                   deconvolve=("Clean" in Mode))
