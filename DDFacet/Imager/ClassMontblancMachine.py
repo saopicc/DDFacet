@@ -129,11 +129,12 @@ class DataDictionaryManager(object):
         if DEBUG:
             montblanc.log.debug("WCS src coordinates [deg] '{c}'".format(c=np.rad2deg(coord)))
 
-        l0m0 = np.array([np.floor(self._npix / 2.0),
-                         np.floor(self._npix / 2.0)])
-        c = (c[0], c[1])
-        delta = (np.array(c) - l0m0) * self._cell_size_rad
-        return delta
+        # assume SIN Projection
+        l = np.cos(coord[0, 1])*np.sin(delta_ang[0])
+        m = np.sin(coord[0, 1])*np.cos(self._phase_dir[1]) - \
+            np.cos(coord[0, 1])*np.sin(self._phase_dir[1])*np.cos(delta_ang[0])
+
+        return (l, m)
 
     def cfg_from_data_dict(self, data, models, residuals, MS, npix, cell_size_rad):
         time, uvw, antenna1, antenna2, flag = (data[i] for i in  ('times', 'uvw', 'A0', 'A1', 'flags'))
@@ -272,8 +273,9 @@ class DataDictionaryManager(object):
         # Initialize WCS frame
         wcs = pywcs.WCS(naxis=2)
         # note half a pixel will correspond to even sized image projection poles
-        # remember that WCS is indexed in FORTRAN indexing
-        l0m0 = [self._npix / 2.0 + 1, self._npix / 2.0 + 1]
+        montblanc.log.debug("NPIX: %d" % self._npix)
+        assert self._npix % 2 == 1, "Currently only supports odd-sized maps"
+        l0m0 = [self._npix // 2, self._npix // 2]
         wcs.wcs.crpix = l0m0
         # remember that the WCS frame uses degrees
         wcs.wcs.cdelt = [np.rad2deg(self._cell_size_rad),
