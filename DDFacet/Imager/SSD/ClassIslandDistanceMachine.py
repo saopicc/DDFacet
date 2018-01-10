@@ -10,6 +10,7 @@ from DDFacet.Array import NpShared
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from scipy.spatial import ConvexHull
 from matplotlib.path import Path
+import psutil
 
 class Island(object):
     '''
@@ -60,7 +61,7 @@ class ClassIslandDistanceMachine():
         self.PSFServer=PSFServer
         self.PSFCross=None
         self.DicoDirty=DicoDirty
-        self.NCPU=self.GD["Parallel"]["NCPU"]
+        self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
         self.IdSharedMem=IdSharedMem
 
     def SearchIslands(self,Threshold):
