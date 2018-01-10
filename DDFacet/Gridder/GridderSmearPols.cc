@@ -286,7 +286,6 @@ void gridder(
 
     /* when moving to a new block of rows, init this to -1 so the code below knows to initialize*/
     /* CurrentCorrTerm when the first channel of each row comes in*/
-
     if (Row[0]!=CurrentCorrRow0)
       {
       for (auto inx=0; inx<NRowThisBlock; inx++)

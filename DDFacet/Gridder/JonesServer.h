@@ -36,7 +36,7 @@ using dcMat = Mat<dcmplx>;
 class JonesServer
   {
   private:
-    void ScaleJones(dcMat &J0, double AlphaScaleJones)
+    static void ScaleJones(dcMat &J0, double AlphaScaleJones)
       {
       for(int ThisPol=0; ThisPol<4; ThisPol++)
         {
@@ -46,7 +46,7 @@ class JonesServer
         }
       }
 
-    void NormJones(dcMat &J0, bool ApplyAmp, bool ApplyPhase, bool DoScaleJones,
+    static void NormJones(dcMat &J0, bool ApplyAmp, bool ApplyPhase, bool DoScaleJones,
       const double *uvwPtr, double WaveLengthMean, double CalibError)
       {
       if (!ApplyAmp)
@@ -71,7 +71,7 @@ class JonesServer
         }
       }
 
-    dcMat GiveJones(const fcmplx *ptrJonesMatrices, const int *JonesDims,
+    static dcMat GiveJones(const fcmplx *ptrJonesMatrices, const int *JonesDims,
       const float *ptrCoefs, int i_t, int i_ant0, int i_dir, int iChJones,
       int Mode)
       {
@@ -295,15 +295,17 @@ class JonesServer
           }
         }
 
-      if (SomeJonesHaveChanged){
+      if (SomeJonesHaveChanged)
+        {
         J0.setUnity();
         J1.setUnity();
-        if (ApplyJones_Beam){
+        if (ApplyJones_Beam)
+          {
           J0=J0Beam.times(J0);
           J1=J1Beam.times(J1);
           }
-
-        if (ApplyJones_killMS){
+        if (ApplyJones_killMS)
+          {
           J0=J0kMS.times(J0);
           J1=J1kMS.times(J1);
           }
@@ -315,11 +317,10 @@ class JonesServer
         }
       }
 
-    void resetJonesServerCounter(){
-      CurrentJones_Beam_Time=-1;
-      CurrentJones_Beam_Chan=-1;
-      CurrentJones_kMS_Time=-1;
-      CurrentJones_kMS_Chan=-1;
+    void resetJonesServerCounter()
+      {
+      CurrentJones_Beam_Time=CurrentJones_Beam_Chan=-1;
+      CurrentJones_kMS_Time=CurrentJones_kMS_Chan=-1;
       }
     double BB;
     double WeightVaryJJ;
