@@ -218,6 +218,7 @@ void gridder(
   const double uvwScale_p[]= {nGridX*incr[0], nGridX*incr[1]};
 
   int JonesType= int(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 0)));
+  bool ChanEquidistant= bool(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 1)));
 
   const int *MappingBlock = p_int32(SmearMapping);
   /* total size is in two words */
@@ -245,6 +246,12 @@ void gridder(
       continue;
     NMaxRow = max(NMaxRow, size_t(NRowBlocks[iBlock]-2));
     }
+  /* these are used for equidistant channels: one holds the phase term in channel 0, */
+  /* the other one holds the delta-phase across channels */
+  vector<dcmplx> CurrentCorrTerm(NMaxRow), dCorrTerm(NMaxRow);
+  /* and this indicates for which channel the CurrentCorrTerm is currently computed */
+  vector<int> CurrentCorrChan(NMaxRow);
+  int CurrentCorrRow0 = -1;
   /* ######################################################## */
   double WaveLengthMean=0., FreqMean0=0.;
   for (size_t visChan=0; visChan<nVisChan; ++visChan)
@@ -276,6 +283,16 @@ void gridder(
 
     for (size_t visChan=0; visChan<nVisChan; ++visChan)
       ThisSumJonesChan[visChan] = ThisSumSqWeightsChan[visChan] = 0;
+
+    /* when moving to a new block of rows, init this to -1 so the code below knows to initialize*/
+    /* CurrentCorrTerm when the first channel of each row comes in*/
+
+    if (Row[0]!=CurrentCorrRow0)
+      {
+      for (auto inx=0; inx<NRowThisBlock; inx++)
+        CurrentCorrChan[inx] = -1;
+      CurrentCorrRow0 = Row[0];
+      }
 
     double DeCorrFactor=1.;
     if (DoDecorr)
@@ -312,7 +329,31 @@ void gridder(
         double U=uvwPtr[0];
         double V=uvwPtr[1];
         double W=uvwPtr[2];
-        dcmplx corr = polar(1.,-2.*PI*Pfreqs[visChan]/C*(U*l0+V*m0+W*n0));
+        dcmplx corr;
+        if (ChanEquidistant)
+          {
+          /* init correlation term for first channel that it's not initialized in */
+          if (CurrentCorrChan[inx]==-1)
+            {
+            double angle = -2.*PI*(U*l0+V*m0+W*n0)/C;
+            CurrentCorrTerm[inx] = polar(1.,Pfreqs[visChan]*angle);
+            dCorrTerm[inx]       = polar(1.,(Pfreqs[1]-Pfreqs[0])*angle);
+            CurrentCorrChan[inx] = int(visChan);
+            }
+          /* else, wind the correlation term forward by as many channels as necessary */
+          /* this modification allows us to support blocks that skip across channels */
+          else
+            {
+            while (size_t(CurrentCorrChan[inx]) < visChan)
+              {
+              CurrentCorrTerm[inx] *= dCorrTerm[inx];
+              CurrentCorrChan[inx]++;
+              }
+            }
+          corr = CurrentCorrTerm[inx];
+          }
+        else /* Not chan-equidistant */
+          corr = polar(1.,-2.*PI*Pfreqs[visChan]/C*(U*l0+V*m0+W*n0));
 
         if (JS.DoApplyJones)
           JS.updateJones(irow, visChan, uvwPtr, true, true);
@@ -690,6 +731,7 @@ void degridder(
   const double uvwScale_p[]= {nGridX*incr[0], nGridX*incr[1]};
 
   const int JonesType= int(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 0)));
+  const bool ChanEquidistant= bool(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 1)));
 
   const int *MappingBlock = p_int32(SmearMapping);
   /* total size is in two words */
@@ -697,6 +739,10 @@ void degridder(
   const int *NRowBlocks = MappingBlock+2;
   const int *StartRow = MappingBlock+2+NTotBlocks;
 
+  size_t NMaxRow=0;
+  for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
+    NMaxRow = max(NMaxRow, size_t(NRowBlocks[iBlock]-2));
+  vector<dcmplx> CurrentCorrTerm(NMaxRow), dCorrTerm(NMaxRow);
   /* ######################################################## */
   double WaveLengthMean=0.;
   for (size_t visChan=0; visChan<nVisChan; ++visChan)
@@ -822,7 +868,22 @@ void degridder(
         if (JS.DoApplyJones)
           JS.updateJones(irow, visChan, uvwPtr, false, false);
 
-        dcmplx corr = polar(1.,2.*PI*Pfreqs[visChan]/C*phase);
+        dcmplx corr;
+        if (ChanEquidistant)
+          {
+          if(visChan==0)
+            {
+            double UVNorm = 2.*PI*Pfreqs[visChan]/C;
+            CurrentCorrTerm[inx]=polar(1.,UVNorm*phase);
+            double dUVNorm = 2.*PI*(Pfreqs[1]-Pfreqs[0])/C;
+            dCorrTerm[inx]=polar(1.,dUVNorm*phase);
+            }
+          else
+            CurrentCorrTerm[inx]*=dCorrTerm[inx];
+          corr=CurrentCorrTerm[inx];
+          }
+        else
+          corr=polar(1.,2.*PI*Pfreqs[visChan]/C*phase);
 
         corr*=DeCorrFactor;
 
