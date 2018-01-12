@@ -339,7 +339,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     #     return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
 
 
-    def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True,threshold=None):
+    def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True,MaxSpi=100,MaxDR=1e+6,threshold=None):
     
         dFreq=1e6
         RefFreq=self.DicoSMStacked["RefFreq"]
@@ -353,13 +353,28 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             M0,_=ModFFTW.ConvolveGaussianWrapper(M0,Sig=GaussPars[0][0]/CellSizeRad)
             M1,_=ModFFTW.ConvolveGaussianWrapper(M1,Sig=GaussPars[0][0]/CellSizeRad)
 
-        Np=1000
-        indx,indy=np.int64(np.random.rand(Np)*M0.shape[0]),np.int64(np.random.rand(Np)*M0.shape[1])
-        med=np.median(np.abs(M0[:,:,indx,indy]))
-	
-        Mask=((M1>100*med)&(M0>100*med))
-        alpha=np.zeros_like(M0)
-        alpha[Mask]=(np.log(M0[Mask])-np.log(M1[Mask]))/(np.log(f0/f1))
+        # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
+        if threshold is not None:
+            minmod = threshold
+        elif not np.all(M0==0):
+            minmod = float("%.1e"%(np.max(np.abs(M0))/MaxDR))
+        else:
+            minmod=1e-6
+    
+        # mask out pixels above threshold
+        mask=(M1<minmod)|(M0<minmod)
+        print>>log,"computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR)
+        M0[mask]=minmod
+        M1[mask]=minmod
+        alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
+        alpha[mask] = 0
+
+        # Np=1000
+        # indx,indy=np.int64(np.random.rand(Np)*M0.shape[0]),np.int64(np.random.rand(Np)*M0.shape[1])
+        # med=np.median(np.abs(M0[:,:,indx,indy]))
+        # Mask=((M1>100*med)&(M0>100*med))
+        # alpha=np.zeros_like(M0)
+        # alpha[Mask]=(np.log(M0[Mask])-np.log(M1[Mask]))/(np.log(f0/f1))
         return alpha
 
         
