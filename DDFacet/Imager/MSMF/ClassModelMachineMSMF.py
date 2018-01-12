@@ -158,65 +158,68 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setListComponants(self,ListScales):
         self.ListScales=ListScales
 
-    def GiveSpectralIndexMap(self, threshold=0.1, save_dict=True):
-        # Get the model image
-        IM = self.GiveModelImage(self.FreqMachine.Freqsp)
-        nchan, npol, Nx, Ny = IM.shape
+    # def GiveSpectralIndexMap(self, threshold=0.1, save_dict=True):
+    #     # Get the model image
+    #     IM = self.GiveModelImage(self.FreqMachine.Freqsp)
+    #     nchan, npol, Nx, Ny = IM.shape
+    #     # Fit the alpha map
+    #     self.FreqMachine.FitAlphaMap(IM[:, 0, :, :],
+    #                                  threshold=threshold)  # should set threshold based on SNR of final residual
+    #     if save_dict:
+    #         FileName = self.GD['Output']['Name'] + ".Dicoalpha"
+    #         print>> log, "Saving componentwise SPI map to %s" % FileName
+    #         MyPickle.Save(self.FreqMachine.alpha_dict, FileName)
+    #     #return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
+    #     return self.FreqMachine.alpha_map.reshape((1, 1, Nx, Ny))
 
-        # Fit the alpha map
-        self.FreqMachine.FitAlphaMap(IM[:, 0, :, :],
-                                     threshold=threshold)  # should set threshold based on SNR of final residual
+    def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True,MaxSpi=100,MaxDR=1e+6,threshold=None):
+        dFreq=1e6
+        #f0=self.DicoSMStacked["AllFreqs"].min()
+        #f1=self.DicoSMStacked["AllFreqs"].max()
+        RefFreq=self.DicoSMStacked["RefFreq"]
+        f0=RefFreq/1.5
+        f1=RefFreq*1.5
+    
+        M0=self.GiveModelImage(f0)
+        M1=self.GiveModelImage(f1)
+        if DoConv:
+            #M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+            #M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+            M0,_=ModFFTW.ConvolveGaussianWrapper(M0,Sig=GaussPars[0][0]/CellSizeRad)
+            M1,_=ModFFTW.ConvolveGaussianWrapper(M1,Sig=GaussPars[0][0]/CellSizeRad)
+            
 
-        if save_dict:
-            FileName = self.GD['Output']['Name'] + ".Dicoalpha"
-            print>> log, "Saving componentwise SPI map to %s" % FileName
-
-            MyPickle.Save(self.FreqMachine.alpha_dict, FileName)
-
-        return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
-
-    # def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True,MaxSpi=100,MaxDR=1e+6):
-    #     dFreq=1e6
-    #     #f0=self.DicoSMStacked["AllFreqs"].min()
-    #     #f1=self.DicoSMStacked["AllFreqs"].max()
-    #     RefFreq=self.DicoSMStacked["RefFreq"]
-    #     f0=RefFreq/1.5
-    #     f1=RefFreq*1.5
-    #
-    #     M0=self.GiveModelImage(f0)
-    #     M1=self.GiveModelImage(f1)
-    #     if DoConv:
-    #         M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-    #         M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-    #
-    #     # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
-    #     if not np.all(M0==0):
-    #         minmod = float("%.1e"%(np.max(np.abs(M0))/MaxDR))
-    #     else:
-    #         minmod=1e-6
-    #
-    #     # mask out pixels above threshold
-    #     mask=(M1<minmod)|(M0<minmod)
-    #     print>>log,"computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR)
-    #     M0[mask]=minmod
-    #     M1[mask]=minmod
-    #     #with np.errstate(invalid='ignore'):
-    #     #    alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
-    #     # print
-    #     # print np.min(M0),np.min(M1),minmod
-    #     # print
-    #     alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
-    #     alpha[mask] = 0
-    #
-    #     # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
-    #     mask = alpha>MaxSpi
-    #     alpha[mask]  = MaxSpi
-    #     masked = mask.any()
-    #     mask = alpha<-MaxSpi
-    #     alpha[mask] = -MaxSpi
-    #     if masked or mask.any():
-    #         print>>log,ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them."%MaxSpi,col="red")
-    #     return alpha
+        print M0.shape,M1.shape
+        # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
+        if threshold is not None:
+            minmod = threshold
+        elif not np.all(M0==0):
+            minmod = float("%.1e"%(np.max(np.abs(M0))/MaxDR))
+        else:
+            minmod=1e-6
+    
+        # mask out pixels above threshold
+        mask=(M1<minmod)|(M0<minmod)
+        print>>log,"computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR)
+        M0[mask]=minmod
+        M1[mask]=minmod
+        #with np.errstate(invalid='ignore'):
+        #    alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
+        # print
+        # print np.min(M0),np.min(M1),minmod
+        # print
+        alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
+        alpha[mask] = 0
+    
+        # mask out |alpha|>MaxSpi. These are not physically meaningful anyway
+        mask = alpha>MaxSpi
+        alpha[mask]  = MaxSpi
+        masked = mask.any()
+        mask = alpha<-MaxSpi
+        alpha[mask] = -MaxSpi
+        if masked or mask.any():
+            print>>log,ModColor.Str("WARNING: some alpha pixels outside +/-%g. Masking them."%MaxSpi,col="red")
+        return alpha
 
     def GiveModelList(self):
         """

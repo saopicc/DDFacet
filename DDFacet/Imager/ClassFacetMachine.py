@@ -620,10 +620,12 @@ class ClassFacetMachine():
         # subprocesses will place W-terms etc. here. Reset this first.
         self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
         # check if w-kernels, spacial weights, etc. are cached
+        
         cachekey = dict(ImagerCF=self.GD["CF"], 
                         ImagerMainFacet=self.GD["Image"], 
                         Facets=self.GD["Facets"], 
-                        RIME=self.GD["RIME"])
+                        RIME=self.GD["RIME"],
+                        DDESolutions={"DDSols":self.GD["DDESolutions"]["DDSols"]})
         cachename = self._cf_cachename = "CF"
         # in oversize-PSF mode, make separate cache for PSFs
         if self.DoPSF and self.Oversize != 1:
