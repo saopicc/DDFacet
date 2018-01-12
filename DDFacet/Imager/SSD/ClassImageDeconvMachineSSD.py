@@ -468,7 +468,7 @@ class ClassImageDeconvMachine():
             Parallel=True
             ParallelPerIsland=False
         elif ParallelMode=="PerIsland":
-            NCPU=self.NCPU
+            NCPU=1#self.NCPU
             Parallel=False
             ParallelPerIsland=True
 
