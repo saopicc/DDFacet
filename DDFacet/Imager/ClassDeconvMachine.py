@@ -1871,8 +1871,12 @@ class ClassImagerDeconv():
             label = 'alphamap'
             if label not in _images:
                 _images.addSharedArray(label, intmodel().shape, np.float32)
+                
+                # ##############################
+                # # Reverting for issue458
                 #_images[label] = ModelMachine.FreqMachine.alpha_map.reshape(intmodel().shape)
                 _images[label] = ModelMachine.GiveSpectralIndexMap()
+                # ##############################
 
             return _images[label]
         def alphaconvmap():
@@ -2012,10 +2016,13 @@ class ClassImagerDeconv():
 
         # Alpha image
         if "A" in self._saveims and self.VS.MultiFreqMode:
+            # ##############################
+            # # Reverting for issue458
             # _images['alphaconvmap'] = alphaconvmap()
             # APP.runJob("save:alphaconv", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphaconvmap',), kwargs=dict(
             #     ImageName="%s.alphaconv" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
             #     Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+            # ##############################
             _images['alphamap'] = alphamap()
             APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphamap',), kwargs=dict(
                 ImageName="%s.alpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
