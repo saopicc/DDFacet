@@ -94,7 +94,7 @@ class ClassMutate():
 
 
 
-    def mutGaussian(self,individual, pFlux, p0, pMove,FactorAccelerate=1.):
+    def mutGaussian(self,individual, pFlux, p0, pMove, pScale,FactorAccelerate=1.):
         #return individual,
         T= ClassTimeIt.ClassTimeIt()
         T.disable()
@@ -124,7 +124,7 @@ class ClassMutate():
 
         T.timeit("start2")
     
-        PMat=np.array([0.,pFlux, p0, pMove])
+        PMat=np.array([0.,pFlux, p0, pMove, pScale])
         PMat/=np.sum(PMat)
         PMat=np.cumsum(PMat)
         
@@ -140,26 +140,26 @@ class ClassMutate():
         if Type==0:
             NMax=int(np.max([3.,10]))
             N=int(random.uniform(1, NMax))
+            indR=sorted(list(set(np.int32(np.random.rand(N)*NNonZero).tolist())))
+            indSel=ind[indR]
         # zero a pixel
         elif Type==1:
             N=np.max([(NNonZero/10),1])
+            indR=sorted(list(set(np.int32(np.random.rand(N)*NNonZero).tolist())))
+            indSel=ind[indR]
         # move a pixel
-        else:
+        elif Type==2:
             NMax=int(np.max([3.,self.PM.NPixListParms/10]))
             NMax=np.min([NMax,10])
             N=int(random.uniform(1, NMax))
-            #N=int(random.uniform(1, individual.shape[1]/100))
-            
-            # InReg=random.uniform(-1,1)
-            # if InReg<0:
-            #     InReg=-1
-
-
+            indR=sorted(list(set(np.int32(np.random.rand(N)*NNonZero).tolist())))
+            indSel=ind[indR]
+        elif Type==3:
+            FactorScale=1.+np.random.randn(1)[0]*0.01
+            indSel=np.arange(Af.size)
         #print pFlux, p0, pMove
         #print "PPPPPP",PMat,RType,Type
         
-        indR=sorted(list(set(np.int32(np.random.rand(N)*NNonZero).tolist())))
-        indSel=ind[indR]
         #Type=0
 
         #print "Type:",Type,RType
@@ -212,6 +212,9 @@ class ClassMutate():
                 #     for iReg in [1,3,5,7]:
                 #         individual=self.MovePix(individual,iPix,Flux,InReg=iReg)
                     
+            if Type==3:
+                Af[iPix]*=FactorScale
+
         if "GSig" in self.PM.SolveParam:
             GSig=self.PM.ArrayToSubArray(individual,"GSig")
             GSig[GSig<0]=0
