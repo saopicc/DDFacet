@@ -43,7 +43,7 @@ class ClassInitSSDModelParallel():
     def setSSDModelImage(self,ModelImage):
         self.ModelImage=ModelImage
 
-    def giveDicoInitIndiv(self,ListIslands,ListDoIsland=None,Parallel=True):
+    def giveDicoInitIndiv(self,ListIslands,ListDoIsland=None,Parallel=False):
         NCPU=self.NCPU
         work_queue = multiprocessing.JoinableQueue()
         ListIslands=ListIslands#[300:308]
@@ -146,7 +146,7 @@ class ClassInitSSDModel():
         self.GD=GD
         self.GD["Parallel"]["NCPU"]=1
         #self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
-        self.GD["HMP"]["Alpha"]=[-1.,1.,5]
+        self.GD["HMP"]["Alpha"]=[-2.,2.,5]
         self.GD["Deconv"]["Mode"]="HMP"
         self.GD["Deconv"]["CycleFactor"]=0
         self.GD["Deconv"]["PeakFactor"]=0.0
@@ -361,6 +361,7 @@ class ClassInitSSDModel():
         #print "update"
         #time.sleep(30)
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
+        #self.DeconvMachine.Plot()
         T.timeit("deconv %s"%str(self.DicoSubDirty["ImageCube"].shape))
         #print "deconv"
         #time.sleep(30)
@@ -446,7 +447,6 @@ class ClassInitSSDModel():
         else:
             AModel=np.zeros_like(SModel)
         T.timeit("spec index")
-        
 
         return SModel,AModel
 
@@ -533,16 +533,16 @@ class WorkerInitMSMF(multiprocessing.Process):
         while not self.kill_received and not self.work_queue.empty():
             
             DicoJob = self.work_queue.get()
-            #self.initIsland(DicoJob)
-            try:
-                self.initIsland(DicoJob)
-            except:
-                print traceback.format_exc()
-                iIsland=DicoJob["iIsland"]
-                FileOut="errIsland_%6.6i.npy"%iIsland
-                print ModColor.Str("...... on island %i, saving to file %s"%(iIsland,FileOut))
-                np.save(FileOut,np.array(self.ListIsland[iIsland]))
-                print
+            self.initIsland(DicoJob)
+            # try:
+            #     self.initIsland(DicoJob)
+            # except:
+            #     print traceback.format_exc()
+            #     iIsland=DicoJob["iIsland"]
+            #     FileOut="errIsland_%6.6i.npy"%iIsland
+            #     print ModColor.Str("...... on island %i, saving to file %s"%(iIsland,FileOut))
+            #     np.save(FileOut,np.array(self.ListIsland[iIsland]))
+            #     print
 
 
 

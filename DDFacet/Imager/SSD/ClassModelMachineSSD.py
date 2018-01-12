@@ -330,16 +330,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     #     # Get the model image
     #     IM = self.GiveModelImage(self.FreqMachine.Freqsp)
     #     nchan, npol, Nx, Ny = IM.shape
-
     #     # Fit the alpha map
     #     self.FreqMachine.FitAlphaMap(IM[:, 0, :, :], threshold=threshold) # should set threshold based on SNR of final residual
-
     #     if save_dict:
     #         FileName = self.GD['Output']['Name'] + ".Dicoalpha"
     #         print>>log, "Saving componentwise SPI map to %s"%FileName
-
     #         MyPickle.Save(self.FreqMachine.alpha_dict, FileName)
-
     #     return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
 
 
