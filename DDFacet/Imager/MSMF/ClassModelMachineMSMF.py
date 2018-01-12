@@ -189,7 +189,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             M1,_=ModFFTW.ConvolveGaussianWrapper(M1,Sig=GaussPars[0][0]/CellSizeRad)
             
 
-        print M0.shape,M1.shape
+        #print M0.shape,M1.shape
         # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
         if threshold is not None:
             minmod = threshold
