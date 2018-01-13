@@ -71,16 +71,3 @@ target_link_libraries(_pyGridder ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 add_library(_pyGridderSmearPols GridderSmearPols.cc JonesServer.h Semaphores.h)
 set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
 target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
-
-#compile and link _pyWeightingCore.so
-add_custom_command(OUTPUT _pyWeightingCore.c
-		   COMMAND cython ${CMAKE_CURRENT_SOURCE_DIR}/_pyWeightingCore.pyx -o _pyWeightingCore.c
-		   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-		   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/_pyWeightingCore.pyx
-		   COMMENT "Compiling cython module _pyWeightingCore.pyx"
-		   VERBATIM)
-add_library(_pyWeightingCore _pyWeightingCore.c)
-set_target_properties(_pyWeightingCore PROPERTIES
-		      PREFIX "" #remove "lib" prefix from library (PEP8 compliance)
-		      COMPILE_FLAGS "-fwrapv -fno-strict-aliasing")
-target_link_libraries(_pyWeightingCore)

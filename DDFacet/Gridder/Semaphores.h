@@ -24,7 +24,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "common.h"
 
 static PyObject *LSemaphoreNames;
-static size_t NSemaphores;
 static std::vector<sem_t *> Tab_SEM;
 
 static const char *GiveSemaphoreName(size_t iS){
@@ -32,48 +31,38 @@ static const char *GiveSemaphoreName(size_t iS){
 }
 
 static sem_t * GiveSemaphoreFromCell(size_t irow){
-  return Tab_SEM[irow % NSemaphores];
+  return Tab_SEM[irow % Tab_SEM.size()];
 }
 
 static sem_t * GiveSemaphoreFromID(size_t iS){
   const char* SemaphoreName=GiveSemaphoreName(iS);
-  sem_t * Sem_mutex;
-  if ((Sem_mutex = sem_open(SemaphoreName, O_CREAT, 0644, 1)) == SEM_FAILED) {
-    perror("semaphore initialization");
-    exit(1);
-  }
-  return Sem_mutex;
+  sem_t *Sem_mutex = sem_open(SemaphoreName, O_CREAT, 0644, 1);
+  if (Sem_mutex != SEM_FAILED) return Sem_mutex;
+  perror("semaphore initialization");
+  exit(1);
 }
 
 
 static PyObject *pySetSemaphores(PyObject */*self*/, PyObject *args)
 {
   if (!PyArg_ParseTuple(args, "O!",&PyList_Type, &LSemaphoreNames))  return NULL;
-  NSemaphores=(size_t)PyList_Size(LSemaphoreNames);
 
-  Tab_SEM.resize(NSemaphores);
-  for(size_t iSemaphore=0; iSemaphore<NSemaphores; iSemaphore++)
-    Tab_SEM[iSemaphore]=GiveSemaphoreFromID(iSemaphore);
-
-  Py_INCREF(Py_None);
-  return Py_None;
+  Tab_SEM.resize(PyList_Size(LSemaphoreNames));
+  for (size_t i=0; i<Tab_SEM.size(); ++i)
+    Tab_SEM[i]=GiveSemaphoreFromID(i);
+  Py_RETURN_NONE;
 }
 
 // MR FIXME: why pass the lists of name to the destructor?
 // This can cause inconsistencies and has no advantage whatsoever
-static PyObject *pyDeleteSemaphore(PyObject */*self*/, PyObject *args)
+static PyObject *pyDeleteSemaphore(PyObject */*self*/, PyObject */*args*/)
 {
-  if (!PyArg_ParseTuple(args, "O!",&PyList_Type, &LSemaphoreNames)) return NULL;
-
-  NSemaphores=(size_t)PyList_Size(LSemaphoreNames);
-
-  for(size_t iSemaphore=0; iSemaphore<NSemaphores; iSemaphore++){
-    const char* SemaphoreName=GiveSemaphoreName(iSemaphore);
-    sem_close(Tab_SEM[iSemaphore]);
+  for(size_t i=0; i<Tab_SEM.size(); ++i){
+    const char* SemaphoreName=GiveSemaphoreName(i);
+    sem_close(Tab_SEM[i]);
     sem_unlink(SemaphoreName);
   }
   Tab_SEM.resize(0);
-
-  Py_INCREF(Py_None);
-  return Py_None;
+  Tab_SEM.shrink_to_fit();
+  Py_RETURN_NONE;
 }

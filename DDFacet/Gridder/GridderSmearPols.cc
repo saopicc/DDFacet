@@ -62,7 +62,7 @@ PyObject *pyAccumulateWeightsOntoGrid(PyObject */*self*/, PyObject *args)
   {
   PyArrayObject *grid, *weights, *index;
   if (!PyArg_ParseTuple(args, "O!O!O!", &PyArray_Type,  &grid,
-                        &PyArray_Type,  &weights, &PyArray_Type,  &index))
+                        &PyArray_Type, &weights, &PyArray_Type, &index))
     return NULL;
 
   double *pgrid = p_float64(grid);
@@ -83,8 +83,7 @@ PyObject *pyAccumulateWeightsOntoGrid(PyObject */*self*/, PyObject *args)
       }
     }
 
-  Py_INCREF(Py_None);
-  return Py_None;
+  Py_RETURN_NONE;
   }
 
 //////////////////////////////////////////////////////////////////////
@@ -127,9 +126,9 @@ void getPolMap(const vector<string> &stokes, int *PolMap)
   for (size_t n=0; n<stokes.size(); ++n)
     {
     if (stokes[n]=="I") PolMap[n]=ii;
-    if (stokes[n]=="Q") PolMap[n]=iq;
-    if (stokes[n]=="U") PolMap[n]=iu;
-    if (stokes[n]=="V") PolMap[n]=iv;
+    else if (stokes[n]=="Q") PolMap[n]=iq;
+    else if (stokes[n]=="U") PolMap[n]=iu;
+    else if (stokes[n]=="V") PolMap[n]=iv;
     }
   }
 
@@ -196,7 +195,7 @@ void gridder(
   double WaveRefWave = ptrWinfo[0];
   double wmax = ptrWinfo[1];
   double NwPlanes = ptrWinfo[2];
-  int OverS=(int)floor(ptrWinfo[3]);
+  int OverS=int(floor(ptrWinfo[3]));
 
   int nGridX    = int(grid->dimensions[3]);
   int nGridY    = int(grid->dimensions[2]);
@@ -217,7 +216,6 @@ void gridder(
   /* MR FIXME: should the second entry depend on nGridY instead of nGridX? */
   const double uvwScale_p[]= {nGridX*incr[0], nGridX*incr[1]};
 
-  int JonesType= int(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 0)));
   bool ChanEquidistant= bool(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 1)));
 
   const int *MappingBlock = p_int32(SmearMapping);
@@ -262,7 +260,7 @@ void gridder(
   WaveLengthMean/=(double)nVisChan;
   FreqMean0/=(double)nVisChan;
 
-  JonesServer JS(LJones,JonesType,WaveLengthMean);
+  JonesServer JS(LJones,WaveLengthMean);
 
   vector<double> ThisSumJonesChan(nVisChan), ThisSumSqWeightsChan(nVisChan);
 
@@ -643,9 +641,7 @@ PyObject *pyGridderWPol(PyObject */*self*/, PyObject *args)
     }
   if (!done)
     FATAL("Cannot convert input correlations to desired output Stokes parameters.");
-  Py_INCREF(Py_None);
-  return Py_None;
-
+  Py_RETURN_NONE;
 }
 
 using ApplyJonesType = void (*) (const JonesServer &JS, const dcMat &corr_vis, dcmplx corr, dcMat &visBuff);
@@ -729,7 +725,6 @@ void degridder(
   /* MR FIXME: should the second entry depend on nGridY instead of nGridX? */
   const double uvwScale_p[]= {nGridX*incr[0], nGridX*incr[1]};
 
-  const int JonesType= int(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 0)));
   const bool ChanEquidistant= bool(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 1)));
 
   const int *MappingBlock = p_int32(SmearMapping);
@@ -748,7 +743,7 @@ void degridder(
     WaveLengthMean+=C/Pfreqs[visChan];
   WaveLengthMean/=double(nVisChan);
 
-  JonesServer JS(LJones,JonesType,WaveLengthMean);
+  JonesServer JS(LJones,WaveLengthMean);
 
   const int *p_ChanMapping=p_int32(np_ChanMapping);
   for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
@@ -895,7 +890,7 @@ void degridder(
 
         fcmplx* __restrict__ visPtr = p_complex64(vis) + doff;
         auto Sem_mutex = GiveSemaphoreFromCell(doff_chan);
-        /* Finally subtract visibilities from current residues*/
+        /* Finally subtract visibilities from current residues */
         sem_wait(Sem_mutex);
         for (auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)
           visPtr[ThisPol] -= visBuff[ThisPol];

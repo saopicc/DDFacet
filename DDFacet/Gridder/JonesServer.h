@@ -36,18 +36,7 @@ using dcMat = Mat<dcmplx>;
 class JonesServer
   {
   private:
-    static void ScaleJones(dcMat &J0, double AlphaScaleJones)
-      {
-      for(int ThisPol=0; ThisPol<4; ThisPol++)
-        {
-        double aj0 = abs(J0[ThisPol]);
-        if(aj0!=0.)
-          J0[ThisPol] *= (1.-AlphaScaleJones)/aj0 + AlphaScaleJones;
-        }
-      }
-
-    static void NormJones(dcMat &J0, bool ApplyAmp, bool ApplyPhase, bool DoScaleJones,
-      const double *uvwPtr, double WaveLengthMean, double CalibError)
+    void NormJones(dcMat &J0, const double *uvwPtr) const
       {
       if (!ApplyAmp)
         for (int ThisPol=0; ThisPol<4; ThisPol++)
@@ -67,7 +56,12 @@ class JonesServer
         double V2=uvwPtr[1]*uvwPtr[1];
         double R2=(U2+V2)/(WaveLengthMean*WaveLengthMean);
         double AlphaScaleJones=exp(-2.*PI*CalibError*CalibError*R2);
-        ScaleJones(J0,AlphaScaleJones);
+        for (int ThisPol=0; ThisPol<4; ThisPol++)
+          {
+          double aj0 = abs(J0[ThisPol]);
+          if(aj0!=0.)
+            J0[ThisPol] *= (1.-AlphaScaleJones)/aj0 + AlphaScaleJones;
+          }
         }
       }
 
@@ -135,7 +129,6 @@ class JonesServer
     bool ApplyAmp, ApplyPhase, DoScaleJones;
     double CalibError, ReWeightSNR;
 
-    int JonesType;
     double WaveLengthMean;
     bool Has_AlphaReg_killMS=false;
 
@@ -145,11 +138,9 @@ class JonesServer
     int CurrentJones_Beam_Chan=-1;
 
   public:
-    JonesServer(PyObject *LJones, int JonesTypeIn, double WaveLengthMeanIn){
+    JonesServer(PyObject *LJones, double WaveLengthMeanIn){
       J0.setUnity(); J1.setUnity();
       WaveLengthMean=WaveLengthMeanIn;
-      //MR FIXME: This is not used anywhere later on ... bug?
-      JonesType=JonesTypeIn;
       DoApplyJones=(PyList_Size(LJones)>0);
       if (DoApplyJones)
         {
@@ -209,9 +200,7 @@ class JonesServer
       int i_ant0=ptrA0[irow];
       int i_ant1=ptrA1[irow];
       // MR FIXME
-      bool DoApplyAlphaReg=false;
-      if (DoApplyAlphaRegIn && Has_AlphaReg_killMS)
-        DoApplyAlphaReg=true;
+      bool DoApplyAlphaReg = (DoApplyAlphaRegIn && Has_AlphaReg_killMS);
       DoApplyAlphaReg=false;
 
       if (ApplyJones_Beam&&ApplyJones_killMS){
@@ -263,8 +252,8 @@ class JonesServer
               }
             }
 
-          NormJones(J0kMS, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
-          NormJones(J1kMS, ApplyAmp, ApplyPhase, DoScaleJones, uvwPtr, WaveLengthMean, CalibError);
+          NormJones(J0kMS, uvwPtr);
+          NormJones(J1kMS, uvwPtr);
           CurrentJones_kMS_Time=i_t;
           CurrentJones_kMS_Chan=i_JonesChan;
           SomeJonesHaveChanged=true;
