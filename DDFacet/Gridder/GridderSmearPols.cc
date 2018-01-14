@@ -256,8 +256,8 @@ void gridder(
     WaveLengthMean+=C/Pfreqs[visChan];
     FreqMean0+=Pfreqs[visChan];
     }
-  WaveLengthMean/=(double)nVisChan;
-  FreqMean0/=(double)nVisChan;
+  WaveLengthMean/=double(nVisChan);
+  FreqMean0/=double(nVisChan);
 
   JonesServer JS(LJones,WaveLengthMean);
 
@@ -304,10 +304,11 @@ void gridder(
         FreqMean0, Dnu, DT);
       }
 
-    double visChanMean=0., Umean=0, Vmean=0, Wmean=0, FreqMean=0;
+    double visChanMean=0., FreqMean=0;
     double ThisWeight=0., ThisSumJones=0., ThisSumSqWeights=0.;
-    int NVisThisblock=0;
     JS.resetJonesServerCounter();
+    int NVisThisblock=0;
+    double Umean=0, Vmean=0, Wmean=0;
     for (auto inx=0; inx<NRowThisBlock; inx++)
       {
       const size_t irow = size_t(Row[inx]);
@@ -341,7 +342,7 @@ void gridder(
           /* this modification allows us to support blocks that skip across channels */
           else
             {
-            while (size_t(CurrentCorrChan[inx]) < visChan)
+            while (size_t(CurrentCorrChan[inx])<visChan)
               {
               CurrentCorrTerm[inx] *= dCorrTerm[inx];
               CurrentCorrChan[inx]++;
@@ -430,13 +431,13 @@ void gridder(
     const double recipWvl = FreqMean / C;
 
     /* ############## W-projection #################### */
-    const int iwplane = (int)lrint((NwPlanes-1)*abs(Wmean)*(WaveRefWave*recipWvl)/wmax);
-    if (iwplane>NwPlanes-1) continue;
+    const int iwplane = int(lrint((NwPlanes-1)*abs(Wmean)*(WaveRefWave*recipWvl)/wmax));
+    if (iwplane>=NwPlanes) continue;
 
     PyArrayObject *cfs=(PyArrayObject *) PyArray_ContiguousFromObject(
       PyList_GetItem((Wmean>0) ? Lcfs : LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);
-    const int nConvX = (int)cfs->dimensions[0];
-    const int nConvY = (int)cfs->dimensions[1];
+    const int nConvX = int(cfs->dimensions[0]);
+    const int nConvY = int(cfs->dimensions[1]);
     const int supx = (nConvX/OverS-1)/2;
     const int supy = (nConvY/OverS-1)/2;
     const int SupportCF=nConvX/OverS;
@@ -705,7 +706,7 @@ void degridder(
   const double WaveRefWave = ptrWinfo[0];
   const double wmax = ptrWinfo[1];
   const double NwPlanes = ptrWinfo[2];
-  const int OverS=(int)floor(ptrWinfo[3]);
+  const int OverS=int(floor(ptrWinfo[3]));
 
   const int nGridX    = int(grid->dimensions[3]);
   const int nGridY    = int(grid->dimensions[2]);
@@ -770,10 +771,12 @@ void degridder(
       const size_t irow = size_t(Row[inx]);
       if (irow>nrows) continue;
       const double* __restrict__ uvwPtr = p_float64(uvw) + irow*3;
+      const double U=uvwPtr[0];
+      const double V=uvwPtr[1];
+      const double W=uvwPtr[2];
 
-      const double W = uvwPtr[2];
-      Umean += uvwPtr[0] + W*Cu;
-      Vmean += uvwPtr[1] + W*Cv;
+      Umean += U + W*Cu;
+      Vmean += V + W*Cv;
       Wmean += W;
       ++NVisThisblock;
       }
@@ -786,7 +789,7 @@ void degridder(
     const double recipWvl = FreqMean / C;
 
     /* ############## W-projection #################### */
-    const int iwplane = int(lrint((NwPlanes-1)*abs(Wmean)*WaveRefWave*recipWvl/wmax));
+    const int iwplane = int(lrint((NwPlanes-1)*abs(Wmean)*(WaveRefWave*recipWvl)/wmax));
     if (iwplane>=NwPlanes) continue;
 
     PyArrayObject *cfs=(PyArrayObject *) PyArray_ContiguousFromObject(
@@ -809,15 +812,16 @@ void degridder(
 
     dcMat stokes_vis;
 
-    int offx = int(lrint((locx-posx)*OverS) + (nConvX-1)/2); /* location in */
-    int offy = int(lrint((locy-posy)*OverS) + (nConvY-1)/2); /* oversampling */
+    const int offx = int(lrint((locx-posx)*OverS) + (nConvX-1)/2); /* location in */
+    const int offy = int(lrint((locy-posy)*OverS) + (nConvY-1)/2); /* oversampling */
 
-    int io = offy - supy*OverS;
-    int jo = offx - supx*OverS;
-    int cfoff = (io*OverS + jo)*SupportCF*SupportCF;
+    const int io = offy - supy*OverS;
+    const int jo = offx - supx*OverS;
+    const int cfoff = (io*OverS + jo)*SupportCF*SupportCF;
+
     for (size_t ipol=0; ipol<nVisPol; ++ipol)
       {
-      size_t goff = size_t((gridChan*nGridPol + ipol) * nGridX*nGridY);
+      const size_t goff = size_t((gridChan*nGridPol + ipol) * nGridX*nGridY);
       const fcmplx* __restrict__ cf0 = p_complex64(cfs) + cfoff;
       const fcmplx* __restrict__ gridPtr = p_complex64(grid) + goff + (locy-supy)*nGridX + locx;
       dcmplx svi = 0.;
@@ -835,7 +839,7 @@ void degridder(
     if (DoDecorr)
       {
       // MR FIXME: why take the middle of the block?
-      int iRowMeanThisBlock = Row[NRowThisBlock/2];
+      const int iRowMeanThisBlock = Row[NRowThisBlock/2];
 
       const double* __restrict__ uvwPtrMidRow = p_float64(uvw) + iRowMeanThisBlock*3;
       const double* __restrict__ uvw_dt_PtrMidRow = uvw_dt_Ptr + iRowMeanThisBlock*3;
@@ -850,13 +854,12 @@ void degridder(
       size_t irow = size_t(Row[inx]);
       if (irow>nrows) continue;
       const double* __restrict__ uvwPtr = p_float64(uvw) + irow*3;
-      double phase = uvwPtr[0]*l0 + uvwPtr[1]*m0 + uvwPtr[2]*n0;
-      phase *= 2.*PI/C;
+      const double angle = 2.*PI*(uvwPtr[0]*l0+uvwPtr[1]*m0+uvwPtr[2]*n0)/C;
 
       for (auto visChan=chStart; visChan<chEnd; ++visChan)
         {
-        size_t doff_chan = size_t(irow*nVisChan + visChan);
-        size_t doff = doff_chan*nVisCorr;
+        const size_t doff_chan = size_t(irow*nVisChan + visChan);
+        const size_t doff = doff_chan*nVisCorr;
 
         if (JS.DoApplyJones)
           JS.updateJones(irow, visChan, uvwPtr, false, false);
@@ -866,15 +869,15 @@ void degridder(
           {
           if(visChan==0)
             {
-            CurrentCorrTerm[inx]=polar(1.,Pfreqs[visChan]*phase);
-            dCorrTerm[inx]=polar(1.,(Pfreqs[1]-Pfreqs[0])*phase);
+            CurrentCorrTerm[inx]=polar(1.,Pfreqs[visChan]*angle);
+            dCorrTerm[inx]=polar(1.,(Pfreqs[1]-Pfreqs[0])*angle);
             }
           else
             CurrentCorrTerm[inx]*=dCorrTerm[inx];
           corr=CurrentCorrTerm[inx];
           }
         else
-          corr=polar(1.,Pfreqs[visChan]*phase);
+          corr=polar(1.,Pfreqs[visChan]*angle);
 
         corr*=DeCorrFactor;
 
@@ -930,20 +933,20 @@ PyObject *pyDeGridderWPol(PyObject */*self*/, PyObject *args)
   using svec = vector<string>;
   np_vis = (PyArrayObject *)PyArray_ContiguousFromObject(ObjVis, PyArray_COMPLEX64, 0, 3);
 
-  svec stokeslookup = {"undef","I","Q","U","V","RR","RL","LR","LL","XX","XY","YX","YY"};
-  size_t ncorr = size_t(PyArray_Size((PyObject*)LDataCorrFormat));
-  size_t npol = size_t(PyArray_Size((PyObject*)LExpectedOutStokes));
+  const svec stokeslookup = {"undef","I","Q","U","V","RR","RL","LR","LL","XX","XY","YX","YY"};
+  const size_t ncorr = size_t(PyArray_Size((PyObject*)LDataCorrFormat));
+  const size_t npol = size_t(PyArray_Size((PyObject*)LExpectedOutStokes));
   svec inputcorr(ncorr), expstokes(npol);
   for (size_t i=0; i<ncorr; ++i)
     {
-    uint16_t corrid = p_uint16(LDataCorrFormat)[i];
+    const uint16_t corrid = p_uint16(LDataCorrFormat)[i];
     if (corrid<5 || corrid>12)
       FATAL("Only accepts RR,RL,LR,LL,XX,XY,YX,YY as correlation output types");
     inputcorr[i] = stokeslookup[corrid];
     }
   for (size_t i=0; i<npol; ++i)
     {
-    uint16_t polid = p_uint16(LExpectedOutStokes)[i];
+    const uint16_t polid = p_uint16(LExpectedOutStokes)[i];
     if (polid!=1)
       FATAL("Only accepts I as polarization input type");
     expstokes[i] = stokeslookup[polid];
