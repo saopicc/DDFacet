@@ -184,28 +184,28 @@ void gridder(
     }
 
   const double *ptrFacetInfos=p_float64((PyArrayObject *) PyList_GetItem(Lmaps, 1));
-  double Cu=ptrFacetInfos[0];
-  double Cv=ptrFacetInfos[1];
-  double l0=ptrFacetInfos[2];
-  double m0=ptrFacetInfos[3];
-  double n0=sqrt(1-l0*l0-m0*m0)-1;
+  const double Cu=ptrFacetInfos[0];
+  const double Cv=ptrFacetInfos[1];
+  const double l0=ptrFacetInfos[2];
+  const double m0=ptrFacetInfos[3];
+  const double n0=sqrt(1-l0*l0-m0*m0)-1;
 
   /* Get size of grid. */
-  double *ptrWinfo = p_float64(Winfos);
-  double WaveRefWave = ptrWinfo[0];
-  double wmax = ptrWinfo[1];
-  double NwPlanes = ptrWinfo[2];
-  int OverS=int(floor(ptrWinfo[3]));
+  const double *ptrWinfo = p_float64(Winfos);
+  const double WaveRefWave = ptrWinfo[0];
+  const double wmax = ptrWinfo[1];
+  const double NwPlanes = ptrWinfo[2];
+  const int OverS=int(floor(ptrWinfo[3]));
 
-  int nGridX    = int(grid->dimensions[3]);
-  int nGridY    = int(grid->dimensions[2]);
-  int nGridPol  = int(grid->dimensions[1]);
-  int nGridChan = int(grid->dimensions[0]);
+  const int nGridX    = int(grid->dimensions[3]);
+  const int nGridY    = int(grid->dimensions[2]);
+  const int nGridPol  = int(grid->dimensions[1]);
+  const int nGridChan = int(grid->dimensions[0]);
 
   /* Get visibility data size. */
-  size_t nVisCorr = size_t(flags->dimensions[2]);
-  size_t nVisChan = size_t(flags->dimensions[1]);
-  size_t nrows    = size_t(uvw->dimensions[0]);
+  const size_t nVisCorr = size_t(flags->dimensions[2]);
+  const size_t nVisChan = size_t(flags->dimensions[1]);
+  const size_t nrows    = size_t(uvw->dimensions[0]);
 
   double* __restrict__ sumWtPtr = p_float64(sumwt);
 
@@ -216,11 +216,11 @@ void gridder(
   /* MR FIXME: should the second entry depend on nGridY instead of nGridX? */
   const double uvwScale_p[]= {nGridX*incr[0], nGridX*incr[1]};
 
-  bool ChanEquidistant= bool(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 1)));
+  const bool ChanEquidistant= bool(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 1)));
 
   const int *MappingBlock = p_int32(SmearMapping);
   /* total size is in two words */
-  size_t NTotBlocks = size_t(MappingBlock[0]) + (size_t(MappingBlock[1])<<32);
+  const size_t NTotBlocks = size_t(MappingBlock[0]) + (size_t(MappingBlock[1])<<32);
   const int *NRowBlocks = MappingBlock+2;
   const int *StartRow = MappingBlock+2+NTotBlocks;
 
@@ -269,9 +269,9 @@ void gridder(
     if (sparsificationFlag && !sparsificationFlag[iBlock])
       continue;
 
-    int NRowThisBlock=NRowBlocks[iBlock]-2;
-    size_t chStart = size_t(StartRow[0]),
-           chEnd   = size_t(StartRow[1]);
+    const int NRowThisBlock=NRowBlocks[iBlock]-2;
+    const size_t chStart = size_t(StartRow[0]),
+                 chEnd   = size_t(StartRow[1]);
     const int *Row = StartRow+2;
     /* advance pointer to next blocklist */
     StartRow += NRowBlocks[iBlock];
@@ -294,7 +294,7 @@ void gridder(
     double DeCorrFactor=1.;
     if (DoDecorr)
       {
-      int iRowMeanThisBlock=Row[NRowThisBlock/2];
+      const int iRowMeanThisBlock=Row[NRowThisBlock/2];
 
       const double* __restrict__ uvwPtrMidRow = p_float64(uvw) + iRowMeanThisBlock*3;
       const double* __restrict__ uvw_dt_PtrMidRow = uvw_dt_Ptr + iRowMeanThisBlock*3;
@@ -310,9 +310,13 @@ void gridder(
     JS.resetJonesServerCounter();
     for (auto inx=0; inx<NRowThisBlock; inx++)
       {
-      size_t irow = size_t(Row[inx]);
+      const size_t irow = size_t(Row[inx]);
       if (irow>nrows) continue;
       const double* __restrict__ uvwPtr = p_float64(uvw) + irow*3;
+      const double U=uvwPtr[0];
+      const double V=uvwPtr[1];
+      const double W=uvwPtr[2];
+      const double angle = -2.*PI*(U*l0+V*m0+W*n0)/C;
       JS.WeightVaryJJ=1.;
 
       for (size_t visChan=chStart; visChan<chEnd; ++visChan)
@@ -323,16 +327,12 @@ void gridder(
         /* We can do that since all flags in 4-pols are equalised in ClassVisServer */
         if (p_bool(flags)[doff]) continue;
 
-        double U=uvwPtr[0];
-        double V=uvwPtr[1];
-        double W=uvwPtr[2];
         dcmplx corr;
         if (ChanEquidistant)
           {
           /* init correlation term for first channel that it's not initialized in */
           if (CurrentCorrChan[inx]==-1)
             {
-            double angle = -2.*PI*(U*l0+V*m0+W*n0)/C;
             CurrentCorrTerm[inx] = polar(1.,Pfreqs[visChan]*angle);
             dCorrTerm[inx]       = polar(1.,(Pfreqs[1]-Pfreqs[0])*angle);
             CurrentCorrChan[inx] = int(visChan);
@@ -350,7 +350,7 @@ void gridder(
           corr = CurrentCorrTerm[inx];
           }
         else /* Not chan-equidistant */
-          corr = polar(1.,-2.*PI*Pfreqs[visChan]/C*(U*l0+V*m0+W*n0));
+          corr = polar(1.,Pfreqs[visChan]*angle);
 
         if (JS.DoApplyJones)
           JS.updateJones(irow, visChan, uvwPtr, true, true);
@@ -358,6 +358,7 @@ void gridder(
         dcMat VisMeas;
         if (dopsf)
           {
+          // MR FIXME: why reset corr here? Seems like wasted work...
           corr=1.;
           if (JS.DoApplyJones)
             VisMeas=(JS.J0).times(JS.J1H); // MR FIXME: precompute?
@@ -370,15 +371,15 @@ void gridder(
         else
           readcorr(p_complex64(vis)+doff, VisMeas);
 
-        double FWeight = imgWtPtr[0]*JS.WeightVaryJJ;
-        dcmplx Weight = FWeight*corr;
+        const double FWeight = imgWtPtr[0]*JS.WeightVaryJJ;
+        const dcmplx Weight = FWeight*corr;
         if (JS.DoApplyJones)
           {
           VisMeas=(JS.J0H.times(VisMeas)).times(JS.J1);
           mulaccum(VisMeas, Weight, Vis);
 
           /*Compute per channel and overall approximate matrix sqroot:*/
-          double FWeightSq=FWeight*DeCorrFactor*DeCorrFactor;
+          const double FWeightSq=FWeight*DeCorrFactor*DeCorrFactor;
           ThisSumJones+=JS.BB*FWeightSq;
           ThisSumSqWeights+=FWeightSq;
 
@@ -388,12 +389,10 @@ void gridder(
         else /* Don't apply Jones */
           mulaccum(VisMeas, Weight, Vis);
 
-        U+=W*Cu;
-        V+=W*Cv;
         /*###################### Averaging #######################*/
-        Umean+=U;
-        Vmean+=V;
-        Wmean+=W;
+        Umean += U + W*Cu;
+        Vmean += V + W*Cv;
+        Wmean += W;
         FreqMean+=Pfreqs[visChan];
         ThisWeight+=FWeight;
 
@@ -406,8 +405,8 @@ void gridder(
 
     visChanMean/=NVisThisblock;
 
-    int gridChan = p_ChanMapping[chStart];
-    double diffChan=visChanMean-gridChan;
+    const int gridChan = p_ChanMapping[chStart];
+    const double diffChan=visChanMean-gridChan;
     if(abs(diffChan)>1e-6)
       {
       printf("gridder: probably there is a problem in the BDA mapping: (ChanMean, gridChan, diff)=(%lf, %i, %lf)\n",visChanMean,gridChan,diffChan);
@@ -429,45 +428,45 @@ void gridder(
     Vmean/=NVisThisblock;
     Wmean/=NVisThisblock;
     FreqMean/=NVisThisblock;
-    double recipWvl = FreqMean / C;
+    const double recipWvl = FreqMean / C;
 
     /* ############## W-projection #################### */
-    int iwplane = (int)lrint((NwPlanes-1)*abs(Wmean)*(WaveRefWave*recipWvl)/wmax);
+    const int iwplane = (int)lrint((NwPlanes-1)*abs(Wmean)*(WaveRefWave*recipWvl)/wmax);
     if (iwplane>NwPlanes-1) continue;
 
     PyArrayObject *cfs=(PyArrayObject *) PyArray_ContiguousFromObject(
       PyList_GetItem((Wmean>0) ? Lcfs : LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);
-    int nConvX = (int)cfs->dimensions[0];
-    int nConvY = (int)cfs->dimensions[1];
-    int supx = (nConvX/OverS-1)/2;
-    int supy = (nConvY/OverS-1)/2;
-    int SupportCF=nConvX/OverS;
+    const int nConvX = (int)cfs->dimensions[0];
+    const int nConvY = (int)cfs->dimensions[1];
+    const int supx = (nConvX/OverS-1)/2;
+    const int supy = (nConvY/OverS-1)/2;
+    const int SupportCF=nConvX/OverS;
 
-    double posx = uvwScale_p[0]*Umean*recipWvl + offset_p[0];
-    double posy = uvwScale_p[1]*Vmean*recipWvl + offset_p[1];
+    const double posx = uvwScale_p[0]*Umean*recipWvl + offset_p[0];
+    const double posy = uvwScale_p[1]*Vmean*recipWvl + offset_p[1];
 
-    int locx = int(lrint(posx));    /* location in grid */
-    int locy = int(lrint(posy));
+    const int locx = int(lrint(posx));    /* location in grid */
+    const int locy = int(lrint(posy));
 
     /* Only use visibility point if the full support is within grid. */
     if (locx-supx<0 || locx+supx>=nGridX || locy-supy<0 || locy+supy>=nGridY)
       continue;
 
-    int offx = int(lrint((locx-posx)*OverS) + (nConvX-1)/2); /* location in */
-    int offy = int(lrint((locy-posy)*OverS) + (nConvY-1)/2); /* oversampling */
+    const int offx = int(lrint((locx-posx)*OverS) + (nConvX-1)/2); /* location in */
+    const int offy = int(lrint((locy-posy)*OverS) + (nConvY-1)/2); /* oversampling */
 
-    int io = offy - supy*OverS;
-    int jo = offx - supx*OverS;
-    int cfoff = (io*OverS + jo)*SupportCF*SupportCF;
+    const int io = offy - supy*OverS;
+    const int jo = offx - supx*OverS;
+    const int cfoff = (io*OverS + jo)*SupportCF*SupportCF;
 
     for (size_t ipol=0; ipol<nVisPol; ++ipol)
       {
       /* Map to grid polarization. Only use pol if needed.*/
-      int gridPol = PolMap[ipol];
+      const int gridPol = PolMap[ipol];
       if (gridPol<0 || gridPol>=nGridPol) continue;
 
-      size_t goff = size_t((gridChan*nGridPol + gridPol) * nGridX*nGridY);
-      dcmplx VisVal =stokes_vis[ipol];
+      const size_t goff = size_t((gridChan*nGridPol + gridPol) * nGridX*nGridY);
+      const dcmplx VisVal =stokes_vis[ipol];
       const fcmplx* __restrict__ cf0 = p_complex64(cfs) + cfoff;
       fcmplx* __restrict__ gridPtr = p_complex64(grid) + goff + (locy-supy)*nGridX + locx;
       for (int sy=-supy; sy<=supy; ++sy, gridPtr+=nGridX)
@@ -854,6 +853,7 @@ void degridder(
       if (irow>nrows) continue;
       const double* __restrict__ uvwPtr = p_float64(uvw) + irow*3;
       double phase = uvwPtr[0]*l0 + uvwPtr[1]*m0 + uvwPtr[2]*n0;
+      phase *= 2.*PI/C;
 
       for (auto visChan=chStart; visChan<chEnd; ++visChan)
         {
@@ -868,17 +868,15 @@ void degridder(
           {
           if(visChan==0)
             {
-            double UVNorm = 2.*PI*Pfreqs[visChan]/C;
-            CurrentCorrTerm[inx]=polar(1.,UVNorm*phase);
-            double dUVNorm = 2.*PI*(Pfreqs[1]-Pfreqs[0])/C;
-            dCorrTerm[inx]=polar(1.,dUVNorm*phase);
+            CurrentCorrTerm[inx]=polar(1.,Pfreqs[visChan]*phase);
+            dCorrTerm[inx]=polar(1.,(Pfreqs[1]-Pfreqs[0])*phase);
             }
           else
             CurrentCorrTerm[inx]*=dCorrTerm[inx];
           corr=CurrentCorrTerm[inx];
           }
         else
-          corr=polar(1.,2.*PI*Pfreqs[visChan]/C*phase);
+          corr=polar(1.,Pfreqs[visChan]*phase);
 
         corr*=DeCorrFactor;
 
