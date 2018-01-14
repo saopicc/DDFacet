@@ -142,6 +142,75 @@ vector<string> sortStokes(const vector<string> &stokes)
   return res;
   }
 
+class CorrectionCalculator
+  {
+  private:
+    bool ChanEquidistant;
+    const bool *sparsificationFlag;
+    size_t NMaxRow;
+    /* these are used for equidistant channels: one holds the phase term in the
+       current channel, the other one holds the delta-phase across channels */
+    vector<dcmplx> CurrentCorrTerm, dCorrTerm;
+    /* and this indicates for which channel the CurrentCorrTerm is currently computed */
+    vector<int> CurrentCorrChan;
+    int CurrentCorrRow0;
+
+  public:
+    CorrectionCalculator(PyObject *LOptimisation, const bool *sparsificationFlag_,
+      const size_t NTotBlocks, const int *NRowBlocks)
+      {
+      sparsificationFlag = sparsificationFlag_;
+      ChanEquidistant= bool(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 1)));
+      NMaxRow=0;
+      if (ChanEquidistant)
+        for (size_t i=0; i<NTotBlocks; ++i)
+          if (!sparsificationFlag || sparsificationFlag[i])
+            NMaxRow = max(NMaxRow, size_t(NRowBlocks[i]-2));
+      CurrentCorrTerm.resize(NMaxRow);
+      dCorrTerm.resize(NMaxRow);
+      CurrentCorrChan.resize(NMaxRow,-1);
+      CurrentCorrRow0 = -1;
+      }
+
+    void update(int Row0, int NRowThisBlock)
+      {
+      /* when moving to a new block of rows, init this to -1 so the code below knows to initialize*/
+      /* CurrentCorrTerm when the first channel of each row comes in*/
+      if (ChanEquidistant)
+        if (Row0!=CurrentCorrRow0)
+        {
+        for (auto inx=0; inx<NRowThisBlock; inx++)
+          CurrentCorrChan[inx] = -1;
+        CurrentCorrRow0 = Row0;
+        }
+      }
+
+    dcmplx getCorr(int inx, const double *Pfreqs, size_t visChan, double angle)
+      {
+      if (!ChanEquidistant)
+        return polar(1.,Pfreqs[visChan]*angle);
+
+      /* init correlation term for first channel that it's not initialized in */
+      if (CurrentCorrChan[inx]==-1)
+        {
+        CurrentCorrTerm[inx] = polar(1.,Pfreqs[visChan]*angle);
+        dCorrTerm[inx]       = polar(1.,(Pfreqs[1]-Pfreqs[0])*angle);
+        CurrentCorrChan[inx] = int(visChan);
+        }
+      /* else, wind the correlation term forward by as many channels as necessary */
+      /* this modification allows us to support blocks that skip across channels */
+      else
+        {
+        while (size_t(CurrentCorrChan[inx])<visChan)
+          {
+          CurrentCorrTerm[inx] *= dCorrTerm[inx];
+          CurrentCorrChan[inx]++;
+          }
+        }
+      return CurrentCorrTerm[inx];
+      }
+    };
+
 template<ReadCorrType readcorr, MulaccumType mulaccum, StokesGridType stokesgrid>
 void gridder(
   PyArrayObject *grid,
@@ -216,8 +285,6 @@ void gridder(
   /* MR FIXME: should the second entry depend on nGridY instead of nGridX? */
   const double uvwScale_p[]= {nGridX*incr[0], nGridX*incr[1]};
 
-  const bool ChanEquidistant= bool(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 1)));
-
   const int *MappingBlock = p_int32(SmearMapping);
   /* total size is in two words */
   const size_t NTotBlocks = size_t(MappingBlock[0]) + (size_t(MappingBlock[1])<<32);
@@ -237,18 +304,8 @@ void gridder(
     sparsificationFlag = p_bool(Sparsification);
     }
 
-  size_t NMaxRow=0;
-  if (ChanEquidistant)
-    for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
-      if (!sparsificationFlag || sparsificationFlag[iBlock])
-        NMaxRow = max(NMaxRow, size_t(NRowBlocks[iBlock]-2));
+  CorrectionCalculator Corrcalc(LOptimisation, sparsificationFlag, NTotBlocks, NRowBlocks);
 
-  /* these are used for equidistant channels: one holds the phase term in channel 0, */
-  /* the other one holds the delta-phase across channels */
-  vector<dcmplx> CurrentCorrTerm(NMaxRow), dCorrTerm(NMaxRow);
-  /* and this indicates for which channel the CurrentCorrTerm is currently computed */
-  vector<int> CurrentCorrChan(NMaxRow);
-  int CurrentCorrRow0 = -1;
   /* ######################################################## */
   double WaveLengthMean=0., FreqMean0=0.;
   for (size_t visChan=0; visChan<nVisChan; ++visChan)
@@ -281,15 +338,7 @@ void gridder(
     for (size_t visChan=0; visChan<nVisChan; ++visChan)
       ThisSumJonesChan[visChan] = ThisSumSqWeightsChan[visChan] = 0;
 
-    /* when moving to a new block of rows, init this to -1 so the code below knows to initialize*/
-    /* CurrentCorrTerm when the first channel of each row comes in*/
-    if (ChanEquidistant)
-      if (Row[0]!=CurrentCorrRow0)
-        {
-        for (auto inx=0; inx<NRowThisBlock; inx++)
-          CurrentCorrChan[inx] = -1;
-        CurrentCorrRow0 = Row[0];
-        }
+    Corrcalc.update(Row[0], NRowThisBlock);
 
     double DeCorrFactor=1.;
     if (DoDecorr)
@@ -328,30 +377,7 @@ void gridder(
         /* We can do that since all flags in 4-pols are equalised in ClassVisServer */
         if (p_bool(flags)[doff]) continue;
 
-        dcmplx corr;
-        if (ChanEquidistant)
-          {
-          /* init correlation term for first channel that it's not initialized in */
-          if (CurrentCorrChan[inx]==-1)
-            {
-            CurrentCorrTerm[inx] = polar(1.,Pfreqs[visChan]*angle);
-            dCorrTerm[inx]       = polar(1.,(Pfreqs[1]-Pfreqs[0])*angle);
-            CurrentCorrChan[inx] = int(visChan);
-            }
-          /* else, wind the correlation term forward by as many channels as necessary */
-          /* this modification allows us to support blocks that skip across channels */
-          else
-            {
-            while (size_t(CurrentCorrChan[inx])<visChan)
-              {
-              CurrentCorrTerm[inx] *= dCorrTerm[inx];
-              CurrentCorrChan[inx]++;
-              }
-            }
-          corr = CurrentCorrTerm[inx];
-          }
-        else /* Not chan-equidistant */
-          corr = polar(1.,Pfreqs[visChan]*angle);
+        dcmplx corr = Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
 
         if (JS.DoApplyJones)
           JS.updateJones(irow, visChan, uvwPtr, true, true);
@@ -724,19 +750,13 @@ void degridder(
   /* MR FIXME: should the second entry depend on nGridY instead of nGridX? */
   const double uvwScale_p[]= {nGridX*incr[0], nGridX*incr[1]};
 
-  const bool ChanEquidistant= bool(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 1)));
-
   const int *MappingBlock = p_int32(SmearMapping);
   /* total size is in two words */
   const size_t NTotBlocks = size_t(MappingBlock[0]) + (size_t(MappingBlock[1])<<32);
   const int *NRowBlocks = MappingBlock+2;
   const int *StartRow = MappingBlock+2+NTotBlocks;
 
-  size_t NMaxRow=0;
-  if (ChanEquidistant)
-    for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
-      NMaxRow = max(NMaxRow, size_t(NRowBlocks[iBlock]-2));
-  vector<dcmplx> CurrentCorrTerm(NMaxRow), dCorrTerm(NMaxRow);
+  CorrectionCalculator Corrcalc(LOptimisation, 0, NTotBlocks, NRowBlocks);
   /* ######################################################## */
   double WaveLengthMean=0.;
   for (size_t visChan=0; visChan<nVisChan; ++visChan)
@@ -834,6 +854,8 @@ void degridder(
     /*######## Convert from degridded stokes to MS corrs #########*/
     dcMat corr_vis = StokesDegrid(stokes_vis);
 
+    Corrcalc.update(Row[0], NRowThisBlock);
+
     /*################### Now do the correction #################*/
     double DeCorrFactor=1.;
     if (DoDecorr)
@@ -864,21 +886,7 @@ void degridder(
         if (JS.DoApplyJones)
           JS.updateJones(irow, visChan, uvwPtr, false, false);
 
-        dcmplx corr;
-        if (ChanEquidistant)
-          {
-          if(visChan==0)
-            {
-            CurrentCorrTerm[inx]=polar(1.,Pfreqs[visChan]*angle);
-            dCorrTerm[inx]=polar(1.,(Pfreqs[1]-Pfreqs[0])*angle);
-            }
-          else
-            CurrentCorrTerm[inx]*=dCorrTerm[inx];
-          corr=CurrentCorrTerm[inx];
-          }
-        else
-          corr=polar(1.,Pfreqs[visChan]*angle);
-
+        dcmplx corr=Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
         corr*=DeCorrFactor;
 
         dcMat visBuff;
