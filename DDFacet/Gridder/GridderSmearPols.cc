@@ -238,12 +238,11 @@ void gridder(
     }
 
   size_t NMaxRow=0;
-  for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
-    {
-    if (sparsificationFlag && !sparsificationFlag[iBlock])
-      continue;
-    NMaxRow = max(NMaxRow, size_t(NRowBlocks[iBlock]-2));
-    }
+  if (ChanEquidistant)
+    for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
+      if (!sparsificationFlag || sparsificationFlag[iBlock])
+        NMaxRow = max(NMaxRow, size_t(NRowBlocks[iBlock]-2));
+
   /* these are used for equidistant channels: one holds the phase term in channel 0, */
   /* the other one holds the delta-phase across channels */
   vector<dcmplx> CurrentCorrTerm(NMaxRow), dCorrTerm(NMaxRow);
@@ -284,12 +283,13 @@ void gridder(
 
     /* when moving to a new block of rows, init this to -1 so the code below knows to initialize*/
     /* CurrentCorrTerm when the first channel of each row comes in*/
-    if (Row[0]!=CurrentCorrRow0)
-      {
-      for (auto inx=0; inx<NRowThisBlock; inx++)
-        CurrentCorrChan[inx] = -1;
-      CurrentCorrRow0 = Row[0];
-      }
+    if (ChanEquidistant)
+      if (Row[0]!=CurrentCorrRow0)
+        {
+        for (auto inx=0; inx<NRowThisBlock; inx++)
+          CurrentCorrChan[inx] = -1;
+        CurrentCorrRow0 = Row[0];
+        }
 
     double DeCorrFactor=1.;
     if (DoDecorr)
@@ -418,7 +418,7 @@ void gridder(
 
     /* ################################################ */
     /* ######## Convert correlations to stokes ######## */
-    dcMat stokes_vis;//[nVisPol];
+    dcMat stokes_vis;
     stokesgrid(Vis, stokes_vis);
 
     /* ################################################ */
@@ -734,8 +734,9 @@ void degridder(
   const int *StartRow = MappingBlock+2+NTotBlocks;
 
   size_t NMaxRow=0;
-  for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
-    NMaxRow = max(NMaxRow, size_t(NRowBlocks[iBlock]-2));
+  if (ChanEquidistant)
+    for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
+      NMaxRow = max(NMaxRow, size_t(NRowBlocks[iBlock]-2));
   vector<dcmplx> CurrentCorrTerm(NMaxRow), dCorrTerm(NMaxRow);
   /* ######################################################## */
   double WaveLengthMean=0.;
