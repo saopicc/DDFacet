@@ -30,11 +30,11 @@ static const char *GiveSemaphoreName(size_t iS){
   return PyString_AsString(PyList_GetItem(LSemaphoreNames, (ssize_t)iS));
 }
 
-static sem_t * GiveSemaphoreFromCell(size_t irow){
+static sem_t *GiveSemaphoreFromCell(size_t irow){
   return Tab_SEM[irow % Tab_SEM.size()];
 }
 
-static sem_t * GiveSemaphoreFromID(size_t iS){
+static sem_t *GiveSemaphoreFromID(size_t iS){
   const char* SemaphoreName=GiveSemaphoreName(iS);
   sem_t *Sem_mutex = sem_open(SemaphoreName, O_CREAT, 0644, 1);
   if (Sem_mutex != SEM_FAILED) return Sem_mutex;
@@ -53,7 +53,7 @@ static PyObject *pySetSemaphores(PyObject */*self*/, PyObject *args)
   Py_RETURN_NONE;
 }
 
-// MR FIXME: why pass the lists of name to the destructor?
+// MR FIXME: why pass the lists of names to the destructor?
 // This can cause inconsistencies and has no advantage whatsoever
 static PyObject *pyDeleteSemaphore(PyObject */*self*/, PyObject */*args*/)
 {

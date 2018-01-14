@@ -8,7 +8,7 @@
 // http://www.astron.nl/casacore/trunk/casacore/doc/html/classcasa_1_1Stokes.html
 // The rest remains unsupported.
 
-using StokesGridType = void (*) (const dcMat &Vis, dcMat &stokes_vis);
+using StokesGridType = dcMat (*) (const dcMat &Vis);
 
 #define I_FROM_XXXYYXYY (Vis[0]+Vis[3])*.5
 #define Q_FROM_XXXYYXYY (Vis[0]-Vis[3])*.5
@@ -33,31 +33,17 @@ using StokesGridType = void (*) (const dcMat &Vis, dcMat &stokes_vis);
 #define V_FROM_RRRLLRLL (Vis[0]-Vis[3])*.5
 
 #define BUILD1(C0, SRC)\
-void C0##_from_##SRC(const dcMat &Vis, dcMat &stokes_vis)\
-  {\
-  stokes_vis[0] = C0##_FROM_##SRC;\
-  }
+dcMat C0##_from_##SRC(const dcMat &Vis)\
+  { return dcMat(C0##_FROM_##SRC,0,0,0); }
 #define BUILD2(C0,C1,SRC)\
-void C0##C1##_from_##SRC(const dcMat &Vis, dcMat &stokes_vis)\
-  {\
-  stokes_vis[0] = C0##_FROM_##SRC;\
-  stokes_vis[1] = C1##_FROM_##SRC;\
-  }
+dcMat C0##C1##_from_##SRC(const dcMat &Vis)\
+  { return dcMat(C0##_FROM_##SRC,C1##_FROM_##SRC,0,0); }
 #define BUILD3(C0,C1,C2,SRC)\
-void C0##C1##C2##_from_##SRC(const dcMat &Vis, dcMat &stokes_vis)\
-  {\
-  stokes_vis[0] = C0##_FROM_##SRC;\
-  stokes_vis[1] = C1##_FROM_##SRC;\
-  stokes_vis[2] = C2##_FROM_##SRC;\
-  }
+dcMat C0##C1##C2##_from_##SRC(const dcMat &Vis)\
+  { return dcMat(C0##_FROM_##SRC,C1##_FROM_##SRC,C2##_FROM_##SRC,0); }
 #define BUILD4(SRC)\
-void IQUV_from_##SRC(const dcMat &Vis, dcMat &stokes_vis)\
-  {\
-  stokes_vis[0] = I_FROM_##SRC;\
-  stokes_vis[1] = Q_FROM_##SRC;\
-  stokes_vis[2] = U_FROM_##SRC;\
-  stokes_vis[3] = V_FROM_##SRC;\
-  }
+dcMat IQUV_from_##SRC(const dcMat &Vis)\
+  { return dcMat(I_FROM_##SRC,Q_FROM_##SRC,U_FROM_##SRC,V_FROM_##SRC); }
 
 BUILD1(I,RRLL)
 BUILD1(V,RRLL)
@@ -119,25 +105,19 @@ BUILD4(RRRLLRLL)
 // cleaning is supported in the future.
 //--------------------------------------------
 #define XXYY_FROM_I\
-  corr_vis[0] = corr_vis[1] = stokes_vis[0];\
-  corr_vis[2] = corr_vis[3] = 0.;
+  return dcMat(stokes_vis[0],stokes_vis[0],0,0);
 #define XXXYYXYY_FROM_I\
-  corr_vis[0] = corr_vis[3] = stokes_vis[0];\
-  corr_vis[1] = corr_vis[2] = 0.;
+  return dcMat(stokes_vis[0],0,0,stokes_vis[0]);
 #define RRLL_FROM_I\
-  corr_vis[0] = corr_vis[1] = stokes_vis[0];\
-  corr_vis[2] = corr_vis[3] = 0.;
+  return dcMat(stokes_vis[0],stokes_vis[0],0,0);
 #define RRRLLRLL_FROM_I\
-  corr_vis[0] = corr_vis[3] = stokes_vis[0];\
-  corr_vis[1] = corr_vis[2] = 0.;
+  return dcMat(stokes_vis[0],stokes_vis[0],0,0);
 
-typedef void(*StokesDegridType)(const dcMat &stokes_vis, dcMat &corr_vis);
+using StokesDegridType = dcMat (*)(const dcMat &stokes_vis);
 
 #define PUT1(NAME, COMP)\
-void NAME (const dcMat &stokes_vis, dcMat &corr_vis)\
-  {\
-  COMP\
-  }
+dcMat NAME (const dcMat &stokes_vis)\
+  { COMP }
 
 PUT1(gmode_corr_XXYY_from_I, XXYY_FROM_I)
 PUT1(gmode_corr_XXXYYXYY_from_I, XXXYYXYY_FROM_I)

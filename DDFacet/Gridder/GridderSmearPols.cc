@@ -417,8 +417,7 @@ void gridder(
 
     /* ################################################ */
     /* ######## Convert correlations to stokes ######## */
-    dcMat stokes_vis;
-    stokesgrid(Vis, stokes_vis);
+    const dcMat stokes_vis(stokesgrid(Vis));
 
     /* ################################################ */
     /* ############## Start Gridding visibility ####### */
@@ -728,7 +727,7 @@ void degridder(
 
   const int *MappingBlock = p_int32(SmearMapping);
   /* total size is in two words */
-  size_t NTotBlocks = size_t(MappingBlock[0]) + (size_t(MappingBlock[1])<<32);
+  const size_t NTotBlocks = size_t(MappingBlock[0]) + (size_t(MappingBlock[1])<<32);
   const int *NRowBlocks = MappingBlock+2;
   const int *StartRow = MappingBlock+2+NTotBlocks;
 
@@ -768,11 +767,11 @@ void degridder(
     double Umean=0, Vmean=0, Wmean=0;
     for (auto inx=0; inx<NRowThisBlock; inx++)
       {
-      size_t irow = size_t(Row[inx]);
+      const size_t irow = size_t(Row[inx]);
       if (irow>nrows) continue;
       const double* __restrict__ uvwPtr = p_float64(uvw) + irow*3;
 
-      double W = uvwPtr[2];
+      const double W = uvwPtr[2];
       Umean += uvwPtr[0] + W*Cu;
       Vmean += uvwPtr[1] + W*Cv;
       Wmean += W;
@@ -792,17 +791,17 @@ void degridder(
 
     PyArrayObject *cfs=(PyArrayObject *) PyArray_ContiguousFromObject(
       PyList_GetItem((Wmean>0) ? Lcfs : LcfsConj, iwplane), PyArray_COMPLEX64, 0, 2);
-    int nConvX = int(cfs->dimensions[0]);
-    int nConvY = int(cfs->dimensions[1]);
-    int supx = (nConvX/OverS-1)/2;
-    int supy = (nConvY/OverS-1)/2;
-    int SupportCF=nConvX/OverS;
+    const int nConvX = int(cfs->dimensions[0]);
+    const int nConvY = int(cfs->dimensions[1]);
+    const int supx = (nConvX/OverS-1)/2;
+    const int supy = (nConvY/OverS-1)/2;
+    const int SupportCF=nConvX/OverS;
 
-    double posx = uvwScale_p[0]*Umean*recipWvl + offset_p[0];
-    double posy = uvwScale_p[1]*Vmean*recipWvl + offset_p[1];
+    const double posx = uvwScale_p[0]*Umean*recipWvl + offset_p[0];
+    const double posy = uvwScale_p[1]*Vmean*recipWvl + offset_p[1];
 
-    int locx = int(lrint(posx));    /* location in grid */
-    int locy = int(lrint(posy));
+    const int locx = int(lrint(posx));    /* location in grid */
+    const int locy = int(lrint(posy));
 
     /* Only use visibility point if the full support is within grid. */
     if (locx-supx<0 || locx+supx>=nGridX || locy-supy<0 || locy+supy>=nGridY)
@@ -829,8 +828,7 @@ void degridder(
       }
 
     /*######## Convert from degridded stokes to MS corrs #########*/
-    dcMat corr_vis;
-    StokesDegrid(stokes_vis, corr_vis);
+    dcMat corr_vis = StokesDegrid(stokes_vis);
 
     /*################### Now do the correction #################*/
     double DeCorrFactor=1.;
