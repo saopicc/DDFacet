@@ -33,30 +33,55 @@ namespace {
 
 void FATAL(const string &msg) { cerr << "FATAL: " << msg << endl; exit(1); }
 
-double GiveDecorrelationFactor(bool FSmear, bool TSmear, double l0,
-  double m0, const double *uvwPtr, const double *uvw_dt_Ptr, double nu,
-  double Dnu, double DT)
+class DecorrelationHelper
   {
-  double n0=sqrt(1.-l0*l0-m0*m0)-1.;
-  double DecorrFactor=1.;
+  private:
+    double DT, Dnu, l0, m0;
+    const double *uvw_Ptr, *uvw_dt_Ptr;
+    bool DoDecorr, TSmear, FSmear;
 
-  if (FSmear)
-    {
-    double phase = uvwPtr[0]*l0 + uvwPtr[1]*m0 + uvwPtr[2]*n0;
-    double phi=PI*Dnu/C*phase;
-    if (phi!=0.)
-      DecorrFactor*=max(0.,sin(phi)/phi);
-    }
+  public:
+    DecorrelationHelper(PyObject *LSmearing, PyArrayObject *uvw)
+      {
+      DoDecorr=(PyList_Size(LSmearing)>0);
+      if (DoDecorr)
+        {
+        uvw_Ptr = p_float64(uvw);
+        uvw_dt_Ptr = p_float64((PyArrayObject *)PyList_GetItem(LSmearing, 0));
+        DT = PyFloat_AsDouble(PyList_GetItem(LSmearing, 1));
+        Dnu = PyFloat_AsDouble(PyList_GetItem(LSmearing, 2));
+        TSmear = bool(PyFloat_AsDouble(PyList_GetItem(LSmearing, 3)));
+        FSmear = bool(PyFloat_AsDouble(PyList_GetItem(LSmearing, 4)));
+        l0 = PyFloat_AsDouble(PyList_GetItem(LSmearing, 5));
+        m0 = PyFloat_AsDouble(PyList_GetItem(LSmearing, 6));
+        }
+      }
 
-  if (TSmear)
-    {
-    double dphase = (uvw_dt_Ptr[0]*l0 + uvw_dt_Ptr[1]*m0 + uvw_dt_Ptr[2]*n0)*DT;
-    double phi=PI*nu/C*dphase;
-    if (phi!=0.)
-      DecorrFactor*=max(0.,sin(phi)/phi);
-    }
-  return DecorrFactor;
-  }
+    double get(double nu, size_t idx)
+      {
+      if (!DoDecorr) return 1.;
+
+      double n0=sqrt(1.-l0*l0-m0*m0)-1.;
+      double DecorrFactor=1.;
+
+      if (FSmear)
+        {
+        double phase = uvw_Ptr[3+idx+0]*l0 + uvw_Ptr[3*idx+1]*m0 + uvw_Ptr[3*idx+2]*n0;
+        double phi=PI*Dnu/C*phase;
+        if (phi!=0.)
+          DecorrFactor*=max(0.,sin(phi)/phi);
+        }
+
+      if (TSmear)
+        {
+        double dphase = (uvw_dt_Ptr[3*idx+0]*l0 + uvw_dt_Ptr[3*idx+1]*m0 + uvw_dt_Ptr[3*idx+2]*n0)*DT;
+        double phi=PI*nu/C*dphase;
+        if (phi!=0.)
+          DecorrFactor*=max(0.,sin(phi)/phi);
+        }
+      return DecorrFactor;
+      }
+  };
 
 PyObject *pyAccumulateWeightsOntoGrid(PyObject */*self*/, PyObject *args)
   {
@@ -210,20 +235,7 @@ void gridder(
   const vector<string> &expstokes)
   {
   auto nVisPol = expstokes.size();
-  double DT=-1e30, Dnu=-1e30, lmin_decorr=-1e30, mmin_decorr=-1e30;
-  const double* uvw_dt_Ptr=0;
-  bool DoSmearTime=false, DoSmearFreq=false;
-  bool DoDecorr=(PyList_Size(LSmearing)>0);
-  if (DoDecorr)
-    {
-    uvw_dt_Ptr = p_float64((PyArrayObject *)PyList_GetItem(LSmearing, 0));
-    DT = PyFloat_AsDouble(PyList_GetItem(LSmearing, 1));
-    Dnu = PyFloat_AsDouble(PyList_GetItem(LSmearing, 2));
-    DoSmearTime = bool(PyFloat_AsDouble(PyList_GetItem(LSmearing, 3)));
-    DoSmearFreq = bool(PyFloat_AsDouble(PyList_GetItem(LSmearing, 4)));
-    lmin_decorr = PyFloat_AsDouble(PyList_GetItem(LSmearing, 5));
-    mmin_decorr = PyFloat_AsDouble(PyList_GetItem(LSmearing, 6));
-    }
+  DecorrelationHelper decorr(LSmearing, uvw);
 
   const double *ptrFacetInfos=p_float64((PyArrayObject *) PyList_GetItem(Lmaps, 1));
   const double Cu=ptrFacetInfos[0];
@@ -313,18 +325,7 @@ void gridder(
 
     Corrcalc.update(Row[0], NRowThisBlock);
 
-    double DeCorrFactor=1.;
-    if (DoDecorr)
-      {
-      const int iRowMeanThisBlock=Row[NRowThisBlock/2];
-
-      const double* __restrict__ uvwPtrMidRow = p_float64(uvw) + iRowMeanThisBlock*3;
-      const double* __restrict__ uvw_dt_PtrMidRow = uvw_dt_Ptr + iRowMeanThisBlock*3;
-
-      DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
-        lmin_decorr, mmin_decorr, uvwPtrMidRow, uvw_dt_PtrMidRow,
-        FreqMean0, Dnu, DT);
-      }
+    double DeCorrFactor=decorr.get(FreqMean0, Row[NRowThisBlock/2]);
 
     double visChanMean=0., FreqMean=0;
     double ThisWeight=0., ThisSumJones=0., ThisSumSqWeights=0.;
@@ -364,7 +365,7 @@ void gridder(
             VisMeas=(JS.J0).times(JS.J1H); // MR FIXME: precompute?
           else
             VisMeas.setUnity();
-          if (DoDecorr)
+          if (DeCorrFactor!=1.)
             for(int ThisPol=0; ThisPol<4;ThisPol++)
               VisMeas[ThisPol]*=DeCorrFactor;
           }
@@ -638,20 +639,7 @@ void degridder(
   PyObject *LSmearing,
   PyArrayObject *np_ChanMapping)
   {
-  double DT=-1e30, Dnu=-1e30, lmin_decorr=-1e30, mmin_decorr=-1e30;
-  const double* uvw_dt_Ptr=0;
-  bool DoSmearTime=false, DoSmearFreq=false;
-  bool DoDecorr=(PyList_Size(LSmearing)>0);
-  if (DoDecorr)
-    {
-    uvw_dt_Ptr = p_float64((PyArrayObject *)PyList_GetItem(LSmearing, 0));
-    DT = PyFloat_AsDouble(PyList_GetItem(LSmearing, 1));
-    Dnu = PyFloat_AsDouble(PyList_GetItem(LSmearing, 2));
-    DoSmearTime = bool(PyFloat_AsDouble(PyList_GetItem(LSmearing, 3)));
-    DoSmearFreq = bool(PyFloat_AsDouble(PyList_GetItem(LSmearing, 4)));
-    lmin_decorr = PyFloat_AsDouble(PyList_GetItem(LSmearing, 5));
-    mmin_decorr = PyFloat_AsDouble(PyList_GetItem(LSmearing, 6));
-    }
+  DecorrelationHelper decorr(LSmearing, uvw);
 
   const double *ptrFacetInfos=p_float64((PyArrayObject *)PyArray_ContiguousFromObject(PyList_GetItem(Lmaps, 1), PyArray_FLOAT64, 0, 4));
   const double Cu=ptrFacetInfos[0];
@@ -790,19 +778,7 @@ void degridder(
     Corrcalc.update(Row[0], NRowThisBlock);
 
     /*################### Now do the correction #################*/
-    double DeCorrFactor=1.;
-    if (DoDecorr)
-      {
-      // MR FIXME: why take the middle of the block?
-      const int iRowMeanThisBlock = Row[NRowThisBlock/2];
-
-      const double* __restrict__ uvwPtrMidRow = p_float64(uvw) + iRowMeanThisBlock*3;
-      const double* __restrict__ uvw_dt_PtrMidRow = uvw_dt_Ptr + iRowMeanThisBlock*3;
-
-      DeCorrFactor = GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,
-        lmin_decorr, mmin_decorr, uvwPtrMidRow, uvw_dt_PtrMidRow,
-        FreqMean, Dnu, DT);
-      }
+    double DeCorrFactor=decorr.get(FreqMean, Row[NRowThisBlock/2]);
 
     for (auto inx=0; inx<NRowThisBlock; inx++)
       {
