@@ -117,21 +117,6 @@ void Mulaccum_2Corr_Unpad(const dcMat &VisMeas, dcmplx Weight, dcMat &Vis)
 template <typename T> bool contains(const std::vector<T>& Vec, const T &Element)
   { return find(Vec.begin(), Vec.end(), Element) != Vec.end(); }
 
-void getPolMap(const vector<string> &stokes, int *PolMap)
-  {
-  int ii=0,iq=0,iu=0,iv=0;
-  if (contains<string>(stokes,string("I"))) { ++iq; ++iu; ++iv; }
-  if (contains<string>(stokes,string("Q"))) { ++iu; ++iv; }
-  if (contains<string>(stokes,string("U"))) { ++iv; }
-  for (size_t n=0; n<stokes.size(); ++n)
-    {
-    if (stokes[n]=="I") PolMap[n]=ii;
-    else if (stokes[n]=="Q") PolMap[n]=iq;
-    else if (stokes[n]=="U") PolMap[n]=iu;
-    else if (stokes[n]=="V") PolMap[n]=iv;
-    }
-  }
-
 class CorrectionCalculator
   {
   private:
@@ -225,8 +210,6 @@ void gridder(
   const vector<string> &expstokes)
   {
   auto nVisPol = expstokes.size();
-  int PolMap[4];
-  getPolMap(expstokes, PolMap);
   double DT=-1e30, Dnu=-1e30, lmin_decorr=-1e30, mmin_decorr=-1e30;
   const double* uvw_dt_Ptr=0;
   bool DoSmearTime=false, DoSmearFreq=false;
@@ -477,18 +460,15 @@ void gridder(
 
     for (size_t ipol=0; ipol<nVisPol; ++ipol)
       {
-      /* Map to grid polarization. Only use pol if needed.*/
-      const int gridPol = PolMap[ipol];
-      if (gridPol<0 || gridPol>=nGridPol) continue;
-
-      const size_t goff = size_t((gridChan*nGridPol + gridPol) * nGridX*nGridY);
+      if (ipol>=size_t(nGridPol)) continue;
+      const size_t goff = size_t((gridChan*nGridPol + ipol) * nGridX*nGridY);
       const dcmplx VisVal =stokes_vis[ipol];
       const fcmplx* __restrict__ cf0 = p_complex64(cfs) + cfoff;
       fcmplx* __restrict__ gridPtr = p_complex64(grid) + goff + (locy-supy)*nGridX + locx;
       for (int sy=-supy; sy<=supy; ++sy, gridPtr+=nGridX)
         for (int sx=-supx; sx<=supx; ++sx)
           gridPtr[sx] += VisVal * dcmplx(*cf0++);
-      sumWtPtr[gridPol+gridChan*nGridPol] += ThisWeight;
+      sumWtPtr[ipol+gridChan*nGridPol] += ThisWeight;
       if (JS.DoApplyJones)
         {
         JS.ptrSumJones[gridChan]+=ThisSumJones;
