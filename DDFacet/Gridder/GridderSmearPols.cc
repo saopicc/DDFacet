@@ -132,16 +132,6 @@ void getPolMap(const vector<string> &stokes, int *PolMap)
     }
   }
 
-vector<string> sortStokes(const vector<string> &stokes)
-  {
-  vector<string> res;
-  if (contains<string>(stokes,"I")) res.push_back("I");
-  if (contains<string>(stokes,"Q")) res.push_back("Q");
-  if (contains<string>(stokes,"U")) res.push_back("U");
-  if (contains<string>(stokes,"V")) res.push_back("V");
-  return res;
-  }
-
 class CorrectionCalculator
   {
   private:
@@ -570,99 +560,62 @@ PyObject *pyGridderWPol(PyObject */*self*/, PyObject *args)
     gridder<readcorr, mulaccum, stokesgrid>(np_grid, vis, uvw, flags, weights, sumwt, bool(dopsf), Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, Sparsification, LOptimisation,LSmearing,np_ChanMapping, expstokes); \
     done=true;\
     }
-  auto expstokes_sorted = sortStokes(expstokes);
   bool done=false;
   if (inputcorr==svec{"XX", "XY", "YX", "YY"})
     {
     #define readcorr Read_4Corr
     #define mulaccum Mulaccum_4Corr
-    if (expstokes_sorted==svec{"I"})
+    if (expstokes==svec{"I"})
       callgridder(I_from_XXXYYXYY, 1)
-    else if (expstokes_sorted==svec{"Q"})
-      callgridder(Q_from_XXXYYXYY, 1)
-    else if (expstokes_sorted==svec{"U"})
-      callgridder(U_from_XXXYYXYY, 1)
-    else if (expstokes_sorted==svec{"V"})
-      callgridder(V_from_XXXYYXYY, 1)
-    else if (expstokes_sorted==svec{"I", "Q"})
+    else if (expstokes==svec{"I", "Q"})
       callgridder(IQ_from_XXXYYXYY, 2)
-    else if (expstokes_sorted==svec{"I", "V"})
+    else if (expstokes==svec{"I", "V"})
       callgridder(IV_from_XXXYYXYY, 2)
-    else if (expstokes_sorted==svec{"U", "V"})
-      callgridder(UV_from_XXXYYXYY, 2)
-    else if (expstokes_sorted==svec{"Q", "U"})
+    else if (expstokes==svec{"Q", "U"})
       callgridder(QU_from_XXXYYXYY, 2)
-    else if (expstokes_sorted==svec{"I", "U"})
-      callgridder(IU_from_XXXYYXYY, 2)
-    else if (expstokes_sorted==svec{"Q", "V"})
-      callgridder(QV_from_XXXYYXYY, 2)
-    else if (expstokes_sorted==svec{"I", "Q", "U"})
-      callgridder(IQU_from_XXXYYXYY, 3)
-    else if (expstokes_sorted==svec{"I", "Q", "V"})
-      callgridder(IQV_from_XXXYYXYY, 3)
-    else if (expstokes_sorted==svec{"I", "U", "V"})
-      callgridder(IUV_from_XXXYYXYY, 3)
-    else if (expstokes_sorted==svec{"Q", "U", "V"})
-      callgridder(QUV_from_XXXYYXYY, 3)
-    else if (expstokes_sorted==svec{"I", "Q", "U", "V"})
+    else if (expstokes==svec{"I", "Q", "U", "V"})
       callgridder(IQUV_from_XXXYYXYY, 4)
+    #undef readcorr
+    #undef mulaccum
     }
   if (inputcorr==svec{"RR", "RL", "LR", "LL"})
     {
     #define readcorr Read_4Corr
     #define mulaccum Mulaccum_4Corr
-    if (expstokes_sorted==svec{"I"})
+    if (expstokes==svec{"I"})
       callgridder(I_from_RRRLLRLL, 1)
-    else if (expstokes_sorted==svec{"Q"})
-      callgridder(Q_from_RRRLLRLL, 1)
-    else if (expstokes_sorted==svec{"U"})
-      callgridder(U_from_RRRLLRLL, 1)
-    else if (expstokes_sorted==svec{"V"})
-      callgridder(V_from_RRRLLRLL, 1)
-    else if (expstokes_sorted==svec{"I", "Q"})
+    else if (expstokes==svec{"I", "Q"})
       callgridder(IQ_from_RRRLLRLL, 2)
-    else if (expstokes_sorted==svec{"I", "V"})
+    else if (expstokes==svec{"I", "V"})
       callgridder(IV_from_RRRLLRLL, 2)
-    else if (expstokes_sorted==svec{"U", "V"})
-      callgridder(UV_from_RRRLLRLL, 2)
-    else if (expstokes_sorted==svec{"Q", "U"})
+    else if (expstokes==svec{"Q", "U"})
       callgridder(QU_from_RRRLLRLL, 2)
-    else if (expstokes_sorted==svec{"I", "U"})
-      callgridder(IU_from_RRRLLRLL, 2)
-    else if (expstokes_sorted==svec{"Q", "V"})
-      callgridder(QV_from_RRRLLRLL, 2)
-    else if (expstokes_sorted==svec{"I", "Q", "U"})
-      callgridder(IQU_from_RRRLLRLL, 3)
-    else if (expstokes_sorted==svec{"I", "Q", "V"})
-      callgridder(IQV_from_RRRLLRLL, 3)
-    else if (expstokes_sorted==svec{"I", "U", "V"})
-      callgridder(IUV_from_RRRLLRLL, 3)
-    else if (expstokes_sorted==svec{"Q", "U", "V"})
-      callgridder(QUV_from_RRRLLRLL, 3)
-    else if (expstokes_sorted==svec{"I", "Q", "U", "V"})
+    else if (expstokes==svec{"I", "Q", "U", "V"})
       callgridder(IQUV_from_RRRLLRLL, 4)
+    #undef readcorr
+    #undef mulaccum
     }
   else if (inputcorr==svec{"XX", "YY"})
     {
     #define readcorr Read_2Corr_Pad
     #define mulaccum Mulaccum_2Corr_Unpad
-    if (expstokes_sorted==svec{"I"})
+    if (expstokes==svec{"I"})
       callgridder(I_from_XXYY, 1)
-    else if (expstokes_sorted==svec{"Q"})
-      callgridder(Q_from_XXYY, 1)
-    else if (expstokes_sorted==svec{"I", "Q"})
+    else if (expstokes==svec{"I", "Q"})
       callgridder(IQ_from_XXYY, 2)
+    #undef readcorr
+    #undef mulaccum
     }
   else if (inputcorr==svec{"RR", "LL"})
     {
     #define readcorr Read_2Corr_Pad
     #define mulaccum Mulaccum_2Corr_Unpad
-    if (expstokes_sorted==svec{"I"})
+    if (expstokes==svec{"I"})
       callgridder(I_from_RRLL, 1)
-    else if (expstokes_sorted==svec{"V"})
-      callgridder(V_from_RRLL, 1)
-    else if (expstokes_sorted==svec{"I", "V"})
+    else if (expstokes==svec{"I", "V"})
       callgridder(IV_from_RRLL, 2)
+    #undef readcorr
+    #undef mulaccum
     }
   if (!done)
     FATAL("Cannot convert input correlations to desired output Stokes parameters.");
