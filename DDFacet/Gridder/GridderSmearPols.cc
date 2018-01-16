@@ -97,10 +97,10 @@ PyObject *pyAccumulateWeightsOntoGrid(PyObject */*self*/, PyObject *args)
 
   for(size_t i=0; i<n; i++)
     {
-    size_t igrid = size_t(pindex[i]);
     double w = pweights[i];
     if (w!=0)
       {
+      size_t igrid = size_t(pindex[i]);
       sem_t *psem = GiveSemaphoreFromCell(igrid);
       sem_wait(psem);
       pgrid[igrid] += w;
@@ -795,7 +795,7 @@ void degridder(
         if (JS.DoApplyJones)
           JS.updateJones(irow, visChan, uvwPtr, false, false);
 
-        dcmplx corr=Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
+        dcmplx corr = Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
         corr*=DeCorrFactor;
 
         dcMat visBuff;
