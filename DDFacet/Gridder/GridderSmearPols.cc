@@ -107,7 +107,6 @@ PyObject *pyAccumulateWeightsOntoGrid(PyObject */*self*/, PyObject *args)
       sem_post(psem);
       }
     }
-
   Py_RETURN_NONE;
   }
 
@@ -159,13 +158,14 @@ class CorrectionCalculator
     CorrectionCalculator(PyObject *LOptimisation, const bool *sparsificationFlag_,
       const size_t NTotBlocks, const int *NRowBlocks)
       {
-      sparsificationFlag = sparsificationFlag_;
       ChanEquidistant= bool(PyFloat_AsDouble(PyList_GetItem(LOptimisation, 1)));
+      if (!ChanEquidistant) return;
+
+      sparsificationFlag = sparsificationFlag_;
       NMaxRow=0;
-      if (ChanEquidistant)
-        for (size_t i=0; i<NTotBlocks; ++i)
-          if (!sparsificationFlag || sparsificationFlag[i])
-            NMaxRow = max(NMaxRow, size_t(NRowBlocks[i]-2));
+      for (size_t i=0; i<NTotBlocks; ++i)
+        if (!sparsificationFlag || sparsificationFlag[i])
+          NMaxRow = max(NMaxRow, size_t(NRowBlocks[i]-2));
       CurrentCorrTerm.resize(NMaxRow);
       dCorrTerm.resize(NMaxRow);
       CurrentCorrChan.resize(NMaxRow,-1);
@@ -176,13 +176,9 @@ class CorrectionCalculator
       {
       /* when moving to a new block of rows, init this to -1 so the code below knows to initialize*/
       /* CurrentCorrTerm when the first channel of each row comes in*/
-      if (ChanEquidistant)
-        if (Row0!=CurrentCorrRow0)
-        {
-        for (auto inx=0; inx<NRowThisBlock; inx++)
-          CurrentCorrChan[inx] = -1;
-        CurrentCorrRow0 = Row0;
-        }
+      if ((!ChanEquidistant) || (Row0==CurrentCorrRow0)) return;
+      fill_n(CurrentCorrChan.begin(), NRowThisBlock, -1);
+      CurrentCorrRow0 = Row0;
       }
 
     dcmplx getCorr(int inx, const double *Pfreqs, size_t visChan, double angle)
@@ -200,13 +196,11 @@ class CorrectionCalculator
       /* else, wind the correlation term forward by as many channels as necessary */
       /* this modification allows us to support blocks that skip across channels */
       else
-        {
         while (size_t(CurrentCorrChan[inx])<visChan)
           {
           CurrentCorrTerm[inx] *= dCorrTerm[inx];
           CurrentCorrChan[inx]++;
           }
-        }
       return CurrentCorrTerm[inx];
       }
     };
@@ -308,15 +302,15 @@ void gridder(
   const int *p_ChanMapping=p_int32(np_ChanMapping);
   for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
     {
-    if (sparsificationFlag && !sparsificationFlag[iBlock])
-      continue;
-
     const int NRowThisBlock=NRowBlocks[iBlock]-2;
     const size_t chStart = size_t(StartRow[0]),
                  chEnd   = size_t(StartRow[1]);
     const int *Row = StartRow+2;
     /* advance pointer to next blocklist */
     StartRow += NRowBlocks[iBlock];
+
+    if (sparsificationFlag && !sparsificationFlag[iBlock])
+      continue;
 
     dcMat Vis(0,0,0,0);
 

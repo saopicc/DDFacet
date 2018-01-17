@@ -18,14 +18,8 @@ using StokesGridType = dcMat (*) (const dcMat &Vis);
 #define I_FROM_XXYY (Vis[0]+Vis[1])*.5
 #define Q_FROM_XXYY (Vis[0]-Vis[1])*.5
 
-#define U_FROM_XYYX (Vis[0]+Vis[1])*.5
-#define V_FROM_XYYX -(Vis[0]-Vis[1])*.5i
-
 #define I_FROM_RRLL (Vis[0]+Vis[1])*.5
 #define V_FROM_RRLL (Vis[0]-Vis[1])*.5
-
-#define Q_FROM_RLLR (Vis[0]+Vis[1])*.5
-#define U_FROM_RLLR -(Vis[0]-Vis[1])*.5i
 
 #define I_FROM_RRRLLRLL (Vis[0]+Vis[3])*.5
 #define Q_FROM_RRRLLRLL (Vis[1]+Vis[2])*.5
@@ -45,12 +39,8 @@ dcMat IQUV_from_##SRC(const dcMat &Vis)\
 BUILD1(I,RRLL)
 BUILD2(I,V,RRLL)
 
-//BUILD2(Q,U,RLLR)
-
 BUILD1(I,XXYY)
 BUILD2(I,Q,XXYY)
-
-//BUILD2(U,V,XYYX)
 
 BUILD1(I,XXXYYXYY)
 BUILD2(I,Q,XXXYYXYY)
