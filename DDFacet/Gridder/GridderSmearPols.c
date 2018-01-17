@@ -354,8 +354,6 @@ void griddername(PyArrayObject *grid, \
     float *ThisSumSqWeightsChan=calloc(1,(nVisChan)*sizeof(float));\
     \
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){\
-      if( sparsificationFlag && !sparsificationFlag[iBlock] )\
-	continue;\
       \
       int NRowThisBlock=NRowBlocks[iBlock]-2;\
       int chStart = StartRow[0];\
@@ -363,6 +361,8 @@ void griddername(PyArrayObject *grid, \
       int *Row = StartRow+2;\
       /* advance pointer to next blocklist*/\
       StartRow += NRowBlocks[iBlock];\
+      if( sparsificationFlag && !sparsificationFlag[iBlock] )\
+	continue;\
       \
       float Umean=0;\
       float Vmean=0;\
