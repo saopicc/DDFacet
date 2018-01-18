@@ -63,7 +63,7 @@ set_target_properties(_pyArrays PROPERTIES PREFIX "") #remove "lib" prefix from 
 target_link_libraries(_pyArrays ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
 #compile and link _pyGridder.so
-add_library(_pyGridder Gridder.c)
+add_library(_pyGridder Gridder.c Gridder.h)
 set_target_properties(_pyGridder PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
 target_link_libraries(_pyGridder ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
