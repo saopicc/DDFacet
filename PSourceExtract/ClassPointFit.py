@@ -6,7 +6,6 @@ import scipy.optimize
 import time
 import ClassIslands
 import ModColor
-import pyfits
 from progressbar import ProgressBar
 from pyrap.images import image
 

@@ -5,7 +5,6 @@ import scipy.optimize
 import time
 import ClassIslands
 from SkyModel.Other import ModColor
-import pyfits
 from SkyModel.Other.progressbar import ProgressBar
 from ClassGaussFit import ClassGaussFit
 from ModConvPSF import ClassConvPSF

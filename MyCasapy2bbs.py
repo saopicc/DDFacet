@@ -2,7 +2,6 @@
 
 from pyrap.tables import table
 from pyrap.images import image
-import pyfits
 from Sky import ClassSM
 import optparse
 import numpy as np
