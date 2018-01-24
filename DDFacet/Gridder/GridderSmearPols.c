@@ -257,7 +257,7 @@ void griddername(PyArrayObject *grid, \
     double *Pfreqs=p_float64(freqs);\
     uvwScale_p[0]=fnGridX*incr[0];\
     uvwScale_p[1]=fnGridX*incr[1];\
-    double C=2.99792456e8;\
+    double C=2.99792458e8;\
     int inx;\
     /* Loop over all visibility rows to process. */\
     \
@@ -557,7 +557,7 @@ void griddername(PyArrayObject *grid, \
       \
       /* ############## W-projection #################### */\
       double wcoord=Wmean;\
-      int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);\
+      int iwplane = floor((NwPlanes-1)*fabs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);\
       int skipW=0;\
       if(iwplane>NwPlanes-1){\
 	skipW=1;\
@@ -1428,7 +1428,7 @@ void degriddername(PyArrayObject *grid, \
     double *Pfreqs=p_float64(freqs);\
     uvwScale_p[0]=fnGridX*incr[0];\
     uvwScale_p[1]=fnGridX*incr[1];\
-    double C=2.99792456e8;\
+    double C=2.99792458e8;\
     int inx;\
     \
     /* ################### Prepare full scalar mode */\
@@ -1547,7 +1547,7 @@ void degriddername(PyArrayObject *grid, \
       /* ############## W-projection #################### */\
       double wcoord=Wmean;\
       \
-      int iwplane = floor((NwPlanes-1)*abs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);\
+      int iwplane = floor((NwPlanes-1)*fabs(wcoord)*(WaveRefWave/ThisWaveLength)/wmax+0.5);\
       int skipW=0;\
       if(iwplane>NwPlanes-1){skipW=1;continue;};\
       \

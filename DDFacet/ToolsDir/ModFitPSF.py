@@ -64,61 +64,41 @@ def FindSidelobe(PSF):
     """
     Finds the maximum sidelobe level in the PSF outside the fit region and the
     position of this maximum. This will very likely be the level of the second
-    lobe.
+    (absolute) lobe.
 
-    This method assumes the largest sidelobes are detectable along the y-axis
     Args:
         PSF, a 2D array containing the dirty beam (can be a cropped/windowed PSF)
-    Throws:
-        RuntimeError if the sidelobe could not be found in the search window.
     Returns:
-        level: PSF sidelobe level (searched up to the first null)
-        null_px: position of the first null from the the centre of the PSF window in pixels
+        Tupple:
+            level: PSF sidelobe level
+            null_px: position of the first sidelobe from the the centre of the PSF window in pixels
+        Tupple:
+            cb_maj: major axis sigma of clean beam
+            cb_min: minor axis sigma of clean beam
+            th: rotation angle of clean beam (radians)
     """
-
-    MaxPSF=np.max(PSF)
-    x,y=np.where(PSF==MaxPSF)
-    x0=x[0]
-    y0=y[0]
-    profile=PSF[x0,:]
-
+    # Peak of PSF (may be less than unity because of DD terms)
+    # Assume there is only one peak
+    max_psf = np.max(PSF)
+    amax_psf = np.argwhere(PSF==max_psf)[0]
     nx,ny=PSF.shape
 
-    PSFhalf=profile[y0::]
-
-    #find first null (this may fail if the window is not big enough):
-    inddx=np.where(PSFhalf<0.1*MaxPSF)[0]
-    if len(inddx)!=0:
-        dx=inddx[0]
-    else:
-        dx=PSF.shape[-1]/2
-        #raise RuntimeError("Cannot find PSF sidelobes. Is your fit search window big enough?")
-
-    #print>>log,"dx %d"%dx
-    #Cut the window at the location of the first null and then fit to that:
-    PSFsmall=PSF[x0-dx:x0+dx,y0-dx:y0+dx].copy()
-    PSFsmall[PSFsmall<.1] = 0
+    # Fit cleanbeam to position
     popt = FitCleanBeam(PSF)
-    
-    #print>>log,"popt %s"%(popt,)
-    #Create a clean beam:
-    npix=int(np.sqrt(PSFsmall.ravel().shape[0]))-1
-    x = np.linspace(0, npix, npix+1)
-    y = np.linspace(0, npix, npix+1)
+
+    # Create a clean beam:
+    x = np.arange(0, nx)
+    y = np.arange(0, ny)
     x, y = np.meshgrid(x, y)
-    bestFit = [1,x.shape[0] / 2, y.shape[1] / 2,popt[0],popt[1],np.rad2deg(popt[2])]
-    dataFitted = gaussfitter2.twodgaussian(bestFit, circle=0, rotate=1, vheight=0)(x,y)
-    
-    #Create a residual beam without the primary lobe:
-    PSFnew=PSF.copy()
-    PSFnew[x0-dx:x0+dx,y0-dx:y0+dx] = PSFnew[x0-dx:x0+dx,y0-dx:y0+dx] - dataFitted[:,:]
-    profile0=PSFnew[x0,:]
-    #print>>log,"profile %s"%(profile0,)
-    x0=PSFnew.shape[0]/2
-    ii=np.argmax(profile0[x0::])
-    #print>> log, "ii %d" % ii
-#    stop
-    return np.max(PSFnew),ii
+    bestFit = [max_psf, amax_psf[0], amax_psf[1], popt[0], popt[1], np.rad2deg(popt[2]) - 90]
+    clean_beam = gaussfitter2.twodgaussian(bestFit, circle=0, rotate=1, vheight=0)(x,y)
+
+    # Create a residual beam without the primary lobe
+    sidelobes = PSF - clean_beam
+    amax_sl = np.argwhere(sidelobes == np.max(sidelobes))[0]
+    sidelobe_dist = np.sqrt(np.sum((amax_sl - amax_psf)**2))
+    sidelobe_level = sidelobes[amax_sl[0], amax_sl[1]]
+    return (sidelobe_level, sidelobe_dist), (popt[0], popt[1], popt[2])
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt

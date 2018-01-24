@@ -111,7 +111,7 @@ class ClassImagerDeconv():
         self.PSFGaussParsAvg = None
         self.PSFSidelobesAvg = None
         self.HasFittedPSFBeam=False
-        self._psf_fit_error = False
+        self.fit_stat = None # PSF fit status
 
         self.DicoDirty = None         # shared dict with current dirty/residual image
         self.DicoImagesPSF = None     # shared dict with current PSF images
@@ -420,7 +420,7 @@ class ClassImagerDeconv():
         FacetMachinePSF.releaseGrids()
         self._psfmean, self._psfcube = self.DicoImagesPSF["MeanImage"], self.DicoImagesPSF["ImageCube"]  # this is only for the casa image saving
         self.HasFittedPSFBeam = False
-        self.FitPSF()
+        self.fit_stat = self.FitPSF()
         if cachepath:
             try:
                 self.DicoImagesPSF["FWHMBeam"]=self.FWHMBeam
@@ -431,6 +431,8 @@ class ClassImagerDeconv():
                 self.DicoImagesPSF.save(cachepath)
                 MyPickle.DicoNPToFile(self.DicoImagesPSF,"%s.DicoPickle"%cachepath)
                 self.VS.maincache.saveCache("PSF")
+                if self.fit_stat is not None:
+                    raise self.fit_stat #delay fitting errors
             except:
                 print>> log, traceback.format_exc()
                 print>> log, ModColor.Str(
@@ -438,7 +440,7 @@ class ClassImagerDeconv():
 
     def _fitAndSavePSF (self, FacetMachinePSF, save=True, cycle=None):
         if not self.HasFittedPSFBeam:
-            self.FitPSF()
+            self.fit_stat = self.FitPSF()
         if save and self._psfmean is not None:
             cycle_label = ".%02d"%cycle if cycle else ""
             if "P" in self._saveims or "p" in self._saveims:
@@ -450,7 +452,11 @@ class ClassImagerDeconv():
                                               ImageName="%s%s.cube.psf" % (self.BaseName, cycle_label),
                                               Fits=True, beam=self.FWHMBeamAvg, Freqs=self.VS.FreqBandCenters,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
-        if self._psf_fit_error:
+        try:
+            if self.fit_stat is not None:
+                raise self.fit_stat
+        except:
+            print>> log, traceback.format_exc()
             raise RuntimeError("there was an error fitting the PSF. Something is really wrong with the data?")
 
     def MakePSF(self, sparsify=0):
@@ -1389,16 +1395,13 @@ class ClassImagerDeconv():
         x, y = np.where(PSF == np.max(PSF))[-2:]
         nx, ny = PSF.shape[-2:]
         off = self.GD["Image"]["SidelobeSearchWindow"] // 2
-
+        if x.shape[0] == 0:
+            raise RuntimeError("Empty PSF slice detected while fitting. Check your data.")
         off = min(off, x[0], nx-x[0], y[0], ny-y[0])
         print>> log, "Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2)
         P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off].copy()
-
-
-        sidelobes = ModFitPSF.FindSidelobe(P)
+        (sidelobes), (bmaj, bmin, theta) = ModFitPSF.FindSidelobe(P)
         print>>log, "PSF max is %f"%P.max()
-        P[P<0] = 0
-        bmaj, bmin, theta = ModFitPSF.FitCleanBeam(P)
 
         FWHMFact = 2. * np.sqrt(2. * np.log(2.))
 
@@ -1422,12 +1425,13 @@ class ClassImagerDeconv():
                                fits. This should be passed to the FITS file outputs
                 self.PSFGaussPars: The maj (rad), min (rad), theta (rad) parameters for the fit of the gaussian
                 self.PSFSidelobes: Position of the highest sidelobes (px)
+            Returns:
+                None if there was no error during fitting, the original exception otherwise
         """
         if self.HasFittedPSFBeam:
             return
 
         self.HasFittedPSFBeam=True
-        self._psf_fit_error = False
 
         # If set, use the parameter RestoringBeam to fix the clean beam parameters
         forced_beam=self.GD["Output"]["RestoringBeam"]
@@ -1444,10 +1448,20 @@ class ClassImagerDeconv():
         meanPSF = self.DicoImagesPSF["CubeMeanVariablePSF"][self.FacetMachinePSF.iCentralFacet]
 
         off=self.GD["Image"]["SidelobeSearchWindow"] // 2
-        beam, gausspars, sidelobes = self.fitSinglePSF(meanPSF[0,...], "mean")
+        try:
+            fit_err = None
+            beam, gausspars, sidelobes = self.fitSinglePSF(meanPSF[0,...], "mean")
+        except Exception as e:
+            beam = (0,0,0)
+            gausspars = (0,0,0)
+            sidelobes=(0,0)
+            fit_err = e
+
         if forced_beam is not None:
             print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
             beam, gausspars = f_beam, f_gau
+            fit_err = None # don't care if user provided parameters
+
         self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg = beam, gausspars, sidelobes
         # MeanFacetPSF has a shape of 1,1,nx,ny, so need to cut that extra one off
         if self.VS.MultiFreqMode:
@@ -1455,7 +1469,14 @@ class ClassImagerDeconv():
             self.PSFGaussPars = []
             self.PSFSidelobes = []
             for band in range(self.VS.NFreqBands):
-                beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],off,"band %d"%band)
+                try:
+                    beam, gausspars, sidelobes = self.fitSinglePSF(PSF[band,...],off,"band %d"%band)
+                except Exception as e:
+                    beam = (0,0,0)
+                    gausspars = (0,0,0)
+                    sidelobes=(0,0)
+                    fit_err = e # last error stored
+
                 if forced_beam is not None:
                     beam = f_beam
                     gausspars = f_gau
@@ -1471,24 +1492,7 @@ class ClassImagerDeconv():
         self.DicoImagesPSF["PSFGaussPars"]=self.PSFGaussPars
         self.DicoImagesPSF["PSFSidelobes"]=self.PSFSidelobes
         self.DicoImagesPSF["EstimatesAvgPSF"]=(self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)
-        # except:
-        #     print>>log,"Error fitting the PSF: %s"%traceback.format_exc()
-        #     self.FWHMBeamAvg = 0,0,0
-        #     self._psf_fit_error = True
-
-
-
-        ## LB - Remove his chunk ?
-        #theta=np.pi/2-theta
-        #
-        #FWHMFact=2.*np.sqrt(2.*np.log(2.))
-        #bmaj=np.max([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
-        #bmin=np.min([sigma_x, sigma_y])*self.CellArcSec*FWHMFact
-        #self.FWHMBeam=(bmaj/3600.,bmin/3600.,theta)
-        #self.PSFGaussPars = (sigma_x*self.CellSizeRad, sigma_y*self.CellSizeRad, theta)
-        #print>>log, "Fitted PSF (sigma): (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec, sigma_y*self.CellArcSec, theta)
-        #print>>log, "Fitted PSF (FWHM):  (Sx, Sy, Th)=(%f, %f, %f)"%(sigma_x*self.CellArcSec*FWHMFact, sigma_y*self.CellArcSec*FWHMFact, theta)
-        #print>>log, "Secondary sidelobe at the level of %5.1f at a position of %i from the center"%(self.SideLobeLevel,self.OffsetSideLobe)
+        return fit_err
 
     def GiveMetroModel(self):
         model_freqs=self.VS.CurrentChanMappingDegrid
@@ -1663,10 +1667,11 @@ class ClassImagerDeconv():
 
 
         print>>log, "Create restored image"
-            
 
         if self.PSFGaussPars is None:
-            self.FitPSF()
+            self.fit_stat = self.FitPSF()
+            if self.fit_stat is not None:
+                raise self.fit_stat #postponed fitting error (in absence of user-supplied parameters)
         #self.DeconvMachine.ToFile(self.DicoModelName)
 
         RefFreq = self.VS.RefFreq
