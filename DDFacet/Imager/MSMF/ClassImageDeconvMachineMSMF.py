@@ -243,13 +243,11 @@ class ClassImageDeconvMachine():
                 else:
                     print>>log,"HMP Machine already initialized"
             else:
-                print>>log,"Initialising HMP Machine"
                 self.facetcache = None
         else:
+            print>>log,"Initialising HMP Machine from predefined basis function cache"
             self.facetcache = facetcache
             valid = True
-
-        print>>log,"%d frequency bands"%self.NFreqBands
 
         centralFacet = self.PSFServer.DicoVariablePSF["CentralFacet"]
         if approx:

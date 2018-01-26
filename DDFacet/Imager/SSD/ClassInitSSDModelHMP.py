@@ -35,6 +35,8 @@ class ClassInitSSDModelParallel():
 
     def _initIsland_worker(self, DicoOut, iIsland, Island, RefFreq,
                            DicoVariablePSF, DicoDirty, DicoParm, FacetCache):
+        MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"])
+                           
         self.InitMachine.Init(DicoVariablePSF, RefFreq,
                               DicoParm["GridFreqs"], DicoParm["DegridFreqs"], facetcache=FacetCache)
         self.InitMachine.setDirty(DicoDirty)
