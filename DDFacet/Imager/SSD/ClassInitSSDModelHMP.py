@@ -17,14 +17,14 @@ from DDFacet.Other.AsyncProcessPool import APP
 
 class ClassInitSSDModelParallel():
     def __init__(self, GD, NFreqBands, MainCache=None, IdSharedMem=""):
-        self.InitMachine = ClassInitSSDModel(GD, NFreqBands, MainCache, IdSharedMem)
+        self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
         APP.registerJobHandlers(self)
 
     def Init(self, DicoVariablePSF, RefFreq, GridFreqs, DegridFreqs):
         self.DicoVariablePSF=DicoVariablePSF
-        self.RefFreq=RefFreq
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
+        self.RefFreq = RefFreq
 
         print>>log,"Initialise HMP machine"
         self.InitMachine.Init(DicoVariablePSF, RefFreq, GridFreqs, DegridFreqs)
@@ -114,26 +114,20 @@ class ClassInitSSDModel():
         MinorCycleConfig["NCPU"] = self.GD["Parallel"]["NCPU"]
         MinorCycleConfig["NFreqBands"] = self.NFreqBands
 
-        ## pass this in explicitly
-        # MinorCycleConfig["GD"] = self.GD
-
-        ## these are not used by ClassImageDeconvMachineMSMF.ClassImageDeconvMachine()
-        # MinorCycleConfig["GridFreqs"] = self.GridFreqs
-        # MinorCycleConfig["DegridFreqs"] = self.DegridFreqs
-        # MinorCycleConfig["RefFreq"] = self.RefFreq
-
-        # MinorCycleConfig["CleanMaskImage"]=None
         self.MinorCycleConfig = MinorCycleConfig
-        self.DeconvMachine = ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,
+        self.DeconvMachine = ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(ModelMachine=ModelMachine,
+                                                                                 MainCache=MainCache,
                                                                                  ParallelMode=True,
                                                                                  CacheFileName="HMP_Init",
                                                                                  IdSharedMem=IdSharedMem,
                                                                                  GD=self.GD,
                                                                                  **MinorCycleConfig)
+
         self.GD["Mask"]["Auto"]=False
         self.GD["Mask"]["External"]=None
-
         self.MaskMachine = ClassMaskMachine.ClassMaskMachine(self.GD)
+
+
 
     def Init(self,DicoVariablePSF,RefFreq,GridFreqs,DegridFreqs,
                  DoWait=False,
@@ -146,13 +140,12 @@ class ClassInitSSDModel():
         facetcache: dict of basis functions for the HMP machine.
         """
         self.DicoVariablePSF=DicoVariablePSF
-        self.RefFreq=RefFreq
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
 
         ModConstructor = ClassModModelMachine(self.GD)
-        ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
-        ModelMachine.setRefFreq(self.RefFreq)
+        ModelMachine = ModConstructor.GiveMM("HMP")
+        ModelMachine.setRefFreq(RefFreq)
         self.DeconvMachine.setModelMachine(ModelMachine)
 
         self.DeconvMachine.setMaskMachine(self.MaskMachine)
@@ -300,7 +293,10 @@ class ClassInitSSDModel():
         T.timeit("giveMM")
         self.ModelMachine=ModelMachine
         #self.ModelMachine.DicoSMStacked=self.DicoBasicModelMachine
-        self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
+
+        ## OMS: no need for this, surely -- RefFreq is set from ModelMachine in the first place?
+        #self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
+
         self.ModelMachine.setFreqMachine(self.GridFreqs,self.DegridFreqs)
         ## this doesn't seem to be needed or used outside of __init__, so why assign to it?
         # self.MinorCycleConfig["ModelMachine"] = ModelMachine
