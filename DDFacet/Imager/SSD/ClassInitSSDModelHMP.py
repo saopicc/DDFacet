@@ -18,7 +18,7 @@ from DDFacet.Other.AsyncProcessPool import APP
 class ClassInitSSDModelParallel():
     def __init__(self, GD, NFreqBands, MainCache=None, IdSharedMem=""):
         self.InitMachine = ClassInitSSDModel(GD, NFreqBands, MainCache, IdSharedMem)
-        APP.registerWorkers(self)
+        APP.registerJobHandlers(self)
 
     def Init(self, DicoVariablePSF, RefFreq, GridFreqs, DegridFreqs):
         self.DicoVariablePSF=DicoVariablePSF
@@ -45,7 +45,7 @@ class ClassInitSSDModelParallel():
             print>>log, traceback.format_exc()
             FileOut = "errIsland_%6.6i.npy" % iIsland
             print>>log, ModColor.Str("...... error on island %i, saving to file %s" % (iIsland, FileOut))
-            np.save(FileOut, np.array(Island)
+            np.save(FileOut, np.array(Island))
             return
         DicoOut["S"] = SModel
         DicoOut["Alpha"] = AModel
@@ -120,10 +120,6 @@ class ClassInitSSDModel():
         # MinorCycleConfig["DegridFreqs"] = self.DegridFreqs
         # MinorCycleConfig["RefFreq"] = self.RefFreq
 
-        ModConstructor = ClassModModelMachine(self.GD)
-        ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
-        ModelMachine.setRefFreq(self.RefFreq)
-        MinorCycleConfig["ModelMachine"] = ModelMachine
         # MinorCycleConfig["CleanMaskImage"]=None
         self.MinorCycleConfig = MinorCycleConfig
         self.DeconvMachine = ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,
@@ -137,7 +133,7 @@ class ClassInitSSDModel():
 
         self.MaskMachine = ClassMaskMachine.ClassMaskMachine(self.GD)
 
-    def Init(self,DicoVariablePSF,DicoDirty,RefFreq,GridFreqs,DegridFreqs,
+    def Init(self,DicoVariablePSF,RefFreq,GridFreqs,DegridFreqs,
                  DoWait=False,
                  facetcache=None):
         """
@@ -148,7 +144,6 @@ class ClassInitSSDModel():
         facetcache: dict of basis functions for the HMP machine.
         """
         self.DicoVariablePSF=DicoVariablePSF
-        self.DicoDirty=DicoDirty
         self.RefFreq=RefFreq
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
@@ -162,24 +157,10 @@ class ClassInitSSDModel():
 
         self.Margin=20
 
-        #print "Start 3"
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["PSFSideLobes"],
                                 facetcache=facetcache,
                                 GridFreqs=self.GridFreqs,DegridFreqs=self.DegridFreqs,DoWait=DoWait)
 
-        if DoWait:
-            print "IINit3"
-            time.sleep(10)
-            print "Start 4"
-
-        self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
-        if DoWait:
-            print "IINit4"
-            time.sleep(10)
-
-        self.DeconvMachine.updateRMS()
-
-        #self.DicoBasicModelMachine=copy.deepcopy(self.DeconvMachine.ModelMachine.DicoSMStacked)
 
     def Reset(self):
         self.DeconvMachine.Reset()
@@ -188,6 +169,8 @@ class ClassInitSSDModel():
         self.DicoDirty=DicoDirty
         self.Dirty=DicoDirty["ImageCube"]
         self.MeanDirty=DicoDirty["MeanImage"]
+        self.DeconvMachine.Update(self.DicoDirty,DoSetMask=False)
+        self.DeconvMachine.updateRMS()
 
     def setSubDirty(self,ListPixParms):
         T=ClassTimeIt.ClassTimeIt("InitSSD.setSubDirty")
