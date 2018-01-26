@@ -179,10 +179,7 @@ class ClassImageDeconvMachine():
         """
         self.SetPSF(PSFVar)
         self.setSideLobeLevel(PSFAve[0], PSFAve[1])
-        if facetcache is None:
-            self.InitMSMF(approx=approx, cache=cache)
-        else:
-            self.facetcache = facetcache
+        self.InitMSMF(approx=approx, cache=cache, facetcache=facetcache)
         ## OMS: why is this needed? self.RefFreq is set from self.ModelMachine in the first place
         # self.ModelMachine.setRefFreq(self.RefFreq)
         self.ModelMachine.setFreqMachine(GridFreqs, DegridFreqs),
@@ -221,32 +218,36 @@ class ClassImageDeconvMachine():
         fcdict["Functions"] = MSMachine.ListScales
         fcdict["Arrays"] = MSMachine.DicoBasisMatrix
 
-    def InitMSMF(self, approx=False, cache=True):
+    def InitMSMF(self, approx=False, cache=True, facetcache=None):
         """Initializes MSMF basis functions. If approx is True, then uses the central facet's PSF for
         all facets.
-        Populates the self.facetcache dict.
+        Populates the self.facetcache dict, unless facetcache is supplied
         """
         self.DicoMSMachine = {}
-        cachehash = dict( 
-            [(section, self.GD[section]) for section in (
-                "Data", "Beam", "Selection", "Freq",
-                "Image", "Facets", "Weight", "RIME",
-                "Comp", "CF",
-                "HMP")])
-        cachepath, valid = self.maincache.checkCache(self.CacheFileName, cachehash, reset=not cache or self.PSFHasChanged)
-        # do not use cache in approx mode
-        if approx or not cache:
-            valid = False
-        if valid:
-            if self.facetcache is None:
-                print>>log,"Initialising HMP Machine from cache %s"%cachepath
-                self.facetcache = shared_dict.create(self.CacheFileName)
-                self.facetcache.restore(cachepath)
+        if facetcache is None:
+            cachehash = dict(
+                [(section, self.GD[section]) for section in (
+                    "Data", "Beam", "Selection", "Freq",
+                    "Image", "Facets", "Weight", "RIME",
+                    "Comp", "CF",
+                    "HMP")])
+            cachepath, valid = self.maincache.checkCache(self.CacheFileName, cachehash, reset=not cache or self.PSFHasChanged)
+            # do not use cache in approx mode
+            if approx or not cache:
+                valid = False
+            if valid:
+                if self.facetcache is None:
+                    print>>log,"Initialising HMP Machine from cache %s"%cachepath
+                    self.facetcache = shared_dict.create(self.CacheFileName)
+                    self.facetcache.restore(cachepath)
+                else:
+                    print>>log,"HMP Machine already initialized"
             else:
-                print>>log,"HMP Machine already initialized"
+                print>>log,"Initialising HMP Machine"
+                self.facetcache = None
         else:
-            print>>log,"Initialising HMP Machine"
-            self.facetcache = None
+            self.facetcache = facetcache
+            valid = True
 
         print>>log,"%d frequency bands"%self.NFreqBands
 
@@ -301,7 +302,8 @@ class ClassImageDeconvMachine():
                 MSMachine.MakeBasisMatrix()
                 self.DicoMSMachine[iFacet] = MSMachine
 
-            if not valid and cache and not approx:
+            # write cache to disk, unless in a mode where we explicitly don't want it
+            if facetcache is None and not valid and cache and not approx:
                 try:
                     #MyPickle.DicoNPToFile(facetcache,cachepath)
                     #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
