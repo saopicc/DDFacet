@@ -224,7 +224,11 @@ class ClassImageDeconvMachine():
         Populates the self.facetcache dict, unless facetcache is supplied
         """
         self.DicoMSMachine = {}
-        if facetcache is None:
+        valid = True
+        if facetcache is not None:
+            print>> log, "HMP basis functions pre-initialized"
+            self.facetcache = facetcache
+        else:
             cachehash = dict(
                 [(section, self.GD[section]) for section in (
                     "Data", "Beam", "Selection", "Freq",
@@ -236,18 +240,11 @@ class ClassImageDeconvMachine():
             if approx or not cache:
                 valid = False
             if valid:
-                if self.facetcache is None:
-                    print>>log,"Initialising HMP Machine from cache %s"%cachepath
-                    self.facetcache = shared_dict.create(self.CacheFileName)
-                    self.facetcache.restore(cachepath)
-                else:
-                    print>>log,"HMP Machine already initialized"
+                print>>log,"Initialising HMP basis functions from cache %s"%cachepath
+                self.facetcache = shared_dict.create(self.CacheFileName)
+                self.facetcache.restore(cachepath)
             else:
                 self.facetcache = None
-        else:
-            print>>log,"Initialising HMP Machine from predefined basis function cache"
-            self.facetcache = facetcache
-            valid = True
 
         centralFacet = self.PSFServer.DicoVariablePSF["CentralFacet"]
         if approx:

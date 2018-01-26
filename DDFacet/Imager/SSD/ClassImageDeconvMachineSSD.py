@@ -487,23 +487,28 @@ class ClassImageDeconvMachine():
             FacetID=self.PSFServer.giveFacetID2(xm,ym)
             T.timeit("FacetID")
 
-            DicoOrder={"iIsland":iIsland,
-                       "FacetID":FacetID,
-                       "JonesNorm":JonesNorm}
-            
-            ListOrder=[iIsland,FacetID,JonesNorm.flat[0],FacetID,self.RMS**2]
+            ListOrder=[iIsland,FacetID,JonesNorm.flat[0],self.RMS**2]
 
 
             work_queue.put(ListOrder)
             T.timeit("Put")
-            
-        SharedListIsland="%s.ListIslands"%(self.IdSharedMem)
-        ListArrayIslands=[np.array(ListIslands[iIsland]) for iIsland in range(NIslands)]
-        NpShared.PackListArray(SharedListIsland,ListArrayIslands)
-        T.timeit("Pack0")
-        SharedBestIndiv="%s.ListBestIndiv"%(self.IdSharedMem)
-        NpShared.PackListArray(SharedBestIndiv,ListBestIndiv)
-        T.timeit("Pack1")
+
+        deconv_dict  = shared_dict.create("DeconvListIslands")
+        list_islands = deconv_dict.addSubDict("ListIslands")
+        list_best    = deconv_dict.addSubDict("ListBestIndiv")
+
+        for i, island in enumerate(ListIslands):
+            list_islands[i] = np.array(island)
+
+        for i, indiv in enumerate(ListBestIndiv):
+            list_best[i] = indiv
+
+        # ListArrayIslands=[np.array(ListIslands[iIsland]) for iIsland in range(NIslands)]
+        # NpShared.PackListArray(SharedListIsland,ListArrayIslands)
+        # T.timeit("Pack0")
+        # SharedBestIndiv="%s.ListBestIndiv"%(self.IdSharedMem)
+        # NpShared.PackListArray(SharedBestIndiv,ListBestIndiv)
+        # T.timeit("Pack1")
         
 
         workerlist=[]
@@ -736,7 +741,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
             #gc.enable()
             try:
-                iIsland,FacetID,JonesNorm,FacetID,PixVariance = self.work_queue.get(True,2)
+                iIsland,FacetID,JonesNorm,PixVariance = self.work_queue.get(True,2)
             except Exception,e:
                 #print "Exception worker: %s"%str(e)
                 break
