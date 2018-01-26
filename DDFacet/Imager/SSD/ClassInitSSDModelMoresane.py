@@ -20,31 +20,29 @@ from DDFacet.Imager import ClassMaskMachine
 SilentModules=["ClassPSFServer","ClassImageDeconvMachine","GiveModelMachine","ClassModelMachineMoresane","ClassModelMachineSSD","pymoresane.main"]
 
 class ClassInitSSDModelParallel():
-    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,GridFreqs,DegridFreqs,MainCache=None,NCPU=1,IdSharedMem=""):
+    def __init__(self, GD, NCPU, MainCache=None,IdSharedMem=""):
+        self.MainCache=MainCache
+        self.GD = copy.deepcopy(GD)
+        self.NCPU = NCPU
+        self.IdSharedMem=IdSharedMem
+
+
+    def Init(self, DicoVariablePSF, RefFreq, GridFreqs, DegridFreqs):
         self.DicoVariablePSF=DicoVariablePSF
-        self.DicoDirty=DicoDirty
-        GD=copy.deepcopy(GD)
         self.RefFreq=RefFreq
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
-        self.MainCache=MainCache
-        self.GD=GD
-        self.NCPU=NCPU
-        self.IdSharedMem=IdSharedMem
         print>>log,"Initialise MORESANE machine"
         self.InitMachine=ClassInitSSDModel(self.GD,
                                            self.DicoVariablePSF,
-                                           self.DicoDirty,
                                            self.RefFreq,
                                            self.GridFreqs,
                                            self.DegridFreqs,
                                            MainCache=self.MainCache,
                                            IdSharedMem=self.IdSharedMem)
 
-    def setSSDModelImage(self,ModelImage):
-        self.ModelImage=ModelImage
 
-    def giveDicoInitIndiv(self,ListIslands,ListDoIsland=None,Parallel=True):
+    def giveDicoInitIndiv(self,ListIslands,ModelImage,DicoDirty,ListDoIsland=None,Parallel=True):
         NCPU=self.NCPU
         work_queue = multiprocessing.JoinableQueue()
         ListIslands=ListIslands#[300:308]
@@ -66,23 +64,20 @@ class ClassInitSSDModelParallel():
 
         #MyLogger.setLoud("ClassImageDeconvMachineMSMF")
 
-        DicoHMPFunctions=None
-
         print>>log,"Launch MORESANE workers"
         for ii in range(NCPU):
             W = WorkerInitMSMF(work_queue,
                                result_queue,
                                self.GD,
                                self.DicoVariablePSF,
-                               self.DicoDirty,
+                               DicoDirty,
                                self.RefFreq,
                                self.GridFreqs,
                                self.DegridFreqs,
                                self.MainCache,
-                               self.ModelImage,
+                               ModelImage,
                                ListIslands,
-                               self.IdSharedMem,
-                               DicoHMPFunctions)
+                               self.IdSharedMem)
             workerlist.append(W)
             if Parallel:
                 workerlist[ii].start()
@@ -136,13 +131,11 @@ class ClassInitSSDModelParallel():
 ######################################################################################################
 
 class ClassInitSSDModel():
-    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,GridFreqs,DegridFreqs,
+    def __init__(self,GD,DicoVariablePSF,RefFreq,GridFreqs,DegridFreqs,
                  MainCache=None,
                  IdSharedMem="",
-                 DoWait=False,
-                 DicoHMPFunctions=None):
+                 DoWait=False):
         self.DicoVariablePSF=DicoVariablePSF
-        self.DicoDirty=DicoDirty
         GD=copy.deepcopy(GD)
         self.RefFreq=RefFreq
         self.GridFreqs=GridFreqs
@@ -189,7 +182,6 @@ class ClassInitSSDModel():
         #MinorCycleConfig["CleanMaskImage"]=None
         self.MinorCycleConfig=MinorCycleConfig
         self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=MainCache,
-                                                                                   CacheSharedMode=True,
                                                                                    ParallelMode=False,
                                                                                    RefFreq=self.RefFreq,
                                                                                    CacheFileName="HMP_Init",
@@ -200,15 +192,8 @@ class ClassInitSSDModel():
         self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
         self.DeconvMachine.setMaskMachine(self.MaskMachine)
 
-        self.DicoHMPFunctions=None
-        if self.DicoHMPFunctions is not None:
-            self.DeconvMachine.set_DicoHMPFunctions(self.DicoHMPFunctions)
-
         self.Margin=50
-        self.DicoDirty=DicoDirty
-        self.Dirty=DicoDirty["ImageCube"]
-        self.MeanDirty=DicoDirty["MeanImage"]
-        
+
         #print "Start 3"
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["PSFSideLobes"],
                                 GridFreqs=self.GridFreqs,DegridFreqs=self.DegridFreqs,DoWait=DoWait,RefFreq=self.RefFreq)
@@ -226,6 +211,11 @@ class ClassInitSSDModel():
         #self.DeconvMachine.updateRMS()
 
         #self.DicoBasicModelMachine=copy.deepcopy(self.DeconvMachine.ModelMachine.DicoSMStacked)
+
+    def setDirty(self, DicoDirty):
+        self.DicoDirty=DicoDirty
+        self.Dirty=DicoDirty["ImageCube"]
+        self.MeanDirty=DicoDirty["MeanImage"]
 
     def setSubDirty(self,ListPixParms):
         T=ClassTimeIt.ClassTimeIt("InitSSD.setSubDirty")
@@ -474,8 +464,7 @@ class WorkerInitMSMF(multiprocessing.Process):
                  MainCache,
                  ModelImage,
                  ListIsland,
-                 IdSharedMem,
-                 DicoHMPFunctions):
+                 IdSharedMem):
         multiprocessing.Process.__init__(self)
         self.work_queue = work_queue
         self.result_queue = result_queue
@@ -492,7 +481,6 @@ class WorkerInitMSMF(multiprocessing.Process):
         self.ListIsland=ListIsland
         self.InitMachine=None
         self.IdSharedMem=IdSharedMem
-        self.DicoHMPFunctions=DicoHMPFunctions
 
     def Init(self):
 
@@ -501,15 +489,14 @@ class WorkerInitMSMF(multiprocessing.Process):
         if self.InitMachine is not None: return
         self.InitMachine=ClassInitSSDModel(self.GD,
                                            self.DicoVariablePSF,
-                                           self.DicoDirty,
                                            self.RefFreq,
                                            self.GridFreqs,
                                            self.DegridFreqs,
                                            MainCache=self.MainCache,
                                            IdSharedMem=self.IdSharedMem,
-                                           DoWait=False,
-                                           DicoHMPFunctions=self.DicoHMPFunctions)
+                                           DoWait=False)
         self.InitMachine.setSSDModelImage(self.ModelImage)
+        self.InitMachine.setDirty(self.DicoDirty)
         #print "sleeeping init1"
         #time.sleep(10)
 

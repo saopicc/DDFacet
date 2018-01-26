@@ -59,12 +59,15 @@ class ClassImageDeconvMachine():
                  ModelMachine=None,
                  NFreqBands=1,
                  MainCache=None,
-                 CacheSharedMode=False,
                  IdSharedMem="",
                  ParallelMode=True,
                  CacheFileName="HMPBasis",
                  **kw    # absorb any unknown keywords arguments into this
                  ):
+        """
+        ImageDeconvMachine constructor. Note that this should be called pretty much when setting up the imager,
+        before APP workers are started, because the object registers APP handlers.
+        """
         self.IdSharedMem=IdSharedMem
         self.SearchMaxAbs=SearchMaxAbs
         self._ModelImage = None
@@ -83,16 +86,13 @@ class ClassImageDeconvMachine():
         self.PrevPeakFactor = PrevPeakFactor
         self.CacheFileName=CacheFileName
         self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
-        self.ModelMachine = ModelMachine
-        self.RefFreq=self.ModelMachine.RefFreq
-        if self.ModelMachine.DicoSMStacked["Type"] not in ("MSMF", "HMP"):
-            raise ValueError("ModelMachine Type should be HMP")
+        if ModelMachine is not None:
+            self.setModelMachine(ModelMachine)
         self.PSFHasChanged=False
         self._previous_initial_peak = None
         self.maincache = MainCache
         # reset overall iteration counter
         self._niter = 0
-        self.CacheSharedMode=CacheSharedMode
         self.facetcache=None
         self._MaskArray=None
         self.MaskMachine=None
@@ -129,6 +129,12 @@ class ClassImageDeconvMachine():
         if type(self.facetcache) is shared_dict.SharedDict:
             self.facetcache.delete()
 
+    def setModelMachine(self, ModelMachine):
+        self.ModelMachine = ModelMachine
+        self.RefFreq = self.ModelMachine.RefFreq
+        if self.ModelMachine.DicoSMStacked["Type"] not in ("MSMF", "HMP"):
+            raise ValueError("ModelMachine Type should be HMP")
+
     def updateMask(self,Mask):
         nx,ny=Mask.shape
         self._MaskArray = np.zeros((1,1,nx,ny),np.bool8)
@@ -142,10 +148,10 @@ class ClassImageDeconvMachine():
     def resetCounter(self):
         self._niter = 0
 
-    def updateModelMachine(self,ModelMachine):
-        self.ModelMachine=ModelMachine
-        if self.ModelMachine.RefFreq!=self.RefFreq:
+    def updateModelMachine(self, ModelMachine):
+        if self.ModelMachine.RefFreq != self.RefFreq:
             raise ValueError("freqs should be equal")
+        self.ModelMachine=ModelMachine
 
         for iFacet in range(self.PSFServer.NFacets):
             self.DicoMSMachine[iFacet].setModelMachine(self.ModelMachine)
@@ -164,12 +170,22 @@ class ClassImageDeconvMachine():
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
 
-    def Init(self,**kwargs):
-        self.SetPSF(kwargs["PSFVar"])
-        self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
-        self.InitMSMF(approx=kwargs.get("approx",False), cache=kwargs.get("cache", True))
-        self.ModelMachine.setRefFreq(self.RefFreq)
-        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
+    def Init(self, PSFVar, PSFAve, GridFreqs, DegridFreqs, approx=False, cache=True, facetcache=None, **kwargs):
+        """
+        Init method. This is called after the first round of gridding: PSFs and such are available.
+        ModelMachine must be set by now.
+        
+        facetcache: dict of basis functions. If supplied, then InitMSMF is not called.
+        """
+        self.SetPSF(PSFVar)
+        self.setSideLobeLevel(PSFAve[0], PSFAve[1])
+        if facetcache is None:
+            self.InitMSMF(approx=approx, cache=cache)
+        else:
+            self.facetcache = facetcache
+        ## OMS: why is this needed? self.RefFreq is set from self.ModelMachine in the first place
+        # self.ModelMachine.setRefFreq(self.RefFreq)
+        self.ModelMachine.setFreqMachine(GridFreqs, DegridFreqs),
 
     def Reset(self):
         print>>log, "resetting HMP machine"
@@ -178,9 +194,6 @@ class ClassImageDeconvMachine():
             print>> log, "deleting HMP facet cache"
             self.facetcache.delete()
         self.facetcache = None
-
-    def set_DicoHMPFunctions(self,facetcache):
-        self.facetcache=facetcache
 
     def setNoiseMap(self, NoiseMap, PNRStop=10):
         """Sets the noise map. The mean dirty will be divided by the noise map before peak finding.
@@ -211,6 +224,7 @@ class ClassImageDeconvMachine():
     def InitMSMF(self, approx=False, cache=True):
         """Initializes MSMF basis functions. If approx is True, then uses the central facet's PSF for
         all facets.
+        Populates the self.facetcache dict.
         """
         self.DicoMSMachine = {}
         cachehash = dict( 

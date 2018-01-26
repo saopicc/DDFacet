@@ -1,209 +1,170 @@
 import numpy as np
-from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
 import copy
-from DDFacet.ToolsDir.GiveEdges import GiveEdges
-from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
-from DDFacet.Imager.ClassPSFServer import ClassPSFServer
-from DDFacet.Imager.ModModelMachine import ClassModModelMachine
-import multiprocessing
-from DDFacet.Other import ClassTimeIt
-from DDFacet.Other.progressbar import ProgressBar
 import time
-from DDFacet.Array import NpShared
+import traceback
+from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
+from DDFacet.ToolsDir.GiveEdges import GiveEdges
+from DDFacet.Imager.ModModelMachine import ClassModModelMachine
+from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassInitSSDModel")
-import traceback
 from DDFacet.Other import ModColor
 from ClassConvMachine import ClassConvMachineImages
 from DDFacet.Imager import ClassMaskMachine
+from DDFacet.Array import shared_dict
 
+from DDFacet.Other.AsyncProcessPool import APP
 
 class ClassInitSSDModelParallel():
-    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,GridFreqs,DegridFreqs,MainCache=None,NCPU=1,IdSharedMem=""):
+    def __init__(self, GD, NFreqBands, MainCache=None, IdSharedMem=""):
+        self.InitMachine = ClassInitSSDModel(GD, NFreqBands, MainCache, IdSharedMem)
+        APP.registerWorkers(self)
+
+    def Init(self, DicoVariablePSF, RefFreq, GridFreqs, DegridFreqs):
         self.DicoVariablePSF=DicoVariablePSF
-        self.DicoDirty=DicoDirty
-        GD=copy.deepcopy(GD)
         self.RefFreq=RefFreq
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
-        self.MainCache=MainCache
-        self.GD=GD
-        self.NCPU=NCPU
-        self.IdSharedMem=IdSharedMem
+
         print>>log,"Initialise HMP machine"
-        self.InitMachine=ClassInitSSDModel(self.GD,
-                                           self.DicoVariablePSF,
-                                           self.DicoDirty,
-                                           self.RefFreq,
-                                           self.GridFreqs,
-                                           self.DegridFreqs,
-                                           MainCache=self.MainCache,
-                                           IdSharedMem=self.IdSharedMem)
+        self.InitMachine.Init(DicoVariablePSF, RefFreq, GridFreqs, DegridFreqs)
 
-    def setSSDModelImage(self,ModelImage):
-        self.ModelImage=ModelImage
+    def Reset(self):
+        self.DicoVariablePSF = None
+        self.InitMachine.Reset()
 
-    def giveDicoInitIndiv(self,ListIslands,ListDoIsland=None,Parallel=True):
-        NCPU=self.NCPU
-        work_queue = multiprocessing.JoinableQueue()
-        ListIslands=ListIslands#[300:308]
-        DoIsland=True
-        
-        
-        
-        for iIsland in range(len(ListIslands)):
-            if ListDoIsland is not None:
-                DoIsland=ListDoIsland[iIsland]
-            if DoIsland: work_queue.put({"iIsland":iIsland})
+    def _initIsland_worker(self, DicoOut, iIsland, Island, RefFreq,
+                           DicoVariablePSF, DicoDirty, DicoParm, FacetCache):
+        self.InitMachine.Init(DicoVariablePSF, RefFreq,
+                              DicoParm["GridFreqs"], DicoParm["DegridFreqs"], facetcache=FacetCache)
+        self.InitMachine.setDirty(DicoDirty)
+        self.InitMachine.setSSDModelImage(DicoParm["ModelImage"])
+        try:
+            SModel, AModel = self.InitMachine.giveModel(Island)
+        except:
+            print>>log, traceback.format_exc()
+            FileOut = "errIsland_%6.6i.npy" % iIsland
+            print>>log, ModColor.Str("...... error on island %i, saving to file %s" % (iIsland, FileOut))
+            np.save(FileOut, np.array(Island)
+            return
+        DicoOut["S"] = SModel
+        DicoOut["Alpha"] = AModel
 
-        result_queue=multiprocessing.JoinableQueue()
-        NJobs=work_queue.qsize()
-        workerlist=[]
+    def giveDicoInitIndiv(self, ListIslands, ModelImage, DicoDirty, ListDoIsland=None):
+        DicoInitIndiv = shared_dict.create("DicoInitIsland")
+        ParmDict = shared_dict.create("InitSSDModelHMP")
+        ParmDict["ModelImage"] = ModelImage
+        ParmDict["GridFreqs"] = self.GridFreqs
+        ParmDict["DegridFreqs"] = self.DegridFreqs
 
-        MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"])
-        #MyLogger.setLoud("ClassImageDeconvMachineMSMF")
+        for iIsland,Island in enumerate(ListIslands):
+            if not ListDoIsland or ListDoIsland[iIsland]:
+                subdict = DicoInitIndiv.addSubdict(iIsland)
+                APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+                           args=(subdict.writeonly(), iIsland, Island, self.RefFreq,
+                                 self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
+                                 ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly()))
+        APP.awaitJobResults("InitIsland:*", progress="Init islands")
+        DicoInitIndiv.reload()
+        ParmDict.delete()
 
-        DicoHMPFunctions=self.InitMachine.DeconvMachine.facetcache
-
-        print>>log,"Launch HMP workers"
-        for ii in range(NCPU):
-            W = WorkerInitMSMF(work_queue,
-                               result_queue,
-                               self.GD,
-                               self.DicoVariablePSF,
-                               self.DicoDirty,
-                               self.RefFreq,
-                               self.GridFreqs,
-                               self.DegridFreqs,
-                               self.MainCache,
-                               self.ModelImage,
-                               ListIslands,
-                               self.IdSharedMem,
-                               DicoHMPFunctions)
-            workerlist.append(W)
-            if Parallel:
-                workerlist[ii].start()
-
-        timer = ClassTimeIt.ClassTimeIt()
-        pBAR = ProgressBar(Title="  HMPing islands ")
-        #pBAR.disable()
-        pBAR.render(0, NJobs)
-        iResult = 0
-        if not Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].run()  # just run until all work is completed
-
-        self.DicoInitIndiv={}
-        while iResult < NJobs:
-            DicoResult = None
-            if result_queue.qsize() != 0:
-                try:
-                    DicoResult = result_queue.get()
-                except:
-                    pass
-
-            if DicoResult == None:
-                time.sleep(0.5)
-                continue
-
-            if DicoResult["Success"]:
-                iResult+=1
-                NDone=iResult
-
-                pBAR.render(NDone,NJobs)
-
-                iIsland=DicoResult["iIsland"]
-                NameDico="%sDicoInitIsland_%5.5i"%(self.IdSharedMem,iIsland)
-                Dico=NpShared.SharedToDico(NameDico)
-                self.DicoInitIndiv[iIsland]=copy.deepcopy(Dico)
-                NpShared.DelAll(NameDico)
-
-
-
-        if Parallel:
-            for ii in range(NCPU):
-                workerlist[ii].shutdown()
-                workerlist[ii].terminate()
-                workerlist[ii].join()
-        
-        MyLogger.setLoud(["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"])
-        return self.DicoInitIndiv
+        return DicoInitIndiv
 
 ######################################################################################################
 
 class ClassInitSSDModel():
-    def __init__(self,GD,DicoVariablePSF,DicoDirty,RefFreq,GridFreqs,DegridFreqs,
-                 MainCache=None,
-                 IdSharedMem="",
-                 DoWait=False,
-                 DicoHMPFunctions=None):
-        self.DicoVariablePSF=DicoVariablePSF
-        self.DicoDirty=DicoDirty
-        GD=copy.deepcopy(GD)
-        self.RefFreq=RefFreq
-        self.GridFreqs=GridFreqs
-        self.DegridFreqs=DegridFreqs
-        self.GD=GD
-        self.GD["Parallel"]["NCPU"]=1
-        #self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
-        self.GD["HMP"]["Alpha"]=[-1.,1.,5]
-        self.GD["Deconv"]["Mode"]="HMP"
-        self.GD["Deconv"]["CycleFactor"]=0
-        self.GD["Deconv"]["PeakFactor"]=0.0
-        self.GD["Deconv"]["RMSFactor"]=self.GD["GAClean"]["RMSFactorInitHMP"]
+    """
+    This class is essentially a wrapper around a single HMP machine. It initializes an HMP machine
+    with very specific settings, then uses it deconvolve (init) SSD islands.
+    
+    The class is initialized once in the main process (to populate the HMP basis function cache),
+    then re-initialized in the workers on a per-island basis.
+    """
+    def __init__(self, GD, NFreqBands, MainCache=None, IdSharedMem=""):
+        """Constructs initializer. 
+        Note that this should be called pretty much when setting up the imager,
+        before APP workers are started, because the object registers APP handlers.
+        """
+        self.GD = copy.deepcopy(GD)
+        self.GD["Parallel"]["NCPU"] = 1
+        # self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
+        self.GD["HMP"]["Alpha"] = [-1., 1., 5]
+        self.GD["Deconv"]["Mode"] = "HMP"
+        self.GD["Deconv"]["CycleFactor"] = 0
+        self.GD["Deconv"]["PeakFactor"] = 0.0
+        self.GD["Deconv"]["RMSFactor"] = self.GD["GAClean"]["RMSFactorInitHMP"]
 
-        self.GD["Deconv"]["Gain"]=self.GD["GAClean"]["GainInitHMP"]
-        self.GD["Deconv"]["AllowNegative"]=self.GD["GAClean"]["AllowNegativeInitHMP"]
-        self.GD["Deconv"]["MaxMinorIter"]=self.GD["GAClean"]["MaxMinorIterInitHMP"]
-        
+        self.GD["Deconv"]["Gain"] = self.GD["GAClean"]["GainInitHMP"]
+        self.GD["Deconv"]["AllowNegative"] = self.GD["GAClean"]["AllowNegativeInitHMP"]
+        self.GD["Deconv"]["MaxMinorIter"] = self.GD["GAClean"]["MaxMinorIterInitHMP"]
 
-        self.GD["HMP"]["Scales"]=self.GD["GAClean"]["ScalesInitHMP"]
+        self.GD["HMP"]["Scales"] = self.GD["GAClean"]["ScalesInitHMP"]
 
-        self.GD["HMP"]["Ratios"]=[]
-        #self.GD["MultiScale"]["Ratios"]=[]
-        self.GD["HMP"]["NTheta"]=4
-        
-        self.GD["HMP"]["SolverMode"]="NNLS"
-        #self.GD["MultiScale"]["SolverMode"]="PI"
+        self.GD["HMP"]["Ratios"] = []
+        # self.GD["MultiScale"]["Ratios"]=[]
+        self.GD["HMP"]["NTheta"] = 4
 
-        self.NFreqBands=len(DicoVariablePSF["freqs"])
-        MinorCycleConfig=dict(self.GD["Deconv"])
-        MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
-        MinorCycleConfig["NFreqBands"]=self.NFreqBands
-        MinorCycleConfig["GD"] = self.GD
-        MinorCycleConfig["GridFreqs"] = self.GridFreqs
-        MinorCycleConfig["DegridFreqs"] = self.DegridFreqs
+        self.GD["HMP"]["SolverMode"] = "NNLS"
+        # self.GD["MultiScale"]["SolverMode"]="PI"
 
-        #MinorCycleConfig["RefFreq"] = self.RefFreq
+        self.NFreqBands = NFreqBands
+        MinorCycleConfig = dict(self.GD["Deconv"])
+        MinorCycleConfig["NCPU"] = self.GD["Parallel"]["NCPU"]
+        MinorCycleConfig["NFreqBands"] = self.NFreqBands
+
+        ## pass this in explicitly
+        # MinorCycleConfig["GD"] = self.GD
+
+        ## these are not used by ClassImageDeconvMachineMSMF.ClassImageDeconvMachine()
+        # MinorCycleConfig["GridFreqs"] = self.GridFreqs
+        # MinorCycleConfig["DegridFreqs"] = self.DegridFreqs
+        # MinorCycleConfig["RefFreq"] = self.RefFreq
 
         ModConstructor = ClassModModelMachine(self.GD)
         ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
         ModelMachine.setRefFreq(self.RefFreq)
-        MinorCycleConfig["ModelMachine"]=ModelMachine
-        #MinorCycleConfig["CleanMaskImage"]=None
-        self.MinorCycleConfig=MinorCycleConfig
-        self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,
-                                                                               CacheSharedMode=True,
-                                                                               ParallelMode=False,
-                                                                               CacheFileName="HMP_Init",
-                                                                               IdSharedMem=IdSharedMem,
-                                                                               **self.MinorCycleConfig)
+        MinorCycleConfig["ModelMachine"] = ModelMachine
+        # MinorCycleConfig["CleanMaskImage"]=None
+        self.MinorCycleConfig = MinorCycleConfig
+        self.DeconvMachine = ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,
+                                                                                 ParallelMode=True,
+                                                                                 CacheFileName="HMP_Init",
+                                                                                 IdSharedMem=IdSharedMem,
+                                                                                 GD=self.GD,
+                                                                                 **MinorCycleConfig)
         self.GD["Mask"]["Auto"]=False
         self.GD["Mask"]["External"]=None
-        self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
+
+        self.MaskMachine = ClassMaskMachine.ClassMaskMachine(self.GD)
+
+    def Init(self,DicoVariablePSF,DicoDirty,RefFreq,GridFreqs,DegridFreqs,
+                 DoWait=False,
+                 facetcache=None):
+        """
+        Init method. Note that this will end up being called in one of two modes. In the main process,
+        it is called to initialize the HMP machine's basis function cache (so facetcache=None). After this is 
+        done, the cache is passed to workers, where the HMP machine is initialized from facetcache.
+        
+        facetcache: dict of basis functions for the HMP machine.
+        """
+        self.DicoVariablePSF=DicoVariablePSF
+        self.DicoDirty=DicoDirty
+        self.RefFreq=RefFreq
+        self.GridFreqs=GridFreqs
+        self.DegridFreqs=DegridFreqs
+
+        ModConstructor = ClassModModelMachine(self.GD)
+        ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
+        ModelMachine.setRefFreq(self.RefFreq)
+        self.DeconvMachine.setModelMachine(ModelMachine)
+
         self.DeconvMachine.setMaskMachine(self.MaskMachine)
 
-        self.DicoHMPFunctions=DicoHMPFunctions
-        if self.DicoHMPFunctions is not None:
-            self.DeconvMachine.set_DicoHMPFunctions(self.DicoHMPFunctions)
-
         self.Margin=20
-        self.DicoDirty=DicoDirty
-        self.Dirty=DicoDirty["ImageCube"]
-        self.MeanDirty=DicoDirty["MeanImage"]
-        
+
         #print "Start 3"
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["PSFSideLobes"],
+                                facetcache=facetcache,
                                 GridFreqs=self.GridFreqs,DegridFreqs=self.DegridFreqs,DoWait=DoWait)
 
         if DoWait:
@@ -219,6 +180,14 @@ class ClassInitSSDModel():
         self.DeconvMachine.updateRMS()
 
         #self.DicoBasicModelMachine=copy.deepcopy(self.DeconvMachine.ModelMachine.DicoSMStacked)
+
+    def Reset(self):
+        self.DeconvMachine.Reset()
+
+    def setDirty(self, DicoDirty):
+        self.DicoDirty=DicoDirty
+        self.Dirty=DicoDirty["ImageCube"]
+        self.MeanDirty=DicoDirty["MeanImage"]
 
     def setSubDirty(self,ListPixParms):
         T=ClassTimeIt.ClassTimeIt("InitSSD.setSubDirty")
@@ -348,7 +317,8 @@ class ClassInitSSDModel():
         #self.ModelMachine.DicoSMStacked=self.DicoBasicModelMachine
         self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
         self.ModelMachine.setFreqMachine(self.GridFreqs,self.DegridFreqs)
-        self.MinorCycleConfig["ModelMachine"] = ModelMachine
+        ## this doesn't seem to be needed or used outside of __init__, so why assign to it?
+        # self.MinorCycleConfig["ModelMachine"] = ModelMachine
         self.ModelMachine.setModelShape(self.SubDirty.shape)
         self.ModelMachine.setListComponants(self.DeconvMachine.ModelMachine.ListScales)
         T.timeit("setlistcomp")
@@ -449,104 +419,4 @@ class ClassInitSSDModel():
         
 
         return SModel,AModel
-
-
-
-##########################################
-####### Workers
-##########################################
-import os
-import signal
-           
-class WorkerInitMSMF(multiprocessing.Process):
-    def __init__(self,
-                 work_queue,
-                 result_queue,
-                 GD,
-                 DicoVariablePSF,
-                 DicoDirty,
-                 RefFreq,
-                 GridFreqs,
-                 DegridFreqs,
-                 MainCache,
-                 ModelImage,
-                 ListIsland,
-                 IdSharedMem,
-                 DicoHMPFunctions):
-        multiprocessing.Process.__init__(self)
-        self.work_queue = work_queue
-        self.result_queue = result_queue
-        self.kill_received = False
-        self.exit = multiprocessing.Event()
-        self.GD=GD
-        self.DicoVariablePSF=DicoVariablePSF
-        self.DicoDirty=DicoDirty
-        self.RefFreq=RefFreq
-        self.GridFreqs=GridFreqs
-        self.DegridFreqs=DegridFreqs
-        self.MainCache=MainCache
-        self.ModelImage=ModelImage
-        self.ListIsland=ListIsland
-        self.InitMachine=None
-        self.IdSharedMem=IdSharedMem
-        self.DicoHMPFunctions=DicoHMPFunctions
-
-    def Init(self):
-
-        #print "sleeeping init0"
-        #time.sleep(10)
-        if self.InitMachine is not None: return
-        self.InitMachine=ClassInitSSDModel(self.GD,
-                                           self.DicoVariablePSF,
-                                           self.DicoDirty,
-                                           self.RefFreq,
-                                           self.GridFreqs,
-                                           self.DegridFreqs,
-                                           MainCache=self.MainCache,
-                                           IdSharedMem=self.IdSharedMem,
-                                           DoWait=False,
-                                           DicoHMPFunctions=self.DicoHMPFunctions)
-        self.InitMachine.setSSDModelImage(self.ModelImage)
-        #print "sleeeping init1"
-        #time.sleep(10)
-
-
-    def shutdown(self):
-        self.exit.set()
-
-
-    def initIsland(self, DicoJob):
-        if self.InitMachine is None:
-            self.Init()
-        iIsland=DicoJob["iIsland"]
-        Island=self.ListIsland[iIsland]
-        SModel,AModel=self.InitMachine.giveModel(Island)
-        
-
-        DicoInitIndiv={"S":SModel,"Alpha":AModel}
-        NameDico="%sDicoInitIsland_%5.5i"%(self.IdSharedMem,iIsland)
-        NpShared.DicoToShared(NameDico, DicoInitIndiv)
-        self.result_queue.put({"Success": True, "iIsland": iIsland})
-
-
-    def run(self):
-        while not self.kill_received and not self.work_queue.empty():
-            
-            DicoJob = self.work_queue.get()
-            #self.initIsland(DicoJob)
-            try:
-                self.initIsland(DicoJob)
-            except:
-                print traceback.format_exc()
-                iIsland=DicoJob["iIsland"]
-                FileOut="errIsland_%6.6i.npy"%iIsland
-                print ModColor.Str("...... on island %i, saving to file %s"%(iIsland,FileOut))
-                np.save(FileOut,np.array(self.ListIsland[iIsland]))
-                print
-
-
-
-
-
-
 

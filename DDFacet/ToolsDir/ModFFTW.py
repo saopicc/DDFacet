@@ -252,11 +252,23 @@ class FFTW_2Donly_np():
 
         return A
 
+
+_give_gauss_grid_key = None,None
+_give_gauss_grid_cache = None,None
+
 def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parallel=True):
     uvscale=Npix*CellSizeRad/2
     SigMaj,SigMin,ang=GaussPars
     ang = 2*np.pi - ang #need counter-clockwise rotation
-    U,V=np.mgrid[-uvscale:uvscale:Npix*1j,-uvscale:uvscale:Npix*1j]
+
+    # np.mgrid turns out to be *the* major CPU consumer here when GiveGauss() is called repeatedly.
+    # Hence, cache and reuse it
+    global _give_gauss_grid_key, _give_gauss_grid_cache
+    if (uvscale, Npix) == _give_gauss_grid_key:
+        U, V = _give_gauss_grid_cache
+    else:
+        U, V = _give_gauss_grid_cache = np.mgrid[-uvscale:uvscale:Npix*1j,-uvscale:uvscale:Npix*1j]
+        _give_gauss_grid_key = uvscale, Npix
 
     CT=np.cos(ang)
     ST=np.sin(ang)
@@ -312,7 +324,8 @@ def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None):
     if GaussPar is None:
         GaussPar=(Sig,Sig,0)
     for ch in range(nch):
-        Aout,PSF=_convolveSingleGaussianNP(dict,'in','out',ch,np.sqrt(2),GaussPar,return_gaussian=True)
+        # replacing NP->FFTW.  See discussion in https://github.com/cyriltasse/DDFacet/issues/463
+        Aout,PSF=_convolveSingleGaussianFFTW(dict,'in','out',ch,np.sqrt(2),GaussPar,return_gaussian=True)
         Out[ch,:,:,:]=Aout
     return Out,PSF
 

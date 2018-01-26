@@ -19,29 +19,19 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 import os
 import numpy as np
+import multiprocessing
+import time
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassImageDeconvMachine")
-from DDFacet.Array import NpParallel
 from DDFacet.Array import NpShared
-from DDFacet.ToolsDir import ModFFTW
-from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
-from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Imager import ClassGainMachine
 from SkyModel.PSourceExtract import ClassIncreaseIsland
-from DDFacet.Other import MyPickle
-import multiprocessing
-import time
-import ClassInitSSDModelHMP
 from DDFacet.Imager.SSD.GA.ClassEvolveGA import ClassEvolveGA
 from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
-#try: # Genetic Algo
-#except:
-#    print>> log, ModColor.Str("Failed to import the Genetic Algorithm Class (ClassEvolveGA)")
-#    #sys.exit(1)
 from DDFacet.Array import NpParallel
 import ClassIslandDistanceMachine
 from DDFacet.Array import shared_dict
@@ -56,6 +46,7 @@ class ClassImageDeconvMachine():
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
                  GD=None,SearchMaxAbs=1,IdSharedMem=None,
                  ModelMachine=None,
+                 NFreqBands=1,
                  MainCache=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
@@ -96,6 +87,23 @@ class ClassImageDeconvMachine():
 
         self.DeconvMode="GAClean"
 
+        if self.GD["GAClean"]["InitType"] == "HMP":
+            import ClassInitSSDModelHMP
+            self.InitMachine = ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
+                                                                         NFreqBands,
+                                                                         MainCache=self.maincache,
+                                                                         IdSharedMem=self.IdSharedMem)
+        elif self.GD["GAClean"]["InitType"] == "MORESANE":
+
+            import ClassInitSSDModelMoresane
+            self. InitMachine = ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
+                                                                              NCPU=self.NCPU,
+                                                                              MainCache=self.maincache,
+                                                                              IdSharedMem=self.IdSharedMem)
+        else:
+            raise ValueError("InitType should be HMP or MORESANE")
+
+
     def setMaskMachine(self,MaskMachine):
         self.MaskMachine=MaskMachine
 
@@ -104,8 +112,9 @@ class ClassImageDeconvMachine():
         self.DeconvMode=Mode
 
     def Reset(self):
-        # clear anything we have left lying around in shared memory
-        NpShared.DelAll()
+        # clear anything we have left lying around in shared memory ## OMS how can this be right, what about others?
+        # NpShared.DelAll()
+        self.InitMachine.Reset()
         
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
@@ -125,9 +134,6 @@ class ClassImageDeconvMachine():
         #self.NChannels=self.DicoDirty["NChannels"]
 
         #self.PSFServer.RefFreq=self.ModelMachine.RefFreq
-        
-
-
 
     def Init(self,**kwargs):
         self.SetPSF(kwargs["PSFVar"])
@@ -139,6 +145,7 @@ class ClassImageDeconvMachine():
         self.GridFreqs=kwargs["GridFreqs"]
         self.DegridFreqs=kwargs["DegridFreqs"]
         self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
+        self.InitMachine.Init(self.DicoVariablePSF, self.ModelMachine.RefFreq, self.GridFreqs, self.DegridFreqs)
 
     def AdaptArrayShape(self,A,Nout):
         nch,npol,Nin,_=A.shape
@@ -155,10 +162,6 @@ class ClassImageDeconvMachine():
             return None
 
     def SetDirty(self,DicoDirty):
-        DicoDirty["ImageCube"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImageCube"])
-        #DicoDirty["MeanImage"]=NpShared.ToShared("%s.Dirty.MeanImage"%self.IdSharedMem,DicoDirty["MeanImage"])
-        
-
         self.DicoDirty=DicoDirty
         self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
@@ -173,8 +176,6 @@ class ClassImageDeconvMachine():
         if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)
         self.ModelMachine.setModelShape(self._Dirty.shape)
-
-
 
     def SearchIslands(self,Threshold):
 
@@ -249,7 +250,7 @@ class ClassImageDeconvMachine():
 
 
 
-    def InitMSMF(self):
+    def InitIslands(self):
         self.DicoInitIndiv={}
         if self.GD["GAClean"]["MinSizeInit"]==-1: return
 
@@ -295,36 +296,14 @@ class ClassImageDeconvMachine():
         print>>log,"  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"])
         
         if np.count_nonzero(ListDoIslandsInit)>0:
-            if self.GD["GAClean"]["InitType"]=="HMP":
-                InitMachine=ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
-                                                                           self.DicoVariablePSF,
-                                                                           self.DicoDirty,
-                                                                           self.ModelMachine.RefFreq,
-                                                                           self.GridFreqs,
-                                                                           self.DegridFreqs,
-                                                                           MainCache=self.maincache,
-                                                                           NCPU=self.NCPU,
-                                                                           IdSharedMem=self.IdSharedMem)
-            elif self.GD["GAClean"]["InitType"]=="MORESANE":
-
-                import ClassInitSSDModelMoresane
-                InitMachine=ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
-                                                                                self.DicoVariablePSF,
-                                                                                self.DicoDirty,
-                                                                                self.ModelMachine.RefFreq,
-                                                                                self.GridFreqs,
-                                                                                self.DegridFreqs,
-                                                                                MainCache=self.maincache,
-                                                                                NCPU=self.NCPU,
-                                                                                IdSharedMem=self.IdSharedMem)
-            InitMachine.setSSDModelImage(ModelImage)
-            self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(self.ListIslands,ListDoIsland=ListDoIslandsInit)
+            self.DicoInitIndiv = self.InitMachine.giveDicoInitIndiv(self.ListIslands,
+                                                                    ListDoIsland=ListDoIslandsInit,
+                                                                    ModelImage=ModelImage, DicoDirty=self.DicoDirty)
 
 
     def setChannel(self,ch=0):
         self.Dirty=self._MeanDirty[ch]
         self.ModelImage=self._ModelImage[ch]
-
 
 
     def GiveThreshold(self,Max):
@@ -397,7 +376,7 @@ class ClassImageDeconvMachine():
 
         self.SearchIslands(StopFlux)
         #return None,None,None
-        self.InitMSMF()
+        self.InitIslands()
 
 
         if self.DeconvMode=="GAClean":
