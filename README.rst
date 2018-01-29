@@ -153,7 +153,7 @@ To setup your local development environment navigate clone DDFacet and run::
         (ddfvenv) $ cd DDFacet
         (ddfvenv) $ git submodule update --init --recursive
         (ddfvenv) $ cd ..
-        (ddfvenv) $ pip install -r requirements.txt
+        (ddfvenv) $ pip install -r DDFacet/requirements.txt
         (ddfvenv) $ pip install -e DDFacet/
         #To (re-)build the backend in your checked out folder:
         (ddfvenv) $ cd DDFacet
@@ -210,7 +210,7 @@ Each of the test cases is labeled by a class name and has reference images and a
 name, ie. if the test case that has failed is called "TestWidefieldDirty" the reference images will be called the same. You should investigate the reason for any severe discrepancies between the output of the test case and the images produced by your changed codebase. See the docstring at the top of the class ClassCompareFITSImage for help and
 filename conventions.
 
-Acceptance test data can be found on the Jenkins server in the **/data/test-data** directory.
+Acceptance test data can be found on the Jenkins server in the **/var/lib/jenkins/test-data** directory.
 
 Adding more tests and creating new reference images.
 ---------------------------------------------------------

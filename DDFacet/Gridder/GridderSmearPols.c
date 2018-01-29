@@ -364,10 +364,10 @@ void griddername(PyArrayObject *grid, \
       /* advance pointer to next blocklist*/\
       StartRow += NRowBlocks[iBlock];\
       \
-      float Umean=0;\
-      float Vmean=0;\
-      float Wmean=0;\
-      float FreqMean=0;\
+      double Umean=0;\
+      double Vmean=0;\
+      double Wmean=0;\
+      double FreqMean=0;\
       int NVisThisblock=0;\
       for(ThisPol =0; ThisPol<4;ThisPol++){\
 	Vis[ThisPol]=0;\
@@ -1486,10 +1486,10 @@ void degriddername(PyArrayObject *grid, \
       StartRow += NRowBlocks[iBlock];\
       \
       float complex Vis[4]={0};\
-      float Umean=0;\
-      float Vmean=0;\
-      float Wmean=0;\
-      float FreqMean=0;\
+      double Umean=0;\
+      double Vmean=0;\
+      double Wmean=0;\
+      double FreqMean=0;\
       int NVisThisblock=0;\
       \
       float visChanMean=0.;\
