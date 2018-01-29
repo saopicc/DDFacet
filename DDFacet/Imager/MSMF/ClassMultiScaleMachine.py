@@ -105,6 +105,16 @@ class CleanSolutionsDump(object):
         dump.read(fobj)
         return dump
 
+    @staticmethod
+    def close():
+        """
+        Closes and deletes the dump object
+        """
+        if CleanSolutionsDump._dump is not None:
+            CleanSolutionsDump._dump._close()
+            CleanSolutionsDump._dump = None
+
+
     def __init__(self, columns):
         """
         Creates a dump object with a list of columns.
@@ -123,6 +133,11 @@ class CleanSolutionsDump(object):
     def _flush(self):
         if self._fobj:
             self._fobj.flush()
+
+    def _close(self):
+        if self._fobj:
+            self._fobj.close()
+            self._fobj = None
 
     def _write(self, *components):
         if len(components) != len(self._columns):
@@ -153,7 +168,14 @@ class CleanSolutionsDump(object):
 
 class ClassMultiScaleMachine():
 
-    def __init__(self,GD,Gain=0.1,GainMachine=None,NFreqBands=1):
+    def __init__(self,GD,cachedict,Gain=0.1,GainMachine=None,NFreqBands=1):
+        """
+        :param GD:
+        :param cachedict: a SharedDict in which internal arrays will be stored
+        :param Gain:
+        :param GainMachine:
+        :param NFreqBands:
+        """
         self.SubPSF=None
         self.GainMachine=GainMachine
         self.CubePSFScales=None
@@ -166,10 +188,11 @@ class ClassMultiScaleMachine():
         self._kappa = self.GD["HMP"]["Kappa"]
         self._stall_threshold = self.GD["Debug"]["CleanStallThreshold"]
         self.GlobalWeightFunction=None
-        self.ListScales=None
-        self.CubePSFScales=None
+        self.cachedict = cachedict
+        self.ListScales = cachedict.get("ListScales", None)
+        self.CubePSFScales = None
         self.IsInit_MultiScaleCube=False
-        self.DicoBasisMatrix=None\
+        self.DicoBasisMatrix = cachedict.get("DicoBasisMatrix", None)
         # image or FT basis matrix representation? Use Image for now
         # self.Repr = "FT"
         self.Repr = "IM"
@@ -193,6 +216,8 @@ class ClassMultiScaleMachine():
         else:
             self._dump_xyr = None
 
+    def getCacheDict(self):
+        return self.cachedict
 
     def setModelMachine(self,ModelMachine):
         self.ModelMachine=ModelMachine
@@ -394,7 +419,7 @@ class ClassMultiScaleMachine():
             # print>>log,"computing scales"
             #self.ListSumFluxes = []
 
-            self.ListScales = []
+            self.ListScales = self.cachedict.addSubdict("ListScales")
             ListPSFScales = []
             for iAlpha in range(NAlpha):
                 FluxRatios=FreqBandsFluxRatio[iAlpha,:]
@@ -406,12 +431,13 @@ class ClassMultiScaleMachine():
                 #self.ListSumFluxes.append(1.)
                 ListPSFScales.append(ThisMFPSF)
 
-                self.ListScales.append({"ModelType":"Delta",
-                                        "Scale":iSlice,#"fact":1.,
-                                        "Alpha":ThisAlpha, 
-                                        "CodeTypeScale":0,
-                                        "SumFunc":1.,
-                                        "ModelParams":(0,0,0)})
+                d = self.ListScales.addSubdict(len(self.ListScales))
+                d["ModelType"] = "Delta"
+                d["Scale"] = iSlice
+                d["Alpha"] = ThisAlpha
+                d["CodeTypeScale"] = 0
+                d["SumFunc"] = 1.
+                d["ModelParams"] = (0,0,0)
                 iSlice+=1
 
                 Theta=np.arange(0.,np.pi-1e-3,np.pi/NTheta)
@@ -466,13 +492,14 @@ class ClassMultiScaleMachine():
                     ListPSFScales.append(ThisPSF)
                     #_,n,_=ThisPSF.shape
                     #Peak=np.mean(ThisPSF[:,n/2,n/2])
-                    self.ListScales.append({"ModelType":"Gaussian",#"fact":fact,
-                                            "Model":Gauss, 
-                                            "ModelParams":PSFGaussPars,
-                                            "Scale":iScales,
-                                            "Alpha":ThisAlpha, 
-                                            "CodeTypeScale":iScales,
-                                            "SumFunc":SumGauss})
+                    d = self.ListScales.addSubdict(len(self.ListScales))
+                    d["ModelType"] = "Gaussian"
+                    d["Model"]=Gauss
+                    d["ModelParams"]=PSFGaussPars
+                    d["Scale"]=iScales
+                    d["Alpha"]=ThisAlpha
+                    d["CodeTypeScale"]=iScales
+                    d["SumFunc"]=SumGauss
 
 
                 iSlice+=1
@@ -528,7 +555,7 @@ class ClassMultiScaleMachine():
         self.ListTypeScales=[]
         #self.ListPeakPSFScales=[]
         self.FluxScales=[]
-        for DicoScale in self.ListScales:
+        for DicoScale in self.ListScales.itervalues():
             self.ListTypeScales.append(DicoScale["CodeTypeScale"])
             #self.ListPeakPSFScales.append()
             self.FluxScales.append(DicoScale["SumFunc"])
@@ -562,7 +589,7 @@ class ClassMultiScaleMachine():
         T.timeit("init1")
 
         self.nFunc=self.CubePSFScales.shape[0]
-        self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
+        self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales.itervalues()])
 
         self.WeightWidth = self.GD["HMP"].get("Taper",0)
         self.SupWeightWidth = self.GD["HMP"].get("Support",0)
@@ -602,7 +629,6 @@ class ClassMultiScaleMachine():
         T.timeit("other")
         self.IsInit_MultiScaleCube=True
 
-        return self.ListScales, self.CubePSFScales
         #print>>log, "   ... Done"
 
     def MakeBasisMatrix(self):
@@ -669,10 +695,11 @@ class ClassMultiScaleMachine():
         # self.Bias=Bias
         # stop
         #BM=(CubePSFNorm.reshape((nFunc,nch*nx*ny)).T.copy())
-        DicoBasisMatrix = {"CubePSF": CubePSF,
-                            "CubePSFScales": self.CubePSFScales,
-                            "WeightFunction": WeightFunction,
-                            "GlobalWeightFunction": self.GlobalWeightFunction}
+        DicoBasisMatrix = self.cachedict.addSubdict("BasisMatrix")
+        DicoBasisMatrix["CubePSF"] = CubePSF
+        DicoBasisMatrix["CubePSFScales"] = self.CubePSFScales
+        DicoBasisMatrix["WeightFunction"] = WeightFunction
+        DicoBasisMatrix["GlobalWeightFunction"] = self.GlobalWeightFunction
 
         if self.Repr == "IM":
             BM = np.float64(CubePSF.reshape((nFunc,nch*nx*ny)).T)

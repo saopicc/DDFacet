@@ -58,6 +58,7 @@ class ClassImageDeconvMachine():
                  SearchMaxAbs=1, 
                  ModelMachine=None,
                  NFreqBands=1,
+                 RefFreq=None,
                  MainCache=None,
                  IdSharedMem="",
                  ParallelMode=True,
@@ -79,6 +80,7 @@ class ClassImageDeconvMachine():
         self.SubPSF = None
         self.MultiFreqMode = NFreqBands > 1
         self.NFreqBands = NFreqBands
+        self.RefFreq = RefFreq
         self.FluxThreshold = FluxThreshold
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
@@ -86,8 +88,10 @@ class ClassImageDeconvMachine():
         self.PrevPeakFactor = PrevPeakFactor
         self.CacheFileName=CacheFileName
         self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
+        self.ModelMachine = None
+        self.PSFServer = None
         if ModelMachine is not None:
-            self.setModelMachine(ModelMachine)
+            self.updateModelMachine(ModelMachine)
         self.PSFHasChanged=False
         self._previous_initial_peak = None
         self.maincache = MainCache
@@ -129,18 +133,10 @@ class ClassImageDeconvMachine():
         if type(self.facetcache) is shared_dict.SharedDict:
             self.facetcache.delete()
 
-    def setModelMachine(self, ModelMachine):
-        self.ModelMachine = ModelMachine
-        self.RefFreq = self.ModelMachine.RefFreq
-        if self.ModelMachine.DicoSMStacked["Type"] not in ("MSMF", "HMP"):
-            raise ValueError("ModelMachine Type should be HMP")
-
     def updateMask(self,Mask):
         nx,ny=Mask.shape
         self._MaskArray = np.zeros((1,1,nx,ny),np.bool8)
         self._MaskArray[0,0,:,:]=Mask[:,:]
-
-
 
     def setMaskMachine(self,MaskMachine):
         self.MaskMachine=MaskMachine
@@ -149,12 +145,16 @@ class ClassImageDeconvMachine():
         self._niter = 0
 
     def updateModelMachine(self, ModelMachine):
-        if self.ModelMachine.RefFreq != self.RefFreq:
-            raise ValueError("freqs should be equal")
-        self.ModelMachine=ModelMachine
+        if ModelMachine.DicoSMStacked["Type"] not in ("MSMF", "HMP"):
+            raise ValueError("ModelMachine Type should be HMP")
+        if ModelMachine.RefFreq != self.RefFreq:
+            raise ValueError("RefFreqs should be equal")
 
-        for iFacet in range(self.PSFServer.NFacets):
-            self.DicoMSMachine[iFacet].setModelMachine(self.ModelMachine)
+        self.ModelMachine = ModelMachine
+
+        if self.PSFServer is not None:
+            for iFacet in range(self.PSFServer.NFacets):
+                self.DicoMSMachine[iFacet].setModelMachine(self.ModelMachine)
 
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
@@ -166,7 +166,7 @@ class ClassImageDeconvMachine():
     def SetPSF(self, DicoVariablePSF, quiet=False):
         self.PSFServer=ClassPSFServer(self.GD)
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF,NormalisePSF=True, quiet=quiet)
-        self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
+        self.PSFServer.setRefFreq(self.RefFreq)
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
 
@@ -177,6 +177,8 @@ class ClassImageDeconvMachine():
         
         facetcache: dict of basis functions. If supplied, then InitMSMF is not called.
         """
+        # close the solutions dump, in case it was opened by a previous HMP instance
+        ClassMultiScaleMachine.CleanSolutionsDump.close()
         self.SetPSF(PSFVar)
         self.setSideLobeLevel(PSFAve[0], PSFAve[1])
         self.InitMSMF(approx=approx, cache=cache, facetcache=facetcache)
@@ -207,7 +209,7 @@ class ClassImageDeconvMachine():
         # init PSF server from PSF shared dict
         self.SetPSF(psfdict, quiet=True)
         self.PSFServer.setFacet(iFacet)
-        MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
+        MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, fcdict, self.GainMachine, NFreqBands=self.NFreqBands)
         MSMachine.setModelMachine(self.ModelMachine)
         MSMachine.setSideLobeLevel(SideLobeLevel, OffsetSideLobe)
         MSMachine.SetFacet(iFacet)
@@ -250,7 +252,8 @@ class ClassImageDeconvMachine():
         if approx:
             print>>log, "HMP approximation mode: using PSF of central facet (%d)" % centralFacet
             self.PSFServer.setFacet(centralFacet)
-            MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
+            MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.facetcache.addSubdict(0),
+                                                                      self.GainMachine, NFreqBands=self.NFreqBands)
             MSMachine.setModelMachine(self.ModelMachine)
             MSMachine.setSideLobeLevel(self.SideLobeLevel, self.OffsetSideLobe)
             MSMachine.SetFacet(centralFacet)
@@ -283,7 +286,8 @@ class ClassImageDeconvMachine():
             #        t = ClassTimeIt.ClassTimeIt()
             for iFacet in xrange(self.PSFServer.NFacets):
                 self.PSFServer.setFacet(iFacet)
-                MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
+                MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.facetcache[iFacet],
+                                                                          self.GainMachine, NFreqBands=self.NFreqBands)
                 MSMachine.setModelMachine(self.ModelMachine)
                 MSMachine.setSideLobeLevel(self.SideLobeLevel, self.OffsetSideLobe)
                 MSMachine.SetFacet(iFacet)

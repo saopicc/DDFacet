@@ -20,16 +20,16 @@ from DDFacet.Imager import ClassMaskMachine
 SilentModules=["ClassPSFServer","ClassImageDeconvMachine","GiveModelMachine","ClassModelMachineMoresane","ClassModelMachineSSD","pymoresane.main"]
 
 class ClassInitSSDModelParallel():
-    def __init__(self, GD, NCPU, MainCache=None,IdSharedMem=""):
-        self.MainCache=MainCache
+    def __init__(self, GD, NfreqBands, RefFreq, NCPU, MainCache=None,IdSharedMem=""):
         self.GD = copy.deepcopy(GD)
+        self.MainCache=MainCache
+        self.RefFreq=RefFreq
         self.NCPU = NCPU
         self.IdSharedMem=IdSharedMem
 
 
     def Init(self, DicoVariablePSF, RefFreq, GridFreqs, DegridFreqs):
         self.DicoVariablePSF=DicoVariablePSF
-        self.RefFreq=RefFreq
         self.GridFreqs=GridFreqs
         self.DegridFreqs=DegridFreqs
         print>>log,"Initialise MORESANE machine"
