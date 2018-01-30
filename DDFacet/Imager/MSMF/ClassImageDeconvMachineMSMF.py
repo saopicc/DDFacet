@@ -217,8 +217,6 @@ class ClassImageDeconvMachine():
         MSMachine.FindPSFExtent(verbose=(iFacet == centralFacet))  # only print to log for central facet
         MSMachine.MakeMultiScaleCube()
         MSMachine.MakeBasisMatrix()
-        fcdict["Functions"] = MSMachine.ListScales
-        fcdict["Arrays"] = MSMachine.DicoBasisMatrix
 
     def InitMSMF(self, approx=False, cache=True, facetcache=None):
         """Initializes MSMF basis functions. If approx is True, then uses the central facet's PSF for
@@ -293,10 +291,6 @@ class ClassImageDeconvMachine():
                 MSMachine.SetFacet(iFacet)
                 MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
                 MSMachine.FindPSFExtent(verbose=(iFacet==centralFacet))  # only print to log for central facet
-                ListDicoScales = self.facetcache.get(iFacet, {}).get("Functions")
-                DicoBasisMatrix = self.facetcache.get(iFacet, {}).get("Arrays")
-                MSMachine.setListDicoScales(ListDicoScales)
-                MSMachine.setDicoBasisMatrix(DicoBasisMatrix)
                 MSMachine.MakeMultiScaleCube(verbose=(iFacet==centralFacet))
                 MSMachine.MakeBasisMatrix()
                 self.DicoMSMachine[iFacet] = MSMachine

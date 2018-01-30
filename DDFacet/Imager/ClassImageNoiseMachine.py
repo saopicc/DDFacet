@@ -87,9 +87,9 @@ class ClassImageNoiseMachine():
             # for SSD we need to set up the HMP ModelMachine.
             self.GD["Deconv"]["Mode"] = "HMP"
             ModConstructor = ClassModModelMachine(self.GD)
-            ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
-            ModelMachine.setRefFreq(self.RefFreq)
-            MinorCycleConfig["ModelMachine"] = ModelMachine
+            self.ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
+            self.ModelMachine.setRefFreq(self.RefFreq)
+            MinorCycleConfig["ModelMachine"] = self.ModelMachine
             self.MinorCycleConfig = MinorCycleConfig
             from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
 
@@ -222,7 +222,7 @@ class ClassImageNoiseMachine():
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
 
         print>>log,"  Getting model image..."
-        Model=ModelMachine.GiveModelImage(DoAbs=True)
+        Model=self.ModelMachine.GiveModelImage(DoAbs=True)
         if "Comp" in self.ExternalModelMachine.DicoSMStacked.keys():
             Model+=np.abs(self.ExternalModelMachine.GiveModelImage())
         ModelImage=Model[0,0]

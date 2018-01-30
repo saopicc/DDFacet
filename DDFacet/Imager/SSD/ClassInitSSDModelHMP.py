@@ -18,7 +18,6 @@ from DDFacet.Other.AsyncProcessPool import APP
 class ClassInitSSDModelParallel():
     def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
         self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
-        self.RefFreq = RefFreq
         APP.registerJobHandlers(self)
 
     def Init(self, DicoVariablePSF, GridFreqs, DegridFreqs):
@@ -120,11 +119,6 @@ class ClassInitSSDModel():
         ModelMachine.setRefFreq(self.RefFreq)
         MinorCycleConfig["ModelMachine"] = ModelMachine
 
-        ## pass this in explicitly
-        # MinorCycleConfig["GD"] = self.GD
-
-
-        # MinorCycleConfig["CleanMaskImage"]=None
         self.MinorCycleConfig = MinorCycleConfig
         self.DeconvMachine = ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=MainCache,
                                                                                  ParallelMode=True,
@@ -132,9 +126,9 @@ class ClassInitSSDModel():
                                                                                  IdSharedMem=IdSharedMem,
                                                                                  GD=self.GD,
                                                                                  **MinorCycleConfig)
+
         self.GD["Mask"]["Auto"]=False
         self.GD["Mask"]["External"]=None
-
         self.MaskMachine = ClassMaskMachine.ClassMaskMachine(self.GD)
 
     def Init(self,DicoVariablePSF,GridFreqs,DegridFreqs,
@@ -296,7 +290,10 @@ class ClassInitSSDModel():
         T.timeit("giveMM")
         self.ModelMachine=ModelMachine
         #self.ModelMachine.DicoSMStacked=self.DicoBasicModelMachine
-        self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
+
+        ## OMS: no need for this, surely -- RefFreq is set from ModelMachine in the first place?
+        #self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
+
         self.ModelMachine.setFreqMachine(self.GridFreqs,self.DegridFreqs)
         ## this doesn't seem to be needed or used outside of __init__, so why assign to it?
         # self.MinorCycleConfig["ModelMachine"] = ModelMachine

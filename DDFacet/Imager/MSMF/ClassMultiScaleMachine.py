@@ -188,11 +188,15 @@ class ClassMultiScaleMachine():
         self._kappa = self.GD["HMP"]["Kappa"]
         self._stall_threshold = self.GD["Debug"]["CleanStallThreshold"]
         self.GlobalWeightFunction=None
+        self.IsInit_MultiScaleCube=False
         self.cachedict = cachedict
         self.ListScales = cachedict.get("ListScales", None)
         self.CubePSFScales = None
-        self.IsInit_MultiScaleCube=False
         self.DicoBasisMatrix = cachedict.get("DicoBasisMatrix", None)
+        if self.DicoBasisMatrix is not None:
+            self.CubePSFScales = self.DicoBasisMatrix["CubePSFScales"]
+            self.GlobalWeightFunction = self.DicoBasisMatrix["GlobalWeightFunction"]
+
         # image or FT basis matrix representation? Use Image for now
         # self.Repr = "FT"
         self.Repr = "IM"
@@ -333,15 +337,6 @@ class ClassMultiScaleMachine():
         #print "!!!!!!!!!!!!!!!!!!!!!!!!!!!",self.SubPSF.shape
         if verbose:
             print>>log,"using %s PSF box of size %dx%d in minor cycle subtraction" % (method, dx*2+1, dx*2+1)
-
-    def setListDicoScales(self,ListScales):
-        self.ListScales=ListScales
-
-    def setDicoBasisMatrix(self,DicoBasisMatrix):
-        if DicoBasisMatrix is None: return
-        self.DicoBasisMatrix=DicoBasisMatrix
-        self.CubePSFScales=DicoBasisMatrix["CubePSFScales"]
-        self.GlobalWeightFunction=DicoBasisMatrix["GlobalWeightFunction"]
 
     def MakeMultiScaleCube(self, verbose=False):
         if self.IsInit_MultiScaleCube: return
