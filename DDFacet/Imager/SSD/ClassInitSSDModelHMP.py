@@ -292,7 +292,7 @@ class ClassInitSSDModel():
         #self.ModelMachine.DicoSMStacked=self.DicoBasicModelMachine
 
         ## OMS: no need for this, surely -- RefFreq is set from ModelMachine in the first place?
-        #self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
+        self.ModelMachine.setRefFreq(self.RefFreq,Force=True)
 
         self.ModelMachine.setFreqMachine(self.GridFreqs,self.DegridFreqs)
         ## this doesn't seem to be needed or used outside of __init__, so why assign to it?

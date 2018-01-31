@@ -192,7 +192,7 @@ class ClassMultiScaleMachine():
         self.cachedict = cachedict
         self.ListScales = cachedict.get("ListScales", None)
         self.CubePSFScales = None
-        self.DicoBasisMatrix = cachedict.get("DicoBasisMatrix", None)
+        self.DicoBasisMatrix = cachedict.get("BasisMatrix", None)
         if self.DicoBasisMatrix is not None:
             self.CubePSFScales = self.DicoBasisMatrix["CubePSFScales"]
             self.GlobalWeightFunction = self.DicoBasisMatrix["GlobalWeightFunction"]
@@ -690,11 +690,22 @@ class ClassMultiScaleMachine():
         # self.Bias=Bias
         # stop
         #BM=(CubePSFNorm.reshape((nFunc,nch*nx*ny)).T.copy())
-        DicoBasisMatrix = self.cachedict.addSubdict("BasisMatrix")
-        DicoBasisMatrix["CubePSF"] = CubePSF
-        DicoBasisMatrix["CubePSFScales"] = self.CubePSFScales
-        DicoBasisMatrix["WeightFunction"] = WeightFunction
-        DicoBasisMatrix["GlobalWeightFunction"] = self.GlobalWeightFunction
+
+        # if called with None, we're filling the cache, so create a subdict in the cache dict
+        if SubSubSubCoord is None:
+            DicoBasisMatrix = self.cachedict.addSubdict("BasisMatrix")
+            DicoBasisMatrix["CubePSF"] = CubePSF
+            DicoBasisMatrix["CubePSFScales"] = self.CubePSFScales
+            DicoBasisMatrix["WeightFunction"] = WeightFunction
+            DicoBasisMatrix["GlobalWeightFunction"] = self.GlobalWeightFunction
+        # else extracting subcube, so return a temporary dict
+        else:
+            DicoBasisMatrix = {"CubePSF": CubePSF,
+                            "CubePSFScales": self.CubePSFScales,
+                            "WeightFunction": WeightFunction,
+                            "GlobalWeightFunction": self.GlobalWeightFunction}
+
+
 
         if self.Repr == "IM":
             BM = np.float64(CubePSF.reshape((nFunc,nch*nx*ny)).T)
