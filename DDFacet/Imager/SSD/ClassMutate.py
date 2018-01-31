@@ -94,7 +94,7 @@ class ClassMutate():
 
 
 
-    def mutGaussian(self,individual, pFlux, p0, pMove, pScale,FactorAccelerate=1.):
+    def mutGaussian(self,individual, pFlux, p0, pMove, pScale, pOffset,FactorAccelerate=1.):
         #return individual,
         T= ClassTimeIt.ClassTimeIt()
         T.disable()
@@ -124,7 +124,7 @@ class ClassMutate():
 
         T.timeit("start2")
     
-        PMat=np.array([0.,pFlux, p0, pMove, pScale])
+        PMat=np.array([0.,pFlux, p0, pMove, pScale, pOffset])
         PMat/=np.sum(PMat)
         PMat=np.cumsum(PMat)
         
@@ -156,7 +156,11 @@ class ClassMutate():
             indSel=ind[indR]
         elif Type==3:
             FactorScale=1.+np.random.randn(1)[0]*0.01
-            indSel=np.arange(Af.size)
+            indSel=ind#np.arange(Af.size)
+        elif Type==4:
+            SMin=np.min(np.abs(Af[Af!=0.]))
+            Offset=np.random.randn(1)[0]*SMin
+            indSel=ind#np.arange(Af.size)
         #print pFlux, p0, pMove
         #print "PPPPPP",PMat,RType,Type
         
@@ -214,6 +218,8 @@ class ClassMutate():
                     
             if Type==3:
                 Af[iPix]*=FactorScale
+            if Type==4:
+                Af[iPix]+=Offset
 
         if "GSig" in self.PM.SolveParam:
             GSig=self.PM.ArrayToSubArray(individual,"GSig")

@@ -875,10 +875,10 @@ class WorkerFitness(multiprocessing.Process):
         Name="%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual)
         individual=NpShared.GiveArray(Name)
 
-        Mut_pFlux, Mut_p0, Mut_pMove, Mut_pScale=DicoJob["mutConfig"]
+        Mut_pFlux, Mut_p0, Mut_pMove, Mut_pScale, Mut_pOffset=DicoJob["mutConfig"]
 
         individualOut,=self.MutMachine.mutGaussian(individual.copy(), 
-                                                   Mut_pFlux, Mut_p0, Mut_pMove, Mut_pScale)
+                                                   Mut_pFlux, Mut_p0, Mut_pMove, Mut_pScale, Mut_pOffset)
         individual[:]=individualOut[:]
         
         self.result_queue.put({"Success": True, 

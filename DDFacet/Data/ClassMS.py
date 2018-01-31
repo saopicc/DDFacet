@@ -595,10 +595,13 @@ class ClassMS():
             # cached from previous run)
             # In auto cache mode, cache key is the start time of the process. The cache is thus reset when first
             # touched, so we read the MS on the first major cycle, and cache subsequently.
-            cache_key = dict(time=self._start_time)
+            # cache_key = dict(time=self._start_time)
 
             # @o-smirnov: why not that?
             # cache_key = dict(data=self.GD["Data"])
+            cache_key = dict(data=self.GD["Data"],
+                             selection=self.GD["Selection"],
+                             Comp=self.GD["Comp"])
             metadata_path, metadata_valid = self.cache.checkCache("A0A1UVWT.npz", cache_key, ignore_key=(use_cache=="force"))
         else:
             metadata_valid = False
@@ -1192,6 +1195,8 @@ class ClassMS():
         antenna_rows = [(A0 == A) | (A1 == A) for A in xrange(self.na)]
         # print>>log,"  row index formed"
 
+        
+        
         antenna_flagfrac = [flags1[rows].sum() / float(flags1[rows].size or 1) for rows in antenna_rows]
         print>> log, "  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac])
 
@@ -1402,13 +1407,14 @@ class ClassMS():
 
     def AddCol(self,ColName,LikeCol="DATA",quiet=False):
         t=table(self.MSName,readonly=False,ack=False)
-        if (ColName in t.colnames() and not self.GD["Predict"]["Overwrite"]):
+        if (ColName in t.colnames()):# and not self.GD["Predict"]["Overwrite"]):
             if not quiet:
                 print>>log, "  Column %s already in %s"%(ColName,self.MSName)
             t.close()
             return
-        elif (ColName in t.colnames() and self.GD["Predict"]["Overwrite"]):
-            t.removecols(ColName)
+        # elif (ColName in t.colnames() and self.GD["Predict"]["Overwrite"]):
+        #     t.removecols(ColName)
+
         print>>log, "  Putting column %s in %s"%(ColName,self.MSName)
         desc=t.getcoldesc(LikeCol)
         desc["name"]=ColName

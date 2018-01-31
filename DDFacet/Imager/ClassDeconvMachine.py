@@ -592,9 +592,21 @@ class ClassImagerDeconv():
                 # get loaded chunk from I/O thread, schedule next chunk
                 # self.VS.startChunkLoadInBackground()
                 DATA = self.VS.collectLoadedChunk(start_next=True)
+
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break
+
+                # Allow for predict mode when a residual only is computed
+                predict_colname = None
+                if self.GD["Output"]["Mode"]=="Dirty":
+                    predict_colname = self.GD["Predict"]["ColName"]
+                if self.DoDirtySub and predict_colname:
+                    predict = DATA.addSharedArray("predict", DATA["datashape"], DATA["datatype"])
+                    visdata = DATA["data"]
+                    np.copyto(predict, visdata)
+
+
                 # None weights indicates an all-flagged chunk: go on to the next chunk
                 if DATA["Weights"] is None:
                     continue
@@ -617,6 +629,13 @@ class ClassImagerDeconv():
                         self.FacetMachine.getChunkInBackground(DATA)
                         self.FacetMachine.collectDegriddingResults()
 
+                    if predict_colname:
+                        predict -= visdata
+                        # schedule jobs for saving visibilities, then start reading next chunk (both are on io queue)
+                        self.VS.startVisPutColumnInBackground(DATA, "predict", predict_colname, likecol=self.GD["Data"]["ColName"])
+                        
+
+                        
                 # crude but we need it here, since FacetMachine computes/loads CFs, which FacetMachinePSF uses.
                 # so even if we're not using FM to make a dirty, we still need this call to make sure the CFs come in.
                 self.FacetMachine.awaitInitCompletion()
