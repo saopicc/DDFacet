@@ -72,7 +72,7 @@ BUILD4(RRRLLRLL)
 #define RRLL_FROM_I\
   return dcMat(stokes_vis[0],stokes_vis[0],0,0);
 #define RRRLLRLL_FROM_I\
-  return dcMat(stokes_vis[0],stokes_vis[0],0,0);
+  return dcMat(stokes_vis[0],0,0,stokes_vis[0]);
 
 using StokesDegridType = dcMat (*)(const dcMat &stokes_vis);
 
