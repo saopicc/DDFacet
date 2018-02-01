@@ -191,10 +191,9 @@ class ClassMultiScaleMachine():
         self.IsInit_MultiScaleCube=False
         self.cachedict = cachedict
         self.ListScales = cachedict.get("ListScales", None)
-        self.CubePSFScales = None
+        self.CubePSFScales = cachedict.get("CubePSFScales", None)
         self.DicoBasisMatrix = cachedict.get("BasisMatrix", None)
         if self.DicoBasisMatrix is not None:
-            self.CubePSFScales = self.DicoBasisMatrix["CubePSFScales"]
             self.GlobalWeightFunction = self.DicoBasisMatrix["GlobalWeightFunction"]
 
         # image or FT basis matrix representation? Use Image for now
@@ -365,7 +364,7 @@ class ClassMultiScaleMachine():
         self.NScales=NScales
         NRatios=len(LRatios)
 
-        Ratios=np.float32(np.array([float(r) for r in LRatios if r!="" and r!="''"]))
+        Ratios=np.float32(np.array([float(r) for r in LRatios if r!="" and r!="''" and float(r) != 1]))
 
         Scales=np.float32(np.array([float(ls) for ls in LScales if ls!="" and ls !="''"]))
 
@@ -413,18 +412,32 @@ class ClassMultiScaleMachine():
         if self.CubePSFScales is None or self.ListScales is None:
             # print>>log,"computing scales"
             #self.ListSumFluxes = []
+            Theta = np.arange(0., np.pi - 1e-3, np.pi / NTheta)
+
+            ListParam = []
+            for iScales in range(ScaleStart, NScales):
+                ListParam.append((iScales, 1, 0))
+
+            for iScales in range(ScaleStart, NScales):
+                for ratio in Ratios:
+                    for th in Theta:
+                        ListParam.append((iScales, ratio, th))
+
+            ncubes = NAlpha*(1+len(ListParam))
+            self.CubePSFScales = self.cachedict.addSharedArray("CubePSFScales",
+                                        (ncubes, nch, nx, ny), self.SubPSF.dtype)
 
             self.ListScales = self.cachedict.addSubdict("ListScales")
             ListPSFScales = []
             for iAlpha in range(NAlpha):
                 FluxRatios=FreqBandsFluxRatio[iAlpha,:]
                 FluxRatios=FluxRatios.reshape((FluxRatios.size,1,1))
-                ThisMFPSF=self.SubPSF[:,0,:,:]*FluxRatios
+                ThisMFPSF = self.CubePSFScales[len(self.ListScales)]
+                ThisMFPSF[:] = self.SubPSF[:,0,:,:]*FluxRatios
                 ThisAlpha=Alpha[iAlpha]
                 #print FluxRatios,ThisAlpha
                 iSlice=0
                 #self.ListSumFluxes.append(1.)
-                ListPSFScales.append(ThisMFPSF)
 
                 d = self.ListScales.addSubdict(len(self.ListScales))
                 d["ModelType"] = "Delta"
@@ -435,22 +448,6 @@ class ClassMultiScaleMachine():
                 d["ModelParams"] = (0,0,0)
                 iSlice+=1
 
-                Theta=np.arange(0.,np.pi-1e-3,np.pi/NTheta)
-
-                ListParam=[]
-                for iScales in range(ScaleStart,NScales):
-                    ListParam.append((iScales,1,0))
-
-                if 1 in Ratios:
-                    L=Ratios.tolist()
-                    L.remove(1)
-                    Ratios=np.array(L)
-
-                for iScales in range(ScaleStart,NScales):
-                    for ratio in Ratios:
-                        for th in Theta:
-                            ListParam.append((iScales,ratio,th))
-                
                 #print ListParam
                 for iScales,MinMajRatio,th in ListParam:
                     Major=Scales[iScales]/(2.*np.sqrt(2.*np.log(2.)))
@@ -483,8 +480,7 @@ class ClassMultiScaleMachine():
                     #fact=1./SumGauss#/(np.mean(np.max(np.max(ThisPSF,axis=-1),axis=-1)))
                     #fact=1./Max
                     Gauss*=fact#*ratio
-                    ThisPSF*=fact
-                    ListPSFScales.append(ThisPSF)
+                    self.CubePSFScales[len(self.ListScales),...] = ThisPSF*fact
                     #_,n,_=ThisPSF.shape
                     #Peak=np.mean(ThisPSF[:,n/2,n/2])
                     d = self.ListScales.addSubdict(len(self.ListScales))
@@ -531,7 +527,7 @@ class ClassMultiScaleMachine():
                 #                                     "Scale":iScale,
                 #                                     "Alpha":ThisAlpha})
 
-            self.CubePSFScales=np.array(ListPSFScales)
+            assert(len(self.ListScales) == ncubes)
         # else:
         #     print>>log,"scales already loaded"
         T.timeit("1")
@@ -695,13 +691,11 @@ class ClassMultiScaleMachine():
         if SubSubSubCoord is None:
             DicoBasisMatrix = self.cachedict.addSubdict("BasisMatrix")
             DicoBasisMatrix["CubePSF"] = CubePSF
-            DicoBasisMatrix["CubePSFScales"] = self.CubePSFScales
             DicoBasisMatrix["WeightFunction"] = WeightFunction
             DicoBasisMatrix["GlobalWeightFunction"] = self.GlobalWeightFunction
         # else extracting subcube, so return a temporary dict
         else:
             DicoBasisMatrix = {"CubePSF": CubePSF,
-                            "CubePSFScales": self.CubePSFScales,
                             "WeightFunction": WeightFunction,
                             "GlobalWeightFunction": self.GlobalWeightFunction}
 

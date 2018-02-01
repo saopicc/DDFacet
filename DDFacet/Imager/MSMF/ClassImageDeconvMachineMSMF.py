@@ -217,6 +217,7 @@ class ClassImageDeconvMachine():
         MSMachine.FindPSFExtent(verbose=(iFacet == centralFacet))  # only print to log for central facet
         MSMachine.MakeMultiScaleCube()
         MSMachine.MakeBasisMatrix()
+        del MSMachine
 
     def InitMSMF(self, approx=False, cache=True, facetcache=None):
         """Initializes MSMF basis functions. If approx is True, then uses the central facet's PSF for
@@ -300,10 +301,12 @@ class ClassImageDeconvMachine():
                 try:
                     #MyPickle.DicoNPToFile(facetcache,cachepath)
                     #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
+                    print>>log,"  saving HMP cache to %s"%cachepath
                     self.facetcache.save(cachepath)
                     #self.maincache.saveCache("HMPMachine")
                     self.maincache.saveCache(self.CacheFileName)
                     self.PSFHasChanged=False
+                    print>>log,"  HMP init done"
                 except:
                     print>>log, traceback.format_exc()
                     print >>log, ModColor.Str(

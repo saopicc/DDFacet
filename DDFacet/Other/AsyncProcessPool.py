@@ -795,8 +795,6 @@ class AsyncProcessPool (object):
         if affinity:
             psutil.Process().cpu_affinity(affinity)
         object._run_worker(worker_queue)
-        if self.verbose:
-            print>>log,"exiting worker %s"%os.getpid()
 
     def _dispatch_job(self, jobitem, reraise=False):
         """Handles job described by jobitem dict.
