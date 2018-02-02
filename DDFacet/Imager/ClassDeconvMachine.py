@@ -1400,7 +1400,8 @@ class ClassImagerDeconv():
         off = min(off, x[0], nx-x[0], y[0], ny-y[0])
         print>> log, "Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2)
         P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off].copy()
-        (sidelobes), (bmaj, bmin, theta) = ModFitPSF.FindSidelobe(P)
+        bmaj, bmin, theta = ModFitPSF.FitCleanBeam(P)
+        sidelobes = ModFitPSF.FindSidelobe(P)
         print>>log, "PSF max is %f"%P.max()
 
         FWHMFact = 2. * np.sqrt(2. * np.log(2.))
