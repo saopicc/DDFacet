@@ -20,6 +20,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import numpy as np
 import gaussfitter2
+import scipy.ndimage.measurements
+
 from DDFacet.Other import MyLogger
 log= MyLogger.getLogger("FitPSF")
 
@@ -34,7 +36,12 @@ def FitCleanBeam(PSF):
         sigma_y of gaussian in pixels
         theta: The rotation angle (radians) of the gaussian from the y axis counter-clockwise (beware of the periodicity)
     """
-    popt=gaussfitter2.gaussfit(PSF, vheight=0, return_all=0, rotate=1)
+    # zero everything except the main lobe
+    PSF1 = PSF.copy()
+    labels = scipy.ndimage.measurements.label(PSF1>=0)[0]
+    nx, ny = PSF.shape
+    PSF1[labels != labels[nx/2,ny/2]] = 0
+    popt=gaussfitter2.gaussfit(PSF1, vheight=0, return_all=0, rotate=1)
     amp, xo, yo, sigma_x, sigma_y, theta=popt
     theta = np.deg2rad(theta)
     gmaj, gmin = (0, 0)
