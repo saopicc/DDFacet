@@ -105,7 +105,7 @@ def testFitSinc():
      cleanBeam = gauss2d(inpars, circle=0, rotate=1, vheight=0)(xx, yy)
      wnd = 200
      psfWnd = psf[(maxAtCrd[0] - wnd):(maxAtCrd[0] + wnd + 1),(maxAtCrd[1] - wnd):(maxAtCrd[1] + wnd + 1)]
-     (lev, fnull), (bmaj, bmin, th) = fitter.FindSidelobe(psfWnd)
+     lev, fnull = fitter.FindSidelobe(psfWnd)
      assert np.isclose(lev,np.sinc(5/2.0),rtol=1e-2,atol=1e-8) # just check if it found the first sidelobe level
 
 
