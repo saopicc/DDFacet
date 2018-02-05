@@ -35,6 +35,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.CacheManager import CacheManager
 from DDFacet.Array import NpShared
 import sidereal
+from DDFacet.Array import PrintRecArray
 
 import datetime
 import DDFacet.ToolsDir.ModRotate
