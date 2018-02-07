@@ -620,19 +620,24 @@ class ClassFacetMachine():
         # subprocesses will place W-terms etc. here. Reset this first.
         self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
         # check if w-kernels, spacial weights, etc. are cached
-        
-        cachekey = dict(ImagerCF=self.GD["CF"], 
-                        ImagerMainFacet=self.GD["Image"], 
-                        Facets=self.GD["Facets"], 
-                        RIME=self.GD["RIME"],
-                        DDESolutions={"DDSols":self.GD["DDESolutions"]["DDSols"]})
-        cachename = self._cf_cachename = "CF"
-        # in oversize-PSF mode, make separate cache for PSFs
-        if self.DoPSF and self.Oversize != 1:
-            cachename = self._cf_cachename = "CFPSF"
-            cachekey["Oversize"] = self.Oversize
-        # check cache
-        cachepath, cachevalid = self.VS.maincache.checkCache(cachename, cachekey, directory=True)
+
+        if self.GD["Cache"]["CacheCF"]:
+            cachekey = dict(ImagerCF=self.GD["CF"], 
+                            ImagerMainFacet=self.GD["Image"], 
+                            Facets=self.GD["Facets"], 
+                            RIME=self.GD["RIME"],
+                            DDESolutions={"DDSols":self.GD["DDESolutions"]["DDSols"]})
+            cachename = self._cf_cachename = "CF"
+            # in oversize-PSF mode, make separate cache for PSFs
+            if self.DoPSF and self.Oversize != 1:
+                cachename = self._cf_cachename = "CFPSF"
+                cachekey["Oversize"] = self.Oversize
+            # check cache
+            cachepath, cachevalid = self.VS.maincache.checkCache(cachename, cachekey, directory=True)
+        else:
+            print>>log,ModColor.Str("Explicitly not caching nor using cache for the Convolution Function")
+            cachepath, cachevalid="",False
+            
         # up to workers to load/save cache
         for iFacet in self.DicoImager.iterkeys():
             facet_dict = self._CF.addSubdict(iFacet)
@@ -722,14 +727,14 @@ class ClassFacetMachine():
             # mark cache as safe
             for res in workers_res:
                 Type,path,iFacet=res
-                if Type=="compute":
+                if Type=="compute" and self.GD["Cache"]["CacheCF"]:
                     #print iFacet
                     facet_dict=self._CF[iFacet]
                     d={}
                     for key in facet_dict.keys():
                         d[key]=facet_dict[key]
                     np.savez(file(path, "w"), **d)
-            self.VS.maincache.saveCache(self._cf_cachename)
+            if self.GD["Cache"]["CacheCF"]: self.VS.maincache.saveCache(self._cf_cachename)
             self.IsDDEGridMachineInit = True
 
     def setCasaImage(self, ImageName=None, Shape=None, Freqs=None, Stokes=["I"]):
