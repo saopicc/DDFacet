@@ -26,11 +26,16 @@ def remove_field_name(a, name):
     return b
 
 from prettytable import PrettyTable
-def Print(CatIn,RemoveFieldName='ChanFreq'):
+def Print(CatIn,RemoveFieldName='ChanFreq',HideList=None):
     if RemoveFieldName in CatIn.dtype.names:
         Cat=remove_field_name(CatIn, RemoveFieldName)
     else:
         Cat=CatIn
+
+    Cat=Cat.copy()
+    if HideList is not None:
+        for field in HideList:
+            Cat=remove_field_name(Cat, field)
 
     x = PrettyTable(Cat.dtype.names)
     for row in Cat: x.add_row(row)
