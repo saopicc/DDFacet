@@ -31,6 +31,7 @@ from collections import OrderedDict
 import glob
 import re
 import numexpr
+import time
 
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ClassTimeIt
@@ -457,14 +458,37 @@ class AsyncProcessPool (object):
                 if self.verbose:
                     print>> log, "reaping workers"
                 # join processes
-                for pid, proc in worker_map.iteritems():
+                attempt = 0
+                while worker_map and attempt<20:
+                    dead = [ (pid, proc) for pid, proc in worker_map.iteritems() if not proc.is_alive() ]
                     if self.verbose:
-                        print>> log, "joining worker '%s' (%d)"%(proc.name, pid)
-                    proc.join(5)
-                    if proc.is_alive():
-                        print>> log, ModColor.Str("worker '%s' clinging on to life after 5s, killing it"%proc.name)
-                        proc.terminate()
-                        proc.join(5)
+                        print>>log,"joining %d/%d workers (attempt %d)"%(len(dead), len(worker_map), attempt)
+                    for pid, proc in dead:
+                        proc.join()
+                        del worker_map[pid]
+                    if worker_map:
+                        if self.verbose:
+                            print>>log,"remaining %s"%(worker_map.keys(),)
+                        attempt += 1
+                        time.sleep(1)
+                        # ugly, but some of these fuckers refuse to die
+                        if attempt == 5:
+                            print>> log, "terminating lingering worker processes"
+                            for proc in worker_map.itervalues():
+                                proc.terminate()
+                        elif attempt == 10:
+                            print>> log, "killing lingering processes"
+                            for pid in worker_map.iterkeys():
+                                os.kill(pid, 9)
+
+                # for pid, proc in worker_map.iteritems():
+                #     if self.verbose:
+                #         print>> log, "joining worker '%s' (%d) %s %s"%(proc.name, pid, proc.is_alive(), proc.exitcode)
+                #     proc.join(5)
+                #     if proc.is_alive():
+                #         print>> log, ModColor.Str("worker '%s' clinging on to life after 5s, killing it"%proc.name)
+                #         proc.terminate()
+                #         proc.join(5)
                 if self.verbose:
                     print>> log, "all workers rejoined"
             if self.verbose:
@@ -854,6 +878,8 @@ class AsyncProcessPool (object):
                 except Queue.Empty:
                     continue
                 if jobitem == "POISON-E":
+                    if self.verbose:
+                        print>>log,"got pill"
                     break
                 elif jobitem is not None:
                     self._dispatch_job(jobitem)
