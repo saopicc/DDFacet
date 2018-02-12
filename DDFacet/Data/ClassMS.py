@@ -1259,6 +1259,7 @@ class ClassMS():
             vis = vis[:,::-1,:]
         print>>log, "writing column %s rows %d:%d"%(colname,row0,row1)
         t = self.GiveMainTable(readonly=False, ack=False)
+
         # if sorting rows, rearrange vis array back into MS order
         # if not sorting, then using slice(None) for row has no effect
         if sort_index is not None:
@@ -1462,17 +1463,24 @@ class ClassMS():
             t.close()
     
 
-    def Rotate(self,DATA,RotateType=["uvw","vis"]):
+    def Rotate(self,DATA,RotateType=["uvw","vis"],Sense="ToTarget",DataFieldName="data"):
         #DDFacet.ToolsDir.ModRotate.Rotate(self,radec)
-        StrRAOld  = rad2hmsdms(self.OldRadec[0],Type="ra").replace(" ",":")
-        StrDECOld = rad2hmsdms(self.OldRadec[1],Type="dec").replace(" ",".")
-        StrRA  = rad2hmsdms(self.NewRadec[0],Type="ra").replace(" ",":")
-        StrDEC = rad2hmsdms(self.NewRadec[1],Type="dec").replace(" ",".")
-        print>>log, "Rotate %s"%(",".join(RotateType))
+        if Sense=="ToTarget":
+            ra0,dec0=self.OldRadec
+            ra1,dec1=self.NewRadec
+        elif Sense=="ToPhaseCenter":
+            ra0,dec0=self.NewRadec
+            ra1,dec1=self.OldRadec
+
+        StrRAOld  = rad2hmsdms(ra0,Type="ra").replace(" ",":")
+        StrDECOld = rad2hmsdms(dec0,Type="dec").replace(" ",".")
+        StrRA  = rad2hmsdms(ra1,Type="ra").replace(" ",":")
+        StrDEC = rad2hmsdms(dec1,Type="dec").replace(" ",".")
+        print>>log, "Rotate %s [Mode = %s]"%(",".join(RotateType),Sense)
         print>>log, "     from [%s, %s]"%(StrRAOld,StrDECOld)
         print>>log, "       to [%s, %s]"%(StrRA,StrDEC)
         
-        DDFacet.ToolsDir.ModRotate.Rotate2(self.OldRadec,self.NewRadec,DATA["uvw"],DATA["data"],self.wavelength_chan,
+        DDFacet.ToolsDir.ModRotate.Rotate2((ra0,dec0),(ra1,dec1),DATA["uvw"],DATA[DataFieldName],self.wavelength_chan,
                                            RotateType=RotateType)
 
 
