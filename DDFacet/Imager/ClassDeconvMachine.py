@@ -411,6 +411,23 @@ class ClassImagerDeconv():
         self.PSFGaussPars=self.DicoImagesPSF["PSFGaussPars"]
         self.PSFSidelobes=self.DicoImagesPSF["PSFSidelobes"]
         (self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)=self.DicoImagesPSF["EstimatesAvgPSF"]
+
+        # #########################"
+        # Needed if cached PSF is there but --Output-RestoringBeam set differently
+        forced_beam=self.GD["Output"]["RestoringBeam"]
+        if forced_beam is not None:
+            if isinstance(forced_beam,float) or isinstance(forced_beam,int):
+                forced_beam=[float(forced_beam),float(forced_beam),0]
+            elif len(forced_beam)==1:
+                forced_beam=[forced_beam[0],forced_beam[0],0]
+            f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
+            FWHMFact = 2. * np.sqrt(2. * np.log(2.))
+            f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
+            print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
+            beam, gausspars = f_beam, f_gau
+            self.FWHMBeamAvg, self.PSFGaussParsAvg = beam, gausspars
+        # #########################"
+
         self.HasFittedPSFBeam=True
 
 
@@ -1435,8 +1452,8 @@ class ClassImagerDeconv():
         if forced_beam is not None:
             FWHMFact = 2. * np.sqrt(2. * np.log(2.))
 
-            if isinstance(forced_beam,float):
-                forced_beam=[forced_beam,forced_beam,0]
+            if isinstance(forced_beam,float) or isinstance(forced_beam,int):
+                forced_beam=[float(forced_beam),float(forced_beam),0]
             elif len(forced_beam)==1:
                 forced_beam=[forced_beam[0],forced_beam[0],0]
             f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
