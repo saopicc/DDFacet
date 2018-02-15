@@ -124,7 +124,6 @@ class ClassVisServer():
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
 
-        get_detail=True
         for msspec in self.MSList:
             if type(msspec) is not str:
                 msname, ddid, field = msspec
@@ -136,10 +135,8 @@ class ClassVisServer():
                 Field=field, DDID=ddid, TaQL=self.TaQL,
                 TimeChunkSize=self.TMemChunkSize, ChanSlice=chanslice,
                 GD=self.GD, ResetCache=self.GD["Cache"]["Reset"],
-                DicoSelectOptions = self.DicoSelectOptions,
-                get_obs_detail=get_detail)
+                DicoSelectOptions = self.DicoSelectOptions)
             if MS.empty:
-                print>>log,""
                 continue
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
@@ -153,12 +150,6 @@ class ClassVisServer():
                 self._chunk_shape = [max(a, b)
                                      for a, b in zip(self._chunk_shape, shape)]
 
-            # If we got some observing details, store them for the
-            # first successful MS only
-            if get_detail:
-                self.obs_detail = MS.obs_detail
-                get_detail = False
-
         size = reduce(lambda x, y: x * y, self._chunk_shape)
         print >>log, "shape of data/flag buffer will be %s (%.2f Gel)" % (
             self._chunk_shape, size / float(2 ** 30))
@@ -166,6 +157,8 @@ class ClassVisServer():
         if not self.ListMS:
             print>>log, ModColor.Str("--Data-MS does not specify any valid Measurement Set(s)")
             raise RuntimeError,"--Data-MS does not specify any valid Measurement Set(s)"
+
+        self.obs_detail = self.ListMS[0].get_obs_details()
 
         # main cache is initialized from main cache of first MS
         if ".txt" in self.GD["Data"]["MS"]:

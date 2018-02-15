@@ -133,7 +133,7 @@ class ClassFITSBeam (object):
                 # get interpolator from cache, or create object
                 vb = ClassFITSBeam._vb_cache.get(filenames)
                 if vb is None:
-                    print>> log, "loading beam patterns %s %s" % filename_pair
+                    print>> log, "loading beam patterns %s %s" % filenames
                     ClassFITSBeam._vb_cache[filenames] = vb = InterpolatedBeams.LMVoltageBeam(
                         verbose=opts["FITSVerbosity"],
                         l_axis=opts["FITSLAxis"], m_axis=opts["FITSMAxis"]
@@ -144,12 +144,18 @@ class ClassFITSBeam (object):
                 # find frequency "distance". If beam frequency range completely overlaps MS frequency range,
                 # this is 0, otherwise a positive number
                 distance = max(vb._freqgrid[0] - self.freqs[0], 0) + \
-                           max(self.freqs[1] - vb._freqgrid[1], 0)
+                           max(self.freqs[-1] - vb._freqgrid[-1], 0)
                 beamlist.append((distance, vb, filenames))
             # select beams with smallest distance
-            dist0, vb, filenames = beamlist.sorted()[0]
+            dist0, vb, filenames = sorted(beamlist)[0]
             if len(beamlist) > 1:
-                print>> log, "beam patterns %s %s provide best match to frequency coverage" % filenames
+                if dist0 == 0:
+                    print>> log, "beam patterns %s %s overlap the frequency coverage" % filenames
+                else:
+                    print>> log, "beam patterns %s %s are closest to the frequency coverage (%.1f MHz max separation)" % (
+                                    filenames[0], filenames[1], dist0*1e-6)
+                print>>log,"  MS coverage is %.1f to %.1f GHz, beams are %.1f to %.1f MHz"%(
+                    self.freqs[0]*1e-6, self.freqs[-1]*1e-6, vb._freqgrid[0]*1e-6, vb._freqgrid[-1]*1e-6)
             self.vbs[corr] = vb
 
 
