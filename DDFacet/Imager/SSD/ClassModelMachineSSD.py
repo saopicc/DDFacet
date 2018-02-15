@@ -326,44 +326,59 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setListComponants(self,ListScales):
         self.ListScales=ListScales
 
-    def GiveSpectralIndexMap(self, threshold=0.1, save_dict=True):
-        # Get the model image
-        IM = self.GiveModelImage(self.FreqMachine.Freqsp)
-        nchan, npol, Nx, Ny = IM.shape
-
-        # Fit the alpha map
-        self.FreqMachine.FitAlphaMap(IM[:, 0, :, :], threshold=threshold) # should set threshold based on SNR of final residual
-
-        if save_dict:
-            FileName = self.GD['Output']['Name'] + ".Dicoalpha"
-            print>>log, "Saving componentwise SPI map to %s"%FileName
-
-            MyPickle.Save(self.FreqMachine.alpha_dict, FileName)
-
-        return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
+    # def GiveSpectralIndexMap(self, threshold=0.1, save_dict=True):
+    #     # Get the model image
+    #     IM = self.GiveModelImage(self.FreqMachine.Freqsp)
+    #     nchan, npol, Nx, Ny = IM.shape
+    #     # Fit the alpha map
+    #     self.FreqMachine.FitAlphaMap(IM[:, 0, :, :], threshold=threshold) # should set threshold based on SNR of final residual
+    #     if save_dict:
+    #         FileName = self.GD['Output']['Name'] + ".Dicoalpha"
+    #         print>>log, "Saving componentwise SPI map to %s"%FileName
+    #         MyPickle.Save(self.FreqMachine.alpha_dict, FileName)
+    #     return self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
 
 
-    # def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True):
-	#
-    #
-    #     dFreq=1e6
-    #     RefFreq=self.DicoSMStacked["RefFreq"]
-    #     f0=RefFreq/1.5#self.DicoSMStacked["AllFreqs"].min()
-    #     f1=RefFreq*1.5#self.DicoSMStacked["AllFreqs"].max()
-    #     M0=self.GiveModelImage(f0)
-    #     M1=self.GiveModelImage(f1)
-    #     if DoConv:
-    #         M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-    #         M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
-    #
-    #     Np=1000
-    #     indx,indy=np.int64(np.random.rand(Np)*M0.shape[0]),np.int64(np.random.rand(Np)*M0.shape[1])
-    #     med=np.median(np.abs(M0[:,:,indx,indy]))
-	#
-    #     Mask=((M1>100*med)&(M0>100*med))
-    #     alpha=np.zeros_like(M0)
-    #     alpha[Mask]=(np.log(M0[Mask])-np.log(M1[Mask]))/(np.log(f0/f1))
-    #     return alpha
+    def GiveSpectralIndexMap(self,CellSizeRad=1.,GaussPars=[(1,1,0)],DoConv=True,MaxSpi=100,MaxDR=1e+6,threshold=None):
+    
+        dFreq=1e6
+        RefFreq=self.DicoSMStacked["RefFreq"]
+        f0=RefFreq/1.5#self.DicoSMStacked["AllFreqs"].min()
+        f1=RefFreq*1.5#self.DicoSMStacked["AllFreqs"].max()
+        M0=self.GiveModelImage(f0)
+        M1=self.GiveModelImage(f1)
+        if DoConv:
+            #M0=ModFFTW.ConvolveGaussian(M0,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+            #M1=ModFFTW.ConvolveGaussian(M1,CellSizeRad=CellSizeRad,GaussPars=GaussPars)
+            #M0,_=ModFFTW.ConvolveGaussianWrapper(M0,Sig=GaussPars[0][0]/CellSizeRad)
+            #M1,_=ModFFTW.ConvolveGaussianWrapper(M1,Sig=GaussPars[0][0]/CellSizeRad)
+            M0,_=ModFFTW.ConvolveGaussianScipy(M0,Sig=GaussPars[0][0]/CellSizeRad)
+            M1,_=ModFFTW.ConvolveGaussianScipy(M1,Sig=GaussPars[0][0]/CellSizeRad)
+
+            
+        # compute threshold for alpha computation by rounding DR threshold to .1 digits (i.e. 1.65e-6 rounds to 1.7e-6)
+        if threshold is not None:
+            minmod = threshold
+        elif not np.all(M0==0):
+            minmod = float("%.1e"%(np.max(np.abs(M0))/MaxDR))
+        else:
+            minmod=1e-6
+    
+        # mask out pixels above threshold
+        mask=(M1<minmod)|(M0<minmod)
+        print>>log,"computing alpha map for model pixels above %.1e Jy (based on max DR setting of %g)"%(minmod,MaxDR)
+        M0[mask]=minmod
+        M1[mask]=minmod
+        alpha = (np.log(M0)-np.log(M1))/(np.log(f0/f1))
+        alpha[mask] = 0
+
+        # Np=1000
+        # indx,indy=np.int64(np.random.rand(Np)*M0.shape[0]),np.int64(np.random.rand(Np)*M0.shape[1])
+        # med=np.median(np.abs(M0[:,:,indx,indy]))
+        # Mask=((M1>100*med)&(M0>100*med))
+        # alpha=np.zeros_like(M0)
+        # alpha[Mask]=(np.log(M0[Mask])-np.log(M1[Mask]))/(np.log(f0/f1))
+        return alpha
 
         
     def RemoveNegComponants(self):

@@ -88,8 +88,8 @@ class ClassEvolveGA():
         # toolbox.register("mate", tools.cxOrdered)
         # toolbox.register("mutate", tools.mutGaussian, indpb=0.3,  mu=0.0, sigma=.1)
         #toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.3, p0=0.3, pMove=0.3)
-        self.MutConfig=pFlux,p0,pMove=0.5,0.5,0.5
-        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.2, p0=0.5, pMove=0.2)
+        self.MutConfig=pFlux,p0,pMove,pScale,pOffset=0.5,0.5,0.5,0.5,0.5
+        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.2, p0=0.5, pMove=0.2, pScale=0.2, pOffset=0.2)
 
         toolbox.register("select", tools.selTournament, tournsize=3)
         #toolbox.register("select", Select.selTolTournament, tournsize=3, Tol=4)

@@ -146,7 +146,7 @@ class ClassInitSSDModel():
         self.GD=GD
         self.GD["Parallel"]["NCPU"]=1
         #self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
-        self.GD["HMP"]["Alpha"]=[-1.,1.,5]
+        self.GD["HMP"]["Alpha"]=[-3.,1.,5]
         self.GD["Deconv"]["Mode"]="HMP"
         self.GD["Deconv"]["CycleFactor"]=0
         self.GD["Deconv"]["PeakFactor"]=0.0
@@ -361,6 +361,7 @@ class ClassInitSSDModel():
         #print "update"
         #time.sleep(30)
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
+        #self.DeconvMachine.Plot()
         T.timeit("deconv %s"%str(self.DicoSubDirty["ImageCube"].shape))
         #print "deconv"
         #time.sleep(30)
@@ -446,7 +447,6 @@ class ClassInitSSDModel():
         else:
             AModel=np.zeros_like(SModel)
         T.timeit("spec index")
-        
 
         return SModel,AModel
 

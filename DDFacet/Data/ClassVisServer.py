@@ -388,6 +388,10 @@ class ClassVisServer():
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         ms = self.ListMS[iMS]
         row0, row1 = ms.getChunkRow0Row1()[iChunk]
+        if ms.ToRADEC is not None:
+            ms.Rotate(DATA,RotateType=["vis"],Sense="ToPhaseCenter",DataFieldName=field)
+            
+
         ms.PutVisColumn(column, DATA[field], row0, row1, likecol=likecol, sort_index=DATA["sort_index"])
 
     def collectPutColumnResults(self):
