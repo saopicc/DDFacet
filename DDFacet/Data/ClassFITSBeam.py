@@ -83,7 +83,7 @@ class ClassFITSBeam (object):
                 raise ValueError,"FITSFeed parameter must be two characters (e.g. 'xy')"
             feed = feed.lower()
             self.corrs = [ a+b for a in feed for b in feed ]
-            print>>log,"polarization basis specified by FITSFeed parameter: %s"%" ".join(selfcorrs)
+            print>>log,"polarization basis specified by FITSFeed parameter: %s"%" ".join(self.corrs)
         else:
             # NB: need to check correlation names better. This assumes four correlations in that order!
             if "x" in self.ms.CorrelationNames[0].lower():
