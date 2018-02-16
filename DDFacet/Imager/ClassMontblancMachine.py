@@ -450,13 +450,6 @@ class DDFacetSourceProvider(SourceProvider):
 
         return self._manager._frequency[lc:uc]
 
-    def ref_frequency(self, context):
-        self.update_nchunks(context)
-        # Assumes a single band
-        return np.full(context.shape,
-            self._manager._ref_frequency,
-            dtype=context.dtype)
-
     def parallactic_angles(self, context):
         self.update_nchunks(context)
         # Time extents
