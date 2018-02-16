@@ -309,6 +309,7 @@ class ClassInitSSDModel():
         #print "update"
         #time.sleep(30)
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
+        #self.DeconvMachine.Plot()
         T.timeit("deconv %s"%str(self.DicoSubDirty["ImageCube"].shape))
         #print "deconv"
         #time.sleep(30)
@@ -394,7 +395,6 @@ class ClassInitSSDModel():
         else:
             AModel=np.zeros_like(SModel)
         T.timeit("spec index")
-        
 
         return SModel,AModel
 

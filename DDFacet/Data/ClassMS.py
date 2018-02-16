@@ -35,6 +35,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.CacheManager import CacheManager
 from DDFacet.Array import NpShared
 import sidereal
+from DDFacet.Array import PrintRecArray
 
 import datetime
 import DDFacet.ToolsDir.ModRotate
@@ -594,10 +595,13 @@ class ClassMS():
             # cached from previous run)
             # In auto cache mode, cache key is the start time of the process. The cache is thus reset when first
             # touched, so we read the MS on the first major cycle, and cache subsequently.
-            cache_key = dict(time=self._start_time)
+            # cache_key = dict(time=self._start_time)
 
             # @o-smirnov: why not that?
             # cache_key = dict(data=self.GD["Data"])
+            cache_key = dict(data=self.GD["Data"],
+                             selection=self.GD["Selection"],
+                             Comp=self.GD["Comp"])
             metadata_path, metadata_valid = self.cache.checkCache("A0A1UVWT.npz", cache_key, ignore_key=(use_cache=="force"))
         else:
             metadata_valid = False
@@ -1208,6 +1212,8 @@ class ClassMS():
         antenna_rows = [(A0 == A) | (A1 == A) for A in xrange(self.na)]
         # print>>log,"  row index formed"
 
+        
+        
         antenna_flagfrac = [flags1[rows].sum() / float(flags1[rows].size or 1) for rows in antenna_rows]
         print>> log, "  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac])
 
@@ -1269,6 +1275,7 @@ class ClassMS():
             vis = vis[:,::-1,:]
         print>>log, "writing column %s rows %d:%d"%(colname,row0,row1)
         t = self.GiveMainTable(readonly=False, ack=False)
+
         # if sorting rows, rearrange vis array back into MS order
         # if not sorting, then using slice(None) for row has no effect
         if sort_index is not None:
@@ -1423,13 +1430,14 @@ class ClassMS():
 
     def AddCol(self,ColName,LikeCol="DATA",quiet=False):
         t=table(self.MSName,readonly=False,ack=False)
-        if (ColName in t.colnames() and not self.GD["Predict"]["Overwrite"]):
+        if (ColName in t.colnames()):# and not self.GD["Predict"]["Overwrite"]):
             if not quiet:
                 print>>log, "  Column %s already in %s"%(ColName,self.MSName)
             t.close()
             return
-        elif (ColName in t.colnames() and self.GD["Predict"]["Overwrite"]):
-            t.removecols(ColName)
+        # elif (ColName in t.colnames() and self.GD["Predict"]["Overwrite"]):
+        #     t.removecols(ColName)
+
         print>>log, "  Putting column %s in %s"%(ColName,self.MSName)
         desc=t.getcoldesc(LikeCol)
         desc["name"]=ColName
@@ -1476,17 +1484,24 @@ class ClassMS():
             t.close()
     
 
-    def Rotate(self,DATA,RotateType=["uvw","vis"]):
+    def Rotate(self,DATA,RotateType=["uvw","vis"],Sense="ToTarget",DataFieldName="data"):
         #DDFacet.ToolsDir.ModRotate.Rotate(self,radec)
-        StrRAOld  = rad2hmsdms(self.OldRadec[0],Type="ra").replace(" ",":")
-        StrDECOld = rad2hmsdms(self.OldRadec[1],Type="dec").replace(" ",".")
-        StrRA  = rad2hmsdms(self.NewRadec[0],Type="ra").replace(" ",":")
-        StrDEC = rad2hmsdms(self.NewRadec[1],Type="dec").replace(" ",".")
-        print>>log, "Rotate %s"%(",".join(RotateType))
+        if Sense=="ToTarget":
+            ra0,dec0=self.OldRadec
+            ra1,dec1=self.NewRadec
+        elif Sense=="ToPhaseCenter":
+            ra0,dec0=self.NewRadec
+            ra1,dec1=self.OldRadec
+
+        StrRAOld  = rad2hmsdms(ra0,Type="ra").replace(" ",":")
+        StrDECOld = rad2hmsdms(dec0,Type="dec").replace(" ",".")
+        StrRA  = rad2hmsdms(ra1,Type="ra").replace(" ",":")
+        StrDEC = rad2hmsdms(dec1,Type="dec").replace(" ",".")
+        print>>log, "Rotate %s [Mode = %s]"%(",".join(RotateType),Sense)
         print>>log, "     from [%s, %s]"%(StrRAOld,StrDECOld)
         print>>log, "       to [%s, %s]"%(StrRA,StrDEC)
         
-        DDFacet.ToolsDir.ModRotate.Rotate2(self.OldRadec,self.NewRadec,DATA["uvw"],DATA["data"],self.wavelength_chan,
+        DDFacet.ToolsDir.ModRotate.Rotate2((ra0,dec0),(ra1,dec1),DATA["uvw"],DATA[DataFieldName],self.wavelength_chan,
                                            RotateType=RotateType)
 
 

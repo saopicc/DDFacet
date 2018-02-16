@@ -549,6 +549,19 @@ class ClassImageDeconvMachine():
         # #unc print Bedge
         # # print self.Dirty[0,x0d:x1d,y0d:y1d]
 
+    def Plot(self):
+        import pylab
+        pylab.clf()
+        pylab.subplot(1,3,1)
+        pylab.imshow(self._CubeDirty[0,0])
+        pylab.colorbar()
+        pylab.subplot(1,3,2)
+        pylab.imshow(self._CubeDirty[1,0])
+        pylab.colorbar()
+        pylab.draw()
+        pylab.show()
+
+        
     def updateRMS(self):
         _,npol,npix,_ = self._MeanDirty.shape
         NPixStats = self.GD["Deconv"]["NumRMSSamples"]

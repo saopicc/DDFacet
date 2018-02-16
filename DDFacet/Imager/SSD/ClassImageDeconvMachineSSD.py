@@ -444,12 +444,12 @@ class ClassImageDeconvMachine():
             NCPU=np.min([NCPU,NIslands])
             Parallel=True
             ParallelPerIsland=False
+            StopWhenQueueEmpty=True
         elif ParallelMode=="PerIsland":
-            NCPU=self.NCPU
-            Parallel=False
+            NCPU=1#self.NCPU
+            Parallel=True
             ParallelPerIsland=True
-
-        StopWhenQueueEmpty=True
+            StopWhenQueueEmpty=True
 
         # ######### Debug
         # ParallelPerIsland=False
