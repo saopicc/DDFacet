@@ -236,8 +236,8 @@ class DataDictionaryManager(object):
         self._sparceindx
 
         # pad the antenna array
-        self._padded_a1 = np.empty((self._nbl))
-        self._padded_a2 = np.empty((self._nbl))
+        self._padded_a1 = np.empty((self._nbl), dtype=np.int32)
+        self._padded_a2 = np.empty((self._nbl), dtype=np.int32)
         lmat = np.triu((np.cumsum(np.arange(self._na)[None, :] >=
                                   np.arange(self._na)[:, None]) - 1).reshape([self._na, self._na]))
         for bl in xrange(self._nbl):
@@ -453,37 +453,17 @@ class DDFacetSourceProvider(SourceProvider):
     def uvw(self, context):
         self.update_nchunks(context)
 
-        (lt, ut) = context.dim_extents('ntime')
-        na, nbl = context.dim_global_size('na', 'nbl')
-        ddf_uvw = self._manager._padded_uvw
+        lrow, urow = MS.row_extents(context)
+        (lt, ut), (lb, ub) = context.dim_extents('ntime', 'nbl')
+        na = context.dim_global_size('na')
 
-        # Create per antenna UVW coordinates.
-        # u_01 = u_1 - u_0
-        # u_02 = u_2 - u_0
-        # ...
-        # u_0N = u_N - U_0
-        # where N = na - 1
+        a1 = self._manager._padded_a1[lrow:urow]
+        a2 = self._manager._padded_a2[lrow:urow]
 
-        # Choosing u_0 = 0 we have:
-        # u_1 = u_01
-        # u_2 = u_02
-        # ...
-        # u_N = u_0N
-
-        # Then, other baseline values can be derived as
-        # u_21 = u_1 - u_2
-
-        # Allocate space for per-antenna UVW, zeroing first antenna at each timestep
-        ant_uvw = np.zeros(shape=context.shape, dtype=context.dtype)
-        ant_uvw[:, 0, :] = 0
-
-        # Read in uvw[1:na] row at each timestep
-        for ti, t in enumerate(xrange(lt, ut)):
-            lrow = t*nbl + 1 # skip autocorr (padding ensures it is there though)
-            urow = lrow + na - 1
-            ant_uvw[ti, 1:na, :] = ddf_uvw[lrow:urow, :]
-
-        return ant_uvw
+        chunks = np.repeat(ub-lb, ut-lt).astype(a1.dtype)
+        return mbu.antenna_uvw(self._manager._padded_uvw[lrow:urow],
+                                a1, a2, chunks, nr_of_antenna=na,
+                                check_decomposition=True)
 
     def antenna1(self, context):
         self.update_nchunks(context)
