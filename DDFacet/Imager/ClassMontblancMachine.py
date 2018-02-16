@@ -368,30 +368,19 @@ class DDFacetSourceProvider(SourceProvider):
 
     def point_stokes(self, context):
         self.update_nchunks(context)
-        (lp, up) = context.dim_extents('npsrc')
+        (lp, up), (lt, ut), (lc, uc) = context.dim_extents('npsrc', 'ntime', 'nchan')
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         pt_slice = self._manager._point_sources[lp:up]
+        i = np.array([p[2][0] for p in pt_slice])[:,None,None]
+        rf = np.array([p[3] for p in pt_slice])[:,None,None]
+        a = np.array([p[4] for p in pt_slice])[:,None,None]
+        f = self._manager._frequency[None,None,:]
+
+        # (ngsrc, ntime, nchan, 4)
         # Assign I stokes, zero everything else
         stokes = np.zeros(context.shape, context.dtype)
-        stokes[:,:,0] = np.array([p[2].reshape((1)) for p in pt_slice])
-        if DEBUG:
-            montblanc.log.debug("Point stokes parameters {ps}".format(
-                ps=stokes[:16,0,0]))
-
+        stokes[:,:,:,0] = i*(f/rf)**a
         return stokes
-
-    def point_alpha(self, context):
-        self.update_nchunks(context)
-        (lp, up) = context.dim_extents('npsrc')
-        # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
-        pt_slice = self._manager._point_sources[lp:up]
-        # Assign alpha, broadcasting into the time dimension
-        alpha = np.zeros(context.shape, context.dtype)
-        alpha[:,:] = np.array([p[4] for p in pt_slice])[:,np.newaxis]
-        if DEBUG:
-            montblanc.log.debug("Alpha parameters {ps}".format(
-                ps=alpha[:16,0]))
-        return alpha
 
     def gaussian_lm(self, context):
         self.update_nchunks(context)
@@ -408,23 +397,19 @@ class DDFacetSourceProvider(SourceProvider):
 
     def gaussian_stokes(self, context):
         self.update_nchunks(context)
-        (lg, ug) = context.dim_extents('ngsrc')
+        (lg, ug), (lt, ut), (lc, uc) = context.dim_extents('ngsrc', 'ntime', 'nchan')
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         g_slice = self._manager._gaussian_sources[lg:ug]
+        i = np.array([g[2][0] for g in g_slice])[:,None,None]
+        a = np.array([g[4] for g in g_slice])[:,None,None]
+        rf = np.array([g[3] for g in g_slice])[:,None,None]
+        f = self._manager._frequency[None,None,:]
+
+        # (ngsrc, ntime, nchan, 1)
         # Assign I stokes, zero everything else
         stokes = np.zeros(context.shape, context.dtype)
-        stokes[:,:,0] = np.array([g[2] for g in g_slice])
+        stokes[:,:,:,0] = i*(f/rf)**a
         return stokes
-
-    def gaussian_alpha(self, context):
-        self.update_nchunks(context)
-        (lg, ug) = context.dim_extents('ngsrc')
-        # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
-        g_slice = self._manager._gaussian_sources[lg:ug]
-        # Assign alpha, broadcasting into the time dimension
-        alpha = np.empty(context.shape, context.dtype)
-        alpha[:,:] = np.array([g[4] for g in g_slice])[:,np.newaxis]
-        return alpha
 
     def gaussian_shape(self, context):
         self.update_nchunks(context)
