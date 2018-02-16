@@ -47,6 +47,7 @@ from DDFacet.Other.progressbar import ProgressBar
 #
 # try:
 #     import lofar.stationresponse as lsr
+
 # except:
 #     print>>log, ModColor.Str("Could not import lofar.stationresponse")
 
@@ -1277,7 +1278,12 @@ class ClassMS():
             vis0[:, self.ChanSlice, :] = vis[reverse_index, :, :]
             t.putcol(colname, vis0, row0, nrow)
         else:
-            t.putcol(colname, vis[reverse_index,:,:], row0, nrow)
+            if sort_index is None:
+                vis0 = vis
+            else:
+                vis0 = np.zeros((nrow,vis.shape[1],vis.shape[2]),vis.dtype)
+                vis0[sort_index,...] = vis
+            t.putcol(colname, vis0, row0, nrow)
         t.close()
 
     def SaveVis(self,vis=None,Col="CORRECTED_DATA",spw=0,DoPrint=True):
