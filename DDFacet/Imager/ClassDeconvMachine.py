@@ -1071,7 +1071,7 @@ class ClassImagerDeconv():
                 deconvmachine_init = True
 
             # good to recreate the workers now, to drop their RAM
-            APP.restartWorkers()
+            # APP.restartWorkers()
 
             self.DeconvMachine.Update(self.DicoDirty)
 

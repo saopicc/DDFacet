@@ -795,6 +795,9 @@ class AsyncProcessPool (object):
         if affinity:
             psutil.Process().cpu_affinity(affinity)
         object._run_worker(worker_queue)
+        if object.verbose:
+            print>>log,ModColor.Str("exiting worker pid %d"%os.getpid())
+
 
     def _dispatch_job(self, jobitem, reraise=False):
         """Handles job described by jobitem dict.
@@ -879,7 +882,7 @@ class AsyncProcessPool (object):
                     continue
                 if jobitem == "POISON-E":
                     if self.verbose:
-                        print>>log,"got pill"
+                        print>>log,"got pill. Qin:{} Qout:{}".format(queue.qsize(), self._result_queue.qsize())
                     break
                 elif jobitem is not None:
                     self._dispatch_job(jobitem)
