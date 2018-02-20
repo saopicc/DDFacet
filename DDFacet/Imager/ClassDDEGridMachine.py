@@ -22,7 +22,7 @@ import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmear
 # import DDFacet.cbuild.Gridder._pyGridderSmearPolsFaster as _pyGridderSmearFaster
 ##########################################################"
 # Please do not remove this import again - Needed for killMS
-import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
+import DDFacet.cbuild.Gridder.old_c_gridder._pyGridder as _pyGridder
 ##########################################################"
 
 import numpy as np
@@ -781,7 +781,7 @@ class ClassDDEGridMachine():
                                               FacetInfos],
                                           ParamJonesList,
                                           self._bda_grid,
-                                          sparsification if sparsification is not None else np.array([]),
+                                          sparsification if sparsification is not None else np.array([], dtype=np.bool),
                                           OptimisationInfos,
                                           self.LSmear,
                                           np.int32(ChanMapping),
@@ -1003,7 +1003,7 @@ class ClassDDEGridMachine():
                 [self.PolMap, FacetInfos, RowInfos],
                 ParamJonesList, 
                 self._bda_degrid,
-                sparsification if sparsification is not None else np.array([]),
+                sparsification if sparsification is not None else np.array([], dtype=np.bool),
                 OptimisationInfos,
                 self.LSmear, np.int32(ChanMapping),
                 np.array(self.DataCorrelationFormat).astype(np.uint16),

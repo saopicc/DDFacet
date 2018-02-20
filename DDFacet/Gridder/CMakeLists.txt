@@ -3,6 +3,7 @@ set(BUILD_SHARED_LIBS ON) #we always want shared libs out of this for python ext
 
 option(ENABLE_NATIVE_TUNING "Enables support for optimized code generation (-march=native)" ON)
 option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" ON)
+option(COMPILE_OLD_GRIDDER "Compiles old BDA gridder" OFF)
 
 if (${ENABLE_NATIVE_TUNING})
   set(TUNING_FLAGS "-march=native -mtune=native")
@@ -41,13 +42,16 @@ endif (NOT ${HAVE_RT})
 #Update include paths with found includes above
 include_directories(${PYTHON_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR}/numpy ${RT_INCLUDES} ${CASACORE_INCLUDE_DIR})
 
+set(PYBIND11_CPP_STANDARD -std=c++14)
+add_subdirectory(pybind11)
+
 #Ensure __init__.py is added to out-of-source build directory
 execute_process(COMMAND touch __init__.py
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
 #Add more options for debug and release builds
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -ggdb3 -fmax-errors=1 -std=c++14 -pedantic -W -Wall -Wconversion ${OpenMP_C_FLAGS}")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -ggdb3 -fmax-errors=1 -std=c++14 -pedantic -W -Wall -Wconversion ${OpenMP_CXX_FLAGS}")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -ggdb3 -std=c++14 -pedantic -W -Wall -Wconversion ${OpenMP_C_FLAGS}")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -ggdb3 -std=c++14 -pedantic -W -Wall -Wconversion ${OpenMP_CXX_FLAGS}")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -ggdb3 -fmax-errors=1 -Wconversion -W -Wall -std=c99 ${OpenMP_C_FLAGS} ${VECTORIZATION_FLAGS} ${TUNING_FLAGS} ${FAST_MATH_FLAGS}")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -ggdb3 -fmax-errors=1 -std=c++14 -pedantic -W -Wall -Wconversion ${OpenMP_CXX_FLAGS} ${VECTORIZATION_FLAGS} ${TUNING_FLAGS} ${FAST_MATH_FLAGS}")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELEASE}")
@@ -62,12 +66,12 @@ add_library(_pyArrays Arrays.cc)
 set_target_properties(_pyArrays PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
 target_link_libraries(_pyArrays ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
-#compile and link _pyGridder.so
-add_library(_pyGridder Gridder.c Gridder.h)
-set_target_properties(_pyGridder PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
-target_link_libraries(_pyGridder ${RT_LIBRARIES} ${PYTHON_LIBRARY})
-
 #compile and link _pyGridderSmearPols.so
-add_library(_pyGridderSmearPols GridderSmearPols.cc JonesServer.h Semaphores.h)
-set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
-target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
+if (NOT ${COMPILE_OLD_GRIDDER})
+  add_library(_pyGridderSmearPols GridderSmearPols.cc DecorrelationHelper.h JonesServer.h Semaphores.h common.h)
+  set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
+  target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
+endif (NOT ${COMPILE_OLD_GRIDDER})
+
+add_subdirectory(old_c_gridder)
+

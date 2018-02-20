@@ -153,7 +153,7 @@ class ClassFacetMachine():
     @staticmethod
     def _delete_degridding_semaphores():
         if ClassFacetMachine._degridding_semaphores:
-            _pyGridderSmearPols.pyDeleteSemaphore(ClassFacetMachine._degridding_semaphores)
+            _pyGridderSmearPols.pyDeleteSemaphore()
             for sem in ClassFacetMachine._degridding_semaphores:
                 NpShared.DelArray(sem)
 

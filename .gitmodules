@@ -9,3 +9,6 @@
 	path = sharedarray
 	url = git@github.com:o-smirnov/shared-array.git
 	branch = issue-1-mlock
+[submodule "DDFacet/Gridder/pybind11"]
+	path = DDFacet/Gridder/pybind11
+	url = https://github.com/pybind/pybind11

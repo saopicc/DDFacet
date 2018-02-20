@@ -1,3 +1,11 @@
+#pragma once
+#include "pybind11/include/pybind11/pybind11.h"
+#include "pybind11/include/pybind11/numpy.h"
+#include "pybind11/include/pybind11/pytypes.h"
+
+namespace {
+namespace py=pybind11;
+
 template<typename T> class Mat
   {
   private:
@@ -138,61 +146,61 @@ class JonesServer
     int CurrentJones_Beam_Chan=-1;
 
   public:
-    JonesServer(PyObject *LJones, double WaveLengthMeanIn){
+    JonesServer(py::list& LJones, double WaveLengthMeanIn){
       J0.setUnity(); J1.setUnity();
       WaveLengthMean=WaveLengthMeanIn;
-      DoApplyJones=(PyList_Size(LJones)>0);
+      DoApplyJones=LJones.size();
       if (DoApplyJones)
         {
-        PyArrayObject *npJonesMatrices = (PyArrayObject *) PyList_GetItem(LJones, 0);
-        ptrJonesMatrices=p_complex64(npJonesMatrices);
-        JonesDims[0]=nt_Jones=(int)npJonesMatrices->dimensions[0];
-        JonesDims[1]=(int)npJonesMatrices->dimensions[1];
-        JonesDims[2]=(int)npJonesMatrices->dimensions[2];
-        JonesDims[3]=(int)npJonesMatrices->dimensions[3];
-        ptrTimeMappingJonesMatrices = p_int32((PyArrayObject *)PyList_GetItem(LJones, 1));
+        auto npJonesMatrices = py::array_t<std::complex<float>, py::array::c_style>(LJones[0]);
+        ptrJonesMatrices=npJonesMatrices.data(0);
+        JonesDims[0]=nt_Jones=npJonesMatrices.shape(0);
+        JonesDims[1]=npJonesMatrices.shape(1);
+        JonesDims[2]=npJonesMatrices.shape(2);
+        JonesDims[3]=npJonesMatrices.shape(3);
+        ptrTimeMappingJonesMatrices = py::array_t<int, py::array::c_style>(LJones[1]).data(0);
         ApplyJones_killMS=(JonesDims[0]*JonesDims[1]*JonesDims[2]*JonesDims[3]!=0);
 
-        PyArrayObject *npJonesMatrices_Beam = (PyArrayObject *) PyList_GetItem(LJones, 2);
-        ptrJonesMatrices_Beam=p_complex64(npJonesMatrices_Beam);
-        JonesDims_Beam[0]=(int)npJonesMatrices_Beam->dimensions[0];
-        JonesDims_Beam[1]=(int)npJonesMatrices_Beam->dimensions[1];
-        JonesDims_Beam[2]=(int)npJonesMatrices_Beam->dimensions[2];
-        JonesDims_Beam[3]=(int)npJonesMatrices_Beam->dimensions[3];
-        PyArrayObject *npTimeMappingJonesMatrices_Beam  = (PyArrayObject *) PyList_GetItem(LJones, 3);
-        ptrTimeMappingJonesMatrices_Beam = p_int32(npTimeMappingJonesMatrices_Beam);
+        auto npJonesMatrices_Beam = py::array_t<std::complex<float>, py::array::c_style>(LJones[2]);
+        ptrJonesMatrices_Beam=npJonesMatrices_Beam.data(0);
+        JonesDims_Beam[0]=npJonesMatrices_Beam.shape(0);
+        JonesDims_Beam[1]=npJonesMatrices_Beam.shape(1);
+        JonesDims_Beam[2]=npJonesMatrices_Beam.shape(2);
+        JonesDims_Beam[3]=npJonesMatrices_Beam.shape(3);
+        auto npTimeMappingJonesMatrices_Beam  = py::array_t<int, py::array::c_style>(LJones[3]);
+        ptrTimeMappingJonesMatrices_Beam = npTimeMappingJonesMatrices_Beam.data(0);
         ApplyJones_Beam=(JonesDims_Beam[0]*JonesDims_Beam[1]*JonesDims_Beam[2]*JonesDims_Beam[3]!=0);
 
-        ptrA0 = p_int32((PyArrayObject *) PyList_GetItem(LJones, 4));
-        ptrA1=p_int32((PyArrayObject *) PyList_GetItem(LJones, 5));
+        ptrA0 = py::array_t<int, py::array::c_style>(LJones[4]).data(0);
+        ptrA1 = py::array_t<int, py::array::c_style>(LJones[5]).data(0);
 
-        i_dir_kMS=p_int32((PyArrayObject *) (PyList_GetItem(LJones, 6)))[0];
+        i_dir_kMS=LJones[6].cast<int>();
 
-        ptrCoefsInterp=p_float32((PyArrayObject *) PyList_GetItem(LJones, 7));
+        ptrCoefsInterp=py::array_t<float, py::array::c_style>(LJones[7]).data(0);
 
-        i_dir_Beam=p_int32((PyArrayObject *) (PyList_GetItem(LJones, 8)))[0];
+        i_dir_Beam=LJones[8].cast<int>();
 
-        ModeInterpolation=p_int32((PyArrayObject *) PyList_GetItem(LJones, 9))[0];
+        ModeInterpolation=LJones[9].cast<int>();
 
-        ptrVisToJonesChanMapping_killMS=p_int32((PyArrayObject *) PyList_GetItem(LJones, 10));
+        ptrVisToJonesChanMapping_killMS=py::array_t<int, py::array::c_style>(LJones[10]).data(0);
 
-        ptrVisToJonesChanMapping_Beam=p_int32((PyArrayObject *) PyList_GetItem(LJones, 11));
+        ptrVisToJonesChanMapping_Beam=py::array_t<int, py::array::c_style>(LJones[11]).data(0);
 
-        PyArrayObject *npAlphaReg_killMS= (PyArrayObject *) PyList_GetItem(LJones, 12);
-        ptrAlphaReg_killMS=p_float32(npAlphaReg_killMS);
-        Has_AlphaReg_killMS=(npAlphaReg_killMS->dimensions[0]>0);
-        na_AlphaReg=int(npAlphaReg_killMS->dimensions[1]);
+        auto npAlphaReg_killMS= py::array_t<float, py::array::c_style>(LJones[12]);
+        ptrAlphaReg_killMS=npAlphaReg_killMS.data(0);
+        Has_AlphaReg_killMS=(npAlphaReg_killMS.shape(0) > 0);
+        na_AlphaReg=npAlphaReg_killMS.shape(1);
 
-        ApplyAmp=bool(PyFloat_AsDouble(PyList_GetItem(LJones, 13)));
-        ApplyPhase=bool(PyFloat_AsDouble(PyList_GetItem(LJones, 14)));
+        ApplyAmp=LJones(13).cast<bool>();
+        ApplyPhase=LJones(14).cast<bool>();
 
-        DoScaleJones=bool(PyFloat_AsDouble(PyList_GetItem(LJones, 15)));
-        CalibError=PyFloat_AsDouble(PyList_GetItem(LJones, 16));
+        DoScaleJones=LJones(15).cast<bool>();
+        CalibError=LJones(15).cast<double>();
 
-        ptrSumJones=p_float64((PyArrayObject *) PyList_GetItem(LJones, 17));
-        ptrSumJonesChan=p_float64((PyArrayObject *) PyList_GetItem(LJones, 18));
+        ptrSumJones=py::array_t<double, py::array::c_style>(LJones[17]).mutable_data(0);
+        ptrSumJonesChan=py::array_t<double, py::array::c_style>(LJones[18]).mutable_data(0);
 
-        ReWeightSNR=PyFloat_AsDouble(PyList_GetItem(LJones, 19));
+        ReWeightSNR=LJones(19).cast<double>();
         }
       }
 
@@ -317,3 +325,4 @@ class JonesServer
     dcMat J0, J1, J0H, J1H;
     double *ptrSumJones, *ptrSumJonesChan;
   };
+}
