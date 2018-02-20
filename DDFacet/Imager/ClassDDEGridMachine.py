@@ -22,7 +22,7 @@ import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmear
 # import DDFacet.cbuild.Gridder._pyGridderSmearPolsFaster as _pyGridderSmearFaster
 ##########################################################"
 # Please do not remove this import again - Needed for killMS
-import DDFacet.cbuild.Gridder.old_c_gridder._pyGridder as _pyGridder
+import DDFacet.cbuild.Gridder._pyGridder as _pyGridder
 ##########################################################"
 
 import numpy as np
