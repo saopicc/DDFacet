@@ -352,15 +352,43 @@ class AsyncProcessPool (object):
             self._taras_bulba.start()
         self._started = True
 
+    def _checkResultQueue(self):
+        """
+        Check the result queue for any unread results, read them off and move them to the result map.
+        Return number of results collected.
+        """
+        nres = 0
+        while True:
+            try:
+                result = self._result_queue.get(False)
+            except Queue.Empty:
+                return nres
+            nres += 1
+            # ok, dispatch the result
+            job_id = result["job_id"]
+            job = self._results_map.get(job_id)
+            if job is None:
+                raise KeyError("Job '%s' was not enqueued. This is a logic error." % job_id)
+            job.setResult(result)
+
     def restartWorkers(self):
         if self.ncpu > 1:
             if self._termination_event.is_set():
                 if self.verbose > 1:
                     print>> log, "termination event spotted, exiting"
                 raise WorkerProcessError()
-            print>> log, "asking worker processes to restart"
             self._workers_started_event.clear()
+            # place a poison pill onto every queue
+            print>> log, "asking worker processes to restart"
+            for core in self._cores:
+                self._compute_queue.put("POISON-E")
+            for queue in self._io_queues:
+                queue.put("POISON-E")
+            print>> log, "poison pills enqueued"
             self._taras_restart_event.set()
+            nres = self._checkResultQueue()
+            if nres:
+                print>> log, "collected %d outstanding results from the queue"%nres
 
     def awaitWorkerStart(self):
         if self.ncpu > 1:
@@ -369,6 +397,9 @@ class AsyncProcessPool (object):
                     if self.verbose > 1:
                         print>> log, "termination event spotted, exiting"
                     raise WorkerProcessError()
+                nres = self._checkResultQueue()
+                if nres:
+                    print>> log, "collected %d outstanding results from the queue" % nres
                 print>> log, "waiting for worker processes to start up"
                 self._workers_started_event.wait(10)
 
@@ -425,61 +456,39 @@ class AsyncProcessPool (object):
                         print>>log,ModColor.Str("Ctrl+C caught, exiting")
                         self._termination_event.set()
                         self._taras_exit_event.set()
-                    # check for dead children
-                    for pid, proc in worker_map.iteritems():
-                        if not proc.is_alive():
-                            proc.join()
-                            dead_workers[proc.pid] = proc
-                            if proc.exitcode < 0:
-                                print>>log,ModColor.Str("worker '%s' killed by signal %s" % (proc.name, SIGNALS_TO_NAMES_DICT[-proc.exitcode]))
-                            else:
-                                print>>log,ModColor.Str("worker '%s' died with exit code %d"%(proc.name, proc.exitcode))
-                    # if workers have died, initiate bailout
-                    if dead_workers:
-                        print>>log,ModColor.Str("%d worker(s) have died. Initiating shutdown."%len(dead_workers))
-                        self._taras_restart_event.set()  # to break out of loop
-                        self._termination_event.set()
-                        self._taras_exit_event.set()
+                    # check for dead children, unless workers_started event has been cleared by restartWorkers()
+                    # (in which case they're already going to be exiting)
+                    if self._workers_started_event.is_set():
+                        for pid, proc in worker_map.iteritems():
+                            if not proc.is_alive():
+                                proc.join()
+                                dead_workers[proc.pid] = proc
+                                if proc.exitcode < 0:
+                                    print>>log,ModColor.Str("worker '%s' killed by signal %s" % (proc.name, SIGNALS_TO_NAMES_DICT[-proc.exitcode]))
+                                else:
+                                    print>>log,ModColor.Str("worker '%s' died with exit code %d"%(proc.name, proc.exitcode))
+                        # if workers have died, initiate bailout
+                        if dead_workers:
+                            print>>log,ModColor.Str("%d worker(s) have died. Initiating shutdown."%len(dead_workers))
+                            self._taras_restart_event.set()  # to break out of loop
+                            self._termination_event.set()
+                            self._taras_exit_event.set()
                 self._taras_restart_event.clear()
                 if self._termination_event.is_set():
                     if self.verbose:
-                        print>> log, "terminating workers"
+                        print>> log, "terminating workers, since termination event is set"
                     for proc in worker_map.itervalues():
                         if proc.is_alive():
                             proc.terminate()
-                # else let them all shut down in an orderly way, by giving them a poison pill
-                else:
-                    if self.verbose:
-                        print>> log, "restart signal received, notifying workers"
-                    for proc in self._compute_workers:
-                        self._compute_queue.put("POISON-E")
-                    for proc, queue in zip(self._io_workers, self._io_queues):
-                        queue.put("POISON-E")
                 if self.verbose:
                     print>> log, "reaping workers"
                 # join processes
-                attempt = 0
-                while worker_map and attempt<20:
-                    dead = [ (pid, proc) for pid, proc in worker_map.iteritems() if not proc.is_alive() ]
+                for pid, proc in worker_map.iteritems():
                     if self.verbose:
-                        print>>log,"joining %d/%d workers (attempt %d)"%(len(dead), len(worker_map), attempt)
-                    for pid, proc in dead:
-                        proc.join()
-                        del worker_map[pid]
-                    if worker_map:
-                        if self.verbose:
-                            print>>log,"remaining %s"%(worker_map.keys(),)
-                        attempt += 1
-                        time.sleep(1)
-                        # ugly, but some of these fuckers refuse to die
-                        if attempt == 5:
-                            print>> log, "terminating lingering worker processes"
-                            for proc in worker_map.itervalues():
-                                proc.terminate()
-                        elif attempt == 10:
-                            print>> log, "killing lingering processes"
-                            for pid in worker_map.iterkeys():
-                                os.kill(pid, 9)
+                        print>> log, "reaping worker %d"%pid
+                    proc.join()
+                    if self.verbose:
+                        print>> log, "worker %d's immortal soul has been put to rest"%pid
 
                 # for pid, proc in worker_map.iteritems():
                 #     if self.verbose:
@@ -490,7 +499,7 @@ class AsyncProcessPool (object):
                 #         proc.terminate()
                 #         proc.join(5)
                 if self.verbose:
-                    print>> log, "all workers rejoined"
+                    print>> log, "all workers have been reaped"
             if self.verbose:
                 print>>log, "exiting"
         except:
@@ -875,9 +884,9 @@ class AsyncProcessPool (object):
             while pill:
                 try:
                     # Get queue item, or timeout and check if pill perscribed.
-                    # print>>log,"%s: calling queue.get()"%AsyncProcessPool.proc_id
+                    #print>>log,"%s: calling queue.get()"%AsyncProcessPool.proc_id
                     jobitem = queue.get(True, 10)
-                    # print>>log,"%s: queue.get() returns %s"%(AsyncProcessPool.proc_id, jobitem)
+                    #print>>log,"%s: queue.get() returns %s"%(AsyncProcessPool.proc_id, jobitem)
                 except Queue.Empty:
                     continue
                 if jobitem == "POISON-E":

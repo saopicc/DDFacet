@@ -984,6 +984,8 @@ class ClassImagerDeconv():
         if NMajor is None:
             NMajor=self.NMajor
 
+        restart_time = time.time()
+
         # see if we're working in "sparsification" mode
         # 'sparsify' is a list of factors. E.g. [100,10] means data in first major cycle is sparsified
         # by a factor of 100, second cycle by 10, from third cyrcle onwards is precise
@@ -1070,8 +1072,11 @@ class ClassImagerDeconv():
                                         RefFreq=self.VS.RefFreq)
                 deconvmachine_init = True
 
-            # good to recreate the workers now, to drop their RAM
-            # APP.restartWorkers()
+            # To make the package more robust against memory leaks, we restart the worker processes every now and then.
+            # As a rule of thumb, we do this every major cycle, but no more often than every N minutes.
+            if time.time() > restart_time + 600:
+                APP.restartWorkers()
+                restart_time = time.time()
 
             self.DeconvMachine.Update(self.DicoDirty)
 
