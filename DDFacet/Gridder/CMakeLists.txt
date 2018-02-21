@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 set(BUILD_SHARED_LIBS ON) #we always want shared libs out of this for python extensions
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(ENABLE_NATIVE_TUNING "Enables support for optimized code generation (-march=native)" ON)
 option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" ON)
@@ -68,7 +69,7 @@ target_link_libraries(_pyArrays ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
 #compile and link _pyGridderSmearPols.so
 if (NOT ${COMPILE_OLD_GRIDDER})
-  add_library(_pyGridderSmearPols GridderSmearPols.cc DecorrelationHelper.h JonesServer.h Semaphores.h common.h)
+  add_library(_pyGridderSmearPols GridderSmearPols.cc Semaphores.cc JonesServer.cc DecorrelationHelper.cc CorrelationCalculator.cc)
   set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
   target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 endif (NOT ${COMPILE_OLD_GRIDDER})

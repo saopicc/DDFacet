@@ -18,7 +18,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#pragma once
+#ifndef GRIDDER_SEMAPHORES_H
+#define GRIDDER_SEMAPHORES_H
 
 #include <fcntl.h>           /* For O_* constants */
 #include <vector>
@@ -28,48 +29,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "pybind11/include/pybind11/pybind11.h"
 #include "pybind11/include/pybind11/numpy.h"
 #include "pybind11/include/pybind11/pytypes.h"
-namespace {
-  namespace py=pybind11;
-  
-  static std::vector<sem_t *> Tab_SEM;
-  static std::vector<std::string> sem_names;
-  
-  static const char *GiveSemaphoreName(size_t iS){
-    return sem_names[iS].c_str();
-  }
-
-  static sem_t *GiveSemaphoreFromCell(size_t irow){
-    return Tab_SEM[irow % Tab_SEM.size()];
-  }
-
-  static sem_t *GiveSemaphoreFromID(size_t iS){
-    const char* SemaphoreName=GiveSemaphoreName(iS);
-    sem_t *Sem_mutex = sem_open(SemaphoreName, O_CREAT, 0644, 1);
-    if (Sem_mutex != SEM_FAILED) 
-      return Sem_mutex;
-    else
-      throw std::runtime_error("Failed to open semaphore");
-  }
-
-
-  static void pySetSemaphores(const py::list& LSemaphoreNames)
-  {
-    Tab_SEM.resize(LSemaphoreNames.size());
-    sem_names.resize(LSemaphoreNames.size());
-    for (size_t i=0; i<Tab_SEM.size(); ++i){
-      sem_names[i] = std::string(py::str(LSemaphoreNames[i]));
-      Tab_SEM[i]=GiveSemaphoreFromID(i);
-    }
-  }
-
-  static void pyDeleteSemaphore()
-  {
-    for(size_t i=0; i<Tab_SEM.size(); ++i){
-      const char* SemaphoreName=GiveSemaphoreName(i);
-      sem_close(Tab_SEM[i]);
-      sem_unlink(SemaphoreName);
-    }
-    Tab_SEM.resize(0);
-    Tab_SEM.shrink_to_fit();
-  }
+namespace DDF {
+  const char *GiveSemaphoreName(size_t iS);
+  sem_t *GiveSemaphoreFromCell(size_t irow);
+  sem_t *GiveSemaphoreFromID(size_t iS);
+  void pySetSemaphores(const pybind11::list& LSemaphoreNames);
+  void pyDeleteSemaphore();
 }
+
+#endif GRIDDER_SEMAPHORES_H
