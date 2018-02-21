@@ -97,57 +97,89 @@ namespace DDF {
       J0.setUnity(); J1.setUnity();
       WaveLengthMean=WaveLengthMeanIn;
       DoApplyJones=LJones.size();
+      
       if (DoApplyJones)
 	{
-	auto npJonesMatrices = py::array_t<std::complex<float>, py::array::c_style>(LJones[0]);
-	ptrJonesMatrices=npJonesMatrices.data(0);
-	JonesDims[0]=nt_Jones=npJonesMatrices.shape(0);
-	JonesDims[1]=npJonesMatrices.shape(1);
-	JonesDims[2]=npJonesMatrices.shape(2);
-	JonesDims[3]=npJonesMatrices.shape(3);
-	ptrTimeMappingJonesMatrices = py::array_t<int, py::array::c_style>(LJones[1]).data(0);
-	ApplyJones_killMS=(JonesDims[0]*JonesDims[1]*JonesDims[2]*JonesDims[3]!=0);
-
+	// KillMS solutions
+	//BH FIXME: needs comment and check on the layout of the solutions
+	auto npJonesMatrices = py::array_t<std::complex<float>, py::array::c_style>(LJones[0]); 
+	if (npJonesMatrices.ndim() == 4 && 
+	    npJonesMatrices.shape(0) != 0 && npJonesMatrices.shape(1) != 0 &&
+	    npJonesMatrices.shape(2) != 0 && npJonesMatrices.shape(3) != 0) {
+	  ptrJonesMatrices=npJonesMatrices.data(0);
+	  JonesDims[0]=nt_Jones=npJonesMatrices.shape(0);
+	  JonesDims[1]=npJonesMatrices.shape(1);
+	  JonesDims[2]=npJonesMatrices.shape(2);
+	  JonesDims[3]=npJonesMatrices.shape(3);
+	  auto timeMappingJonesMatricies = py::array_t<int, py::array::c_style>(LJones[1]);
+	  ptrTimeMappingJonesMatrices = timeMappingJonesMatricies.size() != 0 ? timeMappingJonesMatricies.data(0) : nullptr;
+	  ptrVisToJonesChanMapping_killMS=py::array_t<int, py::array::c_style>(LJones[10]).data(0);
+	  i_dir_kMS=py::array_t<int32_t,py::array::c_style>(LJones[6]).data(0)[0];
+	  ApplyJones_killMS = true;
+	} else {
+	  ptrJonesMatrices=nullptr;
+	  JonesDims[0] = JonesDims[1] = JonesDims[2] = JonesDims[3] = nt_Jones = 0;
+	  ApplyJones_killMS = false;
+	  ptrTimeMappingJonesMatrices = nullptr;
+	  ptrVisToJonesChanMapping_killMS = nullptr;
+	  i_dir_kMS = 0;
+	}
+	
+	//E-Jones solutions
+	//BH FIXME: needs comment and check on the layout of the solutions
 	auto npJonesMatrices_Beam = py::array_t<std::complex<float>, py::array::c_style>(LJones[2]);
-	ptrJonesMatrices_Beam=npJonesMatrices_Beam.data(0);
-	JonesDims_Beam[0]=npJonesMatrices_Beam.shape(0);
-	JonesDims_Beam[1]=npJonesMatrices_Beam.shape(1);
-	JonesDims_Beam[2]=npJonesMatrices_Beam.shape(2);
-	JonesDims_Beam[3]=npJonesMatrices_Beam.shape(3);
-	auto npTimeMappingJonesMatrices_Beam  = py::array_t<int, py::array::c_style>(LJones[3]);
-	ptrTimeMappingJonesMatrices_Beam = npTimeMappingJonesMatrices_Beam.data(0);
-	ApplyJones_Beam=(JonesDims_Beam[0]*JonesDims_Beam[1]*JonesDims_Beam[2]*JonesDims_Beam[3]!=0);
-
-	ptrA0 = py::array_t<int, py::array::c_style>(LJones[4]).data(0);
-	ptrA1 = py::array_t<int, py::array::c_style>(LJones[5]).data(0);
-
-	i_dir_kMS=LJones[6].cast<int>();
-
-	ptrCoefsInterp=py::array_t<float, py::array::c_style>(LJones[7]).data(0);
-
-	i_dir_Beam=LJones[8].cast<int>();
-
-	ModeInterpolation=LJones[9].cast<int>();
-
-	ptrVisToJonesChanMapping_killMS=py::array_t<int, py::array::c_style>(LJones[10]).data(0);
-
-	ptrVisToJonesChanMapping_Beam=py::array_t<int, py::array::c_style>(LJones[11]).data(0);
-
+	if (npJonesMatrices.ndim() == 4 &&
+	    npJonesMatrices_Beam.shape(0) != 0 && npJonesMatrices_Beam.shape(1) != 0 &&
+	    npJonesMatrices_Beam.shape(2) != 0 && npJonesMatrices_Beam.shape(3) != 0){
+	  ptrJonesMatrices_Beam=npJonesMatrices_Beam.data(0);
+	  JonesDims_Beam[0]=npJonesMatrices_Beam.shape(0);
+	  JonesDims_Beam[1]=npJonesMatrices_Beam.shape(1);
+	  JonesDims_Beam[2]=npJonesMatrices_Beam.shape(2);
+	  JonesDims_Beam[3]=npJonesMatrices_Beam.shape(3);
+	  auto npTimeMappingJonesMatrices_Beam  = py::array_t<int, py::array::c_style>(LJones[3]);
+	  ptrTimeMappingJonesMatrices_Beam = npTimeMappingJonesMatrices_Beam.size() != 0 ? npTimeMappingJonesMatrices_Beam.data(0) : nullptr;
+	  ApplyJones_Beam = true;
+	  ptrVisToJonesChanMapping_Beam=py::array_t<int, py::array::c_style>(LJones[11]).data(0);
+	  i_dir_Beam=py::array_t<int32_t,py::array::c_style>(LJones[8]).data(0)[0];
+	} else {
+	  JonesDims_Beam[0]=JonesDims_Beam[1]=JonesDims_Beam[2]=JonesDims_Beam[3]=0;
+	  ptrJonesMatrices_Beam = nullptr;
+	  ptrTimeMappingJonesMatrices_Beam = nullptr;
+	  ApplyJones_Beam = false;
+	  ptrVisToJonesChanMapping_Beam = nullptr;
+	  i_dir_Beam = 0;
+	}
+	auto A0 = py::array_t<int, py::array::c_style>(LJones[4]);
+	ptrA0 = A0.size() != 0 ? A0.data(0) : nullptr;
+	auto A1 = py::array_t<int, py::array::c_style>(LJones[5]);
+	ptrA1 = A1.size() != 0 ? A1.data(0) : nullptr;
+	
+	auto coefsInterp = py::array_t<float, py::array::c_style>(LJones[7]);
+	ptrCoefsInterp = coefsInterp.size() != 0 ? coefsInterp.data(0) : nullptr;
+	
+	ModeInterpolation=py::array_t<int32_t,py::array::c_style>(LJones[9]).data(0)[0];
+	
 	auto npAlphaReg_killMS= py::array_t<float, py::array::c_style>(LJones[12]);
-	ptrAlphaReg_killMS=npAlphaReg_killMS.data(0);
-	Has_AlphaReg_killMS=(npAlphaReg_killMS.shape(0) > 0);
-	na_AlphaReg=npAlphaReg_killMS.shape(1);
+	if (npAlphaReg_killMS.ndim() == 2 &&
+	    npAlphaReg_killMS.shape(0) > 0 && npAlphaReg_killMS.shape(1) > 0){
+	  ptrAlphaReg_killMS = npAlphaReg_killMS.data(0);
+	  Has_AlphaReg_killMS = (npAlphaReg_killMS.shape(0) > 0);
+	  na_AlphaReg = npAlphaReg_killMS.shape(1);
+	} else {
+	  ptrAlphaReg_killMS = nullptr;
+	  Has_AlphaReg_killMS = false;
+	  na_AlphaReg = 0;
+	}
+	ApplyAmp=LJones[13].cast<bool>();
+	ApplyPhase=LJones[14].cast<bool>();
 
-	ApplyAmp=LJones(13).cast<bool>();
-	ApplyPhase=LJones(14).cast<bool>();
-
-	DoScaleJones=LJones(15).cast<bool>();
-	CalibError=LJones(15).cast<double>();
+	DoScaleJones=LJones[15].cast<bool>();
+	CalibError=LJones[16].cast<double>();
 
 	ptrSumJones=py::array_t<double, py::array::c_style>(LJones[17]).mutable_data(0);
 	ptrSumJonesChan=py::array_t<double, py::array::c_style>(LJones[18]).mutable_data(0);
 
-	ReWeightSNR=LJones(19).cast<double>();
+	ReWeightSNR=LJones[19].cast<double>();
 	}
       }
 
