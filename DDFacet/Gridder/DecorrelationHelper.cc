@@ -30,13 +30,13 @@ namespace DDF {
 	    if (DoDecorr)
 	      {
 	      uvw_Ptr = uvw.data(0);
-	      uvw_dt_Ptr = py::array_t<double, py::array::c_style>(LSmearing(0)).data(0);
-	      DT = LSmearing(1).cast<double>();
-	      Dnu = LSmearing(2).cast<double>();
-	      TSmear = LSmearing(3).cast<bool>();
-	      FSmear = LSmearing(4).cast<bool>();
-	      l0 = LSmearing(5).cast<double>();
-	      m0 = LSmearing(6).cast<double>();
+	      uvw_dt_Ptr = py::array_t<double, py::array::c_style>(LSmearing[0]).data(0);
+	      DT = LSmearing[1].cast<double>();
+	      Dnu = LSmearing[2].cast<double>();
+	      TSmear = LSmearing[3].cast<bool>();
+	      FSmear = LSmearing[4].cast<bool>();
+	      l0 = LSmearing[5].cast<double>();
+	      m0 = LSmearing[6].cast<double>();
 	      }
 	  }
     double DecorrelationHelper::get(double nu, size_t idx)
