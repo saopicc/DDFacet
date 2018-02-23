@@ -96,7 +96,7 @@ class ClassInitSSDModel():
 
         self.GD["Deconv"]["Gain"] = self.GD["GAClean"]["GainInitHMP"]
         self.GD["Deconv"]["AllowNegative"] = self.GD["GAClean"]["AllowNegativeInitHMP"]
-        self.GD["Deconv"]["MaxMinorIter"] = self.GD["GAClean"]["MaxMinorIterInitHMP"]
+        self.GD["Deconv"]["MaxMinorIter"] = int(self.GD["GAClean"]["MaxMinorIterInitHMP"])
 
         self.GD["HMP"]["Scales"] = self.GD["GAClean"]["ScalesInitHMP"]
 

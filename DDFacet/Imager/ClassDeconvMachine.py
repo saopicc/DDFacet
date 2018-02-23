@@ -579,7 +579,7 @@ class ClassImagerDeconv():
                 self.MeanJonesNorm = None
                 self.JonesNorm = None
 
-            if self.DicoDirty.get("LastMask") is not None:
+            if self.DicoDirty.get("LastMask") is not None and self.GD["Mask"]["Auto"]:
                 self.MaskMachine.joinExternalMask(self.DicoDirty["LastMask"])
 
         if psf_valid:
@@ -1029,7 +1029,7 @@ class ClassImagerDeconv():
 
         for iMajor in range(1, NMajor+1):
             # good to recreate the workers now, to drop their RAM
-            APP.restartWorkers()
+            #APP.restartWorkers()
             # previous minor loop indicated it has reached bottom? Break out
             if not continue_deconv:
                 break
