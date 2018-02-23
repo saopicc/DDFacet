@@ -103,9 +103,8 @@ namespace DDF {
 	// KillMS solutions
 	//BH FIXME: needs comment and check on the layout of the solutions
 	auto npJonesMatrices = py::array_t<std::complex<float>, py::array::c_style>(LJones[0]); 
-	if (npJonesMatrices.ndim() == 4 && 
-	    npJonesMatrices.shape(0) != 0 && npJonesMatrices.shape(1) != 0 &&
-	    npJonesMatrices.shape(2) != 0 && npJonesMatrices.shape(3) != 0) {
+	if (npJonesMatrices.ndim() == 6 && 
+	    npJonesMatrices.size() != 0) {
 	  ptrJonesMatrices=npJonesMatrices.data(0);
 	  JonesDims[0]=nt_Jones=npJonesMatrices.shape(0);
 	  JonesDims[1]=npJonesMatrices.shape(1);
@@ -128,9 +127,8 @@ namespace DDF {
 	//E-Jones solutions
 	//BH FIXME: needs comment and check on the layout of the solutions
 	auto npJonesMatrices_Beam = py::array_t<std::complex<float>, py::array::c_style>(LJones[2]);
-	if (npJonesMatrices.ndim() == 4 &&
-	    npJonesMatrices_Beam.shape(0) != 0 && npJonesMatrices_Beam.shape(1) != 0 &&
-	    npJonesMatrices_Beam.shape(2) != 0 && npJonesMatrices_Beam.shape(3) != 0){
+	if (npJonesMatrices_Beam.ndim() == 6 &&
+	    npJonesMatrices_Beam.size() != 0){
 	  ptrJonesMatrices_Beam=npJonesMatrices_Beam.data(0);
 	  JonesDims_Beam[0]=npJonesMatrices_Beam.shape(0);
 	  JonesDims_Beam[1]=npJonesMatrices_Beam.shape(1);
@@ -149,6 +147,10 @@ namespace DDF {
 	  ptrVisToJonesChanMapping_Beam = nullptr;
 	  i_dir_Beam = 0;
 	}
+	
+	if (not (ApplyJones_Beam || ApplyJones_killMS))
+	  throw std::runtime_error("Jones matricies specified but neither E or DD Jones are applied. This is a bug!");
+	  
 	auto A0 = py::array_t<int, py::array::c_style>(LJones[4]);
 	ptrA0 = A0.size() != 0 ? A0.data(0) : nullptr;
 	auto A1 = py::array_t<int, py::array::c_style>(LJones[5]);
