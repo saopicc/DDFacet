@@ -379,12 +379,14 @@ class AsyncProcessPool (object):
                 raise WorkerProcessError()
             self._workers_started_event.clear()
             # place a poison pill onto every queue
-            print>> log, "asking worker processes to restart"
+            if self.verbose:
+                print>> log, "asking worker processes to restart"
             for core in self._cores:
                 self._compute_queue.put("POISON-E")
             for queue in self._io_queues:
                 queue.put("POISON-E")
-            print>> log, "poison pills enqueued"
+            if self.verbose:
+                print>> log, "poison pills enqueued"
             self._taras_restart_event.set()
             nres = self._checkResultQueue()
             if nres:
@@ -761,7 +763,7 @@ class AsyncProcessPool (object):
             print>>log,"shutdown: asking TB to stop workers"
         self._started = False
         self._taras_exit_event.set()
-        self._taras_restart_event.set()
+        self.restartWorkers()
         if self._taras_bulba:
 #            if self._taras_bulba.is_alive():
                 if self.verbose > 1:
