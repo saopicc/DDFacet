@@ -745,6 +745,15 @@ class ClassImageDeconvMachine():
                 x, y, peak = NpParallel.A_whereMax(
                     self._PeakSearchImage, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
 
+                if self.GD["HMP"]["FractionRandomPeak"] is not None:
+                    op=lambda x: x
+                    if DoAbs: op=lambda x: np.abs(x)
+                    _,_,indx,indy=np.where((op(self._PeakSearchImage)>=peak*self.GD["HMP"]["FractionRandomPeak"]) & np.logical_not(CurrentNegMask))
+                    ii=np.int64(np.random.rand(1)[0]*indx.size)
+                    x,y=indx[ii],indy[ii]
+                    peak=op(self._PeakSearchImage[0,0,x,y])
+
+
                 ThisFlux = self._MeanDirty[0,0,x,y] if self._peakMode is "weighted" else peak
                 if DoAbs:
                     ThisFlux = abs(ThisFlux)
