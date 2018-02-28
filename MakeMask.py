@@ -23,6 +23,8 @@ import collections
 from SkyModel.Other.MyHist import MyCumulHist
 from SkyModel.PSourceExtract import Gaussian
 from SkyModel.Sky import ModRegFile
+from DDFacet.ToolsDir import ModFFTW
+import DDFacet.Imager.SSD.ClassIslandDistanceMachine
 
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
@@ -37,6 +39,9 @@ def read_options():
     group.add_option("--ExternalMask",type="str",help="Use an external mask in addition. Default is %default",default="")
     group.add_option("--ds9Mask",type="str",help="You can use a ds9 reg file too. Green circle to include, Red circles to explude. This goes in combination to the --Th threshold. Default is %default",default="")
     group.add_option('--UseIslands',type="int",help="Deprecated - look at the code",default=0)
+    group.add_option('--RevertInput',type="int",help="look at the code",default=0)
+    group.add_option('--ConvNoise',type="int",help="look at the code",default=0)
+    group.add_option('--OutMaskExtended',type="str",help="look at the code",default=0)
     
     #group.add_option("--MedFilter",type="str",default="50,10")
     opt.add_option_group(group)
@@ -63,7 +68,8 @@ class ClassMakeMask():
                  OutName="mask",
                  ds9Mask="",
                  OutNameNoiseMap="",
-                 options=None):
+                 options=None,
+                 RevertInput=False):
 
         self.ds9Mask=ds9Mask
         self.FitsFile=FitsFile
@@ -73,6 +79,9 @@ class ClassMakeMask():
         self.box=self.Box,self.Box
         self.CasaIm=image(self.FitsFile)
         self.Restored=self.CasaIm.getdata()
+        if options.RevertInput:
+            print>>log, "Reverting the image..."
+            self.Restored*=-1
         self.UseIslands=UseIslands
         self.OutName=OutName
         self.OutNameNoiseMap=OutNameNoiseMap
@@ -155,7 +164,11 @@ class ClassMakeMask():
         ratio=np.abs(np.interp(0.5,F,x))
 
         Noise=-scipy.ndimage.filters.minimum_filter(Acopy,SBox)/ratio
-        #Noise[Noise<0]=0
+
+
+
+
+        Noise[Noise<0]=1e-10
 
         # indxy=(Acopy>5.*Noise)
         # Acopy[indxy]=5*Noise[indxy]
@@ -165,8 +178,8 @@ class ClassMakeMask():
         # Acopy[indxy]=5*Noise[indxy]
         # Noise=np.sqrt(scipy.ndimage.filters.median_filter(np.abs(Acopy)**2,SBox))
 
-        NoiseMed=np.median(Noise)
-        Noise[Noise<NoiseMed]=NoiseMed
+        #NoiseMed=np.median(Noise)
+        #Noise[Noise<NoiseMed]=NoiseMed
 
         self.Noise=np.zeros_like(self.Restored[0,0])
         for i in range(Boost):
@@ -178,6 +191,40 @@ class ClassMakeMask():
         ind=np.where(self.Noise==0.)
         self.Noise[ind]=1e-10
 
+        if self.options.OutMaskExtended:
+            GD=None
+            MaskExtended=(self.Noise<0.1*np.median(self.Noise))
+            OutMaskExtended=self.options.OutMaskExtended
+            nx=MaskExtended.shape[-1]
+            CurrentNegMask=np.logical_not(MaskExtended).reshape((1,1,nx,nx))
+            PSFServer=None
+            IdSharedMem=None
+            DicoDirty=None
+
+            IslandDistanceMachine=DDFacet.Imager.SSD.ClassIslandDistanceMachine.ClassIslandDistanceMachine(GD,
+                                                                                                           CurrentNegMask,
+                                                                                                           PSFServer,
+                                                                                                           DicoDirty,
+                                                                                                           IdSharedMem=IdSharedMem)
+            ListIslands=IslandDistanceMachine.SearchIslands(None,Image=self.Restored)
+            ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
+            MaskOut=np.zeros_like(CurrentNegMask)
+            for Island in ListIslands:
+                x,y=np.array(Island).T
+                MaskOut[0,0,x,y]=1
+            MaskExtended=MaskOut
+            os.system("rm -rf %s"%OutMaskExtended)
+            os.system("rm -rf %s.fits"%OutMaskExtended)
+            PutDataInNewImage(self.FitsFile,OutMaskExtended,np.float32(MaskExtended))
+
+        nx=self.Noise.shape[-1]
+
+        if self.options.ConvNoise:
+            print>>log,"Convolve..."
+            NoiseMap,G=ModFFTW.ConvolveGaussianWrapper(self.Noise.reshape((1,1,nx,nx)),Sig=4*SBox[0])
+            NoiseMap/=np.sum(G)
+            self.Noise=NoiseMap[0,0]
+        
         if self.OutNameNoiseMap!="":
             #print>>log, "Save noise map as %s"%self.OutNameNoiseMap
             #self.CasaIm.saveas(self.OutNameNoiseMap)
@@ -186,8 +233,8 @@ class ClassMakeMask():
             #CasaNoise.tofits(self.OutNameNoiseMap+".fits")
             #del(CasaNoise)
             os.system("rm -rf %s"%self.OutNameNoiseMap)
-            os.system("rm -rf %s"%self.OutNameNoiseMap+".fits")
-            PutDataInNewImage(self.FitsFile,self.OutNameNoiseMap+".fits",np.float32(self.Noise))
+            #os.system("rm -rf %s"%self.OutNameNoiseMap+".fits")
+            PutDataInNewImage(self.FitsFile,self.OutNameNoiseMap,np.float32(self.Noise))
     # def ComputeNoiseMap(self):
     #     print "Compute noise map..."
     #     Boost=self.Boost
