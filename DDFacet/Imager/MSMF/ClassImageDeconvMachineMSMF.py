@@ -129,6 +129,11 @@ class ClassImageDeconvMachine():
 
         self._prevPeak = None
 
+    def setNCPU(self,NCPU):
+        self.NCPU=NCPU
+        numexpr.set_num_threads(NCPU)
+
+        
     def __del__ (self):
         if type(self.facetcache) is shared_dict.SharedDict:
             self.facetcache.delete()

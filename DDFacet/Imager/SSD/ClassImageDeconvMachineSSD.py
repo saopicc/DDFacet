@@ -237,7 +237,7 @@ class ClassImageDeconvMachine():
         self.ListIslands=ListIslands
         self.NIslands=len(self.ListIslands)
 
-
+        print>>log,"Sorting islands by size"
         Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
         #print ":::::::::::::::::"
         ind=np.argsort(Sz)[::-1]

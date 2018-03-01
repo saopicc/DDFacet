@@ -12,12 +12,15 @@ from DDFacet.Other import ModColor
 from ClassConvMachine import ClassConvMachineImages
 from DDFacet.Imager import ClassMaskMachine
 from DDFacet.Array import shared_dict
-
+import psutil
+from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Other.AsyncProcessPool import APP
 
 class ClassInitSSDModelParallel():
     def __init__(self, GD, NFreqBands, RefFreq, MainCache=None, IdSharedMem=""):
+        self.GD=GD
         self.InitMachine = ClassInitSSDModel(GD, NFreqBands, RefFreq, MainCache, IdSharedMem)
+        self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
         APP.registerJobHandlers(self)
 
     def Init(self, DicoVariablePSF, GridFreqs, DegridFreqs):
@@ -33,11 +36,11 @@ class ClassInitSSDModelParallel():
         self.InitMachine.Reset()
 
     def _initIsland_worker(self, DicoOut, iIsland, Island,
-                           DicoVariablePSF, DicoDirty, DicoParm, FacetCache):
+                           DicoVariablePSF, DicoDirty, DicoParm, FacetCache,NCPU):
         MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"])
-                           
         self.InitMachine.Init(DicoVariablePSF, DicoParm["GridFreqs"], DicoParm["DegridFreqs"], facetcache=FacetCache)
         self.InitMachine.setDirty(DicoDirty)
+        #self.InitMachine.DeconvMachine.setNCPU(NCPU)
         self.InitMachine.setSSDModelImage(DicoParm["ModelImage"])
         try:
             SModel, AModel = self.InitMachine.giveModel(Island)
@@ -56,16 +59,62 @@ class ClassInitSSDModelParallel():
         ParmDict["ModelImage"] = ModelImage
         ParmDict["GridFreqs"] = self.GridFreqs
         ParmDict["DegridFreqs"] = self.DegridFreqs
+        
+#         ListBigIslands=[]
+#         ListSmallIslands=[]
+#         ListDoBigIsland=[]
+#         ListDoSmallIsland=[]
+#         NParallel=0
+#         for iIsland,Island in enumerate(ListIslands):
+#             if len(Island)>self.GD["SSDClean"]["ConvFFTSwitch"]:
+#                 ListBigIslands.append(Island)
+#                 ListDoBigIsland.append(ListDoIsland[iIsland])
+#                 if ListDoIsland or ListDoIsland[iIsland]:
+#                     NParallel+=1
+#             else:
+#                 ListSmallIslands.append(Island)
+#                 ListDoSmallIsland.append(ListDoIsland[iIsland])
+#         print>>log,"Initialise big islands (parallelised per island)"
+#         pBAR= ProgressBar(Title="Init islands")
+#         pBAR.render(0, NParallel)
+#         nDone=0
+#         for iIsland,Island in enumerate(ListBigIslands):
+#             if not ListDoIsland or ListDoBigIsland[iIsland]:
+#                 subdict = DicoInitIndiv.addSubdict(iIsland)
+#                 # APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+#                 #            args=(subdict.writeonly(), iIsland, Island,
+#                 #                  self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
+#                 #                  ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),self.NCPU),serial=True)
+#                 self._initIsland_worker(subdict, iIsland, Island,
+#                                         self.DicoVariablePSF, DicoDirty,
+#                                         ParmDict, self.InitMachine.DeconvMachine.facetcache,
+#                                         self.NCPU)
+#                 pBAR.render(nDone+1, NParallel)
+#                 nDone+=1
+# #        APP.awaitJobResults("InitIsland:*", progress="Init islands")
+#         print>>log,"Initialise small islands (parallelised over islands)"
+#         for iIsland,Island in enumerate(ListSmallIslands):
+#             if not ListDoIsland or ListDoSmallIsland[iIsland]:
+#                 subdict = DicoInitIndiv.addSubdict(iIsland)
+#                 APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
+#                            args=(subdict.writeonly(), iIsland, Island,
+#                                  self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
+#                                  ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),1))
+#         APP.awaitJobResults("InitIsland:*", progress="Init islands")
+#         DicoInitIndiv.reload()
 
+
+        print>>log,"Initialise islands (parallelised over islands)"
         for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
                 APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
                            args=(subdict.writeonly(), iIsland, Island,
                                  self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
-                                 ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly()))
+                                 ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),1))
         APP.awaitJobResults("InitIsland:*", progress="Init islands")
         DicoInitIndiv.reload()
+        
         ParmDict.delete()
 
         return DicoInitIndiv
@@ -103,6 +152,7 @@ class ClassInitSSDModel():
         self.GD["HMP"]["Ratios"] = []
         # self.GD["MultiScale"]["Ratios"]=[]
         self.GD["HMP"]["NTheta"] = 4
+        #self.GD["HMP"]["Support"] = self.GD["HMP"]["Scales"][-1]
 
         self.GD["HMP"]["SolverMode"] = "NNLS"
         # self.GD["MultiScale"]["SolverMode"]="PI"

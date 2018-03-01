@@ -193,6 +193,7 @@ class ClassIslandDistanceMachine():
         C1=(self.DistCross[iIsland]<D1)
         setNearbyIsland=set(np.where( (CTh | C0) & (C1) )[0].tolist())
         setNearbyIsland=setNearbyIsland.difference(SetThisIsland)
+        
         #print "  #%3.3i <- %i islands"%(iIsland,len(setNearbyIsland))
         if len(setNearbyIsland)>0:
             SetThisIsland=SetThisIsland.union(setNearbyIsland)
@@ -237,7 +238,9 @@ class ClassIslandDistanceMachine():
         ListIslandMerged=[]
         self.setCheckedIslands=set([])
         for iIsland in range(NIslands):
-            #print "Main %i"%iIsland
+            x0,y0=np.array(ListIslands[iIsland]).T
+            #print "Main %i (%f, %f)"%(iIsland,np.mean(x0),np.mean(y0))
+            
             NDone+=1
             intPercent=int(100*  NDone / float(NJobs))
             pBAR.render(NDone,NJobs)
