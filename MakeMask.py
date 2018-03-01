@@ -209,14 +209,21 @@ class ClassMakeMask():
             ListIslands=IslandDistanceMachine.SearchIslands(None,Image=self.Restored)
             ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
             MaskOut=np.zeros_like(CurrentNegMask)
+            N=0
             for Island in ListIslands:
                 x,y=np.array(Island).T
+                if x.size<=10: continue
                 MaskOut[0,0,x,y]=1
+                N+=1
+            print>>log,"Number of large enough islands %i"%N
             MaskExtended=MaskOut
             os.system("rm -rf %s"%OutMaskExtended)
             os.system("rm -rf %s.fits"%OutMaskExtended)
             PutDataInNewImage(self.FitsFile,OutMaskExtended,np.float32(MaskExtended))
 
+        NoiseMed=np.median(self.Noise)
+        self.Noise[self.Noise<NoiseMed]=NoiseMed
+            
         nx=self.Noise.shape[-1]
 
         if self.options.ConvNoise:
