@@ -40,8 +40,6 @@ log = MyLogger.getLogger("ClassVisServer")
 _cc = 299792458
 
 
-# >>>>>>> issue-255
-
 def test():
     MSName = "/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
     VS = ClassVisServer(MSName, TVisSizeMin=1e8, Weighting="Natural")
@@ -980,7 +978,8 @@ class ClassVisServer():
                 print>>log,"loading weights %d.%d"%(ims, ichunk)
                 self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
 
-                # if nothing in MS, handler will not return a "weight" field
+                # if nothing in MS, handler will not return a "weight" field. Mark this chunk as null then
+                msw["null"] = "weight" not in msw
                 if "weight" not in msw:
                     continue
 
@@ -999,6 +998,16 @@ class ClassVisServer():
                         if field in msw:
                             msw.delete_item(field)
 
+        # save wmax to cache
+        cPickle.dump(wmax, open(wmax_path, "w"))
+        self.maincache.saveCache("wmax")
+        self._weight_dict["wmax"] = wmax
+        print>>log,"overall max W is %.2f meters"%wmax
+        if self._ignore_vis_weights:
+            return
+        if not self._uvmax:
+            raise RuntimeError("data appears to be fully flagged: can't compute imaging weights")
+
         if self.Weighting != "natural":
             # adjust uv-grid for robust weighting
             if self.Weighting == "briggs" or self.Weighting == "robust":
@@ -1014,12 +1023,13 @@ class ClassVisServer():
             for ims, ms in enumerate(self.ListMS):
                 msweights = self._weight_dict[ims]
                 for ichunk in xrange(len(ms.getChunkRow0Row1())):
+                    msw = msweights[ichunk]
+                    if msw["null"]:
+                        print>> log, "skipping weights %d.%d (null)" % (ims, ichunk)
+                        continue
                     print>> log, "reloading weights %d.%d" % (ims, ichunk)
                     self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
-
-                    # if nothing in MS, handler will not return a "weight" field
-                    if "weight" in msw:
-                        self._finalizeWeights_handler(self._weight_grid, msw,
+                    self._finalizeWeights_handler(self._weight_grid, msw,
                                                       ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax)
 
             if self._weight_grid is not None:
