@@ -205,6 +205,7 @@ class CacheManager (object):
                 for MainField, D1 in storedhash.iteritems():
                     if MainField not in hash:
                         ListDiffer.append("(%s: missing in hash)" % (str(MainField)))
+                        continue
                     D0 = hash[MainField]
                     if type(D0) != type(D1):
                         ListDiffer.append("(%s: %s vs %s)" % (str(MainField), type(D0), type(D1)))
