@@ -927,7 +927,6 @@ class ClassVisServer():
                 msw["cachepath"] = path
                 if valid:
                     msw["null"] = not os.path.getsize(path)
-                print path,valid,msw.keys()
         # if every weight is in cache, then we're done here
         if have_all_weights:
             print>> log, "all imaging weights, and wmax, are available in cache"
