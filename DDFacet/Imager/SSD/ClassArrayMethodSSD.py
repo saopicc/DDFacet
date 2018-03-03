@@ -8,16 +8,11 @@ from DDFacet.Other import MyLogger
 log=MyLogger.getLogger("ClassArrayMethodSSD")
 import multiprocessing
 
-from ClassParamMachine import ClassParamMachine
-from DDFacet.ToolsDir.GeneDist import ClassDistMachine
-from SkyModel.PSourceExtract import ClassIncreaseIsland
-from DDFacet.Array import NpShared
 import ClassConvMachine
 import time
 from scipy.stats import chi2
 
 from deap import tools
-from DDFacet.Imager.SSD.MCMC import ClassPDFMachine
 
 log= MyLogger.getLogger("ClassArrayMethodSSD")
 
@@ -29,19 +24,19 @@ import ClassMutate
 class ClassArrayMethodSSD():
     def __init__(self,Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,GD=None,
                  PixVariance=1.e-2,IslandBestIndiv=None,WeightFreqBands=None,iFacet=0,
-                 IdSharedMem="",
+                 island_dict=None,
                  iIsland=0,
                  ParallelFitness=False,
                  NCPU=None):
         self.ParallelFitness=ParallelFitness
         self.iFacet=iFacet
         self.WeightFreqBands=WeightFreqBands
-        self.IdSharedMem=IdSharedMem
         self.iIsland=iIsland
 
-        NpShared.DelArray("%sPSF_Island_%4.4i"%(IdSharedMem,iIsland))
-        self.PSF=NpShared.ToShared("%sPSF_Island_%4.4i"%(IdSharedMem,iIsland),PSF)
+        self._island_dict = island_dict
+        self._pop_dict = island_dict.addSubdict("Populations")
 
+        self.PSF = PSF
 
         self.IslandBestIndiv=IslandBestIndiv
         self.GD=GD
@@ -320,7 +315,6 @@ class ClassArrayMethodSSD():
 
 
     def InitWorkers(self):
-        import Queue
         Parallel=self.ParallelFitness
         if not(Parallel):
             NCPU=1
@@ -335,11 +329,12 @@ class ClassArrayMethodSSD():
         for ii in range(NCPU):
             W=WorkerFitness(work_queue,
                             result_queue,
+                            pop_dict=self._pop_dict,
                             iIsland=self.iIsland,
                             ListPixParms=self.ListPixParms,
                             ListPixData=self.ListPixData,
+                            PSF=self.PSF,
                             GD=self.GD,
-                            IdSharedMem=self.IdSharedMem,
                             PauseOnStart=False,
                             PM=self.PM,
                             PixVariance=self.PixVariance,
@@ -399,7 +394,9 @@ class ClassArrayMethodSSD():
         #self.giveDistanceIndiv(pop)
         #print "OK"
         for iIndividual,individual in enumerate(pop):
-            NpShared.ToShared("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual),individual)
+            if iIndividual not in self._pop_dict:
+                self._pop_dict.addSubdict(iIndividual)
+            self._pop_dict[iIndividual]["Indiv"] = individual
             work_queue.put({"iIndividual":iIndividual,
                             "BestChi2":self.BestChi2,
                             "EntropyMinMax":self.EntropyMinMax,
@@ -443,6 +440,7 @@ class ClassArrayMethodSSD():
                 iResult += 1
                 DicoFitnesses[iIndividual]=DicoResult["fitness"]
                 DicoChi2[iIndividual]=DicoResult["Chi2"]
+                del self._pop_dict[iIndividual]["Indiv"]
             NDone = iResult
 
 
@@ -457,9 +455,6 @@ class ClassArrayMethodSSD():
             fitnesses.append(DicoFitnesses[iIndividual])
             Chi2.append(DicoChi2[iIndividual])
         #print "finished"
-
-        for iIndividual,individual in enumerate(pop):
-            NpShared.DelArray("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual))
 
         self.BestChi2=np.min(Chi2)
 
@@ -494,7 +489,9 @@ class ClassArrayMethodSSD():
         for iIndividual,individual in enumerate(pop):
             if random.random() < mutpb:
                 NJobs+=1
-                NpShared.ToShared("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual),individual)
+                if iIndividual not in self._pop_dict:
+                    self._pop_dict.addSubdict(iIndividual)
+                self._pop_dict[iIndividual]["Indiv"] = individual
                 work_queue.put({"iIndividual":iIndividual,
                                 "mutConfig":MutConfig,
                                 "OperationType":"Mutate"})
@@ -536,14 +533,10 @@ class ClassArrayMethodSSD():
             if DicoResult["Success"]:
                 iIndividual=DicoResult["iIndividual"]
                 iResult += 1
-                mutant=NpShared.GiveArray("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual))
+                mutant=self._pop_dict[iIndividual]["Indiv"]
                 pop[iIndividual][:]=mutant[:]
+                del self._pop_dict[iIndividual]["Indiv"]
             NDone = iResult
-
-
-
-        for iIndividual,individual in enumerate(pop):
-            NpShared.DelArray("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual))
 
         return pop
 
@@ -560,7 +553,9 @@ class ClassArrayMethodSSD():
         NCPU=self.NCPU
 
         for iIndividual,individual in enumerate(pop):
-            NpShared.ToShared("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual),individual)
+            if iIndividual not in self._pop_dict:
+                self._pop_dict.addSubdict(iIndividual)
+            self._pop_dict[iIndividual]["Indiv"] = individual
             work_queue.put({"iIndividual":iIndividual,
                             "BestChi2":self.BestChi2,
                             "OperationType":"Metropolis",
@@ -577,7 +572,7 @@ class ClassArrayMethodSSD():
 
 
         iResult=0
-        DicoChain={}
+        DicoChains = {}
         while iResult < NJobs:
             DicoResult=None
             #print work_queue.qsize(),result_queue.qsize()
@@ -602,17 +597,11 @@ class ClassArrayMethodSSD():
             if DicoResult["Success"]:
                 iIndividual=DicoResult["iIndividual"]
                 iResult += 1
-                DicoChain[iIndividual]=NpShared.SharedToDico(DicoResult["DicoName"])
-            NDone = iResult
+                DicoChains[iIndividual] = self._pop_dict[iIndividual]["Chain"]
+                del self._pop_dict[iIndividual]["Indiv"]
 
-        for iIndividual,individual in enumerate(pop):
-            NpShared.DelArray("%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual))
+        return DicoChains
 
-
-        return DicoChain
-
-
-    
     
     def mutGaussian(self,*args,**kwargs):
         return self.MutMachine.mutGaussian(*args,**kwargs)
@@ -775,12 +764,12 @@ class WorkerFitness(multiprocessing.Process):
     def __init__(self,
                  work_queue,
                  result_queue,
+                 pop_dict=None,
                  iIsland=None,
                  ListPixParms=None,
                  ListPixData=None,
                  GD=None,
-                 DicoImager=None,
-                 IdSharedMem=None,
+                 PSF=None,
                  PauseOnStart=False,
                  PM=None,
                  PixVariance=1e-2,
@@ -799,15 +788,15 @@ class WorkerFitness(multiprocessing.Process):
         self.result_queue = result_queue
         self.kill_received = False
         self.exit = multiprocessing.Event()
-        self.IdSharedMem=IdSharedMem
         self._pause_on_start = PauseOnStart
+        self._pop_dict = pop_dict
         self.GD=GD
         self.PM=PM
         self.EstimatedStdFromResid=EstimatedStdFromResid
         self.ListPixParms=ListPixParms
         self.ListPixData=ListPixData
         self.iIsland=iIsland
-        self.PSF=NpShared.GiveArray("%sPSF_Island_%4.4i"%(IdSharedMem,iIsland))
+        self.PSF = PSF
         self.PixVariance=PixVariance
         self.ConvMachine=ClassConvMachine.ClassConvMachine(self.PSF,self.ListPixParms,self.ListPixData,ConvMode)
         self.ConvMachine.setParamMachine(self.PM)
@@ -872,8 +861,7 @@ class WorkerFitness(multiprocessing.Process):
         pid=str(multiprocessing.current_process())
         self.T.reinit()
         iIndividual=DicoJob["iIndividual"]
-        Name="%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual)
-        individual=NpShared.GiveArray(Name)
+        individual = self._pop_dict[iIndividual]["Indiv"]
 
         Mut_pFlux, Mut_p0, Mut_pMove, Mut_pScale, Mut_pOffset=DicoJob["mutConfig"]
 
@@ -902,8 +890,7 @@ class WorkerFitness(multiprocessing.Process):
             self.EntropyMinMax=DicoJob["EntropyMinMax"]
 
         #individual=DicoJob["individual"]
-        Name="%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual)
-        individual=NpShared.GiveArray(Name)
+        individual = self._pop_dict[iIndividual]["Indiv"]
         fitness,Chi2=self.GiveFitness(individual)
         #print iIndividual
         self.result_queue.put({"Success": True, 
@@ -1034,17 +1021,14 @@ class WorkerFitness(multiprocessing.Process):
         iIndividual=DicoJob["iIndividual"]
         #print "Worker %s processing indiv %i"%(pid,iIndividual)
         self.BestChi2=DicoJob["BestChi2"]
-        Name="%sIsland_%5.5i_Individual_%4.4i"%(self.IdSharedMem,self.iIsland,iIndividual)
-        individual=NpShared.GiveArray(Name)
-        DicoChain=self.runMetroSingleChain(individual,NSteps=DicoJob["NSteps"])
-        DicoName="%sDicoChain_%3.3i"%(self.IdSharedMem,iIndividual)
-        NpShared.DicoToShared(DicoName,DicoChain)
-        self.result_queue.put({"Success": True, 
-                               "iIndividual": iIndividual,
-                               "DicoName":DicoName})
+        individual = self._pop_dict[iIndividual]["Indiv"]
+        chain_dict = self._pop_dict[iIndividual]["Chain"]
+        self.runMetroSingleChain(individual,NSteps=DicoJob["NSteps"],chain_dict)
+        self.result_queue.put({"Success": True,
+                               "iIndividual": iIndividual})
         self.T.timeit("done job: %s"%pid)
 
-    def runMetroSingleChain(self,individual0,NSteps=1000):
+    def runMetroSingleChain(self,individual0,NSteps=1000,chain_dict={}):
 
         df=self.PM.NPixListData
         self.rv = chi2(df)
@@ -1237,13 +1221,10 @@ class WorkerFitness(multiprocessing.Process):
 
         T.timeit("Chain")
 
+        chain_dict["logProb"]=np.array(DicoChains["logProb"])
+        chain_dict["Parms"]=np.array(DicoChains["Parms"])
+        chain_dict["Chi2"]=np.array(DicoChains["Chi2"])
 
-        DicoChains["logProb"]=np.array(DicoChains["logProb"])
-        DicoChains["Parms"]=np.array(DicoChains["Parms"])
-        DicoChains["Chi2"]=np.array(DicoChains["Chi2"])
-
-        return DicoChains
-            
     def PlotIndiv(self,best_ind,iChannel=0):
 
         import pylab
