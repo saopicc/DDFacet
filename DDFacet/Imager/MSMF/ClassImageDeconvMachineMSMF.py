@@ -189,7 +189,7 @@ class ClassImageDeconvMachine():
     def Reset(self):
         print>>log, "resetting HMP machine"
         self.DicoMSMachine = {}
-        if type(self.facetcache) is shared_dict.SharedDict:
+        if type(self.facetcache) is shared_dict.SharedDict and self.facetcache.is_writeable():
             print>> log, "deleting HMP facet cache"
             self.facetcache.delete()
         self.facetcache = None

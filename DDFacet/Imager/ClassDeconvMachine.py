@@ -1149,6 +1149,8 @@ class ClassImagerDeconv():
 
             # release PSFs and memory in DeconvMachine, if it's going to be reinitialized with a new PSF anyway, or if
             # we're not going to use it again, or if we're asked to conserve memory
+#            import pdb;
+#            pdb.set_trace()
             if do_psf or not continue_deconv or conserve_memory:
                 # if DeconvMachine has a reset method, use it
                 if hasattr(self.DeconvMachine, 'Reset'):
