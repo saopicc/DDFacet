@@ -1035,13 +1035,7 @@ class ClassVisServer():
             if self._weight_grid is not None:
                 self._weight_grid.delete()
 
-        # check for errors
-        for ims, ms in enumerate(self.ListMS):
-            for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
-                if not self._weight_dict[ims][ichunk].get("success"):
-                    raise RuntimeError("weight computation has failed, see error messages above")
-
-        # mark cache as valid
+        # mark caches as valid
         for ims, ms in enumerate(self.ListMS):
             for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
                 ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
