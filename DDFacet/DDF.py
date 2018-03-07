@@ -189,7 +189,7 @@ def main(OP=None, messages=[]):
             DicoConfig["Montblanc"]["TensorflowServerTarget"] = fork_tensorflow_server()
 
     # init NCPU for different bits of parallelism
-    ncpu = DicoConfig["Parallel"]["NCPU"] or psutil.cpu_count()
+    ncpu = int(DicoConfig["Parallel"]["NCPU"] or psutil.cpu_count())
     DicoConfig["Parallel"]["NCPU"]=ncpu
     _pyArrays.pySetOMPNumThreads(ncpu)
     NpParallel.NCPU_global = ModFFTW.NCPU_global = ncpu
