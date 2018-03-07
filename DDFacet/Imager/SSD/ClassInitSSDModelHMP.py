@@ -153,11 +153,11 @@ class ClassInitSSDModel():
         # self.GD["MultiScale"]["Ratios"]=[]
         self.GD["HMP"]["NTheta"] = 4
 
-        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        self.GD["HMP"]["Scales"] = [0,1,2,4,8,16,24,32,48,64]
-        self.GD["HMP"]["Taper"] = 32
-        self.GD["HMP"]["Support"] = 32#self.GD["HMP"]["Scales"][-1]
-        self.GD["Deconv"]["RMSFactor"] = .5
+        # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        # self.GD["HMP"]["Scales"] = [0,1,2,4,8,16,24,32,48,64]
+        # self.GD["HMP"]["Taper"] = 32
+        # self.GD["HMP"]["Support"] = 32#self.GD["HMP"]["Scales"][-1]
+        # self.GD["Deconv"]["RMSFactor"] = .5
         
         self.GD["HMP"]["SolverMode"] = "NNLS"
         # self.GD["MultiScale"]["SolverMode"]="PI"
