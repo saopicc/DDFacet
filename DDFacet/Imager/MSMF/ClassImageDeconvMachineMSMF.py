@@ -209,7 +209,8 @@ class ClassImageDeconvMachine():
         self._NoiseMap = NoiseMap
         self._PNRStop = PNRStop
         self._peakMode = "sigma"
-
+        
+        
     def _initMSM_handler(self, fcdict, psfdict, iFacet, SideLobeLevel, OffsetSideLobe, centralFacet):
         # init PSF server from PSF shared dict
         self.SetPSF(psfdict, quiet=True)
@@ -642,7 +643,13 @@ class ClassImageDeconvMachine():
         # return condition indicating cleaning is to be continued
         cont = True
 
-        if self._previous_initial_peak is not None and abs(ThisFlux) > self.GD["HMP"]["MajorStallThreshold"]*self._previous_initial_peak:
+        CondPeak=(self._previous_initial_peak is not None)
+        CondDiverge=False
+        if self._previous_initial_peak is not None:
+            CondDiverge=(abs(ThisFlux) > self.GD["HMP"]["MajorStallThreshold"]*self._previous_initial_peak)
+        CondPeakType=(self._peakMode!="sigma")
+
+        if CondPeak and CondDiverge and CondPeakType:
             print>>log,ModColor.Str("STALL! dirty image peak %10.6g Jy, was %10.6g at previous major cycle."
                         % (ThisFlux, self._previous_initial_peak), col="red")
             print>>log,ModColor.Str("This will be the last major cycle")

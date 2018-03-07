@@ -1034,11 +1034,11 @@ class ClassMultiScaleMachine():
                     #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()
         elif self.SolveMode=="NNLS":
-            HasReverted=False
+            #HasReverted=False
             Peak=np.max(dirtyVec)
-            if Peak<0:
-                dirtyVec=dirtyVec*-1
-                HasReverted=True
+            # if Peak<0:
+            #     dirtyVec=dirtyVec*-1
+            #     HasReverted=True
                 
             W=WVecPSF.copy()
             # print ":::::::::"
@@ -1207,7 +1207,7 @@ class ClassMultiScaleMachine():
             #Sol.flat[:]/=self.SumFuncScales.flat[:]
             #print Sol
 
-            if HasReverted: Sol*=-1
+            #if HasReverted: Sol*=-1
             
             Mask=np.zeros((Sol.size,),np.float32)
             FuncScale=1.#self.giveSmallScaleBias()
