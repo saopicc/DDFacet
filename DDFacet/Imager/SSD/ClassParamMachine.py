@@ -106,6 +106,8 @@ class ClassParamMachine():
                 SigVal=DicoSigma["Value"]
             elif DicoSigma["Type"]=="PeakFlux":
                 SigVal=DicoSigma["Value"]*np.max(np.abs(SModelArray))
+            # elif DicoSigma["Type"]=="Median":
+            #     SigVal=DicoSigma["Value"]*np.median(SModelArray[SModelArray!=0])
             
 
             for i_indiv,indiv in zip(range(len(pop)),pop):

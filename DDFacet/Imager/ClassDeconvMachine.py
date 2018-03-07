@@ -213,11 +213,12 @@ class ClassImagerDeconv():
 
         self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD,self.ModelMachine,
                                                                         DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
-                                                                        GridFreqs=self.VS.FreqBandCenters)
+                                                                        GridFreqs=self.VS.FreqBandCenters,
+                                                                        MainCache=self.VS.maincache)
         self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
         self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
 
-
+        MinorCycleConfig["RefFreq"] = self.RefFreq
         MinorCycleConfig["ModelMachine"] = ModelMachine
 
 
@@ -255,7 +256,6 @@ class ClassImagerDeconv():
                 print>>log,"Using MUFFIN algorithm"
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
-            self.ImageNoiseMachine.setMainCache(self.VS.maincache)
             self.DeconvMachine.setMaskMachine(self.MaskMachine)
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
@@ -579,7 +579,7 @@ class ClassImagerDeconv():
                 self.MeanJonesNorm = None
                 self.JonesNorm = None
 
-            if self.DicoDirty.get("LastMask") is not None:
+            if self.DicoDirty.get("LastMask") is not None and self.GD["Mask"]["Auto"]:
                 self.MaskMachine.joinExternalMask(self.DicoDirty["LastMask"])
 
         if psf_valid:
@@ -1029,7 +1029,7 @@ class ClassImagerDeconv():
 
         for iMajor in range(1, NMajor+1):
             # good to recreate the workers now, to drop their RAM
-            APP.restartWorkers()
+            #APP.restartWorkers()
             # previous minor loop indicated it has reached bottom? Break out
             if not continue_deconv:
                 break

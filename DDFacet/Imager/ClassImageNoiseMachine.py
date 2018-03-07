@@ -29,9 +29,10 @@ from DDFacet.Imager.ModModelMachine import ClassModModelMachine
 from DDFacet.ToolsDir import ModFFTW
 
 class ClassImageNoiseMachine():
-    def __init__(self,GD,ExternalModelMachine=None, DegridFreqs=None, GridFreqs=None):
-        self.GD=GD
+    def __init__(self, GD, ExternalModelMachine=None, DegridFreqs=None, GridFreqs=None, MainCache=None):
+        self.GD = copy.deepcopy(GD)
         
+        self.MainCache=MainCache
         self.NoiseMap=None
         self.NoiseMapRestored=None
         self.NoiseMapReShape=None
@@ -39,9 +40,72 @@ class ClassImageNoiseMachine():
         self.ExternalModelMachine=ExternalModelMachine
         self.DegridFreqs = DegridFreqs
         self.GridFreqs = GridFreqs
+        self.NFreqBands = len(GridFreqs)
 
-    def setMainCache(self,MainCache):
-        self.MainCache=MainCache
+        # MyLogger.setSilent(ListSilentModules)
+        self.RefFreq = ExternalModelMachine.RefFreq
+        # self.GD["Parallel"]["NCPU"]=1
+        # self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
+        self.GD["HMP"]["Alpha"] = [0, 0, 1]
+        # self.GD["Deconv"]["Mode"]="HMP"
+        # self.GD["Deconv"]["CycleFactor"]=0
+        # self.GD["Deconv"]["PeakFactor"]=0.0
+        self.GD["Deconv"]["PSFBox"] = "full"
+        self.GD["Deconv"]["MaxMinorIter"] = 10000
+        self.GD["Deconv"]["RMSFactor"] = 3.
+        # self.GD["HMP"]["Scales"]=[0]
+        self.GD["HMP"]["Ratios"] = []
+        # self.GD["MultiScale"]["Ratios"]=[]
+        self.GD["HMP"]["NTheta"] = 4
+
+        # self.GD["Deconv"]["AllowNegative"]=False
+        # self.GD["HMP"]["Scales"]=[0,1,2,4,8,16,32,48,64,96,128]
+        # self.GD["HMP"]["SolverMode"]="NNLS"
+        # self.GD["HMP"]["Support"]=91
+        # self.GD["HMP"]["Taper"]=31
+        # self.GD["Deconv"]["Gain"]=.3
+
+        self.GD["HMP"]["SolverMode"] = "PI"
+        self.GD["HMP"]["Scales"] = [0]
+        self.GD["Deconv"]["Gain"] = .1
+
+        if self.NoiseMapReShape is not None:
+            print>> log, "Deconvolving on SNR map"
+            self.GD["Deconv"]["RMSFactor"] = 0.
+
+        self.GD["HMP"]["AllowResidIncrease"] = 0.1
+        # self.GD["HMP"]["SolverMode"]="PI"
+        MinorCycleConfig = dict(self.GD["Deconv"])
+        MinorCycleConfig["NCPU"] = self.GD["Parallel"]["NCPU"]
+        MinorCycleConfig["NFreqBands"] = self.NFreqBands
+        MinorCycleConfig["RefFreq"] = self.RefFreq
+        MinorCycleConfig["GD"] = self.GD
+        # MinorCycleConfig["RefFreq"] = self.RefFreq
+        # MinorCycleConfig["CleanMaskImage"]=None
+        self.MinorCycleConfig = MinorCycleConfig
+        if self.GD["Deconv"]["Mode"] in ["HMP", "SSD"]:
+            # for SSD we need to set up the HMP ModelMachine.
+            self.GD["Deconv"]["Mode"] = "HMP"
+            ModConstructor = ClassModModelMachine(self.GD)
+            self.ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
+            self.ModelMachine.setRefFreq(self.RefFreq)
+            MinorCycleConfig["ModelMachine"] = self.ModelMachine
+            self.MinorCycleConfig = MinorCycleConfig
+            from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
+
+            self.DeconvMachine = ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.MainCache,
+                                                                                     ParallelMode=True,
+                                                                                     CacheFileName="HMP_Masking",
+                                                                                     **self.MinorCycleConfig)
+        elif self.GD["Deconv"]["Mode"] == "Hogbom":
+            from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
+            self.DeconvMachine = ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(MainCache=self.MainCache,
+                                                                                       ParallelMode=True,
+                                                                                       CacheFileName="HMP_Masking",
+                                                                                       **self.MinorCycleConfig)
+        else:
+            raise NotImplementedError("Mode %s not compatible with automasking" % self.GD["Deconv"]["Mode"])
+
 
     def giveMinStatNoiseMap(self,Image):
         Box,Step=self.GD["Noise"]["MinStats"]
@@ -116,76 +180,11 @@ class ClassImageNoiseMachine():
         self.DicoDirty=DicoResidual
         self.Orig_MeanDirty=self.DicoDirty["MeanImage"].copy()
         self.Orig_Dirty=self.DicoDirty["ImageCube"].copy()
-        GD=copy.deepcopy(self.GD)
-        self.RefFreq=self.ExternalModelMachine.RefFreq
-        self.GD=GD
-        #self.GD["Parallel"]["NCPU"]=1
-        #self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
-        self.GD["HMP"]["Alpha"]=[0,0,1]
-        #self.GD["Deconv"]["Mode"]="HMP"
-        #self.GD["Deconv"]["CycleFactor"]=0
-        #self.GD["Deconv"]["PeakFactor"]=0.0
-        self.GD["Deconv"]["PSFBox"]="full"
-        self.GD["Deconv"]["MaxMinorIter"]=10000
-        self.GD["Deconv"]["RMSFactor"]=3.
-        #self.GD["HMP"]["Scales"]=[0]
-        self.GD["HMP"]["Ratios"]=[]
-        #self.GD["MultiScale"]["Ratios"]=[]
-        self.GD["HMP"]["NTheta"]=4
 
-        
-        # self.GD["Deconv"]["AllowNegative"]=False
-        # self.GD["HMP"]["Scales"]=[0,1,2,4,8,16,32,48,64,96,128]
-        # self.GD["HMP"]["SolverMode"]="NNLS"
-        # self.GD["HMP"]["Support"]=91
-        # self.GD["HMP"]["Taper"]=31
-        # self.GD["Deconv"]["Gain"]=.3
-
-        self.GD["HMP"]["SolverMode"]="PI"
-        self.GD["HMP"]["Scales"]=[0]
-        self.GD["Deconv"]["Gain"]=.1
-        
-        
         if self.NoiseMapReShape is not None:
             print>>log,"Deconvolving on SNR map"
-            self.GD["Deconv"]["RMSFactor"]=0.
+            self.DeconvMachine.RMSFactor = 0
             
-        self.GD["HMP"]["AllowResidIncrease"]=0.1
-        #self.GD["HMP"]["SolverMode"]="PI"
-        DicoVariablePSF=self.DicoVariablePSF
-        self.NFreqBands=len(DicoVariablePSF["freqs"])
-        MinorCycleConfig=dict(self.GD["Deconv"])
-        MinorCycleConfig["NCPU"]=self.GD["Parallel"]["NCPU"]
-        MinorCycleConfig["NFreqBands"]=self.NFreqBands
-        MinorCycleConfig["GD"] = self.GD
-        #MinorCycleConfig["RefFreq"] = self.RefFreq
-        #MinorCycleConfig["CleanMaskImage"]=None
-        self.MinorCycleConfig=MinorCycleConfig
-        if self.GD["Deconv"]["Mode"] in ["HMP","SSD"]:
-            # for SSD we need to set up the HMP ModelMachine.
-            self.GD["Deconv"]["Mode"]="HMP"
-            ModConstructor = ClassModModelMachine(self.GD)
-            ModelMachine = ModConstructor.GiveMM(Mode=self.GD["Deconv"]["Mode"])
-            ModelMachine.setRefFreq(self.RefFreq)
-            MinorCycleConfig["ModelMachine"]=ModelMachine
-            self.MinorCycleConfig=MinorCycleConfig
-            from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
-            
-            self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.MainCache,
-                                                                                   CacheSharedMode=True,
-                                                                                   ParallelMode=False,
-                                                                                   CacheFileName="HMP_Masking",
-                                                                                   **self.MinorCycleConfig)
-        elif self.GD["Deconv"]["Mode"]=="Hogbom":
-            from DDFacet.Imager.HOGBOM import ClassImageDeconvMachineHogbom
-            self.DeconvMachine=ClassImageDeconvMachineHogbom.ClassImageDeconvMachine(MainCache=self.MainCache,
-                                                                                   CacheSharedMode=True,
-                                                                                   ParallelMode=False,
-                                                                                   CacheFileName="HMP_Masking",
-                                                                                   **self.MinorCycleConfig)
-        else:
-            raise NotImplementedError("Mode %s not compatible with automasking" % self.GD["Deconv"]["Mode"])
-
         self.DeconvMachine.Init(PSFVar=self.DicoVariablePSF,PSFAve=self.DicoVariablePSF["EstimatesAvgPSF"][-1],
                                 GridFreqs=self.GridFreqs, DegridFreqs=self.DegridFreqs, RefFreq=self.RefFreq)
 
@@ -223,7 +222,7 @@ class ClassImageNoiseMachine():
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
 
         print>>log,"  Getting model image..."
-        Model=ModelMachine.GiveModelImage(DoAbs=True)
+        Model=self.ModelMachine.GiveModelImage(DoAbs=True)
         if "Comp" in self.ExternalModelMachine.DicoSMStacked.keys():
             Model+=np.abs(self.ExternalModelMachine.GiveModelImage())
         ModelImage=Model[0,0]
