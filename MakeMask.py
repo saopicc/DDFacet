@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-
+import os
+import sys
+sys.path=os.environ["PYTHONPATH"].split(":")+sys.path
 from pyrap.tables import table
 from pyrap.images import image
 import pyfits
@@ -242,6 +244,11 @@ class ClassMakeMask():
             os.system("rm -rf %s"%self.OutNameNoiseMap)
             #os.system("rm -rf %s"%self.OutNameNoiseMap+".fits")
             PutDataInNewImage(self.FitsFile,self.OutNameNoiseMap,np.float32(self.Noise))
+
+            os.system("rm -rf %s.mean"%self.OutNameNoiseMap)
+            PutDataInNewImage(self.FitsFile,self.OutNameNoiseMap+".mean",np.float32(np.zeros_like(self.Noise)))
+
+
     # def ComputeNoiseMap(self):
     #     print "Compute noise map..."
     #     Boost=self.Boost
