@@ -139,6 +139,7 @@ class ClassVisServer():
                 DicoSelectOptions = self.DicoSelectOptions,
                 get_obs_detail=get_detail)
             if MS.empty:
+                print>>log,""
                 continue
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
@@ -387,6 +388,10 @@ class ClassVisServer():
         iMS, iChunk = DATA["iMS"], DATA["iChunk"]
         ms = self.ListMS[iMS]
         row0, row1 = ms.getChunkRow0Row1()[iChunk]
+        if ms.ToRADEC is not None:
+            ms.Rotate(DATA,RotateType=["vis"],Sense="ToPhaseCenter",DataFieldName=field)
+            
+
         ms.PutVisColumn(column, DATA[field], row0, row1, likecol=likecol, sort_index=DATA["sort_index"])
 
     def collectPutColumnResults(self):
@@ -430,7 +435,7 @@ class ClassVisServer():
                 # tell the IO thread to start loading the chunk
                 APP.runJob(self._next_chunk_name, self._handler_LoadVisChunk,
                            args=(self._next_chunk_name, self.iCurrentMS, self.iCurrentChunk), 
-                           io=0)
+                           io=0)#,serial=True)
             return self._next_chunk_label
 
     def collectLoadedChunk(self, start_next=True):
@@ -753,7 +758,7 @@ class ClassVisServer():
             for ichunk in xrange(len(ms.getChunkRow0Row1())):
                 APP.runJob("FinalizeWeights:%d:%d" % (ims, ichunk), self._finalizeWeights_handler,
                            args=(self._weight_grid.readonly(),
-                                 self._weight_dict[ims][ichunk].readwrite()),
+                                 self._weight_dict.readwrite(),ims,ichunk,self._uvmax),
                            counter=self._weightjob_counter, collect_result=False)
         APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
         # delete stuff
@@ -865,8 +870,8 @@ class ClassVisServer():
         y = uv[:, 1, :]
         x += xymax  # offset, since X grid starts at -xymax
         # convert to index array -- this gives the number of the uv-bin on the grid
-        index = msw.addSharedArray("index", (uv.shape[0], len(freqs)), np.int64)
-        #index = np.zeros((uv.shape[0], len(freqs)), np.int64)
+        #index = msw.addSharedArray("index", (uv.shape[0], len(freqs)), np.int64)
+        index = np.zeros((uv.shape[0], len(freqs)), np.int64)
         index[...] = y * npixx + x
         # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
         if nbands > 1:
@@ -881,12 +886,54 @@ class ClassVisServer():
         # print>>log,weights,index
         _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
 
-    def _finalizeWeights_handler(self, wg, msw):
+    def _finalizeWeights_handler(self, wg, mswAll,ims,ichunk,uvmax):
+        msw=mswAll[ims][ichunk]
         if "weight" in msw:
+            ms = self.ListMS[ims]
+            row0, row1 = ms.getChunkRow0Row1()[ichunk]
+            
+            msfreqs = ms.ChanFreq
+            freqs=msfreqs
+            nrows = row1 - row0
+            chanslice = ms.ChanSlice
+            if not nrows:
+                return
+            tab = ms.GiveMainTable()
+            uvw = tab.getcol("UVW", row0, nrows)
+            tab.close()
+            nch, npol, npixIm, _ = self.FullImShape
+            FOV = self.CellSizeRad * npixIm
+            nbands = self.NFreqBands
+            cell = 1. / (self.Super * FOV)
+            xymax = int(math.floor(uvmax / cell)) + 1
+            # grid will be from [-xymax,xymax] in U and [0,xymax] in V
+            npixx = xymax * 2 + 1
+            npixy = xymax + 1
+            npix = npixx * npixy
+
+            uv = uvw[:,:2]
+            # flip sign of negative v values -- we'll only grid the top half of the plane
+            uv[uv[:, 1] < 0] *= -1
+            # convert u/v to lambda, and then to pixel offset
+            uv = uv[..., np.newaxis] * freqs[np.newaxis, np.newaxis, :] / _cc
+            uv = np.floor(uv / cell).astype(int)
+            # u is offset, v isn't since it's the top half
+            x = uv[:, 0, :]
+            y = uv[:, 1, :]
+            x += xymax  # offset, since X grid starts at -xymax
+            # convert to index array -- this gives the number of the uv-bin on the grid
+            index = np.zeros((uv.shape[0], len(freqs)), np.int64)
+            index[...] = y * npixx + x
+
+
             weight = msw["weight"]
+            #index[weight == 0] = 0
             if self.Weighting != "natural":
                 grid = wg["grid"].reshape((wg["grid"].size,))
-                weight /= grid[msw["index"]]
+                #weight /= grid[msw["index"]]
+                index[index>=len(grid)]=0 
+                weight /= grid[index]
+                
             np.save(msw["cachepath"], weight)
             msw.delete_item("weight")
             if "index" in msw:

@@ -146,21 +146,18 @@ class ClassInitSSDModel():
         self.GD=GD
         self.GD["Parallel"]["NCPU"]=1
         #self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
-        self.GD["HMP"]["Alpha"]=[-1.,1.,5]
+        self.GD["HMP"]["Alpha"]=[-3.,1.,5]
         self.GD["Deconv"]["Mode"]="HMP"
         self.GD["Deconv"]["CycleFactor"]=0
-        self.GD["Deconv"]["PeakFactor"]=0.01
-        self.GD["Deconv"]["RMSFactor"]=3.
-        self.GD["Deconv"]["Gain"]=.1
-        self.GD["Deconv"]["AllowNegative"]=False
+        self.GD["Deconv"]["PeakFactor"]=0.0
+        self.GD["Deconv"]["RMSFactor"]=self.GD["GAClean"]["RMSFactorInitHMP"]
 
-        self.GD["Deconv"]["MaxMinorIter"]=10000
+        self.GD["Deconv"]["Gain"]=self.GD["GAClean"]["GainInitHMP"]
+        self.GD["Deconv"]["AllowNegative"]=self.GD["GAClean"]["AllowNegativeInitHMP"]
+        self.GD["Deconv"]["MaxMinorIter"]=self.GD["GAClean"]["MaxMinorIterInitHMP"]
         
 
-        if self.GD["SSDClean"]["ScalesInitHMP"] is not None:
-            self.GD["HMP"]["Scales"]=self.GD["SSDClean"]["ScalesInitHMP"]
-        else:
-            self.GD["HMP"]["Scales"]=[0,1,2,4,8,16,24,32]
+        self.GD["HMP"]["Scales"]=self.GD["GAClean"]["ScalesInitHMP"]
 
         self.GD["HMP"]["Ratios"]=[]
         #self.GD["MultiScale"]["Ratios"]=[]
@@ -364,6 +361,7 @@ class ClassInitSSDModel():
         #print "update"
         #time.sleep(30)
         self.DeconvMachine.Deconvolve(UpdateRMS=False)
+        #self.DeconvMachine.Plot()
         T.timeit("deconv %s"%str(self.DicoSubDirty["ImageCube"].shape))
         #print "deconv"
         #time.sleep(30)
@@ -391,6 +389,7 @@ class ClassInitSSDModel():
 
 
         x,y=self.ArrayPixParms.T
+
         # PSF,MeanPSF=self.DeconvMachine.PSFServer.GivePSF()
         # ConvModel=ClassConvMachineImages(PSF).giveConvModel(ModelImage*np.ones((self.NFreqBands,1,1,1)))
         # #T.timeit("Conv1")
@@ -410,23 +409,43 @@ class ClassInitSSDModel():
         # # pylab.draw()
         # # pylab.show(False)
         # # stop
-
+        
+        # ModelOnes=np.zeros_like(ModelImage)
+        # ModelOnes[:,:,x,y]=1
+        # ConvModelOnes=ClassConvMachineImages(PSF).giveConvModel(ModelOnes*np.ones((self.NFreqBands,1,1,1)))
 
         # SumConvModel=np.sum(ConvModel[:,:,x,y])
+        # SumConvModelOnes=np.sum(ConvModelOnes[:,:,x,y])
         # SumResid=np.sum(self.DeconvMachine._CubeDirty[:,:,x,y])
 
         # SumConvModel=np.max([SumConvModel,1e-6])
+
         # factor=(SumResid+SumConvModel)/SumConvModel
 
-        # fMult=1.
-        # if 1.<factor<2.:
-        #     fMult=factor
-        # #print "fMult",fMult
-
+        
+        # ###############
+        #fMult=1.
+        #if 1.<factor<2.:
+        #    fMult=factor
         fMult=1.
         SModel=ModelImage[0,0,x,y]*fMult
+        # ###########"
+        # fMult=(np.mean(SumResid))/(np.mean(SumConvModelOnes))
+        # SModel=ModelImage[0,0,x,y]+ModelOnes[0,0,x,y]*fMult
+        # print fMult
+        # print fMult
+        # print fMult
+        # print fMult
+        # print fMult
+        # print fMult
+        # print fMult
+        # ############
 
-        AModel=self.ModelMachine.GiveSpectralIndexMap()[0,0,x,y]
+
+        if self.NFreqBands>1:
+            AModel=self.ModelMachine.GiveSpectralIndexMap()[0,0,x,y]
+        else:
+            AModel=np.zeros_like(SModel)
         T.timeit("spec index")
 
         return SModel,AModel

@@ -10,6 +10,7 @@ from DDFacet.Array import NpShared
 from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from scipy.spatial import ConvexHull
 from matplotlib.path import Path
+import psutil
 
 class Island(object):
     '''
@@ -60,7 +61,7 @@ class ClassIslandDistanceMachine():
         self.PSFServer=PSFServer
         self.PSFCross=None
         self.DicoDirty=DicoDirty
-        self.NCPU=self.GD["Parallel"]["NCPU"]
+        self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
         self.IdSharedMem=IdSharedMem
 
     def SearchIslands(self,Threshold):
@@ -321,15 +322,20 @@ class ClassIslandDistanceMachine():
         print>>log,"  Convexify islands"
         ListConvexIslands=[]
         for Island in ListIslands:
+            points=np.array(Island)
+            x,y=points.T
+            Cx=(np.abs(x.min()-x.max())==0)
+            Cy=(np.abs(y.min()-y.max())==0)
+            if (x.size<=3) or Cx or Cy:
+                ListConvexIslands.append(Island)
+                continue
             try:
-                points=np.array(Island)
                 hull = ConvexHull(points)
                 Contour = np.array(
                     [hull.points[hull.vertices, 0],
                      hull.points[hull.vertices, 1]])
                 poly2 = Contour.T
                 
-                x,y=points.T
                 x0,x1=x.min(),x.max()
                 y0,y1=y.min(),y.max()
                 

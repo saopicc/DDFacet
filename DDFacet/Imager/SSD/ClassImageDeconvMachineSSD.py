@@ -35,7 +35,7 @@ from SkyModel.PSourceExtract import ClassIncreaseIsland
 from DDFacet.Other import MyPickle
 import multiprocessing
 import time
-import ClassInitSSDModel
+import ClassInitSSDModelHMP
 from DDFacet.Imager.SSD.GA.ClassEvolveGA import ClassEvolveGA
 from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
 #try: # Genetic Algo
@@ -227,8 +227,8 @@ class ClassImageDeconvMachine():
         # #############################
         print>>log,"  selected %i islands [out of %i] with peak flux > %.3g Jy"%(len(ListIslandsFiltered),len(ListIslands),Threshold)
         ListIslands=ListIslandsFiltered
-        #ListIslands=[np.load("errIsland_000000.keep.npy").tolist()]
-
+        #ListIslands=[np.load("errIsland_000524.npy").tolist()]
+        
         ListIslands=IslandDistanceMachine.CalcCrossIslandFlux(ListIslands)
         ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
         ListIslands=IslandDistanceMachine.MergeIslands(ListIslands)
@@ -251,7 +251,7 @@ class ClassImageDeconvMachine():
 
     def InitMSMF(self):
         self.DicoInitIndiv={}
-        if self.GD["SSDClean"]["MinSizeInitHMP"]==-1: return
+        if self.GD["GAClean"]["MinSizeInit"]==-1: return
 
         DoAbs=int(self.GD["Deconv"]["AllowNegative"])
         print>>log, "  Running minor cycle [MinorIter = %i/%i, SearchMaxAbs = %i]"%(self._niter,self.MaxMinorIter,DoAbs)
@@ -286,30 +286,39 @@ class ClassImageDeconvMachine():
             self.ListSizeIslands.append(dd)
 
 
-        ListDoMSMFIslandsInit=[True if self.ListSizeIslands[iIsland]>=self.GD["SSDClean"]["MinSizeInitHMP"] else False for iIsland in range(len(self.ListIslands))]
+        ListDoIslandsInit=[True if self.ListSizeIslands[iIsland]>=self.GD["GAClean"]["MinSizeInit"] else False for iIsland in range(len(self.ListIslands))]
 
         #ListDoMSMFIslandsInit=[True if iIsland==16 else False for iIsland in range(len(self.ListIslands))]
 
 
 
-        print>>log,"  selected %i islands larger than %i pixels for HMP initialisation"%(np.count_nonzero(ListDoMSMFIslandsInit),self.GD["SSDClean"]["MinSizeInitHMP"])
-
+        print>>log,"  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"])
         
+        if np.count_nonzero(ListDoIslandsInit)>0:
+            if self.GD["GAClean"]["InitType"]=="HMP":
+                InitMachine=ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
+                                                                           self.DicoVariablePSF,
+                                                                           self.DicoDirty,
+                                                                           self.ModelMachine.RefFreq,
+                                                                           self.GridFreqs,
+                                                                           self.DegridFreqs,
+                                                                           MainCache=self.maincache,
+                                                                           NCPU=self.NCPU,
+                                                                           IdSharedMem=self.IdSharedMem)
+            elif self.GD["GAClean"]["InitType"]=="MORESANE":
 
-
-        
-        if np.count_nonzero(ListDoMSMFIslandsInit)>0:
-            InitMachine=ClassInitSSDModel.ClassInitSSDModelParallel(self.GD,
-                                                                    self.DicoVariablePSF,
-                                                                    self.DicoDirty,
-                                                                    self.ModelMachine.RefFreq,
-                                                                    self.GridFreqs,
-                                                                    self.DegridFreqs,
-                                                                    MainCache=self.maincache,
-                                                                    NCPU=self.NCPU,
-                                                                    IdSharedMem=self.IdSharedMem)
+                import ClassInitSSDModelMoresane
+                InitMachine=ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
+                                                                                self.DicoVariablePSF,
+                                                                                self.DicoDirty,
+                                                                                self.ModelMachine.RefFreq,
+                                                                                self.GridFreqs,
+                                                                                self.DegridFreqs,
+                                                                                MainCache=self.maincache,
+                                                                                NCPU=self.NCPU,
+                                                                                IdSharedMem=self.IdSharedMem)
             InitMachine.setSSDModelImage(ModelImage)
-            self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(self.ListIslands,ListDoIsland=ListDoMSMFIslandsInit)
+            self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(self.ListIslands,ListDoIsland=ListDoIslandsInit)
 
 
     def setChannel(self,ch=0):
@@ -458,12 +467,12 @@ class ClassImageDeconvMachine():
             NCPU=np.min([NCPU,NIslands])
             Parallel=True
             ParallelPerIsland=False
+            StopWhenQueueEmpty=True
         elif ParallelMode=="PerIsland":
-            NCPU=self.NCPU
-            Parallel=False
+            NCPU=1#self.NCPU
+            Parallel=True
             ParallelPerIsland=True
-
-        StopWhenQueueEmpty=True
+            StopWhenQueueEmpty=True
 
         # ######### Debug
         # ParallelPerIsland=False

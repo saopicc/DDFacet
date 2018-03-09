@@ -35,6 +35,7 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other.CacheManager import CacheManager
 from DDFacet.Array import NpShared
 import sidereal
+from DDFacet.Array import PrintRecArray
 
 import datetime
 import DDFacet.ToolsDir.ModRotate
@@ -70,7 +71,9 @@ def obs_detail(filename,field=0):
     # Stuff relying on an OBSERVATION table:
     if to is not None:
         # Time
-        tm = Time(to[0]['TIME_RANGE']/86400.0,format='mjd')
+        tm = Time(to[0]['TIME_RANGE']/86400.0,
+                  scale="utc",
+                  format='mjd')
         results['DATE-OBS'] = tm[0].iso.split()[0]
 
         # Object
@@ -593,10 +596,13 @@ class ClassMS():
             # cached from previous run)
             # In auto cache mode, cache key is the start time of the process. The cache is thus reset when first
             # touched, so we read the MS on the first major cycle, and cache subsequently.
-            cache_key = dict(time=self._start_time)
+            # cache_key = dict(time=self._start_time)
 
             # @o-smirnov: why not that?
             # cache_key = dict(data=self.GD["Data"])
+            cache_key = dict(data=self.GD["Data"],
+                             selection=self.GD["Selection"],
+                             Comp=self.GD["Comp"])
             metadata_path, metadata_valid = self.cache.checkCache("A0A1UVWT.npz", cache_key, ignore_key=(use_cache=="force"))
         else:
             metadata_valid = False
@@ -904,8 +910,8 @@ class ClassMS():
         table_all = self.GiveMainTable()
         self.empty = not table_all.nrows()
         if self.empty:
-            return
             print>>log, ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping"%(self.MSName, self.Field, self.DDID))
+            return
 #            raise RuntimeError,"no rows in MS %s, check your Field/DDID/TaQL settings"%(self.MSName)
 
         #print MSname+'/ANTENNA'
@@ -1190,6 +1196,8 @@ class ClassMS():
         antenna_rows = [(A0 == A) | (A1 == A) for A in xrange(self.na)]
         # print>>log,"  row index formed"
 
+        
+        
         antenna_flagfrac = [flags1[rows].sum() / float(flags1[rows].size or 1) for rows in antenna_rows]
         print>> log, "  flagged fractions per antenna: %s" % " ".join(["%.2f" % frac for frac in antenna_flagfrac])
 
@@ -1223,8 +1231,10 @@ class ClassMS():
         ll.append("   - Selection: %s, channels: %s" % (ModColor.Str(str(self.TaQL), col="green"), self.ChanSlice))
         ll.append("   - Phase centre (field %d): (ra, dec)=(%s, %s) "%(self.Field, rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
                                                                        ,rad2hmsdms(self.decrad,Type="dec").replace(" ",".")))
-        ll.append("   - Frequency = %s MHz"%str(self.reffreq/1e6))
+        ll.append("   - Frequency = %s MHz"%str(np.mean(self.ChanFreq)/1e6))
         ll.append("   - Wavelength = %5.2f meters"%(np.mean(self.wavelength_chan)))
+        Freqs=3.e8/self.wavelength_chan.ravel()/1e6
+        ll.append("   - Bandwidth = %5.2f MHz"%(np.max(Freqs)-np.min(Freqs)))
         ll.append("   - Time bin = %4.1f seconds"%(self.dt))
         ll.append("   - Total Integration time = %6.2f hours"%self.DTh)
         ll.append("   - Number of antenna  = %i"%self.na)
@@ -1249,10 +1259,11 @@ class ClassMS():
             vis = vis[:,::-1,:]
         print>>log, "writing column %s rows %d:%d"%(colname,row0,row1)
         t = self.GiveMainTable(readonly=False, ack=False)
+
         # if sorting rows, rearrange vis array back into MS order
         # if not sorting, then using slice(None) for row has no effect
         if sort_index is not None:
-            reverse_index = np.empty(self.nRowRead,dtype=int)
+            reverse_index = np.empty(nrow,dtype=int)
             reverse_index[sort_index] = np.arange(0,nrow,dtype=int)
         else:
             reverse_index = slice(None)
@@ -1262,9 +1273,9 @@ class ClassMS():
             try:
                 vis0 = t.getcol(colname, row0, nrow)
             except RuntimeError:
-                vis0 = t.getcol("DATA", row0, snrow)
-            vis0[reverse_index, self.ChanSlice, :] = vis
-            t.putcol(colname, vis0, row0, now)
+                vis0 = t.getcol("DATA", row0, nrow)
+            vis0[:, self.ChanSlice, :] = vis[reverse_index, :, :]
+            t.putcol(colname, vis0, row0, nrow)
         else:
             t.putcol(colname, vis[reverse_index,:,:], row0, nrow)
         t.close()
@@ -1398,13 +1409,14 @@ class ClassMS():
 
     def AddCol(self,ColName,LikeCol="DATA",quiet=False):
         t=table(self.MSName,readonly=False,ack=False)
-        if (ColName in t.colnames() and not self.GD["Predict"]["Overwrite"]):
+        if (ColName in t.colnames()):# and not self.GD["Predict"]["Overwrite"]):
             if not quiet:
                 print>>log, "  Column %s already in %s"%(ColName,self.MSName)
             t.close()
             return
-        elif (ColName in t.colnames() and self.GD["Predict"]["Overwrite"]):
-            t.removecols(ColName)
+        # elif (ColName in t.colnames() and self.GD["Predict"]["Overwrite"]):
+        #     t.removecols(ColName)
+
         print>>log, "  Putting column %s in %s"%(ColName,self.MSName)
         desc=t.getcoldesc(LikeCol)
         desc["name"]=ColName
@@ -1451,17 +1463,24 @@ class ClassMS():
             t.close()
     
 
-    def Rotate(self,DATA,RotateType=["uvw","vis"]):
+    def Rotate(self,DATA,RotateType=["uvw","vis"],Sense="ToTarget",DataFieldName="data"):
         #DDFacet.ToolsDir.ModRotate.Rotate(self,radec)
-        StrRAOld  = rad2hmsdms(self.OldRadec[0],Type="ra").replace(" ",":")
-        StrDECOld = rad2hmsdms(self.OldRadec[1],Type="dec").replace(" ",".")
-        StrRA  = rad2hmsdms(self.NewRadec[0],Type="ra").replace(" ",":")
-        StrDEC = rad2hmsdms(self.NewRadec[1],Type="dec").replace(" ",".")
-        print>>log, "Rotate %s"%(",".join(RotateType))
+        if Sense=="ToTarget":
+            ra0,dec0=self.OldRadec
+            ra1,dec1=self.NewRadec
+        elif Sense=="ToPhaseCenter":
+            ra0,dec0=self.NewRadec
+            ra1,dec1=self.OldRadec
+
+        StrRAOld  = rad2hmsdms(ra0,Type="ra").replace(" ",":")
+        StrDECOld = rad2hmsdms(dec0,Type="dec").replace(" ",".")
+        StrRA  = rad2hmsdms(ra1,Type="ra").replace(" ",":")
+        StrDEC = rad2hmsdms(dec1,Type="dec").replace(" ",".")
+        print>>log, "Rotate %s [Mode = %s]"%(",".join(RotateType),Sense)
         print>>log, "     from [%s, %s]"%(StrRAOld,StrDECOld)
         print>>log, "       to [%s, %s]"%(StrRA,StrDEC)
         
-        DDFacet.ToolsDir.ModRotate.Rotate2(self.OldRadec,self.NewRadec,DATA["uvw"],DATA["data"],self.wavelength_chan,
+        DDFacet.ToolsDir.ModRotate.Rotate2((ra0,dec0),(ra1,dec1),DATA["uvw"],DATA[DataFieldName],self.wavelength_chan,
                                            RotateType=RotateType)
 
 

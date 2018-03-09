@@ -48,6 +48,7 @@ ENV DEB_DEPENCENDIES \
     python2.7-dev \
     libboost-all-dev \
     libcfitsio3-dev \
+    libhdf5-dev \
     wcslib-dev \
     libatlas-dev \
     liblapack-dev \
