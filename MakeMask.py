@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
 import sys
-sys.path=os.environ["PYTHONPATH"].split(":")+sys.path
+#sys.path=os.environ["PYTHONPATH"].split(":")+sys.path
 from pyrap.tables import table
 from pyrap.images import image
 import pyfits
@@ -209,7 +209,7 @@ class ClassMakeMask():
                                                                                                            DicoDirty,
                                                                                                            IdSharedMem=IdSharedMem)
             ListIslands=IslandDistanceMachine.SearchIslands(None,Image=self.Restored)
-            ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)
+            ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands,PolygonFile="%s.pickle"%OutMaskExtended)
             MaskOut=np.zeros_like(CurrentNegMask)
             N=0
             for Island in ListIslands:
