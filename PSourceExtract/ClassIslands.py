@@ -1,4 +1,3 @@
-import pyfits
 import numpy as np
 import time
 from SkyModel.Other import ModColor

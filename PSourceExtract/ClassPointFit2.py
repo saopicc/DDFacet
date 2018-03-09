@@ -6,7 +6,6 @@ import scipy.optimize
 import time
 import ClassIslands
 from Other import ModColor
-import pyfits
 from Other.progressbar import ProgressBar
 
 def init():

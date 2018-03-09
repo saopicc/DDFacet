@@ -6,7 +6,7 @@ import numpy as np
 from SkyModel.Other import MyLogger
 log=MyLogger.getLogger("ClassCasaImage")
 from SkyModel.Other import rad2hmsdms
-import pyfits
+import astropy.io.fits as pyfits
 import pyrap.images
 
 def PutDataInNewImage(ImageNameIn,ImageNameOut,data,CorrT=False):
