@@ -978,9 +978,10 @@ class ClassVisServer():
                 print>>log,"loading weights %d.%d"%(ims, ichunk)
                 self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
 
-                # if nothing in MS, handler will not return a "weight" field. Mark this chunk as null then
+                # if nothing in MS, handler will not return a "weight" field. Mark this chunk as null then, and truncate the cache
                 msw["null"] = "weight" not in msw
                 if "weight" not in msw:
+                    file(msw["cachepath"], 'w').truncate(0)
                     continue
 
                 wmax = max(wmax, msw["wmax"])
