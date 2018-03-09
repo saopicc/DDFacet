@@ -506,12 +506,22 @@ def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,G
 
     jobid = "convolve:%s:%s:" % (field_in, field_out)
     for ch in range(nch):
-        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW, args=(shareddict.readwrite(), field_in, field_out, ch, CellSizeRad, GaussPars[ch], Normalise))
+        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW_noret, args=(shareddict.readwrite(), field_in, field_out, ch, CellSizeRad, GaussPars[ch], Normalise))
     APP.awaitJobResults(jobid+"*") #, progress="Convolving")
 
     return Aout
 
-APP.registerJobHandlers(_convolveSingleGaussianFFTW, _convolveSingleGaussianNP)
+
+# wrappers that discard return value for use with APP -- avoids wasteful stuffing of images into result queues
+def _convolveSingleGaussianFFTW_noret(*args,**kw):
+    _convolveSingleGaussianFFTW(*args,**kw)
+    return None
+
+def _convolveSingleGaussianNP_noret(*args,**kw):
+    _convolveSingleGaussianNP(*args,**kw)
+    return None
+
+APP.registerJobHandlers(_convolveSingleGaussianFFTW_noret, _convolveSingleGaussianNP_noret)
 
 ## FFTW version
 #def ConvolveGaussianFFTW(Ain0,
