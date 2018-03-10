@@ -252,11 +252,23 @@ class FFTW_2Donly_np():
 
         return A
 
+
+_give_gauss_grid_key = None,None
+_give_gauss_grid_cache = None,None
+
 def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parallel=True):
     uvscale=Npix*CellSizeRad/2
     SigMaj,SigMin,ang=GaussPars
     ang = 2*np.pi - ang #need counter-clockwise rotation
-    U,V=np.mgrid[-uvscale:uvscale:Npix*1j,-uvscale:uvscale:Npix*1j]
+
+    # np.mgrid turns out to be *the* major CPU consumer here when GiveGauss() is called repeatedly.
+    # Hence, cache and reuse it
+    global _give_gauss_grid_key, _give_gauss_grid_cache
+    if (uvscale, Npix) == _give_gauss_grid_key:
+        U, V = _give_gauss_grid_cache
+    else:
+        U, V = _give_gauss_grid_cache = np.mgrid[-uvscale:uvscale:Npix*1j,-uvscale:uvscale:Npix*1j]
+        _give_gauss_grid_key = uvscale, Npix
 
     CT=np.cos(ang)
     ST=np.sin(ang)
@@ -281,24 +293,24 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parall
     #Gauss/=np.sum(Gauss)
     return Gauss
 
-#def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
-#   #warnings.warn("deprecated: this wont work for small ffts...",
-#   #              DeprecationWarning)
-#   Npix=int(2*8*Sig)
-#   if Npix%2==0: Npix+=1
-#   x0=Npix/2
-#   x,y=np.mgrid[-x0:x0:Npix*1j,-x0:x0:Npix*1j]
-#   #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
-#   if GaussPar is None:
-#       GaussPar=(Sig,Sig,0)
-#   in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
-#
-#   nch,npol,_,_=Ain0.shape
-#   Out=np.zeros_like(Ain0)
-#   for ch in range(nch):
-#       in1=Ain0[ch,0]
-#       Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
-#   return Out,in2
+def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
+  #warnings.warn("deprecated: this wont work for small ffts...",
+  #              DeprecationWarning)
+  Npix=int(2*8*Sig)
+  if Npix%2==0: Npix+=1
+  x0=Npix/2
+  x,y=np.mgrid[-x0:x0:Npix*1j,-x0:x0:Npix*1j]
+  #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
+  if GaussPar is None:
+      GaussPar=(Sig,Sig,0)
+  in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
+
+  nch,npol,_,_=Ain0.shape
+  Out=np.zeros_like(Ain0)
+  for ch in range(nch):
+      in1=Ain0[ch,0]
+      Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
+  return Out,in2
 
 def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None):
     # a drop-in replacement for ConvolveGaussianScipy which uses
@@ -312,7 +324,8 @@ def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None):
     if GaussPar is None:
         GaussPar=(Sig,Sig,0)
     for ch in range(nch):
-        Aout,PSF=_convolveSingleGaussianNP(dict,'in','out',ch,np.sqrt(2),GaussPar,return_gaussian=True)
+        # replacing NP->FFTW.  See discussion in https://github.com/cyriltasse/DDFacet/issues/463
+        Aout,PSF=_convolveSingleGaussianFFTW(dict,'in','out',ch,np.sqrt(2),GaussPar,return_gaussian=True)
         Out[ch,:,:,:]=Aout
     return Out,PSF
 

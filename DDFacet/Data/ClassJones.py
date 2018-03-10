@@ -505,16 +505,16 @@ class ClassJones():
             G[:, :, :, :, 1, 1] /= gmean_abs
 
         if GlobalMode == "BLBased":
-            print>>log, "  Normalising by the mean of the amplitude (against time, freq, antenna)"
-            gmean_abs = np.mean(np.mean(
-                                    np.mean(
-                                        np.abs(G[:, :, :, :, 0, 0]),
-                                        axis=0),
-                                    axis=1),
-                                axis=1)
-            gmean_abs = gmean_abs.reshape((1, nd, 1, 1))
-            G[:, :, :, :, 0, 0] /= gmean_abs
-            G[:, :, :, :, 1, 1] /= gmean_abs
+            # print>>log, "  Normalising by the mean of the amplitude (against time, freq, antenna)"
+            # gmean_abs = np.mean(np.mean(
+            #                         np.mean(
+            #                             np.abs(G[:, :, :, :, 0, 0]),
+            #                             axis=0),
+            #                         axis=1),
+            #                     axis=1)
+            # gmean_abs = gmean_abs.reshape((1, nd, 1, 1))
+            # G[:, :, :, :, 0, 0] /= gmean_abs
+            # G[:, :, :, :, 1, 1] /= gmean_abs
 
             print>>log, "  Extracting correction factor per-baseline"
             #(nt, nd, na, nf, 2, 2)
@@ -532,6 +532,7 @@ class ClassJones():
                 gu/=np.median(gu)
                 G[:,iDir,:,:,0,0]=G[:,iDir,:,:,0,0]/gu
                 G[:,iDir,:,:,1,1]=G[:,iDir,:,:,1,1]/gu
+
 
 
         if GlobalMode == "SumBLBased":

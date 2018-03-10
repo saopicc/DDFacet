@@ -19,29 +19,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 import os
 import numpy as np
+import multiprocessing
+import time
 from DDFacet.Other import MyLogger
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassImageDeconvMachine")
-from DDFacet.Array import NpParallel
-from DDFacet.Array import NpShared
-from DDFacet.ToolsDir import ModFFTW
-from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
-from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Imager import ClassGainMachine
 from SkyModel.PSourceExtract import ClassIncreaseIsland
-from DDFacet.Other import MyPickle
-import multiprocessing
-import time
-import ClassInitSSDModelHMP
 from DDFacet.Imager.SSD.GA.ClassEvolveGA import ClassEvolveGA
 from DDFacet.Imager.SSD.MCMC.ClassMetropolis import ClassMetropolis
-#try: # Genetic Algo
-#except:
-#    print>> log, ModColor.Str("Failed to import the Genetic Algorithm Class (ClassEvolveGA)")
-#    #sys.exit(1)
 from DDFacet.Array import NpParallel
 import ClassIslandDistanceMachine
 from DDFacet.Array import shared_dict
@@ -56,6 +45,8 @@ class ClassImageDeconvMachine():
                  CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
                  GD=None,SearchMaxAbs=1,IdSharedMem=None,
                  ModelMachine=None,
+                 NFreqBands=1,
+                 RefFreq=None,
                  MainCache=None,
                  **kw    # absorb any unknown keywords arguments into this
                  ):
@@ -96,6 +87,24 @@ class ClassImageDeconvMachine():
 
         self.DeconvMode="GAClean"
 
+        if self.GD["GAClean"]["InitType"] == "HMP":
+            import ClassInitSSDModelHMP
+            self.InitMachine = ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
+                                                                         NFreqBands,RefFreq,
+                                                                         MainCache=self.maincache,
+                                                                         IdSharedMem=self.IdSharedMem)
+        elif self.GD["GAClean"]["InitType"] == "MORESANE":
+
+            import ClassInitSSDModelMoresane
+            self. InitMachine = ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
+                                                                                    NFreqBands, RefFreq,
+                                                                                    NCPU=self.NCPU,
+                                                                                    MainCache=self.maincache,
+                                                                                    IdSharedMem=self.IdSharedMem)
+        else:
+            raise ValueError("InitType should be HMP or MORESANE")
+
+
     def setMaskMachine(self,MaskMachine):
         self.MaskMachine=MaskMachine
 
@@ -104,8 +113,9 @@ class ClassImageDeconvMachine():
         self.DeconvMode=Mode
 
     def Reset(self):
-        # clear anything we have left lying around in shared memory
-        NpShared.DelAll()
+        # clear anything we have left lying around in shared memory ## OMS how can this be right, what about others?
+        # NpShared.DelAll()
+        self.InitMachine.Reset()
         
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
@@ -116,18 +126,12 @@ class ClassImageDeconvMachine():
 
     def SetPSF(self,DicoVariablePSF):
         self.PSFServer=ClassPSFServer(self.GD)
-        #DicoVariablePSF["CubeVariablePSF"]=NpShared.ToShared("%s.CubeVariablePSF"%self.IdSharedMem,DicoVariablePSF["CubeVariablePSF"])
-        DicoVariablePSF=shared_dict.attach(DicoVariablePSF.path)#["CubeVariablePSF"]
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF)
         self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
-        #self.DicoPSF=DicoPSF
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
 
         #self.PSFServer.RefFreq=self.ModelMachine.RefFreq
-        
-
-
 
     def Init(self,**kwargs):
         self.SetPSF(kwargs["PSFVar"])
@@ -139,6 +143,7 @@ class ClassImageDeconvMachine():
         self.GridFreqs=kwargs["GridFreqs"]
         self.DegridFreqs=kwargs["DegridFreqs"]
         self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
+        self.InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs)
 
     def AdaptArrayShape(self,A,Nout):
         nch,npol,Nin,_=A.shape
@@ -155,10 +160,6 @@ class ClassImageDeconvMachine():
             return None
 
     def SetDirty(self,DicoDirty):
-        DicoDirty["ImageCube"]=NpShared.ToShared("%s.Dirty.ImagData"%self.IdSharedMem,DicoDirty["ImageCube"])
-        #DicoDirty["MeanImage"]=NpShared.ToShared("%s.Dirty.MeanImage"%self.IdSharedMem,DicoDirty["MeanImage"])
-        
-
         self.DicoDirty=DicoDirty
         self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
@@ -173,8 +174,6 @@ class ClassImageDeconvMachine():
         if self.ModelImage is None:
             self._ModelImage=np.zeros_like(self._Dirty)
         self.ModelMachine.setModelShape(self._Dirty.shape)
-
-
 
     def SearchIslands(self,Threshold):
 
@@ -238,7 +237,7 @@ class ClassImageDeconvMachine():
         self.ListIslands=ListIslands
         self.NIslands=len(self.ListIslands)
 
-
+        print>>log,"Sorting islands by size"
         Sz=np.array([len(self.ListIslands[iIsland]) for iIsland in range(self.NIslands)])
         #print ":::::::::::::::::"
         ind=np.argsort(Sz)[::-1]
@@ -249,7 +248,7 @@ class ClassImageDeconvMachine():
 
 
 
-    def InitMSMF(self):
+    def InitIslands(self):
         self.DicoInitIndiv={}
         if self.GD["GAClean"]["MinSizeInit"]==-1: return
 
@@ -295,36 +294,14 @@ class ClassImageDeconvMachine():
         print>>log,"  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"])
         
         if np.count_nonzero(ListDoIslandsInit)>0:
-            if self.GD["GAClean"]["InitType"]=="HMP":
-                InitMachine=ClassInitSSDModelHMP.ClassInitSSDModelParallel(self.GD,
-                                                                           self.DicoVariablePSF,
-                                                                           self.DicoDirty,
-                                                                           self.ModelMachine.RefFreq,
-                                                                           self.GridFreqs,
-                                                                           self.DegridFreqs,
-                                                                           MainCache=self.maincache,
-                                                                           NCPU=self.NCPU,
-                                                                           IdSharedMem=self.IdSharedMem)
-            elif self.GD["GAClean"]["InitType"]=="MORESANE":
-
-                import ClassInitSSDModelMoresane
-                InitMachine=ClassInitSSDModelMoresane.ClassInitSSDModelParallel(self.GD,
-                                                                                self.DicoVariablePSF,
-                                                                                self.DicoDirty,
-                                                                                self.ModelMachine.RefFreq,
-                                                                                self.GridFreqs,
-                                                                                self.DegridFreqs,
-                                                                                MainCache=self.maincache,
-                                                                                NCPU=self.NCPU,
-                                                                                IdSharedMem=self.IdSharedMem)
-            InitMachine.setSSDModelImage(ModelImage)
-            self.DicoInitIndiv=InitMachine.giveDicoInitIndiv(self.ListIslands,ListDoIsland=ListDoIslandsInit)
+            self.DicoInitIndiv = self.InitMachine.giveDicoInitIndiv(self.ListIslands,
+                                                                    ListDoIsland=ListDoIslandsInit,
+                                                                    ModelImage=ModelImage, DicoDirty=self.DicoDirty)
 
 
     def setChannel(self,ch=0):
         self.Dirty=self._MeanDirty[ch]
         self.ModelImage=self._ModelImage[ch]
-
 
 
     def GiveThreshold(self,Max):
@@ -397,7 +374,7 @@ class ClassImageDeconvMachine():
 
         self.SearchIslands(StopFlux)
         #return None,None,None
-        self.InitMSMF()
+        self.InitIslands()
 
 
         if self.DeconvMode=="GAClean":
@@ -467,12 +444,12 @@ class ClassImageDeconvMachine():
             NCPU=np.min([NCPU,NIslands])
             Parallel=True
             ParallelPerIsland=False
+            StopWhenQueueEmpty=True
         elif ParallelMode=="PerIsland":
-            NCPU=self.NCPU
-            Parallel=False
+            NCPU=1#self.NCPU
+            Parallel=True
             ParallelPerIsland=True
-
-        StopWhenQueueEmpty=True
+            StopWhenQueueEmpty=True
 
         # ######### Debug
         # ParallelPerIsland=False
@@ -485,14 +462,19 @@ class ClassImageDeconvMachine():
         work_queue = multiprocessing.Queue()
 
 
-        ListBestIndiv=[]
+        # shared dict to hold inputs and outputs to workers (each island number is a key)
+        deconv_dict  = shared_dict.create("DeconvListIslands")
+
 
         NJobs=NIslands
         T=ClassTimeIt.ClassTimeIt("    ")
         T.disable()
-        for iIsland in range(NIslands):
+        for iIsland, ThisPixList in enumerate(ListIslands):
+            island_dict = deconv_dict.addSubdict(iIsland)
+
             # print "%i/%i"%(iIsland,self.NIslands)
-            ThisPixList=ListIslands[iIsland]
+            island_dict["Island"] = np.array(ThisPixList)
+
             XY=np.array(ThisPixList,dtype=np.float32)
             xm,ym=np.mean(np.float32(XY),axis=0).astype(int)
             T.timeit("xm,ym")
@@ -504,27 +486,24 @@ class ClassImageDeconvMachine():
 
             IslandBestIndiv=self.ModelMachine.GiveIndividual(ThisPixList)
             T.timeit("GiveIndividual")
-            ListBestIndiv.append(IslandBestIndiv)
             FacetID=self.PSFServer.giveFacetID2(xm,ym)
             T.timeit("FacetID")
 
-            DicoOrder={"iIsland":iIsland,
-                       "FacetID":FacetID,
-                       "JonesNorm":JonesNorm}
-            
-            ListOrder=[iIsland,FacetID,JonesNorm.flat[0],FacetID,self.RMS**2]
+            island_dict["BestIndiv"] = IslandBestIndiv
+
+            ListOrder=[iIsland,FacetID,JonesNorm.flat[0],self.RMS**2,island_dict.path]
 
 
             work_queue.put(ListOrder)
             T.timeit("Put")
-            
-        SharedListIsland="%s.ListIslands"%(self.IdSharedMem)
-        ListArrayIslands=[np.array(ListIslands[iIsland]) for iIsland in range(NIslands)]
-        NpShared.PackListArray(SharedListIsland,ListArrayIslands)
-        T.timeit("Pack0")
-        SharedBestIndiv="%s.ListBestIndiv"%(self.IdSharedMem)
-        NpShared.PackListArray(SharedBestIndiv,ListBestIndiv)
-        T.timeit("Pack1")
+
+
+        # ListArrayIslands=[np.array(ListIslands[iIsland]) for iIsland in range(NIslands)]
+        # NpShared.PackListArray(SharedListIsland,ListArrayIslands)
+        # T.timeit("Pack0")
+        # SharedBestIndiv="%s.ListBestIndiv"%(self.IdSharedMem)
+        # NpShared.PackListArray(SharedBestIndiv,ListBestIndiv)
+        # T.timeit("Pack1")
         
 
         workerlist=[]
@@ -545,8 +524,9 @@ class ClassImageDeconvMachine():
         for ii in range(NCPU):
             W=WorkerDeconvIsland(work_queue, 
                                  result_queue,
-                                 # List_Result_queue[ii],
                                  self.GD,
+                                 self._Dirty,
+                                 self.DicoVariablePSF["CubeVariablePSF"],
                                  IdSharedMem=self.IdSharedMem,
                                  FreqsInfo=self.PSFServer.DicoMappingDesc,ParallelPerIsland=ParallelPerIsland,
                                  StopWhenQueueEmpty=StopWhenQueueEmpty,
@@ -594,20 +574,15 @@ class ClassImageDeconvMachine():
 
             if DicoResult["Success"]:
                 iIsland=DicoResult["iIsland"]
-                ThisPixList=ListIslands[iIsland]
-                SharedIslandName="%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland)
-                Model=NpShared.GiveArray(SharedIslandName)
-                self.ModelMachine.AppendIsland(ThisPixList,Model)
-                NpShared.DelArray(SharedIslandName)
+                island_dict = deconv_dict[iIsland]
+                island_dict.reload()
 
+                self.ModelMachine.AppendIsland(ListIslands[iIsland], island_dict["Model"].copy())
 
                 if DicoResult["HasError"]:
-                    SharedIslandName="%s.sFitIsland_%5.5i"%(self.IdSharedMem,iIsland)
-                    sModel=NpShared.GiveArray(SharedIslandName)
-                    self.ErrorModelMachine.AppendIsland(ThisPixList,sModel)
-                    NpShared.DelArray(SharedIslandName)
+                    self.ErrorModelMachine.AppendIsland(ThisPixList, ListIslands[iIsland], island_dict["sModel"].copy())
 
-
+        deconv_dict.delete()
 
         for ii in range(NCPU):
             try:
@@ -710,6 +685,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
                  work_queue,
                  result_queue,
                  GD,
+                 Dirty,
+                 CubeVariablePSF,
                  IdSharedMem=None,
                  FreqsInfo=None,
                  MultiFreqMode=False,
@@ -729,10 +706,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
         self.IdSharedMem=IdSharedMem
         self.FreqsInfo=FreqsInfo
 
-        #self.CubeVariablePSF=NpShared.GiveArray("%s.CubeVariablePSF"%self.IdSharedMem)
-        self._Dirty=NpShared.GiveArray("%s.Dirty.ImagData"%self.IdSharedMem)
-
-        self.CubeVariablePSF=shared_dict.attach("FMPSF_AllImages")["CubeVariablePSF"]
+        self._Dirty = Dirty
+        self.CubeVariablePSF = CubeVariablePSF
 
         #self.WeightFreqBands=WeightFreqBands
         self.ParallelPerIsland=ParallelPerIsland
@@ -757,7 +732,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
 
             #gc.enable()
             try:
-                iIsland,FacetID,JonesNorm,FacetID,PixVariance = self.work_queue.get(True,2)
+                iIsland,FacetID,JonesNorm,PixVariance,shdict_path = self.work_queue.get(True,2)
             except Exception,e:
                 #print "Exception worker: %s"%str(e)
                 break
@@ -767,11 +742,10 @@ class WorkerDeconvIsland(multiprocessing.Process):
             
             # JonesNorm=DicoOrder["JonesNorm"]
 
-            SharedListIsland="%s.ListIslands"%(self.IdSharedMem)
-            ThisPixList=NpShared.UnPackListArray(SharedListIsland)[iIsland].tolist()
+            island_dict = shared_dict.attach(shdict_path)
 
-            SharedBestIndiv="%s.ListBestIndiv"%(self.IdSharedMem)
-            IslandBestIndiv=NpShared.UnPackListArray(SharedBestIndiv)[iIsland]
+            ThisPixList = island_dict["Island"].tolist()
+            IslandBestIndiv = island_dict["BestIndiv"]
             
             PSF=self.CubeVariablePSF[FacetID]
             NGen=self.GD["GAClean"]["NMaxGen"]
@@ -784,8 +758,6 @@ class WorkerDeconvIsland(multiprocessing.Process):
                 IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
                 ListPixData=IncreaseIslandMachine.IncreaseIsland(ListPixData,dx=dx)
 
-
-            nch=self.FreqsInfo["MeanJonesBand"][FacetID].size
 
             # ################################
             # DicoSave={"Dirty":self._Dirty,
@@ -817,8 +789,7 @@ class WorkerDeconvIsland(multiprocessing.Process):
                                   ParallelFitness=self.ParallelPerIsland,
                                   ListInitIslands=self.ListInitIslands)
                 Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
-                Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
-                NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
+                island_dict["Model"] = np.array(Model)
                 del(CEv)
                 self.result_queue.put({"Success":True,"iIsland":iIsland,"HasError":False})
 
@@ -836,11 +807,9 @@ class WorkerDeconvIsland(multiprocessing.Process):
                                     NChains=self.NChains)
                 Model,sModel=CEv.main(NSteps=self.GD["MetroClean"]["MetroNIter"])
             
-                Model=np.array(Model).copy()#/np.sqrt(JonesNorm)
-                sModel=np.array(sModel).copy()#/np.sqrt(JonesNorm)
-                NpShared.ToShared("%s.FitIsland_%5.5i"%(self.IdSharedMem,iIsland),Model)
-                NpShared.ToShared("%s.sFitIsland_%5.5i"%(self.IdSharedMem,iIsland),sModel)
-                
+                island_dict["Model"] = np.array(Model)
+                island_dict["sModel"] = np.array(sModel)
+
                 del(CEv)
                 self.result_queue.put({"Success":True,"iIsland":iIsland,"HasError":True})
 

@@ -213,11 +213,12 @@ class ClassImagerDeconv():
 
         self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD,self.ModelMachine,
                                                                         DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
-                                                                        GridFreqs=self.VS.FreqBandCenters)
+                                                                        GridFreqs=self.VS.FreqBandCenters,
+                                                                        MainCache=self.VS.maincache)
         self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
         self.MaskMachine.setImageNoiseMachine(self.ImageNoiseMachine)
 
-
+        MinorCycleConfig["RefFreq"] = self.RefFreq
         MinorCycleConfig["ModelMachine"] = ModelMachine
 
 
@@ -255,7 +256,6 @@ class ClassImagerDeconv():
                 print>>log,"Using MUFFIN algorithm"
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
-            self.ImageNoiseMachine.setMainCache(self.VS.maincache)
             self.DeconvMachine.setMaskMachine(self.MaskMachine)
         self.CreateFacetMachines()
         self.VS.setFacetMachine(self.FacetMachine or self.FacetMachinePSF)
@@ -411,6 +411,23 @@ class ClassImagerDeconv():
         self.PSFGaussPars=self.DicoImagesPSF["PSFGaussPars"]
         self.PSFSidelobes=self.DicoImagesPSF["PSFSidelobes"]
         (self.FWHMBeamAvg, self.PSFGaussParsAvg, self.PSFSidelobesAvg)=self.DicoImagesPSF["EstimatesAvgPSF"]
+
+        # #########################"
+        # Needed if cached PSF is there but --Output-RestoringBeam set differently
+        forced_beam=self.GD["Output"]["RestoringBeam"]
+        if forced_beam is not None:
+            if isinstance(forced_beam,float) or isinstance(forced_beam,int):
+                forced_beam=[float(forced_beam),float(forced_beam),0]
+            elif len(forced_beam)==1:
+                forced_beam=[forced_beam[0],forced_beam[0],0]
+            f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
+            FWHMFact = 2. * np.sqrt(2. * np.log(2.))
+            f_gau=(np.deg2rad(f_beam[0])/FWHMFact,np.deg2rad(f_beam[1])/FWHMFact,np.deg2rad(f_beam[2]))
+            print>>log, 'Will use user-specified beam: bmaj=%f, bmin=%f, bpa=%f degrees' % f_beam
+            beam, gausspars = f_beam, f_gau
+            self.FWHMBeamAvg, self.PSFGaussParsAvg = beam, gausspars
+        # #########################"
+
         self.HasFittedPSFBeam=True
 
 
@@ -549,9 +566,10 @@ class ClassImagerDeconv():
 
             if self.DicoDirty["JonesNorm"] is not None:
                 self.FacetMachine.setNormImages(self.DicoDirty)
-                self.FacetMachinePSF.setNormImages(self.DicoDirty)
-                self.MeanJonesNorm = self.FacetMachinePSF.MeanJonesNorm
-                self.JonesNorm = self.FacetMachinePSF.JonesNorm
+                self.MeanJonesNorm = self.FacetMachine.MeanJonesNorm
+                self.JonesNorm = self.FacetMachine.JonesNorm
+                if self.FacetMachinePSF is not None:
+                    self.FacetMachinePSF.setNormImages(self.DicoDirty)
             elif self.DicoImagesPSF["JonesNorm"] is not None:
                 self.FacetMachine.setNormImages(self.DicoImagesPSF)
                 self.FacetMachinePSF.setNormImages(self.DicoImagesPSF)
@@ -561,7 +579,7 @@ class ClassImagerDeconv():
                 self.MeanJonesNorm = None
                 self.JonesNorm = None
 
-            if self.DicoDirty.get("LastMask") is not None:
+            if self.DicoDirty.get("LastMask") is not None and self.GD["Mask"]["Auto"]:
                 self.MaskMachine.joinExternalMask(self.DicoDirty["LastMask"])
 
         if psf_valid:
@@ -597,9 +615,21 @@ class ClassImagerDeconv():
                 # get loaded chunk from I/O thread, schedule next chunk
                 # self.VS.startChunkLoadInBackground()
                 DATA = self.VS.collectLoadedChunk(start_next=True)
+
                 if type(DATA) is str:
                     print>>log,ModColor.Str("no more data: %s"%DATA, col="red")
                     break
+
+                # Allow for predict mode when a residual only is computed
+                predict_colname = None
+                if self.GD["Output"]["Mode"]=="Dirty":
+                    predict_colname = self.GD["Predict"]["ColName"]
+                if self.DoDirtySub and predict_colname:
+                    predict = DATA.addSharedArray("predict", DATA["datashape"], DATA["datatype"])
+                    visdata = DATA["data"]
+                    np.copyto(predict, visdata)
+
+
                 # None weights indicates an all-flagged chunk: go on to the next chunk
                 if DATA["Weights"] is None:
                     continue
@@ -622,6 +652,13 @@ class ClassImagerDeconv():
                         self.FacetMachine.getChunkInBackground(DATA)
                         self.FacetMachine.collectDegriddingResults()
 
+                    if predict_colname:
+                        predict -= visdata
+                        # schedule jobs for saving visibilities, then start reading next chunk (both are on io queue)
+                        self.VS.startVisPutColumnInBackground(DATA, "predict", predict_colname, likecol=self.GD["Data"]["ColName"])
+                        
+
+                        
                 # crude but we need it here, since FacetMachine computes/loads CFs, which FacetMachinePSF uses.
                 # so even if we're not using FM to make a dirty, we still need this call to make sure the CFs come in.
                 self.FacetMachine.awaitInitCompletion()
@@ -992,7 +1029,7 @@ class ClassImagerDeconv():
 
         for iMajor in range(1, NMajor+1):
             # good to recreate the workers now, to drop their RAM
-            APP.restartWorkers()
+            #APP.restartWorkers()
             # previous minor loop indicated it has reached bottom? Break out
             if not continue_deconv:
                 break
@@ -1400,7 +1437,8 @@ class ClassImagerDeconv():
         off = min(off, x[0], nx-x[0], y[0], ny-y[0])
         print>> log, "Fitting %s PSF in a [%i,%i] box ..." % (label, off * 2, off * 2)
         P = PSF[0, x[0] - off:x[0] + off, y[0] - off:y[0] + off].copy()
-        (sidelobes), (bmaj, bmin, theta) = ModFitPSF.FindSidelobe(P)
+        bmaj, bmin, theta = ModFitPSF.FitCleanBeam(P)
+        sidelobes = ModFitPSF.FindSidelobe(P)
         print>>log, "PSF max is %f"%P.max()
 
         FWHMFact = 2. * np.sqrt(2. * np.log(2.))
@@ -1438,8 +1476,8 @@ class ClassImagerDeconv():
         if forced_beam is not None:
             FWHMFact = 2. * np.sqrt(2. * np.log(2.))
 
-            if isinstance(forced_beam,float):
-                forced_beam=[forced_beam,forced_beam,0]
+            if isinstance(forced_beam,float) or isinstance(forced_beam,int):
+                forced_beam=[float(forced_beam),float(forced_beam),0]
             elif len(forced_beam)==1:
                 forced_beam=[forced_beam[0],forced_beam[0],0]
             f_beam=(forced_beam[0]/3600.0,forced_beam[1]/3600.0,forced_beam[2])
@@ -1903,7 +1941,13 @@ class ClassImagerDeconv():
             label = 'alphamap'
             if label not in _images:
                 _images.addSharedArray(label, intmodel().shape, np.float32)
-                _images[label] = ModelMachine.FreqMachine.alpha_map.reshape(intmodel().shape)
+                
+                # ##############################
+                # # Reverting for issue458
+                #_images[label] = ModelMachine.FreqMachine.alpha_map.reshape(intmodel().shape)
+                _images[label] = ModelMachine.GiveSpectralIndexMap()
+                # ##############################
+
             return _images[label]
         def alphaconvmap():
             label = 'alphaconvmap'
@@ -2042,10 +2086,13 @@ class ClassImagerDeconv():
 
         # Alpha image
         if "A" in self._saveims and self.VS.MultiFreqMode:
-            _images['alphaconvmap'] = alphaconvmap()
-            APP.runJob("save:alphaconv", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphaconvmap',), kwargs=dict(
-                ImageName="%s.alphaconv" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
-                Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+            # ##############################
+            # # Reverting for issue458
+            # _images['alphaconvmap'] = alphaconvmap()
+            # APP.runJob("save:alphaconv", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphaconvmap',), kwargs=dict(
+            #     ImageName="%s.alphaconv" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,
+            #     Stokes=self.VS.StokesConverter.RequiredStokesProducts()))
+            # ##############################
             _images['alphamap'] = alphamap()
             APP.runJob("save:alpha", self._saveImage_worker, io=0, args=(_images.readwrite(), 'alphamap',), kwargs=dict(
                 ImageName="%s.alpha" % self.BaseName, Fits=True, delete=True, beam=self.FWHMBeamAvg,

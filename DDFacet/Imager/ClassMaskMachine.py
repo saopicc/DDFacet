@@ -76,9 +76,12 @@ class ClassMaskMachine():
         if self.NoiseMask is not None: 
             print>>log,"  Merging Current mask with Noise-based mask"
             self.CurrentMask = OR(self.CurrentMask,self.NoiseMask)
-        if self.ExternalMask is not None: 
-            print>>log,"  Merging Current mask with external mask"
-            self.CurrentMask = OR(self.CurrentMask,self.ExternalMask)
+        if self.ExternalMask is not None:
+            if self.GD["Mask"]["Auto"]:
+                print>>log,"  Merging Current mask with external mask"
+                self.CurrentMask = OR(self.CurrentMask,self.ExternalMask)
+            else:
+                self.CurrentMask = self.ExternalMask
 
         if self.CurrentMask is not None:
             self.CurrentNegMask=self.giveOpposite(self.CurrentMask)
