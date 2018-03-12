@@ -135,7 +135,7 @@ def giveFitness(Indiv,x=None,y=None,Polygons=None):
                     
 
             
-    std=-np.std(NPerNode)+(-np.count_nonzero(NPerNode==0)*1e2)#-fOverlap*1e5
+    std=-np.std(NPerNode)+(-np.count_nonzero(NPerNode==0)*1e2)-fOverlap*1e5
     return std,
 
 
@@ -249,14 +249,14 @@ class ClassPlotMachine():
         pylab.subplot(1,2,1)
         for region in regions:
             polygon = vertices[region]
-            pylab.fill(*zip(*polygon), alpha=0.4)
+            pylab.fill(*zip(*polygon), alpha=0.1)
 
         pylab.scatter(self.x,self.y,c=ind,s=5)
         pylab.scatter(xc,yc,color="red")
 
         if self.Polygons is not None:
-            xp,yp=self.Polygons[0].T
-            pylab.fill(*zip(*self.Polygons[0]), alpha=0.4)
+            for Polygon in self.Polygons:
+                pylab.fill(*zip(*Polygon), color="black")#alpha=0.4)
 
             #pylab.plot(xp,yp)
 

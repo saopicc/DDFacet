@@ -172,9 +172,13 @@ class ClusterImage():
         if self.AvoidPolygons!="":
             print>>log,"Reading polygon file: %s"%self.AvoidPolygons
             PolyList=MyPickle.Load(self.AvoidPolygons)
+            LPoly=[]
             for Poly in PolyList:
-                Poly-=self.NPix/2
-                Poly*=self.dPix*np.pi/180
+                ra,dec=Poly.T
+                l,m=self.radec2lm(ra,dec)
+                Poly[:,0]=l
+                Poly[:,1]=m
+                
             CC.setAvoidPolygon(PolyList)
 
         CC.Cluster()
