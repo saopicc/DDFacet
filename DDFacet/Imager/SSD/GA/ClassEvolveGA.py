@@ -75,7 +75,9 @@ class ClassEvolveGA():
 
         Obj=self.ArrayMethodsMachine.PM.GiveInitList(toolbox)
 
-        toolbox.register("individual", tools.initCycle, creator.Individual,
+        toolbox.register("individual",
+                         tools.initCycle,
+                         creator.Individual,
                          Obj, n=1)
 
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)

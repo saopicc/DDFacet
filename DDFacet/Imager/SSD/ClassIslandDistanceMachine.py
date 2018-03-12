@@ -1,6 +1,7 @@
 import time
 import numpy as np
 from DDFacet.Other import MyLogger
+from DDFacet.Other import MyPickle
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassIslandDistanceMachine")
 from DDFacet.Other.progressbar import ProgressBar
@@ -11,6 +12,7 @@ from DDFacet.ToolsDir.GiveEdges import GiveEdgesDissymetric
 from scipy.spatial import ConvexHull
 from matplotlib.path import Path
 import psutil
+
 
 class Island(object):
     '''
@@ -332,9 +334,10 @@ class ClassIslandDistanceMachine():
 
         return ListEdgesIslands
 
-    def ConvexifyIsland(self,ListIslands):
+    def ConvexifyIsland(self,ListIslands,PolygonFile=None):
         print>>log,"  Convexify islands"
         ListConvexIslands=[]
+        ListPolygons=[]
         for Island in ListIslands:
             points=np.array(Island)
             x,y=points.T
@@ -360,6 +363,7 @@ class ClassIslandDistanceMachine():
                 pp=np.zeros((poly2.shape[0]+1,2),dtype=poly2.dtype)
                 pp[0:-1,:]=poly2[:,:]
                 pp[-1,:]=poly2[0,:]
+                ListPolygons.append(pp)
                 mpath = Path(pp)
                 
                 p_grid=np.zeros((xx.size,2),np.int16)
@@ -381,6 +385,10 @@ class ClassIslandDistanceMachine():
                 # pylab.show(False)
             except:
                 ListConvexIslands.append(Island)
+
+        if PolygonFile is not None:
+            print>>log,"  ----> Saving polygons as %s"%PolygonFile
+            MyPickle.Save(ListPolygons,PolygonFile)
 
         return ListConvexIslands
 
