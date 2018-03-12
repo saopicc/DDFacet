@@ -102,7 +102,43 @@ def Mutate(Indiv,indpb=0.05,AmpRad=0.017453292519943295):
         ra[i]+=np.random.randn(1)[0]*AmpRad#*0.03
         dec[i]+=np.random.randn(1)[0]*AmpRad#*0.03
     return Indiv,
-    
+
+def giveFitness(Indiv,x=None,y=None,Polygons=None): 
+    T=ClassTimeIt.ClassTimeIt("Fitness")
+    T.disable()
+    nNode=Indiv.size/2
+    xc,yc=Indiv.reshape((2,nNode))
+    dx=xc.reshape((-1,1))-x.reshape((1,-1))
+    dy=yc.reshape((-1,1))-y.reshape((1,-1))
+    d=np.sqrt(dx**2+dy**2)
+    ind=np.argmin(d,axis=0)
+    II=np.unique(ind)
+    NPerNode=np.zeros((xc.size,),np.float32)
+    for iC in II:
+        NPerNode[iC]=np.count_nonzero(ind==iC)
+
+    T.timeit(0)
+    fOverlap=0
+    if Polygons is not None:
+        xy=np.zeros((xc.size,2),np.float32)
+        xy[:,0]=xc
+        xy[:,1]=yc
+        vor = Voronoi(xy)#incremental=True)
+        regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
+        T.timeit(1)
+        
+        for region in regions:
+            polygon = vertices[region]
+            for P in Polygons:
+                fOverlap+=doOverlap(polygon,P)
+        T.timeit(2)
+                    
+
+            
+    std=-np.std(NPerNode)+(-np.count_nonzero(NPerNode==0)*1e2)#-fOverlap*1e5
+    return std,
+
+
 class ClassCluster():
     def __init__(self,x,y,nNode=50,RandAmpDeg=1.):
         self.x=x
@@ -131,7 +167,6 @@ class ClassCluster():
         # toolbox.register("population", tools.initRepeat, list, toolbox.individual)
         
 
-        toolbox.register("evaluate", self.giveFitness)
         toolbox.register("mate", cxTwoPointCopy)
         #toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
         toolbox.register("mutate", Mutate, indpb=0.05, AmpRad=self.RandAmpRad)
@@ -143,39 +178,6 @@ class ClassCluster():
     def setAvoidPolygon(self,PolyList):
         self.Polygons=PolyList
         
-    def giveFitness(self,Indiv): 
-        T=ClassTimeIt.ClassTimeIt("Fitness")
-        T.disable()
-        xc,yc=Indiv.reshape((2,self.nNode))
-        dx=xc.reshape((-1,1))-self.x.reshape((1,-1))
-        dy=yc.reshape((-1,1))-self.y.reshape((1,-1))
-        d=np.sqrt(dx**2+dy**2)
-        ind=np.argmin(d,axis=0)
-        II=np.unique(ind)
-        NPerNode=np.zeros((xc.size,),np.float32)
-        for iC in II:
-            NPerNode[iC]=np.count_nonzero(ind==iC)
-
-        T.timeit(0)
-        fOverlap=0
-        if self.Polygons is not None:
-            xy=np.zeros((xc.size,2),np.float32)
-            xy[:,0]=xc
-            xy[:,1]=yc
-            vor = Voronoi(xy)#incremental=True)
-            regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
-            T.timeit(1)
-            
-            for region in regions:
-                polygon = vertices[region]
-                for P in self.Polygons:
-                    fOverlap+=doOverlap(polygon,P)
-            T.timeit(2)
-                    
-
-            
-        std=-np.std(NPerNode)+(-np.count_nonzero(NPerNode==0)*1e2)#-fOverlap*1e5
-        return std,
 
     def reinitPop(self,pop):
         print>>log,"Initialise population"
@@ -191,6 +193,9 @@ class ClassCluster():
     def Cluster(self):
         random.seed(64)
         toolbox=self.toolbox
+
+        toolbox.register("evaluate", giveFitness, x=self.x, y=self.y, Polygons=self.Polygons)
+
         pop = toolbox.population(n=1000)
         self.reinitPop(pop)
 
