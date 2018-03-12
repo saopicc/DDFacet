@@ -28,6 +28,7 @@ you really want them to do.
 import random
 
 from deap import tools
+from DDFacet.Other import ClassTimeIt
 
 def varAnd(population, toolbox, cxpb, mutpb):
     """Part of an evolutionary algorithm applying only the variation part
@@ -139,52 +140,68 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     .. [Back2000] Back, Fogel and Michalewicz, "Evolutionary Computation 1 :
        Basic Algorithms and Operators", 2000.
     """
+    T=ClassTimeIt.ClassTimeIt("VarAnd")
+    iT=0
     logbook = tools.Logbook()
+    T.timeit(iT); iT+=1
     logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
+    T.timeit(iT); iT+=1
 
     # Evaluate the individuals with an invalid fitness
     invalid_ind = [ind for ind in population if not ind.fitness.valid]
+    T.timeit(iT); iT+=1
     fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+    T.timeit(iT); iT+=1
     for ind, fit in zip(invalid_ind, fitnesses):
         ind.fitness.values = fit
+    T.timeit(iT); iT+=1
 
     if halloffame is not None:
         halloffame.update(population)
+    T.timeit(iT); iT+=1
 
     record = stats.compile(population) if stats else {}
     logbook.record(gen=0, nevals=len(invalid_ind), **record)
     if verbose:
         print logbook.stream
+    T.timeit(iT); iT+=1
 
     # Begin the generational process
     for gen in range(1, ngen+1):
         # Select the next generation individuals
         offspring = toolbox.select(population, len(population))
+        T.timeit(iT); iT+=1
         
         # Vary the pool of individuals
         offspring = varAnd(offspring, toolbox, cxpb, mutpb)
+        T.timeit(iT); iT+=1
         
         # Evaluate the individuals with an invalid fitness
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
+        T.timeit(iT); iT+=1
         
         # Update the hall of fame with the generated individuals
         if halloffame is not None:
             halloffame.update(offspring)
+        T.timeit(iT); iT+=1
             
         # Replace the current population by the offspring
         population[:] = offspring
+        T.timeit(iT); iT+=1
         
         # Append the current generation statistics to the logbook
         record = stats.compile(population) if stats else {}
         logbook.record(gen=gen, nevals=len(invalid_ind), **record)
         if verbose:
             print logbook.stream        
+        T.timeit(iT); iT+=1
 
         if PlotMachine is not None:
             PlotMachine.Plot(halloffame)
+        T.timeit(iT); iT+=1
 
             
     return population, logbook

@@ -26,6 +26,11 @@ from deap import tools
 import pylab
 from scipy.spatial import Voronoi
 import ModVoronoi
+from DDFacet.Other import MyLogger
+log=MyLogger.getLogger("ClusterDEAP")
+from DDFacet.Other import ClassTimeIt
+#from scoop import futures
+import multiprocessing
 
 def test():
     Np=1000
@@ -71,17 +76,22 @@ import Polygon
 
 
 def doOverlap(npP0,npP1):
+    T=ClassTimeIt.ClassTimeIt("Overlap")
+    T.disable()
     P0 = Polygon.Polygon(npP0)
     P1 = Polygon.Polygon(npP1)
+    T.timeit("declare")
     P1Cut = (P0 & P1)
+    T.timeit("Cut")
     aP1=P1.area()
     aP1Cut=P1Cut.area()
+    T.timeit("Area")
     if np.abs(aP1Cut-aP1)<1e-10 or aP1Cut==0:
         return False
     else:
         return True
     
-def Mutate(Indiv,indpb=0.05):
+def Mutate(Indiv,indpb=0.05,AmpRad=0.017453292519943295):
     N=Indiv.size/2
     Ind=Indiv.reshape((2,N))
     #i=int(np.random.rand(1)[0]*N)
@@ -89,19 +99,28 @@ def Mutate(Indiv,indpb=0.05):
         r=int(np.random.rand(1)[0]*N)
         if r>indpb: continue
         ra,dec=Ind
-        ra[i]+=np.random.randn(1)[0]#*0.03
-        dec[i]+=np.random.randn(1)[0]#*0.03
+        ra[i]+=np.random.randn(1)[0]*AmpRad#*0.03
+        dec[i]+=np.random.randn(1)[0]*AmpRad#*0.03
     return Indiv,
     
 class ClassCluster():
-    def __init__(self,x,y,nNode=50):
+    def __init__(self,x,y,nNode=50,RandAmpDeg=1.):
         self.x=x
         self.y=y
         self.nNode=nNode
+        self.RandAmpRad=RandAmpDeg*np.pi/180
         creator.create("FitnessMax", base.Fitness, weights=(1.0,))
         creator.create("Individual", numpy.ndarray, fitness=creator.FitnessMax)
         toolbox = base.Toolbox()
-        toolbox.register("attr_float", random.uniform, -5, 5)
+
+        pool = multiprocessing.Pool()
+        toolbox.register("map", pool.map)
+
+
+        #x0=np.min([self.x.min(),self.y.min()])
+        #x1=np.max([self.x.max(),self.y.max()])
+        
+        toolbox.register("attr_float", random.uniform, 0, 1)
         toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float, n=2*nNode)
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
@@ -110,19 +129,23 @@ class ClassCluster():
         #                  creator.Individual,
         #                  Obj, n=1)
         # toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-
+        
 
         toolbox.register("evaluate", self.giveFitness)
         toolbox.register("mate", cxTwoPointCopy)
         #toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
-        toolbox.register("mutate", Mutate, indpb=0.05)
+        toolbox.register("mutate", Mutate, indpb=0.05, AmpRad=self.RandAmpRad)
         toolbox.register("select", tools.selTournament, tournsize=3)
         self.toolbox=toolbox
 
-        self.Polygons=[np.array([[0,0],[0,1],[1,1.]])*0.5]
+        self.Polygons=None#[np.array([[0,0],[0,1],[1,1.]])*0.5]
 
+    def setAvoidPolygon(self,PolyList):
+        self.Polygons=PolyList
         
-    def giveFitness(self,Indiv):
+    def giveFitness(self,Indiv): 
+        T=ClassTimeIt.ClassTimeIt("Fitness")
+        T.disable()
         xc,yc=Indiv.reshape((2,self.nNode))
         dx=xc.reshape((-1,1))-self.x.reshape((1,-1))
         dy=yc.reshape((-1,1))-self.y.reshape((1,-1))
@@ -133,6 +156,7 @@ class ClassCluster():
         for iC in II:
             NPerNode[iC]=np.count_nonzero(ind==iC)
 
+        T.timeit(0)
         fOverlap=0
         if self.Polygons is not None:
             xy=np.zeros((xc.size,2),np.float32)
@@ -140,28 +164,42 @@ class ClassCluster():
             xy[:,1]=yc
             vor = Voronoi(xy)#incremental=True)
             regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
+            T.timeit(1)
             
             for region in regions:
                 polygon = vertices[region]
                 for P in self.Polygons:
                     fOverlap+=doOverlap(polygon,P)
+            T.timeit(2)
                     
 
             
-        std=-np.std(NPerNode)+(-np.count_nonzero(NPerNode==0)*1e2)-fOverlap*1e5
+        std=-np.std(NPerNode)+(-np.count_nonzero(NPerNode==0)*1e2)#-fOverlap*1e5
         return std,
 
+    def reinitPop(self,pop):
+        print>>log,"Initialise population"
+        x0,x1=self.x.min(),self.x.max()
+        y0,y1=self.y.min(),self.y.max()
+        print x0,x1,y0,y1
+        for Indiv in pop:
+            x,y=Indiv.reshape((2,self.nNode))
+            x[:]=np.random.uniform(x0,x1,self.nNode)
+            y[:]=np.random.uniform(y0,y1,self.nNode)
+            
             
     def Cluster(self):
         random.seed(64)
         toolbox=self.toolbox
         pop = toolbox.population(n=1000)
-        
+        self.reinitPop(pop)
+
         # Numpy equality function (operators.eq) between two arrays returns the
         # equality element wise, which raises an exception in the if similar()
         # check of the hall of fame. Using a different equality function like
         # numpy.array_equal or numpy.allclose solve this issue.
         hof = tools.HallOfFame(1, similar=numpy.array_equal)
+        print>>log,"Declare HOF"
         
         stats = tools.Statistics(lambda ind: ind.fitness.values)
         stats.register("avg", numpy.mean)
@@ -169,6 +207,7 @@ class ClassCluster():
         stats.register("min", numpy.min)
         stats.register("max", numpy.max)
 
+        print>>log,"Start evolution"
         PlotMachine=ClassPlotMachine(self.x,self.y,self.Polygons)
         algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=1000, stats=stats,
                             halloffame=hof,PlotMachine=PlotMachine)
@@ -206,9 +245,7 @@ class ClassPlotMachine():
         for region in regions:
             polygon = vertices[region]
             pylab.fill(*zip(*polygon), alpha=0.4)
-            dx=0.01
-            pylab.xlim(self.x.min() - dx, self.x.max()+dx)
-            pylab.ylim(self.y.min() - dx, self.y.max()+dx)
+
         pylab.scatter(self.x,self.y,c=ind,s=5)
         pylab.scatter(xc,yc,color="red")
 
@@ -218,6 +255,10 @@ class ClassPlotMachine():
 
             #pylab.plot(xp,yp)
 
+        dx=0.01
+        pylab.xlim(self.x.min() - dx, self.x.max()+dx)
+        pylab.ylim(self.y.min() - dx, self.y.max()+dx)
+            
         II=np.unique(ind)
         NPerNode=np.zeros((xc.size,),np.float32)
         for iC in II:
