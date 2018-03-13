@@ -9,10 +9,14 @@ import Sky.ClassClusterDEAP
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 import optparse
 import pickle
+from DDFacet.ToolsDir import ModCoord
+import Polygon
 SaveFile="ClusterImage.last"
+from SkyModel.Sky import ModVoronoiToReg
+import MakeCatalog
+import os
 
 def test():
-    
     CIM=ClusterImage("image_dirin_SSD_m.app.restored.fits")
     CIM.setCatName("image_dirin_SSD_m.app.restored.pybdsm.srl.fits")
     #CIM.GroupSources()
@@ -29,12 +33,18 @@ def read_options():
     
     opt = optparse.OptionParser(usage='Task to build a boolean mask file from a restored fits image, Usage: %prog <options>',version='%prog version 1.0',description=desc)
     group = optparse.OptionGroup(opt, "* Data-related options")
-    group.add_option('--RestoredIm',type="str",help="Name of the restored image",default=None)
     group.add_option('--SourceCat',type="str",help="Name of the source catalog",default="")
     group.add_option('--AvoidPolygons',type="str",help="Name of the avoidace polygon file",default="")
+    group.add_option('--FluxMin',type=float,help="",default=0.1)#5)
+    group.add_option('--ExtentMax',type=float,help="",default=0.)#01)
+    group.add_option('--NPop',type=int,help="",default=1000)
+    group.add_option('--NGen',type=int,help="",default=300)
+    group.add_option('--DoPlot',type=int,help="",default=1)
+    group.add_option('--NCluster',type=int,help="",default=45)
+    group.add_option('--NCPU',type=int,help="",default=1)
+    
     opt.add_option_group(group)
 
-    
     options, arguments = opt.parse_args()
 
     f = open(SaveFile,"wb")
@@ -46,12 +56,12 @@ def read_options():
 class ClusterImage():
     def __init__(self,**kwargs):
         for key, value in kwargs.items(): setattr(self, key, value)
-        print>>log,"Reading %s"%self.RestoredIm
-        f=pyfits.open(self.RestoredIm)
-        decc,rac=f[0].header["CRVAL1"],f[0].header["CRVAL2"]
-        rac,decc=f[0].header["CRVAL1"],f[0].header["CRVAL2"]
-        self.dPix=abs(f[0].header["CDELT1"])
-        self.NPix=abs(f[0].header["NAXIS1"])
+        print>>log,"Reading %s"%self.SourceCat
+        f=pyfits.open(self.SourceCat)
+        decc,rac=f[1].header["I_CRVAL1"],f[1].header["I_CRVAL2"]
+        rac,decc=f[1].header["I_CRVAL1"],f[1].header["I_CRVAL2"]
+        self.dPix=abs(f[1].header["I_CDELT1"])
+        self.NPix=abs(f[1].header["I_NAXIS1"])
         rac*=np.pi/180
         decc*=np.pi/180
         sRA =rad2hmsdms(rac,Type="ra").replace(" ",":")
@@ -59,10 +69,13 @@ class ClusterImage():
         print>>log,"Image center: %s %s"%(sRA,sDEC)
         self.rarad=rac
         self.decrad=decc
+        self.CoordMachine = ModCoord.ClassCoordConv(self.rarad, self.decrad)
 
-        if self.SourceCat!="":
-            self.setCatName(self.SourceCat)
-        
+        lmax=self.NPix/2*self.dPix*np.pi/180
+        self.PolyCut=np.array([[-lmax,-lmax],[-lmax,lmax],[lmax,lmax],[lmax,-lmax]])
+
+        self.setCatName(self.SourceCat)
+            
     def radec2lm(self,ra,dec):
         l = np.cos(dec) * np.sin(ra - self.rarad)
         m = np.sin(dec) * np.cos(self.decrad) - np.cos(dec) * np.sin(self.decrad) * np.cos(ra - self.rarad)
@@ -85,6 +98,23 @@ class ClusterImage():
         Cat.S=self.c.data.Total_flux
         Cat.Maj=self.c.data.Maj
         self.Cat=Cat
+
+        # import pylab
+        # pylab.clf()
+        # pylab.scatter(np.log10(Cat.S),Cat.Maj)
+        # pylab.draw()
+        # pylab.show()
+
+
+    def SelectSources(self):
+        if self.FluxMin>0.:
+            ind=np.where(self.Cat.S>self.FluxMin)[0]
+            self.Cat=self.Cat[ind]
+
+        if self.ExtentMax>0.:
+            ind=np.where(self.Cat.Maj<self.ExtentMax)[0]
+            self.Cat=self.Cat[ind]
+            
         
     def GroupSources(self,RadiusArcmin=2.):
         Rad=RadiusArcmin/60.*np.pi/180.
@@ -166,22 +196,77 @@ class ClusterImage():
 
     
     def Cluster(self):
-
+        
         l,m=self.radec2lm(self.Cat.ra,self.Cat.dec)
-        CC=Sky.ClassClusterDEAP.ClassCluster(l,m)
+        S=self.Cat.S.copy()
+        PolyList=None
         if self.AvoidPolygons!="":
             print>>log,"Reading polygon file: %s"%self.AvoidPolygons
             PolyList=MyPickle.Load(self.AvoidPolygons)
             LPoly=[]
+            inside=np.zeros((l.size,),np.float32)
             for Poly in PolyList:
                 ra,dec=Poly.T
-                l,m=self.radec2lm(ra,dec)
-                Poly[:,0]=l
-                Poly[:,1]=m
-                
-            CC.setAvoidPolygon(PolyList)
+                lp,mp=self.radec2lm(ra,dec)
+                Poly[:,0]=lp
+                Poly[:,1]=mp
+                P=Polygon.Polygon(Poly)
+                for ip in range(l.size):
+                    if P.isInside(l[ip],m[ip]):
+                        inside[ip]=1
+            l=l[inside==0]
+            m=m[inside==0]
+            S=S[inside==0]
 
-        CC.Cluster()
+        CC=Sky.ClassClusterDEAP.ClassCluster(l,m,S,nNode=self.NCluster,
+                                             NGen=self.NGen,
+                                             NPop=self.NPop,
+                                             DoPlot=self.DoPlot,
+                                             PolyCut=self.PolyCut,
+                                             NCPU=self.NCPU)
+        CC.setAvoidPolygon(PolyList)
+            
+        xyNodes,self.LPolygon=CC.Cluster()
+        nNodes=xyNodes.size/2
+        xc,yc=xyNodes.reshape((2,nNodes))
+        self.xcyc=xc,yc
+        
+    def Save(self):
+        xc,yc=self.xcyc
+        nNodes=xc.size
+
+        ClusterCat=np.zeros((xc.size,),dtype=[('Name','|S200'),('ra',np.float),('dec',np.float),('SumI',np.float),("Cluster",int)])
+        ClusterCat=ClusterCat.view(np.recarray)
+
+        for iDir in range(nNodes):
+            l,m=xc[iDir],yc[iDir]
+            ramean,decmean=self.CoordMachine.lm2radec(np.array([l]),np.array([m]))
+            ClusterCat.ra[iDir]=ramean
+            ClusterCat.dec[iDir]=decmean
+            ClusterCat.SumI[iDir]=0.
+            ClusterCat.Cluster[iDir]=iDir
+        fOut="%s.ClusterCat.npy"%self.SourceCat
+        print>>log,"Saving %s"%fOut
+        np.save(fOut,ClusterCat)
+        self.WriteTessel()
+        
+    def WriteTessel(self):
+        regFile="%s.tessel.reg"%self.SourceCat
+        lmax=self.NPix/2*self.dPix*np.pi/180
+        Poly=np.array([[-lmax,-lmax],[-lmax,lmax],[lmax,lmax],[lmax,-lmax]])
+
+        POut=Polygon.Polygon(Poly)
+        LP=[]
+        for P in self.LPolygon:
+            P0=((Polygon.Polygon(P))&POut)
+            
+            if P0.area()>0:
+                LP.append(np.array(P0)[0])
+
+        VM = ModVoronoiToReg.VoronoiToReg(self.rarad, self.decrad)
+        VM.PolygonToReg(regFile,
+                        LP,
+                        Col="green")
 
 def main(options=None):
         
@@ -190,9 +275,10 @@ def main(options=None):
         options = pickle.load(f)
     
     CIM=ClusterImage(**options.__dict__)
-    #CIM.GroupSources()
+    CIM.GroupSources()
+    CIM.SelectSources()
     CIM.Cluster()
-    
+    CIM.Save()
     
         
 if __name__=="__main__":

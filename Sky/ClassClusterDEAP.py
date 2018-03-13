@@ -31,6 +31,9 @@ log=MyLogger.getLogger("ClusterDEAP")
 from DDFacet.Other import ClassTimeIt
 #from scoop import futures
 import multiprocessing
+import scipy.stats
+import Polygon
+import ClassMetricDEAP
 
 def test():
     Np=1000
@@ -42,6 +45,7 @@ def test():
     
 def evalOneMax(individual):
     return sum(individual),
+
 
 
 def cxTwoPointCopy(ind1, ind2):
@@ -72,24 +76,7 @@ def cxTwoPointCopy(ind1, ind2):
         
     return ind1, ind2
 
-import Polygon
 
-
-def doOverlap(npP0,npP1):
-    T=ClassTimeIt.ClassTimeIt("Overlap")
-    T.disable()
-    P0 = Polygon.Polygon(npP0)
-    P1 = Polygon.Polygon(npP1)
-    T.timeit("declare")
-    P1Cut = (P0 & P1)
-    T.timeit("Cut")
-    aP1=P1.area()
-    aP1Cut=P1Cut.area()
-    T.timeit("Area")
-    if np.abs(aP1Cut-aP1)<1e-10 or aP1Cut==0:
-        return False
-    else:
-        return True
     
 def Mutate(Indiv,indpb=0.05,AmpRad=0.017453292519943295):
     N=Indiv.size/2
@@ -103,55 +90,49 @@ def Mutate(Indiv,indpb=0.05,AmpRad=0.017453292519943295):
         dec[i]+=np.random.randn(1)[0]*AmpRad#*0.03
     return Indiv,
 
-def giveFitness(Indiv,x=None,y=None,Polygons=None): 
+
+def giveFitness(Indiv,x=None,y=None,S=None,Polygons=None,PolyCut=None): 
     T=ClassTimeIt.ClassTimeIt("Fitness")
     T.disable()
-    nNode=Indiv.size/2
-    xc,yc=Indiv.reshape((2,nNode))
-    dx=xc.reshape((-1,1))-x.reshape((1,-1))
-    dy=yc.reshape((-1,1))-y.reshape((1,-1))
-    d=np.sqrt(dx**2+dy**2)
-    ind=np.argmin(d,axis=0)
-    II=np.unique(ind)
-    NPerNode=np.zeros((xc.size,),np.float32)
-    for iC in II:
-        NPerNode[iC]=np.count_nonzero(ind==iC)
+    CMD=ClassMetricDEAP.ClassMetricDEAP(Indiv,x=x,y=y,S=S,Polygons=Polygons,PolyCut=PolyCut)
+    fluxPerFacet=CMD.fluxPerFacet()
+    NPerFacet=CMD.NPerFacet()
+    aspectRatioPerFacet=CMD.aspectRatioPerFacet()
+    meanDistancePerFacet=CMD.meanDistancePerFacet()
+    overlapPerFacet=CMD.overlapPerFacet()
 
-    T.timeit(0)
-    fOverlap=0
-    if Polygons is not None:
-        xy=np.zeros((xc.size,2),np.float32)
-        xy[:,0]=xc
-        xy[:,1]=yc
-        vor = Voronoi(xy)#incremental=True)
-        regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
-        T.timeit(1)
-        
-        for region in regions:
-            polygon = vertices[region]
-            for P in Polygons:
-                fOverlap+=doOverlap(polygon,P)
-        T.timeit(2)
-                    
-
-            
-    std=-np.std(NPerNode)+(-np.count_nonzero(NPerNode==0)*1e2)-fOverlap*1e5
-    return std,
+    Fitness=0
+    Fitness+= -np.std(fluxPerFacet)
+    Fitness+= -np.std(NPerFacet)
+    Fitness+= -1e5*np.count_nonzero(NPerFacet==0)
+    A=aspectRatioPerFacet
+    Fitness+= -np.mean(A[A>0])
+    Fitness+= -np.mean(meanDistancePerFacet)*10
+    Fitness+= -np.sum(overlapPerFacet)*1e5
+    
+    return Fitness,
 
 
 class ClassCluster():
-    def __init__(self,x,y,nNode=50,RandAmpDeg=1.):
+    def __init__(self,x,y,S,nNode=50,RandAmpDeg=1.,NGen=300,NPop=1000,DoPlot=True,PolyCut=None,
+                 NCPU=1):
+        self.DoPlot=DoPlot
+        self.PolyCut=PolyCut
         self.x=x
         self.y=y
+        self.S=S
+        self.NGen=NGen
+        self.NPop=NPop
         self.nNode=nNode
         self.RandAmpRad=RandAmpDeg*np.pi/180
         creator.create("FitnessMax", base.Fitness, weights=(1.0,))
         creator.create("Individual", numpy.ndarray, fitness=creator.FitnessMax)
         toolbox = base.Toolbox()
 
-        pool = multiprocessing.Pool()
-        toolbox.register("map", pool.map)
-
+        if NCPU>1:
+            pool = multiprocessing.Pool(NCPU)
+            toolbox.register("map", pool.map)
+        
 
         #x0=np.min([self.x.min(),self.y.min()])
         #x1=np.max([self.x.max(),self.y.max()])
@@ -183,20 +164,20 @@ class ClassCluster():
         print>>log,"Initialise population"
         x0,x1=self.x.min(),self.x.max()
         y0,y1=self.y.min(),self.y.max()
-        print x0,x1,y0,y1
         for Indiv in pop:
             x,y=Indiv.reshape((2,self.nNode))
             x[:]=np.random.uniform(x0,x1,self.nNode)
             y[:]=np.random.uniform(y0,y1,self.nNode)
-            
+            #x.fill(0)
+            #y.fill(0)
             
     def Cluster(self):
         random.seed(64)
         toolbox=self.toolbox
 
-        toolbox.register("evaluate", giveFitness, x=self.x, y=self.y, Polygons=self.Polygons)
+        toolbox.register("evaluate", giveFitness, x=self.x, y=self.y, S=self.S, Polygons=self.Polygons, PolyCut=self.PolyCut)
 
-        pop = toolbox.population(n=1000)
+        pop = toolbox.population(n=self.NPop)
         self.reinitPop(pop)
 
         # Numpy equality function (operators.eq) between two arrays returns the
@@ -204,74 +185,106 @@ class ClassCluster():
         # check of the hall of fame. Using a different equality function like
         # numpy.array_equal or numpy.allclose solve this issue.
         hof = tools.HallOfFame(1, similar=numpy.array_equal)
-        print>>log,"Declare HOF"
+        #print>>log,"Declare HOF"
         
-        stats = tools.Statistics(lambda ind: ind.fitness.values)
-        stats.register("avg", numpy.mean)
-        stats.register("std", numpy.std)
-        stats.register("min", numpy.min)
-        stats.register("max", numpy.max)
+        # stats = tools.Statistics(lambda ind: ind.fitness.values)
+        # stats.register("avg", numpy.mean)
+        # stats.register("std", numpy.std)
+        # stats.register("min", numpy.min)
+        # stats.register("max", numpy.max)
 
-        print>>log,"Start evolution"
-        PlotMachine=ClassPlotMachine(self.x,self.y,self.Polygons)
-        algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=1000, stats=stats,
+        print>>log,"Clustering input catalog in %i directions"%(self.nNode)
+        print>>log,"  Start evolution of %i generations of %i individuals"%(self.NGen,self.NPop)
+        PlotMachine=False
+        if self.DoPlot:
+            PlotMachine=ClassPlotMachine(self.x,self.y,self.S,self.Polygons,self.PolyCut)
+        
+        algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=self.NGen,
+                            #stats=stats,
                             halloffame=hof,PlotMachine=PlotMachine)
 
-        return pop, stats, hof
+        
+        CMD=ClassMetricDEAP.ClassMetricDEAP(hof[-1],
+                                            x=self.x,
+                                            y=self.y,
+                                            S=self.S,
+                                            Polygons=self.Polygons,
+                                            PolyCut=self.PolyCut)
+        LPolygon=CMD.ListPolygons
+        return hof[-1],LPolygon
 
 class ClassPlotMachine():
-    def __init__(self,x,y,Polygons=None):
+    def __init__(self,x,y,S,Polygons=None,PolyCut=None):
         self.x=x
         self.y=y
+        self.S=S
         self.Polygons=Polygons
+        self.PolyCut=PolyCut
 
     def Plot(self,hof):
         indiv=hof[-1]
         N=indiv.size/2
         xc,yc=indiv.reshape((2,N))
 
-        xc,yc=indiv.reshape((2,N))
-        xy=np.zeros((xc.size,2),np.float32)
-        xy[:,0]=xc
-        xy[:,1]=yc
-        vor = Voronoi(xy)#incremental=True)
-        
-        regions, vertices = ModVoronoi.voronoi_finite_polygons_2d(vor)
+        CMD=ClassMetricDEAP.ClassMetricDEAP(indiv,x=self.x,y=self.y,S=self.S,Polygons=self.Polygons,PolyCut=self.PolyCut)
+        ListPolygons=CMD.ListPolygons
+        fluxPerFacet=CMD.fluxPerFacet()
 
-
-
-        dx=xc.reshape((-1,1))-self.x.reshape((1,-1))
-        dy=yc.reshape((-1,1))-self.y.reshape((1,-1))
-        d=np.sqrt(dx**2+dy**2)
-        ind=np.argmin(d,axis=0)
-
+        import matplotlib
+        fig1=pylab.figure(1)
         pylab.clf()
-        pylab.subplot(1,2,1)
-        for region in regions:
-            polygon = vertices[region]
-            pylab.fill(*zip(*polygon), alpha=0.1)
-
-        pylab.scatter(self.x,self.y,c=ind,s=5)
-        pylab.scatter(xc,yc,color="red")
+        pylab.subplot(1,1,1, aspect='equal')
+        for iR,Poly in enumerate(ListPolygons):
+            polygon = Poly
+            if Poly.size==0: continue
+            x,y=polygon.T
+            pylab.fill(*zip(*polygon), alpha=0.1)#, color=cms[iR])
+            pylab.text(np.mean(x),np.mean(y),"%.2f"%fluxPerFacet[iR])
+            
 
         if self.Polygons is not None:
             for Polygon in self.Polygons:
                 pylab.fill(*zip(*Polygon), color="black")#alpha=0.4)
 
             #pylab.plot(xp,yp)
+        pylab.scatter(self.x,self.y,s=5,color="blue")
+        pylab.scatter(xc,yc,color="red")
 
         dx=0.01
-        pylab.xlim(self.x.min() - dx, self.x.max()+dx)
+        pylab.xlim(self.x.max()+dx,self.x.min() - dx)
         pylab.ylim(self.y.min() - dx, self.y.max()+dx)
+        # mng = pylab.get_current_fig_manager()
+        # #mng.frame.Maximize(True)
+        # mng.window.showMaximized()
+        pylab.pause(0.1)
+        pylab.draw()
+        pylab.show(False)
             
-        II=np.unique(ind)
-        NPerNode=np.zeros((xc.size,),np.float32)
-        for iC in II:
-            NPerNode[iC]=np.count_nonzero(ind==iC)
 
-        pylab.subplot(1,2,2)
-        pylab.hist(NPerNode,bins=100)
+        ######################
+        
+        aspectRatioPerFacet=CMD.aspectRatioPerFacet()
+        meanDistancePerFacet=CMD.meanDistancePerFacet()
+        overlapPerFacet=CMD.overlapPerFacet()
+        NPerFacet=CMD.NPerFacet()
 
+        fig2=pylab.figure(2)
+        pylab.clf()
+        pylab.subplot(2,2,1)
+        pylab.hist(fluxPerFacet,bins=100)
+
+        pylab.subplot(2,2,2)
+        pylab.hist(aspectRatioPerFacet,bins=100)
+
+        pylab.subplot(2,2,3)
+        pylab.hist(NPerFacet,bins=100)
+
+        pylab.subplot(2,2,4)
+        pylab.hist(meanDistancePerFacet,bins=100)
+
+
+
+            
         pylab.pause(0.1)
         pylab.draw()
         pylab.show(False)
