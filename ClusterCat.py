@@ -35,11 +35,12 @@ def read_options():
     group = optparse.OptionGroup(opt, "* Data-related options")
     group.add_option('--SourceCat',type="str",help="Name of the source catalog",default="")
     group.add_option('--AvoidPolygons',type="str",help="Name of the avoidace polygon file",default="")
-    group.add_option('--FluxMin',type=float,help="",default=0.1)#5)
+    group.add_option('--FluxMin',type=float,help="",default=0.03)#5)
     group.add_option('--ExtentMax',type=float,help="",default=0.)#01)
     group.add_option('--NPop',type=int,help="",default=1000)
     group.add_option('--NGen',type=int,help="",default=300)
     group.add_option('--DoPlot',type=int,help="",default=1)
+    group.add_option('--BigPolygonSize',type=float,help="",default=0.5)
     group.add_option('--NCluster',type=int,help="",default=45)
     group.add_option('--NCPU',type=int,help="",default=1)
     
@@ -202,28 +203,34 @@ class ClusterImage():
         PolyList=None
         if self.AvoidPolygons!="":
             print>>log,"Reading polygon file: %s"%self.AvoidPolygons
+            self.BigPolygon=[]
             PolyList=MyPickle.Load(self.AvoidPolygons)
             LPoly=[]
             inside=np.zeros((l.size,),np.float32)
-            for Poly in PolyList:
+            for iPolygon,Poly in enumerate(PolyList):
                 ra,dec=Poly.T
                 lp,mp=self.radec2lm(ra,dec)
                 Poly[:,0]=lp
                 Poly[:,1]=mp
                 P=Polygon.Polygon(Poly)
+                if P.area()>self.BigPolygonSize:
+                    self.BigPolygon.append(Poly)
                 for ip in range(l.size):
                     if P.isInside(l[ip],m[ip]):
                         inside[ip]=1
+
             l=l[inside==0]
             m=m[inside==0]
             S=S[inside==0]
-
+            print>>log,"There are %i big polygons"%len(self.BigPolygon)
+            
         CC=Sky.ClassClusterDEAP.ClassCluster(l,m,S,nNode=self.NCluster,
                                              NGen=self.NGen,
                                              NPop=self.NPop,
                                              DoPlot=self.DoPlot,
                                              PolyCut=self.PolyCut,
-                                             NCPU=self.NCPU)
+                                             NCPU=self.NCPU,
+                                             BigPolygon=self.BigPolygon)
         CC.setAvoidPolygon(PolyList)
             
         xyNodes,self.LPolygon=CC.Cluster()

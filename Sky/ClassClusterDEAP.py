@@ -91,10 +91,10 @@ def Mutate(Indiv,indpb=0.05,AmpRad=0.017453292519943295):
     return Indiv,
 
 
-def giveFitness(Indiv,x=None,y=None,S=None,Polygons=None,PolyCut=None): 
+def giveFitness(Indiv,x=None,y=None,S=None,Polygons=None,PolyCut=None,BigPolygon=None): 
     T=ClassTimeIt.ClassTimeIt("Fitness")
     T.disable()
-    CMD=ClassMetricDEAP.ClassMetricDEAP(Indiv,x=x,y=y,S=S,Polygons=Polygons,PolyCut=PolyCut)
+    CMD=ClassMetricDEAP.ClassMetricDEAP(Indiv,x=x,y=y,S=S,Polygons=Polygons,PolyCut=PolyCut,BigPolygon=BigPolygon)
     fluxPerFacet=CMD.fluxPerFacet()
     NPerFacet=CMD.NPerFacet()
     aspectRatioPerFacet=CMD.aspectRatioPerFacet()
@@ -115,9 +115,10 @@ def giveFitness(Indiv,x=None,y=None,S=None,Polygons=None,PolyCut=None):
 
 class ClassCluster():
     def __init__(self,x,y,S,nNode=50,RandAmpDeg=1.,NGen=300,NPop=1000,DoPlot=True,PolyCut=None,
-                 NCPU=1):
+                 NCPU=1,BigPolygon=None):
         self.DoPlot=DoPlot
         self.PolyCut=PolyCut
+        self.BigPolygon=BigPolygon
         self.x=x
         self.y=y
         self.S=S
@@ -175,7 +176,8 @@ class ClassCluster():
         random.seed(64)
         toolbox=self.toolbox
 
-        toolbox.register("evaluate", giveFitness, x=self.x, y=self.y, S=self.S, Polygons=self.Polygons, PolyCut=self.PolyCut)
+        toolbox.register("evaluate", giveFitness, x=self.x, y=self.y, S=self.S, Polygons=self.Polygons,
+                         PolyCut=self.PolyCut, BigPolygon=self.BigPolygon)
 
         pop = toolbox.population(n=self.NPop)
         self.reinitPop(pop)

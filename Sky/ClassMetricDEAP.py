@@ -31,7 +31,7 @@ def giveSizeRatio(P):
     if P.size==0: return False
     P0=Polygon.Polygon(P.copy())
     if P0.area()==0: return False
-    if hasStraightEdge(P0): return False
+    #if hasStraightEdge(P0): return False
     a=np.zeros_like(Theta)
     for iTh,Th in enumerate(Theta):
         P0.rotate(Th)
@@ -72,10 +72,12 @@ def doOverlap(npP0,npP1):
     aP1=P1.area()
     aP1Cut=P1Cut.area()
     T.timeit("Area")
-    if np.abs(aP1Cut-aP1)<1e-10 or aP1Cut==0:
-        return False
+    if np.abs(aP1Cut-aP1)<1e-10:
+        return "Contains"
+    elif aP1Cut==0:
+        return "Outside"
     else:
-        return True
+        return "Cut"
 
 def giveMeanDistanceToNode(xc,yc,x,y,S,Poly):
     d0=np.sqrt(Polygon.Polygon(Poly).area())
@@ -84,7 +86,9 @@ def giveMeanDistanceToNode(xc,yc,x,y,S,Poly):
     return dmean
 
 class ClassMetricDEAP():
-    def __init__(self,Indiv,x=None,y=None,S=None,Polygons=None,PolyCut=None):
+    def __init__(self,
+                 Indiv,x=None,y=None,S=None,
+                 Polygons=None,PolyCut=None,BigPolygon=None):
         
         nNode=Indiv.size/2
         xc,yc=Indiv.reshape((2,nNode))
@@ -93,7 +97,7 @@ class ClassMetricDEAP():
         self.S=S
         self.x=x
         self.y=y
-
+        
         dx=xc.reshape((-1,1))-x.reshape((1,-1))
         dy=yc.reshape((-1,1))-y.reshape((1,-1))
         self.d_NodeSource=d=np.sqrt(dx**2+dy**2)
@@ -101,7 +105,8 @@ class ClassMetricDEAP():
         self.setNodes=np.unique(self.indSourceToNode)
         self.ListPolygons=IndivToPolygon(Indiv,PolyCut)
         self.Polygons=Polygons
-        
+        self.BigPolygon=BigPolygon
+
     def fluxPerFacet(self):
         xc=self.xc
         S=self.S
@@ -112,8 +117,21 @@ class ClassMetricDEAP():
             #if ind.size==0: continue
             setSourcesThisNode=(self.indSourceToNode==iC)
             SPerNode[iC]=np.sum(S[setSourcesThisNode])/SMeanPerFacet
+
+        
         return SPerNode
 
+
+    def bigFlux(self,SPerNode):
+        for Poly in self.BigPolygon:
+            x,y=Poly.T
+            x0,y0=np.mean(x),np.mean(y)
+            d=np.sqrt((x0-self.xc)**2+(y0-self.yc)**2)
+            iNodeBig=np.argmin(d)
+            
+            
+
+    
     def NPerFacet(self):
         xc=self.xc
         S=self.S
@@ -152,6 +170,7 @@ class ClassMetricDEAP():
         Overlap=np.zeros((self.xc.size,),np.float32)
         for iC,PolyNode in enumerate(self.ListPolygons):
             for P in self.Polygons:
-                Overlap[iC]+=doOverlap(PolyNode,P)
+                if doOverlap(PolyNode,P)=="Cut":
+                    Overlap[iC]+=1
 
         return Overlap
