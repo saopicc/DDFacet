@@ -81,7 +81,7 @@ class ClassImageDeconvMachine():
         self.PeakFactor = PeakFactor
         self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=Gain)
         if ModelMachine is None:
-            from DDFacet.Imager import ClassModelMachineHogbom as ClassModelMachine
+            import ClassModelMachineHogbom as ClassModelMachine
             self.ModelMachine = ClassModelMachine.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
         else:
             self.ModelMachine = ModelMachine

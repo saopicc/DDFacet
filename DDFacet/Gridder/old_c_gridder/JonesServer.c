@@ -413,10 +413,10 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
   if((ApplyJones_Beam)&(ApplyJones_killMS)){
     int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
     int i_JonesChan=ptrVisToJonesChanMapping_Beam[visChan];
-    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&(CurrentJones_Beam_Chan=i_JonesChan);
+    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&&(CurrentJones_Beam_Chan==i_JonesChan);
     i_t=ptrTimeMappingJonesMatrices[irow];
     i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
-    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&(CurrentJones_kMS_Chan=i_JonesChan);
+    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&&(CurrentJones_kMS_Chan==i_JonesChan);
     if((SameAsBefore_Beam)&(SameAsBefore_kMS)){return;}
   }
 
@@ -426,7 +426,7 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
     int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
     int i_JonesChan=ptrVisToJonesChanMapping_Beam[visChan];
     //printf("ptrVisToJonesChanMapping_Beam[visChan]=%i %i\n;",visChan,ptrVisToJonesChanMapping_Beam[visChan]);
-    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&(CurrentJones_Beam_Chan==i_JonesChan);
+    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&&(CurrentJones_Beam_Chan==i_JonesChan);
 
     if(SameAsBefore_Beam==0){
       GiveJones(ptrJonesMatrices_Beam, JonesDims_Beam, ptrCoefsInterp, i_t, i_ant0, i_dir_Beam, i_JonesChan, ModeInterpolation, J0Beam);
@@ -443,7 +443,7 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
   if(ApplyJones_killMS){
     int i_t=ptrTimeMappingJonesMatrices[irow];
     int i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
-    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&(CurrentJones_kMS_Chan==i_JonesChan);
+    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&&(CurrentJones_kMS_Chan==i_JonesChan);
     
     //SameAsBefore_kMS=0;
 

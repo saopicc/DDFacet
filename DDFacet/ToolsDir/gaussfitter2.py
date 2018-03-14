@@ -35,15 +35,17 @@ def moments (data,circle,rotate,vheight):
     the gaussian parameters of a 2D distribution by calculating its
     moments.  Depending on the input parameters, will only output 
     a subset of the above"""
+    data = data.copy()
+    data[data<0] = 0 #clamp the negatives to 0 to make sure the moments computation doesn't fall over
     total = data.sum()
     X, Y = indices(data.shape)
     x = (X*data).sum()/total
     y = (Y*data).sum()/total
-    col = data[:, int(y)].copy()
-    col[where(col < 0)] = 0.0 #clamp the negatives to 0 to make sure the moments computation doesn't fall over
+    col = data[:, int(y)]
+#    col[where(col < 0)] = 0.0 #clamp the negatives to 0 to make sure the moments computation doesn't fall over
     width_x = sqrt(abs((arange(col.size)-y)**2*col).sum()/col.sum())
-    row = data[int(x), :].copy()
-    row[where(row < 0)] = 0.0  # clamp the negatives to 0 to make sure the moments computation doesn't fall over
+    row = data[int(x), :]
+#    row[where(row < 0)] = 0.0  # clamp the negatives to 0 to make sure the moments computation doesn't fall over
     width_y = sqrt(abs((arange(row.size)-x)**2*row).sum()/row.sum())
     width = ( width_x + width_y ) / 2.
     height = stats.mode(data.ravel())[0][0] if vheight else 0;

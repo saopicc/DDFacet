@@ -23,10 +23,12 @@ from DDFacet.Other import MyLogger
 
 log= MyLogger.getLogger("ClassMultiScaleMachine")
 from DDFacet.Array import ModLinAlg
+from DDFacet.Array import lsqnonneg
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
+import scipy.optimize
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
@@ -105,6 +107,16 @@ class CleanSolutionsDump(object):
         dump.read(fobj)
         return dump
 
+    @staticmethod
+    def close():
+        """
+        Closes and deletes the dump object
+        """
+        if CleanSolutionsDump._dump is not None:
+            CleanSolutionsDump._dump._close()
+            CleanSolutionsDump._dump = None
+
+
     def __init__(self, columns):
         """
         Creates a dump object with a list of columns.
@@ -123,6 +135,11 @@ class CleanSolutionsDump(object):
     def _flush(self):
         if self._fobj:
             self._fobj.flush()
+
+    def _close(self):
+        if self._fobj:
+            self._fobj.close()
+            self._fobj = None
 
     def _write(self, *components):
         if len(components) != len(self._columns):
@@ -153,7 +170,14 @@ class CleanSolutionsDump(object):
 
 class ClassMultiScaleMachine():
 
-    def __init__(self,GD,Gain=0.1,GainMachine=None,NFreqBands=1):
+    def __init__(self,GD,cachedict,Gain=0.1,GainMachine=None,NFreqBands=1):
+        """
+        :param GD:
+        :param cachedict: a SharedDict in which internal arrays will be stored
+        :param Gain:
+        :param GainMachine:
+        :param NFreqBands:
+        """
         self.SubPSF=None
         self.GainMachine=GainMachine
         self.CubePSFScales=None
@@ -166,10 +190,14 @@ class ClassMultiScaleMachine():
         self._kappa = self.GD["HMP"]["Kappa"]
         self._stall_threshold = self.GD["Debug"]["CleanStallThreshold"]
         self.GlobalWeightFunction=None
-        self.ListScales=None
-        self.CubePSFScales=None
         self.IsInit_MultiScaleCube=False
-        self.DicoBasisMatrix=None\
+        self.cachedict = cachedict
+        self.ListScales = cachedict.get("ListScales", None)
+        self.CubePSFScales = cachedict.get("CubePSFScales", None)
+        self.DicoBasisMatrix = cachedict.get("BasisMatrix", None)
+        if self.DicoBasisMatrix is not None:
+            self.GlobalWeightFunction = self.DicoBasisMatrix["GlobalWeightFunction"]
+
         # image or FT basis matrix representation? Use Image for now
         # self.Repr = "FT"
         self.Repr = "IM"
@@ -193,6 +221,8 @@ class ClassMultiScaleMachine():
         else:
             self._dump_xyr = None
 
+    def getCacheDict(self):
+        return self.cachedict
 
     def setModelMachine(self,ModelMachine):
         self.ModelMachine=ModelMachine
@@ -223,7 +253,10 @@ class ClassMultiScaleMachine():
 
         self.DicoDirty=DicoDirty
         #self.NChannels=self.DicoDirty["NChannels"]
-
+        PeakSearchImage=self.DicoDirty["MeanImage"]
+        NPixStats = 1000
+        IndStats=np.int64(np.linspace(0,PeakSearchImage.size-1,NPixStats))
+        self.RMS=np.std(np.real(PeakSearchImage.ravel()[IndStats]))
 
         self._Dirty=self.DicoDirty["ImageCube"]
         self._MeanDirty=self.DicoDirty["MeanImage"]
@@ -306,15 +339,6 @@ class ClassMultiScaleMachine():
         if verbose:
             print>>log,"using %s PSF box of size %dx%d in minor cycle subtraction" % (method, dx*2+1, dx*2+1)
 
-    def setListDicoScales(self,ListScales):
-        self.ListScales=ListScales
-
-    def setDicoBasisMatrix(self,DicoBasisMatrix):
-        if DicoBasisMatrix is None: return
-        self.DicoBasisMatrix=DicoBasisMatrix
-        self.CubePSFScales=DicoBasisMatrix["CubePSFScales"]
-        self.GlobalWeightFunction=DicoBasisMatrix["GlobalWeightFunction"]
-
     def MakeMultiScaleCube(self, verbose=False):
         if self.IsInit_MultiScaleCube: return
         T=ClassTimeIt.ClassTimeIt("MakeMultiScaleCube")
@@ -342,7 +366,7 @@ class ClassMultiScaleMachine():
         self.NScales=NScales
         NRatios=len(LRatios)
 
-        Ratios=np.float32(np.array([float(r) for r in LRatios if r!="" and r!="''"]))
+        Ratios=np.float32(np.array([float(r) for r in LRatios if r!="" and r!="''" and float(r) != 1]))
 
         Scales=np.float32(np.array([float(ls) for ls in LScales if ls!="" and ls !="''"]))
 
@@ -390,43 +414,42 @@ class ClassMultiScaleMachine():
         if self.CubePSFScales is None or self.ListScales is None:
             # print>>log,"computing scales"
             #self.ListSumFluxes = []
+            Theta = np.arange(0., np.pi - 1e-3, np.pi / NTheta)
 
-            self.ListScales = []
+            ListParam = []
+            for iScales in range(ScaleStart, NScales):
+                ListParam.append((iScales, 1, 0))
+
+            for iScales in range(ScaleStart, NScales):
+                for ratio in Ratios:
+                    for th in Theta:
+                        ListParam.append((iScales, ratio, th))
+
+            ncubes = NAlpha*(1+len(ListParam))
+            self.CubePSFScales = self.cachedict.addSharedArray("CubePSFScales",
+                                        (ncubes, nch, nx, ny), self.SubPSF.dtype)
+
+            self.ListScales = self.cachedict.addSubdict("ListScales")
             ListPSFScales = []
             for iAlpha in range(NAlpha):
                 FluxRatios=FreqBandsFluxRatio[iAlpha,:]
                 FluxRatios=FluxRatios.reshape((FluxRatios.size,1,1))
-                ThisMFPSF=self.SubPSF[:,0,:,:]*FluxRatios
+                ThisMFPSF = self.CubePSFScales[len(self.ListScales)]
+                ThisMFPSF[:] = self.SubPSF[:,0,:,:]*FluxRatios
                 ThisAlpha=Alpha[iAlpha]
                 #print FluxRatios,ThisAlpha
                 iSlice=0
                 #self.ListSumFluxes.append(1.)
-                ListPSFScales.append(ThisMFPSF)
 
-                self.ListScales.append({"ModelType":"Delta",
-                                        "Scale":iSlice,#"fact":1.,
-                                        "Alpha":ThisAlpha, 
-                                        "CodeTypeScale":0,
-                                        "SumFunc":1.,
-                                        "ModelParams":(0,0,0)})
+                d = self.ListScales.addSubdict(len(self.ListScales))
+                d["ModelType"] = "Delta"
+                d["Scale"] = iSlice
+                d["Alpha"] = ThisAlpha
+                d["CodeTypeScale"] = 0
+                d["SumFunc"] = 1.
+                d["ModelParams"] = (0,0,0)
                 iSlice+=1
 
-                Theta=np.arange(0.,np.pi-1e-3,np.pi/NTheta)
-
-                ListParam=[]
-                for iScales in range(ScaleStart,NScales):
-                    ListParam.append((iScales,1,0))
-
-                if 1 in Ratios:
-                    L=Ratios.tolist()
-                    L.remove(1)
-                    Ratios=np.array(L)
-
-                for iScales in range(ScaleStart,NScales):
-                    for ratio in Ratios:
-                        for th in Theta:
-                            ListParam.append((iScales,ratio,th))
-                
                 #print ListParam
                 for iScales,MinMajRatio,th in ListParam:
                     Major=Scales[iScales]/(2.*np.sqrt(2.*np.log(2.)))
@@ -459,17 +482,17 @@ class ClassMultiScaleMachine():
                     #fact=1./SumGauss#/(np.mean(np.max(np.max(ThisPSF,axis=-1),axis=-1)))
                     #fact=1./Max
                     Gauss*=fact#*ratio
-                    ThisPSF*=fact
-                    ListPSFScales.append(ThisPSF)
+                    self.CubePSFScales[len(self.ListScales),...] = ThisPSF*fact
                     #_,n,_=ThisPSF.shape
                     #Peak=np.mean(ThisPSF[:,n/2,n/2])
-                    self.ListScales.append({"ModelType":"Gaussian",#"fact":fact,
-                                            "Model":Gauss, 
-                                            "ModelParams":PSFGaussPars,
-                                            "Scale":iScales,
-                                            "Alpha":ThisAlpha, 
-                                            "CodeTypeScale":iScales,
-                                            "SumFunc":SumGauss})
+                    d = self.ListScales.addSubdict(len(self.ListScales))
+                    d["ModelType"] = "Gaussian"
+                    d["Model"]=Gauss
+                    d["ModelParams"]=PSFGaussPars
+                    d["Scale"]=iScales
+                    d["Alpha"]=ThisAlpha
+                    d["CodeTypeScale"]=iScales
+                    d["SumFunc"]=SumGauss
 
 
                 iSlice+=1
@@ -506,7 +529,7 @@ class ClassMultiScaleMachine():
                 #                                     "Scale":iScale,
                 #                                     "Alpha":ThisAlpha})
 
-            self.CubePSFScales=np.array(ListPSFScales)
+            assert(len(self.ListScales) == ncubes)
         # else:
         #     print>>log,"scales already loaded"
         T.timeit("1")
@@ -525,7 +548,7 @@ class ClassMultiScaleMachine():
         self.ListTypeScales=[]
         #self.ListPeakPSFScales=[]
         self.FluxScales=[]
-        for DicoScale in self.ListScales:
+        for DicoScale in self.ListScales.itervalues():
             self.ListTypeScales.append(DicoScale["CodeTypeScale"])
             #self.ListPeakPSFScales.append()
             self.FluxScales.append(DicoScale["SumFunc"])
@@ -559,7 +582,7 @@ class ClassMultiScaleMachine():
         T.timeit("init1")
 
         self.nFunc=self.CubePSFScales.shape[0]
-        self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
+        self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales.itervalues()])
 
         self.WeightWidth = self.GD["HMP"].get("Taper",0)
         self.SupWeightWidth = self.GD["HMP"].get("Support",0)
@@ -599,7 +622,6 @@ class ClassMultiScaleMachine():
         T.timeit("other")
         self.IsInit_MultiScaleCube=True
 
-        return self.ListScales, self.CubePSFScales
         #print>>log, "   ... Done"
 
     def MakeBasisMatrix(self):
@@ -666,10 +688,20 @@ class ClassMultiScaleMachine():
         # self.Bias=Bias
         # stop
         #BM=(CubePSFNorm.reshape((nFunc,nch*nx*ny)).T.copy())
-        DicoBasisMatrix = {"CubePSF": CubePSF,
-                            "CubePSFScales": self.CubePSFScales,
+
+        # if called with None, we're filling the cache, so create a subdict in the cache dict
+        if SubSubSubCoord is None:
+            DicoBasisMatrix = self.cachedict.addSubdict("BasisMatrix")
+            DicoBasisMatrix["CubePSF"] = CubePSF
+            DicoBasisMatrix["WeightFunction"] = WeightFunction
+            DicoBasisMatrix["GlobalWeightFunction"] = self.GlobalWeightFunction
+        # else extracting subcube, so return a temporary dict
+        else:
+            DicoBasisMatrix = {"CubePSF": CubePSF,
                             "WeightFunction": WeightFunction,
                             "GlobalWeightFunction": self.GlobalWeightFunction}
+
+
 
         if self.Repr == "IM":
             BM = np.float64(CubePSF.reshape((nFunc,nch*nx*ny)).T)
@@ -1002,9 +1034,12 @@ class ClassMultiScaleMachine():
                     #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()
         elif self.SolveMode=="NNLS":
-            import scipy.optimize
-
+            #HasReverted=False
             Peak=np.max(dirtyVec)
+            # if Peak<0:
+            #     dirtyVec=dirtyVec*-1
+            #     HasReverted=True
+                
             W=WVecPSF.copy()
             # print ":::::::::"
             # W.fill(1.)
@@ -1014,7 +1049,11 @@ class ClassMultiScaleMachine():
             PeakMeanOrigDirty=MeanOrigDirty[xc0[0],yc0[0]]
             dirtyVec=dirtyVec.copy()
             Mask=np.zeros(WVecPSF.shape,np.bool8)
-            for iIter in range(10):
+
+            T=ClassTimeIt.ClassTimeIt()
+            T.disable()
+            NNLSStep=10
+            for iIter in range(100):
                 A=W*BM
                 y=W*dirtyVec
                 d=dirtyVec.reshape((nchan,1,nxp,nyp))[:,0]
@@ -1022,17 +1061,23 @@ class ClassMultiScaleMachine():
 
                 FactNorm=np.abs(PeakMeanOrigDirty/PeakMeanOrigResid)
                 if np.isnan(FactNorm) or np.isinf(FactNorm):
+                    #print "Cond1 %i"%iIter 
                     Sol=np.zeros((A.shape[1],),dtype=np.float32)
                     break
-
+                T.timeit("0")
                 if 1.<FactNorm<10.:
                     y*=FactNorm
                 #print "  ",PeakMeanOrigDirty,PeakMeanOrigResid,PeakMeanOrigDirty/PeakMeanOrigResid
-                x,_=scipy.optimize.nnls(A, y.ravel())
-                #x0=x.copy()
-                # Compute "dirty" solution and residuals
-                ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
 
+                if not(iIter%NNLSStep):
+                    x,_=scipy.optimize.nnls(A, y.ravel())
+                    T.timeit("1")
+                    #x0=x.copy()
+                    # Compute "dirty" solution and residuals
+                    ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
+                Resid=d-ConvSM
+
+                T.timeit("2")
                 # # ### debug
                 # print "x",x
                 # VecConvSM=np.dot(BM,x.reshape((-1,1))).ravel()
@@ -1059,16 +1104,18 @@ class ClassMultiScaleMachine():
 
 
 
+                #x,_=scipy.optimize.nnls(A, y.ravel())
+                #ConvSM=np.dot(BM,x.reshape((-1,1))).reshape((nchan,1,nxp,nyp))[:,0]
                 w=W.reshape((nchan,1,nxp,nyp))[:,0]
                 m=Mask.reshape((nchan,1,nxp,nyp))[:,0]
-                Resid=d-ConvSM
-                sig=np.std(Resid)
+
+                sig=self.RMS#np.std(Resid)
                 MaxResid=np.max(Resid)
                 #sig=np.sqrt(np.sum(w*Resid**2)/np.sum(w))
                 #MaxResid=np.max(w*Resid)
                 
                 # Check if there is contamining nearby sources
-                _,xc1,yc1=np.where((Resid>2*sig)&(Resid==MaxResid))
+                _,xc1,yc1=np.where((Resid>self.GD["HMP"]["OuterSpaceTh"]*sig)&(Resid==MaxResid))
 
                 dirtyVecSub=d
                 Sol=x
@@ -1082,9 +1129,12 @@ class ClassMultiScaleMachine():
 
 
                 # If source is contaminating, substract it with the delta (with alpha=0)
+                T.timeit("3")
                 if xc1.size>0 and MaxResid>Peak/100.:
                     CentralPixel=(xc1[0]==xc0[0] and yc1[0]==yc0[0])
-                    if CentralPixel: break
+                    if CentralPixel: 
+                        #print "CondCentralPix %i"%iIter 
+                        break
                     F=Resid[:,xc1[0],yc1[0]]
                     dx,dy=nxp/2-xc1[0],nyp/2-yc1[0]
                     _,_,nxPSF,nyPSF=self.SubPSF.shape
@@ -1099,25 +1149,17 @@ class ClassMultiScaleMachine():
                     ThisPSF=self.SubPSF[:,0,x0p:x1p,y0p:y1p]
                     _,nxThisPSF,nyThisPSF=ThisPSF.shape
 
-                    # # find the optimal flux value for the two cross contaminating sources case 
-                    # al=np.abs(ThisPSF[:,nxThisPSF/2,nyThisPSF/2])
-                    # MeanAl=np.mean(al)
-                    # if 0.01<MeanAl<0.99:
-                    #     ali=1./al
-                    #     S0e=FpolTrue[:,0].ravel()
-                    #     S1e=OrigDirty[:,xc1[0],yc1[0]]
-                    #     F=(S0e-ali*S1e)/(al-ali)
-                    
+                    #############
                     ThisDirty=ThisPSF*F.reshape((-1,1,1))
                     dirtyVecSub[:,x0d:x1d,y0d:y1d]=d[:,x0d:x1d,y0d:y1d]-ThisDirty
                     dirtyVec=dirtyVecSub.reshape((-1,1))
-                    
-
-
-
-
                     DoBreak=False
+
                 else:
+                    #print "NotContam %i"%iIter 
+                    #print "  xc1.size>0, MaxResid>Peak/100.: ",xc1.size>0, MaxResid>Peak/100.
+
+                    x,_=scipy.optimize.nnls(A, y.ravel())
                     DoBreak=True
 
                 # ####### debug
@@ -1140,13 +1182,14 @@ class ClassMultiScaleMachine():
                 # pylab.colorbar()
                 # pylab.subplot(2,3,5)
                 # pylab.imshow(dirtyVecSub[0],interpolation="nearest")
-                # pylab.title("NewResid")
+                # pylab.title("NewDirty")
                 # pylab.colorbar()
                 # pylab.draw()
                 # pylab.show(False)
                 # pylab.pause(0.1)
                 # #####################
 
+                T.timeit("4")
                 if DoBreak: break
 
 
@@ -1164,6 +1207,8 @@ class ClassMultiScaleMachine():
             #Sol.flat[:]/=self.SumFuncScales.flat[:]
             #print Sol
 
+            #if HasReverted: Sol*=-1
+            
             Mask=np.zeros((Sol.size,),np.float32)
             FuncScale=1.#self.giveSmallScaleBias()
             wCoef=SumCoefScales/self.SumFluxScales*FuncScale

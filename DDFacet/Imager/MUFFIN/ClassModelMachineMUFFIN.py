@@ -45,7 +45,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         ClassModelMachinebase.ClassModelMachine.__init__(self, *args, **kwargs)
         self.RefFreq=None
         self.DicoModel={}
-        self.DicoModel["Type"]="MORESANE"
+        self.DicoModel["Type"]="MUFFIN"
+        self.ModelImageCube=0
 
     def setRefFreq(self,RefFreq,Force=False):#,AllFreqs):
         if self.RefFreq is not None and not Force:
@@ -57,6 +58,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setFreqMachine(self,GridFreqs, DegridFreqs):
         # Initialise the Frequency Machine
         self.FreqMachine = ClassFrequencyMachine.ClassFrequencyMachine(GridFreqs, DegridFreqs, self.DicoModel["RefFreq"], self.GD)
+        self.GridFreqs=GridFreqs
 
     def ToFile(self,FileName,DicoIn=None):
         print>>log, "Saving dico model to %s"%FileName
@@ -67,7 +69,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         D["GD"]=self.GD
         D["ModelShape"]=self.ModelShape
-        D["Type"]="MORESANE"
+        D["FreqsCube"]=self.GridFreqs
+        D["Type"]="MUFFIN"
 
         MyPickle.Save(D,FileName)
 
@@ -75,7 +78,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         D=self.DicoModel
         D["GD"]=self.GD
         D["ModelShape"]=self.ModelShape
-        D["Type"]="MORESANE"
+        D["Type"]="MUFFIN"
         return D
 
     def FromFile(self,FileName):
@@ -91,9 +94,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.RefFreq=self.DicoModel["RefFreq"]
         self.ModelShape=self.DicoModel["ModelShape"]
             
-
-        
-
         
     def setModelShape(self,ModelShape):
         self.ModelShape=ModelShape
@@ -101,50 +101,23 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
     def setThreshold(self,Th):
         self.Th=Th
 
+    def setMUFFINModel(self,ModelImageCube):
+        self.ModelImageCube += ModelImageCube
+
+    def GiveModelImage(self,FreqIn=None):
         
+        FreqIn = np.array([FreqIn.ravel()]).flatten()
 
-    def setModel(self,Image,Order):
-        try:
-            self.DicoModel[Order]+=Image
-        except:
-            self.DicoModel[Order]=Image
+        iFreqSliceMuffinCube = np.argmin(np.abs(FreqIn.reshape(-1,1)-self.GridFreqs.reshape(1,-1)),axis=1)
 
-            
-            
-
-
-    def GiveModelImage(self,FreqIn=None,out=None):
-        
-        
-        RefFreq=self.DicoModel["RefFreq"]
-        if FreqIn is None:
-            FreqIn=np.array([RefFreq])
-
-        FreqIn=np.array([FreqIn.ravel()]).flatten()
-
-
-        # print "ModelMachine GiveModelImage:",FreqIn, RefFreq
-
+        nchan = FreqIn.size
         _,npol,nx,ny=self.ModelShape
-        nchan=FreqIn.size
-        if out is not None:
-            if out.shape != (nchan,npol,nx,ny) or out.dtype != np.float32:
-                raise RuntimeError("supplied image has incorrect type (%s) or shape (%s)" % (out.dtype, out.shape))
-            ModelImage = out
-        else:
-            ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
+        ModelImage = np.zeros((nchan,npol,nx,ny),dtype=np.float32)
 
-        if 0 in self.DicoModel.keys():
-            C0=self.DicoModel[0]
-        else:
-            C0=0
-
-        if 1 in self.DicoModel.keys():
-            C1=self.DicoModel[1]
-        else:
-            C1=0
-
-        ModelImage[:,:,:,:]=C0*(FreqIn.reshape((-1,1,1,1))/self.RefFreq)**C1
+        ModelImage_ = self.ModelImageCube[:,:,iFreqSliceMuffinCube]
+        ModelImage_ = ModelImage_.transpose(2,1,0)
+        
+        ModelImage[:,0,:,:] = ModelImage_
  
         return ModelImage
         

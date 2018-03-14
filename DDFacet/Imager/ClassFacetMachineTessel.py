@@ -37,6 +37,7 @@ from DDFacet.Other import reformat
 import os
 from DDFacet.ToolsDir.ModToolBox import EstimateNpix
 from DDFacet.Other import ModColor
+import tables
 
 from DDFacet.Imager.ClassImToGrid import ClassImToGrid
 from matplotlib.path import Path
@@ -97,7 +98,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
         if isinstance(SolsFile, list):
             SolsFile = self.GD["DDESolutions"]["DDSols"][0]
 
-        if SolsFile and (not (".npz" in SolsFile)):
+        if SolsFile and (not (".npz" in SolsFile)) and (not (".h5" in SolsFile)):
             Method = SolsFile
             ThisMSName = reformat.reformat(
                 os.path.abspath(MSName), LastSlash=False)
@@ -112,13 +113,20 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             raNode = ClusterNodes.ra
             decNode = ClusterNodes.dec
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
-        elif SolsFile != "":
+        elif ".npz" in SolsFile:
             print>> log, "Taking facet directions from solutions file: %s" % SolsFile
             ClusterNodes = np.load(SolsFile)["ClusterCat"]
             ClusterNodes = ClusterNodes.view(np.recarray)
             raNode = ClusterNodes.ra
             decNode = ClusterNodes.dec
             lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
+        elif ".h5" in  SolsFile:
+            print>> log, "Taking facet directions from HDF5 solutions file: %s" % SolsFile
+            H=tables.open_file(SolsFile)
+            raNode,decNode=H.root.sol000.source[:]["dir"].T
+            lFacet, mFacet = self.CoordMachine.radec2lm(raNode, decNode)
+            H.close()
+            del(H)
         else:
             print>> log, "Taking facet directions from regular grid"
             regular_grid = True

@@ -42,7 +42,9 @@ class ClassBeamMean():
         self.DoCentralNorm=self.GD["Beam"]["CenterNorm"]
         self.SmoothBeam=None
         self.CheckCache()
-        if self.CacheValid: return
+        if self.CacheValid:
+            MyLogger.setLoud(["ClassJones","ClassLOFARBeam"])
+            return
 
         #self.GD["Beam"]["CenterNorm"]=0
 
@@ -173,7 +175,6 @@ class ClassBeamMean():
             
             WW=Ws**2
             T.timeit("4")
-            print>>log, 'WW.shape is', WW.shape
             WW=WW.reshape((1,ind.size,MSnchan))
             T.timeit("5")
             JJsq=WW*JJ**2

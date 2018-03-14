@@ -20,7 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import numpy as np
 from DDFacet.ToolsDir import ClassRRGP
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from DDFacet.Other import MyPickle
 
 class ClassFrequencyMachine(object):

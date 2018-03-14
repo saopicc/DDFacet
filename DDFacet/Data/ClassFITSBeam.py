@@ -70,8 +70,9 @@ class ClassFITSBeam (object):
         if not self.nchan:
             self.nchan = len(self.freqs)
         else:
-            chanstep = max(1, len(self.freqs) / self.nchan)
-            self.freqs = self.freqs[chanstep/2::chanstep]
+            cw = self.ms.ChanWidth.ravel()          
+            fq = np.linspace(self.freqs[0]-cw[0]/2, self.freqs[-1]+cw[-1]/2, self.nchan+1)
+            self.freqs = (fq[:-1] + fq[1:])/2
 
         feed = opts["FITSFeed"]
         if feed:
@@ -179,6 +180,7 @@ class ClassFITSBeam (object):
         df = (self.freqs[1]-self.freqs[0])/2 if len(self.freqs)>1 else self.freqs[0]
         domains[:,0] = self.freqs-df
         domains[:,1] = self.freqs+df
+#        import pdb; pdb.set_trace()
         return domains
 
     def evaluateBeam (self, t0, ra, dec):

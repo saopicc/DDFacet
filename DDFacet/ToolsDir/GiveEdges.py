@@ -20,7 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import numpy as np
 
-def GiveEdges((xc0,yc0),N0,(xc1,yc1),N1):
+def GiveEdges((xc0,yc0),N0,(xc1,yc1),N1,Parity=None):
     M_xc=xc0
     M_yc=yc0
     NpixMain=N0
@@ -51,8 +51,28 @@ def GiveEdges((xc0,yc0),N0,(xc1,yc1),N1):
     y1facet=NpixFacet-dy1
     y1main+=1
     
+    IsEven=(lambda x: x%2==0)
+
+    if Parity is not None:
+        if Parity=="Even":
+            F=lambda x: IsEven(x)
+        elif Parity=="Odd":
+            F=lambda x: not IsEven(x)
+
+        dx=x1main-x0main
+        dy=y1main-y0main
+        if F(dx):
+            x1main-=1
+            x1facet-=1
+
+        if F(dy):
+            y1main-=1
+            y1facet-=1
+
     Aedge=[x0main,x1main,y0main,y1main]
     Bedge=[x0facet,x1facet,y0facet,y1facet]
+     
+
     return Aedge,Bedge
 
 
