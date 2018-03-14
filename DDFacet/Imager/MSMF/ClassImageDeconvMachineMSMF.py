@@ -503,7 +503,10 @@ class ClassImageDeconvMachine():
             # see https://github.com/cyriltasse/DDFacet/issues/325
             # So use array copy instead (which makes an intermediate array)
             if cube.shape[0] > 1:
-                meanimage[...] = cube.mean(axis=0)
+                #meanimage[...] = cube.mean(axis=0)
+                W=np.float32(self.DicoDirty["WeightChansImages"])
+                meanimage[...] = np.sum(cube*W.reshape((-1,1,1,1)))
+                # meanimage[...] = cube.mean(axis=0)
                 # cube.mean(axis=0, out=meanimage)
             else:
                 meanimage[...] = cube[0,...]
