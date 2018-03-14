@@ -334,7 +334,7 @@ class ClassIslandDistanceMachine():
 
         return ListEdgesIslands
 
-    def ConvexifyIsland(self,ListIslands,PolygonFile=None):
+    def ConvexifyIsland(self,ListIslands):#,PolygonFile=None):
         print>>log,"  Convexify islands"
         ListConvexIslands=[]
         ListPolygons=[]
@@ -386,10 +386,11 @@ class ClassIslandDistanceMachine():
             except:
                 ListConvexIslands.append(Island)
 
-        if PolygonFile is not None:
-            print>>log,"  ----> Saving polygons as %s"%PolygonFile
-            MyPickle.Save(ListPolygons,PolygonFile)
-
+        # if PolygonFile is not None:
+        #     print>>log,"  ----> Saving polygons as %s"%PolygonFile
+        #     MyPickle.Save(ListPolygons,PolygonFile)
+        self.ListPolygons=ListPolygons
+        
         return ListConvexIslands
 
     def MergeIslands(self,ListIslands):
