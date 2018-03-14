@@ -335,7 +335,10 @@ class ClassImageDeconvMachine():
         # self._PSF=self.MSMachine._PSF
         self._CubeDirty = MSMachine._Dirty
         self._MeanDirty = MSMachine._MeanDirty
-
+        
+        # vector of per-band overall weights -- starts out as N,1 in the dico, so reshape
+        W = np.float32(self.DicoDirty["WeightChansImages"])
+        self._band_weights = W.reshape(W.size)[:, np.newaxis, np.newaxis, np.newaxis]
 
         if self._peakMode is "sigma":
             print>>log,"Will search for the peak in the SNR-weighted dirty map"
@@ -503,7 +506,7 @@ class ClassImageDeconvMachine():
             # see https://github.com/cyriltasse/DDFacet/issues/325
             # So use array copy instead (which makes an intermediate array)
             if cube.shape[0] > 1:
-                meanimage[...] = cube.mean(axis=0)
+                meanimage[...] = (cube*self._band_weights).sum(axis=0)
                 # cube.mean(axis=0, out=meanimage)
             else:
                 meanimage[...] = cube[0,...]
