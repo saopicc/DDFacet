@@ -26,6 +26,8 @@ from SkyModel.PSourceExtract import Gaussian
 from SkyModel.Sky import ModRegFile
 from DDFacet.ToolsDir import ModFFTW
 import DDFacet.Imager.SSD.ClassIslandDistanceMachine
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+from DDFacet.Other import MyPickle
 
 def read_options():
     desc=""" cyril.tasse@obspm.fr"""
@@ -208,7 +210,44 @@ class ClassMakeMask():
                                                                                                            DicoDirty,
                                                                                                            IdSharedMem=IdSharedMem)
             ListIslands=IslandDistanceMachine.SearchIslands(None,Image=self.Restored)
-            ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands,PolygonFile="%s.pickle"%OutMaskExtended)
+            ListIslands=IslandDistanceMachine.ConvexifyIsland(ListIslands)#,PolygonFile="%s.pickle"%OutMaskExtended)
+            ListPolygons=IslandDistanceMachine.ListPolygons
+
+            #ff,pol,_,_dec,ra=self.CasaIm.toworld((0,0,0,0))
+            ListPolygonsRADEC=[]
+            for Polygon in ListPolygons:
+                xx,yy=Polygon.T
+                ThisPolygon=[]
+                for iP in range(xx.shape[0]):
+                    xcc,ycc =xx[iP],yy[iP]
+                    ff,pol,dec,ra=self.CasaIm.toworld((0,0,xcc,ycc))
+                    ThisPolygon.append((ra,dec))
+                ListPolygonsRADEC.append(np.array(ThisPolygon))
+            FName="%s.pickle"%OutMaskExtended
+            print>>log,"Saving %s"%FName
+            MyPickle.Save(ListPolygonsRADEC,FName)
+
+            REGName="%s.reg"%OutMaskExtended
+            RM=ModRegFile.PolygonNpToReg(ListPolygonsRADEC,REGName)
+            RM.makeRegPolyREG()
+            
+            # TestArray=np.zeros_like(CurrentNegMask)
+            # nx=TestArray.shape[-1]
+            # xx,yy=20,100
+            # TestArray[0,0,xx,yy]=1
+            # PutDataInNewImage(self.FitsFile,"TestCoord.fits",np.float32(TestArray))
+            # ff,pol,dec,ra=self.CasaIm.toworld((0,0,xx,yy))
+            # pp=[[xx,yy],[yy,xx],
+            #     [nx/2-xx,yy],[nx/2+xx,yy],
+            #     [nx/2-yy,xx],[nx/2+yy,xx]]
+            # for isol in range(len(pp)):
+            #     xx,yy=pp[isol]
+            #     ff,pol,dec,ra=self.CasaIm.toworld((0,0,xx,yy))
+            #     sRA =rad2hmsdms(ra,Type="ra").replace(" ",":")
+            #     sDEC =rad2hmsdms(dec,Type="dec").replace(" ",":")
+            #     stop
+            
+            
             MaskOut=np.zeros_like(CurrentNegMask)
             N=0
             for Island in ListIslands:
@@ -264,6 +303,8 @@ class ClassMakeMask():
     #     print " ... done"
     #     ind=np.where(self.Noise==0.)
     #     self.Noise[ind]=1e-10
+
+
 
     def MakeMask(self):
         self.ImMask=(self.Restored[0,0,:,:]>self.Th*self.Noise)

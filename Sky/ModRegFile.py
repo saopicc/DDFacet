@@ -5,6 +5,37 @@ def test():
     R.Read()
     R.Cluster()
 
+from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
+
+
+class PolygonNpToReg():
+    def __init__(self,ListPol,RegFile):
+        self.ListPol=ListPol
+        self.RegFile=RegFile
+        
+    def makeRegPolyREG(self):
+        f=open(self.RegFile,"w")
+        ListPol=self.ListPol
+
+        
+        f.write("""# Region fiale format: DS9 version 4.1\n""")
+        f.write("""global color=green dashlist=8 3 width=1 font="helvetica 10 normal roman" select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1\n""")
+        f.write("fk5\n")
+        for PolyGon in ListPol:
+            Lra,Ldec=PolyGon.T
+            for iLine in range(Lra.size-1):
+                ra0,dec0=Lra[iLine],Ldec[iLine]
+                ra1,dec1=Lra[iLine+1],Ldec[iLine+1]
+                sRA0=rad2hmsdms(ra0,Type="ra").replace(" ",":")
+                sRA1=rad2hmsdms(ra1,Type="ra").replace(" ",":")
+                sDEC0=rad2hmsdms(dec0,Type="dec").replace(" ",":")
+                sDEC1=rad2hmsdms(dec1,Type="dec").replace(" ",":")
+                f.write("line(%s,%s,%s,%s) # line=0 0\n"%(sRA0,sDEC0,sRA1,sDEC1))
+        f.close()
+
+
+
+    
 class RegToNp():
     def __init__(self,RegName="/data/tasse/BOOTES/FirstPealed.reg"):
         self.REGFile=RegName

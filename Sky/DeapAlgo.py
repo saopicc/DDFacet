@@ -26,6 +26,7 @@ you really want them to do.
 """
 
 import random
+from killMS.Other.progressbar import ProgressBar
 
 from deap import tools
 from DDFacet.Other import ClassTimeIt
@@ -141,6 +142,7 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
        Basic Algorithms and Operators", 2000.
     """
     T=ClassTimeIt.ClassTimeIt("VarAnd")
+    T.disable()
     iT=0
     logbook = tools.Logbook()
     T.timeit(iT); iT+=1
@@ -161,11 +163,16 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
     T.timeit(iT); iT+=1
 
     record = stats.compile(population) if stats else {}
-    logbook.record(gen=0, nevals=len(invalid_ind), **record)
-    if verbose:
-        print logbook.stream
+    # logbook.record(gen=0, nevals=len(invalid_ind), **record)
+    # if verbose:
+    #     print logbook.stream
     T.timeit(iT); iT+=1
 
+    pBAR= ProgressBar('white', width=50, block='=', empty=' ',Title="Solving ", HeaderSize=10,TitleSize=13)
+    NDone=0
+    NJob=ngen
+    intPercent=int(100*  NDone / float(NJob))
+    pBAR.render(intPercent, '%4i/%i' % (NDone,NJob))
     # Begin the generational process
     for gen in range(1, ngen+1):
         # Select the next generation individuals
@@ -194,14 +201,19 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
         
         # Append the current generation statistics to the logbook
         record = stats.compile(population) if stats else {}
-        logbook.record(gen=gen, nevals=len(invalid_ind), **record)
-        if verbose:
-            print logbook.stream        
+#        logbook.record(gen=gen, nevals=len(invalid_ind), **record)
+#        if verbose:
+#            print logbook.stream        
         T.timeit(iT); iT+=1
 
         if PlotMachine is not None:
             PlotMachine.Plot(halloffame)
         T.timeit(iT); iT+=1
+
+        NDone=gen
+        NJob=ngen
+        intPercent=int(100*  NDone / float(NJob))
+        pBAR.render(intPercent, '%4i/%i' % (NDone,NJob))
 
             
     return population, logbook
