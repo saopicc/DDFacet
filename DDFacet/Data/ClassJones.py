@@ -703,9 +703,9 @@ class ClassJones():
                 nd,_,_,_,_=Beam.shape
                 Ones=np.ones((nd, 1, 1, 1, 1),np.float32)
                 Beam0inv=Beam0inv*Ones
-                Beam= ModLinAlg.BatchDot(Beam0inv, Beam)
-                
- 
+                BeamN= ModLinAlg.BatchDot(Beam0inv, Beam)
+                Beam=BeamN
+
             DicoBeam["Jones"][itime]=Beam
             NDone=itime+1
             pBAR.render(NDone,Tm.size)
