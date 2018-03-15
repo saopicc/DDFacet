@@ -128,7 +128,7 @@ class ClassFacetMachine():
         self.JonesNorm = None
         self.FacetNorm = None
 
-        self._facet_grids = self.DATA = None
+        self._facet_grids = self._CF = self.DATA = None
         self._grid_job_id = self._fft_job_id = self._degrid_job_id = None
         self._smooth_job_label=None
 
@@ -159,6 +159,8 @@ class ClassFacetMachine():
 
     def __del__(self):
         self.releaseGrids()
+        if self._delete_cf_in_destructor:
+            self.releaseCFs()
 
     def releaseGrids(self):
         if self._facet_grids is not None:
@@ -167,6 +169,11 @@ class ClassFacetMachine():
         for GM in self.DicoGridMachine.itervalues():
             if "Dirty" in GM:
                 del GM["Dirty"]
+
+    def releaseCFs(self):
+        if self._CF is not None:
+            self._CF.delete()
+            self._CF = None
 
     def setAverageBeamMachine(self,AverageBeamMachine):
         self.AverageBeamMachine=AverageBeamMachine
@@ -608,8 +615,10 @@ class ClassFacetMachine():
         # if we have another FacetMachine supplied, check if the same CFs apply
         if other_fm and self.Oversize == other_fm.Oversize:
             self._CF = other_fm._CF
+            self._delete_cf_in_destructor = False
             self.IsDDEGridMachineInit = True
             return
+        self._delete_cf_in_destructor = True
         # get wmax from MS (if needed)
         wmax = self.GD["CF"]["wmax"]
         if wmax:

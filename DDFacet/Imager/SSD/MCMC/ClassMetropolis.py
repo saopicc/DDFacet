@@ -1,19 +1,4 @@
-
-import random
-
-#from deap import base
-from deap import base
-from deap import creator
-from deap import tools
-import numpy
-import multiprocessing
-from DDFacet.Array import NpShared
-
-from DDFacet.ToolsDir import ModFFTW
 import numpy as np
-import os
-#import Select
-
 from DDFacet.Imager.SSD import ClassArrayMethodSSD
 
 
@@ -184,9 +169,7 @@ class ClassMetropolis():
     def main(self,NSteps=1000):
         self.DicoChains=self.ArrayMethodsMachine.GiveMetroChains(self.pop,NSteps=NSteps)
         self.ArrayMethodsMachine.KillWorkers()
-        NpShared.DelArray("%sPSF_Island_%4.4i"%(self.IdSharedMem,self.iIsland))
         Model,V,Vmin,sV=self.StackChain()
-        NpShared.DelAll("%sDicoChain"%(self.IdSharedMem))
 
         SModelArray1=self.ArrayMethodsMachine.PM.ArrayToSubArray(V,"S")
         TotFlux1=np.sum(SModelArray1)
