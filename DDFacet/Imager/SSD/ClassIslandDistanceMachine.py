@@ -61,16 +61,26 @@ class ClassIslandDistanceMachine():
         self.PSFServer=PSFServer
         self.PSFCross=None
         self.DicoDirty=DicoDirty
-        self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
+        if self.GD is not None:
+            self.NCPU=(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
+        else:
+            self.NCPU=psutil.cpu_count()
         self.IdSharedMem=IdSharedMem
 
-    def SearchIslands(self,Threshold):
+    def SearchIslands(self,Threshold,Image=None):
         print>>log,"Searching Islands"
-        Dirty=self.DicoDirty["MeanImage"]
-        #self.IslandArray[0,0]=(Dirty[0,0]>Threshold)|(self.IslandArray[0,0])
-        #MaskImage=(self.IslandArray[0,0])&(np.logical_not(self._MaskArray[0,0]))
-        #MaskImage=(np.logical_not(self._MaskArray[0,0]))
-        MaskImage=(np.logical_not(self._MaskArray[0,0]))
+        if Image is not None:
+            Dirty=Image
+        else:
+            Dirty=self.DicoDirty["MeanImage"]
+        
+        # self.IslandArray[0,0]=(Dirty[0,0]>Threshold)|(self.IslandArray[0,0])
+        # MaskImage=(self.IslandArray[0,0])&(np.logical_not(self._MaskArray[0,0]))
+        # MaskImage=(np.logical_not(self._MaskArray[0,0]))
+
+        MaskImage=None
+        if self._MaskArray is not None:
+            MaskImage=(np.logical_not(self._MaskArray[0,0]))
         Islands=ClassIslands.ClassIslands(Dirty[0,0],MaskImage=MaskImage,
                                           MinPerIsland=0,DeltaXYMin=0)
         Islands.FindAllIslands()
@@ -78,12 +88,13 @@ class ClassIslandDistanceMachine():
         ListIslands=Islands.LIslands
 
         print>>log,"  found %i islands"%len(ListIslands)
-        dx=self.GD["SSDClean"]["NEnlargePars"]
-        if dx>0:
-            print>>log,"  increase their sizes by %i pixels"%dx
-            IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
-            for iIsland in range(len(ListIslands)):#self.NIslands):
-                ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
+        if self.GD is not None:
+            dx=self.GD["SSDClean"]["NEnlargePars"]
+            if dx>0:
+                print>>log,"  increase their sizes by %i pixels"%dx
+                IncreaseIslandMachine=ClassIncreaseIsland.ClassIncreaseIsland()
+                for iIsland in range(len(ListIslands)):#self.NIslands):
+                    ListIslands[iIsland]=IncreaseIslandMachine.IncreaseIsland(ListIslands[iIsland],dx=dx)
 
         
         return ListIslands
@@ -182,6 +193,7 @@ class ClassIslandDistanceMachine():
         C1=(self.DistCross[iIsland]<D1)
         setNearbyIsland=set(np.where( (CTh | C0) & (C1) )[0].tolist())
         setNearbyIsland=setNearbyIsland.difference(SetThisIsland)
+        
         #print "  #%3.3i <- %i islands"%(iIsland,len(setNearbyIsland))
         if len(setNearbyIsland)>0:
             SetThisIsland=SetThisIsland.union(setNearbyIsland)
@@ -226,7 +238,9 @@ class ClassIslandDistanceMachine():
         ListIslandMerged=[]
         self.setCheckedIslands=set([])
         for iIsland in range(NIslands):
-            #print "Main %i"%iIsland
+            x0,y0=np.array(ListIslands[iIsland]).T
+            #print "Main %i (%f, %f)"%(iIsland,np.mean(x0),np.mean(y0))
+            
             NDone+=1
             intPercent=int(100*  NDone / float(NJobs))
             pBAR.render(NDone,NJobs)

@@ -143,8 +143,8 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
     //printf("%f %f %f %f = %f\n",PI,Dnu,C,phase,phi);
     if(phi!=0.){
       df=(float)(sin((double)phi)/((double)phi));
-      /* if( df<0 ) */
-      /*   df=0; */
+//      if( df<0 )
+//        df=0;
       DecorrFactor*=df;
     };
   };
@@ -160,8 +160,8 @@ float GiveDecorrelationFactor(int FSmear, int TSmear,
     phi=PI*(nu/C)*dphase;
     if(phi!=0.){
       df=(sin(phi)/(phi));
-      /* if( df<0 ) */
-      /*   df=0; */
+//      if( df<0 )
+//        df=0;
       DecorrFactor*=df;
     };
   };

@@ -579,7 +579,7 @@ class ClassImagerDeconv():
                 self.MeanJonesNorm = None
                 self.JonesNorm = None
 
-            if self.DicoDirty.get("LastMask") is not None:
+            if self.DicoDirty.get("LastMask") is not None and self.GD["Mask"]["Auto"]:
                 self.MaskMachine.joinExternalMask(self.DicoDirty["LastMask"])
 
         if psf_valid:

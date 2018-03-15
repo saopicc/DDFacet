@@ -23,10 +23,12 @@ from DDFacet.Other import MyLogger
 
 log= MyLogger.getLogger("ClassMultiScaleMachine")
 from DDFacet.Array import ModLinAlg
+from DDFacet.Array import lsqnonneg
 from DDFacet.ToolsDir import ModFFTW
 from DDFacet.ToolsDir import ModToolBox
 from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
+import scipy.optimize
 
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 
@@ -1039,9 +1041,12 @@ class ClassMultiScaleMachine():
                     #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()
         elif self.SolveMode=="NNLS":
-            import scipy.optimize
-
+            #HasReverted=False
             Peak=np.max(dirtyVec)
+            # if Peak<0:
+            #     dirtyVec=dirtyVec*-1
+            #     HasReverted=True
+                
             W=WVecPSF.copy()
             # print ":::::::::"
             # W.fill(1.)
@@ -1055,7 +1060,7 @@ class ClassMultiScaleMachine():
             T=ClassTimeIt.ClassTimeIt()
             T.disable()
             NNLSStep=10
-            for iIter in range(1000):
+            for iIter in range(100):
                 A=W*BM
                 y=W*dirtyVec
                 d=dirtyVec.reshape((nchan,1,nxp,nyp))[:,0]
@@ -1209,6 +1214,8 @@ class ClassMultiScaleMachine():
             #Sol.flat[:]/=self.SumFuncScales.flat[:]
             #print Sol
 
+            #if HasReverted: Sol*=-1
+            
             Mask=np.zeros((Sol.size,),np.float32)
             FuncScale=1.#self.giveSmallScaleBias()
             wCoef=SumCoefScales/self.SumFluxScales*FuncScale

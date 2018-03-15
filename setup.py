@@ -31,7 +31,7 @@ import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
-__version__ = "0.3.2"
+__version__ = "0.3.3"
 build_root=os.path.dirname(__file__)
 
 def backend(compile_options):
@@ -111,12 +111,11 @@ setup(name=pkg,
             "astropy >= 1.3.3",
             "deap >= 1.0.1", 
             "ipdb >= 0.10.3",
-            "python-casacore >= 2.1.2",
+            "python-casacore >= 2.1.0",
             "pyephem >= 3.7.6.0",
             "numexpr >= 2.6.2",
-            "pyfits >= 3.4",
-            "matplotlib >= 2.0.2",
-            "scipy >= 0.19.0",
+            "matplotlib >= 2.0.0",
+            "scipy >= 0.16.0",
             "astro-kittens >= 0.3.3",
             "meqtrees-cattery >= 1.5.1",
             "owlcat >= 1.4.2",
@@ -124,7 +123,7 @@ setup(name=pkg,
             "psutil >= 5.2.2",
             "py-cpuinfo >= 3.2.0",
             "tables >= 3.3.0",
-            "prettytable >= 0.7.2",
+            "prettytable >= 0.7.2"
       ],
       include_package_data=True,
       zip_safe=False,

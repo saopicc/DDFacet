@@ -129,6 +129,11 @@ class ClassImageDeconvMachine():
 
         self._prevPeak = None
 
+    def setNCPU(self,NCPU):
+        self.NCPU=NCPU
+        numexpr.set_num_threads(NCPU)
+
+        
     def __del__ (self):
         if type(self.facetcache) is shared_dict.SharedDict:
             self.facetcache.delete()
@@ -204,7 +209,8 @@ class ClassImageDeconvMachine():
         self._NoiseMap = NoiseMap
         self._PNRStop = PNRStop
         self._peakMode = "sigma"
-
+        
+        
     def _initMSM_handler(self, fcdict, psfdict, iFacet, SideLobeLevel, OffsetSideLobe, centralFacet):
         # init PSF server from PSF shared dict
         self.SetPSF(psfdict, quiet=True)
@@ -334,7 +340,10 @@ class ClassImageDeconvMachine():
         # self._PSF=self.MSMachine._PSF
         self._CubeDirty = MSMachine._Dirty
         self._MeanDirty = MSMachine._MeanDirty
-
+        
+        # vector of per-band overall weights -- starts out as N,1 in the dico, so reshape
+        W = np.float32(self.DicoDirty["WeightChansImages"])
+        self._band_weights = W.reshape(W.size)[:, np.newaxis, np.newaxis, np.newaxis]
 
         if self._peakMode is "sigma":
             print>>log,"Will search for the peak in the SNR-weighted dirty map"
@@ -502,7 +511,7 @@ class ClassImageDeconvMachine():
             # see https://github.com/cyriltasse/DDFacet/issues/325
             # So use array copy instead (which makes an intermediate array)
             if cube.shape[0] > 1:
-                meanimage[...] = cube.mean(axis=0)
+                meanimage[...] = (cube*self._band_weights).sum(axis=0)
                 # cube.mean(axis=0, out=meanimage)
             else:
                 meanimage[...] = cube[0,...]
@@ -642,7 +651,13 @@ class ClassImageDeconvMachine():
         # return condition indicating cleaning is to be continued
         cont = True
 
-        if self._previous_initial_peak is not None and abs(ThisFlux) > self.GD["HMP"]["MajorStallThreshold"]*self._previous_initial_peak:
+        CondPeak=(self._previous_initial_peak is not None)
+        CondDiverge=False
+        if self._previous_initial_peak is not None:
+            CondDiverge=(abs(ThisFlux) > self.GD["HMP"]["MajorStallThreshold"]*self._previous_initial_peak)
+        CondPeakType=(self._peakMode!="sigma")
+
+        if CondPeak and CondDiverge and CondPeakType:
             print>>log,ModColor.Str("STALL! dirty image peak %10.6g Jy, was %10.6g at previous major cycle."
                         % (ThisFlux, self._previous_initial_peak), col="red")
             print>>log,ModColor.Str("This will be the last major cycle")
@@ -749,6 +764,15 @@ class ClassImageDeconvMachine():
                 # x,y,ThisFlux=NpParallel.A_whereMax(self.Dirty,NCPU=self.NCPU,DoAbs=1)
                 x, y, peak = NpParallel.A_whereMax(
                     self._PeakSearchImage, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
+
+                if self.GD["HMP"]["FractionRandomPeak"] is not None:
+                    op=lambda x: x
+                    if DoAbs: op=lambda x: np.abs(x)
+                    _,_,indx,indy=np.where((op(self._PeakSearchImage)>=peak*self.GD["HMP"]["FractionRandomPeak"]) & np.logical_not(CurrentNegMask))
+                    ii=np.int64(np.random.rand(1)[0]*indx.size)
+                    x,y=indx[ii],indy[ii]
+                    peak=op(self._PeakSearchImage[0,0,x,y])
+
 
                 ThisFlux = self._MeanDirty[0,0,x,y] if self._peakMode is "weighted" else peak
                 if DoAbs:
