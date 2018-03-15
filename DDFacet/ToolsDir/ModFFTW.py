@@ -312,21 +312,25 @@ def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
       Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
   return Out,in2
 
-def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None):
+def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None,Out=None):
     # a drop-in replacement for ConvolveGaussianScipy which uses
     # _convolveSingleGaussianNP . The factor sqrt(2) here in 'pixel
     # size' is a fudge to make the two routines agree: the
     # Gaussian/Gaussian2D code appears to be missing the factor 2 on
     # the denominator of the Gaussian function it computes
     nch,npol,_,_=Ain0.shape
-    Out=np.zeros_like(Ain0)
+    if Out is None:
+        Out = np.zeros_like(Ain0)
+    else:
+        assert Out.shape == Ain0.shape and Out.dtype == Ain0.dtype, "Out argument should have same shape/type as input"
     dict={'in':Ain0,'out':Out}
     if GaussPar is None:
         GaussPar=(Sig,Sig,0)
     for ch in range(nch):
         # replacing NP->FFTW.  See discussion in https://github.com/cyriltasse/DDFacet/issues/463
         Aout,PSF=_convolveSingleGaussianFFTW(dict,'in','out',ch,np.sqrt(2),GaussPar,return_gaussian=True)
-        Out[ch,:,:,:]=Aout
+        ### this should not be necessary: _convolveSingleGaussianFFTW() already stores to dict['out'][ch], which is Out[ch]
+        # Out[ch,:,:,:]=Aout
     return Out,PSF
 
 def ConvolveGaussianSimpleWrapper(Ain0, CellSizeRad=1.0, Sig=1.0, GaussPars=None):

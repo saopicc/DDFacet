@@ -433,7 +433,8 @@ class ClassMultiScaleMachine():
                 FluxRatios=FreqBandsFluxRatio[iAlpha,:]
                 FluxRatios=FluxRatios.reshape((FluxRatios.size,1,1))
                 ThisMFPSF = self.CubePSFScales[len(self.ListScales)]
-                ThisMFPSF[:] = self.SubPSF[:,0,:,:]*FluxRatios
+                ThisMFPSF[:] = self.SubPSF[:,0,:,:]
+                ThisMFPSF *= FluxRatios
                 ThisAlpha=Alpha[iAlpha]
                 #print FluxRatios,ThisAlpha
                 iSlice=0
@@ -459,7 +460,14 @@ class ClassMultiScaleMachine():
                     #ratio=np.sum(ModFFTW.GiveGauss(101,CellSizeRad=1.,GaussPars=PSFGaussPars))/np.sum(Gauss)
                     #Gauss*=ratio
                     #ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBands)[:,0,:,:]#[0,0]
-                    ThisPSF,Gauss=ModFFTW.ConvolveGaussianWrapper(ThisMFPSF.reshape((nch,1,nx,ny)),Sig=Major,GaussPar=PSFGaussPars)#[0,0]
+
+
+                    ThisPSF = self.CubePSFScales[len(self.ListScales),...]
+
+                    _,Gauss = ModFFTW.ConvolveGaussianWrapper(ThisMFPSF.reshape((nch,1,nx,ny)),
+                                                              Out=ThisPSF.reshape((nch,1,nx,ny)),
+                                                              Sig=Major,
+                                                              GaussPar=PSFGaussPars)
 
                     # import pylab
                     # pylab.clf()
@@ -471,7 +479,6 @@ class ClassMultiScaleMachine():
                     # import time
                     # time.sleep(1.)
 
-                    ThisPSF=ThisPSF[:,0,:,:]
                     Max=np.max(ThisPSF)
                     #ThisPSF/=Max
                     #fact=np.max(Gauss)/np.sum(Gauss)
@@ -479,8 +486,8 @@ class ClassMultiScaleMachine():
                     fact=1./SumGauss
                     #fact=1./SumGauss#/(np.mean(np.max(np.max(ThisPSF,axis=-1),axis=-1)))
                     #fact=1./Max
-                    Gauss*=fact#*ratio
-                    self.CubePSFScales[len(self.ListScales),...] = ThisPSF*fact
+                    Gauss *= fact#*ratio
+                    ThisPSF *= fact
                     #_,n,_=ThisPSF.shape
                     #Peak=np.mean(ThisPSF[:,n/2,n/2])
                     d = self.ListScales.addSubdict(len(self.ListScales))
@@ -767,9 +774,9 @@ class ClassMultiScaleMachine():
             #WeightFunction.fill(1.)
 
 
-        if self.GD["Debug"]["DumpCleanSolutions"] and not SubSubSubCoord:
-            BaseName = self.GD["Output"]["Name"]
-            pickleadic(BaseName+".DicoBasisMatrix.pickle",DicoBasisMatrix)
+#        if self.GD["Debug"]["DumpCleanSolutions"] and not SubSubSubCoord:
+#            BaseName = self.GD["Output"]["Name"]
+#            pickleadic(BaseName+".DicoBasisMatrix.pickle",DicoBasisMatrix)
 
         return DicoBasisMatrix
         

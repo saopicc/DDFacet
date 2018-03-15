@@ -1029,24 +1029,19 @@ class ClassFacetMachine():
                 ListMeanJonesBand.append(MeanJonesBand)
             DicoImages["MeanJonesBand"]=ListMeanJonesBand
 
-            ListSumJonesChan = []
-            ListSumJonesChanWeightSq = []
-            for iFacet in facets:
-                ThisFacetSumJonesChan = []
-                ThisFacetSumJonesChanWeightSq = []
-                for iMS in xrange(self.VS.nMS):
+            ## OMS: see issue #484. Restructuring this to use shm, and less of it. Note that the only user
+            ## of this structure is ClassSpectralFunctions and ClassPSFServer
+            ## [iMS][iFacet,0,:] is the sum of the per-channel weights
+            ## [iMS][iFacet,1,:] is the sum of the per-channel weights squared
+            ListSumJonesChan = DicoImages.addSubdict("SumJonesChan")
+            for iMS in xrange(self.VS.nMS):
+                nVisChan = self.VS.ListMS[iMS].ChanFreq.size
+                ThisMSSumJonesChan = ListSumJonesChan.addSharedArray(iMS, (len(facets), 2, nVisChan), np.float64)
+                for iFacet in facets:
                     sumjones = self.DicoImager[iFacet]["SumJonesChan"][iMS]
                     sumjones[sumjones == 0] = 1.
-                    SumJonesChan = sumjones[0, :]
-                    SumJonesChanWeightSq = sumjones[1, :]
-                    ThisFacetSumJonesChan.append(SumJonesChan)
-                    ThisFacetSumJonesChanWeightSq.append(SumJonesChanWeightSq)
+                    ThisMSSumJonesChan[iFacet,:] = sumjones[:]
 
-                ListSumJonesChan.append(ThisFacetSumJonesChan)
-                ListSumJonesChanWeightSq.append(ThisFacetSumJonesChanWeightSq)
-
-            DicoImages["SumJonesChan"]  = ListSumJonesChan
-            DicoImages["SumJonesChanWeightSq"] = ListSumJonesChanWeightSq
             DicoImages["ChanMappingGrid"] = self.VS.DicoMSChanMapping
             DicoImages["ChanMappingGridChan"] = self.VS.DicoMSChanMappingChan
 

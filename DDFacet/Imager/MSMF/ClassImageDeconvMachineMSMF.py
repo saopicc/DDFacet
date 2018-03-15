@@ -266,6 +266,7 @@ class ClassImageDeconvMachine():
             # if no facet cache, init in parallel
             if self.facetcache is None:
                 self.facetcache = shared_dict.create(self.CacheFileName)
+                # breakout = False
                 for iFacet in xrange(self.PSFServer.NFacets):
                     fcdict = self.facetcache.addSubdict(iFacet)
                     if self.ParallelMode:
@@ -277,6 +278,10 @@ class ClassImageDeconvMachine():
                         args=(fcdict, self.DicoVariablePSF,
                               iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet)
                         self._initMSM_handler(*args)
+                        # import pdb;
+                        # pdb.set_trace()
+                        # if breakout:
+                        #     raise RuntimeError("exiting")
 
                 if self.ParallelMode:
                     APP.awaitJobResults("InitHMP:*", progress="Init HMP")
