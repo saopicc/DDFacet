@@ -213,6 +213,7 @@ void griddername(PyArrayObject *grid, \
     double l0=ptrFacetInfos[2];\
     double m0=ptrFacetInfos[3];\
     double n0=sqrt(1-l0*l0-m0*m0)-1;\
+    int facet=ptrFacetInfos[4];\
     \
     \
     double VarTimeGrid=0;\
@@ -354,8 +355,6 @@ void griddername(PyArrayObject *grid, \
     float *ThisSumSqWeightsChan=calloc(1,(nVisChan)*sizeof(float));\
     \
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){\
-      if( sparsificationFlag && !sparsificationFlag[iBlock] )\
-	continue;\
       \
       int NRowThisBlock=NRowBlocks[iBlock]-2;\
       int chStart = StartRow[0];\
@@ -364,6 +363,8 @@ void griddername(PyArrayObject *grid, \
       /* advance pointer to next blocklist*/\
       StartRow += NRowBlocks[iBlock];\
       \
+      if( sparsificationFlag && !sparsificationFlag[iBlock] )\
+	continue;\
       double Umean=0;\
       double Vmean=0;\
       double Wmean=0;\
@@ -414,6 +415,8 @@ void griddername(PyArrayObject *grid, \
 					       (float)FreqMean0,\
 					       (float)Dnu, \
 					       (float)DT);\
+		if(facet==0 && iBlock==0)\
+		  fprintf(stderr,"\n\nF0 B0 decorr factor %.6f\n\n",DeCorrFactor);			      \
 	}\
 	\
 	for (visChan=chStart; visChan<chEnd; ++visChan) {\
@@ -664,6 +667,7 @@ void griddername(PyArrayObject *grid, \
       /*AddTimeit(PreviousTime,TimeGrid);*/\
       \
     } /*end for Block*/\
+    if(facet==0) fprintf(stderr,"\n\nF0 SJ[0] %g\n\n",ptrSumJones[0]);\
     \
     \
     /* /\* printf("Times:\n"); *\/ */\

@@ -19,6 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #include "JonesServer.h"
+#include <iostream>
 namespace DDF {
   namespace DDEs {
     void JonesServer::NormJones(dcMat &J0, const double *uvwPtr) const
@@ -147,7 +148,6 @@ namespace DDF {
 	  ptrVisToJonesChanMapping_Beam = nullptr;
 	  i_dir_Beam = 0;
 	}
-	
 	if (not (ApplyJones_Beam || ApplyJones_killMS))
 	  throw std::runtime_error("Jones matricies specified but neither E or DD Jones are applied. This is a bug!");
 	  
