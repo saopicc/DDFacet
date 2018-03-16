@@ -13,15 +13,14 @@ add_custom_command(
                 ${CMAKE_CURRENT_BINARY_DIR}/_pyGridder.so
                 ${CMAKE_CURRENT_BINARY_DIR}/../_pyGridder.so)
 
-if (${COMPILE_OLD_GRIDDER})
-  #compile and link _pyGridderSmearPols.so
-  add_library(_pyGridderSmearPols GridderSmearPols.c GridderSmearPols.h Semaphores.h)
-  set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
-  target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
-  add_custom_command(
-        TARGET _pyGridderSmearPols POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-                ${CMAKE_CURRENT_BINARY_DIR}/_pyGridderSmearPols.so
-                ${CMAKE_CURRENT_BINARY_DIR}/../_pyGridderSmearPols.so)
-endif (${COMPILE_OLD_GRIDDER})
+#compile and link _pyGridderSmearPols.so
+add_library(_pyGridderSmearPolsClassic GridderSmearPols.c GridderSmearPols.h Semaphores.h)
+set_target_properties(_pyGridderSmearPolsClassic PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
+target_link_libraries(_pyGridderSmearPolsClassic ${RT_LIBRARIES} ${PYTHON_LIBRARY})
+
+add_custom_command(
+      TARGET _pyGridderSmearPolsClassic POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy
+	      ${CMAKE_CURRENT_BINARY_DIR}/_pyGridderSmearPolsClassic.so
+	      ${CMAKE_CURRENT_BINARY_DIR}/../_pyGridderSmearPolsClassic.so)
