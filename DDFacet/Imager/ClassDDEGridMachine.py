@@ -758,7 +758,7 @@ class ClassDDEGridMachine():
         T.timeit("stuff")
         if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
             raise RuntimeError("Deprecated flag. Please use BDA gridder")
-        elif self.GD["RIME"]["BackwardMode"]=="BDA-grid":
+        elif self.GD["RIME"]["BackwardMode"] == "BDA-grid":
             OptimisationInfos = [
                 self.JonesType,
                 ChanEquidistant,
@@ -793,13 +793,13 @@ class ClassDDEGridMachine():
 
             T.timeit("gridder")
             T.timeit("grid %d" % self.IDFacet)
-        elif self.GD["RIME"]["BackwardMode"]=="BDA-grid-classic":
+        elif self.GD["RIME"]["BackwardMode"] == "BDA-grid-classic":
             OptimisationInfos = [
                 self.JonesType,
                 ChanEquidistant,
                 self.SkyType,
                 self.PolModeID]
-            _pyGridderSmear.pyGridderWPol(Grid,
+            _pyGridderSmearClassic.pyGridderWPol(Grid,
                                           vis,
                                           uvw,
                                           flag,
@@ -1056,7 +1056,7 @@ class ClassDDEGridMachine():
 #            MapSmear = NpShared.GiveArray(
 #                "%sBDA.DeGrid" %
 #               (self.ChunkDataCache))
-            _pyGridderSmear.pySetSemaphores(self.ListSemaphores)
+            _pyGridderSmearClassic.pySetSemaphores(self.ListSemaphores)
             vis = _pyGridderSmearClassic.pyDeGridderWPol(
                 Grid, 
                 vis, 

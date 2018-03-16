@@ -137,8 +137,10 @@ class ClassFacetMachine():
         if not ClassFacetMachine._degridding_semaphores:
             NSemaphores = 3373
             ClassFacetMachine._degridding_semaphores = [Multiprocessing.getShmName("Semaphore", sem=i) for i in xrange(NSemaphores)]
-            _pyGridderSmearPols.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
-            atexit.register(ClassFacetMachine._delete_degridding_semaphores)
+            _degridder_module = _pyGridderSmearPolsClassic if self.GD["RIME"]["ForwardMode"] == "BDA-degrid-classic" \
+                                     else _pyGridderSmearPols
+            _degridder_module.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
+            atexit.register(lambda:ClassFacetMachine._delete_degridding_semaphores(_degridder_module))
 
         # this is used to store model images in shared memory, for the degridder
         self._model_dict = None
@@ -152,9 +154,9 @@ class ClassFacetMachine():
     _degridding_semaphores = None
 
     @staticmethod
-    def _delete_degridding_semaphores():
+    def _delete_degridding_semaphores(module):
         if ClassFacetMachine._degridding_semaphores:
-	    _pyGridderSmearPols.pyDeleteSemaphore()
+	    module.pyDeleteSemaphore()
             for sem in ClassFacetMachine._degridding_semaphores:
                 NpShared.DelArray(sem)
 
