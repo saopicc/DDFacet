@@ -19,6 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 '''
 
 import DDFacet.cbuild.Gridder._pyGridderSmearPols as _pyGridderSmear
+import DDFacet.cbuild.Gridder._pyGridderSmearPolsClassic as _pyGridderSmearClassic
 # import DDFacet.cbuild.Gridder._pyGridderSmearPolsFaster as _pyGridderSmearFaster
 ##########################################################"
 # Please do not remove this import again - Needed for killMS
@@ -755,7 +756,7 @@ class ClassDDEGridMachine():
         T.timeit("stuff")
         if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
             raise RuntimeError("Deprecated flag. Please use BDA gridder")
-        else:
+        elif self.GD["RIME"]["BackwardMode"]=="BDA-grid":
             OptimisationInfos = [
                 self.JonesType,
                 ChanEquidistant,
@@ -790,6 +791,41 @@ class ClassDDEGridMachine():
 
             T.timeit("gridder")
             T.timeit("grid %d" % self.IDFacet)
+        elif self.GD["RIME"]["BackwardMode"]=="BDA-grid-classic":
+            OptimisationInfos = [
+                self.JonesType,
+                ChanEquidistant,
+                self.SkyType,
+                self.PolModeID]
+            _pyGridderSmear.pyGridderWPol(Grid,
+                                          vis,
+                                          uvw,
+                                          flag,
+                                          W,
+                                          SumWeigths,
+                                          DoPSF,
+                                          self.WTerm.Wplanes,
+                                          self.WTerm.WplanesConj,
+                                          np.array([self.WTerm.RefWave,
+                                                    self.WTerm.wmax,
+                                                    len(self.WTerm.Wplanes),
+                                                    self.WTerm.OverS],
+                                                   dtype=np.float64),
+                                          self.incr.astype(np.float64),
+                                          freqs,
+                                          [self.PolMap,
+                                              FacetInfos],
+                                          ParamJonesList,
+                                          self._bda_grid,
+                                          sparsification if sparsification is not None else np.array([], dtype=np.bool),
+                                          OptimisationInfos,
+                                          self.LSmear,
+                                          np.int32(ChanMapping),
+                                          np.array(self.DataCorrelationFormat).astype(np.uint16),
+                                          np.array(self.ExpectedOutputStokes).astype(np.uint16))
+
+            T.timeit("gridder")
+            T.timeit("grid %d" % self.IDFacet)         
 
     def CheckTypes(
         self,
@@ -1008,7 +1044,42 @@ class ClassDDEGridMachine():
                 self.LSmear, np.int32(ChanMapping),
                 np.array(self.DataCorrelationFormat).astype(np.uint16),
                 np.array(self.ExpectedOutputStokes).astype(np.uint16))
-
+	elif self.GD["RIME"]["ForwardMode"]=="BDA-degrid-classic":
+            # OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
+            OptimisationInfos = [
+                self.JonesType,
+                ChanEquidistant,
+                self.SkyType,
+                self.PolModeID]
+#            MapSmear = NpShared.GiveArray(
+#                "%sBDA.DeGrid" %
+#               (self.ChunkDataCache))
+            _pyGridderSmear.pySetSemaphores(self.ListSemaphores)
+            vis = _pyGridderSmearClassic.pyDeGridderWPol(
+                Grid, 
+                vis, 
+                uvw, 
+                flag, 
+                SumWeigths, 
+                0, 
+                self.WTerm.WplanesConj,
+                self.WTerm.Wplanes, 
+                np.array(
+                    [self.WTerm.RefWave, 
+                     self.WTerm.wmax,
+                     len(self.WTerm.Wplanes),
+                     self.WTerm.OverS],
+                     dtype=np.float64),
+                self.incr.astype(np.float64),
+                freqs, 
+                [self.PolMap, FacetInfos, RowInfos],
+                ParamJonesList, 
+                self._bda_degrid,
+                sparsification if sparsification is not None else np.array([], dtype=np.bool),
+                OptimisationInfos,
+                self.LSmear, np.int32(ChanMapping),
+                np.array(self.DataCorrelationFormat).astype(np.uint16),
+                np.array(self.ExpectedOutputStokes).astype(np.uint16))
 
         T.timeit("4 (degrid)")
         # print vis
