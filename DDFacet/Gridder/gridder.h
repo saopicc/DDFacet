@@ -94,6 +94,7 @@ namespace DDF {
       const double l0=ptrFacetInfos[2];
       const double m0=ptrFacetInfos[3];
       const double n0=sqrt(1-l0*l0-m0*m0)-1;
+      const int facet = ptrFacetInfos[4];
 
       /* Get size of grid. */
       const double *ptrWinfo = Winfos.data(0);
@@ -175,6 +176,8 @@ namespace DDF {
 	Corrcalc.update(Row[0], NRowThisBlock);
 
 	double DeCorrFactor=decorr.get(FreqMean0, Row[NRowThisBlock/2]);
+	if(facet==0 && iBlock==0)
+          	std::cerr<<"F"<<facet<<" block 0 decorrfactor "<<DeCorrFactor<<"\n\n\n";
 
 	double visChanMean=0., FreqMean=0;
 	double ThisWeight=0., ThisSumJones=0., ThisSumSqWeights=0.;
@@ -332,6 +335,8 @@ namespace DDF {
 	    }
 	  } /* end for ipol */
 	} /*end for Block*/
+	if(facet==0)
+          	std::cerr<<"\n\n\nF"<<facet<<" sumJones[0] "<<JS.ptrSumJones[0]<<"\n\n\n";
       } /* end */
     }
 }

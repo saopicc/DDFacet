@@ -148,8 +148,6 @@ namespace DDF {
 	  ptrVisToJonesChanMapping_Beam = nullptr;
 	  i_dir_Beam = 0;
 	}
-	std::cerr<<"B/K dirs:"<<i_dir_Beam<<" "<<i_dir_kMS<<std::endl;
-	
 	if (not (ApplyJones_Beam || ApplyJones_killMS))
 	  throw std::runtime_error("Jones matricies specified but neither E or DD Jones are applied. This is a bug!");
 	  

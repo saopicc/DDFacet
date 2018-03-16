@@ -48,16 +48,16 @@ namespace DDF {
 
       if (FSmear)
 	{
-	double phase = uvw_Ptr[3+idx+0]*l0 + uvw_Ptr[3*idx+1]*m0 + uvw_Ptr[3*idx+2]*n0;
+	double phase = uvw_Ptr[3*idx+0]*l0 + uvw_Ptr[3*idx+1]*m0 + uvw_Ptr[3*idx+2]*n0;
 	double phi=PI*Dnu/C*phase;
-	DecorrFactor = (phi==0.) ? 1.0 : sin(phi)/phi;
+	DecorrFactor *= (phi==0.) ? 1.0 : sin(phi)/phi;
 	}
 
       if (TSmear)
 	{
 	double dphase = (uvw_dt_Ptr[3*idx+0]*l0 + uvw_dt_Ptr[3*idx+1]*m0 + uvw_dt_Ptr[3*idx+2]*n0)*DT;
 	double phi=PI*nu/C*dphase;
-	DecorrFactor = (phi==0.) ? 1.0 : sin(phi)/phi;
+	DecorrFactor *= (phi==0.) ? 1.0 : sin(phi)/phi;
 	}
       return DecorrFactor;
       }
