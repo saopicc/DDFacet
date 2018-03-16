@@ -505,11 +505,12 @@ class ClassImageDeconvMachine():
             if cube.shape[0] > 1:
                 #meanimage[...] = cube.mean(axis=0)
                 W=np.float32(self.DicoDirty["WeightChansImages"])
-                meanimage[...] = np.sum(cube*W.reshape((-1,1,1,1)))
+                
+                meanimage[0,...] = np.sum(cube*W.reshape((-1,1,1,1)),axis=0)
                 # meanimage[...] = cube.mean(axis=0)
                 # cube.mean(axis=0, out=meanimage)
             else:
-                meanimage[...] = cube[0,...]
+                meanimage[0,...] = cube[0,...]
 
             # ## this is slower:
             # self._MeanDirty[0,:,x0d:x1d,y0d:y1d] = self._CubeDirty[:,:,x0d:x1d,y0d:y1d].mean(axis=0)
