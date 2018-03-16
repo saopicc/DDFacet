@@ -944,7 +944,7 @@ class ClassImagerDeconv():
             #                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
 
-            if self.PredictMode == "BDA-degrid" or self.PredictMode == "Classic":  # latter for backwards compatibility
+            if self.PredictMode == "BDA-degrid" or self.PredictMode == "Classic" or self.PredictMode == "BDA-degrid-classic":  # latter for backwards compatibility
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
                 from ClassMontblancMachine import ClassMontblancMachine
@@ -1184,7 +1184,7 @@ class ClassImagerDeconv():
                 if predict_colname:
                     print>>log,"last major cycle: model visibilities will be stored to %s"%predict_colname
 
-                if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder":
+                if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder" or self.PredictMode == "BDA-degrid-classic":
                     self.FacetMachine.getChunkInBackground(DATA)
                 elif self.PredictMode == "Montblanc":
                     from ClassMontblancMachine import ClassMontblancMachine

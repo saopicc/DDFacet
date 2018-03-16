@@ -22,10 +22,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 namespace DDF {
   namespace DDEs {
-    DecorrelationHelper::DecorrelationHelper(const py::list& LSmearing, 
+    DecorrelationHelper::DecorrelationHelper(const py::list& LSmearing,
 					    const py::array_t<double, py::array::c_style>& uvw)
 	  {
-	    
+
 	    DoDecorr=(LSmearing.size() > 0);
 	    if (DoDecorr)
 	      {

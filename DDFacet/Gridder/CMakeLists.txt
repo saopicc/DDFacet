@@ -4,7 +4,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(ENABLE_NATIVE_TUNING "Enables support for optimized code generation (-march=native)" ON)
 option(ENABLE_FAST_MATH "Enables -fast-math option (breaks IEEE754 callbacks)" ON)
-option(COMPILE_OLD_GRIDDER "Compiles old BDA gridder" OFF)
 
 if (${ENABLE_NATIVE_TUNING})
   set(TUNING_FLAGS "-march=native -mtune=native")
@@ -68,11 +67,10 @@ set_target_properties(_pyArrays PROPERTIES PREFIX "") #remove "lib" prefix from 
 target_link_libraries(_pyArrays ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
 #compile and link _pyGridderSmearPols.so
-if (NOT ${COMPILE_OLD_GRIDDER})
-  add_library(_pyGridderSmearPols GridderSmearPols.cc Semaphores.cc JonesServer.cc DecorrelationHelper.cc CorrelationCalculator.cc)
-  set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
-  target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
-endif (NOT ${COMPILE_OLD_GRIDDER})
+add_library(_pyGridderSmearPols GridderSmearPols.cc Semaphores.cc JonesServer.cc DecorrelationHelper.cc CorrelationCalculator.cc)
+set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
+target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
+
 
 add_subdirectory(old_c_gridder)
 

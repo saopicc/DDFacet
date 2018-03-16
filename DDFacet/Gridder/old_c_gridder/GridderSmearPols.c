@@ -80,8 +80,8 @@ static PyMethodDef _pyGridderSmearPols_testMethods[] = {
 
 /* ==== Initialize the C_test functions ====================== */
 // Module name must be _C_arraytest in compile and linked 
-void init_pyGridderSmearPols()  {
-  (void) Py_InitModule("_pyGridderSmearPols", _pyGridderSmearPols_testMethods);
+void init_pyGridderSmearPolsClassic()  {
+  (void) Py_InitModule("_pyGridderSmearPolsClassic", _pyGridderSmearPols_testMethods);
   import_array();  // Must be present for NumPy.  Called first after above line.
 }
 

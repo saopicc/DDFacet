@@ -51,6 +51,7 @@ from DDFacet.Other.AsyncProcessPool import APP
 import numexpr
 MyLogger.setSilent("MyLogger")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
+from DDFacet.cbuild.Gridder import _pyGridderSmearPolsClassic
 from DDFacet.Other import ModColor
 MyLogger.setSilent("MyLogger")
 import cpuinfo
@@ -153,7 +154,7 @@ class ClassFacetMachine():
     @staticmethod
     def _delete_degridding_semaphores():
         if ClassFacetMachine._degridding_semaphores:
-            _pyGridderSmearPols.pyDeleteSemaphore()
+	    _pyGridderSmearPols.pyDeleteSemaphore()
             for sem in ClassFacetMachine._degridding_semaphores:
                 NpShared.DelArray(sem)
 
