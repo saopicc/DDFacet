@@ -709,6 +709,7 @@ class ClassVisServer():
             raise RuntimeError("data appears to be fully flagged: can't compute imaging weights")
         # in natural mode, leave the weights as is. In other modes, setup grid for calculations
         self._weight_grid = shared_dict.create("VisWeights.Grid")
+        cell = npix = npixx = nbands = xymax = None
         if self.Weighting != "natural":
             nch, npol, npixIm, _ = self.FullImShape
             FOV = self.CellSizeRad * npixIm
