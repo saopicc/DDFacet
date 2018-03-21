@@ -37,7 +37,7 @@ class ClassInitSSDModelParallel():
 
     def _initIsland_worker(self, DicoOut, iIsland, Island,
                            DicoVariablePSF, DicoDirty, DicoParm, FacetCache,NCPU):
-        MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"])
+        # MyLogger.setSilent(["ClassImageDeconvMachineMSMF","ClassPSFServer","ClassMultiScaleMachine","GiveModelMachine","ClassModelMachineMSMF"])
         self.InitMachine.Init(DicoVariablePSF, DicoParm["GridFreqs"], DicoParm["DegridFreqs"], facetcache=FacetCache)
         self.InitMachine.setDirty(DicoDirty)
         #self.InitMachine.DeconvMachine.setNCPU(NCPU)
@@ -153,11 +153,12 @@ class ClassInitSSDModel():
         # self.GD["MultiScale"]["Ratios"]=[]
         self.GD["HMP"]["NTheta"] = 4
 
-        # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         # self.GD["HMP"]["Scales"] = [0,1,2,4,8,16,24,32,48,64]
         # self.GD["HMP"]["Taper"] = 32
         # self.GD["HMP"]["Support"] = 32#self.GD["HMP"]["Scales"][-1]
-        # self.GD["Deconv"]["RMSFactor"] = .5
+        self.GD["Deconv"]["RMSFactor"] = 2.
+        self.GD["Deconv"]["AllowNegative"] = False
         
         self.GD["HMP"]["SolverMode"] = "NNLS"
         # self.GD["MultiScale"]["SolverMode"]="PI"

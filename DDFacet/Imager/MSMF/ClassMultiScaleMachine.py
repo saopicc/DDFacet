@@ -839,6 +839,8 @@ class ClassMultiScaleMachine():
         #dirtyNorm=dirtyNorm-MeanData.reshape((nchan,1,1,1))
 
         # dirtyNormIm=dirtyNormIm/FpolMean
+        
+        HasReverted=False
 
 
         #print "0",np.max(dirtyNormIm)
@@ -1034,11 +1036,16 @@ class ClassMultiScaleMachine():
                     #print "Max abs model",np.max(np.abs(LocalSM))
             #print "Min Max model",LocalSM.min(),LocalSM.max()
         elif self.SolveMode=="NNLS":
-            #HasReverted=False
-            Peak=np.max(dirtyVec)
-            # if Peak<0:
-            #     dirtyVec=dirtyVec*-1
-            #     HasReverted=True
+            OrigDirty=dirtyVec.copy().reshape((nchan,1,nxp,nyp))[:,0]
+            MeanOrigDirty=np.mean(OrigDirty,axis=0)
+            Ad=np.abs(MeanOrigDirty)
+            iind=np.where(Ad==np.max(Ad))
+            Peak=MeanOrigDirty[iind]
+            if Peak[0]<0:
+                HasReverted=True
+                dirtyVec=dirtyVec*-1
+                MeanFluxTrue*=-1
+                Fpol*=-1
                 
             W=WVecPSF.copy()
             # print ":::::::::"
@@ -1207,8 +1214,6 @@ class ClassMultiScaleMachine():
             #Sol.flat[:]/=self.SumFuncScales.flat[:]
             #print Sol
 
-            #if HasReverted: Sol*=-1
-            
             Mask=np.zeros((Sol.size,),np.float32)
             FuncScale=1.#self.giveSmallScaleBias()
             wCoef=SumCoefScales/self.SumFluxScales*FuncScale
@@ -1326,7 +1331,12 @@ class ClassMultiScaleMachine():
 
         FpolMean=1.
 
-        self.ModelMachine.AppendComponentToDictStacked((xc,yc),FpolMean,Sol)
+
+        factInvert=1.
+        if HasReverted:
+            factInvert=-1.
+        
+        self.ModelMachine.AppendComponentToDictStacked((xc,yc),FpolMean,Sol*factInvert)
 
         BM=DicoBasisMatrix["BM"]
         #print "MaxSM=",np.max(LocalSM)
@@ -1424,7 +1434,7 @@ class ClassMultiScaleMachine():
 
 #             # stop
 
-        return LocalSM
+        return LocalSM*factInvert
 
             
 
