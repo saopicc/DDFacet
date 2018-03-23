@@ -157,7 +157,7 @@ class ClassInitSSDModel():
         # self.GD["HMP"]["Scales"] = [0,1,2,4,8,16,24,32,48,64]
         # self.GD["HMP"]["Taper"] = 32
         # self.GD["HMP"]["Support"] = 32#self.GD["HMP"]["Scales"][-1]
-        self.GD["Deconv"]["RMSFactor"] = 2.
+        self.GD["Deconv"]["RMSFactor"] = 1.
         self.GD["Deconv"]["AllowNegative"] = True
         
         self.GD["HMP"]["SolverMode"] = "NNLS"
