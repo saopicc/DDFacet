@@ -460,12 +460,25 @@ class ClassJones():
 
 
         if not ".h5" in SolsFile:
+            # if not(".npz" in SolsFile):
+            #     Method = SolsFile
+            #     ThisMSName = reformat.reformat(
+            #         os.path.abspath(self.MS.MSName),
+            #         LastSlash=False)
+            #     SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
+
             if not(".npz" in SolsFile):
-                Method = SolsFile
-                ThisMSName = reformat.reformat(
-                    os.path.abspath(self.MS.MSName),
-                    LastSlash=False)
-                SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
+                SolsDir=self.GD["DDESolutions"]["SolsDir"]
+                if SolsDir is None or SolsDir=="":
+                    ThisMSName = reformat.reformat(os.path.abspath(self.MS.MSName), LastSlash=False)
+                    SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
+                else:
+                    _MSName=reformat.reformat(os.path.abspath(self.MS.MSName).split("/")[-1])
+                    DirName=os.path.abspath("%s%s"%(reformat.reformat(SolsDir),_MSName))
+                    if not os.path.isdir(DirName):
+                        os.makedirs(DirName)
+                    SolsFile="%s/killMS.%s.sols.npz"%(DirName,SolsFile)
+
             VisToJonesChanMapping,DicoClusterDirs,DicoSols,G=self.ReadNPZ(SolsFile)
         else:
             VisToJonesChanMapping,DicoClusterDirs,DicoSols,G=self.ReadH5(SolsFile)
