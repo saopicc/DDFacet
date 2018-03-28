@@ -48,7 +48,7 @@ class ClassJones():
         GD = self.GD
         SolsFile = GD["DDESolutions"]["DDSols"]
         self.ApplyCal = False
-        if SolsFile != "":
+        if SolsFile != "" and SolsFile is not None:
             self.ApplyCal = True
             self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache(
                 "JonesNorm_killMS",
