@@ -107,8 +107,9 @@ class ClassArrayMethodSSD():
         # pylab.figure(4,figsize=(5,3))
         # pylab.clf()
 
-    
-
+    def __del__(self):
+        self._chain_dict.delete()
+        self._indiv_dict.delete()
 
     def SetDirtyArrays(self,Dirty):
         print>>log,"SetConvMatrix"
@@ -395,9 +396,11 @@ class ClassArrayMethodSSD():
         NCPU=self.NCPU
         #self.giveDistanceIndiv(pop)
         #print "OK"
-        self._indiv_dict.delete()
         for iIndividual,individual in enumerate(pop):
-            self._indiv_dict[iIndividual] = individual
+            if iIndividual in self._indiv_dict:
+                self._indiv_dict[iIndividual][:] = individual
+            else:
+                self._indiv_dict[iIndividual] = individual
             work_queue.put({"iIndividual":iIndividual,
                             "BestChi2":self.BestChi2,
                             "EntropyMinMax":self.EntropyMinMax,
@@ -442,8 +445,6 @@ class ClassArrayMethodSSD():
                 DicoFitnesses[iIndividual]=DicoResult["fitness"]
                 DicoChi2[iIndividual]=DicoResult["Chi2"]
             NDone = iResult
-        self._indiv_dict.delete()
-
 
         # for ii in range(NCPU):
         #     workerlist[ii].shutdown()
@@ -539,8 +540,6 @@ class ClassArrayMethodSSD():
                 pop[iIndividual][:]=mutant[:]
             NDone = iResult
 
-        self._indiv_dict.delete()
-
         return pop
 
 
@@ -555,11 +554,13 @@ class ClassArrayMethodSSD():
         NJobs = len(pop)
         NCPU=self.NCPU
 
-        self._indiv_dict.delete()
         self._chain_dict.delete()
 
         for iIndividual,individual in enumerate(pop):
-            self._indiv_dict[iIndividual] = individual
+            if iIndividual in self._indiv_dict:
+                self._indiv_dict[iIndividual][:] = individual
+            else:
+                self._indiv_dict[iIndividual] = individual
             work_queue.put({"iIndividual":iIndividual,
                             "BestChi2":self.BestChi2,
                             "OperationType":"Metropolis",
@@ -602,7 +603,6 @@ class ClassArrayMethodSSD():
                 iIndividual=DicoResult["iIndividual"]
                 iResult += 1
                 # result already in _chain_dict
-        self._indiv_dict.delete()
         self._chain_dict.reload()
 
         return self._chain_dict
