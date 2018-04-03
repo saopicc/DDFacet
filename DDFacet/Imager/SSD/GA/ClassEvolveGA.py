@@ -52,9 +52,10 @@ class ClassEvolveGA():
         #stop
 
     def InitEvolutionAlgo(self):
-
-        creator.create("FitnessMax", base.Fitness, weights=self.ArrayMethodsMachine.WeightsEA)
-        creator.create("Individual", numpy.ndarray, fitness=creator.FitnessMax)
+        if "FitnessMax" not in dir(creator):
+            creator.create("FitnessMax", base.Fitness, weights=self.ArrayMethodsMachine.WeightsEA)
+        if "Individual" not in dir(creator):
+            creator.create("Individual", numpy.ndarray, fitness=creator.FitnessMax)
 
         toolbox = base.Toolbox()
 
