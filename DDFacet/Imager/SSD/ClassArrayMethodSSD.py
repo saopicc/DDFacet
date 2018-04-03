@@ -487,11 +487,13 @@ class ClassArrayMethodSSD():
         DicoChi2={}
         NCPU=self.NCPU
         NJobs = 0
-        self._indiv_dict.delete()
         for iIndividual,individual in enumerate(pop):
             if random.random() < mutpb:
                 NJobs+=1
-                self._indiv_dict[iIndividual] = individual
+                if iIndividual in self._indiv_dict:
+                    self._indiv_dict[iIndividual][:] = individual
+                else:
+                    self._indiv_dict[iIndividual] = individual
                 work_queue.put({"iIndividual":iIndividual,
                                 "mutConfig":MutConfig,
                                 "OperationType":"Mutate"})
@@ -872,10 +874,12 @@ class WorkerFitness(multiprocessing.Process):
 
         Mut_pFlux, Mut_p0, Mut_pMove, Mut_pScale, Mut_pOffset=DicoJob["mutConfig"]
 
-        individualOut,=self.MutMachine.mutGaussian(individual.copy(), 
+
+        self.MutMachine.mutGaussian(individual,
                                                    Mut_pFlux, Mut_p0, Mut_pMove, Mut_pScale, Mut_pOffset)
-        individual[:]=individualOut[:]
-        
+        ## mutation above is in-place, so no need to copy
+        #individual[:]=individualOut[:]
+
         self.result_queue.put({"Success": True, 
                                "iIndividual": iIndividual})
         self.T.timeit("done job: %s"%pid)
