@@ -34,7 +34,6 @@ class ClassArrayMethodSSD():
         self.iIsland=iIsland
 
         self._island_dict = island_dict
-        self._indiv_dict = island_dict.addSubdict("Individuals")
         self._chain_dict = island_dict.addSubdict("Chains")
 
         self.PSF = PSF
@@ -109,7 +108,8 @@ class ClassArrayMethodSSD():
 
     def __del__(self):
         self._chain_dict.delete()
-        self._indiv_dict.delete()
+        if "Population" in self._island_dict:
+            self._island_dict.delete_item("Population")
 
     def SetDirtyArrays(self,Dirty):
         print>>log,"SetConvMatrix"
@@ -331,8 +331,7 @@ class ClassArrayMethodSSD():
         for ii in range(NCPU):
             W=WorkerFitness(work_queue,
                             result_queue,
-                            indiv_dict=self._indiv_dict,
-                            chain_dict=self._chain_dict,
+                            island_dict=self._island_dict,
                             iIsland=self.iIsland,
                             ListPixParms=self.ListPixParms,
                             ListPixData=self.ListPixData,
@@ -383,6 +382,20 @@ class ClassArrayMethodSSD():
         for i in path[1::]:
             print D[i,path[i-1]]/float(len(iIndiv))
 
+    def _fill_pop_array(self, pop):
+        """Creates "Population" cube inside the island dict, iof not already created, or if the wrong shape."""
+        if len(pop) > 0:
+            pop_shape = tuple([len(pop)] + list(pop[0].shape))
+            if "Population" not in self._island_dict:
+                pop_array = self._island_dict.addSharedArray("Population", pop_shape, pop[0].dtype)
+            else:
+                pop_array = self._island_dict["Population"]
+                if pop_array.shape != pop_shape:
+                    self._island_dict.delete_item("Population")
+                    pop_array = self._island_dict.addSharedArray("Population", pop_shape, pop[0].dtype)
+            for i,individual in enumerate(pop):
+                pop_array[i,...] = pop[i]
+            return pop_array
 
     def GiveFitnessPop(self,pop):
 
@@ -396,11 +409,8 @@ class ClassArrayMethodSSD():
         NCPU=self.NCPU
         #self.giveDistanceIndiv(pop)
         #print "OK"
+        self._fill_pop_array(pop)
         for iIndividual,individual in enumerate(pop):
-            if iIndividual in self._indiv_dict:
-                self._indiv_dict[iIndividual][:] = individual
-            else:
-                self._indiv_dict[iIndividual] = individual
             work_queue.put({"iIndividual":iIndividual,
                             "BestChi2":self.BestChi2,
                             "EntropyMinMax":self.EntropyMinMax,
@@ -488,13 +498,11 @@ class ClassArrayMethodSSD():
         DicoChi2={}
         NCPU=self.NCPU
         NJobs = 0
+        pop_array = self._island_dict["Population"]
         for iIndividual,individual in enumerate(pop):
             if random.random() < mutpb:
                 NJobs+=1
-                if iIndividual in self._indiv_dict:
-                    self._indiv_dict[iIndividual][:] = individual
-                else:
-                    self._indiv_dict[iIndividual] = individual
+                pop_array[iIndividual,...] = individual
                 work_queue.put({"iIndividual":iIndividual,
                                 "mutConfig":MutConfig,
                                 "OperationType":"Mutate"})
@@ -536,8 +544,8 @@ class ClassArrayMethodSSD():
             if DicoResult["Success"]:
                 iIndividual=DicoResult["iIndividual"]
                 iResult += 1
-                mutant = self._indiv_dict[iIndividual]
-                pop[iIndividual][:]=mutant[:]
+                mutant = pop_array[iIndividual]
+                pop[iIndividual][:] = mutant[:]
             NDone = iResult
 
         return pop
@@ -556,11 +564,8 @@ class ClassArrayMethodSSD():
 
         self._chain_dict.delete()
 
+        self._fill_pop_array(pop)
         for iIndividual,individual in enumerate(pop):
-            if iIndividual in self._indiv_dict:
-                self._indiv_dict[iIndividual][:] = individual
-            else:
-                self._indiv_dict[iIndividual] = individual
             work_queue.put({"iIndividual":iIndividual,
                             "BestChi2":self.BestChi2,
                             "OperationType":"Metropolis",
@@ -769,8 +774,7 @@ class WorkerFitness(multiprocessing.Process):
     def __init__(self,
                  work_queue,
                  result_queue,
-                 indiv_dict=None,
-                 chain_dict=None,
+                 island_dict=None,
                  iIsland=None,
                  ListPixParms=None,
                  ListPixData=None,
@@ -795,8 +799,8 @@ class WorkerFitness(multiprocessing.Process):
         self.kill_received = False
         self.exit = multiprocessing.Event()
         self._pause_on_start = PauseOnStart
-        self._indiv_dict = indiv_dict
-        self._chain_dict = chain_dict
+        self._island_dict = self._island_dict
+        self._chain_dict = self._island_dict["Chains"]
         self.GD=GD
         self.PM=PM
         self.EstimatedStdFromResid=EstimatedStdFromResid
@@ -869,8 +873,8 @@ class WorkerFitness(multiprocessing.Process):
         self.T.reinit()
         iIndividual=DicoJob["iIndividual"]
 
-        self._indiv_dict.reload()
-        individual = self._indiv_dict[iIndividual]
+        self._island_dict.reload()
+        individual = self._island_dict["Population"][iIndividual]
 
         Mut_pFlux, Mut_p0, Mut_pMove, Mut_pScale, Mut_pOffset=DicoJob["mutConfig"]
 
@@ -901,8 +905,8 @@ class WorkerFitness(multiprocessing.Process):
             self.EntropyMinMax=DicoJob["EntropyMinMax"]
 
         #individual=DicoJob["individual"]
-        self._indiv_dict.reload()
-        individual = self._indiv_dict[iIndividual]
+        self._island_dict.reload()
+        individual = self._island_dict["Population"][iIndividual]
 
         fitness,Chi2=self.GiveFitness(individual)
         #print iIndividual
@@ -1034,9 +1038,9 @@ class WorkerFitness(multiprocessing.Process):
         iIndividual=DicoJob["iIndividual"]
         #print "Worker %s processing indiv %i"%(pid,iIndividual)
         self.BestChi2=DicoJob["BestChi2"]
-        self._indiv_dict.reload()
+        self._island_dict.reload()
+        individual = self._island_dict["Population"][iIndividual]
         self._chain_dict.reload()
-        individual = self._indiv_dict[iIndividual]
         chain_dict = self._chain_dict.addSubdict(iIndividual)
         self.runMetroSingleChain(individual,NSteps=DicoJob["NSteps"],chain_dict=chain_dict)
         self.result_queue.put({"Success": True,

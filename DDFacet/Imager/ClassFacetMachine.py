@@ -880,6 +880,18 @@ class ClassFacetMachine():
             DicoImages["CubeVariablePSF"][iFacet, ch, :, :, :] = psf[ch][:, i:j, i:j]
         DicoImages["CubeMeanVariablePSF"][iFacet, 0, :, :, :] = DicoImages["Facets"][iFacet]["MeanPSF"][0, :, i:j, i:j]
 
+    def _computeFacetMeanResidual_worker(self, iFacet, fmr_dict, grid_dict, cf_dict, SumWeights, SumJonesNorm, WBAND):
+        dirty = grid_dict[iFacet]
+        nch, npol, npix_x, npix_y = dirty.shape
+        ThisW = SumWeights.reshape((self.VS.NFreqBands, npol, 1, 1))
+        SumJonesNorm = np.sqrt(SumJonesNorm)
+        if np.max(SumJonesNorm) > 0.:
+            ThisW = ThisW * SumJonesNorm.reshape((self.VS.NFreqBands, 1, 1, 1))
+        ThisDirty = dirty.real / ThisW
+        fmr = fmr_dict.addSharedArray(iFacet, (1, npol, npix_x, npix_y), ThisDirty.dtype)
+        fmr[:] = np.sum(ThisDirty * WBAND, axis=0).reshape((1, npol, npix_x, npix_y))
+        fmr /= cf_dict[iFacet]["Sphe"]
+
     def FacetsToIm(self, NormJones=False):
         """
         Fourier transforms the individual facet grids and then
@@ -1077,19 +1089,15 @@ class ClassFacetMachine():
 
         # else build Dirty (residual) image
         else:
+            fmr_dict = DicoImages.addSubdict("FacetMeanResidual")
 
-            DicoImages.addSubdict("FacetMeanResidual")
             for iFacet in sorted(self.DicoImager.keys()):
-                DicoImages["FacetMeanResidual"].addSubdict(iFacet)
-                nch,npol,npix_x,npix_y=self.DicoGridMachine[iFacet]["Dirty"].shape
-                ThisW=self.DicoImager[iFacet]["SumWeights"].reshape((self.VS.NFreqBands,npol,1,1))
-                SumJonesNorm=np.sqrt(self.DicoImager[iFacet]["SumJonesNorm"])
-                if np.max(SumJonesNorm)>0.:
-                    ThisW=ThisW*SumJonesNorm.reshape((self.VS.NFreqBands,1,1,1))
-                ThisDirty=self.DicoGridMachine[iFacet]["Dirty"].real/ThisW
-                DicoImages["FacetMeanResidual"][iFacet]=np.sum(ThisDirty*WBAND,axis=0).reshape((1,npol,npix_x,npix_y))
-                DicoImages["FacetMeanResidual"][iFacet]=DicoImages["FacetMeanResidual"][iFacet]/self._CF[iFacet]["Sphe"]
-                
+                APP.runJob("facetmeanresidual:%s" % iFacet, self._computeFacetMeanResidual_worker,
+                           args=(iFacet, fmr_dict.writeonly(), self._facet_grids.readonly(), self._CF.readonly(),
+                                 self.DicoImager[iFacet]["SumWeights"], self.DicoImager[iFacet]["SumJonesNorm"], WBAND))
+            APP.awaitJobResults("facetmeanresidual:*", progress="Mean per-facet dirties")
+            fmr_dict.reload()
+
             # Build a residual image consisting of multiple continuum bands
             stitchedResidual = self.FacetsToIm_Channel("Dirty")
 
