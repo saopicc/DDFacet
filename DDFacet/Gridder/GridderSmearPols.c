@@ -483,20 +483,13 @@ void griddername(PyArrayObject *grid, \
 	      MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);\
 	    }\
 	    if(DoDecorr){\
-	      for(ThisPol =0; ThisPol<4;ThisPol++){\
+	      for(ThisPol =0; ThisPol<4;ThisPol++)\
 		VisMeas[ThisPol]*=DeCorrFactor;\
-	      }\
 	    }\
 	  }else{\
 	    readcorrs \
 	  }\
-	    if(DoDecorr){\
-	      for(ThisPol =0; ThisPol<4;ThisPol++){\
-		VisMeas[ThisPol]*=DeCorrFactor;\
-	      }\
-	    }\
-	  \
-	  float FWeight=(*imgWtPtr)*WeightVaryJJ;/**WeightVaryJJ;*/\
+	  float FWeight = *imgWtPtr; /**WeightVaryJJ;*/\
 	  float complex Weight=(FWeight) * corr;\
 	  float complex visPtr[4];\
 	  if(DoApplyJones){\
@@ -505,12 +498,12 @@ void griddername(PyArrayObject *grid, \
 	    savecorrs \
 	    \
 	    /*Compute per channel and overall approximate matrix sqroot:*/\
-	    float FWeightSq=(FWeight)*DeCorrFactor*DeCorrFactor;\
-	    ThisSumJones+=BB*FWeightSq;\
-	    ThisSumSqWeights+=FWeightSq;\
+	    float FWeightDecorr= FWeight*DeCorrFactor*DeCorrFactor; \
+	    ThisSumJones+=BB*FWeightDecorr; \
+	    ThisSumSqWeights+=FWeightDecorr;\
 	    \
-	    ThisSumJonesChan[visChan]+=BB*FWeightSq;\
-	    ThisSumSqWeightsChan[visChan]+=FWeightSq;\
+	    ThisSumJonesChan[visChan]+=BB*FWeightDecorr;\
+	    ThisSumSqWeightsChan[visChan]+=FWeightDecorr;\
 	  }else{\
 	    savecorrs \
 	  };/* Don't apply Jones*/\

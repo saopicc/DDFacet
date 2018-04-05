@@ -799,8 +799,8 @@ class WorkerFitness(multiprocessing.Process):
         self.kill_received = False
         self.exit = multiprocessing.Event()
         self._pause_on_start = PauseOnStart
-        self._island_dict = self._island_dict
-        self._chain_dict = self._island_dict["Chains"]
+        self._island_dict = island_dict
+        self._chain_dict = island_dict["Chains"]
         self.GD=GD
         self.PM=PM
         self.EstimatedStdFromResid=EstimatedStdFromResid
