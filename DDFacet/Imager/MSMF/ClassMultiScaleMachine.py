@@ -876,7 +876,8 @@ class ClassMultiScaleMachine():
         #self.SolveMode="NNLS"
 
         # MeanFluxTrue=np.sum(FpolTrue.ravel()*self.WeightMuellerSignal)/np.sum(self.WeightMuellerSignal)
-        MeanFluxTrue = Fpol.mean()/np.sqrt(JonesNorm).mean()
+        W=np.float32(self.DicoDirty["WeightChansImages"]).ravel()
+        MeanFluxTrue = np.sum(Fpol.ravel()*W/np.sqrt(JonesNorm).ravel())#mean()
         
         if  self.SolveMode=="MatchingPursuit":
             #Sol=np.dot(BM.T,WVecPSF*dirtyVec)
@@ -1037,7 +1038,10 @@ class ClassMultiScaleMachine():
             #print "Min Max model",LocalSM.min(),LocalSM.max()
         elif self.SolveMode=="NNLS":
             OrigDirty=dirtyVec.copy().reshape((nchan,1,nxp,nyp))[:,0]
-            MeanOrigDirty=np.mean(OrigDirty,axis=0)
+            #MeanOrigDirty=np.mean(OrigDirty,axis=0)
+            WCHAN=np.float32(self.DicoDirty["WeightChansImages"]).ravel()
+            MeanOrigDirty=np.sum(OrigDirty*WCHAN.reshape((-1,1,1)),axis=0).reshape((nxp,nyp))
+
             Ad=np.abs(MeanOrigDirty)
             iind=np.where(Ad==np.max(Ad))
             Peak=MeanOrigDirty[iind]
@@ -1051,7 +1055,9 @@ class ClassMultiScaleMachine():
             # print ":::::::::"
             # W.fill(1.)
             OrigDirty=dirtyVec.copy().reshape((nchan,1,nxp,nyp))[:,0]
-            MeanOrigDirty=np.mean(OrigDirty,axis=0)
+            #MeanOrigDirty=np.mean(OrigDirty,axis=0)
+            MeanOrigDirty=np.sum(OrigDirty*WCHAN.reshape((-1,1,1)),axis=0).reshape((nxp,nyp))
+
             xc0,yc0=np.where(np.abs(MeanOrigDirty) == np.max(np.abs(MeanOrigDirty)))
             PeakMeanOrigDirty=MeanOrigDirty[xc0[0],yc0[0]]
             dirtyVec=dirtyVec.copy()
@@ -1225,23 +1231,30 @@ class ClassMultiScaleMachine():
 
         
 
-            # Sol=x
-            # #Sol.flat[:]/=self.SumFuncScales.flat[:]
-            # #print Sol
+            Sol=x
+            #Sol.flat[:]/=self.SumFuncScales.flat[:]
+            #print Sol
 
-            # Mask=np.zeros((Sol.size,),np.float32)
-            # FuncScale=1.#self.giveSmallScaleBias()
-            # wCoef=SumCoefScales/self.SumFluxScales*FuncScale
-            # ChosenScale=np.argmax(wCoef)
+            # Compute flux in each spacial scale
+            SumCoefScales=np.zeros((self.NScales,),np.float32)
+            for iScale in range(self.NScales):
+                indAlpha=self.IndexScales[iScale]
+                SumCoefScales[iScale]=np.sum(Sol[indAlpha])
 
-            # # print "==============="
-            # # print "%s -> %i"%(str(wCoef),ChosenScale)
-            # # print "Sol =  %s"%str(Sol)
-            # # print
+            
+            Mask=np.zeros((Sol.size,),np.float32)
+            FuncScale=1.#self.giveSmallScaleBias()
+            wCoef=SumCoefScales/self.SumFluxScales*FuncScale
+            ChosenScale=np.argmax(wCoef)
+
+            # print "==============="
+            # print "%s -> %i"%(str(wCoef),ChosenScale)
+            # print "Sol =  %s"%str(Sol)
+            # print
 
 
-            # Mask[self.IndexScales[ChosenScale]]=1
-            # Sol.flat[:]*=Mask.flat[:]
+            Mask[self.IndexScales[ChosenScale]]=1
+            Sol.flat[:]*=Mask.flat[:]
 
             ########################################################
             ########################################################
@@ -1251,8 +1264,11 @@ class ClassMultiScaleMachine():
 
             SolReg = np.zeros_like(Sol)
             SolReg[0] = MeanFluxTrue
-            Peak=np.mean(np.max(np.max(ConvSM,axis=-1),axis=-1))
 
+            #Peak=np.mean(np.max(np.max(ConvSM,axis=-1),axis=-1))
+            Peak=np.sum(np.max(np.max(ConvSM,axis=-1),axis=-1)*WCHAN.ravel())
+
+            #if (np.sign(SolReg[0]) != np.sign(np.sum(Sol))) or (np.max(np.abs(Sol))<1e-6*np.abs(Peak)):
             if (np.sign(SolReg[0]) != np.sign(np.sum(Sol))) or (np.max(np.abs(Sol))==0):
                 Sol = SolReg
                 LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
@@ -1264,7 +1280,8 @@ class ClassMultiScaleMachine():
 
                 # Fact=(MeanFluxTrue/np.sum(Sol))
                 LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
-                Peak=np.mean(np.max(np.max(LocalSM,axis=-1),axis=-1))
+                #Peak=np.mean(np.max(np.max(LocalSM,axis=-1),axis=-1))
+                Peak=np.sum(np.max(np.max(LocalSM,axis=-1),axis=-1)*WCHAN.ravel())
 
                 nch,nx,ny=LocalSM.shape
                 #print Peak
@@ -1275,8 +1292,10 @@ class ClassMultiScaleMachine():
                 #print "Sol1",Sol
                 LocalSM*=(MeanFluxTrue/Peak)
                 Sol*=(MeanFluxTrue/Peak)
-                #print coef,MeanFluxTrue,Peak,Sol
-            #print "Sol2",Sol
+            #     print "==========="
+            #     print coef,MeanFluxTrue,Peak,Sol
+            #     print Fpol,np.sum(Fpol.ravel()*WCHAN.ravel())
+            # #print "Sol2",Sol
 
 
             if self._dump:
@@ -1342,8 +1361,8 @@ class ClassMultiScaleMachine():
 
         nch,nx,ny = LocalSM.shape
         LocalSM = LocalSM.reshape((nch,1,nx,ny))
-#        LocalSM *= np.sqrt(JonesNorm)
-        numexpr.evaluate('LocalSM*sqrt(JonesNorm)',out=LocalSM)
+        LocalSM *= np.sqrt(JonesNorm)
+        #numexpr.evaluate('LocalSM*sqrt(JonesNorm)',out=LocalSM)
 
         # print self.AlphaVec,Sol
         # print "alpha",np.sum(self.AlphaVec.ravel()*Sol.ravel())/np.sum(Sol)

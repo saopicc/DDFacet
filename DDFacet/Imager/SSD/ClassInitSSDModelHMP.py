@@ -42,6 +42,9 @@ class ClassInitSSDModelParallel():
         self.InitMachine.setDirty(DicoDirty)
         #self.InitMachine.DeconvMachine.setNCPU(NCPU)
         self.InitMachine.setSSDModelImage(DicoParm["ModelImage"])
+
+        #print ":::::::::::::::::::::::",iIsland
+
         try:
             SModel, AModel = self.InitMachine.giveModel(Island)
         except:
@@ -105,13 +108,14 @@ class ClassInitSSDModelParallel():
 
 
         print>>log,"Initialise islands (parallelised over islands)"
+#        for iIsland,Island in enumerate(ListIslands[::-1]):
         for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
                 APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
                            args=(subdict.writeonly(), iIsland, Island,
                                  self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
-                                 ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),1))
+                                 ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),1))#,serial=True)
         APP.awaitJobResults("InitIsland:*", progress="Init islands")
         DicoInitIndiv.reload()
         
@@ -142,7 +146,6 @@ class ClassInitSSDModel():
         self.GD["Deconv"]["CycleFactor"] = 0
         self.GD["Deconv"]["PeakFactor"] = 0.0
         self.GD["Deconv"]["RMSFactor"] = self.GD["GAClean"]["RMSFactorInitHMP"]
-
         self.GD["Deconv"]["Gain"] = self.GD["GAClean"]["GainInitHMP"]
         self.GD["Deconv"]["AllowNegative"] = self.GD["GAClean"]["AllowNegativeInitHMP"]
         self.GD["Deconv"]["MaxMinorIter"] = int(self.GD["GAClean"]["MaxMinorIterInitHMP"])
@@ -153,12 +156,12 @@ class ClassInitSSDModel():
         # self.GD["MultiScale"]["Ratios"]=[]
         self.GD["HMP"]["NTheta"] = 4
 
-        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        # self.GD["HMP"]["Scales"] = [0,1,2,4,8,16,24,32,48,64]
-        # self.GD["HMP"]["Taper"] = 32
-        # self.GD["HMP"]["Support"] = 32#self.GD["HMP"]["Scales"][-1]
-        self.GD["Deconv"]["RMSFactor"] = 1.
-        self.GD["Deconv"]["AllowNegative"] = True
+        # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        # # self.GD["HMP"]["Scales"] = [0,1,2,4,8,16,24,32,48,64]
+        # # self.GD["HMP"]["Taper"] = 32
+        # # self.GD["HMP"]["Support"] = 32#self.GD["HMP"]["Scales"][-1]
+        # self.GD["Deconv"]["RMSFactor"] = 1.
+        # self.GD["Deconv"]["AllowNegative"] = True
         
         self.GD["HMP"]["SolverMode"] = "NNLS"
         # self.GD["MultiScale"]["SolverMode"]="PI"
@@ -317,7 +320,12 @@ class ClassInitSSDModel():
         _,_,N0x,N0y=ConvModel.shape
         MeanConvModel=np.mean(ConvModel,axis=0).reshape((1,1,N0x,N0y))
         self.DicoSubDirty["ImageCube"]+=ConvModel
-        self.DicoSubDirty['MeanImage']+=MeanConvModel
+        #self.DicoSubDirty['MeanImage']+=MeanConvModel
+        
+        W=np.float32(self.DicoSubDirty["WeightChansImages"])
+        W=W/np.sum(W)
+        MeanImage=np.sum(self.DicoSubDirty["ImageCube"]*W.reshape((-1,1,1,1)),axis=0).reshape((1,1,N0x,N0y))
+        self.DicoSubDirty['MeanImage']=MeanImage
         #print "MAX=",np.max(self.DicoSubDirty['MeanImage'])
         T.timeit("2")
 
