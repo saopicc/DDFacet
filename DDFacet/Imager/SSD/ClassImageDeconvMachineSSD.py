@@ -274,7 +274,6 @@ class ClassImageDeconvMachine():
         #     SModel,AModel=InitMachine.giveModel(Island)
         #     DicoInitIndiv[iIsland]={"S":SModel,"Alpha":AModel}
         # self.DicoInitIndiv=DicoInitIndiv
-        
         # ######################
         # Parallel
         self.ListSizeIslands=[]

@@ -23,6 +23,16 @@ import os
 # we will set our own settings up later on
 os.environ["OMP_NUM_THREADS"] = "1"
 
+# dirty hack to fix what seems to be an easy install problem
+# see https://stackoverflow.com/questions/5984523/eggs-in-path-before-pythonpath-environment-variable
+
+# import sys,os
+# sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
+import sys,os
+if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
+    sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
+
+
 #import matplotlib
 # matplotlib.use('agg')
 import optparse
