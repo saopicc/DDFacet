@@ -984,6 +984,8 @@ class ClassImagerDeconv():
         if NMajor is None:
             NMajor=self.NMajor
 
+        restart_time = time.time()
+
         # see if we're working in "sparsification" mode
         # 'sparsify' is a list of factors. E.g. [100,10] means data in first major cycle is sparsified
         # by a factor of 100, second cycle by 10, from third cyrcle onwards is precise
@@ -1019,28 +1021,30 @@ class ClassImagerDeconv():
             self.FacetMachinePSF.releaseGrids()
             self.FacetMachinePSF = None
 
-        #Pass minor cycle specific options into Init as kwargs
-        self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
-                                approx=(sparsify > approximate_psf_above), cache=not sparsify,
-                                GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
-                                RefFreq=self.VS.RefFreq)
+        # if asked to conserve memory, DeconvMachine and ImageNoiseMachine
+        # will be reset and reinitialized each major cycle (since they may have memory-hungry HDM dicts
+        # inside them)
+        conserve_memory = self.GD["Misc"]["ConserveMemory"]
+
+        # flags keep track of whether the machines need to be (re)initialized
+        deconvmachine_init = imagenoisemachine_init = False
 
         continue_deconv = True
 
         for iMajor in range(1, NMajor+1):
-            # good to recreate the workers now, to drop their RAM
-            #APP.restartWorkers()
             # previous minor loop indicated it has reached bottom? Break out
             if not continue_deconv:
                 break
 
             print>>log, ModColor.Str("========================== Running major cycle %i ========================="%(iMajor-1))
+
+            # noise mask first (this may be RAM-hungry due to HMP inside, but ClassImageNoiseMachine.giveBrutalRestored()
+            # eventually Reset()s its HMP machine, releasing memory)
+
             # we have to give the PSF to the image-noise machine since it may have to run an HMP deconvolution
             self.ImageNoiseMachine.setPSF(self.DicoImagesPSF)
             # now update the mask - it will eventually call for ImageNoiseMachine to compute a noise image
             self.MaskMachine.updateMask(self.DicoDirty)
-
-
             if self.MaskMachine.CurrentMask is not None:
                 if "k" in self._saveims:
                     self.FacetMachine.ToCasaImage(np.float32(self.MaskMachine.CurrentMask),
@@ -1056,6 +1060,24 @@ class ClassImagerDeconv():
                     self.FacetMachine.ToCasaImage(np.float32(self.ImageNoiseMachine.ModelConv),
                                                   ImageName="%s.brutalModelConv%2.2i"%(self.BaseName,iMajor),Fits=True,
                                                   Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
+            # now, finally, initialize the deconv machine (this may also be RAM-heavy thanks to HMP,
+            # so we only do this after the mask machine has done its business)
+
+            if not deconvmachine_init:
+                # Pass minor cycle specific options into Init as kwargs
+                self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
+                                        approx=(sparsify > approximate_psf_above), cache=not sparsify,
+                                        GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
+                                        RefFreq=self.VS.RefFreq)
+                deconvmachine_init = True
+
+            # To make the package more robust against memory leaks, we restart the worker processes every now and then.
+            # As a rule of thumb, we do this every major cycle, but no more often than every N minutes.
+            if time.time() > restart_time + 600:
+                APP.restartWorkers()
+                restart_time = time.time()
+
             self.DeconvMachine.Update(self.DicoDirty)
 
             repMinor, continue_deconv, update_model = self.DeconvMachine.Deconvolve()
@@ -1119,15 +1141,22 @@ class ClassImagerDeconv():
             if do_psf:
                 print>>log, "the PSF will be recomputed"
                 self.FacetMachinePSF.ReinitDirty()
-            # release PSFs and memory in DeconvMachine, if it's going to be reinitialized with a new PSF anyway, or if
-            # we're not going to use it again
             if do_psf or not continue_deconv:
                 if self.DicoImagesPSF is not None:
                     self.DicoImagesPSF.delete()
                     self.DicoImagesPSF = None
+
+
+            # release PSFs and memory in DeconvMachine, if it's going to be reinitialized with a new PSF anyway, or if
+            # we're not going to use it again, or if we're asked to conserve memory
+#            import pdb;
+#            pdb.set_trace()
+            if do_psf or not continue_deconv or conserve_memory:
                 # if DeconvMachine has a reset method, use it
                 if hasattr(self.DeconvMachine, 'Reset'):
                     self.DeconvMachine.Reset()
+                    deconvmachine_init = False
+
             previous_sparsify = sparsify
 
             current_model_freqs = np.array([])
@@ -1225,10 +1254,7 @@ class ClassImagerDeconv():
             if do_psf:
                 self._finalizeComputedPSF(self.FacetMachinePSF, cachepath=None)
                 self._fitAndSavePSF(self.FacetMachinePSF, cycle=iMajor)
-                self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
-                                        approx=(sparsify > approximate_psf_above),
-                                        cache=not sparsify, GridFreqs=self.VS.FreqBandCenters,
-                                        DegridFreqs=self.VS.FreqBandChannelsDegrid[0], RefFreq=self.VS.RefFreq)
+                deconvmachine_init = False  # force re-init above
 
             # if we reached a sparsification of 1, we shan't be re-making the PSF
             if sparsify <= 1:
