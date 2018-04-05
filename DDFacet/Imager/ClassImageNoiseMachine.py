@@ -271,6 +271,8 @@ class ClassImageNoiseMachine():
 
         self.DicoDirty["MeanImage"][...]=self.Orig_MeanDirty[...]
         self.DicoDirty["ImageCube"][...]=self.Orig_Dirty[...]
-        
+
+
+        self.DeconvMachine.Reset()
         #MyLogger.setLoud(ListSilentModules)
         return self.Restored
