@@ -333,8 +333,8 @@ void initJonesServer(PyObject *LJones, int JonesTypeIn, double WaveLengthMeanIn)
     npModeInterpolation= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
     ptrModeInterpolation=p_int32(npModeInterpolation);
     ModeInterpolation=ptrModeInterpolation[0];
-    
-    
+    DoApplyJones=ptrModeInterpolation[1];
+
     npVisToJonesChanMapping_killMS= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
     ptrVisToJonesChanMapping_killMS=p_int32(npVisToJonesChanMapping_killMS);
     

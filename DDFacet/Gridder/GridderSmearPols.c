@@ -392,7 +392,9 @@ void griddername(PyArrayObject *grid, \
 	CurrentCorrRow0 = Row[0];\
       }\
       double visChanMean=0.;\
+      double decorrFactorMean=0.;\
       resetJonesServerCounter();\
+      float complex visPtr[4]; /* temporary storage when applying Jones */ \
       \
       for (inx=0; inx<NRowThisBlock; inx++) {\
 	size_t irow = Row[inx];\
@@ -415,7 +417,7 @@ void griddername(PyArrayObject *grid, \
 					       (float)Dnu, \
 					       (float)DT);\
 	}\
-	\
+	decorrFactorMean += DeCorrFactor; \
 	for (visChan=chStart; visChan<chEnd; ++visChan) {\
 	  size_t doff = (irow * nVisChan + visChan) * nVisCorr;\
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;\
@@ -462,7 +464,7 @@ void griddername(PyArrayObject *grid, \
 	  int OneFlagged=0;\
 	  int cond;\
 	  \
-	  if(DoApplyJones){\
+	  if(DoApplyJones==1){\
 	    updateJones(irow, visChan, uvwPtr, 1, 1);\
 	  } /*endif DoApplyJones*/\
 	  \
@@ -477,7 +479,7 @@ void griddername(PyArrayObject *grid, \
 	    VisMeas[2]= 0.;\
 	    VisMeas[3]= 1.;\
 	    corr=1.;\
-	    if(DoApplyJones){\
+	    if(DoApplyJones==1){\
 	      /* first product seems superfluous, why multiply by identity? */\
 	      MatDot(J0,JonesType,VisMeas,SkyType,VisMeas);\
 	      MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);\
@@ -491,8 +493,7 @@ void griddername(PyArrayObject *grid, \
 	  }\
 	  float FWeight = *imgWtPtr; /**WeightVaryJJ;*/\
 	  float complex Weight=(FWeight) * corr;\
-	  float complex visPtr[4];\
-	  if(DoApplyJones){\
+	  if(DoApplyJones==1){\
 	    MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);\
 	    MatDot(visPtr,SkyType,J1,JonesType,VisMeas);\
 	    savecorrs \
@@ -526,10 +527,29 @@ void griddername(PyArrayObject *grid, \
       Umean/=NVisThisblock;\
       Vmean/=NVisThisblock;\
       Wmean/=NVisThisblock;\
+      decorrFactorMean/=NVisThisblock;\
       FreqMean/=NVisThisblock;\
       \
       /*printf("visChanMean, NVisThisblock: %f %f\n",(float)visChanMean, (float)NVisThisblock);*/\
       visChanMean/=NVisThisblock;\
+      if(DoApplyJones==2){ \
+        double uvw_mean[] = { Umean, Vmean, Wmean }; \
+        updateJones(Row[NRowThisBlock/2], (chStart+chEnd)/2, uvw_mean, 1, 1);\
+        if (dopsf==1) {\
+              /* first product seems superfluous, why multiply by identity? */\
+              MatDot(J0,JonesType,Vis,SkyType,Vis);\
+              MatDot(Vis,SkyType,J1H,JonesType,Vis);\
+        }\
+        MatDot(J0H,JonesType,Vis,SkyType,visPtr);\
+        MatDot(visPtr,SkyType,J1,JonesType,Vis);\
+        /*Compute per channel and overall approximate matrix sqroot:*/\
+        float FWeightDecorr= ThisWeight*decorrFactorMean*decorrFactorMean; \
+        ThisSumJones+=BB*FWeightDecorr; \
+        ThisSumSqWeights+=FWeightDecorr;\
+        \
+        ThisSumJonesChan[visChan]+=BB*FWeightDecorr;\
+        ThisSumSqWeightsChan[visChan]+=FWeightDecorr;\
+      }\
       int ThisGridChan=p_ChanMapping[chStart];\
       double diffChan=visChanMean-ThisGridChan;\
       if(fabs(diffChan)>1e-6)\
