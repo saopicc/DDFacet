@@ -668,7 +668,7 @@ class ClassVisServer():
         self._weight_dict = shared_dict.create("VisWeights")
         # check for wmax in cache
         cache_keys = dict([(section, self.GD[section]) for section
-              in ("Data", "Selection", "Freq", "Image", "Weight")])
+              in ("Data", "Selection", "Freq", "Image", "Weight", "DDESolutions")])
         wmax_path, wmax_valid = self.maincache.checkCache("wmax", cache_keys)
         if wmax_valid:
             self._weight_dict["wmax"] = cPickle.load(open(wmax_path))
