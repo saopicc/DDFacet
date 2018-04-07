@@ -491,7 +491,7 @@ void griddername(PyArrayObject *grid, \
 	  }else{\
 	    readcorrs \
 	  }\
-	  float FWeight = *imgWtPtr; /**WeightVaryJJ;*/\
+	  float FWeight = (*imgWtPtr)*WeightVaryJJ; /**WeightVaryJJ;*/\
 	  float complex Weight=(FWeight) * corr;\
 	  if(DoApplyJones==1){\
 	    MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);\
