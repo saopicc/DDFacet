@@ -489,7 +489,7 @@ void griddername(PyArrayObject *grid, \
 	  }else{\
 	    readcorrs \
 	  }\
-	  float FWeight = *imgWtPtr; /**WeightVaryJJ;*/\
+	  float FWeight = (*imgWtPtr)*WeightVaryJJ; /**WeightVaryJJ;*/\
 	  float complex Weight=(FWeight) * corr;\
 	  float complex visPtr[4];\
 	  if(DoApplyJones){\
