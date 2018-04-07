@@ -596,7 +596,7 @@ class ClassDDEGridMachine():
         elif InterpMode=="Krigging":
             InterpMode=1
 
-        BDAJonesMode = 2 if self.GD["Comp"]["BDAJones"]) else 1
+        BDAJonesMode = 2 if self.GD["Comp"]["BDAJones"] else 1
 
         #ParamJonesList=[MapJones,A0.astype(np.int32),A1.astype(np.int32),JonesMatrices.astype(np.complex64),idir]
         if A0.size!=uvw.shape[0]:
