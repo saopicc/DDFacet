@@ -194,7 +194,7 @@ class ClassImageDeconvMachine():
     def Reset(self):
         print>>log, "resetting HMP machine"
         self.DicoMSMachine = {}
-        if type(self.facetcache) is shared_dict.SharedDict:
+        if type(self.facetcache) is shared_dict.SharedDict and self.facetcache.is_writeable():
             print>> log, "deleting HMP facet cache"
             self.facetcache.delete()
         self.facetcache = None
@@ -272,6 +272,7 @@ class ClassImageDeconvMachine():
             # if no facet cache, init in parallel
             if self.facetcache is None:
                 self.facetcache = shared_dict.create(self.CacheFileName)
+                # breakout = False
                 for iFacet in xrange(self.PSFServer.NFacets):
                     fcdict = self.facetcache.addSubdict(iFacet)
                     if self.ParallelMode:
@@ -283,6 +284,10 @@ class ClassImageDeconvMachine():
                         args=(fcdict, self.DicoVariablePSF,
                               iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet)
                         self._initMSM_handler(*args)
+                        # import pdb;
+                        # pdb.set_trace()
+                        # if breakout:
+                        #     raise RuntimeError("exiting")
 
                 if self.ParallelMode:
                     APP.awaitJobResults("InitHMP:*", progress="Init HMP")
@@ -335,7 +340,10 @@ class ClassImageDeconvMachine():
         # self._PSF=self.MSMachine._PSF
         self._CubeDirty = MSMachine._Dirty
         self._MeanDirty = MSMachine._MeanDirty
-
+        
+        # vector of per-band overall weights -- starts out as N,1 in the dico, so reshape
+        W = np.float32(self.DicoDirty["WeightChansImages"])
+        self._band_weights = W.reshape(W.size)[:, np.newaxis, np.newaxis, np.newaxis]
 
         if self._peakMode is "sigma":
             print>>log,"Will search for the peak in the SNR-weighted dirty map"
@@ -503,7 +511,7 @@ class ClassImageDeconvMachine():
             # see https://github.com/cyriltasse/DDFacet/issues/325
             # So use array copy instead (which makes an intermediate array)
             if cube.shape[0] > 1:
-                meanimage[...] = cube.mean(axis=0)
+                meanimage[...] = (cube*self._band_weights).sum(axis=0)
                 # cube.mean(axis=0, out=meanimage)
             else:
                 meanimage[...] = cube[0,...]
