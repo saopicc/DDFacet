@@ -343,8 +343,8 @@ namespace DDF {
 //	    if(facet==0)
 //               std::fprintf(stderr,"F%dB%d ptrSumJones[0]=%f\n",facet,iBlock,JS.ptrSumJones[0]);
 	} /*end for Block*/
-	if(facet==0)
-          	std::cerr<<"\n\n\nF"<<facet<<" sumJones[0] "<<JS.ptrSumJones[0]<<"\n\n\n";
+//	if(facet==0)
+//          	std::cerr<<"\n\n\nF"<<facet<<" sumJones[0] "<<JS.ptrSumJones[0]<<"\n\n\n";
       } /* end */
     }
 }
