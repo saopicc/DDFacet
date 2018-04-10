@@ -1,6 +1,3 @@
-[submodule "SkyModel"]
-	path = SkyModel
-	url = https://github.com/cyriltasse/SkyModel
 [submodule "shared-array"]
 	path = shared-array
 	url = git@github.com:o-smirnov/shared-array.git
