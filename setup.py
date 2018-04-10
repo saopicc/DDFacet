@@ -31,7 +31,7 @@ import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
-__version__ = "0.3.4"
+__version__ = "0.3.4.1"
 build_root=os.path.dirname(__file__)
 
 def backend(compile_options):
