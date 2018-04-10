@@ -785,7 +785,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
                                   iFacet=FacetID,PixVariance=PixVariance,
                                   IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
                                   GD=self.GD,
-                                  iIsland=iIsland,IdSharedMem=self.IdSharedMem,
+                                  iIsland=iIsland,
+                                  island_dict=island_dict,
                                   ParallelFitness=self.ParallelPerIsland,
                                   ListInitIslands=self.ListInitIslands)
                 Model=CEv.main(NGen=NGen,NIndiv=NIndiv,DoPlot=False)
@@ -802,7 +803,8 @@ class WorkerDeconvIsland(multiprocessing.Process):
                                     iFacet=FacetID,PixVariance=PixVariance,
                                     IslandBestIndiv=IslandBestIndiv,#*np.sqrt(JonesNorm),
                                     GD=self.GD,
-                                    iIsland=iIsland,IdSharedMem=self.IdSharedMem,
+                                    iIsland=iIsland,
+                                    island_dict=island_dict,
                                     ParallelFitness=self.ParallelPerIsland,
                                     NChains=self.NChains)
                 Model,sModel=CEv.main(NSteps=self.GD["MetroClean"]["MetroNIter"])
