@@ -77,6 +77,7 @@ class SmearMappingMachine (object):
     def collectSmearMapping (self, DATA, field):
         APP.awaitJobCounter(self._job_counter, progress="Mapping %s"%self.name, total=self._nbl, timeout=1)
         self._outdict.reload()
+        self._outdict.save("bda.dict")
         blockdict = self._outdict["blocks"]
         sizedict  = self._outdict["sizes"]
         # process worker results
@@ -338,7 +339,7 @@ class ClassSmearMapping():
         return OutputMapping, fact
 
 
-def GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l, GridChanMapping):
+def GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l_max, GridChanMapping):
 
     A0 = DATA["A0"]
     A1 = DATA["A1"]
@@ -354,8 +355,12 @@ def GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l, GridChanMapping):
     NChan = freqs.size
     nu0 = np.max(freqs)
 
+    #if (a0,a1) == (0,3):
+    #  print>>log,"DPhi %f l %f"%(dPhi,l_max) 
+    #  print>>log,freqs
+    
     # critical delta-uv interval for smearing
-    Duv = C*(dPhi)/(np.pi*nu0)
+    Duv = C*(dPhi)/(2*np.pi*nu0)
 
     ### old code -- computed delta-uv or delta-uvw and compared this to Duv
     # # find delta-uv at each row: will have size of (Nrow,2)
@@ -370,23 +375,27 @@ def GiveBlocksRowsListBL(a0, a1, DATA, dPhi, l, GridChanMapping):
     ### better idea maybe: multiply uvw by l,m,n-1 at facet edge
     ### (Cyril's old code just took delta-uvw times l, which probably overweighted w!)
 
-    # take l,m,n-1 at facet edge, compute ul,vm,w(n-1) vector
-    lmn = np.array([l, l, math.sqrt(1-2*l*l)-1])
-    uvwlmn = uvw * lmn[np.newaxis,:]
-
-    duvw = uvwlmn.copy()
-    duvw[:-1,:] = uvwlmn[1:,:] - uvwlmn[:-1,:]
+    duvw = np.zeros_like(uvw)
+    duvw[:-1,:] = uvw[:-1,:] - uvw[1:,:]
     # last delta copied from previous row
     duvw[-1,:] = duvw[-2,:]
-    # max delta phase is just the length of the delta-vector
-    delta_phase = np.sqrt((duvw**2).sum(1))*(np.pi*nu0/C)
+    # max delta phase occurs when duvw lines up with lmn-1. So assume we have an lmn vector such
+    # that ||(l,m)||=l_max, n_max=|sqrt(1-l_max^2)-1|; the max phase change will be ||(du,dv)||*l_max+|dw|*n_max  
+    n_max = abs(math.sqrt(1-l_max**2)-1)
+    delta_phase = (2*np.pi*nu0/C)*(np.sqrt((duvw[:,:2]**2).sum(1))*l_max + abs(duvw[:,2])*n_max)
+    
+    #if (a0,a1) == (0,3):
+    #  print>>log,"l_max %f n_max %f"%(l_max,n_max)
+    #  print>>log,"uvw %s"%uvw[0:120]
+    #  print>>log,"duvw %s"%duvw[0:120]
+    #  print>>log,"dp %s"%delta_phase[0:120]
+      
 
-    ## same here: instead of uvw distance, multiply uvw by lmn on facet edge
-    # # uvw-distance at each row (size Nrow-1)
+    ## same here: max \vec{u}\cdot\vec{l} is ||(u,v)||*l_max +|w|*n_max
     # uv = np.sqrt((uvw**2).sum(1))
     # dnu = (C / np.pi) * dPhi / (uv * l)  # delta-nu for each row
-    uv = np.sqrt((uvwlmn**2).sum(1))
-    dnu = (C / np.pi) * dPhi / uv  # delta-nu for each row
+    uv = np.sqrt((uvw[:,:2]**2).sum(1))*l_max + abs(uvw[:,2])*n_max
+    dnu = (C / (2*np.pi)) * dPhi / uv  # delta-nu for each row (i.e. delta-nu corresponding to a phase change of dPhi) 
     fracsizeChanBlock = dnu / dFreq  # max size of averaging block, in fractional channels, for each row
 
     if True:  # fast-style, maybe not as precise
