@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define GRIDDER_JONESSERV_H
 
 #include "common.h"
+#include <iostream>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pytypes.h>
@@ -106,11 +107,15 @@ namespace DDF {
 	double WeightVaryJJ;
 	bool DoApplyJones=false;
 	dcMat J0, J1, J0H, J1H;
+	
 	double *ptrSumJones, *ptrSumJonesChan;
 	
 	JonesServer(py::list& LJones, double WaveLengthMeanIn);
 	void updateJones(size_t irow, size_t visChan, const double *uvwPtr, bool EstimateWeight, bool DoApplyAlphaRegIn);
 	void resetJonesServerCounter();
+	
+      private:
+        dcMat J0Beam, J1Beam, J0kMS, J1kMS;
       };
   }
 }

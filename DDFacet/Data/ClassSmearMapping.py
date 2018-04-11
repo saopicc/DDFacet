@@ -103,7 +103,7 @@ class SmearMappingMachine (object):
         jjj = 0
 
         # now go through each per-baseline mapping, sorted by baseline
-        for key in sizedict.iterkeys():
+        for key in sorted(sizedict.iterkeys()):
             BlocksSizesBL = sizedict[key]
             BlocksRowsListBL = blockdict[key]
 
@@ -584,6 +584,7 @@ def GiveBlocksRowsListBL_old(a0, a1, DATA, dPhi, l, channel_mapping):
                 blocklist.append(ThiDesc)
                 BlocksRowsListBL += (ThiDesc)
                 NBlocksTotBL += 1
+            # import pdb; pdb.set_trace()
             NChanBlockMax = 1e3
             CurrentRows = []
             duvtot = 0

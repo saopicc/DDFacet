@@ -106,6 +106,9 @@ class SharedDict (collections.OrderedDict):
         if self._delete_items:
             self.delete()
 
+    def is_writeable(self):
+        return self._readwrite
+
     def readwrite(self):
         if not self._load:
             raise RuntimeError("SharedDict %s attached without load permissions" % self.path)

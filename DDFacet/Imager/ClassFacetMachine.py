@@ -129,7 +129,7 @@ class ClassFacetMachine():
         self.JonesNorm = None
         self.FacetNorm = None
 
-        self._facet_grids = self.DATA = None
+        self._facet_grids = self._CF = self.DATA = None
         self._grid_job_id = self._fft_job_id = self._degrid_job_id = None
         self._smooth_job_label=None
 
@@ -137,8 +137,10 @@ class ClassFacetMachine():
         if not ClassFacetMachine._degridding_semaphores:
             NSemaphores = 3373
             ClassFacetMachine._degridding_semaphores = [Multiprocessing.getShmName("Semaphore", sem=i) for i in xrange(NSemaphores)]
-            _pyGridderSmearPols.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
-            atexit.register(ClassFacetMachine._delete_degridding_semaphores)
+            _degridder_module = _pyGridderSmearPolsClassic if self.GD["RIME"]["ForwardMode"] == "BDA-degrid-classic" \
+                                     else _pyGridderSmearPols
+            _degridder_module.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
+            atexit.register(lambda:ClassFacetMachine._delete_degridding_semaphores(_degridder_module))
 
         # this is used to store model images in shared memory, for the degridder
         self._model_dict = None
@@ -152,14 +154,16 @@ class ClassFacetMachine():
     _degridding_semaphores = None
 
     @staticmethod
-    def _delete_degridding_semaphores():
+    def _delete_degridding_semaphores(module):
         if ClassFacetMachine._degridding_semaphores:
-	    _pyGridderSmearPols.pyDeleteSemaphore()
+	    module.pyDeleteSemaphore()
             for sem in ClassFacetMachine._degridding_semaphores:
                 NpShared.DelArray(sem)
 
     def __del__(self):
         self.releaseGrids()
+        if self._delete_cf_in_destructor:
+            self.releaseCFs()
 
     def releaseGrids(self):
         if self._facet_grids is not None:
@@ -168,6 +172,11 @@ class ClassFacetMachine():
         for GM in self.DicoGridMachine.itervalues():
             if "Dirty" in GM:
                 del GM["Dirty"]
+
+    def releaseCFs(self):
+        if self._CF is not None:
+            self._CF.delete()
+            self._CF = None
 
     def setAverageBeamMachine(self,AverageBeamMachine):
         self.AverageBeamMachine=AverageBeamMachine
@@ -609,8 +618,10 @@ class ClassFacetMachine():
         # if we have another FacetMachine supplied, check if the same CFs apply
         if other_fm and self.Oversize == other_fm.Oversize:
             self._CF = other_fm._CF
+            self._delete_cf_in_destructor = False
             self.IsDDEGridMachineInit = True
             return
+        self._delete_cf_in_destructor = True
         # get wmax from MS (if needed)
         wmax = self.GD["CF"]["wmax"]
         if wmax:
@@ -872,6 +883,18 @@ class ClassFacetMachine():
             DicoImages["CubeVariablePSF"][iFacet, ch, :, :, :] = psf[ch][:, i:j, i:j]
         DicoImages["CubeMeanVariablePSF"][iFacet, 0, :, :, :] = DicoImages["Facets"][iFacet]["MeanPSF"][0, :, i:j, i:j]
 
+    def _computeFacetMeanResidual_worker(self, iFacet, fmr_dict, grid_dict, cf_dict, SumWeights, SumJonesNorm, WBAND):
+        dirty = grid_dict[iFacet]
+        nch, npol, npix_x, npix_y = dirty.shape
+        ThisW = SumWeights.reshape((self.VS.NFreqBands, npol, 1, 1))
+        SumJonesNorm = np.sqrt(SumJonesNorm)
+        if np.max(SumJonesNorm) > 0.:
+            ThisW = ThisW * SumJonesNorm.reshape((self.VS.NFreqBands, 1, 1, 1))
+        ThisDirty = dirty.real / ThisW
+        fmr = fmr_dict.addSharedArray(iFacet, (1, npol, npix_x, npix_y), ThisDirty.dtype)
+        fmr[:] = np.sum(ThisDirty * WBAND, axis=0).reshape((1, npol, npix_x, npix_y))
+        fmr /= cf_dict[iFacet]["Sphe"]
+
     def FacetsToIm(self, NormJones=False):
         """
         Fourier transforms the individual facet grids and then
@@ -1030,24 +1053,19 @@ class ClassFacetMachine():
                 ListMeanJonesBand.append(MeanJonesBand)
             DicoImages["MeanJonesBand"]=ListMeanJonesBand
 
-            ListSumJonesChan = []
-            ListSumJonesChanWeightSq = []
-            for iFacet in facets:
-                ThisFacetSumJonesChan = []
-                ThisFacetSumJonesChanWeightSq = []
-                for iMS in xrange(self.VS.nMS):
+            ## OMS: see issue #484. Restructuring this to use shm, and less of it. Note that the only user
+            ## of this structure is ClassSpectralFunctions and ClassPSFServer
+            ## [iMS][iFacet,0,:] is the sum of the per-channel weights
+            ## [iMS][iFacet,1,:] is the sum of the per-channel weights squared
+            ListSumJonesChan = DicoImages.addSubdict("SumJonesChan")
+            for iMS in xrange(self.VS.nMS):
+                nVisChan = self.VS.ListMS[iMS].ChanFreq.size
+                ThisMSSumJonesChan = ListSumJonesChan.addSharedArray(iMS, (len(facets), 2, nVisChan), np.float64)
+                for iFacet in facets:
                     sumjones = self.DicoImager[iFacet]["SumJonesChan"][iMS]
                     sumjones[sumjones == 0] = 1.
-                    SumJonesChan = sumjones[0, :]
-                    SumJonesChanWeightSq = sumjones[1, :]
-                    ThisFacetSumJonesChan.append(SumJonesChan)
-                    ThisFacetSumJonesChanWeightSq.append(SumJonesChanWeightSq)
+                    ThisMSSumJonesChan[iFacet,:] = sumjones[:]
 
-                ListSumJonesChan.append(ThisFacetSumJonesChan)
-                ListSumJonesChanWeightSq.append(ThisFacetSumJonesChanWeightSq)
-
-            DicoImages["SumJonesChan"]  = ListSumJonesChan
-            DicoImages["SumJonesChanWeightSq"] = ListSumJonesChanWeightSq
             DicoImages["ChanMappingGrid"] = self.VS.DicoMSChanMapping
             DicoImages["ChanMappingGridChan"] = self.VS.DicoMSChanMappingChan
 
@@ -1074,19 +1092,15 @@ class ClassFacetMachine():
 
         # else build Dirty (residual) image
         else:
+            fmr_dict = DicoImages.addSubdict("FacetMeanResidual")
 
-            DicoImages.addSubdict("FacetMeanResidual")
             for iFacet in sorted(self.DicoImager.keys()):
-                DicoImages["FacetMeanResidual"].addSubdict(iFacet)
-                nch,npol,npix_x,npix_y=self.DicoGridMachine[iFacet]["Dirty"].shape
-                ThisW=self.DicoImager[iFacet]["SumWeights"].reshape((self.VS.NFreqBands,npol,1,1))
-                SumJonesNorm=np.sqrt(self.DicoImager[iFacet]["SumJonesNorm"])
-                if np.max(SumJonesNorm)>0.:
-                    ThisW=ThisW*SumJonesNorm.reshape((self.VS.NFreqBands,1,1,1))
-                ThisDirty=self.DicoGridMachine[iFacet]["Dirty"].real/ThisW
-                DicoImages["FacetMeanResidual"][iFacet]=np.sum(ThisDirty*WBAND,axis=0).reshape((1,npol,npix_x,npix_y))
-                DicoImages["FacetMeanResidual"][iFacet]=DicoImages["FacetMeanResidual"][iFacet]/self._CF[iFacet]["Sphe"]
-                
+                APP.runJob("facetmeanresidual:%s" % iFacet, self._computeFacetMeanResidual_worker,
+                           args=(iFacet, fmr_dict.writeonly(), self._facet_grids.readonly(), self._CF.readonly(),
+                                 self.DicoImager[iFacet]["SumWeights"], self.DicoImager[iFacet]["SumJonesNorm"], WBAND))
+            APP.awaitJobResults("facetmeanresidual:*", progress="Mean per-facet dirties")
+            fmr_dict.reload()
+
             # Build a residual image consisting of multiple continuum bands
             stitchedResidual = self.FacetsToIm_Channel("Dirty")
 

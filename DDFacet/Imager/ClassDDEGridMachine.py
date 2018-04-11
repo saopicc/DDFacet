@@ -577,6 +577,7 @@ class ClassDDEGridMachine():
             w[ind[3::]]=0
             w/=np.sum(w)
             w_kMS=w
+#            print>>log,("kMS",self.IDFacet,lc.shape,idir_kMS)
 
         idir_Beam = 0
         if Apply_Beam:
@@ -585,6 +586,7 @@ class ClassDDEGridMachine():
             mc = DicoClusterDirs["m"]
             d = np.sqrt((l0-lc)**2+(m0-mc)**2)
             idir_Beam = np.argmin(d)
+#            print>>log,("Beam",self.IDFacet,lc.shape,idir_Beam)
 
         # pylab.clf()
         # pylab.scatter(lc,mc,c=w)
@@ -722,7 +724,7 @@ class ClassDDEGridMachine():
 
         l0, m0 = self.lmShift
         FacetInfos = np.float64(
-            np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0]))
+            np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
 
         self.CheckTypes(
             Grid=Grid,
@@ -756,7 +758,7 @@ class ClassDDEGridMachine():
         T.timeit("stuff")
         if False: # # self.GD["Comp"]["GridMode"] == 0:  # really deprecated for now
             raise RuntimeError("Deprecated flag. Please use BDA gridder")
-        elif self.GD["RIME"]["BackwardMode"]=="BDA-grid":
+        elif self.GD["RIME"]["BackwardMode"] == "BDA-grid":
             OptimisationInfos = [
                 self.JonesType,
                 ChanEquidistant,
@@ -791,13 +793,13 @@ class ClassDDEGridMachine():
 
             T.timeit("gridder")
             T.timeit("grid %d" % self.IDFacet)
-        elif self.GD["RIME"]["BackwardMode"]=="BDA-grid-classic":
+        elif self.GD["RIME"]["BackwardMode"] == "BDA-grid-classic":
             OptimisationInfos = [
                 self.JonesType,
                 ChanEquidistant,
                 self.SkyType,
                 self.PolModeID]
-            _pyGridderSmear.pyGridderWPol(Grid,
+            _pyGridderSmearClassic.pyGridderWPol(Grid,
                                           vis,
                                           uvw,
                                           flag,
@@ -1054,7 +1056,7 @@ class ClassDDEGridMachine():
 #            MapSmear = NpShared.GiveArray(
 #                "%sBDA.DeGrid" %
 #               (self.ChunkDataCache))
-            _pyGridderSmear.pySetSemaphores(self.ListSemaphores)
+            _pyGridderSmearClassic.pySetSemaphores(self.ListSemaphores)
             vis = _pyGridderSmearClassic.pyDeGridderWPol(
                 Grid, 
                 vis, 

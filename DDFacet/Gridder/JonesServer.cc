@@ -19,6 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #include "JonesServer.h"
+#include <iostream>
 namespace DDF {
   namespace DDEs {
     void JonesServer::NormJones(dcMat &J0, const double *uvwPtr) const
@@ -94,6 +95,10 @@ namespace DDF {
       }
       
     JonesServer::JonesServer(py::list& LJones, double WaveLengthMeanIn){
+      J0Beam.setUnity();
+      J1Beam.setUnity();
+      J0kMS.setUnity();
+      J1kMS.setUnity();
       J0.setUnity(); J1.setUnity();
       WaveLengthMean=WaveLengthMeanIn;
       DoApplyJones=LJones.size();
@@ -147,7 +152,6 @@ namespace DDF {
 	  ptrVisToJonesChanMapping_Beam = nullptr;
 	  i_dir_Beam = 0;
 	}
-	
 	if (not (ApplyJones_Beam || ApplyJones_killMS))
 	  throw std::runtime_error("Jones matricies specified but neither E or DD Jones are applied. This is a bug!");
 	  
@@ -203,7 +207,6 @@ namespace DDF {
 	}
 
       bool SomeJonesHaveChanged=false;
-      dcMat J0Beam(1,0,0,1), J1Beam(1,0,0,1);
 
       if (ApplyJones_Beam){
 	int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
@@ -219,7 +222,6 @@ namespace DDF {
 	  }
 	}
 
-      dcMat J0kMS(1,0,0,1), J1kMS(1,0,0,1);
       if (ApplyJones_killMS){
 	int i_t=ptrTimeMappingJonesMatrices[irow];
 	int i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
@@ -292,6 +294,7 @@ namespace DDF {
 	BB*=BB;
 	J0H=J0.hermitian();
 	J1H=J1.hermitian();
+//	std::fprintf(stderr,"Jones changed: R%dCh%d %f %f\n", (int)irow, (int)visChan, J0.v[0].real(), J0.v[0].imag());
 	}
       }
 

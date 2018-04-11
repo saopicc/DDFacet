@@ -23,6 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "common.h"
 #include "Semaphores.h"
+#include <stdio.h>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -94,6 +95,7 @@ namespace DDF {
       const double l0=ptrFacetInfos[2];
       const double m0=ptrFacetInfos[3];
       const double n0=sqrt(1-l0*l0-m0*m0)-1;
+      const int facet = ptrFacetInfos[4];
 
       /* Get size of grid. */
       const double *ptrWinfo = Winfos.data(0);
@@ -175,12 +177,16 @@ namespace DDF {
 	Corrcalc.update(Row[0], NRowThisBlock);
 
 	double DeCorrFactor=decorr.get(FreqMean0, Row[NRowThisBlock/2]);
+//	if(facet==0 && iBlock==0)
+//	  fprintf(stderr,"F%d block 0 decorrfactor %f\n",facet,DeCorrFactor);
 
 	double visChanMean=0., FreqMean=0;
 	double ThisWeight=0., ThisSumJones=0., ThisSumSqWeights=0.;
 	JS.resetJonesServerCounter();
 	int NVisThisblock=0;
 	double Umean=0, Vmean=0, Wmean=0;
+	dcMat VisMeas_psf;
+	VisMeas_psf.setUnity();
 	for (auto inx=0; inx<NRowThisBlock; inx++)
 	  {
 	  const size_t irow = size_t(Row[inx]);
@@ -200,23 +206,21 @@ namespace DDF {
 	    /* We can do that since all flags in 4-pols are equalised in ClassVisServer */
 	    if (flags.data(0)[doff]) continue;
 
-	    dcmplx corr = Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
+	    dcmplx corr = dopsf ? 1 : Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
+	    dcMat VisMeas;
 
 	    if (JS.DoApplyJones)
+	      {
 	      JS.updateJones(irow, visChan, uvwPtr, true, true);
+	      if (dopsf)
+	        VisMeas_psf = (JS.J0).times(JS.J1H); // precompute for the PSF case
+	      }
 
-	    dcMat VisMeas;
 	    if (dopsf)
 	      {
-	      // MR FIXME: why reset corr here? Seems like wasted work...
-	      corr=1.;
-	      if (JS.DoApplyJones)
-		VisMeas=(JS.J0).times(JS.J1H); // MR FIXME: precompute?
-	      else
-		VisMeas.setUnity();
+	      VisMeas = VisMeas_psf;
 	      if (DeCorrFactor!=1.)
-		for(int ThisPol=0; ThisPol<4;ThisPol++)
-		  VisMeas[ThisPol]*=DeCorrFactor;
+		VisMeas.scale(DeCorrFactor);
 	      }
 	    else
 	      readcorr(vis.data(0)+doff, VisMeas);
@@ -235,9 +239,14 @@ namespace DDF {
 
 	      ThisSumJonesChan[visChan]+=JS.BB*FWeightSq;
 	      ThisSumSqWeightsChan[visChan]+=FWeightSq;
+//  	      if(facet==0 && visChan==0)
+//                std::fprintf(stderr,"F%dB%dR%d weight %f jones %f %f BB %f wsq %f sj %f\n",facet,iBlock,irow,FWeight,JS.J0.v[0].real(),JS.J0.v[0].imag(),
+//				JS.BB,FWeightSq,ThisSumJonesChan[0]);
 	      }
 	    else /* Don't apply Jones */
 	      mulaccum(VisMeas, Weight, Vis);
+//	    if(facet==0 && inx==0 && visChan==chStart)
+//               std::fprintf(stderr,"F%dB%d weight %f jones %f %f BB %f\n",facet,iBlock,FWeight,JS.J0.v[0].real(),JS.J0.v[0].imag(),JS.BB);\
 
 	    /*###################### Averaging #######################*/
 	    Umean += U + W*Cu;
@@ -331,7 +340,11 @@ namespace DDF {
 	      }
 	    }
 	  } /* end for ipol */
+//	    if(facet==0)
+//               std::fprintf(stderr,"F%dB%d ptrSumJones[0]=%f\n",facet,iBlock,JS.ptrSumJones[0]);
 	} /*end for Block*/
+//	if(facet==0)
+//          	std::cerr<<"\n\n\nF"<<facet<<" sumJones[0] "<<JS.ptrSumJones[0]<<"\n\n\n";
       } /* end */
     }
 }
