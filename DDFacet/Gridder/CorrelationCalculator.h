@@ -1,9 +1,9 @@
 #pragma once
 #include "common.h"
 #include <vector>
-#include "pybind11/include/pybind11/pybind11.h"
-#include "pybind11/include/pybind11/numpy.h"
-#include "pybind11/include/pybind11/pytypes.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include <pybind11/pytypes.h>
 
 #ifndef GRIDDER_CORRCALC_H
 #define GRIDDER_CORRCALC_H

@@ -17,6 +17,7 @@ IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
 ENDIF()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/cmake")
 #Ensure __init__.py is added to out-of-source build directory
 execute_process(COMMAND touch __init__.py
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})

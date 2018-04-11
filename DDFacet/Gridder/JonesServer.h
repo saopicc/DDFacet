@@ -22,9 +22,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define GRIDDER_JONESSERV_H
 
 #include "common.h"
-#include "pybind11/include/pybind11/pybind11.h"
-#include "pybind11/include/pybind11/numpy.h"
-#include "pybind11/include/pybind11/pytypes.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include <pybind11/pytypes.h>
 
 namespace DDF {
   namespace py=pybind11;

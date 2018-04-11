@@ -25,6 +25,7 @@ find_package(PythonLibs 2.7 REQUIRED)
 find_package(NumPy REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(RT REQUIRED)
+find_package(pybind11 REQUIRED)
 
 if (NOT ${PYTHON_FOUND})
   message(FATAL_ERROR "Failed to find Python, ensure python-dev is installed")
@@ -38,12 +39,14 @@ endif (NOT ${OPENMP_FOUND})
 if (NOT ${HAVE_RT})
   message(FATAL_ERROR "Failed to find librt and header.")
 endif (NOT ${HAVE_RT})
+if (NOT ${PYTHON_PYBIND11_FOUND})
+  message(FATAL_ERROR "Failed to find Pybind11, ensure pybind11 is installed from pip")
+endif (NOT ${PYTHON_PYBIND11_FOUND})
 
 #Update include paths with found includes above
-include_directories(${PYTHON_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR}/numpy ${RT_INCLUDES} ${CASACORE_INCLUDE_DIR})
+include_directories(${PYTHON_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR}/numpy ${RT_INCLUDES} ${CASACORE_INCLUDE_DIR} ${PYTHON_PYBIND11_INCLUDE_DIR})
 
 set(PYBIND11_CPP_STANDARD -std=c++14)
-add_subdirectory(pybind11)
 
 #Ensure __init__.py is added to out-of-source build directory
 execute_process(COMMAND touch __init__.py

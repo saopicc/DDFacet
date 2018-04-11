@@ -26,9 +26,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <semaphore.h>
 #include <string>
 #include "common.h"
-#include "pybind11/include/pybind11/pybind11.h"
-#include "pybind11/include/pybind11/numpy.h"
-#include "pybind11/include/pybind11/pytypes.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include <pybind11/pytypes.h>
 namespace DDF {
   const char *GiveSemaphoreName(size_t iS);
   sem_t *GiveSemaphoreFromCell(size_t irow);
