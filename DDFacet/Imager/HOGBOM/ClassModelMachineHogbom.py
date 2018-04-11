@@ -91,11 +91,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             raise ValueError("Pol_array_index must specify the index of the slice in the "
                              "model cube the solution should be stored at. Please report this bug.")
 
-        try:
-            DicoComp=self.DicoSMStacked["Comp"]
-        except:
-            self.DicoSMStacked["Comp"]={}
-            DicoComp=self.DicoSMStacked["Comp"]
+        DicoComp = self.DicoSMStacked.setdefault("Comp", {})
 
         if not (key in DicoComp.keys()):
             DicoComp[key] = {}
@@ -126,7 +122,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         FreqIn = np.array([FreqIn.ravel()], dtype=np.float32).flatten()
 
-        DicoComp = self.DicoSMStacked["Comp"]
+        DicoComp = self.DicoSMStacked.setdefault("Comp", {})
         _, npol, nx, ny = self.ModelShape
 
         # The model shape has nchan=len(GridFreqs)
