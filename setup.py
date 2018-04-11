@@ -124,7 +124,8 @@ setup(name=pkg,
             "py-cpuinfo >= 3.2.0",
             "tables >= 3.3.0",
             "prettytable >= 0.7.2",
-            "pybind11 >= 2.2.2"
+            "pybind11 >= 2.2.2",
+            "pyfits >= 3.5", #kittens dependency, do not remove
       ],
       include_package_data=True,
       zip_safe=False,
