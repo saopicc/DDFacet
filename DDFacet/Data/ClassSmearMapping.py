@@ -104,7 +104,7 @@ class SmearMappingMachine (object):
         jjj = 0
 
         # now go through each per-baseline mapping, sorted by baseline
-        for key in sizedict.iterkeys():
+        for key in sorted(sizedict.iterkeys()):
             BlocksSizesBL = sizedict[key]
             BlocksRowsListBL = blockdict[key]
 
