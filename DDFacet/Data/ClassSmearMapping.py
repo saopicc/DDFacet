@@ -77,7 +77,7 @@ class SmearMappingMachine (object):
     def collectSmearMapping (self, DATA, field):
         APP.awaitJobCounter(self._job_counter, progress="Mapping %s"%self.name, total=self._nbl, timeout=1)
         self._outdict.reload()
-        self._outdict.save("bda.dict")
+        #self._outdict.save("bda.dict")
         blockdict = self._outdict["blocks"]
         sizedict  = self._outdict["sizes"]
         # process worker results
