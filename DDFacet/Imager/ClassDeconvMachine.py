@@ -1344,9 +1344,9 @@ class ClassImagerDeconv():
             Post-conditions: Dump out stokes residues to disk as requested in
             Output-StokesResidues, Stokes residues stored in self.DicoDirty
          """
-         print>>log, ModColor.Str("============================== Making Stokes residue maps ====================")
-         print>>log, ModColor.Str ("W.A.R.N.I.N.G: Stokes parameters other than I have not been deconvolved. Use these maps"
-                                  " only as a debugging tool.", col="yellow")
+         print>>log, ModColor.Str("============================== Making Stokes residual maps ====================")
+         print>>log, ModColor.Str ("WARNING: Stokes parameters other than I have not been deconvolved. Use these maps"
+                                  " only as a debugging tool")
 
          # tell the I/O thread to go load the first chunk
          self.VS.ReInitChunkCount()

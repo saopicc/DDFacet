@@ -780,7 +780,7 @@ class ClassVisServer():
             for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
                 ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
 
-    def _loadWeights_handler(self, msw, ims, ichunk, wmax_only=False, reraise=False):
+    def _loadWeights_handler(self, msw, ims, ichunk, wmax_only=False):
         """If wmax_only is True, then don't actually read or compute weighs -- only read UVWs
         and FLAGs to get wmax"""
         msname = "MS %d chunk %d"%(ims, ichunk)
@@ -1039,11 +1039,11 @@ class ClassVisServer():
 
                 # in Natural mode, we're done: dump weights out
                 if self.Weighting == "natural":
-                    self._finalizeWeights_handler(None, msw, ims, ichunk, 0, reraise=True)
+                    self._finalizeWeights_handler(None, msw, ims, ichunk, 0)
                 # else accumulate onto uv grid
                 else:
                     self._accumulateWeights_handler(self._weight_grid, msw,
-                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, reraise=True)
+                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax)
                     # delete to save memory
                     for field in "weight", "uv", "flags", "index":
                         if field in msw:
@@ -1081,7 +1081,7 @@ class ClassVisServer():
                     print>> log, "reloading weights %d.%d" % (ims, ichunk)
                     self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
                     self._finalizeWeights_handler(self._weight_grid, msw,
-                                                      ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, reraise=True)
+                                                      ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax)
 
             if self._weight_grid is not None:
                 self._weight_grid.delete()

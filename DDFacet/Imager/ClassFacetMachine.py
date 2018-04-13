@@ -287,10 +287,10 @@ class ClassFacetMachine():
         NpixFacet, _ = EstimateNpix(diam / self.CellSizeRad, Padding=1)
         _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=self.Padding)
 
-        if NpixPaddedGrid / NpixFacet > self.Padding:
-            print>> log, ModColor.Str("W.A.R.N.I.N.G: Your FFTs are too small. We will pad it %.2f x "\
-                                      "instead of %.2f x" % (float(NpixPaddedGrid)/NpixFacet, self.Padding),
-                                      col="yellow")
+        if NpixPaddedGrid / NpixFacet > self.Padding and not getattr(self, '_warned_small_ffts', False):
+            print>> log, ModColor.Str("WARNING: Your FFTs are too small. We will pad them by x%.2f "\
+                                      "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, self.Padding))
+            self._warned_small_ffts = True
 
         diam = NpixFacet * self.CellSizeRad
         diamPadded = NpixPaddedGrid * self.CellSizeRad
