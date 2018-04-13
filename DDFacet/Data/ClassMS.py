@@ -668,8 +668,10 @@ class ClassMS():
                     visdata1 = np.ndarray(shape=datashape, dtype=np.complex64)
                     table_all.getcolslicenp(self.ColName, visdata1, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                     print>>log,"sorting visibilities"
+                    t0 = time.time()
                     visdata[...] = visdata1[sort_index]
                     del visdata1
+                    print>>log,"sorting took %.1fs"%(time.time()-t0)
                 else:
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 if self._reverse_channel_order:
@@ -699,9 +701,10 @@ class ClassMS():
             if sort_index is not None:
                 flags1 = table_all.getcolslice("FLAG", self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 print>> log, "sorting flags"
+                t0 = time.time()
                 flags[...] = flags1[sort_index]
                 del flags1
-
+                print>>log,"sorting took %.1fs"%(time.time()-t0)
             else:
                 table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
             self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
