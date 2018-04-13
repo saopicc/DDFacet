@@ -17,10 +17,31 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
-#include <stdlib.h>
-#include <stdio.h>
 
-//inline float GiveFreqStep();
-float GiveFreqStep();
+#ifndef GRIDDER_DECORR_H
+#define GRIDDER_DECORR_H
 
-#define FATAL(msg) fprintf(stderr, "FATAL: %s\n", msg); exit(1);
+#include <cmath>
+#include "common.h"
+#include "pybind11/include/pybind11/pybind11.h"
+#include "pybind11/include/pybind11/numpy.h"
+#include "pybind11/include/pybind11/pytypes.h"
+namespace DDF{
+  namespace py=pybind11;
+  using namespace std;
+  namespace DDEs {
+    class DecorrelationHelper
+      {
+      private:
+	double DT, Dnu, l0, m0;
+	const double *uvw_Ptr, *uvw_dt_Ptr;
+	bool DoDecorr, TSmear, FSmear;
+
+      public:
+	DecorrelationHelper(const py::list& LSmearing, 
+			    const py::array_t<double, py::array::c_style>& uvw);
+	double get(double nu, size_t idx);
+      };
+  }
+}
+#endif GRIDDER_DECORR_H

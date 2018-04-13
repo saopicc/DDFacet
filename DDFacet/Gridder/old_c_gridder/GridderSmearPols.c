@@ -80,8 +80,8 @@ static PyMethodDef _pyGridderSmearPols_testMethods[] = {
 
 /* ==== Initialize the C_test functions ====================== */
 // Module name must be _C_arraytest in compile and linked 
-void init_pyGridderSmearPols()  {
-  (void) Py_InitModule("_pyGridderSmearPols", _pyGridderSmearPols_testMethods);
+void init_pyGridderSmearPolsClassic()  {
+  (void) Py_InitModule("_pyGridderSmearPolsClassic", _pyGridderSmearPols_testMethods);
   import_array();  // Must be present for NumPy.  Called first after above line.
 }
 
@@ -213,6 +213,7 @@ void griddername(PyArrayObject *grid, \
     double l0=ptrFacetInfos[2];\
     double m0=ptrFacetInfos[3];\
     double n0=sqrt(1-l0*l0-m0*m0)-1;\
+    int facet=ptrFacetInfos[4];\
     \
     \
     double VarTimeGrid=0;\
@@ -364,6 +365,8 @@ void griddername(PyArrayObject *grid, \
       if( sparsificationFlag && !sparsificationFlag[iBlock] )\
 	continue;\
       \
+      if( sparsificationFlag && !sparsificationFlag[iBlock] )\
+	continue;\
       double Umean=0;\
       double Vmean=0;\
       double Wmean=0;\
@@ -416,6 +419,8 @@ void griddername(PyArrayObject *grid, \
 					       (float)FreqMean0,\
 					       (float)Dnu, \
 					       (float)DT);\
+		if(facet==0 && iBlock==0)\
+		  fprintf(stderr,"\n\nF0 B0 decorr factor %.6f\n\n",DeCorrFactor);			      \
 	}\
 	decorrFactorMean += DeCorrFactor; \
 	for (visChan=chStart; visChan<chEnd; ++visChan) {\
@@ -682,6 +687,7 @@ void griddername(PyArrayObject *grid, \
       /*AddTimeit(PreviousTime,TimeGrid);*/\
       \
     } /*end for Block*/\
+    if(facet==0) fprintf(stderr,"\n\nF0 SJ[0] %g\n\n",ptrSumJones[0]);\
     \
     \
     /* /\* printf("Times:\n"); *\/ */\

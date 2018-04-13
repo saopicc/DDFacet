@@ -1,3 +1,20 @@
+/**
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*/
+
 #include <Python.h>
 #include <math.h>
 #include <time.h>
@@ -78,7 +95,7 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
   int ipol;
   
   if(Mode==0){
-    size_t offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
+    size_t offJ0=((size_t)i_t)*nd_Jones*na_Jones*nch_Jones*4
       +i_dir*na_Jones*nch_Jones*4
       +i_ant0*nch_Jones*4
       +iChJones*4;
@@ -106,7 +123,7 @@ void GiveJones(float complex *ptrJonesMatrices, int *JonesDims, float *ptrCoefs,
       if(ptrCoefs[idir]==0){continue;}
       size_t offJ0=i_t*nd_Jones*na_Jones*nch_Jones*4
 	+i_dir*na_Jones*nch_Jones*4
-	+i_ant0*nch_Jones*4;
+	+i_ant0*nch_Jones*4
 	+iChJones*4;
 
       float coef;
@@ -173,7 +190,7 @@ float CalibError,CalibError2,ReWeightSNR;
 double *ptrSumJones;
 double *ptrSumJonesChan;
 
-float complex *J0;
+float complex *J0 = 0;  // this value is used as a flag, to only initialize once
 float complex *J1;
 float complex *J0kMS;
 float complex *J1kMS;
@@ -197,6 +214,9 @@ float complex *IMatrix;
 
 
 void initJonesMatrices(){
+  if( J0 )
+    return;
+
   J0=calloc(1,(4)*sizeof(float complex));
   J1=calloc(1,(4)*sizeof(float complex));
   J0kMS=calloc(1,(4)*sizeof(float complex));
@@ -310,8 +330,8 @@ void initJonesServer(PyObject *LJones, int JonesTypeIn, double WaveLengthMeanIn)
     npModeInterpolation= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
     ptrModeInterpolation=p_int32(npModeInterpolation);
     ModeInterpolation=ptrModeInterpolation[0];
-    
-    
+    DoApplyJones=ptrModeInterpolation[1];
+
     npVisToJonesChanMapping_killMS= (PyArrayObject *) PyList_GetItem(LJones, idList); idList+=1;
     ptrVisToJonesChanMapping_killMS=p_int32(npVisToJonesChanMapping_killMS);
     
@@ -375,37 +395,9 @@ void resetJonesServerCounter(){
 
 
 int DoApplyAlphaReg=0;
-
-
-int SameJonesAsCurrent(int irow, int visChan){
-  if((ApplyJones_Beam)&(ApplyJones_killMS)){
-    int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
-    int i_JonesChan=ptrVisToJonesChanMapping_Beam[visChan];
-    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&(CurrentJones_Beam_Chan=i_JonesChan);
-    i_t=ptrTimeMappingJonesMatrices[irow];
-    i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
-    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&(CurrentJones_kMS_Chan=i_JonesChan);
-    return (SameAsBefore_Beam)&(SameAsBefore_kMS);
-  }
-
-  if((ApplyJones_Beam)&(!(ApplyJones_killMS))){
-    int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
-    int i_JonesChan=ptrVisToJonesChanMapping_Beam[visChan];
-    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&(CurrentJones_Beam_Chan=i_JonesChan);
-    return SameAsBefore_Beam;
-  }
-
-  if(!(ApplyJones_Beam)){
-    int i_t=ptrTimeMappingJonesMatrices[irow];
-    int i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
-    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&(CurrentJones_kMS_Chan=i_JonesChan);
-    return (SameAsBefore_kMS);
-  }
-}
-
 void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int DoApplyAlphaRegIn){
 
-  if(SameJonesAsCurrent(irow, visChan)){return;}
+
 
 
   i_ant0=ptrA0[irow];
@@ -418,6 +410,15 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
   //printf("(%i, %i)\n",i_ant0,i_ant1);
   //int JonesChannel_Beam=ptrVisToJonesChanMapping_Beam
 
+  if((ApplyJones_Beam)&(ApplyJones_killMS)){
+    int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
+    int i_JonesChan=ptrVisToJonesChanMapping_Beam[visChan];
+    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&&(CurrentJones_Beam_Chan==i_JonesChan);
+    i_t=ptrTimeMappingJonesMatrices[irow];
+    i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
+    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&&(CurrentJones_kMS_Chan==i_JonesChan);
+    if((SameAsBefore_Beam)&(SameAsBefore_kMS)){return;}
+  }
 
   int SomeJonesHaveChanged=0;
 
@@ -425,7 +426,7 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
     int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
     int i_JonesChan=ptrVisToJonesChanMapping_Beam[visChan];
     //printf("ptrVisToJonesChanMapping_Beam[visChan]=%i %i\n;",visChan,ptrVisToJonesChanMapping_Beam[visChan]);
-    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&(CurrentJones_Beam_Chan==i_JonesChan);
+    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&&(CurrentJones_Beam_Chan==i_JonesChan);
 
     if(SameAsBefore_Beam==0){
       GiveJones(ptrJonesMatrices_Beam, JonesDims_Beam, ptrCoefsInterp, i_t, i_ant0, i_dir_Beam, i_JonesChan, ModeInterpolation, J0Beam);
@@ -442,7 +443,7 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
   if(ApplyJones_killMS){
     int i_t=ptrTimeMappingJonesMatrices[irow];
     int i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
-    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&(CurrentJones_kMS_Chan==i_JonesChan);
+    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&&(CurrentJones_kMS_Chan==i_JonesChan);
     
     //SameAsBefore_kMS=0;
 
@@ -473,9 +474,8 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
       CurrentJones_kMS_Chan=i_JonesChan;
       SomeJonesHaveChanged=1;
     
-      WeightVaryJJ=1.;
 
-      if((EstimateWeight==1)&(ReWeightSNR!=0)){
+      if(EstimateWeight==1){
 	int i_t_p1;
 	i_t_p1=i_t+1;
 	if (i_t==(nt_Jones-1)){i_t_p1=i_t;}
