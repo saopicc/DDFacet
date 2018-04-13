@@ -154,7 +154,9 @@ namespace DDF {
 
       DDEs::JonesServer JS(LJones,WaveLengthMean);
 
-      vector<double> ThisSumJonesChan(nVisChan), ThisSumSqWeightsChan(nVisChan);
+      vector<double> ThisSumJonesChan(nVisChan),      // accumulates sum of w*decorr*decorr*||M||
+                     ThisSumSqWeightsChan(nVisChan);  // accumulates sum of w*decorr*decorr
+      JS.resetJonesServerCounter();
 
       const int *p_ChanMapping=np_ChanMapping.data(0);
       for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
@@ -182,7 +184,6 @@ namespace DDF {
 
 	double visChanMean=0., FreqMean=0;
 	double ThisWeight=0., ThisSumJones=0., ThisSumSqWeights=0.;
-	JS.resetJonesServerCounter();
 	int NVisThisblock=0;
 	double Umean=0, Vmean=0, Wmean=0;
 	dcMat VisMeas_psf;
@@ -209,7 +210,7 @@ namespace DDF {
 	    dcmplx corr = dopsf ? 1 : Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
 	    dcMat VisMeas;
 
-	    if (JS.DoApplyJones)
+	    if (JS.DoApplyJones==1)
 	      {
 	      JS.updateJones(irow, visChan, uvwPtr, true, true);
 	      if (dopsf)
@@ -226,19 +227,18 @@ namespace DDF {
 	      readcorr(vis.data(0)+doff, VisMeas);
 
 	    const double FWeight = imgWtPtr[0]*JS.WeightVaryJJ;
-	    const dcmplx Weight = FWeight*corr;
-	    if (JS.DoApplyJones)
+	    const dcmplx Weight   = FWeight*corr;
+	    const double FWeightDecorr = FWeight*DeCorrFactor*DeCorrFactor;
+	    ThisSumSqWeights += FWeightDecorr;
+	    ThisSumSqWeightsChan[visChan] += FWeightDecorr;
+
+	    if (JS.DoApplyJones==1)
 	      {
 	      VisMeas=(JS.J0H.times(VisMeas)).times(JS.J1);
 	      mulaccum(VisMeas, Weight, Vis);
-
 	      /*Compute per channel and overall approximate matrix sqroot:*/
-	      const double FWeightSq=FWeight*DeCorrFactor*DeCorrFactor;
-	      ThisSumJones+=JS.BB*FWeightSq;
-	      ThisSumSqWeights+=FWeightSq;
-
-	      ThisSumJonesChan[visChan]+=JS.BB*FWeightSq;
-	      ThisSumSqWeightsChan[visChan]+=FWeightSq;
+	      ThisSumJones += JS.BB*FWeightDecorr;
+	      ThisSumJonesChan[visChan] += JS.BB*FWeightDecorr;
 //  	      if(facet==0 && visChan==0)
 //                std::fprintf(stderr,"F%dB%dR%d weight %f jones %f %f BB %f wsq %f sj %f\n",facet,iBlock,irow,FWeight,JS.J0.v[0].real(),JS.J0.v[0].imag(),
 //				JS.BB,FWeightSq,ThisSumJonesChan[0]);
@@ -263,6 +263,22 @@ namespace DDF {
 	if (NVisThisblock==0) continue;
 
 	visChanMean/=NVisThisblock;
+	Umean/=NVisThisblock;
+	Vmean/=NVisThisblock;
+	Wmean/=NVisThisblock;
+	FreqMean/=NVisThisblock;
+
+        if (JS.DoApplyJones==2)
+            {
+            double uvw_mean[] = { Umean, Vmean, Wmean };
+            JS.updateJones(Row[NRowThisBlock/2], (chStart+chEnd)/2, uvw_mean, 1, 1);
+            if (dopsf)
+              Vis = ((JS.J0).times(Vis)).times(JS.J1H);
+            Vis = (JS.J0H.times(Vis)).times(JS.J1);
+            ThisSumJones = ThisSumSqWeights*JS.BB;
+            for (size_t visChan=chStart; visChan<chEnd; ++visChan)
+                ThisSumJonesChan[visChan] = ThisSumSqWeightsChan[visChan]*JS.BB;
+            }
 
 	const int gridChan = p_ChanMapping[chStart];
 	const double diffChan=visChanMean-gridChan;
@@ -282,10 +298,6 @@ namespace DDF {
 	/* ############## Start Gridding visibility ####### */
 	if (gridChan<0 || gridChan>=nGridChan) continue;
 
-	Umean/=NVisThisblock;
-	Vmean/=NVisThisblock;
-	Wmean/=NVisThisblock;
-	FreqMean/=NVisThisblock;
 	const double recipWvl = FreqMean / C;
 
 	/* ############## W-projection #################### */

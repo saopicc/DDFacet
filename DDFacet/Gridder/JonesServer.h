@@ -105,7 +105,7 @@ namespace DDF {
 	//BH FIXME: Proper accessors pretty pretty please..
 	double BB;
 	double WeightVaryJJ;
-	bool DoApplyJones=false;
+	int DoApplyJones=0;
 	dcMat J0, J1, J0H, J1H;
 	
 	double *ptrSumJones, *ptrSumJonesChan;

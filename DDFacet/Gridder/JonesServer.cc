@@ -164,7 +164,8 @@ namespace DDF {
 	ptrCoefsInterp = coefsInterp.size() != 0 ? coefsInterp.data(0) : nullptr;
 	
 	ModeInterpolation=py::array_t<int32_t,py::array::c_style>(LJones[9]).data(0)[0];
-	
+	DoApplyJones=py::array_t<int32_t,py::array::c_style>(LJones[9]).data(0)[1];
+
 	auto npAlphaReg_killMS= py::array_t<float, py::array::c_style>(LJones[12]);
 	if (npAlphaReg_killMS.ndim() == 2 &&
 	    npAlphaReg_killMS.shape(0) > 0 && npAlphaReg_killMS.shape(1) > 0){

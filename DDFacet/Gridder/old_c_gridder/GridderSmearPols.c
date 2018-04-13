@@ -353,6 +353,7 @@ void griddername(PyArrayObject *grid, \
     \
     float *ThisSumJonesChan=calloc(1,(nVisChan)*sizeof(float));\
     float *ThisSumSqWeightsChan=calloc(1,(nVisChan)*sizeof(float));\
+    resetJonesServerCounter();\
     \
     for(iBlock=0; iBlock<NTotBlocks; iBlock++){\
       \
@@ -362,9 +363,6 @@ void griddername(PyArrayObject *grid, \
       int *Row = StartRow+2;\
       /* advance pointer to next blocklist*/\
       StartRow += NRowBlocks[iBlock];\
-      if( sparsificationFlag && !sparsificationFlag[iBlock] )\
-	continue;\
-      \
       if( sparsificationFlag && !sparsificationFlag[iBlock] )\
 	continue;\
       double Umean=0;\
@@ -384,7 +382,6 @@ void griddername(PyArrayObject *grid, \
 	ThisSumJonesChan[visChan]=0;\
 	ThisSumSqWeightsChan[visChan]=0;\
       }\
-      \
       /* when moving to a new block of rows, init this to -1 so the code below knows to initialize*/\
       /* CurrentCorrTerm when the first channel of each row comes in*/\
       \
@@ -396,7 +393,6 @@ void griddername(PyArrayObject *grid, \
       }\
       double visChanMean=0.;\
       double decorrFactorMean=0.;\
-      resetJonesServerCounter();\
       float complex visPtr[4]; /* temporary storage when applying Jones */ \
       \
       for (inx=0; inx<NRowThisBlock; inx++) {\
@@ -498,18 +494,17 @@ void griddername(PyArrayObject *grid, \
 	  }\
 	  float FWeight = (*imgWtPtr)*WeightVaryJJ; /**WeightVaryJJ;*/\
 	  float complex Weight=(FWeight) * corr;\
+	  float FWeightDecorr= FWeight*DeCorrFactor*DeCorrFactor; \
+	  ThisSumSqWeights+=FWeightDecorr;\
+	  ThisSumSqWeightsChan[visChan]+=FWeightDecorr;\
 	  if(DoApplyJones==1){\
 	    MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);\
 	    MatDot(visPtr,SkyType,J1,JonesType,VisMeas);\
 	    savecorrs \
 	    \
 	    /*Compute per channel and overall approximate matrix sqroot:*/\
-	    float FWeightDecorr= FWeight*DeCorrFactor*DeCorrFactor; \
 	    ThisSumJones+=BB*FWeightDecorr; \
-	    ThisSumSqWeights+=FWeightDecorr;\
-	    \
 	    ThisSumJonesChan[visChan]+=BB*FWeightDecorr;\
-	    ThisSumSqWeightsChan[visChan]+=FWeightDecorr;\
 	  }else{\
 	    savecorrs \
 	  };/* Don't apply Jones*/\
@@ -547,13 +542,9 @@ void griddername(PyArrayObject *grid, \
         }\
         MatDot(J0H,JonesType,Vis,SkyType,visPtr);\
         MatDot(visPtr,SkyType,J1,JonesType,Vis);\
-        /*Compute per channel and overall approximate matrix sqroot:*/\
-        float FWeightDecorr= ThisWeight*decorrFactorMean*decorrFactorMean; \
-        ThisSumJones+=BB*FWeightDecorr; \
-        ThisSumSqWeights+=FWeightDecorr;\
-        \
-        ThisSumJonesChan[visChan]+=BB*FWeightDecorr;\
-        ThisSumSqWeightsChan[visChan]+=FWeightDecorr;\
+        ThisSumJones = BB*ThisSumSqWeights;\
+	for (visChan=chStart; visChan<chEnd; ++visChan) \
+            ThisSumJonesChan[visChan] += BB*ThisSumSqWeightsChan[visChan];\
       }\
       int ThisGridChan=p_ChanMapping[chStart];\
       double diffChan=visChanMean-ThisGridChan;\
@@ -687,7 +678,6 @@ void griddername(PyArrayObject *grid, \
       /*AddTimeit(PreviousTime,TimeGrid);*/\
       \
     } /*end for Block*/\
-    if(facet==0) fprintf(stderr,"\n\nF0 SJ[0] %g\n\n",ptrSumJones[0]);\
     \
     \
     /* /\* printf("Times:\n"); *\/ */\

@@ -822,9 +822,11 @@ class ClassDDEGridMachine():
                                           np.int32(ChanMapping),
                                           np.array(self.DataCorrelationFormat).astype(np.uint16),
                                           np.array(self.ExpectedOutputStokes).astype(np.uint16))
+        else:
+            raise ValueError("unknown --RIME-BackwardMode %s"%self.GD["RIME"]["BackwardMode"])
 
-            T.timeit("gridder")
-            T.timeit("grid %d" % self.IDFacet)         
+        T.timeit("gridder")
+        T.timeit("grid %d" % self.IDFacet)
 
     def CheckTypes(
         self,
@@ -1043,8 +1045,8 @@ class ClassDDEGridMachine():
                 self.LSmear, np.int32(ChanMapping),
                 np.array(self.DataCorrelationFormat).astype(np.uint16),
                 np.array(self.ExpectedOutputStokes).astype(np.uint16))
-	elif self.GD["RIME"]["ForwardMode"]=="BDA-degrid-classic":
-            # OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
+        elif self.GD["RIME"]["ForwardMode"]=="BDA-degrid-classic":
+            OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos = [
                 self.JonesType,
                 ChanEquidistant,
@@ -1079,6 +1081,8 @@ class ClassDDEGridMachine():
                 self.LSmear, np.int32(ChanMapping),
                 np.array(self.DataCorrelationFormat).astype(np.uint16),
                 np.array(self.ExpectedOutputStokes).astype(np.uint16))
+        else:
+            raise ValueError("unknown --RIME-ForwardMode %s"%self.GD["RIME"]["ForwardMode"])
 
         T.timeit("4 (degrid)")
         # print vis
