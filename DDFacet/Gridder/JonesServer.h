@@ -96,7 +96,9 @@ namespace DDF {
 	int CurrentJones_kMS_Chan=-1;
 	int CurrentJones_Beam_Time=-1;
 	int CurrentJones_Beam_Chan=-1;
-	
+	int CurrentJones_ant0;
+	int CurrentJones_ant1;
+
 	void NormJones(dcMat &J0, const double *uvwPtr) const;
 	static dcMat GiveJones(const fcmplx *ptrJonesMatrices, const int *JonesDims,
 	  const float *ptrCoefs, int i_t, int i_ant0, int i_dir, int iChJones,
@@ -111,7 +113,9 @@ namespace DDF {
 	double *ptrSumJones, *ptrSumJonesChan;
 	
 	JonesServer(py::list& LJones, double WaveLengthMeanIn);
-	void updateJones(size_t irow, size_t visChan, const double *uvwPtr, bool EstimateWeight, bool DoApplyAlphaRegIn);
+
+	// updates Jones terms for given row and channel. Returns True if something has changed.
+	bool updateJones(size_t irow, size_t visChan, const double *uvwPtr, bool EstimateWeight, bool DoApplyAlphaRegIn);
 	void resetJonesServerCounter();
 	
       private:

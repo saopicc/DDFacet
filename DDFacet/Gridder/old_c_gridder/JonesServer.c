@@ -375,6 +375,8 @@ int i_ant0;
 int i_ant1;
 float BB;
 
+int CurrentJones_ant0=-1;
+int CurrentJones_ant1=-1;
 int CurrentJones_kMS_Time=-1;
 int CurrentJones_kMS_Chan=-1;
 int CurrentJones_Beam_Time=-1;
@@ -384,6 +386,8 @@ int SameAsBefore_Beam=1;
 int SameAsBefore_kMS=1;
 
 void resetJonesServerCounter(){
+  CurrentJones_ant0=-1;
+  CurrentJones_ant1=-1;
   CurrentJones_Beam_Time=-1;
   CurrentJones_Beam_Chan=-1;
   CurrentJones_kMS_Time=-1;
@@ -395,7 +399,7 @@ void resetJonesServerCounter(){
 
 
 int DoApplyAlphaReg=0;
-void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int DoApplyAlphaRegIn){
+int updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int DoApplyAlphaRegIn){
 
 
 
@@ -406,27 +410,14 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
   if(DoApplyAlphaRegIn & Has_AlphaReg_killMS){DoApplyAlphaReg=1;};
   DoApplyAlphaReg=0;
 
-
-  //printf("(%i, %i)\n",i_ant0,i_ant1);
-  //int JonesChannel_Beam=ptrVisToJonesChanMapping_Beam
-
-  if((ApplyJones_Beam)&(ApplyJones_killMS)){
-    int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
-    int i_JonesChan=ptrVisToJonesChanMapping_Beam[visChan];
-    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&&(CurrentJones_Beam_Chan==i_JonesChan);
-    i_t=ptrTimeMappingJonesMatrices[irow];
-    i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
-    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&&(CurrentJones_kMS_Chan==i_JonesChan);
-    if((SameAsBefore_Beam)&(SameAsBefore_kMS)){return;}
-  }
-
+  int same_baseline = i_ant0 == CurrentJones_ant0 && i_ant1 == CurrentJones_ant1;
   int SomeJonesHaveChanged=0;
 
   if(ApplyJones_Beam){
     int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
     int i_JonesChan=ptrVisToJonesChanMapping_Beam[visChan];
     //printf("ptrVisToJonesChanMapping_Beam[visChan]=%i %i\n;",visChan,ptrVisToJonesChanMapping_Beam[visChan]);
-    SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&&(CurrentJones_Beam_Chan==i_JonesChan);
+    SameAsBefore_Beam=same_baseline&&(CurrentJones_Beam_Time==i_t)&&(CurrentJones_Beam_Chan==i_JonesChan);
 
     if(SameAsBefore_Beam==0){
       GiveJones(ptrJonesMatrices_Beam, JonesDims_Beam, ptrCoefsInterp, i_t, i_ant0, i_dir_Beam, i_JonesChan, ModeInterpolation, J0Beam);
@@ -443,7 +434,7 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
   if(ApplyJones_killMS){
     int i_t=ptrTimeMappingJonesMatrices[irow];
     int i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
-    SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&&(CurrentJones_kMS_Chan==i_JonesChan);
+    SameAsBefore_kMS=same_baseline&&(CurrentJones_kMS_Time==i_t)&&(CurrentJones_kMS_Chan==i_JonesChan);
     
     //SameAsBefore_kMS=0;
 
@@ -533,17 +524,11 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
       }
       
     }
-
-    
-
-    
   }
-  
-
-
-
 
   if(SomeJonesHaveChanged){
+    CurrentJones_ant0 = i_ant0;
+    CurrentJones_ant1 = i_ant1;
     CurrentJones_Index+=1;
     J0[0]=1;J0[1]=0;J0[2]=0;J0[3]=1;
     J1[0]=1;J1[1]=0;J1[2]=0;J1[3]=1;
@@ -575,4 +560,5 @@ void updateJones(int irow, int visChan, double *uvwPtr, int EstimateWeight, int 
   /* BB=cabs(JJ[0]); */
   
   /* //BB*=BB; */
+  return SomeJonesHaveChanged;
 }

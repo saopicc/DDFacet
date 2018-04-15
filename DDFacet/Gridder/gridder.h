@@ -62,7 +62,7 @@ namespace DDF {
       inline void Mulaccum_2Corr_Unpad(const dcMat &VisMeas, dcmplx Weight, dcMat &Vis)
 	{
 	  Vis[0] += VisMeas[0]*Weight;
-	  Vis[1] += VisMeas[3]*Weight;
+	  Vis[3] += VisMeas[3]*Weight;
 	}
     }
     template<policies::ReadCorrType readcorr, policies::MulaccumType mulaccum, policies::StokesGridType stokesgrid>
@@ -153,10 +153,10 @@ namespace DDF {
       FreqMean0/=double(nVisChan);
 
       DDEs::JonesServer JS(LJones,WaveLengthMean);
+      JS.resetJonesServerCounter();
 
       vector<double> ThisSumJonesChan(nVisChan),      // accumulates sum of w*decorr*decorr*||M||
                      ThisSumSqWeightsChan(nVisChan);  // accumulates sum of w*decorr*decorr
-      JS.resetJonesServerCounter();
 
       const int *p_ChanMapping=np_ChanMapping.data(0);
       for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
@@ -167,18 +167,23 @@ namespace DDF {
 	const int *Row = StartRow+2;
 	/* advance pointer to next blocklist */
 	StartRow += NRowBlocks[iBlock];
+	
+//        if(facet==60 && iBlock==67)
+//        {
+//        	cerr<<"NR "<<NRowThisBlock<<" of "<<NTotBlocks<<" CH "<<chStart<<" "<<chEnd<<endl;
+//	}
 
 	if (sparsificationFlag && !sparsificationFlag[iBlock])
 	  continue;
 
-	dcMat Vis(0,0,0,0);
+	dcMat Vis(0,0,0,0); // this is what will get gridded in the end
 
 	for (size_t visChan=0; visChan<nVisChan; ++visChan)
 	  ThisSumJonesChan[visChan] = ThisSumSqWeightsChan[visChan] = 0;
 
 	Corrcalc.update(Row[0], NRowThisBlock);
 
-	double DeCorrFactor=decorr.get(FreqMean0, Row[NRowThisBlock/2]);
+	double DeCorrFactor = decorr.get(FreqMean0, Row[NRowThisBlock/2]);
 //	if(facet==0 && iBlock==0)
 //	  fprintf(stderr,"F%d block 0 decorrfactor %f\n",facet,DeCorrFactor);
 
@@ -186,8 +191,10 @@ namespace DDF {
 	double ThisWeight=0., ThisSumJones=0., ThisSumSqWeights=0.;
 	int NVisThisblock=0;
 	double Umean=0, Vmean=0, Wmean=0;
-	dcMat VisMeas_psf;
-	VisMeas_psf.setUnity();
+
+	dcMat VisMeas(DeCorrFactor,0,0,DeCorrFactor);
+	bool have_psf = false;
+
 	for (auto inx=0; inx<NRowThisBlock; inx++)
 	  {
 	  const size_t irow = size_t(Row[inx]);
@@ -208,22 +215,20 @@ namespace DDF {
 	    if (flags.data(0)[doff]) continue;
 
 	    dcmplx corr = dopsf ? 1 : Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
-	    dcMat VisMeas;
 
 	    if (JS.DoApplyJones==1)
 	      {
-	      JS.updateJones(irow, visChan, uvwPtr, true, true);
-	      if (dopsf)
-	        VisMeas_psf = (JS.J0).times(JS.J1H); // precompute for the PSF case
+	      if( dopsf && (JS.updateJones(irow, visChan, uvwPtr, true, true) || !have_psf) )
+	        {
+	        VisMeas = (JS.J0).times(JS.J1H); // precompute for the PSF case
+    	        VisMeas = (JS.J0H.times(VisMeas)).times(JS.J1);
+    	        VisMeas.scale(DeCorrFactor);
+    	        have_psf = true;
+                }
 	      }
 
-	    if (dopsf)
-	      {
-	      VisMeas = VisMeas_psf;
-	      if (DeCorrFactor!=1.)
-		VisMeas.scale(DeCorrFactor);
-	      }
-	    else
+            // in PSF mode, VisMeas is precomputed (in the if clause above, or before the row loop) and doesn't change
+	    if (!dopsf)
 	      readcorr(vis.data(0)+doff, VisMeas);
 
 	    const double FWeight = imgWtPtr[0]*JS.WeightVaryJJ;
@@ -234,7 +239,8 @@ namespace DDF {
 
 	    if (JS.DoApplyJones==1)
 	      {
-	      VisMeas=(JS.J0H.times(VisMeas)).times(JS.J1);
+	      if( !dopsf )
+	        VisMeas = (JS.J0H.times(VisMeas)).times(JS.J1);
 	      mulaccum(VisMeas, Weight, Vis);
 	      /*Compute per channel and overall approximate matrix sqroot:*/
 	      ThisSumJones += JS.BB*FWeightDecorr;
@@ -279,6 +285,19 @@ namespace DDF {
             for (size_t visChan=chStart; visChan<chEnd; ++visChan)
                 ThisSumJonesChan[visChan] = ThisSumSqWeightsChan[visChan]*JS.BB;
             }
+            
+//        if(facet==60 && iBlock==67)
+//        {
+//                cerr<<" "<<Vis[0]<<" "<<Vis[1]<<" "<<Vis[2]<<" "<<Vis[3]<<endl;
+//        	cerr<<"JS.J0[0] "<<JS.J0[0]<<endl;
+//        	cerr<<"NV "<<NVisThisblock<<"\nTSJC ";
+//        	for( int i=chStart; i<chEnd; i++)
+//        	  cerr<<ThisSumJonesChan[i]<<" ";
+//        	cerr<<"\nTSSQC ";
+//        	for( int i=chStart; i<chEnd; i++)
+//        	  cerr<<ThisSumSqWeightsChan[i]<<" ";
+//        	cerr<<"\nTSJ "<<ThisSumJones<<" TSSQ "<<ThisSumSqWeights<<" TW "<<ThisWeight<<endl<<endl;
+//        }
 
 	const int gridChan = p_ChanMapping[chStart];
 	const double diffChan=visChanMean-gridChan;
@@ -345,7 +364,7 @@ namespace DDF {
 	    JS.ptrSumJones[gridChan]+=ThisSumJones;
 	    JS.ptrSumJones[gridChan+nGridChan]+=ThisSumSqWeights;
 
-	    for(size_t visChan=0; visChan<nVisChan; visChan++)
+	    for(size_t visChan=chStart; visChan<chEnd; visChan++)
 	      {
 	      JS.ptrSumJonesChan[visChan]+=ThisSumJonesChan[visChan];
 	      JS.ptrSumJonesChan[nVisChan+visChan]+=ThisSumSqWeightsChan[visChan];

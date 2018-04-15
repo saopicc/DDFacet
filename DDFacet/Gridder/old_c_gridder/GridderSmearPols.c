@@ -142,7 +142,7 @@ static PyObject *pyAccumulateWeightsOntoGrid(PyObject *self, PyObject *args)
   
 #define MULACCUM_2CORR_UNPAD \
   Vis[0] += VisMeas[0]*Weight;\
-  Vis[1] += VisMeas[3]*Weight;
+  Vis[3] += VisMeas[3]*Weight;
   
 #define gridder_factory(griddername, stokesconversion, readcorrs, savecorrs) \
 void griddername(PyArrayObject *grid, \
@@ -372,7 +372,6 @@ void griddername(PyArrayObject *grid, \
       int NVisThisblock=0;\
       for(ThisPol =0; ThisPol<4;ThisPol++){\
 	Vis[ThisPol]=0;\
-	VisMeas[ThisPol]=0;\
       }\
       \
       double ThisWeight=0.;\
@@ -392,33 +391,32 @@ void griddername(PyArrayObject *grid, \
 	CurrentCorrRow0 = Row[0];\
       }\
       double visChanMean=0.;\
-      double decorrFactorMean=0.;\
-      float complex visPtr[4]; /* temporary storage when applying Jones */ \
+      float DeCorrFactor=1.;\
+      if(DoDecorr){\
+        int iRowMeanThisBlock=Row[NRowThisBlock/2];\
+        \
+        double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;\
+        double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;\
+        \
+        DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,\
+                                             (float)lmin_decorr, (float)mmin_decorr,\
+                                             uvwPtrMidRow,\
+                                             uvw_dt_PtrMidRow,\
+                                             (float)FreqMean0,\
+                                             (float)Dnu, \
+                                             (float)DT);\
+      }\
+      float complex visPtr[4] = {DeCorrFactor, 0, 0, DeCorrFactor}; /* temporary storage when applying Jones */ \
+      /* in PSF mode w/o Jones this stays constant over the loop below*/ \
+      VisMeas[0] = VisMeas[3] = DeCorrFactor; \
+      VisMeas[1] = VisMeas[2] = 0;\
+      int have_psf=0;\
       \
       for (inx=0; inx<NRowThisBlock; inx++) {\
 	size_t irow = Row[inx];\
 	if(irow>nrows){continue;}\
 	double*  __restrict__ uvwPtr   = p_float64(uvw) + irow*3;\
 	WeightVaryJJ=1.;\
-	\
-	float DeCorrFactor=1.;\
-	if(DoDecorr){\
-	  int iRowMeanThisBlock=Row[NRowThisBlock/2];\
-	  \
-	  double*  __restrict__ uvwPtrMidRow   = p_float64(uvw) + iRowMeanThisBlock*3;\
-	  double*  __restrict__ uvw_dt_PtrMidRow   = uvw_dt_Ptr + iRowMeanThisBlock*3;\
-	  \
-	  DeCorrFactor=GiveDecorrelationFactor(DoSmearFreq,DoSmearTime,\
-					       (float)lmin_decorr, (float)mmin_decorr,\
-					       uvwPtrMidRow,\
-					       uvw_dt_PtrMidRow,\
-					       (float)FreqMean0,\
-					       (float)Dnu, \
-					       (float)DT);\
-		if(facet==0 && iBlock==0)\
-		  fprintf(stderr,"\n\nF0 B0 decorr factor %.6f\n\n",DeCorrFactor);			      \
-	}\
-	decorrFactorMean += DeCorrFactor; \
 	for (visChan=chStart; visChan<chEnd; ++visChan) {\
 	  size_t doff = (irow * nVisChan + visChan) * nVisCorr;\
 	  bool* __restrict__ flagPtr = p_bool(flags) + doff;\
@@ -435,61 +433,54 @@ void griddername(PyArrayObject *grid, \
 	  /*AddTimeit(PreviousTime,TimeShift);*/\
 	  /*#######################################################*/\
 	  \
-	  float complex corr;\
-	  if(ChanEquidistant){\
-	      /* init correlation term for first channel that it's not initialized in */\
-	      if( CurrentCorrChan[inx] == -1 )\
-	      {\
-		float complex dotprod = -2.*I*PI*(U*l0+V*m0+W*n0)/C;\
-		CurrentCorrTerm[inx] = cexp(Pfreqs[visChan]*dotprod);\
-		dCorrTerm[inx]       = cexp((Pfreqs[1]-Pfreqs[0])*dotprod);\
-		CurrentCorrChan[inx] = visChan;\
-	      }\
-	      /* else, wind the correlation term forward by as many channels as necessary */\
-	      /* this modification allows us to support blocks that skip across channels */\
-	      else\
-	      {\
-		while( CurrentCorrChan[inx] < visChan )\
-		{\
-		  CurrentCorrTerm[inx] *= dCorrTerm[inx];\
-		  CurrentCorrChan[inx]++;\
-		}\
-	      }\
-	      corr = CurrentCorrTerm[inx];\
-	  }\
-	  else{\
-	      float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;\
-	      corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));\
-	  }/* Not chan-equidistant*/\
+	  float complex corr=1;\
+	  if(!dopsf) /* in PSF mode, corr stays 1 */ {\
+              if(ChanEquidistant){\
+                  /* init correlation term for first channel that it's not initialized in */\
+                  if( CurrentCorrChan[inx] == -1 )\
+                  {\
+                    float complex dotprod = -2.*I*PI*(U*l0+V*m0+W*n0)/C;\
+                    CurrentCorrTerm[inx] = cexp(Pfreqs[visChan]*dotprod);\
+                    dCorrTerm[inx]       = cexp((Pfreqs[1]-Pfreqs[0])*dotprod);\
+                    CurrentCorrChan[inx] = visChan;\
+                  }\
+                  /* else, wind the correlation term forward by as many channels as necessary */\
+                  /* this modification allows us to support blocks that skip across channels */\
+                  else\
+                  {\
+                    while( CurrentCorrChan[inx] < visChan )\
+                    {\
+                      CurrentCorrTerm[inx] *= dCorrTerm[inx];\
+                      CurrentCorrChan[inx]++;\
+                    }\
+                  }\
+                  corr = CurrentCorrTerm[inx];\
+              }\
+              else{\
+                  float complex UVNorm=2.*I*PI*Pfreqs[visChan]/C;\
+                  corr=cexp(-UVNorm*(U*l0+V*m0+W*n0));\
+              }/* Not chan-equidistant*/\
+          }/* !dopsf */ \
 	  \
 	  int OneFlagged=0;\
 	  int cond;\
 	  \
 	  if(DoApplyJones==1){\
-	    updateJones(irow, visChan, uvwPtr, 1, 1);\
+	    if( dopsf && (updateJones(irow, visChan, uvwPtr, 1, 1) || !have_psf) ) { /* for the PSF, VisMeas can be precomputed */ \
+	      visPtr[0] = visPtr[3] = DeCorrFactor; \
+	      visPtr[1] = visPtr[2] = 0;\
+	      MatDot(J0,JonesType,visPtr,SkyType,VisMeas);\
+	      MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);\
+              MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);\
+              MatDot(visPtr,SkyType,J1,JonesType,VisMeas);\
+              have_psf = 1;\
+	    }\
 	  } /*endif DoApplyJones*/\
 	  \
 	  /*ThisBlockAllFlagged=0;*/\
 	  /*AddTimeit(PreviousTime,TimeStuff);*/\
-	  \
-	  float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;\
-	  \
-	  if (dopsf==1) {\
-	    VisMeas[0]= 1.;\
-	    VisMeas[1]= 0.;\
-	    VisMeas[2]= 0.;\
-	    VisMeas[3]= 1.;\
-	    corr=1.;\
-	    if(DoApplyJones==1){\
-	      /* first product seems superfluous, why multiply by identity? */\
-	      MatDot(J0,JonesType,VisMeas,SkyType,VisMeas);\
-	      MatDot(VisMeas,SkyType,J1H,JonesType,VisMeas);\
-	    }\
-	    if(DoDecorr){\
-	      for(ThisPol =0; ThisPol<4;ThisPol++)\
-		VisMeas[ThisPol]*=DeCorrFactor;\
-	    }\
-	  }else{\
+	  if (!dopsf ) {\
+            float complex* __restrict__ visPtrMeas  = p_complex64(vis)  + doff;\
 	    readcorrs \
 	  }\
 	  float FWeight = (*imgWtPtr)*WeightVaryJJ; /**WeightVaryJJ;*/\
@@ -498,8 +489,10 @@ void griddername(PyArrayObject *grid, \
 	  ThisSumSqWeights+=FWeightDecorr;\
 	  ThisSumSqWeightsChan[visChan]+=FWeightDecorr;\
 	  if(DoApplyJones==1){\
-	    MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);\
-	    MatDot(visPtr,SkyType,J1,JonesType,VisMeas);\
+	    if(!dopsf) {\
+	        MatDot(J0H,JonesType,VisMeas,SkyType,visPtr);\
+	        MatDot(visPtr,SkyType,J1,JonesType,VisMeas);\
+	    }\
 	    savecorrs \
 	    \
 	    /*Compute per channel and overall approximate matrix sqroot:*/\
@@ -527,7 +520,6 @@ void griddername(PyArrayObject *grid, \
       Umean/=NVisThisblock;\
       Vmean/=NVisThisblock;\
       Wmean/=NVisThisblock;\
-      decorrFactorMean/=NVisThisblock;\
       FreqMean/=NVisThisblock;\
       \
       /*printf("visChanMean, NVisThisblock: %f %f\n",(float)visChanMean, (float)NVisThisblock);*/\
