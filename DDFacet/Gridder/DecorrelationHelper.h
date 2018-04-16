@@ -38,10 +38,10 @@ namespace DDF{
 	bool DoDecorr, TSmear, FSmear;
 
       public:
-	DecorrelationHelper(const py::list& LSmearing, 
+	DecorrelationHelper(const py::list& LSmearing,
 			    const py::array_t<double, py::array::c_style>& uvw);
 	double get(double nu, size_t idx);
       };
   }
 }
-#endif GRIDDER_DECORR_H
+#endif /*GRIDDER_DECORR_H*/

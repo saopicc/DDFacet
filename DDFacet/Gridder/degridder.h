@@ -53,7 +53,7 @@ namespace DDF{
 	visBuff[1] = visBuff[3];
 	}
     }
-    
+
     template <StokesDegridType StokesDegrid, int nVisPol, int nVisCorr, policies::ApplyJonesType ApplyJones>
     void degridder(
       const py::array_t<std::complex<float>, py::array::c_style>& grid,
@@ -92,10 +92,11 @@ namespace DDF{
       const int nGridY    = int(grid.shape(2));
       const int nGridPol  = int(grid.shape(1));
       const int nGridChan = int(grid.shape(0));
-      
+
       /* Get visibility data size. */
       const size_t nVisChan = size_t(flags.shape(1));
       const size_t nrows    = size_t(uvw.shape(0));
+      const double *uvwdata = uvw.data(0);
 
       /* MR FIXME: should this be "/2" or "/2."? */
       const double offset_p[] = {double(nGridX/2), double(nGridY/2)};
@@ -144,7 +145,7 @@ namespace DDF{
 	  {
 	  const size_t irow = size_t(Row[inx]);
 	  if (irow>nrows) continue;
-	  const double* __restrict__ uvwPtr = uvw.data(0) + irow*3;
+	  const double* __restrict__ uvwPtr = uvwdata + irow*3;
 	  const double U=uvwPtr[0];
 	  const double V=uvwPtr[1];
 	  const double W=uvwPtr[2];
@@ -168,8 +169,8 @@ namespace DDF{
 
 	auto cfs=py::array_t<complex<float>, py::array::c_style>(
 	  (Wmean>0) ? Lcfs[iwplane] : LcfsConj[iwplane]);
-	const int nConvX = cfs.shape(0);
-	const int nConvY = cfs.shape(1);
+	const int nConvX = int(cfs.shape(0));
+	const int nConvY = int(cfs.shape(1));
 	const int supx = (nConvX/OverS-1)/2;
 	const int supy = (nConvY/OverS-1)/2;
 	const int SupportCF=nConvX/OverS;
@@ -217,7 +218,7 @@ namespace DDF{
 	  {
 	  size_t irow = size_t(Row[inx]);
 	  if (irow>nrows) continue;
-	  const double* __restrict__ uvwPtr = uvw.data(0) + irow*3;
+	  const double* __restrict__ uvwPtr = uvwdata + irow*3;
 	  const double angle = 2.*PI*(uvwPtr[0]*l0+uvwPtr[1]*m0+uvwPtr[2]*n0)/C;
 
 	  for (auto visChan=chStart; visChan<chEnd; ++visChan)
@@ -248,8 +249,8 @@ namespace DDF{
 	    }/*endfor vischan*/
 	  }/*endfor RowThisBlock*/
 	} /*end for Block*/
-      } /* end */ 
+      } /* end */
   }
 }
 
-#endif GRIDDER_DEGRIDDER_H
+#endif /*GRIDDER_DEGRIDDER_H*/

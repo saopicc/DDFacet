@@ -21,7 +21,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "GridderSmearPols.h"
 
 namespace DDF {
-  void pyAccumulateWeightsOntoGrid(py::array_t<double, py::array::c_style>& grid, 
+  void pyAccumulateWeightsOntoGrid(py::array_t<double, py::array::c_style>& grid,
 				  const py::array_t<float, py::array::c_style>& weights,
 				  const py::array_t<long int, py::array::c_style>& index)
   {
@@ -29,7 +29,7 @@ namespace DDF {
     double* pgrid = grid.mutable_data<double>(0);
     const float* pweights = weights.data<float>(0);
     const long int* pindex = index.data<long int>(0);
-    
+
     for(size_t i=0; i<n; ++i)
       {
       float w = pweights[i];
@@ -158,8 +158,8 @@ namespace DDF {
 			    py::array_t<std::complex<float>, py::array::c_style>& np_vis,
 			    const py::array_t<double, py::array::c_style>& uvw,
 			    const py::array_t<bool, py::array::c_style>& flags,
-			    py::array_t<double, py::array::c_style>& sumwt,
-			    bool dopsf,
+			    py::array_t<double, py::array::c_style>& /*sumwt*/,
+			    bool /*dopsf*/,
 			    const py::list& Lcfs,
 			    const py::list& LcfsConj,
 			    const py::array_t<double, py::array::c_style>& WInfos,
@@ -168,7 +168,7 @@ namespace DDF {
 			    const py::list& Lmaps,
 			    py::list& LJones,
 			    const py::array_t<int32_t, py::array::c_style>& SmearMapping,
-			    const py::array_t<bool, py::array::c_style>& Sparsification,
+			    const py::array_t<bool, py::array::c_style>& /*Sparsification*/,
 			    const py::list& LOptimisation,
 			    const py::list& LSmear,
 			    const py::array_t<int, py::array::c_style>& np_ChanMapping,
