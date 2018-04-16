@@ -96,6 +96,7 @@ namespace DDF{
       /* Get visibility data size. */
       const size_t nVisChan = size_t(flags.shape(1));
       const size_t nrows    = size_t(uvw.shape(0));
+      const double *uvwdata = uvw.data(0);
 
       /* MR FIXME: should this be "/2" or "/2."? */
       const double offset_p[] = {double(nGridX/2), double(nGridY/2)};
@@ -144,7 +145,7 @@ namespace DDF{
 	  {
 	  const size_t irow = size_t(Row[inx]);
 	  if (irow>nrows) continue;
-	  const double* __restrict__ uvwPtr = uvw.data(0) + irow*3;
+	  const double* __restrict__ uvwPtr = uvwdata + irow*3;
 	  const double U=uvwPtr[0];
 	  const double V=uvwPtr[1];
 	  const double W=uvwPtr[2];
@@ -217,7 +218,7 @@ namespace DDF{
 	  {
 	  size_t irow = size_t(Row[inx]);
 	  if (irow>nrows) continue;
-	  const double* __restrict__ uvwPtr = uvw.data(0) + irow*3;
+	  const double* __restrict__ uvwPtr = uvwdata + irow*3;
 	  const double angle = 2.*PI*(uvwPtr[0]*l0+uvwPtr[1]*m0+uvwPtr[2]*n0)/C;
 
 	  for (auto visChan=chStart; visChan<chEnd; ++visChan)
