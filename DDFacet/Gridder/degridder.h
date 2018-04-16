@@ -121,6 +121,9 @@ namespace DDF{
       DDEs::JonesServer JS(LJones,WaveLengthMean);
 
       const int *p_ChanMapping=np_ChanMapping.data(0);
+      const fcmplx* __restrict__ griddata = grid.data(0);
+      fcmplx* __restrict__ visdata = vis.mutable_data(0);
+      
       for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
 	{
 	const int NRowThisBlock=NRowBlocks[iBlock]-2;
@@ -169,6 +172,7 @@ namespace DDF{
 
 	auto cfs=py::array_t<complex<float>, py::array::c_style>(
 	  (Wmean>0) ? Lcfs[iwplane] : LcfsConj[iwplane]);
+        const fcmplx* __restrict__ cfsdata = cfs.data(0);
 	const int nConvX = int(cfs.shape(0));
 	const int nConvY = int(cfs.shape(1));
 	const int supx = (nConvX/OverS-1)/2;
@@ -197,8 +201,8 @@ namespace DDF{
 	for (size_t ipol=0; ipol<nVisPol; ++ipol)
 	  {
 	  const size_t goff = size_t((gridChan*nGridPol + ipol) * nGridX*nGridY);
-	  const fcmplx* __restrict__ cf0 = cfs.data(0) + cfoff;
-	  const fcmplx* __restrict__ gridPtr = grid.data(0) + goff + (locy-supy)*nGridX + locx;
+	  const fcmplx* __restrict__ cf0 = cfsdata + cfoff;
+	  const fcmplx* __restrict__ gridPtr = griddata + goff + (locy-supy)*nGridX + locx;
 	  dcmplx svi = 0.;
 	  for (int sy=-supy; sy<=supy; ++sy, gridPtr+=nGridX)
 	    for (int sx=-supx; sx<=supx; ++sx)
@@ -239,7 +243,7 @@ namespace DDF{
 	      for(auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)
 		visBuff[ThisPol] = corr_vis[ThisPol]*corr;
 
-	    fcmplx* __restrict__ visPtr = vis.mutable_data(0) + doff;
+	    fcmplx* __restrict__ visPtr = visdata + doff;
 	    auto Sem_mutex = GiveSemaphoreFromCell(doff_chan);
 	    /* Finally subtract visibilities from current residues */
 	    sem_wait(Sem_mutex);

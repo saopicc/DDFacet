@@ -1046,7 +1046,6 @@ class ClassDDEGridMachine():
                 np.array(self.DataCorrelationFormat).astype(np.uint16),
                 np.array(self.ExpectedOutputStokes).astype(np.uint16))
         elif self.GD["RIME"]["ForwardMode"]=="BDA-degrid-classic":
-            OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos = [
                 self.JonesType,
                 ChanEquidistant,
