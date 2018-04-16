@@ -32,8 +32,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "Stokes.h"
 #include "DecorrelationHelper.h"
 #include "CorrelationCalculator.h"
-#include "pybind11/include/pybind11/pybind11.h"
-#include "pybind11/include/pybind11/numpy.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
 
 namespace DDF {
   namespace gridder {

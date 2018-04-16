@@ -54,6 +54,7 @@ ENV DEB_DEPENCENDIES \
     liblapack-dev \
     python-tk \
     meqtrees* \
+    tigger-lsm \
     # LOFAR Beam and including makems needed for ref image generation
     lofar \
     # Reference image generation dependencies

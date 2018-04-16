@@ -23,16 +23,16 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "common.h"
 #include <iostream>
-#include "pybind11/include/pybind11/pybind11.h"
-#include "pybind11/include/pybind11/numpy.h"
-#include "pybind11/include/pybind11/pytypes.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include <pybind11/pytypes.h>
 
 namespace DDF {
   namespace py=pybind11;
 
   template<typename T> class Mat
     {
-    public:
+    private:
       T v[4];
 
     public:
