@@ -158,6 +158,14 @@ namespace DDF {
       vector<double> ThisSumJonesChan(nVisChan),      // accumulates sum of w*decorr*decorr*||M||
                      ThisSumSqWeightsChan(nVisChan);  // accumulates sum of w*decorr*decorr
 
+      const double* __restrict__ uvwPtr0 = uvw.data(0);
+      const bool*   __restrict__ flagPtr0 = flags.data(0);
+      const fcmplx* __restrict__ visPtr0 = vis.data(0);
+      const float*  __restrict__ weightsPtr0 = weights.data(0);
+      
+      fcmplx* __restrict__ gridPtr0 = grid.mutable_data(0);
+      
+
       const int *p_ChanMapping=np_ChanMapping.data(0);
       for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
 	{
@@ -199,7 +207,7 @@ namespace DDF {
 	  {
 	  const size_t irow = size_t(Row[inx]);
 	  if (irow>nrows) continue;
-	  const double* __restrict__ uvwPtr = uvw.data(0) + irow*3;
+	  const double* __restrict__ uvwPtr = uvwPtr0 + irow*3;
 	  const double U=uvwPtr[0];
 	  const double V=uvwPtr[1];
 	  const double W=uvwPtr[2];
@@ -209,10 +217,10 @@ namespace DDF {
 	  for (size_t visChan=chStart; visChan<chEnd; ++visChan)
 	    {
 	    size_t doff = size_t((irow*nVisChan + visChan) * nVisCorr);
-	    const float *imgWtPtr = weights.data(0) + irow*nVisChan + visChan;
+	    const float *imgWtPtr = weightsPtr0 + irow*nVisChan + visChan;
 
 	    /* We can do that since all flags in 4-pols are equalised in ClassVisServer */
-	    if (flags.data(0)[doff]) continue;
+	    if (flagPtr0[doff]) continue;
 
 	    dcmplx corr = dopsf ? 1 : Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
 
@@ -229,7 +237,7 @@ namespace DDF {
 
             // in PSF mode, VisMeas is precomputed (in the if clause above, or before the row loop) and doesn't change
 	    if (!dopsf)
-	      readcorr(vis.data(0)+doff, VisMeas);
+	      readcorr(visPtr0+doff, VisMeas);
 
 	    const double FWeight = imgWtPtr[0]*JS.WeightVaryJJ;
 	    const dcmplx Weight   = FWeight*corr;
@@ -330,6 +338,7 @@ namespace DDF {
 	const int supx = (nConvX/OverS-1)/2;
 	const int supy = (nConvY/OverS-1)/2;
 	const int SupportCF=nConvX/OverS;
+	const fcmplx *cfsPtr0 = cfs.data(0);
 
 	const double posx = uvwScale_p[0]*Umean*recipWvl + offset_p[0];
 	const double posy = uvwScale_p[1]*Vmean*recipWvl + offset_p[1];
@@ -353,8 +362,8 @@ namespace DDF {
 	  if (ipol>=size_t(nGridPol)) continue;
 	  const size_t goff = size_t((gridChan*nGridPol + ipol) * nGridX*nGridY);
 	  const dcmplx VisVal =stokes_vis[ipol];
-	  const fcmplx* __restrict__ cf0 = cfs.data(0) + cfoff;
-	  fcmplx* __restrict__ gridPtr = grid.mutable_data(0) + goff + (locy-supy)*nGridX + locx;
+	  const fcmplx* __restrict__ cf0 = cfsPtr0 + cfoff;
+	  fcmplx* __restrict__ gridPtr = gridPtr0 + goff + (locy-supy)*nGridX + locx;
 	  for (int sy=-supy; sy<=supy; ++sy, gridPtr+=nGridX)
 	    for (int sx=-supx; sx<=supx; ++sx)
 	      gridPtr[sx] += VisVal * dcmplx(*cf0++);
