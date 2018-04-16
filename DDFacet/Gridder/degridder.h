@@ -124,6 +124,7 @@ namespace DDF{
       const int *p_ChanMapping=np_ChanMapping.data(0);
       const fcmplx* __restrict__ griddata = grid.data(0);
       fcmplx* __restrict__ visdata = vis.mutable_data(0);
+      JS.resetJonesServerCounter();
       
       for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
 	{
@@ -142,7 +143,6 @@ namespace DDF{
 	  FreqMean+=Pfreqs[visChan];
 	FreqMean/=double(chEnd-chStart);
 
-	JS.resetJonesServerCounter();
 	int NVisThisblock=0;
 	double Umean=0, Vmean=0, Wmean=0;
 	for (auto inx=0; inx<NRowThisBlock; inx++)
@@ -213,6 +213,13 @@ namespace DDF{
 
 	/*######## Convert from degridded stokes to MS corrs #########*/
 	dcMat corr_vis = StokesDegrid(stokes_vis);
+        if (JS.DoApplyJones==2)
+          {
+          size_t irow = Row[NRowThisBlock/2];
+	  const double* __restrict__ uvwPtr = uvwdata + irow*3;
+	  JS.updateJones(irow, (chStart+chEnd)/2, uvwPtr, false, false);
+	  ApplyJones(JS, corr_vis, 1., corr_vis);
+	  }
 
 	Corrcalc.update(Row[0], NRowThisBlock);
 
@@ -234,14 +241,14 @@ namespace DDF{
 	    const size_t doff_chan = size_t(irow*nVisChan + visChan);
 	    const size_t doff = doff_chan*nVisCorr;
 
-	    if (JS.DoApplyJones)
+	    if (JS.DoApplyJones==1)
 	      JS.updateJones(irow, visChan, uvwPtr, false, false);
 
 	    dcmplx corr = Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
 	    corr*=DeCorrFactor;
 
 	    dcMat visBuff;
-	    if (JS.DoApplyJones)
+	    if (JS.DoApplyJones==1)
 	      ApplyJones(JS, corr_vis, corr, visBuff);
 	    else
 	      for(auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)

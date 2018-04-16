@@ -549,7 +549,7 @@ class ClassDDEGridMachine():
 
         self.LSmear=[uvw_dt,DT,Dnu,DoSmearTime,DoSmearFreq,lmin,mmin]
 
-    def GiveParamJonesList(self, DicoJonesMatrices, times, A0, A1, uvw):
+    def GiveParamJonesList(self, DicoJonesMatrices, times, A0, A1, uvw, gridder=False, degridder=False):
 
         Apply_killMS = ("DicoJones_killMS" in DicoJonesMatrices)
         Apply_Beam = ("DicoJones_Beam" in DicoJonesMatrices)
@@ -599,7 +599,11 @@ class ClassDDEGridMachine():
         elif InterpMode=="Krigging":
             InterpMode=1
 
-        BDAJonesMode = 2 if self.GD["Comp"]["BDAJones"] else 1
+        if gridder:
+           BDAJonesMode = 2 if self.GD["Comp"]["BDAJones"] is not None else 1
+        else:
+           BDAJonesMode = 2 if self.GD["Comp"]["BDAJones"] == 'both' else 1
+           
 
         #ParamJonesList=[MapJones,A0.astype(np.int32),A1.astype(np.int32),JonesMatrices.astype(np.complex64),idir]
         if A0.size!=uvw.shape[0]:
@@ -747,7 +751,7 @@ class ClassDDEGridMachine():
             LApplySol=[ApplyAmp,ApplyPhase,ScaleAmplitude,CalibError]
             LSumJones=[self.SumJones]
             LSumJonesChan=[self.SumJonesChan]
-            ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw)
+            ParamJonesList=self.GiveParamJonesList(DicoJonesMatrices,times,A0,A1,uvw,gridder=True)
             ParamJonesList=ParamJonesList+LApplySol+LSumJones+LSumJonesChan+[np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
         #T2= ClassTimeIt.ClassTimeIt("Gridder")
@@ -987,7 +991,7 @@ class ClassDDEGridMachine():
             LSumJones = [self.SumJones]
             LSumJonesChan = [self.SumJonesChan]
             ParamJonesList = self.GiveParamJonesList(
-                DicoJonesMatrices, times, A0, A1, uvw)
+                DicoJonesMatrices, times, A0, A1, uvw, degridder=True)
             ParamJonesList = ParamJonesList+LApplySol+LSumJones+LSumJonesChan + \
                 [np.float32(self.GD["DDESolutions"]["ReWeightSNR"])]
 
