@@ -53,7 +53,7 @@ namespace DDF{
 	visBuff[1] = visBuff[3];
 	}
     }
-    
+
     template <StokesDegridType StokesDegrid, int nVisPol, int nVisCorr, policies::ApplyJonesType ApplyJones>
     void degridder(
       const py::array_t<std::complex<float>, py::array::c_style>& grid,
@@ -80,6 +80,7 @@ namespace DDF{
       const double l0=ptrFacetInfos[2];
       const double m0=ptrFacetInfos[3];
       const double n0=sqrt(1-l0*l0-m0*m0)-1;
+      const int facet = ptrFacetInfos[4];
 
       /* Get size of grid. */
       const double *ptrWinfo = Winfos.data(0);
@@ -92,10 +93,11 @@ namespace DDF{
       const int nGridY    = int(grid.shape(2));
       const int nGridPol  = int(grid.shape(1));
       const int nGridChan = int(grid.shape(0));
-      
+
       /* Get visibility data size. */
       const size_t nVisChan = size_t(flags.shape(1));
       const size_t nrows    = size_t(uvw.shape(0));
+      const double *uvwdata = uvw.data(0);
 
       /* MR FIXME: should this be "/2" or "/2."? */
       const double offset_p[] = {double(nGridX/2), double(nGridY/2)};
@@ -120,6 +122,9 @@ namespace DDF{
       DDEs::JonesServer JS(LJones,WaveLengthMean);
 
       const int *p_ChanMapping=np_ChanMapping.data(0);
+      const fcmplx* __restrict__ griddata = grid.data(0);
+      fcmplx* __restrict__ visdata = vis.mutable_data(0);
+      
       for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
 	{
 	const int NRowThisBlock=NRowBlocks[iBlock]-2;
@@ -144,7 +149,7 @@ namespace DDF{
 	  {
 	  const size_t irow = size_t(Row[inx]);
 	  if (irow>nrows) continue;
-	  const double* __restrict__ uvwPtr = uvw.data(0) + irow*3;
+	  const double* __restrict__ uvwPtr = uvwdata + irow*3;
 	  const double U=uvwPtr[0];
 	  const double V=uvwPtr[1];
 	  const double W=uvwPtr[2];
@@ -168,8 +173,9 @@ namespace DDF{
 
 	auto cfs=py::array_t<complex<float>, py::array::c_style>(
 	  (Wmean>0) ? Lcfs[iwplane] : LcfsConj[iwplane]);
-	const int nConvX = cfs.shape(0);
-	const int nConvY = cfs.shape(1);
+        const fcmplx* __restrict__ cfsdata = cfs.data(0);
+	const int nConvX = int(cfs.shape(0));
+	const int nConvY = int(cfs.shape(1));
 	const int supx = (nConvX/OverS-1)/2;
 	const int supy = (nConvY/OverS-1)/2;
 	const int SupportCF=nConvX/OverS;
@@ -196,8 +202,8 @@ namespace DDF{
 	for (size_t ipol=0; ipol<nVisPol; ++ipol)
 	  {
 	  const size_t goff = size_t((gridChan*nGridPol + ipol) * nGridX*nGridY);
-	  const fcmplx* __restrict__ cf0 = cfs.data(0) + cfoff;
-	  const fcmplx* __restrict__ gridPtr = grid.data(0) + goff + (locy-supy)*nGridX + locx;
+	  const fcmplx* __restrict__ cf0 = cfsdata + cfoff;
+	  const fcmplx* __restrict__ gridPtr = griddata + goff + (locy-supy)*nGridX + locx;
 	  dcmplx svi = 0.;
 	  for (int sy=-supy; sy<=supy; ++sy, gridPtr+=nGridX)
 	    for (int sx=-supx; sx<=supx; ++sx)
@@ -212,13 +218,16 @@ namespace DDF{
 
 	/*################### Now do the correction #################*/
 	double DeCorrFactor=decorr.get(FreqMean, Row[NRowThisBlock/2]);
-
+	
 	for (auto inx=0; inx<NRowThisBlock; inx++)
 	  {
 	  size_t irow = size_t(Row[inx]);
 	  if (irow>nrows) continue;
-	  const double* __restrict__ uvwPtr = uvw.data(0) + irow*3;
+	  const double* __restrict__ uvwPtr = uvwdata + irow*3;
 	  const double angle = 2.*PI*(uvwPtr[0]*l0+uvwPtr[1]*m0+uvwPtr[2]*n0)/C;
+
+	  auto Sem_mutex = GiveSemaphoreFromCell(irow);
+	  sem_wait(Sem_mutex);
 
 	  for (auto visChan=chStart; visChan<chEnd; ++visChan)
 	    {
@@ -238,18 +247,19 @@ namespace DDF{
 	      for(auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)
 		visBuff[ThisPol] = corr_vis[ThisPol]*corr;
 
-	    fcmplx* __restrict__ visPtr = vis.mutable_data(0) + doff;
-	    auto Sem_mutex = GiveSemaphoreFromCell(doff_chan);
+	    fcmplx* __restrict__ visPtr = visdata + doff;
+	    //auto Sem_mutex = GiveSemaphoreFromCell(doff_chan);
 	    /* Finally subtract visibilities from current residues */
-	    sem_wait(Sem_mutex);
+	    //sem_wait(Sem_mutex);
 	    for (auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)
 	      visPtr[ThisPol] -= visBuff[ThisPol];
-	    sem_post(Sem_mutex);
+	    //sem_post(Sem_mutex);
 	    }/*endfor vischan*/
+	    sem_post(Sem_mutex);
 	  }/*endfor RowThisBlock*/
 	} /*end for Block*/
-      } /* end */ 
+      } /* end */
   }
 }
 
-#endif GRIDDER_DEGRIDDER_H
+#endif /*GRIDDER_DEGRIDDER_H*/

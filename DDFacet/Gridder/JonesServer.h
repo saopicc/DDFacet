@@ -109,18 +109,18 @@ namespace DDF {
 	double WeightVaryJJ;
 	int DoApplyJones=0;
 	dcMat J0, J1, J0H, J1H;
-	
+
 	double *ptrSumJones, *ptrSumJonesChan;
-	
+
 	JonesServer(py::list& LJones, double WaveLengthMeanIn);
 
 	// updates Jones terms for given row and channel. Returns True if something has changed.
 	bool updateJones(size_t irow, size_t visChan, const double *uvwPtr, bool EstimateWeight, bool DoApplyAlphaRegIn);
 	void resetJonesServerCounter();
-	
+
       private:
         dcMat J0Beam, J1Beam, J0kMS, J1kMS;
       };
   }
 }
-#endif GRIDDER_JONESSERV_H
+#endif /*GRIDDER_JONESSERV_H*/

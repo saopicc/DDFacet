@@ -951,7 +951,7 @@ class ClassDDEGridMachine():
 
         l0, m0 = self.lmShift
         FacetInfos = np.float64(
-            np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0]))
+            np.array([self.WTerm.Cu, self.WTerm.Cv, l0, m0, self.IDFacet]))
         Row0, Row1 = Row0Row1
         if Row1 == -1:
             Row1 = uvw.shape[0]
@@ -1046,7 +1046,6 @@ class ClassDDEGridMachine():
                 np.array(self.DataCorrelationFormat).astype(np.uint16),
                 np.array(self.ExpectedOutputStokes).astype(np.uint16))
         elif self.GD["RIME"]["ForwardMode"]=="BDA-degrid-classic":
-            OptimisationInfos=[self.FullScalarMode,self.ChanEquidistant]
             OptimisationInfos = [
                 self.JonesType,
                 ChanEquidistant,

@@ -95,7 +95,6 @@ namespace DDF {
       const double l0=ptrFacetInfos[2];
       const double m0=ptrFacetInfos[3];
       const double n0=sqrt(1-l0*l0-m0*m0)-1;
-      const int facet = ptrFacetInfos[4];
 
       /* Get size of grid. */
       const double *ptrWinfo = Winfos.data(0);
@@ -108,11 +107,18 @@ namespace DDF {
       const int nGridY    = int(grid.shape(2));
       const int nGridPol  = int(grid.shape(1));
       const int nGridChan = int(grid.shape(0));
+      fcmplx *griddata = grid.mutable_data(0);
+
+      const fcmplx *visdata = vis.data(0);
 
       /* Get visibility data size. */
       const size_t nVisCorr = size_t(flags.shape(2));
       const size_t nVisChan = size_t(flags.shape(1));
+      const bool *flagsdata = flags.data(0);
       const size_t nrows    = size_t(uvw.shape(0));
+      const double *uvwdata = uvw.data(0);
+
+      const float *weightsdata = weights.data(0);
 
       double* __restrict__ sumWtPtr =  sumwt.mutable_data(0);
 
@@ -134,14 +140,14 @@ namespace DDF {
       const bool *sparsificationFlag = 0;
       if (Sparsification.size())
 	{
-	if (Sparsification.size() != NTotBlocks)
+	if (size_t(Sparsification.size()) != NTotBlocks)
 	  throw std::invalid_argument("sparsification argument must be an array of length NTotBlocks");
 
 	sparsificationFlag = Sparsification.data(0);
 	}
-      
+
       CorrectionCalculator Corrcalc(LOptimisation, sparsificationFlag, NTotBlocks, NRowBlocks);
-      
+
       /* ######################################################## */
       double WaveLengthMean=0., FreqMean0=0.;
       for (size_t visChan=0; visChan<nVisChan; ++visChan)
@@ -157,14 +163,6 @@ namespace DDF {
 
       vector<double> ThisSumJonesChan(nVisChan),      // accumulates sum of w*decorr*decorr*||M||
                      ThisSumSqWeightsChan(nVisChan);  // accumulates sum of w*decorr*decorr
-
-      const double* __restrict__ uvwPtr0 = uvw.data(0);
-      const bool*   __restrict__ flagPtr0 = flags.data(0);
-      const fcmplx* __restrict__ visPtr0 = vis.data(0);
-      const float*  __restrict__ weightsPtr0 = weights.data(0);
-      
-      fcmplx* __restrict__ gridPtr0 = grid.mutable_data(0);
-      
 
       const int *p_ChanMapping=np_ChanMapping.data(0);
       for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
@@ -192,8 +190,6 @@ namespace DDF {
 	Corrcalc.update(Row[0], NRowThisBlock);
 
 	double DeCorrFactor = decorr.get(FreqMean0, Row[NRowThisBlock/2]);
-//	if(facet==0 && iBlock==0)
-//	  fprintf(stderr,"F%d block 0 decorrfactor %f\n",facet,DeCorrFactor);
 
 	double visChanMean=0., FreqMean=0;
 	double ThisWeight=0., ThisSumJones=0., ThisSumSqWeights=0.;
@@ -207,7 +203,7 @@ namespace DDF {
 	  {
 	  const size_t irow = size_t(Row[inx]);
 	  if (irow>nrows) continue;
-	  const double* __restrict__ uvwPtr = uvwPtr0 + irow*3;
+	  const double* __restrict__ uvwPtr = uvwdata + irow*3;
 	  const double U=uvwPtr[0];
 	  const double V=uvwPtr[1];
 	  const double W=uvwPtr[2];
@@ -217,10 +213,10 @@ namespace DDF {
 	  for (size_t visChan=chStart; visChan<chEnd; ++visChan)
 	    {
 	    size_t doff = size_t((irow*nVisChan + visChan) * nVisCorr);
-	    const float *imgWtPtr = weightsPtr0 + irow*nVisChan + visChan;
+	    const float *imgWtPtr = weightsdata + irow*nVisChan + visChan;
 
 	    /* We can do that since all flags in 4-pols are equalised in ClassVisServer */
-	    if (flagPtr0[doff]) continue;
+	    if (flagsdata[doff]) continue;
 
 	    dcmplx corr = dopsf ? 1 : Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
 
@@ -237,7 +233,7 @@ namespace DDF {
 
             // in PSF mode, VisMeas is precomputed (in the if clause above, or before the row loop) and doesn't change
 	    if (!dopsf)
-	      readcorr(visPtr0+doff, VisMeas);
+	      readcorr(visdata+doff, VisMeas);
 
 	    const double FWeight = imgWtPtr[0]*JS.WeightVaryJJ;
 	    const dcmplx Weight   = FWeight*corr;
@@ -259,8 +255,6 @@ namespace DDF {
 	      }
 	    else /* Don't apply Jones */
 	      mulaccum(VisMeas, Weight, Vis);
-//	    if(facet==0 && inx==0 && visChan==chStart)
-//               std::fprintf(stderr,"F%dB%d weight %f jones %f %f BB %f\n",facet,iBlock,FWeight,JS.J0.v[0].real(),JS.J0.v[0].imag(),JS.BB);\
 
 	    /*###################### Averaging #######################*/
 	    Umean += U + W*Cu;
@@ -338,7 +332,7 @@ namespace DDF {
 	const int supx = (nConvX/OverS-1)/2;
 	const int supy = (nConvY/OverS-1)/2;
 	const int SupportCF=nConvX/OverS;
-	const fcmplx *cfsPtr0 = cfs.data(0);
+	const fcmplx * cfsdata = cfs.data(0);
 
 	const double posx = uvwScale_p[0]*Umean*recipWvl + offset_p[0];
 	const double posy = uvwScale_p[1]*Vmean*recipWvl + offset_p[1];
@@ -362,8 +356,8 @@ namespace DDF {
 	  if (ipol>=size_t(nGridPol)) continue;
 	  const size_t goff = size_t((gridChan*nGridPol + ipol) * nGridX*nGridY);
 	  const dcmplx VisVal =stokes_vis[ipol];
-	  const fcmplx* __restrict__ cf0 = cfsPtr0 + cfoff;
-	  fcmplx* __restrict__ gridPtr = gridPtr0 + goff + (locy-supy)*nGridX + locx;
+	  const fcmplx* __restrict__ cf0 = cfsdata + cfoff;
+	  fcmplx* __restrict__ gridPtr = griddata + goff + (locy-supy)*nGridX + locx;
 	  for (int sy=-supy; sy<=supy; ++sy, gridPtr+=nGridX)
 	    for (int sx=-supx; sx<=supx; ++sx)
 	      gridPtr[sx] += VisVal * dcmplx(*cf0++);
@@ -380,13 +374,9 @@ namespace DDF {
 	      }
 	    }
 	  } /* end for ipol */
-//	    if(facet==0)
-//               std::fprintf(stderr,"F%dB%d ptrSumJones[0]=%f\n",facet,iBlock,JS.ptrSumJones[0]);
 	} /*end for Block*/
-//	if(facet==0)
-//          	std::cerr<<"\n\n\nF"<<facet<<" sumJones[0] "<<JS.ptrSumJones[0]<<"\n\n\n";
       } /* end */
     }
 }
 
-#endif GRIDDER_GRIDDER_H
+#endif /*GRIDDER_GRIDDER_H*/

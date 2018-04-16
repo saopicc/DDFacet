@@ -14,7 +14,7 @@
 #include <cmath>
 namespace DDF {
   using namespace std;
- 
+
   #define I_FROM_XXXYYXYY (Vis[0]+Vis[3])*.5
   #define Q_FROM_XXXYYXYY (Vis[0]-Vis[3])*.5
   #define U_FROM_XXXYYXYY (Vis[1]+Vis[2])*.5
@@ -30,7 +30,7 @@ namespace DDF {
   #define Q_FROM_RRRLLRLL (Vis[1]+Vis[2])*.5
   #define U_FROM_RRRLLRLL -(Vis[1]-Vis[2])*.5i
   #define V_FROM_RRRLLRLL (Vis[0]-Vis[3])*.5
- 
+
   #define BUILD1(C0, SRC)\
   inline dcMat C0##_from_##SRC(const dcMat &Vis)\
     { return dcMat(C0##_FROM_##SRC,0,0,0); }
@@ -98,4 +98,4 @@ namespace DDF {
     }
   }
 }
-#endif GRIDDER_STOKES_H
+#endif /*GRIDDER_STOKES_H*/
