@@ -8,7 +8,7 @@
 
 namespace {
 
-template <typename T> bool contains(const std::vector<T>& Vec, const T &Element)
+template <typename T> inline bool contains(const std::vector<T>& Vec, const T &Element)
   { return find(Vec.begin(), Vec.end(), Element) != Vec.end(); }
 
 }

@@ -107,11 +107,18 @@ namespace DDF {
       const int nGridY    = int(grid.shape(2));
       const int nGridPol  = int(grid.shape(1));
       const int nGridChan = int(grid.shape(0));
+      fcmplx *griddata = grid.mutable_data(0);
+
+      const fcmplx *visdata = vis.data(0);
 
       /* Get visibility data size. */
       const size_t nVisCorr = size_t(flags.shape(2));
       const size_t nVisChan = size_t(flags.shape(1));
+      const bool *flagsdata = flags.data(0);
       const size_t nrows    = size_t(uvw.shape(0));
+      const double *uvwdata = uvw.data(0);
+
+      const float *weightsdata = weights.data(0);
 
       double* __restrict__ sumWtPtr =  sumwt.mutable_data(0);
 
@@ -188,7 +195,7 @@ namespace DDF {
 	  {
 	  const size_t irow = size_t(Row[inx]);
 	  if (irow>nrows) continue;
-	  const double* __restrict__ uvwPtr = uvw.data(0) + irow*3;
+	  const double* __restrict__ uvwPtr = uvwdata + irow*3;
 	  const double U=uvwPtr[0];
 	  const double V=uvwPtr[1];
 	  const double W=uvwPtr[2];
@@ -198,10 +205,10 @@ namespace DDF {
 	  for (size_t visChan=chStart; visChan<chEnd; ++visChan)
 	    {
 	    size_t doff = size_t((irow*nVisChan + visChan) * nVisCorr);
-	    const float *imgWtPtr = weights.data(0) + irow*nVisChan + visChan;
+	    const float *imgWtPtr = weightsdata + irow*nVisChan + visChan;
 
 	    /* We can do that since all flags in 4-pols are equalised in ClassVisServer */
-	    if (flags.data(0)[doff]) continue;
+	    if (flagsdata[doff]) continue;
 
 	    dcmplx corr = dopsf ? 1 : Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
 	    dcMat VisMeas;
@@ -220,7 +227,7 @@ namespace DDF {
 		VisMeas.scale(DeCorrFactor);
 	      }
 	    else
-	      readcorr(vis.data(0)+doff, VisMeas);
+	      readcorr(visdata+doff, VisMeas);
 
 	    const double FWeight = imgWtPtr[0]*JS.WeightVaryJJ;
 	    const dcmplx Weight = FWeight*corr;
@@ -315,7 +322,7 @@ namespace DDF {
 	  const size_t goff = size_t((gridChan*nGridPol + ipol) * nGridX*nGridY);
 	  const dcmplx VisVal =stokes_vis[ipol];
 	  const fcmplx* __restrict__ cf0 = cfs.data(0) + cfoff;
-	  fcmplx* __restrict__ gridPtr = grid.mutable_data(0) + goff + (locy-supy)*nGridX + locx;
+	  fcmplx* __restrict__ gridPtr = griddata + goff + (locy-supy)*nGridX + locx;
 	  for (int sy=-supy; sy<=supy; ++sy, gridPtr+=nGridX)
 	    for (int sx=-supx; sx<=supx; ++sx)
 	      gridPtr[sx] += VisVal * dcmplx(*cf0++);
