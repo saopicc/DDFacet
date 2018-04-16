@@ -80,6 +80,7 @@ namespace DDF{
       const double l0=ptrFacetInfos[2];
       const double m0=ptrFacetInfos[3];
       const double n0=sqrt(1-l0*l0-m0*m0)-1;
+      const int facet = ptrFacetInfos[4];
 
       /* Get size of grid. */
       const double *ptrWinfo = Winfos.data(0);
@@ -217,13 +218,16 @@ namespace DDF{
 
 	/*################### Now do the correction #################*/
 	double DeCorrFactor=decorr.get(FreqMean, Row[NRowThisBlock/2]);
-
+	
 	for (auto inx=0; inx<NRowThisBlock; inx++)
 	  {
 	  size_t irow = size_t(Row[inx]);
 	  if (irow>nrows) continue;
 	  const double* __restrict__ uvwPtr = uvwdata + irow*3;
 	  const double angle = 2.*PI*(uvwPtr[0]*l0+uvwPtr[1]*m0+uvwPtr[2]*n0)/C;
+
+	  auto Sem_mutex = GiveSemaphoreFromCell(irow);
+	  sem_wait(Sem_mutex);
 
 	  for (auto visChan=chStart; visChan<chEnd; ++visChan)
 	    {
@@ -244,13 +248,14 @@ namespace DDF{
 		visBuff[ThisPol] = corr_vis[ThisPol]*corr;
 
 	    fcmplx* __restrict__ visPtr = visdata + doff;
-	    auto Sem_mutex = GiveSemaphoreFromCell(doff_chan);
+	    //auto Sem_mutex = GiveSemaphoreFromCell(doff_chan);
 	    /* Finally subtract visibilities from current residues */
-	    sem_wait(Sem_mutex);
+	    //sem_wait(Sem_mutex);
 	    for (auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)
 	      visPtr[ThisPol] -= visBuff[ThisPol];
-	    sem_post(Sem_mutex);
+	    //sem_post(Sem_mutex);
 	    }/*endfor vischan*/
+	    sem_post(Sem_mutex);
 	  }/*endfor RowThisBlock*/
 	} /*end for Block*/
       } /* end */
