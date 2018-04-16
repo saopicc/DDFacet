@@ -95,7 +95,6 @@ namespace DDF {
       const double l0=ptrFacetInfos[2];
       const double m0=ptrFacetInfos[3];
       const double n0=sqrt(1-l0*l0-m0*m0)-1;
-      const int facet = ptrFacetInfos[4];
 
       /* Get size of grid. */
       const double *ptrWinfo = Winfos.data(0);
@@ -134,14 +133,14 @@ namespace DDF {
       const bool *sparsificationFlag = 0;
       if (Sparsification.size())
 	{
-	if (Sparsification.size() != NTotBlocks)
+	if (size_t(Sparsification.size()) != NTotBlocks)
 	  throw std::invalid_argument("sparsification argument must be an array of length NTotBlocks");
 
 	sparsificationFlag = Sparsification.data(0);
 	}
-      
+
       CorrectionCalculator Corrcalc(LOptimisation, sparsificationFlag, NTotBlocks, NRowBlocks);
-      
+
       /* ######################################################## */
       double WaveLengthMean=0., FreqMean0=0.;
       for (size_t visChan=0; visChan<nVisChan; ++visChan)
@@ -177,8 +176,6 @@ namespace DDF {
 	Corrcalc.update(Row[0], NRowThisBlock);
 
 	double DeCorrFactor=decorr.get(FreqMean0, Row[NRowThisBlock/2]);
-//	if(facet==0 && iBlock==0)
-//	  fprintf(stderr,"F%d block 0 decorrfactor %f\n",facet,DeCorrFactor);
 
 	double visChanMean=0., FreqMean=0;
 	double ThisWeight=0., ThisSumJones=0., ThisSumSqWeights=0.;
@@ -239,14 +236,9 @@ namespace DDF {
 
 	      ThisSumJonesChan[visChan]+=JS.BB*FWeightSq;
 	      ThisSumSqWeightsChan[visChan]+=FWeightSq;
-//  	      if(facet==0 && visChan==0)
-//                std::fprintf(stderr,"F%dB%dR%d weight %f jones %f %f BB %f wsq %f sj %f\n",facet,iBlock,irow,FWeight,JS.J0.v[0].real(),JS.J0.v[0].imag(),
-//				JS.BB,FWeightSq,ThisSumJonesChan[0]);
 	      }
 	    else /* Don't apply Jones */
 	      mulaccum(VisMeas, Weight, Vis);
-//	    if(facet==0 && inx==0 && visChan==chStart)
-//               std::fprintf(stderr,"F%dB%d weight %f jones %f %f BB %f\n",facet,iBlock,FWeight,JS.J0.v[0].real(),JS.J0.v[0].imag(),JS.BB);\
 
 	    /*###################### Averaging #######################*/
 	    Umean += U + W*Cu;
@@ -340,13 +332,9 @@ namespace DDF {
 	      }
 	    }
 	  } /* end for ipol */
-//	    if(facet==0)
-//               std::fprintf(stderr,"F%dB%d ptrSumJones[0]=%f\n",facet,iBlock,JS.ptrSumJones[0]);
 	} /*end for Block*/
-//	if(facet==0)
-//          	std::cerr<<"\n\n\nF"<<facet<<" sumJones[0] "<<JS.ptrSumJones[0]<<"\n\n\n";
       } /* end */
     }
 }
 
-#endif GRIDDER_GRIDDER_H
+#endif /*GRIDDER_GRIDDER_H*/

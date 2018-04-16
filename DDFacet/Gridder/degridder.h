@@ -53,7 +53,7 @@ namespace DDF{
 	visBuff[1] = visBuff[3];
 	}
     }
-    
+
     template <StokesDegridType StokesDegrid, int nVisPol, int nVisCorr, policies::ApplyJonesType ApplyJones>
     void degridder(
       const py::array_t<std::complex<float>, py::array::c_style>& grid,
@@ -92,7 +92,7 @@ namespace DDF{
       const int nGridY    = int(grid.shape(2));
       const int nGridPol  = int(grid.shape(1));
       const int nGridChan = int(grid.shape(0));
-      
+
       /* Get visibility data size. */
       const size_t nVisChan = size_t(flags.shape(1));
       const size_t nrows    = size_t(uvw.shape(0));
@@ -168,8 +168,8 @@ namespace DDF{
 
 	auto cfs=py::array_t<complex<float>, py::array::c_style>(
 	  (Wmean>0) ? Lcfs[iwplane] : LcfsConj[iwplane]);
-	const int nConvX = cfs.shape(0);
-	const int nConvY = cfs.shape(1);
+	const int nConvX = int(cfs.shape(0));
+	const int nConvY = int(cfs.shape(1));
 	const int supx = (nConvX/OverS-1)/2;
 	const int supy = (nConvY/OverS-1)/2;
 	const int SupportCF=nConvX/OverS;
@@ -248,8 +248,8 @@ namespace DDF{
 	    }/*endfor vischan*/
 	  }/*endfor RowThisBlock*/
 	} /*end for Block*/
-      } /* end */ 
+      } /* end */
   }
 }
 
-#endif GRIDDER_DEGRIDDER_H
+#endif /*GRIDDER_DEGRIDDER_H*/

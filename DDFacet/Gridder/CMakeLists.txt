@@ -42,7 +42,7 @@ endif (NOT ${HAVE_RT})
 if (NOT ${PYTHON_PYBIND11_FOUND})
   message(FATAL_ERROR "Failed to find Pybind11, ensure pybind11 is installed from pip")
 endif (NOT ${PYTHON_PYBIND11_FOUND})
-
+set(PYTHON_PYBIND11_INCLUDE_DIR "/home/martin/.local/include/python2.7")
 #Update include paths with found includes above
 include_directories(${PYTHON_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR}/numpy ${RT_INCLUDES} ${CASACORE_INCLUDE_DIR} ${PYTHON_PYBIND11_INCLUDE_DIR})
 
@@ -70,7 +70,7 @@ set_target_properties(_pyArrays PROPERTIES PREFIX "") #remove "lib" prefix from 
 target_link_libraries(_pyArrays ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
 #compile and link _pyGridderSmearPols.so
-add_library(_pyGridderSmearPols GridderSmearPols.cc Semaphores.cc JonesServer.cc DecorrelationHelper.cc CorrelationCalculator.cc)
+add_library(_pyGridderSmearPols GridderSmearPols.cc Semaphores.cc JonesServer.cc DecorrelationHelper.cc)
 set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
 target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
