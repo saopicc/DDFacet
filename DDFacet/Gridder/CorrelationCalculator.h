@@ -55,13 +55,13 @@ namespace DDF {
       dcmplx getCorr(int inx, const double *Pfreqs, size_t visChan, double angle)
         {
         if (!ChanEquidistant)
-          return polar<float>(1.,Pfreqs[visChan]*angle);
+          return polar(1.,Pfreqs[visChan]*angle);
 
         /* init correlation term for first channel that it's not initialized in */
         if (CurrentCorrChan[inx]==-1)
           {
-          CurrentCorrTerm[inx] = polar<float>(1.,Pfreqs[visChan]*angle);
-          dCorrTerm[inx]       = polar<float>(1.,(Pfreqs[1]-Pfreqs[0])*angle);
+          CurrentCorrTerm[inx] = polar(1.,Pfreqs[visChan]*angle);
+          dCorrTerm[inx]       = polar(1.,(Pfreqs[1]-Pfreqs[0])*angle);
           CurrentCorrChan[inx] = int(visChan);
           }
         /* else, wind the correlation term forward by as many channels as necessary */

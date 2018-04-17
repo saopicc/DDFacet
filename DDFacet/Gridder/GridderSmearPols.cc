@@ -44,6 +44,27 @@ namespace DDF {
       }
   }
 
+  // semaphore-free version for use in non-parallel contexts
+  void pyAccumulateWeightsOntoGridNoSem(py::array_t<double, py::array::c_style>& grid,
+				  const py::array_t<float, py::array::c_style>& weights,
+				  const py::array_t<long int, py::array::c_style>& index)
+  {
+    size_t n = weights.shape(0);
+    double* pgrid = grid.mutable_data<double>(0);
+    const float* pweights = weights.data<float>(0);
+    const long int* pindex = index.data<long int>(0);
+
+    for(size_t i=0; i<n; ++i)
+      {
+      float w = pweights[i];
+      if (w!=0)
+	{
+	size_t igrid = size_t(pindex[i]);
+	pgrid[igrid] += w;
+	}
+      }
+  }
+
   void pyGridderWPol(py::array_t<std::complex<float>, py::array::c_style>& np_grid,
 		    const py::array_t<std::complex<float>, py::array::c_style>& vis,
 		    const py::array_t<double, py::array::c_style>& uvw,
@@ -222,6 +243,8 @@ namespace DDF {
     m.doc() = "DDFacet Directional Dependent BDA gridding module";
     m.def("pyAccumulateWeightsOntoGrid",
 	  &pyAccumulateWeightsOntoGrid);
+    m.def("pyAccumulateWeightsOntoGridNoSem",
+	  &pyAccumulateWeightsOntoGridNoSem);
     m.def("pyGridderWPol",
 	  &pyGridderWPol);
     m.def("pyDeGridderWPol",

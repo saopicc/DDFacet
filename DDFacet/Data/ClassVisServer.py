@@ -700,6 +700,7 @@ class ClassVisServer():
         APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
         self._weight_dict.reload()
         wmax = self._uvmax = 0
+        num_valid_chunks = 0
         # now work out weight grid sizes, etc.
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
@@ -707,6 +708,8 @@ class ClassVisServer():
                 msw = msweights[ichunk]
                 if "error" in msw:
                     raise msw["error"]
+                if "weight" in msw:
+                    num_valid_chunks += 1
                 wmax = max(wmax, msw["wmax"])
                 self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
         # save wmax to cache
@@ -739,13 +742,14 @@ class ClassVisServer():
             print>> log, "Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell)
             grid0 = self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
             # now run parallel jobs to accumulate weights
+            parallel = num_valid_chunks > 1
             for ims, ms in enumerate(self.ListMS):
                 for ichunk in xrange(len(ms.getChunkRow0Row1())):
                     if "weight" in self._weight_dict[ims][ichunk]:
                         APP.runJob("AccumWeights:%d:%d" % (ims, ichunk), self._accumulateWeights_handler,
                                    args=(self._weight_grid.readonly(),
                                          self._weight_dict[ims][ichunk].readwrite(),
-                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax),
+                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, parallel),
                                    counter=self._weightjob_counter, collect_result=False)
             # wait for results
             APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
@@ -896,7 +900,7 @@ class ClassVisServer():
         index[weights == 0] = 0
         return index
 
-    def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax):
+    def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax, parallel=False):
         msname = "MS %d chunk %d"%(ims, ichunk)
         try:
             ms = self.ListMS[ims]
@@ -904,7 +908,10 @@ class ClassVisServer():
             weights = msw["weight"]
             index = self._uv_to_index(ims, msw["uv"], weights, freqs, cell, npix, npixx, nbands, xymax)
             msw.delete_item("flags")
-            _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
+            if parallel:
+                _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
+            else:
+                _pyGridderSmearPols.pyAccumulateWeightsOntoGridNoSem(wg["grid"], weights.ravel(), index.ravel())
         except Exception,exc:
             print>> log, ModColor.Str("Error accumulating weights from %s:"%msname)
             for line in traceback.format_exc().split("\n"):
