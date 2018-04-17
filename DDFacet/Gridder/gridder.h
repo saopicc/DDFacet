@@ -147,7 +147,7 @@ namespace DDF {
 	sparsificationFlag = Sparsification.data(0);
 	}
 
-      CorrectionCalculator Corrcalc(LOptimisation, sparsificationFlag, NTotBlocks, NRowBlocks);
+      CorrectionCalculator Corrcalc(LOptimisation);
 
       /* ######################################################## */
       double WaveLengthMean=0., FreqMean0=0.;
@@ -190,8 +190,6 @@ namespace DDF {
 	for (size_t visChan=0; visChan<nVisChan; ++visChan)
 	  ThisSumJonesChan[visChan] = ThisSumSqWeightsChan[visChan] = 0;
 
-	Corrcalc.update(Row[0], NRowThisBlock);
-
 	double DeCorrFactor = decorr.get(FreqMean0, Row[NRowThisBlock/2]);
 
 	double visChanMean=0., FreqMean=0;
@@ -212,6 +210,7 @@ namespace DDF {
 	  const double W=uvwPtr[2];
 	  const double angle = -2.*PI*(U*l0+V*m0+W*n0)/C;
 	  JS.WeightVaryJJ=1.;
+          Corrcalc.update();
 
 	  for (size_t visChan=chStart; visChan<chEnd; ++visChan)
 	    {
@@ -221,7 +220,7 @@ namespace DDF {
 	    /* We can do that since all flags in 4-pols are equalised in ClassVisServer */
 	    if (flagsdata[doff]) continue;
 
-	    dcmplx corr = dopsf ? 1 : Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
+	    dcmplx corr = dopsf ? 1 : Corrcalc.getCorr(Pfreqs, visChan, angle);
 
 	    if (JS.DoApplyJones==1)
 	      {

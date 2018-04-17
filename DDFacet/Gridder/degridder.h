@@ -112,7 +112,7 @@ namespace DDF{
       const int *NRowBlocks = MappingBlock+2;
       const int *StartRow = MappingBlock+2+NTotBlocks;
 
-      CorrectionCalculator Corrcalc(LOptimisation, 0, NTotBlocks, NRowBlocks);
+      CorrectionCalculator Corrcalc(LOptimisation);
       /* ######################################################## */
       double WaveLengthMean=0.;
       for (size_t visChan=0; visChan<nVisChan; ++visChan)
@@ -223,7 +223,7 @@ namespace DDF{
 	  ApplyJones(JS, corr_vis, 1., corr_vis);
 	  }
 
-	Corrcalc.update(Row[0], NRowThisBlock);
+	Corrcalc.update();
 
 	/*################### Now do the correction #################*/
 	double DeCorrFactor=decorr.get(FreqMean, Row[NRowThisBlock/2]);
@@ -246,8 +246,8 @@ namespace DDF{
 	    if (JS.DoApplyJones==1)
 	      JS.updateJones(irow, visChan, uvwPtr, false, false);
 
-	    dcmplx corr = Corrcalc.getCorr(inx, Pfreqs, visChan, angle);
-	    corr*=DeCorrFactor;
+	    dcmplx corr = Corrcalc.getCorr(Pfreqs, visChan, angle);
+	    corr *= DeCorrFactor;
 
 	    dcMat visBuff;
 	    if (JS.DoApplyJones==1)
