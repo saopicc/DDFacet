@@ -223,8 +223,6 @@ namespace DDF{
 	  ApplyJones(JS, corr_vis, 1., corr_vis);
 	  }
 
-	Corrcalc.update();
-
 	/*################### Now do the correction #################*/
 	double DeCorrFactor=decorr.get(FreqMean, Row[NRowThisBlock/2]);
 	
@@ -234,6 +232,8 @@ namespace DDF{
 	  if (irow>nrows) continue;
 	  const double* __restrict__ uvwPtr = uvwdata + irow*3;
 	  const double angle = 2.*PI*(uvwPtr[0]*l0+uvwPtr[1]*m0+uvwPtr[2]*n0)/C;
+
+	  Corrcalc.update();
 
 	  auto Sem_mutex = GiveSemaphoreFromCell(irow);
 	  sem_wait(Sem_mutex);

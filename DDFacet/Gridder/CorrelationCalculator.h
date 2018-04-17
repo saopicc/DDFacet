@@ -50,7 +50,7 @@ namespace DDF {
         /* this modification allows us to support blocks that skip across channels */
         else if( CurrentCorrChan > int(visChan) )
           {
-          cerr<<"Reverse channel ordering in row. This must be a bug in the BDA mapping.\n";
+          cerr<<"Reverse channel ordering. ("<<CurrentCorrChan<<", "<<visChan<<") This must be a bug in the BDA mapping.\n";
           abort();
           }
         else
