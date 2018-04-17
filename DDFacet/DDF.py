@@ -40,6 +40,7 @@ import numpy as np
 from DDFacet.Other import logo
 from DDFacet.Array import NpParallel
 from DDFacet.Imager import ClassDeconvMachine
+from DDFacet.Imager import ClassFacetMachine
 from DDFacet.Parset import ReadCFG
 from DDFacet.Other import MyPickle
 from DDFacet.Parset import MyOptParse
@@ -199,7 +200,10 @@ def main(OP=None, messages=[]):
     # write parset
     OP.ToParset("%s.parset"%ImageName)
 
-    Mode = DicoConfig["Output"]["Mode"] 
+    Mode = DicoConfig["Output"]["Mode"]
+
+    # init semaphores, as they're needed for weight calculation too
+    ClassFacetMachine.ClassFacetMachine.setup_semaphores(DicoConfig)
 
     # data machine initialized for all cases except PSF-only mode
     # psf machine initialized for all cases except Predict-only mode

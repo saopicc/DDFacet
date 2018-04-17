@@ -134,13 +134,7 @@ class ClassFacetMachine():
         self._smooth_job_label=None
 
         # create semaphores if not already created
-        if not ClassFacetMachine._degridding_semaphores:
-            NSemaphores = 3373
-            ClassFacetMachine._degridding_semaphores = [Multiprocessing.getShmName("Semaphore", sem=i) for i in xrange(NSemaphores)]
-            _degridder_module = _pyGridderSmearPolsClassic if self.GD["RIME"]["ForwardMode"] == "BDA-degrid-classic" \
-                                     else _pyGridderSmearPols
-            _degridder_module.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
-            atexit.register(lambda:ClassFacetMachine._delete_degridding_semaphores(_degridder_module))
+        ClassFacetMachine.setup_semaphores(self.GD)
 
         # this is used to store model images in shared memory, for the degridder
         self._model_dict = None
@@ -153,10 +147,23 @@ class ClassFacetMachine():
     # static attribute initialized below, once
     _degridding_semaphores = None
 
+    # create semaphores if not already created
     @staticmethod
-    def _delete_degridding_semaphores(module):
+    def setup_semaphores(GD):
+        if not ClassFacetMachine._degridding_semaphores:
+            NSemaphores = 3373
+            ClassFacetMachine._degridding_semaphores = [Multiprocessing.getShmName("Semaphore", sem=i) for i in
+                                                        xrange(NSemaphores)]
+            # set them up in both modules, since weights calculation uses _pyGridderSmearPols anyway
+            _pyGridderSmearPolsClassic.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
+            _pyGridderSmearPols.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
+            atexit.register(ClassFacetMachine._delete_degridding_semaphores)
+
+    @staticmethod
+    def _delete_degridding_semaphores():
         if ClassFacetMachine._degridding_semaphores:
-	    module.pyDeleteSemaphore()
+            # only need to delete in the one
+            _pyGridderSmearPols.pyDeleteSemaphore()
             for sem in ClassFacetMachine._degridding_semaphores:
                 NpShared.DelArray(sem)
 

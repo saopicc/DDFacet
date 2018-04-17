@@ -1023,7 +1023,6 @@ class ClassDDEGridMachine():
 #            MapSmear = NpShared.GiveArray(
 #                "%sBDA.DeGrid" %
 #               (self.ChunkDataCache))
-            _pyGridderSmear.pySetSemaphores(self.ListSemaphores)
             vis = _pyGridderSmear.pyDeGridderWPol(
                 Grid, 
                 vis, 
@@ -1058,7 +1057,6 @@ class ClassDDEGridMachine():
 #            MapSmear = NpShared.GiveArray(
 #                "%sBDA.DeGrid" %
 #               (self.ChunkDataCache))
-            _pyGridderSmearClassic.pySetSemaphores(self.ListSemaphores)
             vis = _pyGridderSmearClassic.pyDeGridderWPol(
                 Grid, 
                 vis, 

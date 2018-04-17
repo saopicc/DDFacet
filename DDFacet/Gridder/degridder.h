@@ -120,6 +120,8 @@ namespace DDF{
       WaveLengthMean/=double(nVisChan);
 
       DDEs::JonesServer JS(LJones,WaveLengthMean);
+//      if( !facet )
+//        cerr<<"BDAJones degrid mode "<<JS.DoApplyJones<<endl<<endl;
 
       const int *p_ChanMapping=np_ChanMapping.data(0);
       const fcmplx* __restrict__ griddata = grid.data(0);
