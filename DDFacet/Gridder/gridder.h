@@ -224,7 +224,8 @@ namespace DDF {
 
 	    if (JS.DoApplyJones==1)
 	      {
-	      if( dopsf && (JS.updateJones(irow, visChan, uvwPtr, true, true) || !have_psf) )
+	      // update Jones term in all cases. If updated, or no psf yet precomputed, do it now
+	      if( (JS.updateJones(irow, visChan, uvwPtr, true, true) || !have_psf) && dopsf )
 	        {
 	        VisMeas = (JS.J0).times(JS.J1H); // precompute for the PSF case
     	        VisMeas = (JS.J0H.times(VisMeas)).times(JS.J1);
