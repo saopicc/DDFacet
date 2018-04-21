@@ -756,6 +756,8 @@ class ClassImageDeconvMachine():
         def GivePercentDone(ThisMaxFlux):
             fracDone = 1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
             return max(int(round(100*fracDone)), 100)
+            
+        x0 = y0 = None
 
         try:
             for i in xrange(self._niter+1, self.MaxMinorIter+1):
@@ -777,7 +779,6 @@ class ClassImageDeconvMachine():
                 ThisFlux = self._MeanDirty[0,0,x,y] if self._peakMode is "weighted" else peak
                 if DoAbs:
                     ThisFlux = abs(ThisFlux)
-                self._prevPeak = ThisFlux
 
                 #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y); ThisFlux=self._MeanDirty[0,0,x,y]
                 self.GainMachine.SetFluxMax(ThisFlux)
@@ -795,8 +796,16 @@ class ClassImageDeconvMachine():
                         "    [iter=%i] peak of %.3g Jy diverging w.r.t. floor of %.3g Jy " %
                         (i, ThisFlux, PreviousFlux), col="red")
                     return "Diverging", False, True
+                fluxgain = np.abs(ThisFlux-self._prevPeak)/abs(ThisFlux) if self._prevPeak is not None else 1e+99
+                if x == x0 and y == y0 and fluxgain < 1e-6:
+                    print>>log, ModColor.Str(
+                        "    [iter=%i] stalled at peak of %.3g Jy, x=%d y=%d" % (i, ThisFlux, x, y), col="red")
+                    return "Stalled", False, True
                 if np.abs(ThisFlux) < np.abs(PreviousFlux):
                     PreviousFlux = ThisFlux
+                    
+                self._prevPeak = ThisFlux
+                x0, y0 = x, y
 
                 ThisPNR=ThisFlux/rms
 
@@ -839,9 +848,9 @@ class ClassImageDeconvMachine():
                     # if self.GD["Debug"]["PrintMinorCycleRMS"]:
                     rms = np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
                     if self._peakMode is "weighted":
-                        print>>log, "    [iter=%i] peak residual %.3g, rms %g, PNR %.3g (weighted peak %.3g at x=%d y=%d)" % (i, ThisFlux, rms, ThisFlux/rms, peak, x, y)
+                        print>>log, "    [iter=%i] peak residual %.3g, gain %.3g, rms %g, PNR %.3g (weighted peak %.3g at x=%d y=%d)" % (i, ThisFlux, fluxgain, rms, ThisFlux/rms, peak, x, y)
                     else:
-                        print>>log, "    [iter=%i] peak residual %.3g, rms %g, PNR %.3g (at x=%d y=%d)" % (i, ThisFlux, rms, ThisFlux/rms, x, y)
+                        print>>log, "    [iter=%i] peak residual %.3g, gain %.3g, rms %g, PNR %.3g (at x=%d y=%d)" % (i, ThisFlux, fluxgain, rms, ThisFlux/rms, x, y)
                     # else:
                     #     print >>log, "    [iter=%i] peak residual %.3g" % (
                     #         i, ThisFlux)

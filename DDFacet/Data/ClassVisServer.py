@@ -1039,6 +1039,7 @@ class ClassVisServer():
                 if "error" in msw:
                     raise RuntimeError("weights computation failed for one or more MSs")
                 if "weight" not in msw:
+                    file(msw["cachepath"], 'w').truncate(0)
                     continue
 
                 wmax = max(wmax, msw["wmax"])
@@ -1084,6 +1085,7 @@ class ClassVisServer():
                     msw = msweights[ichunk]
                     if msw["null"]:
                         print>> log, "skipping weights %d.%d (null)" % (ims, ichunk)
+                        file(msw["cachepath"], 'w').truncate(0)
                         continue
                     print>> log, "reloading weights %d.%d" % (ims, ichunk)
                     self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
