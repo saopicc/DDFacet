@@ -107,15 +107,25 @@ class ClassInitSSDModelParallel():
 
 
         print>>log,"Initialise islands (parallelised over islands)"
-        for iIsland,Island in enumerate(ListIslands):
+        if not self.GD["GAClean"]["ParallelInitHMP"]:
+          pBAR = ProgressBar(Title="  Init islands")
+          for iIsland,Island in enumerate(ListIslands):
+            if not ListDoIsland or ListDoIsland[iIsland]:
+                subdict = DicoInitIndiv.addSubdict(iIsland)
+                self._initIsland_worker(subdict, iIsland, Island,
+                                 self.DicoVariablePSF, DicoDirty,
+                                 ParmDict, self.InitMachine.DeconvMachine.facetcache,1)
+            pBAR.render(iIsland, len(ListIslands))
+        else:
+          for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
                 APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
                            args=(subdict.writeonly(), iIsland, Island,
                                  self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
                                  ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),1))
-        APP.awaitJobResults("InitIsland:*", progress="Init islands")
-        DicoInitIndiv.reload()
+          APP.awaitJobResults("InitIsland:*", progress="Init islands")
+          DicoInitIndiv.reload()
         
         ParmDict.delete()
 

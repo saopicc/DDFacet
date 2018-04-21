@@ -189,7 +189,7 @@ class ClassImageDeconvMachine():
         self.InitMSMF(approx=approx, cache=cache, facetcache=facetcache)
         ## OMS: why is this needed? self.RefFreq is set from self.ModelMachine in the first place
         # self.ModelMachine.setRefFreq(self.RefFreq)
-        self.ModelMachine.setFreqMachine(GridFreqs, DegridFreqs),
+        self.ModelMachine.setFreqMachine(GridFreqs, DegridFreqs)
 
     def Reset(self):
         print>>log, "resetting HMP machine"
@@ -776,7 +776,7 @@ class ClassImageDeconvMachine():
                     peak=op(self._PeakSearchImage[0,0,x,y])
 
 
-                ThisFlux = self._MeanDirty[0,0,x,y] if self._peakMode is "weighted" else peak
+                ThisFlux = float(self._MeanDirty[0,0,x,y] if self._peakMode is "weighted" else peak)
                 if DoAbs:
                     ThisFlux = abs(ThisFlux)
 
