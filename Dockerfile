@@ -68,7 +68,7 @@ RUN apt-get update && \
     apt-get install -y $DEB_SETUP_DEPENDENCIES && \
     apt-get install -y $DEB_DEPENCENDIES && \
     #Setup a virtual environment for the python packages
-    pip install -U pip virtualenv setuptools wheel && \
+    pip install -U "pip==9.0.3" virtualenv setuptools wheel && \
     virtualenv --system-site-packages /ddfvenv && \
     # Install Montblanc and all other optional dependencies
     pip install -r /src/DDFacet/requirements.txt && \
