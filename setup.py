@@ -34,7 +34,13 @@ skymodel_pkg='SkyModel'
 __version__ = "0.3.4.1"
 build_root=os.path.dirname(__file__)
 
+preinstall_dependencies = ["'pybind11 >= 2.2.2'"]
+
 def backend(compile_options):
+
+    subprocess.check_call(["cd .. && pip install %s" %
+                           (" ".join(preinstall_dependencies)), ""], shell=True)
+
     if compile_options is not None:
         print >> sys.stderr, "Compiling extension libraries with user defined options: '%s'"%compile_options
     path = pjoin(build_root, pkg, 'cbuild')
