@@ -40,7 +40,7 @@ if (NOT ${HAVE_RT})
   message(FATAL_ERROR "Failed to find librt and header.")
 endif (NOT ${HAVE_RT})
 if (NOT ${PYTHON_PYBIND11_FOUND})
-  message(FATAL_ERROR "Failed to find Pybind11, ensure pybind11 is installed from pip")
+  message(FATAL_ERROR "Failed to find Pybind11, ensure pybind11 is installed from pip. If it still can't find it downgrade to pip 9.0.3 and redo the installation.")
 endif (NOT ${PYTHON_PYBIND11_FOUND})
 
 #Update include paths with found includes above
