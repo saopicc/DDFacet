@@ -398,6 +398,8 @@ class ClassMultiScaleMachine():
 
         self.ListScales = []
         # build up cube of Gaussians representing each scale (self.ScaleFuncs)
+        if scalefuncs is None and "ScaleFuncs" in self.cachedict:
+            scalefuncs = self.cachedict["ScaleFuncs"]
         if scalefuncs is None:
             self.ScaleFuncs = self.cachedict.addSubdict("ScaleFuncs")
             self.ScaleFuncsSum = self.ScaleFuncs.addSharedArray("sum", self._num_scales, np.float64)
