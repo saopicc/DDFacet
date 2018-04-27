@@ -534,7 +534,7 @@ def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,G
 
     jobid = "convolve:%s:%s:" % (field_in, field_out)
     for ch in range(nch):
-        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW_noret, args=(shareddict.readwrite(), field_in, field_out, ch, CellSizeRad, GaussPars[ch], Normalise))
+        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW_noret, args=(shareddict.readwrite(), field_in, field_out, ch, CellSizeRad, GaussPars[ch], None, Normalise))
     APP.awaitJobResults(jobid+"*") #, progress="Convolving")
 
     return Aout
