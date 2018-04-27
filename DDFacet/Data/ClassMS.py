@@ -975,7 +975,7 @@ class ClassMS():
         if not self.TimeChunkSize:
             T0=table_all.getcol('TIME',0,1)[0]
             T1=table_all.getcol('TIME',self.F_nrows-1,1)[0]
-            print>>log,"--Data-ChunkHours is null: MS %s (%d rows) will be processed as a single chunk"%(self.MSName, self.F_nrows)
+            print>>log,"--Data-ChunkHours is null: MS %s (%d rows) column %s will be processed as a single chunk"%(self.MSName, self.F_nrows, self.ColName)
             chunk_row0 = [0]
         else:
             all_times = table_all.getcol("TIME")
@@ -987,10 +987,10 @@ class ClassMS():
             chunk_row0 = [ np.argmax(all_times>=ch_t0) for ch_t0 in chunk_t0 ]
             # chunk_row0 gives the starting row of each chunk
             if len(chunk_row0) == 1:
-                print>>log,"MS %s DDID %d FIELD %d (%d rows) will be processed as a single chunk"%(self.MSName, self.DDID, self.Field, self.F_nrows)
+                print>>log,"MS %s DDID %d FIELD %d (%d rows) column %s will be processed as a single chunk"%(self.MSName, self.DDID, self.Field, self.F_nrows, self.ColName)
             else:
-                print>>log,"MS %s DDID %d FIELD %d (%d rows) will be split into %d chunks, at rows %s"%(self.MSName, self.DDID, self.Field,  self.F_nrows,
-                                                                                       len(chunk_row0), " ".join(map(str,chunk_row0)))
+                print>>log,"MS %s DDID %d FIELD %d (%d rows) column %s will be split into %d chunks, at rows %s"%(self.MSName, self.DDID, self.Field,  self.F_nrows,
+                                                                                       self.ColName, len(chunk_row0), " ".join(map(str,chunk_row0)))
         self.Nchunk = len(chunk_row0)
         chunk_row0.append(self.F_nrows)
         self._chunk_r0r1 = [ chunk_row0[i:i+2] for i in range(self.Nchunk) ]
@@ -1615,7 +1615,7 @@ class ClassMS():
         # pylab.plot(dus1)
         # pylab.show()
     
-def expandMSList(MSName,defaultField=0,defaultDDID=0):
+def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     """Given an MSName argument, converts it into a list of measurement sets.
 
     MSName can be a single filename, or a list of filenames, or a *.txt file (in which case a list
@@ -1625,6 +1625,8 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0):
     con be suffixed with //Dx and/or //Fy to select specific DATA_DESC_ID and FIELD_IDs in the MS. "x" and "y"
     can take the form of a single number, a Pythonic range (e.g. "0:16"), an inclusive range ("0~15");
     or "*" to select all. E.g. foo.MS//D*//F0:2 selects all DDIDs, and fields 0 and 1 from foo.MS.
+    
+    A further //COLUMN_DATA suffix can also override the default column.
 
     The defaultField and defaultDDID arguments will be used for those MSs where //D or //F is not specified.
 
@@ -1646,12 +1648,17 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0):
     for msspec in MSName:
         regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N-M or *
         # match :F and :D suffixes, if present. Don't regexes make your brain melt
-        match = re.match("^(?P<ms>.*)//D(?P<d>" + regrp + ")(//F(?P<f>" + regrp + "))?$", msspec) or \
-                re.match("^(?P<ms>.*)//F(?P<f>" + regrp + ")(//D(?P<d>" + regrp + "))?$", msspec)
-        if match:
-            msname, dgroup, fgroup = match.group('ms'), match.group('d'), match.group('f')
-        else:
-            msname, dgroup, fgroup = msspec, None, None
+        terms = msspec.split("//")
+        msname = terms[0]
+        ddid_match = [ re.match("D("+regrp+")", x) for x in terms[1:] ]
+        field_match = [ re.match("F("+regrp+")", x) for x in terms[1:] ]
+        col_match = [ re.match("(.*_DATA)", x) for x in terms[1:]]
+        ddid_match = [ x for x in ddid_match if x is not None ]
+        field_match = [ x for x in field_match if x is not None ]
+        col_match = [ x for x in col_match if x is not None ]
+        dgroup = ddid_match[-1].group(1) if ddid_match else None
+        fgroup = ddid_match[-1].group(1) if field_match else None
+        col = col_match[-1].group(1) if col_match else defaultColumn
         # now convert dgroup and fgroup into slice objects
         def groupToSlice (group):
             """Converts a group specification into a slice object"""
@@ -1696,7 +1703,9 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0):
             else:
                 fields = [ fg ]
                 print>> log, "%s: selecting field %d" % (mspath, fg)
+            if col is not None:
+                print>>log, "%s: non-default column %s"%(mspath, col)
             # make output list
-            mslist += [ (mspath,d,f) for d in ddids for f in fields ]
+            mslist += [ (mspath,d,f,col) for d in ddids for f in fields ]
     print>>log, "%d MS section(s) selected" % len(mslist)
     return mslist

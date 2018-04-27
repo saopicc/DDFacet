@@ -50,7 +50,7 @@ def test():
 class ClassVisServer():
 
     def __init__(self, MSList, GD=None,
-                 ColName="DATA",           # if None, no data column is read
+                 ColName=None,       # None if no data is read (only written)
                  TChunkSize=1,             # chunk size, in hours
                  LofarBeam=None,
                  AddNoiseJy=None):
@@ -74,9 +74,9 @@ class ClassVisServer():
         self.Robust = GD["Weight"]["Robust"]
         self.Super = GD["Weight"]["SuperUniform"]
         self.VisWeights = None
-
-        self.CountPickle = 0
+        
         self.ColName = ColName
+        self.CountPickle = 0
         self.DicoSelectOptions = GD["Selection"]
         self.TaQL = self.DicoSelectOptions.get("TaQL", None)
         self.LofarBeam = LofarBeam
@@ -124,11 +124,11 @@ class ClassVisServer():
 
         for msspec in self.MSList:
             if type(msspec) is not str:
-                msname, ddid, field = msspec
+                msname, ddid, field, column = msspec
             else:
-                msname, ddid, field = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"]
+                msname, ddid, field, column = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"], self.ColName
             MS = ClassMS.ClassMS(
-                msname, Col=self.ColName, DoReadData=False,
+                msname, Col=column or self.ColName, DoReadData=False,
                 AverageTimeFreq=(1, 3),
                 Field=field, DDID=ddid, TaQL=self.TaQL,
                 TimeChunkSize=self.TMemChunkSize, ChanSlice=chanslice,

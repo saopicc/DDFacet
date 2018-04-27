@@ -156,14 +156,15 @@ class ClassImagerDeconv():
         DC = self.GD
         mslist = ClassMS.expandMSList(DC["Data"]["MS"],
                                       defaultDDID=DC["Selection"]["DDID"],
-                                      defaultField=DC["Selection"]["Field"])
+                                      defaultField=DC["Selection"]["Field"],
+                                      defaultColumn=None)
         AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
                               affinity=self.GD["Parallel"]["Affinity"],
                               parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
                               verbose=self.GD["Debug"]["APPVerbose"],
                               pause_on_start=self.GD["Debug"]["PauseWorkers"])
 
-        self.VS = ClassVisServer.ClassVisServer(mslist,ColName=self.do_readcol and DC["Data"]["ColName"],
+        self.VS = ClassVisServer.ClassVisServer(mslist,ColName=DC["Data"]["ColName"] if self.do_readcol else None,
                                                 TChunkSize=DC["Data"]["ChunkHours"],
                                                 GD=self.GD)
 
