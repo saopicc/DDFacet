@@ -133,7 +133,8 @@ class ClassVisServer():
                 Field=field, DDID=ddid, TaQL=self.TaQL,
                 TimeChunkSize=self.TMemChunkSize, ChanSlice=chanslice,
                 GD=self.GD, ResetCache=self.GD["Cache"]["Reset"],
-                DicoSelectOptions = self.DicoSelectOptions)
+                DicoSelectOptions = self.DicoSelectOptions,
+                first_ms=self.ListMS[0] if self.ListMS else None)
             if MS.empty:
                 continue
             self.ListMS.append(MS)

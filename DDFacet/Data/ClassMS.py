@@ -58,7 +58,9 @@ class ClassMS():
                  AverageTimeFreq=None,
                  Field=0,DDID=0,TaQL=None,ChanSlice=None,GD=None,
                  DicoSelectOptions={},
-                 ResetCache=False,get_obs_detail=False):
+                 ResetCache=False,
+                 first_ms=None,
+                 get_obs_detail=False):
 
         """
         Args:
@@ -85,8 +87,9 @@ class ClassMS():
 
         if MSname=="": exit()
         self.GD = GD
-        self.ToRADEC=self.GD["Image"]["PhaseCenterRADEC"]
-        if self.ToRADEC is "": self.ToRADEC=None
+        self.ToRADEC = self.GD["Image"]["PhaseCenterRADEC"]
+        if not self.ToRADEC:
+            self.ToRADEC = None
 
         self.AverageSteps=AverageTimeFreq
         self.MSName = MSName = reformat.reformat(os.path.abspath(MSname), LastSlash=False)
@@ -114,7 +117,7 @@ class ClassMS():
         self._chunk_caches = {}
         self.maincache = CacheManager(MSname+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
 
-        self.ReadMSInfo(DoPrint=DoPrint)
+        self.ReadMSInfo(first_ms=first_ms,DoPrint=DoPrint)
         self.LFlaggedStations=[]
         self.DicoSelectOptions = DicoSelectOptions
         self._datapath = self._flagpath = None
@@ -906,7 +909,8 @@ class ClassMS():
     # static member caching DDID/FIELD_ID lookups
     _ddid_field_cache = {}
 
-    def ReadMSInfo(self,DoPrint=True):
+    def ReadMSInfo(self,first_ms=None,DoPrint=True):
+        """radec_first: ra/dec of first MS, if available"""
         T= ClassTimeIt.ClassTimeIt()
         T.enableIncr()
         T.disable()
@@ -1076,18 +1080,30 @@ class ClassMS():
         ta=table(table_all.getkeyword('FIELD'),ack=False)
         rarad,decrad=ta.getcol('PHASE_DIR')[self.Field][0]
         if rarad<0.: rarad+=2.*np.pi
-        self.OriginalRadec=self.OldRadec=rarad,decrad
+        self.OriginalRadec = self.OldRadec = rarad,decrad
+
         if self.ToRADEC is not None:
-            SRa,SDec=self.ToRADEC
-            srah,sram,sras=SRa.split(":")
-            sdecd,sdecm,sdecs=SDec.split(":")
-            ranew=(np.pi/180)*15.*(float(srah)+float(sram)/60.+float(sras)/3600.)
-            decnew=(np.pi/180)*np.sign(float(sdecd))*(abs(float(sdecd))+float(sdecm)/60.+float(sdecs)/3600.)
-            self.OldRadec=rarad,decrad
-            self.NewRadec=ranew,decnew
-            rarad,decrad=ranew,decnew
-
-
+            ranew, decnew = rarad, decrad
+            # get RA/Dec from first MS, or else parse as coordinate string
+            if self.ToRADEC == "align":
+                if first_ms is not None:
+                    ranew, decnew = first_ms.rarad, first_ms.decrad
+                which = "the common phase centre"
+            else:
+                which = "%s %s"%self.ToRADEC
+                SRa,SDec=self.ToRADEC
+                srah,sram,sras=SRa.split(":")
+                sdecd,sdecm,sdecs=SDec.split(":")
+                ranew=(np.pi/180)*15.*(float(srah)+float(sram)/60.+float(sras)/3600.)
+                decnew=(np.pi/180)*np.sign(float(sdecd))*(abs(float(sdecd))+float(sdecm)/60.+float(sdecs)/3600.)
+            # only enable rotation if coordinates actually change
+            if ranew != rarad or decnew != decrad:
+                print>>log,ModColor.Str("MS %s will be rephased to %s"%(self.MSName,which))
+                self.OldRadec = rarad,decrad
+                self.NewRadec = ranew,decnew
+                rarad,decrad = ranew,decnew
+            else:
+                self.ToRADEC = None
 
         T.timeit()
 
