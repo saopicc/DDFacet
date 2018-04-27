@@ -532,21 +532,24 @@ class ClassMultiScaleMachine():
             ncubes = NAlpha*(self._num_scales +1)
             self.CubePSFScales = self.cachedict.addSharedArray("CubePSFScales",
                                         (ncubes, nch, nx, ny), self.SubPSF.dtype)
+            icube = 0
 
             for iAlpha in range(NAlpha):
                 # compute cube 0, which is always the spectral PSF
                 FluxRatios=FreqBandsFluxRatio[iAlpha,:]
                 FluxRatios=FluxRatios.reshape((FluxRatios.size,1,1))
-                ThisMFPSF = self.CubePSFScales[0]
+                ThisMFPSF = self.CubePSFScales[icube]
                 ThisMFPSF[:] = self.SubPSF[:,0,:,:]
                 ThisMFPSF *= FluxRatios
+                icube += 1
                 # cubes 1...N are cube 0, convolved with the appropriate scale function
                 for i in xrange(self._num_scales):
-                    ThisPSF = self.CubePSFScales[i+1,...]
+                    ThisPSF = self.CubePSFScales[icube,...]
                     ModFFTW.ConvolveGaussianWrapper(ThisMFPSF.reshape((nch,1,nx,ny)),
                                                     Out=ThisPSF.reshape((nch,1,nx,ny)),
                                                     Sig=0,
                                                     Gauss=self.ScaleFuncs[i])
+                    icube += 1
 
                 # for iScale in range(ScaleStart,NScales):
 
@@ -579,7 +582,7 @@ class ClassMultiScaleMachine():
                 #                                     "Scale":iScale,
                 #                                     "Alpha":ThisAlpha})
 
-            assert(len(self.ListScales) == ncubes)
+            assert(icube == ncubes)
         # else:
         #     print>>log,"scales already loaded"
         T.timeit("1")
