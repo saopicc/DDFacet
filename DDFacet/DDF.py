@@ -392,8 +392,8 @@ if __name__ == "__main__":
         print>> log, ModColor.Str("  the original underlying error may be reported in the log [possibly far] above.")
         report_error = True
     except:
-        print>>log, traceback.format_exc()
         if sys.exc_info()[0] is not WorkerProcessError and Exceptions.is_pdb_enabled():
+            APP.terminate()
             raise
         report_error = True
 

@@ -211,19 +211,29 @@ class ClassImageDeconvMachine():
         self._peakMode = "sigma"
         
         
-    def _initMSM_handler(self, fcdict, psfdict, iFacet, SideLobeLevel, OffsetSideLobe, centralFacet):
+    def _initMSM_handler(self, fcdict, sfdict, psfdict, iFacet, SideLobeLevel, OffsetSideLobe, verbose):
         # init PSF server from PSF shared dict
         self.SetPSF(psfdict, quiet=True)
+        MSMachine = self._initMSM_facet(iFacet,fcdict,sfdict,SideLobeLevel,OffsetSideLobe,verbose=verbose)
+        del MSMachine
+
+    def _initMSM_facet(self, iFacet, fcdict, sfdict, SideLobeLevel, OffsetSideLobe, MSM0=None, verbose=False):
+        """initializes MSM for one facet"""
         self.PSFServer.setFacet(iFacet)
         MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, fcdict, self.GainMachine, NFreqBands=self.NFreqBands)
         MSMachine.setModelMachine(self.ModelMachine)
         MSMachine.setSideLobeLevel(SideLobeLevel, OffsetSideLobe)
         MSMachine.SetFacet(iFacet)
         MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
-        MSMachine.FindPSFExtent(verbose=(iFacet == centralFacet))  # only print to log for central facet
+        MSMachine.FindPSFExtent(verbose=verbose)  # only print to log for central facet
+        if MSM0 is not None:
+            MSMachine.CopyListScales(MSM0)
+        else:
+            MSMachine.MakeListScales(verbose=verbose, scalefuncs=sfdict)
         MSMachine.MakeMultiScaleCube()
         MSMachine.MakeBasisMatrix()
-        del MSMachine
+        return MSMachine
+
 
     def InitMSMF(self, approx=False, cache=True, facetcache=None):
         """Initializes MSMF basis functions. If approx is True, then uses the central facet's PSF for
@@ -253,59 +263,49 @@ class ClassImageDeconvMachine():
             else:
                 self.facetcache = None
 
+
+        init_cache = self.facetcache is None
+        if init_cache:
+            self.facetcache = shared_dict.create(self.CacheFileName)
+
+        # in any mode, start by initializing a MS machine for the central facet. This will precompute the scale
+        # functions
         centralFacet = self.PSFServer.DicoVariablePSF["CentralFacet"]
+        self.DicoMSMachine[centralFacet] = MSM0 = \
+            self._initMSM_facet(centralFacet,
+                                self.facetcache.addSubdict(centralFacet) if init_cache else self.facetcache[centralFacet],
+                                None, self.SideLobeLevel, self.OffsetSideLobe, verbose=True)
         if approx:
             print>>log, "HMP approximation mode: using PSF of central facet (%d)" % centralFacet
-            self.PSFServer.setFacet(centralFacet)
-            MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.facetcache.addSubdict(0),
-                                                                      self.GainMachine, NFreqBands=self.NFreqBands)
-            MSMachine.setModelMachine(self.ModelMachine)
-            MSMachine.setSideLobeLevel(self.SideLobeLevel, self.OffsetSideLobe)
-            MSMachine.SetFacet(centralFacet)
-            MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
-            MSMachine.FindPSFExtent(verbose=True)
-            MSMachine.MakeMultiScaleCube(verbose=True)
-            MSMachine.MakeBasisMatrix()
             for iFacet in xrange(self.PSFServer.NFacets):
-                self.DicoMSMachine[iFacet] = MSMachine
+                self.DicoMSMachine[iFacet] = MSM0
         else:
             # if no facet cache, init in parallel
-            if self.facetcache is None:
-                self.facetcache = shared_dict.create(self.CacheFileName)
-                # breakout = False
+            if init_cache:
                 for iFacet in xrange(self.PSFServer.NFacets):
-                    fcdict = self.facetcache.addSubdict(iFacet)
-                    if self.ParallelMode:
-                        args=(fcdict.writeonly(), self.DicoVariablePSF.readonly(),
-                              iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet)
-                        APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
-                                   args=args)
-                    else:
-                        args=(fcdict, self.DicoVariablePSF,
-                              iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet)
-                        self._initMSM_handler(*args)
-                        # import pdb;
-                        # pdb.set_trace()
-                        # if breakout:
-                        #     raise RuntimeError("exiting")
+                    if iFacet != centralFacet:
+                        fcdict = self.facetcache.addSubdict(iFacet)
+                        if self.ParallelMode:
+                            args=(fcdict.writeonly(), MSM0.ScaleFuncs.readonly(), self.DicoVariablePSF.readonly(),
+                                  iFacet, self.SideLobeLevel, self.OffsetSideLobe, False)
+                            APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
+                                       args=args)
+                        else:
+                            self.DicoMSMachine[iFacet] = \
+                                self._initMSM_facet(iFacet, fcdict, None,
+                                                    self.SideLobeLevel, self.OffsetSideLobe, MSM0=MSM0, verbose=False)
 
                 if self.ParallelMode:
                     APP.awaitJobResults("InitHMP:*", progress="Init HMP")
+                    self.facetcache.reload()
 
-                self.facetcache.reload()
             #        t = ClassTimeIt.ClassTimeIt()
+            # now reinit from cache (since cache was computed by subprocesses)
             for iFacet in xrange(self.PSFServer.NFacets):
-                self.PSFServer.setFacet(iFacet)
-                MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.facetcache[iFacet],
-                                                                          self.GainMachine, NFreqBands=self.NFreqBands)
-                MSMachine.setModelMachine(self.ModelMachine)
-                MSMachine.setSideLobeLevel(self.SideLobeLevel, self.OffsetSideLobe)
-                MSMachine.SetFacet(iFacet)
-                MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
-                MSMachine.FindPSFExtent(verbose=(iFacet==centralFacet))  # only print to log for central facet
-                MSMachine.MakeMultiScaleCube(verbose=(iFacet==centralFacet))
-                MSMachine.MakeBasisMatrix()
-                self.DicoMSMachine[iFacet] = MSMachine
+                if iFacet not in self.DicoMSMachine:
+                    self.DicoMSMachine[iFacet] = \
+                        self._initMSM_facet(iFacet, self.facetcache[iFacet], None,
+                                            self.SideLobeLevel, self.OffsetSideLobe, MSM0=MSM0, verbose=False)
 
             # write cache to disk, unless in a mode where we explicitly don't want it
             if facetcache is None and not valid and cache and not approx:
