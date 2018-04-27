@@ -640,7 +640,7 @@ class ClassFacetMachine():
         self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
         # check if w-kernels, spacial weights, etc. are cached
 
-        if self.GD["Cache"]["CacheCF"]:
+        if self.GD["Cache"]["CF"]:
             cachekey = dict(ImagerCF=self.GD["CF"], 
                             ImagerMainFacet=self.GD["Image"], 
                             Facets=self.GD["Facets"], 
@@ -746,14 +746,15 @@ class ClassFacetMachine():
             # mark cache as safe
             for res in workers_res:
                 Type,path,iFacet=res
-                if Type=="compute" and self.GD["Cache"]["CacheCF"]:
+                if Type=="compute" and self.GD["Cache"]["CF"]:
                     #print iFacet
                     facet_dict=self._CF[iFacet]
                     d={}
                     for key in facet_dict.keys():
                         d[key]=facet_dict[key]
                     np.savez(file(path, "w"), **d)
-            if self.GD["Cache"]["CacheCF"]: self.VS.maincache.saveCache(self._cf_cachename)
+            if self.GD["Cache"]["CF"]:
+                self.VS.maincache.saveCache(self._cf_cachename)
             self.IsDDEGridMachineInit = True
 
     def setCasaImage(self, ImageName=None, Shape=None, Freqs=None, Stokes=["I"]):

@@ -1068,7 +1068,7 @@ class ClassImagerDeconv():
             if not deconvmachine_init:
                 # Pass minor cycle specific options into Init as kwargs
                 self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
-                                        approx=(sparsify > approximate_psf_above), cache=not sparsify,
+                                        approx=(sparsify > approximate_psf_above), cache=False if sparsify else None,
                                         GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
                                         RefFreq=self.VS.RefFreq)
                 deconvmachine_init = True

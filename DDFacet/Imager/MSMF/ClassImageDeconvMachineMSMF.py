@@ -175,17 +175,21 @@ class ClassImageDeconvMachine():
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
 
-    def Init(self, PSFVar, PSFAve, GridFreqs, DegridFreqs, approx=False, cache=True, facetcache=None, **kwargs):
+    def Init(self, PSFVar, PSFAve, GridFreqs, DegridFreqs, approx=False, cache=None, facetcache=None, **kwargs):
         """
         Init method. This is called after the first round of gridding: PSFs and such are available.
         ModelMachine must be set by now.
         
         facetcache: dict of basis functions. If supplied, then InitMSMF is not called.
+        
+        cache: cache the basis functions. If None, GD["Cache"]["HMP"] setting is used
         """
         # close the solutions dump, in case it was opened by a previous HMP instance
         ClassMultiScaleMachine.CleanSolutionsDump.close()
         self.SetPSF(PSFVar)
         self.setSideLobeLevel(PSFAve[0], PSFAve[1])
+        if cache is None:
+            cache = self.GD["Cache"]["HMP"]
         self.InitMSMF(approx=approx, cache=cache, facetcache=facetcache)
         ## OMS: why is this needed? self.RefFreq is set from self.ModelMachine in the first place
         # self.ModelMachine.setRefFreq(self.RefFreq)

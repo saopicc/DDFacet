@@ -410,8 +410,6 @@ class ClassMultiScaleMachine():
                 SumGauss = np.sum(Gauss,dtype=np.float64)
                 Gauss *= 1 / SumGauss
 
-                if self.ScaleFuncs is None:
-                    self.ScaleFuncs = self.cachedict.addSharedArray("ScaleFuncs",[len(ListParam)]+list(Gauss.shape), Gauss.dtype)
                 self.ScaleFuncs[iScaleFunc] = Gauss
                 self.ScaleFuncsSum[iScaleFunc] = SumGauss
         else:
