@@ -530,7 +530,7 @@ def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,G
     Aout = shareddict[field_out]
     # single channel? Handle serially
     if nch == 1:
-        return ConvolveGaussian(shareddict, field_in, field_out, 0, CellSizeRad, GaussPars[0], Normalise)
+        return ConvolveGaussian(shareddict, field_in, field_out, 0, CellSizeRad, GaussPars[0], None, Normalise)
 
     jobid = "convolve:%s:%s:" % (field_in, field_out)
     for ch in range(nch):
