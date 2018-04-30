@@ -149,7 +149,7 @@ class ClassInitSSDModel():
         self.GD = copy.deepcopy(GD)
         self.GD["Parallel"]["NCPU"] = 1
         # self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
-        self.GD["HMP"]["Alpha"] = self.GD["GAClean"]["RMSFactorInitHMP"]
+        self.GD["HMP"]["Alpha"] = self.GD["GAClean"]["AlphaInitHMP"]
         self.GD["Deconv"]["Mode"] = "HMP"
         self.GD["Deconv"]["CycleFactor"] = 0
         self.GD["Deconv"]["PeakFactor"] = 0.0
