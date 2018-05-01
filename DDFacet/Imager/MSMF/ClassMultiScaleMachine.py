@@ -347,6 +347,7 @@ class ClassMultiScaleMachine():
         self.ListScales = other.ListScales
         self.ScaleFuncs = other.ScaleFuncs
         self._num_scales = other._num_scales
+        self.Alpha = other.Alpha
         self.ModelMachine.setListComponants(self.ListScales)
 
 
@@ -365,15 +366,13 @@ class ClassMultiScaleMachine():
         LRatios = self.GD["HMP"]["Ratios"]
         NTheta = self.GD["HMP"]["NTheta"]
 
-        NAlpha = 1
         if self.MultiFreqMode:
             AlphaMin, AlphaMax, NAlpha = self.GD["HMP"]["Alpha"]
-            NAlpha = int(NAlpha)
-            AlphaL = np.linspace(AlphaMin, AlphaMax, NAlpha)
-            Alpha = np.array([0.] + [al for al in AlphaL if not (al == 0.)])
-            NAlpha = len(Alpha)
+            AlphaL = np.linspace(AlphaMin, AlphaMax, int(NAlpha))
+            self.Alpha = np.array([0.] + [al for al in AlphaL if not (al == 0.)])
         else:
             Alpha = np.array([0.])  # not in multi-frequency synthesis mode. Assume no ((v-v0)/v) modulation of I_model
+        NAlpha = len(self.Alpha)
 
         _, _, nx, ny = self.SubPSF.shape
         NScales = len(LScales)
@@ -383,7 +382,6 @@ class ClassMultiScaleMachine():
 
         Scales = np.float32(np.array([float(ls) for ls in LScales if ls != "" and ls != "''"]))
 
-        self.Alpha = Alpha
         nch, _, nx, ny = self.SubPSF.shape
 
         Theta = np.arange(0., np.pi - 1e-3, np.pi / NTheta)
@@ -421,7 +419,7 @@ class ClassMultiScaleMachine():
             assert(len(self.ScaleFuncsSum) == self._num_scales)
 
         # now complete the list of scales
-        for iAlpha,ThisAlpha in enumerate(Alpha):
+        for iAlpha,ThisAlpha in enumerate(self.Alpha):
             d = {}
             d["ModelType"] = "Delta"
             d["Scale"] = 0
@@ -466,14 +464,7 @@ class ClassMultiScaleMachine():
         LRatios=self.GD["HMP"]["Ratios"]
         NTheta=self.GD["HMP"]["NTheta"]
         
-        NAlpha=1
-        if self.MultiFreqMode:
-            AlphaMin,AlphaMax,NAlpha=self.GD["HMP"]["Alpha"]
-            NAlpha=int(NAlpha)
-            AlphaL=np.linspace(AlphaMin,AlphaMax,NAlpha)
-            Alpha=np.array([0.]+[al for al in AlphaL if not(al==0.)])
-        else:
-            Alpha=np.array([0.]) #not in multi-frequency synthesis mode. Assume no ((v-v0)/v) modulation of I_model
+        NAlpha = len(self.Alpha)
 
         _,_,nx,ny=self.SubPSF.shape
         NScales=len(LScales)
@@ -508,12 +499,12 @@ class ClassMultiScaleMachine():
         # self.PSFServer.RefFreq=RefFreq
         # #############################
         T.timeit("0")
-        FreqBandsFluxRatio=self.PSFServer.GiveFreqBandsFluxRatio(self.iFacet,Alpha)
+        FreqBandsFluxRatio=self.PSFServer.GiveFreqBandsFluxRatio(self.iFacet,self.Alpha)
         T.timeit("1")
-        # if self.iFacet==96: 
+        # if self.iFacet==96:
         #     print 96
         #     print FreqBandsFluxRatio
-        # if self.iFacet==60: 
+        # if self.iFacet==60:
         #     print 60
         #     print FreqBandsFluxRatio
 
@@ -522,7 +513,6 @@ class ClassMultiScaleMachine():
         #####################
 
 #        print FreqBandsFluxRatio
-        self.Alpha=Alpha
         nch,_,nx,ny=self.SubPSF.shape
 
         if self.CubePSFScales is None:
@@ -578,7 +568,7 @@ class ClassMultiScaleMachine():
                 #             #Gauss*=fact
 
                 #             self.ListScales.append({"ModelType":"Gaussian",
-                #                                     "Model":Gauss, 
+                #                                     "Model":Gauss,
                 #                                     "ModelParams": PSFGaussPars,
                 #                                     "Scale":iScale,
                 #                                     "Alpha":ThisAlpha})
@@ -608,7 +598,7 @@ class ClassMultiScaleMachine():
             self.IndexScales.append(indScale.tolist())
             self.SumFluxScales.append(self.ListScales[indScale[0]]["SumFunc"])
             self.ListSizeScales.append(self.ListScales[indScale[0]]["ModelParams"][0])
-            
+
         self.IndexScales=np.array(self.IndexScales)
         self.SumFluxScales=np.array(self.SumFluxScales)
         self.ListSizeScales=np.array(self.ListSizeScales)
