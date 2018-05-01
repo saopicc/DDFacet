@@ -45,6 +45,8 @@ class ClassInitSSDModelParallel():
         try:
             SModel, AModel = self.InitMachine.giveModel(Island)
         except:
+            if not self.GD["GAClean"]["ParallelInitHMP"]:
+                raise
             print>>log, traceback.format_exc()
             FileOut = "errIsland_%6.6i.npy" % iIsland
             print>>log, ModColor.Str("...... error on island %i, saving to file %s" % (iIsland, FileOut))
