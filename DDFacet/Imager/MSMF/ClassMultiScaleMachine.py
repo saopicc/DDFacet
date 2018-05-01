@@ -600,11 +600,6 @@ class ClassMultiScaleMachine():
         self.ListTypeScales = np.array([DicoScale["CodeTypeScale"] for DicoScale in self.ListScales])
         self.FluxScales = np.array([DicoScale["SumFunc"] for DicoScale in self.ListScales])
 
-        AlphaMin,AlphaMax,NAlpha=self.GD["HMP"]["Alpha"]
-        NAlpha=int(NAlpha)
-        AlphaL=np.linspace(AlphaMin,AlphaMax,NAlpha)
-        self.Alpha=np.array([0.]+[al for al in AlphaL if not(al==0.)])
-
         self.IndexScales=[]
         self.SumFluxScales=[]
         self.ListSizeScales=[]
