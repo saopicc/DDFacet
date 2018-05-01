@@ -39,13 +39,12 @@ endif (NOT ${OPENMP_FOUND})
 if (NOT ${HAVE_RT})
   message(FATAL_ERROR "Failed to find librt and header.")
 endif (NOT ${HAVE_RT})
-#if (NOT ${PYTHON_PYBIND11_FOUND})
-#  message(FATAL_ERROR "Failed to find Pybind11, ensure pybind11 is installed from pip")
-#endif (NOT ${PYTHON_PYBIND11_FOUND})
+if (NOT ${PYTHON_PYBIND11_FOUND})
+  message(FATAL_ERROR "Failed to find Pybind11, ensure pybind11 is installed from pip. If it still can't find it downgrade to pip 9.0.3 and redo the installation.")
+endif (NOT ${PYTHON_PYBIND11_FOUND})
 
 #Update include paths with found includes above
-include_directories(${PYTHON_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR}/numpy ${RT_INCLUDES} ${CASACORE_INCLUDE_DIR})
-# ${PYTHON_PYBIND11_INCLUDE_DIR})
+include_directories(${PYTHON_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR} ${PYTHON_NUMPY_INCLUDE_DIR}/numpy ${RT_INCLUDES} ${CASACORE_INCLUDE_DIR} ${PYTHON_PYBIND11_INCLUDE_DIR})
 
 set(PYBIND11_CPP_STANDARD -std=c++14)
 
