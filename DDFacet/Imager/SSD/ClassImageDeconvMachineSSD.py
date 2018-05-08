@@ -449,7 +449,7 @@ class ClassImageDeconvMachine():
 
 
 
-    def DeconvListIsland(self,ListIslands,ParallelMode="OverIsland",ListInitIslands=None):
+    def DeconvListIsland(self,ListIslands,ParallelMode="OverIslands",ListInitIslands=None):
         # ================== Parallel part
 
         NIslands=len(ListIslands)

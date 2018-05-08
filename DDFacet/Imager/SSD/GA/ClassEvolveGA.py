@@ -46,7 +46,8 @@ class ClassEvolveGA():
                                                                          WeightFreqBands=WeightFreqBands,
                                                                          iIsland=iIsland,
                                                                          island_dict=island_dict,
-                                                                         ParallelFitness=ParallelFitness)
+                                                                         ParallelFitness=ParallelFitness,
+                                                                         NCPU=GD["GAClean"]["NCPU"] or None)
         self.InitEvolutionAlgo()
         #self.ArrayMethodsMachine.testMovePix()
         #stop
