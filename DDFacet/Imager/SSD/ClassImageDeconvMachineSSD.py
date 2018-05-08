@@ -103,6 +103,7 @@ class ClassImageDeconvMachine():
                                                                                     IdSharedMem=self.IdSharedMem)
         else:
             raise ValueError("InitType should be HMP or MORESANE")
+        self._init_machine_initialized = False
 
 
     def setMaskMachine(self,MaskMachine):
@@ -115,9 +116,11 @@ class ClassImageDeconvMachine():
     def Reset(self):
         # clear anything we have left lying around in shared memory ## OMS how can this be right, what about others?
         # NpShared.DelAll()
-        self.InitMachine.Reset()
+        self._reset_InitMachine()
+
         
-    def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
+    def GiveModelImage(self,*args):
+        return self.ModelMachine.GiveModelImage(*args)
 
     def setSideLobeLevel(self,SideLobeLevel,OffsetSideLobe):
         self.SideLobeLevel=SideLobeLevel
@@ -133,6 +136,16 @@ class ClassImageDeconvMachine():
 
         #self.PSFServer.RefFreq=self.ModelMachine.RefFreq
 
+    def _init_InitMachine(self):
+        if not self._init_machine_initialized:
+            self.InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs)
+            self._init_machine_initialized = True
+
+    def _reset_InitMachine(self):
+        if self._init_machine_initialized:
+            self.InitMachine.Reset()
+            self._init_machine_initialized = False
+
     def Init(self,**kwargs):
         self.SetPSF(kwargs["PSFVar"])
         self.DicoVariablePSF["PSFSideLobes"]=kwargs["PSFAve"]
@@ -143,7 +156,7 @@ class ClassImageDeconvMachine():
         self.GridFreqs=kwargs["GridFreqs"]
         self.DegridFreqs=kwargs["DegridFreqs"]
         self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
-        self.InitMachine.Init(self.DicoVariablePSF, self.GridFreqs, self.DegridFreqs)
+
 
     def AdaptArrayShape(self,A,Nout):
         nch,npol,Nin,_=A.shape
@@ -292,12 +305,14 @@ class ClassImageDeconvMachine():
 
 
         print>>log,"  selected %i islands larger than %i pixels for initialisation"%(np.count_nonzero(ListDoIslandsInit),self.GD["GAClean"]["MinSizeInit"])
-        
+
+        self._init_InitMachine()
         if np.count_nonzero(ListDoIslandsInit)>0:
             self.DicoInitIndiv = self.InitMachine.giveDicoInitIndiv(self.ListIslands,
                                                                     ListDoIsland=ListDoIslandsInit,
                                                                     ModelImage=ModelImage, DicoDirty=self.DicoDirty)
-
+        if self.GD["Misc"]["ConserveMemory"]:
+            self._reset_InitMachine()
 
     def setChannel(self,ch=0):
         self.Dirty=self._MeanDirty[ch]
