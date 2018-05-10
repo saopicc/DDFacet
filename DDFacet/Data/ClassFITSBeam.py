@@ -49,7 +49,10 @@ LINEAR_CORRS = set(["XX", "XY", "YX", "YY"]);
 class ClassFITSBeam (object):
     def __init__ (self, ms, opts):
         self.ms = ms
-        self.filename = opts["FITSFile"]
+        # filename is potentially a list (frequencies will be matched)
+        self.beamsets = opts["FITSFile"]
+        if type(self.beamsets) is not list:
+            self.beamsets = self.beamsets.split(',')
         self.pa_inc = opts["FITSParAngleIncDeg"]
         self.time_inc = opts["DtBeamMin"]
         self.nchan = opts["NBand"]
@@ -79,18 +82,17 @@ class ClassFITSBeam (object):
             if len(feed) != 2:
                 raise ValueError,"FITSFeed parameter must be two characters (e.g. 'xy')"
             feed = feed.lower()
-            CORRS = [ a+b for a in feed for b in feed ]
-            print>>log,"polarization basis specified by FITSFeed parameter: %s"%" ".join(CORRS)
+            self.corrs = [ a+b for a in feed for b in feed ]
+            print>>log,"polarization basis specified by FITSFeed parameter: %s"%" ".join(self.corrs)
         else:
             # NB: need to check correlation names better. This assumes four correlations in that order!
             if "x" in self.ms.CorrelationNames[0].lower():
-                CORRS = "xx","xy","yx","yy"
+                self.corrs = "xx","xy","yx","yy"
                 print>>log,"polarization basis is linear (MS corrs: %s)"%" ".join(self.ms.CorrelationNames)
             else:
-                CORRS = "rr","rl","lr","ll"
+                self.corrs = "rr","rl","lr","ll"
                 print>>log,"polarization basis is circular (MS corrs: %s)"%" ".join(self.ms.CorrelationNames)
         # Following code is nicked from Cattery/Siamese/OMS/pybeams_fits.py
-        REIM = "re","im";
         REALIMAG = dict(re="real",im="imag");
 
         # get the Cattery: if an explicit path to Cattery set, use this and import Siamese directly
@@ -119,28 +121,43 @@ class ClassFITSBeam (object):
                       realimag=REALIMAG[reim].lower(),REALIMAG=REALIMAG[reim].upper(),
                       RealImag=REALIMAG[reim].title());
 
-        filename_real = [];
-        filename_imag = [];
-        for corr in CORRS:
-            # make FITS images or nulls for real and imaginary part
-            filename_real.append(make_beam_filename(self.filename,corr,'re'))
-            filename_imag.append(make_beam_filename(self.filename,corr,'im'))
+        self.vbs = {}
 
-        # load beam interpolator
-        self.vbs = []
-        for filename_pair in zip(filename_real,filename_imag):
-            if filename_pair in ClassFITSBeam._vb_cache:
-                vb = ClassFITSBeam._vb_cache[filename_pair]
-                print>>log,"beam patterns %s %s already in memory"%filename_pair
-            else:
-                print>>log,"loading beam patterns %s %s"%filename_pair
-                vb = InterpolatedBeams.LMVoltageBeam(
-                    verbose=opts["FITSVerbosity"],
-                    l_axis=opts["FITSLAxis"], m_axis=opts["FITSMAxis"]
-                )  # verbose, XY must come from options
-                vb.read(*filename_pair)
-                ClassFITSBeam._vb_cache[filename_pair] = vb
-            self.vbs.append(vb)
+        # now, self.beamsets specifies a list of filename patterns. We need to find the one with the closest
+        # frequency coverage
+
+        for corr in self.corrs:
+            beamlist = []
+            for beamset in self.beamsets:
+                filenames = make_beam_filename(beamset, corr, 're'), make_beam_filename(beamset, corr, 'im')
+                # get interpolator from cache, or create object
+                vb = ClassFITSBeam._vb_cache.get(filenames)
+                if vb is None:
+                    print>> log, "loading beam patterns %s %s" % filenames
+                    ClassFITSBeam._vb_cache[filenames] = vb = InterpolatedBeams.LMVoltageBeam(
+                        verbose=opts["FITSVerbosity"],
+                        l_axis=opts["FITSLAxis"], m_axis=opts["FITSMAxis"]
+                    )  # verbose, XY must come from options
+                    vb.read(*filenames)
+                else:
+                    print>> log, "beam patterns %s %s already in memory" % filenames
+                # find frequency "distance". If beam frequency range completely overlaps MS frequency range,
+                # this is 0, otherwise a positive number
+                distance = max(vb._freqgrid[0] - self.freqs[0], 0) + \
+                           max(self.freqs[-1] - vb._freqgrid[-1], 0)
+                beamlist.append((distance, vb, filenames))
+            # select beams with smallest distance
+            dist0, vb, filenames = sorted(beamlist)[0]
+            if len(beamlist) > 1:
+                if dist0 == 0:
+                    print>> log, "beam patterns %s %s overlap the frequency coverage" % filenames
+                else:
+                    print>> log, "beam patterns %s %s are closest to the frequency coverage (%.1f MHz max separation)" % (
+                                    filenames[0], filenames[1], dist0*1e-6)
+                print>>log,"  MS coverage is %.1f to %.1f GHz, beams are %.1f to %.1f MHz"%(
+                    self.freqs[0]*1e-6, self.freqs[-1]*1e-6, vb._freqgrid[0]*1e-6, vb._freqgrid[-1]*1e-6)
+            self.vbs[corr] = vb
+
 
     _vb_cache = {}
 
@@ -216,7 +233,7 @@ class ClassFITSBeam (object):
         # print>>log,m
 
         # get interpolated values. Output shape will be [ndir,nfreq]
-        beamjones = [ self.vbs[i].interpolate(l,m,freq=self.freqs,freqaxis=1) for i in range(4) ]
+        beamjones = [ self.vbs[corr].interpolate(l,m,freq=self.freqs,freqaxis=1) for corr in self.corrs ]
 
         # now make output matrix
         jones = numpy.zeros((ndir,self.ms.na,len(self.freqs),2,2),dtype=numpy.complex64)

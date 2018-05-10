@@ -490,6 +490,11 @@ void griddername(PyArrayObject *grid, \
 	  }else{\
 	    readcorrs \
 	  }\
+	    if(DoDecorr){\
+	      for(ThisPol =0; ThisPol<4;ThisPol++){\
+		VisMeas[ThisPol]*=DeCorrFactor;\
+	      }\
+	    }\
 	  \
 	  float FWeight=(*imgWtPtr)*WeightVaryJJ;/**WeightVaryJJ;*/\
 	  float complex Weight=(FWeight) * corr;\

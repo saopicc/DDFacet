@@ -194,6 +194,9 @@ class ClassMultiScaleMachine():
         self.cachedict = cachedict
         self.ListScales = cachedict.get("ListScales", None)
         self.CubePSFScales = cachedict.get("CubePSFScales", None)
+        if self.CubePSFScales is not None:
+            self._cubepsf_buf = np.empty_like(self.CubePSFScales)
+            self._localsm_buf = np.empty(self.CubePSFScales.shape[1:], self.CubePSFScales.dtype)
         self.DicoBasisMatrix = cachedict.get("BasisMatrix", None)
         if self.DicoBasisMatrix is not None:
             self.GlobalWeightFunction = self.DicoBasisMatrix["GlobalWeightFunction"]
@@ -428,7 +431,8 @@ class ClassMultiScaleMachine():
             ncubes = NAlpha*(1+len(ListParam))
             self.CubePSFScales = self.cachedict.addSharedArray("CubePSFScales",
                                         (ncubes, nch, nx, ny), self.SubPSF.dtype)
-
+            self._cubepsf_buf = np.empty_like(self.CubePSFScales)
+            self._localsm_buf = np.empty(self.CubePSFScales.shape[1:], self.CubePSFScales.dtype)
             self.ListScales = self.cachedict.addSubdict("ListScales")
             ListPSFScales = []
             for iAlpha in range(NAlpha):
@@ -1271,7 +1275,9 @@ class ClassMultiScaleMachine():
             #if (np.sign(SolReg[0]) != np.sign(np.sum(Sol))) or (np.max(np.abs(Sol))<1e-6*np.abs(Peak)):
             if (np.sign(SolReg[0]) != np.sign(np.sum(Sol))) or (np.max(np.abs(Sol))==0):
                 Sol = SolReg
-                LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
+                self._cubepsf_buf[:] = self.CubePSFScales
+                self._cubepsf_buf *= Sol[:,np.newaxis,np.newaxis,np.newaxis]
+                LocalSM = self._cubepsf_buf.sum(axis=0,out=self._localsm_buf)
             else:
                 coef = np.min([np.abs(Peak / MeanFluxTrue), 1.])
                 Sol = Sol * coef + SolReg * (1. - coef)
@@ -1279,7 +1285,9 @@ class ClassMultiScaleMachine():
                 #     Sol=SolReg
 
                 # Fact=(MeanFluxTrue/np.sum(Sol))
-                LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
+                self._cubepsf_buf[:] = self.CubePSFScales
+                self._cubepsf_buf *= Sol[:,np.newaxis,np.newaxis,np.newaxis]
+                LocalSM = self._cubepsf_buf.sum(axis=0,out=self._localsm_buf)
                 #Peak=np.mean(np.max(np.max(LocalSM,axis=-1),axis=-1))
                 Peak=np.sum(np.max(np.max(LocalSM,axis=-1),axis=-1)*WCHAN.ravel())
 

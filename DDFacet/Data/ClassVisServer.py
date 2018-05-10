@@ -40,8 +40,6 @@ log = MyLogger.getLogger("ClassVisServer")
 _cc = 299792458
 
 
-# >>>>>>> issue-255
-
 def test():
     MSName = "/media/tasse/data/killMS_Pack/killMS2/Test/0000.MS"
     VS = ClassVisServer(MSName, TVisSizeMin=1e8, Weighting="Natural")
@@ -124,7 +122,6 @@ class ClassVisServer():
         # max chunk shape accumulated here
         self._chunk_shape = [0, 0, 0]
 
-        get_detail=True
         for msspec in self.MSList:
             if type(msspec) is not str:
                 msname, ddid, field = msspec
@@ -136,10 +133,8 @@ class ClassVisServer():
                 Field=field, DDID=ddid, TaQL=self.TaQL,
                 TimeChunkSize=self.TMemChunkSize, ChanSlice=chanslice,
                 GD=self.GD, ResetCache=self.GD["Cache"]["Reset"],
-                DicoSelectOptions = self.DicoSelectOptions,
-                get_obs_detail=get_detail)
+                DicoSelectOptions = self.DicoSelectOptions)
             if MS.empty:
-                print>>log,""
                 continue
             self.ListMS.append(MS)
             # accumulate global set of frequencies, and min/max frequency
@@ -153,12 +148,6 @@ class ClassVisServer():
                 self._chunk_shape = [max(a, b)
                                      for a, b in zip(self._chunk_shape, shape)]
 
-            # If we got some observing details, store them for the
-            # first successful MS only
-            if get_detail:
-                self.obs_detail = MS.obs_detail
-                get_detail = False
-
         size = reduce(lambda x, y: x * y, self._chunk_shape)
         print >>log, "shape of data/flag buffer will be %s (%.2f Gel)" % (
             self._chunk_shape, size / float(2 ** 30))
@@ -166,6 +155,8 @@ class ClassVisServer():
         if not self.ListMS:
             print>>log, ModColor.Str("--Data-MS does not specify any valid Measurement Set(s)")
             raise RuntimeError,"--Data-MS does not specify any valid Measurement Set(s)"
+
+        self.obs_detail = self.ListMS[0].get_obs_details()
 
         # main cache is initialized from main cache of first MS
         if ".txt" in self.GD["Data"]["MS"]:
@@ -660,8 +651,10 @@ class ClassVisServer():
     def CalcWeightsBackground(self):
         """Starts parallel jobs to load weights in the background"""
         self.VisWeights = None
-        APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)
-        # for debugging only: wait here
+        if self.GD["Misc"]["ConserveMemory"]:
+            APP.runJob("VisWeights", self._CalcWeights_serial, io=0, singleton=True, event=self._calcweights_event)
+        else:
+            APP.runJob("VisWeights", self._CalcWeights_handler, io=0, singleton=True, event=self._calcweights_event)
         # APP.awaitEvents(self._calcweights_event)
 
     def _CalcWeights_handler(self):
@@ -758,7 +751,8 @@ class ClassVisServer():
             for ichunk in xrange(len(ms.getChunkRow0Row1())):
                 APP.runJob("FinalizeWeights:%d:%d" % (ims, ichunk), self._finalizeWeights_handler,
                            args=(self._weight_grid.readonly(),
-                                 self._weight_dict.readwrite(),ims,ichunk,self._uvmax),
+                                 self._weight_dict[ims][ichunk].readwrite(),
+                                 ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax),
                            counter=self._weightjob_counter, collect_result=False)
         APP.awaitJobCounter(self._weightjob_counter, progress="Finalize weights")
         # delete stuff
@@ -857,9 +851,8 @@ class ClassVisServer():
         else:
             msw["bandmap"] = self.DicoMSChanMapping[ims]
 
-    def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax):
-        weights = msw["weight"]
-        uv = msw["uv"]
+    def _uv_to_index(self, ims, uv, weights, freqs, cell, npix, npixx, nbands, xymax):
+        """Helper method: converts UV coordinates to indices into a UV-grid"""
         # flip sign of negative v values -- we'll only grid the top half of the plane
         uv[uv[:, 1] < 0] *= -1
         # convert u/v to lambda, and then to pixel offset
@@ -879,63 +872,31 @@ class ClassVisServer():
         # zero weight refers to zero cell (otherwise it may end up outside the grid, since grid is
         # only big enough to accommodate the *unflagged* uv-points)
         index[weights == 0] = 0
-        # uv no longer needed
-        uv = None
-        msw.delete_item("uv")
+        return index
+
+    def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax):
+        weights = msw["weight"]
+        index = self._uv_to_index(ims, msw["uv"], weights, freqs, cell, npix, npixx, nbands, xymax)
         msw.delete_item("flags")
-        # print>>log,weights,index
         _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
 
-    def _finalizeWeights_handler(self, wg, mswAll,ims,ichunk,uvmax):
-        msw=mswAll[ims][ichunk]
+    def _finalizeWeights_handler(self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax):
         if "weight" in msw:
-            ms = self.ListMS[ims]
-            row0, row1 = ms.getChunkRow0Row1()[ichunk]
-            
-            msfreqs = ms.ChanFreq
-            freqs=msfreqs
-            nrows = row1 - row0
-            chanslice = ms.ChanSlice
-            if not nrows:
-                return
-            tab = ms.GiveMainTable()
-            uvw = tab.getcol("UVW", row0, nrows)
-            tab.close()
-            nch, npol, npixIm, _ = self.FullImShape
-            FOV = self.CellSizeRad * npixIm
-            nbands = self.NFreqBands
-            cell = 1. / (self.Super * FOV)
-            xymax = int(math.floor(uvmax / cell)) + 1
-            # grid will be from [-xymax,xymax] in U and [0,xymax] in V
-            npixx = xymax * 2 + 1
-            npixy = xymax + 1
-            npix = npixx * npixy
-
-            uv = uvw[:,:2]
-            # flip sign of negative v values -- we'll only grid the top half of the plane
-            uv[uv[:, 1] < 0] *= -1
-            # convert u/v to lambda, and then to pixel offset
-            uv = uv[..., np.newaxis] * freqs[np.newaxis, np.newaxis, :] / _cc
-            uv = np.floor(uv / cell).astype(int)
-            # u is offset, v isn't since it's the top half
-            x = uv[:, 0, :]
-            y = uv[:, 1, :]
-            x += xymax  # offset, since X grid starts at -xymax
-            # convert to index array -- this gives the number of the uv-bin on the grid
-            index = np.zeros((uv.shape[0], len(freqs)), np.int64)
-            index[...] = y * npixx + x
-
-
             weight = msw["weight"]
-            #index[weight == 0] = 0
+            # renormalize to density, for uniform/briggs
             if self.Weighting != "natural":
+                index = self._uv_to_index(ims, msw["uv"], weight, freqs, cell, npix, npixx, nbands, xymax)
                 grid = wg["grid"].reshape((wg["grid"].size,))
                 #weight /= grid[msw["index"]]
-                index[index>=len(grid)]=0 
+                index[index>=len(grid)]=0
                 weight /= grid[index]
+#                import pdb; pdb.set_trace()
                 
             np.save(msw["cachepath"], weight)
             msw.delete_item("weight")
+            msw.delete_item("uv")
+            if "flags" in msw:
+                msw.delete_item("flags")
             if "index" in msw:
                 msw.delete_item("index")
             msw["null"] = False
@@ -943,3 +904,145 @@ class ClassVisServer():
             msw["null"] = True
             file(msw["cachepath"], 'w').truncate(0)
         msw["success"] = True
+
+
+    def _CalcWeights_serial(self):
+        self._weight_dict = shared_dict.create("VisWeights")
+        # check for wmax in cache
+        cache_keys = dict([(section, self.GD[section]) for section
+                           in ("Data", "Selection", "Freq", "Image", "Weight")])
+        wmax_path, wmax_valid = self.maincache.checkCache("wmax", cache_keys)
+        if wmax_valid:
+            self._weight_dict["wmax"] = cPickle.load(open(wmax_path))
+        # check cache first
+        have_all_weights = wmax_valid
+        for iMS, MS in enumerate(self.ListMS):
+            msweights = self._weight_dict.addSubdict(iMS)
+            for ichunk, (row0, row1) in enumerate(MS.getChunkRow0Row1()):
+                msw = msweights.addSubdict(ichunk)
+                path, valid = MS.getChunkCache(row0, row1).checkCache("ImagingWeights.npy", cache_keys)
+                have_all_weights = have_all_weights and valid
+                msw["cachepath"] = path
+                if valid:
+                    msw["null"] = not os.path.getsize(path)
+        # if every weight is in cache, then we're done here
+        if have_all_weights:
+            print>> log, "all imaging weights, and wmax, are available in cache"
+            return
+
+        wmax = self._uvmax = 0
+
+        # scan through MSs to determine uv-max
+        for ims, ms in enumerate(self.ListMS):
+            ms = self.ListMS[ims]
+            max_freq = ms.ChanFreq.max()
+            for ichunk in xrange(len(ms.getChunkRow0Row1())):
+                print>> log, "scanning UVWs %d.%d" % (ims, ichunk)
+                row0, row1 = ms.getChunkRow0Row1()[ichunk]
+                nrows = row1 - row0
+                if not nrows:
+                    continue
+                tab = ms.GiveMainTable()
+                uvw = tab.getcol("UVW", row0, nrows)
+                rowflags = tab.getcol("FLAG_ROW", row0, nrows)
+                # max of |u|, |v| in wavelengths
+                uvmax_wavelengths = abs(uvw[~rowflags, :2]).max() * max_freq / _cc
+                self._uvmax = max(self._uvmax, uvmax_wavelengths)
+
+        # setup uv-grid for non-natural weights
+        if self.Weighting != "natural":
+            self._weight_grid = shared_dict.create("VisWeights.Grid")
+            nch, npol, npixIm, _ = self.FullImShape
+            FOV = self.CellSizeRad * npixIm
+            nbands = self.NFreqBands
+            cell = 1. / (self.Super * FOV)
+            if self.MFSWeighting or self.NFreqBands < 2:
+                nbands = 1
+                print>> log, "initializing weighting grid for single band (or MFS weighting)"
+            else:
+                print>> log, "initializing weighting grids for %d bands" % nbands
+            # find max grid extent by considering _unflagged_ UVs
+            xymax = int(math.floor(self._uvmax / cell)) + 1
+            # grid will be from [-xymax,xymax] in U and [0,xymax] in V
+            npixx = xymax * 2 + 1
+            npixy = xymax + 1
+            npix = npixx * npixy
+            print>> log, "Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell)
+            self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
+
+        # scan through MSs one by one
+        for ims, ms in enumerate(self.ListMS):
+            msweights = self._weight_dict[ims]
+            for ichunk in xrange(len(ms.getChunkRow0Row1())):
+                msw = msweights[ichunk]
+                print>>log,"loading weights %d.%d"%(ims, ichunk)
+                self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
+
+                # if nothing in MS, handler will not return a "weight" field. Mark this chunk as null then
+                msw["null"] = "weight" not in msw
+                if "weight" not in msw:
+                    continue
+
+                wmax = max(wmax, msw["wmax"])
+                self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
+
+                # in Natural mode, we're done: dump weights out
+                if self.Weighting == "natural":
+                    self._finalizeWeights_handler(None, msw, ims, ichunk, 0)
+                # else accumulate onto uv grid
+                else:
+                    self._accumulateWeights_handler(self._weight_grid, msw,
+                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax)
+                    # delete to save memory
+                    for field in "weight", "uv", "flags", "index":
+                        if field in msw:
+                            msw.delete_item(field)
+
+        # save wmax to cache
+        cPickle.dump(wmax, open(wmax_path, "w"))
+        self.maincache.saveCache("wmax")
+        self._weight_dict["wmax"] = wmax
+        print>>log,"overall max W is %.2f meters"%wmax
+        if self._ignore_vis_weights:
+            return
+        if not self._uvmax:
+            raise RuntimeError("data appears to be fully flagged: can't compute imaging weights")
+
+        if self.Weighting != "natural":
+            # adjust uv-grid for robust weighting
+            if self.Weighting == "briggs" or self.Weighting == "robust":
+                numeratorSqrt = 5.0 * 10 ** (-self.Robust)
+                grid0 = self._weight_grid["grid"]
+                for band in range(nbands):
+                    grid1 = grid0[band, :]
+                    avgW = (grid1 ** 2).sum() / grid1.sum()
+                    sSq = numeratorSqrt ** 2 / avgW
+                    grid1[...] = 1 + grid1 * sSq
+
+            # rescan through MSs one by one to re-adjust the weights
+            for ims, ms in enumerate(self.ListMS):
+                msweights = self._weight_dict[ims]
+                for ichunk in xrange(len(ms.getChunkRow0Row1())):
+                    msw = msweights[ichunk]
+                    if msw["null"]:
+                        print>> log, "skipping weights %d.%d (null)" % (ims, ichunk)
+                        continue
+                    print>> log, "reloading weights %d.%d" % (ims, ichunk)
+                    self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
+                    self._finalizeWeights_handler(self._weight_grid, msw,
+                                                      ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax)
+
+            if self._weight_grid is not None:
+                self._weight_grid.delete()
+
+        # check for errors
+        for ims, ms in enumerate(self.ListMS):
+            for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
+                if not self._weight_dict[ims][ichunk].get("success"):
+                    raise RuntimeError("weight computation has failed, see error messages above")
+
+        # mark cache as valid
+        for ims, ms in enumerate(self.ListMS):
+            for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
+                ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
+

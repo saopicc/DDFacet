@@ -52,9 +52,11 @@ class ClassInitSSDModelParallel():
             FileOut = "errIsland_%6.6i.npy" % iIsland
             print>>log, ModColor.Str("...... error on island %i, saving to file %s" % (iIsland, FileOut))
             np.save(FileOut, np.array(Island))
+            self.InitMachine.Reset()
             return
         DicoOut["S"] = SModel
         DicoOut["Alpha"] = AModel
+        self.InitMachine.Reset()
 
     def giveDicoInitIndiv(self, ListIslands, ModelImage, DicoDirty, ListDoIsland=None):
         DicoInitIndiv = shared_dict.create("DicoInitIsland")

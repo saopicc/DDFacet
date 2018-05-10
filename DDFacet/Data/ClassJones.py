@@ -470,6 +470,7 @@ class ClassJones():
             if not(".npz" in SolsFile):
                 SolsDir=self.GD["DDESolutions"]["SolsDir"]
                 if SolsDir is None or SolsDir=="":
+                    Method = SolsFile
                     ThisMSName = reformat.reformat(os.path.abspath(self.MS.MSName), LastSlash=False)
                     SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, SolsFile)
                 else:

@@ -51,62 +51,6 @@ from DDFacet.Other.progressbar import ProgressBar
 # except:
 #     print>>log, ModColor.Str("Could not import lofar.stationresponse")
 
-def obs_detail(filename,field=0):
-
-    results={}
-    object=""
-
-    try:
-        to = table(filename+ '/OBSERVATION', readonly=True, ack=False)
-    except RuntimeError:
-        to = None
-    try:
-        tf = table(filename+ '/FIELD', readonly=True, ack=False)
-    except RuntimeError:
-        tf = None
-    if tf is not None and to is not None:
-        print >>log, 'Read observing details successfully'
-    else:
-        print >>log, 'Some observing details missing'
-
-    # Stuff relying on an OBSERVATION table:
-    if to is not None:
-        # Time
-        tm = Time(to[0]['TIME_RANGE']/86400.0,
-                  scale="utc",
-                  format='mjd')
-        results['DATE-OBS'] = tm[0].iso.split()[0]
-
-        # Object
-        try:
-            object = to[0]['LOFAR_TARGET'][0]
-        except:
-            pass
-
-        # Telescope
-        telescope=to[0]['TELESCOPE_NAME']
-        results['TELESCOP'] = telescope
-
-        # observer
-        observer = to[0]['OBSERVER']
-        results['OBSERVER'] = observer
-
-    if not object and tf is not None:
-        object = tf[field]['NAME'] 
-
-    if object:
-        results['OBJECT'] = object
-
-    # Time now
-    tn = Time(time.time(),format='unix')
-    results['DATE-MAP'] = tn.iso.split()[0]
-
-    if to is not None:
-        to.close()
-    if tf is not None:
-        tf.close()
-
-    return results
 
 class ClassMS():
     def __init__(self,MSname,Col="DATA",zero_flag=True,ReOrder=False,EqualizeFlag=False,DoPrint=True,DoReadData=True,
@@ -145,8 +89,7 @@ class ClassMS():
         if self.ToRADEC is "": self.ToRADEC=None
 
         self.AverageSteps=AverageTimeFreq
-        MSname= reformat.reformat(os.path.abspath(MSname), LastSlash=False)
-        self.MSName=MSname
+        self.MSName = MSName = reformat.reformat(os.path.abspath(MSname), LastSlash=False)
         self.ColName=Col
         self.ChanSlice = ChanSlice or slice(None)
         self.zero_flag=zero_flag
@@ -193,8 +136,63 @@ class ClassMS():
         if GetBeam:
             self.LoadSR()
 
-        if get_obs_detail:
-            self.obs_detail=obs_detail(self.MSName, field=self.Field)
+    def get_obs_details(self):
+        """Gets observer details from MS, for FITS header mainly"""
+
+        results = {}
+        object = ""
+
+        try:
+            to = table(self.MSName + '/OBSERVATION', readonly=True, ack=False)
+        except RuntimeError:
+            to = None
+        try:
+            tf = table(self.MSName + '/FIELD', readonly=True, ack=False)
+        except RuntimeError:
+            tf = None
+        if tf is not None and to is not None:
+            print >> log, 'Read observing details from %s'%self.MSName
+        else:
+            print >> log, 'Some observing details in %s missing'%self.MSName
+
+        # Stuff relying on an OBSERVATION table:
+        if to is not None:
+            # Time
+            tm = Time(to[0]['TIME_RANGE'] / 86400.0,
+                      scale="utc",
+                      format='mjd')
+            results['DATE-OBS'] = tm[0].iso.split()[0]
+
+            # Object
+            try:
+                object = to[0]['LOFAR_TARGET'][0]
+            except:
+                pass
+
+            # Telescope
+            telescope = to[0]['TELESCOPE_NAME']
+            results['TELESCOP'] = telescope
+
+            # observer
+            observer = to[0]['OBSERVER']
+            results['OBSERVER'] = observer
+
+        if not object and tf is not None:
+            object = tf[self.Field]['NAME']
+
+        if object:
+            results['OBJECT'] = object
+
+        # Time now
+        tn = Time(time.time(), format='unix')
+        results['DATE-MAP'] = tn.iso.split()[0]
+
+        if to is not None:
+            to.close()
+        if tf is not None:
+            tf.close()
+
+        return results
 
     def GiveMainTable (self,**kw):
         """Returns main MS table, applying TaQL selection if any"""
@@ -902,10 +900,27 @@ class ClassMS():
         self.nbl=(na*(na-1))/2+na
         
 
+    # static member caching DDID/FIELD_ID lookups
+    _ddid_field_cache = {}
+
     def ReadMSInfo(self,DoPrint=True):
         T= ClassTimeIt.ClassTimeIt()
         T.enableIncr()
         T.disable()
+
+        # quick check if DDID and FieldId is present at all. This is much faster than running a full query
+        # (which GiveMainTable() does), helps when many MSs are specified, many of them missing DDIDs
+        if self.MSName in ClassMS._ddid_field_cache:
+            ddid_fields = ClassMS._ddid_field_cache.get(self.MSName)
+        else:
+            maintab = table(self.MSName, ack=False)
+            ddid_fields = set(zip(maintab.getcol("FIELD_ID"), maintab.getcol("DATA_DESC_ID")))
+            ClassMS._ddid_field_cache[self.MSName] = ddid_fields
+
+        self.empty = (self.Field,self.DDID) not in ddid_fields
+        if self.empty:
+            print>>log, ModColor.Str("MS %s (field %d, ddid %d): no rows, skipping"%(self.MSName, self.Field, self.DDID))
+            return
 
         # open main table
         table_all = self.GiveMainTable()
@@ -1226,12 +1241,13 @@ class ClassMS():
 
     def __str__(self):
         ll=[]
+        rarad,decrad=self.OriginalRadec
         ll.append(ModColor.Str(" MS PROPERTIES: "))
         ll.append("   - File Name: %s" % ModColor.Str(self.MSName, col="green"))
         ll.append("   - Column Name: %s" % ModColor.Str(str(self.ColName), col="green"))
         ll.append("   - Selection: %s, channels: %s" % (ModColor.Str(str(self.TaQL), col="green"), self.ChanSlice))
-        ll.append("   - Phase centre (field %d): (ra, dec)=(%s, %s) "%(self.Field, rad2hmsdms(self.rarad,Type="ra").replace(" ",":")\
-                                                                       ,rad2hmsdms(self.decrad,Type="dec").replace(" ",".")))
+        ll.append("   - Phase centre (field %d): (ra, dec)=(%s, %s) "%(self.Field, rad2hmsdms(rarad,Type="ra").replace(" ",":")\
+                                                                       ,rad2hmsdms(decrad,Type="dec").replace(" ",".")))
         ll.append("   - Frequency = %s MHz"%str(np.mean(self.ChanFreq)/1e6))
         ll.append("   - Wavelength = %5.2f meters"%(np.mean(self.wavelength_chan)))
         Freqs=3.e8/self.wavelength_chan.ravel()/1e6
