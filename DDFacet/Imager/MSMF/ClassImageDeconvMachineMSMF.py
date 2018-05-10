@@ -239,7 +239,7 @@ class ClassImageDeconvMachine():
             cachehash = dict(
                 [(section, self.GD[section]) for section in (
                     "Data", "Beam", "Selection", "Freq",
-                    "Image", "Facets", "Weight", "RIME",
+                    "Image", "Facets", "Weight", "RIME","DDESolutions",
                     "Comp", "CF",
                     "HMP")])
             cachepath, valid = self.maincache.checkCache(self.CacheFileName, cachehash, reset=not cache or self.PSFHasChanged)
