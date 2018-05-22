@@ -517,24 +517,24 @@ class ClassImageDeconvMachine():
         cube, sm = self._CubeDirty[:,:,x0d:x1d,y0d:y1d], LocalSM[:,:,x0p:x1p,y0p:y1p]
 
 
-        if self.DoPlot:
-            AA0=cube[0,0,:,:].copy()
-            vmin,vmax=np.min(AA0),np.max(AA0)
-            AA1=sm[0,0,:,:].copy()
-            import pylab
-            pylab.clf()
-            pylab.subplot(1,3,1)
-            pylab.imshow(AA0,interpolation="nearest")
-            pylab.colorbar()
-            pylab.subplot(1,3,2)
-            pylab.imshow(AA1,interpolation="nearest")
-            pylab.colorbar()
-            pylab.subplot(1,3,3)
-            pylab.imshow((AA0-AA1),interpolation="nearest")
-            pylab.colorbar()
-            pylab.draw()
-            pylab.show(False)
-            pylab.pause(0.1)
+        # if self.DoPlot:
+        #     AA0=cube[0,0,:,:].copy()
+        #     vmin,vmax=np.min(AA0),np.max(AA0)
+        #     AA1=sm[0,0,:,:].copy()
+        #     import pylab
+        #     pylab.clf()
+        #     pylab.subplot(1,3,1)
+        #     pylab.imshow(AA0,interpolation="nearest")
+        #     pylab.colorbar()
+        #     pylab.subplot(1,3,2)
+        #     pylab.imshow(AA1,interpolation="nearest")
+        #     pylab.colorbar()
+        #     pylab.subplot(1,3,3)
+        #     pylab.imshow((AA0-AA1),interpolation="nearest")
+        #     pylab.colorbar()
+        #     pylab.draw()
+        #     pylab.show(False)
+        #     pylab.pause(0.1)
 
         numexpr.evaluate('cube-sm',out=cube,casting="unsafe")
         #a-=b
