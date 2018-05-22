@@ -1,6 +1,13 @@
 #!/usr/bin/env python
+import sys,os
+if "PYTHONPATH_FIRST" in os.environ.keys() and int(os.environ["PYTHONPATH_FIRST"]):
+    sys.path = os.environ["PYTHONPATH"].split(":") + sys.path
+
+
 import numpy as np
-import pylab
+np.random.seed(1)
+import random
+random.seed(1)
 from DDFacet.Other import MyLogger
 from DDFacet.Other import MyPickle
 log=MyLogger.getLogger("ClusterImage")
@@ -43,6 +50,7 @@ def read_options():
     group.add_option('--BigPolygonSize',type=float,help="",default=0.5)
     group.add_option('--NCluster',type=int,help="",default=45)
     group.add_option('--NCPU',type=int,help="",default=1)
+    group.add_option('--OutClusterCat',type=str,help="",default="")
     
     opt.add_option_group(group)
 
@@ -201,9 +209,9 @@ class ClusterImage():
         l,m=self.radec2lm(self.Cat.ra,self.Cat.dec)
         S=self.Cat.S.copy()
         PolyList=None
+        self.BigPolygon=[]
         if self.AvoidPolygons!="":
             print>>log,"Reading polygon file: %s"%self.AvoidPolygons
-            self.BigPolygon=[]
             PolyList=MyPickle.Load(self.AvoidPolygons)
             LPoly=[]
             inside=np.zeros((l.size,),np.float32)
@@ -219,9 +227,9 @@ class ClusterImage():
                     if P.isInside(l[ip],m[ip]):
                         inside[ip]=1
 
-            l=l[inside==0]
-            m=m[inside==0]
-            S=S[inside==0]
+            # l=l[inside==0]
+            # m=m[inside==0]
+            # S=S[inside==0]
             print>>log,"There are %i big polygons"%len(self.BigPolygon)
             
         CC=Sky.ClassClusterDEAP.ClassCluster(l,m,S,nNode=self.NCluster,
@@ -252,7 +260,11 @@ class ClusterImage():
             ClusterCat.dec[iDir]=decmean
             ClusterCat.SumI[iDir]=0.
             ClusterCat.Cluster[iDir]=iDir
-        fOut="%s.ClusterCat.npy"%self.SourceCat
+        if not self.OutClusterCat:
+            fOut="%s.ClusterCat.npy"%self.SourceCat
+        else:
+            fOut=self.OutClusterCat
+
         print>>log,"Saving %s"%fOut
         np.save(fOut,ClusterCat)
         self.WriteTessel()

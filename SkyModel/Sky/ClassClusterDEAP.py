@@ -23,7 +23,6 @@ import DeapAlgo as algorithms
 from deap import base
 from deap import creator
 from deap import tools
-import pylab
 from scipy.spatial import Voronoi
 import ModVoronoi
 from DDFacet.Other import MyLogger
@@ -34,6 +33,7 @@ import multiprocessing
 import scipy.stats
 import Polygon
 import ClassMetricDEAP
+import DDFacet.ToolsDir.GeneDist
 
 def test():
     Np=1000
@@ -97,7 +97,6 @@ def giveFitness(Indiv,x=None,y=None,S=None,Polygons=None,PolyCut=None,BigPolygon
     CMD=ClassMetricDEAP.ClassMetricDEAP(Indiv,x=x,y=y,S=S,Polygons=Polygons,PolyCut=PolyCut,BigPolygon=BigPolygon)
     fluxPerFacet=CMD.fluxPerFacet()
     NPerFacet=CMD.NPerFacet()
-    aspectRatioPerFacet=CMD.aspectRatioPerFacet()
     meanDistancePerFacet=CMD.meanDistancePerFacet()
     overlapPerFacet=CMD.overlapPerFacet()
 
@@ -105,8 +104,11 @@ def giveFitness(Indiv,x=None,y=None,S=None,Polygons=None,PolyCut=None,BigPolygon
     Fitness+= -np.std(fluxPerFacet)
     Fitness+= -np.std(NPerFacet)
     Fitness+= -1e5*np.count_nonzero(NPerFacet==0)
-    A=aspectRatioPerFacet
-    Fitness+= -np.mean(A[A>0])
+
+    # aspectRatioPerFacet=CMD.aspectRatioPerFacet()
+    # A=aspectRatioPerFacet
+    # Fitness+= -np.mean(A[A>0])
+
     Fitness+= -np.mean(meanDistancePerFacet)*10
     Fitness+= -np.sum(overlapPerFacet)*1e5
     
@@ -171,6 +173,30 @@ class ClassCluster():
             y[:]=np.random.uniform(y0,y1,self.nNode)
             #x.fill(0)
             #y.fill(0)
+
+        # I0=pop[0]
+        # for Indiv in pop[1::]:
+        #     x,y=Indiv.reshape((2,self.nNode))
+        #     x0,y0=I0.reshape((2,self.nNode))
+        #     x[:]=x0
+        #     y[:]=y0
+            
+    # def reinitPop(self,pop):
+    #     print>>log,"Initialise population"
+    #     x0,x1=self.x.min(),self.x.max()
+    #     y0,y1=self.y.min(),self.y.max()
+    #     N=len(pop)
+    #     pop0=pop[0:N/2]
+    #     pop1=pop[N/2:]
+    #     for iIndiv,Indiv in enumerate(pop0):
+    #         x,y=Indiv.reshape((2,self.nNode))
+    #         indSel=DDFacet.ToolsDir.GeneDist.GiveNonRedundantSample(self.S,self.nNode)
+    #         x[:]=self.x[indSel]
+    #         y[:]=self.y[indSel]
+    #     for Indiv in pop1:
+    #         x,y=Indiv.reshape((2,self.nNode))
+    #         x[:]=np.random.uniform(x0,x1,self.nNode)
+    #         y[:]=np.random.uniform(y0,y1,self.nNode)
             
     def Cluster(self):
         random.seed(64)
@@ -224,6 +250,7 @@ class ClassPlotMachine():
         self.PolyCut=PolyCut
 
     def Plot(self,hof):
+        import pylab
         indiv=hof[-1]
         N=indiv.size/2
         xc,yc=indiv.reshape((2,N))
@@ -274,18 +301,18 @@ class ClassPlotMachine():
         pylab.clf()
         pylab.subplot(2,2,1)
         pylab.hist(fluxPerFacet,bins=100)
-
+        pylab.xlabel("Flux /facet")
         pylab.subplot(2,2,2)
         pylab.hist(aspectRatioPerFacet,bins=100)
+        pylab.xlabel("Facet aspect ratio")
 
         pylab.subplot(2,2,3)
         pylab.hist(NPerFacet,bins=100)
+        pylab.xlabel("Number src/facet")
 
         pylab.subplot(2,2,4)
         pylab.hist(meanDistancePerFacet,bins=100)
-
-
-
+        pylab.xlabel("Mean distance /facet")
             
         pylab.pause(0.1)
         pylab.draw()

@@ -26,4 +26,5 @@ if __name__=="__main__":
     S=" ".join(S)
 
     ss="ds9 -cmap bb -scalelims %f %f %s -lock frame wcs -lock scale yes -match scalelimits -match scale -match colorbar -lock colorbar yes -view vertical"%(vmin,vmax,S)
+    print ss
     os.system(ss)
