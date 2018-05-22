@@ -67,7 +67,6 @@ class ClassPSFServer():
         DicoMappingDesc={"freqs":DicoVariablePSF["freqs"],
                          "WeightChansImages":DicoVariablePSF["WeightChansImages"],
                          "SumJonesChan":DicoVariablePSF["SumJonesChan"],
-                         "SumJonesChanWeightSq":DicoVariablePSF["SumJonesChanWeightSq"],
                          "ChanMappingGrid":DicoVariablePSF["ChanMappingGrid"],
                          "ChanMappingGridChan":DicoVariablePSF["ChanMappingGridChan"],
                          "MeanJonesBand":DicoVariablePSF["MeanJonesBand"]}
@@ -233,8 +232,7 @@ class ClassPSFServer():
     def GiveFreqBandsFluxRatio(self,iFacet,Alpha):
         NAlpha=Alpha.size
         NFreqBand=self.DicoVariablePSF["CubeVariablePSF"].shape[1]
-        SumJonesChan=self.DicoVariablePSF["SumJonesChan"][iFacet]
-        SumJonesChanWeightSq=self.DicoVariablePSF["SumJonesChanWeightSq"][iFacet]
+        SumJonesChan=self.DicoVariablePSF["SumJonesChan"]
         ChanMappingGrid=self.DicoVariablePSF["ChanMappingGrid"]
         ChanMappingGridChan=self.DicoVariablePSF["ChanMappingGridChan"]
         RefFreq=self.RefFreq
@@ -251,8 +249,8 @@ class ClassPSFServer():
             for iMS in range(len(SumJonesChan)):
                 ind = np.where(ChanMappingGrid[iMS]==iChannel)[0]
                 channels = ChanMappingGridChan[iMS][ind]
-                ThisSumJonesChan[channels] += SumJonesChan[iMS][ind]
-                ThisSumJonesChanWeightSq[channels] += SumJonesChanWeightSq[iMS][ind]
+                ThisSumJonesChan[channels] += SumJonesChan[iMS][iFacet,0,ind]
+                ThisSumJonesChanWeightSq[channels] += SumJonesChan[iMS][iFacet,1,ind]
             
             #print "== ",iFacet,iChannel,np.sqrt(np.sum(np.array(ThisSumJonesChan))/np.sum(np.array(ThisSumJonesChanWeightSq)))
 

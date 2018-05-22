@@ -179,8 +179,8 @@ class ClassJones():
         if StrType == "Beam":
 
             if self.FacetMachine is not None:
-                if not(self.HasKillMSSols):
-                    print>>log, "  Getting Jones directions from Nones"
+                if not(self.HasKillMSSols) or self.GD["Beam"]["At"] == "facet":
+                    print>>log, "  Getting beam Jones directions from facets"
                     DicoImager = self.FacetMachine.DicoImager
                     NFacets = len(DicoImager)
                     self.ClusterCatBeam = self.FacetMachine.JonesDirCat
@@ -192,7 +192,7 @@ class ClassJones():
                     DicoClusterDirs["I"] = self.ClusterCatBeam.I
                     DicoClusterDirs["Cluster"] = self.ClusterCatBeam.Cluster
                 else:
-                    print>>log, "  Getting Jones directions from DDE-solutions"
+                    print>>log, "  Getting beam Jones directions from DDE solution tessels"
                     DicoClusterDirs = self.DicoClusterDirs_kMS
                     NDir = DicoClusterDirs["l"].size
                     self.ClusterCatBeam = np.zeros(
