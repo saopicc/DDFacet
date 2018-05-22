@@ -711,8 +711,8 @@ class ClassVisServer():
                     raise msw["error"]
                 if "weight" in msw:
                     num_valid_chunks += 1
-                wmax = max(wmax, msw["wmax"])
-                self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
+                    wmax = max(wmax, msw["wmax"])
+                    self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
         # save wmax to cache
         cPickle.dump(wmax,open(wmax_path, "w"))
         self.maincache.saveCache("wmax")
@@ -891,7 +891,7 @@ class ClassVisServer():
         x += xymax  # offset, since X grid starts at -xymax
         # convert to index array -- this gives the number of the uv-bin on the grid
         #index = msw.addSharedArray("index", (uv.shape[0], len(freqs)), np.int64)
-        index = np.zeros((uv.shape[0], len(freqs)), np.int64)
+        index = np.zeros((uv.shape[0], len(freqs)), np.int32)
         index[...] = y * npixx + x
         # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
         if nbands > 1:
