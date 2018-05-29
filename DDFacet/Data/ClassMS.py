@@ -1090,7 +1090,7 @@ class ClassMS():
                     ranew, decnew = first_ms.rarad, first_ms.decrad
                 which = "the common phase centre"
             else:
-                which = "%s %s"%self.ToRADEC
+                which = "%s %s"%tuple(self.ToRADEC)
                 SRa,SDec=self.ToRADEC
                 srah,sram,sras=SRa.split(":")
                 sdecd,sdecm,sdecs=SDec.split(":")

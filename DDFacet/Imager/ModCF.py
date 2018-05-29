@@ -266,6 +266,9 @@ def Give_dn(l0, m0, rad=1., order=4):
 
     dl = dl.flatten()
     dm = dm.flatten()
+    mll=np.max(np.abs((dl+l0)**2+(dm+m0)**2))
+    if mll>1.:
+        return 0., 0., np.ones((order+1, order+1), np.float32).flatten()
     y = np.sqrt(1-(dl+l0)**2-(dm+m0)**2)-np.sqrt(1-l0**2-m0**2)
     coef = ModFitPoly2D.polyfit2d(dl, dm, y, order=order)
     Corig = coef.copy()

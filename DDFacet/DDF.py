@@ -382,6 +382,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     retcode = report_error = 0
+
     try:
         main(OP, messages)
         print>>log, ModColor.Str(
