@@ -824,7 +824,7 @@ def main(options=None):
                               OutNameNoiseMap=options.OutNameNoiseMap,
                               options=options)
     MaskMachine.CreateMask()
-    #MaskMachine.giveBrightFaintMask()
+    MaskMachine.giveBrightFaintMask()
 
 if __name__=="__main__":
     read_options()

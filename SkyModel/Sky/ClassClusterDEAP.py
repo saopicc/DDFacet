@@ -181,22 +181,22 @@ class ClassCluster():
         #     x[:]=x0
         #     y[:]=y0
             
-    # def reinitPop(self,pop):
-    #     print>>log,"Initialise population"
-    #     x0,x1=self.x.min(),self.x.max()
-    #     y0,y1=self.y.min(),self.y.max()
-    #     N=len(pop)
-    #     pop0=pop[0:N/2]
-    #     pop1=pop[N/2:]
-    #     for iIndiv,Indiv in enumerate(pop0):
-    #         x,y=Indiv.reshape((2,self.nNode))
-    #         indSel=DDFacet.ToolsDir.GeneDist.GiveNonRedundantSample(self.S,self.nNode)
-    #         x[:]=self.x[indSel]
-    #         y[:]=self.y[indSel]
-    #     for Indiv in pop1:
-    #         x,y=Indiv.reshape((2,self.nNode))
-    #         x[:]=np.random.uniform(x0,x1,self.nNode)
-    #         y[:]=np.random.uniform(y0,y1,self.nNode)
+    def reinitPop2(self,pop):
+        print>>log,"Initialise population"
+        x0,x1=self.x.min(),self.x.max()
+        y0,y1=self.y.min(),self.y.max()
+        N=len(pop)
+        pop0=pop[0:N/2]
+        pop1=pop[N/2:]
+        for iIndiv,Indiv in enumerate(pop0):
+            x,y=Indiv.reshape((2,self.nNode))
+            indSel=DDFacet.ToolsDir.GeneDist.GiveNonRedundantSample(self.S,self.nNode)
+            x[:]=self.x[indSel]
+            y[:]=self.y[indSel]
+        for Indiv in pop1:
+            x,y=Indiv.reshape((2,self.nNode))
+            x[:]=np.random.uniform(x0,x1,self.nNode)
+            y[:]=np.random.uniform(y0,y1,self.nNode)
             
     def Cluster(self):
         random.seed(64)
@@ -206,7 +206,7 @@ class ClassCluster():
                          PolyCut=self.PolyCut, BigPolygon=self.BigPolygon)
 
         pop = toolbox.population(n=self.NPop)
-        self.reinitPop(pop)
+        self.reinitPop2(pop)
 
         # Numpy equality function (operators.eq) between two arrays returns the
         # equality element wise, which raises an exception in the if similar()
