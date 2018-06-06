@@ -1090,7 +1090,7 @@ class ClassMS():
                     ranew, decnew = first_ms.rarad, first_ms.decrad
                 which = "the common phase centre"
             else:
-                which = "%s %s"%self.ToRADEC
+                which = "%s %s"%tuple(self.ToRADEC)
                 SRa,SDec=self.ToRADEC
                 srah,sram,sras=SRa.split(":")
                 sdecd,sdecm,sdecs=SDec.split(":")
@@ -1270,6 +1270,7 @@ class ClassMS():
         ll.append("   - Frequency = %s MHz"%str(np.mean(self.ChanFreq)/1e6))
         ll.append("   - Wavelength = %5.2f meters"%(np.mean(self.wavelength_chan)))
         Freqs=3.e8/self.wavelength_chan.ravel()/1e6
+        ll.append("   - Channel frequencies = %s MHz"%(str((self.ChanFreq/1e6).tolist())))
         ll.append("   - Bandwidth = %5.2f MHz"%(np.max(Freqs)-np.min(Freqs)))
         ll.append("   - Time bin = %4.1f seconds"%(self.dt))
         ll.append("   - Total Integration time = %6.2f hours"%self.DTh)
