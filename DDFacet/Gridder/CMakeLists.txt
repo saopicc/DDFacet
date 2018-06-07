@@ -20,7 +20,7 @@ endif (${ENABLE_FAST_MATH})
 
 project(backend)
 #Find necessary modules
-find_package(PythonLibs REQUIRED)
+find_package(PythonLibs 2.7 REQUIRED)
 find_package(NumPy REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(RT REQUIRED)
