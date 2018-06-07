@@ -32,6 +32,10 @@ from DDFacet.ToolsDir import ModTaper
 from DDFacet.ToolsDir import ModFitPoly2D
 from DDFacet.ToolsDir import ModFFTW
 
+# np.seterr(all='raise')
+# import warnings
+# warnings.filterwarnings('error')
+
 
 F2 = scipy.fftpack.fft2
 iF2 = scipy.fftpack.ifft2
