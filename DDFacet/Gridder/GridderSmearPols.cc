@@ -217,22 +217,22 @@ namespace DDF {
       expstokes[i] = stokeslookup[polid];
       }
     bool done=false;
-    #define CALL_DEGRIDDER(STOKES, NVISPOL, NVISCORR, APPLYJONES)\
+    #define CALL_DEGRIDDER(STOKES, NVISPOL, NVISCORR)\
       {\
-      DDF::degridder::degridder<STOKES, NVISPOL, NVISCORR, APPLYJONES>(np_grid, np_vis, uvw, flags, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, LOptimisation, LSmear,np_ChanMapping);\
+      DDF::degridder::degridder<STOKES, NVISPOL, NVISCORR>(np_grid, np_vis, uvw, flags, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, LOptimisation, LSmear,np_ChanMapping);\
       done=true;\
       }
     using namespace DDF::degridder::policies;
     if (expstokes==svec{"I"})
       {
       if (inputcorr==svec{"XX", "XY", "YX", "YY"})
-	CALL_DEGRIDDER(gmode_corr_XXXYYXYY_from_I, 1, 4, DDF::degridder::policies::ApplyJones_4_Corr)
+	CALL_DEGRIDDER(gmode_corr_XXXYYXYY_from_I, 1, 4)
       else if (inputcorr==svec{"XX", "YY"})
-	CALL_DEGRIDDER(gmode_corr_XXYY_from_I, 1, 2, DDF::degridder::policies::ApplyJones_2_Corr)
+	CALL_DEGRIDDER(gmode_corr_XXYY_from_I, 1, 2)
       else if (inputcorr==svec{"RR", "RL", "LR", "LL"})
-	CALL_DEGRIDDER(gmode_corr_RRRLLRLL_from_I, 1, 4, DDF::degridder::policies::ApplyJones_4_Corr)
+	CALL_DEGRIDDER(gmode_corr_RRRLLRLL_from_I, 1, 4)
       else if (inputcorr==svec{"RR", "LL"})
-	CALL_DEGRIDDER(gmode_corr_RRLL_from_I, 1, 2, DDF::degridder::policies::ApplyJones_2_Corr)
+	CALL_DEGRIDDER(gmode_corr_RRLL_from_I, 1, 2)
       }
     if (!done)
       throw std::invalid_argument("Cannot convert input Stokes parameter to desired output correlations.");

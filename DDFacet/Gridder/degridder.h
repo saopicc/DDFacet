@@ -35,25 +35,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 namespace DDF{
   namespace degridder {
-    namespace policies {
-      using ApplyJonesType = void (*) (const DDEs::JonesServer &JS, const dcMat &corr_vis, dcmplx corr, dcMat &visBuff);
-      inline void ApplyJones_4_Corr(const DDEs::JonesServer &JS, const dcMat &corr_vis, dcmplx corr, dcMat &visBuff)
-	{
-	visBuff = JS.J0.times(corr_vis);
-	visBuff = visBuff.times(JS.J1H);
-	visBuff.scale(corr);
-	}
 
-      inline void ApplyJones_2_Corr(const DDEs::JonesServer &JS, const dcMat &corr_vis, dcmplx corr, dcMat &visBuff)
-	{
-	dcMat padded_corr_vis(corr_vis[0],0.,0.,corr_vis[1]);
-	visBuff = JS.J0.times(padded_corr_vis);
-	visBuff = visBuff.times(JS.J1H);
-	visBuff.scale(corr);
-	visBuff[1] = visBuff[3];
-	}
-
-
+    inline void ApplyJones(const DDEs::JonesServer &JS, const dcMat &corr_vis, dcmplx corr, dcMat &visBuff)
+    {
+        visBuff = JS.J0.times(corr_vis);
+        visBuff = visBuff.times(JS.J1H);
+        visBuff.scale(corr);
     }
 
     template<int nVisCorr> inline void subtractVis(fcmplx* __restrict__ visPtr, const dcMat &visBuff)
@@ -68,7 +55,7 @@ namespace DDF{
         visPtr[1] -= visBuff[3];
     }
 
-    template <StokesDegridType StokesDegrid, int nVisPol, int nVisCorr, policies::ApplyJonesType ApplyJones>
+    template <StokesDegridType StokesDegrid, int nVisPol, int nVisCorr>
     void degridder(
       const py::array_t<std::complex<float>, py::array::c_style>& grid,
       py::array_t<std::complex<float>, py::array::c_style>& vis,
