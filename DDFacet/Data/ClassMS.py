@@ -204,7 +204,7 @@ class ClassMS():
 
         if self.TaQL:
             t = t.query(self.TaQL)
-        return t
+        return t.sort("TIME")
 
     def GiveDate(self,tt):
         time_start = qa.quantity(tt, 's')
@@ -1090,7 +1090,7 @@ class ClassMS():
                     ranew, decnew = first_ms.rarad, first_ms.decrad
                 which = "the common phase centre"
             else:
-                which = "%s %s"%self.ToRADEC
+                which = "%s %s"%tuple(self.ToRADEC)
                 SRa,SDec=self.ToRADEC
                 srah,sram,sras=SRa.split(":")
                 sdecd,sdecm,sdecs=SDec.split(":")
@@ -1281,9 +1281,13 @@ class ClassMS():
         ss="\n".join(ll)+"\n"
         return ss
 
-    def radec2lm_scalar(self,ra,dec):
-        l = np.cos(dec) * np.sin(ra - self.rarad)
-        m = np.sin(dec) * np.cos(self.decrad) - np.cos(dec) * np.sin(self.decrad) * np.cos(ra - self.rarad)
+    def radec2lm_scalar(self,ra,dec,original=False):
+        if original:
+            ra0, dec0 = self.OriginalRadec
+        else:
+            ra0, dec0 = self.rarad, self.decrad
+        l = np.cos(dec) * np.sin(ra - ra0)
+        m = np.sin(dec) * np.cos(dec0) - np.cos(dec) * np.sin(dec0) * np.cos(ra - ra0)
         return l,m
 
 
@@ -1517,8 +1521,8 @@ class ClassMS():
         StrRA  = rad2hmsdms(ra1,Type="ra").replace(" ",":")
         StrDEC = rad2hmsdms(dec1,Type="dec").replace(" ",".")
         print>>log, "Rotate %s [Mode = %s]"%(",".join(RotateType),Sense)
-        print>>log, "     from [%s, %s]"%(StrRAOld,StrDECOld)
-        print>>log, "       to [%s, %s]"%(StrRA,StrDEC)
+        print>>log, "     from [%s, %s] [%f %f]"%(StrRAOld,StrDECOld,ra0,dec0)
+        print>>log, "       to [%s, %s] [%f %f]"%(StrRA,StrDEC,ra1,dec1)
         
         DDFacet.ToolsDir.ModRotate.Rotate2((ra0,dec0),(ra1,dec1),DATA["uvw"],DATA[DataFieldName],self.wavelength_chan,
                                            RotateType=RotateType)
@@ -1662,18 +1666,19 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     # now, at this point each entry in the list can still contain wildcards, and ":Fx:Dx" groups. Process it
     mslist = []
     for msspec in MSName:
-        regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N-M or *
+        regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
         # match :F and :D suffixes, if present. Don't regexes make your brain melt
         terms = msspec.split("//")
         msname = terms[0]
-        ddid_match = [ re.match("D("+regrp+")", x) for x in terms[1:] ]
-        field_match = [ re.match("F("+regrp+")", x) for x in terms[1:] ]
-        col_match = [ re.match("(.*_DATA)", x) for x in terms[1:]]
+        ddid_match = [ re.match("D("+regrp+")$", x) for x in terms[1:] ]
+        field_match = [ re.match("F("+regrp+")$", x) for x in terms[1:] ]
+        col_match = [ re.match("(.*_DATA)$", x) for x in terms[1:]]
         ddid_match = [ x for x in ddid_match if x is not None ]
         field_match = [ x for x in field_match if x is not None ]
         col_match = [ x for x in col_match if x is not None ]
         dgroup = ddid_match[-1].group(1) if ddid_match else None
-        fgroup = ddid_match[-1].group(1) if field_match else None
+        fgroup = field_match[-1].group(1) if field_match else None
+#        import pdb; pdb.set_trace();
         col = col_match[-1].group(1) if col_match else defaultColumn
         # now convert dgroup and fgroup into slice objects
         def groupToSlice (group):
