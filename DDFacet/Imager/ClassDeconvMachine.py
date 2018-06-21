@@ -209,10 +209,17 @@ class ClassImagerDeconv():
 
         self.ModelMachine=ModelMachine
 
-
+        # # if this is not set for these two mode we won't be able to use an InitDicoModel but we need a PSFServer
+        # # to pass to FreqMachine
+        # if self.GD["Deconv"]['Mode'] == 'Hogbom' or self.GD["Deconv"]["Mode"] == "WSCMS":
+        #     AllDegridFreqs = []
+        #     for i in self.VS.FreqBandChannelsDegrid.keys():
+        #         AllDegridFreqs.append(self.VS.FreqBandChannelsDegrid[i])
+        #     AllDegridFreqs = np.asarray(AllDegridFreqs).flatten()
+        #     self.ModelMachine.setFreqMachine(GridFreqs=self.VS.FreqBandCenters, DegridFreqs=AllDegridFreqs)
 
         self.ImageNoiseMachine=ClassImageNoiseMachine.ClassImageNoiseMachine(self.GD,self.ModelMachine,
-                                                                        DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
+                                                                        DegridFreqs=self.VS.FreqBandChannelsDegrid,
                                                                         GridFreqs=self.VS.FreqBandCenters,
                                                                         MainCache=self.VS.maincache)
         self.MaskMachine=ClassMaskMachine.ClassMaskMachine(self.GD)
@@ -254,6 +261,13 @@ class ClassImagerDeconv():
                 from DDFacet.Imager.MUFFIN import ClassImageDeconvMachineMUFFIN
                 self.DeconvMachine=ClassImageDeconvMachineMUFFIN.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
                 print>>log,"Using MUFFIN algorithm"
+            elif self.GD["Deconv"]["Mode"]=="WSCMS":
+                if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
+                    raise NotImplementedError("Multi-polarization is not supported in WSCMS")
+                from DDFacet.Imager.WSCMS import ClassImageDeconvMachineWSCMS
+                self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+                                                                                         **MinorCycleConfig)
+                print>> log, "Using WSCMS algorithm"
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])
             self.DeconvMachine.setMaskMachine(self.MaskMachine)
@@ -1016,6 +1030,13 @@ class ClassImagerDeconv():
                                " supported. Maybe you meant Output-StokesResidues"\
                                " instead?")
 
+        # This just keeps track of padded grid size for use in Hogbom-MultiScale (Can just use DicoImager instead? Is it passed in anywhere?)
+        if self.GD["Deconv"]["Mode"] == "WSCMS":
+            self.DicoImagesPSF["PaddedPSFInfo"] = {}
+            for iFacet in self.FacetMachinePSF.DicoImager.keys():
+                self.DicoImagesPSF["PaddedPSFInfo"][iFacet] = self.FacetMachinePSF.DicoImager[iFacet]["NpixFacetPadded"]
+
+
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
             self.FacetMachinePSF.releaseGrids()
@@ -1068,7 +1089,7 @@ class ClassImagerDeconv():
                 # Pass minor cycle specific options into Init as kwargs
                 self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
                                         approx=(sparsify > approximate_psf_above), cache=not sparsify,
-                                        GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
+                                        GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.FreqBandChannelsDegrid,
                                         RefFreq=self.VS.RefFreq)
                 deconvmachine_init = True
 
