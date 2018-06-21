@@ -52,6 +52,20 @@ namespace DDF{
 	visBuff.scale(corr);
 	visBuff[1] = visBuff[3];
 	}
+
+
+    }
+
+    template<int nVisCorr> inline void subtractVis(fcmplx* __restrict__ visPtr, const dcMat &visBuff)
+    {
+        for (auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)
+          visPtr[ThisPol] -= visBuff[ThisPol];
+    }
+
+    template<> inline void subtractVis<2>(fcmplx* __restrict__ visPtr, const dcMat &visBuff)
+    {
+        visPtr[0] -= visBuff[0];
+        visPtr[1] -= visBuff[3];
     }
 
     template <StokesDegridType StokesDegrid, int nVisPol, int nVisCorr, policies::ApplyJonesType ApplyJones>
@@ -260,8 +274,9 @@ namespace DDF{
 	    //auto Sem_mutex = GiveSemaphoreFromCell(doff_chan);
 	    /* Finally subtract visibilities from current residues */
 	    //sem_wait(Sem_mutex);
-	    for (auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)
-	      visPtr[ThisPol] -= visBuff[ThisPol];
+	    subtractVis<nVisCorr>(visPtr, visBuff);
+//	    for (auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)
+//	      visPtr[ThisPol] -= visBuff[ThisPol];
 	    //sem_post(Sem_mutex);
 	    }/*endfor vischan*/
 	    sem_post(Sem_mutex);

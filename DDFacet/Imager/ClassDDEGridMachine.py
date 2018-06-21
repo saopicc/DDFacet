@@ -599,10 +599,12 @@ class ClassDDEGridMachine():
         elif InterpMode=="Krigging":
             InterpMode=1
 
+        mode = self.GD["Comp"]["BDAJones"]
+
         if gridder:
-           BDAJonesMode = 2 if self.GD["Comp"]["BDAJones"] is not None else 1
+           BDAJonesMode = 2 if mode == 'grid' or mode == 'both' else 1
         else:
-           BDAJonesMode = 2 if self.GD["Comp"]["BDAJones"] == 'both' else 1
+           BDAJonesMode = 2 if mode == 'both' else 1
            
 
         #ParamJonesList=[MapJones,A0.astype(np.int32),A1.astype(np.int32),JonesMatrices.astype(np.complex64),idir]
