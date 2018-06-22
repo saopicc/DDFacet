@@ -170,6 +170,7 @@ namespace DDF {
       const int *p_ChanMapping=np_ChanMapping.data(0);
       for (size_t iBlock=0; iBlock<NTotBlocks; iBlock++)
 	{
+        JS.resetJonesServerCounter();
 	const int NRowThisBlock=NRowBlocks[iBlock]-2;
 	const size_t chStart = size_t(StartRow[0]),
 		    chEnd   = size_t(StartRow[1]);
