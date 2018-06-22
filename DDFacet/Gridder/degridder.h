@@ -254,8 +254,10 @@ namespace DDF{
 	    if (JS.DoApplyJones==1)
 	      ApplyJones(JS, corr_vis, corr, visBuff);
 	    else
-	      for(auto ThisPol=0; ThisPol<nVisCorr; ++ThisPol)
-		visBuff[ThisPol] = corr_vis[ThisPol]*corr;
+	    {
+		visBuff = corr_vis;
+		visBuff.scale(corr);
+	    }
 
 	    fcmplx* __restrict__ visPtr = visdata + doff;
 	    //auto Sem_mutex = GiveSemaphoreFromCell(doff_chan);
