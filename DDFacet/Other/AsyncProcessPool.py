@@ -759,11 +759,12 @@ class AsyncProcessPool (object):
         """Terminate worker threads"""
         if not self._started:
             return
-        if self.verbose > 1:
-            print>>log,"shutdown: asking TB to stop workers"
-        self._started = False
-        self._taras_exit_event.set()
-        self.restartWorkers()
+        if not self._termination_event.is_set():
+            if self.verbose > 1:
+                print>>log,"shutdown: asking TB to stop workers"
+            self._started = False
+            self._taras_exit_event.set()
+            self.restartWorkers()
         if self._taras_bulba:
 #            if self._taras_bulba.is_alive():
                 if self.verbose > 1:

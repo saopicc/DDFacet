@@ -156,14 +156,15 @@ class ClassImagerDeconv():
         DC = self.GD
         mslist = ClassMS.expandMSList(DC["Data"]["MS"],
                                       defaultDDID=DC["Selection"]["DDID"],
-                                      defaultField=DC["Selection"]["Field"])
+                                      defaultField=DC["Selection"]["Field"],
+                                      defaultColumn=None)
         AsyncProcessPool.init(ncpu=self.GD["Parallel"]["NCPU"],
                               affinity=self.GD["Parallel"]["Affinity"],
                               parent_affinity=self.GD["Parallel"]["MainProcessAffinity"],
                               verbose=self.GD["Debug"]["APPVerbose"],
                               pause_on_start=self.GD["Debug"]["PauseWorkers"])
 
-        self.VS = ClassVisServer.ClassVisServer(mslist,ColName=self.do_readcol and DC["Data"]["ColName"],
+        self.VS = ClassVisServer.ClassVisServer(mslist,ColName=DC["Data"]["ColName"] if self.do_readcol else None,
                                                 TChunkSize=DC["Data"]["ChunkHours"],
                                                 GD=self.GD)
 
@@ -1067,7 +1068,7 @@ class ClassImagerDeconv():
             if not deconvmachine_init:
                 # Pass minor cycle specific options into Init as kwargs
                 self.DeconvMachine.Init(PSFVar=self.DicoImagesPSF, PSFAve=self.PSFSidelobesAvg,
-                                        approx=(sparsify > approximate_psf_above), cache=not sparsify,
+                                        approx=(sparsify > approximate_psf_above), cache=False if sparsify else None,
                                         GridFreqs=self.VS.FreqBandCenters, DegridFreqs=self.VS.FreqBandChannelsDegrid[0],
                                         RefFreq=self.VS.RefFreq)
                 deconvmachine_init = True
@@ -1344,9 +1345,9 @@ class ClassImagerDeconv():
             Post-conditions: Dump out stokes residues to disk as requested in
             Output-StokesResidues, Stokes residues stored in self.DicoDirty
          """
-         print>>log, ModColor.Str("============================== Making Stokes residue maps ====================")
-         print>>log, ModColor.Str ("W.A.R.N.I.N.G: Stokes parameters other than I have not been deconvolved. Use these maps"
-                                  " only as a debugging tool.", col="yellow")
+         print>>log, ModColor.Str("============================== Making Stokes residual maps ====================")
+         print>>log, ModColor.Str ("WARNING: Stokes parameters other than I have not been deconvolved. Use these maps"
+                                  " only as a debugging tool")
 
          # tell the I/O thread to go load the first chunk
          self.VS.ReInitChunkCount()

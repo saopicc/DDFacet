@@ -14,23 +14,23 @@
 #include <cmath>
 namespace DDF {
   using namespace std;
- 
+
   #define I_FROM_XXXYYXYY (Vis[0]+Vis[3])*.5
   #define Q_FROM_XXXYYXYY (Vis[0]-Vis[3])*.5
   #define U_FROM_XXXYYXYY (Vis[1]+Vis[2])*.5
   #define V_FROM_XXXYYXYY -(Vis[1]-Vis[2])*.5i
 
-  #define I_FROM_XXYY (Vis[0]+Vis[1])*.5
-  #define Q_FROM_XXYY (Vis[0]-Vis[1])*.5
+  #define I_FROM_XXYY (Vis[0]+Vis[3])*.5
+  #define Q_FROM_XXYY (Vis[0]-Vis[3])*.5
 
-  #define I_FROM_RRLL (Vis[0]+Vis[1])*.5
-  #define V_FROM_RRLL (Vis[0]-Vis[1])*.5
+  #define I_FROM_RRLL (Vis[0]+Vis[3])*.5
+  #define V_FROM_RRLL (Vis[0]-Vis[3])*.5
 
   #define I_FROM_RRRLLRLL (Vis[0]+Vis[3])*.5
   #define Q_FROM_RRRLLRLL (Vis[1]+Vis[2])*.5
   #define U_FROM_RRRLLRLL -(Vis[1]-Vis[2])*.5i
   #define V_FROM_RRRLLRLL (Vis[0]-Vis[3])*.5
- 
+
   #define BUILD1(C0, SRC)\
   inline dcMat C0##_from_##SRC(const dcMat &Vis)\
     { return dcMat(C0##_FROM_##SRC,0,0,0); }
@@ -75,11 +75,11 @@ namespace DDF {
   // cleaning is supported in the future.
   //--------------------------------------------
   #define XXYY_FROM_I\
-    return dcMat(stokes_vis[0],stokes_vis[0],0,0);
+    return dcMat(stokes_vis[0],0,0,stokes_vis[0]);
   #define XXXYYXYY_FROM_I\
     return dcMat(stokes_vis[0],0,0,stokes_vis[0]);
   #define RRLL_FROM_I\
-    return dcMat(stokes_vis[0],stokes_vis[0],0,0);
+    return dcMat(stokes_vis[0],0,0,stokes_vis[0]);
   #define RRRLLRLL_FROM_I\
     return dcMat(stokes_vis[0],0,0,stokes_vis[0]);
 
@@ -98,4 +98,4 @@ namespace DDF {
     }
   }
 }
-#endif GRIDDER_STOKES_H
+#endif /*GRIDDER_STOKES_H*/

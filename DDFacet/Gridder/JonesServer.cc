@@ -93,7 +93,7 @@ namespace DDF {
 	}
       return Jout;
       }
-      
+
     JonesServer::JonesServer(py::list& LJones, double WaveLengthMeanIn){
       J0Beam.setUnity();
       J1Beam.setUnity();
@@ -102,19 +102,19 @@ namespace DDF {
       J0.setUnity(); J1.setUnity();
       WaveLengthMean=WaveLengthMeanIn;
       DoApplyJones=LJones.size();
-      
+
       if (DoApplyJones)
 	{
 	// KillMS solutions
 	//BH FIXME: needs comment and check on the layout of the solutions
-	auto npJonesMatrices = py::array_t<std::complex<float>, py::array::c_style>(LJones[0]); 
-	if (npJonesMatrices.ndim() == 6 && 
+	auto npJonesMatrices = py::array_t<std::complex<float>, py::array::c_style>(LJones[0]);
+	if (npJonesMatrices.ndim() == 6 &&
 	    npJonesMatrices.size() != 0) {
 	  ptrJonesMatrices=npJonesMatrices.data(0);
-	  JonesDims[0]=nt_Jones=npJonesMatrices.shape(0);
-	  JonesDims[1]=npJonesMatrices.shape(1);
-	  JonesDims[2]=npJonesMatrices.shape(2);
-	  JonesDims[3]=npJonesMatrices.shape(3);
+	  JonesDims[0]=nt_Jones=int(npJonesMatrices.shape(0));
+	  JonesDims[1]=int(npJonesMatrices.shape(1));
+	  JonesDims[2]=int(npJonesMatrices.shape(2));
+	  JonesDims[3]=int(npJonesMatrices.shape(3));
 	  auto timeMappingJonesMatricies = py::array_t<int, py::array::c_style>(LJones[1]);
 	  ptrTimeMappingJonesMatrices = timeMappingJonesMatricies.size() != 0 ? timeMappingJonesMatricies.data(0) : nullptr;
 	  ptrVisToJonesChanMapping_killMS=py::array_t<int, py::array::c_style>(LJones[10]).data(0);
@@ -128,17 +128,17 @@ namespace DDF {
 	  ptrVisToJonesChanMapping_killMS = nullptr;
 	  i_dir_kMS = 0;
 	}
-	
+
 	//E-Jones solutions
 	//BH FIXME: needs comment and check on the layout of the solutions
 	auto npJonesMatrices_Beam = py::array_t<std::complex<float>, py::array::c_style>(LJones[2]);
 	if (npJonesMatrices_Beam.ndim() == 6 &&
 	    npJonesMatrices_Beam.size() != 0){
 	  ptrJonesMatrices_Beam=npJonesMatrices_Beam.data(0);
-	  JonesDims_Beam[0]=npJonesMatrices_Beam.shape(0);
-	  JonesDims_Beam[1]=npJonesMatrices_Beam.shape(1);
-	  JonesDims_Beam[2]=npJonesMatrices_Beam.shape(2);
-	  JonesDims_Beam[3]=npJonesMatrices_Beam.shape(3);
+	  JonesDims_Beam[0]=int(npJonesMatrices_Beam.shape(0));
+	  JonesDims_Beam[1]=int(npJonesMatrices_Beam.shape(1));
+	  JonesDims_Beam[2]=int(npJonesMatrices_Beam.shape(2));
+	  JonesDims_Beam[3]=int(npJonesMatrices_Beam.shape(3));
 	  auto npTimeMappingJonesMatrices_Beam  = py::array_t<int, py::array::c_style>(LJones[3]);
 	  ptrTimeMappingJonesMatrices_Beam = npTimeMappingJonesMatrices_Beam.size() != 0 ? npTimeMappingJonesMatrices_Beam.data(0) : nullptr;
 	  ApplyJones_Beam = true;
@@ -154,23 +154,24 @@ namespace DDF {
 	}
 	if (not (ApplyJones_Beam || ApplyJones_killMS))
 	  throw std::runtime_error("Jones matricies specified but neither E or DD Jones are applied. This is a bug!");
-	  
+
 	auto A0 = py::array_t<int, py::array::c_style>(LJones[4]);
 	ptrA0 = A0.size() != 0 ? A0.data(0) : nullptr;
 	auto A1 = py::array_t<int, py::array::c_style>(LJones[5]);
 	ptrA1 = A1.size() != 0 ? A1.data(0) : nullptr;
-	
+
 	auto coefsInterp = py::array_t<float, py::array::c_style>(LJones[7]);
 	ptrCoefsInterp = coefsInterp.size() != 0 ? coefsInterp.data(0) : nullptr;
-	
+
 	ModeInterpolation=py::array_t<int32_t,py::array::c_style>(LJones[9]).data(0)[0];
-	
+	DoApplyJones=py::array_t<int32_t,py::array::c_style>(LJones[9]).data(0)[1];
+
 	auto npAlphaReg_killMS= py::array_t<float, py::array::c_style>(LJones[12]);
 	if (npAlphaReg_killMS.ndim() == 2 &&
 	    npAlphaReg_killMS.shape(0) > 0 && npAlphaReg_killMS.shape(1) > 0){
 	  ptrAlphaReg_killMS = npAlphaReg_killMS.data(0);
 	  Has_AlphaReg_killMS = (npAlphaReg_killMS.shape(0) > 0);
-	  na_AlphaReg = npAlphaReg_killMS.shape(1);
+	  na_AlphaReg = int(npAlphaReg_killMS.shape(1));
 	} else {
 	  ptrAlphaReg_killMS = nullptr;
 	  Has_AlphaReg_killMS = false;
@@ -189,31 +190,24 @@ namespace DDF {
 	}
       }
 
-    void JonesServer::updateJones(size_t irow, size_t visChan, const double *uvwPtr, bool EstimateWeight, bool DoApplyAlphaRegIn){
+    bool JonesServer::updateJones(size_t irow, size_t visChan, const double *uvwPtr, bool EstimateWeight, bool DoApplyAlphaRegIn){
       int i_ant0=ptrA0[irow];
       int i_ant1=ptrA1[irow];
       // MR FIXME
       bool DoApplyAlphaReg = (DoApplyAlphaRegIn && Has_AlphaReg_killMS);
       DoApplyAlphaReg=false;
 
-      if (ApplyJones_Beam&&ApplyJones_killMS){
+      bool baseline_changed = i_ant0 != CurrentJones_ant0 || i_ant1 != CurrentJones_ant1;
+      bool SomeJonesHaveChanged = false;
+      CurrentJones_ant0 = i_ant0;
+      CurrentJones_ant1 = i_ant1;
+
+      if (ApplyJones_Beam)
+        {
 	int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
 	int i_JonesChan=ptrVisToJonesChanMapping_Beam[visChan];
-	bool SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&&(CurrentJones_Beam_Chan==i_JonesChan);
-	i_t=ptrTimeMappingJonesMatrices[irow];
-	i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
-	bool SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&&(CurrentJones_kMS_Chan==i_JonesChan);
-	if(SameAsBefore_Beam&&SameAsBefore_kMS) return;
-	}
-
-      bool SomeJonesHaveChanged=false;
-
-      if (ApplyJones_Beam){
-	int i_t=ptrTimeMappingJonesMatrices_Beam[irow];
-	int i_JonesChan=ptrVisToJonesChanMapping_Beam[visChan];
-	bool SameAsBefore_Beam=(CurrentJones_Beam_Time==i_t)&&(CurrentJones_Beam_Chan==i_JonesChan);
-
-	if (!SameAsBefore_Beam){
+	if( baseline_changed || CurrentJones_Beam_Time!=i_t || CurrentJones_Beam_Chan!=i_JonesChan)
+	  {
 	  J0Beam = GiveJones(ptrJonesMatrices_Beam, JonesDims_Beam, ptrCoefsInterp, i_t, i_ant0, i_dir_Beam, i_JonesChan, ModeInterpolation);
 	  J1Beam = GiveJones(ptrJonesMatrices_Beam, JonesDims_Beam, ptrCoefsInterp, i_t, i_ant1, i_dir_Beam, i_JonesChan, ModeInterpolation);
 	  CurrentJones_Beam_Time=i_t;
@@ -222,12 +216,12 @@ namespace DDF {
 	  }
 	}
 
-      if (ApplyJones_killMS){
+      if (ApplyJones_killMS)
+        {
 	int i_t=ptrTimeMappingJonesMatrices[irow];
 	int i_JonesChan=ptrVisToJonesChanMapping_killMS[visChan];
-	bool SameAsBefore_kMS=(CurrentJones_kMS_Time==i_t)&&(CurrentJones_kMS_Chan==i_JonesChan);
-
-	if(!SameAsBefore_kMS){
+	if( baseline_changed || CurrentJones_kMS_Time!=i_t || CurrentJones_kMS_Chan!=i_JonesChan)
+	{
 	  J0kMS = GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant0, i_dir_kMS, i_JonesChan, ModeInterpolation);
 	  J1kMS = GiveJones(ptrJonesMatrices, JonesDims, ptrCoefsInterp, i_t, i_ant1, i_dir_kMS, i_JonesChan, ModeInterpolation);
 	  if(DoApplyAlphaReg){
@@ -294,12 +288,14 @@ namespace DDF {
 	BB*=BB;
 	J0H=J0.hermitian();
 	J1H=J1.hermitian();
-//	std::fprintf(stderr,"Jones changed: R%dCh%d %f %f\n", (int)irow, (int)visChan, J0.v[0].real(), J0.v[0].imag());
+        return true;
 	}
+      return false;
       }
 
     void JonesServer::resetJonesServerCounter()
       {
+      CurrentJones_ant0=CurrentJones_ant1=-1;
       CurrentJones_Beam_Time=CurrentJones_Beam_Chan=-1;
       CurrentJones_kMS_Time=CurrentJones_kMS_Chan=-1;
       }

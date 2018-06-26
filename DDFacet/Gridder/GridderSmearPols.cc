@@ -21,7 +21,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "GridderSmearPols.h"
 
 namespace DDF {
-  void pyAccumulateWeightsOntoGrid(py::array_t<double, py::array::c_style>& grid, 
+  void pyAccumulateWeightsOntoGrid(py::array_t<double, py::array::c_style>& grid,
 				  const py::array_t<float, py::array::c_style>& weights,
 				  const py::array_t<long int, py::array::c_style>& index)
   {
@@ -29,7 +29,7 @@ namespace DDF {
     double* pgrid = grid.mutable_data<double>(0);
     const float* pweights = weights.data<float>(0);
     const long int* pindex = index.data<long int>(0);
-    
+
     for(size_t i=0; i<n; ++i)
       {
       float w = pweights[i];
@@ -40,6 +40,27 @@ namespace DDF {
 	sem_wait(psem);
 	pgrid[igrid] += w;
 	sem_post(psem);
+	}
+      }
+  }
+
+  // semaphore-free version for use in non-parallel contexts
+  void pyAccumulateWeightsOntoGridNoSem(py::array_t<double, py::array::c_style>& grid,
+				  const py::array_t<float, py::array::c_style>& weights,
+				  const py::array_t<long int, py::array::c_style>& index)
+  {
+    size_t n = weights.shape(0);
+    double* pgrid = grid.mutable_data<double>(0);
+    const float* pweights = weights.data<float>(0);
+    const long int* pindex = index.data<long int>(0);
+
+    for(size_t i=0; i<n; ++i)
+      {
+      float w = pweights[i];
+      if (w!=0)
+	{
+	size_t igrid = size_t(pindex[i]);
+	pgrid[igrid] += w;
 	}
       }
   }
@@ -158,8 +179,8 @@ namespace DDF {
 			    py::array_t<std::complex<float>, py::array::c_style>& np_vis,
 			    const py::array_t<double, py::array::c_style>& uvw,
 			    const py::array_t<bool, py::array::c_style>& flags,
-			    py::array_t<double, py::array::c_style>& sumwt,
-			    bool dopsf,
+			    py::array_t<double, py::array::c_style>& /*sumwt*/,
+			    bool /*dopsf*/,
 			    const py::list& Lcfs,
 			    const py::list& LcfsConj,
 			    const py::array_t<double, py::array::c_style>& WInfos,
@@ -168,7 +189,7 @@ namespace DDF {
 			    const py::list& Lmaps,
 			    py::list& LJones,
 			    const py::array_t<int32_t, py::array::c_style>& SmearMapping,
-			    const py::array_t<bool, py::array::c_style>& Sparsification,
+			    const py::array_t<bool, py::array::c_style>& /*Sparsification*/,
 			    const py::list& LOptimisation,
 			    const py::list& LSmear,
 			    const py::array_t<int, py::array::c_style>& np_ChanMapping,
@@ -196,22 +217,22 @@ namespace DDF {
       expstokes[i] = stokeslookup[polid];
       }
     bool done=false;
-    #define CALL_DEGRIDDER(STOKES, NVISPOL, NVISCORR, APPLYJONES)\
+    #define CALL_DEGRIDDER(STOKES, NVISPOL, NVISCORR)\
       {\
-      DDF::degridder::degridder<STOKES, NVISPOL, NVISCORR, APPLYJONES>(np_grid, np_vis, uvw, flags, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, LOptimisation, LSmear,np_ChanMapping);\
+      DDF::degridder::degridder<STOKES, NVISPOL, NVISCORR>(np_grid, np_vis, uvw, flags, Lcfs, LcfsConj, WInfos, increment, freqs, Lmaps, LJones, SmearMapping, LOptimisation, LSmear,np_ChanMapping);\
       done=true;\
       }
     using namespace DDF::degridder::policies;
     if (expstokes==svec{"I"})
       {
       if (inputcorr==svec{"XX", "XY", "YX", "YY"})
-	CALL_DEGRIDDER(gmode_corr_XXXYYXYY_from_I, 1, 4, DDF::degridder::policies::ApplyJones_4_Corr)
+	CALL_DEGRIDDER(gmode_corr_XXXYYXYY_from_I, 1, 4)
       else if (inputcorr==svec{"XX", "YY"})
-	CALL_DEGRIDDER(gmode_corr_XXYY_from_I, 1, 2, DDF::degridder::policies::ApplyJones_2_Corr)
+	CALL_DEGRIDDER(gmode_corr_XXYY_from_I, 1, 2)
       else if (inputcorr==svec{"RR", "RL", "LR", "LL"})
-	CALL_DEGRIDDER(gmode_corr_RRRLLRLL_from_I, 1, 4, DDF::degridder::policies::ApplyJones_4_Corr)
+	CALL_DEGRIDDER(gmode_corr_RRRLLRLL_from_I, 1, 4)
       else if (inputcorr==svec{"RR", "LL"})
-	CALL_DEGRIDDER(gmode_corr_RRLL_from_I, 1, 2, DDF::degridder::policies::ApplyJones_2_Corr)
+	CALL_DEGRIDDER(gmode_corr_RRLL_from_I, 1, 2)
       }
     if (!done)
       throw std::invalid_argument("Cannot convert input Stokes parameter to desired output correlations.");
@@ -222,6 +243,8 @@ namespace DDF {
     m.doc() = "DDFacet Directional Dependent BDA gridding module";
     m.def("pyAccumulateWeightsOntoGrid",
 	  &pyAccumulateWeightsOntoGrid);
+    m.def("pyAccumulateWeightsOntoGridNoSem",
+	  &pyAccumulateWeightsOntoGridNoSem);
     m.def("pyGridderWPol",
 	  &pyGridderWPol);
     m.def("pyDeGridderWPol",

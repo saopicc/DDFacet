@@ -312,7 +312,7 @@ def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
       Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
   return Out,in2
 
-def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None,Out=None):
+def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None,Out=None,Gauss=None):
     # a drop-in replacement for ConvolveGaussianScipy which uses
     # _convolveSingleGaussianNP . The factor sqrt(2) here in 'pixel
     # size' is a fudge to make the two routines agree: the
@@ -328,10 +328,15 @@ def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None,Out=None):
         GaussPar=(Sig,Sig,0)
     for ch in range(nch):
         # replacing NP->FFTW.  See discussion in https://github.com/cyriltasse/DDFacet/issues/463
-        Aout,PSF=_convolveSingleGaussianFFTW(dict,'in','out',ch,np.sqrt(2),GaussPar,return_gaussian=True)
+        Aout,PSF=_convolveSingleGaussianFFTW(dict,'in','out',ch,np.sqrt(2),GaussPar,Gauss=Gauss,return_gaussian=True)
         ### this should not be necessary: _convolveSingleGaussianFFTW() already stores to dict['out'][ch], which is Out[ch]
         # Out[ch,:,:,:]=Aout
     return Out,PSF
+
+def GiveConvolvingGaussianWrapper(shape, GaussPars):
+    """Returns just the gaussian that would be used by ConvolveGaussianWrapper"""
+    return GiveConvolvingGaussian(shape, np.sqrt(2), GaussPars)
+
 
 def ConvolveGaussianSimpleWrapper(Ain0, CellSizeRad=1.0, Sig=1.0, GaussPars=None):
     nch,npol,_,_=Ain0.shape
@@ -356,6 +361,25 @@ def learnFFTWWisdom(npix,dtype=np.float32):
         a = pyfftw.interfaces.numpy_fft.fft2(test, overwrite_input=True, threads=1)
         b = pyfftw.interfaces.numpy_fft.ifft2(a, overwrite_input=True, threads=1)
 
+
+def GiveConvolvingGaussian(shape, CellSizeRad, GaussPars_ch, Normalise=False):
+    """
+    Computes padded Gaussian convolution kernel,for use in _convolveSingleGaussianFFTW
+    """
+
+    npol, npix_y, npix_x = shape
+    assert npix_y == npix_x, "Only supports square grids at the moment"
+    pad_edge = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
+                               2.0) * 2),0)
+    PSF = np.pad(GiveGauss(npix_x, CellSizeRad, GaussPars_ch, parallel=True),
+                 ((pad_edge//2,pad_edge//2),(pad_edge//2,pad_edge//2)),
+                 mode="constant")
+
+    if Normalise:
+        PSF /= np.sum(PSF)
+    return PSF
+
+
 # FFTW-based convolution
 def _convolveSingleGaussianFFTW(shareddict,
                                 field_in,
@@ -363,6 +387,7 @@ def _convolveSingleGaussianFFTW(shareddict,
                                 ch,
                                 CellSizeRad,
                                 GaussPars_ch,
+                                Gauss=None,
                                 Normalise = False,
                                 nthreads = 1,
                                 return_gaussian = False):
@@ -375,6 +400,7 @@ def _convolveSingleGaussianFFTW(shareddict,
        @param ch: index of channel to convolve
        @param CellSizeRad: pixel size in radians of the gaussian in image space
        @param nthreads: number of threads to use in FFTW
+       @param Gauss: if set, Gaussian to use (has been precomputed)
        @param Normalize: Normalize the gaussian amplitude
        @param return_gaussian: return the convolving Gaussian as well
     """
@@ -397,16 +423,14 @@ def _convolveSingleGaussianFFTW(shareddict,
     Ain = shareddict[field_in][ch]
     Aout = shareddict[field_out][ch]
     T.timeit("init %d"%ch)
+    if Gauss is not None:
+        PSF = Gauss
+    else:
+        PSF = GiveConvolvingGaussian(Ain.shape, CellSizeRad, GaussPars_ch, Normalise=Normalise)
     npol, npix_y, npix_x = Ain.shape
-    assert npix_y == npix_x, "Only supports square grids at the moment"
     pad_edge = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
                                2.0) * 2),0)
-    PSF = np.pad(GiveGauss(npix_x, CellSizeRad, GaussPars_ch, parallel=True),
-                 ((pad_edge//2,pad_edge//2),(pad_edge//2,pad_edge//2)),
-                 mode="constant")
 
-    if Normalise:
-        PSF /= np.sum(PSF)
     T.timeit("givegauss %d"%ch)
     fPSF = pyfftw.interfaces.numpy_fft.rfft2(iFs(PSF),
                                              overwrite_input=True,
@@ -506,11 +530,11 @@ def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,G
     Aout = shareddict[field_out]
     # single channel? Handle serially
     if nch == 1:
-        return ConvolveGaussian(shareddict, field_in, field_out, 0, CellSizeRad, GaussPars[0], Normalise)
+        return ConvolveGaussian(shareddict, field_in, field_out, 0, CellSizeRad, GaussPars[0], None, Normalise)
 
     jobid = "convolve:%s:%s:" % (field_in, field_out)
     for ch in range(nch):
-        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW_noret, args=(shareddict.readwrite(), field_in, field_out, ch, CellSizeRad, GaussPars[ch], Normalise))
+        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW_noret, args=(shareddict.readwrite(), field_in, field_out, ch, CellSizeRad, GaussPars[ch], None, Normalise))
     APP.awaitJobResults(jobid+"*") #, progress="Convolving")
 
     return Aout

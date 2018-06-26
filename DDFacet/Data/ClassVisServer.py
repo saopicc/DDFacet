@@ -50,7 +50,7 @@ def test():
 class ClassVisServer():
 
     def __init__(self, MSList, GD=None,
-                 ColName="DATA",           # if None, no data column is read
+                 ColName=None,       # None if no data is read (only written)
                  TChunkSize=1,             # chunk size, in hours
                  LofarBeam=None,
                  AddNoiseJy=None):
@@ -74,9 +74,9 @@ class ClassVisServer():
         self.Robust = GD["Weight"]["Robust"]
         self.Super = GD["Weight"]["SuperUniform"]
         self.VisWeights = None
-
-        self.CountPickle = 0
+        
         self.ColName = ColName
+        self.CountPickle = 0
         self.DicoSelectOptions = GD["Selection"]
         self.TaQL = self.DicoSelectOptions.get("TaQL", None)
         self.LofarBeam = LofarBeam
@@ -124,16 +124,17 @@ class ClassVisServer():
 
         for msspec in self.MSList:
             if type(msspec) is not str:
-                msname, ddid, field = msspec
+                msname, ddid, field, column = msspec
             else:
-                msname, ddid, field = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"]
+                msname, ddid, field, column = msspec, self.DicoSelectOptions["DDID"], self.DicoSelectOptions["Field"], self.ColName
             MS = ClassMS.ClassMS(
-                msname, Col=self.ColName, DoReadData=False,
+                msname, Col=column or self.ColName, DoReadData=False,
                 AverageTimeFreq=(1, 3),
                 Field=field, DDID=ddid, TaQL=self.TaQL,
                 TimeChunkSize=self.TMemChunkSize, ChanSlice=chanslice,
                 GD=self.GD, ResetCache=self.GD["Cache"]["Reset"],
-                DicoSelectOptions = self.DicoSelectOptions)
+                DicoSelectOptions = self.DicoSelectOptions,
+                first_ms=self.ListMS[0] if self.ListMS else None)
             if MS.empty:
                 continue
             self.ListMS.append(MS)
@@ -700,6 +701,7 @@ class ClassVisServer():
         APP.awaitJobCounter(self._weightjob_counter, progress="Load weights")
         self._weight_dict.reload()
         wmax = self._uvmax = 0
+        num_valid_chunks = 0
         # now work out weight grid sizes, etc.
         for ims, ms in enumerate(self.ListMS):
             msweights = self._weight_dict[ims]
@@ -707,8 +709,10 @@ class ClassVisServer():
                 msw = msweights[ichunk]
                 if "error" in msw:
                     raise msw["error"]
-                wmax = max(wmax, msw["wmax"])
-                self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
+                if "weight" in msw:
+                    num_valid_chunks += 1
+                    wmax = max(wmax, msw["wmax"])
+                    self._uvmax = max(self._uvmax, msw["uvmax_wavelengths"])
         # save wmax to cache
         cPickle.dump(wmax,open(wmax_path, "w"))
         self.maincache.saveCache("wmax")
@@ -739,13 +743,14 @@ class ClassVisServer():
             print>> log, "Calculating imaging weights on an [%i,%i]x%i grid with cellsize %g" % (npixx, npixy, nbands, cell)
             grid0 = self._weight_grid.addSharedArray("grid", (nbands, npix), np.float64)
             # now run parallel jobs to accumulate weights
+            parallel = num_valid_chunks > 1
             for ims, ms in enumerate(self.ListMS):
                 for ichunk in xrange(len(ms.getChunkRow0Row1())):
                     if "weight" in self._weight_dict[ims][ichunk]:
                         APP.runJob("AccumWeights:%d:%d" % (ims, ichunk), self._accumulateWeights_handler,
                                    args=(self._weight_grid.readonly(),
                                          self._weight_dict[ims][ichunk].readwrite(),
-                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax),
+                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, parallel),
                                    counter=self._weightjob_counter, collect_result=False)
             # wait for results
             APP.awaitJobCounter(self._weightjob_counter, progress="Accumulate weights")
@@ -780,7 +785,7 @@ class ClassVisServer():
             for ichunk, (row0, row1) in enumerate(ms.getChunkRow0Row1()):
                 ms.getChunkCache(row0, row1).saveCache("ImagingWeights.npy")
 
-    def _loadWeights_handler(self, msw, ims, ichunk, wmax_only=False, reraise=False):
+    def _loadWeights_handler(self, msw, ims, ichunk, wmax_only=False):
         """If wmax_only is True, then don't actually read or compute weighs -- only read UVWs
         and FLAGs to get wmax"""
         msname = "MS %d chunk %d"%(ims, ichunk)
@@ -886,7 +891,7 @@ class ClassVisServer():
         x += xymax  # offset, since X grid starts at -xymax
         # convert to index array -- this gives the number of the uv-bin on the grid
         #index = msw.addSharedArray("index", (uv.shape[0], len(freqs)), np.int64)
-        index = np.zeros((uv.shape[0], len(freqs)), np.int64)
+        index = np.zeros((uv.shape[0], len(freqs)), np.int32)
         index[...] = y * npixx + x
         # if we're in per-band weighting mode, then adjust the index to refer to each band's grid
         if nbands > 1:
@@ -896,7 +901,7 @@ class ClassVisServer():
         index[weights == 0] = 0
         return index
 
-    def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax):
+    def _accumulateWeights_handler (self, wg, msw, ims, ichunk, freqs, cell, npix, npixx, nbands, xymax, parallel=False):
         msname = "MS %d chunk %d"%(ims, ichunk)
         try:
             ms = self.ListMS[ims]
@@ -904,7 +909,10 @@ class ClassVisServer():
             weights = msw["weight"]
             index = self._uv_to_index(ims, msw["uv"], weights, freqs, cell, npix, npixx, nbands, xymax)
             msw.delete_item("flags")
-            _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
+            if parallel:
+                _pyGridderSmearPols.pyAccumulateWeightsOntoGrid(wg["grid"], weights.ravel(), index.ravel())
+            else:
+                _pyGridderSmearPols.pyAccumulateWeightsOntoGridNoSem(wg["grid"], weights.ravel(), index.ravel())
         except Exception,exc:
             print>> log, ModColor.Str("Error accumulating weights from %s:"%msname)
             for line in traceback.format_exc().split("\n"):
@@ -1032,6 +1040,7 @@ class ClassVisServer():
                 if "error" in msw:
                     raise RuntimeError("weights computation failed for one or more MSs")
                 if "weight" not in msw:
+                    file(msw["cachepath"], 'w').truncate(0)
                     continue
 
                 wmax = max(wmax, msw["wmax"])
@@ -1039,11 +1048,11 @@ class ClassVisServer():
 
                 # in Natural mode, we're done: dump weights out
                 if self.Weighting == "natural":
-                    self._finalizeWeights_handler(None, msw, ims, ichunk, 0, reraise=True)
+                    self._finalizeWeights_handler(None, msw, ims, ichunk, 0)
                 # else accumulate onto uv grid
                 else:
                     self._accumulateWeights_handler(self._weight_grid, msw,
-                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, reraise=True)
+                                         ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax)
                     # delete to save memory
                     for field in "weight", "uv", "flags", "index":
                         if field in msw:
@@ -1077,11 +1086,12 @@ class ClassVisServer():
                     msw = msweights[ichunk]
                     if msw["null"]:
                         print>> log, "skipping weights %d.%d (null)" % (ims, ichunk)
+                        file(msw["cachepath"], 'w').truncate(0)
                         continue
                     print>> log, "reloading weights %d.%d" % (ims, ichunk)
                     self._loadWeights_handler(msw, ims, ichunk, self._ignore_vis_weights)
                     self._finalizeWeights_handler(self._weight_grid, msw,
-                                                      ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax, reraise=True)
+                                                      ims, ichunk, ms.ChanFreq, cell, npix, npixx, nbands, xymax)
 
             if self._weight_grid is not None:
                 self._weight_grid.delete()
