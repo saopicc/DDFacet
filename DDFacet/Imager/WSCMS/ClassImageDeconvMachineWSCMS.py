@@ -247,11 +247,25 @@ class ClassImageDeconvMachine():
         x0d, x1d, y0d, y1d = Aedge
         x0p, x1p, y0p, y1p = Bedge
 
-        # Subtract from each channel/band
+        # vmin = self._Dirty[0, 0, x0d:x1d, y0d:y1d].min()
+        # vmax = self._Dirty[0, 0, x0d:x1d, y0d:y1d].max()
+        # # Subtract from each channel/band
+        # import matplotlib.pyplot as plt
+        # plt.figure('SM')
+        # plt.imshow(LocalSM[0, 0, x0p:x1p, y0p:y1p], vmin=vmin, vmax=vmax)
+        # plt.colorbar()
+        # plt.figure('Dirty before')
+        # plt.imshow(self._Dirty[0, 0, x0d:x1d, y0d:y1d], vmin=vmin, vmax=vmax)
+        # plt.colorbar()
         self._Dirty[:, :, x0d:x1d, y0d:y1d] -= LocalSM[:, :, x0p:x1p, y0p:y1p]
+        # plt.figure('Dirty after')
+        # plt.imshow(self._Dirty[0, 0, x0d:x1d, y0d:y1d], vmin=vmin, vmax=vmax)
+        # plt.colorbar()
+        # plt.show()
+        # plt.close()
         # Subtract from the average
         if self.MultiFreqMode:  # If multiple frequencies are present construct the weighted mean
-            self._MeanDirty[0, :, x0d:x1d, y0d:y1d] -= np.sum(LocalSM[:, :, x0p:x1p, y0p:y1p] * self.WeightsChansImages,
+            self._MeanDirty[:, 0, x0d:x1d, y0d:y1d] -= np.sum(LocalSM[:, :, x0p:x1p, y0p:y1p] * self.WeightsChansImages,
                                                               axis=0)  # Sum over freq
         else:
             self._MeanDirty = self._Dirty
@@ -405,9 +419,11 @@ class ClassImageDeconvMachine():
                     # If the delta scale is found then self._Dirty and
                     # self._MeanDirty have already had the components subtracted from them so we don't need to do
                     # anything further.
+                    #print "Flux at start = ", ThisFlux
                     Mdeltas, FacetComponentList, sigma = self.ModelMachine.do_minor_loop(x, y, self._Dirty,
                                                          self._MeanDirty, self._JonesNorm,
                                                          self.WeightsChansImages, ThisFlux, StopFlux)
+                    #print "Scale = ", sigma
 
                     # convolve scale model with PSF and subtract from residual (if not delta scale)
                     if sigma != self.ModelMachine.ScaleMachine.sigmas[0]:
@@ -426,20 +442,24 @@ class ClassImageDeconvMachine():
                             # add components onto facet grid analytically
                             for xy in FacetComponentList[iFacet]:
                                 x, y = xy
-                                amp = np.atleast_1d(Mdeltas[:, :, x, y].squeeze())
+                                #I = np.argwhere(self.ModelMachine.ScaleMachine.sigmas == sigma).squeeze()
+                                #print "Volume norm = ", 1.0/self.ModelMachine.ScaleMachine.VolumeNorms[I]
+                                amp = np.atleast_1d(Mdeltas[:, :, x, y].squeeze()) #/self.ModelMachine.ScaleMachine.VolumeNorms[I]
                                 # x and y are pixel coordinates in the image. We need to convert them to coordinates in the
                                 # padded facet so first convert to coordinates in facet relative to facet centre
                                 x -= (xc - 1)
                                 y -= (yc - 1)
                                 FT_SM += self.ModelMachine.ScaleMachine.FTMachine.GaussianSymmetricFT(sigma, x0=x, y0=y,
                                                                                                       amp=amp, cube=True)
-
                             # convolve sky model with PSF
                             SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, FT_SM)
 
                             # subtract facet model
                             self.SubStep((xc - 1, yc - 1), SM)  # again with the -1!!!!
 
+                    x, y, ThisFluxEnd = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs,
+                                                           Mask=self.MaskArray)
+                    #print "Flux at end = ", ThisFluxEnd
                 else:  # kept this for now to make sure old tests pass
                     # Get the JonesNorm
                     JonesNorm = (self._JonesNorm[:, :, x, y]).reshape((self.Nchan, self.Npol, 1, 1))

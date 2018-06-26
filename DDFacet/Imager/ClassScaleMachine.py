@@ -78,6 +78,9 @@ class ClassScaleMachine(object):
         # get the Gaussian pars, volume factors and FWHMs corresponding to dictionary functions
         self.set_kernels()
 
+        # for scale dependent masking
+        self.ScaleMaskArray = {}
+
         # set the scale and facet dependent gains
         self.set_gains()
 
@@ -139,6 +142,8 @@ class ClassScaleMachine(object):
             self.volumes[i] = 2*np.pi*self.sigmas[i]**2  # volume = normalisation constant of 2D Gaussian
 
             print>>log, "scale %i kernel peak = %f" % (i, 1.0/self.volumes[i])
+            print>> log, "scale %i sigma = %f" % (i, self.sigmas[i])
+        self.VolumeNorms = self.volumes/self.volumes[0]
         return
 
     def set_gains(self):

@@ -72,6 +72,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             self.CurrentScale = 999999
             # Initialise current facet variable
             self.CurrentFacet = 999999
+
         else:
             # we need to keep track of what the sigma value of the delta scale corresponds to
             # even if we don't do multiscale (because we need it in GiveModelImage)
@@ -132,11 +133,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         LB - Note I have added and extra layer to the dictionary because MS-CLEAN does not necessarily have the same
         components at each scale. This should also be useful when doing the auto-masking
         """
-        try:
-            DicoComp = self.DicoSMStacked["Comp"]
-        except:
-            self.DicoSMStacked["Comp"] = {}
-            DicoComp = self.DicoSMStacked["Comp"]
+        DicoComp = self.DicoSMStacked.setdefault("Comp", {})
 
         if Scale not in DicoComp.keys():
             DicoComp[Scale] = {}
@@ -324,9 +321,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         x, y, MaxDirty = NpParallel.A_whereMax(meanDirty, NCPU=self.NCPU, DoAbs=self.DoAbs,
                                                             Mask=self.ScaleMachine.MaskArray)
 
-        mask = np.zeros_like(meanDirty, dtype=np.int8)
+        mask = np.zeros_like(meanDirty, dtype=np.bool)
 
-        threshold = 0.95*np.abs(MaxDirty)
+        threshold = 0.9*np.abs(MaxDirty)
 
         i = 0
         maxit = 500
@@ -352,6 +349,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # determine most relevant scale. This is the most time consuming step hence the sub-minor cycle
         xscale, yscale, ConvMaxDirty, CurrentDirty, ConvDirtyCube, iScale,  = \
             self.ScaleMachine.do_scale_convolve(Dirty.copy(), meanDirty.copy())
+        print "ConvMaxDirty at start = ", ConvMaxDirty
         if iScale == 0:
             xscale = x
             yscale = y
@@ -364,20 +362,27 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # get GaussPars for scale
         sigma = self.ScaleMachine.sigmas[iScale]
 
+        # For automasking
+        MaskArray = self.ScaleMachine.MaskArray
+        ExternalMask = MaskArray if MaskArray is not None else np.ones([1, 1, self.Npix, self.Npix], dtype=np.bool)
+        self.ScaleMachine.ScaleMaskArray.setdefault(sigma, ExternalMask.copy())
+
         # set twice convolve PSF for scale and facet if either has changed
         self.set_ConvPSF(self.PSFServer.iFacet, iScale)
 
-        # # get the mask
-        # # TODO - incorporate JonesNorm
-        # self.auto_mask = False
-        # if self.auto_mask:
-        #     mask = self.give_scale_mask(CurrentDirty.copy(), self.ConvPSFmean, self.CurrentGain)
-        #     # import matplotlib.pyplot as plt
-        #     # plt.figure()
-        #     # plt.imshow(mask[0, 0])
-        #     # plt.colorbar()
-        #     # plt.show()
-        #     self.ScaleMachine.MaskArray = mask
+        # get the mask
+        # TODO - incorporate JonesNorm
+        self.auto_mask = True
+        if self.auto_mask:
+            mask = self.give_scale_mask(CurrentDirty.copy(), self.ConvPSFmean, self.CurrentGain)
+            self.ScaleMachine.ScaleMaskArray[sigma] &= mask
+            # import matplotlib.pyplot as plt
+            # plt.figure()
+            # plt.imshow(self.ScaleMachine.ScaleMaskArray[sigma][0, 0].astype(np.int8))
+            # plt.colorbar()
+            # plt.show()
+
+        #print "Mask indices = ", np.argwhere(self.ScaleMachine.ScaleMaskArray[sigma].squeeze()).squeeze()
 
         # create a model for this scale
         ScaleModel = np.zeros_like(ConvDirtyCube, dtype=np.float32)
@@ -386,10 +391,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         Component_list = {}
 
         # Set stopping threshold.
-        # We cannot use StoppingFlux from minor cycle directly since the maxima of the residuals differ.
+        # We cannot use StoppingFlux from minor cycle directly since the maxima of the scale convolved residual
+        # is different from the maximum of the residual
         Threshold = self.ScaleMachine.PeakFactor * ConvMaxDirty
-        #print "Threshold1 = ", Threshold, self.ScaleMachine.PeakFactor, ConvMaxDirty
         if Stopping_flux is not None:
+            # # If the location of the peak has changed we need to set the threshold relative to the new peak
+            # # Nope this is wrong, we don't care about the location of the peak only what the maximum was
+            # if x != xscale or y != yscale:
+            #     MaxDirty = meanDirty[0, 0, xscale, yscale]
             DirtyRatio = ConvMaxDirty / MaxDirty
             Threshold = np.maximum(Threshold, Stopping_flux * DirtyRatio)
 
@@ -418,18 +427,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             Fpol *= self.PSFFreqNormFactors
 
             # Fit frequency axis to get coeffs (coeffs correspond to intrinsic flux)
-            ConvMaxDirtytmp = CurrentDirty[0, 0, xscale, yscale]
-            self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN, ConvMaxDirtytmp)
+            self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN, ConvMaxDirty)
 
             # Overwrite with polynoimial fit (Fpol is apparent flux)
-            # print "Coeffs = ", self.Coeffs
-            # print "Result = ", self.FreqMachine.Eval(self.Coeffs)
             Fpol[:, 0, 0, 0] = self.FreqMachine.Eval(self.Coeffs)
 
             # add model component to dictionary
             self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, sigma, self.CurrentGain)
 
             # keep track of apparent model array (this is for subtraction in the upper minor loop)
+            # Note apparent since we convolve with a normalised PSF
             ScaleModel[:, 0, xscale, yscale] += self.CurrentGain * Fpol[:, 0, 0, 0]
 
             # Restore ConvPSF frequency response and subtract component from residual
@@ -441,12 +448,15 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             CurrentDirty[...] = np.sum(ConvDirtyCube * W.reshape((W.size, 1, 1, 1)), axis=0)[None, :, :, :]
 
             # find the peak
-            xscale, yscale, ConvMaxDirty = NpParallel.A_whereMax(CurrentDirty, NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                       Mask=self.ScaleMachine.MaskArray)
+            PeakMap = np.ascontiguousarray(CurrentDirty*self.ScaleMachine.ScaleMaskArray[sigma])
+            xscale, yscale, ConvMaxDirty = NpParallel.A_whereMax(PeakMap, NCPU=self.NCPU, DoAbs=self.DoAbs,
+                                                       Mask=None)
+
             # Update counters TODO - should add subminor cycle count to minor cycle count
             k += 1
             self.n_sub_minor_iter += 1
 
+        print "ConvMaxDirty at end = ", ConvMaxDirty
         # report if max sub-iterations exceeded
         if k >= self.ScaleMachine.NSubMinorIter:
             print>>log, "Maximum subiterations reached. "
