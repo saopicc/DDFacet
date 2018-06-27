@@ -474,31 +474,13 @@ class ClassImageDeconvMachine():
                     # Find PSF corresponding to location (x,y) (need to set PSF before doing WPoly)
                     self.PSFServer.setLocation(x, y)  # Selects the facet closest to (x,y)
 
-                    MaxDirtytmp = self._MeanDirty[0, 0, x, y]
-
                     # Fit a polynomial to get coeffs (coeffs are for intrinsic flux)
                     self.ModelMachine.Coeffs = self.ModelMachine.FreqMachine.FitPolyNew(Fpol[:, 0, 0, 0],
                                                                                         JonesNorm[:, 0, 0, 0],
-                                                                                        MaxDirtytmp)
-
+                                                                                        self._MeanDirty[0, 0, x, y])
 
                     # Overwrite with polynoimial fit (this returns the apparent flux)
                     Fpol[:, 0, 0, 0] = self.ModelMachine.FreqMachine.Eval(self.ModelMachine.Coeffs)
-                    #Fpolintrinsic = self.ModelMachine.FreqMachine.EvalPoly(self.ModelMachine.Coeffs, self.Freqs)
-
-
-
-                    if False:
-                        import matplotlib.pyplot as plt
-                        plt.figure('sol')
-                        plt.plot(self.ModelMachine.FreqMachine.Freqs, Fpol.squeeze(), 'k--', label='subtract')
-                        plt.plot(self.ModelMachine.FreqMachine.Freqs, Fpolintrinsic, 'k-.', label='intrinsic')
-                        plt.plot(self.ModelMachine.FreqMachine.Freqs, self._Dirty[:, 0, x, y], 'g', label='Dirty')
-                        plt.plot(self.ModelMachine.FreqMachine.Freqs, self._Dirty[:, 0, x, y]/np.sqrt(JonesNorm[:, 0, 0, 0]), 'g--', label='Dirty/sqrt(JN)')
-
-                        plt.legend()
-                        plt.show()
-                        plt.close()
 
                     T.timeit("stuff")
 

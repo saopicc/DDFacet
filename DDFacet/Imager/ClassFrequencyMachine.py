@@ -91,8 +91,8 @@ class ClassFrequencyMachine(object):
                     self.prior_theta = coeffs[::-1]
                     self.prior_invcov = 1.0/np.diag(Kfull)[::-1]
                 else:
-                    self.prior_theta = np.zeros(self.order, dtype=np.float32)
-                    self.prior_invcov = np.zeros(self.order, dtype=np.float32)
+                    self.prior_theta = np.zeros(self.order, dtype=np.float64)
+                    self.prior_invcov = np.zeros(self.order, dtype=np.float64)
                 # get polynomial coeffs for prior when I0 is positive
                 self.alpha_prior_neg = self.GD["WSCMS"]["AlphaPriorNeg"]
                 if self.alpha_prior_neg is not None:
@@ -101,8 +101,8 @@ class ClassFrequencyMachine(object):
                     self.prior_theta_neg = coeffs[::-1]
                     self.prior_invcov_neg = 1.0/np.diag(Kfull)[::-1]
                 else:
-                    self.prior_theta_neg = np.zeros(self.order, dtype=np.float32)
-                    self.prior_invcov_neg = np.zeros(self.order, dtype=np.float32)
+                    self.prior_theta_neg = np.zeros(self.order, dtype=np.float64)
+                    self.prior_invcov_neg = np.zeros(self.order, dtype=np.float64)
                 # construct design matrix at full channel resolution
                 self.Xdes = self.setDesMat(self.Freqsp, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
                 # there is not need to recompute this every time if the beam is not enabled because same everywhere
@@ -388,39 +388,13 @@ class ClassFrequencyMachine(object):
         return ListBeamFactor, ListBeamFactorWeightSq, self.PSFServer.DicoMappingDesc['MeanJonesBand'][iFacet]
 
     def solve_MAP(self, Iapp, A, W, Kinv, theta):
-        #print Iapp.shape, A.shape, W.shape, Kinv.shape, theta.shape
-        D = np.linalg.inv(A.T.dot(W[:, None] * A) + np.diag(Kinv))
-        #print D.shape
-        res = D.dot(A.T.dot(W * Iapp) + theta * Kinv)
-        #print res.shape
+        Dinv = A.T.dot(W[:, None] * A) + np.diag(Kinv)
+        # this might be necessary if we order > Nband
+        # if np.linalg.cond(Dinv) > 1e17:
+        #     print "Had to add jitter"
+        #     Dinv += 1e-7*np.eye(self.order)
+        res = np.linalg.solve(Dinv, A.T.dot(W * Iapp) + theta * Kinv)
         return res
-
-    def solve_weights(self, Iapp, A, W, K, theta):
-        # normalise max of weights to 1 (so that sigma**2 should be wsum if natural weighting)
-        W /= W.max()
-        def neglogL(sigma, Iapp, A, W, K, theta):
-            W /= sigma**2
-            logW = np.sum(np.log(W))
-            logK = np.sum(np.log(K))
-            Sigmayinv = A.T.dot(W[:, None] * A)
-            Sigmay = np.linalg.inv(Sigmayinv)
-            Ky = np.diag(K) + Sigmay
-            Kyinv = np.linalg.inv(Ky)
-            D = np.linalg.inv(Sigmayinv + np.diag(1.0 / K))
-            j = A.T.dot(W * Iapp)
-            L = np.linalg.cholesky(D)
-            logD = 2*np.sum(np.log(np.diag(L)))
-            jDj = j.T.dot(D.dot(j))
-            IWI = Iapp.T.dot(W*Iapp)
-            t0Kyinvt0 = theta.T.dot(Kyinv.dot(theta))/2.0
-            tmpterm = j.T.dot((np.eye(self.order) - np.diag(K).dot(Kyinv)).dot(theta))
-            logp = -logW + logK + self.order*np.log(2*np.pi)/2.0 - logD + IWI/2.0 - jDj/2.0 + t0Kyinvt0/2.0 - tmpterm
-            return logp
-        from scipy.optimize import fmin_l_bfgs_b as opt
-        sigma0 = 1.0/np.mean(np.sqrt(self.PSFServer.DicoVariablePSF['SumWeights']))
-        soln = opt(neglogL, sigma0, args=(Iapp, A, W, K, theta), approx_grad=True)
-        print "sigma solved = ", soln[0]
-        print sigma0
 
     def FitPolyNew(self, Vals, JonesNorm, MaxDirty):
         """
@@ -449,8 +423,6 @@ class ClassFrequencyMachine(object):
             BeamFactor = np.sqrt(SumJonesChan/SumJonesChanWeightSq)  # unstitched sqrt(JonesNorm) at full resolution
             # incorporate stitched JonesNorm
             JonesFactor = np.sqrt(MeanJonesBand/JonesNorm)
-            MinJonesFactor = 1e-5
-            JonesFactor = np.where(JonesFactor > MinJonesFactor, JonesFactor, MinJonesFactor)
             # scale I0 by beam at ref_freq
             I0 = MaxDirty / BeamFactor[self.ref_freq_index]
             # next compute the product of the averaging matrix and beam matrix
@@ -464,11 +436,11 @@ class ClassFrequencyMachine(object):
         else:
             I0 = MaxDirty
         # get MFS weights
-        W = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze()
+        W = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)
         if I0>0.0:
-            theta = self.solve_MAP(Vals, self.SAX, W, self.prior_invcov/I0**2, I0*self.prior_theta)
+            theta = self.solve_MAP(Vals.astype(np.float64), self.SAX, W, self.prior_invcov/I0**2, I0*self.prior_theta)
         else:
-            theta = self.solve_MAP(Vals, self.SAX, W, self.prior_invcov_neg/I0**2, I0*self.prior_theta_neg)
+            theta = self.solve_MAP(Vals.astype(np.float64), self.SAX, W, self.prior_invcov_neg/I0**2, I0*self.prior_theta_neg)
         return theta
 
     def FitPoly(self, Vals):
