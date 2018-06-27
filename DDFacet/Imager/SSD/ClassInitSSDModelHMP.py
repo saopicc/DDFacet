@@ -45,6 +45,8 @@ class ClassInitSSDModelParallel():
         try:
             SModel, AModel = self.InitMachine.giveModel(Island)
         except:
+            if not self.GD["GAClean"]["ParallelInitHMP"]:
+                raise
             print>>log, traceback.format_exc()
             FileOut = "errIsland_%6.6i.npy" % iIsland
             print>>log, ModColor.Str("...... error on island %i, saving to file %s" % (iIsland, FileOut))
@@ -107,15 +109,25 @@ class ClassInitSSDModelParallel():
 
 
         print>>log,"Initialise islands (parallelised over islands)"
-        for iIsland,Island in enumerate(ListIslands):
+        if not self.GD["GAClean"]["ParallelInitHMP"]:
+          pBAR = ProgressBar(Title="  Init islands")
+          for iIsland,Island in enumerate(ListIslands):
+            if not ListDoIsland or ListDoIsland[iIsland]:
+                subdict = DicoInitIndiv.addSubdict(iIsland)
+                self._initIsland_worker(subdict, iIsland, Island,
+                                 self.DicoVariablePSF, DicoDirty,
+                                 ParmDict, self.InitMachine.DeconvMachine.facetcache,1)
+            pBAR.render(iIsland, len(ListIslands))
+        else:
+          for iIsland,Island in enumerate(ListIslands):
             if not ListDoIsland or ListDoIsland[iIsland]:
                 subdict = DicoInitIndiv.addSubdict(iIsland)
                 APP.runJob("InitIsland:%d" % iIsland, self._initIsland_worker,
                            args=(subdict.writeonly(), iIsland, Island,
                                  self.DicoVariablePSF.readonly(), DicoDirty.readonly(),
                                  ParmDict.readonly(), self.InitMachine.DeconvMachine.facetcache.readonly(),1))
-        APP.awaitJobResults("InitIsland:*", progress="Init islands")
-        DicoInitIndiv.reload()
+          APP.awaitJobResults("InitIsland:*", progress="Init islands")
+          DicoInitIndiv.reload()
         
         ParmDict.delete()
 
@@ -139,7 +151,7 @@ class ClassInitSSDModel():
         self.GD = copy.deepcopy(GD)
         self.GD["Parallel"]["NCPU"] = 1
         # self.GD["HMP"]["Alpha"]=[0,0,1]#-1.,1.,5]
-        self.GD["HMP"]["Alpha"] = [-4., 1., 6]
+        self.GD["HMP"]["Alpha"] = self.GD["GAClean"]["AlphaInitHMP"]
         self.GD["Deconv"]["Mode"] = "HMP"
         self.GD["Deconv"]["CycleFactor"] = 0
         self.GD["Deconv"]["PeakFactor"] = 0.0
@@ -151,9 +163,9 @@ class ClassInitSSDModel():
 
         self.GD["HMP"]["Scales"] = self.GD["GAClean"]["ScalesInitHMP"]
 
-        self.GD["HMP"]["Ratios"] = []
+        self.GD["HMP"]["Ratios"] =  self.GD["GAClean"]["RatiosInitHMP"]
         # self.GD["MultiScale"]["Ratios"]=[]
-        self.GD["HMP"]["NTheta"] = 4
+        self.GD["HMP"]["NTheta"] = self.GD["GAClean"]["NThetaInitHMP"]
 
         # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         # self.GD["HMP"]["Scales"] = [0,1,2,4,8,16,24,32,48,64]

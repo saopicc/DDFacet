@@ -134,13 +134,7 @@ class ClassFacetMachine():
         self._smooth_job_label=None
 
         # create semaphores if not already created
-        if not ClassFacetMachine._degridding_semaphores:
-            NSemaphores = 3373
-            ClassFacetMachine._degridding_semaphores = [Multiprocessing.getShmName("Semaphore", sem=i) for i in xrange(NSemaphores)]
-            _degridder_module = _pyGridderSmearPolsClassic if self.GD["RIME"]["ForwardMode"] == "BDA-degrid-classic" \
-                                     else _pyGridderSmearPols
-            _degridder_module.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
-            atexit.register(lambda:ClassFacetMachine._delete_degridding_semaphores(_degridder_module))
+        ClassFacetMachine.setup_semaphores(self.GD)
 
         # this is used to store model images in shared memory, for the degridder
         self._model_dict = None
@@ -153,10 +147,23 @@ class ClassFacetMachine():
     # static attribute initialized below, once
     _degridding_semaphores = None
 
+    # create semaphores if not already created
     @staticmethod
-    def _delete_degridding_semaphores(module):
+    def setup_semaphores(GD):
+        if not ClassFacetMachine._degridding_semaphores:
+            NSemaphores = 3373
+            ClassFacetMachine._degridding_semaphores = [Multiprocessing.getShmName("Semaphore", sem=i) for i in
+                                                        xrange(NSemaphores)]
+            # set them up in both modules, since weights calculation uses _pyGridderSmearPols anyway
+            _pyGridderSmearPolsClassic.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
+            _pyGridderSmearPols.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
+            atexit.register(ClassFacetMachine._delete_degridding_semaphores)
+
+    @staticmethod
+    def _delete_degridding_semaphores():
         if ClassFacetMachine._degridding_semaphores:
-	    module.pyDeleteSemaphore()
+            # only need to delete in the one
+            _pyGridderSmearPols.pyDeleteSemaphore()
             for sem in ClassFacetMachine._degridding_semaphores:
                 NpShared.DelArray(sem)
 
@@ -290,10 +297,10 @@ class ClassFacetMachine():
         NpixFacet, _ = EstimateNpix(diam / self.CellSizeRad, Padding=1)
         _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=self.Padding)
 
-        if NpixPaddedGrid / NpixFacet > self.Padding:
-            print>> log, ModColor.Str("W.A.R.N.I.N.G: Your FFTs are too small. We will pad it %.2f x "\
-                                      "instead of %.2f x" % (float(NpixPaddedGrid)/NpixFacet, self.Padding),
-                                      col="yellow")
+        if NpixPaddedGrid / NpixFacet > self.Padding and not getattr(self, '_warned_small_ffts', False):
+            print>> log, ModColor.Str("WARNING: Your FFTs are too small. We will pad them by x%.2f "\
+                                      "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, self.Padding))
+            self._warned_small_ffts = True
 
         diam = NpixFacet * self.CellSizeRad
         diamPadded = NpixPaddedGrid * self.CellSizeRad
@@ -633,7 +640,7 @@ class ClassFacetMachine():
         self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
         # check if w-kernels, spacial weights, etc. are cached
 
-        if self.GD["Cache"]["CacheCF"]:
+        if self.GD["Cache"]["CF"]:
             cachekey = dict(ImagerCF=self.GD["CF"], 
                             ImagerMainFacet=self.GD["Image"], 
                             Facets=self.GD["Facets"], 
@@ -739,14 +746,15 @@ class ClassFacetMachine():
             # mark cache as safe
             for res in workers_res:
                 Type,path,iFacet=res
-                if Type=="compute" and self.GD["Cache"]["CacheCF"]:
+                if Type=="compute" and self.GD["Cache"]["CF"]:
                     #print iFacet
                     facet_dict=self._CF[iFacet]
                     d={}
                     for key in facet_dict.keys():
                         d[key]=facet_dict[key]
                     np.savez(file(path, "w"), **d)
-            if self.GD["Cache"]["CacheCF"]: self.VS.maincache.saveCache(self._cf_cachename)
+            if self.GD["Cache"]["CF"]:
+                self.VS.maincache.saveCache(self._cf_cachename)
             self.IsDDEGridMachineInit = True
 
     def setCasaImage(self, ImageName=None, Shape=None, Freqs=None, Stokes=["I"]):

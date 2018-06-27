@@ -58,7 +58,9 @@ class ClassMS():
                  AverageTimeFreq=None,
                  Field=0,DDID=0,TaQL=None,ChanSlice=None,GD=None,
                  DicoSelectOptions={},
-                 ResetCache=False,get_obs_detail=False):
+                 ResetCache=False,
+                 first_ms=None,
+                 get_obs_detail=False):
 
         """
         Args:
@@ -85,8 +87,9 @@ class ClassMS():
 
         if MSname=="": exit()
         self.GD = GD
-        self.ToRADEC=self.GD["Image"]["PhaseCenterRADEC"]
-        if self.ToRADEC is "": self.ToRADEC=None
+        self.ToRADEC = self.GD["Image"]["PhaseCenterRADEC"]
+        if not self.ToRADEC:
+            self.ToRADEC = None
 
         self.AverageSteps=AverageTimeFreq
         self.MSName = MSName = reformat.reformat(os.path.abspath(MSname), LastSlash=False)
@@ -114,7 +117,7 @@ class ClassMS():
         self._chunk_caches = {}
         self.maincache = CacheManager(MSname+".F%d.D%d.ddfcache"%(self.Field, self.DDID), reset=ResetCache, cachedir=self.GD["Cache"]["Dir"], nfswarn=True)
 
-        self.ReadMSInfo(DoPrint=DoPrint)
+        self.ReadMSInfo(first_ms=first_ms,DoPrint=DoPrint)
         self.LFlaggedStations=[]
         self.DicoSelectOptions = DicoSelectOptions
         self._datapath = self._flagpath = None
@@ -201,7 +204,7 @@ class ClassMS():
 
         if self.TaQL:
             t = t.query(self.TaQL)
-        return t
+        return t.sort("TIME")
 
     def GiveDate(self,tt):
         time_start = qa.quantity(tt, 's')
@@ -668,8 +671,10 @@ class ClassMS():
                     visdata1 = np.ndarray(shape=datashape, dtype=np.complex64)
                     table_all.getcolslicenp(self.ColName, visdata1, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                     print>>log,"sorting visibilities"
+                    t0 = time.time()
                     visdata[...] = visdata1[sort_index]
                     del visdata1
+                    print>>log,"sorting took %.1fs"%(time.time()-t0)
                 else:
                     table_all.getcolslicenp(self.ColName, visdata, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 if self._reverse_channel_order:
@@ -699,9 +704,10 @@ class ClassMS():
             if sort_index is not None:
                 flags1 = table_all.getcolslice("FLAG", self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
                 print>> log, "sorting flags"
+                t0 = time.time()
                 flags[...] = flags1[sort_index]
                 del flags1
-
+                print>>log,"sorting took %.1fs"%(time.time()-t0)
             else:
                 table_all.getcolslicenp("FLAG", flags, self.cs_tlc, self.cs_brc, self.cs_inc, row0, nRowRead)
             self.UpdateFlags(flags, uvw, visdata, A0, A1, time_all)
@@ -903,7 +909,8 @@ class ClassMS():
     # static member caching DDID/FIELD_ID lookups
     _ddid_field_cache = {}
 
-    def ReadMSInfo(self,DoPrint=True):
+    def ReadMSInfo(self,first_ms=None,DoPrint=True):
+        """radec_first: ra/dec of first MS, if available"""
         T= ClassTimeIt.ClassTimeIt()
         T.enableIncr()
         T.disable()
@@ -972,7 +979,7 @@ class ClassMS():
         if not self.TimeChunkSize:
             T0=table_all.getcol('TIME',0,1)[0]
             T1=table_all.getcol('TIME',self.F_nrows-1,1)[0]
-            print>>log,"--Data-ChunkHours is null: MS %s (%d rows) will be processed as a single chunk"%(self.MSName, self.F_nrows)
+            print>>log,"--Data-ChunkHours is null: MS %s (%d rows) column %s will be processed as a single chunk"%(self.MSName, self.F_nrows, self.ColName)
             chunk_row0 = [0]
         else:
             all_times = table_all.getcol("TIME")
@@ -984,10 +991,10 @@ class ClassMS():
             chunk_row0 = [ np.argmax(all_times>=ch_t0) for ch_t0 in chunk_t0 ]
             # chunk_row0 gives the starting row of each chunk
             if len(chunk_row0) == 1:
-                print>>log,"MS %s DDID %d FIELD %d (%d rows) will be processed as a single chunk"%(self.MSName, self.DDID, self.Field, self.F_nrows)
+                print>>log,"MS %s DDID %d FIELD %d (%d rows) column %s will be processed as a single chunk"%(self.MSName, self.DDID, self.Field, self.F_nrows, self.ColName)
             else:
-                print>>log,"MS %s DDID %d FIELD %d (%d rows) will be split into %d chunks, at rows %s"%(self.MSName, self.DDID, self.Field,  self.F_nrows,
-                                                                                       len(chunk_row0), " ".join(map(str,chunk_row0)))
+                print>>log,"MS %s DDID %d FIELD %d (%d rows) column %s will be split into %d chunks, at rows %s"%(self.MSName, self.DDID, self.Field,  self.F_nrows,
+                                                                                       self.ColName, len(chunk_row0), " ".join(map(str,chunk_row0)))
         self.Nchunk = len(chunk_row0)
         chunk_row0.append(self.F_nrows)
         self._chunk_r0r1 = [ chunk_row0[i:i+2] for i in range(self.Nchunk) ]
@@ -1073,18 +1080,30 @@ class ClassMS():
         ta=table(table_all.getkeyword('FIELD'),ack=False)
         rarad,decrad=ta.getcol('PHASE_DIR')[self.Field][0]
         if rarad<0.: rarad+=2.*np.pi
-        self.OriginalRadec=self.OldRadec=rarad,decrad
+        self.OriginalRadec = self.OldRadec = rarad,decrad
+
         if self.ToRADEC is not None:
-            SRa,SDec=self.ToRADEC
-            srah,sram,sras=SRa.split(":")
-            sdecd,sdecm,sdecs=SDec.split(":")
-            ranew=(np.pi/180)*15.*(float(srah)+float(sram)/60.+float(sras)/3600.)
-            decnew=(np.pi/180)*np.sign(float(sdecd))*(abs(float(sdecd))+float(sdecm)/60.+float(sdecs)/3600.)
-            self.OldRadec=rarad,decrad
-            self.NewRadec=ranew,decnew
-            rarad,decrad=ranew,decnew
-
-
+            ranew, decnew = rarad, decrad
+            # get RA/Dec from first MS, or else parse as coordinate string
+            if self.ToRADEC == "align":
+                if first_ms is not None:
+                    ranew, decnew = first_ms.rarad, first_ms.decrad
+                which = "the common phase centre"
+            else:
+                which = "%s %s"%tuple(self.ToRADEC)
+                SRa,SDec=self.ToRADEC
+                srah,sram,sras=SRa.split(":")
+                sdecd,sdecm,sdecs=SDec.split(":")
+                ranew=(np.pi/180)*15.*(float(srah)+float(sram)/60.+float(sras)/3600.)
+                decnew=(np.pi/180)*np.sign(float(sdecd))*(abs(float(sdecd))+float(sdecm)/60.+float(sdecs)/3600.)
+            # only enable rotation if coordinates actually change
+            if ranew != rarad or decnew != decrad:
+                print>>log,ModColor.Str("MS %s will be rephased to %s"%(self.MSName,which))
+                self.OldRadec = rarad,decrad
+                self.NewRadec = ranew,decnew
+                rarad,decrad = ranew,decnew
+            else:
+                self.ToRADEC = None
 
         T.timeit()
 
@@ -1262,9 +1281,13 @@ class ClassMS():
         ss="\n".join(ll)+"\n"
         return ss
 
-    def radec2lm_scalar(self,ra,dec):
-        l = np.cos(dec) * np.sin(ra - self.rarad)
-        m = np.sin(dec) * np.cos(self.decrad) - np.cos(dec) * np.sin(self.decrad) * np.cos(ra - self.rarad)
+    def radec2lm_scalar(self,ra,dec,original=False):
+        if original:
+            ra0, dec0 = self.OriginalRadec
+        else:
+            ra0, dec0 = self.rarad, self.decrad
+        l = np.cos(dec) * np.sin(ra - ra0)
+        m = np.sin(dec) * np.cos(dec0) - np.cos(dec) * np.sin(dec0) * np.cos(ra - ra0)
         return l,m
 
 
@@ -1498,8 +1521,8 @@ class ClassMS():
         StrRA  = rad2hmsdms(ra1,Type="ra").replace(" ",":")
         StrDEC = rad2hmsdms(dec1,Type="dec").replace(" ",".")
         print>>log, "Rotate %s [Mode = %s]"%(",".join(RotateType),Sense)
-        print>>log, "     from [%s, %s]"%(StrRAOld,StrDECOld)
-        print>>log, "       to [%s, %s]"%(StrRA,StrDEC)
+        print>>log, "     from [%s, %s] [%f %f]"%(StrRAOld,StrDECOld,ra0,dec0)
+        print>>log, "       to [%s, %s] [%f %f]"%(StrRA,StrDEC,ra1,dec1)
         
         DDFacet.ToolsDir.ModRotate.Rotate2((ra0,dec0),(ra1,dec1),DATA["uvw"],DATA[DataFieldName],self.wavelength_chan,
                                            RotateType=RotateType)
@@ -1612,7 +1635,7 @@ class ClassMS():
         # pylab.plot(dus1)
         # pylab.show()
     
-def expandMSList(MSName,defaultField=0,defaultDDID=0):
+def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
     """Given an MSName argument, converts it into a list of measurement sets.
 
     MSName can be a single filename, or a list of filenames, or a *.txt file (in which case a list
@@ -1622,6 +1645,8 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0):
     con be suffixed with //Dx and/or //Fy to select specific DATA_DESC_ID and FIELD_IDs in the MS. "x" and "y"
     can take the form of a single number, a Pythonic range (e.g. "0:16"), an inclusive range ("0~15");
     or "*" to select all. E.g. foo.MS//D*//F0:2 selects all DDIDs, and fields 0 and 1 from foo.MS.
+    
+    A further //COLUMN_DATA suffix can also override the default column.
 
     The defaultField and defaultDDID arguments will be used for those MSs where //D or //F is not specified.
 
@@ -1641,14 +1666,20 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0):
     # now, at this point each entry in the list can still contain wildcards, and ":Fx:Dx" groups. Process it
     mslist = []
     for msspec in MSName:
-        regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N-M or *
+        regrp = "(([0-9]+)|([0-9]+)([~:])([0-9]+)|(\*))"   # regex matching N or N:M or N~M or *
         # match :F and :D suffixes, if present. Don't regexes make your brain melt
-        match = re.match("^(?P<ms>.*)//D(?P<d>" + regrp + ")(//F(?P<f>" + regrp + "))?$", msspec) or \
-                re.match("^(?P<ms>.*)//F(?P<f>" + regrp + ")(//D(?P<d>" + regrp + "))?$", msspec)
-        if match:
-            msname, dgroup, fgroup = match.group('ms'), match.group('d'), match.group('f')
-        else:
-            msname, dgroup, fgroup = msspec, None, None
+        terms = msspec.split("//")
+        msname = terms[0]
+        ddid_match = [ re.match("D("+regrp+")$", x) for x in terms[1:] ]
+        field_match = [ re.match("F("+regrp+")$", x) for x in terms[1:] ]
+        col_match = [ re.match("(.*_DATA)$", x) for x in terms[1:]]
+        ddid_match = [ x for x in ddid_match if x is not None ]
+        field_match = [ x for x in field_match if x is not None ]
+        col_match = [ x for x in col_match if x is not None ]
+        dgroup = ddid_match[-1].group(1) if ddid_match else None
+        fgroup = field_match[-1].group(1) if field_match else None
+#        import pdb; pdb.set_trace();
+        col = col_match[-1].group(1) if col_match else defaultColumn
         # now convert dgroup and fgroup into slice objects
         def groupToSlice (group):
             """Converts a group specification into a slice object"""
@@ -1693,7 +1724,9 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0):
             else:
                 fields = [ fg ]
                 print>> log, "%s: selecting field %d" % (mspath, fg)
+            if col is not None:
+                print>>log, "%s: non-default column %s"%(mspath, col)
             # make output list
-            mslist += [ (mspath,d,f) for d in ddids for f in fields ]
+            mslist += [ (mspath,d,f,col) for d in ddids for f in fields ]
     print>>log, "%d MS section(s) selected" % len(mslist)
     return mslist

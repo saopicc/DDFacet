@@ -194,6 +194,7 @@ class ClassMultiScaleMachine():
         self.cachedict = cachedict
         self.ListScales = cachedict.get("ListScales", None)
         self.CubePSFScales = cachedict.get("CubePSFScales", None)
+        self._cubepsf_buf = None
         self.DicoBasisMatrix = cachedict.get("BasisMatrix", None)
         if self.DicoBasisMatrix is not None:
             self.GlobalWeightFunction = self.DicoBasisMatrix["GlobalWeightFunction"]
@@ -339,6 +340,117 @@ class ClassMultiScaleMachine():
         if verbose:
             print>>log,"using %s PSF box of size %dx%d in minor cycle subtraction" % (method, dx*2+1, dx*2+1)
 
+    def CopyListScales(self, other):
+        """
+        Copies ListScales and functions from another machine, where it's been initialized
+        """
+        self.ListScales = other.ListScales
+        self.ScaleFuncs = other.ScaleFuncs
+        self._num_scales = other._num_scales
+        self.Alpha = other.Alpha
+        self.ModelMachine.setListComponants(self.ListScales)
+
+
+    def MakeListScales(self, verbose=False, scalefuncs=None):
+        """
+        Initializes internal ListScales list, and computes the scale functions shdict (if scalefuncs is not provided)
+        """
+        T = ClassTimeIt.ClassTimeIt("MakeListScales")
+        T.disable()
+        # print>>log, "Making MultiScale PSFs..."
+        LScales = self.GD["HMP"]["Scales"]
+        ScaleStart = 0
+        if 0 in LScales:
+            ScaleStart = 1
+            # LScales.remove(0)
+        LRatios = self.GD["HMP"]["Ratios"]
+        NTheta = self.GD["HMP"]["NTheta"]
+
+        if self.MultiFreqMode:
+            AlphaMin, AlphaMax, NAlpha = self.GD["HMP"]["Alpha"]
+            AlphaL = np.linspace(AlphaMin, AlphaMax, int(NAlpha))
+            self.Alpha = np.array([0.] + [al for al in AlphaL if not (al == 0.)])
+        else:
+            Alpha = np.array([0.])  # not in multi-frequency synthesis mode. Assume no ((v-v0)/v) modulation of I_model
+        NAlpha = len(self.Alpha)
+
+        _, _, nx, ny = self.SubPSF.shape
+        NScales = len(LScales)
+        self.NScales = NScales
+
+        Ratios = np.float32(np.array([float(r) for r in LRatios if r != "" and r != "''" and float(r) != 1]))
+
+        Scales = np.float32(np.array([float(ls) for ls in LScales if ls != "" and ls != "''"]))
+
+        nch, _, nx, ny = self.SubPSF.shape
+
+        Theta = np.arange(0., np.pi - 1e-3, np.pi / NTheta)
+
+        ListParam = [ (iScales, 1, 0) for iScales in range(ScaleStart, NScales) ]
+
+        ListParam += [ (iScales, ratio, th)
+            for iScales in range(ScaleStart, NScales) for ratio in Ratios for th in Theta]
+
+        ncubes = NAlpha * (1 + len(ListParam))
+
+        self._num_scales = len(ListParam)
+
+        self.ListScales = []
+        # build up cube of Gaussians representing each scale (self.ScaleFuncs)
+        if scalefuncs is None and "ScaleFuncs" in self.cachedict:
+            scalefuncs = self.cachedict["ScaleFuncs"]
+        if scalefuncs is None:
+            self.ScaleFuncs = self.cachedict.addSubdict("ScaleFuncs")
+            self.ScaleFuncsSum = self.ScaleFuncs.addSharedArray("sum", self._num_scales, np.float64)
+            for iScaleFunc, (iScales, MinMajRatio, th) in enumerate(ListParam):
+                Major = Scales[iScales] / (2. * np.sqrt(2. * np.log(2.)))
+                Minor = Major / float(MinMajRatio)
+                PSFGaussPars = (Major, Minor, th)
+
+                Gauss = ModFFTW.GiveConvolvingGaussianWrapper((1, nx, ny), PSFGaussPars)
+                SumGauss = np.sum(Gauss,dtype=np.float64)
+                Gauss *= 1 / SumGauss
+
+                self.ScaleFuncs[iScaleFunc] = Gauss
+                self.ScaleFuncsSum[iScaleFunc] = SumGauss
+        else:
+            self.ScaleFuncs = scalefuncs
+            self.ScaleFuncsSum = self.ScaleFuncs["sum"]
+            assert(len(self.ScaleFuncsSum) == self._num_scales)
+
+        # now complete the list of scales
+        for iAlpha,ThisAlpha in enumerate(self.Alpha):
+            d = {}
+            d["ModelType"] = "Delta"
+            d["Scale"] = 0
+            d["Alpha"] = ThisAlpha
+            d["CodeTypeScale"] = 0
+            d["SumFunc"] = 1.
+            d["ModelParams"] = (0, 0, 0)
+            self.ListScales.append(d)
+
+            # print ListParam
+            for iScaleFunc, (iScales, MinMajRatio, th) in enumerate(ListParam):
+                Major = Scales[iScales] / (2. * np.sqrt(2. * np.log(2.)))
+                Minor = Major / float(MinMajRatio)
+                PSFGaussPars = (Major, Minor, th)
+                d = {}
+                d["ModelType"] = "Gaussian"
+                d["Model"] = self.ScaleFuncs[iScaleFunc]
+                d["ModelParams"] = PSFGaussPars
+                d["Scale"] = iScales
+                d["Alpha"] = ThisAlpha
+                d["CodeTypeScale"] = iScales
+                d["SumFunc"] = self.ScaleFuncsSum[iScaleFunc]
+                self.ListScales.append(d)
+
+        assert (len(self.ListScales) == ncubes)
+
+        self.ModelMachine.setListComponants(self.ListScales)
+
+        if verbose:
+            print>>log,"%d scales and %d scale functions in list" % (len(self.ListScales), self._num_scales)
+
     def MakeMultiScaleCube(self, verbose=False):
         if self.IsInit_MultiScaleCube: return
         T=ClassTimeIt.ClassTimeIt("MakeMultiScaleCube")
@@ -352,14 +464,7 @@ class ClassMultiScaleMachine():
         LRatios=self.GD["HMP"]["Ratios"]
         NTheta=self.GD["HMP"]["NTheta"]
         
-        NAlpha=1
-        if self.MultiFreqMode:
-            AlphaMin,AlphaMax,NAlpha=self.GD["HMP"]["Alpha"]
-            NAlpha=int(NAlpha)
-            AlphaL=np.linspace(AlphaMin,AlphaMax,NAlpha)
-            Alpha=np.array([0.]+[al for al in AlphaL if not(al==0.)])
-        else:
-            Alpha=np.array([0.]) #not in multi-frequency synthesis mode. Assume no ((v-v0)/v) modulation of I_model
+        NAlpha = len(self.Alpha)
 
         _,_,nx,ny=self.SubPSF.shape
         NScales=len(LScales)
@@ -394,12 +499,12 @@ class ClassMultiScaleMachine():
         # self.PSFServer.RefFreq=RefFreq
         # #############################
         T.timeit("0")
-        FreqBandsFluxRatio=self.PSFServer.GiveFreqBandsFluxRatio(self.iFacet,Alpha)
+        FreqBandsFluxRatio=self.PSFServer.GiveFreqBandsFluxRatio(self.iFacet,self.Alpha)
         T.timeit("1")
-        # if self.iFacet==96: 
+        # if self.iFacet==96:
         #     print 96
         #     print FreqBandsFluxRatio
-        # if self.iFacet==60: 
+        # if self.iFacet==60:
         #     print 60
         #     print FreqBandsFluxRatio
 
@@ -408,102 +513,34 @@ class ClassMultiScaleMachine():
         #####################
 
 #        print FreqBandsFluxRatio
-        self.Alpha=Alpha
         nch,_,nx,ny=self.SubPSF.shape
 
-        if self.CubePSFScales is None or self.ListScales is None:
+        if self.CubePSFScales is None:
             # print>>log,"computing scales"
             #self.ListSumFluxes = []
             Theta = np.arange(0., np.pi - 1e-3, np.pi / NTheta)
 
-            ListParam = []
-            for iScales in range(ScaleStart, NScales):
-                ListParam.append((iScales, 1, 0))
-
-            for iScales in range(ScaleStart, NScales):
-                for ratio in Ratios:
-                    for th in Theta:
-                        ListParam.append((iScales, ratio, th))
-
-            ncubes = NAlpha*(1+len(ListParam))
+            ncubes = NAlpha*(self._num_scales +1)
             self.CubePSFScales = self.cachedict.addSharedArray("CubePSFScales",
                                         (ncubes, nch, nx, ny), self.SubPSF.dtype)
+            icube = 0
 
-            self.ListScales = self.cachedict.addSubdict("ListScales")
-            ListPSFScales = []
             for iAlpha in range(NAlpha):
+                # compute cube 0, which is always the spectral PSF
                 FluxRatios=FreqBandsFluxRatio[iAlpha,:]
                 FluxRatios=FluxRatios.reshape((FluxRatios.size,1,1))
-                ThisMFPSF = self.CubePSFScales[len(self.ListScales)]
+                ThisMFPSF = self.CubePSFScales[icube]
                 ThisMFPSF[:] = self.SubPSF[:,0,:,:]
                 ThisMFPSF *= FluxRatios
-                ThisAlpha=Alpha[iAlpha]
-                #print FluxRatios,ThisAlpha
-                iSlice=0
-                #self.ListSumFluxes.append(1.)
-
-                d = self.ListScales.addSubdict(len(self.ListScales))
-                d["ModelType"] = "Delta"
-                d["Scale"] = iSlice
-                d["Alpha"] = ThisAlpha
-                d["CodeTypeScale"] = 0
-                d["SumFunc"] = 1.
-                d["ModelParams"] = (0,0,0)
-                iSlice+=1
-
-                #print ListParam
-                for iScales,MinMajRatio,th in ListParam:
-                    Major=Scales[iScales]/(2.*np.sqrt(2.*np.log(2.)))
-                    Minor=Major/float(MinMajRatio)
-                    PSFGaussPars=(Major,Minor,th)
-                    #ThisSupport=int(np.max([Support,15*Major]))
-                    #if ThisSupport%2==0: ThisSupport+=1
-                    #Gauss=ModFFTW.GiveGauss(ThisSupport,CellSizeRad=1.,GaussPars=PSFGaussPars)
-                    #ratio=np.sum(ModFFTW.GiveGauss(101,CellSizeRad=1.,GaussPars=PSFGaussPars))/np.sum(Gauss)
-                    #Gauss*=ratio
-                    #ThisPSF=ModFFTW.ConvolveGaussian(ThisMFPSF.reshape((nch,1,nx,ny)),CellSizeRad=1.,GaussPars=[PSFGaussPars]*self.NFreqBands)[:,0,:,:]#[0,0]
-
-
-                    ThisPSF = self.CubePSFScales[len(self.ListScales),...]
-
-                    _,Gauss = ModFFTW.ConvolveGaussianWrapper(ThisMFPSF.reshape((nch,1,nx,ny)),
-                                                              Out=ThisPSF.reshape((nch,1,nx,ny)),
-                                                              Sig=Major,
-                                                              GaussPar=PSFGaussPars)
-
-                    # import pylab
-                    # pylab.clf()
-                    # pylab.imshow(Gauss,interpolation="nearest")
-                    # pylab.title("%s"%str(PSFGaussPars))
-                    # pylab.draw()
-                    # pylab.show(False)
-                    # pylab.pause(0.1)
-                    # import time
-                    # time.sleep(1.)
-
-                    Max=np.max(ThisPSF)
-                    #ThisPSF/=Max
-                    #fact=np.max(Gauss)/np.sum(Gauss)
-                    SumGauss=np.sum(Gauss)
-                    fact=1./SumGauss
-                    #fact=1./SumGauss#/(np.mean(np.max(np.max(ThisPSF,axis=-1),axis=-1)))
-                    #fact=1./Max
-                    Gauss *= fact#*ratio
-                    ThisPSF *= fact
-                    #_,n,_=ThisPSF.shape
-                    #Peak=np.mean(ThisPSF[:,n/2,n/2])
-                    d = self.ListScales.addSubdict(len(self.ListScales))
-                    d["ModelType"] = "Gaussian"
-                    d["Model"]=Gauss
-                    d["ModelParams"]=PSFGaussPars
-                    d["Scale"]=iScales
-                    d["Alpha"]=ThisAlpha
-                    d["CodeTypeScale"]=iScales
-                    d["SumFunc"]=SumGauss
-
-
-                iSlice+=1
-
+                icube += 1
+                # cubes 1...N are cube 0, convolved with the appropriate scale function
+                for i in xrange(self._num_scales):
+                    ThisPSF = self.CubePSFScales[icube,...]
+                    ModFFTW.ConvolveGaussianWrapper(ThisMFPSF.reshape((nch,1,nx,ny)),
+                                                    Out=ThisPSF.reshape((nch,1,nx,ny)),
+                                                    Sig=0,
+                                                    Gauss=self.ScaleFuncs[i])
+                    icube += 1
 
                 # for iScale in range(ScaleStart,NScales):
 
@@ -531,12 +568,12 @@ class ClassMultiScaleMachine():
                 #             #Gauss*=fact
 
                 #             self.ListScales.append({"ModelType":"Gaussian",
-                #                                     "Model":Gauss, 
+                #                                     "Model":Gauss,
                 #                                     "ModelParams": PSFGaussPars,
                 #                                     "Scale":iScale,
                 #                                     "Alpha":ThisAlpha})
 
-            assert(len(self.ListScales) == ncubes)
+            assert(icube == ncubes)
         # else:
         #     print>>log,"scales already loaded"
         T.timeit("1")
@@ -550,33 +587,18 @@ class ClassMultiScaleMachine():
         #     ListPSFScales.append(Flat)
 
 
-        self.ModelMachine.setListComponants(self.ListScales)
-
-        self.ListTypeScales=[]
-        #self.ListPeakPSFScales=[]
-        self.FluxScales=[]
-        for DicoScale in self.ListScales.itervalues():
-            self.ListTypeScales.append(DicoScale["CodeTypeScale"])
-            #self.ListPeakPSFScales.append()
-            self.FluxScales.append(DicoScale["SumFunc"])
-
-        AlphaMin,AlphaMax,NAlpha=self.GD["HMP"]["Alpha"]
-        NAlpha=int(NAlpha)
-        AlphaL=np.linspace(AlphaMin,AlphaMax,NAlpha)
-        self.Alpha=np.array([0.]+[al for al in AlphaL if not(al==0.)])
-
-        self.FluxScales=np.array(self.FluxScales)
+        self.ListTypeScales = np.array([DicoScale["CodeTypeScale"] for DicoScale in self.ListScales])
+        self.FluxScales = np.array([DicoScale["SumFunc"] for DicoScale in self.ListScales])
 
         self.IndexScales=[]
         self.SumFluxScales=[]
         self.ListSizeScales=[]
-        self.ListTypeScales=np.array(self.ListTypeScales)
         for iScale in range(self.NScales):
             indScale=np.where(self.ListTypeScales==iScale)[0]
             self.IndexScales.append(indScale.tolist())
             self.SumFluxScales.append(self.ListScales[indScale[0]]["SumFunc"])
             self.ListSizeScales.append(self.ListScales[indScale[0]]["ModelParams"][0])
-            
+
         self.IndexScales=np.array(self.IndexScales)
         self.SumFluxScales=np.array(self.SumFluxScales)
         self.ListSizeScales=np.array(self.ListSizeScales)
@@ -589,7 +611,7 @@ class ClassMultiScaleMachine():
         T.timeit("init1")
 
         self.nFunc=self.CubePSFScales.shape[0]
-        self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales.itervalues()])
+        self.AlphaVec=np.array([Sc["Alpha"] for Sc in self.ListScales])
 
         self.WeightWidth = self.GD["HMP"].get("Taper",0)
         self.SupWeightWidth = self.GD["HMP"].get("Support",0)
@@ -1234,11 +1256,23 @@ class ClassMultiScaleMachine():
 
             SolReg = np.zeros_like(Sol)
             SolReg[0] = MeanFluxTrue
-            Peak=np.mean(np.max(np.max(ConvSM,axis=-1),axis=-1))
+            Peak=np.mean(ConvSM.max(axis=(-1,-2)))
+            if self._cubepsf_buf is None:
+                self._cubepsf_buf = np.empty_like(self.CubePSFScales)
+                self._localsm_buf = np.empty(self.CubePSFScales.shape[1:], self.CubePSFScales.dtype)
 
             if (np.sign(SolReg[0]) != np.sign(np.sum(Sol))) or (np.max(np.abs(Sol))==0):
                 Sol = SolReg
-                LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
+                ## this causes memory thashing sometimes?
+                # LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
+                ## so instead:
+                a, b = self.CubePSFScales, Sol.astype(self.CubePSFScales.dtype)[:,np.newaxis,np.newaxis,np.newaxis]
+                numexpr.evaluate("a*b",out=self._cubepsf_buf)
+                a, LocalSM = self._cubepsf_buf, self._localsm_buf
+                numexpr.evaluate("sum(a,0)", out=LocalSM)
+                #self._cubepsf_buf[:] = self.CubePSFScales
+                #self._cubepsf_buf *= Sol[:,np.newaxis,np.newaxis,np.newaxis]
+                #LocalSM = self._cubepsf_buf.sum(axis=0,out=self._localsm_buf)
             else:
                 coef = np.min([np.abs(Peak / MeanFluxTrue), 1.])
                 Sol = Sol * coef + SolReg * (1. - coef)
@@ -1246,8 +1280,17 @@ class ClassMultiScaleMachine():
                 #     Sol=SolReg
 
                 # Fact=(MeanFluxTrue/np.sum(Sol))
-                LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
-                Peak=np.mean(np.max(np.max(LocalSM,axis=-1),axis=-1))
+                ## same here
+                # LocalSM=np.sum(self.CubePSFScales*Sol.reshape((Sol.size,1,1,1)),axis=0)
+                a, b = self.CubePSFScales, Sol.astype(self.CubePSFScales.dtype)[:,np.newaxis,np.newaxis,np.newaxis]
+                numexpr.evaluate("a*b",out=self._cubepsf_buf)
+                a, LocalSM = self._cubepsf_buf, self._localsm_buf
+                numexpr.evaluate("sum(a,0)", out=LocalSM)
+                #self._cubepsf_buf[:] = self.CubePSFScales
+                #self._cubepsf_buf *= Sol[:,np.newaxis,np.newaxis,np.newaxis]
+                #LocalSM = self._cubepsf_buf.sum(axis=0,out=self._localsm_buf)
+                
+                Peak=np.mean(LocalSM.max(axis=(-1,-2)))
 
                 nch,nx,ny=LocalSM.shape
                 #print Peak

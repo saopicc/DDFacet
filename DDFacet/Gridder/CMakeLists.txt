@@ -70,7 +70,7 @@ set_target_properties(_pyArrays PROPERTIES PREFIX "") #remove "lib" prefix from 
 target_link_libraries(_pyArrays ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 
 #compile and link _pyGridderSmearPols.so
-add_library(_pyGridderSmearPols GridderSmearPols.cc Semaphores.cc JonesServer.cc DecorrelationHelper.cc CorrelationCalculator.cc)
+add_library(_pyGridderSmearPols GridderSmearPols.cc Semaphores.cc JonesServer.cc DecorrelationHelper.cc)
 set_target_properties(_pyGridderSmearPols PROPERTIES PREFIX "") #remove "lib" prefix from library (PEP8 compliance)
 target_link_libraries(_pyGridderSmearPols ${RT_LIBRARIES} ${PYTHON_LIBRARY})
 

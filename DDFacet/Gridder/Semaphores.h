@@ -37,4 +37,4 @@ namespace DDF {
   void pyDeleteSemaphore();
 }
 
-#endif GRIDDER_SEMAPHORES_H
+#endif /*GRIDDER_SEMAPHORES_H*/

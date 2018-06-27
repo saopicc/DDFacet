@@ -66,7 +66,8 @@ class ClassFITSBeam (object):
         self.pos0 = dm.position('itrf',*[ dq.quantity(x,'m') for x in self.ms.StationPos[0] ]) 
 
         # make direction measure from field centre
-        self.field_centre = dm.direction('J2000',dq.quantity(self.ms.rarad,"rad"),dq.quantity(self.ms.decrad,"rad"))
+        ra,dec = self.ms.OriginalRadec
+        self.field_centre = dm.direction('J2000',dq.quantity(ra,"rad"),dq.quantity(dec,"rad"))
 
         # get channel frequencies from MS
         self.freqs = self.ms.ChanFreq.ravel()
@@ -219,7 +220,7 @@ class ClassFITSBeam (object):
         l0 = numpy.zeros(ndir,float)
         m0 = numpy.zeros(ndir,float)
         for i,(r1,d1) in enumerate(zip(ra,dec)):
-          l0[i], m0[i] = self.ms.radec2lm_scalar(r1,d1)
+          l0[i], m0[i] = self.ms.radec2lm_scalar(r1,d1,original=True)
         # print>>log,ra*180/np.pi,dec*180/np.pi
         # print>>log,l0*180/np.pi,m0*180/np.pi
         # rotate each by parallactic angle

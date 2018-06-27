@@ -96,7 +96,9 @@ namespace DDF {
 	int CurrentJones_kMS_Chan=-1;
 	int CurrentJones_Beam_Time=-1;
 	int CurrentJones_Beam_Chan=-1;
-	
+	int CurrentJones_ant0;
+	int CurrentJones_ant1;
+
 	void NormJones(dcMat &J0, const double *uvwPtr) const;
 	static dcMat GiveJones(const fcmplx *ptrJonesMatrices, const int *JonesDims,
 	  const float *ptrCoefs, int i_t, int i_ant0, int i_dir, int iChJones,
@@ -105,18 +107,20 @@ namespace DDF {
 	//BH FIXME: Proper accessors pretty pretty please..
 	double BB;
 	double WeightVaryJJ;
-	bool DoApplyJones=false;
+	int DoApplyJones=0;
 	dcMat J0, J1, J0H, J1H;
-	
+
 	double *ptrSumJones, *ptrSumJonesChan;
-	
+
 	JonesServer(py::list& LJones, double WaveLengthMeanIn);
-	void updateJones(size_t irow, size_t visChan, const double *uvwPtr, bool EstimateWeight, bool DoApplyAlphaRegIn);
+
+	// updates Jones terms for given row and channel. Returns True if something has changed.
+	bool updateJones(size_t irow, size_t visChan, const double *uvwPtr, bool EstimateWeight, bool DoApplyAlphaRegIn);
 	void resetJonesServerCounter();
-	
+
       private:
         dcMat J0Beam, J1Beam, J0kMS, J1kMS;
       };
   }
 }
-#endif GRIDDER_JONESSERV_H
+#endif /*GRIDDER_JONESSERV_H*/
