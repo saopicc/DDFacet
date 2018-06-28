@@ -148,6 +148,38 @@ def GiveFFTW_aligned(shape, dtype):
 #     def fft(self, Ain):
 #         axes = (1, -2)
 
+class FFTW_Scale_Manager(object):
+    """
+    Keeps track of all things FFTW + scale related for the WSCMS minor cycle 
+    """
+    def __init__(self, n, nchan=1, npol=1, nscales=1):
+        """
+        Utility class for FFT
+        :param n: 2n+1 should be the total number of pixels along an axis of the padded PSF
+        :param nchan: number of channels (hoping FFTW is smart enough to take the FFT over channels in parallel)
+        """
+        # pre-compute coordinates required to evaluate Gaussian
+        self.npix = 2*n + 1
+        self.npix_facet = 2*n + 1
+        self.npix_padded_facet = 2*n + 1
+        self.nchan = nchan
+        self.npol = npol
+        self.x, self.y = np.mgrid[-n:n:1.0j*self.npix, -n:n:1.0j*self.npix]
+        self.rsq = self.x**2 + self.y**2
+
+        # pre-compute coordinates required to evaluate FT of Gaussian analytically
+        freqs = np.fft.fftshift(np.fft.fftfreq(self.npix))
+        self.u, self.v = np.meshgrid(freqs, freqs)
+        self.rhosq = self.u**2 + self.v**2
+
+        # Create a shared dict for holding padded arrays
+        self.shared_dict = shared_dict.create()
+        # add shared array the size of padded psf with nchan slices for convolving with the PSF
+        self.shared_dict.addSharedArray("PaddedPSF", (nchan, 1, self.npix_padded_facet, self.npix_padded_facet), np.complex64)
+        # add shared array the size of the padded image with nscales slices for doing a scale convolve
+        self.shared_dict.addSharedArray("PaddedImage", (nscales, 1, self.npix, self.npix), np.complex64)
+
+
 class LB_FFT_and_Gauss_Tools(object):
     """
     I got a bit confused with all the different flavours of FFT defined here and I needed some special functionality 

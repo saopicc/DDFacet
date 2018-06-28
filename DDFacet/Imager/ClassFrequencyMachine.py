@@ -76,9 +76,9 @@ class ClassFrequencyMachine(object):
         :return: 
         """
         if self.nchan==1: #hack to deal with a single channel
-            self.Fit = lambda vals: vals
-            self.Eval = lambda vals: vals # this will just be the value in that channel
-            self.Eval_Degrid = lambda vals, Freqs: np.tile(vals, Freqs.size)
+            self.Fit = lambda vals, *args: vals
+            self.Eval = lambda vals, *args: vals # this will just be the value in that channel
+            self.Eval_Degrid = lambda vals, Freqs, *args: np.tile(vals, Freqs.size)
         else:
             if mode == "WSCMS":
                 # set order
@@ -389,10 +389,6 @@ class ClassFrequencyMachine(object):
 
     def solve_MAP(self, Iapp, A, W, Kinv, theta):
         Dinv = A.T.dot(W[:, None] * A) + np.diag(Kinv)
-        # this might be necessary if we order > Nband
-        # if np.linalg.cond(Dinv) > 1e17:
-        #     print "Had to add jitter"
-        #     Dinv += 1e-7*np.eye(self.order)
         res = np.linalg.solve(Dinv, A.T.dot(W * Iapp) + theta * Kinv)
         return res
 
@@ -424,12 +420,14 @@ class ClassFrequencyMachine(object):
             # incorporate stitched JonesNorm
             JonesFactor = np.sqrt(MeanJonesBand/JonesNorm)
             # scale I0 by beam at ref_freq
-            I0 = MaxDirty / BeamFactor[self.ref_freq_index]
+            I0 = MaxDirty / BeamFactor[self.ref_freq_index]/1.25  # 1.25 because its better to underestimate I0
+            nu_tmp = self.Freqsp[self.ref_freq_index]
+            print "I 0 = ", I0, 100*(nu_tmp/1530000000.0)**(-0.7), 100*(1480000000.0/1530000000.0)**(-0.7)
             # next compute the product of the averaging matrix and beam matrix
             ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
             SAmat = np.zeros([self.nchan, self.nchan_degrid])
             for iCh in xrange(self.nchan):
-                I = np.argwhere(ChanMappingGrid[0] == iCh).squeeze()
+                I = np.argwhere(ChanMappingGrid[0] == iCh).squeeze()  # TODO - test on multiple MSs
                 nchunk = np.size(I)
                 SAmat[iCh, I] = BeamFactor[I]/(nchunk*JonesFactor[iCh])  # The division by JonesFactor corrects for the fact that the PSF is normalised
             self.SAX = SAmat.dot(self.Xdes)
@@ -437,7 +435,7 @@ class ClassFrequencyMachine(object):
             I0 = MaxDirty
         # get MFS weights
         W = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)
-        if I0>0.0:
+        if I0 > 0.0:
             theta = self.solve_MAP(Vals.astype(np.float64), self.SAX, W, self.prior_invcov/I0**2, I0*self.prior_theta)
         else:
             theta = self.solve_MAP(Vals.astype(np.float64), self.SAX, W, self.prior_invcov_neg/I0**2, I0*self.prior_theta_neg)

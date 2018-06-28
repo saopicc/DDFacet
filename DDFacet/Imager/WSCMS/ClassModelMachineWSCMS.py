@@ -137,13 +137,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         if Scale not in DicoComp.keys():
             DicoComp[Scale] = {}
+            DicoComp[Scale]["NumComps"] = 0
 
         if key not in DicoComp[Scale].keys():
             DicoComp[Scale][key] = {}
             DicoComp[Scale][key]["SolsArray"] = np.zeros(Sols.size, np.float32)
-            DicoComp[Scale][key]["NumComps"] = np.zeros(1, np.float32)
 
-        DicoComp[Scale][key]["NumComps"] += 1
+        DicoComp[Scale]["NumComps"] += 1  # to keep track of the number of components for a particularscale
         DicoComp[Scale][key]["SolsArray"] += Sols.ravel() * Gain
 
     def GiveModelImage(self, FreqIn=None, out=None):
@@ -173,6 +173,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             zero_scale = self.ListScales[0]
 
         for scale in DicoComp.keys():
+            print>>log, "Found %i components at scale %f" % (DicoComp[scale]["NumComps"], scale)
             # Note here we are building a spectral cube delta function representation first and then convolving by
             # the scale at the end. Need to build intrinsic model
             ScaleModel = np.zeros((nchan, npol, nx, ny), dtype=np.float32)
@@ -289,6 +290,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 self.ConvPSFmean = PSFmean
                 # delta scale is not cleaned with the ConvPSF so these should all be unity
                 self.PSFFreqNormFactors = np.ones([self.Nchan, 1, 1, 1], dtype=np.float32)
+                self.FpolNormFactor = 1.0
 
             else:
                 self.ConvPSF, self.ConvPSFmean = self.ScaleMachine.GiveTwiceConvolvedPSF(iFacet, iScale)
@@ -299,13 +301,20 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 NormFactors = self.ScaleMachine.GivePSFFreqPeaks(self.CurrentFacet, self.CurrentScale)
 
                 # To normalise by the frequency response of ConvPSF implicitly contained in residual
-                # we need to keep track of the ConvPSF peaks
-                self.PSFFreqNormFactors = NormFactormean/NormFactors
+                # we need to keep track of the ConvPSF peaks. Note this is not done in wsclean but should give more
+                # even per band residuals
+                self.PSFFreqNormFactors = NormFactormean / NormFactors
 
                 # Finally normalise PSF by peak of ConvPSF0
                 # This would set the peak of ConvPSF0 to unity if we were cleaning
                 # the delta scale with the convolved PSF
                 self.ConvPSF /= self.ScaleMachine.ConvPSFNormFactor
+
+                # This normalisation for Fpol is required so that we don't see jumps between minor cycles.
+                # Basically since the PSF is normalised by this factor the components also need to be normalised
+                # by the same factor for the subtraction in the sub-minor cycle to be the same as the subtraction
+                # in the minor and major cycles.
+                self.FpolNormFactor = self.ScaleMachine.ConvPSFNormFactor
 
 
     # not working yet!!!
@@ -349,7 +358,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # determine most relevant scale. This is the most time consuming step hence the sub-minor cycle
         xscale, yscale, ConvMaxDirty, CurrentDirty, ConvDirtyCube, iScale,  = \
             self.ScaleMachine.do_scale_convolve(Dirty.copy(), meanDirty.copy())
-        print "ConvMaxDirty at start = ", ConvMaxDirty
         if iScale == 0:
             xscale = x
             yscale = y
@@ -370,10 +378,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # set twice convolve PSF for scale and facet if either has changed
         self.set_ConvPSF(self.PSFServer.iFacet, iScale)
 
-        # get the mask
-        # TODO - incorporate JonesNorm
-        self.auto_mask = True
-        if self.auto_mask:
+        # update scale dependent mask
+        if self.GD["WSCMS"]["AutoMask"]:
             mask = self.give_scale_mask(CurrentDirty.copy(), self.ConvPSFmean, self.CurrentGain)
             self.ScaleMachine.ScaleMaskArray[sigma] &= mask
             # import matplotlib.pyplot as plt
@@ -432,12 +438,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # Overwrite with polynoimial fit (Fpol is apparent flux)
             Fpol[:, 0, 0, 0] = self.FreqMachine.Eval(self.Coeffs)
 
-            # add model component to dictionary
-            self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs, sigma, self.CurrentGain)
+            self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs / self.FpolNormFactor, sigma, self.CurrentGain)
 
             # keep track of apparent model array (this is for subtraction in the upper minor loop)
             # Note apparent since we convolve with a normalised PSF
-            ScaleModel[:, 0, xscale, yscale] += self.CurrentGain * Fpol[:, 0, 0, 0]
+            ScaleModel[:, 0, xscale, yscale] += self.CurrentGain * Fpol[:, 0, 0, 0] / self.FpolNormFactor
 
             # Restore ConvPSF frequency response and subtract component from residual
             Fpol /= self.PSFFreqNormFactors
@@ -448,15 +453,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             CurrentDirty[...] = np.sum(ConvDirtyCube * W.reshape((W.size, 1, 1, 1)), axis=0)[None, :, :, :]
 
             # find the peak
-            PeakMap = np.ascontiguousarray(CurrentDirty*self.ScaleMachine.ScaleMaskArray[sigma])
-            xscale, yscale, ConvMaxDirty = NpParallel.A_whereMax(PeakMap, NCPU=self.NCPU, DoAbs=self.DoAbs,
-                                                       Mask=None)
+            #PeakMap = np.ascontiguousarray(CurrentDirty*self.ScaleMachine.ScaleMaskArray[sigma])
+            xscale, yscale, ConvMaxDirty = NpParallel.A_whereMax(CurrentDirty, NCPU=self.NCPU, DoAbs=self.DoAbs,
+                                                                 Mask=None)
 
             # Update counters TODO - should add subminor cycle count to minor cycle count
             k += 1
             self.n_sub_minor_iter += 1
 
-        print "ConvMaxDirty at end = ", ConvMaxDirty
+        if ConvMaxDirty == 0.0:
+            print np.abs(CurrentDirty).max()
         # report if max sub-iterations exceeded
         if k >= self.ScaleMachine.NSubMinorIter:
             print>>log, "Maximum subiterations reached. "

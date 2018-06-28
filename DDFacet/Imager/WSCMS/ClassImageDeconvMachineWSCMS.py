@@ -107,7 +107,7 @@ class ClassImageDeconvMachine():
         self.Freqs_degrid = np.asarray(AllDegridFreqs).flatten()
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
-        self.SetModelRefFreq(kwargs["RefFreq"])
+        #self.SetModelRefFreq(kwargs["RefFreq"])
         self.ModelMachine.setFreqMachine(self.Freqs, self.Freqs_degrid,
                                          weights=kwargs["PSFVar"]["WeightChansImages"], PSFServer=self.PSFServer)
 
@@ -475,9 +475,9 @@ class ClassImageDeconvMachine():
                     self.PSFServer.setLocation(x, y)  # Selects the facet closest to (x,y)
 
                     # Fit a polynomial to get coeffs (coeffs are for intrinsic flux)
-                    self.ModelMachine.Coeffs = self.ModelMachine.FreqMachine.FitPolyNew(Fpol[:, 0, 0, 0],
-                                                                                        JonesNorm[:, 0, 0, 0],
-                                                                                        self._MeanDirty[0, 0, x, y])
+                    self.ModelMachine.Coeffs = self.ModelMachine.FreqMachine.Fit(Fpol[:, 0, 0, 0],
+                                                                                 JonesNorm[:, 0, 0, 0],
+                                                                                 self._MeanDirty[0, 0, x, y])
 
                     # Overwrite with polynoimial fit (this returns the apparent flux)
                     Fpol[:, 0, 0, 0] = self.ModelMachine.FreqMachine.Eval(self.ModelMachine.Coeffs)
