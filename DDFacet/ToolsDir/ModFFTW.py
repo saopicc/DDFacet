@@ -152,18 +152,34 @@ class FFTW_Scale_Manager(object):
     """
     Keeps track of all things FFTW + scale related for the WSCMS minor cycle 
     """
-    def __init__(self, n, nchan=1, npol=1, nscales=1):
+    def __init__(self, wisdom_file=None):
+        """
+        This call to init is just to register the relevant functions as job handlers for APP
+        """
+        if wisdom_file is not None:
+            #wisdom = np.load(wisdom_file)
+            pyfftw.import_wisdom(wisdom_file)
+            self.has_wisdom = True
+
+        APP.registerJobHandlers(self)
+
+    def Init(self, npix, npix_padded, npix_facet, npix_padded_facet, nchan=1, npol=1, nscales=1):
         """
         Utility class for FFT
         :param n: 2n+1 should be the total number of pixels along an axis of the padded PSF
         :param nchan: number of channels (hoping FFTW is smart enough to take the FFT over channels in parallel)
         """
         # pre-compute coordinates required to evaluate Gaussian
-        self.npix = 2*n + 1
-        self.npix_facet = 2*n + 1
-        self.npix_padded_facet = 2*n + 1
+        self.npix = npix
+        self.npix_padded = npix_padded
+        self.npad = (self.npix_padded - self.npix)//2
+        self.npix_facet = npix_facet
+        self.npix_padded_facet = npix_padded_facet
+        self.psf_npad = (self.npix_padded_facet - self.npix_facet)//2
         self.nchan = nchan
         self.npol = npol
+        self.nscales = nscales
+        n = npix//2
         self.x, self.y = np.mgrid[-n:n:1.0j*self.npix, -n:n:1.0j*self.npix]
         self.rsq = self.x**2 + self.y**2
 
@@ -173,11 +189,190 @@ class FFTW_Scale_Manager(object):
         self.rhosq = self.u**2 + self.v**2
 
         # Create a shared dict for holding padded arrays
-        self.shared_dict = shared_dict.create()
+        self.shared_dict = shared_dict.create("WSCMS")
+        # We need to initialise at least two shared arrays. One has size of the padded facet and the other the size
+        # of the padded image. In both cases we will be using them to do both scale convolves and PSF convolves so we
+        # might as well choose the larger of the two. TODO - can we byte_align these arrays
+        self.nslices = np.maximum(nchan, nscales)
         # add shared array the size of padded psf with nchan slices for convolving with the PSF
-        self.shared_dict.addSharedArray("PaddedPSF", (nchan, 1, self.npix_padded_facet, self.npix_padded_facet), np.complex64)
+        self._PaddedFacetArray = self.shared_dict.addSharedArray("Facet", (self.nslices, 1, self.npix_padded_facet,
+                                                                             self.npix_padded_facet), np.complex128)
         # add shared array the size of the padded image with nscales slices for doing a scale convolve
-        self.shared_dict.addSharedArray("PaddedImage", (nscales, 1, self.npix, self.npix), np.complex64)
+        self._PaddedImageArray = self.shared_dict.addSharedArray("Image", (self.nslices, 1, self.npix_padded,
+                                                                                 self.npix_padded), np.complex128)
+
+        self._workers = {}
+        self._workers['Facet'] = {}
+        self._workers['Image'] = {}
+        self._iworkers = {}
+        self._iworkers['Facet'] = {}
+        self._iworkers['Image'] = {}
+        facet_shape = [1, self.npol, self.npix_padded_facet, self.npix_padded_facet]
+        image_shape = [1, self.npol, self.npix_padded, self.npix_padded]
+        for i in xrange(self.nslices):
+            self._workers['Facet'][i] = pyfftw.FFTW(self._PaddedFacetArray[i].reshape(facet_shape),
+                                                    self._PaddedFacetArray[i].reshape(facet_shape), axes=(2,3),
+                                                    direction='FFTW_FORWARD', threads=1)
+            self._workers['Image'][i] = pyfftw.FFTW(self._PaddedImageArray[i].reshape(image_shape),
+                                                    self._PaddedImageArray[i].reshape(image_shape), axes=(2, 3),
+                                                    direction='FFTW_FORWARD', threads=1)
+            self._iworkers['Facet'][i] = pyfftw.FFTW(self._PaddedFacetArray[i].reshape(facet_shape),
+                                                     self._PaddedFacetArray[i].reshape(facet_shape), axes=(2,3),
+                                                     direction='FFTW_BACKWARD', threads=1)
+            self._iworkers['Image'][i] = pyfftw.FFTW(self._PaddedImageArray[i].reshape(image_shape),
+                                                     self._PaddedImageArray[i].reshape(image_shape), axes=(2, 3),
+                                                     direction='FFTW_BACKWARD', threads=1)
+
+        print self._workers.keys(), self._iworkers.keys()
+
+    def _fft_worker_new(self, iSlice, grid, field, data, npad):
+        # pad data and Fourier shift data onto shared array
+        grid[field][iSlice, 0] = iFs(np.pad(data[iSlice, 0], ((npad, npad), (npad, npad)), mode='constant'), axes=(0, 1))
+        # take FT (check that this happens in place!!!)
+        self._workers[field][iSlice]()
+
+    def _ifft_worker_new(self, iSlice, grid, field):
+        self._iworkers[field][iSlice]()
+        grid[field][iSlice, 0] = Fs(grid[field][iSlice, 0], axes=(0, 1))
+
+
+    def _fft_worker(self, iSlice, grid, field, data, npad):
+        # pad data and Fourier shift data onto shared array
+        grid[field][iSlice, 0] = iFs(np.pad(data[iSlice, 0], ((npad, npad), (npad, npad)), mode='constant'), axes=(0, 1))
+        # take FT (check that this happens in place!!!)
+        grid[field][iSlice, 0] = pyfftw.interfaces.numpy_fft.fft2(grid[field][iSlice, 0], axes=(-2, -1), overwrite_input=True,
+                                                                  auto_align_input=False, auto_contiguous=False)
+
+        # this should not be necessary since we are going to multiply by Fsd GaussianFT
+        #grid[field][iSlice, 0] = Fs(grid[field][iSlice, 0], axes=(0, 1))
+
+    def _ifft_worker(self, iSlice, grid, field):
+        # we pass in the padded iFsd array so this is not necessary
+        # pad data and Fourier shift data onto shared array
+        #grid[field][iSlice, 0] = iFs(np.pad(data[iSlice, 0], ((npad, npad), (npad, npad)), mode='constant'), axes=(0, 1))
+        # take the ifft
+        grid[field][iSlice, 0] = pyfftw.interfaces.numpy_fft.ifft2(grid[field][iSlice, 0], axes=(-2, -1), overwrite_input=True,
+                                                                   auto_align_input=False, auto_contiguous=False)
+        # the result needs to be Fsd since this is at the end of the convolution
+        grid[field][iSlice, 0] = Fs(grid[field][iSlice, 0], axes=(0, 1))
+
+    def FFT_new(self, data, mode='Facet'):
+        nslices, npol, nx, ny = data.shape
+        if mode=='Facet':
+            npad = self.psf_npad
+        elif mode=='Image':
+            npad = self.npad
+        for iSlice in xrange(nslices):
+            APP.runJob("fft2:%s" % iSlice, self._fft_worker_new,
+                       args=(iSlice, self.shared_dict.readonly(), mode, data, npad))
+        APP.awaitJobResults("fft2:*")
+
+    def iFFT_new(self, nslices, unpad=True, mode='Facet'):
+        for iSlice in xrange(nslices):
+            APP.runJob("ifft2:%s" % iSlice, self._ifft_worker_new,
+                       args=(iSlice, self.shared_dict.readonly(), mode))
+        APP.awaitJobResults("ifft2:*")
+        if mode == 'Facet':
+            if unpad:
+                I = slice(self.psf_npad, self.npix_padded_facet - self.psf_npad)
+                return np.ascontiguousarray(self._PaddedFacetArray[0:nslices, :, I, I])
+            else:
+                return np.ascontiguousarray(self._PaddedFacetArray[0:nslices, :])
+        elif mode == 'Image':
+            if unpad:
+                I = slice(self.npad, self.npix_padded - self.npad)
+                return np.ascontiguousarray(self._PaddedImageArray[0:nslices, :, I, I])
+            else:
+                return np.ascontiguousarray(self._PaddedImageArray[0:nslices, :])
+
+    def FFT(self, data, unpad=True, mode='Facet'):
+        """
+        Does a single FFT on data. Mode determines whether array is the size of the image or the size of 
+        the facet
+        """
+        nslices, npol, nx, ny = data.shape
+        if mode=='Facet':
+            for iSlice in xrange(nslices):
+                APP.runJob("fft:%s" % iSlice, self._fft_worker,
+                           args=(iSlice, self.shared_dict.readonly(), mode, data,
+                                 self.psf_npad))
+            APP.awaitJobResults("fft:*")
+            # Don't think it should ever be unpadded or Fsd
+            # Also at the end of the calculation the data FT is in the relevant shared array so we
+            # can operate directly on that. Hence no return
+            # if unpad:
+            #     I = slice(self.psf_npad, self.npix_padded_facet - self.psf_npad)
+            #     return np.ascontiguousarray(self._PaddedFacetArray[0:nslices,:][I, I])
+            # else:
+            # note we will drop the first axis if nslices==1
+            # return np.ascontiguousarray(self._PaddedFacetArray[0:nslices])
+        elif mode=='Image':
+            for iSlice in xrange(nslices):
+                APP.runJob("fft:%s" % iSlice, self._fft_worker,
+                           args=(iSlice, self.shared_dict.readonly(), mode, data,
+                                 self.npad))
+            APP.awaitJobResults("fft:*")
+            # see above comment
+            # if unpad:
+            #     I = slice(self.npad, self.npix_padded - self.npad)
+            #     return np.ascontiguousarray(self._PaddedImageArray[0:nslices, :][I, I])
+            # else:
+            #     return np.ascontiguousarray(self._PaddedImageArray[0:nslices, :])
+
+    def iFFT(self, nslices, unpad=True, mode='Facet'):
+        """
+        Does a single iFFT on data. Mode determines whether array is the size of the image or the size of 
+        the facet. Assumes FFT() was called before and populated the relevant array
+        """
+        if mode=='Facet':
+            for iSlice in xrange(nslices):
+                APP.runJob("ifft:%s" % iSlice, self._ifft_worker,
+                           args=(iSlice, self.shared_dict.readonly(), mode))
+            APP.awaitJobResults("ifft:*")
+            if unpad:
+                I = slice(self.psf_npad, self.npix_padded_facet - self.psf_npad)
+                return np.ascontiguousarray(self._PaddedFacetArray[0:nslices, :, I, I])
+            else:
+                return np.ascontiguousarray(self._PaddedFacetArray[0:nslices, :])
+        elif mode=='Image':
+            for iSlice in xrange(nslices):
+                APP.runJob("ifft:%s" % iSlice, self._ifft_worker,
+                           args=(iSlice, self.shared_dict.readonly(), mode))
+            APP.awaitJobResults("ifft:*")
+            if unpad:
+                I = slice(self.npad, self.npix_padded - self.npad)
+                return np.ascontiguousarray(self._PaddedImageArray[0:nslices, :, I, I])
+            else:
+                return np.ascontiguousarray(self._PaddedImageArray[0:nslices, :])
+
+    # def CFFT(self, data, unpad=True, mode='Facet'):
+    #     """
+    #     Does an FFT over a spectral cube. Number of pixels must be the size of the facet
+    #     """
+    #     for iCh in xrange(self.nchan):
+    #         APP.runJob("cfft:%s" % iCh, self._fft_worker,
+    #                    args=(iCh, self.shared_dict.readonly(), mode, data, self.psf_npad))
+    #     APP.awaitJobResults("cfft:*")
+    #     if unpad:
+    #         I = slice(self.psf_npad, self.npix_padded_facet-self.psf_npad)
+    #         return np.ascontiguousarray(self._PaddedFacetArray[:,:, I, I])
+    #     else:
+    #         return np.ascontiguousarray(self._PaddedFacetArray)
+    #
+    # def iCFFT(self, data, unpad=True, mode='Facet'):
+    #     """
+    #     Does an iFFT over a spectral cube. Number of pixels must be the size of the facet
+    #     """
+    #     for iCh in xrange(self.nchan):
+    #         APP.runJob("icfft:%s" % iCh, self._ifft_worker,
+    #                    args=(iCh, self.shared_dict.readonly(), mode, data, self.psf_npad))
+    #     APP.awaitJobResults("icfft:*")
+    #     if unpad:
+    #         I = slice(self.psf_npad, self.npix_padded_facet-self.psf_npad)
+    #         return np.ascontiguousarray(self._PaddedFacetArray[:, :, I, I])
+    #     else:
+    #         return np.ascontiguousarray(self._PaddedFacetArray)
+
 
 
 class LB_FFT_and_Gauss_Tools(object):
@@ -207,20 +402,22 @@ class LB_FFT_and_Gauss_Tools(object):
         # invoked FFTW. This would come at a slight memset/memcopy cost but if we load the
         # wisdom file this should be negligible
         # plan for in place and aligned FFT for single occurrence
-        self.xhat = pyfftw.empty_aligned([1, 1, self.npix, self.npix], dtype='complex64')
+        self.xhat = pyfftw.empty_aligned([1, 1, self.npix, self.npix], dtype='complex128')
         self.FFT = pyfftw.FFTW(self.xhat, self.xhat, axes=(2,3), direction='FFTW_FORWARD', threads=1)
         self.iFFT = pyfftw.FFTW(self.xhat, self.xhat, axes=(2,3), direction='FFTW_BACKWARD', threads=1)
 
         # plan for in place and aligned FFT over channels
-        self.Chat = pyfftw.empty_aligned([self.nchan, self.npol, self.npix, self.npix], dtype='complex64')
-        self.CFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2,3), direction='FFTW_FORWARD', threads=4)
-        self.iCFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2,3), direction='FFTW_BACKWARD', threads=4)
+        self.Chat = pyfftw.empty_aligned([self.nchan, self.npol, self.npix, self.npix], dtype='complex128')
+        self.CFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2,3), direction='FFTW_FORWARD', threads=8)
+        self.iCFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2,3), direction='FFTW_BACKWARD', threads=8)
 
         if nscales is not None:
             self.nscales = nscales
             self.Shat = pyfftw.empty_aligned([self.nscales, self.npix, self.npix], dtype='complex64')
-            self.SFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(1, 2), direction='FFTW_FORWARD', threads=4)
-            self.iSFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(1, 2), direction='FFTW_BACKWARD', threads=4)
+            self.SFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(1, 2), direction='FFTW_FORWARD', threads=8)
+            self.iSFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(1, 2), direction='FFTW_BACKWARD', threads=8)
+
+
 
     def SimpleFT(self, A, cube=False, direction='F', unpad=True):
         nch, npol, npix, _ = A.shape
@@ -247,7 +444,7 @@ class LB_FFT_and_Gauss_Tools(object):
             return Fs(self.Chat, axes=(2, 3))[:, :, I, I]
 
     # TODO - cube keyword is redundant since amp.size > 1 implies cube==True (or does it? what about when sig.size>1?)
-    def GaussianSymmetric(self, sig, npix=None, x0=None, y0=None, amp=1.0, cube=False):
+    def GaussianSymmetric(self, sig, npix=None, x0=None, y0=None, amp=np.array([1.0]), cube=False):
         """
         Evaluates symmetric normalised 2D Gaussian centered at (x0, y0)
         :param sig: std deviation of Gaussian in signal space

@@ -31,10 +31,11 @@ from DDFacet.Array import NpParallel
 from DDFacet.Other import ClassTimeIt
 from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
-from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Imager import ClassGainMachine # Currently required by model machine but fixed to static mode
+from DDFacet.Imager.WSCMS.ClassModelMachineWSCMS import ClassModelMachine
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
-
+from DDFacet.Other.AsyncProcessPool import APP
+from DDFacet.ToolsDir.ModFFTW import FFTW_Scale_Manager
 
 class ClassImageDeconvMachine():
     """
@@ -98,6 +99,11 @@ class ClassImageDeconvMachine():
         self._NoiseMap = None
         self._PNRStop = None  # in _peakMode "sigma", provides addiitonal stopping criterion
 
+        # this is so that the relevant functions are registered as job handlers with APP
+        self.FTMachine = FFTW_Scale_Manager(wisdom_file=self.GD["Cache"]["DirWisdomFFTW"])
+
+        APP.registerJobHandlers(self)
+
 
     def Init(self, **kwargs):
         self.Freqs = kwargs["GridFreqs"]
@@ -111,7 +117,8 @@ class ClassImageDeconvMachine():
         self.ModelMachine.setFreqMachine(self.Freqs, self.Freqs_degrid,
                                          weights=kwargs["PSFVar"]["WeightChansImages"], PSFServer=self.PSFServer)
 
-        self.ModelMachine.setScaleMachine(PSFserver=self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray)
+        self.ModelMachine.setScaleMachine(PSFserver=self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
+                                          FTMachine=self.FTMachine)
 
 
     def Reset(self):
@@ -247,22 +254,8 @@ class ClassImageDeconvMachine():
         x0d, x1d, y0d, y1d = Aedge
         x0p, x1p, y0p, y1p = Bedge
 
-        # vmin = self._Dirty[0, 0, x0d:x1d, y0d:y1d].min()
-        # vmax = self._Dirty[0, 0, x0d:x1d, y0d:y1d].max()
-        # # Subtract from each channel/band
-        # import matplotlib.pyplot as plt
-        # plt.figure('SM')
-        # plt.imshow(LocalSM[0, 0, x0p:x1p, y0p:y1p], vmin=vmin, vmax=vmax)
-        # plt.colorbar()
-        # plt.figure('Dirty before')
-        # plt.imshow(self._Dirty[0, 0, x0d:x1d, y0d:y1d], vmin=vmin, vmax=vmax)
-        # plt.colorbar()
         self._Dirty[:, :, x0d:x1d, y0d:y1d] -= LocalSM[:, :, x0p:x1p, y0p:y1p]
-        # plt.figure('Dirty after')
-        # plt.imshow(self._Dirty[0, 0, x0d:x1d, y0d:y1d], vmin=vmin, vmax=vmax)
-        # plt.colorbar()
-        # plt.show()
-        # plt.close()
+
         # Subtract from the average
         if self.MultiFreqMode:  # If multiple frequencies are present construct the weighted mean
             self._MeanDirty[:, 0, x0d:x1d, y0d:y1d] -= np.sum(LocalSM[:, :, x0p:x1p, y0p:y1p] * self.WeightsChansImages,

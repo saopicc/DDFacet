@@ -54,7 +54,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.Nchan = self.FreqMachine.nchan
         self.Npol = 1
 
-    def setScaleMachine(self, PSFserver=None, NCPU=None, MaskArray=None):
+    def setScaleMachine(self, PSFserver=None, NCPU=None, MaskArray=None, FTMachine=None):
         if self.GD["WSCMS"]["MultiScale"]:
             if NCPU is None:
                 self.NCPU = self.GD['Parallel'][NCPU]
@@ -66,7 +66,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                  self.NCPU = NCPU
             self.DoAbs = self.GD["Deconv"]["AllowNegative"]
             self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=NCPU, MaskArray=MaskArray)
-            self.ScaleMachine.Init(PSFserver=PSFserver, FreqMachine=self.FreqMachine)
+            self.FTMachine = FTMachine
+            self.ScaleMachine.Init(PSFserver=PSFserver, FreqMachine=self.FreqMachine, FTMachine2=self.FTMachine)
             self.Nscales = self.ScaleMachine.Nscales
             # Initialise CurrentScale variable
             self.CurrentScale = 999999
@@ -137,13 +138,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         if Scale not in DicoComp.keys():
             DicoComp[Scale] = {}
-            DicoComp[Scale]["NumComps"] = 0
 
         if key not in DicoComp[Scale].keys():
             DicoComp[Scale][key] = {}
             DicoComp[Scale][key]["SolsArray"] = np.zeros(Sols.size, np.float32)
+            DicoComp[Scale][key]["NumComps"] = np.zeros(1, np.float32)
 
-        DicoComp[Scale]["NumComps"] += 1  # to keep track of the number of components for a particularscale
+        DicoComp[Scale][key]["NumComps"] += 1
         DicoComp[Scale][key]["SolsArray"] += Sols.ravel() * Gain
 
     def GiveModelImage(self, FreqIn=None, out=None):
@@ -173,7 +174,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             zero_scale = self.ListScales[0]
 
         for scale in DicoComp.keys():
-            print>>log, "Found %i components at scale %f" % (DicoComp[scale]["NumComps"], scale)
             # Note here we are building a spectral cube delta function representation first and then convolving by
             # the scale at the end. Need to build intrinsic model
             ScaleModel = np.zeros((nchan, npol, nx, ny), dtype=np.float32)
