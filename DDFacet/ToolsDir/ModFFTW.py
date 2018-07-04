@@ -223,7 +223,7 @@ class FFTW_Scale_Manager(object):
                                                      self._PaddedImageArray[i].reshape(image_shape), axes=(2, 3),
                                                      direction='FFTW_BACKWARD', threads=1)
 
-        print self._workers.keys(), self._iworkers.keys()
+        #print self._workers.keys(), self._iworkers.keys()
 
     def _fft_worker_new(self, iSlice, grid, field, data, npad):
         # pad data and Fourier shift data onto shared array
@@ -380,68 +380,87 @@ class LB_FFT_and_Gauss_Tools(object):
     I got a bit confused with all the different flavours of FFT defined here and I needed some special functionality 
     so I decided to write my own class
     """
-    def __init__(self, n, nchan=1, npol=1, nscales=None):
+    def __init__(self, n, nchan=1, npol=1, nscales=None, wisdom_file=None, npix=None, npixpadded=None, npixpsf=None,
+                 npixpaddedpsf=None, nthreads=8):
         """
         Utility class for FFT
         :param n: 2n+1 should be the total number of pixels along an axis of the padded PSF
         :param nchan: number of channels (hoping FFTW is smart enough to take the FFT over channels in parallel)
         """
+        # import the wisdom file TODO - send to same wisdom file as main
+        if wisdom_file is not None:
+            try:
+                wisdom = np.load(wisdom_file)
+                pyfftw.import_wisdom(wisdom)
+            except:
+                print>>log, "WSCMS wisdom file does not exist, will re-make"
+
+        self.Npix = npix
+        self.NpixPadded = npixpadded
+        self.Npad = (npixpadded - npix)//2
+
+        self.NpixPSF = npixpsf
+        self.NpixPaddedPSF = npixpaddedpsf
+        self.NpadPSF = (npixpaddedpsf - npixpsf)//2
+
         # pre-compute coordinates required to evaluate Gaussian
-        self.npix = 2*n + 1
+        n = self.NpixPaddedPSF//2
         self.nchan = nchan
         self.npol = npol
-        self.x, self.y = np.mgrid[-n:n:1.0j*self.npix, -n:n:1.0j*self.npix]
+        self.nscales = nscales
+        self.x, self.y = np.mgrid[-n:n:1.0j*self.NpixPaddedPSF, -n:n:1.0j*self.NpixPaddedPSF]
         self.rsq = self.x**2 + self.y**2
 
         # pre-compute coordinates required to evaluate FT of Gaussian analytically
-        freqs = np.fft.fftshift(np.fft.fftfreq(self.npix))
+        freqs = np.fft.fftshift(np.fft.fftfreq(self.NpixPaddedPSF))
         self.u, self.v = np.meshgrid(freqs, freqs)
         self.rhosq = self.u**2 + self.v**2
 
-        # TODO - actually we can save some memory by setting xhat aligned only if the shape has changed since we last
-        # invoked FFTW. This would come at a slight memset/memcopy cost but if we load the
-        # wisdom file this should be negligible
+        # set aside a facet sized array for in place and aligned FFTs
+        self.nslices = np.maximum(self.nchan, self.nscales)
+        self.xfacet = pyfftw.empty_aligned([self.nslices, self.npol, self.NpixPaddedPSF, self.NpixPaddedPSF],
+                                         dtype='complex64')
+
+        # plan for in place and aligned FFT over channels
+        self.Chat = self.xfacet[0:self.nchan].view()
+        self.CFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2, 3), direction='FFTW_FORWARD',
+                                threads=np.maximum(nthreads, self.nchan))
+        self.iCFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2, 3), direction='FFTW_BACKWARD',
+                                 threads=np.maximum(nthreads, self.nchan))
+
         # plan for in place and aligned FFT for single occurrence
-        self.xhat = pyfftw.empty_aligned([1, 1, self.npix, self.npix], dtype='complex128')
+        self.xhat = self.xfacet[0:1].view()
         self.FFT = pyfftw.FFTW(self.xhat, self.xhat, axes=(2,3), direction='FFTW_FORWARD', threads=1)
         self.iFFT = pyfftw.FFTW(self.xhat, self.xhat, axes=(2,3), direction='FFTW_BACKWARD', threads=1)
 
+
+        # self.Shat = self.xfacet[0:self.nscales].view()
+        # self.SFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(1, 2), direction='FFTW_FORWARD', threads=8)
+        # self.iSFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(1, 2), direction='FFTW_BACKWARD', threads=8)
+
+        # set aside an image size array for in place and aligned FFTs
+        self.ximage = pyfftw.empty_aligned([self.nslices, self.npol, self.NpixPadded, self.NpixPadded],
+                                           dtype='complex64')
+        self.Shat = self.ximage[0:self.nscales].view()
+        self.SFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(2, 3), direction='FFTW_FORWARD',
+                                threads=np.maximum(nthreads, self.nscales))
+        self.iSFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(2, 3), direction='FFTW_BACKWARD',
+                                 threads=np.maximum(nthreads, self.nscales))
+        self.xhatim = self.Shat[0:1].view()
+        self.FFTim = pyfftw.FFTW(self.xhatim, self.xhatim, axes=(2, 3), direction='FFTW_FORWARD', threads=1)
+        self.iFFTim = pyfftw.FFTW(self.xhatim, self.xhatim, axes=(2, 3), direction='FFTW_BACKWARD', threads=1)
+
         # plan for in place and aligned FFT over channels
-        self.Chat = pyfftw.empty_aligned([self.nchan, self.npol, self.npix, self.npix], dtype='complex128')
-        self.CFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2,3), direction='FFTW_FORWARD', threads=8)
-        self.iCFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2,3), direction='FFTW_BACKWARD', threads=8)
+        self.Chatim = self.ximage[0:self.nchan].view()
+        self.CFFTim = pyfftw.FFTW(self.Chatim, self.Chatim, axes=(2, 3), direction='FFTW_FORWARD',
+                                  threads=np.maximum(nthreads, self.nchan))
+        self.iCFFTim = pyfftw.FFTW(self.Chatim, self.Chatim, axes=(2, 3), direction='FFTW_BACKWARD',
+                                   threads=np.maximum(nthreads, self.nchan))
 
-        if nscales is not None:
-            self.nscales = nscales
-            self.Shat = pyfftw.empty_aligned([self.nscales, self.npix, self.npix], dtype='complex64')
-            self.SFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(1, 2), direction='FFTW_FORWARD', threads=8)
-            self.iSFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(1, 2), direction='FFTW_BACKWARD', threads=8)
-
-
-
-    def SimpleFT(self, A, cube=False, direction='F', unpad=True):
-        nch, npol, npix, _ = A.shape
-        npad = (self.npix - npix)//2
-        if unpad:
-            I = slice(npad, self.npix-npad)
-        else:
-            I = slice(0, self.npix)
-        if not cube:
-            self.xhat[...] = iFs(np.pad(A, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'), axes=(2, 3))
-            if direction == 'F':
-                self.FFT()
-            elif direction == 'B':
-                self.iFFT()
-            return Fs(self.xhat, axes=(2,3))[:, :, I, I]
-        else:
-            if nch != self.nchan:
-                raise NotImplementedError("First dimension needs to match number of channels")
-            self.Chat[...] = iFs(np.pad(A, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'), axes=(2, 3))
-            if direction == 'F':
-                self.CFFT()
-            elif direction == 'B':
-                self.iCFFT()
-            return Fs(self.Chat, axes=(2, 3))[:, :, I, I]
+        # export the wisdom file
+        if wisdom_file is not None:
+            wisdom = pyfftw.export_wisdom()
+            np.save(wisdom_file, wisdom)
 
     # TODO - cube keyword is redundant since amp.size > 1 implies cube==True (or does it? what about when sig.size>1?)
     def GaussianSymmetric(self, sig, npix=None, x0=None, y0=None, amp=np.array([1.0]), cube=False):
@@ -458,7 +477,7 @@ class LB_FFT_and_Gauss_Tools(object):
         if cube:
             amp = amp[:, None, None, None]
 
-        if npix is not None and npix != self.npix: 
+        if npix is not None and npix != self.NpixPaddedPSF:
             if cube:
                 I = [None, None, slice(0, npix), slice(0, npix)]
                 # if np.size(amp)>1:
@@ -489,192 +508,6 @@ class LB_FFT_and_Gauss_Tools(object):
                 y0 = y0 or 0
                 rsq = (self.x - x0)**2 + (self.y - y0)**2
                 return amp*np.exp(-rsq / (2 * sig ** 2))[I] / (2 * np.pi * sig ** 2)
-
-    def GaussianSymmetricFT(self, sig, npad=0, x0=None, y0=None, amp=np.array([1.0]), cube=False):
-        """
-        Gives the FT of a symmetric Gaussian analytically (assumes centered)
-        :param sig: std deviation of Gaussian in signal space
-        :param npad: amount of zero padding for FFT. Will return an array corresponding to the unpadded grid so
-                     set to zero to get the result on the padded grid
-        :param x0: center x coordinate relative to center
-        :param y0: center y coordinate relative to center
-        :param amp: amplitude (at delta scale) of Gaussian component (if amp.size > 1 cube must be True)
-        :param cube: whether to evaluate a cube (i.e. return result of shape [nchan, npol, nx, ny]) or not
-        :return: 
-        """
-        if cube:
-            amp = amp[:, None, None, None]
-
-        if np.size(sig) > 1:
-            # this wont work if both cube==True and sig.size>1
-            if cube:
-                raise NotImplementedError('Cube cant be true if passing in more than one scale')
-
-            I = slice(npad, self.npix - npad)
-
-            if x0 is None and y0 is None:
-                return amp*np.exp(-2*np.pi**2*self.rhosq*sig**2)[:, I, I]
-            else:
-                return amp*(np.exp(-2.0j*np.pi*self.v*x0)*np.exp(-2.0j*np.pi*self.u*y0) *
-                                   np.exp(-2 * np.pi ** 2 * self.rhosq * sig ** 2))[:, I, I]  # need to figure out why u and v need to be swapped around for this to work
-        else:
-            if cube:
-                I = [None, None, slice(0, self.npix), slice(0, self.npix)]
-            else:
-                I = slice(None)
-            if x0 is None and y0 is None:
-                return amp*np.exp(-2 * np.pi ** 2 * self.rhosq * sig ** 2)[I]
-            else:
-                return amp*(np.exp(-2.0j * np.pi * self.v * x0) * np.exp(-2.0j * np.pi * self.u * y0) *
-                            np.exp(-2 * np.pi ** 2 * self.rhosq * sig ** 2))[I]  # need to figure out why u and v need to be swapped around for this to work
-
-    # TODO - modify so that nch can be anything
-    def ConvolveGaussian(self, A, sig, cube=False):
-        """
-        Colnvolves A with a symmetric Guassian kernel  
-        :param A: [nch, npix, npix] array to be convolved
-        :param sig: std deviation of Gaussian kernel in signal space
-        :param cube: if cube is true nch=self.nchan is assumed    
-        :return: 
-        """
-        nch, npol, npix, _ = A.shape
-        npad = (self.npix - npix)//2
-        I = slice(npad, self.npix-npad)
-        if not cube:
-            self.xhat[...] = iFs(np.pad(A, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'), axes=(2, 3))
-            self.FFT()
-            self.xhat *= iFs(self.GaussianSymmetricFT(sig)[None, None, :, :], axes=(2, 3))
-            self.iFFT()
-            return Fs(self.xhat, axes=(2, 3))[:, :, I, I].real
-        elif nch == self.nchan:
-            self.Chat[...] = iFs(np.pad(A, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'), axes=(2, 3))
-            self.CFFT()
-            self.Chat *= iFs(self.GaussianSymmetricFT(sig)[None, None, :, :], axes=(2, 3))
-            self.iCFFT()
-            return Fs(self.Chat, axes=(2, 3))[:, :, I, I].real
-        else:
-            # FFTW setup
-            xhat = pyfftw.empty_aligned([nch, 1, self.npix, self.npix], dtype='complex64')
-            FFT = pyfftw.FFTW(xhat, xhat, axes=(2, 3), direction='FFTW_FORWARD', threads=1)
-            iFFT = pyfftw.FFTW(xhat, xhat, axes=(2, 3), direction='FFTW_BACKWARD', threads=1)
-
-            # copy data to xhat and take FFT
-            xhat[...] = iFs(np.pad(A.copy(), ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'), axes=(2, 3))
-            FFT()
-            # multiply by scale function and take iFFT
-            xhat *= iFs(self.GaussianSymmetricFT(sig)[None, None, :, :], axes=(2, 3))
-            iFFT()
-            # return unpadded result
-            return Fs(xhat.copy(), axes=(2, 3))[:, :, I, I].real
-
-    def ConvolvePSF(self, FT_PSF, FT_SM=None, npad=None, cube=False, sig=None):
-        nch, _, npix, _ = FT_PSF.shape
-        if npix != self.npix:
-            raise ValueError('FT_PSF should be the same size as the padded PSF')
-        if FT_SM is not None:
-            nch2, _, npix2, _ = FT_SM.shape
-            if npix2 != npix:
-                raise ValueError('FT_SM should be the same size as FT_PSF')
-        if npad is not None:
-            I = slice(npad, self.npix - npad)
-        else:
-            I = slice(0, self.npix)
-        # if nch != self.nchan or nch2 != self.nchan:
-        #     raise NotImplementedError('First axis must match number of channels')
-        self.Chat[...] = iFs(FT_PSF.copy(), axes=(2, 3))
-        if FT_SM is not None:
-            # multiply each channel by FT of SM
-            self.Chat *= iFs(FT_SM, axes=(2, 3))
-        elif sig is not None:
-            # multiply each channel by FT of scale kernel
-            FT_SM = self.GaussianSymmetricFT(sig, cube=True)
-            self.Chat *= iFs(FT_SM, axes=(2, 3))
-        else:
-            raise ValueError("Either FT_SM or sig must not be None")
-        self.iCFFT()
-        return Fs(self.Chat, axes=(2, 3))[:, :, I, I].real
-
-    def TwiceConvolvePSF(self, FT_PSF, sig, npad, cube=False):
-        """
-        Twice convolves the PSF with Gaussian kernel
-        :param FT_PSF: [nch, npix, npix] array holding the Fourier transform of the PSF 
-        :param npad: FT_PSF should be the size of the padded PSF so npad gives the amount by which it should be 
-                     unpadded to match the size of the original PSF
-        :param sig: the std deviation of the Gaussian in signal space
-        :param cube: true if nch==self.nchan false if nch==1
-        :return: 
-        """
-        # copy to Chat
-        nch, _, npix, _ = FT_PSF.shape
-        if npix != self.npix:
-            raise ValueError('FT_PSF should be the same size as the padded PSF')
-        I = slice(npad, self.npix - npad)
-        if cube:
-            if nch != self.nchan:
-                raise NotImplementedError('First axis must match number of channels')
-            self.Chat[...] = iFs(FT_PSF.copy(), axes=(2,3))
-            # multiply each channel by FT of scale kernel
-            self.Chat *= iFs(self.GaussianSymmetricFT(sig)[None, None, :, :]**2, axes=(2, 3))
-            self.iCFFT()
-            return Fs(self.Chat, axes=(2, 3))[:, :, I, I].real
-        else:
-            self.xhat[...] = iFs(FT_PSF.copy(), axes=(2,3))
-            # multiply by FT of scale kernel
-            self.xhat *= iFs(self.GaussianSymmetricFT(sig)[None, None, :, :]**2, axes=(2,3))
-            self.iFFT()
-            return Fs(self.xhat, axes=(2, 3))[:, :, I, I].real
-
-    def ConvolveGaussianScales(self, A, sigs):
-        """
-        Convolves input A by symmetric Gaussian kernel with std deviation sig (note the convolution is over axes=(1,2)).
-        This should be quite efficient because the FT of the kernel is evaluated analytically and is the same 
-        in each channel avoiding a number of unnecessary FFTs 
-        :param A: [nchan, npix, npix] array to be convolved
-        :param sig: std deviation of Gaussian in signal space
-        :return: 
-        """
-        nch, npol, npix, _ = A.shape
-        if nch !=1:
-            raise NotImplementedError('Only convolves single image by scales so first axis must be 1 i.e. nch==1')
-        npad = (self.npix - npix)//2
-        I = slice(npad, self.npix-npad)
-        # populate xhat
-        self.xhat[...] = iFs(np.pad(A, ((0, 0), (0,0), (npad, npad), (npad, npad)), mode='constant'), axes=(2, 3))
-        # get FT
-        self.FFT()
-        # copy to Shat
-        self.Shat[...] = np.tile(self.xhat[0, 0], (self.nscales, 1, 1))
-        # multiply by FT of scale kernels
-        self.Shat *= iFs(self.GaussianSymmetricFT(sigs[:, None, None]), axes=(1, 2))
-        self.iSFFT()
-        return np.ascontiguousarray(Fs(self.Shat, axes=(1, 2))[:, I, I].real)
-
-    def GiveTotalScalePower(self, A, sigs):
-        """
-        This is (hopefully) a quick way to find the most relevant scale. Since FT is unitary the scalar product 
-        between two vectors is conserved under the FT. The total power of a scale in the image is proportional 
-        to Ihat.conj().T.dot(Ihat) where Ihat = F[I * k}.flatten(). Thus instead of finding the brightest peak
-        in the convolved image we can instead look for the scale with the greatest total power. This basically 
-        replaces the inverse Fourier transform and peak finding steps with a dot product
-        :param A: [npix, npix] array to be convolved
-        :param sigs: nscales array holding the scales to convolve with
-        :return: 
-        """
-        # could make padding automatic
-        npix = A.shape[-1]
-        npad = (self.npix - npix)//2
-        I = slice(npad, self.npix-npad)
-        # populate xhat
-        self.xhat[...] = iFs(np.pad(A, ((0, 0), (0,0), (npad, npad), (npad, npad)), mode='constant'), axes=(2, 3))
-        # get FT
-        self.FFT()
-        # tile into Shat
-        self.Shat[...] = np.tile(Fs(self.xhat[0, 0]), (self.nscales, 1, 1))
-        # evaluate FT of scale kernels and multiply result (no need for iFs here since we are not taking the Fourier transform)
-        self.Shat *= self.GaussianSymmetricFT(sigs[:, None, None], npad=0)  # npad is set to zero because the result must be of the same size as the padded grid
-        # unpad, take and return dot products
-        return np.einsum('nj,nj->n', self.Shat[:, I, I].conj().reshape(self.nscales, npix**2),
-                         self.Shat[:, I, I].reshape(self.nscales, npix**2))
 
 
 # FFTW version of the FFT engine

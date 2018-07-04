@@ -36,6 +36,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.RefFreq = RefFreq
         self.DicoSMStacked["RefFreq"] = RefFreq
 
+    def setPSFServer(self, PSFServer):
+        self.PSFServer = PSFServer
+
     def setFreqMachine(self, GridFreqs, DegridFreqs, weights=None, PSFServer=None):
         self.PSFServer = PSFServer
         # Initiaise the Frequency Machine
@@ -54,7 +57,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.Nchan = self.FreqMachine.nchan
         self.Npol = 1
 
-    def setScaleMachine(self, PSFserver=None, NCPU=None, MaskArray=None, FTMachine=None):
+    def setScaleMachine(self, PSFServer, NCPU=None, MaskArray=None, FTMachine=None, cachepath=None):
         if self.GD["WSCMS"]["MultiScale"]:
             if NCPU is None:
                 self.NCPU = self.GD['Parallel'][NCPU]
@@ -67,7 +70,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             self.DoAbs = self.GD["Deconv"]["AllowNegative"]
             self.ScaleMachine = ClassScaleMachine.ClassScaleMachine(GD=self.GD, NCPU=NCPU, MaskArray=MaskArray)
             self.FTMachine = FTMachine
-            self.ScaleMachine.Init(PSFserver=PSFserver, FreqMachine=self.FreqMachine, FTMachine2=self.FTMachine)
+            self.ScaleMachine.Init(PSFServer, self.FreqMachine, FTMachine2=self.FTMachine,
+                                   cachepath=cachepath)
             self.Nscales = self.ScaleMachine.Nscales
             # Initialise CurrentScale variable
             self.CurrentScale = 999999
@@ -77,7 +81,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         else:
             # we need to keep track of what the sigma value of the delta scale corresponds to
             # even if we don't do multiscale (because we need it in GiveModelImage)
-            (self.FWHMBeamAvg, _, _) = PSFserver.DicoVariablePSF["EstimatesAvgPSF"]
+            (self.FWHMBeamAvg, _, _) = PSFServer.DicoVariablePSF["EstimatesAvgPSF"]
             self.ListScales = [1.0/np.sqrt(2)*((self.FWHMBeamAvg[0] + self.FWHMBeamAvg[1])*np.pi / 180) / \
                                 (2.0 * self.GD['Image']['Cell'] * np.pi / 648000)]
 
@@ -274,36 +278,35 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # we only need to compute the PSF if Facet or Scale has changed
         # note will always be set initially since comparison to 999999 will fail
         if iFacet != self.CurrentFacet or self.CurrentScale != iScale:
+            key = 'S' + str(iScale) + 'F' + str(iFacet)
             # update facet (need to make sure PSFserver has been updated when we get here)
             self.CurrentFacet = iFacet
 
             # update scale
             self.CurrentScale = iScale
 
-            # get the gain in this Facet for this scale
-            self.CurrentGain = self.ScaleMachine.gains[iFacet, iScale]
+            # get the gain in this Facet for this scale. This function actually does most of the work.
+            # If the PSF's for this facet and scale have not yet been computed it will compute them and store
+            # all the relevant information in the LRU cache which spills to disk automatically if the number
+            # of elements exceeds the pre-set maximum in --WSCMS-CacheSize
+            self.CurrentGain = self.ScaleMachine.give_gain(iFacet, iScale)
 
             # twice convolve PSF with scale if not delta scale
             if not iScale:
                 PSF, PSFmean = self.PSFServer.GivePSF()
                 self.ConvPSF = PSF
-                self.ConvPSFmean = PSFmean
+                #self.ConvPSFmean = PSFmean
                 # delta scale is not cleaned with the ConvPSF so these should all be unity
                 self.PSFFreqNormFactors = np.ones([self.Nchan, 1, 1, 1], dtype=np.float32)
                 self.FpolNormFactor = 1.0
 
             else:
-                self.ConvPSF, self.ConvPSFmean = self.ScaleMachine.GiveTwiceConvolvedPSF(iFacet, iScale)
-
-                # get normalisation factors to correct for PSF response during frequency fit
-                _, _, PSFnx, PSFny = self.ConvPSFmean.shape
-                NormFactormean = self.ScaleMachine.PSFpeaksmean[self.CurrentFacet][self.CurrentScale]
-                NormFactors = self.ScaleMachine.GivePSFFreqPeaks(self.CurrentFacet, self.CurrentScale)
+                self.ConvPSF = self.ScaleMachine.Conv2PSFs[key]
 
                 # To normalise by the frequency response of ConvPSF implicitly contained in residual
                 # we need to keep track of the ConvPSF peaks. Note this is not done in wsclean but should give more
                 # even per band residuals
-                self.PSFFreqNormFactors = NormFactormean / NormFactors
+                self.PSFFreqNormFactors = self.ScaleMachine.ConvPSFFreqPeaks[key]
 
                 # Finally normalise PSF by peak of ConvPSF0
                 # This would set the peak of ConvPSF0 to unity if we were cleaning
@@ -315,6 +318,17 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 # by the same factor for the subtraction in the sub-minor cycle to be the same as the subtraction
                 # in the minor and major cycles.
                 self.FpolNormFactor = self.ScaleMachine.ConvPSFNormFactor
+
+            # print "Gain for scale %i and facet %i is %f" % (self.CurrentScale, self.CurrentFacet, self.CurrentGain)
+            # print "PSF freq norm factors for scale %i and facet %i is " % (self.CurrentScale, self.CurrentFacet), self.PSFFreqNormFactors.flatten()
+
+        # import matplotlib.pyplot as plt
+        # for iCh in xrange(self.Nchan):
+        #     plt.figure('PSF')
+        #     plt.imshow(self.ConvPSF[iCh, 0, :, :])
+        #     plt.colorbar()
+        #     plt.show()
+        #     plt.close()
 
 
     # not working yet!!!
@@ -364,6 +378,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             ConvMaxDirty = MaxDirty
             CurrentDirty = meanDirty.view()
             ConvDirtyCube = Dirty.view()
+
+        print "Max at start = ", ConvMaxDirty, iScale
 
         self.PSFServer.setLocation(xscale, yscale)
 
@@ -429,11 +445,17 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             Fpol = np.zeros([self.Nchan, 1, 1, 1], dtype=np.float32)
             Fpol[:, 0, 0, 0] = ConvDirtyCube[:, 0, xscale, yscale].copy()
 
+            if (Fpol < 0.0).any():
+                print "Fpol neg = ", Fpol.flatten()
+
             # correct for frequency response of PSF when convolving with scale function
             Fpol *= self.PSFFreqNormFactors
 
             # Fit frequency axis to get coeffs (coeffs correspond to intrinsic flux)
             self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN, ConvMaxDirty)
+            # if np.isnan(self.Coeffs).any():
+            #     print "Fpol = ", Fpol.flatten()
+            #     print "Coeffs = ", self.Coeffs
 
             # Overwrite with polynoimial fit (Fpol is apparent flux)
             Fpol[:, 0, 0, 0] = self.FreqMachine.Eval(self.Coeffs)
@@ -461,8 +483,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             k += 1
             self.n_sub_minor_iter += 1
 
-        if ConvMaxDirty == 0.0:
-            print np.abs(CurrentDirty).max()
+        print "Max at end = ", ConvMaxDirty, iScale
         # report if max sub-iterations exceeded
         if k >= self.ScaleMachine.NSubMinorIter:
             print>>log, "Maximum subiterations reached. "

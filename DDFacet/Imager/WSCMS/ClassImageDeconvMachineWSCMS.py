@@ -59,9 +59,19 @@ class ClassImageDeconvMachine():
             Input: fname - the name of the file to write the dico image to
     """
     def __init__(self,Gain=0.1,
-                 MaxMinorIter=50000,NCPU=0,
-                 CycleFactor=2.5,FluxThreshold=None,RMSFactor=3,PeakFactor=0,
-                 GD=None,SearchMaxAbs=1,CleanMaskImage=None,ImagePolDescriptor=["I"],ModelMachine=None,
+                 MaxMinorIter=50000,
+                 NCPU=0,
+                 CycleFactor=2.5,
+                 FluxThreshold=None,
+                 RMSFactor=3,
+                 PeakFactor=0,
+                 GD=None,
+                 SearchMaxAbs=1,
+                 CleanMaskImage=None,
+                 ImagePolDescriptor=["I"],
+                 ModelMachine=None,
+                 MainCache=None,
+                 CacheFileName='WSCMS',
                  **kw    # absorb any unknown keywords arguments here
                  ):
         self.SearchMaxAbs = SearchMaxAbs
@@ -84,6 +94,12 @@ class ClassImageDeconvMachine():
             self.ModelMachine = ModelMachine
         self.GainMachine = self.ModelMachine.GainMachine
         self._niter = 0
+
+        # cache options
+        self.maincache = MainCache
+        self.CacheFileName = CacheFileName
+        self.PSFHasChanged = False
+
         if CleanMaskImage is not None:
             print>>log, "Reading mask image: %s"%CleanMaskImage
             MaskArray=image(CleanMaskImage).getdata()
@@ -95,6 +111,7 @@ class ClassImageDeconvMachine():
             self.MaskArray=self._MaskArray[0]
         self._peakMode = "normal"
 
+        self.CacheFileName = CacheFileName
         self.CurrentNegMask = None
         self._NoiseMap = None
         self._PNRStop = None  # in _peakMode "sigma", provides addiitonal stopping criterion
@@ -105,7 +122,19 @@ class ClassImageDeconvMachine():
         APP.registerJobHandlers(self)
 
 
-    def Init(self, **kwargs):
+    def Init(self, cache=None, facetcache=None, **kwargs):
+        # check for valid cache
+        cachehash = dict(
+            [(section, self.GD[section]) for section in (
+                "Data", "Beam", "Selection", "Freq",
+                "Image", "Facets", "Weight", "RIME",
+                "Comp", "CF", "WSCMS")])
+
+        cachepath, valid = self.maincache.checkCache(self.CacheFileName, cachehash, directory=True,
+                                                     reset=cache or self.PSFHasChanged)
+        # export the hash
+        self.maincache.saveCache(name='WSCMS')
+
         self.Freqs = kwargs["GridFreqs"]
         AllDegridFreqs = []
         for i in kwargs["DegridFreqs"].keys():
@@ -113,12 +142,14 @@ class ClassImageDeconvMachine():
         self.Freqs_degrid = np.asarray(AllDegridFreqs).flatten()
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
+
+        self.ModelMachine.setPSFServer(self.PSFServer)
         #self.SetModelRefFreq(kwargs["RefFreq"])
         self.ModelMachine.setFreqMachine(self.Freqs, self.Freqs_degrid,
                                          weights=kwargs["PSFVar"]["WeightChansImages"], PSFServer=self.PSFServer)
 
-        self.ModelMachine.setScaleMachine(PSFserver=self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
-                                          FTMachine=self.FTMachine)
+        self.ModelMachine.setScaleMachine(self.PSFServer, NCPU=self.NCPU, MaskArray=self.MaskArray,
+                                          FTMachine=self.FTMachine, cachepath=cachepath)
 
 
     def Reset(self):
@@ -253,6 +284,16 @@ class ClassImageDeconvMachine():
 
         x0d, x1d, y0d, y1d = Aedge
         x0p, x1p, y0p, y1p = Bedge
+
+        # import matplotlib.pyplot as plt
+        # plt.figure('SM')
+        # plt.imshow(LocalSM[0, 0, x0p:x1p, y0p:y1p])
+        # plt.colorbar()
+        # plt.figure('ID')
+        # plt.imshow(self._Dirty[0, 0, x0d:x1d, y0d:y1d])
+        # plt.colorbar()
+        # plt.show()
+        # plt.close('all')
 
         self._Dirty[:, :, x0d:x1d, y0d:y1d] -= LocalSM[:, :, x0p:x1p, y0p:y1p]
 
@@ -412,7 +453,7 @@ class ClassImageDeconvMachine():
                     # If the delta scale is found then self._Dirty and
                     # self._MeanDirty have already had the components subtracted from them so we don't need to do
                     # anything further.
-                    #print "Flux at start = ", ThisFlux
+                    # print "Flux at start = ", ThisFlux
                     Mdeltas, FacetComponentList, sigma = self.ModelMachine.do_minor_loop(x, y, self._Dirty,
                                                          self._MeanDirty, self._JonesNorm,
                                                          self.WeightsChansImages, ThisFlux, StopFlux)
@@ -435,24 +476,29 @@ class ClassImageDeconvMachine():
                             # add components onto facet grid analytically
                             for xy in FacetComponentList[iFacet]:
                                 x, y = xy
-                                #I = np.argwhere(self.ModelMachine.ScaleMachine.sigmas == sigma).squeeze()
-                                #print "Volume norm = ", 1.0/self.ModelMachine.ScaleMachine.VolumeNorms[I]
-                                amp = np.atleast_1d(Mdeltas[:, :, x, y].squeeze()) #/self.ModelMachine.ScaleMachine.VolumeNorms[I]
+                                amp = np.atleast_1d(Mdeltas[:, :, x, y].squeeze())
                                 # x and y are pixel coordinates in the image. We need to convert them to coordinates in the
                                 # padded facet so first convert to coordinates in facet relative to facet centre
                                 x -= (xc - 1)
                                 y -= (yc - 1)
-                                FT_SM += self.ModelMachine.ScaleMachine.FTMachine.GaussianSymmetricFT(sigma, x0=x, y0=y,
-                                                                                                      amp=amp, cube=True)
+                                scale_kernel = amp[:, None, None, None] * \
+                                              self.ModelMachine.ScaleMachine.GaussianSymmetricFT(sigma, x0=x, y0=y,
+                                                                                                 mode='Facet')[None, None, :, :]
+
+                                FT_SM += scale_kernel
+
                             # convolve sky model with PSF
                             SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, FT_SM)
+
+                            #SM = self.ModelMachine.ScaleMachine.FTMachine.ConvolvePSF(self.ModelMachine.ScaleMachine.FT_PSF[str(iFacet)], FT_SM)
+                            #print "SM shape = ", SM.shape
 
                             # subtract facet model
                             self.SubStep((xc - 1, yc - 1), SM)  # again with the -1!!!!
 
                     x, y, ThisFluxEnd = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs,
                                                            Mask=self.MaskArray)
-                    #print "Flux at end = ", ThisFluxEnd
+                    # print "Flux at end = ", ThisFluxEnd
                 else:  # kept this for now to make sure old tests pass
                     # Get the JonesNorm
                     JonesNorm = (self._JonesNorm[:, :, x, y]).reshape((self.Nchan, self.Npol, 1, 1))

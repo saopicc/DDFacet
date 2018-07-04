@@ -236,13 +236,15 @@ class ClassImagerDeconv():
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization CLEAN is not supported in MSMF")
                 from DDFacet.Imager.MSMF import ClassImageDeconvMachineMSMF
-                self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineMSMF.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+                                                                                       **MinorCycleConfig)
                 print>>log,"Using MSMF algorithm"
             elif self.GD["Deconv"]["Mode"]=="SSD":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in SSD")
                 from DDFacet.Imager.SSD import ClassImageDeconvMachineSSD
-                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineSSD.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+                                                                                      **MinorCycleConfig)
                 print>>log,"Using SSD with %s Minor Cycle algorithm"%self.GD["SSDClean"]["IslandDeconvMode"]
             elif self.GD["Deconv"]["Mode"] == "Hogbom":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
@@ -254,13 +256,15 @@ class ClassImagerDeconv():
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in MORESANE")
                 from DDFacet.Imager.MORESANE import ClassImageDeconvMachineMoresane
-                self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineMoresane.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+                                                                                           **MinorCycleConfig)
                 print>>log,"Using MORESANE algorithm"
             elif self.GD["Deconv"]["Mode"]=="MUFFIN":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
                     raise NotImplementedError("Multi-polarization is not supported in MORESANE")
                 from DDFacet.Imager.MUFFIN import ClassImageDeconvMachineMUFFIN
-                self.DeconvMachine=ClassImageDeconvMachineMUFFIN.ClassImageDeconvMachine(MainCache=self.VS.maincache, **MinorCycleConfig)
+                self.DeconvMachine=ClassImageDeconvMachineMUFFIN.ClassImageDeconvMachine(MainCache=self.VS.maincache,
+                                                                                         **MinorCycleConfig)
                 print>>log,"Using MUFFIN algorithm"
             elif self.GD["Deconv"]["Mode"]=="WSCMS":
                 if MinorCycleConfig["ImagePolDescriptor"] != ["I"]:
