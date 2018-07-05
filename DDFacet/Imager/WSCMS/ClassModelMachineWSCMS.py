@@ -1,24 +1,35 @@
-import itertools
+'''
+DDFacet, a facet-based radio imaging package
+Copyright (C) 2013-2016  Cyril Tasse, l'Observatoire de Paris,
+SKA South Africa, Rhodes University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+'''
 
 import numpy as np
 from DDFacet.Other import MyLogger
-from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 log=MyLogger.getLogger("ClassModelMachine")
 from DDFacet.Array import NpParallel
 from DDFacet.ToolsDir import ModFFTW
-from DDFacet.ToolsDir import ModToolBox
-from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import MyPickle
 from DDFacet.Other import reformat
 from DDFacet.ToolsDir.Gaussian import GaussianSymmetric
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Imager import ClassModelMachine as ClassModelMachinebase
 from DDFacet.Imager import ClassFrequencyMachine, ClassScaleMachine
-import scipy.ndimage
-from SkyModel.Sky import ModRegFile
-from pyrap.images import image
-from SkyModel.Sky import ClassSM
 import os
 
 class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
@@ -135,8 +146,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             "SumWeights": weights ndArray with shape [#stokes_terms]
             
             
-        LB - Note I have added and extra layer to the dictionary because MS-CLEAN does not necessarily have the same
-        components at each scale. This should also be useful when doing the auto-masking
+        LB - Note I have added and extra scale layer to the dictionary structure
         """
         DicoComp = self.DicoSMStacked.setdefault("Comp", {})
 
@@ -199,8 +209,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                     # but if only doing predict or using a InitDicoModel we haven't initialised it since PSFServer
                     # doesn't exist at that stage
                     try:
-                        ScaleModel += self.ScaleMachine.FTMachine.GaussianSymmetric(scale, npix=nx, x0=x or None,
-                                                                                    y0=y or None, amp=interp, cube=True)
+                        ScaleModel += self.ScaleMachine.GaussianSymmetric(scale, x0=x, y0=y, amp=np.atleast_1d(interp))
                     except:
                         ScaleModel += GaussianSymmetric(scale, nx, x0=x or None,
                                                         y0=y or None, amp=interp, cube=True)

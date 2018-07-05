@@ -148,6 +148,7 @@ def GiveFFTW_aligned(shape, dtype):
 #     def fft(self, Ain):
 #         axes = (1, -2)
 
+# this was an attempt at parallelising FFTW with APP but it seems that FFTW's native parallelisation is better
 class FFTW_Scale_Manager(object):
     """
     Keeps track of all things FFTW + scale related for the WSCMS minor cycle 
@@ -345,56 +346,19 @@ class FFTW_Scale_Manager(object):
             else:
                 return np.ascontiguousarray(self._PaddedImageArray[0:nslices, :])
 
-    # def CFFT(self, data, unpad=True, mode='Facet'):
-    #     """
-    #     Does an FFT over a spectral cube. Number of pixels must be the size of the facet
-    #     """
-    #     for iCh in xrange(self.nchan):
-    #         APP.runJob("cfft:%s" % iCh, self._fft_worker,
-    #                    args=(iCh, self.shared_dict.readonly(), mode, data, self.psf_npad))
-    #     APP.awaitJobResults("cfft:*")
-    #     if unpad:
-    #         I = slice(self.psf_npad, self.npix_padded_facet-self.psf_npad)
-    #         return np.ascontiguousarray(self._PaddedFacetArray[:,:, I, I])
-    #     else:
-    #         return np.ascontiguousarray(self._PaddedFacetArray)
-    #
-    # def iCFFT(self, data, unpad=True, mode='Facet'):
-    #     """
-    #     Does an iFFT over a spectral cube. Number of pixels must be the size of the facet
-    #     """
-    #     for iCh in xrange(self.nchan):
-    #         APP.runJob("icfft:%s" % iCh, self._ifft_worker,
-    #                    args=(iCh, self.shared_dict.readonly(), mode, data, self.psf_npad))
-    #     APP.awaitJobResults("icfft:*")
-    #     if unpad:
-    #         I = slice(self.psf_npad, self.npix_padded_facet-self.psf_npad)
-    #         return np.ascontiguousarray(self._PaddedFacetArray[:, :, I, I])
-    #     else:
-    #         return np.ascontiguousarray(self._PaddedFacetArray)
 
 
-
-class LB_FFT_and_Gauss_Tools(object):
+class FFTW_Manager(object):
     """
-    I got a bit confused with all the different flavours of FFT defined here and I needed some special functionality 
-    so I decided to write my own class
+    Class to manage FFTW for WSCMS minor cycle
     """
-    def __init__(self, n, nchan=1, npol=1, nscales=None, wisdom_file=None, npix=None, npixpadded=None, npixpsf=None,
+    def __init__(self, GD, nchan=1, npol=1, nscales=None, npix=None, npixpadded=None, npixpsf=None,
                  npixpaddedpsf=None, nthreads=8):
-        """
-        Utility class for FFT
-        :param n: 2n+1 should be the total number of pixels along an axis of the padded PSF
-        :param nchan: number of channels (hoping FFTW is smart enough to take the FFT over channels in parallel)
-        """
-        # import the wisdom file TODO - send to same wisdom file as main
-        if wisdom_file is not None:
-            try:
-                wisdom = np.load(wisdom_file)
-                pyfftw.import_wisdom(wisdom)
-            except:
-                print>>log, "WSCMS wisdom file does not exist, will re-make"
+        self.GD = GD
+        # import the wisdom file
+        self.getWisdom()
 
+        # set pixel sizes etc
         self.Npix = npix
         self.NpixPadded = npixpadded
         self.Npad = (npixpadded - npix)//2
@@ -408,13 +372,6 @@ class LB_FFT_and_Gauss_Tools(object):
         self.nchan = nchan
         self.npol = npol
         self.nscales = nscales
-        self.x, self.y = np.mgrid[-n:n:1.0j*self.NpixPaddedPSF, -n:n:1.0j*self.NpixPaddedPSF]
-        self.rsq = self.x**2 + self.y**2
-
-        # pre-compute coordinates required to evaluate FT of Gaussian analytically
-        freqs = np.fft.fftshift(np.fft.fftfreq(self.NpixPaddedPSF))
-        self.u, self.v = np.meshgrid(freqs, freqs)
-        self.rhosq = self.u**2 + self.v**2
 
         # set aside a facet sized array for in place and aligned FFTs
         self.xfacet = pyfftw.empty_aligned([self.nchan, self.npol, self.NpixPaddedPSF, self.NpixPaddedPSF],
@@ -423,19 +380,16 @@ class LB_FFT_and_Gauss_Tools(object):
         # plan for in place and aligned FFT over channels
         self.Chat = self.xfacet[0:self.nchan].view()
         self.CFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2, 3), direction='FFTW_FORWARD',
-                                threads=np.minimum(nthreads, self.nchan))
+                                threads=nthreads)
         self.iCFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2, 3), direction='FFTW_BACKWARD',
-                                 threads=np.minimum(nthreads, self.nchan))
+                                 threads=nthreads)
 
         # plan for in place and aligned FFT for single occurrence
         self.xhat = self.xfacet[0:1].view()
-        self.FFT = pyfftw.FFTW(self.xhat, self.xhat, axes=(2,3), direction='FFTW_FORWARD', threads=1)
-        self.iFFT = pyfftw.FFTW(self.xhat, self.xhat, axes=(2,3), direction='FFTW_BACKWARD', threads=1)
-
-
-        # self.Shat = self.xfacet[0:self.nscales].view()
-        # self.SFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(1, 2), direction='FFTW_FORWARD', threads=8)
-        # self.iSFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(1, 2), direction='FFTW_BACKWARD', threads=8)
+        self.FFT = pyfftw.FFTW(self.xhat, self.xhat, axes=(2,3), direction='FFTW_FORWARD',
+                               threads=nthreads)
+        self.iFFT = pyfftw.FFTW(self.xhat, self.xhat, axes=(2,3), direction='FFTW_BACKWARD',
+                                threads=nthreads)
 
         # set aside an image size array for in place and aligned FFTs
         self.nslices = np.maximum(self.nchan, self.nscales)
@@ -443,71 +397,86 @@ class LB_FFT_and_Gauss_Tools(object):
                                            dtype='complex64')
         self.Shat = self.ximage[0:self.nscales].view()
         self.SFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(2, 3), direction='FFTW_FORWARD',
-                                threads=np.minimum(nthreads, self.nscales))
+                                threads=nthreads)
         self.iSFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(2, 3), direction='FFTW_BACKWARD',
-                                 threads=np.minimum(nthreads, self.nscales))
+                                 threads=nthreads)
         self.xhatim = self.Shat[0:1].view()
-        self.FFTim = pyfftw.FFTW(self.xhatim, self.xhatim, axes=(2, 3), direction='FFTW_FORWARD', threads=1)
-        self.iFFTim = pyfftw.FFTW(self.xhatim, self.xhatim, axes=(2, 3), direction='FFTW_BACKWARD', threads=1)
+        self.FFTim = pyfftw.FFTW(self.xhatim, self.xhatim, axes=(2, 3), direction='FFTW_FORWARD',
+                                 threads=nthreads)
+        self.iFFTim = pyfftw.FFTW(self.xhatim, self.xhatim, axes=(2, 3), direction='FFTW_BACKWARD',
+                                  threads=nthreads)
 
         # plan for in place and aligned FFT over channels
         self.Chatim = self.ximage[0:self.nchan].view()
         self.CFFTim = pyfftw.FFTW(self.Chatim, self.Chatim, axes=(2, 3), direction='FFTW_FORWARD',
-                                  threads=np.minimum(nthreads, self.nchan))
+                                  threads=nthreads)
         self.iCFFTim = pyfftw.FFTW(self.Chatim, self.Chatim, axes=(2, 3), direction='FFTW_BACKWARD',
-                                   threads=np.minimum(nthreads, self.nchan))
+                                   threads=nthreads)
+        self.setWisdom()
 
-        # export the wisdom file
-        if wisdom_file is not None:
-            wisdom = pyfftw.export_wisdom()
-            np.save(wisdom_file, wisdom)
-
-    # TODO - cube keyword is redundant since amp.size > 1 implies cube==True (or does it? what about when sig.size>1?)
-    def GaussianSymmetric(self, sig, npix=None, x0=None, y0=None, amp=np.array([1.0]), cube=False):
+    def getWisdom(self):
         """
-        Evaluates symmetric normalised 2D Gaussian centered at (x0, y0)
-        :param sig: std deviation of Gaussian in signal space
-        :param npix: number of pixels along axis
-        :param x0: x coordinate relative to centre
-        :param y0: y coordinate relative to centre
-        :param amp: amplitude (at delta scale) of Gaussian component (if amp.size > 1 cube must be True)
-        :param cube: whether to evaluate a cube (i.e. return result of shape [nchan, npol, nx, ny]) or not
+        Loads in wisdom files and sets up paths to export it if needed
         :return: 
         """
-        if cube:
-            amp = amp[:, None, None, None]
+        import os
+        import cpuinfo
+        import cPickle
+        from os.path import expanduser
+        self.wisdom_cache_path = self.GD["Cache"]["DirWisdomFFTW"]
+        cpuname = cpuinfo.get_cpu_info()["brand"].replace(" ", "")
+        if "~" in self.wisdom_cache_path:
+            home = expanduser("~")
+            self.wisdom_cache_path = self.wisdom_cache_path.replace("~", home)
+        self.wisdom_cache_path_host = "/".join([self.wisdom_cache_path, cpuname])
+        self.wisdom_cache_file = "/".join([self.wisdom_cache_path_host, "Wisdom.pickle"])
 
-        if npix is not None and npix != self.NpixPaddedPSF:
-            if cube:
-                I = [None, None, slice(0, npix), slice(0, npix)]
-                # if np.size(amp)>1:
-                #     I = [slice(0, amp.size), None, slice(0, npix), slice(0, npix)]
-                # else:
-                #     I = [None, None, slice(0, npix), slice(0, npix)]
-            else:
-                I = slice(None)
-            n = npix//2
-            x, y = np.mgrid[-n:n:1.0j*npix, -n:n:1.0j*npix]
-            if x0 is None and y0 is None:
-                return amp*np.exp(-(x**2 + y**2)/(2*sig**2))[I]/(2*np.pi*sig**2)
-            else:
-                # in case one is None and the other not convert the None to a zero
-                x0 = x0 or 0
-                y0 = y0 or 0
-                rsq = (x - x0)**2 + (y - y0)**2
-                return amp*np.exp(-rsq / (2 * sig ** 2))[I] / (2 * np.pi * sig ** 2)
+
+        if not os.path.isdir(self.wisdom_cache_path_host):
+            print>> log, "Wisdom file %s does not exist, create it" % (self.wisdom_cache_path_host)
+            os.makedirs(self.wisdom_cache_path_host)
+
+        if os.path.isfile(self.wisdom_cache_file):
+            print>> log, "Loading wisdom file %s" % (self.wisdom_cache_file)
+            DictWisdom = cPickle.load(file(self.wisdom_cache_file))
+            pyfftw.import_wisdom(DictWisdom["Wisdom"])
+            self.WisdomTypes = DictWisdom["WisdomTypes"]
         else:
-            if cube:
-                I = [None, None, slice(0, npix), slice(0, npix)]
-            else:
-                I = slice(None)
-            if x0 is None and y0 is None:
-                return amp*np.exp(-self.rsq/(2*sig**2))/(2*np.pi*sig**2)
-            else:
-                x0 = x0 or 0
-                y0 = y0 or 0
-                rsq = (self.x - x0)**2 + (self.y - y0)**2
-                return amp*np.exp(-rsq / (2 * sig ** 2))[I] / (2 * np.pi * sig ** 2)
+            self.WisdomTypes = []
+
+        self.HasTouchedWisdomFile = False
+
+    def setWisdom(self):
+        """
+        Set fft wisdom
+        """
+        import cPickle
+        # set wisdom for image size FFTs
+        TypeKey = (self.nchan, self.NpixPadded, np.complex64)
+        if TypeKey not in self.WisdomTypes:
+            self.HasTouchedWisdomFile = True
+            self.WisdomTypes.append(TypeKey)
+        TypeKey = (self.nscales, self.NpixPadded, np.complex64)
+        if TypeKey not in self.WisdomTypes:
+            self.HasTouchedWisdomFile = True
+            self.WisdomTypes.append(TypeKey)
+        TypeKey = (self.NpixPadded, np.complex64)
+        if TypeKey not in self.WisdomTypes:
+            self.HasTouchedWisdomFile = True
+            self.WisdomTypes.append(TypeKey)
+
+        # set wisdom for facet sized FFTs
+        TypeKey = (self.nchan, self.NpixPaddedPSF, np.complex64)
+        if TypeKey not in self.WisdomTypes:
+            HasTouchedWisdomFile = True
+            self.WisdomTypes.append(TypeKey)
+        self.FFTW_Wisdom = pyfftw.export_wisdom()
+        DictWisdom = {"Wisdom": self.FFTW_Wisdom,
+                      "WisdomTypes": self.WisdomTypes}
+
+        if self.HasTouchedWisdomFile:
+            print>> log, "Saving wisdom file to %s" % self.wisdom_cache_file
+            cPickle.dump(DictWisdom, file(self.wisdom_cache_file, "w"))
 
 
 # FFTW version of the FFT engine

@@ -23,8 +23,7 @@ import numexpr
 from DDFacet.Other import MyLogger
 log = MyLogger.getLogger("ClassScaleMachine")
 from DDFacet.Array import NpParallel
-from DDFacet.ToolsDir.ModFFTW import LB_FFT_and_Gauss_Tools
-from DDFacet.ToolsDir.ModFFTW import FFTW_Scale_Manager
+from DDFacet.ToolsDir.ModFFTW import FFTW_Manager
 
 Fs = np.fft.fftshift
 iFs = np.fft.ifftshift
@@ -48,7 +47,6 @@ class Store(object):
         self.valid_keys = []
         for fle in glob(cache_dir + '*.npy'):
             self.valid_keys.append(fle.replace(cache_dir, '').replace('.npy', ''))
-        #print "Found valid keys ", self.valid_keys
 
     def __contains__(self, key):
         return key in self.valid_keys
@@ -61,12 +59,15 @@ class Store(object):
         np.save(self.cache_dir + str(key) + '.npy', value)
 
 class ClassScaleMachine(object):
-    def __init__(self, GD=None, NCPU=6, MaskArray=None):
+    def __init__(self, GD=None, NCPU=0, MaskArray=None):
         self.GD = GD
         self.DoAbs = int(self.GD["Deconv"]["AllowNegative"])
         self.MaskArray = MaskArray
         self.PeakFactor = self.GD["WSCMS"]["SubMinorPeakFact"]
         self.NSubMinorIter = self.GD["WSCMS"]["NSubMinorIter"]
+        if NCPU == 0:
+            import multiprocessing
+            NCPU = multiprocessing.cpu_count()
         self.NCPU = NCPU
         self.DoAbs = self.GD["Deconv"]["AllowNegative"]
 
@@ -130,62 +131,15 @@ class ClassScaleMachine(object):
         self.NpixPaddedPSF = self.PSFServer.DicoVariablePSF["PaddedPSFInfo"][0]  # hack for now
         self.NpadPSF = (self.NpixPaddedPSF - self.NpixPSF) // 2
 
-        #print self.Npix, self.NpixPadded, self.Npad
-        #print self.NpixPSF, self.NpixPaddedPSF, self.NpadPSF
-
-        self.set_coordinates(self.NpixPadded, self.NpixPaddedPSF)
+        self.set_coordinates()
 
         # get scales (in pixel units)
         self.set_scales()
 
-        # Testing!!!!
-        #self.PSFServer.setFacet(0)
-        #PSF, meanPSF = self.PSFServer.GivePSF()
-
         # get the FFT and convolution utility
-        self.FTMachine = LB_FFT_and_Gauss_Tools(self.NpixPaddedPSF//2, self.Nchan, 1, self.Nscales,
-                                                wisdom_file=cachepath+'/wisdom.npy', npix=self.Npix,
-                                                npixpadded=self.NpixPadded, npixpsf=self.NpixPSF,
-                                                npixpaddedpsf=self.NpixPaddedPSF)
-        #self.FTMachine2 = FTMachine2
-        #self.FTMachine2.Init(self.Npix, self.NpixPadded, self.NpixPSF, self.NpixPaddedPSF, self.Nchan, 1, self.Nscales)
-
-        # import time
-        # for i in xrange(5):
-        #     ti = time.time()
-        #     result1 = self.FTMachine.ConvolveGaussian(PSF.copy(), 5.0, cube=True)
-        #     tf = time.time()
-        #     print "Old version took ", tf - ti
-        #     ti = time.time()
-        #     result2 = self.ConvolveGaussian(PSF.copy(), 5.0, mode='Facet')
-        #     tf = time.time()
-        #     print "New version took ", tf - ti
-        #     ti = time.time()
-        #     result3 = self.ConvolveGaussian_new(PSF.copy(), 5.0, mode='Facet')
-        #     tf = time.time()
-        #     print "Newest version took ", tf - ti
-        #     print np.amax(np.abs(result3.reshape(self.Nchan, 1, self.NpixPSF**2) - result2.reshape(self.Nchan, 1, self.NpixPSF**2)),
-        #               axis=2)
-        #
-        # SM = self.GaussianSymmetricFT(5.0) #, amp=np.ones(self.Nchan))
-        # result = self.ConvolvePSF(0, SM, use_mean=True)
-        #
-        # print result.shape
-        # import matplotlib.pyplot as plt
-        # for i in xrange(self.Nchan):
-        #     plt.figure('1')
-        #     plt.imshow(np.abs(result[i, 0]))
-        #     plt.colorbar()
-        #     plt.show()
-        #     plt.close()
-        #
-        # plt.figure('2')
-        # plt.imshow(np.abs(result2[0,0]))
-        # plt.colorbar()
-
-        #plt.show()
-
-        # print np.amax(np.abs(result1.reshape(self.Nchan, 1, 1755 * 1755) - result3.reshape(self.Nchan, 1, 1755 * 1755)), axis=2)
+        self.FTMachine = FFTW_Manager(self.GD, nchan=self.Nchan, npol=1, nscales=self.Nscales,
+                                                npix=self.Npix, npixpadded=self.NpixPadded, npixpsf=self.NpixPSF,
+                                                npixpaddedpsf=self.NpixPaddedPSF, nthreads=self.NCPU)  # wisdom_file=cachepath+'/wisdom.npy'
 
         # set bias factors
         self.set_bias()
@@ -193,29 +147,19 @@ class ClassScaleMachine(object):
         # get the Gaussian pars, volume factors and FWHMs corresponding to dictionary functions
         self.set_kernels()
 
-        # result1 = self.FTMachine.GaussianSymmetricFT(self.sigmas[0], x0=12, y0=25)
-        # result2 = self.GaussianSymmetricFT(self.sigmas[0], x0=12, y0=25)
-        #
-        # print np.abs(result1 - result2).max()
-        #
-        # result1 = self.FTMachine.GaussianSymmetricFT(self.sigmas[0])
-        # result2 = self.GaussianSymmetricFT(self.sigmas[0])
-        #
-        # print np.abs(result1 - result2).max()
-        #
-        # import sys
-        # sys.exit(0)
-
         # for scale dependent masking (do we want to cache this?)
         self.ScaleMaskArray = {}
 
         # we always need to set the gain for the central facet and scale 0 to initialise
         self.set_gains(self.CentralFacetID, 0)
 
-    def set_coordinates(self, NpixPaddedImage, NpixPaddedFacet):
-        # TODO - cache and evaluate with numexpr
-        # get pixel coordinates for image
-        n = NpixPaddedImage//2
+    def set_coordinates(self):
+        # get pixel coordinates for unpadded image
+        n = self.Npix//2
+        self.x_unpadded, self.y_undpadded = np.mgrid[-n:n:1.0j * self.Npix, -n:n:1.0j * self.Npix]
+
+        # get pixel coordinates for padded image
+        n = self.NpixPadded//2
         self.x_image, self.y_image = np.mgrid[-n:n:1.0j * self.NpixPadded, -n:n:1.0j * self.NpixPadded]
         # set corresponding frequencies (note they are fourier shifted so no need to iFs them later)
         freqs = Fs(np.fft.fftfreq(self.NpixPadded))
@@ -223,7 +167,7 @@ class ClassScaleMachine(object):
         self.rhosq_image = self.u_image ** 2 + self.v_image ** 2
 
         # get pixel coordinates for facet
-        n = NpixPaddedFacet//2
+        n = self.NpixPaddedPSF//2
         self.x_facet, self.y_facet = np.mgrid[-n:n:1.0j * self.NpixPaddedPSF, -n:n:1.0j * self.NpixPaddedPSF]
         # set corresponding frequencies (note they are fourier shifted so no need to iFs them later)
         freqs = Fs(np.fft.fftfreq(self.NpixPaddedPSF))
@@ -234,7 +178,7 @@ class ClassScaleMachine(object):
         """
         Evaluates symmetric normalised 2D Gaussian centered at (x0, y0). Note this is only used in 
         GiveModelImage so always adds onto a grid the size of the unpadded image.
-        The image space coordiantes are must be computed in advance and tored in self.x and self.y
+        The image space coordiantes must be computed in advance and stored in self.x and self.y
         :param sig: std deviation of Gaussian in signal space
         :param x0: x coordinate relative to centre
         :param y0: y coordinate relative to centre
@@ -246,7 +190,7 @@ class ClassScaleMachine(object):
         # for slicing array
         I  = slice(0, self.Npix)
         # evaluate slice with numexpr and broadcast to cube
-        loc_dict = {'x': self.x, 'x0': x0, 'y': self.y, 'y0': y0, 'sig': sig, 'pi': np.pi}
+        loc_dict = {'x': self.x_unpadded, 'x0': x0, 'y': self.y_undpadded, 'y0': y0, 'sig': sig, 'pi': np.pi}
         out = numexpr.evaluate('exp(-((x-x0)**2 + (y-y0)**2)/ (2 * sig ** 2))/(2 * pi * sig ** 2)',
                                local_dict=loc_dict)[None, None, I, I]
         # multiply by amplitude and return
@@ -281,118 +225,6 @@ class ClassScaleMachine(object):
                                    local_dict=loc_dict)
         return result
 
-
-    def ConvolveGaussian(self, A, sig, mode='Facet'):
-        """
-        Colnvolves A with a symmetric Guassian kernel.   
-        :param A: [nch, npol, NpixFacet, NpixFacet] array to be convolved
-        :param sig: std deviation of Gaussian kernel in signal space
-        :param mode: whether we are convoling something the size of a facet or the size of the image
-        :return: 
-        """
-        nslices, _, _, _ = A.shape
-        # get FT of data
-        self.FTMachine2.FFT(A, unpad=False, mode=mode)
-        # multiply by FT of Gaussian
-        if mode=='Facet':
-            loc_dict = {'sig': sig, 'pi': np.pi, 'rhosq': self.rhosq_facet[None, None],
-                        'Ahat': self.FTMachine2._PaddedFacetArray[0:nslices]}
-            numexpr.evaluate('Ahat * exp(-2 * pi ** 2 * rhosq * sig ** 2)', local_dict=loc_dict,
-                             out=self.FTMachine2._PaddedFacetArray[0:nslices])
-        elif mode=='Image':
-            loc_dict = {'sig': sig, 'pi': np.pi, 'rhosq': self.rhosq_image[None, None],
-                        'Ahat': self.FTMachine2._PaddedImageArray[0:nslices]}
-            numexpr.evaluate('Ahat * exp(-2 * pi ** 2 * rhosq * sig ** 2)', local_dict=loc_dict,
-                             out=self.FTMachine2._PaddedImageArray[0:nslices])
-        else:
-            raise Exception('This is a bug. We should never get here')
-        # take inverse FT
-        A = self.FTMachine2.iFFT(nslices, unpad=True, mode=mode)
-        if nslices==1:
-            return A[None]
-        else:
-            return A
-
-    def ConvolveGaussian_new(self, A, sig, mode='Facet'):
-        """
-        Colnvolves A with a symmetric Guassian kernel.   
-        :param A: [nch, npol, NpixFacet, NpixFacet] array to be convolved
-        :param sig: std deviation of Gaussian kernel in signal space
-        :param mode: whether we are convoling something the size of a facet or the size of the image
-        :return: 
-        """
-        nslices, _, _, _ = A.shape
-        # get FT of data
-        self.FTMachine2.FFT_new(A, mode=mode)
-        # multiply by FT of Gaussian
-        if mode=='Facet':
-            loc_dict = {'sig': sig, 'pi': np.pi, 'rhosq': self.rhosq_facet[None, None],
-                        'Ahat': self.FTMachine2._PaddedFacetArray[0:nslices]}
-            numexpr.evaluate('Ahat * exp(-2 * pi ** 2 * rhosq * sig ** 2)', local_dict=loc_dict,
-                             out=self.FTMachine2._PaddedFacetArray[0:nslices])
-        elif mode=='Image':
-            loc_dict = {'sig': sig, 'pi': np.pi, 'rhosq': self.rhosq_image[None, None],
-                        'Ahat': self.FTMachine2._PaddedImageArray[0:nslices]}
-            numexpr.evaluate('Ahat * exp(-2 * pi ** 2 * rhosq * sig ** 2)', local_dict=loc_dict,
-                             out=self.FTMachine2._PaddedImageArray[0:nslices])
-        else:
-            raise Exception('This is a bug. We should never get here')
-        # take inverse FT
-        A = self.FTMachine2.iFFT_new(nslices, unpad=True, mode=mode)
-        if nslices==1:
-            return A[None]
-        else:
-            return A
-
-    def ConvolvePSF(self, iFacet, SM, FT=True, mode='Facet', use_mean=False):
-        """
-        This convolves an image with the PSF. We need to cater for the following cases:
-        1) PSF * K_alpha
-        2) meanPSF * K_alpha
-        3) PSF * Image
-        4) meanPSF * meanImage
-        
-        :param iFacet: facet label 
-        :param SM: sky model or FT of sky model
-        :param FT: specifies if sky model is in Fourier space or not 
-        :param sig: 
-        :return: 
-        """
-        # set array to perform compute on
-        nslices, _, npixin, _ = SM.shape
-        if mode=='Facet':
-            compute_array = self.FTMachine2._PaddedFacetArray.view()
-        elif mode=='Image':
-            compute_array = self.FTMachine2._PaddedImageArray.view()
-        else:
-            raise Exception('Bug!!! Never supposed to get here')
-
-        # get the FT of the PSF (note we always do PSF convolves in mode='Facet')
-        if use_mean:
-            if iFacet not in self.FT_meanPSF:
-                _, PSFmean = self.PSFServer.GivePSF()
-                self.FTMachine2.FFT(PSFmean, unpad=False, mode='Facet')
-                self.FT_meanPSF[iFacet] = self.FTMachine2._PaddedFacetArray[0][None].copy()
-            FT_PSF = self.FT_meanPSF[iFacet]
-        else:
-            if iFacet not in self.FT_PSF:
-                PSF, _ = self.PSFServer.GivePSF()
-                self.FTMachine2.FFT(PSF, unpad=False, mode='Facet')
-                self.FT_PSF[iFacet] = self.FTMachine2._PaddedFacetArray.copy()
-            FT_PSF = self.FT_PSF[iFacet][0:nslices]
-
-        # get FT of sky model
-        if not FT:
-            self.FTMachine2.FFT(SM, mode=mode)
-            SM = compute_array[0:nslices].copy()
-
-        # write product to compute array
-        numexpr.evaluate('FT_PSF * SM', out=compute_array[0:nslices])
-
-        # do inverse FT
-        A = self.FTMachine2.iFFT(nslices, unpad=True, mode=mode)
-        return A
-
     # TODO: Set max scale with minimum baseline
     def set_scales(self):
         if self.GD["WSCMS"]["Scales"] is None:
@@ -426,22 +258,6 @@ class ClassScaleMachine(object):
         except:  # in case there is only a single scale it will be the delta scale
             self.bias = np.array([1.0])
 
-    def set_bias_new(self):  # work in progress
-        """
-        This is a new way of setting the bias based on the following idea. Suppose we have a number of 
-        Gaussian components with scales sigma0, sigma1, ... and they all have an integrated flux of 1Jy.
-        Now we want our algorithm to clean the large scales first. The components in the dirty image
-        have all been convolved by the PSF i.e they are K_alpha * PSF where K_alpha is the normalised 
-        scale kernel. Thus convolving by a scale again we end up with K_alpha * K_alpha * PSF and we usually
-        apply the bias function to the peaks of these images. We can get all the images to the same peak of one
-        by dividing by the peaks of K_alpha * K_alpha * PSF. However, if we want the largest scale to be
-        cleaned first, we should artificially shift the peak of the largest scale by just more than the 
-        peak of the next largest scale and so on. We can, for example, make this a function of the FWHM of
-        the Gaussian.
-        the 
-        :return: 
-        """
-
     def set_kernels(self):
         """
         Computes Gauss pars corresponding to scales given in number of pixels pixels
@@ -452,11 +268,6 @@ class ClassScaleMachine(object):
         for i in xrange(self.Nscales):
             self.sigmas[i] = self.FWHMs[i]/(2*np.sqrt(2*np.log(2.0)))
             self.volumes[i] = 2*np.pi*self.sigmas[i]**2  # volume = normalisation constant of 2D Gaussian
-
-            #print>>log, "scale %i kernel peak = %f" % (i, 1.0/self.volumes[i])
-            #print>> log, "scale %i sigma = %f" % (i, self.sigmas[i])
-        #self.VolumeNorms = self.volumes/self.volumes[0]
-        return
 
     def give_gain(self, iFacet, iScale):
         """

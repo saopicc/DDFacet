@@ -31,11 +31,10 @@ from DDFacet.Array import NpParallel
 from DDFacet.Other import ClassTimeIt
 from pyrap.images import image
 from DDFacet.Imager.ClassPSFServer import ClassPSFServer
-from DDFacet.Imager import ClassGainMachine # Currently required by model machine but fixed to static mode
-from DDFacet.Imager.WSCMS.ClassModelMachineWSCMS import ClassModelMachine
+from DDFacet.Imager import ClassGainMachine  # Currently required by model machine but fixed to static mode
 from DDFacet.ToolsDir.GiveEdges import GiveEdges
 from DDFacet.Other.AsyncProcessPool import APP
-from DDFacet.ToolsDir.ModFFTW import FFTW_Scale_Manager
+from DDFacet.ToolsDir.ModFFTW import FFTW_Scale_Manager  # usage just to register job handlers but has no effect atm
 
 class ClassImageDeconvMachine():
     """
@@ -272,11 +271,7 @@ class ClassImageDeconvMachine():
         """
         This is where subtraction in the image domain happens
         """
-        # npol, _, _ = self.Dirty.shape
-        # x0, x1, y0, y1 = self.DirtyExtent
-
         xc, yc = dx, dy
-        # N0 = self.Dirty.shape[-1]
         N1 = LocalSM.shape[-1]
 
         # Get overlap indices where psf should be subtracted
@@ -284,16 +279,6 @@ class ClassImageDeconvMachine():
 
         x0d, x1d, y0d, y1d = Aedge
         x0p, x1p, y0p, y1p = Bedge
-
-        # import matplotlib.pyplot as plt
-        # plt.figure('SM')
-        # plt.imshow(LocalSM[0, 0, x0p:x1p, y0p:y1p])
-        # plt.colorbar()
-        # plt.figure('ID')
-        # plt.imshow(self._Dirty[0, 0, x0d:x1d, y0d:y1d])
-        # plt.colorbar()
-        # plt.show()
-        # plt.close('all')
 
         self._Dirty[:, :, x0d:x1d, y0d:y1d] -= LocalSM[:, :, x0p:x1p, y0p:y1p]
 
@@ -442,7 +427,6 @@ class ClassImageDeconvMachine():
                 self.track_progress(i, ThisFlux)
 
                 # run minor loop
-                Npix_Facet = (self.Npix // self.GD["Facets"]["NFacets"])  # assumes all facets are identical
                 if self.GD["WSCMS"]["MultiScale"]:
                     # Find the relevant scale and do sub-minor loop. Here Mdelta is a model image of same shape as dirty
                     # holding the locations and amplitudes of the model components as delta functions. If the most
@@ -453,11 +437,9 @@ class ClassImageDeconvMachine():
                     # If the delta scale is found then self._Dirty and
                     # self._MeanDirty have already had the components subtracted from them so we don't need to do
                     # anything further.
-                    # print "Flux at start = ", ThisFlux
                     Mdeltas, FacetComponentList, sigma = self.ModelMachine.do_minor_loop(x, y, self._Dirty,
                                                          self._MeanDirty, self._JonesNorm,
                                                          self.WeightsChansImages, ThisFlux, StopFlux)
-                    #print "Scale = ", sigma
 
                     # convolve scale model with PSF and subtract from residual (if not delta scale)
                     if sigma != self.ModelMachine.ScaleMachine.sigmas[0]:
@@ -490,16 +472,9 @@ class ClassImageDeconvMachine():
                             # convolve sky model with PSF
                             SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, FT_SM)
 
-                            #SM = self.ModelMachine.ScaleMachine.FTMachine.ConvolvePSF(self.ModelMachine.ScaleMachine.FT_PSF[str(iFacet)], FT_SM)
-                            #print "SM shape = ", SM.shape
-
                             # subtract facet model
                             self.SubStep((xc - 1, yc - 1), SM)  # again with the -1!!!!
-
-                    # x, y, ThisFluxEnd = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs,
-                    #                                        Mask=self.MaskArray)
-                    # print "Flux at end = ", ThisFluxEnd
-                else:  # kept this for now to make sure old tests pass
+                else:  # TODO - remove this and advise users to use Hogbom for SS clean
                     # Get the JonesNorm
                     JonesNorm = (self._JonesNorm[:, :, x, y]).reshape((self.Nchan, self.Npol, 1, 1))
 
