@@ -496,8 +496,8 @@ class ClassImageDeconvMachine():
                             # subtract facet model
                             self.SubStep((xc - 1, yc - 1), SM)  # again with the -1!!!!
 
-                    x, y, ThisFluxEnd = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs,
-                                                           Mask=self.MaskArray)
+                    # x, y, ThisFluxEnd = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs,
+                    #                                        Mask=self.MaskArray)
                     # print "Flux at end = ", ThisFluxEnd
                 else:  # kept this for now to make sure old tests pass
                     # Get the JonesNorm

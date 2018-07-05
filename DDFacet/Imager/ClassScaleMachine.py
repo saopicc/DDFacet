@@ -527,11 +527,12 @@ class ClassScaleMachine(object):
         # get twice convolved PSF
         self.FTMachine.Chat[...] = iFs(self.FT_PSF[str(iFacet)], axes=(2,3)) * scale_kernel**2
         self.FTMachine.iCFFT()
-        self.Conv2PSFs[key] = Fs(self.FTMachine.Chat.real.copy(), axes=(2,3))[:, :, I, I]
+        self.Conv2PSFs[key] = Fs(self.FTMachine.Chat.real.copy(), axes=(2,3))[:, :, I, I]/self.ConvPSFNormFactor
 
         # set gains
         gamma = self.GD['Deconv']['Gain']
         self.gains[key] = gamma * self.Scale0PSFmax / ConvPSFmean[0, 0, self.NpixPSF // 2, self.NpixPSF // 2]
+        #print "gain for scale %i = " % iScale, self.gains[key]
 
     def do_scale_convolve(self, Dirty, MeanDirty):
         I = slice(self.Npad, self.NpixPadded - self.Npad)

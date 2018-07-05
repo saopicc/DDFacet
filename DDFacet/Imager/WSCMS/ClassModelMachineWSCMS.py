@@ -311,7 +311,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 # Finally normalise PSF by peak of ConvPSF0
                 # This would set the peak of ConvPSF0 to unity if we were cleaning
                 # the delta scale with the convolved PSF
-                self.ConvPSF /= self.ScaleMachine.ConvPSFNormFactor
+                #self.ConvPSF /= self.ScaleMachine.ConvPSFNormFactor  # done in set_gains
 
                 # This normalisation for Fpol is required so that we don't see jumps between minor cycles.
                 # Basically since the PSF is normalised by this factor the components also need to be normalised
@@ -319,8 +319,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 # in the minor and major cycles.
                 self.FpolNormFactor = self.ScaleMachine.ConvPSFNormFactor
 
-            # print "Gain for scale %i and facet %i is %f" % (self.CurrentScale, self.CurrentFacet, self.CurrentGain)
-            # print "PSF freq norm factors for scale %i and facet %i is " % (self.CurrentScale, self.CurrentFacet), self.PSFFreqNormFactors.flatten()
+            # from astropy.io import fits
+            # key = 'S' + str(iScale) + 'F' + str(iFacet)
+            # hdu = fits.PrimaryHDU(self.ConvPSF[:, 0, :, :] * self.FpolNormFactor)
+            # hdul = fits.HDUList([hdu])
+            # hdul.writeto(
+            #     '/home/landman/Projects/Data/MS_dir/ddfacet_test_data/WSCMS_MSMF_TestSuite/DDF_out/compare/Conv2PSF' + key + '.fits',
+            #     overwrite=True)
+            # hdul.close()
+
+        #print self.CurrentScale, self.CurrentGain
 
         # import matplotlib.pyplot as plt
         # for iCh in xrange(self.Nchan):
@@ -379,7 +387,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             CurrentDirty = meanDirty.view()
             ConvDirtyCube = Dirty.view()
 
-        print "Max at start = ", ConvMaxDirty, iScale
+        # print "Max at start = ", ConvMaxDirty, iScale
 
         self.PSFServer.setLocation(xscale, yscale)
 
@@ -445,17 +453,11 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             Fpol = np.zeros([self.Nchan, 1, 1, 1], dtype=np.float32)
             Fpol[:, 0, 0, 0] = ConvDirtyCube[:, 0, xscale, yscale].copy()
 
-            if (Fpol < 0.0).any():
-                print "Fpol neg = ", Fpol.flatten()
-
             # correct for frequency response of PSF when convolving with scale function
             Fpol *= self.PSFFreqNormFactors
 
             # Fit frequency axis to get coeffs (coeffs correspond to intrinsic flux)
             self.Coeffs = self.FreqMachine.Fit(Fpol[:, 0, 0, 0], JN, ConvMaxDirty)
-            # if np.isnan(self.Coeffs).any():
-            #     print "Fpol = ", Fpol.flatten()
-            #     print "Coeffs = ", self.Coeffs
 
             # Overwrite with polynoimial fit (Fpol is apparent flux)
             Fpol[:, 0, 0, 0] = self.FreqMachine.Eval(self.Coeffs)
@@ -483,7 +485,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             k += 1
             self.n_sub_minor_iter += 1
 
-        print "Max at end = ", ConvMaxDirty, iScale
+        # print "Max at end = ", ConvMaxDirty, iScale
         # report if max sub-iterations exceeded
         if k >= self.ScaleMachine.NSubMinorIter:
             print>>log, "Maximum subiterations reached. "
