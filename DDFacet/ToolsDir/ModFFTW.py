@@ -417,16 +417,15 @@ class LB_FFT_and_Gauss_Tools(object):
         self.rhosq = self.u**2 + self.v**2
 
         # set aside a facet sized array for in place and aligned FFTs
-        self.nslices = np.maximum(self.nchan, self.nscales)
-        self.xfacet = pyfftw.empty_aligned([self.nslices, self.npol, self.NpixPaddedPSF, self.NpixPaddedPSF],
+        self.xfacet = pyfftw.empty_aligned([self.nchan, self.npol, self.NpixPaddedPSF, self.NpixPaddedPSF],
                                          dtype='complex64')
 
         # plan for in place and aligned FFT over channels
         self.Chat = self.xfacet[0:self.nchan].view()
         self.CFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2, 3), direction='FFTW_FORWARD',
-                                threads=np.maximum(nthreads, self.nchan))
+                                threads=np.minimum(nthreads, self.nchan))
         self.iCFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2, 3), direction='FFTW_BACKWARD',
-                                 threads=np.maximum(nthreads, self.nchan))
+                                 threads=np.minimum(nthreads, self.nchan))
 
         # plan for in place and aligned FFT for single occurrence
         self.xhat = self.xfacet[0:1].view()
@@ -439,13 +438,14 @@ class LB_FFT_and_Gauss_Tools(object):
         # self.iSFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(1, 2), direction='FFTW_BACKWARD', threads=8)
 
         # set aside an image size array for in place and aligned FFTs
+        self.nslices = np.maximum(self.nchan, self.nscales)
         self.ximage = pyfftw.empty_aligned([self.nslices, self.npol, self.NpixPadded, self.NpixPadded],
                                            dtype='complex64')
         self.Shat = self.ximage[0:self.nscales].view()
         self.SFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(2, 3), direction='FFTW_FORWARD',
-                                threads=np.maximum(nthreads, self.nscales))
+                                threads=np.minimum(nthreads, self.nscales))
         self.iSFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(2, 3), direction='FFTW_BACKWARD',
-                                 threads=np.maximum(nthreads, self.nscales))
+                                 threads=np.minimum(nthreads, self.nscales))
         self.xhatim = self.Shat[0:1].view()
         self.FFTim = pyfftw.FFTW(self.xhatim, self.xhatim, axes=(2, 3), direction='FFTW_FORWARD', threads=1)
         self.iFFTim = pyfftw.FFTW(self.xhatim, self.xhatim, axes=(2, 3), direction='FFTW_BACKWARD', threads=1)
@@ -453,9 +453,9 @@ class LB_FFT_and_Gauss_Tools(object):
         # plan for in place and aligned FFT over channels
         self.Chatim = self.ximage[0:self.nchan].view()
         self.CFFTim = pyfftw.FFTW(self.Chatim, self.Chatim, axes=(2, 3), direction='FFTW_FORWARD',
-                                  threads=np.maximum(nthreads, self.nchan))
+                                  threads=np.minimum(nthreads, self.nchan))
         self.iCFFTim = pyfftw.FFTW(self.Chatim, self.Chatim, axes=(2, 3), direction='FFTW_BACKWARD',
-                                   threads=np.maximum(nthreads, self.nchan))
+                                   threads=np.minimum(nthreads, self.nchan))
 
         # export the wisdom file
         if wisdom_file is not None:

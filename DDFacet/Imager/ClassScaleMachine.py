@@ -403,7 +403,7 @@ class ClassScaleMachine(object):
                     (2.0 * self.GD['Image']['Cell'] * np.pi / 648000)
             FWHMs = [FWHM0, 2.0*FWHM0]  # impirically determined 2.25 to work pretty well
             i = 1
-            while FWHMs[i] < 100:  # hardcoded for now
+            while FWHMs[i] < self.GD["WSCMS"]["MaxScale"]/1.5:  # hardcoded for now
                 FWHMs.append(1.5*FWHMs[i])
                 i += 1
             self.FWHMs = np.asarray(FWHMs)
