@@ -66,8 +66,6 @@ class ClassFrequencyMachine(object):
         else:
             print>>log, "No PSFServer provided, unable to use new freq fit mode"
 
-    # TODO - rewrite i.t.o. operators that can iteratively invert (Xdes.T W Xdes). Direct inverse will be slow for
-    # MeerKAT data at full channel resolution. Might be worth rewriting i.t.o. orthogonal polynomials
     def set_Method(self, mode="Poly"):
         """
         Here we set the method used to fit the frequency axis
@@ -109,12 +107,15 @@ class ClassFrequencyMachine(object):
                 # TODO - use integrated polynomial instead in this case
                 if not self.BeamEnable:
                     ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
-                    SAmat = np.zeros([self.nchan, self.nchan_degrid])
+                    nchan_full = np.size(ChanMappingGrid[0])
+                    freqs = np.linspace(self.Freqsp.min(), self.Freqsp.max(), nchan_full)
+                    Xdes = self.setDesMat(freqs, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
+                    SAmat = np.zeros([self.nchan, nchan_full])
                     for iCh in xrange(self.nchan):
                         I = np.argwhere(ChanMappingGrid[0] == iCh).squeeze()
                         nchunk = np.size(I)
                         SAmat[iCh, I] = 1.0 / nchunk
-                    self.SAX = SAmat.dot(self.Xdes)
+                    self.SAX = SAmat.dot(Xdes)
                 self.Fit = self.FitPolyNew
                 self.Eval = self.EvalPolyApparent
                 self.Eval_Degrid = lambda coeffs, Freqs: self.EvalPoly(coeffs, Freqsp=Freqs)
