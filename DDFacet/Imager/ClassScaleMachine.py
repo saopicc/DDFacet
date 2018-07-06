@@ -56,6 +56,7 @@ class Store(object):
         return value
 
     def __setitem__(self, key, value):
+        self.valid_keys.append(key)
         np.save(self.cache_dir + str(key) + '.npy', value)
 
 class ClassScaleMachine(object):
@@ -233,7 +234,7 @@ class ClassScaleMachine(object):
             # The sqrt(2) factor corrects for the fact that we fit to first null instead of the FWHM
             FWHM0 = 1.0/np.sqrt(2)*((self.FWHMBeamAvg[0] + self.FWHMBeamAvg[1])*np.pi / 180) / \
                     (2.0 * self.GD['Image']['Cell'] * np.pi / 648000)
-            FWHMs = [FWHM0, 2.0*FWHM0]  # impirically determined 2.25 to work pretty well
+            FWHMs = [FWHM0, 2.25*FWHM0]  # empirically determined 2.25 to work pretty well
             i = 1
             while FWHMs[i] < self.GD["WSCMS"]["MaxScale"]/1.5:  # hardcoded for now
                 FWHMs.append(1.5*FWHMs[i])

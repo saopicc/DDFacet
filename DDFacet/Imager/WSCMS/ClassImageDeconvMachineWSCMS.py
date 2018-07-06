@@ -394,7 +394,7 @@ class ClassImageDeconvMachine():
                 x, y, ThisFlux = NpParallel.A_whereMax(self._MeanDirty, NCPU=self.NCPU, DoAbs=DoAbs, Mask=self.MaskArray)
 
                 # Crude hack to prevent divergences
-                if ThisFlux > self.GD["WSCMS"]["MinorDivergenceFactor"] * TrackFlux:
+                if np.abs(ThisFlux) > self.GD["WSCMS"]["MinorDivergenceFactor"] * np.abs(TrackFlux):
                     diverged = True
                 elif np.abs((ThisFlux - TrackFlux)/TrackFlux) < self.GD['WSCMS']['MinorStallThreshold']:
                     stall_count += 1

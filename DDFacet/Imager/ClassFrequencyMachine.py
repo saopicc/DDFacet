@@ -103,19 +103,24 @@ class ClassFrequencyMachine(object):
                     self.prior_invcov_neg = np.zeros(self.order, dtype=np.float64)
                 # construct design matrix at full channel resolution
                 self.Xdes = self.setDesMat(self.Freqsp, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
+                ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
+                self.nchan_full = np.size(ChanMappingGrid[0])
+                self.freqs_full = []
+                for iCh in xrange(self.nchan):
+                    self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh])
+                self.freqs_full = np.concatenate(self.freqs_full)
+
+                self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
+
                 # there is not need to recompute this every time if the beam is not enabled because same everywhere
                 # TODO - use integrated polynomial instead in this case
                 if not self.BeamEnable:
-                    ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
-                    nchan_full = np.size(ChanMappingGrid[0])
-                    freqs = np.linspace(self.Freqsp.min(), self.Freqsp.max(), nchan_full)
-                    Xdes = self.setDesMat(freqs, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
-                    SAmat = np.zeros([self.nchan, nchan_full])
+                    SAmat = np.zeros([self.nchan, self.nchan_full])
                     for iCh in xrange(self.nchan):
                         I = np.argwhere(ChanMappingGrid[0] == iCh).squeeze()
                         nchunk = np.size(I)
                         SAmat[iCh, I] = 1.0 / nchunk
-                    self.SAX = SAmat.dot(Xdes)
+                    self.SAX = SAmat.dot(self.Xdes_full)
                 self.Fit = self.FitPolyNew
                 self.Eval = self.EvalPolyApparent
                 self.Eval_Degrid = lambda coeffs, Freqs: self.EvalPoly(coeffs, Freqsp=Freqs)
@@ -421,17 +426,15 @@ class ClassFrequencyMachine(object):
             # incorporate stitched JonesNorm
             JonesFactor = np.sqrt(MeanJonesBand/JonesNorm)
             # scale I0 by beam at ref_freq
-            I0 = MaxDirty / BeamFactor[self.ref_freq_index]/1.25  # 1.25 because its better to underestimate I0
-            nu_tmp = self.Freqsp[self.ref_freq_index]
-            print "I 0 = ", I0, 100*(nu_tmp/1530000000.0)**(-0.7), 100*(1480000000.0/1530000000.0)**(-0.7)
+            I0 = MaxDirty / BeamFactor[self.ref_freq_index]  # TODO - learn optimal I0 for prior from evidence
             # next compute the product of the averaging matrix and beam matrix
             ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
-            SAmat = np.zeros([self.nchan, self.nchan_degrid])
+            SAmat = np.zeros([self.nchan, self.nchan_full])
             for iCh in xrange(self.nchan):
                 I = np.argwhere(ChanMappingGrid[0] == iCh).squeeze()  # TODO - test on multiple MSs
                 nchunk = np.size(I)
                 SAmat[iCh, I] = BeamFactor[I]/(nchunk*JonesFactor[iCh])  # The division by JonesFactor corrects for the fact that the PSF is normalised
-            self.SAX = SAmat.dot(self.Xdes)
+            self.SAX = SAmat.dot(self.Xdes_full)
         else:
             I0 = MaxDirty
         # get MFS weights
