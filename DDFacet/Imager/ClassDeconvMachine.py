@@ -1096,7 +1096,7 @@ class ClassImagerDeconv():
             ###
             self.ModelMachine.ToFile(self.DicoModelName)
             # ###
-            model_freqs=np.array([self.RefFreq],np.float64)
+            model_freqs = np.array([self.RefFreq],np.float64)
             ModelImage = self.FacetMachine.setModelImage(self.DeconvMachine.GiveModelImage(model_freqs))
             # write out model image, if asked to
             current_model_freqs = model_freqs
