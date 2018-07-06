@@ -35,7 +35,16 @@ def FileToArray(FileName,CorrT):
     """ Read a FITS FileName file to an array """
     hdu=fits.open(FileName)
     NormImage=hdu[0].data
-    nch,npol,_,_=NormImage.shape
+
+    
+    if len(NormImage.shape)==4:
+        nch,npol,_,_=NormImage.shape
+    else:
+        nch,nx,ny=NormImage.shape
+        npol=1
+        Sh=(nch,1,nx,ny)
+        NormImage=NormImage.reshape(Sh)
+
     if CorrT:
         for ch in range(nch):
             for pol in range(npol):

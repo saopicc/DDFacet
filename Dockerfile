@@ -48,11 +48,13 @@ ENV DEB_DEPENCENDIES \
     python2.7-dev \
     libboost-all-dev \
     libcfitsio3-dev \
+    libhdf5-dev \
     wcslib-dev \
     libatlas-dev \
     liblapack-dev \
     python-tk \
     meqtrees* \
+    tigger-lsm \
     # LOFAR Beam and including makems needed for ref image generation
     lofar \
     # Reference image generation dependencies
@@ -66,16 +68,13 @@ RUN apt-get update && \
     apt-get install -y $DEB_SETUP_DEPENDENCIES && \
     apt-get install -y $DEB_DEPENCENDIES && \
     #Setup a virtual environment for the python packages
-    pip install -U pip virtualenv setuptools wheel && \
-    virtualenv --system-site-packages /ddfvenv && \
+    pip install -U "pip==9.0.3" setuptools wheel && \
     # Install Montblanc and all other optional dependencies
-    pip install -r /src/DDFacet/requirements.txt && \
+    pip install -r /src/DDFacet/requirements.txt --force-reinstall -U && \
     cd /src/DDFacet/ && git submodule update --init --recursive && cd / && \
-    # Activate virtual environment
-    . /ddfvenv/bin/activate && \
     # Finally install DDFacet
     rm -rf /src/DDFacet/DDFacet/cbuild && \
-    pip install -I --force-reinstall --no-binary :all: /src/DDFacet/ && \
+    pip install -I -U --force-reinstall --no-binary :all: /src/DDFacet/ && \
     # Nuke the unused & cached binaries needed for compilation, etc.
     rm -r /src/DDFacet && \
     apt-get remove -y $DEB_SETUP_DEPENDENCIES && \
@@ -88,9 +87,7 @@ RUN apt-get update && \
     rm -rf LOFAR-Release-2_21_9
 
 # Set MeqTrees Cattery path to virtualenv installation directory
-ENV MEQTREES_CATTERY_PATH /ddfvenv/lib/python2.7/site-packages/Cattery/
-ENV PATH /ddfvenv/bin:$PATH
-ENV LD_LIBRARY_PATH /ddfvenv/lib:$LD_LIBRARY_PATH
+ENV MEQTREES_CATTERY_PATH /usr/local/lib/python2.7/dist-packages/Cattery/
 # Execute virtual environment version of DDFacet
 ENTRYPOINT ["DDF.py"]
 CMD ["--help"]

@@ -252,11 +252,23 @@ class FFTW_2Donly_np():
 
         return A
 
+
+_give_gauss_grid_key = None,None
+_give_gauss_grid_cache = None,None
+
 def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parallel=True):
     uvscale=Npix*CellSizeRad/2
     SigMaj,SigMin,ang=GaussPars
     ang = 2*np.pi - ang #need counter-clockwise rotation
-    U,V=np.mgrid[-uvscale:uvscale:Npix*1j,-uvscale:uvscale:Npix*1j]
+
+    # np.mgrid turns out to be *the* major CPU consumer here when GiveGauss() is called repeatedly.
+    # Hence, cache and reuse it
+    global _give_gauss_grid_key, _give_gauss_grid_cache
+    if (uvscale, Npix) == _give_gauss_grid_key:
+        U, V = _give_gauss_grid_cache
+    else:
+        U, V = _give_gauss_grid_cache = np.mgrid[-uvscale:uvscale:Npix*1j,-uvscale:uvscale:Npix*1j]
+        _give_gauss_grid_key = uvscale, Npix
 
     CT=np.cos(ang)
     ST=np.sin(ang)
@@ -281,40 +293,50 @@ def GiveGauss(Npix,CellSizeRad=None,GaussPars=(0.,0.,0.),dtype=np.float32,parall
     #Gauss/=np.sum(Gauss)
     return Gauss
 
-#def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
-#   #warnings.warn("deprecated: this wont work for small ffts...",
-#   #              DeprecationWarning)
-#   Npix=int(2*8*Sig)
-#   if Npix%2==0: Npix+=1
-#   x0=Npix/2
-#   x,y=np.mgrid[-x0:x0:Npix*1j,-x0:x0:Npix*1j]
-#   #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
-#   if GaussPar is None:
-#       GaussPar=(Sig,Sig,0)
-#   in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
-#
-#   nch,npol,_,_=Ain0.shape
-#   Out=np.zeros_like(Ain0)
-#   for ch in range(nch):
-#       in1=Ain0[ch,0]
-#       Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
-#   return Out,in2
+def ConvolveGaussianScipy(Ain0,Sig=1.,GaussPar=None):
+  #warnings.warn("deprecated: this wont work for small ffts...",
+  #              DeprecationWarning)
+  Npix=int(2*8*Sig)
+  if Npix%2==0: Npix+=1
+  x0=Npix/2
+  x,y=np.mgrid[-x0:x0:Npix*1j,-x0:x0:Npix*1j]
+  #in2=np.exp(-(x**2+y**2)/(2.*Sig**2))
+  if GaussPar is None:
+      GaussPar=(Sig,Sig,0)
+  in2=Gaussian.Gaussian2D(x,y,GaussPar=GaussPar)
 
-def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None):
+  nch,npol,_,_=Ain0.shape
+  Out=np.zeros_like(Ain0)
+  for ch in range(nch):
+      in1=Ain0[ch,0]
+      Out[ch,0,:,:]=scipy.signal.fftconvolve(in1, in2, mode='same').real
+  return Out,in2
+
+def ConvolveGaussianWrapper(Ain0,Sig=1.0,GaussPar=None,Out=None,Gauss=None):
     # a drop-in replacement for ConvolveGaussianScipy which uses
     # _convolveSingleGaussianNP . The factor sqrt(2) here in 'pixel
     # size' is a fudge to make the two routines agree: the
     # Gaussian/Gaussian2D code appears to be missing the factor 2 on
     # the denominator of the Gaussian function it computes
     nch,npol,_,_=Ain0.shape
-    Out=np.zeros_like(Ain0)
+    if Out is None:
+        Out = np.zeros_like(Ain0)
+    else:
+        assert Out.shape == Ain0.shape and Out.dtype == Ain0.dtype, "Out argument should have same shape/type as input"
     dict={'in':Ain0,'out':Out}
     if GaussPar is None:
         GaussPar=(Sig,Sig,0)
     for ch in range(nch):
-        Aout,PSF=_convolveSingleGaussianNP(dict,'in','out',ch,np.sqrt(2),GaussPar,return_gaussian=True)
-        Out[ch,:,:,:]=Aout
+        # replacing NP->FFTW.  See discussion in https://github.com/cyriltasse/DDFacet/issues/463
+        Aout,PSF=_convolveSingleGaussianFFTW(dict,'in','out',ch,np.sqrt(2),GaussPar,Gauss=Gauss,return_gaussian=True)
+        ### this should not be necessary: _convolveSingleGaussianFFTW() already stores to dict['out'][ch], which is Out[ch]
+        # Out[ch,:,:,:]=Aout
     return Out,PSF
+
+def GiveConvolvingGaussianWrapper(shape, GaussPars):
+    """Returns just the gaussian that would be used by ConvolveGaussianWrapper"""
+    return GiveConvolvingGaussian(shape, np.sqrt(2), GaussPars)
+
 
 def ConvolveGaussianSimpleWrapper(Ain0, CellSizeRad=1.0, Sig=1.0, GaussPars=None):
     nch,npol,_,_=Ain0.shape
@@ -339,6 +361,25 @@ def learnFFTWWisdom(npix,dtype=np.float32):
         a = pyfftw.interfaces.numpy_fft.fft2(test, overwrite_input=True, threads=1)
         b = pyfftw.interfaces.numpy_fft.ifft2(a, overwrite_input=True, threads=1)
 
+
+def GiveConvolvingGaussian(shape, CellSizeRad, GaussPars_ch, Normalise=False):
+    """
+    Computes padded Gaussian convolution kernel,for use in _convolveSingleGaussianFFTW
+    """
+
+    npol, npix_y, npix_x = shape
+    assert npix_y == npix_x, "Only supports square grids at the moment"
+    pad_edge = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
+                               2.0) * 2),0)
+    PSF = np.pad(GiveGauss(npix_x, CellSizeRad, GaussPars_ch, parallel=True),
+                 ((pad_edge//2,pad_edge//2),(pad_edge//2,pad_edge//2)),
+                 mode="constant")
+
+    if Normalise:
+        PSF /= np.sum(PSF)
+    return PSF
+
+
 # FFTW-based convolution
 def _convolveSingleGaussianFFTW(shareddict,
                                 field_in,
@@ -346,6 +387,7 @@ def _convolveSingleGaussianFFTW(shareddict,
                                 ch,
                                 CellSizeRad,
                                 GaussPars_ch,
+                                Gauss=None,
                                 Normalise = False,
                                 nthreads = 1,
                                 return_gaussian = False):
@@ -358,6 +400,7 @@ def _convolveSingleGaussianFFTW(shareddict,
        @param ch: index of channel to convolve
        @param CellSizeRad: pixel size in radians of the gaussian in image space
        @param nthreads: number of threads to use in FFTW
+       @param Gauss: if set, Gaussian to use (has been precomputed)
        @param Normalize: Normalize the gaussian amplitude
        @param return_gaussian: return the convolving Gaussian as well
     """
@@ -380,16 +423,14 @@ def _convolveSingleGaussianFFTW(shareddict,
     Ain = shareddict[field_in][ch]
     Aout = shareddict[field_out][ch]
     T.timeit("init %d"%ch)
+    if Gauss is not None:
+        PSF = Gauss
+    else:
+        PSF = GiveConvolvingGaussian(Ain.shape, CellSizeRad, GaussPars_ch, Normalise=Normalise)
     npol, npix_y, npix_x = Ain.shape
-    assert npix_y == npix_x, "Only supports square grids at the moment"
     pad_edge = max(int(np.ceil((ModToolBox.EstimateNpix(npix_x)[1] - npix_x) /
                                2.0) * 2),0)
-    PSF = np.pad(GiveGauss(npix_x, CellSizeRad, GaussPars_ch, parallel=True),
-                 ((pad_edge//2,pad_edge//2),(pad_edge//2,pad_edge//2)),
-                 mode="constant")
 
-    if Normalise:
-        PSF /= np.sum(PSF)
     T.timeit("givegauss %d"%ch)
     fPSF = pyfftw.interfaces.numpy_fft.rfft2(iFs(PSF),
                                              overwrite_input=True,
@@ -489,16 +530,26 @@ def ConvolveGaussianParallel(shareddict, field_in, field_out, CellSizeRad=None,G
     Aout = shareddict[field_out]
     # single channel? Handle serially
     if nch == 1:
-        return ConvolveGaussian(shareddict, field_in, field_out, 0, CellSizeRad, GaussPars[0], Normalise)
+        return ConvolveGaussian(shareddict, field_in, field_out, 0, CellSizeRad, GaussPars[0], None, Normalise)
 
     jobid = "convolve:%s:%s:" % (field_in, field_out)
     for ch in range(nch):
-        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW, args=(shareddict.readwrite(), field_in, field_out, ch, CellSizeRad, GaussPars[ch], Normalise))
+        APP.runJob(jobid+str(ch),_convolveSingleGaussianFFTW_noret, args=(shareddict.readwrite(), field_in, field_out, ch, CellSizeRad, GaussPars[ch], None, Normalise))
     APP.awaitJobResults(jobid+"*") #, progress="Convolving")
 
     return Aout
 
-APP.registerJobHandlers(_convolveSingleGaussianFFTW, _convolveSingleGaussianNP)
+
+# wrappers that discard return value for use with APP -- avoids wasteful stuffing of images into result queues
+def _convolveSingleGaussianFFTW_noret(*args,**kw):
+    _convolveSingleGaussianFFTW(*args,**kw)
+    return None
+
+def _convolveSingleGaussianNP_noret(*args,**kw):
+    _convolveSingleGaussianNP(*args,**kw)
+    return None
+
+APP.registerJobHandlers(_convolveSingleGaussianFFTW_noret, _convolveSingleGaussianNP_noret)
 
 ## FFTW version
 #def ConvolveGaussianFFTW(Ain0,

@@ -29,6 +29,7 @@ from DDFacet.Other.progressbar import ProgressBar
 import ClassLOFARBeam
 import ClassFITSBeam
 # import ClassSmoothJones is not used anywhere, should be able to remove it
+import tables
 
 
 class ClassJones():
@@ -50,7 +51,7 @@ class ClassJones():
         if SolsFile != "":
             self.ApplyCal = True
             self.JonesNormSolsFile_killMS, valid = self.MS.cache.checkCache(
-                "JonesNorm_killMS.npz",
+                "JonesNorm_killMS",
                 dict(VisData=GD["Data"], 
                      DDESolutions=GD["DDESolutions"], 
                      DataSelection=self.GD["Selection"],
@@ -62,7 +63,7 @@ class ClassJones():
                 DicoSols, TimeMapping, DicoClusterDirs = self.DiskToSols(self.JonesNormSolsFile_killMS)
             else:
                 DicoSols, TimeMapping, DicoClusterDirs = self.MakeSols("killMS", DATA, quiet=quiet)
-                self.MS.cache.saveCache("JonesNorm_killMS.npz")
+                self.MS.cache.saveCache("JonesNorm_killMS")
 
             DATA["killMS"] =  dict(Jones=DicoSols, TimeMapping=TimeMapping, Dirs=DicoClusterDirs)
             self.DicoClusterDirs_kMS=DicoClusterDirs
@@ -121,20 +122,26 @@ class ClassJones():
 
         # np.savez(self.JonesNorm_killMS,l=l,m=m,I=I,Cluster=Cluster,t0=t0,t1=t1,tm=tm,Jones=Jones,TimeMapping=TimeMapping)
 
-        np.savez(file(OutName, "w"),
+        os.system("touch %s"%OutName)
+        np.savez(file("%s.npz"%OutName, "w"),
                  l=l, m=m, I=I, Cluster=Cluster,
                  t0=t0, t1=t1, tm=tm,
                  ra=ra,dec=dec,
-                 Jones=Jones,
                  TimeMapping=TimeMapping,
                  VisToJonesChanMapping=VisToJonesChanMapping)
+        np.save(file("%s.npy"%OutName, "w"),
+                Jones)
+
 
     def DiskToSols(self, InName):
         # SolsFile_killMS=np.load(self.JonesNorm_killMS)
         # print>>log, "  Loading %s"%InName
         # print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",InName
-        SolsFile = np.load(InName)
-        print>>log, "  %s loaded" % InName
+        SolsFile = np.load("%s.npz"%InName)
+        print>>log, "  %s.npz loaded" % InName
+        Jones=np.load("%s.npy"%InName)
+        print>>log, "  %s.npy loaded" % InName
+
 
         DicoClusterDirs = {}
         DicoClusterDirs["l"] = SolsFile["l"]
@@ -147,13 +154,14 @@ class ClassJones():
         DicoSols["t0"] = SolsFile["t0"]
         DicoSols["t1"] = SolsFile["t1"]
         DicoSols["tm"] = SolsFile["tm"]
-        DicoSols["Jones"] = SolsFile["Jones"]
+
+        DicoSols["Jones"] = Jones
+
         DicoSols["VisToJonesChanMapping"] = SolsFile["VisToJonesChanMapping"]
         TimeMapping = SolsFile["TimeMapping"]
         return DicoSols, TimeMapping, DicoClusterDirs
 
     def MakeSols(self, StrType, DATA, quiet=False):
-
         print>>log, "Build solution Dico for %s" % StrType
 
         if StrType == "killMS":
@@ -171,8 +179,8 @@ class ClassJones():
         if StrType == "Beam":
 
             if self.FacetMachine is not None:
-                if not(self.HasKillMSSols):
-                    print>>log, "  Getting Jones directions from Nones"
+                if not(self.HasKillMSSols) or self.GD["Beam"]["At"] == "facet":
+                    print>>log, "  Getting beam Jones directions from facets"
                     DicoImager = self.FacetMachine.DicoImager
                     NFacets = len(DicoImager)
                     self.ClusterCatBeam = self.FacetMachine.JonesDirCat
@@ -184,7 +192,7 @@ class ClassJones():
                     DicoClusterDirs["I"] = self.ClusterCatBeam.I
                     DicoClusterDirs["Cluster"] = self.ClusterCatBeam.Cluster
                 else:
-                    print>>log, "  Getting Jones directions from DDE-solutions"
+                    print>>log, "  Getting beam Jones directions from DDE solution tessels"
                     DicoClusterDirs = self.DicoClusterDirs_kMS
                     NDir = DicoClusterDirs["l"].size
                     self.ClusterCatBeam = np.zeros(
@@ -317,6 +325,7 @@ class ClassJones():
         for File, ThisGlobalMode, ThisJonesMode in zip(
                 SolsFileList, GlobalNormList, JonesNormList):
 
+            
             DicoClusterDirs, DicoSols, VisToJonesChanMapping = self.GiveKillMSSols_SingleFile(
                 File, GlobalMode=ThisGlobalMode, JonesMode=ThisJonesMode)
             print>>log, "  VisToJonesChanMapping: %s" % str(VisToJonesChanMapping)
@@ -330,19 +339,8 @@ class ClassJones():
 
         return DicoClusterDirs, DicoJones
 
-    def GiveKillMSSols_SingleFile(
-        self,
-        SolsFile,
-        JonesMode="AP",
-        GlobalMode=""):
-
+    def ReadNPZ(self,SolsFile):
         print>>log, "  Loading solution file %s" % (SolsFile)
-        if not(".npz" in SolsFile):
-            Method = SolsFile
-            ThisMSName = reformat.reformat(
-                os.path.abspath(self.MS.MSName),
-                LastSlash=False)
-            SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
 
         self.ApplyCal = True
         DicoSolsFile = np.load(SolsFile)
@@ -360,14 +358,6 @@ class ClassJones():
         DicoClusterDirs["I"] = ClusterCat.SumI
         DicoClusterDirs["Cluster"] = ClusterCat.Cluster
 
-        if "FreqDomains" in DicoSolsFile.keys():
-            FreqDomains = DicoSolsFile["FreqDomains"]
-            VisToJonesChanMapping = self.GiveVisToJonesChanMapping(FreqDomains)
-        else:
-            VisToJonesChanMapping = np.zeros((self.MS.NSPWChan,), np.int32)
-
-        self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
-
         Sols = DicoSolsFile["Sols"]
         Sols = Sols.view(np.recarray)
         DicoSols = {}
@@ -377,15 +367,121 @@ class ClassJones():
         nt, nf, na, nd, _, _ = Sols.G.shape
         G = np.swapaxes(Sols.G, 1, 3).reshape((nt, nd, na, nf, 2, 2))
 
+        if "FreqDomains" in DicoSolsFile.keys():
+            FreqDomains = DicoSolsFile["FreqDomains"]
+            VisToJonesChanMapping = self.GiveVisToJonesChanMapping(FreqDomains)
+        else:
+            VisToJonesChanMapping = np.zeros((self.MS.NSPWChan,), np.int32)
+
+        self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
+
+        return VisToJonesChanMapping,DicoClusterDirs,DicoSols,G
+
+
+    def ReadH5(self,SolsFile):
+        print>>log, "  Loading H5 solution file %s" % (SolsFile)
+
+        self.ApplyCal = True
+        H=tables.open_file(SolsFile)
+        raNode,decNode=H.root.sol000.source[:]["dir"].T
+        times=H.root.sol000.tec000.time[:]
+        lFacet, mFacet = self.FacetMachine.CoordMachine.radec2lm(raNode, decNode)
+        # nt, na, nd, 1
+        tec=H.root.sol000.tec000.val[:]
+        scphase=H.root.sol000.scalarphase000.val[:]
+        H.close()
+        del(H)
+
+        DicoClusterDirs = {}
+        DicoClusterDirs["l"] = lFacet
+        DicoClusterDirs["m"] = mFacet
+        DicoClusterDirs["ra"] = raNode
+        DicoClusterDirs["dec"] = decNode
+        DicoClusterDirs["I"] = np.ones((lFacet.size,),np.float32)
+        DicoClusterDirs["Cluster"] = np.arange(lFacet.size)
+
+        ClusterCat=np.zeros((lFacet.size,),dtype=[('Name','|S200'),
+                                                     ('ra',np.float),('dec',np.float),
+                                                     ('l',np.float),('m',np.float),
+                                                     ('SumI',np.float),("Cluster",int)])
+        ClusterCat=ClusterCat.view(np.recarray)
+        ClusterCat.l=lFacet
+        ClusterCat.m=mFacet
+        ClusterCat.ra=raNode
+        ClusterCat.dec=decNode
+        ClusterCat.I=DicoClusterDirs["I"]
+        ClusterCat.Cluster=DicoClusterDirs["Cluster"]
+        self.ClusterCat = ClusterCat
+
+
+
+        dts=times[1::]-times[0:-1]
+        if not np.max(np.abs(dts-dts[0]))<0.1:
+            raise ValueError("The solutions dt should be the same")
+        dt=dts[0]
+        t0=times-dt/2.
+        t1=times+dt/2.
+        DicoSols = {}
+        DicoSols["t0"] = t0
+        DicoSols["t1"] = t1
+        DicoSols["tm"] = (t1+t0)/2.
+
+
+        nt, na, nd, _=tec.shape
+        tecvals=tec.reshape((nt,na,nd,1))
+        #freqs=self.FacetMachine.VS.GlobalFreqs.reshape((1,1,1,-1))
+        freqs=self.MS.ChanFreq.ravel()
+
+        scphase=scphase.reshape((nt,na,nd,1))
+        freqs=freqs.reshape((1,1,1,-1))
+        phase = (-8.4479745e9 * tecvals/freqs) + scphase
+        # nt,na,nd,nf,1
+        phase=np.swapaxes(phase,1,2)
+        nf=freqs.size
+        G=np.zeros((nt, nd, na, nf, 2, 2),np.complex64)
+        z=np.exp(1j*phase)
+        G[:,:,:,:,0,0]=z
+        G[:,:,:,:,1,1]=z
+
+        VisToJonesChanMapping = np.int32(np.arange(self.MS.NSPWChan,))
+
+        #self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
+
+        return VisToJonesChanMapping,DicoClusterDirs,DicoSols,G
+
+
+
+
+    def GiveKillMSSols_SingleFile(
+        self,
+        SolsFile,
+        JonesMode="AP",
+        GlobalMode=""):
+
+
+        if not ".h5" in SolsFile:
+            if not(".npz" in SolsFile):
+                Method = SolsFile
+                ThisMSName = reformat.reformat(
+                    os.path.abspath(self.MS.MSName),
+                    LastSlash=False)
+                SolsFile = "%s/killMS.%s.sols.npz" % (ThisMSName, Method)
+            VisToJonesChanMapping,DicoClusterDirs,DicoSols,G=self.ReadNPZ(SolsFile)
+        else:
+            VisToJonesChanMapping,DicoClusterDirs,DicoSols,G=self.ReadH5(SolsFile)
+            
+        nt, nd, na, nf, _, _ = G.shape
+
         # G[:,:,:,:,0,0]=0.
         # G[:,:,:,:,1,1]=0.
         # G[:,0,:,:,0,0]=1.
         # G[:,0,:,:,1,1]=1.
-        # G.fill(0)
 
         # print>>log, "!!!!!!!!!!!!!!"
         # #G[:,:,:,:,1,1]=G[:,:,:,:,0,0]
-        # G[:,:,:,:,0,0]=G[:,:,:,:,1,1]
+        # G.fill(0)
+        # G[:,:,:,:,0,0]=1
+        # G[:,:,:,:,1,1]=1
         # print>>log, "!!!!!!!!!!!!!!"
 
         if GlobalMode == "MeanAbsAnt":
@@ -409,16 +505,16 @@ class ClassJones():
             G[:, :, :, :, 1, 1] /= gmean_abs
 
         if GlobalMode == "BLBased":
-            print>>log, "  Normalising by the mean of the amplitude (against time, freq, antenna)"
-            gmean_abs = np.mean(np.mean(
-                                    np.mean(
-                                        np.abs(G[:, :, :, :, 0, 0]),
-                                        axis=0),
-                                    axis=1),
-                                axis=1)
-            gmean_abs = gmean_abs.reshape((1, nd, 1, 1))
-            G[:, :, :, :, 0, 0] /= gmean_abs
-            G[:, :, :, :, 1, 1] /= gmean_abs
+            # print>>log, "  Normalising by the mean of the amplitude (against time, freq, antenna)"
+            # gmean_abs = np.mean(np.mean(
+            #                         np.mean(
+            #                             np.abs(G[:, :, :, :, 0, 0]),
+            #                             axis=0),
+            #                         axis=1),
+            #                     axis=1)
+            # gmean_abs = gmean_abs.reshape((1, nd, 1, 1))
+            # G[:, :, :, :, 0, 0] /= gmean_abs
+            # G[:, :, :, :, 1, 1] /= gmean_abs
 
             print>>log, "  Extracting correction factor per-baseline"
             #(nt, nd, na, nf, 2, 2)
@@ -436,6 +532,7 @@ class ClassJones():
                 gu/=np.median(gu)
                 G[:,iDir,:,:,0,0]=G[:,iDir,:,:,0,0]/gu
                 G[:,iDir,:,:,1,1]=G[:,iDir,:,:,1,1]/gu
+
 
 
         if GlobalMode == "SumBLBased":

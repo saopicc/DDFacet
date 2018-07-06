@@ -20,6 +20,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import numpy as np
 import gaussfitter2
+import scipy.ndimage.measurements
+
 from DDFacet.Other import MyLogger
 log= MyLogger.getLogger("FitPSF")
 
@@ -34,7 +36,12 @@ def FitCleanBeam(PSF):
         sigma_y of gaussian in pixels
         theta: The rotation angle (radians) of the gaussian from the y axis counter-clockwise (beware of the periodicity)
     """
-    popt=gaussfitter2.gaussfit(PSF, vheight=0, return_all=0, rotate=1)
+    # zero everything except the main lobe
+    PSF1 = PSF.copy()
+    labels = scipy.ndimage.measurements.label(PSF1>=0)[0]
+    amax = np.unravel_index(np.argmax(PSF), PSF.shape)
+    PSF1[labels != labels[amax]] = 0
+    popt=gaussfitter2.gaussfit(PSF1, vheight=0, return_all=0, rotate=1)
     amp, xo, yo, sigma_x, sigma_y, theta=popt
     theta = np.deg2rad(theta)
     gmaj, gmin = (0, 0)
@@ -79,26 +86,18 @@ def FindSidelobe(PSF):
     """
     # Peak of PSF (may be less than unity because of DD terms)
     # Assume there is only one peak
-    max_psf = np.max(PSF)
-    amax_psf = np.argwhere(PSF==max_psf)[0]
+    amax = np.unravel_index(np.argmax(PSF), PSF.shape)
     nx,ny=PSF.shape
-
-    # Fit cleanbeam to position
-    popt = FitCleanBeam(PSF)
-
-    # Create a clean beam:
-    x = np.arange(0, nx)
-    y = np.arange(0, ny)
-    x, y = np.meshgrid(x, y)
-    bestFit = [max_psf, amax_psf[0], amax_psf[1], popt[0], popt[1], np.rad2deg(popt[2]) - 90]
-    clean_beam = gaussfitter2.twodgaussian(bestFit, circle=0, rotate=1, vheight=0)(x,y)
-
-    # Create a residual beam without the primary lobe
-    sidelobes = PSF - clean_beam
-    amax_sl = np.argwhere(sidelobes == np.max(sidelobes))[0]
-    sidelobe_dist = np.sqrt(np.sum((amax_sl - amax_psf)**2))
-    sidelobe_level = sidelobes[amax_sl[0], amax_sl[1]]
-    return (sidelobe_level, sidelobe_dist), (popt[0], popt[1], popt[2])
+    
+    PSF1 = PSF.copy()
+    labels = scipy.ndimage.measurements.label(PSF1>=0)[0]
+    PSF1[labels == labels[amax]] = 0
+    
+    amax_sl = np.unravel_index(np.argmax(PSF1), PSF1.shape)
+    sidelobe_dist = np.sqrt((amax_sl[0] - amax[0])**2 + (amax_sl[1] - amax[1])**2)
+    sidelobe_level = PSF1[amax_sl]
+    
+    return sidelobe_level, sidelobe_dist
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt

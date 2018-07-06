@@ -33,8 +33,8 @@ class TestSSDKillMS(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.Cla
                 List of image identifiers to reference and output products
         """
         return ['dirty', 'dirty.corr', 'psf', 'NormFacets', 'Norm',
-                'int.residual', 'app.residual', 'int.model', 'app.model',
-                'int.convmodel', 'app.convmodel', 'int.restored', 'app.restored',
+                'app.residual', 'app.model',
+                'app.convmodel', 'app.restored',
                 'restored']
 
     @classmethod
@@ -46,8 +46,8 @@ class TestSSDKillMS(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.Cla
                 constant for maximum tolerance used in test case setup
         """
         return [1e-6,1e-6,1e-6,1e-6,1e-6,
-                1e-3,1e-4,1e-3,1e-4,
-                1e-3,1e-4,1e-3,1e-4,
+                1e-4,1e-4,
+                1e-4,1e-4,
                 1e-1]
 
     @classmethod
@@ -59,8 +59,8 @@ class TestSSDKillMS(DDFacet.Tests.ShortAcceptanceTests.ClassCompareFITSImage.Cla
             constant for tolerance on mean squared error
         """
         return [1e-7,1e-7,1e-7,1e-7,1e-7,
-                1e-5,1e-5,1e-5,1e-5,
-                1e-5,1e-5,1e-5,1e-5,
+                1e-5,1e-5,
+                1e-5,1e-5,
                 1e-5]
 
     @classmethod

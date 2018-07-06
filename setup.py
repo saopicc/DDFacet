@@ -31,10 +31,16 @@ import sys
 
 pkg='DDFacet'
 skymodel_pkg='SkyModel'
-__version__ = "0.3.2"
+__version__ = "0.3.4.1"
 build_root=os.path.dirname(__file__)
 
+preinstall_dependencies = ["'pybind11 >= 2.2.2'"]
+
 def backend(compile_options):
+
+    subprocess.check_call(["cd .. && pip install %s" %
+                           (" ".join(preinstall_dependencies)), ""], shell=True)
+
     if compile_options is not None:
         print >> sys.stderr, "Compiling extension libraries with user defined options: '%s'"%compile_options
     path = pjoin(build_root, pkg, 'cbuild')
@@ -102,6 +108,8 @@ setup(name=pkg,
                },
       packages=[pkg, skymodel_pkg],
       install_requires=[
+            "nose >= 1.3.7",
+            "Cython >= 0.25.2",
             "numpy >= 1.11.0",
             "SharedArray >= 2.0.2",
             "Polygon2 >= 2.0.8",
@@ -109,19 +117,21 @@ setup(name=pkg,
             "astropy >= 1.3.3",
             "deap >= 1.0.1", 
             "ipdb >= 0.10.3",
-            "python-casacore >= 2.1.2",
+            "python-casacore >= 2.1.0",
             "pyephem >= 3.7.6.0",
             "numexpr >= 2.6.2",
-            "pyfits >= 3.4",
-            "matplotlib >= 2.0.2",
-            "scipy >= 0.19.0",
+            "matplotlib >= 2.0.0",
+            "scipy >= 0.16.0",
             "astro-kittens >= 0.3.3",
             "meqtrees-cattery >= 1.5.1",
             "owlcat >= 1.4.2",
             "astLib >= 0.8.0",
             "psutil >= 5.2.2",
-            "astro-tigger >= 1.3.5",
             "py-cpuinfo >= 3.2.0",
+            "tables >= 3.3.0",
+            "prettytable >= 0.7.2",
+            "pybind11 >= 2.2.2",
+            "pyfits >= 3.5", #kittens dependency, do not remove
       ],
       include_package_data=True,
       zip_safe=False,

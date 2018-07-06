@@ -58,13 +58,17 @@ class ClassImageDeconvMachine():
                  SearchMaxAbs=1, 
                  ModelMachine=None,
                  NFreqBands=1,
+                 RefFreq=None,
                  MainCache=None,
-                 CacheSharedMode=False,
                  IdSharedMem="",
                  ParallelMode=True,
                  CacheFileName="HMPBasis",
                  **kw    # absorb any unknown keywords arguments into this
                  ):
+        """
+        ImageDeconvMachine constructor. Note that this should be called pretty much when setting up the imager,
+        before APP workers are started, because the object registers APP handlers.
+        """
         self.IdSharedMem=IdSharedMem
         self.SearchMaxAbs=SearchMaxAbs
         self._ModelImage = None
@@ -76,6 +80,7 @@ class ClassImageDeconvMachine():
         self.SubPSF = None
         self.MultiFreqMode = NFreqBands > 1
         self.NFreqBands = NFreqBands
+        self.RefFreq = RefFreq
         self.FluxThreshold = FluxThreshold
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
@@ -83,16 +88,15 @@ class ClassImageDeconvMachine():
         self.PrevPeakFactor = PrevPeakFactor
         self.CacheFileName=CacheFileName
         self.GainMachine=ClassGainMachine.get_instance()
-        self.ModelMachine = ModelMachine
-        self.RefFreq=self.ModelMachine.RefFreq
-        if self.ModelMachine.DicoSMStacked["Type"] not in ("MSMF", "HMP"):
-            raise ValueError("ModelMachine Type should be HMP")
+        self.ModelMachine = None
+        self.PSFServer = None
+        if ModelMachine is not None:
+            self.updateModelMachine(ModelMachine)
         self.PSFHasChanged=False
         self._previous_initial_peak = None
         self.maincache = MainCache
         # reset overall iteration counter
         self._niter = 0
-        self.CacheSharedMode=CacheSharedMode
         self.facetcache=None
         self._MaskArray=None
         self.MaskMachine=None
@@ -125,6 +129,11 @@ class ClassImageDeconvMachine():
 
         self._prevPeak = None
 
+    def setNCPU(self,NCPU):
+        self.NCPU=NCPU
+        numexpr.set_num_threads(NCPU)
+
+        
     def __del__ (self):
         if type(self.facetcache) is shared_dict.SharedDict:
             self.facetcache.delete()
@@ -134,21 +143,23 @@ class ClassImageDeconvMachine():
         self._MaskArray = np.zeros((1,1,nx,ny),np.bool8)
         self._MaskArray[0,0,:,:]=Mask[:,:]
 
-
-
     def setMaskMachine(self,MaskMachine):
         self.MaskMachine=MaskMachine
 
     def resetCounter(self):
         self._niter = 0
 
-    def updateModelMachine(self,ModelMachine):
-        self.ModelMachine=ModelMachine
-        if self.ModelMachine.RefFreq!=self.RefFreq:
-            raise ValueError("freqs should be equal")
+    def updateModelMachine(self, ModelMachine):
+        if ModelMachine.DicoSMStacked["Type"] not in ("MSMF", "HMP"):
+            raise ValueError("ModelMachine Type should be HMP")
+        if ModelMachine.RefFreq != self.RefFreq:
+            raise ValueError("RefFreqs should be equal")
 
-        for iFacet in range(self.PSFServer.NFacets):
-            self.DicoMSMachine[iFacet].setModelMachine(self.ModelMachine)
+        self.ModelMachine = ModelMachine
+
+        if self.PSFServer is not None:
+            for iFacet in range(self.PSFServer.NFacets):
+                self.DicoMSMachine[iFacet].setModelMachine(self.ModelMachine)
 
     def GiveModelImage(self,*args): return self.ModelMachine.GiveModelImage(*args)
 
@@ -160,27 +171,37 @@ class ClassImageDeconvMachine():
     def SetPSF(self, DicoVariablePSF, quiet=False):
         self.PSFServer=ClassPSFServer(self.GD)
         self.PSFServer.setDicoVariablePSF(DicoVariablePSF,NormalisePSF=True, quiet=quiet)
-        self.PSFServer.setRefFreq(self.ModelMachine.RefFreq)
+        self.PSFServer.setRefFreq(self.RefFreq)
         self.DicoVariablePSF=DicoVariablePSF
         #self.NChannels=self.DicoDirty["NChannels"]
 
-    def Init(self,**kwargs):
-        self.SetPSF(kwargs["PSFVar"])
-        self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
-        self.InitMSMF(approx=kwargs.get("approx",False), cache=kwargs.get("cache", True))
-        self.ModelMachine.setRefFreq(self.RefFreq)
-        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
+    def Init(self, PSFVar, PSFAve, GridFreqs, DegridFreqs, approx=False, cache=None, facetcache=None, **kwargs):
+        """
+        Init method. This is called after the first round of gridding: PSFs and such are available.
+        ModelMachine must be set by now.
+        
+        facetcache: dict of basis functions. If supplied, then InitMSMF is not called.
+        
+        cache: cache the basis functions. If None, GD["Cache"]["HMP"] setting is used
+        """
+        # close the solutions dump, in case it was opened by a previous HMP instance
+        ClassMultiScaleMachine.CleanSolutionsDump.close()
+        self.SetPSF(PSFVar)
+        self.setSideLobeLevel(PSFAve[0], PSFAve[1])
+        if cache is None:
+            cache = self.GD["Cache"]["HMP"]
+        self.InitMSMF(approx=approx, cache=cache, facetcache=facetcache)
+        ## OMS: why is this needed? self.RefFreq is set from self.ModelMachine in the first place
+        # self.ModelMachine.setRefFreq(self.RefFreq)
+        self.ModelMachine.setFreqMachine(GridFreqs, DegridFreqs)
 
     def Reset(self):
         print>>log, "resetting HMP machine"
         self.DicoMSMachine = {}
-        if type(self.facetcache) is shared_dict.SharedDict:
+        if type(self.facetcache) is shared_dict.SharedDict and self.facetcache.is_writeable():
             print>> log, "deleting HMP facet cache"
             self.facetcache.delete()
         self.facetcache = None
-
-    def set_DicoHMPFunctions(self,facetcache):
-        self.facetcache=facetcache
 
     def setNoiseMap(self, NoiseMap, PNRStop=10):
         """Sets the noise map. The mean dirty will be divided by the noise map before peak finding.
@@ -192,109 +213,115 @@ class ClassImageDeconvMachine():
         self._NoiseMap = NoiseMap
         self._PNRStop = PNRStop
         self._peakMode = "sigma"
-
-    def _initMSM_handler(self, fcdict, psfdict, iFacet, SideLobeLevel, OffsetSideLobe, centralFacet):
+        
+        
+    def _initMSM_handler(self, fcdict, sfdict, psfdict, iFacet, SideLobeLevel, OffsetSideLobe, verbose):
         # init PSF server from PSF shared dict
         self.SetPSF(psfdict, quiet=True)
+        MSMachine = self._initMSM_facet(iFacet,fcdict,sfdict,SideLobeLevel,OffsetSideLobe,verbose=verbose)
+        del MSMachine
+
+    def _initMSM_facet(self, iFacet, fcdict, sfdict, SideLobeLevel, OffsetSideLobe, MSM0=None, verbose=False):
+        """initializes MSM for one facet"""
         self.PSFServer.setFacet(iFacet)
-        MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
+        MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, fcdict, self.GainMachine, NFreqBands=self.NFreqBands)
         MSMachine.setModelMachine(self.ModelMachine)
         MSMachine.setSideLobeLevel(SideLobeLevel, OffsetSideLobe)
         MSMachine.SetFacet(iFacet)
         MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
-        MSMachine.FindPSFExtent(verbose=(iFacet == centralFacet))  # only print to log for central facet
+        MSMachine.FindPSFExtent(verbose=verbose)  # only print to log for central facet
+        if MSM0 is not None:
+            MSMachine.CopyListScales(MSM0)
+        else:
+            MSMachine.MakeListScales(verbose=verbose, scalefuncs=sfdict)
         MSMachine.MakeMultiScaleCube()
         MSMachine.MakeBasisMatrix()
-        fcdict["Functions"] = MSMachine.ListScales
-        fcdict["Arrays"] = MSMachine.DicoBasisMatrix
+        return MSMachine
 
-    def InitMSMF(self, approx=False, cache=True):
+
+    def InitMSMF(self, approx=False, cache=True, facetcache=None):
         """Initializes MSMF basis functions. If approx is True, then uses the central facet's PSF for
         all facets.
+        Populates the self.facetcache dict, unless facetcache is supplied
         """
         self.DicoMSMachine = {}
-        cachehash = dict( 
-            [(section, self.GD[section]) for section in (
-                "Data", "Beam", "Selection", "Freq",
-                "Image", "Facets", "Weight", "RIME",
-                "Comp", "CF",
-                "HMP")])
-        cachepath, valid = self.maincache.checkCache(self.CacheFileName, cachehash, reset=not cache or self.PSFHasChanged)
-        # do not use cache in approx mode
-        if approx or not cache:
-            valid = False
-        if valid:
-            if self.facetcache is None:
-                print>>log,"Initialising HMP Machine from cache %s"%cachepath
+        valid = True
+        if facetcache is not None:
+            print>> log, "HMP basis functions pre-initialized"
+            self.facetcache = facetcache
+        else:
+            cachehash = dict(
+                [(section, self.GD[section]) for section in (
+                    "Data", "Beam", "Selection", "Freq",
+                    "Image", "Facets", "Weight", "RIME",
+                    "Comp", "CF",
+                    "HMP")])
+            cachepath, valid = self.maincache.checkCache(self.CacheFileName, cachehash, reset=not cache or self.PSFHasChanged)
+            # do not use cache in approx mode
+            if approx or not cache:
+                valid = False
+            if valid:
+                print>>log,"Initialising HMP basis functions from cache %s"%cachepath
                 self.facetcache = shared_dict.create(self.CacheFileName)
                 self.facetcache.restore(cachepath)
             else:
-                print>>log,"HMP Machine already initialized"
-        else:
-            print>>log,"Initialising HMP Machine"
-            self.facetcache = None
+                self.facetcache = None
 
-        print>>log,"%d frequency bands"%self.NFreqBands
 
+        init_cache = self.facetcache is None
+        if init_cache:
+            self.facetcache = shared_dict.create(self.CacheFileName)
+
+        # in any mode, start by initializing a MS machine for the central facet. This will precompute the scale
+        # functions
         centralFacet = self.PSFServer.DicoVariablePSF["CentralFacet"]
+        self.DicoMSMachine[centralFacet] = MSM0 = \
+            self._initMSM_facet(centralFacet,
+                                self.facetcache.addSubdict(centralFacet) if init_cache else self.facetcache[centralFacet],
+                                None, self.SideLobeLevel, self.OffsetSideLobe, verbose=True)
         if approx:
             print>>log, "HMP approximation mode: using PSF of central facet (%d)" % centralFacet
-            self.PSFServer.setFacet(centralFacet)
-            MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
-            MSMachine.setModelMachine(self.ModelMachine)
-            MSMachine.setSideLobeLevel(self.SideLobeLevel, self.OffsetSideLobe)
-            MSMachine.SetFacet(centralFacet)
-            MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
-            MSMachine.FindPSFExtent(verbose=True)
-            MSMachine.MakeMultiScaleCube(verbose=True)
-            MSMachine.MakeBasisMatrix()
             for iFacet in xrange(self.PSFServer.NFacets):
-                self.DicoMSMachine[iFacet] = MSMachine
+                self.DicoMSMachine[iFacet] = MSM0
         else:
             # if no facet cache, init in parallel
-            if self.facetcache is None:
-                self.facetcache = shared_dict.create(self.CacheFileName)
+            if init_cache:
                 for iFacet in xrange(self.PSFServer.NFacets):
-                    fcdict = self.facetcache.addSubdict(iFacet)
-                    if self.ParallelMode:
-                        args=(fcdict.writeonly(), self.DicoVariablePSF.readonly(),
-                              iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet)
-                        APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
-                                   args=args)
-                    else:
-                        args=(fcdict, self.DicoVariablePSF,
-                              iFacet, self.SideLobeLevel, self.OffsetSideLobe, centralFacet)
-                        self._initMSM_handler(*args)
+                    if iFacet != centralFacet:
+                        fcdict = self.facetcache.addSubdict(iFacet)
+                        if self.ParallelMode:
+                            args=(fcdict.writeonly(), MSM0.ScaleFuncs.readonly(), self.DicoVariablePSF.readonly(),
+                                  iFacet, self.SideLobeLevel, self.OffsetSideLobe, False)
+                            APP.runJob("InitHMP:%d"%iFacet, self._initMSM_handler,
+                                       args=args)
+                        else:
+                            self.DicoMSMachine[iFacet] = \
+                                self._initMSM_facet(iFacet, fcdict, None,
+                                                    self.SideLobeLevel, self.OffsetSideLobe, MSM0=MSM0, verbose=False)
 
                 if self.ParallelMode:
                     APP.awaitJobResults("InitHMP:*", progress="Init HMP")
+                    self.facetcache.reload()
 
-                self.facetcache.reload()
             #        t = ClassTimeIt.ClassTimeIt()
+            # now reinit from cache (since cache was computed by subprocesses)
             for iFacet in xrange(self.PSFServer.NFacets):
-                self.PSFServer.setFacet(iFacet)
-                MSMachine = ClassMultiScaleMachine.ClassMultiScaleMachine(self.GD, self.GainMachine, NFreqBands=self.NFreqBands)
-                MSMachine.setModelMachine(self.ModelMachine)
-                MSMachine.setSideLobeLevel(self.SideLobeLevel, self.OffsetSideLobe)
-                MSMachine.SetFacet(iFacet)
-                MSMachine.SetPSF(self.PSFServer)  # ThisPSF,ThisMeanPSF)
-                MSMachine.FindPSFExtent(verbose=(iFacet==centralFacet))  # only print to log for central facet
-                ListDicoScales = self.facetcache.get(iFacet, {}).get("Functions")
-                DicoBasisMatrix = self.facetcache.get(iFacet, {}).get("Arrays")
-                MSMachine.setListDicoScales(ListDicoScales)
-                MSMachine.setDicoBasisMatrix(DicoBasisMatrix)
-                MSMachine.MakeMultiScaleCube(verbose=(iFacet==centralFacet))
-                MSMachine.MakeBasisMatrix()
-                self.DicoMSMachine[iFacet] = MSMachine
+                if iFacet not in self.DicoMSMachine:
+                    self.DicoMSMachine[iFacet] = \
+                        self._initMSM_facet(iFacet, self.facetcache[iFacet], None,
+                                            self.SideLobeLevel, self.OffsetSideLobe, MSM0=MSM0, verbose=False)
 
-            if not valid and cache and not approx:
+            # write cache to disk, unless in a mode where we explicitly don't want it
+            if facetcache is None and not valid and cache and not approx:
                 try:
                     #MyPickle.DicoNPToFile(facetcache,cachepath)
                     #cPickle.dump(facetcache, file(cachepath, 'w'), 2)
+                    print>>log,"  saving HMP cache to %s"%cachepath
                     self.facetcache.save(cachepath)
                     #self.maincache.saveCache("HMPMachine")
                     self.maincache.saveCache(self.CacheFileName)
                     self.PSFHasChanged=False
+                    print>>log,"  HMP init done"
                 except:
                     print>>log, traceback.format_exc()
                     print >>log, ModColor.Str(
@@ -317,7 +344,10 @@ class ClassImageDeconvMachine():
         # self._PSF=self.MSMachine._PSF
         self._CubeDirty = MSMachine._Dirty
         self._MeanDirty = MSMachine._MeanDirty
-
+        
+        # vector of per-band overall weights -- starts out as N,1 in the dico, so reshape
+        W = np.float32(self.DicoDirty["WeightChansImages"])
+        self._band_weights = W.reshape(W.size)[:, np.newaxis, np.newaxis, np.newaxis]
 
         if self._peakMode is "sigma":
             print>>log,"Will search for the peak in the SNR-weighted dirty map"
@@ -485,7 +515,7 @@ class ClassImageDeconvMachine():
             # see https://github.com/cyriltasse/DDFacet/issues/325
             # So use array copy instead (which makes an intermediate array)
             if cube.shape[0] > 1:
-                meanimage[...] = cube.mean(axis=0)
+                meanimage[...] = (cube*self._band_weights).sum(axis=0)
                 # cube.mean(axis=0, out=meanimage)
             else:
                 meanimage[...] = cube[0,...]
@@ -537,6 +567,19 @@ class ClassImageDeconvMachine():
         # #unc print Bedge
         # # print self.Dirty[0,x0d:x1d,y0d:y1d]
 
+    def Plot(self):
+        import pylab
+        pylab.clf()
+        pylab.subplot(1,3,1)
+        pylab.imshow(self._CubeDirty[0,0])
+        pylab.colorbar()
+        pylab.subplot(1,3,2)
+        pylab.imshow(self._CubeDirty[1,0])
+        pylab.colorbar()
+        pylab.draw()
+        pylab.show()
+
+        
     def updateRMS(self):
         _,npol,npix,_ = self._MeanDirty.shape
         NPixStats = self.GD["Deconv"]["NumRMSSamples"]
@@ -612,7 +655,13 @@ class ClassImageDeconvMachine():
         # return condition indicating cleaning is to be continued
         cont = True
 
-        if self._previous_initial_peak is not None and abs(ThisFlux) > self.GD["HMP"]["MajorStallThreshold"]*self._previous_initial_peak:
+        CondPeak=(self._previous_initial_peak is not None)
+        CondDiverge=False
+        if self._previous_initial_peak is not None:
+            CondDiverge=(abs(ThisFlux) > self.GD["HMP"]["MajorStallThreshold"]*self._previous_initial_peak)
+        CondPeakType=(self._peakMode!="sigma")
+
+        if CondPeak and CondDiverge and CondPeakType:
             print>>log,ModColor.Str("STALL! dirty image peak %10.6g Jy, was %10.6g at previous major cycle."
                         % (ThisFlux, self._previous_initial_peak), col="red")
             print>>log,ModColor.Str("This will be the last major cycle")
@@ -711,6 +760,8 @@ class ClassImageDeconvMachine():
         def GivePercentDone(ThisMaxFlux):
             fracDone = 1.-(ThisMaxFlux-StopFlux)/(MaxDirty-StopFlux)
             return max(int(round(100*fracDone)), 100)
+            
+        x0 = y0 = None
 
         try:
             for i in xrange(self._niter+1, self.MaxMinorIter+1):
@@ -720,10 +771,18 @@ class ClassImageDeconvMachine():
                 x, y, peak = NpParallel.A_whereMax(
                     self._PeakSearchImage, NCPU=self.NCPU, DoAbs=DoAbs, Mask=CurrentNegMask)
 
-                ThisFlux = self._MeanDirty[0,0,x,y] if self._peakMode is "weighted" else peak
+                if self.GD["HMP"]["FractionRandomPeak"] is not None:
+                    op=lambda x: x
+                    if DoAbs: op=lambda x: np.abs(x)
+                    _,_,indx,indy=np.where((op(self._PeakSearchImage)>=peak*self.GD["HMP"]["FractionRandomPeak"]) & np.logical_not(CurrentNegMask))
+                    ii=np.int64(np.random.rand(1)[0]*indx.size)
+                    x,y=indx[ii],indy[ii]
+                    peak=op(self._PeakSearchImage[0,0,x,y])
+
+
+                ThisFlux = float(self._MeanDirty[0,0,x,y] if self._peakMode is "weighted" else peak)
                 if DoAbs:
                     ThisFlux = abs(ThisFlux)
-                self._prevPeak = ThisFlux
 
                 #x,y=self.PSFServer.SolveOffsetLM(self._MeanDirty[0,0],x,y); ThisFlux=self._MeanDirty[0,0,x,y]
                 self.GainMachine.SetFluxMax(ThisFlux)
@@ -741,8 +800,16 @@ class ClassImageDeconvMachine():
                         "    [iter=%i] peak of %.3g Jy diverging w.r.t. floor of %.3g Jy " %
                         (i, ThisFlux, PreviousFlux), col="red")
                     return "Diverging", False, True
+                fluxgain = np.abs(ThisFlux-self._prevPeak)/abs(ThisFlux) if self._prevPeak is not None else 1e+99
+                if x == x0 and y == y0 and fluxgain < 1e-6:
+                    print>>log, ModColor.Str(
+                        "    [iter=%i] stalled at peak of %.3g Jy, x=%d y=%d" % (i, ThisFlux, x, y), col="red")
+                    return "Stalled", False, True
                 if np.abs(ThisFlux) < np.abs(PreviousFlux):
                     PreviousFlux = ThisFlux
+                    
+                self._prevPeak = ThisFlux
+                x0, y0 = x, y
 
                 ThisPNR=ThisFlux/rms
 
@@ -785,9 +852,9 @@ class ClassImageDeconvMachine():
                     # if self.GD["Debug"]["PrintMinorCycleRMS"]:
                     rms = np.std(np.real(self._PeakSearchImage.ravel()[self.IndStats]))
                     if self._peakMode is "weighted":
-                        print>>log, "    [iter=%i] peak residual %.3g, rms %g, PNR %.3g (weighted peak %.3g at x=%d y=%d)" % (i, ThisFlux, rms, ThisFlux/rms, peak, x, y)
+                        print>>log, "    [iter=%i] peak residual %.3g, gain %.3g, rms %g, PNR %.3g (weighted peak %.3g at x=%d y=%d)" % (i, ThisFlux, fluxgain, rms, ThisFlux/rms, peak, x, y)
                     else:
-                        print>>log, "    [iter=%i] peak residual %.3g, rms %g, PNR %.3g (at x=%d y=%d)" % (i, ThisFlux, rms, ThisFlux/rms, x, y)
+                        print>>log, "    [iter=%i] peak residual %.3g, gain %.3g, rms %g, PNR %.3g (at x=%d y=%d)" % (i, ThisFlux, fluxgain, rms, ThisFlux/rms, x, y)
                     # else:
                     #     print >>log, "    [iter=%i] peak residual %.3g" % (
                     #         i, ThisFlux)

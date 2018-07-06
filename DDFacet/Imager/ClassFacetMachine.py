@@ -51,6 +51,7 @@ from DDFacet.Other.AsyncProcessPool import APP
 import numexpr
 MyLogger.setSilent("MyLogger")
 from DDFacet.cbuild.Gridder import _pyGridderSmearPols
+from DDFacet.cbuild.Gridder import _pyGridderSmearPolsClassic
 from DDFacet.Other import ModColor
 MyLogger.setSilent("MyLogger")
 import cpuinfo
@@ -128,16 +129,12 @@ class ClassFacetMachine():
         self.JonesNorm = None
         self.FacetNorm = None
 
-        self._facet_grids = self.DATA = None
+        self._facet_grids = self._CF = self.DATA = None
         self._grid_job_id = self._fft_job_id = self._degrid_job_id = None
         self._smooth_job_label=None
 
         # create semaphores if not already created
-        if not ClassFacetMachine._degridding_semaphores:
-            NSemaphores = 3373
-            ClassFacetMachine._degridding_semaphores = [Multiprocessing.getShmName("Semaphore", sem=i) for i in xrange(NSemaphores)]
-            _pyGridderSmearPols.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
-            atexit.register(ClassFacetMachine._delete_degridding_semaphores)
+        ClassFacetMachine.setup_semaphores(self.GD)
 
         # this is used to store model images in shared memory, for the degridder
         self._model_dict = None
@@ -150,15 +147,30 @@ class ClassFacetMachine():
     # static attribute initialized below, once
     _degridding_semaphores = None
 
+    # create semaphores if not already created
+    @staticmethod
+    def setup_semaphores(GD):
+        if not ClassFacetMachine._degridding_semaphores:
+            NSemaphores = 3373
+            ClassFacetMachine._degridding_semaphores = [Multiprocessing.getShmName("Semaphore", sem=i) for i in
+                                                        xrange(NSemaphores)]
+            # set them up in both modules, since weights calculation uses _pyGridderSmearPols anyway
+            _pyGridderSmearPolsClassic.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
+            _pyGridderSmearPols.pySetSemaphores(ClassFacetMachine._degridding_semaphores)
+            atexit.register(ClassFacetMachine._delete_degridding_semaphores)
+
     @staticmethod
     def _delete_degridding_semaphores():
         if ClassFacetMachine._degridding_semaphores:
-            _pyGridderSmearPols.pyDeleteSemaphore(ClassFacetMachine._degridding_semaphores)
+            # only need to delete in the one
+            _pyGridderSmearPols.pyDeleteSemaphore()
             for sem in ClassFacetMachine._degridding_semaphores:
                 NpShared.DelArray(sem)
 
     def __del__(self):
         self.releaseGrids()
+        if self._delete_cf_in_destructor:
+            self.releaseCFs()
 
     def releaseGrids(self):
         if self._facet_grids is not None:
@@ -167,6 +179,11 @@ class ClassFacetMachine():
         for GM in self.DicoGridMachine.itervalues():
             if "Dirty" in GM:
                 del GM["Dirty"]
+
+    def releaseCFs(self):
+        if self._CF is not None:
+            self._CF.delete()
+            self._CF = None
 
     def setAverageBeamMachine(self,AverageBeamMachine):
         self.AverageBeamMachine=AverageBeamMachine
@@ -280,10 +297,10 @@ class ClassFacetMachine():
         NpixFacet, _ = EstimateNpix(diam / self.CellSizeRad, Padding=1)
         _, NpixPaddedGrid = EstimateNpix(NpixFacet, Padding=self.Padding)
 
-        if NpixPaddedGrid / NpixFacet > self.Padding:
-            print>> log, ModColor.Str("W.A.R.N.I.N.G: Your FFTs are too small. We will pad it %.2f x "\
-                                      "instead of %.2f x" % (float(NpixPaddedGrid)/NpixFacet, self.Padding),
-                                      col="yellow")
+        if NpixPaddedGrid / NpixFacet > self.Padding and not getattr(self, '_warned_small_ffts', False):
+            print>> log, ModColor.Str("WARNING: Your FFTs are too small. We will pad them by x%.2f "\
+                                      "rather than x%.2f. Increase facet size and/or padding to get rid of this message." % (float(NpixPaddedGrid)/NpixFacet, self.Padding))
+            self._warned_small_ffts = True
 
         diam = NpixFacet * self.CellSizeRad
         diamPadded = NpixPaddedGrid * self.CellSizeRad
@@ -608,8 +625,10 @@ class ClassFacetMachine():
         # if we have another FacetMachine supplied, check if the same CFs apply
         if other_fm and self.Oversize == other_fm.Oversize:
             self._CF = other_fm._CF
+            self._delete_cf_in_destructor = False
             self.IsDDEGridMachineInit = True
             return
+        self._delete_cf_in_destructor = True
         # get wmax from MS (if needed)
         wmax = self.GD["CF"]["wmax"]
         if wmax:
@@ -620,17 +639,24 @@ class ClassFacetMachine():
         # subprocesses will place W-terms etc. here. Reset this first.
         self._CF = shared_dict.create("CFPSF" if self.DoPSF else "CF")
         # check if w-kernels, spacial weights, etc. are cached
-        cachekey = dict(ImagerCF=self.GD["CF"], 
-                        ImagerMainFacet=self.GD["Image"], 
-                        Facets=self.GD["Facets"], 
-                        RIME=self.GD["RIME"])
-        cachename = self._cf_cachename = "CF"
-        # in oversize-PSF mode, make separate cache for PSFs
-        if self.DoPSF and self.Oversize != 1:
-            cachename = self._cf_cachename = "CFPSF"
-            cachekey["Oversize"] = self.Oversize
-        # check cache
-        cachepath, cachevalid = self.VS.maincache.checkCache(cachename, cachekey, directory=True)
+
+        if self.GD["Cache"]["CF"]:
+            cachekey = dict(ImagerCF=self.GD["CF"], 
+                            ImagerMainFacet=self.GD["Image"], 
+                            Facets=self.GD["Facets"], 
+                            RIME=self.GD["RIME"],
+                            DDESolutions={"DDSols":self.GD["DDESolutions"]["DDSols"]})
+            cachename = self._cf_cachename = "CF"
+            # in oversize-PSF mode, make separate cache for PSFs
+            if self.DoPSF and self.Oversize != 1:
+                cachename = self._cf_cachename = "CFPSF"
+                cachekey["Oversize"] = self.Oversize
+            # check cache
+            cachepath, cachevalid = self.VS.maincache.checkCache(cachename, cachekey, directory=True)
+        else:
+            print>>log,ModColor.Str("Explicitly not caching nor using cache for the Convolution Function")
+            cachepath, cachevalid="",False
+            
         # up to workers to load/save cache
         for iFacet in self.DicoImager.iterkeys():
             facet_dict = self._CF.addSubdict(iFacet)
@@ -720,14 +746,15 @@ class ClassFacetMachine():
             # mark cache as safe
             for res in workers_res:
                 Type,path,iFacet=res
-                if Type=="compute":
+                if Type=="compute" and self.GD["Cache"]["CF"]:
                     #print iFacet
                     facet_dict=self._CF[iFacet]
                     d={}
                     for key in facet_dict.keys():
                         d[key]=facet_dict[key]
                     np.savez(file(path, "w"), **d)
-            self.VS.maincache.saveCache(self._cf_cachename)
+            if self.GD["Cache"]["CF"]:
+                self.VS.maincache.saveCache(self._cf_cachename)
             self.IsDDEGridMachineInit = True
 
     def setCasaImage(self, ImageName=None, Shape=None, Freqs=None, Stokes=["I"]):
@@ -863,6 +890,18 @@ class ClassFacetMachine():
             j = n / 2 + NPixMin / 2 + 1
             DicoImages["CubeVariablePSF"][iFacet, ch, :, :, :] = psf[ch][:, i:j, i:j]
         DicoImages["CubeMeanVariablePSF"][iFacet, 0, :, :, :] = DicoImages["Facets"][iFacet]["MeanPSF"][0, :, i:j, i:j]
+
+    def _computeFacetMeanResidual_worker(self, iFacet, fmr_dict, grid_dict, cf_dict, SumWeights, SumJonesNorm, WBAND):
+        dirty = grid_dict[iFacet]
+        nch, npol, npix_x, npix_y = dirty.shape
+        ThisW = SumWeights.reshape((self.VS.NFreqBands, npol, 1, 1))
+        SumJonesNorm = np.sqrt(SumJonesNorm)
+        if np.max(SumJonesNorm) > 0.:
+            ThisW = ThisW * SumJonesNorm.reshape((self.VS.NFreqBands, 1, 1, 1))
+        ThisDirty = dirty.real / ThisW
+        fmr = fmr_dict.addSharedArray(iFacet, (1, npol, npix_x, npix_y), ThisDirty.dtype)
+        fmr[:] = np.sum(ThisDirty * WBAND, axis=0).reshape((1, npol, npix_x, npix_y))
+        fmr /= cf_dict[iFacet]["Sphe"]
 
     def FacetsToIm(self, NormJones=False):
         """
@@ -1022,24 +1061,19 @@ class ClassFacetMachine():
                 ListMeanJonesBand.append(MeanJonesBand)
             DicoImages["MeanJonesBand"]=ListMeanJonesBand
 
-            ListSumJonesChan = []
-            ListSumJonesChanWeightSq = []
-            for iFacet in facets:
-                ThisFacetSumJonesChan = []
-                ThisFacetSumJonesChanWeightSq = []
-                for iMS in xrange(self.VS.nMS):
+            ## OMS: see issue #484. Restructuring this to use shm, and less of it. Note that the only user
+            ## of this structure is ClassSpectralFunctions and ClassPSFServer
+            ## [iMS][iFacet,0,:] is the sum of the per-channel weights
+            ## [iMS][iFacet,1,:] is the sum of the per-channel weights squared
+            ListSumJonesChan = DicoImages.addSubdict("SumJonesChan")
+            for iMS in xrange(self.VS.nMS):
+                nVisChan = self.VS.ListMS[iMS].ChanFreq.size
+                ThisMSSumJonesChan = ListSumJonesChan.addSharedArray(iMS, (len(facets), 2, nVisChan), np.float64)
+                for iFacet in facets:
                     sumjones = self.DicoImager[iFacet]["SumJonesChan"][iMS]
                     sumjones[sumjones == 0] = 1.
-                    SumJonesChan = sumjones[0, :]
-                    SumJonesChanWeightSq = sumjones[1, :]
-                    ThisFacetSumJonesChan.append(SumJonesChan)
-                    ThisFacetSumJonesChanWeightSq.append(SumJonesChanWeightSq)
+                    ThisMSSumJonesChan[iFacet,:] = sumjones[:]
 
-                ListSumJonesChan.append(ThisFacetSumJonesChan)
-                ListSumJonesChanWeightSq.append(ThisFacetSumJonesChanWeightSq)
-
-            DicoImages["SumJonesChan"]  = ListSumJonesChan
-            DicoImages["SumJonesChanWeightSq"] = ListSumJonesChanWeightSq
             DicoImages["ChanMappingGrid"] = self.VS.DicoMSChanMapping
             DicoImages["ChanMappingGridChan"] = self.VS.DicoMSChanMappingChan
 
@@ -1066,19 +1100,15 @@ class ClassFacetMachine():
 
         # else build Dirty (residual) image
         else:
+            fmr_dict = DicoImages.addSubdict("FacetMeanResidual")
 
-            DicoImages.addSubdict("FacetMeanResidual")
             for iFacet in sorted(self.DicoImager.keys()):
-                DicoImages["FacetMeanResidual"].addSubdict(iFacet)
-                nch,npol,npix_x,npix_y=self.DicoGridMachine[iFacet]["Dirty"].shape
-                ThisW=self.DicoImager[iFacet]["SumWeights"].reshape((self.VS.NFreqBands,npol,1,1))
-                SumJonesNorm=np.sqrt(self.DicoImager[iFacet]["SumJonesNorm"])
-                if np.max(SumJonesNorm)>0.:
-                    ThisW=ThisW*SumJonesNorm.reshape((self.VS.NFreqBands,1,1,1))
-                ThisDirty=self.DicoGridMachine[iFacet]["Dirty"].real/ThisW
-                DicoImages["FacetMeanResidual"][iFacet]=np.sum(ThisDirty*WBAND,axis=0).reshape((1,npol,npix_x,npix_y))
-                DicoImages["FacetMeanResidual"][iFacet]=DicoImages["FacetMeanResidual"][iFacet]/self._CF[iFacet]["Sphe"]
-                
+                APP.runJob("facetmeanresidual:%s" % iFacet, self._computeFacetMeanResidual_worker,
+                           args=(iFacet, fmr_dict.writeonly(), self._facet_grids.readonly(), self._CF.readonly(),
+                                 self.DicoImager[iFacet]["SumWeights"], self.DicoImager[iFacet]["SumJonesNorm"], WBAND))
+            APP.awaitJobResults("facetmeanresidual:*", progress="Mean per-facet dirties")
+            fmr_dict.reload()
+
             # Build a residual image consisting of multiple continuum bands
             stitchedResidual = self.FacetsToIm_Channel("Dirty")
 
@@ -1206,7 +1236,7 @@ class ClassFacetMachine():
         NFacets=len(self.DicoImager.keys())
         pBAR.render(0, NFacets)
 
-        # numexpr.set_num_threads(self.GD["Parallel"]["NCPU"])  # done in DDF.py
+        numexpr.set_num_threads(self.GD["Parallel"]["NCPU"])  # done in DDF.py
 
         for iFacet in self.DicoImager.keys():
 

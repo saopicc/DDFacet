@@ -1,19 +1,9 @@
-
-import random
-
-#from deap import base
 from deap import base
 from deap import creator
 from deap import tools
 import numpy
 from DDFacet.Imager.SSD.GA import algorithms
-import multiprocessing
-from DDFacet.Array import NpShared
-
-from DDFacet.ToolsDir import ModFFTW
 import numpy as np
-import os
-#import Select
 
 from DDFacet.Imager.SSD import ClassArrayMethodSSD
 
@@ -29,11 +19,11 @@ def FilterIslandsPix(ListIn,Npix):
 
 class ClassEvolveGA():
     def __init__(self,Dirty,PSF,FreqsInfo,ListPixData=None,ListPixParms=None,IslandBestIndiv=None,GD=None,
-                 WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,IdSharedMem="",
+                 WeightFreqBands=None,PixVariance=1e-2,iFacet=0,iIsland=None,island_dict=None,
                  ParallelFitness=False,
                  ListInitIslands=None):
         self.ListInitIslands=ListInitIslands
-        _,_,NPixPSF,_=PSF.shape
+        _,_,NPixPSF,_ = PSF.shape
         if ListPixData is None:
             x,y=np.mgrid[0:NPixPSF:1,0:NPixPSF:1]
             ListPixData=np.array([x.ravel().tolist(),y.ravel().tolist()]).T.tolist()
@@ -47,7 +37,6 @@ class ClassEvolveGA():
         ListPixParms=FilterIslandsPix(ListPixParms,Npix)
         
 
-        self.IdSharedMem=IdSharedMem
         self.iIsland=iIsland
         self.ArrayMethodsMachine=ClassArrayMethodSSD.ClassArrayMethodSSD(Dirty,PSF,ListPixParms,ListPixData,FreqsInfo,
                                                                          PixVariance=PixVariance,
@@ -56,16 +45,19 @@ class ClassEvolveGA():
                                                                          GD=GD,
                                                                          WeightFreqBands=WeightFreqBands,
                                                                          iIsland=iIsland,
-                                                                         IdSharedMem=IdSharedMem,
-                                                                         ParallelFitness=ParallelFitness)
+                                                                         island_dict=island_dict,
+                                                                         ParallelFitness=ParallelFitness,
+                                                                         NCPU=GD["GAClean"]["NCPU"] or None)
+
         self.InitEvolutionAlgo()
         #self.ArrayMethodsMachine.testMovePix()
         #stop
 
     def InitEvolutionAlgo(self):
-
-        creator.create("FitnessMax", base.Fitness, weights=self.ArrayMethodsMachine.WeightsEA)
-        creator.create("Individual", numpy.ndarray, fitness=creator.FitnessMax)
+        if "FitnessMax" not in dir(creator):
+            creator.create("FitnessMax", base.Fitness, weights=self.ArrayMethodsMachine.WeightsEA)
+        if "Individual" not in dir(creator):
+            creator.create("Individual", numpy.ndarray, fitness=creator.FitnessMax)
 
         toolbox = base.Toolbox()
 
@@ -88,8 +80,8 @@ class ClassEvolveGA():
         # toolbox.register("mate", tools.cxOrdered)
         # toolbox.register("mutate", tools.mutGaussian, indpb=0.3,  mu=0.0, sigma=.1)
         #toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.3, p0=0.3, pMove=0.3)
-        self.MutConfig=pFlux,p0,pMove=0.5,0.5,0.5
-        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.2, p0=0.5, pMove=0.2)
+        self.MutConfig=pFlux,p0,pMove,pScale,pOffset=0.5,0.5,0.5,0.5,0.5
+        toolbox.register("mutate", self.ArrayMethodsMachine.mutGaussian, pFlux=0.2, p0=0.5, pMove=0.2, pScale=0.2, pOffset=0.2)
 
         toolbox.register("select", tools.selTournament, tournsize=3)
         #toolbox.register("select", Select.selTolTournament, tournsize=3, Tol=4)
@@ -268,7 +260,5 @@ class ClassEvolveGA():
         # # print "indiv",V
         # # print self.ArrayMethodsMachine.ListPixData
         # # print MA[0,:]
-
-        NpShared.DelArray("%sPSF_Island_%4.4i"%(self.IdSharedMem,self.iIsland))
 
         return V

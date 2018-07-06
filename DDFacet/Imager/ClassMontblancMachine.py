@@ -40,7 +40,7 @@ from astropy import wcs as pywcs
 
 log=MyLogger.getLogger("ClassMontblancMachine")
 
-DEBUG = False
+DEBUG = True
 
 class ClassMontblancMachine(object):
     def __init__(self, GD, npix, cell_size_rad, polarization_type="linear"):
@@ -371,15 +371,15 @@ class DDFacetSourceProvider(SourceProvider):
         (lp, up), (lt, ut), (lc, uc) = context.dim_extents('npsrc', 'ntime', 'nchan')
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         pt_slice = self._manager._point_sources[lp:up]
-        i = np.array([p[2][0] for p in pt_slice])[:,None,None]
-        rf = np.array([p[3] for p in pt_slice])[:,None,None]
-        a = np.array([p[4] for p in pt_slice])[:,None,None]
-        f = self._manager._frequency[None,None,:]
+        i = np.array([p[2][0] for p in pt_slice])[:, None]
+        rf = np.array([p[3] for p in pt_slice])[:, None, None]
+        a = np.array([p[4] for p in pt_slice])[:, None, None]
+        f = self._manager._frequency[None, None, :]
 
         # (ngsrc, ntime, nchan, 4)
         # Assign I stokes, zero everything else
         stokes = np.zeros(context.shape, context.dtype)
-        stokes[:,:,:,0] = i*(f/rf)**a
+        stokes[:,:,:,0] = i * (f/rf)**a
         return stokes
 
     def gaussian_lm(self, context):
@@ -400,9 +400,9 @@ class DDFacetSourceProvider(SourceProvider):
         (lg, ug), (lt, ut), (lc, uc) = context.dim_extents('ngsrc', 'ntime', 'nchan')
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         g_slice = self._manager._gaussian_sources[lg:ug]
-        i = np.array([g[2][0] for g in g_slice])[:,None,None]
-        a = np.array([g[4] for g in g_slice])[:,None,None]
-        rf = np.array([g[3] for g in g_slice])[:,None,None]
+        i = np.array([g[2][0] for g in g_slice])[:, None]
+        a = np.array([g[4] for g in g_slice])[:, None, None]
+        rf = np.array([g[3] for g in g_slice])[:, None, None]
         f = self._manager._frequency[None,None,:]
 
         # (ngsrc, ntime, nchan, 1)
@@ -451,19 +451,51 @@ class DDFacetSourceProvider(SourceProvider):
         return np.zeros(shape=context.shape, dtype=context.dtype)
 
     def uvw(self, context):
-        self.update_nchunks(context)
+        (lt, ut) = context.dim_extents('ntime')
+        na, nbl = context.dim_global_size('na', 'nbl')
+        ddf_uvw = self._manager._padded_uvw
 
-        lrow, urow = MS.row_extents(context)
-        (lt, ut), (lb, ub) = context.dim_extents('ntime', 'nbl')
-        na = context.dim_global_size('na')
+        # Create per antenna UVW coordinates.
+        # u_01 = u_1 - u_0
+        # u_02 = u_2 - u_0
+        # ...
+        # u_0N = u_N - U_0
+        # where N = na - 1
 
-        a1 = self._manager._padded_a1[lrow:urow]
-        a2 = self._manager._padded_a2[lrow:urow]
+        # Choosing u_0 = 0 we have:
+        # u_1 = u_01
+        # u_2 = u_02
+        # ...
+        # u_N = u_0N
 
-        chunks = np.repeat(ub-lb, ut-lt).astype(a1.dtype)
-        return mbu.antenna_uvw(self._manager._padded_uvw[lrow:urow],
-                                a1, a2, chunks, nr_of_antenna=na,
-                                check_decomposition=True)
+        # Then, other baseline values can be derived as
+        # u_21 = u_1 - u_2
+
+        # Allocate space for per-antenna UVW, zeroing first antenna at each timestep
+        ant_uvw = np.zeros(shape=context.shape, dtype=context.dtype)
+        ant_uvw[:, 0, :] = 0
+
+        # Read in uvw[1:na] row at each timestep-
+        for ti, t in enumerate(xrange(lt, ut)):
+            lrow = t*nbl + 1 # skip autocorr (padding ensures it is there though)
+            urow = lrow + na - 1
+            ant_uvw[ti, 1:na, :] = ddf_uvw[lrow:urow, :]
+
+        return ant_uvw
+        #self.update_nchunks(context)
+
+        #lrow, urow = MS.row_extents(context)
+        #(lt, ut), (lb, ub) = context.dim_extents('ntime', 'nbl')
+        #na = context.dim_global_size('na')
+
+        #a1 = self._manager._padded_a1[lrow:urow]
+        #a2 = self._manager._padded_a2[lrow:urow]
+
+        #chunks = np.repeat(ub-lb, ut-lt).astype(a1.dtype)
+        
+        #return mbu.antenna_uvw(self._manager._padded_uvw[lrow:urow],
+                                #a1, a2, chunks, nr_of_antenna=na,
+                                #check_decomposition=True)
 
     def antenna1(self, context):
         self.update_nchunks(context)

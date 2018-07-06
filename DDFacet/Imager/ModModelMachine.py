@@ -40,6 +40,7 @@ class ClassModModelMachine():
         self.SSDMM = None
         self.MSMFMM = None
         self.MORSANEMM = None
+        self.MUFFINMM = None
         self.HOGBOMMM = None
 
     def GiveInitialisedMMFromFile(self,FileName):
@@ -120,6 +121,14 @@ class ClassModModelMachine():
             else:
                 print>> log, "MORSANE model machine already initialised"
             return self.MORESANEMM
+        elif Mode == "MUFFIN":
+            if self.MUFFINMM is None:
+                print>> log, "Initialising MUFFIN model machine"
+                from DDFacet.Imager.MUFFIN import ClassModelMachineMUFFIN
+                self.MUFFINMM = ClassModelMachineMUFFIN.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
+            else:
+                print>> log, "MUFFIN model machine already initialised"
+            return self.MUFFINMM
         elif Mode == "Hogbom":
             if self.HOGBOMMM is None:
                 print>> log, "Initialising HOGBOM model machine"

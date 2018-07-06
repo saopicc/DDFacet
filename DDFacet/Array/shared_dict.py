@@ -39,7 +39,7 @@ class SharedDictRepresentation(object):
         return SharedDict(self.path, reset=False, readwrite=self.readwrite, load=self.load)
 
 
-class SharedDict (dict):
+class SharedDict (collections.OrderedDict):
     basepath = SHM_PREFIX
 
     class ItemLoadError(RuntimeError):
@@ -59,7 +59,7 @@ class SharedDict (dict):
             except:
                 print "Error loading item %s" % self.path
                 traceback.print_exc()
-                return SharedDict.ItemLoadError(path, sys.exc_info())
+                return SharedDict.ItemLoadError(self.path, sys.exc_info())
 
     class SharedArrayProxy (ItemProxy):
         def load_impl(self):
@@ -69,12 +69,16 @@ class SharedDict (dict):
         def load_impl(self):
             return SharedDict(path=self.path, reset=False)
 
+    # class ListProxy(ItemProxy):
+    #     def load_impl(self):
+    #         return SharedDict(path=self.path, reset=False)
+
     class PickleProxy(ItemProxy):
         def load_impl(self):
             return cPickle.load(file(self.path))
 
     # this maps "class codes" parsed out of item filenames to appropriate item proxies. See reload() below
-    _proxy_class_map = dict(a=SharedArrayProxy, d=SubdictProxy, p=PickleProxy)
+    _proxy_class_map = dict(a=SharedArrayProxy, d=SubdictProxy,  p=PickleProxy) # l=ListProxy,
 
     @staticmethod
     def setBaseName(name):
@@ -83,7 +87,7 @@ class SharedDict (dict):
             os.mkdir(SharedDict.basepath)
 
     def __init__ (self, path, reset=True, load=True, readwrite=True):
-        dict.__init__(self)
+        collections.OrderedDict.__init__(self)
         self._delete_items = False
         self._readwrite = readwrite
         self._load = load
@@ -101,6 +105,9 @@ class SharedDict (dict):
  #       os.close(self._path_fd)
         if self._delete_items:
             self.delete()
+
+    def is_writeable(self):
+        return self._readwrite
 
     def readwrite(self):
         if not self._load:
@@ -122,7 +129,7 @@ class SharedDict (dict):
     def delete(self):
         if not self._readwrite:
             raise RuntimeError("SharedDict %s attached as read-only" % self.path)
-        dict.clear(self)
+        collections.OrderedDict.clear(self)
         if os.path.exists(self.path):
             os.system("rm -fr %s" % self.path)
         os.mkdir(self.path)
@@ -133,7 +140,7 @@ class SharedDict (dict):
                 raise RuntimeError("SharedDict %s attached as read-only" % self.path)
             self.delete()
         else:
-            dict.clear(self)
+            collections.OrderedDict.clear(self)
 
     def save(self, filename):
         os.system("tar cf %s -C %s ." % (filename, self.path))
@@ -147,7 +154,7 @@ class SharedDict (dict):
         """(Re)initializes dict with items from path"""
         if not self._load:
             raise RuntimeError("SharedDict %s attached without load permissions" % self.path)
-        dict.clear(self)
+        collections.OrderedDict.clear(self)
         # scan our subdirectory for items
         for name in os.listdir(self.path):
             filepath = os.path.join(self.path, name)
@@ -165,7 +172,7 @@ class SharedDict (dict):
             key = typefunc(key)
             try:
                 proxyclass = SharedDict._proxy_class_map[valuetype]
-                dict.__setitem__(self, key, proxyclass(filepath))
+                collections.OrderedDict.__setitem__(self, key, proxyclass(filepath))
             except:
                 print "Error loading item %s"%name
                 traceback.print_exc()
@@ -175,30 +182,32 @@ class SharedDict (dict):
         return "%s:%s:" % (type(item).__name__, str(item))
 
     def get(self, item, default_value=None):
-        value = dict.get(self, item, default_value)
+        value = collections.OrderedDict.get(self, item, default_value)
         if isinstance(value, SharedDict.ItemProxy):
             value = value.load()
-            dict.__setitem__(self, item, value)
+            collections.OrderedDict.__setitem__(self, item, value)
         return value
 
     def __getitem__(self, item):
-        value = dict.__getitem__(self, item)
+        value = collections.OrderedDict.__getitem__(self, item)
         if isinstance(value, SharedDict.ItemProxy):
             value = value.load()
-            dict.__setitem__(self, item, value)
+            collections.OrderedDict.__setitem__(self, item, value)
         return value
 
     def iteritems(self):
-        raise RuntimeError("not implemented")
+        for key in self.iterkeys():
+            yield key, self[key]
 
     def itervalues(self):
-        raise RuntimeError("not implemented")
+        for key in self.iterkeys():
+            yield self[key]
 
     def items(self):
-        raise RuntimeError("not implemented")
+        return list(self.iteritems())
 
     def values(self):
-        raise RuntimeError("not implemented")
+        return list(self.itervalues())
 
     def __delitem__(self, item):
         if not self._readwrite:
@@ -206,12 +215,12 @@ class SharedDict (dict):
         if self._delete_items:
             return self.delete_item(item)
         else:
-            return dict.__delitem__(self, item)
+            return collections.OrderedDict.__delitem__(self, item)
 
     def delete_item (self, item):
         if not self._readwrite:
             raise RuntimeError("SharedDict %s attached as read-only" % self.path)
-        dict.__delitem__(self, item)
+        collections.OrderedDict.__delitem__(self, item)
         name = self._key_to_name(item)
         path = os.path.join(self.path, name)
         for suffix in "ap":
@@ -229,7 +238,7 @@ class SharedDict (dict):
         name = self._key_to_name(item)
         path = os.path.join(self.path, name)
         # remove previous item from SHM, if it's in the local dict
-        if dict.__contains__(self,item):
+        if collections.OrderedDict.__contains__(self,item):
             for suffix in "ap":
                 if os.path.exists(path+suffix):
                     os.unlink(path+suffix)
@@ -250,10 +259,25 @@ class SharedDict (dict):
             for key1, value1 in value.iteritems():
                 dict1[key1] = value1
             value = dict1
+        # # for lists, use dict
+        # elif isinstance(value, (list, tuple)):
+        #     dict1 = self.addList(item)
+        #     for key1, value1 in enumerate(value):
+        #         dict1[key1] = value1
+        #     value = dict1
         # all other types, just use pickle
         else:
             cPickle.dump(value, file(path+'p', "w"), 2)
-        dict.__setitem__(self, item, value)
+        collections.OrderedDict.__setitem__(self, item, value)
+
+    # def addList (self, item):
+    #     if not self._readwrite:
+    #         raise RuntimeError("SharedDict %s attached as read-only" % self.path)
+    #     name = self._key_to_name(item) + 'l'
+    #     filepath = os.path.join(self.path, name)
+    #     subdict = SharedDict(filepath, reset=True)
+    #     collections.OrderedDict.__setitem__(self, item, subdict)
+    #     return subdict
 
     def addSubdict (self, item):
         if not self._readwrite:
@@ -261,7 +285,7 @@ class SharedDict (dict):
         name = self._key_to_name(item) + 'd'
         filepath = os.path.join(self.path, name)
         subdict = SharedDict(filepath, reset=True)
-        dict.__setitem__(self, item, subdict)
+        collections.OrderedDict.__setitem__(self, item, subdict)
         return subdict
 
     def addSharedArray (self, item, shape, dtype):
@@ -271,7 +295,7 @@ class SharedDict (dict):
         name = self._key_to_name(item) + 'a'
         filepath = os.path.join(self.path, name)
         array = NpShared.CreateShared(_to_shm(filepath), shape, dtype)
-        dict.__setitem__(self, item, array)
+        collections.OrderedDict.__setitem__(self, item, array)
         return array
 
 SharedDict.setBaseName("shared_dict:"+str(os.getpid()))
@@ -285,10 +309,10 @@ def testSharedDict ():
     subdict['a'] = 'aa'
     subdict['b'] = ('a', 1, 2, 3)
     subdict['c'] = np.array([1, 2, 3, 4, 5, 6])
-    subdict2 = subdict.addSubdict('subdict2')
+    subdict2 = subcollections.OrderedDict.addSubdict('subdict2')
     subdict2['a'] = 'aaa'
 
-    arr = subdict.addSharedArray("foo",(4, 4), np.float32)
+    arr = subcollections.OrderedDict.addSharedArray("foo",(4, 4), np.float32)
     arr.fill(1)
 
     print dic
