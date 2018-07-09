@@ -40,7 +40,7 @@ from astropy import wcs as pywcs
 
 log=MyLogger.getLogger("ClassMontblancMachine")
 
-DEBUG = True
+DEBUG = False
 
 class ClassMontblancMachine(object):
     def __init__(self, GD, npix, cell_size_rad, polarization_type="linear"):
@@ -135,7 +135,66 @@ class DataDictionaryManager(object):
             np.cos(coord[0, 1])*np.sin(self._phase_dir[1])*np.cos(delta_ang[0])
 
         return (l, m)
-
+    
+    @classmethod
+    def _synthesize_uvw(cls, station_ECEF, time, a1, a2, phase_ref):
+        """
+        Synthesizes new UVW coordinates based on time according to NRAO CASA convention (same as in fixvis)
+        User should check these UVW coordinates carefully - if time centroid was used to compute
+        original uvw coordinates the centroids of these new coordinates may be wrong, depending on whether
+        data timesteps were heavily flagged.
+        
+        station_ECEF: ITRF station coordinates read from MS::ANTENNA
+        time: time column, preferably time centroid (padded to nrow = unique time * unique bl)
+        a1: ANTENNA_1 index (padded to nrow = unique time * unique bl)
+        a2: ANTENNA_2 index (padded to nrow = unique time * unique bl)
+        phase_ref: phase reference centre in radians
+        """
+        assert time.size == a1.size
+        assert a1.size == a2.size
+        
+        from pyrap.measures import measures
+        from pyrap.quanta import quantity
+        import pdb
+        dm = measures()
+        epoch = dm.epoch("UT1", quantity(time[0], "s"))
+        refdir = dm.direction("j2000", quantity(phase_ref[0], "rad"), quantity(phase_ref[1], "rad")) 
+        obs = dm.position("ITRF", quantity(station_ECEF[0, 0], "m"), quantity(station_ECEF[0, 1], "m"), quantity(station_ECEF[0, 2], "m"))
+        dm.do_frame(obs)
+        dm.do_frame(refdir)
+        dm.do_frame(epoch)
+           
+        station_pos = np.zeros(station_ECEF.shape)
+        
+        ants = np.concatenate((a1, a2))
+        unique_ants = np.unique(ants)
+        unique_time = np.unique(time)
+        na = unique_ants.size
+        nbl = na * (na - 1) / 2 + na
+        ntime = unique_time.size
+        assert time.size == nbl * ntime, "Input arrays must be padded to include autocorrelations, all baselines and all time"
+        lmat = np.triu((np.cumsum(np.arange(na)[None, :] >=
+                                  np.arange(na)[:, None]) - 1).reshape([na, na]))
+        new_uvw = np.zeros((ntime*nbl, 3))
+        lmat = np.triu((np.cumsum(np.arange(na)[None, :] >=
+                                  np.arange(na)[:, None]) - 1).reshape([na, na]))
+        for ti, t in enumerate(unique_time):
+            epoch = dm.epoch("UT1", quantity(t, "s"))
+            dm.do_frame(epoch)
+            
+            station_uv = np.zeros(station_ECEF.shape)
+            for iapos, apos in enumerate(station_ECEF):
+                station_uv[iapos] = dm.to_uvw(dm.baseline("ITRF", quantity([apos[0], station_ECEF[0, 0]], "m"),
+                                                                   quantity([apos[1], station_ECEF[0, 1]], "m"),
+                                                                   quantity([apos[2], station_ECEF[0, 2]], "m")))["xyz"].get_value()[0:3]
+            for bl in xrange(nbl):
+                blants = np.argwhere(lmat == bl)[0]
+                bla1 = blants[0]
+                bla2 = blants[1]
+                new_uvw[ti*nbl + bl, :] = station_uv[bla1] - station_uv[bla2] # same as in CASA convention (Convention for UVW calculations in CASA, Rau 2013)
+        
+        return new_uvw
+    
     def cfg_from_data_dict(self, data, models, residuals, MS, npix, cell_size_rad):
         time, uvw, antenna1, antenna2, flag = (data[i] for i in  ('times', 'uvw', 'A0', 'A1', 'flags'))
 
@@ -194,7 +253,7 @@ class DataDictionaryManager(object):
         unique_ants = np.unique(ants)
         ant_counts = np.bincount(ants)
         self._na = na = unique_ants.size
-
+        assert self._na == self._antenna_positions.shape[0], "ANTENNA_1 and ANTENNA_2 contains more indicies than antennae specified through MS.StationPos"
         # can compute the time indexes using a scan operator
         # assuming the dataset is ordered and the time column
         # contains the integration centroid of the correlator dumps
@@ -225,12 +284,14 @@ class DataDictionaryManager(object):
                              "nbl * ntime. Please ensure that only one field, "
                              "one observation and one data descriptor is present in the chunk you're "
                              "trying to predict.")
-
+        
         # construct a mask to indicate values sparse matrix
         self._datamask = np.zeros((self._ntime, self._nbl), dtype=np.bool)
         self._datamask[self._tindx, self._blindx] = True
         self._datamask = self._datamask.reshape((self._nrow))
-
+        print>> log, "Padding data matrix for missing baselines (%.2f %% data missing from MS)" % \
+            (100.0 - 100.0 * float(np.sum(self._datamask)) / self._datamask.size)
+        
         # padded row numbers of the sparce data matrix
         self._sparceindx = np.cumsum(self._datamask) - 1
         self._sparceindx
@@ -256,12 +317,27 @@ class DataDictionaryManager(object):
         # Pad the uvw array to contain nbl * ntime entries (including the autocorrs)
         # with zeros where baselines may be missing
         self._residuals = residuals.view()
-
+       
         self._padded_uvw = np.zeros((self._ntime, self._nbl, 3), dtype=uvw.dtype)
         self._padded_uvw[self._tindx, self._blindx, :] = uvw[self._sort_index, :]
         self._padded_uvw = self._padded_uvw.reshape((self._nrow, 3))
+        
         assert np.all(self._padded_uvw[self._datamask] == uvw[self._sort_index])
-
+        
+        # CASA split may have removed completely flagged baselines so resynthesize
+        # uv coordinates as best as possible
+        print>> log, "Synthesizing new UVW coordinates from TIME column to fill gaps in measurement set"
+        self._synth_uvw = DataDictionaryManager._synthesize_uvw(self._antenna_positions, 
+                                                                self._padded_time, 
+                                                                self._padded_a1, 
+                                                                self._padded_a2,
+                                                                self._phase_dir)
+        
+        q1 = np.percentile(np.abs(self._synth_uvw[self._datamask] - uvw[self._sort_index]), 1.0)
+        q2 = np.percentile(np.abs(self._synth_uvw[self._datamask] - uvw[self._sort_index]), 50.0)
+        q3 = np.percentile(np.abs(self._synth_uvw[self._datamask] - uvw[self._sort_index]), 99.0)
+        print>> log, ModColor.Str("WARNING: The 99th percentile error on newly synthesized UVW coordinates may be as large as %.5f" % q3)
+        
         self._flag = flag
 
         # progress...
@@ -451,51 +527,20 @@ class DDFacetSourceProvider(SourceProvider):
         return np.zeros(shape=context.shape, dtype=context.dtype)
 
     def uvw(self, context):
-        (lt, ut) = context.dim_extents('ntime')
-        na, nbl = context.dim_global_size('na', 'nbl')
-        ddf_uvw = self._manager._padded_uvw
+        self.update_nchunks(context)
 
-        # Create per antenna UVW coordinates.
-        # u_01 = u_1 - u_0
-        # u_02 = u_2 - u_0
-        # ...
-        # u_0N = u_N - U_0
-        # where N = na - 1
+        lrow, urow = MS.row_extents(context)
+        (lt, ut), (lb, ub) = context.dim_extents('ntime', 'nbl')
+        na = context.dim_global_size('na')
 
-        # Choosing u_0 = 0 we have:
-        # u_1 = u_01
-        # u_2 = u_02
-        # ...
-        # u_N = u_0N
+        a1 = self._manager._padded_a1[lrow:urow]
+        a2 = self._manager._padded_a2[lrow:urow]
 
-        # Then, other baseline values can be derived as
-        # u_21 = u_1 - u_2
-
-        # Allocate space for per-antenna UVW, zeroing first antenna at each timestep
-        ant_uvw = np.zeros(shape=context.shape, dtype=context.dtype)
-        ant_uvw[:, 0, :] = 0
-
-        # Read in uvw[1:na] row at each timestep-
-        for ti, t in enumerate(xrange(lt, ut)):
-            lrow = t*nbl + 1 # skip autocorr (padding ensures it is there though)
-            urow = lrow + na - 1
-            ant_uvw[ti, 1:na, :] = ddf_uvw[lrow:urow, :]
-
-        return ant_uvw
-        #self.update_nchunks(context)
-
-        #lrow, urow = MS.row_extents(context)
-        #(lt, ut), (lb, ub) = context.dim_extents('ntime', 'nbl')
-        #na = context.dim_global_size('na')
-
-        #a1 = self._manager._padded_a1[lrow:urow]
-        #a2 = self._manager._padded_a2[lrow:urow]
-
-        #chunks = np.repeat(ub-lb, ut-lt).astype(a1.dtype)
+        chunks = np.repeat(ub-lb, ut-lt).astype(a1.dtype)
         
-        #return mbu.antenna_uvw(self._manager._padded_uvw[lrow:urow],
-                                #a1, a2, chunks, nr_of_antenna=na,
-                                #check_decomposition=True)
+        return mbu.antenna_uvw(self._manager._padded_uvw[lrow:urow],
+                                a1, a2, chunks, nr_of_antenna=na,
+                                check_decomposition=False, check_missing=True)
 
     def antenna1(self, context):
         self.update_nchunks(context)
