@@ -332,7 +332,9 @@ class DataDictionaryManager(object):
                                                                 self._padded_a1, 
                                                                 self._padded_a2,
                                                                 self._phase_dir)
-        
+
+        # for safety only fill missing slots with new UVW coordinates
+        self._padded_uvw[np.logical_not(self._datamask)] = self._synth_uvw[np.logical_not(self._datamask)]
         q1 = np.percentile(np.abs(self._synth_uvw[self._datamask] - uvw[self._sort_index]), 1.0)
         q2 = np.percentile(np.abs(self._synth_uvw[self._datamask] - uvw[self._sort_index]), 50.0)
         q3 = np.percentile(np.abs(self._synth_uvw[self._datamask] - uvw[self._sort_index]), 99.0)
