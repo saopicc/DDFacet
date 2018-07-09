@@ -240,7 +240,7 @@ class ClassFacetMachineTessel(ClassFacetMachine.ClassFacetMachine):
             m1 = np.min([mMainCenter + RadiusTot, mPoly.max()])
             dl = l1 - l0
             dm = m1 - m0
-            diam = np.max([dl, dm])
+            diam = np.min([dl, dm])
             return diam, (l0, l1, m0, m1)
 
         DiamMax = self.GD["Facets"]["DiamMax"] * np.pi / 180
