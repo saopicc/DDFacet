@@ -798,13 +798,13 @@ class ClassImagerDeconv():
             print>>log, "Setting Montblanc solver up for circular feeds"
         else:
             raise RuntimeError("Montblanc only supports linear or circular feed measurements.")
-
-        model = self.ModelMachine.GiveModelList()
+        MS = self.VS.ListMS[DATA["iMS"]]
+        model = self.ModelMachine.GiveModelList(MS.ChanFreq)
         mb_machine = ClassMontblancMachine(self.GD,
                                            self.FacetMachine.Npix,
                                            self.FacetMachine.CellSizeRad,
                                            polarization_type)
-        mb_machine.getChunk(DATA, datacolumn, model, self.VS.ListMS[DATA["iMS"]])
+        mb_machine.get_chunk(DATA, datacolumn, model, MS)
         mb_machine.close()
         os.environ["OMP_NUM_THREADS"] = old_OMP_setting
 

@@ -108,7 +108,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         DicoComp[key]["SumWeights"][pol_array_index] += Weight
         DicoComp[key]["SolsArray"][:, pol_array_index] += Weight * SolNorm
 
-    def GiveModelList(self, DoAbs=False, threshold=0.1):
+    def GiveModelList(self, FreqIn=None, DoAbs=False, threshold=0.1):
         """
         Iterates through components in the "Comp" dictionary of DicoSMStacked,
         returning a list of model sources in tuples looking like
@@ -129,9 +129,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             f_apply = np.abs
         else:
             f_apply = lambda x: x
+            
         DicoComp = self.DicoSMStacked["Comp"]
         ref_freq = self.DicoSMStacked["RefFreq"]
-
+        
+        if FreqIn is None:
+           FreqIn=np.array([ref_freq], dtype=np.float32)
+            
         # Construct alpha map
         IM = self.GiveModelImage(self.FreqMachine.Freqsp)
         nchan, npol, Nx, Ny = IM.shape
@@ -156,9 +160,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             return [("Delta",                         # type
                      coord,                           # coordinate
                      f_apply(self.FreqMachine.Eval_Degrid(sa,
-                                                          np.array([ref_freq]))), # only a solution for I
+                                                          FreqIn)), # only a solution for I
                      ref_freq,                        # reference frequency
-                     alpha[0, 0, coord[0], coord[1]], # alpha
+                     alpha[0, 0, coord[0], coord[1]], # alpha estimate
                      None)]                           # shape
 
         # Lazily iterate through DicoComp entries and associated ListScales and SolsArrays,

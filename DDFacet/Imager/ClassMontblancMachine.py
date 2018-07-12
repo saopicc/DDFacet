@@ -37,7 +37,9 @@ from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Data.ClassStokes import ClassStokes
 
 from astropy import wcs as pywcs
-
+from pyrap.measures import measures
+from pyrap.quanta import quantity
+        
 log=MyLogger.getLogger("ClassMontblancMachine")
 
 DEBUG = False
@@ -89,7 +91,7 @@ class ClassMontblancMachine(object):
         else:
             self._beam_prov = None
 
-    def getChunk(self, data, residuals, model, MS):
+    def get_chunk(self, data, residuals, model, MS):
         # Configure the data dictionary manager
         self._mgr.cfg_from_data_dict(data, model, residuals, MS, self._npix, self._cell_size_rad)
 
@@ -123,6 +125,10 @@ class DataDictionaryManager(object):
         pass
 
     def _transform(self, c):
+        """
+        Computes the lm coordinates from pixel coordinates assuming 
+        a SIN projection in the WCS
+        """
         coord = np.deg2rad(self._wcs.wcs_pix2world(np.asarray([c]), 1))
         delta_ang = coord[0] - self._phase_dir
 
@@ -153,18 +159,15 @@ class DataDictionaryManager(object):
         assert time.size == a1.size
         assert a1.size == a2.size
         
-        from pyrap.measures import measures
-        from pyrap.quanta import quantity
-        import pdb
         dm = measures()
         epoch = dm.epoch("UT1", quantity(time[0], "s"))
         refdir = dm.direction("j2000", quantity(phase_ref[0], "rad"), quantity(phase_ref[1], "rad")) 
         obs = dm.position("ITRF", quantity(station_ECEF[0, 0], "m"), quantity(station_ECEF[0, 1], "m"), quantity(station_ECEF[0, 2], "m"))
+        
+        #setup local horizon coordinate frame with antenna 0 as reference position
         dm.do_frame(obs)
         dm.do_frame(refdir)
         dm.do_frame(epoch)
-           
-        station_pos = np.zeros(station_ECEF.shape)
         
         ants = np.concatenate((a1, a2))
         unique_ants = np.unique(ants)
@@ -173,8 +176,7 @@ class DataDictionaryManager(object):
         nbl = na * (na - 1) / 2 + na
         ntime = unique_time.size
         assert time.size == nbl * ntime, "Input arrays must be padded to include autocorrelations, all baselines and all time"
-        lmat = np.triu((np.cumsum(np.arange(na)[None, :] >=
-                                  np.arange(na)[:, None]) - 1).reshape([na, na]))
+        antenna_indicies = DataDictionaryManager.antenna_indicies(na, auto_correlations=True)
         new_uvw = np.zeros((ntime*nbl, 3))
         lmat = np.triu((np.cumsum(np.arange(na)[None, :] >=
                                   np.arange(na)[:, None]) - 1).reshape([na, na]))
@@ -182,13 +184,13 @@ class DataDictionaryManager(object):
             epoch = dm.epoch("UT1", quantity(t, "s"))
             dm.do_frame(epoch)
             
-            station_uv = np.zeros(station_ECEF.shape)
+            station_uv = np.zeros_like(station_ECEF)
             for iapos, apos in enumerate(station_ECEF):
                 station_uv[iapos] = dm.to_uvw(dm.baseline("ITRF", quantity([apos[0], station_ECEF[0, 0]], "m"),
                                                                    quantity([apos[1], station_ECEF[0, 1]], "m"),
                                                                    quantity([apos[2], station_ECEF[0, 2]], "m")))["xyz"].get_value()[0:3]
             for bl in xrange(nbl):
-                blants = np.argwhere(lmat == bl)[0]
+                blants = antenna_indicies[bl]
                 bla1 = blants[0]
                 bla2 = blants[1]
                 new_uvw[ti*nbl + bl, :] = station_uv[bla1] - station_uv[bla2] # same as in CASA convention (Convention for UVW calculations in CASA, Rau 2013)
@@ -253,7 +255,8 @@ class DataDictionaryManager(object):
         unique_ants = np.unique(ants)
         ant_counts = np.bincount(ants)
         self._na = na = unique_ants.size
-        assert self._na == self._antenna_positions.shape[0], "ANTENNA_1 and ANTENNA_2 contains more indicies than antennae specified through MS.StationPos"
+        assert self._na <= self._antenna_positions.shape[0], "ANTENNA_1 and ANTENNA_2 contains more indicies than antennae specified through MS.StationPos"
+        self._na = self._antenna_positions.shape[0] # going to pad to the maximum number of antennas
         # can compute the time indexes using a scan operator
         # assuming the dataset is ordered and the time column
         # contains the integration centroid of the correlator dumps
@@ -293,16 +296,16 @@ class DataDictionaryManager(object):
             (100.0 - 100.0 * float(np.sum(self._datamask)) / self._datamask.size)
         
         # padded row numbers of the sparce data matrix
-        self._sparceindx = np.cumsum(self._datamask) - 1
-        self._sparceindx
+        self._sparseindx = np.cumsum(self._datamask) - 1
 
         # pad the antenna array
         self._padded_a1 = np.empty((self._nbl), dtype=np.int32)
         self._padded_a2 = np.empty((self._nbl), dtype=np.int32)
         lmat = np.triu((np.cumsum(np.arange(self._na)[None, :] >=
                                   np.arange(self._na)[:, None]) - 1).reshape([self._na, self._na]))
+        antenna_indicies = DataDictionaryManager.antenna_indicies(na, auto_correlations=True)
         for bl in xrange(self._nbl):
-            blants = np.argwhere(lmat == bl)[0]
+            blants = antenna_indicies[bl]
             self._padded_a1[bl] = blants[0]
             self._padded_a2[bl] = blants[1]
         self._padded_a1 = np.tile(self._padded_a1, self._ntime)
@@ -371,8 +374,16 @@ class DataDictionaryManager(object):
         montblanc.log.info('\tnbl: %s' % self._nbl)
         montblanc.log.info('\tnchan: %s' % self._nchan)
         montblanc.log.info('\tna: %s' % self._na)
-
-    def baseline_index(self, a1, a2, no_antennae):
+    
+    @classmethod    
+    def antenna_indicies(cls, na, auto_correlations=True):
+        """ Compute base antenna pairs from baseline index """
+        k = 0 if auto_correlations == True else 1
+        ant1, ant2 = np.triu_indices(na, k)
+        return np.stack([ant1, ant2], axis=1)
+    
+    @classmethod
+    def baseline_index(cls, a1, a2, no_antennae):
         """
          Computes unique index of a baseline given antenna 1 and antenna 2
          (zero indexed) as input. The arrays may or may not contain
@@ -421,14 +432,13 @@ class DDFacetSourceProvider(SourceProvider):
         return "DDFacet Source Provider"
 
     def update_nchunks(self, context):
-        # @sjperkins please expose the solver's iterdims
-        # https://github.com/ska-sa/montblanc/blob/master/montblanc/impl/rime/tensorflow/RimeSolver.py#L139
-        dim_names = ["nbl", "ntime"]
+        dim_names = ['ntime', 'nbl']
+        
         global_sizes = context.dim_global_size(*dim_names)
         ext_sizes = context.dim_extent_size(*dim_names)
         ntotal = reduce(lambda x, y: x * y if y != 0 else 1,
                         global_sizes)
-        self._manager._numtotal = max(ntotal, self._manager._numtotal)
+        self._manager._numtotal = ntotal
         self._manager.render_progressbar()
 
     def point_lm(self, context):
@@ -449,15 +459,16 @@ class DDFacetSourceProvider(SourceProvider):
         (lp, up), (lt, ut), (lc, uc) = context.dim_extents('npsrc', 'ntime', 'nchan')
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         pt_slice = self._manager._point_sources[lp:up]
-        i = np.array([p[2][0] for p in pt_slice])[:, None]
-        rf = np.array([p[3] for p in pt_slice])[:, None, None]
-        a = np.array([p[4] for p in pt_slice])[:, None, None]
-        f = self._manager._frequency[None, None, :]
+        i = np.array([p[2][:] for p in pt_slice])[:, None]
+        assert self._manager._frequency.size * len(pt_slice) == i.size, \
+            "Expecting %d channels for component flux density, got %d" % (self._manager._frequency.size, i.size // len(pt_slice))
 
         # (ngsrc, ntime, nchan, 4)
         # Assign I stokes, zero everything else
         stokes = np.zeros(context.shape, context.dtype)
-        stokes[:,:,:,0] = i * (f/rf)**a
+        stokes[:,:,:,0] = np.tile(i, (1, ut - lt)).reshape(up - lp, 
+                                                           ut - lt,
+                                                           uc - lc)
         return stokes
 
     def gaussian_lm(self, context):
@@ -478,15 +489,16 @@ class DDFacetSourceProvider(SourceProvider):
         (lg, ug), (lt, ut), (lc, uc) = context.dim_extents('ngsrc', 'ntime', 'nchan')
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         g_slice = self._manager._gaussian_sources[lg:ug]
-        i = np.array([g[2][0] for g in g_slice])[:, None]
-        a = np.array([g[4] for g in g_slice])[:, None, None]
-        rf = np.array([g[3] for g in g_slice])[:, None, None]
-        f = self._manager._frequency[None,None,:]
+        i = np.array([g[2][:] for g in g_slice])[:, None]
+        assert self._manager._frequency.size * len(g_slice) == i.size, \
+            "Expecting %d channels for component flux density, got %d" % (self._manager._frequency.size, i.size // len(g_slice))
 
         # (ngsrc, ntime, nchan, 1)
         # Assign I stokes, zero everything else
         stokes = np.zeros(context.shape, context.dtype)
-        stokes[:,:,:,0] = i*(f/rf)**a
+        stokes[:,:,:,0] = np.tile(i, (1, ut - lt)).reshape(ug - lg, 
+                                                           ut - lt,
+                                                           uc - lc)
         return stokes
 
     def gaussian_shape(self, context):
@@ -574,9 +586,9 @@ class DDFacetSinkProvider(SinkProvider):
 
         # Get the sparce representation (sorted) selection for this chunk
         datamask = self._manager._datamask[lrow:urow]
-        sparceindx = np.unique(self._manager._sparceindx[lrow:urow][datamask])
-        sort_indx = self._manager._sort_index[sparceindx]
-        nrow_sparce = sparceindx.size
+        sparseindx = np.unique(self._manager._sparseindx[lrow:urow][datamask])
+        sort_indx = self._manager._sort_index[sparseindx]
+        nrow_sparce = sparseindx.size
         nrow = urow - lrow
         nchan = self._manager._nchan
         ncorr_mb = 4 #montblanc always predict four correlations
