@@ -395,6 +395,8 @@ if __name__ == "__main__":
         if sys.exc_info()[0] is not WorkerProcessError and Exceptions.is_pdb_enabled():
             APP.terminate()
             raise
+        else:
+            print>>log, traceback.format_exc()
         report_error = True
 
     if report_error:
