@@ -68,7 +68,7 @@ class ClassFrequencyMachine(object):
         if self.nchan==1: #hack to deal with a single channel
             self.Fit = lambda vals: vals
             self.Eval = lambda vals: vals # this will just be the value in that channel
-            self.Eval_Degrid = lambda vals: np.tile(vals, self.nchan_degrid)
+            self.Eval_Degrid = lambda vals, Freqs: np.tile(vals, Freqs.size) # Freqs unused - nothing to be done but use the same model through the entire passband
         else:
             if mode == "Poly":
                 self.order = self.GD["Hogbom"]["PolyFitOrder"]

@@ -143,7 +143,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 if interp is None:
                     raise RuntimeError("Could not interpolate model onto degridding bands. Inspect your data, check 'Hogbom-PolyFitOrder' or "
                                        "if you think this is a bug report it.")
-                ModelImage[:, pol, x, y] += f_apply(interp)
+                else:
+                    ModelImage[:, pol, x, y] += f_apply(interp)
 
         return ModelImage
 
