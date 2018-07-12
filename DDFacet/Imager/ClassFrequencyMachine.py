@@ -74,9 +74,9 @@ class ClassFrequencyMachine(object):
         :return: 
         """
         if self.nchan==1: #hack to deal with a single channel
-            self.Fit = lambda vals, *args: vals
-            self.Eval = lambda vals, *args: vals # this will just be the value in that channel
-            self.Eval_Degrid = lambda vals, Freqs, *args: np.tile(vals, Freqs.size)
+            self.Fit = lambda vals: vals
+            self.Eval = lambda vals: vals # this will just be the value in that channel
+            self.Eval_Degrid = lambda vals, Freqs: np.tile(vals, Freqs.size) # Freqs unused - nothing to be done but use the same model through the entire passband
         else:
             if mode == "WSCMS":
                 # set order
