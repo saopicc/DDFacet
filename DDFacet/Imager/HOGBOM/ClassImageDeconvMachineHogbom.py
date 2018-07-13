@@ -107,9 +107,12 @@ class ClassImageDeconvMachine():
     def Init(self, **kwargs):
         self.SetPSF(kwargs["PSFVar"])
         self.setSideLobeLevel(kwargs["PSFAve"][0], kwargs["PSFAve"][1])
-        self.SetModelRefFreq(kwargs["RefFreq"])
-        self.ModelMachine.setFreqMachine(kwargs["GridFreqs"], kwargs["DegridFreqs"])
         self.Freqs = kwargs["GridFreqs"]
+        AllDegridFreqs = []
+        for i in kwargs["DegridFreqs"].keys():
+            AllDegridFreqs.append(kwargs["DegridFreqs"][i])
+        self.Freqs_degrid = np.unique(np.asarray(AllDegridFreqs).flatten())
+        self.ModelMachine.setFreqMachine(self.Freqs, self.Freqs_degrid)
 
 
     def Reset(self):
