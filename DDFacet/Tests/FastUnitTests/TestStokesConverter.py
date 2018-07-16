@@ -222,6 +222,19 @@ def testCubeTransformCorrs2StokesStokes():
     assert np.allclose(stokesCube[0, :, 0, 1], np.array([0, 0, 2+0j, 2+0j]))
     assert np.allclose(stokesCube[0, :, 0, 2], np.array([0, 3+0j, 0, 3+0j]))
 
+def testCubeTransformCorrs2StokesStokesInplace():
+    conv = ClassStokes([StokesTypes["I"], StokesTypes["Q"], StokesTypes["U"], StokesTypes["V"]],
+                       "QVUI") #jumble the mapping and make sure things are mapped correctly
+    corrCube = np.zeros([1,4,1,3],dtype=np.complex64)
+    corrCube[:, 0, :, 0] = 1; corrCube[:, 1, :, 0] = 1;
+    corrCube[:, 0, :, 1] = 2; corrCube[:, 2, :, 1] = 2;
+    corrCube[:, 0, :, 2] = 3; corrCube[:, 3, :, 2] = 3;
+    stokesCube = conv.corrs2stokes(corrCube, inplace=True)
+    assert np.allclose(stokesCube[0, :, 0, 0], np.array([1+0j, 0, 0, 1+0j]))
+    assert np.allclose(stokesCube[0, :, 0, 1], np.array([0, 0, 2+0j, 2+0j]))
+    assert np.allclose(stokesCube[0, :, 0, 2], np.array([0, 3+0j, 0, 3+0j]))
+
+
 @raises(TypeError)
 def testCubeMustBeComplexCorrs2Stokes():
     conv = ClassStokes([StokesTypes["I"], StokesTypes["Q"], StokesTypes["U"], StokesTypes["V"]],
@@ -273,6 +286,18 @@ def testCubeTransformStokes2CorrsStokes():
     stokesCube[:, 1, :, 1] = 2; stokesCube[:, 2, :, 1] = 2;
     stokesCube[:, 0, :, 2] = 3; stokesCube[:, 3, :, 2] = 3;
     corrCube = conv.stokes2corrs(stokesCube)
+    assert np.allclose(corrCube[0, :, 0, 0], np.array([1+0j, 0, 0, 1+0j]))
+    assert np.allclose(corrCube[0, :, 0, 1], np.array([0, 0, 2+0j, 2+0j]))
+    assert np.allclose(corrCube[0, :, 0, 2], np.array([3+0j, 3+0j, 0, 0]))
+
+def testCubeTransformStokes2CorrsStokesInplace():
+    conv = ClassStokes([StokesTypes["I"], StokesTypes["Q"], StokesTypes["U"], StokesTypes["V"]],
+                       "QVUI") #jumble the mapping and make sure things are mapped correctly
+    stokesCube = np.zeros([1,4,1,3],dtype=np.complex64)
+    stokesCube[:, 3, :, 0] = 1; stokesCube[:, 1, :, 0] = 1;
+    stokesCube[:, 1, :, 1] = 2; stokesCube[:, 2, :, 1] = 2;
+    stokesCube[:, 0, :, 2] = 3; stokesCube[:, 3, :, 2] = 3;
+    corrCube = conv.stokes2corrs(stokesCube, inplace=True)
     assert np.allclose(corrCube[0, :, 0, 0], np.array([1+0j, 0, 0, 1+0j]))
     assert np.allclose(corrCube[0, :, 0, 1], np.array([0, 0, 2+0j, 2+0j]))
     assert np.allclose(corrCube[0, :, 0, 2], np.array([3+0j, 3+0j, 0, 0]))

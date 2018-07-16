@@ -49,7 +49,7 @@ from DDFacet.Other import ClassTimeIt
 import numexpr
 from DDFacet.Imager import ClassImageNoiseMachine
 from DDFacet.Data import ClassStokes
-
+from DDFacet.Imager import ClassGainMachine
 
 # from astropy import wcs
 # from astropy.io import fits
@@ -95,6 +95,8 @@ class ClassImagerDeconv():
 
         if GD is not None:
             self.GD=GD
+        # INIT: gain machine singleton once and for always
+        self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"])
 
         self.BaseName=BaseName
         self.DicoModelName="%s.DicoModel"%self.BaseName
@@ -778,6 +780,35 @@ class ClassImagerDeconv():
         else:
             self.MeanJonesNorm = None
 
+    def GiveMontblancPredict(self, DATA, datacolumn):
+        """
+            Predicts montblanc model from given source model with gaussians and deltas
+        """
+        from ClassMontblancMachine import ClassMontblancMachine
+        import psutil
+        import os
+        old_OMP_setting = os.environ["OMP_NUM_THREADS"]
+        os.environ["OMP_NUM_THREADS"] = str(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
+
+        if set(self.VS.StokesConverter.AvailableCorrelationProducts()) <= set(["XX", "XY", "YX", "YY"]):
+            polarization_type = "linear"
+            print>>log, "Setting Montblanc solver up for linear feeds"
+        elif set(self.VS.StokesConverter.AvailableCorrelationProducts()) <= set(["RR", "RL", "LR", "LL"]):
+            polarization_type = "circular"
+            print>>log, "Setting Montblanc solver up for circular feeds"
+        else:
+            raise RuntimeError("Montblanc only supports linear or circular feed measurements.")
+        MS = self.VS.ListMS[DATA["iMS"]]
+        model = self.ModelMachine.GiveModelList(MS.ChanFreq)
+        mb_machine = ClassMontblancMachine(self.GD,
+                                           self.FacetMachine.Npix,
+                                           self.FacetMachine.CellSizeRad,
+                                           polarization_type)
+        mb_machine.get_chunk(DATA, datacolumn, model, MS)
+        mb_machine.close()
+        os.environ["OMP_NUM_THREADS"] = old_OMP_setting
+
+        return model
 
     def GivePredict(self, subtract=False, from_fits=True):
         if subtract:
@@ -948,11 +979,7 @@ class ClassImagerDeconv():
             if self.PredictMode == "BDA-degrid" or self.PredictMode == "Classic" or self.PredictMode == "BDA-degrid-classic":  # latter for backwards compatibility
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
-                from ClassMontblancMachine import ClassMontblancMachine
-                model = self.ModelMachine.GiveModelList()
-                mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                mb_machine.getChunk(DATA, predict, model, self.VS.ListMS[DATA["iMS"]])
-                mb_machine.close()
+                model = self.GiveMontblancPredict(DATA, predict)
             else:
                 raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
             self.FacetMachine.collectDegriddingResults()
@@ -1217,11 +1244,7 @@ class ClassImagerDeconv():
                 if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder" or self.PredictMode == "BDA-degrid-classic":
                     self.FacetMachine.getChunkInBackground(DATA)
                 elif self.PredictMode == "Montblanc":
-                    from ClassMontblancMachine import ClassMontblancMachine
-                    model = self.ModelMachine.GiveModelList()
-                    mb_machine = ClassMontblancMachine(self.GD, self.FacetMachine.Npix, self.FacetMachine.CellSizeRad)
-                    mb_machine.getChunk(DATA, DATA["data"], model, self.VS.ListMS[DATA["iMS"]])
-                    mb_machine.close()
+                    model = self.GiveMontblancPredict(DATA, DATA["data"])
                 else:
                     raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
 
@@ -1394,11 +1417,7 @@ class ClassImagerDeconv():
             if self.PredictMode == "BDA-degrid" or self.PredictMode == "DeGridder":
                 self.FacetMachine.getChunkInBackground(DATA)
             elif self.PredictMode == "Montblanc":
-                from ClassMontblancMachine import ClassMontblancMachine
-                model = self.ModelMachine.GiveModelList()
-                mb_machine = ClassMontblancMachine(self.GD, fm_predict.Npix, self.FacetMachine.CellSizeRad)
-                mb_machine.getChunk(DATA, DATA["data"], model, self.VS.ListMS[DATA["iMS"]])
-                mb_machine.close()
+                model = self.GiveMontblancPredict(DATA, DATA["data"])
             else:
                 raise ValueError("Invalid PredictMode '%s'" % self.PredictMode)
 

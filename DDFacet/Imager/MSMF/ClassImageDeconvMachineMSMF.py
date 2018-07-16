@@ -87,7 +87,7 @@ class ClassImageDeconvMachine():
         self.PeakFactor = PeakFactor
         self.PrevPeakFactor = PrevPeakFactor
         self.CacheFileName=CacheFileName
-        self.GainMachine=ClassGainMachine.ClassGainMachine(GainMin=Gain)
+        self.GainMachine=ClassGainMachine.get_instance()
         self.ModelMachine = None
         self.PSFServer = None
         if ModelMachine is not None:
