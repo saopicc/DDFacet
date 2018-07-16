@@ -74,9 +74,9 @@ class PointingProvider(object):
         if pointing_errs_file == "" or not pointing_errs_file:
             self._raw_offsets = pd.DataFrame(zip([sn for sn in self._MS_hndl.StationNames for i in range(4)], 
                                                  (["XX", "YY"] if self._feed_type == "linear" else ["RR", "LL"]) * (len(self._MS_hndl.StationNames * 2)),
-                                                 np.zeros(len(self._MS_hndl.StationNames * 2), dtype=np.float64),
-                                                 np.zeros(len(self._MS_hndl.StationNames * 2), dtype=np.float64),
-                                                 np.zeros(len(self._MS_hndl.StationNames * 2), dtype=np.float64)),
+                                                 np.zeros(len(self._MS_hndl.StationNames * 4), dtype=np.float64),
+                                                 np.zeros(len(self._MS_hndl.StationNames * 4), dtype=np.float64),
+                                                 np.zeros(len(self._MS_hndl.StationNames * 4), dtype=np.float64)),
                                              columns=PointingProvider.__COMPULSORY_HEADER)
         else:
             self._raw_offsets = pd.read_csv(pointing_errs_file,
@@ -148,8 +148,8 @@ class PointingProvider(object):
         corr: XX, YY or RR, LL depending on feed type of measurement
         """
         if antenna_name not in self._interp_offsets.keys():
-            Warning("No pointing solutions for station %s, assuming 0.0")
-            return (np.zeros_like(time), np.zeros_like(time))
+            print>>log, "No pointing solutions for station %s, assuming 0.0" % antenna_name
+            return np.array([np.zeros_like(time), np.zeros_like(time)])
         if corr not in self._interp_offsets[antenna_name].keys():
             raise KeyError("No interpolated solutions for correlation %s. This is a bug." % corr)
         ra = self._interp_offsets[antenna_name][corr]["RA"](time)
