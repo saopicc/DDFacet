@@ -35,6 +35,8 @@ from DDFacet.Other import ClassTimeIt
 from DDFacet.Other import ModColor
 from DDFacet.Other.progressbar import ProgressBar
 from DDFacet.Data.ClassStokes import ClassStokes
+from DDFacet.Data.PointingProvider import PointingProvider
+from DDFacet.Data.ClassMS import ClassMS
 
 from astropy import wcs as pywcs
 from pyrap.measures import measures
@@ -91,9 +93,9 @@ class ClassMontblancMachine(object):
         else:
             self._beam_prov = None
 
-    def get_chunk(self, data, residuals, model, MS):
+    def get_chunk(self, data, residuals, model, MS, pointing_sols):
         # Configure the data dictionary manager
-        self._mgr.cfg_from_data_dict(data, model, residuals, MS, self._npix, self._cell_size_rad)
+        self._mgr.cfg_from_data_dict(data, model, residuals, MS, pointing_sols, self._npix, self._cell_size_rad)
 
         # Configure source providers
         source_provs = []  if self._beam_prov is None else [self._beam_prov]
@@ -197,7 +199,7 @@ class DataDictionaryManager(object):
         
         return new_uvw
     
-    def cfg_from_data_dict(self, data, models, residuals, MS, npix, cell_size_rad):
+    def cfg_from_data_dict(self, data, models, residuals, MS, pointing_sols, npix, cell_size_rad):
         time, uvw, antenna1, antenna2, flag = (data[i] for i in  ('times', 'uvw', 'A0', 'A1', 'flags'))
 
         self._npix = npix
@@ -224,10 +226,17 @@ class DataDictionaryManager(object):
 
         # Extract the antenna positions and
         # phase direction from the measurement set
+        if not isinstance(MS, ClassMS):
+            raise TypeError("MS argument must be of type ClassMS")
         self._antenna_positions = MS.StationPos
         self._phase_dir = np.array((MS.rarad, MS.decrad))
         self._data_feed_labels = ClassStokes(MS.CorrelationIds, ["I"]).AvailableCorrelationProducts()
 
+        # set preinstantiated pointing solutions provider
+        if not isinstance(pointing_sols, PointingProvider):
+            raise TypeError("pointing_sols argument must be of type PointingProvider")
+        self._pointing_solutions = pointing_sols
+        
         # Extract the required prediction feeds from the MS
         if set(self._data_feed_labels) <= set(["XX", "XY", "YX", "YY"]):
             self._montblanc_feed_labels = ["XX", "XY", "YX", "YY"]
@@ -257,6 +266,7 @@ class DataDictionaryManager(object):
         self._na = na = unique_ants.size
         assert self._na <= self._antenna_positions.shape[0], "ANTENNA_1 and ANTENNA_2 contains more indicies than antennae specified through MS.StationPos"
         self._na = self._antenna_positions.shape[0] # going to pad to the maximum number of antennas
+        self._station_names = MS.StationNames
         # can compute the time indexes using a scan operator
         # assuming the dataset is ordered and the time column
         # contains the integration centroid of the correlator dumps
@@ -573,6 +583,32 @@ class DDFacetSourceProvider(SourceProvider):
     def updated_dimensions(self):
         """ Defer to the manager """
         return self._manager.updated_dimensions()
+    
+    def pointing_errors(self, context):
+        """ Implements pointing offsets """
+        self.update_nchunks(context)
+        (lt, ut) = context.dim_extents('ntime')
+        times = self._manager._padded_time[lt:ut]
+        XRcorr = lambda a, t: self._manager._pointing_solutions.offset_XX(a, t) if self._manager._solver_polarization_type == "linear" else \
+                 lambda a, t: self._manager._pointing_solutions.offset_RR(a, t) if self._manager._solver_polarization_type == "circular" else None
+        YLcorr = lambda a, t: self._manager._pointing_solutions.offset_YY(a, t) if self._manager._solver_polarization_type == "linear" else \
+                 lambda a, t: self._manager._pointing_solutions.offset_LL(a, t) if self._manager._solver_polarization_type == "circular" else None
+             
+        
+        #[XR, YL] x na x nch x ntime x 2
+        # squint error in XX, YY
+        errs_squint = np.array([np.array([np.repeat(np.array(sol(a, times)).T,
+                                                    self._manager._nchan).reshape(2,
+                                                                                  times.shape[0], 
+                                                                                  self._manager._nchan).T 
+                                          for a in self._manager._station_names])                                     
+                                for sol in [XRcorr, YLcorr]])
+        # corrrection is in powerbeam centre so take the average between XX and YY offsets in RA and DEC
+        # na x nch x ntime x 2
+        errs_I = np.mean(errs_squint, axis=0)
+        #ntime x na x nch x 2
+        errs_mblanc = np.deg2rad(np.swapaxes(np.swapaxes(errs_I, 1, 2), 0, 1))
+        return errs_mblanc
 
 class DDFacetSinkProvider(SinkProvider):
     def __init__(self, manager):

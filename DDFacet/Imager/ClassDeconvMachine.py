@@ -50,7 +50,7 @@ import numexpr
 from DDFacet.Imager import ClassImageNoiseMachine
 from DDFacet.Data import ClassStokes
 from DDFacet.Imager import ClassGainMachine
-
+from DDFacet.Data.PointingProvider import PointingProvider
 # from astropy import wcs
 # from astropy.io import fits
 #
@@ -779,7 +779,19 @@ class ClassImagerDeconv():
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
         else:
             self.MeanJonesNorm = None
-
+            
+    def _init_pointing_sols(self):
+        """ Initialize pointing solutions provider """
+        if self.PredictMode == "Montblanc":
+            self._pointing_machines = []
+            for iMS, MS in enumerate(self.VS.ListMS):
+                print>> log, ModColor.Str("Initializing pointing solutions for measurement %d / %d" % (iMS + 1,len(self.VS.ListMS)))
+                self._pointing_machines.append(PointingProvider(MS,
+                                                                self.GD["PointingSolutions"].get("PointingSolsCSV", None),
+                                                                self.GD["PointingSolutions"].get("InterpolationMode", None)))
+        else:
+            print>> log, ModColor.Str("Montblanc predict not enabled. Will not apply pointing corrections.")
+            
     def GiveMontblancPredict(self, DATA, datacolumn):
         """
             Predicts montblanc model from given source model with gaussians and deltas
@@ -799,12 +811,13 @@ class ClassImagerDeconv():
         else:
             raise RuntimeError("Montblanc only supports linear or circular feed measurements.")
         MS = self.VS.ListMS[DATA["iMS"]]
+        pointing_sols = self._pointing_machines[DATA["iMS"]]
         model = self.ModelMachine.GiveModelList(MS.ChanFreq)
         mb_machine = ClassMontblancMachine(self.GD,
                                            self.FacetMachine.Npix,
                                            self.FacetMachine.CellSizeRad,
                                            polarization_type)
-        mb_machine.get_chunk(DATA, datacolumn, model, MS)
+        mb_machine.get_chunk(DATA, datacolumn, model, MS, pointing_sols)
         mb_machine.close()
         os.environ["OMP_NUM_THREADS"] = old_OMP_setting
 
@@ -884,7 +897,10 @@ class ClassImagerDeconv():
 
         current_model_freqs = np.array([])
         ModelImage = None
-
+        
+        #Initialize pointing solutions if montblanc is being used to predict
+        self._init_pointing_sols()
+        
         self.FacetMachine.awaitInitCompletion()
         self.FacetMachine.BuildFacetNormImage()
         while True:
@@ -1035,6 +1051,7 @@ class ClassImagerDeconv():
             sparsify = previous_sparsify = 0
         if sparsify:
             print>> log, "applying a sparsification factor of %f to data for dirty image" % sparsify
+        
         # if running in NMajor=0 mode, then we simply want to subtract/predict the model probably
         self.GiveDirty(psf=True, sparsify=sparsify, last_cycle=(NMajor==0))
 
@@ -1043,7 +1060,10 @@ class ClassImagerDeconv():
             raise RuntimeError("Unsupported: Polarization cleaning is not"\
                                " supported. Maybe you meant Output-StokesResidues"\
                                " instead?")
-
+        
+        #Initialize pointing solutions (per MS)
+        self._init_pointing_sols()
+        
         # if we reached a sparsification of 1, we shan't be re-making the PSF
         if not sparsify:
             self.FacetMachinePSF.releaseGrids()
