@@ -105,16 +105,17 @@ class PointingProvider(object):
             for f in ["XX", "YY"] if self._feed_type == "linear" else ["RR", "LL"]:
                 sel = self._raw_offsets.where(np.logical_and(self._raw_offsets["#ANT"] == a,
                                                              self._raw_offsets["POL"] == f)).dropna()
+                sel_sorted = sel.sort_values("TIME")
                 self._interp_offsets[a][f]["RA"] = interp1d(sel["TIME"],
                                                             sel["RA_ERR(deg)"],
                                                             kind=PointingProvider.__AVAILABLE_INTERPOLATORS[self._interp_mode],
                                                             bounds_error=False,
-                                                            fill_value=(sel.min()["RA_ERR(deg)"], sel.max()["RA_ERR(deg)"]))
+                                                            fill_value=(sel_sorted["RA_ERR(deg)"].iloc[0], sel_sorted["RA_ERR(deg)"].iloc[-1]))
                 self._interp_offsets[a][f]["DEC"] = interp1d(sel["TIME"],
                                                              sel["DEC_ERR(deg)"],
                                                              kind=PointingProvider.__AVAILABLE_INTERPOLATORS[self._interp_mode],
                                                              bounds_error=False,
-                                                             fill_value=(sel.min()["DEC_ERR(deg)"], sel.max()["DEC_ERR(deg)"]))
+                                                             fill_value=(sel_sorted["DEC_ERR(deg)"].iloc[0], sel_sorted["DEC_ERR(deg)"].iloc[-1]))
                 
                 print>> log, "Station %s feed %s has interquartile pointing spread of (%.2f, %.2f) deg in RA and (%.2f, %.2f) deg in DECL" % \
                      (a, f, sel.quantile(.25)["RA_ERR(deg)"], sel.quantile(.75)["RA_ERR(deg)"], 
