@@ -43,7 +43,9 @@ class RegToNp():
     def Read(self):
         f=open(self.REGFile,"r")
 
-        Cat=np.zeros((1000,),dtype=[("ra",np.float32),("dec",np.float32),("I",np.float32),("Radius",np.float32),("Exclude",np.bool8),
+        Cat=np.zeros((1000,),dtype=[("ra",np.float32),("dec",np.float32),("I",np.float32),("Radius",np.float32),
+                                    ("Type","<S200"),("Exclude",np.bool8),
+                                    ("dx",np.float32),("dy",np.float32),
                                     ("Cluster",np.int16),("ID",np.int16)])
         Cat=Cat.view(np.recarray)
         Cat.Cluster=-1
@@ -86,6 +88,42 @@ class RegToNp():
                 Cat.dec[iCat]=dec
                 Cat.Radius[iCat]=rad
                 Cat.Exclude[iCat]=Exclude
+                Cat.Type[iCat]="Circle"
+                iCat+=1
+            if "box" in L:
+                if "#" in L: 
+                    Exclude=True
+                    L,_=L.split("#")
+
+                L=L.replace("\n","")
+                _,L=L.split("(")
+                L,_=L.split(")")
+
+                sra,sdec,dx,dy,_=L.split(",")
+
+                srah,sram,sras=sra.split(":")
+                ra=15.*(float(srah)+float(sram)/60+float(sras)/3600.)
+                ra*=np.pi/180
+
+                sdech,sdecm,sdecs=sdec.split(":")
+                sgndec=1.
+                if ("-" in sdec):
+                    sgndec=-1.
+                dech=np.abs(float(sdech))
+                dec=sgndec*(dech+float(sdecm)/60+float(sdecs)/3600.)
+                dec*=np.pi/180
+                
+                
+
+                dx=(float(dx[0:-1])/3600.)*np.pi/180
+                dy=(float(dy[0:-1])/3600.)*np.pi/180
+
+                Cat.ra[iCat]=ra
+                Cat.dec[iCat]=dec
+                Cat.dx[iCat]=dx
+                Cat.dy[iCat]=dy
+                Cat.Type[iCat]="Box"
+                
                 iCat+=1
 
         Cat=(Cat[Cat.ra!=0]).copy()
