@@ -206,6 +206,8 @@ class ClassCluster():
                          PolyCut=self.PolyCut, BigPolygon=self.BigPolygon)
 
         pop = toolbox.population(n=self.NPop)
+
+
         self.reinitPop2(pop)
 
         # Numpy equality function (operators.eq) between two arrays returns the

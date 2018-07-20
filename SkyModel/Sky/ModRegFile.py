@@ -43,10 +43,12 @@ class RegToNp():
     def Read(self):
         f=open(self.REGFile,"r")
 
-        Cat=np.zeros((1000,),dtype=[("ra",np.float32),("dec",np.float32),("I",np.float32),("Radius",np.float32),
+        Cat=np.zeros((1000,),dtype=[("ra",np.float32),("dec",np.float32),
+                                    ("I",np.float32),("Radius",np.float32),
                                     ("Type","<S200"),("Exclude",np.bool8),
                                     ("dx",np.float32),("dy",np.float32),
-                                    ("Cluster",np.int16),("ID",np.int16)])
+                                    ("ra1",np.float32),("dec1",np.float32),
+                                    ("Cluster",np.int16),("ID",np.int16),("Type","|S200")])
         Cat=Cat.view(np.recarray)
         Cat.Cluster=-1
         Cat.Cluster=np.arange(Cat.shape[0])
@@ -56,7 +58,8 @@ class RegToNp():
         f.close()
         iCat=0
         for L in Ls:
-            if "circle" in L:
+            # print L
+            if "circle" in L.split("(")[0]:
                 Exclude=False
                 if "#" in L: 
                     Exclude=True
@@ -87,6 +90,7 @@ class RegToNp():
                 Cat.ra[iCat]=ra
                 Cat.dec[iCat]=dec
                 Cat.Radius[iCat]=rad
+                Cat.Type[iCat]="Circle"
                 Cat.Exclude[iCat]=Exclude
                 Cat.Type[iCat]="Circle"
                 iCat+=1
@@ -125,7 +129,59 @@ class RegToNp():
                 Cat.Type[iCat]="Box"
                 
                 iCat+=1
+            elif "line" in L.split("(")[0]:
+                Exclude=False
+                if "#" in L: 
+                    L,_=L.split("#")
 
+                L=L.replace("\n","")
+                _,L=L.split("(")
+                L,_=L.split(")")
+
+                sra0,sdec0,sra1,sdec1=L.split(",")
+
+                # srah,sram,sras=sra1.split(":")
+                # ra1=15.*(float(srah)+float(sram)/60+float(sras)/3600.)
+                
+                ra1=float(sra1)*np.pi/180
+
+                #srah,sram,sras=sra0.split(":")
+                #ra0=15.*(float(srah)+float(sram)/60+float(sras)/3600.)
+                ra0=float(sra0)*np.pi/180
+
+                
+
+                # sdech,sdecm,sdecs=sdec0.split(":")
+                # sgndec=1.
+                # if ("-" in sdec):
+                #     sgndec=-1.
+                # #dech=np.abs(float(sdech))
+                # #dec0=sgndec*(dech+float(sdecm)/60+float(sdecs)/3600.)
+                dec0=float(sdec0)*np.pi/180
+
+                # sdech,sdecm,sdecs=sdec1.split(":")
+                # sgndec=1.
+                # if ("-" in sdec):
+                #     sgndec=-1.
+                # dech=np.abs(float(sdech))
+                # dec1=sgndec*(dech+float(sdecm)/60+float(sdecs)/3600.)
+                dec1=float(sdec1)*np.pi/180
+
+
+                
+                
+
+                #rad=(float(srad[0:-1])/3600.)*np.pi/180
+
+                Cat.ra[iCat]=ra0
+                Cat.dec[iCat]=dec0
+                Cat.ra1[iCat]=ra1
+                Cat.dec1[iCat]=dec1
+                #Cat.Radius[iCat]=rad
+                Cat.Exclude[iCat]=Exclude
+                iCat+=1
+                Cat.Type[iCat]="Line"
+                
         Cat=(Cat[Cat.ra!=0]).copy()
         self.CatSel=Cat[Cat.Exclude==0]
         self.CatExclude=Cat[Cat.Exclude==1]
