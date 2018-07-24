@@ -18,7 +18,11 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include "GridderSmearPols.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include "gridder.h"
+#include "degridder.h"
+#include <cstdint>
 
 namespace DDF {
   void pyAccumulateWeightsOntoGrid(py::array_t<double, py::array::c_style>& grid,
