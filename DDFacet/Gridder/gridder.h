@@ -95,6 +95,7 @@ namespace DDF {
       const double l0=ptrFacetInfos[2];
       const double m0=ptrFacetInfos[3];
       const double n0=sqrt(1-l0*l0-m0*m0)-1;
+//      const int facet = int(ptrFacetInfos[4]);
 
       /* Get size of grid. */
       const double *ptrWinfo = Winfos.data(0);
@@ -160,6 +161,8 @@ namespace DDF {
 
       DDEs::JonesServer JS(LJones,WaveLengthMean);
       JS.resetJonesServerCounter();
+//      if( !facet )
+//        cerr<<"BDAJones grid mode "<<JS.DoApplyJones<<endl<<endl;
 
       vector<double> ThisSumJonesChan(nVisChan),      // accumulates sum of w*decorr*decorr*||M||
                      ThisSumSqWeightsChan(nVisChan);  // accumulates sum of w*decorr*decorr
@@ -246,6 +249,9 @@ namespace DDF {
 	      /*Compute per channel and overall approximate matrix sqroot:*/
 	      ThisSumJones += JS.BB*FWeightDecorr;
 	      ThisSumJonesChan[visChan] += JS.BB*FWeightDecorr;
+//  	      if(facet==0 && visChan==0)
+//                std::fprintf(stderr,"F%dB%dR%d weight %f jones %f %f BB %f wsq %f sj %f\n",facet,iBlock,irow,FWeight,JS.J0.v[0].real(),JS.J0.v[0].imag(),
+//				JS.BB,FWeightSq,ThisSumJonesChan[0]);
 	      }
 	    else /* Don't apply Jones */
 	      mulaccum(VisMeas, Weight, Vis);

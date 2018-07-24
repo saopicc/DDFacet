@@ -81,6 +81,7 @@ namespace DDF{
       const double l0=ptrFacetInfos[2];
       const double m0=ptrFacetInfos[3];
       const double n0=sqrt(1-l0*l0-m0*m0)-1;
+      //const int facet = ptrFacetInfos[4];
 
       /* Get size of grid. */
       const double *ptrWinfo = Winfos.data(0);
@@ -120,6 +121,8 @@ namespace DDF{
       WaveLengthMean/=double(nVisChan);
 
       DDEs::JonesServer JS(LJones,WaveLengthMean);
+//      if( !facet )
+//        cerr<<"BDAJones degrid mode "<<JS.DoApplyJones<<endl<<endl;
 
       const int *p_ChanMapping=np_ChanMapping.data(0);
       const fcmplx* __restrict__ griddata = grid.data(0);
