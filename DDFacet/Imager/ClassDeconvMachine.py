@@ -786,9 +786,9 @@ class ClassImagerDeconv():
             self._pointing_machines = []
             for iMS, MS in enumerate(self.VS.ListMS):
                 print>> log, ModColor.Str("Initializing pointing solutions for measurement %d / %d" % (iMS + 1,len(self.VS.ListMS)))
-                self._pointing_machines.append(PointingProvider(MS,
-                                                                self.GD["PointingSolutions"].get("PointingSolsCSV", None),
-                                                                self.GD["PointingSolutions"].get("InterpolationMode", None)))
+                point_sols_csv = self.GD["PointingSolutions"].get("PointingSolsCSV", None)
+                point_sols_interp_mode = self.GD["PointingSolutions"].get("InterpolationMode", None)
+                self._pointing_machines.append(PointingProvider(MS, point_sols_csv, point_sols_interp_mode))
         else:
             print>> log, ModColor.Str("Montblanc predict not enabled. Will not apply pointing corrections.")
             
@@ -802,22 +802,15 @@ class ClassImagerDeconv():
         old_OMP_setting = os.environ["OMP_NUM_THREADS"]
         os.environ["OMP_NUM_THREADS"] = str(self.GD["Parallel"]["NCPU"] or psutil.cpu_count())
 
-        if set(self.VS.StokesConverter.AvailableCorrelationProducts()) <= set(["XX", "XY", "YX", "YY"]):
-            polarization_type = "linear"
-            print>>log, "Setting Montblanc solver up for linear feeds"
-        elif set(self.VS.StokesConverter.AvailableCorrelationProducts()) <= set(["RR", "RL", "LR", "LL"]):
-            polarization_type = "circular"
-            print>>log, "Setting Montblanc solver up for circular feeds"
-        else:
-            raise RuntimeError("Montblanc only supports linear or circular feed measurements.")
         MS = self.VS.ListMS[DATA["iMS"]]
         pointing_sols = self._pointing_machines[DATA["iMS"]]
         model = self.ModelMachine.GiveModelList(MS.ChanFreq)
         mb_machine = ClassMontblancMachine(self.GD,
                                            self.FacetMachine.Npix,
                                            self.FacetMachine.CellSizeRad,
-                                           polarization_type)
-        mb_machine.get_chunk(DATA, datacolumn, model, MS, pointing_sols)
+                                           MS,
+                                           pointing_sols)
+        mb_machine.get_chunk(DATA, datacolumn, model)
         mb_machine.close()
         os.environ["OMP_NUM_THREADS"] = old_OMP_setting
 

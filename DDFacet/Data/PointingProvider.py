@@ -58,8 +58,10 @@ class PointingProvider(object):
         self._data_feed_labels = ClassStokes(MS.CorrelationIds, ["I"]).AvailableCorrelationProducts()
         if set(self._data_feed_labels) <= set(["XX", "XY", "YX", "YY"]):
             self._feed_type = "linear"
+            self._ptcorr_labels = ["XX", "YY"]
         elif set(self._data_feed_labels) <= set(["RR", "RL", "LR", "LL"]):
             self._feed_type = "circular"
+            self._ptcorrs_labels = ["RR", "LL"]
         else:
             raise InvalidFeedType("Imager pointing errors module only supports linear or circular feed measurements.")
         self._raw_offsets = None
@@ -72,20 +74,22 @@ class PointingProvider(object):
     def _read_raw(self, pointing_errs_file):
         """ Reads raw data """
         if pointing_errs_file == "" or not pointing_errs_file:
+            na = len(self._MS_hndl.StationNames)
+            # initialize dataframe used to initialize interpolators 2 * ntime * 2 correlations per antenna
+            # if no pointing file is specified
             self._raw_offsets = pd.DataFrame(zip([sn for sn in self._MS_hndl.StationNames for i in range(4)], 
-                                                 (["XX", "YY"] if self._feed_type == "linear" else ["RR", "LL"]) * (len(self._MS_hndl.StationNames * 2)),
-                                                 np.zeros(len(self._MS_hndl.StationNames * 4), dtype=np.float64),
-                                                 np.zeros(len(self._MS_hndl.StationNames * 4), dtype=np.float64),
-                                                 np.zeros(len(self._MS_hndl.StationNames * 4), dtype=np.float64)),
+                                                 self._ptcorr_labels * (na * 2),
+                                                 np.zeros(na * 4, dtype=np.float64),
+                                                 np.zeros(na * 4, dtype=np.float64),
+                                                 np.zeros(na * 4, dtype=np.float64)),
                                              columns=PointingProvider.__COMPULSORY_HEADER)
         else:
-            self._raw_offsets = pd.read_csv(pointing_errs_file,
-                                            sep="\s+")
-            if set([l for l in self._raw_offsets.columns]) != set(PointingProvider.__COMPULSORY_HEADER):
+            self._raw_offsets = pd.read_csv(pointing_errs_file, sep="\s+")
+            if not (set(PointingProvider.__COMPULSORY_HEADER) <= set([l for l in self._raw_offsets.columns])):
                 raise InvalidPointingSolutions("Requires at least %s columns present" % ",".join(PointingProvider.__COMPULSORY_HEADER))
 
-            if self._raw_offsets.where(np.logical_and(self._raw_offsets["POL"] != ("XX" if self._feed_type == "linear" else "RR"),
-                                                      self._raw_offsets["POL"] != ("YY" if self._feed_type == "linear" else "LL"))).any()["POL"]:
+            if np.any(np.logical_and(self._raw_offsets["POL"] != self._ptcorr_labels[0],
+                                     self._raw_offsets["POL"] != self._ptcorr_labels[1])):
                 raise InvalidPointingSolutions("%s feed in measurement set, but found pointing error solutions for another feed type" % self._feed_type)
             
             print>> log, "Read pointing error solutions from %s" % pointing_errs_file
@@ -101,7 +105,7 @@ class PointingProvider(object):
                                                                   mjd2utc(self._raw_offsets.max()["TIME"]))
             print>>log, "Pointing solutions contain solutions for stations %s" % ",".join(set(self._raw_offsets["#ANT"]))
         for a in set(self._raw_offsets["#ANT"]):
-            self._interp_offsets[a] = {"XX":{}, "YY":{}} if self._feed_type == "linear" else {"RR":{}, "LL":{}}
+            self._interp_offsets[a] = {c: {} for c in self._ptcorr_labels}
             for f in ["XX", "YY"] if self._feed_type == "linear" else ["RR", "LL"]:
                 sel = self._raw_offsets.where(np.logical_and(self._raw_offsets["#ANT"] == a,
                                                              self._raw_offsets["POL"] == f)).dropna()
@@ -166,7 +170,7 @@ class PointingProvider(object):
         time: float / ndarray of mean Julian date time values (UTC) as read from TIME
         """
         if self._feed_type != "linear":
-            raise RuntimeError("Feed type is not linear.")
+            raise ValueError("Feed type is not linear.")
         return self.__get_offset(antenna_name, time, "XX")
     
     def offset_YY(self, antenna_name, time):
@@ -178,7 +182,7 @@ class PointingProvider(object):
         time: float / ndarray of mean Julian date time values (UTC) as read from TIME
         """
         if self._feed_type != "linear":
-            raise RuntimeError("Feed type is not linear.")
+            raise ValueError("Feed type is not linear.")
         return self.__get_offset(antenna_name, time, "YY")
     
     def offset_RR(self, antenna_name, time):
@@ -190,7 +194,7 @@ class PointingProvider(object):
         time: float / ndarray of mean Julian date time values (UTC) as read from TIME
         """
         if self._feed_type != "circular":
-            raise RuntimeError("Feed type is not circular.")
+            raise ValueError("Feed type is not circular.")
         return self.__get_offset(antenna_name, time, "RR")
     
     def offset_LL(self, antenna_name, time):
@@ -202,5 +206,5 @@ class PointingProvider(object):
         time: float / ndarray of mean Julian date time values (UTC) as read from TIME
         """
         if self._feed_type != "circular":
-            raise RuntimeError("Feed type is not circular.")
+            raise ValueError("Feed type is not circular.")
         return self.__get_offset(antenna_name, time, "LL")

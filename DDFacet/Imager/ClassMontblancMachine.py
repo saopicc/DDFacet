@@ -47,7 +47,7 @@ log=MyLogger.getLogger("ClassMontblancMachine")
 DEBUG = False
 
 class ClassMontblancMachine(object):
-    def __init__(self, GD, npix, cell_size_rad, polarization_type="linear"):
+    def __init__(self, GD, npix, cell_size_rad,  MS, pointing_sols):
         shndlrs = filter(lambda x: isinstance(x, logging.StreamHandler),
                          montblanc.log.handlers)
         montblanc.log.propagate = False
@@ -68,9 +68,10 @@ class ClassMontblancMachine(object):
         montblanc.log.addHandler(fhndlr)
 
         # configure solver
+        self._mgr = DataDictionaryManager(MS, pointing_sols)
         self._slvr_cfg = slvr_cfg = montblanc.rime_solver_cfg(
             data_source="default",
-            polarisation_type=polarization_type,
+            polarisation_type=self._mgr._solver_polarization_type,
             mem_budget=int(np.ceil(GD["Montblanc"]["MemoryBudget"]*1024*1024*1024)),
             dtype=GD["Montblanc"]["SolverDType"],
             auto_correlations=True,
@@ -81,8 +82,7 @@ class ClassMontblancMachine(object):
 
         self._cell_size_rad = cell_size_rad
         self._npix = npix
-        self._mgr = DataDictionaryManager(polarization_type)
-
+        
         # Configure the Beam upfront
         if GD["Beam"]["Model"] == "FITS":
             fits_file_spec = GD["Beam"]["FITSFile"]
@@ -93,9 +93,9 @@ class ClassMontblancMachine(object):
         else:
             self._beam_prov = None
 
-    def get_chunk(self, data, residuals, model, MS, pointing_sols):
+    def get_chunk(self, data, residuals, model):
         # Configure the data dictionary manager
-        self._mgr.cfg_from_data_dict(data, model, residuals, MS, pointing_sols, self._npix, self._cell_size_rad)
+        self._mgr.cfg_from_data_dict(data, model, residuals, self._npix, self._cell_size_rad)
 
         # Configure source providers
         source_provs = []  if self._beam_prov is None else [self._beam_prov]
@@ -121,10 +121,51 @@ class DataDictionaryManager(object):
         1. We're dealing with a single band
         2. We're dealing with a single field
         3. We're dealing with a single observation
+    
+    Arguments:
+        MS: DDFacet.Data.ClassMS instance
+        pointing_sols: DDFacet.Data.PointingProvider associated to MS
+        solver_polarization_type: initiate montblanc for linear or circular feeds
     """
-    def __init__(self, solver_polarization_type="linear"):
-        self._solver_polarization_type = solver_polarization_type
-        pass
+    def __init__(self, MS, pointing_sols):
+        self._data_feed_labels = ClassStokes(MS.CorrelationIds, ["I"]).AvailableCorrelationProducts()
+        
+        # Extract the required prediction feeds from the MS
+        if set(self._data_feed_labels) <= set(["XX", "XY", "YX", "YY"]):
+            self._montblanc_feed_labels = ["XX", "XY", "YX", "YY"]
+            self._solver_polarization_type = "linear"
+        elif set(self._data_feed_labels) <= set(["RR", "RL", "LR", "LL"]):
+            self._montblanc_feed_labels = ["RR", "RL", "LR", "LL"]
+            self._solver_polarization_type = "circular"
+        else:
+            raise RuntimeError("Montblanc only supports linear or circular feed measurements.")
+        
+        # MS correlation to montblanc correlation map
+        self._predict_feed_map = [self._montblanc_feed_labels.index(x) for x in self._data_feed_labels]
+        montblanc.log.info("Montblanc to MS feed mapping: %s" % ",".join([str(x) for x in self._predict_feed_map]))
+        
+        # Extract the antenna positions and
+        # phase direction from the measurement set
+        self._station_names = MS.StationNames
+        self._antenna_positions = MS.StationPos
+        self._phase_dir = np.array((MS.rarad, MS.decrad))
+
+        montblanc.log.info("Phase centre of {pc}".format(pc=np.rad2deg(self._phase_dir)))
+        
+        # RIME frequencies from ::SPECTRAL_WINDOW
+        self._frequency = MS.ChanFreq
+        self._ref_frequency = MS.reffreq
+        
+        # this montblanc instance is associated to the meta data of a single MS (or selection)
+        if not isinstance(MS, ClassMS):
+           raise TypeError("MS argument must be of type ClassMS")
+        self._MS = MS
+        
+        # set preinstantiated pointing solutions provider
+        if not isinstance(pointing_sols, PointingProvider):
+            raise TypeError("pointing_sols argument must be of type PointingProvider")
+        self._pointing_solutions = pointing_sols
+        
 
     def _transform(self, c):
         """
@@ -180,8 +221,7 @@ class DataDictionaryManager(object):
         assert time.size == nbl * ntime, "Input arrays must be padded to include autocorrelations, all baselines and all time"
         antenna_indicies = DataDictionaryManager.antenna_indicies(na, auto_correlations=True)
         new_uvw = np.zeros((ntime*nbl, 3))
-        lmat = np.triu((np.cumsum(np.arange(na)[None, :] >=
-                                  np.arange(na)[:, None]) - 1).reshape([na, na]))
+
         for ti, t in enumerate(unique_time):
             epoch = dm.epoch("UT1", quantity(t, "s"))
             dm.do_frame(epoch)
@@ -199,7 +239,7 @@ class DataDictionaryManager(object):
         
         return new_uvw
     
-    def cfg_from_data_dict(self, data, models, residuals, MS, pointing_sols, npix, cell_size_rad):
+    def cfg_from_data_dict(self, data, models, residuals, npix, cell_size_rad):
         time, uvw, antenna1, antenna2, flag = (data[i] for i in  ('times', 'uvw', 'A0', 'A1', 'flags'))
 
         self._npix = npix
@@ -224,39 +264,6 @@ class DataDictionaryManager(object):
         montblanc.log.info("{n} point sources".format(n=npsrc))
         montblanc.log.info("{n} gaussian sources".format(n=ngsrc))
 
-        # Extract the antenna positions and
-        # phase direction from the measurement set
-        if not isinstance(MS, ClassMS):
-            raise TypeError("MS argument must be of type ClassMS")
-        self._antenna_positions = MS.StationPos
-        self._phase_dir = np.array((MS.rarad, MS.decrad))
-        self._data_feed_labels = ClassStokes(MS.CorrelationIds, ["I"]).AvailableCorrelationProducts()
-
-        # set preinstantiated pointing solutions provider
-        if not isinstance(pointing_sols, PointingProvider):
-            raise TypeError("pointing_sols argument must be of type PointingProvider")
-        self._pointing_solutions = pointing_sols
-        
-        # Extract the required prediction feeds from the MS
-        if set(self._data_feed_labels) <= set(["XX", "XY", "YX", "YY"]):
-            self._montblanc_feed_labels = ["XX", "XY", "YX", "YY"]
-            if self._solver_polarization_type != "linear":
-                raise RuntimeError("Solver configured for linear polarizations. "
-                                   "Does not support combining measurement sets of different feed types")
-        elif set(self._data_feed_labels) <= set(["RR", "RL", "LR", "LL"]):
-            self._montblanc_feed_labels = ["RR", "RL", "LR", "LL"]
-            if self._solver_polarization_type != "circular":
-                raise RuntimeError("Solver configured for circular polarizations. "
-                                   "Does not support combining measurement sets of different feed types")
-        else:
-            raise RuntimeError("Montblanc only supports linear or circular feed measurements.")
-
-        self._predict_feed_map = [self._montblanc_feed_labels.index(x) for x in self._data_feed_labels]
-        montblanc.log.info("Montblanc to MS feed mapping: %s" % ",".join([str(x) for x in self._predict_feed_map]))
-
-        montblanc.log.info("Phase centre of {pc}".format(pc=np.rad2deg(self._phase_dir)))
-        self._frequency = MS.ChanFreq
-        self._ref_frequency = MS.reffreq
         self._nchan = nchan = self._frequency.size
 
         # Merge antenna ID's and count their frequencies
@@ -266,7 +273,7 @@ class DataDictionaryManager(object):
         self._na = na = unique_ants.size
         assert self._na <= self._antenna_positions.shape[0], "ANTENNA_1 and ANTENNA_2 contains more indicies than antennae specified through MS.StationPos"
         self._na = self._antenna_positions.shape[0] # going to pad to the maximum number of antennas
-        self._station_names = MS.StationNames
+        
         # can compute the time indexes using a scan operator
         # assuming the dataset is ordered and the time column
         # contains the integration centroid of the correlator dumps
@@ -311,8 +318,7 @@ class DataDictionaryManager(object):
         # pad the antenna array
         self._padded_a1 = np.empty((self._nbl), dtype=np.int32)
         self._padded_a2 = np.empty((self._nbl), dtype=np.int32)
-        lmat = np.triu((np.cumsum(np.arange(self._na)[None, :] >=
-                                  np.arange(self._na)[:, None]) - 1).reshape([self._na, self._na]))
+
         antenna_indicies = DataDictionaryManager.antenna_indicies(na, auto_correlations=True)
         for bl in xrange(self._nbl):
             blants = antenna_indicies[bl]
@@ -589,26 +595,31 @@ class DDFacetSourceProvider(SourceProvider):
         self.update_nchunks(context)
         (lt, ut) = context.dim_extents('ntime')
         times = self._manager._padded_time[lt:ut]
-        XRcorr = lambda a, t: self._manager._pointing_solutions.offset_XX(a, t) if self._manager._solver_polarization_type == "linear" else \
-                 lambda a, t: self._manager._pointing_solutions.offset_RR(a, t) if self._manager._solver_polarization_type == "circular" else None
-        YLcorr = lambda a, t: self._manager._pointing_solutions.offset_YY(a, t) if self._manager._solver_polarization_type == "linear" else \
-                 lambda a, t: self._manager._pointing_solutions.offset_LL(a, t) if self._manager._solver_polarization_type == "circular" else None
-             
+        pol_type = self._manager._solver_polarization_type
+        point_sol = self._manager._pointing_solutions
+        nstations = self._manager._na
+        ntime = times.shape[0]
         
-        #[XR, YL] x na x nch x ntime x 2
-        # squint error in XX, YY
-        errs_squint = np.array([np.array([np.repeat(np.array(sol(a, times)).T,
-                                                    self._manager._nchan).reshape(2,
-                                                                                  times.shape[0], 
-                                                                                  self._manager._nchan).T 
-                                          for a in self._manager._station_names])                                     
-                                for sol in [XRcorr, YLcorr]])
+        if pol_type == "linear":
+            XRcorr = point_sol.offset_XX
+            YLcorr = point_sol.offset_YY
+        elif pol_type == "circular":
+            XRcorr = point_sol.offset_RR
+            YLcorr = point_sol.offset_LL
+        else:
+            raise ValueError("Invalid polarisation type %s. This is a bug" % pol_type)      
+        
+        nchan = self._manager._nchan
+        
         # corrrection is in powerbeam centre so take the average between XX and YY offsets in RA and DEC
-        # na x nch x ntime x 2
-        errs_I = np.mean(errs_squint, axis=0)
-        #ntime x na x nch x 2
-        errs_mblanc = np.deg2rad(np.swapaxes(np.swapaxes(errs_I, 1, 2), 0, 1))
-        return errs_mblanc
+        point_errors = np.empty((times.shape[0], nstations, nchan, 2), dtype=context.dtype)
+        for a, station_name in enumerate(self._manager._station_names):
+            data =  ((XRcorr(a, times) + YLcorr(a, times)) / 2).T
+            assert data.shape == (ntime, 2)
+            data_chan = np.tile(data, (1, 1, nchan)).reshape(ntime, nchan, 2) 
+            point_errors[:, a, :, :] = np.deg2rad(data_chan) 
+        
+        return point_errors
 
 class DDFacetSinkProvider(SinkProvider):
     def __init__(self, manager):
