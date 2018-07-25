@@ -614,7 +614,7 @@ class DDFacetSourceProvider(SourceProvider):
         # corrrection is in powerbeam centre so take the average between XX and YY offsets in RA and DEC
         point_errors = np.empty((times.shape[0], nstations, nchan, 2), dtype=context.dtype)
         for a, station_name in enumerate(self._manager._station_names):
-            data =  ((XRcorr(a, times) + YLcorr(a, times)) / 2).T
+            data =  ((XRcorr(station_name, times) + YLcorr(station_name, times)) / 2).T
             assert data.shape == (ntime, 2)
             data_chan = np.tile(data, (1, 1, nchan)).reshape(ntime, nchan, 2) 
             point_errors[:, a, :, :] = np.deg2rad(data_chan) 
