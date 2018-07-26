@@ -330,7 +330,8 @@ class DataDictionaryManager(object):
         assert np.all(self._padded_a2[self._datamask] == antenna2[self._sort_index])
 
         # pad the time array
-        self._padded_time = np.unique(time).repeat(self._nbl)
+        self._unique_time = np.unique(time) # sorted unique times
+        self._padded_time = self._unique_time.repeat(self._nbl)
         assert np.all(self._padded_time[self._datamask] == time[self._sort_index])
 
         # Pad the uvw array to contain nbl * ntime entries (including the autocorrs)
@@ -547,7 +548,7 @@ class DDFacetSourceProvider(SourceProvider):
         (lt, ut) = context.dim_extents('ntime')
         mgr = self._manager
 
-        return mbu.parallactic_angles(mgr._padded_time[lt:ut],
+        return mbu.parallactic_angles(mgr._unique_time[lt:ut],
             mgr._antenna_positions,
             mgr._phase_dir).astype(context.dtype)
 
@@ -594,7 +595,7 @@ class DDFacetSourceProvider(SourceProvider):
         """ Implements pointing offsets """
         self.update_nchunks(context)
         (lt, ut) = context.dim_extents('ntime')
-        times = self._manager._padded_time[lt:ut]
+        times = self._manager._unique_time[lt:ut]
         pol_type = self._manager._solver_polarization_type
         point_sol = self._manager._pointing_solutions
         nstations = self._manager._na

@@ -69,6 +69,8 @@ class PointingProvider(object):
         self._solutions_file = solutions_file
         self._interp_mode = None
         self._interp_offsets = None
+        self._min_time_ant = {}
+        self._max_time_ant = {}
         self.interpolator = interp_mode
         
     def _read_raw(self, pointing_errs_file):
@@ -106,6 +108,9 @@ class PointingProvider(object):
             print>>log, "Pointing solutions contain solutions for stations %s" % ",".join(set(self._raw_offsets["#ANT"]))
         for a in set(self._raw_offsets["#ANT"]):
             self._interp_offsets[a] = {c: {} for c in self._ptcorr_labels}
+            self._min_time_ant[a] = self._raw_offsets.where(self._raw_offsets["#ANT"] == a).min()["TIME"]
+            self._max_time_ant[a] = self._raw_offsets.where(self._raw_offsets["#ANT"] == a).max()["TIME"]
+
             for f in ["XX", "YY"] if self._feed_type == "linear" else ["RR", "LL"]:
                 sel = self._raw_offsets.where(np.logical_and(self._raw_offsets["#ANT"] == a,
                                                              self._raw_offsets["POL"] == f)).dropna()
@@ -155,6 +160,12 @@ class PointingProvider(object):
         if antenna_name not in self._interp_offsets.keys():
             print>>log, "No pointing solutions for station %s, assuming 0.0" % antenna_name
             return np.array([np.zeros_like(time), np.zeros_like(time)])
+        num_extrap = np.sum(np.logical_or(time < self._min_time_ant[antenna_name],
+                                          time > self._max_time_ant[antenna_name]))
+
+        if num_extrap > 0:
+            print>>log, "Warning: extrapolating %.2f%% pointing errors for antenna %s." % \
+                    ((num_extrap / float(time.size) * 100.0), antenna_name)
         if corr not in self._interp_offsets[antenna_name].keys():
             raise KeyError("No interpolated solutions for correlation %s. This is a bug." % corr)
         ra = self._interp_offsets[antenna_name][corr]["RA"](time)
