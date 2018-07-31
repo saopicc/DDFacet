@@ -182,9 +182,23 @@ class DataDictionaryManager(object):
         l = np.cos(coord[0, 1])*np.sin(delta_ang[0])
         m = np.sin(coord[0, 1])*np.cos(self._phase_dir[1]) - \
             np.cos(coord[0, 1])*np.sin(self._phase_dir[1])*np.cos(delta_ang[0])
-
+        
         return (l, m)
-    
+
+    def _radec(self, c):
+        """
+        Computes the radec image plane coordinates from pixel coordinates assuming 
+        a SIN projection in the WCS
+        """
+        coord = np.deg2rad(self._wcs.wcs_pix2world(np.asarray([c]), 1))
+
+        if DEBUG:
+            montblanc.log.debug("WCS src coordinates [deg] '{c}'".format(c=np.rad2deg(coord)))
+
+        
+        return (coord[0, 0], coord[0, 1])
+
+
     @classmethod
     def _synthesize_uvw(cls, station_ECEF, time, a1, a2, phase_ref):
         """
@@ -466,7 +480,7 @@ class DDFacetSourceProvider(SourceProvider):
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         pt_slice = mgr._point_sources[lp:up]
         # Assign coordinate tuples
-        sky_coords_rad = np.array([mgr._transform(p[1]) for p in pt_slice],
+        sky_coords_rad = np.array([mgr._radec(p[1]) for p in pt_slice],
             dtype=context.dtype)
 
         return sky_coords_rad.reshape(context.shape)
@@ -496,7 +510,7 @@ class DDFacetSourceProvider(SourceProvider):
         # ModelType, lm coordinate, I flux, ref_frequency, Alpha, Model Parameters
         g_slice = mgr._gaussian_sources[lg:ug]
         # Assign coordinate tuples
-        sky_coords_rad = np.array([mgr._transform(g[1]) for g in g_slice],
+        sky_coords_rad = np.array([mgr._radec(g[1]) for g in g_slice],
             dtype=context.dtype)
 
         return sky_coords_rad.reshape(context.shape)
@@ -547,10 +561,11 @@ class DDFacetSourceProvider(SourceProvider):
         # Time extents
         (lt, ut) = context.dim_extents('ntime')
         mgr = self._manager
-
+        pointing_errs = np.nanmean(self.pointing_errors(context), axis=2)
         return mbu.parallactic_angles(mgr._unique_time[lt:ut],
             mgr._antenna_positions,
-            mgr._phase_dir).astype(context.dtype)
+            mgr._phase_dir,
+            offsets=pointing_errs).astype(context.dtype)
 
     def model_vis(self, context):
         self.update_nchunks(context)
@@ -621,6 +636,9 @@ class DDFacetSourceProvider(SourceProvider):
             point_errors[:, a, :, :] = np.deg2rad(data_chan) 
         
         return point_errors
+
+    def phase_centre(self, context):
+        return np.array(self._manager._phase_dir)
 
 class DDFacetSinkProvider(SinkProvider):
     def __init__(self, manager):
