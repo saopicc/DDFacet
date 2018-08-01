@@ -82,7 +82,7 @@ class ClassMontblancMachine(object):
 
         self._cell_size_rad = cell_size_rad
         self._npix = npix
-        
+
         # Configure the Beam upfront
         if GD["Beam"]["Model"] == "FITS":
             fits_file_spec = GD["Beam"]["FITSFile"]
@@ -286,7 +286,7 @@ class DataDictionaryManager(object):
         ant_counts = np.bincount(ants)
         self._na = na = unique_ants.size
         assert self._na <= self._antenna_positions.shape[0], "ANTENNA_1 and ANTENNA_2 contains more indicies than antennae specified through MS.StationPos"
-        self._na = self._antenna_positions.shape[0] # going to pad to the maximum number of antennas
+        self._na = na = self._antenna_positions.shape[0] # going to pad to the maximum number of antennas
         
         # can compute the time indexes using a scan operator
         # assuming the dataset is ordered and the time column

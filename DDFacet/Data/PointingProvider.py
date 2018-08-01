@@ -61,7 +61,7 @@ class PointingProvider(object):
             self._ptcorr_labels = ["XX", "YY"]
         elif set(self._data_feed_labels) <= set(["RR", "RL", "LR", "LL"]):
             self._feed_type = "circular"
-            self._ptcorrs_labels = ["RR", "LL"]
+            self._ptcorr_labels = ["RR", "LL"]
         else:
             raise InvalidFeedType("Imager pointing errors module only supports linear or circular feed measurements.")
         self._raw_offsets = None
