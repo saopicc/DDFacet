@@ -56,7 +56,7 @@ def IndivToPolygon(indiv,PolyCut):
             LPolygon.append(np.array(PP[0]))
         else:
             LPolygon.append(np.array(PP))
-            
+
     return LPolygon
         
 def doOverlap(npP0,npP1):
@@ -80,7 +80,10 @@ def doOverlap(npP0,npP1):
         return "Cut"
 
 def giveMeanDistanceToNode(xc,yc,x,y,S,Poly):
-    d0=np.sqrt(Polygon.Polygon(Poly).area())
+    if Poly.size==0: return 1e10
+    P=Polygon.Polygon(Poly)
+    Pa=P.area()
+    d0=np.sqrt(Pa)
     w=S/np.sum(S)
     dmean=np.sum(w*np.sqrt((xc-x)**2+(yc-y)**2)/d0)
     return dmean

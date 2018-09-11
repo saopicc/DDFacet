@@ -26,12 +26,13 @@ from deap import tools
 from scipy.spatial import Voronoi
 import ModVoronoi
 from DDFacet.Other import MyLogger
+from DDFacet.Other import MyPickle
 log=MyLogger.getLogger("ClusterDEAP")
 from DDFacet.Other import ClassTimeIt
 #from scoop import futures
 import multiprocessing
 import scipy.stats
-import Polygon
+#import Polygon
 import ClassMetricDEAP
 import DDFacet.ToolsDir.GeneDist
 
@@ -186,17 +187,25 @@ class ClassCluster():
         x0,x1=self.x.min(),self.x.max()
         y0,y1=self.y.min(),self.y.max()
         N=len(pop)
+        # p=np.load("pop.npy")
+        # for i,ii in enumerate(p): pop[i][:]=ii[:]
+        # return 
+
         pop0=pop[0:N/2]
         pop1=pop[N/2:]
         for iIndiv,Indiv in enumerate(pop0):
+            #print iIndiv,len(pop0)
             x,y=Indiv.reshape((2,self.nNode))
             indSel=DDFacet.ToolsDir.GeneDist.GiveNonRedundantSample(self.S,self.nNode)
             x[:]=self.x[indSel]
             y[:]=self.y[indSel]
-        for Indiv in pop1:
+        for iIndiv,Indiv in enumerate(pop1):
+            #print iIndiv,len(pop1)
             x,y=Indiv.reshape((2,self.nNode))
             x[:]=np.random.uniform(x0,x1,self.nNode)
             y[:]=np.random.uniform(y0,y1,self.nNode)
+
+        MyPickle.Save(pop,"pop.myPickle")
             
     def Cluster(self):
         random.seed(64)
@@ -241,6 +250,7 @@ class ClassCluster():
                                             Polygons=self.Polygons,
                                             PolyCut=self.PolyCut)
         LPolygon=CMD.ListPolygons
+        #print LPolygon
         return hof[-1],LPolygon
 
 class ClassPlotMachine():
