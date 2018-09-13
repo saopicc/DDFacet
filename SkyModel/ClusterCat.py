@@ -42,6 +42,7 @@ def read_options():
     group = optparse.OptionGroup(opt, "* Data-related options")
     group.add_option('--SourceCat',type="str",help="Name of the source catalog",default="")
     group.add_option('--AvoidPolygons',type="str",help="Name of the avoidace polygon file",default="")
+    group.add_option('--CentralRadius',type="float",help="Central radius to avoid",default=0.)
     group.add_option('--FluxMin',type=float,help="",default=0.03)#5)
     group.add_option('--ExtentMax',type=float,help="",default=0.)#01)
     group.add_option('--NPop',type=int,help="",default=1000)
@@ -210,9 +211,13 @@ class ClusterImage():
         S=self.Cat.S.copy()
         PolyList=None
         self.BigPolygon=[]
+        PolyList=[]
         if self.AvoidPolygons!="":
             print>>log,"Reading polygon file: %s"%self.AvoidPolygons
-            PolyList=MyPickle.Load(self.AvoidPolygons)
+            PolyList+=MyPickle.Load(self.AvoidPolygons)
+
+            
+        if len(PolyList)>0:
             LPoly=[]
             inside=np.zeros((l.size,),np.float32)
             for iPolygon,Poly in enumerate(PolyList):
@@ -232,6 +237,17 @@ class ClusterImage():
             # S=S[inside==0]
             print>>log,"There are %i big polygons"%len(self.BigPolygon)
             
+        if self.CentralRadius>0:
+            print>>log,"Create central polygon with radius %f degrees"%self.CentralRadius
+            Rad=self.CentralRadius*np.pi/180
+            th=np.arange(0,2.*np.pi,2.*np.pi/100)
+            l=np.cos(th)*Rad
+            m=np.sin(th)*Rad
+            Poly=np.zeros((l.size,2),np.float32)
+            Poly[:,0]=l
+            Poly[:,1]=m
+            PolyList+=Poly
+        
         CC=Sky.ClassClusterDEAP.ClassCluster(l,m,S,nNode=self.NCluster,
                                              NGen=self.NGen,
                                              NPop=self.NPop,

@@ -48,7 +48,7 @@ class RegToNp():
                                     ("Type","<S200"),("Exclude",np.bool8),
                                     ("dx",np.float32),("dy",np.float32),
                                     ("ra1",np.float32),("dec1",np.float32),
-                                    ("Cluster",np.int16),("ID",np.int16),("Type","|S200")])
+                                    ("Cluster",np.int16),("ID",np.int16)])
         Cat=Cat.view(np.recarray)
         Cat.Cluster=-1
         Cat.Cluster=np.arange(Cat.shape[0])
