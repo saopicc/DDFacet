@@ -224,9 +224,8 @@ class ClassScaleMachine(object):
                 loc_dict = {'sig': sig, 'pi': np.pi, 'rhosq': self.rhosq_image, 'v': self.v_image, 'x0': x0,
                             'u': self.u_image, 'y0': y0}
                 rhosq = self.rhosq_image
-            result = np.exp(-2.0j * np.pi * self.v * x0 - 2.0j * np.pi * self.u * y0 - 2 * np.pi ** 2 * rhosq * sig ** 2)
-            # result = numexpr.evaluate('exp(-2.0j * pi * v * x0 - 2.0j * pi * u * y0 - 2 * pi ** 2 * rhosq * sig ** 2)',
-            #                        local_dict=loc_dict)
+            result = numexpr.evaluate('exp(-2.0j * pi * v * x0 - 2.0j * pi * u * y0 - 2 * pi ** 2 * rhosq * sig ** 2)',
+                                      local_dict=loc_dict)
         return result
 
     # TODO: Set max scale with minimum baseline

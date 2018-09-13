@@ -112,15 +112,16 @@ class ClassFrequencyMachine(object):
 
                 self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
 
-                # there is not need to recompute this every time if the beam is not enabled because same everywhere
+                # there is no need to recompute this every time if the beam is not enabled because same everywhere
                 # TODO - use integrated polynomial instead in this case
                 if not self.BeamEnable:
-                    SAmat = np.zeros([self.nchan, self.nchan_full])
-                    for iCh in xrange(self.nchan):
-                        I = np.argwhere(ChanMappingGrid[0] == iCh).squeeze()
-                        nchunk = np.size(I)
-                        SAmat[iCh, I] = 1.0 / nchunk
-                    self.SAX = SAmat.dot(self.Xdes_full)
+                    # SAmat = np.zeros([self.nchan, self.nchan_full])
+                    # for iCh in xrange(self.nchan):
+                    #     I = np.argwhere(ChanMappingGrid[0] == iCh).squeeze()
+                    #     nchunk = np.size(I)
+                    #     SAmat[iCh, I] = 1.0 / nchunk
+                    # self.SAX = SAmat.dot(self.Xdes_full)
+                    self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Andre')
                 self.Fit = self.FitPolyNew
                 self.Eval = self.EvalPolyApparent
                 self.Eval_Degrid = lambda coeffs, Freqs: self.EvalPoly(coeffs, Freqsp=Freqs)
@@ -233,14 +234,16 @@ class ClassFrequencyMachine(object):
             w = np.log(Freqs / self.ref_freq).reshape(Freqs.size, 1)
             # create tiled array and raise each column to the correct power
             Xdesign = np.tile(w, order) ** np.arange(0, order)
-        # elif mode == "Andre":  # can probably be optimised
-        #     w = (Freqs / self.ref_freq)
-        #     whigh = w[1::]
-        #     wlow = w[0:-1]
-        #     wdiff = whigh - wlow
-        #     Xdesign = np.zeros([Freqs.size-1, self.order])
-        #     for i in xrange(1, self.order+1):
-        #         Xdesign[:, i-1] = (whigh**i - wlow**i)/(i*wdiff)
+        elif mode == "Andre":
+            # we are given frequencies at bin centers convert to bin edges
+            delta_freq = Freqs[1] - Freqs[0]
+            wlow = (Freqs - delta_freq/2.0)/self.ref_freq
+            whigh = (Freqs + delta_freq/2.0)/self.ref_freq
+            wdiff = whigh - wlow
+            Xdesign = np.zeros([Freqs.size, self.order])
+            for i in xrange(1, self.order+1):
+                Xdesign[:, i-1] = (whigh**i - wlow**i)/(i*wdiff)
+            print "Design matrix set Andre style"
         else:
             raise NotImplementedError("Frequency basis %s not supported" % mode)
         return Xdesign
