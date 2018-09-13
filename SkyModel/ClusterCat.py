@@ -241,12 +241,12 @@ class ClusterImage():
             print>>log,"Create central polygon with radius %f degrees"%self.CentralRadius
             Rad=self.CentralRadius*np.pi/180
             th=np.arange(0,2.*np.pi,2.*np.pi/100)
-            l=np.cos(th)*Rad
-            m=np.sin(th)*Rad
-            Poly=np.zeros((l.size,2),np.float32)
-            Poly[:,0]=l
-            Poly[:,1]=m
-            PolyList+=Poly
+            lp=np.cos(th)*Rad
+            mp=np.sin(th)*Rad
+            Poly=np.zeros((lp.size,2),np.float32)
+            Poly[:,0]=lp
+            Poly[:,1]=mp
+            PolyList+=[Poly]
         
         CC=Sky.ClassClusterDEAP.ClassCluster(l,m,S,nNode=self.NCluster,
                                              NGen=self.NGen,
