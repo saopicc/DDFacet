@@ -20,7 +20,7 @@ from DDFacet.ToolsDir import ModCoord
 import Polygon
 SaveFile="ClusterImage.last"
 from SkyModel.Sky import ModVoronoiToReg
-import MakeCatalog
+#import MakeCatalog
 import os
 
 def test():
@@ -43,7 +43,7 @@ def read_options():
     group.add_option('--SourceCat',type="str",help="Name of the source catalog",default="")
     group.add_option('--AvoidPolygons',type="str",help="Name of the avoidace polygon file",default="")
     group.add_option('--CentralRadius',type="float",help="Central radius to avoid",default=0.)
-    group.add_option('--FluxMin',type=float,help="",default=0.03)#5)
+    group.add_option('--FluxMin',type=float,help="Flux threshold to apply to the catalog, default is %default",default=0.03)#5)
     group.add_option('--ExtentMax',type=float,help="",default=0.)#01)
     group.add_option('--NPop',type=int,help="",default=1000)
     group.add_option('--NGen',type=int,help="",default=300)
@@ -118,12 +118,16 @@ class ClusterImage():
 
     def SelectSources(self):
         if self.FluxMin>0.:
+            s=self.Cat.S.size
             ind=np.where(self.Cat.S>self.FluxMin)[0]
             self.Cat=self.Cat[ind]
+            print>>log,"  Seleted %i sources [out of %i] with flux density > %f Jy"%(ind.size,s,self.FluxMin)
 
         if self.ExtentMax>0.:
+            s=self.Cat.S.size
             ind=np.where(self.Cat.Maj<self.ExtentMax)[0]
             self.Cat=self.Cat[ind]
+            print>>log,"  Seleted %i sources [out of %i] with extent < %f"%(ind.size,s,self.Cat.Maj)
             
         
     def GroupSources(self,RadiusArcmin=2.):
