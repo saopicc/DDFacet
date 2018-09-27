@@ -420,14 +420,20 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
 
 
-    def CleanMaskedComponants(self,MaskName):
-        print>>log, "Cleaning model dictionary from masked components using %s"%(MaskName)
+    def CleanMaskedComponants(self,MaskName,InvertMask=False):
+        print>>log, "Cleaning model dictionary from masked components using %s [%i componants]"%(MaskName,len(self.DicoSMStacked["Comp"]))
+
         im=image(MaskName)
         MaskArray=im.getdata()[0,0].T[::-1]
+        if InvertMask:
+            print>>log,"  Inverting the mask"
+            MaskArray=1-MaskArray
         for (x,y) in self.DicoSMStacked["Comp"].keys():
             if MaskArray[x,y]==0:
                 del(self.DicoSMStacked["Comp"][(x,y)])
+        print>>log,"  There are %i componants left"%len(self.DicoSMStacked["Comp"])
 
+                
     def ToNPYModel(self,FitsFile,SkyModel,BeamImage=None):
         #R=ModRegFile.RegToNp(PreCluster)
         #R.Read()
