@@ -11,7 +11,7 @@ random.seed(1)
 from DDFacet.Other import MyLogger
 from DDFacet.Other import MyPickle
 log=MyLogger.getLogger("ClusterImage")
-import pyfits
+from astropy.io import fits
 import Sky.ClassClusterDEAP
 from DDFacet.ToolsDir.rad2hmsdms import rad2hmsdms
 import optparse
@@ -67,7 +67,7 @@ class ClusterImage():
     def __init__(self,**kwargs):
         for key, value in kwargs.items(): setattr(self, key, value)
         print>>log,"Reading %s"%self.SourceCat
-        f=pyfits.open(self.SourceCat)
+        f=fits.open(self.SourceCat)
         decc,rac=f[1].header["I_CRVAL1"],f[1].header["I_CRVAL2"]
         rac,decc=f[1].header["I_CRVAL1"],f[1].header["I_CRVAL2"]
         self.dPix=abs(f[1].header["I_CDELT1"])
@@ -94,7 +94,7 @@ class ClusterImage():
     def setCatName(self,CatName):
         print>>log,"Reading source catalog %s"%CatName
         self.CatName=CatName
-        self.c=pyfits.open(CatName)[1]
+        self.c=fits.open(CatName)[1]
         self.c.data.RA*=np.pi/180.
         self.c.data.DEC*=np.pi/180.
 
