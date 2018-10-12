@@ -108,7 +108,7 @@ class ClassFrequencyMachine(object):
                 self.freqs_full = []
                 for iCh in xrange(self.nchan):
                     self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh])
-                self.freqs_full = np.concatenate(self.freqs_full)
+                self.freqs_full = np.unique(np.concatenate(self.freqs_full))
 
                 self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
 
