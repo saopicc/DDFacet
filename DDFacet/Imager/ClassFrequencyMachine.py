@@ -112,7 +112,7 @@ class ClassFrequencyMachine(object):
 
                 self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
 
-                print "                      1 = ", np.shape(self.Xdes_full), self.nchan_full
+                print "                      1 = ", np.shape(self.Xdes_full), self.nchan_full, self.freqs_full
 
                 # there is no need to recompute this every time if the beam is not enabled because same everywhere
                 if not self.BeamEnable:
