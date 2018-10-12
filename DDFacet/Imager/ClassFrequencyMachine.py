@@ -104,7 +104,11 @@ class ClassFrequencyMachine(object):
                 # construct design matrix at full channel resolution
                 self.Xdes = self.setDesMat(self.Freqsp, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
                 ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
-                self.nchan_full = np.size(ChanMappingGrid[0])
+                print "                      3 = ", ChanMappingGrid
+
+                import sys
+                sys.exit(0)
+                self.nchan_full = np.size(ChanMappingGrid)
                 self.freqs_full = []
                 for iCh in xrange(self.nchan):
                     self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh])
