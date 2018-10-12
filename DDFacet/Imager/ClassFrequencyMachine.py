@@ -113,15 +113,8 @@ class ClassFrequencyMachine(object):
                 self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
 
                 # there is no need to recompute this every time if the beam is not enabled because same everywhere
-                # TODO - use integrated polynomial instead in this case
                 if not self.BeamEnable:
-                    # SAmat = np.zeros([self.nchan, self.nchan_full])
-                    # for iCh in xrange(self.nchan):
-                    #     I = np.argwhere(ChanMappingGrid[0] == iCh).squeeze()
-                    #     nchunk = np.size(I)
-                    #     SAmat[iCh, I] = 1.0 / nchunk
-                    # self.SAX = SAmat.dot(self.Xdes_full)
-                    self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Andre')
+                    self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Andre')  # this fits the integrated polynomial
                 self.Fit = self.FitPolyNew
                 self.Eval = self.EvalPolyApparent
                 self.Eval_Degrid = lambda coeffs, Freqs: self.EvalPoly(coeffs, Freqsp=Freqs)
@@ -436,7 +429,13 @@ class ClassFrequencyMachine(object):
             for iCh in xrange(self.nchan):
                 I = np.argwhere(ChanMappingGrid[0] == iCh).squeeze()  # TODO - test on multiple MSs
                 nchunk = np.size(I)
-                SAmat[iCh, I] = BeamFactor[I]/(nchunk*JonesFactor[iCh])  # The division by JonesFactor corrects for the fact that the PSF is normalised
+                if nchunk:
+                    SAmat[iCh, I] = BeamFactor[I]/(nchunk*JonesFactor[iCh])  # The division by JonesFactor corrects for the fact that the PSF is normalised
+                else:
+                    SAmat[iCh, I] = 0.0  # if the chunk is empty this avoids division by zero but weights should also be zero here
+                    Wtmp = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)[iCh]
+                    if Wtmp != 0:
+                        print "Your weights for chunk %i should be zero but its %f" % (iCh, Wtmp)
             self.SAX = SAmat.dot(self.Xdes_full)
         else:
             I0 = MaxDirty
