@@ -112,6 +112,8 @@ class ClassFrequencyMachine(object):
 
                 self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
 
+                print "                      1 = ", np.shape(self.Xdes_full), self.nchan_full
+
                 # there is no need to recompute this every time if the beam is not enabled because same everywhere
                 if not self.BeamEnable:
                     self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Andre')  # this fits the integrated polynomial
@@ -436,6 +438,7 @@ class ClassFrequencyMachine(object):
                     Wtmp = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)[iCh]
                     if Wtmp != 0:
                         print "Your weights for chunk %i should be zero but its %f" % (iCh, Wtmp)
+            print "                                   2 = ", np.shape(SAmat), np.shape(self.Xdes_full)
             self.SAX = SAmat.dot(self.Xdes_full)
         else:
             I0 = MaxDirty
