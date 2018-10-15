@@ -384,7 +384,7 @@ class ClassScaleMachine(object):
 
         # convolve Dirty and MeanDirty by this scale unless it's the delta scale
         if CurrentScale != 0:
-            MeanDirty = CurrentDirty
+            MeanDirty = np.ascontiguousarray(CurrentDirty)
             self.FTMachine.Chatim[...] = iFs(np.pad(Dirty, ((0, 0), (0, 0), (self.Npad, self.Npad),
                                                           (self.Npad, self.Npad)), mode='constant'), axes=(2,3))
             self.FTMachine.CFFTim()

@@ -118,22 +118,20 @@ class ClassFrequencyMachine(object):
                 else:
                     # build the S matrix
                     ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
-                    ChanMappingGridChan = self.PSFServer.DicoMappingDesc["ChanMappingGridChan"]
                     self.S = np.zeros([self.nchan, self.nchan_full], dtype=np.float32)
                     for iChannel in range(self.nchan):
                         for iMS in ChanMappingGrid.keys():
                             ind = np.where(ChanMappingGrid[iMS] == iChannel)[0]
-                            channels = ChanMappingGridChan[iMS][ind]
-                            nchunk = np.size(channels)
+                            nchunk = np.size(ind)
                             if nchunk:
-                                self.S[iChannel, channels] = 1.0/nchunk
+                                self.S[iChannel, ind] = 1.0/nchunk
                             else:
-                                self.S[iChannel, channels] = 0.0
-                            import matplotlib.pyplot as plt
-                            plt.figure('S')
-                            plt.imshow(self.S)
-                            plt.colorbar()
-                            plt.show()
+                                self.S[iChannel, ind] = 0.0
+                            # import matplotlib.pyplot as plt
+                            # plt.figure('S')
+                            # plt.imshow(self.S)
+                            # plt.colorbar()
+                            # plt.show()
 
                 self.Fit = self.FitPolyNew
                 self.Eval = self.EvalPolyApparent
@@ -446,7 +444,6 @@ class ClassFrequencyMachine(object):
             # next compute the product of the averaging matrix and beam matrix
             # ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
             # ChanMappingGridChan = self.PSFServer.DicoMappingDesc["ChanMappingGridChan"]
-            # SAmat = np.zeros([self.nchan, self.nchan_full])
             SAmat = self.S * BeamFactor[None, :] / JonesFactor[:, None]
             # for iCh in xrange(self.nchan):
             #     for iMS in ChanMappingGrid.keys():
@@ -459,7 +456,13 @@ class ClassFrequencyMachine(object):
             #             Wtmp = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)[iCh]
             #             if Wtmp != 0:
             #                 print "Your weights for chunk %i should be zero but its %f" % (iCh, Wtmp)
-            # print "                                   2 = ", np.shape(SAmat), np.shape(self.Xdes_full)
+            # import matplotlib.pyplot as plt
+            # plt.figure('Beam')
+            # plt.plot(self.freqs_full, BeamFactor, 'k')
+            # plt.plot(self.Freqs, np.sqrt(MeanJonesBand), 'r')
+            # plt.plot(self.Freqs, np.sqrt(JonesNorm), 'g')
+            # plt.show()
+
             self.SAX = SAmat.dot(self.Xdes_full)
         else:
             I0 = MaxDirty
