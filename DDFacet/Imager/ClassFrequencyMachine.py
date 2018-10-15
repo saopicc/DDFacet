@@ -103,24 +103,38 @@ class ClassFrequencyMachine(object):
                     self.prior_invcov_neg = np.zeros(self.order, dtype=np.float64)
                 # construct design matrix at full channel resolution
                 self.Xdes = self.setDesMat(self.Freqsp, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
-                ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
-                print "                      3 = ", ChanMappingGrid
 
-                import sys
-                sys.exit(0)
-                self.nchan_full = np.size(ChanMappingGrid)
                 self.freqs_full = []
                 for iCh in xrange(self.nchan):
                     self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh])
-                self.freqs_full = np.unique(np.concatenate(self.freqs_full))
+                self.freqs_full = np.concatenate(self.freqs_full)
+                self.nchan_full = np.size(self.freqs_full)
 
                 self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
-
-                print "                      1 = ", np.shape(self.Xdes_full), self.nchan_full, self.freqs_full
 
                 # there is no need to recompute this every time if the beam is not enabled because same everywhere
                 if not self.BeamEnable:
                     self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Andre')  # this fits the integrated polynomial
+                else:
+                    # build the S matrix
+                    ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
+                    ChanMappingGridChan = self.PSFServer.DicoMappingDesc["ChanMappingGridChan"]
+                    self.S = np.zeros([self.nchan, self.nchan_full], dtype=np.float32)
+                    for iChannel in range(self.nchan):
+                        for iMS in ChanMappingGrid.keys():
+                            ind = np.where(ChanMappingGrid[iMS] == iChannel)[0]
+                            channels = ChanMappingGridChan[iMS][ind]
+                            nchunk = np.size(channels)
+                            if nchunk:
+                                self.S[iChannel, channels] = 1.0/nchunk
+                            else:
+                                self.S[iChannel, channels] = 0.0
+                            import matplotlib.pyplot as plt
+                            plt.figure('S')
+                            plt.imshow(self.S)
+                            plt.colorbar()
+                            plt.show()
+
                 self.Fit = self.FitPolyNew
                 self.Eval = self.EvalPolyApparent
                 self.Eval_Degrid = lambda coeffs, Freqs: self.EvalPoly(coeffs, Freqsp=Freqs)
@@ -430,19 +444,22 @@ class ClassFrequencyMachine(object):
             # scale I0 by beam at ref_freq
             I0 = MaxDirty / BeamFactor[self.ref_freq_index]  # TODO - learn optimal I0 for prior from evidence
             # next compute the product of the averaging matrix and beam matrix
-            ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
-            SAmat = np.zeros([self.nchan, self.nchan_full])
-            for iCh in xrange(self.nchan):
-                I = np.argwhere(ChanMappingGrid[0] == iCh).squeeze()  # TODO - test on multiple MSs
-                nchunk = np.size(I)
-                if nchunk:
-                    SAmat[iCh, I] = BeamFactor[I]/(nchunk*JonesFactor[iCh])  # The division by JonesFactor corrects for the fact that the PSF is normalised
-                else:
-                    SAmat[iCh, I] = 0.0  # if the chunk is empty this avoids division by zero but weights should also be zero here
-                    Wtmp = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)[iCh]
-                    if Wtmp != 0:
-                        print "Your weights for chunk %i should be zero but its %f" % (iCh, Wtmp)
-            print "                                   2 = ", np.shape(SAmat), np.shape(self.Xdes_full)
+            # ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
+            # ChanMappingGridChan = self.PSFServer.DicoMappingDesc["ChanMappingGridChan"]
+            # SAmat = np.zeros([self.nchan, self.nchan_full])
+            SAmat = self.S * BeamFactor[None, :] / JonesFactor[:, None]
+            # for iCh in xrange(self.nchan):
+            #     for iMS in ChanMappingGrid.keys():
+            #         I = np.argwhere(ChanMappingGrid[iMS] == iCh).squeeze()  # TODO - test on multiple MSs
+            #         nchunk = np.size(I)
+            #         if nchunk:
+            #             SAmat[iCh, I] = BeamFactor[I]/(nchunk*JonesFactor[iCh])  # The division by JonesFactor corrects for the fact that the PSF is normalised
+            #         else:
+            #             SAmat[iCh, I] = 0.0  # if the chunk is empty this avoids division by zero but weights should also be zero here
+            #             Wtmp = self.PSFServer.DicoVariablePSF['SumWeights'].squeeze().astype(np.float64)[iCh]
+            #             if Wtmp != 0:
+            #                 print "Your weights for chunk %i should be zero but its %f" % (iCh, Wtmp)
+            # print "                                   2 = ", np.shape(SAmat), np.shape(self.Xdes_full)
             self.SAX = SAmat.dot(self.Xdes_full)
         else:
             I0 = MaxDirty
