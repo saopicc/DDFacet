@@ -444,7 +444,7 @@ class ClassFrequencyMachine(object):
             # next compute the product of the averaging matrix and beam matrix
             # ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
             # ChanMappingGridChan = self.PSFServer.DicoMappingDesc["ChanMappingGridChan"]
-            SAmat = self.S * BeamFactor[None, :] / JonesFactor[:, None]
+            SAmat = self.S * BeamFactor[None, :] #/ np.sqrt(JonesNorm)[:, None]  # JonesFactor[:, None]
             # for iCh in xrange(self.nchan):
             #     for iMS in ChanMappingGrid.keys():
             #         I = np.argwhere(ChanMappingGrid[iMS] == iCh).squeeze()  # TODO - test on multiple MSs
