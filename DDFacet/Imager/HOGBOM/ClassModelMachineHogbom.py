@@ -108,6 +108,71 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         DicoComp[key]["SumWeights"][pol_array_index] += Weight
         DicoComp[key]["SolsArray"][:, pol_array_index] += Weight * SolNorm
 
+    def GiveModelList(self, FreqIn=None, DoAbs=False, threshold=0.1):
+        """
+        Iterates through components in the "Comp" dictionary of DicoSMStacked,
+        returning a list of model sources in tuples looking like
+        (model_type, coord, flux, ref_freq, alpha, model_params).
+
+        model_type is obtained from self.ListScales
+        coord is obtained from the keys of "Comp"
+        flux is obtained from the entries in Comp["SolsArray"]
+        ref_freq is obtained from DicoSMStacked["RefFreq"]
+        alpha is obtained from self.ListScales
+        model_params is obtained from self.ListScales
+
+        If multiple scales exist, multiple sources will be created
+        at the same position, but different fluxes, alphas etc.
+
+        """
+        if DoAbs:
+            f_apply = np.abs
+        else:
+            f_apply = lambda x: x
+            
+        DicoComp = self.DicoSMStacked["Comp"]
+        ref_freq = self.DicoSMStacked["RefFreq"]
+        
+        if FreqIn is None:
+           FreqIn=np.array([ref_freq], dtype=np.float32)
+            
+        # Construct alpha map
+        IM = self.GiveModelImage(self.FreqMachine.Freqsp)
+        nchan, npol, Nx, Ny = IM.shape
+        # Fit the alpha map
+        self.FreqMachine.FitAlphaMap(IM[:, 0, :, :],
+                                     threshold=1.0e-6)  # should set threshold based on SNR of final residual
+        alpha = self.FreqMachine.weighted_alpha_map.reshape((1, 1, Nx, Ny))
+
+        # Assumptions:
+        # DicoSMStacked is a dictionary of "Solution" dictionaries
+        # keyed on (l, m), corresponding to some point  source. 
+        # Components associated with the source for each scale are
+        # located in self.ListScales.
+
+        def _model_map(coord, component):
+            """
+            Given a coordinate and component obtained from DicoMap
+            returns a tuple with the following information
+            (ModelType, coordinate, vector of STOKES solutions per basis function, alpha, shape data)
+            """
+            sa = component["SolsArray"]
+            return [("Delta",                         # type
+                     coord,                           # coordinate
+                     f_apply(self.FreqMachine.Eval_Degrid(sa,
+                                                          FreqIn)), # only a solution for I
+                     ref_freq,                        # reference frequency
+                     alpha[0, 0, coord[0], coord[1]], # alpha estimate
+                     None)]                           # shape
+
+        # Lazily iterate through DicoComp entries and associated ListScales and SolsArrays,
+        # assigning values to arrays
+        source_iter = itertools.chain.from_iterable(_model_map(coord, comp)
+            for coord, comp in DicoComp.iteritems())
+
+        # Create list with iterator results
+        return [s for s in source_iter]
+
 
     def GiveModelImage(self, FreqIn=None, DoAbs=False, out=None):
         if DoAbs:

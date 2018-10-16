@@ -98,7 +98,7 @@ class ClassModModelMachine():
             if self.SSDMM is None:
                 print>> log, "Initialising SSD model machine"
                 from DDFacet.Imager.SSD import ClassModelMachineSSD
-                self.SSDMM = ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+                self.SSDMM = ClassModelMachineSSD.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
             else:
                 print>> log, "SSD model machine already initialised"
             return self.SSDMM
@@ -108,7 +108,7 @@ class ClassModModelMachine():
                 from DDFacet.Imager.MSMF import ClassModelMachineMSMF
                 self.MSMFMM = ClassModelMachineMSMF.ClassModelMachine(
                     self.GD,
-                    GainMachine= ClassGainMachine.ClassGainMachine(GainMin=self.GD["Deconv"]["Gain"]))
+                    GainMachine= ClassGainMachine.get_instance())
             else:
                 print>> log, "HMP model machine already initialised"
             return self.MSMFMM
@@ -116,7 +116,9 @@ class ClassModModelMachine():
             if self.MORSANEMM is None:
                 print>> log, "Initialising MORESANE model machine"
                 from DDFacet.Imager.MORESANE import ClassModelMachineMORESANE
-                self.MORESANEMM = ClassModelMachineMORESANE.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+                self.MORESANEMM = ClassModelMachineMORESANE.ClassModelMachine(
+                    self.GD,
+                    GainMachine= ClassGainMachine.ClassGainMachine.get_instance())
             else:
                 print>> log, "MORSANE model machine already initialised"
             return self.MORESANEMM
@@ -124,7 +126,7 @@ class ClassModModelMachine():
             if self.MUFFINMM is None:
                 print>> log, "Initialising MUFFIN model machine"
                 from DDFacet.Imager.MUFFIN import ClassModelMachineMUFFIN
-                self.MUFFINMM = ClassModelMachineMUFFIN.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+                self.MUFFINMM = ClassModelMachineMUFFIN.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
             else:
                 print>> log, "MUFFIN model machine already initialised"
             return self.MUFFINMM
@@ -132,7 +134,7 @@ class ClassModModelMachine():
             if self.HOGBOMMM is None:
                 print>> log, "Initialising HOGBOM model machine"
                 from DDFacet.Imager.HOGBOM import ClassModelMachineHogbom
-                self.HOGBOMMM = ClassModelMachineHogbom.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.ClassGainMachine())
+                self.HOGBOMMM = ClassModelMachineHogbom.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
             else:
                 print>> log, "HOGBOM model machine already initialised"
             return self.HOGBOMMM
