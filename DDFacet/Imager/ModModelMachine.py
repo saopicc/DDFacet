@@ -142,10 +142,9 @@ class ClassModModelMachine():
             if self.WSCMSMM is None:
                 print>> log, "Initialising WSCMS model machine"
                 from DDFacet.Imager.WSCMS import ClassModelMachineWSCMS
-                self.HOGBOMMM = ClassModelMachineWSCMS.ClassModelMachine(self.GD,
-                                                                          GainMachine=ClassGainMachine.ClassGainMachine())
+                self.WSCMSMM = ClassModelMachineWSCMS.ClassModelMachine(self.GD,GainMachine=ClassGainMachine.get_instance())
             else:
                 print>> log, "WSCMS model machine already initialised"
-            return self.HOGBOMMM
+            return self.WSCMSMM
         else:
             raise NotImplementedError("Unknown model type '%s'"%Mode)

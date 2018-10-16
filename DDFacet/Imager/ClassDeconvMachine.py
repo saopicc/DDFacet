@@ -273,7 +273,7 @@ class ClassImagerDeconv():
                     raise NotImplementedError("Multi-polarization is not supported in WSCMS")
                 from DDFacet.Imager.WSCMS import ClassImageDeconvMachineWSCMS
                 self.DeconvMachine = ClassImageDeconvMachineWSCMS.ClassImageDeconvMachine(MainCache=self.VS.maincache,
-                                                                                         **MinorCycleConfig)
+                                                                                          **MinorCycleConfig)
                 print>> log, "Using WSCMS algorithm"
             else:
                 raise NotImplementedError("Unknown --Deconvolution-Mode setting '%s'" % self.GD["Deconv"]["Mode"])

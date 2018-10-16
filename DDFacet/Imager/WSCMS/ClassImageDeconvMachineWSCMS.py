@@ -85,10 +85,10 @@ class ClassImageDeconvMachine():
         self.CycleFactor = CycleFactor
         self.RMSFactor = RMSFactor
         self.PeakFactor = PeakFactor
-        self.GainMachine = ClassGainMachine.ClassGainMachine(GainMin=Gain)
         if ModelMachine is None:
+            # raise RuntimeError("You need to supply ImageDeconvMachine with a instantiated ModelMachine")
             import ClassModelMachineWSCMS as ClassModelMachine
-            self.ModelMachine = ClassModelMachine.ClassModelMachine(self.GD, GainMachine=self.GainMachine)
+            self.ModelMachine = ClassModelMachine.ClassModelMachine(self.GD, GainMachine=ClassGainMachine.get_instance())
         else:
             self.ModelMachine = ModelMachine
         self.GainMachine = self.ModelMachine.GainMachine
