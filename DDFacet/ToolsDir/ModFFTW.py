@@ -375,21 +375,21 @@ class FFTW_Manager(object):
 
         # set aside a facet sized array for in place and aligned FFTs
         self.xfacet = pyfftw.empty_aligned([self.nchan, self.npol, self.NpixPaddedPSF, self.NpixPaddedPSF],
-                                         dtype='complex64')
+                                           dtype='complex64')
 
         # plan for in place and aligned FFT over channels
         self.Chat = self.xfacet[0:self.nchan].view()
         self.CFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2, 3), direction='FFTW_FORWARD',
-                                threads=nthreads)
+                                threads=nthreads, flags=('FFTW_ESTIMATE', ))
         self.iCFFT = pyfftw.FFTW(self.Chat, self.Chat, axes=(2, 3), direction='FFTW_BACKWARD',
-                                 threads=nthreads)
+                                 threads=nthreads, flags=('FFTW_ESTIMATE', ))
 
         # plan for in place and aligned FFT for single occurrence
         self.xhat = self.xfacet[0:1].view()
         self.FFT = pyfftw.FFTW(self.xhat, self.xhat, axes=(2,3), direction='FFTW_FORWARD',
-                               threads=nthreads)
+                               threads=nthreads, flags=('FFTW_ESTIMATE', ))
         self.iFFT = pyfftw.FFTW(self.xhat, self.xhat, axes=(2,3), direction='FFTW_BACKWARD',
-                                threads=nthreads)
+                                threads=nthreads, flags=('FFTW_ESTIMATE', ))
 
         # set aside an image size array for in place and aligned FFTs
         self.nslices = np.maximum(self.nchan, self.nscales)
@@ -397,21 +397,21 @@ class FFTW_Manager(object):
                                            dtype='complex64')
         self.Shat = self.ximage[0:self.nscales].view()
         self.SFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(2, 3), direction='FFTW_FORWARD',
-                                threads=nthreads)
+                                threads=nthreads, flags=('FFTW_ESTIMATE', ))
         self.iSFFT = pyfftw.FFTW(self.Shat, self.Shat, axes=(2, 3), direction='FFTW_BACKWARD',
-                                 threads=nthreads)
+                                 threads=nthreads, flags=('FFTW_ESTIMATE', ))
         self.xhatim = self.Shat[0:1].view()
         self.FFTim = pyfftw.FFTW(self.xhatim, self.xhatim, axes=(2, 3), direction='FFTW_FORWARD',
-                                 threads=nthreads)
+                                 threads=nthreads, flags=('FFTW_ESTIMATE', ))
         self.iFFTim = pyfftw.FFTW(self.xhatim, self.xhatim, axes=(2, 3), direction='FFTW_BACKWARD',
-                                  threads=nthreads)
+                                  threads=nthreads, flags=('FFTW_ESTIMATE', ))
 
         # plan for in place and aligned FFT over channels
         self.Chatim = self.ximage[0:self.nchan].view()
         self.CFFTim = pyfftw.FFTW(self.Chatim, self.Chatim, axes=(2, 3), direction='FFTW_FORWARD',
-                                  threads=nthreads)
+                                  threads=nthreads, flags=('FFTW_ESTIMATE', ))
         self.iCFFTim = pyfftw.FFTW(self.Chatim, self.Chatim, axes=(2, 3), direction='FFTW_BACKWARD',
-                                   threads=nthreads)
+                                   threads=nthreads, flags=('FFTW_ESTIMATE', ))
         self.setWisdom()
 
     def getWisdom(self):
