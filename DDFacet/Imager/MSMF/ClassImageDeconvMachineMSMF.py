@@ -275,6 +275,7 @@ class ClassImageDeconvMachine():
         # in any mode, start by initializing a MS machine for the central facet. This will precompute the scale
         # functions
         centralFacet = self.PSFServer.DicoVariablePSF["CentralFacet"]
+
         self.DicoMSMachine[centralFacet] = MSM0 = \
             self._initMSM_facet(centralFacet,
                                 self.facetcache.addSubdict(centralFacet) if init_cache else self.facetcache[centralFacet],
@@ -283,6 +284,9 @@ class ClassImageDeconvMachine():
             print>>log, "HMP approximation mode: using PSF of central facet (%d)" % centralFacet
             for iFacet in xrange(self.PSFServer.NFacets):
                 self.DicoMSMachine[iFacet] = MSM0
+        elif self.GD["Facets"]["NFacets"]==1:
+            self.DicoMSMachine[0] = MSM0
+            
         else:
             # if no facet cache, init in parallel
             if init_cache:
