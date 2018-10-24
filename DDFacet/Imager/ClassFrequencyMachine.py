@@ -102,7 +102,7 @@ class ClassFrequencyMachine(object):
                     self.prior_theta_neg = np.zeros(self.order, dtype=np.float64)
                     self.prior_invcov_neg = np.zeros(self.order, dtype=np.float64)
                 # construct design matrix at full channel resolution
-                self.Xdes = self.setDesMat(self.Freqsp, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
+                self.Xdes = self.setDesMat(self.Freqsp, order=self.order, mode=self.GD['WSCMS']['FreqMode'])
 
                 self.freqs_full = []
                 for iCh in xrange(self.nchan):
@@ -110,7 +110,7 @@ class ClassFrequencyMachine(object):
                 self.freqs_full = np.concatenate(self.freqs_full)
                 self.nchan_full = np.size(self.freqs_full)
 
-                self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order, mode=self.GD['WSCMS']['FreqBasis'])
+                self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order, mode=self.GD['WSCMS']['FreqMode'])
 
                 # there is no need to recompute this every time if the beam is not enabled because same everywhere
                 if not self.BeamEnable:
@@ -252,7 +252,6 @@ class ClassFrequencyMachine(object):
             Xdesign = np.zeros([Freqs.size, self.order])
             for i in xrange(1, self.order+1):
                 Xdesign[:, i-1] = (whigh**i - wlow**i)/(i*wdiff)
-            print "Design matrix set Andre style"
         else:
             raise NotImplementedError("Frequency basis %s not supported" % mode)
         return Xdesign
@@ -479,7 +478,7 @@ class ClassFrequencyMachine(object):
             return np.dot(self.Xdes, coeffs)
         else:
             # Here we do
-            Xdes = self.setDesMat(Freqsp, order=self.order, mode=self.GD[self.DeconvMode]['FreqBasis'])
+            Xdes = self.setDesMat(Freqsp, order=self.order, mode=self.GD[self.DeconvMode]['FreqMode'])
             # evaluate poly and return result
             return np.dot(Xdes, coeffs)
 
