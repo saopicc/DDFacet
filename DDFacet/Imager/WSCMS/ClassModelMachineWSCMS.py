@@ -189,12 +189,20 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         for scale in DicoComp.keys():
             # Note here we are building a spectral cube delta function representation first and then convolving by
-            # the scale at the end. Need to build intrinsic model
+            # the scale at the end
             ScaleModel = np.zeros((nchan, npol, nx, ny), dtype=np.float32)
+            # get the extent of the Gaussian
+            I = np.argwhere(scale == self.ScaleMachine.sigmas).squeeze()
+            extent = self.ScaleMachine.extents[I]
             for key in DicoComp[scale].keys():
                 Sol = DicoComp[scale][key]["SolsArray"]
                 # TODO - try soft thresholding components
                 x, y = key
+
+                Aedge, Bedge = GiveEdges((x, y), self.Npix, (extent // 2, extent // 2), extent)
+
+                x0d, x1d, y0d, y1d = Aedge
+                x0p, x1p, y0p, y1p = Bedge
 
                 interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
 
@@ -209,7 +217,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                     # but if only doing predict or using a InitDicoModel we haven't initialised it since PSFServer
                     # doesn't exist at that stage
                     try:
-                        ScaleModel += self.ScaleMachine.GaussianSymmetric(scale, x0=x, y0=y, amp=np.atleast_1d(interp))
+                        ScaleModel[:, :, x0d:x1d, y0d:y1d] += self.ScaleMachine.GaussianSymmetric(scale, amp=np.atleast_1d(interp),
+                                                                                                  support=extent)[:, :, x0p:x1p, y0p:y1p]
                     except:
                         ScaleModel += GaussianSymmetric(scale, nx, x0=x or None,
                                                         y0=y or None, amp=interp, cube=True)

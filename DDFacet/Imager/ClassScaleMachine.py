@@ -157,7 +157,8 @@ class ClassScaleMachine(object):
     def set_coordinates(self):
         # get pixel coordinates for unpadded image
         n = self.Npix//2
-        self.x_unpadded, self.y_undpadded = np.mgrid[-n:n:1.0j * self.Npix, -n:n:1.0j * self.Npix]
+        x_unpadded, y_undpadded = np.mgrid[-n:n:1.0j * self.Npix, -n:n:1.0j * self.Npix]
+        self.rsq_unpadded = x_unpadded**2 + y_undpadded**2
 
         # get pixel coordinates for padded image
         n = self.NpixPadded//2
@@ -175,7 +176,7 @@ class ClassScaleMachine(object):
         self.u_facet, self.v_facet = np.meshgrid(freqs, freqs)
         self.rhosq_facet = self.u_facet ** 2 + self.v_facet ** 2
 
-    def GaussianSymmetric(self, sig, x0=0, y0=0, amp=np.array([1.0])):
+    def GaussianSymmetric(self, sig, amp=np.array([1.0]), support=None):
         """
         Evaluates symmetric normalised 2D Gaussian centered at (x0, y0). Note this is only used in 
         GiveModelImage so always adds onto a grid the size of the unpadded image.
@@ -183,17 +184,18 @@ class ClassScaleMachine(object):
         :param sig: std deviation of Gaussian in signal space
         :param x0: x coordinate relative to centre
         :param y0: y coordinate relative to centre
-        :param amp: amplitude (at delta scale) of Gaussian component (if amp.size > 1 cube must be True)
+        :param amp: amplitude (at delta scale) of Gaussian component
         :return: 
         """
         # broadcast amplitude array to cube
         amp = amp[:, None, None, None]
         # for slicing array
-        I  = slice(0, self.Npix)
+        diff = (self.Npix - support)//2
+        I = slice(diff, -diff)
         # evaluate slice with numexpr and broadcast to cube
-        loc_dict = {'x': self.x_unpadded, 'x0': x0, 'y': self.y_undpadded, 'y0': y0, 'sig': sig, 'pi': np.pi}
-        out = numexpr.evaluate('exp(-((x-x0)**2 + (y-y0)**2)/ (2 * sig ** 2))/(2 * pi * sig ** 2)',
-                               local_dict=loc_dict)[None, None, I, I]
+        loc_dict = {'rsq': self.rsq_unpadded[I, I], 'sig': sig, 'pi': np.pi}
+        out = numexpr.evaluate('exp(-rsq/(2 * sig ** 2))/(2 * pi * sig ** 2)',
+                               local_dict=loc_dict)[None, None]
         # multiply by amplitude and return
         return numexpr.evaluate('amp * out')
 
@@ -219,16 +221,16 @@ class ClassScaleMachine(object):
             if mode=='Facet':
                 loc_dict = {'sig': sig, 'pi': np.pi, 'rhosq': self.rhosq_facet, 'v': self.v_facet, 'x0': x0,
                             'u': self.u_facet, 'y0': y0}
-                rhosq = self.rhosq_facet
+                #rhosq = self.rhosq_facet
             elif mode=='Image':
                 loc_dict = {'sig': sig, 'pi': np.pi, 'rhosq': self.rhosq_image, 'v': self.v_image, 'x0': x0,
                             'u': self.u_image, 'y0': y0}
-                rhosq = self.rhosq_image
+                #rhosq = self.rhosq_image
             result = numexpr.evaluate('exp(-2.0j * pi * v * x0 - 2.0j * pi * u * y0 - 2 * pi ** 2 * rhosq * sig ** 2)',
                                       local_dict=loc_dict)
         return result
 
-    # TODO: Set max scale with minimum baseline
+    # TODO: Set max scale with minimum baseline or facet size?
     def set_scales(self):
         if self.GD["WSCMS"]["Scales"] is None:
             print>>log, "Setting scales automatically from FWHM of average beam"
@@ -238,7 +240,7 @@ class ClassScaleMachine(object):
                     (2.0 * self.GD['Image']['Cell'] * np.pi / 648000)
             FWHMs = [FWHM0, 3.5*FWHM0]  # empirically determined 2.25 to work pretty well
             i = 1
-            while FWHMs[i] < self.GD["WSCMS"]["MaxScale"]/1.5:  # hardcoded for now
+            while FWHMs[i] < self.GD["WSCMS"]["MaxScale"]:  # hardcoded for now
                 FWHMs.append(2.0*FWHMs[i])
                 i += 1
             self.FWHMs = np.asarray(FWHMs)
@@ -267,9 +269,15 @@ class ClassScaleMachine(object):
         :return: 
         """
         self.sigmas = np.zeros(self.Nscales, dtype=np.float64)
+        self.extents = np.zeros(self.Nscales, dtype=np.float64)
         self.volumes = np.zeros(self.Nscales, dtype=np.float64)
         for i in xrange(self.Nscales):
             self.sigmas[i] = self.FWHMs[i]/(2*np.sqrt(2*np.log(2.0)))
+            # support of Gaussian components in pixels
+            self.extents[i] = np.minimum(int(10*self.sigmas[i] * 648000/(self.GD['Image']['Cell'] * np.pi)), self.Npix)
+            # make sure extents are odd
+            if self.extents[i] % 2 == 0:
+                self.extents[i] -= 1
             self.volumes[i] = 2*np.pi*self.sigmas[i]**2  # volume = normalisation constant of 2D Gaussian
 
     def give_gain(self, iFacet, iScale):
