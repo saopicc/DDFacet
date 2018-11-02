@@ -282,7 +282,7 @@ class ClassScaleMachine(object):
             if self.extents[i] % 2 == 0:
                 self.extents[i] -= 1
             self.volumes[i] = 2*np.pi*self.sigmas[i]**2  # volume = normalisation constant of 2D Gaussian
-            diff = (self.Npix - self.extents[i]) // 2
+            diff = int((self.Npix - self.extents[i]) // 2)
             I = slice(diff, -diff)
             out = np.exp(-self.rsq_unpadded[I, I]/(2*self.sigmas[i]**2))/(2*np.pi*self.sigmas[i]**2)
             # loc_dict = {'rsq': self.rsq_unpadded[I, I], 'sig': self.sigmas[i], 'pi': np.pi}

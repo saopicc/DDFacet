@@ -204,6 +204,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # get the extent of the Gaussian
             # I = np.argwhere(scale == self.ScaleMachine.sigmas).squeeze()
             # extent = self.ScaleMachine.extents[I]
+            kernel = self.DicoSMStacked["Scale_Info"][scale]["kernel"]
             for key in DicoComp[scale].keys():
                 Sol = DicoComp[scale][key]["SolsArray"]
                 # TODO - try soft thresholding components
@@ -214,10 +215,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 x0d, x1d, y0d, y1d = Aedge
                 x0p, x1p, y0p, y1p = Bedge
 
-                try:
+                try:  # LB - Should we drop support for anything other than polynomials maybe?
                     interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
                 except:
-                    interp = np.polyval(Sol[::-1], FreqIn)
+                    interp = np.polyval(Sol[::-1], FreqIn/RefFreq)
 
                 if interp is None:
                     raise RuntimeError("Could not interpolate model onto degridding bands. Inspect your data, check "
@@ -225,7 +226,8 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
                 if self.GD["WSCMS"]["MultiScale"] and scale != zero_scale:
                     try:
-                        ScaleModel[:, :, x0d:x1d, y0d:y1d] += np.atleast_1d(interp)[:, None, None, None] * self.DicoSMStacked["Scale_Info"][scale]["kernel"]
+                        out = np.atleast_1d(interp)[:, None, None, None] * kernel
+                        ScaleModel[:, :, x0d:x1d, y0d:y1d] += out[:, :, x0p:x1p, y0p:y1p]
                         # ScaleModel[:, :, x0d:x1d, y0d:y1d] += self.ScaleMachine.GaussianSymmetric(scale, amp=np.atleast_1d(interp),
                         #                                                                           support=extent)[:, :, x0p:x1p, y0p:y1p]
                     except:
