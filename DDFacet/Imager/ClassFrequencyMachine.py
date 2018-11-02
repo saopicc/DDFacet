@@ -79,61 +79,62 @@ class ClassFrequencyMachine(object):
             self.Eval_Degrid = lambda vals, Freqs: np.tile(vals, Freqs.size) # Freqs unused - nothing to be done but use the same model through the entire passband
         else:
             if mode == "WSCMS":
-                # set order
-                self.order = self.GD["WSCMS"]["NumFreqBasisFuncs"]
-                # get polynomial coeffs for prior when I0 is positive
-                self.alpha_prior = self.GD["WSCMS"]["AlphaPrior"]
-                if self.alpha_prior is not None:
-                    I = (self.Freqsp/self.ref_freq)**(self.alpha_prior)
-                    coeffs, Kfull = np.polyfit(self.Freqsp/self.ref_freq, I, deg=self.order-1, cov=True)
-                    self.prior_theta = coeffs[::-1]
-                    self.prior_invcov = 1.0/np.diag(Kfull)[::-1]
-                else:
-                    self.prior_theta = np.zeros(self.order, dtype=np.float64)
-                    self.prior_invcov = np.zeros(self.order, dtype=np.float64)
-                # get polynomial coeffs for prior when I0 is positive
-                self.alpha_prior_neg = self.GD["WSCMS"]["AlphaPriorNeg"]
-                if self.alpha_prior_neg is not None:
-                    I = (self.Freqsp/self.ref_freq)**(self.alpha_prior_neg)
-                    coeffs, Kfull = np.polyfit(self.Freqsp/self.ref_freq, I, deg=self.order-1, cov=True)
-                    self.prior_theta_neg = coeffs[::-1]
-                    self.prior_invcov_neg = 1.0/np.diag(Kfull)[::-1]
-                else:
-                    self.prior_theta_neg = np.zeros(self.order, dtype=np.float64)
-                    self.prior_invcov_neg = np.zeros(self.order, dtype=np.float64)
-                # construct design matrix at full channel resolution
-                self.Xdes = self.setDesMat(self.Freqsp, order=self.order, mode=self.GD['WSCMS']['FreqMode'])
-
-                self.freqs_full = []
-                for iCh in xrange(self.nchan):
-                    self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh])
-                self.freqs_full = np.concatenate(self.freqs_full)
-                self.nchan_full = np.size(self.freqs_full)
-
-                self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order, mode=self.GD['WSCMS']['FreqMode'])
-
-                # there is no need to recompute this every time if the beam is not enabled because same everywhere
-                if not self.BeamEnable:
-                    self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Andre')  # this fits the integrated polynomial
-                else:
-                    # build the S matrix
-                    ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
-                    ChanMappingFull = []
-                    for iMS in ChanMappingGrid.keys():
-                        ChanMappingFull.append(ChanMappingGrid[iMS])
-                    ChanMappingFull = np.concatenate(ChanMappingFull)
-                    self.S = np.zeros([self.nchan, self.nchan_full], dtype=np.float32)
-                    for iChannel in range(self.nchan):
-                        ind = np.argwhere(ChanMappingFull == iChannel).squeeze()
-                        nchunk = np.size(ind)
-                        if nchunk:
-                            self.S[iChannel, ind] = 1.0/nchunk
-                        else:
-                            self.S[iChannel, ind] = 0.0
-
-                self.Fit = self.FitPolyNew
-                self.Eval = self.EvalPolyApparent
                 self.Eval_Degrid = lambda coeffs, Freqs: self.EvalPoly(coeffs, Freqsp=Freqs)
+                if self.GD['Output']["Mode"] != 'Predict':  # None of this is needed in Predict mode
+                    # set order
+                    self.order = self.GD["WSCMS"]["NumFreqBasisFuncs"]
+                    # get polynomial coeffs for prior when I0 is positive
+                    self.alpha_prior = self.GD["WSCMS"]["AlphaPrior"]
+                    if self.alpha_prior is not None:
+                        I = (self.Freqsp/self.ref_freq)**(self.alpha_prior)
+                        coeffs, Kfull = np.polyfit(self.Freqsp/self.ref_freq, I, deg=self.order-1, cov=True)
+                        self.prior_theta = coeffs[::-1]
+                        self.prior_invcov = 1.0/np.diag(Kfull)[::-1]
+                    else:
+                        self.prior_theta = np.zeros(self.order, dtype=np.float64)
+                        self.prior_invcov = np.zeros(self.order, dtype=np.float64)
+                    # get polynomial coeffs for prior when I0 is positive
+                    self.alpha_prior_neg = self.GD["WSCMS"]["AlphaPriorNeg"]
+                    if self.alpha_prior_neg is not None:
+                        I = (self.Freqsp/self.ref_freq)**(self.alpha_prior_neg)
+                        coeffs, Kfull = np.polyfit(self.Freqsp/self.ref_freq, I, deg=self.order-1, cov=True)
+                        self.prior_theta_neg = coeffs[::-1]
+                        self.prior_invcov_neg = 1.0/np.diag(Kfull)[::-1]
+                    else:
+                        self.prior_theta_neg = np.zeros(self.order, dtype=np.float64)
+                        self.prior_invcov_neg = np.zeros(self.order, dtype=np.float64)
+                    # construct design matrix at full channel resolution
+                    self.Xdes = self.setDesMat(self.Freqsp, order=self.order, mode=self.GD['WSCMS']['FreqMode'])
+
+                    # there is no need to recompute this every time if the beam is not enabled because same everywhere
+                    if not self.BeamEnable:
+                        self.SAX = self.setDesMat(self.Freqs, order=self.order, mode='Andre')  # this fits the integrated polynomial
+                    else:
+                        self.freqs_full = []
+                        for iCh in xrange(self.nchan):
+                            self.freqs_full.append(self.PSFServer.DicoVariablePSF["freqs"][iCh])
+                        self.freqs_full = np.concatenate(self.freqs_full)
+                        self.nchan_full = np.size(self.freqs_full)
+
+                        self.Xdes_full = self.setDesMat(self.freqs_full, order=self.order,
+                                                        mode=self.GD['WSCMS']['FreqMode'])
+                        # build the S matrix
+                        ChanMappingGrid = self.PSFServer.DicoMappingDesc["ChanMappingGrid"]
+                        ChanMappingFull = []
+                        for iMS in ChanMappingGrid.keys():
+                            ChanMappingFull.append(ChanMappingGrid[iMS])
+                        ChanMappingFull = np.concatenate(ChanMappingFull)
+                        self.S = np.zeros([self.nchan, self.nchan_full], dtype=np.float32)
+                        for iChannel in range(self.nchan):
+                            ind = np.argwhere(ChanMappingFull == iChannel).squeeze()
+                            nchunk = np.size(ind)
+                            if nchunk:
+                                self.S[iChannel, ind] = 1.0/nchunk
+                            else:
+                                self.S[iChannel, ind] = 0.0
+
+                    self.Fit = self.FitPolyNew
+                    self.Eval = self.EvalPolyApparent
             elif mode == "Poly":
                 # set order
                 self.order = self.GD["Hogbom"]["PolyFitOrder"]

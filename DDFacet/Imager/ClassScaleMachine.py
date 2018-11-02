@@ -187,15 +187,17 @@ class ClassScaleMachine(object):
         :param amp: amplitude (at delta scale) of Gaussian component
         :return: 
         """
+        I = np.argwhere(sig == self.sigmas).squeeze()
+        out = self.kernels[I]
         # broadcast amplitude array to cube
         amp = amp[:, None, None, None]
-        # for slicing array
-        diff = (self.Npix - support)//2
-        I = slice(diff, -diff)
-        # evaluate slice with numexpr and broadcast to cube
-        loc_dict = {'rsq': self.rsq_unpadded[I, I], 'sig': sig, 'pi': np.pi}
-        out = numexpr.evaluate('exp(-rsq/(2 * sig ** 2))/(2 * pi * sig ** 2)',
-                               local_dict=loc_dict)[None, None]
+        # # for slicing array
+        # diff = (self.Npix - support)//2
+        # I = slice(diff, -diff)
+        # # evaluate slice with numexpr and broadcast to cube
+        # loc_dict = {'rsq': self.rsq_unpadded[I, I], 'sig': sig, 'pi': np.pi}
+        # out = numexpr.evaluate('exp(-rsq/(2 * sig ** 2))/(2 * pi * sig ** 2)',
+        #                        local_dict=loc_dict)[None, None]
         # multiply by amplitude and return
         return numexpr.evaluate('amp * out')
 
@@ -271,14 +273,21 @@ class ClassScaleMachine(object):
         self.sigmas = np.zeros(self.Nscales, dtype=np.float64)
         self.extents = np.zeros(self.Nscales, dtype=np.float64)
         self.volumes = np.zeros(self.Nscales, dtype=np.float64)
+        self.kernels = []
         for i in xrange(self.Nscales):
             self.sigmas[i] = self.FWHMs[i]/(2*np.sqrt(2*np.log(2.0)))
             # support of Gaussian components in pixels
             self.extents[i] = np.minimum(int(10*self.sigmas[i] * 648000/(self.GD['Image']['Cell'] * np.pi)), self.Npix)
-            # make sure extents are odd
+            # make sure extents are odd (for compatibility with GiveEdges)
             if self.extents[i] % 2 == 0:
                 self.extents[i] -= 1
             self.volumes[i] = 2*np.pi*self.sigmas[i]**2  # volume = normalisation constant of 2D Gaussian
+            diff = (self.Npix - self.extents[i]) // 2
+            I = slice(diff, -diff)
+            out = np.exp(-self.rsq_unpadded[I, I]/(2*self.sigmas[i]**2))/(2*np.pi*self.sigmas[i]**2)
+            # loc_dict = {'rsq': self.rsq_unpadded[I, I], 'sig': self.sigmas[i], 'pi': np.pi}
+            # out = numexpr.evaluate('exp(-rsq/(2 * sig ** 2))/(2 * pi * sig ** 2)', local_dict=loc_dict)[None, None]
+            self.kernels.append(out)
 
     def give_gain(self, iFacet, iScale):
         """

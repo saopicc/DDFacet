@@ -68,6 +68,9 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         self.Nchan = self.FreqMachine.nchan
         self.Npol = 1
 
+        # self.DicoSMStacked["Eval_Degrid"] = self.FreqMachine.Eval_Degrid
+
+
     def setScaleMachine(self, PSFServer, NCPU=None, MaskArray=None, FTMachine=None, cachepath=None):
         if self.GD["WSCMS"]["MultiScale"]:
             if NCPU is None:
@@ -88,6 +91,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             self.CurrentScale = 999999
             # Initialise current facet variable
             self.CurrentFacet = 999999
+
+            self.DicoSMStacked["Scale_Info"] = {}
+            for i, sigma in enumerate(self.ScaleMachine.sigmas):
+                if sigma not in self.DicoSMStacked["Scale_Info"].keys():
+                    self.DicoSMStacked["Scale_Info"][sigma] = {}
+                self.DicoSMStacked["Scale_Info"][sigma]["kernel"] = self.ScaleMachine.kernels[i]
+                self.DicoSMStacked["Scale_Info"][sigma]["extent"] = self.ScaleMachine.extents[i]
 
         else:
             # we need to keep track of what the sigma value of the delta scale corresponds to
@@ -192,34 +202,35 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # the scale at the end
             ScaleModel = np.zeros((nchan, npol, nx, ny), dtype=np.float32)
             # get the extent of the Gaussian
-            I = np.argwhere(scale == self.ScaleMachine.sigmas).squeeze()
-            extent = self.ScaleMachine.extents[I]
+            # I = np.argwhere(scale == self.ScaleMachine.sigmas).squeeze()
+            # extent = self.ScaleMachine.extents[I]
             for key in DicoComp[scale].keys():
                 Sol = DicoComp[scale][key]["SolsArray"]
                 # TODO - try soft thresholding components
                 x, y = key
-
-                Aedge, Bedge = GiveEdges((x, y), self.Npix, (extent // 2, extent // 2), extent)
+                extent = self.DicoSMStacked["Scale_Info"][scale]["extent"]
+                Aedge, Bedge = GiveEdges((x, y), nx, (extent // 2, extent // 2), extent)
 
                 x0d, x1d, y0d, y1d = Aedge
                 x0p, x1p, y0p, y1p = Bedge
 
-                interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
+                try:
+                    interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
+                except:
+                    interp = np.polyval(Sol[::-1], FreqIn)
 
                 if interp is None:
                     raise RuntimeError("Could not interpolate model onto degridding bands. Inspect your data, check "
                                        "'WSCMS-NumFreqBasisFuncs' or if you think this is a bug report it.")
 
                 if self.GD["WSCMS"]["MultiScale"] and scale != zero_scale:
-                    x -= nx//2
-                    y -= ny//2
-                    # if a ScaleMachine has been initialised we want to use that since it doesn't need to redo the grid
-                    # but if only doing predict or using a InitDicoModel we haven't initialised it since PSFServer
-                    # doesn't exist at that stage
                     try:
-                        ScaleModel[:, :, x0d:x1d, y0d:y1d] += self.ScaleMachine.GaussianSymmetric(scale, amp=np.atleast_1d(interp),
-                                                                                                  support=extent)[:, :, x0p:x1p, y0p:y1p]
+                        ScaleModel[:, :, x0d:x1d, y0d:y1d] += np.atleast_1d(interp)[:, None, None, None] * self.DicoSMStacked["Scale_Info"][scale]["kernel"]
+                        # ScaleModel[:, :, x0d:x1d, y0d:y1d] += self.ScaleMachine.GaussianSymmetric(scale, amp=np.atleast_1d(interp),
+                        #                                                                           support=extent)[:, :, x0p:x1p, y0p:y1p]
                     except:
+                        x -= nx // 2
+                        y -= ny // 2
                         ScaleModel += GaussianSymmetric(scale, nx, x0=x or None,
                                                         y0=y or None, amp=interp, cube=True)
                 else:
