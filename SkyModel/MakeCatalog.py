@@ -90,6 +90,8 @@ class MakeCatalog():
                                rmsmean_map_filename=rmsmean_map_filename)
         img.write_catalog(catalog_type="srl",clobber=True,format="fits")
         img.write_catalog(catalog_type="gaul",clobber=True,format="fits")
+        img.write_catalog(catalog_type="srl",clobber=True,format="bbs")
+        img.write_catalog(catalog_type="gaul",clobber=True,format="bbs")
         if WriteNoise:
             img.export_image(img_type="rms",clobber=True)
             img.export_image(img_type="mean",clobber=True)

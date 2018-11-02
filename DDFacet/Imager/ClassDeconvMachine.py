@@ -108,7 +108,7 @@ class ClassImagerDeconv():
         self.PSFGaussPars = None
         self.PSFSidelobes = None
         self.FWHMBeamAvg = None
-        self.PSFGaussParsAvg = None
+       self.PSFGaussParsAvg = None
         self.PSFSidelobesAvg = None
         self.HasFittedPSFBeam=False
         self.fit_stat = None # PSF fit status
@@ -922,6 +922,12 @@ class ClassImagerDeconv():
                 elif SquareMaskMode=="Outside":
                     ModelImage[np.logical_not(InSquare)]=0
                 ModelImage = self.FacetMachine.setModelImage(ModelImage)
+                self.FacetMachine.ToCasaImage(ModelImage,
+                                              ImageName="%s.cutsq.model"%(self.BaseName),
+                                              Fits=True,
+                                              Freqs=model_freqs,
+                                              Stokes=self.VS.StokesConverter.RequiredStokesProducts())
+
 
             ## OMS 16/04/17: @cyriltasse this code looks all wrong and was giving me errors. ChanMappingDegrid has size equal to the
             ## number of channels. I guess this is meant for the case where we predict from a FixedModelImage

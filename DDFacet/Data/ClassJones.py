@@ -774,8 +774,11 @@ class ClassJones():
         DicoOut["tm"] = np.array(DicoOut["tm"])
 
         _, nd, na, nch, _, _ = DicoJ0["Jones"].shape
+        _, nd1, na1, nch1, _, _ = DicoJ1["Jones"].shape
         nt = DicoOut["tm"].size
-        DicoOut["Jones"] = np.zeros((nt, nd, na, 1, 2, 2), np.complex64)
+        nchout=np.max([nch,nch1])
+        
+        DicoOut["Jones"] = np.zeros((nt, nd, na, nchout, 2, 2), np.complex64)
 
         nt0 = DicoJ0["t0"].size
         nt1 = DicoJ1["t0"].size
