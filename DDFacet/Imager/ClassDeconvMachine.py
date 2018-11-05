@@ -108,7 +108,7 @@ class ClassImagerDeconv():
         self.PSFGaussPars = None
         self.PSFSidelobes = None
         self.FWHMBeamAvg = None
-       self.PSFGaussParsAvg = None
+        self.PSFGaussParsAvg = None
         self.PSFSidelobesAvg = None
         self.HasFittedPSFBeam=False
         self.fit_stat = None # PSF fit status

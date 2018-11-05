@@ -365,10 +365,16 @@ class ClassJones():
         DicoSols["t1"] = Sols.t1
         DicoSols["tm"] = (Sols.t1+Sols.t0)/2.
         nt, nf, na, nd, _, _ = Sols.G.shape
-        G = np.swapaxes(Sols.G, 1, 3).reshape((nt, nd, na, nf, 2, 2))
+
+        m=np.bool8(1-DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
+        GSel=Sols.G[:,m,:,:,:,:].shape
+
+        
+        G = np.swapaxes(GSel, 1, 3).reshape((nt, nd, na, nf, 2, 2))
 
         if "FreqDomains" in DicoSolsFile.keys():
             FreqDomains = DicoSolsFile["FreqDomains"]
+            FreqDomains = FreqDomains[m,:]
             VisToJonesChanMapping = self.GiveVisToJonesChanMapping(FreqDomains)
         else:
             VisToJonesChanMapping = np.zeros((self.MS.NSPWChan,), np.int32)
