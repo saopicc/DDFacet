@@ -364,7 +364,6 @@ class ClassJones():
         DicoSols["t0"] = Sols.t0
         DicoSols["t1"] = Sols.t1
         DicoSols["tm"] = (Sols.t1+Sols.t0)/2.
-        nt, nf, na, nd, _, _ = Sols.G.shape
 
         if "MaskedSols" in DicoSolsFile.keys():
             m=np.bool8(1-DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
@@ -374,6 +373,7 @@ class ClassJones():
             GSel=Sols.G
 
         
+        nt, nf, na, nd, _, _ = GSel.shape
         G = np.swapaxes(GSel, 1, 3).reshape((nt, nd, na, nf, 2, 2))
 
         if "FreqDomains" in DicoSolsFile.keys():
