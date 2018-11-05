@@ -366,8 +366,12 @@ class ClassJones():
         DicoSols["tm"] = (Sols.t1+Sols.t0)/2.
         nt, nf, na, nd, _, _ = Sols.G.shape
 
-        m=np.bool8(1-DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
-        GSel=Sols.G[:,m,:,:,:,:].shape
+        if "MaskedSols" in DicoSolsFile.keys():
+            m=np.bool8(1-DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
+            GSel=Sols.G[:,m,:,:,:,:]
+        else:
+            m=slice(None)
+            GSel=Sols.G
 
         
         G = np.swapaxes(GSel, 1, 3).reshape((nt, nd, na, nf, 2, 2))
