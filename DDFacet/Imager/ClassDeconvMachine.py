@@ -928,6 +928,7 @@ class ClassImagerDeconv():
                                               Freqs=model_freqs,
                                               Stokes=self.VS.StokesConverter.RequiredStokesProducts())
 
+
             ## OMS 16/04/17: @cyriltasse this code looks all wrong and was giving me errors. ChanMappingDegrid has size equal to the
             ## number of channels. I guess this is meant for the case where we predict from a FixedModelImage
             ## rather than a DicoModel, but in this case we probably need to recalculate ChanMappingDegrid specifically

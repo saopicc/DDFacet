@@ -364,11 +364,21 @@ class ClassJones():
         DicoSols["t0"] = Sols.t0
         DicoSols["t1"] = Sols.t1
         DicoSols["tm"] = (Sols.t1+Sols.t0)/2.
-        nt, nf, na, nd, _, _ = Sols.G.shape
-        G = np.swapaxes(Sols.G, 1, 3).reshape((nt, nd, na, nf, 2, 2))
+
+        if "MaskedSols" in DicoSolsFile.keys():
+            m=np.bool8(1-DicoSolsFile["MaskedSols"][0,:,0,0,0,0])
+            GSel=Sols.G[:,m,:,:,:,:]
+        else:
+            m=slice(None)
+            GSel=Sols.G
+
+        
+        nt, nf, na, nd, _, _ = GSel.shape
+        G = np.swapaxes(GSel, 1, 3).reshape((nt, nd, na, nf, 2, 2))
 
         if "FreqDomains" in DicoSolsFile.keys():
             FreqDomains = DicoSolsFile["FreqDomains"]
+            FreqDomains = FreqDomains[m,:]
             VisToJonesChanMapping = self.GiveVisToJonesChanMapping(FreqDomains)
         else:
             VisToJonesChanMapping = np.zeros((self.MS.NSPWChan,), np.int32)
@@ -774,8 +784,11 @@ class ClassJones():
         DicoOut["tm"] = np.array(DicoOut["tm"])
 
         _, nd, na, nch, _, _ = DicoJ0["Jones"].shape
+        _, nd1, na1, nch1, _, _ = DicoJ1["Jones"].shape
         nt = DicoOut["tm"].size
-        DicoOut["Jones"] = np.zeros((nt, nd, na, 1, 2, 2), np.complex64)
+        nchout=np.max([nch,nch1])
+        
+        DicoOut["Jones"] = np.zeros((nt, nd, na, nchout, 2, 2), np.complex64)
 
         nt0 = DicoJ0["t0"].size
         nt1 = DicoJ1["t0"].size
