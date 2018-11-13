@@ -230,8 +230,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                     try:
                         out = np.atleast_1d(interp)[:, None, None, None] * kernel
                         ScaleModel[:, :, x0d:x1d, y0d:y1d] += out[:, :, x0p:x1p, y0p:y1p]
-                        # ScaleModel[:, :, x0d:x1d, y0d:y1d] += self.ScaleMachine.GaussianSymmetric(scale, amp=np.atleast_1d(interp),
-                        #                                                                           support=extent)[:, :, x0p:x1p, y0p:y1p]
                     except:
                         x -= nx // 2
                         y -= ny // 2
@@ -336,40 +334,16 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             else:
                 self.ConvPSF = self.ScaleMachine.Conv2PSFs[key]
 
-                # To normalise by the frequency response of ConvPSF implicitly contained in residual
+                # To normalise by the frequency response of ConvPSF implicitly contained in the residual
                 # we need to keep track of the ConvPSF peaks. Note this is not done in wsclean but should give more
                 # even per band residuals
                 self.PSFFreqNormFactors = self.ScaleMachine.ConvPSFFreqPeaks[key]
-
-                # Finally normalise PSF by peak of ConvPSF0
-                # This would set the peak of ConvPSF0 to unity if we were cleaning
-                # the delta scale with the convolved PSF
-                #self.ConvPSF /= self.ScaleMachine.ConvPSFNormFactor  # done in set_gains
 
                 # This normalisation for Fpol is required so that we don't see jumps between minor cycles.
                 # Basically, since the PSF is normalised by this factor the components also need to be normalised
                 # by the same factor for the subtraction in the sub-minor cycle to be the same as the subtraction
                 # in the minor and major cycles.
                 self.FpolNormFactor = self.ScaleMachine.ConvPSFNormFactor
-
-            # from astropy.io import fits
-            # key = 'S' + str(iScale) + 'F' + str(iFacet)
-            # hdu = fits.PrimaryHDU(self.ConvPSF[:, 0, :, :] * self.FpolNormFactor)
-            # hdul = fits.HDUList([hdu])
-            # hdul.writeto(
-            #     '/home/landman/Projects/Data/MS_dir/ddfacet_test_data/WSCMS_MSMF_TestSuite/DDF_out/compare/Conv2PSF' + key + '.fits',
-            #     overwrite=True)
-            # hdul.close()
-
-        #print self.CurrentScale, self.CurrentGain
-
-        # import matplotlib.pyplot as plt
-        # for iCh in xrange(self.Nchan):
-        #     plt.figure('PSF')
-        #     plt.imshow(self.ConvPSF[iCh, 0, :, :])
-        #     plt.colorbar()
-        #     plt.show()
-        #     plt.close()
 
 
     # not working yet!!!
@@ -409,7 +383,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         :param JonesNorm: 
         :return: The scale convolved model and a list of components 
         """
-        #print "Entering subminor cycle. MaxDirty = ", MaxDirty
         # determine most relevant scale. This is the most time consuming step hence the sub-minor cycle
         xscale, yscale, ConvMaxDirty, CurrentDirty, ConvDirtyCube, iScale,  = \
             self.ScaleMachine.do_scale_convolve(Dirty.copy(), meanDirty.copy())
@@ -420,12 +393,13 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             CurrentDirty = meanDirty.view()
             ConvDirtyCube = Dirty.view()
 
-        # print "Max at start = ", ConvMaxDirty, iScale
-
+        # set PSF at current location
         self.PSFServer.setLocation(xscale, yscale)
 
         # get GaussPars for scale
         sigma = self.ScaleMachine.sigmas[iScale]
+        extent = self.ScaleMachine.extents[iScale]
+        kernel = self.ScaleMachine.kernels[iScale]
 
         # For automasking
         MaskArray = self.ScaleMachine.MaskArray
@@ -447,9 +421,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
         #print "Mask indices = ", np.argwhere(self.ScaleMachine.ScaleMaskArray[sigma].squeeze()).squeeze()
 
-        # create a model for this scale
-        ScaleModel = np.zeros_like(ConvDirtyCube, dtype=np.float32)
-
         # Create new component list
         Component_list = {}
 
@@ -458,10 +429,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
         # is different from the maximum of the residual
         Threshold = self.ScaleMachine.PeakFactor * ConvMaxDirty
         if Stopping_flux is not None:
-            # # If the location of the peak has changed we need to set the threshold relative to the new peak
-            # # Nope this is wrong, we don't care about the location of the peak only what the maximum was
-            # if x != xscale or y != yscale:
-            #     MaxDirty = meanDirty[0, 0, xscale, yscale]
             DirtyRatio = ConvMaxDirty / MaxDirty
             Threshold = np.maximum(Threshold, Stopping_flux * DirtyRatio)
 
@@ -476,11 +443,6 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
             # set PSF and gain
             self.set_ConvPSF(self.PSFServer.iFacet, iScale)
-
-            # keep track of components in the facet
-            Component_list.setdefault(self.CurrentFacet, [])  # in case the facet has changed and uninitialised
-            if [xscale, yscale] not in Component_list[self.CurrentFacet]:
-                Component_list[self.CurrentFacet].append([xscale, yscale])
 
             # JonesNorm is corrected for in FreqMachine so we just need to pass in the apparent
             Fpol = np.zeros([self.Nchan, 1, 1, 1], dtype=np.float32)
@@ -497,9 +459,12 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
 
             self.AppendComponentToDictStacked((xscale, yscale), self.Coeffs / self.FpolNormFactor, sigma, self.CurrentGain)
 
-            # keep track of apparent model array (this is for subtraction in the upper minor loop)
-            # Note apparent since we convolve with a normalised PSF
-            ScaleModel[:, 0, xscale, yscale] += self.CurrentGain * Fpol[:, 0, 0, 0] / self.FpolNormFactor
+            # Keep track of apparent model components (this is for subtraction in the upper minor loop, not relevant if
+            # its the delta scale)
+            if iScale != 0:
+                xy = (xscale, yscale)
+                Component_list.setdefault(xy, np.zeros([self.Nchan, 1, 1, 1], dtype=np.float32))
+                Component_list[xy] += self.CurrentGain * Fpol / self.FpolNormFactor
 
             # Restore ConvPSF frequency response and subtract component from residual
             Fpol /= self.PSFFreqNormFactors
@@ -518,14 +483,29 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             k += 1
             self.n_sub_minor_iter += 1
 
-        # print "Max at end = ", ConvMaxDirty, iScale
         # report if max sub-iterations exceeded
         if k >= self.ScaleMachine.NSubMinorIter:
             print>>log, "Maximum subiterations reached. "
-            # print "Max delta component = ", np.abs(ScaleModel).max()
-            # print "Current Scale, facet and gain = ", self.CurrentScale, self.CurrentFacet, self.CurrentGain
 
-        return ScaleModel, Component_list, sigma
+        # Add components onto grid (not needed if we are cleaning the delta scale)
+        if iScale != 0:
+            # create a model for this scale
+            ScaleModel = np.zeros_like(ConvDirtyCube, dtype=np.float32)
+            for xy in Component_list.keys():
+                x, y = xy
+                # get overlap indices
+                Aedge, Bedge = GiveEdges((x, y), self.Npix, (extent // 2, extent // 2), extent)
+                x0d, x1d, y0d, y1d = Aedge
+                x0p, x1p, y0p, y1p = Bedge
+                # Note apparent since we convolve with a normalised PSF
+                out = Component_list[xy] * kernel
+                ScaleModel[:, :, x0d:x1d, y0d:y1d] += out[:, :, x0p:x1p, y0p:y1p]
+
+            # print ScaleModel.max(), ScaleModel.min()
+
+            return ScaleModel, iScale
+        else:
+            return None, iScale
 
 
 

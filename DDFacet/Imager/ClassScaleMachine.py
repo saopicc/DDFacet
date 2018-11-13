@@ -123,6 +123,7 @@ class ClassScaleMachine(object):
 
         # set scale convolve and FFTW related params
         _, _, self.Npix, _ = self.PSFServer.ImageShape
+        self.NpixFacet = self.Npix//self.GD["Facets"]["NFacets"]
         self.NpixPadded = int(np.ceil(self.GD["Facets"]["Padding"]*self.Npix))
         # make sure it is odd numbered
         if self.NpixPadded % 2 == 0:
@@ -191,14 +192,6 @@ class ClassScaleMachine(object):
         out = self.kernels[I]
         # broadcast amplitude array to cube
         amp = amp[:, None, None, None]
-        # # for slicing array
-        # diff = (self.Npix - support)//2
-        # I = slice(diff, -diff)
-        # # evaluate slice with numexpr and broadcast to cube
-        # loc_dict = {'rsq': self.rsq_unpadded[I, I], 'sig': sig, 'pi': np.pi}
-        # out = numexpr.evaluate('exp(-rsq/(2 * sig ** 2))/(2 * pi * sig ** 2)',
-        #                        local_dict=loc_dict)[None, None]
-        # multiply by amplitude and return
         return numexpr.evaluate('amp * out')
 
     def GaussianSymmetricFT(self, sig, x0=0, y0=0, mode='Facet'):
@@ -271,22 +264,27 @@ class ClassScaleMachine(object):
         :return: 
         """
         self.sigmas = np.zeros(self.Nscales, dtype=np.float64)
-        self.extents = np.zeros(self.Nscales, dtype=np.float64)
+        self.extents = np.zeros(self.Nscales, dtype=np.int32)
         self.volumes = np.zeros(self.Nscales, dtype=np.float64)
         self.kernels = []
+        xtmp = np.arange(0.0, self.Npix)
         for i in xrange(self.Nscales):
             self.sigmas[i] = self.FWHMs[i]/(2*np.sqrt(2*np.log(2.0)))
             # support of Gaussian components in pixels
-            self.extents[i] = np.minimum(int(10*self.sigmas[i] * 648000/(self.GD['Image']['Cell'] * np.pi)), self.Npix)
+            tmpkern = np.exp(-xtmp**2/(2*self.sigmas[i]**2))/(np.sqrt(2*np.pi*self.sigmas[i]**2))
+            I = int(2*np.round(np.argwhere(tmpkern >= self.GD["WSCMS"]["GaussianCutoff"]).squeeze()[-1]))
+            self.extents[i] = int(np.minimum(I, int(self.Npix)))
             # make sure extents are odd (for compatibility with GiveEdges)
             if self.extents[i] % 2 == 0:
                 self.extents[i] -= 1
             self.volumes[i] = 2*np.pi*self.sigmas[i]**2  # volume = normalisation constant of 2D Gaussian
+            # print " i = ", i, self.volumes[i]
             diff = int((self.Npix - self.extents[i]) // 2)
-            I = slice(diff, -diff)
-            out = np.exp(-self.rsq_unpadded[I, I]/(2*self.sigmas[i]**2))/(2*np.pi*self.sigmas[i]**2)
-            # loc_dict = {'rsq': self.rsq_unpadded[I, I], 'sig': self.sigmas[i], 'pi': np.pi}
-            # out = numexpr.evaluate('exp(-rsq/(2 * sig ** 2))/(2 * pi * sig ** 2)', local_dict=loc_dict)[None, None]
+            if diff==0:
+                I = slice(None)
+            else:
+                I = slice(diff, -diff)
+            out = np.exp(-self.rsq_unpadded[I, I]/(2*self.sigmas[i]**2))/self.volumes[i]
             self.kernels.append(out)
 
     def give_gain(self, iFacet, iScale):
@@ -363,7 +361,7 @@ class ClassScaleMachine(object):
         # set gains
         gamma = self.GD['Deconv']['Gain']
         self.gains[key] = gamma * self.Scale0PSFmax / ConvPSFmean[0, 0, self.NpixPSF // 2, self.NpixPSF // 2]
-        #print "gain for scale %i = " % iScale, self.gains[key]
+        # print "gain for scale %i = " % iScale, self.gains[key]
 
     def do_scale_convolve(self, Dirty, MeanDirty):
         I = slice(self.Npad, self.NpixPadded - self.Npad)
@@ -413,18 +411,42 @@ class ClassScaleMachine(object):
 
         return x, y, MaxDirty, MeanDirty, Dirty, CurrentScale
 
-    def SMConvolvePSF(self, iFacet, FT_SM):
+    def ConvolveImageCubeWithScale(self, Image, CurrentScale):
+        self.FTMachine.Chatim[...] = iFs(np.pad(Image, ((0, 0), (0, 0), (self.Npad, self.Npad),
+                                                        (self.Npad, self.Npad)), mode='constant'), axes=(2, 3))
+        self.FTMachine.CFFTim()
+        self.FTMachine.Chatim *= iFs(self.GaussianSymmetricFT(self.sigmas[CurrentScale], mode='Image')[None, None],
+                                     axes=(2, 3))
+        self.FTMachine.iCFFTim()
+        I = slice(self.Npad, self.NpixPadded - self.Npad)
+        return Fs(self.FTMachine.Chatim.real.copy(), axes=(2, 3))[:, :, I, I]
+
+    def SMConvolvePSF(self, iFacet, LocalSM):
         """
-        Here we pass in the FT of a sky model and convolve it with the psf 
+        Convolves sky model in a facet with the PSF of the facet 
         :param iFacet: 
-        :param FT_SM: 
+        :param LocalSM: 
         :return: 
         """
         if str(iFacet) not in self.FT_PSF:
-            raise Exception("This should never happen. Bug!!!!")
+            self.PSFServer.setFacet(iFacet)
+            PSF, PSFmean = self.PSFServer.GivePSF()
+            npad = (self.NpixPaddedPSF - self.NpixPSF) // 2
+            self.FTMachine.Chat[...] = iFs(np.pad(PSF, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'),
+                                           axes=(2, 3))
+            self.FTMachine.CFFT()
+            self.FT_PSF[str(iFacet)] = Fs(self.FTMachine.Chat.copy(), axes=(2, 3))
 
         I = slice(self.NpadPSF, self.NpixPaddedPSF - self.NpadPSF)
-        self.FTMachine.Chat[...] = iFs(self.FT_PSF[str(iFacet)], axes=(2, 3)) * iFs(FT_SM, axes=(2, 3))
+        npad = (self.NpixPaddedPSF - self.NpixFacet) // 2
+        # pad LocalSM onto grid reserved for FTs
+        self.FTMachine.Chat[...] = iFs(np.pad(LocalSM, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'),
+                                       axes=(2, 3))
+        # take the FT
+        self.FTMachine.CFFT()
+        # multiply by FT of PSF
+        self.FTMachine.Chat[...] *= iFs(self.FT_PSF[str(iFacet)], axes=(2, 3))
+        # take inverse FFT
         self.FTMachine.iCFFT()
         return Fs(self.FTMachine.Chat.real.copy(), axes=(2, 3))[:, :, I, I]
 

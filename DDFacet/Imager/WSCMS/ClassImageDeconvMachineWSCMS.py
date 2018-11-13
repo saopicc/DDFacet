@@ -178,6 +178,7 @@ class ClassImageDeconvMachine():
         """
         self.ModelMachine.setModelShape(self._Dirty.shape)
         self.Nchan, self.Npol, self.Npix, _ = self._Dirty.shape
+        self.NpixFacet = self.Npix//self.GD["Facets"]["NFacets"]
 
     def GiveModelImage(self, *args): return self.ModelMachine.GiveModelImage(*args)
 
@@ -428,52 +429,34 @@ class ClassImageDeconvMachine():
 
                 # run minor loop
                 if self.GD["WSCMS"]["MultiScale"]:
-                    # Find the relevant scale and do sub-minor loop. Here Mdelta is a model image of same shape as dirty
-                    # holding the locations and amplitudes of the model components as delta functions. If the most
-                    # relevant scale is not the delta scale, the model for this scale is obtained by convolving with
-                    # the corresponding Gaussian analytically.
-                    # FacetComponentList holds the pixel locations of the model components in each Facet. These
-                    # coordinates are relative to the total image size not facet size!!!
+                    # Find the relevant scale and do sub-minor loop. Returns the model constructed during the
+                    # sub-minor loop.
                     # If the delta scale is found then self._Dirty and
                     # self._MeanDirty have already had the components subtracted from them so we don't need to do
                     # anything further.
-                    Mdeltas, FacetComponentList, sigma = self.ModelMachine.do_minor_loop(x, y, self._Dirty,
+                    ScaleModel, iScale = self.ModelMachine.do_minor_loop(x, y, self._Dirty,
                                                          self._MeanDirty, self._JonesNorm,
                                                          self.WeightsChansImages, ThisFlux, StopFlux)
 
                     # convolve scale model with PSF and subtract from residual (if not delta scale)
-                    if sigma != self.ModelMachine.ScaleMachine.sigmas[0]:
-                        # print Npix_Facet, self.PSFServer.NPSF  # LB - why do these differ?
-                        for iFacet in FacetComponentList.keys():  # only iterates over the facets with model components
-                            # to hold model in this facet
-                            Npix_Padded_Facet = self.DicoVariablePSF["PaddedPSFInfo"][iFacet]
-                            FT_SM = np.zeros([self.Nchan, self.Npol, Npix_Padded_Facet, Npix_Padded_Facet], dtype=np.complex64)
-
+                    if iScale != 0:
+                        for iFacet in xrange(self.GD["Facets"]["NFacets"]**2):
                             # set PSF in this facet
                             self.PSFServer.setFacet(iFacet)
 
+                            # Note this logic assumes square facets!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
                             # get location of facet center
                             xc, yc = self.DicoVariablePSF["Facets"][iFacet]["pixCentral"]
+                            LocalSM = ScaleModel[:, :, xc-self.NpixFacet//2:xc+self.NpixFacet//2 + 1,
+                                                 yc-self.NpixFacet//2:yc+self.NpixFacet//2 + 1]
 
-                            # add components onto facet grid analytically
-                            for xy in FacetComponentList[iFacet]:
-                                x, y = xy
-                                amp = np.atleast_1d(Mdeltas[:, :, x, y].squeeze())
-                                # x and y are pixel coordinates in the image. We need to convert them to coordinates in the
-                                # padded facet so first convert to coordinates in facet relative to facet centre
-                                x -= (xc - 1)
-                                y -= (yc - 1)
-                                scale_kernel = amp[:, None, None, None] * \
-                                              self.ModelMachine.ScaleMachine.GaussianSymmetricFT(sigma, x0=x, y0=y,
-                                                                                                 mode='Facet')[None, None, :, :]
+                            # convolve local sky model with PSF
+                            if (LocalSM > 1e-6).any():
+                                SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, LocalSM)
 
-                                FT_SM += scale_kernel
+                                # subtract facet model
+                                self.SubStep((xc - 1, yc - 1), SM)  # again with the -1!!!!
 
-                            # convolve sky model with PSF
-                            SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, FT_SM)
-
-                            # subtract facet model
-                            self.SubStep((xc - 1, yc - 1), SM)  # again with the -1!!!!
                 else:  # TODO - remove this and advise users to use Hogbom for SS clean
                     # Get the JonesNorm
                     JonesNorm = (self._JonesNorm[:, :, x, y]).reshape((self.Nchan, self.Npol, 1, 1))
