@@ -6,7 +6,7 @@ import DeapAlgo as algorithms
 from deap import base
 from deap import creator
 from deap import tools
-import pylab
+#import pylab
 from scipy.spatial import Voronoi
 import ModVoronoi
 from DDFacet.Other import MyLogger
