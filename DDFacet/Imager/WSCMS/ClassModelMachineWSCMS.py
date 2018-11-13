@@ -204,16 +204,14 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
             # get the extent of the Gaussian
             # I = np.argwhere(scale == self.ScaleMachine.sigmas).squeeze()
             # extent = self.ScaleMachine.extents[I]
-            kernel = self.DicoSMStacked["Scale_Info"][scale]["kernel"]
+            if self.GD["WSCMS"]["MultiScale"]:
+                kernel = self.DicoSMStacked["Scale_Info"][scale]["kernel"]
+                extent = self.DicoSMStacked["Scale_Info"][scale]["extent"]
+
             for key in DicoComp[scale].keys():
                 Sol = DicoComp[scale][key]["SolsArray"]
                 # TODO - try soft thresholding components
                 x, y = key
-                extent = self.DicoSMStacked["Scale_Info"][scale]["extent"]
-                Aedge, Bedge = GiveEdges((x, y), nx, (extent // 2, extent // 2), extent)
-
-                x0d, x1d, y0d, y1d = Aedge
-                x0p, x1p, y0p, y1p = Bedge
 
                 try:  # LB - Should we drop support for anything other than polynomials maybe?
                     interp = self.FreqMachine.Eval_Degrid(Sol, FreqIn)
@@ -225,6 +223,10 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                                        "'WSCMS-NumFreqBasisFuncs' or if you think this is a bug report it.")
 
                 if self.GD["WSCMS"]["MultiScale"] and scale != zero_scale:
+                    Aedge, Bedge = GiveEdges((x, y), nx, (extent // 2, extent // 2), extent)
+
+                    x0d, x1d, y0d, y1d = Aedge
+                    x0p, x1p, y0p, y1p = Bedge
                     try:
                         out = np.atleast_1d(interp)[:, None, None, None] * kernel
                         ScaleModel[:, :, x0d:x1d, y0d:y1d] += out[:, :, x0p:x1p, y0p:y1p]
@@ -345,7 +347,7 @@ class ClassModelMachine(ClassModelMachinebase.ClassModelMachine):
                 #self.ConvPSF /= self.ScaleMachine.ConvPSFNormFactor  # done in set_gains
 
                 # This normalisation for Fpol is required so that we don't see jumps between minor cycles.
-                # Basically since the PSF is normalised by this factor the components also need to be normalised
+                # Basically, since the PSF is normalised by this factor the components also need to be normalised
                 # by the same factor for the subtraction in the sub-minor cycle to be the same as the subtraction
                 # in the minor and major cycles.
                 self.FpolNormFactor = self.ScaleMachine.ConvPSFNormFactor
