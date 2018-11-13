@@ -1659,6 +1659,10 @@ def expandMSList(MSName,defaultField=0,defaultDDID=0,defaultColumn="DATA"):
         MSName0 = MSName
         MSName = [ l.strip() for l in open(MSName).readlines() ]
         print>> log, "list file %s contains %d MSs" % (MSName0, len(MSName))
+    elif MSName.endswith(".pickle"):
+        MSName0 = MSName
+        MSName = MyPickle.Load(MSName)
+        print>> log, "list file %s contains %d MSs" % (MSName0, len(MSName))
     else:
         MSName = [MSName]
     # now, at this point each entry in the list can still contain wildcards, and ":Fx:Dx" groups. Process it
