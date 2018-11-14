@@ -382,11 +382,13 @@ class ClassJones():
         G = np.swapaxes(GSel, 1, 3).reshape((nt, nd, na, nf, 2, 2))
 
         if "FreqDomains" in DicoSolsFile.keys():
+            print>>log,"  Getting Jones frequency domains from solutions file"
             FreqDomains = DicoSolsFile["FreqDomains"]
             FreqDomains = FreqDomains[m,:]
             VisToJonesChanMapping = self.GiveVisToJonesChanMapping(FreqDomains)
             DicoSols["FreqDomains"]=FreqDomains
         else:
+            print>>log,"  No frequency domains informations..."
             VisToJonesChanMapping = np.zeros((self.MS.NSPWChan,), np.int32)
 
         self.BeamTimes_kMS = DicoSolsFile["BeamTimes"]
