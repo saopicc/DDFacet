@@ -62,6 +62,7 @@ class Store(object):
 class ClassScaleMachine(object):
     def __init__(self, GD=None, NCPU=0, MaskArray=None):
         self.GD = GD
+        self.GD["Facets"]["Padding"] = 1.2  # shouldn't need anything bigger than this for the minor cycle
         self.DoAbs = int(self.GD["Deconv"]["AllowNegative"])
         self.MaskArray = MaskArray
         self.PeakFactor = self.GD["WSCMS"]["SubMinorPeakFact"]
@@ -102,6 +103,12 @@ class ClassScaleMachine(object):
             self.FT_meanPSF = pylru.WriteThroughCacheManager(ft_meanpsf_store, self.GD['WSCMS']['CacheSize'])
             conv_psf_freq_peak_store = Store(cachepath+'/convpsfpeaks')
             self.ConvPSFFreqPeaks = pylru.WriteThroughCacheManager(conv_psf_freq_peak_store, self.GD['WSCMS']['CacheSize'])
+            if self.GD["Facets"]["PSFOversize"] < 2:
+                ft_psf_subtract_store = Store(cachepath + '/ft_psf_subtract')
+                self.FT_PSF_subtract = pylru.WriteThroughCacheManager(ft_psf_subtract_store,
+                                                                       self.GD['WSCMS']['CacheSize'])
+            else:
+                self.FT_PSF_subtract = self.FT_PSF
         else:
             self.Conv2PSFs = {}
             self.gains = {}
@@ -130,7 +137,9 @@ class ClassScaleMachine(object):
             self.NpixPadded += 1
         self.Npad = (self.NpixPadded - self.Npix)//2
         self.NpixPSF = self.PSFServer.NPSF  # need this to initialise the FTMachine
-        self.NpixPaddedPSF = self.PSFServer.DicoVariablePSF["PaddedPSFInfo"][0]  # hack for now
+        self.NpixPaddedPSF = int(np.ceil(self.GD["Facets"]["Padding"]*self.NpixPSF))
+        if self.NpixPaddedPSF % 2 == 0:
+            self.NpixPaddedPSF += 1
         self.NpadPSF = (self.NpixPaddedPSF - self.NpixPSF) // 2
 
         self.set_coordinates()
@@ -428,25 +437,27 @@ class ClassScaleMachine(object):
         :param LocalSM: 
         :return: 
         """
-        if str(iFacet) not in self.FT_PSF:
+        if str(iFacet) not in self.FT_PSF_subtract:
             self.PSFServer.setFacet(iFacet)
             PSF, PSFmean = self.PSFServer.GivePSF()
-            npad = (self.NpixPaddedPSF - self.NpixPSF) // 2
-            self.FTMachine.Chat[...] = iFs(np.pad(PSF, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'),
-                                           axes=(2, 3))
-            self.FTMachine.CFFT()
-            self.FT_PSF[str(iFacet)] = Fs(self.FTMachine.Chat.copy(), axes=(2, 3))
+            npad = (self.FTMachine.NpixPSFSubtract - self.NpixPSF) // 2
+            self.FTMachine.xsubtract[...] = iFs(np.pad(PSF, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'),
+                                                axes=(2, 3))
+            self.FTMachine.FFTsubtract()
+            self.FT_PSF_subtract[str(iFacet)] = Fs(self.FTMachine.xsubtract.copy(), axes=(2, 3))
 
-        I = slice(self.NpadPSF, self.NpixPaddedPSF - self.NpadPSF)
-        npad = (self.NpixPaddedPSF - self.NpixFacet) // 2
+        npad = (self.FTMachine.NpixPSFSubtract - self.NpixFacet) // 2
         # pad LocalSM onto grid reserved for FTs
-        self.FTMachine.Chat[...] = iFs(np.pad(LocalSM, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'),
-                                       axes=(2, 3))
+        self.FTMachine.xsubtract[...] = iFs(np.pad(LocalSM, ((0, 0), (0, 0), (npad, npad), (npad, npad)), mode='constant'),
+                                            axes=(2, 3))
         # take the FT
-        self.FTMachine.CFFT()
+        self.FTMachine.FFTsubtract()
         # multiply by FT of PSF
-        self.FTMachine.Chat[...] *= iFs(self.FT_PSF[str(iFacet)], axes=(2, 3))
+        self.FTMachine.xsubtract[...] *= iFs(self.FT_PSF_subtract[str(iFacet)], axes=(2, 3))
         # take inverse FFT
-        self.FTMachine.iCFFT()
-        return Fs(self.FTMachine.Chat.real.copy(), axes=(2, 3))[:, :, I, I]
+        self.FTMachine.iFFTsubtract()
+        nunpad = (self.FTMachine.NpixPSFSubtract - int(np.maximum(2*self.NpixFacet, self.NpixPSF))) // 2
+        # TODO - this should be informed by --Deconv-PSFBox
+        I = slice(nunpad, -nunpad)
+        return Fs(self.FTMachine.xsubtract.real.copy(), axes=(2, 3))[:, :, I, I]
 

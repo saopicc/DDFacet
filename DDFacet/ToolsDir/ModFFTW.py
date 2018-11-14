@@ -367,8 +367,8 @@ class FFTW_Manager(object):
         self.NpixPaddedPSF = npixpaddedpsf
         self.NpadPSF = (npixpaddedpsf - npixpsf)//2
 
-        # pre-compute coordinates required to evaluate Gaussian
-        n = self.NpixPaddedPSF//2
+        self.NpixFacet = self.Npix//self.GD["Facets"]["NFacets"]
+
         self.nchan = nchan
         self.npol = npol
         self.nscales = nscales
@@ -412,6 +412,25 @@ class FFTW_Manager(object):
                                   threads=nthreads, flags=('FFTW_ESTIMATE', ))
         self.iCFFTim = pyfftw.FFTW(self.Chatim, self.Chatim, axes=(2, 3), direction='FFTW_BACKWARD',
                                    threads=nthreads, flags=('FFTW_ESTIMATE', ))
+
+        # finally we need an FFT which is at least twice the size of the facet for subtracting a facet in the
+        # minor cycle
+        if self.GD["Facets"]["PSFOversize"]<2:
+            self.NpixPSFSubtract = int(np.ceil(2*self.NpixFacet*self.GD["Facets"]["Padding"]))
+            if self.NpixPSFSubtract%2==0:
+                self.NpixPSFSubtract +=1
+            self.xsubtract = pyfftw.empty_aligned([self.nchan, self.npol, self.NpixPSFSubtract, self.NpixPSFSubtract],
+                                               dtype='complex64')
+            self.FFTsubtract = pyfftw.FFTW(self.xsubtract, self.xsubtract, axes=(2, 3), direction='FFTW_FORWARD',
+                                           threads=nthreads, flags=('FFTW_ESTIMATE', ))
+            self.iFFTsubtract = pyfftw.FFTW(self.xsubtract, self.xsubtract, axes=(2, 3), direction='FFTW_BACKWARD',
+                                           threads=nthreads, flags=('FFTW_ESTIMATE',))
+        else:
+            self.NpixPSFSubtract = self.NpixPaddedPSF
+            self.xsubtract = self.Chat
+            self.FFTsubtract = self.CFFT
+            self.iFFTsubtract = self.iCFFT
+
         self.setWisdom()
 
     def getWisdom(self):

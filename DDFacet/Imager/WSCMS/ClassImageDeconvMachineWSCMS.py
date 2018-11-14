@@ -454,6 +454,10 @@ class ClassImageDeconvMachine():
                             if (LocalSM > 1e-6).any():
                                 SM = self.ModelMachine.ScaleMachine.SMConvolvePSF(iFacet, LocalSM)
 
+                                _, _, ntmp, _ = SM.shape
+                                if ntmp < 2*self.NpixFacet:
+                                    print "Warning - your LocalSM is too small"
+
                                 # subtract facet model
                                 self.SubStep((xc - 1, yc - 1), SM)  # again with the -1!!!!
 
