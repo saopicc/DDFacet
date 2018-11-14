@@ -341,6 +341,7 @@ class ClassJones():
 
         DicoJones["VisToJonesChanMapping"] = VisToJonesChanMapping
 
+
         return DicoClusterDirs, DicoJones
 
     def ReadNPZ(self,SolsFile):
@@ -756,6 +757,11 @@ class ClassJones():
         return DicoBeam
 
     def MergeJones(self, DicoJ0, DicoJ1):
+        import DDFacet.Other.ClassJonesDomains
+        DomainMachine=DDFacet.Other.ClassJonesDomains.ClassJonesDomains()
+        JonesSols=DomainMachine.MergeJones(DicoJ0, DicoJ1)
+        return JonesSols
+    
         T0 = DicoJ0["t0"][0]
         DicoOut = {}
         DicoOut["t0"] = []
