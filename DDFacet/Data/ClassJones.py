@@ -810,9 +810,8 @@ class ClassJones():
         
 
         for itime in xrange(nt):
-            for ich in xrange(nt):
-                G0 = DicoJ0["Jones"][iG0[itime]]
-                G1 = DicoJ1["Jones"][iG1[itime]]
-                DicoOut["Jones"][itime] = ModLinAlg.BatchDot(G0, G1)
+            G0 = DicoJ0["Jones"][iG0[itime]]
+            G1 = DicoJ1["Jones"][iG1[itime]]
+            DicoOut["Jones"][itime] = ModLinAlg.BatchDot(G0, G1)
 
         return DicoOut
